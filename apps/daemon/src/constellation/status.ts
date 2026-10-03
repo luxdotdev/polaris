@@ -1,5 +1,6 @@
 import type { Task, Attempt } from "@polaris/protocol";
 import type { ConstellationRecord } from "../store/constellation.ts";
+import { childTasks, isParent } from "./parents.ts";
 import { activeAttempt, latestAttempt, projectTask } from "./projections.ts";
 
 const prefix = (glob: string) => glob.split(/[?*[{]/, 1)[0] ?? "";
@@ -75,6 +76,27 @@ const taskLines = (record: ConstellationRecord, task: Task): ReadonlyArray<strin
   return lines;
 };
 
+const treeLines = (record: ConstellationRecord): ReadonlyArray<string> => {
+  const lines: Array<string> = [];
+  const roots = record.graph.tasks.filter((task) => task.parent === null);
+  const groups = [...new Set(roots.map((task) => task.group))];
+
+  const append = (task: Task, depth: number) => {
+    lines.push(...taskLines(record, task).map((line) => `${"  ".repeat(depth)}${line}`));
+
+    for (const child of childTasks(record.graph.tasks, task.id)) append(child, depth + 1);
+  };
+
+  for (const group of groups) {
+    if (group !== null) lines.push(group);
+
+    for (const root of roots.filter((task) => task.group === group))
+      append(root, group === null ? 0 : 1);
+  }
+
+  return lines;
+};
+
 /** A stable, readable outline, computed only when requested. */
 export const statusOutline = (record: ConstellationRecord): string => {
   const { graph } = record;
@@ -84,7 +106,7 @@ export const statusOutline = (record: ConstellationRecord): string => {
     `Lead: ${graph.leadSessionId}`,
   ];
 
-  for (const task of graph.tasks) lines.push(...taskLines(record, task));
+  lines.push(...treeLines(record));
 
   if (graph.tasks.length === 0) lines.push("No tasks yet.");
 
@@ -107,7 +129,7 @@ export const statusOutline = (record: ConstellationRecord): string => {
   lines.push(...areaWarnings(record).map((warning) => `Area: ${warning}`));
 
   const ready = graph.tasks
-    .filter((task) => projectTask(record, task).state === "ready")
+    .filter((task) => !isParent(graph, task.id) && projectTask(record, task).state === "ready")
     .map((task) => task.id);
 
   lines.push(`Ready: ${ready.length > 0 ? ready.join(", ") : "none"}`);

@@ -14,6 +14,7 @@ import {
 import { Effect, Predicate } from "effect";
 import type { ReadModel } from "../../store/model.ts";
 import { ConstellationWorktrees, gitOperation } from "../worktrees.ts";
+import { isParent } from "../parents.ts";
 import { latestAttempt, projectTask } from "../projections.ts";
 import { finding, refusal } from "../decision.ts";
 import { RemotePlacements } from "./placements.ts";
@@ -43,7 +44,10 @@ const requests = (command: ConstellationCommand, record: ConstellationRecord) =>
     return command.tasks.length > 0
       ? command.tasks
       : record.graph.tasks
-          .filter((task) => projectTask(record, task).state === "ready")
+          .filter(
+            (task) =>
+              !isParent(record.graph, task.id) && projectTask(record, task).state === "ready"
+          )
           .map((t) => ({ taskId: t.id, worker: command.defaultWorker }));
 
   if (Predicate.isTagged(command, "Review") && Predicate.isTagged(command.action, "SendBack")) {

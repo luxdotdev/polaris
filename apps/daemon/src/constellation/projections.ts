@@ -7,6 +7,7 @@ import {
   type WorkerLiveness,
 } from "@polaris/protocol";
 import { Match } from "effect";
+import { childTasks, effectiveDeps } from "./parents.ts";
 import type { ConstellationRecord } from "../store/constellation.ts";
 
 export const latestAttempt = (graph: Constellation, taskId: Task["id"]) =>
@@ -15,8 +16,35 @@ export const latestAttempt = (graph: Constellation, taskId: Task["id"]) =>
 export const activeAttempt = (attempt: Attempt) =>
   attempt.state === "working" || attempt.state === "review";
 
-export const accepted = (graph: Constellation, taskId: Task["id"]) =>
-  latestAttempt(graph, taskId)?.state === "accepted";
+export const accepted = (graph: Constellation, taskId: Task["id"]): boolean => {
+  const task = graph.tasks.find((t) => t.id === taskId);
+
+  if (task === undefined || task.canceled) return false;
+  const children = childTasks(graph.tasks, taskId).filter((child) => !child.canceled);
+
+  return children.length > 0
+    ? effectiveDeps(graph.tasks, taskId).every((dep) => accepted(graph, dep)) &&
+        children.every((child) => accepted(graph, child.id))
+    : latestAttempt(graph, taskId)?.state === "accepted";
+};
+
+const parentState = (
+  children: ReadonlyArray<TaskProjection>,
+  blocked: boolean
+): TaskProjection["state"] => {
+  const live = children.filter((child) => child.state !== "canceled");
+
+  if (live.some((child) => ["working", "review", "blocked"].includes(child.state)))
+    return "working";
+
+  if (blocked) return "waiting";
+
+  if (live.every((child) => child.state === "done")) return "done";
+
+  if (live.some((child) => child.state === "ready")) return "ready";
+
+  return "waiting";
+};
 
 export interface ProjectionObservations {
   readonly offlineHosts?: ReadonlySet<Attempt["hostId"]>;
@@ -30,29 +58,42 @@ export const projectTask = (
   observations: ProjectionObservations = {}
 ): TaskProjection => {
   const attempt = latestAttempt(record.graph, task.id);
-  const blockedBy = task.deps.filter((id) => !accepted(record.graph, id));
+
+  const blockedBy = effectiveDeps(record.graph.tasks, task.id).filter(
+    (id) => !accepted(record.graph, id)
+  );
+
   const available = blockedBy.length === 0 ? "ready" : "waiting";
+
+  const children = childTasks(record.graph.tasks, task.id);
+  const container = children.some((child) => !child.canceled);
 
   const state = task.canceled
     ? "canceled"
-    : attempt === undefined
-      ? available
-      : Match.value(attempt.state).pipe(
-          Match.when("accepted", () => "done" as const),
-          Match.when("rejected", () => available),
-          Match.when("working", () => "working" as const),
-          Match.when("review", () => "review" as const),
-          Match.when("lost", () => "lost" as const),
-          Match.when("failed", () => "failed" as const),
-          Match.when("settled_unverified", () => "settled_unverified" as const),
-          Match.exhaustive
-        );
+    : container
+      ? parentState(
+          children.map((child) => projectTask(record, child, observations)),
+          blockedBy.length > 0
+        )
+      : attempt === undefined
+        ? available
+        : Match.value(attempt.state).pipe(
+            Match.when("accepted", () => "done" as const),
+            Match.when("rejected", () => available),
+            Match.when("working", () => "working" as const),
+            Match.when("review", () => "review" as const),
+            Match.when("lost", () => "lost" as const),
+            Match.when("failed", () => "failed" as const),
+            Match.when("settled_unverified", () => "settled_unverified" as const),
+            Match.exhaustive
+          );
 
   return new TaskProjection({
     taskId: task.id,
     state,
     latestAttemptId: attempt?.id ?? null,
     blockedBy,
+    children: children.map((child) => child.id),
     gatePromoted: record.promoted.has(task.id),
     liveness: null,
     stale:
@@ -81,6 +122,7 @@ export const enrichProjections = (
         state: p.state,
         latestAttemptId: p.latestAttemptId,
         blockedBy: p.blockedBy,
+        children: p.children,
         gatePromoted: p.gatePromoted,
         stale: p.stale,
         branchFetched: p.branchFetched,

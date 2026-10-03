@@ -34,6 +34,26 @@ It replaces the herdr + dagr workflow used for M2.
 - A small XState machine covers only the Constellation's own lifecycle: **planning → running ⇄ paused → completed → archived**. Only decided states: "completed" is declared by the Lead or the user, and offered when all Tasks are done.
 - Task state, Gate fan-in, "blocked" and "all done" are **projections**, never stored.
 
+**Parents:** `TaskDefinition.parent` is an optional nullable TaskId. Nest related Tasks
+under a parent, to any depth (for example fix round F contains F1–F3); retain
+`group` for the broad area. Status prints groups, then an indented parent tree.
+A Task with a non-canceled child is a container, never dispatchable
+(`E-PARENT-DISPATCH`) and never a Gate (`E-PARENT-GATE`). Validate the final
+plan batch for unknown parents (`E-PARENT-UNKNOWN`), cycles (`E-PARENT-CYCLE`),
+parents with any earlier Attempt (`E-PARENT-STARTED`), and dependencies between
+ancestors and descendants (`E-DEP-ANCESTOR`). Edit can move a Task under these
+same checks. Cancel cancels the final subtree atomically; active descendants
+must be stopped first, and external dependents must be edited or canceled.
+`TaskProjection.children` lists direct children in declaration order, including
+canceled children. Every Task inherits the dependencies of all its ancestors;
+its effective dependencies govern readiness, dispatch (including retries), Gate
+promotion, cycle validation and accepted dependency Claims in the worker brief.
+A parent is working if any descendant is working, review or blocked; otherwise
+it is waiting while an effective dependency is unmet, done when all non-canceled
+children are done, ready if any child is ready, or waiting. A canceled parent is canceled.
+With no non-canceled children a Task follows its own Attempt and dependencies.
+Dependencies on parents, including Gate promotion, use this rolled-up done state.
+
 **Storage:** one stream per Constellation, `constellation:<id>`, in the Daemon's event store. It's committed, acknowledged and resumed like session streams, and served on the same feeds. An Attempt references its worker session; sessions don't reference back.
 
 **Events:**
@@ -49,7 +69,7 @@ It replaces the herdr + dagr workflow used for M2.
 **Settling:**
 - A **Claim** puts the Attempt in **review**. The Lead or the user then **accepts** it (done) or **sends it back**: the Attempt is rejected and a new Attempt opens with `cause: sent_back`.
 - **Mechanical settles skip review:** `lost`, `settled_unverified`, `failed` (Harness failure).
-- **Gates count only accepted Attempts.**
+- **Gates count accepted Tasks and done parents.**
 
 **The Claim carries a structured report:**
 - branch, head SHA, commits;

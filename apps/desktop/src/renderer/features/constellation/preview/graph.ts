@@ -444,6 +444,7 @@ export const c1Record = (
           criteria: [],
           suggested: null,
           group: B,
+          parent: null,
         },
         at: ago(2),
       },

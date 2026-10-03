@@ -147,6 +147,9 @@ _Avoid_: Orchestrator (that is the view), conductor, parent
 A stable unit of work in a Constellation, with dependencies on other Tasks; it is carried out by one or more Attempts, and its state follows its latest Attempt.
 _Avoid_: Job, step, ticket
 
+**Parent**:
+A Task that contains Tasks, nested to any depth. A Parent is a container with at least one non-canceled child; its state rolls up from its children, and it never carries an Attempt or acts as a Gate.
+
 **Attempt**:
 One try at a Task, carried out by one Agent Session and linked to the earlier Attempt it follows (for example, sent back after review); a retry is a new Attempt, never a rewrite of an old one. An Agent Session carries at most one active Attempt at a time, but may carry Attempts on several Tasks over its life.
 _Avoid_: Retry, run

@@ -168,8 +168,8 @@ Findings 1–3 are fixed on `fix/verification-findings`, finding 4 on `m2/protoc
 
 `constellations.qnt` is the reference model for the Constellation contract in
 `packages/protocol/src/constellation/` and ADRs 0004/0011. It runs alongside the
-existing store/session spec. `constellations_test.qnt` contains 18 command/race
-scenarios and 16 malformed-event probes that must violate the corresponding
+existing store/session spec. `constellations_test.qnt` contains 28 command/race
+scenarios and 25 malformed-event probes that must violate the corresponding
 property. `scripts/check.ts` typechecks both files, runs both test modules, then
 simulates the Constellation `safety` conjunction with required witnesses for
 Claim, acceptance, Gate, handover, delivery, relay, recovery and lease grants.
@@ -186,13 +186,13 @@ do not have a log-size cap that could artificially prevent a grant or digest.
 
 | Model | Contract / implementation responsibility |
 | --- | --- |
-| `planEvents`, `opEvents`, `validGraph` | `ConstellationCommand.Plan`, `PlanOperation`: atomic Add/Edit/Cancel with revisions; reject cycles, missing/canceled deps and cancellation with dependents |
+| `planEvents`, `opEvents`, `validGraph` | `ConstellationCommand.Plan`, `PlanOperation`: atomic Add/Edit/Cancel with revisions; reject cycles, missing/canceled deps and cancellation with dependents; parent closure validates unknown/cyclic parents, Gate/started containers and ancestry deps, cancels descendants atomically |
 | `start`, `current`, `change`, `latest`, `taskState` | `AttemptStarted`, Attempt revision, linked `AttemptCause.ref`, `TaskProjection`; engine decider folds the graph rather than persisting Task state |
 | Observed worker liveness | `TaskProjection.liveness` and `ConstellationStreamItem.LivenessChanged` are runtime observations, not graph events. The live item is unsequenced/unpersisted like session item progress; it changes no command, receipt, revision, resume cursor or recovery decision. Unknown facts are null in required Snapshot projections. Elapsed time is derived from observed timestamps without Daemon timers. |
 | `claim`, `accept`, `reject`, `stop`, `harnessFail` | worker Claim, ReviewAction, AttemptClaimed/Accepted/Rejected/Settled; Claim requires clean branch/current revision and acceptance requires the claimed head |
 | `rejectWithReason`, `retryBrief`, `startFirstTurn`, `firstTurnAtMostOnce` | `AttemptRejected.reason` folds into additive nullable `Attempt.rejectionReason`, retained beside the old Claim in status and graph snapshots. Composition follows `SentBack`/`MergeConflict.ref` to supply verbatim feedback and the rejected Claim; MergeConflict instructs the worker to merge its cause's base first. Stable `${attempt.id}:start` Turn/command IDs let startup deliver a retry committed before shutdown once. The Quint scenario re-folds feedback/head/base across restart; `mcp/sendback.test.ts` runs all eight same/fresh, merge/non-merge, production Daemon restart cases through authenticated MCP HTTP tools and real journal/Turn commits (fake provisioning, Git probes and Harness effects). |
 | Fetched branches | `ConstellationStreamItem.BranchFetched` and required Snapshot `TaskProjection.branchFetched` observe an exact claimed commit at the owner Polaris ref. They carry no sequence or graph revision; Accept additionally probes the actual merged Lead head. Bundles stream through existing BlobChannels without retaining bundle-sized buffers. |
-| `promote` | decider-only `GatePromoted`, counting latest accepted Attempts, not Claims or mechanical settles |
+| `effectiveDeps`, `ready`, `promote` | own and inherited prerequisites gate descendant readiness, named dispatch retries and Gate promotion; accepted leaf Attempts and done parent rollups satisfy dependencies, never Claims or mechanical settles |
 | `ask`, `finish`, `deliver` | NotificationQueued and LeadNotified; committed notification IDs, one durable digest Turn, retained across restart and handover |
 | `handover`, `setState` | atomic LeadChanged and the planning/running/paused/completed/archived lifecycle; an active Gate on the departing Lead settles lost in the same batch, while other workers are unchanged |
 | `commit`, `enqueue`, `relay`, `availability` | owner-only events, ConstellationOutboxEntry stable IDs, app relay and unavailable owner; `transfers/outbox.ts` persists the worker intent, decides under EventStore.commit, and retains apply/refusal receipts. Client `constellation/relay.ts` uses existing HostConnection streams and retries durable packets after reconnect. `transfers/relay.test.ts` covers disconnect after owner commit before receipt saving and refusal replay |
@@ -509,3 +509,15 @@ bun test apps/daemon/src/languages/runtime apps/daemon/src/languages/transport p
 bun packages/spec/scripts/replay-language.ts /tmp/m31-t1-language.trace.json
 bun run spec
 ```
+
+Parent Tasks add `children`, `descendants`, `lineage`, `effectiveDeps`, `acceptance`, `taskStates` and rolled-up
+`accepted` to `constellations.qnt`. The final batch is validated after cancellation
+closure; containers cannot start Attempts. `constellation.parents.test.ts` covers
+every parent error code, Edit moves, recursive cancellation, rollups, tree status
+and Gate promotion. Effective dependencies include every ancestor's prerequisites
+for validation, readiness, named retries, Gate promotion and worker dependency Claims;
+unmet prerequisites keep inactive parents waiting, including after an Edit.
+`constellation.model.test.ts` exercises nested parents, inherited readiness and
+parent dependency Edits while comparing independent guards, projections and fold; emitted
+traces include parent declarations for replay. The finite closure uses TASKS as
+a depth bound; the runtime has no configured nesting limit.

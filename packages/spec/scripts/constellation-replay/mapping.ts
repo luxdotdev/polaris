@@ -68,9 +68,10 @@ const taskDeclaration = (
     readonly id: string;
     readonly deps: ReadonlyArray<string>;
     readonly kind: "task" | "gate";
+    readonly parent: string | null;
   }
 ) =>
-  `TaskDeclared({ task: ${g.tasks.id(task.id)}, deps: Set(${task.deps.map((id) => g.tasks.id(id)).join(", ")}), gate: ${task.kind === "gate"} })`;
+  `TaskDeclared({ task: ${g.tasks.id(task.id)}, deps: Set(${task.deps.map((id) => g.tasks.id(id)).join(", ")}), parent: ${task.parent === null ? -1 : g.tasks.id(task.parent)}, gate: ${task.kind === "gate"} })`;
 
 export const mapGraphEvent = (
   g: ReplayGroup,
@@ -138,7 +139,7 @@ export const mapGraphEvent = (
       TaskDeclared: ({ task }) => record(taskDeclaration(g, task)),
       TaskEdited: ({ task }) =>
         record(
-          `TaskEdited({ task: ${g.tasks.id(task.id)}, deps: Set(${task.deps.map((id) => g.tasks.id(id)).join(", ")}) })`
+          `TaskEdited({ task: ${g.tasks.id(task.id)}, deps: Set(${task.deps.map((id) => g.tasks.id(id)).join(", ")}), parent: ${task.parent === null ? -1 : g.tasks.id(task.parent)}, gate: ${task.kind === "gate"} })`
         ),
       TaskCanceled: ({ taskId }) => record(`TaskCanceled(${g.tasks.id(taskId)})`),
       ProposalAccepted: ({ task }) => record(taskDeclaration(g, task)),
