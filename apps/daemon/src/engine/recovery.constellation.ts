@@ -25,7 +25,7 @@ const interruptionEvents = (
 
     if (
       attempt === undefined ||
-      attempt.state !== "working" ||
+      (attempt.state !== "working" && attempt.state !== "blocked") ||
       attempt.hostId !== r.graph.hostId ||
       turn.startedAt < attempt.startedAt
     )

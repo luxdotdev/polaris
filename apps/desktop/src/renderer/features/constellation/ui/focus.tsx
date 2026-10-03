@@ -90,6 +90,7 @@ export const FocusHeader = ({
 
 const STATUS: Readonly<Record<AttemptData["state"], string>> = {
   working: "Working",
+  blocked: "Blocked",
   review: "In review",
   accepted: "Accepted",
   rejected: "Sent back",

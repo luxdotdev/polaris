@@ -354,7 +354,7 @@ export const runAttempt = Effect.fnUntraced(function* (
         attachConstellation(binding, "http://127.0.0.1:12345", commands).pipe(Effect.orDie),
       startSession: Effect.fnUntraced(function* (start) {
         expect(start.prompt).toContain(`Task: ${task.id}`);
-        expect(start.attachment.instructions).toContain("v2");
+        expect(start.attachment.instructions).toContain("v3");
         attachment = start.attachment;
         receipt = yield* runBenchTurn(
           start.attachment,

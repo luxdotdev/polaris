@@ -26,6 +26,9 @@ export interface RefAttempt {
   approved: string | null;
   handedUp: string | null;
   nudged: string | null;
+  blockedOn: ReadonlyArray<string>;
+  blockedReason: string | null;
+  blockedAt: string | null;
 }
 
 export interface Reference {
@@ -69,6 +72,9 @@ const refAttempt = (attempt: import("@polaris/protocol").Attempt): RefAttempt =>
   approved: attempt.approvedByUserAt,
   handedUp: attempt.handedUpAt,
   nudged: attempt.nudgedAt,
+  blockedOn: attempt.blockedOn,
+  blockedReason: attempt.blockedReason,
+  blockedAt: attempt.blockedAt,
 });
 
 const patch = (
@@ -124,6 +130,15 @@ export const foldReference = (ref: Reference, events: ReadonlyArray<DomainEvent>
       AttemptClaimed: (e) => patch(ref, e, { state: "review", head: e.claim.head }),
       ClaimApproved: (e) => patch(ref, e, { approved: e.at }),
       ClaimHandedUp: (e) => patch(ref, e, { handedUp: e.at }),
+      AttemptBlocked: (e) =>
+        patch(ref, e, {
+          state: "blocked",
+          blockedOn: e.on,
+          blockedReason: e.reason,
+          blockedAt: e.at,
+        }),
+      AttemptUnblocked: (e) =>
+        patch(ref, e, { state: "working", blockedOn: [], blockedReason: null, blockedAt: null }),
       AttemptNudged: (e) => patch(ref, e, { nudged: e.at }),
       AttemptAccepted: (e) => patch(ref, e, { state: "accepted", evidence: e.evidence }),
       AttemptRejected: (e) => patch(ref, e, { state: "rejected" }),

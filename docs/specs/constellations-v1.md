@@ -101,6 +101,7 @@ No polling or wait tool: updates arrive as Lead Turns.
 |---|---|
 | `progress` | A note and an optional n/total; shown in the UI only. |
 | `ask` | A question to the Lead or the user. |
+| `block` | Pause a working Attempt with `{on: TaskId[], reason}`. Use it when independent work is exhausted; `ask` requests a decision or answer. Empty `on` waits for the Lead. |
 | `claim` | The structured report. Rejected with uncommitted changes or a head that isn't on the Attempt's branch, saying what to fix. |
 | `propose` | Suggests a new Task. |
 | `message` | A message to a peer in the same Constellation. |
@@ -171,7 +172,9 @@ The user can override in the UI. Workers use the user's default Harness permissi
 - The session is titled `<taskId> · <title>` and grouped under its Lead in the sidebar.
 
 **Ending without a Claim:**
-- **Silent end:** one automatic nudge ("Your Attempt isn't claimed: claim it, ask, or say what's blocking you"). If it ends silently again, it becomes attention ("A3 stopped without claiming").
+- **Blocked:** `WorkerBlock` emits `AttemptBlocked` and a `Blocked` Lead notification. Only working Attempts may block (`E-BLOCK-STATE`); targets must exist, differ from this Task and not be canceled (`E-BLOCK-TARGET`), and nonempty targets must include unaccepted work (`E-BLOCK-SATISFIED`). A blocked Task projects `blocked`, with unaccepted targets in `blockedBy`.
+- **Resume:** acceptance of every named Task delivers its merged heads and starts a worker Turn with `AttemptUnblocked(cause: Accepted)` in the same local commit. A Lead message does the same with cause `Lead`. Durable pending inputs are re-derived on restart; remote delivery uses its existing durable receipt handshake. Unblock clears `blockedOn`, `blockedReason`, and `blockedAt`. SendBack and Stop remain available. No polling or timers detect acceptance.
+- **Silent end:** one automatic nudge ("Your Attempt isn't claimed: claim it, ask for a decision or answer, or call block with the Tasks and reason you are waiting on"). Blocked Attempts skip this nudge. If it ends silently again, a `Stopped` notification reaches the Lead digest and it becomes attention ("A3 stopped without claiming").
 - **User interrupt:** stays working (paused).
 - **Harness failure:** failed.
 

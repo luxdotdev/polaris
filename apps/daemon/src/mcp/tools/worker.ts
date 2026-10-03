@@ -19,6 +19,23 @@ export const workerTools = (
   status: BoundTool
 ): ReadonlyArray<BoundTool> => [
   define(
+    "block",
+    "Pause this Attempt while waiting on other Tasks. It resumes when all on Tasks are accepted. Use on: [] to wait for the Lead; use ask for a decision or answer, and continue any unblocked work first.",
+    Schema.Struct({ on: C.WorkerBlock.fields.on, reason: C.WorkerBlock.fields.reason }),
+    (input) =>
+      submit(
+        C.WorkerBlock.make({
+          ...input,
+          constellationId: bound.constellationId,
+          attemptId: bound.attemptId,
+        })
+      ),
+    {
+      summary: "Attempt blocked; the Lead will hear why.",
+      next: "End this Turn. Acceptance or a Lead message resumes the Attempt.",
+    }
+  ),
+  define(
     "progress",
     "Record a progress note and optional completed/total count in the UI.",
     Schema.Struct({

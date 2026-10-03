@@ -1,6 +1,7 @@
 import { ConstellationEvent, type DomainEvent, type SessionId } from "@polaris/protocol";
 import { Predicate } from "effect";
 import { inputDeliveryKey } from "../store/constellation.ts";
+import { acceptedBlockInput } from "./blocked.ts";
 import { activeAttempt } from "./projections.ts";
 import { stopLeadGates } from "./handover/gates.ts";
 import type { GraphDecision } from "./decision.ts";
@@ -10,6 +11,9 @@ export const messageRecipients = (d: GraphDecision, id: string): ReadonlyArray<S
   const message = d.record.messages.get(id);
 
   if (message === undefined) {
+    const blocked = d.record.graph.attempts.find((a) => acceptedBlockInput(d.record, a)?.id === id);
+
+    if (blocked !== undefined) return [blocked.sessionId];
     const peer = d.record.peers.get(id);
     const attempt = d.record.graph.attempts.find((a) => a.id === peer?.to);
 
@@ -36,6 +40,42 @@ export const inputDelivered = (
     );
 
     return [];
+  }
+
+  const attempt = d.record.graph.attempts.findLast(
+    (a) => a.sessionId === input.sessionId && a.state === "blocked"
+  );
+
+  if (attempt !== undefined) {
+    const acceptance = acceptedBlockInput(d.record, attempt)?.id === input.id;
+    const leadMessage = d.record.messages.has(input.id);
+
+    if (acceptance || leadMessage) {
+      if (
+        attempt.hostId === d.record.graph.hostId &&
+        !input.turnEvents.some(
+          (e) => Predicate.isTagged(e, "TurnStarted") && e.turn.sessionId === attempt.sessionId
+        )
+      ) {
+        d.reject(
+          "E-UNBLOCK-TURN",
+          "Unblocking requires the worker's TurnStarted",
+          "Commit the unblock marker and Turn atomically."
+        );
+
+        return [];
+      }
+
+      d.emit(
+        ConstellationEvent.cases.AttemptUnblocked.make({
+          ...d.fields(),
+          attemptId: attempt.id,
+          attemptRevision: attempt.revision + 1,
+          cause: acceptance ? "Accepted" : "Lead",
+          at: d.ctx.now,
+        })
+      );
+    }
   }
 
   d.emit(

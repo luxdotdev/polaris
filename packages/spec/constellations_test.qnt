@@ -12,6 +12,19 @@ module constellations_test {
   action working = base.then(start(0, 1, -1)).expect(safety)
   action claimed = working.then(claim(0, 1, 42, false, true)).expect(safety)
 
+  run blockWaitsForAcceptanceAndUnblockRequiresTurnTest = working
+    .then(block(0, Set(1), 1)).expect(view.attempts[0].status == "blocked" and safety)
+    .then(restart).then(unblock(0, 2, "Accepted", true)).expect(view.attempts[0].status == "blocked" and safety)
+    .then(unblock(0, 2, "Lead", false)).expect(view.attempts[0].status == "blocked" and safety)
+    .then(unblock(0, 2, "Lead", true)).expect(view.attempts[0].status == "working" and not(view.blocks.keys().contains(0)) and safety)
+    .then(unblock(0, 2, "Lead", true)).expect(view.attempts[0].revision == 3 and safety)
+
+  run blockRejectsSelfAndEmptyBlockWaitsForLeadTest = working
+    .then(block(0, Set(0), 1)).expect(view.attempts[0].status == "working" and safety)
+    .then(block(0, Set(), 1)).expect(view.attempts[0].status == "blocked" and safety)
+    .then(unblock(0, 2, "Accepted", true)).expect(view.attempts[0].status == "blocked" and safety)
+    .then(stop(0, 2)).expect(view.attempts[0].status == "lost" and safety)
+
   run reviewMetadataKeepsClaimInReviewUntilMergeTest = claimed
     .then(replay([{ host: OWNER, kind: ClaimHandedUp(0) }, { host: OWNER, kind: ClaimApproved(0) }]))
     .expect(view.attempts[0].status == "review" and view.handups == [0] and view.approvals == [0] and safety)

@@ -263,6 +263,28 @@ export const foldConstellation = (
         attempts: patchAttempt(next, e, { handedUpAt: e.at, handedUpReason: e.reason }),
       });
     },
+    AttemptBlocked: (e) => {
+      graph = new Constellation({
+        ...graphData(graph),
+        attempts: patchAttempt(next, e, {
+          state: "blocked",
+          blockedOn: e.on,
+          blockedReason: e.reason,
+          blockedAt: e.at,
+        }),
+      });
+    },
+    AttemptUnblocked: (e) => {
+      graph = new Constellation({
+        ...graphData(graph),
+        attempts: patchAttempt(next, e, {
+          state: "working",
+          blockedOn: [],
+          blockedReason: null,
+          blockedAt: null,
+        }),
+      });
+    },
     AttemptNudged: (e) => {
       graph = new Constellation({
         ...graphData(graph),

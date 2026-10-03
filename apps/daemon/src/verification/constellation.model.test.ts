@@ -45,7 +45,8 @@ interface Step {
   allowed: boolean;
 }
 
-const active = (state: string | undefined) => state === "working" || state === "review";
+const active = (state: string | undefined) =>
+  state === "working" || state === "blocked" || state === "review";
 
 const metadataStep = (ref: Reference, op: number): Step => {
   const attempt = latest(ref, op % 2 === 0 ? A : B);
@@ -70,6 +71,26 @@ const metadataStep = (ref: Reference, op: number): Step => {
       (ref.state === "planning" || ref.state === "running" || ref.state === "paused") &&
       attempt?.state === "review" &&
       authorized,
+  };
+};
+
+const extraStep = (ref: Reference, op: number): Step => {
+  if (Math.floor(op / 2) !== 10) return metadataStep(ref, op);
+
+  const taskId = op % 2 === 0 ? A : B;
+  const attempt = latest(ref, taskId);
+  const other = taskId === A ? B : A;
+  const mutable = ref.state === "planning" || ref.state === "running" || ref.state === "paused";
+
+  return {
+    command: C.WorkerBlock.make({
+      constellationId: CID,
+      attemptId: AttemptId.make(attempt?.id ?? "missing"),
+      on: [other],
+      reason: "Wait for dependency",
+    }),
+    context: ctx({ binding: { kind: "session", sessionId: SessionId.make(`worker-${taskId}`) } }),
+    allowed: mutable && attempt?.state === "working" && latest(ref, other)?.state !== "accepted",
   };
 };
 
@@ -132,7 +153,7 @@ const step = (ref: Reference, op: number, index: number): Step => {
         }),
       }),
       context: ctx({ attempts: [draft(taskId, `retry-${index}`, sessionId)] }),
-      allowed: mutable && attempt?.state === "review",
+      allowed: mutable && (attempt?.state === "review" || attempt?.state === "blocked"),
     };
 
   if (action === 5)
@@ -156,7 +177,7 @@ const step = (ref: Reference, op: number, index: number): Step => {
       allowed: ref.state === "running",
     };
 
-  if (action >= 8) return metadataStep(ref, op);
+  if (action >= 8) return extraStep(ref, op);
 
   return {
     command: C.SetState.make({
@@ -220,7 +241,7 @@ const run = (operations: ReadonlyArray<number>) => {
 
 test("model sequences compare the real decider and fold with independent command guards and reference fold", () => {
   fc.assert(
-    fc.property(fc.array(fc.integer({ min: 0, max: 19 }), { minLength: 20, maxLength: 100 }), run),
+    fc.property(fc.array(fc.integer({ min: 0, max: 21 }), { minLength: 20, maxLength: 100 }), run),
     { numRuns: pbtRuns(100), ...pbtSeed() }
   );
 });

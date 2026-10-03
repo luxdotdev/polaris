@@ -7,6 +7,7 @@ import type { AttemptData, ConstellationData, ProjectionData } from "./types.ts"
 
 const FROM_ATTEMPT: Readonly<Record<AttemptState, TaskState>> = {
   working: "working",
+  blocked: "blocked",
   review: "review",
   accepted: "done",
   rejected: "ready",
@@ -40,7 +41,11 @@ export const deriveProjections = (
   return c.tasks.map((task): ProjectionData => {
     const attempt = latest.get(task.id) ?? null;
     const was = prior.get(task.id);
-    const blockedBy = unfinishedDeps(task.deps, done);
+
+    const blockedBy = unfinishedDeps(
+      [...new Set([...task.deps, ...(attempt?.state === "blocked" ? attempt.blockedOn : [])])],
+      done
+    );
 
     const waiting: TaskState = was?.state === "future" ? "future" : "waiting";
     const unstarted: TaskState = blockedBy.length > 0 ? waiting : "ready";

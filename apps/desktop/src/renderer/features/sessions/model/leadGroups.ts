@@ -26,6 +26,7 @@ export type WorkerState =
   | "review"
   | "waiting-slot"
   | "working"
+  | "blocked"
   | "sent-back"
   | "failed"
   | "lost"
@@ -134,6 +135,7 @@ const RANK: Readonly<Record<WorkerState, number>> = {
   review: 1,
   "setting-up": 2,
   working: 2,
+  blocked: 2,
   "waiting-slot": 2,
   "sent-back": 3,
   failed: 3,
@@ -180,6 +182,7 @@ export const workerState = (
 ): WorkerState =>
   Match.value(attempt.state).pipe(
     Match.when("working", () => workingState(attempt, entry, stale, slotSince)),
+    Match.when("blocked", (): WorkerState => "blocked"),
     Match.when("review", () => reviewState(attempt, stale)),
     Match.when("accepted", (): WorkerState => "accepted"),
     Match.when("rejected", (): WorkerState => "sent-back"),

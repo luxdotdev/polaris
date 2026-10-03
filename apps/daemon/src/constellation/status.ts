@@ -1,4 +1,5 @@
 import type { Task, Attempt } from "@polaris/protocol";
+import type { SessionRecord } from "../store/model.ts";
 import type { ConstellationRecord } from "../store/constellation.ts";
 import { activeAttempt, latestAttempt, projectTask } from "./projections.ts";
 
@@ -24,7 +25,7 @@ export const areaWarnings = (record: ConstellationRecord): ReadonlyArray<string>
   return warnings;
 };
 
-const reviewLines = (attempt: Attempt): ReadonlyArray<string> => {
+const reviewLines = (attempt: Attempt, session?: SessionRecord): ReadonlyArray<string> => {
   const lines: Array<string> = [];
 
   if (attempt.approvedByUserAt !== null) lines.push("  Approved by the user · awaiting merge.");
@@ -34,12 +35,28 @@ const reviewLines = (attempt: Attempt): ReadonlyArray<string> => {
       `  Handed up to the user${attempt.handedUpReason === null ? "" : `: ${attempt.handedUpReason}`}`
     );
 
-  if (attempt.nudgedAt !== null) lines.push("  Stopped without claiming · nudged once.");
+  if (
+    attempt.state === "working" &&
+    attempt.nudgedAt !== null &&
+    session !== undefined &&
+    (session.session.state === "idle" || session.session.state === "dormant") &&
+    session.session.updatedAt > attempt.nudgedAt
+  )
+    lines.push("  Stopped without claiming · nudged once.");
+
+  if (attempt.state === "blocked")
+    lines.push(
+      `  blocked${attempt.blockedOn.length === 0 ? " awaiting the Lead" : ` by ${attempt.blockedOn.join(", ")}`}: ${attempt.blockedReason}`
+    );
 
   return lines;
 };
 
-const taskLines = (record: ConstellationRecord, task: Task): ReadonlyArray<string> => {
+const taskLines = (
+  record: ConstellationRecord,
+  task: Task,
+  sessions?: ReadonlyMap<Attempt["sessionId"], SessionRecord>
+): ReadonlyArray<string> => {
   const graph = record.graph;
   const lines: Array<string> = [];
   const projection = projectTask(record, task);
@@ -53,7 +70,7 @@ const taskLines = (record: ConstellationRecord, task: Task): ReadonlyArray<strin
       `  ${attempt.id} · attempt revision ${attempt.revision} · ${attempt.sessionId} · ${attempt.branch}${projection.stale ? " · host offline" : ""}`
     );
 
-    lines.push(...reviewLines(attempt));
+    lines.push(...reviewLines(attempt, sessions?.get(attempt.sessionId)));
 
     if (attempt.claim !== null && attempt.state === "review")
       lines.push(
@@ -65,7 +82,10 @@ const taskLines = (record: ConstellationRecord, task: Task): ReadonlyArray<strin
 };
 
 /** A stable, readable outline, computed only when requested. */
-export const statusOutline = (record: ConstellationRecord): string => {
+export const statusOutline = (
+  record: ConstellationRecord,
+  sessions?: ReadonlyMap<Attempt["sessionId"], SessionRecord>
+): string => {
   const { graph } = record;
 
   const lines = [
@@ -73,7 +93,7 @@ export const statusOutline = (record: ConstellationRecord): string => {
     `Lead: ${graph.leadSessionId}`,
   ];
 
-  for (const task of graph.tasks) lines.push(...taskLines(record, task));
+  for (const task of graph.tasks) lines.push(...taskLines(record, task, sessions));
 
   if (graph.tasks.length === 0) lines.push("No tasks yet.");
 

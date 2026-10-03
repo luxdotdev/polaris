@@ -11,7 +11,7 @@ export const handoverHeader = (record: ConstellationRecord, to: SessionId, summa
     statusOutline(record),
     ...record.graph.attempts.flatMap((a) =>
       a.sessionId === record.graph.leadSessionId &&
-      (a.state === "working" || a.state === "review") &&
+      (a.state === "working" || a.state === "blocked" || a.state === "review") &&
       record.graph.tasks.some((t) => t.id === a.taskId && t.kind === "gate")
         ? [
             `Gate ${a.taskId} was in progress at handover: re-run it. Recorded receipts: ${JSON.stringify(a.claim?.receipts ?? a.receipts)}`,

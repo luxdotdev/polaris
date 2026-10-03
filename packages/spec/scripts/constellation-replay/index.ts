@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Predicate, Schema } from "effect";
 import { DomainEvent } from "../../../protocol/src/events.ts";
 import { ConstellationEvent, ResourceEvent } from "../../../protocol/src/constellation/events.ts";
 import { mapGraphEvent, mapResourceEvent, ReplayGroup, resourceKey } from "./mapping.ts";
@@ -104,6 +104,25 @@ const attachOutbox = (
   mapped.set(group, events);
 };
 
+const recordRemoteTurns = (
+  groups: Map<string, ReplayGroup>,
+  batch: ConstellationTrace["batches"][number]
+) => {
+  for (const event of batch.events) {
+    if (!Predicate.isTagged(event, "TurnStarted")) continue;
+
+    for (const group of groups.values())
+      if (
+        batch.hostId !== group.owner &&
+        [...group.workers].some(
+          ([id, session]) =>
+            session === event.turn.sessionId && group.workerHosts.get(id) === batch.hostId
+        )
+      )
+        group.remoteTurns.add(event.turn.id);
+  }
+};
+
 /** Split graph and Host resource streams; replay each committed batch through the reference fold. */
 export const constellationTraceToQuint = (
   name: string,
@@ -115,11 +134,21 @@ export const constellationTraceToQuint = (
   for (const batch of trace.batches) {
     const mapped = new Map<ReplayGroup, Array<string>>();
 
+    recordRemoteTurns(groups, batch);
+
     for (const event of batch.events) {
       if (graphEvent(event)) {
         const group = getGroup(groups, `graph:${event.constellationId}`, trace.ownerHostId);
         const items = mapped.get(group) ?? [];
-        items.push(...mapGraphEvent(group, event, batch.hostId, batch.context));
+        items.push(
+          ...mapGraphEvent(
+            group,
+            event,
+            batch.hostId,
+            batch.context,
+            batch.events.filter(Schema.is(DomainEvent))
+          )
+        );
         mapped.set(group, items);
       } else if (resourceEvent(event)) {
         const key = resourceKey(event);

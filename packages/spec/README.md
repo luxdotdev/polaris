@@ -310,6 +310,20 @@ The live producer's ephemeral `LivenessChanged` frames have no global sequence
 and are outside this committed-log abstraction. Their capability gate, resume
 seeding and graph-revision neutrality are covered by the real producer tests.
 
+Blocking maps `WorkerBlock` to `AttemptBlocked` and a `Blocked` notification.
+`blockEvents`, `unblockEvents` and `blockTransitionsValid` model live targets,
+unsatisfied acceptance, working → blocked → working, and a Turn proof on unblock.
+The real journal commits `AttemptUnblocked` with the Session machine's next Turn;
+acceptance inputs are re-derived from the durable block on startup. Empty target
+sets wait for a Lead message. `constellation/blocked.test.ts` and
+`constellation/delivery/blocked.test.ts` cover error codes, Turn boundaries,
+metadata clearing, atomic markers, SQLite restart and idempotence. The independent
+reference fold and generated command model retain block metadata; trace replay
+requires the local worker Turn in the same batch. Remote traces require the
+worker Host's earlier Turn with the immutable delivery ID before the owner
+receipt; remote delivery retains its durable receipt handshake.
+Blocked Attempts skip nudging; a second silent end queues `Stopped` for the Lead.
+
 C1-L implements the delivery runner under `apps/daemon/src/constellation/delivery`,
 with timers only for pending Lead-worthy updates (20 s Claims / 5 s blocking Lead
 questions). Queued IDs and `LeadNotified` commit with the Session-machine Turn;

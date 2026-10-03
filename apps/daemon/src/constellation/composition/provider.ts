@@ -55,7 +55,9 @@ export const attachmentProvider = Layer.effectDiscard(
             bindings.push(McpBinding.cases.Lead.make({ sessionId, constellationId: graph.id }));
 
           const attempt = graph.attempts.findLast(
-            (a) => a.sessionId === sessionId && (a.state === "working" || a.state === "review")
+            (a) =>
+              a.sessionId === sessionId &&
+              (a.state === "working" || a.state === "blocked" || a.state === "review")
           );
 
           if (attempt !== undefined) {
@@ -75,7 +77,9 @@ export const attachmentProvider = Layer.effectDiscard(
 
           if (
             attempt?.sessionId !== sessionId ||
-            (attempt.state !== "working" && attempt.state !== "review") ||
+            (attempt.state !== "working" &&
+              attempt.state !== "blocked" &&
+              attempt.state !== "review") ||
             assignment.graph.state === "archived"
           )
             continue;

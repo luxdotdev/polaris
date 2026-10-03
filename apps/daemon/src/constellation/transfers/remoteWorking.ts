@@ -29,6 +29,9 @@ export interface RemoteWorkingHooks<E, R> {
   ) => Effect.Effect<void, never, R>;
 }
 
+const retainsWorkerSlot = (attempt: Attempt) =>
+  attempt.state === "working" || attempt.state === "blocked";
+
 /** Worker slots follow remote mirrors and locally queued Claims, without committing owner events here. */
 export const remoteWorkingAttemptsLayer = <E, R>(hooks: RemoteWorkingHooks<E, R>) =>
   Layer.effect(
@@ -59,14 +62,17 @@ export const remoteWorkingAttemptsLayer = <E, R>(hooks: RemoteWorkingHooks<E, R>
 
         if (
           attempt.hostId !== hostId ||
-          attempt.state !== "working" ||
+          !retainsWorkerSlot(attempt) ||
           latest?.id !== attempt.id ||
           assignment.graph.state === "completed" ||
           assignment.graph.state === "archived"
         ) {
           yield* stop(attempt.id);
 
-          if (attempt.state !== "review" || assignment.graph.state === "archived")
+          if (
+            (attempt.state !== "review" && attempt.state !== "blocked") ||
+            assignment.graph.state === "archived"
+          )
             yield* tokens.revokeAttempt(attempt.id).pipe(Effect.orDie);
 
           return;
@@ -85,13 +91,13 @@ export const remoteWorkingAttemptsLayer = <E, R>(hooks: RemoteWorkingHooks<E, R>
           yield* resources.acquireWorker(attempt.sessionId);
           const current = (yield* storage.assignments).find((a) => a.attemptId === attempt.id);
 
-          if (current === undefined || assignmentAttempt(current).state !== "working") {
+          if (current === undefined || !retainsWorkerSlot(assignmentAttempt(current))) {
             yield* stop(attempt.id).pipe(Effect.forkIn(parent), Effect.asVoid);
 
             return;
           }
 
-          const continuing = resume || started.has(attempt.id);
+          const continuing = resume || attempt.state === "blocked" || started.has(attempt.id);
           started.add(attempt.id);
           yield* (
             continuing

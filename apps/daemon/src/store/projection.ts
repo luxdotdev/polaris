@@ -205,6 +205,8 @@ const projectionOf: (event: DomainEvent) => Projection = DomainEvent.match<Proje
   AttemptProgressed: () => () => Effect.void,
   ClaimApproved: () => () => Effect.void,
   ClaimHandedUp: () => () => Effect.void,
+  AttemptBlocked: () => () => Effect.void,
+  AttemptUnblocked: () => () => Effect.void,
   AttemptNudged: () => () => Effect.void,
   AttemptClaimed: () => () => Effect.void,
   AttemptAccepted: () => () => Effect.void,

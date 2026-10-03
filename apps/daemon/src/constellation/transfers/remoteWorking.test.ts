@@ -14,8 +14,9 @@ import {
   DomainEvent,
   Turn,
   TurnId,
+  Attempt,
 } from "@polaris/protocol";
-import { Context, Deferred, Effect, Layer, Semaphore } from "effect";
+import { Context, Deferred, Effect, Layer, Semaphore, Struct } from "effect";
 import {
   HOST,
   CID,
@@ -31,6 +32,7 @@ import { removeDir } from "../../git/testing.ts";
 import { HostResources } from "../../resources/index.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { McpTokens } from "../../mcp/index.ts";
+import { McpBinding } from "../../mcp/binding.ts";
 import { ConstellationOwner } from "../runtime.ts";
 import { TransferStorage } from "./storage.ts";
 import { RemoteWorkers } from "./assignments.ts";
@@ -200,11 +202,46 @@ test("a new remote Attempt starts its brief in an Existing Session with historic
           yield* gate.release(1);
           yield* Deferred.await(started);
           expect(starts).toBe(1);
+          const tokens = Context.get(context, McpTokens);
+
+          const binding = McpBinding.cases.Worker.make({
+            sessionId,
+            constellationId: CID,
+            attemptId: draft().id,
+          });
+
+          const token = yield* tokens.issue(binding);
+
+          const blockedAssignment = RemoteWorkerAssignment.make(
+            Struct.assign(assignment, {
+              graph: new Constellation(
+                Struct.assign(assignment.graph, {
+                  attempts: [
+                    new Attempt(
+                      Struct.assign(assignment.graph.attempts[0]!, {
+                        state: "blocked" as const,
+                        blockedOn: [],
+                        blockedReason: "Waiting for the Lead",
+                        blockedAt: AT,
+                      })
+                    ),
+                  ],
+                })
+              ),
+            })
+          );
+
+          yield* storage.assign(blockedAssignment);
+          yield* workers.assigned(blockedAssignment);
+          expect(holds).toBe(1);
+          expect(starts).toBe(1);
+          expect(yield* tokens.authenticate(token)).toEqual(binding);
           yield* workers.claimed(draft().id);
           expect(holds).toBe(0);
-          yield* workers.assigned(assignment);
+          yield* workers.resume(blockedAssignment);
           yield* Deferred.await(resumed);
           expect(resumes).toBe(1);
+          yield* storage.assign(assignment);
 
           const packet = ConstellationOutboxPacket.make({
             entry: ConstellationOutboxEntry.make({

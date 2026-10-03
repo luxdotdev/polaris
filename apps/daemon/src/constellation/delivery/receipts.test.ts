@@ -105,3 +105,29 @@ test("immutable recipient IDs acknowledge once; replay neither resolves early no
     })
   );
 });
+
+test("remote unblock waits for a Turn boundary even when the worker can steer; retries start once", async () => {
+  const w = world();
+  await w.run(
+    Effect.gen(function* () {
+      yield* setup();
+      yield* send(WORKER);
+
+      const input = {
+        ...packet("unblock-1"),
+        input: DeliveryInput.Turn({ text: "B accepted at feed-head", cause: "unblock" }),
+      };
+
+      const fiber = yield* applyWorkerDelivery(input, () => Effect.void).pipe(Effect.forkChild);
+      yield* Effect.promise(() => Bun.sleep(10));
+      expect(w.turns).toHaveLength(0);
+      expect(w.steers).toHaveLength(0);
+      yield* finish(WORKER);
+      yield* Fiber.join(fiber);
+      expect(w.turns).toHaveLength(1);
+      expect(w.steers).toHaveLength(0);
+      yield* applyWorkerDelivery(input, () => Effect.void);
+      expect(w.turns).toHaveLength(1);
+    })
+  );
+});

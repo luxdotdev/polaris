@@ -146,6 +146,16 @@ export const applyWorkerDelivery = Effect.fn("Constellation.applyWorkerDelivery"
                     });
                   const working = record.turns.some((t) => t.status === "working");
 
+                  if (
+                    working &&
+                    Predicate.isTagged(packet.input, "Turn") &&
+                    packet.input.cause === "unblock"
+                  )
+                    return yield* new CommandRejected({
+                      commandId: CommandId.make(packet.id),
+                      reason: "Worker input is queued",
+                    });
+
                   const turn = newTurn(
                     record.session,
                     packet.input.text,

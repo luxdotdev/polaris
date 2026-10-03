@@ -13,6 +13,7 @@ interface Shown {
 }
 
 const SHOWN: Readonly<Record<WorkerState, Shown>> = {
+  blocked: { glyph: "waiting", word: "blocked", tone: "subtle" },
   "needs-you": { glyph: "needs-you", word: "needs you", tone: "needs-you" },
   unclaimed: { glyph: "needs-you", word: "stopped", tone: "needs-you" },
   stale: { glyph: "needs-you", word: "stale", tone: "needs-you" },
