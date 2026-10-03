@@ -4,6 +4,7 @@
  * and their Client feeds (the real `makeFeed`, wired as `HostConnection` does).
  */
 import { HarnessEvent } from "../harness/HarnessDriver.ts";
+import { removeTempDirectory } from "./tempDirectories.testing.ts";
 import { join } from "node:path";
 import { type Feed, makeFeed, type SequenceMark } from "@polaris/client";
 import {
@@ -235,7 +236,8 @@ export interface WorldFakes {
 export class World {
   runtime: ManagedRuntime.ManagedRuntime<Engine | EventStore, never> | null = null;
   driver: FakeDriver;
-  readonly filename = join(tempDir(), "state.sqlite");
+  readonly directory = tempDir();
+  readonly filename = join(this.directory, "state.sqlite");
   readonly fakes: Fakes;
   readonly conns = new Map<ClientName, Conn>();
   /** Every command a Client sent, in order; a retry is another entry with the same id. */
@@ -449,13 +451,17 @@ export class World {
   }
 
   async dispose() {
-    for (const fs of this.feeds) {
-      if (fs.consumer !== null) await Effect.runPromise(Fiber.interrupt(fs.consumer));
+    try {
+      for (const fs of this.feeds) {
+        if (fs.consumer !== null) await Effect.runPromise(Fiber.interrupt(fs.consumer));
+      }
+
+      await Effect.runPromise(Scope.close(this.clientScope, Exit.void));
+
+      if (this.runtime !== null) await this.crash();
+    } finally {
+      removeTempDirectory(this.directory);
     }
-
-    await Effect.runPromise(Scope.close(this.clientScope, Exit.void));
-
-    if (this.runtime !== null) await this.crash();
   }
 
   /** Send a command from a device and record what it heard back. */

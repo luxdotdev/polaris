@@ -501,7 +501,7 @@ const setUp = async (world: World) => {
   await world.open();
   const engine = world.rt.runSync(Effect.map(Engine, (e) => e));
   const run = <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromise(effect);
-  const repo = fakeRepo();
+  const repo = fakeRepo(world.directory);
   await run(
     engine.dispatch({
       commandId: CommandId.make(`setup-ws-${++idCounter}`),

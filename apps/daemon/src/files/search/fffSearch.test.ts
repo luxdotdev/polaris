@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { FileFinder } from "@ff-labs/fff-bun";
-import { removeDir, tempDir, write } from "../../git/testing.ts";
+import { removeDir, suiteTempDir, write } from "../../git/testing.ts";
 import { fffGrep, MAX_CANDIDATES, narrowRegexGrep } from "./fffSearch.ts";
 import type { GrepQuery } from "./types.ts";
 
@@ -8,8 +8,10 @@ let root: string;
 
 let finder: FileFinder;
 
+const createRoot = suiteTempDir("polaris-fffsearch-");
+
 beforeAll(async () => {
-  root = tempDir("polaris-fffsearch-");
+  root = createRoot();
 
   // Filler files so the bigram index has something to tell apart.
   for (let i = 0; i < 300; i++) {

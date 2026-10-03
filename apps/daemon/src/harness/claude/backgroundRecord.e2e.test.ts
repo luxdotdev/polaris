@@ -1,5 +1,6 @@
+import { tempDirectory } from "../../verification/tempDirectories.testing.ts";
 import { expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { query as sdkQuery, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
@@ -60,7 +61,7 @@ test.skipIf(out === undefined)(
         Effect.gen(function* () {
           const session = yield* driver.open({
             sessionId: SessionId.make("rec"),
-            cwd: mkdtempSync(join(tmpdir(), "polaris-bg-")),
+            cwd: tempDirectory(join(tmpdir(), "polaris-bg-")),
             permissionMode: "supervised",
             model: "haiku",
             effort: null,

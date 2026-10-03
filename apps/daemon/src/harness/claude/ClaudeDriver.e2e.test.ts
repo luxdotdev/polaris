@@ -2,8 +2,9 @@
  * One real, tiny Turn against the installed `claude`, using its own sign-in.
  * Opt in with `POLARIS_E2E_CLAUDE=1 bun test ClaudeDriver.e2e`.
  */
+import { tempDirectory } from "../../verification/tempDirectories.testing.ts";
 import { describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SessionId, TurnId, TurnItem } from "@polaris/protocol";
@@ -21,7 +22,7 @@ describe.skipIf(!enabled)("Claude driver against the real claude", () => {
       const probe = await Effect.runPromise(driver.probe);
       expect(probe.available).toBe(true);
 
-      const cwd = await mkdtemp(join(tmpdir(), "polaris-e2e-claude-"));
+      const cwd = tempDirectory(join(tmpdir(), "polaris-e2e-claude-"));
       const scope = Effect.runSync(Scope.make());
 
       const session = await Effect.runPromise(
@@ -82,7 +83,7 @@ describe.skipIf(!enabled)("Claude driver against the real claude", () => {
     "lists a Workspace's own Skill and command, and runs the command from its /name",
     async () => {
       const driver = makeClaudeDriver();
-      const cwd = await mkdtemp(join(tmpdir(), "polaris-e2e-claude-commands-"));
+      const cwd = tempDirectory(join(tmpdir(), "polaris-e2e-claude-commands-"));
 
       await mkdir(join(cwd, ".claude/commands"), { recursive: true });
       await mkdir(join(cwd, ".claude/skills/polaris-probe-skill"), { recursive: true });

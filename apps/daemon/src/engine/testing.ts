@@ -2,7 +2,8 @@
  * Fakes for engine tests: a scriptable Harness driver and in-memory
  * Checkpoints, WorktreeTracker and AttachmentStore. Not used in production.
  */
-import { mkdirSync, mkdtempSync } from "node:fs";
+import { tempDirectory } from "../verification/tempDirectories.testing.ts";
+import { mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -359,11 +360,11 @@ export const engineLayer = (options: {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-export const tempDir = (): string => mkdtempSync(join(tmpdir(), "polaris-engine-"));
+export const tempDir = (): string => tempDirectory(join(tmpdir(), "polaris-engine-"));
 
 /** A directory that looks like a git repository to RegisterWorkspace. */
-export const fakeRepo = (): string => {
-  const dir = join(tempDir(), "repo");
+export const fakeRepo = (root = tempDir()): string => {
+  const dir = join(root, "repo");
   mkdirSync(join(dir, ".git"), { recursive: true });
 
   return dir;
