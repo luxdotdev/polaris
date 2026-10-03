@@ -4,6 +4,7 @@
  * outside git), a subsequence fuzzy scorer, `git grep`, and `fs.watch`.
  * Slower and not typo-tolerant, but dependency-free.
  */
+import { childEnv } from "../../service/childEnv.ts";
 import { existsSync } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { availableParallelism } from "node:os";
@@ -184,7 +185,12 @@ const runGitGrep = async (
 ): Promise<Array<GrepHit>> => {
   const proc = Bun.spawn(["git", ...gitGrepArgs(inRepo, flavour, query)], {
     cwd: root,
-    env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_OPTIONAL_LOCKS: "0", LC_ALL: "C" },
+    env: childEnv({
+      ...process.env,
+      GIT_TERMINAL_PROMPT: "0",
+      GIT_OPTIONAL_LOCKS: "0",
+      LC_ALL: "C",
+    }),
     stdin: "ignore",
     stdout: "pipe",
     stderr: "pipe",

@@ -158,6 +158,7 @@ export interface ActionContext {
   /** The selected session's title, for "Archive …". */
   readonly session: string | null;
   readonly enabled: (id: CommandId) => boolean;
+  readonly updateVersion?: string | null;
   /** The theme the toggle leads to. */
   readonly nextTheme: "dark" | "light";
 }
@@ -237,6 +238,21 @@ const ACTIONS: ReadonlyArray<{
     title: () => "Add GitHub account…",
     keywords: ["github", "sign in", "device code"],
   },
+  {
+    id: "settings.about",
+    title: () => "Settings: About",
+    keywords: ["version", "release", "polaris"],
+  },
+  {
+    id: "updates.check",
+    title: () => "Check for updates",
+    keywords: ["update", "release", "version"],
+  },
+  {
+    id: "updates.restart",
+    title: () => "Restart to update",
+    keywords: ["update", "restart", "upgrade"],
+  },
 ];
 
 const shortcutOf = (id: CommandId) => {
@@ -255,7 +271,10 @@ export const actionItems = (ctx: ActionContext): ReadonlyArray<JumpItem> =>
             target: { kind: "command", id: a.id },
             title: a.title(ctx),
             keywords: a.keywords,
-            detail: "",
+            detail:
+              a.id === "updates.restart"
+                ? `Polaris ${ctx.updateVersion ?? ""} · agent sessions keep working`
+                : "",
             meta: shortcutOf(a.id),
             state: null,
             harness: null,

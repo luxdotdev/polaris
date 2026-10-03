@@ -115,6 +115,10 @@ yield* serveUpgrades({
 
 `fixtures/handoff-daemon.ts` is a complete working example. If the transport uses `effect/socket` (built on `node:net`), bind it at the temporary path the same way. Adopted connections must still be wrapped with `Bun.connect({ fd })`.
 
+`takeHandoff` consumes the envelope once. It rejects a different `ownerPid`, closed or close-on-exec descriptors, standard streams, and a listener that is not a listening socket. Older envelopes without `ownerPid` remain supported, with the same descriptor checks. Invalid envelopes log a warning and become a cold start; they do not acknowledge an Upgrade or close unrelated descriptors. Valid inherited descriptors, including the listener, regain close-on-exec before any child starts.
+
+Every child launch passes an explicit environment through `childEnv` (`service/childEnv.ts`), including Harness probes, detached servers, terminals and auxiliary commands. Bun 1.3.13's default spawn environment retains the original envelope even after deleting it from `process.env`; filtering only at adoption is insufficient. Explicit snapshots and per-session overrides are filtered as well. `POLARIS_HANDOFF` is the only execve envelope variable; `POLARIS_HOME` and ordinary child settings remain available.
+
 ### Hand-off contributors
 
 A module with fds or children to keep registers a `HandoffContributor` for the life of its scope (`registerHandoffContributor`): `collect` returns named fds and children (merged with `hooks.collect`), `beforeExec` writes any state the new image needs, and `abort` undoes it if the exec fails. The terminals use this to keep PTYs across upgrades (`terminal/README.md`); the engine registers one with no fds whose `beforeExec` is `Engine.prepareForUpgrade`, which closes in-process (Claude) Harnesses per the recovery rule (`store/README.md`). After the exec, `takeHandoff()` returns the same names.

@@ -48,6 +48,10 @@ const AF_UNIX = 1;
 
 const SOCK_STREAM = 1;
 
+const SOL_SOCKET = isDarwin ? 0xffff : 1;
+
+const SO_ACCEPTCONN = isDarwin ? 0x0002 : 30;
+
 const POLLIN = 0x1;
 
 const WNOHANG = 1;
@@ -60,6 +64,10 @@ const SYMBOLS = {
   execve: { args: [FFIType.ptr, FFIType.ptr, FFIType.ptr], returns: FFIType.i32 },
   ioctl: { args: [FFIType.i32, FFIType.u64], returns: FFIType.i32 },
   fcntl: { args: [FFIType.i32, FFIType.i32], returns: FFIType.i32 },
+  getsockopt: {
+    args: [FFIType.i32, FFIType.i32, FFIType.i32, FFIType.ptr, FFIType.ptr],
+    returns: FFIType.i32,
+  },
   accept: { args: [FFIType.i32, FFIType.ptr, FFIType.ptr], returns: FFIType.i32 },
   poll: { args: [FFIType.ptr, FFIType.u32, FFIType.i32], returns: FFIType.i32 },
   close: { args: [FFIType.i32], returns: FFIType.i32 },
@@ -76,7 +84,14 @@ const ERRNO_LOCATION = { args: [], returns: FFIType.ptr } as const;
 // Darwin exports errno through `__error()`, glibc through `__errno_location()`.
 const open = () =>
   isDarwin
-    ? dlopen(LIBC_PATH, { ...SYMBOLS, __error: ERRNO_LOCATION })
+    ? dlopen(LIBC_PATH, {
+        ...SYMBOLS,
+        __error: ERRNO_LOCATION,
+        proc_pidfdinfo: {
+          args: [FFIType.i32, FFIType.i32, FFIType.i32, FFIType.ptr, FFIType.i32],
+          returns: FFIType.i32,
+        },
+      })
     : dlopen(LIBC_PATH, { ...SYMBOLS, __errno_location: ERRNO_LOCATION });
 
 let lib: Libc | undefined;
@@ -116,6 +131,25 @@ const cString = (value: string): Buffer => Buffer.from(`${value}\0`, "utf8");
 /** Whether `fd` has close-on-exec set. Throws if `fd` is not open. */
 export const isCloseOnExec = (fd: number): boolean =>
   (check("fcntl(F_GETFD)", libc().fcntl(fd, F_GETFD)) & FD_CLOEXEC) !== 0;
+
+/** Whether `fd` is an open listening socket, rather than a reused file or connected socket. */
+export const isListeningSocket = (fd: number): boolean => {
+  const symbols = libc();
+
+  if ("proc_pidfdinfo" in symbols) {
+    // Darwin's socket_fdinfo is 792 bytes; psi.soi_options is at 188 (sys/proc_info.h).
+    const info = new ArrayBuffer(792);
+    const result = symbols.proc_pidfdinfo(process.pid, fd, 3, ptr(info), info.byteLength);
+
+    return result === info.byteLength && (new DataView(info).getInt16(188, true) & 0x0002) !== 0;
+  }
+
+  const accepting = new Int32Array(1);
+  const length = new Uint32Array([accepting.byteLength]);
+  const result = symbols.getsockopt(fd, SOL_SOCKET, SO_ACCEPTCONN, ptr(accepting), ptr(length));
+
+  return result === 0 && accepting[0] !== 0;
+};
 
 /** Clear close-on-exec so `fd` survives `execve`. */
 export const clearCloseOnExec = (fd: number): void => {

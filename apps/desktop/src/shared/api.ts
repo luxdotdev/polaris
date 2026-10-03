@@ -51,6 +51,7 @@ import type {
 } from "@polaris/protocol";
 import type { Rpc } from "effect/rpc";
 import type { CommandId } from "./keymap.ts";
+import type { AppUpdateView } from "./appUpdates.ts";
 import type { PullRef } from "./github.ts";
 import type { ConstellationDefaultsMethod, ConstellationMethod } from "./constellationContract.ts";
 import type { ResourceMethod } from "./resourcesContract.ts";
@@ -337,6 +338,11 @@ export interface RequestOutputs
   extends GitHubRequestOutputs, ConstellationRequestOutputs, ResourceRequestOutputs {
   "constellation.stats": ConstellationStatsView;
   "settings.get": SettingsView;
+  "updates.get": AppUpdateView;
+  "updates.check": AppUpdateView;
+  "updates.setAutomatic": AppUpdateView;
+  "updates.restart": null;
+  "updates.showInFinder": null;
   "cache.get": ReadonlyArray<CachedHost>;
   "cache.put": null;
   "settings.setTheme": null;
@@ -479,6 +485,7 @@ export type AppEvent =
   /** A command from the native menu (`shared/keymap.ts`); the renderer runs it. */
   | { readonly kind: "command"; readonly id: CommandId }
   | { readonly kind: "appearance"; readonly appearance: Appearance }
+  | { readonly kind: "updates"; readonly updates: AppUpdateView }
   | { readonly kind: "session-defaults"; readonly sessionDefaults: SessionDefaults }
   | { readonly kind: "sessions"; readonly sessions: SessionPrefs }
   /** Dev only (Develop menu): start the bench-Harness proof session on this Host. */

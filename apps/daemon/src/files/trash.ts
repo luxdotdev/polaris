@@ -1,3 +1,4 @@
+import { childEnv } from "../service/childEnv.ts";
 import { randomUUID } from "node:crypto";
 import { lstat, mkdir, open, rename, stat, unlink } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -17,6 +18,7 @@ function run(argv) {
 
 const macTrash = async (path: string): Promise<void> => {
   const child = Bun.spawn(["/usr/bin/osascript", "-l", "JavaScript", "-e", MAC_TRASH, path], {
+    env: childEnv(),
     stdin: "ignore",
     stdout: "ignore",
     stderr: "pipe",

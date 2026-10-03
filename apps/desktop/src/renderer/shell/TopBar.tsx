@@ -8,6 +8,11 @@ import { Badge, Chip, cn, Kbd, PlusIcon } from "@polaris/ui";
 import { Fragment, useMemo } from "react";
 import type { HostView } from "../../shared/api.ts";
 import { type BarHost, barHosts, shortcutLabel } from "../routes/topBar.ts";
+import {
+  acknowledgeUpgrade,
+  UpgradeHover,
+  useUpgradeCaption,
+} from "../features/machines/updates/UpgradeStatus.tsx";
 import { slots } from "../app/slots.tsx";
 import { plural } from "./copy.ts";
 import { HostBarLabel, HostStateCaption } from "./HostState.tsx";
@@ -61,10 +66,12 @@ const HostLabel = ({ group }: { readonly group: BarHost }) => {
   const first = group.workspaces[0];
 
   // Its first Workspace, or the Host itself when it has none (the stage to add one).
-  const open = (at?: number) =>
-    first === undefined
-      ? selectHost(host.key, at)
-      : selectWorkspace({ hostKey: host.key, workspaceId: first.workspace.id }, at);
+  const open = (at?: number) => {
+    acknowledgeUpgrade(host.key);
+
+    if (first === undefined) selectHost(host.key, at);
+    else selectWorkspace({ hostKey: host.key, workspaceId: first.workspace.id }, at);
+  };
 
   // Needs Attention is its own bordered chip (a button); the others are a label to select the Host.
   if (host.status.state === "needs-attention") {
@@ -76,16 +83,18 @@ const HostLabel = ({ group }: { readonly group: BarHost }) => {
   }
 
   return (
-    <button
-      type="button"
-      aria-pressed={host.key === selection.hostKey && selection.workspaceId === null}
-      onClick={(event) => open(event.timeStamp)}
-      className="hover:bg-fill-hover rounded-control flex h-7 shrink-0 cursor-default items-center"
-      data-host={host.key}
-      data-connection={host.status.state}
-    >
-      <HostBarLabel host={host} onOpen={() => open()} />
-    </button>
+    <UpgradeHover hostKey={host.key}>
+      <button
+        type="button"
+        aria-pressed={host.key === selection.hostKey && selection.workspaceId === null}
+        onClick={(event) => open(event.timeStamp)}
+        className="hover:bg-fill-hover rounded-control flex h-7 shrink-0 cursor-default items-center"
+        data-host={host.key}
+        data-connection={host.status.state}
+      >
+        <HostBarLabel host={host} onOpen={() => open()} />
+      </button>
+    </UpgradeHover>
   );
 };
 
@@ -136,12 +145,14 @@ const WorkspaceBar = ({ bar }: { readonly bar: ReadonlyArray<BarHost> }) => {
 
 /** "5 workspaces", or the state when that is the news (Paper MX-0: "Slow link"). */
 const MachineCaption = ({ group }: { readonly group: BarHost }) => {
+  const upgrade = useUpgradeCaption(group.host.key);
+
   if (!connected(group.host) || isSlowLink(group.host))
     return <HostStateCaption host={group.host} />;
 
   return (
     <span className="text-caption text-text-subtle">
-      {plural(group.workspaces.length, "workspace")}
+      {upgrade ?? plural(group.workspaces.length, "workspace")}
     </span>
   );
 };
@@ -160,32 +171,40 @@ const MachineBar = ({ bar }: { readonly bar: ReadonlyArray<BarHost> }) => {
         const shortcut = shortcutLabel(index);
 
         return (
-          <button
-            key={group.host.key}
-            type="button"
-            aria-pressed={selected}
-            data-host={group.host.key}
-            data-connection={group.host.status.state}
-            onClick={(event) => selectHost(group.host.key, event.timeStamp)}
-            className={cn(
-              "gap-gap px-row-x flex h-[34px] shrink-0 cursor-default items-center rounded-[8px] border border-transparent",
-              selected
-                ? "border-hairline bg-surface-raised shadow-[0_1px_2px_#0000000a]"
-                : "hover:bg-fill-hover"
-            )}
-          >
-            <SummaryGlyph summary={group.summary} />
-            <span className={cn("text-label", selected ? "text-text-strong" : "text-text-default")}>
-              {group.host.label}
-            </span>
-            <MachineCaption group={group} />
-            {group.summary.needsYou > 0 ? (
-              <Badge tone="needs-you" size="count">
-                {group.summary.needsYou}
-              </Badge>
-            ) : null}
-            {shortcut === undefined ? null : <Kbd variant="plain">{shortcut}</Kbd>}
-          </button>
+          <UpgradeHover key={group.host.key} hostKey={group.host.key}>
+            <button
+              type="button"
+              aria-pressed={selected}
+              data-host={group.host.key}
+              data-connection={group.host.status.state}
+              onClick={(event) => {
+                acknowledgeUpgrade(group.host.key);
+                selectHost(group.host.key, event.timeStamp);
+              }}
+              className={cn(
+                "gap-gap px-row-x flex h-[34px] shrink-0 cursor-default items-center rounded-[8px] border border-transparent",
+                selected
+                  ? "border-hairline bg-surface-raised shadow-[0_1px_2px_#0000000a]"
+                  : "hover:bg-fill-hover"
+              )}
+            >
+              <SummaryGlyph summary={group.summary} />
+              <span className="flex min-w-0 flex-col gap-0.5">
+                <span
+                  className={cn("text-label", selected ? "text-text-strong" : "text-text-default")}
+                >
+                  {group.host.label}
+                </span>
+                <MachineCaption group={group} />
+              </span>
+              {group.summary.needsYou > 0 ? (
+                <Badge tone="needs-you" size="count">
+                  {group.summary.needsYou}
+                </Badge>
+              ) : null}
+              {shortcut === undefined ? null : <Kbd variant="plain">{shortcut}</Kbd>}
+            </button>
+          </UpgradeHover>
         );
       })}
       <button

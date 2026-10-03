@@ -2,8 +2,7 @@
 import { existsSync, mkdirSync, readdirSync, renameSync } from "node:fs";
 import { join } from "node:path";
 import { Duration, Effect, Exit } from "effect";
-import { cleanup, launchDaemon, type TransportKind } from "./daemon.ts";
-import { startSampler } from "./sampler.ts";
+import { cleanup, launchDaemon, sampleDaemon, type TransportKind } from "./daemon.ts";
 import { median } from "./stats.ts";
 import type {
   AggregatedMetric,
@@ -46,7 +45,7 @@ const contextFor = (options: RunnerOptions, profileDir: string | null): Scenario
     ),
   sample: (daemon, intervalMs = 250) =>
     Effect.acquireRelease(
-      Effect.sync(() => startSampler({ roots: () => [daemon.pid], intervalMs })),
+      Effect.sync(() => sampleDaemon(daemon, intervalMs)),
       (sampler) => Effect.sync(() => sampler.stop())
     ),
   peak: (daemon, label) =>

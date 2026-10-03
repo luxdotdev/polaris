@@ -25,9 +25,56 @@ node scripts/emptyScreens.ts --out <dir> [--build]      # the empty states and t
 
 **Polaris Dev.app (macOS).** Dev and every script that launches the app (smoke, screens, budgets) run `out/dev/Polaris Dev.app` rather than node_modules' `Electron.app`, so the app menu, Dock, ⌘⇥ and Activity Monitor say "Polaris Dev" (helpers too) and the Dock shows the dusk icon. `scripts/lib/devBundle.ts` makes it on first use: a clonefile copy (`cp -c`) of Electron.app, its executable and helpers renamed, `CFBundleName`/`CFBundleDisplayName` "Polaris Dev", `CFBundleIdentifier` `dev.lux.polaris.dev`, `design/assets/app-icon/dusk/PolarisDev.icns` as the icon, re-signed ad hoc. That takes about 1.5 s. After that `out/dev/stamp.json` (Electron's path and Info.plist, the icon's hash, the patch version) keeps it until one of those changes. `POLARIS_DESKTOP_STOCK_ELECTRON=1` runs stock Electron instead; Linux and Windows always do. userData doesn't move: dev still uses `POLARIS_DESKTOP_USER_DATA`, or `<tmpdir>/polaris-desktop-dev-user-data`, and `nameApp` keeps the path it had before renaming. `build` and `package` still start from stock Electron.
 
-**Packaging** (`scripts/package.ts`, `@electron/packager`): builds main and the renderer, builds the Daemon for every platform (`apps/daemon` `build`), stages an app directory holding only `out/{main,preload,renderer}` and a minimal `package.json` (the bundles are self-contained; only `electron` is external), and packages it with appId `dev.lux.polaris`, the developer-tools category, the generated icon (`design/assets/app-icon/Polaris.icns`, from `design/scripts/gen_app_icon.py`), and `extraResource` for `Resources/daemon/` (every Daemon build plus `manifest.json`, which `machines/builds.ts` reads when packaged) and `Resources/icon.png` (the Linux window icon). The app is unsigned: Gatekeeper asks on first open (right-click → Open). The name and icon also apply in dev (`src/main/identity.ts`: `app.setName`, About, and the dusk Dock icon), and on macOS dev runs `Polaris Dev.app` (above), so the Dock and the app menu read "Polaris Dev".
+**Packaging** (`scripts/package.ts`, `@electron/packager`): builds main and the renderer, builds the Daemon for every platform (`apps/daemon` `build`), stages an app directory holding only `out/{main,preload,renderer}` and a minimal `package.json` (the bundles are self-contained; only `electron` is external), and packages it with appId `dev.lux.polaris`, the developer-tools category, the generated icon (`design/assets/app-icon/Polaris.icns`, from `design/scripts/gen_app_icon.py`), and `extraResource` for `Resources/daemon/` (every Daemon build plus `manifest.json`, which `machines/builds.ts` reads when packaged) and `Resources/icon.png` (the Linux window icon). The name and icon also apply in dev (`src/main/identity.ts`: `app.setName`, About, and the dusk Dock icon), and on macOS dev runs `Polaris Dev.app` (above), so the Dock and the app menu read "Polaris Dev".
 
-Follow-ups: signing with a Developer ID and notarising (`osxSign`, `osxNotarize`, hardened runtime and entitlements for the JIT), a DMG or zip for download, Linux AppImage/deb (today `--linux` makes an unpacked `Polaris-linux-x64/`), a macOS 26 `.icon` (Icon Composer) beside the `.icns` for the tinted and clear modes, and slimming `Resources/daemon` (about 485 MB for five builds; the packaged app is about 790 MB).
+`bun run --cwd apps/desktop package --release` builds every Daemon with `--release`, using the shared `apps/desktop/package.json` and `apps/daemon/package.json` version. A mismatch fails before building; `--reuse-daemon` is refused in release mode so stale dev builds cannot ship. Without `--release`, Daemons retain their commit-qualified dev versions; `--reuse-daemon` remains available for local packaging. The macOS build also produces `out/dist/Polaris-<version>-arm64-mac.zip`, with `Polaris.app` at the archive root. `ditto --keepParent --sequesterRsrc` preserves Electron's framework symlinks and the stapled ticket for Updates.
+
+With no Apple credentials, packaging skips signing and notarisation and produces an unsigned app and zip. For a signed build, first import the Developer ID Application certificate from `MACOS_CERT_P12` using `MACOS_CERT_PASSWORD` into an unlocked keychain (the Release workflow owns import and cleanup). Set these environment variables:
+
+| Variable | Value |
+|---|---|
+| `APPLE_TEAM_ID` | Team owning the Developer ID Application identity. |
+| `APPLE_API_KEY` | Absolute path to the App Store Connect **Team Key** `.p8` file, not its contents. |
+| `APPLE_API_KEY_ID` | API key ID. |
+| `APPLE_API_ISSUER` | Team Key issuer ID. |
+| `MACOS_SIGNING_IDENTITY` | Optional exact certificate name or SHA-1 identity hash; required if the team has several valid Developer ID Application identities. |
+| `MACOS_KEYCHAIN` | Optional keychain path, shared by identity lookup, tool signing and Electron signing. |
+
+Partial credentials, a missing key file, a missing/ambiguous identity, signing errors or notarisation errors fail the build. Certificate material stays in the keychain; packaging never imports it or logs its password. macOS and Xcode with `notarytool` are required for the signed path.
+
+Packaging signs `darwin-arm64/polaris` and `betterleaks` with Developer ID, a secure timestamp and hardened runtime **before** copying them into the app. The Bun Daemon uses `packaging/entitlements/daemon.plist`: JIT and unsigned executable memory, plus disabled library validation for the embedded fff/ast-grep native modules. Betterleaks uses `packaging/entitlements/betterleaks.plist` with unsigned executable memory for its go-re2/wazero regex engine. A hardened-runtime ad-hoc check of the pinned binary passes `version` without exceptions but is killed during scanning; unsigned executable memory alone makes the full planted-token selftest pass (JIT or disabled library validation alone does not). The signed Daemon runs `selftest` (including native-module loading), and Betterleaks runs `version`. Only then are their SHA-256s and sizes written to `apps/daemon/dist/manifest.json`. Linux binaries and hashes remain unchanged. The same signed bytes and manifest ship in `Resources/daemon`, which the Client uploads to remote Hosts; `osxSign` explicitly skips this subtree to preserve the signatures and hashes. Packaging checks every manifest file before signing and again after app packaging, so later tool mutation fails the build.
+
+Packager's `osxSign` signs Electron with hardened runtime, `continueOnError: false` and `packaging/entitlements/electron.plist` (`allow-jit` only). `osxNotarize` submits via the API key, waits and staples the app; packaging verifies its code signature and stapled ticket before creating the final zip. Entitlements follow [Bun's executable signing guide](https://bun.sh/docs/guides/runtime/codesign-macos-executable) and the installed [`@electron/notarize` guidance](https://github.com/electron/notarize#prerequisites); Electron does not receive Bun's broader runtime exceptions. A real Developer ID/notarisation dry run is required once Apple enrollment and secrets are available (ENG-253/ENG-262).
+
+Release packaging also emits `out/dist/Polaris-<version>-arm64.dmg`, with the dawn background, an Applications link and a Retina Finder layout. It builds from the completed app without changing its bytes; signed builds also sign, notarise and staple the DMG. See [Installer build](scripts/packaging/README.md) for prerequisites and Finder preference limits.
+
+## Release procedure
+
+[Release](../../.github/workflows/release.yml) runs on pushed `v*` tags, on the macOS 15 arm64 runner in the GitHub `release` environment. It accepts `v<major>.<minor>.<patch>` and `v<major>.<minor>.<patch>-rc.N`. Before installing dependencies, it checks that both the Desktop App and Daemon package versions exactly equal the tag without `v`.
+
+Configure these secrets in the `release` environment (ENG-253):
+
+| Secret | Value |
+|---|---|
+| `MACOS_CERT_P12` | Base64-encoded exported Developer ID Application `.p12` certificate, including its private key. |
+| `MACOS_CERT_PASSWORD` | Password used to export that certificate. |
+| `APPLE_API_KEY` | Contents of the App Store Connect Team Key `.p8` file. The workflow writes a private temporary file and passes its path to packaging. |
+| `APPLE_API_KEY_ID` | Team Key ID. |
+| `APPLE_API_ISSUER` | Team Key issuer ID. |
+| `APPLE_TEAM_ID` | Developer team ID. |
+| `MACOS_SIGNING_IDENTITY` | Optional exact Developer ID Application certificate name or SHA-1 hash when identity selection needs it. Set only with all six required secrets. |
+
+All six required secrets enable signing and notarisation for either tag kind. Partial credentials fail. An `-rc.N` tag may build unsigned when no signing secrets are configured; a stable tag fails without them. The workflow generates a temporary keychain password, imports and unlocks the certificate, and always deletes the keychain, certificate and API key files after use, restoring the runner's keychain search list. Configure environment protection and tag restrictions in GitHub before the first release.
+
+1. **Bump PR.** Update `apps/desktop/package.json` and `apps/daemon/package.json` to the same version in a normal PR, run the repository checks, and merge it. Use an `-rc.N` version for a release candidate. The workflow makes no version commits.
+2. **Tag.** Tag the merged commit, for example `git tag -a v0.1.0-rc.1 <merged-commit> -m 'Polaris 0.1.0-rc.1'`, then `git push origin v0.1.0-rc.1`. Resolve any `release` environment approval requested by GitHub.
+3. **Draft.** Review the Actions run and generated release notes. Packaging rebuilds all five release-versioned Daemons, the app, ZIP and DMG. `packageCheck.ts` must pass against the packaged app; signed builds also require code signature verification, Gatekeeper assessment and stapled-ticket validation for the app and DMG. The workflow creates a **draft**; `-rc.N` drafts are also **prereleases**. Unsigned drafts are labelled in their notes.
+4. **Install.** Download the draft DMG, drag Polaris to Applications and launch it on a test Mac. Check the app version, local Host connection and a standalone remote Host installation. For a signed candidate, check Gatekeeper acceptance and the notarisation tickets on the downloaded app and DMG. Exercise an Update from the previous published version using the ZIP. An unsigned candidate is a credential-free packaging check; it does not validate Gatekeeper or Apple notarisation. Complete the signed release-candidate dry run when ENG-253 credentials exist (ENG-262).
+5. **Publish.** A maintainer publishes the reviewed draft in GitHub after installation checks. Keep release candidates marked as prereleases. For a stable release, use a new version-bump PR and stable tag, then publish the signed draft as the latest release. The workflow never publishes automatically.
+
+The uploaded assets are exactly `Polaris-<version>-arm64.dmg` and `Polaris-<version>-arm64-mac.zip`; `<version>` has no `v` prefix. The site's [feed contract](../site/app/api/update/README.md) excludes drafts and prereleases: `/download/mac` selects the DMG and the Update feed selects the ZIP from the latest published stable release. Before publishing, confirm both assets exist under those names. A rerun does not overwrite an existing release: if creation or upload failed after leaving a partial draft, inspect and remove only that unpublished draft before rerunning the same tag; never move a published tag.
+
+Follow-ups: Linux AppImage/deb (today `--linux` makes an unpacked `Polaris-linux-x64/`), a macOS 26 `.icon` (Icon Composer) beside the `.icns` for the tinted and clear modes, and slimming `Resources/daemon` (about 485 MB for five builds; the packaged app is about 790 MB).
 
 `dev` connects the local Host to `~/.polaris/daemon.sock` when a Daemon answers there; otherwise it starts a dev Daemon from source with its own home and the scripted bench Harness, and keeps it across restarts (ADR 0007). Builds: Vite for the renderer, `Bun.build` for main and preload (ADR 0008).
 
@@ -163,6 +210,13 @@ The switch into and out of the heavy session is measured and reported, not gated
 - Payloads are structured-clone plain data: class instances lose their prototype, so the renderer types domain values as plain records (`store/plain.ts`).
 
 ## Settings
+
+Settings → About shows the installed version, Desktop App Updates, the automatic
+check switch, Check now and the per-check privacy fields (ADR-0017). A staged
+Update offers Restart to update in About, the native app menu and the K menu;
+Quit becomes Quit and update. Daemon Upgrades stay quiet in the machine bar and
+Hosts row. See [the updater](src/main/updates/README.md) for the feed contract,
+fake-feed smoke, packaged-build restrictions and idle evidence.
 
 `<userData>/settings.json`: `theme` (`system` | `dark` | `light`), `density` (`calm` | `balanced` | `compact`), `textSize` (`small` | `default` | `large` | `larger`), `diffPalette` (`default` | `cvd`), `motion` (`system` | `reduce` | `full`), `codeFont` (`sf-mono` | `menlo`), `sessionDefaults` (by Harness kind: `{ model, effort, permissionMode }`, what new sessions and the Harness picker start with), `welcomeSeen` (scripts that launch the app past the welcome use `scripts/lib/userData.ts`), `hosts`: `[{ alias, label?, colour?, forwardAgent?, remoteCommand? }]` by `~/.ssh/config` alias (edited from Settings → Hosts), and `local: { enabled }` (this Mac as a Host; on by default). `<userData>/approvals.json` holds the approved Daemon builds per alias. The renderer sets `data-theme` (unset for system), `data-density`, `data-text-size`, `data-diff-palette`, `data-reduce-motion` (unset follows macOS; `false` keeps motion) and `--font-mono` on the root. `settings.setAppearance` takes any subset; every window hears the change as an `AppEvent`.
 

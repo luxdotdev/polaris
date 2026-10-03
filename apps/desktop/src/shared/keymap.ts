@@ -23,6 +23,9 @@ export type CommandId =
   | "session.openInTerminal"
   | "theme.toggle"
   | "settings.open"
+  | "settings.about"
+  | "updates.check"
+  | "updates.restart"
   | "settings.appearance"
   | "settings.sessions"
   | "settings.editor"
@@ -106,6 +109,9 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
   { id: "workspace.add", title: "Add workspace…", keys: ["CmdOrCtrl+O"], menu: "Go" },
   // macOS's own Settings… chord, in the app menu (DESIGN.md, Settings).
   { id: "settings.open", title: "Settings…", keys: ["CmdOrCtrl+,"], menu: "App" },
+  { id: "settings.about", title: "Settings: About", keys: [] },
+  { id: "updates.check", title: "Check for updates", keys: [] },
+  { id: "updates.restart", title: "Restart to update", keys: [] },
   { id: "settings.appearance", title: "Settings: Appearance", keys: [] },
   { id: "settings.sessions", title: "Settings: Sessions", keys: [] },
   { id: "settings.editor", title: "Settings: Editor", keys: [] },

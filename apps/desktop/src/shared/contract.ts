@@ -197,6 +197,11 @@ export type CachedHost = typeof CachedHost.Type;
 /** Every request a renderer can make, keyed by method. Outputs are in `api.ts`. */
 export const RequestInputs = {
   "settings.get": Schema.Struct({}),
+  "updates.get": Schema.Struct({}),
+  "updates.check": Schema.Struct({}),
+  "updates.setAutomatic": Schema.Struct({ enabled: Schema.Boolean }),
+  "updates.restart": Schema.Struct({}),
+  "updates.showInFinder": Schema.Struct({}),
   "cache.get": Schema.Struct({}),
   "cache.put": Schema.Struct({ host: CachedHost }),
   "settings.setTheme": Schema.Struct({ theme: ThemeSource }),

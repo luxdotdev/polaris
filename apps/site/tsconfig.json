@@ -1,0 +1,24 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "types": ["bun"],
+    "jsx": "preserve",
+    "allowJs": false,
+    "incremental": false,
+    "plugins": [{ "name": "next" }]
+  },
+  "include": [
+    "next-env.d.ts",
+    "types.d.ts",
+    "app",
+    "emails",
+    "components",
+    "lib",
+    "scripts",
+    "next.config.ts",
+    "instrumentation-client.ts",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": ["node_modules"]
+}

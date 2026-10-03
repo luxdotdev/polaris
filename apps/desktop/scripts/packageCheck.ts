@@ -9,8 +9,11 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { _electron as electron } from "playwright-core";
+import type { PolarisApi } from "../src/shared/api.ts";
 import { startDaemon } from "./lib/daemon.ts";
 import { APP_DIR } from "./lib/electron.ts";
+
+declare const window: { readonly polaris: PolarisApi };
 
 const args = process.argv.slice(2);
 
@@ -32,10 +35,12 @@ const daemon = await startDaemon({ home, benchHarness: true, userHome: join(home
 
 const app = await electron.launch({
   executablePath: join(bundle, "Contents/MacOS/Polaris"),
+  args: ["--use-mock-keychain"],
   env: {
     ...process.env,
     POLARIS_DESKTOP_LOCAL_SOCKET: daemon.socketPath,
     POLARIS_DESKTOP_USER_DATA: userData,
+    POLARIS_DESKTOP_BENCH_HARNESS: "1",
   },
 });
 
@@ -72,10 +77,49 @@ try {
   check("Daemon builds", facts.daemonBuilds, "Resources/daemon/manifest.json");
   check("window icon", facts.icon, "Resources/icon.png");
 
-  await page
-    .locator('[data-host="local"][data-connection="connected"]')
-    .first()
-    .waitFor({ timeout: 30_000 });
+  // The empty-workspace home screen does not render the Host bar.
+  await page.waitForFunction(() => Boolean(window.polaris));
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve, reject) => {
+        let lastStatus = "no Host feed items";
+
+        const timer = setTimeout(() => {
+          cancel();
+          reject(new Error(`local Host did not connect in 30 s: ${lastStatus}`));
+        }, 30_000);
+
+        const cancel = window.polaris.subscribe(
+          "hosts",
+          {},
+          {
+            items: (items) => {
+              lastStatus = JSON.stringify(
+                items.flatMap((hosts) =>
+                  hosts.map((host) => ({ key: host.key, status: host.status }))
+                )
+              );
+
+              if (
+                !items.some((hosts) =>
+                  hosts.some((host) => host.key === "local" && host.status.state === "connected")
+                )
+              )
+                return;
+
+              clearTimeout(timer);
+              cancel();
+              resolve();
+            },
+            end: () => {
+              clearTimeout(timer);
+              cancel();
+              reject(new Error("Host feed ended before the local Host connected"));
+            },
+          }
+        );
+      })
+  );
   check("local Daemon", true, "connected");
 
   if (shot !== null) await page.screenshot({ path: shot });

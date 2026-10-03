@@ -102,9 +102,6 @@ def save(img,name,s,sub):
     im=Image.fromarray(np.clip(img,0,255).astype('uint8'))
     up(im,s).save(OUTP(sub,name))
 
-W,H=360,225
-night=scene(W,H,['#070912','#0A0D1A','#0E1325','#141B33','#1C2542','#27304F'],
-    [('#141A2C',0.70,0.18,3),('#10152A',0.78,0.14,5),('#0B0F1E',0.86,0.10,9)],'#BCD3FF',True,11)
 # The cabin: the one warm human touch. Drawn as a sprite and seated on the ground line.
 CABIN = [
     "............S.....",
@@ -184,23 +181,6 @@ def save_motion(motion, cabin, name, extra):
         json.dump({**motion, 'cabin': cabin, **extra}, f, separators=(',', ':'))
         f.write('\n')
 
-night, night_ground, night_motion = night
-night_cabin = place_cabin(night, night_ground, int(W * 0.14), int(W * 0.34), CABIN_NIGHT)
-save(night,'scene-night.png',4,'scenes')
-# A meteor is the star palette: a white head and a tail that cools into the sky.
-save_motion(night_motion, night_cabin, 'scene-night.json', {'kind': 'night', 'meteor': ['#E8EEFF', '#BCD3FF', '#8A96B8', '#4A5578']})
-dawn,dawn_ground,dawn_motion=scene(W,H,['#C9D8F2','#D8E1F4','#E9E6F0','#F6E4DA','#FBE3CC','#FCE9D2'],
-    [('#B7C9A8',0.70,0.18,3),('#9DB78F',0.78,0.14,5),('#7FA074',0.86,0.10,9)],'#FFFFFF',False,12)
-# meadow flowers
-r=random.Random(4)
-for _ in range(260):
-    x=r.randrange(W); y=r.randrange(int(H*0.88),H)
-    dawn[y,x]=hexc(r.choice(['#F4D35E','#FFFFFF','#F2B5C4']))
-dawn_cabin = place_cabin(dawn, dawn_ground, int(W * 0.14), int(W * 0.34), CABIN_DAWN)
-save(dawn,'scene-dawn.png',4,'scenes')
-# Birds at dawn are distant silhouettes in the cabin's roof brown.
-save_motion(dawn_motion, dawn_cabin, 'scene-dawn.json', {'kind': 'dawn', 'bird': CABIN_DAWN['R']})
-
 # pixel watercolour washes (tile textures)
 def wash(hue,ground,name,w=40,h=40,seed=3,strength=(0.10,0.42)):
     ys,xs=np.mgrid[0:h,0:w]
@@ -212,13 +192,6 @@ def wash(hue,ground,name,w=40,h=40,seed=3,strength=(0.10,0.42)):
     pal=['#%02x%02x%02x'%tuple(int(t) for t in s) for s in steps]
     img=quant(v,pal,xs,ys)
     save(img,name,4,'washes')
-for seed,(hue,n) in enumerate([('#D97757','claude'),('#6FCBA0','codex'),('#9DBAF5','starlight'),('#F2C84B','needs'),('#E58FA8','opencode')]):
-    wash(hue,'#222327',f'wash-{n}-dark.png',seed=20+seed,strength=(0.16,0.62))
-    wash(hue,'#FFFFFF',f'wash-{n}-light.png',seed=20+seed,strength=(0.08,0.40))
-# wide wash for toast/banner
-wash('#6FCBA0','#222327','wash-codex-dark-wide.png',w=90,h=24,seed=5,strength=(0.05,0.30))
-wash('#D97757','#FFFFFF','wash-claude-light-wide.png',w=90,h=24,seed=6,strength=(0.06,0.34))
-
 # dithered halo (alpha) behind composer
 def halo(hue,name,w=200,h=90,cell=1,peak=0.5):
     ys,xs=np.mgrid[0:h,0:w]
@@ -228,10 +201,44 @@ def halo(hue,name,w=200,h=90,cell=1,peak=0.5):
     rgba=np.zeros((h,w,4),np.uint8)
     rgba[...,:3]=hexc(hue); rgba[...,3]=np.where(on,90,0)
     up(Image.fromarray(rgba,'RGBA'),4).save(OUTP('halos',name))
-# one per identity hue and theme; light halos use the -light hue on bg-light
-for n,dark,light in (('claude','#D97757','#C4562F'),('codex','#6FCBA0','#1E8A5C'),('opencode','#E58FA8','#B8466A')):
-    halo(dark,f'halo-{n}.png')
-    halo(light,f'halo-{n}-light.png')
-halo('#BCD3FF','halo-starlight.png',peak=0.6)
-halo('#4F82E8','halo-starlight-light.png',peak=0.6)
-print('done')
+
+def main():
+    W,H=360,225
+    night=scene(W,H,['#070912','#0A0D1A','#0E1325','#141B33','#1C2542','#27304F'],
+        [('#141A2C',0.70,0.18,3),('#10152A',0.78,0.14,5),('#0B0F1E',0.86,0.10,9)],'#BCD3FF',True,11)
+
+    night, night_ground, night_motion = night
+    night_cabin = place_cabin(night, night_ground, int(W * 0.14), int(W * 0.34), CABIN_NIGHT)
+    save(night,'scene-night.png',4,'scenes')
+    # A meteor is the star palette: a white head and a tail that cools into the sky.
+    save_motion(night_motion, night_cabin, 'scene-night.json', {'kind': 'night', 'meteor': ['#E8EEFF', '#BCD3FF', '#8A96B8', '#4A5578']})
+    dawn,dawn_ground,dawn_motion=scene(W,H,['#C9D8F2','#D8E1F4','#E9E6F0','#F6E4DA','#FBE3CC','#FCE9D2'],
+        [('#B7C9A8',0.70,0.18,3),('#9DB78F',0.78,0.14,5),('#7FA074',0.86,0.10,9)],'#FFFFFF',False,12)
+    # meadow flowers
+    r=random.Random(4)
+    for _ in range(260):
+        x=r.randrange(W); y=r.randrange(int(H*0.88),H)
+        dawn[y,x]=hexc(r.choice(['#F4D35E','#FFFFFF','#F2B5C4']))
+    dawn_cabin = place_cabin(dawn, dawn_ground, int(W * 0.14), int(W * 0.34), CABIN_DAWN)
+    save(dawn,'scene-dawn.png',4,'scenes')
+    # Birds at dawn are distant silhouettes in the cabin's roof brown.
+    save_motion(dawn_motion, dawn_cabin, 'scene-dawn.json', {'kind': 'dawn', 'bird': CABIN_DAWN['R']})
+
+    for seed,(hue,n) in enumerate([('#D97757','claude'),('#6FCBA0','codex'),('#9DBAF5','starlight'),('#F2C84B','needs'),('#E58FA8','opencode')]):
+        wash(hue,'#222327',f'wash-{n}-dark.png',seed=20+seed,strength=(0.16,0.62))
+        wash(hue,'#FFFFFF',f'wash-{n}-light.png',seed=20+seed,strength=(0.08,0.40))
+    # wide wash for toast/banner
+    wash('#6FCBA0','#222327','wash-codex-dark-wide.png',w=90,h=24,seed=5,strength=(0.05,0.30))
+    wash('#D97757','#FFFFFF','wash-claude-light-wide.png',w=90,h=24,seed=6,strength=(0.06,0.34))
+
+    # one per identity hue and theme; light halos use the -light hue on bg-light
+    for n,dark,light in (('claude','#D97757','#C4562F'),('codex','#6FCBA0','#1E8A5C'),('opencode','#E58FA8','#B8466A')):
+        halo(dark,f'halo-{n}.png')
+        halo(light,f'halo-{n}-light.png')
+    halo('#BCD3FF','halo-starlight.png',peak=0.6)
+    halo('#4F82E8','halo-starlight-light.png',peak=0.6)
+    print('done')
+
+
+if __name__ == "__main__":
+    main()

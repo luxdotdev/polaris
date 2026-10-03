@@ -1,3 +1,4 @@
+import { childEnv } from "../service/childEnv.ts";
 import { constants } from "node:os";
 import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
@@ -22,11 +23,11 @@ export const runLease = async (args: ReadonlyArray<string>): Promise<number> => 
     ["-c", 'read -r go <&3 && exec "$@"', "polaris-lease", ...command],
     {
       stdio: ["inherit", "inherit", "inherit", "pipe"],
-      env: {
+      env: childEnv({
         ...process.env,
         POLARIS_LEASE_HELD: name,
         POLARIS_HOST_SOCKET: process.env.POLARIS_HOST_SOCKET ?? paths().socket,
-      },
+      }),
     }
   );
 

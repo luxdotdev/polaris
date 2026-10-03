@@ -34,6 +34,7 @@ import { latestRolloutLimits, PlanLimitReporter } from "../harness/limits/index.
 import { HarnessRegistryLive } from "../harness/registry.ts";
 import { releaseWhenQuiet } from "../memory/index.ts";
 import { userPath } from "../service/userPath.ts";
+import { takeHandoff } from "../service/upgrade.ts";
 import { EventStore } from "../store/EventStore.ts";
 import { TerminalRpcsLive } from "../terminal/TerminalRpcs.ts";
 import { TerminalsDaemonLive } from "../terminal/Terminals.ts";
@@ -157,6 +158,11 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
 
 export const serveProgram = Effect.scoped(
   Effect.gen(function* () {
+    yield* takeHandoff();
+
+    // Adopt descriptors before the login-shell PATH probe or any handler starts a child.
+    if (!bench) process.env.PATH = userPath({ env: process.env });
+
     const server = yield* startServer({
       handlers: daemonHandlers,
       capabilities: daemonCapabilities,
@@ -178,8 +184,5 @@ export const serveProgram = Effect.scoped(
 
 export const runServe = () => {
   installDebugHooks();
-  // Harnesses live where the user's terminal finds them, not on the service's bare PATH.
-
-  if (!bench) process.env.PATH = userPath({ env: process.env });
   BunRuntime.runMain(serveProgram);
 };

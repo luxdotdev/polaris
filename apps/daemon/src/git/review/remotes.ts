@@ -4,6 +4,7 @@
  * apply), else the repository's URL in the transport their other remotes on
  * that host use. And the ssh command that can never prompt.
  */
+import { childEnv } from "../../service/childEnv.ts";
 import type { RepoRef } from "@polaris/protocol";
 import { runGitRaw } from "../git.ts";
 
@@ -73,6 +74,7 @@ const decoder = new TextDecoder();
 export const resolveSshHost = async (alias: string): Promise<string> => {
   try {
     const proc = Bun.spawn(["ssh", "-G", alias], {
+      env: childEnv(),
       stdin: "ignore",
       stdout: "pipe",
       stderr: "ignore",

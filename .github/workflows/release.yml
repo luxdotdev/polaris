@@ -1,0 +1,185 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: macOS arm64 draft
+    runs-on: macos-15
+    environment: release
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Validate tag, versions and signing policy
+        id: metadata
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          python3 - <<'PY'
+          import json, os, re
+          from pathlib import Path
+
+          tag = os.environ["RELEASE_TAG"]
+          number = r"(?:0|[1-9][0-9]*)"
+          if not re.fullmatch(rf"v{number}\.{number}\.{number}(?:-rc\.{number})?", tag):
+              raise SystemExit("Expected v<major>.<minor>.<patch> or v<major>.<minor>.<patch>-rc.N")
+          version = tag[1:]
+          for package in ("desktop", "daemon"):
+              actual = json.loads(Path(f"apps/{package}/package.json").read_text())["version"]
+              if actual != version:
+                  raise SystemExit(f"Tag/version mismatch: {package} is {actual}, tag is {version}")
+
+          names = ("MACOS_CERT_P12", "MACOS_CERT_PASSWORD", "APPLE_API_KEY",
+                   "APPLE_API_KEY_ID", "APPLE_API_ISSUER", "APPLE_TEAM_ID")
+          present = [name for name in names if os.environ.get(name, "").strip()]
+          if present and len(present) != len(names):
+              raise SystemExit("Incomplete signing secrets: missing " + ", ".join(n for n in names if n not in present))
+          prerelease = "-rc." in version
+          signed = bool(present)
+          if not prerelease and not signed:
+              raise SystemExit("Stable tags require all six signing secrets")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write(f"version={version}\nprerelease={str(prerelease).lower()}\nsigned={str(signed).lower()}\n")
+          PY
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          python-version: "3.12"
+          enable-cache: false
+      - name: Check runner prerequisites
+        run: |
+          test "$(uname -m)" = arm64
+          xcrun --find SetFile
+          xcrun --find notarytool
+          uv python install 3.12
+      - run: bun install --frozen-lockfile
+
+      - name: Import signing credentials
+        id: signing
+        if: steps.metadata.outputs.signed == 'true'
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+        run: |
+          umask 077
+          signing_dir="$RUNNER_TEMP/polaris-signing"
+          mkdir "$signing_dir"
+          security list-keychains -d user > "$signing_dir/keychains.txt"
+          printf '%s' "$MACOS_CERT_P12" | base64 --decode > "$signing_dir/certificate.p12"
+          printf '%s' "$APPLE_API_KEY" > "$signing_dir/AuthKey.p8"
+          keychain="$signing_dir/release.keychain-db"
+          keychain_password=$(openssl rand -hex 32)
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$signing_dir/certificate.p12" -P "$MACOS_CERT_PASSWORD" \
+            -k "$keychain" -t cert -f pkcs12 -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$keychain_password" "$keychain" > /dev/null
+          python3 - <<'PY'
+          import os, shlex, subprocess
+          from pathlib import Path
+          directory = Path(os.environ["RUNNER_TEMP"]) / "polaris-signing"
+          original = shlex.split((directory / "keychains.txt").read_text())
+          subprocess.run(["security", "list-keychains", "-d", "user", "-s",
+                          str(directory / "release.keychain-db"), *original], check=True)
+          PY
+          rm "$signing_dir/certificate.p12"
+          printf 'keychain=%s\napi_key=%s\n' "$keychain" "$signing_dir/AuthKey.p8" >> "$GITHUB_OUTPUT"
+
+      - name: Package release app, Update ZIP and installer DMG
+        env:
+          APPLE_API_KEY: ${{ steps.signing.outputs.api_key }}
+          MACOS_KEYCHAIN: ${{ steps.signing.outputs.keychain }}
+          MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: bun run --cwd apps/desktop package --release
+
+      - name: Smoke-test packaged app
+        run: node apps/desktop/scripts/packageCheck.ts
+
+      - name: Assess signed app and validate stapled tickets
+        if: steps.metadata.outputs.signed == 'true'
+        env:
+          VERSION: ${{ steps.metadata.outputs.version }}
+        run: |
+          app=apps/desktop/out/dist/Polaris-darwin-arm64/Polaris.app
+          dmg="apps/desktop/out/dist/Polaris-$VERSION-arm64.dmg"
+          codesign --verify --deep --strict "$app"
+          spctl --assess --type execute --verbose=2 "$app"
+          xcrun stapler validate "$app"
+          codesign --verify --strict "$dmg"
+          spctl --assess --type open --context context:primary-signature --verbose=2 "$dmg"
+          xcrun stapler validate "$dmg"
+
+      - name: Delete temporary signing credentials
+        if: always() && steps.metadata.outputs.signed == 'true'
+        run: |
+          signing_dir="$RUNNER_TEMP/polaris-signing"
+          trap 'rm -rf "$signing_dir"' EXIT
+          python3 - <<'PY'
+          import os, shlex, subprocess
+          from pathlib import Path
+          directory = Path(os.environ["RUNNER_TEMP"]) / "polaris-signing"
+          try:
+              saved = directory / "keychains.txt"
+              if saved.exists():
+                  subprocess.run(["security", "list-keychains", "-d", "user", "-s",
+                                  *shlex.split(saved.read_text())], check=True)
+          finally:
+              keychain = directory / "release.keychain-db"
+              if keychain.exists():
+                  subprocess.run(["security", "delete-keychain", str(keychain)], check=True)
+          PY
+
+      - name: Create draft GitHub Release with exact feed assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          VERSION: ${{ steps.metadata.outputs.version }}
+          PRERELEASE: ${{ steps.metadata.outputs.prerelease }}
+          SIGNED: ${{ steps.metadata.outputs.signed }}
+        run: |
+          dmg="apps/desktop/out/dist/Polaris-$VERSION-arm64.dmg"
+          zip="apps/desktop/out/dist/Polaris-$VERSION-arm64-mac.zip"
+          test -s "$dmg"
+          test -s "$zip"
+          flags=(--draft --verify-tag --generate-notes)
+          if [[ "$PRERELEASE" == true ]]; then
+            flags+=(--prerelease --latest=false)
+          fi
+          if [[ "$SIGNED" == false ]]; then
+            flags+=(--notes 'Unsigned release candidate for testing. Signing and notarisation were skipped.')
+          fi
+          gh release create "$RELEASE_TAG" "$dmg" "$zip" "${flags[@]}"

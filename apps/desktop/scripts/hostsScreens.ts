@@ -95,18 +95,18 @@ try {
   if (first !== "machine-local") throw new Error(`This Mac isn't first: ${first}`);
 
   for (const text of [
-    "Update available · 0.4.1 → 0.5.0",
+    "0.5.0 available · upgrades its daemon only when you ask",
     "Copying polaris 0.5.0 · 7.3 of 18.6 MB",
     "Switching to 0.5.0; agent sessions keep going",
     "Checking NUC",
-    "Updates once Old laptop is connected",
-    "Updated to 0.5.0 · 3m ago",
+    "Upgrades to 0.5.0 when it connects",
+    "Upgraded to 0.5.0 · 3m ago",
   ])
     await expectText(page, text);
 
   // The row menu's override, and a host that keeps its own choice says so.
   await page.getByRole("button", { name: "Mac Studio actions" }).click();
-  await expectText(page, "Daemon updates");
+  await expectText(page, "Daemon upgrades");
   await page.waitForTimeout(400);
   await shot(page, "menu-dark");
   await page.keyboard.press("Escape");
@@ -118,12 +118,12 @@ try {
   await appearance(page, "light", "calm");
   const studio = page.getByTestId("machine-studio");
 
-  await studio.getByRole("button", { name: "Update" }).click();
+  await studio.getByRole("button", { name: "Upgrade" }).click();
   await expectText(page, "Checking Mac Studio");
   await page.getByRole("progressbar").waitFor();
   await shot(page, "live-uploading-light");
   await expectText(page, "Switching to 0.5.0");
-  await expectText(page, "Updated to 0.5.0");
+  await expectText(page, "Upgraded to 0.5.0");
   await shot(page, "live-done-light");
   await page.getByRole("switch", { name: "Keep daemons up to date" }).click();
   await page

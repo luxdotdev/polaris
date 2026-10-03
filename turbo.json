@@ -8,6 +8,19 @@
       "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/scripts/build-daemon.ts"],
       "outputs": ["dist/**"]
     },
+    "@polaris/site#build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**"],
+      "passThroughEnv": [
+        "AXIOM_TOKEN",
+        "AXIOM_DATASET",
+        "AXIOM_DOMAIN",
+        "AWS_REGION",
+        "AWS_ROLE_ARN",
+        "POLARIS_EMAIL_FROM",
+        "POLARIS_EMAIL_CONFIGURATION_SET"
+      ]
+    },
     "typecheck": { "dependsOn": ["^typecheck"] },
     "test": { "dependsOn": ["^build"], "env": ["POLARIS_PBT_*"] },
     "dev": { "cache": false, "persistent": true },

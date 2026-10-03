@@ -671,7 +671,7 @@ describe("Constellation instructions", () => {
     tools: [],
   };
 
-  test("fresh and resumed sessions append the skill and bind only Polaris tools", async () => {
+  test("fresh and resumed sessions append the skill and add Polaris tools beside the user's MCP servers", async () => {
     for (const resumeCursor of [null, "claude-existing"]) {
       const h = await openFake({ constellation: attachment, resumeCursor });
 
@@ -679,7 +679,7 @@ describe("Constellation instructions", () => {
         expect(h.fake.options?.systemPrompt).toMatchObject({
           append: polarisInstructions({ constellation: attachment }),
         });
-        expect(h.fake.options?.strictMcpConfig).toBe(true);
+        expect(h.fake.options?.strictMcpConfig).toBeUndefined();
         expect(h.fake.options?.allowedTools).toEqual(["mcp__polaris__*"]);
         expect(h.fake.options?.mcpServers).toHaveProperty("polaris");
       } finally {

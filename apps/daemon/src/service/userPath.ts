@@ -6,6 +6,7 @@
  * once, as an interactive login shell (where nvm and friends set PATH), and
  * merges that with its own PATH and a few well-known user bin directories.
  */
+import { childEnv } from "./childEnv.ts";
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
@@ -65,7 +66,7 @@ export const loginShellPath = ({ env, timeoutMs = 3000 }: UserPathInput): string
   if (shell === undefined || shell === "" || !existsSync(shell)) return null;
 
   const result = spawnSync(shell, ["-i", "-l", "-c", SCRIPT], {
-    env: { ...env, TERM: "dumb" },
+    env: childEnv({ ...env, TERM: "dumb" }),
     stdio: ["ignore", "pipe", "ignore"],
     timeout: timeoutMs,
     encoding: "utf8",

@@ -50,6 +50,8 @@ export class UpgradeError extends Schema.TaggedError<UpgradeError>()("UpgradeErr
 export const HANDOFF_ENV = "POLARIS_HANDOFF";
 
 export const Handoff = Schema.Struct({
+  /** Same PID across execve; absent on envelopes produced by older Daemons. */
+  ownerPid: Schema.optional(Schema.Int),
   /** The inherited listening socket, or null if the Daemon had none. */
   listenerFd: Schema.NullOr(Schema.Int),
   /** Other inherited fds by name, e.g. `harness:<sessionId>` for a Harness's socketpair stdio. */
@@ -98,6 +100,7 @@ export const prepareHandoff = Effect.fn("prepareHandoff")(function* (
   });
 
   const handoff: Handoff = {
+    ownerPid: process.pid,
     listenerFd,
     fds: { ...fds },
     children: { ...extras.children },
@@ -141,6 +144,28 @@ export const execInto = Effect.fn("execInto")(function* (options: {
 
 let taken: Handoff | null | undefined;
 
+const validateHandoff = (handoff: Handoff): Handoff => {
+  if (handoff.ownerPid !== undefined && handoff.ownerPid !== process.pid)
+    throw new Error("hand-off belongs to another process");
+
+  const fds = [
+    ...(handoff.listenerFd === null ? [] : [handoff.listenerFd]),
+    ...Object.values(handoff.fds),
+  ];
+
+  for (const fd of fds) {
+    if (fd < 3 || fd > 0x7fff_ffff || libc.isCloseOnExec(fd))
+      throw new Error(`fd ${fd} was not inherited across execve`);
+  }
+
+  if (handoff.listenerFd !== null && !libc.isListeningSocket(handoff.listenerFd))
+    throw new Error("hand-off listener is not a listening socket");
+
+  for (const fd of fds) libc.setCloseOnExec(fd);
+
+  return handoff;
+};
+
 /**
  * Read (once) and remove the hand-off envelope from the environment, so it
  * is not passed on to Harnesses or terminals. Null on a cold start.
@@ -157,15 +182,17 @@ export const takeHandoff = Effect.fn("takeHandoff")(function* () {
   }
 
   taken = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Handoff))(raw).pipe(
-    Effect.mapError(fail("read hand-off"))
+    Effect.mapError(fail("read hand-off")),
+    Effect.flatMap((handoff) =>
+      Effect.try({
+        try: () => validateHandoff(handoff),
+        catch: fail("validate hand-off"),
+      })
+    ),
+    Effect.catch((error) =>
+      Effect.as(Effect.logWarning("ignoring an invalid upgrade hand-off", error), null)
+    )
   );
-
-  // Keep inherited fds out of anything this image spawns.
-  for (const fd of Object.values(taken.fds)) {
-    try {
-      libc.setCloseOnExec(fd);
-    } catch {}
-  }
 
   return taken;
 });

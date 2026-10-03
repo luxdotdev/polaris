@@ -302,7 +302,7 @@ export const RiskColumnSlot = (props: ReviewSlotProps) => {
               onClick={() => openSettings("hosts")}
               className="text-text-default cursor-default hover:underline"
             >
-              Update daemon
+              Upgrade daemon
             </button>
           </p>
         )}

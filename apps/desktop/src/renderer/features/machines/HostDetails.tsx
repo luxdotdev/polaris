@@ -166,7 +166,7 @@ const Settings = ({ machine }: { readonly machine: MachineView }) => {
         )}
         {machine.daemon === null || !machine.daemon.managed ? null : (
           <Field
-            label="Daemon updates"
+            label="Daemon upgrades"
             caption="Whether this host's daemon upgrades on its own when it connects."
           >
             <OverrideSelect
