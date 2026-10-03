@@ -12,12 +12,14 @@ import {
   TurnTrigger,
   TurnItem,
 } from "@polaris/protocol";
-import { Duration, Effect, Fiber, type Layer, Predicate, Stream } from "effect";
+import { Clock, Deferred, Duration, Effect, Fiber, Layer, Predicate, Stream } from "effect";
+import { Checkpoints } from "../services.ts";
 import { HarnessEvent } from "../harness/HarnessDriver.ts";
 import { EventStore } from "../store/EventStore.ts";
 import { Engine } from "./Engine.ts";
 import {
   cid,
+  completesTurns,
   engineLayer,
   type FakeDriver,
   fakeRepo,
@@ -529,5 +531,151 @@ test("the final background level cannot re-arm the longer timer after waiting en
         )
       ).toBe(true);
     })
+  );
+});
+
+test.each([false, true])(
+  "accepted input survives autonomous completion during preparation (queued=%s)",
+  async (queued) => {
+    const driver = makeFakeDriver("codex", {
+      onTurn: (input, session) => (session.turns.length === 1 ? [] : completesTurns()(input)),
+    });
+
+    const entered = Deferred.makeUnsafe<void>();
+    const release = Deferred.makeUnsafe<void>();
+    const autoId = TurnId.make("native-delivery-race");
+
+    const checkpoints = Layer.succeed(Checkpoints)({
+      capture: ({ turnId, label }) =>
+        turnId === autoId && label === "before"
+          ? Deferred.succeed(entered, undefined).pipe(
+              Effect.andThen(Deferred.await(release)),
+              Effect.as(null)
+            )
+          : Effect.succeed(null),
+    });
+
+    await run(
+      engineLayer({
+        filename: join(tempDir(), "state.sqlite"),
+        fakes: makeFakes(),
+        drivers: [driver],
+        checkpoints,
+      }),
+      Effect.gen(function* () {
+        const sessionId = SessionId.make("late-delivery");
+        const initial = yield* startWorking(driver, sessionId);
+        const harness = driver.latest(sessionId)!;
+        harness.emit(HarnessEvent.TurnEnded({ turnId: initial, status: "completed", error: null }));
+        yield* waitFor((m) => m.sessions.get(sessionId)?.session.state === "idle");
+        harness.emit(
+          HarnessEvent.TurnStarted({
+            turnId: autoId,
+            prompt: null,
+            trigger: TurnTrigger.cases.BackgroundTasksReported.make({
+              tasks: [{ id: "build", kind: "command" }],
+            }),
+          })
+        );
+        yield* waitFor(
+          (m) => m.sessions.get(sessionId)?.turns.some((t) => t.id === autoId) === true
+        );
+        yield* dispatch(
+          Command.cases.SendTurn.make({ sessionId, prompt: "Hold", attachments: [] })
+        );
+        yield* Deferred.await(entered);
+
+        if (queued)
+          yield* dispatch(
+            Command.cases.SendTurn.make({ sessionId, prompt: "Queued", attachments: [] })
+          );
+        harness.emit(HarnessEvent.TurnEnded({ turnId: autoId, status: "completed", error: null }));
+        yield* waitFor(
+          (m) =>
+            m.sessions.get(sessionId)?.turns.find((t) => t.id === autoId)?.status === "completed"
+        );
+        yield* Deferred.succeed(release, undefined);
+
+        const model = yield* waitFor(
+          (m) =>
+            m.sessions.get(sessionId)?.session.state === "idle" &&
+            m.sessions.get(sessionId)?.turns.length === (queued ? 4 : 3)
+        );
+
+        const turns = model.sessions.get(sessionId)!.turns;
+        expect(turns.slice(2).map((t) => t.prompt)).toEqual(queued ? ["Hold", "Queued"] : ["Hold"]);
+        expect(
+          turns
+            .slice(2)
+            .every((t) => t.trigger === null && t.status === "completed" && t.id !== autoId)
+        ).toBe(true);
+        expect(harness.turns.map((t) => t.prompt)).toEqual(
+          queued ? ["go", "Hold", "Queued"] : ["go", "Hold"]
+        );
+        expect(new Set(harness.turns.map((t) => t.turnId)).size).toBe(harness.turns.length);
+      }).pipe(
+        Effect.timeout(Duration.seconds(5)),
+        Effect.ensuring(Deferred.succeed(release, undefined))
+      )
+    );
+  }
+);
+
+test("background progress updates one sleeping timer and expiry sleeps only the remainder", async () => {
+  const clock = Effect.runSync(Clock.Clock);
+  const sleeps: Array<number> = [];
+
+  const timedClock: Clock.Clock = {
+    currentTimeMillisUnsafe: () => clock.currentTimeMillisUnsafe(),
+    currentTimeMillis: clock.currentTimeMillis,
+    currentTimeNanosUnsafe: () => clock.currentTimeNanosUnsafe(),
+    currentTimeNanos: clock.currentTimeNanos,
+    monotonicTimeNanosUnsafe: () => clock.monotonicTimeNanosUnsafe(),
+    monotonicTimeNanos: clock.monotonicTimeNanos,
+    sleep: (duration) => {
+      sleeps.push(Duration.toMillis(duration));
+
+      return clock.sleep(duration);
+    },
+  };
+
+  const driver = makeFakeDriver("codex");
+
+  const layer = engineLayer({
+    filename: join(tempDir(), "state.sqlite"),
+    fakes: makeFakes(),
+    drivers: [driver],
+    backgroundIdleTimeout: Duration.millis(200),
+  });
+
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      const sessionId = SessionId.make("single-timer");
+      const turnId = yield* startWorking(driver, sessionId);
+      const harness = driver.latest(sessionId)!;
+      harness.emit(
+        HarnessEvent.BackgroundTasksChanged({
+          tasks: [new BackgroundTask({ id: "build", kind: "command", description: "Build" })],
+        }),
+        HarnessEvent.TurnEnded({ turnId, status: "completed", error: null })
+      );
+      yield* waitFor((m) => m.sessions.get(sessionId)?.session.state === "idle");
+      yield* Effect.sleep(Duration.millis(60));
+
+      for (let i = 0; i < 20; i++)
+        harness.emit(
+          HarnessEvent.ItemDelta({
+            turnId,
+            itemId: "progress",
+            field: "text",
+            text: "Still running",
+          })
+        );
+      yield* Effect.sleep(Duration.millis(60));
+      expect(sleeps.filter((ms) => ms === 200)).toHaveLength(1);
+      yield* waitFor((m) => m.sessions.get(sessionId)?.session.state === "dormant");
+      expect(sleeps.some((ms) => ms > 0 && ms < 200)).toBe(true);
+      yield* waitUntil(() => harness.closed);
+    }).pipe(Effect.provide(layer), Effect.provideService(Clock.Clock, timedClock))
   );
 });

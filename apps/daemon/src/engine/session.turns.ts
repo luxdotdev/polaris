@@ -1,5 +1,37 @@
-import { DomainEvent, Turn, type TurnId, type TurnTrigger } from "@polaris/protocol";
+import {
+  type AgentSession,
+  type Attachment,
+  DomainEvent,
+  Turn,
+  type TurnId,
+  type TurnTrigger,
+} from "@polaris/protocol";
 import { workingTurn, type SessionRecord } from "../store/model.ts";
+
+export const userTurn = (
+  session: AgentSession,
+  input: {
+    id: TurnId;
+    prompt: string;
+    attachments: ReadonlyArray<Attachment>;
+    at: string;
+  }
+): Turn =>
+  new Turn({
+    id: input.id,
+    sessionId: session.id,
+    index: session.turnCount,
+    prompt: input.prompt,
+    attachments: [...input.attachments],
+    model: session.model,
+    effort: session.effort,
+    serviceTier: session.serviceTier,
+    status: "working",
+    checkpointBefore: null,
+    checkpointAfter: null,
+    startedAt: input.at,
+    endedAt: null,
+  });
 
 /** Turns started by the Harness itself, including background reports and terminal input. */
 export const harnessTurn = (

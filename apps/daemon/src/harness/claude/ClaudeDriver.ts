@@ -485,7 +485,13 @@ const openSession = Effect.fnUntraced(function* (
       prompt,
       attachments: input?.attachments ?? [],
       readFile: driver.readFile,
-    });
+    }).pipe(
+      Effect.onError(() =>
+        Effect.sync(() => {
+          turn?.pending.delete(uuid);
+        })
+      )
+    );
 
     return { uuid, message };
   });
@@ -542,19 +548,30 @@ const openSession = Effect.fnUntraced(function* (
       return yield* unknownEffort(input.effort);
     const uuid = crypto.randomUUID();
 
-    active = {
+    const reserved: ActiveTurn = {
       autonomous: false,
       turnId: input.turnId,
       pending: new Set([uuid]),
       interrupting: false,
       outcome: { status: "completed", error: null },
     };
+
+    active = reserved;
     translator.beginTurn(input.turnId);
     emit(HarnessEvent.TurnStarted({ turnId: input.turnId, prompt: input.prompt }));
     // Reserve the user's Turn before controls or attachment reads can yield to a native run.
-    yield* switchTo(input.model, input.effort);
-    const { message } = yield* send(input.prompt, input, active, uuid);
-    inbox.push(message);
+    yield* Effect.gen(function* () {
+      yield* switchTo(input.model, input.effort);
+      const { message } = yield* send(input.prompt, input, reserved, uuid);
+      inbox.push(message);
+    }).pipe(
+      Effect.onError((cause) =>
+        Effect.sync(() => {
+          if (active === reserved)
+            endTurn("failed", causeMessage(cause) ?? "Claude input preparation failed");
+        })
+      )
+    );
   });
 
   /**
@@ -581,6 +598,13 @@ const openSession = Effect.fnUntraced(function* (
   });
 
   const steer = (text: string) => steerInput(text, null);
+
+  const steerTurn = (input: TurnInput) =>
+    Effect.suspend(() =>
+      active === null || active.interrupting || active.turnId !== input.turnId
+        ? Effect.succeed(false)
+        : steerInput(input.prompt, input).pipe(Effect.as(true))
+    );
 
   const interrupt = Effect.gen(function* () {
     const turn = active;
@@ -651,6 +675,7 @@ const openSession = Effect.fnUntraced(function* (
     events: Stream.fromQueue(events),
     sendTurn,
     steer,
+    steerTurn,
     interrupt,
     respond,
     setPermissionMode,
