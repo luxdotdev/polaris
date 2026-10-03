@@ -25,6 +25,9 @@ export const LANGUAGE_RPC_CAPABILITIES = {
   "languages.edit.decide": "languages.edits",
   "languages.operation.get": "languages.edits",
   "languages.operation.recover": "languages.edits",
+  "languages.tree.edit.decide": "languages.resources.tree-v2",
+  "languages.tree.operation.get": "languages.resources.tree-v2",
+  "languages.tree.operation.recover": "languages.resources.tree-v2",
   "languages.preview.media": "languages.preview-media",
 } satisfies Readonly<Record<string, Capability>>;
 
@@ -34,4 +37,6 @@ export const languageRpcAllowed = (
   capabilities: ReadonlyArray<Capability>
 ): boolean =>
   capabilities.includes(LANGUAGE_RPC_CAPABILITIES[method]) &&
+  (!method.startsWith("languages.tree.") ||
+    (capabilities.includes("languages.edits") && capabilities.includes("languages.resources"))) &&
   (method === "languages.preview.media" || capabilities.includes("languages"));

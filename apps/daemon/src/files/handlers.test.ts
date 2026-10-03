@@ -4,17 +4,17 @@
  */
 import { afterEach, describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { DaemonRpcs, GitDiff, ReadFile, TerminalAttach, WorkspaceId } from "@polaris/protocol";
+import { GitDiff, ReadFile, TerminalAttach, WorkspaceId } from "@polaris/protocol";
 import { Effect, Layer, Stream } from "effect";
 import { RpcTest } from "effect/rpc";
-import { AttachmentRpcsLive } from "../attachments/AttachmentRpcs.ts";
+import { AttachmentRpcs, AttachmentRpcsLive } from "../attachments/AttachmentRpcs.ts";
 import { AttachmentStoreLive } from "../attachments/AttachmentStore.ts";
-import { GitRpcsLive } from "../git/GitRpcs.ts";
+import { GitRpcs, GitRpcsLive } from "../git/GitRpcs.ts";
 import { makeRepo, removeDir, tempDir, write } from "../git/testing.ts";
-import { TerminalRpcsLive } from "../terminal/TerminalRpcs.ts";
+import { TerminalRpcs, TerminalRpcsLive } from "../terminal/TerminalRpcs.ts";
 import { TerminalsLive } from "../terminal/Terminals.ts";
 import { FileSearchLive } from "./FileSearch.ts";
-import { FilesRpcsLive } from "./FilesRpcs.ts";
+import { FilesRpcs, FilesRpcsLive } from "./FilesRpcs.ts";
 import { makeFakeBlobChannel } from "./testing.ts";
 
 const cleanup: Array<string> = [];
@@ -23,79 +23,7 @@ afterEach(() => {
   for (const dir of cleanup.splice(0)) removeDir(dir);
 });
 
-const WorkspaceIoRpcs = DaemonRpcs.omit(
-  "inline.propose",
-  "constellation.placements.watch",
-  "constellation.placement.resolve",
-  "constellation.repository.prepare",
-  "constellation.worker.prepare",
-  "constellation.delivery.watch",
-  "constellation.delivery.apply",
-  "constellation.delivery.ack",
-  "constellation.base.export",
-  "constellation.base.import",
-  "constellation.worktree.prepare",
-  "constellation.bundle.export",
-  "constellation.bundle.import",
-  "constellation.assignment.set",
-  "constellation.assignment.list",
-  "constellation.outbox.watch",
-  "constellation.outbox.apply",
-  "constellation.outbox.ack",
-  "constellation.claim.export",
-  "constellation.origin.import",
-
-  "host.resources.get",
-  "host.resources.declare",
-  "host.resources.remove",
-  "host.resources.release",
-  "host.workers.setCap",
-  "host.resources.acquire",
-
-  "constellation.defaults.get",
-  "constellation.defaults.set",
-  "constellation.plan",
-  "constellation.dispatch",
-  "constellation.review",
-  "constellation.answer",
-  "constellation.message",
-  "constellation.status",
-  "constellation.stats",
-  "constellation.connection",
-  "constellation.set_state",
-  "constellation.worker.claim",
-  "constellation.worker.ask",
-  "constellation.worker.progress",
-  "constellation.worker.propose",
-  "constellation.worker.message",
-  "constellation.subscribe",
-  "hello",
-  "dispatch",
-  "subscribeHost",
-  "subscribeSession",
-  "session.terminalCommand",
-  "harness.models",
-  "harness.commands",
-  "harness.spinnerVerbs",
-  "harness.availability",
-  "harness.watchAvailability",
-  "usage.query",
-  "usage.watch",
-  "review.checkoutStatus",
-  "review.runRiskSummary",
-  "review.runWalkthrough",
-  "review.stopWalkthrough",
-  "review.riskSummary",
-  "review.watchRiskSummary",
-  "review.askFinding",
-  "review.verdicts",
-  "session.acceptPlan",
-  "session.draftAccept",
-  "session.commitAccepted",
-  "session.pushAccepted",
-  "review.reviewerSettings",
-  "review.setReviewerSettings"
-);
+const WorkspaceIoRpcs = FilesRpcs.merge(GitRpcs).merge(AttachmentRpcs).merge(TerminalRpcs);
 
 describe("handler layers", () => {
   test("serve their DaemonRpcs tags end to end", async () => {

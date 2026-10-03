@@ -10,6 +10,7 @@ import { FileContent, FileEntry, FileError, EditorFileRpcs } from "./files.ts";
 export { FileContent, FileEntry, FileError, FileKind } from "./files.ts";
 
 import { ResourceRpcs } from "./resources.ts";
+import { LanguageRpcs } from "./languages/rpc.ts";
 import {
   ConstellationHostRpcs,
   ConstellationSummary,
@@ -815,4 +816,5 @@ export class DaemonRpcs extends RpcGroup.make(
 )
   .merge(ConstellationHostRpcs)
   .merge(ResourceRpcs)
-  .merge(EditorFileRpcs) {}
+  .merge(EditorFileRpcs)
+  .merge(LanguageRpcs) {}

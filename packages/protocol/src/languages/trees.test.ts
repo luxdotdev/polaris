@@ -284,6 +284,8 @@ test("aggregate roots/entries/hash bytes/UTF8 encoded bytes and all complete rec
 });
 
 import { LanguageTreeEditDecision } from "./trees.ts";
+import { DecideLanguageTreeEdit, LanguageRpcs } from "./rpc.ts";
+import { languageRpcAllowed } from "./capabilities.ts";
 
 test("dedicated raw decision boundary allows rejection/null and rejects acceptance/null or mismatched receipt", () => {
   expect(
@@ -300,4 +302,45 @@ test("dedicated raw decision boundary allows rejection/null and rejects acceptan
   expect(
     decoded(LanguageTreeEditDecision, { acceptance, drafts: { ...receipt, durable: false } })
   ).toBe(false);
+});
+
+test("dedicated RPC schema retains nested tree ownership before codec and rejects unknown versions", () => {
+  const decision = { acceptance, drafts: receipt };
+
+  const encoded = Schema.encodeSync(DecideLanguageTreeEdit.payloadSchema)(
+    Schema.decodeUnknownSync(DecideLanguageTreeEdit.payloadSchema)(decision)
+  );
+
+  const roundtrip = Schema.decodeUnknownSync(DecideLanguageTreeEdit.payloadSchema)(encoded);
+
+  expect(roundtrip).toEqual(
+    Schema.decodeUnknownSync(DecideLanguageTreeEdit.payloadSchema)(decision)
+  );
+  expect(roundtrip.acceptance.resourceSnapshots).toEqual(
+    Schema.decodeUnknownSync(Schema.Array(LanguageResourceSnapshot))(resources)
+  );
+
+  for (const format of [undefined, 1, 3])
+    expect(() =>
+      Schema.decodeUnknownSync(DecideLanguageTreeEdit.payloadSchema)({
+        ...decision,
+        acceptance: { ...acceptance, format },
+      })
+    ).toThrow();
+
+  expect(LanguageRpcs.requests.has("languages.tree.edit.decide")).toBe(true);
+  expect(languageRpcAllowed("languages.tree.edit.decide", ["languages", "languages.edits"])).toBe(
+    false
+  );
+  expect(
+    languageRpcAllowed("languages.tree.edit.decide", ["languages", "languages.resources"])
+  ).toBe(false);
+  expect(
+    languageRpcAllowed("languages.tree.edit.decide", [
+      "languages",
+      "languages.edits",
+      "languages.resources",
+      "languages.resources.tree-v2",
+    ])
+  ).toBe(true);
 });

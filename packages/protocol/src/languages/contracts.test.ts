@@ -22,6 +22,7 @@ import {
   LanguageFormatterSelection,
   LanguageAvailability,
   LanguageCatalog,
+  LanguageDeveloperCompanion,
   LanguageContextIdentity,
   LanguageDiagnostics,
   LanguageDocumentNotification,
@@ -74,7 +75,30 @@ const ack = Schema.decodeUnknownSync(LanguageSyncAck)({
 
 const diskVersion = { mtimeMs: 10, size: 4, hash: "b".repeat(64) };
 
-test("all accepted K1 descriptors decode without changing tool/provider/formatter IDs", () => {
+test("developer companion metadata round trips without becoming managed approval", () => {
+  const metadata: typeof LanguageDeveloperCompanion.Type = {
+    id: "shellcheck",
+    executable: "shellcheck",
+    version: ">=0.11.0",
+    provider: "bash-language-server",
+    capability: "shellcheck-diagnostics",
+    setting: "bashIde.shellcheckPath",
+    source: "developer",
+    missingDetail: "Configure an existing executable to enable diagnostics.",
+  };
+
+  const decoded = Schema.decodeUnknownSync(LanguageDeveloperCompanion)(metadata);
+
+  expect(Schema.encodeSync(LanguageDeveloperCompanion)(decoded)).toEqual(metadata);
+  expect(() =>
+    Schema.decodeUnknownSync(LanguageDeveloperCompanion)({ ...metadata, source: "managed" })
+  ).toThrow();
+  expect(() =>
+    Schema.decodeUnknownSync(LanguageDeveloperCompanion)({ ...metadata, executable: "" })
+  ).toThrow();
+});
+
+test("current catalog descriptors decode without changing tool/provider/formatter IDs", () => {
   const raw: unknown = JSON.parse(
     readFileSync(
       new URL("../../../../apps/daemon/src/languages/catalog/catalog.json", import.meta.url),
@@ -88,7 +112,8 @@ test("all accepted K1 descriptors decode without changing tool/provider/formatte
 
   expect(catalog.integrations.length).toBe(14);
 
-  expect(catalog.tools.filter(languageToolOffered).length).toBe(18);
+  expect(catalog.tools.filter(languageToolOffered).length).toBe(17);
+  expect(catalog.tools.find((tool) => tool.id === "shellcheck")?.disposition).toBe("evaluation");
 
   expect(catalog.tools.find((tool) => tool.id === "sql-language-server")?.disposition).toBe(
     "evaluation"

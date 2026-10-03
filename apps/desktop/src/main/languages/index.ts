@@ -48,6 +48,7 @@ const routing = Schema.Struct({
   checkout: Schema.optionalKey(P.LanguageCheckout),
   context: Schema.optionalKey(P.LanguageContextIdentity),
   fence: Schema.optionalKey(P.LanguageRequestFence),
+  acceptance: Schema.optionalKey(P.LanguageTreeEditAcceptance),
   scope: Schema.optionalKey(Schema.Union([P.LanguageSettingsScope, P.LanguageTrustScope])),
   policy: Schema.optionalKey(P.LanguagePreviewPolicy),
 });
@@ -65,7 +66,7 @@ const hostFor = (options: LanguageBridgeOptions, value: unknown): LanguageHost =
   const host = options.lookup(input.hostKey);
 
   if (host === null) throw languageFailure("not-owner");
-  const context = input.context ?? input.fence?.context;
+  const context = input.context ?? input.fence?.context ?? input.acceptance?.fence.context;
   const checkout = input.checkout ?? context?.checkout;
 
   const scopedHost =

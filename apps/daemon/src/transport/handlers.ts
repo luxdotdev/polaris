@@ -23,6 +23,7 @@ import { Effect, Stream } from "effect";
 import { ClientCapabilities, DeviceLabel } from "../engine/rpc.ts";
 import { BlobChannel } from "../services.ts";
 import { ServerRpcs } from "./rpcs.ts";
+import { languageDefaults } from "./languageDefaults.ts";
 
 const constellationUnavailable = () =>
   new ConstellationRejected({
@@ -47,6 +48,7 @@ export const defaultHandlers = (options: {
   readonly capabilities: ReadonlyArray<Capability>;
 }) =>
   ServerRpcs.toLayer({
+    ...languageDefaults,
     "host.resources.get": () =>
       Effect.fail(new ResourceError({ message: "Host resources are unavailable" })),
     "host.resources.declare": () =>

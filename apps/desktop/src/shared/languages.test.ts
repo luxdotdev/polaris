@@ -1,7 +1,11 @@
 import { expect, test } from "bun:test";
 import * as P from "@polaris/protocol";
 import { Schema } from "effect";
-import { LanguageSubscriptionItems, type LanguageSubscriptionItem } from "./languages.ts";
+import {
+  LanguageRequestInputs,
+  LanguageSubscriptionItems,
+  type LanguageSubscriptionItem,
+} from "./languages.ts";
 
 const context = P.LanguageContextIdentity.make({
   hostId: P.HostId.make("fake"),
@@ -19,6 +23,32 @@ const context = P.LanguageContextIdentity.make({
 
 const event: LanguageSubscriptionItem<"languages.context.watch"> =
   P.LanguageContextEvent.cases.Invalidated.make({ context, reason: "restart" });
+
+test("tree IPC wrapping retains decision filters and nested resource ownership", () => {
+  const acceptance = P.LanguageTreeEditAcceptance.make({
+    format: 2,
+    proposalId: "proposal",
+    operationId: "operation",
+    fence: { context, requiredSequence: 0, documents: [] },
+    snapshots: [],
+    resourceSnapshots: [{ uri: "file:///fixture/a", canonicalPath: "/fixture/a", tree: null }],
+    decision: "reject",
+  });
+
+  const input = { hostKey: "fake", acceptance, drafts: null };
+  const schema = LanguageRequestInputs["languages.tree.edit.decide"];
+
+  expect(Schema.decodeUnknownSync(schema)(input)).toEqual(input);
+  expect(() =>
+    Schema.decodeUnknownSync(schema)({
+      ...input,
+      acceptance: { ...acceptance, decision: "accept" },
+    })
+  ).toThrow();
+  expect(() =>
+    Schema.decodeUnknownSync(schema)({ ...input, acceptance: { ...acceptance, format: undefined } })
+  ).toThrow();
+});
 
 const availability: P.LanguageAvailability = P.LanguageAvailability.make({
   hostId: context.hostId,

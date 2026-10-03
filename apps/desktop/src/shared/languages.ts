@@ -65,6 +65,15 @@ export const LanguageRequestInputs = {
   "languages.edit.decide": onHost(Languages.AcceptLanguageEdit.payloadSchema.fields),
   "languages.operation.get": onHost(Languages.GetLanguageOperation.payloadSchema.fields),
   "languages.operation.recover": onHost(Languages.RecoverLanguageOperation.payloadSchema.fields),
+  "languages.tree.edit.decide": onHost(Languages.LanguageTreeEditDecision.fields).check(
+    Schema.makeFilter(({ acceptance, drafts }) =>
+      Schema.is(Languages.LanguageTreeEditDecision)({ acceptance, drafts })
+    )
+  ),
+  "languages.tree.operation.get": onHost(Languages.GetLanguageTreeOperation.payloadSchema.fields),
+  "languages.tree.operation.recover": onHost(
+    Languages.RecoverLanguageTreeOperation.payloadSchema.fields
+  ),
   "languages.preview.media": onHost(Languages.ReadLanguagePreviewMedia.payloadSchema.fields),
   "languages.preview.external": onHost({
     workspaceId: Languages.WorkspaceId,
@@ -98,6 +107,9 @@ export const LanguageRequestOutputs = {
   "languages.edit.decide": Languages.AcceptLanguageEdit.successSchema,
   "languages.operation.get": Languages.GetLanguageOperation.successSchema,
   "languages.operation.recover": Languages.RecoverLanguageOperation.successSchema,
+  "languages.tree.edit.decide": Languages.DecideLanguageTreeEdit.successSchema,
+  "languages.tree.operation.get": Languages.GetLanguageTreeOperation.successSchema,
+  "languages.tree.operation.recover": Languages.RecoverLanguageTreeOperation.successSchema,
   "languages.preview.media": LanguagePreviewMediaView,
   "languages.preview.external": LanguagePreviewMediaView,
   "languages.settings.get": Languages.GetLanguageSettings.successSchema,

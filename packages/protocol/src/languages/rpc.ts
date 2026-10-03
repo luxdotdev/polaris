@@ -27,6 +27,7 @@ import {
   LanguageServerResponse,
 } from "./broker.ts";
 import { LanguageRuntime, LanguageSyncAck, LanguageSyncInput } from "./documents.ts";
+import { LanguageTreeEditDecision, LanguageTreeOperationOutcome } from "./trees.ts";
 import {
   LanguageEditAcceptance,
   LanguageFormatOutcome,
@@ -241,6 +242,25 @@ export const RecoverLanguageOperation = Rpc.make("languages.operation.recover", 
   error: LanguageError,
 });
 
+/** Dedicated format2 methods preserve tree ownership before any legacy Struct codec. */
+export const DecideLanguageTreeEdit = Rpc.make("languages.tree.edit.decide", {
+  payload: LanguageTreeEditDecision,
+  success: LanguageTreeOperationOutcome,
+  error: LanguageError,
+});
+
+export const GetLanguageTreeOperation = Rpc.make("languages.tree.operation.get", {
+  payload: GetLanguageOperation.payloadSchema,
+  success: LanguageTreeOperationOutcome,
+  error: LanguageError,
+});
+
+export const RecoverLanguageTreeOperation = Rpc.make("languages.tree.operation.recover", {
+  payload: RecoverLanguageOperation.payloadSchema,
+  success: LanguageTreeOperationOutcome,
+  error: LanguageError,
+});
+
 export const LanguagePreviewMedia = Schema.Struct({
   uri: LanguageUri,
   mimeType: Schema.String.check(Schema.isPattern(/^image\/(png|jpeg|gif|webp|avif)$/)),
@@ -289,7 +309,7 @@ export const SetLanguagePreviewPolicy = Rpc.make("languages.preview.policy.set",
   error: LanguageError,
 });
 
-/** Opt-in extension: C1/T1 register only implemented methods; do not merge into DaemonRpcs yet. */
+/** The existing Daemon wire owns these schemas; capabilities require implemented handler layers. */
 
 export class LanguageRpcs extends RpcGroup.make(
   GetLanguageCatalog,
@@ -315,5 +335,8 @@ export class LanguageRpcs extends RpcGroup.make(
   AcceptLanguageEdit,
   GetLanguageOperation,
   RecoverLanguageOperation,
+  DecideLanguageTreeEdit,
+  GetLanguageTreeOperation,
+  RecoverLanguageTreeOperation,
   ReadLanguagePreviewMedia
 ) {}

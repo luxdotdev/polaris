@@ -85,12 +85,26 @@ export const LanguageProviderDescriptor = Schema.Struct({
   argv: Schema.Array(LanguageText).check(Schema.isMaxLength(128)),
 });
 
+export const LanguageDeveloperCompanion = Schema.Struct({
+  id: LanguageKey,
+  executable: LanguagePath,
+  version: LanguageText,
+  provider: LanguageKey,
+  capability: LanguageKey,
+  setting: LanguageKey,
+  source: Schema.Literal("developer"),
+  missingDetail: LanguageText,
+});
+
 export const LanguageIntegrationDescriptor = Schema.Struct({
   id: LanguageKey,
   languageIds: Schema.Array(LanguageKey).check(Schema.isMaxLength(64)),
   patterns: Schema.Array(LanguagePath).check(Schema.isMaxLength(256)),
   providers: Schema.Array(LanguageProviderDescriptor).check(Schema.isMaxLength(32)),
   companions: Schema.Array(LanguageKey).check(Schema.isMaxLength(32)),
+  developerCompanions: Schema.optionalKey(
+    Schema.Array(LanguageDeveloperCompanion).check(Schema.isMaxLength(32))
+  ),
   formatter: Schema.Struct({
     tool: LanguageKey,
     source: Schema.Literals(["managed", "developer", "configured"]),

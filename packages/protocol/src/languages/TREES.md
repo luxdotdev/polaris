@@ -86,5 +86,13 @@ proof of that future registered transport. R1 must verify the referenced durable
 draft group and every dirty descendant revision; a boolean supplied by a Client
 is insufficient authentication or durability evidence.
 
+The dedicated schemas and Client/IPC tables use `languages.resources.tree-v2`,
+requiring `languages`, `languages.edits` and `languages.resources` as well.
+This registry entry alone is not advertised support. The existing Daemon wire
+registers these schemas with typed unavailable defaults. The real temporary-socket
+tests in `apps/daemon/src/transport/languages.test.ts` reject malformed raw decisions
+before handlers and retain valid manifests without legacy fallback. This is codec
+evidence only; production authentication and durable group verification remain G2 work.
+
 A rejection may carry null drafts and requires no new draft group or checkout
 mutation. Acceptance requires a verified non-null durable tree draft receipt.

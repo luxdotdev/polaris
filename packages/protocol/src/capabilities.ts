@@ -58,6 +58,7 @@ export const Capability = Schema.Literals([
   "languages.format",
   "languages.edits",
   "languages.resources",
+  "languages.resources.tree-v2",
   "languages.preview-media",
   "git.diff",
   /** `git.diff` answers `fileIndex`: each file's byte range in the patch, and its counts. */

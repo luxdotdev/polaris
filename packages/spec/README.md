@@ -461,6 +461,17 @@ are described in `packages/protocol/src/languages/TREES.md`. Capability and actu
 transport activation remain G2-owned. No Apalache, formal liveness or live Host
 transport proof is claimed.
 
+G2's dedicated `languages.tree.edit.decide` payload preserves the format-2
+acceptance and durable draft group through Client/IPC schemas before serialization.
+`languages.tree.operation.get/recover` retain format-2 outcomes and existing
+operation/revision coordinates. Their registry gate is `languages.resources.tree-v2`
+plus languages/edits/resources; it is not an advertised production capability.
+These boundary declarations introduce no new journal transition in `tree-edits.qnt`.
+The existing wire registers typed unavailable defaults and its temporary-socket
+negative tests reject malformed raw decisions before fake handlers. Authentication,
+durable receipt verification and full preview/outcome boundaries remain required
+before activation; these codec tests do not prove production mutation authority.
+
 ### T1 Host language runtime mapping
 
 The detached `apps/daemon/src/languages/runtime/` broker implements ordered

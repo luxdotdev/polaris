@@ -24,6 +24,9 @@ export const languageMethods = {
   "languages.edit.decide": P.AcceptLanguageEdit,
   "languages.operation.get": P.GetLanguageOperation,
   "languages.operation.recover": P.RecoverLanguageOperation,
+  "languages.tree.edit.decide": P.DecideLanguageTreeEdit,
+  "languages.tree.operation.get": P.GetLanguageTreeOperation,
+  "languages.tree.operation.recover": P.RecoverLanguageTreeOperation,
   "languages.preview.media": P.ReadLanguagePreviewMedia,
 } as const;
 
@@ -108,12 +111,13 @@ const authorize = (transport: LanguageTransport, value: unknown) => {
       clientId: Schema.optionalKey(Schema.String),
       context: Schema.optionalKey(P.LanguageContextIdentity),
       fence: Schema.optionalKey(P.LanguageRequestFence),
+      acceptance: Schema.optionalKey(P.LanguageTreeEditAcceptance),
     })
   )(value);
 
   if (Option.isNone(identity)) throw languageFailure("invalid-input");
   const input = identity.value;
-  const context = input.context ?? input.fence?.context;
+  const context = input.context ?? input.fence?.context ?? input.acceptance?.fence.context;
 
   if (
     (input.clientId !== undefined && input.clientId !== transport.clientId) ||
@@ -171,11 +175,13 @@ export class LanguageAccess {
       Schema.Struct({
         context: Schema.optionalKey(P.LanguageContextIdentity),
         fence: Schema.optionalKey(P.LanguageRequestFence),
+        acceptance: Schema.optionalKey(P.LanguageTreeEditAcceptance),
       }),
       input
     );
 
-    const context = value.context ?? value.fence?.context;
+    const fence = value.fence ?? value.acceptance?.fence;
+    const context = value.context ?? fence?.context;
 
     if (
       context !== undefined &&
@@ -183,10 +189,10 @@ export class LanguageAccess {
     )
       throw languageFailure("not-owner");
 
-    if (value.fence !== undefined) {
-      const ack = this.acks.get(value.fence.context.contextId);
+    if (fence !== undefined) {
+      const ack = this.acks.get(fence.context.contextId);
 
-      if (ack === undefined || !P.languageFenceSatisfied(value.fence, ack))
+      if (ack === undefined || !P.languageFenceSatisfied(fence, ack))
         throw languageFailure("stale-document");
     }
   }
@@ -347,6 +353,8 @@ export class LanguageAccess {
     input: LanguageInput<LanguageMethod>,
     output: LanguageOutput<LanguageMethod>
   ) {
+    if (method === "languages.tree.edit.decide") this.owner(input);
+
     if (method === "languages.request")
       this.proposals(decodeLanguage(P.LanguageFeatureResult, output).proposals ?? []);
 

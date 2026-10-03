@@ -106,6 +106,51 @@ test("malformed boundaries and foreign ownership fail without echoing values", a
   );
 });
 
+test("tree decisions reject legacy capability and nested foreign owner before transport", async () => {
+  let calls = 0;
+
+  const invoke = async () => {
+    calls++;
+
+    return {};
+  };
+
+  const decision = P.LanguageTreeEditDecision.make({
+    acceptance: P.LanguageTreeEditAcceptance.make({
+      format: 2,
+      proposalId: "proposal",
+      operationId: "operation",
+      fence: P.LanguageRequestFence.make({
+        context: P.LanguageContextIdentity.make({ ...context(1), clientId: "foreign" }),
+        requiredSequence: 0,
+        documents: [],
+      }),
+      snapshots: [],
+      resourceSnapshots: [],
+      decision: "reject",
+    }),
+    drafts: null,
+  });
+
+  await rejected(
+    fake(invoke, ["languages", "languages.edits", "languages.resources"]).access.request(
+      "languages.tree.edit.decide",
+      decision
+    ),
+    { reason: "unsupported-capability" }
+  );
+  await rejected(
+    fake(invoke, [
+      "languages",
+      "languages.edits",
+      "languages.resources",
+      "languages.resources.tree-v2",
+    ]).access.request("languages.tree.edit.decide", decision),
+    { reason: "not-owner" }
+  );
+  expect(calls).toBe(0);
+});
+
 test("connection loss promptly cancels a transport that ignores abort", async () => {
   const { access, controller } = fake(() => new Promise(() => {}));
   const request = access.request("languages.catalog", {});
