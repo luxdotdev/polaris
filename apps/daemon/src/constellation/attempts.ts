@@ -13,7 +13,12 @@ import { attemptData } from "./data.ts";
 import { GraphDecision } from "./decision.ts";
 import { activeAttempt, latestAttempt, projectTask } from "./projections.ts";
 
-export const currentAttempt = (d: GraphDecision, id: Attempt["id"], revision?: number) => {
+export const currentAttempt = (
+  d: GraphDecision,
+  id: Attempt["id"],
+  revision?: number,
+  stateCode = "E-SETTLED"
+) => {
   const attempt = d.record.graph.attempts.find((a) => a.id === id);
 
   if (attempt === undefined)
@@ -24,7 +29,7 @@ export const currentAttempt = (d: GraphDecision, id: Attempt["id"], revision?: n
     );
   else if (latestAttempt(d.record.graph, attempt.taskId)?.id !== id || !activeAttempt(attempt))
     d.reject(
-      "E-SETTLED",
+      stateCode,
       `Attempt ${id} is ${attempt.state} and is not mutable`,
       "Act on the latest active Attempt shown in status."
     );
@@ -63,7 +68,10 @@ const validateDraft = (d: GraphDecision, draft: Attempt) => {
     draft.approvedByUserAt !== null ||
     draft.handedUpAt !== null ||
     draft.handedUpReason !== null ||
-    draft.nudgedAt !== null
+    draft.nudgedAt !== null ||
+    draft.blockedOn.length > 0 ||
+    draft.blockedReason !== null ||
+    draft.blockedAt !== null
   )
     d.reject(
       "E-ATTEMPT-DRAFT",
@@ -303,7 +311,10 @@ export const review = (d: GraphDecision, command: GraphCommand<"Review">) => {
     return;
   }
 
-  if (attempt.state !== "review" || attempt.claim === null) {
+  if (
+    !(attempt.state === "blocked" && Predicate.isTagged(command.action, "SendBack")) &&
+    (attempt.state !== "review" || attempt.claim === null)
+  ) {
     d.reject(
       "E-REVIEW",
       `Attempt ${attempt.id} has no Claim to review`,
@@ -316,13 +327,13 @@ export const review = (d: GraphDecision, command: GraphCommand<"Review">) => {
   if (reviewMetadata(d, command, attempt)) return;
 
   if (Predicate.isTagged(command.action, "Accept")) {
-    if (command.action.mergedHead !== attempt.claim.head)
+    if (command.action.mergedHead !== attempt.claim?.head)
       d.reject(
         "E-MERGED-HEAD",
-        `Merged head ${command.action.mergedHead} differs from claimed head ${attempt.claim.head}`,
+        `Merged head ${command.action.mergedHead} differs from claimed head ${attempt.claim?.head}`,
         "Merge the claimed head and accept that exact head."
       );
-    const receipts = [...attempt.claim.receipts, ...command.action.receipts];
+    const receipts = [...(attempt.claim?.receipts ?? []), ...command.action.receipts];
     const tier = evidence(d, receipts);
 
     if (d.findings.length > 0) return;

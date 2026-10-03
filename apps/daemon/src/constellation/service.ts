@@ -46,10 +46,11 @@ export const graphResult = (
   record: ConstellationRecord,
   sequence: Sequence | null,
   json: boolean,
-  projections: ReadonlyArray<TaskProjection> = projectTasks(record)
+  projections: ReadonlyArray<TaskProjection> = projectTasks(record),
+  sessions?: ReadModel["sessions"]
 ) =>
   new ConstellationResult({
-    summary: statusOutline(record),
+    summary: statusOutline(record, sessions),
     next: nextAction(record),
     revision: record.graph.revision,
     sequence,
@@ -110,7 +111,8 @@ const make = Effect.gen(function* () {
     id: ConstellationId,
     json: boolean
   ) {
-    const record = yield* authorize(yield* store.model, id, binding);
+    const model = yield* store.model;
+    const record = yield* authorize(model, id, binding);
 
     return graphResult(
       record,
@@ -118,7 +120,8 @@ const make = Effect.gen(function* () {
       json,
       enrichProjections(record, yield* liveness.read(record), {
         fetchedAttempts: yield* branches.read(record.graph),
-      })
+      }),
+      model.sessions
     );
   });
 
@@ -303,7 +306,8 @@ const make = Effect.gen(function* () {
       true,
       enrichProjections(record, yield* liveness.read(record), {
         fetchedAttempts: yield* branches.read(record.graph),
-      })
+      }),
+      model.sessions
     );
   });
 

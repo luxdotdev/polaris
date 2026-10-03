@@ -1,7 +1,8 @@
-import type { ConstellationId, TurnId } from "@polaris/protocol";
+import { NotificationItem, type ConstellationId, type TurnId } from "@polaris/protocol";
 import { Effect, Predicate } from "effect";
 import { decideSession } from "../../engine/session.ts";
 import { EventStore } from "../../store/EventStore.ts";
+import { GraphDecision } from "../decision.ts";
 import { decideConstellationJournal } from "../journal.ts";
 import { ConstellationOwner } from "../runtime.ts";
 import { ConstellationSessionEffects } from "./inputs.ts";
@@ -35,10 +36,30 @@ export const deliverLocalInput = Effect.fn("Constellation.deliverLocalInput")(fu
           (graph.graph.state === "paused" || graph.handoverRequest !== null))
       )
         return Effect.succeed([]);
+
+      const blocked = graph.graph.attempts.findLast(
+        (a) => a.sessionId === input.sessionId && a.state === "blocked"
+      );
+
+      if (
+        blocked !== undefined &&
+        (record.turns.some((t) => t.status === "working") || graph.peers.has(input.id))
+      )
+        return Effect.succeed([]);
       const turn = newTurn(record.session, input.text, new Date().toISOString());
       const working = record.turns.some((t) => t.status === "working");
 
-      if (!working && !takesDelivery(record, turn)) return Effect.succeed([]);
+      const proof = blocked === undefined ? undefined : graph.interruptions.get(blocked.id);
+
+      const recoveredBlock =
+        blocked !== undefined &&
+        proof?.eligible === true &&
+        record.pending.size === 0 &&
+        record.session.state === "needs-you" &&
+        record.turns.at(-1)?.id === proof.turnId &&
+        record.turns.at(-1)?.endedAt === proof.at;
+
+      if (!working && !takesDelivery(record, turn) && !recoveredBlock) return Effect.succeed([]);
 
       const session = decideSession(
         record,
@@ -152,7 +173,6 @@ export const nudgeSilentWorker = Effect.fn("Constellation.nudgeSilentWorker")(fu
         (record.turns.at(-1)?.startedAt ?? "") < attempt.startedAt ||
         graph.graph.leadSessionId === sessionId ||
         graph.stale.has(attempt.id) ||
-        attempt.nudgedAt !== null ||
         [...graph.questions.values()].some(
           (q) => q.attemptId === attempt.id && q.answer === null && q.question.blocking
         ) ||
@@ -160,7 +180,25 @@ export const nudgeSilentWorker = Effect.fn("Constellation.nudgeSilentWorker")(fu
         graph.graph.state === "completed"
       )
         return Effect.succeed([]);
-      const prompt = `Your Turn ended without a Claim. Continue Task ${attempt.taskId}; call claim when finished, or ask if you need an answer.`;
+
+      if (attempt.nudgedAt !== null) {
+        const stopped = [...graph.notifications.values()].some(
+          (n) =>
+            Predicate.isTagged(n.item, "Stopped") &&
+            n.item.attemptId === attempt.id &&
+            n.queuedAt >= (record.turns.at(-1)?.startedAt ?? "")
+        );
+
+        if (stopped) return Effect.succeed([]);
+        const d = new GraphDecision(graph, journalContext(graph, new Date().toISOString()));
+        d.notify(
+          NotificationItem.cases.Stopped.make({ taskId: attempt.taskId, attemptId: attempt.id })
+        );
+
+        return Effect.succeed(d.events);
+      }
+
+      const prompt = `Your Attempt isn't claimed: claim it, ask for a decision or answer, or call block with the Tasks and reason you are waiting on. Continue ${attempt.taskId} if work remains.`;
       const turn = newTurn(record.session, prompt, new Date().toISOString());
 
       if (!takesDelivery(record, turn)) return Effect.succeed([]);

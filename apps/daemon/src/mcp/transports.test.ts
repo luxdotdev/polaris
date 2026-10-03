@@ -47,6 +47,7 @@ test("Codex's stateless HTTP endpoint works with a real MCP client; revocation c
       await client.connect(transport);
       const list = await client.listTools();
       expect(list.tools.map((tool) => tool.name)).toEqual([
+        "block",
         "progress",
         "ask",
         "claim",

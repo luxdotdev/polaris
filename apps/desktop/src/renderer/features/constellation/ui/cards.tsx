@@ -159,6 +159,20 @@ const lineOf = (r: ConstellationRecord, n: NotificationData, facts: Facts): Dige
 
   return Match.value(n.item).pipe(
     Match.tagsExhaustive({
+      Blocked: ({ attemptId, on, reason }): DigestLine => ({
+        key: n.id,
+        task: task(attemptId),
+        glyph: "waiting",
+        tone: "text-text-subtle",
+        body: `blocked${on.length === 0 ? " awaiting the lead" : ` by ${on.join(", ")}`}: ${reason}`,
+      }),
+      Stopped: ({ attemptId }): DigestLine => ({
+        key: n.id,
+        task: task(attemptId),
+        glyph: "stopped",
+        tone: "text-text-subtle",
+        body: "stopped without claiming",
+      }),
       Settled: ({ attemptId, state }): DigestLine => ({
         key: n.id,
         task: task(attemptId),

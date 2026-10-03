@@ -2,7 +2,7 @@ import type { McpBinding } from "../../mcp/binding.ts";
 import { Match } from "effect";
 import { m2Examples } from "./examples.ts";
 
-export const CONSTELLATION_SKILL_VERSION = 2;
+export const CONSTELLATION_SKILL_VERSION = 3;
 
 const shared = [
   "Use Polaris tools for this Constellation. Read the repository's AGENTS.md before changing code; repository-specific rules stay there.",
@@ -24,6 +24,7 @@ const lead = [
 const worker = [
   "Read the assignment in the first Turn: brief, Area, criteria, branch, base, accepted dependency Claims and any send-back feedback. Stay within the Area or record each outside path and its reason.",
   "Ask instead of guessing when a decision is the Lead's or user's. Use ask { question: { id: base, to: lead, text: Which base should I use?, blocking: true } }. Continue only unblocked work. Use progress for useful facts with optional completed/total, not liveness estimates.",
+  "Use block { on: [A2], reason: Waiting for the feed contract } when no independent work remains and another Task must be accepted. Acceptance resumes you with its head. Use on: [] for a reason-only wait on the Lead; a Lead message resumes you. Use ask for a decision or answer and continue unblocked work. End the Turn after block, without claiming unfinished work.",
   "Commit on the assigned branch. Before claiming, leave no uncommitted changes and ensure the Claim matches the current head of that branch.",
   "Call claim with every field: branch, head, commits, receipts, notDone, followups, questions, outsideArea, decisions and summary. Verified receipts contain label and item { hostId, sessionId, turnId, itemId } referencing a completed Daemon-recorded command; Reported receipts contain label and text. Disclose failures, skipped checks and fake-service limits. A Claim goes to review; it is not acceptance.",
   "Use propose for newly discovered work and message { to: A2, text: ... } for peers. Take resource leases with polaris lease <name> -- <command>; the lease lasts for the command.",

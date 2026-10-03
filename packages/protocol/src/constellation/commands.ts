@@ -121,6 +121,12 @@ export const ConstellationCommand = Schema.TaggedUnion({
     authority: Schema.optionalKey(MessageAuthority),
   },
   SetState: { constellationId: ConstellationId, action: SetConstellationStateAction },
+  WorkerBlock: {
+    constellationId: ConstellationId,
+    attemptId: AttemptId,
+    on: Schema.Array(TaskId),
+    reason: Schema.NonEmptyString,
+  },
   WorkerClaim: { constellationId: ConstellationId, attemptId: AttemptId, claim: Claim },
   WorkerAsk: {
     constellationId: ConstellationId,

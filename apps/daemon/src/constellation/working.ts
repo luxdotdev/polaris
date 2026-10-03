@@ -115,7 +115,11 @@ export const workingAttemptsLayer = <E>(hooks: WorkingAttemptHooks<E>) =>
           .flatMap((record) => record.graph.attempts)
           .find((a) => a.id === attempt.id);
 
-        if (current?.state !== "working" || working.has(attempt.id)) return;
+        if (
+          (current?.state !== "working" && current?.state !== "blocked") ||
+          working.has(attempt.id)
+        )
+          return;
         const scope = yield* Scope.fork(parent);
         working.set(attempt.id, scope);
         yield* Effect.gen(function* () {
@@ -127,7 +131,9 @@ export const workingAttemptsLayer = <E>(hooks: WorkingAttemptHooks<E>) =>
               (r) =>
                 r.graph.state !== "completed" &&
                 r.graph.state !== "archived" &&
-                r.graph.attempts.some((a) => a.id === attempt.id && a.state === "working")
+                r.graph.attempts.some(
+                  (a) => a.id === attempt.id && (a.state === "working" || a.state === "blocked")
+                )
             )
           )
             return;
@@ -153,7 +159,8 @@ export const workingAttemptsLayer = <E>(hooks: WorkingAttemptHooks<E>) =>
             if (record.graph.state === "completed" || record.graph.state === "archived") continue;
 
             for (const attempt of record.graph.attempts)
-              if (attempt.state === "working") yield* start(attempt, true);
+              if (attempt.state === "working" || attempt.state === "blocked")
+                yield* start(attempt, true);
           }
         }),
         afterCommit: Effect.fnUntraced(function* (binding, command, envelopes) {

@@ -25,6 +25,7 @@ test("worker tools cannot forge role, Constellation, Attempt or operator authori
   const fake = fakeCommands();
   const tools = constellationTools(workerBinding, fake.commands);
   expect(tools.map((tool) => tool.name)).toEqual([
+    "block",
     "progress",
     "ask",
     "claim",
@@ -52,6 +53,25 @@ test("worker tools cannot forge role, Constellation, Attempt or operator authori
   expect(fake.calls[0]?.command).toMatchObject({
     constellationId: workerBinding.constellationId,
     attemptId: workerBinding.attemptId,
+  });
+});
+
+test("block binds the worker and validates nonempty reasons and Task ids", async () => {
+  const fake = fakeCommands();
+  const tools = constellationTools(workerBinding, fake.commands);
+  expect((await invoke(tools, "block", { on: ["feed"], reason: "" })).isError).toBe(true);
+  expect((await invoke(tools, "block", { on: [""], reason: "Wait" })).isError).toBe(true);
+  expect(
+    (await invoke(tools, "block", { on: [], reason: "Wait", attemptId: "other" })).isError
+  ).toBe(true);
+  expect(fake.calls).toHaveLength(0);
+  await invoke(tools, "block", { on: ["feed"], reason: "Waiting for the feed" });
+  expect(fake.calls[0]?.command._tag).toBe("WorkerBlock");
+  expect(fake.calls[0]?.command).toMatchObject({
+    constellationId: workerBinding.constellationId,
+    attemptId: workerBinding.attemptId,
+    on: ["feed"],
+    reason: "Waiting for the feed",
   });
 });
 

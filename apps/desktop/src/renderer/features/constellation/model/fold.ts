@@ -208,6 +208,20 @@ const stepFor = (event: Event, at: string): Step =>
         patchAttempt(attemptId, attemptRevision, () => ({ approvedByUserAt })),
       ClaimHandedUp: ({ attemptId, attemptRevision, at: handedUpAt, reason: handedUpReason }) =>
         patchAttempt(attemptId, attemptRevision, () => ({ handedUpAt, handedUpReason })),
+      AttemptBlocked: ({ attemptId, attemptRevision, on, reason, at: blockedAt }) =>
+        patchAttempt(attemptId, attemptRevision, () => ({
+          state: "blocked",
+          blockedOn: on,
+          blockedReason: reason,
+          blockedAt,
+        })),
+      AttemptUnblocked: ({ attemptId, attemptRevision }) =>
+        patchAttempt(attemptId, attemptRevision, () => ({
+          state: "working",
+          blockedOn: [],
+          blockedReason: null,
+          blockedAt: null,
+        })),
       AttemptNudged: ({ attemptId, attemptRevision, at: nudgedAt }) =>
         patchAttempt(attemptId, attemptRevision, () => ({ nudgedAt })),
       AttemptClaimed: ({ attemptId, attemptRevision, claim }) =>

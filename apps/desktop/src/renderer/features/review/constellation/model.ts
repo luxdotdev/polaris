@@ -28,6 +28,11 @@ export const workerCaption = (
   const head = attempt.claim?.head.slice(0, 7);
 
   const state = Match.value(attempt.state).pipe(
+    Match.when(
+      "blocked",
+      () =>
+        `blocked${attempt.blockedOn.length === 0 ? " awaiting the lead" : ` by ${attempt.blockedOn.join(", ")}`}: ${attempt.blockedReason}`
+    ),
     Match.when("review", () => reviewWords(attempt, head)),
     Match.when("working", () =>
       slotHost === null ? "working on its task" : `waiting for a slot on ${slotHost}`
@@ -52,6 +57,7 @@ export const workerActionKind = (attempt: Plain<Attempt>): WorkerActionKind =>
   Match.value(attempt.state).pipe(
     Match.when("review", (): WorkerActionKind => "review"),
     Match.when("working", (): WorkerActionKind => "working"),
+    Match.when("blocked", (): WorkerActionKind => "working"),
     Match.orElse((): WorkerActionKind => "settled")
   );
 

@@ -11,6 +11,7 @@ import {
 import { Predicate } from "effect";
 import { createMachine, isUnhandled, transition, types } from "xstate";
 import { claim, currentAttempt, dispatch, review } from "../constellation/attempts.ts";
+import { blockAttempt } from "../constellation/blocked.ts";
 import { finding, GraphDecision, refusal } from "../constellation/decision.ts";
 import { answer, message } from "../constellation/messages.ts";
 import { plan } from "../constellation/plan.ts";
@@ -136,7 +137,12 @@ const worker = (
   d: GraphDecision,
   command: Extract<ConstellationCommand, { attemptId: string }>
 ) => {
-  const attempt = currentAttempt(d, command.attemptId);
+  const attempt = currentAttempt(
+    d,
+    command.attemptId,
+    undefined,
+    Predicate.isTagged(command, "WorkerBlock") ? "E-BLOCK-STATE" : "E-SETTLED"
+  );
 
   if (attempt === undefined) return;
 
@@ -156,7 +162,9 @@ const worker = (
     return;
   }
 
-  if (Predicate.isTagged(command, "WorkerAsk")) {
+  if (Predicate.isTagged(command, "WorkerBlock")) {
+    blockAttempt(d, command, attempt);
+  } else if (Predicate.isTagged(command, "WorkerAsk")) {
     if (d.record.questions.has(questionKey(attempt.id, command.question.id)))
       d.reject(
         "E-QUESTION-EXISTS",
@@ -352,6 +360,7 @@ export const decideConstellation = (
     );
 
   const isWorker =
+    Predicate.isTagged(command, "WorkerBlock") ||
     Predicate.isTagged(command, "WorkerClaim") ||
     Predicate.isTagged(command, "WorkerAsk") ||
     Predicate.isTagged(command, "WorkerProgress") ||
@@ -391,6 +400,7 @@ export const decideConstellation = (
       Answer: (c) => answer(d, c),
       Message: (c) => message(d, c),
       SetState: (c) => setState(d, c),
+      WorkerBlock: (c) => worker(d, c),
       WorkerClaim: (c) => worker(d, c),
       WorkerAsk: (c) => worker(d, c),
       WorkerProgress: (c) => worker(d, c),

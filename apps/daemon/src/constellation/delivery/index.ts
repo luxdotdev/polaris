@@ -20,6 +20,7 @@ import { digestDelay } from "./format.ts";
 import { commitJournal } from "./journal.ts";
 import { deliverDigest, deliverLocalInput, nudgeSilentWorker } from "./local.ts";
 import { settleFailedWorker } from "./failures.ts";
+import { acceptedBlockInput } from "../blocked.ts";
 import { pendingInputs } from "./messages.ts";
 import {
   ConstellationSessionEffects,
@@ -71,9 +72,15 @@ const make = Effect.gen(function* () {
     for (const graph of (yield* store.model).constellations.values()) {
       if (graph.graph.hostId !== owner) continue;
 
-      const source = [...graph.sentMessages.keys(), ...graph.peers.keys()].find(
-        (sourceId) => sourceId === id || JSON.stringify([sourceId, sessionId]) === id
-      );
+      const source = [
+        ...graph.sentMessages.keys(),
+        ...graph.peers.keys(),
+        ...graph.graph.attempts.flatMap((a) => {
+          const input = acceptedBlockInput(graph, a);
+
+          return input === null ? [] : [input.id];
+        }),
+      ].find((sourceId) => sourceId === id || JSON.stringify([sourceId, sessionId]) === id);
 
       if (source !== undefined)
         yield* commitJournal(graph.graph.id, {
@@ -95,6 +102,8 @@ const make = Effect.gen(function* () {
     for (const input of pendingInputs(record)) {
       const attempt = record.graph.attempts.findLast((a) => a.sessionId === input.sessionId);
 
+      if (attempt?.state === "blocked" && record.peers.has(input.id)) continue;
+
       if (attempt === undefined || attempt.hostId === owner) {
         yield* deliverLocalInput(id, input);
         continue;
@@ -112,7 +121,10 @@ const make = Effect.gen(function* () {
           constellationId: id,
           attemptId: attempt.id,
           sessionId: input.sessionId,
-          input: DeliveryInput.Turn({ text: input.text, cause: "message" }),
+          input: DeliveryInput.Turn({
+            text: input.text,
+            cause: attempt.state === "blocked" ? "unblock" : "message",
+          }),
         })
         .pipe(
           Effect.andThen(acknowledge(input.id, input.sessionId)),

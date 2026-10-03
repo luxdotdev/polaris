@@ -68,6 +68,13 @@ export const constellationEventFields = {
   AttemptClaimed: { ...attempt, claim: Schema.suspend(() => Claim) },
   ClaimApproved: { ...attempt, by: Schema.Literal("user"), at: Timestamp },
   ClaimHandedUp: { ...attempt, reason: optionalNullable(Schema.String), at: Timestamp },
+  AttemptBlocked: {
+    ...attempt,
+    on: Schema.Array(TaskId),
+    reason: Schema.NonEmptyString,
+    at: Timestamp,
+  },
+  AttemptUnblocked: { ...attempt, cause: Schema.Literals(["Accepted", "Lead"]), at: Timestamp },
   AttemptNudged: { ...attempt, at: Timestamp },
   AttemptInterrupted: {
     ...graph,
@@ -166,6 +173,7 @@ export class ConstellationOutboxEntry extends Schema.Class<ConstellationOutboxEn
   sessionId: SessionId,
   attemptId: AttemptId,
   command: Schema.Union([
+    ConstellationCommand.cases.WorkerBlock,
     ConstellationCommand.cases.WorkerClaim,
     ConstellationCommand.cases.WorkerAsk,
     ConstellationCommand.cases.WorkerProgress,

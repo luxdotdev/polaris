@@ -187,6 +187,8 @@ const fold = (event: DomainEvent): Fold =>
       AttemptProgressed: () => unchanged,
       ClaimApproved: () => unchanged,
       ClaimHandedUp: () => unchanged,
+      AttemptBlocked: () => unchanged,
+      AttemptUnblocked: () => unchanged,
       AttemptNudged: () => unchanged,
       AttemptClaimed: () => unchanged,
       AttemptAccepted: () => unchanged,

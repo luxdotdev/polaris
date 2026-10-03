@@ -93,6 +93,7 @@ export const workerBrief = (assignment: WorkerAssignment): string => {
       ? ""
       : `Rejected Claim:\n${JSON.stringify(assignment.rejectedClaim)}`,
     assignment.feedback === undefined ? "" : `Review feedback:\n${assignment.feedback}`,
+    "When blocked: continue independent work first; use block { on: [Task ids], reason } to wait for acceptance, or on: [] to wait for the Lead. End your Turn after blocking. Use ask for a decision or answer. Acceptance or a Lead message resumes a blocked Attempt.",
     "Brief:",
     task.brief,
   ]

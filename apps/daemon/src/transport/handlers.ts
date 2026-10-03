@@ -225,6 +225,7 @@ export const defaultHandlers = (options: {
     "constellation.stats": () => Effect.fail(constellationUnavailable()),
     "constellation.connection": () => Effect.fail(constellationUnavailable()),
     "constellation.set_state": () => Effect.fail(constellationUnavailable()),
+    "constellation.worker.block": () => Effect.fail(constellationUnavailable()),
     "constellation.worker.claim": () => Effect.fail(constellationUnavailable()),
     "constellation.worker.ask": () => Effect.fail(constellationUnavailable()),
     "constellation.worker.progress": () => Effect.fail(constellationUnavailable()),

@@ -18,6 +18,8 @@ module constellations {
     | AttemptClaimed({ attempt: int, sha: int })
     | ClaimApproved(int)
     | ClaimHandedUp(int)
+    | AttemptBlocked({ attempt: int, on: Set[int] })
+    | AttemptUnblocked({ attempt: int, cause: str, turn: bool })
     | AttemptNudged(int)
     | AttemptAccepted({ attempt: int, sha: int })
     | AttemptRejected(int)
@@ -46,6 +48,7 @@ module constellations {
     tasks: int -> Task, attempts: List[Attempt], lead: int, state: str,
     handoverRequest: int, handoverFrom: int, stale: Set[int], inputs: List[{ id: int, session: int }],
     approvals: List[int], handups: List[int], nudges: List[int],
+    blocks: int -> Set[int],
     promotions: List[int], notes: int -> str, deliveries: List[Delivery],
     proofs: Set[{ attempt: int, interruption: int }],
     applied: List[int], recoveries: List[Recovery], waiters: List[int],
@@ -61,13 +64,14 @@ module constellations {
     tasks: TASKS.mapBy(_ => emptyTask), attempts: [], lead: 0, state: "planning",
     handoverRequest: -1, handoverFrom: -1, stale: Set(), inputs: [],
     approvals: [], handups: [], nudges: [],
+    blocks: Map(),
     proofs: Set(),
     promotions: [], notes: Map(), deliveries: [], applied: [], recoveries: [],
     waiters: [], holders: Set(), requests: [], grants: [], capacity: CAPACITY, canceled: Set(),
   }
 // The event log is durable; projections and pending notification IDs are always re-folded.
   pure def has(xs: List[int], x: int): bool = xs.indices().exists(i => xs[i] == x)
-  pure def active(a: Attempt): bool = Set("working", "review").contains(a.status)
+  pure def active(a: Attempt): bool = Set("working", "blocked", "review").contains(a.status)
   pure def change(v: View, a: int, status: str, sha: int): View = {
     ...v, attempts: v.attempts.replaceAt(a, {
       ...v.attempts[a], status: status, sha: sha, revision: v.attempts[a].revision + 1,
@@ -90,6 +94,8 @@ module constellations {
     | AttemptClaimed(p) => change(v, p.attempt, "review", p.sha)
     | ClaimApproved(a) => { ...change(v, a, v.attempts[a].status, v.attempts[a].sha), approvals: v.approvals.append(a) }
     | ClaimHandedUp(a) => { ...change(v, a, v.attempts[a].status, v.attempts[a].sha), handups: v.handups.append(a) }
+    | AttemptBlocked(p) => { ...change(v, p.attempt, "blocked", v.attempts[p.attempt].sha), blocks: v.blocks.put(p.attempt, p.on) }
+    | AttemptUnblocked(p) => { ...change(v, p.attempt, "working", v.attempts[p.attempt].sha), blocks: v.blocks.keys().exclude(Set(p.attempt)).mapBy(a => v.blocks.get(a)) }
     | AttemptNudged(a) => { ...change(v, a, v.attempts[a].status, v.attempts[a].sha), nudges: v.nudges.append(a) }
     | AttemptAccepted(p) => change(v, p.attempt, "accepted", p.sha)
     | AttemptRejected(a) => change(v, a, "rejected", v.attempts[a].sha)
@@ -184,6 +190,17 @@ module constellations {
       and not(view.attempts.indices().exists(i => active(view.attempts[i]) and view.attempts[i].session == s))
       and (latest(view, t) < 0 and ref == -1 or latest(view, t) >= 0 and ref == latest(view, t) and not(active(view.attempts[ref]))))
     [AttemptStarted({ task: t, session: s, ref: ref })] else [])
+  pure def blockEvents(v: View, a: int, on: Set[int], rev: int): List[EventKind] =
+    if (current(v, a, rev) and v.attempts[a].status == "working"
+      and on.forall(t => v.tasks.get(t).declared and not(v.tasks.get(t).canceled) and t != v.attempts[a].task)
+      and (on.size() == 0 or not(on.forall(t => accepted(v, t)))))
+      [AttemptBlocked({ attempt: a, on: on }), NotificationQueued({ id: 1000 + rev * 100 + a, kind: "blocked" })] else []
+  pure def unblockEvents(v: View, a: int, rev: int, cause: str, turn: bool): List[EventKind] =
+    if (current(v, a, rev) and v.attempts[a].status == "blocked" and turn
+      and (cause == "Lead" or cause == "Accepted" and v.blocks.get(a).size() > 0 and v.blocks.get(a).forall(t => accepted(v, t))))
+      [AttemptUnblocked({ attempt: a, cause: cause, turn: turn })] else []
+  action block(a: int, on: Set[int], rev: int): bool = commit(OWNER, blockEvents(view, a, on, rev))
+  action unblock(a: int, rev: int, cause: str, turn: bool): bool = commit(OWNER, unblockEvents(view, a, rev, cause, turn))
   action progress(a: int, rev: int): bool = commit(OWNER,
     if (current(view, a, rev) and view.attempts[a].status == "working") [AttemptProgressed(a)] else [])
   action claim(a: int, rev: int, sha: int, dirty: bool, onBranch: bool): bool = commit(OWNER,
@@ -266,6 +283,7 @@ module constellations {
       plan([Edit({ task: t, deps: Set(dep), revision: rev })]),
       plan([Cancel({ task: t, revision: rev })]),
       start(t, s, latest(view, t)), progress(a, rev), claim(a, rev, 42, false, true),
+      block(a, Set(dep), rev), block(a, Set(), rev), unblock(a, rev, "Accepted", true), unblock(a, rev, "Lead", true),
       claim(a, rev, 42, true, true), accept(a, rev, 42), accept(a, rev, 43), reject(a, rev), stop(a, rev), harnessFail(a),
       ask(a, id), deliver, handover(s), requestHandover(id), cancelHandover, finishHandover(id, s), setState("running"), setState("paused"),
       all { TASKS.forall(task => accepted(view, task)), setState("completed") },
@@ -342,6 +360,17 @@ module constellations {
   }) and view.nudges.length() == view.nudges.foldl(Set(), (acc, a) => acc.union(Set(a))).size()
     and view.approvals.length() == view.approvals.foldl(Set(), (acc, a) => acc.union(Set(a))).size()
     and view.handups.length() == view.handups.foldl(Set(), (acc, a) => acc.union(Set(a))).size()
+  val blockTransitionsValid = log.indices().forall(i => {
+    val before = foldEvents(log.slice(0, i))
+    match log[i].kind {
+      | AttemptBlocked(p) => before.attempts[p.attempt].status == "working"
+        and p.on.forall(t => before.tasks.get(t).declared and not(before.tasks.get(t).canceled) and t != before.attempts[p.attempt].task)
+        and (p.on.size() == 0 or not(p.on.forall(t => accepted(before, t))))
+      | AttemptUnblocked(p) => before.attempts[p.attempt].status == "blocked" and p.turn
+        and (p.cause == "Lead" or p.cause == "Accepted" and before.blocks.get(p.attempt).size() > 0 and before.blocks.get(p.attempt).forall(t => accepted(before, t)))
+      | _ => true
+    }
+  })
   val lifecycleValid = log.indices().forall(i => match log[i].kind {
     | ConstellationStateChanged(s) => lifecycleTransition(foldEvents(log.slice(0, i)).state, s)
     | _ => true
@@ -371,7 +400,7 @@ module constellations {
     graphAcyclic, causesPointBackward, taskFollowsLatestAttempt, gatePromotedOnlyAfterAccepted,
     oneLead, oneActiveAttemptPerSession, exactlyOnceDelivery, settledAttemptImmutable,
     outboxAppliedExactlyOnce, onlyOwnerCommits, recoveryAtMostOnce, recoveryHasEligibleProof, staleNeverSettlesWithoutCommand,
-    noOldLeadDelivery, handoverRequestOrdered, inputDeliveredAtMostOnce, lifecycleValid, reviewMetadataValid, resourceCapacity, resourceRemovalSafe, fifoGrantOrder, acceptanceMatchesClaim,
+    noOldLeadDelivery, handoverRequestOrdered, inputDeliveredAtMostOnce, blockTransitionsValid, lifecycleValid, reviewMetadataValid, resourceCapacity, resourceRemovalSafe, fifoGrantOrder, acceptanceMatchesClaim,
   }
   val witnessClaim = view.attempts.indices().exists(i => view.attempts[i].status == "review")
   val witnessAccepted = view.attempts.indices().exists(i => view.attempts[i].status == "accepted")

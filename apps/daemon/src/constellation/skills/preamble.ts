@@ -1,6 +1,6 @@
 import type { OpenOptions } from "../../harness/HarnessDriver.ts";
 
-export const POLARIS_PREAMBLE_VERSION = 1;
+export const POLARIS_PREAMBLE_VERSION = 2;
 
 type InstructionOptions = Pick<OpenOptions, "readOnly" | "constellation" | "constellations">;
 
@@ -39,7 +39,7 @@ export const polarisPreamble = (options: InstructionOptions): string => {
 
   if (claim !== -1)
     features.push(
-      `Constellations: follow your worker assignment and submit its report with ${name(claim, "claim")}; your worker skill explains the fields.`
+      `Constellations: follow your worker assignment and submit its report with ${name(claim, "claim")}; use ${name(claim, "block")} when waiting on Tasks and ${name(claim, "ask")} for decisions or answers. Your worker skill explains the fields.`
     );
 
   return [...context, ...features].join("\n");
