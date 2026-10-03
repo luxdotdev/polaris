@@ -17,6 +17,7 @@ import { EventStore } from "../../store/EventStore.ts";
 import { HarnessRegistry } from "../../services.ts";
 import { finding, refusal } from "../decision.ts";
 import { WorktreeSetupService } from "../setup/index.ts";
+import { startupSetupIntent } from "./startupSetup.ts";
 import type { WorkerPreparation } from "../transfers/prepareWorkers.ts";
 
 /** Provision only the Session; the committed Attempt's acquired startup hook owns its first Turn. */
@@ -130,11 +131,10 @@ export const prepareSession = Effect.fn("Constellation.prepareSession")(function
       })
       .pipe(Effect.orDie);
 
-  const reusesWorktree =
-    existing !== undefined &&
-    input.previous?.sessionId === sessionId &&
-    input.previous.worktree === input.worktree.worktree &&
-    existing.cwd === input.worktree.worktree;
+  const reusesWorktree = sameWorktree(input, existing);
+
+  const startupSetup =
+    input.task.kind !== "gate" && reusesWorktree ? yield* startupSetupIntent(input) : null;
 
   if (input.task.kind !== "gate" && !reusesWorktree) {
     const setup = yield* (yield* WorktreeSetupService)
@@ -182,6 +182,7 @@ export const prepareSession = Effect.fn("Constellation.prepareSession")(function
     worktree: input.worktree.worktree,
     branch: input.worktree.branch,
     base: input.worktree.base,
+    startupSetup,
     state: "working",
     claim: null,
     mergedHead: null,
@@ -196,3 +197,9 @@ export const prepareSession = Effect.fn("Constellation.prepareSession")(function
     endedAt: null,
   });
 });
+
+const sameWorktree = (input: WorkerPreparation, session: AgentSession | undefined) =>
+  session !== undefined &&
+  input.previous?.sessionId === session.id &&
+  input.previous.worktree === input.worktree.worktree &&
+  session.cwd === input.worktree.worktree;

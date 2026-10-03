@@ -26,6 +26,7 @@ export const executeSetup = Effect.fn("WorktreeSetup.execute")(function* (run: W
       try: () =>
         Bun.spawn(["/bin/sh", "-c", run.command], {
           cwd: run.cwd,
+
           env: childEnv(),
           stdin: "ignore",
           stdout: "pipe",
@@ -58,6 +59,7 @@ export const executeSetup = Effect.fn("WorktreeSetup.execute")(function* (run: W
     taskId: run.taskId,
     command: run.command,
     cwd: run.cwd,
+    fingerprint: run.fingerprint,
     startedAt: run.startedAt,
     output: (stdout + stderr).slice(-MAX_OUTPUT),
     exitCode: code,

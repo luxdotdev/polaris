@@ -25,6 +25,7 @@ import {
   ConstellationRemoteDelivery,
   type DeliveryPacket,
 } from "./index.ts";
+import { WorktreeSetupService } from "../setup/index.ts";
 import { newTurn } from "./turns.ts";
 
 export const WORKER = SessionId.make("worker");
@@ -156,7 +157,11 @@ export const world = (
     readonly onRun?: (turn: Turn) => Effect.Effect<void, never, EventStore>;
     readonly attempt?: ReturnType<typeof draft>;
     readonly remoteSend?: (packet: DeliveryPacket) => Effect.Effect<void>;
-    readonly runtime?: Layer.Layer<never, never, EventStore | ConstellationSessionEffects>;
+    readonly runtime?: Layer.Layer<
+      never,
+      never,
+      EventStore | ConstellationSessionEffects | WorktreeSetupService
+    >;
   } = {}
 ) => {
   const turns: Turn[] = [];
@@ -209,11 +214,15 @@ export const world = (
     afterCommit: () => Effect.void,
   });
 
+  const configured = WorktreeSetupService.layer.pipe(Layer.provideMerge(effects));
+
   const layer = Layer.mergeAll(Constellations.layer, ConstellationDelivery.layer).pipe(
     Layer.provide(
-      (options.runtime ?? Layer.succeed(ConstellationRuntime)(runtime)).pipe(Layer.provide(effects))
+      (options.runtime ?? Layer.succeed(ConstellationRuntime)(runtime)).pipe(
+        Layer.provide(configured)
+      )
     ),
-    Layer.provideMerge(effects),
+    Layer.provideMerge(configured),
     Layer.provide(Layer.succeed(ConstellationOwner)(HOST)),
     Layer.provide(
       Layer.succeed(ConstellationRemoteDelivery)({
@@ -226,7 +235,11 @@ export const world = (
     effect: Effect.Effect<
       A,
       E,
-      Constellations | ConstellationDelivery | EventStore | ConstellationSessionEffects
+      | Constellations
+      | ConstellationDelivery
+      | EventStore
+      | ConstellationSessionEffects
+      | WorktreeSetupService
     >
   ) =>
     Effect.runPromise(

@@ -48,7 +48,7 @@ module constellations {
   type View = {
     tasks: int -> Task, attempts: List[Attempt], lead: int, state: str,
     handoverRequest: int, handoverFrom: int, stale: Set[int], inputs: List[{ id: int, session: int }],
-    approvals: List[int], handups: List[int], nudges: List[int], firstTurns: List[int],
+    approvals: List[int], handups: List[int], nudges: List[int], firstTurns: List[int], earlyInputs: Set[int],
     blocks: int -> Set[int],
     promotions: List[int], notes: int -> str, deliveries: List[Delivery],
     proofs: Set[{ attempt: int, interruption: int }],
@@ -64,7 +64,7 @@ module constellations {
   pure val empty: View = {
     tasks: TASKS.mapBy(_ => emptyTask), attempts: [], lead: 0, state: "planning",
     handoverRequest: -1, handoverFrom: -1, stale: Set(), inputs: [],
-    approvals: [], handups: [], nudges: [], firstTurns: [],
+    approvals: [], handups: [], nudges: [], firstTurns: [], earlyInputs: Set(),
     blocks: Map(),
     proofs: Set(),
     promotions: [], notes: Map(), deliveries: [], applied: [], recoveries: [],
@@ -118,7 +118,10 @@ module constellations {
     | AttemptInterrupted(p) => { ...v, proofs: if (p.eligible) v.proofs.union(Set({ attempt: p.attempt, interruption: p.interruption })) else v.proofs }
     | AttemptStale(a) => { ...v, stale: v.stale.union(Set(a)) }
     | AttemptFresh(a) => { ...v, stale: v.stale.exclude(Set(a)) }
-    | WorkerInputDelivered(p) => { ...v, inputs: v.inputs.append(p) }
+    | WorkerInputDelivered(p) => { ...v, inputs: v.inputs.append(p),
+        earlyInputs: v.earlyInputs.union(v.attempts.indices().filter(a =>
+          v.attempts[a].session == p.session and v.attempts[a].status == "working"
+          and not(has(v.firstTurns, a)))) }
     | ConstellationStateChanged(s) => { ...v, state: s }
     | NotificationQueued(p) => { ...v, notes: v.notes.put(p.id, p.kind) }
     | LeadNotified(p) => { ...v, deliveries: p.ids.fold(v.deliveries, (acc, id) => acc.append({ id: id, lead: p.lead })) }
@@ -385,7 +388,8 @@ module constellations {
   val firstTurnValid = log.indices().forall(i => match log[i].kind {
     | FirstTurnStarted(a) => { val before = foldEvents(log.slice(0, i));
         before.attempts.indices().contains(a) and before.attempts[a].status == "working"
-        and latest(before, before.attempts[a].task) == a and not(before.stale.contains(a)) }
+        and latest(before, before.attempts[a].task) == a and not(before.stale.contains(a))
+        and not(before.earlyInputs.contains(a)) }
     | _ => true
   })
   val claimsValid = log.indices().forall(i => match log[i].kind {

@@ -24,6 +24,7 @@ export const attemptData = (attempt: Attempt) => ({
   worktree: attempt.worktree,
   branch: attempt.branch,
   base: attempt.base,
+  startupSetup: attempt.startupSetup,
   state: attempt.state,
   claim: attempt.claim,
   mergedHead: attempt.mergedHead,

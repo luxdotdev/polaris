@@ -459,7 +459,7 @@ const ClaimFoot = ({
   </div>
 );
 
-const ReviewArea = ({
+export const ReviewArea = ({
   form,
   mode,
   facts,
@@ -483,7 +483,13 @@ const ReviewArea = ({
       />
     </div>
     {mode === "approve" ? <Approve {...form} /> : null}
-    {mode === "accept" ? <Accept {...form} facts={facts} /> : null}
+    {mode === "accept" ? (
+      <Accept
+        key={`${form.attempt.id}:${form.attempt.revision}:${form.claim.head}`}
+        {...form}
+        facts={facts}
+      />
+    ) : null}
     {mode === "send-back" ? <SendBack {...form} /> : null}
   </>
 );

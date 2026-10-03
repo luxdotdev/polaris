@@ -152,7 +152,6 @@ const make = Effect.gen(function* () {
         )
         .pipe(
           Effect.catchCause((c) => Effect.logError("Constellation Turn failed", c)),
-          Effect.forkIn(runtime.engineScope),
           Effect.asVoid
         ),
     canSteerSession: Effect.fnUntraced(function* (sessionId) {

@@ -17,6 +17,10 @@ export interface DeliveryPacket {
 export const DeliveryInput = Data.taggedEnum<DeliveryPacket["input"]>();
 
 export interface DeliverySessionEffects {
+  readonly serialInput?: <A, E, R>(
+    sessionId: SessionId,
+    effect: Effect.Effect<A, E, R>
+  ) => Effect.Effect<A, E, R>;
   readonly runTurn: (turn: Turn, prompt: string) => Effect.Effect<void>;
   readonly canSteer: (sessionId: SessionId) => Effect.Effect<boolean>;
   readonly steer: (sessionId: SessionId, text: string) => Effect.Effect<void>;

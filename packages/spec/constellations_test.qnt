@@ -304,6 +304,10 @@ module constellations_test {
     .expect(view.grants == [0, 2] and view.holders == Set(2) and safety)
     .then(restart).then(release(2)).then(request(3)).then(grant)
     .expect(view.grants == [0, 2, 3] and view.holders == Set(3) and resourceCapacity and fifoGrantOrder and safety)
+  run sendBackBriefPrecedesQueuedInputTest = claimed.then(reject(0, 2))
+    .then(start(0, 1, 0)).then(restart).then(startFirstTurn(1))
+    .then(replay([{ host: OWNER, kind: WorkerInputDelivered({ id: 77, session: 1 }) }]))
+    .expect(view.firstTurns == [1] and firstTurnValid and safety)
 }
 
 module constellations_property_test {
@@ -406,4 +410,8 @@ module constellations_property_test {
     .expect(not(onlyOwnerCommits))
   run detectsFifoViolationTest = init.then(request(0)).then(request(1))
     .then(commit(OWNER, [ResourceLeased(1)])).expect(not(fifoGrantOrder))
+  run inputBeforeSendBackBriefViolatesFirstTurnTest = claimed.then(reject(0, 2))
+    .then(start(0, 1, 0))
+    .then(replay([{ host: OWNER, kind: WorkerInputDelivered({ id: 77, session: 1 }) }, { host: OWNER, kind: FirstTurnStarted(1) }]))
+    .expect(not(firstTurnValid))
 }

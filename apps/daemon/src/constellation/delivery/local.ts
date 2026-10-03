@@ -1,6 +1,7 @@
 import { NotificationItem, type ConstellationId, type TurnId } from "@polaris/protocol";
 import { Effect, Predicate } from "effect";
 import { decideSession } from "../../engine/session.ts";
+import { serialInput } from "./boundary.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { GraphDecision } from "../decision.ts";
 import { decideConstellationJournal } from "../journal.ts";
@@ -12,7 +13,7 @@ import { pendingInputs, type PendingInput } from "./messages.ts";
 import { newTurn, startedTurn, takesDelivery } from "./turns.ts";
 import { unblocksAttempt } from "../blocked.ts";
 
-export const deliverLocalInput = Effect.fn("Constellation.deliverLocalInput")(function* (
+const deliverInput = Effect.fn("Constellation.deliverLocalInput")(function* (
   id: ConstellationId,
   input: PendingInput
 ) {
@@ -94,9 +95,7 @@ export const deliverLocalInput = Effect.fn("Constellation.deliverLocalInput")(fu
   else yield* effects.runTurn(turn, input.text);
 });
 
-export const deliverDigest = Effect.fn("Constellation.deliverDigest")(function* (
-  id: ConstellationId
-) {
+const digest = Effect.fn("Constellation.deliverDigest")(function* (id: ConstellationId) {
   const store = yield* EventStore;
   const effects = yield* ConstellationSessionEffects;
   const owner = yield* ConstellationOwner;
@@ -147,7 +146,7 @@ export const deliverDigest = Effect.fn("Constellation.deliverDigest")(function* 
   }
 });
 
-export const nudgeSilentWorker = Effect.fn("Constellation.nudgeSilentWorker")(function* (
+const nudge = Effect.fn("Constellation.nudgeSilentWorker")(function* (
   id: ConstellationId,
   sessionId: PendingInput["sessionId"],
   endedTurnId: TurnId
@@ -228,3 +227,20 @@ export const nudgeSilentWorker = Effect.fn("Constellation.nudgeSilentWorker")(fu
     if (turn !== undefined) yield* effects.runTurn(turn, turn.prompt);
   }
 });
+
+export const deliverLocalInput = (id: ConstellationId, input: PendingInput) =>
+  serialInput(input.sessionId, deliverInput(id, input));
+
+export const deliverDigest = (id: ConstellationId) =>
+  Effect.gen(function* () {
+    const store = yield* EventStore;
+    const sessionId = (yield* store.model).constellations.get(id)?.graph.leadSessionId;
+
+    if (sessionId !== undefined) yield* serialInput(sessionId, digest(id));
+  });
+
+export const nudgeSilentWorker = (
+  id: ConstellationId,
+  sessionId: PendingInput["sessionId"],
+  endedTurnId: TurnId
+) => serialInput(sessionId, nudge(id, sessionId, endedTurnId));

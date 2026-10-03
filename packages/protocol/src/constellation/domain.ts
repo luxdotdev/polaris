@@ -167,6 +167,13 @@ export class Attempt extends Schema.Class<Attempt>("ConstellationAttempt")({
   worktree: Schema.NonEmptyString,
   branch: Schema.NonEmptyString,
   base: Schema.NonEmptyString,
+  /** Deferred setup policy, used before the durable first-Turn receipt. */
+  startupSetup: optionalNullable(
+    Schema.Struct({
+      command: Schema.NullOr(Schema.String),
+      force: Schema.optionalKey(Schema.Boolean),
+    })
+  ),
   state: AttemptState,
   claim: optionalNullable(Claim),
   mergedHead: optionalNullable(Schema.String),

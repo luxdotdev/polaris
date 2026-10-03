@@ -16,6 +16,7 @@ The orchestration engine: `decider.ts` validates Client commands, the `Engine` s
 | `context.ts` | Which `ContextUsed` reports become `SessionContextUsed`: the first, a new window, or a move of a whole percent (a thousand tokens while the window is unknown). |
 | `reactors.ts` | `Reactors`: what runs after each command commits. |
 | `dispatch.ts` | `Dispatcher`: resolves the decider's inputs, commits, acks and forks the reactor. |
+| `sessionBoundary.ts` | A shared per-Session gate for Constellation startup and incoming Turn commands. A committed Attempt with no first-Turn receipt starts before queued inputs; remote mirror revisions also wake waiters. Queued `SendTurn` waits for the brief’s boundary. Harness submission finishes under the gate before later steering can run. |
 | `streams.ts` | `Streams`: the Host and session streams (snapshot or replay, `Synchronized`, live). |
 | `review.ts` | The decider's Review commands: `SendFeedback` and `AcceptTurns` through the session machine, the Review Checkout commands through the checkout machine, `LinkPullRequest`, `RecordVerdict`. |
 | `checkout.ts` | The Review Checkout lifecycle machine (below). |

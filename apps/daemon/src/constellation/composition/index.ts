@@ -1,5 +1,6 @@
 import { type Attempt, ConstellationTransferError, WorkerPlacement } from "@polaris/protocol";
 import { Effect, Layer, Stream } from "effect";
+import { registerStartupGraphs } from "../../engine/sessionBoundary.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { mcpHttp } from "../../mcp/http.ts";
 import { hostWorkingAttemptsLayer } from "../host.ts";
@@ -110,6 +111,14 @@ const remoteWorkers = Layer.unwrap(
     const store = yield* EventStore;
     const setup = yield* WorktreeSetupService;
     const storage = yield* TransferStorage;
+    registerStartupGraphs(
+      store,
+      () =>
+        Effect.map(storage.assignments.pipe(Effect.orDie), (assignments) =>
+          assignments.map((a) => a.graph)
+        ),
+      storage.changes
+    );
 
     const currentAssignment = (assignment: import("@polaris/protocol").RemoteWorkerAssignment) =>
       Effect.map(storage.assignments.pipe(Effect.orDie), (assignments) => {
@@ -130,6 +139,7 @@ const remoteWorkers = Layer.unwrap(
           {
             key: request.id,
             worktreeSetup: request.worktreeSetup,
+            forceSetup: request.forceSetup === true,
             graph: request.graph,
             task: request.task,
             worktree,

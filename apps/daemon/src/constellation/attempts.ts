@@ -6,7 +6,7 @@ import {
   NotificationItem,
   type TaskId,
 } from "@polaris/protocol";
-import { Option, Predicate, Schema } from "effect";
+import { Match, Option, Predicate, Schema } from "effect";
 import type { GraphCommand } from "../engine/constellation.inputs.ts";
 import { questionKey } from "../store/constellation.ts";
 import { attemptData } from "./data.ts";
@@ -31,8 +31,12 @@ export const currentAttempt = (
   else if (latestAttempt(d.record.graph, attempt.taskId)?.id !== id || !activeAttempt(attempt))
     d.reject(
       stateCode,
-      `Attempt ${id} is ${attempt.state} and is not mutable`,
-      "Act on the latest active Attempt shown in status."
+      attempt.state === "rejected"
+        ? `Attempt ${id} was sent back and is no longer current`
+        : `Attempt ${id} is ${attempt.state} and is not mutable`,
+      stateCode === "E-CLAIM-STATE" && attempt.state === "rejected"
+        ? "This Attempt was sent back. The new Attempt starts after this Turn ends; use its tools when it begins."
+        : "Act on the latest active Attempt shown in status."
     );
   else if (revision !== undefined && revision !== attempt.revision)
     d.reject(
@@ -416,6 +420,37 @@ const validateClaimHead = (
   }
 };
 
+const claimQuestions = (
+  d: GraphDecision,
+  command: GraphCommand<"WorkerClaim">,
+  attempt: Attempt
+) => {
+  const questions = new Set<string>();
+  const freshQuestions = [];
+
+  for (const question of command.claim.questions) {
+    const existing = d.record.questions.get(questionKey(attempt.id, question.id));
+
+    const sameOpen =
+      existing?.answer === null &&
+      existing.question.to === question.to &&
+      existing.question.text === question.text &&
+      existing.question.blocking === question.blocking;
+
+    if (questions.has(question.id) || (existing !== undefined && !sameOpen))
+      d.reject(
+        "E-QUESTION-EXISTS",
+        `Question ${question.id} already exists`,
+        "Use a fresh question id."
+      );
+    questions.add(question.id);
+
+    if (existing === undefined) freshQuestions.push(question);
+  }
+
+  return freshQuestions;
+};
+
 export const claim = (d: GraphDecision, command: GraphCommand<"WorkerClaim">, attempt: Attempt) => {
   validateClaimHead(d, command, attempt);
 
@@ -423,9 +458,18 @@ export const claim = (d: GraphDecision, command: GraphCommand<"WorkerClaim">, at
     d.reject(
       "E-CLAIM-STATE",
       `Attempt ${attempt.id} is ${attempt.state}`,
-      attempt.state === "blocked"
-        ? "Wait for its dependencies or a Lead message to resume the Attempt."
-        : "Review its existing Claim."
+      Match.value(attempt.state).pipe(
+        Match.when(
+          "blocked",
+          () => "Wait for its dependencies or a Lead message to resume the Attempt."
+        ),
+        Match.when(
+          "rejected",
+          () =>
+            "This Attempt was sent back. The new Attempt starts after this Turn ends; use its tools when it begins."
+        ),
+        Match.orElse(() => "Review its existing Claim.")
+      )
     );
 
   if (attempt.state === "review" && command.claim.head === attempt.claim?.head)
@@ -435,17 +479,7 @@ export const claim = (d: GraphDecision, command: GraphCommand<"WorkerClaim">, at
       "Commit the additional work before claiming again, or review the existing Claim."
     );
 
-  const questions = new Set<string>();
-
-  for (const question of command.claim.questions) {
-    if (questions.has(question.id) || d.record.questions.has(questionKey(attempt.id, question.id)))
-      d.reject(
-        "E-QUESTION-EXISTS",
-        `Question ${question.id} already exists`,
-        "Use a fresh question id."
-      );
-    questions.add(question.id);
-  }
+  const freshQuestions = claimQuestions(d, command, attempt);
 
   if (d.findings.length > 0) return;
   d.emit(
@@ -458,6 +492,6 @@ export const claim = (d: GraphDecision, command: GraphCommand<"WorkerClaim">, at
   );
   d.notify(NotificationItem.cases.Settled.make({ attemptId: attempt.id, state: "review" }));
 
-  for (const question of command.claim.questions)
+  for (const question of freshQuestions)
     d.notify(NotificationItem.cases.Question.make({ attemptId: attempt.id, question }));
 };

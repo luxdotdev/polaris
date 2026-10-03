@@ -1,7 +1,23 @@
 import { expect, test } from "bun:test";
-import { Claim, ReviewAction } from "@polaris/protocol";
+import {
+  AnswerAction,
+  Claim,
+  ConstellationQuestion,
+  ReviewAction,
+  WorkerPlacement,
+} from "@polaris/protocol";
 import { Predicate, Struct } from "effect";
-import { C, CID, LEAD, apply, claimed, ctx, draft, report } from "./constellation.testing.ts";
+import {
+  C,
+  CID,
+  LEAD,
+  apply,
+  claimed,
+  ctx,
+  draft,
+  report,
+  dispatched,
+} from "./constellation.testing.ts";
 import { decideConstellation } from "./constellation.ts";
 
 const reclaim = (head: string, dirtyPaths: string[] = []) => ({
@@ -96,4 +112,104 @@ test("re-claim still requires a clean matching changed branch head", () => {
       (f) => f.code === "E-CLAIM-HEAD"
     )
   ).toBe(true);
+});
+
+const openQuestion = ConstellationQuestion.make({
+  id: "decision",
+  to: "lead",
+  text: "Choose the base",
+  blocking: true,
+});
+
+test("re-claim retains identical open questions and only notifies fresh questions", () => {
+  const first = Claim.make(Struct.assign(report(), { questions: [openQuestion] }));
+  let record = claimed(dispatched(), first);
+  const original = [...record.questions.values()][0]!;
+  const input = reclaim("revised");
+
+  const command = C.WorkerClaim.make({
+    ...input.command,
+    claim: Claim.make(Struct.assign(input.command.claim, { questions: [openQuestion] })),
+  });
+
+  const decision = decideConstellation(record, command, input.context);
+  expect(decision.rejection).toBeNull();
+  expect(decision.events.filter((e) => Predicate.isTagged(e, "NotificationQueued"))).toHaveLength(
+    1
+  );
+  record = apply(record, command, input.context);
+  expect([...record.questions.values()]).toEqual([original]);
+  expect(record.graph.attempts[0]!.claim?.questions).toEqual([openQuestion]);
+});
+
+test("answered, changed and duplicate question ids remain refused on re-claim", () => {
+  const record = claimed(
+    dispatched(),
+    Claim.make(Struct.assign(report(), { questions: [openQuestion] }))
+  );
+
+  const input = reclaim("revised");
+
+  const ask = (questions: ConstellationQuestion[], current = record) =>
+    decideConstellation(
+      current,
+      C.WorkerClaim.make({
+        ...input.command,
+        claim: Claim.make(Struct.assign(input.command.claim, { questions })),
+      }),
+      input.context
+    );
+
+  for (const field of [{ text: "Other question" }, { to: "user" as const }, { blocking: false }])
+    expect(
+      ask([
+        ConstellationQuestion.make({
+          id: openQuestion.id,
+          text: field.text ?? openQuestion.text,
+          to: field.to ?? openQuestion.to,
+          blocking: field.blocking ?? openQuestion.blocking,
+        }),
+      ]).rejection?.findings[0]?.code
+    ).toBe("E-QUESTION-EXISTS");
+  expect(ask([openQuestion, openQuestion]).rejection?.findings[0]?.code).toBe("E-QUESTION-EXISTS");
+
+  const answered = apply(
+    record,
+    C.Answer.make({
+      constellationId: CID,
+      action: AnswerAction.cases.Question.make({
+        attemptId: draft().id,
+        questionId: openQuestion.id,
+        text: "main",
+      }),
+    }),
+    ctx({ binding: { kind: "session", sessionId: LEAD } })
+  );
+
+  expect(ask([openQuestion], answered).rejection?.findings[0]?.code).toBe("E-QUESTION-EXISTS");
+});
+
+test("a sent-back Attempt's claim refusal explains the next Turn boundary", () => {
+  const review = claimed();
+  const previous = review.graph.attempts[0]!;
+
+  const record = apply(
+    review,
+    C.Review.make({
+      constellationId: CID,
+      attemptId: previous.id,
+      revision: previous.revision,
+      action: ReviewAction.cases.SendBack.make({
+        reason: "Cleanup",
+        worker: WorkerPlacement.cases.Existing.make({ sessionId: previous.sessionId }),
+      }),
+    }),
+    ctx({ attempts: [draft(previous.taskId, "retry", previous.sessionId)] })
+  );
+
+  const input = reclaim("changed");
+  const findings = decideConstellation(record, input.command, input.context).rejection?.findings;
+  expect(findings?.[0]?.code).toBe("E-CLAIM-STATE");
+  expect(findings?.[0]?.message).toContain("sent back");
+  expect(findings?.[0]?.fix).toContain("new Attempt starts after this Turn ends");
 });

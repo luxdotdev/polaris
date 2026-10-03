@@ -1,6 +1,13 @@
 import { expect, test } from "bun:test";
 import { join } from "node:path";
-import { Attempt, CommandId, MessageTarget, ReviewAction } from "@polaris/protocol";
+import {
+  Attempt,
+  Claim,
+  CommandId,
+  ConstellationQuestion,
+  MessageTarget,
+  ReviewAction,
+} from "@polaris/protocol";
 import { Effect, Layer, Predicate, Result, Struct } from "effect";
 import { C, CID, draft, report } from "../engine/constellation.testing.ts";
 import { gitText } from "../git/git.ts";
@@ -59,6 +66,16 @@ test("real Git re-claim after a Lead message persists both Claims across SQLite 
     let newHead = "";
     let previousRevision = 0;
 
+    const question = ConstellationQuestion.make({
+      id: "review-decision",
+      to: "lead",
+      text: "Choose the cleanup",
+      blocking: true,
+    });
+
+    const withQuestion = (head: string) =>
+      Claim.make(Struct.assign(report(draft().branch, head), { questions: [question] }));
+
     await w.run(
       Effect.gen(function* () {
         yield* setup();
@@ -72,7 +89,7 @@ test("real Git re-claim after a Lead message persists both Claims across SQLite 
           C.WorkerClaim.make({
             constellationId: CID,
             attemptId: draft().id,
-            claim: report(draft().branch, oldHead),
+            claim: withQuestion(oldHead),
           })
         );
         yield* graphs.command(
@@ -106,7 +123,7 @@ test("real Git re-claim after a Lead message persists both Claims across SQLite 
           C.WorkerClaim.make({
             constellationId: CID,
             attemptId: draft().id,
-            claim: report(draft().branch, newHead),
+            claim: withQuestion(newHead),
           })
         );
         expect((yield* store.model).constellations.get(CID)!.graph.attempts).toHaveLength(1);
@@ -121,6 +138,9 @@ test("real Git re-claim after a Lead message persists both Claims across SQLite 
         const attempt = model.constellations.get(CID)!.graph.attempts[0]!;
         expect(attempt.claim?.head).toBe(newHead);
         expect(attempt.approvedByUserAt).toBeNull();
+        const questions = [...model.constellations.get(CID)!.questions.values()];
+        expect(questions).toHaveLength(1);
+        expect(questions[0]).toMatchObject({ question, answer: null });
         expect(attempt.revision).toBe(previousRevision + 1);
 
         const events = yield* store.readConstellationEvents({
@@ -134,6 +154,14 @@ test("real Git re-claim after a Lead message persists both Claims across SQLite 
             Predicate.isTagged(event, "AttemptClaimed") ? [event.claim.head] : []
           )
         ).toEqual([oldHead, newHead]);
+
+        expect(
+          events.filter(
+            ({ event }) =>
+              Predicate.isTagged(event, "NotificationQueued") &&
+              Predicate.isTagged(event.notification.item, "Question")
+          )
+        ).toHaveLength(1);
 
         const rejected = yield* Effect.result(
           (yield* Constellations).command(

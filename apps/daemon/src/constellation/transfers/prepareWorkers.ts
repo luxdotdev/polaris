@@ -24,6 +24,7 @@ import type { ConstellationRecord } from "../../store/constellation.ts";
 export interface WorkerPreparation {
   readonly key: string;
   readonly worktreeSetup?: WorktreeSetup | null;
+  readonly forceSetup?: boolean;
   readonly graph: Constellation;
   readonly task: TaskDefinition;
   readonly placement: WorkerPlacement;
@@ -62,6 +63,7 @@ const requests = (command: ConstellationCommand, record: ConstellationRecord) =>
 interface PlacementInput {
   readonly key: string;
   readonly worktreeSetup?: WorktreeSetup | null;
+  readonly forceSetup?: boolean;
   readonly graph: Constellation;
   readonly task: TaskDefinition;
   readonly placement: WorkerPlacement;
@@ -114,6 +116,7 @@ const prepareRemote = Effect.fnUntraced(function* (
         task: input.task,
         baseHead,
         worktreeSetup: input.worktreeSetup ?? null,
+        forceSetup: input.forceSetup ?? false,
         worker: WorkerPlacement.cases.New.make({
           ...worker,
           worktree: worker.worktree ?? (keep ? input.previous.worktree : null),
@@ -208,6 +211,12 @@ export const prepareWorkerAttempts = Effect.fnUntraced(function* <R>(
 
   if (record === undefined) return [];
   const graph = record.graph;
+
+  const forceSetup =
+    Predicate.isTagged(command, "Review") &&
+    Predicate.isTagged(command.action, "SendBack") &&
+    command.action.mergeConflictBase !== null;
+
   const leadPath = model.sessions.get(graph.leadSessionId)?.session.cwd;
 
   if (leadPath === undefined)
@@ -224,6 +233,7 @@ export const prepareWorkerAttempts = Effect.fnUntraced(function* <R>(
       yield* prepareOne(
         {
           key: `${commandId}:${task.id}`,
+          forceSetup,
           worktreeSetup: model.workspaces.get(graph.workspaceId)?.worktreeSetup ?? null,
           graph,
           task,

@@ -6,7 +6,7 @@
 import { statSync } from "node:fs";
 import { join } from "node:path";
 import {
-  type Command,
+  Command,
   type CommandId,
   CommandRejected,
   type NotFound,
@@ -21,6 +21,7 @@ import type { ReadModel } from "../store/model.ts";
 import { decide } from "./decider.ts";
 import { Reactors } from "./reactors.ts";
 import { EngineRuntime } from "./runtime.ts";
+import { withSessionInput } from "./sessionBoundary.ts";
 
 export interface DispatchInput {
   readonly commandId: CommandId;
@@ -116,7 +117,7 @@ const make = Effect.gen(function* () {
       ? store.review.riskSummary(RiskSummaryRef.cases.ById.make({ summaryId: command.summaryId }))
       : Effect.succeed(null);
 
-  const dispatch: Dispatch = Effect.fn("Engine.dispatch")(function* (input: DispatchInput) {
+  const commitCommand: Dispatch = Effect.fn("Engine.dispatch")(function* (input: DispatchInput) {
     const { commandId, command } = input;
 
     const ctx = {
@@ -161,6 +162,27 @@ const make = Effect.gen(function* () {
 
     return { sequence: result.sequence };
   });
+
+  const dispatch: Dispatch = (input) => {
+    const command = input.command;
+
+    return Command.isAnyOf(["SendTurn", "Steer", "Continue", "Retry", "SendFeedback"])(command)
+      ? withSessionInput(
+          store,
+          command.sessionId,
+          commitCommand(input),
+          Predicate.isTagged(command, "SendTurn")
+            ? Effect.map(
+                store.model,
+                (model) =>
+                  !model.sessions
+                    .get(command.sessionId)
+                    ?.turns.some((turn) => turn.status === "working")
+              )
+            : undefined
+        )
+      : commitCommand(input);
+  };
 
   return Dispatcher.of({ dispatch });
 });

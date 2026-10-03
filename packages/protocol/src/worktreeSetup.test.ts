@@ -94,3 +94,11 @@ test("setup fields and output survive wire codecs; whitespace commands are refus
     ).worktreeSetup
   ).toEqual(workspace.worktreeSetup);
 });
+
+test("old setup cards decode without a fingerprint; new cards retain it", () => {
+  const { fingerprint: _, ...old } = Schema.encodeSync(WorktreeSetupRun)(card());
+  expect(Schema.decodeUnknownSync(WorktreeSetupRun)(old).fingerprint).toBeNull();
+  expect(
+    Schema.decodeUnknownSync(WorktreeSetupRun)({ ...old, fingerprint: "sha256" }).fingerprint
+  ).toBe("sha256");
+});
