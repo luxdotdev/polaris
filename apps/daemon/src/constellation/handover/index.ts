@@ -57,7 +57,7 @@ const summarize = Effect.fn("Constellation.summarizeLead")(function* (
   const activeGate = graph.graph.attempts.some(
     (a) =>
       a.sessionId === request.from &&
-      (a.state === "working" || a.state === "review") &&
+      (a.state === "working" || a.state === "blocked" || a.state === "review") &&
       graph.graph.tasks.some((t) => t.id === a.taskId && t.kind === "gate")
   );
 

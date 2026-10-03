@@ -1,5 +1,5 @@
 import type { ReplayContext, ReplayResourceEvent } from "./index.ts";
-import { Match } from "effect";
+import { Match, Predicate } from "effect";
 import type { ConstellationEvent } from "../../../protocol/src/constellation/events.ts";
 
 export class ReplayIds {
@@ -34,6 +34,10 @@ export class ReplayGroup {
   readonly outboxes = new ReplayIds();
   readonly attempts = new Map<string, number>();
   readonly workers = new Map<string, string>();
+  readonly workerHosts = new Map<string, string>();
+  readonly remoteTurns = new Set<string>();
+  readonly blockRevisions = new Map<string, number>();
+  readonly messages = new Map<string, number>();
   readonly batches: Array<Array<string>> = [];
   readonly capacity = 1;
   isGraph = false;
@@ -62,6 +66,38 @@ export class ReplayGroup {
   }
 }
 
+const unblockTurn = (
+  g: ReplayGroup,
+  attemptId: string,
+  companions: ReadonlyArray<import("../../../protocol/src/events.ts").DomainEvent>
+) => {
+  const sessionId = g.workers.get(attemptId);
+
+  if (g.workerHosts.get(attemptId) === g.owner)
+    return companions.some(
+      (e) => Predicate.isTagged(e, "TurnStarted") && e.turn.sessionId === sessionId
+    );
+
+  return companions.some(
+    (e) =>
+      Predicate.isTagged(e, "WorkerInputDelivered") &&
+      e.sessionId === sessionId &&
+      g.remoteTurns.has(JSON.stringify([e.id, sessionId]))
+  );
+};
+
+const unblockFresh = (
+  g: ReplayGroup,
+  attemptId: string,
+  companions: ReadonlyArray<import("../../../protocol/src/events.ts").DomainEvent>
+) =>
+  companions.some(
+    (e) =>
+      Predicate.isTagged(e, "WorkerInputDelivered") &&
+      e.sessionId === g.workers.get(attemptId) &&
+      (g.messages.get(e.id) ?? -1) > (g.blockRevisions.get(attemptId) ?? Infinity)
+  );
+
 const taskDeclaration = (
   g: ReplayGroup,
   task: {
@@ -77,7 +113,8 @@ export const mapGraphEvent = (
   g: ReplayGroup,
   event: ConstellationEvent,
   host: string,
-  context?: ReplayContext
+  context?: ReplayContext,
+  companions: ReadonlyArray<import("../../../protocol/src/events.ts").DomainEvent> = []
 ): Array<string> => {
   if (host !== g.owner) throw new Error("Constellation event was not committed by its owner");
 
@@ -150,6 +187,7 @@ export const mapGraphEvent = (
         const index = g.attempts.size;
         g.attempts.set(attempt.id, index);
         g.workers.set(attempt.id, attempt.sessionId);
+        g.workerHosts.set(attempt.id, attempt.hostId);
 
         const ref = Match.value(attempt.cause).pipe(
           Match.tag("Initial", () => -1),
@@ -172,6 +210,17 @@ export const mapGraphEvent = (
         ),
       ClaimApproved: ({ attemptId }) => record(`ClaimApproved(${g.attemptId(attemptId)})`),
       ClaimHandedUp: ({ attemptId }) => record(`ClaimHandedUp(${g.attemptId(attemptId)})`),
+      AttemptBlocked: ({ attemptId, on, revision }) => {
+        g.blockRevisions.set(attemptId, revision);
+
+        return record(
+          `AttemptBlocked({ attempt: ${g.attemptId(attemptId)}, on: Set(${on.map((id) => g.tasks.id(id)).join(", ")}) })`
+        );
+      },
+      AttemptUnblocked: ({ attemptId, cause }) =>
+        record(
+          `AttemptUnblocked({ attempt: ${g.attemptId(attemptId)}, cause: ${JSON.stringify(cause)}, turn: ${unblockTurn(g, attemptId, companions)}, fresh: ${cause === "Accepted" || unblockFresh(g, attemptId, companions)} })`
+        ),
       AttemptNudged: ({ attemptId }) => record(`AttemptNudged(${g.attemptId(attemptId)})`),
       AttemptAccepted: ({ attemptId, mergedHead }) =>
         record(
@@ -217,7 +266,11 @@ export const mapGraphEvent = (
         record(
           `AttemptRecoveryContinued({ attempt: ${g.attemptId(attemptId)}, interruption: ${g.interruptions.id(interruptionId)} })`
         ),
-      OperatorMessageSent: () => [],
+      OperatorMessageSent: ({ id, revision }) => {
+        g.messages.set(id, revision);
+
+        return [];
+      },
       OperatorMessageResolved: () => [],
       PeerMessage: () => [],
     })

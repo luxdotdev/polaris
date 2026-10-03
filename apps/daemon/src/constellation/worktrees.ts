@@ -352,12 +352,18 @@ const cleanupBlock = async (
   if (
     graph.attempts.some(
       (a) =>
-        samePath(a.worktree, prepared.worktree) && (a.state === "working" || a.state === "review")
+        samePath(a.worktree, prepared.worktree) &&
+        (a.state === "working" || a.state === "blocked" || a.state === "review")
     )
   )
     return "The worktree carries active work";
 
-  if (attempt.state === "working" || attempt.state === "review" || busy.has(attempt.sessionId))
+  if (
+    attempt.state === "working" ||
+    attempt.state === "blocked" ||
+    attempt.state === "review" ||
+    busy.has(attempt.sessionId)
+  )
     return "The worker still has active work";
 
   const mergingGate = graph.tasks.some(

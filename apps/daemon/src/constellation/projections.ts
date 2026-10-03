@@ -14,7 +14,7 @@ export const latestAttempt = (graph: Constellation, taskId: Task["id"]) =>
   graph.attempts.findLast((attempt) => attempt.taskId === taskId);
 
 export const activeAttempt = (attempt: Attempt) =>
-  attempt.state === "working" || attempt.state === "review";
+  attempt.state === "working" || attempt.state === "blocked" || attempt.state === "review";
 
 export const accepted = (graph: Constellation, taskId: Task["id"]): boolean => {
   const task = graph.tasks.find((t) => t.id === taskId);
@@ -59,9 +59,12 @@ export const projectTask = (
 ): TaskProjection => {
   const attempt = latestAttempt(record.graph, task.id);
 
-  const blockedBy = effectiveDeps(record.graph.tasks, task.id).filter(
-    (id) => !accepted(record.graph, id)
-  );
+  const blockedBy = [
+    ...new Set([
+      ...effectiveDeps(record.graph.tasks, task.id),
+      ...(attempt?.state === "blocked" ? attempt.blockedOn : []),
+    ]),
+  ].filter((id) => !accepted(record.graph, id));
 
   const available = blockedBy.length === 0 ? "ready" : "waiting";
 
@@ -81,6 +84,7 @@ export const projectTask = (
             Match.when("accepted", () => "done" as const),
             Match.when("rejected", () => available),
             Match.when("working", () => "working" as const),
+            Match.when("blocked", () => "blocked" as const),
             Match.when("review", () => "review" as const),
             Match.when("lost", () => "lost" as const),
             Match.when("failed", () => "failed" as const),

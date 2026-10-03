@@ -29,6 +29,9 @@ export interface RefAttempt {
   handedUp: string | null;
   nudged: string | null;
   rejectionReason: string | null;
+  blockedOn: ReadonlyArray<string>;
+  blockedReason: string | null;
+  blockedAt: string | null;
 }
 
 export interface Reference {
@@ -74,6 +77,9 @@ const refAttempt = (attempt: import("@polaris/protocol").Attempt): RefAttempt =>
   handedUp: attempt.handedUpAt,
   nudged: attempt.nudgedAt,
   rejectionReason: attempt.rejectionReason,
+  blockedOn: attempt.blockedOn,
+  blockedReason: attempt.blockedReason,
+  blockedAt: attempt.blockedAt,
 });
 
 const patch = (
@@ -116,6 +122,13 @@ export const foldReference = (ref: Reference, events: ReadonlyArray<DomainEvent>
 
         if (old === undefined) throw new Error("reference: unknown task");
         ref.tasks.set(e.taskId, { ...old, canceled: true, revision: e.taskRevision });
+
+        for (const [id, attempt] of ref.attempts)
+          if (attempt.state === "blocked")
+            ref.attempts.set(id, {
+              ...attempt,
+              blockedOn: attempt.blockedOn.filter((t) => t !== e.taskId),
+            });
       },
       ProposalAccepted: (e) => {
         ref.tasks.set(e.task.id, refTask(e.task));
@@ -129,6 +142,21 @@ export const foldReference = (ref: Reference, events: ReadonlyArray<DomainEvent>
       AttemptClaimed: (e) => patch(ref, e, { state: "review", head: e.claim.head }),
       ClaimApproved: (e) => patch(ref, e, { approved: e.at }),
       ClaimHandedUp: (e) => patch(ref, e, { handedUp: e.at }),
+      AttemptBlocked: (e) =>
+        patch(ref, e, {
+          state: "blocked",
+          blockedOn: e.on,
+          blockedReason: e.reason,
+          blockedAt: e.at,
+        }),
+      AttemptUnblocked: (e) =>
+        patch(ref, e, {
+          state: "working",
+          blockedOn: [],
+          blockedReason: null,
+          blockedAt: null,
+          nudged: null,
+        }),
       AttemptNudged: (e) => patch(ref, e, { nudged: e.at }),
       AttemptAccepted: (e) => patch(ref, e, { state: "accepted", evidence: e.evidence }),
       AttemptRejected: (e) => patch(ref, e, { state: "rejected", rejectionReason: e.reason }),

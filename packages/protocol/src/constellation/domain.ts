@@ -32,6 +32,7 @@ export type ConstellationState = typeof ConstellationState.Type;
 
 export const AttemptState = Schema.Literals([
   "working",
+  "blocked",
   "review",
   "accepted",
   "rejected",
@@ -47,6 +48,7 @@ export const TaskState = Schema.Literals([
   "waiting",
   "ready",
   "working",
+  "blocked",
   "review",
   "done",
   "canceled",
@@ -184,6 +186,9 @@ export class Attempt extends Schema.Class<Attempt>("ConstellationAttempt")({
   rejectionReason: optionalNullable(Schema.String),
   /** The one automatic nudge after a silent end (AttemptNudged). */
   nudgedAt: Schema.NullOr(Timestamp),
+  blockedOn: optionalArray(TaskId),
+  blockedReason: optionalNullable(Schema.String),
+  blockedAt: optionalNullable(Timestamp),
   startedAt: Timestamp,
   endedAt: optionalNullable(Timestamp),
 }) {}
@@ -201,6 +206,13 @@ export class ConstellationSettings extends Schema.Class<ConstellationSettings>(
 }) {}
 
 export const NotificationItem = Schema.TaggedUnion({
+  Blocked: {
+    taskId: TaskId,
+    attemptId: AttemptId,
+    on: Schema.Array(TaskId),
+    reason: Schema.NonEmptyString,
+  },
+  Stopped: { taskId: TaskId, attemptId: AttemptId },
   Settled: { attemptId: AttemptId, state: AttemptState },
   Question: { attemptId: AttemptId, question: ConstellationQuestion },
   Proposal: { attemptId: AttemptId, proposalId: Schema.String },

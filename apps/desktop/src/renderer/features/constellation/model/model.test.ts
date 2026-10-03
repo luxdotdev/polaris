@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { Struct } from "effect";
 import {
   AttemptId,
   Constellation,
@@ -273,6 +274,64 @@ describe("fold", () => {
       "att-B4-1",
       "att-B5-1",
     ]);
+  });
+
+  test("handover includes a blocked Attempt and unblock clears its nudge metadata", () => {
+    const a = attempt({ taskId: "B2", state: "blocked", minutes: 1 });
+
+    const c = constellationOf({
+      attempts: [
+        {
+          ...Struct.omit(a, []),
+          nudgedAt: "2026-10-01T11:00:00Z",
+          blockedOn: [TaskId.make("B3")],
+          blockedReason: "feed",
+          blockedAt: "2026-10-01T11:30:00Z",
+        },
+      ],
+    });
+
+    const model = applyEnvelopes(loaded(c), [
+      envelope(
+        2,
+        E.LeadChanged.make({
+          ...graph,
+          revision: 38,
+          from: LEAD,
+          to: SessionId.make("new-lead"),
+          summary: "Carry on",
+        })
+      ),
+      envelope(
+        3,
+        E.TaskCanceled.make({ ...graph, revision: 39, taskId: TaskId.make("B3"), taskRevision: 1 })
+      ),
+    ]);
+
+    expect(model.byId.get(c.id)?.handovers[0]?.inFlight).toContain(a.id);
+    expect(model.byId.get(c.id)?.constellation.attempts[0]?.blockedOn).toEqual([]);
+
+    const resumed = applyEnvelopes(model, [
+      envelope(
+        4,
+        E.AttemptUnblocked.make({
+          ...graph,
+          revision: 40,
+          attemptId: a.id,
+          attemptRevision: 2,
+          cause: "Lead",
+          at: "2026-10-01T12:00:00Z",
+        })
+      ),
+    ]);
+
+    expect(resumed.byId.get(c.id)?.constellation.attempts[0]).toMatchObject({
+      state: "working",
+      nudgedAt: null,
+      blockedOn: [],
+      blockedReason: null,
+      blockedAt: null,
+    });
   });
 
   test("BranchFetched updates only the latest Attempt and preserves the graph revision", () => {
@@ -561,6 +620,38 @@ describe("attention", () => {
     ]);
     expect(nextNeedingYou(items, "B2")).toBe("B5");
     expect(nextNeedingYou(items, "B5")).toBe("B2");
+  });
+
+  test("blocked workers retain approval and offline attention, without stopped attention", () => {
+    const c = constellationOf({
+      attempts: [attempt({ taskId: "B2", state: "blocked", minutes: 1 })],
+    });
+
+    const record = startedRecord(c, 1);
+
+    const approval = plainFacts({
+      worker: (a) => ({
+        ...plainFacts().worker(a),
+        approvalSince: "2026-10-01T12:00:00Z",
+        stoppedWithoutClaiming: true,
+      }),
+    });
+
+    expect(attentionItems(buildRail(record, approval).tasks, approval).map((i) => i.text)).toEqual([
+      "B2 waiting on your approval",
+    ]);
+
+    const offline = plainFacts({
+      worker: (a) => ({
+        ...plainFacts().worker(a),
+        hostAway: "offline",
+        stoppedWithoutClaiming: true,
+      }),
+    });
+
+    expect(attentionItems(buildRail(record, offline).tasks, offline).map((i) => i.text)).toEqual([
+      "B2's host is offline",
+    ]);
   });
 
   test("the Lead near its context limit is offered a handover", () => {

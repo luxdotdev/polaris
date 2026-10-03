@@ -8,6 +8,7 @@ import {
 import type { GraphCommand } from "../engine/constellation.inputs.ts";
 import { taskData } from "./data.ts";
 import { GraphDecision } from "./decision.ts";
+import { cancelBlockTarget } from "./blocked.ts";
 import { latestAttempt } from "./projections.ts";
 import { cancelSubtrees, effectiveDeps, prerequisites, validateParents } from "./parents.ts";
 
@@ -205,12 +206,5 @@ export const plan = (d: GraphDecision, command: GraphCommand<"Plan">) => {
       Cancel: () => {},
     });
 
-  for (const task of cancellations)
-    d.emit(
-      ConstellationEvent.cases.TaskCanceled.make({
-        ...d.fields(),
-        taskId: task.id,
-        taskRevision: task.revision + 1,
-      })
-    );
+  for (const task of cancellations) cancelBlockTarget(d, task.id, task.revision + 1);
 };

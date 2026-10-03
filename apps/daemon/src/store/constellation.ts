@@ -42,6 +42,7 @@ export interface ConstellationRecord {
   readonly handoverRequest: Extract<ConstellationEvent, { _tag: "LeadHandoverRequested" }> | null;
   readonly peers: ReadonlyMap<string, Extract<ConstellationEvent, { _tag: "PeerMessage" }>>;
   readonly inputDeliveries: ReadonlySet<string>;
+  readonly blockRevisions: ReadonlyMap<AttemptId, number>;
   readonly stale: ReadonlyMap<AttemptId, string>;
   readonly delivered: ReadonlySet<string>;
   readonly interruptions: ReadonlyMap<
@@ -91,7 +92,7 @@ const handoverOf = (
     at,
     projections: projectTasks(record),
     inFlight: record.graph.attempts.flatMap((a) =>
-      a.state === "working" || a.state === "review" ? [a.id] : []
+      a.state === "working" || a.state === "blocked" || a.state === "review" ? [a.id] : []
     ),
     questions: record.graph.pendingNotifications.filter((n) =>
       Predicate.isTagged(n.item, "Question")
@@ -151,6 +152,7 @@ const started = (graph: Constellation): ConstellationRecord => ({
   handoverRequest: null,
   peers: new Map(),
   inputDeliveries: new Set(),
+  blockRevisions: new Map(),
   stale: new Map(),
   delivered: new Set(),
   recoveries: new Set(),
@@ -211,6 +213,14 @@ export const foldConstellation = (
             ? new Task({ ...taskData(t), canceled: true, revision: e.taskRevision })
             : t
         ),
+        attempts: graph.attempts.map((a) =>
+          a.state === "blocked"
+            ? new Attempt({
+                ...attemptData(a),
+                blockedOn: a.blockedOn.filter((id) => id !== e.taskId),
+              })
+            : a
+        ),
       });
     },
     TaskProposed: (e) => {
@@ -261,6 +271,33 @@ export const foldConstellation = (
       graph = new Constellation({
         ...graphData(graph),
         attempts: patchAttempt(next, e, { handedUpAt: e.at, handedUpReason: e.reason }),
+      });
+    },
+    AttemptBlocked: (e) => {
+      next = {
+        ...next,
+        blockRevisions: new Map([...next.blockRevisions, [e.attemptId, e.revision]]),
+      };
+      graph = new Constellation({
+        ...graphData(graph),
+        attempts: patchAttempt(next, e, {
+          state: "blocked",
+          blockedOn: e.on,
+          blockedReason: e.reason,
+          blockedAt: e.at,
+        }),
+      });
+    },
+    AttemptUnblocked: (e) => {
+      graph = new Constellation({
+        ...graphData(graph),
+        attempts: patchAttempt(next, e, {
+          state: "working",
+          blockedOn: [],
+          blockedReason: null,
+          blockedAt: null,
+          nudgedAt: null,
+        }),
       });
     },
     AttemptNudged: (e) => {
@@ -371,7 +408,8 @@ export const foldConstellation = (
         .filter(
           (a) =>
             (Predicate.isTagged(e.target, "Worker") && a.id === e.target.attemptId) ||
-            (Predicate.isTagged(e.target, "All") && (a.state === "working" || a.state === "review"))
+            (Predicate.isTagged(e.target, "All") &&
+              (a.state === "working" || a.state === "blocked" || a.state === "review"))
         )
         .map((a) => a.sessionId);
 

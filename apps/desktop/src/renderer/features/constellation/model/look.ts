@@ -97,7 +97,12 @@ const attentionOf = (
   attempt: AttemptData | null,
   worker: WorkerFacts
 ): Attention | null => {
-  if (attempt === null || (projection.state !== "working" && projection.state !== "review"))
+  if (
+    attempt === null ||
+    (projection.state !== "working" &&
+      projection.state !== "blocked" &&
+      projection.state !== "review")
+  )
     return null;
 
   if (worker.approvalSince !== null) return { kind: "approval", since: worker.approvalSince };
@@ -125,6 +130,7 @@ const STATE_WORD: Readonly<Record<TaskState, string>> = {
   waiting: "waiting",
   ready: "ready",
   working: "working",
+  blocked: "blocked",
   review: "in review",
   done: "done",
   canceled: "canceled",
@@ -138,6 +144,7 @@ const BUCKET: Readonly<Record<TaskState, Bucket>> = {
   waiting: "waiting",
   ready: "waiting",
   working: "working",
+  blocked: "waiting",
   review: "review",
   done: "done",
   canceled: "ended",

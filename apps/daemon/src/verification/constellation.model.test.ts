@@ -56,7 +56,8 @@ const X = TaskId.make("X");
 
 const choices = [A, B, X];
 
-const active = (state: string | undefined) => state === "working" || state === "review";
+const active = (state: string | undefined) =>
+  state === "working" || state === "blocked" || state === "review";
 
 const metadataStep = (ref: Reference, op: number): Step => {
   const attempt = latest(ref, choices[op % 3]!);
@@ -97,6 +98,64 @@ const dispatchStep = (ref: Reference, taskId: TaskId, index: number): Step => {
       (ref.state === "planning" || ref.state === "running") &&
       latest(ref, taskId) === undefined &&
       referenceDeps(ref, taskId).every((dep) => referenceDone(ref, dep)),
+  };
+};
+
+const referenceClosure = (ref: Reference, id: string) => {
+  const pending = [id];
+  const seen = new Set<string>();
+
+  while (pending.length > 0) {
+    const next = pending.pop()!;
+
+    if (seen.has(next)) continue;
+    seen.add(next);
+    pending.push(
+      ...referenceDeps(ref, next),
+      ...[...ref.tasks.values()].flatMap((t) => (t.parent === next && !t.canceled ? [t.id] : []))
+    );
+  }
+
+  return seen;
+};
+
+const blockStep = (ref: Reference, op: number): Step => {
+  const taskId = choices[op % 3]!;
+  const other = taskId === A ? B : A;
+  const attempt = latest(ref, taskId);
+
+  return {
+    command: C.WorkerBlock.make({
+      constellationId: CID,
+      attemptId: AttemptId.make(attempt?.id ?? "missing"),
+      on: [other],
+      reason: "Wait",
+    }),
+    context: ctx({ binding: { kind: "session", sessionId: SessionId.make(`worker-${taskId}`) } }),
+    allowed:
+      (ref.state === "planning" || ref.state === "running" || ref.state === "paused") &&
+      attempt?.state === "working" &&
+      !referenceDone(ref, other) &&
+      !referenceClosure(ref, other).has(taskId),
+  };
+};
+
+const parentEditStep = (ref: Reference, index: number, mutable: boolean): Step => {
+  const parent = ref.tasks.get("P")!;
+
+  return {
+    command: C.Plan.make({
+      constellationId: CID,
+      operations: [
+        PlanOperation.cases.Edit.make({
+          taskId: TaskId.make("P"),
+          revision: parent.revision,
+          task: task(TaskId.make("P"), index % 2 === 0 ? [X] : []),
+        }),
+      ],
+    }),
+    context: ctx(),
+    allowed: mutable,
   };
 };
 
@@ -151,7 +210,7 @@ const step = (ref: Reference, op: number, index: number): Step => {
         }),
       }),
       context: ctx({ attempts: [draft(taskId, `retry-${index}`, sessionId)] }),
-      allowed: mutable && attempt?.state === "review",
+      allowed: mutable && (attempt?.state === "review" || attempt?.state === "blocked"),
     };
 
   if (action === 5)
@@ -175,26 +234,9 @@ const step = (ref: Reference, op: number, index: number): Step => {
       allowed: ref.state === "running",
     };
 
-  if (action === 10) {
-    const parent = ref.tasks.get("P")!;
+  if (action === 10) return parentEditStep(ref, index, mutable);
 
-    return {
-      command: C.Plan.make({
-        constellationId: CID,
-        operations: [
-          PlanOperation.cases.Edit.make({
-            taskId: TaskId.make("P"),
-            revision: parent.revision,
-            task: task(TaskId.make("P"), index % 2 === 0 ? [X] : []),
-          }),
-        ],
-      }),
-      context: ctx(),
-      allowed: mutable,
-    };
-  }
-
-  if (action >= 8) return metadataStep(ref, op);
+  if (action >= 8) return action === 11 ? blockStep(ref, op) : metadataStep(ref, op);
 
   return {
     command: C.SetState.make({
@@ -239,7 +281,10 @@ const run = (operations: ReadonlyArray<number>) => {
   for (const [index, op] of operations.entries()) {
     const input = step(ref, op, index);
     const decision = decideConstellation(record, input.command, input.context);
-    expect(decision.rejection === null).toBe(input.allowed);
+    expect(
+      decision.rejection === null,
+      JSON.stringify({ op, findings: decision.rejection?.findings })
+    ).toBe(input.allowed);
 
     if (!input.allowed) expect(decision.events).toEqual([]);
     else {
@@ -270,11 +315,19 @@ const run = (operations: ReadonlyArray<number>) => {
 
 test("model sequences compare the real decider and fold with independent command guards and reference fold", () => {
   fc.assert(
-    fc.property(fc.array(fc.integer({ min: 0, max: 32 }), { minLength: 20, maxLength: 100 }), run),
+    fc.property(fc.array(fc.integer({ min: 0, max: 35 }), { minLength: 20, maxLength: 100 }), run),
     { numRuns: pbtRuns(100), ...pbtSeed() }
   );
 });
 
 test("model parent dependency edits preserve active rollup and gate descendants until acceptance", () => {
   run([30, 30, 0, 6, 30, 9, 1, 2, 8, 11, 1, 7, 10]);
+});
+
+test("blocked SendBack is modeled and emitted in a complete committed trace", () => {
+  run([30, 0, 33, 12]);
+});
+
+test("a blocked Attempt cannot be accepted without a Claim after a parent dependency edit", () => {
+  run([0, 30, 2, 35, 0, 11]);
 });

@@ -112,7 +112,7 @@ _Avoid_: Running, busy, thinking
 
 **Needs You**:
 The state of an Agent Session whose Harness is blocked on the user, waiting for a permission grant or an answer.
-_Avoid_: Blocked, waiting, pending
+_Avoid_: Waiting, pending, or Blocked as a Session State (Blocked is an Attempt state).
 
 **Idle**:
 The state of an Agent Session whose last Turn has finished while its Harness process is still running.
@@ -153,6 +153,9 @@ A Task that contains Tasks, nested to any depth. A Parent is a container with at
 **Attempt**:
 One try at a Task, carried out by one Agent Session and linked to the earlier Attempt it follows (for example, sent back after review); a retry is a new Attempt, never a rewrite of an old one. An Agent Session carries at most one active Attempt at a time, but may carry Attempts on several Tasks over its life.
 _Avoid_: Retry, run
+
+**Blocked**:
+An Attempt waiting on other Tasks, or on the Lead when no Tasks are named. Acceptance of every named Task or a Lead message starts its next Turn. This is distinct from Needs You, the Session State for user input.
 
 **Claim**:
 A worker's typed statement that its Attempt is done, carrying its report (branch, head, checks run, what isn't done, questions); it puts the Attempt in review until the Lead or the user accepts it or sends it back.

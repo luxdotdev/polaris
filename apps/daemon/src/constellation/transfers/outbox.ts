@@ -44,6 +44,7 @@ export class RelayFacts extends Context.Reference<RelayFactsService>(
 const packetJson = Schema.encodeSync(Schema.fromJsonString(ConstellationOutboxPacket));
 
 const workerCommand = ConstellationCommand.isAnyOf([
+  "WorkerBlock",
   "WorkerClaim",
   "WorkerAsk",
   "WorkerProgress",
@@ -161,7 +162,11 @@ export class ConstellationOutbox extends Context.Service<
                 return yield* queuedResult(assignment, previous.receipt);
               }
 
-              if (attempt.state !== "working" && attempt.state !== "review")
+              if (
+                attempt.state !== "working" &&
+                attempt.state !== "blocked" &&
+                attempt.state !== "review"
+              )
                 return yield* transferError("E-SETTLED", "The Attempt is no longer active");
 
               if (

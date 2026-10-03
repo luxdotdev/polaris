@@ -326,6 +326,7 @@ export interface ClaimCardProps {
 
 const STATE_WORD: Readonly<Record<AttemptState, string>> = {
   working: "working",
+  blocked: "blocked",
   review: "in review",
   accepted: "accepted",
   rejected: "sent back",

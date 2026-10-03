@@ -35,6 +35,9 @@ export const attemptData = (attempt: Attempt) => ({
   handedUpReason: attempt.handedUpReason,
   rejectionReason: attempt.rejectionReason,
   nudgedAt: attempt.nudgedAt,
+  blockedOn: attempt.blockedOn,
+  blockedReason: attempt.blockedReason,
+  blockedAt: attempt.blockedAt,
   startedAt: attempt.startedAt,
   endedAt: attempt.endedAt,
 });

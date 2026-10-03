@@ -128,7 +128,7 @@ const handoverOf = (
   at,
   projections: r.projections,
   inFlight: r.constellation.attempts.flatMap((a) =>
-    a.state === "working" || a.state === "review" ? [a.id] : []
+    a.state === "working" || a.state === "blocked" || a.state === "review" ? [a.id] : []
   ),
   questions: r.constellation.pendingNotifications.filter((n) =>
     Predicate.isTagged(n.item, "Question")
@@ -175,6 +175,11 @@ const stepFor = (event: Event, at: string): Step =>
           tasks: c.tasks.map((t) =>
             t.id === taskId ? merged(t, { canceled: true, revision: taskRevision }) : t
           ),
+          attempts: c.attempts.map((a) =>
+            a.state === "blocked"
+              ? merged(a, { blockedOn: a.blockedOn.filter((id) => id !== taskId) })
+              : a
+          ),
         })),
       TaskProposed:
         ({ proposalId, by, task }) =>
@@ -208,6 +213,21 @@ const stepFor = (event: Event, at: string): Step =>
         patchAttempt(attemptId, attemptRevision, () => ({ approvedByUserAt })),
       ClaimHandedUp: ({ attemptId, attemptRevision, at: handedUpAt, reason: handedUpReason }) =>
         patchAttempt(attemptId, attemptRevision, () => ({ handedUpAt, handedUpReason })),
+      AttemptBlocked: ({ attemptId, attemptRevision, on, reason, at: blockedAt }) =>
+        patchAttempt(attemptId, attemptRevision, () => ({
+          state: "blocked",
+          blockedOn: on,
+          blockedReason: reason,
+          blockedAt,
+        })),
+      AttemptUnblocked: ({ attemptId, attemptRevision }) =>
+        patchAttempt(attemptId, attemptRevision, () => ({
+          state: "working",
+          blockedOn: [],
+          blockedReason: null,
+          blockedAt: null,
+          nudgedAt: null,
+        })),
       AttemptNudged: ({ attemptId, attemptRevision, at: nudgedAt }) =>
         patchAttempt(attemptId, attemptRevision, () => ({ nudgedAt })),
       AttemptClaimed: ({ attemptId, attemptRevision, claim }) =>

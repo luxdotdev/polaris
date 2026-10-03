@@ -1,6 +1,7 @@
 import type { SessionId } from "@polaris/protocol";
 import { Match, Predicate } from "effect";
 import type { ConstellationRecord } from "../../store/constellation.ts";
+import { acceptedBlockInput } from "../blocked.ts";
 import { inputDeliveryKey } from "../../store/constellation.ts";
 
 export interface PendingInput {
@@ -50,6 +51,12 @@ export const pendingInputs = (record: ConstellationRecord): ReadonlyArray<Pendin
         sessionId: target.sessionId,
         text: `Polaris peer message from ${from?.taskId ?? peer.from}\n\n${peer.text}`,
       });
+  }
+
+  for (const attempt of record.graph.attempts) {
+    const input = acceptedBlockInput(record, attempt);
+
+    if (input !== null) inputs.push(input);
   }
 
   return inputs.filter((i) => !record.inputDeliveries.has(inputDeliveryKey(i.id, i.sessionId)));

@@ -87,6 +87,11 @@ export const ConstellationSetState = Rpc.make("constellation.set_state", {
   payload: { commandId: CommandId, ...commandFields(C.SetState.fields) },
 });
 
+export const ConstellationWorkerBlock = Rpc.make("constellation.worker.block", {
+  ...mutation,
+  payload: { commandId: CommandId, ...commandFields(C.WorkerBlock.fields) },
+});
+
 export const ConstellationWorkerClaim = Rpc.make("constellation.worker.claim", {
   ...mutation,
   payload: { commandId: CommandId, ...commandFields(C.WorkerClaim.fields) },
@@ -190,6 +195,7 @@ export class ConstellationRpcs extends RpcGroup.make(
   ConstellationMessage,
   ConstellationStatus,
   ConstellationSetState,
+  ConstellationWorkerBlock,
   ConstellationWorkerClaim,
   ConstellationWorkerAsk,
   ConstellationWorkerProgress,

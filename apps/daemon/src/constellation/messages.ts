@@ -22,7 +22,9 @@ export const message = (d: GraphDecision, command: GraphCommand<"Message">) => {
   if (
     Predicate.isTagged(target, "Worker") &&
     !d.record.graph.attempts.some(
-      (a) => a.id === target.attemptId && (a.state === "working" || a.state === "review")
+      (a) =>
+        a.id === target.attemptId &&
+        (a.state === "working" || a.state === "blocked" || a.state === "review")
     )
   )
     d.reject(

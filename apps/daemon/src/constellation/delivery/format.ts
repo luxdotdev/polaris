@@ -8,6 +8,12 @@ export const notificationLine = (record: ConstellationRecord, n: ConstellationNo
   const worker = (id: string) => record.graph.attempts.find((a) => a.id === id)?.taskId ?? id;
 
   return Match.value(n.item).pipe(
+    Match.tag(
+      "Blocked",
+      (i) =>
+        `${i.taskId}: blocked${i.on.length === 0 ? " awaiting the Lead" : ` by ${i.on.join(", ")}`}: ${line(i.reason)}`
+    ),
+    Match.tag("Stopped", (i) => `${i.taskId} stopped without claiming.`),
     Match.tag("Settled", (i) => `${worker(i.attemptId)}: ${i.state}.`),
     Match.tag(
       "Question",
@@ -39,7 +45,7 @@ export const notificationLine = (record: ConstellationRecord, n: ConstellationNo
 /** User questions and incidental steering remain queued until a Lead-worthy item arrives. */
 export const wakesLead = (n: ConstellationNotification) =>
   Match.value(n.item).pipe(
-    Match.tag("Settled", "Proposal", () => true),
+    Match.tag("Settled", "Proposal", "Blocked", "Stopped", () => true),
     Match.tag("Question", (i) => i.question.to === "lead"),
     Match.tag("QuestionAnswered", () => true),
     Match.tag("OperatorMessage", () => false),

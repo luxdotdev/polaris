@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { Schema } from "effect";
+import { Schema, Struct } from "effect";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
@@ -18,7 +18,9 @@ import {
   Task,
   TaskId,
 } from "../../../protocol/src/constellation/domain.ts";
+import { MessageTarget } from "../../../protocol/src/constellation/commands.ts";
 import { DomainEvent } from "../../../protocol/src/events.ts";
+import { Turn } from "../../../protocol/src/domain.ts";
 import { HostId, SessionId, TurnId, WorkspaceId } from "../../../protocol/src/ids.ts";
 import {
   constellationTraceToQuint,
@@ -190,6 +192,109 @@ const check = (input: ConstellationTrace): boolean => {
     rmSync(root, { recursive: true, force: true });
   }
 };
+
+const unblockFixture = () => {
+  const blocked = E.AttemptBlocked.make({
+    ...target,
+    on: [],
+    reason: "Waiting for the Lead",
+    at: time,
+  });
+
+  const unblocked = E.AttemptUnblocked.make({ ...target, cause: "Lead", at: time });
+
+  const delivered = E.WorkerInputDelivered.make({
+    ...graph,
+    id: "message",
+    sessionId: worker,
+    at: time,
+  });
+
+  const turn = new Turn({
+    id: TurnId.make(JSON.stringify([delivered.id, worker])),
+    sessionId: worker,
+    index: 1,
+    prompt: "Continue A",
+    attachments: [],
+    model: null,
+    effort: null,
+    status: "working",
+    checkpointBefore: null,
+    checkpointAfter: null,
+    startedAt: time,
+    endedAt: null,
+  });
+
+  const message = E.OperatorMessageSent.make({
+    ...graph,
+    revision: blocked.revision + 1,
+    id: delivered.id,
+    authority: "conversation",
+    target: MessageTarget.cases.Worker.make({ attemptId }),
+    text: "Continue A",
+    questionId: null,
+  });
+
+  return { blocked, unblocked, delivered, message, turn: E.TurnStarted.make({ turn }) };
+};
+
+test("local unblock replay requires a worker Turn in the same committed batch", () => {
+  const f = unblockFixture();
+
+  const source = (events: DomainEvent[]) =>
+    constellationTraceToQuint(
+      "block",
+      trace([batch(initial), batch([began, f.blocked]), batch([f.message]), batch(events)]),
+      "constellations"
+    )[0]!.source;
+
+  expect(source([f.unblocked, f.delivered])).toContain('cause: "Lead", turn: false');
+  expect(source([f.turn, f.unblocked, f.delivered])).toContain('cause: "Lead", turn: true');
+});
+
+test("remote unblock replay requires the exact earlier worker Host Turn and owner receipt", () => {
+  const f = unblockFixture();
+  const remote = HostId.make("remote");
+
+  const remoteBegan = E.AttemptStarted.make({
+    ...began,
+    attempt: new Attempt(Struct.assign(began.attempt, { hostId: remote })),
+  });
+
+  const source = (remoteBatch: ConstellationTrace["batches"][number], receipts: DomainEvent[]) =>
+    constellationTraceToQuint(
+      "remote_block",
+      trace([
+        batch(initial),
+        batch([remoteBegan, f.blocked]),
+        batch([f.message]),
+        remoteBatch,
+        batch([f.unblocked, ...receipts]),
+      ]),
+      "constellations"
+    )[0]!.source;
+
+  expect(source({ hostId: remote, events: [f.turn] }, [f.delivered])).toContain(
+    'cause: "Lead", turn: true'
+  );
+  expect(source({ hostId: HostId.make("other-host"), events: [f.turn] }, [f.delivered])).toContain(
+    'cause: "Lead", turn: false'
+  );
+  expect(source({ hostId: remote, events: [f.turn] }, [])).toContain('cause: "Lead", turn: false');
+  expect(
+    source(
+      {
+        hostId: remote,
+        events: [
+          E.TurnStarted.make({
+            turn: new Turn(Struct.assign(f.turn.turn, { id: TurnId.make("another-input") })),
+          }),
+        ],
+      },
+      [f.delivered]
+    )
+  ).toContain('cause: "Lead", turn: false');
+});
 
 describe("Constellation real-log replay", () => {
   test("protocol events replay Claims, acceptance, Gate promotion and digest delivery", () => {
@@ -485,3 +590,24 @@ test("recovery replay requires eligible proof for the exact interruption ID", ()
     )
   ).toBe(false);
 }, 30_000);
+
+test("unblock replay requires a Lead input sent after the block", () => {
+  const f = unblockFixture();
+
+  const source = (before: boolean) =>
+    constellationTraceToQuint(
+      "fresh_block",
+      trace([
+        batch(initial),
+        batch([began]),
+        ...(before
+          ? [batch([E.OperatorMessageSent.make({ ...f.message, revision: 1 })]), batch([f.blocked])]
+          : [batch([f.blocked]), batch([f.message])]),
+        batch([f.turn, f.unblocked, f.delivered]),
+      ]),
+      "constellations"
+    )[0]!.source;
+
+  expect(source(true)).toContain('cause: "Lead", turn: true, fresh: false');
+  expect(source(false)).toContain('cause: "Lead", turn: true, fresh: true');
+});

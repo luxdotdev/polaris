@@ -304,12 +304,26 @@ reference tests and complete committed-log fixtures are under
 `ClaimApproved`, `ClaimHandedUp` and `AttemptNudged` events advance Attempt
 revisions while retaining their state. `reviewMetadataValid` checks that approval
 and hand-up occur in Review, nudges occur while working, and each marker occurs
-once per Attempt. Role authorization and refused commands remain real decider
+once per working interval (unblock resets nudges). Role authorization and refused commands remain real decider
 tests. `constellation.defaults.get/set` persist user settings outside the graph
 journal; `plan.start` snapshots omitted settings before its serialized decision.
 The live producer's ephemeral `LivenessChanged` frames have no global sequence
 and are outside this committed-log abstraction. Their capability gate, resume
 seeding and graph-revision neutrality are covered by the real producer tests.
+
+Blocking maps `WorkerBlock` to `AttemptBlocked` and a `Blocked` notification.
+`blockEvents`, `unblockEvents` and `blockTransitionsValid` model live targets,
+unsatisfied acceptance, Gate and transitive dependency cycle rejection, working → blocked → working, and a Turn proof on unblock. Cancel drops named targets and queues a Lead notification; an empty set continues waiting for the Lead.
+The real journal commits `AttemptUnblocked` with the Session machine's next Turn;
+acceptance inputs are re-derived from the durable block on startup. Empty target
+sets wait for a Lead message sent after the block. The replay `fresh` proof checks journal order, including messages in the same clock tick. SendBack accepts blocked Attempts and unblock resets the nudge allowance. `constellation/blocked.test.ts` and
+`constellation/delivery/blocked.test.ts` cover error codes, Turn boundaries,
+metadata clearing, atomic markers, SQLite restart and idempotence. The independent
+reference fold and generated command model retain block metadata; trace replay
+requires the local worker Turn in the same batch. Remote traces require the
+worker Host's earlier Turn with the immutable delivery ID before the owner
+receipt; remote delivery retains its durable receipt handshake.
+Blocked Attempts skip nudging; a second silent end queues `Stopped` for the Lead.
 
 C1-L implements the delivery runner under `apps/daemon/src/constellation/delivery`,
 with timers only for pending Lead-worthy updates (20 s Claims / 5 s blocking Lead

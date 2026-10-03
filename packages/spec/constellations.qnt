@@ -18,6 +18,8 @@ module constellations {
     | AttemptClaimed({ attempt: int, sha: int })
     | ClaimApproved(int)
     | ClaimHandedUp(int)
+    | AttemptBlocked({ attempt: int, on: Set[int] })
+    | AttemptUnblocked({ attempt: int, cause: str, turn: bool, fresh: bool })
     | AttemptNudged(int)
     | AttemptAccepted({ attempt: int, sha: int })
     | AttemptRejected({ attempt: int, reason: str })
@@ -47,6 +49,7 @@ module constellations {
     tasks: int -> Task, attempts: List[Attempt], lead: int, state: str,
     handoverRequest: int, handoverFrom: int, stale: Set[int], inputs: List[{ id: int, session: int }],
     approvals: List[int], handups: List[int], nudges: List[int], firstTurns: List[int],
+    blocks: int -> Set[int],
     promotions: List[int], notes: int -> str, deliveries: List[Delivery],
     proofs: Set[{ attempt: int, interruption: int }],
     applied: List[int], recoveries: List[Recovery], waiters: List[int],
@@ -62,13 +65,14 @@ module constellations {
     tasks: TASKS.mapBy(_ => emptyTask), attempts: [], lead: 0, state: "planning",
     handoverRequest: -1, handoverFrom: -1, stale: Set(), inputs: [],
     approvals: [], handups: [], nudges: [], firstTurns: [],
+    blocks: Map(),
     proofs: Set(),
     promotions: [], notes: Map(), deliveries: [], applied: [], recoveries: [],
     waiters: [], holders: Set(), requests: [], grants: [], capacity: CAPACITY, canceled: Set(),
   }
 // The event log is durable; projections and pending notification IDs are always re-folded.
   pure def has(xs: List[int], x: int): bool = xs.indices().exists(i => xs[i] == x)
-  pure def active(a: Attempt): bool = Set("working", "review").contains(a.status)
+  pure def active(a: Attempt): bool = Set("working", "blocked", "review").contains(a.status)
   pure def change(v: View, a: int, status: str, sha: int): View = {
     ...v, attempts: v.attempts.replaceAt(a, {
       ...v.attempts[a], status: status, sha: sha, revision: v.attempts[a].revision + 1,
@@ -83,7 +87,7 @@ module constellations {
       }) }
     | TaskCanceled(t) => { ...v, tasks: v.tasks.set(t, {
         ...v.tasks.get(t), canceled: true, revision: v.tasks.get(t).revision + 1,
-      }) }
+      }), blocks: v.blocks.keys().mapBy(a => v.blocks.get(a).exclude(Set(t))) }
     | AttemptStarted(p) => { ...v, attempts: v.attempts.append({
         task: p.task, session: p.session, ref: p.ref, status: "working", revision: 1, sha: -1, rejectionReason: "", mergeBase: p.mergeBase,
       }) }
@@ -91,6 +95,8 @@ module constellations {
     | AttemptClaimed(p) => change(v, p.attempt, "review", p.sha)
     | ClaimApproved(a) => { ...change(v, a, v.attempts[a].status, v.attempts[a].sha), approvals: v.approvals.append(a) }
     | ClaimHandedUp(a) => { ...change(v, a, v.attempts[a].status, v.attempts[a].sha), handups: v.handups.append(a) }
+    | AttemptBlocked(p) => { ...change(v, p.attempt, "blocked", v.attempts[p.attempt].sha), blocks: v.blocks.put(p.attempt, p.on) }
+    | AttemptUnblocked(p) => { ...change(v, p.attempt, "working", v.attempts[p.attempt].sha), blocks: v.blocks.keys().exclude(Set(p.attempt)).mapBy(a => v.blocks.get(a)), nudges: v.nudges.select(a => a != p.attempt) }
     | AttemptNudged(a) => { ...change(v, a, v.attempts[a].status, v.attempts[a].sha), nudges: v.nudges.append(a) }
     | AttemptAccepted(p) => change(v, p.attempt, "accepted", p.sha)
     | AttemptRejected(p) => {
@@ -175,23 +181,28 @@ module constellations {
     v.tasks.get(t).canceled or effectiveDeps(v, t).forall(d => not(lineage(v, t).contains(d)) and not(lineage(v, d).contains(t))),
     v.tasks.get(t).canceled or effectiveDeps(v, t).forall(d => v.tasks.get(d).declared and not(v.tasks.get(d).canceled)),
   })
+  pure def cancelEvents(v: View, t: int): List[EventKind] =
+    [TaskCanceled(t)].concat(v.attempts.indices().fold([], (notes, a) =>
+      if (v.attempts[a].status == "blocked" and v.blocks.get(a).contains(t))
+      notes.append(NotificationQueued({ id: 100000 + t * 100 + a, kind: "blocked" })) else notes))
   pure def opEvents(v: View, op: PlanOp): List[EventKind] = match op {
     | Add(p) => if (not(v.tasks.get(p.task).declared)) [TaskDeclared(p)] else []
     | Edit(p) => if (v.tasks.get(p.task).declared and not(v.tasks.get(p.task).canceled)
         and v.tasks.get(p.task).revision == p.revision)
       [TaskEdited({ task: p.task, deps: p.deps, parent: p.parent, gate: p.gate })] else []
     | Cancel(p) => if (v.tasks.get(p.task).declared and not(v.tasks.get(p.task).canceled)
-        and v.tasks.get(p.task).revision == p.revision) [TaskCanceled(p.task)] else []
+        and v.tasks.get(p.task).revision == p.revision and not(v.attempts.indices().exists(i => v.attempts[i].task == p.task and active(v.attempts[i]))))
+      cancelEvents(v, p.task) else []
   }
   pure def planEvents(v: View, ops: List[PlanOp]): List[EventKind] = {
     val batch = ops.foldl({ view: v, events: [], valid: true }, (acc, op) => {
       val events = opEvents(acc.view, op)
       { view: events.foldl(acc.view, (updated, e) => apply(updated, e)),
-        events: acc.events.concat(events), valid: acc.valid and events.length() == 1 }
+        events: acc.events.concat(events), valid: acc.valid and events.length() > 0 }
     })
     val roots = batch.events.foldl(Set(), (acc, e) => match e { | TaskCanceled(t) => acc.union(Set(t)) | _ => acc })
     val canceled = TASKS.filter(t => not(batch.view.tasks.get(t).canceled) and lineage(batch.view, t).intersect(roots) != Set())
-    val events = canceled.fold(batch.events, (acc, t) => acc.append(TaskCanceled(t)))
+    val events = canceled.fold(batch.events, (acc, t) => acc.concat(cancelEvents(v, t)))
     val updated = events.foldl(v, (acc, e) => apply(acc, e))
     val stopped = roots.union(canceled).forall(t => latest(v, t) < 0 or not(active(v.attempts[latest(v, t)])))
     if (batch.valid and stopped and validGraph(updated)) events.concat(promote(updated)) else []
@@ -243,6 +254,21 @@ module constellations {
   action startFirstTurn(a: int): bool = commit(OWNER,
     if (view.attempts.indices().contains(a) and view.attempts[a].status == "working"
       and not(has(view.firstTurns, a))) [FirstTurnStarted(a)] else [])
+  pure def blockEvents(v: View, a: int, on: Set[int], rev: int): List[EventKind] =
+    if (current(v, a, rev) and v.attempts[a].status == "working"
+      and not(v.tasks.get(v.attempts[a].task).gate)
+      and on.forall(t => v.tasks.get(t).declared and not(v.tasks.get(t).canceled) and t != v.attempts[a].task)
+      and on.forall(t => not(reach(v, t).contains(v.attempts[a].task)))
+      and (on.size() == 0 or not(on.forall(t => accepted(v, t)))))
+      [AttemptBlocked({ attempt: a, on: on }), NotificationQueued({ id: 1000 + rev * 100 + a, kind: "blocked" })] else []
+  pure def unblockEvents(v: View, a: int, rev: int, cause: str, turn: bool): List[EventKind] =
+    if (current(v, a, rev) and v.attempts[a].status == "blocked" and turn
+      and (cause == "Lead" or cause == "Accepted" and v.blocks.get(a).size() > 0 and v.blocks.get(a).forall(t => accepted(v, t))))
+      [AttemptUnblocked({ attempt: a, cause: cause, turn: turn, fresh: true })] else []
+  action block(a: int, on: Set[int], rev: int): bool = commit(OWNER, blockEvents(view, a, on, rev))
+  action unblock(a: int, rev: int, cause: str, turn: bool): bool = commit(OWNER, unblockEvents(view, a, rev, cause, turn))
+  action unblockInput(a: int, rev: int, cause: str, turn: bool, fresh: bool): bool = commit(OWNER,
+    if (fresh) unblockEvents(view, a, rev, cause, turn) else [])
   action progress(a: int, rev: int): bool = commit(OWNER,
     if (current(view, a, rev) and view.attempts[a].status == "working") [AttemptProgressed(a)] else [])
   action claim(a: int, rev: int, sha: int, dirty: bool, onBranch: bool): bool = commit(OWNER,
@@ -252,7 +278,7 @@ module constellations {
     if (current(view, a, rev) and view.attempts[a].status == "review" and view.attempts[a].sha == sha)
     [AttemptAccepted({ attempt: a, sha: sha })].concat(promote(apply(view, AttemptAccepted({ attempt: a, sha: sha })))) else [])
   action rejectWithReason(a: int, rev: int, reason: str): bool = commit(OWNER,
-    if (current(view, a, rev) and view.attempts[a].status == "review") [AttemptRejected({ attempt: a, reason: reason })] else [])
+    if (current(view, a, rev) and Set("review", "blocked").contains(view.attempts[a].status)) [AttemptRejected({ attempt: a, reason: reason })] else [])
   action reject(a: int, rev: int): bool = rejectWithReason(a, rev, "fix")
   action stop(a: int, rev: int): bool = commit(OWNER,
     if (current(view, a, rev)) finish(view, a, AttemptSettled({ attempt: a, outcome: "lost", stale: offline.contains(view.attempts[a].session), commanded: true })) else [])
@@ -326,6 +352,7 @@ module constellations {
       plan([Edit({ task: t, deps: Set(dep), parent: -1, gate: t == 2, revision: rev })]),
       plan([Cancel({ task: t, revision: rev })]),
       start(t, s, latest(view, t)), progress(a, rev), claim(a, rev, 42, false, true),
+      block(a, Set(dep), rev), block(a, Set(), rev), unblock(a, rev, "Accepted", true), unblock(a, rev, "Lead", true),
       claim(a, rev, 42, true, true), accept(a, rev, 42), accept(a, rev, 43), reject(a, rev), startFirstTurn(a), stop(a, rev), harnessFail(a),
       ask(a, id), deliver, handover(s), requestHandover(id), cancelHandover, finishHandover(id, s), setState("running"), setState("paused"),
       all { TASKS.forall(task => accepted(view, task)), setState("completed") },
@@ -399,10 +426,24 @@ module constellations {
     | ClaimApproved(a) => foldEvents(log.slice(0, i)).attempts[a].status == "review"
     | ClaimHandedUp(a) => foldEvents(log.slice(0, i)).attempts[a].status == "review"
     | AttemptNudged(a) => foldEvents(log.slice(0, i)).attempts[a].status == "working"
+    | AttemptRejected(a) => Set("review", "blocked").contains(foldEvents(log.slice(0, i)).attempts[a].status)
     | _ => true
   }) and view.nudges.length() == view.nudges.foldl(Set(), (acc, a) => acc.union(Set(a))).size()
     and view.approvals.length() == view.approvals.foldl(Set(), (acc, a) => acc.union(Set(a))).size()
     and view.handups.length() == view.handups.foldl(Set(), (acc, a) => acc.union(Set(a))).size()
+  val blockTransitionsValid = log.indices().forall(i => {
+    val before = foldEvents(log.slice(0, i))
+    match log[i].kind {
+      | AttemptBlocked(p) => before.attempts[p.attempt].status == "working"
+        and not(before.tasks.get(before.attempts[p.attempt].task).gate)
+        and p.on.forall(t => before.tasks.get(t).declared and not(before.tasks.get(t).canceled) and t != before.attempts[p.attempt].task)
+        and p.on.forall(t => not(reach(before, t).contains(before.attempts[p.attempt].task)))
+        and (p.on.size() == 0 or not(p.on.forall(t => accepted(before, t))))
+      | AttemptUnblocked(p) => before.attempts[p.attempt].status == "blocked" and p.turn and p.fresh
+        and (p.cause == "Lead" or p.cause == "Accepted" and before.blocks.get(p.attempt).size() > 0 and before.blocks.get(p.attempt).forall(t => accepted(before, t)))
+      | _ => true
+    }
+  })
   val lifecycleValid = log.indices().forall(i => match log[i].kind {
     | ConstellationStateChanged(s) => lifecycleTransition(foldEvents(log.slice(0, i)).state, s)
     | _ => true
@@ -432,7 +473,7 @@ module constellations {
     graphAcyclic, causesPointBackward, taskFollowsLatestAttempt, gatePromotedOnlyAfterAccepted,
     oneLead, firstTurnAtMostOnce, oneActiveAttemptPerSession, exactlyOnceDelivery, settledAttemptImmutable,
     outboxAppliedExactlyOnce, onlyOwnerCommits, recoveryAtMostOnce, recoveryHasEligibleProof, staleNeverSettlesWithoutCommand,
-    noOldLeadDelivery, handoverRequestOrdered, inputDeliveredAtMostOnce, lifecycleValid, reviewMetadataValid, resourceCapacity, resourceRemovalSafe, fifoGrantOrder, acceptanceMatchesClaim,
+    noOldLeadDelivery, handoverRequestOrdered, inputDeliveredAtMostOnce, blockTransitionsValid, lifecycleValid, reviewMetadataValid, resourceCapacity, resourceRemovalSafe, fifoGrantOrder, acceptanceMatchesClaim,
   }
   val witnessClaim = view.attempts.indices().exists(i => view.attempts[i].status == "review")
   val witnessAccepted = view.attempts.indices().exists(i => view.attempts[i].status == "accepted")
