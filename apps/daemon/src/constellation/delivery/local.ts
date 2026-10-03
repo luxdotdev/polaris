@@ -1,5 +1,6 @@
 import { NotificationItem, type ConstellationId, type TurnId } from "@polaris/protocol";
 import { Effect, Predicate } from "effect";
+import { withWorkerAdmission } from "../../resources/workerAdmission.ts";
 import { decideSession } from "../../engine/session.ts";
 import { serialInput } from "./boundary.ts";
 import { EventStore } from "../../store/EventStore.ts";
@@ -229,7 +230,13 @@ const nudge = Effect.fn("Constellation.nudgeSilentWorker")(function* (
 });
 
 export const deliverLocalInput = (id: ConstellationId, input: PendingInput) =>
-  serialInput(input.sessionId, deliverInput(id, input));
+  Effect.gen(function* () {
+    const store = yield* EventStore;
+    yield* serialInput(
+      input.sessionId,
+      withWorkerAdmission(store, input.sessionId, deliverInput(id, input))
+    );
+  });
 
 export const deliverDigest = (id: ConstellationId) =>
   Effect.gen(function* () {

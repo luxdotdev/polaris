@@ -12,7 +12,13 @@ export const recordResourceTrace = Effect.gen(function* () {
   if (directory === undefined) return;
   const store = yield* EventStore;
   const model = yield* store.model;
-  const events = yield* store.readEvents({ after: 0, upTo: model.sequence, sessionId: null });
+
+  const events = (yield* store.readEvents({
+    after: 0,
+    upTo: model.sequence,
+    sessionId: null,
+  })).filter(({ event }) => event._tag.startsWith("Resource"));
+
   let hostId: string | null = null;
 
   for (const { event } of events) {

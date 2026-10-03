@@ -1,5 +1,6 @@
 import type { Attempt, AttemptId, SessionId, DomainEvent } from "@polaris/protocol";
 import { Deferred, Effect, Exit, Layer, Predicate, Scope, Stream } from "effect";
+import { registerWorkerAdmission, workerBusy } from "../resources/workerAdmission.ts";
 import { graphEvent } from "../store/constellation.ts";
 import { EventStore } from "../store/EventStore.ts";
 import { ConstellationRuntime, type ConstellationRuntimeService } from "./runtime.ts";
@@ -7,7 +8,7 @@ import { ConstellationRuntime, type ConstellationRuntimeService } from "./runtim
 export interface WorkingAttemptHooks<E> {
   readonly runtime: ConstellationRuntimeService;
   readonly ownsAttempt?: (attempt: Attempt) => boolean;
-  /** HostResources.acquireWorker; the slot belongs to this Attempt's scope. */
+  /** HostResources.acquireWorker; the slot belongs to a replaceable admission scope. */
   readonly acquireWorker: (sessionId: SessionId) => Effect.Effect<void, E, Scope.Scope>;
   /** Commit the title/first prompt via the Session machine and pass its Harness attachment. */
   readonly startWorker: (attempt: Attempt) => Effect.Effect<void, E>;
@@ -24,14 +25,18 @@ export const workingAttemptsLayer = <E>(hooks: WorkingAttemptHooks<E>) =>
     Effect.gen(function* () {
       const store = yield* EventStore;
       const parent = yield* Scope.Scope;
-      const working = new Map<AttemptId, Scope.Closeable>();
+
+      const working = new Map<
+        AttemptId,
+        { scope: Scope.Closeable; observe: (event: DomainEvent) => Effect.Effect<void> }
+      >();
 
       const close = Effect.fnUntraced(function* (id: AttemptId) {
-        const scope = working.get(id);
+        const entry = working.get(id);
 
-        if (scope === undefined) return;
+        if (entry === undefined) return;
         working.delete(id);
-        yield* Scope.close(scope, Exit.void);
+        yield* Scope.close(entry.scope, Exit.void);
       });
 
       let sequence = 0;
@@ -56,6 +61,8 @@ export const workingAttemptsLayer = <E>(hooks: WorkingAttemptHooks<E>) =>
 
         yield* closeArchived(event);
 
+        for (const entry of working.values()) yield* entry.observe(event);
+
         const graph = graphEvent(event);
 
         if (graph === null || !("attemptId" in graph)) return;
@@ -75,7 +82,11 @@ export const workingAttemptsLayer = <E>(hooks: WorkingAttemptHooks<E>) =>
             filter: (item) =>
               Predicate.isTagged(item, "Event") &&
               (graphEvent(item.envelope.event) !== null ||
-                Predicate.isTagged(item.envelope.event, "SessionStateChanged")),
+                Predicate.isTagged(item.envelope.event, "SessionStateChanged") ||
+                Predicate.isTagged(item.envelope.event, "TurnEnded") ||
+                Predicate.isTagged(item.envelope.event, "SessionBackgroundTasksChanged") ||
+                Predicate.isTagged(item.envelope.event, "SubagentStarted") ||
+                Predicate.isTagged(item.envelope.event, "SubagentEnded")),
           });
 
           const cut = (yield* store.model).sequence;
@@ -84,7 +95,22 @@ export const workingAttemptsLayer = <E>(hooks: WorkingAttemptHooks<E>) =>
             .readEvents({ after: sequence, upTo: cut, sessionId: null })
             .pipe(Effect.orDie);
 
-          for (const envelope of replay) yield* committed(envelope.event);
+          const suffix = [...replay];
+
+          for (const record of (yield* store.model).constellations.values())
+            suffix.push(
+              ...(yield* store
+                .readConstellationEvents({
+                  constellationId: record.graph.id,
+                  after: sequence,
+                  upTo: cut,
+                })
+                .pipe(Effect.orDie))
+            );
+          const ordered = new Map(suffix.map((envelope) => [envelope.sequence, envelope]));
+
+          for (const envelope of [...ordered.values()].sort((a, b) => a.sequence - b.sequence))
+            yield* committed(envelope.event);
           sequence = cut;
           yield* Deferred.succeed(ready, undefined);
           yield* subscription.pipe(
@@ -121,9 +147,26 @@ export const workingAttemptsLayer = <E>(hooks: WorkingAttemptHooks<E>) =>
         )
           return;
         const scope = yield* Scope.fork(parent);
-        working.set(attempt.id, scope);
+
+        const mayRelease = Effect.map(store.model, (model) => {
+          const current = [...model.constellations.values()]
+            .flatMap((r) => r.graph.attempts)
+            .find((a) => a.id === attempt.id);
+
+          return current?.state === "blocked" && !workerBusy(model.sessions.get(attempt.sessionId));
+        });
+
+        const admission = yield* registerWorkerAdmission(
+          store,
+          attempt.sessionId,
+          scope,
+          hooks.acquireWorker(attempt.sessionId),
+          mayRelease
+        );
+
+        working.set(attempt.id, { scope, observe: admission.observe });
         yield* Effect.gen(function* () {
-          yield* hooks.acquireWorker(attempt.sessionId);
+          if (!(yield* mayRelease) && !(yield* admission.ensure)) return;
           const latest = yield* store.model;
 
           if (
@@ -138,6 +181,7 @@ export const workingAttemptsLayer = <E>(hooks: WorkingAttemptHooks<E>) =>
           )
             return;
           yield* resume ? hooks.resumeWorker(attempt) : hooks.startWorker(attempt);
+          yield* admission.suspend;
         }).pipe(
           Effect.provideService(Scope.Scope, scope),
           Effect.catch((error) =>

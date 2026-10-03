@@ -1,10 +1,13 @@
 import {
+  type DomainEvent,
   type Attempt,
   type AttemptId,
   type RemoteWorkerAssignment,
   type ConstellationTransferError,
 } from "@polaris/protocol";
-import { Effect, Exit, Layer, Scope } from "effect";
+import { Effect, Exit, Layer, Scope, Predicate, Stream, SubscriptionRef } from "effect";
+import { EventStore } from "../../store/EventStore.ts";
+import { registerWorkerAdmission, workerBusy } from "../../resources/workerAdmission.ts";
 import { HostResources } from "../../resources/index.ts";
 import { McpTokens } from "../../mcp/index.ts";
 import { ConstellationOwner } from "../runtime.ts";
@@ -29,14 +32,15 @@ export interface RemoteWorkingHooks<E, R> {
   ) => Effect.Effect<void, never, R>;
 }
 
-const retainsWorkerSlot = (attempt: Attempt) =>
+const retainsAssignment = (attempt: Attempt) =>
   attempt.state === "working" || attempt.state === "blocked";
 
-/** Worker slots follow remote mirrors and locally queued Claims, without committing owner events here. */
+/** Worker assignments follow remote mirrors and locally queued Claims, without committing owner events here. */
 export const remoteWorkingAttemptsLayer = <E, R>(hooks: RemoteWorkingHooks<E, R>) =>
   Layer.effect(
     RemoteWorkers,
     Effect.gen(function* () {
+      const store = yield* EventStore;
       const resources = yield* HostResources;
       const tokens = yield* McpTokens;
       const storage = yield* TransferStorage;
@@ -44,13 +48,21 @@ export const remoteWorkingAttemptsLayer = <E, R>(hooks: RemoteWorkingHooks<E, R>
       const parent = yield* Effect.scope;
       const context = yield* Effect.context<R>();
       const started = new Set<AttemptId>();
-      const working = new Map<AttemptId, Scope.Closeable>();
+
+      const working = new Map<
+        AttemptId,
+        {
+          scope: Scope.Closeable;
+          suspend: Effect.Effect<void>;
+          observe: (event: DomainEvent) => Effect.Effect<void>;
+        }
+      >();
 
       const stop = Effect.fnUntraced(function* (id: AttemptId) {
-        const scope = working.get(id);
+        const entry = working.get(id);
         working.delete(id);
 
-        if (scope !== undefined) yield* Scope.close(scope, Exit.void);
+        if (entry !== undefined) yield* Scope.close(entry.scope, Exit.void);
       });
 
       const start = Effect.fnUntraced(function* (
@@ -62,7 +74,7 @@ export const remoteWorkingAttemptsLayer = <E, R>(hooks: RemoteWorkingHooks<E, R>
 
         if (
           attempt.hostId !== hostId ||
-          !retainsWorkerSlot(attempt) ||
+          !retainsAssignment(attempt) ||
           latest?.id !== attempt.id ||
           assignment.graph.state === "completed" ||
           assignment.graph.state === "archived"
@@ -84,14 +96,42 @@ export const remoteWorkingAttemptsLayer = <E, R>(hooks: RemoteWorkingHooks<E, R>
           return;
         }
 
-        if (working.has(attempt.id)) return;
+        const existing = working.get(attempt.id);
+
+        if (existing !== undefined) {
+          yield* existing.suspend;
+
+          return;
+        }
+
         const scope = yield* Scope.fork(parent);
-        working.set(attempt.id, scope);
+
+        const mayRelease = Effect.gen(function* () {
+          const current = (yield* storage.assignments.pipe(Effect.orDie)).find(
+            (a) => a.attemptId === attempt.id
+          );
+
+          return (
+            current !== undefined &&
+            assignmentAttempt(current).state === "blocked" &&
+            !workerBusy((yield* store.model).sessions.get(attempt.sessionId))
+          );
+        });
+
+        const admission = yield* registerWorkerAdmission(
+          store,
+          attempt.sessionId,
+          scope,
+          resources.acquireWorker(attempt.sessionId),
+          mayRelease
+        );
+
+        working.set(attempt.id, { scope, suspend: admission.suspend, observe: admission.observe });
         yield* Effect.gen(function* () {
-          yield* resources.acquireWorker(attempt.sessionId);
+          if (!(yield* mayRelease) && !(yield* admission.ensure)) return;
           const current = (yield* storage.assignments).find((a) => a.attemptId === attempt.id);
 
-          if (current === undefined || !retainsWorkerSlot(assignmentAttempt(current))) {
+          if (current === undefined || !retainsAssignment(assignmentAttempt(current))) {
             yield* stop(attempt.id).pipe(Effect.forkIn(parent), Effect.asVoid);
 
             return;
@@ -104,6 +144,7 @@ export const remoteWorkingAttemptsLayer = <E, R>(hooks: RemoteWorkingHooks<E, R>
               ? hooks.resume(current, workerEnvironment(attempt))
               : hooks.start(current, workerEnvironment(attempt))
           ).pipe(Effect.provide(context));
+          yield* admission.suspend;
         }).pipe(
           Effect.catch((error) =>
             hooks
@@ -117,6 +158,63 @@ export const remoteWorkingAttemptsLayer = <E, R>(hooks: RemoteWorkingHooks<E, R>
           Effect.forkIn(scope)
         );
       });
+
+      const suspend = Effect.gen(function* () {
+        for (const entry of working.values()) yield* entry.suspend;
+      });
+
+      let sequence = (yield* store.model).sequence;
+
+      const observe = Effect.scoped(
+        Effect.gen(function* () {
+          const feed = yield* store.subscribe({
+            filter: (item) =>
+              Predicate.isTagged(item, "Event") &&
+              (Predicate.isTagged(item.envelope.event, "TurnEnded") ||
+                Predicate.isTagged(item.envelope.event, "SessionBackgroundTasksChanged") ||
+                Predicate.isTagged(item.envelope.event, "SubagentStarted") ||
+                Predicate.isTagged(item.envelope.event, "SubagentEnded") ||
+                Predicate.isTagged(item.envelope.event, "SessionStateChanged")),
+          });
+
+          const cut = (yield* store.model).sequence;
+
+          for (const assignment of yield* storage.assignments.pipe(Effect.orDie)) {
+            const entry = working.get(assignment.attemptId);
+
+            if (entry === undefined) continue;
+
+            const suffix = yield* store
+              .readEvents({
+                after: sequence,
+                upTo: cut,
+                sessionId: assignmentAttempt(assignment).sessionId,
+              })
+              .pipe(Effect.orDie);
+
+            for (const envelope of suffix) yield* entry.observe(envelope.event);
+          }
+
+          sequence = cut;
+          yield* suspend;
+          yield* feed.pipe(
+            Stream.runForEach((item) =>
+              Effect.gen(function* () {
+                if (Predicate.isTagged(item, "Event") && item.envelope.sequence > sequence) {
+                  for (const entry of working.values()) yield* entry.observe(item.envelope.event);
+                  sequence = item.envelope.sequence;
+                }
+              })
+            )
+          );
+        })
+      );
+
+      yield* observe.pipe(Effect.forever, Effect.forkIn(parent));
+      yield* SubscriptionRef.changes(storage.changes).pipe(
+        Stream.runForEach(() => suspend),
+        Effect.forkIn(parent)
+      );
 
       return {
         prepare: hooks.prepare,

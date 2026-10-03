@@ -15,8 +15,10 @@ import {
   Turn,
   TurnId,
   Attempt,
+  RemoteDeliveryPacket,
+  RemoteDeliveryInput,
 } from "@polaris/protocol";
-import { Context, Deferred, Effect, Layer, Semaphore, Struct } from "effect";
+import { Context, Deferred, Effect, Layer, Semaphore, Struct, Fiber, Predicate } from "effect";
 import {
   HOST,
   CID,
@@ -37,6 +39,9 @@ import { ConstellationOwner } from "../runtime.ts";
 import { TransferStorage } from "./storage.ts";
 import { RemoteAssignments, RemoteWorkers } from "./assignments.ts";
 import { ConstellationWorktrees } from "../worktrees.ts";
+import { applyWorkerDelivery, ConstellationSessionEffects } from "../delivery/index.ts";
+import { validateRemoteDelivery } from "../composition/remoteDelivery.ts";
+import { finish, wait, session } from "../delivery/testing.ts";
 import { remoteWorkingAttemptsLayer } from "./remoteWorking.ts";
 
 const graph = () =>
@@ -80,6 +85,8 @@ test("a new remote Attempt starts its brief in an Existing Session with historic
           let holds = 0;
           let starts = 0;
           let resumes = 0;
+          let acquisitions = 0;
+          let deliveries = 0;
 
           const resources = HostResources.of({
             get: Effect.die("unused"),
@@ -89,10 +96,16 @@ test("a new remote Attempt starts its brief in an Existing Session with historic
             setWorkerCap: () => Effect.die("unused"),
             acquire: () => Effect.die("unused"),
             acquireWorker: () =>
-              Effect.acquireRelease(
-                gate.take(1).pipe(Effect.tap(() => Effect.sync(() => holds++))),
-                () => Effect.sync(() => holds--).pipe(Effect.andThen(gate.release(1)))
-              ).pipe(Effect.asVoid),
+              Effect.sync(() => acquisitions++)
+                .pipe(
+                  Effect.andThen(
+                    Effect.acquireRelease(
+                      gate.take(1).pipe(Effect.tap(() => Effect.sync(() => holds++))),
+                      () => Effect.sync(() => holds--).pipe(Effect.andThen(gate.release(1)))
+                    )
+                  )
+                )
+                .pipe(Effect.asVoid),
           });
 
           const context = yield* Layer.build(
@@ -115,7 +128,7 @@ test("a new remote Attempt starts its brief in an Existing Session with historic
                 }).pipe(Effect.andThen(Deferred.succeed(started, undefined))),
               resume: () =>
                 Effect.sync(() => {
-                  expect(holds).toBe(1);
+                  expect(holds).toBe(0);
                   resumes++;
                 }).pipe(Effect.andThen(Deferred.succeed(resumed, undefined))),
               failed: () => Effect.die("unexpected startup failure"),
@@ -234,9 +247,74 @@ test("a new remote Attempt starts its brief in an Existing Session with historic
 
           yield* storage.assign(blockedAssignment);
           yield* workers.assigned(blockedAssignment);
-          expect(holds).toBe(1);
+          expect(holds).toBe(0);
           expect(starts).toBe(1);
           expect(yield* tokens.authenticate(token)).toEqual(binding);
+          yield* gate.take(1);
+
+          const packet = RemoteDeliveryPacket.make({
+            id: "unblock-packet",
+            ownerHostId: assignment.graph.hostId,
+            workerHostId: HOST,
+            constellationId: CID,
+            attemptId: draft().id,
+            sessionId,
+            input: RemoteDeliveryInput.cases.Turn.make({
+              text: "Resume blocked worker",
+              cause: "unblock",
+            }),
+          });
+
+          const effects = ConstellationSessionEffects.of({
+            runTurn: () =>
+              Effect.sync(() => {
+                expect(holds).toBe(1);
+                deliveries++;
+              }),
+            canSteer: () => Effect.succeed(true),
+            steer: () => Effect.void,
+            retire: () => Effect.void,
+            interrupt: () => Effect.void,
+          });
+
+          const apply = applyWorkerDelivery(packet, (p, model) =>
+            Effect.flatMap(storage.assignments.pipe(Effect.orDie), (a) =>
+              validateRemoteDelivery(p, model, a)
+            )
+          ).pipe(
+            Effect.provideService(EventStore, store),
+            Effect.provideService(ConstellationSessionEffects, effects)
+          );
+
+          const delivery = yield* apply.pipe(Effect.forkScoped);
+          yield* wait(() => Effect.succeed(acquisitions === 2));
+          expect(deliveries).toBe(0);
+          expect((yield* store.model).sessions.get(sessionId)!.turns).toHaveLength(1);
+          yield* gate.release(1);
+          yield* Fiber.join(delivery);
+          yield* apply;
+          expect(deliveries).toBe(1);
+          expect(acquisitions).toBe(2);
+          expect(yield* tokens.authenticate(token)).toEqual(binding);
+          yield* finish(sessionId).pipe(Effect.provideService(EventStore, store));
+          yield* wait(() => Effect.succeed(holds === 0));
+          yield* gate.take(1);
+          yield* apply;
+          expect(acquisitions).toBe(2);
+          expect(deliveries).toBe(1);
+          yield* gate.release(1);
+
+          const turns = yield* store.readEvents({
+            after: 0,
+            upTo: (yield* store.model).sequence,
+            sessionId,
+          });
+
+          expect(
+            turns.filter(
+              (e) => Predicate.isTagged(e.event, "TurnStarted") && e.event.turn.id === packet.id
+            )
+          ).toHaveLength(1);
           yield* workers.claimed(draft().id);
           expect(holds).toBe(0);
           yield* workers.resume(blockedAssignment);
@@ -244,7 +322,7 @@ test("a new remote Attempt starts its brief in an Existing Session with historic
           expect(resumes).toBe(1);
           yield* storage.assign(assignment);
 
-          const packet = ConstellationOutboxPacket.make({
+          const claimPacket = ConstellationOutboxPacket.make({
             entry: ConstellationOutboxEntry.make({
               id: "claim",
               ownerHostId: assignment.graph.hostId,
@@ -262,10 +340,10 @@ test("a new remote Attempt starts its brief in an Existing Session with historic
             recordedChecks: [],
           });
 
-          yield* storage.enqueue(packet);
+          yield* storage.enqueue(claimPacket);
           yield* storage.ack(
             ConstellationRelayReceipt.cases.Applied.make({
-              id: packet.entry.id,
+              id: claimPacket.entry.id,
               result: ConstellationResult.make({
                 summary: "queued",
                 next: "review",
@@ -337,6 +415,143 @@ test("Host restart restores persisted blocked assignments without starting a fir
         })
       ).pipe(Effect.provide(RemoteAssignments.layer.pipe(Layer.provide(dependencies))))
     );
+  } finally {
+    removeDir(root);
+  }
+});
+
+test("remote restart restores blocked binding without a slot and reacquires on unblock packet", async () => {
+  const root = mkdtempSync("/tmp/remote-blocked-admission-");
+
+  const assignment = RemoteWorkerAssignment.make({
+    graph: Constellation.make(
+      Struct.assign(graph(), {
+        attempts: [Attempt.make(Struct.assign(draft(), { state: "blocked" as const }))],
+      })
+    ),
+    attemptId: draft().id,
+    repoPath: root,
+  });
+
+  const binding = McpBinding.cases.Worker.make({
+    sessionId: draft().sessionId,
+    constellationId: CID,
+    attemptId: draft().id,
+  });
+
+  const durable = () =>
+    Layer.mergeAll(
+      EventStore.layerSqlite(`${root}/store.sqlite`),
+      TransferStorage.layer(`${root}/transfers.sqlite`),
+      McpTokens.layer(`${root}/tokens.sqlite`),
+      Layer.succeed(ConstellationOwner)(HOST)
+    );
+
+  let token = "";
+  let held = 0;
+  let resumes = 0;
+  let runs = 0;
+
+  const resources = HostResources.of({
+    get: Effect.die("unused"),
+    declare: () => Effect.die("unused"),
+    remove: () => Effect.die("unused"),
+    release: () => Effect.die("unused"),
+    setWorkerCap: () => Effect.die("unused"),
+    acquire: () => Effect.die("unused"),
+    acquireWorker: () =>
+      Effect.acquireRelease(
+        Effect.sync(() => {
+          held++;
+        }),
+        () =>
+          Effect.sync(() => {
+            held--;
+          })
+      ),
+  });
+
+  try {
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          yield* (yield* TransferStorage).assign(assignment);
+          const store = yield* EventStore;
+          yield* store.commit({
+            commandId: null,
+            decide: () =>
+              Effect.succeed([
+                DomainEvent.cases.SessionCreated.make({ session: session(draft().sessionId) }),
+              ]),
+          });
+          token = yield* (yield* McpTokens).issue(binding);
+        })
+      ).pipe(Effect.provide(durable()))
+    );
+    const base = durable().pipe(Layer.provideMerge(Layer.succeed(HostResources)(resources)));
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const workers = yield* RemoteWorkers;
+          const store = yield* EventStore;
+          const storage = yield* TransferStorage;
+          yield* workers.resume((yield* storage.assignments)[0]!);
+          yield* wait(() => Effect.succeed(resumes === 1));
+          expect(held).toBe(0);
+          expect(yield* (yield* McpTokens).authenticate(token)).toEqual(binding);
+
+          const packet = RemoteDeliveryPacket.make({
+            id: "restart-unblock",
+            ownerHostId: assignment.graph.hostId,
+            workerHostId: HOST,
+            constellationId: CID,
+            attemptId: draft().id,
+            sessionId: draft().sessionId,
+            input: RemoteDeliveryInput.cases.Turn.make({ text: "Continue", cause: "unblock" }),
+          });
+
+          const apply = applyWorkerDelivery(packet, (p, model) =>
+            Effect.flatMap(storage.assignments.pipe(Effect.orDie), (a) =>
+              validateRemoteDelivery(p, model, a)
+            )
+          );
+
+          yield* apply;
+          yield* apply;
+          expect(runs).toBe(1);
+          expect(held).toBe(1);
+          expect(yield* (yield* McpTokens).authenticate(token)).toEqual(binding);
+          expect((yield* store.model).sessions.get(draft().sessionId)!.turns).toHaveLength(1);
+        })
+      ).pipe(
+        Effect.provide(
+          remoteWorkingAttemptsLayer({
+            prepare: () => Effect.die("unused"),
+            start: () => Effect.die("A blocked restart cannot start a first Turn"),
+            resume: () =>
+              Effect.sync(() => {
+                expect(held).toBe(0);
+                resumes++;
+              }),
+            failed: () => Effect.die("Unexpected failure"),
+          }).pipe(Layer.provideMerge(base))
+        ),
+        Effect.provide(
+          Layer.succeed(ConstellationSessionEffects)({
+            runTurn: () =>
+              Effect.sync(() => {
+                expect(held).toBe(1);
+                runs++;
+              }),
+            canSteer: () => Effect.succeed(true),
+            steer: () => Effect.void,
+            retire: () => Effect.void,
+            interrupt: () => Effect.void,
+          })
+        )
+      )
+    );
+    expect(held).toBe(0);
   } finally {
     removeDir(root);
   }
