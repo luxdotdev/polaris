@@ -35,10 +35,10 @@ may override the image's preferences; "Show all filename extensions" exposes
 
 Real mounted verification on macOS 27.0 found black icon labels on the night image
 even with dark Finder chrome; Paper I1 had assumed white labels in dark appearance.
-The user chose a dawn background for everyone after this finding. This pipeline
-retains the accepted night assets for this Attempt; `dmg-dawn-design` and
-`dmg-dawn-build` own the replacement artwork. No label colour is baked into the
-background; Finder draws the labels.
+The user chose the dawn background (Paper I3/I4) for everyone after this finding.
+The generator now draws that scene with seed 12, meadow flowers and the dawn
+cabin, with a neutral ink arrow. The black labels are legible in both Finder
+appearances. No label colour is baked into the background; Finder draws the labels.
 
 With the same complete credentials consumed by `release.ts`, packaging verifies
 the already signed and stapled app, builds the image without modifying it, signs
