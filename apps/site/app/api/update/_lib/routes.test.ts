@@ -2,21 +2,24 @@ import { expect, test } from "bun:test";
 import { fixture, zip, dmg } from "./fixtures.ts";
 import { createReleaseRoutes } from "./index.ts";
 import { publishedRelease, type PublishedRelease } from "./releases.ts";
-import type { RequestEvent } from "./telemetry.ts";
+import type { WideEvent } from "../../../../lib/log";
 
 function setup(
   latest: () => Promise<PublishedRelease | null> = async () => publishedRelease(fixture)
 ) {
   const callbacks: (() => Promise<void>)[] = [];
-  const events: RequestEvent[] = [];
+  const events: WideEvent[] = [];
 
   const routes = createReleaseRoutes({
     latest,
-    schedule: (callback) => {
-      callbacks.push(callback);
-    },
-    log: async (event) => {
-      events.push(event);
+    log: {
+      env: {},
+      schedule: (callback) => {
+        callbacks.push(callback);
+      },
+      emit: async (event) => {
+        events.push(event);
+      },
     },
   });
 
@@ -44,7 +47,7 @@ test.each(["1.2.3", "1.2.3+local", "1.2.4", "2.0.0"])(
     await Promise.all(callbacks.map((callback) => callback()));
     expect(events).toHaveLength(2);
     expect(events[0]?.version).toBe(version);
-    expect(events[0]?.status).toBe(204);
+    expect(events[0]?.status_code).toBe(204);
   }
 );
 
@@ -67,7 +70,7 @@ test.each(["1.2.2", "1.2.3-rc.1", "1.1.99", "0.9.9"])(
     });
     expect(callbacks).toHaveLength(1);
     await callbacks[0]!();
-    expect(events[0]?.status).toBe(200);
+    expect(events[0]?.status_code).toBe(200);
   }
 );
 
@@ -88,7 +91,12 @@ test("malformed versions return 400 without lookup and without logging raw input
 
 test("download redirects temporarily to the latest DMG and logs once", async () => {
   const { routes, callbacks, events } = setup();
-  const response = await routes.download(new Request("https://polaris.lux.dev/download/mac"));
+
+  const response = await routes.download(
+    new Request("https://polaris.lux.dev/download/mac"),
+    undefined
+  );
+
   expect(response.status).toBe(307);
   expect(response.headers.get("location")).toBe(dmg);
   expect(response.headers.get("cache-control")).toBe("no-store");
@@ -98,7 +106,7 @@ test("download redirects temporarily to the latest DMG and logs once", async () 
     event: "download",
     route: "/download/mac",
     version: null,
-    status: 307,
+    status_code: 307,
   });
 });
 
@@ -111,9 +119,11 @@ test("no published Release means no update, and download unavailable; both log",
       })
     ).status
   ).toBe(204);
-  expect((await routes.download(new Request("https://polaris.lux.dev/"))).status).toBe(503);
+  expect((await routes.download(new Request("https://polaris.lux.dev/"), undefined)).status).toBe(
+    503
+  );
   await Promise.all(callbacks.map((callback) => callback()));
-  expect(events.map((event) => event.status)).toEqual([204, 503]);
+  expect(events.map((event) => event.status_code)).toEqual([204, 503]);
 });
 
 test("upstream failures or missing assets return retryable 503 and still log once", async () => {
@@ -129,7 +139,7 @@ test("upstream failures or missing assets return retryable 503 and still log onc
       params: Promise.resolve({ version: "1.0.0" }),
     });
 
-    const download = await routes.download(new Request("https://polaris.lux.dev/"));
+    const download = await routes.download(new Request("https://polaris.lux.dev/"), undefined);
 
     for (const response of [update, download]) {
       expect(response.status).toBe(503);

@@ -57,20 +57,26 @@ Set server-only `AXIOM_TOKEN` (an ingest token scoped to the dataset) and
 arrays posted to `https://api.axiom.co/v1/ingest/<dataset>` with a Bearer token.
 No Axiom SDK or automatic request capture is used.
 
-Each handled GET schedules exactly one event with Next.js `after()`, including
-400, 503 and cached Release lookups:
+Each handled GET emits exactly one wide event (`lib/log`) via Next.js `after()`,
+including 400, 503 and cached Release lookups. It is sent to Axiom and written
+to the function log as one JSON line with the ingest result (`axiom`: `ok`,
+`unconfigured`, `rejected_<status>` or `failed_<ErrorType>`). Shared fields:
+`_time`, `request_id` (`x-vercel-id`), `method`, `route`, `service`, `commit`,
+`deployment_id`, `environment`, `region`, `status_code`, `outcome`
+(`success`/`rejected`/`error`) and `duration_ms`. Route fields:
 
 | Field | Meaning |
 | --- | --- |
 | `_time` | Request timestamp, ISO 8601. |
 | `event` | `update_check` or `download`. |
-| `route` | `/api/update/darwin-arm64/[version]` or `/download/mac`; never a raw URL. |
 | `version` | Valid caller semver; null for downloads or malformed versions. |
 | `arch` | `arm64`, the artifact architecture this route serves. |
 | `macos_version` | Valid explicit header, else numeric Mac OS X User-Agent extract, else null. Browser UAs can report a compatibility version; the explicit header is authoritative. |
 | `install_id` | Optional UUID v4; null otherwise. |
 | `country` | Two-letter uppercase `x-vercel-ip-country` from Vercel, else null. |
-| `status` | HTTP response status. |
+| `release_version` | Tag of the latest published Release, or null. |
+| `update` | `current` or `available` for update checks. |
+| `failure` | `no_release` or `release_unavailable` (with `error`: type and HTTP status only). |
 
 Country comes directly from Vercel's geo header; the application never reads,
 stores or forwards the IP. It also excludes raw headers, User-Agent, URL/query,

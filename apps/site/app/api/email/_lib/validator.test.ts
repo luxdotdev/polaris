@@ -1,8 +1,6 @@
-import { Schema } from "effect";
 import { describe, expect, spyOn, test } from "bun:test";
 import { GetEmailAddressInsightsCommand, type SESv2ClientConfig } from "@aws-sdk/client-sesv2";
 import { createEmailHandler } from "./index";
-import { logEmailRequested } from "./telemetry";
 import { createTransport } from "./transport";
 import {
   createValidationCounters,
@@ -64,16 +62,6 @@ function handlerFixture(
     checkBot: async () => ({ isBot: false, isVerifiedBot: false }),
     validator,
     rateLimit: () => 0,
-    requested: () => {
-      void logEmailRequested(
-        { ...env, AXIOM_TOKEN: "fake", AXIOM_DATASET: "fake" },
-        async (_, init) => {
-          telemetry.push(Schema.decodeUnknownSync(Schema.String)(init.body));
-
-          return new Response();
-        }
-      );
-    },
     transport: () => {
       opened++;
 
@@ -86,14 +74,22 @@ function handlerFixture(
     },
   });
 
-  const request = () =>
-    handler(
+  const request = async () => {
+    const event = {};
+
+    const response = await handler(
       new Request("https://polaris.lux.dev/api/email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, website: "" }),
-      })
+      }),
+      event
     );
+
+    telemetry.push(JSON.stringify(event));
+
+    return response;
+  };
 
   return {
     request,
@@ -320,7 +316,7 @@ describe("SES Insights configuration and privacy", () => {
         throw new Error("Expected validation to fail");
       },
       (error) => {
-        expect(error).toEqual(new Error("Email validation unavailable"));
+        expect(String(error)).toBe("EmailValidationError: Email validation unavailable");
       }
     );
     expect(calls).toBe(0);
@@ -357,7 +353,7 @@ describe("SES Insights configuration and privacy", () => {
           await validator.validate(email);
           throw new Error("expected validation to fail");
         } catch (error) {
-          expect(error).toEqual(new Error("Email validation unavailable"));
+          expect(String(error)).toBe("EmailValidationError: Email validation unavailable");
           expect(error).not.toHaveProperty("cause");
           expect(String(error)).not.toContain(email);
         }

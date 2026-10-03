@@ -13,6 +13,7 @@
     "types.d.ts",
     "app",
     "components",
+    "lib",
     "scripts",
     "next.config.ts",
     "instrumentation-client.ts",

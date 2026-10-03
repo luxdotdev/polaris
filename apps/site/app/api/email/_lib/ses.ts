@@ -35,3 +35,21 @@ export function readSesConfig(
     credentials: credentialsFor(roleArn),
   };
 }
+
+/** Names (never values) of the settings that keep production email unconfigured. */
+export function sesConfigProblems(env: EmailEnv): string[] {
+  const problems: string[] = [];
+
+  if (!env.AWS_REGION?.trim()) problems.push("AWS_REGION");
+
+  if (!validEmail(env.POLARIS_EMAIL_FROM?.trim() ?? "")) problems.push("POLARIS_EMAIL_FROM");
+
+  if (!env.POLARIS_EMAIL_CONFIGURATION_SET?.trim())
+    problems.push("POLARIS_EMAIL_CONFIGURATION_SET");
+
+  if (!ROLE_ARN.test(env.AWS_ROLE_ARN?.trim() ?? "")) problems.push("AWS_ROLE_ARN");
+
+  if (env.POLARIS_EMAIL_TRANSPORT === "fake") problems.push("POLARIS_EMAIL_TRANSPORT");
+
+  return problems;
+}

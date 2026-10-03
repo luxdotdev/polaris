@@ -1,12 +1,14 @@
-import { after } from "next/server";
+import { errorInfo, withWideEvent, type ErrorInfo, type WideEvent } from "../../../../lib/log";
 import { latestRelease, releaseAsset, type PublishedRelease } from "./releases.ts";
-import { ingestEvent, requestEvent, type RequestEvent } from "./telemetry.ts";
+import { requestFields } from "./telemetry.ts";
 import { compareVersions, parseVersion } from "./version.ts";
+
+type WideEventOptions = NonNullable<Parameters<typeof withWideEvent>[2]>;
 
 interface Dependencies {
   latest: () => Promise<PublishedRelease | null>;
-  schedule: (callback: () => Promise<void>) => void;
-  log: (event: RequestEvent) => Promise<void>;
+  /** Overrides for the wide event's scheduling, emission, environment and clock (tests). */
+  log?: WideEventOptions;
 }
 
 const headers = { "Cache-Control": "no-store" };
@@ -20,73 +22,97 @@ const unavailable = () =>
     }
   );
 
-export function createReleaseRoutes(deps: Dependencies) {
-  function logged(
-    request: Request,
-    route: "update_check" | "download",
-    version: string | null,
-    response: Response
-  ) {
-    const event = requestEvent(request, route, version, response.status);
-    deps.schedule(() => deps.log(event));
+const UPDATE_ROUTE = "/api/update/darwin-arm64/[version]";
 
-    return response;
+const DOWNLOAD_ROUTE = "/download/mac";
+
+export function createReleaseRoutes(deps: Dependencies) {
+  async function release(event: WideEvent) {
+    const found = await deps.latest();
+    event.release_version = found ? found.tag_name : null;
+
+    if (!found) event.failure = "no_release";
+
+    return found;
   }
 
-  async function updateResponse(version: string) {
+  function failed(error: ErrorInfo, event: WideEvent) {
+    event.failure = "release_unavailable";
+    event.error = error;
+
+    return unavailable();
+  }
+
+  async function updateResponse(version: string, event: WideEvent) {
     const caller = parseVersion(version);
 
-    if (!caller)
+    if (!caller) {
+      event.rejection = "invalid_version";
+
       return Response.json({ error: "Use a valid semantic version." }, { status: 400, headers });
+    }
 
     try {
-      const release = await deps.latest();
+      const latest = await release(event);
 
-      if (!release || compareVersions(caller, release.version) >= 0)
+      if (!latest || compareVersions(caller, latest.version) >= 0) {
+        event.update = "current";
+
         return new Response(null, { status: 204, headers });
+      }
+
+      event.update = "available";
 
       return Response.json(
         {
-          url: releaseAsset(release, "zip"),
-          name: release.name ?? release.tag_name,
-          notes: release.body ?? "",
-          pub_date: release.published_at,
+          url: releaseAsset(latest, "zip"),
+          name: latest.name ?? latest.tag_name,
+          notes: latest.body ?? "",
+          pub_date: latest.published_at,
         },
         { headers }
       );
-    } catch {
-      return unavailable();
+    } catch (error) {
+      return failed(errorInfo(error), event);
+    }
+  }
+
+  async function downloadResponse(event: WideEvent) {
+    try {
+      const latest = await release(event);
+
+      return latest
+        ? new Response(null, {
+            status: 307,
+            headers: { ...headers, Location: releaseAsset(latest, "dmg") },
+          })
+        : unavailable();
+    } catch (error) {
+      return failed(errorInfo(error), event);
     }
   }
 
   return {
-    async update(this: void, request: Request, context: { params: Promise<{ version: string }> }) {
-      const { version } = await context.params;
+    update: withWideEvent<{ params: Promise<{ version: string }> }>(
+      UPDATE_ROUTE,
+      async (request, event, context) => {
+        const { version } = await context.params;
+        Object.assign(event, requestFields(request, "update_check", version));
 
-      return logged(request, "update_check", version, await updateResponse(version));
-    },
-    async download(this: void, request: Request) {
-      let response: Response;
+        return updateResponse(version, event);
+      },
+      deps.log
+    ),
+    download: withWideEvent<unknown>(
+      DOWNLOAD_ROUTE,
+      async (request, event) => {
+        Object.assign(event, requestFields(request, "download", null));
 
-      try {
-        const release = await deps.latest();
-        response = release
-          ? new Response(null, {
-              status: 307,
-              headers: { ...headers, Location: releaseAsset(release, "dmg") },
-            })
-          : unavailable();
-      } catch {
-        response = unavailable();
-      }
-
-      return logged(request, "download", null, response);
-    },
+        return downloadResponse(event);
+      },
+      deps.log
+    ),
   };
 }
 
-export const releaseRoutes = createReleaseRoutes({
-  latest: latestRelease,
-  schedule: after,
-  log: ingestEvent,
-});
+export const releaseRoutes = createReleaseRoutes({ latest: latestRelease });

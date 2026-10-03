@@ -1,6 +1,13 @@
+import { errorInfo, type WideEvent } from "../../../../lib/log";
 import type { EmailTransport } from "./transport";
 import type { BotCheck } from "./bot";
-import { unavailableValidator, type EmailValidator } from "./validator";
+import { Option } from "effect";
+import {
+  decodeEmailValidationError,
+  EmailValidationError,
+  unavailableValidator,
+  type EmailValidator,
+} from "./validator";
 import { readSubmission, validEmail } from "./validation";
 
 type Dependencies = {
@@ -8,7 +15,9 @@ type Dependencies = {
   validator?: EmailValidator;
   transport: () => EmailTransport | null;
   rateLimit: (headers: Headers) => number;
-  requested: () => void;
+  /** Names of missing or invalid settings, recorded when the transport is unavailable. */
+  configProblems?: () => readonly string[];
+  requested?: () => void;
 };
 
 function reply(status: number, message: string, headers?: Readonly<Record<string, string>>) {
@@ -18,76 +27,153 @@ function reply(status: number, message: string, headers?: Readonly<Record<string
   );
 }
 
-export function createEmailHandler({
-  checkBot,
-  validator = unavailableValidator,
-  transport,
-  rateLimit,
-  requested,
-}: Dependencies) {
-  return async (request: Request): Promise<Response> => {
-    try {
-      const verification = await checkBot(request);
+/** Bot detection first; any detection failure fails closed. */
+async function botGate(checkBot: BotCheck, request: Request, event: WideEvent) {
+  try {
+    const verification = await checkBot(request);
 
-      if (verification.isBot || verification.isVerifiedBot)
-        return reply(403, "This request was blocked. Please try again from your browser.");
-    } catch {
-      return reply(503, "Email is unavailable. Please try again later.");
+    if (verification.isVerifiedBot) event.bot = "verified_bot";
+    else event.bot = verification.isBot ? "bot" : "human";
+
+    if (verification.isBot || verification.isVerifiedBot)
+      return reply(403, "This request was blocked. Please try again from your browser.");
+  } catch (error) {
+    event.bot = "unavailable";
+    event.failure = "botid_unavailable";
+    event.error = errorInfo(error);
+
+    return reply(503, "Email is unavailable. Please try again later.");
+  }
+
+  return null;
+}
+
+function requestGate(request: Request, event: WideEvent) {
+  const origin = request.headers.get("origin");
+  const publicUrl = new URL(request.url);
+  const host = request.headers.get("host");
+
+  // Next can normalize the internal URL to localhost in development; Host is the browser's authority.
+  if (host) publicUrl.host = host;
+
+  if (origin && origin !== publicUrl.origin) {
+    event.rejection = "origin_mismatch";
+
+    return reply(403, "Send this form from the Polaris site.");
+  }
+
+  if (request.headers.get("content-type")?.split(";")[0]?.trim() !== "application/json") {
+    event.rejection = "content_type";
+
+    return reply(415, "Send the email form as JSON.");
+  }
+
+  return null;
+}
+
+function validationFailure(failure: EmailValidationError, event: WideEvent) {
+  event.validation = failure.reason === "uncertain" ? "uncertain" : "unavailable";
+  event.failure = `validation_${failure.reason}`;
+
+  if (failure.cause_info) event.error = failure.cause_info;
+}
+
+async function deliver(
+  deps: Dependencies,
+  validator: EmailValidator,
+  email: string,
+  event: WideEvent
+) {
+  try {
+    const accepted = await validator.validate(email);
+    event.validation = accepted ? "accepted" : "invalid";
+
+    if (!accepted) return reply(422, "Use another email address.");
+  } catch (error) {
+    validationFailure(
+      Option.getOrElse(
+        decodeEmailValidationError(error),
+        () => new EmailValidationError("provider", errorInfo(error))
+      ),
+      event
+    );
+
+    return reply(503, "The email could not be sent. Please try again later.");
+  }
+
+  const sender = deps.transport();
+
+  if (!sender) {
+    event.failure = "email_unconfigured";
+    event.missing_config = deps.configProblems?.() ?? [];
+
+    return reply(503, "Email is not available yet. Please try again later.");
+  }
+
+  try {
+    await sender.send(email);
+  } catch (error) {
+    event.failure = "send_failed";
+    event.error = errorInfo(error);
+
+    return reply(503, "The email could not be sent. Please try again later.");
+  }
+
+  event.delivery = sender.preview ? "preview" : "sent";
+
+  return Response.json(
+    {},
+    {
+      headers: {
+        "Cache-Control": "no-store",
+        "X-Polaris-Email-Preview": sender.preview ? "1" : "0",
+      },
     }
+  );
+}
 
-    const origin = request.headers.get("origin");
-    const publicUrl = new URL(request.url);
-    const host = request.headers.get("host");
+export function createEmailHandler(deps: Dependencies) {
+  const validator = deps.validator ?? unavailableValidator;
 
-    // Next can normalize the internal URL to localhost in development; Host is the browser's authority.
-    if (host) publicUrl.host = host;
+  return async (request: Request, event: WideEvent = {}): Promise<Response> => {
+    const blocked = (await botGate(deps.checkBot, request, event)) ?? requestGate(request, event);
 
-    if (origin && origin !== publicUrl.origin)
-      return reply(403, "Send this form from the Polaris site.");
-
-    if (request.headers.get("content-type")?.split(";")[0]?.trim() !== "application/json") {
-      return reply(415, "Send the email form as JSON.");
-    }
+    if (blocked) return blocked;
 
     let submission;
 
     try {
       submission = await readSubmission(request);
     } catch {
+      event.rejection = "unreadable_body";
+
       return reply(400, "Enter a valid email address.");
     }
 
-    if (submission.website !== "") return reply(200, "Check your inbox for the Mac download.");
+    if (submission.website !== "") {
+      event.rejection = "honeypot";
 
-    if (!validEmail(submission.email)) return reply(400, "Enter a valid email address.");
+      return reply(200, "Check your inbox for the Mac download.");
+    }
 
-    const retryAfter = rateLimit(request.headers);
+    if (!validEmail(submission.email)) {
+      event.rejection = "invalid_syntax";
 
-    if (retryAfter)
+      return reply(400, "Enter a valid email address.");
+    }
+
+    const retryAfter = deps.rateLimit(request.headers);
+
+    if (retryAfter) {
+      event.rejection = "rate_limited";
+
       return reply(429, "Too many requests. Try again in 15 minutes.", {
         "Retry-After": String(retryAfter),
       });
-    requested();
-
-    try {
-      if (!(await validator.validate(submission.email)))
-        return reply(422, "Use another email address.");
-      const sender = transport();
-
-      if (!sender) return reply(503, "Email is not available yet. Please try again later.");
-      await sender.send(submission.email);
-
-      return Response.json(
-        {},
-        {
-          headers: {
-            "Cache-Control": "no-store",
-            "X-Polaris-Email-Preview": sender.preview ? "1" : "0",
-          },
-        }
-      );
-    } catch {
-      return reply(503, "The email could not be sent. Please try again later.");
     }
+
+    deps.requested?.();
+
+    return deliver(deps, validator, submission.email, event);
   };
 }
