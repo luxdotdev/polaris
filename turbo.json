@@ -14,6 +14,7 @@
       "passThroughEnv": [
         "AXIOM_TOKEN",
         "AXIOM_DATASET",
+        "AXIOM_DOMAIN",
         "AWS_REGION",
         "AWS_ROLE_ARN",
         "POLARIS_EMAIL_FROM",

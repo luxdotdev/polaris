@@ -54,7 +54,9 @@ is served after cache expiry. GitHub requests have a five-second timeout.
 
 Set server-only `AXIOM_TOKEN` (an ingest token scoped to the dataset) and
 `AXIOM_DATASET` in Vercel. Never use `NEXT_PUBLIC_` for either. Events are JSON
-arrays posted to `https://api.axiom.co/v1/ingest/<dataset>` with a Bearer token.
+arrays posted to `https://<AXIOM_DOMAIN>/v1/ingest/<dataset>` with a Bearer token.
+`AXIOM_DOMAIN` is the dataset's edge deployment (default `us-east-1.aws.edge.axiom.co`;
+see the dataset's settings); `api.axiom.co` answers 404 for edge datasets.
 No Axiom SDK or automatic request capture is used.
 
 Each handled GET emits exactly one wide event (`lib/log`) via Next.js `after()`,
