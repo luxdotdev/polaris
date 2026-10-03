@@ -475,9 +475,9 @@ const openSession = Effect.fnUntraced(function* (
   const send = Effect.fnUntraced(function* (
     prompt: string,
     input: TurnInput | null,
-    turn: ActiveTurn | null = null
+    turn: ActiveTurn | null = null,
+    uuid: NonNullable<SDKUserMessage["uuid"]> = crypto.randomUUID()
   ) {
-    const uuid = crypto.randomUUID();
     turn?.pending.add(uuid);
 
     const message = yield* buildUserMessage({
@@ -537,8 +537,11 @@ const openSession = Effect.fnUntraced(function* (
       return yield* steerInput(input.prompt, input);
 
     if (active) return yield* harnessError("A Turn is already in progress; steer it instead");
-    yield* switchTo(input.model, input.effort);
-    const { uuid, message } = yield* send(input.prompt, input);
+
+    if (input.effort !== null && !isEffortLevel(input.effort))
+      return yield* unknownEffort(input.effort);
+    const uuid = crypto.randomUUID();
+
     active = {
       autonomous: false,
       turnId: input.turnId,
@@ -548,6 +551,9 @@ const openSession = Effect.fnUntraced(function* (
     };
     translator.beginTurn(input.turnId);
     emit(HarnessEvent.TurnStarted({ turnId: input.turnId, prompt: input.prompt }));
+    // Reserve the user's Turn before controls or attachment reads can yield to a native run.
+    yield* switchTo(input.model, input.effort);
+    const { message } = yield* send(input.prompt, input, active, uuid);
     inbox.push(message);
   });
 
