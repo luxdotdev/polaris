@@ -58,6 +58,7 @@ const turnFields = {
   sessionId,
   index: 0,
   prompt: "count to three",
+  trigger: null,
   attachments: [],
   status: "working",
   checkpointBefore: null,

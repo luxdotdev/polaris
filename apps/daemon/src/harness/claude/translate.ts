@@ -21,6 +21,7 @@ import type {
 } from "@anthropic-ai/claude-agent-sdk";
 import { SubagentId, type TurnId, TurnItem } from "@polaris/protocol";
 import { Option, Predicate } from "effect";
+import { ClaudeBackgroundTasks } from "./backgroundTasks.ts";
 import { HarnessEvent } from "../HarnessDriver.ts";
 import {
   type AssistantBlock,
@@ -203,6 +204,7 @@ interface OpenTool {
 interface OpenSubagent {
   readonly turnId: TurnId;
   readonly background: boolean;
+  report: string | null;
 }
 
 export class ClaudeTranslator {
@@ -218,6 +220,7 @@ export class ClaudeTranslator {
   private readonly plans = new Map<string, { readonly scope: Scope; readonly item: TurnItem }>();
   /** Subagents by the id of the tool call that spawned them. */
   private readonly subagents = new Map<string, OpenSubagent>();
+  private readonly backgroundTasks = new ClaudeBackgroundTasks();
   /** When each thinking block still open started and (once its stream stopped) ended. */
   private readonly thinking = new Map<string, { startedAt: string; endedAt: string | null }>();
   /** The Model's context window, once Claude Code has said; and the last usage reported. */
@@ -248,6 +251,11 @@ export class ClaudeTranslator {
 
   get sessionCursor(): string | null {
     return this.cursor;
+  }
+
+  /** Reports consumed by the next parent model call. */
+  takeReports() {
+    return this.backgroundTasks.takeReports();
   }
 
   beginTurn(turnId: TurnId): void {
@@ -357,7 +365,11 @@ export class ClaudeTranslator {
       return [CursorAssigned({ cursor: message.session_id })];
     }
 
-    if (message.subtype === "task_started") return this.onTaskStarted(message);
+    if (message.subtype === "background_tasks_changed")
+      return this.backgroundTasks.onMessage(message);
+
+    if (message.subtype === "task_started")
+      return [...this.backgroundTasks.onMessage(message), ...this.onTaskStarted(message)];
 
     if (message.subtype === "compact_boundary") {
       const after = message.compact_metadata.post_tokens;
@@ -365,7 +377,9 @@ export class ClaudeTranslator {
       return after === undefined ? [] : this.onContextUsage(after, null);
     }
 
-    return message.subtype === "task_notification" ? this.onTaskNotification(message) : [];
+    return message.subtype === "task_notification"
+      ? [...this.backgroundTasks.onMessage(message), ...this.onTaskNotification(message)]
+      : [];
   }
 
   /** A Subagent starts: only one an Agent tool call spawned in the Turn in flight. */
@@ -379,6 +393,7 @@ export class ClaudeTranslator {
     this.subagents.set(toolUseId, {
       turnId: tool.scope.turnId,
       background: message.is_backgrounded === true,
+      report: null,
     });
     const input = toolFields(tool.input);
 
@@ -390,6 +405,7 @@ export class ClaudeTranslator {
         title: message.description,
         agent: message.subagent_type ?? input.subagent_type,
         model: input.model,
+        background: message.is_backgrounded === true,
       }),
     ];
   }
@@ -401,16 +417,20 @@ export class ClaudeTranslator {
 
     if (toolUseId === undefined) return [];
 
+    const subagent = this.subagents.get(toolUseId);
+
     return this.endSubagent(
       toolUseId,
-      message.status === "stopped" ? "interrupted" : message.status
+      message.status === "stopped" ? "interrupted" : message.status,
+      subagent?.report ?? message.summary
     );
   }
 
   /** A Subagent ends: its open items close, then `SubagentEnded`. */
   private endSubagent(
     toolUseId: string,
-    status: "completed" | "failed" | "interrupted"
+    status: "completed" | "failed" | "interrupted",
+    report?: string | null
   ): HarnessEvent[] {
     const subagent = this.subagents.get(toolUseId);
 
@@ -421,7 +441,7 @@ export class ClaudeTranslator {
 
     return [
       ...this.closeScope(scope, status === "completed" ? "failed" : "declined"),
-      SubagentEnded({ subagentId, status }),
+      SubagentEnded({ subagentId, status, report: report ?? subagent.report }),
     ];
   }
 
@@ -537,6 +557,12 @@ export class ClaudeTranslator {
 
   private onToolUse(scope: Scope, id: string, name: string, input: ToolPayload): HarnessEvent[] {
     this.tools.set(id, { name, input, scope });
+
+    if (name === "SubagentHandback" && scope.subagentId !== null) {
+      const subagent = this.subagents.get(scope.subagentId);
+
+      if (subagent !== undefined) subagent.report = toolFields(input).message;
+    }
 
     if (name === "TodoWrite") {
       const plan = planItem(planKey(scope), input);

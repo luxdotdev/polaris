@@ -270,6 +270,7 @@ export const runBenchTurn = Effect.fnUntraced(function* (
         TurnStarted: (event) =>
           signal(store, attachment.sessionId, {
             type: "harness.turnStarted",
+            trigger: null,
             turnId: event.turnId,
             prompt: event.prompt ?? prompt,
             at: AT,
@@ -303,6 +304,7 @@ export const runBenchTurn = Effect.fnUntraced(function* (
         ItemDelta: () => Effect.void,
         ItemUpdated: () => Effect.void,
         ContextUsed: () => Effect.void,
+        BackgroundTasksChanged: () => Effect.void,
         SubagentStarted: () => Effect.void,
         SubagentEnded: () => Effect.void,
         ApprovalRequested: () => Effect.void,

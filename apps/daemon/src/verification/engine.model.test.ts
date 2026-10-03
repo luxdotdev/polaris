@@ -389,7 +389,8 @@ const actionArb: fc.Arbitrary<Action> = fc.oneof(
         "withdraw",
         "end",
         "fail",
-        "late"
+        "late",
+        "auto"
       ),
       pick: fc.nat(40),
     }),

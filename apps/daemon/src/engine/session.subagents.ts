@@ -8,7 +8,12 @@ import { DomainEvent, Subagent, type SubagentStatus } from "@polaris/protocol";
 import type { SessionRecord } from "../store/model.ts";
 import type { SessionInput } from "./session.inputs.ts";
 
-const endedAs = (subagent: Subagent, status: SubagentStatus, at: string) =>
+const endedAs = (
+  subagent: Subagent,
+  status: SubagentStatus,
+  at: string,
+  report: string | null = subagent.report ?? null
+) =>
   DomainEvent.cases.SubagentEnded.make({
     subagent: new Subagent({
       id: subagent.id,
@@ -18,6 +23,8 @@ const endedAs = (subagent: Subagent, status: SubagentStatus, at: string) =>
       title: subagent.title,
       agent: subagent.agent,
       model: subagent.model,
+      background: subagent.background,
+      report,
       status,
       startedAt: subagent.startedAt,
       endedAt: at,
@@ -43,9 +50,18 @@ export const subagentEnded = (
 ): ReadonlyArray<DomainEvent> => {
   const open = record.subagents.get(event.subagentId);
 
-  return open === undefined ? [] : [endedAs(open, event.status, event.at)];
+  return open === undefined ? [] : [endedAs(open, event.status, event.at, event.report ?? null)];
 };
 
 /** The Harness went away (exit, restart, failure, Archive): what it left open ends `interrupted`. */
-export const endSubagents = (record: SessionRecord, at: string): Array<DomainEvent> =>
-  [...record.subagents.values()].map((subagent) => endedAs(subagent, "interrupted", at));
+export const endBackgroundWork = (record: SessionRecord, at: string): Array<DomainEvent> => [
+  ...(record.session.backgroundTasks.length > 0
+    ? [
+        DomainEvent.cases.SessionBackgroundTasksChanged.make({
+          sessionId: record.session.id,
+          tasks: [],
+        }),
+      ]
+    : []),
+  ...[...record.subagents.values()].map((subagent) => endedAs(subagent, "interrupted", at)),
+];

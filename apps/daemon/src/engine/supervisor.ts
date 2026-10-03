@@ -149,6 +149,8 @@ const make = (
       )
     );
 
+  const turnAliases = new WeakMap<EventSource, Map<TurnId, TurnId>>();
+
   const isDelta = HarnessEvent.$is("ItemDelta");
 
   const onHarnessEvent = (
@@ -174,10 +176,18 @@ const make = (
         )
       : recorded(sessionId, entry, (at) => onHarnessRecord(sessionId, entry, event, at));
 
-  const observed = (sessionId: SessionId, entry: EventSource, event: HarnessEvent) =>
-    onHarnessEvent(sessionId, entry, event).pipe(
-      Effect.andThen(liveness.observe(sessionId, event, Date.now()))
+  const observed = (sessionId: SessionId, entry: EventSource, event: HarnessEvent) => {
+    const id = "turnId" in event ? turnAliases.get(entry)?.get(event.turnId) : undefined;
+    const canonical = id === undefined || !("turnId" in event) ? event : { ...event, turnId: id };
+
+    const activity = rt.touchIdle(sessionId);
+
+    const processing = onHarnessEvent(sessionId, entry, canonical).pipe(
+      Effect.andThen(liveness.observe(sessionId, canonical, Date.now()))
     );
+
+    return activity === null ? processing : processing.pipe(Effect.andThen(activity));
+  };
 
   /** Runs `handle` with the time, unless the source is being stopped on purpose. */
   const recorded = (
@@ -209,15 +219,32 @@ const make = (
               ]
         ),
       TurnStarted: (e) =>
-        // Turns Polaris sent are already recorded; others (e.g. typed in a co-attached TUI) are new.
-        rt
-          .signal(sessionId, {
+        Effect.gen(function* () {
+          const result = yield* rt.signal(sessionId, {
             type: "harness.turnStarted",
             turnId: e.turnId,
             prompt: e.prompt ?? "",
+            trigger: e.trigger ?? null,
             at,
-          })
-          .pipe(Effect.andThen(rt.cancelIdle(sessionId))),
+          });
+
+          const record = "model" in result ? result.model.sessions.get(sessionId) : undefined;
+          const working = record?.turns.find((turn) => turn.status === "working");
+          // A user command committed before this queued native start: correlate the merged run.
+
+          if (e.trigger != null && working !== undefined && working.id !== e.turnId) {
+            let aliases = turnAliases.get(entry);
+
+            if (aliases === undefined) {
+              aliases = new Map();
+              turnAliases.set(entry, aliases);
+            }
+
+            aliases.set(e.turnId, working.id);
+          }
+
+          yield* rt.cancelIdle(sessionId);
+        }),
       ItemDelta: () => Effect.void, // handled by onHarnessEvent
       ItemUpdated: (e) => onItemUpdated(sessionId, e),
       ItemCompleted: (e) =>
@@ -256,6 +283,8 @@ const make = (
       ApprovalWithdrawn: (e) =>
         rt.signal(sessionId, { type: "harness.approvalWithdrawn", requestId: e.requestId }),
       TurnEnded: (e) => onTurnEnded(sessionId, e, at),
+      BackgroundTasksChanged: (e) =>
+        rt.signal(sessionId, { type: "harness.backgroundTasksChanged", tasks: e.tasks }),
       SubagentStarted: (e) =>
         rt.signal(sessionId, {
           type: "harness.subagentStarted",
@@ -267,6 +296,7 @@ const make = (
             title: e.title,
             agent: e.agent,
             model: e.model,
+            background: e.background ?? null,
             status: "working",
             startedAt: at,
             endedAt: null,
@@ -277,6 +307,7 @@ const make = (
           type: "harness.subagentEnded",
           subagentId: e.subagentId,
           status: e.status,
+          report: e.report ?? null,
           at,
         }),
       TitleSuggested: (e) =>

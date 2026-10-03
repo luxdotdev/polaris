@@ -1,0 +1,52 @@
+{"type":"system","subtype":"init","session_id":"fixture-session"}
+{"type":"system","subtype":"status","status":"requesting","session_id":"fixture-session"}
+{"type":"stream_event","event":{"type":"message_start","message":{"id":"fixture-id-9","type":"message","content":[],"usage":{"input_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":0}}},"session_id":"fixture-session","parent_tool_use_id":null,"user_message_uuid":"fixture-id-10","user_message_uuids":["fixture-id-10"]}
+{"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":""}},"session_id":"fixture-session","parent_tool_use_id":null}
+{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":""}},"session_id":"fixture-session","parent_tool_use_id":null}
+{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":""}},"session_id":"fixture-session","parent_tool_use_id":null}
+{"type":"assistant","message":{"id":"fixture-id-9","type":"message","content":[{"type":"thinking","thinking":""}],"usage":{"input_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":0}},"parent_tool_use_id":null,"session_id":"fixture-session","user_message_uuid":"fixture-id-10","user_message_uuids":["fixture-id-10"]}
+{"type":"stream_event","event":{"type":"content_block_stop","index":0},"session_id":"fixture-session","parent_tool_use_id":null}
+{"type":"stream_event","event":{"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"fixture-id-11","name":"Bash","input":{}}},"session_id":"fixture-session","parent_tool_use_id":null}
+{"type":"stream_event","event":{"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":""}},"session_id":"fixture-session","parent_tool_use_id":null}
+{"type":"stream_event","event":{"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\"command\": \"sleep 12"}},"session_id":"fixture-session","parent_tool_use_id":null}
+{"type":"stream_event","event":{"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"\", \"run_in_background\": true"}},"session_id":"fixture-session","parent_tool_use_id":null}
+{"type":"stream_event","event":{"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":", \"description\": \"Sleep"}},"session_id":"fixture-session","parent_tool_use_id":null}
+{"type":"stream_event","event":{"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":" for 12 seconds"}},"session_id":"fixture-session","parent_tool_use_id":null}
+{"type":"stream_event","event":{"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"\"}"}},"session_id":"fixture-session","parent_tool_use_id":null}
+{"type":"assistant","message":{"id":"fixture-id-9","type":"message","content":[{"type":"tool_use","id":"fixture-id-11","name":"Bash","input":{"command":"sleep 12","description":"Sleep for 12 seconds"}}],"usage":{"input_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":0}},"parent_tool_use_id":null,"session_id":"fixture-session"}
+{"type":"stream_event","event":{"type":"content_block_stop","index":1},"session_id":"fixture-session","parent_tool_use_id":null}
+{"type":"stream_event","event":{"type":"message_delta","delta":{},"usage":{"input_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":0}},"session_id":"fixture-session","parent_tool_use_id":null}
+{"type":"stream_event","event":{"type":"message_stop"},"session_id":"fixture-session","parent_tool_use_id":null}
+{"type":"system","subtype":"background_tasks_changed","tasks":[{"task_id":"fixture-task-3","task_type":"local_bash","description":"Sleep for 12 seconds"}],"session_id":"fixture-session"}
+{"type":"system","subtype":"task_started","task_id":"fixture-task-3","tool_use_id":"fixture-id-11","description":"Sleep for 12 seconds","is_backgrounded":true,"task_type":"local_bash","session_id":"fixture-session"}
+{"type":"user","message":{"content":[{"tool_use_id":"fixture-id-11","type":"tool_result","content":"Command running in background with ID: fixture-task-3. Output is being written to: /Users/fixture You will be notified when it completes. To check interim output, use Read on that file path.","is_error":false}]},"parent_tool_use_id":null,"session_id":"fixture-session","tool_use_result":{"stdout":"","stderr":"","interrupted":false,"backgroundTaskId":"fixture-task-3"}}
+{"type":"system","subtype":"status","status":"requesting","session_id":"fixture-session"}
+{"type":"stream_event","event":{"type":"message_start","message":{"id":"fixture-id-12","type":"message","content":[],"usage":{"input_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":0}}},"session_id":"fixture-session","parent_tool_use_id":null}
+{"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":""}},"session_id":"fixture-session","parent_tool_use_id":null}
+{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":""}},"session_id":"fixture-session","parent_tool_use_id":null}
+{"type":"assistant","message":{"id":"fixture-id-12","type":"message","content":[{"type":"thinking","thinking":""}],"usage":{"input_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":0}},"parent_tool_use_id":null,"session_id":"fixture-session"}
+{"type":"stream_event","event":{"type":"content_block_stop","index":0},"session_id":"fixture-session","parent_tool_use_id":null}
+{"type":"stream_event","event":{"type":"content_block_start","index":1,"content_block":{"type":"text","text":""}},"session_id":"fixture-session","parent_tool_use_id":null}
+{"type":"stream_event","event":{"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"launched"}},"session_id":"fixture-session","parent_tool_use_id":null}
+{"type":"assistant","message":{"id":"fixture-id-12","type":"message","content":[{"type":"text","text":"launched"}],"usage":{"input_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":0}},"parent_tool_use_id":null,"session_id":"fixture-session"}
+{"type":"stream_event","event":{"type":"content_block_stop","index":1},"session_id":"fixture-session","parent_tool_use_id":null}
+{"type":"stream_event","event":{"type":"message_delta","delta":{},"usage":{"input_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":0}},"session_id":"fixture-session","parent_tool_use_id":null}
+{"type":"stream_event","event":{"type":"message_stop"},"session_id":"fixture-session","parent_tool_use_id":null}
+{"session_id":"fixture-session","usage":{"input_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":0},"is_error":false,"subtype":"success","result":"launched","type":"result","user_message_uuid":"fixture-id-10","user_message_uuids":["fixture-id-10"]}
+{"type":"system","subtype":"background_tasks_changed","tasks":[],"session_id":"fixture-session"}
+{"type":"system","subtype":"task_notification","task_id":"fixture-task-3","tool_use_id":"fixture-id-11","status":"completed","summary":"Background command \"Sleep for 12 seconds\" completed (exit code 0)","session_id":"fixture-session"}
+{"type":"system","subtype":"init","session_id":"fixture-session"}
+{"type":"system","subtype":"status","status":"requesting","session_id":"fixture-session"}
+{"type":"stream_event","event":{"type":"message_start","message":{"id":"fixture-id-13","type":"message","content":[],"usage":{"input_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":0}}},"session_id":"fixture-session","parent_tool_use_id":null}
+{"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":""}},"session_id":"fixture-session","parent_tool_use_id":null}
+{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":""}},"session_id":"fixture-session","parent_tool_use_id":null}
+{"type":"assistant","message":{"id":"fixture-id-13","type":"message","content":[{"type":"thinking","thinking":""}],"usage":{"input_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":0}},"parent_tool_use_id":null,"session_id":"fixture-session"}
+{"type":"stream_event","event":{"type":"content_block_stop","index":0},"session_id":"fixture-session","parent_tool_use_id":null}
+{"type":"stream_event","event":{"type":"content_block_start","index":1,"content_block":{"type":"text","text":""}},"session_id":"fixture-session","parent_tool_use_id":null}
+{"type":"stream_event","event":{"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"command continuation p"}},"session_id":"fixture-session","parent_tool_use_id":null}
+{"type":"stream_event","event":{"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"ong"}},"session_id":"fixture-session","parent_tool_use_id":null}
+{"type":"assistant","message":{"id":"fixture-id-13","type":"message","content":[{"type":"text","text":"command continuation pong"}],"usage":{"input_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":0}},"parent_tool_use_id":null,"session_id":"fixture-session"}
+{"type":"stream_event","event":{"type":"content_block_stop","index":1},"session_id":"fixture-session","parent_tool_use_id":null}
+{"type":"stream_event","event":{"type":"message_delta","delta":{},"usage":{"input_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":0}},"session_id":"fixture-session","parent_tool_use_id":null}
+{"type":"stream_event","event":{"type":"message_stop"},"session_id":"fixture-session","parent_tool_use_id":null}
+{"session_id":"fixture-session","usage":{"input_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":0},"origin":{"kind":"task-notification"},"is_error":false,"subtype":"success","result":"command continuation pong","type":"result"}

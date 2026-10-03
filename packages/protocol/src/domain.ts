@@ -19,6 +19,7 @@ import {
   ServiceTier,
   ModelId,
   optionalNullable,
+  optionalArray,
   ReasoningEffort,
 } from "./models.ts";
 import { WorktreeSetup, WorktreeSetupRun } from "./worktreeSetup.ts";
@@ -99,6 +100,20 @@ export const PermissionMode = Schema.Literals(["supervised", "auto-edits", "auto
 
 export type PermissionMode = typeof PermissionMode.Type;
 
+export const BackgroundTaskKind = Schema.Literals(["subagent", "command"]);
+
+export type BackgroundTaskKind = typeof BackgroundTaskKind.Type;
+
+export const BackgroundTaskRef = Schema.Struct({ id: Schema.String, kind: BackgroundTaskKind });
+
+export type BackgroundTaskRef = typeof BackgroundTaskRef.Type;
+
+export class BackgroundTask extends Schema.Class<BackgroundTask>("BackgroundTask")({
+  id: Schema.String,
+  kind: BackgroundTaskKind,
+  description: Schema.String,
+}) {}
+
 export class AgentSession extends Schema.Class<AgentSession>("AgentSession")({
   id: SessionId,
   workspaceId: WorkspaceId,
@@ -108,6 +123,8 @@ export class AgentSession extends Schema.Class<AgentSession>("AgentSession")({
   cwd: Schema.String,
   worktreeId: Schema.NullOr(WorktreeId),
   state: SessionState,
+  /** Live non-ambient background tasks; Idle with a nonempty list is waiting on them. */
+  backgroundTasks: optionalArray(BackgroundTask),
   permissionMode: PermissionMode,
   /** The Model the next Turn runs on; null for the Harness's default. Changed by `SetModel`. */
   model: Schema.NullOr(ModelId),
@@ -148,11 +165,19 @@ export class Attachment extends Schema.Class<Attachment>("Attachment")({
   height: addedNullable(Schema.Int),
 }) {}
 
+/** Why the Harness began a Turn without user input. */
+export const TurnTrigger = Schema.TaggedUnion({
+  BackgroundTasksReported: { tasks: Schema.Array(BackgroundTaskRef) },
+});
+
+export type TurnTrigger = typeof TurnTrigger.Type;
+
 export class Turn extends Schema.Class<Turn>("Turn")({
   id: TurnId,
   sessionId: SessionId,
   index: Schema.Int,
   prompt: Schema.String,
+  trigger: optionalNullable(TurnTrigger),
   attachments: Schema.Array(Attachment),
   /** The Model and effort the Turn ran on, as the session had them; null for the defaults. */
   model: addedNullable(ModelId),
@@ -189,6 +214,10 @@ export class Subagent extends Schema.Class<Subagent>("Subagent")({
   /** The kind of helper as the Harness names it (`Explore`, a Codex agent's name), when known. */
   agent: Schema.NullOr(Schema.String),
   model: Schema.NullOr(ModelId),
+  /** True when this helper can keep working after its parent Turn ends. */
+  background: optionalNullable(Schema.Boolean),
+  /** Markdown report supplied by the Harness, distinct from interim assistant text. */
+  report: optionalNullable(Schema.String),
   status: SubagentStatus,
   startedAt: Timestamp,
   endedAt: Schema.NullOr(Timestamp),

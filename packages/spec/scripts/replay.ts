@@ -337,7 +337,16 @@ class Replayer {
   }
 
   private daemonDecision(e: TEvent, s: string) {
-    if (e.tag === "ApprovalRequested") {
+    if (e.tag === "TurnStarted") {
+      this.i++;
+
+      const followed = this.take(
+        s,
+        (x) => x.tag === "SessionStateChanged" && x.state === "working"
+      );
+
+      this.harness(s, "HTurnStarted", followed ? [e, followed] : [e]);
+    } else if (e.tag === "ApprovalRequested") {
       this.i++;
 
       const followed = this.take(

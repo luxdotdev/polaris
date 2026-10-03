@@ -149,7 +149,15 @@ const make = Effect.gen(function* () {
     if (CommitResult.$is("Committed")(result)) {
       const sessionId = sessionOfCommand(command);
 
-      const reaction = react({ command, result, before: before ?? result.model }).pipe(
+      if (sessionId !== null && result.envelopes.length > 0)
+        yield* rt.touchIdle(sessionId) ?? Effect.void;
+
+      const reaction = react({
+        command,
+        result,
+        before: before ?? result.model,
+        attachments: ctx.attachments,
+      }).pipe(
         Effect.catchCause((cause) => Effect.logError(`reacting to ${command._tag} failed`, cause))
       );
 

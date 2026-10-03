@@ -2,12 +2,14 @@ import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import {
   Command,
+  BackgroundTask,
   DomainEvent,
   SessionId,
   SessionPlacement,
   type SessionStreamItem,
   SubagentId,
-  type TurnId,
+  TurnId,
+  TurnTrigger,
   TurnItem,
 } from "@polaris/protocol";
 import { Duration, Effect, Fiber, type Layer, Predicate, Stream } from "effect";
@@ -70,7 +72,7 @@ const startWorking = (driver: FakeDriver, sessionId: SessionId) =>
     return driver.latest(sessionId)!.turns[0]!.turnId;
   });
 
-const spawn = (turnId: TurnId) =>
+const spawn = (turnId: TurnId, background = false) =>
   HarnessEvent.SubagentStarted({
     turnId,
     subagentId: SUB,
@@ -78,6 +80,7 @@ const spawn = (turnId: TurnId) =>
     title: "Check frame timing",
     agent: "Explore",
     model: "haiku",
+    background,
   });
 
 const subItem = (turnId: TurnId) =>
@@ -94,7 +97,13 @@ const collect = (sessionId: SessionId, subagents: boolean) =>
     const items: Array<SessionStreamItem> = [];
 
     const fiber = yield* Stream.runForEach(
-      engine.subscribeSession({ sessionId, afterSequence: null, turnLimit: null, subagents }),
+      engine.subscribeSession({
+        sessionId,
+        afterSequence: null,
+        turnLimit: null,
+        subagents,
+        capabilities: ["session.background-tasks"],
+      }),
       (item) => Effect.sync(() => void items.push(item))
     ).pipe(Effect.forkChild);
 
@@ -246,4 +255,279 @@ describe("Subagents", () => {
       })
     );
   });
+});
+
+test.each<Array<"subagent" | "command">[number]>(["subagent", "command"])(
+  "%s background waiting survives idle timeout; report and continuation are streamed and snapshotted",
+  async (kind) => {
+    const driver = makeFakeDriver("codex");
+    await run(
+      engineLayer({
+        filename: join(tempDir(), "state.sqlite"),
+        fakes: makeFakes(),
+        drivers: [driver],
+        idleTimeout: Duration.millis(50),
+      }),
+      Effect.gen(function* () {
+        const sessionId = SessionId.make("s-background");
+        const turnId = yield* startWorking(driver, sessionId);
+        const stream = yield* collect(sessionId, true);
+        const harness = driver.latest(sessionId)!;
+        harness.emit(
+          HarnessEvent.BackgroundTasksChanged({
+            tasks: [new BackgroundTask({ id: "bg-task", kind, description: "Background work" })],
+          }),
+          ...(kind === "subagent" ? [spawn(turnId, true)] : []),
+          HarnessEvent.TurnEnded({ turnId, status: "completed", error: null })
+        );
+        const waiting = yield* waitFor((m) => m.sessions.get(sessionId)?.session.state === "idle");
+        expect(waiting.sessions.get(sessionId)!.session.backgroundTasks).toMatchObject([
+          { id: "bg-task", kind },
+        ]);
+        yield* Effect.sleep(Duration.millis(100));
+        expect(harness.closed).toBe(false);
+        const autoId = TurnId.make("auto-background");
+
+        const trigger = TurnTrigger.cases.BackgroundTasksReported.make({
+          tasks: [{ id: "bg-task", kind }],
+        });
+
+        harness.emit(
+          HarnessEvent.BackgroundTasksChanged({ tasks: [] }),
+          ...(kind === "subagent"
+            ? [
+                HarnessEvent.SubagentEnded({
+                  subagentId: SUB,
+                  status: "completed",
+                  report: "**report**",
+                }),
+              ]
+            : []),
+          HarnessEvent.TurnStarted({ turnId: autoId, prompt: null, trigger }),
+          HarnessEvent.ItemCompleted({
+            turnId: autoId,
+            item: TurnItem.cases.AssistantMessage.make({
+              id: "continued",
+              text: "I have the report.",
+            }),
+          })
+        );
+
+        const working = yield* waitFor(
+          (m) => m.sessions.get(sessionId)?.turns.at(-1)?.id === autoId
+        );
+
+        expect(working.sessions.get(sessionId)!.session.state).toBe("working");
+        yield* Effect.sleep(Duration.millis(100));
+        expect(harness.closed).toBe(false);
+        harness.emit(HarnessEvent.TurnEnded({ turnId: autoId, status: "completed", error: null }));
+        yield* waitFor((m) => m.sessions.get(sessionId)?.turns.at(-1)?.status === "completed");
+        yield* waitUntil(() => tags(stream.items).filter((t) => t === "TurnEnded").length === 2);
+        yield* stream.stop;
+
+        const events = stream.items.flatMap((i) =>
+          Predicate.isTagged(i, "Event") ? [i.envelope.event] : []
+        );
+
+        const startIndex = events.findIndex(
+          (e) => DomainEvent.guards.TurnStarted(e) && e.turn.id === autoId
+        );
+
+        const itemIndex = events.findIndex(
+          (e) => DomainEvent.guards.TurnItemCompleted(e) && e.turnId === autoId
+        );
+
+        expect(startIndex).toBeGreaterThan(-1);
+        expect(itemIndex).toBeGreaterThan(startIndex);
+
+        if (kind === "subagent")
+          expect(events.find(DomainEvent.guards.SubagentEnded)?.subagent.report).toBe("**report**");
+        expect(
+          events.filter(DomainEvent.guards.SessionBackgroundTasksChanged).map((e) => e.tasks.length)
+        ).toEqual([1, 0]);
+        const snapshot = yield* collect(sessionId, true);
+        yield* snapshot.stop;
+        const first = snapshot.items[0];
+
+        if (!Predicate.isTagged(first, "Snapshot")) throw new Error("expected snapshot");
+
+        if (kind === "subagent")
+          expect(first.turns[0]!.subagents[0]!.subagent.report).toBe("**report**");
+        expect(first.session.backgroundTasks).toEqual([]);
+        expect(first.turns[1]!.turn).toMatchObject({
+          prompt: "[Background task continuation]",
+          trigger,
+          status: "completed",
+        });
+      })
+    );
+  }
+);
+
+test.each([false, true])(
+  "user/autonomous race (native first=%s) records one merged Turn",
+  async (nativeFirst) => {
+    const autoId = TurnId.make("native-race");
+    const trigger = TurnTrigger.cases.BackgroundTasksReported.make({ tasks: [] });
+
+    const driver = makeFakeDriver("codex", {
+      onTurn: (input, session) =>
+        session.turns.length === 1
+          ? []
+          : [
+              ...(!nativeFirst
+                ? [HarnessEvent.TurnStarted({ turnId: autoId, prompt: null, trigger })]
+                : []),
+              HarnessEvent.ItemDelta({
+                turnId: autoId,
+                itemId: "reply",
+                field: "text",
+                text: "Merged",
+              }),
+              HarnessEvent.ItemCompleted({
+                turnId: autoId,
+                item: TurnItem.cases.AssistantMessage.make({ id: "reply", text: "Merged" }),
+              }),
+              HarnessEvent.TurnEnded({ turnId: autoId, status: "completed", error: null }),
+            ],
+    });
+
+    await run(
+      layerWith(driver),
+      Effect.gen(function* () {
+        const sessionId = SessionId.make("race");
+        const initial = yield* startWorking(driver, sessionId);
+        const harness = driver.latest(sessionId)!;
+        harness.emit(HarnessEvent.TurnEnded({ turnId: initial, status: "completed", error: null }));
+        yield* waitFor((model) => model.sessions.get(sessionId)?.session.state === "idle");
+
+        if (nativeFirst) {
+          harness.emit(HarnessEvent.TurnStarted({ turnId: autoId, prompt: null, trigger }));
+          yield* waitFor(
+            (model) =>
+              model.sessions.get(sessionId)?.turns.some((turn) => turn.id === autoId) === true
+          );
+        }
+
+        yield* dispatch(
+          Command.cases.SendTurn.make({ sessionId, prompt: "User raced", attachments: [] })
+        );
+
+        const model = yield* waitFor(
+          (model) =>
+            model.sessions.get(sessionId)?.session.state === "idle" &&
+            model.sessions.get(sessionId)?.turns.length === 2
+        );
+
+        const record = model.sessions.get(sessionId)!;
+        expect(record.turns).toHaveLength(2);
+        expect(record.turns[1]!.status).toBe("completed");
+        expect(harness.turns[1]?.prompt).toBe("User raced");
+        const store = yield* EventStore;
+        const events = yield* store.readEvents({ after: 0, upTo: model.sequence, sessionId });
+
+        const reply = events.find((envelope) =>
+          DomainEvent.guards.TurnItemCompleted(envelope.event)
+        );
+
+        expect(reply?.event).toMatchObject({
+          turnId: record.turns[1]!.id,
+          item: { text: "Merged" },
+        });
+      })
+    );
+  }
+);
+
+test("background inactivity cap re-arms on streamed work, stops the Harness and records its reason", async () => {
+  const driver = makeFakeDriver("codex");
+  await run(
+    engineLayer({
+      filename: join(tempDir(), "state.sqlite"),
+      fakes: makeFakes(),
+      drivers: [driver],
+      idleTimeout: Duration.millis(10),
+      backgroundIdleTimeout: Duration.millis(100),
+    }),
+    Effect.gen(function* () {
+      const sessionId = SessionId.make("cap");
+      const turnId = yield* startWorking(driver, sessionId);
+      const harness = driver.latest(sessionId)!;
+      harness.emit(
+        HarnessEvent.BackgroundTasksChanged({
+          tasks: [new BackgroundTask({ id: "build", kind: "command", description: "Build" })],
+        }),
+        HarnessEvent.TurnEnded({ turnId, status: "completed", error: null })
+      );
+      yield* waitFor((model) => model.sessions.get(sessionId)?.session.state === "idle");
+      yield* Effect.sleep(Duration.millis(60));
+      harness.emit(
+        HarnessEvent.ItemDelta({
+          turnId,
+          itemId: "background-progress",
+          field: "text",
+          text: "Still running",
+        })
+      );
+      yield* Effect.sleep(Duration.millis(60));
+      expect(harness.closed).toBe(false);
+
+      const model = yield* waitFor(
+        (model) => model.sessions.get(sessionId)?.session.state === "dormant"
+      );
+
+      yield* waitUntil(() => harness.closed);
+      expect(model.sessions.get(sessionId)!.session.backgroundTasks).toEqual([]);
+      const store = yield* EventStore;
+      const events = yield* store.readEvents({ after: 0, upTo: model.sequence, sessionId });
+      expect(
+        events.some(
+          (envelope) =>
+            DomainEvent.guards.SessionStateChanged(envelope.event) &&
+            envelope.event.reason === "background-idle-timeout"
+        )
+      ).toBe(true);
+    })
+  );
+});
+
+test("the final background level cannot re-arm the longer timer after waiting ends", async () => {
+  const driver = makeFakeDriver("codex");
+  await run(
+    engineLayer({
+      filename: join(tempDir(), "state.sqlite"),
+      fakes: makeFakes(),
+      drivers: [driver],
+      idleTimeout: Duration.millis(30),
+      backgroundIdleTimeout: Duration.seconds(5),
+    }),
+    Effect.gen(function* () {
+      const sessionId = SessionId.make("waiting-ended");
+      const turnId = yield* startWorking(driver, sessionId);
+      const harness = driver.latest(sessionId)!;
+      harness.emit(
+        HarnessEvent.BackgroundTasksChanged({
+          tasks: [new BackgroundTask({ id: "build", kind: "command", description: "Build" })],
+        }),
+        HarnessEvent.TurnEnded({ turnId, status: "completed", error: null })
+      );
+      yield* waitFor((model) => model.sessions.get(sessionId)?.session.state === "idle");
+      harness.emit(HarnessEvent.BackgroundTasksChanged({ tasks: [] }));
+
+      const model = yield* waitFor(
+        (model) => model.sessions.get(sessionId)?.session.state === "dormant"
+      );
+
+      yield* waitUntil(() => harness.closed);
+      const store = yield* EventStore;
+      const events = yield* store.readEvents({ after: 0, upTo: model.sequence, sessionId });
+      expect(
+        events.some(
+          (envelope) =>
+            DomainEvent.guards.SessionStateChanged(envelope.event) &&
+            envelope.event.reason === "idle-timeout"
+        )
+      ).toBe(true);
+    })
+  );
 });

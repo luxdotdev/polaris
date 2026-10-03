@@ -89,6 +89,7 @@ module polaris {
     | HRequest(str)
     | HWithdraw(str)
     | HItem
+    | HTurnStarted
     | HTurnEnded
     | HTurnFailed
 
@@ -136,6 +137,7 @@ module polaris {
    */
   type SessionView = {
     turn: str,
+    autonomous: bool,
     state: str,
     pending: Set[str],
     requested: List[str],
@@ -173,14 +175,14 @@ module polaris {
 
   pure val emptyView: SessionView =
     {
-      turn: "none", state: "dormant", pending: Set(), requested: [], turns: 0,
+      turn: "none", autonomous: false, state: "dormant", pending: Set(), requested: [], turns: 0,
       archivedSinceTurn: false, accepted: 0,
     }
 
   pure def applyEvent(v: SessionView, e: Event): SessionView =
     match e.kind {
       | TurnStarted(continued) =>
-        { ...v, turn: "working", turns: if (continued) v.turns else v.turns + 1, archivedSinceTurn: false }
+        { ...v, turn: "working", autonomous: if (continued) v.autonomous else e.cmd == "", turns: if (continued) v.turns else v.turns + 1, archivedSinceTurn: false }
       | TurnEnded(status) => { ...v, turn: status, archivedSinceTurn: false }
       | ItemCompleted => v
       | StateChanged(state) =>
@@ -228,7 +230,8 @@ module polaris {
   pure def decideClient(v: SessionView, cmd: Command, client: str): Decision =
     match cmd {
       | SendTurn(_) =>
-        if (acceptsTurn(v)) Accept([TurnStarted(false), StateChanged("working")]) else Refuse
+        if (v.state == "working" and v.autonomous) Accept([])
+        else if (acceptsTurn(v)) Accept([TurnStarted(false), StateChanged("working")]) else Refuse
       | Continue(_) =>
         // An accepted Interrupted Turn stays closed (finding 4).
         if (v.turn == "interrupted" and acceptsTurn(v) and (CONTINUES_ACCEPTED or v.accepted < v.turns))
@@ -280,6 +283,10 @@ module polaris {
       | HWithdraw(r) =>
         if (v.pending.contains(r))
           [ApprovalWithdrawn({ req: r, by: "harness" })].concat(backToWork(v, r))
+        else []
+      | HTurnStarted =>
+        if (v.state == "idle" and v.turn != "working" and turn == v.turns + 1)
+          [TurnStarted(false), StateChanged("working")]
         else []
       | HItem => [ItemCompleted]
       | HTurnEnded =>
@@ -490,11 +497,12 @@ module polaris {
         not(queuedRequest(queue, r)),
       }
       | HWithdraw(r) => v.pending.contains(r)
+      | HTurnStarted => v.state == "idle"
       | HItem => v.turn == "working"
       | HTurnEnded => v.turn == "working"
       | HTurnFailed => v.turn == "working"
     },
-    queue' = queue.append(HarnessEv({ session: s, ev: ev, turn: viewOf(log, s).turns })),
+    queue' = queue.append(HarnessEv({ session: s, ev: ev, turn: viewOf(log, s).turns + (if (ev == HTurnStarted) 1 else 0) })),
     unchangedClients,
     log' = log, receipts' = receipts, up' = up, toPublish' = toPublish, toSettle' = toSettle,
     toReact' = toReact, reactor' = reactor, harness' = harness, subs' = subs,
@@ -693,13 +701,18 @@ module polaris {
     Set(1, 2).map(n => AcceptTurns({ session: SESSION_LIST[0], through: n })).union(Set(RecordVerdict))
 
   pure val HARNESS_EVENTS: Set[HarnessEvent] =
-    REQUESTS.map(r => HRequest(r)).union(REQUESTS.map(r => HWithdraw(r))).union(Set(HItem, HTurnEnded, HTurnFailed))
+    REQUESTS.map(r => HRequest(r)).union(REQUESTS.map(r => HWithdraw(r))).union(Set(HItem, HTurnStarted, HTurnEnded, HTurnFailed))
 
   action step = any {
     nondet c = CLIENTS.oneOf()
     nondet id = CMD_IDS.oneOf()
     nondet cmd = COMMANDS.oneOf()
     clientSends(c, id, cmd),
+    // Keep approval races covered as new Harness event kinds widen the random choices.
+    nondet c = CLIENTS.oneOf()
+    nondet id = CMD_IDS.oneOf()
+    nondet r = REQUESTS.oneOf()
+    clientSends(c, id, Respond({ session: REQUEST_SESSION.get(r), req: r })),
     nondet id = CMD_IDS.oneOf()
     clientRetries(id),
     nondet s = SESSIONS.oneOf()
@@ -792,9 +805,13 @@ module polaris {
     SESSIONS.forall(s => viewOf(log, s).pending.forall(r =>
       log.indices().exists(i => i >= lastRestart and log[i].kind == ApprovalRequested(r))))
 
-  /** Only a Client's command starts or continues a Turn; recovery never does. */
+  /** Only a Client continues an interrupted Turn; a live Harness can start a fresh Turn while Idle. */
   val noAutoContinue: bool =
-    log.indices().forall(i => match log[i].kind { | TurnStarted(_) => log[i].cmd != "" | _ => true })
+    log.indices().forall(i => match log[i].kind {
+      | TurnStarted(continued) => log[i].cmd != "" or (not(continued)
+          and viewOf(log.slice(0, i), log[i].session).state == "idle")
+      | _ => true
+    })
       and harness.forall(s => log.indices().exists(i =>
         i >= lastRestart and log[i].session == s and log[i].cmd != ""
           and match log[i].kind { | TurnStarted(_) => true | _ => false }))

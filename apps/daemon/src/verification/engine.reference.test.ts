@@ -11,6 +11,7 @@ const sessionId = SessionId.make("s1");
 
 const accepted = (status: "interrupted" | "failed", state: string): View => ({
   state,
+  autonomous: false,
   turns: new Map([["t1", status]]),
   order: ["t1"],
   pending: new Set(),

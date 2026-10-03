@@ -19,8 +19,10 @@ import type {
   SessionId,
   SlashCommand,
   SubagentId,
+  BackgroundTask,
   TurnId,
   TurnItem,
+  TurnTrigger,
 } from "@polaris/protocol";
 import type { ConstellationAttachment } from "./constellation/attachment.ts";
 import { Data, type Effect, Schema, type Scope, type Stream } from "effect";
@@ -36,10 +38,14 @@ export type HarnessEvent = Data.TaggedEnum<{
   CursorAssigned: { readonly cursor: string };
   /**
    * A Turn began. `prompt` is the user's message when the driver knows it; the
-   * engine records it for Turns started outside Polaris (a co-attached or
-   * handed-off terminal UI). Turns Polaris sent are already recorded.
+   * engine records autonomous Turns and Turns from a co-attached or handed-off
+   * terminal UI. Turns Polaris sent are already recorded.
    */
-  TurnStarted: { readonly turnId: TurnId; readonly prompt: string | null };
+  TurnStarted: {
+    readonly turnId: TurnId;
+    readonly prompt: string | null;
+    readonly trigger?: TurnTrigger;
+  };
   /** Ephemeral streaming text for an item still in progress. */
   ItemDelta: {
     readonly turnId: TurnId;
@@ -70,6 +76,7 @@ export type HarnessEvent = Data.TaggedEnum<{
    * The Harness spawned a Subagent in `turnId`. Its own items then carry its
    * `subagentId`. It may outlive the Turn (a background agent).
    */
+  BackgroundTasksChanged: { readonly tasks: ReadonlyArray<BackgroundTask> };
   SubagentStarted: {
     readonly turnId: TurnId;
     readonly subagentId: SubagentId;
@@ -78,10 +85,12 @@ export type HarnessEvent = Data.TaggedEnum<{
     readonly title: string;
     readonly agent: string | null;
     readonly model: string | null;
+    readonly background?: boolean;
   };
   SubagentEnded: {
     readonly subagentId: SubagentId;
     readonly status: "completed" | "failed" | "interrupted";
+    readonly report?: string | null;
   };
   ApprovalRequested: {
     readonly turnId: TurnId;

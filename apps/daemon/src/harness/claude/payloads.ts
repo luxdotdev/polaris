@@ -91,6 +91,7 @@ const ToolFields = Schema.Struct({
   /** The Agent (Task) tool's helper kind and Model override. */
   subagent_type: StringOrNull,
   model: StringOrNull,
+  message: StringOrNull,
 });
 
 export type ToolFields = typeof ToolFields.Type;
@@ -109,6 +110,7 @@ const NO_FIELDS: ToolFields = {
   stderr: null,
   subagent_type: null,
   model: null,
+  message: null,
 };
 
 const decodeToolFields = Schema.decodeUnknownOption(ToolFields);

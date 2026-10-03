@@ -7,6 +7,7 @@ import { constellationEventFields, resourceEventFields } from "./constellation/e
 import { ConstellationId } from "./constellation/domain.ts";
 import {
   AgentSession,
+  BackgroundTask,
   ApprovalDecision,
   ApprovalRequest,
   ContextUsage,
@@ -78,6 +79,7 @@ export const DomainEvent = Schema.TaggedUnion({
   /** The Harness reported how full the context window is (see `AgentSession.contextUsage`). */
   SessionSetupChanged: { sessionId: SessionId, setup: WorktreeSetupRun },
   SessionContextUsed: { sessionId: SessionId, usage: ContextUsage },
+  SessionBackgroundTasksChanged: { sessionId: SessionId, tasks: Schema.Array(BackgroundTask) },
 
   TurnStarted: { turn: Turn },
   TurnItemCompleted: {

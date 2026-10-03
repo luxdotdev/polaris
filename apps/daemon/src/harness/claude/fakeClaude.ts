@@ -9,6 +9,7 @@ import type {
   PermissionUpdate,
   Query,
   SDKMessage,
+  SDKMessageOrigin,
   SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
 import { Predicate, type Schema } from "effect";
@@ -68,6 +69,10 @@ export class FakeClaude {
   contextReply: { totalTokens: number; maxTokens: number } | null = null;
   private readonly out = new Inbox<SDKMessage>();
   private inputWaiters: Array<() => void> = [];
+  private emitted = 0;
+  private read = 0;
+  private processed = 0;
+  private processedWaiters: Array<() => void> = [];
 
   readonly query: QueryFn = ({ prompt, options }) => {
     this.options = options ?? null;
@@ -76,7 +81,16 @@ export class FakeClaude {
     const iterator = this.out[Symbol.asyncIterator]();
 
     const fake: FakeQuery = {
-      next: () => iterator.next(),
+      next: async () => {
+        this.processed = this.read;
+
+        for (const resolve of this.processedWaiters.splice(0)) resolve();
+        const frame = await iterator.next();
+
+        if (frame.done !== true) this.read++;
+
+        return frame;
+      },
       return: () => iterator.return!(),
       throw: (cause) => Promise.reject(cause),
       [Symbol.asyncIterator]: () => query,
@@ -149,7 +163,16 @@ export class FakeClaude {
     return this.inputs[n]!;
   }
 
-  emit(message: FakeMessage): void {
+  /** The driver asked for the next frame after processing every frame emitted so far. */
+  async waitProcessed(): Promise<void> {
+    const target = this.emitted;
+
+    while (this.processed < target)
+      await new Promise<void>((resolve) => this.processedWaiters.push(resolve));
+  }
+
+  emit(message: FakeMessage | SDKMessage): void {
+    this.emitted++;
     // SAFETY: the driver reads only the fields the builders below set on each message.
     this.out.push(message as SDKMessage);
   }
@@ -267,6 +290,7 @@ interface FakeResult {
   user_message_uuids?: string[];
   user_message_uuid?: string | undefined;
   modelUsage?: Json;
+  origin?: SDKMessageOrigin;
 }
 
 export const result = (uuids: string[] | null, options: ResultOptions = {}) => {

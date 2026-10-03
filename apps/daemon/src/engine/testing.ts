@@ -289,6 +289,7 @@ export const engineLayer = (options: {
   readonly fakes: Fakes;
   readonly drivers: ReadonlyArray<FakeDriver>;
   readonly idleTimeout?: Duration.Input;
+  readonly backgroundIdleTimeout?: Duration.Input;
   readonly checkpointPolicy?: CheckpointPolicy;
   /** The checkpoint sweeper is off unless a test sets this. */
   readonly checkpointSweepInterval?: Duration.Input;
@@ -307,6 +308,7 @@ export const engineLayer = (options: {
 
   const settings: EngineSettings = {
     idleTimeout: options.idleTimeout ?? Duration.minutes(30),
+    backgroundIdleTimeout: options.backgroundIdleTimeout ?? Duration.hours(2),
     checkpointSweepInterval: options.checkpointSweepInterval ?? null,
   };
 

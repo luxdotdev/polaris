@@ -28,6 +28,7 @@ export interface AEvent {
   /** A short, comparable description of what the event says. */
   readonly what: string;
   readonly turnId?: string;
+  readonly autonomous?: boolean;
   readonly status?: string;
   readonly state?: string;
   readonly requestId?: string;
@@ -61,7 +62,7 @@ export const abstractEvent = (envelope: EventEnvelope): AEvent => {
         state: c.state,
         reason: c.reason,
       }),
-      TurnStarted: (c) => ({ ...base, ...turnFields(c) }),
+      TurnStarted: (c) => ({ ...base, ...turnFields(c), autonomous: c.turn.trigger != null }),
       TurnEnded: (c) => ({ ...base, ...turnFields(c) }),
       ApprovalRequested: (c) => ({
         ...base,
@@ -103,6 +104,7 @@ export const streamSeqs = (log: ReadonlyArray<AEvent>, stream: StreamName) =>
 
 export interface View {
   state: string;
+  autonomous: boolean;
   readonly turns: Map<string, string>;
   readonly order: Array<string>;
   readonly pending: Set<string>;
@@ -116,6 +118,7 @@ const applyToView = (v: View, e: AEvent) => {
       v.state = e.state!;
       break;
     case "TurnStarted":
+      v.autonomous = e.autonomous === true;
     case "TurnEnded":
       if (!v.turns.has(e.turnId!)) v.order.push(e.turnId!);
       v.turns.set(e.turnId!, e.status!);
@@ -142,6 +145,7 @@ export const fold = (log: ReadonlyArray<AEvent>, upTo = log.length): Map<string,
     if (e.tag === "SessionCreated") {
       views.set(e.session, {
         state: e.state!,
+        autonomous: false,
         turns: new Map(),
         order: [],
         pending: new Set(),
@@ -218,7 +222,8 @@ export const referenceDecide = (v: View, command: Command, device: string): Refe
   Command.matchOrElse<Reference>(
     command,
     {
-      SendTurn: () => (acceptsTurn(v) ? turnStart(v) : "reject"),
+      SendTurn: () =>
+        v.state === "working" && v.autonomous ? [] : acceptsTurn(v) ? turnStart(v) : "reject",
       Continue: () => decideAfter(v, "interrupted"),
       Retry: () => decideAfter(v, "failed"),
       RespondToApproval: (c) => decideRespond(v, c.requestId, device),

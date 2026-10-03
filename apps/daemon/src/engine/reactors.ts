@@ -4,6 +4,7 @@
  * checkpoints, hand sessions to and from the terminal.
  */
 import {
+  type Attachment,
   type ApprovalDecision,
   type ApprovalRequest,
   Command,
@@ -34,6 +35,7 @@ export interface Committed {
   readonly command: Command;
   readonly result: Extract<CommitResult, { _tag: "Committed" }>;
   readonly before: ReadModel;
+  readonly attachments?: ReadonlyArray<Attachment>;
 }
 
 type CommandOf<Tag extends Command["_tag"]> = Extract<Command, { _tag: Tag }>;
@@ -184,7 +186,22 @@ const make = Effect.gen(function* () {
     Command.match<Reaction>(committed.command, {
       RegisterWorkspace: () => registerWorkspace(committed),
       StartSession: (command) => startSession(command, committed),
-      SendTurn: (command) => runStartedTurn(command.sessionId, committed.result.envelopes),
+      SendTurn: (command) => {
+        const record = committed.before.sessions.get(command.sessionId);
+
+        const autonomous = record?.turns.find(
+          (turn) => turn.status === "working" && turn.trigger !== null
+        );
+
+        return autonomous === undefined
+          ? runStartedTurn(command.sessionId, committed.result.envelopes)
+          : supervisor.runTurn({
+              sessionId: command.sessionId,
+              turnId: autonomous.id,
+              prompt: command.prompt,
+              attachments: committed.attachments ?? [],
+            });
+      },
       Continue: (command) => continueTurn(command.sessionId, committed),
       Retry: (command) => runStartedTurn(command.sessionId, committed.result.envelopes),
       Steer: (command) =>
