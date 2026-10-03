@@ -39,6 +39,7 @@ import {
   workspaceItems,
   worktreeItems,
 } from "./items.ts";
+import { useUpdates } from "../settings/updates/store.ts";
 import { useRunJump } from "./run.ts";
 
 const Leading = ({ item }: { readonly item: JumpItem }) => {
@@ -99,6 +100,7 @@ const useSources = () => {
   const { topBar, hostKey, workspaceId, sessionId, mode } = useSelection();
   const commands = useCommands();
   const dark = useDark();
+  const updateVersion = useUpdates((s) => s.view?.availableVersion);
   const review = useReviewSources(mode);
 
   return useMemo(() => {
@@ -115,11 +117,23 @@ const useSources = () => {
         session:
           sessionId === null ? null : (model?.sessions.get(sessionId)?.session.title ?? null),
         enabled: commands.enabled,
+        updateVersion: updateVersion ?? null,
         nextTheme: dark ? "light" : "dark",
       }),
       review,
     };
-  }, [hosts, models, topBar, hostKey, workspaceId, sessionId, commands, dark, review]);
+  }, [
+    hosts,
+    models,
+    topBar,
+    hostKey,
+    workspaceId,
+    sessionId,
+    commands,
+    dark,
+    review,
+    updateVersion,
+  ]);
 };
 
 /** Whether the window is dark now: the theme setting, or the system's when it follows it. */

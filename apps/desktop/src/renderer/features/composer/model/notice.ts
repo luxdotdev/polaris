@@ -33,7 +33,7 @@ export const daemonNotice = (
 
   return {
     message: `Skills need a newer daemon on ${hostLabel}`,
-    action: { label: "Update daemon", run: openHosts },
+    action: { label: "Upgrade daemon", run: openHosts },
   };
 };
 

@@ -33,9 +33,13 @@ import { pricedStats } from "./constellationStats.ts";
 import type { SnapshotCache } from "../snapshotCache.ts";
 import { ensureInstalled } from "./install.ts";
 import { publishDirty, savedAll } from "../editorDirty.ts";
+import type { AppUpdates } from "../updates/index.ts";
 
 /** What the handlers need from the app outside the Client runtime. */
 export interface RequestContext {
+  readonly updates: Pick<AppUpdates, "get" | "check" | "setAutomatic">;
+  readonly restartToUpdate: () => void;
+  readonly showAppInFinder: () => void;
   readonly settings: () => Settings;
   readonly cache: SnapshotCache;
   /** The price table for Usage estimates. */
@@ -114,6 +118,11 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
   ...githubHandlers,
   ...constellationHandlers,
   ...resourceHandlers,
+  "updates.get": () => Effect.sync(ctx.updates.get),
+  "updates.check": () => Effect.sync(ctx.updates.check),
+  "updates.setAutomatic": ({ enabled }) => Effect.sync(() => ctx.updates.setAutomatic(enabled)),
+  "updates.restart": () => Effect.sync(ctx.restartToUpdate).pipe(done),
+  "updates.showInFinder": () => Effect.sync(ctx.showAppInFinder).pipe(done),
   "settings.get": () =>
     Effect.sync(() => {
       const settings = ctx.settings();
