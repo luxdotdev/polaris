@@ -137,6 +137,7 @@ const EnvironmentSchema = Schema.Struct({
   transport: Schema.Literals(["bridge", "socket"]),
   sampler: Schema.String,
   date: Schema.String,
+  backgroundCores: Schema.optionalKey(Schema.Number),
 });
 
 const BenchResultSchema = Schema.Struct({
