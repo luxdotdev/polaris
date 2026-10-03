@@ -127,7 +127,7 @@ const step = (ref: Reference, op: number, index: number): Step => {
         ...base,
         revision: attempt?.revision ?? 0,
         action: ReviewAction.cases.SendBack.make({
-          reason: "fix",
+          reason: `  fix ${index}\nλ keep both tests.  `,
           worker: WorkerPlacement.cases.Existing.make({ sessionId }),
         }),
       }),

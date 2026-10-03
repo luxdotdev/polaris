@@ -156,7 +156,12 @@ export const mapGraphEvent = (
         );
 
         return record(
-          `AttemptStarted({ task: ${g.tasks.id(attempt.taskId)}, session: ${g.sessions.id(attempt.sessionId)}, ref: ${ref} })`
+          `AttemptStarted({ task: ${g.tasks.id(attempt.taskId)}, session: ${g.sessions.id(attempt.sessionId)}, ref: ${ref}, mergeBase: ${JSON.stringify(
+            Match.value(attempt.cause).pipe(
+              Match.tag("MergeConflict", (cause) => cause.base),
+              Match.orElse(() => "")
+            )
+          )} })`
         );
       },
       AttemptProgressed: ({ attemptId }) => record(`AttemptProgressed(${g.attemptId(attemptId)})`),
@@ -171,7 +176,10 @@ export const mapGraphEvent = (
         record(
           `AttemptAccepted({ attempt: ${g.attemptId(attemptId)}, sha: ${g.heads.id(mergedHead)} })`
         ),
-      AttemptRejected: ({ attemptId }) => record(`AttemptRejected(${g.attemptId(attemptId)})`),
+      AttemptRejected: ({ attemptId, reason }) =>
+        record(
+          `AttemptRejected({ attempt: ${g.attemptId(attemptId)}, reason: ${JSON.stringify(reason)} })`
+        ),
       AttemptSettled: ({ attemptId, outcome }) => {
         if (context === undefined)
           throw new Error(

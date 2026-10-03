@@ -34,6 +34,11 @@ Desktop App authorization is checked by the Daemon, not asserted in a payload.
   both record metadata while keeping Review. Accept supplies merged head and receipts; the decider checks
   it against the claimed head and resolves every verified reference. SendBack
   chooses same/existing or new session; `mergeConflictBase` selects that cause.
+  The rejected Attempt retains `rejectionReason` (nullable, additive); its old
+  Claim stays alongside it in snapshots and status. The retry's first Turn
+  carries the verbatim reason and rejected Claim; a MergeConflict names the
+  base to merge first. Startup delivers a committed retry without a first Turn
+  after a restart, using the stable Attempt startup command/Turn ID.
 - `constellation.answer`: a proposal verdict or an answer to a durable question.
 - `constellation.message`: a worker, the Lead or all workers, with optional
   authority (`conversation` by default). Only the user may confer decision authority.

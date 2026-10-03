@@ -32,6 +32,7 @@ export const attemptData = (attempt: Attempt) => ({
   approvedByUserAt: attempt.approvedByUserAt,
   handedUpAt: attempt.handedUpAt,
   handedUpReason: attempt.handedUpReason,
+  rejectionReason: attempt.rejectionReason,
   nudgedAt: attempt.nudgedAt,
   startedAt: attempt.startedAt,
   endedAt: attempt.endedAt,

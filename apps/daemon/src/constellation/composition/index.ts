@@ -37,7 +37,7 @@ import {
 import { HarnessRegistry } from "../../services.ts";
 import { WorktreeSetupService } from "../setup/index.ts";
 import { prepareSession } from "./prepare.ts";
-import { startAttempt, resumeAttempt, workerFailed } from "./workers.ts";
+import { startAttempt, startPendingAttempt, resumeAttempt, workerFailed } from "./workers.ts";
 import { ConstellationHarness } from "./attachments.ts";
 import { attachmentProvider } from "./provider.ts";
 import { ConstellationRpcHandlers } from "../rpc.ts";
@@ -143,8 +143,14 @@ const remoteWorkers = Layer.unwrap(
 
         return attempt === undefined ? Effect.void : startAttempt(assignment.graph, attempt);
       },
-      // Remote recovery waits for verified worker interruption/continued-Turn receipts.
-      resume: () => Effect.void,
+      // Existing remote Turns still wait for verified interruption/continued-Turn receipts.
+      resume: (assignment) => {
+        const attempt = assignment.graph.attempts.find((a) => a.id === assignment.attemptId);
+
+        return attempt === undefined
+          ? Effect.void
+          : startPendingAttempt(assignment.graph, attempt).pipe(Effect.asVoid);
+      },
       failed: workerFailed,
     });
   })

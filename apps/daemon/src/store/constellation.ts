@@ -295,7 +295,11 @@ export const foldConstellation = (
     AttemptRejected: (e) => {
       graph = new Constellation({
         ...graphData(graph),
-        attempts: patchAttempt(next, e, { state: "rejected", endedAt: at }),
+        attempts: patchAttempt(next, e, {
+          state: "rejected",
+          rejectionReason: e.reason,
+          endedAt: at,
+        }),
       });
     },
     AttemptSettled: (e) => {

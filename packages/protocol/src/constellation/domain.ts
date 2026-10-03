@@ -179,6 +179,8 @@ export class Attempt extends Schema.Class<Attempt>("ConstellationAttempt")({
   /** The Lead handed the Claim up to the user (ClaimHandedUp), and why. */
   handedUpAt: Schema.NullOr(Timestamp),
   handedUpReason: Schema.NullOr(Schema.String),
+  /** The Lead's verbatim SendBack feedback, retained beside the rejected Claim. */
+  rejectionReason: optionalNullable(Schema.String),
   /** The one automatic nudge after a silent end (AttemptNudged). */
   nudgedAt: Schema.NullOr(Timestamp),
   startedAt: Timestamp,

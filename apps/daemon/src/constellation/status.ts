@@ -61,6 +61,17 @@ const taskLines = (record: ConstellationRecord, task: Task): ReadonlyArray<strin
       );
   }
 
+  for (const previous of graph.attempts.filter(
+    (a) => a.taskId === task.id && a.state === "rejected"
+  )) {
+    lines.push(
+      `  Rejected attempt ${previous.id}${previous.claim === null ? "" : ` · Claim ${previous.claim.head}`}`
+    );
+
+    if (previous.rejectionReason !== null)
+      lines.push(`  Review feedback:\n${previous.rejectionReason}`);
+  }
+
   return lines;
 };
 

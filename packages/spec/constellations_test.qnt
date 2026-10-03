@@ -33,6 +33,13 @@ module constellations_test {
     .then(plan([Edit({ task: 1, deps: Set(), revision: 0 })]))
     .expect(view.tasks.get(1).deps == Set(0) and view.tasks.get(1).revision == 1 and safety)
 
+  run sendBackFeedbackSurvivesRestartBeforeFirstTurnTest = claimed
+    .then(rejectWithReason(0, 2, "  Fix cleanup.\nKeep both tests.  "))
+    .then(startWithMergeBase(0, 1, 0, "integration-base")).then(restart)
+    .expect(retryBrief(view, 1) == { reason: "  Fix cleanup.\nKeep both tests.  ", sha: 42, mergeBase: "integration-base" })
+    .then(startFirstTurn(1)).then(restart).then(startFirstTurn(1))
+    .expect(view.firstTurns == [1] and firstTurnAtMostOnce and safety)
+
   run linkedCausesPointBackwardTest = claimed
     .then(reject(0, 2)).then(start(0, 2, 0))
     .expect(view.attempts.length() == 2 and view.attempts[1].ref == 0 and causesPointBackward and safety)
@@ -172,7 +179,7 @@ module constellations_property_test {
     .then(start(2, 3, 2)).expect(view.attempts.length() == 4 and view.attempts[3].ref == 2 and causesPointBackward and safety)
   run detectsCycleTest = base.then(commit(OWNER, [TaskEdited({ task: 0, deps: Set(1) })]))
     .expect(not(graphAcyclic))
-  run detectsForwardCauseTest = base.then(commit(OWNER, [AttemptStarted({ task: 0, session: 1, ref: 1 })]))
+  run detectsForwardCauseTest = base.then(commit(OWNER, [AttemptStarted({ task: 0, session: 1, ref: 1, mergeBase: "" })]))
     .expect(not(causesPointBackward))
   run detectsPrematureGateTest = base.then(commit(OWNER, [GatePromoted(2)]))
     .expect(not(gatePromotedOnlyAfterAccepted))
@@ -180,7 +187,7 @@ module constellations_property_test {
     .then(claim(1, 1, 42, false, true)).then(accept(1, 2, 42))
     .then(commit(OWNER, [GatePromoted(2)])).expect(not(gatePromotedOnlyAfterAccepted))
   run detectsSessionReuseRaceTest = working
-    .then(commit(OWNER, [AttemptStarted({ task: 1, session: 1, ref: -1 })]))
+    .then(commit(OWNER, [AttemptStarted({ task: 1, session: 1, ref: -1, mergeBase: "" })]))
     .expect(not(oneActiveAttemptPerSession))
   run detectsRepeatedNotificationTest = claimed.then(deliver)
     .then(commit(OWNER, [LeadNotified({ ids: Set(10), lead: 0 })]))

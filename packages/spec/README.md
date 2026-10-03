@@ -190,6 +190,7 @@ do not have a log-size cap that could artificially prevent a grant or digest.
 | `start`, `current`, `change`, `latest`, `taskState` | `AttemptStarted`, Attempt revision, linked `AttemptCause.ref`, `TaskProjection`; engine decider folds the graph rather than persisting Task state |
 | Observed worker liveness | `TaskProjection.liveness` and `ConstellationStreamItem.LivenessChanged` are runtime observations, not graph events. The live item is unsequenced/unpersisted like session item progress; it changes no command, receipt, revision, resume cursor or recovery decision. Unknown facts are null in required Snapshot projections. Elapsed time is derived from observed timestamps without Daemon timers. |
 | `claim`, `accept`, `reject`, `stop`, `harnessFail` | worker Claim, ReviewAction, AttemptClaimed/Accepted/Rejected/Settled; Claim requires clean branch/current revision and acceptance requires the claimed head |
+| `rejectWithReason`, `retryBrief`, `startFirstTurn`, `firstTurnAtMostOnce` | `AttemptRejected.reason` folds into additive nullable `Attempt.rejectionReason`, retained beside the old Claim in status and graph snapshots. Composition follows `SentBack`/`MergeConflict.ref` to supply verbatim feedback and the rejected Claim; MergeConflict instructs the worker to merge its cause's base first. Stable `${attempt.id}:start` Turn/command IDs let startup deliver a retry committed before shutdown once. The Quint scenario re-folds feedback/head/base across restart; `mcp/sendback.test.ts` runs all eight same/fresh, merge/non-merge, production Daemon restart cases through authenticated MCP HTTP tools and real journal/Turn commits (fake provisioning, Git probes and Harness effects). |
 | Fetched branches | `ConstellationStreamItem.BranchFetched` and required Snapshot `TaskProjection.branchFetched` observe an exact claimed commit at the owner Polaris ref. They carry no sequence or graph revision; Accept additionally probes the actual merged Lead head. Bundles stream through existing BlobChannels without retaining bundle-sized buffers. |
 | `promote` | decider-only `GatePromoted`, counting latest accepted Attempts, not Claims or mechanical settles |
 | `ask`, `finish`, `deliver` | NotificationQueued and LeadNotified; committed notification IDs, one durable digest Turn, retained across restart and handover |
@@ -230,7 +231,7 @@ The scenario tests discharge these obligations once availability/release returns
 The temporal formulas are typechecked; the current `--verify` path continues to
 verify the existing `small` session model, not Constellation temporal liveness.
 
-This abstraction leaves out prose, bundled git bytes, receipt output, permission
+This abstraction retains SendBack feedback but leaves out other prose, bundled git bytes, receipt output, permission
 binding cryptography, notification wall-clock coalescing and the actual Harness
 Turn queue. Stale is an external Connection State input, never an LLM decision.
 Recovery tests capture the durable allowance, while the session spec retains the

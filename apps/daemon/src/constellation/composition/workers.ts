@@ -16,6 +16,7 @@ import { EventStore } from "../../store/EventStore.ts";
 import { ConstellationSessionEffects } from "../delivery/inputs.ts";
 import { newTurn, startedTurn, waitForDeliveryReady } from "../delivery/turns.ts";
 import { recoverAttempt } from "../recovery.ts";
+import { mergeFirst, reviewFeedback } from "./feedback.ts";
 
 export const startAttempt = Effect.fn("Constellation.startAttempt")(function* (
   graph: Constellation,
@@ -35,19 +36,22 @@ export const startAttempt = Effect.fn("Constellation.startAttempt")(function* (
 
   if (session === undefined) return;
 
-  const prompt = workerBrief({
+  const brief = workerBrief({
     constellationId: graph.id,
     workspaceId: graph.workspaceId,
     task,
     attempt,
     selection: session,
     permissionMode: session.permissionMode,
+    ...reviewFeedback(graph, attempt),
     acceptedDeps: graph.attempts.flatMap((a) =>
       a.state === "accepted" && a.claim !== null && task.deps.includes(a.taskId)
         ? [{ taskId: a.taskId, claim: a.claim }]
         : []
     ),
   });
+
+  const prompt = [mergeFirst(attempt), brief].filter((text) => text !== "").join("\n\n");
 
   while (true) {
     const done = yield* Effect.scoped(
@@ -125,10 +129,41 @@ export const startAttempt = Effect.fn("Constellation.startAttempt")(function* (
 });
 
 export const resumeAttempt = Effect.fn("Constellation.resumeAttempt")(function* (attempt: Attempt) {
+  const store = yield* EventStore;
+  const model = yield* store.model;
+
+  const graph = [...model.constellations.values()].find((r) =>
+    r.graph.attempts.some((a) => a.id === attempt.id)
+  )?.graph;
+
+  if (graph !== undefined && (yield* startPendingAttempt(graph, attempt))) return;
+
   const engine = yield* Engine;
   const candidate = engine.recoveredTurns.find((c) => c.sessionId === attempt.sessionId);
 
   if (candidate !== undefined) yield* recoverAttempt(candidate);
+});
+
+/** A committed retry with no first Turn must still start after a Daemon restart. */
+export const startPendingAttempt = Effect.fn("Constellation.startPendingAttempt")(function* (
+  graph: Constellation,
+  attempt: Attempt
+) {
+  if (
+    !Predicate.isTagged(attempt.cause, "SentBack") &&
+    !Predicate.isTagged(attempt.cause, "MergeConflict")
+  )
+    return false;
+
+  const store = yield* EventStore;
+  const record = (yield* store.model).sessions.get(attempt.sessionId);
+
+  if (record === undefined || record.turns.some((t) => t.id === `${attempt.id}:start`))
+    return false;
+
+  yield* startAttempt(graph, attempt);
+
+  return true;
 });
 
 export const workerFailed = (
