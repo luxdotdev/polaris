@@ -8,6 +8,7 @@ import {
   TurnId,
 } from "@polaris/protocol";
 import { Effect, Predicate, Stream } from "effect";
+import { withWorkerAdmission } from "../../resources/workerAdmission.ts";
 import { decideSession } from "../../engine/session.ts";
 import { serialInput } from "./boundary.ts";
 import { EventStore } from "../../store/EventStore.ts";
@@ -139,88 +140,100 @@ const applyDelivery = Effect.fn("Constellation.applyWorkerDelivery")(function* (
 
         const result = yield* serialInput(
           packet.sessionId,
-          Effect.uninterruptible(
-            Effect.gen(function* () {
-              const result = yield* store
-                .commit({
-                  recordRejection: false,
-                  commandId: CommandId.make(packet.id),
-                  decide: (model) =>
-                    Effect.gen(function* () {
-                      yield* validate(packet, model);
-                      const record = model.sessions.get(packet.sessionId);
-
-                      if (record === undefined || record.session.state === "archived")
-                        return yield* new CommandRejected({
-                          commandId: CommandId.make(packet.id),
-                          reason: "Unavailable worker Session",
-                        });
-
-                      if (
-                        Predicate.isTagged(packet.input, "Turn") &&
-                        packet.input.cause === "recover"
-                      )
-                        return yield* new CommandRejected({
-                          commandId: CommandId.make(packet.id),
-                          reason: "Remote recovery requires verified interrupted Turn facts",
-                        });
-                      const working = record.turns.some((t) => t.status === "working");
-
-                      if (
-                        working &&
-                        Predicate.isTagged(packet.input, "Turn") &&
-                        packet.input.cause === "unblock"
-                      )
-                        return yield* new CommandRejected({
-                          commandId: CommandId.make(packet.id),
-                          reason: "Worker input is queued",
-                        });
-
-                      const turn = newTurn(
-                        record.session,
-                        packet.input.text,
-                        new Date().toISOString(),
-                        packet.id
-                      );
-
-                      const decision = decideSession(
-                        record,
-                        working ? { type: "turn.steer", canSteer } : { type: "turn.send", turn }
-                      );
-
-                      if (decision.rejection !== null || (!working && !takesDelivery(record, turn)))
-                        return yield* new CommandRejected({
-                          commandId: CommandId.make(packet.id),
-                          reason: "Worker input is queued",
-                        });
-
-                      return decision.events;
-                    }),
-                })
-                .pipe(
-                  Effect.catchTag("CommandRejected", (error) =>
-                    error.reason === "Worker input is queued"
-                      ? Effect.succeed(null)
-                      : Effect.fail(error)
-                  )
-                );
-
-              if (result === null) return false;
-
-              if (!Predicate.isTagged(result, "Committed")) return true;
-              const turn = startedTurn(result.envelopes.map((e) => e.event));
-
-              if (turn !== undefined) yield* effects.runTurn(turn, packet.input.text);
-              else yield* effects.steer(packet.sessionId, packet.input.text);
-
+          Effect.gen(function* () {
+            if (yield* store.hasCommandReceipt(CommandId.make(packet.id)).pipe(Effect.orDie))
               return true;
-            })
-          )
+
+            return yield* withWorkerAdmission(
+              store,
+              packet.sessionId,
+              Effect.uninterruptible(
+                Effect.gen(function* () {
+                  const result = yield* store
+                    .commit({
+                      recordRejection: false,
+                      commandId: CommandId.make(packet.id),
+                      decide: (model) =>
+                        Effect.gen(function* () {
+                          yield* validate(packet, model);
+                          const record = model.sessions.get(packet.sessionId);
+
+                          if (record === undefined || record.session.state === "archived")
+                            return yield* new CommandRejected({
+                              commandId: CommandId.make(packet.id),
+                              reason: "Unavailable worker Session",
+                            });
+
+                          if (
+                            Predicate.isTagged(packet.input, "Turn") &&
+                            packet.input.cause === "recover"
+                          )
+                            return yield* new CommandRejected({
+                              commandId: CommandId.make(packet.id),
+                              reason: "Remote recovery requires verified interrupted Turn facts",
+                            });
+                          const working = record.turns.some((t) => t.status === "working");
+
+                          if (
+                            working &&
+                            Predicate.isTagged(packet.input, "Turn") &&
+                            packet.input.cause === "unblock"
+                          )
+                            return yield* new CommandRejected({
+                              commandId: CommandId.make(packet.id),
+                              reason: "Worker input is queued",
+                            });
+
+                          const turn = newTurn(
+                            record.session,
+                            packet.input.text,
+                            new Date().toISOString(),
+                            packet.id
+                          );
+
+                          const decision = decideSession(
+                            record,
+                            working ? { type: "turn.steer", canSteer } : { type: "turn.send", turn }
+                          );
+
+                          if (
+                            decision.rejection !== null ||
+                            (!working && !takesDelivery(record, turn))
+                          )
+                            return yield* new CommandRejected({
+                              commandId: CommandId.make(packet.id),
+                              reason: "Worker input is queued",
+                            });
+
+                          return decision.events;
+                        }),
+                    })
+                    .pipe(
+                      Effect.catchTag("CommandRejected", (error) =>
+                        error.reason === "Worker input is queued"
+                          ? Effect.succeed(null)
+                          : Effect.fail(error)
+                      )
+                    );
+
+                  if (result === null) return false;
+
+                  if (!Predicate.isTagged(result, "Committed")) return true;
+                  const turn = startedTurn(result.envelopes.map((e) => e.event));
+
+                  if (turn !== undefined) yield* effects.runTurn(turn, packet.input.text);
+                  else yield* effects.steer(packet.sessionId, packet.input.text);
+
+                  return true;
+                })
+              )
+            );
+          })
         );
 
-        if (!result) yield* feed.pipe(Stream.take(1), Stream.runDrain);
+        if (result === false) yield* feed.pipe(Stream.take(1), Stream.runDrain);
 
-        return result;
+        return result !== false;
       })
     );
 

@@ -11,6 +11,7 @@ import {
   Semaphore,
   Stream,
 } from "effect";
+import { hasWorkerAdmission } from "../../resources/workerAdmission.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { graphEvent } from "../../store/constellation.ts";
 import { ConstellationOwner } from "../runtime.ts";
@@ -104,15 +105,29 @@ const make = Effect.gen(function* () {
 
       if (attempt?.state === "blocked" && !unblocksAttempt(record, attempt, input.id)) continue;
 
+      const key = JSON.stringify([input.id, input.sessionId]);
+
+      if (inputs.has(key) || (attempt !== undefined && record.stale.has(attempt.id))) continue;
+      inputs.add(key);
+
       if (attempt === undefined || attempt.hostId === owner) {
-        yield* deliverLocalInput(id, input);
+        if (!hasWorkerAdmission(store, input.sessionId)) {
+          inputs.delete(key);
+          yield* deliverLocalInput(id, input);
+          continue;
+        }
+
+        yield* deliverLocalInput(id, input).pipe(
+          Effect.provide(dependencies),
+          Effect.catchCause((cause) =>
+            Effect.logError("Local Constellation input remains queued", cause)
+          ),
+          Effect.ensuring(Effect.sync(() => inputs.delete(key))),
+          Effect.forkIn(scope)
+        );
         continue;
       }
 
-      const key = JSON.stringify([input.id, input.sessionId]);
-
-      if (inputs.has(key) || record.stale.has(attempt.id)) continue;
-      inputs.add(key);
       yield* remote
         .send({
           id: key,

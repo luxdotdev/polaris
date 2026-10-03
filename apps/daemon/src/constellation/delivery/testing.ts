@@ -217,7 +217,7 @@ export const world = (
   const configured = WorktreeSetupService.layer.pipe(Layer.provideMerge(effects));
 
   const layer = Layer.mergeAll(Constellations.layer, ConstellationDelivery.layer).pipe(
-    Layer.provide(
+    Layer.provideMerge(
       (options.runtime ?? Layer.succeed(ConstellationRuntime)(runtime)).pipe(
         Layer.provide(configured)
       )

@@ -74,3 +74,13 @@ The C1-P Quint resource model and trace replayer map these same Host events.
 `resources.model.test.ts` compares the real broker with an independent queue across
 randomized capacity edits, cancellation and restart. Set `POLARIS_RESOURCE_TRACE_DIR`
 to capture its durable batches for `packages/spec/scripts/replay-constellation.ts`.
+
+Blocked waits keep their assignment and MCP binding but replace their admission scope.
+A blocked worker releases only after foreground work, live Subagents and background
+tasks end. A background completion reserves admission until the native reporting
+Turn ends or the Harness goes Dormant/fails; empty membership alone is insufficient.
+Acceptance and Lead delivery await and pin a new FIFO grant before committing the
+unblock Turn. A stopped queued resume closes its scope and cancels the wait.
+Restart rebuilds blocked bindings without acquiring an idle slot. Idle unclaimed
+working Attempts keep their existing policy. `workerAdmission.model.test.ts` checks
+an independent FIFO against real worker leases across randomized blocks/wakes/stops.
