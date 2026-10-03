@@ -232,6 +232,54 @@ export const c1Tasks = [
   task({ id: "C1", title: "C · Constellation tab in the Desktop App", ui: true, deps: ["G2"] }),
 ];
 
+/** Tasks with slug ids in lowercase groups, as Leads name them: the id lane has to fit these. */
+export const slugTasks = [
+  task({
+    id: "handoff-hardening",
+    title: "Harden the handoff summary",
+    group: "daemon",
+    area: ["apps/daemon/src/engine/handoff/**"],
+  }),
+  task({
+    id: "worktree-setup-retry-on-reconnect",
+    title: "Retry worktree setup when a Host reconnects",
+    group: "daemon",
+  }),
+  task({ id: "email-validator", title: "Validate the download email", group: "desktop", ui: true }),
+  task({ id: "sidebar-groups", title: "Group the sidebar by task", group: "desktop", ui: true }),
+];
+
+const emailClaim = new Claim({
+  branch: "polaris/const-v1/email-validator-work",
+  head: "7d2e9b41c",
+  commits: ["7d2e9b4", "1f0a3c2"],
+  receipts: [verified("tests", "i-email-tests", worker("email-validator"))],
+  notDone: [],
+  followups: [],
+  questions: [],
+  outsideArea: [],
+  decisions: [],
+  summary: "MX check before sending; Gmail's MEDIUM verdict is accepted.",
+});
+
+export const slugAttempts = [
+  attempt({ taskId: "handoff-hardening", state: "working", minutes: 22 }),
+  attempt({
+    taskId: "worktree-setup-retry-on-reconnect",
+    state: "working",
+    minutes: 14,
+    nudgedMinutesAgo: 4,
+  }),
+  attempt({ taskId: "email-validator", state: "review", minutes: 30, claim: emailClaim }),
+  attempt({
+    taskId: "sidebar-groups",
+    state: "accepted",
+    minutes: 90,
+    mergedHead: "5e6f7a8",
+    evidence: "verified",
+  }),
+];
+
 export const c1Attempts = [
   attempt({
     taskId: "A1",
@@ -447,5 +495,28 @@ export const c1Record = (
         items: [...digestItems],
       },
     ],
+  };
+};
+
+/** C1 with the slug Tasks added, and the digest reporting email-validator's Claim. */
+export const slugRecord = (patch: Partial<Constellation> = {}): ConstellationRecord => {
+  const record = c1Record({
+    ...patch,
+    tasks: [...c1Tasks, ...slugTasks],
+    attempts: [...(patch.attempts ?? c1Attempts), ...slugAttempts],
+  });
+
+  const settled = note(
+    "n-email",
+    NotificationItem.cases.Settled.make({
+      attemptId: AttemptId.make("att-email-validator-1"),
+      state: "review",
+    }),
+    1
+  );
+
+  return {
+    ...record,
+    digests: record.digests.map((d) => ({ ...d, items: [...d.items, settled] })),
   };
 };

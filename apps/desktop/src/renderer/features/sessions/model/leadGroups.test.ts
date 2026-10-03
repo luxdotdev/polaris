@@ -3,14 +3,16 @@ import { activeSessions } from "../../../routes/topBar.ts";
 import { sessionOrder } from "../../../routes/selection.ts";
 import { type Attempt, SessionId, TaskId, WorktreeSetupRun } from "@polaris/protocol";
 import { asPlain, type Plain } from "../../../store/plain.ts";
-import { C1, C2, HOSTS, MODELS, withSetupFailure } from "../preview/fixtures.ts";
+import { C1, C2, C3, HOSTS, MODELS, withSetupFailure } from "../preview/fixtures.ts";
 import {
   doneLine,
   leadLine,
   lookupIn,
+  type LeadWorker,
   setupLookupIn,
   sidebarItems,
   workerRows,
+  workerSections,
   workerState,
 } from "./leadGroups.ts";
 
@@ -83,6 +85,13 @@ describe("workerState", () => {
     );
   });
 
+  test("a worker whose nudged Turn is still running is not stopped", () => {
+    const idle = MODELS.local.sessions.get("b5") ?? null;
+    const later = new Date(Date.now() + 60_000).toISOString();
+
+    expect(workerState({ ...attempt, nudgedAt: later }, idle, false)).toBe("working");
+  });
+
   test("a Claim the Lead hands up is the user's until they approve it", () => {
     const review = { ...attempt, state: "review" as const, handedUpAt: "2026-10-01T10:00:00.000Z" };
 
@@ -104,7 +113,7 @@ describe("sidebarItems", () => {
   const { items, constellations } = sidebarItems({
     hostKey: "local",
     entries,
-    views: [C1, C2],
+    views: [C1, C2, C3],
     lookup,
     setups,
   });
@@ -113,7 +122,21 @@ describe("sidebarItems", () => {
     const plain = items.flatMap((i) => (i.kind === "session" ? [`${i.entry.session.id}`] : []));
 
     expect(plain).toEqual(["glossary"]);
-    expect(constellations).toBe(2);
+    expect(constellations).toBe(3);
+  });
+
+  test("a Lead's workers group by task.group, the group that needs you first", () => {
+    const c3 = items
+      .flatMap((i) => (i.kind === "lead" ? [i.group] : []))
+      .find((g) => g.view === C3);
+
+    const sections = workerSections(c3?.workers ?? []);
+
+    expect(sections.map((s) => [s.label, s.rows.map((r) => `${r.taskId}`), s.needsYou])).toEqual([
+      ["daemon", ["worktree-setup-retry-on-reconnect", "handoff-hardening"], 1],
+      ["desktop", ["email-validator"], 0],
+    ]);
+    expect(c3?.done.map((r) => `${r.taskId}`)).toEqual(["sidebar-groups", "tab-lanes"]);
   });
 
   test("a Lead counts what needs you, itself included", () => {
@@ -203,7 +226,7 @@ describe("worktree setup before the first Attempt", () => {
   const result = sidebarItems({
     hostKey: "local",
     entries: localEntries,
-    views: [view, C2],
+    views: [view, C2, C3],
     lookup: lookupIn(HOSTS, models),
     setups: setupLookupIn(HOSTS, models),
   });
@@ -239,4 +262,33 @@ test("doneLine names a few, then counts", () => {
 
   expect(doneLine(rows)).toBe("A1, A2 done");
   expect(doneLine([...rows, ...rows, ...rows])).toBe("A1, A2, A1 and 3 more done");
+});
+
+describe("workerSections", () => {
+  const row = (taskId: string, group: string | null, state: LeadWorker["state"]): LeadWorker => {
+    const base = workerRows(C1, lookup)[0];
+
+    if (base === undefined) throw new Error("C1 has workers");
+
+    return { ...base, taskId: TaskId.make(taskId), group, state };
+  };
+
+  test("ungrouped workers lead without a heading, then groups by their loudest worker", () => {
+    const sections = workerSections([
+      row("a", "desktop", "needs-you"),
+      row("b", null, "working"),
+      row("c", "daemon", "review"),
+      row("d", "desktop", "working"),
+    ]);
+
+    expect(sections.map((s) => [s.label, s.rows.map((r) => `${r.taskId}`)])).toEqual([
+      [null, ["b"]],
+      ["desktop", ["a", "d"]],
+      ["daemon", ["c"]],
+    ]);
+  });
+
+  test("no workers, no sections", () => {
+    expect(workerSections([])).toEqual([]);
+  });
 });

@@ -16,6 +16,8 @@ import {
   attentionItems,
   buildRail,
   type ConstellationRecord,
+  LANE_MAX,
+  laneWidth,
   nextNeedingYou,
   type RailRow,
   retrySetup,
@@ -25,6 +27,7 @@ import {
 import { type KeyAction, railKey } from "../model/keys.ts";
 import { leadKey, type LeadUi, patchLeadUi, useLeadUi } from "../state.ts";
 import { ConstellationMark } from "./glyphs.tsx";
+import { laneStyle } from "./lane.tsx";
 import { Filters, Header, KeyHints } from "./header.tsx";
 import { CompletionCard } from "./stats.tsx";
 import { type MenuActions, RowContextMenu, RowMenu } from "./menu.tsx";
@@ -320,6 +323,12 @@ export const ConstellationTab = (props: ConstellationTabProps) => {
           tabIndex={0}
           onKeyDown={onKeyDown}
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1"
+          style={laneStyle(
+            laneWidth(
+              rail.tasks.map((t) => t.task.id),
+              LANE_MAX.tab
+            )
+          )}
           data-testid="constellation-rail"
         >
           <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>

@@ -13,6 +13,8 @@ import {
   type ConstellationRecord,
   type Digest,
   type Facts,
+  LANE_MAX,
+  laneWidth,
   type NotificationData,
   pluralize,
   shortSha,
@@ -20,6 +22,7 @@ import {
   type TaskGlyphKind,
 } from "../model/index.ts";
 import { ConstellationMark, TaskGlyph } from "./glyphs.tsx";
+import { IdLane, LaneSpacer, laneStyle } from "./lane.tsx";
 import { Checks } from "./strip.tsx";
 
 const CARD = "rounded-row border-hairline bg-surface-raised border";
@@ -204,37 +207,40 @@ export const DigestCard = ({
   readonly record: ConstellationRecord;
   readonly digest: Digest;
   readonly facts: Facts;
-}) => (
-  <div className={CARD} data-testid="digest-card">
-    <CardHead
-      title={
-        <>
-          {record.constellation.name}
-          <span className="text-text-subtle font-normal">
-            {" "}
-            · {pluralize(digest.items.length, "update")} for the lead
-          </span>
-        </>
-      }
-      aside={clock(digest.at)}
-    />
-    <ul className="flex flex-col pb-2">
-      {digest.items.map((n) => {
-        const line = lineOf(record, n, facts);
+}) => {
+  const lines = digest.items.map((n) => lineOf(record, n, facts));
+  const ids = lines.flatMap((l) => (l.task === null ? [] : [l.task.id]));
 
-        return (
+  return (
+    <div className={CARD} data-testid="digest-card">
+      <CardHead
+        title={
+          <>
+            {record.constellation.name}
+            <span className="text-text-subtle font-normal">
+              {" "}
+              · {pluralize(digest.items.length, "update")} for the lead
+            </span>
+          </>
+        }
+        aside={clock(digest.at)}
+      />
+      <ul className="flex flex-col pb-2" style={laneStyle(laneWidth(ids, LANE_MAX.digest))}>
+        {lines.map((line) => (
           <li
             key={line.key}
             className="text-body text-text-default flex h-7 items-center gap-3 px-3.5"
           >
             <TaskGlyph glyph={line.glyph} harness={null} size={14} />
-            <span className={cn("text-code-inline w-7 shrink-0 font-mono", line.tone)}>
-              {line.task?.id ?? ""}
-            </span>
+            {line.task === null ? (
+              <LaneSpacer />
+            ) : (
+              <IdLane id={line.task.id} max={LANE_MAX.digest} className={line.tone} />
+            )}
             <span className="flex min-w-0 items-center gap-2">{line.body}</span>
           </li>
-        );
-      })}
-    </ul>
-  </div>
-);
+        ))}
+      </ul>
+    </div>
+  );
+};

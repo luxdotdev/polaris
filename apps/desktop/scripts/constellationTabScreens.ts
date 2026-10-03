@@ -39,6 +39,7 @@ const ALL = [
   "completed",
   "setup",
   "setup-focus",
+  "slugs",
 ];
 
 const scenes = flag("--scenes")?.split(",") ?? ALL;

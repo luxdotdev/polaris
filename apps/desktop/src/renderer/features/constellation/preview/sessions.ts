@@ -83,6 +83,10 @@ const WORKERS: ReadonlyArray<readonly [string, string, AgentSession["state"], nu
   ["B3", "Tool eval", "working", 48],
   ["B4", "HTTP endpoint", "idle", 33],
   ["B5", "Trace validation", "idle", 71],
+  ["handoff-hardening", "Handoff summary", "working", 44],
+  ["worktree-setup-retry-on-reconnect", "Setup retry", "idle", 37],
+  ["email-validator", "Download email", "idle", 29],
+  ["sidebar-groups", "Sidebar groups", "idle", 35],
 ];
 
 export const workerSessions = WORKERS.map(([id, title, state, percent]) =>

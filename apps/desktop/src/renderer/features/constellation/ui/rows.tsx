@@ -1,6 +1,6 @@
 /**
- * The rail's rows (DESIGN.md, Rows, not a canvas): fixed lanes of rail (60px), id, title,
- * actor and state, plus at most two caption lines that carry state, never prose.
+ * The rail's rows (DESIGN.md, Rows, not a canvas): fixed lanes of rail (60px), id (the view's
+ * `--id-lane`), title, actor and state, plus at most two caption lines that carry state.
  */
 import { Button, ChevronDownIcon, ChevronRightIcon, cn } from "@polaris/ui";
 import type { ReactNode } from "react";
@@ -17,8 +17,10 @@ import {
   tallyBar,
   type TaskRow,
   type Tone,
+  LANE_MAX,
 } from "../model/index.ts";
 import { InputDot, TaskGlyph } from "./glyphs.tsx";
+import { IdLane, LaneSpacer } from "./lane.tsx";
 import { Checks, StripBar } from "./strip.tsx";
 
 export const TONE: Readonly<Record<Tone, string>> = {
@@ -31,14 +33,16 @@ export const TONE: Readonly<Record<Tone, string>> = {
 
 const ID_TONE: Readonly<Record<Tone, string>> = { ...TONE, neutral: "text-text-subtle" };
 
-/** The rail column: the trunk, and for a nested row the elbow to its glyph. */
+/** The rail column: the trunk, for a nested row the elbow to its glyph, and a group's chevron. */
 const Rail = ({
   nested,
   accepted,
+  trail,
   children,
 }: {
   readonly nested: boolean;
   readonly accepted?: boolean;
+  readonly trail?: ReactNode;
   readonly children: ReactNode;
 }) => (
   <span className="relative w-[60px] shrink-0 self-stretch" aria-hidden={false}>
@@ -59,6 +63,9 @@ const Rail = ({
     >
       {children}
     </span>
+    {trail === undefined ? null : (
+      <span className="absolute top-[6px] right-1 grid size-4 place-items-center">{trail}</span>
+    )}
   </span>
 );
 
@@ -185,9 +192,7 @@ const TaskView = ({ row, on }: { readonly row: TaskRow; readonly on: RowHandlers
     </Rail>
     <div className="flex min-w-0 flex-1 flex-col gap-0.5 py-[5px]">
       <div className="flex min-w-0 items-center gap-3">
-        <span className={cn("text-code-inline w-10 shrink-0 font-mono", ID_TONE[row.look.idTone])}>
-          {row.task.id}
-        </span>
+        <IdLane id={row.task.id} max={LANE_MAX.tab} className={ID_TONE[row.look.idTone]} />
         <TaskTitle row={row} />
         <span className="text-body text-text-subtle hidden w-[9.5rem] shrink-0 truncate text-right @[42rem]:block">
           {row.actor}
@@ -201,7 +206,8 @@ const TaskView = ({ row, on }: { readonly row: TaskRow; readonly on: RowHandlers
         <span className="w-6 shrink-0">{row.attempt === null ? null : on.menu(row)}</span>
       </div>
       {row.line === null && !row.promoted ? null : (
-        <div className="flex min-w-0 items-center gap-3 pl-[3.25rem]">
+        <div className="flex min-w-0 items-center gap-3">
+          <LaneSpacer />
           <div className="min-w-0 flex-1">
             {row.line === null ? null : <LineView line={row.line} />}
           </div>
@@ -228,8 +234,9 @@ const TaskView = ({ row, on }: { readonly row: TaskRow; readonly on: RowHandlers
         </div>
       )}
       {row.overlap === null ? null : (
-        <div className="pl-[3.25rem]">
-          <Caption>
+        <div className="flex min-w-0 gap-3">
+          <LaneSpacer />
+          <Caption className="flex-1">
             <span aria-hidden className="text-text-faint">
               ⧉
             </span>
@@ -262,13 +269,14 @@ const TallyText = ({ tally }: { readonly tally: Tally }) => {
     parts.push(<span key="wt">{tally.waiting} waiting</span>);
 
   return (
-    <span className="text-body text-text-subtle flex min-w-0 shrink items-center gap-1.5 overflow-hidden whitespace-nowrap">
+    <span className="text-body text-text-subtle flex min-w-[7.5rem] shrink items-center justify-end gap-1.5 overflow-hidden whitespace-nowrap">
       {parts.flatMap((p, n) => (n === 0 ? [p] : [<span key={`s${n}`}>·</span>, p]))}
       {tally.done > 0 ? <span className="text-accepted-text pl-1">{tally.done} done</span> : null}
     </span>
   );
 };
 
+/** A group's heading: its label on the id lane, its tally ending on the state lane. */
 const GroupView = ({
   row,
   on,
@@ -278,39 +286,45 @@ const GroupView = ({
   readonly on: RowHandlers;
   readonly large: boolean;
 }) => (
-  <div className="h-tree-row flex w-full items-stretch pr-3 pl-3">
-    <Rail nested={false}>
+  <button
+    type="button"
+    aria-expanded={row.open}
+    onClick={() => on.onToggleGroup(row.group)}
+    className="min-h-tree-row flex w-full cursor-default items-stretch pr-3 pl-3 text-left"
+  >
+    <Rail
+      nested={false}
+      trail={
+        row.open ? (
+          <ChevronDownIcon size={10} className="text-text-subtle" />
+        ) : (
+          <ChevronRightIcon size={10} className="text-text-subtle" />
+        )
+      }
+    >
       <TaskGlyph glyph={row.glyph} harness={null} />
     </Rail>
-    <button
-      type="button"
-      aria-expanded={row.open}
-      onClick={() => on.onToggleGroup(row.group)}
-      className="flex min-w-0 flex-1 cursor-default items-center gap-3 pl-[3.25rem] text-left"
-    >
-      <span className="text-label text-text-strong flex min-w-24 flex-1 items-center gap-1.5">
-        {row.open ? (
-          <ChevronDownIcon size={10} className="text-text-subtle shrink-0" />
-        ) : (
-          <ChevronRightIcon size={10} className="text-text-subtle shrink-0" />
-        )}
-        <span className="truncate">{row.label}</span>
+    <span className="flex min-w-0 flex-1 py-[5px]">
+      <span className="flex min-h-(--text-body--line-height) min-w-0 flex-1 items-center gap-3">
+        <span className="text-label text-text-strong flex min-w-24 flex-1 items-center gap-1.5">
+          <span className="truncate">{row.label}</span>
+          {large ? (
+            <span className="text-body text-text-faint tabular shrink-0">
+              {row.total}
+              {row.tally.proposed > 0 ? ` · ${row.tally.proposed} proposed` : ""}
+            </span>
+          ) : null}
+        </span>
         {large ? (
-          <span className="text-body text-text-faint tabular shrink-0">
-            {row.total}
-            {row.tally.proposed > 0 ? ` · ${row.tally.proposed} proposed` : ""}
+          <span className="hidden w-[9.5rem] shrink-0 justify-end @[44rem]:flex">
+            <StripBar parts={tallyBar(row.tally, row.total)} width={120} />
           </span>
         ) : null}
+        <TallyText tally={row.tally} />
+        <span className="w-6 shrink-0" />
       </span>
-      {large ? (
-        <span className="hidden @[44rem]:block">
-          <StripBar parts={tallyBar(row.tally, row.total)} width={120} />
-        </span>
-      ) : null}
-      <TallyText tally={row.tally} />
-      <span className="w-6 shrink-0" />
-    </button>
-  </div>
+    </span>
+  </button>
 );
 
 /** A Subagent under its Attempt (DESIGN.md, Subagents are nodes): smaller glyph, "subagent". */
@@ -335,7 +349,7 @@ const SubagentView = ({
       </span>
     </span>
     <span className="flex min-w-0 flex-1 items-center gap-3">
-      <span className="w-10 shrink-0" />
+      <LaneSpacer />
       <span className="text-body text-text-subtle min-w-0 flex-1 truncate">
         {row.subagent.title}
       </span>
@@ -385,7 +399,8 @@ export const RowView = ({
           <Rail nested={row.nested}>
             <TaskGlyph glyph="future" harness={null} />
           </Rail>
-          <span className="flex min-w-0 flex-1 items-center gap-3 pl-[3.25rem]">
+          <span className="flex min-w-0 flex-1 items-center gap-3">
+            <LaneSpacer />
             <span className="text-body text-text-default truncate">{row.proposal.task.title}</span>
             {row.by === null ? null : (
               <span className="text-body text-text-subtle shrink-0">proposed by {row.by}</span>
