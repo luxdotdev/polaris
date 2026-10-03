@@ -31,7 +31,7 @@ import { worktreeIdFor } from "./decider.ts";
 import { contextChanged } from "./context.ts";
 import { finalReply, forkPreamble } from "./fork.ts";
 import { EngineRuntime, type EventSource, type LiveHarness, type Progress } from "./runtime.ts";
-import { deferredUserTurns } from "./supervisor.turns.ts";
+import { deferredUserTurns, refuseUserTurn } from "./supervisor.turns.ts";
 import { HarnessTurnAliases } from "./supervisor.aliases.ts";
 
 type HarnessEventOf<Tag extends HarnessEvent["_tag"]> = Extract<HarnessEvent, { _tag: Tag }>;
@@ -399,56 +399,72 @@ const make = (
     });
 
   const deliverTurn = (input: TurnToRun): Effect.Effect<boolean, ServiceError> =>
-    Effect.scoped(
-      Effect.gen(function* () {
-        const { sessionId, turnId, prompt, attachments } = input;
-        const model = yield* store.model;
-        const turn = model.sessions.get(sessionId)?.turns.find((t) => t.id === turnId);
+    Effect.suspend(() => {
+      let refusalReported = false;
 
-        if (turn === undefined || turn.status !== "working") return false;
+      return Effect.scoped(
+        Effect.gen(function* () {
+          const { sessionId, turnId, prompt, attachments } = input;
+          const model = yield* store.model;
+          const turn = model.sessions.get(sessionId)?.turns.find((t) => t.id === turnId);
 
-        if (turn.checkpointBefore === null) yield* recordBefore(sessionId, turnId);
+          if (turn === undefined || turn.status !== "working") return false;
 
-        if (input.steerExisting === true) {
-          const current = (yield* store.model).sessions
-            .get(sessionId)
-            ?.turns.find((t) => t.id === turnId);
+          if (turn.checkpointBefore === null) yield* recordBefore(sessionId, turnId);
 
-          if (current?.status !== "working") return false;
-        }
+          if (input.steerExisting === true) {
+            const current = (yield* store.model).sessions
+              .get(sessionId)
+              ?.turns.find((t) => t.id === turnId);
 
-        yield* rt.cancelIdle(sessionId);
-        // Before opening: a Harness may report its cursor as soon as it opens.
-        const session = (yield* store.model).sessions.get(sessionId)?.session;
+            if (current?.status !== "working" || !live.has(sessionId)) return false;
+          }
 
-        const promptInput =
-          session !== undefined &&
-          session.parentSessionId !== null &&
-          session.harnessCursor === null
-            ? yield* withForkContext(session, session.parentSessionId, prompt)
-            : prompt;
+          yield* rt.cancelIdle(sessionId);
+          // Before opening: a Harness may report its cursor as soon as it opens.
+          const session = (yield* store.model).sessions.get(sessionId)?.session;
 
-        const entry = yield* openHarness(sessionId);
-        yield* rt.signal(sessionId, { type: "harness.opened" });
+          const promptInput =
+            session !== undefined &&
+            session.parentSessionId !== null &&
+            session.harnessCursor === null
+              ? yield* withForkContext(session, session.parentSessionId, prompt)
+              : prompt;
 
-        const turnInput = {
-          turnId,
-          prompt: promptInput,
-          attachments,
-          model: turn.model,
-          effort: turn.effort,
-          serviceTier: turn.serviceTier,
-        };
+          const entry = yield* openHarness(sessionId);
+          yield* rt.signal(sessionId, { type: "harness.opened" });
 
-        if (input.steerExisting === true)
-          return yield* entry.session.steerTurn?.(turnInput) ?? Effect.succeed(false);
-        yield* entry.session.sendTurn(turnInput);
+          const turnInput = {
+            turnId,
+            prompt: promptInput,
+            attachments,
+            model: turn.model,
+            effort: turn.effort,
+            serviceTier: turn.serviceTier,
+          };
 
-        return true;
-      })
-    ).pipe(
-      Effect.catch((error) => rt.failSession(input.sessionId, error.message).pipe(Effect.as(true)))
-    );
+          if (input.steerExisting === true)
+            return yield* (entry.session.steerTurn?.(turnInput) ?? Effect.succeed(false)).pipe(
+              Effect.tapError(() =>
+                Effect.sync(() => {
+                  refusalReported = entry.driver.kind === "claude";
+                })
+              )
+            );
+          yield* entry.session.sendTurn(turnInput);
+
+          return true;
+        })
+      ).pipe(
+        Effect.catch((error) =>
+          input.steerExisting === true
+            ? (refusalReported ? Effect.void : refuseUserTurn(rt, input, error.message)).pipe(
+                Effect.as(true)
+              )
+            : rt.failSession(input.sessionId, error.message).pipe(Effect.as(true))
+        )
+      );
+    });
 
   const enqueue = deferredUserTurns(rt, deliverTurn);
 

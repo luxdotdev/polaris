@@ -37,7 +37,7 @@ record (folded from the log) ─▶ snapshotOf(record) ─▶ transition(machine
 - **The event log stays the source of truth.** `snapshotOf(record)` derives the machine snapshot from the folded `SessionRecord` (the Session State is the state value, the record is the context), so a restart rebuilds it by folding events, as it always did. Nothing keeps a snapshot between inputs.
 - **The context update is the fold.** A transition emits its `DomainEvent`s and moves to the state `foldSession` of those events gives (`store/model.ts`, the same reducer `project` uses). So a transition's next snapshot is exactly what the log folds to once its events commit, and the target state and the recorded `SessionStateChanged` can't disagree. `session.test.ts` checks this for every reachable snapshot and input.
 - **Inputs** (`SessionInput`) are Client commands, validated (a state that doesn't accept one rejects it with the reason a user reads), and engine signals from the reactors: the Harness (`harness.opened`, `harness.turnStarted`, `harness.approvalRequested`, `harness.turnEnded`, `harness.exited`, …), the terminal hand-off (`terminal.closed`, `harness.resumed`), the idle timer (`idle.timeout`), failures (`session.fail`) and restart / upgrade recovery (`daemon.recover`). Their payloads (`session.inputs.ts`, with what the machine emits) are Effect Schemas passed to XState as Standard Schemas (`Schema.toStandardSchemaV1`), which types every handler's `event`.
-- **Effects**: entering Idle emits `scheduleIdleStop`. The runtime uses `idleTimeout` (30 minutes by default) without background work, or `backgroundIdleTimeout` (eight hours by default) while waiting. Silent background work counts as idle. Recorded session events and streamed progress update a monotonic last-event timestamp; one timer sleeps again for the remaining inactivity interval. Expiry passes through `idle.timeout`, clears background work, stops the Harness and records Dormant with reason `background-idle-timeout`; ordinary expiry records `idle-timeout`. Membership changes re-arm the appropriate timer. Everything else the reactors do (opening Harnesses, checkpoints, Worktrees) stays in the reactors and the supervisor, keyed off the command or Harness event as before.
+- **Effects**: `turn.deliver` emits `waitForTurn` when another Turn is working; the deferred input lane runs that effect outside the reactor lock. The runtime commits signal events and runs stop/idle effects before returning wait effects to the lane. Entering Idle emits `scheduleIdleStop`. The runtime uses `idleTimeout` (30 minutes by default) without background work, or `backgroundIdleTimeout` (eight hours by default) while waiting. Silent background work counts as idle. Recorded session events and streamed progress update a monotonic last-event timestamp; one timer sleeps again for the remaining inactivity interval. Expiry passes through `idle.timeout`, clears background work, stops the Harness and records Dormant with reason `background-idle-timeout`; ordinary expiry records `idle-timeout`. Membership changes re-arm the appropriate timer. Everything else the reactors do (opening Harnesses, checkpoints, Worktrees) stays in the reactors and the supervisor, keyed off the command or Harness event as before.
 - **Where it runs**: `decider.ts` builds the input for each lifecycle command (`StartSession`, `SendTurn`, `Continue`, `Retry`, `Steer`, `Interrupt`, `RespondToApproval`, `SetPermissionMode`, `SetModel`, `ForkSession`, `ArchiveSession`, `UnarchiveSession`, `OpenInTerminal`, `ReturnFromTerminal`) and returns what the machine emits; the runtime's `signal(sessionId, input)` (`runtime.ts`) does the same for engine signals inside `store.commit`, then runs the effects. Workspaces, Worktrees, renames and Turn items are not lifecycle and stay where they were.
 - **Cost**: one `resolveState` + `transition` is ~10 µs, and snapshots are cached per record (`WeakMap`), so a record is resolved once. Deltas and item events never touch the machine.
 
@@ -55,10 +55,11 @@ stateDiagram-v2
   state "live (Harness running)" as live {
     state "Idle" as idle
     state "Working" as working
-    idle --> working: turn.send, turn.retry, harness.turnStarted (including background reports)
+    idle --> working: turn.send, turn.deliver, turn.retry, harness.turnStarted (including background reports)
     working --> needs_you: harness.approvalRequested (for the Turn in flight)
     needs_you --> working: approval.respond, harness.approvalWithdrawn (last request, Turn in flight)
     working --> working: turn.send (autonomous Turn: steer user prompt)
+    working --> working: turn.deliver (waitForTurn effect; no events)
     working --> idle: harness.turnEnded
     needs_you --> idle: harness.turnEnded
   }
@@ -66,9 +67,9 @@ stateDiagram-v2
   [*] --> dormant: session.fork
   starting --> working: harness.opened, harness.resumed (Turn open)
   starting --> idle: harness.resumed (no Turn)
-  dormant --> starting: turn.send, turn.continue, turn.retry
-  failed --> starting: turn.send, turn.continue, turn.retry
-  needs_you --> starting: turn.send, turn.continue, turn.retry (after a restart, nothing pending)
+  dormant --> starting: turn.send, turn.deliver, turn.continue, turn.retry
+  failed --> starting: turn.send, turn.deliver, turn.continue, turn.retry
+  needs_you --> starting: turn.send, turn.deliver, turn.continue, turn.retry (after a restart, nothing pending)
   dormant --> working: harness.turnStarted
   idle --> dormant: idle.timeout (ordinary idle or background inactivity cap)
   idle --> in_terminal: terminal.open
@@ -197,4 +198,4 @@ a running setup refuses send/continue/retry. It starts only at a Session
 boundary and failure enters Failed. Restart marks an unfinished card failed
 without inventing a Turn; the next dispatch may rerun setup.
 
-Accepted input that races an autonomous Turn ending is delivered to a fresh user Turn through `turn.send`. Deferred prompts have a per-Session arrival-order lane: they wait behind a working Turn and never steer into an unrelated user Turn. Waiting subscribes only to the target's TurnEnded after checkpoint preparation, then rechecks the folded status. The lane releases the reactor lock during the wait, so Interrupt can reach the Harness. If the machine refuses a prompt with no working Turn, its original Turn records the prompt and an Error with the refusal reason; live streams and snapshots include both. Native Turn aliases are removed at TurnEnded, retaining only live child routing until SubagentEnded.
+Accepted input that races an autonomous Turn ending is delivered to a fresh user Turn through `turn.send`. Deferred prompts have a per-Session arrival-order lane: they wait behind a working Turn and never steer into an unrelated user Turn. Waiting subscribes only to the target's TurnEnded after checkpoint preparation, then rechecks the folded status. The lane releases the reactor lock during the wait, so Interrupt can reach the Harness. Lane retirement removes an empty queue synchronously; an old fiber cannot remove a replacement lane. Deferred restarts use the `turn.deliver` engine signal and its effects rather than deciding lifecycle in the supervisor. Archive, a missing Session or closed event stream, and Harness exit release waits and visibly refuse all remaining queued input. If the machine refuses a prompt, its original Turn records the prompt and an Error with the refusal reason; live streams and snapshots include both. Native Turn aliases are removed at TurnEnded, retaining only live child routing until SubagentEnded.

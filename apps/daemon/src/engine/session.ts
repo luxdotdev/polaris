@@ -7,7 +7,8 @@ import {
   idleStopEffect,
   backgroundIdleStop,
 } from "./session.backgroundTasks.ts";
-import { harnessTurn } from "./session.turns.ts";
+import { deferredDelivery, refusedInput } from "./session.deferred.ts";
+import { harnessTurn, takesTurn, turnRefusal } from "./session.turns.ts";
 import { modelChanged } from "./session.model.ts";
 import {
   DomainEvent,
@@ -133,45 +134,6 @@ const settle = (
 
 const reject = (enq: Enqueue, reason: string) => {
   enq.emit({ type: "rejected", reason });
-};
-
-/** Session States that take a new Turn (with no Turn in flight). */
-const takesTurn = (record: SessionRecord): boolean => {
-  if (workingTurn(record) !== undefined || record.session.worktreeSetup?.status === "running")
-    return false;
-  const { state } = record.session;
-
-  if (state === "idle" || state === "dormant" || state === "failed") return true;
-
-  // Needs You after a Daemon restart (an Interrupted Turn, nothing pending) takes a new Turn too.
-  return state === "needs-you" && record.pending.size === 0;
-};
-
-/** Why a new or continued Turn is refused, in the order the checks read to a user. */
-const turnRefusal = (record: SessionRecord, kind: "send" | "continue" | "retry"): string => {
-  const { state } = record.session;
-
-  if (record.session.worktreeSetup?.status === "running") return "worktree setup is still running";
-
-  const last = lastTurn(record)?.status;
-
-  if (kind === "retry" && last !== "failed") return "there is no Failed Turn to retry";
-
-  if (kind === "continue" && last !== "interrupted") {
-    return "there is no Interrupted Turn to continue";
-  }
-
-  if (kind === "continue" && lastIsAccepted(record)) {
-    return "the Interrupted Turn is accepted; send a new Turn instead";
-  }
-
-  if (kind !== "send") return `the session is ${state}`;
-
-  if (state === "archived") return "the session is Archived";
-
-  if (state === "in-terminal") return "the session is In Terminal; return it first";
-
-  return `the session is ${state}; wait for the Turn to end`;
 };
 
 // ── Machine ─────────────────────────────────────────────────────────────────
@@ -419,6 +381,35 @@ export const sessionMachine = createMachine({
   on: {
     "session.start": ({ event }, enq) => reject(enq, `session ${event.session.id} already exists`),
     "session.fork": ({ event }, enq) => reject(enq, `session ${event.session.id} already exists`),
+    "turn.deliver": ({ context, event }, enq) => {
+      if (context.record === null) {
+        for (const domain of refusedInput(undefined, event, "the Session was deleted"))
+          enq.emit({ type: "domain", event: domain });
+
+        return HANDLED;
+      }
+
+      const record = context.record;
+      const delivery = deferredDelivery(record, event);
+
+      if (delivery.waiting !== null) {
+        enq.emit({ type: "effect", effect: { type: "waitForTurn", turnId: delivery.waiting } });
+
+        return HANDLED;
+      }
+
+      if (delivery.refusal === null) {
+        const started = sendTurn({ context, event: { type: "turn.send", turn: event.turn } }, enq);
+
+        if (started !== undefined) return started;
+      }
+
+      return settle(
+        enq,
+        record,
+        refusedInput(record, event, delivery.refusal ?? turnRefusal(record, "send"))
+      );
+    },
     "turn.send": ({ context }, enq) => reject(enq, turnRefusal(need(context), "send")),
     "turn.continue": ({ context }, enq) => reject(enq, turnRefusal(need(context), "continue")),
     "turn.retry": ({ context }, enq) => reject(enq, turnRefusal(need(context), "retry")),
@@ -844,7 +835,12 @@ export interface Decision {
 export const decideSession = (record: SessionRecord | undefined, input: SessionInput): Decision => {
   const snapshot = snapshotOf(record);
 
-  if (record === undefined && input.type !== "session.start" && input.type !== "session.fork") {
+  if (
+    record === undefined &&
+    input.type !== "session.start" &&
+    input.type !== "session.fork" &&
+    input.type !== "turn.deliver"
+  ) {
     return { events: [], rejection: null, effects: [], next: snapshot, unhandled: true };
   }
 
