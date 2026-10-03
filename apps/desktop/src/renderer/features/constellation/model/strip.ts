@@ -8,14 +8,7 @@ import type { TaskRow } from "./task.ts";
 
 export const STRIP_SEGMENTS_MAX = 40;
 
-export type StripTone =
-  | "accepted"
-  | "working"
-  | "review"
-  | "needs-you"
-  | "failed"
-  | "waiting"
-  | "future";
+export type StripTone = "accepted" | "working" | "review" | "needs-you" | "failed" | "waiting";
 
 export interface Segment {
   readonly key: string;
@@ -37,8 +30,6 @@ const toneOf = (row: TaskRow): StripTone => {
       return "review";
     case "failed":
       return "failed";
-    case "future":
-      return "future";
     default:
       return "waiting";
   }
@@ -64,7 +55,6 @@ const ORDER: ReadonlyArray<StripTone> = [
   "accepted",
   "failed",
   "waiting",
-  "future",
 ];
 
 /** A proportional bar in a fixed order, so it reads left to right the same way every time. */

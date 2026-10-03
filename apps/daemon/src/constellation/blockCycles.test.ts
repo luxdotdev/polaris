@@ -1,5 +1,13 @@
 import { expect, test } from "bun:test";
-import { PlanOperation, ReviewAction, SessionId, TaskDefinition, TaskId } from "@polaris/protocol";
+import {
+  ConstellationEvent,
+  PlanOperation,
+  ReviewAction,
+  SessionId,
+  Task,
+  TaskDefinition,
+  TaskId,
+} from "@polaris/protocol";
 import { Struct } from "effect";
 import { decideConstellation } from "../engine/constellation.ts";
 import {
@@ -11,6 +19,7 @@ import {
   ctx,
   dispatched,
   draft,
+  foldDecision,
   planned,
   task,
 } from "../engine/constellation.testing.ts";
@@ -113,4 +122,83 @@ test("stopping a blocked Attempt removes its wait edges from both guards", () =>
 
   expect(block(stopped, B, A).rejection).toBeNull();
   expect(edit(stopped, B, [A]).rejection).toBeNull();
+});
+
+test("accepted Tasks do not contribute dependency wait edges", () => {
+  const record = waiting();
+  const feed = record.graph.attempts.find((a) => a.taskId === B)!;
+
+  const accepted = foldDecision(record, [
+    ConstellationEvent.cases.AttemptAccepted.make({
+      constellationId: CID,
+      revision: record.graph.revision + 1,
+      attemptId: feed.id,
+      attemptRevision: feed.revision + 1,
+      mergedHead: "head",
+      receipts: [],
+      evidence: "asserted",
+    }),
+  ]);
+
+  expect(edit(accepted, B, [A]).rejection).toBeNull();
+
+  const changed = apply(
+    accepted,
+    C.Plan.make({
+      constellationId: CID,
+      operations: [PlanOperation.cases.Edit.make({ taskId: B, revision: 0, task: task(B, [A]) })],
+    })
+  );
+
+  expect(edit(changed, X, [B]).rejection).toBeNull();
+});
+
+test("legacy block cycles allow unrelated edits and edits that remove cycle edges", () => {
+  const record = waiting();
+
+  const legacy = foldDecision(record, [
+    ConstellationEvent.cases.TaskEdited.make({
+      constellationId: CID,
+      revision: record.graph.revision + 1,
+      task: Task.make(
+        Struct.assign(
+          record.graph.tasks.find((t) => t.id === B)!,
+          { deps: [A], revision: 1 }
+        )
+      ),
+    }),
+  ]);
+
+  expect(edit(legacy, X, []).rejection).toBeNull();
+  expect(edit(legacy, B, []).rejection).toBeNull();
+  expect(edit(legacy, X, [A]).rejection).toBeNull();
+  expect(edit(legacy, A, [X]).rejection).toBeNull();
+
+  const cyclicBatch = decideConstellation(
+    legacy,
+    C.Plan.make({
+      constellationId: CID,
+      operations: [
+        PlanOperation.cases.Edit.make({ taskId: A, revision: 0, task: task(A, [X]) }),
+        PlanOperation.cases.Edit.make({ taskId: X, revision: 0, task: task(X, [A]) }),
+      ],
+    }),
+    ctx()
+  );
+
+  expect(cyclicBatch.rejection?.findings.some((f) => f.code === "E-DEP-CYCLE")).toBe(true);
+
+  const cancel = decideConstellation(
+    legacy,
+    C.Plan.make({
+      constellationId: CID,
+      operations: [
+        PlanOperation.cases.Cancel.make({ taskId: X, revision: 0 }),
+        PlanOperation.cases.Edit.make({ taskId: B, revision: 1, task: task(B) }),
+      ],
+    }),
+    ctx()
+  );
+
+  expect(cancel.rejection).toBeNull();
 });

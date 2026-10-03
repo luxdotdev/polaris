@@ -59,7 +59,25 @@ export class RemoteDeliveries extends Context.Service<
       const hostId = yield* ConstellationOwner;
       const hooks = yield* RemoteWorkerDelivery;
       const changes = yield* SubscriptionRef.make(0);
-      const serial = yield* Semaphore.make(1);
+      const queues = new Map<string, { semaphore: Semaphore.Semaphore; users: number }>();
+
+      const inQueue = <A, E>(id: string, effect: Effect.Effect<A, E>) =>
+        Effect.acquireUseRelease(
+          Effect.sync(() => {
+            const queue = queues.get(id) ?? { semaphore: Semaphore.makeUnsafe(1), users: 0 };
+            queue.users++;
+            queues.set(id, queue);
+
+            return queue;
+          }),
+          (queue) => queue.semaphore.withPermits(1)(effect),
+          (queue) =>
+            Effect.sync(() => {
+              queue.users--;
+
+              if (queue.users === 0) queues.delete(id);
+            })
+        );
 
       const pending = Effect.gen(function* () {
         const result: Array<RemoteDeliveryPacket> = [];
@@ -107,46 +125,54 @@ export class RemoteDeliveries extends Context.Service<
           );
         }),
         apply: (packet) =>
-          serial.withPermits(1)(
-            Effect.gen(function* () {
-              if (packet.workerHostId !== hostId)
-                return yield* transferError("E-ROUTE", "The input targets another worker Host");
-              const hash = packetHash(packet);
-              const prior = yield* storage.get("delivered", packet.id);
+          inQueue(
+            JSON.stringify(["packet", packet.id]),
+            inQueue(
+              JSON.stringify(["session", packet.sessionId]),
+              Effect.gen(function* () {
+                if (packet.workerHostId !== hostId)
+                  return yield* transferError("E-ROUTE", "The input targets another worker Host");
+                const hash = packetHash(packet);
+                const prior = yield* storage.get("delivered", packet.id);
 
-              if (prior !== null) {
-                const receipt = decodeReceipt(prior);
+                if (prior !== null) {
+                  const receipt = decodeReceipt(prior);
 
-                if (receipt.packetHash !== hash)
+                  if (receipt.packetHash !== hash)
+                    return yield* transferError(
+                      "E-IDEMPOTENCY",
+                      "This input ID already delivered another payload"
+                    );
+
+                  return receipt;
+                }
+
+                const assignment = (yield* storage.assignments).find(
+                  (a) =>
+                    a.graph.id === packet.constellationId &&
+                    a.attemptId === packet.attemptId &&
+                    a.graph.hostId === packet.ownerHostId &&
+                    assignmentAttempt(a).sessionId === packet.sessionId
+                );
+
+                if (assignment === undefined)
                   return yield* transferError(
-                    "E-IDEMPOTENCY",
-                    "This input ID already delivered another payload"
+                    "E-ASSIGNMENT",
+                    "The input has no registered remote worker binding",
+                    true
                   );
+                yield* storage.put("intents", `delivery:${packet.id}`, encodePacket(packet));
+                yield* hooks.apply(packet);
+                const receipt = RemoteDeliveryReceipt.make({ id: packet.id, packetHash: hash });
+                yield* storage.put(
+                  "delivered",
+                  packet.id,
+                  Schema.encodeSync(receiptCodec)(receipt)
+                );
 
                 return receipt;
-              }
-
-              const assignment = (yield* storage.assignments).find(
-                (a) =>
-                  a.graph.id === packet.constellationId &&
-                  a.attemptId === packet.attemptId &&
-                  a.graph.hostId === packet.ownerHostId &&
-                  assignmentAttempt(a).sessionId === packet.sessionId
-              );
-
-              if (assignment === undefined)
-                return yield* transferError(
-                  "E-ASSIGNMENT",
-                  "The input has no registered remote worker binding",
-                  true
-                );
-              yield* storage.put("intents", `delivery:${packet.id}`, encodePacket(packet));
-              yield* hooks.apply(packet);
-              const receipt = RemoteDeliveryReceipt.make({ id: packet.id, packetHash: hash });
-              yield* storage.put("delivered", packet.id, Schema.encodeSync(receiptCodec)(receipt));
-
-              return receipt;
-            })
+              })
+            )
           ),
         ack: Effect.fnUntraced(function* (receipt) {
           const encoded = yield* storage.get("deliveries", receipt.id);

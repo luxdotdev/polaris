@@ -69,7 +69,6 @@ const EMPTY_TALLY: Tally = {
   working: 0,
   done: 0,
   waiting: 0,
-  future: 0,
   ended: 0,
   proposed: 0,
 };
@@ -91,22 +90,22 @@ const groupGlyph = (group: string, tally: Tally, total: number): TaskGlyphKind =
 
   if (total > 0 && tally.done === total) return "accepted";
 
-  return group === FUTURES || tally.future === total ? "future" : "waiting";
+  return group === FUTURES ? "future" : "waiting";
 };
 
 const GATES = "Gates";
 
 const FUTURES = "Futures";
 
-/** The group a Task sits in; large Constellations gather ungrouped Gates and Futures. */
-const groupOf = (task: TaskData, row: TaskRow, large: boolean) => {
+/** The group a Task sits in; large Constellations gather ungrouped Gates and proposals. */
+const groupOf = (task: TaskData, large: boolean) => {
   if (task.group != null && task.group !== "") return task.group;
 
   if (!large) return null;
 
   if (task.kind === "gate") return GATES;
 
-  return row.look.bucket === "future" ? FUTURES : "Other tasks";
+  return "Other tasks";
 };
 
 const MATCHES: Readonly<Record<Exclude<Filter, "all">, Bucket>> = {
@@ -163,7 +162,7 @@ const gather = (record: ConstellationRecord, ctx: TaskContext, large: boolean) =
 
   for (const task of record.constellation.tasks) {
     const probe = taskRow(task, true, ctx);
-    const name = groupOf(task, probe, large);
+    const name = groupOf(task, large);
 
     owner.set(task.id, name);
 

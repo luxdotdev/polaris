@@ -199,7 +199,7 @@ test("rollups include recursive work, review, done, ready and waiting with decla
 test("a parent's working rollup excludes failed, lost and canceled descendants", () => {
   const record = dispatched(planned([task(P), nested(A, P), nested(B, P)]));
 
-  for (const outcome of ["failed", "lost", "settled_unverified"] as const) {
+  for (const outcome of ["failed", "lost"] as const) {
     // No mutation of persisted events: model an already folded mechanical outcome.
     const observed = {
       ...record,

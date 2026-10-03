@@ -633,3 +633,50 @@ test("unblock replay rejects a fresh broadcast as its Lead cause", () => {
   );
   expect(check(input)).toBe(false);
 }, 30_000);
+
+test("quoted multiline feedback and merge base replay safely; actual first Turns reject duplicates", () => {
+  const reason = 'Keep "both tests".\n\nUnicode λ and \\ literal escape.';
+
+  const retry = E.AttemptStarted.make({
+    ...graph,
+    attempt: Attempt.make(
+      Struct.assign(began.attempt, {
+        id: AttemptId.make("retry"),
+        hostId: HostId.make("remote-worker"),
+        cause: AttemptCause.cases.MergeConflict.make({ ref: attemptId, base: 'base"\nmerge' }),
+      })
+    ),
+  });
+
+  const rejected = E.AttemptRejected.make({ ...target, reason });
+
+  const first = E.TurnStarted.make({
+    turn: Turn.make({
+      id: TurnId.make("retry:start"),
+      sessionId: worker,
+      index: 0,
+      prompt: reason,
+      attachments: [],
+      model: null,
+      effort: null,
+      status: "working",
+      checkpointBefore: null,
+      checkpointAfter: null,
+      startedAt: time,
+      endedAt: null,
+    }),
+  });
+
+  const batches = [
+    batch(initial),
+    batch(reviewed),
+    batch([rejected, retry]),
+    { hostId: "remote-worker", events: [first] },
+  ];
+
+  expect(check(trace(batches))).toBe(true);
+  expect(check(trace([...batches, batches.at(-1)!]))).toBe(false);
+  expect(() => check(trace([...batches.slice(0, -1), batch([first])]))).toThrow("worker Host");
+  const sources = constellationTraceToQuint("first", trace(batches), "model");
+  expect(sources[0]!.source).toContain("FirstTurnStarted(1)");
+}, 30000);

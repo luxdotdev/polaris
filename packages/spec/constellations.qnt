@@ -6,14 +6,14 @@ module constellations {
   const CAPACITY: int
 
   type Task = { declared: bool, deps: Set[int], parent: int, gate: bool, canceled: bool, revision: int }
-  type Attempt = { task: int, session: int, status: str, ref: int, revision: int, sha: int }
+  type Attempt = { task: int, session: int, status: str, ref: int, revision: int, sha: int, rejectionReason: str, mergeBase: str }
   type Delivery = { id: int, lead: int }
   type Recovery = { attempt: int, interruption: int }
   type EventKind =
     | TaskDeclared({ task: int, deps: Set[int], parent: int, gate: bool })
     | TaskEdited({ task: int, deps: Set[int], parent: int, gate: bool })
     | TaskCanceled(int)
-    | AttemptStarted({ task: int, session: int, ref: int })
+    | AttemptStarted({ task: int, session: int, ref: int, mergeBase: str })
     | AttemptProgressed(int)
     | AttemptClaimed({ attempt: int, sha: int })
     | ClaimApproved(int)
@@ -22,7 +22,8 @@ module constellations {
     | AttemptUnblocked({ attempt: int, cause: str, turn: bool, fresh: bool })
     | AttemptNudged(int)
     | AttemptAccepted({ attempt: int, sha: int })
-    | AttemptRejected(int)
+    | AttemptRejected({ attempt: int, reason: str })
+    | FirstTurnStarted(int)
     | AttemptSettled({ attempt: int, outcome: str, stale: bool, commanded: bool })
     | GatePromoted(int)
     | LeadHandoverRequested({ id: int, from: int })
@@ -47,7 +48,7 @@ module constellations {
   type View = {
     tasks: int -> Task, attempts: List[Attempt], lead: int, state: str,
     handoverRequest: int, handoverFrom: int, stale: Set[int], inputs: List[{ id: int, session: int }],
-    approvals: List[int], handups: List[int], nudges: List[int],
+    approvals: List[int], handups: List[int], nudges: List[int], firstTurns: List[int],
     blocks: int -> Set[int],
     promotions: List[int], notes: int -> str, deliveries: List[Delivery],
     proofs: Set[{ attempt: int, interruption: int }],
@@ -63,7 +64,7 @@ module constellations {
   pure val empty: View = {
     tasks: TASKS.mapBy(_ => emptyTask), attempts: [], lead: 0, state: "planning",
     handoverRequest: -1, handoverFrom: -1, stale: Set(), inputs: [],
-    approvals: [], handups: [], nudges: [],
+    approvals: [], handups: [], nudges: [], firstTurns: [],
     blocks: Map(),
     proofs: Set(),
     promotions: [], notes: Map(), deliveries: [], applied: [], recoveries: [],
@@ -88,7 +89,7 @@ module constellations {
         ...v.tasks.get(t), canceled: true, revision: v.tasks.get(t).revision + 1,
       }), blocks: v.blocks.keys().mapBy(a => v.blocks.get(a).exclude(Set(t))) }
     | AttemptStarted(p) => { ...v, attempts: v.attempts.append({
-        task: p.task, session: p.session, ref: p.ref, status: "working", revision: 1, sha: -1,
+        task: p.task, session: p.session, ref: p.ref, status: "working", revision: 1, sha: -1, rejectionReason: "", mergeBase: p.mergeBase,
       }) }
     | AttemptProgressed(a) => change(v, a, v.attempts[a].status, v.attempts[a].sha)
     | AttemptClaimed(p) => change(v, p.attempt, "review", p.sha)
@@ -98,7 +99,13 @@ module constellations {
     | AttemptUnblocked(p) => { ...change(v, p.attempt, "working", v.attempts[p.attempt].sha), blocks: v.blocks.keys().exclude(Set(p.attempt)).mapBy(a => v.blocks.get(a)), nudges: v.nudges.select(a => a != p.attempt) }
     | AttemptNudged(a) => { ...change(v, a, v.attempts[a].status, v.attempts[a].sha), nudges: v.nudges.append(a) }
     | AttemptAccepted(p) => change(v, p.attempt, "accepted", p.sha)
-    | AttemptRejected(a) => change(v, a, "rejected", v.attempts[a].sha)
+    | AttemptRejected(p) => {
+        val changed = change(v, p.attempt, "rejected", v.attempts[p.attempt].sha)
+        { ...changed, attempts: changed.attempts.replaceAt(p.attempt, {
+          ...changed.attempts[p.attempt], rejectionReason: p.reason,
+        }) }
+      }
+    | FirstTurnStarted(a) => { ...v, firstTurns: v.firstTurns.append(a) }
     | AttemptSettled(p) => change(v, p.attempt, p.outcome, v.attempts[p.attempt].sha)
     | GatePromoted(t) => { ...v, promotions: v.promotions.append(t), tasks: v.tasks.set(t, { ...v.tasks.get(t), revision: v.tasks.get(t).revision + 1 }) }
     | LeadHandoverRequested(p) => { ...v, handoverRequest: p.id, handoverFrom: p.from }
@@ -166,11 +173,11 @@ module constellations {
   pure def liveBlocks(v: View, t: int): Set[int] = v.attempts.indices().fold(Set(), (acc, a) =>
     if (v.attempts[a].task == t and v.attempts[a].status == "blocked" and not(v.tasks.get(t).canceled))
       acc.union(v.blocks.get(a).filter(d => not(v.tasks.get(d).canceled))) else acc)
-  pure def waits(v: View, t: int): Set[int] = effectiveDeps(v, t).union(children(v, t)).union(liveBlocks(v, t))
+  pure def waits(v: View, t: int): Set[int] = if (v.tasks.get(t).canceled or accepted(v, t)) Set()
+    else effectiveDeps(v, t).union(children(v, t)).union(liveBlocks(v, t)).filter(d => not(v.tasks.get(d).canceled) and not(accepted(v, d)))
   pure def reach(v: View, t: int): Set[int] = TASKS.fold(waits(v, t), (acc, _) =>
     acc.union(acc.fold(Set(), (out, d) => out.union(waits(v, d)))))
-  pure def validGraph(v: View): bool = TASKS.forall(t => all {
-    not(reach(v, t).contains(t)),
+  pure def graphStructureValid(v: View): bool = TASKS.forall(t => all {
     not(lineage(v, t).contains(t)),
     v.tasks.get(t).parent < 0 or (v.tasks.keys().contains(v.tasks.get(t).parent) and v.tasks.get(v.tasks.get(t).parent).declared),
     children(v, t) == Set() or (not(v.tasks.get(t).gate) and latest(v, t) < 0),
@@ -178,6 +185,9 @@ module constellations {
     v.tasks.get(t).canceled or effectiveDeps(v, t).forall(d => not(lineage(v, t).contains(d)) and not(lineage(v, d).contains(t))),
     v.tasks.get(t).canceled or effectiveDeps(v, t).forall(d => v.tasks.get(d).declared and not(v.tasks.get(d).canceled)),
   })
+  pure def validGraph(v: View): bool = graphStructureValid(v) and TASKS.forall(t => not(reach(v, t).contains(t)))
+  pure def planGraphValid(before: View, after: View): bool = graphStructureValid(after)
+    and TASKS.forall(t => waits(after, t).exclude(waits(before, t)).forall(d => d != t and not(reach(after, d).contains(t))))
   pure def cancelEvents(v: View, t: int): List[EventKind] =
     [TaskCanceled(t)].concat(v.attempts.indices().fold([], (notes, a) =>
       if (v.attempts[a].status == "blocked" and v.blocks.get(a).contains(t))
@@ -202,7 +212,7 @@ module constellations {
     val events = canceled.fold(batch.events, (acc, t) => acc.concat(cancelEvents(v, t)))
     val updated = events.foldl(v, (acc, e) => apply(acc, e))
     val stopped = roots.union(canceled).forall(t => latest(v, t) < 0 or not(active(v.attempts[latest(v, t)])))
-    if (batch.valid and stopped and validGraph(updated)) events.concat(promote(updated)) else []
+    if (batch.valid and stopped and planGraphValid(v, updated)) events.concat(promote(updated)) else []
   }
   pure def current(v: View, a: int, rev: int): bool = v.attempts.indices().contains(a)
     and latest(v, v.attempts[a].task) == a and active(v.attempts[a]) and v.attempts[a].revision == rev
@@ -236,12 +246,21 @@ module constellations {
     ownerAvailable' = ownerAvailable, outbox' = outbox, interruptions' = interruptions,
   }
   action plan(ops: List[PlanOp]): bool = commit(OWNER, planEvents(view, ops))
-  action start(t: int, s: int, ref: int): bool = commit(OWNER,
+  action startWithMergeBase(t: int, s: int, ref: int, mergeBase: str): bool = commit(OWNER,
     if (view.state == "running" and children(view, t) == Set() and ready(view, t)
       and (not(view.tasks.get(t).gate) or has(view.promotions, t))
       and not(view.attempts.indices().exists(i => active(view.attempts[i]) and view.attempts[i].session == s))
       and (latest(view, t) < 0 and ref == -1 or latest(view, t) >= 0 and ref == latest(view, t) and not(active(view.attempts[ref]))))
-    [AttemptStarted({ task: t, session: s, ref: ref })] else [])
+    [AttemptStarted({ task: t, session: s, ref: ref, mergeBase: mergeBase })] else [])
+  action start(t: int, s: int, ref: int): bool = startWithMergeBase(t, s, ref, "")
+  pure def retryBrief(v: View, a: int): { reason: str, sha: int, mergeBase: str } = {
+    val ref = v.attempts[a].ref
+    { reason: if (ref >= 0) v.attempts[ref].rejectionReason else "",
+      sha: if (ref >= 0) v.attempts[ref].sha else -1, mergeBase: v.attempts[a].mergeBase }
+  }
+  action startFirstTurn(a: int): bool = commit(OWNER,
+    if (view.attempts.indices().contains(a) and view.attempts[a].status == "working"
+      and not(has(view.firstTurns, a))) [FirstTurnStarted(a)] else [])
   pure def blockEvents(v: View, a: int, on: Set[int], rev: int): List[EventKind] =
     if (current(v, a, rev) and v.attempts[a].status == "working"
       and not(v.tasks.get(v.attempts[a].task).gate)
@@ -265,8 +284,9 @@ module constellations {
   action accept(a: int, rev: int, sha: int): bool = commit(OWNER,
     if (current(view, a, rev) and view.attempts[a].status == "review" and view.attempts[a].sha == sha)
     [AttemptAccepted({ attempt: a, sha: sha })].concat(promote(apply(view, AttemptAccepted({ attempt: a, sha: sha })))) else [])
-  action reject(a: int, rev: int): bool = commit(OWNER,
-    if (current(view, a, rev) and Set("review", "blocked").contains(view.attempts[a].status)) [AttemptRejected(a)] else [])
+  action rejectWithReason(a: int, rev: int, reason: str): bool = commit(OWNER,
+    if (current(view, a, rev) and Set("review", "blocked").contains(view.attempts[a].status)) [AttemptRejected({ attempt: a, reason: reason })] else [])
+  action reject(a: int, rev: int): bool = rejectWithReason(a, rev, "fix")
   action stop(a: int, rev: int): bool = commit(OWNER,
     if (current(view, a, rev)) finish(view, a, AttemptSettled({ attempt: a, outcome: "lost", stale: offline.contains(view.attempts[a].session), commanded: true })) else [])
   action harnessFail(a: int): bool = commit(OWNER,
@@ -303,6 +323,14 @@ module constellations {
     if (view.attempts.indices().contains(a) and view.attempts[a].status == "working"
       and interruptions.keys().contains(a) and interruptions.get(a) == 1 and view.proofs.contains({ attempt: a, interruption: interruptions.get(a) }) and not(view.recoveries.indices().exists(i => view.recoveries[i].attempt == a)))
     [AttemptRecoveryContinued({ attempt: a, interruption: interruptions.get(a) })] else [])
+  // The simulator samples the same eligible interruptions that runtime recovery examines.
+  action recoverPending = {
+    val candidates = view.attempts.indices().filter(a => view.attempts[a].status == "working"
+      and interruptions.keys().contains(a) and interruptions.get(a) == 1
+      and not(view.recoveries.indices().exists(i => view.recoveries[i].attempt == a)))
+    nondet a = (if (candidates.size() > 0) candidates else Set(-1)).oneOf()
+    recover(a)
+  }
   action restart = all { log' = log, offline' = offline, appConnected' = appConnected,
     ownerAvailable' = true, outbox' = outbox, interruptions' = interruptions }
   action availability(app: bool, owner: bool, stale: Set[int]): bool = all {
@@ -340,16 +368,17 @@ module constellations {
       plan([Cancel({ task: t, revision: rev })]),
       start(t, s, latest(view, t)), progress(a, rev), claim(a, rev, 42, false, true),
       block(a, Set(dep), rev), block(a, Set(), rev), unblock(a, rev, "Accepted", true), unblock(a, rev, "Lead", true),
-      claim(a, rev, 42, true, true), accept(a, rev, 42), accept(a, rev, 43), reject(a, rev), stop(a, rev), harnessFail(a),
+      claim(a, rev, 42, true, true), accept(a, rev, 42), accept(a, rev, 43), reject(a, rev), startFirstTurn(a), stop(a, rev), harnessFail(a),
       ask(a, id), deliver, handover(s), requestHandover(id), cancelHandover, finishHandover(id, s), setState("running"), setState("paused"),
       all { TASKS.forall(task => accepted(view, task)), setState("completed") },
-      setState("archived"), interrupt(a), recover(a), restart,
+      setState("archived"), interrupt(a), recoverPending, restart,
       availability(false, true, Set(s)), availability(true, false, Set()), availability(true, true, Set()),
       enqueue(id, a, 42), relay(id), request(id), grant, release(id), cancelLease(id), commit("worker-host", [LeadChanged({ to: s, request: -1 })]),
     }
   }
 
   val graphAcyclic = validGraph(view)
+  val firstTurnAtMostOnce = view.firstTurns.length() == view.firstTurns.foldl(Set(), (acc, a) => acc.union(Set(a))).size()
   val causesPointBackward = view.attempts.indices().forall(i => view.attempts[i].ref == -1
     or view.attempts[i].ref >= 0 and view.attempts[i].ref < i and view.attempts[view.attempts[i].ref].task == view.attempts[i].task)
   val taskFollowsLatestAttempt = TASKS.forall(t => latest(view, t) < 0 or view.tasks.get(t).canceled
@@ -388,13 +417,20 @@ module constellations {
     before.attempts.indices().forall(a => active(before.attempts[a]) or before.attempts[a] == after.attempts[a])
   })
   val outboxAppliedExactlyOnce = view.applied.length() == view.applied.foldl(Set(), (acc, x) => acc.union(Set(x))).size()
-  val onlyOwnerCommits = log.indices().forall(i => log[i].host == OWNER)
+  val onlyOwnerCommits = log.indices().forall(i => match log[i].kind {
+    | FirstTurnStarted(_) => true
+    | _ => log[i].host == OWNER
+  })
   val recoveryHasEligibleProof = log.indices().forall(i => match log[i].kind {
     | AttemptRecoveryContinued(p) => { val before = foldEvents(log.slice(0, i)); before.proofs.contains({ attempt: p.attempt, interruption: p.interruption }) }
     | _ => true
   })
   val recoveryAtMostOnce = view.recoveries.length() == view.recoveries.foldl(Set(), (acc, x) => acc.union(Set(x))).size()
     and view.attempts.indices().forall(a => view.recoveries.select(r => r.attempt == a).length() <= 1)
+  val settlementOutcomesValid = log.indices().forall(i => match log[i].kind {
+    | AttemptSettled(p) => Set("lost", "failed").contains(p.outcome)
+    | _ => true
+  })
   val staleNeverSettlesWithoutCommand = log.indices().forall(i => match log[i].kind {
     | AttemptSettled(p) => not(p.stale) or p.commanded
     | _ => true
@@ -412,7 +448,7 @@ module constellations {
     | ClaimApproved(a) => foldEvents(log.slice(0, i)).attempts[a].status == "review"
     | ClaimHandedUp(a) => foldEvents(log.slice(0, i)).attempts[a].status == "review"
     | AttemptNudged(a) => foldEvents(log.slice(0, i)).attempts[a].status == "working"
-    | AttemptRejected(a) => Set("review", "blocked").contains(foldEvents(log.slice(0, i)).attempts[a].status)
+    | AttemptRejected(p) => Set("review", "blocked").contains(foldEvents(log.slice(0, i)).attempts[p.attempt].status)
     | _ => true
   }) and view.nudges.length() == view.nudges.foldl(Set(), (acc, a) => acc.union(Set(a))).size()
     and view.approvals.length() == view.approvals.foldl(Set(), (acc, a) => acc.union(Set(a))).size()
@@ -457,8 +493,8 @@ module constellations {
     implies (0.to(30).forall(id => view.notes.keys().contains(id) leadsTo delivered.contains(id)))
   val safety = all {
     graphAcyclic, causesPointBackward, taskFollowsLatestAttempt, gatePromotedOnlyAfterAccepted,
-    oneLead, oneActiveAttemptPerSession, exactlyOnceDelivery, settledAttemptImmutable,
-    outboxAppliedExactlyOnce, onlyOwnerCommits, recoveryAtMostOnce, recoveryHasEligibleProof, staleNeverSettlesWithoutCommand,
+    oneLead, firstTurnAtMostOnce, oneActiveAttemptPerSession, exactlyOnceDelivery, settledAttemptImmutable,
+    outboxAppliedExactlyOnce, onlyOwnerCommits, recoveryAtMostOnce, recoveryHasEligibleProof, settlementOutcomesValid, staleNeverSettlesWithoutCommand,
     noOldLeadDelivery, handoverRequestOrdered, inputDeliveredAtMostOnce, blockTransitionsValid, lifecycleValid, reviewMetadataValid, resourceCapacity, resourceRemovalSafe, fifoGrantOrder, acceptanceMatchesClaim,
   }
   val witnessClaim = view.attempts.indices().exists(i => view.attempts[i].status == "review")

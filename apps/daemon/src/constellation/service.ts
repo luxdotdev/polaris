@@ -146,9 +146,14 @@ const make = Effect.gen(function* () {
         .map((a) => a.id);
 
     if (kind === "session")
-      matches = [...model.sessions.values()].flatMap((r) =>
-        r.session.id === name || r.session.title === name ? [r.session.id] : []
-      );
+      matches = [
+        ...new Set([
+          ...[...model.sessions.values()].flatMap((r) =>
+            r.session.id === name || r.session.title === name ? [r.session.id] : []
+          ),
+          ...record.graph.attempts.filter((a) => a.sessionId === name).map((a) => a.sessionId),
+        ]),
+      ];
 
     if (kind === "host" && (name === hostId || name === "local")) matches = [hostId];
 

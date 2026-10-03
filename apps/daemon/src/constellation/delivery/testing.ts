@@ -156,6 +156,7 @@ export const world = (
     readonly onRun?: (turn: Turn) => Effect.Effect<void, never, EventStore>;
     readonly attempt?: ReturnType<typeof draft>;
     readonly remoteSend?: (packet: DeliveryPacket) => Effect.Effect<void>;
+    readonly runtime?: Layer.Layer<never, never, EventStore | ConstellationSessionEffects>;
   } = {}
 ) => {
   const turns: Turn[] = [];
@@ -209,9 +210,11 @@ export const world = (
   });
 
   const layer = Layer.mergeAll(Constellations.layer, ConstellationDelivery.layer).pipe(
+    Layer.provide(
+      (options.runtime ?? Layer.succeed(ConstellationRuntime)(runtime)).pipe(Layer.provide(effects))
+    ),
     Layer.provideMerge(effects),
     Layer.provide(Layer.succeed(ConstellationOwner)(HOST)),
-    Layer.provide(Layer.succeed(ConstellationRuntime)(runtime)),
     Layer.provide(
       Layer.succeed(ConstellationRemoteDelivery)({
         send: options.remoteSend ?? (() => Effect.never),

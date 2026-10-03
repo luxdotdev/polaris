@@ -12,6 +12,12 @@ module constellations_test {
   action working = base.then(start(0, 1, -1)).expect(safety)
   action claimed = working.then(claim(0, 1, 42, false, true)).expect(safety)
 
+  run unstartedTasksAreReadyOrWaitingAcrossRestartTest = base
+    .expect(taskState(view, 0) == "ready" and taskState(view, 1) == "waiting" and safety)
+    .then(restart).expect(taskState(view, 0) == "ready" and taskState(view, 2) == "waiting" and safety)
+    .then(start(0, 1, -1)).then(claim(0, 1, 42, false, true)).then(accept(0, 2, 42))
+    .expect(taskState(view, 1) == "ready" and taskState(view, 2) == "waiting" and safety)
+
   run blockWaitsForAcceptanceAndUnblockRequiresTurnTest = working
     .then(plan([Edit({ task: 1, deps: Set(), revision: 1 , parent: -1, gate: false })]))
     .then(block(0, Set(1), 1)).expect(view.attempts[0].status == "blocked" and safety)
@@ -49,6 +55,27 @@ module constellations_test {
 
   run broadcastCannotUnblockTest = working.then(block(0, Set(), 1))
     .then(unblock(0, 2, "Broadcast", true)).expect(view.attempts[0].status == "blocked" and safety)
+
+  run acceptedTasksHaveNoWaitEdgesTest = independentWorkers
+    .then(plan([Add({ task: 3, deps: Set(), parent: -1, gate: false })]))
+    .then(claim(1, 1, 43, false, true)).then(accept(1, 2, 43))
+    .then(plan([Edit({ task: 1, deps: Set(0), parent: -1, gate: false, revision: 2 })]))
+    .then(block(0, Set(1, 3), 1))
+    .expect(waits(view, 1) == Set() and view.attempts[0].status == "blocked" and safety)
+
+  action legacyCycle = working
+    .then(plan([Edit({ task: 1, deps: Set(), parent: -1, gate: false, revision: 1 })]))
+    .then(block(0, Set(1), 1))
+    .then(commit(OWNER, [TaskEdited({ task: 1, deps: Set(0), parent: -1, gate: false })]))
+    .expect(not(graphAcyclic))
+  run legacyCycleAllowsUnrelatedEditAndRepairTest = legacyCycle
+    .then(plan([Add({ task: 3, deps: Set(), parent: -1, gate: false })]))
+    .expect(view.tasks.get(3).declared and not(graphAcyclic))
+    .then(plan([Edit({ task: 1, deps: Set(), parent: -1, gate: false, revision: 3 })]))
+    .expect(view.tasks.get(1).deps == Set() and graphAcyclic)
+  run legacyCycleAllowsCancelToBreakBlockTest = legacyCycle
+    .then(plan([Cancel({ task: 1, revision: 3 }), Edit({ task: 2, deps: Set(0), parent: -1, gate: true, revision: 1 })]))
+    .expect(view.tasks.get(1).canceled and view.blocks.get(0) == Set() and graphAcyclic)
 
   action parentBase = init.then(plan([
     Add({ task: 0, deps: Set(), parent: 1, gate: false }),
@@ -159,6 +186,13 @@ module constellations_test {
     .expect(not(view.tasks.get(0).canceled) and safety)
     .then(plan([Edit({ task: 1, deps: Set(), parent: -1, gate: false, revision: 0 })]))
     .expect(view.tasks.get(1).deps == Set(0) and view.tasks.get(1).revision == 1 and safety)
+
+  run sendBackFeedbackSurvivesRestartBeforeFirstTurnTest = claimed
+    .then(rejectWithReason(0, 2, "  Fix cleanup.\nKeep both tests.  "))
+    .then(startWithMergeBase(0, 1, 0, "integration-base")).then(restart)
+    .expect(retryBrief(view, 1) == { reason: "  Fix cleanup.\nKeep both tests.  ", sha: 42, mergeBase: "integration-base" })
+    .then(startFirstTurn(1)).then(restart).then(startFirstTurn(1))
+    .expect(view.firstTurns == [1] and firstTurnAtMostOnce and safety)
 
   run linkedCausesPointBackwardTest = claimed
     .then(reject(0, 2)).then(start(0, 2, 0))
@@ -308,7 +342,7 @@ module constellations_property_test {
   run detectsBlockClosingEditTest = blockedPair
     .then(commit(OWNER, [TaskEdited({ task: 1, deps: Set(0), parent: -1, gate: false })]))
     .expect(not(graphAcyclic))
-  run detectsForwardCauseTest = base.then(commit(OWNER, [AttemptStarted({ task: 0, session: 1, ref: 1 })]))
+  run detectsForwardCauseTest = base.then(commit(OWNER, [AttemptStarted({ task: 0, session: 1, ref: 1, mergeBase: "" })]))
     .expect(not(causesPointBackward))
   run detectsPrematureGateTest = base.then(commit(OWNER, [GatePromoted(2)]))
     .expect(not(gatePromotedOnlyAfterAccepted))
@@ -316,7 +350,7 @@ module constellations_property_test {
     .then(claim(1, 1, 42, false, true)).then(accept(1, 2, 42))
     .then(commit(OWNER, [GatePromoted(2)])).expect(not(gatePromotedOnlyAfterAccepted))
   run detectsSessionReuseRaceTest = working
-    .then(commit(OWNER, [AttemptStarted({ task: 1, session: 1, ref: -1 })]))
+    .then(commit(OWNER, [AttemptStarted({ task: 1, session: 1, ref: -1, mergeBase: "" })]))
     .expect(not(oneActiveAttemptPerSession))
   run detectsRepeatedNotificationTest = claimed.then(deliver)
     .then(commit(OWNER, [LeadNotified({ ids: Set(10), lead: 0 })]))
@@ -332,6 +366,9 @@ module constellations_property_test {
   run detectsRepeatedRecoveryTest = working
     .then(commit(OWNER, [AttemptRecoveryContinued({ attempt: 0, interruption: 1 }), AttemptRecoveryContinued({ attempt: 0, interruption: 2 })]))
     .expect(not(recoveryAtMostOnce))
+  run detectsRetiredSettlementOutcomeTest = working
+    .then(commit(OWNER, [AttemptSettled({ attempt: 0, outcome: "settled_unverified", stale: false, commanded: false }), NotificationQueued({ id: 10, kind: "settle" })]))
+    .expect(not(settlementOutcomesValid) and not(safety))
   run detectsStaleMechanicalSettleTest = working
     .then(commit(OWNER, [AttemptSettled({ attempt: 0, outcome: "lost", stale: true, commanded: false }), NotificationQueued({ id: 10, kind: "settle" })]))
     .expect(not(staleNeverSettlesWithoutCommand))

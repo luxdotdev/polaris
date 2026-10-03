@@ -182,9 +182,7 @@ export const dispatch = (d: GraphDecision, command: GraphCommand<"Dispatch">) =>
         effectiveDeps(d.record.graph.tasks, task.id).every((dep) =>
           accepted(d.record.graph, dep)
         ) &&
-        ["lost", "failed", "settled_unverified"].includes(
-          latestAttempt(d.record.graph, id)?.state ?? ""
-        )
+        ["lost", "failed"].includes(latestAttempt(d.record.graph, id)?.state ?? "")
       )
     )
       d.reject(

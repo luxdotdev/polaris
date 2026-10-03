@@ -28,6 +28,7 @@ export interface RefAttempt {
   approved: string | null;
   handedUp: string | null;
   nudged: string | null;
+  rejectionReason: string | null;
   blockedOn: ReadonlyArray<string>;
   blockedReason: string | null;
   blockedAt: string | null;
@@ -75,6 +76,7 @@ const refAttempt = (attempt: import("@polaris/protocol").Attempt): RefAttempt =>
   approved: attempt.approvedByUserAt,
   handedUp: attempt.handedUpAt,
   nudged: attempt.nudgedAt,
+  rejectionReason: attempt.rejectionReason,
   blockedOn: attempt.blockedOn,
   blockedReason: attempt.blockedReason,
   blockedAt: attempt.blockedAt,
@@ -157,7 +159,7 @@ export const foldReference = (ref: Reference, events: ReadonlyArray<DomainEvent>
         }),
       AttemptNudged: (e) => patch(ref, e, { nudged: e.at }),
       AttemptAccepted: (e) => patch(ref, e, { state: "accepted", evidence: e.evidence }),
-      AttemptRejected: (e) => patch(ref, e, { state: "rejected" }),
+      AttemptRejected: (e) => patch(ref, e, { state: "rejected", rejectionReason: e.reason }),
       AttemptSettled: (e) => patch(ref, e, { state: e.outcome }),
       GatePromoted: (e) => {
         if (ref.promoted.has(e.taskId)) throw new Error("reference: gate promoted twice");

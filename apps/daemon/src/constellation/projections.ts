@@ -88,7 +88,6 @@ export const projectTask = (
             Match.when("review", () => "review" as const),
             Match.when("lost", () => "lost" as const),
             Match.when("failed", () => "failed" as const),
-            Match.when("settled_unverified", () => "settled_unverified" as const),
             Match.exhaustive
           );
 

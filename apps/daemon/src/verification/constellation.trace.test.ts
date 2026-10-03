@@ -190,7 +190,7 @@ test("complete committed trace includes questions, send-back, recovery, delivery
       attemptId: b.id,
       revision: graph().graph.attempts.at(-1)!.revision,
       action: ReviewAction.cases.SendBack.make({
-        reason: "fix",
+        reason: 'Keep "both tests".\nNewline λ feedback.',
         worker: WorkerPlacement.cases.Existing.make({ sessionId: b.sessionId }),
       }),
     }),

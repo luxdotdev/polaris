@@ -1,6 +1,14 @@
 import type { ReplayContext, ReplayResourceEvent } from "./index.ts";
 import { Match, Predicate } from "effect";
+import type { Turn } from "../../../protocol/src/domain.ts";
 import type { ConstellationEvent } from "../../../protocol/src/constellation/events.ts";
+
+/** Quint strings have no escape syntax; encode arbitrary text injectively as UTF-16 hex. */
+export const quintText = (text: string): string =>
+  `"${text
+    .split("")
+    .map((unit) => unit.charCodeAt(0).toString(16).padStart(4, "0"))
+    .join("")}"`;
 
 export class ReplayIds {
   readonly values = new Map<string, number>();
@@ -46,7 +54,7 @@ export class ReplayGroup {
   constructor(readonly owner: string) {}
 
   event(host: string, kind: string): string {
-    return `{ host: ${JSON.stringify(host)}, kind: ${kind} }`;
+    return `{ host: ${quintText(host)}, kind: ${kind} }`;
   }
 
   attemptId(id: string): number {
@@ -196,7 +204,12 @@ export const mapGraphEvent = (
         );
 
         return record(
-          `AttemptStarted({ task: ${g.tasks.id(attempt.taskId)}, session: ${g.sessions.id(attempt.sessionId)}, ref: ${ref} })`
+          `AttemptStarted({ task: ${g.tasks.id(attempt.taskId)}, session: ${g.sessions.id(attempt.sessionId)}, ref: ${ref}, mergeBase: ${quintText(
+            Match.value(attempt.cause).pipe(
+              Match.tag("MergeConflict", (cause) => cause.base),
+              Match.orElse(() => "")
+            )
+          )} })`
         );
       },
       AttemptProgressed: ({ attemptId }) => record(`AttemptProgressed(${g.attemptId(attemptId)})`),
@@ -222,7 +235,10 @@ export const mapGraphEvent = (
         record(
           `AttemptAccepted({ attempt: ${g.attemptId(attemptId)}, sha: ${g.heads.id(mergedHead)} })`
         ),
-      AttemptRejected: ({ attemptId }) => record(`AttemptRejected(${g.attemptId(attemptId)})`),
+      AttemptRejected: ({ attemptId, reason }) =>
+        record(
+          `AttemptRejected({ attempt: ${g.attemptId(attemptId)}, reason: ${quintText(reason)} })`
+        ),
       AttemptSettled: ({ attemptId, outcome }) => {
         if (context === undefined)
           throw new Error(
@@ -303,4 +319,16 @@ export const mapResourceEvent = (
       ResourceReleased: ({ leaseId }) => record(`ResourceReleased(${g.requestId(leaseId)})`),
     })
   );
+};
+
+/** First-Turn facts belong to the worker Host; owner graph events remain owner-only. */
+export const mapFirstTurn = (g: ReplayGroup, turn: Turn, host: string): Array<string> => {
+  const attempt = [...g.attempts.keys()].find((id) => turn.id === `${id}:start`);
+
+  if (attempt === undefined) return [];
+
+  if (g.workers.get(attempt) !== turn.sessionId || g.workerHosts.get(attempt) !== host)
+    throw new Error("First Turn was not committed by its worker Host and Session");
+
+  return [g.event(host, `FirstTurnStarted(${g.attemptId(attempt)})`)];
 };

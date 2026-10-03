@@ -115,3 +115,27 @@ test("only observed Offline/Connected state relays, with owner reconnect/new Att
   await publish("a2");
   expect(sent.at(-1)).toBe(false);
 });
+
+test("a new worker Connection epoch replays Connected even without an Offline observation", async () => {
+  const observations = connectionObservations();
+  let sent = 0;
+
+  const publish = () =>
+    Effect.runPromise(
+      observations.publish([graph("a1")], () => ({
+        epoch: 1,
+        observe: () =>
+          Effect.sync(() => {
+            sent++;
+          }),
+      }))
+    );
+
+  observations.observe(status("connected"));
+  await publish();
+  await publish();
+  expect(sent).toBe(1);
+  observations.observe({ ...status("connected"), epoch: 2 });
+  await publish();
+  expect(sent).toBe(2);
+});
