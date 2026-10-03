@@ -13,8 +13,14 @@ below; the comparison remains the research snapshot, not a pending provider choi
 Production now implements the `EmailValidator` seam using the installed Apache-2.0
 `@aws-sdk/client-sesv2@3.1146.0`, which includes `GetEmailAddressInsightsCommand`.
 Validation and sending share the explicit Region/static-credential or opted-in
-hosted-role policy. BotID → syntax/honeypot → rate limit → Insights → SES remains
+hosted-role policy (since ADR 0018, the Vercel OIDC role only). BotID → syntax/honeypot → rate limit → Insights → SES remains
 the order. There is no production pass-through. Development/test use a fake.
+
+**2026-10-02 amendment:** a real Gmail address returned overall HIGH with
+`MailboxExists=MEDIUM` (Gmail blocks mailbox probing), which the original rule
+withheld. Mailbox MEDIUM is now accepted when the overall verdict, syntax and DNS
+are HIGH and disposable is LOW; mailbox LOW still rejects. An unconfirmed address
+gets a 422 with a plain explanation instead of a 503.
 
 | SES result | Implemented action |
 |---|---|

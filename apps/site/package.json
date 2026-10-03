@@ -9,7 +9,8 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc -p .",
-    "test": "bun test"
+    "test": "bun test",
+    "email:dev": "email dev --dir emails --port 3200"
   },
   "dependencies": {
     "@aws-sdk/client-sesv2": "3.1146.0",
@@ -21,9 +22,11 @@
     "effect": "4.0.0-rc.118",
     "next": "16.3.8",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "react-email": "6.11.0"
   },
   "devDependencies": {
+    "@react-email/ui": "6.11.0",
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "26.6.3",
     "@types/react": "19.3.0",

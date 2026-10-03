@@ -50,7 +50,7 @@ function fixture(env: EmailEnv = configured) {
 }
 
 describe("email endpoint", () => {
-  test("sends one SESv2 plain-text email with download and source links", async () => {
+  test("sends one SESv2 email (HTML and plain text) with download and source links", async () => {
     const f = fixture();
     const response = await f.handler(submission({ email: " ada+mac@example.com ", website: "" }));
     expect(response.status).toBe(200);
@@ -67,7 +67,9 @@ describe("email endpoint", () => {
     const body = f.sent[0]?.input.Content?.Simple?.Body;
     expect(body?.Text?.Data).toContain("https://polaris.lux.dev/download/mac");
     expect(body?.Text?.Data).toContain("https://github.com/luxdotdev/polaris");
-    expect(body?.Html).toBeUndefined();
+    expect(body?.Html?.Data).toContain('href="https://polaris.lux.dev/download/mac"');
+    expect(body?.Html?.Data).toContain("https://polaris.lux.dev/email/dawn.png");
+    expect(body?.Html?.Data).not.toContain("ada+mac");
     expect(await response.text()).not.toContain("ada");
   });
 

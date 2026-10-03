@@ -9,7 +9,7 @@ import { readSesConfig, type EmailEnv } from "./ses";
 
 /** Provider seam: false rejects the recipient, a rejection fails closed, true permits SES. */
 export interface EmailValidator {
-  validate(email: string): Promise<boolean>;
+  validate(email: string, report?: (verdicts: InsightsVerdicts) => void): Promise<boolean>;
 }
 
 export type ValidationFailure = "unconfigured" | "uncertain" | "timeout" | "malformed" | "provider";
@@ -94,32 +94,56 @@ export type InsightsFactory = (config: SESv2ClientConfig) => {
   destroy?: () => void;
 };
 
+/**
+ * AWS's overall verdict must be HIGH, with HIGH syntax and DNS and a LOW disposable verdict.
+ * Mailbox existence may be MEDIUM: providers such as Gmail block mailbox probing.
+ */
 function classifyInsights(input: Insights): ValidationOutcome {
   const { IsValid, Evaluations } = input.MailboxValidation;
 
-  if (IsValid.ConfidenceVerdict === "LOW") return "invalid";
-
-  if (IsValid.ConfidenceVerdict !== "HIGH") return "uncertain";
-
-  const positive = [
-    Evaluations.HasValidSyntax,
-    Evaluations.HasValidDnsRecords,
-    Evaluations.MailboxExists,
-  ];
-
   if (
-    positive.some((verdict) => verdict.ConfidenceVerdict === "LOW") ||
+    IsValid.ConfidenceVerdict === "LOW" ||
+    Evaluations.HasValidSyntax.ConfidenceVerdict === "LOW" ||
+    Evaluations.HasValidDnsRecords.ConfidenceVerdict === "LOW" ||
+    Evaluations.MailboxExists.ConfidenceVerdict === "LOW" ||
     Evaluations.IsDisposable.ConfidenceVerdict === "HIGH"
   )
     return "invalid";
 
   if (
-    positive.some((verdict) => verdict.ConfidenceVerdict !== "HIGH") ||
+    IsValid.ConfidenceVerdict !== "HIGH" ||
+    Evaluations.HasValidSyntax.ConfidenceVerdict !== "HIGH" ||
+    Evaluations.HasValidDnsRecords.ConfidenceVerdict !== "HIGH" ||
     Evaluations.IsDisposable.ConfidenceVerdict !== "LOW"
   )
     return "uncertain";
 
   return "accepted";
+}
+
+/** The Insights confidence levels, for the request's wide event; no address or domain. */
+export type InsightsVerdicts = {
+  readonly insights_valid: string;
+  readonly insights_syntax: string;
+  readonly insights_dns: string;
+  readonly insights_mailbox: string;
+  readonly insights_disposable: string;
+  readonly insights_role: string;
+  readonly insights_random: string;
+};
+
+function verdicts(input: Insights): InsightsVerdicts {
+  const { IsValid, Evaluations } = input.MailboxValidation;
+
+  return {
+    insights_valid: IsValid.ConfidenceVerdict,
+    insights_syntax: Evaluations.HasValidSyntax.ConfidenceVerdict,
+    insights_dns: Evaluations.HasValidDnsRecords.ConfidenceVerdict,
+    insights_mailbox: Evaluations.MailboxExists.ConfidenceVerdict,
+    insights_disposable: Evaluations.IsDisposable.ConfidenceVerdict,
+    insights_role: Evaluations.IsRoleAddress.ConfidenceVerdict,
+    insights_random: Evaluations.IsRandomInput.ConfidenceVerdict,
+  };
 }
 
 async function getInsights(client: ReturnType<InsightsFactory>, email: string, deadlineMs: number) {
@@ -158,7 +182,7 @@ export function createValidator(
   if (env.NODE_ENV !== "production") return fakeValidator;
 
   return {
-    validate: async (email) => {
+    validate: async (email, report) => {
       let outcome: ValidationOutcome;
 
       try {
@@ -172,7 +196,9 @@ export function createValidator(
         });
 
         try {
-          outcome = classifyInsights(await getInsights(client, email, deadlineMs));
+          const insights = await getInsights(client, email, deadlineMs);
+          report?.(verdicts(insights));
+          outcome = classifyInsights(insights);
         } finally {
           client.destroy?.();
         }
