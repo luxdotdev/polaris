@@ -18,6 +18,15 @@
     },
     "botid": {
       "reason": "MIT per the publisher README bundled in botid@1.5.11 and https://www.npmjs.com/package/botid; this published package omits its licence field and LICENSE file. Required Vercel bot detection for apps/site only, never shipped in the Desktop App or Daemon."
+    },
+    "@img/sharp-win32-arm64": {
+      "reason": "Apache-2.0 AND LGPL-3.0-or-later Windows sharp build with bundled libvips, an optional dependency of next for apps/site image optimisation; unmodified, never copied into Polaris and never shipped in the Desktop App or Daemon. Same accepted exception as @img/sharp-libvips-*."
+    },
+    "@img/sharp-win32-ia32": {
+      "reason": "Apache-2.0 AND LGPL-3.0-or-later Windows sharp build with bundled libvips, an optional dependency of next for apps/site image optimisation; unmodified, never copied into Polaris and never shipped in the Desktop App or Daemon. Same accepted exception as @img/sharp-libvips-*."
+    },
+    "@img/sharp-win32-x64": {
+      "reason": "Apache-2.0 AND LGPL-3.0-or-later Windows sharp build with bundled libvips, an optional dependency of next for apps/site image optimisation; unmodified, never copied into Polaris and never shipped in the Desktop App or Daemon. Same accepted exception as @img/sharp-libvips-*."
     }
   }
 }
