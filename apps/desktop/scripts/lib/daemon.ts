@@ -43,7 +43,7 @@ const live = (socketPath: string) =>
  * The test Daemon's environment: its own POLARIS_HOME and HOME, so it never reads (or
  * indexes, for Usage) the developer's real Harness logs and settings.
  */
-const testEnv = (
+export const testEnv = (
   home: string,
   benchHarness: boolean,
   userHome: string | undefined,
@@ -57,13 +57,17 @@ const testEnv = (
     ...env
   } = process.env;
 
-  return {
+  const childEnv: NodeJS.ProcessEnv = {
     ...env,
     HOME: userHome ?? home,
     POLARIS_HOME: home,
     POLARIS_BENCH_HARNESS: benchHarness ? "1" : "0",
     ...extra,
   };
+
+  delete childEnv.POLARIS_HANDOFF;
+
+  return childEnv;
 };
 
 /**
