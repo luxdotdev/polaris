@@ -31,6 +31,8 @@ import { worktreeIdFor } from "./decider.ts";
 import { contextChanged } from "./context.ts";
 import { finalReply, forkPreamble } from "./fork.ts";
 import { EngineRuntime, type EventSource, type LiveHarness, type Progress } from "./runtime.ts";
+import { restartUserTurn, waitForTurnEnd } from "./supervisor.turns.ts";
+import { HarnessTurnAliases } from "./supervisor.aliases.ts";
 
 type HarnessEventOf<Tag extends HarnessEvent["_tag"]> = Extract<HarnessEvent, { _tag: Tag }>;
 
@@ -39,6 +41,7 @@ export interface TurnToRun {
   readonly turnId: TurnId;
   readonly prompt: string;
   readonly attachments: ReadonlyArray<Attachment>;
+  readonly steerExisting?: boolean;
 }
 
 const make = (
@@ -149,9 +152,11 @@ const make = (
       )
     );
 
-  const turnAliases = new WeakMap<EventSource, Map<TurnId, TurnId>>();
+  const turnAliases = new HarnessTurnAliases<EventSource>();
 
   const isDelta = HarnessEvent.$is("ItemDelta");
+  const endsTurn = HarnessEvent.$is("TurnEnded");
+  const endsSubagent = HarnessEvent.$is("SubagentEnded");
 
   const onHarnessEvent = (
     sessionId: SessionId,
@@ -177,8 +182,7 @@ const make = (
       : recorded(sessionId, entry, (at) => onHarnessRecord(sessionId, entry, event, at));
 
   const observed = (sessionId: SessionId, entry: EventSource, event: HarnessEvent) => {
-    const id = "turnId" in event ? turnAliases.get(entry)?.get(event.turnId) : undefined;
-    const canonical = id === undefined || !("turnId" in event) ? event : { ...event, turnId: id };
+    const canonical = turnAliases.resolve(entry, event);
 
     const activity = rt.touchIdle(sessionId);
 
@@ -186,7 +190,12 @@ const make = (
       Effect.andThen(liveness.observe(sessionId, canonical, Date.now()))
     );
 
-    return activity === null ? processing : processing.pipe(Effect.andThen(activity));
+    const completed =
+      endsTurn(canonical) || endsSubagent(canonical)
+        ? processing.pipe(Effect.tap(() => Effect.sync(() => turnAliases.ended(entry, canonical))))
+        : processing;
+
+    return activity === null ? completed : completed.pipe(Effect.andThen(activity));
   };
 
   /** Runs `handle` with the time, unless the source is being stopped on purpose. */
@@ -233,14 +242,7 @@ const make = (
           // A user command committed before this queued native start: correlate the merged run.
 
           if (e.trigger != null && working !== undefined && working.id !== e.turnId) {
-            let aliases = turnAliases.get(entry);
-
-            if (aliases === undefined) {
-              aliases = new Map();
-              turnAliases.set(entry, aliases);
-            }
-
-            aliases.set(e.turnId, working.id);
+            turnAliases.set(entry, e.turnId, working.id);
           }
 
           yield* rt.cancelIdle(sessionId);
@@ -396,35 +398,56 @@ const make = (
       yield* rt.signal(sessionId, { type: "harness.exited", error, at });
     });
 
-  const runTurn = ({ sessionId, turnId, prompt, attachments }: TurnToRun) =>
-    Effect.gen(function* () {
-      yield* rt.cancelIdle(sessionId);
-      const model = yield* store.model;
-      const turn = model.sessions.get(sessionId)?.turns.find((t) => t.id === turnId);
+  const runTurn = (input: TurnToRun): Effect.Effect<void, ServiceError> =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const { sessionId, turnId, prompt, attachments } = input;
+        const events = input.steerExisting === true ? yield* store.subscribe({ sessionId }) : null;
+        yield* rt.cancelIdle(sessionId);
+        const model = yield* store.model;
+        const turn = model.sessions.get(sessionId)?.turns.find((t) => t.id === turnId);
 
-      if (turn === undefined || turn.status !== "working") return;
+        if (turn === undefined || turn.status !== "working") {
+          if (input.steerExisting === true) yield* restartUserTurn(rt, input, runTurn);
 
-      if (turn.checkpointBefore === null) yield* recordBefore(sessionId, turnId);
+          return;
+        }
 
-      // Before opening: a Harness may report its cursor as soon as it opens.
-      const session = (yield* store.model).sessions.get(sessionId)?.session;
+        if (turn.checkpointBefore === null) yield* recordBefore(sessionId, turnId);
 
-      const input =
-        session !== undefined && session.parentSessionId !== null && session.harnessCursor === null
-          ? yield* withForkContext(session, session.parentSessionId, prompt)
-          : prompt;
+        // Before opening: a Harness may report its cursor as soon as it opens.
+        const session = (yield* store.model).sessions.get(sessionId)?.session;
 
-      const entry = yield* openHarness(sessionId);
-      yield* rt.signal(sessionId, { type: "harness.opened" });
-      yield* entry.session.sendTurn({
-        turnId,
-        prompt: input,
-        attachments,
-        model: turn.model,
-        effort: turn.effort,
-        serviceTier: turn.serviceTier,
-      });
-    }).pipe(Effect.catch((error) => rt.failSession(sessionId, error.message)));
+        const promptInput =
+          session !== undefined &&
+          session.parentSessionId !== null &&
+          session.harnessCursor === null
+            ? yield* withForkContext(session, session.parentSessionId, prompt)
+            : prompt;
+
+        const entry = yield* openHarness(sessionId);
+        yield* rt.signal(sessionId, { type: "harness.opened" });
+
+        const turnInput = {
+          turnId,
+          prompt: promptInput,
+          attachments,
+          model: turn.model,
+          effort: turn.effort,
+          serviceTier: turn.serviceTier,
+        };
+
+        if (events !== null) {
+          const delivered = yield* entry.session.steerTurn?.(turnInput) ?? Effect.succeed(false);
+
+          if (delivered) return;
+          yield* waitForTurnEnd(rt, input, events);
+          yield* restartUserTurn(rt, input, runTurn);
+        } else yield* entry.session.sendTurn(turnInput);
+      })
+    ).pipe(
+      Effect.catch((error) => rt.failSession(input.sessionId, error.message).pipe(Effect.asVoid))
+    );
 
   const recordBefore = (sessionId: SessionId, turnId: TurnId) =>
     Effect.gen(function* () {

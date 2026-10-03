@@ -200,6 +200,7 @@ const make = Effect.gen(function* () {
               turnId: autonomous.id,
               prompt: command.prompt,
               attachments: committed.attachments ?? [],
+              steerExisting: true,
             });
       },
       Continue: (command) => continueTurn(command.sessionId, committed),

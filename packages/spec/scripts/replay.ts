@@ -35,6 +35,7 @@ const TEvent = Schema.Struct({
   requestId: Schema.optional(Schema.String),
   reason: Schema.optional(Schema.NullOr(Schema.String)),
   index: Schema.optional(Schema.Number),
+  autonomous: Schema.optional(Schema.Boolean),
 });
 
 type TEvent = typeof TEvent.Type;
@@ -203,8 +204,16 @@ class Replayer {
     const out = (kind: string): SpecEvent => ({ session: s, cmd, kind });
 
     switch (e.tag) {
-      case "TurnStarted":
-        return out(`TurnStarted(${this.startTurn(s, e.turnId!)})`);
+      case "TurnStarted": {
+        const continued = this.startTurn(s, e.turnId!);
+
+        return out(
+          cmd === "" && e.autonomous === false && !continued
+            ? "UserTurnStarted"
+            : `TurnStarted(${continued})`
+        );
+      }
+
       case "TurnEnded":
         return out(`TurnEnded(${q(e.status!)})`);
       case "TurnItemCompleted":
@@ -336,16 +345,21 @@ class Replayer {
     });
   }
 
+  private turnStarted(e: TEvent, s: string) {
+    this.i++;
+
+    const followed = this.take(s, (x) => x.tag === "SessionStateChanged" && x.state === "working");
+
+    this.harness(
+      s,
+      e.autonomous === false ? "HUserTurnStarted" : "HTurnStarted",
+      followed ? [e, followed] : [e]
+    );
+  }
+
   private daemonDecision(e: TEvent, s: string) {
     if (e.tag === "TurnStarted") {
-      this.i++;
-
-      const followed = this.take(
-        s,
-        (x) => x.tag === "SessionStateChanged" && x.state === "working"
-      );
-
-      this.harness(s, "HTurnStarted", followed ? [e, followed] : [e]);
+      this.turnStarted(e, s);
     } else if (e.tag === "ApprovalRequested") {
       this.i++;
 

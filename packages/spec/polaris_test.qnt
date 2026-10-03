@@ -30,6 +30,21 @@ module polaris_test {
       .then(publishBatch)
       .then(reactorRuns("s1"))
 
+  run queuedUserInputAfterAutonomousEndTest =
+    turnRunning
+      .then(harnessReports("s1", HTurnEnded))
+      .then(commitBatch).then(publishBatch)
+      .then(harnessReports("s1", HTurnStarted))
+      .then(commitBatch).then(publishBatch)
+      .then(clientSends("mac", "k2", SendTurn("s1")))
+      .then(commitBatch).then(publishBatch)
+      .expect(answers.get("k2") == [Ok(0)] and safety)
+      .then(harnessReports("s1", HTurnEnded))
+      .then(commitBatch).then(publishBatch)
+      .then(harnessReports("s1", HUserTurnStarted))
+      .then(commitBatch).then(publishBatch)
+      .expect(viewOf(log, "s1").turns == 3 and not(viewOf(log, "s1").autonomous) and safety)
+
   /** …that asked for approval r1: seq 3 ApprovalRequested, seq 4 Needs You. */
   action waitingOnApproval =
     turnRunning
