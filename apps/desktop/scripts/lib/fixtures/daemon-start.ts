@@ -7,7 +7,11 @@ const home = process.argv[2];
 
 if (home === undefined) throw new Error("expected a temporary Daemon home");
 
-const daemon = await startDaemon({ home, benchHarness: true });
+const daemon = await startDaemon({
+  home,
+  benchHarness: true,
+  env: process.argv[3] === "override" ? { POLARIS_HANDOFF: process.env.POLARIS_HANDOFF ?? "" } : {},
+});
 
 try {
   // Reconnect after the upgrade drain's grace period, when a stale descriptor used to exit.
