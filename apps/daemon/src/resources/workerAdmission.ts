@@ -36,9 +36,12 @@ export const registerWorkerAdmission = <E>(
 
     const record = (yield* store.model).sessions.get(sessionId);
 
-    let reportsPending =
-      [...(record?.subagents.values() ?? [])].some((s) => s.background === true) ||
-      (record?.session.backgroundTasks.length ?? 0) > 0;
+    const background = new Set(
+      [...(record?.subagents.values() ?? [])].flatMap((s) => (s.background === true ? [s.id] : []))
+    );
+
+    let hasTasks = (record?.session.backgroundTasks.length ?? 0) > 0;
+    let reportsPending = background.size > 0 || hasTasks;
 
     const release = Effect.gen(function* () {
       const previous = slot;
@@ -124,22 +127,30 @@ export const registerWorkerAdmission = <E>(
           Predicate.isTagged(event, "SubagentStarted") &&
           event.subagent.sessionId === sessionId &&
           event.subagent.background === true
-        )
+        ) {
+          background.add(event.subagent.id);
           reportsPending = true;
+        }
+
+        if (Predicate.isTagged(event, "SubagentEnded") && event.subagent.sessionId === sessionId)
+          background.delete(event.subagent.id);
 
         if (
           Predicate.isTagged(event, "SessionBackgroundTasksChanged") &&
-          event.sessionId === sessionId &&
-          event.tasks.length > 0
-        )
-          reportsPending = true;
+          event.sessionId === sessionId
+        ) {
+          hasTasks = event.tasks.length > 0;
+
+          if (hasTasks) reportsPending = true;
+        }
 
         if (
           Predicate.isTagged(event, "TurnEnded") &&
           event.turn.sessionId === sessionId &&
           (event.turn.status !== "completed" || event.turn.trigger !== null)
-        )
-          reportsPending = false;
+        ) {
+          reportsPending = event.turn.status === "completed" && (hasTasks || background.size > 0);
+        }
 
         if (
           Predicate.isTagged(event, "SessionStateChanged") &&

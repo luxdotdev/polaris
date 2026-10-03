@@ -25,8 +25,8 @@ module worker_admission {
     slots' = { ...slots, foreground: true },
   }
   action reportingEnded = all {
-    slots.reporting and slots.foreground and not(slots.background),
-    slots' = { ...slots, reporting: false, foreground: false },
+    slots.reporting and slots.foreground,
+    slots' = { ...slots, reporting: slots.background, foreground: false },
   }
   action releaseBlocked = all {
     slots.blocked, not(slots.foreground), not(slots.background), not(slots.reporting),
@@ -88,6 +88,11 @@ module worker_admission_test {
   run restartBeforeAdmissionTest = init.then(block).then(foregroundEnded).then(releaseBlocked)
     .then(grant).then(resumeInput).then(restart).expect(slots.pending and slots.bindings and safety)
     .then(grant).then(apply).then(retry).expect(slots.unblocks == 1 and safety)
+  run earlierReportRetainsLiveChildTest = init.then(block).then(spawnBackground)
+    .then(foregroundEnded).then(nativeStart).then(reportingEnded).then(backgroundReported)
+    .expect(slots.reporting and slots.holders == Set(0) and safety)
+    .then(nativeStart).then(reportingEnded).then(releaseBlocked).then(grant)
+    .expect(slots.bStarted and safety)
   run releaseDuringReportingIsUnsafeTest = init.then(block).then(spawnBackground).then(foregroundEnded)
     .then(backgroundReported).then(slots' = { ...slots, holders: Set() }).expect(not(safety))
   run executeWithoutAdmissionIsUnsafeTest = init.then(block).then(foregroundEnded).then(releaseBlocked)

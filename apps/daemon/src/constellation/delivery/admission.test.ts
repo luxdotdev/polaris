@@ -162,6 +162,17 @@ for (const cause of ["Lead", "Accepted"] as const)
           yield* finish(WORKER);
           yield* Effect.promise(() => Bun.sleep(20));
           expect(starts).toEqual([A]);
+          // An earlier report must retain the next live child's reporting reservation.
+          yield* signal(WORKER, {
+            type: "harness.turnStarted",
+            turnId: TurnId.make("earlier-report"),
+            prompt: "",
+            trigger: TurnTrigger.cases.BackgroundTasksReported.make({
+              tasks: [{ id: "earlier-child", kind: "subagent" }],
+            }),
+            at: new Date().toISOString(),
+          });
+          yield* finish(WORKER);
           yield* store.commit({
             commandId: null,
             decide: () =>
