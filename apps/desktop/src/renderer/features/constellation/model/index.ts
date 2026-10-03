@@ -75,4 +75,8 @@ export {
 
 export { areaOverlaps, globsOverlap, type Overlap } from "./areas.ts";
 
+export { LANE_MAX, LANE_MIN, laneWidth } from "./lane.ts";
+
+export { stoppedWithoutClaiming } from "./stopped.ts";
+
 export * from "./copy.ts";
