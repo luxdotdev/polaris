@@ -15,6 +15,8 @@ import {
   RemoteDeliveryPacket,
   RemoteDeliveryInput,
   Sequence,
+  SessionId,
+  TaskId,
 } from "@polaris/protocol";
 import {
   Deferred,
@@ -606,3 +608,110 @@ test("refused relay receipts survive restart and unchanged retries add no events
     removeDir(repo);
   }
 });
+
+test("automatic relay delivers another Session while one worker RPC waits for its Turn", async () => {
+  const paths = roots();
+  const repo = await makeRepo();
+
+  try {
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const blocked = yield* Deferred.make<void>();
+          const release = yield* Deferred.make<void>();
+          const siblingDelivered = yield* Deferred.make<void>();
+          const owner = yield* fakeHost(paths.owner);
+
+          const worker = yield* fakeHost(paths.worker, {
+            workers: workerHooks(),
+            delivery: {
+              apply: (packet) =>
+                packet.id === "waiting"
+                  ? Deferred.succeed(blocked, undefined).pipe(
+                      Effect.andThen(Deferred.await(release))
+                    )
+                  : Deferred.succeed(siblingDelivered, undefined).pipe(Effect.asVoid),
+            },
+          });
+
+          yield* seed(owner, repo);
+          const { attempt } = yield* prepare(owner, worker, repo);
+
+          const sibling = Attempt.make(
+            Struct.assign(attempt, {
+              id: AttemptId.make("sibling"),
+              taskId: TaskId.make("B"),
+              sessionId: SessionId.make("sibling"),
+            })
+          );
+
+          yield* commit(
+            owner,
+            "add-sibling",
+            C.Plan.make({
+              constellationId: CID,
+              operations: [PlanOperation.cases.Add.make({ task: task(sibling.taskId) })],
+            })
+          );
+          yield* commit(
+            owner,
+            "dispatch-sibling",
+            C.Dispatch.make({
+              constellationId: CID,
+              tasks: [
+                {
+                  taskId: sibling.taskId,
+                  worker: WorkerPlacement.cases.Existing.make({ sessionId: sibling.sessionId }),
+                },
+              ],
+            }),
+            [sibling]
+          );
+          const graph = yield* graphOf(owner);
+          yield* worker.storage.assign(
+            RemoteWorkerAssignment.make({ graph, attemptId: sibling.id, repoPath: repo })
+          );
+
+          const packet = (id: string, a: Attempt) =>
+            RemoteDeliveryPacket.make({
+              id,
+              ownerHostId: owner.host.hostId,
+              workerHostId: worker.host.hostId,
+              constellationId: CID,
+              attemptId: a.id,
+              sessionId: a.sessionId,
+              input: RemoteDeliveryInput.cases.Turn.make({
+                text: id,
+                cause: id === "waiting" ? "unblock" : "message",
+              }),
+            });
+
+          yield* startClient(paths, yield* Effect.scope);
+
+          const first = yield* owner.deliveries
+            .send(packet("waiting", attempt))
+            .pipe(Effect.forkChild);
+
+          yield* Deferred.await(blocked);
+
+          const second = yield* owner.deliveries
+            .send(packet("sibling", sibling))
+            .pipe(Effect.forkChild);
+
+          yield* Deferred.await(siblingDelivered).pipe(Effect.timeout(2000));
+          yield* Fiber.join(second).pipe(Effect.timeout(2000));
+          expect(yield* Deferred.isDone(release)).toBe(false);
+          yield* Deferred.succeed(release, undefined);
+          yield* Fiber.join(first).pipe(Effect.timeout(2000));
+          expect(
+            (yield* owner.deliveries.watch.pipe(Stream.take(1), Stream.runCollect))[0]
+          ).toEqual([]);
+        })
+      )
+    );
+  } finally {
+    removeDir(paths.owner);
+    removeDir(paths.worker);
+    removeDir(repo);
+  }
+}, 15_000);

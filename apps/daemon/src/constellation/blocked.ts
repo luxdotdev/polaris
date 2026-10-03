@@ -2,8 +2,10 @@ import { type Attempt, type TaskId, ConstellationEvent, NotificationItem } from 
 import type { GraphCommand } from "../engine/constellation.inputs.ts";
 import type { ConstellationRecord } from "../store/constellation.ts";
 import type { GraphDecision } from "./decision.ts";
+import { MessageTarget } from "@polaris/protocol";
 import { accepted, latestAttempt } from "./projections.ts";
-import { completionTasks, dependencyClosure } from "./parents.ts";
+import { completionTasks } from "./parents.ts";
+import { waitClosure, waitGraph } from "./waitGraph.ts";
 
 export const blockAttempt = (
   d: GraphDecision,
@@ -56,10 +58,12 @@ export const blockAttempt = (
     return;
   }
 
-  if (on.some((id) => dependencyClosure(d.record.graph.tasks, id).has(attempt.taskId))) {
+  const edges = waitGraph(d.record.graph.tasks, d.record.graph.attempts);
+
+  if (on.some((id) => waitClosure(edges, id).has(attempt.taskId))) {
     d.reject(
       "E-BLOCK-CYCLE",
-      "A block target depends on this Task",
+      "A block target depends on or is blocked by this Task",
       "Choose Tasks that can finish independently of this Task."
     );
 
@@ -91,7 +95,15 @@ export const unblocksAttempt = (record: ConstellationRecord, attempt: Attempt, i
   if (acceptedBlockInput(record, attempt)?.id === id) return true;
   const message = record.messages.get(id);
 
-  return message !== undefined && message.revision > (record.blockRevisions.get(attempt.id) ?? 0);
+  return (
+    message !== undefined &&
+    message.revision > (record.blockRevisions.get(attempt.id) ?? 0) &&
+    MessageTarget.match(message.target, {
+      Worker: ({ attemptId }) => attemptId === attempt.id,
+      Lead: () => false,
+      All: () => false,
+    })
+  );
 };
 
 export const cancelBlockTarget = (d: GraphDecision, taskId: TaskId, taskRevision: number) => {

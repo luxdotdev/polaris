@@ -1,11 +1,12 @@
 import type { HostId } from "@polaris/protocol";
-import { Effect, Predicate } from "effect";
+import { Effect, Option, Predicate } from "effect";
 import { decideSession } from "../engine/session.ts";
 import { EventStore } from "../store/EventStore.ts";
 import { decideConstellationJournal } from "./journal.ts";
 import { ConstellationOwner, type ConstellationRuntimeService } from "./runtime.ts";
 import { ConstellationSessionEffects, type RecoveryCandidate } from "./delivery/inputs.ts";
 import { commitJournal, journalContext } from "./delivery/journal.ts";
+import { ConstellationDelivery } from "./delivery/index.ts";
 import { startedTurn } from "./delivery/turns.ts";
 
 export const RECOVERY_PROMPT = "The Daemon restarted; continue your Task";
@@ -114,5 +115,11 @@ export const observeWorkerHost = Effect.fn("Constellation.observeWorkerHost")(fu
           attemptId: attempt.id,
           offline,
         });
+  }
+
+  if (!offline) {
+    const delivery = yield* Effect.serviceOption(ConstellationDelivery);
+
+    if (Option.isSome(delivery)) yield* delivery.value.flush();
   }
 });

@@ -53,6 +53,7 @@ export class ConstellationRelay extends Context.Service<
       const connected = new Map<string, LiveSession>();
       const packets = new Map<string, Pending<ConstellationOutboxPacket>>();
       const placements = new Map<string, Pending<RemotePlacementRequest>>();
+      const delivering = new Set<string>();
       const deliveries = new Map<string, Pending<RemoteDeliveryPacket>>();
       const graphs = new Map<ConstellationId, Constellation>();
       const hosts = new Map<string, { scope: Scope.Closeable; connection: HostConnection }>();
@@ -79,6 +80,34 @@ export class ConstellationRelay extends Context.Service<
             )
               yield* ignore(mirrorRemoteAssignments(graph, worker, byId(graph.hostId)));
           }
+        }
+      });
+
+      const launchDelivery = Effect.fnUntraced(function* (
+        source: string,
+        value: RemoteDeliveryPacket
+      ) {
+        const owner = connected.get(source);
+        const worker = byId(value.workerHostId);
+
+        const scope =
+          worker === undefined
+            ? undefined
+            : [...connected.entries()].find(([, session]) => session === worker)?.[0];
+
+        const epoch = scope === undefined ? undefined : epochs.get(scope);
+
+        if (
+          owner !== undefined &&
+          worker !== undefined &&
+          epoch !== undefined &&
+          !delivering.has(value.id)
+        ) {
+          delivering.add(value.id);
+          yield* ignore(relayRemoteDelivery(owner, worker, value)).pipe(
+            Effect.ensuring(Effect.sync(() => delivering.delete(value.id))),
+            Effect.forkIn(epoch)
+          );
         }
       });
 
@@ -109,13 +138,7 @@ export class ConstellationRelay extends Context.Service<
 
         yield* mirrorGraphs;
 
-        for (const { source, value } of deliveries.values()) {
-          const owner = connected.get(source);
-          const worker = byId(value.workerHostId);
-
-          if (owner !== undefined && worker !== undefined)
-            yield* ignore(relayRemoteDelivery(owner, worker, value));
-        }
+        for (const { source, value } of deliveries.values()) yield* launchDelivery(source, value);
 
         yield* SubscriptionRef.set(waiting, packets.size + placements.size + deliveries.size);
       });

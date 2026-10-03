@@ -170,7 +170,7 @@ export const performHandover = Effect.fn("Constellation.performHandover")(functi
 
           const turn = newTurn(
             fresh.session,
-            handoverHeader(graph, to, summary),
+            handoverHeader(graph, to, summary, model.sessions),
             at,
             `${requestId}:header`
           );

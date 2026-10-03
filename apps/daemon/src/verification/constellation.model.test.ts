@@ -108,10 +108,13 @@ const referenceClosure = (ref: Reference, id: string) => {
   while (pending.length > 0) {
     const next = pending.pop()!;
 
-    if (seen.has(next)) continue;
+    if (seen.has(next) || ref.tasks.get(next)?.canceled || referenceDone(ref, next)) continue;
     seen.add(next);
     pending.push(
       ...referenceDeps(ref, next),
+      ...[...ref.attempts.values()].flatMap((a) =>
+        a.taskId === next && a.state === "blocked" ? a.blockedOn : []
+      ),
       ...[...ref.tasks.values()].flatMap((t) => (t.parent === next && !t.canceled ? [t.id] : []))
     );
   }
@@ -155,7 +158,9 @@ const parentEditStep = (ref: Reference, index: number, mutable: boolean): Step =
       ],
     }),
     context: ctx(),
-    allowed: mutable,
+    allowed:
+      mutable &&
+      (index % 2 !== 0 || !["P", "Q", A, B].some((id) => referenceClosure(ref, X).has(id))),
   };
 };
 
@@ -330,4 +335,16 @@ test("blocked SendBack is modeled and emitted in a complete committed trace", ()
 
 test("a blocked Attempt cannot be accepted without a Claim after a parent dependency edit", () => {
   run([0, 30, 2, 35, 0, 11]);
+});
+
+test("model rejects mutual blocks through sibling Attempts", () => {
+  run([30, 30, 0, 1, 33, 34]);
+});
+
+test("model rejects a parent edit that closes a live block through inherited dependencies", () => {
+  run([30, 30, 2, 0, 35, 6, 30]);
+});
+
+test("model ignores a blocked target's accepted wait edges during a parent edit", () => {
+  run([0, 30, 2, 0, 35, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 9, 0, 0, 0, 30]);
 });

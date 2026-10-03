@@ -32,6 +32,51 @@ module constellations_test {
     .then(unblock(0, 2, "Accepted", true)).expect(view.attempts[0].status == "blocked" and safety)
     .then(stop(0, 2)).expect(view.attempts[0].status == "lost" and safety)
 
+  action independentWorkers = working
+    .then(plan([Edit({ task: 1, deps: Set(), parent: -1, gate: false, revision: 1 })]))
+    .then(start(1, 2, -1)).expect(safety)
+
+  run mutualBlocksAreRejectedTest = independentWorkers
+    .then(block(0, Set(1), 1))
+    .then(block(1, Set(0), 1)).expect(view.attempts[1].status == "working" and safety)
+
+  run planCannotCloseLiveBlockCycleTest = independentWorkers
+    .then(block(0, Set(1), 1))
+    .then(plan([Edit({ task: 1, deps: Set(0), parent: -1, gate: false, revision: 2 })]))
+    .expect(view.tasks.get(1).deps == Set() and safety)
+    .then(stop(0, 2))
+    .then(plan([Edit({ task: 1, deps: Set(0), parent: -1, gate: false, revision: 2 })]))
+    .expect(view.tasks.get(1).deps == Set(0) and safety)
+
+  run mixedBlockDependencyCycleRejectedTest = independentWorkers
+    .then(plan([Add({ task: 3, deps: Set(0), parent: -1, gate: false })]))
+    .then(block(0, Set(1), 1))
+    .then(block(1, Set(3), 1)).expect(view.attempts[1].status == "working" and safety)
+
+  run broadcastCannotUnblockTest = working.then(block(0, Set(), 1))
+    .then(unblock(0, 2, "Broadcast", true)).expect(view.attempts[0].status == "blocked" and safety)
+
+  run acceptedTasksHaveNoWaitEdgesTest = independentWorkers
+    .then(plan([Add({ task: 3, deps: Set(), parent: -1, gate: false })]))
+    .then(claim(1, 1, 43, false, true)).then(accept(1, 2, 43))
+    .then(plan([Edit({ task: 1, deps: Set(0), parent: -1, gate: false, revision: 2 })]))
+    .then(block(0, Set(1, 3), 1))
+    .expect(waits(view, 1) == Set() and view.attempts[0].status == "blocked" and safety)
+
+  action legacyCycle = working
+    .then(plan([Edit({ task: 1, deps: Set(), parent: -1, gate: false, revision: 1 })]))
+    .then(block(0, Set(1), 1))
+    .then(commit(OWNER, [TaskEdited({ task: 1, deps: Set(0), parent: -1, gate: false })]))
+    .expect(not(graphAcyclic))
+  run legacyCycleAllowsUnrelatedEditAndRepairTest = legacyCycle
+    .then(plan([Add({ task: 3, deps: Set(), parent: -1, gate: false })]))
+    .expect(view.tasks.get(3).declared and not(graphAcyclic))
+    .then(plan([Edit({ task: 1, deps: Set(), parent: -1, gate: false, revision: 3 })]))
+    .expect(view.tasks.get(1).deps == Set() and graphAcyclic)
+  run legacyCycleAllowsCancelToBreakBlockTest = legacyCycle
+    .then(plan([Cancel({ task: 1, revision: 3 }), Edit({ task: 2, deps: Set(0), parent: -1, gate: true, revision: 1 })]))
+    .expect(view.tasks.get(1).canceled and view.blocks.get(0) == Set() and graphAcyclic)
+
   action parentBase = init.then(plan([
     Add({ task: 0, deps: Set(), parent: 1, gate: false }),
     Add({ task: 1, deps: Set(), parent: -1, gate: false }),
@@ -287,6 +332,15 @@ module constellations_property_test {
     .expect(view.lead == 3 and view.attempts[2].status == "lost" and oneLead and safety)
     .then(start(2, 3, 2)).expect(view.attempts.length() == 4 and view.attempts[3].ref == 2 and causesPointBackward and safety)
   run detectsCycleTest = base.then(commit(OWNER, [TaskEdited({ task: 0, deps: Set(1), parent: -1, gate: false })]))
+    .expect(not(graphAcyclic))
+  action blockedPair = working
+    .then(plan([Edit({ task: 1, deps: Set(), parent: -1, gate: false, revision: 1 })]))
+    .then(start(1, 2, -1)).then(block(0, Set(1), 1)).expect(safety)
+  run detectsMutualBlocksTest = blockedPair
+    .then(commit(OWNER, [AttemptBlocked({ attempt: 1, on: Set(0) })]))
+    .expect(not(graphAcyclic) and not(blockTransitionsValid))
+  run detectsBlockClosingEditTest = blockedPair
+    .then(commit(OWNER, [TaskEdited({ task: 1, deps: Set(0), parent: -1, gate: false })]))
     .expect(not(graphAcyclic))
   run detectsForwardCauseTest = base.then(commit(OWNER, [AttemptStarted({ task: 0, session: 1, ref: 1, mergeBase: "" })]))
     .expect(not(causesPointBackward))

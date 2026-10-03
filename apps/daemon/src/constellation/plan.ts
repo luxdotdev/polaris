@@ -10,7 +10,27 @@ import { taskData } from "./data.ts";
 import { GraphDecision } from "./decision.ts";
 import { cancelBlockTarget } from "./blocked.ts";
 import { latestAttempt } from "./projections.ts";
-import { cancelSubtrees, effectiveDeps, prerequisites, validateParents } from "./parents.ts";
+import { cancelSubtrees, effectiveDeps, validateParents } from "./parents.ts";
+import { waitCycleMessage, waitGraph, waitPath } from "./waitGraph.ts";
+
+const validateWaitCycles = (d: GraphDecision, tasks: ReadonlyArray<Task>) => {
+  const edges = waitGraph(tasks, d.record.graph.attempts);
+  const original = waitGraph(d.record.graph.tasks, d.record.graph.attempts);
+
+  for (const [from, outgoing] of edges) {
+    for (const edge of outgoing) {
+      if (original.get(from)?.some((old) => old.target === edge.target)) continue;
+      const path = waitPath(edges, edge.target, from);
+
+      if (path !== null)
+        d.reject(
+          "E-DEP-CYCLE",
+          waitCycleMessage(edges, [from, ...path]),
+          "Remove a dependency or unblock an Attempt in this cycle."
+        );
+    }
+  }
+};
 
 /** Validate the resulting graph, so forward references and removing a dependency in the same batch work. */
 export const validateGraph = (d: GraphDecision, tasks: ReadonlyArray<Task>) => {
@@ -36,36 +56,7 @@ export const validateGraph = (d: GraphDecision, tasks: ReadonlyArray<Task>) => {
     }
   }
 
-  const visiting = new Set<TaskId>();
-  const visited = new Set<TaskId>();
-  const cycles = new Set<string>();
-
-  const walk = (id: TaskId, path: ReadonlyArray<TaskId>) => {
-    if (visiting.has(id)) {
-      const cycle = [...path.slice(path.indexOf(id)), id];
-      const key = [...new Set(cycle)].sort().join(",");
-
-      if (!cycles.has(key)) {
-        cycles.add(key);
-        d.reject(
-          "E-DEP-CYCLE",
-          `Dependency cycle: ${cycle.join(" → ")}`,
-          "Remove a dependency in this cycle."
-        );
-      }
-
-      return;
-    }
-
-    if (visited.has(id)) return;
-    visiting.add(id);
-
-    for (const dep of prerequisites(tasks, id)) if (byId.has(dep)) walk(dep, [...path, id]);
-    visiting.delete(id);
-    visited.add(id);
-  };
-
-  for (const task of tasks) walk(task.id, []);
+  validateWaitCycles(d, tasks);
 };
 
 export const plan = (d: GraphDecision, command: GraphCommand<"Plan">) => {

@@ -294,7 +294,7 @@ const make = Effect.gen(function* () {
     start,
     flush,
     acknowledge: (id: string, sessionId: SessionId) =>
-      acknowledge(id, sessionId).pipe(Effect.provide(dependencies)),
+      acknowledge(id, sessionId).pipe(Effect.provide(dependencies), Effect.andThen(flush)),
     pendingTimers: Effect.sync(() => timers.size),
   };
 });

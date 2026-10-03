@@ -9,13 +9,13 @@ interface Observer<E> {
 
 /** Replays observed Offline/Connected facts after owner reconnect; no polling or inferred timeout. */
 export const connectionObservations = () => {
-  const facts = new Map<HostId, boolean>();
+  const facts = new Map<HostId, { offline: boolean; epoch: number }>();
   const sent = new Map<string, string>();
 
   return {
     observe: (status: ConnectionStatus) => {
       if (status.host !== null && (status.state === "offline" || status.state === "connected"))
-        facts.set(status.host.hostId, status.state === "offline");
+        facts.set(status.host.hostId, { offline: status.state === "offline", epoch: status.epoch });
     },
     publish: Effect.fnUntraced(function* <E>(
       graphs: Iterable<Constellation>,
@@ -28,11 +28,13 @@ export const connectionObservations = () => {
 
         for (const hostId of new Set(graph.attempts.map((a) => a.hostId))) {
           if (hostId === graph.hostId) continue;
-          const offline = facts.get(hostId);
+          const fact = facts.get(hostId);
+          const offline = fact?.offline;
           const key = JSON.stringify([graph.hostId, graph.id, hostId]);
 
           const observation = JSON.stringify([
             owner.epoch,
+            fact?.epoch,
             offline,
             graph.attempts.filter((a) => a.hostId === hostId).map((a) => a.id),
           ]);

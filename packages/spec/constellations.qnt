@@ -170,10 +170,14 @@ module constellations {
     }))
   pure def taskState(v: View, t: int): str =
     if (children(v, t) == Set()) leafState(v, t) else taskStates(v).get(t)
-  pure def reach(v: View, t: int): Set[int] = TASKS.fold(effectiveDeps(v, t).union(children(v, t)), (acc, _) =>
-    acc.union(acc.fold(Set(), (out, d) => out.union(effectiveDeps(v, d)).union(children(v, d)))))
-  pure def validGraph(v: View): bool = TASKS.forall(t => all {
-    not(reach(v, t).contains(t)),
+  pure def liveBlocks(v: View, t: int): Set[int] = v.attempts.indices().fold(Set(), (acc, a) =>
+    if (v.attempts[a].task == t and v.attempts[a].status == "blocked" and not(v.tasks.get(t).canceled))
+      acc.union(v.blocks.get(a).filter(d => not(v.tasks.get(d).canceled))) else acc)
+  pure def waits(v: View, t: int): Set[int] = if (v.tasks.get(t).canceled or accepted(v, t)) Set()
+    else effectiveDeps(v, t).union(children(v, t)).union(liveBlocks(v, t)).filter(d => not(v.tasks.get(d).canceled) and not(accepted(v, d)))
+  pure def reach(v: View, t: int): Set[int] = TASKS.fold(waits(v, t), (acc, _) =>
+    acc.union(acc.fold(Set(), (out, d) => out.union(waits(v, d)))))
+  pure def graphStructureValid(v: View): bool = TASKS.forall(t => all {
     not(lineage(v, t).contains(t)),
     v.tasks.get(t).parent < 0 or (v.tasks.keys().contains(v.tasks.get(t).parent) and v.tasks.get(v.tasks.get(t).parent).declared),
     children(v, t) == Set() or (not(v.tasks.get(t).gate) and latest(v, t) < 0),
@@ -181,6 +185,9 @@ module constellations {
     v.tasks.get(t).canceled or effectiveDeps(v, t).forall(d => not(lineage(v, t).contains(d)) and not(lineage(v, d).contains(t))),
     v.tasks.get(t).canceled or effectiveDeps(v, t).forall(d => v.tasks.get(d).declared and not(v.tasks.get(d).canceled)),
   })
+  pure def validGraph(v: View): bool = graphStructureValid(v) and TASKS.forall(t => not(reach(v, t).contains(t)))
+  pure def planGraphValid(before: View, after: View): bool = graphStructureValid(after)
+    and TASKS.forall(t => waits(after, t).exclude(waits(before, t)).forall(d => d != t and not(reach(after, d).contains(t))))
   pure def cancelEvents(v: View, t: int): List[EventKind] =
     [TaskCanceled(t)].concat(v.attempts.indices().fold([], (notes, a) =>
       if (v.attempts[a].status == "blocked" and v.blocks.get(a).contains(t))
@@ -205,7 +212,7 @@ module constellations {
     val events = canceled.fold(batch.events, (acc, t) => acc.concat(cancelEvents(v, t)))
     val updated = events.foldl(v, (acc, e) => apply(acc, e))
     val stopped = roots.union(canceled).forall(t => latest(v, t) < 0 or not(active(v.attempts[latest(v, t)])))
-    if (batch.valid and stopped and validGraph(updated)) events.concat(promote(updated)) else []
+    if (batch.valid and stopped and planGraphValid(v, updated)) events.concat(promote(updated)) else []
   }
   pure def current(v: View, a: int, rev: int): bool = v.attempts.indices().contains(a)
     and latest(v, v.attempts[a].task) == a and active(v.attempts[a]) and v.attempts[a].revision == rev

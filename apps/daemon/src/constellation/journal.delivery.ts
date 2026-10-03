@@ -53,8 +53,8 @@ export const inputDelivered = (
     if (!acceptance && !leadMessage) {
       d.reject(
         "E-UNBLOCK-INPUT",
-        "This queued input predates the block",
-        "Send a new Lead message after the Attempt blocked."
+        "This input does not address the blocked Attempt after its block",
+        "Send a new Lead message to this worker after the Attempt blocked."
       );
 
       return [];
