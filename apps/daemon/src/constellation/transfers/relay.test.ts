@@ -257,6 +257,98 @@ test("two real fake Hosts transfer the base, commit one Claim before fetch, hydr
   }
 }, 15_000);
 
+test("remote review re-claim transfers the changed head and preserves the pending Claim guard", async () => {
+  const paths = roots();
+  const repo = await makeRepo();
+
+  try {
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const owner = yield* fakeHost(paths.owner);
+          const worker = yield* fakeHost(paths.worker, { workers: workerHooks() });
+          yield* seed(owner, repo);
+          const { ownerRpc, workerRpc, attempt } = yield* prepare(owner, worker, repo);
+          const binding = { kind: "session" as const, sessionId: attempt.sessionId };
+
+          const claim = (head: string) =>
+            C.WorkerClaim.make({
+              constellationId: CID,
+              attemptId: attempt.id,
+              claim: report(attempt.branch, head),
+            });
+
+          write(attempt.worktree, "work", "first Claim");
+          const firstHead = yield* Effect.promise(() => commitAll(attempt.worktree, "first"));
+          yield* worker.outbox.enqueue(binding, id("first-claim"), claim(firstHead));
+          yield* relayOutboxPacket(workerRpc, ownerRpc, (yield* worker.storage.packets)[0]!);
+          const previous = (yield* graphOf(owner)).attempts[0]!;
+          yield* worker.assignments.set(
+            RemoteWorkerAssignment.make({
+              graph: yield* graphOf(owner),
+              attemptId: attempt.id,
+              repoPath: attempt.worktree,
+            })
+          );
+
+          const unchanged = yield* worker.outbox
+            .enqueue(binding, id("unchanged"), claim(firstHead))
+            .pipe(
+              Effect.as("ok"),
+              Effect.catchTag("ConstellationTransferError", (error) => Effect.succeed(error.code))
+            );
+
+          expect(unchanged).toBe("E-CLAIM-UNCHANGED");
+
+          write(attempt.worktree, "work", "revised Claim");
+          const revisedHead = yield* Effect.promise(() => commitAll(attempt.worktree, "revised"));
+          yield* worker.outbox.enqueue(binding, id("revised-claim"), claim(revisedHead));
+
+          const duplicate = yield* worker.outbox
+            .enqueue(binding, id("duplicate"), claim(revisedHead))
+            .pipe(
+              Effect.as("ok"),
+              Effect.catchTag("ConstellationTransferError", (error) => Effect.succeed(error.code))
+            );
+
+          expect(duplicate).toBe("E-CLAIM-QUEUED");
+          expect(yield* worker.storage.packets).toHaveLength(1);
+          yield* relayOutboxPacket(workerRpc, ownerRpc, (yield* worker.storage.packets)[0]!);
+          const revised = (yield* graphOf(owner)).attempts[0]!;
+          expect(revised.id).toBe(previous.id);
+          expect(revised.revision).toBe(previous.revision + 1);
+          expect(revised.claim?.head).toBe(revisedHead);
+          expect(
+            yield* Effect.promise(() => resolveCommit(repo, constellationRef(CID, attempt.id)))
+          ).toBe(revisedHead);
+
+          const stale = yield* commit(
+            owner,
+            "old-accept",
+            C.Review.make({
+              constellationId: CID,
+              attemptId: attempt.id,
+              revision: previous.revision,
+              action: ReviewAction.cases.Accept.make({ mergedHead: firstHead, receipts: [] }),
+            })
+          ).pipe(
+            Effect.as("ok"),
+            Effect.catchTag("ConstellationRejected", (error) =>
+              Effect.succeed(error.findings[0]?.code)
+            )
+          );
+
+          expect(stale).toBe("E-REVISION");
+        })
+      )
+    );
+  } finally {
+    removeDir(paths.owner);
+    removeDir(paths.worker);
+    removeDir(repo);
+  }
+}, 15000);
+
 test("worker outbox survives app loss after owner commit and retry after owner settlement", async () => {
   const paths = roots();
   const repo = await makeRepo();

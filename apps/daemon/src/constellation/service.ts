@@ -3,6 +3,7 @@ import {
   ConstellationCommand,
   type ConstellationId,
   ConstellationResult,
+  ConstellationProposal,
   ConstellationSettings,
   type CheckReceipt,
   type Sequence,
@@ -16,7 +17,7 @@ import type {
   ConstellationContext,
   RecordedCheck,
 } from "../engine/constellation.inputs.ts";
-import { type ConstellationRecord } from "../store/constellation.ts";
+import { type ConstellationRecord, stampKey } from "../store/constellation.ts";
 import { EventStore } from "../store/EventStore.ts";
 import type { ReadModel } from "../store/model.ts";
 import { getDefaults } from "./defaults.ts";
@@ -56,6 +57,17 @@ export const graphResult = (
     sequence,
     constellation: json ? record.graph : null,
     projections: json ? [...projections] : [],
+    proposals: json
+      ? [...record.proposals].map(
+          ([proposalId, p]) =>
+            new ConstellationProposal({
+              proposalId,
+              by: p.by,
+              task: p.task,
+              at: record.stamps.get(stampKey("proposal", proposalId)) ?? record.graph.updatedAt,
+            })
+        )
+      : [],
   });
 
 const references = (command: ConstellationCommand): ReadonlyArray<ToolCallReference> => {

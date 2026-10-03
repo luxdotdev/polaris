@@ -164,6 +164,39 @@ const parentEditStep = (ref: Reference, index: number, mutable: boolean): Step =
   };
 };
 
+const claimStep = (ref: Reference, taskId: TaskId, index: number): Step => {
+  const attempt = latest(ref, taskId);
+  const attemptId = AttemptId.make(attempt?.id ?? "missing");
+
+  const workerContext = ctx({
+    binding: { kind: "session", sessionId: SessionId.make(`worker-${taskId}`) },
+  });
+
+  const base = { constellationId: CID, attemptId };
+
+  const mutable = ref.state === "planning" || ref.state === "running" || ref.state === "paused";
+
+  return {
+    command: C.WorkerClaim.make({
+      ...base,
+      claim: report(`polaris/${taskId}`, index % 2 === 0 ? "head" : "revised-head"),
+    }),
+    context: ctx({
+      ...workerContext,
+      claimProbe: {
+        dirtyPaths: [],
+        branch: `polaris/${taskId}`,
+        head: index % 2 === 0 ? "head" : "revised-head",
+      },
+    }),
+    allowed:
+      mutable &&
+      (attempt?.state === "working" ||
+        (attempt?.state === "review" &&
+          attempt.head !== (index % 2 === 0 ? "head" : "revised-head"))),
+  };
+};
+
 const step = (ref: Reference, op: number, index: number): Step => {
   const taskId = choices[op % 3]!;
   const attempt = latest(ref, taskId);
@@ -183,22 +216,17 @@ const step = (ref: Reference, op: number, index: number): Step => {
       allowed: mutable && active(attempt?.state),
     };
 
-  if (action === 2)
-    return {
-      command: C.WorkerClaim.make({ ...base, claim: report(`polaris/${taskId}`) }),
-      context: ctx({
-        ...workerContext,
-        claimProbe: { dirtyPaths: [], branch: `polaris/${taskId}`, head: "head" },
-      }),
-      allowed: mutable && attempt?.state === "working",
-    };
+  if (action === 2) return claimStep(ref, taskId, index);
 
   if (action === 3)
     return {
       command: C.Review.make({
         ...base,
         revision: attempt?.revision ?? 0,
-        action: ReviewAction.cases.Accept.make({ mergedHead: "head", receipts: [] }),
+        action: ReviewAction.cases.Accept.make({
+          mergedHead: attempt?.head ?? "head",
+          receipts: [],
+        }),
       }),
       context: ctx(),
       allowed: mutable && attempt?.state === "review",

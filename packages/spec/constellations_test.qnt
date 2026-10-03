@@ -282,6 +282,19 @@ module constellations_test {
     .then(request(2)).then(cancelLease(0)).then(restart).then(grant).then(grant)
     .expect(view.grants == [1, 2] and view.waiters == [] and safety)
 
+  run reclaimChangedReviewHeadTest = claimed.then(commit(OWNER, [ClaimApproved(0), ClaimHandedUp(0)]))
+    .then(claim(0, 4, 43, false, true))
+    .expect(view.attempts[0].revision == 5 and view.attempts[0].sha == 43
+      and view.approvals == [] and view.handups == [] and safety)
+    .then(accept(0, 4, 42)).expect(view.attempts[0].status == "review" and safety)
+    .then(accept(0, 5, 43)).expect(view.attempts[0].status == "accepted" and safety)
+  run unchangedReviewClaimRefusedTest = claimed.then(claim(0, 2, 42, false, true))
+    .expect(view.attempts[0].revision == 2 and safety)
+  run firstTurnWaitsForWorkingAfterUnblockTest = working.then(block(0, Set(), 1))
+    .then(startFirstTurn(0)).expect(view.firstTurns == [] and safety)
+    .then(unblock(0, 2, "Lead", true)).then(startFirstTurn(0))
+    .expect(view.firstTurns == [0] and safety)
+
   // __workers uses these same resource events; scope close cancels or releases.
   run workerSlotScopeCloseAndRestartReclaimTest = init
     .then(commit(OWNER, [ResourceDeclared(1)]))
@@ -306,6 +319,15 @@ module constellations_property_test {
   ])).then(setState("running")).expect(safety)
   action working = base.then(start(0, 1, -1)).expect(safety)
   action claimed = working.then(claim(0, 1, 42, false, true)).expect(safety)
+
+  run detectsFirstTurnInReviewTest = claimed.then(commit(OWNER, [FirstTurnStarted(0)]))
+    .expect(not(firstTurnValid))
+  run detectsFirstTurnWhileBlockedTest = working.then(block(0, Set(), 1))
+    .then(commit(OWNER, [FirstTurnStarted(0)])).expect(not(firstTurnValid))
+  run detectsFirstTurnAfterSettledTest = claimed.then(accept(0, 2, 42))
+    .then(commit(OWNER, [FirstTurnStarted(0)])).expect(not(firstTurnValid))
+  run detectsUnchangedReclaimTest = claimed.then(commit(OWNER, [AttemptClaimed({ attempt: 0, sha: 42 })]))
+    .expect(not(claimsValid))
 
   run queuedHandoverSurvivesRestartTest = claimed.then(requestHandover(3)).then(restart)
     .then(finishHandover(3, 3)).then(deliver).expect(view.lead == 3 and handoverRequestOrdered and noOldLeadDelivery and safety)

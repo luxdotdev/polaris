@@ -31,7 +31,13 @@ import {
 import { HarnessRegistry } from "../../services.ts";
 import { WorktreeSetupService } from "../setup/index.ts";
 import { prepareSession } from "./prepare.ts";
-import { startAttempt, startPendingAttempt, resumeAttempt, workerFailed } from "./workers.ts";
+import {
+  canStartAttempt,
+  startAttempt,
+  startPendingAttempt,
+  resumeAttempt,
+  workerFailed,
+} from "./workers.ts";
 import { ConstellationHarness } from "./attachments.ts";
 import { attachmentProvider } from "./provider.ts";
 import { ConstellationRpcHandlers } from "../rpc.ts";
@@ -103,6 +109,20 @@ const remoteWorkers = Layer.unwrap(
     const owner = yield* ConstellationOwner;
     const store = yield* EventStore;
     const setup = yield* WorktreeSetupService;
+    const storage = yield* TransferStorage;
+
+    const currentAssignment = (assignment: import("@polaris/protocol").RemoteWorkerAssignment) =>
+      Effect.map(storage.assignments.pipe(Effect.orDie), (assignments) => {
+        const current = assignments.find((a) => a.attemptId === assignment.attemptId);
+        const attempt = current?.graph.attempts.find((a) => a.id === assignment.attemptId);
+
+        return (
+          current !== undefined &&
+          attempt !== undefined &&
+          current.graph.revision >= assignment.graph.revision &&
+          canStartAttempt(current.graph, attempt)
+        );
+      });
 
     return remoteWorkingAttemptsLayer({
       prepare: (request, worktree) =>
@@ -136,7 +156,9 @@ const remoteWorkers = Layer.unwrap(
       start: (assignment) => {
         const attempt = assignment.graph.attempts.find((a) => a.id === assignment.attemptId);
 
-        return attempt === undefined ? Effect.void : startAttempt(assignment.graph, attempt);
+        return attempt === undefined
+          ? Effect.void
+          : startAttempt(assignment.graph, attempt, () => currentAssignment(assignment));
       },
       // Existing remote Turns still wait for verified interruption/continued-Turn receipts.
       resume: (assignment) => {
@@ -144,7 +166,9 @@ const remoteWorkers = Layer.unwrap(
 
         return attempt === undefined
           ? Effect.void
-          : startPendingAttempt(assignment.graph, attempt).pipe(Effect.asVoid);
+          : startPendingAttempt(assignment.graph, attempt, () =>
+              currentAssignment(assignment)
+            ).pipe(Effect.asVoid);
       },
       failed: workerFailed,
     });

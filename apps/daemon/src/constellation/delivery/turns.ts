@@ -74,7 +74,8 @@ export const waitForBoundary = Effect.fn("Constellation.waitForBoundary")(functi
 
 /** Existing Sessions retain approvals and terminal ownership until their machine accepts a Turn. */
 export const waitForDeliveryReady = Effect.fn("Constellation.waitForDeliveryReady")(function* (
-  sessionId: SessionId
+  sessionId: SessionId,
+  pendingStartup: boolean = false
 ) {
   const store = yield* EventStore;
 
@@ -88,9 +89,16 @@ export const waitForDeliveryReady = Effect.fn("Constellation.waitForDeliveryRead
 
           if (record === undefined || record.session.state === "archived") return "gone";
 
-          return takesDelivery(record, newTurn(record.session, "", new Date().toISOString()))
-            ? "ready"
-            : "wait";
+          const turn = newTurn(record.session, "", new Date().toISOString());
+
+          const interruptedStartup =
+            pendingStartup &&
+            record.session.state === "needs-you" &&
+            record.turns.at(-1)?.status === "interrupted" &&
+            record.pending.size === 0 &&
+            decideSession(record, { type: "turn.send", turn }).rejection === null;
+
+          return interruptedStartup || takesDelivery(record, turn) ? "ready" : "wait";
         });
 
         const state = yield* inspect;

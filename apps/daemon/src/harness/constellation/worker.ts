@@ -91,7 +91,7 @@ export const workerBrief = (assignment: WorkerAssignment): string => {
     "How to claim: commit on the assigned branch, leave no uncommitted changes, then call claim with branch, head, commits, receipts, notDone, followups, questions, outsideArea, decisions and summary. A Claim goes to review; the lead accepts it after merging and checking its head.",
     assignment.rejectedClaim === undefined
       ? ""
-      : `Rejected Claim:\n${JSON.stringify(assignment.rejectedClaim)}`,
+      : `Sent-back Claim:\n${JSON.stringify(assignment.rejectedClaim)}`,
     assignment.feedback === undefined ? "" : `Review feedback:\n${assignment.feedback}`,
     "When blocked: continue independent work first; use block { on: [Task ids], reason } to wait for acceptance, or on: [] to wait for the Lead. End your Turn after blocking. Use ask for a decision or answer. Acceptance or a Lead message resumes a blocked Attempt.",
     "Brief:",

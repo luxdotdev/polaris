@@ -6,7 +6,12 @@ import { Effect, Option, Stream } from "effect";
 import { HOST } from "../engine/constellation.testing.ts";
 
 /** Boot the production Daemon on the pending retry, using only the scripted Harness. */
-export const restartForRetry = async (root: string, attempt: Attempt, afterIndex?: number) => {
+export const restartForRetry = async (
+  root: string,
+  attempt: Attempt,
+  afterIndex?: number,
+  checkSlot = false
+) => {
   const matches = (turn: import("@polaris/protocol").Turn) =>
     afterIndex === undefined ? turn.id === `${attempt.id}:start` : turn.index > afterIndex;
 
@@ -79,6 +84,15 @@ export const restartForRetry = async (root: string, attempt: Attempt, afterIndex
               Stream.filter((turn) => turn !== undefined && matches(turn)),
               Stream.runHead
             );
+
+          if (checkSlot) {
+            const resources = yield* client["host.resources.get"]({});
+
+            if (resources.workerCap.working !== 1 || resources.workerCap.waiting !== 0)
+              throw new Error(
+                `Pending startup did not use its worker slot: ${JSON.stringify(resources.workerCap)}`
+              );
+          }
 
           return Option.getOrThrow(found)!;
         })
