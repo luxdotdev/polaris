@@ -113,9 +113,11 @@ export const LanguageSubscriptionInputs = {
 } as const;
 
 export const LanguageSubscriptionItems = {
-  "languages.context.watch": Languages.WatchLanguageContext.successSchema,
-  "languages.install.watch": Languages.WatchLanguageInstall.successSchema,
-  "languages.availability.watch": Languages.WatchLanguageAvailability.successSchema,
+  "languages.context.watch": Languages.LanguageContextEvent,
+  "languages.install.watch": Languages.LanguageInstallProgress,
+  "languages.availability.watch": Schema.Array(Languages.LanguageAvailability).check(
+    Schema.isMaxLength(512)
+  ),
 } as const;
 
 export type LanguageRequestMethod = keyof typeof LanguageRequestInputs;
