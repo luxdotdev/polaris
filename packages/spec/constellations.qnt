@@ -125,14 +125,21 @@ module constellations {
     Set(v.tasks.get(t).parent), (acc, _) =>
       acc.union(acc.fold(Set(), (out, p) => if (v.tasks.keys().contains(p) and v.tasks.get(p).parent >= 0)
         out.union(Set(v.tasks.get(p).parent)) else out)))
-  pure def accepted(v: View, t: int): bool = if (children(v, t) == Set())
-    not(v.tasks.get(t).canceled) and latest(v, t) >= 0 and v.attempts[latest(v, t)].status == "accepted"
-    else {
-    val leaves = descendants(v, t).union(Set(t)).filter(c => children(v, c) == Set())
-    not(v.tasks.get(t).canceled) and leaves.forall(c => latest(v, c) >= 0 and v.attempts[latest(v, c)].status == "accepted")
-  }
+  pure def effectiveDeps(v: View, t: int): Set[int] = lineage(v, t).fold(v.tasks.get(t).deps,
+    (acc, p) => if (v.tasks.keys().contains(p)) acc.union(v.tasks.get(p).deps) else acc)
+  pure def leafAccepted(v: View, t: int): bool = not(v.tasks.get(t).canceled)
+    and latest(v, t) >= 0 and v.attempts[latest(v, t)].status == "accepted"
+  pure def acceptance(v: View): int -> bool = TASKS.fold(TASKS.mapBy(t => leafAccepted(v, t)), (states, _) =>
+    TASKS.mapBy(t => {
+      val kids = children(v, t)
+      if (kids == Set()) leafAccepted(v, t)
+      else not(v.tasks.get(t).canceled) and kids.forall(c => states.get(c))
+        and effectiveDeps(v, t).forall(d => states.get(d))
+    }))
+  pure def accepted(v: View, t: int): bool = if (children(v, t) == Set()) leafAccepted(v, t)
+    else acceptance(v).get(t)
   pure def ready(v: View, t: int): bool = v.tasks.get(t).declared and not(v.tasks.get(t).canceled)
-    and v.tasks.get(t).deps.forall(d => accepted(v, d))
+    and effectiveDeps(v, t).forall(d => accepted(v, d))
   pure def leafState(v: View, t: int): str =
     if (v.tasks.get(t).canceled) "canceled"
     else if (latest(v, t) < 0 or v.attempts[latest(v, t)].status == "rejected")
@@ -143,22 +150,23 @@ module constellations {
     TASKS.mapBy(t => {
       val kids = children(v, t)
       if (v.tasks.get(t).canceled or kids == Set()) leafState(v, t)
-      else if (kids.forall(c => states.get(c) == "done")) "done"
       else if (kids.exists(c => Set("working", "review", "blocked").contains(states.get(c)))) "working"
+      else if (not(ready(v, t))) "waiting"
+      else if (kids.forall(c => states.get(c) == "done")) "done"
       else if (kids.exists(c => states.get(c) == "ready")) "ready" else "waiting"
     }))
   pure def taskState(v: View, t: int): str =
     if (children(v, t) == Set()) leafState(v, t) else taskStates(v).get(t)
-  pure def reach(v: View, t: int): Set[int] = TASKS.fold(v.tasks.get(t).deps.union(children(v, t)), (acc, _) =>
-    acc.union(acc.fold(Set(), (out, d) => out.union(v.tasks.get(d).deps).union(children(v, d)))))
+  pure def reach(v: View, t: int): Set[int] = TASKS.fold(effectiveDeps(v, t).union(children(v, t)), (acc, _) =>
+    acc.union(acc.fold(Set(), (out, d) => out.union(effectiveDeps(v, d)).union(children(v, d)))))
   pure def validGraph(v: View): bool = TASKS.forall(t => all {
     not(reach(v, t).contains(t)),
     not(lineage(v, t).contains(t)),
     v.tasks.get(t).parent < 0 or (v.tasks.keys().contains(v.tasks.get(t).parent) and v.tasks.get(v.tasks.get(t).parent).declared),
     children(v, t) == Set() or (not(v.tasks.get(t).gate) and latest(v, t) < 0),
     v.tasks.get(t).canceled or (v.tasks.get(t).parent < 0 or not(v.tasks.get(v.tasks.get(t).parent).canceled)),
-    v.tasks.get(t).canceled or v.tasks.get(t).deps.forall(d => not(lineage(v, t).contains(d)) and not(lineage(v, d).contains(t))),
-    v.tasks.get(t).canceled or v.tasks.get(t).deps.forall(d => v.tasks.get(d).declared and not(v.tasks.get(d).canceled)),
+    v.tasks.get(t).canceled or effectiveDeps(v, t).forall(d => not(lineage(v, t).contains(d)) and not(lineage(v, d).contains(t))),
+    v.tasks.get(t).canceled or effectiveDeps(v, t).forall(d => v.tasks.get(d).declared and not(v.tasks.get(d).canceled)),
   })
   pure def opEvents(v: View, op: PlanOp): List[EventKind] = match op {
     | Add(p) => if (not(v.tasks.get(p.task).declared)) [TaskDeclared(p)] else []

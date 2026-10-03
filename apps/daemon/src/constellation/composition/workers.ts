@@ -15,7 +15,7 @@ import { workerBrief } from "../../harness/constellation/index.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { ConstellationSessionEffects } from "../delivery/inputs.ts";
 import { newTurn, startedTurn, waitForDeliveryReady } from "../delivery/turns.ts";
-import { acceptedDependencyClaims } from "../parents.ts";
+import { acceptedDependencyClaims, effectiveDeps } from "../parents.ts";
 import { recoverAttempt } from "../recovery.ts";
 
 export const startAttempt = Effect.fn("Constellation.startAttempt")(function* (
@@ -43,7 +43,7 @@ export const startAttempt = Effect.fn("Constellation.startAttempt")(function* (
     attempt,
     selection: session,
     permissionMode: session.permissionMode,
-    acceptedDeps: acceptedDependencyClaims(graph, task.deps),
+    acceptedDeps: acceptedDependencyClaims(graph, effectiveDeps(graph.tasks, task.id)),
   });
 
   while (true) {

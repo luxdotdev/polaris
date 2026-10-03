@@ -1,6 +1,6 @@
 module constellations_test {
   import constellations(
-    TASKS = Set(0, 1, 2), SESSIONS = Set(0, 1, 2, 3), IDS = Set(0, 1, 2, 3, 4, 5),
+    TASKS = Set(0, 1, 2, 3), SESSIONS = Set(0, 1, 2, 3), IDS = Set(0, 1, 2, 3, 4, 5),
     OWNER = "lead-host", CAPACITY = 2,
   ).* from "./constellations"
 
@@ -25,6 +25,30 @@ module constellations_test {
     .then(claim(0, 1, 42, false, true)).expect(taskState(view, 1) == "working" and safety)
     .then(accept(0, 2, 42)).expect(taskState(view, 1) == "done" and view.promotions == [2] and safety)
 
+  run inheritedDependenciesBlockTwoLevelsAndGateTest = init.then(plan([
+    Add({ task: 0, deps: Set(), parent: -1, gate: false }),
+    Add({ task: 1, deps: Set(0), parent: -1, gate: false }),
+    Add({ task: 2, deps: Set(), parent: 1, gate: false }),
+    Add({ task: 3, deps: Set(), parent: 2, gate: true }),
+  ])).then(setState("running"))
+    .expect(not(ready(view, 3)) and taskState(view, 1) == "waiting" and view.promotions == [] and safety)
+    .then(start(3, 1, -1)).expect(view.attempts == [] and safety)
+    .then(start(0, 1, -1)).then(claim(0, 1, 42, false, true)).then(accept(0, 2, 42))
+    .expect(ready(view, 3) and taskState(view, 1) == "ready" and view.promotions == [3] and safety)
+
+  run parentDependencyEditBlocksCompletedChildrenTest = init.then(plan([
+    Add({ task: 0, deps: Set(), parent: -1, gate: false }),
+    Add({ task: 1, deps: Set(), parent: -1, gate: false }),
+    Add({ task: 2, deps: Set(), parent: 1, gate: false }),
+    Add({ task: 3, deps: Set(), parent: 2, gate: false }),
+  ])).then(setState("running")).then(start(3, 1, -1))
+    .then(plan([Edit({ task: 1, deps: Set(0), parent: -1, gate: false, revision: 1 })]))
+    .expect(taskState(view, 1) == "working" and not(ready(view, 3)) and safety)
+    .then(claim(0, 1, 42, false, true)).then(accept(0, 2, 42))
+    .expect(taskState(view, 3) == "done" and taskState(view, 1) == "waiting" and not(accepted(view, 1)) and safety)
+    .then(start(0, 1, -1)).then(claim(1, 1, 42, false, true)).then(accept(1, 2, 42))
+    .expect(taskState(view, 1) == "done" and accepted(view, 1) and safety)
+
   run parentCompletionEdgesRejectDependencyDeadlocksTest = init.then(plan([
     Add({ task: 0, deps: Set(), parent: -1, gate: false }),
     Add({ task: 1, deps: Set(2), parent: 0, gate: false }),
@@ -36,7 +60,7 @@ module constellations_test {
     Add({ task: 1, deps: Set(), parent: 0, gate: false }),
     Add({ task: 2, deps: Set(), parent: 1, gate: false }),
   ])).expect(safety).then(plan([Cancel({ task: 0, revision: 1 })]))
-    .expect(TASKS.forall(t => taskState(view, t) == "canceled") and safety)
+    .expect(Set(0, 1, 2).forall(t => taskState(view, t) == "canceled") and safety)
 
   run parentValidationRejectsCyclesGateAndAncestryDepsTest = parentBase
     .then(plan([Edit({ task: 1, deps: Set(), parent: -1, gate: true, revision: 1 })]))

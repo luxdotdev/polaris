@@ -45,9 +45,12 @@ ancestors and descendants (`E-DEP-ANCESTOR`). Edit can move a Task under these
 same checks. Cancel cancels the final subtree atomically; active descendants
 must be stopped first, and external dependents must be edited or canceled.
 `TaskProjection.children` lists direct children in declaration order, including
-canceled children. A parent is done when all non-canceled children are done,
-otherwise working if any descendant is working, review or blocked, otherwise
-ready if any child is ready, otherwise waiting. A canceled parent is canceled.
+canceled children. Every Task inherits the dependencies of all its ancestors;
+its effective dependencies govern readiness, dispatch (including retries), Gate
+promotion, cycle validation and accepted dependency Claims in the worker brief.
+A parent is working if any descendant is working, review or blocked; otherwise
+it is waiting while an effective dependency is unmet, done when all non-canceled
+children are done, ready if any child is ready, or waiting. A canceled parent is canceled.
 With no non-canceled children a Task follows its own Attempt and dependencies.
 Dependencies on parents, including Gate promotion, use this rolled-up done state.
 

@@ -20,6 +20,43 @@ export const ancestors = (tasks: ReadonlyArray<Task>, id: TaskId): ReadonlySet<T
   return result;
 };
 
+/** Own prerequisites first, then the nearest ancestor outward; duplicates keep their first position. */
+export const effectiveDeps = (tasks: ReadonlyArray<Task>, id: TaskId): ReadonlyArray<TaskId> => {
+  const task = tasks.find((t) => t.id === id);
+
+  if (task === undefined) return [];
+
+  if (task.parent === null) return task.deps;
+  const byId = new Map(tasks.map((t) => [t.id, t]));
+
+  return [
+    ...new Set([id, ...ancestors(tasks, id)].flatMap((owner) => byId.get(owner)?.deps ?? [])),
+  ];
+};
+
+export const prerequisites = (tasks: ReadonlyArray<Task>, id: TaskId): ReadonlyArray<TaskId> => [
+  ...effectiveDeps(tasks, id),
+  ...childTasks(tasks, id)
+    .filter((child) => !child.canceled)
+    .map((child) => child.id),
+];
+
+/** Transitive prerequisite closure, including inherited deps and parent completion edges. */
+export const dependencyClosure = (tasks: ReadonlyArray<Task>, id: TaskId): ReadonlySet<TaskId> => {
+  const pending = [...prerequisites(tasks, id)];
+  const result = new Set<TaskId>();
+
+  while (pending.length > 0) {
+    const next = pending.pop();
+
+    if (next === undefined || result.has(next)) continue;
+    result.add(next);
+    pending.push(...prerequisites(tasks, next));
+  }
+
+  return result;
+};
+
 const validateContainer = (d: GraphDecision, tasks: ReadonlyArray<Task>, task: Task) => {
   if (!childTasks(tasks, task.id).some((child) => !child.canceled)) return;
 
@@ -41,9 +78,10 @@ const validateContainer = (d: GraphDecision, tasks: ReadonlyArray<Task>, task: T
 const validateAncestryDeps = (
   d: GraphDecision,
   task: Task,
-  lineage: ReadonlyMap<TaskId, ReadonlySet<TaskId>>
+  lineage: ReadonlyMap<TaskId, ReadonlySet<TaskId>>,
+  deps: ReadonlyArray<TaskId>
 ) => {
-  for (const dep of task.deps)
+  for (const dep of deps)
     if (lineage.get(task.id)?.has(dep) || lineage.get(dep)?.has(task.id))
       d.reject(
         "E-DEP-ANCESTOR",
@@ -80,7 +118,7 @@ export const validateParents = (d: GraphDecision, tasks: ReadonlyArray<Task>) =>
         "Move or cancel the child in the same batch."
       );
     validateContainer(d, tasks, task);
-    validateAncestryDeps(d, task, lineage);
+    validateAncestryDeps(d, task, lineage, effectiveDeps(tasks, task.id));
   }
 };
 

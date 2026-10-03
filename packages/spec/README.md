@@ -168,7 +168,7 @@ Findings 1–3 are fixed on `fix/verification-findings`, finding 4 on `m2/protoc
 
 `constellations.qnt` is the reference model for the Constellation contract in
 `packages/protocol/src/constellation/` and ADRs 0004/0011. It runs alongside the
-existing store/session spec. `constellations_test.qnt` contains 26 command/race
+existing store/session spec. `constellations_test.qnt` contains 28 command/race
 scenarios and 25 malformed-event probes that must violate the corresponding
 property. `scripts/check.ts` typechecks both files, runs both test modules, then
 simulates the Constellation `safety` conjunction with required witnesses for
@@ -191,7 +191,7 @@ do not have a log-size cap that could artificially prevent a grant or digest.
 | Observed worker liveness | `TaskProjection.liveness` and `ConstellationStreamItem.LivenessChanged` are runtime observations, not graph events. The live item is unsequenced/unpersisted like session item progress; it changes no command, receipt, revision, resume cursor or recovery decision. Unknown facts are null in required Snapshot projections. Elapsed time is derived from observed timestamps without Daemon timers. |
 | `claim`, `accept`, `reject`, `stop`, `harnessFail` | worker Claim, ReviewAction, AttemptClaimed/Accepted/Rejected/Settled; Claim requires clean branch/current revision and acceptance requires the claimed head |
 | Fetched branches | `ConstellationStreamItem.BranchFetched` and required Snapshot `TaskProjection.branchFetched` observe an exact claimed commit at the owner Polaris ref. They carry no sequence or graph revision; Accept additionally probes the actual merged Lead head. Bundles stream through existing BlobChannels without retaining bundle-sized buffers. |
-| `promote` | decider-only `GatePromoted`, counting latest accepted Attempts, not Claims or mechanical settles |
+| `effectiveDeps`, `ready`, `promote` | own and inherited prerequisites gate descendant readiness, named dispatch retries and Gate promotion; accepted leaf Attempts and done parent rollups satisfy dependencies, never Claims or mechanical settles |
 | `ask`, `finish`, `deliver` | NotificationQueued and LeadNotified; committed notification IDs, one durable digest Turn, retained across restart and handover |
 | `handover`, `setState` | atomic LeadChanged and the planning/running/paused/completed/archived lifecycle; an active Gate on the departing Lead settles lost in the same batch, while other workers are unchanged |
 | `commit`, `enqueue`, `relay`, `availability` | owner-only events, ConstellationOutboxEntry stable IDs, app relay and unavailable owner; `transfers/outbox.ts` persists the worker intent, decides under EventStore.commit, and retains apply/refusal receipts. Client `constellation/relay.ts` uses existing HostConnection streams and retries durable packets after reconnect. `transfers/relay.test.ts` covers disconnect after owner commit before receipt saving and refusal replay |
@@ -509,11 +509,14 @@ bun packages/spec/scripts/replay-language.ts /tmp/m31-t1-language.trace.json
 bun run spec
 ```
 
-Parent Tasks add `children`, `descendants`, `lineage`, `taskStates` and rolled-up
+Parent Tasks add `children`, `descendants`, `lineage`, `effectiveDeps`, `acceptance`, `taskStates` and rolled-up
 `accepted` to `constellations.qnt`. The final batch is validated after cancellation
 closure; containers cannot start Attempts. `constellation.parents.test.ts` covers
 every parent error code, Edit moves, recursive cancellation, rollups, tree status
-and Gate promotion. `constellation.model.test.ts` exercises a nested parent and
-Gate while comparing the independent reference fold and real decider; emitted
+and Gate promotion. Effective dependencies include every ancestor's prerequisites
+for validation, readiness, named retries, Gate promotion and worker dependency Claims;
+unmet prerequisites keep inactive parents waiting, including after an Edit.
+`constellation.model.test.ts` exercises nested parents, inherited readiness and
+parent dependency Edits while comparing independent guards, projections and fold; emitted
 traces include parent declarations for replay. The finite closure uses TASKS as
 a depth bound; the runtime has no configured nesting limit.

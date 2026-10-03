@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   Attempt,
+  AttemptCause,
   Constellation,
   PlanOperation,
   ReviewAction,
@@ -26,7 +27,12 @@ import {
 } from "./constellation.testing.ts";
 import { enrichProjections, projectTask } from "../constellation/projections.ts";
 import { taskData, graphData, attemptData } from "../constellation/data.ts";
-import { acceptedDependencyClaims, completionTasks } from "../constellation/parents.ts";
+import {
+  acceptedDependencyClaims,
+  completionTasks,
+  dependencyClosure,
+  effectiveDeps,
+} from "../constellation/parents.ts";
 import { statusOutline } from "../constellation/status.ts";
 
 const P = TaskId.make("P");
@@ -283,4 +289,138 @@ test("deep nesting has no configured depth cap and cancels the whole subtree", (
 test("dependency cycles include implicit parent completion edges through unrelated Tasks", () => {
   const definitions = [task(P), nested(A, P, [B]), task(B, [P])];
   expect(codes(planned([]), definitions.map(add))).toContain("E-DEP-CYCLE");
+});
+
+const X = TaskId.make("X");
+
+const namedDispatch = (taskId: TaskId) =>
+  C.Dispatch.make({
+    constellationId: CID,
+    tasks: [
+      {
+        taskId,
+        worker: WorkerPlacement.cases.Existing.make({ sessionId: draft(taskId).sessionId }),
+      },
+    ],
+  });
+
+test("two levels inherit dependencies for readiness, dispatch, Gate promotion and accepted Claims", () => {
+  let record = planned([
+    task(X),
+    task(P, [X]),
+    nested(Q, P),
+    nested(A, Q),
+    nested(G, Q, [], "gate"),
+  ]);
+
+  expect(effectiveDeps(record.graph.tasks, A)).toEqual([X]);
+
+  for (const id of [P, Q, A, G]) {
+    expect(state(record, id)).toBe("waiting");
+    expect(
+      projectTask(
+        record,
+        record.graph.tasks.find((t) => t.id === id)!
+      ).blockedBy
+    ).toEqual([X]);
+  }
+
+  expect(record.promoted.has(G)).toBe(false);
+  const denied = decideConstellation(record, namedDispatch(A), ctx({ attempts: [draft(A)] }));
+  expect(denied.rejection?.findings.map((f) => f.code)).toContain("E-NOT-READY");
+
+  const auto = apply(
+    record,
+    C.Dispatch.make({ constellationId: CID }),
+    ctx({ attempts: [draft(X)] })
+  );
+
+  expect(auto.graph.attempts.map((a) => a.taskId)).toEqual([X]);
+  record = accept(claimed(auto, report("polaris/X")));
+  expect(state(record, A)).toBe("ready");
+  expect(state(record, P)).toBe("ready");
+  expect(record.promoted.has(G)).toBe(true);
+  expect(
+    acceptedDependencyClaims(record.graph, effectiveDeps(record.graph.tasks, A)).map(
+      (d) => d.taskId
+    )
+  ).toEqual([X]);
+  const edited = apply(record, planCommand([edit(nested(A, Q, [X]))]));
+  expect(effectiveDeps(edited.graph.tasks, A)).toEqual([X]);
+});
+
+test("an Edit of an existing parent gates idle descendants but preserves active rollup", () => {
+  let record = planned([task(P), nested(Q, P), nested(A, Q), nested(B, Q), task(X)]);
+  record = dispatched(record);
+  record = apply(record, planCommand([edit(task(P, [X]))]));
+  expect(state(record, P)).toBe("working");
+  expect(state(record, Q)).toBe("working");
+  expect(state(record, B)).toBe("waiting");
+  record = accept(claimed(record));
+  expect(state(record, A)).toBe("done");
+  expect(state(record, P)).toBe("waiting");
+  expect(state(record, Q)).toBe("waiting");
+  record = apply(record, planCommand([cancel(B), add(task(G, [Q], "gate"))]));
+  expect(state(record, P)).toBe("waiting");
+  expect(record.promoted.has(G)).toBe(false);
+  record = accept(claimed(dispatched(record, draft(X, "x")), report("polaris/X")));
+  expect(state(record, P)).toBe("done");
+  expect(record.promoted.has(G)).toBe(true);
+});
+
+test("named retries cannot bypass newly inherited prerequisites", () => {
+  let record = dispatched(planned([task(P), nested(Q, P), nested(A, Q), task(X)]));
+  const attempt = record.graph.attempts[0]!;
+  record = apply(
+    record,
+    C.Review.make({
+      constellationId: CID,
+      attemptId: attempt.id,
+      revision: attempt.revision,
+      action: ReviewAction.cases.Stop.make({ reason: "retry later" }),
+    })
+  );
+  record = apply(record, planCommand([edit(task(P, [X]))]));
+
+  const retry = draft(
+    A,
+    "retry",
+    attempt.sessionId,
+    AttemptCause.cases.Recover.make({ ref: attempt.id })
+  );
+
+  const denied = decideConstellation(record, namedDispatch(A), ctx({ attempts: [retry] }));
+  expect(denied.events).toEqual([]);
+  expect(denied.rejection?.findings.map((f) => f.code)).toContain("E-NOT-READY");
+  record = accept(claimed(dispatched(record, draft(X, "x")), report("polaris/X")));
+  expect(
+    apply(record, namedDispatch(A), ctx({ attempts: [retry] })).graph.attempts.at(-1)?.taskId
+  ).toBe(A);
+});
+
+test("parent dependency edits reject inherited ancestry and completion cycles atomically", () => {
+  const record = planned([task(P), nested(Q, P), nested(A, Q), task(X, [A])]);
+  expect(codes(record, [edit(task(P, [Q]))])).toContain("E-DEP-ANCESTOR");
+  expect(codes(record, [edit(task(P, [X]))])).toContain("E-DEP-CYCLE");
+  expect(state(record, A)).toBe("ready");
+});
+
+test("effective dependencies union own, parent and grandparent prerequisites without duplicates", () => {
+  const record = planned([
+    task(X),
+    task(B),
+    task(G),
+    task(P, [X]),
+    nested(Q, P, [B]),
+    nested(A, Q, [G, B]),
+  ]);
+
+  expect(effectiveDeps(record.graph.tasks, A)).toEqual([G, B, X]);
+  expect(dependencyClosure(record.graph.tasks, P)).toEqual(new Set([Q, A, G, B, X]));
+  expect(
+    projectTask(
+      record,
+      record.graph.tasks.find((t) => t.id === A)!
+    ).blockedBy
+  ).toEqual([G, B, X]);
 });

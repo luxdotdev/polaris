@@ -9,7 +9,7 @@ import type { GraphCommand } from "../engine/constellation.inputs.ts";
 import { taskData } from "./data.ts";
 import { GraphDecision } from "./decision.ts";
 import { latestAttempt } from "./projections.ts";
-import { childTasks, cancelSubtrees, validateParents } from "./parents.ts";
+import { cancelSubtrees, effectiveDeps, prerequisites, validateParents } from "./parents.ts";
 
 /** Validate the resulting graph, so forward references and removing a dependency in the same batch work. */
 export const validateGraph = (d: GraphDecision, tasks: ReadonlyArray<Task>) => {
@@ -17,7 +17,7 @@ export const validateGraph = (d: GraphDecision, tasks: ReadonlyArray<Task>) => {
   const byId = new Map(tasks.map((task) => [task.id, task]));
 
   for (const task of tasks.filter((t) => !t.canceled)) {
-    for (const dep of task.deps) {
+    for (const dep of effectiveDeps(tasks, task.id)) {
       const dependency = byId.get(dep);
 
       if (dependency === undefined)
@@ -59,14 +59,7 @@ export const validateGraph = (d: GraphDecision, tasks: ReadonlyArray<Task>) => {
     if (visited.has(id)) return;
     visiting.add(id);
 
-    const prerequisites = [
-      ...(byId.get(id)?.deps ?? []),
-      ...childTasks(tasks, id)
-        .filter((child) => !child.canceled)
-        .map((child) => child.id),
-    ];
-
-    for (const dep of prerequisites) if (byId.has(dep)) walk(dep, [...path, id]);
+    for (const dep of prerequisites(tasks, id)) if (byId.has(dep)) walk(dep, [...path, id]);
     visiting.delete(id);
     visited.add(id);
   };

@@ -11,7 +11,7 @@ import type { GraphCommand } from "../engine/constellation.inputs.ts";
 import { questionKey } from "../store/constellation.ts";
 import { attemptData } from "./data.ts";
 import { GraphDecision } from "./decision.ts";
-import { isParent } from "./parents.ts";
+import { effectiveDeps, isParent } from "./parents.ts";
 import { accepted, activeAttempt, latestAttempt, projectTask } from "./projections.ts";
 
 export const currentAttempt = (d: GraphDecision, id: Attempt["id"], revision?: number) => {
@@ -171,7 +171,9 @@ export const dispatch = (d: GraphDecision, command: GraphCommand<"Dispatch">) =>
       !(
         command.tasks.length > 0 &&
         !task.canceled &&
-        task.deps.every((dep) => accepted(d.record.graph, dep)) &&
+        effectiveDeps(d.record.graph.tasks, task.id).every((dep) =>
+          accepted(d.record.graph, dep)
+        ) &&
         ["lost", "failed", "settled_unverified"].includes(
           latestAttempt(d.record.graph, id)?.state ?? ""
         )

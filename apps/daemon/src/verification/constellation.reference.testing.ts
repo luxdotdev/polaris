@@ -1,6 +1,7 @@
 import {
   ConstellationEvent,
   type AttemptState,
+  type TaskState,
   type ConstellationState,
   type DomainEvent,
 } from "@polaris/protocol";
@@ -134,7 +135,10 @@ export const foldReference = (ref: Reference, events: ReadonlyArray<DomainEvent>
         if (ref.promoted.has(e.taskId)) throw new Error("reference: gate promoted twice");
         const task = ref.tasks.get(e.taskId);
 
-        if (task === undefined || task.deps.some((dep) => !referenceDone(ref, dep)))
+        if (
+          task === undefined ||
+          referenceDeps(ref, task.id).some((dep) => !referenceDone(ref, dep))
+        )
           throw new Error("reference: gate promoted without acceptance");
         ref.promoted.add(e.taskId);
         task.revision = e.taskRevision;
@@ -201,6 +205,47 @@ export const referenceDone = (ref: Reference, taskId: string): boolean => {
   );
 
   return children.length > 0
-    ? children.every((child) => referenceDone(ref, child.id))
+    ? referenceDeps(ref, taskId).every((dep) => referenceDone(ref, dep)) &&
+        children.every((child) => referenceDone(ref, child.id))
     : latest(ref, taskId)?.state === "accepted";
+};
+
+export const referenceDeps = (ref: Reference, taskId: string): ReadonlyArray<string> => {
+  const result = new Set<string>();
+  let task = ref.tasks.get(taskId);
+
+  while (task !== undefined) {
+    for (const dep of task.deps) result.add(dep);
+    task = task.parent === null ? undefined : ref.tasks.get(task.parent);
+  }
+
+  return [...result];
+};
+
+export const referenceState = (ref: Reference, taskId: string): TaskState => {
+  const task = ref.tasks.get(taskId);
+
+  if (task === undefined || task.canceled) return "canceled";
+  const children = [...ref.tasks.values()].filter((t) => t.parent === taskId && !t.canceled);
+  const ready = referenceDeps(ref, taskId).every((dep) => referenceDone(ref, dep));
+
+  if (children.length === 0) {
+    const attempt = latest(ref, taskId);
+
+    if (attempt?.state === "accepted") return "done";
+
+    if (attempt !== undefined && attempt.state !== "rejected") return attempt.state;
+
+    return ready ? "ready" : "waiting";
+  }
+
+  const states = children.map((child) => referenceState(ref, child.id));
+
+  if (states.some((state) => ["working", "review", "blocked"].includes(state))) return "working";
+
+  if (!ready) return "waiting";
+
+  if (states.every((state) => state === "done")) return "done";
+
+  return states.includes("ready") ? "ready" : "waiting";
 };
