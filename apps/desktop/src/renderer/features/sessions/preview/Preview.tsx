@@ -21,7 +21,17 @@ import type { SettingsSection } from "../../../routes/selection.ts";
 import { machinesFor } from "../../machines/preview/fixtures.ts";
 import { setResourcesClient } from "../../settings/resources.ts";
 import { B1_FEEDBACK, C1_STATS, fakeResources, USAGE } from "./settingsFixtures.ts";
-import { C1, HOSTS, LEAD_SESSION, MODELS, VIEWS, WORKER_B1, withSetupFailure } from "./fixtures.ts";
+import { leadKey } from "../model/leadGroups.ts";
+import {
+  C1,
+  HOSTS,
+  LEAD3_SESSION,
+  LEAD_SESSION,
+  MODELS,
+  VIEWS,
+  WORKER_B1,
+  withSetupFailure,
+} from "./fixtures.ts";
 
 const UNSUPPORTED = { ok: false, error: { code: "Unsupported", message: "preview" } } as const;
 
@@ -80,6 +90,10 @@ export const mountConstellationsPreview = (root: HTMLElement, hash: string) => {
   standInBridge(bridge);
   setResourcesClient(fakeResources);
   navigation.actions.selectSession(LEAD_SESSION);
+
+  // "Release polish" opens too, so the sidebar shows its slug ids under their groups.
+  if (scene === "sidebar")
+    navigation.actions.toggleFolded(leadKey("local", LEAD3_SESSION.sessionId), true);
 
   if (scene === "focus") {
     const b1 = C1.constellation.tasks.find((t) => t.id === "B1");

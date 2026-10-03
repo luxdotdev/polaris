@@ -14,6 +14,7 @@ import {
   NO_FACTS,
   type ProjectionData,
   type ReceiptResult,
+  stoppedWithoutClaiming,
   type WorkerFacts,
 } from "./model/index.ts";
 import type { Signals } from "./state.ts";
@@ -101,12 +102,7 @@ export const workerFactsFrom = (
         : { kind: "slot", host: remoteHost, since: slotSince },
     contextPercent: usage === null ? null : percent(usage.usedTokens, usage.windowTokens),
     approvalSince: entry?.pendingApprovals[0]?.openedAt ?? null,
-    // Nudged once (AttemptNudged), then the session ended its Turn again without a Claim.
-    stoppedWithoutClaiming:
-      attempt.state === "working" &&
-      attempt.nudgedAt != null &&
-      session?.state === "idle" &&
-      session.updatedAt > attempt.nudgedAt,
+    stoppedWithoutClaiming: stoppedWithoutClaiming(attempt, session),
     subagents: (entry?.subagents ?? []).map((s) => ({
       id: s.id,
       title: s.title,

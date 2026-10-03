@@ -16,6 +16,8 @@ import {
   setupSources,
   setupsOf,
 } from "../../constellation/model/setup.ts";
+import { LANE_MAX } from "../../constellation/model/lane.ts";
+import { stoppedWithoutClaiming } from "../../constellation/model/stopped.ts";
 import type { ConstellationView } from "../source.ts";
 
 export type WorkerState =
@@ -38,6 +40,8 @@ export interface WorkerRow {
   readonly kind: "attempt";
   readonly taskId: TaskId;
   readonly title: string;
+  /** The Task's group ("desktop"), or null on the trunk. */
+  readonly group: string | null;
   readonly sessionId: SessionId;
   /** The Host the worker runs on, when this Client knows it. */
   readonly hostKey: string | null;
@@ -59,6 +63,7 @@ export interface SetupRow {
   readonly kind: "setup";
   readonly taskId: TaskId;
   readonly title: string;
+  readonly group: string | null;
   readonly sessionId: SessionId;
   readonly hostKey: string;
   readonly entry: SessionEntry | null;
@@ -144,12 +149,6 @@ const RANK: Readonly<Record<WorkerState, number>> = {
 
 export const needsAttention = (state: WorkerState) => ATTENTION.has(state);
 
-/** Nudged once (`nudgedAt`), then its session ended a Turn again without a Claim. */
-const stoppedWithoutClaim = (attempt: Plain<Attempt>, entry: SessionEntry | null) =>
-  attempt.nudgedAt != null &&
-  entry !== null &&
-  (entry.session.state === "idle" || entry.session.state === "dormant");
-
 const workingState = (
   attempt: Plain<Attempt>,
   entry: SessionEntry | null,
@@ -162,7 +161,7 @@ const workingState = (
 
   if (slotSince !== null) return "waiting-slot";
 
-  return stoppedWithoutClaim(attempt, entry) ? "unclaimed" : "working";
+  return stoppedWithoutClaiming(attempt, entry?.session ?? null) ? "unclaimed" : "working";
 };
 
 /** In review: the Lead's to decide, unless it handed the Claim up to the user. */
@@ -189,6 +188,9 @@ export const workerState = (
     Match.exhaustive
   );
 
+const groupName = (group: string | null | undefined) =>
+  group == null || group === "" ? null : group;
+
 /** One row per Task a worker has tried (its latest Attempt); Gates are the Lead's own. */
 export const workerRows = (view: ConstellationView, lookup: WorkerLookup): Array<WorkerRow> => {
   const { constellation, projections } = view;
@@ -210,6 +212,7 @@ export const workerRows = (view: ConstellationView, lookup: WorkerLookup): Array
         kind: "attempt",
         taskId: task.id,
         title: task.title,
+        group: groupName(task.group),
         sessionId: attempt.sessionId,
         hostKey: found?.hostKey ?? null,
         entry,
@@ -251,6 +254,7 @@ export const setupLookupIn =
           kind: "setup",
           taskId: task.id,
           title: task.title,
+          group: groupName(task.group),
           sessionId: setup.sessionId,
           hostKey: setup.hostKey,
           entry: models[setup.hostKey]?.sessions.get(setup.sessionId) ?? null,
@@ -333,6 +337,13 @@ export const sidebarItems = ({ hostKey, entries, views, lookup, setups }: GroupI
   return { items, constellations: groups.size };
 };
 
+/** Ids up to this long ("B1", "C12") leave room for a title in a sidebar worker row. */
+export const SHORT_ID = LANE_MAX.sidebar;
+
+/** Whether a Lead's worker rows show the id alone: any id is a slug longer than SHORT_ID. */
+export const idsOnly = (group: Pick<LeadGroup, "workers" | "done">) =>
+  [...group.workers, ...group.done].some((r) => r.taskId.length > SHORT_ID);
+
 /** "Lead · 7 workers", or folded "3 workers · 1 needs you" (the needs-you part is tinted). */
 export const leadLine = (group: LeadGroup) => {
   const count = group.workers.length + group.done.length;
@@ -350,4 +361,35 @@ export const doneLine = (done: ReadonlyArray<WorkerRow>) => {
   return ids.length <= 4
     ? `${ids.join(", ")} done`
     : `${ids.slice(0, 3).join(", ")} and ${ids.length - 3} more done`;
+};
+
+/** A Task group's workers under a Lead; the trunk's (ungrouped) has no label. */
+export interface WorkerSection {
+  readonly key: string;
+  readonly label: string | null;
+  readonly rows: ReadonlyArray<LeadWorker>;
+  readonly needsYou: number;
+}
+
+/**
+ * Workers by `task.group`, as the tab groups them: ungrouped ones first, then each group in
+ * order of its loudest worker, so whatever needs you leads. Rows keep their order.
+ */
+export const workerSections = (rows: ReadonlyArray<LeadWorker>): Array<WorkerSection> => {
+  const byGroup = new Map<string | null, Array<LeadWorker>>([[null, []]]);
+
+  for (const row of rows) byGroup.set(row.group, [...(byGroup.get(row.group) ?? []), row]);
+
+  return [...byGroup].flatMap(([label, members]): Array<WorkerSection> =>
+    members.length === 0
+      ? []
+      : [
+          {
+            key: label ?? "",
+            label,
+            rows: members,
+            needsYou: members.filter((r) => needsAttention(r.state)).length,
+          },
+        ]
+  );
 };

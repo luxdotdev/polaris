@@ -12,6 +12,8 @@ import {
   type Facts,
   glyphFor,
   type Handover,
+  LANE_MAX,
+  laneWidth,
   type OperatorMessage,
   pluralize,
   type Segment,
@@ -19,6 +21,7 @@ import {
   type TaskData,
 } from "../model/index.ts";
 import { ConstellationMark, TaskGlyph } from "./glyphs.tsx";
+import { IdLane, laneStyle } from "./lane.tsx";
 import { ProgressStrip } from "./strip.tsx";
 
 const SECTION = "text-caption text-text-subtle pt-4 pb-1.5";
@@ -107,7 +110,14 @@ export const HandoverBody = ({
       {inFlight.length === 0 ? null : (
         <>
           <h3 className={SECTION}>In flight</h3>
-          <ul>
+          <ul
+            style={laneStyle(
+              laneWidth(
+                inFlight.map((a) => a.taskId),
+                LANE_MAX.tab
+              )
+            )}
+          >
             {inFlight.map((a) => {
               const task = tasks.get(a.taskId);
 
@@ -120,9 +130,7 @@ export const HandoverBody = ({
                     )}
                     harness={task?.suggested?.harness ?? null}
                   />
-                  <span className="text-code-inline text-text-subtle w-8 font-mono">
-                    {a.taskId}
-                  </span>
+                  <IdLane id={a.taskId} max={LANE_MAX.tab} className="text-text-subtle" />
                   <span className="text-text-default min-w-0 flex-1 truncate">{task?.title}</span>
                   <span className="text-text-subtle">
                     {a.state === "review" ? "claim in review" : "working"}

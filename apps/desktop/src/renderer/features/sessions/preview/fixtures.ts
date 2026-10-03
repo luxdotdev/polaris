@@ -444,7 +444,64 @@ export const C2: ConstellationView = {
   ],
 };
 
-export const VIEWS = { local: [C1, C2] } as const;
+const C3_ID = "c3";
+
+const LEAD3 = "lead-c3";
+
+const c3Attempt = (t: string, state: Attempt["state"], minutes: number) =>
+  attempt({ constellation: C3_ID, task: t, session: t, lead: LEAD3, state, minutes });
+
+/** "Release polish": slug ids in lowercase groups, as Leads name them; one stopped silently. */
+export const C3: ConstellationView = {
+  constellation: new Constellation({
+    id: ConstellationId.make(C3_ID),
+    workspaceId: POLARIS,
+    hostId: LOCAL,
+    leadSessionId: SessionId.make(LEAD3),
+    name: "Release polish",
+    state: "running",
+    revision: 9,
+    settings,
+    tasks: [
+      task({ id: "handoff-hardening", title: "Harden the handoff summary", group: "daemon" }),
+      task({
+        id: "worktree-setup-retry-on-reconnect",
+        title: "Retry setup on reconnect",
+        group: "daemon",
+      }),
+      task({ id: "email-validator", title: "Validate the download email", group: "desktop" }),
+      task({ id: "sidebar-groups", title: "Group the sidebar by task", group: "desktop" }),
+      task({ id: "tab-lanes", title: "Fit the id lane", group: "desktop" }),
+    ],
+    attempts: [
+      c3Attempt("handoff-hardening", "working", 22),
+      attempt({
+        constellation: C3_ID,
+        task: "worktree-setup-retry-on-reconnect",
+        session: "worktree-setup-retry-on-reconnect",
+        lead: LEAD3,
+        state: "working",
+        minutes: 14,
+        nudged: 6,
+      }),
+      c3Attempt("email-validator", "review", 30),
+      c3Attempt("sidebar-groups", "accepted", 90),
+      c3Attempt("tab-lanes", "accepted", 70),
+    ],
+    pendingNotifications: [],
+    createdAt: ago(100),
+    updatedAt: ago(1),
+  }),
+  projections: [
+    projection("handoff-hardening", "working"),
+    projection("worktree-setup-retry-on-reconnect", "working"),
+    projection("email-validator", "review"),
+    projection("sidebar-groups", "done"),
+    projection("tab-lanes", "done"),
+  ],
+};
+
+export const VIEWS = { local: [C1, C2, C3] } as const;
 
 const LOCAL_ENTRIES: ReadonlyArray<SessionEntry> = [
   entry(
@@ -554,6 +611,27 @@ const LOCAL_ENTRIES: ReadonlyArray<SessionEntry> = [
   ),
   entry(
     session({
+      id: LEAD3,
+      harness: "claude",
+      title: "Release polish lead",
+      state: "working",
+      minutes: 100,
+      context: 0.3,
+    })
+  ),
+  ...(
+    [
+      ["handoff-hardening", "working", 22],
+      ["worktree-setup-retry-on-reconnect", "idle", 14],
+      ["email-validator", "idle", 30],
+      ["sidebar-groups", "idle", 90],
+      ["tab-lanes", "idle", 70],
+    ] as const
+  ).map(([id, state, minutes]) =>
+    entry(session({ id, harness: "claude", title: id, state, minutes }))
+  ),
+  entry(
+    session({
       id: "glossary",
       harness: "claude",
       title: "Glossary first pass",
@@ -612,6 +690,8 @@ export const MODELS = {
 } satisfies Readonly<Record<string, HostModel>>;
 
 export const LEAD_SESSION = { hostKey: "local", sessionId: SessionId.make(LEAD) } as const;
+
+export const LEAD3_SESSION = { hostKey: "local", sessionId: SessionId.make(LEAD3) } as const;
 
 export const WORKER_B1 = { hostKey: "local", sessionId: SessionId.make("b1") } as const;
 

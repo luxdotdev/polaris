@@ -25,6 +25,7 @@ import {
   completedAttempts,
   handedUpAttempts,
   LEAD,
+  slugRecord,
   STUDIO,
   WORKSPACE,
 } from "./graph.ts";
@@ -90,6 +91,7 @@ const SCENES = [
   "completed",
   "setup",
   "setup-focus",
+  "slugs",
 ] as const;
 
 type Scene = (typeof SCENES)[number];
@@ -103,17 +105,23 @@ const recordFor = (scene: Scene): ConstellationRecord => {
       3
     );
 
-  if (scene === "handed") return c1Record({ attempts: handedUpAttempts() });
+  if (scene === "handed") return slugRecord({ attempts: handedUpAttempts() });
 
   if (scene === "setup" || scene === "setup-focus") return setupRecord();
 
   if (scene === "completed") return c1Record({ state: "completed", attempts: completedAttempts() });
 
-  return c1Record(scene === "paused" ? { state: "paused" } : {});
+  return slugRecord(scene === "paused" ? { state: "paused" } : {});
 };
 
 /** Group A is done; folding it keeps B7 and B8 in view. */
 const SETUP_FOLDS = new Map([["A · Events and decider", false]]);
+
+/** A and B folded, so the slug ids in "daemon" and "desktop" are in view. */
+const SLUG_FOLDS = new Map([
+  ["A · Events and decider", false],
+  ["B · Spec and tools", false],
+]);
 
 const UI: Readonly<Record<Scene, Partial<LeadUi>>> = {
   lead: {},
@@ -136,6 +144,7 @@ const UI: Readonly<Record<Scene, Partial<LeadUi>>> = {
     selected: "task:B8",
     folds: SETUP_FOLDS,
   },
+  slugs: { selected: "task:email-validator", folds: SLUG_FOLDS },
 };
 
 const stateFor = (record: ConstellationRecord): AppState => {

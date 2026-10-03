@@ -1,7 +1,7 @@
 /**
  * A Lead in the sidebar (DESIGN.md, Constellation (DAG) → Sidebar; Paper C1): its session row
- * with the Constellation mark and "Lead · 7 workers", then its workers on a hairline rail,
- * needs-you first, accepted ones folded into one "A1, A2 done · show" line.
+ * with the Constellation mark and "Lead · 7 workers", then its workers on a hairline rail under
+ * their Task groups, needs-you first, accepted ones folded into one "A1, A2 done · show" line.
  */
 import { ChevronDownIcon, ChevronRightIcon, cn, Row } from "@polaris/ui";
 import { type KeyboardEvent, useState } from "react";
@@ -10,13 +10,18 @@ import { age } from "../../../shell/copy.ts";
 import { SessionTile } from "../../../shell/glyphs.tsx";
 import { useApp, useNav, useSelection, useShellActions } from "../../../shell/hooks.ts";
 import { buttonProps, WithHover } from "../../../shell/sidebar/SessionRow.tsx";
+import { LANE_MAX, laneWidth } from "../../constellation/model/lane.ts";
+import { IdLane, laneStyle } from "../../constellation/ui/lane.tsx";
 import { ConstellationMark, TaskGlyph } from "../glyphs.tsx";
 import {
   doneLine,
+  idsOnly,
   type LeadGroup as Group,
   type LeadWorker,
   leadLine,
   type WorkerRow,
+  type WorkerSection,
+  workerSections,
 } from "../model/leadGroups.ts";
 import { setupHover, shownWorker, TONE_CLASS } from "../model/workerCopy.ts";
 import { useConstellationActions, useFocusedTask } from "../source.ts";
@@ -47,15 +52,42 @@ const LeadLine = ({ group, open }: { readonly group: Group; readonly open: boole
   );
 };
 
+/**
+ * The row's id and title; when its Lead's ids are slugs the id alone fills the row, the
+ * title in its tooltip and accessible name.
+ */
+const WorkerTitle = ({
+  row,
+  tone,
+  idOnly,
+}: {
+  readonly row: LeadWorker;
+  readonly tone: string;
+  readonly idOnly: boolean;
+}) =>
+  idOnly ? (
+    <span className="flex min-w-0" title={`${row.taskId} · ${row.title}`}>
+      <span className={cn("text-code-inline truncate font-mono", tone)}>{row.taskId}</span>
+      <span className="sr-only"> · {row.title}</span>
+    </span>
+  ) : (
+    <span className="flex min-w-0 items-baseline gap-2">
+      <IdLane id={row.taskId} max={LANE_MAX.sidebar} className={tone} />
+      <span className="truncate">{row.title}</span>
+    </span>
+  );
+
 const Worker = ({
   hostKey,
   group,
   row,
+  idOnly,
   now,
 }: {
   readonly hostKey: string;
   readonly group: Group;
   readonly row: LeadWorker;
+  readonly idOnly: boolean;
   readonly now: number;
 }) => {
   const { selectSession } = useShellActions();
@@ -89,17 +121,11 @@ const Worker = ({
         <TaskGlyph glyph={shown.glyph} harness={row.entry?.session.harness ?? null} size={16} />
       }
       title={
-        <span className="flex min-w-0 items-baseline gap-2">
-          <span
-            className={cn(
-              "text-code-inline w-6 shrink-0 font-mono",
-              shown.tone === "needs-you" ? "text-needs-you-text" : "text-text-subtle"
-            )}
-          >
-            {row.taskId}
-          </span>
-          <span className="truncate">{row.title}</span>
-        </span>
+        <WorkerTitle
+          row={row}
+          idOnly={idOnly}
+          tone={shown.tone === "needs-you" ? "text-needs-you-text" : "text-text-subtle"}
+        />
       }
       meta={<WorkerMeta row={row} shown={shown} hostLabel={hostLabel} now={now} />}
     />
@@ -173,6 +199,20 @@ const DoneLine = ({ group, onShow }: { readonly group: Group; readonly onShow: (
   </div>
 );
 
+/** A Task group's heading, its label on the id lane and what needs you on the meta lane. */
+const SectionHeading = ({ section }: { readonly section: WorkerSection }) => (
+  <div
+    data-testid="worker-section"
+    className="h-tree-row gap-gap px-row-x text-caption text-text-faint flex items-center"
+  >
+    <span aria-hidden className="w-4 shrink-0" />
+    <span className="min-w-0 flex-1 truncate">{section.label}</span>
+    {section.needsYou === 0 ? null : (
+      <span className="text-needs-you-text tabular shrink-0">{section.needsYou} needs you</span>
+    )}
+  </div>
+);
+
 const useOpen = (hostKey: string, group: Group) => {
   const selection = useSelection();
   const folded = useNav((s) => s.folded[group.key]);
@@ -217,7 +257,9 @@ export const LeadGroup = ({ hostKey, group, now }: GroupProps) => {
     props.onKeyDown(event);
   };
 
-  const workers = showDone ? [...group.workers, ...group.done] : group.workers;
+  const sections = workerSections(showDone ? [...group.workers, ...group.done] : group.workers);
+  const ids = [...group.workers, ...group.done].map((r) => r.taskId);
+  const idOnly = idsOnly(group);
 
   return (
     <div className="flex flex-col" data-testid="lead-group" data-lead={leadId}>
@@ -260,9 +302,27 @@ export const LeadGroup = ({ hostKey, group, now }: GroupProps) => {
         <div
           data-testid="lead-workers"
           className="border-hairline ml-[calc(var(--spacing-gap)+var(--density-harness-tile)/2)] flex flex-col border-l pl-1"
+          style={laneStyle(laneWidth(ids, LANE_MAX.sidebar))}
         >
-          {workers.map((row) => (
-            <Worker key={row.taskId} hostKey={hostKey} group={group} row={row} now={now} />
+          {sections.map((section) => (
+            <div
+              key={section.key}
+              className="flex flex-col"
+              role="group"
+              aria-label={section.label ?? undefined}
+            >
+              {section.label === null ? null : <SectionHeading section={section} />}
+              {section.rows.map((row) => (
+                <Worker
+                  key={row.taskId}
+                  hostKey={hostKey}
+                  group={group}
+                  row={row}
+                  idOnly={idOnly}
+                  now={now}
+                />
+              ))}
+            </div>
           ))}
           {group.done.length > 0 && !showDone ? (
             <DoneLine group={group} onShow={() => setShowDone(true)} />
