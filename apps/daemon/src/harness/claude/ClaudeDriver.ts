@@ -486,9 +486,12 @@ const openSession = Effect.fnUntraced(function* (
       attachments: input?.attachments ?? [],
       readFile: driver.readFile,
     }).pipe(
-      Effect.onError(() =>
+      Effect.onError((cause) =>
         Effect.sync(() => {
           turn?.pending.delete(uuid);
+
+          if (turn !== null && active === turn)
+            endTurn("failed", causeMessage(cause) ?? "Claude input preparation failed");
         })
       )
     );

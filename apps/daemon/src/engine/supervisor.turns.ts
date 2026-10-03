@@ -1,55 +1,141 @@
-import { DomainEvent, TurnId } from "@polaris/protocol";
+import { DomainEvent, type SessionId, TurnId, TurnItem } from "@polaris/protocol";
 import { Effect, Stream } from "effect";
 import type { ServiceError } from "../services.ts";
 import { LiveItem } from "../store/EventStore.ts";
 import { workingTurn } from "../store/model.ts";
+import { decideSession } from "./session.ts";
 import { userTurn } from "./session.turns.ts";
 import type { EngineRuntime } from "./runtime.ts";
 import type { TurnToRun } from "./supervisor.ts";
 
 export const waitForTurnEnd = (
   rt: EngineRuntime["Service"],
-  input: TurnToRun,
-  events: Stream.Stream<LiveItem>
+  sessionId: SessionId,
+  turnId: TurnId
 ) =>
-  Effect.gen(function* () {
-    const record = (yield* rt.store.model).sessions.get(input.sessionId);
-
-    if (record?.turns.find((turn) => turn.id === input.turnId)?.status !== "working") return;
-    yield* events.pipe(
-      Stream.filter(
-        (item) =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const events = yield* rt.store.subscribe({
+        sessionId,
+        filter: (item) =>
           LiveItem.$is("Event")(item) &&
           DomainEvent.guards.TurnEnded(item.envelope.event) &&
-          item.envelope.event.turn.id === input.turnId
-      ),
-      Stream.take(1),
-      Stream.runDrain
-    );
-  });
+          item.envelope.event.turn.id === turnId,
+      });
+      // Subscribe before checking the folded status, so an end between them cannot be missed.
 
-export const restartUserTurn = (
-  rt: EngineRuntime["Service"],
-  input: TurnToRun,
-  run: (input: TurnToRun) => Effect.Effect<void, ServiceError>
-) =>
+      const record = (yield* rt.store.model).sessions.get(sessionId);
+
+      if (record?.turns.find((turn) => turn.id === turnId)?.status !== "working") return;
+      yield* events.pipe(Stream.take(1), Stream.runDrain);
+    })
+  );
+
+const restartUserTurn = (rt: EngineRuntime["Service"], input: TurnToRun) =>
   Effect.gen(function* () {
     const id = TurnId.make(`turn_${crypto.randomUUID()}`);
     const at = yield* rt.now;
+    let waiting: TurnId | null = null;
+    let started = false;
 
-    const result = yield* rt.signalWith(input.sessionId, (record) => ({
-      type: "turn.send",
-      turn: userTurn(record.session, {
-        id,
-        prompt: input.prompt,
-        attachments: input.attachments,
-        at,
-      }),
-    }));
+    yield* rt.recordFor(input.sessionId, (record) => {
+      const working = workingTurn(record);
 
-    const record = "model" in result ? result.model.sessions.get(input.sessionId) : undefined;
-    const next = record === undefined ? undefined : workingTurn(record);
+      if (working !== undefined) {
+        waiting = working.id;
 
-    if (next === undefined) return;
-    yield* run({ ...input, turnId: next.id, steerExisting: next.id !== id });
+        return [];
+      }
+
+      const decision = decideSession(record, {
+        type: "turn.send",
+        turn: userTurn(record.session, {
+          id,
+          prompt: input.prompt,
+          attachments: input.attachments,
+          at,
+        }),
+      });
+
+      started = decision.events.some(DomainEvent.guards.TurnStarted);
+
+      if (started) return decision.events;
+
+      return [
+        DomainEvent.cases.TurnItemCompleted.make({
+          sessionId: input.sessionId,
+          turnId: input.turnId,
+          subagentId: null,
+          item: TurnItem.cases.UserMessage.make({ id: `refused:${id}`, text: input.prompt }),
+        }),
+        DomainEvent.cases.TurnItemCompleted.make({
+          sessionId: input.sessionId,
+          turnId: input.turnId,
+          subagentId: null,
+          item: TurnItem.cases.Error.make({
+            id: `refusal:${id}`,
+            message: `Could not deliver the queued prompt: ${decision.rejection ?? "the session cannot take a Turn"}`,
+          }),
+        }),
+      ];
+    });
+
+    return { waiting, started: started ? { ...input, turnId: id, steerExisting: false } : null };
   });
+
+/** Deferred prompts have their own arrival-order lane; only preparation and delivery use the reactor lock. */
+export const deferredUserTurns = (
+  rt: EngineRuntime["Service"],
+  deliver: (input: TurnToRun) => Effect.Effect<boolean, ServiceError>
+) => {
+  const queues = new Map<SessionId, Array<TurnToRun>>();
+
+  const process = (input: TurnToRun) =>
+    Effect.gen(function* () {
+      if (yield* rt.serially(input.sessionId)(deliver(input))) {
+        yield* waitForTurnEnd(rt, input.sessionId, input.turnId);
+
+        return;
+      }
+
+      while (true) {
+        const next = yield* rt.serially(input.sessionId)(
+          restartUserTurn(rt, input).pipe(
+            Effect.tap((result) =>
+              result.started === null ? Effect.void : deliver(result.started)
+            )
+          )
+        );
+
+        if (next.waiting === null) return;
+        yield* waitForTurnEnd(rt, input.sessionId, next.waiting);
+      }
+    });
+
+  return (input: TurnToRun) =>
+    Effect.gen(function* () {
+      const existing = queues.get(input.sessionId);
+
+      if (existing !== undefined) {
+        existing.push(input);
+
+        return;
+      }
+
+      const queue = [input];
+      queues.set(input.sessionId, queue);
+      yield* Effect.gen(function* () {
+        let next: TurnToRun | undefined;
+
+        while ((next = queue.shift()) !== undefined)
+          yield* process(next).pipe(
+            Effect.catchCause((cause) =>
+              Effect.logError("delivering a queued prompt failed", cause)
+            )
+          );
+      }).pipe(
+        Effect.ensuring(Effect.sync(() => queues.delete(input.sessionId))),
+        Effect.forkIn(rt.engineScope)
+      );
+    });
+};
