@@ -110,6 +110,7 @@ const pendingStartup = Effect.fnUntraced(function* (
   sessionId: SessionId,
   graphs: ReadonlyArray<Constellation>
 ) {
+  if (graphs.length === 0) return false;
   const model = yield* store.model;
 
   const session = model.sessions.get(sessionId)?.session;
@@ -172,6 +173,43 @@ export const withSessionInput = <A, E, R>(
           boundaries(store).inputs.get(sessionId)?.queued === true ||
           (yield* store.hasQueuedInput(sessionId));
 
+        const tryCommit = Effect.gen(function* () {
+          // Check before taking the startup lock, which may be held while an old Turn runs.
+          const pending = yield* pendingStartup(store, sessionId, yield* graphs);
+          queuedForTurn ||= pending;
+          const queue = boundaries(store).inputs.get(sessionId);
+
+          if (queue !== undefined) queue.queued ||= queuedForTurn;
+
+          return pending
+            ? null
+            : yield* withSessionBoundary(
+                store,
+                sessionId,
+                Effect.gen(function* () {
+                  if (yield* pendingStartup(store, sessionId, yield* graphs)) {
+                    queuedForTurn = true;
+
+                    return null;
+                  }
+
+                  queuedForTurn ||= yield* store.hasQueuedInput(sessionId);
+
+                  if (queuedForTurn && ready !== undefined && !(yield* ready)) return null;
+                  const value = yield* effect;
+
+                  if (queuedForTurn && ready !== undefined) yield* store.markQueuedInput(sessionId);
+
+                  return { value };
+                })
+              );
+        });
+
+        // Ordinary input needs no subscription; subscribe and recheck only after a blocked attempt.
+        const immediate = yield* Effect.scoped(tryCommit);
+
+        if (immediate !== null) return immediate.value;
+
         while (true) {
           const result = yield* Effect.scoped(
             Effect.gen(function* () {
@@ -187,36 +225,7 @@ export const withSessionInput = <A, E, R>(
 
               const version = changes === null ? 0 : yield* SubscriptionRef.get(changes);
 
-              // Check before taking the startup lock, which may be held while an old Turn runs.
-              const pending = yield* pendingStartup(store, sessionId, yield* graphs);
-              queuedForTurn ||= pending;
-              const queue = boundaries(store).inputs.get(sessionId);
-
-              if (queue !== undefined) queue.queued ||= queuedForTurn;
-
-              const committed = pending
-                ? null
-                : yield* withSessionBoundary(
-                    store,
-                    sessionId,
-                    Effect.gen(function* () {
-                      if (yield* pendingStartup(store, sessionId, yield* graphs)) {
-                        queuedForTurn = true;
-
-                        return null;
-                      }
-
-                      queuedForTurn ||= yield* store.hasQueuedInput(sessionId);
-
-                      if (queuedForTurn && ready !== undefined && !(yield* ready)) return null;
-                      const value = yield* effect;
-
-                      if (queuedForTurn && ready !== undefined)
-                        yield* store.markQueuedInput(sessionId);
-
-                      return { value };
-                    })
-                  );
+              const committed = yield* tryCommit;
 
               if (committed !== null) return committed;
               yield* Effect.raceFirst(

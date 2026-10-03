@@ -33,9 +33,17 @@ export const workingAttemptsLayer = <E>(hooks: WorkingAttemptHooks<E>) =>
       const store = yield* EventStore;
       const parent = yield* Scope.Scope;
       yield* registerWorkerAdmissionSource(store, parent, (sessionId) =>
-        Effect.map(store.model, (model) =>
-          [...model.constellations.values()].some(
-            (record) =>
+        Effect.gen(function* () {
+          const graphs = yield* store.startupGraphs(sessionId);
+
+          if (graphs.length === 0) return false;
+          const model = yield* store.model;
+
+          return graphs.some((graph) => {
+            const record = model.constellations.get(graph.id);
+
+            return (
+              record !== undefined &&
               record.graph.state !== "completed" &&
               record.graph.state !== "archived" &&
               record.graph.attempts.some(
@@ -47,8 +55,9 @@ export const workingAttemptsLayer = <E>(hooks: WorkingAttemptHooks<E>) =>
                     attempt.id &&
                   !record.stale.has(attempt.id)
               )
-          )
-        )
+            );
+          });
+        })
       );
 
       const working = new Map<

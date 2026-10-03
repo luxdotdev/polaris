@@ -6,6 +6,77 @@ import { setup, world } from "../constellation/delivery/testing.ts";
 import { EventStore } from "../store/EventStore.ts";
 import { registerStartupGraphs, withSessionInput } from "./sessionBoundary.ts";
 
+test("ordinary input commits without mounting a startup wait subscription", async () => {
+  await world().run(
+    Effect.gen(function* () {
+      yield* setup();
+      const store = yield* EventStore;
+      const graph = (yield* store.model).constellations.get(CID)!.graph;
+      const before = yield* store.subscriberCount;
+      let released = false;
+
+      const value = yield* withSessionInput(
+        store,
+        graph.leadSessionId,
+        Effect.gen(function* () {
+          expect(yield* store.subscriberCount).toBe(before);
+          yield* Effect.acquireRelease(Effect.void, () =>
+            Effect.sync(() => {
+              released = true;
+            })
+          );
+
+          return "delivered";
+        })
+      );
+
+      expect(value).toBe("delivered");
+      expect(released).toBe(true);
+      expect(yield* store.subscriberCount).toBe(before);
+    })
+  );
+});
+
+test("a startup ending between the optimistic check and subscription cannot strand input", async () => {
+  await world().run(
+    Effect.gen(function* () {
+      yield* setup();
+      const store = yield* EventStore;
+      const graph = (yield* store.model).constellations.get(CID)!.graph;
+      const sid = graph.attempts[0]!.sessionId;
+      yield* store.commit({
+        commandId: null,
+        decide: () =>
+          Effect.succeed([
+            DomainEvent.cases.ConstellationStateChanged.make({
+              constellationId: CID,
+              revision: graph.revision + 1,
+              state: "archived",
+            }),
+          ]),
+      });
+      let reads = 0;
+      registerStartupGraphs(store, () =>
+        Effect.sync(() => {
+          reads++;
+
+          return reads === 1 ? [graph] : [];
+        })
+      );
+      let deliveries = 0;
+      yield* withSessionInput(
+        store,
+        sid,
+        Effect.sync(() => {
+          deliveries++;
+        })
+      );
+      expect(deliveries).toBe(1);
+      expect(reads).toBe(3);
+    })
+  );
+});
+
 for (const terminal of ["blocked", "lost"] as const)
   test(`a pending remote startup fences input and mirror ${terminal} wakes it without a local event`, async () => {
     await world().run(
