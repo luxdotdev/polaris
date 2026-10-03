@@ -37,7 +37,7 @@ export interface OverrideProps {
 export const OverrideMenuItems = ({ daemon, onChange }: OverrideProps) => (
   <>
     <DropdownMenuSeparator />
-    <DropdownMenuLabel>Daemon updates</DropdownMenuLabel>
+    <DropdownMenuLabel>Daemon upgrades</DropdownMenuLabel>
     <DropdownMenuRadioGroup
       value={overrideChoice(daemon)}
       onValueChange={(value) => {
@@ -61,7 +61,7 @@ export const OverrideSelect = ({ daemon, onChange }: OverrideProps) => (
       if (isChoice(value)) onChange(overrideValue(value));
     }}
   >
-    <SelectTrigger aria-label="Daemon updates" className="text-label h-7 w-[260px]">
+    <SelectTrigger aria-label="Daemon upgrades" className="text-label h-7 w-[260px]">
       <SelectValue />
     </SelectTrigger>
     <SelectContent>

@@ -30,7 +30,8 @@ export type SettingsSection =
   | "hosts"
   | "attachments"
   | "reviewer"
-  | "github";
+  | "github"
+  | "about";
 
 export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
   "appearance",
@@ -43,6 +44,7 @@ export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
   "attachments",
   "reviewer",
   "github",
+  "about",
 ];
 
 /** The ⌘O dialog (DESIGN.md, Open folder): which Host it opens on; null for the selected one. */

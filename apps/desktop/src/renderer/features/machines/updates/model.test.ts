@@ -43,15 +43,19 @@ describe("a host's daemon update line", () => {
   });
 
   test("offers the update with both versions, and waits for a disconnected host", () => {
-    expect(line(daemon({ updateAvailable: true }))).toEqual({
+    expect(line(daemon({ updateAvailable: true, keepUpToDate: false }))).toEqual({
       kind: "available",
-      text: "Update available · 0.4.1 → 0.5.0",
+      text: "0.5.0 available · upgrades its daemon only when you ask",
       canUpdate: true,
       caption: null,
     });
-    expect(line(daemon({ updateAvailable: true }), false)).toMatchObject({
+    expect(line(daemon({ updateAvailable: true, keepUpToDate: false }), false)).toMatchObject({
       canUpdate: false,
-      caption: "Updates once pi is connected",
+      caption: "Upgrades once pi is connected",
+    });
+    expect(line(daemon({ updateAvailable: true }), false)).toEqual({
+      kind: "note",
+      text: "Upgrades to 0.5.0 when it connects",
     });
   });
 
@@ -92,7 +96,7 @@ describe("a host's daemon update line", () => {
         })
       );
 
-    expect(done(3 * 60_000)).toEqual({ kind: "updated", text: "Updated to 0.5.0 · 3m ago" });
+    expect(done(3 * 60_000)).toEqual({ kind: "updated", text: "Upgraded to 0.5.0 · 3m ago" });
     expect(done(25 * 60 * 60_000).kind).toBe("none");
   });
 
@@ -142,7 +146,7 @@ describe("a host's daemon update line", () => {
       failed(problem({ kind: "unsupported", message: "FreeBSD isn't supported." }))
     ).toMatchObject({ failure: { reason: "unsupported", actions: [] } });
     expect(failed(null)).toMatchObject({
-      failure: { reason: "failed", title: "Updating pi didn't finish" },
+      failure: { reason: "failed", title: "Upgrading pi didn't finish" },
     });
   });
 });
@@ -154,7 +158,7 @@ describe("the per-host override", () => {
     expect(overrideChoice(daemon({ keepUpToDateOverride: false }))).toBe("off");
     expect(line(daemon({ keepUpToDateOverride: false }))).toEqual({
       kind: "note",
-      text: "Updates its daemon only when you ask",
+      text: "Upgrades its daemon only when you ask",
     });
   });
 });

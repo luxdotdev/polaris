@@ -20,6 +20,19 @@ import { GitHub } from "../github/index.ts";
 import { Machines } from "../machines/service.ts";
 import { type RequestContext, requestHandlers, requestRunner } from "./requests.ts";
 import { windowSubscriptions } from "./subscriptions.ts";
+import type { AppUpdateView } from "../../shared/appUpdates.ts";
+
+const updateView: AppUpdateView = {
+  phase: "idle",
+  version: "0.1.0",
+  availableVersion: null,
+  automatic: true,
+  lastCheckedAt: null,
+  installId: "00000000-0000-4000-8000-000000000000",
+  macOSVersion: "26.0",
+  arch: "arm64",
+  supported: false,
+};
 
 const view: HostView = {
   key: "local",
@@ -78,6 +91,13 @@ const github = GitHub.layer({
 const services = Layer.mergeAll(clientServices, github);
 
 const context: RequestContext = {
+  updates: {
+    get: () => updateView,
+    check: () => updateView,
+    setAutomatic: (automatic) => ({ ...updateView, automatic }),
+  },
+  restartToUpdate: () => undefined,
+  showAppInFinder: () => undefined,
   settings: () => ({ theme: "dark", hosts: [{ alias: "studio" }] }),
   cache: { get: () => [], put: () => undefined },
   prices: { table: () => Promise.reject(new Error("no prices in tests")) },

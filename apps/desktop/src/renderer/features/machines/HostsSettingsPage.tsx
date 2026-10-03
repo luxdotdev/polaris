@@ -20,6 +20,7 @@ import {
 } from "./updates/actions.ts";
 import { KeepUpToDate, OverrideMenuItems } from "./updates/Controls.tsx";
 import { type FailureAction, type UpdateLine, updateLine } from "./updates/model.ts";
+import { useUpgradeClock } from "./updates/UpgradeStatus.tsx";
 import { UpdateStrip } from "./updates/UpdateStrip.tsx";
 
 const failureAction = (machine: MachineView, line: UpdateLine, action: FailureAction) => {
@@ -125,7 +126,13 @@ export const HostsSettingsPage = ({ adding = false }: HostsSettingsPageProps) =>
   const [toggled, setToggled] = useState<Readonly<Record<string, boolean>>>({});
   // Rows opened because they needed the user stay open after, to show the outcome.
   const [kept, setKept] = useState<ReadonlySet<string>>(new Set());
-  const now = useNow(machines?.some((m) => m.status?.state === "reconnecting") ?? false);
+
+  const expiryClock = useUpgradeClock();
+
+  const now = Math.max(
+    expiryClock,
+    useNow(machines?.some((m) => m.status?.state === "reconnecting") ?? false)
+  );
 
   useEffect(() => {
     const opened = (machines ?? []).filter((m) => needsUser(m)).map((m) => m.key);

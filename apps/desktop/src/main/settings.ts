@@ -36,6 +36,8 @@ export const RemoteHostSetting = Schema.Struct({
 export type RemoteHostSetting = typeof RemoteHostSetting.Type;
 
 export const Settings = Schema.Struct({
+  automaticAppUpdates: Schema.optionalKey(Schema.Boolean),
+  appUpdateLastCheckedAt: Schema.optionalKey(Schema.Number),
   languageSettings: Schema.optionalKey(
     Schema.Array(LanguageSettingsRecord).check(Schema.isMaxLength(4096))
   ),
