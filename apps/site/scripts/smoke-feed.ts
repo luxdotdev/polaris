@@ -87,7 +87,7 @@ globalThis.fetch = async (input, options) => {
     fs.appendFileSync(${JSON.stringify(githubTrace)}, 'lookup\\n');
     return Response.json(fixture);
   }
-  if (url === 'https://api.axiom.co/v1/ingest/fake-release-smoke') {
+  if (url === 'https://us-east-1.aws.edge.axiom.co/v1/ingest/fake-release-smoke') {
     fs.appendFileSync(${JSON.stringify(trace)}, options.body + '\\n');
     return Response.json({ ingested: 1, failed: 0 });
   }

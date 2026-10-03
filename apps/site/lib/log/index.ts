@@ -56,6 +56,9 @@ const decodeIngest = Schema.decodeUnknownSync(
   Schema.Struct({ ingested: Schema.Number, failed: Schema.Number })
 );
 
+/** Ingest goes to the dataset's edge deployment; `api.axiom.co` answers 404 for edge datasets. */
+const DEFAULT_AXIOM_DOMAIN = "us-east-1.aws.edge.axiom.co";
+
 /** The slice of `fetch` the logger uses; `fetch` itself satisfies it. */
 export type Fetcher = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -66,7 +69,7 @@ async function ship(event: WideEvent, env: LogEnv, fetcher: Fetcher): Promise<st
 
   try {
     const response = await fetcher(
-      `https://api.axiom.co/v1/ingest/${encodeURIComponent(env.AXIOM_DATASET)}`,
+      `https://${env.AXIOM_DOMAIN ?? DEFAULT_AXIOM_DOMAIN}/v1/ingest/${encodeURIComponent(env.AXIOM_DATASET)}`,
       {
         method: "POST",
         headers: { Authorization: `Bearer ${env.AXIOM_TOKEN}`, "Content-Type": "application/json" },

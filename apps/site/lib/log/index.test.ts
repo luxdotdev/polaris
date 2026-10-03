@@ -160,7 +160,7 @@ describe("emit", () => {
       return Response.json({ ingested: 1, failed: 0 });
     });
 
-    expect(url).toBe("https://api.axiom.co/v1/ingest/polaris%20site");
+    expect(url).toBe("https://us-east-1.aws.edge.axiom.co/v1/ingest/polaris%20site");
     expect(lines).toEqual([{ level: "info", event: { route: "/x", axiom: "ok" } }]);
   });
 
