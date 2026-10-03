@@ -72,27 +72,56 @@ export const Tabs = ({ tabs, active, onSelect, onPin, onClose }: TabsProps) => {
       className="border-hairline bg-surface-sunken flex h-[37px] shrink-0 [scrollbar-width:none] overflow-x-auto border-b"
     >
       {tabs.map((tab) => {
-        const selected = tab.path === active;
+        const selected = tab.id === active;
 
         return (
           <div
-            key={tab.path}
+            key={tab.id}
             role="tab"
             tabIndex={selected ? 0 : -1}
             aria-selected={selected}
             title={tab.path}
             data-testid="editor-tab"
+            data-view={tab.view ?? "source"}
             data-dirty={tab.dirty ? "" : undefined}
             onMouseDown={(event) => {
-              if (event.button === 1) onClose(tab.path);
+              if (event.button === 1) onClose(tab.id);
             }}
-            onClick={() => onSelect(tab.path)}
-            onDoubleClick={() => onPin(tab.path)}
+            onClick={() => onSelect(tab.id)}
+            onDoubleClick={() => {
+              if (tab.view !== "markdown") onPin(tab.id);
+            }}
             onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") onSelect(tab.path);
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onSelect(tab.id);
+              }
+
+              if (event.key === "Delete" || event.key === "Backspace") {
+                event.preventDefault();
+                onClose(tab.id);
+              }
+
+              if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+                event.preventDefault();
+                const at = tabs.findIndex((t) => t.id === tab.id);
+
+                let index =
+                  (at + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+
+                if (event.key === "Home") index = 0;
+
+                if (event.key === "End") index = tabs.length - 1;
+                const next = tabs[index];
+
+                if (next !== undefined) {
+                  onSelect(next.id);
+                  strip.current?.querySelectorAll<HTMLElement>('[role="tab"]')[index]?.focus();
+                }
+              }
             }}
             className={cn(
-              "group/tab flex h-9 max-w-[240px] shrink-0 cursor-default items-center gap-2 border-r border-hairline pr-3 pl-3.5 text-label select-none",
+              "group/tab flex h-9 max-w-[240px] shrink-0 cursor-default focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-starlight items-center gap-2 border-r border-hairline pr-3 pl-3.5 text-label select-none",
               selected
                 ? "-mb-px h-[37px] bg-bg text-text-strong"
                 : "text-text-subtle hover:text-text-default"
@@ -100,7 +129,7 @@ export const Tabs = ({ tabs, active, onSelect, onPin, onClose }: TabsProps) => {
           >
             {tab.agent === null ? null : <Dither hue={tab.agent} size={12} moving />}
             <span className={cn("truncate", tab.preview && "italic")}>{tab.label}</span>
-            <TrailingSlot tab={tab} active={selected} onClose={() => onClose(tab.path)} />
+            <TrailingSlot tab={tab} active={selected} onClose={() => onClose(tab.id)} />
           </div>
         );
       })}

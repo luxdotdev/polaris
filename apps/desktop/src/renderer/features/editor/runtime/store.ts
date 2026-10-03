@@ -54,6 +54,8 @@ export interface ActiveEditor extends EditorFile {
 export interface EditorState {
   /** By `workspaceKey`. */
   readonly tabs: Readonly<Record<string, TabSet>>;
+  /** Explicit refresh after a Settings change; no policy polling. */
+  readonly previewEpochs: Readonly<Record<string, number>>;
   /** By `fileKey`. */
   readonly buffers: Readonly<Record<string, BufferView>>;
   /** By `workspaceKey`: absolute path → the Harness changing it. */
@@ -69,11 +71,12 @@ export interface EditorState {
   /** The view scrolls with the agent's writes (E3's Follow, on by default). */
   readonly follow: boolean;
   /** A tab with unsaved edits waiting on Save / Don't save / Cancel. */
-  readonly closing: EditorFile | null;
+  readonly closing: (EditorFile & { readonly viewId?: string }) | null;
 }
 
 export const editorStore = createStore<EditorState>(() => ({
   tabs: {},
+  previewEpochs: {},
   buffers: {},
   agentFiles: {},
   active: null,

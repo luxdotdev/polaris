@@ -3,10 +3,13 @@ import type { HarnessKind } from "@polaris/protocol";
 import { useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { fileKey, workspaceKey } from "../model/drafts.ts";
-import { tabLabels } from "../model/tabs.ts";
+import { activeTabId, tabId, tabLabels } from "../model/tabs.ts";
 import { type ActiveEditor, type BufferView, editorStore, tabsOf, useEditor } from "./store.ts";
 
 export interface TabView {
+  readonly id: string;
+  readonly view?: "markdown" | undefined;
+  readonly locked?: boolean | undefined;
   readonly path: string;
   readonly label: string;
   readonly preview: boolean;
@@ -18,6 +21,8 @@ export interface TabView {
 export interface TabsView {
   readonly tabs: ReadonlyArray<TabView>;
   readonly active: string | null;
+  readonly activeId?: string | null;
+  readonly rendered?: boolean;
 }
 
 const dirtyOf = (buffer: BufferView | undefined) =>
@@ -35,13 +40,20 @@ export const useEditorTabs = (hostKey: string, workspaceId: string): TabsView =>
   );
 
   return useMemo(() => {
-    const labels = tabLabels(set.tabs.map((t) => t.path));
+    const paths = [...new Set(set.tabs.map((t) => t.path))];
+    const labels = tabLabels(paths);
 
     return {
       active: set.active,
+      activeId: activeTabId(set),
+      rendered: set.activeView === "markdown",
       tabs: set.tabs.map((t, i) => ({
+        id: tabId(t),
         path: t.path,
-        label: labels[i] ?? t.path,
+        view: t.view,
+        locked: t.locked,
+        label:
+          (labels[paths.indexOf(t.path)] ?? t.path) + (t.view === "markdown" ? " · Preview" : ""),
         preview: t.preview,
         dirty: dirty[i] ?? false,
         agent: agents?.get(t.path) ?? null,
