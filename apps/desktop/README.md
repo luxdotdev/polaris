@@ -46,7 +46,35 @@ Packaging signs `darwin-arm64/polaris` and `betterleaks` with Developer ID, a se
 
 Packager's `osxSign` signs Electron with hardened runtime, `continueOnError: false` and `packaging/entitlements/electron.plist` (`allow-jit` only). `osxNotarize` submits via the API key, waits and staples the app; packaging verifies its code signature and stapled ticket before creating the final zip. Entitlements follow [Bun's executable signing guide](https://bun.sh/docs/guides/runtime/codesign-macos-executable) and the installed [`@electron/notarize` guidance](https://github.com/electron/notarize#prerequisites); Electron does not receive Bun's broader runtime exceptions. A real Developer ID/notarisation dry run is required once Apple enrollment and secrets are available (ENG-253/ENG-262).
 
-Follow-ups: a DMG for download (ENG-258), Linux AppImage/deb (today `--linux` makes an unpacked `Polaris-linux-x64/`), a macOS 26 `.icon` (Icon Composer) beside the `.icns` for the tinted and clear modes, and slimming `Resources/daemon` (about 485 MB for five builds; the packaged app is about 790 MB).
+Release packaging also emits `out/dist/Polaris-<version>-arm64.dmg`, with the dawn background, an Applications link and a Retina Finder layout. It builds from the completed app without changing its bytes; signed builds also sign, notarise and staple the DMG. See [Installer build](scripts/packaging/README.md) for prerequisites and Finder preference limits.
+
+## Release procedure
+
+[Release](../../.github/workflows/release.yml) runs on pushed `v*` tags, on the macOS 15 arm64 runner in the GitHub `release` environment. It accepts `v<major>.<minor>.<patch>` and `v<major>.<minor>.<patch>-rc.N`. Before installing dependencies, it checks that both the Desktop App and Daemon package versions exactly equal the tag without `v`.
+
+Configure these secrets in the `release` environment (ENG-253):
+
+| Secret | Value |
+|---|---|
+| `MACOS_CERT_P12` | Base64-encoded exported Developer ID Application `.p12` certificate, including its private key. |
+| `MACOS_CERT_PASSWORD` | Password used to export that certificate. |
+| `APPLE_API_KEY` | Contents of the App Store Connect Team Key `.p8` file. The workflow writes a private temporary file and passes its path to packaging. |
+| `APPLE_API_KEY_ID` | Team Key ID. |
+| `APPLE_API_ISSUER` | Team Key issuer ID. |
+| `APPLE_TEAM_ID` | Developer team ID. |
+| `MACOS_SIGNING_IDENTITY` | Optional exact Developer ID Application certificate name or SHA-1 hash when identity selection needs it. Set only with all six required secrets. |
+
+All six required secrets enable signing and notarisation for either tag kind. Partial credentials fail. An `-rc.N` tag may build unsigned when no signing secrets are configured; a stable tag fails without them. The workflow generates a temporary keychain password, imports and unlocks the certificate, and always deletes the keychain, certificate and API key files after use, restoring the runner's keychain search list. Configure environment protection and tag restrictions in GitHub before the first release.
+
+1. **Bump PR.** Update `apps/desktop/package.json` and `apps/daemon/package.json` to the same version in a normal PR, run the repository checks, and merge it. Use an `-rc.N` version for a release candidate. The workflow makes no version commits.
+2. **Tag.** Tag the merged commit, for example `git tag -a v0.1.0-rc.1 <merged-commit> -m 'Polaris 0.1.0-rc.1'`, then `git push origin v0.1.0-rc.1`. Resolve any `release` environment approval requested by GitHub.
+3. **Draft.** Review the Actions run and generated release notes. Packaging rebuilds all five release-versioned Daemons, the app, ZIP and DMG. `packageCheck.ts` must pass against the packaged app; signed builds also require code signature verification, Gatekeeper assessment and stapled-ticket validation for the app and DMG. The workflow creates a **draft**; `-rc.N` drafts are also **prereleases**. Unsigned drafts are labelled in their notes.
+4. **Install.** Download the draft DMG, drag Polaris to Applications and launch it on a test Mac. Check the app version, local Host connection and a standalone remote Host installation. For a signed candidate, check Gatekeeper acceptance and the notarisation tickets on the downloaded app and DMG. Exercise an Update from the previous published version using the ZIP. An unsigned candidate is a credential-free packaging check; it does not validate Gatekeeper or Apple notarisation. Complete the signed release-candidate dry run when ENG-253 credentials exist (ENG-262).
+5. **Publish.** A maintainer publishes the reviewed draft in GitHub after installation checks. Keep release candidates marked as prereleases. For a stable release, use a new version-bump PR and stable tag, then publish the signed draft as the latest release. The workflow never publishes automatically.
+
+The uploaded assets are exactly `Polaris-<version>-arm64.dmg` and `Polaris-<version>-arm64-mac.zip`; `<version>` has no `v` prefix. The site's [feed contract](../site/app/api/update/README.md) excludes drafts and prereleases: `/download/mac` selects the DMG and the Update feed selects the ZIP from the latest published stable release. Before publishing, confirm both assets exist under those names. A rerun does not overwrite an existing release: if creation or upload failed after leaving a partial draft, inspect and remove only that unpublished draft before rerunning the same tag; never move a published tag.
+
+Follow-ups: Linux AppImage/deb (today `--linux` makes an unpacked `Polaris-linux-x64/`), a macOS 26 `.icon` (Icon Composer) beside the `.icns` for the tinted and clear modes, and slimming `Resources/daemon` (about 485 MB for five builds; the packaged app is about 790 MB).
 
 `dev` connects the local Host to `~/.polaris/daemon.sock` when a Daemon answers there; otherwise it starts a dev Daemon from source with its own home and the scripted bench Harness, and keeps it across restarts (ADR 0007). Builds: Vite for the renderer, `Bun.build` for main and preload (ADR 0008).
 
