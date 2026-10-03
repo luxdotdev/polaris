@@ -30,7 +30,7 @@ import {
   ConstellationSessionEffects,
 } from "../delivery/index.ts";
 import { startConstellationDelivery } from "../delivery/startup.ts";
-import { send, session, STANDALONE, WORKER } from "../delivery/testing.ts";
+import { send, session, STANDALONE, WORKER, fakeWorkerAdmission } from "../delivery/testing.ts";
 import type { fakeHost } from "../transfers/fakeHost.testing.ts";
 
 export type TestHost = Effect.Success<ReturnType<typeof fakeHost>>;
@@ -67,6 +67,7 @@ export const blockedPair = Effect.fnUntraced(function* (owner: TestHost, worker:
     decide: () =>
       Effect.succeed([DomainEvent.cases.SessionCreated.make({ session: session(WORKER) })]),
   });
+  yield* fakeWorkerAdmission(worker.store, WORKER);
   yield* send(WORKER).pipe(Effect.provideService(EventStore, worker.store));
   yield* command(
     owner,

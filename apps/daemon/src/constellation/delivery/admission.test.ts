@@ -8,10 +8,12 @@ import {
   ReviewAction,
   TurnTrigger,
   TurnId,
+  WorkerPlacement,
 } from "@polaris/protocol";
 import { Effect, Layer, Predicate } from "effect";
 import { A, B, C, CID, ctx, draft, report, task } from "../../engine/constellation.testing.ts";
 import { decideConstellation } from "../../engine/constellation.ts";
+import { withSessionInput } from "../../engine/sessionBoundary.ts";
 import { recordSendbackTrace } from "../../mcp/sendback.trace.testing.ts";
 import { recordResourceTrace } from "../../resources/trace.testing.ts";
 import { EventStore } from "../../store/EventStore.ts";
@@ -203,6 +205,14 @@ for (const cause of ["Lead", "Accepted"] as const)
             yield* leadMessage();
             yield* delivery.flush();
             yield* wait(() => Effect.map(resources.get, (s) => s.workerCap.waiting === 1));
+
+            const steerProbe = yield* withSessionInput(
+              store,
+              WORKER,
+              Effect.succeed("steer gate free")
+            ).pipe(Effect.timeout(200));
+
+            expect(steerProbe).toBe("steer gate free");
             expect(w.turns).toHaveLength(0);
             expect((yield* store.model).constellations.get(CID)!.graph.attempts[0]!.state).toBe(
               "blocked"
@@ -265,6 +275,45 @@ for (const cause of ["Lead", "Accepted"] as const)
       );
     }));
 
+test("an inline background report in a trigger-null Turn releases capacity when the worker blocks", () =>
+  fixture(async () => {
+    const starts: string[] = [];
+    await world(":memory:", { runtime: runtime(starts) }).run(
+      Effect.gen(function* () {
+        yield* setup();
+        const store = yield* EventStore;
+        yield* wait(() => Effect.succeed(starts.length === 1));
+        yield* commit(
+          C.Plan.make({
+            constellationId: CID,
+            operations: [PlanOperation.cases.Add.make({ task: task(B) })],
+          })
+        );
+        yield* commit(
+          C.Dispatch.make({ constellationId: CID }),
+          ctx({ attempts: [draft(B, "b", STANDALONE)] })
+        );
+
+        for (const tasks of [
+          [{ id: "inline-child", kind: "subagent" as const, description: "child" }],
+          [],
+        ])
+          yield* store.commit({
+            commandId: null,
+            decide: () =>
+              Effect.succeed([
+                DomainEvent.cases.SessionBackgroundTasksChanged.make({ sessionId: WORKER, tasks }),
+              ]),
+          });
+        yield* block();
+        yield* finish(WORKER);
+        yield* wait(() => Effect.succeed(starts.length === 2));
+        expect(starts).toEqual([A, B]);
+        expect((yield* resourceCounts(store)).workerCap).toEqual({ working: 1, waiting: 0 });
+      })
+    );
+  }));
+
 test("restart keeps an idle blocked assignment without admission; Lead delivery reacquires", () =>
   fixture(async (root) => {
     const file = `${root}/store.sqlite`;
@@ -299,50 +348,79 @@ test("restart keeps an idle blocked assignment without admission; Lead delivery 
     );
   }));
 
-test("stopping a blocked worker queued for resume cancels admission without executing its input", () =>
-  fixture(async () => {
-    const starts: string[] = [];
-    const w = world(":memory:", { runtime: runtime(starts) });
-    await w.run(
-      Effect.gen(function* () {
-        yield* setup();
-        const store = yield* EventStore;
-        yield* wait(() => Effect.succeed(starts.length === 1));
-        yield* commit(
-          C.Plan.make({
-            constellationId: CID,
-            operations: [PlanOperation.cases.Add.make({ task: task(B) })],
-          })
-        );
-        yield* commit(
-          C.Dispatch.make({ constellationId: CID }),
-          ctx({ attempts: [draft(B, "b", STANDALONE)] })
-        );
-        yield* block();
-        yield* finish(WORKER);
-        yield* wait(() => Effect.succeed(starts.length === 2));
-        yield* (yield* ConstellationDelivery).start();
-        yield* leadMessage();
-        yield* wait(() => Effect.map(resourceCounts(store), (r) => r.workerCap.waiting === 1));
-        yield* commit(
-          C.Review.make({
-            constellationId: CID,
-            attemptId: draft().id,
-            revision: 1,
-            action: ReviewAction.cases.Stop.make({ reason: "Stop queued resume" }),
-          })
-        );
-        yield* wait(() => Effect.map(resourceCounts(store), (r) => r.workerCap.waiting === 0));
-        expect(w.turns).toHaveLength(0);
-        expect((yield* resourceCounts(store)).workerCap.working).toBe(1);
+for (const action of ["Stop", "SendBack"] as const)
+  test(`${action} cancels a blocked worker queued for resume without executing its input`, () =>
+    fixture(async () => {
+      const starts: string[] = [];
+      const w = world(":memory:", { runtime: runtime(starts) });
+      await w.run(
+        Effect.gen(function* () {
+          yield* setup();
+          const store = yield* EventStore;
+          yield* wait(() => Effect.succeed(starts.length === 1));
+          yield* commit(
+            C.Plan.make({
+              constellationId: CID,
+              operations: [PlanOperation.cases.Add.make({ task: task(B) })],
+            })
+          );
+          yield* commit(
+            C.Dispatch.make({ constellationId: CID }),
+            ctx({ attempts: [draft(B, "b", STANDALONE)] })
+          );
+          yield* block();
+          yield* finish(WORKER);
+          yield* wait(() => Effect.succeed(starts.length === 2));
+          yield* (yield* ConstellationDelivery).start();
+          yield* leadMessage();
+          yield* wait(() => Effect.map(resourceCounts(store), (r) => r.workerCap.waiting === 1));
+          yield* commit(
+            C.Review.make({
+              constellationId: CID,
+              attemptId: draft().id,
+              revision: 1,
+              action:
+                action === "Stop"
+                  ? ReviewAction.cases.Stop.make({ reason: "Stop queued resume" })
+                  : ReviewAction.cases.SendBack.make({
+                      reason: "Replace queued resume",
+                      worker: WorkerPlacement.cases.Existing.make({ sessionId: WORKER }),
+                    }),
+            }),
+            ctx({ attempts: action === "SendBack" ? [draft(A, "retry", WORKER)] : [] })
+          );
+          yield* wait(() =>
+            Effect.map(
+              resourceCounts(store),
+              (r) => r.workerCap.waiting === (action === "Stop" ? 0 : 1)
+            )
+          );
+          expect(w.turns).toHaveLength(0);
+          expect((yield* resourceCounts(store)).workerCap.working).toBe(1);
 
-        const events = yield* store.readConstellationEvents({
-          constellationId: CID,
-          after: 0,
-          upTo: (yield* store.model).sequence,
-        });
+          const events = yield* store.readConstellationEvents({
+            constellationId: CID,
+            after: 0,
+            upTo: (yield* store.model).sequence,
+          });
 
-        expect(events.some((e) => Predicate.isTagged(e.event, "AttemptUnblocked"))).toBe(false);
-      })
-    );
-  }));
+          expect(events.some((e) => Predicate.isTagged(e.event, "AttemptUnblocked"))).toBe(false);
+
+          if (action === "SendBack") {
+            yield* finish(STANDALONE);
+            const b = draft(B, "b", STANDALONE);
+            const claim = report(b.branch, "b-head");
+            yield* commit(
+              C.WorkerClaim.make({ constellationId: CID, attemptId: b.id, claim }),
+              ctx({
+                binding: { kind: "session", sessionId: STANDALONE },
+                claimProbe: { branch: b.branch, head: claim.head, dirtyPaths: [] },
+              })
+            );
+            yield* wait(() => Effect.succeed(starts.length === 3));
+            expect(starts).toEqual([A, B, A]);
+            expect(w.turns).toHaveLength(0);
+          }
+        })
+      );
+    }));

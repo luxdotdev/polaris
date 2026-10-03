@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { AttemptId, CommandId, CommandRejected, MessageTarget } from "@polaris/protocol";
-import { Effect, Fiber } from "effect";
+import { Effect, Fiber, Scope } from "effect";
+import { registerWorkerAdmission } from "../../resources/workerAdmission.ts";
 import { CID, C, HOST } from "../../engine/constellation.testing.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { Constellations } from "../service.ts";
@@ -45,7 +46,7 @@ test("worker receipt deduplicates before binding and archived-state checks", asy
           })
         )
       );
-      expect(checks).toBe(1);
+      expect(checks).toBe(2);
       expect(w.turns).toHaveLength(1);
       expect(w.steers).toHaveLength(0);
     })
@@ -118,6 +119,14 @@ test("remote unblock waits for a Turn boundary even when the worker can steer; r
         input: DeliveryInput.Turn({ text: "B accepted at feed-head", cause: "unblock" }),
       };
 
+      yield* registerWorkerAdmission(
+        yield* EventStore,
+        WORKER,
+        yield* Scope.Scope,
+        Effect.void,
+        Effect.succeed(false)
+      );
+
       const fiber = yield* applyWorkerDelivery(input, () => Effect.void).pipe(Effect.forkChild);
       yield* Effect.promise(() => Bun.sleep(10));
       expect(w.turns).toHaveLength(0);
@@ -128,6 +137,6 @@ test("remote unblock waits for a Turn boundary even when the worker can steer; r
       expect(w.steers).toHaveLength(0);
       yield* applyWorkerDelivery(input, () => Effect.void);
       expect(w.turns).toHaveLength(1);
-    })
+    }).pipe(Effect.scoped)
   );
 });

@@ -5,6 +5,7 @@ import { LiveItem } from "../store/EventStore.ts";
 import { workingTurn } from "../store/model.ts";
 import { decideSession } from "./session.ts";
 import { userTurn } from "./session.turns.ts";
+import { withWorkerAdmission } from "../resources/workerAdmission.ts";
 import type { EngineRuntime } from "./runtime.ts";
 import type { TurnToRun } from "./supervisor.ts";
 
@@ -83,6 +84,28 @@ const restartUserTurn = (rt: EngineRuntime["Service"], input: TurnToRun) =>
     return { waiting, started: started ? { ...input, turnId: id, steerExisting: false } : null };
   });
 
+const refuseAdmission = (rt: EngineRuntime["Service"], input: TurnToRun) => {
+  const id = crypto.randomUUID();
+
+  return rt.recordFor(input.sessionId, () => [
+    DomainEvent.cases.TurnItemCompleted.make({
+      sessionId: input.sessionId,
+      turnId: input.turnId,
+      subagentId: null,
+      item: TurnItem.cases.UserMessage.make({ id: `refused:${id}`, text: input.prompt }),
+    }),
+    DomainEvent.cases.TurnItemCompleted.make({
+      sessionId: input.sessionId,
+      turnId: input.turnId,
+      subagentId: null,
+      item: TurnItem.cases.Error.make({
+        id: `refusal:${id}`,
+        message: "Could not deliver the queued prompt: its worker admission was retired",
+      }),
+    }),
+  ]);
+};
+
 /** Deferred prompts have their own arrival-order lane; only preparation and delivery use the reactor lock. */
 export const deferredUserTurns = (
   rt: EngineRuntime["Service"],
@@ -92,20 +115,34 @@ export const deferredUserTurns = (
 
   const process = (input: TurnToRun) =>
     Effect.gen(function* () {
-      if (yield* rt.serially(input.sessionId)(deliver(input))) {
+      const delivered = yield* withWorkerAdmission(
+        rt.store,
+        input.sessionId,
+        rt.serially(input.sessionId)(deliver(input))
+      );
+
+      if (delivered === undefined) return yield* refuseAdmission(rt, input);
+
+      if (delivered) {
         yield* waitForTurnEnd(rt, input.sessionId, input.turnId);
 
         return;
       }
 
       while (true) {
-        const next = yield* rt.serially(input.sessionId)(
-          restartUserTurn(rt, input).pipe(
-            Effect.tap((result) =>
-              result.started === null ? Effect.void : deliver(result.started)
+        const next = yield* withWorkerAdmission(
+          rt.store,
+          input.sessionId,
+          rt.serially(input.sessionId)(
+            restartUserTurn(rt, input).pipe(
+              Effect.tap((result) =>
+                result.started === null ? Effect.void : deliver(result.started)
+              )
             )
           )
         );
+
+        if (next === undefined) return yield* refuseAdmission(rt, input);
 
         if (next.waiting === null) return;
         yield* waitForTurnEnd(rt, input.sessionId, next.waiting);

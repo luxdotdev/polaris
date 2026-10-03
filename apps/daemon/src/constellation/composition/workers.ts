@@ -11,7 +11,8 @@ import { Effect, Predicate, Stream } from "effect";
 import { ServiceError } from "../../services.ts";
 import { Engine } from "../../engine/Engine.ts";
 import { decideSession } from "../../engine/session.ts";
-import { withSessionBoundary } from "../../engine/sessionBoundary.ts";
+import { withSessionInput, withSessionBoundary } from "../../engine/sessionBoundary.ts";
+import { withWorkerAdmission } from "../../resources/workerAdmission.ts";
 import { workerBrief } from "../../harness/constellation/index.ts";
 import type { ReadModel } from "../../store/model.ts";
 import { EventStore } from "../../store/EventStore.ts";
@@ -192,7 +193,11 @@ const start = Effect.fn("Constellation.startAttempt")(function* (
 export const startAttempt = (graph: Constellation, attempt: Attempt, guard?: StartupGuard) =>
   Effect.gen(function* () {
     const store = yield* EventStore;
-    yield* withSessionBoundary(store, attempt.sessionId, start(graph, attempt, guard));
+    yield* withWorkerAdmission(
+      store,
+      attempt.sessionId,
+      withSessionBoundary(store, attempt.sessionId, start(graph, attempt, guard))
+    );
   });
 
 export const resumeAttempt = Effect.fn("Constellation.resumeAttempt")(function* (attempt: Attempt) {
@@ -208,7 +213,12 @@ export const resumeAttempt = Effect.fn("Constellation.resumeAttempt")(function* 
   const engine = yield* Engine;
   const candidate = engine.recoveredTurns.find((c) => c.sessionId === attempt.sessionId);
 
-  if (candidate !== undefined) yield* recoverAttempt(candidate);
+  if (candidate !== undefined)
+    yield* withWorkerAdmission(
+      store,
+      attempt.sessionId,
+      withSessionInput(store, attempt.sessionId, recoverAttempt(candidate))
+    );
 });
 
 /** A committed Attempt with no startup receipt must still start after a Daemon restart. */

@@ -22,6 +22,7 @@ import { decide } from "./decider.ts";
 import { Reactors } from "./reactors.ts";
 import { EngineRuntime } from "./runtime.ts";
 import { withSessionInput } from "./sessionBoundary.ts";
+import { withWorkerAdmission } from "../resources/workerAdmission.ts";
 
 export interface DispatchInput {
   readonly commandId: CommandId;
@@ -174,7 +175,7 @@ const make = Effect.gen(function* () {
   const dispatch: Dispatch = (input) => {
     const command = input.command;
 
-    return Command.isAnyOf(["SendTurn", "Continue", "Retry", "SendFeedback"])(command)
+    const committed = Command.isAnyOf(["SendTurn", "Continue", "Retry", "SendFeedback"])(command)
       ? withSessionInput(
           store,
           command.sessionId,
@@ -190,6 +191,22 @@ const make = Effect.gen(function* () {
             : undefined
         )
       : commitCommand(input);
+
+    if (!Command.isAnyOf(["SendTurn", "Continue", "Retry", "SendFeedback"])(command))
+      return committed;
+
+    return withWorkerAdmission(store, command.sessionId, committed).pipe(
+      Effect.flatMap((result) =>
+        result === undefined
+          ? Effect.fail(
+              new CommandRejected({
+                commandId: input.commandId,
+                reason: "Worker admission closed while input was queued",
+              })
+            )
+          : Effect.succeed(result)
+      )
+    );
   };
 
   return Dispatcher.of({ dispatch });

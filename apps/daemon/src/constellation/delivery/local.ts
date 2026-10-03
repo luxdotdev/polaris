@@ -232,9 +232,10 @@ const nudge = Effect.fn("Constellation.nudgeSilentWorker")(function* (
 export const deliverLocalInput = (id: ConstellationId, input: PendingInput) =>
   Effect.gen(function* () {
     const store = yield* EventStore;
-    yield* serialInput(
+    yield* withWorkerAdmission(
+      store,
       input.sessionId,
-      withWorkerAdmission(store, input.sessionId, deliverInput(id, input))
+      serialInput(input.sessionId, deliverInput(id, input))
     );
   });
 
@@ -250,4 +251,12 @@ export const nudgeSilentWorker = (
   id: ConstellationId,
   sessionId: PendingInput["sessionId"],
   endedTurnId: TurnId
-) => serialInput(sessionId, nudge(id, sessionId, endedTurnId));
+) =>
+  Effect.gen(function* () {
+    const store = yield* EventStore;
+    yield* withWorkerAdmission(
+      store,
+      sessionId,
+      serialInput(sessionId, nudge(id, sessionId, endedTurnId))
+    );
+  });

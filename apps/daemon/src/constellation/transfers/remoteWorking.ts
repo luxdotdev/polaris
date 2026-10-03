@@ -7,7 +7,12 @@ import {
 } from "@polaris/protocol";
 import { Effect, Exit, Layer, Scope, Predicate, Stream, SubscriptionRef } from "effect";
 import { EventStore } from "../../store/EventStore.ts";
-import { registerWorkerAdmission, workerBusy } from "../../resources/workerAdmission.ts";
+import {
+  cancelWorkerAdmissionWait,
+  registerWorkerAdmission,
+  registerWorkerAdmissionSource,
+  workerBusy,
+} from "../../resources/workerAdmission.ts";
 import { HostResources } from "../../resources/index.ts";
 import { McpTokens } from "../../mcp/index.ts";
 import { ConstellationOwner } from "../runtime.ts";
@@ -47,6 +52,26 @@ export const remoteWorkingAttemptsLayer = <E, R>(hooks: RemoteWorkingHooks<E, R>
       const hostId = yield* ConstellationOwner;
       const parent = yield* Effect.scope;
       const context = yield* Effect.context<R>();
+      yield* registerWorkerAdmissionSource(store, parent, (sessionId) =>
+        Effect.gen(function* () {
+          const claimed = yield* storage.claimedAttempts.pipe(Effect.orDie);
+
+          return (yield* storage.assignments.pipe(Effect.orDie)).some((assignment) => {
+            const attempt = assignmentAttempt(assignment);
+
+            return (
+              attempt.sessionId === sessionId &&
+              attempt.hostId === hostId &&
+              retainsAssignment(attempt) &&
+              !claimed.has(attempt.id) &&
+              assignment.graph.state !== "completed" &&
+              assignment.graph.state !== "archived" &&
+              assignment.graph.attempts.findLast((a) => a.taskId === attempt.taskId)?.id ===
+                attempt.id
+            );
+          });
+        })
+      );
       const started = new Set<AttemptId>();
 
       const working = new Map<
@@ -63,6 +88,13 @@ export const remoteWorkingAttemptsLayer = <E, R>(hooks: RemoteWorkingHooks<E, R>
         working.delete(id);
 
         if (entry !== undefined) yield* Scope.close(entry.scope, Exit.void);
+
+        const assignment = (yield* storage.assignments.pipe(Effect.orDie)).find(
+          (a) => a.attemptId === id
+        );
+
+        if (assignment !== undefined)
+          yield* cancelWorkerAdmissionWait(store, assignmentAttempt(assignment).sessionId);
       });
 
       const start = Effect.fnUntraced(function* (
@@ -106,10 +138,20 @@ export const remoteWorkingAttemptsLayer = <E, R>(hooks: RemoteWorkingHooks<E, R>
 
         const scope = yield* Scope.fork(parent);
 
+        const currentAssignment = Effect.map(
+          storage.assignments.pipe(Effect.orDie),
+          (assignments) =>
+            assignments.find(
+              (a) =>
+                a.attemptId === assignment.attemptId &&
+                a.graph.id === assignment.graph.id &&
+                a.graph.hostId === assignment.graph.hostId &&
+                assignmentAttempt(a).sessionId === attempt.sessionId
+            )
+        );
+
         const mayRelease = Effect.gen(function* () {
-          const current = (yield* storage.assignments.pipe(Effect.orDie)).find(
-            (a) => a.attemptId === attempt.id
-          );
+          const current = yield* currentAssignment;
 
           return (
             current !== undefined &&
@@ -129,7 +171,7 @@ export const remoteWorkingAttemptsLayer = <E, R>(hooks: RemoteWorkingHooks<E, R>
         working.set(attempt.id, { scope, suspend: admission.suspend, observe: admission.observe });
         yield* Effect.gen(function* () {
           if (!(yield* mayRelease) && !(yield* admission.ensure)) return;
-          const current = (yield* storage.assignments).find((a) => a.attemptId === attempt.id);
+          const current = yield* currentAssignment;
 
           if (current === undefined || !retainsAssignment(assignmentAttempt(current))) {
             yield* stop(attempt.id).pipe(Effect.forkIn(parent), Effect.asVoid);

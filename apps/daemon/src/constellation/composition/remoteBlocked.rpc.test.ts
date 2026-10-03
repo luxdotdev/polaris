@@ -25,6 +25,7 @@ import {
 } from "../delivery/index.ts";
 import {
   finish,
+  fakeWorkerAdmission,
   send,
   session,
   setup,
@@ -143,6 +144,9 @@ test("real delivery RPC queues a blocked Session while another Session proceeds 
                 DomainEvent.cases.SessionCreated.make({ session: session(SIBLING) }),
               ]),
           });
+
+          for (const id of [WORKER, SIBLING]) yield* fakeWorkerAdmission(worker.store, id);
+
           yield* send(WORKER).pipe(Effect.provideService(EventStore, worker.store));
           const rpc = yield* connectFake(worker.server.socketPath);
 

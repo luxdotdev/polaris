@@ -1,6 +1,11 @@
 import type { Attempt, AttemptId, SessionId, DomainEvent } from "@polaris/protocol";
 import { Deferred, Effect, Exit, Layer, Predicate, Scope, Stream } from "effect";
-import { registerWorkerAdmission, workerBusy } from "../resources/workerAdmission.ts";
+import {
+  cancelWorkerAdmissionWait,
+  registerWorkerAdmission,
+  registerWorkerAdmissionSource,
+  workerBusy,
+} from "../resources/workerAdmission.ts";
 import { graphEvent } from "../store/constellation.ts";
 import { EventStore } from "../store/EventStore.ts";
 import { ConstellationRuntime, type ConstellationRuntimeService } from "./runtime.ts";
@@ -25,6 +30,24 @@ export const workingAttemptsLayer = <E>(hooks: WorkingAttemptHooks<E>) =>
     Effect.gen(function* () {
       const store = yield* EventStore;
       const parent = yield* Scope.Scope;
+      yield* registerWorkerAdmissionSource(store, parent, (sessionId) =>
+        Effect.map(store.model, (model) =>
+          [...model.constellations.values()].some(
+            (record) =>
+              record.graph.state !== "completed" &&
+              record.graph.state !== "archived" &&
+              record.graph.attempts.some(
+                (attempt) =>
+                  attempt.sessionId === sessionId &&
+                  hooks.ownsAttempt?.(attempt) !== false &&
+                  (attempt.state === "working" || attempt.state === "blocked") &&
+                  record.graph.attempts.findLast((a) => a.taskId === attempt.taskId)?.id ===
+                    attempt.id &&
+                  !record.stale.has(attempt.id)
+              )
+          )
+        )
+      );
 
       const working = new Map<
         AttemptId,
@@ -34,7 +57,16 @@ export const workingAttemptsLayer = <E>(hooks: WorkingAttemptHooks<E>) =>
       const close = Effect.fnUntraced(function* (id: AttemptId) {
         const entry = working.get(id);
 
-        if (entry === undefined) return;
+        if (entry === undefined) {
+          for (const record of (yield* store.model).constellations.values()) {
+            const attempt = record.graph.attempts.find((a) => a.id === id);
+
+            if (attempt !== undefined) yield* cancelWorkerAdmissionWait(store, attempt.sessionId);
+          }
+
+          return;
+        }
+
         working.delete(id);
         yield* Scope.close(entry.scope, Exit.void);
       });
@@ -210,8 +242,20 @@ export const workingAttemptsLayer = <E>(hooks: WorkingAttemptHooks<E>) =>
         afterCommit: Effect.fnUntraced(function* (binding, command, envelopes) {
           yield* hooks.runtime.afterCommit(binding, command, envelopes);
 
-          for (const { event } of envelopes)
+          for (const { event } of envelopes) {
+            const graph = graphEvent(event);
+
+            if (
+              graph !== null &&
+              (Predicate.isTagged(graph, "AttemptClaimed") ||
+                Predicate.isTagged(graph, "AttemptAccepted") ||
+                Predicate.isTagged(graph, "AttemptRejected") ||
+                Predicate.isTagged(graph, "AttemptSettled"))
+            )
+              yield* close(graph.attemptId);
+
             if (Predicate.isTagged(event, "AttemptStarted")) yield* start(event.attempt, false);
+          }
         }) satisfies ConstellationRuntimeService["afterCommit"],
       };
     })

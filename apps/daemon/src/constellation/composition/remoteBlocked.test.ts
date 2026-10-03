@@ -19,7 +19,16 @@ import {
   applyWorkerDelivery,
 } from "../delivery/index.ts";
 import { pendingInputs } from "../delivery/messages.ts";
-import { finish, send, setup, STANDALONE, wait, WORKER, world } from "../delivery/testing.ts";
+import {
+  finish,
+  send,
+  setup,
+  STANDALONE,
+  wait,
+  WORKER,
+  world,
+  fakeWorkerAdmission,
+} from "../delivery/testing.ts";
 import { validateRemoteDelivery } from "./remoteDelivery.ts";
 import { recordRemoteBlockTrace } from "./remoteBlocked.trace.testing.ts";
 
@@ -73,6 +82,7 @@ test("remote worker TurnEnded retries an accepted block without another owner ev
   await worker.run(
     Effect.gen(function* () {
       yield* setup();
+      yield* fakeWorkerAdmission(yield* EventStore, WORKER);
       yield* send(WORKER);
       const workerContext = yield* Effect.context<EventStore | ConstellationSessionEffects>();
       const arrived = yield* Deferred.make<void>();

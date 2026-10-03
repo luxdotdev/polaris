@@ -10,10 +10,11 @@ import {
   WorkerPlacement,
   Workspace,
 } from "@polaris/protocol";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, type Scope } from "effect";
 import { TestClock } from "effect/testing";
 import { A, AT, C, CID, HOST, LEAD, WS, draft, task } from "../../engine/constellation.testing.ts";
 import { decideSession, type SessionInput } from "../../engine/session.ts";
+import { registerWorkerAdmission } from "../../resources/workerAdmission.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { Constellations } from "../service.ts";
 import { ConstellationOwner } from "../runtime.ts";
@@ -150,6 +151,20 @@ export const setup = Effect.fnUntraced(function* (
   );
 });
 
+/** Relay fixtures have fake Turn runners and no resource pool; mount explicit no-op admission. */
+export const fakeWorkerAdmission = Effect.fnUntraced(function* (
+  store: EventStore["Service"],
+  id: SessionId
+) {
+  yield* registerWorkerAdmission(
+    store,
+    id,
+    yield* Effect.scope,
+    Effect.void,
+    Effect.succeed(false)
+  );
+});
+
 export const world = (
   file = ":memory:",
   options: {
@@ -235,6 +250,7 @@ export const world = (
     effect: Effect.Effect<
       A,
       E,
+      | Scope.Scope
       | Constellations
       | ConstellationDelivery
       | EventStore

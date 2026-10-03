@@ -13,6 +13,80 @@ interface Admission {
 
 const admissions = new WeakMap<Store, Map<SessionId, Admission>>();
 
+const registrations = new WeakMap<Store, Map<SessionId, Deferred.Deferred<Admission>>>();
+
+type AssignmentSource = (sessionId: SessionId) => Effect.Effect<boolean>;
+
+const sources = new WeakMap<Store, Set<AssignmentSource>>();
+
+/** Mount assignment facts before rebuilding controllers so inputs cannot pass the restart gap. */
+export const registerWorkerAdmissionSource = (
+  store: Store,
+  scope: Scope.Scope,
+  source: AssignmentSource
+) =>
+  Effect.gen(function* () {
+    let entries = sources.get(store);
+
+    if (entries === undefined) {
+      entries = new Set();
+      sources.set(store, entries);
+    }
+
+    entries.add(source);
+    const current = entries;
+    yield* Scope.addFinalizer(
+      scope,
+      Effect.sync(() => {
+        current.delete(source);
+      })
+    );
+  });
+
+const hasAssignment = (store: Store, sessionId: SessionId) =>
+  Effect.gen(function* () {
+    for (const source of sources.get(store) ?? []) if (yield* source(sessionId)) return true;
+
+    return false;
+  });
+
+const awaitRegistration = (store: Store, sessionId: SessionId) =>
+  Effect.suspend(() => {
+    const current = admissions.get(store)?.get(sessionId);
+
+    if (current !== undefined) return Effect.succeed(current);
+    let waiting = registrations.get(store);
+
+    if (waiting === undefined) {
+      waiting = new Map();
+      registrations.set(store, waiting);
+    }
+
+    let ready = waiting.get(sessionId);
+
+    if (ready === undefined) {
+      ready = Deferred.makeUnsafe<Admission>();
+      waiting.set(sessionId, ready);
+    }
+
+    return Deferred.await(ready);
+  });
+
+/** A terminal mirror can retire an input that arrived before its admission controller mounted. */
+export const cancelWorkerAdmissionWait = (store: Store, sessionId: SessionId) =>
+  Effect.gen(function* () {
+    const waiting = registrations.get(store);
+    const registration = waiting?.get(sessionId);
+
+    if (registration === undefined) return;
+    waiting?.delete(sessionId);
+    yield* Deferred.succeed(registration, {
+      pin: Effect.void,
+      enter: Effect.succeed(false),
+      leave: Effect.void,
+    });
+  });
+
 /** Foreground and background work retain capacity; only a quiescent blocked wait releases it. */
 export const workerBusy = (record: SessionRecord | undefined) =>
   record === undefined ||
@@ -107,6 +181,14 @@ export const registerWorkerAdmission = <E>(
     }
 
     registered.set(sessionId, admission);
+    const waiting = registrations.get(store);
+    const registration = waiting?.get(sessionId);
+
+    if (registration !== undefined) {
+      waiting?.delete(sessionId);
+      yield* Deferred.succeed(registration, admission);
+    }
+
     const entries = registered;
 
     yield* Scope.addFinalizer(
@@ -144,11 +226,7 @@ export const registerWorkerAdmission = <E>(
           if (hasTasks) reportsPending = true;
         }
 
-        if (
-          Predicate.isTagged(event, "TurnEnded") &&
-          event.turn.sessionId === sessionId &&
-          (event.turn.status !== "completed" || event.turn.trigger !== null)
-        ) {
+        if (Predicate.isTagged(event, "TurnEnded") && event.turn.sessionId === sessionId) {
           reportsPending = event.turn.status === "completed" && (hasTasks || background.size > 0);
         }
 
@@ -171,14 +249,19 @@ export const hasWorkerAdmission = (store: Store, sessionId: SessionId) =>
 export const withWorkerAdmission = <A, E, R>(
   store: Store,
   sessionId: SessionId,
-  effect: Effect.Effect<A, E, R>
+  effect: Effect.Effect<A, E, R>,
+  waitForRegistration = false
 ): Effect.Effect<A | void, E, R> =>
-  Effect.suspend<A | void, E, R>(() => {
-    const admission = admissions.get(store)?.get(sessionId);
+  Effect.gen(function* () {
+    const admission =
+      admissions.get(store)?.get(sessionId) ??
+      (waitForRegistration || (yield* hasAssignment(store, sessionId))
+        ? yield* awaitRegistration(store, sessionId)
+        : undefined);
 
-    if (admission === undefined) return effect;
+    if (admission === undefined) return yield* effect;
 
-    return Effect.uninterruptibleMask((restore) =>
+    return yield* Effect.uninterruptibleMask((restore) =>
       Effect.gen(function* () {
         yield* admission.pin;
 

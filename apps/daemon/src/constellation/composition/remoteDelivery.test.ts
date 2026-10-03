@@ -28,7 +28,7 @@ import type { ReadModel } from "../../store/model.ts";
 import { decideConstellationJournal } from "../journal.ts";
 import { pendingInputs } from "../delivery/messages.ts";
 import { applyWorkerDelivery, DeliveryInput } from "../delivery/index.ts";
-import { setup, WORKER, world } from "../delivery/testing.ts";
+import { setup, WORKER, world, fakeWorkerAdmission } from "../delivery/testing.ts";
 import { validateRemoteDelivery } from "./remoteDelivery.ts";
 
 const owner = HostId.make("owner");
@@ -103,6 +103,7 @@ for (const cause of ["Accepted", "Lead"] as const) {
       Effect.gen(function* () {
         yield* setup();
         const store = yield* EventStore;
+        yield* fakeWorkerAdmission(store, WORKER);
         const record = blockedOwner(cause);
         const input = pendingInputs(record).find((i) => i.sessionId === WORKER)!;
 
