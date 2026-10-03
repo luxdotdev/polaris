@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 import { SendEmailCommand, type SESv2ClientConfig } from "@aws-sdk/client-sesv2";
 import { createEmailHandler } from "./index";
 import { createRateLimit, windowMs } from "./rate-limit";
-import { logEmailRequested } from "./telemetry";
 import { createTransport, type EmailEnv, type SesFactory } from "./transport";
 import { validEmail } from "./validation";
 import { fakeValidator } from "./validator";
@@ -279,21 +278,4 @@ describe("abuse guard", () => {
   ])("invalid email %s", (email) => {
     expect(validEmail(email)).toBe(false);
   });
-});
-
-test("Axiom event contains only a request fact, route and timestamp; failures are silent", async () => {
-  const bodies: string[] = [];
-  await logEmailRequested(
-    { NODE_ENV: "production", AXIOM_TOKEN: "fake", AXIOM_DATASET: "site events" },
-    async (url, init) => {
-      expect(url).toBe("https://api.axiom.co/v1/ingest/site%20events");
-      bodies.push(
-        (await new Response(init.body).text()).replace(/"_time":"[^"]+"/, '"_time":"timestamp"')
-      );
-      throw new Error("private provider payload");
-    }
-  );
-  expect(bodies).toEqual([
-    JSON.stringify([{ event: "email_requested", route: "/api/email", _time: "timestamp" }]),
-  ]);
 });

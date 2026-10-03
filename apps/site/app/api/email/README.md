@@ -125,11 +125,18 @@ disable/redact request bodies and recipient-bearing telemetry/traces. Avoid even
 destinations that retain addresses; use aggregate SES reputation/bounce/complaint
 metrics instead.
 
-The only Axiom event is `{ event: "email_requested", route: "/api/email",
-_time: "..." }` for a valid, non-honeypot, rate-admitted submission. It receives
-no request data: no email, IP, IP digest, headers, user agent or provider error.
-Ingest runs via Next's `after()`, once, without retries; absent config and
-ingest failures are silent and do not affect sending.
+Every request emits one wide event (`lib/log`, shared with the release routes):
+deployment context, `status_code`, `outcome`, `duration_ms`, and why it ended:
+`bot` (`human`/`bot`/`verified_bot`/`unavailable`), `rejection`
+(`origin_mismatch`, `content_type`, `unreadable_body`, `honeypot`,
+`invalid_syntax`, `rate_limited`), `validation`
+(`accepted`/`invalid`/`uncertain`/`unavailable`), `failure`
+(`botid_unavailable`, `validation_<reason>`, `email_unconfigured` with
+`missing_config` variable names, `send_failed`), `error` (error type and HTTP
+status only) and `delivery` (`sent`/`preview`). It never carries the email
+address, its domain, an IP, headers, the body or any error message. It is sent
+to Axiom once via `after()` and written to the function log with the ingest
+result; logging never affects sending.
 
 Validation accepts plain ASCII addresses with a dotted domain, caps addresses
 at 254 characters (64 for the local part), and rejects display names, empty

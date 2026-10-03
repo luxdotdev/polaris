@@ -18,14 +18,27 @@ const decodeEvent = Schema.decodeUnknownSync(
   Schema.Array(
     Schema.Struct({
       _time: Schema.String,
-      event: Schema.Literals(["update_check", "download"]),
+      request_id: Schema.String,
+      method: Schema.Literal("GET"),
       route: Schema.String,
+      service: Schema.Literal("polaris-site"),
+      commit: Schema.NullOr(Schema.String),
+      deployment_id: Schema.NullOr(Schema.String),
+      environment: Schema.NullOr(Schema.String),
+      region: Schema.NullOr(Schema.String),
+      event: Schema.Literals(["update_check", "download"]),
       version: Schema.NullOr(Schema.String),
       arch: Schema.Literal("arm64"),
       macos_version: Schema.String,
       install_id: Schema.String,
       country: Schema.String,
-      status: Schema.Number,
+      release_version: Schema.optional(Schema.NullOr(Schema.String)),
+      update: Schema.optional(Schema.Literals(["current", "available"])),
+      rejection: Schema.optional(Schema.Literal("invalid_version")),
+      failure: Schema.optional(Schema.String),
+      status_code: Schema.Number,
+      outcome: Schema.Literals(["success", "rejected", "error"]),
+      duration_ms: Schema.Number,
     })
   ),
   { onExcessProperty: "error" }
@@ -157,7 +170,7 @@ async function checkEvents(statuses: number[]) {
 
     if (events.length === statuses.length) {
       assert.deepEqual(
-        events.map((event) => event.status),
+        events.map((event) => event.status_code),
         statuses
       );
       assert.equal(readFileSync(githubTrace, "utf8"), "lookup\n");

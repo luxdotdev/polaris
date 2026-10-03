@@ -3,7 +3,8 @@ import {
   SESv2Client,
   type SESv2ClientConfig,
 } from "@aws-sdk/client-sesv2";
-import { Schema } from "effect";
+import { Option, Schema } from "effect";
+import { errorInfo, type ErrorInfo } from "../../../../lib/log";
 import { readSesConfig, type EmailEnv } from "./ses";
 
 /** Provider seam: false rejects the recipient, a rejection fails closed, true permits SES. */
@@ -11,11 +12,33 @@ export interface EmailValidator {
   validate(email: string): Promise<boolean>;
 }
 
+export type ValidationFailure = "unconfigured" | "uncertain" | "timeout" | "malformed" | "provider";
+
+/** A fail-closed validation with a loggable reason; its message stays generic. */
+export class EmailValidationError extends Error {
+  override readonly name = "EmailValidationError";
+
+  constructor(
+    readonly reason: ValidationFailure,
+    readonly cause_info?: ErrorInfo
+  ) {
+    super("Email validation unavailable");
+  }
+}
+
+class ValidationTimeout extends Error {
+  override readonly name = "ValidationTimeout";
+}
+
+export const decodeEmailValidationError = Schema.decodeUnknownOption(
+  Schema.instanceOf(EmailValidationError)
+);
+
 export const fakeValidator: EmailValidator = { validate: async () => true };
 
 export const unavailableValidator: EmailValidator = {
   validate: async () => {
-    throw new Error("Email validation unavailable");
+    throw new EmailValidationError("unconfigured");
   },
 };
 
@@ -105,7 +128,7 @@ async function getInsights(client: ReturnType<InsightsFactory>, email: string, d
 
   const deadline = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
-      reject(new Error("Email validation unavailable"));
+      reject(new ValidationTimeout());
       controller.abort();
     }, deadlineMs);
   });
@@ -124,6 +147,8 @@ async function getInsights(client: ReturnType<InsightsFactory>, email: string, d
   }
 }
 
+const decodeTimeout = Schema.decodeUnknownOption(Schema.instanceOf(ValidationTimeout));
+
 export function createValidator(
   env: EmailEnv,
   makeClient: InsightsFactory = (config) => new SESv2Client(config),
@@ -139,7 +164,7 @@ export function createValidator(
       try {
         const config = readSesConfig(env);
 
-        if (!config) throw new Error("Email validation unavailable");
+        if (!config) throw new EmailValidationError("unconfigured");
 
         const client = makeClient({
           ...config,
@@ -151,15 +176,22 @@ export function createValidator(
         } finally {
           client.destroy?.();
         }
-      } catch {
+      } catch (error) {
         counters.record("unavailable");
-        // SDK and schema failures can contain the address; never retain a cause or provider message.
-        throw new Error("Email validation unavailable");
+        // SDK and schema failures can contain the address: keep only the error's type and status.
+
+        if (Option.isSome(decodeEmailValidationError(error))) throw error;
+
+        if (Option.isSome(decodeTimeout(error))) throw new EmailValidationError("timeout");
+
+        if (Schema.isSchemaError(error)) throw new EmailValidationError("malformed");
+
+        throw new EmailValidationError("provider", errorInfo(error));
       }
 
       counters.record(outcome);
 
-      if (outcome === "uncertain") throw new Error("Email validation unavailable");
+      if (outcome === "uncertain") throw new EmailValidationError("uncertain");
 
       return outcome === "accepted";
     },
