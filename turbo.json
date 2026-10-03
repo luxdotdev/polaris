@@ -10,7 +10,15 @@
     },
     "@polaris/site#build": {
       "dependsOn": ["^build"],
-      "outputs": [".next/**", "!.next/cache/**"]
+      "outputs": [".next/**", "!.next/cache/**"],
+      "passThroughEnv": [
+        "AXIOM_TOKEN",
+        "AXIOM_DATASET",
+        "AWS_REGION",
+        "AWS_ROLE_ARN",
+        "POLARIS_EMAIL_FROM",
+        "POLARIS_EMAIL_CONFIGURATION_SET"
+      ]
     },
     "typecheck": { "dependsOn": ["^typecheck"] },
     "test": { "dependsOn": ["^build"], "env": ["POLARIS_PBT_*"] },
