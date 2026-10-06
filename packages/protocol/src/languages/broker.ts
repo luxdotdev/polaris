@@ -1,3 +1,4 @@
+import { deferredSchema } from "./deferred.ts";
 import { LanguageResourceReceiptChallenge } from "./resourceReceipts.ts";
 import { Schema } from "effect";
 import {
@@ -160,26 +161,30 @@ export const LanguageServerResponse = Schema.Struct({
   response: LanguageJsonRpcResponse,
 });
 
-export const LanguageServerRequestPayload = Schema.TaggedUnion({
-  Configuration: { items: Schema.Array(LanguageConfigurationItem).check(Schema.isMaxLength(256)) },
-  Register: { registrations: Schema.Array(LanguageRegistration).check(Schema.isMaxLength(256)) },
-  Unregister: {
-    unregistrations: Schema.Array(
-      Schema.Struct({ id: LanguageServerIdentifier, method: LanguageMethod })
-    ).check(Schema.isMaxLength(256)),
-  },
-  ProgressCreate: { token: LanguageRpcId },
-  WorkspaceFolders: {},
-  ShowMessage: {
-    type: Schema.Literals([1, 2, 3, 4]),
-    message: LanguageText,
-    actions: Schema.Array(Schema.Struct({ title: LanguageText })).check(Schema.isMaxLength(32)),
-  },
-  ApplyEdit: { proposal: LegacyServerEditProposal },
-  TreeApplyEdit: { proposal: LanguageTreeEditProposal },
-  ResourceReceipt: { challenge: LanguageResourceReceiptChallenge },
-  Unsupported: { method: LanguageMethod },
-});
+export const LanguageServerRequestPayload = deferredSchema(() =>
+  Schema.TaggedUnion({
+    Configuration: {
+      items: Schema.Array(LanguageConfigurationItem).check(Schema.isMaxLength(256)),
+    },
+    Register: { registrations: Schema.Array(LanguageRegistration).check(Schema.isMaxLength(256)) },
+    Unregister: {
+      unregistrations: Schema.Array(
+        Schema.Struct({ id: LanguageServerIdentifier, method: LanguageMethod })
+      ).check(Schema.isMaxLength(256)),
+    },
+    ProgressCreate: { token: LanguageRpcId },
+    WorkspaceFolders: {},
+    ShowMessage: {
+      type: Schema.Literals([1, 2, 3, 4]),
+      message: LanguageText,
+      actions: Schema.Array(Schema.Struct({ title: LanguageText })).check(Schema.isMaxLength(32)),
+    },
+    ApplyEdit: { proposal: LegacyServerEditProposal },
+    TreeApplyEdit: { proposal: LanguageTreeEditProposal },
+    ResourceReceipt: { challenge: LanguageResourceReceiptChallenge },
+    Unsupported: { method: LanguageMethod },
+  })
+);
 
 /** Every configuration item has a corresponding result, in request order; null means no value. */
 
@@ -190,48 +195,52 @@ export const LanguageConfigurationResponse = Schema.Struct({
 export const LanguageProgress = Schema.Struct({
   context: LanguageContextIdentity,
   token: LanguageRpcId,
-  value: Schema.TaggedUnion({
-    Begin: {
-      title: LanguageText,
-      message: Schema.optionalKey(LanguageText),
-      percentage: Schema.optionalKey(
-        Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: 100 }))
-      ),
-      cancellable: Schema.optionalKey(Schema.Boolean),
-    },
-    Report: {
-      message: Schema.optionalKey(LanguageText),
-      percentage: Schema.optionalKey(
-        Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: 100 }))
-      ),
-      cancellable: Schema.optionalKey(Schema.Boolean),
-    },
-    End: { message: Schema.optionalKey(LanguageText) },
-  }),
+  value: deferredSchema(() =>
+    Schema.TaggedUnion({
+      Begin: {
+        title: LanguageText,
+        message: Schema.optionalKey(LanguageText),
+        percentage: Schema.optionalKey(
+          Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: 100 }))
+        ),
+        cancellable: Schema.optionalKey(Schema.Boolean),
+      },
+      Report: {
+        message: Schema.optionalKey(LanguageText),
+        percentage: Schema.optionalKey(
+          Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: 100 }))
+        ),
+        cancellable: Schema.optionalKey(Schema.Boolean),
+      },
+      End: { message: Schema.optionalKey(LanguageText) },
+    })
+  ),
 });
 
-export const LanguageContextEvent = Schema.TaggedUnion({
-  Snapshot: { context: LanguageContextIdentity, runtime: LanguageRuntime, ack: LanguageSyncAck },
-  RuntimeChanged: { context: LanguageContextIdentity, runtime: LanguageRuntime },
-  Synchronized: { ack: LanguageSyncAck },
-  CapabilitiesChanged: {
-    context: LanguageContextIdentity,
-    capabilities: LanguageProviderCapabilities,
-    registrations: Schema.Array(LanguageRegistration).check(Schema.isMaxLength(256)),
-  },
-  Diagnostics: { diagnostics: LanguageDiagnostics },
-  ServerRequest: { request: LanguageServerRequest, payload: LanguageServerRequestPayload },
-  Progress: { progress: LanguageProgress },
-  Log: {
-    context: LanguageContextIdentity,
-    level: Schema.Literals(["error", "warning", "info", "debug"]),
-    message: LanguageText,
-  },
-  Invalidated: {
-    context: LanguageContextIdentity,
-    reason: Schema.Literals(["connection-lost", "restart", "settings-changed", "closed"]),
-  },
-});
+export const LanguageContextEvent = deferredSchema(() =>
+  Schema.TaggedUnion({
+    Snapshot: { context: LanguageContextIdentity, runtime: LanguageRuntime, ack: LanguageSyncAck },
+    RuntimeChanged: { context: LanguageContextIdentity, runtime: LanguageRuntime },
+    Synchronized: { ack: LanguageSyncAck },
+    CapabilitiesChanged: {
+      context: LanguageContextIdentity,
+      capabilities: LanguageProviderCapabilities,
+      registrations: Schema.Array(LanguageRegistration).check(Schema.isMaxLength(256)),
+    },
+    Diagnostics: { diagnostics: LanguageDiagnostics },
+    ServerRequest: { request: LanguageServerRequest, payload: LanguageServerRequestPayload },
+    Progress: { progress: LanguageProgress },
+    Log: {
+      context: LanguageContextIdentity,
+      level: Schema.Literals(["error", "warning", "info", "debug"]),
+      message: LanguageText,
+    },
+    Invalidated: {
+      context: LanguageContextIdentity,
+      reason: Schema.Literals(["connection-lost", "restart", "settings-changed", "closed"]),
+    },
+  })
+);
 
 export type LanguageContextEvent = typeof LanguageContextEvent.Type;
 

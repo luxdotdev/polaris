@@ -112,7 +112,7 @@ test("current catalog descriptors decode without changing tool/provider/formatte
 
   expect(catalog.integrations.length).toBe(14);
 
-  expect(catalog.tools.filter(languageToolOffered).length).toBe(18);
+  expect(catalog.tools.filter(languageToolOffered).length).toBe(20);
   expect(catalog.tools.find((tool) => tool.id === "shellcheck")?.disposition).toBe("offered");
 
   expect(catalog.tools.find((tool) => tool.id === "sql-language-server")?.disposition).toBe(

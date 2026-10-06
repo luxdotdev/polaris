@@ -17,7 +17,10 @@ export const proposalValidator = (
   trust: ExecutionTrustService["Service"],
   fence: LanguageRequestFence,
   documentFence: () => Effect.Effect<void, LanguageError>,
-  resources: boolean
+  resources: boolean,
+  authorize: Effect.Effect<void, LanguageError> = Effect.asVoid(
+    trust.require(fence.context.checkout)
+  )
 ) => {
   const trustCurrent = owners.trustFence({
     hostId: auth.principal.hostId,
@@ -42,7 +45,7 @@ export const proposalValidator = (
     yield* auth.coordinates(fence.context);
     yield* auth.checkout(fence.context.checkout);
     yield* current;
-    yield* trust.require(fence.context.checkout);
+    yield* authorize;
     yield* current;
     yield* auth.checkout(fence.context.checkout);
     yield* current;
@@ -77,7 +80,8 @@ export const featureProposalValidator = (
             languageFenceSatisfied(fence, value.ack) ? Effect.void : Effect.fail(denied())
           )
         ),
-    resources
+    resources,
+    broker.authorizeExecution(auth.principal.clientId, fence.context)
   );
 
 export const serverProposalValidator = (
@@ -94,5 +98,9 @@ export const serverProposalValidator = (
     trust,
     fence,
     () => Effect.try({ try: () => access.fence(fence), catch: denied }),
-    resources
+    resources,
+    Effect.tryPromise({
+      try: (signal) => owners.guard(access.request, trust).validate(signal),
+      catch: denied,
+    })
   );

@@ -100,6 +100,18 @@ test("typed preparation callback with decoded FileVersion snapshots preserves th
   }
 });
 
+test("Electron structured clones rehydrate FileVersion instances for text and tree proposals", () => {
+  const f = fixture();
+
+  for (const proposal of [f.legacy, f.tree]) {
+    const cloned = structuredClone(proposal);
+    expect(cloned.snapshots[0]?.diskVersion).not.toBeInstanceOf(P.FileVersion);
+    const decoded = decodePreparedProposal(cloned);
+    expect(decoded).toEqual(proposal);
+    expect(decoded.snapshots[0]?.diskVersion).toBeInstanceOf(P.FileVersion);
+  }
+});
+
 test("typed server tree event with decoded disk/resource versions reaches only awaited explicit preview", async () => {
   const f = fixture();
   const offered: P.LanguageEditProposal[] = [];

@@ -14,7 +14,8 @@ export const observationAdmission = (
   cwd: string,
   trustRevision: number,
   trust: ExecutionTrustService["Service"],
-  owners: LanguageAcquisitionAuthority["Service"]
+  owners: LanguageAcquisitionAuthority["Service"],
+  requiresTrust = true
 ): ObservationAdmission => {
   const trustCurrent = owners.trustFence({
     hostId: auth.principal.hostId,
@@ -29,7 +30,8 @@ export const observationAdmission = (
     const observed = await Effect.runPromise(trust.inspect(checkout), { signal });
 
     if (observed.trust.revision !== trustRevision) throw denied();
-    await Effect.runPromise(trust.require(checkout), { signal });
+
+    if (requiresTrust) await Effect.runPromise(trust.require(checkout), { signal });
     trustCurrent();
     const latest = await Effect.runPromise(auth.checkout(checkout), { signal });
 

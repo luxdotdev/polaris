@@ -1,3 +1,4 @@
+import { deferredSchema } from "./deferred.ts";
 import { Schema } from "effect";
 import { HostId, ReviewCheckoutId, WorkspaceId, WorktreeId } from "../ids.ts";
 
@@ -70,15 +71,17 @@ export const LanguageUri = Schema.String.check(
   Schema.makeFilter((value) => !value.includes(String.fromCharCode(0)))
 );
 
-export const LanguageCheckout = Schema.TaggedUnion({
-  Workspace: { workspaceId: WorkspaceId, path: LanguagePath },
-  Worktree: { workspaceId: WorkspaceId, worktreeId: WorktreeId, path: LanguagePath },
-  ReviewCheckout: {
-    workspaceId: WorkspaceId,
-    reviewCheckoutId: ReviewCheckoutId,
-    path: LanguagePath,
-  },
-});
+export const LanguageCheckout = deferredSchema(() =>
+  Schema.TaggedUnion({
+    Workspace: { workspaceId: WorkspaceId, path: LanguagePath },
+    Worktree: { workspaceId: WorkspaceId, worktreeId: WorktreeId, path: LanguagePath },
+    ReviewCheckout: {
+      workspaceId: WorkspaceId,
+      reviewCheckoutId: ReviewCheckoutId,
+      path: LanguagePath,
+    },
+  })
+);
 
 export type LanguageCheckout = typeof LanguageCheckout.Type;
 

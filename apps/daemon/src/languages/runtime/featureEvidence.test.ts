@@ -96,6 +96,33 @@ test("only an exact offered code-action edit can become an intent", () => {
   ).toThrow();
 });
 
+test("real provider JSON property order survives rename preparation without accepting extra fields", () => {
+  const f = fixture();
+
+  const providerEdit = {
+    changes: {
+      "file:///fixture/a.ts": [
+        {
+          newText: "renamed",
+          range: { end: { character: 1, line: 0 }, start: { character: 0, line: 0 } },
+        },
+      ],
+    },
+  };
+
+  const result = P.LanguageFeatureResult.make({ ...f.result, result: providerEdit });
+  f.evidence.record("client", f.request, result);
+  expect(() => f.evidence.verify("client", f.request, result, "rename", f.edit)).not.toThrow();
+
+  const extra = P.LanguageFeatureResult.make({
+    ...result,
+    result: { ...providerEdit, unmodeled: true },
+  });
+
+  f.evidence.record("client", f.request, extra);
+  expect(() => f.evidence.verify("client", f.request, extra, "rename", f.edit)).toThrow();
+});
+
 test("expiry, disconnect and bounded eviction retire old delivered intent", () => {
   const f = fixture();
   const verify = () => f.evidence.verify("client", f.request, f.result, "rename", f.edit);

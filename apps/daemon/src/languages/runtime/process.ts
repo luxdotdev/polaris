@@ -1,11 +1,13 @@
 import type { ProcessPort } from "../transport/index.ts";
 import { failure } from "../transport/framing.ts";
+import type { LanguageJsonObject } from "@polaris/protocol";
 
 export interface Launch {
   executable: string;
   args: readonly string[];
   cwd: string;
   environment: Record<string, string>;
+  initializationOptions?: typeof LanguageJsonObject.Type;
 }
 
 /** Private launch values never enter logs or public launch facts. No shell interpolation. */

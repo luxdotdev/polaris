@@ -49,9 +49,9 @@ const keyOf = (clientId: string, request: P.LanguageFeatureRequest) =>
 
 const editsOf = (request: P.LanguageFeatureRequest, result: P.LanguageFeatureResult) => {
   if (request.method === "textDocument/rename") {
-    const edit = Schema.decodeUnknownSync(P.LanguageWorkspaceEdit)(result.result);
-
-    if (fingerprint(edit) !== fingerprint(result.result)) throw invalid();
+    const edit = Schema.decodeUnknownSync(P.LanguageWorkspaceEdit, { onExcessProperty: "error" })(
+      result.result
+    );
 
     return [edit];
   }

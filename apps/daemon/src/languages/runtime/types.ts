@@ -35,7 +35,7 @@ export interface BrokerOptions {
   hostId: HostId;
   discover: (input: DiscoveryInput) => Promise<DiscoveryFacts>;
   invalidateDiscovery: () => void;
-  requireTrust: (checkout: LanguageCheckout) => Promise<CanonicalCheckout>;
+  requireTrust: (checkout: LanguageCheckout, facts?: DiscoveryFacts) => Promise<CanonicalCheckout>;
   /** Resolve installed/version/prerequisite facts or fail with a distinct LanguageError. Never install here. */
   reserveLaunch?: (request: LaunchAdmissionRequest) => Promise<LaunchSelectionLease>;
   resolveLaunch: (

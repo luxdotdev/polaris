@@ -8,8 +8,7 @@ const implemented = LanguageRpcs.omit(
   "languages.format",
   "languages.edit.decide",
   "languages.operation.get",
-  "languages.operation.recover",
-  "languages.preview.media"
+  "languages.operation.recover"
 );
 
 /** One Host language service graph is loaded on first use and retained by the Daemon scope. */
@@ -20,9 +19,14 @@ export const lazyLanguageHandlers = Layer.fromBuild((memoMap, scope) =>
     const load = yield* Effect.cached(
       Effect.gen(function* () {
         const module = yield* Effect.promise(() => import("../languages/composition/defaults.ts"));
+        const media = yield* Effect.promise(() => import("../languages/media/rpc.ts"));
+        const services = yield* Effect.promise(() => import("../languages/media/index.ts"));
 
         return yield* Layer.buildWithMemoMap(
-          module.DefaultLanguageHostHandlers,
+          Layer.mergeAll(
+            module.DefaultLanguageHostHandlers,
+            media.PreviewMediaRpc.pipe(Layer.provide(services.HostPreviewMedia.layer()))
+          ),
           memoMap,
           scope
         ).pipe(Effect.provide(context), Effect.orDie);

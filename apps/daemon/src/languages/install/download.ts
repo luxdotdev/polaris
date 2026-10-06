@@ -4,7 +4,10 @@ import { defaultLimits, type ExactArtifact } from "./types.ts";
 export type ArtifactFetch = (url: string, init: RequestInit) => Promise<Response>;
 
 /** Runs on the file's Host. A relay may implement this port; it must honor identity bytes and abort. */
-export function httpsArtifactDownload(fetchArtifact: ArtifactFetch) {
+export function httpsArtifactDownload(
+  fetchArtifact: ArtifactFetch,
+  maxBytes = defaultLimits.downloadBytes
+) {
   return async function* download(exact: ExactArtifact, signal: AbortSignal) {
     checkAbort(signal);
     const url = new URL(exact.artifact.url);
@@ -40,10 +43,7 @@ export function httpsArtifactDownload(fetchArtifact: ArtifactFetch) {
 
       const length = response.headers.get("content-length");
 
-      if (
-        length !== null &&
-        (!/^\d+$/.test(length) || Number(length) > defaultLimits.downloadBytes)
-      ) {
+      if (length !== null && (!/^\d+$/.test(length) || Number(length) > maxBytes)) {
         await response.body?.cancel();
         throw failure("too-large", "Artifact download exceeds limit");
       }
@@ -60,8 +60,7 @@ export function httpsArtifactDownload(fetchArtifact: ArtifactFetch) {
         if (next.done) break;
         total += next.value.length;
 
-        if (total > defaultLimits.downloadBytes)
-          throw failure("too-large", "Artifact download exceeds limit");
+        if (total > maxBytes) throw failure("too-large", "Artifact download exceeds limit");
         yield next.value;
       }
 

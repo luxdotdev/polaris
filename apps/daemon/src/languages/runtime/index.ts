@@ -10,7 +10,6 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   LanguageContextIdentity,
   LanguageContextEvent,
-  LanguageContextSnapshot,
   LanguageEffectiveSettings,
   LanguageError,
   LanguageFeatureRequest,
@@ -38,6 +37,7 @@ import { bindServerPreparation } from "./serverPreparation.ts";
 import { FeatureEvidence, createFeatureVerifier } from "./featureEvidence.ts";
 import { contextKey, sameIdentity, initialization } from "./keys.ts";
 import { spawnLanguageProcess } from "./process.ts";
+import { snapshot } from "./snapshot.ts";
 
 export { LanguageBroker } from "./service.ts";
 
@@ -108,15 +108,6 @@ export function createLanguageBroker(options: BrokerOptions) {
     );
   }
 
-  function snapshot(entry: Entry) {
-    return LanguageContextSnapshot.make({
-      context: entry.identity,
-      runtime: entry.runtime,
-      ack: entry.documents.ack(),
-      limits,
-    });
-  }
-
   function owned(clientId: string, input: LanguageContextIdentity) {
     const identity = Schema.decodeUnknownSync(LanguageContextIdentity)(input);
 
@@ -168,7 +159,7 @@ export function createLanguageBroker(options: BrokerOptions) {
 
   async function trusted(entry: Entry) {
     try {
-      return await options.requireTrust(entry.facts.checkout);
+      return await options.requireTrust(entry.facts.checkout, entry.facts);
     } catch (error) {
       move(entry, { type: "revoke" });
       retire(entry, "settings-changed");
@@ -307,7 +298,7 @@ export function createLanguageBroker(options: BrokerOptions) {
         rootUri: pathToFileURL(entry.facts.projectRoot).href,
         workspaceFolders: [{ uri: pathToFileURL(entry.facts.projectRoot).href, name: "project" }],
         capabilities: clientCapabilities,
-        initializationOptions: initialization(entry),
+        initializationOptions: launch.initializationOptions ?? initialization(entry),
         clientInfo: { name: "Polaris" },
       }).result;
 
@@ -869,6 +860,8 @@ export function createLanguageBroker(options: BrokerOptions) {
     invalidateConfiguration,
     snapshot: (clientId: string, context: LanguageContextIdentity) =>
       snapshot(owned(clientId, context)),
+    authorizeExecution: (clientId: string, context: LanguageContextIdentity) =>
+      trusted(owned(clientId, context)).then(() => {}),
     close,
     stats: () => ({
       contexts: entries.size,

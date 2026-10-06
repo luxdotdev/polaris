@@ -1,0 +1,21 @@
+{
+  "artifactId": "node-darwin-x64",
+  "artifactIntegrity": "sha256:dfd0dbd3e721503434df7b7205e719f61b3a3a31b2bcf9729b8b91fea240f080",
+  "coverage": "complete",
+  "notices": [
+    {
+      "path": "notices/148eacf7863ef4329224a29398623077200a27194aa075569faf4a0a85566ca5.txt",
+      "integrity": "sha256:148eacf7863ef4329224a29398623077200a27194aa075569faf4a0a85566ca5"
+    }
+  ],
+  "evidence": [
+    {
+      "path": "node-v24.18.0-SHASUMS256.txt",
+      "integrity": "sha256:3927bab574a00ca0560c9583fe19655ba19603a1c5851414e4325d34ac50e469"
+    },
+    {
+      "path": "review-records.json",
+      "integrity": "sha256:fc14bc1788b089dea14850a8708a9317bc9a8183dc3f646416ff86a0d068b621"
+    }
+  ]
+}

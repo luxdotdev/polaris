@@ -101,11 +101,19 @@ async function discover(
   context: Awaited<ReturnType<typeof canonicalCheckout>>,
   path: string,
   input: DiscoveryInput,
-  platform: NodeJS.Platform
+  platform: NodeJS.Platform,
+  bundled: boolean
 ) {
   const provider = family(input.providerId);
   const settings = Schema.decodeUnknownSync(LanguageEffectiveSettings)(input.settings);
   const custom = settings.settings.customServers?.find(({ id }) => id === input.providerId);
+
+  const bundledTypeScript =
+    bundled &&
+    provider === "typescript" &&
+    custom === undefined &&
+    settings.settings.executableOverrides?.[input.providerId] === undefined;
+
   const start = (await isDirectory(path)) ? path : dirname(path);
 
   const root =
@@ -131,7 +139,7 @@ async function discover(
         );
 
   const names =
-    provider === "typescript" && configuration !== null
+    !bundledTypeScript && provider === "typescript" && configuration !== null
       ? await configPlugins(context.root, configuration)
       : [];
 
@@ -141,8 +149,11 @@ async function discover(
     checkout: context.checkout,
     projectRoot: root,
     providerId: input.providerId,
+    bundledTypeScript,
     configuration: provider === "typescript" ? configuration : null,
-    ...(await sdkFacts(context.root, root, provider, settings.settings.sdk)),
+    ...(bundledTypeScript
+      ? { sdk: null, tsserver: null, sdkVersion: null }
+      : await sdkFacts(context.root, root, provider, settings.settings.sdk)),
     ...(await interpreterFacts(
       context.root,
       start,
@@ -189,6 +200,7 @@ export function createProjectDiscovery(options: {
   capacity?: number;
   maxPending?: number;
   platform?: NodeJS.Platform;
+  bundledTypeScript?: boolean;
 }) {
   const capacity = options.capacity ?? 128;
   const maxPending = options.maxPending ?? 8;
@@ -253,7 +265,13 @@ export function createProjectDiscovery(options: {
       remove(key);
 
       const observed = await withDiscoveryBudget(context.root, () =>
-        discover(context, path, input, options.platform ?? process.platform)
+        discover(
+          context,
+          path,
+          input,
+          options.platform ?? process.platform,
+          options.bundledTypeScript === true
+        )
       );
 
       const facts = { ...observed.value, configurationInputs: observed.configurationInputs };

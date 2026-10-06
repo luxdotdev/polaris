@@ -1,9 +1,31 @@
 # Core language composition
 
-`languageCoreHandlers(hostId)` constructs the existing typed ServerRpcs core
-handlers. Lead mounts the Layer and advertises capabilities only after complete
-joint validation. This module does not mutate transport, protocol, installer,
-media, preparation/receipt handlers, or activation.
+The default Host composition now delivers pinned Node 24.18.0, TypeScript 6.0.3
+and typescript-language-server 6.0.1 on the first TypeScript discovery/acquisition.
+The Client's effective `downloadLanguageToolsAutomatically` preference defaults
+to true. Turning it off permits reuse of installed tools and returns the typed
+`not-installed` failure when any pinned tool is missing. Manual install grants
+and other catalog providers retain their independent admission policies.
+
+Bundled TypeScript can run without Trust; configured executables still require
+Trust. Discovery never chooses a Workspace SDK or probes project plugins on this
+path. The pinned compiler's private preload disables plugin loading, and typing
+acquisition is disabled. Rename still uses the existing acknowledged document,
+proposal provenance and draft acceptance authorities. See ADR-0020 for delivery
+bounds and the plugin isolation decision.
+
+`managedDelivery.test.ts` exercises offline fixture downloads, deduplication,
+checksum refusal and preference-off behavior. The opt-in
+`bun test ./apps/daemon/src/languages/composition/managedLaunch.live.testing.ts`
+downloads the real tools into a temporary Host and proves diagnostics, hover,
+definition and rename, including refusal to execute hostile project code.
+After building Desktop, `node apps/desktop/scripts/managedLanguageSmoke.ts`
+exercises those features and accepts rename drafts in this repo and a fresh
+`bun init` repo using isolated Daemon and Client directories.
+
+`languageCoreHandlers(hostId)` constructs the typed ServerRpcs core handlers.
+`transport/lazyLanguages.ts` mounts the default singleton Host graph on demand,
+including installation, media and preparation/receipt handlers.
 
 Provide singleton `LanguageBroker`, `ProjectDiscovery`, and
 `ExecutionTrustService` services. Their registry must read the folded EventStore
@@ -11,7 +33,8 @@ and use `registeredCheckout`; knowing a path or ID never grants membership.
 `languageBrokerLayer(options)` binds runtime launch to `LanguageProviderAccess`.
 The port's availability delegates to I1's real Host observations and its
 `resolveLaunch(facts)` must require exact approved installed-version readiness,
-prerequisites and the selection barrier. It never installs. The exported
+prerequisites and the selection barrier. Managed admission ensures the pinned
+TypeScript tools before acquiring that barrier. The exported
 `unavailableLayer(hostId, platform)` reports NotInstalled and catalog-derived
 missing/audit-required preflight, and rejects launch with `not-installed`.
 That reason stops the broker rather than scheduling crash retries.

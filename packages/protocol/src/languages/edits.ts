@@ -1,3 +1,4 @@
+import { deferredSchema } from "./deferred.ts";
 import { Schema } from "effect";
 import { FileVersion } from "../files.ts";
 import { HostId } from "../ids.ts";
@@ -226,38 +227,42 @@ export const LanguageFormatPreflight = Schema.Struct({
 
 export type LanguageFormatPreflight = typeof LanguageFormatPreflight.Type;
 
-export const LanguageFormatOutcome = Schema.TaggedUnion({
-  Formatted: {
-    requestId: LanguageKey,
-    fence: LanguageRequestFence,
-    document: LanguageDocumentFence,
-    edits: Schema.Array(LanguageTextEdit).check(Schema.isMaxLength(4096)),
-  },
-  Skipped: { requestId: LanguageKey, reason: Schema.Literals(["disabled", "no-formatter"]) },
-  Failed: {
-    requestId: LanguageKey,
-    reason: Schema.Literals(["unavailable", "timeout", "cancelled", "stale", "formatter-failed"]),
-    message: LanguageText,
-  },
-});
+export const LanguageFormatOutcome = deferredSchema(() =>
+  Schema.TaggedUnion({
+    Formatted: {
+      requestId: LanguageKey,
+      fence: LanguageRequestFence,
+      document: LanguageDocumentFence,
+      edits: Schema.Array(LanguageTextEdit).check(Schema.isMaxLength(4096)),
+    },
+    Skipped: { requestId: LanguageKey, reason: Schema.Literals(["disabled", "no-formatter"]) },
+    Failed: {
+      requestId: LanguageKey,
+      reason: Schema.Literals(["unavailable", "timeout", "cancelled", "stale", "formatter-failed"]),
+      message: LanguageText,
+    },
+  })
+);
 
 export type LanguageFormatOutcome = typeof LanguageFormatOutcome.Type;
 
 /** Format failure still saves current text; disk success/failure is a separate coordinator result. */
 
-export const LanguageSaveOutcome = Schema.TaggedUnion({
-  Saved: {
-    uri: LanguageUri,
-    version: LanguageCounter,
-    diskVersion: LanguageDiskVersion,
-    formatting: LanguageFormatOutcome,
-  },
-  Failed: {
-    uri: LanguageUri,
-    reason: Schema.Literals(["disk-conflict", "disk-failed", "buffer-changed"]),
-    message: LanguageText,
-    formatting: LanguageFormatOutcome,
-  },
-});
+export const LanguageSaveOutcome = deferredSchema(() =>
+  Schema.TaggedUnion({
+    Saved: {
+      uri: LanguageUri,
+      version: LanguageCounter,
+      diskVersion: LanguageDiskVersion,
+      formatting: LanguageFormatOutcome,
+    },
+    Failed: {
+      uri: LanguageUri,
+      reason: Schema.Literals(["disk-conflict", "disk-failed", "buffer-changed"]),
+      message: LanguageText,
+      formatting: LanguageFormatOutcome,
+    },
+  })
+);
 
 export type LanguageSaveOutcome = typeof LanguageSaveOutcome.Type;

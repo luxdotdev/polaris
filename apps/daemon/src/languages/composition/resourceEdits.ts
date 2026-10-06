@@ -7,12 +7,16 @@ import { ExecutionTrustService } from "../trust/index.ts";
 import { LanguageAcquisitionAuthority } from "./acquisitionAuthority.ts";
 import { denied, requestAuthority, type RequestAuthority } from "./authority.ts";
 import { LanguageResourceReceiptAuthority } from "./resourceEditsAuthority.ts";
+import { LanguageBroker } from "../runtime/service.ts";
 
 interface ResourceServices {
   readonly owners: Pick<LanguageAcquisitionAuthority["Service"], "owns" | "trustFence">;
   readonly trust: Pick<ExecutionTrustService["Service"], "require">;
   readonly provenance: ProposalProvenance["Service"];
   readonly receipts: LanguageResourceReceiptAuthority["Service"];
+  readonly authorizeExecution?: (
+    context: P.LanguageContextIdentity
+  ) => Effect.Effect<void, P.LanguageError>;
 }
 
 export interface ResourceEditOptions {
@@ -94,7 +98,10 @@ export function resourceEditHandlers(options: ResourceEditOptions, services: Res
         await run(auth.coordinates(proposal.fence.context));
 
         if (!services.owners.owns(auth.principal)) throw denied();
-        await run(services.trust.require(claimed.checkout));
+        await run(
+          services.authorizeExecution?.(proposal.fence.context) ??
+            Effect.asVoid(services.trust.require(claimed.checkout))
+        );
         await run(services.provenance.verify(auth.principal, proposal));
 
         if (acceptance.decision === "accept") {
@@ -126,7 +133,10 @@ export function resourceEditHandlers(options: ResourceEditOptions, services: Res
         if (outcome !== undefined && intent !== "get") {
           if (outcome.receiptRevision !== expectedRevision || authority === undefined)
             throw denied();
-          await run(services.trust.require(claimed.checkout));
+          await run(
+            services.authorizeExecution?.(authority.context) ??
+              Effect.asVoid(services.trust.require(claimed.checkout))
+          );
 
           const revision = await run(
             services.receipts.recovery(
@@ -245,12 +255,15 @@ export class LanguageResourceEdits extends Context.Service<
     return Layer.effect(
       LanguageResourceEdits,
       Effect.gen(function* () {
+        const broker = yield* LanguageBroker;
+
         return LanguageResourceEdits.of(
           resourceEditHandlers(options, {
             owners: yield* LanguageAcquisitionAuthority,
             trust: yield* ExecutionTrustService,
             provenance: yield* ProposalProvenance,
             receipts: yield* LanguageResourceReceiptAuthority,
+            authorizeExecution: (context) => broker.authorizeExecution(context.clientId, context),
           })
         );
       })

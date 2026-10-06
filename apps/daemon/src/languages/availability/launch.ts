@@ -24,10 +24,9 @@ interface ManagedLaunchOptions {
   readonly ledger: ReturnType<typeof createSelectionLedger>;
   readonly toolId: (facts: DiscoveryFacts) => string;
   readonly requireCurrent: (request: LaunchAdmissionRequest) => RequestGuard;
-  readonly plan?: (
-    facts: DiscoveryFacts,
-    installed: InstalledVersion
-  ) => Promise<VerifiedLaunchPlan>;
+  readonly plan?:
+    | ((facts: DiscoveryFacts, installed: InstalledVersion) => Promise<VerifiedLaunchPlan>)
+    | undefined;
 }
 
 const eligible = (fact: Awaited<ReturnType<HostInstallation["inspect"]>>) =>
