@@ -237,8 +237,20 @@ _Avoid_: Learning, suppression rule
 **Editor**:
 The view for reading and editing code, including inline chat and tab completion.
 
+**Command Palette**:
+The searchable list of every command in the Desktop App, opened with ⌘⇧P; a surface of its own, separate from the jump menu.
+_Avoid_: Command menu, action bar
+
 ### Language tooling
 
 **Language Integration**:
 The Editor's configured support for one language, combining syntax highlighting with language servers and companion tools.
 _Avoid_: Language plugin, language pack
+
+**Trust**:
+A user's remembered, per-Host choice that lets Polaris run a Workspace's own code (its tooling, plugins, and formatters) for Language Integrations; a Worktree inherits its Workspace's Trust, a Review Checkout never does. Language Integrations that run no Workspace code need no Trust.
+_Avoid_: Workspace trust, checkout trust, execution trust, scoped trust
+
+**Prerequisite**:
+A runtime or toolchain on the Host that a Language Integration needs and Polaris does not provide, such as a Python interpreter or a Rust toolchain.
+_Avoid_: Dependency, requirement
