@@ -69,6 +69,7 @@ const fixture = (stall = false) =>
           : Effect.succeed(snapshot);
 
         return Stream.fromEffect(output).pipe(
+          Stream.concat(Stream.never),
           Stream.ensuring(
             Effect.andThen(
               Effect.sync(() => {
@@ -359,4 +360,43 @@ test("HostDirectory projects authenticated lifetime without later latency/status
   expect(facts?.status.state).toBe("connected");
   expect(facts?.status.languageConnectionEpoch).toBeGreaterThan(0);
   expect(facts?.status.latencyMs).toBeNull();
+});
+
+test("Main shares one live registration feed across concurrent and subsequent language calls", async () => {
+  const facts = await Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const socket = yield* fixture();
+        const connection = yield* socket.authenticated();
+        yield* connection.awaitSession;
+        const { main } = yield* mainFor(connection);
+
+        const replies = yield* Effect.promise(() =>
+          Promise.all(
+            Array.from({ length: 8 }, () =>
+              main.api.request("languages.identity.get", { hostKey: "fixture" })
+            )
+          )
+        );
+
+        const subsequent = yield* Effect.promise(() =>
+          main.api.request("languages.identity.get", { hostKey: "fixture" })
+        );
+
+        const before = socket.facts();
+        main.dispose();
+        yield* Deferred.await(socket.ended);
+
+        return {
+          ok: replies.every((reply) => reply.ok) && subsequent.ok,
+          before,
+          after: socket.facts(),
+        };
+      })
+    )
+  );
+
+  expect(facts.ok).toBe(true);
+  expect(facts.before).toEqual({ starts: 1, active: 1 });
+  expect(facts.after).toEqual({ starts: 1, active: 0 });
 });

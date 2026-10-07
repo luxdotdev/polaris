@@ -214,6 +214,8 @@ test("one project/provider queue retains two hidden unsaved buffers and closes o
   b.detach();
   await f.session.ready();
   await Promise.resolve();
+  expect(f.stats().releases).toBe(0);
+  f.session.dispose();
   expect(f.stats().releases).toBe(1);
   expect(f.notifications.filter((value) => Predicate.isTagged(value, "Close"))).toHaveLength(2);
 });
@@ -632,6 +634,8 @@ test("renderer provider fixture enforces actual unsaved acknowledgment before re
   ).rejects.toThrow();
   detach();
   await session.ready();
+  expect(service.releases).toBe(0);
+  session.dispose();
   expect(service.releases).toBe(1);
 });
 

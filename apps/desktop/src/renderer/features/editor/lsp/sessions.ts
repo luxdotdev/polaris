@@ -49,7 +49,8 @@ export class EditorLanguageSession {
     readonly serverRequest: (
       event: Extract<P.LanguageContextEvent, { _tag: "ServerRequest" }>
     ) => void,
-    readonly observed: (event: P.LanguageContextEvent) => void = () => undefined
+    readonly observed: (event: P.LanguageContextEvent) => void = () => undefined,
+    readonly connectionEpoch = 0
   ) {}
 
   private changed() {
@@ -241,7 +242,10 @@ export class EditorLanguageSession {
       this.opening = this.enqueue(() => this.acquire());
       void this.opening.catch(() => this.unavailable());
     } else if (this.context !== null && this.capabilities !== null)
-      void this.enqueue(() => this.deliverOpen(uri, buffer)).catch(() => this.unavailable());
+      void this.enqueue(async () => {
+        await this.deliverOpen(uri, buffer);
+        this.changed();
+      }).catch(() => this.unavailable());
 
     return () => {
       if (this.buffers.get(uri) !== buffer) return;
@@ -255,10 +259,7 @@ export class EditorLanguageSession {
         this.sent.delete(uri);
       }).catch(() => this.unavailable());
 
-      if (this.buffers.size === 0)
-        void this.tail.finally(() => {
-          if (this.buffers.size === 0) this.dispose();
-        });
+      // The coordinator retains the context while preview tabs change; the Daemon owns idle grace.
     };
   }
 
@@ -358,8 +359,12 @@ export class EditorLanguageSession {
     await this.opening;
     await this.tail;
   }
+  hasBuffers() {
+    return this.buffers.size > 0;
+  }
+
   isDisposed() {
-    return this.stopped;
+    return this.stopped || this.lifetime.signal.aborted;
   }
 
   /** Context lifetime survives ordinary document edits; its acknowledgment still fences acceptance. */
