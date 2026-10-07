@@ -499,8 +499,8 @@ The detached `apps/daemon/src/languages/runtime/` broker implements ordered
 P1 document cuts and generation-bound requests. `Documents.apply` corresponds
 to `languages.Sync`; `requestRaw` dispatch/result checks and `cancel` correspond
 to Request/Result/Cancel. Retiring a process generation on
-crash or connection loss clears ephemeral documents and pending operations (Crash).
-Explicit restart, configuration and Trust selection changes retain document versions,
+connection loss clears ephemeral documents and pending operations (Crash).
+Process crashes, explicit restart, configuration and Trust selection changes retain document versions,
 text and sequence while clearing generation-bound operations (Restart). Servers
 receive retained didOpen after initialize; old-generation requests remain refused.
 Slice 2's trust.inspect/change facts and restart RPCs use Host Trust CAS and the
@@ -508,11 +508,16 @@ existing ephemeral context feed, without Agent events, receipts or resume change
 proposals only: T1 never applies or acknowledges durable disk changes.
 
 `language-runtime.qnt` separately models the pure XState process lifecycle:
-demand, initialize/ready, last-interest grace, crash/backoff, exhausted budget,
+demand, initialize/ready, last-document grace across Clients, crash/backoff, exhausted budget,
 manual restart, revocation and disconnect. The root runner includes its typecheck,
-three scenarios and 3,000 60-step safety simulations with the existing seed and
+lifecycle scenarios and 3,000 60-step safety simulations with the existing seed and
 CLI overrides. The model abstracts a single process; bounded automatic retries
-require new current-generation Client snapshots after invalidation. Host wire
+retain drafts and publish a Replaced fact mapped to Restart, fencing old requests.
+Three crashes within two minutes exhaust the budget; Window(n) records expiration
+of older crashes without polling. Manual restart clears it. Stopped(crash-budget)
+includes a bounded stderr tail; these facts do not change the durable Agent stream.
+Automatic configuration changes use Change, which preserves the crash count and
+cannot leave failed; Restart is the explicit user reset. Host wire
 generations are monotonic across contexts, while the P1 abstraction uses a
 context-local generation ordinal. Opaque Client/checkout/project/config/provider
 identities map to stable model context keys; draft text is absent from traces.

@@ -5,7 +5,8 @@ import type { Documents } from "./documents.ts";
 export async function drainStderr(
   stream: ReadableStream<Uint8Array>,
   onBytes: (bytes: number) => void,
-  signal: AbortSignal
+  signal: AbortSignal,
+  onText?: (text: string) => void
 ) {
   const reader = stream.getReader();
 
@@ -20,11 +21,17 @@ export async function drainStderr(
 
   try {
     let bytes = 0;
+    const decoder = new TextDecoder();
 
     while (true) {
       const chunk = await reader.read();
 
-      if (chunk.done) break;
+      if (chunk.done) {
+        onText?.(decoder.decode());
+        break;
+      }
+
+      onText?.(decoder.decode(chunk.value, { stream: true }));
       bytes += chunk.value.byteLength;
       onBytes(bytes);
 

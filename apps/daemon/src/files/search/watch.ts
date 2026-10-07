@@ -18,11 +18,15 @@ const openWatch: OpenWatch = (path, recursive, changed) =>
     if (name !== null) changed(event, join(path, name.toString()));
   });
 
-/** FSEvents on macOS; bounded git watches and no non-git root watches elsewhere. */
+/** FSEvents on macOS; bounded tree watches elsewhere, with non-git roots only on explicit demand. */
 export const watchRoot = async (
   root: string,
   changed: Changed,
-  options: { readonly platform?: NodeJS.Platform; readonly open?: OpenWatch } = {}
+  options: {
+    readonly platform?: NodeJS.Platform;
+    readonly open?: OpenWatch;
+    readonly includeNonGit?: boolean;
+  } = {}
 ): Promise<() => void> => {
   const recursive = (options.platform ?? process.platform) === "darwin";
   const open = options.open ?? openWatch;
@@ -52,7 +56,8 @@ export const watchRoot = async (
   const visit = async (directory: string): Promise<Array<string>> => {
     if (stopped || ++entries > WATCH_MAX_ENTRIES) return [];
 
-    if (directory !== root && (watchers.has(directory) || (await ignored(directory)))) return [];
+    if (directory !== root && (watchers.has(directory) || (inRepo && (await ignored(directory)))))
+      return [];
     const children: Array<string> = [];
 
     try {
@@ -113,7 +118,7 @@ export const watchRoot = async (
         return;
       changed(event, path);
 
-      if (inRepo && !recursive && event === "rename") enqueue(path);
+      if (!recursive && event === "rename") enqueue(path);
     });
 
     // Home directories can hold sockets that Bun reports as ENXIO error events.
@@ -125,7 +130,7 @@ export const watchRoot = async (
     if (recursive) arm(root);
     else inRepo = (await findRepoRoot(root)) !== null;
 
-    if (inRepo) {
+    if (inRepo || options.includeNonGit) {
       scanning = scan(root);
       await scanning;
     }

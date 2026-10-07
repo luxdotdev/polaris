@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { Schema } from "effect";
+import { Schema, Predicate } from "effect";
 import {
   LanguageError,
   LanguageDocumentNotification,
@@ -183,4 +183,137 @@ test("actual ordered acknowledgments/results/restart snapshots map to P1 languag
   } finally {
     await f.dispose();
   }
+}, 15000);
+
+test("automatic crash replacement retains acknowledged versions and replays lifecycle backoff", async () => {
+  const steps: (typeof RuntimeTrace.Type)["steps"][number][] = [];
+
+  const f = await fixture("ordinary", 10, ({ event, phase }) => {
+    steps.push(
+      RuntimeStep.make({
+        event: Schema.decodeUnknownSync(RuntimeSignal)({ ...event, _tag: event.type }),
+        phase: Schema.decodeUnknownSync(RuntimeStep.fields.phase)(phase),
+      })
+    );
+  });
+
+  try {
+    const original = await f.acquire();
+    const ack = await f.open("one", original.context, "retained crash trace");
+    await f.ready("one", original.context);
+    process.kill(f.processes[0]!.pid, "SIGKILL");
+    let current = await f.acquire();
+
+    for (let i = 0; i < 200 && current.context.generation === original.context.generation; i++) {
+      await Bun.sleep(5);
+      current = await f.acquire();
+    }
+
+    expect(current.context.generation).toBeGreaterThan(original.context.generation);
+    expect(current.ack.documents).toEqual(ack.documents);
+    expect(current.ack.acceptedSequence).toBe(ack.acceptedSequence);
+    await f.ready("one", current.context);
+
+    const crashTrace = LanguageTrace.make({
+      version: 1,
+      source: "runtime",
+      events: [
+        {
+          event: LanguageTraceEvent.cases.Sync.make({
+            context: 0,
+            generation: 1,
+            sequence: 1,
+            previous: 0,
+            version: 1,
+          }),
+          observed: LanguageTraceObservation.cases.Context.make({
+            context: 0,
+            generation: 1,
+            sequence: 1,
+            version: 1,
+            delivered: -1,
+          }),
+        },
+        {
+          event: LanguageTraceEvent.cases.Restart.make({ context: 0 }),
+          observed: LanguageTraceObservation.cases.Context.make({
+            context: 0,
+            generation: 2,
+            sequence: 1,
+            version: 1,
+            delivered: -1,
+          }),
+        },
+      ],
+    });
+
+    await writeFile("/tmp/slice-2b-language.trace.json", JSON.stringify(crashTrace, null, 2));
+  } finally {
+    await f.dispose();
+  }
+
+  const trace = RuntimeTrace.make({ version: 1, source: "runtime", steps });
+  await writeFile("/tmp/slice-2b-lifecycle.trace.json", JSON.stringify(trace, null, 2));
+  expect((await replayRuntime(trace)).steps).toBeGreaterThan(3);
+}, 15000);
+
+test("configuration restart keeps the crash budget and its observed trace replays", async () => {
+  const steps: (typeof RuntimeTrace.Type)["steps"][number][] = [];
+
+  const f = await fixture(
+    "ordinary",
+    10,
+    ({ event, phase }) => {
+      steps.push(
+        RuntimeStep.make({
+          event: Schema.decodeUnknownSync(RuntimeSignal)({ ...event, _tag: event.type }),
+          phase: Schema.decodeUnknownSync(RuntimeStep.fields.phase)(phase),
+        })
+      );
+    },
+    undefined,
+    undefined,
+    false,
+    { providerId: "typescript-language-server", changeDebounceMs: 20 }
+  );
+
+  try {
+    const original = await f.acquire();
+    await f.open("one", original.context);
+    await f.ready("one", original.context);
+    process.kill(f.processes[0]!.pid, "SIGKILL");
+
+    for (let i = 0; i < 200 && f.processes.length < 2; i++) await Bun.sleep(5);
+    let current = await f.acquire();
+    await f.ready("one", current.context);
+    await writeFile(`${f.root}/tsconfig.json`, '{"compilerOptions":{"strict":true}}');
+
+    for (let i = 0; i < 200 && f.processes.length < 3; i++) await Bun.sleep(5);
+    expect(f.processes).toHaveLength(3);
+    current = await f.acquire();
+    await f.ready("one", current.context);
+    process.kill(f.processes[2]!.pid, "SIGKILL");
+
+    for (let i = 0; i < 200 && f.processes.length < 4; i++) await Bun.sleep(5);
+    current = await f.acquire();
+    await f.ready("one", current.context);
+    process.kill(f.processes[3]!.pid, "SIGKILL");
+
+    for (let i = 0; i < 200; i++) {
+      current = await f.acquire();
+
+      if (Predicate.isTagged(current.runtime, "Stopped")) break;
+      await Bun.sleep(5);
+    }
+
+    expect(current.runtime).toHaveProperty("reason", "crash-budget");
+    expect(current.runtime).toHaveProperty("failure.attempts", 3);
+    expect(steps.some((step) => Predicate.isTagged(step.event, "change"))).toBe(true);
+  } finally {
+    await f.dispose();
+  }
+
+  const trace = RuntimeTrace.make({ version: 1, source: "runtime", steps });
+  await writeFile("/tmp/slice-2b-config-budget.trace.json", JSON.stringify(trace, null, 2));
+  expect((await replayRuntime(trace)).steps).toBeGreaterThan(5);
 }, 15000);

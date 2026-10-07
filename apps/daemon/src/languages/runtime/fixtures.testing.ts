@@ -28,7 +28,13 @@ export async function fixture(
   wrapProcess?: (
     port: ReturnType<typeof spawnLanguageProcess>
   ) => ReturnType<typeof spawnLanguageProcess>,
-  treeEdits = false
+  treeEdits = false,
+  lifecycleOptions: {
+    providerId?: string;
+    changeDebounceMs?: number;
+    crashWindowMs?: number;
+    reserveGate?: Promise<void>;
+  } = {}
 ) {
   const root = await realpath(tempDirectory(join(tmpdir(), "m31-t1-")));
   await writeFile(join(root, "file.ts"), "saved");
@@ -78,16 +84,20 @@ export async function fixture(
 
       return { checkout: canonical, root: canonical.path, workspaceRoot: root };
     },
-    reserveLaunch: async (request) => ({
-      selectionIdentity: "fake-fixture-selection",
-      validate: async () => {
-        if (request.signal.aborted || !request.isCurrent()) throw new Error("Stale fake launch");
-      },
-      assertCurrent: () => {
-        if (request.signal.aborted || !request.isCurrent()) throw new Error("Stale fake launch");
-      },
-      release: async () => {},
-    }),
+    reserveLaunch: async (request) => {
+      await lifecycleOptions.reserveGate;
+
+      return {
+        selectionIdentity: "fake-fixture-selection",
+        validate: async () => {
+          if (request.signal.aborted || !request.isCurrent()) throw new Error("Stale fake launch");
+        },
+        assertCurrent: () => {
+          if (request.signal.aborted || !request.isCurrent()) throw new Error("Stale fake launch");
+        },
+        release: async () => {},
+      };
+    },
     resolveLaunch: async (facts) => ({
       executable: process.execPath,
       args: [join(import.meta.dir, "fake-server.testing.ts"), mode],
@@ -104,6 +114,8 @@ export async function fixture(
     },
     graceMs,
     retryMs: 10,
+    changeDebounceMs: lifecycleOptions.changeDebounceMs,
+    crashWindowMs: lifecycleOptions.crashWindowMs,
   });
 
   const uri = pathToFileURL(join(root, "file.ts")).href;
@@ -113,7 +125,7 @@ export async function fixture(
     revision: 0,
     formatOnSave: true,
     formatter: LanguageFormatterSelection.cases.None.make({}),
-    providers: ["fake"],
+    providers: [lifecycleOptions.providerId ?? "fake"],
     origins: {},
   });
 
@@ -123,7 +135,7 @@ export async function fixture(
       contextId,
       checkout,
       path: join(root, "file.ts"),
-      providerId: "fake",
+      providerId: lifecycleOptions.providerId ?? "fake",
       settings,
       interestId: "file",
     });

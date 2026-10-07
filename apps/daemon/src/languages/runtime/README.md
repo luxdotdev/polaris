@@ -17,30 +17,48 @@ stateDiagram-v2
   starting --> ready: initialize + current snapshots
   starting --> backoff: crash with retry budget
   ready --> backoff: crash with retry budget
-  ready --> grace: no open documents or interests
+  ready --> grace: no open documents in any Client
   starting --> grace: no demand
   grace --> ready: demand returns
-  grace --> stopped: grace expires
+  grace --> stopped: 10-minute demand timer expires
   backoff --> starting: bounded retry signal
   backoff --> stopped: no demand
-  starting --> failed: retry exhausted
-  ready --> failed: retry exhausted
-  grace --> failed: retry exhausted
+  starting --> failed: third crash within 2 minutes
+  ready --> failed: third crash within 2 minutes
+  grace --> failed: third crash within 2 minutes
+  ready --> ready: prune expired crash timestamps
   failed --> stopped: explicit restart, retain drafts
-  ready --> stopped: provider selection, retain drafts
+  ready --> stopped: provider selection or config change, retain drafts
   stopped --> starting: replay retained demand
   untrusted --> starting: trusted new demand
 ```
 
 Disconnect/stop from every node enters stopped; revocation enters untrusted.
 XState is a pure decider, not an actor with hidden timers. Timers are scoped to
-last-interest grace, requests and bounded retry signals. Contexts are ephemeral;
+last-document grace across Clients, requests and bounded retry signals. Contexts
+are ephemeral;
 there is no durable event-log copy of unsaved content. Restart/revocation/loss
-retires the old generation and its pending requests before cleanup. Manual restart and provider selection retain text and publish a Replaced fact so
-Clients adopt the new generation and acknowledgment. Crash and loss generations
-require full Client snapshots; no prior edit notification or unknown edit outcome
-is retried. Crash retries require refreshed Client demand and consume a maximum
-of two automatic retry attempts. Manual restart resets that budget.
+retires the old generation and its pending requests before cleanup. Manual
+restart and provider selection retain text and publish a Replaced fact so Clients
+adopt the new generation and acknowledgment. Crash generations also retain drafts
+and publish Replaced; connection loss clears
+snapshots. No unknown edit outcome is retried. Two exponential retries (250 ms,
+500 ms) precede Stopped(crash-budget) on the third crash within two minutes. The
+machine's failed node prevents demand from bypassing that stop; manual restart
+clears the timestamps. Closing during pending admission stops without spending
+the crash budget. Old timestamps are pruned only on a crash, without polling.
+Stopped facts include the final 4,096 characters of stderr for the authenticated owning Client.
+
+One demand-scoped watcher group per TypeScript checkout reuses the existing tree
+watcher and shared parent watches for TypeScript metadata. A 300 ms burst debounce
+uses the machine's change event, preserving the crash budget, and restarts all
+affected Client contexts with current unsaved text and queue sequence.
+Idle expiry stops processes even while context interests remain;
+watchers retain the context interests so a stopped context stays fresh.
+Retained interests receive a Replaced stop fact and can reopen. Empty released
+contexts are removed along with their watches. Reopening cancels grace across the
+checkout/provider group.
+The language subsystem adds no periodic work to an unused Daemon.
 
 Retirement cancels the generation's stderr reader without waiting for its source
 finalizer, so an inherited open pipe cannot hold broker cleanup indefinitely.

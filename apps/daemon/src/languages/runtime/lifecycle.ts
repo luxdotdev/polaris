@@ -10,6 +10,8 @@ export type LifecycleEvent =
   | { type: "disconnect" }
   | { type: "revoke" }
   | { type: "restart" }
+  | { type: "change" }
+  | { type: "window"; attempts: number }
   | { type: "stop" };
 
 export const languageLifecycle = createMachine({
@@ -25,7 +27,9 @@ export const languageLifecycle = createMachine({
       disconnect: types<Record<never, never>>(),
       revoke: types<Record<never, never>>(),
       restart: types<Record<never, never>>(),
+      change: types<Record<never, never>>(),
       stop: types<Record<never, never>>(),
+      window: types<{ attempts: number }>(),
     },
   },
   initial: "stopped",
@@ -34,20 +38,23 @@ export const languageLifecycle = createMachine({
     revoke: { target: ".untrusted" },
     stop: { target: ".stopped" },
     restart: { target: ".stopped" },
+    window: {},
   },
   states: {
-    stopped: { on: { demand: { target: "starting" } } },
-    untrusted: { on: { demand: { target: "starting" } } },
+    stopped: { on: { demand: { target: "starting" }, change: {} } },
+    untrusted: { on: { demand: { target: "starting" }, change: { target: "stopped" } } },
     starting: {
       on: {
         ready: { target: "ready" },
         empty: { target: "grace" },
+        change: { target: "stopped" },
         crash: ({ event }) => ({ target: event.retry ? "backoff" : "failed" }),
       },
     },
     ready: {
       on: {
         empty: { target: "grace" },
+        change: { target: "stopped" },
         crash: ({ event }) => ({ target: event.retry ? "backoff" : "failed" }),
       },
     },
@@ -56,10 +63,17 @@ export const languageLifecycle = createMachine({
         demand: { target: "ready" },
         grace: { target: "stopped" },
         ready: {},
+        change: { target: "stopped" },
         crash: ({ event }) => ({ target: event.retry ? "backoff" : "failed" }),
       },
     },
-    backoff: { on: { retry: { target: "starting" }, empty: { target: "stopped" } } },
+    backoff: {
+      on: {
+        retry: { target: "starting" },
+        empty: { target: "stopped" },
+        change: { target: "stopped" },
+      },
+    },
     failed: {},
   },
 });

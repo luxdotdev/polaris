@@ -44,7 +44,7 @@ export const associatedLanguage = (
   return selected;
 };
 
-interface SettingsInput {
+export interface SettingsInput {
   readonly hostKey: string;
   readonly hostId: P.HostId;
   readonly workspaceId: P.WorkspaceId;
@@ -54,7 +54,11 @@ interface SettingsInput {
   readonly signal: AbortSignal;
 }
 
-const effective = async (api: LanguageApi, input: SettingsInput, language: LanguageId) => {
+export const readEffectiveLanguageSettings = async (
+  api: LanguageApi,
+  input: SettingsInput,
+  language: LanguageId
+) => {
   const scopes = [
     P.LanguageSettingsScope.cases.App.make({}),
     P.LanguageSettingsScope.cases.Language.make({ language }),
@@ -105,14 +109,18 @@ const effective = async (api: LanguageApi, input: SettingsInput, language: Langu
 };
 
 /** Manual selection is per buffer; persistent association ownership remains Settings. */
-export const readLanguageConfiguration = async (api: LanguageApi, input: SettingsInput) => {
+export const readLanguageConfiguration = async (
+  api: LanguageApi,
+  input: SettingsInput,
+  readSettings = (language: LanguageId) => readEffectiveLanguageSettings(api, input, language)
+) => {
   const detected = input.manual ?? languageFor(input.path, input.firstLine);
-  let settings = await effective(api, input, detected);
+  let settings = await readSettings(detected);
 
   const language =
     input.manual ?? associatedLanguage(input.path, settings.settings.associations ?? [], detected);
 
-  if (language !== detected) settings = await effective(api, input, language);
+  if (language !== detected) settings = await readSettings(language);
 
   return { language, settings };
 };

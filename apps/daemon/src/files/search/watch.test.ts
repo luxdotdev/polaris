@@ -121,3 +121,23 @@ const waitFor = async (predicate: () => boolean) => {
 
   throw new Error("watch notification missing");
 };
+
+test("explicit language demand watches non-git Linux checkout configs without recursion", async () => {
+  const root = tempDir("polaris-language-watch-");
+  roots.push(root);
+  write(root, "nested/tsconfig.json", "{}");
+  const { opened, open } = recorder();
+  const seen: string[] = [];
+  stops.push(
+    await watchRoot(root, (_event, path) => seen.push(path), {
+      platform: "linux",
+      open,
+      includeNonGit: true,
+    })
+  );
+  expect(opened.map((entry) => entry.path)).toContain(join(root, "nested"));
+  expect(opened.every((entry) => !entry.recursive)).toBe(true);
+  write(root, "nested/tsconfig.json", '{"compilerOptions":{"strict":true}}');
+  await waitFor(() => seen.includes(join(root, "nested/tsconfig.json")));
+  expect(seen).toContain(join(root, "nested/tsconfig.json"));
+});

@@ -1,6 +1,6 @@
 /** Ephemeral Host process state: no draft text or executable configuration is durable model data. */
 module language_runtime {
-  type Signal = Demand | Ready | Empty | Grace | Fail(bool) | Retry | Disconnect | Revoke | Restart | Stop
+  type Signal = Demand | Ready | Empty | Grace | Fail(bool) | Retry | Disconnect | Revoke | Restart | Stop | Window(int) | Change
   var phase: str
   var attempts: int
   action init = all { phase' = "stopped", attempts' = 0 }
@@ -8,6 +8,8 @@ module language_runtime {
     | Disconnect => "stopped"
     | Revoke => "untrusted"
     | Stop => "stopped"
+    | Window(_) => p
+    | Change => if (p == "failed") p else "stopped"
     | Restart => "stopped"
     | Demand => if (Set("stopped", "untrusted").contains(p)) "starting" else if (p == "grace") "ready" else p
     | Ready => if (p == "starting") "ready" else p
@@ -21,11 +23,12 @@ module language_runtime {
     attempts' = match e {
       | Fail(_) => if (Set("starting", "ready", "grace").contains(phase)) attempts + 1 else attempts
       | Restart => 0
+      | Window(n) => n
       | _ => attempts
     },
   }
   action step = {
-    nondet e = Set(Demand, Ready, Empty, Grace, Fail(attempts < 2), Retry, Disconnect, Revoke, Restart, Stop).oneOf()
+    nondet e = Set(Demand, Ready, Empty, Grace, Fail(attempts < 2), Retry, Disconnect, Revoke, Restart, Stop, Change, Window(0)).oneOf()
     publish(e)
   }
   val safety = all {
@@ -47,4 +50,15 @@ module language_runtime_test {
   run revokeAndDisconnectTest = init.then(publish(Demand)).then(publish(Revoke))
     .expect(phase == "untrusted").then(publish(Ready)).expect(phase == "untrusted")
     .then(publish(Disconnect)).expect(phase == "stopped" and safety)
+  run crashWindowTest = init.then(publish(Demand)).then(publish(Ready))
+    .then(publish(Fail(true))).then(publish(Retry)).then(publish(Ready))
+    .then(publish(Window(0))).then(publish(Fail(true)))
+    .expect(phase == "backoff" and attempts == 1 and safety)
+    .then(publish(Restart)).expect(phase == "stopped" and attempts == 0)
+  run configRetainsBudgetTest = init.then(publish(Demand)).then(publish(Ready))
+    .then(publish(Fail(true))).then(publish(Retry)).then(publish(Ready))
+    .then(publish(Change)).then(publish(Demand)).then(publish(Ready))
+    .then(publish(Fail(true))).then(publish(Retry)).then(publish(Fail(false)))
+    .expect(phase == "failed" and attempts == 3 and safety)
+    .then(publish(Change)).expect(phase == "failed" and attempts == 3)
 }

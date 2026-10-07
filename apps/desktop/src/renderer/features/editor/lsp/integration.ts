@@ -1,4 +1,3 @@
-import { languageIpcError } from "../../../../shared/languageError.ts";
 import { respondResourceReceiptRequest } from "./resourceReceipts.ts";
 import { autocompletion } from "@codemirror/autocomplete";
 import { setDiagnostics } from "@codemirror/lint";
@@ -21,6 +20,8 @@ import { completionSource, hoverExtension } from "./codemirror.ts";
 import { bufferText, documentLanguageId, type LanguageBuffer } from "./types.ts";
 import { providerFence } from "./requests.ts";
 import { readLanguageConfiguration } from "./configuration.ts";
+import { pruneLanguageGroups, admitLanguageGroup } from "./groups.ts";
+import { EditorLanguageObservations } from "./observations.ts";
 import { EditorLanguageSession } from "./sessions.ts";
 import { languagePatch, languageStore } from "./state.ts";
 import type { CodeActions } from "./payloads.ts";
@@ -41,7 +42,7 @@ import {
 import { offerServerEdit } from "./serverEdits.ts";
 import { configurationItems } from "./serverConfiguration.ts";
 import { ownedProvider } from "./ownership.ts";
-import { providerLabel, trustDiscovered } from "../trust/store.ts";
+import { providerLabel, trustDiscovered, trustStore } from "../trust/store.ts";
 import { DiagnosticPull } from "./pull.ts";
 
 interface Entry {
@@ -80,8 +81,21 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
   private command: ((key: string, command: LanguageCommand | "back") => void) | null = null;
   private readonly entries = new Map<string, Entry>();
   private readonly groups = new Map<string, EditorLanguageSession>();
+  private readonly observations = new EditorLanguageObservations();
   private readonly instance = crypto.randomUUID();
+  private readonly untrust = trustStore.subscribe((state, previous) => {
+    if (
+      Object.entries(state.statuses).some(
+        ([key, value]) =>
+          previous.statuses[key] !== undefined &&
+          value.trust.revision !== previous.statuses[key]?.trust.revision
+      )
+    )
+      this.observations.invalidate();
+  });
   private readonly refresh = () => {
+    pruneLanguageGroups(this.groups, this.identity);
+
     for (const entry of this.entries.values()) this.refreshEntry(entry);
   };
 
@@ -290,7 +304,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
     entry.detach = [];
     entry.groups = [];
 
-    for (const [key, group] of this.groups) if (group.isDisposed()) this.groups.delete(key);
+    pruneLanguageGroups(this.groups);
   }
 
   private environment(entry: Entry) {
@@ -322,6 +336,8 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
     ]);
 
     if (!force && stamp === entry.stamp) return;
+
+    if (stamp !== entry.stamp && entry.stamp !== "") this.observations.invalidate();
     entry.stamp = stamp;
     entry.controller.abort();
     entry.controller = new AbortController();
@@ -416,7 +432,9 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
       stamp === entry.stamp &&
       JSON.stringify(this.environment(entry).identity) === JSON.stringify(identity);
 
-    const configuration = await readLanguageConfiguration(api, {
+    const scope = { hostKey: file.hostKey, identity, checkout };
+
+    const configuration = await this.observations.configuration(api, scope, {
       hostKey: file.hostKey,
       hostId: identity.hostId,
       workspaceId: checkout.workspaceId,
@@ -430,38 +448,21 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
     entry.language = configuration.language;
     void applyBufferLanguage(fileKey(file.hostKey, file.path), entry.language);
 
-    const discovery = await api.request("languages.discover", {
-      hostKey: file.hostKey,
-      checkout,
-      path: file.path,
-      documentLanguageId: documentLanguageId(entry.language),
-      settings: configuration.settings,
-    });
-
-    if (!discovery.ok) throw languageIpcError(discovery.error);
-    const found = Schema.decodeUnknownSync(P.LanguageDiscovery)(discovery.value);
+    const { found, disabled } = await this.observations.discover(
+      api,
+      scope,
+      file.path,
+      documentLanguageId(entry.language),
+      configuration.settings
+    );
 
     if (!current() || JSON.stringify(found.checkout) !== JSON.stringify(checkout)) return;
+    entry.disabled = disabled;
     trustDiscovered(
       { hostKey: file.hostKey, checkout, path: file.path },
       fileKey(file.hostKey, file.path),
       found
     );
-    const catalog = await api.request("languages.catalog", { hostKey: file.hostKey });
-
-    if (!current()) return;
-
-    if (catalog.ok) {
-      const descriptors = Schema.decodeUnknownSync(P.LanguageCatalog)(catalog.value)
-        .integrations.filter((integration) =>
-          integration.languageIds.includes(documentLanguageId(entry.language))
-        )
-        .flatMap((integration) => integration.providers);
-
-      entry.disabled = new Map(
-        descriptors.map((provider) => [provider.id, provider.disableFeatures])
-      );
-    }
 
     const selected = configuration.settings.providers.length
       ? configuration.settings.providers
@@ -559,9 +560,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
     let group = this.groups.get(groupKey);
 
     if (group === undefined || group.isDisposed()) {
-      for (const [key, value] of this.groups) if (value.isDisposed()) this.groups.delete(key);
-
-      if (this.groups.size >= 128) throw new Error("Too many language contexts.");
+      admitLanguageGroup(this.groups);
       group = new EditorLanguageSession(
         api,
         file.hostKey,
@@ -577,6 +576,9 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
         identity.hostId,
         (event) => this.serverRequest(api, file.hostKey, found.effectiveSettings, event),
         (event) => {
+          if (Predicate.isTagged(event, "Replaced") || Predicate.isTagged(event, "Invalidated"))
+            this.observations.invalidate();
+
           if (!Predicate.isTagged(event, "Diagnostics")) return;
 
           for (const value of this.entries.values()) {
@@ -588,7 +590,8 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
 
             if (provider !== undefined) value.diagnostics.receive(provider, event.diagnostics);
           }
-        }
+        },
+        identity.connectionEpoch
       );
       this.groups.set(groupKey, group);
     }
@@ -809,6 +812,8 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
   }
 
   refreshSettings(hostKey: string, workspaceId: string) {
+    this.observations.invalidate();
+
     for (const entry of this.entries.values())
       if (entry.input.file.hostKey === hostKey && entry.input.file.workspaceId === workspaceId)
         this.refreshEntry(entry, true);
@@ -837,6 +842,8 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
   }
   dispose() {
     refreshers.delete(this.refresh);
+    this.untrust();
+    this.observations.invalidate();
 
     for (const entry of this.entries.values()) this.release(entry);
 

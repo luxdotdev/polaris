@@ -7,7 +7,7 @@ import {
   type LiveSession,
 } from "@polaris/client";
 import * as P from "@polaris/protocol";
-import { Effect, Option, Schema, Stream } from "effect";
+import { Deferred, Effect, Predicate, Schema, Stream } from "effect";
 import type { LanguageApi } from "../../shared/api.ts";
 import {
   LanguageRequestInputs,
@@ -18,13 +18,14 @@ import { languageFor } from "../../renderer/features/editor/model/language.ts";
 import { associatedLanguage } from "../../renderer/features/editor/lsp/configuration.ts";
 import { HostDirectory, type ClientRuntime } from "../hosts.ts";
 import { createLanguageBridge, LanguagePreferences, type LanguageHost } from "./index.ts";
+import { LanguageRegistrations } from "./registrations.ts";
 import type { LanguageIdentityEpochs } from "./identityEpochs.ts";
 
 interface HostBinding {
   readonly connection: HostConnection;
   readonly session: LiveSession;
   readonly host: LanguageHost & { readonly access: LanguageAccess };
-  readonly facts: { snapshot: typeof P.HostStreamItem.cases.Snapshot.Type };
+  readonly controller: AbortController;
 }
 
 export interface MainLanguageOptions {
@@ -68,10 +69,12 @@ const globalPreference = (
 export const createMainLanguageApi = (options: MainLanguageOptions) => {
   const lifetime = new AbortController();
   const bindings = new Map<string, HostBinding>();
+  const preparations = new Map<string, Promise<void>>();
 
   const retire = (hostKey: string) => {
     const binding = bindings.get(hostKey);
     bindings.delete(hostKey);
+    binding?.controller.abort();
     binding?.host.access.dispose();
   };
 
@@ -127,24 +130,17 @@ export const createMainLanguageApi = (options: MainLanguageOptions) => {
         if (identity === null || authority === null || languageTransportFor(session) === null)
           return yield* Effect.fail(failure);
 
-        const snapshot = yield* session.client.subscribeHost({ afterSequence: null }).pipe(
-          Stream.filter(Schema.is(P.HostStreamItem.cases.Snapshot)),
-          Stream.map((item) => Schema.decodeUnknownSync(P.HostStreamItem.cases.Snapshot)(item)),
-          Stream.runHead
-        );
-
         const currentConnection = yield* connectionOf(hostKey);
         const currentSession = yield* currentConnection.session;
 
         if (
           currentConnection !== connection ||
           currentSession !== session ||
-          options.identities.lookup(hostKey) !== identity ||
-          Option.isNone(snapshot)
+          options.identities.lookup(hostKey) !== identity
         )
           return yield* Effect.fail(failure);
 
-        return { connection, session, identity, snapshot: snapshot.value };
+        return { connection, session, identity };
       }),
       { signal }
     );
@@ -161,62 +157,74 @@ export const createMainLanguageApi = (options: MainLanguageOptions) => {
       previous?.connection === bound.connection &&
       previous.session === bound.session &&
       lookup(hostKey) === previous.host
-    ) {
-      if (bound.snapshot.sequence >= previous.facts.snapshot.sequence)
-        previous.facts.snapshot = bound.snapshot;
-
+    )
       return;
-    }
 
     retire(hostKey);
-    const facts = { snapshot: bound.snapshot };
+    const facts = new LanguageRegistrations();
+    const controller = new AbortController();
+    const ready = options.runtime.runSync(Deferred.make<void>());
 
-    const workspace = (id: P.WorkspaceId) =>
-      facts.snapshot.workspaces.find((item) => item.id === id);
+    const feed = options.runtime.runPromise(
+      bound.session.client.subscribeHost({ afterSequence: null }).pipe(
+        Stream.runForEach((item) =>
+          Effect.gen(function* () {
+            facts.receive(item);
 
-    const authorizeCheckout = (checkout: P.LanguageCheckout) =>
-      P.LanguageCheckout.match(checkout, {
-        Workspace: (value) => workspace(value.workspaceId)?.path === value.path,
-        Worktree: (value) =>
-          workspace(value.workspaceId) !== undefined &&
-          facts.snapshot.worktrees.some(
-            (item) =>
-              item.id === value.worktreeId &&
-              item.workspaceId === value.workspaceId &&
-              item.path === value.path
-          ),
-        ReviewCheckout: (value) =>
-          workspace(value.workspaceId) !== undefined &&
-          (facts.snapshot.reviewCheckouts ?? []).some(
-            (item) =>
-              item.id === value.reviewCheckoutId &&
-              item.workspaceId === value.workspaceId &&
-              item.path === value.path &&
-              item.state === "ready"
-          ),
-      });
+            if (Predicate.isTagged(item, "Snapshot")) yield* Deferred.succeed(ready, undefined);
+          })
+        )
+      ),
+      { signal: AbortSignal.any([controller.signal, lifetime.signal]) }
+    );
+
+    void feed
+      .finally(() => {
+        if (bindings.get(hostKey)?.controller === controller) retire(hostKey);
+        controller.abort();
+      })
+      .catch(() => undefined);
 
     const host: HostBinding["host"] = {
       hostId: authority.identity.hostId,
       access: new LanguageAccess(transport),
       connectionEpoch: bound.identity.connectionEpoch,
-      authorizeWorkspace: (id) => workspace(id) !== undefined,
-      authorizeCheckout,
+      authorizeWorkspace: (id) => facts.workspace(id),
+      authorizeCheckout: (checkout) => facts.checkout(checkout),
     };
 
-    bindings.set(hostKey, { connection: bound.connection, session: bound.session, host, facts });
+    bindings.set(hostKey, {
+      connection: bound.connection,
+      session: bound.session,
+      host,
+      controller,
+    });
+
+    try {
+      await options.runtime.runPromise(Deferred.await(ready), {
+        signal: AbortSignal.any([signal, controller.signal]),
+      });
+    } catch (error) {
+      if (bindings.get(hostKey)?.host === host) retire(hostKey);
+      throw error;
+    }
 
     if (lookup(hostKey) !== host) throw unavailable();
   };
 
   const prepare = async (hostKey: string, signal: AbortSignal) => {
-    const previous = bindings.get(hostKey);
+    const pending = preparations.get(hostKey);
+
+    if (pending !== undefined) return pending;
+
+    if (lookup(hostKey) !== null) return;
+    const next = prepareCurrent(hostKey, signal);
+    preparations.set(hostKey, next);
 
     try {
-      await prepareCurrent(hostKey, signal);
-    } catch (error) {
-      if (bindings.get(hostKey) === previous) lookup(hostKey);
-      throw error;
+      await next;
+    } finally {
+      if (preparations.get(hostKey) === next) preparations.delete(hostKey);
     }
   };
 

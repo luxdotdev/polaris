@@ -49,6 +49,8 @@ export interface BrokerOptions {
   observeLifecycle?: ((record: { event: LifecycleEvent; phase: string }) => void) | undefined;
   graceMs?: number;
   retryMs?: number;
+  crashWindowMs?: number | undefined;
+  changeDebounceMs?: number | undefined;
 }
 
 export interface Entry {
@@ -70,6 +72,8 @@ export interface Entry {
   starting?: Promise<void> | undefined;
   timer?: ReturnType<typeof setTimeout> | undefined;
   attempts: number;
+  crashes: number[];
+  stderr: string;
   operations: Map<string, { id: number; fence: LanguageRequestFence }>;
   tail: Promise<void>;
   queued: number;
