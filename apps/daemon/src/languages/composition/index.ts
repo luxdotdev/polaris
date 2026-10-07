@@ -42,6 +42,18 @@ export const languageCoreHandlers = (hostId: HostId) =>
     ServerRpcs.toLayerHandler("languages.trust.set", ({ scope, trusted, expectedRevision }) =>
       Effect.flatMap(LanguageCore, (core) => core.trustSet(scope, trusted, expectedRevision))
     ),
+    ServerRpcs.toLayerHandler("languages.trust.inspect", (input) =>
+      Effect.flatMap(LanguageCore, (core) => core.inspectTrust(input))
+    ),
+    ServerRpcs.toLayerHandler("languages.trust.change", (input) =>
+      Effect.flatMap(LanguageCore, (core) => core.changeTrust(input))
+    ),
+    ServerRpcs.toLayerHandler("languages.server.restart", (input) =>
+      Effect.flatMap(LanguageCore, (core) => core.restartServer(input))
+    ),
+    ServerRpcs.toLayerHandler("languages.workspace.restart", ({ workspaceId }) =>
+      Effect.flatMap(LanguageCore, (core) => core.restartWorkspace(workspaceId))
+    ),
     ServerRpcs.toLayerHandler("languages.context.acquire", (input) =>
       Effect.flatMap(LanguageCore, (core) => core.acquire(input))
     ),

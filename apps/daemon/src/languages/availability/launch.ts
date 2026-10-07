@@ -48,6 +48,30 @@ async function verifyPlan(
   admission: ObservationAdmission,
   signal: AbortSignal
 ) {
+  if (
+    !facts.bundledTypeScript &&
+    facts.nativeServer !== null &&
+    plan.entry === facts.nativeServer
+  ) {
+    if (
+      plan.identity !== installed.identity ||
+      plan.launch.executable !== facts.nativeServer ||
+      plan.launch.cwd !== facts.projectRoot ||
+      JSON.stringify(plan.launch.args) !== JSON.stringify(["--lsp", "--stdio"])
+    )
+      throw failure(
+        "invalid-input",
+        "Native TypeScript launch differs from its discovered project"
+      );
+
+    if ((await realpath(facts.nativeServer)) !== facts.nativeServer)
+      throw failure("conflict", "Native TypeScript executable changed");
+    await access(facts.nativeServer, constants.X_OK);
+    assertCurrent();
+
+    return;
+  }
+
   const { tool } = descriptor(installed.descriptor, defaultLimits.metadataBytes);
   const artifact = tool.artifacts.find((candidate) => candidate.id === installed.artifactId);
 

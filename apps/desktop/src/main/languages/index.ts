@@ -56,13 +56,22 @@ const routing = Schema.Struct({
   policy: Schema.optionalKey(P.LanguagePreviewPolicy),
 });
 
-const errorView = (error: unknown): IpcError => ({
-  code: "LanguageError",
-  message:
-    error instanceof P.LanguageError
-      ? `Language operation: ${error.reason}`
-      : "Language operation failed",
-});
+const errorView = (error: unknown): IpcError => {
+  if (Schema.is(P.LanguageError)(error))
+    return {
+      code: "LanguageError",
+      message: `Language operation: ${error.reason}`,
+      languageError: Schema.encodeSync(P.LanguageError)(
+        new P.LanguageError({
+          reason: error.reason,
+          message: `Language operation: ${error.reason}`,
+          retryable: error.retryable,
+        })
+      ),
+    };
+
+  return { code: "LanguageError", message: "Language operation failed" };
+};
 
 const hostFor = (options: LanguageBridgeOptions, value: unknown): LanguageHost => {
   const input = decodeLanguage(routing, value);

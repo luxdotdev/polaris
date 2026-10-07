@@ -5,7 +5,7 @@ import {
   LanguageTrust,
 } from "@polaris/protocol";
 import type { HostId } from "@polaris/protocol";
-import { Schema } from "effect";
+import { Match, Schema } from "effect";
 import { canonicalCheckout, type CheckoutRegistry, type CanonicalCheckout } from "./checkout.ts";
 
 export { canonicalCheckout, checkoutPath, checkoutKey, within } from "./checkout.ts";
@@ -70,20 +70,47 @@ export function createExecutionTrust(options: {
       scope,
       revision: record?.trust.revision ?? 0,
       trusted: record?.trust.trusted === true && record.canonicalRoot === grantRoot(canonical),
+      decision:
+        record === null || record.canonicalRoot !== grantRoot(canonical)
+          ? "undecided"
+          : (record.trust.decision ?? (record.trust.trusted ? "trusted" : "declined")),
+      typescriptProvider: record?.trust.typescriptProvider ?? "project",
     });
 
     return { canonical, trust };
   }
 
-  async function set(input: LanguageCheckout, trusted: boolean, expectedRevision: number) {
+  async function change(
+    input: LanguageCheckout,
+    action: typeof import("@polaris/protocol").LanguageTrustAction.Type,
+    expectedRevision: number
+  ) {
     const current = await inspect(input);
     await options.authorizeGrant(current.trust.scope);
+
+    const decision = Match.value(action).pipe(
+      Match.when("trust", () => "trusted" as const),
+      Match.when(
+        (value) => value === "decline" || value === "revoke",
+        () => "declined" as const
+      ),
+      Match.when("ask-again", () => "undecided" as const),
+      Match.orElse(() => current.trust.decision ?? "undecided")
+    );
+
+    const typescriptProvider = Match.value(action).pipe(
+      Match.when("use-bundled", () => "bundled" as const),
+      Match.when("use-project", () => "project" as const),
+      Match.orElse(() => current.trust.typescriptProvider ?? "project")
+    );
 
     const record = TrustRecord.make({
       canonicalRoot: grantRoot(current.canonical),
       trust: LanguageTrust.make({
         scope: current.trust.scope,
-        trusted,
+        trusted: decision === "trusted",
+        decision,
+        typescriptProvider,
         revision: expectedRevision + 1,
       }),
     });
@@ -100,6 +127,23 @@ export function createExecutionTrust(options: {
     }
 
     return record.trust;
+  }
+
+  const set = (input: LanguageCheckout, trusted: boolean, expectedRevision: number) =>
+    change(input, trusted ? "trust" : "decline", expectedRevision);
+
+  const asked = new Map<string, number>();
+
+  function claimAsk(trust: typeof LanguageTrust.Type) {
+    if (trust.decision !== "undecided") return false;
+    const key = trustScopeKey(trust.scope);
+
+    if (asked.get(key) === trust.revision) return false;
+
+    if (asked.size >= 1024) asked.delete(asked.keys().next().value!);
+    asked.set(key, trust.revision);
+
+    return true;
   }
 
   async function require(input: LanguageCheckout) {
@@ -124,7 +168,7 @@ export function createExecutionTrust(options: {
     return invoke(await require(input));
   }
 
-  return { inspect, set, require, execute };
+  return { inspect, set, change, claimAsk, require, execute };
 }
 
 export type ExecutionTrust = ReturnType<typeof createExecutionTrust>;

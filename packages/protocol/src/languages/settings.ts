@@ -173,6 +173,29 @@ export const LanguageTrust = Schema.Struct({
   scope: LanguageTrustScope,
   revision: LanguageCounter,
   trusted: Schema.Boolean,
+  decision: Schema.optionalKey(Schema.Literals(["undecided", "trusted", "declined"])),
+  typescriptProvider: Schema.optionalKey(Schema.Literals(["project", "bundled"])),
+});
+
+export const LanguageTrustAction = Schema.Literals([
+  "trust",
+  "decline",
+  "revoke",
+  "ask-again",
+  "use-bundled",
+  "use-project",
+]);
+
+export const LanguageTrustStatus = Schema.Struct({
+  trust: LanguageTrust,
+  wouldRun: Schema.Struct({
+    typescriptVersion: Schema.NullOr(Schema.String),
+    typescriptPath: Schema.NullOr(LanguagePath),
+    native: Schema.Boolean,
+    plugins: Schema.Array(LanguageKey).check(Schema.isMaxLength(64)),
+  }),
+  ask: Schema.Boolean,
+  provider: Schema.Literals(["bundled", "project"]),
 });
 
 export const LanguagePreviewPolicy = Schema.Struct({

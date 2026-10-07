@@ -108,6 +108,10 @@ export const CHANNELS = {
 
 /** A failure crossing IPC: the tagged error's tag and message, nothing that can't be cloned. */
 export interface IpcError {
+  readonly languageError?: Pick<
+    import("@polaris/protocol").LanguageError,
+    "_tag" | "reason" | "message" | "retryable"
+  >;
   /** The failure's tag, e.g. "NotConnected", "FileError", "InvalidInput". */
   readonly code: string;
   readonly message: string;

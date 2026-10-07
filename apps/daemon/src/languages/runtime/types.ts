@@ -52,6 +52,7 @@ export interface BrokerOptions {
 }
 
 export interface Entry {
+  replacementSource?: LanguageContextIdentity;
   input: AcquireInput;
   facts: DiscoveryFacts;
   identity: LanguageContextIdentity;

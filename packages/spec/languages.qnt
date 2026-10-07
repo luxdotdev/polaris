@@ -34,7 +34,7 @@ module languages {
         updateContext(p.context, { ...c, delivered: p.version, requestVersion: -1, requestGeneration: -1 }) else unchanged
     }
     | Cancel(id) => updateContext(id, { ...contexts.get(id), requestVersion: -1, requestGeneration: -1 })
-    | Restart(id) => updateContext(id, { ...emptyContext, generation: contexts.get(id).generation + 1 })
+    | Restart(id) => updateContext(id, { ...contexts.get(id), generation: contexts.get(id).generation + 1, requestVersion: -1, requestGeneration: -1, delivered: -1 })
     | Prepare => if (not(operation.prepared)) updateOperation({ ...operation, prepared: true }) else unchanged
     | Apply => if (operation.prepared and not(operation.applied) and not(operation.restored)) updateOperation({ ...operation, applied: true, owned: true }) else unchanged
     | PersistDrafts => if (operation.applied) updateOperation({ ...operation, drafts: true }) else unchanged
@@ -85,7 +85,7 @@ module languages_test {
     .expect(contexts.get(0).delivered == -1)
     .then(publish(Restart(0)))
     .then(publish(Result({ context: 0, generation: 1, version: 1 })))
-    .expect(contexts.get(0).generation == 2 and contexts.get(0).delivered == -1 and safety)
+    .expect(contexts.get(0).generation == 2 and contexts.get(0).sequence == 1 and contexts.get(0).version == 1 and contexts.get(0).delivered == -1 and safety)
   run durableAckAndGuardedUndoTest = init.then(publish(Prepare)).then(publish(Apply)).then(publish(Acknowledge))
     .expect(not(operation.acknowledged))
     .then(publish(PersistDrafts)).then(publish(PersistReceipt)).then(publish(Acknowledge)).then(publish(Crash))

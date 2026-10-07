@@ -219,6 +219,12 @@ export const LanguageProgress = Schema.Struct({
 
 export const LanguageContextEvent = deferredSchema(() =>
   Schema.TaggedUnion({
+    Replaced: {
+      context: LanguageContextIdentity,
+      replacement: LanguageContextIdentity,
+      runtime: LanguageRuntime,
+      ack: LanguageSyncAck,
+    },
     Snapshot: { context: LanguageContextIdentity, runtime: LanguageRuntime, ack: LanguageSyncAck },
     RuntimeChanged: { context: LanguageContextIdentity, runtime: LanguageRuntime },
     Synchronized: { ack: LanguageSyncAck },

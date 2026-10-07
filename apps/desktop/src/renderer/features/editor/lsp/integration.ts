@@ -1,3 +1,4 @@
+import { languageIpcError } from "../../../../shared/languageError.ts";
 import { respondResourceReceiptRequest } from "./resourceReceipts.ts";
 import { autocompletion } from "@codemirror/autocomplete";
 import { setDiagnostics } from "@codemirror/lint";
@@ -345,12 +346,12 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
       busy: false,
     });
     void this.configure(entry, environment.identity, environment.document.checkout, stamp).catch(
-      (error) => {
+      (error: P.LanguageError | Error) => {
         if (!entry.disposed && stamp === entry.stamp)
           languagePatch(key, {
             status: "unavailable",
             fact:
-              error instanceof Error && error.message === "Language operation: awaiting-trust"
+              Schema.is(P.LanguageError)(error) && error.reason === "awaiting-trust"
                 ? "Language tooling needs trust. Open Settings → Languages and select this checkout."
                 : "Language tooling is unavailable. Check Settings → Languages for this Host.",
             providers: [],
@@ -425,7 +426,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
       settings: configuration.settings,
     });
 
-    if (!discovery.ok) throw new Error(discovery.error.message);
+    if (!discovery.ok) throw languageIpcError(discovery.error);
     const found = Schema.decodeUnknownSync(P.LanguageDiscovery)(discovery.value);
 
     if (!current() || JSON.stringify(found.checkout) !== JSON.stringify(checkout)) return;

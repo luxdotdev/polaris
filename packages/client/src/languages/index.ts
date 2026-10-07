@@ -11,6 +11,11 @@ export const languageMethods = {
   "languages.discover": P.DiscoverLanguageProject,
   "languages.trust.get": P.GetLanguageTrust,
   "languages.trust.set": P.SetLanguageTrust,
+  "languages.trust.inspect": P.InspectLanguageTrust,
+  "languages.trust.change": P.ChangeLanguageTrust,
+  "languages.server.restart": P.RestartLanguageServer,
+  "languages.workspace.restart": P.RestartWorkspaceLanguages,
+
   "languages.context.acquire": P.AcquireLanguageContext,
   "languages.context.release": P.ReleaseLanguageContext,
   "languages.context.restart": P.RestartLanguageContext,
@@ -242,7 +247,7 @@ export class LanguageAccess {
     if (operation.token !== null) {
       if (
         this.contextOperations.get(operation.contextId) !== operation.token ||
-        current !== previous
+        (current !== previous && current !== JSON.stringify(context))
       )
         throw languageFailure("stale-generation");
     } else if (
@@ -286,6 +291,10 @@ export class LanguageAccess {
   ) {
     this.hostFacts(output);
 
+    if (method === "languages.server.restart" || method === "languages.workspace.restart") {
+      this.trackRestarts(method, input, output);
+    }
+
     if (operation !== null) {
       const snapshot = decodeLanguage(P.LanguageContextSnapshot, output);
       authorize(this.transport, { context: snapshot.context });
@@ -307,6 +316,49 @@ export class LanguageAccess {
         interests.add(acquired.interestId);
         this.interests.set(acquired.contextId, interests);
       }
+    }
+  }
+
+  private trackRestarts(
+    method: "languages.server.restart" | "languages.workspace.restart",
+    input: unknown,
+    output: unknown
+  ) {
+    const snapshots = decodeLanguage(Schema.Array(P.LanguageContextSnapshot), output);
+
+    const scope =
+      method === "languages.server.restart"
+        ? decodeLanguage(P.RestartLanguageServer.payloadSchema, input)
+        : decodeLanguage(P.RestartWorkspaceLanguages.payloadSchema, input);
+
+    for (const snapshot of snapshots) {
+      const context = snapshot.context;
+      const previous = this.contexts.get(context.contextId);
+      authorize(this.transport, { context });
+
+      if (
+        previous === undefined ||
+        previous.providerId !== context.providerId ||
+        JSON.stringify(previous.checkout) !== JSON.stringify(context.checkout) ||
+        ("checkout" in scope
+          ? JSON.stringify(scope.checkout) !== JSON.stringify(context.checkout) ||
+            scope.providerId !== context.providerId
+          : scope.workspaceId !== context.checkout.workspaceId)
+      )
+        throw languageFailure("not-owner");
+
+      if (
+        context.generation < previous.generation ||
+        (context.generation === previous.generation &&
+          JSON.stringify(context) !== JSON.stringify(previous)) ||
+        !P.languageFenceSatisfied({ context, requiredSequence: 0, documents: [] }, snapshot.ack)
+      )
+        throw languageFailure("stale-generation");
+    }
+
+    for (const snapshot of snapshots) {
+      this.contexts.set(snapshot.context.contextId, snapshot.context);
+      this.acks.set(snapshot.context.contextId, snapshot.ack);
     }
   }
 
@@ -342,6 +394,26 @@ export class LanguageAccess {
 
     if (JSON.stringify(languageEventContext(event)) !== JSON.stringify(expected))
       throw languageFailure("not-owner");
+
+    if (Predicate.isTagged(event, "Replaced")) {
+      const previous = this.contexts.get(expected.contextId);
+      const replacement = event.replacement;
+      authorize(this.transport, { context: replacement });
+
+      if (
+        replacement.contextId !== expected.contextId ||
+        replacement.providerId !== expected.providerId ||
+        JSON.stringify(replacement.checkout) !== JSON.stringify(expected.checkout) ||
+        replacement.generation <= expected.generation ||
+        JSON.stringify(event.ack.context) !== JSON.stringify(replacement)
+      )
+        throw languageFailure("not-owner");
+
+      if (JSON.stringify(previous) === JSON.stringify(expected)) {
+        this.contexts.set(replacement.contextId, replacement);
+        this.acks.set(replacement.contextId, event.ack);
+      }
+    }
 
     if (
       Predicate.isTagged(event, "ServerRequest") &&

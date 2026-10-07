@@ -1,3 +1,4 @@
+import { languageIpcError } from "../../../../shared/languageError.ts";
 import type { LanguageApi } from "../../../../shared/api.ts";
 import type { EditorPreparationTransport } from "./acknowledgedPreparation.ts";
 
@@ -13,7 +14,7 @@ export const editorPreparationTransport = (
       buffer,
     });
 
-    if (!response.ok) throw new Error(response.error.message);
+    if (!response.ok) throw languageIpcError(response.error);
 
     return response.value;
   },
@@ -27,7 +28,7 @@ export const editorPreparationTransport = (
       edit,
     });
 
-    if (!response.ok) throw new Error(response.error.message);
+    if (!response.ok) throw languageIpcError(response.error);
 
     return response.value;
   },

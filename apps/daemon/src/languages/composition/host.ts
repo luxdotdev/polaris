@@ -28,7 +28,6 @@ import {
 import { LanguageInstallCore, LanguageInstallGrantAuthority } from "./install.ts";
 import { languageCoreHandlers } from "./index.ts";
 import type { ManagedDelivery } from "./managedDelivery.ts";
-import { bundledTypeScript } from "./managedPolicy.ts";
 
 type HostOptions = Omit<HostInstallationOptions, "reserveSelection"> & {
   managed?: ManagedDelivery;
@@ -62,7 +61,7 @@ export const languageHostServices = (
   const discovery = ProjectDiscovery.layer({
     ...discoveryOptions,
     bundledTypeScript: options.managed !== undefined,
-  });
+  }).pipe(Layer.provide(trust));
 
   const shared = Layer.mergeAll(
     authority,
@@ -155,7 +154,10 @@ export const languageHostServices = (
             reserveLaunch: (request) =>
               configuredExecutable(request.facts) === undefined
                 ? (async () => {
-                    if (bundledTypeScript(request.facts) && options.managed !== undefined) {
+                    if (
+                      request.facts.providerId === "typescript-language-server" &&
+                      options.managed !== undefined
+                    ) {
                       const guard = owners.guard(request, executionTrust).validate;
                       await options.managed.ensure(
                         request.facts.effectiveSettings,

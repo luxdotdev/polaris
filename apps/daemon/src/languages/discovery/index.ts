@@ -25,6 +25,7 @@ export interface DiscoveryInput {
   providerId: string;
   settings: typeof LanguageEffectiveSettings.Type;
   refresh?: boolean;
+  useProjectTypeScript?: boolean;
 }
 
 const family = (provider: string) =>
@@ -63,7 +64,7 @@ async function sdkFacts(
     const tsserver =
       provider === "typescript" ? await overridePath(root, resolve(sdk, "lib/tsserver.js")) : null;
 
-    return { sdk, tsserver, sdkVersion: null };
+    return { sdk, tsserver, nativeServer: null, sdkVersion: null };
   }
 
   const detected = provider === "typescript" ? await typescriptSdk(root, project) : null;
@@ -72,6 +73,7 @@ async function sdkFacts(
     sdk: detected?.sdk ?? null,
     tsserver: detected?.server ?? null,
     sdkVersion: detected?.version ?? null,
+    nativeServer: detected?.nativeServer ?? null,
   };
 }
 
@@ -112,7 +114,8 @@ async function discover(
     bundled &&
     provider === "typescript" &&
     custom === undefined &&
-    settings.settings.executableOverrides?.[input.providerId] === undefined;
+    settings.settings.executableOverrides?.[input.providerId] === undefined &&
+    input.useProjectTypeScript !== true;
 
   const start = (await isDirectory(path)) ? path : dirname(path);
 
@@ -139,7 +142,7 @@ async function discover(
         );
 
   const names =
-    !bundledTypeScript && provider === "typescript" && configuration !== null
+    provider === "typescript" && configuration !== null
       ? await configPlugins(context.root, configuration)
       : [];
 
@@ -151,9 +154,7 @@ async function discover(
     providerId: input.providerId,
     bundledTypeScript,
     configuration: provider === "typescript" ? configuration : null,
-    ...(bundledTypeScript
-      ? { sdk: null, tsserver: null, sdkVersion: null }
-      : await sdkFacts(context.root, root, provider, settings.settings.sdk)),
+    ...(await sdkFacts(context.root, root, provider, settings.settings.sdk)),
     ...(await interpreterFacts(
       context.root,
       start,
@@ -251,6 +252,7 @@ export function createProjectDiscovery(options: {
         path,
         input.providerId,
         input.settings,
+        input.useProjectTypeScript ?? false,
       ]);
 
       const cached = cache.get(key);

@@ -48,6 +48,8 @@ import {
   LanguageSettingsScope,
   LanguageTrust,
   LanguageTrustScope,
+  LanguageTrustAction,
+  LanguageTrustStatus,
 } from "./settings.ts";
 
 import {
@@ -137,6 +139,24 @@ export const LanguageDiscovery = Schema.Struct({
   ).check(Schema.isMaxLength(32)),
   effectiveSettings: LanguageEffectiveSettings,
   trust: LanguageTrust,
+  trustRequest: Schema.optionalKey(Schema.NullOr(LanguageTrustStatus)),
+});
+
+export const InspectLanguageTrust = Rpc.make("languages.trust.inspect", {
+  payload: { checkout: LanguageCheckout, path: LanguagePath },
+  success: LanguageTrustStatus,
+  error: LanguageError,
+});
+
+export const ChangeLanguageTrust = Rpc.make("languages.trust.change", {
+  payload: {
+    checkout: LanguageCheckout,
+    path: LanguagePath,
+    action: LanguageTrustAction,
+    expectedRevision: LanguageCounter,
+  },
+  success: LanguageTrustStatus,
+  error: LanguageError,
 });
 
 export const DiscoverLanguageProject = Rpc.make("languages.discover", {
@@ -204,6 +224,18 @@ export const WatchLanguageContext = Rpc.make("languages.context.watch", {
   success: LanguageContextEvent,
   error: LanguageError,
   stream: true,
+});
+
+export const RestartLanguageServer = Rpc.make("languages.server.restart", {
+  payload: { checkout: LanguageCheckout, providerId: LanguageKey },
+  success: Schema.Array(LanguageContextSnapshot).check(Schema.isMaxLength(32)),
+  error: LanguageError,
+});
+
+export const RestartWorkspaceLanguages = Rpc.make("languages.workspace.restart", {
+  payload: { workspaceId: WorkspaceId },
+  success: Schema.Array(LanguageContextSnapshot).check(Schema.isMaxLength(32)),
+  error: LanguageError,
 });
 
 export const SyncLanguageDocument = Rpc.make("languages.document.sync", {
@@ -351,6 +383,10 @@ export class LanguageRpcs extends RpcGroup.make(
   DiscoverLanguageProject,
   GetLanguageTrust,
   SetLanguageTrust,
+  InspectLanguageTrust,
+  ChangeLanguageTrust,
+  RestartLanguageServer,
+  RestartWorkspaceLanguages,
   AcquireLanguageContext,
   ReleaseLanguageContext,
   RestartLanguageContext,

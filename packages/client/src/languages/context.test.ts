@@ -68,7 +68,10 @@ const acquire = {
   interestId: "editor",
 };
 
-const fixture = (transition: LanguageTransport["invoke"]) =>
+const fixture = (
+  transition: LanguageTransport["invoke"],
+  watch: LanguageTransport["watch"] = async function* () {}
+) =>
   new LanguageAccess({
     hostId,
     clientId: identity.clientId,
@@ -89,7 +92,7 @@ const fixture = (transition: LanguageTransport["invoke"]) =>
 
       return transition(method, input, signal);
     },
-    watch: async function* () {},
+    watch,
     takeBlob: async () => new Uint8Array(),
   });
 
@@ -297,4 +300,70 @@ test("last-interest release invalidates a pending transition before reacquisitio
   expect(await pending).toMatchObject({ reason: "stale-generation" });
   expect((await feature(access, initialAck)).fence.context).toEqual(identity);
   access.dispose();
+});
+
+test("a replacement feed arriving before restart response retains the new acknowledgment", async () => {
+  const replacement = P.LanguageContextIdentity.make({ ...identity, generation: 2 });
+
+  const next = snapshot(
+    replacement,
+    P.LanguageSyncAck.make({ ...initialAck, context: replacement })
+  );
+
+  const delivered = Promise.withResolvers<void>();
+
+  const access = fixture(
+    async () => {
+      await delivered.promise;
+
+      return next;
+    },
+    async function* () {
+      yield P.LanguageContextEvent.cases.Replaced.make({
+        context: identity,
+        replacement,
+        runtime: next.runtime,
+        ack: next.ack,
+      });
+    }
+  );
+
+  await access.request("languages.context.acquire", acquire);
+  const pending = transition(access, "languages.context.restart");
+
+  const feed = access
+    .watch("languages.context.watch", { context: identity }, new AbortController().signal)
+    [Symbol.asyncIterator]();
+
+  expect((await feed.next()).value).toMatchObject({ replacement });
+  delivered.resolve();
+  expect((await pending).ack).toEqual(next.ack);
+  expect((await feature(access, next.ack)).fence.documents).toEqual(initialAck.documents);
+  access.dispose();
+});
+
+test("Workspace restart rejects forged and stale contexts without changing the owned acknowledgment", async () => {
+  const foreign = P.LanguageContextIdentity.make({
+    ...identity,
+    generation: 2,
+    checkout: P.LanguageCheckout.cases.Workspace.make({ ...checkout, path: "/foreign" }),
+  });
+
+  const replacement = P.LanguageContextIdentity.make({ ...identity, generation: 2 });
+
+  for (const reply of [snapshot(foreign), snapshot(replacement, initialAck)]) {
+    const access = fixture(async () => [reply]);
+    await access.request("languages.context.acquire", acquire);
+
+    const error = await access
+      .request("languages.workspace.restart", { workspaceId: checkout.workspaceId })
+      .catch((value: Error) => value);
+
+    expect(error).toMatchObject({
+      reason: reply.context.checkout.path === "/foreign" ? "not-owner" : "stale-generation",
+    });
+
+    expect((await feature(access, initialAck)).fence.context).toEqual(identity);
+    access.dispose();
+  }
 });

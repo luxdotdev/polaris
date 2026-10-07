@@ -3,6 +3,8 @@ import { rejects } from "node:assert/strict";
 import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { join } from "node:path";
 import * as P from "@polaris/protocol";
+import { createProjectDiscovery } from "../discovery/index.ts";
+import { fixture as projectFixture } from "../discovery/fixture.ts";
 import { createHostInstallations } from "../install/host.ts";
 import { createSelectionLedger } from "../install/selection-ledger.ts";
 import { artifactFixture, hostId, platform } from "../install/fixture.testing.ts";
@@ -70,6 +72,7 @@ async function fixture(corrupt = false) {
   const admission = { cwd: root, requireCurrent: async () => {} };
 
   return {
+    root,
     host,
     managed,
     downloads,
@@ -131,5 +134,60 @@ test("fixture checksum mismatch never activates a private runtime or server", as
     expect(await f.host.current("typescript-language-server")).toBeNull();
   } finally {
     await f.close();
+  }
+});
+
+test("launch plans select native TS 7, project tsserver/plugins, and guarded bundled override", async () => {
+  const f = await fixture();
+  const project = await projectFixture();
+
+  try {
+    await f.managed.delivery.ensure(settings(), f.admission, new AbortController().signal);
+    const installed = await f.host.current("typescript-language-server");
+
+    if (installed === null) throw new Error("Fixture installation missing");
+    const path = await project.put("file.ts");
+    await project.put(
+      "tsconfig.json",
+      '{"compilerOptions":{"plugins":[{"name":"sample-plugin"}]}}'
+    );
+    await project.put(
+      "node_modules/typescript/package.json",
+      '{"name":"typescript","version":"6.0.3"}'
+    );
+    const tsserver = await project.put("node_modules/typescript/lib/tsserver.js", "fixture");
+
+    const discovery = createProjectDiscovery({
+      registry: project.registry,
+      bundledTypeScript: true,
+    });
+
+    const input = {
+      checkout: project.checkout,
+      path,
+      providerId: "typescript-language-server",
+      settings: project.settings,
+    };
+
+    const old = await discovery.discover({ ...input, useProjectTypeScript: true });
+    const oldPlan = await f.managed.delivery.plan(old, installed);
+    expect(oldPlan.launch.initializationOptions).toMatchObject({ tsserver: { path: tsserver } });
+    expect(oldPlan.launch.environment.NODE_OPTIONS).toBe("");
+    expect(old.plugins.map(({ name }) => name)).toEqual(["sample-plugin"]);
+    const bundled = await f.managed.delivery.plan(await discovery.discover(input), installed);
+    expect(bundled.launch.environment.NODE_OPTIONS).toContain("plugin-guard.cjs");
+    const binary = "/fixture/native-tsc";
+    const native = { ...old, tsserver: null, sdkVersion: "7.0.2", nativeServer: binary };
+    expect((await f.managed.delivery.plan(native, installed)).launch).toMatchObject({
+      executable: binary,
+      args: ["--lsp", "--stdio"],
+      cwd: old.projectRoot,
+    });
+    await rejects(f.managed.delivery.plan({ ...native, nativeServer: null }, installed), {
+      reason: "missing-prerequisite",
+    });
+  } finally {
+    await f.close();
+    await project.cleanup();
   }
 });

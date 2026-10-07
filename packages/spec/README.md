@@ -379,7 +379,7 @@ cover them separately from the abstract lifecycle and recovery model.
 |---|---|
 | `Sync` | `LanguageSyncInput` / `LanguageSyncAck`: one contiguous context-local sequence, monotonic document versions and exact previous version; acknowledgment means queued delivery, not completed analysis. The model abstracts a single already-open document per context, with version 0 initially. T1 must additionally verify open/change/save/close and encoding/range handling. |
 | `Request` / `Result` / `Cancel` | `LanguageRequestFence`, `LanguageFeatureRequest`, `languageFenceSatisfied`: authenticated Client+Host+checkout+project+provider+configuration+generation identity and exact document snapshots. Typing/cancellation makes old results unusable. The two model keys represent distinct full context identities, not just language or Workspace IDs. |
-| `Restart` / `Crash` | Acquire a fresh generation; pending ephemeral language operations do not survive or replay. Send current full snapshots before requests. Durable resource-operation outcomes survive the crash independently. |
+| `Restart` / `Crash` | Acquire a fresh generation; pending ephemeral requests do not survive. Restart retains document versions and accepted sequence, emits `Replaced` with the new identity/ack, and sends full unsaved snapshots after initialize. Crash clears the model's ephemeral document state for Client resynchronization. Durable resource-operation outcomes survive independently. |
 | `Prepare` / `Apply` | `LanguageEditProposal`, `LanguageEditAcceptance`, `LanguageOperationStep`: preview and revalidate before applying; prepared/applied journal per operation ID. Model `Apply` is idempotent and cannot reapply a restored operation. It abstracts one resource step; X1 must extend fault coverage to partial multi-step operations. |
 | `PersistDrafts` / `PersistReceipt` / `Acknowledge` | `LanguageOperationOutcome`: report applied only after persistent Client drafts and necessary Host receipts are durable. `workspace/applyEdit` uses the same acceptance path. No filesystem-wide atomicity claim. |
 | `DiskEdit` / `Undo` | Guarded ownership checks against exact post-operation disk versions; intervening edits prevent restoration. Unresolved recovery is explicit. |
@@ -498,9 +498,13 @@ before activation; these codec tests do not prove production mutation authority.
 The detached `apps/daemon/src/languages/runtime/` broker implements ordered
 P1 document cuts and generation-bound requests. `Documents.apply` corresponds
 to `languages.Sync`; `requestRaw` dispatch/result checks and `cancel` correspond
-to Request/Result/Cancel. Retiring a process generation on crash, connection loss,
-restart, configuration change or trust revocation clears its ephemeral documents
-and pending operations, corresponding to Restart/Crash. Resource edits are
+to Request/Result/Cancel. Retiring a process generation on
+crash or connection loss clears ephemeral documents and pending operations (Crash).
+Explicit restart, configuration and Trust selection changes retain document versions,
+text and sequence while clearing generation-bound operations (Restart). Servers
+receive retained didOpen after initialize; old-generation requests remain refused.
+Slice 2's trust.inspect/change facts and restart RPCs use Host Trust CAS and the
+existing ephemeral context feed, without Agent events, receipts or resume changes. Resource edits are
 proposals only: T1 never applies or acknowledges durable disk changes.
 
 `language-runtime.qnt` separately models the pure XState process lifecycle:

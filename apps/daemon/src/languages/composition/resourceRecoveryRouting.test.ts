@@ -13,7 +13,8 @@ test("historical recovery selects a current subscribed context and keeps exact s
     await f.ready("one", original.context);
     const historical = original.context;
     const replacement = await f.broker.restart("one", historical);
-    await f.open("one", replacement.context);
+    expect(replacement.ack.acceptedSequence).toBe(1);
+    expect(replacement.ack.documents).toHaveLength(1);
     await f.ready("one", replacement.context);
     const signal = new AbortController();
 

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { realpath, mkdtemp, rm, writeFile, mkdir, access } from "node:fs/promises";
+import { realpath, mkdtemp, rm, writeFile, mkdir, access, cp } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import * as P from "@polaris/protocol";
@@ -16,6 +16,99 @@ const caps: P.Capability[] = [
   "languages.buffer-acknowledgments",
   "languages.edit-preparation",
 ];
+
+const projectProvider = Effect.fn("LiveProjectProvider")(function* (
+  client: import("@polaris/client").DaemonClient,
+  root: string,
+  project: string,
+  input: typeof P.AcquireLanguageContext.payloadSchema.Type,
+  uri: string
+) {
+  const compilers = yield* Effect.promise(async () => {
+    const found = [];
+
+    for await (const path of new Bun.Glob("languages/**/lib/tsserver.js").scan({
+      cwd: root,
+      absolute: true,
+    }))
+      found.push(path);
+
+    return found;
+  });
+
+  expect(compilers).toHaveLength(1);
+  yield* Effect.promise(async () => {
+    const compiler = compilers[0];
+
+    if (compiler === undefined) throw new Error("Bundled compiler missing");
+    await cp(join(compiler, "../.."), join(project, "node_modules/typescript"), {
+      recursive: true,
+    });
+    await writeFile(
+      join(project, "node_modules/hostile-plugin/index.js"),
+      `module.exports = () => ({ create(info) { require("node:fs").writeFileSync(${JSON.stringify(join(root, "executed"))}, "trusted plugin"); return info.languageService; } });`
+    );
+  });
+
+  const checkout = input.checkout;
+  let snapshot = yield* client["languages.context.acquire"](input);
+
+  const granted = yield* client["languages.trust.change"]({
+    checkout,
+    path: join(project, "a.ts"),
+    action: "trust",
+    expectedRevision: 0,
+  });
+
+  expect(granted.provider).toBe("project");
+  expect(granted.wouldRun).toMatchObject({
+    typescriptVersion: "6.0.3",
+    native: false,
+    plugins: ["hostile-plugin"],
+  });
+
+  for (let i = 0; i < 300; i++) {
+    snapshot = yield* client["languages.context.acquire"](input);
+
+    if (Predicate.isTagged(snapshot.runtime, "Ready")) break;
+
+    if (Predicate.isTagged(snapshot.runtime, "Failed")) throw new Error(snapshot.runtime.message);
+    yield* Effect.sleep("20 millis");
+  }
+
+  expect(Predicate.isTagged(snapshot.runtime, "Ready")).toBe(true);
+  expect(snapshot.ack.documents).toEqual([{ uri, version: 1 }]);
+
+  const projectHover = yield* client["languages.request"]({
+    requestId: "project-hover",
+    fence: {
+      context: snapshot.context,
+      requiredSequence: snapshot.ack.acceptedSequence,
+      documents: snapshot.ack.documents,
+    },
+    method: "textDocument/hover",
+    params: { textDocument: { uri }, position: { line: 1, character: 15 } },
+    deadline: Date.now() + 15000,
+  });
+
+  expect(JSON.stringify(projectHover.result)).toContain("42");
+  expect(yield* Effect.promise(() => Bun.file(join(root, "executed")).text())).toBe(
+    "trusted plugin"
+  );
+
+  const selected = yield* client["languages.trust.change"]({
+    checkout,
+    path: join(project, "a.ts"),
+    action: "use-bundled",
+    expectedRevision: granted.trust.revision,
+  });
+
+  expect(selected.provider).toBe("bundled");
+
+  snapshot = yield* client["languages.context.acquire"](input);
+
+  return snapshot;
+});
 
 test("default Host downloads pinned tools without Trust and serves hover, diagnostics, definition and rename", async () => {
   await Effect.runPromise(
@@ -237,6 +330,8 @@ test("default Host downloads pinned tools without Trust and serves hover, diagno
         expect(yield* Effect.promise(() => Bun.file(join(project, "a.ts")).text())).toBe(
           "const saved = 1;"
         );
+
+        snapshot = yield* projectProvider(rpc.client, root, project, input, uri);
         yield* rpc.client["languages.context.release"]({
           context: snapshot.context,
           interestId: "file",

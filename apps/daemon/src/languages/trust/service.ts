@@ -27,6 +27,12 @@ export class ExecutionTrustService extends Context.Service<
       trusted: boolean,
       expectedRevision: number
     ) => Effect.Effect<typeof LanguageTrust.Type, LanguageError>;
+    change: (
+      checkout: LanguageCheckout,
+      action: typeof import("@polaris/protocol").LanguageTrustAction.Type,
+      expectedRevision: number
+    ) => Effect.Effect<typeof LanguageTrust.Type, LanguageError>;
+    claimAsk: (trust: typeof LanguageTrust.Type) => boolean;
     require: (checkout: LanguageCheckout) => Effect.Effect<CanonicalCheckout, LanguageError>;
   }
 >()("polaris/languages/ExecutionTrust") {
@@ -42,6 +48,18 @@ export class ExecutionTrustService extends Context.Service<
           (checkout: LanguageCheckout, trusted: boolean, expectedRevision: number) =>
             Effect.tryPromise({
               try: () => trust.set(checkout, trusted, expectedRevision),
+              catch: trustError,
+            })
+        ),
+        claimAsk: trust.claimAsk,
+        change: Effect.fn("ExecutionTrust.change")(
+          (
+            checkout: LanguageCheckout,
+            action: typeof import("@polaris/protocol").LanguageTrustAction.Type,
+            expectedRevision: number
+          ) =>
+            Effect.tryPromise({
+              try: () => trust.change(checkout, action, expectedRevision),
               catch: trustError,
             })
         ),

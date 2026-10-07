@@ -101,6 +101,26 @@ export function createManagedDelivery() {
       if (node === null || typescript === null)
         throw failure("not-installed", "Private Node and bundled TypeScript are not installed");
       const entry = join(installed.directory, "lib/cli.mjs");
+      const project = !facts.bundledTypeScript && (facts.sdk !== null || facts.plugins.length > 0);
+
+      if (project && facts.sdkVersion?.startsWith("7.")) {
+        if (facts.nativeServer === null)
+          throw failure(
+            "missing-prerequisite",
+            "The project's native TypeScript platform package is missing"
+          );
+
+        return {
+          identity: installed.identity,
+          entry: facts.nativeServer,
+          launch: {
+            executable: facts.nativeServer,
+            args: ["--lsp", "--stdio"],
+            cwd: facts.projectRoot,
+            environment: { NODE_OPTIONS: "", NODE_PATH: "" },
+          },
+        };
+      }
 
       return {
         identity: installed.identity,
@@ -111,13 +131,18 @@ export function createManagedDelivery() {
           args: [entry, "--stdio"],
           cwd: facts.projectRoot,
           environment: {
-            NODE_OPTIONS: `--require ${JSON.stringify(join(typescript.directory, "plugin-guard.cjs"))}`,
+            NODE_OPTIONS: project
+              ? ""
+              : `--require ${JSON.stringify(join(typescript.directory, "plugin-guard.cjs"))}`,
             NODE_PATH: "",
             PATH: join(node.executable, ".."),
           },
           initializationOptions: {
             tsserver: {
-              path: join(typescript.directory, "lib/tsserver.js"),
+              path:
+                project && facts.tsserver !== null
+                  ? facts.tsserver
+                  : join(typescript.directory, "lib/tsserver.js"),
               useSyntaxServer: "never",
             },
             disableAutomaticTypingAcquisition: true,

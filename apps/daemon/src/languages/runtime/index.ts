@@ -1,4 +1,5 @@
 import { bindResourceReceipt, bindServerResponse, bindRecoveryReceipt } from "./resourceReceipt.ts";
+import { bindRestarts } from "./restart.ts";
 import { Acquire } from "./acquire.ts";
 import { enqueue } from "./queue.ts";
 import { AcknowledgmentOwners } from "./acknowledgmentOwners.ts";
@@ -9,8 +10,8 @@ import type { ClientAcquisition } from "./clientSettlement.ts";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   LanguageContextIdentity,
+  LanguageDocumentNotification,
   LanguageContextEvent,
-  LanguageEffectiveSettings,
   LanguageError,
   LanguageFeatureRequest,
   LanguageFeatureResult,
@@ -24,7 +25,7 @@ import {
 } from "@polaris/protocol";
 import type { LanguageJson } from "@polaris/protocol";
 import { Schema } from "effect";
-import { checkoutKey, checkoutPath } from "../trust/index.ts";
+import { checkoutKey, checkoutPath, trustScope, trustScopeKey } from "../trust/index.ts";
 import { failure } from "../transport/framing.ts";
 import { bounded } from "../transport/deadline.ts";
 import { notificationMessage, clientCapabilities, drainStderr } from "./wire.ts";
@@ -124,14 +125,19 @@ export function createLanguageBroker(options: BrokerOptions) {
   function retire(
     entry: Entry,
     reason: "connection-lost" | "restart" | "settings-changed" | "closed",
-    graceful = false
+    graceful = false,
+    preserveDocuments = false
   ) {
+    const retained = preserveDocuments ? [...entry.documents.open.values()] : [];
+    const sequence = entry.documents.sequence;
     acknowledgments.retire(entry);
 
     if (entry.timer !== undefined) clearTimeout(entry.timer);
     entry.timer = undefined;
     const identity = entry.identity;
-    event(entry, LanguageContextEvent.cases.Invalidated.make({ context: identity, reason }));
+
+    if (preserveDocuments) entry.replacementSource ??= identity;
+    else event(entry, LanguageContextEvent.cases.Invalidated.make({ context: identity, reason }));
     const connection = entry.connection;
     const admission = entry.launchAdmission;
     entry.launchAdmission = undefined;
@@ -146,6 +152,16 @@ export function createLanguageBroker(options: BrokerOptions) {
     entry.identity = LanguageContextIdentity.make({ ...identity, generation: ++generation });
     entry.documents.clear();
     entry.documents = documents(entry.identity);
+
+    for (const document of retained)
+      entry.documents.apply(
+        entry.documents.sequence + 1,
+        LanguageDocumentNotification.cases.Open.make(document),
+        "utf-16"
+      );
+
+    if (preserveDocuments) entry.documents.sequence = sequence;
+    entry.starting = undefined;
 
     if (admission !== undefined) {
       const closing = admission.close(graceful);
@@ -719,65 +735,21 @@ export function createLanguageBroker(options: BrokerOptions) {
     }
   }
 
-  async function restart(clientId: string, context: LanguageContextIdentity) {
-    const entry = owned(clientId, context);
-    retire(entry, "restart");
-    entry.attempts = 0;
-    move(entry, { type: "restart" });
-    state(entry, LanguageRuntime.cases.Stopped.make({ reason: "manual" }));
-
-    return snapshot(entry);
-  }
-
-  function invalidateTrust(checkout: LanguageCheckout) {
+  function invalidateTrust(checkout: LanguageCheckout, preserveDocuments = false) {
     options.invalidateDiscovery();
 
     for (const entry of entries.values()) {
-      if (entry.facts.checkout.workspaceId !== checkout.workspaceId) continue;
+      if (
+        trustScopeKey(trustScope(options.hostId, entry.facts.checkout)) !==
+        trustScopeKey(trustScope(options.hostId, checkout))
+      )
+        continue;
       move(entry, { type: "revoke" });
-      retire(entry, "settings-changed");
-      state(entry, LanguageRuntime.cases.AwaitingTrust.make({}));
+      retire(entry, "settings-changed", false, preserveDocuments);
+
+      if (preserveDocuments) entry.runtime = LanguageRuntime.cases.AwaitingTrust.make({});
+      else state(entry, LanguageRuntime.cases.AwaitingTrust.make({}));
     }
-  }
-
-  async function configure(
-    clientId: string,
-    context: LanguageContextIdentity,
-    settings: typeof LanguageEffectiveSettings.Type
-  ) {
-    const entry = owned(clientId, context);
-
-    const input = {
-      ...entry.input,
-      settings: Schema.decodeUnknownSync(LanguageEffectiveSettings)(settings),
-      refresh: true,
-    };
-
-    const facts = await options.discover(input);
-    owned(clientId, context);
-    const key = contextKey(clientId, facts);
-    const other = keys.get(key);
-
-    if (other !== undefined && other !== entry)
-      throw failure("conflict", "Configuration context already acquired");
-    keys.delete(contextKey(clientId, entry.facts));
-    retire(entry, "settings-changed");
-    entry.input = input;
-    entry.facts = facts;
-    entry.attempts = 0;
-    entry.identity = LanguageContextIdentity.make({
-      ...entry.identity,
-      checkout: facts.checkout,
-      projectRoot: facts.projectRoot,
-      configurationFingerprint: facts.configurationFingerprint,
-    });
-    entry.documents.clear();
-    entry.documents = documents(entry.identity);
-    keys.set(key, entry);
-    move(entry, { type: "restart" });
-    state(entry, LanguageRuntime.cases.Stopped.make({ reason: "replaced" }));
-
-    return snapshot(entry);
   }
 
   function invalidateConfiguration(checkout: LanguageCheckout) {
@@ -823,6 +795,17 @@ export function createLanguageBroker(options: BrokerOptions) {
     await bounded(Promise.all(cleanup), 2500);
   }
 
+  const { restart, configure, restartMatching, reloadTrust } = bindRestarts({
+    options,
+    entries,
+    keys,
+    owned,
+    retire,
+    documents,
+    move,
+    ensureStart,
+  });
+
   return {
     acquire,
     sync,
@@ -852,6 +835,8 @@ export function createLanguageBroker(options: BrokerOptions) {
       ),
     restart,
     invalidateTrust,
+    restartMatching,
+    reloadTrust,
     respond: bindServerResponse(owned, trusted),
     challengeReceipt: bindResourceReceipt(owned, trusted),
     challengeRecoveryReceipt: bindRecoveryReceipt(() => entries.values(), owned, trusted),

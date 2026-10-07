@@ -77,6 +77,14 @@ function effectBroker(broker: ReturnType<typeof createLanguageBroker>) {
     restart: Effect.fn("LanguageBroker.restart")((...args: Parameters<typeof broker.restart>) =>
       languageOperation(() => broker.restart(...args))
     ),
+    restartMatching: Effect.fn("LanguageBroker.restartMatching")(
+      (...args: Parameters<typeof broker.restartMatching>) =>
+        languageOperation(() => broker.restartMatching(...args))
+    ),
+    reloadTrust: Effect.fn("LanguageBroker.reloadTrust")(
+      (...args: Parameters<typeof broker.reloadTrust>) =>
+        languageOperation(() => broker.reloadTrust(...args))
+    ),
     configure: Effect.fn("LanguageBroker.configure")(
       (...args: Parameters<typeof broker.configure>) =>
         languageOperation(() => broker.configure(...args))

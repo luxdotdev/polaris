@@ -33,7 +33,7 @@ const fixture = (root = "/fixture", generation = 1, initiallyStopped = false) =>
     origins: {},
   });
 
-  const context = P.LanguageContextIdentity.make({
+  let context = P.LanguageContextIdentity.make({
     hostId,
     checkout,
     clientId: "client",
@@ -167,6 +167,25 @@ const fixture = (root = "/fixture", generation = 1, initiallyStopped = false) =>
     capabilities,
     notifications,
     listeners,
+    replace: () => {
+      const previous = context;
+      context = P.LanguageContextIdentity.make({
+        ...context,
+        generation: context.generation + 1,
+        configurationFingerprint: "b".repeat(64),
+      });
+      ack = P.LanguageSyncAck.make({ ...ack, context });
+      listeners[0]?.items([
+        P.LanguageContextEvent.cases.Replaced.make({
+          context: previous,
+          replacement: context,
+          runtime: P.LanguageRuntime.cases.Stopped.make({ reason: "replaced" }),
+          ack,
+        }),
+      ]);
+
+      return context;
+    },
     stats: () => ({ releases, acquisitions }),
     hold: (value: Promise<void> | null) => {
       hold = value;
@@ -737,5 +756,28 @@ test("a stopped provider receives initial Open demand before Ready capabilities 
   await f.session.ready();
   expect(f.session.provider(a.read().uri)).not.toBeNull();
   expect(f.notifications.map((notification) => notification._tag)).toEqual(["Open"]);
+  f.session.dispose();
+});
+
+test("provider replacement rebinds retained acknowledgments without reopening or losing edited text", async () => {
+  const f = fixture();
+  const a = f.buffer("file:///fixture/a.ts");
+
+  await f.session.ready();
+  a.edit("latest unsaved");
+  await Bun.sleep(0);
+  const replacement = f.replace();
+
+  await f.session.ready();
+  expect(f.stats().acquisitions).toBe(2);
+  expect(f.notifications.filter((item) => Predicate.isTagged(item, "Open"))).toHaveLength(1);
+  expect(f.session.provider(a.read().uri)?.context).toEqual(replacement);
+  a.edit("after replacement");
+  await Bun.sleep(0);
+  expect(f.notifications.at(-1)).toMatchObject({
+    previousVersion: 2,
+    version: 3,
+    changes: [{ text: "after replacement" }],
+  });
   f.session.dispose();
 });

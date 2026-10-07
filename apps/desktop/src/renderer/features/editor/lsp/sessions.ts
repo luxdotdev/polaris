@@ -1,3 +1,4 @@
+import { languageIpcError } from "../../../../shared/languageError.ts";
 import * as P from "@polaris/protocol";
 import { Match, Option, Predicate, Schema } from "effect";
 import type { LanguageApi } from "../../../../shared/api.ts";
@@ -72,7 +73,10 @@ export class EditorLanguageSession {
 
     this.tail = next.catch(() => undefined);
 
-    return next;
+    return next.catch((error: Error) => {
+      if (!this.stopped && epoch !== this.epoch) return;
+      throw error;
+    });
   }
 
   private async acquire() {
@@ -83,7 +87,7 @@ export class EditorLanguageSession {
       ...this.acquisition,
     });
 
-    if (!reply.ok) throw new Error(reply.error.message);
+    if (!reply.ok) throw languageIpcError(reply.error);
     const snapshot = Schema.decodeUnknownSync(P.LanguageContextSnapshot)(reply.value);
     const context = snapshot.context;
 
@@ -136,7 +140,9 @@ export class EditorLanguageSession {
       }
     );
 
-    for (const [uri, buffer] of this.buffers) await this.deliverOpen(uri, buffer);
+    for (const document of snapshot.ack.documents) this.sent.set(document.uri, document.version);
+
+    for (const [uri, buffer] of this.buffers) await this.deliverLatest(uri, buffer);
     this.changed();
   }
 
@@ -205,6 +211,18 @@ export class EditorLanguageSession {
         });
         this.changed();
       }),
+      Match.tag("Replaced", (value) => {
+        if (!sameContext(context, value.context)) return;
+        this.epoch++;
+        this.capabilities = null;
+        this.runtimeReady = false;
+        this.sent.clear();
+        this.unwatch?.();
+        this.unwatch = null;
+        this.changed();
+        this.opening = this.enqueue(() => this.acquire());
+        void this.opening.catch(() => this.unavailable());
+      }),
       Match.tag("Invalidated", (value) => {
         if (sameContext(context, value.context)) this.unavailable();
       }),
@@ -258,7 +276,7 @@ export class EditorLanguageSession {
       notification,
     });
 
-    if (!result.ok) throw new Error(result.error.message);
+    if (!result.ok) throw languageIpcError(result.error);
     const ack = Schema.decodeUnknownSync(P.LanguageSyncAck)(result.value);
 
     const documents = Predicate.isTagged(notification, "Close")

@@ -41,6 +41,8 @@ const fixture = async () => {
   };
 
   const trust: ExecutionTrustService["Service"] = {
+    change: () => Effect.die("Not used"),
+    claimAsk: () => false,
     inspect: () => Effect.die("Not used"),
     set: () => Effect.die("Not used"),
     require: () => Effect.succeed(canonical),
