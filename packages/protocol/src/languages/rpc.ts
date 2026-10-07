@@ -1,3 +1,4 @@
+import { LanguageServerLogEvent } from "./logs.ts";
 import { Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/rpc";
 import { BlobId, WorkspaceId } from "../ids.ts";
@@ -238,6 +239,13 @@ export const RestartWorkspaceLanguages = Rpc.make("languages.workspace.restart",
   error: LanguageError,
 });
 
+export const WatchLanguageServerLog = Rpc.make("languages.log.watch", {
+  payload: { context: LanguageContextIdentity },
+  success: LanguageServerLogEvent,
+  error: LanguageError,
+  stream: true,
+});
+
 export const SyncLanguageDocument = Rpc.make("languages.document.sync", {
   payload: LanguageSyncInput,
   success: LanguageSyncAck,
@@ -391,6 +399,7 @@ export class LanguageRpcs extends RpcGroup.make(
   ReleaseLanguageContext,
   RestartLanguageContext,
   WatchLanguageContext,
+  WatchLanguageServerLog,
   SyncLanguageDocument,
   AcknowledgeLanguageDocument,
   PrepareLanguageEdit,

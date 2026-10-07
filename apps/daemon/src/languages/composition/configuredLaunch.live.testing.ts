@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { realpath, mkdtemp, rm, writeFile, cp, mkdir } from "node:fs/promises";
 import { join } from "node:path";
+import { exerciseLogFormat } from "./logFormat.live.testing.ts";
 import { pathToFileURL } from "node:url";
 import * as P from "@polaris/protocol";
 import { Effect, Layer, Predicate, Redacted } from "effect";
@@ -32,7 +33,7 @@ const caps: P.Capability[] = [
   "languages.edit-preparation",
 ];
 
-test("actual default Host routes launch existing TS server only after authenticated trust and serve unsaved completion", async () => {
+test("actual default Host routes fence TS completion, live logs across a crash and document formatting", async () => {
   await Effect.runPromise(
     Effect.scoped(
       Effect.gen(function* () {
@@ -42,7 +43,14 @@ test("actual default Host routes launch existing TS server only after authentica
         );
 
         const project = join(root, "project");
+
+        const launcher = join(root, "server.mjs");
         yield* Effect.promise(async () => {
+          await writeFile(
+            launcher,
+            `process.stderr.write("slice-4d-pid:" + process.pid + "\\n"); await import(${JSON.stringify(pathToFileURL(serverCli).href)});`
+          );
+
           await mkdir(project);
           await writeFile(join(project, "package.json"), "{}");
           await mkdir(join(project, "node_modules"));
@@ -72,12 +80,28 @@ test("actual default Host routes launch existing TS server only after authentica
             ]),
         });
 
+        const committed: P.DomainEvent[] = [];
+
+        const observedStore = EventStore.of({
+          ...store,
+          commit: (options) =>
+            store.commit({
+              ...options,
+              decide: (model) =>
+                options
+                  .decide(model)
+                  .pipe(Effect.tap((events) => Effect.sync(() => committed.push(...events)))),
+            }),
+        });
+
         const server = yield* startServer({
           root,
           socketPath: join(root, "d.sock"),
           lockPath: join(root, "d.lock"),
           capabilities: caps,
-          handlers: lazyLanguageHandlers.pipe(Layer.provide(Layer.succeed(EventStore)(store))),
+          handlers: lazyLanguageHandlers.pipe(
+            Layer.provide(Layer.succeed(EventStore)(observedStore))
+          ),
         });
 
         const rpc = yield* connectRpc(yield* socketTransport(server.socketPath));
@@ -120,7 +144,7 @@ test("actual default Host routes launch existing TS server only after authentica
             executableOverrides: {
               "typescript-language-server": {
                 executable,
-                argv: [serverCli, "--stdio"],
+                argv: [launcher, "--stdio", "--log-level", "4"],
                 environment: {},
               },
             },
@@ -190,6 +214,24 @@ test("actual default Host routes launch existing TS server only after authentica
         );
 
         expect(JSON.stringify(completion)).toContain("unsavedThing");
+
+        expect(yield* Effect.promise(() => Bun.file(join(project, "a.ts")).text())).toBe(
+          "const saved = 1;"
+        );
+        snapshot = yield* exerciseLogFormat(rpc.client, input, snapshot, uri);
+
+        expect(committed).toHaveLength(0);
+
+        const events = yield* store.readEvents({
+          after: 0,
+          upTo: Number.MAX_SAFE_INTEGER,
+          sessionId: null,
+        });
+
+        expect(JSON.stringify(events)).not.toContain("slice-4d-pid:");
+
+        expect(JSON.stringify(events)).not.toContain("Using Typescript version");
+
         expect(yield* Effect.promise(() => Bun.file(join(project, "a.ts")).text())).toBe(
           "const saved = 1;"
         );

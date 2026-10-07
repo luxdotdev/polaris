@@ -97,6 +97,8 @@ export const LanguageJsonRpcEnvelope = Schema.Union([
 export type LanguageJsonRpcEnvelope = typeof LanguageJsonRpcEnvelope.Type;
 
 export const LanguageFeatureMethod = Schema.Literals([
+  "textDocument/formatting",
+  "textDocument/rangeFormatting",
   "textDocument/completion",
   "completionItem/resolve",
   "textDocument/hover",

@@ -18,7 +18,9 @@ import { ServerBridge, type ServerHooks } from "./server.ts";
 import { Documents } from "./documents.ts";
 import { negotiate } from "./capabilities.ts";
 
-function fixture(preparation: Partial<Pick<ServerHooks, "prepareEdit" | "treeEdits">> = {}) {
+function fixture(
+  preparation: Partial<Pick<ServerHooks, "prepareEdit" | "treeEdits" | "log">> = {}
+) {
   const port = memoryPort();
   const events: LanguageContextEvent[] = [];
 
@@ -84,6 +86,37 @@ function fixture(preparation: Partial<Pick<ServerHooks, "prepareEdit" | "treeEdi
     },
   };
 }
+
+test("raw output reaches only the live log hook after the redacted event limit", async () => {
+  const texts: string[] = [];
+
+  const f = fixture({ log: (_source, _level, text) => texts.push(text) });
+
+  try {
+    for (let i = 0; i < 70; i++) {
+      f.bridge.receive({
+        jsonrpc: "2.0",
+        method: "window/logMessage",
+        params: { type: 3, message: `private-output-${i}` },
+      });
+      await Bun.sleep(0);
+    }
+
+    f.bridge.receive({
+      jsonrpc: "2.0",
+      method: "window/showMessage",
+      params: { type: 1, message: "private-show-output" },
+    });
+    await Bun.sleep(0);
+    expect(texts).toHaveLength(71);
+    expect(texts.at(-1)).toBe("private-show-output");
+    expect(f.events.filter(Schema.is(LanguageContextEvent.cases.Log))).toHaveLength(64);
+    expect(JSON.stringify(f.events)).not.toContain("private-output");
+    expect(JSON.stringify(f.events)).not.toContain("private-show-output");
+  } finally {
+    await f.close();
+  }
+});
 
 test("prepared server edits cannot weaken the delivered document fence", async () => {
   const f = fixture({

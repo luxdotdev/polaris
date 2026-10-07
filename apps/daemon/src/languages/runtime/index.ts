@@ -1,3 +1,5 @@
+import { ServerLogs } from "./logs.ts";
+import { bindFormat } from "./format.ts";
 import { bindResourceReceipt, bindServerResponse, bindRecoveryReceipt } from "./resourceReceipt.ts";
 import { bindLifecycle, shutdownConnection } from "./lifecycleControl.ts";
 import { configurationWatches } from "./configurationWatch.ts";
@@ -147,6 +149,8 @@ export function createLanguageBroker(options: BrokerOptions) {
     entry.launchAdmission = undefined;
     admission?.abort();
     entry.connection = undefined;
+    entry.logs?.close();
+    entry.logs = undefined;
     entry.stderrAbort?.abort();
     entry.stderrAbort = undefined;
     entry.bridge?.close();
@@ -269,12 +273,17 @@ export function createLanguageBroker(options: BrokerOptions) {
       );
 
       entry.connection = connection;
+      const logs = new ServerLogs(identity);
+      entry.logs = logs;
 
       const bridge = new ServerBridge({
         context: identity,
         documents: entry.documents,
         connection,
         settings: serverSettings(entry),
+        log: (source, level, text) => {
+          if (active(entry, identity)) logs.append(source, level, text);
+        },
         emit: (value) => {
           if (active(entry, identity)) event(entry, value);
         },
@@ -314,7 +323,10 @@ export function createLanguageBroker(options: BrokerOptions) {
           },
           stderrAbort.signal,
           (text) => {
-            if (active(entry, identity)) entry.stderr = (entry.stderr + text).slice(-4096);
+            if (active(entry, identity)) {
+              entry.stderr = (entry.stderr + text).slice(-4096);
+              logs.stderr(text);
+            }
           }
         )
       );
@@ -805,6 +817,14 @@ export function createLanguageBroker(options: BrokerOptions) {
       principal: Parameters<AcknowledgmentOwners["disconnect"]>[0]
     ) => acknowledgments.disconnect(principal),
     request,
+    format: bindFormat(owned, requestRaw),
+    watchLog: (clientId: string, context: LanguageContextIdentity, signal?: AbortSignal) => {
+      const logs = owned(clientId, context).logs;
+
+      if (logs === undefined) throw failure("not-ready", "Language server log unavailable");
+
+      return logs.watch(signal);
+    },
     verifyFeatureEdit,
     requestRaw,
     cancel,

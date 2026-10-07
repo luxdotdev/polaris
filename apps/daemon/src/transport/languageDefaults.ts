@@ -31,6 +31,7 @@ export const languageDefaults = {
   "languages.context.release": request,
   "languages.context.restart": request,
   "languages.context.watch": feed,
+  "languages.log.watch": feed,
   "languages.document.sync": request,
   "languages.document.acknowledge": request,
   "languages.edit.prepare": request,

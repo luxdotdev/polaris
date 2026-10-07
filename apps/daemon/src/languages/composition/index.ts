@@ -72,6 +72,12 @@ export const languageCoreHandlers = (hostId: HostId) =>
     ServerRpcs.toLayerHandler("languages.document.acknowledge", (input) =>
       Effect.flatMap(LanguageCore, (core) => core.acknowledge(input))
     ),
+    ServerRpcs.toLayerHandler("languages.format", (input) =>
+      Effect.flatMap(LanguageCore, (core) => core.format(input))
+    ),
+    ServerRpcs.toLayerHandler("languages.log.watch", ({ context }) =>
+      Stream.unwrap(Effect.map(LanguageCore, (core) => core.watchLog(context)))
+    ),
     ServerRpcs.toLayerHandler("languages.request", (input) =>
       Effect.flatMap(LanguageCore, (core) => core.request(input))
     ),

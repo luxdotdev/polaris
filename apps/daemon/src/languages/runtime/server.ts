@@ -20,6 +20,7 @@ import {
   LanguageResourceReceiptResponse,
 } from "@polaris/protocol";
 import type {
+  LanguageServerLogLine,
   LanguageContextIdentity,
   LanguageJsonRpcEnvelope,
   LanguageProviderCapabilities,
@@ -42,6 +43,11 @@ export interface ServerHooks {
   connection: OrderedConnection;
   settings: typeof LanguageJsonObject.Type;
   emit: (event: LanguageContextEvent) => void;
+  log?: (
+    source: LanguageServerLogLine["source"],
+    level: LanguageServerLogLine["level"],
+    text: string
+  ) => void;
   current: () => boolean;
   authorize: () => Promise<void>;
   /** Independently negotiated Client support, never inferred from a proposal's fields. */
@@ -579,6 +585,28 @@ export class ServerBridge {
     this.hooks.emit(LanguageContextEvent.cases.Diagnostics.make({ diagnostics }));
   }
 
+  private publishLog(
+    method: string,
+    params: (typeof import("@polaris/protocol").LanguageJsonRpcNotification.Type)["params"]
+  ) {
+    const log = Schema.decodeUnknownSync(ShowMessage)(params);
+    const level = (["error", "warning", "info", "debug"] as const)[log.type - 1]!;
+    this.hooks.log?.(
+      method === "window/logMessage" ? "logMessage" : "showMessage",
+      level,
+      log.message
+    );
+
+    if (this.logs++ < 64)
+      this.hooks.emit(
+        LanguageContextEvent.cases.Log.make({
+          context: this.hooks.context,
+          level,
+          message: "Language server log received; private output withheld",
+        })
+      );
+  }
+
   private notification(
     method: string,
     params: (typeof import("@polaris/protocol").LanguageJsonRpcNotification.Type)["params"]
@@ -621,17 +649,8 @@ export class ServerBridge {
       this.hooks.emit(LanguageContextEvent.cases.Diagnostics.make({ diagnostics }));
     }
 
-    if (method === "window/logMessage" && this.logs < 64) {
-      const log = Schema.decodeUnknownSync(ShowMessage)(params);
-      this.logs++;
-      this.hooks.emit(
-        LanguageContextEvent.cases.Log.make({
-          context: this.hooks.context,
-          level: (["error", "warning", "info", "debug"] as const)[log.type - 1]!,
-          message: "Language server log received; private output withheld",
-        })
-      );
-    }
+    if (method === "window/logMessage" || method === "window/showMessage")
+      this.publishLog(method, params);
 
     if (method === "$/progress") {
       const input = Schema.decodeUnknownSync(Progress)(params);
