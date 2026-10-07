@@ -296,6 +296,10 @@ export const LanguageStatus = ({
         sideOffset={8}
         aria-labelledby={titleId}
         data-testid="language-popover"
+        onOpenAutoFocus={(event) => {
+          // Focus the first action row; with none, keep focus off the language mode field.
+          if (view.actions.length === 0) event.preventDefault();
+        }}
         data-kind={view.kind}
         className={cn(
           "rounded-row flex flex-col overflow-hidden p-0",

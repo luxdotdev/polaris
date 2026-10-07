@@ -94,24 +94,33 @@ export const watchHostTools = (api: LanguageApi, hostKey: string) => {
 
     if (!active || !catalog.ok) return;
 
-    const toolIds = Schema.decodeUnknownSync(P.LanguageCatalog)(catalog.value)
+    const catalogIds = Schema.decodeUnknownSync(P.LanguageCatalog)(catalog.value)
       .tools.map((tool) => tool.id)
       .slice(0, 512);
 
-    const initial = await api.request("languages.availability", {
-      hostKey,
-      toolIds,
-      checkout: null,
-      refresh: false,
-      phase: "install",
-    });
+    // One tool the Host can't describe fails a whole batch, so ask per tool and keep the answers.
+    const answers = await Promise.all(
+      catalogIds.map((toolId) =>
+        api.request("languages.availability", {
+          hostKey,
+          toolIds: [toolId],
+          checkout: null,
+          refresh: false,
+          phase: "install",
+        })
+      )
+    );
 
-    if (initial.ok)
-      received(
-        Schema.decodeUnknownSync(LanguageSubscriptionItems["languages.availability.watch"])(
-          initial.value
-        )
-      );
+    const facts = answers.flatMap((answer) =>
+      answer.ok
+        ? Schema.decodeUnknownSync(LanguageSubscriptionItems["languages.availability.watch"])(
+            answer.value
+          )
+        : []
+    );
+
+    const toolIds = facts.map((fact) => fact.toolId);
+    received(facts);
 
     if (!active) return;
     unwatch = api.subscribe(
