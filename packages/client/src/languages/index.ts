@@ -38,6 +38,10 @@ export const languageMethods = {
 } as const;
 
 export const languageFeeds = {
+  "languages.log.watch": {
+    input: P.WatchLanguageServerLog.payloadSchema,
+    item: P.LanguageServerLogEvent,
+  },
   "languages.context.watch": {
     input: P.WatchLanguageContext.payloadSchema,
     item: P.LanguageContextEvent,
@@ -388,6 +392,16 @@ export class LanguageAccess {
     input: LanguageFeedInput<LanguageFeed>,
     output: LanguageFeedItem<LanguageFeed>
   ) {
+    if (kind === "languages.log.watch") {
+      const expected = decodeLanguage(P.WatchLanguageServerLog.payloadSchema, input).context;
+      const event = decodeLanguage(P.LanguageServerLogEvent, output);
+
+      if (JSON.stringify(event.context) !== JSON.stringify(expected))
+        throw languageFailure("not-owner");
+
+      return;
+    }
+
     if (kind !== "languages.context.watch") return;
     const expected = decodeLanguage(P.WatchLanguageContext.payloadSchema, input).context;
     const event = decodeLanguage(P.LanguageContextEvent, output);

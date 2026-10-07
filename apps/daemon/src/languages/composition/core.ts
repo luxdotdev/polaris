@@ -14,6 +14,7 @@ import {
   type LanguageEffectiveSettings,
   type LanguageSyncInput,
   type LanguageFeatureRequest,
+  type LanguageFormatPreflight,
   type LanguageServerResponse,
   type LanguageRequestFence,
   type LanguageBufferAcknowledgment,
@@ -455,6 +456,21 @@ function makeCore(
           )
         );
       }),
+    format: (input: LanguageFormatPreflight) =>
+      delegate(input.fence.context, (clientId) => broker.format(clientId, input)),
+    watchLog: (input: LanguageContextIdentity) =>
+      Stream.unwrap(
+        Effect.gen(function* () {
+          const auth = yield* context(input);
+
+          return broker.watchLog(auth.principal.clientId, input).pipe(
+            Stream.mapEffect((event) => Effect.as(auth.checkout(input.checkout), event)),
+            Stream.ensuring(
+              Effect.suspend(() => (auth.lost() ? disconnect(auth.principal)() : Effect.void))
+            )
+          );
+        })
+      ),
     request: (input: LanguageFeatureRequest) =>
       delegate(input.fence.context, (clientId) => broker.request(clientId, input)),
     prepare: (input: PreparationIntent) =>

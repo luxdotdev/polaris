@@ -203,6 +203,21 @@ run("language contract safety", [
   `--seed=${seed}`,
 ]);
 
+run("typecheck language-logs.qnt", ["typecheck", "language-logs.qnt"]);
+
+run("language log scenarios", ["test", "language-logs.qnt", "--main=language_logs_test"]);
+
+run("language log safety", [
+  "run",
+  "language-logs.qnt",
+  "--main=language_logs",
+  "--invariants",
+  "safety",
+  `--max-samples=${samples}`,
+  "--max-steps=60",
+  `--seed=${seed}`,
+]);
+
 run("typecheck language-runtime.qnt", ["typecheck", "language-runtime.qnt"]);
 
 run("language runtime scenarios", ["test", "language-runtime.qnt", "--main=language_runtime_test"]);

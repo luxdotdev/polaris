@@ -19,6 +19,7 @@ export const LANGUAGE_RPC_CAPABILITIES = {
   "languages.context.release": "languages",
   "languages.context.restart": "languages",
   "languages.context.watch": "languages",
+  "languages.log.watch": "languages",
   "languages.document.sync": "languages",
   "languages.document.acknowledge": "languages.buffer-acknowledgments",
   "languages.edit.prepare": "languages.edit-preparation",

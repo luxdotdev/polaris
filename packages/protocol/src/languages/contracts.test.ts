@@ -442,6 +442,7 @@ test("IPC input and output tables cover every opt-in request and validate Host r
   ).toBe(false);
 
   expect(Object.keys(LanguageSubscriptionInputs)).toEqual([
+    "languages.log.watch",
     "languages.context.watch",
     "languages.install.watch",
     "languages.availability.watch",

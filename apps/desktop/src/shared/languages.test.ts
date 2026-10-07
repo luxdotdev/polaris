@@ -4,6 +4,7 @@ import { Schema } from "effect";
 import {
   LanguageRequestInputs,
   LanguageSubscriptionItems,
+  LanguageSubscriptionInputs,
   type LanguageSubscriptionItem,
 } from "./languages.ts";
 
@@ -23,6 +24,30 @@ const context = P.LanguageContextIdentity.make({
 
 const event: LanguageSubscriptionItem<"languages.context.watch"> =
   P.LanguageContextEvent.cases.Invalidated.make({ context, reason: "restart" });
+
+test("live log IPC carries a Host-bound context and typed backlog or line", () => {
+  const input = { hostKey: "fixture", context };
+  expect(
+    Schema.decodeUnknownSync(LanguageSubscriptionInputs["languages.log.watch"])(input)
+  ).toEqual(input);
+
+  const line = P.LanguageServerLogLine.make({
+    sequence: 1,
+    time: 1,
+    source: "stderr",
+    level: "warning",
+    text: "private line",
+  });
+
+  const snapshot: LanguageSubscriptionItem<"languages.log.watch"> =
+    P.LanguageServerLogEvent.cases.Snapshot.make({ context, lines: [line] });
+
+  expect(
+    Schema.decodeUnknownSync(LanguageSubscriptionItems["languages.log.watch"])(snapshot)
+  ).toEqual(snapshot);
+  expect(Schema.is(P.LanguageServerLogLine)({ ...line, source: "unknown" })).toBe(false);
+  expect(Schema.is(P.LanguageServerLogLine)({ ...line, text: "x".repeat(8193) })).toBe(false);
+});
 
 test("tree IPC wrapping retains decision filters and nested resource ownership", () => {
   const acceptance = P.LanguageTreeEditAcceptance.make({
