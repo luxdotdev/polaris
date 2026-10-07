@@ -56,7 +56,8 @@ const useSymbols = (queries: Symbols | null, key: string, query: string) => {
   return rows;
 };
 
-const Results = ({
+/** The field and its results; the dialog wraps them (exported for tests). */
+export const SymbolResults = ({
   fileKey,
   queries,
 }: {
@@ -123,7 +124,7 @@ export const SymbolSearch = ({ queries }: { readonly queries?: Symbols }) => {
       title="Go to symbol in workspace"
       description="Find a symbol in this workspace by name"
     >
-      <Results fileKey={key} queries={queries ?? editorLanguageQueries} />
+      <SymbolResults fileKey={key} queries={queries ?? editorLanguageQueries} />
     </CommandDialog>
   );
 };

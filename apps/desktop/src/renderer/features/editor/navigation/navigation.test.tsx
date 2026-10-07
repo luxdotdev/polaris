@@ -10,7 +10,8 @@ import { navigationContributions } from "./contribute.ts";
 import { RenameField } from "./RenameField.tsx";
 import { runNavigation } from "./run.ts";
 import { navigationStore, openRename, openSymbolSearch } from "./store.ts";
-import { SymbolSearch } from "./SymbolSearch.tsx";
+import { Command } from "@polaris/ui";
+import { SymbolResults } from "./SymbolSearch.tsx";
 
 // Another DOM test file may have unregistered happy-dom already.
 beforeAll(() => {
@@ -146,24 +147,28 @@ describe("the workspace symbol search", () => {
   test("asks as you type and opens the chosen symbol", async () => {
     const seen: string[] = [];
     openSymbolSearch("file");
+    // The dialog's portal is the jump menu's; its results are what this file adds.
     render(
-      <SymbolSearch
-        queries={queries(
-          [
-            {
-              label: "LanguageQueries",
-              detail: "TypeScript · bundled",
-              uri: "file:///code/polaris/queries.ts",
-              range: { start: { line: 63, character: 0 }, end: { line: 63, character: 5 } },
-            },
-          ],
-          seen
-        )}
-      />
+      <Command shouldFilter={false}>
+        <SymbolResults
+          fileKey="file"
+          queries={queries(
+            [
+              {
+                label: "LanguageQueries",
+                detail: "TypeScript · bundled",
+                uri: "file:///code/polaris/queries.ts",
+                range: { start: { line: 63, character: 0 }, end: { line: 63, character: 5 } },
+              },
+            ],
+            seen
+          )}
+        />
+      </Command>
     );
 
-    expect(dom().getByText("Type a symbol's name")).toBeTruthy();
-    const input = dom().getByLabelText("Symbol name");
+    expect(await dom().findByText("Type a symbol's name")).toBeTruthy();
+    const input = dom().getByPlaceholderText("Go to symbol in workspace");
     act(() => input.focus());
     fireEvent.change(input, { target: { value: "Queries" } });
     fireEvent.keyUp(input, { key: "s" });
