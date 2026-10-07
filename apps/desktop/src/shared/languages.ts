@@ -52,6 +52,7 @@ const ExternalImageUrl = Schema.String.check(
 /** Opt-in tables for C1; current required request/subscription tables remain unchanged. */
 
 export const LanguageRequestInputs = {
+  "languages.host.state": onHost(Languages.GetLanguageHostState.payloadSchema.fields),
   "languages.identity.get": onHost({}),
   "languages.catalog": onHost(Languages.GetLanguageCatalog.payloadSchema.fields),
   "languages.availability": onHost(Languages.GetLanguageAvailability.payloadSchema.fields),
@@ -104,6 +105,7 @@ export const LanguageRequestInputs = {
 } as const;
 
 export const LanguageRequestOutputs = {
+  "languages.host.state": Languages.GetLanguageHostState.successSchema,
   "languages.identity.get": LanguageClientIdentity,
   "languages.catalog": Languages.GetLanguageCatalog.successSchema,
   "languages.availability": Languages.GetLanguageAvailability.successSchema,
@@ -144,6 +146,7 @@ export const LanguageRequestOutputs = {
 } as const;
 
 export const LanguageSubscriptionInputs = {
+  "languages.host.state.watch": onHost(Languages.WatchLanguageHostState.payloadSchema.fields),
   "languages.log.watch": onHost(Languages.WatchLanguageServerLog.payloadSchema.fields),
   "languages.context.watch": onHost(Languages.WatchLanguageContext.payloadSchema.fields),
   "languages.install.watch": onHost(Languages.WatchLanguageInstall.payloadSchema.fields),
@@ -151,6 +154,7 @@ export const LanguageSubscriptionInputs = {
 } as const;
 
 export const LanguageSubscriptionItems = {
+  "languages.host.state.watch": Languages.LanguageHostState,
   "languages.log.watch": Languages.LanguageServerLogEvent,
   "languages.context.watch": Languages.LanguageContextEvent,
   "languages.install.watch": Languages.LanguageInstallProgress,

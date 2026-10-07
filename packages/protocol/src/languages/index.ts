@@ -6,6 +6,8 @@ export * from "./settings.ts";
 
 export * from "./catalog.ts";
 
+export * from "./hostState.ts";
+
 export * from "./documents.ts";
 
 export * from "./edits.ts";

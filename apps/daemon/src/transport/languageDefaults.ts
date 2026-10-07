@@ -15,6 +15,8 @@ const feed = () => Stream.fail(unavailable());
 /** Typed defaults mount no services, processes or capabilities; real handler layers override them. */
 export const languageDefaults = {
   "languages.catalog": request,
+  "languages.host.state": request,
+  "languages.host.state.watch": feed,
   "languages.availability": request,
   "languages.availability.watch": feed,
   "languages.install": request,

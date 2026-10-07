@@ -157,7 +157,7 @@ function makeCore(
       const ids =
         input.settings.settings.providers ??
         catalog.integrations
-          .filter((item) => item.languageIds.includes(input.documentLanguageId))
+          .filter((item) => item.offered && item.languageIds.includes(input.documentLanguageId))
           .flatMap((item) => item.providers.map((provider) => provider.id));
 
       const facts = [];

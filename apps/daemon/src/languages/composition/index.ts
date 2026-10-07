@@ -2,6 +2,7 @@ import type { HostId } from "@polaris/protocol";
 import { Effect, Layer, Stream } from "effect";
 import { ServerRpcs } from "../../transport/rpcs.ts";
 import { LanguageInstallCore } from "./install.ts";
+import { LanguageHostStateCore } from "./hostState.ts";
 import { LanguageCore } from "./core.ts";
 
 export { LanguageCore } from "./core.ts";
@@ -18,6 +19,12 @@ export { requestAuthority } from "./authority.ts";
 /** Core, owned installer demands and verified preparation; mutation receipts and capabilities stay separate. */
 export const languageCoreHandlers = (hostId: HostId) =>
   Layer.mergeAll(
+    ServerRpcs.toLayerHandler("languages.host.state", (input) =>
+      Effect.flatMap(LanguageHostStateCore, (core) => core.read(input))
+    ),
+    ServerRpcs.toLayerHandler("languages.host.state.watch", (input) =>
+      Stream.unwrap(Effect.map(LanguageHostStateCore, (core) => core.watch(input)))
+    ),
     ServerRpcs.toLayerHandler("languages.install", (input) =>
       Effect.flatMap(LanguageInstallCore, (core) => core.start(input))
     ),

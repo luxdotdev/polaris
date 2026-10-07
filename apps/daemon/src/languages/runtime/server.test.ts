@@ -87,7 +87,7 @@ function fixture(
   };
 }
 
-test("raw output reaches only the live log hook after the redacted event limit", async () => {
+test("raw output reaches the live log hook without placeholder context events", async () => {
   const texts: string[] = [];
 
   const f = fixture({ log: (_source, _level, text) => texts.push(text) });
@@ -110,7 +110,7 @@ test("raw output reaches only the live log hook after the redacted event limit",
     await Bun.sleep(0);
     expect(texts).toHaveLength(71);
     expect(texts.at(-1)).toBe("private-show-output");
-    expect(f.events.filter(Schema.is(LanguageContextEvent.cases.Log))).toHaveLength(64);
+    expect(f.events.filter(Schema.is(LanguageContextEvent.cases.Log))).toHaveLength(0);
     expect(JSON.stringify(f.events)).not.toContain("private-output");
     expect(JSON.stringify(f.events)).not.toContain("private-show-output");
   } finally {

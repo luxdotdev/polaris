@@ -650,3 +650,23 @@ proves this with the actual Broker/scripted provider. `Verify.phase` distinguish
 original preview validation from continued durable-group verification during X2-owned
 moves. Both phases pin the same Client group revision; exact disk ownership remains
 with the existing journal model.
+
+
+### Host language installation snapshots
+
+`language-host-state.qnt` specifies `languages.host.state.watch`: full snapshots
+of the Daemon's existing Host installer, coalesced to one pending snapshot per
+subscriber. Subscribe sends current state, installer changes replace pending
+state, and Consume/Close clear it. Two Hosts establish isolation; no event-store
+commit, cursor or durable replay is added. `apps/daemon/src/languages/install/hostState.ts`
+implements this projection; `composition/hostState.ts` checks the current
+connection and closes feeds on disconnection. Reads need neither checkout nor
+Trust and never affect execution admission.
+
+`apps/daemon/src/verification/hostState.test.ts` compares 2,000 installer/feed
+steps against the projection and records/replays a real installer fixture via
+`packages/spec/scripts/host-state/`. Write a fresh trace with
+`POLARIS_HOST_STATE_TRACE=/private/tmp/host-state.trace.json bun test apps/daemon/src/verification/hostState.test.ts`,
+then replay it with `bun packages/spec/scripts/replay-host-state.ts /private/tmp/host-state.trace.json`.
+These fixtures verify protocol and installer behavior; they do not certify
+upstream downloads, remote Hosts or renderer consumption.

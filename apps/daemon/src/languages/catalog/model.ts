@@ -36,6 +36,15 @@ export const Requirement = Schema.Struct({
   version: Schema.String,
   detail: Schema.String,
   required: Schema.Boolean,
+  installCommands: Schema.optionalKey(
+    Schema.Array(
+      Schema.Struct({
+        platforms: Schema.Array(Platform),
+        label: Schema.String,
+        command: Schema.String,
+      })
+    )
+  ),
 });
 
 export type Requirement = typeof Requirement.Type;
@@ -94,6 +103,7 @@ export const Provider = Schema.Struct({
 
 export const Integration = Schema.Struct({
   id: Id,
+  offered: Schema.Boolean,
   languageIds: Schema.Array(Schema.String),
   patterns: Schema.Array(Schema.String),
   providers: Schema.Array(Provider),

@@ -81,3 +81,10 @@ service delegation and rejection behavior, not real accounts, remote Hosts,
 provider readiness, durable repository writes, or transport integration. The
 separate media socket supplemental tests cover that actual local socket/Blob
 composition. Shared J1 typed lint/compiler/full checks remain required.
+
+
+Host installation Settings use `LanguageHostStateCore` over the same
+`HostInstallation` used by managed delivery and runtime admission. Current
+connection checks replace checkout/Trust authority for these read-only routes.
+The connection lifetime owns one abort controller; each stream closes its
+subscriber when cancelled and the Host lifetime closes all subscribers.

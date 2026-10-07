@@ -70,6 +70,57 @@ const fake = (
   return { access, controller };
 };
 
+test("Host state read/feed needs no context and refuses another Host's facts", async () => {
+  const state = P.LanguageHostState.make({
+    hostId,
+    platform: { os: "darwin", arch: "arm64", libc: "none" },
+    tools: [],
+  });
+
+  const f = fake(
+    async () => state,
+    ["languages"],
+    async function* () {
+      yield state;
+    }
+  );
+
+  expect(await f.access.request("languages.host.state", { toolIds: [], refresh: true })).toEqual(
+    state
+  );
+  const controller = new AbortController();
+
+  const watch = f.access
+    .watch("languages.host.state.watch", { toolIds: [], refresh: true }, controller.signal)
+    [Symbol.asyncIterator]();
+
+  expect((await watch.next()).value).toEqual(state);
+  controller.abort();
+  await watch.return?.();
+  f.access.dispose();
+
+  const other = fake(
+    async () => state,
+    ["languages"],
+    async function* () {
+      yield { ...state, hostId: P.HostId.make("foreign-host") };
+    }
+  );
+
+  await rejected(
+    other.access
+      .watch(
+        "languages.host.state.watch",
+        { toolIds: [], refresh: false },
+        new AbortController().signal
+      )
+      [Symbol.asyncIterator]()
+      .next(),
+    { reason: "server-failed" }
+  );
+  other.access.dispose();
+});
+
 test("old and partial peers refuse unsupported methods without calling transport", async () => {
   let calls = 0;
 

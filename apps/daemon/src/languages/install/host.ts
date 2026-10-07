@@ -13,6 +13,7 @@ import {
 } from "./index.ts";
 import { descriptor, defaultLimits } from "./types.ts";
 import { createDemandObservations, type ObservationAdmission } from "./observations.ts";
+import { createHostToolStates } from "./hostState.ts";
 
 export type { ObservationAdmission } from "./observations.ts";
 
@@ -398,7 +399,16 @@ async function constructHost(options: HostInstallationOptions) {
     }
   }
 
+  const hostState = createHostToolStates({
+    hostId: options.hostId,
+    platform: options.platform,
+    tools: [...tools.values()].map((value) => value.tool),
+    installer,
+    lifetime: lifetime.signal,
+  });
+
   return {
+    hostState,
     hostId: options.hostId,
     inspect: (
       toolId: string,

@@ -10,7 +10,7 @@ through the edit coordinator; absent that callback, server applyEdit fails close
 A forwarded proposal still requires Client acceptance, followed by a generation-bound
 server response. The broker never writes a draft or resource edit to disk.
 
-`watchLog` exposes bounded server output separately from the redacted context
+`watchLog` exposes bounded server output separately from the context
 events. Each process generation retains at most 2,000 lines and 512 KiB of encoded
 line data in memory; lines truncate at 8 KiB. Subscribers get one atomic backlog and
 then live lines, with 16 subscribers and a 256-event/2 MiB queue limit. A slow
@@ -86,3 +86,8 @@ Each broker close remains bounded while teardown is pending. Permanently rejecte
 teardown remains tracked and rejects repeated close; it cannot become clean success.
 POSIX cleanup signals the owned process group; descendants that escape that group
 are outside that termination guarantee. Windows cleanup remains untested.
+
+
+Server logMessage/showMessage and stderr no longer emit placeholder context Log
+events. Genuine configuration-watcher warnings retain that variant; private
+server output remains in `languages.log.watch` only.

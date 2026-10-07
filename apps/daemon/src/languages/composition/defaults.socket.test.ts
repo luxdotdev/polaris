@@ -55,6 +55,34 @@ test("mounted Host core uses transport Host identity and refuses unapproved mana
 
         const catalog = yield* owned.client["languages.catalog"]({});
 
+        const hostState = yield* owned.client["languages.host.state"]({
+          toolIds: [],
+          refresh: true,
+        });
+
+        expect(hostState.hostId).toBe(reply.host.hostId);
+        expect(hostState.tools).toHaveLength(catalog.tools.length);
+
+        const state = hostState.tools.find(
+          (tool) => tool.toolId === "typescript-language-server"
+        )?.state;
+
+        expect(state !== undefined && Predicate.isTagged(state, "NotDownloaded")).toBe(true);
+        expect(
+          catalog.integrations
+            .filter((integration) => integration.offered)
+            .map((integration) => integration.id)
+        ).toEqual(["typescript"]);
+
+        const feed = yield* Stream.runCollect(
+          owned.client["languages.host.state.watch"]({
+            toolIds: ["typescript-language-server"],
+            refresh: false,
+          }).pipe(Stream.take(1))
+        );
+
+        expect(feed[0]?.tools.map((tool) => tool.toolId)).toEqual(["typescript-language-server"]);
+
         const shellcheck = catalog.tools.find((tool) => tool.id === "shellcheck");
 
         expect(shellcheck?.disposition).toBe("offered");
