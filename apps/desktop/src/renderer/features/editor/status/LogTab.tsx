@@ -4,11 +4,21 @@ import type { TabView } from "../runtime/hooks.ts";
 import { useTrustStatus } from "../trust/store.ts";
 import { LogView } from "./LogView.tsx";
 import type { LogTab } from "./logTabs.ts";
-import { runtimeKey, statusStore, useHostTools, useRuntimes } from "./store.ts";
+import {
+  runtimeKey,
+  statusStore,
+  useHostTools,
+  useRuntimes,
+  type ContextRuntime,
+} from "./store.ts";
+import { watchServerLog } from "./feed.ts";
+import { polaris } from "../../bridge.ts";
+import * as P from "@polaris/protocol";
+import { useEffect } from "react";
 import { useHostToolsWatch } from "./hooks.ts";
 import { fileKey } from "../model/drafts.ts";
 import { useStore } from "zustand";
-import { Predicate } from "effect";
+import { Predicate, Schema } from "effect";
 
 export const useLogTabViews = (tabs: readonly LogTab[]): TabView[] => {
   const hosts = useApp((s) => s.hosts);
@@ -49,6 +59,26 @@ const useScopeFile = (tab: LogTab) =>
     return null;
   });
 
+/** Follows the server's live log while it runs; a restart's new generation subscribes again. */
+const useLiveLog = (hostKey: string, runtime: ContextRuntime | undefined) => {
+  const live =
+    runtime !== undefined && Predicate.isTagged(runtime.runtime, "Ready")
+      ? JSON.stringify(runtime.context)
+      : null;
+
+  useEffect(() => {
+    const api = polaris().languages;
+
+    if (live === null || api === undefined) return;
+
+    return watchServerLog(
+      api,
+      hostKey,
+      Schema.decodeUnknownSync(Schema.fromJsonString(P.LanguageContextIdentity))(live)
+    );
+  }, [hostKey, live]);
+};
+
 export const LogTabBody = ({ tab }: { readonly tab: LogTab }) => {
   const { hostKey, providerId } = tab.scope;
   useHostToolsWatch(hostKey, true);
@@ -59,6 +89,7 @@ export const LogTabBody = ({ tab }: { readonly tab: LogTab }) => {
   const file = found === null ? null : { key, contextId };
   const trust = useTrustStatus(file?.key ?? fileKey(hostKey, ""));
   const runtime = file === null ? undefined : runtimes[runtimeKey(hostKey, file.contextId)];
+  useLiveLog(hostKey, runtime);
   const fact = tools?.availability[providerId];
   const version = fact === undefined ? null : fact.pinnedVersion;
   const typescript = tools?.availability.typescript?.pinnedVersion ?? null;

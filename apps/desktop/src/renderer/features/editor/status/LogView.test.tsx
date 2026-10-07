@@ -5,7 +5,8 @@ import { afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:te
 import * as P from "@polaris/protocol";
 import { workspaceKey } from "../model/drafts.ts";
 import { editorStore } from "../runtime/store.ts";
-import { contextObserved } from "./feed.ts";
+import { contextObserved, watchServerLog } from "./feed.ts";
+import type { LanguageApi } from "../../../../shared/api.ts";
 import { checkout, context, HOST, running, runtimes, workspaceId } from "./fixtures.testing.ts";
 import { appendLogLines, appendStderr, LOG_LIMIT, logKey, logStore, type LogScope } from "./log.ts";
 import { copyText, matchParts, visibleLines } from "./logModel.ts";
@@ -51,30 +52,75 @@ describe("the log store", () => {
     ]);
   });
 
-  test("context events become lines: Log events and a crash's stderr", () => {
-    contextObserved(
-      HOST,
-      P.LanguageContextEvent.cases.Log.make({
-        context: context(),
-        level: "warning",
-        message: "Language server wrote stderr; private output withheld",
-      })
-    );
+  test("the live feed: backlog then lines, each once, across a restart; crash stderr after", () => {
+    const listeners: ((items: readonly object[]) => void)[] = [];
+    const subscribed: object[] = [];
+
+    const api: LanguageApi = {
+      request: async () => ({ ok: false, error: { code: "unused", message: "unused" } }),
+      subscribe: (_kind, input, listener) => {
+        subscribed.push(input);
+        // SAFETY: this test only subscribes to languages.log.watch, whose items it builds.
+        listeners.push(listener.items as (items: readonly object[]) => void);
+
+        return () => undefined;
+      },
+    };
+
+    const line = (sequence: number, text: string, level: "info" | "error" = "info") => ({
+      sequence,
+      time: at,
+      level,
+      source: "logMessage" as const,
+      text,
+    });
+
+    const first = context(1);
+    watchServerLog(api, HOST, first);
+    listeners[0]?.([
+      P.LanguageServerLogEvent.cases.Snapshot.make({
+        context: first,
+        lines: [line(1, "Starting"), line(2, "Project loaded")],
+      }),
+    ]);
+    listeners[0]?.([
+      P.LanguageServerLogEvent.cases.Line.make({ context: first, line: line(3, "didOpen") }),
+    ]);
+
+    // Subscribing again to the same generation repeats its backlog; nothing doubles.
+    watchServerLog(api, HOST, first);
+    listeners[1]?.([
+      P.LanguageServerLogEvent.cases.Snapshot.make({
+        context: first,
+        lines: [line(1, "Starting"), line(2, "Project loaded"), line(3, "didOpen")],
+      }),
+    ]);
+
+    const second = context(2);
+    watchServerLog(api, HOST, second);
+    listeners[2]?.([
+      P.LanguageServerLogEvent.cases.Snapshot.make({
+        context: second,
+        lines: [line(1, "Restarted")],
+      }),
+    ]);
     contextObserved(
       HOST,
       P.LanguageContextEvent.cases.RuntimeChanged.make({
-        context: context(),
+        context: second,
         runtime: runtimes.crashed("boom"),
       })
     );
 
+    expect(subscribed[0]).toEqual({ hostKey: HOST, context: first });
     expect(
-      logStore
-        .getState()
-        .logs[logKey(scope)]?.lines.map((line) => [line.level, line.text, line.origin])
+      logStore.getState().logs[logKey(scope)]?.lines.map((value) => [value.text, value.origin])
     ).toEqual([
-      ["warning", "Language server wrote stderr; private output withheld", "event"],
-      ["error", "boom", "stderr"],
+      ["Starting", "feed"],
+      ["Project loaded", "feed"],
+      ["didOpen", "feed"],
+      ["Restarted", "feed"],
+      ["boom", "stderr"],
     ]);
     expect(running(runtimes.ready).context.providerId).toBe(scope.providerId);
   });

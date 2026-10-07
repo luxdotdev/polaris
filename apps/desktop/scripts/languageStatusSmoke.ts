@@ -114,6 +114,17 @@ const closePopover = async (page: Page) => {
   await page.getByTestId("language-popover").waitFor({ state: "detached", timeout: 5_000 });
 };
 
+const logLines = (page: Page) =>
+  page.getByTestId("language-log").getByRole("listitem").allTextContents();
+
+const showLog = async (page: Page) => {
+  await openPopover(page);
+  await page.getByRole("menuitem", { name: "Show language server log" }).click();
+  await page.getByTestId("language-log").waitFor({ timeout: 10_000 });
+};
+
+const fileTab = (page: Page) => page.getByTestId("editor-tab").filter({ hasText: name }).click();
+
 /** The managed TypeScript server this profile's Daemon runs: Polaris's private Node with tsls. */
 const serverPids = () => {
   try {
@@ -165,7 +176,23 @@ try {
   console.log(`Ready: ${await pill(page).textContent()}`);
   assert.equal(await pill(page).textContent(), "TypeScript · bundled");
   await everyLook(page, "bundled", () => openPopover(page));
-  await closePopover(page);
+
+  // The log tab shows the server's own lines from the Daemon's live feed.
+  await showLog(page);
+  assert.equal(
+    await page.getByRole("tab", { selected: true }).getByText("TypeScript log").count(),
+    1
+  );
+  await until(
+    "server log lines",
+    async () => (await logLines(page)).some((line) => !line.includes("withheld")),
+    async () => (await logLines(page)).join("\n"),
+    30_000
+  );
+  const before = await logLines(page);
+  console.log(`Live log: ${before.length} lines, e.g. ${before[0]}`);
+  await everyLook(page, "log");
+  await fileTab(page);
 
   // 2. Kill the server three times: the Daemon restarts it twice, then stops it.
   for (let kill = 1; kill <= 3; kill++) {
@@ -207,21 +234,15 @@ try {
   await everyLook(page, "stopped", () => openPopover(page));
   console.log("Three kills: pill reads stopped, popover offers Restart and Show log");
 
-  // 3. Show log opens the log tab, with the lines this Client saw.
-  await openPopover(page);
-  await page.getByRole("menuitem", { name: "Show language server log" }).click();
-  await page.getByTestId("language-log").waitFor({ timeout: 10_000 });
-  assert.equal(
-    await page.getByRole("tab", { selected: true }).getByText("TypeScript log").count(),
-    1
-  );
-  await everyLook(page, "log");
-  console.log(
-    `Log tab: ${await page.getByTestId("language-log").getByRole("toolbar").textContent()}`
-  );
+  // 3. The log keeps what the server said, and the stopped server's stderr if it wrote any.
+  await closePopover(page);
+  await showLog(page);
+  const stoppedLines = await logLines(page);
+  assert.ok(stoppedLines.length >= before.length, "Lines stay after the server stops");
+  await shot(page, "log-stopped-dark.png");
+  await fileTab(page);
 
   // Back to the file, then Restart recovers.
-  await page.getByTestId("editor-tab").filter({ hasText: name }).click();
   await openPopover(page);
   await page.getByRole("menuitem", { name: "Restart TypeScript server" }).click();
   await until(
@@ -234,10 +255,23 @@ try {
   await shot(page, "restarted-dark.png");
   console.log(`Restart recovered: ${await pill(page).textContent()}`);
 
+  // The restarted server's new generation feeds the same tab.
+  await showLog(page);
+  await until(
+    "lines from the restarted server",
+    async () => (await logLines(page)).length > stoppedLines.length,
+    async () => (await logLines(page)).join("\n"),
+    30_000
+  );
+  console.log(`After restart: ${(await logLines(page)).length} lines`);
+  await shot(page, "log-restarted-light.png");
+  await fileTab(page);
+
   // 4. Settings → Editor → Languages lists the Host's integrations.
   await page.keyboard.press("Meta+,");
   await page.getByRole("button", { name: "Editor" }).first().click();
   await page.getByText("What each language has on the host you pick.").waitFor({ timeout: 15_000 });
+  await shot(page, "settings-loading-dark.png");
   await page.getByText("TypeScript and JavaScript").first().waitFor({ timeout: 30_000 });
   await everyLook(page, "settings");
   console.log("Settings → Editor → Languages lists TypeScript and JavaScript");

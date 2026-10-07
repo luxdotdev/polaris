@@ -7,7 +7,7 @@ import * as P from "@polaris/protocol";
 import { Match, Option, Predicate, Schema } from "effect";
 import type { LanguageApi } from "../../../../shared/api.ts";
 import { LanguageSubscriptionItems } from "../../../../shared/languages.ts";
-import { appendLogLines, appendStderr, type LogScope } from "./log.ts";
+import { appendFeed, appendStderr, type LogScope } from "./log.ts";
 import { availabilityArrived, progressArrived, runtimeArrived, type Runtime } from "./store.ts";
 
 export const scopeOf = (hostKey: string, context: P.LanguageContextIdentity): LogScope => ({
@@ -29,11 +29,6 @@ export const contextObserved = (hostKey: string, event: P.LanguageContextEvent) 
       runtimeObserved(hostKey, value.context, value.runtime)
     ),
     Match.tag("Replaced", (value) => runtimeObserved(hostKey, value.replacement, value.runtime)),
-    Match.tag("Log", (value) =>
-      appendLogLines(scopeOf(hostKey, value.context), [
-        { at: Date.now(), level: value.level, text: value.message, origin: "event" },
-      ])
-    ),
     Match.orElse(() => undefined)
   );
 
@@ -146,4 +141,36 @@ export const watchHostTools = (api: LanguageApi, hostKey: string) => {
     jobs.forEach((dispose) => dispose());
     jobs.clear();
   };
+};
+
+/**
+ * The Daemon's live log for one server generation (`languages.log.watch`): its backlog, then
+ * each line. The feed ends with the generation; the caller subscribes again with the replacement.
+ */
+export const watchServerLog = (
+  api: LanguageApi,
+  hostKey: string,
+  context: P.LanguageContextIdentity
+) => {
+  const scope = scopeOf(hostKey, context);
+  const cursor = { contextId: context.contextId, generation: context.generation };
+
+  return api.subscribe(
+    "languages.log.watch",
+    { hostKey, context },
+    {
+      items: (items) => {
+        for (const item of items) {
+          const event = Schema.decodeUnknownSync(P.LanguageServerLogEvent)(item);
+
+          Match.value(event).pipe(
+            Match.tag("Snapshot", (value) => appendFeed(scope, cursor, value.lines)),
+            Match.tag("Line", (value) => appendFeed(scope, cursor, [value.line])),
+            Match.exhaustive
+          );
+        }
+      },
+      end: () => undefined,
+    }
+  );
 };
