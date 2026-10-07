@@ -3,14 +3,24 @@ import { Match, Option, Schema } from "effect";
 import type { Diagnostic } from "@codemirror/lint";
 import { offsetAt } from "./position.ts";
 import { LanguageRequests, providerFence } from "./requests.ts";
-import type { LanguageProvider } from "./types.ts";
+import type { LanguageBuffer, LanguageProvider } from "./types.ts";
 
 export interface ProviderDiagnostics {
   readonly provider: LanguageProvider;
   readonly diagnostics: P.LanguageDiagnostics;
+  /** For an unversioned set: the buffer version the provider had acknowledged when it arrived. */
+  readonly at?: number;
 }
 
-/** Provider sets replace independently. Unversioned data is exposed but never painted as current. */
+const acknowledged = (provider: LanguageProvider, buffer: LanguageBuffer) =>
+  provider.ack.documents.some(
+    (document) => document.uri === buffer.uri && document.version === buffer.version
+  );
+
+/**
+ * Provider sets replace independently. An unversioned push paints only for the buffer version
+ * acknowledged when it arrived (ADR-0021); last-known data never paints as current.
+ */
 export class LanguageDiagnosticFeed {
   private readonly sets = new Map<string, ProviderDiagnostics>();
   private stops: (() => void)[] = [];
@@ -116,6 +126,9 @@ export class LanguageDiagnosticFeed {
           items: previous.items,
         }),
       });
+    } else if (diagnostics.freshness === "unversioned") {
+      if (!acknowledged(provider, buffer)) return;
+      this.sets.set(provider.context.contextId, { provider, diagnostics, at: buffer.version });
     } else this.sets.set(provider.context.contextId, { provider, diagnostics });
     this.changed(this.values());
   }
@@ -131,7 +144,8 @@ export class LanguageDiagnosticFeed {
 
         return value &&
           this.requests.current(value.provider, buffer) &&
-          (value.diagnostics.version === null || value.diagnostics.version === buffer.version)
+          (value.diagnostics.version === null || value.diagnostics.version === buffer.version) &&
+          (value.at === undefined || value.at === buffer.version)
           ? [value]
           : [];
       });
@@ -153,19 +167,20 @@ export class LanguageDiagnosticFeed {
 
 export const cmDiagnostics = (
   requests: LanguageRequests,
-  values: readonly ProviderDiagnostics[]
+  values: readonly ProviderDiagnostics[],
+  label: (provider: LanguageProvider) => string = (provider) => provider.context.providerId
 ): Diagnostic[] => {
   const buffer = requests.options.buffer();
   const seen = new Set<string>();
 
   return values
-    .flatMap(({ provider, diagnostics }) => {
-      if (
-        diagnostics.freshness !== "versioned" ||
-        diagnostics.version !== buffer.version ||
-        !requests.current(provider, buffer)
-      )
-        return [];
+    .flatMap(({ provider, diagnostics, at }) => {
+      const current =
+        diagnostics.freshness === "versioned"
+          ? diagnostics.version === buffer.version
+          : diagnostics.freshness === "unversioned" && at === buffer.version;
+
+      if (!current || !requests.current(provider, buffer)) return [];
 
       return diagnostics.items.flatMap((item): Diagnostic[] => {
         try {
@@ -193,7 +208,7 @@ export const cmDiagnostics = (
               to,
               severity,
               message: item.message,
-              source: `${provider.context.providerId}${item.source ? ` · ${item.source}` : ""}`,
+              source: `${label(provider)}${item.source ? ` · ${item.source}` : ""}`,
             },
           ];
         } catch {

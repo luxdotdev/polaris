@@ -97,8 +97,11 @@ alongside 1–2.
 |---|---|---|
 | 1 | Zero-config TypeScript on macOS, without Trust: managed install path on, upstream downloads, private Node, bundled TS, lazy subsystem | Open a TS file in this repo and a fresh repo; diagnostics, hover, definition, rename; `idle` bench at baseline |
 | 2 | Trust: popup, remembered choices, project TypeScript and TS 7 native server, tagged errors | First TS file raises the popup once; both answers persist across restarts; project TS in use after Trust |
+| 2b | Server lifecycle (§4): idle stop, crash backoff to a visible stop, restart on TypeScript or tsconfig change through the existing watcher | Kill the server three times and it stops with the failure shown; change tsconfig and diagnostics refresh without a manual restart; `idle` bench at baseline |
+| 2c | Opening another file in a checkout whose server is running reuses it: no re-discovery, re-acquire or tooling re-check (owner, 2026-10-07: opening a second TS file re-checked tooling and was slow) | Time-to-hover on a second file in the same checkout is under 200 ms in the real app; the log shows no second discovery |
 | 3 | Design: Mobbin research, Paper mockups of the pill, popup, language list and Command Palette | Owner signs off the mockups |
 | 4 | Build the designed UI and the Command Palette with the language commands; delete the old settings folder | The commands and states in section 6 work in the app |
+| 4b | Markdown: highlighting for headings, emphasis, links, inline code and fenced code in the moonlit theme, both themes; check the M3.1 source/preview pair still works (owner, 2026-10-07: highlighting missing) | Open README.md and DESIGN.md: each Markdown construct is styled; ⇧⌘V preview renders |
 | 5 | Python: basedpyright, Ruff, environment detection, select interpreter | Same four features in a uv project; "needs Python" on a Host without one |
 | 6 | Remote Host: slices 1, 2 and 5 on `lucas-rpi` | The same scripts on the Pi |
 | 7 | More languages: JSON/CSS/HTML, then SQL, Rust and the rest of the Stack Overflow survey top 10 | One script per language |

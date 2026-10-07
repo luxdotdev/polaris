@@ -65,3 +65,11 @@ export const stateWords = (state: ConnectionState): string | null =>
     Match.when("needs-attention", () => "needs attention"),
     Match.orElse(() => null)
   );
+
+/** A Host's name inside a sentence: the local default reads "this Mac"; given names stay as named. */
+export const hostInSentence = (host: HostView | undefined) =>
+  host === undefined
+    ? "this host"
+    : host.alias === null && host.label.toLowerCase() === "this mac"
+      ? "this Mac"
+      : host.label;

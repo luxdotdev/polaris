@@ -41,11 +41,14 @@ import {
 import { offerServerEdit } from "./serverEdits.ts";
 import { configurationItems } from "./serverConfiguration.ts";
 import { ownedProvider } from "./ownership.ts";
+import { providerLabel, trustDiscovered } from "../trust/store.ts";
+import { DiagnosticPull } from "./pull.ts";
 
 interface Entry {
   readonly input: EditorLanguageMount;
   readonly features: LanguageFeatures;
   readonly diagnostics: LanguageDiagnosticFeed;
+  readonly pull: DiagnosticPull;
   readonly compartment: Compartment;
   readonly read: () => LanguageBuffer;
   groups: EditorLanguageSession[];
@@ -138,6 +141,8 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
         }),
     });
 
+    const diagnostics = new LanguageDiagnosticFeed(features.requests, () => this.paint(entry));
+
     const entry: Entry = {
       input,
       features,
@@ -154,7 +159,8 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
       providerSignature: "",
       paintScheduled: false,
       disposed: false,
-      diagnostics: new LanguageDiagnosticFeed(features.requests, () => this.paint(entry)),
+      diagnostics,
+      pull: new DiagnosticPull(features, diagnostics),
     };
 
     this.entries.set(key, entry);
@@ -195,7 +201,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
               }),
             ],
           }),
-          hoverExtension(features),
+          hoverExtension(features, (provider) => providerLabel(key, provider.context.providerId)),
           signatureExtension(features),
           keymap.of([
             {
@@ -262,7 +268,12 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
         entry.input.view.dispatch(
           setDiagnostics(
             entry.input.view.state,
-            cmDiagnostics(entry.features.requests, entry.diagnostics.values())
+            cmDiagnostics(entry.features.requests, entry.diagnostics.values(), (provider) =>
+              providerLabel(
+                fileKey(entry.input.file.hostKey, entry.input.file.path),
+                provider.context.providerId
+              )
+            )
           )
         );
     });
@@ -270,6 +281,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
 
   private stopGroups(entry: Entry) {
     entry.features.invalidate();
+    entry.pull.stop();
     entry.diagnostics.clear();
     entry.unformat?.();
     entry.unformat = null;
@@ -430,6 +442,11 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
     const found = Schema.decodeUnknownSync(P.LanguageDiscovery)(discovery.value);
 
     if (!current() || JSON.stringify(found.checkout) !== JSON.stringify(checkout)) return;
+    trustDiscovered(
+      { hostKey: file.hostKey, checkout, path: file.path },
+      fileKey(file.hostKey, file.path),
+      found
+    );
     const catalog = await api.request("languages.catalog", { hostKey: file.hostKey });
 
     if (!current()) return;
@@ -595,6 +612,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
           if (signature !== entry.providerSignature) {
             entry.features.invalidate();
             entry.diagnostics.clear();
+            entry.pull.schedule();
             languagePatch(fileKey(file.hostKey, file.path), { rows: [], busy: false });
           }
 

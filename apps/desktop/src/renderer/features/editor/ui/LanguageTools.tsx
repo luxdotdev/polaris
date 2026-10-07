@@ -4,6 +4,7 @@ import { LANGUAGE_NAMES, LANGUAGES, type LanguageId } from "../model/language.ts
 import { fileKey } from "../model/drafts.ts";
 import { editorLanguages, editorLanguageQueries } from "../runtime/app.ts";
 import { useLanguage } from "../lsp/state.ts";
+import { useProviderLabels } from "../trust/store.ts";
 import type { LanguageCommand } from "../lsp/queries.ts";
 import { viewOf } from "../runtime/buffers.ts";
 
@@ -76,6 +77,7 @@ export const LanguageTools = ({
 }) => {
   const key = fileKey(hostKey, path);
   const state = useLanguage(key);
+  const labels = useProviderLabels(key, state?.providers ?? []);
   const [command, setCommand] = useState<LanguageCommand>("definition");
   const [query, setQuery] = useState("");
   const run = () => void editorLanguageQueries?.run(key, command, query);
@@ -127,9 +129,7 @@ export const LanguageTools = ({
           Back
         </Button>
         <span role="status" className="min-w-0 truncate">
-          {state?.status === "ready"
-            ? state.providers.join(" · ")
-            : (state?.fact ?? "Local syntax")}
+          {state?.status === "ready" ? labels.join(", ") : (state?.fact ?? "Local syntax")}
         </span>
       </div>
       {state?.panel === null || state === undefined ? null : (
