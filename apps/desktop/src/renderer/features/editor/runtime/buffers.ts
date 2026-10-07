@@ -642,6 +642,7 @@ const coordinator = (buffer: OpenBuffer) =>
           version: buffer.revision,
           diskVersion: model.version,
           reason,
+          indent: buffer.indent,
         };
       },
       current: (snapshot) => {

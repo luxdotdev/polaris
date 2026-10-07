@@ -6,6 +6,7 @@ import { polaris } from "../../bridge.ts";
 import type { EditorFile } from "../cm/extensions.ts";
 import { languageFor } from "../model/language.ts";
 import { showOpenFailure } from "../ui/toasts.ts";
+import type { Indent } from "../model/indent.ts";
 import type { FormatSettings, FormattingPort } from "./index.ts";
 
 type BoundPort = Pick<FormattingPort, "settings" | "format"> & {
@@ -44,6 +45,22 @@ export const explicitFormatter = (formatter: P.LanguageFormatterSelection, provi
   Predicate.isTagged(formatter, "None")
     ? P.LanguageFormatterSelection.cases.Provider.make({ providerId })
     : formatter;
+
+/** LSP formatting options from the file's own indentation; two spaces when it has none. */
+export const formattingOptions = (indent: Indent | null | undefined) => ({
+  tabSize: indent?.width ?? 2,
+  insertSpaces: !(indent?.tabs ?? false),
+});
+
+/** The preflight's formatter and options for one provider and the file's indentation. */
+export const formatterRequest = (
+  formatter: P.LanguageFormatterSelection,
+  providerId: string,
+  indent: Indent | null | undefined
+) => ({
+  formatter: explicitFormatter(formatter, providerId),
+  options: formattingOptions(indent),
+});
 
 /** Whether Format document can run for an open file now. */
 export const canFormatFile = (file: Pick<EditorFile, "hostKey" | "workspaceId" | "path">) =>

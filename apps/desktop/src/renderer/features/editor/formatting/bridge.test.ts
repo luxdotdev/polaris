@@ -8,7 +8,12 @@ import {
   type LanguageRequestInput,
 } from "../../../../shared/languages.ts";
 import { initialState } from "../../../store/store.ts";
-import { bindFormatter, createAppFormatting, readFormatSettings } from "./bridge.ts";
+import {
+  bindFormatter,
+  createAppFormatting,
+  formattingOptions,
+  readFormatSettings,
+} from "./bridge.ts";
 import { SaveCoordinator } from "./index.ts";
 
 const file = { hostKey: "fixture", workspaceId: "ws_fixture", path: "/fixture/main.ts" };
@@ -267,4 +272,10 @@ test("selected unbound provider fails explicitly; binding replacement cannot ser
   expect(await formatting.format(snapshot, formatter, signal)).toBe("two");
 
   removeNext();
+});
+
+test("formatting options follow the file's own indentation", () => {
+  expect(formattingOptions({ tabs: false, width: 2 })).toEqual({ tabSize: 2, insertSpaces: true });
+  expect(formattingOptions({ tabs: true, width: 4 })).toEqual({ tabSize: 4, insertSpaces: false });
+  expect(formattingOptions(null)).toEqual({ tabSize: 2, insertSpaces: true });
 });

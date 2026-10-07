@@ -2,6 +2,7 @@ import type { LanguageFormatterSelection, LanguageSaveReason } from "@polaris/pr
 import { Predicate } from "effect";
 import type { EditorFile } from "../cm/extensions.ts";
 import type { FileVersion } from "../model/buffer.ts";
+import type { Indent } from "../model/indent.ts";
 
 export type SaveReason = typeof LanguageSaveReason.Type;
 
@@ -16,6 +17,8 @@ export interface FormatSnapshot {
   readonly version: number;
   readonly diskVersion: FileVersion | null;
   readonly reason: SaveReason;
+  /** The file's own indentation (the status bar's "Spaces 2"), for the formatter's options. */
+  readonly indent?: Indent | null;
 }
 
 /** Bind ordered document sync, selected formatter and repository configuration here. */
