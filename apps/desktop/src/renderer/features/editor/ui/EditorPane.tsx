@@ -37,6 +37,7 @@ import { Compare } from "./Compare.tsx";
 import { FileNotice } from "./FileNotice.tsx";
 import { Tabs } from "./Tabs.tsx";
 import { LanguageTools } from "./LanguageTools.tsx";
+import { EditorTrust } from "../trust/TrustCard.tsx";
 
 export interface EditorPaneProps {
   readonly hostKey: string;
@@ -180,7 +181,15 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
       {mine !== null && theirs !== null && buffer !== null ? (
         <Compare mine={mine} theirs={theirs} language={buffer.language} />
       ) : null}
-      <div className={mine === null ? "flex min-h-0 flex-1 flex-col" : "hidden"}>
+      <div className={mine === null ? "relative flex min-h-0 flex-1 flex-col" : "hidden"}>
+        {rendered ? null : (
+          <EditorTrust
+            hostKey={hostKey}
+            workspaceId={workspaceId}
+            path={active}
+            hostLabel={hostLabel}
+          />
+        )}
         {ready ? null : (
           <FileNotice
             buffer={buffer}

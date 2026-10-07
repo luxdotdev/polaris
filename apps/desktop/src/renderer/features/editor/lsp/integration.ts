@@ -41,6 +41,7 @@ import {
 import { offerServerEdit } from "./serverEdits.ts";
 import { configurationItems } from "./serverConfiguration.ts";
 import { ownedProvider } from "./ownership.ts";
+import { trustDiscovered } from "../trust/store.ts";
 
 interface Entry {
   readonly input: EditorLanguageMount;
@@ -430,6 +431,11 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
     const found = Schema.decodeUnknownSync(P.LanguageDiscovery)(discovery.value);
 
     if (!current() || JSON.stringify(found.checkout) !== JSON.stringify(checkout)) return;
+    trustDiscovered(
+      { hostKey: file.hostKey, checkout, path: file.path },
+      fileKey(file.hostKey, file.path),
+      found
+    );
     const catalog = await api.request("languages.catalog", { hostKey: file.hostKey });
 
     if (!current()) return;
