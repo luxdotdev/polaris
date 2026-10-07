@@ -11,7 +11,8 @@ import type * as P from "@polaris/protocol";
 import { Predicate } from "effect";
 import { LanguageDiagnosticFeed, cmDiagnostics } from "./diagnostics.ts";
 import { LanguageFeatures } from "./features.ts";
-import { completionItems, markupText, type CompletionItem } from "./payloads.ts";
+import { mountHover, loadHoverRenderer } from "./hoverContent.tsx";
+import { completionItems, hoverParts, markupText, type CompletionItem } from "./payloads.ts";
 import { offsetAt } from "./position.ts";
 import type { LanguageBuffer, LanguageProvider } from "./types.ts";
 
@@ -194,7 +195,7 @@ export const completionSource =
     return options.length ? { from, to: context.pos, options } : null;
   };
 
-/** Host-supplied content is rendered as text; E1 can replace rendering with the sanitized UI layer. */
+/** Markdown hovers render sanitized (`hoverContent.tsx`); the first hover waits for that chunk. */
 export const hoverExtension = (
   features: LanguageFeatures,
   label: (provider: LanguageProvider) => string = (provider) => provider.context.providerId
@@ -202,9 +203,14 @@ export const hoverExtension = (
   hoverTooltip(
     async (view, position) => {
       if (view.state.doc !== features.options.buffer().doc) return null;
-      const answers = await features.hover(position);
+      const [answers] = await Promise.all([features.hover(position), loadHoverRenderer()]);
 
       if (!answers.length || view.state.doc !== features.options.buffer().doc) return null;
+
+      const sections = answers.map(({ provider, payload }) => ({
+        label: label(provider),
+        parts: hoverParts(payload.contents),
+      }));
 
       return {
         pos: position,
@@ -212,17 +218,7 @@ export const hoverExtension = (
           const dom = document.createElement("div");
           dom.setAttribute("role", "tooltip");
 
-          for (const { provider, payload } of answers) {
-            const section = dom.appendChild(document.createElement("div"));
-
-            const content = !(Predicate.isString(payload.contents) || "value" in payload.contents)
-              ? payload.contents.map(markupText).join("\n")
-              : markupText(payload.contents);
-
-            section.textContent = `${label(provider)}\n${content}`;
-          }
-
-          return { dom };
+          return { dom, ...mountHover(dom, sections) };
         },
       };
     },
