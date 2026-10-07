@@ -7,6 +7,8 @@ import { fileKey } from "../model/drafts.ts";
 import { openFile, type EditorFile } from "../api.ts";
 import { viewOf, whenLoaded, revealLine } from "../runtime/buffers.ts";
 import * as Payload from "./payloads.ts";
+import { pulledDiagnostics } from "./pull.ts";
+import { providerLabel } from "../trust/store.ts";
 
 export type LanguageCommand =
   | "definition"
@@ -37,13 +39,22 @@ export const locationPath = (uri: string, root: string): string | null => {
 
 type Location = typeof Payload.Location.Type | typeof Payload.LocationLink.Type;
 
-const rowOf = (location: Location, provider: LanguageProvider, label?: string): LanguageRow => {
+/** The provider as the language status names it (trust/model.ts providerName). */
+const named = (key: string, provider: LanguageProvider) =>
+  providerLabel(key, provider.context.providerId);
+
+const rowOf = (
+  location: Location,
+  provider: LanguageProvider,
+  name: string,
+  label?: string
+): LanguageRow => {
   const uri = "targetUri" in location ? location.targetUri : location.uri;
   const range = "targetUri" in location ? location.targetSelectionRange : location.range;
 
   return {
     label: label ?? `${decodeURI(uri.split("/").pop() ?? uri)}:${range.start.line + 1}`,
-    detail: provider.context.providerId,
+    detail: name,
     uri,
     range,
     encoding: provider.capabilities.positionEncoding,
@@ -161,7 +172,9 @@ export class LanguageQueries {
           : await features.navigation(`textDocument/${command}`, head, signal);
 
       rows = answers.flatMap(({ provider, payload }) =>
-        ("uri" in payload ? [payload] : payload).map((location) => rowOf(location, provider))
+        ("uri" in payload ? [payload] : payload).map((location) =>
+          rowOf(location, provider, named(key, provider))
+        )
       );
     } else if (command === "symbols") {
       rows = await this.symbolRows(entry, signal);
@@ -170,7 +183,7 @@ export class LanguageQueries {
       rows = answers.flatMap(({ provider, payload }) =>
         payload.map((symbol): LanguageRow => ({
           label: symbol.name,
-          detail: provider.context.providerId,
+          detail: named(key, provider),
           uri: symbol.location.uri,
           ...(symbol.location.range
             ? { range: symbol.location.range, encoding: provider.capabilities.positionEncoding }
@@ -182,7 +195,7 @@ export class LanguageQueries {
       rows = answers.flatMap(({ provider, payload }) =>
         payload.signatures.map((signature) => ({
           label: signature.label,
-          detail: `${provider.context.providerId} · Parameter ${(signature.activeParameter ?? payload.activeParameter ?? 0) + 1}`,
+          detail: `${named(key, provider)} · Parameter ${(signature.activeParameter ?? payload.activeParameter ?? 0) + 1}`,
         }))
       );
     } else if (command === "problems") {
@@ -190,7 +203,7 @@ export class LanguageQueries {
       rows = entry.diagnostics.values().flatMap(({ provider, diagnostics }) =>
         diagnostics.items.map((item) => ({
           label: item.message,
-          detail: `${provider.context.providerId} · ${diagnostics.freshness}${diagnostics.truncated ? " · truncated" : ""}`,
+          detail: `${named(key, provider)} · ${diagnostics.freshness}${diagnostics.truncated ? " · truncated" : ""}`,
           uri: diagnostics.uri,
           range: item.range,
           encoding: provider.capabilities.positionEncoding,
@@ -208,7 +221,7 @@ export class LanguageQueries {
           : [
               {
                 label: `Rename to ${query}`,
-                detail: `${provider.context.providerId} · Requires edit acceptance`,
+                detail: `${named(key, provider)} · Requires edit acceptance`,
                 run: () =>
                   void this.coordinator.prepareEdit(
                     key,
@@ -228,8 +241,7 @@ export class LanguageQueries {
       rows = answers.flatMap(({ provider, request, value, payload }) =>
         payload.map((action) => ({
           label: action.title,
-          detail:
-            action.disabled?.reason ?? `${provider.context.providerId} · Requires edit acceptance`,
+          detail: action.disabled?.reason ?? `${named(key, provider)} · Requires edit acceptance`,
           run: () => void this.coordinator.action(key, provider, action, request, value),
         }))
       );
@@ -242,6 +254,7 @@ export class LanguageQueries {
     entry: NonNullable<ReturnType<EditorLanguageCoordinator["get"]>>,
     signal: AbortSignal
   ): Promise<LanguageRow[]> {
+    const key = fileKey(entry.input.file.hostKey, entry.input.file.path);
     const features = entry.features;
     const buffer = entry.read();
     const rows: LanguageRow[] = [];
@@ -255,10 +268,18 @@ export class LanguageQueries {
 
         if (symbol === undefined) continue;
 
-        if ("location" in symbol) rows.push(rowOf(symbol.location, answer.provider, symbol.name));
+        if ("location" in symbol)
+          rows.push(
+            rowOf(symbol.location, answer.provider, named(key, answer.provider), symbol.name)
+          );
         else {
           rows.push(
-            rowOf({ uri: buffer.uri, range: symbol.selectionRange }, answer.provider, symbol.name)
+            rowOf(
+              { uri: buffer.uri, range: symbol.selectionRange },
+              answer.provider,
+              named(key, answer.provider),
+              symbol.name
+            )
           );
           stack.push(...[...(symbol.children ?? [])].reverse());
         }
@@ -281,7 +302,11 @@ export class LanguageQueries {
     const resolved =
       answers[0] && Payload.decodePayload(Payload.SymbolInformation, answers[0].value.result);
 
-    if (resolved) await this.navigate(key, rowOf(resolved.location, provider, resolved.name));
+    if (resolved)
+      await this.navigate(
+        key,
+        rowOf(resolved.location, provider, named(key, provider), resolved.name)
+      );
   }
 
   private async pullProblems(key: string, signal: AbortSignal) {
@@ -298,28 +323,7 @@ export class LanguageQueries {
       if (resultId !== null) this.previousIds.set(provider.context.contextId, resultId);
       entry.diagnostics.receive(
         provider,
-        P.LanguageDiagnostics.make({
-          context: provider.context,
-          uri: buffer.uri,
-          providerId: provider.context.providerId,
-          generation: provider.context.generation,
-          version: buffer.version,
-          freshness: "versioned",
-          kind: payload.kind,
-          resultId,
-          previousResultId,
-          items:
-            payload.kind === "full"
-              ? payload.items.map((item) => ({
-                  ...item,
-                  severity: item.severity ?? null,
-                  code: item.code ?? null,
-                  source: item.source ?? null,
-                  tags: item.tags ?? [],
-                }))
-              : [],
-          truncated: false,
-        })
+        pulledDiagnostics(provider, buffer, payload, previousResultId)
       );
     }
   }

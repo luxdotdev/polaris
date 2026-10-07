@@ -25,6 +25,7 @@ export interface DiscoveryInput {
   providerId: string;
   settings: typeof LanguageEffectiveSettings.Type;
   refresh?: boolean;
+  useProjectTypeScript?: boolean;
 }
 
 const family = (provider: string) =>
@@ -63,7 +64,7 @@ async function sdkFacts(
     const tsserver =
       provider === "typescript" ? await overridePath(root, resolve(sdk, "lib/tsserver.js")) : null;
 
-    return { sdk, tsserver, sdkVersion: null };
+    return { sdk, tsserver, nativeServer: null, sdkVersion: null };
   }
 
   const detected = provider === "typescript" ? await typescriptSdk(root, project) : null;
@@ -72,6 +73,7 @@ async function sdkFacts(
     sdk: detected?.sdk ?? null,
     tsserver: detected?.server ?? null,
     sdkVersion: detected?.version ?? null,
+    nativeServer: detected?.nativeServer ?? null,
   };
 }
 
@@ -101,11 +103,20 @@ async function discover(
   context: Awaited<ReturnType<typeof canonicalCheckout>>,
   path: string,
   input: DiscoveryInput,
-  platform: NodeJS.Platform
+  platform: NodeJS.Platform,
+  bundled: boolean
 ) {
   const provider = family(input.providerId);
   const settings = Schema.decodeUnknownSync(LanguageEffectiveSettings)(input.settings);
   const custom = settings.settings.customServers?.find(({ id }) => id === input.providerId);
+
+  const bundledTypeScript =
+    bundled &&
+    provider === "typescript" &&
+    custom === undefined &&
+    settings.settings.executableOverrides?.[input.providerId] === undefined &&
+    input.useProjectTypeScript !== true;
+
   const start = (await isDirectory(path)) ? path : dirname(path);
 
   const root =
@@ -141,6 +152,7 @@ async function discover(
     checkout: context.checkout,
     projectRoot: root,
     providerId: input.providerId,
+    bundledTypeScript,
     configuration: provider === "typescript" ? configuration : null,
     ...(await sdkFacts(context.root, root, provider, settings.settings.sdk)),
     ...(await interpreterFacts(
@@ -189,6 +201,7 @@ export function createProjectDiscovery(options: {
   capacity?: number;
   maxPending?: number;
   platform?: NodeJS.Platform;
+  bundledTypeScript?: boolean;
 }) {
   const capacity = options.capacity ?? 128;
   const maxPending = options.maxPending ?? 8;
@@ -239,6 +252,7 @@ export function createProjectDiscovery(options: {
         path,
         input.providerId,
         input.settings,
+        input.useProjectTypeScript ?? false,
       ]);
 
       const cached = cache.get(key);
@@ -253,7 +267,13 @@ export function createProjectDiscovery(options: {
       remove(key);
 
       const observed = await withDiscoveryBudget(context.root, () =>
-        discover(context, path, input, options.platform ?? process.platform)
+        discover(
+          context,
+          path,
+          input,
+          options.platform ?? process.platform,
+          options.bundledTypeScript === true
+        )
       );
 
       const facts = { ...observed.value, configurationInputs: observed.configurationInputs };

@@ -62,6 +62,8 @@ test("server preparation reads canonical closed snapshots and rejects replaced i
     });
 
     const trust: ExecutionTrustService["Service"] = {
+      change: () => Effect.die("Not used"),
+      claimAsk: () => false,
       require: () => Effect.succeed(canonical),
       inspect: () => Effect.die("unused"),
       set: () => Effect.die("unused"),

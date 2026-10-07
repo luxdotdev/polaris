@@ -37,6 +37,13 @@ export interface MainLanguageOptions {
 const failure = {
   code: "LanguageError",
   message: "Language connection unavailable",
+  languageError: Schema.encodeSync(P.LanguageError)(
+    new P.LanguageError({
+      reason: "not-connected",
+      message: "Language connection unavailable",
+      retryable: true,
+    })
+  ),
 };
 
 const unavailable = () =>

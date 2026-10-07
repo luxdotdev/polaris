@@ -1,3 +1,4 @@
+import { deferredSchema } from "./deferred.ts";
 import { Schema } from "effect";
 import { HostId, ReviewCheckoutId, WorkspaceId } from "../ids.ts";
 import {
@@ -56,16 +57,18 @@ export const LanguageAssociation = Schema.Struct({
   patterns: Schema.optionalKey(Schema.Array(LanguagePath).check(Schema.isMaxLength(256))),
 });
 
-export const LanguageSettingsScope = Schema.TaggedUnion({
-  App: {},
-  Language: { language: LanguageSyntaxId },
-  Host: { hostId: HostId },
-  Workspace: {
-    hostId: HostId,
-    workspaceId: WorkspaceId,
-    language: Schema.NullOr(LanguageSyntaxId),
-  },
-});
+export const LanguageSettingsScope = deferredSchema(() =>
+  Schema.TaggedUnion({
+    App: {},
+    Language: { language: LanguageSyntaxId },
+    Host: { hostId: HostId },
+    Workspace: {
+      hostId: HostId,
+      workspaceId: WorkspaceId,
+      language: Schema.NullOr(LanguageSyntaxId),
+    },
+  })
+);
 
 export type LanguageSettingsScope = typeof LanguageSettingsScope.Type;
 
@@ -88,19 +91,22 @@ export const LanguageCustomServer = Schema.Struct({
   settings: LanguageJsonObject,
 });
 
-export const LanguageFormatterSelection = Schema.TaggedUnion({
-  None: {},
-  Provider: { providerId: LanguageKey },
-  Executable: {
-    id: LanguageKey,
-    source: Schema.Literals(["managed", "developer", "configured"]),
-    launch: LanguageExecutable,
-  },
-});
+export const LanguageFormatterSelection = deferredSchema(() =>
+  Schema.TaggedUnion({
+    None: {},
+    Provider: { providerId: LanguageKey },
+    Executable: {
+      id: LanguageKey,
+      source: Schema.Literals(["managed", "developer", "configured"]),
+      launch: LanguageExecutable,
+    },
+  })
+);
 
 export type LanguageFormatterSelection = typeof LanguageFormatterSelection.Type;
 
 export const LanguageSettingsPatch = Schema.Struct({
+  downloadLanguageToolsAutomatically: Schema.optionalKey(Schema.Boolean),
   formatOnSave: Schema.optionalKey(Schema.Boolean),
   formatter: Schema.optionalKey(LanguageFormatterSelection),
   providers: Schema.optionalKey(Schema.Array(LanguageKey).check(Schema.isMaxLength(32))),
@@ -152,15 +158,44 @@ export const LanguageEffectiveSettings = Schema.Struct({
 
 /** Worktrees inherit Workspace trust; Review Checkouts have their own explicit grant. */
 
-export const LanguageTrustScope = Schema.TaggedUnion({
-  Workspace: { hostId: HostId, workspaceId: WorkspaceId },
-  ReviewCheckout: { hostId: HostId, workspaceId: WorkspaceId, reviewCheckoutId: ReviewCheckoutId },
-});
+export const LanguageTrustScope = deferredSchema(() =>
+  Schema.TaggedUnion({
+    Workspace: { hostId: HostId, workspaceId: WorkspaceId },
+    ReviewCheckout: {
+      hostId: HostId,
+      workspaceId: WorkspaceId,
+      reviewCheckoutId: ReviewCheckoutId,
+    },
+  })
+);
 
 export const LanguageTrust = Schema.Struct({
   scope: LanguageTrustScope,
   revision: LanguageCounter,
   trusted: Schema.Boolean,
+  decision: Schema.optionalKey(Schema.Literals(["undecided", "trusted", "declined"])),
+  typescriptProvider: Schema.optionalKey(Schema.Literals(["project", "bundled"])),
+});
+
+export const LanguageTrustAction = Schema.Literals([
+  "trust",
+  "decline",
+  "revoke",
+  "ask-again",
+  "use-bundled",
+  "use-project",
+]);
+
+export const LanguageTrustStatus = Schema.Struct({
+  trust: LanguageTrust,
+  wouldRun: Schema.Struct({
+    typescriptVersion: Schema.NullOr(Schema.String),
+    typescriptPath: Schema.NullOr(LanguagePath),
+    native: Schema.Boolean,
+    plugins: Schema.Array(LanguageKey).check(Schema.isMaxLength(64)),
+  }),
+  ask: Schema.Boolean,
+  provider: Schema.Literals(["bundled", "project"]),
 });
 
 export const LanguagePreviewPolicy = Schema.Struct({

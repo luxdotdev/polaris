@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { LanguageError, LanguageRuntime } from "@polaris/protocol";
+import { LanguageError, LanguageRuntime, LanguageTreeEditProposal } from "@polaris/protocol";
 import { Effect, Schema } from "effect";
 import { fingerprint } from "../../files/edits/journal.ts";
 import { ProposalPreparation } from "../preparation/index.ts";
@@ -113,11 +113,19 @@ export const prepareFeatureEdit = (
 
       await Effect.runPromise(validate, { signal });
 
-      await Effect.runPromise(provenance.record(auth.principal, prepared.proposal, retained), {
+      const proposal = Schema.is(LanguageTreeEditProposal)(prepared.proposal)
+        ? prepared.proposal
+        : LanguageTreeEditProposal.make({
+            ...prepared.proposal,
+            format: 2,
+            resourceSnapshots: [],
+          });
+
+      await Effect.runPromise(provenance.record(auth.principal, proposal, retained), {
         signal,
       });
 
-      return prepared.proposal;
+      return proposal;
     });
   }).pipe(
     Effect.timeout(15000),

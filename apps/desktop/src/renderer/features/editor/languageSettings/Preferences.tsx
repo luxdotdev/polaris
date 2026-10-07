@@ -74,6 +74,21 @@ export const LanguagePreferences = ({
       <Heading>Providers and saving</Heading>
       <Group label="Language preferences">
         <FormBlock>
+          <label htmlFor="language-auto-download" className="text-label">
+            Download language tools automatically
+          </label>
+          <Switch
+            id="language-auto-download"
+            disabled={disabled}
+            checked={
+              settings.downloadLanguageToolsAutomatically ??
+              snapshot.effective.settings.downloadLanguageToolsAutomatically ??
+              true
+            }
+            onCheckedChange={(value) =>
+              onChange({ ...settings, downloadLanguageToolsAutomatically: value })
+            }
+          />
           <label htmlFor="language-format-save" className="text-label">
             Format on save
           </label>

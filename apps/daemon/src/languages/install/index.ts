@@ -13,6 +13,7 @@ import {
 } from "./validation.ts";
 import {
   defaultLimits,
+  upstreamRuntimeLimits,
   descriptor,
   validateHost,
   validatePlatform,
@@ -45,7 +46,7 @@ const normalizedError = (cause: unknown) =>
     ? cause
     : failure("install-failed", "Installation failed; working version retained", true);
 
-const validateLimits = (limits: InstallLimits) => {
+const validateLimits = (limits: InstallLimits, caps = defaultLimits) => {
   for (const value of Object.values(limits)) {
     if (!Number.isSafeInteger(value) || value <= 0)
       throw failure("invalid-input", "Installer limits must be positive integers");
@@ -55,7 +56,7 @@ const validateLimits = (limits: InstallLimits) => {
     // SAFETY: keys originate from the complete InstallLimits defaults, never from untrusted input.
     const field = key as keyof InstallLimits;
 
-    if (limits[field] > defaultLimits[field])
+    if (limits[field] > caps[field])
       throw failure("invalid-input", "Installer limits may only lower safety caps");
   }
 
@@ -66,7 +67,8 @@ const validateLimits = (limits: InstallLimits) => {
 export async function createInstaller(options: InstallerOptions) {
   const hostId = validateHost(options.hostId);
   const platform = validatePlatform(options.platform);
-  const limits = validateLimits({ ...defaultLimits, ...options.limits });
+  const caps = options.sizeProfile === "upstream-runtime" ? upstreamRuntimeLimits : defaultLimits;
+  const limits = validateLimits({ ...caps, ...options.limits }, caps);
   const storage = await createVersionStorage(options.root, limits, { hostId, platform });
   const jobs = new Map<string, Job>();
   const latest = new Map<string, Progress>();

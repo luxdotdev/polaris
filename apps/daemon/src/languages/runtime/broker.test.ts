@@ -151,7 +151,7 @@ test("typing invalidates in-flight results; explicit cancel and stale queue cuts
   }
 });
 
-test("restart/disconnect/reconnect clear snapshots and generation-bound operations", async () => {
+test("restart retains drafts while disconnect clears snapshots and generation-bound operations", async () => {
   const f = await fixture();
 
   try {
@@ -160,8 +160,13 @@ test("restart/disconnect/reconnect clear snapshots and generation-bound operatio
     await f.ready("one", original.context);
     const restart = await f.broker.restart("one", original.context);
     expect(restart.context.generation).toBeGreaterThan(original.context.generation);
-    expect(restart.ack.documents).toHaveLength(0);
+    expect(restart.ack.documents).toHaveLength(1);
     await rejects(f.broker.request("one", hover(original.context, f.uri)), "stale-generation");
+    await f.ready("one", restart.context);
+    expect((await f.broker.request("one", hover(restart.context, f.uri))).result).toHaveProperty(
+      "text",
+      "draft"
+    );
     f.broker.disconnect("one");
     const reconnected = await f.acquire();
     expect(reconnected.context.generation).toBeGreaterThan(restart.context.generation);
@@ -302,8 +307,7 @@ test("crashes require new snapshots, retry budget stops and manual restart reset
     await Bun.sleep(40);
     expect(f.processes).toHaveLength(3);
     const restart = await f.broker.restart("one", exhausted.context);
-    expect(restart.ack.documents).toHaveLength(0);
-    await f.open("one", restart.context);
+    expect(restart.ack.documents).toHaveLength(1);
 
     for (let i = 0; i < 200 && f.processes.length < 4; i++) await Bun.sleep(5);
     expect(f.processes).toHaveLength(4);
@@ -412,6 +416,67 @@ test("disconnect fences in-flight discovery without cancelling another Client", 
     expect(f.broker.stats().acquiring).toBe(0);
   } finally {
     release?.();
+    await f.dispose();
+  }
+});
+
+test("checkout and Workspace restarts preserve edited drafts and isolate another Client", async () => {
+  const f = await fixture();
+
+  try {
+    const one = await f.acquire("one");
+    const two = await f.acquire("two");
+    await f.open("one", one.context, "one unsaved");
+    await f.open("two", two.context, "two unsaved");
+    await f.ready("one", one.context);
+    await f.ready("two", two.context);
+
+    const changed = await f.broker.sync("one", {
+      context: one.context,
+      sequence: 2,
+      notification: LanguageDocumentNotification.cases.Change.make({
+        uri: f.uri,
+        previousVersion: 1,
+        version: 2,
+        changes: [{ text: "latest unsaved" }],
+      }),
+    });
+
+    const restarted = await f.broker.restartMatching(
+      "one",
+      one.context.checkout,
+      one.context.checkout.workspaceId,
+      "fake"
+    );
+
+    expect(restarted).toHaveLength(1);
+    const current = restarted[0]!;
+    expect(current.ack.documents).toEqual(changed.documents);
+    expect(current.ack.acceptedSequence).toBe(2);
+    await f.ready("one", current.context);
+    expect(
+      (await f.broker.request("one", hover(current.context, f.uri, "latest", 2, 2))).result
+    ).toHaveProperty("text", "latest unsaved");
+    expect(f.broker.snapshot("two", two.context).context).toEqual(two.context);
+    expect(
+      await f.broker.restartMatching(
+        "one",
+        one.context.checkout,
+        one.context.checkout.workspaceId,
+        "absent"
+      )
+    ).toEqual([]);
+    const all = await f.broker.restartMatching("one", null, one.context.checkout.workspaceId);
+    expect(all).toHaveLength(1);
+    await rejects(
+      f.broker.request("one", hover(current.context, f.uri, "stale", 2, 2)),
+      "stale-generation"
+    );
+    expect((await f.broker.request("two", hover(two.context, f.uri))).result).toHaveProperty(
+      "text",
+      "two unsaved"
+    );
+  } finally {
     await f.dispose();
   }
 });

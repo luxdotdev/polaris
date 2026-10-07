@@ -1,3 +1,7 @@
+---
+status: partly superseded by ADR-0019 (runtimes, sources, updates)
+---
+
 # Manage language tools without owning developer toolchains
 
 Polaris installs language tools on demand into private Host locations, either

@@ -27,6 +27,11 @@ import {
 } from "./ports.ts";
 import { LanguageInstallCore, LanguageInstallGrantAuthority } from "./install.ts";
 import { languageCoreHandlers } from "./index.ts";
+import type { ManagedDelivery } from "./managedDelivery.ts";
+
+type HostOptions = Omit<HostInstallationOptions, "reserveSelection"> & {
+  managed?: ManagedDelivery;
+};
 
 const installationError = (cause: unknown) =>
   Schema.is(LanguageError)(cause)
@@ -45,14 +50,18 @@ export class HostLanguageResources extends Context.Service<
 
 /** One Host registry and selection ledger outlive their broker's owned shutdown. */
 export const languageHostServices = (
-  options: Omit<HostInstallationOptions, "reserveSelection">,
+  options: HostOptions,
   discoveryOptions: Parameters<typeof ProjectDiscovery.layer>[0],
   trustOptions: Parameters<typeof ExecutionTrustService.layer>[0],
   trustGrants = LanguageTrustGrantAuthority.denyLayer
 ) => {
   const authority = LanguageAcquisitionAuthority.layer;
   const trust = ExecutionTrustService.layer(trustOptions);
-  const discovery = ProjectDiscovery.layer(discoveryOptions);
+
+  const discovery = ProjectDiscovery.layer({
+    ...discoveryOptions,
+    bundledTypeScript: options.managed !== undefined,
+  }).pipe(Layer.provide(trust));
 
   const shared = Layer.mergeAll(
     authority,
@@ -85,6 +94,8 @@ export const languageHostServices = (
         catch: installationError,
       });
 
+      options.managed?.bind(host);
+
       const installationLayer = HostLanguageInstallation.layer(host);
 
       const providers = Layer.effect(
@@ -97,6 +108,7 @@ export const languageHostServices = (
           const adapters = managedLaunchAdapters({
             host,
             ledger,
+            plan: options.managed?.plan,
             toolId: (facts) => {
               const provider = catalog.integrations
                 .flatMap((integration) => integration.providers)
@@ -117,11 +129,45 @@ export const languageHostServices = (
           const configured = configuredLaunchAdapters(ledger);
 
           return LanguageProviderAccess.of({
-            availability: (toolId, phase, trusted, admission) =>
-              installation.inspect(toolId, phase, trusted, admission),
+            availability: (toolId, phase, trusted, admission, settings) =>
+              Effect.gen(function* () {
+                if (
+                  toolId === "typescript-language-server" &&
+                  phase === "feature" &&
+                  options.managed !== undefined &&
+                  admission !== undefined &&
+                  settings !== undefined
+                )
+                  yield* Effect.tryPromise({
+                    try: (signal) => options.managed!.ensure(settings, admission, signal),
+                    catch: installationError,
+                  });
+
+                return yield* installation.inspect(
+                  toolId,
+                  phase,
+                  trusted ||
+                    (toolId === "typescript-language-server" && options.managed !== undefined),
+                  admission
+                );
+              }),
             reserveLaunch: (request) =>
               configuredExecutable(request.facts) === undefined
-                ? adapters.reserveLaunch(request)
+                ? (async () => {
+                    if (
+                      request.facts.providerId === "typescript-language-server" &&
+                      options.managed !== undefined
+                    ) {
+                      const guard = owners.guard(request, executionTrust).validate;
+                      await options.managed.ensure(
+                        request.facts.effectiveSettings,
+                        { cwd: request.facts.projectRoot, requireCurrent: guard },
+                        request.signal
+                      );
+                    }
+
+                    return adapters.reserveLaunch(request);
+                  })()
                 : configured.reserveLaunch(request),
             resolveLaunch: (facts, lease, request) =>
               configuredExecutable(facts) === undefined
@@ -144,7 +190,7 @@ export const languageHostServices = (
       const resources = LanguageResourceEdits.layer({
         hostId: options.hostId,
         journalRoot: join(options.root, "resource-journals"),
-      }).pipe(Layer.provide(receipts), Layer.provide(shared));
+      }).pipe(Layer.provide(broker), Layer.provide(receipts), Layer.provide(shared));
 
       return Layer.mergeAll(
         Layer.succeed(HostLanguageResources)({ host, ledger }),
@@ -161,7 +207,7 @@ export const languageHostServices = (
 };
 
 export const languageHostHandlers = (
-  options: Omit<HostInstallationOptions, "reserveSelection">,
+  options: HostOptions,
   discoveryOptions: Parameters<typeof ProjectDiscovery.layer>[0],
   trustOptions: Parameters<typeof ExecutionTrustService.layer>[0],
   trustGrants = LanguageTrustGrantAuthority.denyLayer

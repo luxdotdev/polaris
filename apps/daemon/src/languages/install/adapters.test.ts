@@ -1,4 +1,4 @@
-import { rejects } from "node:assert/strict";
+import { rejects, throws } from "node:assert/strict";
 import { test, expect } from "bun:test";
 import { gzipSync } from "node:zlib";
 import { mkdtemp, mkdir, realpath, rm, writeFile, symlink } from "node:fs/promises";
@@ -31,14 +31,14 @@ function exactFixture(format: "binary" | "tar.gz" = "binary") {
   return { ...source, exact };
 }
 
-function tar(path = "bin/tool", type = "0", content = Buffer.from("synthetic")) {
+function tar(path = "bin/tool", type = "0", content = Buffer.from("synthetic"), gnu = false) {
   const header = Buffer.alloc(512);
   header.write(path, 0, 100);
   header.write("0000755\0", 100);
   header.write(content.length.toString(8).padStart(11, "0") + "\0", 124);
   header.fill(32, 148, 156);
   header.write(type, 156);
-  header.write("ustar\0", 257);
+  header.write(gnu ? "ustar  \0" : "ustar\0", 257);
   const checksum = header.reduce((sum, byte) => sum + byte, 0);
   header.write(checksum.toString(8).padStart(6, "0") + "\0 ", 148);
 
@@ -49,6 +49,60 @@ function tar(path = "bin/tool", type = "0", content = Buffer.from("synthetic")) 
     Buffer.alloc(1024),
   ]);
 }
+
+test("selected Node files support GNU names while refusing traversal, selected links and other extensions", () => {
+  const signal = new AbortController().signal;
+  const select = (path: string) => path === "node/bin/node";
+  const name = tar("././@LongLink", "L", Buffer.from("node/bin/node\0"), true);
+  const selected = tar("node/truncated", "0", Buffer.from("runtime"), true);
+  const archive = Buffer.concat([name.subarray(0, -1024), selected]);
+  expect(tarEntries(archive, signal, defaultLimits, select)[0]).toMatchObject({
+    path: "node/bin/node",
+    bytes: Buffer.from("runtime"),
+  });
+  throws(() => tarEntries(archive, signal), { reason: "install-failed" });
+  throws(() => tarEntries(name, signal, defaultLimits, select), { reason: "install-failed" });
+  const unsafe = tar("././@LongLink", "L", Buffer.from("../escape\0"), true);
+  throws(
+    () =>
+      tarEntries(
+        Buffer.concat([unsafe.subarray(0, -1024), selected]),
+        signal,
+        defaultLimits,
+        select
+      ),
+    { reason: "install-failed" }
+  );
+  throws(
+    () =>
+      tarEntries(tar("node/bin/node", "2", Buffer.alloc(0), true), signal, defaultLimits, select),
+    {
+      reason: "install-failed",
+    }
+  );
+  expect(
+    tarEntries(tar("node/bin/npm", "2", Buffer.alloc(0), true), signal, defaultLimits, select)
+  ).toEqual([]);
+  throws(
+    () =>
+      tarEntries(tar("node/metadata", "x", Buffer.alloc(0), true), signal, defaultLimits, select),
+    {
+      reason: "install-failed",
+    }
+  );
+  throws(
+    () =>
+      tarEntries(
+        tar("node/omitted", "0", Buffer.alloc(8), true),
+        signal,
+        { ...defaultLimits, fileBytes: 4 },
+        select
+      ),
+    {
+      reason: "too-large",
+    }
+  );
+});
 
 test("Host HTTPS download preserves bytes, requires exact URL and cancels its body on limits", async () => {
   const f = exactFixture();

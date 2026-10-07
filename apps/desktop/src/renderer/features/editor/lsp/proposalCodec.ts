@@ -10,8 +10,12 @@ export const decodePreparedProposal = (input: PreparedLanguageEdit): PreparedLan
     throw new Error("Resource edits require the dedicated format2 proposal.");
 
   const encoded = tree
-    ? Schema.encodeUnknownSync(P.LanguageTreeEditProposal)(input)
-    : Schema.encodeUnknownSync(P.LanguageEditProposal)(input);
+    ? Schema.encodeSync(P.LanguageTreeEditProposal)(
+        Schema.decodeUnknownSync(P.LanguageTreeEditProposal)(input)
+      )
+    : Schema.encodeSync(P.LanguageEditProposal)(
+        Schema.decodeUnknownSync(P.LanguageEditProposal)(input)
+      );
 
   return P.decodeLanguageResourceProposal(encoded);
 };

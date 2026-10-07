@@ -1,3 +1,4 @@
+import { deferredSchema } from "./deferred.ts";
 import { Schema } from "effect";
 import { LanguageCounter, LanguageFingerprint, LanguageKey } from "./base.ts";
 import {
@@ -11,25 +12,31 @@ const boundedReceipt = Schema.makeFilter(
 );
 
 /** Host challenges travel only over the current context feed, and replies use its existing server response RPC. */
-export const LanguageResourceReceiptChallenge = Schema.TaggedUnion({
-  Resolve: { nonce: LanguageKey, operationId: LanguageKey, acceptance: LanguageTreeEditAcceptance },
-  Verify: {
-    nonce: LanguageKey,
-    operationId: LanguageKey,
-    proposal: LanguageTreeEditProposal,
-    drafts: LanguageTreeDraftReceipt,
-    phase: Schema.optionalKey(Schema.Literals(["prepare", "moving"])),
-  },
-  Recover: {
-    nonce: LanguageKey,
-    operationId: LanguageKey,
-    proposalId: LanguageKey,
-    groupId: LanguageKey,
-    previewFingerprint: LanguageFingerprint,
-    hostReceiptRevision: LanguageCounter,
-    intent: Schema.Literals(["recover", "undo", "cancel"]),
-  },
-}).check(boundedReceipt);
+export const LanguageResourceReceiptChallenge = deferredSchema(() =>
+  Schema.TaggedUnion({
+    Resolve: {
+      nonce: LanguageKey,
+      operationId: LanguageKey,
+      acceptance: LanguageTreeEditAcceptance,
+    },
+    Verify: {
+      nonce: LanguageKey,
+      operationId: LanguageKey,
+      proposal: LanguageTreeEditProposal,
+      drafts: LanguageTreeDraftReceipt,
+      phase: Schema.optionalKey(Schema.Literals(["prepare", "moving"])),
+    },
+    Recover: {
+      nonce: LanguageKey,
+      operationId: LanguageKey,
+      proposalId: LanguageKey,
+      groupId: LanguageKey,
+      previewFingerprint: LanguageFingerprint,
+      hostReceiptRevision: LanguageCounter,
+      intent: Schema.Literals(["recover", "undo", "cancel"]),
+    },
+  }).check(boundedReceipt)
+);
 
 export type LanguageResourceReceiptChallenge = typeof LanguageResourceReceiptChallenge.Type;
 

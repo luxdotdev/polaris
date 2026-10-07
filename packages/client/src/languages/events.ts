@@ -3,6 +3,7 @@ import { Match } from "effect";
 
 export const languageEventContext = (event: P.LanguageContextEvent): P.LanguageContextIdentity =>
   Match.value(event).pipe(
+    Match.tag("Replaced", (value) => value.context),
     Match.tag("Snapshot", (value) => value.context),
     Match.tag("RuntimeChanged", (value) => value.context),
     Match.tag("Synchronized", (value) => value.ack.context),

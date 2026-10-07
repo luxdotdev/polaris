@@ -1,3 +1,4 @@
+import { languageIpcError } from "../../../../shared/languageError.ts";
 import * as P from "@polaris/protocol";
 import { Schema } from "effect";
 import type { LanguageApi } from "../../../../shared/api.ts";
@@ -74,7 +75,7 @@ const effective = async (api: LanguageApi, input: SettingsInput, language: Langu
     scopes.map(async (scope) => {
       const reply = await api.request("languages.settings.get", { hostKey: input.hostKey, scope });
 
-      if (!reply.ok) throw new Error(reply.error.message);
+      if (!reply.ok) throw languageIpcError(reply.error);
       const record = Schema.decodeUnknownSync(P.LanguageSettingsRecord)(reply.value);
 
       if (input.signal.aborted || JSON.stringify(record.scope) !== JSON.stringify(scope))

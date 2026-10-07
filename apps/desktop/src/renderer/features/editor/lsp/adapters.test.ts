@@ -11,6 +11,7 @@ import { LanguageDiagnosticFeed, cmDiagnostics } from "./diagnostics.ts";
 import { LanguageFeatures } from "./features.ts";
 import { offsetAt, positionAt } from "./position.ts";
 import { providerFence } from "./requests.ts";
+import { DiagnosticPull } from "./pull.ts";
 import {
   bufferText,
   documentLanguageId,
@@ -360,9 +361,16 @@ test("diagnostic provider replacement, unchanged result IDs and conservative fre
   const feed = new LanguageDiagnosticFeed(f.features.requests, () => {});
   feed.refresh();
   feed.receive(f.providers[0]!, diagnostic(f.providers[0]!));
-  feed.receive(f.providers[1]!, diagnostic(f.providers[1]!, null));
+  const unversioned = diagnostic(f.providers[1]!, null);
+  feed.receive(f.providers[1]!, {
+    ...unversioned,
+    items: unversioned.items.map((item) => ({ ...item, message: "pushed" })),
+  });
   expect(feed.values()).toHaveLength(2);
-  expect(cmDiagnostics(f.features.requests, feed.values())).toHaveLength(1);
+  expect(cmDiagnostics(f.features.requests, feed.values()).map((item) => item.message)).toEqual([
+    "message",
+    "pushed",
+  ]);
   const current = diagnostic(f.providers[0]!);
   feed.receive(f.providers[0]!, {
     ...current,
@@ -386,6 +394,62 @@ test("diagnostic provider replacement, unchanged result IDs and conservative fre
   expect(f.stopped).toBe(2);
   f.listeners[0]?.items([P.LanguageContextEvent.cases.Diagnostics.make({ diagnostics: current })]);
   expect(feed.values()).toEqual([]);
+  f.features.dispose();
+});
+
+test("an unversioned push paints only at the version acknowledged when it arrived", () => {
+  const f = fixture();
+  const feed = new LanguageDiagnosticFeed(f.features.requests, () => {});
+  const p = f.providers[0]!;
+  const stale = { ...p, ack: { ...p.ack, documents: [{ uri, version: 0 }] } };
+
+  feed.receive(stale, diagnostic(stale, null));
+  expect(feed.values()).toEqual([]);
+  feed.receive(p, diagnostic(p, null));
+  expect(feed.values()[0]?.at).toBe(1);
+  expect(cmDiagnostics(f.features.requests, feed.values())).toHaveLength(1);
+  f.change();
+  expect(cmDiagnostics(f.features.requests, feed.values())).toEqual([]);
+  feed.dispose();
+  f.features.dispose();
+});
+
+test("a pull-capable provider's diagnostics are pulled for the open buffer", async () => {
+  const f = fixture();
+  const feed = new LanguageDiagnosticFeed(f.features.requests, () => {});
+  const pull = new DiagnosticPull(f.features, feed);
+  const pullMethod = Schema.decodeUnknownSync(P.LanguageFeatureMethod)("textDocument/diagnostic");
+
+  f.setProviders(
+    f.providers.map((p) => ({
+      ...p,
+      capabilities: { ...p.capabilities, methods: [...p.capabilities.methods, pullMethod] },
+    }))
+  );
+  pull.schedule();
+  pull.schedule();
+  await Bun.sleep(200);
+  expect(f.pending.map((entry) => entry.request.method)).toEqual([
+    "textDocument/diagnostic",
+    "textDocument/diagnostic",
+  ]);
+  f.reply(0, {
+    kind: "full",
+    items: [
+      {
+        range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },
+        severity: 1,
+        message: "Type 'number' is not assignable to type 'string'.",
+      },
+    ],
+  });
+  f.reply(1, { kind: "full", items: [] });
+  await Bun.sleep(0);
+  expect(cmDiagnostics(f.features.requests, feed.values()).map((item) => item.severity)).toEqual([
+    "error",
+  ]);
+  pull.stop();
+  feed.dispose();
   f.features.dispose();
 });
 

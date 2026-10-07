@@ -1,0 +1,17 @@
+{
+  "artifactId": "typescript-npm",
+  "artifactIntegrity": "sha256:33cd0ee1beaa8c9e9d15a9da836c62ddea4c34a42d7c2d349dbc80d94165d22a",
+  "coverage": "complete",
+  "notices": [
+    {
+      "path": "notices/a7d00bfd54525bc694b6e32f64c7ebcf5e6b7ae3657be5cc12767bce74654a47.txt",
+      "integrity": "sha256:a7d00bfd54525bc694b6e32f64c7ebcf5e6b7ae3657be5cc12767bce74654a47"
+    }
+  ],
+  "evidence": [
+    {
+      "path": "review-records.json",
+      "integrity": "sha256:fc14bc1788b089dea14850a8708a9317bc9a8183dc3f646416ff86a0d068b621"
+    }
+  ]
+}

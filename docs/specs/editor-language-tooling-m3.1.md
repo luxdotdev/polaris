@@ -1,7 +1,7 @@
 # M3.1 · Editor language tooling
 
-Status: accepted by the owner on 2026-10-02; implementation authorized through
-the M3.1 · Editor language tooling Constellation.
+Status: superseded on 2026-10-06 by [v2](./editor-language-tooling-v2.md); kept for
+history. Was accepted on 2026-10-02 and built by a Constellation, now closed.
 This is a build plan, not a report of implemented behavior.
 
 - Glossary: CONTEXT.md, especially Language Integration, Host, Workspace,

@@ -1,3 +1,4 @@
+import { deferredSchema } from "./deferred.ts";
 import { Match, Schema } from "effect";
 import {
   LanguageCheckout,
@@ -20,31 +21,33 @@ export const LanguageContentChange = Schema.Struct({
   text: LanguageDocumentText,
 });
 
-export const LanguageDocumentNotification = Schema.TaggedUnion({
-  Open: {
-    uri: LanguageUri,
-    languageId: LanguageKey,
-    version: LanguageCounter,
-    text: LanguageDocumentText,
-  },
-  Change: {
-    uri: LanguageUri,
-    previousVersion: LanguageCounter,
-    version: LanguageCounter,
-    changes: Schema.Array(LanguageContentChange).check(Schema.isBetweenLength(1, 1024)),
-  },
-  Close: { uri: LanguageUri, version: LanguageCounter },
-  Save: {
-    uri: LanguageUri,
-    version: LanguageCounter,
-    diskVersion: FileVersion,
-    text: Schema.optionalKey(LanguageDocumentText),
-  },
-}).check(
-  Schema.makeFilter((notification) =>
-    Match.value(notification).pipe(
-      Match.tag("Change", (change) => change.version > change.previousVersion),
-      Match.orElse(() => true)
+export const LanguageDocumentNotification = deferredSchema(() =>
+  Schema.TaggedUnion({
+    Open: {
+      uri: LanguageUri,
+      languageId: LanguageKey,
+      version: LanguageCounter,
+      text: LanguageDocumentText,
+    },
+    Change: {
+      uri: LanguageUri,
+      previousVersion: LanguageCounter,
+      version: LanguageCounter,
+      changes: Schema.Array(LanguageContentChange).check(Schema.isBetweenLength(1, 1024)),
+    },
+    Close: { uri: LanguageUri, version: LanguageCounter },
+    Save: {
+      uri: LanguageUri,
+      version: LanguageCounter,
+      diskVersion: FileVersion,
+      text: Schema.optionalKey(LanguageDocumentText),
+    },
+  }).check(
+    Schema.makeFilter((notification) =>
+      Match.value(notification).pipe(
+        Match.tag("Change", (change) => change.version > change.previousVersion),
+        Match.orElse(() => true)
+      )
     )
   )
 );
@@ -89,18 +92,20 @@ export const LanguageProviderCapabilities = Schema.Struct({
 
 export type LanguageProviderCapabilities = typeof LanguageProviderCapabilities.Type;
 
-export const LanguageRuntime = Schema.TaggedUnion({
-  AwaitingTrust: {},
-  Starting: {},
-  Ready: { capabilities: LanguageProviderCapabilities },
-  Stopped: { reason: Schema.Literals(["no-demand", "manual", "connection-lost", "replaced"]) },
-  Failed: {
-    message: Schema.String,
-    attempts: LanguageCounter,
-    retryAt: Schema.NullOr(LanguageCounter),
-  },
-  Unsupported: { message: Schema.String },
-});
+export const LanguageRuntime = deferredSchema(() =>
+  Schema.TaggedUnion({
+    AwaitingTrust: {},
+    Starting: {},
+    Ready: { capabilities: LanguageProviderCapabilities },
+    Stopped: { reason: Schema.Literals(["no-demand", "manual", "connection-lost", "replaced"]) },
+    Failed: {
+      message: Schema.String,
+      attempts: LanguageCounter,
+      retryAt: Schema.NullOr(LanguageCounter),
+    },
+    Unsupported: { message: Schema.String },
+  })
+);
 
 /** A result is usable only at this exact generation, queue cut and set of buffer versions. */
 

@@ -157,7 +157,19 @@ export async function typescriptSdk(root: string, project: string) {
 
     const server = await existing(root, join(directory, "lib", "tsserver.js"));
 
-    if (server !== null) return { sdk: directory, server, version: manifest.version ?? null };
+    if (server !== null)
+      return { sdk: directory, server, nativeServer: null, version: manifest.version ?? null };
+
+    if (manifest.version?.startsWith("7.")) {
+      const platformName = `@typescript/typescript-${process.platform}-${process.arch}`;
+      const platform = await packageDirectory(root, directory, platformName);
+
+      const nativeServer =
+        platform === null ? null : await existing(root, join(platform, "lib", "tsc"));
+
+      return { sdk: directory, server: null, nativeServer, version: manifest.version };
+    }
+
     const dependency = await packageDirectory(root, directory, "typescript");
 
     if (dependency === null || dependency === directory) return null;

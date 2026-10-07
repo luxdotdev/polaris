@@ -102,7 +102,17 @@ export interface InstallerOptions {
   readonly platform: Platform;
   readonly adapters: InstallerAdapters;
   readonly limits?: Partial<InstallLimits>;
+  readonly sizeProfile?: "upstream-runtime";
 }
+
+/** Official Node archives expand to ~200 MiB; these caps apply only to the private runtime profile. */
+export const upstreamRuntimeLimits: InstallLimits = {
+  ...defaultLimits,
+  downloadBytes: 96 * 1024 * 1024,
+  expandedBytes: 256 * 1024 * 1024,
+  fileBytes: 128 * 1024 * 1024,
+  entries: 32768,
+};
 
 export type Progress = typeof LanguageInstallProgress.Type;
 

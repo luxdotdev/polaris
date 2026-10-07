@@ -3,13 +3,15 @@ import { Context, Effect, Layer } from "effect";
 import type { LaunchAdmissionRequest } from "../runtime/launchAdmission.ts";
 import type { ExecutionTrustService } from "../trust/index.ts";
 import { denied, type RequestAuthority } from "./authority.ts";
+import { bundledTypeScript } from "./managedPolicy.ts";
 
 interface Owner {
   authority: RequestAuthority;
   sealed: boolean;
 }
 
-type AuthorizationRequest = Pick<LaunchAdmissionRequest, "context" | "signal" | "isCurrent">;
+type AuthorizationRequest = Pick<LaunchAdmissionRequest, "context" | "signal" | "isCurrent"> &
+  Partial<Pick<LaunchAdmissionRequest, "facts">>;
 
 /** Captures actual request authority for broker work which outlives its RPC handler. */
 function makeAuthority() {
@@ -124,7 +126,9 @@ function makeAuthority() {
         await Effect.runPromise(owner.authority.coordinates(request.context), { signal });
         await Effect.runPromise(owner.authority.checkout(request.context.checkout), { signal });
         assertCurrent();
-        await Effect.runPromise(trust.require(request.context.checkout), { signal });
+
+        if (request.facts === undefined || !bundledTypeScript(request.facts))
+          await Effect.runPromise(trust.require(request.context.checkout), { signal });
         assertCurrent();
         await Effect.runPromise(owner.authority.checkout(request.context.checkout), { signal });
 

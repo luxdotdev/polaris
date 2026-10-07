@@ -60,6 +60,11 @@ export const LanguageRequestInputs = {
   "languages.discover": onHost(Languages.DiscoverLanguageProject.payloadSchema.fields),
   "languages.trust.get": onHost(Languages.GetLanguageTrust.payloadSchema.fields),
   "languages.trust.set": onHost(Languages.SetLanguageTrust.payloadSchema.fields),
+  "languages.trust.inspect": onHost(Languages.InspectLanguageTrust.payloadSchema.fields),
+  "languages.trust.change": onHost(Languages.ChangeLanguageTrust.payloadSchema.fields),
+  "languages.server.restart": onHost(Languages.RestartLanguageServer.payloadSchema.fields),
+  "languages.workspace.restart": onHost(Languages.RestartWorkspaceLanguages.payloadSchema.fields),
+
   "languages.context.acquire": onHost(Languages.AcquireLanguageContext.payloadSchema.fields),
   "languages.context.release": onHost(Languages.ReleaseLanguageContext.payloadSchema.fields),
   "languages.context.restart": onHost(Languages.RestartLanguageContext.payloadSchema.fields),
@@ -107,6 +112,11 @@ export const LanguageRequestOutputs = {
   "languages.discover": Languages.DiscoverLanguageProject.successSchema,
   "languages.trust.get": Languages.GetLanguageTrust.successSchema,
   "languages.trust.set": Languages.SetLanguageTrust.successSchema,
+  "languages.trust.inspect": Languages.InspectLanguageTrust.successSchema,
+  "languages.trust.change": Languages.ChangeLanguageTrust.successSchema,
+  "languages.server.restart": Languages.RestartLanguageServer.successSchema,
+  "languages.workspace.restart": Languages.RestartWorkspaceLanguages.successSchema,
+
   "languages.context.acquire": Languages.AcquireLanguageContext.successSchema,
   "languages.context.release": Languages.ReleaseLanguageContext.successSchema,
   "languages.context.restart": Languages.RestartLanguageContext.successSchema,

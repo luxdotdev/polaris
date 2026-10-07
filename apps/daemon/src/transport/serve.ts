@@ -32,7 +32,7 @@ import { Availability, AvailabilityRpcsLive } from "../harness/availability/inde
 import { HarnessRpcsLive } from "../harness/HarnessRpcs.ts";
 import { latestRolloutLimits, PlanLimitReporter } from "../harness/limits/index.ts";
 import { HarnessRegistryLive } from "../harness/registry.ts";
-import { releaseWhenQuiet } from "../memory/index.ts";
+import { releaseMemory, releaseWhenQuiet } from "../memory/index.ts";
 import { userPath } from "../service/userPath.ts";
 import { takeHandoff } from "../service/upgrade.ts";
 import { EventStore } from "../store/EventStore.ts";
@@ -42,8 +42,6 @@ import { UsageIndexLive, UsageRpcsLive, UsageSessions } from "../usage/index.ts"
 import { ResourceRpcsLive } from "../resources/rpc.ts";
 import { startServer } from "./server.ts";
 import { lazyLanguageHandlers } from "./lazyLanguages.ts";
-import { PreviewMediaRpc } from "../languages/media/rpc.ts";
-import { HostPreviewMedia } from "../languages/media/index.ts";
 
 /** Exit status when another Daemon already holds the lock or answers on the socket. */
 export const SERVE_EXIT_ALREADY_RUNNING = 75;
@@ -96,7 +94,6 @@ const daemonServices = ReviewerLive().pipe(Layer.provideMerge(engineServices));
 /** Every real handler layer the Daemon mounts. Compose new modules' layers here. */
 export const daemonHandlers = Layer.mergeAll(
   lazyLanguageHandlers,
-  PreviewMediaRpc.pipe(Layer.provide(HostPreviewMedia.layer())),
   InlineRpcsLive,
   EngineRpcHandlers,
   ResourceRpcsLive,
@@ -182,6 +179,9 @@ export const serveProgram = Effect.scoped(
       capabilities: daemonCapabilities,
       upgrades: true,
     });
+
+    // Return temporary startup allocations once every handler and listener is installed.
+    yield* releaseMemory;
 
     yield* Effect.logInfo(`polaris Daemon listening on ${server.socketPath}`);
 

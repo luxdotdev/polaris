@@ -7,6 +7,9 @@ import {
   LanguageError,
   LanguageTrustScope,
   type HostId,
+  type LanguageTrustAction,
+  type LanguageTrustStatus,
+  WorkspaceId,
   type LanguageConnectionIdentity,
   type LanguageEffectiveSettings,
   type LanguageSyncInput,
@@ -19,6 +22,8 @@ import { Context, Effect, Layer, Schema, Stream } from "effect";
 import { EventStore } from "../../store/EventStore.ts";
 import { ProposalProvenance } from "../preparation/provenanceService.ts";
 import { catalog } from "../catalog/index.ts";
+import { effectiveSettings } from "../discovery/configuration.ts";
+import { trustStatus } from "./trustStatus.ts";
 import { ProjectDiscovery } from "../discovery/index.ts";
 import { LanguageBroker, type AcquireInput } from "../runtime/index.ts";
 import { ExecutionTrustService } from "../trust/index.ts";
@@ -28,6 +33,7 @@ import { LanguageAcquisitionAuthority } from "./acquisitionAuthority.ts";
 import { prepareFeatureEdit, type PreparationIntent } from "./preparation.ts";
 import { configuredExecutable } from "./configuredLaunch.ts";
 import { observationAdmission } from "./observation.ts";
+import { bundledTypeScript } from "./managedPolicy.ts";
 import {
   LanguageProviderAccess,
   LanguageTrustGrantAuthority,
@@ -154,6 +160,7 @@ function makeCore(
           .flatMap((item) => item.providers.map((provider) => provider.id));
 
       const facts = [];
+      let trustRequest: typeof LanguageTrustStatus.Type | null = null;
       let projectRoot = canonical.root;
 
       for (const providerId of [...new Set(ids)].slice(0, 32)) {
@@ -178,6 +185,9 @@ function makeCore(
 
         projectRoot = found.projectRoot;
 
+        if (providerId === "typescript-language-server")
+          trustRequest = trustStatus(found, observed.trust, trust);
+
         const state =
           configuredExecutable(found) !== undefined
             ? {
@@ -199,8 +209,10 @@ function makeCore(
                   found.projectRoot,
                   observed.trust.revision,
                   trust,
-                  owners
-                )
+                  owners,
+                  !bundledTypeScript(found)
+                ),
+                input.settings
               );
 
         yield* auth.checkout(input.checkout);
@@ -219,6 +231,7 @@ function makeCore(
         projectRoot,
         effectiveSettings: input.settings,
         trust: observed.trust,
+        trustRequest,
         providers: facts,
       });
     });
@@ -300,6 +313,62 @@ function makeCore(
       return yield* finish(auth, input.checkout, operation(auth.principal.clientId));
     });
 
+  const inspectTrust = (checkout: LanguageCheckout, path: string) =>
+    Effect.gen(function* () {
+      const auth = yield* requestAuthority(hostId);
+      yield* auth.checkout(checkout);
+      const observed = yield* trust.inspect(checkout);
+
+      const found = yield* finish(
+        auth,
+        checkout,
+        discovery.discover({
+          checkout,
+          path,
+          providerId: "typescript-language-server",
+          settings: effectiveSettings(
+            { hostId, workspaceId: checkout.workspaceId, language: "typescript" },
+            [],
+            0
+          ),
+          refresh: true,
+        })
+      );
+
+      return trustStatus(found, observed.trust, trust);
+    });
+
+  const changeTrust = (
+    checkout: LanguageCheckout,
+    path: string,
+    action: typeof LanguageTrustAction.Type,
+    expectedRevision: number
+  ) =>
+    Effect.gen(function* () {
+      const auth = yield* requestAuthority(hostId);
+      yield* auth.checkout(checkout);
+      const current = yield* trust.inspect(checkout);
+      const grant = yield* LanguageTrustGrantAuthority;
+      yield* grant.authorize(auth.principal, current.trust.scope);
+
+      const mutation = Effect.acquireUseRelease(
+        Effect.sync(() => owners.beginTrustChange(current.trust.scope)),
+        () =>
+          Effect.gen(function* () {
+            yield* broker.invalidateTrust(checkout, true);
+
+            return yield* trust.change(checkout, action, expectedRevision);
+          }).pipe(Effect.uninterruptible),
+        (release) => Effect.sync(release)
+      );
+
+      yield* finish(auth, checkout, mutation).pipe(
+        Effect.ensuring(broker.reloadTrust(checkout).pipe(Effect.orDie))
+      );
+
+      return yield* inspectTrust(checkout, path);
+    });
+
   return {
     catalog: catalogRead,
     availability: available,
@@ -312,28 +381,56 @@ function makeCore(
 
         return (yield* finish(auth, checkout, trust.inspect(checkout))).trust;
       }),
+    inspectTrust: (input: { checkout: LanguageCheckout; path: string }) =>
+      inspectTrust(input.checkout, input.path),
+    changeTrust: (input: {
+      checkout: LanguageCheckout;
+      path: string;
+      action: typeof LanguageTrustAction.Type;
+      expectedRevision: number;
+    }) => changeTrust(input.checkout, input.path, input.action, input.expectedRevision),
     trustSet: (scope: typeof LanguageTrustScope.Type, trusted: boolean, expectedRevision: number) =>
       Effect.gen(function* () {
         const auth = yield* requestAuthority(hostId);
         const checkout = yield* scopeCheckout(auth, scope);
-        const grant = yield* LanguageTrustGrantAuthority;
-        yield* grant.authorize(auth.principal, scope);
-        yield* auth.checkout(checkout);
 
-        const mutation = Effect.acquireUseRelease(
-          Effect.sync(() => owners.beginTrustChange(scope)),
-          () =>
-            Effect.gen(function* () {
-              yield* broker.invalidateTrust(checkout);
-              const result = yield* trust.set(checkout, trusted, expectedRevision);
-              yield* broker.invalidateTrust(checkout);
+        return (yield* changeTrust(
+          checkout,
+          checkout.path,
+          trusted ? "trust" : "decline",
+          expectedRevision
+        )).trust;
+      }),
+    restartServer: (input: { checkout: LanguageCheckout; providerId: string }) =>
+      Effect.gen(function* () {
+        const auth = yield* requestAuthority(hostId);
+        yield* auth.checkout(input.checkout);
 
-              return result;
-            }).pipe(Effect.uninterruptible),
-          (release) => Effect.sync(release)
+        return yield* finish(
+          auth,
+          input.checkout,
+          broker.restartMatching(
+            auth.principal.clientId,
+            input.checkout,
+            input.checkout.workspaceId,
+            input.providerId
+          )
+        );
+      }),
+    restartWorkspace: (workspaceId: WorkspaceId) =>
+      Effect.gen(function* () {
+        const auth = yield* requestAuthority(hostId);
+
+        const checkout = yield* scopeCheckout(
+          auth,
+          LanguageTrustScope.cases.Workspace.make({ hostId, workspaceId })
         );
 
-        return yield* finish(auth, checkout, mutation);
+        return yield* finish(
+          auth,
+          checkout,
+          broker.restartMatching(auth.principal.clientId, null, workspaceId)
+        );
       }),
     release: (input: LanguageContextIdentity, interestId: string) =>
       delegate(input, (clientId) => broker.release(clientId, input, interestId)),

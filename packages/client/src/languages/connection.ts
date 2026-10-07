@@ -99,6 +99,20 @@ export const languageTransportFor = (
       client["languages.trust.get"](decodeLanguage(P.GetLanguageTrust.payloadSchema, input)),
     "languages.trust.set": (input) =>
       client["languages.trust.set"](decodeLanguage(P.SetLanguageTrust.payloadSchema, input)),
+    "languages.trust.inspect": (input) =>
+      client["languages.trust.inspect"](
+        decodeLanguage(P.InspectLanguageTrust.payloadSchema, input)
+      ),
+    "languages.trust.change": (input) =>
+      client["languages.trust.change"](decodeLanguage(P.ChangeLanguageTrust.payloadSchema, input)),
+    "languages.server.restart": (input) =>
+      client["languages.server.restart"](
+        decodeLanguage(P.RestartLanguageServer.payloadSchema, input)
+      ),
+    "languages.workspace.restart": (input) =>
+      client["languages.workspace.restart"](
+        decodeLanguage(P.RestartWorkspaceLanguages.payloadSchema, input)
+      ),
     "languages.context.acquire": (input) =>
       client["languages.context.acquire"](
         decodeLanguage(P.AcquireLanguageContext.payloadSchema, input)

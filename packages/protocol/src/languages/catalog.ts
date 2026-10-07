@@ -1,3 +1,4 @@
+import { deferredSchema } from "./deferred.ts";
 import { Schema } from "effect";
 import { HostId } from "../ids.ts";
 import {
@@ -136,32 +137,36 @@ export const LanguagePrerequisiteFact = Schema.Struct({
   reason: LanguageText,
 });
 
-export const LanguagePreflight = Schema.TaggedUnion({
-  Eligible: { artifactId: Schema.NullOr(LanguageKey) },
-  Blocked: {
-    reason: Schema.Literals([
-      "not-offered",
-      "audit-required",
-      "unsupported-platform",
-      "missing-prerequisite",
-      "awaiting-trust",
-      "not-connected",
-    ]),
-    message: LanguageText,
-  },
-});
+export const LanguagePreflight = deferredSchema(() =>
+  Schema.TaggedUnion({
+    Eligible: { artifactId: Schema.NullOr(LanguageKey) },
+    Blocked: {
+      reason: Schema.Literals([
+        "not-offered",
+        "audit-required",
+        "unsupported-platform",
+        "missing-prerequisite",
+        "awaiting-trust",
+        "not-connected",
+      ]),
+      message: LanguageText,
+    },
+  })
+);
 
-export const LanguageInstallation = Schema.TaggedUnion({
-  NotInstalled: {},
-  Installing: { jobId: LanguageKey, version: LanguageText },
-  Installed: { version: LanguageText, artifactId: LanguageKey, integrity: LanguageIntegrity },
-  Failed: {
-    jobId: LanguageKey,
-    version: LanguageText,
-    message: LanguageText,
-    retainedVersion: Schema.NullOr(LanguageText),
-  },
-});
+export const LanguageInstallation = deferredSchema(() =>
+  Schema.TaggedUnion({
+    NotInstalled: {},
+    Installing: { jobId: LanguageKey, version: LanguageText },
+    Installed: { version: LanguageText, artifactId: LanguageKey, integrity: LanguageIntegrity },
+    Failed: {
+      jobId: LanguageKey,
+      version: LanguageText,
+      message: LanguageText,
+      retainedVersion: Schema.NullOr(LanguageText),
+    },
+  })
+);
 
 export const LanguageAvailability = Schema.Struct({
   hostId: HostId,

@@ -26,7 +26,9 @@ stateDiagram-v2
   starting --> failed: retry exhausted
   ready --> failed: retry exhausted
   grace --> failed: retry exhausted
-  failed --> starting: explicit restart + new snapshots
+  failed --> stopped: explicit restart, retain drafts
+  ready --> stopped: provider selection, retain drafts
+  stopped --> starting: replay retained demand
   untrusted --> starting: trusted new demand
 ```
 
@@ -34,7 +36,8 @@ Disconnect/stop from every node enters stopped; revocation enters untrusted.
 XState is a pure decider, not an actor with hidden timers. Timers are scoped to
 last-interest grace, requests and bounded retry signals. Contexts are ephemeral;
 there is no durable event-log copy of unsaved content. Restart/revocation/loss
-retires the old generation and its pending requests before cleanup. New generations
+retires the old generation and its pending requests before cleanup. Manual restart and provider selection retain text and publish a Replaced fact so
+Clients adopt the new generation and acknowledgment. Crash and loss generations
 require full Client snapshots; no prior edit notification or unknown edit outcome
 is retried. Crash retries require refreshed Client demand and consume a maximum
 of two automatic retry attempts. Manual restart resets that budget.

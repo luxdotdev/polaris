@@ -9,13 +9,9 @@ import { createFileTrustRepository } from "../trust/index.ts";
 import { HostLanguageEnvironment } from "./environment.ts";
 import { authenticatedTrustGrants } from "./trustGrant.ts";
 import { languageHostHandlers } from "./host.ts";
-
-const unavailable = () =>
-  new LanguageError({
-    reason: "audit-required",
-    message: "Managed artifact delivery has not been approved",
-    retryable: false,
-  });
+import { httpsArtifactDownload } from "../install/download.ts";
+import { decodeUpstream, upstreamLimits } from "../install/upstream.ts";
+import { createManagedDelivery } from "./managedDelivery.ts";
 
 /** Core registration uses one Host service graph; approved delivery and grants remain separate authorities. */
 export const DefaultLanguageHostHandlers = Layer.unwrap(
@@ -45,32 +41,28 @@ export const DefaultLanguageHostHandlers = Layer.unwrap(
     const registry = async (checkout: Parameters<typeof registeredCheckout>[1]) =>
       registeredCheckout(await Effect.runPromise(store.model), checkout);
 
+    const managed = createManagedDelivery();
+
     return languageHostHandlers(
       {
         hostId: environment.hostId,
         platform: environment.platform,
         root: join(root, "languages"),
         tools: catalog.tools,
+        limits: upstreamLimits,
+        sizeProfile: "upstream-runtime",
+        managed: managed.delivery,
         adapters: {
-          approve: async (exact) => ({ approved: false, identity: exact.identity }),
-          download: async function* () {
-            yield* [];
-            throw unavailable();
-          },
-          decode: async () => {
-            throw unavailable();
-          },
+          approve: async (exact) => ({
+            approved: ["node", "typescript", "typescript-language-server"].includes(exact.tool.id),
+            identity: exact.identity,
+          }),
+          download: httpsArtifactDownload(fetch, upstreamLimits.downloadBytes),
+          decode: decodeUpstream,
         },
-        observe: async (tool) => {
-          if (tool.requirements.length > 0)
-            throw new LanguageError({
-              reason: "not-ready",
-              message: "Host prerequisite observation is unavailable",
-              retryable: false,
-            });
-
-          return { connected: true, probes: [] };
-        },
+        observe: (tool, phase, trusted, signal, admission) =>
+          managed.observe(tool, phase, trusted, signal, admission),
+        disposeObservations: () => managed.dispose(),
       },
       { registry },
       {

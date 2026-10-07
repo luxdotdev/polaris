@@ -8,6 +8,25 @@ import { BlobChannel } from "../services.ts";
 import { ConnectionBlobs } from "./rpcs.ts";
 import { lazyRpcLayer } from "./lazy.ts";
 
+test("Daemon startup does not import the language runtime, catalog, installer or preview media", async () => {
+  const child = Bun.spawn(
+    [
+      process.execPath,
+      "-e",
+      `await import(${JSON.stringify(new URL("./serve.ts", import.meta.url).pathname)});
+     console.log(JSON.stringify(Object.keys(require.cache).filter(path => path.includes("/apps/daemon/src/languages/"))));`,
+    ],
+    { stdout: "pipe", stderr: "pipe" }
+  );
+
+  const output = await new Response(child.stdout).text();
+  expect(await child.exited).toBe(0);
+  const imported = Schema.decodeUnknownSync(Schema.Array(Schema.String))(JSON.parse(output));
+  expect(imported.map((path) => path.split("/languages/")[1])).toEqual([
+    "composition/environment.ts",
+  ]);
+});
+
 const rpcs = RpcGroup.make(
   Rpc.make("test.read", { success: Schema.String }),
   Rpc.make("test.watch", { success: Schema.String, stream: true })

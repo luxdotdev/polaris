@@ -1,4 +1,5 @@
 import { Context, Effect, Layer, Schema, Stream } from "effect";
+import { bundledTypeScript } from "../composition/managedPolicy.ts";
 import { LanguageError } from "@polaris/protocol";
 import { ProjectDiscovery } from "../discovery/index.ts";
 import { ExecutionTrustService } from "../trust/index.ts";
@@ -18,6 +19,8 @@ export const languageOperation = <A>(operation: (signal: AbortSignal) => Promise
 
 function effectBroker(broker: ReturnType<typeof createLanguageBroker>) {
   return {
+    authorizeExecution: (...args: Parameters<typeof broker.authorizeExecution>) =>
+      languageOperation(() => broker.authorizeExecution(...args)),
     acquire: Effect.fn("LanguageBroker.acquire")((...args: Parameters<typeof broker.acquire>) =>
       languageOperation(() => broker.acquire(...args))
     ),
@@ -73,6 +76,14 @@ function effectBroker(broker: ReturnType<typeof createLanguageBroker>) {
     ),
     restart: Effect.fn("LanguageBroker.restart")((...args: Parameters<typeof broker.restart>) =>
       languageOperation(() => broker.restart(...args))
+    ),
+    restartMatching: Effect.fn("LanguageBroker.restartMatching")(
+      (...args: Parameters<typeof broker.restartMatching>) =>
+        languageOperation(() => broker.restartMatching(...args))
+    ),
+    reloadTrust: Effect.fn("LanguageBroker.reloadTrust")(
+      (...args: Parameters<typeof broker.reloadTrust>) =>
+        languageOperation(() => broker.reloadTrust(...args))
     ),
     configure: Effect.fn("LanguageBroker.configure")(
       (...args: Parameters<typeof broker.configure>) =>
@@ -132,7 +143,12 @@ export class LanguageBroker extends Context.Service<
           ...options,
           discover: (input) => Effect.runPromise(discovery.discover(input)),
           invalidateDiscovery: () => Effect.runSync(discovery.invalidate),
-          requireTrust: (checkout) => Effect.runPromise(trust.require(checkout)),
+          requireTrust: (checkout, facts) =>
+            Effect.runPromise(
+              facts !== undefined && bundledTypeScript(facts)
+                ? Effect.map(trust.inspect(checkout), (observed) => observed.canonical)
+                : trust.require(checkout)
+            ),
         });
 
         yield* Effect.addFinalizer(() => Effect.promise(broker.close));

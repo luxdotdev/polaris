@@ -371,7 +371,17 @@ test("connection replacement rejects an old result and errors never echo transpo
   complete?.({ revision: 1, releaseDate: "fixture", tools: [], integrations: [] });
   expect(await result).toEqual({
     ok: false,
-    error: { code: "LanguageError", message: "Language operation: not-connected" },
+    error: {
+      code: "LanguageError",
+      message: "Language operation: not-connected",
+      languageError: Schema.encodeSync(P.LanguageError)(
+        new P.LanguageError({
+          reason: "not-connected",
+          message: "Language operation: not-connected",
+          retryable: true,
+        })
+      ),
+    },
   });
   bridge.dispose();
 });
@@ -490,7 +500,17 @@ test("main bounds concurrent media requests even when renderer requests cannot b
   const overflow = await bridge.request("languages.preview.external", input);
   expect(overflow).toEqual({
     ok: false,
-    error: { code: "LanguageError", message: "Language operation: queue-full" },
+    error: {
+      code: "LanguageError",
+      message: "Language operation: queue-full",
+      languageError: Schema.encodeSync(P.LanguageError)(
+        new P.LanguageError({
+          reason: "queue-full",
+          message: "Language operation: queue-full",
+          retryable: false,
+        })
+      ),
+    },
   });
   bridge.dispose();
   expect((await Promise.all(pending)).every((result) => !result.ok)).toBe(true);

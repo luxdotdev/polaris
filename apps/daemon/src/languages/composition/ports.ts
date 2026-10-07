@@ -8,6 +8,7 @@ import {
   type LanguageAvailability,
   type HostId,
   type LanguagePlatform,
+  type LanguageEffectiveSettings,
 } from "@polaris/protocol";
 import { catalog } from "../catalog/index.ts";
 import { availability } from "../availability/index.ts";
@@ -29,7 +30,8 @@ export class LanguageProviderAccess extends Context.Service<
       toolId: string,
       phase: "install" | "feature",
       trusted: boolean,
-      admission?: ObservationAdmission
+      admission?: ObservationAdmission,
+      settings?: typeof LanguageEffectiveSettings.Type
     ) => Effect.Effect<LanguageAvailability, LanguageError>;
     reserveLaunch: (request: LaunchAdmissionRequest) => Promise<LaunchSelectionLease>;
     resolveLaunch: (

@@ -195,7 +195,10 @@ export const completionSource =
   };
 
 /** Host-supplied content is rendered as text; E1 can replace rendering with the sanitized UI layer. */
-export const hoverExtension = (features: LanguageFeatures) =>
+export const hoverExtension = (
+  features: LanguageFeatures,
+  label: (provider: LanguageProvider) => string = (provider) => provider.context.providerId
+) =>
   hoverTooltip(
     async (view, position) => {
       if (view.state.doc !== features.options.buffer().doc) return null;
@@ -216,7 +219,7 @@ export const hoverExtension = (features: LanguageFeatures) =>
               ? payload.contents.map(markupText).join("\n")
               : markupText(payload.contents);
 
-            section.textContent = `${provider.context.providerId}\n${content}`;
+            section.textContent = `${label(provider)}\n${content}`;
           }
 
           return { dom };
