@@ -68,6 +68,8 @@ export const eligible = (providerId = TS): Discovered => ({
   prerequisites: [],
 });
 
+const PYTHON_MAC = { os: "darwin", arch: "arm64", libc: "none" } as const;
+
 export const missingPython: Discovered = {
   providerId: "basedpyright",
   preflight: P.LanguagePreflight.cases.Blocked.make({
@@ -84,6 +86,15 @@ export const missingPython: Discovered = {
         version: ">=3.9",
         detail: "Project interpreter",
         required: true,
+        installCommands: [
+          { platforms: [PYTHON_MAC], label: "uv", command: "uv python install 3.13" },
+          { platforms: [PYTHON_MAC], label: "Homebrew", command: "brew install python@3.13" },
+          {
+            platforms: [{ os: "linux", arch: "arm64", libc: "glibc" }],
+            label: "Debian / Ubuntu",
+            command: "sudo apt install python3 python3-venv",
+          },
+        ],
       },
       effectiveExecutable: null,
       detectedVersion: null,
@@ -126,59 +137,46 @@ export const trust = (
     provider,
   });
 
-const availability = (
+const PLATFORM = { os: "darwin", arch: "arm64", libc: "none" } as const;
+
+const hostTool = (
   toolId: string,
-  installation: P.LanguageAvailability["installation"],
+  state: P.LanguageHostToolState["state"],
   pinnedVersion: string
-): P.LanguageAvailability => ({
-  hostId,
-  toolId,
-  pinnedVersion,
-  platform: { os: "darwin", arch: "arm64", libc: "none" },
-  installation,
-  updateCandidate: null,
-  phase: "install",
-  prerequisites: [],
-  preflight: P.LanguagePreflight.cases.Eligible.make({ artifactId: null }),
-  checkedAt: 1,
-});
+): P.LanguageHostToolState => ({ toolId, pinnedVersion, state, prerequisites: [], checkedAt: 1 });
 
 export const installedTools: HostTools = {
-  availability: {
-    typescript: availability(
+  platform: PLATFORM,
+  tools: {
+    typescript: hostTool(
       "typescript",
-      P.LanguageInstallation.cases.Installed.make({
-        version: "6.0.3",
-        artifactId: "ts",
-        integrity: `sha256:${"a".repeat(64)}`,
-      }),
+      P.LanguageHostToolStatus.cases.Installed.make({ version: "6.0.3" }),
       "6.0.3"
     ),
   },
-  progress: {},
 };
 
 export const downloading: HostTools = {
-  availability: {
-    node: availability(
+  platform: PLATFORM,
+  tools: {
+    node: hostTool(
       "node",
-      P.LanguageInstallation.cases.Installing.make({ jobId: "job-1", version: "24.18.0" }),
+      P.LanguageHostToolStatus.cases.Downloading.make({
+        progress: {
+          hostId,
+          toolId: "node",
+          version: "24.18.0",
+          jobId: "job-1",
+          sequence: 3,
+          phase: "downloading",
+          downloadedBytes: 18 * 1024 * 1024,
+          totalBytes: 46 * 1024 * 1024,
+          message: "",
+          activeVersion: null,
+        },
+      }),
       "24.18.0"
     ),
-  },
-  progress: {
-    node: {
-      hostId,
-      toolId: "node",
-      version: "24.18.0",
-      jobId: "job-1",
-      sequence: 3,
-      phase: "downloading",
-      downloadedBytes: 18 * 1024 * 1024,
-      totalBytes: 46 * 1024 * 1024,
-      message: "",
-      activeVersion: null,
-    },
   },
 };
 

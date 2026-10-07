@@ -6,7 +6,7 @@ import { Schema } from "effect";
 import type { ConnectionState } from "@polaris/protocol";
 import type { HostView, IpcError, LanguageApi } from "../../../../shared/api.ts";
 import { EditorSettings } from "./EditorSettings.tsx";
-import { catalog, facts, HOST_ID } from "./fixture.testing.ts";
+import { HOST_ID, catalog, hostState } from "./fixture.testing.ts";
 
 const host = (key: string, label: string, state: ConnectionState = "connected"): HostView => ({
   key,
@@ -55,7 +55,7 @@ interface Call {
   readonly input: Input;
 }
 
-type Value = SettingsRecord | P.LanguageCatalog | ReadonlyArray<P.LanguageAvailability>;
+type Value = SettingsRecord | P.LanguageCatalog | null;
 
 type Reply =
   | { readonly ok: true; readonly value: Value }
@@ -118,7 +118,7 @@ const fakeApi = () => {
 
     if (method === "languages.settings.get") return { ok: true, value: get(input.scope ?? APP) };
 
-    return { ok: true, value: method === "languages.catalog" ? catalog : facts() };
+    return { ok: true, value: method === "languages.catalog" ? catalog : null };
   };
 
   const request = async (method: string, input: Input) => {
@@ -128,9 +128,16 @@ const fakeApi = () => {
   };
 
   const api: LanguageApi = {
-    // SAFETY: these tests send only settings, catalog and availability requests, answered in their output shapes.
+    // SAFETY: these tests send only settings and catalog requests, answered in their output shapes.
     request: request as LanguageApi["request"],
-    subscribe: () => () => undefined,
+    subscribe: (kind, _input, listener) => {
+      // SAFETY: only the Host state feed is subscribed here, and it carries LanguageHostState.
+      const deliver = listener.items as (items: readonly P.LanguageHostState[]) => void;
+
+      if (kind === "languages.host.state.watch") queueMicrotask(() => deliver([hostState()]));
+
+      return () => undefined;
+    },
   };
 
   return {

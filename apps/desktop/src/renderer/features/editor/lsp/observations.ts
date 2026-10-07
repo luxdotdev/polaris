@@ -10,6 +10,16 @@ import {
 } from "./configuration.ts";
 import type { LanguageId } from "../model/language.ts";
 
+/** A read that straddled `invalidate()`: its answer is stale, so the caller reads again. */
+export class ObservationsChanged extends Error {
+  constructor() {
+    super("Language observations changed.");
+  }
+}
+
+/** How often `settled` reads again; each retry follows a real invalidation. */
+const SETTLE_ATTEMPTS = 3;
+
 interface Scope {
   readonly hostKey: string;
   readonly identity: AuthenticatedLanguageIdentity;
@@ -40,7 +50,7 @@ export class EditorLanguageObservations {
     const epoch = this.epoch;
 
     const pending = load().then((value) => {
-      if (epoch !== this.epoch) throw new Error("Language observations changed.");
+      if (epoch !== this.epoch) throw new ObservationsChanged();
 
       return value;
     });
@@ -101,6 +111,17 @@ export class EditorLanguageObservations {
         disabled: new Map(descriptors.map((provider) => [provider.id, provider.disableFeatures])),
       };
     });
+  }
+
+  /** Runs `read` again when the observations changed under it (a context replaced, Trust changed). */
+  async settled<A>(read: () => Promise<A>, attempts = SETTLE_ATTEMPTS): Promise<A> {
+    try {
+      return await read();
+    } catch (error) {
+      if (!(error instanceof ObservationsChanged) || attempts <= 1) throw error;
+
+      return this.settled(read, attempts - 1);
+    }
   }
 
   invalidate() {

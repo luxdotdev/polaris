@@ -4,7 +4,7 @@
  */
 import { Dialog, DialogContent, DialogDescription, DialogTitle, Kbd } from "@polaris/ui";
 import { formatChord, parseChord } from "../../shared/chord.ts";
-import { KEYMAP, type MenuName } from "../../shared/keymap.ts";
+import { KEYMAP, type MenuName, paletteEntry } from "../../shared/keymap.ts";
 import { useNav, useShellActions } from "./hooks.ts";
 
 interface Row {
@@ -17,6 +17,11 @@ const fromKeymap = (menu: MenuName): ReadonlyArray<Row> =>
     title: b.title,
     keys: b.keys.map((k) => formatChord(parseChord(k))),
   }));
+
+/** The focused file's commands with a shortcut and no menu (save, restart the server…). */
+const editorRows: ReadonlyArray<Row> = KEYMAP.filter(
+  (b) => b.menu === undefined && b.keys.length > 0 && paletteEntry(b)?.group === "file"
+).map((b) => ({ title: b.title, keys: b.keys.map((k) => formatChord(parseChord(k))) }));
 
 const SECTIONS: ReadonlyArray<{ readonly heading: string; readonly rows: ReadonlyArray<Row> }> = [
   {
@@ -39,6 +44,7 @@ const SECTIONS: ReadonlyArray<{ readonly heading: string; readonly rows: Readonl
       { title: "Stop from the composer", keys: ["esc"] },
     ],
   },
+  { heading: "Editor", rows: editorRows },
   { heading: "Help", rows: fromKeymap("Help") },
 ];
 

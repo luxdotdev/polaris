@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { catalog, facts } from "./fixture.testing.ts";
-import { languageRows, rowEnabled, syntaxOnly, syntaxOnlyLine, toolIdsOf } from "./model.ts";
+import { languageRows, rowEnabled, syntaxOnly, syntaxOnlyLine } from "./model.ts";
 
 const rows = (download = true) =>
   languageRows(catalog, facts(), { host: "this Mac", downloadAutomatically: download });
@@ -74,6 +74,13 @@ describe("languageRows", () => {
   });
 });
 
+describe("the release gate", () => {
+  test("only offered integrations get rows; the rest join the foot line", () => {
+    expect(rows().some((r) => r.name === "Lua")).toBe(false);
+    expect(syntaxOnly(catalog)).toContain("Lua");
+  });
+});
+
 describe("switches", () => {
   test("off only when every language of the row has an explicit empty provider list", () => {
     const ts = row("typescript-language-server");
@@ -95,20 +102,14 @@ describe("the syntax-only foot line", () => {
   test("names the most-used languages without a server first", () => {
     const names = syntaxOnly(catalog);
 
-    expect(names.slice(0, 3)).toEqual(["C", "C++", "C#"]);
+    expect(names.slice(0, 3)).toEqual(["Java", "C#", "C"]);
     expect(names).not.toContain("Markdown");
     expect(names).not.toContain("TypeScript");
     expect(syntaxOnlyLine(names)).toBe(
-      "C, C++, C#, Ruby and others highlight their syntax, with no language server yet."
+      "Java, C#, C, C++ and others highlight their syntax, with no language server yet."
     );
     expect(syntaxOnlyLine(["Go", "SQL"])).toBe(
       "Go and SQL highlight their syntax, with no language server yet."
     );
-  });
-
-  test("availability covers servers, formatters and managed runtimes", () => {
-    expect(toolIdsOf(catalog)).toContain("node");
-    expect(toolIdsOf(catalog)).toContain("prettier");
-    expect(toolIdsOf(catalog)).toContain("typescript");
   });
 });

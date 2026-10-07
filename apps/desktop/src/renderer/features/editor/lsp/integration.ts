@@ -11,7 +11,7 @@ import { previewDocument } from "../runtime/markdown.ts";
 import { applyBufferLanguage } from "../runtime/buffers.ts";
 import { fileKey } from "../model/drafts.ts";
 import { languageFor, type LanguageId } from "../model/language.ts";
-import { bindFormatter } from "../formatting/bridge.ts";
+import { bindFormatter, formatsDocuments, formatterRequest } from "../formatting/bridge.ts";
 import { formattedText } from "../formatting/edits.ts";
 import { LanguageFeatures } from "./features.ts";
 import { LanguageDiagnosticFeed, cmDiagnostics } from "./diagnostics.ts";
@@ -345,8 +345,11 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
       busy: false,
     });
     Status.statusChecking(key, environment.document.checkout);
-    void this.configure(entry, environment.identity, environment.document.checkout, stamp).catch(
-      (error: P.LanguageError | Error) => {
+    const { identity, document } = environment;
+
+    void this.observations
+      .settled(() => this.configure(entry, identity, document.checkout, stamp))
+      .catch((error: P.LanguageError | Error) => {
         if (entry.disposed || stamp !== entry.stamp) return;
         Status.statusFailed(key, {
           reason: Schema.is(P.LanguageError)(error) ? error.reason : "unknown",
@@ -360,8 +363,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
               : "Language tooling is unavailable. Check Settings → Languages for this Host.",
           providers: [],
         });
-      }
-    );
+      });
   }
 
   private localConfiguration(
@@ -461,6 +463,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
     if (!current()) return;
     const settings = found.effectiveSettings;
     entry.unformat = bindFormatter(file, {
+      canFormat: () => formatsDocuments(entry.features.options.providers()),
       settings: async () => ({
         formatOnSave: settings.formatOnSave,
         formatter: settings.formatter,
@@ -493,8 +496,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
             document: { uri: buffer.uri, version: buffer.version },
             snapshot: snapshot.text,
             expectedDiskVersion: snapshot.diskVersion,
-            formatter,
-            options: {},
+            ...formatterRequest(formatter, provider.context.providerId, snapshot.indent),
             reason: snapshot.reason,
             deadline: Date.now() + 5000,
           }),

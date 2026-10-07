@@ -6,15 +6,8 @@
 import * as P from "@polaris/protocol";
 import { Match, Option, Predicate, Schema } from "effect";
 import type { LanguageApi } from "../../../../shared/api.ts";
-import { LanguageSubscriptionItems } from "../../../../shared/languages.ts";
 import { appendFeed, appendStderr, type LogScope } from "./log.ts";
-import {
-  availabilityArrived,
-  catalogArrived,
-  progressArrived,
-  runtimeArrived,
-  type Runtime,
-} from "./store.ts";
+import { catalogArrived, hostStateArrived, runtimeArrived, type Runtime } from "./store.ts";
 
 export const scopeOf = (hostKey: string, context: P.LanguageContextIdentity): LogScope => ({
   hostKey,
@@ -48,94 +41,26 @@ export const snapshotsObserved = (hostKey: string, snapshots: readonly unknown[]
   }
 };
 
-/** Availability and install progress for every catalog tool on a Host, until disposed. */
+/** The Host's installation state for every catalog tool, from its feed, until disposed. */
 export const watchHostTools = (api: LanguageApi, hostKey: string) => {
   let active = true;
-  const jobs = new Map<string, () => void>();
   let unwatch: (() => void) | null = null;
-
-  const watchJob = (fact: P.LanguageAvailability) => {
-    const installing = Predicate.isTagged(fact.installation, "Installing")
-      ? fact.installation.jobId
-      : null;
-
-    for (const [jobId, dispose] of jobs)
-      if (jobId !== installing && jobId.startsWith(`${fact.toolId}:`)) {
-        dispose();
-        jobs.delete(jobId);
-      }
-
-    if (installing === null || jobs.has(`${fact.toolId}:${installing}`)) return;
-    jobs.set(
-      `${fact.toolId}:${installing}`,
-      api.subscribe(
-        "languages.install.watch",
-        { hostKey, jobId: installing },
-        {
-          items: (items) => {
-            if (!active) return;
-
-            for (const item of items)
-              progressArrived(hostKey, Schema.decodeUnknownSync(P.LanguageInstallProgress)(item));
-          },
-          end: () => undefined,
-        }
-      )
-    );
-  };
-
-  const received = (facts: readonly P.LanguageAvailability[]) => {
-    if (!active) return;
-    availabilityArrived(hostKey, facts);
-    facts.forEach(watchJob);
-  };
 
   void (async () => {
     const catalog = await api.request("languages.catalog", { hostKey });
 
     if (!active || !catalog.ok) return;
+    catalogArrived(hostKey, Schema.decodeUnknownSync(P.LanguageCatalog)(catalog.value));
 
-    const known = Schema.decodeUnknownSync(P.LanguageCatalog)(catalog.value);
-    catalogArrived(hostKey, known);
-
-    const catalogIds = known.tools.map((tool) => tool.id).slice(0, 512);
-
-    // One tool the Host can't describe fails a whole batch, so ask per tool and keep the answers.
-    const answers = await Promise.all(
-      catalogIds.map((toolId) =>
-        api.request("languages.availability", {
-          hostKey,
-          toolIds: [toolId],
-          checkout: null,
-          refresh: false,
-          phase: "install",
-        })
-      )
-    );
-
-    const facts = answers.flatMap((answer) =>
-      answer.ok
-        ? Schema.decodeUnknownSync(LanguageSubscriptionItems["languages.availability.watch"])(
-            answer.value
-          )
-        : []
-    );
-
-    const toolIds = facts.map((fact) => fact.toolId);
-    received(facts);
-
-    if (!active) return;
+    // An empty list is the whole catalog; the feed opens with a full snapshot.
     unwatch = api.subscribe(
-      "languages.availability.watch",
-      { hostKey, toolIds, checkout: null },
+      "languages.host.state.watch",
+      { hostKey, toolIds: [], refresh: false },
       {
         items: (items) => {
           for (const item of items)
-            received(
-              Schema.decodeUnknownSync(LanguageSubscriptionItems["languages.availability.watch"])(
-                item
-              )
-            );
+            if (active)
+              hostStateArrived(hostKey, Schema.decodeUnknownSync(P.LanguageHostState)(item));
         },
         end: () => undefined,
       }
@@ -145,8 +70,6 @@ export const watchHostTools = (api: LanguageApi, hostKey: string) => {
   return () => {
     active = false;
     unwatch?.();
-    jobs.forEach((dispose) => dispose());
-    jobs.clear();
   };
 };
 

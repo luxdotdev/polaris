@@ -623,14 +623,14 @@ const writeBuffer = async (key: string): Promise<boolean> => {
 const coordinator = (buffer: OpenBuffer) =>
   new SaveCoordinator(
     {
-      snapshot: (reason) => {
+      snapshot: (reason, clean = false) => {
         const model = modelOf(buffer.key);
         const status = editorStore.getState().buffers[buffer.key];
 
         if (
           buffer.view === null ||
           model === null ||
-          !canSave(model) ||
+          !(clean ? model.saving === null && model.conflict === null : canSave(model)) ||
           status?.readOnly ||
           status?.deleted
         )
@@ -642,6 +642,7 @@ const coordinator = (buffer: OpenBuffer) =>
           version: buffer.revision,
           diskVersion: model.version,
           reason,
+          indent: buffer.indent,
         };
       },
       current: (snapshot) => {
@@ -676,14 +677,18 @@ const coordinator = (buffer: OpenBuffer) =>
   );
 
 /** Every save path awaits the same preflight; newer dirty text prevents close/quit success. */
-export const saveBuffer = (key: string, reason: SaveReason = "manual"): Promise<boolean> => {
+const saverOf = (key: string) => {
   const buffer = open.get(key);
 
-  if (buffer === undefined) return Promise.resolve(false);
-  buffer.save ??= coordinator(buffer);
-
-  return buffer.save.save(reason);
+  return buffer === undefined ? null : (buffer.save ??= coordinator(buffer));
 };
+
+export const saveBuffer = (key: string, reason: SaveReason = "manual"): Promise<boolean> =>
+  saverOf(key)?.save(reason) ?? Promise.resolve(false);
+
+/** Formats an open file now, without saving it; true when its text changed. */
+export const formatBuffer = (key: string): Promise<boolean> =>
+  saverOf(key)?.format() ?? Promise.reject(new Error("The file isn't open."));
 
 export const keepMine = (key: string) => {
   const buffer = open.get(key);

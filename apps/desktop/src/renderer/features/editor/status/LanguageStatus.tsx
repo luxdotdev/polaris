@@ -18,7 +18,7 @@ import { runAction } from "./actions.ts";
 import { useHostToolsWatch, useLanguageStatus } from "./hooks.ts";
 import { openLanguageLog } from "../intents/languageLog.ts";
 import "./intent.ts";
-import type { Fact, Mark, StatusAction, StatusView } from "./model.ts";
+import type { Fact, InstallCommand, Mark, StatusAction, StatusView } from "./model.ts";
 
 export const PillMark = ({ mark }: { readonly mark: Mark }) =>
   mark === "none" ? null : (
@@ -52,19 +52,19 @@ const Section = ({ children, className }: { children: ReactNode; className?: str
   </div>
 );
 
-const CommandBlock = ({ host, command }: { readonly host: string; readonly command: string }) => {
+const CommandRow = ({ command }: { readonly command: InstallCommand }) => {
   const [copied, setCopied] = useState(false);
 
   return (
-    <Section className="gap-1.5">
-      <span className="text-caption text-text-faint">Run on {host}</span>
+    <>
+      <span className="text-caption text-text-faint">{command.label}</span>
       <div className="rounded-control border-hairline bg-surface-sunken flex h-8 items-center justify-between border pr-1.5 pl-2.5">
-        <code className="text-caption text-text-default truncate font-mono">{command}</code>
+        <code className="text-caption text-text-default truncate font-mono">{command.command}</code>
         <button
           type="button"
           onClick={() =>
             void navigator.clipboard
-              ?.writeText(command)
+              ?.writeText(command.command)
               .then(() => setCopied(true))
               .catch(() => undefined)
           }
@@ -73,9 +73,25 @@ const CommandBlock = ({ host, command }: { readonly host: string; readonly comma
           {copied ? "Copied" : "Copy"}
         </button>
       </div>
-    </Section>
+    </>
   );
 };
+
+/** "Run on {host}", then each way the catalog offers to install it on this platform. */
+const CommandBlock = ({
+  host,
+  commands,
+}: {
+  readonly host: string;
+  readonly commands: readonly InstallCommand[];
+}) => (
+  <Section className="gap-1.5">
+    <span className="text-caption text-text-subtle">Run on {host}</span>
+    {commands.map((command) => (
+      <CommandRow key={command.label} command={command} />
+    ))}
+  </Section>
+);
 
 const ProgressBlock = ({
   progress,
@@ -179,8 +195,8 @@ export const StatusPopover = ({ view, running, failure, onRun, titleId }: Status
         </pre>
       </Section>
     )}
-    {view.command === null || view.commandHost === null ? null : (
-      <CommandBlock host={view.commandHost} command={view.command} />
+    {view.commands.length === 0 || view.commandHost === null ? null : (
+      <CommandBlock host={view.commandHost} commands={view.commands} />
     )}
     {view.facts.length === 0 ? null : (
       <Section className="gap-2">

@@ -43,6 +43,7 @@ import { useLanguageNavigationCommands } from "../navigation/contribute.ts";
 import { EditorTrust } from "../trust/TrustCard.tsx";
 import { activateLogTab, closeLogTab, isLogTab, useLogTabs } from "../status/logTabs.ts";
 import { LogTabBody, useLogTabViews } from "../status/LogTab.tsx";
+import { useLanguageCommands } from "../commands/useLanguageCommands.ts";
 
 export interface EditorPaneProps {
   readonly hostKey: string;
@@ -119,6 +120,7 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
 
   useEditorCommands(hostKey, workspaceId, active);
   useLanguageNavigationCommands();
+  useLanguageCommands(hostKey, workspaceId, active);
 
   const onAction = (action: BannerAction) => {
     if (active === null) return;

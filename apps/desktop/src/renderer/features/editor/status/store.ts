@@ -34,9 +34,10 @@ export interface ContextRuntime {
 }
 
 export interface HostTools {
-  readonly availability: Readonly<Record<string, P.LanguageAvailability>>;
-  readonly progress: Readonly<Record<string, P.LanguageInstallProgress>>;
-  /** Each catalog tool's pinned version, for tools whose availability needs a checkout. */
+  /** The Host's installation state per tool (`languages.host.state`). */
+  readonly tools: Readonly<Record<string, P.LanguageHostToolState>>;
+  readonly platform: P.LanguageHostState["platform"] | null;
+  /** Each catalog tool's pinned version, until the Host state arrives. */
   readonly pinned?: Readonly<Record<string, string>>;
 }
 
@@ -128,22 +129,19 @@ export const runtimeArrived = (
   });
 
 const hostTools = (state: StatusState, hostKey: string): HostTools =>
-  state.hosts[hostKey] ?? { availability: {}, progress: {} };
+  state.hosts[hostKey] ?? { tools: {}, platform: null };
 
-export const availabilityArrived = (hostKey: string, facts: readonly P.LanguageAvailability[]) =>
-  statusStore.setState((state) => {
-    const tools = hostTools(state, hostKey);
-    const availability = { ...tools.availability };
-
-    for (const fact of facts) {
-      const known = availability[fact.toolId];
-
-      if (known === undefined || known.checkedAt <= fact.checkedAt)
-        availability[fact.toolId] = fact;
-    }
-
-    return { hosts: { ...state.hosts, [hostKey]: { ...tools, availability } } };
-  });
+export const hostStateArrived = (hostKey: string, host: P.LanguageHostState) =>
+  statusStore.setState((state) => ({
+    hosts: {
+      ...state.hosts,
+      [hostKey]: {
+        ...hostTools(state, hostKey),
+        platform: host.platform,
+        tools: Object.fromEntries(host.tools.map((tool) => [tool.toolId, tool])),
+      },
+    },
+  }));
 
 export const catalogArrived = (hostKey: string, catalog: P.LanguageCatalog) =>
   statusStore.setState((state) => ({
@@ -155,26 +153,6 @@ export const catalogArrived = (hostKey: string, catalog: P.LanguageCatalog) =>
       },
     },
   }));
-
-export const progressArrived = (hostKey: string, progress: P.LanguageInstallProgress) =>
-  statusStore.setState((state) => {
-    const tools = hostTools(state, hostKey);
-    const known = tools.progress[progress.toolId];
-
-    if (
-      known !== undefined &&
-      known.jobId === progress.jobId &&
-      known.sequence >= progress.sequence
-    )
-      return state;
-
-    return {
-      hosts: {
-        ...state.hosts,
-        [hostKey]: { ...tools, progress: { ...tools.progress, [progress.toolId]: progress } },
-      },
-    };
-  });
 
 export const useFileLanguage = (key: string) =>
   useStore(statusStore, (state) => state.files[key] ?? null);

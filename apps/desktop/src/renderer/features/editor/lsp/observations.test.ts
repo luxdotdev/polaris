@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import * as P from "@polaris/protocol";
 import type { LanguageApi } from "../../../../shared/api.ts";
-import { EditorLanguageObservations } from "./observations.ts";
+import { EditorLanguageObservations, ObservationsChanged } from "./observations.ts";
 import { EditorProviderFixture } from "./fixture.testing.ts";
 
 const scope = {
@@ -109,4 +109,46 @@ test("invalidation rejects a pending old observation and cannot overwrite a fres
     fresh
   );
   expect(discoveries).toBe(2);
+});
+
+test("settled reads again after an invalidation, a bounded number of times, and only then", async () => {
+  const observations = new EditorLanguageObservations();
+  let reads = 0;
+
+  const value = await observations.settled(async () => {
+    reads++;
+
+    if (reads === 1) throw new ObservationsChanged();
+
+    return "fresh";
+  });
+
+  expect([value, reads]).toEqual(["fresh", 2]);
+
+  reads = 0;
+
+  const always = await observations
+    .settled(async () => {
+      reads++;
+
+      throw new ObservationsChanged();
+    })
+    .then(
+      () => null,
+      (error: Error) => error
+    );
+
+  expect(always).toBeInstanceOf(ObservationsChanged);
+  expect(reads).toBe(3);
+
+  const other = await observations
+    .settled(async () => {
+      throw new Error("unrelated");
+    })
+    .then(
+      () => "",
+      (error: Error) => error.message
+    );
+
+  expect(other).toBe("unrelated");
 });

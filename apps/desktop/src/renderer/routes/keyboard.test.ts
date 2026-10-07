@@ -18,6 +18,7 @@ const setup = () => {
     showSidebar: noop,
     openJump: noop,
     setJumpOpen: noop,
+    setPaletteOpen: noop,
     setHelpOpen: noop,
     closeOverlay: () => false,
     startNewSession: noop,

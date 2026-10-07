@@ -1,6 +1,6 @@
 /**
  * The K jump menu (Paper AR-0): one field across every Host, to sessions,
- * Workspaces, Worktrees, machines and actions. ↑↓ move, ↵ opens, ⌘↵ opens a
+ * Workspaces, Worktrees and machines; commands are the Command Palette's. ↑↓ move, ↵ opens, ⌘↵ opens a
  * session in Review, esc closes. Fills the shell's `JumpMenu` slot.
  */
 import {
@@ -13,7 +13,6 @@ import {
   CommandItem,
   CommandList,
   FolderIcon,
-  PlusIcon,
   SEVERITIES,
   SEVERITY_LABELS,
   SeverityGlyph,
@@ -27,19 +26,11 @@ import { subjectKey, surfaceStore } from "../review/index.ts";
 import type { JumpMenuProps } from "../../app/slots.tsx";
 import { barHosts } from "../../routes/topBar.ts";
 import { SessionGlyph, SummaryGlyph } from "../../shell/glyphs.tsx";
-import { useApp, useCommands, useNav, useSelection, useShellActions } from "../../shell/hooks.ts";
+import { useApp, useNav, useSelection, useShellActions } from "../../shell/hooks.ts";
 import { jumpCopy } from "./copy.ts";
 import { jumpGroups, type ReviewSources } from "./groups.ts";
 import { fileItems, findingItems, pullItems } from "./reviewItems.ts";
-import {
-  actionItems,
-  hostItems,
-  type JumpItem,
-  sessionItems,
-  workspaceItems,
-  worktreeItems,
-} from "./items.ts";
-import { useUpdates } from "../settings/updates/store.ts";
+import { hostItems, type JumpItem, sessionItems, workspaceItems, worktreeItems } from "./items.ts";
 import { useRunJump } from "./run.ts";
 
 const Leading = ({ item }: { readonly item: JumpItem }) => {
@@ -56,10 +47,6 @@ const Leading = ({ item }: { readonly item: JumpItem }) => {
   if (target.kind === "workspace") return <FolderIcon size={14} className="text-text-subtle" />;
 
   if (target.kind === "worktree") return <BranchIcon size={14} className="text-text-subtle" />;
-
-  if (target.kind === "command") {
-    return target.id === "session.new" ? <PlusIcon size={14} className="text-text-subtle" /> : null;
-  }
 
   if (item.state === null || item.harness === null) return null;
 
@@ -97,50 +84,20 @@ const useReviewSources = (mode: string): ReviewSources | undefined => {
 const useSources = () => {
   const hosts = useApp((s) => s.hosts);
   const models = useApp((s) => s.hostModels);
-  const { topBar, hostKey, workspaceId, sessionId, mode } = useSelection();
-  const commands = useCommands();
-  const dark = useDark();
-  const updateVersion = useUpdates((s) => s.view?.availableVersion);
+  const { topBar, mode } = useSelection();
   const review = useReviewSources(mode);
 
   return useMemo(() => {
     const data = { bar: barHosts({ hosts, models }), models, machineBar: topBar !== "workspaces" };
-    const model = hostKey === null ? undefined : models[hostKey];
 
     return {
       sessions: sessionItems(data),
       workspaces: workspaceItems(data),
       worktrees: worktreeItems(data),
       hosts: hostItems(data),
-      actions: actionItems({
-        workspace: workspaceId === null ? null : (model?.workspaces.get(workspaceId)?.name ?? null),
-        session:
-          sessionId === null ? null : (model?.sessions.get(sessionId)?.session.title ?? null),
-        enabled: commands.enabled,
-        updateVersion: updateVersion ?? null,
-        nextTheme: dark ? "light" : "dark",
-      }),
       review,
     };
-  }, [
-    hosts,
-    models,
-    topBar,
-    hostKey,
-    workspaceId,
-    sessionId,
-    commands,
-    dark,
-    review,
-    updateVersion,
-  ]);
-};
-
-/** Whether the window is dark now: the theme setting, or the system's when it follows it. */
-const useDark = () => {
-  const theme = useApp((s) => s.theme);
-
-  return theme === "system" ? matchMedia("(prefers-color-scheme: dark)").matches : theme === "dark";
+  }, [hosts, models, topBar, review]);
 };
 
 const Results = ({ onClose }: { readonly onClose: () => void }) => {
@@ -225,7 +182,7 @@ export const JumpMenu = ({ open, onOpenChange }: JumpMenuProps) => {
       onOpenChange={onOpenChange}
       shouldFilter={false}
       title="Jump"
-      description="Jump to a session, workspace, worktree, machine or action"
+      description="Jump to a session, workspace, worktree or machine"
     >
       <Results onClose={() => setJumpOpen(false)} />
     </CommandDialog>

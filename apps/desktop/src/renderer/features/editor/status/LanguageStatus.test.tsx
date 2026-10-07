@@ -121,6 +121,13 @@ describe("the popover", () => {
                     version: ">=3.9",
                     detail: "",
                     required: true,
+                    installCommands: [
+                      {
+                        platforms: [{ os: "darwin", arch: "arm64", libc: "none" }],
+                        label: "uv",
+                        command: "uv python install 3.13",
+                      },
+                    ],
                   },
                   effectiveExecutable: null,
                   detectedVersion: null,
@@ -135,9 +142,10 @@ describe("the popover", () => {
     );
 
     expect(screen().getByText("Run on Mac Studio")).toBeTruthy();
+    expect(screen().getByText("uv")).toBeTruthy();
     fireEvent.click(screen().getByText("Copy"));
     await screen().findByText("Copied");
-    expect(written).toEqual(["uv python install"]);
+    expect(written).toEqual(["uv python install 3.13"]);
   });
 
   test("a failed action reads inline, chosen by its typed reason", () => {

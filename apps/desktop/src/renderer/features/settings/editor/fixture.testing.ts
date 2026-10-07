@@ -1,4 +1,4 @@
-/** A small catalog and availability facts for Settings → Editor tests. */
+/** A small catalog and Host state for Settings → Editor tests. */
 import * as P from "@polaris/protocol";
 import { Schema } from "effect";
 
@@ -28,9 +28,11 @@ const integration = (
   id: string,
   languageIds: ReadonlyArray<string>,
   providers: ReadonlyArray<readonly [string, string, string]>,
-  formatter = "prettier"
+  formatter = "prettier",
+  offered = true
 ) => ({
   id,
+  offered,
   languageIds,
   patterns: [],
   providers: providers.map(([providerId, toolId, role]) => ({
@@ -100,53 +102,52 @@ export const catalog: P.LanguageCatalog = Schema.decodeUnknownSync(P.LanguageCat
     ),
     integration("rust", ["rust"], [["rust-analyzer", "rust-analyzer", "primary"]], "rust-analyzer"),
     integration("go", ["go"], [["gopls", "gopls", "primary"]], "gopls"),
+    integration("lua", ["lua"], [["lua-ls", "lua-language-server", "primary"]], "stylua", false),
   ],
 });
 
 export const HOST_ID = P.HostId.make("host-1");
 
-type Installation = P.LanguageAvailability["installation"];
+type Installation = P.LanguageHostToolState["state"];
 
-type Prerequisite = P.LanguageAvailability["prerequisites"][number];
+type Prerequisite = P.LanguageHostToolState["prerequisites"][number];
 
-const Installation = P.LanguageInstallation.cases;
+const State = P.LanguageHostToolStatus.cases;
 
 export const availability = (
   toolId: string,
-  installation: Installation,
+  state: Installation,
   prerequisites: ReadonlyArray<Prerequisite> = []
-): P.LanguageAvailability =>
-  Schema.decodeUnknownSync(P.LanguageAvailability)({
-    hostId: HOST_ID,
+): P.LanguageHostToolState =>
+  Schema.decodeUnknownSync(P.LanguageHostToolState)({
     toolId,
     pinnedVersion: catalog.tools.find((t) => t.id === toolId)?.version ?? "1.0.0",
-    platform: { os: "darwin", arch: "arm64", libc: "none" },
-    installation,
-    updateCandidate: null,
-    phase: "install",
+    state,
     prerequisites,
-    preflight: P.LanguagePreflight.cases.Eligible.make({ artifactId: null }),
     checkedAt: 1,
   });
 
-export const INSTALLED = (version: string): Installation =>
-  Installation.Installed.make({
-    version,
-    artifactId: "artifact",
-    integrity: `sha256:${"a".repeat(64)}`,
-  });
+export const INSTALLED = (version: string): Installation => State.Installed.make({ version });
 
-export const NOT_INSTALLED: Installation = Installation.NotInstalled.make({});
+export const NOT_INSTALLED: Installation = State.NotDownloaded.make({});
 
-export const INSTALLING: Installation = Installation.Installing.make({
-  jobId: "job-1",
-  version: "1.1.414",
+export const INSTALLING: Installation = State.Downloading.make({
+  progress: {
+    hostId: HOST_ID,
+    toolId: "pyright",
+    version: "1.1.414",
+    jobId: "job-1",
+    sequence: 1,
+    phase: "downloading",
+    downloadedBytes: 1,
+    totalBytes: 2,
+    message: "",
+    activeVersion: null,
+  },
 });
 
-export const FAILED: Installation = Installation.Failed.make({
-  jobId: "job-2",
-  version: "0.23.0",
-  message: "checksum mismatch",
+export const FAILED: Installation = State.Failed.make({
+  reason: "checksum mismatch",
   retainedVersion: null,
 });
 
@@ -159,14 +160,13 @@ export const missingCargo: Prerequisite = {
     detail: "",
     required: true,
   },
-  effectiveExecutable: null,
-  detectedVersion: null,
-  outcome: "missing",
-  reason: "not on PATH",
+  presence: "missing",
+  path: null,
+  version: null,
 };
 
 /** One of each row state: ready, not downloaded, installing, needs a prerequisite, failed. */
-export const facts = (): ReadonlyArray<P.LanguageAvailability> => [
+export const facts = (): ReadonlyArray<P.LanguageHostToolState> => [
   availability("typescript-language-server", INSTALLED("6.0.1")),
   availability("vscode-langservers-extracted", NOT_INSTALLED),
   availability("pyright", INSTALLING),
@@ -176,3 +176,11 @@ export const facts = (): ReadonlyArray<P.LanguageAvailability> => [
   availability("node", INSTALLED("24.18.0")),
   availability("typescript", INSTALLED("6.0.3")),
 ];
+
+/** The feed's snapshot of the Host. */
+export const hostState = (): P.LanguageHostState =>
+  Schema.decodeUnknownSync(P.LanguageHostState)({
+    hostId: HOST_ID,
+    platform: { os: "darwin", arch: "arm64", libc: "none" },
+    tools: facts(),
+  });

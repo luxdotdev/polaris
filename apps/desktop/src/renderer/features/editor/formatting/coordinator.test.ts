@@ -227,3 +227,27 @@ test("negotiated Unicode edits preserve CRLF and reject invalid/overlapping posi
   expect(() => formattedText("abcd", [edit(0, 3), edit(2, 4)], "utf-16")).toThrow();
   expect(() => formattedText("abcd", [edit(4, 9)], "utf-16")).toThrow();
 });
+
+test("Format document formats without saving, whatever Format on save says", async () => {
+  const f = fixture(async () => "const n = 1;");
+
+  f.disable();
+  f.none();
+  expect(await f.coordinator.format()).toBe(true);
+  expect(f.state()).toEqual({ text: "const n = 1;", disk: "", writes: 0 });
+  expect(f.notices).toEqual([]);
+});
+
+test("Format document reports a formatter failure to its caller instead of saving", async () => {
+  const f = fixture(async () => {
+    throw new Error("formatter-failed");
+  });
+
+  const outcome = await f.coordinator.format().then(
+    () => "",
+    (error: Error) => error.message
+  );
+
+  expect(outcome).toBe("formatter-failed");
+  expect(f.state().writes).toBe(0);
+});

@@ -5,7 +5,6 @@ import { useCallback, useEffect, useState } from "react";
 import type { LanguageApi } from "../../../../shared/api.ts";
 import { languageIpcError } from "../../../../shared/languageError.ts";
 import { LanguageSubscriptionItems } from "../../../../shared/languages.ts";
-import { toolIdsOf } from "./model.ts";
 import { readRecord, updateRecord, type SettingsRecord, type SettingsScope } from "./records.ts";
 
 type Change = (settings: P.LanguageSettingsPatch) => P.LanguageSettingsPatch;
@@ -126,24 +125,14 @@ const scopeLanguage = (record: SettingsRecord) =>
 
 export interface HostLanguages {
   readonly catalog: P.LanguageCatalog | null;
-  readonly availability: ReadonlyArray<P.LanguageAvailability>;
+  /** The Host's installation and Prerequisite facts per tool (`languages.host.state`). */
+  readonly availability: ReadonlyArray<P.LanguageHostToolState>;
   readonly failed: boolean;
 }
 
 const EMPTY: HostLanguages = { catalog: null, availability: [], failed: false };
 
-const merge = (
-  previous: ReadonlyArray<P.LanguageAvailability>,
-  updates: ReadonlyArray<P.LanguageAvailability>
-) => {
-  const byTool = new Map(previous.map((a) => [a.toolId, a]));
-
-  for (const update of updates) byTool.set(update.toolId, update);
-
-  return [...byTool.values()];
-};
-
-/** The picked Host's catalog and availability, kept current by its availability feed. */
+/** The picked Host's catalog and installation state, kept current by its feed. */
 export const useHostLanguages = (
   api: LanguageApi | undefined,
   hostKey: string | null
@@ -157,43 +146,8 @@ export const useHostLanguages = (
     let live = true;
     let unsubscribe = () => {};
 
-    const merged = (facts: readonly P.LanguageAvailability[]) => {
-      if (live) setState((s) => ({ ...s, availability: merge(s.availability, facts) }));
-    };
-
-    // Rows show from the catalog at once; each tool's facts fill in as its probe answers.
-    const factsOf = async (toolId: string) => {
-      const answer = await api.request("languages.availability", {
-        hostKey,
-        toolIds: [toolId],
-        checkout: null,
-        refresh: false,
-        phase: "install",
-      });
-
-      if (!answer.ok) return null;
-      merged(Schema.decodeUnknownSync(Schema.Array(P.LanguageAvailability))(answer.value));
-
-      return toolId;
-    };
-
-    const watch = (toolIds: readonly string[]) => {
-      if (!live || toolIds.length === 0) return;
-      unsubscribe = api.subscribe(
-        "languages.availability.watch",
-        { hostKey, toolIds, checkout: null },
-        {
-          items: (items) =>
-            merged(
-              items.flatMap((item) =>
-                Schema.decodeUnknownSync(LanguageSubscriptionItems["languages.availability.watch"])(
-                  item
-                )
-              )
-            ),
-          end: () => undefined,
-        }
-      );
+    const received = (host: P.LanguageHostState) => {
+      if (live) setState((s) => ({ ...s, availability: host.tools }));
     };
 
     const load = async () => {
@@ -202,11 +156,25 @@ export const useHostLanguages = (
       if (!reply.ok) throw languageIpcError(reply.error);
       const catalog = Schema.decodeUnknownSync(P.LanguageCatalog)(reply.value);
 
-      if (live) setState({ catalog, availability: [], failed: false });
+      if (!live) return;
+      setState({ catalog, availability: [], failed: false });
 
-      const answered = await Promise.all([...toolIdsOf(catalog)].map(factsOf));
-
-      watch(answered.filter((id) => id !== null));
+      // An empty list is the whole catalog; the feed opens with a full snapshot.
+      unsubscribe = api.subscribe(
+        "languages.host.state.watch",
+        { hostKey, toolIds: [], refresh: false },
+        {
+          items: (items) =>
+            items.forEach((item) =>
+              received(
+                Schema.decodeUnknownSync(LanguageSubscriptionItems["languages.host.state.watch"])(
+                  item
+                )
+              )
+            ),
+          end: () => undefined,
+        }
+      );
     };
 
     load().catch(() => live && setState({ ...EMPTY, failed: true }));

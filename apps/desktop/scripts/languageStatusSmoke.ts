@@ -315,22 +315,37 @@ try {
   await page.keyboard.press("Escape");
   console.log("F2 rename field, ⇧⌘M Problems and ⌘T symbol search work");
 
+  // The same features are Command Palette commands contributed by the editor.
+  await page.locator(".cm-content").first().click();
+  await page.keyboard.press("Meta+Shift+P");
+  await page.getByTestId("palette-input").fill("Rename symbol");
+  await page.getByTestId("palette-row").filter({ hasText: "Rename symbol…" }).first().click();
+  await page.getByTestId("rename-field").waitFor({ timeout: 5_000 });
+  await shot(page, "palette-rename-dark.png");
+  await page.keyboard.press("Escape");
+  console.log("Palette: Rename symbol… opens the rename field");
+
   // 4. Settings → Editor → Languages lists the Host's integrations.
   await page.keyboard.press("Meta+,");
   await page.getByRole("button", { name: "Editor" }).first().click();
   await page.getByText("What each language has on the host you pick.").waitFor({ timeout: 15_000 });
   await page.getByText("TypeScript and JavaScript").first().waitFor({ timeout: 30_000 });
 
-  // One row per Language Integration the Host's catalog offers (shared servers share a row).
+  // One row per offered Language Integration (shared servers share a row); the rest are syntax only.
   const groups = await page.evaluate<number>(`(async () => {
     const reply = await window.polaris.languages.request("languages.catalog", { hostKey: "local" });
     if (!reply.ok) throw new Error(JSON.stringify(reply.error));
-    return new Set(reply.value.integrations.map((i) => i.providers[0]?.tool ?? i.id)).size;
+    return new Set(
+      reply.value.integrations.filter((i) => i.offered === true).map((i) => i.providers[0]?.tool ?? i.id)
+    ).size;
   })()`);
 
   const rows = await page.getByRole("switch", { name: / language tools$/ }).count();
-  console.log(`Settings rows: ${rows}; catalog integrations by server: ${groups}`);
-  assert.equal(rows, groups, "Settings lists the Host's Language Integrations");
+  console.log(`Settings rows: ${rows}; offered integrations by server: ${groups}`);
+  assert.equal(rows, groups, "Settings lists the Host's offered Language Integrations");
+  await page.getByText(/^Ready · uses each project's TypeScript/).waitFor({ timeout: 30_000 });
+  await page.getByText("TypeScript and JavaScript").first().click();
+  await page.getByText("Bundled TypeScript").waitFor({ timeout: 5_000 });
   await everyLook(page, "settings");
   console.log("Settings → Editor → Languages lists TypeScript and JavaScript");
   console.log("PASS");

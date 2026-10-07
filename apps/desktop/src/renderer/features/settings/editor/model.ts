@@ -1,7 +1,7 @@
 /**
  * Settings → Editor → Languages (DESIGN.md, Settings: Editor · languages; Paper L4):
- * one row per Language Integration on the picked Host, from its catalog and
- * availability facts. Facts the protocol doesn't give are left out, never guessed.
+ * one row per offered Language Integration on the picked Host, from its catalog and
+ * `languages.host.state`. Facts the protocol doesn't give are left out, never guessed.
  */
 import * as P from "@polaris/protocol";
 import { Match, Predicate } from "effect";
@@ -11,9 +11,12 @@ type Catalog = P.LanguageCatalog;
 
 type Integration = Catalog["integrations"][number];
 
-type Availability = P.LanguageAvailability;
+type Availability = P.LanguageHostToolState;
 
 type Requirement = Availability["prerequisites"][number]["requirement"];
+
+/** The release gate: rows only for integrations offered on this Polaris; absent means not. */
+export const offered = (integration: Integration) => integration.offered === true;
 
 export interface Fact {
   readonly label: string;
@@ -102,7 +105,7 @@ const listed = (names: ReadonlyArray<string>) =>
 const versionOf = (availability: Availability | undefined, pinned: string) =>
   availability === undefined
     ? pinned
-    : Match.value(availability.installation).pipe(
+    : Match.value(availability.state).pipe(
         Match.tag("Installed", (installed) => installed.version),
         Match.orElse(() => availability.pinnedVersion)
       );
@@ -114,9 +117,7 @@ const versionWords = (version: string) =>
 const missingPrerequisite = (facts: ReadonlyArray<Availability>, host: string) => {
   const fact = facts
     .flatMap((availability) => availability.prerequisites)
-    .find(
-      (p) => p.requirement.required && (p.outcome === "missing" || p.outcome === "incompatible")
-    );
+    .find((p) => p.requirement.required && p.presence === "missing");
 
   if (fact === undefined) return null;
   const version = versionWords(fact.requirement.version);
@@ -125,29 +126,14 @@ const missingPrerequisite = (facts: ReadonlyArray<Availability>, host: string) =
 };
 
 const installState = (facts: ReadonlyArray<Availability>) => {
-  const installing = facts.find((f) => Predicate.isTagged(f.installation, "Installing"));
+  const installing = facts.find((f) => Predicate.isTagged(f.state, "Downloading"));
 
   if (installing !== undefined) return `Setting up · downloading ${installing.toolId}`;
-  const failed = facts.find((f) => Predicate.isTagged(f.installation, "Failed"));
+  const failed = facts.find((f) => Predicate.isTagged(f.state, "Failed"));
 
   if (failed !== undefined) return `Couldn't download ${failed.toolId}`;
 
   return null;
-};
-
-const blockedState = (facts: ReadonlyArray<Availability>, host: string) => {
-  const blocked = facts
-    .map((f) => f.preflight)
-    .find((preflight) => Predicate.isTagged(preflight, "Blocked"));
-
-  if (blocked === undefined || !Predicate.isTagged(blocked, "Blocked")) return null;
-
-  return Match.value(blocked.reason).pipe(
-    Match.when("unsupported-platform", () => `Not available on ${host}`),
-    Match.when("not-offered", () => "Not offered yet"),
-    Match.when("not-connected", () => `Waiting for ${host}`),
-    Match.orElse(() => null)
-  );
 };
 
 const notDownloaded = (
@@ -170,14 +156,11 @@ const stateOf = (
   facts: ReadonlyArray<Availability>,
   context: RowContext
 ) => {
-  const urgent =
-    installState(facts) ??
-    missingPrerequisite(facts, context.host) ??
-    blockedState(facts, context.host);
+  const urgent = installState(facts) ?? missingPrerequisite(facts, context.host);
 
   if (urgent !== null) return urgent;
 
-  if (facts.length > 0 && facts.every((f) => Predicate.isTagged(f.installation, "Installed"))) {
+  if (facts.length > 0 && facts.every((f) => Predicate.isTagged(f.state, "Installed"))) {
     const note = READY_NOTES.get(integrationId);
 
     return note === undefined ? "Ready" : `Ready · ${note}`;
@@ -205,13 +188,17 @@ const runtimeFact = (
       note: "Polaris's own",
     };
 
-  const detected = prerequisite?.detectedVersion ?? null;
+  const detected = prerequisite?.version ?? null;
 
   return {
     label: "Runs on",
     value: detected === null ? requirement.executable : `${requirement.executable} ${detected}`,
     mono: true,
-    note: prerequisite?.outcome === "satisfied" ? `from ${host}` : `not found on ${host}`,
+    note: Match.value(prerequisite?.presence ?? "unknown").pipe(
+      Match.when("present", () => `from ${host}`),
+      Match.when("missing", () => `not found on ${host}`),
+      Match.orElse(() => `not checked on ${host}`)
+    ),
   };
 };
 
@@ -280,19 +267,6 @@ const factsOf = (
   return facts;
 };
 
-/** Every tool a row needs facts for: servers, companions, formatters and managed runtimes. */
-export const toolIdsOf = (catalog: Catalog): ReadonlyArray<string> => {
-  const tools = new Set(catalog.tools.map((tool) => tool.id));
-
-  const ids = catalog.integrations.flatMap((i) => [
-    ...i.providers.map((p) => p.tool),
-    ...i.companions,
-    i.formatter.tool,
-  ]);
-
-  return [...new Set([...ids, "node", "typescript"])].filter((id) => tools.has(id));
-};
-
 export const languageRows = (
   catalog: Catalog,
   availability: ReadonlyArray<Availability>,
@@ -301,7 +275,7 @@ export const languageRows = (
   const byTool = new Map(availability.map((a) => [a.toolId, a]));
   const groups = new Map<string, Integration[]>();
 
-  for (const integration of catalog.integrations) {
+  for (const integration of catalog.integrations.filter(offered)) {
     const key = integration.providers[0]?.tool ?? integration.id;
     groups.set(key, [...(groups.get(key) ?? []), integration]);
   }
@@ -333,13 +307,22 @@ export const languageRows = (
 };
 
 /** Most-used first, so the foot line names the languages people look for. */
-const SYNTAX_ORDER: ReadonlyArray<LanguageId> = ["c", "cpp", "csharp", "ruby", "json", "toml"];
+const SYNTAX_ORDER: ReadonlyArray<LanguageId> = [
+  "python",
+  "go",
+  "rust",
+  "java",
+  "csharp",
+  "c",
+  "cpp",
+  "ruby",
+];
 
 const NOT_LANGUAGES = new Set<LanguageId>(["markdown", "plain", "diff"]);
 
-/** Languages the editor highlights that no integration serves (Markdown has its own row). */
+/** Languages the editor highlights that no offered integration serves (Markdown has its own row). */
 export const syntaxOnly = (catalog: Catalog): ReadonlyArray<string> => {
-  const served = new Set<string>(catalog.integrations.flatMap(syntaxIdsOf));
+  const served = new Set<string>(catalog.integrations.filter(offered).flatMap(syntaxIdsOf));
   const rank = (id: LanguageId) => SYNTAX_ORDER.indexOf(id) >>> 0;
 
   return LANGUAGE_IDS.filter((id) => !served.has(id) && !NOT_LANGUAGES.has(id))

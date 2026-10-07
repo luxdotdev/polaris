@@ -80,7 +80,7 @@ describe("language commands", () => {
       detail: "F2",
       followUp: true,
     });
-    expect(rows.every((row) => row.when.all.includes("editor.file"))).toBe(true);
+    expect(rows.every((row) => JSON.stringify(row.when).includes("editor.file"))).toBe(true);
   });
 
   test("the field commands open their UI; the rest go to the queries", () => {

@@ -86,7 +86,7 @@ describe("language status pill", () => {
     expect(ids(view)).toEqual(["show-log"]);
   });
 
-  test("a missing Prerequisite shows the command for its Host and Check again", () => {
+  test("a missing Prerequisite shows the catalog's commands for its Host and Check again", () => {
     const view = statusView(
       input({
         language: "Python",
@@ -100,12 +100,13 @@ describe("language status pill", () => {
     expect(view).toMatchObject({
       kind: "prerequisite",
       mark: "hollow",
-      pill: "Python · needs Python",
-      title: "Python needs an interpreter",
-      command: "uv python install",
+      pill: "Python · needs python3",
+      title: "Python needs python3 >=3.9",
       commandHost: "Raspberry Pi 4",
     });
-    expect(view.why).toContain("Polaris doesn't install toolchains.");
+    // The catalog's commands for this Host's platform only (macOS here, not apt).
+    expect(view.commands.map((c) => c.label)).toEqual(["uv", "Homebrew"]);
+    expect(view.why).toContain("Polaris doesn't install it.");
     expect(ids(view)).toEqual(["check-again", "settings"]);
   });
 

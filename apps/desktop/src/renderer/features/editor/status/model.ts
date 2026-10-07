@@ -51,6 +51,12 @@ export interface Progress {
   readonly amount: string;
 }
 
+export interface InstallCommand {
+  /** "uv", "Homebrew", "Debian / Ubuntu". */
+  readonly label: string;
+  readonly command: string;
+}
+
 export interface StatusView {
   readonly kind: PillKind;
   readonly mark: Mark;
@@ -61,7 +67,8 @@ export interface StatusView {
   readonly tone: "default" | "failed";
   readonly facts: readonly Fact[];
   readonly progress: Progress | null;
-  readonly command: string | null;
+  /** What to run on the Host for a missing Prerequisite, from the catalog; never run by Polaris. */
+  readonly commands: readonly InstallCommand[];
   readonly commandHost: string | null;
   readonly stderr: string | null;
   readonly actions: readonly StatusAction[];
@@ -90,6 +97,8 @@ const TS = "typescript-language-server";
 const serverName = (input: StatusInput, providerId: string | null) =>
   providerId === TS ? "TypeScript" : input.language;
 
+const NO_COMMANDS: readonly InstallCommand[] = [];
+
 const base = (input: StatusInput, providerId: string | null) => {
   const name = serverName(input, providerId);
 
@@ -98,7 +107,7 @@ const base = (input: StatusInput, providerId: string | null) => {
   return {
     facts,
     progress: null,
-    command: null,
+    commands: NO_COMMANDS,
     commandHost: null,
     stderr: null,
     tone: "default" as const,
@@ -114,13 +123,11 @@ const pill = (input: StatusInput, word: string | null) =>
   word === null ? input.language : `${input.language} · ${word}`;
 
 export const version = (tools: HostTools | null, toolId: string) => {
-  const fact = tools?.availability[toolId];
+  const fact = tools?.tools[toolId];
 
   if (fact === undefined) return tools?.pinned?.[toolId] ?? null;
 
-  return Predicate.isTagged(fact.installation, "Installed")
-    ? fact.installation.version
-    : fact.pinnedVersion;
+  return Predicate.isTagged(fact.state, "Installed") ? fact.state.version : fact.pinnedVersion;
 };
 
 const TOOL_WORDS = new Map<string, string>([
@@ -139,11 +146,13 @@ const MB = 1024 * 1024;
 const megabytes = (bytes: number) => `${Math.max(1, Math.round(bytes / MB))} MB`;
 
 export const progressOf = (tools: HostTools | null): Progress | null => {
-  const active = Object.values(tools?.progress ?? {}).find(
-    (value) => !["completed", "failed", "cancelled"].includes(value.phase)
+  const downloading = Object.values(tools?.tools ?? {}).find((tool) =>
+    Predicate.isTagged(tool.state, "Downloading")
   );
 
-  if (active === undefined) return null;
+  if (downloading === undefined || !Predicate.isTagged(downloading.state, "Downloading"))
+    return null;
+  const active = downloading.state.progress;
   const total = active.totalBytes;
 
   return {
@@ -157,9 +166,9 @@ export const progressOf = (tools: HostTools | null): Progress | null => {
 };
 
 const installing = (tools: HostTools | null) =>
-  Object.values(tools?.availability ?? {})
-    .filter((fact) => Predicate.isTagged(fact.installation, "Installing"))
-    .map((fact) => fact.toolId);
+  Object.values(tools?.tools ?? {})
+    .filter((tool) => Predicate.isTagged(tool.state, "Downloading"))
+    .map((tool) => tool.toolId);
 
 const settingUp = (
   input: StatusInput,
@@ -202,33 +211,6 @@ const syntax = (input: StatusInput, why: string): StatusView => {
   };
 };
 
-/** What a missing Prerequisite is called and how to get it; Polaris never installs it. */
-interface KnownPrerequisite {
-  readonly name: string;
-  readonly needs: string;
-  readonly command?: string;
-}
-
-const PYTHON: KnownPrerequisite = {
-  name: "Python",
-  needs: "an interpreter",
-  command: "uv python install",
-};
-
-const RUST: KnownPrerequisite = {
-  name: "Rust",
-  needs: "a Rust toolchain",
-  command: "rustup toolchain install stable",
-};
-
-const PREREQUISITES = new Map<string, KnownPrerequisite>([
-  ["python", PYTHON],
-  ["python3", PYTHON],
-  ["cargo", RUST],
-  ["rustc", RUST],
-  ["go", { name: "Go", needs: "a Go toolchain" }],
-]);
-
 const executableName = (path: string) => path.slice(path.lastIndexOf("/") + 1);
 
 type Prerequisite = (typeof P.LanguagePrerequisiteFact.Type)["requirement"] & {
@@ -247,19 +229,33 @@ export const missingPrerequisite = (providers: readonly Discovered[]): Prerequis
   return null;
 };
 
+const samePlatform = (a: P.LanguageHostState["platform"], b: P.LanguageHostState["platform"]) =>
+  a.os === b.os && a.arch === b.arch && a.libc === b.libc;
+
+/** The catalog's commands for this Host's platform; none until the Host state says which. */
+const commandsFor = (
+  requirement: Prerequisite,
+  platform: P.LanguageHostState["platform"] | null
+): readonly InstallCommand[] =>
+  platform === null
+    ? []
+    : (requirement.installCommands ?? [])
+        .filter((entry) => entry.platforms.some((p) => samePlatform(p, platform)))
+        .map((entry) => ({ label: entry.label, command: entry.command }));
+
 const prerequisiteView = (input: StatusInput, missing: Prerequisite): StatusView => {
   const b = base(input, null);
   const executable = executableName(missing.executable);
-  const known = PREREQUISITES.get(executable);
+  const wanted = missing.version === "present" ? "" : ` ${missing.version}`;
 
   return {
     ...b,
     kind: "prerequisite",
     mark: "hollow",
-    pill: pill(input, `needs ${known?.name ?? executable}`),
-    title: `${input.language} needs ${known?.needs ?? `${executable} ${missing.version}`}`,
-    why: `${missing.reason} Polaris doesn't install ${known === undefined ? "it" : "toolchains"}.`,
-    command: known?.command ?? null,
+    pill: pill(input, `needs ${executable}`),
+    title: `${input.language} needs ${executable}${wanted}`,
+    why: `${missing.reason} Polaris doesn't install it.`,
+    commands: commandsFor(missing, input.tools?.platform ?? null),
     commandHost: input.host,
     actions: [{ id: "check-again", label: "Check again" }, b.settings],
   };

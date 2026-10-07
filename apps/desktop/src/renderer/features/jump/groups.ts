@@ -1,7 +1,7 @@
 /**
  * The jump menu's sections (Paper AR-0): with no query, Recent, then what
- * Needs You, then actions; with a query, Sessions (Needs You first),
- * Workspaces, Worktrees, Machines and Actions, each ranked and capped.
+ * Needs You; with a query, Sessions (Needs You first), Workspaces, Worktrees
+ * and Machines, each ranked and capped. Navigation only: commands are the palette's.
  */
 import type { JumpItem } from "./items.ts";
 import { rank } from "./ranking.ts";
@@ -16,7 +16,6 @@ export interface JumpSources {
   readonly workspaces: ReadonlyArray<JumpItem>;
   readonly worktrees: ReadonlyArray<JumpItem>;
   readonly hosts: ReadonlyArray<JumpItem>;
-  readonly actions: ReadonlyArray<JumpItem>;
   /** Review only: pull requests, the open Review's files and its findings. */
   readonly review?: ReviewSources | undefined;
 }
@@ -68,7 +67,6 @@ export const jumpGroups = ({ query, sources, recent }: GroupsInput): ReadonlyArr
         items: sources.sessions.filter((s) => s.needsYou && !shown.has(s.id)),
       },
       { heading: "Findings", items: (sources.review?.findings ?? []).slice(0, FINDINGS_SHOWN) },
-      { heading: "Actions", items: sources.actions },
     ]);
   }
 
@@ -83,6 +81,5 @@ export const jumpGroups = ({ query, sources, recent }: GroupsInput): ReadonlyArr
     { heading: "Workspaces", items: ranked(sources.workspaces, 5) },
     { heading: "Worktrees", items: ranked(sources.worktrees, 4) },
     { heading: "Machines", items: ranked(sources.hosts, 4) },
-    { heading: "Actions", items: ranked(sources.actions, 5) },
   ]);
 };
