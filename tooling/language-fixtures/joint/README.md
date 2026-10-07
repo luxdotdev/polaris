@@ -25,7 +25,7 @@ A remaining live group prevents root removal and makes the command fail. `owned.
 and `cleanup.json` record actual exit, timeout, process-group absence and root removal; a successful
 inner result alone is insufficient. No ps/global/user/peer cleanup.
 
-`sources.json` binds19 fixture/assertion/storage recipe files from applied J1 sources. Preflight
+`sources.json` binds14 fixture/assertion/storage recipe files from applied J1 sources. Preflight
 hash mismatch stops before Electron rather than silently consuming changed peer fixtures. J1 must
 review any mismatch against its deliberate final freeze and publish a replacement binding if
 needed. `source-binding.json` records fixture hashes and installed joint lock/package/Vite config
@@ -34,17 +34,13 @@ The immutable supplemental handoff manifest separately records every runner file
 
 Cases and evidence:
 
-1. Settings: existing `integration.evidence.html` and `verifyLiveFeed` (which calls
-   `verifyConfirmedPolicy`) preserve dirty draft, owned progress, foreign/late exclusion,
-   disconnect/reconnect, exact grant/revoke/failed/foreign/cancelled-late policy acknowledgements
-   and matching/unrelated preview epochs. Existing dark/light feed screenshots are retained;
-   there is no new full density/theme/performance matrix. Actual Page/UI, scripted typed API;
-   no real Host installation/activation or socket proof.
-2. Editor: existing `lsp/evidence.html`, `window.languageProof.run()` and `.cleanup()`.
+The Settings case was removed with the M3.1 settings folder (slice 4c replaced that page).
+
+1. Editor: existing `lsp/evidence.html`, `window.languageProof.run()` and `.cleanup()`.
    Reuses unsaved Unicode sync, completion/undo, held stale hover/cancellation, diagnostics,
    independent roots, hidden-buffer authority and reconnect assertions. Cleanup requires zero
    watches/contexts/subscriptions. Actual CodeMirror; scripted LanguageApi/Files, no real server.
-3. Resources: existing `resourceProof.collision/offer/accepted/restored` and exact visible
+2. Resources: existing `resourceProof.collision/offer/accepted/restored` and exact visible
    Accept/Recover/Undo selectors from R1's resources-only runner. Native strict IndexedDB readback,
    actual UI and CodeMirror; scripted Host receipts/Files. The native discard port reuses R1's
    held third list read, intervening live edit and injected persistence refusal. It uses isolated
@@ -54,8 +50,7 @@ Cases and evidence:
    CloseDialog/tab-close UI evidence. No process restart/SIGKILL recovery or filesystem/socket
    certification is claimed.
 
-Each case writes result.json and one completion screenshot; existing Settings hook writes its own
-raw evidence. First assertion/pageerror/blocked-request failure stops the batch, captures
+Each case writes result.json and one completion screenshot. First assertion/pageerror/blocked-request failure stops the batch, captures
 failure.png, failure.html and failure.json (stage, completed cases, errors), then cleans up.
 Prelaunch import/hash errors remain in run.log and cleanup.json since no renderer exists yet.
 No benchmark samples are collected. No fake receipt or passing batch grants native/artifact approval.

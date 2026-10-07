@@ -1,25 +1,8 @@
 import assert from "node:assert/strict";
 import { Schema } from "effect";
 import type { Page } from "../../../apps/desktop/node_modules/playwright-core/index.js";
-import { verifyLiveFeed } from "../../../apps/desktop/src/renderer/features/settings/languages/feed.regression.testing.ts";
 
 const Facts = Schema.Array(Schema.String);
-
-export const settings = async (page: Page, output: string) => {
-  await page.getByRole("button", { name: "Configure language integrations" }).click();
-  await page.getByRole("heading", { name: "Language integrations", exact: true }).waitFor();
-  await page.getByLabel("Language", { exact: true }).selectOption("python");
-  await page
-    .getByLabel("Checkout for discovery and trust")
-    .selectOption("fake-0:worktree:fake-worktree");
-  await page.getByText("This worktree inherits its workspace's trust.", { exact: false }).waitFor();
-  await verifyLiveFeed(page, output);
-
-  return {
-    assertions: "Existing verifyLiveFeed, including verifyConfirmedPolicy",
-    socketEvidence: false,
-  };
-};
 
 export const editor = async (page: Page) => {
   await page.waitForFunction("window.languageProof !== undefined");

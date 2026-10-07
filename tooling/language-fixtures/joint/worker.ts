@@ -169,7 +169,7 @@ try {
       (async () => {
         await ownedPage.goto(`${address}joint/${entry.id}.html`);
 
-        return assertions[entry.id](ownedPage, target);
+        return assertions[entry.id](ownedPage);
       })(),
       entry.id
     );

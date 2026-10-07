@@ -1,9 +1,4 @@
 {
-  "apps/desktop/src/renderer/features/settings/languages/integration.evidence.html": "8f8f505a1cd8480cfcf016c57e4e236d6f379b7ff1ef43aabaf012533db030ac",
-  "apps/desktop/src/renderer/features/settings/languages/integration.evidence.tsx": "d3a044aab62d98de181bfc0cbb47720dfd1baf1cf08b8d52a331c6827d839ac5",
-  "apps/desktop/src/renderer/features/settings/languages/integration.fixture.ts": "ff11b78c55bb85020481ecee8048dccef7680173679a7eeb2b4692b04389ec1e",
-  "apps/desktop/src/renderer/features/settings/languages/feed.regression.testing.ts": "6d7203c944f4eb6b342f75a61d2f8834c707912b5b663cac5c3291523d6bfd30",
-  "apps/desktop/src/renderer/features/settings/languages/policy.regression.testing.ts": "17f84de8e1b86e3adbfeb39dc148b025cf624b20315880319602d77a8ebd81e6",
   "apps/desktop/src/renderer/features/editor/lsp/evidence.html": "75ec05c9bfde5066938c08964b1dd188dcc8757ada9495304c1908a8751867ec",
   "apps/desktop/src/renderer/features/editor/lsp/evidence.testing.tsx": "4c23d07a68ecb244fbfa41034474a05ff7ed859fb5285bd1a01694196480656a",
   "apps/desktop/src/renderer/features/editor/lsp/fixture.testing.ts": "fc4348fd66332c8131e2a6f498835207dd8f4da19b917e8b7cf9227a0ed5a1fd",

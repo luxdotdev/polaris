@@ -1,5 +1,6 @@
+/** Form pieces for Advanced: a labelled text field (secret ones are password inputs) and a form block. */
 import { Input, Textarea } from "@polaris/ui";
-import type { ReactNode } from "react";
+import type { ChangeEvent, ReactNode } from "react";
 import { useId } from "react";
 
 export const Field = ({
@@ -25,7 +26,7 @@ export const Field = ({
     id,
     value,
     disabled,
-    onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    onChange: (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       onChange(event.target.value),
     "aria-describedby": hint ? `${id}-hint` : undefined,
     autoComplete: "off",
@@ -33,17 +34,17 @@ export const Field = ({
   };
 
   return (
-    <div className="gap-gap flex min-w-0 flex-col">
-      <label htmlFor={id} className="text-label text-text-default">
+    <div className="flex min-w-0 flex-col gap-1">
+      <label htmlFor={id} className="text-caption text-text-subtle">
         {label}
       </label>
       {multiline ? (
         <Textarea {...props} className="max-h-48 overflow-auto font-mono" spellCheck={false} />
       ) : (
-        <Input {...props} type={secret ? "password" : "text"} />
+        <Input {...props} className="font-mono" type={secret ? "password" : "text"} />
       )}
       {hint && (
-        <p id={`${id}-hint`} className="text-caption text-text-subtle">
+        <p id={`${id}-hint`} className="text-caption text-text-faint">
           {hint}
         </p>
       )}
@@ -57,35 +58,21 @@ export const FormBlock = ({ children }: { readonly children: ReactNode }) => (
   </div>
 );
 
-export const Choice = ({
-  label,
-  value,
-  disabled,
-  onChange,
+/** A saved entry: its id and executable in mono, then its actions. */
+export const EntryRow = ({
+  title,
+  detail,
   children,
 }: {
-  readonly label: string;
-  readonly value: string;
-  readonly disabled?: boolean;
-  readonly onChange: (value: string) => void;
+  readonly title: string;
+  readonly detail: string;
   readonly children: ReactNode;
-}) => {
-  const id = useId();
-
-  return (
-    <div className="gap-gap flex min-w-0 flex-col">
-      <label htmlFor={id} className="text-label">
-        {label}
-      </label>
-      <select
-        id={id}
-        value={value}
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
-        className="border-hairline bg-bg rounded-control text-label h-7 max-w-full min-w-0 border px-2"
-      >
-        {children}
-      </select>
-    </div>
-  );
-};
+}) => (
+  <div className="px-panel flex min-w-0 items-center gap-3 py-[calc(var(--spacing-gap)+2px)]">
+    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <span className="text-body text-text-strong font-medium break-all">{title}</span>
+      <span className="text-caption text-text-subtle font-mono break-all">{detail}</span>
+    </span>
+    <span className="flex shrink-0 gap-2">{children}</span>
+  </div>
+);

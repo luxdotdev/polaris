@@ -1,58 +1,61 @@
 /**
- * Settings → Editor (spec §3–4): vim keys in the Editor, and saving after a
- * short pause in typing. Both off by default; both stay on this Mac.
+ * Settings → Editor (DESIGN.md, Settings: Editor and Editor · languages): the
+ * app wiring around `EditorSettings`, which holds the page itself.
  */
-import { Button, Switch } from "@polaris/ui";
-import { useState } from "react";
-import { LanguageIntegrations } from "../languages/Integration.tsx";
-import { sectionInfo } from "../model/sections.ts";
+import type * as P from "@polaris/protocol";
+import { useCallback } from "react";
+import { polaris } from "../../bridge.ts";
+import { refreshLanguageSettings } from "../../editor/api.ts";
+import { useApp, useConnection } from "../../../shell/hooks.ts";
+import { EditorSettings } from "../editor/EditorSettings.tsx";
 import { setSessionPrefs, useSettings } from "../store.ts";
-import { Column, Group, PageHeader, SettingRow } from "./parts.tsx";
+
+const refreshPreviews = (hostKey: string, workspaceId: P.WorkspaceId) => {
+  void import("../../editor/runtime/actions.ts").then((actions) =>
+    actions.refreshMarkdownPolicy(hostKey, workspaceId)
+  );
+};
 
 export const EditorPage = () => {
   const prefs = useSettings((s) => s.sessions);
-  const info = sectionInfo("editor");
-  const [languages, setLanguages] = useState(false);
+  const hosts = useApp((s) => s.hosts);
+  const connection = useConnection();
 
-  if (languages) return <LanguageIntegrations onBack={() => setLanguages(false)} />;
+  const workspacesOf = useCallback(
+    (hostKey: string) =>
+      [...(connection.store.getState().hostModels[hostKey]?.workspaces.values() ?? [])].map(
+        (w) => ({ id: w.id, name: w.name })
+      ),
+    [connection]
+  );
+
+  const refreshEditors = useCallback(
+    (hostKey: string | null) => {
+      const models = connection.store.getState().hostModels;
+
+      for (const [key, model] of Object.entries(models)) {
+        if (hostKey !== null && key !== hostKey) continue;
+
+        for (const workspaceId of model.workspaces.keys())
+          refreshLanguageSettings(key, workspaceId);
+      }
+    },
+    [connection]
+  );
 
   return (
-    <Column>
-      <PageHeader title={info.title} blurb={info.blurb} />
-      <Group label="Language integrations">
-        <SettingRow
-          title="Language integrations"
-          caption="Providers, formatting, custom servers, host prerequisites and checkout trust."
-        >
-          <Button onClick={() => setLanguages(true)}>Configure language integrations</Button>
-        </SettingRow>
-      </Group>
-      <Group label="Keys">
-        <SettingRow
-          title="Vim mode"
-          caption="Normal, insert and visual modes, :w, :q, :wq and :e. ⌘S, ⌘P, ⌘I, ⌘L and ⌃1…9 keep working in every mode."
-          htmlFor="editor-vim"
-        >
-          <Switch
-            id="editor-vim"
-            checked={prefs.editorVim}
-            onCheckedChange={(on) => setSessionPrefs({ editorVim: on })}
-          />
-        </SettingRow>
-      </Group>
-      <Group label="Saving">
-        <SettingRow
-          title="Autosave after a short pause"
-          caption="Saves a second after you stop typing. Unsaved edits are kept on this Mac either way, and a save never overwrites a newer version on disk."
-          htmlFor="editor-autosave"
-        >
-          <Switch
-            id="editor-autosave"
-            checked={prefs.editorAutosave}
-            onCheckedChange={(on) => setSessionPrefs({ editorAutosave: on })}
-          />
-        </SettingRow>
-      </Group>
-    </Column>
+    <EditorSettings
+      api={polaris().languages}
+      hosts={hosts}
+      workspacesOf={workspacesOf}
+      keys={{
+        vim: prefs.editorVim,
+        autosave: prefs.editorAutosave,
+        onVim: (on) => setSessionPrefs({ editorVim: on }),
+        onAutosave: (on) => setSessionPrefs({ editorAutosave: on }),
+      }}
+      refreshEditors={refreshEditors}
+      refreshPreviews={refreshPreviews}
+    />
   );
 };
