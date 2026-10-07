@@ -167,6 +167,11 @@ export class LanguageQueries {
     }
   }
 
+  /** Rows for a command without the panel: the rename field and the symbol search read these. */
+  lookup(key: string, command: LanguageCommand, query: string, signal: AbortSignal) {
+    return this.rowsFor(key, command, query, signal);
+  }
+
   private async rowsFor(
     key: string,
     command: LanguageCommand,

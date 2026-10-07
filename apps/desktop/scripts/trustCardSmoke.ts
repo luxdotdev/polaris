@@ -140,7 +140,9 @@ const until = async (
 const languageFeatures = async (page: Page, label: string, shot: string) => {
   await until(
     `${label} ready`,
-    async () => (await text(page, '[aria-label="Language tools"] [role=status]')) === label
+    async () =>
+      (await text(page, '[data-testid="language-pill"]')) ===
+      (label.endsWith("bundled") ? label : "TypeScript")
   );
   await until(
     `${label} diagnostic`,

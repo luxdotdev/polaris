@@ -33,7 +33,7 @@ import type {
 } from "./lifecycle.ts";
 import { signatureExtension } from "./signatures.ts";
 import { languageKeys } from "./keys.ts";
-import type { LanguageCommand } from "./queries.ts";
+import type { NavigationAction } from "../navigation/commands.ts";
 import {
   featureIntentCurrent,
   prepareLanguageEdit,
@@ -80,7 +80,7 @@ export { bindLanguageIdentity, bindLanguageProposals } from "./bindings.ts";
 export type { LanguageActionProposal } from "./bindings.ts";
 
 export class EditorLanguageCoordinator implements EditorLanguagePort {
-  private command: ((key: string, command: LanguageCommand | "back") => void) | null = null;
+  private command: ((key: string, command: NavigationAction) => void) | null = null;
   private readonly entries = new Map<string, Entry>();
   private readonly groups = new Map<string, EditorLanguageSession>();
   private readonly observations = new EditorLanguageObservations();
@@ -112,7 +112,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
   get(key: string) {
     return this.entries.get(key);
   }
-  setCommands(run: (key: string, command: LanguageCommand | "back") => void) {
+  setCommands(run: (key: string, command: NavigationAction) => void) {
     this.command = run;
   }
 

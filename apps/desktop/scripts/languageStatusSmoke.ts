@@ -289,6 +289,32 @@ try {
   await shot(page, "log-restarted-light.png");
   await fileTab(page);
 
+  // The tools row is gone; its features are commands with keys. F2 renames in place, ⌘T searches.
+  assert.equal(await page.getByRole("group", { name: "Language tools" }).count(), 0);
+  await page.locator(".cm-line").first().click();
+  await page.keyboard.press("Home");
+
+  for (let i = 0; i < 14; i++) await page.keyboard.press("ArrowRight");
+
+  await page.keyboard.press("F2");
+  await page.getByTestId("rename-field").waitFor({ timeout: 5_000 });
+  assert.equal(await page.getByLabel("New name").inputValue(), "value");
+  await everyLook(page, "rename");
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Meta+Shift+M");
+  await page
+    .getByRole("region", { name: "Problems" })
+    .getByText(/not assignable/)
+    .waitFor({ timeout: 20_000 });
+  await shot(page, "problems-dark.png");
+  await page.locator(".cm-content").first().click();
+  await page.keyboard.press("Meta+T");
+  await page.getByPlaceholder("Go to symbol in workspace").fill("other");
+  await page.getByTestId("symbol-item").first().waitFor({ timeout: 20_000 });
+  await everyLook(page, "symbols");
+  await page.keyboard.press("Escape");
+  console.log("F2 rename field, ⇧⌘M Problems and ⌘T symbol search work");
+
   // 4. Settings → Editor → Languages lists the Host's integrations.
   await page.keyboard.press("Meta+,");
   await page.getByRole("button", { name: "Editor" }).first().click();

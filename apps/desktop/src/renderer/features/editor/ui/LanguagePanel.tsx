@@ -1,25 +1,9 @@
 import { Button } from "@polaris/ui";
-import { useState } from "react";
 import { LANGUAGE_NAMES, LANGUAGES, type LanguageId } from "../model/language.ts";
 import { fileKey } from "../model/drafts.ts";
 import { editorLanguages, editorLanguageQueries } from "../runtime/app.ts";
 import { useLanguage } from "../lsp/state.ts";
-import { useProviderLabels } from "../trust/store.ts";
-import type { LanguageCommand } from "../lsp/queries.ts";
 import { viewOf } from "../runtime/buffers.ts";
-
-const choices: readonly { readonly id: LanguageCommand; readonly name: string }[] = [
-  { id: "definition", name: "Go to definition" },
-  { id: "typeDefinition", name: "Go to type definition" },
-  { id: "implementation", name: "Go to implementation" },
-  { id: "references", name: "Find references" },
-  { id: "symbols", name: "Document symbols" },
-  { id: "workspaceSymbols", name: "Workspace symbols" },
-  { id: "signature", name: "Signature help" },
-  { id: "problems", name: "Problems" },
-  { id: "actions", name: "Code actions" },
-  { id: "rename", name: "Rename symbol" },
-];
 
 export const LanguageSelector = ({
   hostKey,
@@ -68,7 +52,11 @@ const languageId = (id: string): LanguageId => {
   return "plain";
 };
 
-export const LanguageTools = ({
+/**
+ * The results panel under the code (Problems, Definitions, References, Code actions…), opened
+ * by the language commands (`navigation/commands.ts`). Language state lives in the pill.
+ */
+export const LanguagePanel = ({
   hostKey,
   path,
 }: {
@@ -77,61 +65,9 @@ export const LanguageTools = ({
 }) => {
   const key = fileKey(hostKey, path);
   const state = useLanguage(key);
-  const labels = useProviderLabels(key, state?.providers ?? []);
-  const [command, setCommand] = useState<LanguageCommand>("definition");
-  const [query, setQuery] = useState("");
-  const run = () => void editorLanguageQueries?.run(key, command, query);
 
   return (
     <>
-      <div
-        className="border-hairline text-caption text-text-subtle min-h-row gap-gap px-row-x flex shrink-0 items-center border-b"
-        role="group"
-        aria-label="Language tools"
-      >
-        <select
-          aria-label="Language action"
-          value={command}
-          className="bg-bg text-text-default focus-visible:outline-starlight rounded-control max-w-48 focus-visible:outline-2"
-          onChange={(event) => {
-            const choice = choices.find((value) => value.id === event.currentTarget.value);
-
-            if (choice) setCommand(choice.id);
-          }}
-        >
-          {choices.map((choice) => (
-            <option key={choice.id} value={choice.id}>
-              {choice.name}
-            </option>
-          ))}
-        </select>
-        {command === "workspaceSymbols" || command === "rename" ? (
-          <input
-            aria-label={command === "rename" ? "New symbol name" : "Workspace symbol query"}
-            placeholder={command === "rename" ? "New name" : "Symbol name"}
-            value={query}
-            onChange={(event) => setQuery(event.currentTarget.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") run();
-            }}
-            className="bg-bg text-text-default focus-visible:outline-starlight rounded-control min-w-0 border px-2"
-          />
-        ) : null}
-        <Button
-          size="sm"
-          variant="ghost"
-          disabled={state?.status !== "ready" || state.busy}
-          onClick={run}
-        >
-          Go
-        </Button>
-        <Button size="sm" variant="ghost" onClick={() => editorLanguageQueries?.back()}>
-          Back
-        </Button>
-        <span role="status" className="min-w-0 truncate">
-          {state?.status === "ready" ? labels.join(", ") : (state?.fact ?? "Local syntax")}
-        </span>
-      </div>
       {state?.panel === null || state === undefined ? null : (
         <section
           aria-label={state.panel}

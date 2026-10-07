@@ -1,22 +1,21 @@
-/** The Editor's language keys: F12 definition, ⇧F12 references, ⇧⌘O symbols, ⌥← back. */
+/** The language commands' keys while the code has focus (`navigation/commands.ts`). */
 import { keymap } from "@codemirror/view";
-import type { LanguageCommand } from "./queries.ts";
+import { LANGUAGE_NAVIGATION, type NavigationAction } from "../navigation/commands.ts";
 
-const KEYS: readonly (readonly [string, LanguageCommand | "back"])[] = [
-  ["F12", "definition"],
-  ["Shift-F12", "references"],
-  ["Mod-Shift-o", "symbols"],
-  ["Alt-ArrowLeft", "back"],
-];
-
-export const languageKeys = (run: (command: LanguageCommand | "back") => void) =>
+export const languageKeys = (run: (action: NavigationAction) => void) =>
   keymap.of(
-    KEYS.map(([key, command]) => ({
-      key,
-      run: () => {
-        run(command);
+    LANGUAGE_NAVIGATION.flatMap((command) =>
+      command.key === undefined
+        ? []
+        : [
+            {
+              key: command.key,
+              run: () => {
+                run(command.action);
 
-        return true;
-      },
-    }))
+                return true;
+              },
+            },
+          ]
+    )
   );

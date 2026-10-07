@@ -36,7 +36,10 @@ import { CodeHost } from "./CodeHost.tsx";
 import { Compare } from "./Compare.tsx";
 import { FileNotice } from "./FileNotice.tsx";
 import { Tabs } from "./Tabs.tsx";
-import { LanguageTools } from "./LanguageTools.tsx";
+import { LanguagePanel } from "./LanguagePanel.tsx";
+import { RenameField } from "../navigation/RenameField.tsx";
+import { SymbolSearch } from "../navigation/SymbolSearch.tsx";
+import { useLanguageNavigationCommands } from "../navigation/contribute.ts";
 import { EditorTrust } from "../trust/TrustCard.tsx";
 import { activateLogTab, closeLogTab, isLogTab, useLogTabs } from "../status/logTabs.ts";
 import { LogTabBody, useLogTabViews } from "../status/LogTab.tsx";
@@ -115,6 +118,7 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
   }, [theirs]);
 
   useEditorCommands(hostKey, workspaceId, active);
+  useLanguageNavigationCommands();
 
   const onAction = (action: BannerAction) => {
     if (active === null) return;
@@ -236,7 +240,9 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
         )}
       </div>
       <CloseDialog hostKey={hostKey} workspaceId={workspaceId} />
-      {rendered ? null : <LanguageTools hostKey={hostKey} path={active} />}
+      {rendered ? null : <LanguagePanel hostKey={hostKey} path={active} />}
+      <RenameField />
+      <SymbolSearch />
     </section>
   );
 };

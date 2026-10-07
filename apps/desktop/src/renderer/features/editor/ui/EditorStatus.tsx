@@ -3,7 +3,7 @@
  * Paper E1): the vim mode while vim is on, the cursor or selection, the
  * file's indentation and the language status pill (Paper L1). The explorer owns the bar and its left side.
  */
-import { LanguageSelector } from "./LanguageTools.tsx";
+import { LanguageSelector } from "./LanguagePanel.tsx";
 import { LanguageStatus } from "../status/LanguageStatus.tsx";
 import { LANGUAGE_NAMES } from "../model/language.ts";
 import { modeText } from "../model/vim.ts";
