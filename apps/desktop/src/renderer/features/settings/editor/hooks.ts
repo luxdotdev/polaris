@@ -157,67 +157,59 @@ export const useHostLanguages = (
     let live = true;
     let unsubscribe = () => {};
 
+    const merged = (facts: readonly P.LanguageAvailability[]) => {
+      if (live) setState((s) => ({ ...s, availability: merge(s.availability, facts) }));
+    };
+
+    // Rows show from the catalog at once; each tool's facts fill in as its probe answers.
+    const factsOf = async (toolId: string) => {
+      const answer = await api.request("languages.availability", {
+        hostKey,
+        toolIds: [toolId],
+        checkout: null,
+        refresh: false,
+        phase: "install",
+      });
+
+      if (!answer.ok) return null;
+      merged(Schema.decodeUnknownSync(Schema.Array(P.LanguageAvailability))(answer.value));
+
+      return toolId;
+    };
+
+    const watch = (toolIds: readonly string[]) => {
+      if (!live || toolIds.length === 0) return;
+      unsubscribe = api.subscribe(
+        "languages.availability.watch",
+        { hostKey, toolIds, checkout: null },
+        {
+          items: (items) =>
+            merged(
+              items.flatMap((item) =>
+                Schema.decodeUnknownSync(LanguageSubscriptionItems["languages.availability.watch"])(
+                  item
+                )
+              )
+            ),
+          end: () => undefined,
+        }
+      );
+    };
+
     const load = async () => {
       const reply = await api.request("languages.catalog", { hostKey });
 
       if (!reply.ok) throw languageIpcError(reply.error);
       const catalog = Schema.decodeUnknownSync(P.LanguageCatalog)(reply.value);
 
-      // One tool the Host can't describe fails a whole batch, so ask per tool and keep the answers.
-      const answers = await Promise.all(
-        [...toolIdsOf(catalog)].map((toolId) =>
-          api.request("languages.availability", {
-            hostKey,
-            toolIds: [toolId],
-            checkout: null,
-            refresh: false,
-            phase: "install",
-          })
-        )
-      );
+      if (live) setState({ catalog, availability: [], failed: false });
 
-      if (answers.every((answer) => !answer.ok)) {
-        const first = answers[0];
+      const answered = await Promise.all([...toolIdsOf(catalog)].map(factsOf));
 
-        if (first !== undefined && !first.ok) throw languageIpcError(first.error);
-      }
-
-      const availability = answers.flatMap((answer) =>
-        answer.ok
-          ? Schema.decodeUnknownSync(Schema.Array(P.LanguageAvailability))(answer.value)
-          : []
-      );
-
-      const toolIds = availability.map((fact) => fact.toolId);
-
-      return { catalog, toolIds, availability };
+      watch(answered.filter((id) => id !== null));
     };
 
-    load().then(
-      ({ catalog, toolIds, availability }) => {
-        if (!live) return;
-        setState({ catalog, availability, failed: false });
-        unsubscribe = api.subscribe(
-          "languages.availability.watch",
-          { hostKey, toolIds, checkout: null },
-          {
-            items: (items) => {
-              if (!live) return;
-
-              const updates = items.flatMap((item) =>
-                Schema.decodeUnknownSync(LanguageSubscriptionItems["languages.availability.watch"])(
-                  item
-                )
-              );
-
-              setState((s) => ({ ...s, availability: merge(s.availability, updates) }));
-            },
-            end: () => undefined,
-          }
-        );
-      },
-      () => live && setState({ ...EMPTY, failed: true })
-    );
+    load().catch(() => live && setState({ ...EMPTY, failed: true }));
 
     return () => {
       live = false;

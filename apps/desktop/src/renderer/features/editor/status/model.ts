@@ -113,10 +113,10 @@ const base = (input: StatusInput, providerId: string | null) => {
 const pill = (input: StatusInput, word: string | null) =>
   word === null ? input.language : `${input.language} · ${word}`;
 
-const version = (tools: HostTools | null, toolId: string) => {
+export const version = (tools: HostTools | null, toolId: string) => {
   const fact = tools?.availability[toolId];
 
-  if (fact === undefined) return null;
+  if (fact === undefined) return tools?.pinned?.[toolId] ?? null;
 
   return Predicate.isTagged(fact.installation, "Installed")
     ? fact.installation.version

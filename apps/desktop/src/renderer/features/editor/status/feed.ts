@@ -8,7 +8,13 @@ import { Match, Option, Predicate, Schema } from "effect";
 import type { LanguageApi } from "../../../../shared/api.ts";
 import { LanguageSubscriptionItems } from "../../../../shared/languages.ts";
 import { appendFeed, appendStderr, type LogScope } from "./log.ts";
-import { availabilityArrived, progressArrived, runtimeArrived, type Runtime } from "./store.ts";
+import {
+  availabilityArrived,
+  catalogArrived,
+  progressArrived,
+  runtimeArrived,
+  type Runtime,
+} from "./store.ts";
 
 export const scopeOf = (hostKey: string, context: P.LanguageContextIdentity): LogScope => ({
   hostKey,
@@ -89,9 +95,10 @@ export const watchHostTools = (api: LanguageApi, hostKey: string) => {
 
     if (!active || !catalog.ok) return;
 
-    const catalogIds = Schema.decodeUnknownSync(P.LanguageCatalog)(catalog.value)
-      .tools.map((tool) => tool.id)
-      .slice(0, 512);
+    const known = Schema.decodeUnknownSync(P.LanguageCatalog)(catalog.value);
+    catalogArrived(hostKey, known);
+
+    const catalogIds = known.tools.map((tool) => tool.id).slice(0, 512);
 
     // One tool the Host can't describe fails a whole batch, so ask per tool and keep the answers.
     const answers = await Promise.all(

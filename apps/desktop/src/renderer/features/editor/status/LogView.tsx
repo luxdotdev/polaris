@@ -93,6 +93,7 @@ const Line = ({ line, query, wrap }: { line: LogLine; query: string; wrap: boole
 
 const useFollow = (lines: number) => {
   const scroller = useRef<HTMLDivElement>(null);
+  const top = useRef(0);
   const [follow, setFollow] = useState(true);
 
   useLayoutEffect(() => {
@@ -104,7 +105,14 @@ const useFollow = (lines: number) => {
   const onScroll = () => {
     const element = scroller.current;
 
-    if (element === null) return;
+    // Only scrolling up stops following; a horizontal scroll or a new line never does.
+    if (element === null || element.scrollTop >= top.current) {
+      top.current = element?.scrollTop ?? 0;
+
+      return;
+    }
+
+    top.current = element.scrollTop;
     const atEnd = element.scrollHeight - element.scrollTop - element.clientHeight < 4;
 
     if (!atEnd && follow) setFollow(false);

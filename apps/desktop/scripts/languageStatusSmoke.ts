@@ -162,7 +162,29 @@ try {
   assert.equal(first, "setting-up", "A fresh Host sets up before the server is ready");
   await openPopover(page);
   await shot(page, "setting-up-dark.png");
-  await closePopover(page);
+
+  // While the tools download, the popover says so and shows the download's progress.
+  let downloading = "";
+
+  await until(
+    "the download or the Trust card",
+    async () => {
+      const text = (await page.getByTestId("language-popover").textContent()) ?? "";
+
+      if (text.includes("Downloading")) downloading = text;
+
+      return downloading !== "" || (await page.getByTestId("trust-card").count()) > 0;
+    },
+    undefined,
+    180_000
+  );
+
+  if (downloading !== "") {
+    await shot(page, "setting-up-progress-dark.png");
+    console.log(`Setting up: ${downloading}`);
+  } else console.log("Setting up: the download finished before the popover saw it");
+
+  await closePopover(page).catch(() => undefined);
 
   // The Trust card asks about the repo's own TypeScript; Not now keeps the bundled one.
   await page.getByTestId("trust-card").waitFor({ timeout: 180_000 });
@@ -271,8 +293,18 @@ try {
   await page.keyboard.press("Meta+,");
   await page.getByRole("button", { name: "Editor" }).first().click();
   await page.getByText("What each language has on the host you pick.").waitFor({ timeout: 15_000 });
-  await shot(page, "settings-loading-dark.png");
   await page.getByText("TypeScript and JavaScript").first().waitFor({ timeout: 30_000 });
+
+  // One row per Language Integration the Host's catalog offers (shared servers share a row).
+  const groups = await page.evaluate<number>(`(async () => {
+    const reply = await window.polaris.languages.request("languages.catalog", { hostKey: "local" });
+    if (!reply.ok) throw new Error(JSON.stringify(reply.error));
+    return new Set(reply.value.integrations.map((i) => i.providers[0]?.tool ?? i.id)).size;
+  })()`);
+
+  const rows = await page.getByRole("switch", { name: / language tools$/ }).count();
+  console.log(`Settings rows: ${rows}; catalog integrations by server: ${groups}`);
+  assert.equal(rows, groups, "Settings lists the Host's Language Integrations");
   await everyLook(page, "settings");
   console.log("Settings → Editor → Languages lists TypeScript and JavaScript");
   console.log("PASS");

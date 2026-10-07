@@ -16,6 +16,7 @@ import { polaris } from "../../bridge.ts";
 import * as P from "@polaris/protocol";
 import { useEffect } from "react";
 import { useHostToolsWatch } from "./hooks.ts";
+import { version } from "./model.ts";
 import { fileKey } from "../model/drafts.ts";
 import { useStore } from "zustand";
 import { Predicate, Schema } from "effect";
@@ -90,9 +91,8 @@ export const LogTabBody = ({ tab }: { readonly tab: LogTab }) => {
   const trust = useTrustStatus(file?.key ?? fileKey(hostKey, ""));
   const runtime = file === null ? undefined : runtimes[runtimeKey(hostKey, file.contextId)];
   useLiveLog(hostKey, runtime);
-  const fact = tools?.availability[providerId];
-  const version = fact === undefined ? null : fact.pinnedVersion;
-  const typescript = tools?.availability.typescript?.pinnedVersion ?? null;
+  const server = version(tools, providerId);
+  const typescript = version(tools, "typescript");
 
   const typescriptDetail =
     providerId !== "typescript-language-server" || trust === null
@@ -112,7 +112,7 @@ export const LogTabBody = ({ tab }: { readonly tab: LogTab }) => {
     <LogView
       key={tab.id}
       scope={tab.scope}
-      server={version === null ? providerId : `${providerId} ${version}`}
+      server={server === null ? providerId : `${providerId} ${server}`}
       detail={detail.length === 0 ? null : detail.join(" · ")}
     />
   );

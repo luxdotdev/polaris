@@ -76,6 +76,7 @@ export const EditorSettings = ({
   );
 
   const app = useRecord(api, hosts[0]?.key ?? "local", APP_SCOPE, committed);
+
   const facts = useHostLanguages(api, live);
 
   const rows = useMemo(

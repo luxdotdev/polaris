@@ -36,6 +36,8 @@ export interface ContextRuntime {
 export interface HostTools {
   readonly availability: Readonly<Record<string, P.LanguageAvailability>>;
   readonly progress: Readonly<Record<string, P.LanguageInstallProgress>>;
+  /** Each catalog tool's pinned version, for tools whose availability needs a checkout. */
+  readonly pinned?: Readonly<Record<string, string>>;
 }
 
 interface StatusState {
@@ -142,6 +144,17 @@ export const availabilityArrived = (hostKey: string, facts: readonly P.LanguageA
 
     return { hosts: { ...state.hosts, [hostKey]: { ...tools, availability } } };
   });
+
+export const catalogArrived = (hostKey: string, catalog: P.LanguageCatalog) =>
+  statusStore.setState((state) => ({
+    hosts: {
+      ...state.hosts,
+      [hostKey]: {
+        ...hostTools(state, hostKey),
+        pinned: Object.fromEntries(catalog.tools.map((tool) => [tool.id, tool.version])),
+      },
+    },
+  }));
 
 export const progressArrived = (hostKey: string, progress: P.LanguageInstallProgress) =>
   statusStore.setState((state) => {
