@@ -24,11 +24,21 @@ const name = "palette-acceptance.ts";
 
 const path = join(REPO_ROOT, name);
 
+const unformattedName = "palette-format-acceptance.ts";
+
+const unformatted = join(REPO_ROOT, unformattedName);
+
+const messy = "export function answer(){\nif (true) {\n        return   42\n}\n}\n";
+
 assert.equal(existsSync(path), false, "Never overwrite an existing file");
+
+assert.equal(existsSync(unformatted), false, "Never overwrite an existing file");
 
 mkdirSync(userData);
 
 mkdirSync(evidence, { recursive: true });
+
+writeFileSync(unformatted, messy);
 
 writeFileSync(path, "export const value: string = 123;\nexport const other = value;\n");
 
@@ -263,6 +273,61 @@ try {
   await restartedSince(before, "restart with ⌥⌘R");
   console.log("⌥⌘R restarted it");
 
+  // Format document (⇧⌥F) asks the file's server (slice 4d) and undoes in one step.
+  await page
+    .getByTestId("tree-row")
+    .filter({ has: page.getByText(unformattedName, { exact: true }) })
+    .click({ timeout: 15_000 });
+
+  const code = page.locator(".cm-content").first();
+
+  const shown = () =>
+    page.evaluate<string>(`document.querySelector(".cm-content")?.innerText ?? ""`);
+
+  await until("the messy file", async () => (await shown()).includes("return   42"));
+  // The palette reads the moment it opens: reopen until the server offers formatting.
+  await until("Format document offered", async () => {
+    await openPalette(page);
+    await field(page).fill("format document");
+    await page.waitForTimeout(200);
+
+    const offered =
+      (await page.getByTestId("palette-row").filter({ hasText: "Format document" }).count()) > 0;
+
+    await page.keyboard.press("Escape");
+    await palette(page).waitFor({ state: "detached" });
+
+    return offered;
+  });
+
+  await code.click();
+  await page.keyboard.press("Shift+Alt+F");
+  await until(
+    "formatted text",
+    async () => /\n\s+return 42/.test(await shown()) && !(await shown()).includes("return   42")
+  );
+  await page.screenshot({ path: join(evidence, "format-document-dark.png") });
+  const formatted = await shown();
+
+  await page.keyboard.press("Meta+Z");
+  await until("undo restores the messy text", async () => (await shown()).includes("return   42"));
+  await page.keyboard.press("Meta+Shift+Z");
+  await until("redo reapplies it", async () => (await shown()) === formatted);
+  console.log("Format document (⇧⌥F) formatted the file; one ⌘Z undid it");
+
+  await page
+    .getByTestId("tree-row")
+    .filter({ has: page.getByText(name, { exact: true }) })
+    .click({ timeout: 15_000 });
+  await until("the first file again", async () => (await shown()).includes("export const value"));
+  await until(
+    "the first file's server",
+    async () =>
+      (await page.evaluate<string>(
+        `document.querySelector('[aria-label="Language tools"] [role=status]')?.textContent ?? ""`
+      )) === "TypeScript · bundled"
+  );
+
   await openPalette(page);
   await page.screenshot({ path: join(evidence, "palette-recent-dark.png") });
   assert.match(
@@ -314,5 +379,6 @@ try {
   await app?.evaluate(({ app: electronApp }) => electronApp.exit()).catch(() => undefined);
   await daemon?.stop();
   rmSync(path, { force: true });
+  rmSync(unformatted, { force: true });
   rmSync(profile, { recursive: true, force: true });
 }

@@ -31,7 +31,8 @@ export interface FormattingPort {
 }
 
 export interface SavePort {
-  readonly snapshot: (reason: SaveReason) => FormatSnapshot | null;
+  /** `clean` also snapshots text with no unsaved edits (Format document). */
+  readonly snapshot: (reason: SaveReason, clean?: boolean) => FormatSnapshot | null;
   readonly current: (snapshot: FormatSnapshot) => boolean;
   readonly apply: (text: string) => void;
   readonly write: () => Promise<boolean>;
@@ -71,7 +72,7 @@ export class SaveCoordinator {
    * Resolves true when the text changed; rejects with the formatter's failure.
    */
   async format(): Promise<boolean> {
-    const snapshot = this.port.snapshot("manual");
+    const snapshot = this.port.snapshot("manual", true);
 
     if (snapshot === null || this.formatting === undefined)
       throw new Error("This file can't be formatted now.");

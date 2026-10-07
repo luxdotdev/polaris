@@ -623,14 +623,14 @@ const writeBuffer = async (key: string): Promise<boolean> => {
 const coordinator = (buffer: OpenBuffer) =>
   new SaveCoordinator(
     {
-      snapshot: (reason) => {
+      snapshot: (reason, clean = false) => {
         const model = modelOf(buffer.key);
         const status = editorStore.getState().buffers[buffer.key];
 
         if (
           buffer.view === null ||
           model === null ||
-          !canSave(model) ||
+          !(clean ? model.saving === null && model.conflict === null : canSave(model)) ||
           status?.readOnly ||
           status?.deleted
         )
