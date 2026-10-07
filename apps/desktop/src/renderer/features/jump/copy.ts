@@ -4,10 +4,10 @@ export const jumpCopy = (mode: string) =>
     ? {
         placeholder: "Jump to a PR, file, or finding",
         hint: "Pull requests, files, findings, sessions",
-        label: "Jump to a pull request, file, finding, session or action",
+        label: "Jump to a pull request, file, finding or session",
       }
     : {
         placeholder: "Jump to a session or workspace",
-        hint: "Sessions, workspaces, hosts, actions",
-        label: "Jump to a session, workspace, worktree, machine or action",
+        hint: "Sessions, workspaces, hosts",
+        label: "Jump to a session, workspace, worktree or machine",
       };

@@ -19,6 +19,8 @@ interface TrustState {
   readonly settled: Readonly<Record<string, number>>;
   /** The latest status per scope, for which TypeScript runs. */
   readonly statuses: Readonly<Record<string, TrustStatus>>;
+  /** Each open file's checkout, for Trust changes from the Command Palette. */
+  readonly targets: Readonly<Record<string, TrustTarget>>;
 }
 
 export const trustStore = createStore<TrustState>(() => ({
@@ -26,6 +28,7 @@ export const trustStore = createStore<TrustState>(() => ({
   files: {},
   settled: {},
   statuses: {},
+  targets: {},
 }));
 
 const without = <V>(record: Readonly<Record<string, V>>, key: string) =>
@@ -78,7 +81,9 @@ export const trustDiscovered = (
   const key = trustScopeKey(target.hostKey, discovery.trust.scope);
 
   trustStore.setState((state) =>
-    state.files[file] === key ? state : { files: { ...state.files, [file]: key } }
+    state.files[file] === key && state.targets[file] === target
+      ? state
+      : { files: { ...state.files, [file]: key }, targets: { ...state.targets, [file]: target } }
   );
 
   if (discovery.trustRequest != null) trustStatusArrived(target, discovery.trustRequest);
@@ -104,6 +109,15 @@ const statusOf = (state: TrustState, file: string) => {
   const key = state.files[file];
 
   return key === undefined ? null : (state.statuses[key] ?? null);
+};
+
+/** The focused file's checkout and its scope's latest status, once discovery has said. */
+export const trustOfFile = (file: string) => {
+  const state = trustStore.getState();
+  const target = state.targets[file];
+  const status = statusOf(state, file);
+
+  return target === undefined || status === null ? null : { target, status };
 };
 
 /** The provider's name for an open file, from the Daemon's latest Trust status for its scope. */

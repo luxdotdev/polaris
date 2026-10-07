@@ -4,8 +4,9 @@ import { App } from "./app/App.tsx";
 import { onNeedsYouEvent } from "./features/needs-you/index.ts";
 import { applyAppearance } from "./appearance.ts";
 import { connectSettings, settingsCommands, settingsStore } from "./features/settings/index.ts";
-import { connectUpdates } from "./features/settings/updates/store.ts";
+import { connectUpdates, updatesStore } from "./features/settings/updates/store.ts";
 import { createOnboarding } from "./features/onboarding/index.ts";
+import { installPalette } from "./features/palette/index.ts";
 import { startProofSession } from "./proof.ts";
 import { createCommandRegistry } from "./routes/commands.ts";
 import { installKeyboard } from "./routes/keyboard.ts";
@@ -13,7 +14,7 @@ import { onOpenPullEvent } from "./routes/review.ts";
 import { createNavigation } from "./routes/navigation.ts";
 import { exposeSwitchTimes } from "./routes/switchTimer.ts";
 import type { Appearance, Density } from "../shared/api.ts";
-import { shellCommands } from "./shell/commands.ts";
+import { shellCommands, shellContext } from "./shell/commands.ts";
 import { connect } from "./store/store.ts";
 
 const connection = connect(window.polaris);
@@ -51,6 +52,16 @@ commands.register(
     },
   })
 );
+
+commands.provide(shellContext({ connection, navigation }));
+
+commands.provide(() => {
+  const version = updatesStore.getState().view?.availableVersion;
+
+  return version == null ? {} : { values: { updateVersion: version } };
+});
+
+installPalette({ commands, actions: navigation.actions, storage });
 
 // `#preview/<scene>`: the shell on fixtures, for screenshots (features/session/preview).
 const preview = location.hash.startsWith("#preview/");

@@ -1,9 +1,9 @@
-/** Carrying out a jump: select what was chosen (in Review with ⌘↵) or run the action. */
+/** Carrying out a jump: select what was chosen, or open it in Review with ⌘↵. */
 import { openPull, openSessionReview, reviewRoute } from "../../routes/review.ts";
 import type { ShellActions } from "../../routes/navigation.ts";
 import { revealInDiff, subjectKey, updateSurface } from "../review/index.ts";
 import { barHosts } from "../../routes/topBar.ts";
-import { useApp, useCommands, useSelection, useShellActions } from "../../shell/hooks.ts";
+import { useApp, useSelection, useShellActions } from "../../shell/hooks.ts";
 import type { JumpTarget } from "./items.ts";
 
 type ReviewTarget = Extract<JumpTarget, { readonly kind: "pull" | "file" | "finding" }>;
@@ -34,18 +34,11 @@ const runReviewTarget = (target: ReviewTarget, actions: ShellActions) => {
 
 export const useRunJump = () => {
   const actions = useShellActions();
-  const commands = useCommands();
   const { topBar } = useSelection();
   const hosts = useApp((s) => s.hosts);
   const models = useApp((s) => s.hostModels);
 
   return (target: JumpTarget, review: boolean) => {
-    if (target.kind === "command") {
-      commands.run(target.id);
-
-      return;
-    }
-
     if (isReviewTarget(target)) {
       runReviewTarget(target, actions);
 

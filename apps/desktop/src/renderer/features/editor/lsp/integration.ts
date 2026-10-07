@@ -12,7 +12,7 @@ import { previewDocument } from "../runtime/markdown.ts";
 import { applyBufferLanguage } from "../runtime/buffers.ts";
 import { fileKey } from "../model/drafts.ts";
 import { languageFor, type LanguageId } from "../model/language.ts";
-import { bindFormatter } from "../formatting/bridge.ts";
+import { bindFormatter, explicitFormatter, formatsDocuments } from "../formatting/bridge.ts";
 import { formattedText } from "../formatting/edits.ts";
 import { LanguageFeatures } from "./features.ts";
 import { LanguageDiagnosticFeed, cmDiagnostics } from "./diagnostics.ts";
@@ -484,6 +484,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
     if (!current()) return;
     const settings = found.effectiveSettings;
     entry.unformat = bindFormatter(file, {
+      canFormat: () => formatsDocuments(entry.features.options.providers()),
       settings: async () => ({
         formatOnSave: settings.formatOnSave,
         formatter: settings.formatter,
@@ -516,7 +517,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
             document: { uri: buffer.uri, version: buffer.version },
             snapshot: snapshot.text,
             expectedDiskVersion: snapshot.diskVersion,
-            formatter,
+            formatter: explicitFormatter(formatter, provider.context.providerId),
             options: {},
             reason: snapshot.reason,
             deadline: Date.now() + 5000,

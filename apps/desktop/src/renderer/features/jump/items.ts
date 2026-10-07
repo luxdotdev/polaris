@@ -1,13 +1,12 @@
 /**
  * What the K jump menu can reach, across every Host: Agent Sessions,
- * Workspaces, Worktrees, machines and actions, each with the words it can be
- * found by. Built from the store, so results follow live state.
+ * Workspaces, Worktrees and machines, each with the words it can be found by.
+ * Built from the store, so results follow live state. Commands live in the
+ * Command Palette (⇧⌘P), not here (spec Q21).
  */
 import type { SessionId, SessionState, WorkspaceId, WorktreeId } from "@polaris/protocol";
 import { harnessHue } from "@polaris/ui";
 import type { OpenPull } from "../../../shared/api.ts";
-import { formatChord, parseChord } from "../../../shared/chord.ts";
-import { bindingOf, type CommandId } from "../../../shared/keymap.ts";
 import { recentKey } from "../../routes/selection.ts";
 import {
   activeSessions,
@@ -31,7 +30,6 @@ export type JumpTarget =
       readonly sessionId: SessionId | null;
     }
   | { readonly kind: "host"; readonly hostKey: string }
-  | { readonly kind: "command"; readonly id: CommandId }
   /** Review: a pull request, a file of the open Review, or one of its Risk Findings. */
   | { readonly kind: "pull"; readonly pull: OpenPull }
   | { readonly kind: "file"; readonly path: string }
@@ -151,135 +149,3 @@ export const hostItems = ({ bar, machineBar }: JumpData): ReadonlyArray<JumpItem
     harness: summary.harness,
     needsYou: summary.needsYou > 0,
   }));
-
-export interface ActionContext {
-  /** The selected Workspace's name, for "New session in polaris". */
-  readonly workspace: string | null;
-  /** The selected session's title, for "Archive …". */
-  readonly session: string | null;
-  readonly enabled: (id: CommandId) => boolean;
-  readonly updateVersion?: string | null;
-  /** The theme the toggle leads to. */
-  readonly nextTheme: "dark" | "light";
-}
-
-const ACTIONS: ReadonlyArray<{
-  readonly id: CommandId;
-  readonly title: (ctx: ActionContext) => string;
-  readonly keywords: ReadonlyArray<string>;
-}> = [
-  {
-    id: "session.new",
-    title: (c) => `New session in ${c.workspace ?? "this workspace"}`,
-    keywords: ["create", "start", "agent"],
-  },
-  {
-    id: "session.openInTerminal",
-    title: (c) => `Open ${c.session ?? "session"} in terminal`,
-    keywords: ["tui", "handoff"],
-  },
-  {
-    id: "session.archive",
-    title: (c) => `Archive ${c.session ?? "session"}`,
-    keywords: ["close", "hide"],
-  },
-  {
-    id: "view.output",
-    title: () => "Show or hide output",
-    keywords: ["changes", "diff", "panel", "rail"],
-  },
-  { id: "view.orchestrate", title: () => "Go to Orchestrate", keywords: ["view", "mode"] },
-  { id: "view.review", title: () => "Go to Review", keywords: ["view", "mode", "diff"] },
-  { id: "view.edit", title: () => "Go to Edit", keywords: ["view", "mode", "editor"] },
-  {
-    id: "theme.toggle",
-    title: (c) => `Switch to ${c.nextTheme} theme`,
-    keywords: ["appearance", "dark", "light", "theme"],
-  },
-  {
-    id: "help.shortcuts",
-    title: () => "Keyboard shortcuts",
-    keywords: ["help", "keys", "hotkeys"],
-  },
-  { id: "settings.open", title: () => "Settings", keywords: ["preferences", "settings"] },
-  {
-    id: "settings.appearance",
-    title: () => "Settings: Appearance",
-    keywords: ["theme", "density", "text size", "font", "motion", "colourblind"],
-  },
-  {
-    id: "settings.sessions",
-    title: () => "Settings: Sessions",
-    keywords: ["worktree", "branch", "prefix", "output", "notifications", "archive"],
-  },
-  {
-    id: "settings.harnesses",
-    title: () => "Settings: Harnesses",
-    keywords: ["claude", "codex", "opencode", "sign in", "model", "permissions"],
-  },
-  {
-    id: "settings.usage",
-    title: () => "Settings: Usage",
-    keywords: ["tokens", "cost", "plan limits", "rate limit"],
-  },
-  { id: "settings.hosts", title: () => "Settings: Hosts", keywords: ["machines", "ssh"] },
-  {
-    id: "settings.reviewer",
-    title: () => "Settings: Reviewer",
-    keywords: ["review", "risk summary", "model", "effort", "codex", "claude"],
-  },
-  {
-    id: "settings.github",
-    title: () => "Settings: GitHub accounts",
-    keywords: ["github", "account", "owner", "organization", "sign in", "pull requests"],
-  },
-  {
-    id: "github.addAccount",
-    title: () => "Add GitHub account…",
-    keywords: ["github", "sign in", "device code"],
-  },
-  {
-    id: "settings.about",
-    title: () => "Settings: About",
-    keywords: ["version", "release", "polaris"],
-  },
-  {
-    id: "updates.check",
-    title: () => "Check for updates",
-    keywords: ["update", "release", "version"],
-  },
-  {
-    id: "updates.restart",
-    title: () => "Restart to update",
-    keywords: ["update", "restart", "upgrade"],
-  },
-];
-
-const shortcutOf = (id: CommandId) => {
-  const key = bindingOf(id)?.keys[0];
-
-  return key === undefined ? "" : formatChord(parseChord(key));
-};
-
-/** The actions that can run now, with their shortcuts. */
-export const actionItems = (ctx: ActionContext): ReadonlyArray<JumpItem> =>
-  ACTIONS.flatMap((a): Array<JumpItem> =>
-    ctx.enabled(a.id)
-      ? [
-          {
-            id: `command\u0000${a.id}`,
-            target: { kind: "command", id: a.id },
-            title: a.title(ctx),
-            keywords: a.keywords,
-            detail:
-              a.id === "updates.restart"
-                ? `Polaris ${ctx.updateVersion ?? ""} · agent sessions keep working`
-                : "",
-            meta: shortcutOf(a.id),
-            state: null,
-            harness: null,
-            needsYou: false,
-          },
-        ]
-      : []
-  );

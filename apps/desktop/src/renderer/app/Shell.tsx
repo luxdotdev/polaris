@@ -5,6 +5,7 @@ import { EditorRequests } from "../features/editor-links/index.ts";
 import { LazyInline } from "../features/editor-inline/index.ts";
 import { useOnboardingState, Welcome } from "../features/onboarding/index.ts";
 import { EditMode } from "../features/editor/explorer/index.ts";
+import { CommandPalette } from "../features/palette/index.ts";
 import { preloadReview } from "../features/review/index.ts";
 import { SettingsPage } from "../features/settings/index.ts";
 import { closeReviewSubject, useReviewSubject } from "../routes/review.ts";
@@ -74,6 +75,7 @@ export const Shell = () => {
       <TitleBar />
       <Body />
       <slots.JumpMenu open={jumpOpen} onOpenChange={setJumpOpen} />
+      <CommandPalette />
       <slots.OpenFolder />
       <ShortcutHelp />
       <FileFinder />

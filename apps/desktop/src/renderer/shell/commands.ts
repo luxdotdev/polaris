@@ -9,7 +9,8 @@ import { Commands, Decisions } from "../commands.ts";
 import { send } from "../features/session/dispatch.ts";
 import { toggleOutput } from "../features/session/index.ts";
 import { archiveCommand, interruptCommand } from "../features/session/model/intent.ts";
-import type { CommandHandlers } from "../routes/commands.ts";
+import type { ContextValue } from "../../shared/keymap.ts";
+import type { CommandHandlers, ContextPart } from "../routes/commands.ts";
 import type { Navigation } from "../routes/navigation.ts";
 import { type Selection, sessionOrder } from "../routes/selection.ts";
 import { activeSessions, shownWorkspaces } from "../routes/topBar.ts";
@@ -48,6 +49,24 @@ export const stepSession = (
 
   return list[(at + step + list.length) % list.length];
 };
+
+/** The shell's facts for `when` conditions and titles: the selected Workspace and session. */
+export const shellContext =
+  ({ connection, navigation }: Omit<ShellCommandsInput, "dark">) =>
+  (): ContextPart => {
+    const { hostKey, workspaceId, sessionId } = navigation.current();
+    const model = hostKey === null ? undefined : connection.store.getState().hostModels[hostKey];
+    const workspace = workspaceId === null ? undefined : model?.workspaces.get(workspaceId)?.name;
+    const session = sessionId === null ? undefined : model?.sessions.get(sessionId)?.session;
+
+    const values: Partial<Record<ContextValue, string>> = {};
+
+    if (workspace !== undefined) values.workspace = workspace;
+
+    if (session !== undefined) values.session = session.title || "Untitled session";
+
+    return { keys: workspace === undefined ? [] : ["workspace"], values };
+  };
 
 export interface ShellCommandsInput {
   readonly connection: Connection;
@@ -134,6 +153,7 @@ export const shellCommands = ({
       enabled: () => selected() !== null,
     },
     "jump.open": { run: actions.openJump },
+    "palette.open": { run: () => actions.setPaletteOpen(true) },
     "help.shortcuts": { run: () => actions.setHelpOpen(true) },
     "session.new": {
       run: actions.startNewSession,

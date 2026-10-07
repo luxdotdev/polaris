@@ -1,5 +1,5 @@
 import * as P from "@polaris/protocol";
-import { Schema } from "effect";
+import { Predicate, Schema } from "effect";
 import type { LanguageApi, PolarisApi } from "../../../../shared/api.ts";
 import type { AppState } from "../../../store/store.ts";
 import { polaris } from "../../bridge.ts";
@@ -8,19 +8,22 @@ import { languageFor } from "../model/language.ts";
 import { showOpenFailure } from "../ui/toasts.ts";
 import type { FormatSettings, FormattingPort } from "./index.ts";
 
+type BoundPort = Pick<FormattingPort, "settings" | "format"> & {
+  /** A server serving the file formats documents (`textDocument/formatting`). */
+  readonly canFormat?: () => boolean;
+};
+
 interface FormatterBinding {
-  readonly port: Pick<FormattingPort, "settings" | "format">;
+  readonly port: BoundPort;
 }
 
 const bindings = new Map<string, FormatterBinding>();
 
-const keyOf = (file: EditorFile) => `${file.hostKey}\u0000${file.workspaceId}\u0000${file.path}`;
+const keyOf = (file: Pick<EditorFile, "hostKey" | "workspaceId" | "path">) =>
+  `${file.hostKey}\u0000${file.workspaceId}\u0000${file.path}`;
 
 /** E1 owns context generation/capabilities and removes the binding on context replacement. */
-export const bindFormatter = (
-  file: EditorFile,
-  port: Pick<FormattingPort, "settings" | "format">
-) => {
+export const bindFormatter = (file: EditorFile, port: BoundPort) => {
   const key = keyOf(file);
   const binding = { port };
 
@@ -30,6 +33,21 @@ export const bindFormatter = (
     if (bindings.get(key) === binding) bindings.delete(key);
   };
 };
+
+/** Some server serving the file formats documents (`textDocument/formatting`). */
+export const formatsDocuments = (
+  providers: ReadonlyArray<{ readonly capabilities: P.LanguageProviderCapabilities }>
+) => providers.some((p) => p.capabilities.methods.includes("textDocument/formatting"));
+
+/** Format document with no formatter chosen asks the file's own server. */
+export const explicitFormatter = (formatter: P.LanguageFormatterSelection, providerId: string) =>
+  Predicate.isTagged(formatter, "None")
+    ? P.LanguageFormatterSelection.cases.Provider.make({ providerId })
+    : formatter;
+
+/** Whether Format document can run for an open file now. */
+export const canFormatFile = (file: Pick<EditorFile, "hostKey" | "workspaceId" | "path">) =>
+  bindings.get(keyOf(file))?.port.canFormat?.() ?? false;
 
 export const readFormatSettings = async (
   file: EditorFile,

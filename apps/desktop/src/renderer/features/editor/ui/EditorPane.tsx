@@ -38,6 +38,7 @@ import { FileNotice } from "./FileNotice.tsx";
 import { Tabs } from "./Tabs.tsx";
 import { LanguageTools } from "./LanguageTools.tsx";
 import { EditorTrust } from "../trust/TrustCard.tsx";
+import { useLanguageCommands } from "../commands/useLanguageCommands.ts";
 
 export interface EditorPaneProps {
   readonly hostKey: string;
@@ -109,6 +110,7 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
   }, [theirs]);
 
   useEditorCommands(hostKey, workspaceId, active);
+  useLanguageCommands(hostKey, workspaceId, active);
 
   const onAction = (action: BannerAction) => {
     if (active === null) return;

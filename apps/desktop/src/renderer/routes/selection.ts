@@ -67,6 +67,8 @@ export interface NavState {
   readonly pane: Pane;
   readonly sidebar: SidebarView;
   readonly jumpOpen: boolean;
+  /** The Command Palette (⇧⌘P). */
+  readonly paletteOpen: boolean;
   /** The keyboard shortcut overlay (⌘/ or ?). */
   readonly helpOpen: boolean;
   /** The ⌘O dialog, one of the shell's overlays; null when closed. */
@@ -89,6 +91,7 @@ export const initialNav: NavState = {
   pane: "session",
   sidebar: "sessions",
   jumpOpen: false,
+  paletteOpen: false,
   helpOpen: false,
   folder: null,
   settings: null,
