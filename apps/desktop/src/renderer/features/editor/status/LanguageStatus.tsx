@@ -11,11 +11,13 @@ import { hostInSentence } from "../../../shell/hostCopy.ts";
 import { useApp, useShellActions } from "../../../shell/hooks.ts";
 import { polaris } from "../../bridge.ts";
 import { fileKey } from "../model/drafts.ts";
+import type { LanguageId } from "../model/language.ts";
 import { editorLanguages } from "../runtime/app.ts";
 import { useTrustStatus } from "../trust/store.ts";
 import { runAction } from "./actions.ts";
 import { useHostToolsWatch, useLanguageStatus } from "./hooks.ts";
-import { openLanguageLog } from "./logTabs.ts";
+import { openLanguageLog } from "../intents/languageLog.ts";
+import "./intent.ts";
 import type { Fact, Mark, StatusAction, StatusView } from "./model.ts";
 
 export const PillMark = ({ mark }: { readonly mark: Mark }) =>
@@ -223,6 +225,7 @@ export interface LanguageStatusProps {
   readonly workspaceId: string;
   readonly path: string;
   readonly language: string;
+  readonly languageId: LanguageId;
   /** The manual language choice, shown at the popover's foot. */
   readonly languageMode?: ReactNode;
 }
@@ -232,6 +235,7 @@ export const LanguageStatus = ({
   workspaceId,
   path,
   language,
+  languageId,
   languageMode,
 }: LanguageStatusProps) => {
   const [open, setOpen] = useState(false);
@@ -258,12 +262,15 @@ export const LanguageStatus = ({
         api: polaris().languages,
         recheck: () => editorLanguages?.recheck(fileKey(hostKey, path)),
         showLog: () => {
-          if (checkout !== null && providerId !== null)
-            openLanguageLog(
-              { hostKey, checkout, providerId },
-              providerId === "typescript-language-server" ? "TypeScript" : language,
-              workspaceId
-            );
+          if (checkout !== null)
+            openLanguageLog({
+              hostKey,
+              workspaceId,
+              checkout,
+              language: languageId,
+              providerId,
+              path,
+            });
         },
         openSettings: () => openSettings("editor"),
       }

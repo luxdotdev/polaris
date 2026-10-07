@@ -10,7 +10,12 @@ import type { LanguageApi } from "../../../../shared/api.ts";
 import { checkout, context, HOST, running, runtimes, workspaceId } from "./fixtures.testing.ts";
 import { appendLogLines, appendStderr, LOG_LIMIT, logKey, logStore, type LogScope } from "./log.ts";
 import { copyText, matchParts, visibleLines } from "./logModel.ts";
-import { closeLogTab, logTabStore, openLanguageLog } from "./logTabs.ts";
+import { closeLogTab, logTabStore, showLogTab } from "./logTabs.ts";
+import { canOpenLanguageLog, openLanguageLog } from "../intents/languageLog.ts";
+import "./intent.ts";
+import { statusOpened, statusDiscovered, statusStore } from "./store.ts";
+import { fileKey } from "../model/drafts.ts";
+import { eligible } from "./fixtures.testing.ts";
 import { LogView } from "./LogView.tsx";
 
 const scope: LogScope = { hostKey: HOST, checkout, providerId: "typescript-language-server" };
@@ -231,8 +236,8 @@ describe("the log tab", () => {
       },
     });
 
-    openLanguageLog(scope, "TypeScript");
-    openLanguageLog(scope, "TypeScript");
+    showLogTab(scope, "TypeScript");
+    showLogTab(scope, "TypeScript");
     const logs = logTabStore.getState().workspaces[key];
 
     expect(logs?.tabs).toHaveLength(1);
@@ -248,8 +253,56 @@ describe("the log tab", () => {
     });
     expect(logTabStore.getState().workspaces[key]?.active).toBeNull();
 
-    openLanguageLog(scope, "TypeScript");
+    showLogTab(scope, "TypeScript");
     closeLogTab(HOST, workspaceId, logs?.tabs[0]?.id ?? "");
     expect(logTabStore.getState().workspaces[key]).toEqual({ tabs: [], active: null });
+  });
+
+  test("the palette's intent opens the file's first server's log, once", () => {
+    const key = workspaceKey(HOST, workspaceId);
+    const path = "/code/polaris/a.ts";
+    statusStore.setState({ files: {}, runtimes: {}, hosts: {} });
+    statusOpened(fileKey(HOST, path), HOST, path);
+    statusDiscovered(fileKey(HOST, path), {
+      checkout,
+      projectRoot: "/code/polaris",
+      providers: [eligible()],
+      effectiveSettings: {
+        revision: 0,
+        formatOnSave: true,
+        formatter: P.LanguageFormatterSelection.cases.None.make({}),
+        providers: [],
+        settings: {},
+        origins: {},
+      },
+      trust: P.LanguageTrust.make({
+        scope: P.LanguageTrustScope.cases.Workspace.make({
+          hostId: P.HostId.make("host-1"),
+          workspaceId,
+        }),
+        revision: 1,
+        trusted: false,
+      }),
+    });
+
+    const intent = {
+      hostKey: HOST,
+      workspaceId,
+      checkout,
+      language: "typescript" as const,
+      providerId: null,
+      path,
+    };
+
+    expect(canOpenLanguageLog()).toBe(true);
+    expect(openLanguageLog(intent)).toBe(true);
+    expect(openLanguageLog(intent)).toBe(true);
+
+    const logs = logTabStore.getState().workspaces[key];
+
+    expect(logs?.tabs.map((tab) => [tab.language, tab.scope.providerId])).toEqual([
+      ["TypeScript", "typescript-language-server"],
+    ]);
+    expect(logs?.active).toBe(logs?.tabs[0]?.id ?? "missing");
   });
 });

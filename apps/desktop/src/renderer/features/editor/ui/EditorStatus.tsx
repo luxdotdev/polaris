@@ -79,6 +79,7 @@ export const EditorStatus = ({ hostKey, workspaceId }: EditorStatusProps) => {
           workspaceId={workspaceId}
           path={active.path}
           language={LANGUAGE_NAMES[language]}
+          languageId={language}
           languageMode={
             <LanguageSelector hostKey={hostKey} path={active.path} language={language} />
           }

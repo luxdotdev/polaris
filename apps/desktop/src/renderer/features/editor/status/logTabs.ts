@@ -41,7 +41,7 @@ const update = (key: string, change: (logs: WorkspaceLogs) => WorkspaceLogs) =>
   });
 
 /** Opens (or shows) the log for one language server on one Host, in the given Workspace's tabs. */
-export const openLanguageLog = (
+export const showLogTab = (
   scope: LogScope,
   language: string,
   workspaceId: string = scope.checkout.workspaceId
