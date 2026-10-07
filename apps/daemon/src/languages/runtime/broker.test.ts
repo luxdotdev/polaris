@@ -1,9 +1,7 @@
 import { expect, test } from "bun:test";
-import { Schema } from "effect";
+import { Schema, Predicate } from "effect";
 import {
   LanguageError,
-  LanguageRuntime,
-  LanguageContextEvent,
   LanguageDocumentNotification,
   LanguageFeatureRequest,
   LanguageFeatureResult,
@@ -285,39 +283,6 @@ test("one Client uses separate processes and drafts for Workspace and Worktree",
   }
 });
 
-test("crashes require new snapshots, retry budget stops and manual restart resets", async () => {
-  const f = await fixture("crash-open");
-
-  try {
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      const { context } = await f.acquire();
-
-      const iterator = f.broker
-        .watch("one", context, AbortSignal.timeout(1500))
-        [Symbol.asyncIterator]();
-
-      await f.open("one", context);
-      await awaitFailure(iterator, attempt);
-      await iterator.return?.();
-      await Bun.sleep(40);
-    }
-
-    const exhausted = await f.acquire();
-    await f.open("one", exhausted.context);
-    await Bun.sleep(40);
-    expect(f.processes).toHaveLength(3);
-    const restart = await f.broker.restart("one", exhausted.context);
-    expect(restart.ack.documents).toHaveLength(1);
-
-    for (let i = 0; i < 200 && f.processes.length < 4; i++) await Bun.sleep(5);
-    expect(f.processes).toHaveLength(4);
-  } finally {
-    await f.dispose();
-  }
-
-  expect(f.broker.stats().cleanup).toBe(0);
-}, 10000);
-
 test("malformed actual server output invalidates generation and cleans child", async () => {
   const f = await fixture("malformed");
 
@@ -332,34 +297,18 @@ test("malformed actual server output invalidates generation and cleans child", a
     }
 
     expect(current.context.generation).toBeGreaterThan(original.context.generation);
-    expect(current.ack.documents).toHaveLength(0);
+    expect(current.ack.documents).toHaveLength(1);
+
+    for (let i = 0; i < 200 && !Predicate.isTagged((await f.acquire()).runtime, "Stopped"); i++)
+      await Bun.sleep(5);
+    expect((await f.acquire()).runtime).toHaveProperty("reason", "crash-budget");
     expect(f.broker.stats().processes).toBe(0);
   } finally {
     await f.dispose();
   }
 });
 
-async function awaitFailure(iterator: AsyncIterator<LanguageContextEvent>, attempt: number) {
-  let failed = false;
-
-  while (!failed) {
-    const event = await iterator.next();
-
-    if (event.done) throw new Error("Missing crash event");
-
-    if (
-      Schema.is(LanguageContextEvent.cases.RuntimeChanged)(event.value) &&
-      Schema.is(LanguageRuntime.cases.Failed)(event.value.runtime)
-    ) {
-      expect(event.value.runtime.attempts).toBe(attempt);
-
-      if (attempt === 3) expect(event.value.runtime.retryAt).toBeNull();
-      failed = true;
-    }
-  }
-}
-
-test("grace cleanup cannot wait for another Client or delete a newly acquired context", async () => {
+test("grace cleanup waits for every Client and preserves a newly acquired context", async () => {
   const f = await fixture("slow-shutdown");
 
   try {
@@ -379,18 +328,24 @@ test("grace cleanup cannot wait for another Client or delete a newly acquired co
       })
     );
 
-    for (let i = 0; i < 100 && f.broker.stats().contexts === 2; i++) await Bun.sleep(5);
-    expect(f.broker.stats().contexts).toBe(1);
+    await Bun.sleep(30);
+    expect(f.broker.stats().contexts).toBe(2);
+    await f.broker.sync("two", {
+      context: second.context,
+      sequence: 2,
+      notification: LanguageDocumentNotification.cases.Close.make({ uri: f.uri, version: 1 }),
+    });
+    await f.broker.release("two", second.context, "file");
+
+    for (let i = 0; i < 100 && f.broker.stats().contexts > 0; i++) await Bun.sleep(5);
+    expect(f.broker.stats().contexts).toBe(0);
     const replacement = await f.acquire("one");
     expect(replacement.context.generation).toBeGreaterThan(first.context.generation);
     await f.open("one", replacement.context, "replacement");
     await f.ready("one", replacement.context);
     expect(await f.processes[0]!.exited).toBe(0);
     expect(f.broker.snapshot("one", replacement.context).ack.documents).toHaveLength(1);
-    expect((await f.broker.request("two", hover(second.context, f.uri))).result).toHaveProperty(
-      "text",
-      "other Client"
-    );
+    await rejects(f.broker.request("two", hover(second.context, f.uri)), "stale-generation");
   } finally {
     await f.dispose();
   }

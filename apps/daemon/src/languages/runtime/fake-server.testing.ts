@@ -4,6 +4,8 @@ import { LanguageJsonRpcRequest } from "@polaris/protocol";
 
 const mode = process.argv[2] ?? "ordinary";
 
+if (mode === "stderr") process.stderr.write("fixture stderr\n");
+
 const decoder = new LspFramer();
 
 const documents = new Map<string, { text: string; version: number }>();

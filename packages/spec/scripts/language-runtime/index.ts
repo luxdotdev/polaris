@@ -13,7 +13,9 @@ export const RuntimeSignal = Schema.TaggedUnion({
   disconnect: {},
   revoke: {},
   restart: {},
+  change: {},
   stop: {},
+  window: { attempts: Schema.Int },
 });
 
 export const RuntimeStep = Schema.Struct({
@@ -37,6 +39,7 @@ export const RuntimeTrace = Schema.Struct({
 
 const expression = (event: typeof RuntimeSignal.Type) =>
   Match.value(event).pipe(
+    Match.tag("window", ({ attempts }) => `Window(${attempts})`),
     Match.tag("crash", ({ retry }) => `Fail(${retry})`),
     Match.orElse(
       (value) =>
@@ -49,6 +52,7 @@ const expression = (event: typeof RuntimeSignal.Type) =>
           disconnect: "Disconnect",
           revoke: "Revoke",
           restart: "Restart",
+          change: "Change",
           stop: "Stop",
         })[value._tag]
     )

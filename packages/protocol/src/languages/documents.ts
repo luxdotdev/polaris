@@ -97,7 +97,21 @@ export const LanguageRuntime = deferredSchema(() =>
     AwaitingTrust: {},
     Starting: {},
     Ready: { capabilities: LanguageProviderCapabilities },
-    Stopped: { reason: Schema.Literals(["no-demand", "manual", "connection-lost", "replaced"]) },
+    Stopped: {
+      reason: Schema.Literals([
+        "no-demand",
+        "manual",
+        "connection-lost",
+        "replaced",
+        "crash-budget",
+      ]),
+      failure: Schema.optionalKey(
+        Schema.Struct({
+          attempts: LanguageCounter,
+          stderr: Schema.String.check(Schema.isMaxLength(4096)),
+        })
+      ),
+    },
     Failed: {
       message: Schema.String,
       attempts: LanguageCounter,

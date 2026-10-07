@@ -29,6 +29,7 @@ export function bindRestarts(ports: {
   documents: (context: LanguageContextIdentity) => Documents;
   move: (entry: Entry, event: LifecycleEvent) => void;
   ensureStart: (entry: Entry) => void;
+  releaseWatch: (entry: Entry) => void;
 }) {
   const { options, entries, keys, owned, retire, documents, move, ensureStart } = ports;
 
@@ -41,9 +42,11 @@ export function bindRestarts(ports: {
   async function configure(
     clientId: string,
     context: LanguageContextIdentity,
-    settings: typeof LanguageEffectiveSettings.Type
+    settings: typeof LanguageEffectiveSettings.Type,
+    resetBudget = true
   ) {
     const entry = owned(clientId, context);
+    const lifecycle = entry.lifecycle;
 
     const input = {
       ...entry.input,
@@ -64,7 +67,13 @@ export function bindRestarts(ports: {
     retire(entry, "settings-changed", false, true);
     entry.input = input;
     entry.facts = facts;
-    entry.attempts = 0;
+
+    if (resetBudget) {
+      entry.attempts = 0;
+      entry.crashes = [];
+      entry.stderr = "";
+    }
+
     entry.identity = LanguageContextIdentity.make({
       ...entry.identity,
       checkout: facts.checkout,
@@ -82,8 +91,11 @@ export function bindRestarts(ports: {
       );
     entry.documents.sequence = sequence;
     keys.set(key, entry);
-    move(entry, { type: "restart" });
-    entry.runtime = LanguageRuntime.cases.Stopped.make({ reason: "replaced" });
+
+    move(entry, { type: resetBudget ? "restart" : "change" });
+
+    if (resetBudget || !lifecycle.matches("failed"))
+      entry.runtime = LanguageRuntime.cases.Stopped.make({ reason: "replaced" });
     const source = entry.replacementSource ?? context;
     delete entry.replacementSource;
     entry.events.emit(
@@ -96,6 +108,7 @@ export function bindRestarts(ports: {
     );
 
     if (entry.documents.open.size > 0) ensureStart(entry);
+    else if (entry.interests.size === 0) ports.releaseWatch(entry);
 
     return snapshot(entry);
   }

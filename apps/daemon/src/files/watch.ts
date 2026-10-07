@@ -8,8 +8,8 @@ import { resolveHostPath, toFsFailure } from "./fs.ts";
 import { currentVersion, sameVersion } from "./version.ts";
 
 interface Listener {
-  readonly name: string;
-  readonly changed: () => void;
+  readonly name?: string;
+  readonly changed: (path: string) => void;
   readonly failed: (cause: unknown) => void;
 }
 
@@ -32,7 +32,9 @@ const subscribe = (path: string, listener: Listener): (() => void) => {
     const watcher = watch(directory, { persistent: false }, (_event, filename) => {
       const name = filename?.toString();
 
-      for (const item of listeners) if (!name || name === item.name) item.changed();
+      for (const item of listeners)
+        if (!name || item.name === undefined || name === item.name)
+          item.changed(join(directory, name ?? ""));
     });
 
     watcher.on("error", (cause) => {
@@ -54,6 +56,13 @@ const subscribe = (path: string, listener: Listener): (() => void) => {
     }
   };
 };
+
+/** Shared directory notifications, including creation and atomic directory replacements. */
+export const subscribeDirectoryChanges = (directory: string, changed: (path: string) => void) =>
+  subscribe(join(directory, ".polaris-directory-interest"), {
+    changed,
+    failed: () => changed(directory),
+  });
 
 /** Diagnostic count for watcher lifecycle tests and benchmarks. */
 export const openFileWatchCount = () => directories.size;

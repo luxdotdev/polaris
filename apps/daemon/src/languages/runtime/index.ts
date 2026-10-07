@@ -1,9 +1,11 @@
 import { bindResourceReceipt, bindServerResponse, bindRecoveryReceipt } from "./resourceReceipt.ts";
+import { bindLifecycle, shutdownConnection } from "./lifecycleControl.ts";
+import { configurationWatches } from "./configurationWatch.ts";
 import { bindRestarts } from "./restart.ts";
 import { Acquire } from "./acquire.ts";
 import { enqueue } from "./queue.ts";
 import { AcknowledgmentOwners } from "./acknowledgmentOwners.ts";
-import { LaunchAdmission, blockedLaunchReasons } from "./launchAdmission.ts";
+import { LaunchAdmission } from "./launchAdmission.ts";
 import { ProcessBudget } from "./process-budget.ts";
 import { BrokerCleanup, acquisitionTask, settleClientDisconnect } from "./clientSettlement.ts";
 import type { ClientAcquisition } from "./clientSettlement.ts";
@@ -132,6 +134,8 @@ export function createLanguageBroker(options: BrokerOptions) {
     const sequence = entry.documents.sequence;
     acknowledgments.retire(entry);
 
+    if (!preserveDocuments) watches.unwatch(entry);
+
     if (entry.timer !== undefined) clearTimeout(entry.timer);
     entry.timer = undefined;
     const identity = entry.identity;
@@ -164,11 +168,22 @@ export function createLanguageBroker(options: BrokerOptions) {
     entry.starting = undefined;
 
     if (admission !== undefined) {
-      const closing = admission.close(graceful);
+      const closing = (async () => {
+        if (graceful) await shutdownConnection(connection);
+        await admission.close(graceful);
+      })();
+
       entry.launchRetirement = Promise.all([entry.launchRetirement, closing]).then(() => {});
       track(entry.launchRetirement, true, identity.clientId);
     } else if (connection !== undefined) {
-      track(connection.close(graceful), true, identity.clientId);
+      track(
+        (async () => {
+          if (graceful) await shutdownConnection(connection);
+          await connection.close(graceful);
+        })(),
+        true,
+        identity.clientId
+      );
       track(connection.settlement(), true, identity.clientId);
     }
   }
@@ -184,35 +199,26 @@ export function createLanguageBroker(options: BrokerOptions) {
     }
   }
 
-  function onCrash(entry: Entry, identity: LanguageContextIdentity) {
-    if (!active(entry, identity) || entry.lifecycle.matches("stopped")) return;
-    const hadDemand = demanded(entry);
-    const retry = hadDemand && entry.attempts < 2;
-    move(entry, { type: "crash", retry });
-    retire(entry, "restart");
-    entry.attempts++;
-    state(
-      entry,
-      LanguageRuntime.cases.Failed.make({
-        message: "Language server failed",
-        attempts: entry.attempts,
-        retryAt: retry ? Date.now() + (options.retryMs ?? 250) * entry.attempts : null,
-      })
-    );
+  const watches = configurationWatches(options, async (entry) => {
+    if (entries.get(entry.identity.contextId) !== entry) return;
+    await configure(entry.identity.clientId, entry.identity, entry.input.settings, false);
+  });
 
-    if (retry)
-      entry.timer = setTimeout(
-        () => {
-          entry.timer = undefined;
-          move(entry, { type: "retry" });
-          // A new generation waits for current Client snapshots; old edits are never replayed.
-          state(entry, LanguageRuntime.cases.Stopped.make({ reason: "replaced" }));
-
-          if (demanded(entry)) ensureStart(entry);
-        },
-        (options.retryMs ?? 250) * entry.attempts
-      );
-  }
+  const { onCrash, onStartFailure, scheduleGrace, cancelGrace, publishReplacement } = bindLifecycle(
+    {
+      options,
+      entries,
+      keys,
+      active,
+      move,
+      state,
+      retire,
+      shutdown,
+      ensureStart,
+      track,
+      stopWatching: watches.unwatch,
+    }
+  );
 
   function serverSettings(entry: Entry): typeof LanguageJsonObject.Type {
     const settings = entry.facts.effectiveSettings.settings;
@@ -226,6 +232,8 @@ export function createLanguageBroker(options: BrokerOptions) {
 
   async function start(entry: Entry) {
     const identity = entry.identity;
+    watches.watch(entry);
+    entry.stderr = "";
 
     const admission = new LaunchAdmission(
       identity,
@@ -304,7 +312,10 @@ export function createLanguageBroker(options: BrokerOptions) {
                 })
               );
           },
-          stderrAbort.signal
+          stderrAbort.signal,
+          (text) => {
+            if (active(entry, identity)) entry.stderr = (entry.stderr + text).slice(-4096);
+          }
         )
       );
       void port.exited.then(() => onCrash(entry, identity));
@@ -349,20 +360,12 @@ export function createLanguageBroker(options: BrokerOptions) {
       });
       scheduleGrace(entry);
     } catch (error) {
-      if (!active(entry, identity)) return;
-
-      if (Schema.is(LanguageError)(error) && blockedLaunchReasons.has(error.reason)) {
-        if (admission.spawned) retire(entry, "restart");
-        move(entry, { type: "stop" });
-        state(
-          entry,
-          LanguageRuntime.cases.Failed.make({
-            message: error.message,
-            attempts: entry.attempts,
-            retryAt: null,
-          })
-        );
-      } else onCrash(entry, identity);
+      onStartFailure(
+        entry,
+        identity,
+        Schema.is(LanguageError)(error) ? error : undefined,
+        admission.spawned
+      );
     } finally {
       reservation?.releaseUnstarted();
       const release = admission.releaseUnstarted();
@@ -375,7 +378,7 @@ export function createLanguageBroker(options: BrokerOptions) {
     if (
       entry.connection !== undefined ||
       entry.starting !== undefined ||
-      entry.attempts > 2 ||
+      entry.lifecycle.matches("failed") ||
       entry.timer !== undefined
     )
       return;
@@ -390,38 +393,16 @@ export function createLanguageBroker(options: BrokerOptions) {
     );
   }
 
-  function scheduleGrace(entry: Entry) {
-    if (demanded(entry) || entry.interests.size > 0 || entry.timer !== undefined) return;
-    move(entry, { type: "empty" });
-    entry.timer = setTimeout(() => {
-      entry.timer = undefined;
-      move(entry, { type: "grace" });
-      acknowledgments.retire(entry);
-      entries.delete(entry.identity.contextId);
-      keys.delete(contextKey(entry.input.clientId, entry.facts));
-      track(
-        shutdown(entry).finally(() => entry.events.close()),
-        true,
-        entry.identity.clientId
-      );
-    }, options.graceMs ?? 1500);
-  }
-
   async function shutdown(entry: Entry) {
-    const connection = entry.connection;
+    const source = entry.identity;
+    retire(entry, "closed", true, true);
 
-    if (connection !== undefined) {
-      try {
-        await connection.request("shutdown", {}, 500).result;
-        await connection.send({ jsonrpc: "2.0", method: "exit" });
-      } catch {
-        /* Cleanup continues after bounded graceful shutdown. */
-      }
-    }
-
-    retire(entry, "closed", true);
-    state(entry, LanguageRuntime.cases.Stopped.make({ reason: "no-demand" }));
-    await connection?.close(true);
+    if (entry.interests.size === 0) watches.unwatch(entry);
+    options.invalidateDiscovery();
+    entry.runtime = LanguageRuntime.cases.Stopped.make({ reason: "no-demand" });
+    publishReplacement(entry, source);
+    state(entry, entry.runtime);
+    await entry.launchRetirement;
   }
 
   async function acquire(clientId: string, payload: AcquireInput) {
@@ -443,18 +424,22 @@ export function createLanguageBroker(options: BrokerOptions) {
       if (closed || acquisition.cancelled)
         throw failure("not-connected", "Language acquisition disconnected");
       const key = contextKey(clientId, facts);
-      const existing = keys.get(key);
+      const candidate = entries.get(input.contextId);
+
+      const sameInput =
+        candidate !== undefined &&
+        candidate.input.clientId === clientId &&
+        candidate.input.path === input.path &&
+        candidate.input.providerId === input.providerId &&
+        checkoutKey(candidate.input.checkout) === checkoutKey(input.checkout) &&
+        JSON.stringify(candidate.input.settings) === JSON.stringify(input.settings);
+
+      const existing = keys.get(key) ?? (sameInput ? candidate : undefined);
 
       if (existing !== undefined) {
         if (existing.interests.size >= 1024)
           throw failure("queue-full", "Language interest limit reached");
         existing.interests.add(input.interestId);
-
-        if (existing.timer !== undefined && existing.lifecycle.matches("grace")) {
-          clearTimeout(existing.timer);
-          existing.timer = undefined;
-          move(existing, { type: "demand" });
-        }
 
         return snapshot(existing);
       }
@@ -485,6 +470,8 @@ export function createLanguageBroker(options: BrokerOptions) {
         lifecycle: lifecycleInitial(),
         runtime: LanguageRuntime.cases.Stopped.make({ reason: "no-demand" }),
         attempts: 0,
+        crashes: [],
+        stderr: "",
         operations: new Map(),
         tail: Promise.resolve(),
         queued: 0,
@@ -537,12 +524,7 @@ export function createLanguageBroker(options: BrokerOptions) {
       owned(clientId, valid.context);
 
       if (demanded(entry)) {
-        if (entry.lifecycle.matches("grace") && entry.timer !== undefined) {
-          clearTimeout(entry.timer);
-          entry.timer = undefined;
-          move(entry, { type: "demand" });
-        }
-
+        cancelGrace(entry);
         ensureStart(entry);
       } else scheduleGrace(entry);
       const ack = entry.documents.ack();
@@ -733,6 +715,8 @@ export function createLanguageBroker(options: BrokerOptions) {
       keys.delete(contextKey(entry.input.clientId, entry.facts));
       entry.events.close();
     }
+
+    for (const entry of entries.values()) scheduleGrace(entry);
   }
 
   function invalidateTrust(checkout: LanguageCheckout, preserveDocuments = false) {
@@ -791,6 +775,7 @@ export function createLanguageBroker(options: BrokerOptions) {
 
     entries.clear();
     keys.clear();
+    await watches.close();
     // Return before the connection deadline; owned teardown and leases remain tracked.
     await bounded(Promise.all(cleanup), 2500);
   }
@@ -804,6 +789,7 @@ export function createLanguageBroker(options: BrokerOptions) {
     documents,
     move,
     ensureStart,
+    releaseWatch: watches.unwatch,
   });
 
   return {
