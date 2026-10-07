@@ -2,7 +2,6 @@ import { respondResourceReceiptRequest } from "./resourceReceipts.ts";
 import { autocompletion } from "@codemirror/autocomplete";
 import { setDiagnostics } from "@codemirror/lint";
 import { Compartment, StateEffect } from "@codemirror/state";
-import { keymap } from "@codemirror/view";
 import * as P from "@polaris/protocol";
 import { Match, Predicate, Schema } from "effect";
 import type { LanguageApi } from "../../../../shared/api.ts";
@@ -33,6 +32,7 @@ import type {
   LanguageIdentityLookup,
 } from "./lifecycle.ts";
 import { signatureExtension } from "./signatures.ts";
+import { languageKeys } from "./keys.ts";
 import type { LanguageCommand } from "./queries.ts";
 import {
   featureIntentCurrent,
@@ -44,6 +44,8 @@ import { configurationItems } from "./serverConfiguration.ts";
 import { ownedProvider } from "./ownership.ts";
 import { providerLabel, trustDiscovered, trustStore } from "../trust/store.ts";
 import { DiagnosticPull } from "./pull.ts";
+import * as Status from "../status/store.ts";
+import { contextObserved } from "../status/feed.ts";
 
 interface Entry {
   readonly input: EditorLanguageMount;
@@ -178,6 +180,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
     };
 
     this.entries.set(key, entry);
+    Status.statusOpened(key, input.file.hostKey, input.file.path);
     languageStore.setState((state) => ({
       files: {
         ...state.files,
@@ -217,40 +220,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
           }),
           hoverExtension(features, (provider) => providerLabel(key, provider.context.providerId)),
           signatureExtension(features),
-          keymap.of([
-            {
-              key: "F12",
-              run: () => {
-                this.command?.(key, "definition");
-
-                return true;
-              },
-            },
-            {
-              key: "Shift-F12",
-              run: () => {
-                this.command?.(key, "references");
-
-                return true;
-              },
-            },
-            {
-              key: "Mod-Shift-o",
-              run: () => {
-                this.command?.(key, "symbols");
-
-                return true;
-              },
-            },
-            {
-              key: "Alt-ArrowLeft",
-              run: () => {
-                this.command?.(key, "back");
-
-                return true;
-              },
-            },
-          ]),
+          languageKeys((command) => this.command?.(key, command)),
         ])
       ),
     });
@@ -355,6 +325,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
       }
 
       this.localConfiguration(entry, environment.document, stamp);
+      Status.statusLocal(key);
 
       languagePatch(key, {
         status: "unavailable",
@@ -373,17 +344,22 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
       rows: [],
       busy: false,
     });
+    Status.statusChecking(key, environment.document.checkout);
     void this.configure(entry, environment.identity, environment.document.checkout, stamp).catch(
       (error: P.LanguageError | Error) => {
-        if (!entry.disposed && stamp === entry.stamp)
-          languagePatch(key, {
-            status: "unavailable",
-            fact:
-              Schema.is(P.LanguageError)(error) && error.reason === "awaiting-trust"
-                ? "Language tooling needs trust. Open Settings → Languages and select this checkout."
-                : "Language tooling is unavailable. Check Settings → Languages for this Host.",
-            providers: [],
-          });
+        if (entry.disposed || stamp !== entry.stamp) return;
+        Status.statusFailed(key, {
+          reason: Schema.is(P.LanguageError)(error) ? error.reason : "unknown",
+          message: error.message,
+        });
+        languagePatch(key, {
+          status: "unavailable",
+          fact:
+            Schema.is(P.LanguageError)(error) && error.reason === "awaiting-trust"
+              ? "Language tooling needs trust. Open Settings → Languages and select this checkout."
+              : "Language tooling is unavailable. Check Settings → Languages for this Host.",
+          providers: [],
+        });
       }
     );
   }
@@ -458,6 +434,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
 
     if (!current() || JSON.stringify(found.checkout) !== JSON.stringify(checkout)) return;
     entry.disabled = disabled;
+    Status.statusDiscovered(fileKey(file.hostKey, file.path), found);
     trustDiscovered(
       { hostKey: file.hostKey, checkout, path: file.path },
       fileKey(file.hostKey, file.path),
@@ -576,6 +553,8 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
         identity.hostId,
         (event) => this.serverRequest(api, file.hostKey, found.effectiveSettings, event),
         (event) => {
+          contextObserved(file.hostKey, event);
+
           if (Predicate.isTagged(event, "Replaced") || Predicate.isTagged(event, "Invalidated"))
             this.observations.invalidate();
 
@@ -597,6 +576,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
     }
 
     entry.groups.push(group);
+    Status.statusAttached(fileKey(file.hostKey, file.path), id, group.acquisition.contextId);
     entry.detach.push(
       group.attach({
         read: entry.read,
@@ -616,7 +596,12 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
             entry.features.invalidate();
             entry.diagnostics.clear();
             entry.pull.schedule();
-            languagePatch(fileKey(file.hostKey, file.path), { rows: [], busy: false });
+            const key = fileKey(file.hostKey, file.path);
+            // An open panel waits for the replacement provider rather than reading "No results".
+            languagePatch(key, {
+              rows: [],
+              busy: providers.length === 0 && languageStore.getState().files[key]?.panel != null,
+            });
           }
 
           entry.providerSignature = signature;
@@ -821,6 +806,14 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
   refreshHosts() {
     this.refresh();
   }
+  /** Check again: forget cached discovery and rediscover this file (a Prerequisite was installed). */
+  recheck(key: string) {
+    const entry = this.entries.get(key);
+
+    if (entry === undefined) return;
+    this.observations.invalidate();
+    this.refreshEntry(entry, true);
+  }
   private release(entry: Entry) {
     if (entry.disposed) return;
     entry.disposed = true;
@@ -833,6 +826,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
 
     if (this.entries.get(key) === entry) {
       this.entries.delete(key);
+      Status.statusClosed(key);
       languageStore.setState((state) => {
         const { [key]: _gone, ...files } = state.files;
 

@@ -38,6 +38,8 @@ import { FileNotice } from "./FileNotice.tsx";
 import { Tabs } from "./Tabs.tsx";
 import { LanguageTools } from "./LanguageTools.tsx";
 import { EditorTrust } from "../trust/TrustCard.tsx";
+import { activateLogTab, closeLogTab, isLogTab, useLogTabs } from "../status/logTabs.ts";
+import { LogTabBody, useLogTabViews } from "../status/LogTab.tsx";
 
 export interface EditorPaneProps {
   readonly hostKey: string;
@@ -78,7 +80,11 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
     subscribeApp: (changed) => connection.store.subscribe(changed),
   });
 
-  const { tabs, active, activeId, rendered } = useEditorTabs(hostKey, workspaceId);
+  const { tabs: fileTabs, active, activeId, rendered } = useEditorTabs(hostKey, workspaceId);
+  const logs = useLogTabs(hostKey, workspaceId);
+  const logViews = useLogTabViews(logs.tabs);
+  const tabs = logViews.length === 0 ? fileTabs : [...fileTabs, ...logViews];
+  const shownLog = logs.tabs.find((tab) => tab.id === logs.active) ?? null;
   const buffer = useBuffer(hostKey, active);
 
   const { document, epoch, connectionState, hostLabel } = useMarkdownDocument(
@@ -126,7 +132,36 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
     run[action]();
   };
 
-  if (tabs.length === 0 || active === null) {
+  const strip = (
+    <Tabs
+      tabs={tabs}
+      active={shownLog?.id ?? activeId ?? active}
+      onSelect={(id) =>
+        isLogTab(id)
+          ? activateLogTab(hostKey, workspaceId, id)
+          : activateTab(hostKey, workspaceId, id)
+      }
+      onPin={(path) => pinFile(hostKey, workspaceId, path)}
+      onClose={(id) =>
+        isLogTab(id) ? closeLogTab(hostKey, workspaceId, id) : closeTab(hostKey, workspaceId, id)
+      }
+    />
+  );
+
+  if (shownLog !== null) {
+    return (
+      <section
+        aria-label="Editor"
+        className="bg-bg flex min-w-0 flex-1 flex-col"
+        data-testid="editor-pane"
+      >
+        {strip}
+        <LogTabBody tab={shownLog} />
+      </section>
+    );
+  }
+
+  if (fileTabs.length === 0 || active === null) {
     return (
       <section aria-label="Editor" className="bg-bg grid min-w-0 flex-1 place-items-center">
         <RefactorPreview hostKey={hostKey} root={root} />
@@ -154,13 +189,7 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
       data-testid="editor-pane"
     >
       <RefactorPreview hostKey={hostKey} root={root} />
-      <Tabs
-        tabs={tabs}
-        active={activeId ?? active}
-        onSelect={(path) => activateTab(hostKey, workspaceId, path)}
-        onPin={(path) => pinFile(hostKey, workspaceId, path)}
-        onClose={(path) => closeTab(hostKey, workspaceId, path)}
-      />
+      {strip}
       <PreviewControls
         visible={rendered ?? false}
         hostKey={hostKey}

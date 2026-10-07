@@ -8,7 +8,9 @@ import { type ActiveEditor, type BufferView, editorStore, tabsOf, useEditor } fr
 
 export interface TabView {
   readonly id: string;
-  readonly view?: "markdown" | undefined;
+  readonly view?: "markdown" | "log" | undefined;
+  /** Faint text after the label: a log tab's Host. */
+  readonly detail?: string | undefined;
   readonly locked?: boolean | undefined;
   readonly path: string;
   readonly label: string;

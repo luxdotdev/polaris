@@ -1,7 +1,7 @@
 import * as P from "@polaris/protocol";
 import type { EditorLanguageCoordinator } from "./integration.ts";
 import type { LanguageProvider } from "./types.ts";
-import { languagePatch, type LanguageRow } from "./state.ts";
+import { languagePatch, languageStore, type LanguageRow } from "./state.ts";
 import { offsetAt, positionAt } from "./position.ts";
 import { fileKey } from "../model/drafts.ts";
 import { openFile, type EditorFile } from "../api.ts";
@@ -67,9 +67,27 @@ export class LanguageQueries {
     [];
   private readonly previousIds = new Map<string, string>();
 
+  private readonly last = new Map<string, { command: LanguageCommand; query: string }>();
+  /** A panel cleared by a provider swap (Trust, restart) asks the replacement once it is ready. */
+  readonly unwatch = languageStore.subscribe((state, previous) => {
+    for (const [key, file] of Object.entries(state.files)) {
+      const last = this.last.get(key);
+
+      if (
+        last !== undefined &&
+        file.panel !== null &&
+        file.busy &&
+        file.status === "ready" &&
+        previous.files[key]?.status !== "ready"
+      )
+        void this.run(key, last.command, last.query);
+    }
+  });
+
   constructor(readonly coordinator: EditorLanguageCoordinator) {}
 
   close(key: string) {
+    this.last.delete(key);
     this.pending.get(key)?.abort();
     this.pending.delete(key);
     languagePatch(key, { panel: null, rows: [], busy: false });
@@ -77,6 +95,8 @@ export class LanguageQueries {
 
   async run(key: string, command: LanguageCommand, query = "") {
     const entry = this.coordinator.get(key);
+
+    this.last.set(key, { command, query });
 
     if (entry === undefined) return;
     this.pending.get(key)?.abort();

@@ -115,3 +115,7 @@ export const useProviderLabels = (file: string, providerIds: readonly string[]) 
 
   return providerIds.map((id) => providerName(id, status));
 };
+
+/** The Daemon's latest Trust status for an open file's scope, if discovery has placed it. */
+export const useTrustStatus = (file: string) =>
+  useStore(trustStore, (state) => statusOf(state, file));
