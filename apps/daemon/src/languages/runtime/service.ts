@@ -43,6 +43,17 @@ function effectBroker(broker: ReturnType<typeof createLanguageBroker>) {
       (...args: Parameters<typeof broker.invalidateBufferAcknowledgments>) =>
         Effect.sync(() => broker.invalidateBufferAcknowledgments(...args))
     ),
+    format: Effect.fn("LanguageBroker.format")(
+      (clientId: string, input: Parameters<typeof broker.format>[1]) =>
+        languageOperation((signal) => broker.format(clientId, input, signal))
+    ),
+    watchLog: (...args: Parameters<typeof broker.watchLog>) =>
+      Stream.unwrap(
+        Effect.try({
+          try: () => Stream.fromAsyncIterable(broker.watchLog(...args), brokerError),
+          catch: brokerError,
+        })
+      ),
     request: Effect.fn("LanguageBroker.request")(
       (clientId: string, input: Parameters<typeof broker.request>[1]) =>
         languageOperation((signal) => broker.request(clientId, input, signal))

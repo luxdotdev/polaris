@@ -144,12 +144,14 @@ export const LanguageRequestOutputs = {
 } as const;
 
 export const LanguageSubscriptionInputs = {
+  "languages.log.watch": onHost(Languages.WatchLanguageServerLog.payloadSchema.fields),
   "languages.context.watch": onHost(Languages.WatchLanguageContext.payloadSchema.fields),
   "languages.install.watch": onHost(Languages.WatchLanguageInstall.payloadSchema.fields),
   "languages.availability.watch": onHost(Languages.WatchLanguageAvailability.payloadSchema.fields),
 } as const;
 
 export const LanguageSubscriptionItems = {
+  "languages.log.watch": Languages.LanguageServerLogEvent,
   "languages.context.watch": Languages.LanguageContextEvent,
   "languages.install.watch": Languages.LanguageInstallProgress,
   "languages.availability.watch": Schema.Array(Languages.LanguageAvailability).check(

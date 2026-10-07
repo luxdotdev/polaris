@@ -14,6 +14,8 @@ export * from "./broker.ts";
 
 export * from "./rpc.ts";
 
+export * from "./logs.ts";
+
 export * from "./trees.ts";
 
 export * from "./preparation.ts";

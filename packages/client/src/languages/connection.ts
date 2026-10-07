@@ -182,6 +182,8 @@ export const languageTransportFor = (
   };
 
   const feeds: Record<LanguageFeed, (input: unknown) => Stream.Stream<unknown, unknown>> = {
+    "languages.log.watch": (input) =>
+      client["languages.log.watch"](decodeLanguage(P.WatchLanguageServerLog.payloadSchema, input)),
     "languages.context.watch": (input) =>
       client["languages.context.watch"](
         decodeLanguage(P.WatchLanguageContext.payloadSchema, input)

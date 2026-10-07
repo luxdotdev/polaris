@@ -52,7 +52,8 @@ const limits = P.LanguageLimits.make({
 
 const fake = (
   invoke: LanguageTransport["invoke"],
-  capabilities: LanguageTransport["capabilities"] = ["languages"]
+  capabilities: LanguageTransport["capabilities"] = ["languages"],
+  watch: LanguageTransport["watch"] = async function* () {}
 ) => {
   const controller = new AbortController();
 
@@ -62,7 +63,7 @@ const fake = (
     capabilities,
     signal: controller.signal,
     invoke,
-    watch: async function* () {},
+    watch,
     takeBlob: async () => new Uint8Array(),
   });
 
@@ -156,6 +157,71 @@ test("connection loss promptly cancels a transport that ignores abort", async ()
   const request = access.request("languages.catalog", {});
   controller.abort();
   await rejected(request, { reason: "not-connected" });
+});
+
+test("live log feed verifies exact output ownership and cancels on disconnect", async () => {
+  const identity = context(1);
+
+  const snapshot = P.LanguageContextSnapshot.make({
+    context: identity,
+    runtime: P.LanguageRuntime.cases.Stopped.make({ reason: "no-demand" }),
+    ack: { context: identity, acceptedSequence: 0, documents: [] },
+    limits,
+  });
+
+  const line = P.LanguageServerLogLine.make({
+    sequence: 1,
+    time: 1,
+    source: "logMessage",
+    level: "info",
+    text: "private line",
+  });
+
+  const { access, controller } = fake(
+    async () => snapshot,
+    ["languages"],
+    async function* () {
+      yield P.LanguageServerLogEvent.cases.Snapshot.make({ context: identity, lines: [line] });
+
+      await new Promise(() => {});
+    }
+  );
+
+  await access.request("languages.context.acquire", acquire);
+
+  const signal = new AbortController();
+
+  const feed = access
+    .watch("languages.log.watch", { context: identity }, signal.signal)
+    [Symbol.asyncIterator]();
+
+  expect((await feed.next()).value).toEqual(
+    P.LanguageServerLogEvent.cases.Snapshot.make({ context: identity, lines: [line] })
+  );
+
+  const waiting = feed.next();
+  controller.abort();
+
+  await rejected(waiting, { reason: "not-connected" });
+
+  const foreign = fake(
+    async () => snapshot,
+    ["languages"],
+    async function* () {
+      yield P.LanguageServerLogEvent.cases.Snapshot.make({ context: context(2), lines: [] });
+    }
+  );
+
+  await foreign.access.request("languages.context.acquire", acquire);
+
+  await rejected(
+    foreign.access
+      .watch("languages.log.watch", { context: identity }, signal.signal)
+      [Symbol.asyncIterator]()
+      .next(),
+    { reason: "server-failed" }
+  );
+  foreign.access.dispose();
 });
 
 test("reconnect recreates generation and sends newest full snapshots before requests", async () => {

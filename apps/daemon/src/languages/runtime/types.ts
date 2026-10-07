@@ -10,6 +10,7 @@ import type {
 import type { DiscoveryFacts, DiscoveryInput } from "../discovery/index.ts";
 import type { CanonicalCheckout } from "../trust/index.ts";
 import type { OrderedConnection, ProcessPort } from "../transport/index.ts";
+import type { ServerLogs } from "./logs.ts";
 import type { ContextEvents } from "./events.ts";
 import type { Documents } from "./documents.ts";
 import type { ServerBridge } from "./server.ts";
@@ -61,6 +62,7 @@ export interface Entry {
   documents: Documents;
   interests: Set<string>;
   events: ContextEvents;
+  logs?: ServerLogs | undefined;
   lifecycle: ReturnType<typeof lifecycleInitial>;
   runtime: typeof LanguageRuntime.Type;
   capabilities?: LanguageProviderCapabilities | undefined;

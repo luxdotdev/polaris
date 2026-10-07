@@ -33,6 +33,21 @@ for await (const chunk of Bun.stdin.stream()) {
     }
 
     const method = message.method;
+
+    if (mode === "logs" && method === "initialized") {
+      process.stderr.write("private fixture stderr\n");
+      send({
+        jsonrpc: "2.0",
+        method: "window/logMessage",
+        params: { type: 3, message: "private fixture log" },
+      });
+      send({
+        jsonrpc: "2.0",
+        method: "window/showMessage",
+        params: { type: 2, message: "private fixture show" },
+      });
+    }
+
     received.push(method);
 
     if (method === "initialize" && Schema.is(LanguageJsonRpcRequest)(message)) {
@@ -59,7 +74,8 @@ for await (const chunk of Bun.stdin.stream()) {
             textDocumentSync: { openClose: true, change: 1, save: { includeText: true } },
             completionProvider: { resolveProvider: true },
             hoverProvider: true,
-            documentFormattingProvider: true,
+            documentFormattingProvider: mode !== "no-format",
+            documentRangeFormattingProvider: true,
             diagnosticProvider: { workspaceDiagnostics: true },
             executeCommandProvider: { commands: ["test"] },
           },
@@ -124,8 +140,13 @@ for await (const chunk of Bun.stdin.stream()) {
         result: { kind: "full", resultId: "one", items: [] },
       });
 
-    if (method === "textDocument/formatting" && Schema.is(LanguageJsonRpcRequest)(message))
+    if (
+      ["textDocument/formatting", "textDocument/rangeFormatting"].includes(method) &&
+      Schema.is(LanguageJsonRpcRequest)(message)
+    ) {
+      if (mode === "slow-format") await Bun.sleep(80);
       send({ jsonrpc: "2.0", id: message.id, result: [] });
+    }
 
     if (method === "shutdown" && Schema.is(LanguageJsonRpcRequest)(message)) {
       if (mode === "slow-shutdown") await Bun.sleep(60);
