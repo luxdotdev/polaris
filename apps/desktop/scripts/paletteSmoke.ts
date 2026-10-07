@@ -230,6 +230,16 @@ try {
     "palette-input"
   );
 
+  // The jump menu's scrim covers everything behind the palette, the Trust card included.
+  await page.waitForTimeout(400);
+  assert.equal(
+    await page.evaluate<string | undefined>(`(() => {
+      const card = document.querySelector('[data-testid="trust-card"]').getBoundingClientRect();
+      return document.elementFromPoint(card.x + card.width - 40, card.y + card.height - 20)?.dataset.slot;
+    })()`),
+    "dialog-overlay"
+  );
+
   for (const theme of ["dark", "light"]) {
     for (const density of ["calm", "balanced", "compact"]) {
       await appearance(page, theme, density);
