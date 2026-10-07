@@ -26,6 +26,7 @@ import {
   languageBrokerLayer,
 } from "./ports.ts";
 import { LanguageInstallCore, LanguageInstallGrantAuthority } from "./install.ts";
+import { LanguageHostStateCore } from "./hostState.ts";
 import { languageCoreHandlers } from "./index.ts";
 import type { ManagedDelivery } from "./managedDelivery.ts";
 
@@ -195,6 +196,7 @@ export const languageHostServices = (
       return Layer.mergeAll(
         Layer.succeed(HostLanguageResources)({ host, ledger }),
         installationLayer,
+        LanguageHostStateCore.layer(options.hostId, host),
         LanguageInstallCore.layer(options.hostId, host).pipe(
           Layer.provide(LanguageInstallGrantAuthority.denyLayer)
         ),

@@ -203,6 +203,24 @@ run("language contract safety", [
   `--seed=${seed}`,
 ]);
 
+run("typecheck language-host-state.qnt", ["typecheck", "language-host-state.qnt"]);
+
+run("Host state snapshot scenarios", [
+  "test",
+  "language-host-state.qnt",
+  "--main=language_host_state_test",
+]);
+
+run("Host state snapshot safety", [
+  "run",
+  "language-host-state.qnt",
+  "--main=language_host_state",
+  "--invariant=safety",
+  `--max-samples=${samples}`,
+  "--max-steps=60",
+  `--seed=${seed}`,
+]);
+
 run("typecheck language-logs.qnt", ["typecheck", "language-logs.qnt"]);
 
 run("language log scenarios", ["test", "language-logs.qnt", "--main=language_logs_test"]);

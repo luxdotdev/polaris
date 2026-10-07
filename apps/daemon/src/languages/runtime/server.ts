@@ -134,7 +134,6 @@ export class ServerBridge {
   }
 
   private receiving = 0;
-  private logs = 0;
   receive(message: LanguageJsonRpcEnvelope) {
     if (!this.hooks.current()) return;
     const request = Schema.is(LanguageJsonRpcRequest)(message) ? message : undefined;
@@ -596,15 +595,6 @@ export class ServerBridge {
       level,
       log.message
     );
-
-    if (this.logs++ < 64)
-      this.hooks.emit(
-        LanguageContextEvent.cases.Log.make({
-          context: this.hooks.context,
-          level,
-          message: "Language server log received; private output withheld",
-        })
-      );
   }
 
   private notification(

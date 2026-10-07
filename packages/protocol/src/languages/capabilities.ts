@@ -3,6 +3,8 @@ import type { Capability } from "../capabilities.ts";
 /** Require languages as well, except preview media which works without execution trust or tooling. */
 export const LANGUAGE_RPC_CAPABILITIES = {
   "languages.catalog": "languages",
+  "languages.host.state": "languages",
+  "languages.host.state.watch": "languages",
   "languages.availability": "languages",
   "languages.availability.watch": "languages",
   "languages.install": "languages.install",

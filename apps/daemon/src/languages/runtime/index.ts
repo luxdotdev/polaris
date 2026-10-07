@@ -311,15 +311,6 @@ export function createLanguageBroker(options: BrokerOptions) {
           port.stderr,
           (bytes) => {
             if (bytes > 65536) onCrash(entry, identity);
-            else if (bytes > 0 && active(entry, identity))
-              event(
-                entry,
-                LanguageContextEvent.cases.Log.make({
-                  context: identity,
-                  level: "warning",
-                  message: "Language server wrote stderr; private output withheld",
-                })
-              );
           },
           stderrAbort.signal,
           (text) => {

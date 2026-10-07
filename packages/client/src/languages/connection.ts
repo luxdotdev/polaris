@@ -81,6 +81,8 @@ export const languageTransportFor = (
   const client = session.client;
 
   const calls: Record<LanguageMethod, (input: unknown) => Effect.Effect<unknown, unknown>> = {
+    "languages.host.state": (input) =>
+      client["languages.host.state"](decodeLanguage(P.GetLanguageHostState.payloadSchema, input)),
     "languages.catalog": (input) =>
       client["languages.catalog"](decodeLanguage(P.GetLanguageCatalog.payloadSchema, input)),
     "languages.availability": (input) =>
@@ -182,6 +184,10 @@ export const languageTransportFor = (
   };
 
   const feeds: Record<LanguageFeed, (input: unknown) => Stream.Stream<unknown, unknown>> = {
+    "languages.host.state.watch": (input) =>
+      client["languages.host.state.watch"](
+        decodeLanguage(P.WatchLanguageHostState.payloadSchema, input)
+      ),
     "languages.log.watch": (input) =>
       client["languages.log.watch"](decodeLanguage(P.WatchLanguageServerLog.payloadSchema, input)),
     "languages.context.watch": (input) =>
