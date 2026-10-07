@@ -3,6 +3,7 @@ import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
 import {
   decisionOf,
+  providerName,
   trustScopeKey,
   type TrustAsk,
   type TrustPhase,
@@ -16,9 +17,16 @@ interface TrustState {
   readonly files: Readonly<Record<string, string>>;
   /** The revision each scope was last decided at; an ask at or below it never shows again. */
   readonly settled: Readonly<Record<string, number>>;
+  /** The latest status per scope, for which TypeScript runs. */
+  readonly statuses: Readonly<Record<string, TrustStatus>>;
 }
 
-export const trustStore = createStore<TrustState>(() => ({ asks: {}, files: {}, settled: {} }));
+export const trustStore = createStore<TrustState>(() => ({
+  asks: {},
+  files: {},
+  settled: {},
+  statuses: {},
+}));
 
 const without = <V>(record: Readonly<Record<string, V>>, key: string) =>
   Object.fromEntries(Object.entries(record).filter(([k]) => k !== key));
@@ -30,9 +38,14 @@ export interface TrustTarget {
 }
 
 /** Folds a Trust status from the Daemon (discovery or a change) into the open asks. */
-export const trustStatusArrived = (target: TrustTarget, status: TrustStatus) =>
+export const trustStatusArrived = (target: TrustTarget, status: TrustStatus) => {
+  const key = trustScopeKey(target.hostKey, status.trust.scope);
+  const known = trustStore.getState().statuses[key];
+
+  if (known === undefined || known.trust.revision <= status.trust.revision)
+    trustStore.setState((state) => ({ statuses: { ...state.statuses, [key]: status } }));
+
   trustStore.setState((state) => {
-    const key = trustScopeKey(target.hostKey, status.trust.scope);
     const current = state.asks[key];
 
     if (decisionOf(status.trust) !== "undecided") {
@@ -54,6 +67,7 @@ export const trustStatusArrived = (target: TrustTarget, status: TrustStatus) =>
 
     return { asks: { ...state.asks, [key]: { ...target, status, phase: { kind: "asking" } } } };
   });
+};
 
 /** Discovery tells which scope a file belongs to, and may carry the Daemon's ask. */
 export const trustDiscovered = (
@@ -84,4 +98,20 @@ export const useTrustAsk = (file: string) => {
   const ask = useStore(trustStore, (state) => (key === null ? null : (state.asks[key] ?? null)));
 
   return key === null || ask === null ? null : { key, ask };
+};
+
+const statusOf = (state: TrustState, file: string) => {
+  const key = state.files[file];
+
+  return key === undefined ? null : (state.statuses[key] ?? null);
+};
+
+/** The provider's name for an open file, from the Daemon's latest Trust status for its scope. */
+export const providerLabel = (file: string, providerId: string) =>
+  providerName(providerId, statusOf(trustStore.getState(), file));
+
+export const useProviderLabels = (file: string, providerIds: readonly string[]) => {
+  const status = useStore(trustStore, (state) => statusOf(state, file));
+
+  return providerIds.map((id) => providerName(id, status));
 };

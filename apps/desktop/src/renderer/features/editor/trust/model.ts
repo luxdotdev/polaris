@@ -67,7 +67,7 @@ export const trustFailure = (error: P.LanguageError, host: string) =>
   Match.value(error.reason).pipe(
     Match.when("conflict", () => `Trust changed on ${host} meanwhile. Try again.`),
     Match.when("not-connected", () => `Can't reach ${host}. Try again when it's back.`),
-    Match.when("timeout", () => `${host} didn't answer in time. Try again.`),
+    Match.when("timeout", () => `No answer from ${host} in time. Try again.`),
     Match.when("cancelled", () => "Cancelled. Try again."),
     Match.orElse(() =>
       error.retryable
@@ -75,3 +75,14 @@ export const trustFailure = (error: P.LanguageError, host: string) =>
         : `Couldn't change Trust on ${host}.`
     )
   );
+
+/** What runs for a provider, as the language status says it (Paper L3): the Daemon's selection. */
+export const providerName = (providerId: string, status: TrustStatus | null) => {
+  if (providerId !== "typescript-language-server" || status === null) return providerId;
+
+  const version = status.wouldRun.typescriptVersion;
+
+  return status.provider === "project"
+    ? `TypeScript${version === null ? "" : ` ${version}`}`
+    : "TypeScript · bundled";
+};

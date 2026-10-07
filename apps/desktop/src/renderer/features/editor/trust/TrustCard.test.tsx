@@ -5,7 +5,8 @@ import * as P from "@polaris/protocol";
 import { Schema } from "effect";
 import type { IpcError, LanguageApi } from "../../../../shared/api.ts";
 import { changeTrust, decideTrust } from "./decide.ts";
-import { trustCopy, trustFailure, type TrustStatus } from "./model.ts";
+import { providerName, trustCopy, trustFailure, type TrustStatus } from "./model.ts";
+import { hostInSentence } from "../../../shell/hostCopy.ts";
 import { trustDiscovered, trustStore, useTrustAsk } from "./store.ts";
 import { TrustCard } from "./TrustCard.tsx";
 
@@ -163,7 +164,7 @@ const card = (container: HTMLElement) => container.querySelector('[data-testid="
 
 const settle = () => act(async () => await Promise.resolve());
 
-beforeEach(() => trustStore.setState({ asks: {}, files: {}, settled: {} }));
+beforeEach(() => trustStore.setState({ asks: {}, files: {}, settled: {}, statuses: {} }));
 
 afterEach(cleanup);
 
@@ -346,6 +347,34 @@ describe("Trust copy", () => {
   test("failure copy follows the reason, not the message", () => {
     const error = new P.LanguageError({ reason: "timeout", message: "conflict", retryable: true });
 
-    expect(trustFailure(error, "Mac Studio")).toBe("Mac Studio didn't answer in time. Try again.");
+    expect(trustFailure(error, "this Mac")).toBe("No answer from this Mac in time. Try again.");
+  });
+});
+
+describe("What runs, in words", () => {
+  test("the TypeScript provider names the Daemon's selection, as the language status does", () => {
+    expect(providerName("typescript-language-server", null)).toBe("typescript-language-server");
+    expect(providerName("typescript-language-server", status())).toBe("TypeScript · bundled");
+    expect(
+      providerName("typescript-language-server", status({ decision: "trusted", revision: 2 }))
+    ).toBe("TypeScript 7.0.2");
+    expect(providerName("pyright", status({ decision: "trusted" }))).toBe("pyright");
+  });
+
+  test("the local host reads this Mac mid-sentence; a named host keeps its name", () => {
+    const host = (label: string, alias: string | null) => ({
+      key: label,
+      label,
+      colour: null,
+      alias,
+      proofHarness: false,
+      // SAFETY: hostInSentence reads only the label and alias.
+      status: { state: "connected" as const, latencyMs: null } as never,
+    });
+
+    expect(hostInSentence(host("This Mac", null))).toBe("this Mac");
+    expect(hostInSentence(host("Mac Studio", null))).toBe("Mac Studio");
+    expect(hostInSentence(host("This Mac", "this-mac"))).toBe("This Mac");
+    expect(hostInSentence(undefined)).toBe("this host");
   });
 });

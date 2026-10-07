@@ -183,12 +183,7 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
       ) : null}
       <div className={mine === null ? "relative flex min-h-0 flex-1 flex-col" : "hidden"}>
         {rendered ? null : (
-          <EditorTrust
-            hostKey={hostKey}
-            workspaceId={workspaceId}
-            path={active}
-            hostLabel={hostLabel}
-          />
+          <EditorTrust hostKey={hostKey} workspaceId={workspaceId} path={active} />
         )}
         {ready ? null : (
           <FileNotice

@@ -28,7 +28,7 @@ mkdirSync(userData);
 
 mkdirSync(evidence, { recursive: true });
 
-writeFileSync(path, "export const value: string = 123;\n");
+writeFileSync(path, "export const value: string = 123;\nexport const other = value;\n");
 
 writeFileSync(join(userData, "settings.json"), JSON.stringify({ welcomeSeen: true }));
 
@@ -103,6 +103,86 @@ const settled = async (page: Page) => {
   await page.waitForTimeout(1500);
 };
 
+const Point = Schema.fromJsonString(Schema.Struct({ x: Schema.Number, y: Schema.Number }));
+
+/** The middle of a character in the code, for the mouse. */
+const point = async (page: Page, line: number, column: number) =>
+  Schema.decodeUnknownSync(Point)(
+    await page.evaluate(`(() => {
+    const walker = document.createTreeWalker(document.querySelectorAll(".cm-content .cm-line")[${line}], NodeFilter.SHOW_TEXT);
+    let left = ${column}; let node;
+    while ((node = walker.nextNode())) { if (left < node.length) break; left -= node.length; }
+    const range = document.createRange(); range.setStart(node, left); range.setEnd(node, left + 1);
+    const r = range.getBoundingClientRect(); return JSON.stringify({ x: r.x + r.width / 2, y: r.y + r.height / 2 });
+  })()`)
+  );
+
+const text = (page: Page, selector: string) =>
+  page.evaluate<string>(
+    `[...document.querySelectorAll(${JSON.stringify(selector)})].map((e) => e.textContent).join(" | ")`
+  );
+
+const until = async (
+  what: string,
+  check: () => Promise<boolean>,
+  seen?: () => Promise<string>,
+  ms = 90_000
+) => {
+  for (const end = Date.now() + ms; Date.now() < end;) {
+    if (await check()) return;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+
+  throw new Error(`Timed out waiting for ${what}`, { cause: await seen?.() });
+};
+
+/** Squiggle and its message, hover and go-to-definition, from the provider the label names. */
+const languageFeatures = async (page: Page, label: string, shot: string) => {
+  await until(
+    `${label} ready`,
+    async () => (await text(page, '[aria-label="Language tools"] [role=status]')) === label
+  );
+  await until(
+    `${label} diagnostic`,
+    async () => (await page.locator(".cm-lintRange-error").count()) > 0
+  );
+
+  const error = await point(page, 0, 15);
+  await page.mouse.move(error.x, error.y);
+  await until(
+    "diagnostic message",
+    async () => {
+      const shown = await text(page, ".cm-tooltip-lint");
+
+      return (
+        shown.includes("Type 'number' is not assignable to type 'string'") &&
+        shown.includes(`${label} · `)
+      );
+    },
+    () => text(page, ".cm-tooltip, .cm-lintRange")
+  );
+  await page.screenshot({ path: join(evidence, `${shot}-diagnostic.png`) });
+  await page.mouse.move(5, 5);
+
+  const use = await point(page, 1, 22);
+  await page.mouse.move(use.x, use.y);
+  await until("hover", async () => {
+    const shown = await text(page, ".cm-tooltip");
+
+    return shown.includes(label) && shown.includes("const value: string");
+  });
+  await page.screenshot({ path: join(evidence, `${shot}-hover.png`) });
+  await page.mouse.move(5, 5);
+
+  await page.mouse.click(use.x, use.y);
+  await until("cursor on line 2", async () => (await text(page, "body")).includes("Ln 2,"));
+  await page.keyboard.press("F12");
+  await until("definition", async () => (await text(page, "body")).includes("Ln 1, Col 14"));
+  await page.mouse.move(5, 5);
+  await until("tooltips closed", async () => (await page.locator(".cm-tooltip").count()) === 0);
+  console.log(`${label}: diagnostic with its message, hover and go-to-definition`);
+};
+
 const appearance = async (page: Page, theme: string, density: string) => {
   await page.evaluate(
     `window.polaris.request("settings.setAppearance", { patch: { theme: "${theme}", density: "${density}" } })`
@@ -146,6 +226,7 @@ try {
     "Run polaris's own TypeScript?"
   );
   console.log("Card appears once on the first TS file");
+  await languageFeatures(page, "TypeScript · bundled", "bundled-dark");
 
   for (const theme of ["dark", "light"]) {
     for (const density of ["calm", "balanced", "compact"]) {
@@ -189,15 +270,17 @@ try {
   console.log("Ask again brings the card back");
 
   await appearance(page, "light", "calm");
+  await languageFeatures(page, "TypeScript · bundled", "bundled-light");
   await card(page).getByRole("button", { name: "Trust polaris" }).click();
   await card(page).waitFor({ state: "detached", timeout: 15_000 });
   status = await call(page, "languages.trust.inspect", inspectInput, P.LanguageTrustStatus);
   assert.equal(status.trust.decision, "trusted");
   assert.equal(status.provider, "project");
   assert.equal(status.wouldRun.typescriptVersion, "7.0.2");
-  await page.waitForTimeout(3000);
-  await page.screenshot({ path: join(evidence, "trusted-light.png") });
-  console.log("PASS: Trust hid the card; project TypeScript 7.0.2 in use");
+  await languageFeatures(page, "TypeScript 7.0.2", "trusted-light");
+  await appearance(page, "dark", "calm");
+  await languageFeatures(page, "TypeScript 7.0.2", "trusted-dark");
+  console.log("PASS: Trust hid the card; project TypeScript 7.0.2 serves the file");
 } finally {
   await quit().catch(() => undefined);
   await daemon?.stop();

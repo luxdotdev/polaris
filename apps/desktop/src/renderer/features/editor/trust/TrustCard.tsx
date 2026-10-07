@@ -5,6 +5,7 @@
  */
 import { Button } from "@polaris/ui";
 import { useId, type KeyboardEvent } from "react";
+import { hostInSentence } from "../../../shell/hostCopy.ts";
 import { useApp } from "../../../shell/hooks.ts";
 import { polaris } from "../../bridge.ts";
 import { fileKey } from "../model/drafts.ts";
@@ -95,12 +96,12 @@ export interface EditorTrustProps {
   readonly hostKey: string;
   readonly workspaceId: string;
   readonly path: string;
-  readonly hostLabel: string;
 }
 
 /** The card for the open file's checkout, if its Daemon is asking. */
-export const EditorTrust = ({ hostKey, workspaceId, path, hostLabel }: EditorTrustProps) => {
+export const EditorTrust = ({ hostKey, workspaceId, path }: EditorTrustProps) => {
   const open = useTrustAsk(fileKey(hostKey, path));
+  const host = hostInSentence(useApp((s) => s.hosts.find((h) => h.key === hostKey)));
 
   const workspace = useApp(
     (s) => s.hostModels[hostKey]?.workspaces.get(workspaceId)?.name ?? "this workspace"
@@ -115,7 +116,7 @@ export const EditorTrust = ({ hostKey, workspaceId, path, hostLabel }: EditorTru
       status={open.ask.status}
       phase={open.ask.phase}
       workspace={workspace}
-      host={hostLabel}
+      host={host}
       onDecide={(action) => {
         if (api !== undefined) void decideTrust(api, open.key, action);
       }}
