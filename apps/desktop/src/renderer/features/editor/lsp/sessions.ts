@@ -241,7 +241,8 @@ export class EditorLanguageSession {
     if (this.opening === null) {
       this.opening = this.enqueue(() => this.acquire());
       void this.opening.catch(() => this.unavailable());
-    } else if (this.context !== null && this.capabilities !== null)
+    } else if (this.context !== null)
+      // Open it even while the server is stopped: an open document is the demand that starts it.
       void this.enqueue(async () => {
         await this.deliverOpen(uri, buffer);
         this.changed();

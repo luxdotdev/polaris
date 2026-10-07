@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { EditorState, type TransactionSpec } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import * as P from "@polaris/protocol";
-import { Schema } from "effect";
+import { Predicate, Schema } from "effect";
 import { LanguageRequestOutputs } from "../../../../shared/languages.ts";
 import type { LanguageApi } from "../../../../shared/api.ts";
 import { initialState, type AppState } from "../../../store/store.ts";
@@ -16,12 +16,15 @@ const fixture = () => {
   const workspaceId = P.WorkspaceId.make("reuse");
   const service = new EditorProviderFixture(hostId);
   const requests: string[] = [];
+  let discoverGate: Promise<void> | null = null;
   let settingsRevision = 0;
   let settingsPatch: P.LanguageSettingsPatch = {};
 
   const api: LanguageApi = {
     request: async (method, input) => {
       requests.push(method);
+
+      if (method === "languages.discover" && discoverGate !== null) await discoverGate;
       const reply = await service.api.request(method, input);
 
       if (!reply.ok || method !== "languages.settings.get") return reply;
@@ -128,8 +131,16 @@ const fixture = () => {
     throw new Error("Fixture did not become ready");
   };
 
-  const replace = (file: ReturnType<typeof open>) => {
-    const provider = file.entry()?.features.options.providers()[0];
+  const providerOf = (file: ReturnType<typeof open>) =>
+    file.entry()?.features.options.providers()[0];
+
+  const replace = (
+    file: ReturnType<typeof open> | ReturnType<typeof providerOf>,
+    runtime: typeof P.LanguageRuntime.Type = P.LanguageRuntime.cases.Stopped.make({
+      reason: "replaced",
+    })
+  ) => {
+    const provider = file === undefined || "context" in file ? file : providerOf(file);
 
     if (provider === undefined) throw new Error("Missing fixture provider");
 
@@ -139,7 +150,7 @@ const fixture = () => {
         ...provider.context,
         generation: provider.context.generation + 1,
       }),
-      runtime: P.LanguageRuntime.cases.Stopped.make({ reason: "replaced" }),
+      runtime,
       ack: provider.ack,
     });
 
@@ -151,6 +162,19 @@ const fixture = () => {
   return {
     coordinator,
     service,
+    providerOf,
+    holdDiscovery: () => {
+      let release = () => {};
+
+      discoverGate = new Promise<void>((resolve) => {
+        release = () => {
+          discoverGate = null;
+          resolve();
+        };
+      });
+
+      return release;
+    },
     requests,
     open,
     settled,
@@ -255,6 +279,57 @@ test("authenticated connection replacement retires retained contexts and re-obse
       context?.contextId
     );
     expect(f.requests.filter((method) => method === "languages.discover")).toHaveLength(2);
+  } finally {
+    f.coordinator.dispose();
+  }
+});
+
+test("a file opened while a Trust change replaces the context still reaches ready", async () => {
+  const f = fixture();
+
+  try {
+    const a = f.open("a.ts");
+    await f.settled(a);
+    const release = f.holdDiscovery();
+    // Another directory, so b discovers afresh rather than sharing a's observation.
+    const b = f.open("nested/b.ts");
+
+    // The replacement lands while b's discovery is in flight, as a Trust change does.
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    f.replace(a, P.LanguageRuntime.cases.Ready.make({ capabilities: f.service.capabilities }));
+    release();
+    await f.settled(b);
+    expect(languageStore.getState().files[b.key]?.status).toBe("ready");
+  } finally {
+    f.coordinator.dispose();
+  }
+});
+
+test("a file joining a context whose server stopped for lack of demand opens it, which starts it", async () => {
+  const f = fixture();
+
+  try {
+    const a = f.open("a.ts");
+    await f.settled(a);
+    // The last file closes; the Daemon replaces the context with a stopped server.
+    f.service.acquired = P.LanguageRuntime.cases.Stopped.make({ reason: "no-demand" });
+    const provider = f.providerOf(a);
+    a.lifetime.dispose();
+    f.replace(provider, P.LanguageRuntime.cases.Stopped.make({ reason: "no-demand" }));
+    await new Promise((resolve) => setTimeout(resolve, 5));
+
+    f.open("b.ts");
+
+    for (let count = 0; count < 100; count++) {
+      if (f.service.notifications.some((n) => n.uri === "file:///reuse/b.ts")) break;
+      await new Promise((resolve) => setTimeout(resolve, 1));
+    }
+
+    expect(
+      f.service.notifications.some(
+        (n) => Predicate.isTagged(n, "Open") && n.uri === "file:///reuse/b.ts"
+      )
+    ).toBe(true);
   } finally {
     f.coordinator.dispose();
   }
