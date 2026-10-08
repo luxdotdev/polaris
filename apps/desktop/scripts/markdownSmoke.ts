@@ -218,6 +218,18 @@ try {
   await openPath(page, sampleName, sampleName);
   await page.keyboard.press("Meta+Shift+V");
   await page.getByRole("heading", { name: "Heading one" }).waitFor({ timeout: 20_000 });
+
+  const previewLook = (selector: string) =>
+    page.evaluate<{ weight: string; style: string; family: string }>(`(() => {
+      const node = document.querySelector('.markdown-preview ${selector}');
+      const style = getComputedStyle(node);
+      return { weight: style.fontWeight, style: style.fontStyle, family: style.fontFamily };
+    })()`);
+
+  assert.equal((await previewLook('[data-streamdown="strong"]')).weight, "600");
+  assert.equal((await previewLook("h1")).weight, "600");
+  assert.equal((await previewLook("em")).style, "italic");
+  assert.match((await previewLook('[data-streamdown="inline-code"]')).family, /mono/i);
   await appearance(page, "dark");
   await page.screenshot({ path: join(evidence, "preview-follows-dark.png") });
   console.log("⇧⌘V renders, and the preview follows the active Markdown file");
