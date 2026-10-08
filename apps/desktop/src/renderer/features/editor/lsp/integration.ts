@@ -11,7 +11,7 @@ import { previewDocument } from "../runtime/markdown.ts";
 import { applyBufferLanguage } from "../runtime/buffers.ts";
 import { fileKey } from "../model/drafts.ts";
 import { languageFor, type LanguageId } from "../model/language.ts";
-import { bindFormatter, formatsDocuments, formatterRequest } from "../formatting/bridge.ts";
+import * as formats from "../formatting/bridge.ts";
 import { formattedText } from "../formatting/edits.ts";
 import { LanguageFeatures } from "./features.ts";
 import { LanguageDiagnosticFeed, cmDiagnostics } from "./diagnostics.ts";
@@ -464,8 +464,8 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
 
     if (!current()) return;
     const settings = found.effectiveSettings;
-    entry.unformat = bindFormatter(file, {
-      canFormat: () => formatsDocuments(entry.features.options.providers()),
+    entry.unformat = formats.bindFormatter(file, {
+      canFormat: () => formats.formatsDocuments(entry.features.options.providers()),
       settings: async () => ({
         formatOnSave: settings.formatOnSave,
         formatter: settings.formatter,
@@ -483,11 +483,9 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
           throw new Error("Formatter document changed.");
         const providers = entry.features.options.providers();
 
-        const provider = Predicate.isTagged(formatter, "Provider")
-          ? providers.find((value) => value.context.providerId === formatter.providerId)
-          : providers[0];
+        const provider = formats.formattingProvider(formatter, providers);
 
-        if (provider === undefined) throw new Error("The selected formatter is unavailable.");
+        if (provider === null) return snapshot.text;
         const buffer = entry.read();
 
         const outcome = await entry.features.format(
@@ -498,7 +496,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
             document: { uri: buffer.uri, version: buffer.version },
             snapshot: snapshot.text,
             expectedDiskVersion: snapshot.diskVersion,
-            ...formatterRequest(formatter, provider.context.providerId, snapshot.indent),
+            ...formats.formatterRequest(formatter, provider.context.providerId, snapshot.indent),
             reason: snapshot.reason,
             deadline: Date.now() + 5000,
           }),

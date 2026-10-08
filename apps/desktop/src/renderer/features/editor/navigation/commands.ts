@@ -4,7 +4,15 @@
  */
 import type { LanguageCommand } from "../lsp/queries.ts";
 
-export type NavigationAction = LanguageCommand | "back" | "rename-field" | "symbol-search";
+export type NavigationAction =
+  | LanguageCommand
+  | "back"
+  | "forward"
+  | "hover"
+  | "next-problem"
+  | "previous-problem"
+  | "rename-field"
+  | "symbol-search";
 
 export interface LanguageNavigationCommand {
   /** Namespaced for the palette's `contribute` ("editor.language.definition"). */
@@ -17,6 +25,8 @@ export interface LanguageNavigationCommand {
   readonly shortcut?: string;
   /** It asks for more (a name, a query) before it acts. */
   readonly followUp?: boolean;
+  /** Vim normal-mode keys that run it through the command registry (`cm/vim.ts`). */
+  readonly vim?: readonly string[];
 }
 
 export const LANGUAGE_NAVIGATION: readonly LanguageNavigationCommand[] = [
@@ -26,20 +36,30 @@ export const LANGUAGE_NAVIGATION: readonly LanguageNavigationCommand[] = [
     action: "definition",
     key: "F12",
     shortcut: "F12",
+    // gD too: the protocol has no textDocument/declaration, so declaration falls back to definition.
+    vim: ["gd", "gD"],
   },
   {
     id: "editor.language.typeDefinition",
     title: "Go to type definition",
     action: "typeDefinition",
+    vim: ["gy"],
   },
-  { id: "editor.language.implementation", title: "Go to implementation", action: "implementation" },
+  {
+    id: "editor.language.implementation",
+    title: "Go to implementation",
+    action: "implementation",
+    vim: ["gi"],
+  },
   {
     id: "editor.language.references",
     title: "Find references",
     action: "references",
     key: "Shift-F12",
     shortcut: "⇧F12",
+    vim: ["gr"],
   },
+  { id: "editor.language.hover", title: "Show hover", action: "hover", vim: ["K"] },
   {
     id: "editor.language.symbols",
     title: "Go to symbol in file",
@@ -73,5 +93,36 @@ export const LANGUAGE_NAVIGATION: readonly LanguageNavigationCommand[] = [
   // ⌘. stays "Stop the turn", so code actions have no key.
   { id: "editor.language.actions", title: "Show code actions", action: "actions" },
   { id: "editor.language.signature", title: "Show signature help", action: "signature" },
-  { id: "editor.language.back", title: "Go back", action: "back", key: "Ctrl--", shortcut: "⌃-" },
+  {
+    id: "editor.language.nextProblem",
+    title: "Go to next problem",
+    action: "next-problem",
+    key: "F8",
+    shortcut: "F8",
+    vim: ["]d"],
+  },
+  {
+    id: "editor.language.previousProblem",
+    title: "Go to previous problem",
+    action: "previous-problem",
+    key: "Shift-F8",
+    shortcut: "⇧F8",
+    vim: ["[d"],
+  },
+  {
+    id: "editor.language.back",
+    title: "Go back",
+    action: "back",
+    key: "Ctrl--",
+    shortcut: "⌃-",
+    vim: ["<C-o>"],
+  },
+  {
+    id: "editor.language.forward",
+    title: "Go forward",
+    action: "forward",
+    key: "Ctrl-Shift--",
+    shortcut: "⌃⇧-",
+    vim: ["<C-i>"],
+  },
 ];

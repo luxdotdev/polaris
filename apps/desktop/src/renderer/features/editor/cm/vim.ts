@@ -1,12 +1,14 @@
 /**
  * Vim mode (spec §4), `@replit/codemirror-vim` in its own chunk, loaded only
  * once the setting is on. `:w`, `:q`, `:wq`, `:x` and `:e` go to the Editor's
- * handlers; the mode reaches the status bar through `onVimMode`.
+ * handlers; the mode reaches the status bar through `onVimMode`. Normal-mode keys for
+ * language commands (gd, K, ]d…) run those commands through the registry by id.
  */
 import type { Extension } from "@codemirror/state";
 import { type EditorView, ViewPlugin } from "@codemirror/view";
 import { type EditorFile, editorFile } from "./extensions.ts";
 import { modeLabel, type VimMode } from "../model/vim.ts";
+import { LANGUAGE_NAVIGATION } from "../navigation/commands.ts";
 
 export interface VimHandlers {
   readonly save: (file: EditorFile) => Promise<boolean>;
@@ -26,6 +28,50 @@ let handlers: VimHandlers | null = null;
 
 export const setVimHandlers = (next: VimHandlers) => {
   handlers = next;
+};
+
+/** Runs a command by id with its availability checked (the registry's `runAny`). */
+let runCommand: ((id: string) => boolean) | null = null;
+
+export const bindVimCommands = (run: (id: string) => boolean) => {
+  runCommand = run;
+
+  return () => {
+    if (runCommand === run) runCommand = null;
+  };
+};
+
+/** ⌃o / ⌃i with no language jump to undo walk vim's own jump list, as vim would. */
+const walkJumps = (
+  { Vim }: VimModule,
+  cm: Parameters<Parameters<VimModule["Vim"]["defineAction"]>[1]>[0],
+  step: number
+) => {
+  const mark = Vim.getVimGlobalState_().jumpList.move(cm, step);
+  const position = mark?.find();
+
+  if (position != null) cm.setCursor(position);
+};
+
+const FALLBACK = new Map([
+  ["<C-o>", -1],
+  ["<C-i>", 1],
+]);
+
+const defineLanguageKeys = (m: VimModule) => {
+  for (const command of LANGUAGE_NAVIGATION) {
+    for (const keys of command.vim ?? []) {
+      const name = `polaris:${keys}`;
+
+      m.Vim.defineAction(name, (cm) => {
+        if (runCommand?.(command.id) === true) return;
+        const step = FALLBACK.get(keys);
+
+        if (step !== undefined) walkJumps(m, cm, step);
+      });
+      m.Vim.mapCommand(keys, "action", name, {}, { context: "normal" });
+    }
+  }
 };
 
 const fileOf = (cm: { cm6: EditorView }): EditorFile | null => cm.cm6.state.facet(editorFile);
@@ -57,6 +103,7 @@ const defineCommands = ({ Vim }: VimModule) => {
 const loadVim = (): Promise<VimModule> => {
   module ??= import("@replit/codemirror-vim").then((m) => {
     defineCommands(m);
+    defineLanguageKeys(m);
     ready = m;
 
     return m;

@@ -2,16 +2,26 @@
 import { useEffect } from "react";
 import type { ContributedCommand } from "../../../routes/commands.ts";
 import { useCommands } from "../../../shell/hooks.ts";
+import { bindVimCommands } from "../cm/vim.ts";
 import { fileKey } from "../model/drafts.ts";
 import { editorLanguageQueries } from "../runtime/app.ts";
 import { getActiveEditor } from "../runtime/hooks.ts";
-import { LANGUAGE_NAVIGATION } from "./commands.ts";
+import { LANGUAGE_NAVIGATION, type NavigationAction } from "./commands.ts";
 import { runNavigation } from "./run.ts";
 
 const activeKey = () => {
   const active = getActiveEditor();
 
   return active === null ? null : fileKey(active.hostKey, active.path);
+};
+
+/** Back and Forward run only with somewhere to go, so ⌃o/⌃i fall back to vim's own jumps. */
+const canRun = (action: NavigationAction) => {
+  if (action === "back") return editorLanguageQueries?.canGoBack() ?? false;
+
+  if (action === "forward") return editorLanguageQueries?.canGoForward() ?? false;
+
+  return true;
 };
 
 export const navigationContributions = (): readonly ContributedCommand[] =>
@@ -26,7 +36,7 @@ export const navigationContributions = (): readonly ContributedCommand[] =>
     },
     when: { all: ["editor.file", "language.server"] },
     handler: {
-      enabled: () => activeKey() !== null,
+      enabled: () => activeKey() !== null && canRun(command.action),
       run: () => {
         const key = activeKey();
 
@@ -38,5 +48,13 @@ export const navigationContributions = (): readonly ContributedCommand[] =>
 export const useLanguageNavigationCommands = () => {
   const registry = useCommands();
 
-  useEffect(() => registry.contribute(navigationContributions()), [registry]);
+  useEffect(() => {
+    const removeCommands = registry.contribute(navigationContributions());
+    const unbindVim = bindVimCommands(registry.runAny);
+
+    return () => {
+      removeCommands();
+      unbindVim();
+    };
+  }, [registry]);
 };

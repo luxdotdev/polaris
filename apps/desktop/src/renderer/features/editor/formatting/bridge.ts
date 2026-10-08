@@ -35,6 +35,31 @@ export const bindFormatter = (file: EditorFile, port: BoundPort) => {
   };
 };
 
+/**
+ * Which provider formats: the chosen one (unavailable is an error), or with none chosen the first
+ * that formats documents; null when none does, so the text stays as typed.
+ */
+export const formattingProvider = <
+  A extends {
+    readonly capabilities: P.LanguageProviderCapabilities;
+    readonly context: { readonly providerId: string };
+  },
+>(
+  formatter: P.LanguageFormatterSelection,
+  providers: ReadonlyArray<A>
+): A | null => {
+  if (Predicate.isTagged(formatter, "None"))
+    return providers.find((p) => formatsDocuments([p])) ?? null;
+
+  const chosen = Predicate.isTagged(formatter, "Provider")
+    ? providers.find((p) => p.context.providerId === formatter.providerId)
+    : providers[0];
+
+  if (chosen === undefined) throw new Error("The selected formatter is unavailable.");
+
+  return chosen;
+};
+
 /** Some server serving the file formats documents (`textDocument/formatting`). */
 export const formatsDocuments = (
   providers: ReadonlyArray<{ readonly capabilities: P.LanguageProviderCapabilities }>
@@ -122,6 +147,7 @@ export const createAppFormatting = (
   const captured = new WeakMap<AbortSignal, FormatterBinding | undefined>();
 
   return {
+    canFormat: (file) => bindings.has(keyOf(file)),
     settings: (file, signal) => {
       const binding = bindings.get(keyOf(file));
 

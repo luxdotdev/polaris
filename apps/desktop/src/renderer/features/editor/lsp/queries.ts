@@ -7,6 +7,7 @@ import { offsetAt, positionAt } from "./position.ts";
 import { fileKey } from "../model/drafts.ts";
 import { openFile, type EditorFile } from "../api.ts";
 import { viewOf, whenLoaded, revealLine } from "../runtime/buffers.ts";
+import { editorStore } from "../runtime/store.ts";
 import * as Payload from "./payloads.ts";
 import { pulledDiagnostics } from "./pull.ts";
 import { providerLabel } from "../trust/store.ts";
@@ -71,10 +72,25 @@ const renameLabel = (state: EditorState, head: number, to: string) => {
     : `Rename ${state.sliceDoc(word.from, word.to)} to ${to}`;
 };
 
+type Place = EditorFile & { readonly line: number; readonly column: number };
+
+/** Where the focused editor's cursor is, for Back and Forward to return to. */
+const here = (): Place | null => {
+  const active = editorStore.getState().active;
+
+  if (active === null) return null;
+  const { view, ...file } = active;
+  const head = view.state.selection.main.head;
+  const line = view.state.doc.lineAt(head);
+
+  return { ...file, line: line.number, column: head - line.from + 1 };
+};
+
 export class LanguageQueries {
   private readonly pending = new Map<string, AbortController>();
-  private readonly history: Array<EditorFile & { readonly line: number; readonly column: number }> =
-    [];
+  private readonly history: Array<Place> = [];
+  /** Places Back left, for Forward; a new jump clears them. */
+  private readonly ahead: Array<Place> = [];
   private readonly previousIds = new Map<string, string>();
 
   private readonly last = new Map<string, { command: LanguageCommand; query: string }>();
@@ -403,6 +419,7 @@ export class LanguageQueries {
     const origin = entry.input.view.state.selection.main.head;
     const point = positionAt(entry.input.view.state.doc, origin, "utf-16");
     this.history.push({ ...entry.input.file, line: point.line + 1, column: point.character + 1 });
+    this.ahead.length = 0;
 
     if (this.history.length > 100) this.history.shift();
     const file = { ...entry.input.file, path };
@@ -431,9 +448,31 @@ export class LanguageQueries {
     }
   }
 
+  canGoBack() {
+    return this.history.length > 0;
+  }
+
+  canGoForward() {
+    return this.ahead.length > 0;
+  }
+
   back() {
     const previous = this.history.pop();
 
-    if (previous) openFile(previous);
+    if (previous === undefined) return;
+    const current = here();
+
+    if (current !== null) this.ahead.push(current);
+    openFile(previous);
+  }
+
+  forward() {
+    const next = this.ahead.pop();
+
+    if (next === undefined) return;
+    const current = here();
+
+    if (current !== null) this.history.push(current);
+    openFile(next);
   }
 }
