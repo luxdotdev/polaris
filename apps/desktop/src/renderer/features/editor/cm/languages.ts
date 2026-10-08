@@ -25,8 +25,17 @@ const LOADERS: Readonly<Record<GrammarId, GrammarLoader>> = {
   css: async () => (await import("@codemirror/lang-css")).css(),
   html: async () => (await import("@codemirror/lang-html")).html(),
   markdown: async () => {
-    const [{ markdown, markdownLanguage }, codeLanguages] = await Promise.all([
+    const [
+      { markdown, markdownLanguage },
+      { LanguageSupport },
+      { moonlitMarkdown },
+      { yamlFrontmatter },
+      codeLanguages,
+    ] = await Promise.all([
       import("@codemirror/lang-markdown"),
+      import("@codemirror/language"),
+      import("./theme.ts"),
+      import("@codemirror/lang-yaml"),
       fencedLanguages(),
     ]);
 
@@ -34,10 +43,18 @@ const LOADERS: Readonly<Record<GrammarId, GrammarLoader>> = {
       codeLanguages.map((description) => [languageByName(description.name), description])
     );
 
-    return markdown({
+    const support = markdown({
       base: markdownLanguage,
       codeLanguages: (info) => byId.get(fenceLanguageId(info)) ?? null,
     });
+
+    // A leading `---` block is YAML (DESIGN.md, skills), not a rule and a setext heading.
+    const framed = yamlFrontmatter({ content: support });
+
+    return new LanguageSupport(framed.language, [
+      framed.support,
+      moonlitMarkdown(markdownLanguage),
+    ]);
   },
   python: async () => (await import("@codemirror/lang-python")).python(),
   rust: async () => (await import("@codemirror/lang-rust")).rust(),
