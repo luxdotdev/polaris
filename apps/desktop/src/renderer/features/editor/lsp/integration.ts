@@ -42,6 +42,7 @@ import { offerServerEdit } from "./serverEdits.ts";
 import { configurationItems } from "./serverConfiguration.ts";
 import { ownedProvider } from "./ownership.ts";
 import { providerLabel, trustDiscovered, trustStore } from "../trust/store.ts";
+import { refreshTrust } from "../trust/decide.ts";
 import { DiagnosticPull } from "./pull.ts";
 import * as Status from "../status/store.ts";
 import { contextObserved } from "../status/feed.ts";
@@ -521,6 +522,13 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
 
           if (Predicate.isTagged(event, "Replaced") || Predicate.isTagged(event, "Invalidated"))
             this.observations.invalidate();
+
+          // A Trust change replaces the context; its new decision reaches the popover from here.
+          if (Predicate.isTagged(event, "Replaced")) {
+            const target = trustStore.getState().targets[fileKey(file.hostKey, file.path)];
+
+            if (target !== undefined) void refreshTrust(api, target).catch(() => undefined);
+          }
 
           if (!Predicate.isTagged(event, "Diagnostics")) return;
 

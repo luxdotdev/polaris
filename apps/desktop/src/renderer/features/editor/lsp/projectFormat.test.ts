@@ -4,6 +4,7 @@ import { createAppFormatting } from "../formatting/bridge.ts";
 import { SaveCoordinator } from "../formatting/index.ts";
 import { coordinatorFixture } from "./coordinator.testing.ts";
 import type { EditorProviderFixture } from "./fixture.testing.ts";
+import { trustStore } from "../trust/store.ts";
 
 const oxfmt = P.LanguageProjectFormatter.make({
   tool: "oxfmt",
@@ -113,6 +114,42 @@ test("no project formatter: the project's formatter is never asked", async () =>
   try {
     await o.saver.save("manual");
     expect(o.f.requests).not.toContain("languages.format.project");
+  } finally {
+    o.dispose();
+  }
+});
+
+test("a Trust change made elsewhere reaches the popover when it replaces the context", async () => {
+  const o = await opened((service) => {
+    service.projectFormatter = oxfmt;
+  });
+
+  try {
+    const trusted = P.LanguageTrustStatus.make({
+      trust: P.LanguageTrust.make({
+        scope: P.LanguageTrustScope.cases.Workspace.make({
+          hostId: o.f.service.hostId,
+          workspaceId: o.f.workspaceId,
+        }),
+        revision: 9,
+        trusted: true,
+        decision: "trusted",
+      }),
+      wouldRun: { typescriptVersion: null, typescriptPath: null, native: false, plugins: [] },
+      ask: false,
+      provider: "project",
+    });
+
+    o.f.service.trustStatus = trusted;
+    o.f.replace(o.file);
+
+    for (let count = 0; count < 100; count++) {
+      if (Object.values(trustStore.getState().statuses).some((s) => s.trust.revision === 9)) break;
+      await new Promise((resolve) => setTimeout(resolve, 1));
+    }
+
+    expect(o.f.requests).toContain("languages.trust.inspect");
+    expect(Object.values(trustStore.getState().statuses)).toContainEqual(trusted);
   } finally {
     o.dispose();
   }

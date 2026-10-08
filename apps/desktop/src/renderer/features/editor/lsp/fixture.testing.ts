@@ -53,6 +53,8 @@ export class EditorProviderFixture {
   /** Untrusted, `languages.format.project` fails `awaiting-trust` as the Daemon's does. */
   projectTrusted = true;
   readonly projectFormats: P.LanguageProjectFormatInput[] = [];
+  /** What `languages.trust.inspect` answers; unsupported while null. */
+  trustStatus: typeof P.LanguageTrustStatus.Type | null = null;
 
   constructor(readonly hostId: P.HostId) {}
 
@@ -133,7 +135,9 @@ export class EditorProviderFixture {
             requestTimeoutMs: 5000,
           },
         };
-      } else if (method === "languages.format.project") {
+      } else if (method === "languages.trust.inspect" && this.trustStatus !== null)
+        value = Schema.encodeSync(P.LanguageTrustStatus)(this.trustStatus);
+      else if (method === "languages.format.project") {
         const format = Schema.decodeUnknownSync(P.LanguageProjectFormatInput)(input);
 
         this.projectFormats.push(format);
