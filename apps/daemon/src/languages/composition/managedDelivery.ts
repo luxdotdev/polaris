@@ -1,3 +1,4 @@
+import { webLaunch, webProviders, webTools } from "../web/index.ts";
 import { Match } from "effect";
 import { pythonLaunch } from "../python/launch.ts";
 import { createHostPrerequisiteProbe } from "../install/hostStateProbes.ts";
@@ -74,11 +75,14 @@ export function createManagedDelivery(
       host = value;
     },
     async ensure(settings, admission, signal, providerId = "typescript-language-server") {
-      const tools = Match.value(providerId).pipe(
-        Match.when("basedpyright", () => ["node", "basedpyright"]),
-        Match.when("ruff", () => ["ruff"]),
-        Match.orElse(() => ["node", "typescript", "typescript-language-server"])
-      );
+      const tools =
+        webTools.includes(providerId) || providerId in webProviders
+          ? ["node", webProviders[providerId] ?? providerId]
+          : Match.value(providerId).pipe(
+              Match.when("basedpyright", () => ["node", "basedpyright"]),
+              Match.when("ruff", () => ["ruff"]),
+              Match.orElse(() => ["node", "typescript", "typescript-language-server"])
+            );
 
       for (const toolId of tools) {
         checkAbort(signal);
@@ -112,6 +116,8 @@ export function createManagedDelivery(
 
       if (["basedpyright", "ruff"].includes(facts.providerId))
         return pythonLaunch(facts, installed, node);
+
+      if (facts.providerId in webProviders) return webLaunch(facts, installed, node);
       const typescript = await installation().current("typescript");
 
       if (node === null || typescript === null)

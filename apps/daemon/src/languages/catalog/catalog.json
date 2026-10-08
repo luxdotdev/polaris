@@ -69,7 +69,7 @@
           "id": "vscode-langservers-extracted-npm",
           "format": "npm",
           "url": "https://registry.npmjs.org/vscode-langservers-extracted/-/vscode-langservers-extracted-4.10.0.tgz",
-          "integrity": "sha512-EFf9uQI4dAKbzMQFjDvVm1xJq1DXAQvBEuEfPGrK/xzfsL5xWTfIuRr90NgfmqwO+IEt6vLZm9EOj6R66xIifg==",
+          "integrity": "sha256:d6e2d090d09c4b91daa74e9e7462a3d3f244efb96aa5111004cfffa49d6dc9ef",
           "platforms": [
             {
               "os": "darwin",
@@ -88,25 +88,15 @@
             },
             {
               "os": "linux",
-              "arch": "arm64",
-              "libc": "musl"
-            },
-            {
-              "os": "linux",
               "arch": "x64",
               "libc": "glibc"
-            },
-            {
-              "os": "linux",
-              "arch": "x64",
-              "libc": "musl"
             }
           ],
           "entry": "bin/vscode-css-language-server",
-          "bundle": "vscode-langservers-extracted",
+          "bundle": null,
           "audit": "verified",
           "auditReason": "",
-          "auditRoot": "sha256:6b07e3edd3912fd6fe9f0127acf33be4f40896effe9cb09485f886dfaf800a1d"
+          "auditRoot": "sha256:6f200e9e9591c2862757de90e1aef01c0a1a93db9945270615d573a551a5a75e"
         }
       ],
       "requirements": [
@@ -115,14 +105,15 @@
           "scope": "server",
           "executable": "node",
           "version": ">=22.22.2",
-          "detail": "Developer-owned Node; conservative common catalog floor; Node24.18 fixture tested. No runtime download.",
+          "detail": "Pinned private Node; never resolved from PATH.",
           "required": true,
           "installCommands": []
         }
       ],
       "argv": ["--stdio"],
       "environment": {},
-      "limitations": []
+      "limitations": [],
+      "distribution": "runtime-upstream"
     },
     {
       "id": "pyright",
@@ -411,7 +402,7 @@
           "id": "prisma-language-server-npm",
           "format": "npm",
           "url": "https://registry.npmjs.org/@prisma/language-server/-/language-server-31.12.10.tgz",
-          "integrity": "sha512-72vmV3j8cH98yx0aPp7nn+rKTw1eKLYH6P1APKwgl3QNXMktffcZJEu6KFj1jX8RBI9Clh5L9WdRKFnV8HTe3A==",
+          "integrity": "sha256:e5d68ad4b7677a12d398166f68b2ac5aa2beb63b762b2c59171bba373e6313d3",
           "platforms": [
             {
               "os": "darwin",
@@ -430,25 +421,15 @@
             },
             {
               "os": "linux",
-              "arch": "arm64",
-              "libc": "musl"
-            },
-            {
-              "os": "linux",
               "arch": "x64",
               "libc": "glibc"
-            },
-            {
-              "os": "linux",
-              "arch": "x64",
-              "libc": "musl"
             }
           ],
           "entry": "dist/bin.js",
-          "bundle": "@prisma_language-server",
+          "bundle": null,
           "audit": "verified",
           "auditReason": "",
-          "auditRoot": "sha256:8bc3007afe6009d379b6a7167f9eb2c699d2d1417fb5a9f2c878c1c3b7fd4ddd"
+          "auditRoot": "sha256:b8136771211641e998f21cbfe64c5cc51eb54754cac4cec70de305128015c054"
         }
       ],
       "requirements": [
@@ -457,14 +438,15 @@
           "scope": "server",
           "executable": "node",
           "version": ">=22.22.2",
-          "detail": "Developer-owned Node; conservative common catalog floor; Node24.18 fixture tested. No runtime download.",
+          "detail": "Pinned private Node; never resolved from PATH.",
           "required": true,
           "installCommands": []
         }
       ],
       "argv": ["--stdio"],
       "environment": {},
-      "limitations": []
+      "limitations": [],
+      "distribution": "runtime-upstream"
     },
     {
       "id": "yaml-language-server",
@@ -477,7 +459,7 @@
           "id": "yaml-language-server-npm",
           "format": "npm",
           "url": "https://registry.npmjs.org/yaml-language-server/-/yaml-language-server-1.24.0.tgz",
-          "integrity": "sha512-+HGcwu4M7IC+UDhDZScTZR8qsl2MMj/X1E5e83QcWzWn2pctj0fv8HHdrHHcbc1KB3CuRPJ4gc1Nm36D0iCu0g==",
+          "integrity": "sha256:11a321032012131f2ccdf7952dc347ce05291c66931a5de2f449b2dfc81f24b2",
           "platforms": [
             {
               "os": "darwin",
@@ -496,25 +478,15 @@
             },
             {
               "os": "linux",
-              "arch": "arm64",
-              "libc": "musl"
-            },
-            {
-              "os": "linux",
               "arch": "x64",
               "libc": "glibc"
-            },
-            {
-              "os": "linux",
-              "arch": "x64",
-              "libc": "musl"
             }
           ],
           "entry": "bin/yaml-language-server",
-          "bundle": "yaml-language-server",
+          "bundle": null,
           "audit": "verified",
           "auditReason": "",
-          "auditRoot": "sha256:5d03b330bebf21bd75b4ce2cf54a7f55fbf3e967bad867f226b6c8510b8d778b"
+          "auditRoot": "sha256:8b2e9852399cfb6498c4e2753649aca4da8b3c7b089bc8186c3198897e5e6c01"
         }
       ],
       "requirements": [
@@ -523,14 +495,15 @@
           "scope": "server",
           "executable": "node",
           "version": ">=22.22.2",
-          "detail": "Developer-owned Node; conservative common catalog floor; Node24.18 fixture tested. No runtime download.",
+          "detail": "Pinned private Node; never resolved from PATH.",
           "required": true,
           "installCommands": []
         }
       ],
       "argv": ["--stdio"],
       "environment": {},
-      "limitations": []
+      "limitations": [],
+      "distribution": "runtime-upstream"
     },
     {
       "id": "actions-language-server",
@@ -543,7 +516,7 @@
           "id": "actions-language-server-npm",
           "format": "npm",
           "url": "https://registry.npmjs.org/@actions/languageserver/-/languageserver-0.3.61.tgz",
-          "integrity": "sha512-L5Vf3zc3yD11xUSM8zMxrNwYLZpiUNG6U8kFK2BsxVyRKhU8gQEt02ydR+FZgidkrHSQO/2P7eU9vHPcOwwsOQ==",
+          "integrity": "sha256:d152725064c64f862da5158cd630d4c67973edfb58bdabaa44054ffef03b9d03",
           "platforms": [
             {
               "os": "darwin",
@@ -562,25 +535,15 @@
             },
             {
               "os": "linux",
-              "arch": "arm64",
-              "libc": "musl"
-            },
-            {
-              "os": "linux",
               "arch": "x64",
               "libc": "glibc"
-            },
-            {
-              "os": "linux",
-              "arch": "x64",
-              "libc": "musl"
             }
           ],
           "entry": "bin/actions-languageserver",
-          "bundle": "@actions_languageserver",
+          "bundle": null,
           "audit": "verified",
           "auditReason": "",
-          "auditRoot": "sha256:e90519fe728488a8ccd3ed8b3fcac054e517357a8897750bb72ba1350bf8d9c5"
+          "auditRoot": "sha256:e95ecf46a51b37c1ac7e5e375b53620358b2ebfef651b6f84d30eeb070c5e686"
         }
       ],
       "requirements": [
@@ -589,14 +552,15 @@
           "scope": "server",
           "executable": "node",
           "version": ">=22.22.2",
-          "detail": "Developer-owned Node; conservative common catalog floor; Node24.18 fixture tested. No runtime download.",
+          "detail": "Pinned private Node; never resolved from PATH.",
           "required": true,
           "installCommands": []
         }
       ],
       "argv": ["--stdio"],
       "environment": {},
-      "limitations": []
+      "limitations": [],
+      "distribution": "runtime-upstream"
     },
     {
       "id": "prettier",
@@ -2065,6 +2029,63 @@
         "Managed server blocks interpreter and Workspace code execution; import paths are read from the selected environment."
       ],
       "distribution": "runtime-upstream"
+    },
+    {
+      "id": "svelte-language-server",
+      "disposition": "offered",
+      "version": "0.18.4",
+      "source": "https://registry.npmjs.org/svelte-language-server/0.18.4",
+      "license": "MIT",
+      "artifacts": [
+        {
+          "id": "svelte-language-server-npm",
+          "format": "npm",
+          "url": "https://registry.npmjs.org/svelte-language-server/-/svelte-language-server-0.18.4.tgz",
+          "integrity": "sha256:3700f0d4af450fd898efd90b29ab7f0c9f5a5c7e8967f5c2cebf528a18341757",
+          "platforms": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "libc": "none"
+            },
+            {
+              "os": "darwin",
+              "arch": "x64",
+              "libc": "none"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "glibc"
+            }
+          ],
+          "entry": "bin/server.js",
+          "bundle": null,
+          "audit": "verified",
+          "auditReason": "",
+          "auditRoot": "sha256:ffc2f27a066ccc6b14880362e8cee7fa5c993fe55cfbe625a18983b5d249e61d"
+        }
+      ],
+      "requirements": [
+        {
+          "id": "node",
+          "scope": "server",
+          "executable": "node",
+          "version": ">=22.22.2",
+          "detail": "Pinned private Node; never resolved from PATH.",
+          "required": true,
+          "installCommands": []
+        }
+      ],
+      "argv": ["--stdio"],
+      "environment": {},
+      "limitations": [],
+      "distribution": "runtime-upstream"
     }
   ],
   "integrations": [
@@ -2101,6 +2122,38 @@
       "offered": true
     },
     {
+      "id": "json",
+      "languageIds": ["json", "jsonc"],
+      "patterns": ["*.json", "*.jsonc"],
+      "providers": [
+        {
+          "id": "vscode-json-language-server",
+          "tool": "vscode-langservers-extracted",
+          "role": "primary",
+          "diagnostics": "primary",
+          "disableFeatures": [],
+          "entry": "bin/vscode-json-language-server",
+          "argv": ["--stdio"]
+        }
+      ],
+      "companions": [],
+      "formatter": {
+        "tool": "vscode-langservers-extracted",
+        "source": "managed",
+        "mode": "lsp",
+        "detail": "Project formatter after Trust where supported; otherwise the language server's formatter."
+      },
+      "policy": {
+        "trust": "workspace-before-execution",
+        "network": "server-default",
+        "configuration": "Managed server without Trust; Workspace code only after Trust."
+      },
+      "limitations": [
+        "package.json and tsconfig schema associations fetch HTTPS schemas from SchemaStore; these schemas are not bundled."
+      ],
+      "offered": true
+    },
+    {
       "id": "html",
       "languageIds": ["html"],
       "patterns": ["*.html"],
@@ -2117,18 +2170,18 @@
       ],
       "companions": [],
       "formatter": {
-        "tool": "prettier",
+        "tool": "vscode-langservers-extracted",
         "source": "managed",
-        "mode": "cli",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "mode": "lsp",
+        "detail": "Project formatter after Trust where supported; otherwise the language server's formatter."
       },
       "policy": {
         "trust": "workspace-before-execution",
         "network": "server-default",
-        "configuration": "Project configuration after trust; effective paths resolved by D1"
+        "configuration": "Managed server without Trust; Workspace code only after Trust."
       },
       "limitations": [],
-      "offered": false
+      "offered": true
     },
     {
       "id": "css",
@@ -2147,18 +2200,18 @@
       ],
       "companions": [],
       "formatter": {
-        "tool": "prettier",
+        "tool": "vscode-langservers-extracted",
         "source": "managed",
-        "mode": "cli",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "mode": "lsp",
+        "detail": "Project formatter after Trust where supported; otherwise the language server's formatter."
       },
       "policy": {
         "trust": "workspace-before-execution",
         "network": "server-default",
-        "configuration": "Project configuration after trust; effective paths resolved by D1"
+        "configuration": "Managed server without Trust; Workspace code only after Trust."
       },
       "limitations": [],
-      "offered": false
+      "offered": true
     },
     {
       "id": "python",
@@ -2444,17 +2497,17 @@
         "tool": "prisma-language-server",
         "source": "managed",
         "mode": "lsp",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "detail": "Project formatter after Trust where supported; otherwise the language server's formatter."
       },
       "policy": {
         "trust": "workspace-before-execution",
         "network": "server-default",
-        "configuration": "Project configuration after trust; effective paths resolved by D1"
+        "configuration": "Managed server without Trust; Workspace code only after Trust."
       },
       "limitations": [
         "Prisma config evaluation/generator/project dependencies require trust and remain developer-owned."
       ],
-      "offered": false
+      "offered": true
     },
     {
       "id": "yaml",
@@ -2473,18 +2526,18 @@
       ],
       "companions": [],
       "formatter": {
-        "tool": "prettier",
+        "tool": "yaml-language-server",
         "source": "managed",
-        "mode": "cli",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "mode": "lsp",
+        "detail": "Project formatter after Trust where supported; otherwise the language server's formatter."
       },
       "policy": {
         "trust": "workspace-before-execution",
         "network": "no-account",
-        "configuration": "Explicit schema associations; no implicit remote schema downloads before consent"
+        "configuration": "Managed server without Trust; Workspace code only after Trust."
       },
       "limitations": [],
-      "offered": false
+      "offered": true
     },
     {
       "id": "actions",
@@ -2505,6 +2558,38 @@
           "tool": "actions-language-server",
           "role": "expressions",
           "diagnostics": "actions-expressions",
+          "disableFeatures": ["formatting"],
+          "entry": null,
+          "argv": []
+        }
+      ],
+      "companions": [],
+      "formatter": {
+        "tool": "yaml-language-server",
+        "source": "managed",
+        "mode": "lsp",
+        "detail": "Project formatter after Trust where supported; otherwise the language server's formatter."
+      },
+      "policy": {
+        "trust": "workspace-before-execution",
+        "network": "no-account",
+        "configuration": "Managed server without Trust; Workspace code only after Trust."
+      },
+      "limitations": [
+        "Upstream is not accepting community contributions; pinned server reviewed with offline expression fixture."
+      ],
+      "offered": true
+    },
+    {
+      "id": "svelte",
+      "languageIds": ["svelte"],
+      "patterns": ["*.svelte"],
+      "providers": [
+        {
+          "id": "svelte-language-server",
+          "tool": "svelte-language-server",
+          "role": "primary",
+          "diagnostics": "primary",
           "disableFeatures": [],
           "entry": null,
           "argv": []
@@ -2512,20 +2597,20 @@
       ],
       "companions": [],
       "formatter": {
-        "tool": "prettier",
+        "tool": "svelte-language-server",
         "source": "managed",
-        "mode": "cli",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "mode": "lsp",
+        "detail": "Project formatter after Trust where supported; otherwise the language server's formatter."
       },
       "policy": {
         "trust": "workspace-before-execution",
-        "network": "no-account",
-        "configuration": "No sessionToken, repos or GitHub account lookup; disable duplicate YAML schema validation and route Actions expressions separately"
+        "network": "server-default",
+        "configuration": "Managed server without Trust; Workspace code only after Trust."
       },
       "limitations": [
-        "Upstream is not accepting community contributions; pinned server reviewed with offline expression fixture."
+        "Before Trust: bundled compiler and upstream isTrusted=false; no project config, packages or preprocessors."
       ],
-      "offered": false
+      "offered": true
     }
   ]
 }

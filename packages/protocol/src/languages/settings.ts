@@ -21,6 +21,9 @@ export const LanguageSyntaxId = Schema.Literals([
   "jsx",
   "json",
   "css",
+  "scss",
+  "less",
+  "svelte",
   "html",
   "markdown",
   "python",
@@ -189,6 +192,7 @@ export const LanguageTrustAction = Schema.Literals([
 export const LanguageTrustStatus = Schema.Struct({
   trust: LanguageTrust,
   wouldRun: Schema.Struct({
+    workspaceTools: Schema.optionalKey(Schema.Array(Schema.String).check(Schema.isMaxLength(8))),
     typescriptVersion: Schema.NullOr(Schema.String),
     typescriptPath: Schema.NullOr(LanguagePath),
     native: Schema.Boolean,

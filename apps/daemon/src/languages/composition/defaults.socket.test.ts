@@ -72,7 +72,17 @@ test("mounted Host core uses transport Host identity and refuses unapproved mana
           catalog.integrations
             .filter((integration) => integration.offered)
             .map((integration) => integration.id)
-        ).toEqual(["typescript", "python"]);
+        ).toEqual([
+          "typescript",
+          "json",
+          "html",
+          "css",
+          "python",
+          "prisma",
+          "yaml",
+          "actions",
+          "svelte",
+        ]);
 
         const feed = yield* Stream.runCollect(
           owned.client["languages.host.state.watch"]({

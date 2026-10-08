@@ -242,7 +242,23 @@ test("Host probes inspect standard Python and Rust locations, never execute thei
 test("known catalog requirements publish platform-specific commands and TypeScript and Python are offered", () => {
   expect(
     catalog.integrations.filter((item) => item.offered).flatMap((item) => item.languageIds)
-  ).toEqual(["typescript", "typescriptreact", "javascript", "javascriptreact", "python"]);
+  ).toEqual([
+    "typescript",
+    "typescriptreact",
+    "javascript",
+    "javascriptreact",
+    "json",
+    "jsonc",
+    "html",
+    "css",
+    "scss",
+    "less",
+    "python",
+    "prisma",
+    "yaml",
+    "yaml",
+    "svelte",
+  ]);
 
   const python = catalog.tools
     .find((tool) => tool.id === "pyright")!

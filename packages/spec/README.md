@@ -684,3 +684,24 @@ The existing `language-runtime.qnt` Restart transition and runtime model/trace
 checks remain authoritative for process recovery, acknowledgments and fencing.
 `python/detection.test.ts` checks real filesystem detection and persisted CAS;
 `python/live.testing.ts` checks real authenticated Python RPC selection and drafts.
+
+
+### Managed web providers (slice 7a)
+
+JSON, CSS/SCSS/Less, HTML, YAML, Actions, Prisma and Svelte reuse the existing
+Host installer, `LanguageBroker` context lifecycle, Trust revision fences and
+project-formatting RPC. `languages/web/index.ts` selects private Node entries;
+`install/webDependencies.ts` verifies frozen dependency bytes without package
+scripts. Workflow discovery retains YAML syntax/schema and Actions semantics.
+`LanguageTrustStatus.wouldRun.workspaceTools` describes the existing Workspace
+Trust ask. No new approval, commit, stream, acknowledgment or recovery transition
+is introduced: `language-runtime.qnt` and existing Trust checks remain authoritative.
+Untrusted Svelte disables project config/compiler/preprocessors; untrusted Prisma
+pins config loading to the private installation. Grant/revoke uses the existing
+context replacement path. `languages/web/web.test.ts` checks provider selection
+and launch identity; `webLanguageSmoke.ts` checks real upstream servers and the
+Trust split in an isolated Desktop profile. The advertised Workspace-folder
+registration is acknowledged for the context's fixed root; root changes replace
+the context. Configuration notification registration acknowledges the existing
+settings delivery and context replacement path. Notification registrations are
+not exposed as feature methods.

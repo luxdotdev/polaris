@@ -1,3 +1,4 @@
+import { webProviders, webServerSettings } from "../web/index.ts";
 import { ServerLogs } from "./logs.ts";
 import { bindFormat } from "./format.ts";
 import { bindResourceReceipt, bindServerResponse, bindRecoveryReceipt } from "./resourceReceipt.ts";
@@ -230,6 +231,12 @@ export function createLanguageBroker(options: BrokerOptions) {
 
     if (entry.facts.managedPython && entry.facts.providerId === "basedpyright")
       return pythonServerSettings(entry.facts);
+
+    if (entry.facts.managedWeb && entry.facts.providerId in webProviders)
+      return {
+        ...webServerSettings(entry.facts),
+        ...settings.serverSettings?.[entry.facts.providerId],
+      };
 
     return (
       settings.customServers?.find(({ id }) => id === entry.facts.providerId)?.settings ??

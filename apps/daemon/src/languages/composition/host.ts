@@ -1,3 +1,4 @@
+import { webProviders, webTools } from "../web/index.ts";
 import { PrivateNodeRuntime } from "./privateNode.ts";
 import { createPythonEnvironment, PythonEnvironment } from "../python/environment.ts";
 import { PythonCore } from "../python/core.ts";
@@ -139,7 +140,9 @@ export const languageHostServices = (
             availability: (toolId, phase, trusted, admission, settings) =>
               Effect.gen(function* () {
                 if (
-                  ["typescript-language-server", "basedpyright", "ruff"].includes(toolId) &&
+                  ["typescript-language-server", "basedpyright", "ruff", ...webTools].includes(
+                    toolId
+                  ) &&
                   phase === "feature" &&
                   options.managed !== undefined &&
                   admission !== undefined &&
@@ -154,7 +157,9 @@ export const languageHostServices = (
                   toolId,
                   phase,
                   trusted ||
-                    (["typescript-language-server", "basedpyright", "ruff"].includes(toolId) &&
+                    (["typescript-language-server", "basedpyright", "ruff", ...webTools].includes(
+                      toolId
+                    ) &&
                       options.managed !== undefined),
                   admission
                 );
@@ -163,9 +168,12 @@ export const languageHostServices = (
               configuredExecutable(request.facts) === undefined
                 ? (async () => {
                     if (
-                      ["typescript-language-server", "basedpyright", "ruff"].includes(
-                        request.facts.providerId
-                      ) &&
+                      [
+                        "typescript-language-server",
+                        "basedpyright",
+                        "ruff",
+                        ...Object.keys(webProviders),
+                      ].includes(request.facts.providerId) &&
                       options.managed !== undefined
                     ) {
                       const guard = owners.guard(request, executionTrust).validate;

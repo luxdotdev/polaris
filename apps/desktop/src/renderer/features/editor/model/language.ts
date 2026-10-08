@@ -5,6 +5,9 @@ export type LanguageId =
   | "javascript"
   | "jsx"
   | "json"
+  | "scss"
+  | "less"
+  | "svelte"
   | "css"
   | "html"
   | "markdown"
@@ -88,6 +91,27 @@ export const LANGUAGES: Readonly<Record<LanguageId, LanguageMetadata>> = {
     documentLanguageId: "css",
     extensions: ["css"],
     aliases: ["css"],
+    filenames: [],
+  },
+  scss: {
+    name: "SCSS",
+    documentLanguageId: "scss",
+    extensions: ["scss"],
+    aliases: ["scss"],
+    filenames: [],
+  },
+  less: {
+    name: "Less",
+    documentLanguageId: "less",
+    extensions: ["less"],
+    aliases: ["less"],
+    filenames: [],
+  },
+  svelte: {
+    name: "Svelte",
+    documentLanguageId: "svelte",
+    extensions: ["svelte"],
+    aliases: ["svelte"],
     filenames: [],
   },
   html: {

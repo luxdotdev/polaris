@@ -1,0 +1,5 @@
+const { PrismaSchema } = require("./dist/lib/Schema.js");
+const load = PrismaSchema.load;
+PrismaSchema.load = function(input) {
+  return load.call(this, input, __dirname);
+};

@@ -116,7 +116,7 @@ export const clientCapabilities = {
   },
   textDocument: {
     synchronization: { dynamicRegistration: false, didSave: true },
-    completion: { dynamicRegistration: true },
+    completion: { dynamicRegistration: true, completionItem: { snippetSupport: true } },
     hover: { dynamicRegistration: true },
     diagnostic: { dynamicRegistration: true },
     publishDiagnostics: { versionSupport: true },

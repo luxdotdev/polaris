@@ -48,7 +48,7 @@ test("catalog audit roots and eligibility flags match the exact retained evidenc
 
 test("evaluation-only SQL cannot block offered release roots", () => {
   expect(offeredTools(catalog).some((tool) => tool.id === "sql-language-server")).toBe(false);
-  expect(offeredTools(catalog)).toHaveLength(21);
+  expect(offeredTools(catalog)).toHaveLength(22);
   expect(referenceFailures(catalog)).toEqual([]);
 });
 
@@ -68,7 +68,7 @@ test("active providers, companions and managed formatters cannot evade offered a
     formatter: { ...integration.formatter, tool: "missing-formatter" },
   }));
 
-  expect(referenceFailures({ ...catalog, integrations })).toHaveLength(14);
+  expect(referenceFailures({ ...catalog, integrations })).toHaveLength(16);
 
   const tools = catalog.tools.map((tool) =>
     Tool.make({

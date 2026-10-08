@@ -22,6 +22,13 @@ const ROOT_MARKERS: RootRules = {
   lua: [".luarc.json", ".luarc.jsonc"],
   yaml: [".github", ".yamllint", "package.json"],
   actions: [".github"],
+  svelte: [
+    "svelte.config.js",
+    "svelte.config.cjs",
+    "svelte.config.mjs",
+    "svelte.config.ts",
+    "package.json",
+  ],
 };
 
 export async function projectRoot(

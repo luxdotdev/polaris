@@ -1,3 +1,4 @@
+import { webProviders } from "../web/index.ts";
 import type { DiscoveryFacts } from "../discovery/index.ts";
 import { configuredExecutable } from "./configuredLaunch.ts";
 
@@ -10,6 +11,13 @@ export const bundledTypeScript = (facts: DiscoveryFacts) =>
 /** Managed Python reads configuration without running Workspace tooling. */
 export const managedWithoutTrust = (facts: DiscoveryFacts) =>
   bundledTypeScript(facts) ||
+  (facts.managedWeb === true &&
+    facts.providerId in webProviders &&
+    !(
+      facts.workspaceTrusted &&
+      ["svelte-language-server", "prisma-language-server"].includes(facts.providerId)
+    ) &&
+    configuredExecutable(facts) === undefined) ||
   (facts.managedPython === true &&
     ["basedpyright", "ruff"].includes(facts.providerId) &&
     configuredExecutable(facts) === undefined);

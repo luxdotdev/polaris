@@ -28,6 +28,7 @@ export interface DiscoveryInput {
   settings: typeof LanguageEffectiveSettings.Type;
   refresh?: boolean;
   useProjectTypeScript?: boolean;
+  workspaceTrusted?: boolean;
 }
 
 const family = (provider: string) =>
@@ -47,6 +48,7 @@ const family = (provider: string) =>
     "vscode-html-language-server": "html",
     "vscode-css-language-server": "css",
     "bash-language-server": "bash",
+    "svelte-language-server": "svelte",
     "sqllens-language-server": "sql",
   })[provider] ?? provider;
 
@@ -178,6 +180,21 @@ async function discover(
     projectRoot: root,
     providerId: input.providerId,
     bundledTypeScript,
+    workspaceTrusted: input.workspaceTrusted === true,
+    managedWeb: bundled && custom === undefined && executable === undefined,
+    svelteConfiguration:
+      provider === "svelte"
+        ? ((
+            await nearest(context.root, ancestors(context.root, start), [
+              "svelte.config.js",
+              "svelte.config.cjs",
+              "svelte.config.mjs",
+              "svelte.config.ts",
+              "vite.config.js",
+              "vite.config.ts",
+            ])
+          )?.path ?? null)
+        : null,
     managedPython:
       bundled && provider === "python" && custom === undefined && executable === undefined,
     configuration: provider === "typescript" ? configuration : null,
@@ -276,6 +293,7 @@ export function createProjectDiscovery(options: {
         input.providerId,
         input.settings,
         input.useProjectTypeScript ?? false,
+        input.workspaceTrusted ?? false,
       ]);
 
       const cached = cache.get(key);

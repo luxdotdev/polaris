@@ -1,0 +1,121 @@
+{
+  "artifactId": "prisma-language-server-npm",
+  "artifactIntegrity": "sha256:e5d68ad4b7677a12d398166f68b2ac5aa2beb63b762b2c59171bba373e6313d3",
+  "coverage": "complete",
+  "notices": [
+    {
+      "path": "notices/c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4.txt",
+      "integrity": "sha256:c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "path": "notices/653b779005a3a4d64a7288c940f7b9a0e8f0b1e0375f6aa6af9473caf131e564.txt",
+      "integrity": "sha256:653b779005a3a4d64a7288c940f7b9a0e8f0b1e0375f6aa6af9473caf131e564"
+    },
+    {
+      "path": "notices/c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383.txt",
+      "integrity": "sha256:c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+    },
+    {
+      "path": "notices/46231df5a7733c3f52f11b71f3df61813007745b62b09031acfb45fb42d75082.txt",
+      "integrity": "sha256:46231df5a7733c3f52f11b71f3df61813007745b62b09031acfb45fb42d75082"
+    },
+    {
+      "path": "notices/bdfd5e0edb6089e6586c8f15e6a86fab83ffbeeda3b3b7b33734ccb8c5906965.txt",
+      "integrity": "sha256:bdfd5e0edb6089e6586c8f15e6a86fab83ffbeeda3b3b7b33734ccb8c5906965"
+    },
+    {
+      "path": "notices/c6e83b9be7af3b907525722dadbd781848162e4fbfcbe20324f7a237d91ee0f3.txt",
+      "integrity": "sha256:c6e83b9be7af3b907525722dadbd781848162e4fbfcbe20324f7a237d91ee0f3"
+    },
+    {
+      "path": "notices/734d8fd2baff4a5b7450a5b8242d4a960bc4ade3b0ade5e6cad642965d1d496d.txt",
+      "integrity": "sha256:734d8fd2baff4a5b7450a5b8242d4a960bc4ade3b0ade5e6cad642965d1d496d"
+    },
+    {
+      "path": "notices/74b629b24865e1e83c5277ee84590b7937644d6fd959d0c7bdce758676cd2ced.txt",
+      "integrity": "sha256:74b629b24865e1e83c5277ee84590b7937644d6fd959d0c7bdce758676cd2ced"
+    },
+    {
+      "path": "notices/774c3bc5924ad8ae6c5a75f1c53db13feb238ade15989625c513d07b60dedf30.txt",
+      "integrity": "sha256:774c3bc5924ad8ae6c5a75f1c53db13feb238ade15989625c513d07b60dedf30"
+    },
+    {
+      "path": "notices/9a9edad7baae52622bddf3c15b2ef8a33d2c89f2d25408ad13e8a7481c6b0c97.txt",
+      "integrity": "sha256:9a9edad7baae52622bddf3c15b2ef8a33d2c89f2d25408ad13e8a7481c6b0c97"
+    },
+    {
+      "path": "notices/d37af134e0d0b998393188394202052e2ff6cd5d18efb2fcc81ba7b00ad77b75.txt",
+      "integrity": "sha256:d37af134e0d0b998393188394202052e2ff6cd5d18efb2fcc81ba7b00ad77b75"
+    },
+    {
+      "path": "notices/b2bd24f5c975f659433271170b17e0a769b12ef8065bbca6dcd5511d57e94ce0.txt",
+      "integrity": "sha256:b2bd24f5c975f659433271170b17e0a769b12ef8065bbca6dcd5511d57e94ce0"
+    },
+    {
+      "path": "notices/c6a7de1428955aa5a692f4d3a3d3ede658d959616944713337cda296736442e1.txt",
+      "integrity": "sha256:c6a7de1428955aa5a692f4d3a3d3ede658d959616944713337cda296736442e1"
+    },
+    {
+      "path": "notices/858a63872e40ca764098e48cfcec054efaa1330dfa6c7d5c0b3fdcb3a44a9d95.txt",
+      "integrity": "sha256:858a63872e40ca764098e48cfcec054efaa1330dfa6c7d5c0b3fdcb3a44a9d95"
+    },
+    {
+      "path": "notices/f65c5d9f22a317b2a10803bd1868461ce6499c2ed7217bc80c0cc772a748789c.txt",
+      "integrity": "sha256:f65c5d9f22a317b2a10803bd1868461ce6499c2ed7217bc80c0cc772a748789c"
+    },
+    {
+      "path": "notices/0f57363c43caf754cf943327878c910ce1386c82c029462cf7274c4a50b5961f.txt",
+      "integrity": "sha256:0f57363c43caf754cf943327878c910ce1386c82c029462cf7274c4a50b5961f"
+    },
+    {
+      "path": "notices/a9801fb52ba22ef808682a094da8a7a480584b7ed0dfd0d888ab543616335031.txt",
+      "integrity": "sha256:a9801fb52ba22ef808682a094da8a7a480584b7ed0dfd0d888ab543616335031"
+    },
+    {
+      "path": "notices/52e92576851154bad7737e90cc72818936f43665cb0e3f7428ed8edc8cc5709b.txt",
+      "integrity": "sha256:52e92576851154bad7737e90cc72818936f43665cb0e3f7428ed8edc8cc5709b"
+    },
+    {
+      "path": "notices/cb00dc7c358014d300dba2462e57d3f477299c169c7ab14d8fe5e347eca44f48.txt",
+      "integrity": "sha256:cb00dc7c358014d300dba2462e57d3f477299c169c7ab14d8fe5e347eca44f48"
+    },
+    {
+      "path": "notices/e9d6a94ab01c6c9ab68c099d3ba8dd9f8aca60f2e2250c2302275405fca9e806.txt",
+      "integrity": "sha256:e9d6a94ab01c6c9ab68c099d3ba8dd9f8aca60f2e2250c2302275405fca9e806"
+    },
+    {
+      "path": "notices/688222000d499a064a7feb8fa0bb2a3dded5a182f90ef9de986bf7307d777a26.txt",
+      "integrity": "sha256:688222000d499a064a7feb8fa0bb2a3dded5a182f90ef9de986bf7307d777a26"
+    },
+    {
+      "path": "notices/dffec71d93f273d2af7b54c6c7e7e70b3289c632ec0d7253210ec21ac336d5ac.txt",
+      "integrity": "sha256:dffec71d93f273d2af7b54c6c7e7e70b3289c632ec0d7253210ec21ac336d5ac"
+    },
+    {
+      "path": "notices/3fda5977c0904e226190b4e21d64340c1731e2142d6fe5f3dee0090a216b8b63.txt",
+      "integrity": "sha256:3fda5977c0904e226190b4e21d64340c1731e2142d6fe5f3dee0090a216b8b63"
+    },
+    {
+      "path": "notices/ec9ee83580841e8eb687aca9867f221503809ba6426c7f876ede17d91b9fcfd0.txt",
+      "integrity": "sha256:ec9ee83580841e8eb687aca9867f221503809ba6426c7f876ede17d91b9fcfd0"
+    },
+    {
+      "path": "notices/c669138cb1eb01fbb745e8e460b291e4f2869c14a40061390b6095d845ed4c82.txt",
+      "integrity": "sha256:c669138cb1eb01fbb745e8e460b291e4f2869c14a40061390b6095d845ed4c82"
+    }
+  ],
+  "evidence": [
+    {
+      "path": "web-prisma-language-server-dependencies.json",
+      "integrity": "sha256:1d259a725cc138b5f59e52ebb85b3856b1254c90ed6662293dc9f5054b1951ad"
+    },
+    {
+      "path": "managed-prisma-guard.txt",
+      "integrity": "sha256:d5c5b970747d7d6b2feeed2317246364036ec6f37de4729fc97a5145d8a5307c"
+    },
+    {
+      "path": "runtime-web-review-records.json",
+      "integrity": "sha256:6320996bd9b285e14aaa7c86a7c3b5f755f79024f8a1ffc4a2ec2550cbed7fec"
+    }
+  ]
+}

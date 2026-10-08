@@ -41,7 +41,18 @@ export interface TrustCopy {
 
 export const trustCopy = (status: TrustStatus, workspace: string, host: string): TrustCopy => {
   const review = isReviewScope(status);
-  const { typescriptVersion, plugins } = status.wouldRun;
+  const { typescriptVersion, plugins, workspaceTools = [] } = status.wouldRun;
+
+  if (workspaceTools.length > 0)
+    return {
+      title: review
+        ? "Run this review checkout's own language tools?"
+        : `Run ${workspace}'s own language tools?`,
+      body: `${review ? "This review checkout" : "This workspace"} has ${workspaceTools.join(" and ")}. Trusting it runs them on ${host} as you.`,
+      caption:
+        "Until then, bundled tools check your code without project config. Change this any time with ⇧⌘P.",
+      trust: review ? "Trust review checkout" : `Trust ${workspace}`,
+    };
 
   const parts = [
     typescriptVersion === null ? null : `TypeScript ${typescriptVersion}`,

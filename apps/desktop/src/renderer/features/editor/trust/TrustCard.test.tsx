@@ -378,3 +378,25 @@ describe("What runs, in words", () => {
     expect(hostInSentence(undefined)).toBe("this host");
   });
 });
+
+test("Svelte and Prisma share the existing Workspace Trust ask", () => {
+  const first = status({ version: null, plugins: [] });
+
+  const prisma = P.LanguageTrustStatus.make({
+    ...first,
+    wouldRun: { ...first.wouldRun, workspaceTools: ["Prisma config"] },
+  });
+
+  discover(workspaceCheckout, prisma, "schema.prisma");
+
+  const svelte = P.LanguageTrustStatus.make({
+    ...first,
+    ask: false,
+    wouldRun: { ...first.wouldRun, workspaceTools: ["Svelte config and preprocessors"] },
+  });
+
+  discover(workspaceCheckout, svelte, "Component.svelte");
+  expect(Object.values(trustStore.getState().asks)).toHaveLength(1);
+  expect(Object.values(trustStore.getState().asks)[0]?.status).toEqual(svelte);
+  expect(trustCopy(svelte, "web", "this Mac").body).toContain("Svelte config and preprocessors");
+});
