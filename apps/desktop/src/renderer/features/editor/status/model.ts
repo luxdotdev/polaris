@@ -308,7 +308,7 @@ const failureView = (
     Match.orElse((): FailureCopy => ({
       word: "unavailable",
       title: `${input.language} tools didn't start`,
-      why: `Polaris couldn't start them on ${input.hostInSentence}. Highlighting works meanwhile.`,
+      why: `${failure.message} (${failure.reason}). Highlighting works meanwhile.`,
       actions: [checkAgain, b.settings],
     }))
   );

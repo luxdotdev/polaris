@@ -565,7 +565,7 @@ export class LanguageAccess {
 
       if (joined.aborted) throw languageFailure("cancelled");
 
-      if (error instanceof P.LanguageError) throw languageFailure(error.reason);
+      if (Schema.is(P.LanguageError)(error)) throw error;
       throw languageFailure("server-failed");
     } finally {
       this.pendingCalls--;

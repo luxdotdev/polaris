@@ -219,8 +219,8 @@ export const languageTransportFor = (
   const safeFailure = (error: unknown, signal: AbortSignal) =>
     signal.aborted
       ? languageFailure("not-connected")
-      : error instanceof P.LanguageError
-        ? languageFailure(error.reason)
+      : Schema.is(P.LanguageError)(error)
+        ? error
         : languageFailure("server-failed");
 
   return {

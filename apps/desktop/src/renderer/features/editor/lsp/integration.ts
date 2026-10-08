@@ -98,7 +98,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
   private readonly refresh = () => {
     pruneLanguageGroups(this.groups, this.identity);
 
-    for (const entry of this.entries.values()) this.refreshEntry(entry);
+    for (const entry of this.entries.values()) void this.refreshEntry(entry);
   };
 
   constructor(
@@ -225,7 +225,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
         ])
       ),
     });
-    this.refreshEntry(entry);
+    void this.refreshEntry(entry);
 
     return {
       selectedLanguage: () => entry.manual,
@@ -294,7 +294,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
     return { host, document, identity: usable ? identity : null };
   }
 
-  private refreshEntry(entry: Entry, force = false) {
+  private async refreshEntry(entry: Entry, force = false, reportFailure = false) {
     if (entry.disposed) return;
     const environment = this.environment(entry);
 
@@ -312,6 +312,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
     entry.stamp = stamp;
     entry.controller.abort();
     entry.controller = new AbortController();
+    const signal = entry.controller.signal;
     this.stopGroups(entry);
     const key = fileKey(entry.input.file.hostKey, entry.input.file.path);
 
@@ -348,10 +349,10 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
     Status.statusChecking(key, environment.document.checkout);
     const { identity, document } = environment;
 
-    void this.observations
-      .settled(() => this.configure(entry, identity, document.checkout, stamp))
+    await this.observations
+      .settled(() => this.configure(entry, identity, document.checkout, stamp, signal))
       .catch((error: P.LanguageError | Error) => {
-        if (entry.disposed || stamp !== entry.stamp) return;
+        if (entry.disposed || signal.aborted || stamp !== entry.stamp) return;
         Status.statusFailed(key, {
           reason: Schema.is(P.LanguageError)(error) ? error.reason : "unknown",
           message: error.message,
@@ -364,6 +365,8 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
               : "Language tooling is unavailable. Check Settings → Languages for this Host.",
           providers: [],
         });
+
+        if (reportFailure) throw error;
       });
   }
 
@@ -398,7 +401,8 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
     entry: Entry,
     identity: AuthenticatedLanguageIdentity,
     checkout: P.LanguageCheckout,
-    stamp: string
+    stamp: string,
+    signal: AbortSignal
   ) {
     const api = this.api();
 
@@ -407,7 +411,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
 
     const current = () =>
       !entry.disposed &&
-      !entry.controller.signal.aborted &&
+      !signal.aborted &&
       stamp === entry.stamp &&
       JSON.stringify(this.environment(entry).identity) === JSON.stringify(identity);
 
@@ -420,7 +424,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
       path: file.path,
       manual: entry.manual,
       firstLine: entry.read().doc.line(1).text,
-      signal: entry.controller.signal,
+      signal,
     });
 
     if (!current()) return;
@@ -673,7 +677,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
     }
 
     languagePatch(key, { language: entry.language, manual: language });
-    this.refreshEntry(entry, true);
+    void this.refreshEntry(entry, true);
   }
 
   async action(
@@ -773,18 +777,18 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
 
     for (const entry of this.entries.values())
       if (entry.input.file.hostKey === hostKey && entry.input.file.workspaceId === workspaceId)
-        this.refreshEntry(entry, true);
+        void this.refreshEntry(entry, true);
   }
   refreshHosts() {
     this.refresh();
   }
   /** Check again: forget cached discovery and rediscover this file (a Prerequisite was installed). */
-  recheck(key: string) {
+  async recheck(key: string) {
     const entry = this.entries.get(key);
 
     if (entry === undefined) return;
     this.observations.invalidate();
-    this.refreshEntry(entry, true);
+    await this.refreshEntry(entry, true, true);
   }
   private release(entry: Entry) {
     if (entry.disposed) return;

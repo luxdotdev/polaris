@@ -123,10 +123,10 @@ const ProgressBlock = ({
 /** Inline failure copy, chosen by the error's typed reason. */
 export const actionFailure = (error: P.LanguageError, host: string) =>
   Match.value(error.reason).pipe(
-    Match.when("conflict", () => `It changed on ${host} meanwhile. Try again.`),
+    Match.when("conflict", () => `${error.message} (${error.reason}). Try again.`),
     Match.when("not-connected", () => `Can't reach ${host}. Try again when it's back.`),
     Match.when("timeout", () => `No answer from ${host} in time. Try again.`),
-    Match.orElse(() => `That didn't work on ${host}. Try again, or check the log.`)
+    Match.orElse(() => `${error.message} (${error.reason}).`)
   );
 
 type Running = { readonly id: StatusAction["id"] } | null;
@@ -186,7 +186,7 @@ export const StatusPopover = ({ view, running, failure, onRun, titleId }: Status
       >
         {view.title}
       </h2>
-      <p className="text-caption text-text-subtle">{view.why}</p>
+      <p className="text-caption text-text-subtle wrap-anywhere">{view.why}</p>
     </div>
     {view.progress === null ? null : <ProgressBlock progress={view.progress} />}
     {view.stderr === null ? null : (
@@ -293,7 +293,9 @@ export const LanguageStatus = ({
       { hostKey, path, checkout, providerId, trust },
       {
         api: polaris().languages,
-        recheck: () => editorLanguages?.recheck(fileKey(hostKey, path)),
+        recheck: async () => {
+          await editorLanguages?.recheck(fileKey(hostKey, path));
+        },
         showLog: () => {
           if (checkout !== null)
             openLanguageLog({

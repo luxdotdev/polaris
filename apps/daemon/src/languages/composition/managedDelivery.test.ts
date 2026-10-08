@@ -9,6 +9,7 @@ import { createHostInstallations } from "../install/host.ts";
 import { createSelectionLedger } from "../install/selection-ledger.ts";
 import { artifactFixture, hostId, platform } from "../install/fixture.testing.ts";
 import { httpsArtifactDownload } from "../install/download.ts";
+import { digest } from "../install/validation.ts";
 import { createManagedDelivery } from "./managedDelivery.ts";
 
 const settings = (automatic = true) =>
@@ -21,10 +22,16 @@ const settings = (automatic = true) =>
     settings: { downloadLanguageToolsAutomatically: automatic },
   });
 
-async function fixture(corrupt = false) {
+async function fixture(corrupt = false, legacy = false) {
   const root = await realpath(await mkdtemp("/private/tmp/slice-1-delivery-"));
   const source = artifactFixture();
   const downloads = new Map<string, number>();
+
+  const oldManifest = Buffer.from(
+    JSON.stringify(JSON.parse(Buffer.from(source.payload.manifestBytes).toString()), null, 2)
+  );
+
+  const oldPayload = { ...source.payload, manifestBytes: oldManifest };
 
   const server = Bun.serve({
     hostname: "127.0.0.1",
@@ -50,7 +57,7 @@ async function fixture(corrupt = false) {
     })),
   }));
 
-  const host = await registry.get({
+  const options = {
     root: join(root, "private"),
     hostId,
     platform,
@@ -62,12 +69,36 @@ async function fixture(corrupt = false) {
 
         return new Response(response.body, { status: response.status, headers: response.headers });
       }),
-      decode: async () => source.payload,
+      decode: async (_bytes, exact) =>
+        exact.artifact.auditRoot === digest(oldManifest) ? oldPayload : source.payload,
     },
     observe: async () => ({ connected: true, probes: [] }),
     reserveSelection: (exact, signal) => ledger.reserveSelection(exact.tool.id, signal),
-  });
+  } satisfies import("../install/host.ts").HostInstallationOptions;
 
+  if (legacy) {
+    const oldRegistry = createHostInstallations();
+
+    const oldHost = await oldRegistry.get({
+      ...options,
+      tools: tools.map((tool) => ({
+        ...tool,
+        artifacts: tool.artifacts.map((artifact) => ({
+          ...artifact,
+          auditRoot: digest(oldManifest),
+        })),
+      })),
+    });
+
+    for (const tool of tools) {
+      const handle = await oldHost.install(tool.id, "encounter", async () => {});
+      await handle.result;
+    }
+
+    await oldRegistry.dispose();
+  }
+
+  const host = await registry.get(options);
   managed.delivery.bind(host);
   const admission = { cwd: root, requireCurrent: async () => {} };
 
@@ -77,6 +108,7 @@ async function fixture(corrupt = false) {
     managed,
     downloads,
     admission,
+    ledger,
     async close() {
       await registry.dispose();
       ledger.dispose();
@@ -189,5 +221,57 @@ test("launch plans select native TS 7, project tsserver/plugins, and guarded bun
   } finally {
     await f.close();
     await project.cleanup();
+  }
+});
+
+for (const automatic of [true, false])
+  test(`an older same-version catalog binding with automatic downloads ${automatic}`, async () => {
+    const f = await fixture(false, true);
+    const previous = await f.host.current("node");
+
+    try {
+      const upgrade = f.managed.delivery.ensure(
+        settings(automatic),
+        f.admission,
+        new AbortController().signal
+      );
+
+      if (!automatic) {
+        await rejects(upgrade, { reason: "not-installed" });
+        expect((await f.host.current("node"))?.identity).toBe(previous?.identity);
+      } else {
+        await upgrade;
+        expect((await f.host.current("node"))?.identity).not.toBe(previous?.identity);
+        await f.managed.delivery.ensure(settings(), f.admission, new AbortController().signal);
+      }
+
+      for (const id of ["node", "typescript", "typescript-language-server"])
+        expect(f.downloads.get(`/${id}`)).toBe(automatic ? 2 : 1);
+    } finally {
+      await f.close();
+    }
+  });
+
+test("automatic catalog replacement still respects an active launch lease", async () => {
+  const f = await fixture(false, true);
+  const previous = await f.host.current("node");
+
+  if (previous === null) throw new Error("Missing legacy Node");
+
+  const lease = await f.ledger.reserveLaunch(
+    "node",
+    previous.identity,
+    new AbortController().signal
+  );
+
+  try {
+    await rejects(
+      f.managed.delivery.ensure(settings(), f.admission, new AbortController().signal),
+      { reason: "conflict" }
+    );
+    expect((await f.host.current("node"))?.identity).toBe(previous.identity);
+  } finally {
+    await lease.release();
+    await f.close();
   }
 });

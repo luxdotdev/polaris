@@ -10,7 +10,10 @@ import { EditorLanguageCoordinator } from "./integration.ts";
 import { EditorProviderFixture } from "./fixture.testing.ts";
 
 /** One connected Host and Workspace ("reuse") whose files open in a real coordinator. */
-export const coordinatorFixture = (doc = "export const value = 42;") => {
+export const coordinatorFixture = (
+  doc = "export const value = 42;",
+  discoveryFailure?: () => P.LanguageError | null
+) => {
   const hostId = P.HostId.make("reuse");
   const workspaceId = P.WorkspaceId.make("reuse");
   const service = new EditorProviderFixture(hostId);
@@ -24,6 +27,13 @@ export const coordinatorFixture = (doc = "export const value = 42;") => {
       requests.push(method);
 
       if (method === "languages.discover" && discoverGate !== null) await discoverGate;
+      const failure = method === "languages.discover" ? discoveryFailure?.() : null;
+
+      if (failure != null)
+        return {
+          ok: false,
+          error: { code: "LanguageError", message: failure.message, languageError: failure },
+        };
       const reply = await service.api.request(method, input);
 
       if (!reply.ok || method !== "languages.settings.get") return reply;

@@ -195,7 +195,9 @@ describe("popover actions", () => {
 
   const ports = (value: LanguageApi) => ({
     api: value,
-    recheck: () => calls.push({ method: "recheck", input: null }),
+    recheck: async () => {
+      calls.push({ method: "recheck", input: null });
+    },
     showLog: () => calls.push({ method: "show-log", input: null }),
     openSettings: () => calls.push({ method: "settings", input: null }),
   });

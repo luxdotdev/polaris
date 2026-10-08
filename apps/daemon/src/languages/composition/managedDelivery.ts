@@ -97,7 +97,7 @@ export function createManagedDelivery(
 
         const handle = await installation().install(
           toolId,
-          "encounter",
+          current === null ? "encounter" : "update",
           admission.requireCurrent,
           signal,
           admission

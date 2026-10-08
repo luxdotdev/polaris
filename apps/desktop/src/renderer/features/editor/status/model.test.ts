@@ -245,3 +245,21 @@ describe("the project's formatter", () => {
     expect(view.facts.map((fact) => fact.label)).not.toContain("Formatter");
   });
 });
+
+test("the unavailable popover preserves the typed installation failure", () => {
+  const view = statusView(
+    input({
+      file: file({
+        phase: "failed",
+        failure: {
+          reason: "conflict",
+          message: "Version updates require an explicit update request",
+        },
+      }),
+      runtimes: [],
+    })
+  );
+
+  expect(view.why).toContain("Version updates require an explicit update request (conflict)");
+  expect(ids(view)).toContain("check-again");
+});

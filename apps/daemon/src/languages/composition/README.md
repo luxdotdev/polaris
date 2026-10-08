@@ -88,3 +88,21 @@ Host installation Settings use `LanguageHostStateCore` over the same
 connection checks replace checkout/Trust authority for these read-only routes.
 The connection lifetime owns one abort controller; each stream closes its
 subscriber when cancelled and the Host lifetime closes all subscribers.
+
+Managed encounter checks re-verify the selected installation. A changed catalog
+or audit binding uses the installer's explicit update intent when automatic
+downloads are enabled, even if the upstream version is unchanged. The existing
+approval, checksum, notice, selection lease and atomic promotion checks still
+apply; the previous version remains retained. Automatic downloads off refuses
+replacement with `not-installed` and leaves the selected version intact.
+
+`bun test ./apps/daemon/src/languages/composition/upgrade.live.testing.ts`
+builds a home with the pinned Slice 4 catalog and installer at
+`e935a0b2df579672004ee9c6bef4dfcd8374e3f7`, then runs the current Host graph.
+It proves bundled TypeScript, trusted native TypeScript 7, basedpyright and Ruff
+reach Ready. It also tests a new copy of `.dagr/evidence/upgrade-repro/dev-home`.
+This opt-in macOS arm64 proof requires that commit, the owner fixture, network
+access and installed TypeScript 7 platform packages. After building Desktop,
+`node apps/desktop/scripts/upgradeLanguageSmoke.ts` injects a reversible file
+mode failure into another copy, verifies the typed popover in both themes and
+three densities, restores the mode, and reaches Ready with keyboard Check again.
