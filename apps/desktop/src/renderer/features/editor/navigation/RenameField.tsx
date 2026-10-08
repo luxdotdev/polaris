@@ -13,7 +13,7 @@ type Phase = { readonly kind: "editing" } | { readonly kind: "asking" } | { read
 const PHASE_TEXT: Readonly<Record<Phase["kind"], string>> = {
   editing: "↵ Rename",
   asking: "Renaming…",
-  none: "Nothing to rename here.",
+  none: "Nothing to rename here. If the file just opened, try again in a moment.",
 };
 
 type Lookup = Pick<LanguageQueries, "lookup">;

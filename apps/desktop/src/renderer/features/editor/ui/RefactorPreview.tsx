@@ -1,10 +1,12 @@
 import { Button } from "@polaris/ui";
 import { useStore } from "zustand";
-import { refactorRegistry, type RefactorController } from "../refactors/controller.ts";
+import { needsUser, refactorRegistry, type RefactorController } from "../refactors/controller.ts";
 
 const PreviewBody = ({ controller }: { readonly controller: RefactorController }) => {
   const state = useStore(controller.state);
-  const { preview, group, error, busy } = state;
+  const { preview, error, busy } = state;
+  // Recovery shows only when it needs the user; a one-file rename applied directly shows nothing.
+  const group = state.group !== null && needsUser(state.group) ? state.group : null;
 
   if (preview === null && group === null && error === null) return null;
 

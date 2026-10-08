@@ -137,7 +137,9 @@ describe("the rename field", () => {
     fireEvent.keyUp(input, { key: "r" });
     await act(async () => void fireEvent.keyDown(input, { key: "Enter" }));
 
-    expect(dom().getByRole("status").textContent).toBe("Nothing to rename here.");
+    expect(dom().getByRole("status").textContent).toBe(
+      "Nothing to rename here. If the file just opened, try again in a moment."
+    );
     fireEvent.keyDown(input, { key: "Escape" });
     expect(navigationStore.getState().rename).toBeNull();
   });

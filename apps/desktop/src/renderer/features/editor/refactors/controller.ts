@@ -12,6 +12,16 @@ export interface RefactorState {
   readonly error: string | null;
 }
 
+/**
+ * Whether a draft group needs the user: an unknown, partial or conflicting outcome, or a
+ * multi-file change they may undo. A one-file change applied directly undoes with ⌘Z.
+ */
+export const needsUser = (group: Pick<DraftGroup, "state" | "touched">) =>
+  group.state === "unknown" ||
+  group.state === "partial" ||
+  group.state === "conflict" ||
+  (group.state === "applied" && group.touched.length > 1);
+
 /** Server requests only offer; Accept is an explicit user command on the displayed preview. */
 export class RefactorController {
   readonly state: StoreApi<RefactorState>;
@@ -142,7 +152,7 @@ export class RefactorController {
       (a, b) =>
         Number(a.state === "restored") - Number(b.state === "restored") || b.updatedAt - a.updatedAt
     );
-    this.state.setState({ group: verified[0] ?? null });
+    this.state.setState({ group: verified.find(needsUser) ?? verified[0] ?? null });
   }
 }
 
