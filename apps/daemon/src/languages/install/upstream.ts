@@ -1,5 +1,8 @@
 import sqlServer from "../sql/server.txt" with { type: "text" };
 import { npmDependencies } from "./npmDependencies.ts";
+import { webEvidence } from "./webEvidence.ts";
+import { webDependencies } from "./webDependencies.ts";
+import prismaGuard from "../web/prisma-guard.txt" with { type: "text" };
 import { Schema } from "effect";
 import { upstreamEvidence } from "../catalog/upstreamEvidence.ts";
 import { gunzip, tarEntries } from "./archive.ts";
@@ -14,7 +17,9 @@ export const upstreamLimits = upstreamRuntimeLimits;
 export const pluginGuard =
   'const ts = require("./lib/typescript.js");\nts.sys.require = undefined;\nts.sys.importPlugin = undefined;\n';
 
-const EvidenceKey = Schema.Literals(Object.keys(upstreamEvidence));
+const combinedEvidence = { ...upstreamEvidence, ...webEvidence };
+
+const EvidenceKey = Schema.Literals(Object.keys(combinedEvidence));
 
 /** Pinned upstream archives only; Node retains its executable and licence, never npm or package scripts. */
 export async function decodeUpstream(
@@ -28,15 +33,11 @@ export async function decodeUpstream(
     throw failure("audit-required", "Upstream artifact checksum does not match");
   const key = Schema.decodeUnknownSync(EvidenceKey)(exact.artifact.id);
   // SAFETY: EvidenceKey contains precisely the keys of this bundled evidence map.
-  const evidence = upstreamEvidence[key as keyof typeof upstreamEvidence];
+  const evidence = combinedEvidence[key as keyof typeof combinedEvidence];
   const manifestBytes = Buffer.from(JSON.stringify(evidence.manifest, null, 2) + "\n");
   const isNode = exact.tool.id === "node";
 
-  const prefix = isNode
-    ? `node-v${exact.tool.version}-${exact.platform.os}-${exact.platform.arch}/`
-    : exact.tool.id === "ruff"
-      ? ""
-      : "package/";
+  const prefix = archivePrefix(exact);
 
   if (exact.artifact.format === "binary")
     return {
@@ -64,6 +65,17 @@ export async function decodeUpstream(
         throw failure("install-failed", "Upstream archive has an unexpected root");
 
       return { ...entry, path: entry.path.slice(prefix.length) };
+    });
+
+  if ("dependencies" in evidence)
+    entries.push(...(await webDependencies(evidence.dependencies, exact, signal)));
+
+  if (exact.tool.id === "prisma-language-server")
+    entries.push({
+      path: "prisma-guard.cjs",
+      kind: "file",
+      mode: 0o644,
+      bytes: Buffer.from(prismaGuard),
     });
 
   for (const [path, notice] of Object.entries(evidence.notices))
@@ -111,4 +123,11 @@ function sqlSupplement(toolId: string) {
         },
       ]
     : [];
+}
+
+function archivePrefix(exact: ExactArtifact) {
+  if (exact.tool.id === "node")
+    return `node-v${exact.tool.version}-${exact.platform.os}-${exact.platform.arch}/`;
+
+  return exact.tool.id === "ruff" ? "" : "package/";
 }

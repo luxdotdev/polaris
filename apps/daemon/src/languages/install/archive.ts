@@ -68,11 +68,23 @@ function octal(header: Buffer, start: number, length: number) {
   return value;
 }
 
-function archivePath(header: Buffer, gnu: boolean, longPath?: string) {
+function archivePath(header: Buffer, gnu: boolean, longPath?: string, npm = false) {
   const name = text(header, 0, 100);
 
   if (gnu && header[156] === 76 && name === "././@LongLink") return null;
-  const prefix = gnu ? "" : text(header, 345, 155);
+
+  const legacyNpm =
+    npm &&
+    header.subarray(345, 476).every((byte) => byte === 0) &&
+    header.subarray(476, 500).some((byte) => byte !== 0) &&
+    header.subarray(500).every((byte) => byte === 0);
+
+  if (legacyNpm) {
+    octal(header, 476, 12);
+    octal(header, 488, 12);
+  }
+
+  const prefix = gnu || legacyNpm ? "" : text(header, 345, 155);
   let path = longPath ?? (prefix ? `${prefix}/${name}` : name);
 
   if (header[156] === 53 && path.endsWith("/")) path = path.slice(0, -1);
@@ -97,7 +109,7 @@ function checkType(
     );
 }
 
-function entry(header: Buffer, select?: (path: string) => boolean, longPath?: string) {
+function entry(header: Buffer, select?: (path: string) => boolean, longPath?: string, npm = false) {
   let sum = 0;
 
   for (let index = 0; index < 512; index++)
@@ -111,7 +123,7 @@ function entry(header: Buffer, select?: (path: string) => boolean, longPath?: st
   if (magic !== "ustar" && !(gnu && select !== undefined))
     throw failure("install-failed", "Unsupported archive header format");
   const type = header[156];
-  const path = archivePath(header, gnu, longPath);
+  const path = archivePath(header, gnu, longPath, npm);
   const kind: "directory" | "file" = type === 53 ? "directory" : "file";
 
   checkType(type, path, select);
@@ -150,7 +162,8 @@ export function tarEntries(
   bytes: Uint8Array,
   signal: AbortSignal,
   limits: InstallLimits = defaultLimits,
-  select?: (path: string) => boolean
+  select?: (path: string) => boolean,
+  npm = false
 ) {
   if (bytes.length > limits.expandedBytes + limits.entries * 1024)
     throw failure("too-large", "Archive exceeds expansion and header limits");
@@ -173,7 +186,7 @@ export function tarEntries(
     }
 
     if (++count > limits.entries) throw failure("too-large", "Archive entry count exceeds limit");
-    const parsed = entry(header, select, longPath);
+    const parsed = entry(header, select, longPath, npm);
     expanded += parsed.size;
 
     if (parsed.size > limits.fileBytes || expanded > limits.expandedBytes)

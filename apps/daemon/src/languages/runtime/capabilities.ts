@@ -113,7 +113,13 @@ export function registeredCapabilities(
 ) {
   const methods = new Set(base.methods);
 
-  for (const registration of registrations) methods.add(registration.method);
+  for (const registration of registrations)
+    if (
+      !["workspace/didChangeWorkspaceFolders", "workspace/didChangeConfiguration"].includes(
+        registration.method
+      )
+    )
+      methods.add(registration.method);
 
   return LanguageProviderCapabilities.make({ ...base, methods: [...methods].slice(0, 256) });
 }

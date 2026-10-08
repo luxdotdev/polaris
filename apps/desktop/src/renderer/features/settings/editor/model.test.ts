@@ -14,10 +14,11 @@ const row = (id: string, download = true) => {
 };
 
 describe("languageRows", () => {
-  test("one row per primary server: HTML and CSS share theirs", () => {
+  test("each offered language has a row even with a shared server", () => {
     expect(rows().map((r) => r.name)).toEqual([
       "TypeScript and JavaScript",
-      "CSS and HTML",
+      "HTML",
+      "CSS",
       "Python",
       "Rust",
       "Go",
@@ -28,12 +29,10 @@ describe("languageRows", () => {
     expect(row("typescript-language-server").state).toBe(
       "Ready · uses each project's TypeScript once you trust it"
     );
-    expect(row("vscode-langservers-extracted").state).toBe(
+    expect(row("html").state).toBe(
       "Not downloaded yet · vscode-langservers-extracted arrives with your first .html file"
     );
-    expect(row("vscode-langservers-extracted", false).state).toBe(
-      "Not downloaded yet · downloading is off"
-    );
+    expect(row("html", false).state).toBe("Not downloaded yet · downloading is off");
     expect(row("pyright").state).toBe("Setting up · downloading pyright");
     expect(row("rust-analyzer").state).toBe("Needs cargo on this Mac");
     expect(row("gopls").state).toBe("Couldn't download gopls");

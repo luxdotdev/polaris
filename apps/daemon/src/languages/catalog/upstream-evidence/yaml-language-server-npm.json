@@ -1,0 +1,69 @@
+{
+  "artifactId": "yaml-language-server-npm",
+  "artifactIntegrity": "sha256:11a321032012131f2ccdf7952dc347ce05291c66931a5de2f449b2dfc81f24b2",
+  "coverage": "complete",
+  "notices": [
+    {
+      "path": "notices/a05350a88e318e4f5f2c2a1ff1e2e88daa4dd38e6e78b71cccae422bdc762cc3.txt",
+      "integrity": "sha256:a05350a88e318e4f5f2c2a1ff1e2e88daa4dd38e6e78b71cccae422bdc762cc3"
+    },
+    {
+      "path": "notices/6e737548e1fc84ae35ef356774ab1f764674f9e0f35b80e77dc2e158d5104fa3.txt",
+      "integrity": "sha256:6e737548e1fc84ae35ef356774ab1f764674f9e0f35b80e77dc2e158d5104fa3"
+    },
+    {
+      "path": "notices/4969b0ff94c4f2ad3f1613d95b3966cb4c3147d8b893654aced81029241de176.txt",
+      "integrity": "sha256:4969b0ff94c4f2ad3f1613d95b3966cb4c3147d8b893654aced81029241de176"
+    },
+    {
+      "path": "notices/7bf9b2de73a6b356761c948d0e9eeb4be6c1270bd04c79cd489c1e400ffdfc1a.txt",
+      "integrity": "sha256:7bf9b2de73a6b356761c948d0e9eeb4be6c1270bd04c79cd489c1e400ffdfc1a"
+    },
+    {
+      "path": "notices/b010b0dfdfdb23d7396e03b82cd4621fc9bb8f95d6b0aea70b9c24e12074c786.txt",
+      "integrity": "sha256:b010b0dfdfdb23d7396e03b82cd4621fc9bb8f95d6b0aea70b9c24e12074c786"
+    },
+    {
+      "path": "notices/c3a24c02d678e5f0711623dcf3ab3f243b273c2633f638a1fa8e35fb7c7f8e4d.txt",
+      "integrity": "sha256:c3a24c02d678e5f0711623dcf3ab3f243b273c2633f638a1fa8e35fb7c7f8e4d"
+    },
+    {
+      "path": "notices/d0cd141b0c322fded5dfad1d4645bb2fedfc05b7321fe1009469638190d59ef9.txt",
+      "integrity": "sha256:d0cd141b0c322fded5dfad1d4645bb2fedfc05b7321fe1009469638190d59ef9"
+    },
+    {
+      "path": "notices/b0f2417199889f1c0d28ec4e0244eacf1a15de5819d61f641dd7d8f45153ac9c.txt",
+      "integrity": "sha256:b0f2417199889f1c0d28ec4e0244eacf1a15de5819d61f641dd7d8f45153ac9c"
+    },
+    {
+      "path": "notices/6ee0feb1f6ef996ff5a68600f8cf98909cf412d39ef3cdceaefd87d636fa1b7f.txt",
+      "integrity": "sha256:6ee0feb1f6ef996ff5a68600f8cf98909cf412d39ef3cdceaefd87d636fa1b7f"
+    },
+    {
+      "path": "notices/ec9ee83580841e8eb687aca9867f221503809ba6426c7f876ede17d91b9fcfd0.txt",
+      "integrity": "sha256:ec9ee83580841e8eb687aca9867f221503809ba6426c7f876ede17d91b9fcfd0"
+    },
+    {
+      "path": "notices/c669138cb1eb01fbb745e8e460b291e4f2869c14a40061390b6095d845ed4c82.txt",
+      "integrity": "sha256:c669138cb1eb01fbb745e8e460b291e4f2869c14a40061390b6095d845ed4c82"
+    },
+    {
+      "path": "notices/5bba27375d93e9119f76c1015f7672cf9ad5f70952296e0842fb2243d6376869.txt",
+      "integrity": "sha256:5bba27375d93e9119f76c1015f7672cf9ad5f70952296e0842fb2243d6376869"
+    },
+    {
+      "path": "notices/2a6ebc3c5b441f0aef19c5190d17f5bfc1ab4f729db49fabb2db7d10bd9a6146.txt",
+      "integrity": "sha256:2a6ebc3c5b441f0aef19c5190d17f5bfc1ab4f729db49fabb2db7d10bd9a6146"
+    }
+  ],
+  "evidence": [
+    {
+      "path": "web-yaml-language-server-dependencies.json",
+      "integrity": "sha256:d1d41694d0e2a605fda3c9374de94eceed19f385da936fa62c1532445a829938"
+    },
+    {
+      "path": "runtime-web-review-records.json",
+      "integrity": "sha256:6320996bd9b285e14aaa7c86a7c3b5f755f79024f8a1ffc4a2ec2550cbed7fec"
+    }
+  ]
+}

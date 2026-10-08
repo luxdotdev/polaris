@@ -14,7 +14,7 @@ import {
 import { invalid } from "../trust/checkout.ts";
 import { ancestors, isDirectory, nearest, readText, withDiscoveryBudget } from "./files.ts";
 import { configPlugins, pluginFacts, typescriptSdk } from "./typescript.ts";
-import { projectRoot, prismaFacts, workspaceFacts } from "./roots.ts";
+import { projectRoot, prismaFacts, workspaceFacts, svelteConfiguration } from "./roots.ts";
 import { pythonInterpreter } from "./python.ts";
 import { detectPython, type PythonProbeOptions } from "../python/detection.ts";
 import { interpreterEntry, type createPythonEnvironment } from "../python/environment.ts";
@@ -31,6 +31,7 @@ export interface DiscoveryInput {
   settings: typeof LanguageEffectiveSettings.Type;
   refresh?: boolean;
   useProjectTypeScript?: boolean;
+  workspaceTrusted?: boolean;
 }
 
 const family = (provider: string) =>
@@ -50,6 +51,7 @@ const family = (provider: string) =>
     "vscode-html-language-server": "html",
     "vscode-css-language-server": "css",
     "bash-language-server": "bash",
+    "svelte-language-server": "svelte",
     "sqllens-language-server": "sql",
   })[provider] ?? provider;
 
@@ -205,6 +207,9 @@ async function discover(
       ["sql", "bash"].includes(provider) &&
       custom === undefined &&
       executable === undefined,
+    workspaceTrusted: input.workspaceTrusted === true,
+    managedWeb: bundled && custom === undefined && executable === undefined,
+    svelteConfiguration: await svelteConfiguration(context.root, start, provider),
     managedPython:
       bundled && provider === "python" && custom === undefined && executable === undefined,
     configuration: provider === "typescript" ? configuration : null,
@@ -305,6 +310,7 @@ export function createProjectDiscovery(options: {
         input.providerId,
         input.settings,
         input.useProjectTypeScript ?? false,
+        input.workspaceTrusted ?? false,
       ]);
 
       const cached = cache.get(key);

@@ -1,3 +1,4 @@
+import { workflowPath } from "../web/index.ts";
 import {
   LanguageCatalog,
   LanguagePreflight,
@@ -160,7 +161,12 @@ function makeCore(
       const ids =
         input.settings.settings.providers ??
         catalog.integrations
-          .filter((item) => item.offered && item.languageIds.includes(input.documentLanguageId))
+          .filter(
+            (item) =>
+              item.offered &&
+              item.languageIds.includes(input.documentLanguageId) &&
+              (item.id !== "actions" || workflowPath(input.path))
+          )
           .flatMap((item) => item.providers.map((provider) => provider.id));
 
       const facts = [];
@@ -189,7 +195,13 @@ function makeCore(
 
         projectRoot = found.projectRoot;
 
-        if (providerId === "typescript-language-server")
+        if (
+          [
+            "typescript-language-server",
+            "svelte-language-server",
+            "prisma-language-server",
+          ].includes(providerId)
+        )
           trustRequest = trustStatus(found, observed.trust, trust);
 
         const state =
@@ -337,7 +349,11 @@ function makeCore(
         discovery.discover({
           checkout,
           path,
-          providerId: "typescript-language-server",
+          providerId: path.endsWith(".svelte")
+            ? "svelte-language-server"
+            : path.endsWith(".prisma")
+              ? "prisma-language-server"
+              : "typescript-language-server",
           settings: effectiveSettings(
             { hostId, workspaceId: checkout.workspaceId, language: "typescript" },
             [],

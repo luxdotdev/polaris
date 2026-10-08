@@ -156,6 +156,7 @@ const manifestFailures = (
         "review-records.json",
         "runtime-review-records.json",
         "runtime-sql-shell-review-records.json",
+        "runtime-web-review-records.json",
       ].includes(reference.path)
     )
       continue;
@@ -236,6 +237,7 @@ export const readReviewRecords = (root: string): ReadonlyArray<ReviewRecord> => 
   const runtime = [
     ...decode(readFileSync(join(root, "runtime-review-records.json"), "utf8")),
     ...decode(readFileSync(join(root, "runtime-sql-shell-review-records.json"), "utf8")),
+    ...decode(readFileSync(join(root, "runtime-web-review-records.json"), "utf8")),
   ];
 
   return [
@@ -261,9 +263,11 @@ export const reviewRootFailures = (
 
         const reference = manifest.evidence?.find((file) =>
           tool.distribution === "runtime-upstream"
-            ? ["runtime-review-records.json", "runtime-sql-shell-review-records.json"].includes(
-                file.path
-              )
+            ? [
+                "runtime-review-records.json",
+                "runtime-sql-shell-review-records.json",
+                "runtime-web-review-records.json",
+              ].includes(file.path)
             : file.path === "review-records.json"
         );
 

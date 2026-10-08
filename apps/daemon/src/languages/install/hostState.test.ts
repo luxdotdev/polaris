@@ -239,7 +239,7 @@ test("Host probes inspect standard Python and Rust locations, never execute thei
   }
 });
 
-test("known catalog requirements publish platform-specific commands and TypeScript, Python, SQL and Shell are offered", () => {
+test("known catalog requirements publish platform-specific commands and every managed language is offered", () => {
   expect(
     catalog.integrations.filter((item) => item.offered).flatMap((item) => item.languageIds)
   ).toEqual([
@@ -247,11 +247,21 @@ test("known catalog requirements publish platform-specific commands and TypeScri
     "typescriptreact",
     "javascript",
     "javascriptreact",
+    "json",
+    "jsonc",
+    "html",
+    "css",
+    "scss",
+    "less",
     "python",
     "shellscript",
     "bash",
     "sh",
     "sql",
+    "prisma",
+    "yaml",
+    "yaml",
+    "svelte",
   ]);
 
   const python = catalog.tools

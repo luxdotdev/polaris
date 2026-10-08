@@ -1,4 +1,5 @@
 import { sqlShellLaunch } from "../sql/launch.ts";
+import { webLaunch, webProviders, webTools } from "../web/index.ts";
 import { Match } from "effect";
 import { pythonLaunch } from "../python/launch.ts";
 import { createHostPrerequisiteProbe } from "../install/hostStateProbes.ts";
@@ -75,17 +76,20 @@ export function createManagedDelivery(
       host = value;
     },
     async ensure(settings, admission, signal, providerId = "typescript-language-server") {
-      const tools = Match.value(providerId).pipe(
-        Match.when("basedpyright", () => ["node", "basedpyright"]),
-        Match.when("ruff", () => ["ruff"]),
-        Match.when("bash-language-server", () => ["node", "shfmt", "bash-language-server"]),
-        Match.when("sqllens-language-server", () => [
-          "node",
-          "sql-formatter",
-          "sqllens-language-server",
-        ]),
-        Match.orElse(() => ["node", "typescript", "typescript-language-server"])
-      );
+      const tools =
+        webTools.includes(providerId) || providerId in webProviders
+          ? ["node", webProviders[providerId] ?? providerId]
+          : Match.value(providerId).pipe(
+              Match.when("basedpyright", () => ["node", "basedpyright"]),
+              Match.when("ruff", () => ["ruff"]),
+              Match.when("bash-language-server", () => ["node", "shfmt", "bash-language-server"]),
+              Match.when("sqllens-language-server", () => [
+                "node",
+                "sql-formatter",
+                "sqllens-language-server",
+              ]),
+              Match.orElse(() => ["node", "typescript", "typescript-language-server"])
+            );
 
       for (const toolId of tools) {
         checkAbort(signal);
@@ -123,6 +127,7 @@ export function createManagedDelivery(
       if (["bash-language-server", "sqllens-language-server"].includes(facts.providerId))
         return sqlShellLaunch(facts, installed, node, installation(), pythonHost);
 
+      if (facts.providerId in webProviders) return webLaunch(facts, installed, node);
       const typescript = await installation().current("typescript");
 
       if (node === null || typescript === null)

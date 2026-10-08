@@ -7,11 +7,17 @@ export function trustStatus(
   trust: typeof LanguageTrust.Type,
   service: ExecutionTrustService["Service"]
 ) {
-  const project = facts.sdk !== null || facts.plugins.length > 0;
+  const workspaceTools = [
+    facts.svelteConfiguration === null ? null : "Svelte config and preprocessors",
+    facts.prisma?.config == null ? null : "Prisma config",
+  ].filter((tool): tool is string => tool !== null);
+
+  const project = facts.sdk !== null || facts.plugins.length > 0 || workspaceTools.length > 0;
 
   return LanguageTrustStatus.make({
     trust,
     wouldRun: {
+      workspaceTools,
       typescriptVersion: facts.sdkVersion,
       typescriptPath: facts.sdk,
       native: facts.sdkVersion?.startsWith("7.") === true,
@@ -19,6 +25,10 @@ export function trustStatus(
     },
     ask: project && service.claimAsk(trust),
     provider:
-      trust.trusted && trust.typescriptProvider !== "bundled" && project ? "project" : "bundled",
+      trust.trusted &&
+      project &&
+      (workspaceTools.length > 0 || trust.typescriptProvider !== "bundled")
+        ? "project"
+        : "bundled",
   });
 }

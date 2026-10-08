@@ -1,3 +1,4 @@
+import { webTools } from "../web/index.ts";
 import { realpath } from "node:fs/promises";
 import { join } from "node:path";
 import { Effect, Layer } from "effect";
@@ -72,6 +73,7 @@ export const DefaultLanguageHostHandlers = Layer.unwrap(
               "shfmt",
               "sqllens-language-server",
               "sql-formatter",
+              ...webTools,
             ].includes(exact.tool.id),
             identity: exact.identity,
           }),

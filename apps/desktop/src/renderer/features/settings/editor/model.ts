@@ -26,7 +26,7 @@ export interface Fact {
 }
 
 export interface LanguageRow {
-  /** The primary server's tool: integrations sharing one server share a row. */
+  /** Row identity; web languages remain distinct when they share an installation. */
   readonly id: string;
   readonly name: string;
   readonly monogram: string;
@@ -276,7 +276,10 @@ export const languageRows = (
   const groups = new Map<string, Integration[]>();
 
   for (const integration of catalog.integrations.filter(offered)) {
-    const key = integration.providers[0]?.tool ?? integration.id;
+    const key = ["json", "css", "html", "actions"].includes(integration.id)
+      ? integration.id
+      : (integration.providers[0]?.tool ?? integration.id);
+
     groups.set(key, [...(groups.get(key) ?? []), integration]);
   }
 

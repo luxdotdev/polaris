@@ -213,7 +213,12 @@ export class ServerBridge {
     for (const registration of input.registrations) {
       if (
         !Schema.is(LanguageFeatureMethod)(registration.method) &&
-        !["textDocument/formatting", "textDocument/rangeFormatting"].includes(registration.method)
+        ![
+          "textDocument/formatting",
+          "textDocument/rangeFormatting",
+          "workspace/didChangeWorkspaceFolders",
+          "workspace/didChangeConfiguration",
+        ].includes(registration.method)
       )
         throw failure("unsupported-capability", "Dynamic method is not implemented");
     }

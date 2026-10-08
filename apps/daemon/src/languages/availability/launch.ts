@@ -1,3 +1,4 @@
+import { catalog } from "../catalog/index.ts";
 import { isAbsolute, join, relative } from "node:path";
 import { access, realpath } from "node:fs/promises";
 import { constants } from "node:fs";
@@ -75,10 +76,14 @@ async function verifyPlan(
   const { tool } = descriptor(installed.descriptor, defaultLimits.metadataBytes);
   const artifact = tool.artifacts.find((candidate) => candidate.id === installed.artifactId);
 
+  const providerEntry = catalog.integrations
+    .flatMap((item) => item.providers)
+    .find((provider) => provider.id === facts.providerId && provider.tool === toolId)?.entry;
+
   if (
     !artifact ||
     plan.identity !== installed.identity ||
-    plan.entry !== join(installed.directory, artifact.entry)
+    plan.entry !== join(installed.directory, providerEntry ?? artifact.entry)
   )
     throw failure("audit-required", "Provider launch does not match the installed artifact");
 

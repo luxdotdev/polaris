@@ -1,5 +1,6 @@
 import { createSqlSelection, SqlSelection } from "../sql/selection.ts";
 import { SqlCore } from "../sql/core.ts";
+import { webProviders, webTools } from "../web/index.ts";
 import { PrivateNodeRuntime } from "./privateNode.ts";
 import { createPythonEnvironment, PythonEnvironment } from "../python/environment.ts";
 import { PythonCore } from "../python/core.ts";
@@ -148,6 +149,7 @@ export const languageHostServices = (
                     "typescript-language-server",
                     "basedpyright",
                     "ruff",
+                    ...webTools,
                     "bash-language-server",
                     "sqllens-language-server",
                   ].includes(toolId) &&
@@ -169,6 +171,7 @@ export const languageHostServices = (
                       "typescript-language-server",
                       "basedpyright",
                       "ruff",
+                      ...webTools,
                       "bash-language-server",
                       "sqllens-language-server",
                     ].includes(toolId) &&
@@ -184,6 +187,7 @@ export const languageHostServices = (
                         "typescript-language-server",
                         "basedpyright",
                         "ruff",
+                        ...Object.keys(webProviders),
                         "bash-language-server",
                         "sqllens-language-server",
                       ].includes(request.facts.providerId) &&
