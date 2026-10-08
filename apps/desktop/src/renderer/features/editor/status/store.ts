@@ -25,6 +25,14 @@ export interface FileLanguage {
   readonly providers: readonly Discovered[];
   /** The contexts this file's providers acquired, by provider id. */
   readonly contexts: Readonly<Record<string, string>>;
+  /** The project's own formatter, and whether the checkout was trusted when it was found. */
+  readonly formatter?: ProjectFormatting | null;
+}
+
+export interface ProjectFormatting {
+  readonly tool: P.LanguageProjectFormatterTool;
+  readonly ignored: boolean;
+  readonly trusted: boolean;
 }
 
 export interface ContextRuntime {
@@ -92,7 +100,19 @@ export const statusChecking = (key: string, checkout: P.LanguageCheckout) =>
   patchFile(key, { phase: "checking", checkout, failure: null, contexts: {} });
 
 export const statusDiscovered = (key: string, found: typeof P.LanguageDiscovery.Type) =>
-  patchFile(key, { phase: "discovered", checkout: found.checkout, providers: found.providers });
+  patchFile(key, {
+    phase: "discovered",
+    checkout: found.checkout,
+    providers: found.providers,
+    formatter:
+      found.projectFormatter === undefined || found.projectFormatter === null
+        ? null
+        : {
+            tool: found.projectFormatter.tool,
+            ignored: found.projectFormatter.ignored,
+            trusted: found.trust.trusted,
+          },
+  });
 
 export const statusFailed = (key: string, failure: DiscoveryFailure) =>
   patchFile(key, { phase: "failed", failure });

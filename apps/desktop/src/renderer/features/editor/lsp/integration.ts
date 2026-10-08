@@ -11,13 +11,11 @@ import { previewDocument } from "../runtime/markdown.ts";
 import { applyBufferLanguage } from "../runtime/buffers.ts";
 import { fileKey } from "../model/drafts.ts";
 import { languageFor, type LanguageId } from "../model/language.ts";
-import * as formats from "../formatting/bridge.ts";
-import { formattedText } from "../formatting/edits.ts";
+import { bindEntryFormatter } from "./formatting.ts";
 import { LanguageFeatures } from "./features.ts";
 import { LanguageDiagnosticFeed, cmDiagnostics } from "./diagnostics.ts";
 import { completionSource, hoverExtension } from "./codemirror.ts";
-import { bufferText, documentLanguageId, type LanguageBuffer } from "./types.ts";
-import { providerFence } from "./requests.ts";
+import { documentLanguageId, type LanguageBuffer } from "./types.ts";
 import { readLanguageConfiguration } from "./configuration.ts";
 import { pruneLanguageGroups, admitLanguageGroup } from "./groups.ts";
 import { EditorLanguageObservations } from "./observations.ts";
@@ -463,57 +461,21 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
     await Promise.all(entry.groups.map((group) => group.ready()));
 
     if (!current()) return;
-    const settings = found.effectiveSettings;
-    entry.unformat = formats.bindFormatter(file, {
-      canFormat: () => formats.formatsDocuments(entry.features.options.providers()),
-      settings: async () => ({
-        formatOnSave: settings.formatOnSave,
-        formatter: settings.formatter,
-      }),
-      format: async (snapshot, formatter, signal) => {
+    entry.unformat = bindEntryFormatter({
+      file,
+      api,
+      checkout,
+      found,
+      features: entry.features,
+      ready: async () => {
         await Promise.all(entry.groups.map((group) => group.ready()));
-
-        if (
-          signal.aborted ||
-          !current() ||
-          snapshot.diskVersion === null ||
-          snapshot.version !== entry.input.revision() ||
-          snapshot.text !== bufferText(entry.read())
-        )
-          throw new Error("Formatter document changed.");
-        const providers = entry.features.options.providers();
-
-        const provider = formats.formattingProvider(formatter, providers);
-
-        if (provider === null) return snapshot.text;
-        const buffer = entry.read();
-
-        const outcome = await entry.features.format(
-          provider,
-          P.LanguageFormatPreflight.make({
-            requestId: `format-${crypto.randomUUID()}`,
-            fence: providerFence(provider, buffer),
-            document: { uri: buffer.uri, version: buffer.version },
-            snapshot: snapshot.text,
-            expectedDiskVersion: snapshot.diskVersion,
-            ...formats.formatterRequest(formatter, provider.context.providerId, snapshot.indent),
-            reason: snapshot.reason,
-            deadline: Date.now() + 5000,
-          }),
-          signal
-        );
-
-        return Match.value(outcome).pipe(
-          Match.tag("Formatted", (value) =>
-            formattedText(snapshot.text, value.edits, provider.capabilities.positionEncoding)
-          ),
-          Match.tag("Skipped", () => snapshot.text),
-          Match.tag("Failed", (value) => {
-            throw new Error(value.message);
-          }),
-          Match.exhaustive
-        );
       },
+      read: entry.read,
+      revision: entry.input.revision,
+      current,
+      workspace: () =>
+        this.app().hostModels[file.hostKey]?.workspaces.get(checkout.workspaceId)?.name ??
+        "this workspace",
     });
   }
 

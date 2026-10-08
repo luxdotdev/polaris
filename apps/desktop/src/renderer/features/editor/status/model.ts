@@ -460,7 +460,48 @@ const bundledWhy = (input: StatusInput, trust: TrustStatus) => {
     : `You haven't trusted ${input.workspace}, so its own ${own} and tsconfig plugins don't run. Results may differ from tsc.`;
 };
 
-const ready = (input: StatusInput, runtime: ContextRuntime): StatusView => {
+/** The project's own formatter for this file, unless its ignore files exclude it. */
+const projectFormatting = (input: StatusInput) => {
+  const formatter = input.file?.formatter;
+
+  if (formatter === undefined || formatter === null || formatter.ignored) return null;
+
+  return { tool: formatter.tool, trusted: input.trust?.trust.trusted ?? formatter.trusted };
+};
+
+const formatterFacts = (input: StatusInput): Fact[] => {
+  const formatting = projectFormatting(input);
+
+  if (formatting === null) return [];
+
+  return [
+    {
+      label: "Formatter",
+      value: formatting.tool,
+      mono: true,
+      note: formatting.trusted ? "from this project" : "needs Trust",
+    },
+  ];
+};
+
+/** Untrusted, the project's formatter doesn't run, and nothing formats in its place. */
+const withFormatting = (input: StatusInput, view: StatusView): StatusView => {
+  const formatting = projectFormatting(input);
+
+  if (formatting === null || formatting.trusted) return view;
+  const trust: StatusAction = { id: "trust", label: `Trust ${input.workspace}…` };
+
+  return {
+    ...view,
+    why: `${view.why} Formatting uses ${formatting.tool} once you trust ${input.workspace}.`,
+    actions:
+      input.trust === null || view.actions.some((action) => action.id === "trust")
+        ? view.actions
+        : [trust, ...view.actions],
+  };
+};
+
+const readyView = (input: StatusInput, runtime: ContextRuntime): StatusView => {
   const providerId = runtime.context.providerId;
   const b = base(input, providerId);
   const trust = providerId === TS ? input.trust : null;
@@ -470,6 +511,7 @@ const ready = (input: StatusInput, runtime: ContextRuntime): StatusView => {
   const facts: Fact[] = [
     ...typescriptFacts(input, trust),
     serverFact(input, provider, runtime),
+    ...formatterFacts(input),
     { label: "Host", value: input.host },
     ...(trust === null ? [] : [{ label: "Trust", value: trustText(input, trust) }]),
   ];
@@ -492,6 +534,9 @@ const ready = (input: StatusInput, runtime: ContextRuntime): StatusView => {
       : [b.restart, ...typescriptActions(input, trust), b.log, b.settings],
   };
 };
+
+const ready = (input: StatusInput, runtime: ContextRuntime): StatusView =>
+  withFormatting(input, readyView(input, runtime));
 
 const runtimeView = (input: StatusInput, current: ContextRuntime): StatusView => {
   const providerId = current.context.providerId;

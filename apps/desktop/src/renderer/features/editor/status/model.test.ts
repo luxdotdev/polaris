@@ -186,3 +186,62 @@ describe("language status pill", () => {
     expect(view.kind).toBe("setting-up");
   });
 });
+
+describe("the project's formatter", () => {
+  const formatter = (trusted: boolean, ignored = false) =>
+    ({ tool: "oxfmt", ignored, trusted }) as const;
+
+  test("untrusted: says the project's formatter waits for Trust, and offers it", () => {
+    const view = statusView(
+      input({ trust: trust("declined", "bundled"), file: file({ formatter: formatter(false) }) })
+    );
+
+    expect(view.why).toEndWith("Formatting uses oxfmt once you trust polaris.");
+    expect(view.facts).toContainEqual({
+      label: "Formatter",
+      value: "oxfmt",
+      mono: true,
+      note: "needs Trust",
+    });
+    expect(ids(view).filter((id) => id === "trust")).toEqual(["trust"]);
+  });
+
+  test("untrusted with the project's TypeScript bundled still leads with Trust", () => {
+    const view = statusView(
+      input({
+        trust: trust("undecided", "bundled", null),
+        file: file({ formatter: formatter(false) }),
+      })
+    );
+
+    expect(view.why).toEndWith("Formatting uses oxfmt once you trust polaris.");
+    expect(ids(view)[0]).toBe("trust");
+  });
+
+  test("trusted: the formatter is a fact, nothing to do", () => {
+    const view = statusView(
+      input({ trust: trust("trusted", "project"), file: file({ formatter: formatter(true) }) })
+    );
+
+    expect(view.why).not.toContain("Formatting uses");
+    expect(view.facts).toContainEqual({
+      label: "Formatter",
+      value: "oxfmt",
+      mono: true,
+      note: "from this project",
+    });
+    expect(ids(view)).not.toContain("trust");
+  });
+
+  test("a file the project's ignore files exclude shows no formatter", () => {
+    const view = statusView(
+      input({
+        trust: trust("declined", "bundled"),
+        file: file({ formatter: formatter(false, true) }),
+      })
+    );
+
+    expect(view.why).not.toContain("Formatting uses");
+    expect(view.facts.map((fact) => fact.label)).not.toContain("Formatter");
+  });
+});
