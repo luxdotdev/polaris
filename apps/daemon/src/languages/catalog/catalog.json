@@ -40,7 +40,7 @@
           "bundle": null,
           "audit": "verified",
           "auditReason": "Pinned upstream archive; retained upstream license",
-          "auditRoot": "sha256:57c5dd824a71fc005b63891bbebdce49ab39725ab9242c773d89202b0c8fa4e7"
+          "auditRoot": "sha256:ffd3b2520cbac85ce62f684a3f61fe1cc96ddbe101bf82d7ca789b08f688bc33"
         }
       ],
       "requirements": [
@@ -106,7 +106,7 @@
           "bundle": "vscode-langservers-extracted",
           "audit": "verified",
           "auditReason": "",
-          "auditRoot": "sha256:b999f2ee8037efdfa2859efbb014c011f653425d118376333457d5b5b88b8511"
+          "auditRoot": "sha256:6b07e3edd3912fd6fe9f0127acf33be4f40896effe9cb09485f886dfaf800a1d"
         }
       ],
       "requirements": [
@@ -172,7 +172,7 @@
           "bundle": "pyright",
           "audit": "verified",
           "auditReason": "",
-          "auditRoot": "sha256:ac1b0d48e7cf5cea49ad56ac4fb6f6f87c62f5f492aae8027bf539c61b32a39b"
+          "auditRoot": "sha256:4962b3332c1fa208deb011a55e51943af5d17370131ad292ea9228e124c870b1"
         }
       ],
       "requirements": [
@@ -316,7 +316,7 @@
           "bundle": "bash-language-server",
           "audit": "pending",
           "auditReason": "minimatch@10.2.6: license-review:BlueOak-1.0.0",
-          "auditRoot": "sha256:556813804478379e121d4a24cdcf5303919cfac9ea7a6fc2ef3cf86072f00c0c"
+          "auditRoot": "sha256:706147959d1a4beebc6b864d3b24b94331b6da425f942fa7d623fc8658c86bd6"
         }
       ],
       "requirements": [
@@ -448,7 +448,7 @@
           "bundle": "@prisma_language-server",
           "audit": "verified",
           "auditReason": "",
-          "auditRoot": "sha256:35705c9156f3c2b0f45888b703d108860a56d4c685517e71fbff98636c90ea4c"
+          "auditRoot": "sha256:8bc3007afe6009d379b6a7167f9eb2c699d2d1417fb5a9f2c878c1c3b7fd4ddd"
         }
       ],
       "requirements": [
@@ -514,7 +514,7 @@
           "bundle": "yaml-language-server",
           "audit": "verified",
           "auditReason": "",
-          "auditRoot": "sha256:6454c6a8aac98ea609e018f53633f5549f40c2563915343c7de02957269db508"
+          "auditRoot": "sha256:5d03b330bebf21bd75b4ce2cf54a7f55fbf3e967bad867f226b6c8510b8d778b"
         }
       ],
       "requirements": [
@@ -580,7 +580,7 @@
           "bundle": "@actions_languageserver",
           "audit": "verified",
           "auditReason": "",
-          "auditRoot": "sha256:6ab94bff8f02092ed514719e7764c0798745d52e8cf93f1453161e0242f15a2c"
+          "auditRoot": "sha256:e90519fe728488a8ccd3ed8b3fcac054e517357a8897750bb72ba1350bf8d9c5"
         }
       ],
       "requirements": [
@@ -646,7 +646,7 @@
           "bundle": "prettier",
           "audit": "verified",
           "auditReason": "",
-          "auditRoot": "sha256:97a61e79e0191725765ac302d3abad441f6bd14eea54769a8e01a0b5762c2ae9"
+          "auditRoot": "sha256:bc3cdbc3ab71f470a035c17b953a6ca086bd398a87dd5d7113687f234009ee24"
         }
       ],
       "requirements": [
@@ -683,11 +683,11 @@
               "libc": "none"
             }
           ],
-          "entry": "ruff",
+          "entry": "ruff-aarch64-apple-darwin/ruff",
           "bundle": null,
-          "audit": "pending",
-          "auditReason": "Static musl/compiler runtime notice and exact vendor closure is not yet established for every shipped platform.",
-          "auditRoot": "sha256:ec60fca1356bbb546a443a7df6cd5c7e4fc9913277c52edf2ae8194f6236670c"
+          "audit": "verified",
+          "auditReason": "Runtime upstream download: MIT license and release notices retained (ADR-0022).",
+          "auditRoot": "sha256:5e1ad9c396c752f0d1b9fe8a4f8cad0eaed5e066a08ad4c2e3ac71e38bfe0859"
         },
         {
           "id": "ruff-aarch64-unknown-linux-gnu.tar.gz",
@@ -701,11 +701,11 @@
               "libc": "glibc"
             }
           ],
-          "entry": "ruff",
+          "entry": "ruff-aarch64-unknown-linux-gnu/ruff",
           "bundle": null,
-          "audit": "pending",
-          "auditReason": "Static musl/compiler runtime notice and exact vendor closure is not yet established for every shipped platform.",
-          "auditRoot": "sha256:0403ba679d1cd9738d107827644d7c15849f4962ad82a439a9dca32abf42a143"
+          "audit": "verified",
+          "auditReason": "Runtime upstream download: MIT license and release notices retained (ADR-0022).",
+          "auditRoot": "sha256:f1a965d25bff6cb08e54719508f8d1a726eabcc017adb9f0c967bd3cb5ea2f5f"
         },
         {
           "id": "ruff-aarch64-unknown-linux-musl.tar.gz",
@@ -719,11 +719,11 @@
               "libc": "musl"
             }
           ],
-          "entry": "ruff",
+          "entry": "ruff-aarch64-unknown-linux-musl/ruff",
           "bundle": null,
-          "audit": "pending",
-          "auditReason": "Static musl/compiler runtime notice and exact vendor closure is not yet established for every shipped platform.",
-          "auditRoot": "sha256:133828471f7f4d16e7a8520dd7478b32cb837f66dabaa7ef329160daee2ddd3c"
+          "audit": "verified",
+          "auditReason": "Runtime upstream download: MIT license and release notices retained (ADR-0022).",
+          "auditRoot": "sha256:934e28d05fa6ffaf115596d0b12859ccd61284a86fef515618f475294fa4f240"
         },
         {
           "id": "ruff-x86_64-apple-darwin.tar.gz",
@@ -737,11 +737,11 @@
               "libc": "none"
             }
           ],
-          "entry": "ruff",
+          "entry": "ruff-x86_64-apple-darwin/ruff",
           "bundle": null,
-          "audit": "pending",
-          "auditReason": "Static musl/compiler runtime notice and exact vendor closure is not yet established for every shipped platform.",
-          "auditRoot": "sha256:c1ae4307f6a5ae17aed2b49011b804a73b6691a29d78011b134b1ff95f7de0cb"
+          "audit": "verified",
+          "auditReason": "Runtime upstream download: MIT license and release notices retained (ADR-0022).",
+          "auditRoot": "sha256:3caf5003887f477bb2271ca49b604ca0a4ea67f555e095978c8085498b03e19c"
         },
         {
           "id": "ruff-x86_64-unknown-linux-gnu.tar.gz",
@@ -755,11 +755,11 @@
               "libc": "glibc"
             }
           ],
-          "entry": "ruff",
+          "entry": "ruff-x86_64-unknown-linux-gnu/ruff",
           "bundle": null,
-          "audit": "pending",
-          "auditReason": "Static musl/compiler runtime notice and exact vendor closure is not yet established for every shipped platform.",
-          "auditRoot": "sha256:ce8a7fff666eff9aa8ffebad87c663f07234463e39f3cf3b8977622deb07d01f"
+          "audit": "verified",
+          "auditReason": "Runtime upstream download: MIT license and release notices retained (ADR-0022).",
+          "auditRoot": "sha256:fbf28c65fe7cb17398135e6fe1e4d1b8d234a2601829d0ddeb0516301547d106"
         },
         {
           "id": "ruff-x86_64-unknown-linux-musl.tar.gz",
@@ -773,20 +773,20 @@
               "libc": "musl"
             }
           ],
-          "entry": "ruff",
+          "entry": "ruff-x86_64-unknown-linux-musl/ruff",
           "bundle": null,
-          "audit": "pending",
-          "auditReason": "Static musl/compiler runtime notice and exact vendor closure is not yet established for every shipped platform.",
-          "auditRoot": "sha256:13920362808ebb8835edd7f236f367ac0392d44ce8c52ad608b488f295f4cb17"
+          "audit": "verified",
+          "auditReason": "Runtime upstream download: MIT license and release notices retained (ADR-0022).",
+          "auditRoot": "sha256:4f707438172d8b4504a16326939e98a9bb622625fc3e421df6ad08e567b1be38"
         }
       ],
       "requirements": [
         {
           "id": "python-interpreter",
           "scope": "project",
-          "executable": "python",
+          "executable": "Python",
           "version": "present",
-          "detail": "Selected project interpreter; Ruff binary does not embed/install Python",
+          "detail": "No .venv or uv environment, and no Host python3 was found.",
           "required": true,
           "installCommands": [
             {
@@ -862,7 +862,8 @@
       ],
       "argv": ["server"],
       "environment": {},
-      "limitations": []
+      "limitations": ["Python is a detected prerequisite, never installed by Polaris."],
+      "distribution": "runtime-upstream"
     },
     {
       "id": "rust-analyzer",
@@ -887,7 +888,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "Compiler runtime/vendor closure and musl loader prerequisite packaging need exact scoped resolution.",
-          "auditRoot": "sha256:7c28e9289e9d1ade3d8b4345c0ca95ab1bd52e8c73a7ad703fdabf85001803bb"
+          "auditRoot": "sha256:a51bc9ed1d88969596b3c5bbbba960ed782c71011c37bd8011cc6fd017d54d59"
         },
         {
           "id": "rust-analyzer-aarch64-unknown-linux-gnu.gz",
@@ -905,7 +906,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "Compiler runtime/vendor closure and musl loader prerequisite packaging need exact scoped resolution.",
-          "auditRoot": "sha256:7ef2ff9f604f1df7c1ac88c469eec97b1e0f4f24eadfec1731be65702d25e798"
+          "auditRoot": "sha256:1d4bffb39dd7e521ba55f9b546b2769720abe54bd8ed67873b3b03e0645bc636"
         },
         {
           "id": "rust-analyzer-x86_64-apple-darwin.gz",
@@ -923,7 +924,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "Compiler runtime/vendor closure and musl loader prerequisite packaging need exact scoped resolution.",
-          "auditRoot": "sha256:e0b422b6769c15f76a1984776cc9a82a64a211a94f4c602389a1617c17ab1f00"
+          "auditRoot": "sha256:e5b3b8973389876cc7c66bd14a3b2bdd07b24e1a15ea242361606349d9156179"
         },
         {
           "id": "rust-analyzer-x86_64-unknown-linux-gnu.gz",
@@ -941,7 +942,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "Compiler runtime/vendor closure and musl loader prerequisite packaging need exact scoped resolution.",
-          "auditRoot": "sha256:1abc5dcd3deb0d3199659f1be4bbd3e1154d0cbcf7055f9311ace756234d10fe"
+          "auditRoot": "sha256:a03368656c85d26bba5753145df03431ee550898f22612f5fd84c116c8cfe462"
         },
         {
           "id": "rust-analyzer-x86_64-unknown-linux-musl.gz",
@@ -959,7 +960,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "Compiler runtime/vendor closure and musl loader prerequisite packaging need exact scoped resolution.",
-          "auditRoot": "sha256:1e61e7086e28d5c96f49a39420b1f5a0d9f08d02b88db063ec879d45199bc6c3"
+          "auditRoot": "sha256:54763e93656fff109b2114cbef8039c9df4028cb8ddded9dc1d36b68dfa9a8ab"
         }
       ],
       "requirements": [
@@ -1129,7 +1130,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "Exact source/legal evidence for retained vendor code and published Linux static compiler/runtime closure remains unverified; Lua runtime legal comments are retained and do not certify which other libraries were embedded.",
-          "auditRoot": "sha256:e484125b0f9238e7b694eed6fee2f56502f20e8edc7b7bb3155bdb10f42d38f1",
+          "auditRoot": "sha256:31cd05c4e7cff9adcb39ff491c83b4f8829639cc18aa1d3150cfff02e4f2db87",
           "packaging": {
             "filter": "lua-core-v1",
             "sourceIntegrity": "sha256:0bc077f4447f076b4c92c14e9fd303f5b569eda2ec74b4dca2b55f75fae2e90c",
@@ -1155,7 +1156,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "Exact source/legal evidence for retained vendor code and published Linux static compiler/runtime closure remains unverified; Lua runtime legal comments are retained and do not certify which other libraries were embedded.",
-          "auditRoot": "sha256:254d3c2c07548e945d484f701abb7536cf8ea97d94647cb1882c6aea5970288b",
+          "auditRoot": "sha256:4f8dc617f4ef093bf3f6bc9d3c1e64044db77d2ff1acb1b250b2da9d0a720cf0",
           "packaging": {
             "filter": "lua-core-v1",
             "sourceIntegrity": "sha256:eb373c159cbe556711d7cd316315de2dce969bfd54b31edb7eb9cab2937f2cca",
@@ -1181,7 +1182,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "Exact source/legal evidence for retained vendor code and published Linux static compiler/runtime closure remains unverified; Lua runtime legal comments are retained and do not certify which other libraries were embedded.",
-          "auditRoot": "sha256:3bb46ebdf1c0b4c4c0af2770dd52b33fab43028566569169c2cbb22b7127dac4",
+          "auditRoot": "sha256:d47c4c961a5205232ef6cfd20d9d874913e55300d8f6befb7b1c96e604edd6b7",
           "packaging": {
             "filter": "lua-core-v1",
             "sourceIntegrity": "sha256:abd2572e8fc929dc838a81ffb8473c5bce0bf39bfe8edb4b120b3b623176ce83",
@@ -1207,7 +1208,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "Exact source/legal evidence for retained vendor code and published Linux static compiler/runtime closure remains unverified; Lua runtime legal comments are retained and do not certify which other libraries were embedded.",
-          "auditRoot": "sha256:e607bc80aefbce4983abe3f32964283d142d8ed11188e56aa74743feed15a783",
+          "auditRoot": "sha256:c04dd51c26f8288cbf18b56d93dba6691eadd963c619990a6535c8efa55a4e07",
           "packaging": {
             "filter": "lua-core-v1",
             "sourceIntegrity": "sha256:e9235d2d72ef55bc41cf8c99cda2ed64777682024b4bb81f5dea425060c5cbb8",
@@ -1256,7 +1257,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "A1 review required for exact artifact, dependency notices and source-delivery record",
-          "auditRoot": "sha256:cca296123d803d3f488683c03863f8c368aa413769c5809d377e7f41bc308d18"
+          "auditRoot": "sha256:ed8647e73038644ea38f08dd2de36295b730116917a0fb59e3a45ca6336436df"
         },
         {
           "id": "shfmt_v3.14.1_darwin_arm64",
@@ -1274,7 +1275,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "A1 review required for exact artifact, dependency notices and source-delivery record",
-          "auditRoot": "sha256:f389d908396f17687ba675071bfb990895e4a2838afab2864bf69b8ed782cb1b"
+          "auditRoot": "sha256:c6e62fedd059f6c2b513f38b86a250bbb7148ab01d59393f8abad0709d2cafa6"
         },
         {
           "id": "shfmt_v3.14.1_linux_amd64",
@@ -1297,7 +1298,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "A1 review required for exact artifact, dependency notices and source-delivery record",
-          "auditRoot": "sha256:c5436d858ab3a31315564d12449ca9c6e1dd830e01f5ede724c2c9b2dddd2a97"
+          "auditRoot": "sha256:eb944c289da3fad96e98d8aaba3d6f609046da22ff555132df76d513c7b39db2"
         },
         {
           "id": "shfmt_v3.14.1_linux_arm64",
@@ -1320,7 +1321,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "A1 review required for exact artifact, dependency notices and source-delivery record",
-          "auditRoot": "sha256:c2b7397393c785e07b29402e4db26ca8b7183a1395a6dc518157f41afdb9ad8b"
+          "auditRoot": "sha256:e2adcb6a52ffbf56847383ff749f36bfe4a1ffe26c597a97873416caf4e4dcc8"
         }
       ],
       "requirements": [],
@@ -1351,7 +1352,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "Published binaries lack verified exact compiler/dependency/runtime corresponding-source closure.; No authorized existing GHC/Cabal toolchain fixture; proposed source-build solver/build/runtime closure remains unverified.",
-          "auditRoot": "sha256:7aa6152b9365995e094084ecfdd1ad7707aaf55149701a5b0ff24d89f3f76c97"
+          "auditRoot": "sha256:0972697d9dfafb846251e4eac528cac1ef28ac78744f08054337314f8a1607df"
         },
         {
           "id": "shellcheck-v0.11.0.darwin.x86_64.tar.gz",
@@ -1369,7 +1370,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "Published binaries lack verified exact compiler/dependency/runtime corresponding-source closure.; No authorized existing GHC/Cabal toolchain fixture; proposed source-build solver/build/runtime closure remains unverified.",
-          "auditRoot": "sha256:08eff166344df2f17df092391f2c4fb16da57a096ec397db500043bbab030daf"
+          "auditRoot": "sha256:ed72572b9d0bc4bb6cb734e0d1af6fd5e12c646f9b1c6056243efdce0a412222"
         },
         {
           "id": "shellcheck-v0.11.0.linux.aarch64.tar.gz",
@@ -1387,7 +1388,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "Published binaries lack verified exact compiler/dependency/runtime corresponding-source closure.; No authorized existing GHC/Cabal toolchain fixture; proposed source-build solver/build/runtime closure remains unverified.",
-          "auditRoot": "sha256:eda56b2bac4a2eb1f1bade108ee3756a2045d38df006066365f719b4cb07588a"
+          "auditRoot": "sha256:ca8228871f95560153f24f49cec96f30896d904e655da5eb4cc4ce4d99624534"
         },
         {
           "id": "shellcheck-v0.11.0.linux.x86_64.tar.gz",
@@ -1405,7 +1406,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "Published binaries lack verified exact compiler/dependency/runtime corresponding-source closure.; No authorized existing GHC/Cabal toolchain fixture; proposed source-build solver/build/runtime closure remains unverified.",
-          "auditRoot": "sha256:5020387a13f74c4607789724b75a9ab8aca8e95a9a14914648f71ed8dec05e0f"
+          "auditRoot": "sha256:2b7a7b303456c28aa58d227e617fe775bd35c5fb67bff17b0a176d5d5572d213"
         }
       ],
       "requirements": [],
@@ -1461,7 +1462,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "A1 review required for exact artifact, dependency notices and source-delivery record",
-          "auditRoot": "sha256:a95972ca5445da3d364a21b02f84cb69818c702ddc64a1f505414d9e73b424b1"
+          "auditRoot": "sha256:087707dfd98517ea5cbb21bb807fe59c411ed8869cbcae376e150f465d8bca89"
         }
       ],
       "requirements": [
@@ -1555,7 +1556,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "The 114 top-level JAR source records do not cover all nested JARs or native libraries. Recursive release inventory, exact nested Maven/shaded source and legal declarations, JNA/Jansi/Eclipse native closure and source/notice delivery remain unverified.",
-          "auditRoot": "sha256:1a80d7cdd1c0ae5e79edab24acd97de9735df4cf54b2ccbb89fe5e5ab5b25e6c"
+          "auditRoot": "sha256:453fb75b8b37744e1add86cf2319a99a703d59b889c9112756c8ed1e08d93602"
         }
       ],
       "requirements": [
@@ -1630,7 +1631,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "A1 review required for exact artifact, dependency notices and source-delivery record",
-          "auditRoot": "sha256:6d0bd93a44f6d025b16b7ff154c5f8c4fb1456324035dbabb9d736f07edb2b1b"
+          "auditRoot": "sha256:1d71664c5158ada8e437584ba297235a0365d3ba2fae53258d652b0a7e11cf43"
         }
       ],
       "requirements": [
@@ -1701,7 +1702,7 @@
           "bundle": "sql-formatter",
           "audit": "pending",
           "auditReason": "argparse@2.0.1: license-review:Python-2.0; railroad-diagrams@1.0.0: license-review:CC0-1.0",
-          "auditRoot": "sha256:fe6acacc87de775d9b26142700a36bef8f90babd90ea963cf962d8a6bae4d5f2"
+          "auditRoot": "sha256:3f2d7db2b6988f19357690902d32222129bffe63966e0afcf266c6122b930e4e"
         }
       ],
       "requirements": [
@@ -1767,7 +1768,7 @@
           "bundle": "sqllens-language-server",
           "audit": "pending",
           "auditReason": "minimatch@10.2.6: license-review:BlueOak-1.0.0",
-          "auditRoot": "sha256:fa15b807e7838fcc693c4006e2a63fed6bdcff8fe597c6bac970ce593e78576c"
+          "auditRoot": "sha256:d5106e10aa31e3519101e0486bd0507f2ffb8017c666885333fe8826d3747848"
         }
       ],
       "requirements": [
@@ -1810,7 +1811,7 @@
           "bundle": null,
           "audit": "verified",
           "auditReason": "Pinned upstream archive; retained upstream license",
-          "auditRoot": "sha256:40dcb7c96c13b0d0fd302481f1553b13c7436f92c8c64772353cddef6a6b4616"
+          "auditRoot": "sha256:31a71891d78e3921d768c58937d98d58c1cdea8d301aa304abc8564739d10212"
         },
         {
           "id": "node-darwin-x64",
@@ -1828,7 +1829,7 @@
           "bundle": null,
           "audit": "verified",
           "auditReason": "Pinned upstream archive; retained upstream license",
-          "auditRoot": "sha256:c7494fecace268475ec7d88ade6adb48c0c0881e5b844c5cbb3a222019a06ef8"
+          "auditRoot": "sha256:37267d51632baec3a5493a7d3751e9d0e6ddd36c2df275b20b1b959cde26df06"
         },
         {
           "id": "node-linux-arm64",
@@ -1846,7 +1847,7 @@
           "bundle": null,
           "audit": "verified",
           "auditReason": "Pinned upstream archive; retained upstream license",
-          "auditRoot": "sha256:c146752860725a2ea4432e6d53936b385a1ad68a99703ac53975c89d37e85708"
+          "auditRoot": "sha256:dc58a1f0d3aec6b4b85880cab4819df28b8842a2075fe0f8de4ca900a1aa6620"
         },
         {
           "id": "node-linux-x64",
@@ -1864,7 +1865,7 @@
           "bundle": null,
           "audit": "verified",
           "auditReason": "Pinned upstream archive; retained upstream license",
-          "auditRoot": "sha256:2652c6eaa462a056d988083b91934f968ed85dca334108e18c9e074f1ff1770e"
+          "auditRoot": "sha256:1f6d8f3da81ebbbc3d737b4b58e2169e156d4965f70f3eee62ba45e23b0ddde0"
         }
       ],
       "requirements": [],
@@ -1910,13 +1911,160 @@
           "bundle": null,
           "audit": "verified",
           "auditReason": "Pinned upstream archive; retained upstream license",
-          "auditRoot": "sha256:426c2010dafcf05336ce0fa7b0c5207511c0cc5ad222c87091808c51ec05bda1"
+          "auditRoot": "sha256:8d862e4399f5115da6480b0f77f62cc69e1a13c7026cc44b311f16b919c8b501"
         }
       ],
       "requirements": [],
       "argv": [],
       "environment": {},
       "limitations": []
+    },
+    {
+      "id": "basedpyright",
+      "disposition": "offered",
+      "version": "1.40.2",
+      "source": "https://github.com/DetachHead/basedpyright/releases/tag/v1.40.2",
+      "license": "MIT",
+      "artifacts": [
+        {
+          "id": "basedpyright-npm",
+          "format": "npm",
+          "url": "https://registry.npmjs.org/basedpyright/-/basedpyright-1.40.2.tgz",
+          "integrity": "sha256:5d1073a0e61a1adc6b40b2bed4489017aa5c1336aa8e6fdcb7157b9bf26f3fab",
+          "platforms": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "libc": "none"
+            },
+            {
+              "os": "darwin",
+              "arch": "x64",
+              "libc": "none"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "musl"
+            },
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "musl"
+            }
+          ],
+          "entry": "langserver.index.js",
+          "bundle": null,
+          "audit": "verified",
+          "auditReason": "Runtime upstream download: MIT license and release notices retained (ADR-0022).",
+          "auditRoot": "sha256:ea0d92530fc11b3fc65d08711ed085ca794937cc82aab1555d1667dc0bd77ddd"
+        }
+      ],
+      "requirements": [
+        {
+          "id": "node",
+          "scope": "server",
+          "executable": "node",
+          "version": ">=22.22.2",
+          "detail": "Polaris-managed private Node; Workspace Node is never used.",
+          "required": true,
+          "installCommands": []
+        },
+        {
+          "id": "python-interpreter",
+          "scope": "project",
+          "executable": "Python",
+          "version": "present",
+          "detail": "No .venv or uv environment, and no Host python3 was found.",
+          "required": true,
+          "installCommands": [
+            {
+              "platforms": [
+                {
+                  "os": "darwin",
+                  "arch": "arm64",
+                  "libc": "none"
+                },
+                {
+                  "os": "darwin",
+                  "arch": "x64",
+                  "libc": "none"
+                },
+                {
+                  "os": "linux",
+                  "arch": "arm64",
+                  "libc": "glibc"
+                },
+                {
+                  "os": "linux",
+                  "arch": "arm64",
+                  "libc": "musl"
+                },
+                {
+                  "os": "linux",
+                  "arch": "x64",
+                  "libc": "glibc"
+                },
+                {
+                  "os": "linux",
+                  "arch": "x64",
+                  "libc": "musl"
+                }
+              ],
+              "label": "uv",
+              "command": "uv python install 3.13"
+            },
+            {
+              "platforms": [
+                {
+                  "os": "darwin",
+                  "arch": "arm64",
+                  "libc": "none"
+                },
+                {
+                  "os": "darwin",
+                  "arch": "x64",
+                  "libc": "none"
+                }
+              ],
+              "label": "Homebrew",
+              "command": "brew install python@3.13"
+            },
+            {
+              "platforms": [
+                {
+                  "os": "linux",
+                  "arch": "arm64",
+                  "libc": "glibc"
+                },
+                {
+                  "os": "linux",
+                  "arch": "x64",
+                  "libc": "glibc"
+                }
+              ],
+              "label": "Debian / Ubuntu",
+              "command": "sudo apt install python3 python3-venv"
+            }
+          ]
+        }
+      ],
+      "argv": ["--stdio"],
+      "environment": {},
+      "limitations": [
+        "Managed server blocks interpreter and Workspace code execution; import paths are read from the selected environment."
+      ],
+      "distribution": "runtime-upstream"
     }
   ],
   "integrations": [
@@ -2018,11 +2166,11 @@
       "patterns": ["*.py", "*.pyi"],
       "providers": [
         {
-          "id": "pyright",
-          "tool": "pyright",
+          "id": "basedpyright",
+          "tool": "basedpyright",
           "role": "primary",
           "diagnostics": "types",
-          "disableFeatures": ["formatting"],
+          "disableFeatures": ["formatting", "rangeFormatting"],
           "entry": null,
           "argv": []
         },
@@ -2046,12 +2194,12 @@
       "policy": {
         "trust": "workspace-before-execution",
         "network": "server-default",
-        "configuration": "Project configuration after trust; effective paths resolved by D1"
+        "configuration": "Filesystem-only environment detection and configuration; managed servers need no Trust."
       },
       "limitations": [
-        "Disable overlapping Pyright import organization; Ruff owns formatting and lint fixes. basedpyright is a user-configured override."
+        "basedpyright owns types; Ruff owns lint, fixes, import organization and formatting."
       ],
-      "offered": false
+      "offered": true
     },
     {
       "id": "bash",

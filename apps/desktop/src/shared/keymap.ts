@@ -58,6 +58,7 @@ export type CommandId =
   | "language.restartAll"
   | "language.showLog"
   | "typescript.selectVersion"
+  | "python.selectInterpreter"
   | "trust.grant"
   | "trust.revoke"
   | "trust.askAgain";
@@ -75,6 +76,8 @@ export const CONTEXT_KEYS = [
   "language.server",
   "language.formatter",
   "language.typescript",
+  /** A Python file whose checkout the Daemon has named, so its interpreters can be listed. */
+  "language.python",
   /** Something can open the language server log (`features/editor/intents/languageLog.ts`). */
   "language.log",
   "workspace",
@@ -98,6 +101,7 @@ export type ContextValue =
   | "session"
   | "trustSubject"
   | "typescriptChoice"
+  | "pythonInterpreter"
   | "updateVersion";
 
 export interface CommandContext {
@@ -215,6 +219,17 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
     palette: FILE({
       detail: "{typescriptChoice}",
       keywords: ["tsc", "project", "bundled", "tsserver"],
+      followUp: true,
+    }),
+  },
+  {
+    id: "python.selectInterpreter",
+    title: "Python: Select interpreter…",
+    keys: [],
+    when: { all: ["editor.file", "language.python"] },
+    palette: FILE({
+      detail: "{pythonInterpreter}",
+      keywords: ["venv", "uv", "python3", "environment", "basedpyright"],
       followUp: true,
     }),
   },

@@ -1,0 +1,16 @@
+// Only the pinned basedpyright search-path probe is answered; no interpreter executes.
+const childProcess = require("node:child_process");
+const paths = JSON.parse(process.env.POLARIS_PYTHON_SEARCH_PATHS || "[]");
+const version = JSON.parse(process.env.POLARIS_PYTHON_VERSION || "null");
+const prefix = process.env.POLARIS_PYTHON_PREFIX || "";
+const denied = () => { throw new Error("Polaris managed Python does not execute external code"); };
+childProcess.execFileSync = (_file, args) => {
+  const script = args[args.indexOf("-c") + 1];
+  if (typeof script === "string" && script.includes("dict(path=orig_sys_path, prefix=sys.prefix)")) {
+    return JSON.stringify({ path: paths, prefix });
+  }
+  if (version !== null && typeof script === "string" && script.includes("json.dump(tuple(sys.version_info), sys.stdout)")) return JSON.stringify(version);
+  return denied();
+};
+for (const method of ["exec", "execSync", "execFile", "spawn", "spawnSync", "fork"]) childProcess[method] = denied;
+require("node:module").syncBuiltinESMExports();

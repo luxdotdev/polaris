@@ -7,6 +7,7 @@ import { Match, Predicate } from "effect";
 import type { TrustStatus } from "../trust/model.ts";
 import { decisionOf } from "../trust/model.ts";
 import type { ContextRuntime, Discovered, FileLanguage, HostTools, Runtime } from "./store.ts";
+import { interpreterFact, type Interpreters } from "../python/model.ts";
 
 export type PillKind =
   | "syntax"
@@ -89,6 +90,8 @@ export interface StatusInput {
   readonly hostInSentence: string;
   readonly workspace: string;
   readonly now: number;
+  /** A Python file's interpreters, once the Host has listed them. */
+  readonly python?: Interpreters | null;
 }
 
 const TS = "typescript-language-server";
@@ -428,6 +431,12 @@ const typescriptFacts = (input: StatusInput, trust: TrustStatus | null): Fact[] 
   return [ts];
 };
 
+const pythonFacts = (input: StatusInput): Fact[] => {
+  const fact = interpreterFact(input.python ?? null);
+
+  return fact === null ? [] : [fact];
+};
+
 const typescriptActions = (input: StatusInput, trust: TrustStatus | null): StatusAction[] => {
   if (trust === null) return [];
   const decision = decisionOf(trust.trust);
@@ -510,6 +519,7 @@ const readyView = (input: StatusInput, runtime: ContextRuntime): StatusView => {
 
   const facts: Fact[] = [
     ...typescriptFacts(input, trust),
+    ...pythonFacts(input),
     serverFact(input, provider, runtime),
     ...formatterFacts(input),
     { label: "Host", value: input.host },

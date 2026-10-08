@@ -24,6 +24,19 @@ import { trustFailure } from "../trust/model.ts";
 import { trustOfFile } from "../trust/store.ts";
 import { showOpenFailure } from "../ui/toasts.ts";
 import { type FocusedFile, fileContext, trustFollowUp, typescriptFollowUp } from "./model.ts";
+import {
+  failedFollowUp,
+  interpreterFollowUp,
+  interpreterSummary,
+  LOOKING,
+} from "../python/model.ts";
+import {
+  interpretersOf,
+  refreshInterpreters,
+  selectInterpreter,
+  type PythonTarget,
+} from "../python/store.ts";
+import { statusStore } from "../status/store.ts";
 import { languageFailure } from "./copy.ts";
 
 type TrustAction = typeof P.LanguageTrustAction.Type;
@@ -64,10 +77,37 @@ const languageCommands = (commands: CommandRegistry, connection: Connection, pan
       workspace: workspace(),
       canFormat: canFormatFile({ hostKey, workspaceId, path: active }),
       canShowLog: canOpenLanguageLog(),
+      hasCheckout: python() !== null,
+      pythonInterpreter: interpreterSummary(interpretersOf(key)),
     };
   };
 
   const trusted = () => (key === null ? null : trustOfFile(key));
+
+  const python = (): PythonTarget | null => {
+    const checkout = key === null ? null : (statusStore.getState().files[key]?.checkout ?? null);
+
+    return key === null || active === null || checkout === null
+      ? null
+      : { key, hostKey, checkout, path: active };
+  };
+
+  const interpreterChoice = (target: PythonTarget) => {
+    const choose = (interpreter: string | null, revision: number) =>
+      void selectInterpreter(target, interpreter, revision).catch((cause) =>
+        fail("Couldn't select the interpreter", cause)
+      );
+
+    return {
+      ...LOOKING,
+      load: () =>
+        refreshInterpreters(target)
+          .then((list) => interpreterFollowUp(list, hostInSentence(host()), choose))
+          .catch((cause) =>
+            failedFollowUp(languageFailure(asLanguageError(cause), hostInSentence(host())))
+          ),
+    };
+  };
 
   const fail = (title: string, cause: unknown, message = languageFailure) =>
     showOpenFailure({ title, message: message(asLanguageError(cause), hostInSentence(host())) });
@@ -163,6 +203,13 @@ const languageCommands = (commands: CommandRegistry, connection: Connection, pan
         const current = trusted();
 
         return current === null ? null : typescriptFollowUp(current.status, workspace(), change);
+      },
+    },
+    "python.selectInterpreter": {
+      followUp: () => {
+        const target = python();
+
+        return target === null ? null : interpreterChoice(target);
       },
     },
     "trust.grant": {

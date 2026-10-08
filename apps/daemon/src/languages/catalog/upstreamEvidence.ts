@@ -1,3 +1,14 @@
+import ruffLicense from "./upstream-evidence/python-notice-2597d854122b77ddc71971564ca2350a37608575ce324adc5650a2b2051c8f18.txt" with { type: "text" };
+import ruffNotices from "./upstream-evidence/python-notice-e85e4ba113dc4ddd9a599665d5c0d877201650c5527ff97da0c3b092d52a3cb6.txt" with { type: "text" };
+import ruffDarwinArm64 from "./upstream-evidence/ruff-aarch64-apple-darwin.tar.gz.json";
+import ruffLinuxArm64 from "./upstream-evidence/ruff-aarch64-unknown-linux-gnu.tar.gz.json";
+import ruffLinuxArm64Musl from "./upstream-evidence/ruff-aarch64-unknown-linux-musl.tar.gz.json";
+import ruffDarwinX64 from "./upstream-evidence/ruff-x86_64-apple-darwin.tar.gz.json";
+import ruffLinuxX64 from "./upstream-evidence/ruff-x86_64-unknown-linux-gnu.tar.gz.json";
+import ruffLinuxX64Musl from "./upstream-evidence/ruff-x86_64-unknown-linux-musl.tar.gz.json";
+import basedpyrightLicense from "./upstream-evidence/python-notice-f7c936bc43f132b08497ac952e9376cbc102e5eedb4bf6ec902ea8442bd9c68d.txt" with { type: "text" };
+import basedpyrightTypeshedLicense from "./upstream-evidence/python-notice-295f8538c94ae5c3043301cf7cff1c852dab6a786a8ddee471e061b40d5ecabe.txt" with { type: "text" };
+import basedpyrightManifest from "./upstream-evidence/basedpyright-npm.json";
 import manifest0 from "./upstream-evidence/node-darwin-arm64.json";
 import notice0 from "./upstream-evidence/notice-1.txt" with { type: "text" };
 import manifest1 from "./upstream-evidence/node-darwin-x64.json";
@@ -15,6 +26,57 @@ import manifest5 from "./upstream-evidence/typescript-npm.json";
 import notice8 from "./upstream-evidence/notice-9.txt" with { type: "text" };
 
 export const upstreamEvidence = {
+  "ruff-aarch64-apple-darwin.tar.gz": {
+    manifest: ruffDarwinArm64,
+    notices: {
+      "notices/2597d854122b77ddc71971564ca2350a37608575ce324adc5650a2b2051c8f18.txt": ruffLicense,
+      "notices/e85e4ba113dc4ddd9a599665d5c0d877201650c5527ff97da0c3b092d52a3cb6.txt": ruffNotices,
+    },
+  },
+  "ruff-aarch64-unknown-linux-gnu.tar.gz": {
+    manifest: ruffLinuxArm64,
+    notices: {
+      "notices/2597d854122b77ddc71971564ca2350a37608575ce324adc5650a2b2051c8f18.txt": ruffLicense,
+      "notices/e85e4ba113dc4ddd9a599665d5c0d877201650c5527ff97da0c3b092d52a3cb6.txt": ruffNotices,
+    },
+  },
+  "ruff-aarch64-unknown-linux-musl.tar.gz": {
+    manifest: ruffLinuxArm64Musl,
+    notices: {
+      "notices/2597d854122b77ddc71971564ca2350a37608575ce324adc5650a2b2051c8f18.txt": ruffLicense,
+      "notices/e85e4ba113dc4ddd9a599665d5c0d877201650c5527ff97da0c3b092d52a3cb6.txt": ruffNotices,
+    },
+  },
+  "ruff-x86_64-apple-darwin.tar.gz": {
+    manifest: ruffDarwinX64,
+    notices: {
+      "notices/2597d854122b77ddc71971564ca2350a37608575ce324adc5650a2b2051c8f18.txt": ruffLicense,
+      "notices/e85e4ba113dc4ddd9a599665d5c0d877201650c5527ff97da0c3b092d52a3cb6.txt": ruffNotices,
+    },
+  },
+  "ruff-x86_64-unknown-linux-gnu.tar.gz": {
+    manifest: ruffLinuxX64,
+    notices: {
+      "notices/2597d854122b77ddc71971564ca2350a37608575ce324adc5650a2b2051c8f18.txt": ruffLicense,
+      "notices/e85e4ba113dc4ddd9a599665d5c0d877201650c5527ff97da0c3b092d52a3cb6.txt": ruffNotices,
+    },
+  },
+  "ruff-x86_64-unknown-linux-musl.tar.gz": {
+    manifest: ruffLinuxX64Musl,
+    notices: {
+      "notices/2597d854122b77ddc71971564ca2350a37608575ce324adc5650a2b2051c8f18.txt": ruffLicense,
+      "notices/e85e4ba113dc4ddd9a599665d5c0d877201650c5527ff97da0c3b092d52a3cb6.txt": ruffNotices,
+    },
+  },
+  "basedpyright-npm": {
+    manifest: basedpyrightManifest,
+    notices: {
+      "notices/f7c936bc43f132b08497ac952e9376cbc102e5eedb4bf6ec902ea8442bd9c68d.txt":
+        basedpyrightLicense,
+      "notices/295f8538c94ae5c3043301cf7cff1c852dab6a786a8ddee471e061b40d5ecabe.txt":
+        basedpyrightTypeshedLicense,
+    },
+  },
   "node-darwin-arm64": {
     manifest: manifest0,
     notices: {

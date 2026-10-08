@@ -1,0 +1,29 @@
+{
+  "artifactId": "basedpyright-npm",
+  "artifactIntegrity": "sha256:5d1073a0e61a1adc6b40b2bed4489017aa5c1336aa8e6fdcb7157b9bf26f3fab",
+  "coverage": "complete",
+  "notices": [
+    {
+      "path": "notices/f7c936bc43f132b08497ac952e9376cbc102e5eedb4bf6ec902ea8442bd9c68d.txt",
+      "integrity": "sha256:f7c936bc43f132b08497ac952e9376cbc102e5eedb4bf6ec902ea8442bd9c68d"
+    },
+    {
+      "path": "notices/295f8538c94ae5c3043301cf7cff1c852dab6a786a8ddee471e061b40d5ecabe.txt",
+      "integrity": "sha256:295f8538c94ae5c3043301cf7cff1c852dab6a786a8ddee471e061b40d5ecabe"
+    }
+  ],
+  "evidence": [
+    {
+      "path": "runtime-download-policy.json",
+      "integrity": "sha256:57803754cda1f00d0fd5fd5193e8fc99236c435deb786f41bfeaa72e5b4f1c2a"
+    },
+    {
+      "path": "runtime-review-records.json",
+      "integrity": "sha256:4b051fd7a65a5fc8f67bd2f1bf53b12506d02b19ecb523ee0b847125cdeed6ae"
+    },
+    {
+      "path": "managed-python-guard.txt",
+      "integrity": "sha256:9aa724d5bb694887b4964a0386f3409f81b6ac8d0ad14e289ce52d3ff7c480d3"
+    }
+  ]
+}

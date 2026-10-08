@@ -239,3 +239,51 @@ test("tar.gz decoder verifies checksum before parsing and matches pinned archive
   const payload = await decode(bytes, exact, new AbortController().signal);
   expect(verifyPayload(bytes, payload, exact, defaultLimits)).toHaveLength(2);
 });
+
+test("GitHub release permits one pinned asset-host redirect and refuses other targets or a second redirect", async () => {
+  const f = exactFixture();
+
+  const exact = {
+    ...f.exact,
+    artifact: {
+      ...f.exact.artifact,
+      url: "https://github.com/astral-sh/ruff/releases/download/0.16.10/ruff.tar.gz",
+    },
+  };
+
+  const target = "https://release-assets.githubusercontent.com/asset?signature=fixture";
+
+  const collect = async (location: string, secondStatus = 200) => {
+    const seen: string[] = [];
+
+    const download = httpsArtifactDownload(async (url, init) => {
+      seen.push(url);
+      expect(init.redirect).toBe("manual");
+      expect(init.credentials).toBe("omit");
+
+      return seen.length === 1
+        ? new Response(null, { status: 302, headers: { location } })
+        : new Response(secondStatus === 200 ? f.bytes : null, { status: secondStatus });
+    });
+
+    const chunks = [];
+
+    for await (const bytes of download(exact, new AbortController().signal)) chunks.push(bytes);
+
+    return { seen, bytes: Buffer.concat(chunks) };
+  };
+
+  expect(await collect(target)).toEqual({
+    seen: [exact.artifact.url, target],
+    bytes: Buffer.from(f.bytes),
+  });
+
+  for (const location of [
+    "https://evil.test/asset",
+    "http://release-assets.githubusercontent.com/asset",
+    "https://release-assets.githubusercontent.com:444/asset",
+    "https://user@release-assets.githubusercontent.com/asset",
+  ])
+    await rejects(collect(location), { reason: "audit-required" });
+  await rejects(collect(target, 302), { reason: "install-failed" });
+});

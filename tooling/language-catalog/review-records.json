@@ -22,7 +22,7 @@
       },
       {
         "path": "closure-plan.json",
-        "integrity": "sha256:c8b592b21f62e8a0d8a6ae4d6422ceb34dc37df14757f562c6a9deb4601e86ec"
+        "integrity": "sha256:738e2b13ac006690db5745a4a59a7145302273d1e347b190b124baf9f81328f1"
       },
       {
         "path": "bundles/vscode-langservers-extracted.json",
@@ -167,7 +167,7 @@
       },
       {
         "path": "closure-plan.json",
-        "integrity": "sha256:c8b592b21f62e8a0d8a6ae4d6422ceb34dc37df14757f562c6a9deb4601e86ec"
+        "integrity": "sha256:738e2b13ac006690db5745a4a59a7145302273d1e347b190b124baf9f81328f1"
       },
       {
         "path": "bundles/pyright.json",
@@ -244,7 +244,7 @@
       },
       {
         "path": "closure-plan.json",
-        "integrity": "sha256:c8b592b21f62e8a0d8a6ae4d6422ceb34dc37df14757f562c6a9deb4601e86ec"
+        "integrity": "sha256:738e2b13ac006690db5745a4a59a7145302273d1e347b190b124baf9f81328f1"
       },
       {
         "path": "bundles/bash-language-server.json",
@@ -432,7 +432,7 @@
       },
       {
         "path": "closure-plan.json",
-        "integrity": "sha256:c8b592b21f62e8a0d8a6ae4d6422ceb34dc37df14757f562c6a9deb4601e86ec"
+        "integrity": "sha256:738e2b13ac006690db5745a4a59a7145302273d1e347b190b124baf9f81328f1"
       },
       {
         "path": "bundles/@prisma_language-server.json",
@@ -617,7 +617,7 @@
       },
       {
         "path": "closure-plan.json",
-        "integrity": "sha256:c8b592b21f62e8a0d8a6ae4d6422ceb34dc37df14757f562c6a9deb4601e86ec"
+        "integrity": "sha256:738e2b13ac006690db5745a4a59a7145302273d1e347b190b124baf9f81328f1"
       },
       {
         "path": "bundles/yaml-language-server.json",
@@ -750,7 +750,7 @@
       },
       {
         "path": "closure-plan.json",
-        "integrity": "sha256:c8b592b21f62e8a0d8a6ae4d6422ceb34dc37df14757f562c6a9deb4601e86ec"
+        "integrity": "sha256:738e2b13ac006690db5745a4a59a7145302273d1e347b190b124baf9f81328f1"
       },
       {
         "path": "bundles/@actions_languageserver.json",
@@ -887,7 +887,7 @@
       },
       {
         "path": "closure-plan.json",
-        "integrity": "sha256:c8b592b21f62e8a0d8a6ae4d6422ceb34dc37df14757f562c6a9deb4601e86ec"
+        "integrity": "sha256:738e2b13ac006690db5745a4a59a7145302273d1e347b190b124baf9f81328f1"
       },
       {
         "path": "bundles/prettier.json",
@@ -1022,7 +1022,7 @@
       },
       {
         "path": "closure-plan.json",
-        "integrity": "sha256:c8b592b21f62e8a0d8a6ae4d6422ceb34dc37df14757f562c6a9deb4601e86ec"
+        "integrity": "sha256:738e2b13ac006690db5745a4a59a7145302273d1e347b190b124baf9f81328f1"
       }
     ],
     "notices": [
@@ -2825,7 +2825,7 @@
       },
       {
         "path": "closure-plan.json",
-        "integrity": "sha256:c8b592b21f62e8a0d8a6ae4d6422ceb34dc37df14757f562c6a9deb4601e86ec"
+        "integrity": "sha256:738e2b13ac006690db5745a4a59a7145302273d1e347b190b124baf9f81328f1"
       }
     ],
     "notices": [
@@ -4178,7 +4178,7 @@
       },
       {
         "path": "closure-plan.json",
-        "integrity": "sha256:c8b592b21f62e8a0d8a6ae4d6422ceb34dc37df14757f562c6a9deb4601e86ec"
+        "integrity": "sha256:738e2b13ac006690db5745a4a59a7145302273d1e347b190b124baf9f81328f1"
       },
       {
         "path": "packaging/lua-language-server-3.19.1-darwin-arm64.tar.gz.json",
@@ -4327,7 +4327,7 @@
       },
       {
         "path": "closure-plan.json",
-        "integrity": "sha256:c8b592b21f62e8a0d8a6ae4d6422ceb34dc37df14757f562c6a9deb4601e86ec"
+        "integrity": "sha256:738e2b13ac006690db5745a4a59a7145302273d1e347b190b124baf9f81328f1"
       }
     ],
     "notices": [
@@ -4453,7 +4453,7 @@
       },
       {
         "path": "closure-plan.json",
-        "integrity": "sha256:c8b592b21f62e8a0d8a6ae4d6422ceb34dc37df14757f562c6a9deb4601e86ec"
+        "integrity": "sha256:738e2b13ac006690db5745a4a59a7145302273d1e347b190b124baf9f81328f1"
       }
     ],
     "notices": [
@@ -4722,7 +4722,7 @@
       },
       {
         "path": "closure-plan.json",
-        "integrity": "sha256:c8b592b21f62e8a0d8a6ae4d6422ceb34dc37df14757f562c6a9deb4601e86ec"
+        "integrity": "sha256:738e2b13ac006690db5745a4a59a7145302273d1e347b190b124baf9f81328f1"
       }
     ],
     "notices": [
@@ -15077,7 +15077,7 @@
       },
       {
         "path": "closure-plan.json",
-        "integrity": "sha256:c8b592b21f62e8a0d8a6ae4d6422ceb34dc37df14757f562c6a9deb4601e86ec"
+        "integrity": "sha256:738e2b13ac006690db5745a4a59a7145302273d1e347b190b124baf9f81328f1"
       }
     ],
     "notices": [
@@ -15251,7 +15251,7 @@
       },
       {
         "path": "closure-plan.json",
-        "integrity": "sha256:c8b592b21f62e8a0d8a6ae4d6422ceb34dc37df14757f562c6a9deb4601e86ec"
+        "integrity": "sha256:738e2b13ac006690db5745a4a59a7145302273d1e347b190b124baf9f81328f1"
       },
       {
         "path": "bundles/sql-formatter.json",
@@ -15377,7 +15377,7 @@
       },
       {
         "path": "closure-plan.json",
-        "integrity": "sha256:c8b592b21f62e8a0d8a6ae4d6422ceb34dc37df14757f562c6a9deb4601e86ec"
+        "integrity": "sha256:738e2b13ac006690db5745a4a59a7145302273d1e347b190b124baf9f81328f1"
       },
       {
         "path": "bundles/sqllens-language-server.json",
@@ -15535,7 +15535,7 @@
       },
       {
         "path": "closure-plan.json",
-        "integrity": "sha256:c8b592b21f62e8a0d8a6ae4d6422ceb34dc37df14757f562c6a9deb4601e86ec"
+        "integrity": "sha256:738e2b13ac006690db5745a4a59a7145302273d1e347b190b124baf9f81328f1"
       }
     ],
     "notices": [
@@ -15619,7 +15619,7 @@
       },
       {
         "path": "closure-plan.json",
-        "integrity": "sha256:c8b592b21f62e8a0d8a6ae4d6422ceb34dc37df14757f562c6a9deb4601e86ec"
+        "integrity": "sha256:738e2b13ac006690db5745a4a59a7145302273d1e347b190b124baf9f81328f1"
       },
       {
         "path": "bundles/typescript-language-server.json",

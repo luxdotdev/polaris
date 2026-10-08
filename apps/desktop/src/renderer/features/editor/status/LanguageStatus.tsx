@@ -6,7 +6,7 @@
 import type * as P from "@polaris/protocol";
 import { cn, Popover, PopoverContent, PopoverTrigger } from "@polaris/ui";
 import { Match } from "effect";
-import { useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { hostInSentence } from "../../../shell/hostCopy.ts";
 import { useApp, useShellActions } from "../../../shell/hooks.ts";
 import { polaris } from "../../bridge.ts";
@@ -14,6 +14,7 @@ import { fileKey } from "../model/drafts.ts";
 import type { LanguageId } from "../model/language.ts";
 import { editorLanguages } from "../runtime/app.ts";
 import { useTrustStatus } from "../trust/store.ts";
+import { refreshInterpreters } from "../python/store.ts";
 import { runAction } from "./actions.ts";
 import { useHostToolsWatch, useLanguageStatus } from "./hooks.ts";
 import { openLanguageLog } from "../intents/languageLog.ts";
@@ -246,6 +247,21 @@ export interface LanguageStatusProps {
   readonly languageMode?: ReactNode;
 }
 
+/** Lists a Python file's interpreters for the Interpreter row: on focus and whenever it opens. */
+const usePythonInterpreters = (
+  checkout: P.LanguageCheckout | null,
+  hostKey: string,
+  path: string,
+  open: boolean
+) =>
+  useEffect(() => {
+    if (checkout === null) return;
+    // A failed list only leaves the row out; the palette's follow-up says why.
+    refreshInterpreters({ key: fileKey(hostKey, path), hostKey, checkout, path }).catch(
+      () => undefined
+    );
+  }, [checkout, hostKey, path, open]);
+
 export const LanguageStatus = ({
   hostKey,
   workspaceId,
@@ -266,6 +282,7 @@ export const LanguageStatus = ({
 
   const providerId = view.providerId ?? view.file?.providers[0]?.providerId ?? null;
   const checkout = view.file?.checkout ?? null;
+  usePythonInterpreters(languageId === "python" ? checkout : null, hostKey, path, open);
 
   const onRun = (action: StatusAction) => {
     if (running !== null) return;

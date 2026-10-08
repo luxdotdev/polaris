@@ -1,0 +1,58 @@
+{
+  "decision": "Owner 2026-10-08; ADR-0022",
+  "distribution": "runtime-upstream",
+  "requirement": "Permissive top-level license, pinned upstream checksum, release LICENSE/notices next to installation. Installer-bundled tools retain full compiler/runtime/vendor closure.",
+  "tools": [
+    {
+      "id": "basedpyright",
+      "version": "1.40.2",
+      "license": "MIT",
+      "source": "https://github.com/DetachHead/basedpyright/releases/tag/v1.40.2",
+      "artifacts": [
+        {
+          "id": "basedpyright-npm",
+          "integrity": "sha256:5d1073a0e61a1adc6b40b2bed4489017aa5c1336aa8e6fdcb7157b9bf26f3fab",
+          "url": "https://registry.npmjs.org/basedpyright/-/basedpyright-1.40.2.tgz"
+        }
+      ]
+    },
+    {
+      "id": "ruff",
+      "version": "0.16.10",
+      "license": "MIT",
+      "source": "https://github.com/astral-sh/ruff/releases/tag/0.16.10",
+      "artifacts": [
+        {
+          "id": "ruff-aarch64-apple-darwin.tar.gz",
+          "integrity": "sha256:f051cd306de2691262a0574f8857cd1f4d6bfcd448084ea23d61b9c1c37df510",
+          "url": "https://github.com/astral-sh/ruff/releases/download/0.16.10/ruff-aarch64-apple-darwin.tar.gz"
+        },
+        {
+          "id": "ruff-aarch64-unknown-linux-gnu.tar.gz",
+          "integrity": "sha256:dc0d74de837ef0a7bcc62ce98c48a622b075d057161f13b958be2934becd55a6",
+          "url": "https://github.com/astral-sh/ruff/releases/download/0.16.10/ruff-aarch64-unknown-linux-gnu.tar.gz"
+        },
+        {
+          "id": "ruff-aarch64-unknown-linux-musl.tar.gz",
+          "integrity": "sha256:38ebc0ec3e0de538d1c399729ca04e124749211d66aa134c24ad0c1f09a935b9",
+          "url": "https://github.com/astral-sh/ruff/releases/download/0.16.10/ruff-aarch64-unknown-linux-musl.tar.gz"
+        },
+        {
+          "id": "ruff-x86_64-apple-darwin.tar.gz",
+          "integrity": "sha256:ace641df42926e962cf04bc52c79eb6c50ba1ae6a17b602f081960616ecc1bd1",
+          "url": "https://github.com/astral-sh/ruff/releases/download/0.16.10/ruff-x86_64-apple-darwin.tar.gz"
+        },
+        {
+          "id": "ruff-x86_64-unknown-linux-gnu.tar.gz",
+          "integrity": "sha256:9567ff1201e2fb3da31ff04c35587d768c66d6cb42dfa84de474e2bfe360b608",
+          "url": "https://github.com/astral-sh/ruff/releases/download/0.16.10/ruff-x86_64-unknown-linux-gnu.tar.gz"
+        },
+        {
+          "id": "ruff-x86_64-unknown-linux-musl.tar.gz",
+          "integrity": "sha256:ad1b2138407a0c53b936524df99d87211333f7bc40478d6860f42994597f7ff0",
+          "url": "https://github.com/astral-sh/ruff/releases/download/0.16.10/ruff-x86_64-unknown-linux-musl.tar.gz"
+        }
+      ]
+    }
+  ]
+}

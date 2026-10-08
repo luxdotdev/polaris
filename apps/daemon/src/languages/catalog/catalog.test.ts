@@ -155,7 +155,7 @@ describe("catalog release prerequisites", () => {
     expect(sql.formatter.tool).toBe("sql-formatter");
     expect(sql.providers[0]?.tool).toBe("sqllens-language-server");
     const python = catalog.integrations.find((entry) => entry.id === "python")!;
-    expect(python.providers.map((entry) => entry.tool)).toEqual(["pyright", "ruff"]);
+    expect(python.providers.map((entry) => entry.tool)).toEqual(["basedpyright", "ruff"]);
     expect(python.formatter.tool).toBe("ruff");
     const actions = catalog.integrations.find((entry) => entry.id === "actions")!;
     expect(actions.providers.map((entry) => entry.diagnostics)).toEqual([

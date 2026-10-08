@@ -670,3 +670,17 @@ steps against the projection and records/replays a real installer fixture via
 then replay it with `bun packages/spec/scripts/replay-host-state.ts /private/tmp/host-state.trace.json`.
 These fixtures verify protocol and installer behavior; they do not certify
 upstream downloads, remote Hosts or renderer consumption.
+
+### Python interpreter selection (slice 5)
+
+`python-environment.qnt` maps `languages.python.select` to the private Host
+repository CAS in `languages/python/environment.ts`. `Select` updates the durable
+revision/path only when the expected revision agrees. `RestartHost` retains these
+facts; null is modelled as `detected`. Each `Adopt` represents the existing
+`LanguageBroker.restartMatching` → configure → machine Restart → Replaced handoff.
+Both Clients preserve unsaved text and document synchronization sequence; Ruff
+keeps its generation. The repository is configuration, outside EventStore commits.
+The existing `language-runtime.qnt` Restart transition and runtime model/trace
+checks remain authoritative for process recovery, acknowledgments and fencing.
+`python/detection.test.ts` checks real filesystem detection and persisted CAS;
+`python/live.testing.ts` checks real authenticated Python RPC selection and drafts.

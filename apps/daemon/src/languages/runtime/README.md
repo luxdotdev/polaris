@@ -43,7 +43,7 @@ stateDiagram-v2
   grace --> failed: third crash within 2 minutes
   ready --> ready: prune expired crash timestamps
   failed --> stopped: explicit restart, retain drafts
-  ready --> stopped: provider selection or config change, retain drafts
+  ready --> stopped: provider/interpreter selection or config change, retain drafts
   stopped --> starting: replay retained demand
   untrusted --> starting: trusted new demand
 ```
@@ -91,3 +91,9 @@ are outside that termination guarantee. Windows cleanup remains untested.
 Server logMessage/showMessage and stderr no longer emit placeholder context Log
 events. Genuine configuration-watcher warnings retain that variant; private
 server output remains in `languages.log.watch` only.
+
+Python interpreter selection on the Host uses this same Restart transition for all
+basedpyright contexts in the Workspace, with no Trust grant. Ruff stays running.
+The private per-Workspace revision/path CAS is distinct from the event log; after
+a Daemon restart, discovery reads the persisted selection. Replaced preserves
+unsaved text and synchronization sequence exactly as other provider selections.

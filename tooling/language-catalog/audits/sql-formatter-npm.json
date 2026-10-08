@@ -79,7 +79,7 @@
     },
     {
       "path": "closure-plan.json",
-      "integrity": "sha256:c8b592b21f62e8a0d8a6ae4d6422ceb34dc37df14757f562c6a9deb4601e86ec"
+      "integrity": "sha256:738e2b13ac006690db5745a4a59a7145302273d1e347b190b124baf9f81328f1"
     },
     {
       "path": "bundles/sql-formatter.json",
@@ -87,7 +87,7 @@
     },
     {
       "path": "review-records.json",
-      "integrity": "sha256:fc14bc1788b089dea14850a8708a9317bc9a8183dc3f646416ff86a0d068b621"
+      "integrity": "sha256:76909cebad9ea62548d9c484ef83f14566211df7224efaef7e35e1b62a70c504"
     }
   ]
 }

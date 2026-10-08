@@ -1,1 +1,7 @@
-{ "extends": "../tsconfig.base.json", "compilerOptions": { "jsx": "react-jsx" }, "include": ["."] }
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx"
+  },
+  "include": [".", "../apps/desktop/src/renderer/global.d.ts"]
+}
