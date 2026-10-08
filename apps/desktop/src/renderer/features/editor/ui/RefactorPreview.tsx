@@ -1,75 +1,74 @@
 import { Button } from "@polaris/ui";
 import { useStore } from "zustand";
 import { needsUser, refactorRegistry, type RefactorController } from "../refactors/controller.ts";
+import { hostInSentence } from "../../../shell/hostCopy.ts";
+import { useApp } from "../../../shell/hooks.ts";
+import { fileKey } from "../model/drafts.ts";
+import { providerLabel } from "../trust/store.ts";
+import { RenamePreview } from "./RenamePreview.tsx";
+import { getActiveEditor } from "../runtime/hooks.ts";
 
-const PreviewBody = ({ controller }: { readonly controller: RefactorController }) => {
+/** Why an accept left nothing renamed, in one line; the Host's text is never shown. */
+const acceptFailure = (controller: RefactorController, host: string) =>
+  controller.coordinator.port.connected()
+    ? "A file changed since this preview, so nothing was renamed. Rename again to see the current changes."
+    : `Can't reach ${host}, so nothing was renamed.`;
+
+const PreviewBody = ({
+  controller,
+  root,
+}: {
+  readonly controller: RefactorController;
+  readonly root: string;
+}) => {
   const state = useStore(controller.state);
   const { preview, error, busy } = state;
+  const hostView = useApp((s) => s.hosts.find((h) => h.key === controller.hostKey));
+  const host = hostView?.label ?? controller.hostKey;
+
+  if (preview !== null) {
+    const providerId = preview.proposal.fence.context.providerId;
+    const active = getActiveEditor()?.path ?? null;
+
+    // The provider as the open files' Trust status names it ("TypeScript · bundled").
+    const provider =
+      [active, ...preview.touched]
+        .flatMap((path) =>
+          path === null ? [] : [providerLabel(fileKey(controller.hostKey, path), providerId)]
+        )
+        .find((label) => label !== providerId) ?? providerId;
+
+    return (
+      <RenamePreview
+        preview={preview}
+        root={root}
+        first={active}
+        provider={provider}
+        host={host}
+        busy={busy}
+        failure={error === null ? null : acceptFailure(controller, hostInSentence(hostView))}
+        onAccept={() => void controller.accept()}
+        onCancel={() => void controller.reject()}
+      />
+    );
+  }
+
   // Recovery shows only when it needs the user; a one-file rename applied directly shows nothing.
   const group = state.group !== null && needsUser(state.group) ? state.group : null;
 
-  if (preview === null && group === null && error === null) return null;
+  if (group === null && error === null) return null;
 
   return (
     <section
-      aria-label="Refactor preview"
+      aria-label="Refactor recovery"
       className="border-border bg-surface text-text flex max-h-[70vh] min-h-0 flex-col border-b"
       data-testid="refactor-preview"
     >
       <header className="px-panel py-row flex flex-wrap items-center gap-3">
-        <strong className="text-text-strong">
-          {preview?.proposal.label ?? "Refactor recovery"}
-        </strong>
+        <strong className="text-text-strong">Refactor recovery</strong>
         <span className="text-text-muted text-xs">{state.hostKey}</span>
-        <span className="text-text-muted text-xs">
-          Text changes stay as drafts. File operations change disk.
-        </span>
       </header>
       <div className="px-panel min-h-0 overflow-auto">
-        {preview?.proposal.edit.documentChanges?.map((change, index) =>
-          "kind" in change ? (
-            <p key={index} className="font-mono text-xs break-all">
-              {index + 1}. {change.kind}{" "}
-              {change.kind === "rename" ? `${change.oldUri} → ${change.newUri}` : change.uri}
-            </p>
-          ) : null
-        )}
-        {preview?.documents
-          .filter((doc) => doc.dirty)
-          .map((doc) => (
-            <details key={doc.canonicalPath} open>
-              <summary className="py-row font-mono text-xs break-all">{doc.canonicalPath}</summary>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-text-muted text-xs">Original draft</p>
-                  <pre aria-label="Original text" className="text-text-muted overflow-auto text-xs">
-                    {preview.originals.find((original) => original.canonicalPath === doc.sourcePath)
-                      ?.text ?? ""}
-                  </pre>
-                </div>
-                <div>
-                  <p className="text-text-muted text-xs">Proposed draft</p>
-                  <pre aria-label="Draft text" className="overflow-auto text-xs">
-                    {doc.text}
-                  </pre>
-                </div>
-              </div>
-            </details>
-          ))}
-        {preview?.originals
-          .filter(
-            (original) =>
-              original.dirty &&
-              !preview.documents.some((doc) => doc.sourcePath === original.canonicalPath)
-          )
-          .map((original) => (
-            <details key={original.canonicalPath}>
-              <summary className="font-mono text-xs break-all">
-                Preserved original draft: {original.canonicalPath}
-              </summary>
-              <pre className="overflow-auto text-xs">{original.text}</pre>
-            </details>
-          ))}
         {group === null ? null : (
           <p role="status" className="py-row text-sm">
             {group.state}: {group.message}
@@ -87,17 +86,7 @@ const PreviewBody = ({ controller }: { readonly controller: RefactorController }
         )}
       </div>
       <footer className="px-panel py-row flex flex-wrap justify-end gap-2">
-        {preview === null ? null : (
-          <>
-            <Button variant="secondary" disabled={busy} onClick={() => void controller.reject()}>
-              Reject
-            </Button>
-            <Button variant="primary" disabled={busy} onClick={() => void controller.accept()}>
-              Accept refactor
-            </Button>
-          </>
-        )}
-        {group === null || group.state === "restored" ? null : (
+        {group === null ? null : (
           <>
             <Button variant="secondary" disabled={busy} onClick={() => void controller.status()}>
               Check outcome
@@ -130,5 +119,5 @@ export const RefactorPreview = ({
     (state) => state.controllers.get(hostKey + "\u0000" + root) ?? null
   );
 
-  return controller === null ? null : <PreviewBody controller={controller} />;
+  return controller === null ? null : <PreviewBody controller={controller} root={root} />;
 };

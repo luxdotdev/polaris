@@ -33,6 +33,7 @@ import type {
 } from "./lifecycle.ts";
 import { signatureExtension } from "./signatures.ts";
 import { languageKeys } from "./keys.ts";
+import { refactorUndoKeys } from "../refactors/undo.ts";
 import type { NavigationAction } from "../navigation/commands.ts";
 import {
   featureIntentCurrent,
@@ -221,6 +222,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
           hoverExtension(features, (provider) => providerLabel(key, provider.context.providerId)),
           signatureExtension(features),
           languageKeys((command) => this.command?.(key, command)),
+          refactorUndoKeys(input.file),
         ])
       ),
     });

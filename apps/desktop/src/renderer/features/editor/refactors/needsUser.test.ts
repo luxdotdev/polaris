@@ -14,10 +14,10 @@ describe("recovery UI shows only when it needs the user", () => {
     expect(needsUser(group("prepared", ["/a.ts"]))).toBe(false);
   });
 
-  test("unknown, partial and conflicting outcomes, and multi-file undo, need the user", () => {
+  test("unknown, partial and conflicting outcomes need the user; applied ones undo with ⌘Z", () => {
     expect(needsUser(group("unknown", ["/a.ts"]))).toBe(true);
     expect(needsUser(group("partial", ["/a.ts"]))).toBe(true);
     expect(needsUser(group("conflict", ["/a.ts"]))).toBe(true);
-    expect(needsUser(group("applied", ["/a.ts", "/b.ts"]))).toBe(true);
+    expect(needsUser(group("applied", ["/a.ts", "/b.ts"]))).toBe(false);
   });
 });

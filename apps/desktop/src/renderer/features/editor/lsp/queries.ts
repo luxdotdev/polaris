@@ -1,4 +1,5 @@
 import * as P from "@polaris/protocol";
+import type { EditorState } from "@codemirror/state";
 import type { EditorLanguageCoordinator } from "./integration.ts";
 import type { LanguageProvider } from "./types.ts";
 import { languagePatch, languageStore, type LanguageRow } from "./state.ts";
@@ -59,6 +60,15 @@ const rowOf = (
     range,
     encoding: provider.capabilities.positionEncoding,
   };
+};
+
+/** "Rename BASE_DELAY_MS to RETRY_DELAY_MS": the preview's title names both. */
+const renameLabel = (state: EditorState, head: number, to: string) => {
+  const word = state.wordAt(head);
+
+  return word === null
+    ? `Rename to ${to}`
+    : `Rename ${state.sliceDoc(word.from, word.to)} to ${to}`;
 };
 
 export class LanguageQueries {
@@ -238,6 +248,7 @@ export class LanguageQueries {
       if (query.trim() === "")
         return [{ label: "Enter a new name.", detail: "No edits were requested." }];
       const answers = await features.rename(head, query, signal);
+      const label = renameLabel(entry.input.view.state, head, query);
       rows = answers.flatMap(({ provider, request, value }) => {
         const edit = Payload.decodePayload(P.LanguageWorkspaceEdit, value.result);
 
@@ -245,7 +256,7 @@ export class LanguageQueries {
           ? []
           : [
               {
-                label: `Rename to ${query}`,
+                label,
                 detail: `${named(key, provider)} · Requires edit acceptance`,
                 run: () =>
                   void this.coordinator.prepareEdit(
@@ -255,7 +266,7 @@ export class LanguageQueries {
                     value,
                     edit,
                     "rename",
-                    `Rename to ${query}`
+                    label
                   ),
               },
             ];

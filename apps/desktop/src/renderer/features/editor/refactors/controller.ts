@@ -13,14 +13,11 @@ export interface RefactorState {
 }
 
 /**
- * Whether a draft group needs the user: an unknown, partial or conflicting outcome, or a
- * multi-file change they may undo. A one-file change applied directly undoes with ⌘Z.
+ * Whether a draft group needs the user: an unknown, partial or conflicting outcome. An applied
+ * change, one file or many, undoes with ⌘Z (`undo.ts`).
  */
 export const needsUser = (group: Pick<DraftGroup, "state" | "touched">) =>
-  group.state === "unknown" ||
-  group.state === "partial" ||
-  group.state === "conflict" ||
-  (group.state === "applied" && group.touched.length > 1);
+  group.state === "unknown" || group.state === "partial" || group.state === "conflict";
 
 /** Server requests only offer; Accept is an explicit user command on the displayed preview. */
 export class RefactorController {
@@ -100,16 +97,17 @@ export class RefactorController {
     );
   }
 
+  /** Cancel discards the preview here at once; telling the Host is best effort, nothing applied. */
   reject() {
     const preview = this.state.getState().preview;
 
-    if (preview === null) return Promise.resolve();
+    if (preview === null || this.state.getState().busy) return Promise.resolve();
+    this.state.setState({ preview: null, error: null });
 
-    return this.run(async () => {
-      await this.coordinator.reject(preview, crypto.randomUUID());
-
-      return null;
-    });
+    return this.coordinator.reject(preview, crypto.randomUUID()).then(
+      () => undefined,
+      () => undefined
+    );
   }
 
   status() {
