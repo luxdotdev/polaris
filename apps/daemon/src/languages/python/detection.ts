@@ -1,4 +1,5 @@
-import { dirname, join } from "node:path";
+import { readlink } from "node:fs/promises";
+import { basename, dirname, join, resolve } from "node:path";
 import { Schema } from "effect";
 import type { LanguagePythonInterpreter } from "@polaris/protocol";
 import { ancestors, existing, readText } from "../discovery/files.ts";
@@ -51,7 +52,9 @@ export async function detectPython(
       host.path !== null &&
       !candidates.some((item) => item.path === host.path)
     )
-      candidates.push({ path: host.path, source: "host" });
+      candidates.push(
+        withVersion({ path: host.path, source: "host" }, await nameVersion(host.path))
+      );
   }
 
   return candidates;
@@ -85,11 +88,55 @@ async function venvCandidate(
 
   try {
     const entry = await interpreterEntry(path);
+    const cfg = await existing(root, join(dirname(dirname(path)), "pyvenv.cfg"));
+    const version = cfg === null ? null : cfgVersion(await readText(cfg));
 
-    return { path: entry.path, source: uv ? "uv" : "venv" };
+    return withVersion({ path: entry.path, source: uv ? "uv" : "venv" }, version);
   } catch (cause) {
     if (!Schema.is(absent)(cause)) throw cause;
 
     return null;
   }
 }
+
+const CFG_VERSION = /^\s*version(?:_info)?\s*=\s*(\d+\.\d+(?:\.\d+)?)\b/m;
+
+const NAME_VERSION = /^python(\d+\.\d+)$/;
+
+/** pyvenv.cfg's `version` (venv) or `version_info` (uv). */
+export const cfgVersion = (text: string) => CFG_VERSION.exec(text)?.[1] ?? null;
+
+/** "python3.12", as the entry or a link on its way to the file is named (Homebrew's python3). */
+export async function nameVersion(path: string) {
+  let current = path;
+
+  for (let hop = 0; hop < 8; hop++) {
+    const named = NAME_VERSION.exec(basename(current))?.[1];
+
+    if (named !== undefined) return named;
+
+    try {
+      current = resolve(dirname(current), await readlink(current));
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+}
+
+/** An interpreter outside detection (an override): its venv's pyvenv.cfg, else its name. */
+export async function interpreterVersion(path: string) {
+  try {
+    const version = cfgVersion(await readText(join(dirname(dirname(path)), "pyvenv.cfg")));
+
+    if (version !== null) return version;
+  } catch {
+    // No venv around it, or an unreadable one: fall back to the name.
+  }
+
+  return nameVersion(path);
+}
+
+export const withVersion = (candidate: PythonCandidate, version: string | null): PythonCandidate =>
+  version === null ? candidate : { ...candidate, version };

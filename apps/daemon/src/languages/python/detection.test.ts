@@ -3,7 +3,7 @@ import { expect, test } from "bun:test";
 import { chmod, mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { WorkspaceId } from "@polaris/protocol";
-import { detectPython } from "./detection.ts";
+import { cfgVersion, detectPython, interpreterVersion, nameVersion } from "./detection.ts";
 import { createPythonEnvironment, interpreterEntry } from "./environment.ts";
 import { createProjectDiscovery } from "../discovery/index.ts";
 import { LanguageCheckout, HostId } from "@polaris/protocol";
@@ -141,6 +141,41 @@ test("venv search paths and target version come from bounded metadata without ex
     });
     await writeFile(join(f.root, "pyvenv.cfg"), "version = untrusted-code\n");
     expect((await pythonSearchPaths(join(f.root, "bin/python"))).version).toBeNull();
+  } finally {
+    await f.close();
+  }
+});
+
+test("versions come from pyvenv.cfg (venv `version`, uv `version_info`) or the name, never by running Python", async () => {
+  const f = await fixture();
+
+  try {
+    await mkdir(join(f.root, ".venv/bin"), { recursive: true });
+    const entry = join(f.root, ".venv/bin/python");
+    await symlink(f.executable, entry);
+    await writeFile(join(f.root, ".venv/pyvenv.cfg"), "home = /usr/bin\nversion = 3.11.9\n");
+    expect(await detectPython(f.root, f.root, "darwin", f.host)).toEqual([
+      { path: entry, source: "venv", version: "3.11.9" },
+    ]);
+    await writeFile(join(f.root, "uv.lock"), "version = 1\n");
+    await writeFile(
+      join(f.root, ".venv/pyvenv.cfg"),
+      "home = /opt/python/bin\nimplementation = CPython\nuv = 0.9.0\nversion_info = 3.12.4\n"
+    );
+    expect(await detectPython(f.root, f.root, "darwin", f.host)).toEqual([
+      { path: entry, source: "uv", version: "3.12.4" },
+    ]);
+
+    const named = join(f.root, "host-bin/python3.13");
+    await mkdir(join(f.root, "host-bin"));
+    await symlink(f.executable, named);
+    await symlink(named, join(f.root, "host-bin/python3"));
+    expect(await nameVersion(join(f.root, "host-bin/python3"))).toBe("3.13");
+    expect(await nameVersion(f.executable)).toBeNull();
+    expect(await interpreterVersion(entry)).toBe("3.12.4");
+    expect(await interpreterVersion(named)).toBe("3.13");
+    expect(cfgVersion("version = 3.10\n")).toBe("3.10");
+    expect(cfgVersion("version = garbage\n")).toBeNull();
   } finally {
     await f.close();
   }

@@ -7,7 +7,12 @@ import { checkoutPath } from "../trust/index.ts";
 import { isDirectory, withDiscoveryBudget } from "../discovery/files.ts";
 import { LanguageBroker, languageOperation } from "../runtime/service.ts";
 import { PythonEnvironment } from "./environment.ts";
-import { detectPython, type PythonProbeOptions } from "./detection.ts";
+import {
+  detectPython,
+  interpreterVersion,
+  withVersion,
+  type PythonProbeOptions,
+} from "./detection.ts";
 
 type Input = { checkout: LanguageCheckout; path: string };
 
@@ -37,7 +42,12 @@ function makePythonCore(
         record.interpreter !== null &&
         !candidates.some((item) => item.path === record.interpreter)
       )
-        candidates.unshift({ path: record.interpreter, source: "override" });
+        candidates.unshift(
+          withVersion(
+            { path: record.interpreter, source: "override" },
+            await interpreterVersion(record.interpreter)
+          )
+        );
 
       return LanguagePythonInterpreters.make({
         checkout: canonical.checkout,
