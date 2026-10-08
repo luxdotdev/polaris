@@ -22,6 +22,10 @@ export interface FocusedFile {
   readonly canFormat: boolean;
   /** A log tab is listening (`intents/languageLog.ts`). */
   readonly canShowLog: boolean;
+  /** Its checkout is known, so a Python file's interpreters can be listed. */
+  readonly hasCheckout: boolean;
+  /** "uv · 3.12.4" once the Host has listed them, else "". */
+  readonly pythonInterpreter: string;
 }
 
 const basename = (path: string) => path.split("/").pop() ?? path;
@@ -62,10 +66,14 @@ export const fileContext = (file: FocusedFile | null): ContextPart => {
 
   if (TYPESCRIPT.has(file.language) && file.status !== null) keys.push("language.typescript");
 
+  if (file.language === "python" && file.hasCheckout) keys.push("language.python");
+
   const values: Partial<Record<ContextValue, string>> = {
     language: LANGUAGE_NAMES[file.language],
     file: basename(file.path),
   };
+
+  if (file.pythonInterpreter !== "") values.pythonInterpreter = file.pythonInterpreter;
 
   if (file.status !== null) {
     values.trustSubject = trustSubject(file.status, file.workspace);

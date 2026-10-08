@@ -85,7 +85,11 @@ export class LanguagePreferences {
       settings,
       origins,
       formatOnSave: settings.formatOnSave ?? true,
-      formatter: settings.formatter ?? P.LanguageFormatterSelection.cases.None.make({}),
+      formatter:
+        settings.formatter ??
+        (language === "python"
+          ? P.LanguageFormatterSelection.cases.Provider.make({ providerId: "ruff" })
+          : P.LanguageFormatterSelection.cases.None.make({})),
       providers: settings.providers ?? [],
     });
   }

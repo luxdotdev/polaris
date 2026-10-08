@@ -1,7 +1,8 @@
 /**
  * Format on save in the real app on an isolated profile: node apps/desktop/scripts/formatOnSaveSmoke.ts
- * (build first). With no formatter chosen, saving a badly indented TypeScript file formats it on
- * disk through the file's own server, with Vim mode off (⌘S) and on (:w); one undo restores it.
+ * (build first). In a repo with no formatter of its own and none chosen, saving a badly indented
+ * TypeScript file formats it on disk through the file's own server, with Vim mode off (⌘S) and on
+ * (:w); one undo restores it.
  */
 import { strict as assert } from "node:assert";
 import {
@@ -23,6 +24,9 @@ const profile = realpathSync(mkdtempSync(join(tmpdir(), "polaris-format-on-save-
 
 const userData = join(profile, "user-data");
 
+/** A repo with no formatter config or dependency, so the TypeScript server formats. */
+const workspace = join(profile, "plain");
+
 const evidence = join(REPO_ROOT, ".dagr/evidence/slice-4a");
 
 const messy = [
@@ -41,12 +45,14 @@ const messy = [
 
 const files = ["format-on-save-plain.ts", "format-on-save-vim.ts"].map((name) => ({
   name,
-  path: join(REPO_ROOT, name),
+  path: join(workspace, name),
 }));
 
-for (const file of files) assert.equal(existsSync(file.path), false, "Never overwrite a file");
-
 mkdirSync(userData);
+
+mkdirSync(workspace);
+
+for (const file of files) assert.equal(existsSync(file.path), false, "Never overwrite a file");
 
 mkdirSync(evidence, { recursive: true });
 
@@ -121,7 +127,7 @@ try {
     .locator('[data-host="local"][data-connection="connected"]')
     .waitFor({ timeout: 20_000 });
   await page.evaluate(
-    `window.polaris.request("dispatch", { hostKey: "local", commandId: crypto.randomUUID(), command: { _tag: "RegisterWorkspace", path: ${JSON.stringify(REPO_ROOT)}, name: "polaris" } })`
+    `window.polaris.request("dispatch", { hostKey: "local", commandId: crypto.randomUUID(), command: { _tag: "RegisterWorkspace", path: ${JSON.stringify(workspace)}, name: "plain" } })`
   );
   await page.keyboard.press("Meta+3");
   await page.getByTestId("explorer").waitFor({ timeout: 30_000 });

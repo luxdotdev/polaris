@@ -81,6 +81,14 @@ export const languageTransportFor = (
   const client = session.client;
 
   const calls: Record<LanguageMethod, (input: unknown) => Effect.Effect<unknown, unknown>> = {
+    "languages.python.interpreters": (input) =>
+      client["languages.python.interpreters"](
+        decodeLanguage(P.ListPythonInterpreters.payloadSchema, input)
+      ),
+    "languages.python.select": (input) =>
+      client["languages.python.select"](
+        decodeLanguage(P.SelectPythonInterpreter.payloadSchema, input)
+      ),
     "languages.host.state": (input) =>
       client["languages.host.state"](decodeLanguage(P.GetLanguageHostState.payloadSchema, input)),
     "languages.catalog": (input) =>
@@ -155,6 +163,10 @@ export const languageTransportFor = (
       ),
     "languages.format": (input) =>
       client["languages.format"](decodeLanguage(P.PreflightLanguageFormat.payloadSchema, input)),
+    "languages.format.project": (input) =>
+      client["languages.format.project"](
+        decodeLanguage(P.RunLanguageProjectFormat.payloadSchema, input)
+      ),
     "languages.edit.decide": (input) =>
       client["languages.edit.decide"](decodeLanguage(P.AcceptLanguageEdit.payloadSchema, input)),
     "languages.operation.get": (input) =>
@@ -207,8 +219,8 @@ export const languageTransportFor = (
   const safeFailure = (error: unknown, signal: AbortSignal) =>
     signal.aborted
       ? languageFailure("not-connected")
-      : error instanceof P.LanguageError
-        ? languageFailure(error.reason)
+      : Schema.is(P.LanguageError)(error)
+        ? error
         : languageFailure("server-failed");
 
   return {

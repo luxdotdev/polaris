@@ -32,6 +32,7 @@ import { AgentStrip } from "./AgentStrip.tsx";
 import { Banner } from "./Banner.tsx";
 import { Breadcrumbs } from "./Breadcrumbs.tsx";
 import { RefactorPreview } from "./RefactorPreview.tsx";
+import { RefactorRecovery } from "./RefactorRecovery.tsx";
 import { CloseDialog } from "./CloseDialog.tsx";
 import { CodeHost } from "./CodeHost.tsx";
 import { Compare } from "./Compare.tsx";
@@ -193,6 +194,7 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
     return (
       <section aria-label="Editor" className="bg-bg grid min-w-0 flex-1 place-items-center">
         <RefactorPreview hostKey={hostKey} root={root} />
+        <RefactorRecovery hostKey={hostKey} root={root} />
         <EmptyState
           icon={<PixelFolderIcon size={24} className="text-text-strong" />}
           title="No file open"
@@ -232,6 +234,7 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
       ) : (
         <AgentStrip hostKey={hostKey} edit={agent} />
       )}
+      <RefactorRecovery hostKey={hostKey} root={root} />
       {banner === null ? null : (
         <Banner banner={banner} comparing={comparing} onAction={onAction} />
       )}

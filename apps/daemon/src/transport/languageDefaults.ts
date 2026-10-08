@@ -14,6 +14,8 @@ const feed = () => Stream.fail(unavailable());
 
 /** Typed defaults mount no services, processes or capabilities; real handler layers override them. */
 export const languageDefaults = {
+  "languages.python.interpreters": request,
+  "languages.python.select": request,
   "languages.catalog": request,
   "languages.host.state": request,
   "languages.host.state.watch": feed,
@@ -43,6 +45,7 @@ export const languageDefaults = {
   "languages.server.respond": request,
   "languages.context.configure": request,
   "languages.format": request,
+  "languages.format.project": request,
   "languages.edit.decide": request,
   "languages.operation.get": request,
   "languages.operation.recover": request,

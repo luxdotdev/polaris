@@ -1,3 +1,4 @@
+import { LanguagePythonInterpreters } from "./python.ts";
 import { LanguageServerLogEvent } from "./logs.ts";
 import { LanguageHostState } from "./hostState.ts";
 import { Schema } from "effect";
@@ -35,6 +36,11 @@ import {
   LanguageSyncInput,
 } from "./documents.ts";
 import { LanguageTreeEditDecision, LanguageTreeOperationOutcome } from "./trees.ts";
+import {
+  LanguageProjectFormatInput,
+  LanguageProjectFormatOutcome,
+  LanguageProjectFormatter,
+} from "./projectFormat.ts";
 import {
   LanguageEditAcceptance,
   LanguageFormatOutcome,
@@ -81,6 +87,23 @@ export const PrepareLanguageEdit = Rpc.make("languages.edit.prepare", {
 export const GetLanguageCatalog = Rpc.make("languages.catalog", {
   payload: {},
   success: LanguageCatalog,
+  error: LanguageError,
+});
+
+export const ListPythonInterpreters = Rpc.make("languages.python.interpreters", {
+  payload: { checkout: LanguageCheckout, path: LanguagePath },
+  success: LanguagePythonInterpreters,
+  error: LanguageError,
+});
+
+export const SelectPythonInterpreter = Rpc.make("languages.python.select", {
+  payload: {
+    checkout: LanguageCheckout,
+    path: LanguagePath,
+    interpreter: Schema.NullOr(LanguagePath),
+    expectedRevision: LanguageCounter,
+  },
+  success: LanguagePythonInterpreters,
   error: LanguageError,
 });
 
@@ -160,6 +183,8 @@ export const LanguageDiscovery = Schema.Struct({
   effectiveSettings: LanguageEffectiveSettings,
   trust: LanguageTrust,
   trustRequest: Schema.optionalKey(Schema.NullOr(LanguageTrustStatus)),
+  /** Absent from Daemons without `languages.project-format`. */
+  projectFormatter: Schema.optionalKey(Schema.NullOr(LanguageProjectFormatter)),
 });
 
 export const InspectLanguageTrust = Rpc.make("languages.trust.inspect", {
@@ -307,6 +332,13 @@ export const PreflightLanguageFormat = Rpc.make("languages.format", {
   error: LanguageError,
 });
 
+/** Runs the checkout's own formatter on buffer text; fails `awaiting-trust` unless trusted. */
+export const RunLanguageProjectFormat = Rpc.make("languages.format.project", {
+  payload: LanguageProjectFormatInput,
+  success: LanguageProjectFormatOutcome,
+  error: LanguageError,
+});
+
 export const AcceptLanguageEdit = Rpc.make("languages.edit.decide", {
   payload: LanguageEditAcceptance,
   success: LanguageOperationOutcome,
@@ -401,6 +433,8 @@ export const SetLanguagePreviewPolicy = Rpc.make("languages.preview.policy.set",
 /** The existing Daemon wire owns these schemas; capabilities require implemented handler layers. */
 
 export class LanguageRpcs extends RpcGroup.make(
+  ListPythonInterpreters,
+  SelectPythonInterpreter,
   GetLanguageCatalog,
   GetLanguageHostState,
   WatchLanguageHostState,
@@ -430,6 +464,7 @@ export class LanguageRpcs extends RpcGroup.make(
   RespondLanguageServer,
   ConfigureLanguageContext,
   PreflightLanguageFormat,
+  RunLanguageProjectFormat,
   AcceptLanguageEdit,
   GetLanguageOperation,
   RecoverLanguageOperation,

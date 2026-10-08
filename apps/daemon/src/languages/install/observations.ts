@@ -6,6 +6,7 @@ import { abortable, checkAbort, digest, failure } from "./validation.ts";
 
 /** Captured independently by Core from the live principal and canonical checkout, never from trusted alone. */
 export interface ObservationAdmission {
+  readonly pythonInterpreter?: string | null;
   readonly cwd: string;
   readonly requireCurrent: RequestGuard;
 }
@@ -50,6 +51,7 @@ export function createDemandObservations(options: {
     if (
       captured &&
       (captured.value.cwd !== admission.cwd ||
+        captured.value.pythonInterpreter !== admission.pythonInterpreter ||
         captured.value.requireCurrent !== admission.requireCurrent)
     )
       throw failure("conflict", "Captured observation authority cannot be rebound", true);

@@ -5,6 +5,8 @@ import { Option, Predicate, Schema } from "effect";
 
 export const languageMethods = {
   "languages.catalog": P.GetLanguageCatalog,
+  "languages.python.interpreters": P.ListPythonInterpreters,
+  "languages.python.select": P.SelectPythonInterpreter,
   "languages.host.state": P.GetLanguageHostState,
   "languages.availability": P.GetLanguageAvailability,
   "languages.install": P.InstallLanguageTool,
@@ -29,6 +31,7 @@ export const languageMethods = {
   "languages.server.respond": P.RespondLanguageServer,
   "languages.context.configure": P.ConfigureLanguageContext,
   "languages.format": P.PreflightLanguageFormat,
+  "languages.format.project": P.RunLanguageProjectFormat,
   "languages.edit.decide": P.AcceptLanguageEdit,
   "languages.operation.get": P.GetLanguageOperation,
   "languages.operation.recover": P.RecoverLanguageOperation,
@@ -562,7 +565,7 @@ export class LanguageAccess {
 
       if (joined.aborted) throw languageFailure("cancelled");
 
-      if (error instanceof P.LanguageError) throw languageFailure(error.reason);
+      if (Schema.is(P.LanguageError)(error)) throw error;
       throw languageFailure("server-failed");
     } finally {
       this.pendingCalls--;

@@ -1,5 +1,5 @@
 import { Context, Effect, Layer, Schema, Stream } from "effect";
-import { bundledTypeScript } from "../composition/managedPolicy.ts";
+import { managedWithoutTrust } from "../composition/managedPolicy.ts";
 import { LanguageError } from "@polaris/protocol";
 import { ProjectDiscovery } from "../discovery/index.ts";
 import { ExecutionTrustService } from "../trust/index.ts";
@@ -156,7 +156,7 @@ export class LanguageBroker extends Context.Service<
           invalidateDiscovery: () => Effect.runSync(discovery.invalidate),
           requireTrust: (checkout, facts) =>
             Effect.runPromise(
-              facts !== undefined && bundledTypeScript(facts)
+              facts !== undefined && managedWithoutTrust(facts)
                 ? Effect.map(trust.inspect(checkout), (observed) => observed.canonical)
                 : trust.require(checkout)
             ),

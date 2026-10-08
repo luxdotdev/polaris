@@ -19,6 +19,8 @@ export interface FormatSnapshot {
   readonly reason: SaveReason;
   /** The file's own indentation (the status bar's "Spaces 2"), for the formatter's options. */
   readonly indent?: Indent | null;
+  /** Format document asked for this, not a save. */
+  readonly command?: boolean;
 }
 
 /** Bind ordered document sync, selected formatter and repository configuration here. */
@@ -82,7 +84,7 @@ export class SaveCoordinator {
     if (snapshot === null || this.formatting === undefined)
       throw new Error("This file can't be formatted now.");
 
-    return this.preflight(snapshot, "format");
+    return this.preflight({ ...snapshot, command: true }, "format");
   }
 
   private async preflight(snapshot: FormatSnapshot, mode: "save" | "format" = "save") {

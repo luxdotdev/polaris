@@ -3,6 +3,7 @@ import { Effect, Layer, Stream } from "effect";
 import { ServerRpcs } from "../../transport/rpcs.ts";
 import { LanguageInstallCore } from "./install.ts";
 import { LanguageHostStateCore } from "./hostState.ts";
+import { PythonCore } from "../python/core.ts";
 import { LanguageCore } from "./core.ts";
 
 export { LanguageCore } from "./core.ts";
@@ -19,6 +20,12 @@ export { requestAuthority } from "./authority.ts";
 /** Core, owned installer demands and verified preparation; mutation receipts and capabilities stay separate. */
 export const languageCoreHandlers = (hostId: HostId) =>
   Layer.mergeAll(
+    ServerRpcs.toLayerHandler("languages.python.interpreters", (input) =>
+      Effect.flatMap(PythonCore, (core) => core.list(input))
+    ),
+    ServerRpcs.toLayerHandler("languages.python.select", (input) =>
+      Effect.flatMap(PythonCore, (core) => core.select(input))
+    ),
     ServerRpcs.toLayerHandler("languages.host.state", (input) =>
       Effect.flatMap(LanguageHostStateCore, (core) => core.read(input))
     ),
@@ -81,6 +88,9 @@ export const languageCoreHandlers = (hostId: HostId) =>
     ),
     ServerRpcs.toLayerHandler("languages.format", (input) =>
       Effect.flatMap(LanguageCore, (core) => core.format(input))
+    ),
+    ServerRpcs.toLayerHandler("languages.format.project", (input) =>
+      Effect.flatMap(LanguageCore, (core) => core.formatProject(input))
     ),
     ServerRpcs.toLayerHandler("languages.log.watch", ({ context }) =>
       Stream.unwrap(Effect.map(LanguageCore, (core) => core.watchLog(context)))

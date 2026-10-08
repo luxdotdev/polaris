@@ -21,7 +21,7 @@ export interface ActionTarget {
 
 export interface ActionPorts {
   readonly api: LanguageApi | undefined;
-  readonly recheck: () => void;
+  readonly recheck: () => Promise<void>;
   readonly showLog: () => void;
   readonly openSettings: () => void;
 }

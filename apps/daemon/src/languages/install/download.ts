@@ -10,7 +10,7 @@ export function httpsArtifactDownload(
 ) {
   return async function* download(exact: ExactArtifact, signal: AbortSignal) {
     checkAbort(signal);
-    const url = new URL(exact.artifact.url);
+    let url = new URL(exact.artifact.url);
 
     if (url.protocol !== "https:" || url.username || url.password || url.hash)
       throw failure("audit-required", "Artifact download URL is not permitted");
@@ -23,7 +23,7 @@ export function httpsArtifactDownload(
       | undefined;
 
     try {
-      const response = await fetchArtifact(url.href, {
+      let response = await fetchArtifact(url.href, {
         signal: controller.signal,
         redirect: "manual",
         credentials: "omit",
@@ -31,6 +31,18 @@ export function httpsArtifactDownload(
       });
 
       checkAbort(signal);
+      const redirected = await releaseRedirect(response, url);
+
+      if (redirected !== null) {
+        url = redirected;
+        response = await fetchArtifact(url.href, {
+          signal: controller.signal,
+          redirect: "manual",
+          credentials: "omit",
+          headers: { "accept-encoding": "identity" },
+        });
+        checkAbort(signal);
+      }
 
       if (
         response.status !== 200 ||
@@ -73,4 +85,29 @@ export function httpsArtifactDownload(
       signal.removeEventListener("abort", abort);
     }
   };
+}
+
+async function releaseRedirect(response: Response, url: URL) {
+  if (
+    ![301, 302, 303, 307, 308].includes(response.status) ||
+    url.hostname !== "github.com" ||
+    !/^\/[^/]+\/[^/]+\/releases\/download\//.test(url.pathname)
+  )
+    return null;
+  const location = response.headers.get("location");
+  await response.body?.cancel();
+  const target = location === null ? null : new URL(location, url);
+
+  if (
+    target === null ||
+    target.protocol !== "https:" ||
+    target.hostname !== "release-assets.githubusercontent.com" ||
+    target.port ||
+    target.username ||
+    target.password ||
+    target.hash
+  )
+    throw failure("audit-required", "GitHub release redirect is not permitted");
+
+  return target;
 }

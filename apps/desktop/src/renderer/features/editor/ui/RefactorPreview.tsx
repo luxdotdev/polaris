@@ -1,6 +1,5 @@
-import { Button } from "@polaris/ui";
 import { useStore } from "zustand";
-import { needsUser, refactorRegistry, type RefactorController } from "../refactors/controller.ts";
+import { refactorRegistry, type RefactorController } from "../refactors/controller.ts";
 import { hostInSentence } from "../../../shell/hostCopy.ts";
 import { useApp } from "../../../shell/hooks.ts";
 import { fileKey } from "../model/drafts.ts";
@@ -53,58 +52,8 @@ const PreviewBody = ({
     );
   }
 
-  // Recovery shows only when it needs the user; a one-file rename applied directly shows nothing.
-  const group = state.group !== null && needsUser(state.group) ? state.group : null;
-
-  if (group === null && error === null) return null;
-
-  return (
-    <section
-      aria-label="Refactor recovery"
-      className="border-border bg-surface text-text flex max-h-[70vh] min-h-0 flex-col border-b"
-      data-testid="refactor-preview"
-    >
-      <header className="px-panel py-row flex flex-wrap items-center gap-3">
-        <strong className="text-text-strong">Refactor recovery</strong>
-        <span className="text-text-muted text-xs">{state.hostKey}</span>
-      </header>
-      <div className="px-panel min-h-0 overflow-auto">
-        {group === null ? null : (
-          <p role="status" className="py-row text-sm">
-            {group.state}: {group.message}
-          </p>
-        )}
-        {group?.outcome?.steps.map((step) => (
-          <p key={step.index} className="font-mono text-xs break-all">
-            {step.index + 1}. {step.operation.kind}: {step.state} · {step.message}
-          </p>
-        ))}
-        {error === null ? null : (
-          <p role="alert" className="text-severity-high py-row text-sm">
-            {error}
-          </p>
-        )}
-      </div>
-      <footer className="px-panel py-row flex flex-wrap justify-end gap-2">
-        {group === null ? null : (
-          <>
-            <Button variant="secondary" disabled={busy} onClick={() => void controller.status()}>
-              Check outcome
-            </Button>
-            <Button
-              variant="primary"
-              disabled={busy || group.outcome === null || group.state === "conflict"}
-              onClick={() =>
-                void controller.recover(group.state === "applied" ? "undo" : "recover")
-              }
-            >
-              {group.state === "applied" ? "Undo refactor" : "Recover file operations"}
-            </Button>
-          </>
-        )}
-      </footer>
-    </section>
-  );
+  // Recovery has its own strip under the breadcrumbs (RefactorRecovery).
+  return null;
 };
 
 export const RefactorPreview = ({

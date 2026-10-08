@@ -4,7 +4,7 @@
  * `text-subtle`, and find/replace on the sunken surface. Every colour is a
  * token, so both themes follow the root's `light-dark()` without a rebuild.
  */
-import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
+import { HighlightStyle, syntaxHighlighting, type Language } from "@codemirror/language";
 import type { Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { tags as t } from "@lezer/highlight";
@@ -171,7 +171,9 @@ const editorTheme = EditorView.theme({
 });
 
 /** DESIGN.md frontmatter: keyword slate, parchment strings and numbers, sage types, strong functions. */
-const moonlit = HighlightStyle.define([
+export const moonlit = HighlightStyle.define([
+  // First, so a fence's own grammar colours its tokens over the fence's code tone.
+  { tag: t.monospace, color: v("syntax-string") },
   {
     tag: [
       t.keyword,
@@ -205,19 +207,38 @@ const moonlit = HighlightStyle.define([
     color: v("syntax-function"),
   },
   {
-    tag: [t.comment, t.lineComment, t.blockComment, t.docComment, t.meta, t.processingInstruction],
+    tag: [t.comment, t.lineComment, t.blockComment, t.docComment, t.meta],
     color: v("syntax-comment"),
   },
   {
     tag: [t.punctuation, t.operator, t.bracket, t.separator, t.derefOperator, t.angleBracket],
     color: v("syntax-punctuation"),
   },
+  { tag: t.invalid, textDecoration: `underline wavy ${v("text-subtle")}` },
+  // Markdown (DESIGN.md, Editor: Code): hierarchy by weight and style, never a new hue.
   { tag: t.heading, color: v("text-strong"), fontWeight: "500" },
-  { tag: t.strong, fontWeight: "500" },
+  { tag: t.heading1, color: v("text-strong"), fontWeight: "700" },
+  { tag: t.heading2, color: v("text-strong"), fontWeight: "600" },
+  { tag: t.strong, color: v("text-strong"), fontWeight: "600" },
   { tag: t.emphasis, fontStyle: "italic" },
   { tag: t.strikethrough, textDecoration: "line-through" },
-  { tag: [t.link, t.url], color: v("syntax-keyword"), textDecoration: "underline" },
-  { tag: t.invalid, textDecoration: `underline wavy ${v("text-subtle")}` },
+  { tag: t.quote, color: v("text-subtle"), fontStyle: "italic" },
+  { tag: t.link, color: v("syntax-type"), textDecoration: "underline" },
+  { tag: t.url, color: v("syntax-string"), textDecoration: "none" },
+  // Last, so a mark inside a heading, link or quote stays quiet: `#`, `**`, `>`, `-`, fences, `---`.
+  {
+    tag: [t.processingInstruction, t.contentSeparator],
+    color: v("text-faint"),
+    fontWeight: "400",
+    fontStyle: "normal",
+    textDecoration: "none",
+  },
 ]);
+
+/** Scoped to Markdown's own tree: `labelName` is a fence's info string here, a goto label elsewhere. */
+export const moonlitMarkdown = (language: Language) =>
+  syntaxHighlighting(
+    HighlightStyle.define([{ tag: t.labelName, color: v("syntax-keyword") }], { scope: language })
+  );
 
 export const editorLook: Extension = [editorTheme, syntaxHighlighting(moonlit)];

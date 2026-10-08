@@ -13,6 +13,15 @@ const trustError = (cause: unknown) =>
         retryable: true,
       });
 
+const executionError = (cause: unknown) =>
+  Schema.is(LanguageError)(cause)
+    ? cause
+    : new LanguageError({
+        reason: "not-ready",
+        message: "Checkout execution failed",
+        retryable: true,
+      });
+
 export class ExecutionTrustService extends Context.Service<
   ExecutionTrustService,
   {
@@ -34,6 +43,11 @@ export class ExecutionTrustService extends Context.Service<
     ) => Effect.Effect<typeof LanguageTrust.Type, LanguageError>;
     claimAsk: (trust: typeof LanguageTrust.Type) => boolean;
     require: (checkout: LanguageCheckout) => Effect.Effect<CanonicalCheckout, LanguageError>;
+    /** Runs Workspace code only after rechecking Trust at the invocation boundary. */
+    execute: <A>(
+      checkout: LanguageCheckout,
+      invoke: (checkout: CanonicalCheckout, signal: AbortSignal) => Promise<A>
+    ) => Effect.Effect<A, LanguageError>;
   }
 >()("polaris/languages/ExecutionTrust") {
   static layer(options: Parameters<typeof createExecutionTrust>[0]) {
@@ -66,6 +80,14 @@ export class ExecutionTrustService extends Context.Service<
         require: Effect.fn("ExecutionTrust.require")((checkout: LanguageCheckout) =>
           Effect.tryPromise({ try: () => trust.require(checkout), catch: trustError })
         ),
+        execute: <A>(
+          checkout: LanguageCheckout,
+          invoke: (checkout: CanonicalCheckout, signal: AbortSignal) => Promise<A>
+        ) =>
+          Effect.tryPromise({
+            try: (signal) => trust.execute(checkout, (canonical) => invoke(canonical, signal)),
+            catch: executionError,
+          }),
       });
     });
   }

@@ -3,7 +3,7 @@ import { Context, Effect, Layer } from "effect";
 import type { LaunchAdmissionRequest } from "../runtime/launchAdmission.ts";
 import type { ExecutionTrustService } from "../trust/index.ts";
 import { denied, type RequestAuthority } from "./authority.ts";
-import { bundledTypeScript } from "./managedPolicy.ts";
+import { managedWithoutTrust } from "./managedPolicy.ts";
 
 interface Owner {
   authority: RequestAuthority;
@@ -127,7 +127,7 @@ function makeAuthority() {
         await Effect.runPromise(owner.authority.checkout(request.context.checkout), { signal });
         assertCurrent();
 
-        if (request.facts === undefined || !bundledTypeScript(request.facts))
+        if (request.facts === undefined || !managedWithoutTrust(request.facts))
           await Effect.runPromise(trust.require(request.context.checkout), { signal });
         assertCurrent();
         await Effect.runPromise(owner.authority.checkout(request.context.checkout), { signal });

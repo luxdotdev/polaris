@@ -58,6 +58,8 @@ export const Capability = Schema.Literals([
   "languages.install",
   "languages.trust",
   "languages.format",
+  /** `languages.format.project` and discovery's `projectFormatter`: the checkout's own formatter. */
+  "languages.project-format",
   "languages.edits",
   "languages.edit-preparation",
   "languages.buffer-acknowledgments",

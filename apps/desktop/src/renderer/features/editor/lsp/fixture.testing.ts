@@ -48,6 +48,13 @@ export class EditorProviderFixture {
   hold: Promise<void> | null = null;
   /** The runtime an acquire reports; the real Daemon reports a stopped server until a file opens. */
   acquired: typeof P.LanguageRuntime.Type | null = null;
+  /** What discovery reports as the project's own formatter. */
+  projectFormatter: P.LanguageProjectFormatter | null = null;
+  /** Untrusted, `languages.format.project` fails `awaiting-trust` as the Daemon's does. */
+  projectTrusted = true;
+  readonly projectFormats: P.LanguageProjectFormatInput[] = [];
+  /** What `languages.trust.inspect` answers; unsupported while null. */
+  trustStatus: typeof P.LanguageTrustStatus.Type | null = null;
 
   constructor(readonly hostId: P.HostId) {}
 
@@ -82,6 +89,7 @@ export class EditorProviderFixture {
             },
           ],
           effectiveSettings: discovery.settings,
+          projectFormatter: this.projectFormatter,
           trust: P.LanguageTrust.make({
             scope: P.LanguageTrustScope.cases.Workspace.make({
               hostId: this.hostId,
@@ -127,6 +135,33 @@ export class EditorProviderFixture {
             requestTimeoutMs: 5000,
           },
         };
+      } else if (method === "languages.trust.inspect" && this.trustStatus !== null)
+        value = Schema.encodeSync(P.LanguageTrustStatus)(this.trustStatus);
+      else if (method === "languages.format.project") {
+        const format = Schema.decodeUnknownSync(P.LanguageProjectFormatInput)(input);
+
+        this.projectFormats.push(format);
+
+        if (!this.projectTrusted)
+          return {
+            ok: false,
+            error: {
+              code: "LanguageError",
+              message: "Checkout execution requires trust",
+              languageError: new P.LanguageError({
+                reason: "awaiting-trust",
+                message: "Checkout execution requires trust",
+                retryable: false,
+              }),
+            },
+          };
+
+        value = P.LanguageProjectFormatOutcome.cases.Formatted.make({
+          requestId: format.requestId,
+          version: format.version,
+          tool: this.projectFormatter?.tool ?? "oxfmt",
+          text: format.text.replaceAll("{ }", "{}"),
+        });
       } else if (method === "languages.document.sync") value = this.sync(input);
       else if (method === "languages.request")
         value = Schema.encodeSync(P.LanguageFeatureResult)(await this.feature(input));

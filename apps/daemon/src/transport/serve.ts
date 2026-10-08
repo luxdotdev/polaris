@@ -115,6 +115,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "languages",
   "languages.trust",
   "languages.format",
+  "languages.project-format",
   "languages.buffer-acknowledgments",
   "languages.edit-preparation",
   "languages.edits",

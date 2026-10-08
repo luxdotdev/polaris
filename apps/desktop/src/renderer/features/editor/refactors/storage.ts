@@ -54,9 +54,39 @@ export const indexedDbGroups = (): GroupStore => {
     });
   };
 
+  const remove = async (id: string, expectedRevision: number) => {
+    const db = await database();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction("groups", "readwrite", { durability: "strict" });
+      const store = tx.objectStore("groups");
+      const req = store.get(id);
+      req.addEventListener("success", () => {
+        try {
+          const value: unknown = req.result;
+
+          if (value === undefined) return;
+
+          if (
+            decodeGroup(Schema.decodeUnknownSync(Schema.String)(value)).revision !==
+            expectedRevision
+          )
+            throw new Error("Draft group changed in another window.");
+          store.delete(id);
+        } catch (cause) {
+          tx.abort();
+          reject(cause);
+        }
+      });
+      tx.addEventListener("complete", () => resolve());
+      tx.addEventListener("abort", () => reject(tx.error ?? new Error("Draft removal aborted")));
+      tx.addEventListener("error", () => reject(tx.error));
+    });
+  };
+
   return {
     get: async (id) => (await read(id))[0] ?? null,
     list: () => read(null),
+    remove,
     commit: async (group, expectedRevision) => {
       const encoded = encodeGroup(group);
       const db = await database();
@@ -118,6 +148,17 @@ export const memoryGroups = (): GroupStore => {
       )
         return Promise.reject(new Error("Draft group revision changed"));
       groups.set(group.id, encodeGroup(group));
+
+      return Promise.resolve();
+    },
+    remove: (id, expectedRevision) => {
+      const prior = groups.get(id);
+
+      if (prior === undefined) return Promise.resolve();
+
+      if (decodeGroup(prior).revision !== expectedRevision)
+        return Promise.reject(new Error("Draft group revision changed"));
+      groups.delete(id);
 
       return Promise.resolve();
     },

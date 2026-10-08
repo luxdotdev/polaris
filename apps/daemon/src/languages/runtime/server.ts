@@ -35,7 +35,7 @@ import type { OrderedConnection } from "../transport/index.ts";
 import { bounded } from "../transport/deadline.ts";
 import { failure } from "../transport/framing.ts";
 import type { Documents } from "./documents.ts";
-import { registeredCapabilities } from "./capabilities.ts";
+import { registeredCapabilities, pythonCapabilities } from "./capabilities.ts";
 
 export interface ServerHooks {
   context: LanguageContextIdentity;
@@ -172,7 +172,12 @@ export class ServerBridge {
   private publishCapabilities() {
     if (this.base === undefined) return;
     const registrations = [...this.registrations.values()];
-    const capabilities = registeredCapabilities(this.base, registrations);
+
+    const capabilities = pythonCapabilities(
+      registeredCapabilities(this.base, registrations),
+      this.hooks.context.providerId
+    );
+
     this.hooks.capabilities(capabilities);
     this.hooks.emit(
       LanguageContextEvent.cases.CapabilitiesChanged.make({

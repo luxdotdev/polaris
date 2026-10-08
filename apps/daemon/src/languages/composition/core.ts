@@ -15,11 +15,12 @@ import {
   type LanguageSyncInput,
   type LanguageFeatureRequest,
   type LanguageFormatPreflight,
+  type LanguageProjectFormatInput,
   type LanguageServerResponse,
   type LanguageRequestFence,
   type LanguageBufferAcknowledgment,
 } from "@polaris/protocol";
-import { Context, Effect, Layer, Schema, Stream } from "effect";
+import { Context, Effect, Layer, Option, Schema, Stream } from "effect";
 import { EventStore } from "../../store/EventStore.ts";
 import { ProposalProvenance } from "../preparation/provenanceService.ts";
 import { catalog } from "../catalog/index.ts";
@@ -29,12 +30,14 @@ import { ProjectDiscovery } from "../discovery/index.ts";
 import { LanguageBroker, type AcquireInput } from "../runtime/index.ts";
 import { ExecutionTrustService } from "../trust/index.ts";
 import { registeredCheckout } from "../registeredCheckout.ts";
+import { discoverProjectFormatter, formatWithProject } from "../projectFormat/index.ts";
+import { PrivateNodeRuntime } from "./privateNode.ts";
 import { denied, requestAuthority, type RequestAuthority } from "./authority.ts";
 import { LanguageAcquisitionAuthority } from "./acquisitionAuthority.ts";
 import { prepareFeatureEdit, type PreparationIntent } from "./preparation.ts";
 import { configuredExecutable } from "./configuredLaunch.ts";
 import { observationAdmission } from "./observation.ts";
-import { bundledTypeScript } from "./managedPolicy.ts";
+import { managedWithoutTrust } from "./managedPolicy.ts";
 import {
   LanguageProviderAccess,
   LanguageTrustGrantAuthority,
@@ -204,15 +207,18 @@ function makeCore(
                 provider.tool,
                 "feature",
                 observed.trust.trusted,
-                observationAdmission(
-                  auth,
-                  canonical.checkout,
-                  found.projectRoot,
-                  observed.trust.revision,
-                  trust,
-                  owners,
-                  !bundledTypeScript(found)
-                ),
+                {
+                  ...observationAdmission(
+                    auth,
+                    canonical.checkout,
+                    found.projectRoot,
+                    observed.trust.revision,
+                    trust,
+                    owners,
+                    !managedWithoutTrust(found)
+                  ),
+                  pythonInterpreter: found.interpreter,
+                },
                 input.settings
               );
 
@@ -225,6 +231,10 @@ function makeCore(
         });
       }
 
+      const projectFormatter = yield* Effect.promise(() =>
+        discoverProjectFormatter(canonical, input.path)
+      );
+
       yield* auth.checkout(input.checkout);
 
       return LanguageDiscovery.make({
@@ -234,6 +244,7 @@ function makeCore(
         trust: observed.trust,
         trustRequest,
         providers: facts,
+        projectFormatter,
       });
     });
 
@@ -458,6 +469,24 @@ function makeCore(
       }),
     format: (input: LanguageFormatPreflight) =>
       delegate(input.fence.context, (clientId) => broker.format(clientId, input)),
+    formatProject: (input: LanguageProjectFormatInput) =>
+      Effect.gen(function* () {
+        const auth = yield* requestAuthority(hostId);
+        yield* auth.checkout(input.checkout);
+
+        const runtime = yield* Effect.serviceOption(PrivateNodeRuntime);
+
+        const node = () =>
+          Option.match(runtime, { onNone: async () => null, onSome: (value) => value.node() });
+
+        return yield* finish(
+          auth,
+          input.checkout,
+          trust.execute(input.checkout, (canonical, signal) =>
+            formatWithProject(canonical, input, signal, node)
+          )
+        );
+      }),
     watchLog: (input: LanguageContextIdentity) =>
       Stream.unwrap(
         Effect.gen(function* () {

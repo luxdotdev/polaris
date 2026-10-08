@@ -618,3 +618,42 @@ test("a Host-wide availability read passes routing with no checkout", async () =
   expect(calls).toEqual([{ toolIds: ["node"], checkout: null, refresh: false, phase: "install" }]);
   bridge.dispose();
 });
+
+test("Main preserves typed install diagnostics and hides untyped transport failures", async () => {
+  const { preferences } = prefs();
+
+  const typed = new P.LanguageError({
+    reason: "conflict",
+    message: "Version updates require an explicit update request",
+    retryable: true,
+  });
+
+  let failure: P.LanguageError | Error = typed;
+
+  const access = new LanguageAccess({
+    hostId,
+    clientId: "upgrade",
+    capabilities: ["languages"],
+    signal: new AbortController().signal,
+    invoke: async () => {
+      throw failure;
+    },
+    watch: async function* () {},
+    takeBlob: async () => png,
+  });
+
+  const bridge = createLanguageBridge({ preferences, lookup: () => host(access) });
+
+  try {
+    expect(await bridge.request("languages.catalog", { hostKey: "host" })).toMatchObject({
+      ok: false,
+      error: { message: typed.message, languageError: Schema.encodeSync(P.LanguageError)(typed) },
+    });
+    failure = new Error("private transport credential");
+    const result = await bridge.request("languages.catalog", { hostKey: "host" });
+    expect(result.ok).toBe(false);
+    expect(JSON.stringify(result)).not.toContain("private transport credential");
+  } finally {
+    bridge.dispose();
+  }
+});

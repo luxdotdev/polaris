@@ -52,6 +52,8 @@ const ExternalImageUrl = Schema.String.check(
 /** Opt-in tables for C1; current required request/subscription tables remain unchanged. */
 
 export const LanguageRequestInputs = {
+  "languages.python.interpreters": onHost(Languages.ListPythonInterpreters.payloadSchema.fields),
+  "languages.python.select": onHost(Languages.SelectPythonInterpreter.payloadSchema.fields),
   "languages.host.state": onHost(Languages.GetLanguageHostState.payloadSchema.fields),
   "languages.identity.get": onHost({}),
   "languages.catalog": onHost(Languages.GetLanguageCatalog.payloadSchema.fields),
@@ -80,6 +82,7 @@ export const LanguageRequestInputs = {
   "languages.server.respond": onHost(Languages.RespondLanguageServer.payloadSchema.fields),
   "languages.context.configure": onHost(Languages.ConfigureLanguageContext.payloadSchema.fields),
   "languages.format": onHost(Languages.PreflightLanguageFormat.payloadSchema.fields),
+  "languages.format.project": onHost(Languages.RunLanguageProjectFormat.payloadSchema.fields),
   "languages.edit.decide": onHost(Languages.AcceptLanguageEdit.payloadSchema.fields),
   "languages.operation.get": onHost(Languages.GetLanguageOperation.payloadSchema.fields),
   "languages.operation.recover": onHost(Languages.RecoverLanguageOperation.payloadSchema.fields),
@@ -105,6 +108,8 @@ export const LanguageRequestInputs = {
 } as const;
 
 export const LanguageRequestOutputs = {
+  "languages.python.interpreters": Languages.ListPythonInterpreters.successSchema,
+  "languages.python.select": Languages.SelectPythonInterpreter.successSchema,
   "languages.host.state": Languages.GetLanguageHostState.successSchema,
   "languages.identity.get": LanguageClientIdentity,
   "languages.catalog": Languages.GetLanguageCatalog.successSchema,
@@ -131,6 +136,7 @@ export const LanguageRequestOutputs = {
   "languages.server.respond": Languages.RespondLanguageServer.successSchema,
   "languages.context.configure": Languages.ConfigureLanguageContext.successSchema,
   "languages.format": Languages.PreflightLanguageFormat.successSchema,
+  "languages.format.project": Languages.RunLanguageProjectFormat.successSchema,
   "languages.edit.decide": Languages.AcceptLanguageEdit.successSchema,
   "languages.operation.get": Languages.GetLanguageOperation.successSchema,
   "languages.operation.recover": Languages.RecoverLanguageOperation.successSchema,

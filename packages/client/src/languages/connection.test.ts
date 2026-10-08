@@ -6,6 +6,7 @@ import * as P from "@polaris/protocol";
 import { Effect, Layer, Redacted, Stream, SubscriptionRef, Predicate, Schema } from "effect";
 import { HostTarget, makeHostConnection, languageSessionAuthority } from "../HostConnection.ts";
 import { socketTransport } from "../transport.ts";
+import { LanguageAccess } from "./index.ts";
 import { languageTransportFor } from "./connection.ts";
 import { startServer } from "../../../../apps/daemon/src/transport/server.ts";
 import { ServerRpcs } from "../../../../apps/daemon/src/transport/rpcs.ts";
@@ -408,4 +409,51 @@ test("wrong expected Host enters existing needs-attention policy without exposin
 
   expect(JSON.stringify(status).includes("Language identity unavailable")).toBe(true);
   expect(JSON.stringify(status).includes(Redacted.value(proof))).toBe(false);
+});
+
+test("authenticated socket preserves the Daemon's typed install reason through LanguageAccess", async () => {
+  const typed = new P.LanguageError({
+    reason: "conflict",
+    message: "Version updates require an explicit update request",
+    retryable: true,
+  });
+
+  await Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* temporary;
+
+        const server = yield* startServer({
+          ...options(root),
+          capabilities: ["languages"],
+          handlers: ServerRpcs.toLayerHandler("languages.catalog", () => Effect.fail(typed)),
+        });
+
+        const connection = yield* makeHostConnection({
+          key: "upgrade",
+          name: "upgrade",
+          target: HostTarget.Local({ socketPath: server.socketPath }),
+          identity,
+          connector: socketTransport(server.socketPath),
+          clientIdentity: { proof, expectedHostId: server.hostInfo.hostId },
+        });
+
+        const transport = languageTransportFor(yield* connection.awaitSession);
+
+        if (transport === null)
+          return yield* Effect.die("Missing authenticated language transport");
+        const access = new LanguageAccess(transport);
+
+        const error = yield* Effect.promise(() =>
+          access.request("languages.catalog", {}).then(
+            () => null,
+            (cause: unknown) => Schema.decodeUnknownSync(P.LanguageError)(cause)
+          )
+        );
+
+        expect(error).toEqual(typed);
+        access.dispose();
+      })
+    )
+  );
 });

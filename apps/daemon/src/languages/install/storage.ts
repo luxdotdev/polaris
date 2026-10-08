@@ -215,7 +215,7 @@ export async function createVersionStorage(
       throw failure("install-failed", "Stored version crosses a symlink");
 
     const receipt = Schema.decodeUnknownSync(Schema.fromJsonString(Receipt))(
-      (await boundedRead(join(path, "receipt.json"), limits.metadataBytes)).toString("utf8")
+      (await boundedRead(join(path, "receipt.json"), limits.receiptBytes)).toString("utf8")
     );
 
     if (receipt.identity !== identity || receipt.files.length > limits.entries)
@@ -251,24 +251,27 @@ export async function createVersionStorage(
       receipt.directories.some((path) => !tree.directories.has(path))
     )
       throw failure("install-failed", "Stored tree differs from installation receipt");
-    let total = 0;
 
-    for (const file of receipt.files) {
-      if (!safePath(file.path) || file.size < 0 || file.size > limits.fileBytes)
-        throw failure("install-failed", "Stored version file is unsafe");
-      const target = join(payload, file.path);
+    if (receipt.files.reduce((total, file) => total + file.size, 0) > limits.expandedBytes)
+      throw failure("too-large", "Stored tree exceeds expanded limit");
 
-      if ((await realpath(target)) !== target)
-        throw failure("install-failed", "Stored file crosses a symlink");
-      const bytes = await boundedRead(target, limits.fileBytes, file.mode);
-      total += bytes.length;
+    for (let offset = 0; offset < receipt.files.length; offset += 8) {
+      const results = await Promise.allSettled(
+        receipt.files.slice(offset, offset + 8).map(async (file) => {
+          if (!safePath(file.path) || file.size < 0 || file.size > limits.fileBytes)
+            throw failure("install-failed", "Stored version file is unsafe");
+          const target = join(payload, file.path);
 
-      if (
-        total > limits.expandedBytes ||
-        bytes.length !== file.size ||
-        !verifyIntegrity(bytes, file.integrity)
-      )
-        throw failure("install-failed", "Stored version integrity failed");
+          if ((await realpath(target)) !== target)
+            throw failure("install-failed", "Stored file crosses a symlink");
+          const bytes = await boundedRead(target, limits.fileBytes, file.mode);
+
+          if (bytes.length !== file.size || !verifyIntegrity(bytes, file.integrity))
+            throw failure("install-failed", "Stored version integrity failed");
+        })
+      );
+
+      for (const result of results) if (result.status === "rejected") throw result.reason;
     }
 
     return {
@@ -387,7 +390,7 @@ export async function createVersionStorage(
 
       const receiptBytes = Buffer.from(JSON.stringify(receipt));
 
-      if (receiptBytes.length > limits.metadataBytes)
+      if (receiptBytes.length > limits.receiptBytes)
         throw failure("too-large", "Installation receipt exceeds limit");
       await durableWrite(join(staging, "receipt.json"), receiptBytes);
       await beforeSelect();

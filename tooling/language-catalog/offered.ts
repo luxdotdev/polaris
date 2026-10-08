@@ -7,7 +7,9 @@ const artifactFailures = (data: Catalog): ReadonlyArray<string> =>
   offeredTools(data).flatMap((tool) => [
     ...(tool.artifacts.length === 0 ? [`${tool.id}: missing-artifacts`] : []),
     ...tool.artifacts.flatMap((artifact) =>
-      artifact.format === "npm" && !artifact.bundle ? [`${tool.id}: missing-npm-bundle`] : []
+      artifact.format === "npm" && !artifact.bundle && tool.distribution !== "runtime-upstream"
+        ? [`${tool.id}: missing-npm-bundle`]
+        : []
     ),
   ]);
 

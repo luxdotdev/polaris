@@ -7,6 +7,7 @@ import { Match, Predicate } from "effect";
 import type { TrustStatus } from "../trust/model.ts";
 import { decisionOf } from "../trust/model.ts";
 import type { ContextRuntime, Discovered, FileLanguage, HostTools, Runtime } from "./store.ts";
+import { interpreterFact, type Interpreters } from "../python/model.ts";
 
 export type PillKind =
   | "syntax"
@@ -89,6 +90,8 @@ export interface StatusInput {
   readonly hostInSentence: string;
   readonly workspace: string;
   readonly now: number;
+  /** A Python file's interpreters, once the Host has listed them. */
+  readonly python?: Interpreters | null;
 }
 
 const TS = "typescript-language-server";
@@ -305,7 +308,7 @@ const failureView = (
     Match.orElse((): FailureCopy => ({
       word: "unavailable",
       title: `${input.language} tools didn't start`,
-      why: `Polaris couldn't start them on ${input.hostInSentence}. Highlighting works meanwhile.`,
+      why: `${failure.message} (${failure.reason}). Highlighting works meanwhile.`,
       actions: [checkAgain, b.settings],
     }))
   );
@@ -428,6 +431,12 @@ const typescriptFacts = (input: StatusInput, trust: TrustStatus | null): Fact[] 
   return [ts];
 };
 
+const pythonFacts = (input: StatusInput): Fact[] => {
+  const fact = interpreterFact(input.python ?? null);
+
+  return fact === null ? [] : [fact];
+};
+
 const typescriptActions = (input: StatusInput, trust: TrustStatus | null): StatusAction[] => {
   if (trust === null) return [];
   const decision = decisionOf(trust.trust);
@@ -460,7 +469,48 @@ const bundledWhy = (input: StatusInput, trust: TrustStatus) => {
     : `You haven't trusted ${input.workspace}, so its own ${own} and tsconfig plugins don't run. Results may differ from tsc.`;
 };
 
-const ready = (input: StatusInput, runtime: ContextRuntime): StatusView => {
+/** The project's own formatter for this file, unless its ignore files exclude it. */
+const projectFormatting = (input: StatusInput) => {
+  const formatter = input.file?.formatter;
+
+  if (formatter === undefined || formatter === null || formatter.ignored) return null;
+
+  return { tool: formatter.tool, trusted: input.trust?.trust.trusted ?? formatter.trusted };
+};
+
+const formatterFacts = (input: StatusInput): Fact[] => {
+  const formatting = projectFormatting(input);
+
+  if (formatting === null) return [];
+
+  return [
+    {
+      label: "Formatter",
+      value: formatting.tool,
+      mono: true,
+      note: formatting.trusted ? "from this project" : "needs Trust",
+    },
+  ];
+};
+
+/** Untrusted, the project's formatter doesn't run, and nothing formats in its place. */
+const withFormatting = (input: StatusInput, view: StatusView): StatusView => {
+  const formatting = projectFormatting(input);
+
+  if (formatting === null || formatting.trusted) return view;
+  const trust: StatusAction = { id: "trust", label: `Trust ${input.workspace}…` };
+
+  return {
+    ...view,
+    why: `${view.why} Formatting uses ${formatting.tool} once you trust ${input.workspace}.`,
+    actions:
+      input.trust === null || view.actions.some((action) => action.id === "trust")
+        ? view.actions
+        : [trust, ...view.actions],
+  };
+};
+
+const readyView = (input: StatusInput, runtime: ContextRuntime): StatusView => {
   const providerId = runtime.context.providerId;
   const b = base(input, providerId);
   const trust = providerId === TS ? input.trust : null;
@@ -469,7 +519,9 @@ const ready = (input: StatusInput, runtime: ContextRuntime): StatusView => {
 
   const facts: Fact[] = [
     ...typescriptFacts(input, trust),
+    ...pythonFacts(input),
     serverFact(input, provider, runtime),
+    ...formatterFacts(input),
     { label: "Host", value: input.host },
     ...(trust === null ? [] : [{ label: "Trust", value: trustText(input, trust) }]),
   ];
@@ -492,6 +544,9 @@ const ready = (input: StatusInput, runtime: ContextRuntime): StatusView => {
       : [b.restart, ...typescriptActions(input, trust), b.log, b.settings],
   };
 };
+
+const ready = (input: StatusInput, runtime: ContextRuntime): StatusView =>
+  withFormatting(input, readyView(input, runtime));
 
 const runtimeView = (input: StatusInput, current: ContextRuntime): StatusView => {
   const providerId = current.context.providerId;

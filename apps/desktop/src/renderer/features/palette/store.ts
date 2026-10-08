@@ -26,6 +26,14 @@ export const recordRecent = (id: string) => {
 
 export const clearFollowUp = () => paletteStore.setState({ followUp: null });
 
+/** Swaps in a loading follow-up's answer, unless the palette moved on meanwhile. */
+export const loadFollowUp = async (followUp: FollowUp) => {
+  if (followUp.load === undefined) return;
+  const next = await followUp.load();
+
+  if (paletteStore.getState().followUp === followUp) paletteStore.setState({ followUp: next });
+};
+
 export interface InstallInput {
   readonly commands: CommandRegistry;
   readonly actions: Pick<ShellActions, "setPaletteOpen">;
@@ -40,5 +48,6 @@ export const installPalette = ({ commands, actions, storage: kept }: InstallInpu
   return commands.onFollowUp((followUp) => {
     paletteStore.setState({ followUp });
     actions.setPaletteOpen(true);
+    void loadFollowUp(followUp);
   });
 };

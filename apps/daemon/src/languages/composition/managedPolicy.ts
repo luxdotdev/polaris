@@ -6,3 +6,10 @@ export const bundledTypeScript = (facts: DiscoveryFacts) =>
   facts.bundledTypeScript === true &&
   facts.providerId === "typescript-language-server" &&
   configuredExecutable(facts) === undefined;
+
+/** Managed Python reads configuration without running Workspace tooling. */
+export const managedWithoutTrust = (facts: DiscoveryFacts) =>
+  bundledTypeScript(facts) ||
+  (facts.managedPython === true &&
+    ["basedpyright", "ruff"].includes(facts.providerId) &&
+    configuredExecutable(facts) === undefined);

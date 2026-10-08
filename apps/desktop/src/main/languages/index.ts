@@ -60,14 +60,8 @@ const errorView = (error: unknown): IpcError => {
   if (Schema.is(P.LanguageError)(error))
     return {
       code: "LanguageError",
-      message: `Language operation: ${error.reason}`,
-      languageError: Schema.encodeSync(P.LanguageError)(
-        new P.LanguageError({
-          reason: error.reason,
-          message: `Language operation: ${error.reason}`,
-          retryable: error.retryable,
-        })
-      ),
+      message: error.message,
+      languageError: Schema.encodeSync(P.LanguageError)(error),
     };
 
   return { code: "LanguageError", message: "Language operation failed" };

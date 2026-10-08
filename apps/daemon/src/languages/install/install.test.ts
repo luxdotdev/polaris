@@ -409,3 +409,15 @@ test("approval revocation, pointer publication failure and cancellation of stage
     await f.close();
   }
 });
+
+test("receipt size has its own enforced bound without widening catalog metadata", async () => {
+  const f = await fixture({}, { receiptBytes: 512 });
+
+  try {
+    await rejected(f.installer.install(f.request).result, "too-large");
+    expect(await f.installer.current("fake-tool")).toBeNull();
+    expect(await f.debris()).toEqual([]);
+  } finally {
+    await f.close();
+  }
+});

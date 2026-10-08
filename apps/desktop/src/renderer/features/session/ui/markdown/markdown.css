@@ -54,7 +54,8 @@
     color: var(--color-text-subtle);
   }
 
-  & strong {
+  /* Streamdown renders `**` as a span whose `font-semibold` the token scale doesn't define. */
+  & :is(strong, [data-streamdown="strong"]) {
     color: var(--color-text-strong);
     font-weight: 600;
   }

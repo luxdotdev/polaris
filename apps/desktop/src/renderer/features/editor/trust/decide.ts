@@ -22,6 +22,17 @@ const reinspect = async (api: LanguageApi, ask: TrustAsk) => {
   return decisionOf(status.trust) !== "undecided";
 };
 
+/** Reads Trust again for a file's scope, e.g. after a change made elsewhere replaced its context. */
+export const refreshTrust = async (api: LanguageApi, target: TrustTarget) => {
+  const inspected = await api.request("languages.trust.inspect", {
+    hostKey: target.hostKey,
+    checkout: target.checkout,
+    path: target.path,
+  });
+
+  if (inspected.ok) trustStatusArrived(target, decodeStatus(inspected.value));
+};
+
 /** Sends Trust or Not now for the ask at `key`; failures stay on the card as typed errors. */
 export const decideTrust = async (api: LanguageApi, key: string, action: TrustDecision) => {
   const ask = trustStore.getState().asks[key];

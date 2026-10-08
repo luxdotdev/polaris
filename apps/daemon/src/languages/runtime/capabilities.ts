@@ -3,7 +3,7 @@ import {
   LanguageProviderCapabilities,
   LanguageRegistration,
 } from "@polaris/protocol";
-import { Schema } from "effect";
+import { Match, Schema } from "effect";
 
 const Provider = Schema.Union([Schema.Boolean, Schema.JsonObject]);
 
@@ -116,4 +116,23 @@ export function registeredCapabilities(
   for (const registration of registrations) methods.add(registration.method);
 
   return LanguageProviderCapabilities.make({ ...base, methods: [...methods].slice(0, 256) });
+}
+
+/** Enforce Python provider roles on the Host, including dynamic registrations. */
+export function pythonCapabilities(base: LanguageProviderCapabilities, providerId: string) {
+  const disabled: readonly string[] = Match.value(providerId).pipe(
+    Match.when("basedpyright", () => ["textDocument/formatting", "textDocument/rangeFormatting"]),
+    Match.when("ruff", () => [
+      "textDocument/hover",
+      "textDocument/completion",
+      "completionItem/resolve",
+    ]),
+    Match.orElse(() => [])
+  );
+
+  return LanguageProviderCapabilities.make({
+    ...base,
+    methods: base.methods.filter((method) => !disabled.includes(method)),
+    completionResolve: base.completionResolve && providerId !== "ruff",
+  });
 }

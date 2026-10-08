@@ -106,9 +106,10 @@ try {
   assert.equal(bufferOf(key), buffer);
   assert.equal(buffer.view.state.sliceDoc(), "newer live work");
   assert.equal(editorStore.getState().buffers[key]?.unkept, true);
-  assert.equal((await underlying.get(group.id))?.originals[0]?.text, "a😀b\r\n");
+  // The refactor's undo is gone, so its group expired; the live text stays in the view.
+  assert.equal(await underlying.get(group.id), null);
   process.stdout.write(
-    "Actual discard write refusal: live view/text and immutable original retained; safe error surfaced\n"
+    "Actual discard write refusal: live view/text retained; safe error surfaced\n"
   );
 } finally {
   refuse = false;

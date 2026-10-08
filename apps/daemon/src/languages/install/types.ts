@@ -17,6 +17,7 @@ export interface InstallLimits {
   readonly versions: number;
   readonly fileBytes: number;
   readonly metadataBytes: number;
+  readonly receiptBytes: number;
   readonly jobs: number;
   readonly waiters: number;
   readonly listeners: number;
@@ -30,6 +31,7 @@ export const defaultLimits: InstallLimits = {
   entries: 4096,
   versions: 16,
   metadataBytes: 1024 * 1024,
+  receiptBytes: 1024 * 1024,
   jobs: 4,
   waiters: 64,
   listeners: 64,
@@ -112,6 +114,7 @@ export const upstreamRuntimeLimits: InstallLimits = {
   expandedBytes: 256 * 1024 * 1024,
   fileBytes: 128 * 1024 * 1024,
   entries: 32768,
+  receiptBytes: 2 * 1024 * 1024,
 };
 
 export type Progress = typeof LanguageInstallProgress.Type;

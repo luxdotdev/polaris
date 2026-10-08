@@ -85,7 +85,8 @@ test("actual closed discard preserves grouped text when view lifetime changes du
   expect((await readRefactorState(f.groups, "host", "/checkout/a", draft)).draft?.text).toBe(
     "aλb\r\n"
   );
-  expect((await f.groups.get(f.group.id))?.originals[0]?.text).toBe("a😀b\r\n");
+  // Its coordinated undo is gone and it holds no drafts, so the group expires silently.
+  expect(await f.groups.get(f.group.id)).toBeNull();
 });
 
 test("actual closed discard refuses a newer legacy draft even with unchanged view", async () => {
@@ -130,7 +131,8 @@ test("actual unchanged closed discard drops projection only after storage wait",
   f.gate.finish();
   expect(await pending).toBe(true);
   expect((await readRefactorState(f.groups, "host", "/checkout/a", null)).draft).toBeNull();
-  expect((await f.groups.get(f.group.id))?.originals[0]?.text).toBe("a😀b\r\n");
+  // Its coordinated undo is gone and it holds no drafts, so the group expires silently.
+  expect(await f.groups.get(f.group.id)).toBeNull();
 });
 
 test("actual open discard surfaces write refusal and retains live newer text", () => {

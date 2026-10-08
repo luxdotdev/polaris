@@ -38,6 +38,8 @@ export interface FollowUp {
   /** A line of context above the choices, such as what Trust would run. */
   readonly note?: string;
   readonly choices: ReadonlyArray<FollowUpChoice>;
+  /** The real answer when the choices come from the Host; until then `choices` say it's looking. */
+  readonly load?: () => Promise<FollowUp>;
 }
 
 interface Enabled {

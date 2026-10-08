@@ -301,3 +301,17 @@ for (const reason of [
     expect(f.reasons).toEqual([]);
   });
 }
+
+test("Format document marks its snapshot as a command; a save doesn't", async () => {
+  const commands: (boolean | undefined)[] = [];
+
+  const f = fixture(async (snapshot) => {
+    commands.push(snapshot.command);
+
+    return snapshot.text;
+  });
+
+  await f.coordinator.format();
+  await f.coordinator.save("manual");
+  expect(commands).toEqual([true, undefined]);
+});

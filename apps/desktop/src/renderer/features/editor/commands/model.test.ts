@@ -44,6 +44,8 @@ const file = (patch: Partial<FocusedFile> = {}): FocusedFile => ({
   workspace: "polaris",
   canFormat: false,
   canShowLog: false,
+  hasCheckout: true,
+  pythonInterpreter: "",
   ...patch,
 });
 
