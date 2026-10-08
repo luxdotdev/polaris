@@ -6,6 +6,8 @@ export * from "./settings.ts";
 
 export * from "./catalog.ts";
 
+export * from "./hostState.ts";
+
 export * from "./documents.ts";
 
 export * from "./edits.ts";
@@ -13,6 +15,8 @@ export * from "./edits.ts";
 export * from "./broker.ts";
 
 export * from "./rpc.ts";
+
+export * from "./logs.ts";
 
 export * from "./trees.ts";
 

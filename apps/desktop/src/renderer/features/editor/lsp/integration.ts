@@ -2,7 +2,6 @@ import { respondResourceReceiptRequest } from "./resourceReceipts.ts";
 import { autocompletion } from "@codemirror/autocomplete";
 import { setDiagnostics } from "@codemirror/lint";
 import { Compartment, StateEffect } from "@codemirror/state";
-import { keymap } from "@codemirror/view";
 import * as P from "@polaris/protocol";
 import { Match, Predicate, Schema } from "effect";
 import type { LanguageApi } from "../../../../shared/api.ts";
@@ -12,7 +11,7 @@ import { previewDocument } from "../runtime/markdown.ts";
 import { applyBufferLanguage } from "../runtime/buffers.ts";
 import { fileKey } from "../model/drafts.ts";
 import { languageFor, type LanguageId } from "../model/language.ts";
-import { bindFormatter } from "../formatting/bridge.ts";
+import * as formats from "../formatting/bridge.ts";
 import { formattedText } from "../formatting/edits.ts";
 import { LanguageFeatures } from "./features.ts";
 import { LanguageDiagnosticFeed, cmDiagnostics } from "./diagnostics.ts";
@@ -33,7 +32,9 @@ import type {
   LanguageIdentityLookup,
 } from "./lifecycle.ts";
 import { signatureExtension } from "./signatures.ts";
-import type { LanguageCommand } from "./queries.ts";
+import { languageKeys } from "./keys.ts";
+import { refactorUndoKeys } from "../refactors/undo.ts";
+import type { NavigationAction } from "../navigation/commands.ts";
 import {
   featureIntentCurrent,
   prepareLanguageEdit,
@@ -44,6 +45,8 @@ import { configurationItems } from "./serverConfiguration.ts";
 import { ownedProvider } from "./ownership.ts";
 import { providerLabel, trustDiscovered, trustStore } from "../trust/store.ts";
 import { DiagnosticPull } from "./pull.ts";
+import * as Status from "../status/store.ts";
+import { contextObserved } from "../status/feed.ts";
 
 interface Entry {
   readonly input: EditorLanguageMount;
@@ -78,7 +81,7 @@ export { bindLanguageIdentity, bindLanguageProposals } from "./bindings.ts";
 export type { LanguageActionProposal } from "./bindings.ts";
 
 export class EditorLanguageCoordinator implements EditorLanguagePort {
-  private command: ((key: string, command: LanguageCommand | "back") => void) | null = null;
+  private command: ((key: string, command: NavigationAction) => void) | null = null;
   private readonly entries = new Map<string, Entry>();
   private readonly groups = new Map<string, EditorLanguageSession>();
   private readonly observations = new EditorLanguageObservations();
@@ -110,7 +113,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
   get(key: string) {
     return this.entries.get(key);
   }
-  setCommands(run: (key: string, command: LanguageCommand | "back") => void) {
+  setCommands(run: (key: string, command: NavigationAction) => void) {
     this.command = run;
   }
 
@@ -178,6 +181,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
     };
 
     this.entries.set(key, entry);
+    Status.statusOpened(key, input.file.hostKey, input.file.path);
     languageStore.setState((state) => ({
       files: {
         ...state.files,
@@ -217,40 +221,8 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
           }),
           hoverExtension(features, (provider) => providerLabel(key, provider.context.providerId)),
           signatureExtension(features),
-          keymap.of([
-            {
-              key: "F12",
-              run: () => {
-                this.command?.(key, "definition");
-
-                return true;
-              },
-            },
-            {
-              key: "Shift-F12",
-              run: () => {
-                this.command?.(key, "references");
-
-                return true;
-              },
-            },
-            {
-              key: "Mod-Shift-o",
-              run: () => {
-                this.command?.(key, "symbols");
-
-                return true;
-              },
-            },
-            {
-              key: "Alt-ArrowLeft",
-              run: () => {
-                this.command?.(key, "back");
-
-                return true;
-              },
-            },
-          ]),
+          languageKeys((command) => this.command?.(key, command)),
+          refactorUndoKeys(input.file),
         ])
       ),
     });
@@ -355,6 +327,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
       }
 
       this.localConfiguration(entry, environment.document, stamp);
+      Status.statusLocal(key);
 
       languagePatch(key, {
         status: "unavailable",
@@ -373,19 +346,26 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
       rows: [],
       busy: false,
     });
-    void this.configure(entry, environment.identity, environment.document.checkout, stamp).catch(
-      (error: P.LanguageError | Error) => {
-        if (!entry.disposed && stamp === entry.stamp)
-          languagePatch(key, {
-            status: "unavailable",
-            fact:
-              Schema.is(P.LanguageError)(error) && error.reason === "awaiting-trust"
-                ? "Language tooling needs trust. Open Settings → Languages and select this checkout."
-                : "Language tooling is unavailable. Check Settings → Languages for this Host.",
-            providers: [],
-          });
-      }
-    );
+    Status.statusChecking(key, environment.document.checkout);
+    const { identity, document } = environment;
+
+    void this.observations
+      .settled(() => this.configure(entry, identity, document.checkout, stamp))
+      .catch((error: P.LanguageError | Error) => {
+        if (entry.disposed || stamp !== entry.stamp) return;
+        Status.statusFailed(key, {
+          reason: Schema.is(P.LanguageError)(error) ? error.reason : "unknown",
+          message: error.message,
+        });
+        languagePatch(key, {
+          status: "unavailable",
+          fact:
+            Schema.is(P.LanguageError)(error) && error.reason === "awaiting-trust"
+              ? "Language tooling needs trust. Open Settings → Languages and select this checkout."
+              : "Language tooling is unavailable. Check Settings → Languages for this Host.",
+          providers: [],
+        });
+      });
   }
 
   private localConfiguration(
@@ -458,6 +438,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
 
     if (!current() || JSON.stringify(found.checkout) !== JSON.stringify(checkout)) return;
     entry.disabled = disabled;
+    Status.statusDiscovered(fileKey(file.hostKey, file.path), found);
     trustDiscovered(
       { hostKey: file.hostKey, checkout, path: file.path },
       fileKey(file.hostKey, file.path),
@@ -483,7 +464,8 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
 
     if (!current()) return;
     const settings = found.effectiveSettings;
-    entry.unformat = bindFormatter(file, {
+    entry.unformat = formats.bindFormatter(file, {
+      canFormat: () => formats.formatsDocuments(entry.features.options.providers()),
       settings: async () => ({
         formatOnSave: settings.formatOnSave,
         formatter: settings.formatter,
@@ -501,11 +483,9 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
           throw new Error("Formatter document changed.");
         const providers = entry.features.options.providers();
 
-        const provider = Predicate.isTagged(formatter, "Provider")
-          ? providers.find((value) => value.context.providerId === formatter.providerId)
-          : providers[0];
+        const provider = formats.formattingProvider(formatter, providers);
 
-        if (provider === undefined) throw new Error("The selected formatter is unavailable.");
+        if (provider === null) return snapshot.text;
         const buffer = entry.read();
 
         const outcome = await entry.features.format(
@@ -516,8 +496,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
             document: { uri: buffer.uri, version: buffer.version },
             snapshot: snapshot.text,
             expectedDiskVersion: snapshot.diskVersion,
-            formatter,
-            options: {},
+            ...formats.formatterRequest(formatter, provider.context.providerId, snapshot.indent),
             reason: snapshot.reason,
             deadline: Date.now() + 5000,
           }),
@@ -576,6 +555,8 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
         identity.hostId,
         (event) => this.serverRequest(api, file.hostKey, found.effectiveSettings, event),
         (event) => {
+          contextObserved(file.hostKey, event);
+
           if (Predicate.isTagged(event, "Replaced") || Predicate.isTagged(event, "Invalidated"))
             this.observations.invalidate();
 
@@ -597,6 +578,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
     }
 
     entry.groups.push(group);
+    Status.statusAttached(fileKey(file.hostKey, file.path), id, group.acquisition.contextId);
     entry.detach.push(
       group.attach({
         read: entry.read,
@@ -616,7 +598,12 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
             entry.features.invalidate();
             entry.diagnostics.clear();
             entry.pull.schedule();
-            languagePatch(fileKey(file.hostKey, file.path), { rows: [], busy: false });
+            const key = fileKey(file.hostKey, file.path);
+            // An open panel waits for the replacement provider rather than reading "No results".
+            languagePatch(key, {
+              rows: [],
+              busy: providers.length === 0 && languageStore.getState().files[key]?.panel != null,
+            });
           }
 
           entry.providerSignature = signature;
@@ -821,6 +808,14 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
   refreshHosts() {
     this.refresh();
   }
+  /** Check again: forget cached discovery and rediscover this file (a Prerequisite was installed). */
+  recheck(key: string) {
+    const entry = this.entries.get(key);
+
+    if (entry === undefined) return;
+    this.observations.invalidate();
+    this.refreshEntry(entry, true);
+  }
   private release(entry: Entry) {
     if (entry.disposed) return;
     entry.disposed = true;
@@ -833,6 +828,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
 
     if (this.entries.get(key) === entry) {
       this.entries.delete(key);
+      Status.statusClosed(key);
       languageStore.setState((state) => {
         const { [key]: _gone, ...files } = state.files;
 

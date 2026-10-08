@@ -65,11 +65,13 @@ try {
   await page.getByText("Unsaved fixture hover", { exact: true }).waitFor();
   await page.locator(".cm-content").first().click();
   await page.keyboard.press("F12");
-  await page.keyboard.press("Alt+ArrowLeft");
+  await page.keyboard.press("Control+Minus");
+  await page.getByTestId("language-pill").click();
   await page.getByLabel("File language", { exact: true }).selectOption("python");
   await page.getByLabel("File language", { exact: true }).selectOption("auto");
-  await page.getByLabel("Language action", { exact: true }).selectOption("symbols");
-  await page.getByRole("button", { name: "Go", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await page.locator(".cm-content").first().click();
+  await page.keyboard.press("Meta+Shift+O");
   await page.getByText("fixtureSymbol", { exact: true }).waitFor();
   await page.getByRole("button", { name: "Close", exact: true }).last().focus();
   await page.keyboard.press("Escape");
@@ -86,8 +88,8 @@ try {
         },
         { theme, density }
       );
-      await page.getByLabel("Language action", { exact: true }).selectOption("symbols");
-      await page.getByRole("button", { name: "Go", exact: true }).click();
+      await page.locator(".cm-content").first().click();
+      await page.keyboard.press("Meta+Shift+O");
       await page.getByText("fixtureSymbol", { exact: true }).waitFor();
       await page.screenshot({ path: join(output, `${theme}-${density}.png`) });
     }

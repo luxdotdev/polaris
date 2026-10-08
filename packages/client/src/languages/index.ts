@@ -5,6 +5,7 @@ import { Option, Predicate, Schema } from "effect";
 
 export const languageMethods = {
   "languages.catalog": P.GetLanguageCatalog,
+  "languages.host.state": P.GetLanguageHostState,
   "languages.availability": P.GetLanguageAvailability,
   "languages.install": P.InstallLanguageTool,
   "languages.install.cancel": P.CancelLanguageInstall,
@@ -38,6 +39,14 @@ export const languageMethods = {
 } as const;
 
 export const languageFeeds = {
+  "languages.host.state.watch": {
+    input: P.WatchLanguageHostState.payloadSchema,
+    item: P.LanguageHostState,
+  },
+  "languages.log.watch": {
+    input: P.WatchLanguageServerLog.payloadSchema,
+    item: P.LanguageServerLogEvent,
+  },
   "languages.context.watch": {
     input: P.WatchLanguageContext.payloadSchema,
     item: P.LanguageContextEvent,
@@ -388,6 +397,24 @@ export class LanguageAccess {
     input: LanguageFeedInput<LanguageFeed>,
     output: LanguageFeedItem<LanguageFeed>
   ) {
+    if (kind === "languages.host.state.watch") {
+      const state = decodeLanguage(P.LanguageHostState, output);
+
+      if (state.hostId !== this.transport.hostId) throw languageFailure("not-owner");
+
+      return;
+    }
+
+    if (kind === "languages.log.watch") {
+      const expected = decodeLanguage(P.WatchLanguageServerLog.payloadSchema, input).context;
+      const event = decodeLanguage(P.LanguageServerLogEvent, output);
+
+      if (JSON.stringify(event.context) !== JSON.stringify(expected))
+        throw languageFailure("not-owner");
+
+      return;
+    }
+
     if (kind !== "languages.context.watch") return;
     const expected = decodeLanguage(P.WatchLanguageContext.payloadSchema, input).context;
     const event = decodeLanguage(P.LanguageContextEvent, output);

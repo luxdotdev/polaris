@@ -122,6 +122,18 @@ export const closeTab = (hostKey: string, workspaceId: string, id: string) => {
   closeNow(hostKey, workspaceId, id);
 };
 
+/** ⌥⌘T: closes every other tab; tabs with unsaved edits stay open rather than prompting. */
+export const closeOtherTabs = (hostKey: string, workspaceId: string, keepId: string | null) => {
+  const set = tabsOf(editorStore.getState(), workspaceKey(hostKey, workspaceId));
+
+  for (const tab of set.tabs) {
+    const id = tabId(tab);
+
+    if (id === keepId || (isConfigured() && hasUnsaved(hostKey, tab.path))) continue;
+    closeNow(hostKey, workspaceId, id);
+  }
+};
+
 export type CloseChoice = "save" | "discard" | "cancel";
 
 /** The close prompt's answer. Save closes only once the file saved; a conflict keeps it open. */

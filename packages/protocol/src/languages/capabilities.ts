@@ -3,6 +3,8 @@ import type { Capability } from "../capabilities.ts";
 /** Require languages as well, except preview media which works without execution trust or tooling. */
 export const LANGUAGE_RPC_CAPABILITIES = {
   "languages.catalog": "languages",
+  "languages.host.state": "languages",
+  "languages.host.state.watch": "languages",
   "languages.availability": "languages",
   "languages.availability.watch": "languages",
   "languages.install": "languages.install",
@@ -19,6 +21,7 @@ export const LANGUAGE_RPC_CAPABILITIES = {
   "languages.context.release": "languages",
   "languages.context.restart": "languages",
   "languages.context.watch": "languages",
+  "languages.log.watch": "languages",
   "languages.document.sync": "languages",
   "languages.document.acknowledge": "languages.buffer-acknowledgments",
   "languages.edit.prepare": "languages.edit-preparation",

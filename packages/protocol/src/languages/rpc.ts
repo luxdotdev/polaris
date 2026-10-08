@@ -1,3 +1,5 @@
+import { LanguageServerLogEvent } from "./logs.ts";
+import { LanguageHostState } from "./hostState.ts";
 import { Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/rpc";
 import { BlobId, WorkspaceId } from "../ids.ts";
@@ -80,6 +82,24 @@ export const GetLanguageCatalog = Rpc.make("languages.catalog", {
   payload: {},
   success: LanguageCatalog,
   error: LanguageError,
+});
+
+const hostStateInput = {
+  toolIds: Schema.Array(LanguageKey).check(Schema.isMaxLength(256)),
+  refresh: Schema.Boolean,
+};
+
+export const GetLanguageHostState = Rpc.make("languages.host.state", {
+  payload: hostStateInput,
+  success: LanguageHostState,
+  error: LanguageError,
+});
+
+export const WatchLanguageHostState = Rpc.make("languages.host.state.watch", {
+  payload: hostStateInput,
+  success: LanguageHostState,
+  error: LanguageError,
+  stream: true,
 });
 
 export const GetLanguageAvailability = Rpc.make("languages.availability", {
@@ -238,6 +258,13 @@ export const RestartWorkspaceLanguages = Rpc.make("languages.workspace.restart",
   error: LanguageError,
 });
 
+export const WatchLanguageServerLog = Rpc.make("languages.log.watch", {
+  payload: { context: LanguageContextIdentity },
+  success: LanguageServerLogEvent,
+  error: LanguageError,
+  stream: true,
+});
+
 export const SyncLanguageDocument = Rpc.make("languages.document.sync", {
   payload: LanguageSyncInput,
   success: LanguageSyncAck,
@@ -375,6 +402,8 @@ export const SetLanguagePreviewPolicy = Rpc.make("languages.preview.policy.set",
 
 export class LanguageRpcs extends RpcGroup.make(
   GetLanguageCatalog,
+  GetLanguageHostState,
+  WatchLanguageHostState,
   GetLanguageAvailability,
   WatchLanguageAvailability,
   InstallLanguageTool,
@@ -391,6 +420,7 @@ export class LanguageRpcs extends RpcGroup.make(
   ReleaseLanguageContext,
   RestartLanguageContext,
   WatchLanguageContext,
+  WatchLanguageServerLog,
   SyncLanguageDocument,
   AcknowledgeLanguageDocument,
   PrepareLanguageEdit,

@@ -136,3 +136,18 @@ Renderer gets bounded bytes, creates/revokes object URLs, and has no direct
 network/filesystem authority. `LanguageEditorView` separates source and preview
 views over the same Host/path buffer; preview locks are distinct from unpinned
 source tabs. Relative links use shared Host-aware Editor navigation.
+
+
+## Host state and release visibility
+
+`languages.host.state` and `languages.host.state.watch` read tool installation
+state and Host Prerequisite presence without a checkout or Trust. Empty toolIds
+means the catalog; a watch yields full snapshots and coalesces pending updates.
+`refresh` requests demand-only filesystem probes of standard Host locations.
+Presence does not imply compatible versions, project environment selection or
+permission to execute Workspace code. No tools are downloaded by a read.
+
+The catalog's integration `offered` field gates release visibility independently
+of artifact/tool audit disposition. Only TypeScript/JavaScript is offered today;
+missing fields from older peers mean false. Prerequisite `installCommands` carry
+platforms, labels and copyable command text; Polaris never executes them.

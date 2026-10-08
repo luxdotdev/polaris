@@ -2,6 +2,7 @@ import type { LanguageFormatterSelection, LanguageSaveReason } from "@polaris/pr
 import { Predicate } from "effect";
 import type { EditorFile } from "../cm/extensions.ts";
 import type { FileVersion } from "../model/buffer.ts";
+import type { Indent } from "../model/indent.ts";
 
 export type SaveReason = typeof LanguageSaveReason.Type;
 
@@ -16,6 +17,8 @@ export interface FormatSnapshot {
   readonly version: number;
   readonly diskVersion: FileVersion | null;
   readonly reason: SaveReason;
+  /** The file's own indentation (the status bar's "Spaces 2"), for the formatter's options. */
+  readonly indent?: Indent | null;
 }
 
 /** Bind ordered document sync, selected formatter and repository configuration here. */
@@ -27,11 +30,14 @@ export interface FormattingPort {
     signal: AbortSignal
   ) => Promise<string>;
   readonly failure: (file: EditorFile, message: string) => void;
+  /** The file has a bound formatter, which formats with its own server when none is chosen. */
+  readonly canFormat?: (file: EditorFile) => boolean;
   readonly timeoutMs?: number;
 }
 
 export interface SavePort {
-  readonly snapshot: (reason: SaveReason) => FormatSnapshot | null;
+  /** `clean` also snapshots text with no unsaved edits (Format document). */
+  readonly snapshot: (reason: SaveReason, clean?: boolean) => FormatSnapshot | null;
   readonly current: (snapshot: FormatSnapshot) => boolean;
   readonly apply: (text: string) => void;
   readonly write: () => Promise<boolean>;
@@ -66,10 +72,23 @@ export class SaveCoordinator {
     return next;
   }
 
-  private async preflight(snapshot: FormatSnapshot) {
+  /**
+   * Formats now without saving (the palette's Format document), whatever "Format on save" says.
+   * Resolves true when the text changed; rejects with the formatter's failure.
+   */
+  async format(): Promise<boolean> {
+    const snapshot = this.port.snapshot("manual", true);
+
+    if (snapshot === null || this.formatting === undefined)
+      throw new Error("This file can't be formatted now.");
+
+    return this.preflight(snapshot, "format");
+  }
+
+  private async preflight(snapshot: FormatSnapshot, mode: "save" | "format" = "save") {
     const formatting = this.formatting;
 
-    if (formatting === undefined) return;
+    if (formatting === undefined) return false;
 
     const controller = new AbortController();
 
@@ -94,20 +113,31 @@ export class SaveCoordinator {
 
         if (controller.signal.aborted) throw new Error("Formatting cancelled.");
 
-        if (!settings.formatOnSave || Predicate.isTagged(settings.formatter, "None")) return null;
+        // With no formatter chosen, each language's own server formats (Settings → Editor).
+        const serverless =
+          Predicate.isTagged(settings.formatter, "None") &&
+          !(formatting.canFormat?.(snapshot.file) ?? false);
+
+        if (mode === "save" && (!settings.formatOnSave || serverless)) return null;
 
         return formatting.format(snapshot, settings.formatter, controller.signal);
       };
 
       const text = await Promise.race([operation(), interrupted]);
 
+      const changed = text !== null && text !== snapshot.text;
+
       if (this.port.current(snapshot)) {
-        if (text !== null && text !== snapshot.text) this.port.apply(text);
+        if (changed) this.port.apply(text);
 
         this.lastNotice = null;
-      }
+      } else if (mode === "format") throw new Error("The file changed while it was formatted.");
+
+      return changed;
     } catch (cause) {
-      if (controller.signal.aborted || !this.port.current(snapshot)) return;
+      if (mode === "format") throw cause;
+
+      if (controller.signal.aborted || !this.port.current(snapshot)) return false;
 
       const message = messageOf(cause);
 
@@ -115,6 +145,8 @@ export class SaveCoordinator {
         formatting.failure(snapshot.file, message);
 
       this.lastNotice = message;
+
+      return false;
     } finally {
       clearTimeout(timer);
       this.controller = null;

@@ -584,3 +584,37 @@ test("app and per-language preferences work before any Host is configured", asyn
   expect(hostWrite.ok).toBe(false);
   bridge.dispose();
 });
+
+test("a Host-wide availability read passes routing with no checkout", async () => {
+  const { preferences } = prefs();
+  const calls: unknown[] = [];
+
+  const access = new LanguageAccess({
+    hostId,
+    clientId: "client",
+    capabilities: ["languages"],
+    signal: new AbortController().signal,
+    invoke: async (_method, input) => {
+      calls.push(input);
+
+      return [];
+    },
+    watch: async function* () {},
+    takeBlob: async () => png,
+  });
+
+  const current = host(access);
+  const bridge = createLanguageBridge({ preferences, lookup: () => current });
+
+  const result = await bridge.request("languages.availability", {
+    hostKey: "host",
+    toolIds: ["node"],
+    checkout: null,
+    refresh: false,
+    phase: "install",
+  });
+
+  expect(result).toEqual({ ok: true, value: [] });
+  expect(calls).toEqual([{ toolIds: ["node"], checkout: null, refresh: false, phase: "install" }]);
+  bridge.dispose();
+});

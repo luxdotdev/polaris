@@ -72,6 +72,15 @@ export const previewFingerprint = async (proposal: LanguageTreeEditProposal): Pr
   return Array.from(new Uint8Array(hash), (byte) => byte.toString(16).padStart(2, "0")).join("");
 };
 
+/**
+ * A draft is a descendant only under a resource operation's roots (a renamed or deleted path),
+ * as the Host checks; a text-only rename's files with unsaved edits are plain drafts.
+ */
+const underResource = (group: DraftGroup, path: string) =>
+  group.proposal.resourceSnapshots.some(
+    (snapshot) => snapshot.canonicalPath === path || path.startsWith(`${snapshot.canonicalPath}/`)
+  );
+
 export const draftReceipt = (group: DraftGroup): LanguageTreeDraftReceipt =>
   Schema.decodeUnknownSync(LanguageTreeDraftReceipt)({
     format: 2,
@@ -80,7 +89,7 @@ export const draftReceipt = (group: DraftGroup): LanguageTreeDraftReceipt =>
     previewFingerprint: group.fingerprint,
     resourceSnapshots: group.proposal.resourceSnapshots,
     descendants: group.originals
-      .filter((doc) => doc.dirty)
+      .filter((doc) => doc.dirty && underResource(group, doc.canonicalPath))
       .map((doc) => ({
         canonicalPath: doc.canonicalPath,
         version: doc.version,

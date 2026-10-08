@@ -20,12 +20,7 @@ export {
 
 export { SettingsPage } from "./ui/SettingsPage.tsx";
 
-export {
-  setLanguageSettingsServices,
-  type LanguageSettingsServices,
-} from "./languages/services.ts";
-
-export { createLanguageSettingsAdapter } from "./languages/adapter.ts";
+export { useOpenEditorSettings } from "./editor/index.ts";
 
 export { HostResources } from "./ui/HostResources.tsx";
 

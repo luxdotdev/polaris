@@ -12,6 +12,13 @@ export interface RefactorState {
   readonly error: string | null;
 }
 
+/**
+ * Whether a draft group needs the user: an unknown, partial or conflicting outcome. An applied
+ * change, one file or many, undoes with ⌘Z (`undo.ts`).
+ */
+export const needsUser = (group: Pick<DraftGroup, "state" | "touched">) =>
+  group.state === "unknown" || group.state === "partial" || group.state === "conflict";
+
 /** Server requests only offer; Accept is an explicit user command on the displayed preview. */
 export class RefactorController {
   readonly state: StoreApi<RefactorState>;
@@ -90,16 +97,17 @@ export class RefactorController {
     );
   }
 
+  /** Cancel discards the preview here at once; telling the Host is best effort, nothing applied. */
   reject() {
     const preview = this.state.getState().preview;
 
-    if (preview === null) return Promise.resolve();
+    if (preview === null || this.state.getState().busy) return Promise.resolve();
+    this.state.setState({ preview: null, error: null });
 
-    return this.run(async () => {
-      await this.coordinator.reject(preview, crypto.randomUUID());
-
-      return null;
-    });
+    return this.coordinator.reject(preview, crypto.randomUUID()).then(
+      () => undefined,
+      () => undefined
+    );
   }
 
   status() {
@@ -142,7 +150,7 @@ export class RefactorController {
       (a, b) =>
         Number(a.state === "restored") - Number(b.state === "restored") || b.updatedAt - a.updatedAt
     );
-    this.state.setState({ group: verified[0] ?? null });
+    this.state.setState({ group: verified.find(needsUser) ?? verified[0] ?? null });
   }
 }
 

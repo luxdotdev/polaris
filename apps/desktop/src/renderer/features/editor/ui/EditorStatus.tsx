@@ -1,9 +1,11 @@
 /**
  * The status bar's right side for the editor (DESIGN.md, Editor: status bar;
  * Paper E1): the vim mode while vim is on, the cursor or selection, the
- * file's indentation and its language. The explorer owns the bar and its left side.
+ * file's indentation and the language status pill (Paper L1). The explorer owns the bar and its left side.
  */
-import { LanguageSelector } from "./LanguageTools.tsx";
+import { LanguageSelector } from "./LanguagePanel.tsx";
+import { LanguageStatus } from "../status/LanguageStatus.tsx";
+import { LANGUAGE_NAMES } from "../model/language.ts";
 import { modeText } from "../model/vim.ts";
 import { harnessHue } from "@polaris/ui";
 import { agentCaretLine } from "../cm/agent.ts";
@@ -72,7 +74,16 @@ export const EditorStatus = ({ hostKey, workspaceId }: EditorStatusProps) => {
       )}
       <span>{indent}</span>
       {language === null ? null : (
-        <LanguageSelector hostKey={hostKey} path={active.path} language={language} />
+        <LanguageStatus
+          hostKey={hostKey}
+          workspaceId={workspaceId}
+          path={active.path}
+          language={LANGUAGE_NAMES[language]}
+          languageId={language}
+          languageMode={
+            <LanguageSelector hostKey={hostKey} path={active.path} language={language} />
+          }
+        />
       )}
     </div>
   );

@@ -86,7 +86,6 @@ describe("Review in the jump menu", () => {
       workspaces: [],
       worktrees: [],
       hosts: [],
-      actions: [],
       review: {
         pulls: pullItems(LIST),
         files: fileItems(["src/webhooks/retry.ts"]),

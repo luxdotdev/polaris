@@ -24,7 +24,7 @@ import { barHosts, barWorkspaces, type BarHost, topBarMode } from "./topBar.ts";
 
 export type NavStore = StoreApi<NavState>;
 
-const NO_OVERLAY = { jumpOpen: false, helpOpen: false, folder: null } as const;
+const NO_OVERLAY = { jumpOpen: false, paletteOpen: false, helpOpen: false, folder: null } as const;
 
 const STORAGE_KEY = "polaris.navigation.v1";
 
@@ -94,11 +94,13 @@ export interface ShellActions {
   readonly showSidebar: (view: SidebarView) => void;
   readonly openJump: () => void;
   readonly setJumpOpen: (open: boolean) => void;
+  /** The Command Palette (⇧⌘P), one of the shell's overlays. */
+  readonly setPaletteOpen: (open: boolean) => void;
   readonly setHelpOpen: (open: boolean) => void;
   /** The ⌘O dialog, on `hostKey` (the selected Host when omitted). */
   readonly openFolder: (hostKey?: string | null) => void;
   readonly closeFolder: () => void;
-  /** Closes the shell's overlay (jump menu, shortcut help, ⌘O); true when one was open. */
+  /** Closes the shell's overlay (jump menu, palette, shortcut help, ⌘O); true when one was open. */
   readonly closeOverlay: () => boolean;
   readonly startNewSession: () => void;
   /** New session on another Host or Workspace: its first Workspace, or its home, when none is given. */
@@ -284,13 +286,15 @@ export const createNavigation = ({
     // One shell overlay at a time: opening one closes the others.
     openJump: () => set({ ...NO_OVERLAY, jumpOpen: true }),
     setJumpOpen: (jumpOpen) => set(jumpOpen ? { ...NO_OVERLAY, jumpOpen } : { jumpOpen }),
+    setPaletteOpen: (paletteOpen) =>
+      set(paletteOpen ? { ...NO_OVERLAY, paletteOpen } : { paletteOpen }),
     setHelpOpen: (helpOpen) => set(helpOpen ? { ...NO_OVERLAY, helpOpen } : { helpOpen }),
     openFolder: (hostKey = null) => set({ ...NO_OVERLAY, folder: { hostKey } }),
     closeFolder: () => set({ folder: null }),
     closeOverlay: () => {
-      const { jumpOpen, helpOpen, folder } = store.getState();
+      const { jumpOpen, paletteOpen, helpOpen, folder } = store.getState();
 
-      if (!jumpOpen && !helpOpen && folder === null) return false;
+      if (!jumpOpen && !paletteOpen && !helpOpen && folder === null) return false;
       set(NO_OVERLAY);
 
       return true;
@@ -309,6 +313,7 @@ export const createNavigation = ({
       set({
         settings: { section: lastSection, adding: options?.adding ?? false },
         jumpOpen: false,
+        paletteOpen: false,
       });
     },
     closeSettings: () => set({ settings: null }),

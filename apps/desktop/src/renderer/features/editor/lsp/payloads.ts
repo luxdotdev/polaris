@@ -203,6 +203,33 @@ export const PullDiagnostic = Schema.Union([
 export const markupText = (markup: typeof Markup.Type): string =>
   Predicate.isString(markup) ? markup : markup.value;
 
+export interface HoverPart {
+  readonly kind: "markdown" | "plaintext";
+  readonly text: string;
+}
+
+const fence = (language: string, value: string) => {
+  const ticks = "`".repeat(Math.max(3, ...[...value.matchAll(/`+/g)].map((m) => m[0].length + 1)));
+
+  return `${ticks}${language.replace(/[`\s]/g, "")}\n${value}\n${ticks}`;
+};
+
+/** LSP marked strings are Markdown; a `{language, value}` pair is a fenced code block. */
+export const hoverPart = (markup: typeof Markup.Type): HoverPart => {
+  if (Predicate.isString(markup)) return { kind: "markdown", text: markup };
+
+  if ("language" in markup) return { kind: "markdown", text: fence(markup.language, markup.value) };
+
+  return { kind: markup.kind, text: markup.value };
+};
+
+type HoverContents = NonNullable<typeof Hover.Type>["contents"];
+
+export const hoverParts = (contents: HoverContents): readonly HoverPart[] =>
+  (Predicate.isString(contents) || "value" in contents ? [contents] : contents)
+    .map(hoverPart)
+    .filter((part) => part.text.trim() !== "");
+
 export const decodePayload = <S extends Schema.ConstraintDecoder<unknown>>(
   schema: S,
   value: typeof P.LanguageJson.Type

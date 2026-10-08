@@ -82,9 +82,9 @@ async function verify(page: Page, root: string, name: string) {
   );
 
   await tab.waitFor({ timeout: 20_000 });
-  const tools = page.getByRole("group", { name: "Language tools" });
-  const go = tools.getByRole("button", { name: "Go", exact: true });
-  await tools.locator("button:enabled").filter({ hasText: /^Go$/ }).waitFor({ timeout: 180_000 });
+  await page
+    .locator('[data-testid="language-pill"]:is([data-kind="ready"], [data-kind="bundled"])')
+    .waitFor({ timeout: 180_000 });
 
   const point = Schema.decodeUnknownSync(Schema.Struct({ x: Schema.Number, y: Schema.Number }))(
     await page.evaluate(`(() => {
@@ -105,25 +105,22 @@ async function verify(page: Page, root: string, name: string) {
   await page.locator(".cm-tooltip-hover").filter({ hasText: "42" }).waitFor({ timeout: 20_000 });
   await page.screenshot({ path: join(evidence, `${name}-hover.png`) });
   await cursor(page);
-  await tools.getByLabel("Language action").selectOption("definition");
-  await go.click();
+  await page.keyboard.press("F12");
   await page
     .locator('[data-testid="editor-tab"][aria-selected="true"][title$="slice1-value.ts"]')
     .waitFor();
-  await tools.getByRole("button", { name: "Back", exact: true }).click();
+  await page.keyboard.press("Control+Minus");
   await tab.waitFor();
-  await tools.getByLabel("Language action").selectOption("problems");
-  await go.click();
+  await page.keyboard.press("Meta+Shift+M");
   await page
     .getByRole("region", { name: "Problems" })
     .getByText(/not assignable to type 'string'/)
     .waitFor({ timeout: 20_000 });
   await page.screenshot({ path: join(evidence, `${name}-diagnostics.png`) });
   await cursor(page);
-  await tools.getByLabel("Language action").selectOption("rename");
-  await tools.getByLabel("New symbol name").fill("renamedAnswer");
-  await go.click();
-  await page.getByRole("button", { name: /Rename to renamedAnswer/ }).click();
+  await page.keyboard.press("F2");
+  await page.getByTestId("rename-field").getByLabel("New name").fill("renamedAnswer");
+  await page.keyboard.press("Enter");
   const preview = page.getByTestId("refactor-preview");
   const changed = page.locator(".cm-content").filter({ hasText: "renamedAnswer" });
 

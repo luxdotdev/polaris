@@ -29,6 +29,12 @@ export const LanguageIntegrity = Schema.String.check(
   Schema.isPattern(/^(sha256:[a-f0-9]{64}|sha512-[A-Za-z0-9+/]{86}==)$/)
 );
 
+export const LanguagePrerequisiteInstallCommand = Schema.Struct({
+  platforms: Schema.Array(LanguagePlatform).check(Schema.isMaxLength(8)),
+  label: LanguageText,
+  command: LanguageText,
+});
+
 export const LanguageRequirement = Schema.Struct({
   id: LanguageKey,
   scope: Schema.Literals(["server", "project", "companion", "formatter"]),
@@ -36,6 +42,9 @@ export const LanguageRequirement = Schema.Struct({
   version: LanguageText,
   detail: LanguageText,
   required: Schema.Boolean,
+  installCommands: Schema.optionalKey(
+    Schema.Array(LanguagePrerequisiteInstallCommand).check(Schema.isMaxLength(8))
+  ),
 });
 
 export const LanguageArtifactPackaging = Schema.Struct({
@@ -99,6 +108,7 @@ export const LanguageDeveloperCompanion = Schema.Struct({
 
 export const LanguageIntegrationDescriptor = Schema.Struct({
   id: LanguageKey,
+  offered: Schema.optionalKey(Schema.Boolean),
   languageIds: Schema.Array(LanguageKey).check(Schema.isMaxLength(64)),
   patterns: Schema.Array(LanguagePath).check(Schema.isMaxLength(256)),
   providers: Schema.Array(LanguageProviderDescriptor).check(Schema.isMaxLength(32)),

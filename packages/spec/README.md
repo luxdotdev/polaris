@@ -522,6 +522,21 @@ generations are monotonic across contexts, while the P1 abstraction uses a
 context-local generation ordinal. Opaque Client/checkout/project/config/provider
 identities map to stable model context keys; draft text is absent from traces.
 
+`language-logs.qnt` models the separate, live-only `languages.log.watch` feed.
+Each authenticated Client/checkout/provider context generation owns a bounded
+ring and bounded subscriber queue. Subscribe atomically captures backlog before
+live lines; overflow drops the subscriber. Retirement (crash, restart, Trust or
+configuration change, disconnect) erases the ring and ends the generation's feed.
+There are no durable events, receipts, resume cursors or polling. The model scales
+the bounds to two retained lines and three queued lines to exercise overflow in
+finite traces. Production bounds are 2,000 lines/512 KiB of encoded lines, 8 KiB of text per line,
+16 subscribers and 256 events/2 MiB per subscriber; the runtime tests exercise
+these exact bounds, atomic backlog/live order, isolation and cancellation.
+Formatting uses existing Request/Result/Cancel version fencing in `languages.qnt`;
+`languages.format` returns edits and never writes disk. Runtime and real TS RPC
+tests cover snapshot/version/generation checks, capability gating, crash restart
+and the absence of log text or formatting events in the EventStore.
+
 `packages/spec/scripts/language-runtime/replay.test.ts` runs actual bounded stdio
 server processes and observes broker lifecycle transitions plus actual ordered
 acknowledgments, fenced results and reset snapshots. It writes
@@ -635,3 +650,23 @@ proves this with the actual Broker/scripted provider. `Verify.phase` distinguish
 original preview validation from continued durable-group verification during X2-owned
 moves. Both phases pin the same Client group revision; exact disk ownership remains
 with the existing journal model.
+
+
+### Host language installation snapshots
+
+`language-host-state.qnt` specifies `languages.host.state.watch`: full snapshots
+of the Daemon's existing Host installer, coalesced to one pending snapshot per
+subscriber. Subscribe sends current state, installer changes replace pending
+state, and Consume/Close clear it. Two Hosts establish isolation; no event-store
+commit, cursor or durable replay is added. `apps/daemon/src/languages/install/hostState.ts`
+implements this projection; `composition/hostState.ts` checks the current
+connection and closes feeds on disconnection. Reads need neither checkout nor
+Trust and never affect execution admission.
+
+`apps/daemon/src/verification/hostState.test.ts` compares 2,000 installer/feed
+steps against the projection and records/replays a real installer fixture via
+`packages/spec/scripts/host-state/`. Write a fresh trace with
+`POLARIS_HOST_STATE_TRACE=/private/tmp/host-state.trace.json bun test apps/daemon/src/verification/hostState.test.ts`,
+then replay it with `bun packages/spec/scripts/replay-host-state.ts /private/tmp/host-state.trace.json`.
+These fixtures verify protocol and installer behavior; they do not certify
+upstream downloads, remote Hosts or renderer consumption.

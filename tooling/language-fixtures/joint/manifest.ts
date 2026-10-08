@@ -9,12 +9,6 @@ export const bounds = {
 
 export const cases = [
   {
-    id: "settings",
-    html: "apps/desktop/src/renderer/features/settings/languages/integration.evidence.html",
-    classification:
-      "Actual Settings Page and typed scripted feeds; actual matching policy epochs. No authenticated Host or installation proof.",
-  },
-  {
     id: "editor",
     html: "apps/desktop/src/renderer/features/editor/lsp/evidence.html",
     classification:

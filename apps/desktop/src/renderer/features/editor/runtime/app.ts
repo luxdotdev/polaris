@@ -3,6 +3,7 @@
  * the Daemon's files, drafts in `localStorage`, Settings → Editor, and the
  * vim commands wired to tabs and saving.
  */
+import { runNavigation } from "../navigation/run.ts";
 import { bindAppRefactors } from "./refactors.ts";
 import { indexedDbGroups } from "../refactors/storage.ts";
 import type { GroupStore } from "../refactors/group.ts";
@@ -120,11 +121,7 @@ export const ensureEditor = ({
   bindLanguageSettingsRefresh((hostKey, workspaceId) =>
     editorLanguages?.refreshSettings(hostKey, workspaceId)
   );
-  editorLanguages.setCommands((key, command) =>
-    command === "back"
-      ? editorLanguageQueries?.back()
-      : void editorLanguageQueries?.run(key, command)
-  );
+  editorLanguages.setCommands((key, action) => runNavigation(key, action, editorLanguageQueries));
   subscribeApp?.(() => editorLanguages?.refreshHosts());
 
   const has = (hostKey: string, capability: string) =>

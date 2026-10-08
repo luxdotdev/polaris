@@ -52,7 +52,8 @@ const limits = P.LanguageLimits.make({
 
 const fake = (
   invoke: LanguageTransport["invoke"],
-  capabilities: LanguageTransport["capabilities"] = ["languages"]
+  capabilities: LanguageTransport["capabilities"] = ["languages"],
+  watch: LanguageTransport["watch"] = async function* () {}
 ) => {
   const controller = new AbortController();
 
@@ -62,12 +63,63 @@ const fake = (
     capabilities,
     signal: controller.signal,
     invoke,
-    watch: async function* () {},
+    watch,
     takeBlob: async () => new Uint8Array(),
   });
 
   return { access, controller };
 };
+
+test("Host state read/feed needs no context and refuses another Host's facts", async () => {
+  const state = P.LanguageHostState.make({
+    hostId,
+    platform: { os: "darwin", arch: "arm64", libc: "none" },
+    tools: [],
+  });
+
+  const f = fake(
+    async () => state,
+    ["languages"],
+    async function* () {
+      yield state;
+    }
+  );
+
+  expect(await f.access.request("languages.host.state", { toolIds: [], refresh: true })).toEqual(
+    state
+  );
+  const controller = new AbortController();
+
+  const watch = f.access
+    .watch("languages.host.state.watch", { toolIds: [], refresh: true }, controller.signal)
+    [Symbol.asyncIterator]();
+
+  expect((await watch.next()).value).toEqual(state);
+  controller.abort();
+  await watch.return?.();
+  f.access.dispose();
+
+  const other = fake(
+    async () => state,
+    ["languages"],
+    async function* () {
+      yield { ...state, hostId: P.HostId.make("foreign-host") };
+    }
+  );
+
+  await rejected(
+    other.access
+      .watch(
+        "languages.host.state.watch",
+        { toolIds: [], refresh: false },
+        new AbortController().signal
+      )
+      [Symbol.asyncIterator]()
+      .next(),
+    { reason: "server-failed" }
+  );
+  other.access.dispose();
+});
 
 test("old and partial peers refuse unsupported methods without calling transport", async () => {
   let calls = 0;
@@ -156,6 +208,71 @@ test("connection loss promptly cancels a transport that ignores abort", async ()
   const request = access.request("languages.catalog", {});
   controller.abort();
   await rejected(request, { reason: "not-connected" });
+});
+
+test("live log feed verifies exact output ownership and cancels on disconnect", async () => {
+  const identity = context(1);
+
+  const snapshot = P.LanguageContextSnapshot.make({
+    context: identity,
+    runtime: P.LanguageRuntime.cases.Stopped.make({ reason: "no-demand" }),
+    ack: { context: identity, acceptedSequence: 0, documents: [] },
+    limits,
+  });
+
+  const line = P.LanguageServerLogLine.make({
+    sequence: 1,
+    time: 1,
+    source: "logMessage",
+    level: "info",
+    text: "private line",
+  });
+
+  const { access, controller } = fake(
+    async () => snapshot,
+    ["languages"],
+    async function* () {
+      yield P.LanguageServerLogEvent.cases.Snapshot.make({ context: identity, lines: [line] });
+
+      await new Promise(() => {});
+    }
+  );
+
+  await access.request("languages.context.acquire", acquire);
+
+  const signal = new AbortController();
+
+  const feed = access
+    .watch("languages.log.watch", { context: identity }, signal.signal)
+    [Symbol.asyncIterator]();
+
+  expect((await feed.next()).value).toEqual(
+    P.LanguageServerLogEvent.cases.Snapshot.make({ context: identity, lines: [line] })
+  );
+
+  const waiting = feed.next();
+  controller.abort();
+
+  await rejected(waiting, { reason: "not-connected" });
+
+  const foreign = fake(
+    async () => snapshot,
+    ["languages"],
+    async function* () {
+      yield P.LanguageServerLogEvent.cases.Snapshot.make({ context: context(2), lines: [] });
+    }
+  );
+
+  await foreign.access.request("languages.context.acquire", acquire);
+
+  await rejected(
+    foreign.access
+      .watch("languages.log.watch", { context: identity }, signal.signal)
+      [Symbol.asyncIterator]()
+      .next(),
+    { reason: "server-failed" }
+  );
+  foreign.access.dispose();
 });
 
 test("reconnect recreates generation and sends newest full snapshots before requests", async () => {

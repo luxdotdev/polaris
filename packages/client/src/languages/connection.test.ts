@@ -47,6 +47,26 @@ test("actual one connection routes validated language RPC/feed/blob and invalida
   });
 
   const handlers = Layer.mergeAll(
+    ServerRpcs.toLayerHandler("languages.host.state", () =>
+      Effect.sync(() =>
+        P.LanguageHostState.make({
+          hostId: hostId!,
+          platform: { os: "darwin", arch: "arm64", libc: "none" },
+          tools: [],
+        })
+      )
+    ),
+    ServerRpcs.toLayerHandler("languages.host.state.watch", () =>
+      Stream.fromEffect(
+        Effect.sync(() =>
+          P.LanguageHostState.make({
+            hostId: hostId!,
+            platform: { os: "darwin", arch: "arm64", libc: "none" },
+            tools: [],
+          })
+        )
+      )
+    ),
     ServerRpcs.toLayerHandler("languages.availability", (_input, { client }) => {
       if (hostId === null || languageIdentityFor(client, hostId) === null)
         return Effect.fail(
@@ -145,6 +165,31 @@ test("actual one connection routes validated language RPC/feed/blob and invalida
         const response = yield* Effect.promise(() =>
           transport.invoke("languages.availability", availability, new AbortController().signal)
         );
+
+        const hostState = yield* Effect.promise(() =>
+          transport.invoke(
+            "languages.host.state",
+            { toolIds: [], refresh: true },
+            new AbortController().signal
+          )
+        );
+
+        expect(Schema.decodeUnknownSync(P.LanguageHostState)(hostState).hostId).toBe(hostId);
+
+        const hostFeed = transport
+          .watch(
+            "languages.host.state.watch",
+            { toolIds: [], refresh: false },
+            new AbortController().signal
+          )
+          [Symbol.asyncIterator]();
+
+        const hostSnapshot = yield* Effect.promise(() => hostFeed.next());
+
+        expect(Schema.decodeUnknownSync(P.LanguageHostState)(hostSnapshot.value).tools).toEqual([]);
+        yield* Effect.promise(async () => {
+          await hostFeed.return?.();
+        });
 
         const feedController = new AbortController();
 

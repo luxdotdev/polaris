@@ -13,6 +13,7 @@ import {
   activateTab,
   closeActiveTab,
   openMarkdownPreview,
+  closeOtherTabs,
   closeTab,
   cycleTabs,
   keepMyEdits,
@@ -36,8 +37,14 @@ import { CodeHost } from "./CodeHost.tsx";
 import { Compare } from "./Compare.tsx";
 import { FileNotice } from "./FileNotice.tsx";
 import { Tabs } from "./Tabs.tsx";
-import { LanguageTools } from "./LanguageTools.tsx";
+import { LanguagePanel } from "./LanguagePanel.tsx";
+import { RenameField } from "../navigation/RenameField.tsx";
+import { SymbolSearch } from "../navigation/SymbolSearch.tsx";
+import { useLanguageNavigationCommands } from "../navigation/contribute.ts";
 import { EditorTrust } from "../trust/TrustCard.tsx";
+import { activateLogTab, closeLogTab, isLogTab, useLogTabs } from "../status/logTabs.ts";
+import { LogTabBody, useLogTabViews } from "../status/LogTab.tsx";
+import { useLanguageCommands } from "../commands/useLanguageCommands.ts";
 
 export interface EditorPaneProps {
   readonly hostKey: string;
@@ -46,7 +53,13 @@ export interface EditorPaneProps {
   readonly root: string;
 }
 
-const useEditorCommands = (hostKey: string, workspaceId: string, active: string | null) => {
+const useEditorCommands = (
+  hostKey: string,
+  workspaceId: string,
+  active: string | null,
+  current: string | null,
+  logTabs: ReadonlyArray<{ readonly id: string }>
+) => {
   const commands = useCommands();
 
   useEffect(
@@ -60,10 +73,25 @@ const useEditorCommands = (hostKey: string, workspaceId: string, active: string 
           run: () => void (active === null ? null : saveFile(hostKey, active)),
           enabled: () => active !== null,
         },
+        "tab.close": {
+          run: () => {
+            if (current === null) window.close();
+            else if (isLogTab(current)) closeLogTab(hostKey, workspaceId, current);
+            else closeTab(hostKey, workspaceId, current);
+          },
+        },
+        "tab.closeOthers": {
+          run: () => {
+            closeOtherTabs(hostKey, workspaceId, current);
+
+            for (const { id } of logTabs) if (id !== current) closeLogTab(hostKey, workspaceId, id);
+          },
+          enabled: () => current !== null,
+        },
         "editor.nextTab": { run: () => cycleTabs(hostKey, workspaceId, 1) },
         "editor.previousTab": { run: () => cycleTabs(hostKey, workspaceId, -1) },
       }),
-    [commands, hostKey, workspaceId, active]
+    [commands, hostKey, workspaceId, active, current, logTabs]
   );
 };
 
@@ -78,7 +106,11 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
     subscribeApp: (changed) => connection.store.subscribe(changed),
   });
 
-  const { tabs, active, activeId, rendered } = useEditorTabs(hostKey, workspaceId);
+  const { tabs: fileTabs, active, activeId, rendered } = useEditorTabs(hostKey, workspaceId);
+  const logs = useLogTabs(hostKey, workspaceId);
+  const logViews = useLogTabViews(logs.tabs);
+  const tabs = logViews.length === 0 ? fileTabs : [...fileTabs, ...logViews];
+  const shownLog = logs.tabs.find((tab) => tab.id === logs.active) ?? null;
   const buffer = useBuffer(hostKey, active);
 
   const { document, epoch, connectionState, hostLabel } = useMarkdownDocument(
@@ -108,7 +140,9 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
     if (theirs === null) setComparing(false);
   }, [theirs]);
 
-  useEditorCommands(hostKey, workspaceId, active);
+  useEditorCommands(hostKey, workspaceId, active, shownLog?.id ?? activeId ?? null, logs.tabs);
+  useLanguageNavigationCommands();
+  useLanguageCommands(hostKey, workspaceId, active);
 
   const onAction = (action: BannerAction) => {
     if (active === null) return;
@@ -126,7 +160,36 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
     run[action]();
   };
 
-  if (tabs.length === 0 || active === null) {
+  const strip = (
+    <Tabs
+      tabs={tabs}
+      active={shownLog?.id ?? activeId ?? active}
+      onSelect={(id) =>
+        isLogTab(id)
+          ? activateLogTab(hostKey, workspaceId, id)
+          : activateTab(hostKey, workspaceId, id)
+      }
+      onPin={(path) => pinFile(hostKey, workspaceId, path)}
+      onClose={(id) =>
+        isLogTab(id) ? closeLogTab(hostKey, workspaceId, id) : closeTab(hostKey, workspaceId, id)
+      }
+    />
+  );
+
+  if (shownLog !== null) {
+    return (
+      <section
+        aria-label="Editor"
+        className="bg-bg flex min-w-0 flex-1 flex-col"
+        data-testid="editor-pane"
+      >
+        {strip}
+        <LogTabBody tab={shownLog} />
+      </section>
+    );
+  }
+
+  if (fileTabs.length === 0 || active === null) {
     return (
       <section aria-label="Editor" className="bg-bg grid min-w-0 flex-1 place-items-center">
         <RefactorPreview hostKey={hostKey} root={root} />
@@ -154,13 +217,7 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
       data-testid="editor-pane"
     >
       <RefactorPreview hostKey={hostKey} root={root} />
-      <Tabs
-        tabs={tabs}
-        active={activeId ?? active}
-        onSelect={(path) => activateTab(hostKey, workspaceId, path)}
-        onPin={(path) => pinFile(hostKey, workspaceId, path)}
-        onClose={(path) => closeTab(hostKey, workspaceId, path)}
-      />
+      {strip}
       <PreviewControls
         visible={rendered ?? false}
         hostKey={hostKey}
@@ -207,7 +264,9 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
         )}
       </div>
       <CloseDialog hostKey={hostKey} workspaceId={workspaceId} />
-      {rendered ? null : <LanguageTools hostKey={hostKey} path={active} />}
+      {rendered ? null : <LanguagePanel hostKey={hostKey} path={active} />}
+      <RenameField />
+      <SymbolSearch />
     </section>
   );
 };

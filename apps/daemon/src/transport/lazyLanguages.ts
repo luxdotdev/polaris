@@ -5,7 +5,6 @@ import { lazyRpcLayer } from "./lazy.ts";
 
 const implemented = LanguageRpcs.omit(
   "languages.availability.watch",
-  "languages.format",
   "languages.edit.decide",
   "languages.operation.get",
   "languages.operation.recover"

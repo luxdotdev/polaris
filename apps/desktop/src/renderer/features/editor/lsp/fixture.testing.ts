@@ -46,6 +46,8 @@ export class EditorProviderFixture {
   generation = 1;
   releases = 0;
   hold: Promise<void> | null = null;
+  /** The runtime an acquire reports; the real Daemon reports a stopped server until a file opens. */
+  acquired: typeof P.LanguageRuntime.Type | null = null;
 
   constructor(readonly hostId: P.HostId) {}
 
@@ -112,7 +114,9 @@ export class EditorProviderFixture {
         value = {
           context,
           ack,
-          runtime: P.LanguageRuntime.cases.Ready.make({ capabilities: this.capabilities }),
+          runtime:
+            this.acquired ??
+            P.LanguageRuntime.cases.Ready.make({ capabilities: this.capabilities }),
           limits: {
             messageBytes: 1048576,
             queuedMessages: 32,

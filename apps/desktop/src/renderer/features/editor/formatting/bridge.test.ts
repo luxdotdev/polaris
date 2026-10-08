@@ -8,7 +8,13 @@ import {
   type LanguageRequestInput,
 } from "../../../../shared/languages.ts";
 import { initialState } from "../../../store/store.ts";
-import { bindFormatter, createAppFormatting, readFormatSettings } from "./bridge.ts";
+import {
+  bindFormatter,
+  createAppFormatting,
+  formattingOptions,
+  formattingProvider,
+  readFormatSettings,
+} from "./bridge.ts";
 import { SaveCoordinator } from "./index.ts";
 
 const file = { hostKey: "fixture", workspaceId: "ws_fixture", path: "/fixture/main.ts" };
@@ -267,4 +273,41 @@ test("selected unbound provider fails explicitly; binding replacement cannot ser
   expect(await formatting.format(snapshot, formatter, signal)).toBe("two");
 
   removeNext();
+});
+
+test("formatting options follow the file's own indentation", () => {
+  expect(formattingOptions({ tabs: false, width: 2 })).toEqual({ tabSize: 2, insertSpaces: true });
+  expect(formattingOptions({ tabs: true, width: 4 })).toEqual({ tabSize: 4, insertSpaces: false });
+  expect(formattingOptions(null)).toEqual({ tabSize: 2, insertSpaces: true });
+});
+
+test("with no formatter chosen, the first server that formats documents formats", () => {
+  const server = (providerId: string, methods: ReadonlyArray<string>) => ({
+    context: { providerId },
+    capabilities: P.LanguageProviderCapabilities.make({
+      positionEncoding: "utf-16",
+      synchronization: "full",
+      openClose: true,
+      save: false,
+      saveIncludeText: false,
+      methods,
+      completionResolve: false,
+      actionResolve: false,
+      executeCommands: [],
+      diagnostics: "none",
+      workspaceDiagnostics: false,
+    }),
+  });
+
+  const lint = server("lint", ["textDocument/hover"]);
+  const ts = server("ts", ["textDocument/formatting"]);
+  const none = P.LanguageFormatterSelection.cases.None.make({});
+
+  expect(formattingProvider(none, [lint, ts])).toBe(ts);
+  expect(formattingProvider(none, [lint])).toBeNull();
+
+  const chosen = P.LanguageFormatterSelection.cases.Provider.make({ providerId: "lint" });
+
+  expect(formattingProvider(chosen, [lint, ts])).toBe(lint);
+  expect(() => formattingProvider(chosen, [ts])).toThrow("The selected formatter is unavailable.");
 });

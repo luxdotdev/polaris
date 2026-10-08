@@ -48,7 +48,7 @@ export interface LanguageBridgeOptions {
 const routing = Schema.Struct({
   hostKey: Schema.String,
   workspaceId: Schema.optionalKey(P.WorkspaceId),
-  checkout: Schema.optionalKey(P.LanguageCheckout),
+  checkout: Schema.optionalKey(Schema.NullOr(P.LanguageCheckout)),
   context: Schema.optionalKey(P.LanguageContextIdentity),
   fence: Schema.optionalKey(P.LanguageRequestFence),
   acceptance: Schema.optionalKey(P.LanguageTreeEditAcceptance),

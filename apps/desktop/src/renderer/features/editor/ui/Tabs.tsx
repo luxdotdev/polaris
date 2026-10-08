@@ -89,7 +89,7 @@ export const Tabs = ({ tabs, active, onSelect, onPin, onClose }: TabsProps) => {
             }}
             onClick={() => onSelect(tab.id)}
             onDoubleClick={() => {
-              if (tab.view !== "markdown") onPin(tab.id);
+              if (tab.view === undefined) onPin(tab.id);
             }}
             onKeyDown={(event) => {
               if (event.key === "Enter" || event.key === " ") {
@@ -129,6 +129,9 @@ export const Tabs = ({ tabs, active, onSelect, onPin, onClose }: TabsProps) => {
           >
             {tab.agent === null ? null : <Dither hue={tab.agent} size={12} moving />}
             <span className={cn("truncate", tab.preview && "italic")}>{tab.label}</span>
+            {tab.detail === undefined ? null : (
+              <span className="text-caption text-text-faint shrink-0">{tab.detail}</span>
+            )}
             <TrailingSlot tab={tab} active={selected} onClose={() => onClose(tab.id)} />
           </div>
         );
