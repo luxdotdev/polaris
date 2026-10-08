@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { join } from "node:path";
 import { Schema, Predicate } from "effect";
 import {
   LanguageError,
@@ -431,6 +432,62 @@ test("checkout and Workspace restarts preserve edited drafts and isolate another
       "text",
       "two unsaved"
     );
+  } finally {
+    await f.dispose();
+  }
+});
+
+test("Workspace interpreter selection restarts both Clients' basedpyright drafts and preserves Ruff", async () => {
+  const f = await fixture("ordinary", 10, undefined, undefined, undefined, false, {
+    providerId: "basedpyright",
+  });
+
+  try {
+    const one = await f.acquire("one");
+    const two = await f.acquire("two");
+
+    const ruff = await f.broker.acquire("one", {
+      clientId: "one",
+      contextId: "lint",
+      checkout: f.checkout,
+      path: join(f.root, "file.ts"),
+      providerId: "ruff",
+      settings: f.settings,
+      interestId: "file",
+    });
+
+    await f.open("one", one.context, "one private draft");
+    await f.open("two", two.context, "two private draft");
+    await f.open("one", ruff.context, "lint draft");
+    await Promise.all([
+      f.ready("one", one.context),
+      f.ready("two", two.context),
+      f.ready("one", ruff.context),
+    ]);
+
+    const restarted = await f.broker.restartMatching(
+      null,
+      null,
+      f.checkout.workspaceId,
+      "basedpyright"
+    );
+
+    expect(restarted).toHaveLength(2);
+
+    for (const current of restarted) {
+      const client = current.context.clientId;
+      const text = client === "one" ? "one private draft" : "two private draft";
+
+      expect(current.ack.documents).toEqual([{ uri: f.uri, version: 1 }]);
+      expect(current.ack.acceptedSequence).toBe(1);
+      await f.ready(client, current.context);
+      expect((await f.broker.request(client, hover(current.context, f.uri))).result).toHaveProperty(
+        "text",
+        text
+      );
+    }
+
+    expect(f.broker.snapshot("one", ruff.context).context).toEqual(ruff.context);
   } finally {
     await f.dispose();
   }

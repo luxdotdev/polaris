@@ -1,3 +1,4 @@
+import { LanguagePythonInterpreters } from "./python.ts";
 import { LanguageServerLogEvent } from "./logs.ts";
 import { LanguageHostState } from "./hostState.ts";
 import { Schema } from "effect";
@@ -81,6 +82,23 @@ export const PrepareLanguageEdit = Rpc.make("languages.edit.prepare", {
 export const GetLanguageCatalog = Rpc.make("languages.catalog", {
   payload: {},
   success: LanguageCatalog,
+  error: LanguageError,
+});
+
+export const ListPythonInterpreters = Rpc.make("languages.python.interpreters", {
+  payload: { checkout: LanguageCheckout, path: LanguagePath },
+  success: LanguagePythonInterpreters,
+  error: LanguageError,
+});
+
+export const SelectPythonInterpreter = Rpc.make("languages.python.select", {
+  payload: {
+    checkout: LanguageCheckout,
+    path: LanguagePath,
+    interpreter: Schema.NullOr(LanguagePath),
+    expectedRevision: LanguageCounter,
+  },
+  success: LanguagePythonInterpreters,
   error: LanguageError,
 });
 
@@ -401,6 +419,8 @@ export const SetLanguagePreviewPolicy = Rpc.make("languages.preview.policy.set",
 /** The existing Daemon wire owns these schemas; capabilities require implemented handler layers. */
 
 export class LanguageRpcs extends RpcGroup.make(
+  ListPythonInterpreters,
+  SelectPythonInterpreter,
   GetLanguageCatalog,
   GetLanguageHostState,
   WatchLanguageHostState,

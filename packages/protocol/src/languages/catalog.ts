@@ -73,6 +73,7 @@ export const LanguageArtifact = Schema.Struct({
 export const LanguageTool = Schema.Struct({
   id: LanguageKey,
   disposition: Schema.Literals(["offered", "evaluation"]),
+  distribution: Schema.optionalKey(Schema.Literals(["runtime-upstream", "installer-bundled"])),
   version: LanguageText,
   source: LanguageText,
   license: LanguageText,

@@ -34,7 +34,7 @@ import { LanguageAcquisitionAuthority } from "./acquisitionAuthority.ts";
 import { prepareFeatureEdit, type PreparationIntent } from "./preparation.ts";
 import { configuredExecutable } from "./configuredLaunch.ts";
 import { observationAdmission } from "./observation.ts";
-import { bundledTypeScript } from "./managedPolicy.ts";
+import { managedWithoutTrust } from "./managedPolicy.ts";
 import {
   LanguageProviderAccess,
   LanguageTrustGrantAuthority,
@@ -204,15 +204,18 @@ function makeCore(
                 provider.tool,
                 "feature",
                 observed.trust.trusted,
-                observationAdmission(
-                  auth,
-                  canonical.checkout,
-                  found.projectRoot,
-                  observed.trust.revision,
-                  trust,
-                  owners,
-                  !bundledTypeScript(found)
-                ),
+                {
+                  ...observationAdmission(
+                    auth,
+                    canonical.checkout,
+                    found.projectRoot,
+                    observed.trust.revision,
+                    trust,
+                    owners,
+                    !managedWithoutTrust(found)
+                  ),
+                  pythonInterpreter: found.interpreter,
+                },
                 input.settings
               );
 

@@ -5,6 +5,18 @@ installing developer runtimes. The catalog is in
 `apps/daemon/src/languages/catalog/`. Nothing here installs into a Workspace,
 changes a real user home, or wires the catalog into a running Daemon.
 
+## Runtime upstream downloads (owner 2026-10-08)
+
+ADR-0022 distinguishes runtime upstream downloads from tools bundled inside the
+Polaris installer. `distribution: runtime-upstream` requires a recorded permissive
+top-level license, pinned archive SHA256, and release LICENSE/notices retained beside
+the install. Full compiler/runtime/vendor closure remains required for installer
+bundles; it is no longer the activation gate for runtime downloads. Ruff 0.16.10
+and basedpyright 1.40.2 use scoped `runtime-review-records.json` and
+`runtime-download-policy.json`; these replace older review records for those pins.
+The original closure inventories remain historical evidence. Missing distribution
+metadata retains the original rules. No project interpreter is installed.
+
 ## Checks and release gate
 
 ```sh

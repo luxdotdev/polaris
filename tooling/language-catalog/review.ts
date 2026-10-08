@@ -151,7 +151,7 @@ const manifestFailures = (
     failures.push(`${artifact.id}:review-coverage-incomplete`);
 
   for (const reference of [...manifest.notices, ...(manifest.evidence ?? [])]) {
-    if (reference.path === "review-records.json") continue;
+    if (["review-records.json", "runtime-review-records.json"].includes(reference.path)) continue;
 
     if (
       ![...record.notices, ...record.evidence].some(
@@ -167,6 +167,9 @@ const manifestFailures = (
 
 const recordFailures = (tool: Tool, record: ReviewRecord, read: ReviewInput["read"]): string[] => {
   const failures = scopeFailures(tool, record, read);
+
+  if (tool.distribution === "runtime-upstream" && !isAllowed(tool.license))
+    failures.push(`${tool.id}:runtime-upstream-license`);
 
   if (record.missingEvidence.length > 0 || record.status === "missing-evidence")
     failures.push(`${tool.id}:missing-evidence:${record.missingEvidence.join("; ")}`);
@@ -219,10 +222,16 @@ export const reviewFailures = ({ tools, records, read }: ReviewInput): ReadonlyA
   return failures;
 };
 
-export const readReviewRecords = (root: string): ReadonlyArray<ReviewRecord> =>
-  Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Array(ReviewRecord)))(
-    readFileSync(join(root, "review-records.json"), "utf8")
-  );
+export const readReviewRecords = (root: string): ReadonlyArray<ReviewRecord> => {
+  const decode = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Array(ReviewRecord)));
+  const retained = decode(readFileSync(join(root, "review-records.json"), "utf8"));
+  const runtime = decode(readFileSync(join(root, "runtime-review-records.json"), "utf8"));
+
+  return [
+    ...retained.filter((record) => !runtime.some((next) => next.tool === record.tool)),
+    ...runtime,
+  ];
+};
 
 /** Bind review records back to the installer-trusted audit manifests, avoiding an unpinned side gate. */
 export const reviewRootFailures = (
@@ -239,7 +248,13 @@ export const reviewRootFailures = (
           Buffer.from(bytes).toString("utf8")
         );
 
-        const reference = manifest.evidence?.find((file) => file.path === "review-records.json");
+        const reference = manifest.evidence?.find(
+          (file) =>
+            file.path ===
+            (tool.distribution === "runtime-upstream"
+              ? "runtime-review-records.json"
+              : "review-records.json")
+        );
 
         return reference && verifyIntegrity(read(reference.path), reference.integrity)
           ? []

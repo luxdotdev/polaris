@@ -52,6 +52,8 @@ const ExternalImageUrl = Schema.String.check(
 /** Opt-in tables for C1; current required request/subscription tables remain unchanged. */
 
 export const LanguageRequestInputs = {
+  "languages.python.interpreters": onHost(Languages.ListPythonInterpreters.payloadSchema.fields),
+  "languages.python.select": onHost(Languages.SelectPythonInterpreter.payloadSchema.fields),
   "languages.host.state": onHost(Languages.GetLanguageHostState.payloadSchema.fields),
   "languages.identity.get": onHost({}),
   "languages.catalog": onHost(Languages.GetLanguageCatalog.payloadSchema.fields),
@@ -105,6 +107,8 @@ export const LanguageRequestInputs = {
 } as const;
 
 export const LanguageRequestOutputs = {
+  "languages.python.interpreters": Languages.ListPythonInterpreters.successSchema,
+  "languages.python.select": Languages.SelectPythonInterpreter.successSchema,
   "languages.host.state": Languages.GetLanguageHostState.successSchema,
   "languages.identity.get": LanguageClientIdentity,
   "languages.catalog": Languages.GetLanguageCatalog.successSchema,

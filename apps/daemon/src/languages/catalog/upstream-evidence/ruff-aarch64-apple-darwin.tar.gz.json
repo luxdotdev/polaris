@@ -1,0 +1,25 @@
+{
+  "artifactId": "ruff-aarch64-apple-darwin.tar.gz",
+  "artifactIntegrity": "sha256:f051cd306de2691262a0574f8857cd1f4d6bfcd448084ea23d61b9c1c37df510",
+  "coverage": "complete",
+  "notices": [
+    {
+      "path": "notices/2597d854122b77ddc71971564ca2350a37608575ce324adc5650a2b2051c8f18.txt",
+      "integrity": "sha256:2597d854122b77ddc71971564ca2350a37608575ce324adc5650a2b2051c8f18"
+    },
+    {
+      "path": "notices/e85e4ba113dc4ddd9a599665d5c0d877201650c5527ff97da0c3b092d52a3cb6.txt",
+      "integrity": "sha256:e85e4ba113dc4ddd9a599665d5c0d877201650c5527ff97da0c3b092d52a3cb6"
+    }
+  ],
+  "evidence": [
+    {
+      "path": "runtime-download-policy.json",
+      "integrity": "sha256:57803754cda1f00d0fd5fd5193e8fc99236c435deb786f41bfeaa72e5b4f1c2a"
+    },
+    {
+      "path": "runtime-review-records.json",
+      "integrity": "sha256:4b051fd7a65a5fc8f67bd2f1bf53b12506d02b19ecb523ee0b847125cdeed6ae"
+    }
+  ]
+}
