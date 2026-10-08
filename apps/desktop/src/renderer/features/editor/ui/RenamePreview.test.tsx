@@ -19,7 +19,7 @@ const lines = (count: number, name: string) =>
   Array.from({ length: count }, (_, i) => `use(${name}); // ${i}`).join("\n\n");
 
 const preview: Preview = {
-  proposal: { ...proposal(), label: "Rename BASE_DELAY_MS to RETRY_DELAY_MS" },
+  proposal: { ...proposal(), origin: "rename", label: "Rename BASE_DELAY_MS to RETRY_DELAY_MS" },
   originals: [
     doc("/checkout/src/backoff.ts", lines(3, "BASE_DELAY_MS"), false),
     doc("/checkout/src/delay.ts", lines(2, "BASE_DELAY_MS"), false),
@@ -113,5 +113,40 @@ describe("the rename preview card (Paper L7)", () => {
     expect(dom().getByText("Rename in 3 files").closest("button")?.hasAttribute("disabled")).toBe(
       true
     );
+  });
+
+  test("a server's edit is never titled as a rename, and its file operations are listed", () => {
+    const calls = card({
+      preview: {
+        ...preview,
+        proposal: {
+          ...preview.proposal,
+          origin: "server-apply-edit",
+          label: "Rename BASE_DELAY_MS to RETRY_DELAY_MS",
+          edit: {
+            documentChanges: [
+              { kind: "delete", uri: "file:///checkout/src/old", options: { recursive: true } },
+              {
+                kind: "rename",
+                oldUri: "file:///checkout/src/a.ts",
+                newUri: "file:///checkout/src/b.ts",
+              },
+            ],
+          },
+        },
+      },
+    });
+
+    expect(dom().getByRole("heading").textContent).toBe("The language server proposes changes");
+    expect(dom().getByText(/“Rename BASE_DELAY_MS to RETRY_DELAY_MS”/)).toBeTruthy();
+    expect(dom().getByTestId("file-operations").textContent).toContain(
+      "Deletes src/old and everything in it"
+    );
+    expect(dom().getByTestId("file-operations").textContent).toContain(
+      "Renames src/a.ts to src/b.ts"
+    );
+    expect(dom().getByText(/file operations change disk when you apply/)).toBeTruthy();
+    fireEvent.click(dom().getByText("Apply to 3 files"));
+    expect(calls).toEqual(["accept"]);
   });
 });

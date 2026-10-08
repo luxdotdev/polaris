@@ -140,3 +140,65 @@ export const linesPhrase = (hunks: readonly Hunk[]) => {
 /** A file shows up to two hunks; with more, its first, then "N more changes" to open the rest. */
 export const visibleHunks = (hunks: readonly Hunk[], expanded: boolean) =>
   expanded || hunks.length <= 2 ? hunks : hunks.slice(0, 1);
+
+export interface FileOperation {
+  readonly kind: "create" | "rename" | "delete";
+  /** "Creates src/new.ts", "Renames src/a.ts to src/b.ts", "Deletes src/old (and everything in it)". */
+  readonly text: string;
+}
+
+const pathOf = (uri: string, root: string) => {
+  try {
+    return relative(decodeURIComponent(new URL(uri).pathname), root);
+  } catch {
+    return uri;
+  }
+};
+
+/** Every disk operation in the proposal, so none is accepted unseen. */
+export const fileOperations = (preview: Preview, root: string): FileOperation[] =>
+  (preview.proposal.edit.documentChanges ?? []).flatMap((change): FileOperation[] => {
+    if (!("kind" in change)) return [];
+
+    if (change.kind === "create")
+      return [
+        {
+          kind: "create",
+          text: `Creates ${pathOf(change.uri, root)}${change.options?.overwrite === true ? ", replacing what is there" : ""}`,
+        },
+      ];
+
+    if (change.kind === "rename")
+      return [
+        {
+          kind: "rename",
+          text: `Renames ${pathOf(change.oldUri, root)} to ${pathOf(change.newUri, root)}${change.options?.overwrite === true ? ", replacing what is there" : ""}`,
+        },
+      ];
+
+    return [
+      {
+        kind: "delete",
+        text: `Deletes ${pathOf(change.uri, root)}${change.options?.recursive === true ? " and everything in it" : ""}`,
+      },
+    ];
+  });
+
+/**
+ * The card's words. Only a rename the user asked for (F2) is titled with its names; a code
+ * action or a server's edit shows its label as the server's text, never as Polaris's own claim.
+ */
+export const previewWords = (preview: Preview, files: number, operations: number) => {
+  const origin = preview.proposal.origin;
+
+  const names =
+    origin === "rename" && operations === 0 ? renameNames(preview.proposal.label) : null;
+
+  const count = plural(files, "file");
+
+  return {
+    names,
+    title: origin === "server-apply-edit" ? "The language server proposes changes" : null,
+    accept: names !== null ? `Rename in ${count}` : `Apply to ${count}`,
+  };
+};

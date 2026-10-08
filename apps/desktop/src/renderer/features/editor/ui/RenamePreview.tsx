@@ -7,15 +7,18 @@ import { cn, Dialog, DialogContent, DialogDescription, DialogTitle } from "@pola
 import { useState, type KeyboardEvent } from "react";
 import type { Preview } from "../refactors/coordinator.ts";
 import {
+  fileOperations,
   linesPhrase,
   plural,
+  previewWords,
   renameFiles,
-  renameNames,
   visibleHunks,
   type DiffLine,
   type Hunk,
   type RenameFile,
 } from "../refactors/renamePreview.ts";
+
+const OPERATION_MARKS = { create: "+", rename: "→", delete: "−" } as const;
 
 const MONO = "font-mono text-[12px] leading-5 whitespace-pre [font-variant-ligatures:none]";
 
@@ -157,7 +160,8 @@ export const RenamePreviewCard = ({
     () => new Set(files.slice(0, 1).map((f) => f.path))
   );
 
-  const names = renameNames(preview.proposal.label);
+  const operations = fileOperations(preview, root);
+  const words = previewWords(preview, files.length, operations.length);
   const changes = files.reduce((sum, file) => sum + file.hunks.length, 0);
 
   const toggle = (path: string) =>
@@ -174,25 +178,48 @@ export const RenamePreviewCard = ({
     <>
       <div className="border-hairline flex flex-col gap-1 border-b px-5 pt-4 pb-3.5">
         <h2 className="flex items-baseline gap-2">
-          {names === null ? (
-            <span className="text-heading text-text-strong">{preview.proposal.label}</span>
+          {words.names === null ? (
+            <span className="text-heading text-text-strong">
+              {words.title ?? preview.proposal.label}
+            </span>
           ) : (
             <>
               <span className="text-heading text-text-strong">Rename</span>
               <code className="text-text-default font-mono text-[14px] [font-variant-ligatures:none]">
-                {names.from}
+                {words.names.from}
               </code>
               <span className="text-heading text-text-strong">to</span>
               <code className="text-text-default font-mono text-[14px] [font-variant-ligatures:none]">
-                {names.to}
+                {words.names.to}
               </code>
             </>
           )}
         </h2>
         <p className="text-caption text-text-subtle">
+          {words.title === null ? null : <>“{preview.proposal.label}” · </>}
           {plural(changes, "change")} in {plural(files.length, "file")} · {provider} · {host}
         </p>
       </div>
+      {operations.length === 0 ? null : (
+        <ul
+          aria-label="File operations"
+          data-testid="file-operations"
+          className="border-hairline flex flex-col gap-0.5 border-b px-5 py-2.5"
+        >
+          {operations.map((operation, index) => (
+            <li
+              key={index}
+              data-kind={operation.kind}
+              className="text-body text-text-strong flex items-center gap-2"
+            >
+              <span aria-hidden className="text-text-faint w-3 shrink-0 text-center">
+                {OPERATION_MARKS[operation.kind]}
+              </span>
+              <span className="font-mono text-[12px] break-all">{operation.text}</span>
+            </li>
+          ))}
+        </ul>
+      )}
       <ul aria-label="Files" className="flex min-h-0 flex-col gap-1 overflow-y-auto p-1.5">
         {files.map((file) => (
           <FileRow
@@ -206,7 +233,9 @@ export const RenamePreviewCard = ({
       <div className="border-hairline bg-surface-sunken flex items-center gap-3 border-t py-3 pr-4 pl-5">
         {failure === null ? (
           <span className="text-caption text-text-subtle truncate">
-            Edits stay unsaved in each file · ⌘Z undoes the rename everywhere
+            {operations.length === 0
+              ? "Edits stay unsaved in each file · ⌘Z undoes the rename everywhere"
+              : "Text edits stay unsaved · file operations change disk when you apply"}
           </span>
         ) : (
           <span role="alert" className="text-caption text-text-strong">
@@ -228,7 +257,7 @@ export const RenamePreviewCard = ({
           disabled={busy || failure !== null}
           className="rounded-control bg-text-strong text-body text-bg focus-visible:outline-starlight flex h-[30px] shrink-0 items-center gap-2 px-3 font-medium focus-visible:outline-2 disabled:opacity-55"
         >
-          {busy ? "Renaming…" : `Rename in ${plural(files.length, "file")}`}
+          {busy ? "Applying…" : words.accept}
           <span className="text-caption text-text-faint">⌘↵</span>
         </button>
       </div>
