@@ -1,3 +1,4 @@
+import { sqlShellLaunch } from "../sql/launch.ts";
 import { Match } from "effect";
 import { pythonLaunch } from "../python/launch.ts";
 import { createHostPrerequisiteProbe } from "../install/hostStateProbes.ts";
@@ -77,6 +78,12 @@ export function createManagedDelivery(
       const tools = Match.value(providerId).pipe(
         Match.when("basedpyright", () => ["node", "basedpyright"]),
         Match.when("ruff", () => ["ruff"]),
+        Match.when("bash-language-server", () => ["node", "shfmt", "bash-language-server"]),
+        Match.when("sqllens-language-server", () => [
+          "node",
+          "sql-formatter",
+          "sqllens-language-server",
+        ]),
         Match.orElse(() => ["node", "typescript", "typescript-language-server"])
       );
 
@@ -112,6 +119,10 @@ export function createManagedDelivery(
 
       if (["basedpyright", "ruff"].includes(facts.providerId))
         return pythonLaunch(facts, installed, node);
+
+      if (["bash-language-server", "sqllens-language-server"].includes(facts.providerId))
+        return sqlShellLaunch(facts, installed, node, installation(), pythonHost);
+
       const typescript = await installation().current("typescript");
 
       if (node === null || typescript === null)
@@ -181,7 +192,7 @@ export function createManagedDelivery(
       const nodeRequirements = tool.requirements.filter((requirement) => requirement.id === "node");
 
       const others = tool.requirements.filter(
-        (requirement) => !["node", "python-interpreter"].includes(requirement.id)
+        (requirement) => !["node", "python-interpreter", "shellcheck"].includes(requirement.id)
       );
 
       const node = nodeRequirements.length ? await privateNode() : null;
@@ -208,6 +219,17 @@ export function createManagedDelivery(
 
         if (executable !== null) await interpreterEntry(executable);
         probes.push({ id: python.id, executable, version: executable === null ? null : "present" });
+      }
+
+      const shellcheck = tool.requirements.find((requirement) => requirement.id === "shellcheck");
+
+      if (shellcheck !== undefined) {
+        const present = await createHostPrerequisiteProbe(pythonHost)().probe(shellcheck, signal);
+        probes.push({
+          id: shellcheck.id,
+          executable: present.path,
+          version: present.path === null ? null : "present",
+        });
       }
 
       probes.push(...(await developerProbes(others, trusted, signal, admission)));

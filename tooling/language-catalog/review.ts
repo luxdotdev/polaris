@@ -151,7 +151,14 @@ const manifestFailures = (
     failures.push(`${artifact.id}:review-coverage-incomplete`);
 
   for (const reference of [...manifest.notices, ...(manifest.evidence ?? [])]) {
-    if (["review-records.json", "runtime-review-records.json"].includes(reference.path)) continue;
+    if (
+      [
+        "review-records.json",
+        "runtime-review-records.json",
+        "runtime-sql-shell-review-records.json",
+      ].includes(reference.path)
+    )
+      continue;
 
     if (
       ![...record.notices, ...record.evidence].some(
@@ -225,7 +232,11 @@ export const reviewFailures = ({ tools, records, read }: ReviewInput): ReadonlyA
 export const readReviewRecords = (root: string): ReadonlyArray<ReviewRecord> => {
   const decode = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Array(ReviewRecord)));
   const retained = decode(readFileSync(join(root, "review-records.json"), "utf8"));
-  const runtime = decode(readFileSync(join(root, "runtime-review-records.json"), "utf8"));
+
+  const runtime = [
+    ...decode(readFileSync(join(root, "runtime-review-records.json"), "utf8")),
+    ...decode(readFileSync(join(root, "runtime-sql-shell-review-records.json"), "utf8")),
+  ];
 
   return [
     ...retained.filter((record) => !runtime.some((next) => next.tool === record.tool)),
@@ -248,12 +259,12 @@ export const reviewRootFailures = (
           Buffer.from(bytes).toString("utf8")
         );
 
-        const reference = manifest.evidence?.find(
-          (file) =>
-            file.path ===
-            (tool.distribution === "runtime-upstream"
-              ? "runtime-review-records.json"
-              : "review-records.json")
+        const reference = manifest.evidence?.find((file) =>
+          tool.distribution === "runtime-upstream"
+            ? ["runtime-review-records.json", "runtime-sql-shell-review-records.json"].includes(
+                file.path
+              )
+            : file.path === "review-records.json"
         );
 
         return reference && verifyIntegrity(read(reference.path), reference.integrity)

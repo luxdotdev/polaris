@@ -147,3 +147,18 @@ test("a file joining a context whose server stopped for lack of demand opens it,
     f.coordinator.dispose();
   }
 });
+
+test("SQL files retain separate contexts for their per-file dialect configuration", async () => {
+  const f = fixture("select 1;");
+
+  try {
+    const a = f.open("a.sql");
+    await f.settled(a);
+    const b = f.open("b.sql");
+    await f.settled(b);
+    expect(f.providerOf(b)?.context.contextId).not.toBe(f.providerOf(a)?.context.contextId);
+    expect(f.requests.filter((method) => method === "languages.discover")).toHaveLength(2);
+  } finally {
+    f.coordinator.dispose();
+  }
+});

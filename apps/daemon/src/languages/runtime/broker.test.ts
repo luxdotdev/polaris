@@ -2,6 +2,8 @@ import { expect, test } from "bun:test";
 import { join } from "node:path";
 import { Schema, Predicate } from "effect";
 import {
+  LanguageCheckout,
+  ReviewCheckoutId,
   LanguageError,
   LanguageDocumentNotification,
   LanguageFeatureRequest,
@@ -488,6 +490,64 @@ test("Workspace interpreter selection restarts both Clients' basedpyright drafts
     }
 
     expect(f.broker.snapshot("one", ruff.context).context).toEqual(ruff.context);
+  } finally {
+    await f.dispose();
+  }
+});
+
+test("selection-scoped restarts include Worktrees and isolate Review Checkouts", async () => {
+  const f = await fixture();
+
+  try {
+    const workspace = await f.acquire("one");
+
+    const reviewCheckout = LanguageCheckout.cases.ReviewCheckout.make({
+      workspaceId: f.checkout.workspaceId,
+      reviewCheckoutId: ReviewCheckoutId.make("review"),
+      path: f.root,
+    });
+
+    const acquire = (checkout: LanguageCheckout, contextId: string) =>
+      f.broker.acquire("one", {
+        clientId: "one",
+        contextId,
+        checkout,
+        path: join(checkout.path, "file.ts"),
+        providerId: "fake",
+        settings: f.settings,
+        interestId: "file",
+      });
+
+    const worktree = await acquire(f.worktree, "tree");
+    const review = await acquire(reviewCheckout, "review");
+
+    const restarted = await f.broker.restartMatching(
+      null,
+      null,
+      f.checkout.workspaceId,
+      "fake",
+      f.checkout
+    );
+
+    expect(restarted).toHaveLength(2);
+    expect(restarted.map((x) => x.context.contextId)).toEqual([
+      workspace.context.contextId,
+      worktree.context.contextId,
+    ]);
+    expect(restarted[0]!.context.generation).toBeGreaterThan(workspace.context.generation);
+    expect(restarted[1]!.context.generation).toBeGreaterThan(worktree.context.generation);
+    expect(f.broker.snapshot("one", review.context).context).toEqual(review.context);
+
+    const reviewRestart = await f.broker.restartMatching(
+      null,
+      null,
+      f.checkout.workspaceId,
+      "fake",
+      reviewCheckout
+    );
+
+    expect(reviewRestart).toHaveLength(1);
+    expect(reviewRestart[0]?.context.checkout).toEqual(reviewCheckout);
   } finally {
     await f.dispose();
   }

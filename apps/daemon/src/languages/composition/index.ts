@@ -1,3 +1,4 @@
+import { SqlCore } from "../sql/core.ts";
 import type { HostId } from "@polaris/protocol";
 import { Effect, Layer, Stream } from "effect";
 import { ServerRpcs } from "../../transport/rpcs.ts";
@@ -20,6 +21,12 @@ export { requestAuthority } from "./authority.ts";
 /** Core, owned installer demands and verified preparation; mutation receipts and capabilities stay separate. */
 export const languageCoreHandlers = (hostId: HostId) =>
   Layer.mergeAll(
+    ServerRpcs.toLayerHandler("languages.sql.dialect.get", (input) =>
+      Effect.flatMap(SqlCore, (core) => core.get(input))
+    ),
+    ServerRpcs.toLayerHandler("languages.sql.dialect.select", (input) =>
+      Effect.flatMap(SqlCore, (core) => core.select(input))
+    ),
     ServerRpcs.toLayerHandler("languages.python.interpreters", (input) =>
       Effect.flatMap(PythonCore, (core) => core.list(input))
     ),

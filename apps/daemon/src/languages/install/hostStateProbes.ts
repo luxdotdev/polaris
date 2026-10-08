@@ -21,6 +21,7 @@ interface HostExecutableNames {
 
 const executables: HostExecutableNames = {
   node: ["node"],
+  shellcheck: ["shellcheck"],
   "python-interpreter": ["python3.13", "python3.14", "python3", "python"],
   cargo: ["cargo"],
   rustfmt: ["rustfmt"],

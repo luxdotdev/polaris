@@ -1,3 +1,5 @@
+import sqlServer from "../sql/server.txt" with { type: "text" };
+import { npmDependencies } from "./npmDependencies.ts";
 import { Schema } from "effect";
 import { upstreamEvidence } from "../catalog/upstreamEvidence.ts";
 import { gunzip, tarEntries } from "./archive.ts";
@@ -36,6 +38,19 @@ export async function decodeUpstream(
       ? ""
       : "package/";
 
+  if (exact.artifact.format === "binary")
+    return {
+      manifestBytes,
+      entries: [
+        { path: exact.artifact.entry, kind: "file", mode: 0o755, bytes },
+        ...Object.entries(evidence.notices).map(([path, notice]) => ({
+          path,
+          kind: "file" as const,
+          mode: 0o644,
+          bytes: Buffer.from(notice),
+        })),
+      ],
+    };
   const archive = await gunzip(bytes, signal, upstreamLimits.expandedBytes);
 
   const select = isNode
@@ -78,5 +93,22 @@ export async function decodeUpstream(
       bytes: Buffer.from(pythonGuard),
     });
 
+  entries.push(...(await npmDependencies(exact, signal)));
+
+  entries.push(...sqlSupplement(exact.tool.id));
+
   return { manifestBytes, entries };
+}
+
+function sqlSupplement(toolId: string) {
+  return toolId === "sqllens-language-server"
+    ? [
+        {
+          path: "polaris-sql.mjs",
+          kind: "file" as const,
+          mode: 0o644,
+          bytes: Buffer.from(sqlServer),
+        },
+      ]
+    : [];
 }

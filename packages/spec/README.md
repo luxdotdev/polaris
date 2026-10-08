@@ -684,3 +684,14 @@ The existing `language-runtime.qnt` Restart transition and runtime model/trace
 checks remain authoritative for process recovery, acknowledgments and fencing.
 `python/detection.test.ts` checks real filesystem detection and persisted CAS;
 `python/live.testing.ts` checks real authenticated Python RPC selection and drafts.
+
+### SQL dialect selection (slice 7b)
+
+`sql-dialect.qnt` maps `languages.sql.dialect.select` to `languages/sql/selection.ts`:
+revision CAS, file-over-Workspace precedence, null clearing and Host restart
+persistence. `Adopt` reuses the existing language-runtime Restart/Replaced model
+and preserves both Clients' unsaved documents. The repository is configuration,
+outside EventStore. `sql/dialect.test.ts` exercises actual persistence, racing
+revisions and Review isolation. `sql/live.testing.ts` verifies the authenticated
+RPC and real provider replacement with document versions retained. SQL generic
+formatting-only behavior is the owner decision recorded in ADR-0023.

@@ -501,6 +501,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
       found.projectRoot,
       id,
       found.effectiveSettings,
+      entry.language === "sql" ? file.path : null,
     ]);
 
     let group = this.groups.get(groupKey);

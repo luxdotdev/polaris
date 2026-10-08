@@ -1,3 +1,4 @@
+import { LanguageSqlDialect, LanguageSqlDialectState } from "./sql.ts";
 import { LanguagePythonInterpreters } from "./python.ts";
 import { LanguageServerLogEvent } from "./logs.ts";
 import { LanguageHostState } from "./hostState.ts";
@@ -87,6 +88,24 @@ export const PrepareLanguageEdit = Rpc.make("languages.edit.prepare", {
 export const GetLanguageCatalog = Rpc.make("languages.catalog", {
   payload: {},
   success: LanguageCatalog,
+  error: LanguageError,
+});
+
+export const GetSqlDialect = Rpc.make("languages.sql.dialect.get", {
+  payload: { checkout: LanguageCheckout, path: LanguagePath },
+  success: LanguageSqlDialectState,
+  error: LanguageError,
+});
+
+export const SelectSqlDialect = Rpc.make("languages.sql.dialect.select", {
+  payload: {
+    checkout: LanguageCheckout,
+    path: LanguagePath,
+    scope: Schema.Literals(["file", "workspace"]),
+    dialect: Schema.NullOr(LanguageSqlDialect),
+    expectedRevision: LanguageCounter,
+  },
+  success: LanguageSqlDialectState,
   error: LanguageError,
 });
 
@@ -433,6 +452,8 @@ export const SetLanguagePreviewPolicy = Rpc.make("languages.preview.policy.set",
 /** The existing Daemon wire owns these schemas; capabilities require implemented handler layers. */
 
 export class LanguageRpcs extends RpcGroup.make(
+  GetSqlDialect,
+  SelectSqlDialect,
   ListPythonInterpreters,
   SelectPythonInterpreter,
   GetLanguageCatalog,

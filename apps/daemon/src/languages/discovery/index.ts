@@ -1,3 +1,6 @@
+import { relative } from "node:path";
+import { detectDialect } from "../sql/detection.ts";
+import type { createSqlSelection } from "../sql/selection.ts";
 import { realpath } from "node:fs/promises";
 import { dirname, isAbsolute, resolve } from "node:path";
 import { LanguageCheckout, LanguageEffectiveSettings, LanguageError } from "@polaris/protocol";
@@ -9,7 +12,7 @@ import {
   type CheckoutRegistry,
 } from "../trust/index.ts";
 import { invalid } from "../trust/checkout.ts";
-import { ancestors, isDirectory, nearest, withDiscoveryBudget } from "./files.ts";
+import { ancestors, isDirectory, nearest, readText, withDiscoveryBudget } from "./files.ts";
 import { configPlugins, pluginFacts, typescriptSdk } from "./typescript.ts";
 import { projectRoot, prismaFacts, workspaceFacts } from "./roots.ts";
 import { pythonInterpreter } from "./python.ts";
@@ -107,6 +110,23 @@ async function interpreterFacts(
   };
 }
 
+async function supportedShell(provider: string, path: string) {
+  if (provider === "bash" && !(await isDirectory(path))) {
+    const name = path.split("/").at(-1) ?? "";
+    const firstLine = (await readText(path)).split("\n", 1)[0] ?? "";
+
+    if (
+      /\.(zsh|fish)$|^\.(zshrc|zprofile|zlogin|zlogout)$/.test(name) ||
+      /^#!.*\b(zsh|fish)\b/.test(firstLine)
+    )
+      throw new LanguageError({
+        reason: "unsupported-capability",
+        message: "Bash tooling supports Bash and POSIX shells; zsh and fish are highlighted only",
+        retryable: false,
+      });
+  }
+}
+
 async function discover(
   context: Awaited<ReturnType<typeof canonicalCheckout>>,
   path: string,
@@ -131,6 +151,8 @@ async function discover(
     custom === undefined &&
     settings.settings.executableOverrides?.[input.providerId] === undefined &&
     input.useProjectTypeScript !== true;
+
+  await supportedShell(provider, path);
 
   const start = (await isDirectory(path)) ? path : dirname(path);
 
@@ -178,6 +200,11 @@ async function discover(
     projectRoot: root,
     providerId: input.providerId,
     bundledTypeScript,
+    managedSqlShell:
+      bundled &&
+      ["sql", "bash"].includes(provider) &&
+      custom === undefined &&
+      executable === undefined,
     managedPython:
       bundled && provider === "python" && custom === undefined && executable === undefined,
     configuration: provider === "typescript" ? configuration : null,
@@ -212,6 +239,7 @@ async function discover(
 }
 
 export type DiscoveryFacts = Awaited<ReturnType<typeof discover>> & {
+  sqlDialect?: import("@polaris/protocol").LanguageSqlDialect | null;
   configurationFingerprint: string;
   configurationInputs: Record<string, string>;
 };
@@ -225,6 +253,7 @@ export function createProjectDiscovery(options: {
   bundledTypeScript?: boolean;
   pythonEnvironment?: ReturnType<typeof createPythonEnvironment>;
   pythonHost?: PythonProbeOptions;
+  sqlSelection?: ReturnType<typeof createSqlSelection>;
 }) {
   const capacity = options.capacity ?? 128;
   const maxPending = options.maxPending ?? 8;
@@ -305,7 +334,28 @@ export function createProjectDiscovery(options: {
         )
       );
 
-      const facts = { ...observed.value, configurationInputs: observed.configurationInputs };
+      const sqlRecord =
+        family(input.providerId) === "sql"
+          ? await options.sqlSelection?.read(context.checkout)
+          : undefined;
+
+      const sql =
+        family(input.providerId) === "sql"
+          ? await withDiscoveryBudget(context.root, async () => {
+              const record = sqlRecord;
+              const detected = await detectDialect(context.root, path);
+
+              return (
+                record?.files[relative(context.root, path)] ?? record?.workspace ?? detected.dialect
+              );
+            })
+          : null;
+
+      const facts = {
+        ...observed.value,
+        sqlDialect: sql?.value ?? null,
+        configurationInputs: { ...observed.configurationInputs, ...sql?.configurationInputs },
+      };
 
       const result = { ...facts, configurationFingerprint: providerFingerprint(facts) };
       const size = Buffer.byteLength(JSON.stringify(result));

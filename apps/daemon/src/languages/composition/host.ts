@@ -1,3 +1,5 @@
+import { createSqlSelection, SqlSelection } from "../sql/selection.ts";
+import { SqlCore } from "../sql/core.ts";
 import { PrivateNodeRuntime } from "./privateNode.ts";
 import { createPythonEnvironment, PythonEnvironment } from "../python/environment.ts";
 import { PythonCore } from "../python/core.ts";
@@ -59,6 +61,7 @@ export const languageHostServices = (
   trustOptions: Parameters<typeof ExecutionTrustService.layer>[0],
   trustGrants = LanguageTrustGrantAuthority.denyLayer
 ) => {
+  const sql = createSqlSelection(join(options.root, "sql-dialects"));
   const python = createPythonEnvironment(join(options.root, "python-interpreters"));
   const authority = LanguageAcquisitionAuthority.layer;
   const trust = ExecutionTrustService.layer(trustOptions);
@@ -66,11 +69,13 @@ export const languageHostServices = (
   const discovery = ProjectDiscovery.layer({
     ...discoveryOptions,
     pythonEnvironment: python,
+    sqlSelection: sql,
     bundledTypeScript: options.managed !== undefined,
   }).pipe(Layer.provide(trust));
 
   const shared = Layer.mergeAll(
     Layer.succeed(PythonEnvironment)(python),
+    Layer.succeed(SqlSelection)(sql),
     authority,
     trust,
     discovery,
@@ -139,7 +144,13 @@ export const languageHostServices = (
             availability: (toolId, phase, trusted, admission, settings) =>
               Effect.gen(function* () {
                 if (
-                  ["typescript-language-server", "basedpyright", "ruff"].includes(toolId) &&
+                  [
+                    "typescript-language-server",
+                    "basedpyright",
+                    "ruff",
+                    "bash-language-server",
+                    "sqllens-language-server",
+                  ].includes(toolId) &&
                   phase === "feature" &&
                   options.managed !== undefined &&
                   admission !== undefined &&
@@ -154,7 +165,13 @@ export const languageHostServices = (
                   toolId,
                   phase,
                   trusted ||
-                    (["typescript-language-server", "basedpyright", "ruff"].includes(toolId) &&
+                    ([
+                      "typescript-language-server",
+                      "basedpyright",
+                      "ruff",
+                      "bash-language-server",
+                      "sqllens-language-server",
+                    ].includes(toolId) &&
                       options.managed !== undefined),
                   admission
                 );
@@ -163,9 +180,13 @@ export const languageHostServices = (
               configuredExecutable(request.facts) === undefined
                 ? (async () => {
                     if (
-                      ["typescript-language-server", "basedpyright", "ruff"].includes(
-                        request.facts.providerId
-                      ) &&
+                      [
+                        "typescript-language-server",
+                        "basedpyright",
+                        "ruff",
+                        "bash-language-server",
+                        "sqllens-language-server",
+                      ].includes(request.facts.providerId) &&
                       options.managed !== undefined
                     ) {
                       const guard = owners.guard(request, executionTrust).validate;
@@ -215,6 +236,7 @@ export const languageHostServices = (
           Layer.provide(broker),
           Layer.provide(shared)
         ),
+        SqlCore.layer(options.hostId).pipe(Layer.provide(broker), Layer.provide(shared)),
         providers,
         resources,
         broker

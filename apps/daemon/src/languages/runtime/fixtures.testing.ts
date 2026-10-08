@@ -55,7 +55,11 @@ export async function fixture(
   });
 
   const registry = async (input: LanguageCheckout) => ({
-    checkout: Predicate.isTagged(input, "Worktree") ? worktree : checkout,
+    checkout: Predicate.isTagged(input, "ReviewCheckout")
+      ? input
+      : Predicate.isTagged(input, "Worktree")
+        ? worktree
+        : checkout,
     workspacePath: root,
   });
 

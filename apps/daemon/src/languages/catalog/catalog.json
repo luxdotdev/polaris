@@ -313,10 +313,10 @@
             }
           ],
           "entry": "out/cli.js",
-          "bundle": "bash-language-server",
-          "audit": "pending",
-          "auditReason": "minimatch@10.2.6: license-review:BlueOak-1.0.0",
-          "auditRoot": "sha256:706147959d1a4beebc6b864d3b24b94331b6da425f942fa7d623fc8658c86bd6"
+          "bundle": null,
+          "audit": "verified",
+          "auditReason": "Pinned upstream release, retained license; ADR-0022",
+          "auditRoot": "sha256:2d76d993e8c8c7af102d050a9d32b6c26f8de2a4e3b683c0a28cc9a3ea956d78"
         }
       ],
       "requirements": [
@@ -325,14 +325,67 @@
           "scope": "server",
           "executable": "node",
           "version": ">=22.22.2",
-          "detail": "Developer-owned Node; conservative common catalog floor; Node24.18 fixture tested. No runtime download.",
+          "detail": "Private managed Node, never resolved from PATH.",
           "required": true,
           "installCommands": []
+        },
+        {
+          "id": "shellcheck",
+          "scope": "companion",
+          "executable": "shellcheck",
+          "version": "present",
+          "detail": "ShellCheck enables shell diagnostics; Polaris never downloads it.",
+          "required": true,
+          "installCommands": [
+            {
+              "platforms": [
+                {
+                  "os": "darwin",
+                  "arch": "arm64",
+                  "libc": "none"
+                },
+                {
+                  "os": "darwin",
+                  "arch": "x64",
+                  "libc": "none"
+                }
+              ],
+              "label": "Homebrew",
+              "command": "brew install shellcheck"
+            },
+            {
+              "platforms": [
+                {
+                  "os": "linux",
+                  "arch": "arm64",
+                  "libc": "glibc"
+                },
+                {
+                  "os": "linux",
+                  "arch": "arm64",
+                  "libc": "musl"
+                },
+                {
+                  "os": "linux",
+                  "arch": "x64",
+                  "libc": "glibc"
+                },
+                {
+                  "os": "linux",
+                  "arch": "x64",
+                  "libc": "musl"
+                }
+              ],
+              "label": "apt",
+              "command": "sudo apt install shellcheck"
+            }
+          ]
         }
       ],
       "argv": ["start"],
       "environment": {},
-      "limitations": []
+      "limitations": [],
+      "distribution": "runtime-upstream"
     },
     {
       "id": "sql-language-server",
@@ -1255,9 +1308,9 @@
           ],
           "entry": "shfmt",
           "bundle": null,
-          "audit": "pending",
-          "auditReason": "A1 review required for exact artifact, dependency notices and source-delivery record",
-          "auditRoot": "sha256:ed8647e73038644ea38f08dd2de36295b730116917a0fb59e3a45ca6336436df"
+          "audit": "verified",
+          "auditReason": "Pinned upstream release, retained license; ADR-0022",
+          "auditRoot": "sha256:c052faa416527c0c8c8716a46a047e5575bb82d6f8e21eee8df128dbc0b8c9ab"
         },
         {
           "id": "shfmt_v3.14.1_darwin_arm64",
@@ -1273,9 +1326,9 @@
           ],
           "entry": "shfmt",
           "bundle": null,
-          "audit": "pending",
-          "auditReason": "A1 review required for exact artifact, dependency notices and source-delivery record",
-          "auditRoot": "sha256:c6e62fedd059f6c2b513f38b86a250bbb7148ab01d59393f8abad0709d2cafa6"
+          "audit": "verified",
+          "auditReason": "Pinned upstream release, retained license; ADR-0022",
+          "auditRoot": "sha256:9f5262c6aa13fd5744b89f30ba615a166d527f612c587ee6e6a1c3a63ac9f205"
         },
         {
           "id": "shfmt_v3.14.1_linux_amd64",
@@ -1296,9 +1349,9 @@
           ],
           "entry": "shfmt",
           "bundle": null,
-          "audit": "pending",
-          "auditReason": "A1 review required for exact artifact, dependency notices and source-delivery record",
-          "auditRoot": "sha256:eb944c289da3fad96e98d8aaba3d6f609046da22ff555132df76d513c7b39db2"
+          "audit": "verified",
+          "auditReason": "Pinned upstream release, retained license; ADR-0022",
+          "auditRoot": "sha256:9433e1764eaafb4684995f2dfbfefe5879820e92d30049092adb276fd5af3d84"
         },
         {
           "id": "shfmt_v3.14.1_linux_arm64",
@@ -1319,15 +1372,16 @@
           ],
           "entry": "shfmt",
           "bundle": null,
-          "audit": "pending",
-          "auditReason": "A1 review required for exact artifact, dependency notices and source-delivery record",
-          "auditRoot": "sha256:e2adcb6a52ffbf56847383ff749f36bfe4a1ffe26c597a97873416caf4e4dcc8"
+          "audit": "verified",
+          "auditReason": "Pinned upstream release, retained license; ADR-0022",
+          "auditRoot": "sha256:d3854f06815e556d0f58e706cf0087cea93cd4f2610efcc725221552f8a07d53"
         }
       ],
       "requirements": [],
       "argv": [],
       "environment": {},
-      "limitations": []
+      "limitations": [],
+      "distribution": "runtime-upstream"
     },
     {
       "id": "shellcheck",
@@ -1699,10 +1753,10 @@
             }
           ],
           "entry": "bin/sql-formatter-cli.cjs",
-          "bundle": "sql-formatter",
-          "audit": "pending",
-          "auditReason": "argparse@2.0.1: license-review:Python-2.0; railroad-diagrams@1.0.0: license-review:CC0-1.0",
-          "auditRoot": "sha256:3f2d7db2b6988f19357690902d32222129bffe63966e0afcf266c6122b930e4e"
+          "bundle": null,
+          "audit": "verified",
+          "auditReason": "Pinned upstream release, retained license; ADR-0022",
+          "auditRoot": "sha256:c283f516f2ed74c5d99f2f302723805174a719db1d5d2897d113eb055be5d54e"
         }
       ],
       "requirements": [
@@ -1711,14 +1765,15 @@
           "scope": "server",
           "executable": "node",
           "version": ">=22.22.2",
-          "detail": "Developer-owned Node; conservative common catalog floor; Node24.18 fixture tested. No runtime download.",
+          "detail": "Private managed Node, never resolved from PATH.",
           "required": true,
           "installCommands": []
         }
       ],
       "argv": [],
       "environment": {},
-      "limitations": []
+      "limitations": [],
+      "distribution": "runtime-upstream"
     },
     {
       "id": "sqllens-language-server",
@@ -1764,11 +1819,11 @@
               "libc": "musl"
             }
           ],
-          "entry": "bin/cli.js",
-          "bundle": "sqllens-language-server",
-          "audit": "pending",
-          "auditReason": "minimatch@10.2.6: license-review:BlueOak-1.0.0",
-          "auditRoot": "sha256:d5106e10aa31e3519101e0486bd0507f2ffb8017c666885333fe8826d3747848"
+          "entry": "polaris-sql.mjs",
+          "bundle": null,
+          "audit": "verified",
+          "auditReason": "Pinned upstream release, retained license; ADR-0022",
+          "auditRoot": "sha256:be3ada2b7f295a5892ed25a8be9a09b405d5d79ef9a71d668a5b1ee8bdebabb4"
         }
       ],
       "requirements": [
@@ -1777,7 +1832,7 @@
           "scope": "server",
           "executable": "node",
           "version": ">=22.22.2",
-          "detail": "Developer-owned Node; conservative common catalog floor; Node24.18 fixture tested. No runtime download.",
+          "detail": "Private managed Node, never resolved from PATH.",
           "required": true,
           "installCommands": []
         }
@@ -1786,7 +1841,8 @@
       "environment": {
         "SQLLENS_NO_PLUGINS": "1"
       },
-      "limitations": []
+      "limitations": [],
+      "distribution": "runtime-upstream"
     },
     {
       "id": "node",
@@ -2203,8 +2259,8 @@
     },
     {
       "id": "bash",
-      "languageIds": ["shellscript"],
-      "patterns": ["*.sh", "*.bash", ".envrc"],
+      "languageIds": ["shellscript", "bash", "sh"],
+      "patterns": ["*.sh", "*.bash", "*.command"],
       "providers": [
         {
           "id": "bash-language-server",
@@ -2216,12 +2272,12 @@
           "argv": []
         }
       ],
-      "companions": ["shellcheck", "shfmt"],
+      "companions": ["shfmt"],
       "formatter": {
-        "tool": "shfmt",
+        "tool": "bash-language-server",
         "source": "managed",
-        "mode": "cli",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "mode": "lsp",
+        "detail": "Managed shfmt through Bash Language Server."
       },
       "policy": {
         "trust": "workspace-before-execution",
@@ -2229,9 +2285,11 @@
         "configuration": "Project configuration after trust; effective paths resolved by D1"
       },
       "limitations": [
-        "ShellCheck diagnostics pass through Bash only; do not launch a duplicate diagnostic provider. No zsh/fish parity."
+        "Bash/POSIX shells only. zsh syntax is unsupported by ShellCheck and shfmt; zsh files are highlighted but not analyzed or formatted.",
+        "ShellCheck is a Host Prerequisite; Polaris never downloads it."
       ],
-      "offered": false
+      "offered": true,
+      "developerCompanions": []
     },
     {
       "id": "java",
@@ -2401,28 +2459,28 @@
           "tool": "sqllens-language-server",
           "role": "primary",
           "diagnostics": "sql-offline",
-          "disableFeatures": ["formatting"],
+          "disableFeatures": [],
           "entry": null,
           "argv": []
         }
       ],
-      "companions": [],
+      "companions": ["sql-formatter"],
       "formatter": {
-        "tool": "sql-formatter",
+        "tool": "sqllens-language-server",
         "source": "managed",
-        "mode": "cli",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "mode": "lsp",
+        "detail": "sql-formatter with the selected SQL dialect."
       },
       "policy": {
         "trust": "workspace-before-execution",
         "network": "offline-only",
-        "configuration": "Dialect via sql-<dialect> document ID; optional static JSON schema catalog and glob dialect mapping. SQLLENS_NO_PLUGINS=1 and private HOME/SQLLENS_USER_CONFIG. No connections, credentials or query commands."
+        "configuration": "Host dialect selection; plugins disabled; private static configuration; no database connections or query execution."
       },
       "limitations": [
-        "sqllens 0.5.0 recommended after real explicit-dialect/static-schema probes; exact minimatch BlueOak notice policy awaits G1 review.",
-        "Advertised LSP capabilities are negotiated; exercised completion, pull diagnostics, typed hover, initialize/shutdown. sql-formatter alone owns formatting."
+        "Generic SQL supports formatting only. Select PostgreSQL, MySQL or SQLite for completion and diagnostics.",
+        "No database connections or query execution."
       ],
-      "offered": false
+      "offered": true
     },
     {
       "id": "prisma",

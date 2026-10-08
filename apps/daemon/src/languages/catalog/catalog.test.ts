@@ -152,7 +152,8 @@ describe("catalog release prerequisites", () => {
   test("SQL is offline, Python and Actions have explicit multi-provider ownership", () => {
     const sql = catalog.integrations.find((entry) => entry.id === "sql")!;
     expect(sql.policy.network).toBe("offline-only");
-    expect(sql.formatter.tool).toBe("sql-formatter");
+    expect(sql.formatter.tool).toBe("sqllens-language-server");
+    expect(sql.companions).toEqual(["sql-formatter"]);
     expect(sql.providers[0]?.tool).toBe("sqllens-language-server");
     const python = catalog.integrations.find((entry) => entry.id === "python")!;
     expect(python.providers.map((entry) => entry.tool)).toEqual(["basedpyright", "ruff"]);

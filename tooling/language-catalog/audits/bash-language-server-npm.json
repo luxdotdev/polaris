@@ -114,57 +114,16 @@
     {
       "path": "notices/3f1189b28e3866e0d979968d466b78f813f76827cfdca1fbb124cc0a5c8841f8.txt",
       "integrity": "sha256:3f1189b28e3866e0d979968d466b78f813f76827cfdca1fbb124cc0a5c8841f8"
-    },
-    {
-      "path": "notices/c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383.txt",
-      "integrity": "sha256:c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
-    },
-    {
-      "path": "notices/cdf4d87ae0a6c160227263bf4e39a0a10e30e89ae7256e0f7ac7bde0836552c6.txt",
-      "integrity": "sha256:cdf4d87ae0a6c160227263bf4e39a0a10e30e89ae7256e0f7ac7bde0836552c6"
-    },
-    {
-      "path": "notices/2c36ca617013001df8690cc63e2392760edd23fef948274100f051f7168b995d.txt",
-      "integrity": "sha256:2c36ca617013001df8690cc63e2392760edd23fef948274100f051f7168b995d"
-    },
-    {
-      "path": "notices/a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499.txt",
-      "integrity": "sha256:a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499"
-    },
-    {
-      "path": "notices/c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4.txt",
-      "integrity": "sha256:c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
     }
-  ],
-  "findings": ["minimatch@10.2.6: license-review:BlueOak-1.0.0"],
-  "bundleIntegrity": "sha256:f69fcfe464747fec2eec33c6a204dd5dcff6469c2044d413b811c69e77388b14",
-  "supplements": [
-    "railroad-diagrams@1.0.0",
-    "bash-language-server@5.8.1",
-    "@vscode/l10n@0.0.18",
-    "@prisma/prisma-schema-wasm@7.8.0-6.3c6e192761c0362d496ed980de936e2f3cebcd3a",
-    "boolbase@1.0.0"
   ],
   "evidence": [
     {
-      "path": "npm-notice-sources.json",
-      "integrity": "sha256:968a17c1c791e5ff11cab8a0fa46398e2ba662c78ee52449e251a799894c8d17"
+      "path": "sql-shell-dependencies.json",
+      "integrity": "sha256:a9ebcdbb8543a1cffd87a180172c067af65c21360796ab9956bc7d29dc1de500"
     },
     {
-      "path": "notice-supplements.json",
-      "integrity": "sha256:ce12c800f357782660cdbb9b5c6ca8ca4428a0c5580dad8af8cc91873cddcdcf"
-    },
-    {
-      "path": "closure-plan.json",
-      "integrity": "sha256:738e2b13ac006690db5745a4a59a7145302273d1e347b190b124baf9f81328f1"
-    },
-    {
-      "path": "bundles/bash-language-server.json",
-      "integrity": "sha256:f69fcfe464747fec2eec33c6a204dd5dcff6469c2044d413b811c69e77388b14"
-    },
-    {
-      "path": "review-records.json",
-      "integrity": "sha256:76909cebad9ea62548d9c484ef83f14566211df7224efaef7e35e1b62a70c504"
+      "path": "runtime-sql-shell-review-records.json",
+      "integrity": "sha256:7a9995e9e3a3425e281ba18fa87f1f8e2c0601f82d6b3a44932bca32bfc15902"
     }
   ]
 }

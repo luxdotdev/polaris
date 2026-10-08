@@ -21,9 +21,20 @@ const fixture = async (body: string) => {
   return { path, root, input: { trusted: true, configuredPath: path, searchPath: [], cwd: root } };
 };
 
-test("current catalog offers bundled ShellCheck and shfmt while all ShellCheck artifacts remain audit blocked", () => {
+test("current catalog requires Host ShellCheck and manages shfmt while ShellCheck downloads remain blocked", () => {
   const bash = catalog.integrations.find((entry) => entry.id === "bash")!;
-  expect(bash.companions).toEqual(["shellcheck", "shfmt"]);
+  expect(bash.companions).toEqual(["shfmt"]);
+  expect(bash.offered).toBe(true);
+
+  const requirement = catalog.tools
+    .find((entry) => entry.id === "bash-language-server")!
+    .requirements.find((entry) => entry.id === "shellcheck")!;
+
+  expect(requirement.required).toBe(true);
+  expect(requirement.installCommands?.map((entry) => entry.command)).toEqual([
+    "brew install shellcheck",
+    "sudo apt install shellcheck",
+  ]);
   expect(
     bash.developerCompanions?.some((companion) => companion.id === "shellcheck") ?? false
   ).toBe(false);
