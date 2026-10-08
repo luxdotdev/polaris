@@ -3,6 +3,7 @@ import { createStore, type StoreApi } from "zustand/vanilla";
 import { previewFingerprint, type DraftGroup } from "./group.ts";
 import type { Preview, RefactorCoordinator } from "./coordinator.ts";
 import { equal, sameRefactorOwner } from "./equality.ts";
+import { expired, needsUser } from "./lifetime.ts";
 
 export interface RefactorState {
   readonly hostKey: string;
@@ -12,12 +13,7 @@ export interface RefactorState {
   readonly error: string | null;
 }
 
-/**
- * Whether a draft group needs the user: an unknown, partial or conflicting outcome. An applied
- * change, one file or many, undoes with ⌘Z (`undo.ts`).
- */
-export const needsUser = (group: Pick<DraftGroup, "state" | "touched">) =>
-  group.state === "unknown" || group.state === "partial" || group.state === "conflict";
+export { needsUser } from "./lifetime.ts";
 
 /** Server requests only offer; Accept is an explicit user command on the displayed preview. */
 export class RefactorController {
@@ -110,6 +106,11 @@ export class RefactorController {
     );
   }
 
+  /** Clears a failure the recovery strip shows; nothing on the Host changes. */
+  dismissError() {
+    if (!this.state.getState().busy) this.state.setState({ error: null });
+  }
+
   status() {
     const group = this.state.getState().group;
 
@@ -128,10 +129,16 @@ export class RefactorController {
     this.state.setState({ group: null });
     const context = await this.coordinator.port.authority();
 
-    const groups = (await this.coordinator.store.list()).filter(
+    const owned = (await this.coordinator.store.list()).filter(
       (group) =>
         group.hostKey === this.hostKey && sameRefactorOwner(group.proposal.fence.context, context)
     );
+
+    // Purge what can no longer need anyone; a group another window changed meanwhile stays.
+    for (const group of owned.filter((value) => expired(value)))
+      await this.coordinator.store.remove(group.id, group.revision).catch(() => undefined);
+
+    const groups = owned.filter((group) => !expired(group));
 
     if (!equal(context, await this.coordinator.port.authority()))
       throw new Error("Authenticated context changed while restoring recovery.");

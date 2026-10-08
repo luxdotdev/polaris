@@ -47,6 +47,8 @@ export interface GroupStore {
   readonly get: (id: string) => Promise<DraftGroup | null>;
   readonly list: () => Promise<readonly DraftGroup[]>;
   readonly commit: (group: DraftGroup, expectedRevision: number | null) => Promise<void>;
+  /** Deletes a group at `expectedRevision`; a group changed meanwhile stays. */
+  readonly remove: (id: string, expectedRevision: number) => Promise<void>;
 }
 
 export const MAX_GROUP_BYTES = 32 * 1024 * 1024;

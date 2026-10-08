@@ -179,7 +179,7 @@ try {
   assert.ok(retry.includes("// mine"), "retry.ts keeps its unsaved edit");
   await open(page, "backoff.ts");
   assert.ok((await code(page))?.includes("RETRY_DELAY_MS"));
-  assert.equal(await page.getByTestId("refactor-preview").count(), 0, "no recovery strip");
+  assert.equal(await page.getByTestId("refactor-recovery").count(), 0, "no recovery strip");
   await page.screenshot({ path: join(evidence, "rename-accepted-dark.png") });
   console.log("Accept: 3 files renamed as unsaved edits; retry.ts kept its own edit");
 
@@ -212,7 +212,7 @@ try {
   await page.waitForTimeout(1000);
   await page.screenshot({ path: join(evidence, "rename-stale-after-dark.png") });
   console.log(
-    `Recovery strip after refusal: ${await page.getByTestId("refactor-preview").count()}`
+    `Recovery strip after refusal: ${await page.getByTestId("refactor-recovery").count()}`
   );
   console.log("PASS");
 } catch (error) {

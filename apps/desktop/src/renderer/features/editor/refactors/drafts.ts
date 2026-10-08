@@ -1,5 +1,6 @@
 import type { Draft } from "../model/drafts.ts";
 import type { DraftDocument, DraftGroup, GroupStore } from "./group.ts";
+import { expired } from "./lifetime.ts";
 
 /** Latest transaction owns a path even when its projection removed an older legacy draft. */
 export const projectedState = async (
@@ -57,17 +58,22 @@ export const intervene = async (
     const documents = group.documents.filter((doc) => doc.canonicalPath !== path);
 
     if (next !== null) documents.push(next);
-    await store.commit(
-      {
-        ...group,
-        documents,
-        state: "conflict",
-        revision: group.revision + 1,
-        updatedAt: Date.now(),
-        message: "Newer edits or saves prevent coordinated undo.",
-      },
-      group.revision
-    );
+
+    // A partial outcome stays unresolved; any other loses its undo and expires silently.
+    const superseded: DraftGroup =
+      group.state === "partial"
+        ? { ...group, documents, revision: group.revision + 1, updatedAt: Date.now() }
+        : {
+            ...group,
+            documents,
+            state: "conflict",
+            revision: group.revision + 1,
+            updatedAt: Date.now(),
+            message: "Newer edits or saves prevent coordinated undo.",
+          };
+
+    if (expired(superseded)) await store.remove(group.id, group.revision);
+    else await store.commit(superseded, group.revision);
   }
 };
 
