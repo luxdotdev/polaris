@@ -1,6 +1,8 @@
 /** A gitignore-style ignore file (`.prettierignore`, `.gitignore`), relative to its directory. */
 export type IgnoreMatcher = (relativePath: string) => boolean;
 
+const MAX_RULES = 4096;
+
 interface Rule {
   readonly negate: boolean;
   readonly directory: boolean;
@@ -38,6 +40,7 @@ export const ignoreMatcher = (text: string): IgnoreMatcher => {
     .split(/\r?\n/)
     .map((line) => line.trimEnd())
     .filter((line) => line !== "" && !line.startsWith("#"))
+    .slice(0, MAX_RULES)
     .map(rule);
 
   return (relativePath) => {

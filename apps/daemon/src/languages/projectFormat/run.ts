@@ -1,4 +1,5 @@
 import type { LanguageProjectFormatterTool } from "@polaris/protocol";
+import { formatterPath } from "./launch.ts";
 
 /** Each tool reads the buffer on stdin and resolves its own config and ignores from `file`. */
 const ARGUMENTS: Record<LanguageProjectFormatterTool, (file: string) => string[]> = {
@@ -10,7 +11,10 @@ const ARGUMENTS: Record<LanguageProjectFormatterTool, (file: string) => string[]
 
 export interface FormatterRun {
   readonly tool: LanguageProjectFormatterTool;
-  readonly executable: string;
+  /** The command, before the tool's own arguments: a binary, or `[privateNode, entry]`. */
+  readonly argv: readonly string[];
+  /** The private Node, put first on the child's PATH; null when the tool needs none. */
+  readonly node: string | null;
   readonly cwd: string;
   readonly file: string;
   readonly text: string;
@@ -35,10 +39,11 @@ const firstLine = (stderr: string) =>
     ?.slice(0, 300) ?? "";
 
 const spawn = (run: FormatterRun) =>
-  Bun.spawn([run.executable, ...ARGUMENTS[run.tool](run.file)], {
+  Bun.spawn([...run.argv, ...ARGUMENTS[run.tool](run.file)], {
     cwd: run.cwd,
     env: {
       ...process.env,
+      PATH: formatterPath(run.node),
       POLARIS_HANDOFF: undefined,
       POLARIS_HOST_SOCKET: undefined,
       POLARIS_SESSION_ID: undefined,

@@ -10,6 +10,7 @@ import { catalog } from "../catalog/index.ts";
 import { LanguageTrustGrantAuthority, LanguageConnectionLifetime } from "./ports.ts";
 
 import { fixture, hostId, run } from "./core.testing.ts";
+import { PrivateNodeRuntime } from "./privateNode.ts";
 
 test("Core observation admission keeps nested canonical projects distinct and retires after trust changes", async () => {
   await run(
@@ -284,7 +285,13 @@ test("the project's formatter is discovered without Trust and runs only once tru
           )
       );
 
-      expect(yield* f.run(f.core.formatProject(request))).toEqual(
+      const privateNode = PrivateNodeRuntime.of({ node: async () => "/private/node/bin/node" });
+
+      expect(
+        yield* f.run(
+          f.core.formatProject(request).pipe(Effect.provideService(PrivateNodeRuntime, privateNode))
+        )
+      ).toEqual(
         P.LanguageProjectFormatOutcome.cases.Formatted.make({
           requestId: "format-1",
           version: 3,

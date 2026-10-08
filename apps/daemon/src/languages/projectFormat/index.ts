@@ -5,12 +5,15 @@ import {
   type LanguageProjectFormatter,
 } from "@polaris/protocol";
 import { checkoutPath, type CanonicalCheckout } from "../trust/index.ts";
-import { detectProjectFormatter, formatterBinary } from "./detect.ts";
+import { detectProjectFormatter } from "./detect.ts";
+import { formatterLaunch, type PrivateNode } from "./launch.ts";
 import { runProjectFormatter } from "./run.ts";
 
 export { detectProjectFormatter, formatterBinary, PROJECT_FORMATTERS } from "./detect.ts";
 
 export { ignoreMatcher } from "./ignore.ts";
+
+export { formatterLaunch, formatterPath, type PrivateNode } from "./launch.ts";
 
 export { runProjectFormatter } from "./run.ts";
 
@@ -39,7 +42,8 @@ export const discoverProjectFormatter = async (
 export async function formatWithProject(
   checkout: CanonicalCheckout,
   input: LanguageProjectFormatInput,
-  signal: AbortSignal
+  signal: AbortSignal,
+  privateNode: PrivateNode
 ): Promise<LanguageProjectFormatOutcome> {
   const { requestId, version } = input;
   const file = await formatPath(checkout, input.path);
@@ -50,19 +54,16 @@ export async function formatWithProject(
 
   if (found.ignored) return Outcome.Skipped.make({ requestId, version, reason: "ignored" });
 
-  const executable = await formatterBinary(checkout.root, found.root, found.tool);
+  const launch = await formatterLaunch(checkout.root, found.root, found.tool, privateNode);
 
-  if (executable === null)
-    return Outcome.Failed.make({
-      requestId,
-      reason: "not-installed",
-      message: `${found.tool} isn't installed in this checkout's node_modules`,
-    });
+  if (!launch.ok)
+    return Outcome.Failed.make({ requestId, reason: "not-installed", message: launch.message });
 
   const result = await runProjectFormatter(
     {
       tool: found.tool,
-      executable,
+      argv: launch.argv,
+      node: launch.node,
       cwd: found.root,
       file,
       text: input.text,

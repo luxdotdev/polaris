@@ -1,9 +1,10 @@
-import { readdir, readFile, stat } from "node:fs/promises";
+import { opendir, stat } from "node:fs/promises";
 import { dirname, join, relative, sep } from "node:path";
 import { LanguageProjectFormatter, type LanguageProjectFormatterTool } from "@polaris/protocol";
 import { Option, Schema } from "effect";
 import { within } from "../trust/checkout.ts";
 import { ignoreMatcher } from "./ignore.ts";
+import { readCapped } from "./read.ts";
 
 interface ToolFacts {
   readonly tool: LanguageProjectFormatterTool;
@@ -65,23 +66,41 @@ const PackageJson = Schema.Struct({
 
 const MAX_MANIFEST_BYTES = 1024 * 1024;
 
+const MAX_IGNORE_BYTES = 256 * 1024;
+
+const MAX_ENTRIES = 20_000;
+
+const CONFIG_NAMES = new Set([
+  "package.json",
+  ...PROJECT_FORMATTERS.flatMap((facts) => facts.configs),
+]);
+
+/** The config names present, reading at most `MAX_ENTRIES` names of a directory. */
 const entries = async (directory: string) => {
+  const found = new Set<string>();
+
   try {
-    return new Set(await readdir(directory));
+    let read = 0;
+
+    for await (const entry of await opendir(directory)) {
+      if (CONFIG_NAMES.has(entry.name)) found.add(entry.name);
+
+      if (++read >= MAX_ENTRIES) break;
+    }
   } catch {
-    return new Set<string>();
+    /* Unreadable directories have no config. */
   }
+
+  return found;
 };
 
 const manifest = async (directory: string) => {
+  const text = await readCapped(join(directory, "package.json"), MAX_MANIFEST_BYTES);
+
+  if (text === null) return null;
+
   try {
-    const path = join(directory, "package.json");
-
-    if ((await stat(path)).size > MAX_MANIFEST_BYTES) return null;
-
-    return Option.getOrNull(
-      Schema.decodeUnknownOption(PackageJson)(JSON.parse(await readFile(path, "utf8")))
-    );
+    return Option.getOrNull(Schema.decodeUnknownOption(PackageJson)(JSON.parse(text)));
   } catch {
     return null;
   }
@@ -161,11 +180,9 @@ const ignoredBy = async (found: Found, file: string) => {
   if (path.split("/").includes("node_modules")) return true;
 
   for (const name of factsOf(found.tool).ignoreFiles) {
-    try {
-      if (ignoreMatcher(await readFile(join(found.root, name), "utf8"))(path)) return true;
-    } catch {
-      /* No such ignore file. */
-    }
+    const text = await readCapped(join(found.root, name), MAX_IGNORE_BYTES);
+
+    if (text !== null && ignoreMatcher(text)(path)) return true;
   }
 
   return false;

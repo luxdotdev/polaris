@@ -1,3 +1,4 @@
+import { PrivateNodeRuntime } from "./privateNode.ts";
 import { join } from "node:path";
 import { LanguageResourceEdits } from "./resourceEdits.ts";
 import { LanguageResourceReceiptAuthority } from "./resourceEditsAuthority.ts";
@@ -196,6 +197,7 @@ export const languageHostServices = (
       return Layer.mergeAll(
         Layer.succeed(HostLanguageResources)({ host, ledger }),
         installationLayer,
+        PrivateNodeRuntime.layer.pipe(Layer.provide(installationLayer)),
         LanguageHostStateCore.layer(options.hostId, host),
         LanguageInstallCore.layer(options.hostId, host).pipe(
           Layer.provide(LanguageInstallGrantAuthority.denyLayer)

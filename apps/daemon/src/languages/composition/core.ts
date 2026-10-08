@@ -20,7 +20,7 @@ import {
   type LanguageRequestFence,
   type LanguageBufferAcknowledgment,
 } from "@polaris/protocol";
-import { Context, Effect, Layer, Schema, Stream } from "effect";
+import { Context, Effect, Layer, Option, Schema, Stream } from "effect";
 import { EventStore } from "../../store/EventStore.ts";
 import { ProposalProvenance } from "../preparation/provenanceService.ts";
 import { catalog } from "../catalog/index.ts";
@@ -31,6 +31,7 @@ import { LanguageBroker, type AcquireInput } from "../runtime/index.ts";
 import { ExecutionTrustService } from "../trust/index.ts";
 import { registeredCheckout } from "../registeredCheckout.ts";
 import { discoverProjectFormatter, formatWithProject } from "../projectFormat/index.ts";
+import { PrivateNodeRuntime } from "./privateNode.ts";
 import { denied, requestAuthority, type RequestAuthority } from "./authority.ts";
 import { LanguageAcquisitionAuthority } from "./acquisitionAuthority.ts";
 import { prepareFeatureEdit, type PreparationIntent } from "./preparation.ts";
@@ -470,11 +471,16 @@ function makeCore(
         const auth = yield* requestAuthority(hostId);
         yield* auth.checkout(input.checkout);
 
+        const runtime = yield* Effect.serviceOption(PrivateNodeRuntime);
+
+        const node = () =>
+          Option.match(runtime, { onNone: async () => null, onSome: (value) => value.node() });
+
         return yield* finish(
           auth,
           input.checkout,
           trust.execute(input.checkout, (canonical, signal) =>
-            formatWithProject(canonical, input, signal)
+            formatWithProject(canonical, input, signal, node)
           )
         );
       }),
