@@ -15,6 +15,7 @@ import type { LanguageId } from "../model/language.ts";
 import { editorLanguages } from "../runtime/app.ts";
 import { useTrustStatus } from "../trust/store.ts";
 import { refreshInterpreters } from "../python/store.ts";
+import { refreshDialect } from "../sql/store.ts";
 import { runAction } from "./actions.ts";
 import { useHostToolsWatch, useLanguageStatus } from "./hooks.ts";
 import { openLanguageLog } from "../intents/languageLog.ts";
@@ -247,8 +248,9 @@ export interface LanguageStatusProps {
   readonly languageMode?: ReactNode;
 }
 
-/** Lists a Python file's interpreters for the Interpreter row: on focus and whenever it opens. */
-const usePythonInterpreters = (
+/** Reads what the Host chose for a Python or SQL file's row: on focus and whenever it opens. */
+const useHostChoice = (
+  languageId: LanguageId,
   checkout: P.LanguageCheckout | null,
   hostKey: string,
   path: string,
@@ -256,11 +258,17 @@ const usePythonInterpreters = (
 ) =>
   useEffect(() => {
     if (checkout === null) return;
-    // A failed list only leaves the row out; the palette's follow-up says why.
-    refreshInterpreters({ key: fileKey(hostKey, path), hostKey, checkout, path }).catch(
-      () => undefined
+    const target = { key: fileKey(hostKey, path), hostKey, checkout, path };
+
+    const read = Match.value(languageId).pipe(
+      Match.when("python", () => refreshInterpreters),
+      Match.when("sql", () => refreshDialect),
+      Match.orElse(() => null)
     );
-  }, [checkout, hostKey, path, open]);
+
+    // A failed read only leaves the row out; the palette's follow-up says why.
+    read?.(target).catch(() => undefined);
+  }, [languageId, checkout, hostKey, path, open]);
 
 export const LanguageStatus = ({
   hostKey,
@@ -282,7 +290,7 @@ export const LanguageStatus = ({
 
   const providerId = view.providerId ?? view.file?.providers[0]?.providerId ?? null;
   const checkout = view.file?.checkout ?? null;
-  usePythonInterpreters(languageId === "python" ? checkout : null, hostKey, path, open);
+  useHostChoice(languageId, checkout, hostKey, path, open);
 
   const onRun = (action: StatusAction) => {
     if (running !== null) return;

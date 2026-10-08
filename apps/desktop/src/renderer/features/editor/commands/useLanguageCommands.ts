@@ -37,6 +37,14 @@ import {
   type PythonTarget,
 } from "../python/store.ts";
 import { statusStore } from "../status/store.ts";
+import {
+  type Dialect,
+  dialectFollowUp,
+  dialectSummary,
+  failedFollowUp as sqlFailedFollowUp,
+  LOOKING as SQL_LOOKING,
+} from "../sql/model.ts";
+import { dialectOf, refreshDialect, selectDialect, type SqlTarget } from "../sql/store.ts";
 import { languageFailure } from "./copy.ts";
 
 type TrustAction = typeof P.LanguageTrustAction.Type;
@@ -77,14 +85,16 @@ const languageCommands = (commands: CommandRegistry, connection: Connection, pan
       workspace: workspace(),
       canFormat: canFormatFile({ hostKey, workspaceId, path: active }),
       canShowLog: canOpenLanguageLog(),
-      hasCheckout: python() !== null,
+      hasCheckout: checkoutTarget() !== null,
       pythonInterpreter: interpreterSummary(interpretersOf(key)),
+      sqlDialect: dialectSummary(dialectOf(key), workspace()),
     };
   };
 
   const trusted = () => (key === null ? null : trustOfFile(key));
 
-  const python = (): PythonTarget | null => {
+  /** The focused file and its checkout, for the Host-side Python and SQL choices. */
+  const checkoutTarget = (): PythonTarget | null => {
     const checkout = key === null ? null : (statusStore.getState().files[key]?.checkout ?? null);
 
     return key === null || active === null || checkout === null
@@ -105,6 +115,23 @@ const languageCommands = (commands: CommandRegistry, connection: Connection, pan
           .then((list) => interpreterFollowUp(list, hostInSentence(host()), choose))
           .catch((cause) =>
             failedFollowUp(languageFailure(asLanguageError(cause), hostInSentence(host())))
+          ),
+    };
+  };
+
+  const dialectChoice = (target: SqlTarget) => {
+    const choose = (dialect: Dialect | null, revision: number) =>
+      void selectDialect(target, dialect, revision).catch((cause) =>
+        fail("Couldn't select the dialect", cause)
+      );
+
+    return {
+      ...SQL_LOOKING,
+      load: () =>
+        refreshDialect(target)
+          .then((state) => dialectFollowUp(state, workspace(), choose))
+          .catch((cause) =>
+            sqlFailedFollowUp(languageFailure(asLanguageError(cause), hostInSentence(host())))
           ),
     };
   };
@@ -207,9 +234,16 @@ const languageCommands = (commands: CommandRegistry, connection: Connection, pan
     },
     "python.selectInterpreter": {
       followUp: () => {
-        const target = python();
+        const target = checkoutTarget();
 
         return target === null ? null : interpreterChoice(target);
+      },
+    },
+    "sql.selectDialect": {
+      followUp: () => {
+        const target = checkoutTarget();
+
+        return target === null ? null : dialectChoice(target);
       },
     },
     "trust.grant": {

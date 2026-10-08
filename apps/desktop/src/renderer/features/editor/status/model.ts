@@ -8,6 +8,7 @@ import type { TrustStatus } from "../trust/model.ts";
 import { decisionOf } from "../trust/model.ts";
 import type { ContextRuntime, Discovered, FileLanguage, HostTools, Runtime } from "./store.ts";
 import { interpreterFact, type Interpreters } from "../python/model.ts";
+import { dialectFact, type DialectState } from "../sql/model.ts";
 
 export type PillKind =
   | "syntax"
@@ -92,6 +93,8 @@ export interface StatusInput {
   readonly now: number;
   /** A Python file's interpreters, once the Host has listed them. */
   readonly python?: Interpreters | null;
+  /** A SQL file's dialect, once the Host has said. */
+  readonly sql?: DialectState | null;
 }
 
 const TS = "typescript-language-server";
@@ -246,6 +249,9 @@ const commandsFor = (
         .filter((entry) => entry.platforms.some((p) => samePlatform(p, platform)))
         .map((entry) => ({ label: entry.label, command: entry.command }));
 
+/** The catalog's reason may already say Polaris won't fetch it (ShellCheck's does). */
+const ownsInstall = (reason: string) => /\bPolaris (never|doesn't|does not)\b/.test(reason);
+
 const prerequisiteView = (input: StatusInput, missing: Prerequisite): StatusView => {
   const b = base(input, null);
   const executable = executableName(missing.executable);
@@ -257,7 +263,9 @@ const prerequisiteView = (input: StatusInput, missing: Prerequisite): StatusView
     mark: "hollow",
     pill: pill(input, `needs ${executable}`),
     title: `${input.language} needs ${executable}${wanted}`,
-    why: `${missing.reason} Polaris doesn't install it.`,
+    why: ownsInstall(missing.reason)
+      ? missing.reason
+      : `${missing.reason} Polaris doesn't install it.`,
     commands: commandsFor(missing, input.tools?.platform ?? null),
     commandHost: input.host,
     actions: [{ id: "check-again", label: "Check again" }, b.settings],
@@ -431,11 +439,11 @@ const typescriptFacts = (input: StatusInput, trust: TrustStatus | null): Fact[] 
   return [ts];
 };
 
-const pythonFacts = (input: StatusInput): Fact[] => {
-  const fact = interpreterFact(input.python ?? null);
-
-  return fact === null ? [] : [fact];
-};
+/** What the Host chose for this file: a Python interpreter or a SQL dialect. */
+const choiceFacts = (input: StatusInput): Fact[] =>
+  [interpreterFact(input.python ?? null), dialectFact(input.sql ?? null, input.workspace)].filter(
+    (fact) => fact !== null
+  );
 
 const typescriptActions = (input: StatusInput, trust: TrustStatus | null): StatusAction[] => {
   if (trust === null) return [];
@@ -519,17 +527,14 @@ const readyView = (input: StatusInput, runtime: ContextRuntime): StatusView => {
 
   const facts: Fact[] = [
     ...typescriptFacts(input, trust),
-    ...pythonFacts(input),
+    ...choiceFacts(input),
     serverFact(input, provider, runtime),
     ...formatterFacts(input),
     { label: "Host", value: input.host },
     ...(trust === null ? [] : [{ label: "Trust", value: trustText(input, trust) }]),
   ];
 
-  const why =
-    limited && trust !== null
-      ? bundledWhy(input, trust)
-      : "Hover, completions, go to definition and rename work in this file.";
+  const why = readyWhy(input, limited ? trust : null);
 
   return {
     ...b,
@@ -543,6 +548,15 @@ const readyView = (input: StatusInput, runtime: ContextRuntime): StatusView => {
       ? [...typescriptActions(input, trust), b.restart, b.log, b.settings]
       : [b.restart, ...typescriptActions(input, trust), b.log, b.settings],
   };
+};
+
+/** What works now: the bundled limit, Generic SQL's formatting, or the full set. */
+const readyWhy = (input: StatusInput, limitedBy: TrustStatus | null) => {
+  if (limitedBy !== null) return bundledWhy(input, limitedBy);
+
+  return input.sql?.dialect === "generic"
+    ? "Formatting works. Generic SQL has no completion or diagnostics; choose a dialect for them."
+    : "Hover, completions, go to definition and rename work in this file.";
 };
 
 const ready = (input: StatusInput, runtime: ContextRuntime): StatusView =>

@@ -26,6 +26,8 @@ export interface FocusedFile {
   readonly hasCheckout: boolean;
   /** "uv · 3.12.4" once the Host has listed them, else "". */
   readonly pythonInterpreter: string;
+  /** "PostgreSQL · from the file name" once the Host has said, else "". */
+  readonly sqlDialect: string;
 }
 
 const basename = (path: string) => path.split("/").pop() ?? path;
@@ -68,12 +70,16 @@ export const fileContext = (file: FocusedFile | null): ContextPart => {
 
   if (file.language === "python" && file.hasCheckout) keys.push("language.python");
 
+  if (file.language === "sql" && file.hasCheckout) keys.push("language.sql");
+
   const values: Partial<Record<ContextValue, string>> = {
     language: LANGUAGE_NAMES[file.language],
     file: basename(file.path),
   };
 
   if (file.pythonInterpreter !== "") values.pythonInterpreter = file.pythonInterpreter;
+
+  if (file.sqlDialect !== "") values.sqlDialect = file.sqlDialect;
 
   if (file.status !== null) {
     values.trustSubject = trustSubject(file.status, file.workspace);

@@ -59,6 +59,7 @@ export type CommandId =
   | "language.showLog"
   | "typescript.selectVersion"
   | "python.selectInterpreter"
+  | "sql.selectDialect"
   | "trust.grant"
   | "trust.revoke"
   | "trust.askAgain";
@@ -78,6 +79,8 @@ export const CONTEXT_KEYS = [
   "language.typescript",
   /** A Python file whose checkout the Daemon has named, so its interpreters can be listed. */
   "language.python",
+  /** A SQL file whose checkout the Daemon has named, so its dialect can be read. */
+  "language.sql",
   /** Something can open the language server log (`features/editor/intents/languageLog.ts`). */
   "language.log",
   "workspace",
@@ -102,6 +105,7 @@ export type ContextValue =
   | "trustSubject"
   | "typescriptChoice"
   | "pythonInterpreter"
+  | "sqlDialect"
   | "updateVersion";
 
 export interface CommandContext {
@@ -230,6 +234,17 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
     palette: FILE({
       detail: "{pythonInterpreter}",
       keywords: ["venv", "uv", "python3", "environment", "basedpyright"],
+      followUp: true,
+    }),
+  },
+  {
+    id: "sql.selectDialect",
+    title: "SQL: Select dialect…",
+    keys: [],
+    when: { all: ["editor.file", "language.sql"] },
+    palette: FILE({
+      detail: "{sqlDialect}",
+      keywords: ["postgres", "postgresql", "mysql", "sqlite", "sqllens"],
       followUp: true,
     }),
   },

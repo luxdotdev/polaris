@@ -46,6 +46,7 @@ const file = (patch: Partial<FocusedFile> = {}): FocusedFile => ({
   canShowLog: false,
   hasCheckout: true,
   pythonInterpreter: "",
+  sqlDialect: "",
   ...patch,
 });
 
