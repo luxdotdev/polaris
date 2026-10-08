@@ -514,6 +514,13 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
   // With no tab open, Close tab closes the window, as in VS Code.
   { id: "tab.close", title: "Close tab", keys: ["CmdOrCtrl+W"], menu: "File", palette: FILE() },
   {
+    id: "tab.closeOthers",
+    title: "Close other tabs",
+    keys: ["CmdOrCtrl+Alt+T"],
+    menu: "File",
+    palette: FILE(),
+  },
+  {
     id: "window.close",
     title: "Close window",
     keys: ["CmdOrCtrl+Shift+W"],
