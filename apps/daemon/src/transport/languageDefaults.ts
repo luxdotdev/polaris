@@ -43,6 +43,7 @@ export const languageDefaults = {
   "languages.server.respond": request,
   "languages.context.configure": request,
   "languages.format": request,
+  "languages.format.project": request,
   "languages.edit.decide": request,
   "languages.operation.get": request,
   "languages.operation.recover": request,

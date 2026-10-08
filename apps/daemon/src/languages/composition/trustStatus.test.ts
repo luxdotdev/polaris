@@ -37,6 +37,7 @@ test("static TypeScript and plugin facts ask once without disabling the bundled 
       set: () => Effect.die("unused"),
       change: () => Effect.die("unused"),
       require: () => Effect.die("unused"),
+      execute: () => Effect.die("unused"),
     };
 
     const discovery = createProjectDiscovery({ registry: f.registry, bundledTypeScript: true });

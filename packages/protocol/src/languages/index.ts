@@ -12,6 +12,8 @@ export * from "./documents.ts";
 
 export * from "./edits.ts";
 
+export * from "./projectFormat.ts";
+
 export * from "./broker.ts";
 
 export * from "./rpc.ts";

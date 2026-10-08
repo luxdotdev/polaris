@@ -15,6 +15,7 @@ import {
   type LanguageSyncInput,
   type LanguageFeatureRequest,
   type LanguageFormatPreflight,
+  type LanguageProjectFormatInput,
   type LanguageServerResponse,
   type LanguageRequestFence,
   type LanguageBufferAcknowledgment,
@@ -29,6 +30,7 @@ import { ProjectDiscovery } from "../discovery/index.ts";
 import { LanguageBroker, type AcquireInput } from "../runtime/index.ts";
 import { ExecutionTrustService } from "../trust/index.ts";
 import { registeredCheckout } from "../registeredCheckout.ts";
+import { discoverProjectFormatter, formatWithProject } from "../projectFormat/index.ts";
 import { denied, requestAuthority, type RequestAuthority } from "./authority.ts";
 import { LanguageAcquisitionAuthority } from "./acquisitionAuthority.ts";
 import { prepareFeatureEdit, type PreparationIntent } from "./preparation.ts";
@@ -225,6 +227,10 @@ function makeCore(
         });
       }
 
+      const projectFormatter = yield* Effect.promise(() =>
+        discoverProjectFormatter(canonical, input.path)
+      );
+
       yield* auth.checkout(input.checkout);
 
       return LanguageDiscovery.make({
@@ -234,6 +240,7 @@ function makeCore(
         trust: observed.trust,
         trustRequest,
         providers: facts,
+        projectFormatter,
       });
     });
 
@@ -458,6 +465,19 @@ function makeCore(
       }),
     format: (input: LanguageFormatPreflight) =>
       delegate(input.fence.context, (clientId) => broker.format(clientId, input)),
+    formatProject: (input: LanguageProjectFormatInput) =>
+      Effect.gen(function* () {
+        const auth = yield* requestAuthority(hostId);
+        yield* auth.checkout(input.checkout);
+
+        return yield* finish(
+          auth,
+          input.checkout,
+          trust.execute(input.checkout, (canonical, signal) =>
+            formatWithProject(canonical, input, signal)
+          )
+        );
+      }),
     watchLog: (input: LanguageContextIdentity) =>
       Stream.unwrap(
         Effect.gen(function* () {

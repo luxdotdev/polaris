@@ -67,6 +67,7 @@ test("server preparation reads canonical closed snapshots and rejects replaced i
       require: () => Effect.succeed(canonical),
       inspect: () => Effect.die("unused"),
       set: () => Effect.die("unused"),
+      execute: () => Effect.die("unused"),
     };
 
     const documents = new Documents(context);

@@ -36,6 +36,11 @@ import {
 } from "./documents.ts";
 import { LanguageTreeEditDecision, LanguageTreeOperationOutcome } from "./trees.ts";
 import {
+  LanguageProjectFormatInput,
+  LanguageProjectFormatOutcome,
+  LanguageProjectFormatter,
+} from "./projectFormat.ts";
+import {
   LanguageEditAcceptance,
   LanguageFormatOutcome,
   LanguageFormatPreflight,
@@ -160,6 +165,8 @@ export const LanguageDiscovery = Schema.Struct({
   effectiveSettings: LanguageEffectiveSettings,
   trust: LanguageTrust,
   trustRequest: Schema.optionalKey(Schema.NullOr(LanguageTrustStatus)),
+  /** Absent from Daemons without `languages.project-format`. */
+  projectFormatter: Schema.optionalKey(Schema.NullOr(LanguageProjectFormatter)),
 });
 
 export const InspectLanguageTrust = Rpc.make("languages.trust.inspect", {
@@ -307,6 +314,13 @@ export const PreflightLanguageFormat = Rpc.make("languages.format", {
   error: LanguageError,
 });
 
+/** Runs the checkout's own formatter on buffer text; fails `awaiting-trust` unless trusted. */
+export const RunLanguageProjectFormat = Rpc.make("languages.format.project", {
+  payload: LanguageProjectFormatInput,
+  success: LanguageProjectFormatOutcome,
+  error: LanguageError,
+});
+
 export const AcceptLanguageEdit = Rpc.make("languages.edit.decide", {
   payload: LanguageEditAcceptance,
   success: LanguageOperationOutcome,
@@ -430,6 +444,7 @@ export class LanguageRpcs extends RpcGroup.make(
   RespondLanguageServer,
   ConfigureLanguageContext,
   PreflightLanguageFormat,
+  RunLanguageProjectFormat,
   AcceptLanguageEdit,
   GetLanguageOperation,
   RecoverLanguageOperation,

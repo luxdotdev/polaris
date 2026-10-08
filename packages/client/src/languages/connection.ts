@@ -155,6 +155,10 @@ export const languageTransportFor = (
       ),
     "languages.format": (input) =>
       client["languages.format"](decodeLanguage(P.PreflightLanguageFormat.payloadSchema, input)),
+    "languages.format.project": (input) =>
+      client["languages.format.project"](
+        decodeLanguage(P.RunLanguageProjectFormat.payloadSchema, input)
+      ),
     "languages.edit.decide": (input) =>
       client["languages.edit.decide"](decodeLanguage(P.AcceptLanguageEdit.payloadSchema, input)),
     "languages.operation.get": (input) =>

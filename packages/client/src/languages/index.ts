@@ -29,6 +29,7 @@ export const languageMethods = {
   "languages.server.respond": P.RespondLanguageServer,
   "languages.context.configure": P.ConfigureLanguageContext,
   "languages.format": P.PreflightLanguageFormat,
+  "languages.format.project": P.RunLanguageProjectFormat,
   "languages.edit.decide": P.AcceptLanguageEdit,
   "languages.operation.get": P.GetLanguageOperation,
   "languages.operation.recover": P.RecoverLanguageOperation,

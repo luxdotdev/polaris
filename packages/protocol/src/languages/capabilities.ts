@@ -31,6 +31,7 @@ export const LANGUAGE_RPC_CAPABILITIES = {
   "languages.server.respond": "languages",
   "languages.context.configure": "languages",
   "languages.format": "languages.format",
+  "languages.format.project": "languages.project-format",
   "languages.edit.decide": "languages.edits",
   "languages.operation.get": "languages.edits",
   "languages.operation.recover": "languages.edits",

@@ -46,6 +46,7 @@ const fixture = async () => {
     inspect: () => Effect.die("Not used"),
     set: () => Effect.die("Not used"),
     require: () => Effect.succeed(canonical),
+    execute: () => Effect.die("Not used"),
   };
 
   const controller = new AbortController();
