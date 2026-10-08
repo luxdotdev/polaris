@@ -24,6 +24,8 @@ const fixture = (format: (snapshot: FormatSnapshot, signal: AbortSignal) => Prom
   let diskOk = true;
   let enabled = true;
   let selected: P.LanguageFormatterSelection = provider;
+  let serverFormats = true;
+  let applies = 0;
 
   const notices: string[] = [];
   const reasons: SaveReason[] = [];
@@ -39,6 +41,7 @@ const fixture = (format: (snapshot: FormatSnapshot, signal: AbortSignal) => Prom
       }),
       current: (snapshot) => alive && snapshot.version === version,
       apply: (next) => {
+        applies++;
         text = next;
 
         version++;
@@ -58,6 +61,7 @@ const fixture = (format: (snapshot: FormatSnapshot, signal: AbortSignal) => Prom
         return format(snapshot, signal);
       },
       failure: (_file, message) => notices.push(message),
+      canFormat: () => serverFormats,
       timeoutMs: 10,
     }
   );
@@ -67,6 +71,10 @@ const fixture = (format: (snapshot: FormatSnapshot, signal: AbortSignal) => Prom
     notices,
     reasons,
     state: () => ({ text, disk, writes }),
+    applies: () => applies,
+    noServerFormatter: () => {
+      serverFormats = false;
+    },
     edit: (next: string) => {
       text = next;
       version++;
@@ -181,7 +189,7 @@ test("formatter failure saves, autosave notices coalesce, manual notices remain 
   expect(f.state().disk).toBe("two");
 });
 
-test("disabled and explicit None do not invoke the formatter", async () => {
+test("disabled, and None where no server formats, do not invoke the formatter", async () => {
   const f = fixture(async () => {
     throw new Error("must not execute");
   });
@@ -194,6 +202,7 @@ test("disabled and explicit None do not invoke the formatter", async () => {
   });
 
   none.none();
+  none.noServerFormatter();
   expect(await none.coordinator.save("manual")).toBe(true);
   expect([...f.notices, ...none.notices, ...f.reasons, ...none.reasons]).toEqual([]);
 });
@@ -251,3 +260,44 @@ test("Format document reports a formatter failure to its caller instead of savin
   expect(outcome).toBe("formatter-failed");
   expect(f.state().writes).toBe(0);
 });
+
+// Every save path (⌘S, :w/:wq, autosave, close, quit, Save All) goes through the coordinator.
+for (const reason of [
+  "manual",
+  "vim",
+  "autosave",
+  "close",
+  "quit",
+  "save-all",
+] satisfies SaveReason[]) {
+  test(`${reason}: with no formatter chosen, the file's own server formats before the write`, async () => {
+    const f = fixture(async () => "const n = 1;");
+
+    f.none();
+    expect(await f.coordinator.save(reason)).toBe(true);
+    expect(f.state()).toEqual({ text: "const n = 1;", disk: "const n = 1;", writes: 1 });
+    expect(f.applies()).toBe(1);
+    expect(f.reasons).toEqual([reason]);
+  });
+
+  test(`${reason}: no server formats this file, so it saves as typed and says nothing`, async () => {
+    const f = fixture(async () => "const n = 1;");
+
+    f.none();
+    f.noServerFormatter();
+    expect(await f.coordinator.save(reason)).toBe(true);
+    expect(f.state().disk).toBe("const n=1");
+    expect(f.reasons).toEqual([]);
+    expect(f.notices).toEqual([]);
+  });
+
+  test(`${reason}: Format on save off saves as typed`, async () => {
+    const f = fixture(async () => "const n = 1;");
+
+    f.none();
+    f.disable();
+    expect(await f.coordinator.save(reason)).toBe(true);
+    expect(f.state().disk).toBe("const n=1");
+    expect(f.reasons).toEqual([]);
+  });
+}

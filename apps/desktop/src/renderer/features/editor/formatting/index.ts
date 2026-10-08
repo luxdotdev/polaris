@@ -30,6 +30,8 @@ export interface FormattingPort {
     signal: AbortSignal
   ) => Promise<string>;
   readonly failure: (file: EditorFile, message: string) => void;
+  /** The file has a bound formatter, which formats with its own server when none is chosen. */
+  readonly canFormat?: (file: EditorFile) => boolean;
   readonly timeoutMs?: number;
 }
 
@@ -111,9 +113,12 @@ export class SaveCoordinator {
 
         if (controller.signal.aborted) throw new Error("Formatting cancelled.");
 
-        if (mode === "save") {
-          if (!settings.formatOnSave || Predicate.isTagged(settings.formatter, "None")) return null;
-        }
+        // With no formatter chosen, each language's own server formats (Settings → Editor).
+        const serverless =
+          Predicate.isTagged(settings.formatter, "None") &&
+          !(formatting.canFormat?.(snapshot.file) ?? false);
+
+        if (mode === "save" && (!settings.formatOnSave || serverless)) return null;
 
         return formatting.format(snapshot, settings.formatter, controller.signal);
       };
