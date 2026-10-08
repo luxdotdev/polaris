@@ -43,13 +43,17 @@ describe("language commands", () => {
       ["Go to type definition", ""],
       ["Go to implementation", ""],
       ["Find references", "⇧F12"],
+      ["Show hover", ""],
       ["Go to symbol in file", "⇧⌘O"],
       ["Go to symbol in workspace…", "⌘T"],
       ["Rename symbol…", "F2"],
       ["Show problems", "⇧⌘M"],
       ["Show code actions", ""],
       ["Show signature help", ""],
+      ["Go to next problem", "F8"],
+      ["Go to previous problem", "⇧F8"],
       ["Go back", "⌃-"],
+      ["Go forward", "⌃⇧-"],
     ]);
   });
 
@@ -86,15 +90,17 @@ describe("language commands", () => {
   test("the field commands open their UI; the rest go to the queries", () => {
     const ran: string[] = [];
 
-    const fake: Pick<LanguageQueries, "run" | "back"> = {
+    const fake: Pick<LanguageQueries, "run" | "back" | "forward"> = {
       run: async (_key, command) => void ran.push(command),
       back: () => void ran.push("back"),
+      forward: () => void ran.push("forward"),
     };
 
     runNavigation("file", "problems", fake);
     runNavigation("file", "back", fake);
+    runNavigation("file", "forward", fake);
     runNavigation("file", "symbol-search", fake);
-    expect(ran).toEqual(["problems", "back"]);
+    expect(ran).toEqual(["problems", "back", "forward"]);
     expect(navigationStore.getState().symbols).toBe("file");
   });
 });
@@ -179,5 +185,34 @@ describe("the workspace symbol search", () => {
     await act(async () => undefined);
     expect(seen).toEqual(["workspaceSymbols:Queries", "navigate:LanguageQueries"]);
     expect(navigationStore.getState().symbols).toBeNull();
+  });
+});
+
+describe("vim keys", () => {
+  test("each vim key names one registry command; there is no second table", () => {
+    const keys = LANGUAGE_NAVIGATION.flatMap((c) => (c.vim ?? []).map((k) => [k, c.id]));
+
+    expect(keys).toEqual([
+      ["gd", "editor.language.definition"],
+      ["gD", "editor.language.definition"],
+      ["gy", "editor.language.typeDefinition"],
+      ["gi", "editor.language.implementation"],
+      ["gr", "editor.language.references"],
+      ["K", "editor.language.hover"],
+      ["]d", "editor.language.nextProblem"],
+      ["[d", "editor.language.previousProblem"],
+      ["<C-o>", "editor.language.back"],
+      ["<C-i>", "editor.language.forward"],
+    ]);
+  });
+
+  test("Back and Forward are unavailable with nowhere to go, so vim's own jumps run", () => {
+    const byId = new Map(navigationContributions().map((c) => [c.id, c]));
+
+    expect(byId.get("editor.language.back")?.handler.enabled?.()).toBe(false);
+    expect(byId.get("editor.language.forward")?.handler.enabled?.()).toBe(false);
+    expect(byId.get("editor.language.definition")?.when).toEqual({
+      all: ["editor.file", "language.server"],
+    });
   });
 });
