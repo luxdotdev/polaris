@@ -236,6 +236,24 @@ run("language log safety", [
   `--seed=${seed}`,
 ]);
 
+run("typecheck python-environment.qnt", ["typecheck", "python-environment.qnt"]);
+
+run("Python interpreter scenarios", [
+  "test",
+  "python-environment.qnt",
+  "--main=python_environment_test",
+]);
+
+run("Python interpreter simulation", [
+  "run",
+  "python-environment.qnt",
+  "--main=python_environment",
+  "--invariant=safety",
+  `--max-samples=${samples}`,
+  "--max-steps=30",
+  `--seed=${seed}`,
+]);
+
 run("typecheck language-runtime.qnt", ["typecheck", "language-runtime.qnt"]);
 
 run("language runtime scenarios", ["test", "language-runtime.qnt", "--main=language_runtime_test"]);

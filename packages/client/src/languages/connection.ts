@@ -81,6 +81,14 @@ export const languageTransportFor = (
   const client = session.client;
 
   const calls: Record<LanguageMethod, (input: unknown) => Effect.Effect<unknown, unknown>> = {
+    "languages.python.interpreters": (input) =>
+      client["languages.python.interpreters"](
+        decodeLanguage(P.ListPythonInterpreters.payloadSchema, input)
+      ),
+    "languages.python.select": (input) =>
+      client["languages.python.select"](
+        decodeLanguage(P.SelectPythonInterpreter.payloadSchema, input)
+      ),
     "languages.host.state": (input) =>
       client["languages.host.state"](decodeLanguage(P.GetLanguageHostState.payloadSchema, input)),
     "languages.catalog": (input) =>

@@ -41,7 +41,15 @@ export const DefaultLanguageHostHandlers = Layer.unwrap(
     const registry = async (checkout: Parameters<typeof registeredCheckout>[1]) =>
       registeredCheckout(await Effect.runPromise(store.model), checkout);
 
-    const managed = createManagedDelivery();
+    const probeRoot =
+      process.env.POLARIS_BENCH_HARNESS === "1"
+        ? process.env.POLARIS_LANGUAGE_PYTHON_PROBE_ROOT
+        : undefined;
+
+    const pythonHost =
+      probeRoot === undefined ? undefined : { home: probeRoot, directories: [probeRoot] };
+
+    const managed = createManagedDelivery(pythonHost);
 
     return languageHostHandlers(
       {
@@ -54,7 +62,13 @@ export const DefaultLanguageHostHandlers = Layer.unwrap(
         managed: managed.delivery,
         adapters: {
           approve: async (exact) => ({
-            approved: ["node", "typescript", "typescript-language-server"].includes(exact.tool.id),
+            approved: [
+              "node",
+              "typescript",
+              "typescript-language-server",
+              "basedpyright",
+              "ruff",
+            ].includes(exact.tool.id),
             identity: exact.identity,
           }),
           download: httpsArtifactDownload(fetch, upstreamLimits.downloadBytes),
@@ -64,7 +78,7 @@ export const DefaultLanguageHostHandlers = Layer.unwrap(
           managed.observe(tool, phase, trusted, signal, admission),
         disposeObservations: () => managed.dispose(),
       },
-      { registry },
+      { registry, pythonHost },
       {
         hostId: environment.hostId,
         registry,

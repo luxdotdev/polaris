@@ -12,9 +12,9 @@
       "rust-stdlib-closure.json",
       "rust-target-sources.json"
     ],
-    "missingEvidence": [
-      "Static musl/compiler runtime notice and exact vendor closure is not yet established for every shipped platform."
-    ]
+    "missingEvidence": [],
+    "distribution": "runtime-upstream",
+    "activationPolicy": "ADR-0022, owner 2026-10-08: top-level MIT and release notices; full compiler/runtime/vendor closure applies only when installer-bundled."
   },
   "rust-analyzer": {
     "evidence": [

@@ -5,6 +5,8 @@ import { Option, Predicate, Schema } from "effect";
 
 export const languageMethods = {
   "languages.catalog": P.GetLanguageCatalog,
+  "languages.python.interpreters": P.ListPythonInterpreters,
+  "languages.python.select": P.SelectPythonInterpreter,
   "languages.host.state": P.GetLanguageHostState,
   "languages.availability": P.GetLanguageAvailability,
   "languages.install": P.InstallLanguageTool,

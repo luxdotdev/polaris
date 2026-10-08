@@ -13,6 +13,8 @@ import { ancestors, isDirectory, nearest, withDiscoveryBudget } from "./files.ts
 import { configPlugins, pluginFacts, typescriptSdk } from "./typescript.ts";
 import { projectRoot, prismaFacts, workspaceFacts } from "./roots.ts";
 import { pythonInterpreter } from "./python.ts";
+import { detectPython, type PythonProbeOptions } from "../python/detection.ts";
+import { interpreterEntry, type createPythonEnvironment } from "../python/environment.ts";
 import { configurationFingerprint } from "./configuration.ts";
 
 export { effectiveSettings, configurationFingerprint } from "./configuration.ts";
@@ -85,9 +87,15 @@ async function interpreterFacts(
   override: string | null | undefined
 ) {
   if (override != null) {
-    const path = await overridePath(root, override);
+    if (provider !== "python") {
+      const path = await overridePath(root, override);
 
-    return { interpreter: path, interpreterTarget: path, pythonConfiguration: null };
+      return { interpreter: path, interpreterTarget: path, pythonConfiguration: null };
+    }
+
+    const entry = await interpreterEntry(isAbsolute(override) ? override : resolve(root, override));
+
+    return { interpreter: entry.path, interpreterTarget: entry.target, pythonConfiguration: null };
   }
 
   const detected = provider === "python" ? await pythonInterpreter(root, start, platform) : null;
@@ -104,10 +112,17 @@ async function discover(
   path: string,
   input: DiscoveryInput,
   platform: NodeJS.Platform,
-  bundled: boolean
+  bundled: boolean,
+  pythonOptions: { override: string | null | undefined; host: PythonProbeOptions | undefined }
 ) {
   const provider = family(input.providerId);
-  const settings = Schema.decodeUnknownSync(LanguageEffectiveSettings)(input.settings);
+  let settings = Schema.decodeUnknownSync(LanguageEffectiveSettings)(input.settings);
+
+  if (provider === "python" && pythonOptions.override != null)
+    settings = {
+      ...settings,
+      settings: { ...settings.settings, interpreter: pythonOptions.override },
+    };
   const custom = settings.settings.customServers?.find(({ id }) => id === input.providerId);
 
   const bundledTypeScript =
@@ -148,20 +163,26 @@ async function discover(
 
   const executable = settings.settings.executableOverrides?.[input.providerId] ?? custom?.launch;
 
+  const python = await interpreterFacts(
+    context.root,
+    start,
+    provider,
+    platform,
+    settings.settings.interpreter
+  );
+
+  await detectedInterpreter(python, context.root, start, provider, platform, pythonOptions.host);
+
   return {
     checkout: context.checkout,
     projectRoot: root,
     providerId: input.providerId,
     bundledTypeScript,
+    managedPython:
+      bundled && provider === "python" && custom === undefined && executable === undefined,
     configuration: provider === "typescript" ? configuration : null,
     ...(await sdkFacts(context.root, root, provider, settings.settings.sdk)),
-    ...(await interpreterFacts(
-      context.root,
-      start,
-      provider,
-      platform,
-      settings.settings.interpreter
-    )),
+    ...python,
     pluginProbeRoots: probes,
     plugins: await pluginFacts(context.root, probes, names),
     prisma: provider === "prisma" ? await prismaFacts(context.root, root) : null,
@@ -202,6 +223,8 @@ export function createProjectDiscovery(options: {
   maxPending?: number;
   platform?: NodeJS.Platform;
   bundledTypeScript?: boolean;
+  pythonEnvironment?: ReturnType<typeof createPythonEnvironment>;
+  pythonHost?: PythonProbeOptions;
 }) {
   const capacity = options.capacity ?? 128;
   const maxPending = options.maxPending ?? 8;
@@ -266,19 +289,25 @@ export function createProjectDiscovery(options: {
 
       remove(key);
 
+      const pythonSelection =
+        family(input.providerId) === "python"
+          ? await options.pythonEnvironment?.read(context.checkout.workspaceId)
+          : undefined;
+
       const observed = await withDiscoveryBudget(context.root, () =>
         discover(
           context,
           path,
           input,
           options.platform ?? process.platform,
-          options.bundledTypeScript === true
+          options.bundledTypeScript === true,
+          { override: pythonSelection?.interpreter, host: options.pythonHost }
         )
       );
 
       const facts = { ...observed.value, configurationInputs: observed.configurationInputs };
 
-      const result = { ...facts, configurationFingerprint: configurationFingerprint(facts) };
+      const result = { ...facts, configurationFingerprint: providerFingerprint(facts) };
       const size = Buffer.byteLength(JSON.stringify(result));
 
       if (size > 1048576)
@@ -316,4 +345,37 @@ export function createProjectDiscovery(options: {
     invalidate,
     stats: () => ({ entries: cache.size, pending, capacity, retainedBytes, maxRetainedBytes }),
   };
+}
+
+async function detectedInterpreter(
+  python: Awaited<ReturnType<typeof interpreterFacts>>,
+  root: string,
+  start: string,
+  provider: string,
+  platform: NodeJS.Platform,
+  host?: PythonProbeOptions
+) {
+  if (provider !== "python" || python.interpreter !== null) return;
+  const candidate = (await detectPython(root, start, platform, host))[0];
+
+  if (candidate === undefined) return;
+  const entry = await interpreterEntry(candidate.path);
+  python.interpreter = entry.path;
+  python.interpreterTarget = entry.target;
+}
+
+function providerFingerprint(
+  facts: Awaited<ReturnType<typeof discover>> & { configurationInputs: Record<string, string> }
+) {
+  if (facts.providerId !== "ruff") return configurationFingerprint(facts);
+  const identity = structuredClone(facts);
+  identity.interpreter = facts.interpreter === null ? null : "present";
+  identity.interpreterTarget = null;
+  identity.pythonConfiguration = null;
+  identity.effectiveSettings = {
+    ...identity.effectiveSettings,
+    settings: { ...identity.effectiveSettings.settings, interpreter: null },
+  };
+
+  return configurationFingerprint(identity);
 }

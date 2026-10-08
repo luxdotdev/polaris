@@ -149,7 +149,13 @@ export function managedLaunchAdapters(options: ManagedLaunchOptions) {
 
     assertRequest();
     const guard = options.requireCurrent(request);
-    const admission = Object.freeze({ cwd: request.facts.projectRoot, requireCurrent: guard });
+
+    const admission = Object.freeze({
+      cwd: request.facts.projectRoot,
+      requireCurrent: guard,
+      pythonInterpreter: request.facts.interpreter,
+    });
+
     await guard(signal);
     assertRequest();
     const toolId = options.toolId(request.facts);

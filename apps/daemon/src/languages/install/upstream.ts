@@ -4,6 +4,9 @@ import { gunzip, tarEntries } from "./archive.ts";
 import { upstreamRuntimeLimits, type ExactArtifact, type ArtifactPayload } from "./types.ts";
 import { checkAbort, failure, verifyIntegrity } from "./validation.ts";
 
+import ruffLicense from "../catalog/upstream-evidence/python-notice-2597d854122b77ddc71971564ca2350a37608575ce324adc5650a2b2051c8f18.txt" with { type: "text" };
+import pythonGuard from "../python/guard.txt" with { type: "text" };
+
 export const upstreamLimits = upstreamRuntimeLimits;
 
 export const pluginGuard =
@@ -29,7 +32,9 @@ export async function decodeUpstream(
 
   const prefix = isNode
     ? `node-v${exact.tool.version}-${exact.platform.os}-${exact.platform.arch}/`
-    : "package/";
+    : exact.tool.id === "ruff"
+      ? ""
+      : "package/";
 
   const archive = await gunzip(bytes, signal, upstreamLimits.expandedBytes);
 
@@ -60,6 +65,17 @@ export async function decodeUpstream(
       kind: "file",
       mode: 0o644,
       bytes: Buffer.from(pluginGuard),
+    });
+
+  if (exact.tool.id === "ruff")
+    entries.push({ path: "LICENSE", kind: "file", mode: 0o644, bytes: Buffer.from(ruffLicense) });
+
+  if (exact.tool.id === "basedpyright")
+    entries.push({
+      path: "python-guard.cjs",
+      kind: "file",
+      mode: 0o644,
+      bytes: Buffer.from(pythonGuard),
     });
 
   return { manifestBytes, entries };

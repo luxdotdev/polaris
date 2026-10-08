@@ -1,3 +1,7 @@
+import { Match } from "effect";
+import { pythonLaunch } from "../python/launch.ts";
+import { createHostPrerequisiteProbe } from "../install/hostStateProbes.ts";
+import { interpreterEntry } from "../python/environment.ts";
 import { join } from "node:path";
 import type { LanguageEffectiveSettings } from "@polaris/protocol";
 import { runtimeProbeAdapter } from "../availability/probes.ts";
@@ -15,7 +19,8 @@ export interface ManagedDelivery {
   ensure: (
     settings: typeof LanguageEffectiveSettings.Type,
     admission: ObservationAdmission,
-    signal: AbortSignal
+    signal: AbortSignal,
+    providerId?: string
   ) => Promise<void>;
   plan: (facts: DiscoveryFacts, installed: InstalledVersion) => Promise<VerifiedLaunchPlan>;
 }
@@ -38,7 +43,9 @@ function matchesPin(current: InstalledVersion | null, pinned: Tool) {
   );
 }
 
-export function createManagedDelivery() {
+export function createManagedDelivery(
+  pythonHost?: Parameters<typeof createHostPrerequisiteProbe>[0]
+) {
   let host: HostInstallation | undefined;
 
   const installation = () => {
@@ -66,8 +73,14 @@ export function createManagedDelivery() {
     bind: (value) => {
       host = value;
     },
-    async ensure(settings, admission, signal) {
-      for (const toolId of ["node", "typescript", "typescript-language-server"]) {
+    async ensure(settings, admission, signal, providerId = "typescript-language-server") {
+      const tools = Match.value(providerId).pipe(
+        Match.when("basedpyright", () => ["node", "basedpyright"]),
+        Match.when("ruff", () => ["ruff"]),
+        Match.orElse(() => ["node", "typescript", "typescript-language-server"])
+      );
+
+      for (const toolId of tools) {
         checkAbort(signal);
         await admission.requireCurrent(signal);
 
@@ -79,7 +92,7 @@ export function createManagedDelivery() {
         if (settings.settings.downloadLanguageToolsAutomatically === false)
           throw failure(
             "not-installed",
-            "Download language tools automatically is off; this Host needs the bundled TypeScript tools"
+            "Download language tools automatically is off; this Host needs the selected language tools"
           );
 
         const handle = await installation().install(
@@ -96,6 +109,9 @@ export function createManagedDelivery() {
     },
     async plan(facts, installed) {
       const node = await privateNode();
+
+      if (["basedpyright", "ruff"].includes(facts.providerId))
+        return pythonLaunch(facts, installed, node);
       const typescript = await installation().current("typescript");
 
       if (node === null || typescript === null)
@@ -163,7 +179,11 @@ export function createManagedDelivery() {
       admission?: ObservationAdmission
     ) {
       const nodeRequirements = tool.requirements.filter((requirement) => requirement.id === "node");
-      const others = tool.requirements.filter((requirement) => requirement.id !== "node");
+
+      const others = tool.requirements.filter(
+        (requirement) => !["node", "python-interpreter"].includes(requirement.id)
+      );
+
       const node = nodeRequirements.length ? await privateNode() : null;
 
       const probes = nodeRequirements.map(({ id }) => ({
@@ -171,6 +191,24 @@ export function createManagedDelivery() {
         executable: node?.executable ?? null,
         version: node?.version ?? null,
       }));
+
+      const python = tool.requirements.find(
+        (requirement) => requirement.id === "python-interpreter"
+      );
+
+      if (python !== undefined) {
+        const entry = admission?.pythonInterpreter;
+
+        const presence =
+          entry === undefined
+            ? await createHostPrerequisiteProbe(pythonHost)().probe(python, signal)
+            : null;
+
+        const executable = entry === undefined ? (presence?.path ?? null) : entry;
+
+        if (executable !== null) await interpreterEntry(executable);
+        probes.push({ id: python.id, executable, version: executable === null ? null : "present" });
+      }
 
       probes.push(...(await developerProbes(others, trusted, signal, admission)));
 

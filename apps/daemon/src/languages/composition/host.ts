@@ -1,3 +1,5 @@
+import { createPythonEnvironment, PythonEnvironment } from "../python/environment.ts";
+import { PythonCore } from "../python/core.ts";
 import { join } from "node:path";
 import { LanguageResourceEdits } from "./resourceEdits.ts";
 import { LanguageResourceReceiptAuthority } from "./resourceEditsAuthority.ts";
@@ -56,15 +58,18 @@ export const languageHostServices = (
   trustOptions: Parameters<typeof ExecutionTrustService.layer>[0],
   trustGrants = LanguageTrustGrantAuthority.denyLayer
 ) => {
+  const python = createPythonEnvironment(join(options.root, "python-interpreters"));
   const authority = LanguageAcquisitionAuthority.layer;
   const trust = ExecutionTrustService.layer(trustOptions);
 
   const discovery = ProjectDiscovery.layer({
     ...discoveryOptions,
+    pythonEnvironment: python,
     bundledTypeScript: options.managed !== undefined,
   }).pipe(Layer.provide(trust));
 
   const shared = Layer.mergeAll(
+    Layer.succeed(PythonEnvironment)(python),
     authority,
     trust,
     discovery,
@@ -133,14 +138,14 @@ export const languageHostServices = (
             availability: (toolId, phase, trusted, admission, settings) =>
               Effect.gen(function* () {
                 if (
-                  toolId === "typescript-language-server" &&
+                  ["typescript-language-server", "basedpyright", "ruff"].includes(toolId) &&
                   phase === "feature" &&
                   options.managed !== undefined &&
                   admission !== undefined &&
                   settings !== undefined
                 )
                   yield* Effect.tryPromise({
-                    try: (signal) => options.managed!.ensure(settings, admission, signal),
+                    try: (signal) => options.managed!.ensure(settings, admission, signal, toolId),
                     catch: installationError,
                   });
 
@@ -148,7 +153,8 @@ export const languageHostServices = (
                   toolId,
                   phase,
                   trusted ||
-                    (toolId === "typescript-language-server" && options.managed !== undefined),
+                    (["typescript-language-server", "basedpyright", "ruff"].includes(toolId) &&
+                      options.managed !== undefined),
                   admission
                 );
               }),
@@ -156,14 +162,17 @@ export const languageHostServices = (
               configuredExecutable(request.facts) === undefined
                 ? (async () => {
                     if (
-                      request.facts.providerId === "typescript-language-server" &&
+                      ["typescript-language-server", "basedpyright", "ruff"].includes(
+                        request.facts.providerId
+                      ) &&
                       options.managed !== undefined
                     ) {
                       const guard = owners.guard(request, executionTrust).validate;
                       await options.managed.ensure(
                         request.facts.effectiveSettings,
                         { cwd: request.facts.projectRoot, requireCurrent: guard },
-                        request.signal
+                        request.signal,
+                        request.facts.providerId
                       );
                     }
 
@@ -199,6 +208,10 @@ export const languageHostServices = (
         LanguageHostStateCore.layer(options.hostId, host),
         LanguageInstallCore.layer(options.hostId, host).pipe(
           Layer.provide(LanguageInstallGrantAuthority.denyLayer)
+        ),
+        PythonCore.layer(options.hostId, discoveryOptions.pythonHost).pipe(
+          Layer.provide(broker),
+          Layer.provide(shared)
         ),
         providers,
         resources,

@@ -36,7 +36,8 @@ import { notificationMessage, clientCapabilities, drainStderr } from "./wire.ts"
 import { ContextEvents } from "./events.ts";
 import { Documents } from "./documents.ts";
 import { decideLifecycle, lifecycleInitial, type LifecycleEvent } from "./lifecycle.ts";
-import { negotiate } from "./capabilities.ts";
+import { pythonServerSettings } from "../python/launch.ts";
+import { negotiate, pythonCapabilities } from "./capabilities.ts";
 import { ServerBridge } from "./server.ts";
 import { bindServerPreparation } from "./serverPreparation.ts";
 import { FeatureEvidence, createFeatureVerifier } from "./featureEvidence.ts";
@@ -227,6 +228,9 @@ export function createLanguageBroker(options: BrokerOptions) {
   function serverSettings(entry: Entry): typeof LanguageJsonObject.Type {
     const settings = entry.facts.effectiveSettings.settings;
 
+    if (entry.facts.managedPython && entry.facts.providerId === "basedpyright")
+      return pythonServerSettings(entry.facts);
+
     return (
       settings.customServers?.find(({ id }) => id === entry.facts.providerId)?.settings ??
       settings.serverSettings?.[entry.facts.providerId] ??
@@ -333,7 +337,7 @@ export function createLanguageBroker(options: BrokerOptions) {
       }).result;
 
       if (!active(entry, identity)) return;
-      const capabilities = negotiate(initialized);
+      const capabilities = pythonCapabilities(negotiate(initialized), entry.facts.providerId);
       await trusted(entry);
       await connection.send({ jsonrpc: "2.0", method: "initialized", params: {} });
       await connection.send({
