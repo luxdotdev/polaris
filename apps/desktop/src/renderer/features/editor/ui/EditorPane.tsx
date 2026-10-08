@@ -13,6 +13,7 @@ import {
   activateTab,
   closeActiveTab,
   openMarkdownPreview,
+  closeOtherTabs,
   closeTab,
   cycleTabs,
   keepMyEdits,
@@ -52,7 +53,13 @@ export interface EditorPaneProps {
   readonly root: string;
 }
 
-const useEditorCommands = (hostKey: string, workspaceId: string, active: string | null) => {
+const useEditorCommands = (
+  hostKey: string,
+  workspaceId: string,
+  active: string | null,
+  current: string | null,
+  logTabs: ReadonlyArray<{ readonly id: string }>
+) => {
   const commands = useCommands();
 
   useEffect(
@@ -66,10 +73,25 @@ const useEditorCommands = (hostKey: string, workspaceId: string, active: string 
           run: () => void (active === null ? null : saveFile(hostKey, active)),
           enabled: () => active !== null,
         },
+        "tab.close": {
+          run: () => {
+            if (current === null) window.close();
+            else if (isLogTab(current)) closeLogTab(hostKey, workspaceId, current);
+            else closeTab(hostKey, workspaceId, current);
+          },
+        },
+        "tab.closeOthers": {
+          run: () => {
+            closeOtherTabs(hostKey, workspaceId, current);
+
+            for (const { id } of logTabs) if (id !== current) closeLogTab(hostKey, workspaceId, id);
+          },
+          enabled: () => current !== null,
+        },
         "editor.nextTab": { run: () => cycleTabs(hostKey, workspaceId, 1) },
         "editor.previousTab": { run: () => cycleTabs(hostKey, workspaceId, -1) },
       }),
-    [commands, hostKey, workspaceId, active]
+    [commands, hostKey, workspaceId, active, current, logTabs]
   );
 };
 
@@ -118,7 +140,7 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
     if (theirs === null) setComparing(false);
   }, [theirs]);
 
-  useEditorCommands(hostKey, workspaceId, active);
+  useEditorCommands(hostKey, workspaceId, active, shownLog?.id ?? activeId ?? null, logs.tabs);
   useLanguageNavigationCommands();
   useLanguageCommands(hostKey, workspaceId, active);
 

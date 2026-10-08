@@ -221,6 +221,8 @@ export const shellCommands = ({
       run: () => actions.openFolder(navigation.current().hostKey),
       enabled: () => app().hosts.length > 0,
     },
+    "tab.close": { run: () => window.close() },
+    "window.close": { run: () => window.close() },
     "theme.toggle": {
       run: () =>
         void window.polaris.request("settings.setTheme", { theme: dark() ? "light" : "dark" }),

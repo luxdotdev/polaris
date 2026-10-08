@@ -149,7 +149,7 @@ export const buildMenu = (input: MenuInput) => {
   Menu.setApplicationMenu(
     Menu.buildFromTemplate([
       appMenu(input),
-      { role: "fileMenu" },
+      { label: "File", submenu: commandItems("File") },
       { role: "editMenu" },
       { label: "View", submenu: view },
       { label: "Go", submenu: commandItems("Go") },

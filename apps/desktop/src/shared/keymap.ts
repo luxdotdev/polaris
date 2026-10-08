@@ -49,6 +49,9 @@ export type CommandId =
   | "editor.save"
   | "editor.nextTab"
   | "editor.previousTab"
+  | "tab.close"
+  | "tab.closeOthers"
+  | "window.close"
   | "palette.open"
   | "editor.format"
   | "language.restart"
@@ -59,7 +62,7 @@ export type CommandId =
   | "trust.revoke"
   | "trust.askAgain";
 
-export type MenuName = "App" | "View" | "Go" | "Session" | "Help";
+export type MenuName = "App" | "File" | "View" | "Go" | "Session" | "Help";
 
 /** The palette's groups (DESIGN.md, Command Palette): the focused file's, the Workspace's, the app's. */
 export type CommandGroup = "file" | "workspace" | "app";
@@ -508,12 +511,20 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
     keys: ["Ctrl+Shift+Tab"],
     palette: FILE(),
   },
+  // With no tab open, Close tab closes the window, as in VS Code.
+  { id: "tab.close", title: "Close tab", keys: ["CmdOrCtrl+W"], menu: "File", palette: FILE() },
+  {
+    id: "window.close",
+    title: "Close window",
+    keys: ["CmdOrCtrl+Shift+W"],
+    menu: "File",
+    palette: APP,
+  },
 ];
 
 /** Chords macOS, Electron or the standard menus own; nothing here may take them. */
 export const RESERVED: ReadonlyArray<string> = [
   "CmdOrCtrl+Q",
-  "CmdOrCtrl+W",
   "CmdOrCtrl+H",
   "CmdOrCtrl+Alt+H",
   "CmdOrCtrl+M",
