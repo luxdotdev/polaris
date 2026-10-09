@@ -175,15 +175,22 @@ export async function createInstaller(options: InstallerOptions) {
     }
 
     emit(job, "downloading");
+    let reportedAt = performance.now();
 
     const bytes = await collect(
       options.adapters.download(structuredClone(exact), signal),
       signal,
       limits,
-      (size) => emit(job, "downloading", "", size)
+      (size) => {
+        const now = performance.now();
+
+        if (now - reportedAt < 100) return;
+        reportedAt = now;
+        emit(job, "downloading", "", size);
+      }
     );
 
-    emit(job, "verifying");
+    emit(job, "verifying", "", bytes.byteLength);
 
     if (!verifyIntegrity(bytes, exact.artifact.integrity))
       throw failure("audit-required", "Artifact integrity failed");
@@ -197,7 +204,7 @@ export async function createInstaller(options: InstallerOptions) {
 
     const entries = verifyPayload(bytes, payload, exact, limits).map((entry) => ({
       ...entry,
-      bytes: Uint8Array.from(entry.bytes),
+      bytes: new Uint8Array(entry.bytes),
     }));
 
     checkAbort(signal);

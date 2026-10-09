@@ -26,6 +26,12 @@ export interface HostObservations {
 
 export type RequestGuard = (signal: AbortSignal) => Promise<void>;
 
+export interface InstallationInspection {
+  readonly deferManagedNode?: boolean;
+  /** Managed delivery requires the selected descriptor to match the current pin exactly. */
+  readonly pinned?: boolean;
+}
+
 export interface SelectionReservation {
   /** Recheck current trust and session state while holding launch admission. */
   readonly validate: RequestGuard;
@@ -261,10 +267,32 @@ async function constructHost(options: HostInstallationOptions) {
     phase: "install" | "feature",
     trusted: boolean,
     signal: AbortSignal,
-    admission?: ObservationAdmission
+    admission?: ObservationAdmission,
+    inspection: InstallationInspection = {}
   ): Promise<LanguageAvailability> {
     const value = find(toolId);
-    const installed = await installer.current(toolId);
+    const pinned = phase === "install" || inspection.pinned === true;
+
+    const observedTool = inspection.deferManagedNode
+      ? {
+          ...value.tool,
+          requirements: value.tool.requirements.filter((item) => item.id !== "node"),
+        }
+      : value.tool;
+
+    const early =
+      inspection.pinned || inspection.deferManagedNode
+        ? observations(toolId, phase, trusted, signal, admission, observedTool)
+        : undefined;
+
+    const [read, probe] = await Promise.allSettled([installer.current(toolId), early]);
+
+    if (read.status === "rejected") throw read.reason;
+
+    if (probe.status === "rejected") throw probe.reason;
+
+    const installed = read.value;
+    const earlyObserved = probe.value;
     const debris = await installer.recoveryFacts(toolId);
 
     if (debris.length)
@@ -275,11 +303,28 @@ async function constructHost(options: HostInstallationOptions) {
       );
 
     const selected =
-      phase === "feature" && installed
-        ? descriptor(installed.descriptor, defaultLimits.metadataBytes)
-        : value;
+      !pinned && installed ? descriptor(installed.descriptor, defaultLimits.metadataBytes) : value;
 
-    const observed = await observations(toolId, phase, trusted, signal, admission, selected.tool);
+    if (inspection.pinned && installed) {
+      const artifact = value.tool.artifacts.find((item) => item.id === installed.artifactId);
+
+      if (
+        !artifact ||
+        installed.identity !==
+          artifactIdentity({
+            hostId: options.hostId,
+            platform: options.platform,
+            descriptor: value.raw,
+            artifact,
+          })
+      )
+        throw failure("conflict", "Managed tool selection differs from the current pin", true);
+    }
+
+    const observed =
+      earlyObserved ??
+      (await observations(toolId, phase, trusted, signal, admission, selected.tool));
+
     const approved = await exactApproval(toolId, observed, signal, selected);
     await abortable(admission?.requireCurrent(signal) ?? Promise.resolve(), signal);
     checkAbort(signal);
@@ -296,6 +341,7 @@ async function constructHost(options: HostInstallationOptions) {
       installed,
       progress: installer.progress(toolId) ?? undefined,
       checkedAt: Date.now(),
+      deferManagedNode: inspection.deferManagedNode === true,
     });
 
     return {
@@ -415,8 +461,10 @@ async function constructHost(options: HostInstallationOptions) {
       phase: "install" | "feature",
       trusted: boolean,
       admission?: ObservationAdmission,
-      signal?: AbortSignal
-    ) => demand((current) => inspect(toolId, phase, trusted, current, admission), signal),
+      signal?: AbortSignal,
+      inspection?: InstallationInspection
+    ) =>
+      demand((current) => inspect(toolId, phase, trusted, current, admission, inspection), signal),
     install: (
       toolId: string,
       intent: "encounter" | "install" | "update",

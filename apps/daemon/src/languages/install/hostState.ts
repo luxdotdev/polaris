@@ -102,11 +102,15 @@ export function createHostToolStates(options: {
     publish();
   };
 
-  const installedState = async (id: string, signal: AbortSignal) => {
+  const installedState = async (
+    id: string,
+    signal: AbortSignal,
+    current: typeof options.installer.current
+  ) => {
     let version: string | null = null;
 
     try {
-      version = (await abortable(options.installer.current(id), signal))?.version ?? null;
+      version = (await abortable(current(id), signal))?.version ?? null;
       const debris = await abortable(options.installer.recoveryFacts(id), signal);
 
       if (debris.length)
@@ -142,11 +146,24 @@ export function createHostToolStates(options: {
     );
 
     const batch = probes();
+    const versions = new Map<string, ReturnType<typeof options.installer.current>>();
+
+    const current = (id: string) => {
+      let pending = versions.get(id);
+
+      if (pending === undefined) {
+        pending = options.installer.current(id);
+        versions.set(id, pending);
+      }
+
+      return pending;
+    };
+
     let node: Promise<HostPresence> | undefined;
 
     const privateNode = async (): Promise<HostPresence> => {
       try {
-        const installed = await abortable(options.installer.current("node"), signal);
+        const installed = await abortable(current("node"), signal);
         const update = options.installer.progress("node");
         const version = update?.activeVersion ?? installed?.version ?? null;
 
@@ -181,28 +198,36 @@ export function createHostToolStates(options: {
       return facts;
     };
 
+    const readRow = async (id: string) => {
+      const tool = tools.get(id);
+
+      if (tool === undefined) throw failure("invalid-input", "Unknown Host tool");
+      const previous = rows.get(id);
+
+      const [facts, state] = await Promise.allSettled([
+        prerequisites(tool, input.refresh ? undefined : previous?.prerequisites),
+        installedState(id, signal, current),
+      ]);
+
+      if (facts.status === "rejected") throw facts.reason;
+
+      if (state.status === "rejected") throw state.reason;
+
+      checkAbort(signal);
+      rows.set(id, {
+        toolId: id,
+        pinnedVersion: tool.version,
+        state: state.value,
+        prerequisites: facts.value,
+        checkedAt: Date.now(),
+      });
+    };
+
     try {
-      for (const id of ids) {
-        const tool = tools.get(id);
+      for (let offset = 0; offset < ids.length; offset += 4) {
+        const results = await Promise.allSettled(ids.slice(offset, offset + 4).map(readRow));
 
-        if (tool === undefined) throw failure("invalid-input", "Unknown Host tool");
-        const previous = rows.get(id);
-
-        const facts = await prerequisites(
-          tool,
-          input.refresh ? undefined : previous?.prerequisites
-        );
-
-        const state = await installedState(id, signal);
-
-        checkAbort(signal);
-        rows.set(id, {
-          toolId: id,
-          pinnedVersion: tool.version,
-          state,
-          prerequisites: facts,
-          checkedAt: Date.now(),
-        });
+        for (const result of results) if (result.status === "rejected") throw result.reason;
       }
 
       if (node !== undefined) {
