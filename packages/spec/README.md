@@ -720,3 +720,6 @@ checks exact disk-only matching and rejects dirty text, disk changes, missing
 acknowledgments for fenced documents and same-text revision changes before
 persistence or Host mutation. Host preparation, provenance and acceptance
 fences remain unchanged; no Host buffer acknowledgment is inferred.
+
+
+Language runtime failure snapshots may carry the typed `LanguageError` reason and a bounded last stderr/log line. These are optional diagnostic fields, compatible with older snapshots; they do not change retry, generation, queue or acknowledgment decisions. `runtime/lifecycleDemand.test.ts` verifies that actual process failure retains this evidence before the generation is retired. Lazy first-use cancellation and Daemon Scope disposal are checked by `transport/lazy.test.ts`; initialization publishes its cached Exit before observing requesting-Client cancellation (ADR 0031).

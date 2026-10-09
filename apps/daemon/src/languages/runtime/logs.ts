@@ -103,6 +103,12 @@ export class ServerLogs {
     this.listeners.clear();
   }
 
+  lastLine() {
+    return this.count === 0
+      ? null
+      : (this.lines[(this.head + this.count - 1) % maxLines]?.text ?? null);
+  }
+
   stats() {
     return { lines: this.count, bytes: this.bytes, subscribers: this.listeners.size };
   }

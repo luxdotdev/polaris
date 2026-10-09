@@ -346,3 +346,43 @@ test("closing during launch admission stops without consuming the crash budget",
     await f.dispose();
   }
 });
+
+test("a retrying process failure retains its typed reason and last stderr line", async () => {
+  const f = await fixture("stderr");
+
+  try {
+    const { context } = await f.acquire();
+    await f.open("one", context);
+    await f.ready("one", context);
+    await Bun.sleep(10);
+
+    const events = f.broker
+      .watch("one", context, new AbortController().signal)
+      [Symbol.asyncIterator]();
+
+    await events.next();
+    void f.processes[0]!.stop();
+
+    for (let n = 0; n < 20; n++) {
+      const event = await events.next();
+
+      if (event.done) throw new Error("No failed runtime");
+
+      if (
+        Predicate.isTagged(event.value, "Replaced") &&
+        Predicate.isTagged(event.value.runtime, "Failed")
+      ) {
+        expect(event.value.runtime.failure).toEqual({
+          reason: "server-failed",
+          lastLogLine: "fixture stderr",
+        });
+
+        return;
+      }
+    }
+
+    throw new Error("No retry failure observed");
+  } finally {
+    await f.dispose();
+  }
+});

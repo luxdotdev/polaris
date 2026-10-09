@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { statusView } from "./model.ts";
 import {
+  TS,
   downloading,
   file,
   input,
@@ -132,7 +133,7 @@ describe("language status pill", () => {
       tone: "failed",
       pill: "TypeScript · stopped",
       title: "TypeScript stopped",
-      stderr: "FATAL ERROR: Reached heap limit\nAllocation failed",
+      stderr: "Allocation failed",
     });
     expect(view.why).toContain("crashed 3 times in 2 minutes");
     expect(ids(view)).toEqual(["restart", "show-log"]);
@@ -273,6 +274,55 @@ test("the unavailable popover preserves the typed installation failure", () => {
     })
   );
 
-  expect(view.why).toContain("Version updates require an explicit update request (conflict)");
+  expect(view.why).toContain("changed while this request was running");
+  expect(view.stderr).toBe("Version updates require an explicit update request");
   expect(ids(view)).toContain("check-again");
+});
+
+test("server failure uses plain typed copy, last log line and recovery actions", () => {
+  const view = statusView(
+    input({
+      file: file({
+        phase: "failed",
+        failure: { reason: "server-failed", message: "Language operation: server-failed" },
+      }),
+      runtimes: [],
+      lastLogLine: "initializing\nError: Cannot find module tsserver.js\n",
+    })
+  );
+
+  expect(view.why).toBe(
+    "The language server couldn't start or stopped responding. Highlighting works meanwhile."
+  );
+  expect(view.stderr).toBe("Error: Cannot find module tsserver.js");
+  expect(view.providerId).toBe(TS);
+  expect(ids(view)).toEqual(["restart", "show-log", "settings"]);
+
+  const silent = statusView(
+    input({
+      file: file({
+        phase: "failed",
+        failure: { reason: "server-failed", message: "Language operation: server-failed" },
+      }),
+      runtimes: [],
+    })
+  );
+
+  expect(silent.stderr).toBeNull();
+});
+
+test("failed launch with no automatic retry offers Restart and the actual last log line", () => {
+  const view = statusView(
+    input({
+      runtimes: [running({ ...runtimes.failed, retryAt: null })],
+      lastLogLine: "spawn failed: executable missing",
+    })
+  );
+
+  expect(view).toMatchObject({
+    kind: "stopped",
+    mark: "failed",
+    stderr: "spawn failed: executable missing",
+  });
+  expect(ids(view)).toEqual(["restart", "show-log"]);
 });

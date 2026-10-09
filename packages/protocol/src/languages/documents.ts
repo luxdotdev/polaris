@@ -1,6 +1,7 @@
 import { deferredSchema } from "./deferred.ts";
 import { Match, Schema } from "effect";
 import {
+  LanguageError,
   LanguageCheckout,
   LanguageContextIdentity,
   LanguageCounter,
@@ -116,6 +117,12 @@ export const LanguageRuntime = deferredSchema(() =>
       message: Schema.String,
       attempts: LanguageCounter,
       retryAt: Schema.NullOr(LanguageCounter),
+      failure: Schema.optionalKey(
+        Schema.Struct({
+          reason: LanguageError.fields.reason,
+          lastLogLine: Schema.NullOr(Schema.String.check(Schema.isMaxLength(4096))),
+        })
+      ),
     },
     Unsupported: { message: Schema.String },
   })

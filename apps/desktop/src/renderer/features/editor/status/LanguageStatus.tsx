@@ -1,3 +1,4 @@
+import { failureDetail, failureReason } from "./failureCopy.ts";
 /**
  * The status bar's language pill and its popover (DESIGN.md, Editor: Language status; Paper L1,
  * L3). The pill is the one place these states live: no toasts, and the popover ends in Restart
@@ -5,7 +6,7 @@
  */
 import type * as P from "@polaris/protocol";
 import { cn, Popover, PopoverContent, PopoverTrigger } from "@polaris/ui";
-import { Match } from "effect";
+
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { hostInSentence } from "../../../shell/hostCopy.ts";
 import { useApp, useShellActions } from "../../../shell/hooks.ts";
@@ -121,13 +122,15 @@ const ProgressBlock = ({
 );
 
 /** Inline failure copy, chosen by the error's typed reason. */
-export const actionFailure = (error: P.LanguageError, host: string) =>
-  Match.value(error.reason).pipe(
-    Match.when("conflict", () => `${error.message} (${error.reason}). Try again.`),
-    Match.when("not-connected", () => `Can't reach ${host}. Try again when it's back.`),
-    Match.when("timeout", () => `No answer from ${host} in time. Try again.`),
-    Match.orElse(() => `${error.message} (${error.reason}).`)
-  );
+export const actionFailure = (error: P.LanguageError, host: string) => {
+  const detail = ["server-failed", "install-failed", "conflict"].includes(error.reason)
+    ? failureDetail(error.message)
+    : null;
+
+  const reason = failureReason(error.reason, host);
+
+  return detail === null || reason.includes(detail) ? reason : `${reason} ${detail}`;
+};
 
 type Running = { readonly id: StatusAction["id"] } | null;
 
@@ -191,7 +194,7 @@ export const StatusPopover = ({ view, running, failure, onRun, titleId }: Status
     {view.progress === null ? null : <ProgressBlock progress={view.progress} />}
     {view.stderr === null ? null : (
       <Section>
-        <pre className="text-caption text-text-default max-h-40 overflow-auto font-mono leading-[18px] whitespace-pre-wrap">
+        <pre className="text-caption text-text-default max-h-40 overflow-auto font-mono leading-[18px] wrap-anywhere whitespace-pre-wrap">
           {view.stderr}
         </pre>
       </Section>
@@ -206,7 +209,9 @@ export const StatusPopover = ({ view, running, failure, onRun, titleId }: Status
         ))}
       </Section>
     )}
-    {failure === null ? null : (
+    {failure === null ||
+    view.why.includes(view.stderr === null ? failure : failure.replace(view.stderr, "").trim()) ||
+    view.stderr === failure ? null : (
       <p role="alert" className="text-caption text-text-strong border-hairline border-t px-4 py-2">
         {failure}
       </p>
@@ -294,7 +299,14 @@ export const LanguageStatus = ({
     setRunning({ id: action.id });
     runAction(
       action.id,
-      { hostKey, path, checkout, providerId, trust },
+      {
+        hostKey,
+        path,
+        checkout,
+        providerId,
+        trust,
+        contextAcquired: providerId !== null && view.file?.contexts[providerId] !== undefined,
+      },
       {
         api: polaris().languages,
         recheck: async () => {

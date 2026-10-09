@@ -44,8 +44,16 @@ export function bindLifecycle(ports: {
     );
   }
 
+  const lastServerLine = (entry: Entry) =>
+    (
+      entry.stderr.trim().split(/\r?\n/).filter(Boolean).at(-1) ??
+      entry.logs?.lastLine() ??
+      null
+    )?.slice(-4096) ?? null;
+
   function onCrash(entry: Entry, identity: LanguageContextIdentity) {
     if (!active(entry, identity) || !entry.lifecycle.can({ type: "crash", retry: false })) return;
+    const lastLogLine = lastServerLine(entry);
     const now = Date.now();
     const recent = entry.crashes.filter((time) => now - time < (options.crashWindowMs ?? 120_000));
 
@@ -66,6 +74,7 @@ export function bindLifecycle(ports: {
           message: "Language server failed",
           attempts: entry.attempts,
           retryAt: now + delay,
+          failure: { reason: "server-failed", lastLogLine },
         })
       : LanguageRuntime.cases.Stopped.make({
           reason: exhausted ? "crash-budget" : "no-demand",
@@ -103,6 +112,8 @@ export function bindLifecycle(ports: {
       if (entry.interests.size === 0) ports.stopWatching(entry);
       scheduleGrace(entry);
     } else if (error !== undefined && blockedLaunchReasons.has(error.reason)) {
+      const lastLogLine = lastServerLine(entry);
+
       if (spawned) retire(entry, "restart", false, false);
       ports.stopWatching(entry);
       move(entry, { type: "stop" });
@@ -112,6 +123,7 @@ export function bindLifecycle(ports: {
           message: error.message,
           attempts: entry.attempts,
           retryAt: null,
+          failure: { reason: error.reason, lastLogLine },
         })
       );
     } else onCrash(entry, identity);
