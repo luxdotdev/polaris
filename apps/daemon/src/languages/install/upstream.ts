@@ -42,7 +42,7 @@ export async function decodeUpstream(
     ? (path: string) => path === prefix + "bin/node" || path === prefix + "LICENSE"
     : undefined;
 
-  const entries = tarEntries(archive, signal, upstreamLimits, select)
+  const entries = tarEntries(archive, signal, upstreamLimits, select, exact.tool.id === "ruff")
     .filter((entry) => entry.path !== prefix.slice(0, -1))
     .map((entry) => {
       if (!entry.path.startsWith(prefix))
