@@ -64,11 +64,11 @@ export const useLanguageStatus = (
 };
 
 /** Install facts for the Host while something needs them; the watch ends with the need. */
-export const useHostToolsWatch = (hostKey: string, active: boolean) =>
+export const useHostToolsWatch = (hostKey: string, language: string, active: boolean) =>
   useEffect(() => {
     const api = polaris().languages;
 
     if (!active || api === undefined) return;
 
-    return watchHostTools(api, hostKey);
-  }, [hostKey, active]);
+    return watchHostTools(api, hostKey, language);
+  }, [hostKey, language, active]);

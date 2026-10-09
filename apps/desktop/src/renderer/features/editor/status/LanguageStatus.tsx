@@ -11,7 +11,7 @@ import { hostInSentence } from "../../../shell/hostCopy.ts";
 import { useApp, useShellActions } from "../../../shell/hooks.ts";
 import { polaris } from "../../bridge.ts";
 import { fileKey } from "../model/drafts.ts";
-import type { LanguageId } from "../model/language.ts";
+import { LANGUAGES, type LanguageId } from "../model/language.ts";
 import { editorLanguages } from "../runtime/app.ts";
 import { useTrustStatus } from "../trust/store.ts";
 import { refreshInterpreters } from "../python/store.ts";
@@ -278,7 +278,11 @@ export const LanguageStatus = ({
   const trust = useTrustStatus(fileKey(hostKey, path));
   const { openSettings } = useShellActions();
   const host = hostInSentence(useApp((s) => s.hosts.find((h) => h.key === hostKey)));
-  useHostToolsWatch(hostKey, open || view.kind === "setting-up");
+  useHostToolsWatch(
+    hostKey,
+    LANGUAGES[languageId].documentLanguageId,
+    view.file?.phase === "discovered" && (open || view.kind === "setting-up")
+  );
 
   const providerId = view.providerId ?? view.file?.providers[0]?.providerId ?? null;
   const checkout = view.file?.checkout ?? null;

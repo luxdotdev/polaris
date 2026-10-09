@@ -389,9 +389,17 @@ const serverFact = (
   provider: Discovered | undefined,
   runtime: ContextRuntime
 ) => {
+  const up = `up ${duration(input.now - runtime.since)}`;
+
+  if (
+    runtime.context.providerId === TS &&
+    input.trust?.provider === "project" &&
+    input.trust.wouldRun.native
+  )
+    return { label: "Server", value: "TypeScript native server", mono: true, note: up };
+
   const launch = provider?.launch ?? null;
   const executable = launch === null ? null : executableName(launch.executable);
-  const up = `up ${duration(input.now - runtime.since)}`;
 
   if (executable === null || executable === "node") {
     const v = version(input.tools, runtime.context.providerId);

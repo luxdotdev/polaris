@@ -82,7 +82,7 @@ const useLiveLog = (hostKey: string, runtime: ContextRuntime | undefined) => {
 
 export const LogTabBody = ({ tab }: { readonly tab: LogTab }) => {
   const { hostKey, providerId } = tab.scope;
-  useHostToolsWatch(hostKey, true);
+  useHostToolsWatch(hostKey, providerId, true);
   const tools = useHostTools(hostKey);
   const runtimes = useRuntimes();
   const found = useScopeFile(tab);

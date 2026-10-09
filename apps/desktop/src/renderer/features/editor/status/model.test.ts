@@ -20,12 +20,25 @@ describe("language status pill", () => {
     expect(view.title).toBe("TypeScript is ready");
     expect(view.facts.map((fact) => [fact.label, fact.value, fact.note])).toEqual([
       ["TypeScript", "7.0.2", "from this project"],
-      ["Server", "typescript-language-server", "up 14m"],
+      ["Server", "TypeScript native server", "up 14m"],
       ["Host", "Mac Studio", undefined],
       ["Trust", "You trust polaris", undefined],
     ]);
     expect(ids(view)).toEqual(["restart", "use-bundled", "show-log", "settings"]);
     expect(view.actions[1]?.hint).toBe("6.0.3");
+  });
+
+  test("project TypeScript 6 and bundled selection still name the managed server", () => {
+    const selected = trust("trusted", "project", "6.0.3");
+    const legacy = { ...selected, wouldRun: { ...selected.wouldRun, native: false } };
+
+    for (const status of [legacy, trust("trusted", "bundled")]) {
+      const view = statusView(input({ trust: status }));
+
+      expect(view.facts.find((fact) => fact.label === "Server")?.value).toBe(
+        "typescript-language-server"
+      );
+    }
   });
 
   test("bundled because polaris isn't trusted: hollow, and Trust leads the actions", () => {
