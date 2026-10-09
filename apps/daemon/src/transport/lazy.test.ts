@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
 import { BlobId } from "@polaris/protocol";
-import { Effect, Layer, Schema, Stream } from "effect";
+import { Effect, Fiber, Exit, Layer, Scope, Schema, Stream } from "effect";
 import { Headers } from "effect/http";
 import { Rpc, RpcGroup } from "effect/rpc";
 import { RequestId } from "effect/rpc/RpcMessage";
 import { BlobChannel } from "../services.ts";
 import { ConnectionBlobs } from "./rpcs.ts";
-import { lazyRpcLayer } from "./lazy.ts";
+import { cacheDaemonBuild, lazyRpcLayer } from "./lazy.ts";
 
 test("Daemon startup does not import the language runtime, catalog, installer or preview media", async () => {
   const child = Bun.spawn(
@@ -143,4 +143,73 @@ test("empty startup leaves transfer storage absent; persisted assignments activa
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("cancelled first lazy RPC cannot poison the Daemon service graph", async () => {
+  let entered = () => {};
+
+  let release = () => {};
+
+  const started = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+
+  let builds = 0;
+  let closed = 0;
+  await Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const daemon = yield* Effect.scope;
+        const memo = yield* Layer.makeMemoMap;
+
+        const load = yield* cacheDaemonBuild(
+          Effect.gen(function* () {
+            builds++;
+            entered();
+            yield* Effect.promise(() => gate);
+            yield* Scope.addFinalizer(
+              daemon,
+              Effect.sync(() => {
+                closed++;
+              })
+            );
+
+            return yield* rpcs.toHandlers({
+              "test.read": () => Effect.succeed("ready"),
+              "test.watch": () => Stream.succeed("ready"),
+            });
+          })
+        );
+
+        const handlers = yield* Layer.buildWithMemoMap(lazyRpcLayer(rpcs, load), memo, daemon);
+
+        const options = {
+          requestId: RequestId(1),
+          headers: Headers.empty,
+          client: new Rpc.ServerClient(1),
+        };
+
+        const read = Effect.gen(function* () {
+          return yield* (yield* rpcs.accessHandler("test.read"))(undefined, options);
+        }).pipe(Effect.provide(handlers));
+
+        const first = yield* Effect.forkScoped(read);
+        yield* Effect.promise(() => started);
+        const cancelling = yield* Effect.forkScoped(Fiber.interrupt(first));
+        yield* Effect.sleep(5);
+        release();
+        yield* Fiber.join(cancelling);
+        expect(Exit.isFailure(yield* Fiber.await(first))).toBe(true);
+        expect(yield* read).toBe("ready");
+        expect(yield* read).toBe("ready");
+        expect(builds).toBe(1);
+        expect(closed).toBe(0);
+      })
+    )
+  );
+  expect(closed).toBe(1);
 });
