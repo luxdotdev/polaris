@@ -52,6 +52,8 @@ const SOL_SOCKET = isDarwin ? 0xffff : 1;
 
 const SO_ACCEPTCONN = isDarwin ? 0x0002 : 30;
 
+const SO_TYPE = isDarwin ? 0x1008 : 3;
+
 const POLLIN = 0x1;
 
 const WNOHANG = 1;
@@ -131,6 +133,15 @@ const cString = (value: string): Buffer => Buffer.from(`${value}\0`, "utf8");
 /** Whether `fd` has close-on-exec set. Throws if `fd` is not open. */
 export const isCloseOnExec = (fd: number): boolean =>
   (check("fcntl(F_GETFD)", libc().fcntl(fd, F_GETFD)) & FD_CLOEXEC) !== 0;
+
+/** Whether an open descriptor is a stream socket, as used for Harness handoffs. */
+export const isStreamSocket = (fd: number): boolean => {
+  const kind = new Int32Array(1);
+  const length = new Uint32Array([kind.byteLength]);
+  const result = libc().getsockopt(fd, SOL_SOCKET, SO_TYPE, ptr(kind), ptr(length));
+
+  return result === 0 && kind[0] === SOCK_STREAM;
+};
 
 /** Whether `fd` is an open listening socket, rather than a reused file or connected socket. */
 export const isListeningSocket = (fd: number): boolean => {
