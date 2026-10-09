@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { LanguageRuntime } from "@polaris/protocol";
 import { statusView } from "./model.ts";
 import {
   TS,
@@ -145,6 +146,19 @@ describe("language status pill", () => {
 
     expect(view.stderr).toBeNull();
     expect(view.why).toContain("It wrote nothing to stderr.");
+  });
+
+  test("a stopped server retains its last log message without stderr or an open log tab", () => {
+    const runtime = LanguageRuntime.cases.Stopped.make({
+      reason: "crash-budget",
+      failure: { attempts: 3, stderr: "", lastLogLine: "Project configuration rejected" },
+    });
+
+    const view = statusView(input({ runtimes: [running(runtime)] }));
+
+    expect(view.stderr).toBe("Project configuration rejected");
+    expect(view.why).toContain("The last error is in the log.");
+    expect(ids(view)).toEqual(["restart", "show-log"]);
   });
 
   test("an idle stop is hollow, never the failed hue", () => {

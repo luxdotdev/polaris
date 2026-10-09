@@ -110,6 +110,9 @@ export const LanguageRuntime = deferredSchema(() =>
         Schema.Struct({
           attempts: LanguageCounter,
           stderr: Schema.String.check(Schema.isMaxLength(4096)),
+          lastLogLine: Schema.optionalKey(
+            Schema.NullOr(Schema.String.check(Schema.isMaxLength(4096)))
+          ),
         })
       ),
     },

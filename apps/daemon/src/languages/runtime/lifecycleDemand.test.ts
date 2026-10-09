@@ -386,3 +386,53 @@ test("a retrying process failure retains its typed reason and last stderr line",
     await f.dispose();
   }
 });
+
+test("crash-budget exhaustion retains the last server log when stderr is empty", async () => {
+  const f = await fixture("log-only");
+
+  try {
+    const original = await f.acquire();
+    await f.open("one", original.context);
+
+    for (let i = 0; i < 3; i++) {
+      await until(async () => Predicate.isTagged((await f.acquire()).runtime, "Ready"));
+      const current = await f.acquire();
+      const signal = new AbortController();
+      const timeout = setTimeout(() => signal.abort(), 5000);
+      let observed = false;
+
+      try {
+        for await (const event of f.broker.watchLog("one", current.context, signal.signal)) {
+          const lines = Predicate.isTagged(event, "Snapshot") ? event.lines : [event.line];
+
+          if (lines.some((line) => line.text === "private fixture show")) {
+            observed = true;
+            break;
+          }
+        }
+      } finally {
+        clearTimeout(timeout);
+        signal.abort();
+      }
+
+      expect(observed).toBe(true);
+      process.kill(f.processes[i]!.pid, "SIGKILL");
+      await f.processes[i]!.exited;
+      await until(async () =>
+        i < 2
+          ? f.processes.length > i + 1
+          : Predicate.isTagged((await f.acquire()).runtime, "Stopped")
+      );
+    }
+
+    const { runtime } = await f.acquire();
+    expect(Predicate.isTagged(runtime, "Stopped")).toBe(true);
+
+    if (!Predicate.isTagged(runtime, "Stopped")) throw new Error("Missing stopped runtime");
+    expect(runtime.reason).toBe("crash-budget");
+    expect(runtime.failure?.stderr).toBe("");
+    expect(runtime.failure?.lastLogLine).toBe("private fixture show");
+  } finally {
+    await f.dispose();
+  }
+});

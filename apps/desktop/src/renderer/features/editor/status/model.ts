@@ -345,7 +345,9 @@ const stopped = (
 
   if (runtime.reason === "crash-budget") {
     const attempts = runtime.failure?.attempts ?? 3;
-    const stderr = runtime.failure?.stderr?.trim() || input.lastLogLine || "";
+
+    const stderr =
+      runtime.failure?.stderr?.trim() || runtime.failure?.lastLogLine || input.lastLogLine || "";
 
     return {
       ...b,

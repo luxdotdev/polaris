@@ -78,7 +78,7 @@ export function bindLifecycle(ports: {
         })
       : LanguageRuntime.cases.Stopped.make({
           reason: exhausted ? "crash-budget" : "no-demand",
-          failure: { attempts: entry.attempts, stderr: entry.stderr },
+          failure: { attempts: entry.attempts, stderr: entry.stderr, lastLogLine },
         });
     publishReplacement(entry, identity);
     state(entry, entry.runtime);
