@@ -1,6 +1,11 @@
 import { Context, Effect, Layer, Schema } from "effect";
 import { LanguageError, type LanguageAvailability } from "@polaris/protocol";
-import type { ObservationAdmission, HostInstallation, RequestGuard } from "../install/host.ts";
+import type {
+  ObservationAdmission,
+  HostInstallation,
+  RequestGuard,
+  InstallationInspection,
+} from "../install/host.ts";
 import type { InstalledVersion, Progress, InstallHandle } from "../install/index.ts";
 
 const normalize = (cause: unknown) =>
@@ -19,7 +24,8 @@ export class HostLanguageInstallation extends Context.Service<
       toolId: string,
       phase: "install" | "feature",
       trusted: boolean,
-      admission?: ObservationAdmission
+      admission?: ObservationAdmission,
+      inspection?: InstallationInspection
     ) => Effect.Effect<LanguageAvailability, LanguageError>;
     install: (
       toolId: string,
@@ -57,10 +63,11 @@ export class HostLanguageInstallation extends Context.Service<
             toolId: string,
             phase: "install" | "feature",
             trusted: boolean,
-            admission?: ObservationAdmission
+            admission?: ObservationAdmission,
+            inspection?: InstallationInspection
           ) =>
             Effect.tryPromise({
-              try: (signal) => host.inspect(toolId, phase, trusted, admission, signal),
+              try: (signal) => host.inspect(toolId, phase, trusted, admission, signal, inspection),
               catch: normalize,
             })
         ),

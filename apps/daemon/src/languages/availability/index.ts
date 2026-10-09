@@ -20,6 +20,8 @@ export interface AvailabilityInput {
   readonly installed: InstalledVersion | null;
   readonly progress?: Progress | undefined;
   readonly checkedAt: number;
+  /** Managed launch admission installs private Node before reserving the selected server. */
+  readonly deferManagedNode?: boolean;
 }
 
 /** Demand-driven observations only: no polling, executable probes, trust grants or launch decisions. */
@@ -28,7 +30,9 @@ export function availability(input: AvailabilityInput): LanguageAvailability {
   const platform = validatePlatform(input.platform);
 
   const checked = preflight({
-    tool,
+    tool: input.deferManagedNode
+      ? { ...tool, requirements: tool.requirements.filter((item) => item.id !== "node") }
+      : tool,
     platform,
     probes: input.probes,
     phase: input.phase === "install" ? "install" : "features",

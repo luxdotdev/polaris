@@ -1,3 +1,4 @@
+import { providerAvailability } from "./managedAvailability.ts";
 import { PrivateNodeRuntime } from "./privateNode.ts";
 import { createPythonEnvironment, PythonEnvironment } from "../python/environment.ts";
 import { PythonCore } from "../python/core.ts";
@@ -114,6 +115,10 @@ export const languageHostServices = (
 
           const adapters = managedLaunchAdapters({
             host,
+            pinnedProviders:
+              options.managed === undefined
+                ? []
+                : ["typescript-language-server", "basedpyright", "ruff"],
             ledger,
             plan: options.managed?.plan,
             toolId: (facts) => {
@@ -137,28 +142,15 @@ export const languageHostServices = (
 
           return LanguageProviderAccess.of({
             availability: (toolId, phase, trusted, admission, settings) =>
-              Effect.gen(function* () {
-                if (
-                  ["typescript-language-server", "basedpyright", "ruff"].includes(toolId) &&
-                  phase === "feature" &&
-                  options.managed !== undefined &&
-                  admission !== undefined &&
-                  settings !== undefined
-                )
-                  yield* Effect.tryPromise({
-                    try: (signal) => options.managed!.ensure(settings, admission, signal, toolId),
-                    catch: installationError,
-                  });
-
-                return yield* installation.inspect(
-                  toolId,
-                  phase,
-                  trusted ||
-                    (["typescript-language-server", "basedpyright", "ruff"].includes(toolId) &&
-                      options.managed !== undefined),
-                  admission
-                );
-              }),
+              providerAvailability(
+                installation,
+                options.managed,
+                toolId,
+                phase,
+                trusted,
+                admission,
+                settings
+              ),
             reserveLaunch: (request) =>
               configuredExecutable(request.facts) === undefined
                 ? (async () => {
