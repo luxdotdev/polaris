@@ -23,3 +23,7 @@ Trust replacements, an executable override, nested directory discovery and recon
 `observations.test.ts` covers shared pending reads, isolation and invalidation races.
 Main's language bridge retains one authenticated registration feed and folds actual
 Workspace, Worktree and Review Checkout events before authorizing each operation.
+
+A typed stale-generation failure between acquisition and watch reacquires retained
+buffers, with three consecutive retries before becoming unavailable (ADR 0027).
+An owned Snapshot resets that bound; authorization failures never retry.

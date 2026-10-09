@@ -39,6 +39,7 @@ export class EditorLanguageSession {
   private unwatch: (() => void) | null = null;
   private opening: Promise<void> | null = null;
   private scheduled = false;
+  private staleWatches = 0;
   private readonly dirty = new Set<string>();
 
   constructor(
@@ -142,8 +143,17 @@ export class EditorLanguageSession {
         items: (events) => {
           if (!this.stopped && epoch === this.epoch) for (const event of events) this.event(event);
         },
-        end: () => {
-          if (!this.stopped && epoch === this.epoch) this.unavailable();
+        end: (error) => {
+          if (this.stopped || epoch !== this.epoch) return;
+
+          if (
+            error !== null &&
+            languageIpcError(error).reason === "stale-generation" &&
+            this.staleWatches < 3
+          ) {
+            this.staleWatches++;
+            this.reacquire();
+          } else this.unavailable();
         },
       }
     );
@@ -177,6 +187,18 @@ export class EditorLanguageSession {
     this.changed();
   }
 
+  private reacquire() {
+    this.epoch++;
+    this.capabilities = null;
+    this.runtimeReady = false;
+    this.sent.clear();
+    this.unwatch?.();
+    this.unwatch = null;
+    this.changed();
+    this.opening = this.enqueue(() => this.acquire());
+    void this.opening.catch(() => this.unavailable());
+  }
+
   private event(raw: P.LanguageContextEvent) {
     const event = Schema.decodeUnknownSync(P.LanguageContextEvent)(raw);
     const context = this.context;
@@ -193,6 +215,7 @@ export class EditorLanguageSession {
           return;
         }
 
+        this.staleWatches = 0;
         this.runtime(value.runtime);
 
         if (value.ack.acceptedSequence >= (this.ack?.acceptedSequence ?? 0)) this.ack = value.ack;
@@ -221,15 +244,7 @@ export class EditorLanguageSession {
       }),
       Match.tag("Replaced", (value) => {
         if (!sameContext(context, value.context)) return;
-        this.epoch++;
-        this.capabilities = null;
-        this.runtimeReady = false;
-        this.sent.clear();
-        this.unwatch?.();
-        this.unwatch = null;
-        this.changed();
-        this.opening = this.enqueue(() => this.acquire());
-        void this.opening.catch(() => this.unavailable());
+        this.reacquire();
       }),
       Match.tag("Invalidated", (value) => {
         if (sameContext(context, value.context)) this.unavailable();
