@@ -5,6 +5,7 @@
 import type * as P from "@polaris/protocol";
 import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
+import { formatRoute } from "../formatting/project.ts";
 
 export type Runtime = typeof P.LanguageRuntime.Type;
 
@@ -105,7 +106,9 @@ export const statusDiscovered = (key: string, found: typeof P.LanguageDiscovery.
     checkout: found.checkout,
     providers: found.providers,
     formatter:
-      found.projectFormatter === undefined || found.projectFormatter === null
+      formatRoute(found.effectiveSettings.formatter, found.projectFormatter) === "server" ||
+      found.projectFormatter === undefined ||
+      found.projectFormatter === null
         ? null
         : {
             tool: found.projectFormatter.tool,
