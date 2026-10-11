@@ -1,0 +1,44 @@
+/* Hover tooltips (DESIGN.md, Editor: Hover): signature first in the code font, docs below a hairline. */
+.polaris-md.polaris-hover-md {
+  line-height: 18px;
+
+  /* Streamdown's root spaces blocks 16px apart (`space-y-4`); a hover sits 6px apart. */
+  & > * {
+    margin-block: 0;
+  }
+
+  & > * + * {
+    margin-top: 6px;
+  }
+
+  /* No card, header or copy for a fence: a compact sunken surface in the editor's code font. */
+  & [data-streamdown="code-block"] {
+    border: 0;
+    border-radius: var(--radius-control);
+    /* Streamdown sets these inline; in a tooltip an unpainted block reserves 200px of blank space. */
+    content-visibility: visible !important;
+    contain-intrinsic-size: none !important;
+    margin-block: 0;
+  }
+
+  & [data-streamdown="code-block-header"],
+  & [data-streamdown="code-block-actions"] {
+    display: none;
+  }
+
+  & [data-streamdown="code-block-body"] {
+    border-top: 0;
+    overflow: visible;
+    padding: 6px 8px;
+  }
+
+  /* Long signatures wrap, keeping their own indentation, instead of scrolling sideways. */
+  & [data-streamdown="code-block-body"] pre {
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+  }
+
+  & hr {
+    margin-block: 8px;
+  }
+}
