@@ -3,6 +3,7 @@
  * HTML skipped, fences highlighted in the moonlit theme, https links only.
  */
 import "../../session/ui/markdown/markdown.css";
+import "./hover.css";
 import { type Components, Streamdown } from "streamdown";
 import { needsOf } from "../../session/ui/markdown/needs.ts";
 import { usePlugins } from "../../session/ui/markdown/plugins.ts";
