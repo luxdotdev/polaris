@@ -154,12 +154,20 @@ const validateHandoff = (handoff: Handoff): Handoff => {
   ];
 
   for (const fd of fds) {
-    if (fd < 3 || fd > 0x7fff_ffff || libc.isCloseOnExec(fd))
+    const closeOnExec = libc.isCloseOnExec(fd);
+
+    // Linux Bun sets this flag during startup; validate the inherited resource instead (ADR-0023).
+    if (fd < 3 || fd > 0x7fff_ffff || (process.platform !== "linux" && closeOnExec))
       throw new Error(`fd ${fd} was not inherited across execve`);
   }
 
   if (handoff.listenerFd !== null && !libc.isListeningSocket(handoff.listenerFd))
     throw new Error("hand-off listener is not a listening socket");
+
+  for (const fd of Object.values(handoff.fds)) {
+    if (!libc.isStreamSocket(fd) && libc.ptsname(fd) === null)
+      throw new Error("hand-off child descriptor is not a stream socket or PTY");
+  }
 
   for (const fd of fds) libc.setCloseOnExec(fd);
 

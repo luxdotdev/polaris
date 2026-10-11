@@ -16,6 +16,7 @@ import {
   LanguageEffectiveSettings,
   LanguageFormatterSelection,
   LanguageContextIdentity,
+  LanguageInstallation,
 } from "@polaris/protocol";
 
 async function hostFixture(overrides: Partial<HostInstallationOptions> = {}) {
@@ -104,6 +105,36 @@ test("immutable Host construction and simultaneous first encounters/manual reque
     expect((await host.inspect("fake-tool", "feature", false)).preflight).toMatchObject({
       reason: "awaiting-trust",
     });
+  } finally {
+    await f.close();
+  }
+});
+
+test("a preflight timeout is typed and retryable, releases demand, and a fresh inspection succeeds", async () => {
+  let slow = true;
+
+  const f = await hostFixture({
+    preflightTimeoutMs: 20,
+    observe: async (_tool, _phase, _trusted, signal) => {
+      if (slow)
+        await new Promise<void>((resolve) =>
+          signal.addEventListener("abort", () => resolve(), { once: true })
+        );
+
+      return { connected: true, probes: [] };
+    },
+  });
+
+  try {
+    const host = await f.registry.get(f.options);
+    await rejects(host.inspect("fake-tool", "install", true), {
+      reason: "timeout",
+      retryable: true,
+    });
+    expect(host.stats()).toMatchObject({ requests: 0 });
+    slow = false;
+    expect((await host.inspect("fake-tool", "install", true)).preflight._tag).toBe("Eligible");
+    expect(host.stats()).toMatchObject({ requests: 0, observations: 0 });
   } finally {
     await f.close();
   }
@@ -565,6 +596,95 @@ test("launch resolver requires the selected version's exact approval and a verif
     await rejects(resolver.resolveLaunch(facts, lease, request), { reason: "conflict" });
     ledger.dispose();
   } finally {
+    await f.close();
+  }
+});
+
+test("managed discovery defers absent private Node while preserving approval and installed facts", async () => {
+  const f = await hostFixture();
+
+  const tool = {
+    ...f.source.tool,
+    requirements: [
+      {
+        id: "node",
+        scope: "server",
+        executable: "node",
+        version: ">=24.18.0",
+        required: true,
+        detail: "Private Polaris Node",
+      },
+    ],
+  };
+
+  try {
+    let approved = true;
+
+    const host = await f.registry.get({
+      ...f.options,
+      tools: [tool],
+      adapters: {
+        ...f.options.adapters,
+        approve: async (exact) => ({ approved, identity: exact.identity }),
+      },
+    });
+
+    const admission = { cwd: f.parent, requireCurrent: async () => {} };
+    const ordinary = await host.inspect("fake-tool", "install", true, admission);
+
+    expect(ordinary.preflight).toMatchObject({ reason: "missing-prerequisite" });
+
+    const pending = await host.inspect("fake-tool", "install", true, admission, undefined, {
+      deferManagedNode: true,
+    });
+
+    expect(pending.preflight).toMatchObject({ artifactId: "fake" });
+    expect(pending.prerequisites[0]?.outcome).toBe("missing");
+    expect(pending.installation).toEqual(LanguageInstallation.cases.NotInstalled.make({}));
+    expect(await host.current("fake-tool")).toBeNull();
+    expect(f.counts().downloads).toBe(0);
+    approved = false;
+
+    const denied = await host.inspect("fake-tool", "install", true, admission, undefined, {
+      deferManagedNode: true,
+    });
+
+    expect(denied.preflight).toMatchObject({ reason: "audit-required" });
+    expect(f.counts().downloads).toBe(0);
+  } finally {
+    await f.close();
+  }
+});
+
+test("pinned inspection preserves Trust and refuses a retained descriptor from another pin", async () => {
+  const f = await hostFixture();
+  const next = createHostInstallations();
+
+  try {
+    const host = await f.registry.get(f.options);
+    await (
+      await host.install("fake-tool", "install", async () => {})
+    ).result;
+
+    const untrusted = await host.inspect("fake-tool", "feature", false, undefined, undefined, {
+      pinned: true,
+    });
+
+    expect(untrusted.preflight).toMatchObject({ reason: "awaiting-trust" });
+    await f.registry.dispose();
+
+    const updated = await next.get({ ...f.options, tools: [artifactFixture("2.0.0").tool] });
+    const retained = await updated.inspect("fake-tool", "feature", true);
+
+    expect(retained.installation).toMatchObject({ version: "1.0.0" });
+    expect(retained.updateCandidate).toBe("2.0.0");
+    expect(retained.preflight).toMatchObject({ artifactId: "fake" });
+    await rejects(
+      updated.inspect("fake-tool", "feature", true, undefined, undefined, { pinned: true }),
+      { reason: "conflict" }
+    );
+  } finally {
+    await next.dispose();
     await f.close();
   }
 });

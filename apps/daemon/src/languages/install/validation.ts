@@ -238,7 +238,7 @@ export async function collect(
 
       if (chunks.length >= limits.entries)
         throw failure("too-large", "Download chunk count exceeds limit");
-      chunks.push(Uint8Array.from(next.value));
+      chunks.push(new Uint8Array(next.value));
       progress(size);
     }
 

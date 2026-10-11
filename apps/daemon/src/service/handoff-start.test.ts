@@ -8,6 +8,30 @@ import { setTimeout as sleep } from "node:timers/promises";
 
 const fixture = join(import.meta.dir, "fixtures/handoff-start.ts");
 
+test.skipIf(process.platform !== "linux")(
+  "accepts Linux startup flags on inherited sockets",
+  () => {
+    const home = mkdtempSync("/tmp/phf-");
+
+    try {
+      const result = spawnSync(
+        process.execPath,
+        [join(import.meta.dir, "fixtures/handoff-flags.ts")],
+        {
+          env: { ...process.env, POLARIS_HOME: home },
+          encoding: "utf8",
+          timeout: 20000,
+        }
+      );
+
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain("PASS:");
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  }
+);
+
 test("the full source Daemon cold-starts under an inherited invalid listener", async () => {
   const home = mkdtempSync("/tmp/phm-");
 
@@ -86,7 +110,16 @@ test("the full source Daemon cold-starts under an inherited invalid listener", a
   }
 }, 25_000);
 
-for (const mode of ["closed", "stdio", "file", "connected", "foreign", "children", "cloexec"]) {
+for (const mode of [
+  "closed",
+  "stdio",
+  "file",
+  "connected",
+  "foreign",
+  "children",
+  "cloexec",
+  "file-child",
+]) {
   test(`ignores a ${mode} hand-off without closing unrelated descriptors`, () => {
     const home = mkdtempSync("/tmp/phs-");
 

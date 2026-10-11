@@ -48,6 +48,49 @@ async function fixture() {
   return { root, executable, close: () => rm(root, { recursive: true, force: true }) };
 }
 
+test("retry cancellation during prior observation cleanup preserves consumer accounting", async () => {
+  const entered = latch();
+  const finish = latch();
+  const lifetime = new AbortController();
+  let runs = 0;
+
+  const jobs = createDemandObservations({
+    lifetime: lifetime.signal,
+    observe: async () => {
+      if (++runs === 1) {
+        entered.resolve();
+        await finish.promise;
+      }
+
+      return { connected: true, probes: [] };
+    },
+  });
+
+  const selected = { ...tool, requirements: [] };
+  const first = new AbortController();
+  const initial = jobs.observe(selected, "install", true, first.signal);
+
+  await entered.promise;
+  first.abort();
+  await rejects(initial, { reason: "cancelled" });
+
+  const retry = new AbortController();
+  const retrying = jobs.observe(selected, "install", true, retry.signal);
+
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  retry.abort();
+  await rejects(retrying, { reason: "cancelled" });
+  finish.resolve();
+  expect(await jobs.observe(selected, "install", true, lifetime.signal)).toEqual({
+    connected: true,
+    probes: [],
+  });
+  expect(runs).toBe(2);
+  expect(jobs.stats()).toEqual({ observations: 0, inspections: 0 });
+  lifetime.abort();
+  await jobs.dispose();
+});
+
 test("guarded observations refuse boolean-only authority and retain requirement-free no-exec observations", async () => {
   let runs = 0;
 

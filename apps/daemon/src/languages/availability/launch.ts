@@ -5,7 +5,12 @@ import { Match } from "effect";
 import type { DiscoveryFacts } from "../discovery/index.ts";
 import type { Launch } from "../runtime/process.ts";
 import type { LaunchAdmissionRequest, LaunchSelectionLease } from "../runtime/launchAdmission.ts";
-import type { ObservationAdmission, HostInstallation, RequestGuard } from "../install/host.ts";
+import type {
+  ObservationAdmission,
+  HostInstallation,
+  RequestGuard,
+  InstallationInspection,
+} from "../install/host.ts";
 import type { InstalledVersion } from "../install/index.ts";
 import type { createSelectionLedger } from "../install/selection-ledger.ts";
 import { checkAbort, failure } from "../install/validation.ts";
@@ -21,6 +26,7 @@ export interface VerifiedLaunchPlan {
 
 interface ManagedLaunchOptions {
   readonly host: HostInstallation;
+  readonly pinnedProviders?: readonly string[];
   readonly ledger: ReturnType<typeof createSelectionLedger>;
   readonly toolId: (facts: DiscoveryFacts) => string;
   readonly requireCurrent: (request: LaunchAdmissionRequest) => RequestGuard;
@@ -46,7 +52,8 @@ async function verifyPlan(
   plan: VerifiedLaunchPlan,
   assertCurrent: () => void,
   admission: ObservationAdmission,
-  signal: AbortSignal
+  signal: AbortSignal,
+  inspection?: InstallationInspection
 ) {
   if (
     !facts.bundledTypeScript &&
@@ -101,7 +108,7 @@ async function verifyPlan(
     throw failure("missing-prerequisite", "Provider executable path could not be verified");
 
   if (inside.startsWith("..") || isAbsolute(inside)) {
-    const inspected = await host.inspect(toolId, "feature", true, admission, signal);
+    const inspected = await host.inspect(toolId, "feature", true, admission, signal, inspection);
     assertCurrent();
     eligible(inspected);
 
@@ -124,6 +131,8 @@ async function verifyPlan(
 
 /** Runtime owns lease release through raw child/connection cleanup. Use the installer's same Host ledger. */
 export function managedLaunchAdapters(options: ManagedLaunchOptions) {
+  const pinnedProviders = new Set(options.pinnedProviders);
+
   const owned = new WeakMap<
     LaunchSelectionLease,
     { request: LaunchAdmissionRequest; toolId: string; admission: ObservationAdmission }
@@ -148,6 +157,7 @@ export function managedLaunchAdapters(options: ManagedLaunchOptions) {
     };
 
     assertRequest();
+    const inspection = pinnedProviders.has(request.facts.providerId) ? { pinned: true } : undefined;
     const guard = options.requireCurrent(request);
 
     const admission = Object.freeze({
@@ -159,7 +169,16 @@ export function managedLaunchAdapters(options: ManagedLaunchOptions) {
     await guard(signal);
     assertRequest();
     const toolId = options.toolId(request.facts);
-    const inspected = await options.host.inspect(toolId, "feature", true, admission, signal);
+
+    const inspected = await options.host.inspect(
+      toolId,
+      "feature",
+      true,
+      admission,
+      signal,
+      inspection
+    );
+
     assertRequest();
     eligible(inspected);
     await guard(signal);
@@ -188,7 +207,16 @@ export function managedLaunchAdapters(options: ManagedLaunchOptions) {
 
         if (current?.identity !== installed.identity)
           throw failure("conflict", "Managed tool selection changed", true);
-        const inspected = await options.host.inspect(toolId, "feature", true, admission, signal);
+
+        const inspected = await options.host.inspect(
+          toolId,
+          "feature",
+          true,
+          admission,
+          signal,
+          inspection
+        );
+
         assertCurrent();
         eligible(inspected);
         await guard(signal);
@@ -243,7 +271,8 @@ export function managedLaunchAdapters(options: ManagedLaunchOptions) {
       plan,
       () => lease.assertCurrent(),
       binding.admission,
-      signal
+      signal,
+      pinnedProviders.has(facts.providerId) ? { pinned: true } : undefined
     );
     await lease.validate(signal);
     lease.assertCurrent();

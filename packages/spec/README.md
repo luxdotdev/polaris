@@ -663,6 +663,30 @@ implements this projection; `composition/hostState.ts` checks the current
 connection and closes feeds on disconnection. Reads need neither checkout nor
 Trust and never affect execution admission.
 
+Installer byte progress is rate-bounded to 10 updates/second; phase transitions
+publish immediately with exact byte totals. This uses no timers or durable events
+and leaves the projection's single pending snapshot and install deadline unchanged.
+
+Managed provider discovery checks pinned artifact approval/platform and developer
+prerequisites without awaiting downloads. Private Node is deferred to the broker's
+existing `Starting` launch admission; installer facts still report it as missing.
+Trust/settings revocation and disconnect cancel that admission before launch or
+activation. `composition/managedAvailability.test.ts`, `install/host.test.ts` and
+`runtime/lifecycleDemand.test.ts` check eligibility, guards and held-launch fences.
+No command acknowledgment, lifecycle transition, durable event or timeout changes.
+
+Pinned managed launch inspection overlaps prerequisite observations with complete
+stored-file verification and rejects a descriptor differing from the exact pin.
+`install/verificationBatches.test.ts` bounds file count/buffer bytes;
+`install/host.test.ts` retains Trust and retained-version/refusal behavior. Reads
+still verify every stored hash and path; no completed proof cache is introduced.
+
+Overlapping verification shares only work in flight and discards it at settlement.
+Host state reads inspect four rows at a time and reuse private Node verification
+only within that read. `install/install.test.ts` checks reader isolation, later
+corruption and recovery; `install/hostState.test.ts` checks bounds and fresh reads.
+The snapshot/coalescing model and observed trace adapter remain the same.
+
 `apps/daemon/src/verification/hostState.test.ts` compares 2,000 installer/feed
 steps against the projection and records/replays a real installer fixture via
 `packages/spec/scripts/host-state/`. Write a fresh trace with
@@ -684,3 +708,18 @@ The existing `language-runtime.qnt` Restart transition and runtime model/trace
 checks remain authoritative for process recovery, acknowledgments and fencing.
 `python/detection.test.ts` checks real filesystem detection and persisted CAS;
 `python/live.testing.ts` checks real authenticated Python RPC selection and drafts.
+
+Slice 6 renderer watch reacquisition (ADR 0027) preserves the existing context
+generation and acknowledgment fences. `sessions.test.ts` covers a replacement
+between acquisition and watch, retained unsaved text, bounded stale retries and
+rejected authority. Daemon command decisions and lifecycle transitions are unchanged.
+
+Slice 6 clean-view preview checks (ADR 0030) retain independent Client tuples
+outside the provider's captured document fence. `refactors/cleanSnapshot.test.ts`
+checks exact disk-only matching and rejects dirty text, disk changes, missing
+acknowledgments for fenced documents and same-text revision changes before
+persistence or Host mutation. Host preparation, provenance and acceptance
+fences remain unchanged; no Host buffer acknowledgment is inferred.
+
+
+Language runtime failure snapshots may carry the typed `LanguageError` reason and a bounded last stderr/log line. These are optional diagnostic fields, compatible with older snapshots; they do not change retry, generation, queue or acknowledgment decisions. `runtime/lifecycleDemand.test.ts` verifies that actual process failure retains this evidence before the generation is retired. Lazy first-use cancellation and Daemon Scope disposal are checked by `transport/lazy.test.ts`; initialization publishes its cached Exit before observing requesting-Client cancellation (ADR 0031).

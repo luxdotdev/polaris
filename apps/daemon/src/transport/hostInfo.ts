@@ -5,9 +5,10 @@ import { join } from "node:path";
 import { HostId, HostInfo, Platform } from "@polaris/protocol";
 import { Effect, Schema } from "effect";
 import { ServiceError } from "../services.ts";
+import { VERSION } from "../service/platform.ts";
 
 /** The Daemon's version; `polaris version` and `hello` report it. */
-export const DAEMON_VERSION = "0.0.0";
+export const DAEMON_VERSION = VERSION;
 
 const platformOf = (os: string, arch: string) =>
   Schema.decodeUnknownEffect(Platform)(`${os}-${arch}`).pipe(

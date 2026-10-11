@@ -97,7 +97,12 @@ function checkType(
     );
 }
 
-function entry(header: Buffer, select?: (path: string) => boolean, longPath?: string) {
+function entry(
+  header: Buffer,
+  select?: (path: string) => boolean,
+  longPath?: string,
+  gnuHeaders = false
+) {
   let sum = 0;
 
   for (let index = 0; index < 512; index++)
@@ -108,10 +113,13 @@ function entry(header: Buffer, select?: (path: string) => boolean, longPath?: st
   const magic = text(header, 257, 6);
   const gnu = magic === "ustar " && header[263] === 32 && header[264] === 0;
 
-  if (magic !== "ustar" && !(gnu && select !== undefined))
+  if (magic !== "ustar" && !(gnu && (select !== undefined || gnuHeaders)))
     throw failure("install-failed", "Unsupported archive header format");
   const type = header[156];
   const path = archivePath(header, gnu, longPath);
+
+  if (path === null && select === undefined)
+    throw failure("install-failed", "Unselected archive extensions are not permitted");
   const kind: "directory" | "file" = type === 53 ? "directory" : "file";
 
   checkType(type, path, select);
@@ -145,12 +153,13 @@ function retainEntry(
   return undefined;
 }
 
-/** POSIX ustar; selected Node files also accept GNU long names, without extracting links or extensions. */
+/** GNU regular headers are opt-in; selected Node files additionally support long names (ADR 0028). */
 export function tarEntries(
   bytes: Uint8Array,
   signal: AbortSignal,
   limits: InstallLimits = defaultLimits,
-  select?: (path: string) => boolean
+  select?: (path: string) => boolean,
+  gnuHeaders = false
 ) {
   if (bytes.length > limits.expandedBytes + limits.entries * 1024)
     throw failure("too-large", "Archive exceeds expansion and header limits");
@@ -173,7 +182,7 @@ export function tarEntries(
     }
 
     if (++count > limits.entries) throw failure("too-large", "Archive entry count exceeds limit");
-    const parsed = entry(header, select, longPath);
+    const parsed = entry(header, select, longPath, gnuHeaders);
     expanded += parsed.size;
 
     if (parsed.size > limits.fileBytes || expanded > limits.expandedBytes)

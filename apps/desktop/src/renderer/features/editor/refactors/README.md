@@ -17,6 +17,11 @@ acknowledged snapshot. `validate` independently verifies the current
 connection, context generation/fence, expiry, document versions and exact resource
 snapshots. G2 repeats verification after Host lock waits.
 
+A clean open view outside the provider's captured document fence may match an
+exact non-null Host disk snapshot. The full local tuple remains in the original
+inventory and is rechecked at acceptance; dirty views still require acknowledged
+snapshots. See ADR 0030 and `cleanSnapshot.test.ts`.
+
 The whole bounded `DraftGroup` is persisted in one strict IndexedDB transaction.
 Only transaction completion plus readback permits `draftReceipt`. Original dirty
 texts/revisions and the complete ordered decoded proposal are retained through

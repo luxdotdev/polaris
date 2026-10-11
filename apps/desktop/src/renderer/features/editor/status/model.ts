@@ -1,3 +1,4 @@
+import { failureDetail, failureReason } from "./failureCopy.ts";
 /**
  * The language status pill and its popover (DESIGN.md, Editor: Language status; Paper L1, L3):
  * one pure reading of what the Daemon reported for the open file.
@@ -92,6 +93,7 @@ export interface StatusInput {
   readonly now: number;
   /** A Python file's interpreters, once the Host has listed them. */
   readonly python?: Interpreters | null;
+  readonly lastLogLine?: string | null;
 }
 
 const TS = "typescript-language-server";
@@ -289,7 +291,10 @@ const failureView = (
   input: StatusInput,
   failure: NonNullable<FileLanguage["failure"]>
 ): StatusView => {
-  const b = base(input, null);
+  const providerId =
+    input.runtimes[0]?.context.providerId ?? input.file?.providers[0]?.providerId ?? null;
+
+  const b = base(input, providerId);
   const checkAgain: StatusAction = { id: "check-again", label: "Check again" };
 
   const copy = Match.value(failure.reason).pipe(
@@ -308,8 +313,11 @@ const failureView = (
     Match.orElse((): FailureCopy => ({
       word: "unavailable",
       title: `${input.language} tools didn't start`,
-      why: `${failure.message} (${failure.reason}). Highlighting works meanwhile.`,
-      actions: [checkAgain, b.settings],
+      why: `${failureReason(failure.reason, input.host)} Highlighting works meanwhile.`,
+      actions:
+        failure.reason === "server-failed"
+          ? [b.restart, b.log, b.settings]
+          : [checkAgain, b.settings],
     }))
   );
 
@@ -320,6 +328,7 @@ const failureView = (
     pill: pill(input, copy.word),
     title: copy.title,
     why: copy.why,
+    stderr: failureDetail(input.lastLogLine ?? failure.message),
     actions: copy.actions,
   };
 };
@@ -336,7 +345,9 @@ const stopped = (
 
   if (runtime.reason === "crash-budget") {
     const attempts = runtime.failure?.attempts ?? 3;
-    const stderr = runtime.failure?.stderr ?? "";
+
+    const stderr =
+      runtime.failure?.stderr?.trim() || runtime.failure?.lastLogLine || input.lastLogLine || "";
 
     return {
       ...b,
@@ -346,7 +357,7 @@ const stopped = (
       pill: pill(input, "stopped"),
       title: `${b.name} stopped`,
       why: `The server crashed ${attempts} times in 2 minutes, so Polaris stopped restarting it. ${stderr.trim() === "" ? "It wrote nothing to stderr." : "The last error is in the log."}`,
-      stderr: stderr.trim() === "" ? null : lastLines(stderr, 6),
+      stderr: stderr.trim() === "" ? null : lastLines(stderr, 1),
       actions: [b.restart, b.log],
     };
   }
@@ -389,9 +400,17 @@ const serverFact = (
   provider: Discovered | undefined,
   runtime: ContextRuntime
 ) => {
+  const up = `up ${duration(input.now - runtime.since)}`;
+
+  if (
+    runtime.context.providerId === TS &&
+    input.trust?.provider === "project" &&
+    input.trust.wouldRun.native
+  )
+    return { label: "Server", value: "TypeScript native server", mono: true, note: up };
+
   const launch = provider?.launch ?? null;
   const executable = launch === null ? null : executableName(launch.executable);
-  const up = `up ${duration(input.now - runtime.since)}`;
 
   if (executable === null || executable === "node") {
     const v = version(input.tools, runtime.context.providerId);
@@ -563,6 +582,21 @@ const runtimeView = (input: StatusInput, current: ContextRuntime): StatusView =>
     Match.tag("Failed", (runtime) => {
       const b = base(input, providerId);
 
+      if (runtime.retryAt === null)
+        return {
+          ...b,
+          kind: "stopped" as const,
+          mark: "failed" as const,
+          tone: "failed" as const,
+          pill: pill(input, "stopped"),
+          title: `${b.name} couldn't start`,
+          why: failureReason(runtime.failure?.reason ?? "server-failed", input.host),
+          stderr: failureDetail(
+            runtime.failure?.lastLogLine ?? input.lastLogLine ?? runtime.message
+          ),
+          actions: [b.restart, b.log],
+        };
+
       return {
         ...b,
         kind: "restarting" as const,
@@ -570,7 +604,8 @@ const runtimeView = (input: StatusInput, current: ContextRuntime): StatusView =>
         pill: pill(input, "restarting"),
         title: `Restarting the ${b.name} server`,
         why: `It exited unexpectedly (${runtime.attempts} so far). After 3 crashes in 2 minutes Polaris stops restarting it.`,
-        actions: [b.log],
+        stderr: failureDetail(runtime.failure?.lastLogLine ?? input.lastLogLine ?? runtime.message),
+        actions: [b.restart, b.log],
       };
     }),
     Match.tag("Unsupported", (runtime) => {

@@ -6,6 +6,7 @@ import { polaris } from "../../bridge.ts";
 import { fileKey } from "../model/drafts.ts";
 import { useTrustStatus } from "../trust/store.ts";
 import { useInterpreters } from "../python/store.ts";
+import { logKey, useServerLog } from "./log.ts";
 import { watchHostTools } from "./feed.ts";
 import { statusView, type StatusView } from "./model.ts";
 import {
@@ -28,6 +29,17 @@ export const useLanguageStatus = (
   const trust = useTrustStatus(key);
   const tools = useHostTools(hostKey);
   const python = useInterpreters(key);
+
+  const log = useServerLog(
+    file?.checkout == null
+      ? ""
+      : logKey({
+          hostKey,
+          checkout: file.checkout,
+          providerId: file.providers[0]?.providerId ?? "",
+        })
+  );
+
   const host = useApp((s) => s.hosts.find((h) => h.key === hostKey));
 
   const workspace = useApp(
@@ -57,18 +69,19 @@ export const useLanguageStatus = (
       workspace,
       now: Date.now(),
       python,
+      lastLogLine: log?.lines.at(-1)?.text ?? null,
     });
 
     return { ...view, file };
-  }, [file, runtimes, trust, tools, host, workspace, language, hostKey, python]);
+  }, [file, runtimes, trust, tools, host, workspace, language, hostKey, python, log]);
 };
 
 /** Install facts for the Host while something needs them; the watch ends with the need. */
-export const useHostToolsWatch = (hostKey: string, active: boolean) =>
+export const useHostToolsWatch = (hostKey: string, language: string, active: boolean) =>
   useEffect(() => {
     const api = polaris().languages;
 
     if (!active || api === undefined) return;
 
-    return watchHostTools(api, hostKey);
-  }, [hostKey, active]);
+    return watchHostTools(api, hostKey, language);
+  }, [hostKey, language, active]);

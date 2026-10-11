@@ -242,6 +242,23 @@ The Desktop App on your laptop, driving a Mac Studio (or a Linux VM, or a Pi) ov
 
 The remote command defaults to `~/.polaris/bin/current/polaris bridge` (not on PATH in a non-interactive shell); a row's details can override it.
 
+### Remote language acceptance
+
+For the existing `lucas-rpi` alias, prebuild with `bun scripts/build-daemon.ts linux-arm64`
+and `bun run --cwd apps/desktop build --no-app`, then run
+`node apps/desktop/scripts/remoteLanguageSmoke.ts`. It uses the real Desktop SSH
+update path, an isolated profile, owned Pi home-filesystem fixtures, and the Pi's existing Python
+to create venvs. It never changes SSH configuration or accepts host-key prompts.
+The run checks bundled TypeScript, Trust and native project TS7, basedpyright and
+Ruff, logs, Host Settings, and `/proc` resource samples. Receipts and screenshots
+go to `.dagr/evidence/slice-6/`; the profile and separate manual fixtures remain
+for the owner-operated pass required by the v2 spec. A successful automated
+receipt does not claim that manual pass. Fixtures share the durable journal's
+filesystem; `/tmp` on this Pi is a separate RAM-backed filesystem. First-open
+times include downloads only when the managed tools are absent; warm reruns
+reuse verified Host versions. The repository fixture is a tracked `git archive`
+copy of the checked-out commit, with acceptance files and venv added.
+
 ## Known gaps
 
 - Install progress is per step (checking, copying and checking the SHA-256), not per byte; the client reports no byte progress.
