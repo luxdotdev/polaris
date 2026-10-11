@@ -12,6 +12,7 @@ import type { Installer } from "./index.ts";
 import { createHostPrerequisiteProbe } from "./hostStateProbes.ts";
 import type { HostPresence } from "./hostStateProbes.ts";
 import { abortable, checkAbort, failure } from "./validation.ts";
+import { preflightDeadlineMs } from "./preflightDeadline.ts";
 
 export interface HostStateInput {
   toolIds: readonly string[];
@@ -42,6 +43,7 @@ export function hostToolStatus(progress: LanguageInstallProgress | null, version
 
 /** Read-only projection of the sole Host installer; feeds retain one replaceable snapshot. */
 export function createHostToolStates(options: {
+  timeoutMs?: number;
   hostId: HostId;
   platform: typeof LanguagePlatform.Type;
   tools: readonly Tool[];
@@ -142,7 +144,7 @@ export function createHostToolStates(options: {
 
     const timer = setTimeout(
       () => controller.abort(failure("timeout", "Host state read timed out", true)),
-      2000
+      options.timeoutMs ?? preflightDeadlineMs
     );
 
     const batch = probes();

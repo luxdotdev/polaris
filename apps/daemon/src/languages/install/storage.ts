@@ -15,6 +15,12 @@ import {
 import { artifactIdentity } from "./identity.ts";
 import { verificationBatches } from "./verificationBatches.ts";
 import { verifyStoredFile } from "./fileVerification.ts";
+import {
+  hasVerificationReceipt,
+  versionFingerprint,
+  writeVerificationReceipt,
+  type VersionPaths,
+} from "./verificationReceipt.ts";
 
 const Scope = Schema.Struct({ hostId: HostId, platform: LanguagePlatform });
 
@@ -221,17 +227,38 @@ export async function createVersionStorage(
 
   const verifying = new Map<string, Promise<InstalledVersion>>();
 
+  const verified = new Map<
+    string,
+    { paths: VersionPaths; fingerprint: string; version: InstalledVersion }
+  >();
+
+  const verificationStats = { fullVerifications: 0, receiptReuses: 0, memoryReuses: 0 };
+
   async function verifyVersion(toolId: string, identity: string): Promise<InstalledVersion> {
     const path = join(await toolRoot(toolId), "versions", leaf(identity));
+    const key = `${toolId}:${identity}`;
+    const cached = verified.get(key);
+
+    if (cached && (await versionFingerprint(cached.paths)) === cached.fingerprint) {
+      verificationStats.memoryReuses++;
+
+      return cached.version;
+    }
+
+    verified.delete(key);
 
     if ((await realpath(path)) !== path)
       throw failure("install-failed", "Stored version crosses a symlink");
 
-    const receipt = decodeReceipt(
-      (await boundedRead(join(path, "receipt.json"), limits.receiptBytes)).toString("utf8")
-    );
+    const receiptBytes = await boundedRead(join(path, "receipt.json"), limits.receiptBytes);
+    const receipt = decodeReceipt(receiptBytes.toString("utf8"));
 
-    if (receipt.identity !== identity || receipt.files.length > limits.entries)
+    validateFiles(receipt.files);
+
+    if (
+      receipt.identity !== identity ||
+      receipt.files.length + receipt.directories.length > limits.entries
+    )
       throw failure("install-failed", "Stored version receipt mismatch");
     const { tool } = descriptor(receipt.descriptor, limits.metadataBytes);
     const artifact = tool.artifacts.find((candidate) => candidate.id === receipt.artifactId);
@@ -256,6 +283,54 @@ export async function createVersionStorage(
       throw failure("install-failed", "Stored entry point missing");
     const payload = join(path, "payload");
 
+    const paths = {
+      directory: path,
+      files: receipt.files.map((file) => file.path),
+      directories: receipt.directories,
+    };
+
+    const fingerprint = await versionFingerprint(paths);
+
+    const certificate = {
+      format: 1,
+      identity,
+      receiptIntegrity: digest(receiptBytes),
+      fingerprint,
+    } satisfies Parameters<typeof writeVerificationReceipt>[1];
+
+    const reused = await hasVerificationReceipt(path, certificate);
+
+    if (reused) verificationStats.receiptReuses++;
+    else {
+      verificationStats.fullVerifications++;
+      await verifyTree(payload, receipt);
+    }
+
+    if (
+      (await versionFingerprint(paths)) !== fingerprint ||
+      digest(await boundedRead(join(path, "receipt.json"), limits.receiptBytes)) !==
+        certificate.receiptIntegrity
+    )
+      throw failure("conflict", "Stored version changed during verification", true);
+
+    if (!reused) await writeVerificationReceipt(path, certificate);
+
+    const version = {
+      identity,
+      version: receipt.version,
+      artifactId: receipt.artifactId,
+      integrity: receipt.integrity,
+      descriptor: receipt.descriptor,
+      directory: payload,
+    };
+
+    if (verified.size >= 32) verified.delete(verified.keys().next().value ?? "");
+    verified.set(key, { paths, fingerprint, version });
+
+    return version;
+  }
+
+  async function verifyTree(payload: string, receipt: typeof Receipt.Type) {
     const [treeRead, fileRead] = await Promise.allSettled([
       treePaths(payload, limits),
       verifyFiles(payload, receipt.files),
@@ -274,26 +349,20 @@ export async function createVersionStorage(
       receipt.directories.some((path) => !tree.directories.has(path))
     )
       throw failure("install-failed", "Stored tree differs from installation receipt");
-
-    return {
-      identity,
-      version: receipt.version,
-      artifactId: receipt.artifactId,
-      integrity: receipt.integrity,
-      descriptor: receipt.descriptor,
-      directory: payload,
-    };
   }
 
-  async function verifyFiles(payload: string, files: typeof Receipt.Type.files) {
+  function validateFiles(files: typeof Receipt.Type.files) {
     if (files.reduce((total, file) => total + file.size, 0) > limits.expandedBytes)
       throw failure("too-large", "Stored tree exceeds expanded limit");
 
+    if (files.some((file) => !safePath(file.path) || file.size < 0 || file.size > limits.fileBytes))
+      throw failure("install-failed", "Stored version file is unsafe");
+  }
+
+  async function verifyFiles(payload: string, files: typeof Receipt.Type.files) {
     for (const batch of verificationBatches(files)) {
       const results = await Promise.allSettled(
         batch.map(async (file) => {
-          if (!safePath(file.path) || file.size < 0 || file.size > limits.fileBytes)
-            throw failure("install-failed", "Stored version file is unsafe");
           const target = join(payload, file.path);
 
           if ((await realpath(target)) !== target)
@@ -329,7 +398,12 @@ export async function createVersionStorage(
     let pending = verifying.get(key);
 
     if (pending === undefined) {
-      pending = verifyVersion(toolId, identity).finally(() => verifying.delete(key));
+      pending = verifyVersion(toolId, identity)
+        .catch((cause: unknown) => {
+          verified.delete(key);
+          throw cause;
+        })
+        .finally(() => verifying.delete(key));
       verifying.set(key, pending);
     }
 
@@ -485,7 +559,20 @@ export async function createVersionStorage(
     return facts;
   }
 
-  return { current, stage, lock, select, load, versions, recoveryFacts };
+  return {
+    current,
+    stage,
+    lock,
+    select,
+    load,
+    versions,
+    recoveryFacts,
+    stats: () => ({
+      ...verificationStats,
+      cachedVersions: verified.size,
+      verifying: verifying.size,
+    }),
+  };
 }
 
 export type VersionStorage = Awaited<ReturnType<typeof createVersionStorage>>;

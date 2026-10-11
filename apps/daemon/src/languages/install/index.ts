@@ -404,6 +404,7 @@ export async function createInstaller(options: InstallerOptions) {
       };
     },
     stats: () => ({
+      verification: storage.stats(),
       jobs: jobs.size,
       waiters: waiterCount,
       listeners: listeners.size,

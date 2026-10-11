@@ -14,6 +14,7 @@ import {
 import { descriptor, defaultLimits } from "./types.ts";
 import { createDemandObservations, type ObservationAdmission } from "./observations.ts";
 import { createHostToolStates } from "./hostState.ts";
+import { preflightDeadlineMs } from "./preflightDeadline.ts";
 
 export type { ObservationAdmission } from "./observations.ts";
 
@@ -39,6 +40,7 @@ export interface SelectionReservation {
 }
 
 export interface HostInstallationOptions extends Omit<InstallerOptions, "adapters"> {
+  readonly preflightTimeoutMs?: number;
   readonly tools: ReadonlyArray<unknown>;
   readonly adapters: Omit<InstallerOptions["adapters"], "beforeSelect" | "afterSelection">;
   /** Demand only; trusted=false must not execute Workspace or configured developer code. */
@@ -95,6 +97,7 @@ async function constructHost(options: HostInstallationOptions) {
   };
 
   const observationJobs = createDemandObservations({
+    timeoutMs: options.preflightTimeoutMs ?? preflightDeadlineMs,
     lifetime: lifetime.signal,
     observe: options.observe,
   });
@@ -434,7 +437,7 @@ async function constructHost(options: HostInstallationOptions) {
 
     const timer = setTimeout(
       () => controller.abort(failure("timeout", "Host installation preflight timed out", true)),
-      2000
+      options.preflightTimeoutMs ?? preflightDeadlineMs
     );
 
     try {
@@ -446,6 +449,7 @@ async function constructHost(options: HostInstallationOptions) {
   }
 
   const hostState = createHostToolStates({
+    timeoutMs: options.preflightTimeoutMs ?? preflightDeadlineMs,
     hostId: options.hostId,
     platform: options.platform,
     tools: [...tools.values()].map((value) => value.tool),

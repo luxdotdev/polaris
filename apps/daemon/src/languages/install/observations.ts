@@ -3,6 +3,7 @@ import { isAbsolute } from "node:path";
 import type { Tool } from "../catalog/model.ts";
 import type { HostObservations, RequestGuard } from "./host.ts";
 import { abortable, checkAbort, digest, failure } from "./validation.ts";
+import { preflightDeadlineMs } from "./preflightDeadline.ts";
 
 /** Captured independently by Core from the live principal and canonical checkout, never from trusted alone. */
 export interface ObservationAdmission {
@@ -26,6 +27,7 @@ type Job = { task: Promise<HostObservations>; controller: AbortController; consu
 
 /** Deduplicate only within one captured admission. The last cancelled consumer aborts owned work. */
 export function createDemandObservations(options: {
+  timeoutMs?: number;
   lifetime: AbortSignal;
   observe: (
     tool: Tool,
@@ -77,7 +79,7 @@ export function createDemandObservations(options: {
 
     const timer = setTimeout(
       () => controller.abort(failure("timeout", "Host prerequisites could not be checked", true)),
-      2000
+      options.timeoutMs ?? preflightDeadlineMs
     );
 
     const task = Promise.resolve()
@@ -129,11 +131,20 @@ export function createDemandObservations(options: {
       throw failure("queue-full", "Host observation consumer limit reached", true);
     inspections++;
     let job: Job | undefined;
+    let consuming = false;
 
     try {
       await abortable(captured?.value.requireCurrent(signal) ?? Promise.resolve(), signal);
       const key = `${digest(JSON.stringify(tool))}:${phase}:${trusted}:${captured?.id ?? 0}`;
       job = pending.get(key);
+
+      if (job?.controller.signal.aborted) {
+        await abortable(
+          job.task.catch(() => undefined),
+          signal
+        );
+        job = pending.get(key);
+      }
 
       if (!job) {
         if (pending.size >= 4) throw failure("queue-full", "Host observation limit reached", true);
@@ -143,6 +154,7 @@ export function createDemandObservations(options: {
       }
 
       job.consumers++;
+      consuming = true;
       const result = await abortable(job.task, AbortSignal.any([signal, job.controller.signal]));
       await abortable(captured?.value.requireCurrent(signal) ?? Promise.resolve(), signal);
       checkAbort(signal);
@@ -151,7 +163,7 @@ export function createDemandObservations(options: {
     } finally {
       inspections--;
 
-      if (job) {
+      if (job && consuming) {
         job.consumers--;
 
         if (!job.consumers) job.controller.abort();

@@ -48,14 +48,16 @@ async function fixture(corrupt = false, legacy = false) {
   const ledger = createSelectionLedger();
   const managed = createManagedDelivery();
 
-  const tools = ["node", "typescript", "typescript-language-server"].map((id) => ({
-    ...source.tool,
-    id,
-    artifacts: source.tool.artifacts.map((artifact) => ({
-      ...artifact,
-      url: `https://fixture.invalid/${id}`,
-    })),
-  }));
+  const tools = ["node", "typescript", "typescript-language-server", "basedpyright", "ruff"].map(
+    (id) => ({
+      ...source.tool,
+      id,
+      artifacts: source.tool.artifacts.map((artifact) => ({
+        ...artifact,
+        url: `https://fixture.invalid/${id}`,
+      })),
+    })
+  );
 
   const options = {
     root: join(root, "private"),
@@ -90,7 +92,7 @@ async function fixture(corrupt = false, legacy = false) {
       })),
     });
 
-    for (const tool of tools) {
+    for (const tool of tools.filter((tool) => !["basedpyright", "ruff"].includes(tool.id))) {
       const handle = await oldHost.install(tool.id, "encounter", async () => {});
       await handle.result;
     }
@@ -149,6 +151,36 @@ test("auto-download off reports not-installed without contacting the fixture ser
     );
     expect(f.downloads.size).toBe(0);
     expect(await f.host.current("node")).toBeNull();
+  } finally {
+    await f.close();
+  }
+});
+
+test("Python delivery verifies only basedpyright, Ruff and private Node and reuses their receipts", async () => {
+  const f = await fixture();
+
+  try {
+    for (const provider of ["basedpyright", "ruff"])
+      await f.managed.delivery.ensure(
+        settings(),
+        f.admission,
+        new AbortController().signal,
+        provider
+      );
+    expect([...f.downloads.keys()].sort()).toEqual(["/basedpyright", "/node", "/ruff"]);
+    expect(f.host.stats().verification.fullVerifications).toBe(3);
+
+    for (const provider of ["basedpyright", "ruff"])
+      await f.managed.delivery.ensure(
+        settings(false),
+        f.admission,
+        new AbortController().signal,
+        provider
+      );
+    expect(f.host.stats().verification.fullVerifications).toBe(3);
+    expect(f.host.stats().verification.memoryReuses).toBeGreaterThan(0);
+    expect(await f.host.current("typescript")).toBeNull();
+    expect(await f.host.current("typescript-language-server")).toBeNull();
   } finally {
     await f.close();
   }

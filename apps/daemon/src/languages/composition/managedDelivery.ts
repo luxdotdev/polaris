@@ -108,7 +108,7 @@ export function createManagedDelivery(
       }
     },
     async plan(facts, installed) {
-      const node = await privateNode();
+      const node = facts.providerId === "ruff" ? null : await privateNode();
 
       if (["basedpyright", "ruff"].includes(facts.providerId))
         return pythonLaunch(facts, installed, node);

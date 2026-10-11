@@ -272,6 +272,7 @@ test("read deadlines and concurrent limits release all bounded demand work", asy
   const lifetime = new AbortController();
 
   const states = createHostToolStates({
+    timeoutMs: 20,
     hostId,
     platform,
     tools: [Schema.decodeUnknownSync(Tool)(artifactFixture().tool)],

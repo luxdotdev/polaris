@@ -110,6 +110,36 @@ test("immutable Host construction and simultaneous first encounters/manual reque
   }
 });
 
+test("a preflight timeout is typed and retryable, releases demand, and a fresh inspection succeeds", async () => {
+  let slow = true;
+
+  const f = await hostFixture({
+    preflightTimeoutMs: 20,
+    observe: async (_tool, _phase, _trusted, signal) => {
+      if (slow)
+        await new Promise<void>((resolve) =>
+          signal.addEventListener("abort", () => resolve(), { once: true })
+        );
+
+      return { connected: true, probes: [] };
+    },
+  });
+
+  try {
+    const host = await f.registry.get(f.options);
+    await rejects(host.inspect("fake-tool", "install", true), {
+      reason: "timeout",
+      retryable: true,
+    });
+    expect(host.stats()).toMatchObject({ requests: 0 });
+    slow = false;
+    expect((await host.inspect("fake-tool", "install", true)).preflight._tag).toBe("Eligible");
+    expect(host.stats()).toMatchObject({ requests: 0, observations: 0 });
+  } finally {
+    await f.close();
+  }
+});
+
 test("default approval denies without downloading and missing barrier denies before selection", async () => {
   for (const mode of ["approval", "barrier"] as const) {
     const f = await hostFixture();

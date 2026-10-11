@@ -5,49 +5,53 @@ import { coordinatorFixture } from "./coordinator.testing.ts";
 import { statusStore } from "../status/store.ts";
 import { runAction } from "../status/actions.ts";
 
-test("Check again awaits a fresh discovery and reports its typed error, then recovers", async () => {
-  let fail = true;
+for (const reason of ["conflict", "timeout"] as const)
+  test(`Check again retries ${reason} with fresh discovery and then recovers`, async () => {
+    let fail = true;
 
-  const error = new P.LanguageError({
-    reason: "conflict",
-    message: "Version updates require an explicit update request",
-    retryable: true,
-  });
-
-  const f = coordinatorFixture(undefined, () => (fail ? error : null));
-  const file = f.open("upgrade.ts");
-
-  try {
-    for (
-      let count = 0;
-      count < 100 && statusStore.getState().files[file.key]?.phase !== "failed";
-      count++
-    )
-      await new Promise((resolve) => setTimeout(resolve, 1));
-    expect(statusStore.getState().files[file.key]?.failure).toEqual({
-      reason: error.reason,
-      message: error.message,
+    const error = new P.LanguageError({
+      reason,
+      message:
+        reason === "timeout"
+          ? "Host installation preflight timed out"
+          : "Version updates require an explicit update request",
+      retryable: true,
     });
 
-    const retry = () =>
-      runAction(
-        "check-again",
-        { hostKey: "reuse", path: file.path, checkout: null, providerId: null, trust: null },
-        {
-          api: f.service.api,
-          recheck: () => f.coordinator.recheck(file.key),
-          showLog: () => {},
-          openSettings: () => {},
-        }
-      );
+    const f = coordinatorFixture(undefined, () => (fail ? error : null));
+    const file = f.open("upgrade.ts");
 
-    await rejects(retry(), { reason: "conflict", message: error.message });
-    fail = false;
-    await retry();
-    await f.settled(file);
-    expect(f.requests.filter((method) => method === "languages.discover")).toHaveLength(3);
-    expect(statusStore.getState().files[file.key]?.phase).toBe("discovered");
-  } finally {
-    f.coordinator.dispose();
-  }
-});
+    try {
+      for (
+        let count = 0;
+        count < 100 && statusStore.getState().files[file.key]?.phase !== "failed";
+        count++
+      )
+        await new Promise((resolve) => setTimeout(resolve, 1));
+      expect(statusStore.getState().files[file.key]?.failure).toEqual({
+        reason: error.reason,
+        message: error.message,
+      });
+
+      const retry = () =>
+        runAction(
+          "check-again",
+          { hostKey: "reuse", path: file.path, checkout: null, providerId: null, trust: null },
+          {
+            api: f.service.api,
+            recheck: () => f.coordinator.recheck(file.key),
+            showLog: () => {},
+            openSettings: () => {},
+          }
+        );
+
+      await rejects(retry(), { reason, message: error.message, retryable: true });
+      fail = false;
+      await retry();
+      await f.settled(file);
+      expect(f.requests.filter((method) => method === "languages.discover")).toHaveLength(3);
+      expect(statusStore.getState().files[file.key]?.phase).toBe("discovered");
+    } finally {
+      f.coordinator.dispose();
+    }
+  });
