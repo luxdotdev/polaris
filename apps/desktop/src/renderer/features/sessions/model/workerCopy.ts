@@ -1,5 +1,6 @@
 /** How a worker row reads: its glyph, its state word and that word's tone (rule/constellation-colour). */
 import type { TaskGlyphKind } from "../glyphs.tsx";
+import { failedText, neutralFailure } from "../../constellation/model/failure.ts";
 import { setupExit } from "../../constellation/model/setup.ts";
 import type { LeadWorker, WorkerState } from "./leadGroups.ts";
 
@@ -29,12 +30,23 @@ const SHOWN: Readonly<Record<WorkerState, Shown>> = {
   "setup-failed": { glyph: "needs-you", word: "setup failed", tone: "needs-you" },
 };
 
+/** A usage limit, connection or harness failure isn't the worker's: "Usage limit · resets 14:00", neutral. */
+const neutralShown = (row: LeadWorker): Shown | null =>
+  row.kind === "attempt" && row.state === "failed" && neutralFailure(row.attempt.failureKind)
+    ? {
+        glyph: "stopped",
+        word: failedText(row.attempt.failureKind, row.attempt.resetsAt),
+        tone: "subtle",
+      }
+    : null;
+
 export const shownWorker = (row: LeadWorker): Shown => {
   const shown = SHOWN[row.state];
 
-  return row.kind === "attempt" && row.state === "review" && !row.fetched
-    ? { ...shown, glyph: "review-unfetched" }
-    : shown;
+  if (row.kind === "attempt" && row.state === "review" && !row.fetched)
+    return { ...shown, glyph: "review-unfetched" };
+
+  return neutralShown(row) ?? shown;
 };
 
 /** A setup row's hover: "setting up · bun install · 1m", or "bun install exited 1". */

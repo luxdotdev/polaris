@@ -7,8 +7,9 @@ import {
   type ConstellationResult,
   type ConstellationId,
 } from "@polaris/protocol";
-import { Effect, Schema } from "effect";
+import { Effect, Option, Schema } from "effect";
 import type { SessionBinding } from "../binding.ts";
+import { CallCommandId, RequestId, splitRequestId, type Idempotency } from "./idempotency.ts";
 
 export interface ConstellationCommands {
   readonly command: (
@@ -96,14 +97,43 @@ export const errorResult = (error: ConstellationRejected): McpToolResult => ({
   ],
 });
 
-const jsonSchema = (schema: Schema.Constraint) => {
+export const jsonSchema = (schema: Schema.Constraint) => {
   const document = Schema.toJsonSchemaDocument(schema);
 
   return { ...document.schema, $defs: document.definitions };
 };
 
+const requestIdSchema = Schema.toJsonSchemaDocument(RequestId).schema;
+
+const WithProperties = Schema.Struct({ properties: Schema.Record(Schema.String, Schema.Unknown) });
+
+const propertiesOf = (schema: ReturnType<typeof jsonSchema>) =>
+  Option.match(Schema.decodeUnknownOption(WithProperties)(schema), {
+    onNone: () => ({}),
+    onSome: ({ properties }) => properties,
+  });
+
+/** A mutating tool's schema also takes `requestId`, the call's idempotency key. */
+export const withRequestId = (schema: ReturnType<typeof jsonSchema>) => ({
+  ...schema,
+  properties: {
+    ...propertiesOf(schema),
+    requestId: requestIdSchema,
+  },
+});
+
+export const inputRejection = (name: string) =>
+  rejection("E-INPUT", `Invalid input for ${name}`, "Use the fields in this tool's input schema.");
+
+/** Who calls, and the ids their mutating calls commit under. */
+export interface ToolCaller {
+  readonly sessionId: SessionBinding["sessionId"];
+  readonly ids: Idempotency;
+}
+
 export const toolFactory = (
-  read: () => Effect.Effect<ConstellationResult, ConstellationRejected>
+  read: () => Effect.Effect<ConstellationResult, ConstellationRejected>,
+  caller?: ToolCaller
 ) => {
   const contextualize = (error: ConstellationRejected) => {
     if (error.graph !== null || error.revision !== 0) return Effect.succeed(errorResult(error));
@@ -122,6 +152,25 @@ export const toolFactory = (
     );
   };
 
+  /** The call's command id, from its key and input; forgotten again if the call is rejected. */
+  const keyed = <A>(
+    name: string,
+    input: typeof Schema.Json.Type,
+    run: (rest: typeof Schema.Json.Type) => Effect.Effect<A, ConstellationRejected>
+  ) =>
+    splitRequestId(input).pipe(
+      Effect.mapError(() => inputRejection(name)),
+      Effect.flatMap(({ requestId, rest }) => {
+        if (caller === undefined) return run(rest);
+        const call = caller.ids.begin(caller.sessionId, name, requestId, rest);
+
+        return run(rest).pipe(
+          Effect.provideService(CallCommandId, call.id),
+          Effect.tapError(() => Effect.sync(call.rejected))
+        );
+      })
+    );
+
   return <S extends Schema.Decoder<unknown>>(
     name: string,
     description: string,
@@ -131,30 +180,33 @@ export const toolFactory = (
       readonly json?: (input: S["Type"]) => boolean;
       readonly summary?: string;
       readonly next?: string;
+      /** It commits a command: it takes a `requestId` and a retry never acts twice. */
+      readonly mutates?: boolean;
     } = {}
-  ): BoundTool => ({
-    name,
-    description,
-    inputSchema: jsonSchema(schema),
-    call: (input) =>
-      Effect.runPromise(
-        Schema.decodeUnknownEffect(schema)(input, { onExcessProperty: "error" }).pipe(
-          Effect.mapError(() =>
-            rejection(
-              "E-INPUT",
-              `Invalid input for ${name}`,
-              "Use the fields in this tool's input schema."
+  ): BoundTool => {
+    const run = (input: typeof Schema.Json.Type) =>
+      Schema.decodeUnknownEffect(schema)(input, { onExcessProperty: "error" }).pipe(
+        Effect.mapError(() => inputRejection(name)),
+        Effect.flatMap((decoded) =>
+          execute(decoded).pipe(
+            Effect.map((result) =>
+              resultText(result, options.json?.(decoded) ?? false, options.summary, options.next)
             )
-          ),
-          Effect.flatMap((decoded) =>
-            execute(decoded).pipe(
-              Effect.map((result) =>
-                resultText(result, options.json?.(decoded) ?? false, options.summary, options.next)
-              )
-            )
-          ),
-          Effect.catchTag("ConstellationRejected", contextualize)
+          )
         )
-      ),
-  });
+      );
+
+    return {
+      name,
+      description,
+      inputSchema:
+        options.mutates === true ? withRequestId(jsonSchema(schema)) : jsonSchema(schema),
+      call: (input) =>
+        Effect.runPromise(
+          (options.mutates === true ? keyed(name, input, run) : run(input)).pipe(
+            Effect.catchTag("ConstellationRejected", contextualize)
+          )
+        ),
+    };
+  };
 };

@@ -4,6 +4,7 @@ import type { KeyboardEvent, ReactElement } from "react";
 import { slots } from "../../app/slots.tsx";
 import { waitingOn } from "../../features/session/model/background.ts";
 import { BackgroundTasksHover } from "../../features/session/ui/background.tsx";
+import { RenameField, SessionMenu, useRenaming } from "../../features/sessions/ui/SessionMenu.tsx";
 import type { SessionEntry } from "../../store/hostModel.ts";
 import { needsYou, shownState } from "../../routes/topBar.ts";
 import { activityOf, age, sessionLine, sessionStateLabel } from "../copy.ts";
@@ -105,29 +106,39 @@ export const SessionRow = ({ hostKey, entry, now }: SessionRowProps) => {
     session.state === "working" ? activityOf(s.sessions[sessionKey(hostKey, session.id)]) : null
   );
 
+  const rename = useRenaming();
+
   return (
     <WithHover hostKey={hostKey} entry={entry}>
-      <Row
-        {...buttonProps(() => selectSession({ hostKey, sessionId: session.id }))}
-        aria-current={selected}
-        data-state={state}
-        variant="session"
-        selected={selected}
-        tone={needsYou(entry) ? "needs-you" : session.state === "dormant" ? "quiet" : "default"}
-        leading={<SessionTile state={state} harness={session.harness} density={density} />}
-        title={session.title || "Untitled session"}
-        description={sessionLine(entry, activity)}
-        meta={
-          <span
-            data-testid="row-state"
-            data-state={state}
-            aria-label={waiting ? "waiting" : sessionStateLabel[state]}
-          >
-            {/* Compact drops the second line, so the wait takes the age's place. */}
-            {waiting && density === "compact" ? "waiting" : age(session.createdAt, now)}
-          </span>
-        }
-      />
+      <SessionMenu hostKey={hostKey} entry={entry} onRename={rename.start}>
+        <Row
+          {...buttonProps(() => selectSession({ hostKey, sessionId: session.id }))}
+          aria-current={selected}
+          data-state={state}
+          variant="session"
+          selected={selected}
+          tone={needsYou(entry) ? "needs-you" : session.state === "dormant" ? "quiet" : "default"}
+          leading={<SessionTile state={state} harness={session.harness} density={density} />}
+          title={
+            rename.renaming ? (
+              <RenameField hostKey={hostKey} entry={entry} onDone={rename.stop} />
+            ) : (
+              session.title || "Untitled session"
+            )
+          }
+          description={sessionLine(entry, activity)}
+          meta={
+            <span
+              data-testid="row-state"
+              data-state={state}
+              aria-label={waiting ? "waiting" : sessionStateLabel[state]}
+            >
+              {/* Compact drops the second line, so the wait takes the age's place. */}
+              {waiting && density === "compact" ? "waiting" : age(session.createdAt, now)}
+            </span>
+          }
+        />
+      </SessionMenu>
     </WithHover>
   );
 };
@@ -141,25 +152,34 @@ export const CompactSessionRow = ({
   const { selectSession } = useShellActions();
   const selected = useSelectedSession(hostKey, entry);
   const state = shownState(entry);
+  const rename = useRenaming();
 
   return (
     <WithHover hostKey={hostKey} entry={entry}>
-      <Row
-        {...buttonProps(() => selectSession({ hostKey, sessionId: entry.session.id }))}
-        aria-current={selected}
-        data-state={state}
-        selected={selected}
-        // DESIGN.md Session rows: the selected row is the raised card, grouped rows too.
-        className={cn(selected && "border-hairline bg-row-selected hover:bg-row-selected")}
-        tone={needsYou(entry) ? "needs-you" : "default"}
-        leading={
-          <span className="flex size-4 items-center justify-center">
-            <SessionGlyph state={state} harness={entry.session.harness} size={14} />
-          </span>
-        }
-        title={entry.session.title || "Untitled session"}
-        meta={meta}
-      />
+      <SessionMenu hostKey={hostKey} entry={entry} onRename={rename.start}>
+        <Row
+          {...buttonProps(() => selectSession({ hostKey, sessionId: entry.session.id }))}
+          aria-current={selected}
+          data-state={state}
+          selected={selected}
+          // DESIGN.md Session rows: the selected row is the raised card, grouped rows too.
+          className={cn(selected && "border-hairline bg-row-selected hover:bg-row-selected")}
+          tone={needsYou(entry) ? "needs-you" : "default"}
+          leading={
+            <span className="flex size-4 items-center justify-center">
+              <SessionGlyph state={state} harness={entry.session.harness} size={14} />
+            </span>
+          }
+          title={
+            rename.renaming ? (
+              <RenameField hostKey={hostKey} entry={entry} onDone={rename.stop} />
+            ) : (
+              entry.session.title || "Untitled session"
+            )
+          }
+          meta={meta}
+        />
+      </SessionMenu>
     </WithHover>
   );
 };

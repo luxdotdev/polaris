@@ -1,6 +1,8 @@
 import { Effect, Option, Schema } from "effect";
 import type { McpBinding } from "./binding.ts";
-import { type ConstellationCommands, constellationTools } from "./tools.ts";
+import { EventStore } from "../store/EventStore.ts";
+import { sessionTools } from "./sessions/index.ts";
+import { type ConstellationCommands, attachSessionTools, constellationTools } from "./tools.ts";
 import { McpTokens } from "./tokens.ts";
 
 const Message = Schema.Struct({
@@ -110,6 +112,10 @@ const responseFor = async (
 export const mcpHttp = (commands: ConstellationCommands, port = 0) =>
   Effect.gen(function* () {
     const tokens = yield* McpTokens;
+    const store = yield* Effect.serviceOption(EventStore);
+
+    // The same commands reach Claude's in-process tools, so they serve the session tools too.
+    if (Option.isSome(store)) attachSessionTools(commands, sessionTools(store.value));
 
     const server = yield* Effect.acquireRelease(
       Effect.sync(() =>

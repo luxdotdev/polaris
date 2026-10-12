@@ -150,6 +150,11 @@ export class BackgroundTask extends Schema.Class<BackgroundTask>("BackgroundTask
   description: Schema.String,
 }) {}
 
+/** Who started a session for the user: a Reviewer or a walkthrough (capability `session.pin`). */
+export const SessionOrigin = Schema.Literals(["reviewer", "walkthrough"]);
+
+export type SessionOrigin = typeof SessionOrigin.Type;
+
 export class AgentSession extends Schema.Class<AgentSession>("AgentSession")({
   id: SessionId,
   workspaceId: WorkspaceId,
@@ -183,6 +188,10 @@ export class AgentSession extends Schema.Class<AgentSession>("AgentSession")({
   acceptedThroughIndex: optionalNullable(Schema.Int),
   /** The pull request the accepted work was opened as (`LinkPullRequest`). */
   pullRequest: optionalNullable(PullRequestRef),
+  /** Set by the Daemon for a Reviewer's or walkthrough's own session; absent for the user's. */
+  origin: optionalNullable(SessionOrigin),
+  /** When the user pinned it to the top of the list (`PinSession`); null when it isn't. */
+  pinnedAt: optionalNullable(Timestamp),
   createdAt: Timestamp,
   updatedAt: Timestamp,
 }) {}

@@ -14,6 +14,7 @@ import {
   useUpgradeCaption,
 } from "../features/machines/updates/UpgradeStatus.tsx";
 import { slots } from "../app/slots.tsx";
+import { useQuietSessions } from "../features/needs-you/index.ts";
 import { plural } from "./copy.ts";
 import { HostBarLabel, HostStateCaption } from "./HostState.tsx";
 import { isSlowLink } from "./hostCopy.ts";
@@ -28,8 +29,9 @@ interface ChipShortcut {
 const useBar = () => {
   const hosts = useApp((s) => s.hosts);
   const models = useApp((s) => s.hostModels);
+  const quiet = useQuietSessions();
 
-  return useMemo(() => barHosts({ hosts, models }), [hosts, models]);
+  return useMemo(() => barHosts({ hosts, models, quiet }), [hosts, models, quiet]);
 };
 
 const connected = (host: HostView) => host.status.state === "connected";

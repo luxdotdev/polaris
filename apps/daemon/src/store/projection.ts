@@ -250,6 +250,7 @@ const projectionOf: (event: DomainEvent) => Projection = DomainEvent.match<Proje
   SessionCreated: (event) => sessionRow(event.session.id),
   SessionStateChanged: (event) => sessionRow(event.sessionId),
   SessionRenamed: (event) => sessionRow(event.sessionId),
+  SessionPinned: (event) => sessionRow(event.sessionId),
   SessionCursorUpdated: (event) => sessionRow(event.sessionId),
   SessionPermissionModeChanged: (event) => sessionRow(event.sessionId),
   SessionModelChanged: (event) => sessionRow(event.sessionId),
@@ -257,6 +258,7 @@ const projectionOf: (event: DomainEvent) => Projection = DomainEvent.match<Proje
   SessionContextUsed: (event) => sessionRow(event.sessionId),
   SessionCompacted: (event) => sessionRow(event.sessionId),
   SessionBackgroundTasksChanged: (event) => sessionRow(event.sessionId),
+  SessionNotified: () => () => Effect.void,
   TurnStarted: ({ turn }) => turnRow(turn),
   TurnEnded: ({ turn }) => turnRow(turn),
   CheckpointRecorded: (event) =>

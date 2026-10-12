@@ -391,6 +391,8 @@ export const runAttempt = Effect.fnUntraced(function* (
   return { attempt, attachment, claim };
 });
 
+const sessionToolNames = new Set(["read_worker", "wait_for_command", "notify"]);
+
 export const toolCounter = () => {
   const calls: string[] = [];
   const findings: string[] = [];
@@ -412,7 +414,10 @@ export const toolCounter = () => {
 
     calls.push(name);
     stats.calls++;
-    expect(result.content[0]?.text).toMatch(/Revision: \d+\n[\s\S]*Next: .+$/);
+    // Session tools read sessions, not the graph: they end in Next without a Revision.
+    expect(result.content[0]?.text).toMatch(
+      sessionToolNames.has(name) ? /\nNext: .+$/ : /Revision: \d+\n[\s\S]*Next: .+$/
+    );
 
     if (expected === undefined) expect(result.isError).not.toBe(true);
     else {

@@ -141,6 +141,8 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "session.turn-paging",
   "session.stop-background",
   "session.compaction",
+  "session.notify",
+  "session.pin",
   "files.read",
   "files.versioned",
   "files.write",

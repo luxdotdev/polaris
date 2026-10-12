@@ -82,6 +82,32 @@ describe("contract compatibility", () => {
     expect(decodeEvent(JSON.parse(JSON.stringify(encodeEvent(event))))).toEqual(event);
   });
 
+  test("SessionPinned round-trips, pinned and unpinned", () => {
+    for (const pinnedAt of ["2026-10-12T04:00:00.000Z", null]) {
+      const event = DomainEvent.cases.SessionPinned.make({
+        sessionId: SessionId.make("s"),
+        pinnedAt,
+      });
+
+      expect(decodeEvent(JSON.parse(JSON.stringify(encodeEvent(event))))).toEqual(event);
+    }
+  });
+
+  test("a StartSession sent before origin existed decodes; PinSession decodes", () => {
+    const decode = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.toCodecJson(Command)));
+
+    const start = decode(
+      '{"_tag":"StartSession","sessionId":"s","workspaceId":"w","harness":"claude",' +
+        '"placement":{"_tag":"InPlace"},"permissionMode":"supervised","model":null,' +
+        '"prompt":"go","attachments":[]}'
+    );
+
+    expect(Predicate.isTagged(start, "StartSession") && start.origin == null).toBe(true);
+    expect(decode('{"_tag":"PinSession","sessionId":"s","pinned":true}')).toEqual(
+      Command.cases.PinSession.make({ sessionId: SessionId.make("s"), pinned: true })
+    );
+  });
+
   test("ApprovalWithdrawn round-trips", () => {
     const event = DomainEvent.cases.ApprovalWithdrawn.make({
       sessionId: SessionId.make("s"),

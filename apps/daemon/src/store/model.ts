@@ -135,12 +135,14 @@ export const sessionOf: (event: DomainEvent) => SessionId | null =
     SessionCreated: (event) => event.session.id,
     SessionStateChanged: bySessionId,
     SessionRenamed: bySessionId,
+    SessionPinned: bySessionId,
     SessionCursorUpdated: bySessionId,
     SessionPermissionModeChanged: bySessionId,
     SessionModelChanged: bySessionId,
     SessionSetupChanged: bySessionId,
     SessionContextUsed: bySessionId,
     SessionCompacted: bySessionId,
+    SessionNotified: bySessionId,
     SessionBackgroundTasksChanged: bySessionId,
     TurnStarted: byTurn,
     TurnItemCompleted: bySessionId,
@@ -239,6 +241,8 @@ export const gatingCapabilities: ReadonlyArray<Capability> = [
   "host.resources",
   "session.background-tasks",
   "session.compaction",
+  "session.notify",
+  "session.pin",
 ];
 
 const needs = (capability: Capability) => (): Capability => capability;
@@ -292,6 +296,8 @@ export const eventCapability = (event: DomainEvent): Capability | null =>
       ResourceReleased: needs("host.resources"),
       SessionBackgroundTasksChanged: needs("session.background-tasks"),
       SessionCompacted: needs("session.compaction"),
+      SessionNotified: needs("session.notify"),
+      SessionPinned: needs("session.pin"),
       SessionSetupChanged: needs("workspace.setup"),
       TurnsAccepted: needs("session.accept"),
       TurnsReverted: needs("session.accept"),
@@ -359,6 +365,8 @@ export const patchSession = (session: AgentSession, patch: SessionPatch): AgentS
     lastError: session.lastError,
     acceptedThroughIndex: session.acceptedThroughIndex,
     pullRequest: session.pullRequest,
+    origin: session.origin,
+    pinnedAt: session.pinnedAt,
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
     ...patch,
@@ -624,6 +632,8 @@ const apply: (event: DomainEvent) => Reducer = DomainEvent.match<Reducer>({
       titleLocked: r.titleLocked || fold.byClient,
       session: { title: event.title },
     })),
+  SessionPinned: (event) => (fold) =>
+    updateSession(fold, event.sessionId, () => ({ session: { pinnedAt: event.pinnedAt } })),
   SessionCursorUpdated: (event) => (fold) =>
     updateSession(fold, event.sessionId, () => ({
       session: { harnessCursor: event.harnessCursor },
@@ -648,6 +658,11 @@ const apply: (event: DomainEvent) => Reducer = DomainEvent.match<Reducer>({
     updateSession(fold, event.sessionId, () => ({ session: { backgroundTasks: event.tasks } })),
   SessionCompacted: (event) => (fold) =>
     updateSession(fold, event.sessionId, () => ({ session: { lastCompaction: event.compaction } })),
+  /** Only Clients act on it; the read model keeps nothing. */
+  SessionNotified:
+    () =>
+    ({ model }) =>
+      model,
   TurnStarted: recordTurn,
   TurnEnded: recordTurn,
   TurnItemCompleted:

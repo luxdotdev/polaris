@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { SessionNotification, TurnId } from "@polaris/protocol";
 import { C1, HOSTS, MODELS } from "../../sessions/preview/fixtures.ts";
-import { turnsOf } from "./summary.ts";
+import { notificationsOf, turnsOf } from "./summary.ts";
 
 describe("turnsOf", () => {
   const all = turnsOf({ hosts: HOSTS, models: MODELS, views: {} });
@@ -23,5 +24,69 @@ describe("turnsOf", () => {
     expect(all.some((t) => workers.has(t.sessionId))).toBe(true);
     expect(shown.some((t) => workers.has(t.sessionId))).toBe(false);
     expect(shown.length).toBe(all.filter((t) => !workers.has(t.sessionId)).length);
+  });
+
+  test("marks a Lead's digest-started Turn, but not a Turn a digest was steered into", () => {
+    const lead = C1.constellation.leadSessionId;
+    const base = { leadSessionId: lead, revision: 1, at: "2026-10-11T12:00:00Z", items: [] };
+    const host = MODELS.local;
+    const entry = host.sessions.get(lead);
+
+    if (entry === undefined) throw new Error("fixture has the Lead");
+
+    const withTurn = (turnId: string) => ({
+      ...MODELS,
+      local: { ...host, sessions: new Map([[lead, { ...entry, lastTurnId: turnId }]]) },
+    });
+
+    const view = {
+      ...C1,
+      digests: [
+        { ...base, turnId: TurnId.make("t-digest") },
+        { ...base, turnId: TurnId.make("t-user"), steered: true },
+      ],
+    };
+
+    const flag = (turnId: string) =>
+      turnsOf({ hosts: HOSTS, models: withTurn(turnId), views: { local: [view] } }).find(
+        (t) => t.sessionId === lead
+      )?.digestStarted;
+
+    expect(flag("t-digest")).toBe(true);
+    expect(flag("t-user")).toBe(false);
+    expect(flag("t-other")).toBe(false);
+  });
+});
+
+describe("notificationsOf", () => {
+  test("lists each session's latest agent notification with its session and Host", () => {
+    const [id, entry] = [...MODELS.local.sessions][0] ?? [];
+
+    if (id === undefined || entry === undefined) throw new Error("fixture has a session");
+
+    const lastNotification = new SessionNotification({
+      id: "n1",
+      title: "Tests pass",
+      body: "Ready",
+      at: "2026-10-12T00:00:00Z",
+    });
+
+    const models = {
+      ...MODELS,
+      local: { ...MODELS.local, sessions: new Map([[id, { ...entry, lastNotification }]]) },
+    };
+
+    expect(notificationsOf({ hosts: HOSTS, models: MODELS })).toEqual([]);
+    expect(notificationsOf({ hosts: HOSTS, models })).toEqual([
+      {
+        hostKey: "local",
+        hostLabel: HOSTS.find((h) => h.key === "local")?.label ?? "",
+        sessionId: id,
+        sessionTitle: entry.session.title,
+        id: "n1",
+        title: "Tests pass",
+        body: "Ready",
+      },
+    ]);
   });
 });
