@@ -1,5 +1,5 @@
 /** The progress strip, proportional bars and receipt checks, each state in its own colour. */
-import { cn, hueVar } from "@polaris/ui";
+import { cn, hueVar, Tooltip, TooltipContent, TooltipTrigger } from "@polaris/ui";
 import {
   bar,
   type BarPart,
@@ -26,20 +26,36 @@ const fillOf = (tone: StripTone, harness: Segment["harness"]) =>
       : hueVar(harness)
     : FILL[tone];
 
+/** A 10×4px segment on a taller hover target; its tooltip names the Task and its state. */
+const StripSegment = ({ segment }: { readonly segment: Segment }) => (
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <span className="flex py-1.5" data-testid="strip-segment" data-task={segment.key}>
+        <span
+          className="h-1 w-2.5 rounded-[1px]"
+          style={{ background: fillOf(segment.tone, segment.harness) }}
+        />
+      </span>
+    </TooltipTrigger>
+    <TooltipContent className="max-w-80">
+      <span className="text-code-inline text-text-strong shrink-0 font-mono">{segment.key}</span>
+      {segment.title === "" ? null : <span className="min-w-0 truncate">{segment.title}</span>}
+      <span className="text-text-subtle shrink-0">{segment.word}</span>
+    </TooltipContent>
+  </Tooltip>
+);
+
 /** One 10×4px segment per Task, or past 40 Tasks one proportional bar. */
 export const ProgressStrip = ({ segments }: { readonly segments: ReadonlyArray<Segment> }) => {
   if (segments.length === 0) return null;
 
   if (segments.length > STRIP_SEGMENTS_MAX) return <StripBar parts={bar(segments)} width={220} />;
 
+  // Hidden from assistive tech: the rows below carry every Task, its title and state.
   return (
     <span className="flex shrink-0 items-center gap-[2px]" data-testid="progress-strip" aria-hidden>
       {segments.map((s) => (
-        <span
-          key={s.key}
-          className="h-1 w-2.5 rounded-[1px]"
-          style={{ background: fillOf(s.tone, s.harness) }}
-        />
+        <StripSegment key={s.key} segment={s} />
       ))}
     </span>
   );

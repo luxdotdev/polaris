@@ -55,6 +55,8 @@ const TONE: Partial<Record<TaskState, StripTone>> = {
 const stripOf = (h: Handover, tasks: ReadonlyMap<string, TaskData>): ReadonlyArray<Segment> =>
   h.projections.map((p) => ({
     key: p.taskId,
+    title: tasks.get(p.taskId)?.title ?? "",
+    word: p.state.replaceAll("_", " "),
     tone: TONE[p.state] ?? "waiting",
     harness: tasks.get(p.taskId)?.suggested?.harness ?? null,
   }));

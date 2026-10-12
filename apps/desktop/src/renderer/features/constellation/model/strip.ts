@@ -18,7 +18,11 @@ export type StripTone =
   | "waiting";
 
 export interface Segment {
+  /** The Task's id. */
   readonly key: string;
+  readonly title: string;
+  /** The state word its row shows ("working", "blocked", "done"). */
+  readonly word: string;
   readonly tone: StripTone;
   readonly harness: HarnessKind | null;
 }
@@ -48,7 +52,15 @@ export const segments = (rows: ReadonlyArray<TaskRow>): ReadonlyArray<Segment> =
   rows.flatMap((r) =>
     r.projection.state === "canceled"
       ? []
-      : [{ key: r.task.id, tone: toneOf(r), harness: r.harness }]
+      : [
+          {
+            key: r.task.id,
+            title: r.task.title,
+            word: r.look.word,
+            tone: toneOf(r),
+            harness: r.harness,
+          },
+        ]
   );
 
 export interface BarPart {
