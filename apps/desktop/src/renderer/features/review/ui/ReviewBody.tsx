@@ -3,7 +3,7 @@
  * Summary slot, the file list, its foot slot) and the diff, or what stands in for the diff
  * while it loads, fails or waits for a Review Checkout.
  */
-import { EmptyState, PixelForkIcon } from "@polaris/ui";
+import { EmptyState, PixelForkIcon, SegmentedControl } from "@polaris/ui";
 import type { FileDiffMetadata, SelectedLineRange } from "@pierre/diffs";
 import { type ReactNode, useEffect, useMemo } from "react";
 import { useStore } from "zustand";
@@ -27,6 +27,14 @@ import {
 import { CentrePane, setTab, type SessionInfo } from "../overview/index.ts";
 import { DiffPane } from "./DiffPane.tsx";
 import { setTestsHidden } from "../data/testsStore.ts";
+import {
+  setListGrouping,
+  setSessionGrouping,
+  useListGrouping,
+  useSessionGrouping,
+} from "../data/groupingStore.ts";
+import type { Grouping } from "../model/groups.ts";
+import { useRisk } from "../../risk/data/riskStore.ts";
 import { FileList } from "./FileList.tsx";
 import { useThemeType } from "./theme.ts";
 import { type PullViewed, useReviewModel } from "./useReviewModel.ts";
@@ -100,6 +108,38 @@ const Waiting = ({ placeholder }: { readonly placeholder: Placeholder | null }) 
   </div>
 );
 
+const SESSION_MODES = [
+  { value: "turn", label: "By turn" },
+  { value: "intent", label: "By intent" },
+] as const;
+
+const groupingCaption = (grouping: Grouping) => {
+  if (grouping.source === "path") return "Grouped by path · write a walkthrough to group by intent";
+  const count = grouping.groups.length;
+
+  return `${count.toLocaleString("en-US")} ${count === 1 ? "intent" : "intents"} · from the walkthrough`;
+};
+
+/** An Agent Session's "By turn / By intent" over the diff (Paper R11b), remembered per Mac. */
+const SessionGroupingBar = ({ grouping }: { readonly grouping: Grouping }) => {
+  const mode = useSessionGrouping();
+
+  return (
+    <div className="px-panel pt-panel gap-row-x flex shrink-0 items-center" data-testid="review-by">
+      <SegmentedControl
+        aria-label="Group the diff"
+        variant="well"
+        options={SESSION_MODES}
+        value={mode}
+        onValueChange={setSessionGrouping}
+      />
+      {mode === "intent" && (
+        <span className="text-caption text-text-faint truncate">{groupingCaption(grouping)}</span>
+      )}
+    </div>
+  );
+};
+
 const Ready = ({
   subjectKey,
   slotProps,
@@ -110,6 +150,9 @@ const Ready = ({
 }: ReviewBodyProps & { readonly diff: Extract<ReviewDiff, { readonly kind: "ready" }> }) => {
   const surface = useStore(surfaceStore, (s) => s[subjectKey] ?? emptySurface);
   const themeType = useThemeType();
+  const risk = useRisk(subjectKey);
+  const listMode = useListGrouping();
+  const sessionMode = useSessionGrouping();
 
   const model = useReviewModel({
     subjectKey,
@@ -118,6 +161,8 @@ const Ready = ({
     annotations: surface.annotations,
     selection: surface.selection,
     pullViewed,
+    intents: risk.kind === "ready" ? risk.summary.walkthrough?.groups : undefined,
+    byIntent: session !== null && sessionMode === "intent",
   });
 
   const pane = paneState({
@@ -167,6 +212,9 @@ const Ready = ({
           onViewed={model.setViewed}
           tests={model.tests}
           onTestsHidden={setTestsHidden}
+          grouping={model.grouping}
+          mode={listMode}
+          onMode={setListGrouping}
         />
       </RiskColumn>
       <CentrePane
@@ -183,6 +231,9 @@ const Ready = ({
             data-complete={diff.complete ? "" : undefined}
             data-files={model.files.length}
           >
+            {session !== null && pane.kind !== "message" && (
+              <SessionGroupingBar grouping={model.grouping} />
+            )}
             {pane.kind === "message" ? (
               <Waiting placeholder={{ title: pane.title, fact: pane.fact }} />
             ) : (

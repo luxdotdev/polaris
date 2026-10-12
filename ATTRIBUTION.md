@@ -43,6 +43,7 @@ Used as development dependencies only: never copied into Polaris and never shipp
 ## Walkthrough prompt
 
 - **humanlayer/skills** @ `ca7c8088db69e315a8b2deea43820270457f8f3c` (MIT): `visual-pr/assets/pr_description_template.md` and `show-me/SKILL.md`, adapted into `apps/daemon/src/reviewer/walkthroughPrompt.ts`. Retains the three-section change story and focused shape views; removes HTML artifacts, adds Polaris read-only policy, composed/delta diffs and Finding links. Upstream licence: [`docs/licenses/humanlayer-skills.txt`](docs/licenses/humanlayer-skills.txt).
+- **antfu/pulls.review** @ `764de3b8cfdc25d3e4012b1ed622e628af88c32e` (MIT): the intent-group shape and its 16 neutral categories with their guide (`packages/core/src/types/analyze.ts`), the grouping principles (`analyze/adapters/llm/prompt.ts`) and the coverage check that names missing, duplicated and unknown paths back to the model (`analyze/adapters/llm/tools.ts`). They landed in `packages/protocol/src/review.ts` (`IntentGroup`, `IntentCategory`), `apps/daemon/src/reviewer/groups.ts` and `walkthroughPrompt.ts`. Changes: Effect Schema instead of valibot; the groups are the Walkthrough's last section (one fenced JSON block) rather than a tool call, with one repair Turn; groups are flat (no children) and carry no file or line notes.
 
 ## Lead handover prompt
 
