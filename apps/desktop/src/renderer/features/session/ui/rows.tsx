@@ -283,23 +283,14 @@ const Ending = ({ row, ctx }: { row: Extract<Row, { kind: "ending" }>; ctx: RowC
   </div>
 );
 
-/** A folded Turn; a Polaris card (a digest, a brief) keeps the agent's reply line under it. */
-const FoldedTurn = ({ row, ctx }: { row: Extract<Row, { kind: "summary" }>; ctx: RowContext }) => {
-  const card = ctx.chrome.promptCard?.({
+/** A folded Turn: its summary row, or the Polaris card (a digest, a brief) folded. */
+const FoldedTurn = ({ row, ctx }: { row: Extract<Row, { kind: "summary" }>; ctx: RowContext }) =>
+  ctx.chrome.promptCard?.({
     turnId: row.turnId,
     folded: true,
+    canFold: true,
     onToggle: () => ctx.onSetTurnOpen(row.turnId, true),
-  });
-
-  if (card === undefined || card === null) return <Summary row={row} ctx={ctx} />;
-
-  return (
-    <div className="flex flex-col gap-1.5">
-      {card}
-      <Summary row={row} ctx={ctx} />
-    </div>
-  );
-};
+  }) ?? <Summary row={row} ctx={ctx} />;
 
 /** One row, by kind. */
 export const ConversationRow = ({ row, ctx }: { row: Row; ctx: RowContext }) => {
@@ -313,6 +304,7 @@ export const ConversationRow = ({ row, ctx }: { row: Row; ctx: RowContext }) => 
         ctx.chrome.promptCard?.({
           turnId: row.turnId,
           folded: false,
+          canFold: true,
           onToggle: () => ctx.onSetTurnOpen(row.turnId, false),
         }) ?? <Prompt row={row} ctx={ctx} />
       );
