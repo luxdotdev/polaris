@@ -17,7 +17,12 @@ import {
 import { useMemo } from "react";
 import { slots } from "../../app/slots.tsx";
 import { useDismissAll, useNeedsYouCount } from "../../features/needs-you/index.ts";
-import { useConstellationCount } from "../../features/sessions/index.ts";
+import {
+  ReviewsGroup,
+  reviewsKey,
+  sectionsOf,
+  useConstellationCount,
+} from "../../features/sessions/index.ts";
 import { type SidebarView, sessionOrder, workspaceKey } from "../../routes/selection.ts";
 import { activeSessions, shownState, shownWorkspaces } from "../../routes/topBar.ts";
 import { emptyHostModel, type HostModel, type SessionEntry } from "../../store/hostModel.ts";
@@ -135,10 +140,14 @@ const WorkspaceSessions = ({ hostKey, model, workspace }: WorkspaceListProps) =>
 
   return (
     <div className="flex flex-col gap-0.5 px-2 pt-2">
-      <SectionHeader empty={entries.length === 0 ? `None in ${workspace.name}` : undefined}>
-        Sessions
-      </SectionHeader>
-      <slots.SessionList hostKey={hostKey} model={model} entries={entries} now={now} />
+      <slots.SessionList
+        hostKey={hostKey}
+        model={model}
+        entries={entries}
+        now={now}
+        scope={workspaceKey(hostKey, workspace.id)}
+        empty={`None in ${workspace.name}`}
+      />
     </div>
   );
 };
@@ -165,8 +174,10 @@ const MachineGroup = ({
   const folded = useNav((s) => s.folded[key]);
   const { sessionId } = useSelection();
 
+  // Pinned and Reviews sessions sit in their own sections above and below the groups.
   const entries = useMemo(
-    () => [...activeSessions(model, workspace.id)].sort(sessionOrder),
+    () =>
+      sectionsOf([...activeSessions(model, workspace.id)].sort(sessionOrder), (e) => e).sessions,
     [model, workspace.id]
   );
 
@@ -340,6 +351,7 @@ const MachineSidebar = () => {
         <slots.NeedsYouInbox />
       ) : (
         <>
+          <MachinePinned hostKey={hostKey} model={model} now={now} />
           {workspaces.map((workspace) => (
             <MachineGroup
               key={workspace.id}
@@ -349,10 +361,65 @@ const MachineSidebar = () => {
               now={now}
             />
           ))}
+          <MachineReviews hostKey={hostKey} model={model} now={now} />
           <Elsewhere hostKey={hostKey} workspaceId={null} />
         </>
       )}
     </SidebarFrame>
+  );
+};
+
+interface MachineSectionProps {
+  readonly hostKey: string;
+  readonly model: HostModel;
+  readonly now: number;
+}
+
+/** The machine's sections across its shown Workspaces (Paper 12b). */
+const useMachineSections = (model: HostModel) =>
+  useMemo(() => {
+    const shown = new Set(shownWorkspaces(model).map((w) => w.id));
+
+    const entries = activeSessions(model)
+      .filter((e) => shown.has(e.session.workspaceId))
+      .sort(sessionOrder);
+
+    return sectionsOf(entries, (e) => e);
+  }, [model]);
+
+const compactRows = (hostKey: string, entries: ReadonlyArray<SessionEntry>, now: number) =>
+  entries.map((entry) => (
+    <CompactSessionRow
+      key={entry.session.id}
+      hostKey={hostKey}
+      entry={entry}
+      now={now}
+      meta={age(entry.session.createdAt, now)}
+    />
+  ));
+
+const MachinePinned = ({ hostKey, model, now }: MachineSectionProps) => {
+  const { pinned } = useMachineSections(model);
+
+  if (pinned.length === 0) return null;
+
+  return (
+    <div className="flex flex-col px-2 pt-2">
+      <SectionHeader>Pinned</SectionHeader>
+      {compactRows(hostKey, pinned, now)}
+    </div>
+  );
+};
+
+const MachineReviews = ({ hostKey, model, now }: MachineSectionProps) => {
+  const { reviews } = useMachineSections(model);
+
+  return (
+    <div className="flex flex-col px-2">
+      <ReviewsGroup foldKey={reviewsKey(hostKey)} entries={reviews}>
+        {compactRows(hostKey, reviews, now)}
+      </ReviewsGroup>
+    </div>
   );
 };
 
