@@ -8,6 +8,7 @@ import { HighlightStyle, syntaxHighlighting, type Language } from "@codemirror/l
 import type { Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { tags as t } from "@lezer/highlight";
+import { diagnosticTheme } from "./diagnosticLook.ts";
 
 const v = (token: string) => `var(--color-${token})`;
 
@@ -241,4 +242,4 @@ export const moonlitMarkdown = (language: Language) =>
     HighlightStyle.define([{ tag: t.labelName, color: v("syntax-keyword") }], { scope: language })
   );
 
-export const editorLook: Extension = [editorTheme, syntaxHighlighting(moonlit)];
+export const editorLook: Extension = [editorTheme, diagnosticTheme, syntaxHighlighting(moonlit)];
