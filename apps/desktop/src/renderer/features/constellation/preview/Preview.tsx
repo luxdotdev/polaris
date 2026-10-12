@@ -29,6 +29,7 @@ import {
   STUDIO,
   WORKSPACE,
 } from "./graph.ts";
+import { FAILURE_SIGNALS, failuresRecord } from "./failures.ts";
 import { largeRecord } from "./large.ts";
 import { b8Model, setupRecord, setupSessions } from "./setup.ts";
 import { statsFixture } from "./stats.ts";
@@ -99,6 +100,7 @@ const SCENES = [
   "slugs",
   "tree",
   "digests",
+  "failures",
 ] as const;
 
 type Scene = (typeof SCENES)[number];
@@ -122,6 +124,8 @@ const recordFor = (scene: Scene): ConstellationRecord => {
   if (scene === "setup" || scene === "setup-focus") return setupRecord();
 
   if (scene === "completed") return c1Record({ state: "completed", attempts: completedAttempts() });
+
+  if (scene === "failures") return failuresRecord();
 
   if (scene === "digests") {
     const record = slugRecord();
@@ -165,6 +169,7 @@ const TREE_FOLDS = new Map([
 const UI: Readonly<Record<Scene, Partial<LeadUi>>> = {
   lead: {},
   digests: {},
+  failures: {},
   menu: { selected: "task:B1", menu: "task:B1" },
   focus: { focus: { kind: "task", taskId: "B1" }, selected: "task:B1" },
   handed: { focus: { kind: "task", taskId: "B1" }, selected: "task:B1" },
@@ -242,7 +247,7 @@ const bridge: PolarisApi = {
   onAppEvent: () => () => undefined,
 };
 
-const setPreviewSignals = () => {
+const setPreviewSignals = (scene: Scene) => {
   setSignals({
     workers: new Map<string, Partial<WorkerFacts>>([
       [
@@ -263,6 +268,8 @@ const setPreviewSignals = () => {
         "att-C4-1",
         { activity: { kind: "command", text: "bun test apps/daemon/src/mcp", since: ago(1) } },
       ],
+      // Later entries win: the failures scene's B2 has no Turn in flight.
+      ...(scene === "failures" ? FAILURE_SIGNALS : []),
     ]),
     receipts: new Map([
       ["i-spec", { command: "bun run spec", exitCode: 0 }],
@@ -297,7 +304,7 @@ export const mountConstellationPreview = (root: HTMLElement, hash: string) => {
 
   standInBridge(bridge);
   installConstellationClient(fakeClient(store, { unmerged: scene === "handed-unmerged" }));
-  setPreviewSignals();
+  setPreviewSignals(scene);
   patchLeadUi(leadKey(LOCAL, LEAD), () => UI[scene]);
   navigation.actions.selectSession({ hostKey: LOCAL, sessionId: LEAD });
   showOutput({ hostKey: LOCAL, workspaceId: WORKSPACE }, LEAD);

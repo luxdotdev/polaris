@@ -32,7 +32,8 @@ const toneOf = (row: TaskRow): StripTone => {
 
   if (row.look.bucket === "blocked") return "blocked";
 
-  if (row.look.glyph === "waiting") return "waiting";
+  // Waiting with no Turn in flight, or failed for a reason that isn't the worker's: neutral.
+  if (row.look.glyph === "waiting" || row.look.glyph === "stopped") return "waiting";
 
   switch (row.projection.state) {
     case "done":
