@@ -53,7 +53,7 @@ import * as P from "./protocol.ts";
 import { type ApprovalPrompt, approvalPrompts } from "./approvalPrompts.ts";
 import { codexError, Incoming, type RpcConnection } from "./RpcConnection.ts";
 import { ReasoningTimes } from "./reasoning.ts";
-import { CodexProcesses } from "./processes.ts";
+import { CodexProcesses, terminateProcess } from "./processes.ts";
 import { CodexSteers } from "./steers.ts";
 import { CodexSubagents } from "./subagents.ts";
 import { requestCompat } from "./compat.ts";
@@ -737,6 +737,13 @@ export const openSession = (
           return startTurn(input.turnId, input.prompt, turnInput(input.prompt, input.attachments));
         }),
       steer: steerText,
+      stopBackground: (taskIds) =>
+        Effect.forEach(
+          taskIds.flatMap((id) => processes.processOf(id) ?? []),
+          (processId) =>
+            terminateProcess(config.appServer, config.clientVersion, threadId, processId),
+          { discard: true }
+        ),
       interrupt: Effect.suspend(() =>
         activeCodexTurn === null
           ? Effect.void

@@ -162,6 +162,8 @@ export interface HarnessSession {
   /** Add guidance to the Turn in flight; fails if the Harness lacks `steer`. */
   readonly steer: (text: string) => Effect.Effect<void, HarnessError>;
   readonly interrupt: Effect.Effect<void, HarnessError>;
+  /** Stop these background tasks (ids from `BackgroundTasksChanged`); needs `stopBackground`. */
+  readonly stopBackground?: (taskIds: ReadonlyArray<string>) => Effect.Effect<void, HarnessError>;
   readonly respond: (
     requestId: RequestId,
     decision: ApprovalDecision
@@ -189,6 +191,8 @@ export interface HarnessDriver {
     readonly liveCoAttach: boolean;
     /** The Harness can change a session's Model between Turns (`SetModel`). */
     readonly switchModel: boolean;
+    /** The Harness can stop its background tasks (`StopBackgroundTasks`). */
+    readonly stopBackground?: boolean;
   };
   /**
    * For Harnesses that hand off sequentially (`liveCoAttach: false`): what the

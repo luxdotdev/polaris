@@ -671,6 +671,13 @@ const openSession = Effect.fnUntraced(function* (
     });
   }).pipe(Effect.withSpan("ClaudeSession.interrupt"));
 
+  /** Claude Code reports each stopped task with a `stopped` task notification. */
+  const stopBackground = (taskIds: ReadonlyArray<string>) =>
+    Effect.tryPromise({
+      try: () => Promise.all(taskIds.map((id) => q.stopTask(id))),
+      catch: (cause) => harnessError("Could not stop Claude's background task", cause),
+    }).pipe(Effect.asVoid, Effect.withSpan("ClaudeSession.stopBackground"));
+
   const respond = Effect.fn("ClaudeSession.respond")(function* (
     requestId: RequestId,
     decision: ApprovalDecision
@@ -730,6 +737,7 @@ const openSession = Effect.fnUntraced(function* (
     steer,
     steerTurn,
     interrupt,
+    stopBackground,
     respond,
     setPermissionMode,
     terminalCommand,
@@ -810,7 +818,7 @@ export const makeClaudeDriver = (options: ClaudeDriverOptions = {}): HarnessDriv
 
   const claude: HarnessDriver = {
     kind: "claude",
-    capabilities: { steer: true, liveCoAttach: false, switchModel: true },
+    capabilities: { steer: true, liveCoAttach: false, switchModel: true, stopBackground: true },
     probe,
     listModels: listClaudeModels(driver),
     listCommands: listClaudeCommands(driver),

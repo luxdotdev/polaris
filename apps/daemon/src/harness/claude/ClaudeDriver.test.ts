@@ -561,6 +561,14 @@ describe("Claude driver", () => {
     await t.close();
   });
 
+  test("stopping background tasks asks Claude Code to stop each one", async () => {
+    const t = await openFake();
+    await t.run(t.session.stopBackground!(["task-1", "task-2"]));
+
+    expect(t.fake.stoppedTasks).toEqual(["task-1", "task-2"]);
+    await t.close();
+  });
+
   test("a steer an interrupt recalled never shows in the Turn", async () => {
     const t = await openFake();
     await t.run(t.session.sendTurn(turn(T1, "refactor")));

@@ -139,6 +139,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "session.subagents",
   "session.background-tasks",
   "session.turn-paging",
+  "session.stop-background",
   "files.read",
   "files.versioned",
   "files.write",

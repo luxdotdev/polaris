@@ -51,6 +51,8 @@ export interface DecideContext {
   readonly canSteer: boolean;
   /** For SetModel: whether the session's Harness can change Model mid-session. */
   readonly canSwitchModel: boolean;
+  /** For StopBackgroundTasks: whether the session's Harness can stop its background tasks. */
+  readonly canStopBackground: boolean;
   /**
    * The Turn the command names, looked up in memory or SQL (null if unknown):
    * ForkSession's `fromTurnId`, AcceptTurns' `throughTurnId`.
@@ -427,6 +429,12 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
     Retry: (c) => retry(d, c),
     Steer: (c) => onSession(d, c.sessionId, { type: "turn.steer", canSteer: ctx.canSteer }),
     Interrupt: (c) => onSession(d, c.sessionId, { type: "turn.interrupt" }),
+    StopBackgroundTasks: (c) =>
+      onSession(d, c.sessionId, {
+        type: "background.stop",
+        taskIds: c.taskIds,
+        canStop: ctx.canStopBackground,
+      }),
     RespondToApproval: (c) =>
       onSession(d, c.sessionId, {
         type: "approval.respond",

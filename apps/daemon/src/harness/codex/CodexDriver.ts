@@ -90,7 +90,7 @@ export const makeCodexDriver = (
 
     return {
       kind: "codex",
-      capabilities: { steer: true, liveCoAttach: true, switchModel: true },
+      capabilities: { steer: true, liveCoAttach: true, switchModel: true, stopBackground: true },
       probe: probeCodex(codexPath),
       listModels: listCodexModels({ codexPath, socketPath, clientVersion }),
       listCommands: listCodexCommands({ codexPath, socketPath, clientVersion }),

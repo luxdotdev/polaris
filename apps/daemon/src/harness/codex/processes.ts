@@ -4,6 +4,8 @@
  * process alive across Turns, and one leaves when Codex reports it complete.
  */
 import { BackgroundTask } from "@polaris/protocol";
+import { Effect } from "effect";
+import type { AppServer } from "./AppServer.ts";
 
 interface Running {
   readonly command: string;
@@ -67,3 +69,25 @@ export class CodexProcesses {
     return changed;
   }
 }
+
+/**
+ * Ends a background terminal. The call is experimental in app-server, so it goes
+ * over its own short connection rather than opting the session's into that API.
+ */
+export const terminateProcess = (
+  appServer: AppServer,
+  clientVersion: string,
+  threadId: string,
+  processId: string
+) =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const conn = yield* appServer.connect;
+      yield* conn.request("initialize", {
+        clientInfo: { name: "polaris", title: "Polaris", version: clientVersion },
+        capabilities: { experimentalApi: true, requestAttestation: false },
+      });
+      yield* conn.notify("initialized");
+      yield* conn.request("thread/backgroundTerminals/terminate", { threadId, processId });
+    })
+  );

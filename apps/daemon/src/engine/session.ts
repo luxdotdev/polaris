@@ -3,6 +3,7 @@
  * then emits domain events and effects for one input (see README.md).
  */
 import {
+  backgroundStopRefusal,
   backgroundTasksChanged,
   idleStopEffect,
   backgroundIdleStop,
@@ -132,8 +133,8 @@ const settle = (
   return moved ? { target: `#${next.session.state}`, reenter: true, context } : { context };
 };
 
-const reject = (enq: Enqueue, reason: string) => {
-  enq.emit({ type: "rejected", reason });
+const reject = (enq: Enqueue, reason: string | null) => {
+  if (reason !== null) enq.emit({ type: "rejected", reason });
 };
 
 // ── Machine ─────────────────────────────────────────────────────────────────
@@ -423,6 +424,8 @@ export const sessionMachine = createMachine({
       if (!event.canSteer)
         return reject(enq, `${record.session.harness} does not support steering`);
     },
+    "background.stop": ({ context, event }, enq) =>
+      reject(enq, backgroundStopRefusal(need(context), event)),
     "turn.interrupt": ({ context }, enq) => {
       if (workingTurn(need(context)) === undefined) reject(enq, "there is no Turn in flight");
     },

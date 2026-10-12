@@ -6,6 +6,21 @@ import type { SessionRecord } from "../store/model.ts";
 export const waitingOnBackgroundWork = (record: SessionRecord): boolean =>
   record.subagents.size > 0 || record.session.backgroundTasks.length > 0;
 
+/** Why `StopBackgroundTasks` is refused, or null: it needs live tasks, each one named known. */
+export const backgroundStopRefusal = (
+  record: SessionRecord,
+  input: Extract<SessionInput, { type: "background.stop" }>
+): string | null => {
+  const live = new Set(record.session.backgroundTasks.map((task) => task.id));
+
+  if (!input.canStop) return `${record.session.harness} cannot stop background work`;
+
+  if (live.size === 0) return "there is no background work to stop";
+  const unknown = input.taskIds?.find((id) => !live.has(id));
+
+  return unknown === undefined ? null : `there is no background task ${unknown}`;
+};
+
 export const backgroundTasksChanged = (
   record: SessionRecord,
   tasks: ReadonlyArray<BackgroundTask>

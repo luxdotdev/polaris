@@ -66,6 +66,9 @@ const rejoin = (drive: (send: Send, h: Harness) => Effect.Effect<void, unknown>)
 
     if (request.method === "turn/steer") return c.reply({ turnId: T });
 
+    if (request.method === "thread/backgroundTerminals/terminate")
+      return c.reply({ terminated: true });
+
     return scripted(() => {})(request, c);
   };
 
@@ -184,4 +187,21 @@ test("a command that finishes before the model moves on is never a background ta
   );
 
   expect(ofTag(events, "BackgroundTasksChanged")).toEqual([]);
+});
+
+test("stopping a background command terminates its process over an experimental connection", async () => {
+  const { server } = await rejoin((send, { session }) =>
+    Effect.gen(function* () {
+      send("turn/completed", { turn: turn(T, "completed") });
+      yield* pause;
+      yield* session.stopBackground!(["sleep", "unknown"]);
+    })
+  );
+
+  const initializes = server.requests("initialize").map((r) => r.params);
+  expect(initializes.at(-1)).toMatchObject({ capabilities: { experimentalApi: true } });
+  expect(initializes[0]).toMatchObject({ capabilities: { experimentalApi: false } });
+  expect(server.requests("thread/backgroundTerminals/terminate").map((r) => r.params)).toEqual([
+    { threadId: THREAD, processId: "pid-sleep" },
+  ]);
 });

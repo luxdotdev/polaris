@@ -46,6 +46,8 @@ export const Capability = Schema.Literals([
   "session.background-tasks",
   /** `session.turns`: older Turns a page at a time. */
   "session.turn-paging",
+  /** The `StopBackgroundTasks` command. */
+  "session.stop-background",
   "files.read",
   "files.versioned",
   "files.write",

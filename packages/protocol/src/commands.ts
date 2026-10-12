@@ -68,6 +68,14 @@ export const Command = Schema.TaggedUnion({
   /** Add guidance to the Turn in flight without interrupting it, where the Harness supports it. */
   Steer: { sessionId: SessionId, text: Schema.String },
   Interrupt: { sessionId: SessionId },
+  /**
+   * Stop background work that outlived its Turn (`AgentSession.backgroundTasks`): the
+   * tasks named, or every one when null (capability `session.stop-background`).
+   */
+  StopBackgroundTasks: {
+    sessionId: SessionId,
+    taskIds: Schema.NullOr(Schema.Array(Schema.String)),
+  },
   /** Continue an Interrupted Turn after a Daemon restart. Never done automatically. */
   Continue: { sessionId: SessionId },
   /** Send a Failed Turn's prompt and attachments again, as a new Turn. */

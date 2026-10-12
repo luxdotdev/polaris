@@ -128,6 +128,17 @@ const make = Effect.gen(function* () {
       yield* rt.signal(sessionId, { type: "turn.interruptUnattended", at: yield* rt.now });
     });
 
+  /** The live Harness stops the tasks; its next `BackgroundTasksChanged` drops them. */
+  const stopBackground = (sessionId: SessionId, taskIds: ReadonlyArray<string> | null) =>
+    Effect.gen(function* () {
+      const entry = live.get(sessionId);
+      const record = (yield* rt.store.model).sessions.get(sessionId);
+
+      if (entry?.session.stopBackground === undefined || record === undefined) return;
+      const ids = taskIds ?? record.session.backgroundTasks.map((task) => task.id);
+      yield* entry.session.stopBackground(ids);
+    });
+
   const respond = (
     sessionId: SessionId,
     requestId: ApprovalRequest["id"],
@@ -210,6 +221,7 @@ const make = Effect.gen(function* () {
           () => live.get(command.sessionId)?.session.steer(command.text) ?? Effect.void
         ),
       Interrupt: (command) => interrupt(command.sessionId),
+      StopBackgroundTasks: (command) => stopBackground(command.sessionId, command.taskIds),
       RespondToApproval: (command) =>
         respond(command.sessionId, command.requestId, command.decision),
       SetPermissionMode: (command) =>

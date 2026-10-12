@@ -27,6 +27,7 @@ type FakeQuery = Pick<
   | "throw"
   | typeof Symbol.asyncIterator
   | "interrupt"
+  | "stopTask"
   | "setPermissionMode"
   | "setModel"
   | "applyFlagSettings"
@@ -60,6 +61,8 @@ export class FakeClaude {
   /** What `supportedCommands()` answers. */
   commands: Awaited<ReturnType<Query["supportedCommands"]>> = [];
   interrupts = 0;
+  /** Task ids the driver asked to stop. */
+  readonly stoppedTasks: Array<string> = [];
   closed = false;
   /** How often the driver asked `get_usage`, and what the fake answers (a reply or a failure). */
   usageCalls = 0;
@@ -98,6 +101,9 @@ export class FakeClaude {
         this.interrupts++;
 
         return undefined;
+      },
+      stopTask: async (taskId) => {
+        this.stoppedTasks.push(taskId);
       },
       setPermissionMode: async (mode) => {
         if (this.refuses.has("setPermissionMode")) throw new Error("Auto mode is unavailable");
