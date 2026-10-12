@@ -10,6 +10,7 @@ import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import type { Row } from "../model/conversation.ts";
 import { preloadMarkdown } from "./markdown/index.tsx";
+import { OverlayScrollbar } from "./overlayScrollbar.tsx";
 import { ConversationRow, type RowContext } from "./rows.tsx";
 
 interface Saved {
@@ -145,32 +146,36 @@ export const Conversation = ({
     [scrollKey, virtualizer]
   );
 
+  // The parent positions the overlay scrollbar: it must be `relative` around the list.
   return (
-    <div
-      ref={scrollRef}
-      className="min-h-0 flex-1 overflow-y-auto overscroll-contain select-text [overflow-anchor:none]"
-      data-testid="conversation"
-    >
-      <div ref={virtualizer.containerRef} className="relative w-full">
-        {virtualizer.getVirtualItems().map((item) => {
-          const row = rows[item.index];
+    <>
+      <div
+        ref={scrollRef}
+        className="min-h-0 flex-1 [scrollbar-width:none] overflow-y-auto overscroll-contain select-text [overflow-anchor:none]"
+        data-testid="conversation"
+      >
+        <div ref={virtualizer.containerRef} className="relative w-full">
+          {virtualizer.getVirtualItems().map((item) => {
+            const row = rows[item.index];
 
-          return row === undefined ? null : (
-            <div
-              key={item.key}
-              ref={virtualizer.measureElement}
-              data-index={item.index}
-              data-row-key={row.key}
-              className={cn(
-                "pb-panel absolute top-0 left-0 w-full pl-5",
-                gutter ? "pr-10" : "pr-5"
-              )}
-            >
-              <ConversationRow row={row} ctx={ctx} />
-            </div>
-          );
-        })}
+            return row === undefined ? null : (
+              <div
+                key={item.key}
+                ref={virtualizer.measureElement}
+                data-index={item.index}
+                data-row-key={row.key}
+                className={cn(
+                  "pb-panel absolute top-0 left-0 w-full pl-5",
+                  gutter ? "pr-10" : "pr-5"
+                )}
+              >
+                <ConversationRow row={row} ctx={ctx} />
+              </div>
+            );
+          })}
+        </div>
       </div>
-    </div>
+      <OverlayScrollbar list={scrollRef} />
+    </>
   );
 };

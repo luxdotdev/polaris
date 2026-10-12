@@ -216,7 +216,7 @@ export const TurnRail = ({ turns, rows, range, onJump }: TurnRailProps) => {
 
   return (
     <div
-      className="absolute top-1/2 right-0.5 z-[5] -translate-y-1/2"
+      className="absolute top-1/2 right-2 z-[5] -translate-y-1/2"
       data-testid="turn-rail"
       hidden={room === 0}
     >
