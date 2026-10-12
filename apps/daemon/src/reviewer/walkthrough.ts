@@ -218,6 +218,7 @@ const runOne = (
         checkoutId: range.checkoutId,
         choice,
         title: `Walkthrough · ${range.title}${delta ? " · new commits" : ""}`,
+        origin: "walkthrough",
         prompt,
         onStarted: (sessionId) =>
           Effect.gen(function* () {

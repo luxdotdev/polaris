@@ -38,9 +38,17 @@ const Bubble = ({
 );
 
 /** A steer the Harness took, in the Turn where it landed. */
-export const Steered = ({ text }: { readonly text: string }) => (
+export const Steered = ({
+  text,
+  time = null,
+}: {
+  readonly text: string;
+  readonly time?: ReactNode;
+}) => (
   <Bubble text={text} testId="steered">
     Steered this turn
+    {time === null ? null : <span aria-hidden="true">·</span>}
+    {time}
   </Bubble>
 );
 

@@ -2,10 +2,12 @@
  * The conversation with what sits over it: the ⌘F find bar and, from three
  * Turns on, the Turn rail. Both bring a row into view through `reveal`.
  */
+import type { SessionId } from "@polaris/protocol";
 import { type RefObject, useEffect, useRef, useState } from "react";
 import { useCommands } from "../../../shell/hooks.ts";
 import type { TurnView } from "../../../store/sessionModel.ts";
-import { type Row, turnStartRow } from "../model/conversation.ts";
+import { olderRow, type Row, turnStartRow } from "../model/conversation.ts";
+import { useOlderTurns } from "../older.ts";
 import { RAIL_MIN_TURNS } from "../model/rail.ts";
 import { setTurnOpen } from "../state.ts";
 import { Conversation, type Reveal } from "./Conversation.tsx";
@@ -34,17 +36,35 @@ const useFind = (host: RefObject<HTMLDivElement | null>) => {
 
 export interface TranscriptProps {
   readonly uiKey: string;
+  readonly hostKey: string;
+  readonly sessionId: SessionId;
+  /** The Host can page older Turns (`session.turn-paging`). */
+  readonly canPage: boolean;
   readonly turns: ReadonlyArray<TurnView>;
   readonly rows: ReadonlyArray<Row>;
-  readonly ctx: RowContext;
+  /** The rows' context; the Transcript adds paging (`onLoadOlder`). */
+  readonly ctx: Omit<RowContext, "onLoadOlder">;
 }
 
-export const Transcript = ({ uiKey, turns, rows, ctx }: TranscriptProps) => {
+export const Transcript = (props: TranscriptProps) => {
+  const { uiKey, turns } = props;
   const host = useRef<HTMLDivElement>(null);
   const find = useFind(host);
   const [reveal, setReveal] = useState<Reveal | null>(null);
   const [range] = useState(createRowRange);
   const rail = turns.length >= RAIL_MIN_TURNS;
+  const older = useOlderTurns({ ...props, enabled: props.canPage });
+  const rows = older.state === null ? props.rows : [olderRow(older.state), ...props.rows];
+  const ctx: RowContext = { ...props.ctx, onLoadOlder: older.load };
+
+  // Reaching the top loads the Turns before the first one shown.
+  useEffect(
+    () =>
+      range.subscribe((start) => {
+        if (start === 0 && older.state === "idle") older.load();
+      }),
+    [range, older]
+  );
 
   const revealRow = (key: string, align: "center" | "start") =>
     setReveal((r) => ({ key, nonce: (r?.nonce ?? 0) + 1, align }));
@@ -58,6 +78,7 @@ export const Transcript = ({ uiKey, turns, rows, ctx }: TranscriptProps) => {
         reveal={reveal}
         onRange={range.emit}
         gutter={rail}
+        firstTurnId={turns[0]?.turn.id ?? null}
       />
       {rail ? (
         <TurnRail

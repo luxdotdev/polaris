@@ -52,6 +52,8 @@ export const Capability = Schema.Literals([
   "session.compaction",
   /** `SessionNotified`: an agent's notification for the user (MCP `notify`). */
   "session.notify",
+  /** `PinSession`, `SessionPinned`, and `AgentSession.pinnedAt` and `origin`. */
+  "session.pin",
   "files.read",
   "files.versioned",
   "files.write",

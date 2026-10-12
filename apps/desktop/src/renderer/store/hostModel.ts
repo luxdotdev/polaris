@@ -256,6 +256,7 @@ const fold = (event: DomainEvent): Fold =>
           patch({ state, lastError: state === "failed" ? reason : entry.session.lastError })(entry)
         ),
       SessionRenamed: ({ sessionId, title }) => onSession(sessionId, patch({ title })),
+      SessionPinned: ({ sessionId, pinnedAt }) => onSession(sessionId, patch({ pinnedAt })),
       SessionCursorUpdated: ({ sessionId, harnessCursor }) =>
         onSession(sessionId, patch({ harnessCursor })),
       SessionModelChanged: ({ sessionId, model, effort, serviceTier }) =>

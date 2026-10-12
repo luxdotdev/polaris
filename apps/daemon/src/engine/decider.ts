@@ -278,6 +278,7 @@ const startSession = (d: Deciding, command: CommandOf<"StartSession">): Decision
     turnCount: 0,
     contextUsage: null,
     lastError: null,
+    origin: command.origin ?? null,
     createdAt: d.ctx.now,
     updatedAt: d.ctx.now,
   });
@@ -377,6 +378,19 @@ const renameSession = (d: Deciding, command: CommandOf<"RenameSession">): Decisi
     return d.ok(DomainEvent.cases.SessionRenamed.make({ sessionId: command.sessionId, title }));
   });
 
+/** Pins at the current time, or unpins; asking for what's already so commits nothing. */
+const pinSession = (d: Deciding, command: CommandOf<"PinSession">): Decision =>
+  d.withSession(command.sessionId, (record) => {
+    if (command.pinned === (record.session.pinnedAt != null)) return d.ok();
+
+    return d.ok(
+      DomainEvent.cases.SessionPinned.make({
+        sessionId: command.sessionId,
+        pinnedAt: command.pinned ? d.ctx.now : null,
+      })
+    );
+  });
+
 /** A new Turn with the last Turn's prompt and attachments; the machine checks that it Failed. */
 const retry = (d: Deciding, command: CommandOf<"Retry">): Decision =>
   d.withSession(command.sessionId, (record) => {
@@ -443,6 +457,7 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
         resolvedBy: ctx.deviceLabel,
       }),
     RenameSession: (c) => renameSession(d, c),
+    PinSession: (c) => pinSession(d, c),
     SetPermissionMode: (c) =>
       onSession(d, c.sessionId, { type: "permissionMode.set", permissionMode: c.permissionMode }),
     SetModel: (c) => setModel(d, c),

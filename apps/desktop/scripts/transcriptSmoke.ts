@@ -67,19 +67,24 @@ let app: Awaited<ReturnType<typeof electron.launch>> | undefined;
 
 try {
   daemon = await startDaemon({ home, benchHarness: true });
-  app = await electron.launch({
-    executablePath: stockElectronBinary(),
-    args: [APP_DIR],
-    env: {
-      ...process.env,
-      POLARIS_DESKTOP_LOCAL_SOCKET: daemon.socketPath,
-      POLARIS_DESKTOP_BENCH_HARNESS: "1",
-      POLARIS_DESKTOP_USER_DATA: userData,
-      POLARIS_DESKTOP_HIDDEN: "1",
-    },
-  });
+  const socket = daemon.socketPath;
 
-  const page = await app.firstWindow();
+  const launch = () =>
+    electron.launch({
+      executablePath: stockElectronBinary(),
+      args: [APP_DIR],
+      env: {
+        ...process.env,
+        POLARIS_DESKTOP_LOCAL_SOCKET: socket,
+        POLARIS_DESKTOP_BENCH_HARNESS: "1",
+        POLARIS_DESKTOP_USER_DATA: userData,
+        POLARIS_DESKTOP_HIDDEN: "1",
+      },
+    });
+
+  app = await launch();
+
+  let page = await app.firstWindow();
 
   await sizeWindow(app, 1280, 900);
   await page.evaluate(
@@ -251,6 +256,89 @@ try {
     [0.36, "0s"],
   ]);
   console.log("ok: 140ms arc on transform; Reduce Motion drops it");
+
+  // Paging: past the feed's 20 Turns, a relaunch shows the last 20; the top loads the rest.
+  for (let n = 5; n <= 25; n++) {
+    await send(page, `Turn ${n} of the paging run`);
+    await idle(page);
+  }
+
+  await app.close();
+  app = await launch();
+  page = await app.firstWindow();
+  await sizeWindow(app, 1280, 900);
+  await page.locator('[data-slot="chip"]', { hasText: "proof" }).first().click();
+  await page.getByText("Transcript proof", { exact: true }).first().click();
+  await idle(page);
+
+  const loaded = async () =>
+    Number(
+      await page.evaluate(
+        `document.querySelectorAll('[data-testid="turn-rail"] [role="option"]').length`
+      )
+    );
+
+  assert.equal(await loaded(), 20, "the feed opens with the last 20 Turns");
+  await page.evaluate(
+    `document.querySelector('[data-testid="conversation"]').scrollTo({ top: 0 })`
+  );
+  await page.getByTestId("older-turns").waitFor();
+  await shoot(page, "paging-loading");
+
+  for (const end = Date.now() + 20_000; Date.now() < end && (await loaded()) < 25;)
+    await page.waitForTimeout(250);
+
+  assert.equal(await loaded(), 25, "scrolling to the top loaded the 5 older Turns");
+  await page.getByTestId("older-turns").waitFor({ state: "detached" });
+
+  // The page lands above what was on screen: the list keeps its place, Turn 6 still in view.
+  const sixth = String(
+    await page.evaluate(`(() => {
+    const list = document.querySelector('[data-testid="conversation"]');
+    const row = [...list.querySelectorAll('[data-testid="turn-summary"]')].find((r) => r.textContent.startsWith("Turn 6"));
+    const box = list.getBoundingClientRect();
+    const at = row?.getBoundingClientRect();
+    return JSON.stringify({ scrollTop: list.scrollTop, visible: at !== undefined && at.bottom > box.top && at.top < box.bottom });
+  })()`)
+  );
+
+  assert.match(sixth, /"visible":true/, `Turn 6 stays in view after the load: ${sixth}`);
+  assert.ok(
+    Number(/"scrollTop":(\d+)/.exec(sixth)?.[1]) > 200,
+    `the list scrolled with the new rows instead of jumping to them: ${sixth}`
+  );
+  console.log("ok: the top loads older Turns, and stops at the first");
+  await page.evaluate(
+    `document.querySelector('[data-testid="conversation"]').scrollTo({ top: 0 })`
+  );
+  await page.waitForTimeout(300);
+  await shoot(page, "paging-loaded");
+
+  // H2 and per-message times on fixtures (the bench Harness doesn't stamp items).
+  await page.evaluate(`location.hash = "#preview/order"; location.reload()`);
+  await page.waitForLoadState("domcontentloaded");
+  await page.getByTestId("turn-item").first().waitFor({ timeout: 30_000 });
+  await page.waitForTimeout(500);
+
+  const order = await page.evaluate(
+    `[...document.querySelectorAll('[data-testid="turn-item"], [data-testid="steered"]')].map((n) => n.dataset.kind ?? "steer")`
+  );
+
+  assert.deepEqual(order, ["command", "tool", "message", "steer", "message"]);
+  await page
+    .getByTestId("steered")
+    .filter({ hasText: /Steered this turn\s*·\s*\d{2}:\d{2}/ })
+    .waitFor();
+
+  const reply = page.locator('[data-testid="turn-item"][data-kind="message"]').last();
+
+  await reply.hover();
+  await reply
+    .getByTestId("reply-time")
+    .filter({ hasText: /^\d{2}:\d{2}$/ })
+    .waitFor();
+  console.log("ok: the running command stays where it began; steer and reply times show");
+  await shoot(page, "h2-order-and-times");
 } finally {
   await app?.close().catch(() => undefined);
   await daemon?.stop();

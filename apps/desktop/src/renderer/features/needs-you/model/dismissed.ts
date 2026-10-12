@@ -23,6 +23,8 @@ export interface DismissedInbox<I extends Inbox> {
    * that isn't in the inbox now (its Host still connecting) keeps its dismissal.
    */
   readonly current: Dismissed;
+  /** Keys of sessions that need you but are hidden here, so chips don't count them either. */
+  readonly quiet: ReadonlySet<string>;
 }
 
 export type Dismissible = WaitingSession | AlsoWaiting;
@@ -67,5 +69,6 @@ export const applyDismissed = <I extends Inbox>(
     inbox: { ...inbox, waiting, also, count: Math.max(0, inbox.count - counted.size) },
     hidden: hidden.size,
     current,
+    quiet: counted,
   };
 };

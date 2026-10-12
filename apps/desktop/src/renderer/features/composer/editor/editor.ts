@@ -1,6 +1,6 @@
 /**
- * The composer's Lexical editor on its core API: plain text, history, chips,
- * and the keys. React only mounts it (`../ui/PromptEditor.tsx`); every handler
+ * The composer's Lexical editor on its core API: plain text, undo, chips, the
+ * keys, and ↑/↓ through sent messages. React only mounts it (`../ui/PromptEditor.tsx`); every handler
  * reads the latest callbacks through `hooks()`, so nothing re-registers on render.
  */
 import { createEmptyHistoryState, registerHistory } from "@lexical/history";
@@ -34,6 +34,7 @@ import {
 } from "lexical";
 import type { CommandOption, Draft } from "../model/commands.ts";
 import { CommandNode } from "./node.ts";
+import { $onEdgeLine, onEdgeRow, type Toward } from "./lines.ts";
 import { $caretAcrossChip, $followDomCaret, $selectionText, $snapOutOfChip } from "./selection.ts";
 import {
   $insertChip,
@@ -57,6 +58,8 @@ export interface EditorHooks {
     readonly pick: () => void;
     readonly dismiss: () => void;
   };
+  /** ↑/↓ with the caret on the first or last line: the sent message to show, or null. */
+  readonly recall: (toward: Toward) => string | null;
   /** ↵ sends; with ⌘ or Ctrl, `queue` is true. */
   readonly onSubmit: (queue: boolean) => void;
   /** esc outside the menu; true when it did something (stopped the Turn). */
@@ -101,6 +104,23 @@ const registerKeys = (editor: LexicalEditor, hooks: () => EditorHooks) => {
     return true;
   };
 
+  // After the menu's ↑ ↓: history only where the caret can't move up or down a line.
+  const recall = (toward: Toward) => (event: KeyboardEvent | null) => {
+    if (event === null || event.isComposing) return false;
+
+    if (event.shiftKey || event.altKey || event.metaKey || event.ctrlKey) return false;
+    const root = editor.getRootElement();
+
+    if (!$onEdgeLine(toward) || (root !== null && !onEdgeRow(root, toward))) return false;
+    const text = hooks().recall(toward);
+
+    if (text === null) return false;
+    event.preventDefault();
+    $setText(text, true);
+
+    return true;
+  };
+
   const high = COMMAND_PRIORITY_HIGH;
 
   return mergeRegister(
@@ -134,6 +154,8 @@ const registerKeys = (editor: LexicalEditor, hooks: () => EditorHooks) => {
       whileMenu((h) => h.menu.pick()),
       high
     ),
+    editor.registerCommand(KEY_ARROW_UP_COMMAND, recall(-1), COMMAND_PRIORITY_NORMAL),
+    editor.registerCommand(KEY_ARROW_DOWN_COMMAND, recall(1), COMMAND_PRIORITY_NORMAL),
     editor.registerCommand(KEY_ARROW_LEFT_COMMAND, across("left"), high),
     editor.registerCommand(KEY_ARROW_RIGHT_COMMAND, across("right"), high),
     editor.registerCommand(

@@ -64,4 +64,28 @@ describe("bar contents", () => {
     expect(summary.sessions).toBe(4);
     expect(summarize([]).state).toBeNull();
   });
+
+  test("a session dismissed from Needs You on this Mac doesn't count on its chip", () => {
+    const bar = barHosts({
+      hosts: [hostView("local")],
+      models: {
+        local: hostModel([
+          {
+            id: "a",
+            sessions: [
+              { id: "1", state: "needs-you" },
+              { id: "2", state: "working" },
+            ],
+          },
+        ]),
+      },
+      quiet: new Set(["local\u00001"]),
+    });
+
+    const chip = barWorkspaces(bar)[0]?.summary;
+
+    expect(chip?.needsYou).toBe(0);
+    expect(chip?.state).toBe("working");
+    expect(bar[0]?.summary.needsYou).toBe(0);
+  });
 });

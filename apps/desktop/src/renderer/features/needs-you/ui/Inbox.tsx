@@ -6,7 +6,6 @@
  */
 import type { SessionId } from "@polaris/protocol";
 import {
-  Button,
   CloseIcon,
   cn,
   EmptyState,
@@ -26,7 +25,7 @@ import { useApp, useSelection, useShellActions } from "../../../shell/hooks.ts";
 import { useNow } from "../../../shell/useNow.ts";
 import { ReviewsGroup, useRequestedCount } from "../../pulls/index.ts";
 import { dismiss, restoreDismissed } from "../dismissed.ts";
-import { useConstellationInbox, useInboxView } from "../hooks.ts";
+import { useConstellationInbox, useInboxView, withoutConstellations } from "../hooks.ts";
 import { ConstellationGroups } from "./ConstellationGroups.tsx";
 import { quietFact } from "../model/quiet.ts";
 import type { Dismissible } from "../model/dismissed.ts";
@@ -243,12 +242,7 @@ export const NeedsYouInbox = () => {
   const reviews = useRequestedCount();
 
   // Constellation sessions are shown under their Lead instead.
-  const inbox = {
-    ...all,
-    waiting: all.waiting.filter((w) => !constellations.sessions.has(w.key)),
-    also: all.also.filter((a) => !constellations.sessions.has(a.key)),
-  };
-
+  const inbox = withoutConstellations(all, constellations);
   const items: ReadonlyArray<Dismissible> = [...inbox.waiting, ...inbox.also];
 
   const nothing =
@@ -270,22 +264,6 @@ export const NeedsYouInbox = () => {
 
   return (
     <div className="flex flex-col gap-2 px-2 pt-2 pb-4" data-testid="needs-you-inbox">
-      {items.length === 0 ? null : (
-        <div className="flex items-center gap-2 pl-1.5">
-          <span className="text-caption text-text-subtle tabular flex-1">
-            {items.length} waiting
-          </span>
-          <Button
-            variant="ghost"
-            size="xs"
-            data-testid="dismiss-all"
-            title="Dismiss every item on this Mac · each comes back if its session changes"
-            onClick={() => dismiss(items)}
-          >
-            Dismiss all
-          </Button>
-        </div>
-      )}
       {inbox.answered.map((item) => (
         <Answered key={item.key} item={item} />
       ))}

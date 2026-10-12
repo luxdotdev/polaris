@@ -66,18 +66,33 @@ export const activeSessions = (model: HostModel, workspaceId?: WorkspaceId) =>
 export const shownState = (entry: SessionEntry): SessionState =>
   needsYou(entry) ? "needs-you" : entry.session.state;
 
-export const summarize = (entries: ReadonlyArray<SessionEntry>): Summary => {
+/**
+ * What a chip or machine tab shows. `quiet` sessions (dismissed from Needs You on this Mac)
+ * count as Idle (waiting on nobody here), not as Needs You.
+ */
+export const summarize = (
+  entries: ReadonlyArray<SessionEntry>,
+  quiet: (entry: SessionEntry) => boolean = () => false
+): Summary => {
   let best: SessionEntry | null = null;
-  const rank = (entry: SessionEntry) => STATE_PRIORITY.indexOf(shownState(entry));
+  const loud = (entry: SessionEntry) => needsYou(entry) && !quiet(entry);
+
+  const state = (entry: SessionEntry): SessionState => {
+    if (loud(entry)) return "needs-you";
+
+    return entry.session.state === "needs-you" ? "idle" : entry.session.state;
+  };
+
+  const rank = (entry: SessionEntry) => STATE_PRIORITY.indexOf(state(entry));
 
   for (const entry of entries) {
     if (best === null || rank(entry) < rank(best)) best = entry;
   }
 
   return {
-    state: best === null ? null : shownState(best),
+    state: best === null ? null : state(best),
     harness: best?.session.harness ?? null,
-    needsYou: entries.filter(needsYou).length,
+    needsYou: entries.filter(loud).length,
     sessions: entries.length,
   };
 };
@@ -103,6 +118,8 @@ export interface BarHost {
 export interface BarInput {
   readonly hosts: ReadonlyArray<HostView>;
   readonly models: Readonly<Record<string, HostModel>>;
+  /** Sessions dismissed from Needs You on this Mac (`hostKey\u0000sessionId`): not counted. */
+  readonly quiet?: ReadonlySet<string>;
 }
 
 /** The local Host's key (main/hosts.ts `LOCAL_HOST_KEY`). */
@@ -115,19 +132,22 @@ const barOrder = (hosts: ReadonlyArray<HostView>) => [
 ];
 
 /** Every Host with its shown Workspaces; the source of both bars. */
-export const barHosts = ({ hosts, models }: BarInput): ReadonlyArray<BarHost> =>
+export const barHosts = ({ hosts, models, quiet }: BarInput): ReadonlyArray<BarHost> =>
   barOrder(hosts).map((host) => {
     const model = models[host.key];
     const workspaces = model === undefined ? [] : shownWorkspaces(model);
+
+    const isQuiet = (entry: SessionEntry) =>
+      quiet?.has(`${host.key}\u0000${entry.session.id}`) ?? false;
 
     return {
       host,
       workspaces: workspaces.map((workspace) => ({
         hostKey: host.key,
         workspace,
-        summary: summarize(model === undefined ? [] : activeSessions(model, workspace.id)),
+        summary: summarize(model === undefined ? [] : activeSessions(model, workspace.id), isQuiet),
       })),
-      summary: summarize(model === undefined ? [] : activeSessions(model)),
+      summary: summarize(model === undefined ? [] : activeSessions(model), isQuiet),
     };
   });
 
