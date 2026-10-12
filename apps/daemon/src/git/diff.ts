@@ -39,8 +39,11 @@ export interface DiffResult {
   readonly bytes: Uint8Array;
   readonly files: number;
   readonly root: string;
-  /** The commit a range's new side is; null when it is the working tree or a Turn. */
-  readonly head: string | null;
+  /**
+   * Where `.gitattributes` and `.polaris/review.md` are read: a range's base, so a change
+   * can't mark its own code generated; null (the working tree) for the working tree and Turns.
+   */
+  readonly rulesAt: string | null;
 }
 
 const DIFF_FLAGS = ["diff", "--no-color", "--no-ext-diff", "-M"] as const;
@@ -48,7 +51,7 @@ const DIFF_FLAGS = ["diff", "--no-color", "--no-ext-diff", "-M"] as const;
 const diffTrees = async (root: string, from: string, to: string): Promise<DiffResult> => {
   const { stdout } = await runGit(root, [...DIFF_FLAGS, from, to, "--"]);
 
-  return { bytes: stdout, files: countFiles(stdout), root, head: null };
+  return { bytes: stdout, files: countFiles(stdout), root, rulesAt: null };
 };
 
 /** Counts `diff --git ` headers at line starts without decoding the whole diff. */
@@ -132,7 +135,7 @@ const diffRange = async (root: string, spec: RangeSpec) => {
   const base = await requireCommit(root, spec.base, "ref");
   const head = await requireCommit(root, spec.head, "ref");
 
-  return { ...(await diffTrees(root, base, head)), head };
+  return { ...(await diffTrees(root, base, head)), rulesAt: base };
 };
 
 export const computeDiff = async (cwd: string, spec: DiffSpec): Promise<DiffResult> => {

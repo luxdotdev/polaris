@@ -10,10 +10,12 @@ import type { PullFileView } from "../../../../shared/github.ts";
 import { contentsLoader } from "../data/expand.ts";
 import { parseOne, type ReviewDiff } from "../data/useReviewDiff.ts";
 import { markLocal, markPull, pendingKey, useViewed } from "../data/viewedStore.ts";
+import { setTestsHidden, useTestsHidden } from "../data/testsStore.ts";
 import { reviewProgress } from "../model/fileList.ts";
 import { type FindingInfo, findingsIn, lineMarks, severityByPath } from "../model/findings.ts";
 import { layoutRows, type LayoutRow, type ReviewFile, rowSignature } from "../model/layout.ts";
 import { itemKey, marksCss, selectionCss } from "../model/marks.ts";
+import { hideableTests, isHiddenPath, withoutFiles } from "../model/noise.ts";
 import {
   type FileViewed,
   localViewed,
@@ -131,20 +133,37 @@ export const useReviewModel = (input: ReviewModelInput) => {
     [viewedStateOf]
   );
 
-  const files = useMemo(() => diff.sections.flatMap((s) => s.files), [diff.sections]);
+  const severities = useMemo(() => severityByPath(findings), [findings]);
+  const testsHidden = useTestsHidden();
+
+  const hideable = useMemo(
+    () =>
+      hideableTests(
+        diff.sections.flatMap((s) => s.files),
+        severities
+      ),
+    [diff.sections, severities]
+  );
+
+  const sections = useMemo(
+    () => (testsHidden ? withoutFiles(diff.sections, hideable) : diff.sections),
+    [testsHidden, diff.sections, hideable]
+  );
+
+  const files = useMemo(() => sections.flatMap((s) => s.files), [sections]);
   const byKey = useMemo(() => new Map(files.map((f) => [f.key, f])), [files]);
 
   const rows = useMemo(
     () =>
       layoutRows({
-        sections: diff.sections,
+        sections,
         scale: diff.scale,
         viewed: viewedOf,
         toggled,
         openedSections,
         openFile,
       }),
-    [diff.sections, diff.scale, viewedOf, toggled, openedSections, openFile]
+    [sections, diff.scale, viewedOf, toggled, openedSections, openFile]
   );
 
   useEffect(() => {
@@ -165,7 +184,6 @@ export const useReviewModel = (input: ReviewModelInput) => {
     [diff.parsed, opened]
   );
 
-  const severities = useMemo(() => severityByPath(findings), [findings]);
   const marks = useMemo(() => marksCss(lineMarks(findings, files)), [findings, files]);
   const { selection } = input;
 
@@ -265,6 +283,10 @@ export const useReviewModel = (input: ReviewModelInput) => {
     const asked = files.filter((f) => f.file.path === reveal.path);
     const [first] = asked;
 
+    // A jump to a hidden test shows the tests; this effect runs again with them back.
+    if (first === undefined && testsHidden && isHiddenPath(diff.sections, hideable, reveal.path))
+      setTestsHidden(false);
+
     if (first === undefined) return;
 
     setRevealed(reveal.nonce);
@@ -272,7 +294,7 @@ export const useReviewModel = (input: ReviewModelInput) => {
     setOpenedSections((o) => new Set([...o, ...asked.map((f) => f.section)]));
 
     if (diff.scale === "list-only") setOpenFile(first.key);
-  }, [reveal, revealed, files, diff.scale]);
+  }, [reveal, revealed, files, diff.scale, diff.sections, hideable, testsHidden]);
 
   const parsedFiles = useMemo(() => {
     const map = new Map<FileDiffMetadata, ReviewFile>();
@@ -302,6 +324,8 @@ export const useReviewModel = (input: ReviewModelInput) => {
     viewedOf,
     viewedStateOf,
     progress: reviewProgress(files, viewedOf),
+    /** "Hide tests" (R10): null when no test file could be hidden. */
+    tests: hideable.size === 0 ? null : { count: hideable.size, hidden: testsHidden },
     setViewed,
     openFile,
     /** Opens a file from the list: list-only Reviews show it alone; others expand it. */

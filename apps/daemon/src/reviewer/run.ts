@@ -276,10 +276,9 @@ const askReviewer = Effect.fn("askReviewer")(function* (input: AgentInput) {
   const generated = yield* Effect.promise(() =>
     generatedPaths({
       root: range.cwd,
-      head: range.head,
+      at: range.rulesAt,
       repo: range.key.repo,
       paths: diff.files.map((f) => f.path),
-      ignore: instructions.ignore,
     })
   );
 

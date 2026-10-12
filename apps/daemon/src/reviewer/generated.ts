@@ -1,6 +1,6 @@
 /**
  * Which changed files are generated: the built-in patterns (`isGeneratedPath`), then the
- * repo's `.gitattributes` at the diff's head (`linguist-generated`, `-diff`), then
+ * repo's `.gitattributes` (`linguist-generated`, `-diff`) at `at`, then
  * `.polaris/review.md` `ignore:`. Review collapses them and the prompts leave their bodies out.
  */
 import { stat } from "node:fs/promises";
@@ -69,21 +69,21 @@ export const mayHaveAttributes = async (
   return found.includes(true);
 };
 
-/** The attributes at `head` (git ≥ 2.40, else the working tree's), or the working tree's for null. */
+/**
+ * The attributes at commit `at`, or the working tree's for null. Without `--source` (git < 2.40)
+ * a commit's are unknown: the working tree may hold the change under review, so none are read.
+ */
 export const readAttributes = async (
   root: string,
-  head: string | null,
+  at: string | null,
   paths: ReadonlyArray<string>
 ): Promise<Attributed> => {
-  if (paths.length === 0 || (head === null && !(await mayHaveAttributes(root, paths))))
+  if (paths.length === 0 || (at === null && !(await mayHaveAttributes(root, paths))))
     return new Map();
 
   const stdin = `${paths.join("\0")}\0`;
-  const source = head === null ? [] : [`--source=${head}`];
-  let result = await checkoutGitRaw(root, ["check-attr", ...source, ...ATTRIBUTES], { stdin });
-
-  if (result.code !== 0 && head !== null)
-    result = await checkoutGitRaw(root, ["check-attr", ...ATTRIBUTES], { stdin });
+  const source = at === null ? [] : [`--source=${at}`];
+  const result = await checkoutGitRaw(root, ["check-attr", ...source, ...ATTRIBUTES], { stdin });
 
   return result.code === 0 ? parseCheckAttr(decoder.decode(result.stdout)) : new Map();
 };
@@ -103,10 +103,13 @@ export const generatedAmong = (input: GeneratedInput): ReadonlySet<string> =>
     )
   );
 
-/** Reads the attributes and instructions at `head` (null: the working tree) and classifies `paths`. */
+/**
+ * Reads the attributes and `.polaris/review.md` at `at` (null: the working tree) and classifies
+ * `paths`. For a PR `at` is its base, so the change under review can't mark its own code generated.
+ */
 export const generatedPaths = async (options: {
   readonly root: string;
-  readonly head: string | null;
+  readonly at: string | null;
   readonly repo: string;
   readonly paths: ReadonlyArray<string>;
   readonly ignore?: ReadonlyArray<string>;
@@ -114,11 +117,11 @@ export const generatedPaths = async (options: {
   if (options.paths.length === 0) return new Set();
 
   const [attributes, ignore] = await Promise.all([
-    readAttributes(options.root, options.head, options.paths),
+    readAttributes(options.root, options.at, options.paths),
     options.ignore === undefined
       ? readInstructions({
           cwd: options.root,
-          head: options.head,
+          head: options.at,
           repo: options.repo,
           cachedName: true,
         }).then((instructions) => instructions.ignore)

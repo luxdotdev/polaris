@@ -6,7 +6,7 @@
 import { CheckIcon, cn, SeverityGlyph } from "@polaris/ui";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useRef, useState } from "react";
-import { type FileListRow, fileListRows, type Fold } from "../model/fileList.ts";
+import { type FileListRow, fileListRows, type Fold, type TestsFold } from "../model/fileList.ts";
 import type { ReviewFile } from "../model/layout.ts";
 import type { MarkSeverity } from "../model/marks.ts";
 import type { ViewedProgress } from "../model/viewed.ts";
@@ -22,6 +22,9 @@ export interface FileListProps {
   readonly notice: string | null;
   readonly onOpen: (key: string) => void;
   readonly onViewed: (key: string, viewed: boolean) => void;
+  /** "Hide tests": null when the Review has no test file it could hide. */
+  readonly tests: TestsFold | null;
+  readonly onTestsHidden: (hidden: boolean) => void;
 }
 
 const ROW_HEIGHT = 28;
@@ -44,10 +47,31 @@ interface RowProps {
   readonly onToggle: (fold: Fold) => void;
 }
 
-const foldLabel = (fold: Fold, count: number) =>
-  fold === "viewed"
-    ? `${count.toLocaleString("en-US")} viewed ${count === 1 ? "file" : "files"}`
-    : `${count.toLocaleString("en-US")} generated`;
+const plural = (count: number, one: string, many: string) =>
+  `${count.toLocaleString("en-US")} ${count === 1 ? one : many}`;
+
+const foldLabel = (row: Extract<FileListRow, { kind: "fold" }>) => {
+  if (row.fold === "tests")
+    return row.open
+      ? `Hide ${plural(row.count, "test", "tests")}`
+      : `+ ${plural(row.count, "test", "tests")} hidden`;
+
+  const what =
+    row.fold === "viewed"
+      ? plural(row.count, "viewed file", "viewed files")
+      : `${row.count.toLocaleString("en-US")} generated`;
+
+  return `${row.open ? "Hide" : "+"} ${what}`;
+};
+
+const FOLD_TITLES: Partial<Record<Fold, (row: Extract<FileListRow, { kind: "fold" }>) => string>> =
+  {
+    generated: () => "Lockfiles and generated files; not counted as viewed",
+    tests: (row) =>
+      row.open
+        ? "Hide test files on this Mac; tests with findings stay"
+        : `Show ${plural(row.count, "test file", "test files")} in the diff · Hidden on this Mac · tests with findings stay`,
+  };
 
 const FoldRow = ({
   row,
@@ -59,11 +83,10 @@ const FoldRow = ({
   <button
     type="button"
     onClick={() => onToggle(row.fold)}
-    aria-expanded={row.open}
+    aria-expanded={row.fold === "tests" ? undefined : row.open}
+    aria-pressed={row.fold === "tests" ? !row.open : undefined}
     data-testid={`review-files-${row.fold}`}
-    title={
-      row.fold === "generated" ? "Lockfiles and generated files; not counted as viewed" : undefined
-    }
+    title={FOLD_TITLES[row.fold]?.(row)}
     className="text-caption text-text-subtle hover:bg-fill-hover rounded-row h-tree-row gap-row-x px-gap flex w-full cursor-default items-center font-mono"
   >
     {row.fold === "viewed" ? (
@@ -71,7 +94,7 @@ const FoldRow = ({
     ) : (
       <span aria-hidden="true" className="size-3.5 shrink-0" />
     )}
-    {row.open ? "Hide" : "+"} {foldLabel(row.fold, row.count)}
+    {foldLabel(row)}
   </button>
 );
 
@@ -125,16 +148,18 @@ const Row = ({ row, props, onToggle }: RowProps) => {
 export const FileList = (props: FileListProps) => {
   const [open, setOpen] = useState<ReadonlySet<Fold>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
-  const rows = fileListRows(props.files, props.viewedOf, open);
+  const rows = fileListRows(props.files, props.viewedOf, open, props.tests);
 
   const toggle = (fold: Fold) =>
-    setOpen((now) => {
-      const next = new Set(now);
+    fold === "tests"
+      ? props.onTestsHidden(props.tests?.hidden !== true)
+      : setOpen((now) => {
+          const next = new Set(now);
 
-      if (!next.delete(fold)) next.add(fold);
+          if (!next.delete(fold)) next.add(fold);
 
-      return next;
-    });
+          return next;
+        });
 
   const virtualizer = useVirtualizer({
     count: rows.length,

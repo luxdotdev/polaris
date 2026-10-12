@@ -1,13 +1,20 @@
 /**
  * The risk column's file list (Paper R1 1XP-0): files still to view in Review order, then
  * one "+ N viewed files" row that opens the viewed ones under it, then "+ N generated" for
- * lockfiles and generated files, viewed or not, which stay out of Viewed progress.
+ * lockfiles and generated files, viewed or not, which stay out of Viewed progress, then
+ * the "Hide tests" row (R10): "+ N tests hidden" while hidden, "Hide N tests" while shown.
  */
 import type { ReviewFile } from "./layout.ts";
 import { progressOf, type ViewedProgress } from "./viewed.ts";
 
 /** A row standing for a group of files until opened. */
-export type Fold = "viewed" | "generated";
+export type Fold = "viewed" | "generated" | "tests";
+
+/** The test files "Hide tests" covers, and whether they are hidden now. */
+export interface TestsFold {
+  readonly count: number;
+  readonly hidden: boolean;
+}
 
 export type FileListRow =
   | { readonly kind: "file"; readonly file: ReviewFile; readonly viewed: boolean }
@@ -16,7 +23,8 @@ export type FileListRow =
 export const fileListRows = (
   files: ReadonlyArray<ReviewFile>,
   viewed: (file: ReviewFile) => boolean,
-  open: ReadonlySet<Fold>
+  open: ReadonlySet<Fold>,
+  tests: TestsFold | null = null
 ): ReadonlyArray<FileListRow> => {
   const rows: Array<FileListRow> = [];
   const reviewed = files.filter((f) => !f.generated);
@@ -36,6 +44,9 @@ export const fileListRows = (
     "generated",
     files.filter((f) => f.generated)
   );
+
+  if (tests !== null && tests.count > 0)
+    rows.push({ kind: "fold", fold: "tests", count: tests.count, open: !tests.hidden });
 
   return rows;
 };

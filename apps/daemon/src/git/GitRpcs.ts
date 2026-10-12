@@ -45,7 +45,7 @@ const indexWithGenerated = async (diff: DiffResult): Promise<ReadonlyArray<DiffF
 
   const generated = await generatedPaths({
     root: diff.root,
-    head: diff.head,
+    at: diff.rulesAt,
     repo: diff.root,
     paths: index.map((file) => file.path),
   }).catch(() => null);
