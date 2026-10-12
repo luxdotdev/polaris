@@ -4,6 +4,7 @@
  */
 import { cn } from "@polaris/ui";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { polaris } from "../../bridge.ts";
 import { logKey, useServerLog, type LogLevel, type LogLine, type LogScope } from "./log.ts";
 import {
   copyText,
@@ -149,10 +150,9 @@ export const LogView = ({ scope, server, detail }: LogViewProps) => {
     });
 
   const copy = () => {
-    void navigator.clipboard
-      ?.writeText(copyText(shown))
-      .then(() => setCopied(true))
-      .catch(() => undefined);
+    void polaris()
+      .request("clipboard.write", { text: copyText(shown) })
+      .then((result) => setCopied(result.ok));
   };
 
   return (

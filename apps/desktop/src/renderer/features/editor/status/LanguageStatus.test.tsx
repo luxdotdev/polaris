@@ -95,9 +95,15 @@ describe("the popover", () => {
 
   test("a Prerequisite's command copies", async () => {
     const written: string[] = [];
-    Object.defineProperty(navigator, "clipboard", {
+    Object.defineProperty(window, "polaris", {
       configurable: true,
-      value: { writeText: async (text: string) => void written.push(text) },
+      value: {
+        request: async (_: string, input: { text: string }) => {
+          written.push(input.text);
+
+          return { ok: true };
+        },
+      },
     });
     popover(
       statusView({

@@ -169,9 +169,15 @@ describe("the log tab", () => {
   test("toolbar counts are filters; Find, Wrap, Follow and Copy all work", async () => {
     appendLogLines(scope, lines);
     const written: string[] = [];
-    Object.defineProperty(navigator, "clipboard", {
+    Object.defineProperty(window, "polaris", {
       configurable: true,
-      value: { writeText: async (text: string) => void written.push(text) },
+      value: {
+        request: async (_: string, input: { text: string }) => {
+          written.push(input.text);
+
+          return { ok: true };
+        },
+      },
     });
     render(
       <LogView

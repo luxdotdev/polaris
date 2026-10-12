@@ -22,6 +22,7 @@ import type { TreeRow as Row } from "../model/tree.ts";
 import { ConfirmDelete } from "./ConfirmDelete.tsx";
 import { DraftRow } from "./DraftRow.tsx";
 import { TreeRow } from "./TreeRow.tsx";
+import { polaris } from "../../../bridge.ts";
 
 /** Tree-row heights per density step (DESIGN.md, Density), for the virtualizer's sums. */
 const ROW = { calm: 28, balanced: 24, compact: 22 } as const;
@@ -76,7 +77,8 @@ export interface TreeProps {
 const folderFor = (row: Row | undefined, root: string) =>
   row === undefined ? root : row.kind === "folder" ? row.path : dirname(row.path);
 
-const copy = (text: string) => void navigator.clipboard?.writeText(text);
+// The renderer has no clipboard permission; writes go through main.
+const copy = (text: string) => void polaris().request("clipboard.write", { text });
 
 export const Tree = ({
   place,

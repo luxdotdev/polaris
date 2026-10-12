@@ -67,10 +67,9 @@ const CommandRow = ({ command }: { readonly command: InstallCommand }) => {
         <button
           type="button"
           onClick={() =>
-            void navigator.clipboard
-              ?.writeText(command.command)
-              .then(() => setCopied(true))
-              .catch(() => undefined)
+            void polaris()
+              .request("clipboard.write", { text: command.command })
+              .then((result) => setCopied(result.ok))
           }
           className="bg-fill-selected text-caption text-text-default focus-visible:outline-starlight h-[22px] shrink-0 rounded-[4px] px-2 focus-visible:outline-2"
         >
