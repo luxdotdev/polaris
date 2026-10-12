@@ -122,6 +122,47 @@ try {
   console.log("ok: fold and open by hand");
 
   await shoot(page, "c5-turn-times");
+
+  // C4: ⌘F finds in a folded Turn, opens it, lights the match and steps through the rest.
+  const second = page.getByTestId("prompt").nth(1);
+
+  await second.hover();
+  await second.getByTestId("turn-fold").click();
+  await page.getByTestId("turn-summary").first().waitFor();
+  await page.getByTestId("composer-input").click();
+  await page.keyboard.press("Meta+KeyF");
+
+  const field = page.getByTestId("transcript-search-input");
+  const count = page.getByTestId("transcript-search-count");
+
+  await field.waitFor();
+  await field.fill("keep the first");
+  await count.filter({ hasText: "1 of 1" }).waitFor();
+  assert.deepEqual(await counts(page), { prompts: 4, summaries: 0 });
+
+  const lit = () =>
+    page.evaluate(
+      `[CSS.highlights.get("transcript-match")?.size ?? 0, CSS.highlights.get("transcript-current")?.size ?? 0]`
+    );
+
+  await page.waitForTimeout(200);
+  assert.deepEqual(await lit(), [1, 1]);
+  console.log("ok: ⌘F opened the folded Turn and lit its match");
+  await shoot(page, "c4-find-in-folded-turn");
+
+  await field.fill("turn");
+  await count.filter({ hasText: /^1 of \d+$/ }).waitFor();
+  await field.press("Enter");
+  await count.filter({ hasText: /^2 of \d+$/ }).waitFor();
+  await field.press("Shift+Enter");
+  await count.filter({ hasText: /^1 of \d+$/ }).waitFor();
+  await field.fill("nothing like this anywhere");
+  await count.filter({ hasText: "No matches" }).waitFor();
+  await shoot(page, "c4-no-matches");
+  await field.press("Escape");
+  await page.getByTestId("transcript-search").waitFor({ state: "detached" });
+  assert.deepEqual(await lit(), [0, 0]);
+  console.log("ok: ↵ and ⇧↵ step, esc closes and clears");
 } finally {
   await app?.close().catch(() => undefined);
   await daemon?.stop();

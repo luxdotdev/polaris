@@ -10,11 +10,11 @@ import {
   type SessionId,
 } from "@polaris/protocol";
 import type { Harness } from "@polaris/ui";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Commands } from "../../../commands.ts";
 import { emptyHostModel } from "../../../store/hostModel.ts";
 import type { SessionData } from "../../../store/plain.ts";
-import { useApp, useShellActions } from "../../../shell/hooks.ts";
+import { useApp, useCommands, useShellActions } from "../../../shell/hooks.ts";
 import { modelLabel, useHarnessModels } from "../../harness/index.ts";
 import { InTerminalBar } from "../../terminal/index.ts";
 import { send } from "../dispatch.ts";
@@ -25,11 +25,12 @@ import { tildePath } from "../model/format.ts";
 import { composerMode, continueCommand, openQuestion, retryCommand } from "../model/intent.ts";
 import { useOutbox } from "../outbox.ts";
 import { holdOpenFrom, setTurnOpen, showTurnDiff, uiKey, useSessionUi } from "../state.ts";
-import { Conversation } from "./Conversation.tsx";
+import { Conversation, type Reveal } from "./Conversation.tsx";
 import { ForkDialog, type ForkTarget } from "./ForkDialog.tsx";
 import type { RowContext } from "./rows.tsx";
 import { SessionComposer } from "./SessionComposer.tsx";
 import { SessionHeader } from "./SessionHeader.tsx";
+import { TranscriptSearch } from "./TranscriptSearch.tsx";
 import { useSessionChrome } from "../chrome.ts";
 import { EditorPlaceProvider } from "../../editor-links/index.ts";
 
@@ -52,6 +53,36 @@ const useWhere = (hostKey: string, session: SessionData | null) => {
   return { where: parts.join(" · "), branch: worktree?.branch ?? undefined };
 };
 
+/** ⌘F while this session's conversation is on screen: the find bar's state. */
+const useTranscriptFind = (key: string) => {
+  const commands = useCommands();
+  const host = useRef<HTMLDivElement>(null);
+  const [finding, setFinding] = useState<number | null>(null);
+  const [reveal, setReveal] = useState<Reveal | null>(null);
+
+  useEffect(
+    () =>
+      commands.register({
+        "transcript.find": {
+          run: () => setFinding((n) => (n ?? 0) + 1),
+          enabled: () => host.current?.checkVisibility() ?? false,
+        },
+      }),
+    [commands]
+  );
+
+  return {
+    host,
+    finding,
+    reveal,
+    close: () => setFinding(null),
+    onReveal: (turnId: string, rowKey: string) => {
+      setTurnOpen(key, turnId, true);
+      setReveal((r) => ({ key: rowKey, nonce: (r?.nonce ?? 0) + 1 }));
+    },
+  };
+};
+
 const Placeholder = ({ children }: { readonly children: string }) => (
   <section className="text-body text-text-subtle grid flex-1 place-items-center">
     {children}
@@ -69,6 +100,7 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
   const { where, branch } = useWhere(hostKey, model.session);
   const [forking, setForking] = useState<ForkTarget | null>(null);
   const chrome = useSessionChrome();
+  const find = useTranscriptFind(key);
   const models = useHarnessModels(hostKey, model.session?.harness ?? "", model.session !== null);
   const { session } = model;
   const latestId = model.turns.at(-1)?.turn.id;
@@ -170,7 +202,20 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
             }}
           />
         )}
-        {chrome.body ?? <Conversation scrollKey={key} rows={rows} ctx={ctx} />}
+        {chrome.body ?? (
+          <div ref={find.host} className="relative flex min-h-0 flex-1 flex-col">
+            <Conversation scrollKey={key} rows={rows} ctx={ctx} reveal={find.reveal} />
+            {find.finding === null ? null : (
+              <TranscriptSearch
+                turns={model.turns}
+                host={find.host.current}
+                focusNonce={find.finding}
+                onReveal={(hit) => find.onReveal(hit.turnId, hit.rowKey)}
+                onClose={find.close}
+              />
+            )}
+          </div>
+        )}
         <InTerminalBar
           session={{
             hostKey,

@@ -23,6 +23,7 @@ export type CommandId =
   | "approval.deny"
   | "session.archive"
   | "session.openInTerminal"
+  | "transcript.find"
   | "theme.toggle"
   | "settings.open"
   | "settings.about"
@@ -400,6 +401,13 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
     keys: [],
     menu: "Session",
     palette: WORKSPACE({ title: "Open {session} in terminal", keywords: ["tui", "handoff"] }),
+  },
+  {
+    id: "transcript.find",
+    title: "Find in transcript",
+    keys: ["CmdOrCtrl+F"],
+    menu: "Session",
+    palette: WORKSPACE({ keywords: ["search", "chat", "conversation", "turn"] }),
   },
   {
     id: "session.archive",
