@@ -46,9 +46,27 @@ const fenced = (document: ReviewerOutput) =>
 
 const empty: ReviewerOutput = { findings: [], revised: [], withdrawn: [], answer: null };
 
+/** One intent group holding every path the prompt's changed-files list names. */
+const benchGroups = (prompt: string) => {
+  const paths = [...prompt.matchAll(/^[A-Z]\S* (.+) \+\d+ -\d+(?: \[\w+\])*$/gm)].map((m) => m[1]);
+
+  const groups = [
+    {
+      key: "change",
+      label: "The change",
+      summary: "Everything in the diff.",
+      category: "core",
+      critical: false,
+      paths,
+    },
+  ];
+
+  return `## Intent groups\n\`\`\`json\n${JSON.stringify({ groups })}\n\`\`\``;
+};
+
 export const benchReviewReply = (prompt: string): string => {
   if (prompt.startsWith(WALKTHROUGH_MARKER))
-    return "## Why the change\nThis change makes the behavior shown in the diff possible.\n\n## Special things to note\n- Check the changed paths before accepting.\n\n## Change outline\n```diff\n- previous behavior\n+ behavior in the composed diff\n```";
+    return `## Why the change\nThis change makes the behavior shown in the diff possible.\n\n## Special things to note\n- Check the changed paths before accepting.\n\n## Change outline\n\`\`\`diff\n- previous behavior\n+ behavior in the composed diff\n\`\`\`\n\n${benchGroups(prompt)}`;
 
   if (prompt.includes("couldn't be read")) return fenced(empty);
 
