@@ -1,4 +1,5 @@
 import {
+  closeCompletion,
   type Completion,
   type CompletionSource,
   pickedCompletion,
@@ -7,20 +8,15 @@ import {
 import { setDiagnostics } from "@codemirror/lint";
 import type { ChangeSpec, Text } from "@codemirror/state";
 import { hoverTooltip, ViewPlugin, type EditorView } from "@codemirror/view";
-import * as P from "@polaris/protocol";
-import { Predicate, Schema } from "effect";
+import type * as P from "@polaris/protocol";
+import { Predicate } from "effect";
 import { completionType, offeredBy } from "./completionMenu.ts";
+import { completionResolver, SETTLE_MS, type CompletionResolver } from "./completionResolve.ts";
 import { LanguageDiagnosticFeed, cmDiagnostics } from "./diagnostics.ts";
 import { completionDocs, fenceLanguage, rowDetail } from "./docParts.ts";
 import { loadDocRenderer, mountDocs } from "./docs.tsx";
 import { LanguageFeatures } from "./features.ts";
-import {
-  CompletionItem as CompletionItemSchema,
-  completionItems,
-  decodePayload,
-  hoverParts,
-  type CompletionItem,
-} from "./payloads.ts";
+import { completionItems, hoverParts, type CompletionItem } from "./payloads.ts";
 import { offsetAt } from "./position.ts";
 import type { LanguageBuffer, LanguageProvider } from "./types.ts";
 
@@ -97,44 +93,15 @@ export const cmSnippet = (value: string): string | null => {
   );
 };
 
-/** Servers such as tsserver and basedpyright send docs only on resolve; ask for the selected row. */
-const resolved = async (
-  features: LanguageFeatures,
-  { item, provider }: CompletionProposal
-): Promise<CompletionItem> => {
-  if (item.documentation !== undefined && item.detail !== undefined) return item;
-
-  const json = Schema.decodeUnknownSync(P.LanguageJsonObject)(
-    Schema.encodeSync(CompletionItemSchema)(item)
-  );
-
-  const [answer] = await features.resolve(provider, "completionItem/resolve", json);
-  const value = answer ? decodePayload(CompletionItemSchema, answer.value.result) : undefined;
-
-  if (!value) return item;
-  const full = { ...item };
-
-  if (value.detail !== undefined) full.detail = value.detail;
-
-  if (value.documentation !== undefined) full.documentation = value.documentation;
-
-  return CompletionItemSchema.make(full);
-};
-
 /** The info panel beside the selected row: the shared docs renderer, 360px wide. */
-const completionInfo = (features: LanguageFeatures, proposal: CompletionProposal) => {
-  let item: Promise<CompletionItem> | undefined;
+const completionInfo = (resolver: CompletionResolver, proposal: CompletionProposal) => async () => {
+  const [full] = await Promise.all([resolver.item(), loadDocRenderer()]);
+  const parts = completionDocs(full, fenceLanguage(proposal.buffer.uri));
 
-  return async () => {
-    item ??= resolved(features, proposal).catch(() => proposal.item);
-    const [full] = await Promise.all([item, loadDocRenderer()]);
-    const parts = completionDocs(full, fenceLanguage(proposal.buffer.uri));
+  if (!parts.length) return null;
+  const dom = document.createElement("div");
 
-    if (!parts.length) return null;
-    const dom = document.createElement("div");
-
-    return { dom, ...mountDocs(dom, { sections: [parts], variant: "panel" }) };
-  };
+  return { dom, ...mountDocs(dom, { sections: [parts], variant: "panel" }) };
 };
 
 /** Rows show the server's label; a different filter text (tsserver's `.append`) maps matches back. */
@@ -155,11 +122,12 @@ const cmCompletion = (
   coordinator: CompletionCoordinator
 ): Completion => {
   const { item, provider, buffer } = proposal;
+  const resolver = completionResolver(features, proposal);
 
   const base: Completion = {
     label: item.filterText ?? item.label,
     type: completionType(item.kind),
-    info: completionInfo(features, proposal),
+    info: completionInfo(resolver, proposal),
   };
 
   if (item.filterText !== undefined && item.filterText !== item.label)
@@ -178,35 +146,52 @@ const cmCompletion = (
 
   const snippet = template === null ? null : snippetCompletion(template, base);
 
+  /** Applies `full`, the resolved item when it came in time, under the usual fence. */
+  const accept = (view: EditorView, completion: Completion, full: CompletionItem) => {
+    if (view.state.doc !== buffer.doc || !features.requests.current(provider, buffer)) return;
+    const accepted = { ...proposal, item: full };
+
+    if (
+      full.command ||
+      (full.insertTextFormat === 2 && (snippet === null || full.additionalTextEdits?.length))
+    ) {
+      coordinator.propose(accepted);
+
+      return;
+    }
+
+    if (snippet && Predicate.isFunction(snippet.apply)) {
+      snippet.apply(view, completion, proposal.from, proposal.to);
+
+      return;
+    }
+
+    try {
+      view.dispatch({
+        changes: plainChanges(accepted),
+        annotations: pickedCompletion.of(completion),
+        userEvent: "input.complete",
+      });
+    } catch {
+      coordinator.propose(accepted);
+    }
+  };
+
   const option: Completion = {
     ...base,
     apply: (view, completion) => {
       if (view.state.doc !== buffer.doc || !features.requests.current(provider, buffer)) return;
+      const settled = resolver.settled();
 
-      if (
-        item.command ||
-        (item.insertTextFormat === 2 && (snippet === null || item.additionalTextEdits?.length))
-      ) {
-        coordinator.propose(proposal);
+      if (settled !== undefined) {
+        accept(view, completion, settled);
 
         return;
       }
 
-      if (snippet && Predicate.isFunction(snippet.apply)) {
-        snippet.apply(view, completion, proposal.from, proposal.to);
-
-        return;
-      }
-
-      try {
-        view.dispatch({
-          changes: plainChanges(proposal),
-          annotations: pickedCompletion.of(completion),
-          userEvent: "input.complete",
-        });
-      } catch {
-        coordinator.propose(proposal);
-      }
+      // Auto-import edits arrive on resolve: wait briefly, closed so a second ↵ can't apply twice.
+      closeCompletion(view);
+      void resolver.within(SETTLE_MS).then((full) => accept(view, completion, full));
     },
   };
 

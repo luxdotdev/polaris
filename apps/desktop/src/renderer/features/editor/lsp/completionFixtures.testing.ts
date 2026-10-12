@@ -299,3 +299,53 @@ export const PYRIGHT_DUMPS_RESOLVED = {
       "```python\ndef dumps(\n    obj: Any,\n    *,\n    skipkeys: bool = False,\n    ensure_ascii: bool = True,\n    check_circular: bool = True,\n    allow_nan: bool = True,\n    cls: type[JSONEncoder] | None = None,\n    indent: int | str | None = None,\n    separators: tuple[str, str] | None = None,\n    default: ((Any) -> Any) | None = None,\n    sort_keys: bool = False,\n    **kwds: Any\n) -> str\n```\n---\nSerialize `obj` to a JSON formatted `str`.\n\nIf `skipkeys` is true then `dict` keys that are not basic types  \n(`str`, `int`, `float`, `bool`, `None`) will be skipped  \ninstead of raising a `TypeError`.\n\nIf `ensure_ascii` is false, then the return value can contain  \nnon-ASCII and non-printable characters if they appear in strings  \ncontained in `obj`.  Otherwise, all such characters are escaped in  \nJSON strings.\n\nIf `check_circular` is false, then the circular reference check  \nfor container types will be skipped and a circular reference will  \nresult in an `RecursionError` (or worse).\n\nIf `allow_nan` is false, then it will be a `ValueError` to  \nserialize out of range `float` values (`nan`, `inf`, `-inf`) in  \nstrict compliance of the JSON specification, instead of using the  \nJavaScript equivalents (`NaN`, `Infinity`, `-Infinity`).\n\nIf `indent` is a non-negative integer, then JSON array elements and  \nobject members will be pretty-printed with that indent level. An indent  \nlevel of 0 will only insert newlines. `None` is the default and gives  \na representation with no newlines inserted.\n\nIf specified, `separators` should be an `(item_separator,  \nkey_separator)` tuple.  The default is `(', ', ': ')` if \\*indent\\* is  \n`None` and `(',', ': ')` otherwise.  To get the most compact JSON  \nrepresentation, you should specify `(',', ':')` to eliminate\nwhitespace.\n\n`default(obj)` is a function that should return a serializable version  \nof obj or raise TypeError. The default simply raises TypeError.\n\nIf \\*sort\\_keys\\* is true (default: `False`), then the output of\ndictionaries will be sorted by key.\n\nTo use a custom `JSONEncoder` subclass (e.g. one that overrides the  \n`.default()` method to serialize additional types), specify it with  \nthe `cls` kwarg; otherwise `JSONEncoder` is used.",
   },
 };
+
+/** An auto-import from `./hosts` (typed `hostLa` in a file without the import): the edit arrives on resolve. */
+export const TS_IMPORT_ITEM = {
+  label: "hostLabel",
+  kind: 6,
+  sortText: "￿16",
+  data: {
+    cacheId: 1022,
+  },
+  detail: "./hosts",
+};
+
+export const TS_IMPORT_RESOLVED = {
+  label: "hostLabel",
+  kind: 6,
+  sortText: "￿16",
+  data: {
+    file: "/project/imp.ts",
+    line: 1,
+    offset: 21,
+    entryNames: [
+      {
+        name: "hostLabel",
+        source: "./hosts",
+        data: {
+          exportName: "hostLabel",
+          exportMapKey: "9 2222 hostLabel ",
+          moduleSpecifier: "./hosts",
+          fileName: "/project/hosts.ts",
+        },
+      },
+    ],
+  },
+  detail: "Auto import from './hosts'\nconst hostLabel: (name: string) => string",
+  additionalTextEdits: [
+    {
+      range: {
+        start: {
+          line: 0,
+          character: 0,
+        },
+        end: {
+          line: 0,
+          character: 0,
+        },
+      },
+      newText: 'import { hostLabel } from "./hosts";\n\n',
+    },
+  ],
+};

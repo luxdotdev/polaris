@@ -123,7 +123,7 @@ export const clientCapabilities = {
         snippetSupport: true,
         documentationFormat: ["markdown", "plaintext"],
         labelDetailsSupport: true,
-        resolveSupport: { properties: ["documentation", "detail"] },
+        resolveSupport: { properties: ["documentation", "detail", "additionalTextEdits"] },
       },
     },
     signatureHelp: {

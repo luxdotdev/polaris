@@ -1,5 +1,6 @@
 import { StateEffect, StateField, type Extension } from "@codemirror/state";
 import { EditorView, keymap, showTooltip, ViewPlugin, type Tooltip } from "@codemirror/view";
+import { SETTLE_MS } from "./completionResolve.ts";
 import { signatureDocs } from "./docParts.ts";
 import { loadDocRenderer, mountDocs } from "./docs.tsx";
 import type { LanguageFeatures } from "./features.ts";
@@ -7,7 +8,7 @@ import type { LanguageProvider } from "./types.ts";
 
 const ACK_POLL_MS = 50;
 
-const ACK_ATTEMPTS = 40;
+const ACK_ATTEMPTS = SETTLE_MS / ACK_POLL_MS;
 
 const signature = StateEffect.define<Tooltip | null>();
 

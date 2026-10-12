@@ -47,6 +47,11 @@ writeFileSync(
 
 writeFileSync(join(project, "main.ts"), "const params = new URLSearchParams();\n\n");
 
+writeFileSync(
+  join(project, "hosts.ts"),
+  "export const hostLabel = (name: string): string => name.trim();\n"
+);
+
 writeFileSync(join(project, "main.py"), "import json\n\n");
 
 /** Every server id the rows must never show. */
@@ -97,6 +102,7 @@ const Menu = Schema.Struct({
   info: Schema.Boolean,
   overflow: Schema.Array(Schema.String),
   links: Schema.Array(Schema.String),
+  heavy: Schema.Array(Schema.String),
 });
 
 const inspectMenu = async (page: Page) =>
@@ -126,6 +132,7 @@ const inspectMenu = async (page: Page) =>
         info: !!info?.querySelector("[data-language-docs]"),
         overflow,
         links: links.map((link) => link.textContent),
+        heavy: info ? [...info.querySelectorAll("*")].filter((el) => el.textContent && Number(getComputedStyle(el).fontWeight) > 500).map((el) => el.tagName + " " + el.textContent.slice(0, 20)) : [],
       };
     })()`)
   );
@@ -170,6 +177,7 @@ const completion = async (
     assert.equal(look.selected, look.fillSelected, `${name}: selection is fill-selected`);
     assert.ok(look.info, `${name}: info uses the docs renderer`);
     assert.deepEqual(look.overflow, [], `${name}: nothing overflows`);
+    assert.deepEqual(look.heavy, [], `${name}: nothing in the docs above weight 500`);
     await undo(page, 1);
   }
 };
@@ -277,6 +285,28 @@ try {
   }
 
   console.log("TypeScript completion, signature help and hover checked");
+
+  // Accepting tsserver's auto-import applies the resolved item: its import edit lands too.
+  await appearance(page, "dark");
+  await typeAt(page, 1, "hostLa");
+  await page
+    .locator(".cm-completionInfo")
+    .filter({ hasText: "Auto import from './hosts'" })
+    .waitFor({ timeout: 30_000 });
+  await page.screenshot({ path: join(evidence, "ts-auto-import-menu-dark.png") });
+  await page.keyboard.press("Enter");
+  await page
+    .locator(".cm-line")
+    .first()
+    .filter({ hasText: /^import \{ hostLabel \} from "\.\/hosts(\.ts)?";$/ })
+    .waitFor({ timeout: 5_000 });
+  assert.equal(
+    await page.locator(".cm-line").nth(2).textContent(),
+    "const params = new URLSearchParams();"
+  );
+  await page.screenshot({ path: join(evidence, "ts-auto-import-accepted-dark.png") });
+  await undo(page, 1);
+  console.log("TypeScript auto-import accepted");
 
   await open(page, "main.py");
   await completion(page, "python", 1, "json.du", /basedpyright/, "def dump(");
