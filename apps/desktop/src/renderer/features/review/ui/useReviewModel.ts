@@ -4,6 +4,7 @@
  * and the actions behind the chevrons, checkboxes and Turn dividers.
  */
 import type { AnnotationSide, DiffLineAnnotation, FileDiffMetadata } from "@pierre/diffs";
+import type { IntentGroup } from "@polaris/protocol";
 import { useEffect, useMemo, useState } from "react";
 import { useStore } from "zustand";
 import type { PullFileView } from "../../../../shared/github.ts";
@@ -12,6 +13,7 @@ import { parseOne, type ReviewDiff } from "../data/useReviewDiff.ts";
 import { markLocal, markPull, pendingKey, useViewed } from "../data/viewedStore.ts";
 import { setTestsHidden, useTestsHidden } from "../data/testsStore.ts";
 import { reviewProgress } from "../model/fileList.ts";
+import { groupFiles, intentSections } from "../model/groups.ts";
 import { type FindingInfo, findingsIn, lineMarks, severityByPath } from "../model/findings.ts";
 import { layoutRows, type LayoutRow, type ReviewFile, rowSignature } from "../model/layout.ts";
 import { itemKey, marksCss, selectionCss } from "../model/marks.ts";
@@ -22,6 +24,7 @@ import {
   pullFileViewed,
   type RemoteViewed,
 } from "../model/viewed.ts";
+import type { Plain } from "../../../store/plain.ts";
 import { type DiffRange, revealStore, type ReviewAnnotation } from "../surface.ts";
 import type { PaneItem, RowMeta } from "./DiffPane.tsx";
 import { type HeaderModel, headerStore } from "./FileHeader.tsx";
@@ -47,6 +50,10 @@ export interface ReviewModelInput {
   readonly selection: DiffRange | null;
   /** Null for an Agent Session (Viewed is local). */
   readonly pullViewed: PullViewed | null;
+  /** The Walkthrough's Intent Groups; undefined before it returned any. */
+  readonly intents: ReadonlyArray<Plain<IntentGroup>> | undefined;
+  /** An Agent Session's diff "By intent" (sections per group) instead of by Turn. */
+  readonly byIntent: boolean;
 }
 
 const sideOf = (side: "new" | "old"): AnnotationSide =>
@@ -152,18 +159,31 @@ export const useReviewModel = (input: ReviewModelInput) => {
 
   const files = useMemo(() => sections.flatMap((s) => s.files), [sections]);
   const byKey = useMemo(() => new Map(files.map((f) => [f.key, f])), [files]);
+  const { intents, byIntent } = input;
+  const grouping = useMemo(() => groupFiles(files, intents), [files, intents]);
+
+  const shown = useMemo(
+    () => (byIntent ? intentSections(sections, grouping) : sections),
+    [byIntent, sections, grouping]
+  );
+
+  // The section a file shows under: its Turn, or its group "By intent".
+  const shownIn = useMemo(
+    () => new Map(shown.flatMap((s) => s.files.map((f) => [f.key, s.id] as const))),
+    [shown]
+  );
 
   const rows = useMemo(
     () =>
       layoutRows({
-        sections,
+        sections: shown,
         scale: diff.scale,
         viewed: viewedOf,
         toggled,
         openedSections,
         openFile,
       }),
-    [sections, diff.scale, viewedOf, toggled, openedSections, openFile]
+    [shown, diff.scale, viewedOf, toggled, openedSections, openFile]
   );
 
   useEffect(() => {
@@ -291,10 +311,10 @@ export const useReviewModel = (input: ReviewModelInput) => {
 
     setRevealed(reveal.nonce);
     setToggled((t) => new Map([...t, ...asked.map((f) => [f.key, true] as const)]));
-    setOpenedSections((o) => new Set([...o, ...asked.map((f) => f.section)]));
+    setOpenedSections((o) => new Set([...o, ...asked.map((f) => shownIn.get(f.key) ?? f.section)]));
 
     if (diff.scale === "list-only") setOpenFile(first.key);
-  }, [reveal, revealed, files, diff.scale, diff.sections, hideable, testsHidden]);
+  }, [reveal, revealed, files, shownIn, diff.scale, diff.sections, hideable, testsHidden]);
 
   const parsedFiles = useMemo(() => {
     const map = new Map<FileDiffMetadata, ReviewFile>();
@@ -324,6 +344,8 @@ export const useReviewModel = (input: ReviewModelInput) => {
     viewedOf,
     viewedStateOf,
     progress: reviewProgress(files, viewedOf),
+    /** The file list's groups (R11): the Walkthrough's, else by path. */
+    grouping,
     /** "Hide tests" (R10): null when no test file could be hidden. */
     tests: hideable.size === 0 ? null : { count: hideable.size, hidden: testsHidden },
     setViewed,
