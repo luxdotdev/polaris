@@ -116,7 +116,24 @@ export const clientCapabilities = {
   },
   textDocument: {
     synchronization: { dynamicRegistration: false, didSave: true },
-    completion: { dynamicRegistration: true, completionItem: { snippetSupport: true } },
+    // Docs in Markdown, resolved lazily, so the completion info renders like hover (DESIGN.md, Editor).
+    completion: {
+      dynamicRegistration: true,
+      completionItem: {
+        snippetSupport: true,
+        documentationFormat: ["markdown", "plaintext"],
+        labelDetailsSupport: true,
+        resolveSupport: { properties: ["documentation", "detail"] },
+      },
+    },
+    signatureHelp: {
+      dynamicRegistration: true,
+      signatureInformation: {
+        documentationFormat: ["markdown", "plaintext"],
+        parameterInformation: { labelOffsetSupport: true },
+        activeParameterSupport: true,
+      },
+    },
     // Without contentFormat, servers such as basedpyright answer plaintext and lose their fences.
     hover: { dynamicRegistration: true, contentFormat: ["markdown", "plaintext"] },
     diagnostic: { dynamicRegistration: true },
