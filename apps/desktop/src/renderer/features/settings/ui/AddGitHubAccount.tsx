@@ -3,8 +3,7 @@
  * github.com/login/device", and the wait. Polaris never sees a password; the code and
  * its state come on `github.accounts`.
  */
-import { ArrowUpRightIcon, Button } from "@polaris/ui";
-import { useEffect, useState } from "react";
+import { ArrowUpRightIcon, Button, CopyButton } from "@polaris/ui";
 import type { SignInView } from "../../../../shared/github.ts";
 import { useNow } from "../../../shell/useNow.ts";
 import { polaris } from "../../bridge.ts";
@@ -23,24 +22,6 @@ const WaitGlyph = () => (
     />
   </svg>
 );
-
-const CopyButton = ({ code }: { readonly code: string }) => {
-  const [copied, setCopied] = useState(false);
-
-  useEffect(() => setCopied(false), [code]);
-
-  return (
-    <Button
-      onClick={() => {
-        void polaris()
-          .request("clipboard.write", { text: code })
-          .then((result) => setCopied(result.ok));
-      }}
-    >
-      {copied ? "Copied" : "Copy code"}
-    </Button>
-  );
-};
 
 const hostOf = (uri: string) => uri.replace(/^https?:\/\//, "").replace(/\/$/, "");
 
@@ -76,7 +57,7 @@ export const AddGitHubAccount = ({ flow }: { readonly flow: SignInView }) => {
         >
           {flow.userCode}
         </span>
-        <CopyButton code={flow.userCode} />
+        <CopyButton variant="button" label="Copy code" text={flow.userCode} />
         <Button
           variant="primary"
           disabled={!status.waiting}

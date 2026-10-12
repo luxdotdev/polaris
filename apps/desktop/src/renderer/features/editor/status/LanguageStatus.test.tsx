@@ -1,6 +1,7 @@
 import "../../../test/dom.testing.ts";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { cleanup, fireEvent, render, within } from "@testing-library/react";
+import { CopyProvider } from "@polaris/ui";
+import { cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import * as P from "@polaris/protocol";
 import type { IpcError, LanguageApi } from "../../../../shared/api.ts";
@@ -21,6 +22,14 @@ import { actionFailure, LanguagePill, StatusPopover } from "./LanguageStatus.tsx
 import { statusView, type StatusAction } from "./model.ts";
 import { runtimeKey, statusStore } from "./store.ts";
 
+const written: string[] = [];
+
+const record = async (text: string) => {
+  written.push(text);
+
+  return true;
+};
+
 // Another DOM test file may have unregistered happy-dom already.
 beforeAll(() => {
   if (!GlobalRegistrator.isRegistered) GlobalRegistrator.register();
@@ -34,7 +43,11 @@ const popover = (
   view: ReturnType<typeof statusView>,
   onRun: (action: StatusAction) => void = () => undefined
 ) =>
-  render(<StatusPopover view={view} running={null} failure={null} onRun={onRun} titleId="title" />);
+  render(
+    <CopyProvider write={record}>
+      <StatusPopover view={view} running={null} failure={null} onRun={onRun} titleId="title" />
+    </CopyProvider>
+  );
 
 describe("the pill", () => {
   test.each([
@@ -94,17 +107,7 @@ describe("the popover", () => {
   });
 
   test("a Prerequisite's command copies", async () => {
-    const written: string[] = [];
-    Object.defineProperty(window, "polaris", {
-      configurable: true,
-      value: {
-        request: async (_: string, input: { text: string }) => {
-          written.push(input.text);
-
-          return { ok: true };
-        },
-      },
-    });
+    written.length = 0;
     popover(
       statusView({
         ...input(),
@@ -149,8 +152,10 @@ describe("the popover", () => {
 
     expect(screen().getByText("Run on Mac Studio")).toBeTruthy();
     expect(screen().getByText("uv")).toBeTruthy();
-    fireEvent.click(screen().getByText("Copy"));
-    await screen().findByText("Copied");
+    const copy = screen().getByRole("button", { name: "Copy" });
+
+    fireEvent.click(copy);
+    await waitFor(() => expect(copy.getAttribute("data-copy-state")).toBe("copied"));
     expect(written).toEqual(["uv python install 3.13"]);
   });
 

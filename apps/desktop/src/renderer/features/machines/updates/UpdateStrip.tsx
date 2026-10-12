@@ -4,7 +4,7 @@
  * words (and a bar only from bytes really sent), what it did, or why it
  * stopped with at most one fix (DESIGN.md, Settings · Hosts).
  */
-import { Button, Dither, PixelCheckIcon } from "@polaris/ui";
+import { Button, CopyButton, Dither, PixelCheckIcon } from "@polaris/ui";
 import type { ReactNode } from "react";
 import type { FailureAction, UpdateFailure, UpdateLine } from "./model.ts";
 
@@ -67,15 +67,25 @@ const Failure = ({
     {failure.detail === null ? null : <Well>{failure.detail}</Well>}
     {failure.actions.length === 0 ? null : (
       <div className="gap-gap flex items-center">
-        {failure.actions.map((button, index) => (
-          <Button
-            key={button.action}
-            variant={index === 0 ? "secondary" : "ghost"}
-            onClick={() => onAction(button.action)}
-          >
-            {button.label}
-          </Button>
-        ))}
+        {failure.actions.map((button, index) =>
+          button.action === "copy-command" && failure.detail !== null ? (
+            <CopyButton
+              key={button.action}
+              variant="button"
+              buttonVariant={index === 0 ? "secondary" : "ghost"}
+              label={button.label}
+              text={failure.detail}
+            />
+          ) : (
+            <Button
+              key={button.action}
+              variant={index === 0 ? "secondary" : "ghost"}
+              onClick={() => onAction(button.action)}
+            >
+              {button.label}
+            </Button>
+          )
+        )}
       </div>
     )}
   </div>

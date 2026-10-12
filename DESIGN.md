@@ -456,6 +456,10 @@ The window uses the native macOS corner radius. Pixel icons and dither are drawn
 - **Brand moment:** the primary button, larger, for onboarding and brand moments only (the welcome "Get started", the marketing site): 36px tall, 8px radius, 18px/14px padding, `label` type, a trailing 18px keycap (↵) at 4px radius, and the float shadow (dark black 35%, light black 12%). This is the one place a button casts a shadow. Working UI always uses the 28px primary.
 - Focus is always a 2px Starlight ring with a 2px offset.
 
+### Copy button
+
+Every copy in the app is one component, `CopyButton` in `@polaris/ui`, writing through the Desktop App's main process (the renderer has no clipboard permission). Three variants: **inline**, a small fill beside the text it copies (an install command: `fill-selected`, `caption`, 22px, 4px radius); **icon**, a 16px Nucleo copy icon in a ghost square at the top right of a code block's header (a table, which has no header, gets a 28px strip above it), its name in a tooltip; and **button**, a Button keeping its variant ("Copy code", "Copy command"). After a click it says "Copied" in `text-strong` (the icon becomes a check), or "Couldn't copy" in `failed-text` (the icon a cross) when the write fails, for 1500ms, then its label again; another click restarts the 1500ms. A polite live region says the same. No Starlight: copying is not a signal (rule/starlight-is-rare). Motion: a press dips the button to 97% over 120ms; the label and its answer share one grid cell, so the width never changes, and cross over 160ms (opacity, and a scale from 90%), all ease-out, as a transition that a new click retargets mid-way. Reduce Motion switches the text instantly with no dip. A copy from a menu item ("Copy path") answers in a 1.5s toast instead: "Copied path", or "Couldn't copy".
+
 ### Rows and lists
 
 The main unit of the app. A row is an optional 16px icon or tile, a `label` title, and optional `caption` metadata on the right. Hover gives `fill-hover`, selection gives `fill-selected`, both at the `row` radius, inset from the panel edge by the panel padding. Sidebar section headers are `caption` in `text-subtle`, with no dividers.
@@ -711,7 +715,7 @@ Quiet. Standard transitions are 120ms (hover, press), 160ms (small reveals), and
 
 - Animate `transform` and `opacity` only. Anything that triggers layout or paint per frame (width, height, top, box-shadow, blur radius) does not animate.
 - Dialogs and the jump menu are opaque `surface-raised` cards at every moment, their input row included: the card scales in from 98% over 200ms and closes at once, and only the scrim fades. Nothing behind ever shows through a dialog, even mid-animation.
-- Springs are fine for panels and toasts when they drive `transform`. The Working dither steps a sprite strip by `transform`.
+- The Working dither steps a sprite strip by `transform`.
 - Long lists and diffs are virtualised; nothing animates on scroll.
 
 ### Constellation (DAG)

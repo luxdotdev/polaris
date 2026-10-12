@@ -50,6 +50,7 @@ const UI_MORE: ReadonlyArray<readonly [string, string]> = [
   ["DotsIcon", "DotsOutline18"],
   ["EditorIcon", "CodeEditorOutline18"],
   ["ChatIcon", "ChatBubbleOutline18"],
+  ["CopyIcon", "CopyOutline18"],
 ];
 
 /** Polaris name → Nucleo pixel outline 24px component. Polaris-owned concepts only. */

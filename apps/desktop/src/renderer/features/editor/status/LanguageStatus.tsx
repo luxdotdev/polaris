@@ -5,7 +5,7 @@ import { failureDetail, failureReason } from "./failureCopy.ts";
  * or Show log.
  */
 import type * as P from "@polaris/protocol";
-import { cn, Popover, PopoverContent, PopoverTrigger } from "@polaris/ui";
+import { cn, CopyButton, Popover, PopoverContent, PopoverTrigger } from "@polaris/ui";
 import { Match } from "effect";
 
 import { useEffect, useId, useState, type ReactNode } from "react";
@@ -56,29 +56,15 @@ const Section = ({ children, className }: { children: ReactNode; className?: str
   </div>
 );
 
-const CommandRow = ({ command }: { readonly command: InstallCommand }) => {
-  const [copied, setCopied] = useState(false);
-
-  return (
-    <>
-      <span className="text-caption text-text-faint">{command.label}</span>
-      <div className="rounded-control border-hairline bg-surface-sunken flex h-8 items-center justify-between border pr-1.5 pl-2.5">
-        <code className="text-caption text-text-default truncate font-mono">{command.command}</code>
-        <button
-          type="button"
-          onClick={() =>
-            void polaris()
-              .request("clipboard.write", { text: command.command })
-              .then((result) => setCopied(result.ok))
-          }
-          className="bg-fill-selected text-caption text-text-default focus-visible:outline-starlight h-[22px] shrink-0 rounded-[4px] px-2 focus-visible:outline-2"
-        >
-          {copied ? "Copied" : "Copy"}
-        </button>
-      </div>
-    </>
-  );
-};
+const CommandRow = ({ command }: { readonly command: InstallCommand }) => (
+  <>
+    <span className="text-caption text-text-faint">{command.label}</span>
+    <div className="rounded-control border-hairline bg-surface-sunken flex h-8 items-center justify-between border pr-1.5 pl-2.5">
+      <code className="text-caption text-text-default truncate font-mono">{command.command}</code>
+      <CopyButton text={command.command} />
+    </div>
+  </>
+);
 
 /** "Run on {host}", then each way the catalog offers to install it on this platform. */
 const CommandBlock = ({

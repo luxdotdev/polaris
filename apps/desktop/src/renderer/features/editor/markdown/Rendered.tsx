@@ -1,4 +1,5 @@
 import "../../session/ui/markdown/markdown.css";
+import { COPY_CODE } from "../../session/ui/markdown/copyControls.tsx";
 import "./preview.css";
 import { useRef, useState, useMemo } from "react";
 import { Predicate } from "effect";
@@ -72,6 +73,7 @@ const Rendered = ({ source, document, pool, openDocument, openExternal }: Render
   const components: Components = useMemo(
     () => ({
       img: imageComponent,
+      ...COPY_CODE,
       ...SAFE_HTML_COMPONENTS,
       a: ({ href, id, children }) =>
         previewTarget(href ?? "", document).kind === "blocked" ? (
@@ -105,9 +107,9 @@ const Rendered = ({ source, document, pool, openDocument, openExternal }: Render
         rehypePlugins={PREVIEW_REHYPE}
         components={components}
         controls={{
-          code: { copy: true, download: false },
+          code: { copy: false, download: false },
           table: false,
-          mermaid: { copy: true, download: false, fullscreen: false, panZoom: false },
+          mermaid: { copy: false, download: false, fullscreen: false, panZoom: false },
         }}
         shikiTheme={[POLARIS_SHIKI, POLARIS_SHIKI]}
         mermaid={{ config: MERMAID_CONFIG }}
