@@ -18,6 +18,7 @@ describe("applyDismissed", () => {
     expect(result.inbox.waiting.some((w) => w.key === first.key)).toBe(false);
     expect(result.inbox.count).toBe(inbox.count - 1);
     expect(result.hidden).toBe(1);
+    expect(result.quiet.has(first.key)).toBe(true);
     expect(result.current.get(first.key)).toBe(stampOf(first));
   });
 

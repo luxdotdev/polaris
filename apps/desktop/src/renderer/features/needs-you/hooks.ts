@@ -55,5 +55,8 @@ export const useInboxUntimedView = (): DismissedInbox<Inbox> => useInboxAt(0);
 
 export const useInboxUntimed = (): Inbox => useInboxUntimedView().inbox;
 
+/** Sessions dismissed from Needs You on this Mac that still need you (`inboxKey`). */
+export const useQuietSessions = (): ReadonlySet<string> => useInboxUntimedView().quiet;
+
 /** What needs you on every Host, Constellation items included: the Orchestrate and sidebar badges. */
 export const useNeedsYouCount = (): number => useInboxUntimed().count;
