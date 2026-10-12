@@ -709,7 +709,7 @@ Nucleo UI outline, 1px stroke, 16px, in `text-subtle` (or `text-strong` when sel
 
 ### Motion
 
-Quiet. Standard transitions are 120ms (hover, press), 160ms (small reveals), and 200ms (panels, toasts), all ease-out. No bounce, springs, or overshoot (Output's slide-in is a 200ms ease-out, not a spring). Reduce Motion drops all transitions to instant fades, stills the dither, and stills the scenes.
+Quiet. Hover is instant. Press is 120ms. Small reveals are 160ms. Panels and toasts are 200ms. All use ease-out. The tokens are `--duration-press`, `--duration-reveal`, `--duration-panel` and `--ease-out`, which is also every transition's default curve. A press dips a button to 97%. Every disclosure uses one chevron (`DisclosureChevron`): it points right when closed and turns down over 120ms. No bounce, springs, or overshoot (Output's slide-in is a 200ms ease-out, not a spring). Reduce Motion drops all transitions to instant fades, stills the dither, and stills the scenes.
 
 ### Performance
 

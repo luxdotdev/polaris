@@ -2,6 +2,7 @@
  * Rename (F2): a one-line field anchored under the symbol, styled like the jump menu's input.
  * ↵ asks the language server; a single answer goes straight to edit acceptance.
  */
+import { cn, REVEAL_MOTION } from "@polaris/ui";
 import { useState, type KeyboardEvent } from "react";
 import type { LanguageQueries } from "../lsp/queries.ts";
 import { editorLanguageQueries } from "../runtime/app.ts";
@@ -60,7 +61,10 @@ const Form = ({ field, queries }: { readonly field: Field; readonly queries: Loo
       role="dialog"
       aria-label="Rename symbol"
       data-testid="rename-field"
-      className="rounded-row border-hairline bg-surface-raised shadow-float animate-in fade-in-0 fixed z-50 flex w-72 flex-col border duration-160 ease-out"
+      className={cn(
+        REVEAL_MOTION,
+        "rounded-row border-hairline bg-surface-raised shadow-float fixed z-50 flex w-72 flex-col border"
+      )}
       style={{ left: field.left, top: field.bottom + 4 }}
     >
       <input

@@ -35,7 +35,7 @@ const Bar = ({ fraction }: { readonly fraction: number }) => (
     className="bg-fill-selected relative h-0.5 w-[120px] shrink-0 overflow-hidden rounded-full"
   >
     <span
-      className="bg-text-subtle absolute inset-y-0 left-0 w-full origin-left transition-transform duration-200"
+      className="bg-text-subtle absolute inset-y-0 left-0 w-full origin-left transition-transform duration-200 ease-out"
       style={{ transform: `scaleX(${fraction})` }}
     />
   </span>

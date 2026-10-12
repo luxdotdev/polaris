@@ -6,6 +6,8 @@ export { cn } from "./lib/cn";
 
 export type { CssVars } from "./lib/css";
 
+export { REVEAL_MOTION } from "./lib/float";
+
 export { reducedMotion } from "./lib/motion";
 
 export { useExitPresence } from "./lib/presence";
@@ -69,6 +71,8 @@ export * from "./components/polaris/code-well";
 export * from "./components/polaris/copy-button";
 
 export * from "./components/polaris/composer";
+
+export * from "./components/polaris/disclosure-chevron";
 
 export * from "./components/polaris/dither";
 

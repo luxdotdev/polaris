@@ -165,8 +165,8 @@
 /* Sonner's structural motion, held to DESIGN.md: 200ms ease-out, transform and opacity only. */
 [data-sonner-toast] {
   transition:
-    transform 200ms var(--ease-out),
-    opacity 200ms var(--ease-out) !important;
+    transform var(--duration-panel) var(--ease-out),
+    opacity var(--duration-panel) var(--ease-out) !important;
 }
 
 /* Reduce Motion: transitions become instant, and the dither stills; `false` overrides the system. */
