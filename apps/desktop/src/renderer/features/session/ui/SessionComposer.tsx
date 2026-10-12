@@ -23,6 +23,7 @@ import {
 } from "../../harness/index.ts";
 import { hasCapability, useElapsed, useHost } from "../hooks.ts";
 import { formatElapsed, tildePath } from "../model/format.ts";
+import { runningCommands, runningPhrase } from "../model/running.ts";
 import {
   canQueue,
   type ComposerMode,
@@ -270,6 +271,7 @@ export const SessionComposer = (props: SessionComposerProps) => {
         isWorking && session.state === "working"
           ? {
               elapsed: formatElapsed(elapsed),
+              detail: runningPhrase(runningCommands(model.turns.at(-1), session.backgroundTasks)),
               onStop: stop,
               label: (
                 <RotatingVerb verbs={verbs} spoken={`${harnessHue(harness).name} is working`} />

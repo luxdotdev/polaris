@@ -53,7 +53,12 @@ export interface DraftComposerProps {
   readonly placeholder: string;
   readonly canSubmit: boolean;
   readonly working?:
-    | { readonly elapsed: ReactNode; readonly onStop: () => void; readonly label?: ReactNode }
+    | {
+        readonly elapsed: ReactNode;
+        readonly onStop: () => void;
+        readonly label?: ReactNode;
+        readonly detail?: ReactNode;
+      }
     | undefined;
   readonly onEscape?: (() => void) | undefined;
   /** ⌘↵: queue the draft as a follow-up for after the Turn in flight. */
