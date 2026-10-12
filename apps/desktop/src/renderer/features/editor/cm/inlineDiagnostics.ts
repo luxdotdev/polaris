@@ -1,6 +1,6 @@
 /**
- * Inline diagnostics (DESIGN.md, Editor: Diagnostics; Paper 17, 17b): one gutter mark per line
- * for its most severe diagnostic, and that diagnostic's message at the end of the line.
+ * Inline diagnostics (DESIGN.md, Editor: Diagnostics; Paper 17, 17b): each line's most severe
+ * error, warning or info message at its end. No gutter mark: squiggles and the hover carry the rest.
  */
 import { completionStatus } from "@codemirror/autocomplete";
 import { type Diagnostic, setDiagnosticsEffect } from "@codemirror/lint";
@@ -9,6 +9,7 @@ import {
   type Extension,
   RangeSet,
   RangeSetBuilder,
+  RangeValue,
   StateEffect,
   StateField,
   type Text,
@@ -17,8 +18,6 @@ import {
   Decoration,
   type DecorationSet,
   EditorView,
-  gutter,
-  GutterMarker,
   ViewPlugin,
   type ViewUpdate,
   WidgetType,
@@ -29,7 +28,7 @@ export type Severity = Diagnostic["severity"];
 const RANK: Record<Severity, number> = { error: 0, warning: 1, info: 2, hint: 3 };
 
 /** A line's most severe diagnostic, and how many others (hints aside) share the line. */
-export class LineDiagnostic extends GutterMarker {
+export class LineDiagnostic extends RangeValue {
   constructor(
     readonly severity: Severity,
     readonly message: string,
@@ -42,14 +41,6 @@ export class LineDiagnostic extends GutterMarker {
     return (
       other.severity === this.severity && other.message === this.message && other.more === this.more
     );
-  }
-
-  override toDOM() {
-    const mark = document.createElement("span");
-    mark.className = `cm-diagnosticMark cm-diagnosticMark-${this.severity}`;
-    mark.setAttribute("aria-hidden", "true");
-
-    return mark;
   }
 }
 
@@ -223,40 +214,9 @@ const messagePlugin = ViewPlugin.fromClass(
   }
 );
 
-const marks = gutter({
-  class: "cm-diagnosticGutter",
-  markers: (view) => view.state.field(lineDiagnostics),
-});
-
 const v = (token: string) => `var(--color-${token})`;
 
-/** The mark's shape carries the severity as well as its hue (DESIGN.md, Editor: Diagnostics). */
 const inlineTheme = EditorView.theme({
-  ".cm-gutter.cm-diagnosticGutter": { width: "20px", marginLeft: "-20px" },
-  ".cm-diagnosticGutter .cm-gutterElement": {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  ".cm-diagnosticMark": { display: "block", boxSizing: "border-box", borderRadius: "999px" },
-  ".cm-diagnosticMark-error": { width: "7px", height: "7px", backgroundColor: v("failed") },
-  ".cm-diagnosticMark-warning": {
-    width: "9px",
-    height: "8px",
-    borderRadius: "0",
-    backgroundColor: v("diagnostic-warning"),
-    clipPath: "polygon(50% 0, 100% 100%, 0 100%)",
-  },
-  ".cm-diagnosticMark-info": {
-    width: "7px",
-    height: "7px",
-    border: `1.25px solid ${v("text-subtle")}`,
-  },
-  ".cm-diagnosticMark-hint": {
-    width: "5px",
-    height: "5px",
-    border: `1.25px solid ${v("text-faint")}`,
-  },
   ".cm-inlineDiagnostic": {
     display: "inline-flex",
     gap: "8px",
@@ -282,5 +242,4 @@ const inlineTheme = EditorView.theme({
   ".cm-inlineDiagnostic-more": { color: v("text-faint"), flexShrink: 0 },
 });
 
-/** After the line numbers, so the mark sits between the number and the code. */
-export const inlineDiagnostics: Extension = [lineDiagnostics, marks, messagePlugin, inlineTheme];
+export const inlineDiagnostics: Extension = [lineDiagnostics, messagePlugin, inlineTheme];
