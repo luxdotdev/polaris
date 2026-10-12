@@ -14,6 +14,8 @@ export * from "./domain.ts";
 
 export * from "./events.ts";
 
+export * from "./notification.ts";
+
 export * from "./frame.ts";
 
 export * from "./harnesses.ts";

@@ -60,6 +60,13 @@ describe("planTurnNotifications", () => {
     });
   });
 
+  test("a Lead Turn Polaris started for a digest ends quietly", () => {
+    const digest = { ...turn("idle"), digestStarted: true };
+    const plans = run([summary({ turns: [turn("working")] }), summary({ turns: [digest] })]);
+
+    expect(plans[1]?.show).toEqual([]);
+  });
+
   test("a session first seen Idle (launch, a new Host) is not news", () => {
     expect(run([summary({ turns: [turn("idle")] })])[0]?.show).toEqual([]);
   });

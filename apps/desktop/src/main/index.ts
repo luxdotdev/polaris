@@ -352,6 +352,7 @@ const start = async () => {
     notify: () => env.POLARIS_DESKTOP_HIDDEN !== "1" && sessionPrefsOf(settings).notifyNeedsYou,
     notifyTurns: () =>
       env.POLARIS_DESKTOP_HIDDEN !== "1" && sessionPrefsOf(settings).notifyTurnEnded,
+    notifyAgents: () => env.POLARIS_DESKTOP_HIDDEN !== "1",
   });
 
   reviews = createReviewNotifier({

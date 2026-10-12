@@ -142,6 +142,7 @@ export const sessionOf: (event: DomainEvent) => SessionId | null =
     SessionSetupChanged: bySessionId,
     SessionContextUsed: bySessionId,
     SessionCompacted: bySessionId,
+    SessionNotified: bySessionId,
     SessionBackgroundTasksChanged: bySessionId,
     TurnStarted: byTurn,
     TurnItemCompleted: bySessionId,
@@ -240,6 +241,7 @@ export const gatingCapabilities: ReadonlyArray<Capability> = [
   "host.resources",
   "session.background-tasks",
   "session.compaction",
+  "session.notify",
   "session.pin",
 ];
 
@@ -294,6 +296,7 @@ export const eventCapability = (event: DomainEvent): Capability | null =>
       ResourceReleased: needs("host.resources"),
       SessionBackgroundTasksChanged: needs("session.background-tasks"),
       SessionCompacted: needs("session.compaction"),
+      SessionNotified: needs("session.notify"),
       SessionPinned: needs("session.pin"),
       SessionSetupChanged: needs("workspace.setup"),
       TurnsAccepted: needs("session.accept"),
@@ -655,6 +658,11 @@ const apply: (event: DomainEvent) => Reducer = DomainEvent.match<Reducer>({
     updateSession(fold, event.sessionId, () => ({ session: { backgroundTasks: event.tasks } })),
   SessionCompacted: (event) => (fold) =>
     updateSession(fold, event.sessionId, () => ({ session: { lastCompaction: event.compaction } })),
+  /** Only Clients act on it; the read model keeps nothing. */
+  SessionNotified:
+    () =>
+    ({ model }) =>
+      model,
   TurnStarted: recordTurn,
   TurnEnded: recordTurn,
   TurnItemCompleted:

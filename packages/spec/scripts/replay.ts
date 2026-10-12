@@ -112,6 +112,9 @@ const DROPPED = new Set([
   "WorktreeRemoved",
 ]);
 
+/** Outside the spec even with a command id (an agent's `notify`): left out of the log. */
+const UNMODELLED = new Set(["SessionNotified"]);
+
 const SESSIONS = ["s1", "s2"];
 
 const COMMIT = ["commitBatch", "publishBatch"];
@@ -184,7 +187,7 @@ class Replayer {
   private i = 0;
 
   constructor(private readonly trace: Trace) {
-    this.log = trace.log;
+    this.log = trace.log.filter((e) => !UNMODELLED.has(e.tag));
     this.recoveryOf = recoveryPoints(trace);
   }
 

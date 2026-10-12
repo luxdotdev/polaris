@@ -2,11 +2,13 @@
 import { harnessHue } from "@polaris/ui";
 import type { HostView } from "../../../../shared/api.ts";
 import type {
+  NeedsYouNotification,
   NeedsYouSession,
   NeedsYouSummary,
   NeedsYouTurn,
 } from "../../../../shared/needsYou.ts";
 import type { HostModel } from "../../../store/hostModel.ts";
+import { digestStarted, type Digest } from "../../constellation/model/index.ts";
 import type { ConstellationView } from "../../sessions/source.ts";
 import type { Inbox } from "./inbox.ts";
 
@@ -16,12 +18,19 @@ export interface SummaryInput {
   readonly focused: { readonly hostKey: string; readonly sessionId: string } | null;
   /** Working and Idle sessions (`turnsOf`); none when left out. */
   readonly turns?: ReadonlyArray<NeedsYouTurn>;
+  /** Each session's latest agent notification (`notificationsOf`); none when left out. */
+  readonly notifications?: ReadonlyArray<NeedsYouNotification>;
+}
+
+/** A graph as its own stream delivered it; `digests` names the Lead Turns Polaris started. */
+export interface TurnsView extends ConstellationView {
+  readonly digests?: ReadonlyArray<Digest>;
 }
 
 export interface TurnsInput {
   readonly hosts: ReadonlyArray<HostView>;
   readonly models: Readonly<Record<string, HostModel>>;
-  readonly views: Readonly<Record<string, ReadonlyArray<ConstellationView>>>;
+  readonly views: Readonly<Record<string, ReadonlyArray<TurnsView>>>;
 }
 
 /** Constellation workers' sessions: their Lead reports on them, so their Turns aren't news. */
@@ -36,15 +45,29 @@ const workerSessions = (views: TurnsInput["views"]) =>
     )
   );
 
+/** Each Lead session's digests, by Host and session. */
+const leadDigests = (views: TurnsInput["views"]) =>
+  new Map(
+    Object.entries(views).flatMap(([hostKey, list]) =>
+      list.map(
+        ({ constellation, digests }) =>
+          [`${hostKey}\u0000${constellation.leadSessionId}`, digests ?? []] as const
+      )
+    )
+  );
+
 /** Every Working or Idle session outside a Constellation's workers, for Turn-ended notifications. */
 export const turnsOf = ({ hosts, models, views }: TurnsInput): Array<NeedsYouTurn> => {
   const workers = workerSessions(views);
+  const digests = leadDigests(views);
 
   return hosts.flatMap((host) =>
     [...(models[host.key]?.sessions.values() ?? [])].flatMap((entry): Array<NeedsYouTurn> => {
       const { id, state, title, harness } = entry.session;
 
       if ((state !== "working" && state !== "idle") || workers.has(id)) return [];
+      const lead = digests.get(`${host.key}\u0000${id}`);
+      const turnId = entry.lastTurnId ?? null;
 
       return [
         {
@@ -55,13 +78,42 @@ export const turnsOf = ({ hosts, models, views }: TurnsInput): Array<NeedsYouTur
           harness: harnessHue(harness).name,
           state,
           prompt: entry.lastTurnPreview,
+          digestStarted: lead !== undefined && turnId !== null && digestStarted(lead, turnId),
         },
       ];
     })
   );
 };
 
-export const toSummary = ({ inbox, focused, turns = [] }: SummaryInput): NeedsYouSummary => {
+/** Every session's latest agent notification (MCP `notify`), for main to show once each. */
+export const notificationsOf = ({
+  hosts,
+  models,
+}: Pick<TurnsInput, "hosts" | "models">): Array<NeedsYouNotification> =>
+  hosts.flatMap((host) =>
+    [...(models[host.key]?.sessions.values() ?? [])].flatMap((entry) =>
+      entry.lastNotification === undefined
+        ? []
+        : [
+            {
+              hostKey: host.key,
+              hostLabel: host.label,
+              sessionId: entry.session.id,
+              sessionTitle: entry.session.title,
+              id: entry.lastNotification.id,
+              title: entry.lastNotification.title,
+              body: entry.lastNotification.body,
+            },
+          ]
+    )
+  );
+
+export const toSummary = ({
+  inbox,
+  focused,
+  turns = [],
+  notifications = [],
+}: SummaryInput): NeedsYouSummary => {
   const waiting = inbox.waiting.map((w): NeedsYouSession => ({
     hostKey: w.hostKey,
     hostLabel: w.hostLabel,
@@ -90,5 +142,11 @@ export const toSummary = ({ inbox, focused, turns = [] }: SummaryInput): NeedsYo
       requests: [],
     }));
 
-  return { count: inbox.count, sessions: [...waiting, ...interrupted], focused, turns };
+  return {
+    count: inbox.count,
+    sessions: [...waiting, ...interrupted],
+    focused,
+    turns,
+    notifications,
+  };
 };

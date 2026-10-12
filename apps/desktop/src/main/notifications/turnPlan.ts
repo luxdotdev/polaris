@@ -1,7 +1,8 @@
 /**
  * Which Turn-ended notifications to show (Settings → Sessions, off by default): one when a
  * session that was Working is now Idle, never for the session the focused window shows.
- * A Working session's new Turn closes its last one. Pure, so it is unit-tested.
+ * A Working session's new Turn closes its last one; a Lead Turn Polaris started for a digest
+ * shows nothing. Pure, so it is unit-tested.
  */
 import type { NeedsYouSummary, NeedsYouTurn } from "../../shared/needsYou.ts";
 import { notificationKey } from "./plan.ts";
@@ -68,7 +69,8 @@ export const planTurnNotifications = ({
       summary.focused?.hostKey === turn.hostKey &&
       summary.focused.sessionId === turn.sessionId;
 
-    if (was === "working" && !focused) show.push(contentOf(key, turn));
+    if (was === "working" && !focused && turn.digestStarted !== true)
+      show.push(contentOf(key, turn));
   }
 
   // A session that needs you mid-Turn is still in it: keep it Working until it goes Idle.

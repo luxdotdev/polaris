@@ -35,6 +35,7 @@ import {
   WorktreeId,
 } from "./ids.ts";
 import { WorktreeSetupRun } from "./worktreeSetup.ts";
+import { notificationEventFields } from "./notification.ts";
 import { addedNullable, ServiceTier, ModelId, ReasoningEffort } from "./models.ts";
 import {
   FindingResolution,
@@ -53,6 +54,7 @@ import {
 export const DomainEvent = Schema.TaggedUnion({
   ...constellationEventFields,
   ...resourceEventFields,
+  ...notificationEventFields,
   WorkspaceRegistered: { workspace: Workspace },
   WorkspaceUpdated: { workspace: Workspace },
   WorkspaceRemoved: { workspaceId: WorkspaceId },

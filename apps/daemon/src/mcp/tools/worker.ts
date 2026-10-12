@@ -31,6 +31,7 @@ export const workerTools = (
         })
       ),
     {
+      mutates: true,
       summary: "Attempt blocked; the Lead will hear why.",
       next: "End this Turn. Acceptance or a Lead message resumes the Attempt.",
     }
@@ -52,6 +53,7 @@ export const workerTools = (
         })
       ),
     {
+      mutates: true,
       summary: "Progress recorded.",
       next: "Continue the assignment; report the next useful milestone.",
     }
@@ -69,6 +71,7 @@ export const workerTools = (
         })
       ),
     {
+      mutates: true,
       summary: "Question recorded.",
       next: "Continue unblocked work; the answer arrives through Polaris.",
     }
@@ -86,6 +89,7 @@ export const workerTools = (
         })
       ),
     {
+      mutates: true,
       summary: "Claim recorded for review.",
       next: "Await the Lead’s review; a send-back creates a new Attempt.",
     }
@@ -103,6 +107,7 @@ export const workerTools = (
         })
       ),
     {
+      mutates: true,
       summary: "Proposal recorded.",
       next: "Continue the assigned Task; the Lead will review the proposal.",
     }
@@ -120,6 +125,7 @@ export const workerTools = (
         })
       ),
     {
+      mutates: true,
       summary: "Peer message queued.",
       next: "Continue the assignment; the peer receives a Polaris message.",
     }

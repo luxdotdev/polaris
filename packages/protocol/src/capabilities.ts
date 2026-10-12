@@ -50,6 +50,8 @@ export const Capability = Schema.Literals([
   "session.stop-background",
   /** `SessionCompacted` and `AgentSession.lastCompaction`; `ContextUsage`'s breakdown fields need nothing. */
   "session.compaction",
+  /** `SessionNotified`: an agent's notification for the user (MCP `notify`). */
+  "session.notify",
   /** `PinSession`, `SessionPinned`, and `AgentSession.pinnedAt` and `origin`. */
   "session.pin",
   "files.read",

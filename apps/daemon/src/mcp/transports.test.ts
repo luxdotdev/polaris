@@ -54,6 +54,8 @@ test("Codex's stateless HTTP endpoint works with a real MCP client; revocation c
         "propose",
         "message",
         "status",
+        "wait_for_command",
+        "notify",
       ]);
 
       const result = await client.callTool({
