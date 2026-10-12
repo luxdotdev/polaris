@@ -52,6 +52,21 @@
   animation: polaris-dither-out 200ms var(--ease-out) forwards;
 }
 
+/* StateIcon's dither fades by transition, so returning to Working mid-exit retargets from where it is. */
+.polaris-dither[data-fade] {
+  animation: none;
+  transition: opacity 200ms var(--ease-out);
+
+  @starting-style {
+    opacity: 0;
+  }
+}
+
+.polaris-dither[data-fade][data-leaving] {
+  animation: none;
+  opacity: 0;
+}
+
 /* Reduce Motion replaces the dither with a still pixel pattern. */
 @media (prefers-reduced-motion: reduce) {
   :root:not([data-reduce-motion="false"]) .polaris-dither[data-moving] > span {
