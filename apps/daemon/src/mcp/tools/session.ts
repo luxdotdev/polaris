@@ -3,9 +3,18 @@ import { ConstellationRejected, type SessionId } from "@polaris/protocol";
 import { Effect, Schema } from "effect";
 import type { McpBinding } from "../binding.ts";
 import { sessionBinding } from "../binding.ts";
-import { WaitOutcome, type SessionTools } from "../sessions/index.ts";
+import { NotifyOutcome, WaitOutcome, type SessionTools } from "../sessions/index.ts";
+import { splitRequestId, type Idempotency } from "./idempotency.ts";
 import type { resolvers } from "./resolve.ts";
-import { errorResult, rejection, type BoundTool, type ConstellationCommands } from "./shared.ts";
+import {
+  errorResult,
+  inputRejection,
+  jsonSchema,
+  rejection,
+  withRequestId,
+  type BoundTool,
+  type ConstellationCommands,
+} from "./shared.ts";
 
 /** Under Codex's default 60s MCP tool timeout, so a wait never reads as a failed call. */
 export const WAIT_LIMIT_SECONDS = 50;
@@ -15,8 +24,6 @@ const DEFAULT_WAIT_SECONDS = 45;
 const text = (lines: ReadonlyArray<string>) => ({
   content: [{ type: "text" as const, text: lines.join("\n") }],
 });
-
-const jsonSchema = (schema: Schema.Constraint) => Schema.toJsonSchemaDocument(schema).schema;
 
 const sessionTool = <S extends Schema.Decoder<unknown>>(
   name: string,
@@ -152,3 +159,67 @@ export const waitForCommandTool = (sessionId: SessionId, sessions: SessionTools)
         .pipe(Effect.flatMap((outcome) => waitText(outcome, seconds)));
     }
   );
+
+const NotifyInputSchema = Schema.Struct({
+  title: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(80)),
+  body: Schema.optionalKey(Schema.String.check(Schema.isMaxLength(400))),
+});
+
+const notifyText = (outcome: NotifyOutcome) =>
+  NotifyOutcome.$match(outcome, {
+    Sent: () => Effect.succeed(text(["Notification sent.", "Next: Continue."])),
+    AlreadySent: () =>
+      Effect.succeed(text(["This notification was already sent.", "Next: Continue."])),
+    NotFound: () =>
+      Effect.fail(
+        rejection("E-SESSION", "This session can't notify", "Continue without notifying.")
+      ),
+    RateLimited: ({ retryInSeconds }) =>
+      Effect.fail(
+        rejection(
+          "E-RATE",
+          "This session notified the user moments ago",
+          `Fold this into your next update, or notify again in ${retryInSeconds}s.`
+        )
+      ),
+  });
+
+/** Every binding: a notification the user sees on their Mac, at most one per 30s per session. */
+export const notifyTool = (
+  sessionId: SessionId,
+  sessions: SessionTools,
+  ids: Idempotency
+): BoundTool => {
+  const send = (rest: typeof Schema.Json.Type, requestId: string | undefined) =>
+    Schema.decodeUnknownEffect(NotifyInputSchema)(rest, { onExcessProperty: "error" }).pipe(
+      Effect.mapError(() => inputRejection("notify")),
+      Effect.flatMap((decoded) => {
+        const call = ids.begin(sessionId, "notify", requestId, rest);
+
+        return sessions
+          .notify(sessionId, { title: decoded.title, body: decoded.body ?? "" }, call.id)
+          .pipe(
+            Effect.mapError(() =>
+              rejection("E-NOTIFY", "The notification couldn't be recorded", "Try again.")
+            ),
+            Effect.flatMap(notifyText),
+            Effect.tapError(() => Effect.sync(call.rejected))
+          );
+      })
+    );
+
+  return {
+    name: "notify",
+    description:
+      "Send the user a desktop notification: a short title and an optional body. Use it for news the user would want while away (done, blocked, needs a decision), not for progress. At most one every 30s per session.",
+    inputSchema: withRequestId(jsonSchema(NotifyInputSchema)),
+    call: (input) =>
+      Effect.runPromise(
+        splitRequestId(input).pipe(
+          Effect.mapError(() => inputRejection("notify")),
+          Effect.flatMap(({ requestId, rest }) => send(rest, requestId)),
+          Effect.catchTag("ConstellationRejected", (error) => Effect.succeed(errorResult(error)))
+        )
+      ),
+  };
+};

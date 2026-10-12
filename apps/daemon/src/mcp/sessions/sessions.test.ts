@@ -1,9 +1,10 @@
 import { expect, test } from "bun:test";
-import { BackgroundTask, DomainEvent, SessionId, TurnItem } from "@polaris/protocol";
+import { BackgroundTask, CommandId, DomainEvent, SessionId, TurnItem } from "@polaris/protocol";
 import { Effect, Fiber } from "effect";
 import { finish, send, session, signal, WORKER } from "../../constellation/delivery/testing.ts";
 import { EventStore } from "../../store/EventStore.ts";
-import { WaitOutcome, sessionTools, TRANSCRIPT_LIMIT } from "./index.ts";
+import { NotifyOutcome, WaitOutcome, sessionTools, TRANSCRIPT_LIMIT } from "./index.ts";
+import { notifier, NOTIFY_INTERVAL_MS } from "./notify.ts";
 
 const run = <A, E>(effect: Effect.Effect<A, E, EventStore>) =>
   Effect.runPromise(effect.pipe(Effect.provide(EventStore.layerSqlite(":memory:"))));
@@ -188,4 +189,45 @@ test("waiting times out with what still runs, and is idle when nothing runs", as
   );
   expect(idle).toEqual(WaitOutcome.Idle({ task: null }));
   expect(missing).toEqual(WaitOutcome.Idle({ task: "gone" }));
+});
+
+test("notify records SessionNotified once per id, at most once per interval per session", async () => {
+  let now = 1_000_000;
+
+  const [outcomes, notified] = await run(
+    Effect.gen(function* () {
+      const store = yield* created;
+      const notify = notifier(store, () => now);
+      const input = { title: "Done", body: "All green" };
+
+      const first = yield* notify(WORKER, input, CommandId.make("n1"));
+      const retry = yield* notify(WORKER, input, CommandId.make("n1"));
+      const soon = yield* notify(WORKER, input, CommandId.make("n2"));
+      now += NOTIFY_INTERVAL_MS;
+      const later = yield* notify(WORKER, input, CommandId.make("n3"));
+      const nobody = yield* notify(SessionId.make("nobody"), input, CommandId.make("n4"));
+      const model = yield* store.model;
+
+      const events = yield* store.readEvents({
+        after: 0,
+        upTo: model.sequence,
+        sessionId: WORKER,
+        eventTypes: ["SessionNotified"],
+      });
+
+      return [[first, retry, soon, later, nobody], events] as const;
+    })
+  );
+
+  expect(outcomes).toEqual([
+    NotifyOutcome.Sent(),
+    NotifyOutcome.AlreadySent(),
+    NotifyOutcome.RateLimited({ retryInSeconds: 30 }),
+    NotifyOutcome.Sent(),
+    NotifyOutcome.NotFound(),
+  ]);
+  expect(notified.map((e) => `${e.commandId ?? ""} ${e.event._tag}`)).toEqual([
+    "n1 SessionNotified",
+    "n3 SessionNotified",
+  ]);
 });

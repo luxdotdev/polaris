@@ -273,6 +273,7 @@ const fold = (event: DomainEvent): Fold =>
         ({ title }): Fold =>
         (m) =>
           patchSession(m, { title }),
+      SessionNotified: () => same,
       SessionCursorUpdated:
         ({ harnessCursor }): Fold =>
         (m) =>

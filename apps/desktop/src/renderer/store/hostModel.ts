@@ -14,6 +14,7 @@ import type {
   EventEnvelope,
   HostStreamItem,
   ReviewCheckout,
+  SessionNotification,
   Workspace,
   Worktree,
 } from "@polaris/protocol";
@@ -41,6 +42,8 @@ export interface SessionEntry {
   readonly lastTurnPreview: string | null;
   /** The latest Turn's id, seen live; snapshots don't carry it. */
   readonly lastTurnId?: string | null;
+  /** The latest notification an agent sent from this session (`notify`), seen live. */
+  readonly lastNotification?: SessionNotification;
   /** Subagents still working in this session. */
   readonly subagents: ReadonlyArray<Subagent>;
 }
@@ -269,6 +272,8 @@ const fold = (event: DomainEvent): Fold =>
         onSession(sessionId, patch({ backgroundTasks: tasks })),
       SessionCompacted: ({ sessionId, compaction }) =>
         onSession(sessionId, patch({ lastCompaction: compaction })),
+      SessionNotified: ({ sessionId, notification }) =>
+        onSession(sessionId, (entry) => ({ ...entry, lastNotification: notification })),
       TurnStarted: ({ turn }) => onTurn(turn),
       TurnEnded: ({ turn }) => onTurn(turn),
       TurnItemCompleted: () => unchanged,

@@ -40,6 +40,18 @@ export interface NeedsYouTurn {
   readonly digestStarted?: boolean;
 }
 
+/** The latest notification an agent sent from a session (MCP `notify`). */
+export interface NeedsYouNotification {
+  readonly hostKey: string;
+  readonly hostLabel: string;
+  readonly sessionId: string;
+  readonly sessionTitle: string;
+  /** The notification's own id: each is shown once. */
+  readonly id: string;
+  readonly title: string;
+  readonly body: string;
+}
+
 export interface NeedsYouSummary {
   /** Sessions that need you across every Host: the menu bar and Dock count. */
   readonly count: number;
@@ -48,6 +60,8 @@ export interface NeedsYouSummary {
   readonly focused: { readonly hostKey: string; readonly sessionId: string } | null;
   /** Working and Idle sessions outside Constellations, for Turn notifications; none if absent. */
   readonly turns?: ReadonlyArray<NeedsYouTurn>;
+  /** Each session's latest agent notification; none if absent. */
+  readonly notifications?: ReadonlyArray<NeedsYouNotification>;
 }
 
 /** What the menu bar and notifications ask the renderer to do. */

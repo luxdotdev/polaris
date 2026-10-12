@@ -5,7 +5,7 @@ import { leadTools } from "./lead.ts";
 import { workerTools } from "./worker.ts";
 import { resolvers } from "./resolve.ts";
 import { CallCommandId, idempotency, type Idempotency } from "./idempotency.ts";
-import { readWorkerTool, waitForCommandTool } from "./session.ts";
+import { notifyTool, readWorkerTool, waitForCommandTool } from "./session.ts";
 import { unavailableSessions, type SessionTools } from "../sessions/index.ts";
 import {
   toolFactory,
@@ -106,5 +106,5 @@ export const constellationTools = (
     Worker: (bound) => workerTools(bound, define, submit, status),
   });
 
-  return [...catalog, wait];
+  return [...catalog, wait, notifyTool(binding.sessionId, sessions, idsFor(commands))];
 };

@@ -3,7 +3,12 @@ import { BackgroundTask, ConstellationResult, SessionId, TurnItem } from "@polar
 import { Effect, Schema } from "effect";
 import { dispatched } from "../../engine/constellation.testing.ts";
 import { fakeCommands, leadBinding, workerBinding } from "../testing.ts";
-import { WaitOutcome, type SessionTools, type WaitOptions } from "../sessions/index.ts";
+import {
+  NotifyOutcome,
+  WaitOutcome,
+  type SessionTools,
+  type WaitOptions,
+} from "../sessions/index.ts";
 import { attachSessionTools, constellationTools } from "./index.ts";
 
 const json = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Json));
@@ -15,6 +20,7 @@ const world = (sessions: Partial<SessionTools>) => {
   const fake = fakeCommands();
   const reads: Array<{ sessionId: string; turns: number; since: number | null }> = [];
   const waits: Array<WaitOptions> = [];
+  const notes: Array<{ title: string; body: string; id: string }> = [];
 
   const commands = {
     ...fake.commands,
@@ -44,10 +50,16 @@ const world = (sessions: Partial<SessionTools>) => {
 
         return WaitOutcome.Idle({ task: null });
       }),
+    notify: (_id, input, id) =>
+      Effect.sync(() => {
+        notes.push({ ...input, id });
+
+        return NotifyOutcome.Sent();
+      }),
     ...sessions,
   });
 
-  return { commands, reads, waits };
+  return { commands, reads, waits, notes };
 };
 
 const call = (
@@ -162,4 +174,34 @@ test("wait_for_command reports finished output and what still runs", async () =>
   expect(still.content[0]?.text).toBe(
     "Still running after 3s:\n- c2: bun dev\nNext: Call wait_for_command again to keep waiting, or continue other work."
   );
+});
+
+test("notify is in every catalog, keyed like the other mutating tools", async () => {
+  const { commands, notes } = world({});
+  const tools = constellationTools(workerBinding, commands);
+  const note = { title: "Tests pass", body: "Ready for review", requestId: "n-1" };
+
+  await call(tools, "notify", note);
+  await call(tools, "notify", note);
+  await call(tools, "notify", { title: "Untitled body" });
+
+  expect(constellationTools(leadBinding, commands).map((t) => t.name)).toContain("notify");
+  expect(notes.map((n) => n.title)).toEqual(["Tests pass", "Tests pass", "Untitled body"]);
+  expect(notes[1]?.id).toBe(notes[0]?.id ?? "");
+  expect(notes[2]?.body).toBe("");
+  expect((await call(tools, "notify", { title: "" })).isError).toBe(true);
+  expect((await call(tools, "notify", { title: "x".repeat(81) })).isError).toBe(true);
+});
+
+test("a rate-limited notify says when to try again", async () => {
+  const { commands } = world({
+    notify: () => Effect.succeed(NotifyOutcome.RateLimited({ retryInSeconds: 12 })),
+  });
+
+  const result = await call(constellationTools(workerBinding, commands), "notify", {
+    title: "Again",
+  });
+
+  expect(result.isError).toBe(true);
+  expect(result.content[0]?.text).toContain("notify again in 12s");
 });

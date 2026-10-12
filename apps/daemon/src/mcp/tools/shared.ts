@@ -97,7 +97,7 @@ export const errorResult = (error: ConstellationRejected): McpToolResult => ({
   ],
 });
 
-const jsonSchema = (schema: Schema.Constraint) => {
+export const jsonSchema = (schema: Schema.Constraint) => {
   const document = Schema.toJsonSchemaDocument(schema);
 
   return { ...document.schema, $defs: document.definitions };
@@ -114,7 +114,7 @@ const propertiesOf = (schema: ReturnType<typeof jsonSchema>) =>
   });
 
 /** A mutating tool's schema also takes `requestId`, the call's idempotency key. */
-const withRequestId = (schema: ReturnType<typeof jsonSchema>) => ({
+export const withRequestId = (schema: ReturnType<typeof jsonSchema>) => ({
   ...schema,
   properties: {
     ...propertiesOf(schema),
@@ -122,7 +122,7 @@ const withRequestId = (schema: ReturnType<typeof jsonSchema>) => ({
   },
 });
 
-const inputRejection = (name: string) =>
+export const inputRejection = (name: string) =>
   rejection("E-INPUT", `Invalid input for ${name}`, "Use the fields in this tool's input schema.");
 
 /** Who calls, and the ids their mutating calls commit under. */

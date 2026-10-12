@@ -15,6 +15,12 @@ import {
 import { focusWindow } from "./focus.ts";
 import { emptyTurnState, planTurnNotifications, type TurnNotification } from "./turnPlan.ts";
 import {
+  type AgentNotification,
+  agentBannersOn,
+  emptyNotifyState,
+  planAgentNotifications,
+} from "./notifyPlan.ts";
+import {
   emptyNotificationState,
   type NotificationContent,
   notificationKey,
@@ -28,6 +34,8 @@ export interface NeedsYouCenterInput {
   readonly notify: () => boolean;
   /** The same for Turn-ended banners, which are off by default; never shown without it. */
   readonly notifyTurns?: () => boolean;
+  /** For agents' own notifications (MCP `notify`): off only when hidden; see `agentBannersOn`. */
+  readonly notifyAgents?: () => boolean;
 }
 
 export interface NeedsYouCenter {
@@ -51,6 +59,8 @@ export interface NeedsYouProbe {
   readonly reply: (key: string, text: string) => boolean;
   /** Turn-ended notifications planned so far, and whether each was shown on screen. */
   readonly turns: () => ReadonlyArray<{ readonly key: string; readonly shown: boolean }>;
+  /** Agent notifications planned so far, and whether each was shown on screen. */
+  readonly agents: () => ReadonlyArray<{ readonly id: string; readonly shown: boolean }>;
 }
 
 export interface StandingNotification {
@@ -69,9 +79,12 @@ export const createNeedsYouCenter = ({
   send,
   notify,
   notifyTurns = () => false,
+  notifyAgents = () => true,
 }: NeedsYouCenterInput): NeedsYouCenter => {
   let state = emptyNotificationState;
   let turnState = emptyTurnState;
+  let agentState = emptyNotifyState;
+  const agentsPlanned: Array<{ id: string; shown: boolean }> = [];
   let summary: NeedsYouSummary = { count: 0, sessions: [], focused: null, turns: [] };
   let planned = 0;
   const turnsPlanned: Array<{ key: string; shown: boolean }> = [];
@@ -154,20 +167,47 @@ export const createNeedsYouCenter = ({
     notification.show();
   };
 
+  const showAgent = (content: AgentNotification) => {
+    close(content.key);
+    const shown = notifyAgents() && agentBannersOn() && Notification.isSupported();
+
+    agentsPlanned.push({ id: content.notification.id, shown });
+
+    if (!shown) return;
+    const { hostKey, sessionId } = content.notification;
+
+    const notification = new Notification({
+      title: content.title,
+      subtitle: content.subtitle,
+      body: content.body,
+    });
+
+    notification.on("click", () => open(hostKey, sessionId));
+    notification.on("close", () => {
+      if (live.get(content.key) === notification) live.delete(content.key);
+    });
+    live.set(content.key, notification);
+    notification.show();
+  };
+
   const publish = (next: NeedsYouSummary) => {
     summary = next;
     const windowFocused = window()?.isFocused() ?? false;
     const plan = planNotifications({ state, summary, windowFocused });
     const turns = planTurnNotifications({ state: turnState, summary, windowFocused });
+    const agents = planAgentNotifications({ state: agentState, summary, windowFocused });
 
     state = plan.state;
     turnState = turns.state;
+    agentState = agents.state;
 
     for (const key of [...plan.close, ...turns.close]) close(key);
 
     for (const content of plan.show) show(content);
 
     for (const content of turns.show) showTurn(content);
+
+    for (const content of agents.show) showAgent(content);
     tray.update(summary);
     app.dock?.setBadge(summary.count > 0 ? String(summary.count) : "");
   };
@@ -201,6 +241,7 @@ export const createNeedsYouCenter = ({
       return true;
     },
     turns: () => [...turnsPlanned],
+    agents: () => [...agentsPlanned],
   };
 
   return {
