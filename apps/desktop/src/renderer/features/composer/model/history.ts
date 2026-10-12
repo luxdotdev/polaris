@@ -15,21 +15,26 @@ export interface SentTurn {
   readonly items: ReadonlyArray<TurnItem>;
 }
 
-const steersOf = (items: ReadonlyArray<TurnItem>) =>
-  items.flatMap((item) => (Predicate.isTagged(item, "UserMessage") ? [item.text] : []));
+/** Whether Polaris wrote a Turn's prompt (`itemId` null) or a steer (`polarisAuthored`). */
+export type Authored = (turnId: string, itemId: string | null) => boolean;
+
+const steersOf = (turn: SentTurn, authored: Authored) =>
+  turn.items.flatMap((item) =>
+    Predicate.isTagged(item, "UserMessage") && !authored(turn.id, item.id) ? [item.text] : []
+  );
 
 /**
- * What the user sent, oldest first; `authored` names Turns Polaris started (a digest, a
- * brief). Blank entries are dropped, and a message sent twice in a row is kept once.
+ * What the user sent, oldest first, without what Polaris wrote (a digest, a brief, a steered
+ * digest). Blank entries are dropped, and a message sent twice in a row is kept once.
  */
 export const sentMessages = (
   turns: ReadonlyArray<SentTurn>,
-  authored: (turnId: string) => boolean
+  authored: Authored
 ): ReadonlyArray<string> =>
   turns
     .flatMap((turn) => [
-      ...(turn.notTyped || authored(turn.id) ? [] : [turn.prompt]),
-      ...steersOf(turn.items),
+      ...(turn.notTyped || authored(turn.id, null) ? [] : [turn.prompt]),
+      ...steersOf(turn, authored),
     ])
     .filter((text, i, all) => text.trim() !== "" && text !== all[i - 1]);
 
