@@ -13,14 +13,13 @@ export interface LaterTurn {
   readonly after: string;
 }
 
-const split = (out: string) => out.split("\0").filter((path) => path !== "");
+export const splitPaths = (out: string) => out.split("\0").filter((path) => path !== "");
 
-/** Restores the files `later` changed to `target` (a commit); answers the paths touched. */
-export const revertLaterTurns = async (
+/** The files `later` changed, relative to `root`. */
+export const changedPaths = async (
   root: string,
-  target: string,
   later: ReadonlyArray<LaterTurn>
-): Promise<ReadonlyArray<string>> => {
+): Promise<ReadonlySet<string>> => {
   const paths = new Set<string>();
 
   for (const turn of later) {
@@ -34,8 +33,19 @@ export const revertLaterTurns = async (
       "--",
     ]);
 
-    for (const path of split(out)) paths.add(path);
+    for (const path of splitPaths(out)) paths.add(path);
   }
+
+  return paths;
+};
+
+/** Restores the files `later` changed to `target` (a commit); answers the paths touched. */
+export const revertLaterTurns = async (
+  root: string,
+  target: string,
+  later: ReadonlyArray<LaterTurn>
+): Promise<ReadonlyArray<string>> => {
+  const paths = await changedPaths(root, later);
 
   if (paths.size === 0) return [];
   const all = [...paths];
@@ -69,5 +79,7 @@ const filesIn = async (root: string, target: string, paths: ReadonlyArray<string
   const result = await runGitRaw(root, ["ls-tree", "-r", "-z", "--name-only", target]);
   const wanted = new Set(paths);
 
-  return new Set(split(new TextDecoder().decode(result.stdout)).filter((path) => wanted.has(path)));
+  return new Set(
+    splitPaths(new TextDecoder().decode(result.stdout)).filter((path) => wanted.has(path))
+  );
 };

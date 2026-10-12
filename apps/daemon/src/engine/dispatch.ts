@@ -16,6 +16,7 @@ import {
   WorkspaceId,
 } from "@polaris/protocol";
 import { Context, Effect, Layer, Option, Predicate } from "effect";
+import { sharedRevertRefusal } from "../accept/reactor.ts";
 import { CommitResult } from "../store/EventStore.ts";
 import type { ReadModel } from "../store/model.ts";
 import { decide } from "./decider.ts";
@@ -113,6 +114,20 @@ const make = Effect.gen(function* () {
     return Effect.succeed(null);
   };
 
+  /** A revert that would clobber another Agent Session's files is refused before deciding. */
+  const refuseSharedRevert = (commandId: CommandId, command: Command) =>
+    Effect.gen(function* () {
+      if (!Predicate.isTagged(command, "AcceptTurns")) return;
+
+      const reason = yield* sharedRevertRefusal(store, command).pipe(
+        Effect.catch((error) =>
+          Effect.succeed(`couldn't check the other Agent Sessions here: ${error.message}`)
+        )
+      );
+
+      if (reason !== null) return yield* new CommandRejected({ commandId, reason });
+    });
+
   const judgedSummary = (command: Command) =>
     Predicate.isTagged(command, "RecordVerdict")
       ? store.review.riskSummary(RiskSummaryRef.cases.ById.make({ summaryId: command.summaryId }))
@@ -120,6 +135,7 @@ const make = Effect.gen(function* () {
 
   const commitCommand: Dispatch = Effect.fn("Engine.dispatch")(function* (input: DispatchInput) {
     const { commandId, command } = input;
+    yield* refuseSharedRevert(commandId, command);
 
     const ctx = {
       commandId,
