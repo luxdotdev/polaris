@@ -15,7 +15,7 @@ import type { Navigation } from "../routes/navigation.ts";
 import { type Selection, sessionOrder } from "../routes/selection.ts";
 import { activeSessions, shownWorkspaces } from "../routes/topBar.ts";
 import type { SessionEntry } from "../store/hostModel.ts";
-import { settingsStore } from "../features/settings/index.ts";
+import { setSessionPrefs, settingsStore } from "../features/settings/index.ts";
 import { type AppState, type Connection, sessionKey } from "../store/store.ts";
 
 /** The sessions the sidebar lists, in its order: ⌘⌥↑/↓ walk them. */
@@ -223,6 +223,12 @@ export const shellCommands = ({
     },
     "tab.close": { run: () => window.close() },
     "window.close": { run: () => window.close() },
+    "editor.toggleInlineDiagnostics": {
+      run: () =>
+        setSessionPrefs({
+          editorInlineDiagnostics: !settingsStore.getState().sessions.editorInlineDiagnostics,
+        }),
+    },
     "theme.toggle": {
       run: () =>
         void window.polaris.request("settings.setTheme", { theme: dark() ? "light" : "dark" }),

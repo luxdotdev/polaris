@@ -161,7 +161,14 @@ const renderPage = (
       api={fake.api}
       hosts={hosts}
       workspacesOf={() => []}
-      keys={{ vim: false, autosave: false, onVim: () => {}, onAutosave: () => {} }}
+      keys={{
+        vim: false,
+        autosave: false,
+        inlineDiagnostics: true,
+        onVim: () => {},
+        onAutosave: () => {},
+        onInlineDiagnostics: () => {},
+      }}
       refreshEditors={(hostKey) => refreshed.push(hostKey)}
       refreshPreviews={() => {}}
     />

@@ -53,6 +53,8 @@ export const EditorPage = () => {
         autosave: prefs.editorAutosave,
         onVim: (on) => setSessionPrefs({ editorVim: on }),
         onAutosave: (on) => setSessionPrefs({ editorAutosave: on }),
+        inlineDiagnostics: prefs.editorInlineDiagnostics,
+        onInlineDiagnostics: (on) => setSessionPrefs({ editorInlineDiagnostics: on }),
       }}
       refreshEditors={refreshEditors}
       refreshPreviews={refreshPreviews}

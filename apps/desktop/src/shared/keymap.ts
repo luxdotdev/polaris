@@ -55,6 +55,7 @@ export type CommandId =
   | "window.close"
   | "palette.open"
   | "editor.format"
+  | "editor.toggleInlineDiagnostics"
   | "language.restart"
   | "language.restartAll"
   | "language.showLog"
@@ -483,6 +484,12 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
     title: "Settings: Editor",
     keys: [],
     palette: SETTINGS(["vim", "format on save", "languages", "autosave"]),
+  },
+  {
+    id: "editor.toggleInlineDiagnostics",
+    title: "Toggle inline diagnostics",
+    keys: [],
+    palette: SETTINGS(["error lens", "errors", "warnings", "problems", "diagnostics"]),
   },
   {
     id: "settings.harnesses",

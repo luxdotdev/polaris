@@ -24,4 +24,5 @@ export const DEFAULT_SESSION_PREFS: SessionPrefs = {
   },
   editorVim: false,
   editorAutosave: false,
+  editorInlineDiagnostics: true,
 };

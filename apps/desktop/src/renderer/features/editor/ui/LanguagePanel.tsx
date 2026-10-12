@@ -110,7 +110,9 @@ export const LanguagePanel = ({
                     disabled={row.run === undefined && row.range === undefined}
                     className="text-text-default hover:bg-fill-hover focus-visible:outline-starlight px-row-x py-gap flex w-full flex-col items-start gap-1 text-left focus-visible:outline-2"
                   >
-                    <span className="max-w-full break-words whitespace-pre-wrap">{row.label}</span>
+                    <span className="max-w-[min(100%,72ch)] break-words whitespace-pre-wrap">
+                      {row.label}
+                    </span>
                     <span className="text-text-subtle max-w-full truncate">{row.detail}</span>
                   </button>
                 </li>
