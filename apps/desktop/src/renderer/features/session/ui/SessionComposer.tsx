@@ -5,7 +5,7 @@
  */
 import { fastToggle } from "../../harness/model/fast.ts";
 import type { SessionId } from "@polaris/protocol";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { type Harness, harnessHue } from "@polaris/ui";
 import { Commands, newSessionId } from "../../../commands.ts";
 import type { SessionData } from "../../../store/plain.ts";
@@ -23,6 +23,7 @@ import {
 } from "../../harness/index.ts";
 import { hasCapability, useElapsed, useHost } from "../hooks.ts";
 import { formatElapsed, tildePath } from "../model/format.ts";
+import { runningCommands, runningPhrase } from "../model/running.ts";
 import {
   canQueue,
   type ComposerMode,
@@ -35,11 +36,11 @@ import {
 } from "../model/intent.ts";
 import { patchSessionUi, useSessionUi } from "../state.ts";
 import type { OutboxActions } from "../outbox.ts";
-import { promptFor } from "../../composer/index.ts";
+import { promptFor, sentMessages } from "../../composer/index.ts";
 import { RotatingVerb, useWorkingVerbs } from "../verbs/index.ts";
 import { type ComposerCommands, DraftComposer } from "./DraftComposer.tsx";
 import { useComposerCommands } from "./useComposerCommands.ts";
-import { useSessionChrome } from "../chrome.ts";
+import { type SessionChrome, useSessionChrome } from "../chrome.ts";
 
 export interface SessionComposerProps {
   readonly hostKey: string;
@@ -124,6 +125,23 @@ const useModelChange = ({ hostKey, session, model, onOpenSession }: SessionCompo
   };
 };
 
+/** ↑/↓'s messages: Turns with a Polaris card (a digest, a brief) weren't typed here. */
+const sentHistory = (turns: SessionModel["turns"], chrome: SessionChrome) => {
+  const authored = (turnId: string) =>
+    (chrome.promptCard?.({ turnId, folded: true, canFold: false, onToggle: () => undefined }) ??
+      null) !== null;
+
+  return sentMessages(
+    turns.map(({ turn, items }) => ({
+      id: turn.id,
+      prompt: turn.prompt,
+      notTyped: (turn.trigger ?? null) !== null || (turn.feedback ?? null) !== null,
+      items,
+    })),
+    authored
+  );
+};
+
 const SEND_FAILURES: Readonly<Record<ComposerMode["kind"], string>> = {
   send: "Couldn't send",
   steer: "Couldn't steer",
@@ -157,6 +175,8 @@ export const SessionComposer = (props: SessionComposerProps) => {
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const chrome = useSessionChrome();
+
+  const history = useMemo(() => sentHistory(model.turns, chrome), [model.turns, chrome]);
 
   const change = useModelChange(props);
   const fastAvailable = session.harness === "codex" && hasCapability(host, "session.service-tier");
@@ -270,6 +290,7 @@ export const SessionComposer = (props: SessionComposerProps) => {
         isWorking && session.state === "working"
           ? {
               elapsed: formatElapsed(elapsed),
+              detail: runningPhrase(runningCommands(model.turns.at(-1), session.backgroundTasks)),
               onStop: stop,
               label: (
                 <RotatingVerb verbs={verbs} spoken={`${harnessHue(harness).name} is working`} />
@@ -287,6 +308,7 @@ export const SessionComposer = (props: SessionComposerProps) => {
       }
       branch={branch}
       commands={commands}
+      history={history}
     />
   );
 };

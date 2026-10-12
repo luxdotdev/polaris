@@ -78,13 +78,22 @@ export interface WorkingStripProps {
   readonly children?: ReactNode;
   /** Names the status the line shows; a change re-blooms the dither field. */
   readonly status?: string | undefined;
+  /** After the elapsed time: what else is running ("2 commands running"). */
+  readonly detail?: ReactNode;
 }
 
 /**
  * The composer's 34px Working strip: the loudest thing on a Working screen; no spinner. Its
  * dither field has no band behind it and answers the pointer over any `[data-dither-hover]` ancestor.
  */
-export function WorkingStrip({ harness, elapsed, onStop, children, status }: WorkingStripProps) {
+export function WorkingStrip({
+  harness,
+  elapsed,
+  onStop,
+  children,
+  status,
+  detail,
+}: WorkingStripProps) {
   return (
     <div
       data-slot="working-strip"
@@ -96,6 +105,14 @@ export function WorkingStrip({ harness, elapsed, onStop, children, status }: Wor
         {children ?? `${harnessHue(harness).name} is working`}
       </span>
       <span className="text-caption text-text-subtle tabular relative">· {elapsed}</span>
+      {detail === undefined || detail === null ? null : (
+        <span
+          className="text-caption text-text-subtle tabular relative min-w-0 truncate"
+          data-testid="working-detail"
+        >
+          · {detail}
+        </span>
+      )}
       <span className="flex-1" />
       {onStop === undefined ? null : (
         <Button
@@ -123,6 +140,8 @@ export interface ComposerProps extends Omit<TextareaProps, "bare"> {
         readonly onStop?: (() => void) | undefined;
         /** The strip's line instead of "Claude Code is working" (a rotating verb). */
         readonly label?: ReactNode;
+        /** After the elapsed time ("2 commands running"). */
+        readonly detail?: ReactNode;
       }
     | undefined;
   /** The branch or worktree the Turn runs on, in mono. */
@@ -182,7 +201,12 @@ export function Composer({
       style={vars}
     >
       {working === undefined ? null : (
-        <WorkingStrip harness={harness} elapsed={working.elapsed} onStop={working.onStop}>
+        <WorkingStrip
+          harness={harness}
+          elapsed={working.elapsed}
+          onStop={working.onStop}
+          detail={working.detail}
+        >
           {working.label}
         </WorkingStrip>
       )}

@@ -118,7 +118,10 @@ const ModelRows = ({
   </DropdownMenuRadioGroup>
 );
 
-/** DESIGN.md, Harness picker: effort as a dither bar; ←/→ move it, Enter or a click sends it. */
+/**
+ * DESIGN.md, Harness picker: effort as a dither bar. ←/→, a press or a drag move it and keep
+ * the menu open; Enter sends it.
+ */
 const EffortRow = ({
   harness,
   model,
@@ -142,6 +145,10 @@ const EffortRow = ({
         aria-label={`Effort: ${level ?? "none"}. Left and right arrows change it.`}
         aria-keyshortcuts="ArrowLeft ArrowRight Home End"
         data-testid="effort-bar"
+        // A pointer's click would select the row and close the menu; Enter's (detail 0) still does.
+        onClick={(event) => {
+          if (event.detail > 0) event.preventDefault();
+        }}
         onKeyDown={(event) => {
           const next = effortKey(event.key, index, model.efforts.length);
 
