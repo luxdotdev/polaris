@@ -19,17 +19,15 @@ import {
   updateDaemon,
 } from "./updates/actions.ts";
 import { KeepUpToDate, OverrideMenuItems } from "./updates/Controls.tsx";
-import { type FailureAction, type UpdateLine, updateLine } from "./updates/model.ts";
+import { type FailureAction, updateLine } from "./updates/model.ts";
 import { useUpgradeClock } from "./updates/UpgradeStatus.tsx";
 import { UpdateStrip } from "./updates/UpdateStrip.tsx";
 
-const failureAction = (machine: MachineView, line: UpdateLine, action: FailureAction) => {
+const failureAction = (machine: MachineView, action: FailureAction) => {
   if (action === "retry") return updateDaemon(machine.key);
 
   if (action === "open-ssh") return void call("machines.openSsh", { hostKey: machine.key });
-  const detail = line.kind === "failed" ? line.failure.detail : null;
-
-  if (detail !== null) void call("clipboard.write", { text: detail });
+  // "copy-command" is a CopyButton in the strip, which writes and says so itself.
 };
 
 /** This Mac first, then the remote Hosts in the order they were added. */
@@ -91,7 +89,7 @@ const Row = ({
           <UpdateStrip
             line={shown}
             onUpdate={() => updateDaemon(machine.key)}
-            onFailureAction={(action) => failureAction(machine, shown, action)}
+            onFailureAction={(action) => failureAction(machine, action)}
           />
         )
       }

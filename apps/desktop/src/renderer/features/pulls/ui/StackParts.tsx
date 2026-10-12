@@ -5,12 +5,15 @@
  */
 import {
   cn,
+  COPIED,
+  COPY_FAILED,
   Popover,
   PopoverAnchor,
   PopoverContent,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
+  useCopy,
 } from "@polaris/ui";
 import { type ReactNode, useRef, useState } from "react";
 import type {
@@ -22,7 +25,6 @@ import type {
 } from "../../../../shared/github.ts";
 import { openPull } from "../../../routes/review.ts";
 import { useShellActions } from "../../../shell/hooks.ts";
-import { polaris } from "../../bridge.ts";
 import {
   checksText,
   layerText,
@@ -71,16 +73,7 @@ export const StatusPill = ({ status }: { readonly status: PullStatus }) => (
 
 /** A branch name cut after 20 characters; hover shows it whole, a click copies it. */
 export const BranchChip = ({ name }: { readonly name: string }) => {
-  const [copied, setCopied] = useState(false);
-
-  const copy = () =>
-    void polaris()
-      .request("clipboard.write", { text: name })
-      .then((result) => {
-        if (!result.ok) return;
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1200);
-      });
+  const { state, copy } = useCopy();
 
   return (
     <Tooltip>
@@ -89,14 +82,17 @@ export const BranchChip = ({ name }: { readonly name: string }) => {
           type="button"
           data-testid="branch-chip"
           data-branch={name}
-          onClick={copy}
+          data-copy-state={state}
+          onClick={() => copy(name)}
           aria-label={`${name}: copy`}
-          className="bg-row-selected text-text-default text-micro hover:bg-fill-selected shrink-0 cursor-default rounded-[4px] px-1.5 py-px font-mono"
+          className="bg-row-selected text-text-default text-micro hover:bg-fill-selected shrink-0 cursor-default rounded-[4px] px-1.5 py-px font-mono transition-transform duration-120 ease-out active:scale-[0.97]"
         >
           {shortBranch(name)}
         </button>
       </TooltipTrigger>
-      <TooltipContent className="font-mono">{copied ? "Copied" : name}</TooltipContent>
+      <TooltipContent className={cn("font-mono", state === "failed" && "text-failed-text")}>
+        {{ idle: name, copied: COPIED, failed: COPY_FAILED }[state]}
+      </TooltipContent>
     </Tooltip>
   );
 };

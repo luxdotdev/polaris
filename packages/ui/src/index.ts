@@ -8,6 +8,8 @@ export type { CssVars } from "./lib/css";
 
 export { useExitPresence } from "./lib/presence";
 
+export { CopyProvider, type CopyState, type CopyWrite, useCopy, useCopyWrite } from "./lib/copy";
+
 export {
   haloVar,
   harnessHue,
@@ -61,6 +63,8 @@ export * from "./components/polaris/badge";
 export * from "./components/polaris/chip";
 
 export * from "./components/polaris/code-well";
+
+export * from "./components/polaris/copy-button";
 
 export * from "./components/polaris/composer";
 

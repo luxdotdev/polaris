@@ -9,9 +9,15 @@ import {
   ContextMenuSeparator,
   ContextMenuShortcut,
   ContextMenuTrigger,
+  COPY_FAILED,
+  type CopyWrite,
+  PixelCheckIcon,
+  PixelFailedIcon,
+  showToast,
+  useCopyWrite,
 } from "@polaris/ui";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { type KeyboardEvent, useRef, useState } from "react";
+import { createElement, type KeyboardEvent, useRef, useState } from "react";
 import { useApp } from "../../../../shell/hooks.ts";
 import { cancelDraft, commitDraft, deleteEntry, type Place, startDraft } from "../data/actions.ts";
 import { type Draft, patchExplorer, toggleFolder } from "../data/store.ts";
@@ -22,7 +28,6 @@ import type { TreeRow as Row } from "../model/tree.ts";
 import { ConfirmDelete } from "./ConfirmDelete.tsx";
 import { DraftRow } from "./DraftRow.tsx";
 import { TreeRow } from "./TreeRow.tsx";
-import { polaris } from "../../../bridge.ts";
 
 /** Tree-row heights per density step (DESIGN.md, Density), for the virtualizer's sums. */
 const ROW = { calm: 28, balanced: 24, compact: 22 } as const;
@@ -77,8 +82,19 @@ export interface TreeProps {
 const folderFor = (row: Row | undefined, root: string) =>
   row === undefined ? root : row.kind === "folder" ? row.path : dirname(row.path);
 
-// The renderer has no clipboard permission; writes go through main.
-const copy = (text: string) => void polaris().request("clipboard.write", { text });
+/** A path copied from the menu says so in a short toast, as the editor's other toasts do. */
+const copyPath = (write: CopyWrite, text: string, what: string) =>
+  void write(text)
+    .catch(() => false)
+    .then((ok) =>
+      showToast({
+        source: "starlight",
+        icon: createElement(ok ? PixelCheckIcon : PixelFailedIcon, { size: 16 }),
+        title: ok ? `Copied ${what}` : COPY_FAILED,
+        message: text,
+        duration: 1500,
+      })
+    );
 
 export const Tree = ({
   place,
@@ -91,6 +107,7 @@ export const Tree = ({
   onOpen,
 }: TreeProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const write = useCopyWrite();
   const density = useApp((s) => s.density);
   const [confirming, setConfirming] = useState<string | null>(null);
   const items = itemsOf(rows, draft);
@@ -256,8 +273,12 @@ export const Tree = ({
                 <ContextMenuShortcut>⌘⌫</ContextMenuShortcut>
               </ContextMenuItem>
               <ContextMenuSeparator />
-              <ContextMenuItem onSelect={() => copy(target.path)}>Copy path</ContextMenuItem>
-              <ContextMenuItem onSelect={() => copy(relative(target.path, place.root))}>
+              <ContextMenuItem onSelect={() => copyPath(write, target.path, "path")}>
+                Copy path
+              </ContextMenuItem>
+              <ContextMenuItem
+                onSelect={() => copyPath(write, relative(target.path, place.root), "relative path")}
+              >
                 Copy relative path
               </ContextMenuItem>
             </>
