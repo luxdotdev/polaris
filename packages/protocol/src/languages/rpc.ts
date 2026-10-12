@@ -1,4 +1,5 @@
 import { LanguageSqlDialect, LanguageSqlDialectState } from "./sql.ts";
+import { LanguageHostProcessBudget, LanguageProcessLimit } from "./processBudget.ts";
 import { LanguagePythonInterpreters } from "./python.ts";
 import { LanguageServerLogEvent } from "./logs.ts";
 import { LanguageHostState } from "./hostState.ts";
@@ -134,6 +135,21 @@ const hostStateInput = {
 export const GetLanguageHostState = Rpc.make("languages.host.state", {
   payload: hostStateInput,
   success: LanguageHostState,
+  error: LanguageError,
+});
+
+export const GetLanguageProcessBudget = Rpc.make("languages.host.processBudget.get", {
+  payload: {},
+  success: LanguageHostProcessBudget,
+  error: LanguageError,
+});
+
+export const SetLanguageProcessBudget = Rpc.make("languages.host.processBudget.set", {
+  payload: {
+    expectedRevision: LanguageCounter,
+    maxProcesses: Schema.NullOr(LanguageProcessLimit),
+  },
+  success: LanguageHostProcessBudget,
   error: LanguageError,
 });
 
@@ -458,6 +474,8 @@ export class LanguageRpcs extends RpcGroup.make(
   SelectPythonInterpreter,
   GetLanguageCatalog,
   GetLanguageHostState,
+  GetLanguageProcessBudget,
+  SetLanguageProcessBudget,
   WatchLanguageHostState,
   GetLanguageAvailability,
   WatchLanguageAvailability,

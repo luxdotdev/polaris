@@ -97,6 +97,14 @@ export const languageTransportFor = (
       ),
     "languages.host.state": (input) =>
       client["languages.host.state"](decodeLanguage(P.GetLanguageHostState.payloadSchema, input)),
+    "languages.host.processBudget.get": (input) =>
+      client["languages.host.processBudget.get"](
+        decodeLanguage(P.GetLanguageProcessBudget.payloadSchema, input)
+      ),
+    "languages.host.processBudget.set": (input) =>
+      client["languages.host.processBudget.set"](
+        decodeLanguage(P.SetLanguageProcessBudget.payloadSchema, input)
+      ),
     "languages.catalog": (input) =>
       client["languages.catalog"](decodeLanguage(P.GetLanguageCatalog.payloadSchema, input)),
     "languages.availability": (input) =>

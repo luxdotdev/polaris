@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { PolarisApi } from "../../../../../shared/api.ts";
 import { standInBridge } from "../../../bridge.ts";
 import { commitDraft, deleteEntry, movedState, type Place, startDraft } from "./actions.ts";
@@ -47,6 +47,8 @@ beforeEach(() => {
 });
 
 const sent = (method: string) => calls.flatMap(([m, input]) => (m === method ? [input] : []));
+
+afterEach(() => standInBridge(null));
 
 describe("commitDraft", () => {
   test("a new file in a folder: created, the folder opened and re-listed, the draft gone", async () => {

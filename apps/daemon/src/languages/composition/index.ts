@@ -1,4 +1,5 @@
 import { SqlCore } from "../sql/core.ts";
+import { LanguageProcessBudgetCore } from "./processBudget.ts";
 import type { HostId } from "@polaris/protocol";
 import { Effect, Layer, Stream } from "effect";
 import { ServerRpcs } from "../../transport/rpcs.ts";
@@ -21,6 +22,12 @@ export { requestAuthority } from "./authority.ts";
 /** Core, owned installer demands and verified preparation; mutation receipts and capabilities stay separate. */
 export const languageCoreHandlers = (hostId: HostId) =>
   Layer.mergeAll(
+    ServerRpcs.toLayerHandler("languages.host.processBudget.get", () =>
+      Effect.flatMap(LanguageProcessBudgetCore, (core) => core.get())
+    ),
+    ServerRpcs.toLayerHandler("languages.host.processBudget.set", (input) =>
+      Effect.flatMap(LanguageProcessBudgetCore, (core) => core.set(input))
+    ),
     ServerRpcs.toLayerHandler("languages.sql.dialect.get", (input) =>
       Effect.flatMap(SqlCore, (core) => core.get(input))
     ),

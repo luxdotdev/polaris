@@ -6,6 +6,7 @@ const signals: LifecycleEvent[] = [
   { type: "ready" },
   { type: "empty" },
   { type: "grace" },
+  { type: "evict" },
   { type: "crash", retry: true },
   { type: "crash", retry: false },
   { type: "retry" },
@@ -47,6 +48,10 @@ test("all reachable lifecycle nodes obey stop/revoke and bounded retry routing",
     "untrusted",
   ]);
   const starting = decideLifecycle(lifecycleInitial(), { type: "demand" });
+  const ready = decideLifecycle(starting, { type: "ready" });
+  expect(decideLifecycle(ready, { type: "evict" }).matches("ready")).toBe(true);
+  const idle = decideLifecycle(ready, { type: "empty" });
+  expect(decideLifecycle(idle, { type: "evict" }).matches("stopped")).toBe(true);
   expect(decideLifecycle(starting, { type: "crash", retry: false }).matches("failed")).toBe(true);
   const failed = decideLifecycle(starting, { type: "crash", retry: false });
   expect(decideLifecycle(failed, { type: "demand" }).matches("failed")).toBe(true);

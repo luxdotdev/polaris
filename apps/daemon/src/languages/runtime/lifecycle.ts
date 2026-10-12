@@ -5,6 +5,7 @@ export type LifecycleEvent =
   | { type: "ready" }
   | { type: "empty" }
   | { type: "grace" }
+  | { type: "evict" }
   | { type: "crash"; retry: boolean }
   | { type: "retry" }
   | { type: "disconnect" }
@@ -22,6 +23,7 @@ export const languageLifecycle = createMachine({
       ready: types<Record<never, never>>(),
       empty: types<Record<never, never>>(),
       grace: types<Record<never, never>>(),
+      evict: types<Record<never, never>>(),
       crash: types<{ retry: boolean }>(),
       retry: types<Record<never, never>>(),
       disconnect: types<Record<never, never>>(),
@@ -62,6 +64,7 @@ export const languageLifecycle = createMachine({
       on: {
         demand: { target: "ready" },
         grace: { target: "stopped" },
+        evict: { target: "stopped" },
         ready: {},
         change: { target: "stopped" },
         crash: ({ event }) => ({ target: event.retry ? "backoff" : "failed" }),

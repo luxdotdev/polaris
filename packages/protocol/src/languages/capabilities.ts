@@ -8,6 +8,8 @@ export const LANGUAGE_RPC_CAPABILITIES = {
   "languages.python.interpreters": "languages",
   "languages.python.select": "languages",
   "languages.host.state": "languages",
+  "languages.host.processBudget.get": "languages",
+  "languages.host.processBudget.set": "languages",
   "languages.host.state.watch": "languages",
   "languages.availability": "languages",
   "languages.availability.watch": "languages",

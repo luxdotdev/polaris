@@ -36,6 +36,7 @@ stateDiagram-v2
   starting --> grace: no demand
   grace --> ready: demand returns
   grace --> stopped: 10-minute demand timer expires
+  grace --> stopped: Evict under Host process pressure
   backoff --> starting: bounded retry signal
   backoff --> stopped: no demand
   starting --> failed: third crash within 2 minutes
@@ -74,6 +75,15 @@ Retained interests receive a Replaced stop fact and can reopen. Empty released
 contexts are removed along with their watches. Reopening cancels grace across the
 checkout/provider group.
 The language subsystem adds no periodic work to an unused Daemon.
+
+Host admission uses the resource-derived capacity and authenticated Host setting
+in ADR 0033. Pressure evicts the least recently used grace server only when no
+Client has open documents for that checkout/project/provider/configuration.
+Independent SQL dialect contexts can retire separately. Evict publishes Replaced
+and preserves synchronization sequence; reopening replays demand normally.
+Retiring reservations remain charged until actual teardown, including failed
+cleanup. Companion providers each consume a reservation. All-active refusal uses
+the distinct process-limit reason without consuming crash retries.
 
 Retirement cancels the generation's stderr reader without waiting for its source
 finalizer, so an inherited open pipe cannot hold broker cleanup indefinitely.
