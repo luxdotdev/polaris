@@ -1,6 +1,9 @@
 import { StateEffect, StateField, type Extension } from "@codemirror/state";
 import { EditorView, keymap, showTooltip, ViewPlugin, type Tooltip } from "@codemirror/view";
+import { signatureDocs } from "./docParts.ts";
+import { loadDocRenderer, mountDocs } from "./docs.tsx";
 import type { LanguageFeatures } from "./features.ts";
+import type { LanguageProvider } from "./types.ts";
 
 const signature = StateEffect.define<Tooltip | null>();
 
@@ -16,14 +19,17 @@ const field = StateField.define<Tooltip | null>({
   provide: (value) => showTooltip.from(value),
 });
 
-/** Safe text-only signature help, anchored at the actual unsaved caret and dismissed on change. */
-export const signatureExtension = (features: LanguageFeatures): Extension => {
+/** Signature help on the shared docs renderer, anchored at the unsaved caret and dismissed on change. */
+export const signatureExtension = (
+  features: LanguageFeatures,
+  label: (provider: LanguageProvider) => string = (provider) => provider.context.providerId
+): Extension => {
   const alive = new WeakSet<EditorView>();
 
   const request = async (view: EditorView) => {
     const buffer = features.options.buffer();
     const head = view.state.selection.main.head;
-    const answers = await features.signature(head);
+    const [answers] = await Promise.all([features.signature(head), loadDocRenderer()]);
 
     if (
       !alive.has(view) ||
@@ -33,28 +39,28 @@ export const signatureExtension = (features: LanguageFeatures): Extension => {
     )
       return;
 
-    const text = answers
-      .flatMap(({ provider, payload }) => {
-        const selected = payload.signatures[payload.activeSignature ?? 0];
+    const shown = answers.flatMap(({ provider, payload }) => {
+      const parts = signatureDocs(payload);
 
-        return selected ? [`${provider.context.providerId} · ${selected.label}`] : [];
-      })
-      .join("\n");
+      return parts.length ? [{ parts, label: label(provider) }] : [];
+    });
+
+    const footnote = [...new Set(shown.map((answer) => answer.label))].join(", ");
 
     view.dispatch({
       effects: signature.of(
-        text
+        shown.length
           ? {
               pos: head,
               above: false,
               create: () => {
                 const dom = document.createElement("div");
-                dom.className =
-                  "text-caption text-text-default bg-surface-raised border-hairline max-w-lg whitespace-pre-wrap rounded-control border px-row-x py-gap shadow-float";
                 dom.setAttribute("role", "status");
-                dom.textContent = text;
+                dom.setAttribute("data-signature-help", "");
 
-                return { dom };
+                const sections = shown.map((answer) => answer.parts);
+
+                return { dom, ...mountDocs(dom, { sections, footnote, variant: "hover" }) };
               },
             }
           : null
