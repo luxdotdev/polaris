@@ -24,6 +24,7 @@ import { recordAbandonedStartup, recordStartupFailure, runStartupSetup } from ".
 import { mergeFirst, reviewFeedback } from "./feedback.ts";
 import { StartupAbandoned } from "./startupAbandoned.ts";
 import { ConstellationHarness } from "./attachments.ts";
+import { sessionRestartNote } from "../restartNote.ts";
 
 export const canStartAttempt = (graph: Constellation, attempt: Attempt) =>
   graph.state !== "completed" &&
@@ -38,6 +39,20 @@ const startupAllowed = (graph: Constellation, attempt: Attempt, model: ReadModel
 
   return canStartAttempt(local?.graph ?? graph, attempt) && !local?.stale.has(attempt.id);
 };
+
+/** Work a restart stopped in this Session, or in the Session of the Attempt this one follows. */
+const restartNotes = Effect.fnUntraced(function* (graph: Constellation, attempt: Attempt) {
+  const store = yield* EventStore;
+
+  const previous = Predicate.isTagged(attempt.cause, "Initial")
+    ? undefined
+    : graph.attempts.find((a) => "ref" in attempt.cause && a.id === attempt.cause.ref);
+
+  const sessions = [...new Set([attempt.sessionId, ...(previous ? [previous.sessionId] : [])])];
+  const notes = yield* Effect.forEach(sessions, (id) => sessionRestartNote(store, id));
+
+  return notes.filter((note): note is string => note !== null);
+});
 
 /** A worker whose Polaris tools cannot answer would run its whole brief blind: refuse to start it. */
 const requireEndpoint = Effect.fnUntraced(function* (attempt: Attempt) {
@@ -127,7 +142,9 @@ const start = Effect.fn("Constellation.startAttempt")(function* (
     acceptedDeps: acceptedDependencyClaims(graph, effectiveDeps(graph.tasks, task.id)),
   });
 
-  const prompt = [mergeFirst(attempt), brief].filter((text) => text !== "").join("\n\n");
+  const prompt = [mergeFirst(attempt), ...(yield* restartNotes(graph, attempt)), brief]
+    .filter((text) => text !== "")
+    .join("\n\n");
 
   while (true) {
     const done = yield* Effect.scoped(
