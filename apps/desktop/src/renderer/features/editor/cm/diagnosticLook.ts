@@ -1,5 +1,5 @@
 /**
- * Diagnostics' look (DESIGN.md, Editor: Hover): the hover stays within 560px and a message
+ * Diagnostics' look (DESIGN.md, Editor: Language docs): the hover stays within 560px and a message
  * wraps at a 72ch prose measure, with a 2px severity bar in place of CodeMirror's red block.
  */
 import { EditorView } from "@codemirror/view";
