@@ -69,7 +69,7 @@ const LeadIntent = ({
     );
 
   const chrome: SessionChrome = {
-    promptCard: ({ turnId, folded, onToggle }) => {
+    promptCard: ({ turnId, folded, canFold, onToggle }) => {
       const digest = digests.get(turnId);
       const view = turns.find((t) => t.turn.id === turnId);
 
@@ -79,7 +79,7 @@ const LeadIntent = ({
           digest={digest}
           facts={facts}
           folded={folded}
-          onToggle={turns.at(-1)?.turn.id === turnId ? null : onToggle}
+          onToggle={canFold ? onToggle : null}
           fold={view === undefined ? null : digestFold(view)}
         />
       );

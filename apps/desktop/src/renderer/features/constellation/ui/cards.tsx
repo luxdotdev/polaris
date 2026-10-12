@@ -268,7 +268,7 @@ export interface DigestCardProps {
   readonly facts: Facts;
   /** The Turn is folded: one line with the Lead's reply, which unfolds it. */
   readonly folded: boolean;
-  /** Folds or unfolds the Turn; null when it can't fold (the latest Turn). */
+  /** Folds or unfolds the Turn; null when the conversation says it can't fold. */
   readonly onToggle: (() => void) | null;
   readonly fold: DigestFold | null;
 }
