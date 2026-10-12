@@ -4,11 +4,13 @@
  * A scripted Turn edits 20 files, so the engine captures real `before` and
  * `after` checkpoints (`git add -A` into a temporary index, `write-tree`,
  * `commit-tree`, `update-ref`). Then the Turn's diff, `git.status` and a
- * working-tree diff go through the RPCs a Client uses.
+ * working-tree diff go through the RPCs a Client uses. Last, an ignored
+ * `node_modules` is added and `git.status` runs as the explorer asks for it.
  *
  *   checkpoint_before: SendTurn dispatch → `CheckpointRecorded(before)` at the Client
  *   checkpoint_after:  the Turn's last item → `CheckpointRecorded(after)` at the Client
  */
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { GitDiff, SessionId } from "@polaris/protocol";
 import { Effect, Option, Predicate, Stream } from "effect";
@@ -27,6 +29,19 @@ import { median } from "../stats.ts";
 import { cpu, type Metric, peakMemory, type Scenario, time } from "../types.ts";
 
 const DiffSpec = GitDiff.payloadSchema.fields.spec;
+
+/** An ignored `node_modules` (via `.git/info/exclude`, so nothing is committed): 50 packages. */
+const addIgnoredTree = (repo: string, files: number): number => {
+  writeFileSync(join(repo, ".git", "info", "exclude"), "node_modules/\n");
+
+  for (let i = 0; i < files; i++) {
+    const dir = join(repo, "node_modules", `pkg-${i % 50}`, "lib");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, `f${i}.js`), "module.exports = 1;\n");
+  }
+
+  return files;
+};
 
 export const gitScenario: Scenario = {
   name: "git",
@@ -136,6 +151,9 @@ export const gitScenario: Scenario = {
         })
       );
 
+      const ignoredFiles = addIgnoredTree(repo, ctx.quick ? 500 : 5_000);
+      const ignoredStatus = yield* timed(rpc["git.status"]({ cwd: repo, ignored: true }));
+
       const all = sampler.report();
 
       const metrics: Record<string, Metric> = {};
@@ -145,6 +163,7 @@ export const gitScenario: Scenario = {
         checkpoint_after_ms: time(median(after)),
         turn_diff_ms: time(turnDiff.ms),
         status_ms: time(status.ms),
+        status_ignored_ms: time(ignoredStatus.ms),
         working_tree_diff_ms: time(workingDiff.ms),
         turns_cpu_avg_pct: cpu(turnReport.cpuAvgPct, { info: true }),
         rss_peak_mib: peakMemory(all.rssBytes.max),
@@ -157,6 +176,7 @@ export const gitScenario: Scenario = {
         notes: [
           `${count} files; ${turns} Turns each rewriting 20 files; before-checkpoint timed on Turns 2–${turns}`,
           `Turn diff: ${turnDiff.value.files} file(s), ${turnDiff.value.bytes} bytes; status: ${status.value.entries.length} entries; working-tree diff: ${workingDiff.value} file(s)`,
+          `status with ignored: ${ignoredStatus.value.entries.length} entries over ${ignoredFiles} ignored files`,
           ...(turnDiff.value.files === 0
             ? ["the Turn diff reported 0 files: see git/README.md (countFiles gets an ArrayBuffer)"]
             : []),
