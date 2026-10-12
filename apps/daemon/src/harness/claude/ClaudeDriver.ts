@@ -26,8 +26,6 @@ import {
 } from "@anthropic-ai/claude-agent-sdk";
 import {
   type ApprovalDecision,
-  ContextCategory,
-  MemoryFile,
   type PermissionMode,
   RequestId,
   TurnId,
@@ -48,7 +46,6 @@ import {
 import { paths } from "../../paths.ts";
 import { polarisInstructions } from "../../constellation/skills/preamble.ts";
 import {
-  type ContextBreakdown,
   type HarnessDriver,
   HarnessError,
   HarnessEvent,
@@ -58,6 +55,7 @@ import {
   type TurnInput,
 } from "../HarnessDriver.ts";
 import { ItemClock } from "../itemClock.ts";
+import { breakdownOf } from "./context.ts";
 import { emptyClaudeLimitContext } from "../limits/claude.ts";
 import type { PlanLimitReporter } from "../limits/PlanLimitReporter.ts";
 import { ClaudeHookReceiver } from "./hooks.ts";
@@ -146,19 +144,6 @@ interface TurnOutcome {
 }
 
 /** The largest context window among the Models a result used: the Turn's own Model. */
-/** Claude Code's `/context` count as the breakdown Polaris keeps (per-category, memory files). */
-export const breakdownOf = (
-  usage: Awaited<ReturnType<Query["getContextUsage"]>>
-): ContextBreakdown => ({
-  categories: usage.categories.map(
-    (c) => new ContextCategory({ name: c.name, kind: c.kind, tokens: c.tokens })
-  ),
-  memoryFiles: usage.memoryFiles.map(
-    (f) => new MemoryFile({ path: f.path, source: f.type, tokens: f.tokens })
-  ),
-  countedTokens: usage.totalTokens,
-  autoCompact: usage.isAutoCompactEnabled,
-});
 
 const contextWindowOf = (result: SDKResultMessage): number | null => {
   const usage = decodeModelUsage(result.modelUsage);

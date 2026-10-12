@@ -44,6 +44,11 @@ const usage = (usedTokens: number, windowTokens: number | null) => ({
   memoryFiles: [],
   categoriesTotal: null,
   autoCompact: null,
+  autoCompactAt: null,
+  mcpServers: [],
+  skills: null,
+  agents: [],
+  messages: null,
 });
 
 describe("contextLabel", () => {

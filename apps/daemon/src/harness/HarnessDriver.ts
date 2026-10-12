@@ -11,7 +11,11 @@ import type {
   ApprovalKind,
   Attachment,
   ContextCategory,
+  ContextEntry,
+  ContextSkills,
   HarnessKind,
+  McpServerUsage,
+  MessageUsage,
   MemoryFile,
   Model,
   ModelId,
@@ -42,6 +46,12 @@ export interface ContextBreakdown {
   /** The total the categories add up to when counted. */
   readonly countedTokens: number;
   readonly autoCompact: boolean | null;
+  /** The rest of `ContextUsage`'s breakdown, when the Harness gives it. */
+  readonly autoCompactAt?: number | null;
+  readonly mcpServers?: ReadonlyArray<McpServerUsage>;
+  readonly skills?: ContextSkills | null;
+  readonly agents?: ReadonlyArray<ContextEntry>;
+  readonly messages?: MessageUsage | null;
 }
 
 export type HarnessEvent = Data.TaggedEnum<{

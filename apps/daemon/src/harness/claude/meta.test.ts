@@ -159,6 +159,11 @@ describe("Claude context usage", () => {
           ],
           countedTokens: 50_000,
           autoCompact: true,
+          autoCompactAt: null,
+          mcpServers: [],
+          skills: null,
+          agents: [],
+          messages: null,
         },
       }),
     ]);

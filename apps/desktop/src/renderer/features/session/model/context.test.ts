@@ -18,6 +18,11 @@ const usage = (
   ],
   categoriesTotal,
   autoCompact: true,
+  autoCompactAt: null,
+  mcpServers: [],
+  skills: null,
+  agents: [],
+  messages: null,
 });
 
 const claude = (used = 124_000, total: number | null = 124_000) =>

@@ -1,4 +1,4 @@
-import { ContextCategory, ContextUsage, MemoryFile } from "@polaris/protocol";
+import { ContextCategory, ContextUsage, McpServerUsage, MemoryFile } from "@polaris/protocol";
 import { describe, expect, test } from "bun:test";
 import { HarnessEvent } from "../harness/HarnessDriver.ts";
 import { contextChanged, contextUsageOf } from "./context.ts";
@@ -53,6 +53,42 @@ describe("contextUsageOf", () => {
       categories: breakdown.categories,
       memoryFiles: breakdown.memoryFiles,
     });
+  });
+
+  test("the finer breakdown is kept between counts and replaced by the next", () => {
+    const servers = [
+      new McpServerUsage({
+        name: "linear",
+        tools: 76,
+        loadedTools: 4,
+        tokens: 3100,
+        deferredTokens: 46_000,
+      }),
+    ];
+
+    const counted = contextUsageOf(
+      HarnessEvent.ContextUsed({
+        usedTokens: 40_000,
+        windowTokens: 200_000,
+        breakdown: { ...breakdown, mcpServers: servers, autoCompactAt: 167_000 },
+      }),
+      null
+    );
+
+    const later = contextUsageOf(
+      HarnessEvent.ContextUsed({ usedTokens: 52_000, windowTokens: 200_000 }),
+      counted
+    );
+
+    expect(later.mcpServers).toEqual(servers);
+    expect(later.autoCompactAt).toBe(167_000);
+
+    const recount = contextUsageOf(
+      HarnessEvent.ContextUsed({ usedTokens: 60_000, windowTokens: 200_000, breakdown }),
+      later
+    );
+
+    expect([recount.mcpServers, recount.autoCompactAt]).toEqual([[], null]);
   });
 
   test("a fresh count is recorded even when the total barely moved", () => {
