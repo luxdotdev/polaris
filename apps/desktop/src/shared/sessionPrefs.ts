@@ -11,6 +11,7 @@ export const DEFAULT_SESSION_PREFS: SessionPrefs = {
   branchPrefix: "polaris/",
   openOutputOnEdit: true,
   notifyNeedsYou: true,
+  notifyTurnEnded: false,
   notifyReviewRequests: true,
   deleteMergedBranch: false,
   spinnerVerbs: null,

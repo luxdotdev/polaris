@@ -136,6 +136,8 @@ export const SessionPrefs = Schema.Struct({
   openOutputOnEdit: Schema.Boolean,
   /** Native notifications when a session needs you. */
   notifyNeedsYou: Schema.Boolean,
+  /** Native notifications when a session's Turn ends and it goes Idle (off by default). */
+  notifyTurnEnded: Schema.Boolean,
   /** Native notifications when someone requests your review on GitHub (ENG-229). */
   notifyReviewRequests: Schema.Boolean,
   /** Archive deletes a session's branch once it is merged; unmerged branches always stay. */
@@ -161,6 +163,7 @@ export const SessionPrefsPatch = Schema.Struct({
   branchPrefix: Schema.optionalKey(BranchPrefix),
   openOutputOnEdit: Schema.optionalKey(Schema.Boolean),
   notifyNeedsYou: Schema.optionalKey(Schema.Boolean),
+  notifyTurnEnded: Schema.optionalKey(Schema.Boolean),
   notifyReviewRequests: Schema.optionalKey(Schema.Boolean),
   deleteMergedBranch: Schema.optionalKey(Schema.Boolean),
   spinnerVerbs: Schema.optionalKey(Schema.NullOr(Schema.Array(Schema.String))),
@@ -414,6 +417,19 @@ export const RequestInputs = {
       })
     ),
     focused: Schema.NullOr(Schema.Struct({ hostKey: HostKey, sessionId: Schema.String })),
+    turns: Schema.optionalKey(
+      Schema.Array(
+        Schema.Struct({
+          hostKey: HostKey,
+          hostLabel: Schema.String,
+          sessionId: Schema.String,
+          title: Schema.String,
+          harness: Schema.String,
+          state: Schema.Literals(["working", "idle"]),
+          prompt: Schema.NullOr(Schema.String),
+        })
+      )
+    ),
   }),
   /** Dev only: a fresh temporary directory on the dev Daemon's Host for the proof session. */
   "dev.proofWorkspace": Schema.Struct({}),

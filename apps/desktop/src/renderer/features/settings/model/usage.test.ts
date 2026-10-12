@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import { SessionId } from "@polaris/protocol";
 import {
   type Bucket,
@@ -9,6 +9,7 @@ import {
   formatShare,
   splitByDefault,
   pricedEstimate,
+  rangeDays,
   rangeWindow,
   usageSummary,
 } from "./usage.ts";
@@ -115,7 +116,7 @@ describe("usageSummary", () => {
     expect(summary.cost.partial).toBe(true);
   });
 
-  test("the query window starts at the first day's midnight, UTC", () => {
+  test("the query window starts at the first day's local midnight (here UTC)", () => {
     expect(rangeWindow(7, NOW)).toEqual({
       from: "2026-09-24T00:00:00.000Z",
       to: "2026-09-30T15:00:00.000Z",
@@ -189,13 +190,21 @@ describe("usageSummary", () => {
     expect(today).toEqual({
       date: "2026-09-30",
       rows: [
-        { key: "claude/opus-5", model: "opus-5", harness: "claude", tokens: "1.2M", cost: "$4.00" },
+        {
+          key: "claude/opus-5",
+          model: "opus-5",
+          harness: "claude",
+          tokens: "1.2M",
+          cost: "$4.00",
+          outside: false,
+        },
         {
           key: "codex/gpt-5.5",
           model: "gpt-5.5",
           harness: "codex",
           tokens: "400K",
           cost: "~$1.25",
+          outside: false,
         },
         {
           key: "claude/mystery",
@@ -203,8 +212,10 @@ describe("usageSummary", () => {
           harness: "claude",
           tokens: "100",
           cost: "no price",
+          outside: false,
         },
       ],
+      polaris: null,
       tokens: "1.6M",
       cost: "~$5.25 + no price",
     });
@@ -213,6 +224,119 @@ describe("usageSummary", () => {
     const idle = dayTip(summary.days[0]!);
 
     expect([idle.rows, idle.tokens, idle.cost]).toEqual([[], "0", ""]);
+  });
+});
+
+describe("the split tooltip", () => {
+  const day = () =>
+    usageSummary({
+      days: 7,
+      now: NOW,
+      buckets: [
+        bucket({
+          hour: "2026-09-30T09:00:00Z",
+          sessionId: SessionId.make("s1"),
+          tokens: tokens(300),
+        }),
+        bucket({
+          hour: "2026-09-30T10:00:00Z",
+          sessionId: SessionId.make("s2"),
+          harness: "codex",
+          model: "gpt-5.5",
+          tokens: tokens(200),
+        }),
+        bucket({ hour: "2026-09-30T11:00:00Z", tokens: tokens(900) }),
+      ],
+    }).days.at(-1)!;
+
+  test("Polaris rows first with their subtotal, then outside rows marked to dim", () => {
+    const tip = dayTip(day(), true);
+
+    expect(tip.rows.map((r) => [r.key, r.tokens, r.outside])).toEqual([
+      ["claude/opus-5", "300", false],
+      ["codex/gpt-5.5", "200", false],
+      ["claude/opus-5/outside", "900", true],
+    ]);
+    expect(tip.polaris?.tokens).toBe("500");
+    expect(tip.tokens).toBe("1K");
+  });
+
+  test("unsplit, a Model's rows merge and nothing is dimmed", () => {
+    const tip = dayTip(day(), false);
+
+    expect(tip.rows.map((r) => [r.key, r.tokens, r.outside])).toEqual([
+      ["claude/opus-5", "1K", false],
+      ["codex/gpt-5.5", "200", false],
+    ]);
+    expect(tip.polaris).toBeNull();
+  });
+
+  test("no subtotal when the day ran all in, or all outside, Polaris", () => {
+    const outside = usageSummary({
+      days: 7,
+      now: NOW,
+      buckets: [bucket({ hour: "2026-09-30T11:00:00Z" })],
+    }).days.at(-1)!;
+
+    expect(dayTip(outside, true).polaris).toBeNull();
+    expect(dayTip(outside, true).rows.every((r) => r.outside)).toBe(true);
+  });
+});
+
+describe("local days", () => {
+  // Bun's test zone is UTC; deleting TZ instead would freeze the last zone set.
+  const zone = process.env.TZ ?? "Etc/UTC";
+
+  afterEach(() => {
+    process.env.TZ = zone;
+  });
+
+  const at = (hour: string) => bucket({ hour });
+
+  test("after 8pm EDT, Today is still the local day and holds the evening's hours", () => {
+    process.env.TZ = "America/New_York";
+
+    const now = Date.parse("2026-10-12T01:00:00Z");
+
+    const summary = usageSummary({
+      days: 7,
+      now,
+      buckets: [at("2026-10-12T00:00:00Z"), at("2026-10-11T12:00:00Z"), at("2026-10-11T03:00:00Z")],
+    });
+
+    expect(summary.days.at(-1)?.date).toBe("2026-10-11");
+    expect(summary.days.at(-1)?.total).toBe(200);
+    expect(summary.days.at(-2)?.total).toBe(100);
+    expect(rangeWindow(7, now).from).toBe("2026-10-05T04:00:00.000Z");
+  });
+
+  test("a half-hour zone: an hour straddling midnight counts in the day it starts", () => {
+    process.env.TZ = "Asia/Kolkata";
+
+    const now = Date.parse("2026-10-11T19:00:00Z");
+
+    const summary = usageSummary({
+      days: 7,
+      now,
+      buckets: [at("2026-10-11T18:00:00Z"), at("2026-10-11T19:00:00Z")],
+    });
+
+    expect(summary.days.at(-1)).toMatchObject({ date: "2026-10-12", total: 100 });
+    expect(summary.days.at(-2)).toMatchObject({ date: "2026-10-11", total: 100 });
+    expect(rangeWindow(7, now).from).toBe("2026-10-05T18:30:00.000Z");
+  });
+
+  test("a range across the end of daylight saving has every day once", () => {
+    process.env.TZ = "America/New_York";
+    expect(rangeDays(7, Date.parse("2026-11-03T12:00:00Z"))).toEqual([
+      "2026-10-28",
+      "2026-10-29",
+      "2026-10-30",
+      "2026-10-31",
+      "2026-11-01",
+      "2026-11-02",
+      "2026-11-03",
+    ]);
   });
 });
 

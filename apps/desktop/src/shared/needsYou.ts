@@ -26,12 +26,26 @@ export interface NeedsYouSession {
   readonly requests: ReadonlyArray<NeedsYouRequest>;
 }
 
+/** A session mid-Turn or Idle, so main can tell when a Turn ends (Settings → Sessions). */
+export interface NeedsYouTurn {
+  readonly hostKey: string;
+  readonly hostLabel: string;
+  readonly sessionId: string;
+  readonly title: string;
+  readonly harness: string;
+  readonly state: "working" | "idle";
+  /** The latest Turn's prompt, shortened. */
+  readonly prompt: string | null;
+}
+
 export interface NeedsYouSummary {
   /** Sessions that need you across every Host: the menu bar and Dock count. */
   readonly count: number;
   readonly sessions: ReadonlyArray<NeedsYouSession>;
   /** The session the window shows; no notification for it while the window is focused. */
   readonly focused: { readonly hostKey: string; readonly sessionId: string } | null;
+  /** Working and Idle sessions outside Constellations, for Turn notifications; none if absent. */
+  readonly turns?: ReadonlyArray<NeedsYouTurn>;
 }
 
 /** What the menu bar and notifications ask the renderer to do. */
