@@ -13,27 +13,43 @@ export interface LiveTurn {
   readonly subagents: ReadonlyArray<{ readonly live: ReadonlyMap<string, LiveItem> }>;
 }
 
-const runningIds = (live: ReadonlyMap<string, LiveItem>) =>
+/** A command running now: its id, and what it runs (the background task's description). */
+export interface Running {
+  readonly id: string;
+  readonly command: string;
+}
+
+const inFlight = (live: ReadonlyMap<string, LiveItem>): ReadonlyArray<Running> =>
   [...live.values()].flatMap(({ item }) =>
     item !== null && Predicate.isTagged(item, "CommandExecution") && item.status === "running"
-      ? [item.id]
+      ? [{ id: item.id, command: item.command }]
       : []
   );
 
-/** How many commands run now; one both in flight and in the background counts once. */
+/** The commands running now, in flight first; one both in flight and in the background is listed once. */
 export const runningCommands = (
   turn: LiveTurn | undefined,
   backgroundTasks: ReadonlyArray<BackgroundTask>
-): number => {
-  const ids = new Set([
-    ...(turn === undefined ? [] : runningIds(turn.live)),
-    ...(turn?.subagents ?? []).flatMap((s) => runningIds(s.live)),
-    ...backgroundTasks.flatMap((t) => (t.kind === "command" ? [t.id] : [])),
-  ]);
+): ReadonlyArray<Running> => {
+  const all = [
+    ...(turn === undefined ? [] : inFlight(turn.live)),
+    ...(turn?.subagents ?? []).flatMap((s) => inFlight(s.live)),
+    ...backgroundTasks.flatMap((t) =>
+      t.kind === "command" ? [{ id: t.id, command: t.description }] : []
+    ),
+  ];
 
-  return ids.size;
+  return all.filter((r, i) => all.findIndex((o) => o.id === r.id) === i);
 };
 
-/** "2 commands running"; null when none is. */
-export const runningPhrase = (count: number): string | null =>
-  count === 0 ? null : `${count} ${count === 1 ? "command" : "commands"} running`;
+/** "running bun test" for one (its first line), "2 commands running" for more; null for none. */
+export const runningPhrase = (running: ReadonlyArray<Running>): string | null => {
+  const [only] = running;
+
+  if (only === undefined) return null;
+
+  if (running.length > 1) return `${running.length} commands running`;
+  const line = only.command.trim().split("\n", 1)[0] ?? "";
+
+  return line === "" ? "1 command running" : `running ${line}`;
+};

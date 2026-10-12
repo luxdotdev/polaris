@@ -36,7 +36,9 @@ const turn = (live: ReadonlyArray<LiveItem>, subagent: ReadonlyArray<LiveItem> =
 const background = (id: string, kind: "command" | "subagent") =>
   new BackgroundTask({ id, kind, description: id });
 
-test("counts the Turn's and its Subagents' running commands, not tools or streamed text", () => {
+const ids = (running: ReadonlyArray<{ readonly id: string }>) => running.map((r) => r.id);
+
+test("lists the Turn's and its Subagents' running commands, not tools or streamed text", () => {
   const view = turn(
     [
       command("a", "running"),
@@ -47,24 +49,37 @@ test("counts the Turn's and its Subagents' running commands, not tools or stream
     [command("d", "running")]
   );
 
-  expect(runningCommands(view, [])).toBe(2);
+  expect(ids(runningCommands(view, []))).toEqual(["a", "d"]);
 });
 
 test("adds background commands, once each, and leaves background Subagents out", () => {
   const view = turn([command("a", "running")]);
 
   expect(
-    runningCommands(view, [
-      background("a", "command"),
-      background("shell-1", "command"),
-      background("s", "subagent"),
-    ])
-  ).toBe(2);
-  expect(runningCommands(undefined, [background("shell-1", "command")])).toBe(1);
+    ids(
+      runningCommands(view, [
+        background("a", "command"),
+        background("shell-1", "command"),
+        background("s", "subagent"),
+      ])
+    )
+  ).toEqual(["a", "shell-1"]);
+  expect(runningCommands(undefined, [background("shell-1", "command")])).toEqual([
+    { id: "shell-1", command: "shell-1" },
+  ]);
 });
 
-test("the strip says how many, and nothing when none", () => {
-  expect(runningPhrase(0)).toBeNull();
-  expect(runningPhrase(1)).toBe("1 command running");
-  expect(runningPhrase(3)).toBe("3 commands running");
+test("one command names itself by its first line; more are counted; none says nothing", () => {
+  expect(runningPhrase([])).toBeNull();
+  expect(runningPhrase([{ id: "a", command: "bun test" }])).toBe("running bun test");
+  expect(runningPhrase([{ id: "a", command: "  cat <<EOF\nhello\nEOF" }])).toBe(
+    "running cat <<EOF"
+  );
+  expect(runningPhrase([{ id: "a", command: "" }])).toBe("1 command running");
+  expect(
+    runningPhrase([
+      { id: "a", command: "bun test" },
+      { id: "b", command: "sleep 40" },
+    ])
+  ).toBe("2 commands running");
 });
