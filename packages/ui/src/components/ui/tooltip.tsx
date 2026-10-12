@@ -3,7 +3,7 @@ import { Tooltip as TooltipPrimitive } from "radix-ui";
 import type { ComponentProps } from "react";
 
 import { cn } from "../../lib/cn";
-import { FLOAT_MOTION } from "../../lib/float";
+import { TOOLTIP_MOTION } from "../../lib/float";
 import { Kbd } from "../polaris/kbd";
 
 export function TooltipProvider({
@@ -44,7 +44,7 @@ export function TooltipContent({
         sideOffset={sideOffset}
         className={cn(
           "z-50 flex h-6 items-center gap-2 rounded-control border border-hairline bg-surface-raised px-2 text-caption text-text-default shadow-float",
-          FLOAT_MOTION,
+          TOOLTIP_MOTION,
           className
         )}
         {...props}
