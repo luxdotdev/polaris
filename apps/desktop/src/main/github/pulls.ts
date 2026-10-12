@@ -259,4 +259,5 @@ export const EMPTY_LIST: PullListView = {
   polling: "idle",
   throttledUntil: null,
   error: null,
+  errorKind: null,
 };

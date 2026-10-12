@@ -28,6 +28,18 @@ export type Notice =
       readonly key: string;
       readonly title: string;
       readonly caption: string;
+    }
+  | {
+      readonly kind: "signed-out";
+      readonly key: string;
+      readonly title: string;
+      readonly caption: string;
+    }
+  | {
+      readonly kind: "no-keychain";
+      readonly key: string;
+      readonly title: string;
+      readonly caption: string;
     };
 
 export interface NoticesInput {
@@ -96,8 +108,13 @@ export const noticesOf = (input: NoticesInput): ReadonlyArray<Notice> => {
           {
             kind: "error",
             key: "error",
-            title: "Couldn’t reach GitHub",
-            caption: input.list.error,
+            ...(input.list.errorKind === "keychain"
+              ? {
+                  title: "Polaris can’t use the macOS Keychain from this session",
+                  caption:
+                    "Your GitHub sign-in is sealed there. Open Polaris from the Dock or Finder, then try again",
+                }
+              : { title: "Couldn’t reach GitHub", caption: input.list.error }),
           },
         ];
 
@@ -109,3 +126,19 @@ export const noticesOf = (input: NoticesInput): ReadonlyArray<Notice> => {
 
   return notices.filter((n) => !input.dismissed.has(n.key));
 };
+
+/** Nobody signed in, above Agent Sessions that don't need GitHub. */
+export const accountNotice = (kind: "signed-out" | "no-keychain"): Notice =>
+  kind === "signed-out"
+    ? {
+        kind: "signed-out",
+        key: kind,
+        title: "Sign in to GitHub to see pull requests",
+        caption: "Agent sessions stay reviewable without it",
+      }
+    : {
+        kind: "no-keychain",
+        key: kind,
+        title: "Polaris can’t keep a GitHub sign-in here",
+        caption: "This computer has no keychain Polaris can use, so it won’t store a token",
+      };

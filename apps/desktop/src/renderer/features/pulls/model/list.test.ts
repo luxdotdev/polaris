@@ -47,6 +47,7 @@ const list = (patch: Partial<PullListView> = {}): PullListView => ({
   polling: "focused",
   throttledUntil: null,
   error: null,
+  errorKind: null,
   ...patch,
 });
 

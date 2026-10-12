@@ -263,6 +263,7 @@ export const LIST: PullListView = {
   polling: "focused",
   throttledUntil: null,
   error: null,
+  errorKind: null,
 };
 
 const account = (id: number, login: string) => ({
