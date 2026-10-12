@@ -87,6 +87,23 @@ export class Worktree extends Schema.Class<Worktree>("Worktree")({
 }) {}
 
 /**
+ * One row of a context breakdown. `kind`: `used` fills the window, `free` is what is
+ * left, `buffer` is the compaction reserve, `deferred` is listed but outside the window.
+ */
+export class ContextCategory extends Schema.Class<ContextCategory>("ContextCategory")({
+  name: Schema.String,
+  kind: Schema.Literals(["used", "free", "buffer", "deferred"]),
+  tokens: Schema.Int,
+}) {}
+
+/** An instruction file in the context window: its path, where it comes from ("Project", "User"), its size. */
+export class MemoryFile extends Schema.Class<MemoryFile>("MemoryFile")({
+  path: Schema.String,
+  source: Schema.String,
+  tokens: Schema.Int,
+}) {}
+
+/**
  * How full the Agent Session's context window is, as its Harness last reported
  * it: the tokens the latest model call carried, of the window its Model has.
  */
@@ -94,6 +111,25 @@ export class ContextUsage extends Schema.Class<ContextUsage>("ContextUsage")({
   usedTokens: Schema.Int,
   /** The Model's context window; null while the Harness hasn't said. */
   windowTokens: Schema.NullOr(Schema.Int),
+  /** What fills the window, by category, as the Harness counts it; empty when it gives totals only. */
+  categories: optionalArray(ContextCategory),
+  /** Instruction files loaded into the window (CLAUDE.md, rules), when the Harness lists them. */
+  memoryFiles: optionalArray(MemoryFile),
+  /** The `usedTokens` the breakdown was counted at; the total can move on before the next count. */
+  categoriesTotal: optionalNullable(Schema.Int),
+  /** Whether the Harness compacts on its own as the window fills; null when it doesn't say. */
+  autoCompact: optionalNullable(Schema.Boolean),
+}) {}
+
+/** How one Harness compaction went: the tokens the window held before and after. */
+export class Compaction extends Schema.Class<Compaction>("Compaction")({
+  /** The Turn it happened in, when one was in flight. */
+  turnId: Schema.NullOr(TurnId),
+  /** `auto` when the window filled, `manual` for `/compact`; null when the Harness doesn't say. */
+  trigger: Schema.NullOr(Schema.Literals(["auto", "manual"])),
+  beforeTokens: Schema.NullOr(Schema.Int),
+  afterTokens: Schema.NullOr(Schema.Int),
+  at: Timestamp,
 }) {}
 
 export const PermissionMode = Schema.Literals(["supervised", "auto-edits", "auto", "full-access"]);
@@ -139,6 +175,8 @@ export class AgentSession extends Schema.Class<AgentSession>("AgentSession")({
   turnCount: Schema.Int,
   /** Null until the Harness reports it; some Harnesses never do. */
   contextUsage: addedNullable(ContextUsage),
+  /** The Harness's latest compaction, when it reported one (capability `session.compaction`). */
+  lastCompaction: optionalNullable(Compaction),
   worktreeSetup: optionalNullable(WorktreeSetupRun),
   lastError: Schema.NullOr(Schema.String),
   /** The index of the last Turn the user accepted (`AcceptTurns`); null before any. */

@@ -297,6 +297,10 @@ const fold = (event: DomainEvent): Fold =>
         ({ usage }): Fold =>
         (m) =>
           patchSession(m, { contextUsage: usage }),
+      SessionCompacted:
+        ({ compaction }): Fold =>
+        (m) =>
+          patchSession(m, { lastCompaction: compaction }),
       SessionBackgroundTasksChanged:
         ({ tasks }): Fold =>
         (m) =>

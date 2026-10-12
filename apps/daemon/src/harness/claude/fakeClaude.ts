@@ -69,7 +69,12 @@ export class FakeClaude {
   usageReply: Json | Error = { rate_limits_available: false, rate_limits: null };
   /** How often the driver asked `getContextUsage`, and what the fake answers (null: it refuses). */
   contextCalls = 0;
-  contextReply: { totalTokens: number; maxTokens: number } | null = null;
+  contextReply: {
+    totalTokens: number;
+    maxTokens: number;
+    categories?: Array<{ name: string; tokens: number; kind: "used" | "free" | "buffer" }>;
+    memoryFiles?: Array<{ path: string; type: string; tokens: number }>;
+  } | null = null;
   private readonly out = new Inbox<SDKMessage>();
   private inputWaiters: Array<() => void> = [];
   private emitted = 0;
@@ -143,8 +148,15 @@ export class FakeClaude {
 
         if (this.contextReply === null) throw new Error("Unsupported control request");
 
-        // SAFETY: the driver reads only `totalTokens` and `maxTokens` of the reply.
-        return this.contextReply as Awaited<ReturnType<Query["getContextUsage"]>>;
+        const reply = {
+          categories: [],
+          memoryFiles: [],
+          isAutoCompactEnabled: true,
+          ...this.contextReply,
+        };
+
+        // SAFETY: the driver reads only the totals, categories, memory files and auto-compact flag.
+        return reply as Awaited<ReturnType<Query["getContextUsage"]>>;
       },
     };
 

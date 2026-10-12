@@ -48,6 +48,8 @@ export const Capability = Schema.Literals([
   "session.turn-paging",
   /** The `StopBackgroundTasks` command. */
   "session.stop-background",
+  /** `SessionCompacted` and `AgentSession.lastCompaction`; `ContextUsage`'s breakdown fields need nothing. */
+  "session.compaction",
   "files.read",
   "files.versioned",
   "files.write",

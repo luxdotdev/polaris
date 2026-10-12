@@ -22,7 +22,7 @@ import type {
 import { SubagentId, type TurnId, TurnItem } from "@polaris/protocol";
 import { Option, Predicate } from "effect";
 import { ClaudeBackgroundTasks } from "./backgroundTasks.ts";
-import { HarnessEvent } from "../HarnessDriver.ts";
+import { type ContextBreakdown, HarnessEvent } from "../HarnessDriver.ts";
 import {
   type AssistantBlock,
   decodeAssistantContent,
@@ -239,14 +239,25 @@ export class ClaudeTranslator {
    * Claude Code's own count (`getContextUsage`, or a result's `modelUsage`):
    * it sets the window later reports use, and is reported itself.
    */
-  onContextUsage(usedTokens: number | null, windowTokens: number | null): HarnessEvent[] {
+  onContextUsage(
+    usedTokens: number | null,
+    windowTokens: number | null,
+    breakdown?: ContextBreakdown,
+    compacted?: {
+      readonly trigger: "auto" | "manual";
+      readonly beforeTokens: number;
+      readonly afterTokens: number | null;
+    }
+  ): HarnessEvent[] {
     if (windowTokens !== null && windowTokens > 0) this.contextWindow = windowTokens;
     const used = usedTokens ?? this.contextUsed;
 
     if (used === null) return [];
     this.contextUsed = used;
 
-    return [ContextUsed({ usedTokens: used, windowTokens: this.contextWindow })];
+    return [
+      ContextUsed({ usedTokens: used, windowTokens: this.contextWindow, breakdown, compacted }),
+    ];
   }
 
   get sessionCursor(): string | null {
@@ -372,9 +383,13 @@ export class ClaudeTranslator {
       return [...this.backgroundTasks.onMessage(message), ...this.onTaskStarted(message)];
 
     if (message.subtype === "compact_boundary") {
-      const after = message.compact_metadata.post_tokens;
+      const { trigger, pre_tokens: before, post_tokens: after } = message.compact_metadata;
 
-      return after === undefined ? [] : this.onContextUsage(after, null);
+      return this.onContextUsage(after ?? null, null, undefined, {
+        trigger,
+        beforeTokens: before,
+        afterTokens: after ?? null,
+      });
     }
 
     return message.subtype === "task_notification"

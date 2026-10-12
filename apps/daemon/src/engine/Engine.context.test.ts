@@ -82,6 +82,25 @@ describe("context usage", () => {
             );
 
         expect((yield* read(s)).length).toBe(2);
+
+        harness.emit(
+          HarnessEvent.ContextUsed({
+            usedTokens: 20_000,
+            windowTokens: 200_000,
+            compacted: { trigger: "auto", beforeTokens: 180_000, afterTokens: 20_000 },
+          })
+        );
+
+        const compacted = yield* waitFor((m) => m.sessions.get(s)?.session.lastCompaction != null);
+        const working = compacted.sessions.get(s)!.turns.at(-1)!.id;
+
+        expect(compacted.sessions.get(s)!.session.lastCompaction).toMatchObject({
+          turnId: working,
+          trigger: "auto",
+          beforeTokens: 180_000,
+          afterTokens: 20_000,
+        });
+        expect(compacted.sessions.get(s)!.session.contextUsage?.usedTokens).toBe(20_000);
         // The Host stream leaves it out: only an open session shows it.
         expect(yield* read(null)).toEqual([]);
       })

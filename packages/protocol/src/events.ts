@@ -9,6 +9,7 @@ import {
   AgentSession,
   BackgroundTask,
   ApprovalDecision,
+  Compaction,
   ApprovalRequest,
   ContextUsage,
   PermissionMode,
@@ -79,6 +80,8 @@ export const DomainEvent = Schema.TaggedUnion({
   /** The Harness reported how full the context window is (see `AgentSession.contextUsage`). */
   SessionSetupChanged: { sessionId: SessionId, setup: WorktreeSetupRun },
   SessionContextUsed: { sessionId: SessionId, usage: ContextUsage },
+  /** The Harness compacted the context window (see `AgentSession.lastCompaction`). */
+  SessionCompacted: { sessionId: SessionId, compaction: Compaction },
   SessionBackgroundTasksChanged: { sessionId: SessionId, tasks: Schema.Array(BackgroundTask) },
 
   TurnStarted: { turn: Turn },

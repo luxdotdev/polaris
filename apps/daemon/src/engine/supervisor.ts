@@ -7,7 +7,7 @@ import {
   type AgentSession,
   ApprovalRequest,
   type Attachment,
-  ContextUsage,
+  Compaction,
   DomainEvent,
   NotFound,
   type SessionId,
@@ -27,8 +27,9 @@ import {
   type ConstellationLivenessService,
 } from "../constellation/liveness.ts";
 import { LiveItem } from "../store/EventStore.ts";
+import { workingTurn } from "../store/model.ts";
 import { worktreeIdFor } from "./decider.ts";
-import { contextChanged } from "./context.ts";
+import { contextChanged, contextUsageOf } from "./context.ts";
 import { finalReply, forkPreamble } from "./fork.ts";
 import { EngineRuntime, type EventSource, type LiveHarness, type Progress } from "./runtime.ts";
 import { deferredUserTurns, refuseUserTurn } from "./supervisor.turns.ts";
@@ -320,13 +321,26 @@ const make = (
         ),
       ContextUsed: (e) =>
         rt.recordFor(sessionId, (record) => {
-          const usage = new ContextUsage({
-            usedTokens: e.usedTokens,
-            windowTokens: e.windowTokens,
-          });
+          const usage = contextUsageOf(e, record.session.contextUsage);
 
-          return contextChanged(record.session.contextUsage, usage)
-            ? [DomainEvent.cases.SessionContextUsed.make({ sessionId, usage })]
+          const compacted =
+            e.compacted === undefined
+              ? []
+              : [
+                  DomainEvent.cases.SessionCompacted.make({
+                    sessionId,
+                    compaction: new Compaction({
+                      turnId: workingTurn(record)?.id ?? null,
+                      trigger: e.compacted.trigger,
+                      beforeTokens: e.compacted.beforeTokens,
+                      afterTokens: e.compacted.afterTokens,
+                      at,
+                    }),
+                  }),
+                ];
+
+          return compacted.length > 0 || contextChanged(record.session.contextUsage, usage)
+            ? [...compacted, DomainEvent.cases.SessionContextUsed.make({ sessionId, usage })]
             : [];
         }),
       WorktreeCreated: (e) => onWorktreeCreated(sessionId, e.path),

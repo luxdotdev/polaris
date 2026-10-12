@@ -263,6 +263,8 @@ const fold = (event: DomainEvent): Fold =>
         onSession(sessionId, patch({ contextUsage: usage })),
       SessionBackgroundTasksChanged: ({ sessionId, tasks }) =>
         onSession(sessionId, patch({ backgroundTasks: tasks })),
+      SessionCompacted: ({ sessionId, compaction }) =>
+        onSession(sessionId, patch({ lastCompaction: compaction })),
       TurnStarted: ({ turn }) => onTurn(turn),
       TurnEnded: ({ turn }) => onTurn(turn),
       TurnItemCompleted: () => unchanged,
