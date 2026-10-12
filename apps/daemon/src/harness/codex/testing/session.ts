@@ -21,6 +21,7 @@ import {
   type Handler,
   startFakeAppServer,
 } from "./FakeAppServer.ts";
+import { unstamped } from "../../itemClock.testing.ts";
 
 export const THREAD = "thr_1";
 
@@ -46,7 +47,9 @@ const socketPath = () => {
 export interface Harness {
   readonly session: HarnessSession;
   readonly server: FakeAppServer;
+  /** Events with their start stamps cleared; `stamped` keeps them. */
   readonly events: Array<HarnessEvent>;
+  readonly stamped: Array<HarnessEvent>;
   /** The first event with `tag` (and matching `where`), waiting up to two seconds. */
   readonly waitFor: <T extends HarnessEvent["_tag"]>(
     tag: T,
@@ -72,11 +75,17 @@ export const sessionWith =
       readonly constellations?: NonNullable<OpenOptions["constellations"]>;
       readonly environment?: NonNullable<OpenOptions["environment"]>;
     } = {}
-  ): Promise<{ result: A; events: Array<HarnessEvent>; server: FakeAppServer }> => {
+  ): Promise<{
+    result: A;
+    events: Array<HarnessEvent>;
+    stamped: Array<HarnessEvent>;
+    server: FakeAppServer;
+  }> => {
     const path = socketPath();
     const server = startFakeAppServer(path, handler);
     cleanup.push(server.stop);
     const events: Array<HarnessEvent> = [];
+    const stamped: Array<HarnessEvent> = [];
 
     const program = Effect.gen(function* () {
       const driver = yield* makeDriver({
@@ -97,7 +106,12 @@ export const sessionWith =
       });
 
       yield* session.events.pipe(
-        Stream.runForEach((e) => Effect.sync(() => events.push(e))),
+        Stream.runForEach((e) =>
+          Effect.sync(() => {
+            stamped.push(e);
+            events.push(unstamped(e));
+          })
+        ),
         // Detached, so it keeps reading through scope close and sees the final `Exited`.
         Effect.forkDetach
       );
@@ -119,13 +133,13 @@ export const sessionWith =
           );
         });
 
-      return yield* body({ session, server, events, waitFor });
+      return yield* body({ session, server, events, stamped, waitFor });
     });
 
     return Effect.runPromise(Effect.scoped(program)).then(async (result) => {
       await Bun.sleep(20);
 
-      return { result, events, server };
+      return { result, events, stamped, server };
     });
   };
 

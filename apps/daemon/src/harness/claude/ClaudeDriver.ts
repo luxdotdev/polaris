@@ -54,6 +54,7 @@ import {
   type OpenOptions,
   type TurnInput,
 } from "../HarnessDriver.ts";
+import { ItemClock } from "../itemClock.ts";
 import { emptyClaudeLimitContext } from "../limits/claude.ts";
 import type { PlanLimitReporter } from "../limits/PlanLimitReporter.ts";
 import { ClaudeHookReceiver } from "./hooks.ts";
@@ -193,7 +194,8 @@ const openSession = Effect.fnUntraced(function* (
 
   const scope = yield* Scope.Scope;
   const events = yield* Queue.unbounded<HarnessEvent, Cause.Done>();
-  const emit = (event: HarnessEvent) => Queue.offerUnsafe(events, event);
+  const clock = new ItemClock();
+  const emit = (event: HarnessEvent) => Queue.offerUnsafe(events, clock.stamp(event));
 
   const emitAll = (list: ReadonlyArray<HarnessEvent>) => {
     for (const e of list) emit(e);

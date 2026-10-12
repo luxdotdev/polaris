@@ -32,6 +32,7 @@ import {
   type OpenOptions,
   type TurnInput,
 } from "../HarnessDriver.ts";
+import { ItemClock } from "../itemClock.ts";
 import type { AppServer } from "./AppServer.ts";
 import {
   type CodexPlanLimits,
@@ -135,9 +136,10 @@ export const openSession = (
 ): Effect.Effect<HarnessSession, HarnessError, Scope.Scope> =>
   Effect.gen(function* () {
     const events = yield* Queue.unbounded<HarnessEvent, Cause.Done>();
+    const clock = new ItemClock();
 
     const emit = (event: HarnessEvent) => {
-      Queue.offerUnsafe(events, event);
+      Queue.offerUnsafe(events, clock.stamp(event));
     };
 
     const conn: RpcConnection = yield* config.appServer.connect;

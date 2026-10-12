@@ -12,6 +12,7 @@ import { HarnessEvent, type OpenOptions } from "../HarnessDriver.ts";
 import { polarisInstructions } from "../../constellation/skills/preamble.ts";
 import { type ClaudeDriverOptions, makeClaudeDriver, parseVersion } from "./ClaudeDriver.ts";
 import { assistant, FakeClaude, init, result, streamEvent, toolResult } from "./fakeClaude.ts";
+import { unstamped } from "../itemClock.testing.ts";
 
 const T1 = TurnId.make("turn-1");
 
@@ -48,11 +49,16 @@ const openFake = async (
   );
 
   const events: HarnessEvent[] = [];
+  /** The same events with their start stamps; `events` has them cleared. */
+  const stamped: HarnessEvent[] = [];
   let ended = false;
   Effect.runFork(
-    Stream.runForEach(session.events, (e) => Effect.sync(() => events.push(e))).pipe(
-      Effect.ensuring(Effect.sync(() => (ended = true)))
-    )
+    Stream.runForEach(session.events, (e) =>
+      Effect.sync(() => {
+        stamped.push(e);
+        events.push(unstamped(e));
+      })
+    ).pipe(Effect.ensuring(Effect.sync(() => (ended = true))))
   );
 
   const until = async (predicate: () => boolean, label = "condition") => {
@@ -79,6 +85,7 @@ const openFake = async (
     fake,
     session,
     events,
+    stamped,
     until,
     has,
     first,

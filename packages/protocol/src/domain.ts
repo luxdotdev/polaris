@@ -223,11 +223,17 @@ export class Subagent extends Schema.Class<Subagent>("Subagent")({
   endedAt: Schema.NullOr(Timestamp),
 }) {}
 
+/**
+ * When the Harness started an item, as its driver first saw it; strictly increasing per
+ * Agent Session. Null on older items, the Daemon's own, and drivers that don't stamp.
+ */
+const startedAt = optionalNullable(Timestamp);
+
 /** One normalized piece of Harness output within a Turn. `raw` keeps the native frame. */
 export const TurnItem = Schema.TaggedUnion({
-  AssistantMessage: { id: Schema.String, text: Schema.String },
+  AssistantMessage: { id: Schema.String, text: Schema.String, startedAt },
   /** Guidance the user sent into the Turn in flight (a steer), once the Harness took it. */
-  UserMessage: { id: Schema.String, text: Schema.String },
+  UserMessage: { id: Schema.String, text: Schema.String, startedAt },
   Reasoning: {
     id: Schema.String,
     text: Schema.String,
@@ -237,6 +243,7 @@ export const TurnItem = Schema.TaggedUnion({
   },
   CommandExecution: {
     id: Schema.String,
+    startedAt,
     command: Schema.String,
     cwd: Schema.String,
     output: Schema.String,
@@ -245,6 +252,7 @@ export const TurnItem = Schema.TaggedUnion({
   },
   FileChange: {
     id: Schema.String,
+    startedAt,
     changes: Schema.Array(
       Schema.Struct({ path: Schema.String, kind: Schema.Literals(["add", "modify", "delete"]) })
     ),
@@ -252,6 +260,7 @@ export const TurnItem = Schema.TaggedUnion({
   },
   ToolCall: {
     id: Schema.String,
+    startedAt,
     name: Schema.String,
     input: Schema.Unknown,
     output: Schema.NullOr(Schema.Unknown),
@@ -259,6 +268,7 @@ export const TurnItem = Schema.TaggedUnion({
   },
   Plan: {
     id: Schema.String,
+    startedAt,
     steps: Schema.Array(
       Schema.Struct({
         text: Schema.String,
@@ -270,10 +280,33 @@ export const TurnItem = Schema.TaggedUnion({
     /** Why the plan is what it is (Codex's plan explanation), when the Harness gives one. */
     explanation: addedNullable(Schema.String),
   },
-  Error: { id: Schema.String, message: Schema.String },
+  Error: { id: Schema.String, message: Schema.String, startedAt },
 });
 
 export type TurnItem = typeof TurnItem.Type;
+
+/**
+ * `items` with `item` placed by when it started: an item already there keeps its place
+ * and takes the new content, a stamped one goes before the first stamped item that
+ * started later, and an unstamped one goes at the end (where it completed).
+ */
+export const placeItem = (items: ReadonlyArray<TurnItem>, item: TurnItem): Array<TurnItem> => {
+  const at = items.findIndex((i) => i.id === item.id);
+
+  if (at !== -1) return items.map((i, n) => (n === at ? item : i));
+  const start = item.startedAt;
+
+  const before =
+    start === null ? -1 : items.findIndex((i) => i.startedAt !== null && i.startedAt > start);
+
+  return before === -1
+    ? [...items, item]
+    : [...items.slice(0, before), item, ...items.slice(before)];
+};
+
+/** Items listed in completion order (as stored and sent), placed by when they started. */
+export const inStartOrder = (items: ReadonlyArray<TurnItem>): Array<TurnItem> =>
+  items.reduce<Array<TurnItem>>(placeItem, []);
 
 export const ApprovalKind = Schema.Literals(["command", "file-change", "tool", "question"]);
 
