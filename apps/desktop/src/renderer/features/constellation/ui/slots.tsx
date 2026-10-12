@@ -18,7 +18,12 @@ import {
   SessionOutput,
 } from "../../session/index.ts";
 import { useFacts, useLeadConstellation, useWorkerAttempt, type WorkerAttempt } from "../hooks.ts";
-import { type ConstellationRecord, type Digest, digestFold } from "../model/index.ts";
+import {
+  type ConstellationRecord,
+  type Digest,
+  digestFold,
+  steeredDigest,
+} from "../model/index.ts";
 import { leadKey, patchLeadUi, useLeadUi } from "../state.ts";
 import { DigestCard } from "./cards.tsx";
 import { ConstellationTab } from "./ConstellationTab.tsx";
@@ -74,6 +79,8 @@ const LeadIntent = ({
     );
 
   const chrome: SessionChrome = {
+    openTask: (taskId) =>
+      patchLeadUi(leadKey(hostKey, sessionId), () => ({ focus: { kind: "task", taskId } })),
     promptCard: ({ turnId, folded, canFold, onToggle }) => {
       const digest = digests.get(turnId);
       const view = turns.find((t) => t.turn.id === turnId);
@@ -86,6 +93,22 @@ const LeadIntent = ({
           folded={folded}
           onToggle={canFold ? onToggle : null}
           fold={view === undefined ? null : digestFold(view)}
+        />
+      );
+    },
+    // A steered digest is part of the Turn it landed in: that Turn folds it, the card doesn't.
+    steerCard: ({ turnId, itemId }) => {
+      const view = turns.find((t) => t.turn.id === turnId);
+      const digest = view === undefined ? null : steeredDigest(record.digests, view, itemId);
+
+      return digest === null ? null : (
+        <DigestCard
+          record={record}
+          digest={digest}
+          facts={facts}
+          folded={false}
+          onToggle={null}
+          fold={null}
         />
       );
     },

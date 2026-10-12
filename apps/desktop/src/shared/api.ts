@@ -513,6 +513,16 @@ export type AppEvent =
   | { readonly kind: "proof"; readonly hostKey: string }
   /** The menu bar star or a notification: open a waiting session, or answer it. */
   | ({ readonly kind: "needs-you" } & NeedsYouAction)
+  /** Main decided an agent's `notify` banner: shown, held while you were in that session, or off. */
+  | {
+      readonly kind: "agent-banner";
+      readonly hostKey: string;
+      readonly sessionId: string;
+      readonly id: string;
+      readonly title: string;
+      readonly body: string;
+      readonly banner: "shown" | "here" | "off";
+    }
   /** A review-request notification: open its pull request in Review, or the list (null). */
   | { readonly kind: "open-pull"; readonly pull: OpenPull | null }
   /** The quit prompt's "Save and quit": the Editor saves every file, then answers `editor.savedAll`. */

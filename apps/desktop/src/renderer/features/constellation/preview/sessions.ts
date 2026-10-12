@@ -12,6 +12,7 @@ import {
   WorktreeId,
 } from "@polaris/protocol";
 import type { SessionModel, TurnView } from "../../../store/sessionModel.ts";
+import { STEERED_DIGEST_OPENING } from "../model/index.ts";
 import { LEAD, PREVIOUS_LEAD, WORKSPACE, worker } from "./graph.ts";
 
 const I = TurnItem.cases;
@@ -221,6 +222,34 @@ export const leadModelWithLaterDigest = (): SessionModel => {
           }),
         ]
       ),
+    ],
+  };
+};
+
+export const STEERED_TURN = "t-lead-steered";
+
+/** The Lead mid-Turn when a digest is steered in: its card sits where the Lead took it. */
+export const leadModelSteered = (): SessionModel => {
+  const base = leadModel("t-lead-digest", "completed");
+
+  return {
+    ...base,
+    turns: [
+      ...base.turns,
+      view(turn(LEAD, STEERED_TURN, 14, "Review B1 against its head.", "completed", 2), [
+        I.AssistantMessage.make({
+          id: "m14a",
+          text: "Reviewing B1 at 3f9c2e1: seven properties hold, trace validation is the gap.",
+        }),
+        I.UserMessage.make({
+          id: "steer:digest",
+          text: `${STEERED_DIGEST_OPENING} Fold it into your current work; it is not a new request.`,
+        }),
+        I.AssistantMessage.make({
+          id: "m14b",
+          text: "Noted the new Claim. Finishing B1's review first, then I'll look at it.",
+        }),
+      ]),
     ],
   };
 };

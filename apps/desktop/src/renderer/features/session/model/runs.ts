@@ -130,10 +130,45 @@ const VERBS = new Map<string, readonly [running: string, done: string]>([
   ["websearch", ["Searching the web", "Searched the web"]],
   ["web_search", ["Searching the web", "Searched the web"]],
   ["subagenthandback", ["Handing back its report", "Handed back its report"]],
+  ["view_image", ["Viewing an image", "Viewed an image"]],
 ]);
 
-/** A tool's row label as a verb ("Read", "Searching"); its own name when unknown. */
+const POLARIS_TOOL = /^(?:mcp__polaris(?:_\d+)?__|polaris(?:_\d+)?\.)(.+)$/;
+
+/** A Constellation tool's own name: Claude's `mcp__polaris__claim`, Codex's `polaris.claim`. */
+export const polarisTool = (name: string): string | null => POLARIS_TOOL.exec(name)?.[1] ?? null;
+
+/** The Constellation tools (`apps/daemon/src/mcp/tools`), as verbs. */
+const POLARIS_VERBS = new Map<string, readonly [running: string, done: string]>([
+  ["plan", ["Updating the constellation", "Updated the constellation"]],
+  ["dispatch", ["Dispatching", "Dispatched"]],
+  ["review", ["Reviewing a claim", "Reviewed a claim"]],
+  ["answer", ["Answering", "Answered"]],
+  ["message", ["Sending a message", "Sent a message"]],
+  ["status", ["Checking the constellation", "Checked the constellation"]],
+  ["set_state", ["Setting a task's state", "Set a task's state"]],
+  ["progress", ["Reporting progress", "Reported progress"]],
+  ["ask", ["Asking the lead", "Asked the lead"]],
+  ["claim", ["Claiming", "Claimed"]],
+  ["propose", ["Proposing a task", "Proposed a task"]],
+]);
+
+const sentenceCase = (name: string) => {
+  const words = name.replaceAll("_", " ");
+
+  return words.charAt(0).toUpperCase() + words.slice(1);
+};
+
+/** A tool's row label as a verb ("Read", "Searching", "Claimed"); its own name when unknown. */
 export const toolVerb = (name: string, running: boolean): string => {
+  const polaris = polarisTool(name);
+
+  if (polaris !== null) {
+    const verbs = POLARIS_VERBS.get(polaris);
+
+    return verbs === undefined ? sentenceCase(polaris) : verbs[running ? 0 : 1];
+  }
+
   const verbs = VERBS.get(name.toLowerCase());
 
   return verbs === undefined ? name : verbs[running ? 0 : 1];
