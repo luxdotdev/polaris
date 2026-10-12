@@ -416,6 +416,56 @@ export const steer = (): SessionModel => {
   });
 };
 
+/** H2: a command still running where it began, a steer the model took after it, and times. */
+export const order = (): SessionModel => {
+  const s = session("s-order", { title: "Wait on the slow build" });
+
+  const running = I.CommandExecution.make({
+    id: "c9",
+    command: "bun run build:slow",
+    cwd: s.cwd,
+    output: "",
+    exitCode: null,
+    status: "running",
+    startedAt: ago(40),
+  });
+
+  return model({
+    session: s,
+    turns: [
+      view(
+        turn(s.id, 8, "Start the slow build and check the routes while it runs", "working"),
+        [
+          I.ToolCall.make({
+            id: "t9",
+            name: "Read",
+            input: { file_path: "src/routes/index.ts" },
+            output: null,
+            status: "completed",
+            startedAt: ago(35),
+          }),
+          I.AssistantMessage.make({
+            id: "m9",
+            text: "The routes look right; waiting on the build before I touch them.",
+            startedAt: ago(30),
+          }),
+          I.UserMessage.make({
+            id: "steer:9",
+            text: "Skip the admin routes",
+            startedAt: ago(20),
+          }),
+          I.AssistantMessage.make({
+            id: "m9b",
+            text: "Leaving the admin routes alone.",
+            startedAt: ago(15),
+          }),
+        ],
+        [["c9", { item: running, text: "", output: "building…\n" }]]
+      ),
+    ],
+  });
+};
+
 /** The steer scene's outbox: a steer on its way, one refused, and a queued follow-up. */
 export const steerOutbox = (turnId: string): ReadonlyArray<Outgoing<StagedAttachment>> => [
   {

@@ -41,6 +41,7 @@ import {
   planning,
   question,
   steer,
+  order,
   steerOutbox,
   subagents,
   workspace,
@@ -91,6 +92,7 @@ const SCENES = {
   attachments,
   subagents,
   background,
+  order,
 } as const;
 
 const SCENE_NAMES = [
@@ -105,6 +107,7 @@ const SCENE_NAMES = [
   "attachments",
   "subagents",
   "background",
+  "order",
   "new",
   "setup",
   "none-ready",

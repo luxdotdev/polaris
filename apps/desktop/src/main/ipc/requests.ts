@@ -251,6 +251,8 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
     onLive(hostKey, (s) => s.client["harness.availability"]({ refresh })),
   "session.terminalCommand": ({ hostKey, sessionId }) =>
     onLive(hostKey, (s) => s.client["session.terminalCommand"]({ sessionId })),
+  "session.turns": ({ hostKey, sessionId, beforeIndex, limit }) =>
+    onLive(hostKey, (s) => s.client["session.turns"]({ sessionId, beforeIndex, limit })),
   "constellation.stats": ({ hostKey, constellationId }) =>
     onHost(hostKey, (c) =>
       Effect.flatMap(c.session, (s) => s.client["constellation.stats"]({ constellationId }))

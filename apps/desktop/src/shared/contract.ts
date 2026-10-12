@@ -266,6 +266,7 @@ export const RequestInputs = {
   /** Each catalogue Harness's status on the Host (capability `harness.availability`). */
   "harness.availability": onHost({ refresh: Schema.Boolean }),
   "session.terminalCommand": onHost({ sessionId: SessionId }),
+  "session.turns": onHost({ sessionId: SessionId, beforeIndex: Schema.Int, limit: Schema.Int }),
   /** Hourly Usage buckets overlapping `[from, to)` (capability `usage`). */
   "usage.query": onHost({
     from: Timestamp,
