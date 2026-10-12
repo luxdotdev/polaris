@@ -3,7 +3,7 @@
  * Harness with its tile, "Ready on N of M hosts", a row per Host with at most
  * one action, and the defaults new sessions start with.
  */
-import { ChevronRightIcon, cn, Dither, Tile } from "@polaris/ui";
+import { cn, DisclosureChevron, Dither, Tile } from "@polaris/ui";
 import { useState } from "react";
 import { slots } from "../../../app/slots.tsx";
 import { type HarnessGroup, harnessGroups, type HostRow } from "../model/harnesses.ts";
@@ -88,10 +88,7 @@ const GroupHeader = ({
       </span>
       <span className="text-caption text-text-subtle shrink-0">{group.summary}</span>
       {onToggle === null ? null : (
-        <ChevronRightIcon
-          size={14}
-          className={cn("text-text-subtle shrink-0", !folded && "rotate-90")}
-        />
+        <DisclosureChevron open={!folded} size={14} className="text-text-subtle" />
       )}
     </>
   );

@@ -157,6 +157,12 @@
   --opacity-dimmed: 55%;
 
   --ease-out: cubic-bezier(0.215, 0.61, 0.355, 1);
+  --default-transition-timing-function: var(--ease-out);
+
+  /* Press 120ms, small reveals 160ms, panels and toasts 200ms (DESIGN.md, Motion). */
+  --duration-press: 120ms;
+  --duration-reveal: 160ms;
+  --duration-panel: 200ms;
 }
 
 /* Density: spacing and row heights only, swapped as one set (rule/density-through-tokens). */

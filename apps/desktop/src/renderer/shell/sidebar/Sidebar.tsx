@@ -5,8 +5,7 @@
  */
 import type { Workspace } from "@polaris/protocol";
 import {
-  ChevronDownIcon,
-  ChevronRightIcon,
+  DisclosureChevron,
   GearIcon,
   IconButton,
   Kbd,
@@ -157,11 +156,7 @@ const MachineGroup = ({
         onClick={() => toggleFolded(key, !open)}
         className="h-tree-row text-caption flex cursor-default items-center gap-1.5 px-2"
       >
-        {open ? (
-          <ChevronDownIcon size={10} className="text-text-faint" />
-        ) : (
-          <ChevronRightIcon size={10} className="text-text-faint" />
-        )}
+        <DisclosureChevron open={open} className="text-text-faint" />
         <span
           className="text-text-subtle flex-1 truncate text-left font-medium"
           title={workspace.path}

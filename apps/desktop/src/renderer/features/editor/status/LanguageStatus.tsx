@@ -97,7 +97,7 @@ const ProgressBlock = ({
       className="bg-fill-selected flex h-1 overflow-hidden rounded-full"
     >
       <span
-        className="bg-text-subtle h-1 w-full origin-left rounded-full transition-transform duration-160 ease-out"
+        className="bg-text-subtle h-1 w-full origin-left rounded-full transition-transform duration-200 ease-out"
         style={{ transform: `scaleX(${progress.fraction ?? 0.1})` }}
       />
     </div>

@@ -13,7 +13,7 @@ import type {
   SelectedLineRange,
 } from "@pierre/diffs";
 import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
-import { Button, EmptyState, PixelForkIcon } from "@polaris/ui";
+import { Button, EmptyState, PixelForkIcon, reducedMotion } from "@polaris/ui";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand";
 import type { ReviewAnnotation } from "../surface.ts";
@@ -211,16 +211,18 @@ export const DiffPane = ({
     if (target === undefined) return;
 
     revealed.current = reveal.nonce;
+    const behavior = reducedMotion() ? "instant" : "smooth-auto";
+
     handle.current.scrollTo(
       reveal.line === 0
-        ? { type: "item", id: target.item.id, behavior: "smooth-auto" }
+        ? { type: "item", id: target.item.id, behavior }
         : {
             type: "line",
             id: target.item.id,
             lineNumber: reveal.line,
             side: reveal.side === "old" ? "deletions" : "additions",
             align: "center",
-            behavior: "smooth-auto",
+            behavior,
           }
     );
   }, [reveal, items]);

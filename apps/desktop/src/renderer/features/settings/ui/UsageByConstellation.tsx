@@ -2,7 +2,7 @@
  * Usage → By Constellation (spec §9): each Constellation's tokens split Lead / workers, its
  * cost and wall-clock time; a row opens to its Tasks. Computed when shown, from the buckets.
  */
-import { ChevronDownIcon, ChevronRightIcon } from "@polaris/ui";
+import { DisclosureChevron } from "@polaris/ui";
 import { useMemo, useState } from "react";
 import { useAllConstellations } from "../../sessions/source.ts";
 import { useConstellationStats } from "../constellationStats.ts";
@@ -25,11 +25,7 @@ const Row = ({ spend }: { readonly spend: ConstellationSpend }) => {
         data-testid="usage-constellation"
         className="px-panel hover:bg-fill-hover flex h-9 shrink-0 cursor-default items-center gap-1.5 text-left"
       >
-        {open ? (
-          <ChevronDownIcon size={10} className="text-text-faint shrink-0" />
-        ) : (
-          <ChevronRightIcon size={10} className="text-text-faint shrink-0" />
-        )}
+        <DisclosureChevron open={open} className="text-text-faint" />
         <ConstellationMark size={14} />
         <span className="text-label text-text-default min-w-0 flex-1 truncate">{spend.name}</span>
         <span className={`${NUM} text-text-default w-[80px]`}>

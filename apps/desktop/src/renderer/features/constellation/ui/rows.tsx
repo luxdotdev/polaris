@@ -2,7 +2,7 @@
  * The rail's rows (DESIGN.md, Rows, not a canvas): fixed lanes of rail (60px), id (the view's
  * `--id-lane`), title, actor and state, plus at most two caption lines that carry state.
  */
-import { Button, ChevronDownIcon, ChevronRightIcon, cn } from "@polaris/ui";
+import { Button, ChevronRightIcon, cn, DisclosureChevron } from "@polaris/ui";
 import { Fragment, type ReactNode } from "react";
 import {
   type ClaimGlance,
@@ -303,12 +303,9 @@ const TallyText = ({ tally }: { readonly tally: Tally }) => {
 };
 
 /** A group's heading: its label on the id lane, its tally ending on the state lane. */
-const Chevron = ({ open }: { readonly open: boolean }) =>
-  open ? (
-    <ChevronDownIcon size={10} className="text-text-subtle" />
-  ) : (
-    <ChevronRightIcon size={10} className="text-text-subtle" />
-  );
+const Chevron = ({ open }: { readonly open: boolean }) => (
+  <DisclosureChevron open={open} className="text-text-subtle" />
+);
 
 const GroupView = ({
   row,

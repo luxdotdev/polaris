@@ -11,14 +11,14 @@ export function Switch({ className, ...props }: ComponentProps<typeof SwitchPrim
       data-slot="switch"
       className={cn(
         "inline-flex h-4 w-[26px] shrink-0 cursor-default items-center rounded-full border border-hairline bg-fill-selected p-px",
-        "data-[state=checked]:bg-text-default disabled:opacity-(--opacity-dimmed)",
+        "transition-colors duration-120 ease-out data-[state=checked]:bg-text-default disabled:opacity-(--opacity-dimmed)",
         className
       )}
       {...props}
     >
       <SwitchPrimitive.Thumb
         className={cn(
-          "block size-3 rounded-full bg-text-subtle transition-transform duration-120 ease-out",
+          "block size-3 rounded-full bg-text-subtle transition-[transform,translate,background-color] duration-120 ease-out",
           "data-[state=checked]:translate-x-2.5 data-[state=checked]:bg-bg"
         )}
       />

@@ -96,7 +96,8 @@ function glyph(state: SessionState, harness: Harness, size: number): ReactNode {
  * (rule/only-working-moves), and Needs You is the only attention colour.
  */
 export function StateIcon({ state, harness, size = 16, className, ...props }: StateIconProps) {
-  const leavingWorking = useExitPresence(state === "working", DITHER_EXIT_MS);
+  const working = state === "working";
+  const leavingWorking = useExitPresence(working, DITHER_EXIT_MS);
 
   return (
     <span
@@ -109,13 +110,15 @@ export function StateIcon({ state, harness, size = 16, className, ...props }: St
       style={{ width: size, height: size }}
       {...props}
     >
-      {glyph(state, harness, size)}
-      {leavingWorking ? (
+      {working ? null : glyph(state, harness, size)}
+      {/* One element through Working and its exit: a quick return resumes, never replays. */}
+      {working || leavingWorking ? (
         <Dither
           hue={harness}
           size={size - (size % 2)}
           moving
-          leaving
+          leaving={!working}
+          data-fade=""
           className="absolute inset-0 m-auto"
         />
       ) : null}

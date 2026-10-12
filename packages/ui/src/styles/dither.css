@@ -36,7 +36,7 @@
 }
 
 .polaris-dither[data-moving] {
-  animation: polaris-dither-in 200ms var(--ease-out);
+  animation: polaris-dither-in var(--duration-panel) var(--ease-out);
 }
 
 .polaris-dither[data-moving] > span {
@@ -49,7 +49,22 @@
 
 /* Leaving Working: it keeps stepping while it fades out over 200ms. */
 .polaris-dither[data-leaving] {
-  animation: polaris-dither-out 200ms var(--ease-out) forwards;
+  animation: polaris-dither-out var(--duration-panel) var(--ease-out) forwards;
+}
+
+/* StateIcon's dither fades by transition, so returning to Working mid-exit retargets from where it is. */
+.polaris-dither[data-fade] {
+  animation: none;
+  transition: opacity var(--duration-panel) var(--ease-out);
+
+  @starting-style {
+    opacity: 0;
+  }
+}
+
+.polaris-dither[data-fade][data-leaving] {
+  animation: none;
+  opacity: 0;
 }
 
 /* Reduce Motion replaces the dither with a still pixel pattern. */
