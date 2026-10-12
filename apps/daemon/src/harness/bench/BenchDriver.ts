@@ -66,6 +66,10 @@ const BenchTurnScriptSchema = Schema.Struct({
   startDelayMs: Schema.Number,
   /** Foreground Subagents run after the items, each reporting back through an Agent call. */
   subagents: Schema.Number,
+  /** End the Turn at a usage limit (the Session goes Limited) instead of completing it. */
+  usageLimit: Schema.Boolean,
+  /** The limit's reset, this long from now; 0 leaves the reset time unknown. */
+  usageLimitResetsInMs: Schema.Number,
 });
 
 export type BenchTurnScript = typeof BenchTurnScriptSchema.Type;
@@ -80,6 +84,8 @@ export const DEFAULT_SCRIPT: BenchTurnScript = {
   itemBytes: 0,
   startDelayMs: 0,
   subagents: 0,
+  usageLimit: false,
+  usageLimitResetsInMs: 0,
 };
 
 export const BENCH_PROMPT_PREFIX = "bench:";
@@ -98,6 +104,22 @@ export const parseScript = (prompt: string): BenchTurnScript => {
 };
 
 const nowMs = () => performance.timeOrigin + performance.now();
+
+/** A Turn's end: completed, or failed at a usage limit as a real driver reports one. */
+export const benchTurnEnd = (turnId: TurnId, script: BenchTurnScript) =>
+  script.usageLimit
+    ? HarnessEvent.TurnEnded({
+        turnId,
+        status: "failed",
+        error: "You've hit your usage limit",
+        limit: {
+          resetsAt:
+            script.usageLimitResetsInMs > 0
+              ? new Date(Date.now() + script.usageLimitResetsInMs).toISOString()
+              : null,
+        },
+      })
+    : HarnessEvent.TurnEnded({ turnId, status: "completed", error: null });
 
 const deltaText = (bytes: number): string => {
   const head = `@${nowMs().toFixed(3)}|`;
@@ -314,7 +336,7 @@ const openBenchSession = Effect.fn("BenchDriver.open")(function* (options: OpenO
           windowTokens: BENCH_CONTEXT_WINDOW,
         })
       );
-      yield* emit(HarnessEvent.TurnEnded({ turnId, status: "completed", error: null }));
+      yield* emit(benchTurnEnd(turnId, script));
     }).pipe(
       Effect.onInterrupt(() =>
         emit(HarnessEvent.TurnEnded({ turnId: input.turnId, status: "interrupted", error: null }))
