@@ -122,13 +122,19 @@ const splitN = (record: string, n: number): Array<string> => {
   return fields;
 };
 
-export const gitStatus = async (cwd: string): Promise<Status> => {
+export interface StatusOptions {
+  /** Also list ignored paths (`!`), an ignored folder as one entry (`--ignored=matching`). */
+  readonly ignored?: boolean;
+}
+
+export const gitStatus = async (cwd: string, options: StatusOptions = {}): Promise<Status> => {
   const result = await runGit(cwd, [
     "status",
     "--porcelain=v2",
     "--branch",
     "-z",
     "--untracked-files=normal",
+    ...(options.ignored === true ? ["--ignored=matching"] : []),
   ]);
 
   return parsePorcelainV2(new TextDecoder().decode(result.stdout));

@@ -94,6 +94,23 @@ describe("git.status", () => {
     expect(byPath).toEqual({ "a.txt": ".M", "b.txt": "D.", "new.txt": "??" });
   });
 
+  test("lists ignored paths only when asked, an ignored folder as one entry", async () => {
+    const root = await repo({ ".gitignore": "*.log\nnode_modules/\n", "a.txt": "a\n" });
+    write(root, "debug.log", "x\n");
+    write(root, "node_modules/pkg/index.js", "x\n");
+    write(root, "node_modules/pkg/lib/deep.js", "x\n");
+
+    const plain = await Effect.runPromise(handleGitStatus({ cwd: root }));
+    expect(plain.entries).toEqual([]);
+
+    const status = await Effect.runPromise(handleGitStatus({ cwd: root, ignored: true }));
+
+    expect(status.entries.map((e) => `${e.index}${e.worktree} ${e.path}`).sort()).toEqual([
+      "!! debug.log",
+      "!! node_modules/",
+    ]);
+  });
+
   test("fails with GitError outside a repository", async () => {
     const dir = tempDir();
     cleanup.push(dir);

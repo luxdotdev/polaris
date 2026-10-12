@@ -437,7 +437,11 @@ export class GitStatusEntry extends Schema.Class<GitStatusEntry>("GitStatusEntry
 }) {}
 
 export const GitStatus = Rpc.make("git.status", {
-  payload: { cwd: Schema.String },
+  payload: {
+    cwd: Schema.String,
+    /** Also list ignored paths (`!`), a folder as one entry. Older Daemons drop the field. */
+    ignored: Schema.optional(Schema.Boolean),
+  },
   success: Schema.Struct({
     branch: Schema.NullOr(Schema.String),
     head: Schema.NullOr(Schema.String),

@@ -28,10 +28,12 @@ const gitError = (cwd: string) => (cause: unknown) =>
 
 export const handleGitStatus = Effect.fn("git.status")(function* ({
   cwd,
-}: {
-  readonly cwd: string;
-}) {
-  const status = yield* Effect.tryPromise({ try: () => gitStatus(cwd), catch: gitError(cwd) });
+  ignored,
+}: typeof GitStatus.payloadSchema.Type) {
+  const status = yield* Effect.tryPromise({
+    try: () => gitStatus(cwd, { ignored: ignored === true }),
+    catch: gitError(cwd),
+  });
 
   return {
     ...status,
