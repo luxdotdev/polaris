@@ -44,6 +44,7 @@ import {
 } from "../HarnessDriver.ts";
 import { benchDraftReply, isAcceptDraftPrompt } from "./accept.ts";
 import { benchReviewReply, isReviewerPrompt } from "./review.ts";
+import { benchBreakdown } from "./context.ts";
 import { runSubagent } from "./subagent.ts";
 import { isPreambleProbe, preambleProbe } from "./preamble.ts";
 
@@ -70,6 +71,8 @@ const BenchTurnScriptSchema = Schema.Struct({
   usageLimit: Schema.Boolean,
   /** The limit's reset, this long from now; 0 leaves the reset time unknown. */
   usageLimitResetsInMs: Schema.Number,
+  /** Report the window broken down as Claude Code does (`./context.ts`), not the total only. */
+  contextBreakdown: Schema.Boolean,
 });
 
 export type BenchTurnScript = typeof BenchTurnScriptSchema.Type;
@@ -86,6 +89,7 @@ export const DEFAULT_SCRIPT: BenchTurnScript = {
   subagents: 0,
   usageLimit: false,
   usageLimitResetsInMs: 0,
+  contextBreakdown: false,
 };
 
 export const BENCH_PROMPT_PREFIX = "bench:";
@@ -330,10 +334,15 @@ const openBenchSession = Effect.fn("BenchDriver.open")(function* (options: OpenO
         yield* emit(HarnessEvent.ItemCompleted({ turnId, item }));
       }
 
+      const usedTokens = Math.min(BENCH_CONTEXT_WINDOW, turns * BENCH_CONTEXT_PER_TURN);
+
       yield* emit(
         HarnessEvent.ContextUsed({
-          usedTokens: Math.min(BENCH_CONTEXT_WINDOW, turns * BENCH_CONTEXT_PER_TURN),
+          usedTokens,
           windowTokens: BENCH_CONTEXT_WINDOW,
+          breakdown: script.contextBreakdown
+            ? benchBreakdown(usedTokens, BENCH_CONTEXT_WINDOW)
+            : undefined,
         })
       );
       yield* emit(benchTurnEnd(turnId, script));

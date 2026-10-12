@@ -5,6 +5,7 @@
  */
 import type { Compaction, ContextUsage } from "@polaris/protocol";
 import type { Plain } from "../../../store/plain.ts";
+import { type Details, detailsOf } from "./contextDetails.ts";
 import { CONTEXT_NEARLY_FULL, formatTokens } from "./meta.ts";
 
 /** How a segment is drawn: the Harness hue at a strength, the free track, or the outlined reserve. */
@@ -13,8 +14,8 @@ export type Tone = "strong" | "medium" | "light" | "free" | "reserve";
 export interface Segment {
   readonly key: string;
   readonly label: string;
-  /** Instruction file names, on the memory files row. */
-  readonly files: string | null;
+  /** What the row opens to (Paper 11c); empty rows don't open. */
+  readonly details: Details;
   readonly tokens: number;
   readonly tone: Tone;
 }
@@ -26,6 +27,8 @@ export interface ContextCard {
   /** 0–100, null without a window. */
   readonly percent: number | null;
   readonly nearlyFull: boolean;
+  /** The Harness gave a total and no breakdown (Codex): the card says so rather than guessing. */
+  readonly totalsOnly: boolean;
   /** Legend order: the conversation first, free and the reserve last. */
   readonly legend: ReadonlyArray<Segment>;
   /** 100 cells in window order (the system prompt first), each naming its segment. */
@@ -37,25 +40,24 @@ export const CELLS = 100;
 /** Claude Code's `/context` names, grouped as the card shows them; any other name keeps its own row. */
 const CONVERSATION = { key: "conversation", label: "Conversation", tone: "strong" } as const;
 
+const TOOLS = { key: "tools", label: "Built-in tools", tone: "medium" } as const;
+
+const MCP = { key: "mcp", label: "MCP servers", tone: "medium" } as const;
+
+const SYSTEM = { key: "system", label: "System prompt and agents", tone: "medium" } as const;
+
 const GROUPS = new Map<string, { key: string; label: string; tone: Tone }>([
   ["Messages", CONVERSATION],
+  ["System tools", TOOLS],
+  ["MCP tools", MCP],
+  ["MCP server instructions", MCP],
+  ["Skills", { key: "skills", label: "Skills", tone: "medium" }],
   ["Memory files", { key: "memory", label: "Memory files", tone: "light" }],
-  ["System prompt", { key: "system", label: "System prompt and tools", tone: "medium" }],
-  ["System tools", { key: "system", label: "System prompt and tools", tone: "medium" }],
-  ["MCP tools", { key: "system", label: "System prompt and tools", tone: "medium" }],
-  ["Custom agents", { key: "system", label: "System prompt and tools", tone: "medium" }],
-  ["Skills", { key: "system", label: "System prompt and tools", tone: "medium" }],
+  ["System prompt", SYSTEM],
+  ["Custom agents", SYSTEM],
 ]);
 
-const LEGEND_ORDER = ["conversation", "system", "memory"];
-
-const baseName = (path: string) => path.split(/[\\/]/).at(-1) ?? path;
-
-const fileNames = (usage: Plain<ContextUsage>) => {
-  const names = [...new Set(usage.memoryFiles.map((f) => baseName(f.path)))];
-
-  return names.length === 0 ? null : names.join(", ");
-};
+const LEGEND_ORDER = ["conversation", "tools", "mcp", "skills", "memory", "system"];
 
 interface Group {
   key: string;
@@ -115,10 +117,10 @@ const legendOrder = (groups: ReadonlyArray<Group>) => {
 };
 
 const segmentsOf = (usage: Plain<ContextUsage>, window: number) => {
-  const segment = (g: Group, files: string | null = null): Segment => ({
+  const segment = (g: Group): Segment => ({
     key: g.key,
     label: g.label,
-    files,
+    details: detailsOf(usage, g.key),
     tokens: g.tokens,
     tone: g.tone,
   });
@@ -156,14 +158,10 @@ const segmentsOf = (usage: Plain<ContextUsage>, window: number) => {
   };
 
   const tail = reserve > 0 ? [freeGroup, reserveGroup] : [freeGroup];
-  const files = fileNames(usage);
 
   return {
     inWindow: [...windowOrder(groups), ...tail],
-    legend: [
-      ...legendOrder(groups).map((g) => segment(g, g.key === "memory" ? files : null)),
-      ...tail.map((g) => segment(g)),
-    ],
+    legend: [...legendOrder(groups).map(segment), ...tail.map(segment)],
   };
 };
 
@@ -195,6 +193,7 @@ export const contextCard = (usage: Plain<ContextUsage>): ContextCard => {
       window: null,
       percent: null,
       nearlyFull: false,
+      totalsOnly: usage.categories.length === 0,
       legend: [],
       cells: [],
     };
@@ -206,6 +205,7 @@ export const contextCard = (usage: Plain<ContextUsage>): ContextCard => {
     window,
     percent: Math.round(share * 100),
     nearlyFull: share >= CONTEXT_NEARLY_FULL,
+    totalsOnly: usage.categories.length === 0,
     legend,
     cells: cellsOf(inWindow, window),
   };

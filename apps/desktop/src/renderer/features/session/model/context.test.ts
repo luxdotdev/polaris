@@ -49,21 +49,24 @@ describe("contextCard", () => {
     expect(card.percent).toBe(62);
     expect(card.legend.map((s) => [s.label, s.tokens])).toEqual([
       ["Conversation", 90_000],
-      ["System prompt and tools", 29_400],
+      ["Built-in tools", 20_000],
+      ["MCP servers", 5_000],
       ["Memory files", 4_600],
+      ["System prompt and agents", 4_400],
       ["Free", 31_000],
       ["Kept free for auto-compact", 45_000],
     ]);
-    expect(card.legend[2]?.files).toBe("CLAUDE.md, AGENTS.md");
+    expect(card.legend.find((s) => s.key === "memory")?.details.count).toBe("2 files");
+    expect(card.totalsOnly).toBe(false);
   });
 
-  test("100 cells in window order: system, memory, conversation, free, then the reserve", () => {
+  test("100 cells in window order: system and tools, memory, conversation, free, the reserve", () => {
     const { cells } = contextCard(claude());
 
     const runs = cells.map((c) => c.key).filter((key, i, keys) => key !== keys[i - 1]);
 
     expect(cells).toHaveLength(100);
-    expect(runs).toEqual(["system", "memory", "conversation", "free", "reserve"]);
+    expect(runs).toEqual(["system", "tools", "mcp", "memory", "conversation", "free", "reserve"]);
     expect(cells.filter((c) => c.key === "reserve")).toHaveLength(22);
   });
 
@@ -78,6 +81,7 @@ describe("contextCard", () => {
     const card = contextCard(usage(236_000, 258_000));
 
     expect(card.nearlyFull).toBe(true);
+    expect(card.totalsOnly).toBe(true);
     expect(card.legend.map((s) => [s.label, s.tokens])).toEqual([
       ["In context", 236_000],
       ["Free", 22_000],
