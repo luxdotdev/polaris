@@ -251,11 +251,11 @@ const Unclaimed = ({ group, item, now }: ItemProps) => {
     <Card
       kind={item.kind}
       harness={item.entry?.session.harness ?? "claude"}
-      title={`${who(item)} stopped without claiming`}
+      title={`${who(item)} stopped without reporting back`}
       since={item.since}
       now={now}
     >
-      <Body>Nudged once, then ended again. The lead knows.</Body>
+      <Body>Reminded once, then ended again. The lead knows.</Body>
       <Actions>
         <Button size="xs" onClick={open}>
           Open {who(item)}
@@ -263,7 +263,9 @@ const Unclaimed = ({ group, item, now }: ItemProps) => {
         <Button
           variant="ghost"
           size="xs"
-          onClick={() => restartFresh(group, item, "Stopped without claiming; start again fresh.")}
+          onClick={() =>
+            restartFresh(group, item, "Stopped without reporting back; start again fresh.")
+          }
         >
           Restart fresh
         </Button>
@@ -272,7 +274,7 @@ const Unclaimed = ({ group, item, now }: ItemProps) => {
   );
 };
 
-/** Worktree setup failed before the Attempt (it ranks with "stopped without claiming"). */
+/** Worktree setup failed before the Attempt (it ranks with "stopped without reporting back"). */
 const SetupFailed = ({ group, item, now }: ItemProps) => {
   const open = useOpen(group, item);
   const setup = item.setup;

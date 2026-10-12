@@ -67,6 +67,8 @@ export const DomainEvent = Schema.TaggedUnion({
     reason: Schema.NullOr(Schema.String),
   },
   SessionRenamed: { sessionId: SessionId, title: Schema.String },
+  /** `PinSession`: when it was pinned, or null when unpinned (capability `session.pin`). */
+  SessionPinned: { sessionId: SessionId, pinnedAt: Schema.NullOr(Timestamp) },
   SessionCursorUpdated: { sessionId: SessionId, harnessCursor: Schema.String },
   SessionPermissionModeChanged: { sessionId: SessionId, permissionMode: PermissionMode },
   /** `SetModel`: the Model and effort the next Turns run on. */

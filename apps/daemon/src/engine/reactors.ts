@@ -241,6 +241,7 @@ const make = Effect.gen(function* () {
       SetWorktreeSetup: () => Effect.void,
       SetWorkspaceHidden: () => Effect.void,
       RenameSession: () => Effect.void,
+      PinSession: () => Effect.void,
       SendFeedback: (command) => runStartedTurn(command.sessionId, committed.result.envelopes),
       AcceptTurns: (command) => revertAfterAccept(rt.store, command),
       LinkPullRequest: () => Effect.void,

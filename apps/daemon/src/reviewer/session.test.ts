@@ -69,6 +69,8 @@ test("an unfinished Reviewer times out, interrupts its Turn, and retains its no-
         for (let i = 0; i < 200 && driver.sessions[0]?.interrupts !== 1; i++) await Bun.sleep(5);
       });
       expect(driver.sessions[0]?.interrupts).toBe(1);
+      const id = driver.sessions[0]!.options.sessionId;
+      expect((yield* store.model).sessions.get(id)?.session.origin).toBe("reviewer");
 
       return driver.sessions[0]!.options.sessionId;
     }).pipe(Effect.provide(engine), Effect.provide(TestClock.layer()))

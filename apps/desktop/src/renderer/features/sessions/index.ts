@@ -3,3 +3,7 @@
  * workers nested under it) and the footer's Constellation count.
  */
 export { SessionList, type SessionListProps, useConstellationCount } from "./ui/SessionList.tsx";
+
+export { isReviewSession, sectionsOf } from "./model/sections.ts";
+
+export { ReviewsGroup, reviewsKey } from "./ui/Reviews.tsx";

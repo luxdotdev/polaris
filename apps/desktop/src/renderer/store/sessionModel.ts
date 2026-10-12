@@ -273,6 +273,10 @@ const fold = (event: DomainEvent): Fold =>
         ({ title }): Fold =>
         (m) =>
           patchSession(m, { title }),
+      SessionPinned:
+        ({ pinnedAt }): Fold =>
+        (m) =>
+          patchSession(m, { pinnedAt }),
       SessionCursorUpdated:
         ({ harnessCursor }): Fold =>
         (m) =>
