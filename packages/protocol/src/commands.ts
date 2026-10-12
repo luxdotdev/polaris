@@ -5,7 +5,7 @@
  */
 import { WorktreeSetup } from "./worktreeSetup.ts";
 import { Schema } from "effect";
-import { ApprovalDecision, PermissionMode } from "./domain.ts";
+import { ApprovalDecision, PermissionMode, SessionOrigin } from "./domain.ts";
 import { HarnessKind } from "./harnesses.ts";
 import {
   AttachmentId,
@@ -59,6 +59,8 @@ export const Command = Schema.TaggedUnion({
     serviceTier: Schema.optionalKey(Schema.NullOr(ServiceTier)),
     prompt: Schema.String,
     attachments: Schema.Array(AttachmentId),
+    /** Set by the Daemon's Reviewer and walkthrough; never by a Client. */
+    origin: Schema.optionalKey(Schema.NullOr(SessionOrigin)),
   },
   SendTurn: {
     sessionId: SessionId,
@@ -86,6 +88,8 @@ export const Command = Schema.TaggedUnion({
     decision: ApprovalDecision,
   },
   RenameSession: { sessionId: SessionId, title: Schema.String },
+  /** Pin the session to the top of the list, or unpin it (capability `session.pin`). */
+  PinSession: { sessionId: SessionId, pinned: Schema.Boolean },
   SetPermissionMode: { sessionId: SessionId, permissionMode: PermissionMode },
   /**
    * The Model and effort for the next Turns (capability `session.set-model`).

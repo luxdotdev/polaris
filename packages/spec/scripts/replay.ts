@@ -98,6 +98,7 @@ const DROPPED = new Set([
   "CheckpointRecorded",
   "SessionCursorUpdated",
   "SessionRenamed",
+  "SessionPinned",
   "SessionPermissionModeChanged",
   "SessionModelChanged",
   "SessionContextUsed",
@@ -312,7 +313,7 @@ class Replayer {
 
     const events = this.mapAll(block, id);
 
-    if (events.length === 0) return; // RenameSession, RegisterWorkspace: nothing the spec models
+    if (events.length === 0) return; // RenameSession, PinSession, RegisterWorkspace: nothing the spec models
     const sent = this.trace.commands[id];
 
     if (sent === undefined) throw new Error(`seq ${e.seq}: unknown command ${id}`);
