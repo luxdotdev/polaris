@@ -1,13 +1,10 @@
 /**
  * ⌘F in a transcript: the list is virtualized, so the browser can't find in it.
- * This searches the text each row shows when its Turn is open (prompts, replies,
- * steers, command lines, tool calls, paths, plans, Subagents), folded Turns too.
- * Command output and thinking stay out: they are collapsed, so a hit would show nothing.
+ * This searches what was said, in folded Turns too: the user's prompts and steers
+ * and the agent's replies. Commands, tool calls and their output stay out (owner, 2026-10-11).
  */
 import type { TurnView } from "../../../store/sessionModel.ts";
 import { type Row, turnRows } from "./conversation.ts";
-import type { ItemView } from "./items.ts";
-import type { Entry } from "./runs.ts";
 
 /** One occurrence: the row it is in, and which occurrence in that row's text. */
 export interface Hit {
@@ -20,50 +17,14 @@ export interface SearchOptions {
   readonly matchCase: boolean;
 }
 
-const itemText = (item: ItemView): ReadonlyArray<string> => {
-  switch (item.kind) {
-    case "message":
-    case "user":
-      return [item.text];
-    case "command":
-      return [item.command];
-    case "tool":
-      return [item.name, item.summary];
-    case "files":
-      return item.changes.map((c) => c.path);
-    case "plan":
-      return [item.explanation ?? "", ...item.steps.map((s) => s.text)];
-    case "error":
-      return [item.message];
-    case "reasoning":
-      return [];
-  }
-};
-
-const entryText = (entry: Entry): ReadonlyArray<string> => {
-  switch (entry.kind) {
-    case "item":
-      return itemText(entry.item);
-    case "run":
-      return [entry.summary];
-    case "subagent":
-      return [entry.card.subagent.title, entry.card.task ?? "", entry.card.report ?? ""];
-  }
-};
-
-/** What a row shows, as searchable text; empty for rows with nothing to find. */
+/** What a row shows that is searched: a prompt, a steer or a reply; nothing else. */
 export const rowText = (row: Row): string => {
-  switch (row.kind) {
-    case "prompt":
-    case "trigger":
-      return row.text;
-    case "item":
-      return entryText(row.entry)
-        .filter((t) => t !== "")
-        .join("\n");
-    default:
-      return "";
-  }
+  if (row.kind === "prompt") return row.text;
+
+  if (row.kind !== "item" || row.entry.kind !== "item") return "";
+  const { item } = row.entry;
+
+  return item.kind === "message" || item.kind === "user" ? item.text : "";
 };
 
 /** How many times `query` occurs in `text`, without overlaps. */

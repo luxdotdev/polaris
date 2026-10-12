@@ -44,12 +44,12 @@ describe("transcript search", () => {
       "t0:prompt#0",
       "t0:m0#0",
       "t0:m0#1",
-      "t0:c0#0",
       "t1:prompt#0",
     ]);
   });
 
-  test("leaves command output out, and respects case", () => {
+  test("leaves commands and their output out, and respects case", () => {
+    expect(findInTranscript(turns, "bun test", { matchCase: false })).toEqual([]);
     expect(findInTranscript(turns, "FORM", { matchCase: true }).map((h) => h.rowKey)).toEqual([
       "t1:prompt",
     ]);
