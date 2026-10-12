@@ -9,7 +9,6 @@
  */
 import {
   ApprovalDecision,
-  type ApprovalKind,
   type PermissionMode,
   RequestId,
   TurnId,
@@ -41,19 +40,16 @@ import {
   readRateLimits,
 } from "./planLimits.ts";
 import {
-  approvalDecision,
-  elicitationDecision,
-  permissionsDecision,
   policyFor,
   readableError,
   sandboxPolicyFor,
   toPlanItem,
   toTurnItem,
   turnInput,
-  userInputDecision,
   userMessageText,
 } from "./mapping.ts";
 import * as P from "./protocol.ts";
+import { type ApprovalPrompt, approvalPrompts } from "./approvalPrompts.ts";
 import { codexError, Incoming, type RpcConnection } from "./RpcConnection.ts";
 import { ReasoningTimes } from "./reasoning.ts";
 import { CodexSteers } from "./steers.ts";
@@ -86,15 +82,6 @@ const isRpc = PendingRequest.$is("Rpc");
 /** Hoisted: the taggedEnum accessor builds a new constructor on every property read. */
 const { ItemDelta } = HarnessEvent;
 
-/** A server request Polaris shows as an approval, and how to answer it. */
-interface ApprovalPrompt {
-  readonly kind: ApprovalKind;
-  readonly title: string;
-  readonly detail: string | null;
-  readonly options: ReadonlyArray<string>;
-  readonly respond: (decision: ApprovalDecision) => P.ServerRequestResponse;
-}
-
 const decode = <S extends Schema.Decoder<unknown>>(schema: S) => {
   const decodeOption = Schema.decodeUnknownOption(schema);
 
@@ -125,16 +112,6 @@ const decodeError = decode(P.ErrorNotification);
 
 const decodeName = decode(P.ThreadNameUpdatedNotification);
 
-const decodeCommandApproval = decode(P.CommandApprovalParams);
-
-const decodeFileApproval = decode(P.FileChangeApprovalParams);
-
-const decodePermissions = decode(P.PermissionsApprovalParams);
-
-const decodeUserInput = decode(P.UserInputParams);
-
-const decodeElicitation = decode(P.ElicitationParams);
-
 const newTurnId = () => TurnId.make(crypto.randomUUID());
 
 const newRequestId = () => RequestId.make(crypto.randomUUID());
@@ -151,117 +128,6 @@ const asyncQuestions = (item: P.ThreadItem): AgentMessage["questions"] =>
   item.type === "agentMessage" && "delivery" in item && item.delivery === "async"
     ? item.questions
     : null;
-
-/** The approval shown for each server request Polaris answers; null when its params don't parse. */
-const approvalPrompts = new Map<
-  string,
-  (params: P.RpcPayload) => {
-    readonly threadId: string;
-    readonly turnId: string | null;
-    readonly prompt: ApprovalPrompt;
-  } | null
->([
-  [
-    "item/commandExecution/requestApproval",
-    (params) => {
-      const p = decodeCommandApproval(params);
-
-      return p === null
-        ? null
-        : {
-            threadId: p.threadId,
-            turnId: p.turnId,
-            prompt: {
-              kind: "command",
-              title: p.command ?? "Run a command",
-              detail: p.reason ?? p.cwd ?? null,
-              options: [],
-              respond: approvalDecision,
-            },
-          };
-    },
-  ],
-  [
-    "item/fileChange/requestApproval",
-    (params) => {
-      const p = decodeFileApproval(params);
-
-      return p === null
-        ? null
-        : {
-            threadId: p.threadId,
-            turnId: p.turnId,
-            prompt: {
-              kind: "file-change",
-              title: p.grantRoot ? `Allow writes under ${p.grantRoot}` : "Apply file changes",
-              detail: p.reason ?? null,
-              options: [],
-              respond: approvalDecision,
-            },
-          };
-    },
-  ],
-  [
-    "item/permissions/requestApproval",
-    (params) => {
-      const p = decodePermissions(params);
-
-      return p === null
-        ? null
-        : {
-            threadId: p.threadId,
-            turnId: p.turnId,
-            prompt: {
-              kind: "tool",
-              title: "Grant additional permissions",
-              detail: [p.reason, JSON.stringify(p.permissions)].filter(Boolean).join("\n"),
-              options: [],
-              respond: (decision) => permissionsDecision(p.permissions, decision),
-            },
-          };
-    },
-  ],
-  [
-    "item/tool/requestUserInput",
-    (params) => {
-      const p = decodeUserInput(params);
-
-      return p === null
-        ? null
-        : {
-            threadId: p.threadId,
-            turnId: p.turnId,
-            prompt: {
-              kind: "question",
-              title: p.questions.map((q) => q.question).join("\n"),
-              detail: p.questions.map((q) => q.header).join(" · ") || null,
-              options: p.questions[0]?.options?.map((o) => o.label) ?? [],
-              respond: (decision) => userInputDecision(p.questions, decision),
-            },
-          };
-    },
-  ],
-  [
-    "mcpServer/elicitation/request",
-    (params) => {
-      const p = decodeElicitation(params);
-
-      return p === null
-        ? null
-        : {
-            threadId: p.threadId,
-            turnId: p.turnId,
-            prompt: {
-              kind: "tool",
-              title: `${p.serverName}: ${p.message}`,
-              detail: null,
-              options: [],
-              respond: elicitationDecision,
-            },
-          };
-    },
-  ],
-]);
 
 export const openSession = (
   config: SessionConfig,
