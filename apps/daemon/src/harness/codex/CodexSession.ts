@@ -354,12 +354,15 @@ export const openSession = (
       p !== null && p.threadId === threadId;
 
     const onUserMessage = (p: ItemNotification) => {
-      const turnId = turnFor(p.turnId, { announce: false });
+      turnFor(p.turnId, { announce: false });
       const text = userMessageText(p.item);
       announce(p.turnId, text);
-      const steer = steers.fromItem(p.turnId, p.item.id ?? `text:${text}`, text);
+      steers.fromItem(p.turnId, p.item.id ?? `text:${text}`, text);
+    };
 
-      if (steer !== null) emit(HarnessEvent.ItemCompleted({ turnId, item: steer }));
+    /** Steers the model has now read land just before what it does next. */
+    const landSteers = (turnId: TurnId, landed: ReadonlyArray<TurnItem>) => {
+      for (const item of landed) emit(HarnessEvent.ItemCompleted({ turnId, item }));
     };
 
     const openAsyncQuestions = (turnId: TurnId, item: P.ThreadItem) => {
@@ -397,6 +400,7 @@ export const openSession = (
 
       if (p.item.type === "userMessage") return onUserMessage(p);
       const turnId = turnFor(p.turnId);
+      landSteers(turnId, steers.take(p.turnId));
 
       const item =
         p.item.type === "reasoning" && p.item.id !== undefined
@@ -450,7 +454,7 @@ export const openSession = (
       }
 
       endedTurns.add(p.turn.id);
-      steers.end(p.turn.id);
+      landSteers(turnId, steers.end(p.turn.id));
 
       if (activeCodexTurn === p.turn.id) activeCodexTurn = null;
 
@@ -701,10 +705,7 @@ export const openSession = (
           input: [{ type: "text", text, text_elements: [] }],
           expectedTurnId: codexTurnId,
         } satisfies P.ClientParams["turn/steer"]);
-        const steer = steers.fromResponse(codexTurnId, text);
-
-        if (steer !== null)
-          emit(HarnessEvent.ItemCompleted({ turnId: turnFor(codexTurnId), item: steer }));
+        steers.fromResponse(codexTurnId, text);
       });
 
     const session: HarnessSession = {

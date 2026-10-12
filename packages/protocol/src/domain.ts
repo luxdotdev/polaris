@@ -232,7 +232,10 @@ const startedAt = optionalNullable(Timestamp);
 /** One normalized piece of Harness output within a Turn. `raw` keeps the native frame. */
 export const TurnItem = Schema.TaggedUnion({
   AssistantMessage: { id: Schema.String, text: Schema.String, startedAt },
-  /** Guidance the user sent into the Turn in flight (a steer), once the Harness took it. */
+  /**
+   * Guidance the user sent into the Turn in flight (a steer), once the model took it in;
+   * `startedAt` is when it did, so it follows whatever held it back.
+   */
   UserMessage: { id: Schema.String, text: Schema.String, startedAt },
   Reasoning: {
     id: Schema.String,
