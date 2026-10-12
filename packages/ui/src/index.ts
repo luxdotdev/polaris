@@ -6,6 +6,8 @@ export { cn } from "./lib/cn";
 
 export type { CssVars } from "./lib/css";
 
+export { reducedMotion } from "./lib/motion";
+
 export { useExitPresence } from "./lib/presence";
 
 export {
