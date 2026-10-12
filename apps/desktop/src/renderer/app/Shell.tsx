@@ -1,5 +1,6 @@
 /** Layout F: title bar, the adaptive top bar, then Input → Intent → Output (ENG-177). */
-import { useEffect } from "react";
+import { cn } from "@polaris/ui";
+import { useEffect, useState } from "react";
 import { FileFinder, WorkspaceSearch } from "../features/editor-finder/index.ts";
 import { EditorRequests } from "../features/editor-links/index.ts";
 import { LazyInline } from "../features/editor-inline/index.ts";
@@ -64,6 +65,10 @@ export const Shell = () => {
   const jumpOpen = useNav((s) => s.jumpOpen);
   const { setJumpOpen } = useShellActions();
   const welcome = useOnboardingState((s) => s.welcome);
+  // Set once Welcome has shown in this window, so only the shell that follows it fades in.
+  const [justOnboarded, setJustOnboarded] = useState(false);
+
+  if (welcome === "show" && !justOnboarded) setJustOnboarded(true);
 
   // Until the settings say, a plain frame: the welcome never flashes for a returning user.
   if (welcome === "unknown") return <div className="bg-bg h-full" />;
@@ -71,7 +76,12 @@ export const Shell = () => {
   if (welcome === "show") return <Welcome />;
 
   return (
-    <div className="flex h-full flex-col">
+    <div
+      className={cn(
+        "flex h-full flex-col",
+        justOnboarded && "animate-in fade-in-0 duration-200 ease-out"
+      )}
+    >
       <TitleBar />
       <Body />
       <slots.JumpMenu open={jumpOpen} onOpenChange={setJumpOpen} />
