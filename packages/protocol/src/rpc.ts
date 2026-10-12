@@ -60,7 +60,7 @@ import {
   TurnId,
   WorkspaceId,
 } from "./ids.ts";
-import { addedArray, addedNullable, Model, optionalArray } from "./models.ts";
+import { addedArray, addedNullable, Model, optionalArray, optionalNullable } from "./models.ts";
 import {
   ReviewCheckout,
   ReviewCheckoutStatus,
@@ -500,6 +500,7 @@ export class DiffFile extends Schema.Class<DiffFile>("DiffFile")({
   additions: Schema.Int,
   deletions: Schema.Int,
   binary: Schema.Boolean,
+  generated: optionalNullable(Schema.Boolean), // Generated or lockfile; null: older Daemon.
 }) {}
 
 /** A unified diff; delivered as a blob because diffs can be very large. */

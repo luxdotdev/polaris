@@ -1,12 +1,12 @@
 /**
  * The file list under the risk column (Paper R1 1XP-0): Viewed progress, then a row per
  * file with its Viewed checkbox and highest Severity glyph; viewed files fold into one
- * row. Virtualized, since a list-only Review can hold tens of thousands of files.
+ * row, generated files into another. Virtualized, since a list-only Review can hold tens of thousands of files.
  */
 import { CheckIcon, cn, SeverityGlyph } from "@polaris/ui";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useRef, useState } from "react";
-import { type FileListRow, fileListRows } from "../model/fileList.ts";
+import { type FileListRow, fileListRows, type Fold, type TestsFold } from "../model/fileList.ts";
 import type { ReviewFile } from "../model/layout.ts";
 import type { MarkSeverity } from "../model/marks.ts";
 import type { ViewedProgress } from "../model/viewed.ts";
@@ -22,6 +22,9 @@ export interface FileListProps {
   readonly notice: string | null;
   readonly onOpen: (key: string) => void;
   readonly onViewed: (key: string, viewed: boolean) => void;
+  /** "Hide tests": null when the Review has no test file it could hide. */
+  readonly tests: TestsFold | null;
+  readonly onTestsHidden: (hidden: boolean) => void;
 }
 
 const ROW_HEIGHT = 28;
@@ -41,24 +44,62 @@ const Check = ({ checked }: { readonly checked: boolean }) => (
 interface RowProps {
   readonly row: FileListRow;
   readonly props: FileListProps;
-  readonly onToggleViewed: () => void;
+  readonly onToggle: (fold: Fold) => void;
 }
 
-const Row = ({ row, props, onToggleViewed }: RowProps) => {
-  if (row.kind === "viewed") {
-    return (
-      <button
-        type="button"
-        onClick={onToggleViewed}
-        data-testid="review-files-viewed"
-        className="text-caption text-text-subtle hover:bg-fill-hover rounded-row h-tree-row gap-row-x px-gap flex w-full cursor-default items-center font-mono"
-      >
-        <Check checked />
-        {row.open ? "Hide" : "+"} {row.count.toLocaleString("en-US")} viewed{" "}
-        {row.count === 1 ? "file" : "files"}
-      </button>
-    );
-  }
+const plural = (count: number, one: string, many: string) =>
+  `${count.toLocaleString("en-US")} ${count === 1 ? one : many}`;
+
+const foldLabel = (row: Extract<FileListRow, { kind: "fold" }>) => {
+  if (row.fold === "tests")
+    return row.open
+      ? `Hide ${plural(row.count, "test", "tests")}`
+      : `+ ${plural(row.count, "test", "tests")} hidden`;
+
+  const what =
+    row.fold === "viewed"
+      ? plural(row.count, "viewed file", "viewed files")
+      : `${row.count.toLocaleString("en-US")} generated`;
+
+  return `${row.open ? "Hide" : "+"} ${what}`;
+};
+
+const FOLD_TITLES: Partial<Record<Fold, (row: Extract<FileListRow, { kind: "fold" }>) => string>> =
+  {
+    generated: () => "Lockfiles and generated files; not counted as viewed",
+    tests: (row) =>
+      row.open
+        ? "Hide test files on this Mac; tests with findings stay"
+        : `Show ${plural(row.count, "test file", "test files")} in the diff · Hidden on this Mac · tests with findings stay`,
+  };
+
+const FoldRow = ({
+  row,
+  onToggle,
+}: {
+  readonly row: Extract<FileListRow, { kind: "fold" }>;
+  readonly onToggle: (fold: Fold) => void;
+}) => (
+  <button
+    type="button"
+    onClick={() => onToggle(row.fold)}
+    aria-expanded={row.fold === "tests" ? undefined : row.open}
+    aria-pressed={row.fold === "tests" ? !row.open : undefined}
+    data-testid={`review-files-${row.fold}`}
+    title={FOLD_TITLES[row.fold]?.(row)}
+    className="text-caption text-text-subtle hover:bg-fill-hover rounded-row h-tree-row gap-row-x px-gap flex w-full cursor-default items-center font-mono"
+  >
+    {row.fold === "viewed" ? (
+      <Check checked />
+    ) : (
+      <span aria-hidden="true" className="size-3.5 shrink-0" />
+    )}
+    {foldLabel(row)}
+  </button>
+);
+
+const Row = ({ row, props, onToggle }: RowProps) => {
+  if (row.kind === "fold") return <FoldRow row={row} onToggle={onToggle} />;
 
   const { file, viewed } = row;
   const severity = props.severities.get(file.file.path);
@@ -105,9 +146,20 @@ const Row = ({ row, props, onToggleViewed }: RowProps) => {
 };
 
 export const FileList = (props: FileListProps) => {
-  const [showViewed, setShowViewed] = useState(false);
+  const [open, setOpen] = useState<ReadonlySet<Fold>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
-  const rows = fileListRows(props.files, props.viewedOf, showViewed);
+  const rows = fileListRows(props.files, props.viewedOf, open, props.tests);
+
+  const toggle = (fold: Fold) =>
+    fold === "tests"
+      ? props.onTestsHidden(props.tests?.hidden !== true)
+      : setOpen((now) => {
+          const next = new Set(now);
+
+          if (!next.delete(fold)) next.add(fold);
+
+          return next;
+        });
 
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -116,7 +168,7 @@ export const FileList = (props: FileListProps) => {
     getItemKey: (index) => {
       const row = rows[index];
 
-      return row === undefined || row.kind === "viewed" ? `viewed:${index}` : row.file.key;
+      return row === undefined || row.kind === "fold" ? `fold:${row?.fold}` : row.file.key;
     },
     overscan: 12,
   });
@@ -151,7 +203,7 @@ export const FileList = (props: FileListProps) => {
                 className="absolute top-0 left-0 w-full"
                 style={{ transform: `translateY(${item.start}px)` }}
               >
-                <Row row={row} props={props} onToggleViewed={() => setShowViewed((v) => !v)} />
+                <Row row={row} props={props} onToggle={toggle} />
               </div>
             );
           })}

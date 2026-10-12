@@ -22,6 +22,8 @@ export interface PatchFile {
   readonly additions: number;
   readonly deletions: number;
   readonly binary: boolean;
+  /** The Daemon's verdict (`DiffFile.generated`); null when it gave none. */
+  readonly generated: boolean | null;
 }
 
 /** `git.diff`'s `fileIndex` entry (protocol `DiffFile`). */
@@ -34,6 +36,7 @@ export interface IndexedFile {
   readonly additions: number;
   readonly deletions: number;
   readonly binary: boolean;
+  readonly generated: boolean | null;
 }
 
 const NEWLINE = 0x0a;
@@ -108,6 +111,7 @@ export const describeFile = (text: string, offset: number, length: number): Patc
     additions,
     deletions,
     binary: lines.some((l) => l.startsWith("Binary files ") || l === "GIT binary patch"),
+    generated: null,
   };
 };
 

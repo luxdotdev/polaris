@@ -26,6 +26,7 @@ import {
 } from "../../editor-links/index.ts";
 import { CentrePane, setTab, type SessionInfo } from "../overview/index.ts";
 import { DiffPane } from "./DiffPane.tsx";
+import { setTestsHidden } from "../data/testsStore.ts";
 import { FileList } from "./FileList.tsx";
 import { useThemeType } from "./theme.ts";
 import { type PullViewed, useReviewModel } from "./useReviewModel.ts";
@@ -164,6 +165,8 @@ const Ready = ({
             model.open(file);
           }}
           onViewed={model.setViewed}
+          tests={model.tests}
+          onTestsHidden={setTestsHidden}
         />
       </RiskColumn>
       <CentrePane

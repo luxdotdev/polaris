@@ -15,6 +15,10 @@ export interface ReviewFile {
   readonly section: string;
   readonly file: PatchFile;
   readonly fingerprint: string;
+  /** A lockfile or generated file (`noiseOf`): opens collapsed, outside Viewed progress. */
+  readonly generated: boolean;
+  /** A test file (`noiseOf`); never also generated. */
+  readonly test: boolean;
 }
 
 export interface ReviewSection {
@@ -70,7 +74,7 @@ const filesCaption = (count: number, allViewed: boolean) =>
   `${count.toLocaleString("en-US")} ${count === 1 ? "file" : "files"}${allViewed ? " · all viewed" : ""}`;
 
 const defaultCollapsed = (input: LayoutInput, file: ReviewFile) =>
-  input.scale !== "full" || input.viewed(file) || file.file.binary;
+  input.scale !== "full" || input.viewed(file) || file.file.binary || file.generated;
 
 const turnsLabel = (turns: ReadonlyArray<number>) => {
   const low = Math.min(...turns);
@@ -94,7 +98,8 @@ const place = (input: LayoutInput): ReadonlyArray<Placed> =>
 
     if (first === undefined) return [];
 
-    const allViewed = section.files.every(input.viewed);
+    // Generated files don't hold a Turn open: they sit outside Viewed progress.
+    const allViewed = section.files.filter((f) => !f.generated).every(input.viewed);
     const foldable = section.divider !== null && (index > 0 || allViewed);
 
     return [

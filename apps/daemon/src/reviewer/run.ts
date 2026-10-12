@@ -27,7 +27,8 @@ import { recordRulesLayer } from "../rules/index.ts";
 import { EventStore } from "../store/EventStore.ts";
 import { currentPlanLimitNote, reviewerCost } from "./cost.ts";
 import { type ChangeDiff, readDiff } from "./diff.ts";
-import { isIgnored, readInstructions } from "./instructions.ts";
+import { generatedPaths } from "./generated.ts";
+import { readInstructions } from "./instructions.ts";
 import {
   parseReviewerReply,
   type ReadLines,
@@ -225,9 +226,6 @@ interface AgentInput {
   readonly context: ReviewContext | null;
 }
 
-const withoutIgnored = (diff: ChangeDiff, ignore: ReadonlyArray<string>): ChangeDiff =>
-  ignore.length === 0 ? diff : { files: diff.files.filter((f) => !isIgnored(ignore, f.path)) };
-
 const whyOf = (range: ReviewRange, context: ReviewContext | null): string | null => {
   if (context !== null) return context.body.trim() === "" ? null : context.body;
 
@@ -275,6 +273,15 @@ const askReviewer = Effect.fn("askReviewer")(function* (input: AgentInput) {
     readInstructions({ cwd: range.cwd, head: range.head, repo: range.key.repo })
   );
 
+  const generated = yield* Effect.promise(() =>
+    generatedPaths({
+      root: range.cwd,
+      at: range.rulesAt,
+      repo: range.key.repo,
+      paths: diff.files.map((f) => f.path),
+    })
+  );
+
   const current = yield* readSummary(summary.id);
   const previous = yield* previousRun(range);
 
@@ -283,7 +290,8 @@ const askReviewer = Effect.fn("askReviewer")(function* (input: AgentInput) {
     why: whyOf(range, input.context),
     instructions: instructions.text,
     ruleFindings: (current?.findings ?? []).filter((f) => f.source === "rule"),
-    diff: withoutIgnored(diff, instructions.ignore),
+    diff,
+    generated,
     base: range.base,
     head: range.head,
     since: range.key.since,

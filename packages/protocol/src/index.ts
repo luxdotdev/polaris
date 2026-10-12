@@ -26,6 +26,8 @@ export * from "./models.ts";
 
 export * from "./review.ts";
 
+export * from "./reviewPaths.ts";
+
 export * from "./rpc.ts";
 
 export * from "./slashCommands.ts";
