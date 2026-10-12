@@ -34,6 +34,7 @@ import { SetupCard } from "./SetupCard.tsx";
 import { EntryView } from "./entries.tsx";
 import { OutgoingMessage, Steered } from "./outgoing.tsx";
 import { softWrap } from "./softWrap.tsx";
+import { TurnEnd } from "./turnEnd.tsx";
 import type { SessionChrome } from "../chrome.ts";
 
 export interface RowContext {
@@ -216,8 +217,21 @@ const Agent = ({ row, ctx }: { row: Extract<Row, { kind: "item" }>; ctx: RowCont
     <div className="flex min-w-0 flex-1 flex-col">
       <EntryView
         entry={row.entry}
-        ctx={{ hue: ctx.harness, onOpenDiff: () => ctx.onOpenDiff(row.turnId) }}
+        ctx={{
+          hue: ctx.harness,
+          onOpenDiff: () => ctx.onOpenDiff(row.turnId),
+          latest: row.latest,
+        }}
       />
+      {row.entry.kind === "item" && row.entry.item.kind === "message" ? (
+        <TurnEnd
+          hostKey={ctx.diff.hostKey}
+          sessionId={ctx.diff.sessionId}
+          turnId={row.turnId}
+          itemId={row.entry.item.id}
+          live={row.turnId === ctx.liveTurnId}
+        />
+      ) : null}
     </div>
   </div>
 );
@@ -359,10 +373,16 @@ export const ConversationRow = ({ row, ctx }: { row: Row; ctx: RowContext }) => 
       return ctx.chrome.trailer ?? null;
     case "item":
       return row.entry.kind === "item" && row.entry.item.kind === "user" ? (
-        <Steered
-          text={row.entry.item.text}
-          time={row.startedAt === null ? null : <TurnTime iso={row.startedAt} />}
-        />
+        (ctx.chrome.steerCard?.({
+          turnId: row.turnId,
+          itemId: row.entry.item.id,
+          text: row.entry.item.text,
+        }) ?? (
+          <Steered
+            text={row.entry.item.text}
+            time={row.startedAt === null ? null : <TurnTime iso={row.startedAt} />}
+          />
+        ))
       ) : (
         <Agent row={row} ctx={ctx} />
       );

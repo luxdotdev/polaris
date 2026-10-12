@@ -28,6 +28,7 @@ export { setOutputWidth, useOutputWidth } from "./output/width.ts";
 export {
   SessionChromeContext,
   type PolarisCardArgs,
+  polarisAuthored,
   type SessionChrome,
   type SteerCardArgs,
 } from "./chrome.ts";

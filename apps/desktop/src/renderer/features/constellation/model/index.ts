@@ -91,7 +91,13 @@ export { LANE_MAX, LANE_MIN, laneWidth, RAIL, railCap, railStep, railX } from ".
 
 export { stoppedWithoutClaiming } from "./stopped.ts";
 
-export { type DigestFold, digestFold, digestStarted } from "./digest.ts";
+export {
+  type DigestFold,
+  digestFold,
+  digestStarted,
+  STEERED_DIGEST_OPENING,
+  steeredDigest,
+} from "./digest.ts";
 
 export { failedText, neutralFailure } from "./failure.ts";
 

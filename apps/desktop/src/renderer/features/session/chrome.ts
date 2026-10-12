@@ -41,6 +41,19 @@ export interface SessionChrome {
 
 const NONE: SessionChrome = {};
 
+/**
+ * Whether Polaris wrote a Turn's prompt (`itemId` null) or a steer, not the user: the chrome
+ * shows a card for it. The composer's ↑/↓ history skips what this marks.
+ */
+export const polarisAuthored = (
+  chrome: SessionChrome,
+  turnId: string,
+  itemId: string | null
+): boolean =>
+  (itemId === null
+    ? chrome.promptCard?.({ turnId, folded: true, canFold: false, onToggle: () => undefined })
+    : chrome.steerCard?.({ turnId, itemId, text: "" })) != null;
+
 export const SessionChromeContext = createContext<SessionChrome>(NONE);
 
 export const useSessionChrome = (): SessionChrome => useContext(SessionChromeContext);
