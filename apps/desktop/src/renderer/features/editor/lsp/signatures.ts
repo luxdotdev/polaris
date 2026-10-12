@@ -5,6 +5,10 @@ import { loadDocRenderer, mountDocs } from "./docs.tsx";
 import type { LanguageFeatures } from "./features.ts";
 import type { LanguageProvider } from "./types.ts";
 
+const ACK_POLL_MS = 50;
+
+const ACK_ATTEMPTS = 40;
+
 const signature = StateEffect.define<Tooltip | null>();
 
 const field = StateField.define<Tooltip | null>({
@@ -68,6 +72,23 @@ export const signatureExtension = (
     });
   };
 
+  /** A typed `(` or `,` waits for a server to acknowledge the edit; until then no server is asked. */
+  const typed = async (view: EditorView) => {
+    const doc = view.state.doc;
+
+    for (let attempt = 0; attempt < ACK_ATTEMPTS; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, ACK_POLL_MS));
+
+      if (!alive.has(view) || view.state.doc !== doc) return;
+      const buffer = features.options.buffer();
+
+      if (
+        features.options.providers().some((provider) => features.requests.current(provider, buffer))
+      )
+        return request(view);
+    }
+  };
+
   return [
     field,
     keymap.of([
@@ -108,7 +129,7 @@ export const signatureExtension = (
             update.state.selection.main.head
           );
 
-          if (char === "(" || char === ",") void request(update.view);
+          if (char === "(" || char === ",") void typed(update.view);
         },
       };
     }),
