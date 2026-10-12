@@ -161,7 +161,7 @@ const wordFor = (task: TaskData, p: ProjectionData, attempt: AttemptData | null,
   if (p.state === "working" && attempt !== null) return `working · ${span(attempt.startedAt, now)}`;
 
   if (task.kind === "gate" && (p.state === "waiting" || p.state === "ready"))
-    return p.blockedBy.length > 0 ? `waits ${idRanges(p.blockedBy)}` : "ready";
+    return p.blockedBy.length > 0 ? `after ${idRanges(p.blockedBy)}` : "ready";
 
   return STATE_WORD[p.state];
 };

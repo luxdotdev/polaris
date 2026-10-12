@@ -215,9 +215,9 @@ const lineFor = (input: LineInput): Line | null => {
   if (attention?.kind === "stopped")
     return {
       kind: "note",
-      text: "stopped without claiming",
+      text: "stopped without reporting back",
       tone: "neutral",
-      detail: "nudged once",
+      detail: "reminded once",
     };
 
   if (attention?.kind === "question")

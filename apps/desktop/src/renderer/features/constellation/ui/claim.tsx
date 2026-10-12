@@ -42,7 +42,9 @@ const Receipt = ({ r }: { readonly r: ReceiptView }) => (
 const Row = ({ label, children, tone }: { label: string; children: ReactNode; tone?: string }) => (
   <div className="flex gap-3">
     <dt className="text-body text-text-subtle w-20 shrink-0">{label}</dt>
-    <dd className={cn("text-body text-text-default min-w-0", tone)}>{children}</dd>
+    <dd className={cn("text-body text-text-default min-w-0 [overflow-wrap:anywhere]", tone)}>
+      {children}
+    </dd>
   </div>
 );
 
@@ -66,7 +68,7 @@ const Facts_ = ({ claim, task }: { readonly claim: ClaimData; readonly task: Tas
     <Row label="Area">
       {claim.outsideArea.length === 0
         ? task.area.length === 0
-          ? "No area declared"
+          ? "No paths declared"
           : `Stayed inside ${task.area.join(", ")}`
         : claim.outsideArea.map((o) => (
             <span key={o.path} className="block">
@@ -95,7 +97,7 @@ const Choice = ({
     role={square ? "checkbox" : "radio"}
     aria-checked={checked}
     onClick={onSelect}
-    className="flex h-7 cursor-default items-center gap-2.5 text-left"
+    className="flex h-7 max-w-full min-w-0 cursor-default items-center gap-2.5 text-left"
   >
     <span
       className={cn(
@@ -109,8 +111,8 @@ const Choice = ({
         />
       ) : null}
     </span>
-    <span className="text-body text-text-default">{label}</span>
-    <span className="text-body text-text-subtle">{hint}</span>
+    <span className="text-body text-text-default min-w-0 truncate">{label}</span>
+    <span className="text-body text-text-subtle shrink-0">{hint}</span>
   </button>
 );
 
@@ -211,13 +213,13 @@ const SendBack = ({ hostKey, record, task, attempt, place, onClose }: FormProps)
           checked={!fresh}
           onSelect={() => setFresh(false)}
           label="Same session"
-          hint="a new Turn with the reason"
+          hint="a new turn with the reason"
         />
         <Choice
           checked={fresh}
           onSelect={() => setFresh(true)}
           label="Fresh session"
-          hint="same worktree, brief + this claim"
+          hint="same worktree, with the brief and this claim"
         />
       </div>
       <div className="flex items-center gap-2">
@@ -264,9 +266,9 @@ const SendBack = ({ hostKey, record, task, attempt, place, onClose }: FormProps)
 };
 
 const tierOf = (receipts: ReadonlyArray<ReceiptView>) => {
-  if (receipts.length === 0) return "asserted";
+  if (receipts.length === 0) return "no checks";
 
-  return receipts.some((r) => r.tier === "verified") ? "verified" : "reported";
+  return receipts.some((r) => r.tier === "verified") ? "verified checks" : "reported checks";
 };
 
 /** Why Accept was refused, in the user's words, with Approve beside it when that would work. */
@@ -543,7 +545,7 @@ export const ClaimCard = (props: ClaimCardProps) => {
       >
         <ClaimHead attempt={attempt} claim={claim} />
         {receipts.length === 0 ? (
-          <p className="text-body text-text-subtle px-3.5 py-2.5">No receipts: asserted</p>
+          <p className="text-body text-text-subtle px-3.5 py-2.5">No checks reported</p>
         ) : (
           <ul className="py-1">
             {receipts.map((r, n) => (

@@ -36,10 +36,20 @@ export const TONE: Readonly<Record<Tone, string>> = {
 
 export const ID_TONE: Readonly<Record<Tone, string>> = { ...TONE, neutral: "text-text-subtle" };
 
-const Caption = ({ children, className }: { children: ReactNode; className?: string }) => (
+/** A row's second line; `wrap` lets a Claim's checks run onto more lines rather than clip. */
+const Caption = ({
+  children,
+  className,
+  wrap = false,
+}: {
+  children: ReactNode;
+  className?: string;
+  wrap?: boolean;
+}) => (
   <p
     className={cn(
-      "text-caption text-text-subtle flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap",
+      "text-caption text-text-subtle flex min-w-0 items-center gap-2",
+      wrap ? "flex-wrap gap-y-0.5" : "overflow-hidden whitespace-nowrap",
       className
     )}
   >
@@ -68,15 +78,21 @@ const LivenessLine = ({ line }: { readonly line: Liveness }) => (
 );
 
 const ClaimLine = ({ glance }: { readonly glance: ClaimGlance }) => (
-  <Caption>
+  <Caption wrap>
     <span className="text-code-inline font-mono">{shortSha(glance.head)}</span>
     <Checks checks={glance.checks} />
-    {glance.notDone === 0 ? null : <span>{glance.notDone} not done</span>}
-    {glance.questions === 0 ? null : (
-      <span className="text-needs-you-text">{pluralize(glance.questions, "question")}</span>
+    {glance.notDone === 0 ? null : (
+      <span className="whitespace-nowrap">{glance.notDone} not done</span>
     )}
-    {glance.asserted ? <span className="text-text-faint">no receipts</span> : null}
-    {glance.approved ? <span className="text-accepted-text">you approved</span> : null}
+    {glance.questions === 0 ? null : (
+      <span className="text-needs-you-text whitespace-nowrap">
+        {pluralize(glance.questions, "question")}
+      </span>
+    )}
+    {glance.asserted ? <span className="text-text-faint whitespace-nowrap">no checks</span> : null}
+    {glance.approved ? (
+      <span className="text-accepted-text whitespace-nowrap">you approved</span>
+    ) : null}
   </Caption>
 );
 
@@ -133,7 +149,7 @@ const LineView = ({ line }: { readonly line: Line }) => {
       return <ClaimLine glance={line.glance} />;
     case "accepted":
       return (
-        <Caption>
+        <Caption wrap>
           <span className="text-code-inline font-mono">{shortSha(line.head)}</span>
           <Checks checks={line.receipts} reportedHollow />
         </Caption>
@@ -196,7 +212,10 @@ const TaskView = ({
   readonly on: RowHandlers;
   readonly step: number;
 }) => (
-  <div className="min-h-tree-row flex w-full items-stretch pr-3 pl-3" data-task={row.task.id}>
+  <div
+    className="min-h-tree-row flex w-full items-stretch pr-3 pl-3 @max-[26rem]:pr-1.5"
+    data-task={row.task.id}
+  >
     <Rail tree={row.tree} step={step} accepted={row.look.bucket === "done"}>
       <TaskGlyph glyph={row.look.glyph} harness={row.harness} />
     </Rail>
@@ -210,7 +229,7 @@ const TaskView = ({
         <span className="text-body text-text-subtle hidden w-[9.5rem] shrink-0 truncate text-right @[42rem]:block">
           {row.actor}
         </span>
-        <span className="flex w-[7.5rem] shrink-0 items-center justify-end gap-1.5 text-right">
+        <span className="flex w-[7.5rem] shrink-0 items-center justify-end gap-1.5 text-right @max-[26rem]:w-20">
           <span className={cn("text-body truncate", TONE[row.look.wordTone])}>{row.look.word}</span>
           {row.look.evidence === null ? null : (
             <span className="text-body text-text-subtle">{row.look.evidence}</span>
@@ -295,7 +314,7 @@ const TallyText = ({ tally }: { readonly tally: Tally }) => {
     parts.push(<span key="wt">{tally.waiting} waiting</span>);
 
   return (
-    <span className="text-body text-text-subtle flex min-w-[7.5rem] shrink items-center justify-end gap-1.5 overflow-hidden whitespace-nowrap">
+    <span className="text-body text-text-subtle flex min-w-[7.5rem] shrink items-center justify-end gap-1.5 overflow-hidden whitespace-nowrap @max-[26rem]:min-w-20">
       {parts.flatMap((p, n) => (n === 0 ? [p] : [<span key={`s${n}`}>·</span>, p]))}
       {tally.done > 0 ? <span className="text-accepted-text pl-1">{tally.done} done</span> : null}
     </span>
@@ -322,7 +341,7 @@ const GroupView = ({
     type="button"
     aria-expanded={row.open}
     onClick={() => on.onToggleGroup(row.group)}
-    className="min-h-tree-row flex w-full cursor-default items-stretch pr-3 pl-3 text-left"
+    className="min-h-tree-row flex w-full cursor-default items-stretch pr-3 pl-3 text-left @max-[26rem]:pr-1.5"
   >
     <Rail tree={TRUNK} step={step} trail={<Chevron open={row.open} />}>
       <TaskGlyph glyph={row.glyph} harness={null} />
@@ -368,7 +387,7 @@ const ParentView = ({
     aria-expanded={row.open}
     aria-label={`${row.task.id} · ${row.task.title}, ${row.total} tasks`}
     onClick={() => on.onToggleGroup(row.fold)}
-    className="min-h-tree-row flex w-full cursor-default items-stretch pr-3 pl-3 text-left"
+    className="min-h-tree-row flex w-full cursor-default items-stretch pr-3 pl-3 text-left @max-[26rem]:pr-1.5"
     data-parent={row.task.id}
   >
     <Rail
@@ -409,7 +428,7 @@ const SubagentView = ({
   <button
     type="button"
     onClick={() => on.onFocus(row.parent)}
-    className="h-tree-row flex w-full cursor-default items-stretch pr-3 pl-3 text-left"
+    className="h-tree-row flex w-full cursor-default items-stretch pr-3 pl-3 text-left @max-[26rem]:pr-1.5"
     data-subagent={row.subagent.id}
   >
     <Rail tree={row.tree} step={step} small>
@@ -426,7 +445,7 @@ const SubagentView = ({
       <span className="text-body text-text-faint hidden w-[9.5rem] shrink-0 truncate text-right @[42rem]:block">
         {row.subagent.agent === null ? "subagent" : `subagent · ${row.subagent.agent}`}
       </span>
-      <span className="text-body text-text-default w-[7.5rem] shrink-0 text-right">
+      <span className="text-body text-text-default w-[7.5rem] shrink-0 text-right @max-[26rem]:w-20">
         working · {row.age}
       </span>
       <span className="w-6 shrink-0" />
@@ -455,7 +474,7 @@ export const RowView = ({
       return <GroupView row={row} on={on} large={large} step={step} />;
     case "handover":
       return (
-        <div className="h-tree-row flex w-full items-stretch pr-3 pl-3">
+        <div className="h-tree-row flex w-full items-stretch pr-3 pl-3 @max-[26rem]:pr-1.5">
           <Rail tree={TRUNK} step={step}>
             <span className="bg-text-faint size-[5px] rounded-full" />
           </Rail>
@@ -470,7 +489,7 @@ export const RowView = ({
       );
     case "proposal":
       return (
-        <div className="h-tree-row flex w-full items-stretch pr-3 pl-3">
+        <div className="h-tree-row flex w-full items-stretch pr-3 pl-3 @max-[26rem]:pr-1.5">
           <Rail tree={row.tree} step={step}>
             <TaskGlyph glyph="future" harness={null} />
           </Rail>
@@ -498,7 +517,7 @@ export const RowView = ({
       );
     case "waiting":
       return (
-        <div className="h-tree-row flex w-full items-stretch pr-3 pl-3">
+        <div className="h-tree-row flex w-full items-stretch pr-3 pl-3 @max-[26rem]:pr-1.5">
           <Rail tree={row.tree} step={step}>
             <TaskGlyph glyph="waiting" harness={null} />
           </Rail>

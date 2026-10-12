@@ -134,7 +134,10 @@ export const Filters = ({
 );
 
 /** The foot row: move, focus, fold, next that needs you, and the row's own key. */
-export const KeyHints = ({ last }: { readonly last: string }) => (
+/** A row's own keys, each a keycap and what it does. */
+export type RowKeys = ReadonlyArray<readonly [key: string, label: string]>;
+
+export const KeyHints = ({ last }: { readonly last: RowKeys }) => (
   <div className="text-caption text-text-subtle border-hairline flex h-9 shrink-0 items-center gap-5 border-t px-4">
     <span>
       <Kbd variant="plain">↑↓</Kbd> move
@@ -148,6 +151,10 @@ export const KeyHints = ({ last }: { readonly last: string }) => (
     <span>
       <Kbd variant="plain">tab</Kbd> next that needs you
     </span>
-    <span>{last}</span>
+    {last.map(([key, label]) => (
+      <span key={key}>
+        <Kbd variant="plain">{key}</Kbd> {label}
+      </span>
+    ))}
   </div>
 );

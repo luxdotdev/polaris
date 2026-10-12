@@ -3,7 +3,7 @@
  * surface-raised with the Constellation mark, never the user's prompt bubble.
  */
 import type { AttemptState } from "@polaris/protocol";
-import { ChevronRightIcon, cn } from "@polaris/ui";
+import { ChevronDownIcon, ChevronRightIcon, cn } from "@polaris/ui";
 import { Match } from "effect";
 import { Fragment, type ReactNode } from "react";
 import {
@@ -12,6 +12,7 @@ import {
   clock,
   type ConstellationRecord,
   type Digest,
+  type DigestFold,
   type Facts,
   LANE_MAX,
   laneWidth,
@@ -141,11 +142,15 @@ const settledLine = (r: ConstellationRecord, attemptId: string, state: string, f
 
     return (
       <>
-        claimed{" "}
-        <span className="text-code-inline text-text-subtle font-mono">{shortSha(g.head)}</span>
+        <span className="whitespace-nowrap">
+          claimed{" "}
+          <span className="text-code-inline text-text-subtle font-mono">{shortSha(g.head)}</span>
+        </span>
         <Checks checks={g.checks.filter((c) => c.ok === false)} />
         {g.questions === 0 ? null : (
-          <span className="text-needs-you-text">{pluralize(g.questions, "question")}</span>
+          <span className="text-needs-you-text whitespace-nowrap">
+            {pluralize(g.questions, "question")}
+          </span>
         )}
       </>
     );
@@ -183,7 +188,7 @@ const BlockedBody = ({
           ))}
         </span>
       )}
-      <span className="text-text-faint truncate">{reason}</span>
+      <span className="text-text-faint max-w-full min-w-0 truncate">{reason}</span>
     </>
   );
 };
@@ -207,7 +212,7 @@ const lineOf = (r: ConstellationRecord, n: NotificationData, facts: Facts): Dige
         task: task(attemptId),
         glyph: "stopped",
         tone: "text-text-subtle",
-        body: "stopped without claiming",
+        body: "stopped without reporting back",
       }),
       Settled: ({ attemptId, state }): DigestLine => ({
         key: n.id,
@@ -229,7 +234,7 @@ const lineOf = (r: ConstellationRecord, n: NotificationData, facts: Facts): Dige
         task: task(attemptId),
         glyph: "needs-you",
         tone: "text-needs-you-text",
-        body: <span className="truncate">asks: {question.text}</span>,
+        body: <span className="max-w-full min-w-0 truncate">asks: {question.text}</span>,
       }),
       Proposal: ({ attemptId, proposalId }): DigestLine => ({
         key: n.id,
@@ -243,7 +248,7 @@ const lineOf = (r: ConstellationRecord, n: NotificationData, facts: Facts): Dige
         task: null,
         glyph: "waiting",
         tone: "text-text-subtle",
-        body: <span className="truncate">{text}</span>,
+        body: <span className="max-w-full min-w-0 truncate">{text}</span>,
       }),
       // An answer isn't accepted work (rule/constellation-colour): a neutral glyph.
       QuestionAnswered: ({ attemptId, text }): DigestLine => ({
@@ -251,52 +256,111 @@ const lineOf = (r: ConstellationRecord, n: NotificationData, facts: Facts): Dige
         task: task(attemptId),
         glyph: "waiting",
         tone: "text-text-subtle",
-        body: <span className="truncate">you answered: {text}</span>,
+        body: <span className="max-w-full min-w-0 truncate">you answered: {text}</span>,
       }),
     })
   );
 };
 
-/** A Lead's digest Turn: one row per settle or question, each with its glyph and coloured id. */
-export const DigestCard = ({
-  record,
-  digest,
-  facts,
-}: {
+export interface DigestCardProps {
   readonly record: ConstellationRecord;
   readonly digest: Digest;
   readonly facts: Facts;
-}) => {
+  /** The Turn is folded: one line with the Lead's reply, which unfolds it. */
+  readonly folded: boolean;
+  /** Folds or unfolds the Turn; null when the conversation says it can't fold. */
+  readonly onToggle: (() => void) | null;
+  readonly fold: DigestFold | null;
+}
+
+/** A folded digest Turn, like any folded Turn: its number, the updates, the Lead's reply. */
+const FoldedDigest = ({ record, digest, onToggle, fold }: DigestCardProps) => (
+  <button
+    type="button"
+    onClick={onToggle ?? undefined}
+    aria-expanded={false}
+    aria-label={`Turn ${fold?.number ?? ""}: ${pluralize(digest.items.length, "update")} from ${record.constellation.name}`}
+    className={cn(
+      CARD,
+      "hover:bg-fill-hover flex h-10 w-full cursor-default items-center gap-2 px-3.5 text-left"
+    )}
+    data-testid="digest-card"
+    data-folded=""
+  >
+    <ConstellationMark size={14} />
+    {fold === null ? null : (
+      <span className="text-caption text-text-subtle tabular shrink-0 font-medium">
+        Turn {fold.number}
+      </span>
+    )}
+    <span className="text-label text-text-strong shrink-0">
+      {pluralize(digest.items.length, "update")}
+    </span>
+    <span className="text-body text-text-subtle min-w-0 flex-1 truncate">{fold?.reply ?? ""}</span>
+    <span className="text-caption text-text-subtle tabular shrink-0">{clock(digest.at)}</span>
+    <ChevronRightIcon size={10} className="text-text-faint shrink-0" />
+  </button>
+);
+
+/** A Lead's digest Turn: one row per settle or question, each with its glyph and coloured id. */
+export const DigestCard = (props: DigestCardProps) => {
+  const { record, digest, facts, folded, onToggle } = props;
+
+  if (folded) return <FoldedDigest {...props} />;
+
   const lines = digest.items.map((n) => lineOf(record, n, facts));
   const ids = lines.flatMap((l) => (l.task === null ? [] : [l.task.id]));
 
+  const title = (
+    <>
+      {record.constellation.name}
+      <span className="text-text-subtle font-normal">
+        {" "}
+        · {pluralize(digest.items.length, "update")} sent to the lead
+      </span>
+    </>
+  );
+
   return (
     <div className={CARD} data-testid="digest-card">
-      <CardHead
-        title={
-          <>
-            {record.constellation.name}
-            <span className="text-text-subtle font-normal">
-              {" "}
-              · {pluralize(digest.items.length, "update")} for the lead
-            </span>
-          </>
-        }
-        aside={clock(digest.at)}
-      />
+      {onToggle === null ? (
+        <CardHead title={title} aside={clock(digest.at)} />
+      ) : (
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded
+          className="block w-full cursor-default text-left"
+          data-testid="digest-fold"
+        >
+          <CardHead
+            title={title}
+            aside={
+              <span className="flex items-center gap-2">
+                {clock(digest.at)}
+                <ChevronDownIcon size={10} className="text-text-faint" />
+              </span>
+            }
+          />
+        </button>
+      )}
       <ul className="flex flex-col pb-2" style={laneStyle(laneWidth(ids, LANE_MAX.digest))}>
         {lines.map((line) => (
           <li
             key={line.key}
-            className="text-body text-text-default flex h-7 items-center gap-3 px-3.5"
+            className="text-body text-text-default flex min-h-7 items-start gap-3 px-3.5 py-1"
           >
-            <TaskGlyph glyph={line.glyph} harness={null} size={14} />
+            <span className="flex h-5 shrink-0 items-center">
+              <TaskGlyph glyph={line.glyph} harness={null} size={14} />
+            </span>
             {line.task === null ? (
               <LaneSpacer />
             ) : (
               <IdLane id={line.task.id} max={LANE_MAX.digest} className={line.tone} />
             )}
-            <span className="flex min-w-0 items-center gap-2">{line.body}</span>
+            <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
+              {line.body}
+            </span>
           </li>
         ))}
       </ul>
