@@ -2,20 +2,22 @@ import "../../../test/dom.testing.ts";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { HoverView, loadHoverRenderer, mountHover } from "./hoverContent.tsx";
+import { DocView, loadDocRenderer, mountDocs } from "./docs.tsx";
 import { MARKDOWN, PLAINTEXT } from "./hoverFixtures.testing.ts";
 import { hoverParts } from "./payloads.ts";
 
 const LABEL = "TypeScript · bundled";
 
 const view = (contents: Parameters<typeof hoverParts>[0]) =>
-  render(<HoverView sections={[{ label: LABEL, parts: hoverParts(contents) }]} />);
+  render(
+    <DocView docs={{ sections: [hoverParts(contents)], footnote: LABEL, variant: "hover" }} />
+  );
 
 // Another DOM test file may have unregistered happy-dom already.
 beforeAll(() => {
   if (!GlobalRegistrator.isRegistered) GlobalRegistrator.register();
 
-  return loadHoverRenderer();
+  return loadDocRenderer();
 });
 
 // Shiki arrives after the first fence; let it land before the DOM goes away.
@@ -24,7 +26,7 @@ afterEach(async () => {
   cleanup();
 });
 
-describe("hover content", () => {
+describe("language docs: hover", () => {
   test("a Markdown fence renders as a code block, without its fence marks", async () => {
     const { container } = view({
       kind: "markdown",
@@ -36,7 +38,10 @@ describe("hover content", () => {
     expect(container.textContent).toContain("function sleep(ms: number): Promise<void>");
     expect(container.textContent).not.toContain("```");
     expect(container.querySelector("em")?.textContent).toBe("ms");
-    expect(container.textContent).toContain(LABEL);
+    expect(container.querySelector("[data-docs-footnote]")?.textContent).toBe(LABEL);
+    expect(container.firstElementChild?.lastElementChild?.hasAttribute("data-docs-footnote")).toBe(
+      true
+    );
   });
 
   test("a {language, value} marked string is code too", async () => {
@@ -69,9 +74,14 @@ describe("hover content", () => {
     expect(links[0]?.getAttribute("target")).toBe("_blank");
   });
 
-  test("mountHover fills the tooltip synchronously and unmounts on destroy", async () => {
+  test("mountDocs fills the tooltip synchronously and unmounts on destroy", async () => {
     const dom = document.createElement("div");
-    const mounted = mountHover(dom, [{ label: LABEL, parts: hoverParts("plain words") }]);
+
+    const mounted = mountDocs(dom, {
+      sections: [hoverParts("plain words")],
+      footnote: LABEL,
+      variant: "hover",
+    });
 
     expect(dom.textContent).toContain("plain words");
     mounted.destroy();

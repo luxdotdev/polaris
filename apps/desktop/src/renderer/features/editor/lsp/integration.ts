@@ -15,6 +15,7 @@ import { bindEntryFormatter } from "./formatting.ts";
 import { LanguageFeatures } from "./features.ts";
 import { LanguageDiagnosticFeed, cmDiagnostics } from "./diagnostics.ts";
 import { completionSource, hoverExtension } from "./codemirror.ts";
+import { completionFootnote } from "./completionMenu.ts";
 import { documentLanguageId, type LanguageBuffer } from "./types.ts";
 import { readLanguageConfiguration } from "./configuration.ts";
 import { pruneLanguageGroups, admitLanguageGroup, contextIdOf } from "./groups.ts";
@@ -196,30 +197,37 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
         },
       },
     }));
+    const label = (provider: LanguageProvider) => providerLabel(key, provider.context.providerId);
+
     input.view.dispatch({
       effects: StateEffect.appendConfig.of(
         entry.compartment.of([
           autocompletion({
             override: [
-              completionSource(features, {
-                propose: (proposal) => {
-                  if (completionProposal === null)
-                    languagePatch(key, {
-                      panel: "Completion",
-                      rows: [
-                        {
-                          label: "This completion requires an edit proposal.",
-                          detail: "The edit coordinator is unavailable.",
-                        },
-                      ],
-                    });
-                  else completionProposal(proposal);
+              completionSource(
+                features,
+                {
+                  propose: (proposal) => {
+                    if (completionProposal === null)
+                      languagePatch(key, {
+                        panel: "Completion",
+                        rows: [
+                          {
+                            label: "This completion requires an edit proposal.",
+                            detail: "The edit coordinator is unavailable.",
+                          },
+                        ],
+                      });
+                    else completionProposal(proposal);
+                  },
                 },
-              }),
+                label
+              ),
             ],
           }),
-          hoverExtension(features, (provider) => providerLabel(key, provider.context.providerId)),
-          signatureExtension(features),
+          completionFootnote,
+          hoverExtension(features, label),
+          signatureExtension(features, label),
           languageKeys((command) => this.command?.(key, command)),
           refactorUndoKeys(input.file),
         ])

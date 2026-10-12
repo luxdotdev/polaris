@@ -1,9 +1,8 @@
 /**
- * Hover Markdown from a language server, as its own chunk: Streamdown with raw
- * HTML skipped, fences highlighted in the moonlit theme, https links only.
+ * Language-server Markdown (hover, completion info, signature help), as its own chunk:
+ * Streamdown with raw HTML skipped, fences in the moonlit theme, https links only.
  */
 import "../../session/ui/markdown/markdown.css";
-import "./hover.css";
 import { type Components, Streamdown } from "streamdown";
 import { needsOf } from "../../session/ui/markdown/needs.ts";
 import { usePlugins } from "../../session/ui/markdown/plugins.ts";
@@ -18,18 +17,21 @@ const COMPONENTS: Components = {
     href?.startsWith("https://") ? (
       <a href={href} target="_blank" rel="noreferrer" className={LINK}>
         {children}
+        <span aria-hidden className="text-text-faint ml-0.5 no-underline">
+          ↗
+        </span>
       </a>
     ) : (
       <span className="text-text-strong">{children}</span>
     ),
 };
 
-export const HoverMarkdown = ({ text }: { readonly text: string }) => {
+export const DocMarkdown = ({ text }: { readonly text: string }) => {
   const plugins = usePlugins(needsOf(text));
 
   return (
     <Streamdown
-      className="polaris-md polaris-hover-md"
+      className="polaris-md polaris-doc-md"
       mode="static"
       skipHtml
       plugins={plugins}

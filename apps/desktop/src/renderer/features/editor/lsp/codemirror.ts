@@ -1,4 +1,5 @@
 import {
+  closeCompletion,
   type Completion,
   type CompletionSource,
   pickedCompletion,
@@ -9,10 +10,13 @@ import type { ChangeSpec, Text } from "@codemirror/state";
 import { hoverTooltip, ViewPlugin, type EditorView } from "@codemirror/view";
 import type * as P from "@polaris/protocol";
 import { Predicate } from "effect";
+import { completionType, offeredBy } from "./completionMenu.ts";
+import { completionResolver, SETTLE_MS, type CompletionResolver } from "./completionResolve.ts";
 import { LanguageDiagnosticFeed, cmDiagnostics } from "./diagnostics.ts";
+import { completionDocs, fenceLanguage, rowDetail } from "./docParts.ts";
+import { loadDocRenderer, mountDocs } from "./docs.tsx";
 import { LanguageFeatures } from "./features.ts";
-import { mountHover, loadHoverRenderer } from "./hoverContent.tsx";
-import { completionItems, hoverParts, markupText, type CompletionItem } from "./payloads.ts";
+import { completionItems, hoverParts, type CompletionItem } from "./payloads.ts";
 import { offsetAt } from "./position.ts";
 import type { LanguageBuffer, LanguageProvider } from "./types.ts";
 
@@ -89,22 +93,51 @@ export const cmSnippet = (value: string): string | null => {
   );
 };
 
+/** The info panel beside the selected row: the shared docs renderer, 360px wide. */
+const completionInfo = (resolver: CompletionResolver, proposal: CompletionProposal) => async () => {
+  const [full] = await Promise.all([resolver.item(), loadDocRenderer()]);
+  const parts = completionDocs(full, fenceLanguage(proposal.buffer.uri));
+
+  if (!parts.length) return null;
+  const dom = document.createElement("div");
+
+  return { dom, ...mountDocs(dom, { sections: [parts], variant: "panel" }) };
+};
+
+/** Rows show the server's label; a different filter text (tsserver's `.append`) maps matches back. */
+const labelOffsets = new WeakMap<Completion, number>();
+
+const getMatch = (completion: Completion, matched: readonly number[] = []) => {
+  const offset = labelOffsets.get(completion);
+  const length = completion.displayLabel?.length ?? completion.label.length;
+
+  return offset === undefined
+    ? matched
+    : matched.map((at) => Math.min(length, Math.max(0, at - offset)));
+};
+
 const cmCompletion = (
   features: LanguageFeatures,
   proposal: CompletionProposal,
   coordinator: CompletionCoordinator
 ): Completion => {
   const { item, provider, buffer } = proposal;
+  const resolver = completionResolver(features, proposal);
 
   const base: Completion = {
     label: item.filterText ?? item.label,
-    displayLabel: item.label,
-    detail: `${provider.context.providerId}${item.detail ? ` · ${item.detail}` : ""}`,
+    type: completionType(item.kind),
+    info: completionInfo(resolver, proposal),
   };
 
-  if (item.sortText) base.sortText = item.sortText;
+  if (item.filterText !== undefined && item.filterText !== item.label)
+    base.displayLabel = item.label;
 
-  if (item.documentation) base.info = markupText(item.documentation);
+  const detail = rowDetail(item);
+
+  if (detail) base.detail = detail;
+
+  if (item.sortText) base.sortText = item.sortText;
 
   const template =
     item.insertTextFormat === 2
@@ -113,41 +146,68 @@ const cmCompletion = (
 
   const snippet = template === null ? null : snippetCompletion(template, base);
 
-  return {
+  /** Applies `full`, the resolved item when it came in time, under the usual fence. */
+  const accept = (view: EditorView, completion: Completion, full: CompletionItem) => {
+    if (view.state.doc !== buffer.doc || !features.requests.current(provider, buffer)) return;
+    const accepted = { ...proposal, item: full };
+
+    if (
+      full.command ||
+      (full.insertTextFormat === 2 && (snippet === null || full.additionalTextEdits?.length))
+    ) {
+      coordinator.propose(accepted);
+
+      return;
+    }
+
+    if (snippet && Predicate.isFunction(snippet.apply)) {
+      snippet.apply(view, completion, proposal.from, proposal.to);
+
+      return;
+    }
+
+    try {
+      view.dispatch({
+        changes: plainChanges(accepted),
+        annotations: pickedCompletion.of(completion),
+        userEvent: "input.complete",
+      });
+    } catch {
+      coordinator.propose(accepted);
+    }
+  };
+
+  const option: Completion = {
     ...base,
     apply: (view, completion) => {
       if (view.state.doc !== buffer.doc || !features.requests.current(provider, buffer)) return;
+      const settled = resolver.settled();
 
-      if (
-        item.command ||
-        (item.insertTextFormat === 2 && (snippet === null || item.additionalTextEdits?.length))
-      ) {
-        coordinator.propose(proposal);
+      if (settled !== undefined) {
+        accept(view, completion, settled);
 
         return;
       }
 
-      if (snippet && Predicate.isFunction(snippet.apply)) {
-        snippet.apply(view, completion, proposal.from, proposal.to);
-
-        return;
-      }
-
-      try {
-        view.dispatch({
-          changes: plainChanges(proposal),
-          annotations: pickedCompletion.of(completion),
-          userEvent: "input.complete",
-        });
-      } catch {
-        coordinator.propose(proposal);
-      }
+      // Auto-import edits arrive on resolve: wait briefly, closed so a second ↵ can't apply twice.
+      closeCompletion(view);
+      void resolver.within(SETTLE_MS).then((full) => accept(view, completion, full));
     },
   };
+
+  const offset = item.filterText?.indexOf(item.label) ?? -1;
+
+  if (base.displayLabel !== undefined && offset !== -1) labelOffsets.set(option, offset);
+
+  return option;
 };
 
 export const completionSource =
-  (features: LanguageFeatures, coordinator: CompletionCoordinator): CompletionSource =>
+  (
+    features: LanguageFeatures,
+    coordinator: CompletionCoordinator,
+    label: (provider: LanguageProvider) => string = (provider) => provider.context.providerId
+  ): CompletionSource =>
   async (context) => {
     const buffer = features.options.buffer();
 
@@ -179,10 +239,13 @@ export const completionSource =
             const range = completionRange(buffer.doc, item, provider, from, context.pos);
 
             return [
-              cmCompletion(
-                features,
-                { provider, request, result: value, buffer, item, ...range },
-                coordinator
+              offeredBy(
+                cmCompletion(
+                  features,
+                  { provider, request, result: value, buffer, item, ...range },
+                  coordinator
+                ),
+                label(provider)
               ),
             ];
           } catch {
@@ -192,10 +255,10 @@ export const completionSource =
       })
       .slice(0, 2000);
 
-    return options.length ? { from, to: context.pos, options } : null;
+    return options.length ? { from, to: context.pos, options, getMatch } : null;
   };
 
-/** Markdown hovers render sanitized (`hoverContent.tsx`); the first hover waits for that chunk. */
+/** Markdown hovers render sanitized (`docs.tsx`); the first hover waits for that chunk. */
 export const hoverExtension = (
   features: LanguageFeatures,
   label: (provider: LanguageProvider) => string = (provider) => provider.context.providerId
@@ -203,14 +266,12 @@ export const hoverExtension = (
   hoverTooltip(
     async (view, position) => {
       if (view.state.doc !== features.options.buffer().doc) return null;
-      const [answers] = await Promise.all([features.hover(position), loadHoverRenderer()]);
+      const [answers] = await Promise.all([features.hover(position), loadDocRenderer()]);
 
       if (!answers.length || view.state.doc !== features.options.buffer().doc) return null;
 
-      const sections = answers.map(({ provider, payload }) => ({
-        label: label(provider),
-        parts: hoverParts(payload.contents),
-      }));
+      const sections = answers.map(({ payload }) => hoverParts(payload.contents));
+      const footnote = [...new Set(answers.map(({ provider }) => label(provider)))].join(", ");
 
       return {
         pos: position,
@@ -218,7 +279,7 @@ export const hoverExtension = (
           const dom = document.createElement("div");
           dom.setAttribute("role", "tooltip");
 
-          return { dom, ...mountHover(dom, sections) };
+          return { dom, ...mountDocs(dom, { sections, footnote, variant: "hover" }) };
         },
       };
     },

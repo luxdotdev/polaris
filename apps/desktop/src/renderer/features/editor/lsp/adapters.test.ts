@@ -687,6 +687,11 @@ test("completion applies a single atomic local edit transaction with additional 
 
   if (!Predicate.isFunction(completion.apply)) throw new Error("No completion apply");
   completion.apply(view, completion, 5, 8);
+  expect(state.doc.toString()).toBe("a😀é\nitem");
+  // Acceptance waits on the provider's resolve, then applies the resolved item.
+  expect(f.pending.at(-1)?.request.method).toBe("completionItem/resolve");
+  f.reply(f.pending.length - 1, { label: "replacement" });
+  await new Promise((resolve) => setTimeout(resolve, 10));
   expect(state.doc.toString()).toBe("b😀é\nreplacement");
   f.features.dispose();
 });

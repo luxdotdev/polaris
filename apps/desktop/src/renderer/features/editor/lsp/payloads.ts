@@ -29,6 +29,9 @@ export const CompletionItem = Schema.Struct({
   textEditText: Schema.optionalKey(label),
   insertTextFormat: Schema.optionalKey(Schema.Literals([1, 2])),
   documentation: Schema.optionalKey(Markup),
+  labelDetails: Schema.optionalKey(
+    Schema.Struct({ detail: Schema.optionalKey(label), description: Schema.optionalKey(label) })
+  ),
   textEdit: Schema.optionalKey(
     Schema.Union([
       P.LanguageTextEdit,
@@ -208,7 +211,7 @@ export interface HoverPart {
   readonly text: string;
 }
 
-const fence = (language: string, value: string) => {
+export const fence = (language: string, value: string) => {
   const ticks = "`".repeat(Math.max(3, ...[...value.matchAll(/`+/g)].map((m) => m[0].length + 1)));
 
   return `${ticks}${language.replace(/[`\s]/g, "")}\n${value}\n${ticks}`;
@@ -248,20 +251,31 @@ const fencePydoc = (text: string) =>
       : whole;
   });
 
-/** Hover Markdown without the noise servers send: empty fences, blank runs, pydoc as prose. */
-export const tidyHover = (part: HoverPart): HoverPart => {
+/** Images (CSS's Baseline badge is a data URI) never render; any text beside them stays. */
+const IMAGE = /!\[[^\]]*\]\([^)]*\)[ \t]*/g;
+
+/** CSS and HTML servers' `Syntax: <grammar>` line, escaped as prose, becomes a label and code. */
+const fenceSyntax = (text: string) =>
+  text.replace(
+    /^Syntax: (.+)$/m,
+    (_whole, grammar: string) => `Syntax\n\n${fence("", unescape(grammar))}`
+  );
+
+/** Docs Markdown without the noise servers send: images, empty fences, blank runs, pydoc as prose. */
+export const tidyDocs = (part: HoverPart): HoverPart => {
   const collapsed = part.text.replace(/\n[ \t]*(?:\n[ \t]*){2,}/g, "\n\n").trim();
 
   if (part.kind === "plaintext") return { kind: "plaintext", text: collapsed };
+  const cleaned = collapsed.replace(EMPTY_FENCE, "").replace(IMAGE, "");
 
-  return { kind: "markdown", text: fencePydoc(collapsed.replace(EMPTY_FENCE, "")).trim() };
+  return { kind: "markdown", text: fenceSyntax(fencePydoc(cleaned)).trim() };
 };
 
 type HoverContents = NonNullable<typeof Hover.Type>["contents"];
 
 export const hoverParts = (contents: HoverContents): readonly HoverPart[] =>
   (Predicate.isString(contents) || "value" in contents ? [contents] : contents)
-    .map((markup) => tidyHover(hoverPart(markup)))
+    .map((markup) => tidyDocs(hoverPart(markup)))
     .filter((part) => part.text !== "");
 
 export const decodePayload = <S extends Schema.ConstraintDecoder<unknown>>(
