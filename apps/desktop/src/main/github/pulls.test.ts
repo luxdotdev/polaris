@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { Effect } from "effect";
 import type { PullListView } from "../../shared/github.ts";
-import { harness, signIn, until } from "./github.testing.ts";
+import { harness, memoryCrypto, signIn, until } from "./github.testing.ts";
 import { GitHub, type WorkspaceRemotes } from "./index.ts";
 
 const harnesses: Array<ReturnType<typeof harness>> = [];
@@ -234,5 +234,26 @@ describe("routing repositories to accounts", () => {
         yield* until(gh.pulls, (v) => acme(v)?.login === "mona");
       })
     );
+  });
+
+  test("a stored token the Keychain won't open is a keychain error, not GitHub's", async () => {
+    const first = open();
+
+    await first.run(signIn(first, "mona"));
+
+    const refusing = { ...memoryCrypto(), decrypt: () => Promise.reject(new Error("-25308")) };
+    const second = open({ dir: first.dir, sharedFake: first.fake, crypto: refusing });
+
+    const list = await second.run(
+      Effect.gen(function* () {
+        const gh = yield* GitHub;
+
+        yield* gh.watch(WORKSPACES);
+
+        return yield* until(gh.pulls, (v) => v.error !== null);
+      })
+    );
+
+    expect(list.errorKind).toBe("keychain");
   });
 });

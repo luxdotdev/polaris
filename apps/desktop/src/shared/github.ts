@@ -67,7 +67,14 @@ export interface GitHubAccountView {
   readonly signedOutAt: number | null;
 }
 
-export type SignInFailure = "expired" | "denied" | "disabled" | "network" | "unavailable";
+/** `keychain`: GitHub signed in, but the token couldn't be sealed (no Keychain from this session). */
+export type SignInFailure =
+  | "expired"
+  | "denied"
+  | "disabled"
+  | "network"
+  | "unavailable"
+  | "keychain";
 
 /** A device flow in progress: show `userCode`, open `verificationUri`. */
 export interface SignInView {
@@ -239,6 +246,8 @@ export interface PullListView {
   readonly polling: PollingState;
   readonly throttledUntil: number | null;
   readonly error: string | null;
+  /** What `error` is: GitHub's answer (or none), or the Keychain refusing the stored token. */
+  readonly errorKind: "github" | "keychain" | null;
 }
 
 export type ViewedState = "viewed" | "unviewed" | "dismissed";

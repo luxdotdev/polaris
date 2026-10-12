@@ -55,6 +55,20 @@ export const useSpacePeek = () => {
     open,
     setOpen,
     toggle: () => setOpen((o) => !o),
+    /** The row's own keys: Space previews, Enter closes the preview and opens as before. */
+    keyDown:
+      (next: (event: React.KeyboardEvent<HTMLElement>) => void) =>
+      (event: React.KeyboardEvent<HTMLElement>) => {
+        if (event.key === " ") {
+          event.preventDefault();
+          setOpen((o) => !o);
+
+          return;
+        }
+
+        if (event.key === "Enter") setOpen(false);
+        next(event);
+      },
     rowProps: {
       onMouseEnter: (event: React.MouseEvent<HTMLElement>) => {
         row.current = event.currentTarget;

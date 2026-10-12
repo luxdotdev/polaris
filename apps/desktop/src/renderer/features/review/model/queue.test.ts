@@ -69,6 +69,7 @@ test("queueGroups keeps DESIGN.md's order and drops empty groups", () => {
     polling: "idle",
     throttledUntil: null,
     error: null,
+    errorKind: null,
   };
 
   const groups = queueGroups(list, [session(1)]);

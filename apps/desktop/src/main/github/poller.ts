@@ -3,7 +3,7 @@
  * states every minute while a window is focused, every five otherwise, and at
  * once when asked (a refresh, new Workspaces, an account change).
  */
-import { Clock, Effect, Queue, SubscriptionRef } from "effect";
+import { Clock, Effect, Predicate, Queue, SubscriptionRef } from "effect";
 import {
   type CheckoutStateView,
   type CheckoutWatch,
@@ -81,6 +81,7 @@ export const newPoller = Effect.fn("newPoller")(function* (input: PollerInput) {
       polling: throttledUntil !== null ? "throttled" : focused ? "focused" : "background",
       throttledUntil,
       error: null,
+      errorKind: null,
     };
   };
 
@@ -133,6 +134,7 @@ export const newPoller = Effect.fn("newPoller")(function* (input: PollerInput) {
           Effect.map(SubscriptionRef.get(list), (v): PullListView => ({
             ...v,
             error: error.message,
+            errorKind: Predicate.isTagged(error, "GitHubStorageError") ? "keychain" : "github",
           }))
         )
       );

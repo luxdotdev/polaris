@@ -16,7 +16,12 @@ import { hostsOf, idFor, viewOf, withAccount, withoutAccounts } from "./accountF
 import { type EndpointConfig, endpointsFor, type GitHubEndpoints } from "./config.ts";
 import type { Credentials } from "./credentials.ts";
 import { pollStep } from "./deviceFlow.ts";
-import { GitHubAuthError, GitHubInvalidHost, GitHubStorageError } from "./errors.ts";
+import {
+  GitHubAuthError,
+  GitHubInvalidHost,
+  GitHubRequestError,
+  GitHubStorageError,
+} from "./errors.ts";
 import type { AccountsFile, HostRecord, Store, TokenPair } from "./store.ts";
 import type { Transport } from "./transport.ts";
 import { DeviceCode, TokenResponse, User } from "./wire.ts";
@@ -144,7 +149,7 @@ export const openAccounts = Effect.fn("openAccounts")(function* (input: Accounts
       });
 
       if (user.status !== "ok")
-        return yield* Effect.fail(new GitHubStorageError({ message: "no user" }));
+        return yield* Effect.fail(new GitHubRequestError({ status: 0, message: "no user" }));
 
       const id = idFor(yield* Ref.get(file), host.host, user.value.id);
       const now = yield* Clock.currentTimeMillis;
@@ -174,6 +179,7 @@ export const openAccounts = Effect.fn("openAccounts")(function* (input: Accounts
   ) =>
     Effect.gen(function* () {
       yield* welcome(host, tokens, scopes, credentials).pipe(
+        Effect.catchTag("GitHubStorageError", () => failSignIn("keychain")),
         Effect.catch(() => failSignIn("network"))
       );
 

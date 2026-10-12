@@ -228,6 +228,7 @@ const FAILURES: Readonly<Record<SignInFailure, string>> = {
   disabled: "Device sign-in is turned off for Polaris on GitHub",
   network: "Couldn't reach GitHub",
   unavailable: "GitHub couldn't start a sign-in right now",
+  keychain: "Polaris can't use the macOS Keychain from this session, so it can't keep the sign-in",
 };
 
 /** "14:32", never below zero. */
