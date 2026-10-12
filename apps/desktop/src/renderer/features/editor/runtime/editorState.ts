@@ -26,6 +26,7 @@ import { shellSafe } from "../cm/keys.ts";
 import { reloadHighlight } from "../cm/reload.ts";
 import { agentMarks } from "../cm/agent.ts";
 import { editorLook } from "../cm/theme.ts";
+import { inlineDiagnostics } from "../cm/inlineDiagnostics.ts";
 import { detectIndent, type Indent, lineSeparatorOf } from "../model/indent.ts";
 
 export const languageCompartment = new Compartment();
@@ -109,6 +110,7 @@ export const createFileState = ({ file, text, readOnly, vim, onUpdate }: StateIn
       registeredCompartment.of(registeredExtensions(file)),
       lineNumbers(),
       highlightActiveLineGutter(),
+      inlineDiagnostics,
       highlightActiveLine(),
       history(),
       drawSelection(),

@@ -47,6 +47,10 @@
   --color-severity-medium-text: light-dark(#7a5e00, #e6c04a);
   --color-severity-low-text: light-dark(#5a6273, #9aa2b3);
 
+  /* Editor diagnostics: an amber apart from Review's severity-medium and needs-you (DESIGN.md, Editor). */
+  --color-diagnostic-warning: light-dark(#b86e00, #e8a045);
+  --color-diagnostic-warning-text: light-dark(#8f5500, #e8a045);
+
   /* Badge fills: the base hue at 12% (dark) / 10% (light), under its -text label (DESIGN.md, Badges). */
   --color-needs-you-fill: light-dark(
     color-mix(in oklab, #b98a00 10%, transparent),

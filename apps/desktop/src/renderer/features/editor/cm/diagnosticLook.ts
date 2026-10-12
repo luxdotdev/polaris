@@ -6,13 +6,21 @@ import { EditorView } from "@codemirror/view";
 
 const v = (token: string) => `var(--color-${token})`;
 
-/** One hue per severity; info and hint stay neutral. */
+/** One hue per severity, never a Review severity token; info and hint stay neutral. */
 export const SEVERITY = {
   error: v("failed"),
-  warning: v("severity-medium"),
+  warning: v("diagnostic-warning"),
   info: v("text-subtle"),
-  hint: v("text-subtle"),
+  hint: v("text-faint"),
 } as const;
+
+const squiggle = (colour: string) => ({
+  backgroundImage: "none",
+  textDecoration: `underline wavy ${colour}`,
+  textDecorationThickness: "1px",
+  textUnderlineOffset: "3px",
+  textDecorationSkipInk: "none",
+});
 
 export const diagnosticTheme = EditorView.theme({
   ".cm-tooltip.cm-tooltip-hover": { maxWidth: "min(560px, calc(100vw - 32px))" },
@@ -38,5 +46,15 @@ export const diagnosticTheme = EditorView.theme({
     color: v("text-subtle"),
     opacity: 1,
   },
+  ".cm-lintRange-error": squiggle(SEVERITY.error),
+  ".cm-lintRange-warning": squiggle(SEVERITY.warning),
+  ".cm-lintRange-info": squiggle(SEVERITY.info),
+  // Hints and unnecessary code fade instead of underlining; deprecated code is struck through.
+  ".cm-lintRange-hint, .cm-lintRange-unnecessary": {
+    backgroundImage: "none",
+    textDecoration: "none",
+    opacity: 0.55,
+  },
+  ".cm-lintRange-deprecated": { textDecoration: "line-through" },
   ".cm-tooltip-section:not(:first-child)": { borderTop: `1px solid ${v("hairline")}` },
 });

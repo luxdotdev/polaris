@@ -35,6 +35,8 @@ export interface EditorKeys {
   readonly autosave: boolean;
   readonly onVim: (on: boolean) => void;
   readonly onAutosave: (on: boolean) => void;
+  readonly inlineDiagnostics: boolean;
+  readonly onInlineDiagnostics: (on: boolean) => void;
 }
 
 export const Preferences = ({
@@ -90,6 +92,17 @@ export const Preferences = ({
         caption="Saves a second after you stop typing. Unsaved edits are kept on this Mac either way, and a save never overwrites a newer version on disk."
       >
         <Switch id="editor-autosave" checked={keys.autosave} onCheckedChange={keys.onAutosave} />
+      </PreferenceRow>
+      <PreferenceRow
+        id="editor-inline-diagnostics"
+        title="Inline diagnostics"
+        caption="Each line's most severe error, warning or info at its end. The gutter marks and the hover stay either way."
+      >
+        <Switch
+          id="editor-inline-diagnostics"
+          checked={keys.inlineDiagnostics}
+          onCheckedChange={keys.onInlineDiagnostics}
+        />
       </PreferenceRow>
       {failed && (
         <p role="status" className="px-panel text-caption text-text-subtle py-2">

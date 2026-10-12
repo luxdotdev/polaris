@@ -155,6 +155,8 @@ export const SessionPrefs = Schema.Struct({
   editorVim: Schema.Boolean,
   /** Settings → Editor: save after a short pause in typing (off by default, spec §3). */
   editorAutosave: Schema.Boolean,
+  /** Settings → Editor: each line's most severe diagnostic at its end (on by default). */
+  editorInlineDiagnostics: Schema.Boolean,
 });
 
 export type SessionPrefs = typeof SessionPrefs.Type;
@@ -174,6 +176,7 @@ export const SessionPrefsPatch = Schema.Struct({
   constellationDefaults: Schema.optionalKey(ConstellationDefaults),
   editorVim: Schema.optionalKey(Schema.Boolean),
   editorAutosave: Schema.optionalKey(Schema.Boolean),
+  editorInlineDiagnostics: Schema.optionalKey(Schema.Boolean),
 });
 
 export type SessionPrefsPatch = typeof SessionPrefsPatch.Type;

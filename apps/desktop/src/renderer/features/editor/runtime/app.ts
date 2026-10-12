@@ -16,6 +16,7 @@ import type { KeyValue } from "../model/drafts.ts";
 import type { SpillStore } from "../model/draftStore.ts";
 import { indexedDbSpill } from "./idbSpill.ts";
 import { setVimHandlers } from "../cm/vim.ts";
+import { setInlineDiagnostics } from "../cm/inlineDiagnostics.ts";
 import { closeTab, saveFile, startEditor } from "./actions.ts";
 import {
   configuredLanguageRuntime,
@@ -185,8 +186,10 @@ export const ensureEditor = ({
   publishDirty();
 
   if (prefs().vim) void setVim(true);
+  setInlineDiagnostics(settingsStore.getState().sessions.editorInlineDiagnostics);
   settingsStore.subscribe((state, previous) => {
     if (state.sessions.editorVim !== previous.sessions.editorVim)
       void setVim(state.sessions.editorVim);
+    setInlineDiagnostics(state.sessions.editorInlineDiagnostics);
   });
 };

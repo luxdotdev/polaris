@@ -397,6 +397,32 @@ test("diagnostic provider replacement, unchanged result IDs and conservative fre
   f.features.dispose();
 });
 
+test("hints keep their severity and LSP tags become range classes", () => {
+  const f = fixture();
+  const feed = new LanguageDiagnosticFeed(f.features.requests, () => {});
+  const p = f.providers[0]!;
+  const base = diagnostic(p);
+  const [item] = base.items;
+  feed.receive(p, {
+    ...base,
+    items: [
+      { ...item!, severity: 4, message: "unused", tags: [1] },
+      { ...item!, severity: 3, message: "note", tags: [2] },
+    ],
+  });
+  expect(
+    cmDiagnostics(f.features.requests, feed.values()).map(({ severity, markClass }) => [
+      severity,
+      markClass,
+    ])
+  ).toEqual([
+    ["hint", "cm-lintRange-unnecessary"],
+    ["info", "cm-lintRange-deprecated"],
+  ]);
+  feed.dispose();
+  f.features.dispose();
+});
+
 test("an unversioned push paints only at the version acknowledged when it arrived", () => {
   const f = fixture();
   const feed = new LanguageDiagnosticFeed(f.features.requests, () => {});

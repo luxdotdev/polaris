@@ -1,7 +1,8 @@
 /**
  * Editor diagnostics in the real app on TypeScript and Prisma fixtures:
  * node apps/desktop/scripts/diagnosticsScreens.ts --out <dir> (build first).
- * Hovers a long diagnostic and screenshots the editor in both themes, with the tooltip's size.
+ * Hovers a long diagnostic and screenshots the editor in both themes, with the tooltip's size,
+ * then inline diagnostics: turned off from the palette, and held under an open completion.
  */
 import { strict as assert } from "node:assert";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
@@ -32,7 +33,7 @@ writeFileSync(join(project, "package.json"), '{"name":"fixture","type":"module"}
 
 writeFileSync(
   join(project, "tsconfig.json"),
-  '{"compilerOptions":{"strict":true,"noUnusedLocals":true,"target":"es2022","module":"esnext","moduleResolution":"bundler"}}\n'
+  '{"compilerOptions":{"strict":true,"target":"es2022","module":"esnext","moduleResolution":"bundler"}}\n'
 );
 
 writeFileSync(
@@ -129,6 +130,38 @@ const hover = async (page: Page, line: number, column: number) => {
   throw new Error(`No diagnostic hover at ${line}:${column}`);
 };
 
+const palette = async (page: Page, command: string) => {
+  await page.keyboard.press("Shift+Meta+P");
+  await page.keyboard.type(command);
+  await page.waitForTimeout(300);
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(500);
+};
+
+const inline = async (page: Page) => {
+  const shown = await page.locator(".cm-inlineDiagnostic").count();
+  assert.ok(shown > 0, "no inline diagnostics");
+  await palette(page, "Toggle inline diagnostics");
+  assert.equal(await page.locator(".cm-inlineDiagnostic").count(), 0);
+  assert.ok((await page.locator(".cm-diagnosticMark").count()) > 0, "marks went with messages");
+  await page.screenshot({ path: join(evidence, "ts-inline-off-dark.png") });
+  await palette(page, "Toggle inline diagnostics");
+  assert.equal(await page.locator(".cm-inlineDiagnostic").count(), shown);
+
+  for (const theme of ["light", "dark"]) {
+    await appearance(page, theme);
+    const point = await pointAt(page, 12, 27);
+    await page.mouse.click(point.x, point.y);
+    await page.mouse.move(10, 10);
+    await page.keyboard.press("Control+Space");
+    await page.locator(".cm-tooltip-autocomplete").waitFor({ timeout: 20_000 });
+    await page.waitForTimeout(300);
+    assert.equal(await page.locator(".cm-inlineDiagnostic").count(), shown - 1);
+    await page.screenshot({ path: join(evidence, `ts-completion-${theme}.png`) });
+    await page.keyboard.press("Escape");
+  }
+};
+
 const shoot = async (page: Page, name: string, line: number, column: number) => {
   for (const theme of ["dark", "light"]) {
     await appearance(page, theme);
@@ -190,6 +223,8 @@ try {
   await page.getByRole("heading", { name: "Problems" }).waitFor({ timeout: 20_000 });
   await page.waitForTimeout(800);
   await page.screenshot({ path: join(evidence, "ts-problems.png") });
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await inline(page);
 
   if (!args.includes("--no-prisma")) {
     await open(page, "schema.prisma");
