@@ -210,6 +210,8 @@ export class Attempt extends Schema.Class<Attempt>("ConstellationAttempt")({
   settleReason: optionalNullable(Schema.String),
   /** The classified cause of a failed settle; null for lost, accepted or active Attempts. */
   failureKind: optionalNullable(FailureKind),
+  /** A capacity failure's Plan Limit reset, when the Harness reported one; null when unknown. */
+  resetsAt: optionalNullable(Timestamp),
   blockedOn: optionalArray(TaskId),
   blockedReason: optionalNullable(Schema.String),
   blockedAt: optionalNullable(Timestamp),
@@ -241,6 +243,7 @@ export const NotificationItem = Schema.TaggedUnion({
     attemptId: AttemptId,
     state: AttemptState,
     failureKind: optionalNullable(Schema.suspend(() => FailureKind)),
+    resetsAt: optionalNullable(Timestamp),
   },
   /** The user approved a Claim; the Lead merges its head and accepts it. */
   Approved: { attemptId: AttemptId },

@@ -25,6 +25,10 @@ Desktop App authorization is checked by the Daemon, not asserted in a payload.
   Workspace, Lead and settings; `operations` is an atomic Add/Edit/Cancel batch;
   `resources` declares Host-scoped resources. Edit carries a full replacement
   definition and its previous revision. Cancel carries the current Task revision.
+- A failed settle classified `capacity` also carries `resetsAt` (on `AttemptSettled`,
+  `Attempt` and the `Settled` digest item): the latest reset among the Harness's
+  reached Plan Limit windows, or null when unknown (a provider-side capacity error).
+  The worker is reported capacity-blocked; nothing redispatches it at the reset.
 - Worker placement never widens permissions: a reused Session broader than the
   Lead's permission mode is refused (`E-PERMISSION-CEILING`), and a remote
   placement carries `leadPermissionMode` so the worker Host applies the same ceiling.

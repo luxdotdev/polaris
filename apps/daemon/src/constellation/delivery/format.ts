@@ -1,11 +1,27 @@
 import type { ConstellationEvent, ConstellationNotification, StallAudit } from "@polaris/protocol";
 import { Match, Predicate } from "effect";
 import type { ConstellationRecord } from "../../store/constellation.ts";
-import { failureKindLabel } from "../failureKind.ts";
+import { capacityBlocked, failureKindLabel } from "../failureKind.ts";
 import { auditLines, dueAudit } from "../stall.ts";
 import { proposalDetails } from "../status.ts";
 
 const line = (text: string) => text.replace(/\s+/g, " ").trim();
+
+const settledLine = (
+  record: ConstellationRecord,
+  task: string,
+  i: Extract<ConstellationNotification["item"], { _tag: "Settled" }>
+) => {
+  const reason = line(record.graph.attempts.find((a) => a.id === i.attemptId)?.settleReason ?? "");
+
+  if (i.state === "failed" && i.failureKind === "capacity")
+    return `${task}: ${capacityBlocked(i.resetsAt)}: ${reason}. Polaris will not redispatch it; dispatch it again after the reset or on another Model.`;
+
+  if (i.state === "failed" && i.failureKind !== null)
+    return `${task}: failed (${failureKindLabel(i.failureKind)}): ${reason}`.trim();
+
+  return `${task}: ${i.state === "rejected" ? "sent back" : i.state}.`;
+};
 
 export const notificationLine = (record: ConstellationRecord, n: ConstellationNotification) => {
   const worker = (id: string) => record.graph.attempts.find((a) => a.id === id)?.taskId ?? id;
@@ -17,11 +33,7 @@ export const notificationLine = (record: ConstellationRecord, n: ConstellationNo
         `${i.taskId}: blocked${i.on.length === 0 ? " awaiting the Lead" : ` by ${i.on.join(", ")}`}: ${line(i.reason)}`
     ),
     Match.tag("Stopped", (i) => `${i.taskId} stopped without claiming.`),
-    Match.tag("Settled", (i) =>
-      i.state === "failed" && i.failureKind !== null
-        ? `${worker(i.attemptId)}: failed (${failureKindLabel(i.failureKind)}): ${line(record.graph.attempts.find((a) => a.id === i.attemptId)?.settleReason ?? "")}`.trim()
-        : `${worker(i.attemptId)}: ${i.state === "rejected" ? "sent back" : i.state}.`
-    ),
+    Match.tag("Settled", (i) => settledLine(record, worker(i.attemptId), i)),
     Match.tag("Approved", (i) => {
       const attempt = record.graph.attempts.find((a) => a.id === i.attemptId);
 

@@ -38,6 +38,7 @@ export const attemptData = (attempt: Attempt) => ({
   nudgedAt: attempt.nudgedAt,
   settleReason: attempt.settleReason,
   failureKind: attempt.failureKind,
+  resetsAt: attempt.resetsAt,
   blockedOn: attempt.blockedOn,
   blockedReason: attempt.blockedReason,
   blockedAt: attempt.blockedAt,

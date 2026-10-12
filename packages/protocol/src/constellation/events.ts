@@ -107,6 +107,8 @@ export const constellationEventFields = {
     reason: Schema.String,
     /** Classified from the Harness failure; null for a commanded or lost settle. */
     failureKind: optionalNullable(FailureKind),
+    /** A capacity failure's Plan Limit reset, when known. Nothing redispatches at it. */
+    resetsAt: optionalNullable(Timestamp),
   },
   GatePromoted: task,
   NotificationQueued: { ...graph, notification: Schema.suspend(() => ConstellationNotification) },

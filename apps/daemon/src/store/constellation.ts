@@ -363,6 +363,7 @@ export const foldConstellation = (
           state: e.outcome,
           settleReason: e.reason,
           failureKind: e.failureKind,
+          resetsAt: e.resetsAt,
           endedAt: at,
         }),
       });

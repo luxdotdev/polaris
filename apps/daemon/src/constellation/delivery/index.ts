@@ -6,6 +6,7 @@ import {
   Effect,
   Fiber,
   Layer,
+  Option,
   Predicate,
   Scope,
   Semaphore,
@@ -13,6 +14,7 @@ import {
 } from "effect";
 import { hasWorkerAdmission } from "../../resources/workerAdmission.ts";
 import { EventStore } from "../../store/EventStore.ts";
+import { UsageIndex } from "../../usage/index.ts";
 import { graphEvent } from "../../store/constellation.ts";
 import { ConstellationOwner } from "../runtime.ts";
 import { ConstellationLiveness } from "../liveness.ts";
@@ -45,6 +47,7 @@ const make = Effect.gen(function* () {
   const owner = yield* ConstellationOwner;
   const remote = yield* ConstellationRemoteDelivery;
   const liveness = yield* ConstellationLiveness;
+  const usage = yield* Effect.serviceOption(UsageIndex);
   const queued = new Map<SessionId, number>();
   const scope = yield* Scope.Scope;
 
@@ -253,9 +256,12 @@ const make = Effect.gen(function* () {
 
     if (Predicate.isTagged(event, "TurnEnded") && event.turn.status === "failed")
       for (const record of (yield* store.model).constellations.values())
-        yield* settleFailedWorker(record.graph.id, event.turn.sessionId, event.turn.id).pipe(
-          Effect.provide(dependencies)
-        );
+        yield* settleFailedWorker(
+          record.graph.id,
+          event.turn.sessionId,
+          event.turn.id,
+          Option.isSome(usage) ? usage.value.planLimits : Effect.succeed([])
+        ).pipe(Effect.provide(dependencies));
 
     yield* flush();
   });

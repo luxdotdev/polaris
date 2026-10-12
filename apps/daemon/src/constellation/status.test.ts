@@ -153,7 +153,7 @@ test("status separates a working Attempt from a Turn in flight and names a faile
   );
 
   expect(statusOutline({ ...record, graph: failed })).toContain(
-    "  failed · model capacity: Selected model is at capacity."
+    "  capacity-blocked (reset time unknown): Selected model is at capacity. · not redispatched automatically"
   );
 });
 

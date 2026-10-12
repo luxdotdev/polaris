@@ -37,6 +37,7 @@ export type ConstellationJournalInput =
       readonly outcome: "lost" | "failed";
       readonly reason: string;
       readonly failureKind?: FailureKind | null;
+      readonly resetsAt?: string | null;
     }
   | {
       readonly type: "notified";
@@ -202,6 +203,7 @@ const settle = (
         "Keep it stale until the Host returns or the user or Lead issues a command."
       );
     const failureKind = input.outcome === "failed" ? (input.failureKind ?? "harness") : null;
+    const resetsAt = failureKind === "capacity" ? (input.resetsAt ?? null) : null;
     d.emit(
       ConstellationEvent.cases.AttemptSettled.make({
         ...d.fields(),
@@ -210,6 +212,7 @@ const settle = (
         outcome: input.outcome,
         reason: input.reason,
         failureKind,
+        resetsAt,
       })
     );
     d.notify(
@@ -217,6 +220,7 @@ const settle = (
         attemptId: attempt.id,
         state: input.outcome,
         failureKind,
+        resetsAt,
       })
     );
   }

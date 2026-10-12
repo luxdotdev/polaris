@@ -8,7 +8,7 @@ import {
 import { Match } from "effect";
 import type { SessionRecord } from "../store/model.ts";
 import { graphEvent, type ConstellationRecord } from "../store/constellation.ts";
-import { failureKindLabel } from "./failureKind.ts";
+import { capacityBlocked, failureKindLabel } from "./failureKind.ts";
 import { childTasks, isParent } from "./parents.ts";
 import { activeAttempt, latestAttempt, projectTask } from "./projections.ts";
 
@@ -86,11 +86,15 @@ const turnLines = (attempt: Attempt, session: SessionRecord): ReadonlyArray<stri
 };
 
 const failureLines = (attempt: Attempt): ReadonlyArray<string> =>
-  attempt.state === "failed" || attempt.state === "lost"
+  attempt.failureKind === "capacity"
     ? [
-        `  ${attempt.state}${attempt.failureKind === null ? "" : ` · ${failureKindLabel(attempt.failureKind)}`}${attempt.settleReason === null ? "" : `: ${attempt.settleReason.replace(/\s+/g, " ").trim()}`}`,
+        `  ${capacityBlocked(attempt.resetsAt)}${attempt.settleReason === null ? "" : `: ${attempt.settleReason.replace(/\s+/g, " ").trim()}`} · not redispatched automatically`,
       ]
-    : [];
+    : attempt.state === "failed" || attempt.state === "lost"
+      ? [
+          `  ${attempt.state}${attempt.failureKind === null ? "" : ` · ${failureKindLabel(attempt.failureKind)}`}${attempt.settleReason === null ? "" : `: ${attempt.settleReason.replace(/\s+/g, " ").trim()}`}`,
+        ]
+      : [];
 
 const rejectionLines = (record: ConstellationRecord, task: Task): ReadonlyArray<string> => {
   const lines: string[] = [];
