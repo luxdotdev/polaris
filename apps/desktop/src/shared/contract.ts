@@ -41,6 +41,7 @@ import {
 } from "./constellationContract.ts";
 import { ResourceRequestInputs } from "./resourcesContract.ts";
 import { GitHubRequestInputs, GitHubSubscriptionInputs } from "./githubContract.ts";
+import { GitRequestInputs } from "./gitContract.ts";
 import { BRANCH_PREFIX } from "./sessionPrefs.ts";
 
 /** A Host's stable key in the HostRegistry: "local", or an SSH alias. */
@@ -245,7 +246,6 @@ export const RequestInputs = {
     text: Schema.String,
     expected: Schema.Struct({ mtimeMs: Schema.Number, size: Schema.Int, hash: Schema.String }),
   }),
-  "git.status": onHost({ cwd: Schema.String }),
   "git.diff": onHost({ cwd: Schema.String, spec: GitDiffSpec }),
   /** A file at a revision (capability `git.show`): Review's context expansion. */
   "git.show": onHost({ cwd: Schema.String, revision: Schema.String, path: Schema.String }),
@@ -449,6 +449,7 @@ export const RequestInputs = {
   /** Dev only: a fresh temporary directory on the dev Daemon's Host for the proof session. */
   "dev.proofWorkspace": Schema.Struct({}),
   ...GitHubRequestInputs,
+  ...GitRequestInputs,
   ...ConstellationRequestInputs,
   ...ConstellationDefaultsInputs,
   ...ConstellationStatsInputs,

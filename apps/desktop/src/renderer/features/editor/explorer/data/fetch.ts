@@ -78,7 +78,7 @@ const refreshGit = async (key: string, hostKey: string, root: string) => {
     return;
   }
 
-  const result = await polaris().request("git.status", { hostKey, cwd: root });
+  const result = await polaris().request("git.status", { hostKey, cwd: root, ignored: true });
 
   patchExplorer(key, () => ({
     git: result.ok
