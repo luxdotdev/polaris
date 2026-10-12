@@ -42,6 +42,12 @@
     margin-block: 8px;
   }
 
+  /* No semibold in docs: bold prose and bold inline code stop at 500 (DESIGN.md, Editor: Language docs). */
+  & :is(h1, h2, h3, h4, h5, h6, strong, b, [data-streamdown="strong"]),
+  & :is(strong, b, [data-streamdown="strong"]) code {
+    font-weight: 500;
+  }
+
   & a {
     overflow-wrap: anywhere;
   }
