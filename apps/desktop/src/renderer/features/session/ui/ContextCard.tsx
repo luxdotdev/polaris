@@ -141,13 +141,16 @@ const Row = ({
   );
 };
 
-/** The session's Usage since it started; null while loading or where the Host doesn't report it. */
-const useSessionSpend = (hostKey: string, session: SessionData, open: boolean) => {
+/**
+ * The session's Usage since it started, asked again each time `asked` moves (the pointer
+ * reaches the readout); null before the first answer or where the Host doesn't report it.
+ */
+const useSessionSpend = (hostKey: string, session: SessionData, asked: number) => {
   const reports = hasCapability(useHost(hostKey), "usage");
   const [spend, setSpend] = useState<SessionSpend | null>(null);
 
   useEffect(() => {
-    if (!open || !reports) return undefined;
+    if (asked === 0 || !reports) return undefined;
     let live = true;
 
     void polaris()
@@ -175,7 +178,7 @@ const useSessionSpend = (hostKey: string, session: SessionData, open: boolean) =
     return () => {
       live = false;
     };
-  }, [open, reports, hostKey, session.id, session.createdAt]);
+  }, [asked, reports, hostKey, session.id, session.createdAt]);
 
   return spend;
 };
@@ -326,7 +329,9 @@ export const ContextReadout = (props: ContextReadoutProps) => {
   // Click or ↵ opens it at once and moves focus in; hover leaves focus where it was.
   const [focusIn, setFocusIn] = useState(false);
   const content = useRef<HTMLDivElement>(null);
-  const spend = useSessionSpend(hostKey, session, open);
+  // Armed when the pointer or focus first reaches the readout: the footer's data is in by the open.
+  const [armed, setArmed] = useState(0);
+  const spend = useSessionSpend(hostKey, session, armed);
   const { can, compact, want } = useCompact(hostKey, session);
   const models = useHarnessModels(hostKey, session.harness, open);
   const usage = session.contextUsage;
@@ -338,6 +343,13 @@ export const ContextReadout = (props: ContextReadoutProps) => {
   // Focus moving into the card isn't leaving it; Radix closes a hover card on the trigger's blur.
   const within = (event: FocusEvent) =>
     event.relatedTarget instanceof Node && content.current?.contains(event.relatedTarget) === true;
+
+  const arm = () => {
+    want();
+
+    // Once per approach, not on the open that follows it.
+    if (!open) setArmed((n) => n + 1);
+  };
 
   if (usage === null) return null;
   const card = contextCard(usage);
@@ -355,7 +367,7 @@ export const ContextReadout = (props: ContextReadoutProps) => {
     <HoverCard
       open={open}
       onOpenChange={(next) => {
-        if (next) want();
+        if (next) arm();
         else setFocusIn(false);
         setOpen(next);
       }}
@@ -367,11 +379,13 @@ export const ContextReadout = (props: ContextReadoutProps) => {
           aria-label={`${label}: ${detail}`}
           aria-expanded={open}
           data-testid="session-context"
+          onPointerEnter={() => arm()}
+          onFocus={() => arm()}
           onBlur={(event) => {
             if (within(event)) event.preventDefault();
           }}
           onClick={() => {
-            want();
+            arm();
             setFocusIn(true);
             setOpen(true);
           }}
