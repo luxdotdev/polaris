@@ -358,6 +358,14 @@ observed intervals across restart without changing Attempt state or revision.
 The replay reader maps these journal events. Real runner tests cover coalescing,
 Session boundaries, nudge limits, operator authority, peer routing and recovery.
 
+The permission ceiling is a preparation guard too: a reused (Existing) worker
+Session whose permission mode is broader than the Lead's is refused with
+`E-PERMISSION-CEILING` before any Attempt exists, and a new worker Session takes
+the Lead's mode. A worker Host gets the ceiling as
+`RemotePlacementRequest.leadPermissionMode`. It adds no committed event or graph
+state, so Quint is unchanged; `composition/prepare.test.ts` covers local and
+remote ceilings.
+
 G2's Claude auto-mode preparation guard refuses unsupported model/mode combinations
 before Session registration or Attempt creation; it adds no committed events or
 state-machine transition. Live SDK fallback is a Harness failure through existing

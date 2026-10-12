@@ -156,6 +156,7 @@ const remoteWorkers = Layer.unwrap(
                 ? request.worker
                 : WorkerPlacement.cases.Existing.make({ sessionId: request.sessionId }),
             previous: request.previous,
+            leadPermissionMode: request.leadPermissionMode,
           },
           owner
         ).pipe(

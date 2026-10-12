@@ -25,6 +25,9 @@ Desktop App authorization is checked by the Daemon, not asserted in a payload.
   Workspace, Lead and settings; `operations` is an atomic Add/Edit/Cancel batch;
   `resources` declares Host-scoped resources. Edit carries a full replacement
   definition and its previous revision. Cancel carries the current Task revision.
+- Worker placement never widens permissions: a reused Session broader than the
+  Lead's permission mode is refused (`E-PERMISSION-CEILING`), and a remote
+  placement carries `leadPermissionMode` so the worker Host applies the same ceiling.
 - `constellation.dispatch`: named `tasks` pair short Task IDs with placements;
   empty means every ready Task, using `defaultWorker` and graph defaults.
   `New` carries Host, optional Harness/Model/effort, base and optional existing
