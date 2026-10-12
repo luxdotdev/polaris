@@ -10,13 +10,13 @@ import type { PullFileView } from "../../../../shared/github.ts";
 import { contentsLoader } from "../data/expand.ts";
 import { parseOne, type ReviewDiff } from "../data/useReviewDiff.ts";
 import { markLocal, markPull, pendingKey, useViewed } from "../data/viewedStore.ts";
+import { reviewProgress } from "../model/fileList.ts";
 import { type FindingInfo, findingsIn, lineMarks, severityByPath } from "../model/findings.ts";
 import { layoutRows, type LayoutRow, type ReviewFile, rowSignature } from "../model/layout.ts";
 import { itemKey, marksCss, selectionCss } from "../model/marks.ts";
 import {
   type FileViewed,
   localViewed,
-  progressOf,
   pullFileViewed,
   type RemoteViewed,
 } from "../model/viewed.ts";
@@ -291,8 +291,6 @@ export const useReviewModel = (input: ReviewModelInput) => {
     [diff.source, parsedFiles]
   );
 
-  const viewedCount = files.filter(viewedOf).length;
-
   return {
     files,
     rows,
@@ -303,7 +301,7 @@ export const useReviewModel = (input: ReviewModelInput) => {
     severities,
     viewedOf,
     viewedStateOf,
-    progress: progressOf(viewedCount, files.length),
+    progress: reviewProgress(files, viewedOf),
     setViewed,
     openFile,
     /** Opens a file from the list: list-only Reviews show it alone; others expand it. */

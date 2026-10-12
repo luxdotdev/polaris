@@ -15,7 +15,8 @@ import { EventStore } from "../store/EventStore.ts";
 import { reviewerCost } from "./cost.ts";
 import { previousSummary } from "./merge.ts";
 import { readDiff } from "./diff.ts";
-import { isIgnored, readInstructions } from "./instructions.ts";
+import { generatedPaths } from "./generated.ts";
+import { readInstructions } from "./instructions.ts";
 import { canRunChecks } from "./policy.ts";
 import { type ReviewRange, resolveRange } from "./range.ts";
 import { startReviewerSession } from "./session.ts";
@@ -186,6 +187,16 @@ const runOne = (
         readInstructions({ cwd: range.cwd, head: range.head, repo: range.key.repo })
       );
 
+      const generated = yield* Effect.promise(() =>
+        generatedPaths({
+          root: range.cwd,
+          head: range.head,
+          repo: range.key.repo,
+          paths: diff.files.map((f) => f.path),
+          ignore: instructions.ignore,
+        })
+      );
+
       const fresh = yield* latestSummary(summary);
       const previous = yield* previousSummary(range);
       const open = [...(fresh?.findings ?? []), ...(previous?.findings ?? [])];
@@ -195,7 +206,8 @@ const runOne = (
         base: range.base,
         head: range.head,
         fromHead: initial.fromHead,
-        diff: { files: diff.files.filter((file) => !isIgnored(instructions.ignore, file.path)) },
+        diff,
+        generated,
         context,
         findings: open,
         instructions: instructions.text ?? "",

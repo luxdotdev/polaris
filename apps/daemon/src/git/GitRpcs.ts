@@ -2,12 +2,21 @@
  * Handlers for `git.status` and `git.diff`. The transport mounts this layer
  * next to the other partial handler layers of `DaemonRpcs`.
  */
-import { GitDiff, GitError, GitShow, GitStatus, GitStatusEntry, NotFound } from "@polaris/protocol";
+import {
+  DiffFile,
+  GitDiff,
+  GitError,
+  GitShow,
+  GitStatus,
+  GitStatusEntry,
+  NotFound,
+} from "@polaris/protocol";
 import { Effect } from "effect";
 import { RpcGroup } from "effect/rpc";
 import { BlobChannel } from "../services.ts";
 import { ReadContent, toContent } from "../files/fs.ts";
-import { computeDiff, DiffNotFound } from "./diff.ts";
+import { generatedPaths } from "../reviewer/generated.ts";
+import { computeDiff, DiffNotFound, type DiffResult } from "./diff.ts";
 import { indexDiff } from "./diffIndex.ts";
 import { showFile } from "./show.ts";
 import { gitStatus } from "./status.ts";
@@ -30,6 +39,33 @@ export const handleGitStatus = Effect.fn("git.status")(function* ({
   };
 });
 
+/** The file index with each file's `generated` verdict; null where it couldn't be read. */
+const indexWithGenerated = async (diff: DiffResult): Promise<ReadonlyArray<DiffFile>> => {
+  const index = indexDiff(diff.bytes);
+
+  const generated = await generatedPaths({
+    root: diff.root,
+    head: diff.head,
+    repo: diff.root,
+    paths: index.map((file) => file.path),
+  }).catch(() => null);
+
+  return index.map(
+    (file) =>
+      new DiffFile({
+        path: file.path,
+        oldPath: file.oldPath,
+        status: file.status,
+        offset: file.offset,
+        length: file.length,
+        additions: file.additions,
+        deletions: file.deletions,
+        binary: file.binary,
+        generated: generated?.has(file.path) ?? null,
+      })
+  );
+};
+
 const notFoundOr = (cwd: string) => (cause: unknown) =>
   cause instanceof DiffNotFound
     ? new NotFound({ what: cause.what, id: cause.id })
@@ -44,15 +80,11 @@ export const handleGitDiff = Effect.fn("git.diff")(function* ({
     catch: notFoundOr(cwd),
   });
 
+  const fileIndex = yield* Effect.promise(() => indexWithGenerated(diff));
   const blobs = yield* BlobChannel;
   const blobId = yield* blobs.offer(diff.bytes);
 
-  return {
-    blobId,
-    size: diff.bytes.byteLength,
-    files: diff.files,
-    fileIndex: indexDiff(diff.bytes),
-  };
+  return { blobId, size: diff.bytes.byteLength, files: diff.files, fileIndex };
 });
 
 export const handleGitShow = Effect.fn("git.show")(function* ({

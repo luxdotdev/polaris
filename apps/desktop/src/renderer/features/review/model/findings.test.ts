@@ -26,6 +26,8 @@ const file = (path: string, index: number): ReviewFile => ({
   index,
   section: "s",
   fingerprint: "x",
+  generated: false,
+  test: false,
   file: {
     path,
     oldPath: null,
@@ -35,6 +37,7 @@ const file = (path: string, index: number): ReviewFile => ({
     additions: 1,
     deletions: 0,
     binary: false,
+    generated: null,
   },
 });
 

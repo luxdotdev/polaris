@@ -24,6 +24,8 @@ const fetched = (): ReadonlyArray<Fetched> => [
         index: 0,
         section: "t1",
         fingerprint: "f",
+        generated: false,
+        test: false,
         file: {
           path: "x",
           oldPath: null,
@@ -33,6 +35,7 @@ const fetched = (): ReadonlyArray<Fetched> => [
           additions: 1,
           deletions: 0,
           binary: false,
+          generated: null,
         },
       },
     ],

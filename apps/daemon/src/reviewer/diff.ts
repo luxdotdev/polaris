@@ -19,7 +19,24 @@ export interface DiffFile {
   readonly hunks: ReadonlyArray<Hunk>;
   /** The file's part of the unified diff, header included. */
   readonly patch: string;
+  readonly status: FileStatus;
+  readonly additions: number;
+  readonly deletions: number;
+  readonly binary: boolean;
 }
+
+/** git's status letter: Added, Modified, Deleted, Renamed, Copied. */
+export type FileStatus = "A" | "M" | "D" | "R" | "C";
+
+const STATUS: ReadonlyArray<readonly [string, FileStatus]> = [
+  ["new file mode ", "A"],
+  ["deleted file mode ", "D"],
+  ["rename from ", "R"],
+  ["copy from ", "C"],
+];
+
+const statusOf = (header: ReadonlyArray<string>): FileStatus =>
+  STATUS.find(([prefix]) => header.some((line) => line.startsWith(prefix)))?.[1] ?? "M";
 
 export interface ChangeDiff {
   readonly files: ReadonlyArray<DiffFile>;
@@ -49,8 +66,12 @@ const parseFile = (lines: ReadonlyArray<string>): DiffFile | null => {
 
   if (path === null) return null;
   const hunks: Array<Hunk> = [];
+  let additions = 0;
+  let deletions = 0;
 
-  for (const line of lines) {
+  for (const line of firstHunk === -1 ? [] : lines.slice(firstHunk)) {
+    if (line.startsWith("+")) additions++;
+    else if (line.startsWith("-")) deletions++;
     const match = HUNK.exec(line);
 
     if (match === null) continue;
@@ -62,7 +83,15 @@ const parseFile = (lines: ReadonlyArray<string>): DiffFile | null => {
     });
   }
 
-  return { path, hunks, patch: lines.join("\n") };
+  return {
+    path,
+    hunks,
+    patch: lines.join("\n"),
+    status: statusOf(header),
+    additions,
+    deletions,
+    binary: header.some((line) => line.startsWith("Binary files ") || line === "GIT binary patch"),
+  };
 };
 
 /** Split a unified diff into its files. */

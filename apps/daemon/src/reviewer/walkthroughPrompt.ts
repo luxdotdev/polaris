@@ -1,5 +1,6 @@
 // Portions adapted from humanlayer/skills@ca7c8088db69e315a8b2deea43820270457f8f3c (MIT).
 import type { RiskFinding } from "@polaris/protocol";
+import { changedFilesSection, diffSection } from "./changedFiles.ts";
 import type { ChangeDiff } from "./diff.ts";
 
 export const WALKTHROUGH_MARKER = "Polaris read-only walkthrough";
@@ -10,6 +11,8 @@ export interface WalkthroughPromptInput {
   readonly head: string;
   readonly fromHead: string | null;
   readonly diff: ChangeDiff;
+  /** Generated files and lockfiles: listed, their patches left out. */
+  readonly generated: ReadonlySet<string>;
   readonly context: string;
   readonly findings: ReadonlyArray<RiskFinding>;
   readonly instructions: string;
@@ -23,6 +26,7 @@ export const walkthroughPrompt = (input: WalkthroughPromptInput) =>
     input.checksAllowed
       ? "You may read/search, use read-only git, and run allow-listed tests/lint/typecheck in the sandbox."
       : "Judge by reading only. Do not execute tests, lint or typecheck: this Harness has no suitable sandbox.",
+    changedFilesSection(input.diff, input.generated),
     `Subject: ${input.title}\nComposed diff: ${input.base}..${input.head}`,
     input.fromHead === null
       ? "Explain the full change."
@@ -36,11 +40,8 @@ export const walkthroughPrompt = (input: WalkthroughPromptInput) =>
         .map((f) => `[${f.id}] ${f.title}: ${f.path}:${f.lines.start}`)
         .join("\n") || "None yet."
     }`,
-    `Diff:\n${input.diff.files
-      .map((f) => f.patch)
-      .join("\n")
-      .slice(0, 240_000)}`,
-    "If the diff was truncated, use git to read only the relevant remaining changes. No HTML artifacts or external requests.",
+    diffSection(input.diff, input.generated, input.base, input.head),
+    "No HTML artifacts or external requests.",
   ].join("\n\n");
 
 export const walkthroughProblem = (markdown: string): string | null => {

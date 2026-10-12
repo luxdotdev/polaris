@@ -4,14 +4,12 @@
  * them nor misses them), the diff, and the output contract.
  */
 import type { RiskFinding } from "@polaris/protocol";
+import { changedFilesSection, diffSection } from "./changedFiles.ts";
 import type { ChangeDiff } from "./diff.ts";
 import { reviewerOutputJsonSchema } from "./output.ts";
 
 /** Marks a Reviewer prompt; the bench Harness answers it with schema output. */
 export const REVIEWER_MARKER = "<!-- polaris:reviewer -->";
-
-/** The diff text the prompt carries at most; past it, files are listed to read with git. */
-export const DIFF_BUDGET_CHARS = 240_000;
 
 export interface ReviewPromptInput {
   /** "Pull request #12: Title", or the Agent Session's title. */
@@ -21,6 +19,8 @@ export interface ReviewPromptInput {
   readonly instructions: string | null;
   readonly ruleFindings: ReadonlyArray<RiskFinding>;
   readonly diff: ChangeDiff;
+  /** Generated files and lockfiles: listed, their patches left out. */
+  readonly generated: ReadonlySet<string>;
   readonly base: string;
   readonly head: string;
   /** Set for "only the new changes": the head the previous Risk Summary covered. */
@@ -65,38 +65,12 @@ const RULES = [
   "Work in this checkout; read whole files where the diff alone doesn't show enough.",
 ].join("\n");
 
-/** Whole files' patches up to the budget, then the rest by name. */
-const diffSection = (diff: ChangeDiff, base: string, head: string): string => {
-  const shown: Array<string> = [];
-  const listed: Array<string> = [];
-  let used = 0;
-
-  for (const file of diff.files) {
-    if (used + file.patch.length <= DIFF_BUDGET_CHARS) {
-      shown.push(file.patch);
-      used += file.patch.length;
-    } else listed.push(`- ${file.path}`);
-  }
-
-  const parts = [`## The diff (\`git diff ${base} ${head}\`)`, "", "```diff", ...shown, "```"];
-
-  if (listed.length > 0) {
-    parts.push(
-      "",
-      `These files changed too but didn't fit; read them with \`git diff ${base} ${head} -- <path>\`:`,
-      ...listed
-    );
-  }
-
-  return parts.join("\n");
-};
-
 export const reviewPrompt = (input: ReviewPromptInput): string => {
-  const sections = [
-    REVIEWER_MARKER,
-    input.runChecks ? RULES : `${RULES}\n${NO_CHECKS}`,
-    `## The change\n\n${input.subject}`,
-  ];
+  const sections = [REVIEWER_MARKER, input.runChecks ? RULES : `${RULES}\n${NO_CHECKS}`];
+
+  if (input.diff.files.length > 0) sections.push(changedFilesSection(input.diff, input.generated));
+
+  sections.push(`## The change\n\n${input.subject}`);
 
   if (input.why !== null && input.why.trim() !== "") {
     sections.push(`## Why it was made\n\n${input.why.trim()}`);
@@ -123,7 +97,7 @@ export const reviewPrompt = (input: ReviewPromptInput): string => {
 
   sections.push(
     input.diff.files.length > 0
-      ? diffSection(input.diff, input.base, input.head)
+      ? diffSection(input.diff, input.generated, input.base, input.head)
       : "## The diff\n\nNo file changed.",
     CONTRACT(reviewerOutputJsonSchema())
   );
