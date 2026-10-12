@@ -40,6 +40,12 @@ export const eventSchemas = {
   "turn.retry": standard(Schema.Struct({ turn: Turn })),
   "turn.steer": standard(Schema.Struct({ canSteer: Schema.Boolean })),
   "turn.interrupt": Nothing,
+  "background.stop": standard(
+    Schema.Struct({
+      taskIds: Schema.NullOr(Schema.Array(Schema.String)),
+      canStop: Schema.Boolean,
+    })
+  ),
   "approval.respond": standard(
     Schema.Struct({ requestId: RequestId, decision: ApprovalDecision, resolvedBy: Schema.String })
   ),

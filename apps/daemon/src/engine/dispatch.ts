@@ -92,7 +92,11 @@ const make = Effect.gen(function* () {
     });
 
   /** What the session's Harness driver declares, for the commands that depend on it. */
-  const driverCan = (command: Command, tag: "Steer" | "SetModel", can: "steer" | "switchModel") =>
+  const driverCan = (
+    command: Command,
+    tag: "Steer" | "SetModel" | "StopBackgroundTasks",
+    can: "steer" | "switchModel" | "stopBackground"
+  ) =>
     Effect.gen(function* () {
       if (!Predicate.isTagged(command, tag)) return false;
       const model = yield* store.model;
@@ -101,7 +105,7 @@ const make = Effect.gen(function* () {
       if (record === undefined) return false;
       const driver = yield* rt.registry.get(record.session.harness).pipe(Effect.option);
 
-      return Option.isSome(driver) && driver.value.capabilities[can];
+      return Option.isSome(driver) && driver.value.capabilities[can] === true;
     });
 
   const namedTurn = (command: Command) => {
@@ -147,6 +151,7 @@ const make = Effect.gen(function* () {
       pathProbe: Predicate.isTagged(command, "RegisterWorkspace") ? probePath(command.path) : null,
       canSteer: yield* driverCan(command, "Steer", "steer"),
       canSwitchModel: yield* driverCan(command, "SetModel", "switchModel"),
+      canStopBackground: yield* driverCan(command, "StopBackgroundTasks", "stopBackground"),
       namedTurn: yield* namedTurn(command),
       judgedSummary: yield* judgedSummary(command),
     };

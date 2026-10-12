@@ -140,6 +140,7 @@ export const sessionOf: (event: DomainEvent) => SessionId | null =
     SessionModelChanged: bySessionId,
     SessionSetupChanged: bySessionId,
     SessionContextUsed: bySessionId,
+    SessionCompacted: bySessionId,
     SessionBackgroundTasksChanged: bySessionId,
     TurnStarted: byTurn,
     TurnItemCompleted: bySessionId,
@@ -172,6 +173,7 @@ export const sessionOnlyEventTypes: ReadonlyArray<DomainEvent["_tag"]> = [
   "TurnItemCompleted",
   "CheckpointRecorded",
   "SessionContextUsed",
+  "SessionCompacted",
 ];
 
 /**
@@ -236,6 +238,7 @@ export const gatingCapabilities: ReadonlyArray<Capability> = [
   "constellation",
   "host.resources",
   "session.background-tasks",
+  "session.compaction",
 ];
 
 const needs = (capability: Capability) => (): Capability => capability;
@@ -288,6 +291,7 @@ export const eventCapability = (event: DomainEvent): Capability | null =>
       ResourceLeased: needs("host.resources"),
       ResourceReleased: needs("host.resources"),
       SessionBackgroundTasksChanged: needs("session.background-tasks"),
+      SessionCompacted: needs("session.compaction"),
       SessionSetupChanged: needs("workspace.setup"),
       TurnsAccepted: needs("session.accept"),
       TurnsReverted: needs("session.accept"),
@@ -349,6 +353,7 @@ export const patchSession = (session: AgentSession, patch: SessionPatch): AgentS
     harnessCursor: session.harnessCursor,
     turnCount: session.turnCount,
     contextUsage: session.contextUsage,
+    lastCompaction: session.lastCompaction,
     backgroundTasks: session.backgroundTasks,
     worktreeSetup: session.worktreeSetup,
     lastError: session.lastError,
@@ -641,6 +646,8 @@ const apply: (event: DomainEvent) => Reducer = DomainEvent.match<Reducer>({
     updateSession(fold, event.sessionId, () => ({ session: { contextUsage: event.usage } })),
   SessionBackgroundTasksChanged: (event) => (fold) =>
     updateSession(fold, event.sessionId, () => ({ session: { backgroundTasks: event.tasks } })),
+  SessionCompacted: (event) => (fold) =>
+    updateSession(fold, event.sessionId, () => ({ session: { lastCompaction: event.compaction } })),
   TurnStarted: recordTurn,
   TurnEnded: recordTurn,
   TurnItemCompleted:

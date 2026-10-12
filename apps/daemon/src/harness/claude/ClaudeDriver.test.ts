@@ -12,6 +12,15 @@ import { HarnessEvent, type OpenOptions } from "../HarnessDriver.ts";
 import { polarisInstructions } from "../../constellation/skills/preamble.ts";
 import { type ClaudeDriverOptions, makeClaudeDriver, parseVersion } from "./ClaudeDriver.ts";
 import { assistant, FakeClaude, init, result, streamEvent, toolResult } from "./fakeClaude.ts";
+import { unstamped } from "../itemClock.testing.ts";
+import type { SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
+
+/** Claude Code's echo of a user message it took in (`--replay-user-messages`). */
+const replayOf = (input: SDKUserMessage) => ({
+  ...input,
+  session_id: "claude-session-1",
+  isReplay: true as const,
+});
 
 const T1 = TurnId.make("turn-1");
 
@@ -48,11 +57,16 @@ const openFake = async (
   );
 
   const events: HarnessEvent[] = [];
+  /** The same events with their start stamps; `events` has them cleared. */
+  const stamped: HarnessEvent[] = [];
   let ended = false;
   Effect.runFork(
-    Stream.runForEach(session.events, (e) => Effect.sync(() => events.push(e))).pipe(
-      Effect.ensuring(Effect.sync(() => (ended = true)))
-    )
+    Stream.runForEach(session.events, (e) =>
+      Effect.sync(() => {
+        stamped.push(e);
+        events.push(unstamped(e));
+      })
+    ).pipe(Effect.ensuring(Effect.sync(() => (ended = true))))
   );
 
   const until = async (predicate: () => boolean, label = "condition") => {
@@ -79,6 +93,7 @@ const openFake = async (
     fake,
     session,
     events,
+    stamped,
     until,
     has,
     first,
@@ -478,30 +493,37 @@ describe("Claude driver", () => {
     await t.close();
   });
 
-  test("steer sends mid-Turn and keeps the Turn open until it is answered", async () => {
+  test("a steer shows once Claude Code folds it in, and the Turn stays open until answered", async () => {
     const t = await openFake();
     await t.run(t.session.sendTurn(turn(T1, "refactor")));
     const first = await t.fake.nextInput(0);
     await t.run(t.session.steer("also rename foo"));
     const second = await t.fake.nextInput(1);
     expect(second.message.content).toEqual([{ type: "text", text: "also rename foo" }]);
-    // It shows in the Turn as soon as Claude Code has taken it.
-    await t.until(t.has("ItemCompleted"));
-    expect(t.events.filter(HarnessEvent.$is("ItemCompleted")).map((e) => e.item)).toEqual([
-      TurnItem.cases.UserMessage.make({
-        id: `steer:${inputUuid(second)}`,
-        text: "also rename foo",
-      }),
-    ]);
 
-    // Claude finished the first run before it could fold the steer in.
+    const steers = () =>
+      t.events.flatMap((e) =>
+        HarnessEvent.$is("ItemCompleted")(e) && TurnItem.guards.UserMessage(e.item) ? [e.item] : []
+      );
+
+    // Claude finished the first run before it could fold the steer in: still pending.
     t.fake.emit(result([inputUuid(first)]));
+    await Bun.sleep(20);
+    expect(steers()).toEqual([]);
+
+    t.fake.emit(replayOf(second));
     t.fake.emit(assistant("m9", [{ type: "text", text: "Renamed." }]));
     await t.until(() =>
       t.events.some(
         (e) => HarnessEvent.$is("ItemCompleted")(e) && TurnItem.guards.AssistantMessage(e.item)
       )
     );
+    expect(steers()).toEqual([
+      TurnItem.cases.UserMessage.make({
+        id: `steer:${inputUuid(second)}`,
+        text: "also rename foo",
+      }),
+    ]);
     expect(t.events.some(HarnessEvent.$is("TurnEnded"))).toBe(false);
     t.fake.emit(result([inputUuid(second)]));
     await t.until(t.has("TurnEnded"));
@@ -514,6 +536,50 @@ describe("Claude driver", () => {
     );
     // Steering with nothing in flight fails.
     expect(Exit.isFailure(await Effect.runPromiseExit(t.session.steer("late")))).toBe(true);
+    await t.close();
+  });
+
+  test("without an echo, a steer lands when the result says it was answered", async () => {
+    const t = await openFake();
+    await t.run(t.session.sendTurn(turn(T1, "refactor")));
+    const first = await t.fake.nextInput(0);
+    await t.run(t.session.steer("also rename foo"));
+    const second = await t.fake.nextInput(1);
+    t.fake.emit(result([inputUuid(first), inputUuid(second)]));
+    await t.until(t.has("TurnEnded"));
+
+    expect(t.events.slice(-2)).toEqual([
+      HarnessEvent.ItemCompleted({
+        turnId: T1,
+        item: TurnItem.cases.UserMessage.make({
+          id: `steer:${inputUuid(second)}`,
+          text: "also rename foo",
+        }),
+      }),
+      HarnessEvent.TurnEnded({ turnId: T1, status: "completed", error: null }),
+    ]);
+    await t.close();
+  });
+
+  test("stopping background tasks asks Claude Code to stop each one", async () => {
+    const t = await openFake();
+    await t.run(t.session.stopBackground!(["task-1", "task-2"]));
+
+    expect(t.fake.stoppedTasks).toEqual(["task-1", "task-2"]);
+    await t.close();
+  });
+
+  test("a steer an interrupt recalled never shows in the Turn", async () => {
+    const t = await openFake();
+    await t.run(t.session.sendTurn(turn(T1, "refactor")));
+    const first = await t.fake.nextInput(0);
+    await t.run(t.session.steer("also rename foo"));
+    await t.fake.nextInput(1);
+    await t.run(t.session.interrupt);
+    t.fake.emit(result([inputUuid(first)], { subtype: "error_during_execution" }));
+    await t.until(t.has("TurnEnded"));
+
+    expect(t.events.some(HarnessEvent.$is("ItemCompleted"))).toBe(false);
     await t.close();
   });
 

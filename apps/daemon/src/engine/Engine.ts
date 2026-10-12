@@ -26,6 +26,7 @@ import {
   type SessionId,
   type SessionStreamItem,
   type TerminalLaunch,
+  type TurnPage,
   type Turn,
 } from "@polaris/protocol";
 import { Context, Effect, Layer, Option, type Stream } from "effect";
@@ -37,7 +38,12 @@ import { Reactors } from "./reactors.ts";
 import { ReviewCheckouts } from "./reviewCheckouts.ts";
 import { prepareForUpgrade as prepareSessionsForUpgrade, recoverOnStart } from "./recovery.ts";
 import { EngineRuntime } from "./runtime.ts";
-import { type HostSubscription, type SessionSubscription, Streams } from "./streams.ts";
+import {
+  type HostSubscription,
+  type SessionSubscription,
+  Streams,
+  type TurnPageRequest,
+} from "./streams.ts";
 import { Supervisor } from "./supervisor.ts";
 import { TerminalHandoff } from "./terminal.ts";
 import { Worktrees } from "./worktrees.ts";
@@ -66,6 +72,7 @@ export class Engine extends Context.Service<
     readonly subscribeSession: (
       options: SessionSubscription
     ) => Stream.Stream<SessionStreamItem, NotFound>;
+    readonly readTurnPage: (options: TurnPageRequest) => Effect.Effect<TurnPage, NotFound>;
     readonly hasSession: (sessionId: SessionId) => Effect.Effect<boolean>;
     /** How to launch the Harness's own TUI for a session that is In Terminal, once known. */
     readonly terminalCommand: (sessionId: SessionId) => Effect.Effect<TerminalLaunch | null>;
@@ -175,6 +182,7 @@ const make = Effect.gen(function* () {
     dispatch,
     subscribeHost: streams.subscribeHost,
     subscribeSession: streams.subscribeSession,
+    readTurnPage: streams.readTurnPage,
     hasSession: (sessionId) =>
       Effect.map(runtime.store.model, (model) => model.sessions.has(sessionId)),
     terminalCommand: (sessionId) =>

@@ -43,6 +43,8 @@ export interface FakeHarnessSession {
   readonly turns: Array<TurnInput>;
   readonly responses: Array<{ requestId: RequestId; decision: ApprovalDecision }>;
   readonly steers: Array<string>;
+  /** Background task ids the engine asked it to stop. */
+  readonly stopped: Array<string>;
   interrupts: number;
   closed: boolean;
   /** Push a Harness event, as if the vendor process emitted it. */
@@ -108,6 +110,7 @@ export const makeFakeDriver = (
       steer: options.steer ?? false,
       liveCoAttach: options.liveCoAttach ?? false,
       switchModel: options.switchModel ?? true,
+      stopBackground: true,
     },
     probe: Effect.succeed({ available: true, version: "fake", detail: null }),
     open: (openOptions) =>
@@ -121,6 +124,7 @@ export const makeFakeDriver = (
           turns: [],
           responses: [],
           steers: [],
+          stopped: [],
           interrupts: 0,
           closed: false,
           emit: (...events) => {
@@ -162,6 +166,7 @@ export const makeFakeDriver = (
             session.interrupts++;
             session.emit(...(options.onInterrupt?.(session) ?? []));
           }),
+          stopBackground: (taskIds) => Effect.sync(() => void session.stopped.push(...taskIds)),
           respond: (requestId, decision) =>
             Effect.sync(() => void session.responses.push({ requestId, decision })),
           setPermissionMode: () => Effect.void,

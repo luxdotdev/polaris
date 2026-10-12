@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { SessionId, TurnId, TurnItem } from "@polaris/protocol";
+import { ContextCategory, MemoryFile, SessionId, TurnId, TurnItem } from "@polaris/protocol";
 import { Effect, Exit, Scope, Stream } from "effect";
 import { HarnessEvent } from "../HarnessDriver.ts";
 import { makeClaudeDriver } from "./ClaudeDriver.ts";
@@ -10,7 +10,16 @@ const T1 = TurnId.make("turn-1");
 /** A Claude session on the fake, with one Turn sent; `events` collects what the driver emits. */
 const openWithTurn = async (resumeCursor: string | null = null) => {
   const fake = new FakeClaude();
-  fake.contextReply = { totalTokens: 50_000, maxTokens: 200_000 };
+  fake.contextReply = {
+    totalTokens: 50_000,
+    maxTokens: 200_000,
+    categories: [
+      { name: "Messages", tokens: 38_000, kind: "used" },
+      { name: "Autocompact buffer", tokens: 33_000, kind: "buffer" },
+      { name: "Free space", tokens: 129_000, kind: "free" },
+    ],
+    memoryFiles: [{ path: "/repo/CLAUDE.md", type: "Project", tokens: 1_200 }],
+  };
   const scope = Effect.runSync(Scope.make());
 
   const session = await Effect.runPromise(
@@ -136,7 +145,22 @@ describe("Claude context usage", () => {
     expect(t.fake.contextCalls).toBe(1);
     expect(t.of("ContextUsed").slice(1)).toEqual([
       HarnessEvent.ContextUsed({ usedTokens: 30_100, windowTokens: 200_000 }),
-      HarnessEvent.ContextUsed({ usedTokens: 50_000, windowTokens: 200_000 }),
+      HarnessEvent.ContextUsed({
+        usedTokens: 50_000,
+        windowTokens: 200_000,
+        breakdown: {
+          categories: [
+            new ContextCategory({ name: "Messages", kind: "used", tokens: 38_000 }),
+            new ContextCategory({ name: "Autocompact buffer", kind: "buffer", tokens: 33_000 }),
+            new ContextCategory({ name: "Free space", kind: "free", tokens: 129_000 }),
+          ],
+          memoryFiles: [
+            new MemoryFile({ path: "/repo/CLAUDE.md", source: "Project", tokens: 1_200 }),
+          ],
+          countedTokens: 50_000,
+          autoCompact: true,
+        },
+      }),
     ]);
     await t.close();
   });
@@ -150,7 +174,11 @@ describe("Claude context usage", () => {
     await t.settle();
 
     expect(t.of("ContextUsed").at(-1)).toEqual(
-      HarnessEvent.ContextUsed({ usedTokens: 20_000, windowTokens: 200_000 })
+      HarnessEvent.ContextUsed({
+        usedTokens: 20_000,
+        windowTokens: 200_000,
+        compacted: { trigger: "auto", beforeTokens: 180_000, afterTokens: 20_000 },
+      })
     );
     await t.close();
   });

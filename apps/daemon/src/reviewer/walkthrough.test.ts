@@ -240,6 +240,7 @@ describe("walkthrough persistence and controls", () => {
         }),
       subscribeHost: () => Stream.empty,
       subscribeSession: () => Stream.empty,
+      readTurnPage: () => Effect.die("unused"),
       hasSession: () => Effect.succeed(true),
       terminalCommand: () => Effect.succeed(null),
       prepareForUpgrade: Effect.void,

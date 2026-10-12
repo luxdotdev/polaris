@@ -7,6 +7,7 @@
  */
 import {
   AgentSession,
+  BackgroundTask,
   ApprovalDecision,
   ApprovalRequest,
   type HarnessKind,
@@ -38,6 +39,13 @@ export const AT = "2026-01-01T00:00:00.000Z";
 
 export const SESSION = SessionId.make("s-model");
 
+/** The background command the fake Harness reports. */
+export const BACKGROUND_COMMAND = new BackgroundTask({
+  id: "cmd1",
+  kind: "command",
+  description: "bun dev",
+});
+
 /** What a test can do to a session, in the terms of the Engine's public surface. */
 export type Step =
   | { readonly type: "start" }
@@ -46,6 +54,8 @@ export type Step =
   | { readonly type: "continue" }
   | { readonly type: "retry" }
   | { readonly type: "interrupt" }
+  /** Stop every background task; the fake Harness answers by reporting none left. */
+  | { readonly type: "stopBackground" }
   | { readonly type: "approve" }
   | { readonly type: "archive" }
   | { readonly type: "unarchive" }
@@ -60,6 +70,8 @@ export type Step =
   | { readonly type: "withdrawApproval" }
   | { readonly type: "terminalTurn" }
   | { readonly type: "backgroundTurn" }
+  /** …a background command still running (it outlives its Turn). */
+  | { readonly type: "reportBackground" }
   | { readonly type: "complete" }
   | { readonly type: "failTurn" }
   | { readonly type: "exit" }
@@ -72,6 +84,7 @@ export const COMMAND_STEPS = [
   "continue",
   "retry",
   "interrupt",
+  "stopBackground",
   "approve",
   "archive",
   "unarchive",
@@ -246,6 +259,7 @@ const INPUTS = {
   continue: () => [{ type: "turn.continue" }],
   retry: (c) => [{ type: "turn.retry", turn: newTurn(`t${c.n}`, c.turnCount) }],
   interrupt: () => [{ type: "turn.interrupt" }],
+  stopBackground: () => [{ type: "background.stop", taskIds: null, canStop: true }],
   approve: (c) => {
     const first = firstPending(c.record);
 
@@ -315,6 +329,10 @@ const INPUTS = {
             }),
           },
         ]
+      : [],
+  reportBackground: (c) =>
+    c.snapshot.live
+      ? [{ type: "harness.backgroundTasksChanged", tasks: [BACKGROUND_COMMAND] }]
       : [],
   complete: (c) => turnEnded(c, true),
   failTurn: (c) => turnEnded(c, false),
@@ -399,6 +417,11 @@ export const stepModel = (
       }
 
       break;
+    case "stopBackground":
+      // The fake Harness stops them and reports none left.
+      if (live) run({ type: "harness.backgroundTasksChanged", tasks: [] });
+
+      break;
     case "openTerminal":
       // Codex's TUI co-attaches to the running Harness; Claude's takes over from it.
       live = options.liveCoAttach;
@@ -428,6 +451,7 @@ export const ALL_STEPS: ReadonlyArray<Step> = [
   { type: "withdrawApproval" },
   { type: "terminalTurn" },
   { type: "backgroundTurn" },
+  { type: "reportBackground" },
   { type: "complete" },
   { type: "failTurn" },
   { type: "exit" },
@@ -441,6 +465,8 @@ export interface Observed {
   readonly working: boolean;
   readonly last: Turn["status"] | null;
   readonly pending: number;
+  /** Background tasks the session lists. */
+  readonly background: number;
   readonly live: boolean;
 }
 
@@ -449,6 +475,7 @@ export const observe = (record: SessionRecord | undefined, live: boolean): Obser
   working: record !== undefined && workingTurn(record) !== undefined,
   last: (record && lastTurn(record)?.status) ?? null,
   pending: record?.pending.size ?? 0,
+  background: record?.session.backgroundTasks.length ?? 0,
   live,
 });
 

@@ -91,6 +91,8 @@ export const CommandExecutionItem = Schema.Struct({
   status: ItemStatus,
   aggregatedOutput: NullableString,
   exitCode: Schema.NullOr(Schema.Number),
+  /** The process behind it, which can outlive its Turn (a unified exec session). */
+  processId: Schema.optional(Schema.NullOr(Schema.String)),
 });
 
 export const FileChangeItem = Schema.Struct({

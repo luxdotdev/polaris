@@ -141,8 +141,8 @@ describe("session machine", () => {
 
     // Update README.md when these move.
     expect(counts).toEqual([
-      [29, 135],
-      [35, 182],
+      [44, 247],
+      [52, 333],
     ]);
   });
 

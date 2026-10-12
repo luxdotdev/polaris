@@ -44,6 +44,12 @@ export const Capability = Schema.Literals([
   "session.subagents",
   /** Live background task snapshots and SessionBackgroundTasksChanged events. */
   "session.background-tasks",
+  /** `session.turns`: older Turns a page at a time. */
+  "session.turn-paging",
+  /** The `StopBackgroundTasks` command. */
+  "session.stop-background",
+  /** `SessionCompacted` and `AgentSession.lastCompaction`; `ContextUsage`'s breakdown fields need nothing. */
+  "session.compaction",
   "files.read",
   "files.versioned",
   "files.write",

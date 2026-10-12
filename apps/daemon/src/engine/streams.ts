@@ -16,6 +16,8 @@ import {
   type SubagentDetail,
   TurnDetail,
   type TurnId,
+  TurnPage,
+  type Turn,
 } from "@polaris/protocol";
 import { Context, Effect, Layer, Predicate, Result, Stream } from "effect";
 import { WORKERS_RESOURCE } from "../resources/model.ts";
@@ -41,6 +43,17 @@ export interface SessionSubscription {
   /** What the Client announced: events that need another capability are left out. Default none. */
   readonly capabilities?: ReadonlyArray<Capability>;
 }
+
+export interface TurnPageRequest {
+  readonly sessionId: SessionId;
+  readonly beforeIndex: number;
+  readonly limit: number;
+  /** Include Subagents and their items (the Client announced `session.subagents`). */
+  readonly subagents?: boolean;
+}
+
+/** The most Turns one `session.turns` call returns. */
+export const MAX_TURN_PAGE = 50;
 
 export interface HostSubscription {
   /** Send Subagents (the Client announced `session.subagents`). Default false. */
@@ -194,7 +207,17 @@ const make = (rt: EngineRuntime["Service"]): Streams["Service"] => {
             })
           : [];
 
-      const turns = [...older, ...recent];
+      return SessionStreamItem.cases.Snapshot.make({
+        sequence: cut,
+        session: record.session,
+        turns: yield* turnDetails([...older, ...recent], cut, withSubagents),
+        pendingApprovals: [...record.pending.values()],
+      });
+    }).pipe(Effect.orDie);
+
+  /** Turns with their items (and Subagents, when asked) as of `cut`. */
+  const turnDetails = (turns: ReadonlyArray<Turn>, cut: Sequence, withSubagents: boolean) =>
+    Effect.gen(function* () {
       const turnIds = turns.map((t) => t.id);
       const items = yield* store.readTurnItems({ turnIds, upTo: cut });
 
@@ -202,20 +225,42 @@ const make = (rt: EngineRuntime["Service"]): Streams["Service"] => {
         ? yield* store.readSubagents({ turnIds, upTo: cut })
         : new Map<TurnId, ReadonlyArray<SubagentDetail>>();
 
-      return SessionStreamItem.cases.Snapshot.make({
+      return turns.map(
+        (turn) =>
+          new TurnDetail({
+            turn,
+            items: [...(items.get(turn.id) ?? [])],
+            subagents: [...(subagents.get(turn.id) ?? [])],
+          })
+      );
+    });
+
+  /** `session.turns`: up to `limit` Turns before `beforeIndex`, oldest first. */
+  const readTurnPage = (options: TurnPageRequest): Effect.Effect<TurnPage, NotFound> =>
+    Effect.gen(function* () {
+      const model = yield* store.model;
+
+      if (!model.sessions.has(options.sessionId))
+        return yield* new NotFound({ what: "session", id: options.sessionId });
+      const cut = Sequence.make(model.sequence);
+      const limit = Math.min(Math.max(options.limit, 1), MAX_TURN_PAGE);
+
+      const turns = yield* store
+        .readTurns({
+          sessionId: options.sessionId,
+          beforeIndex: options.beforeIndex,
+          limit: limit + 1,
+        })
+        .pipe(Effect.orDie);
+
+      const page = turns.slice(Math.max(0, turns.length - limit));
+
+      return new TurnPage({
+        turns: yield* turnDetails(page, cut, options.subagents === true).pipe(Effect.orDie),
         sequence: cut,
-        session: record.session,
-        turns: turns.map(
-          (turn) =>
-            new TurnDetail({
-              turn,
-              items: [...(items.get(turn.id) ?? [])],
-              subagents: [...(subagents.get(turn.id) ?? [])],
-            })
-        ),
-        pendingApprovals: [...record.pending.values()],
+        hasMore: turns.length > limit,
       });
-    }).pipe(Effect.orDie);
+    });
 
   // One stage rather than a filter and a map: this runs for every Delta.
   const liveSessionItem =
@@ -285,7 +330,7 @@ const make = (rt: EngineRuntime["Service"]): Streams["Service"] => {
       })
     );
 
-  return { subscribeHost, subscribeSession };
+  return { subscribeHost, subscribeSession, readTurnPage };
 };
 
 export class Streams extends Context.Service<
@@ -298,6 +343,7 @@ export class Streams extends Context.Service<
     readonly subscribeSession: (
       options: SessionSubscription
     ) => Stream.Stream<SessionStreamItem, NotFound>;
+    readonly readTurnPage: (options: TurnPageRequest) => Effect.Effect<TurnPage, NotFound>;
   }
 >()("polaris/daemon/engine/Streams") {
   static readonly layer = Layer.effect(

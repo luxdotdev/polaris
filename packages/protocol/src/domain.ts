@@ -87,6 +87,23 @@ export class Worktree extends Schema.Class<Worktree>("Worktree")({
 }) {}
 
 /**
+ * One row of a context breakdown. `kind`: `used` fills the window, `free` is what is
+ * left, `buffer` is the compaction reserve, `deferred` is listed but outside the window.
+ */
+export class ContextCategory extends Schema.Class<ContextCategory>("ContextCategory")({
+  name: Schema.String,
+  kind: Schema.Literals(["used", "free", "buffer", "deferred"]),
+  tokens: Schema.Int,
+}) {}
+
+/** An instruction file in the context window: its path, where it comes from ("Project", "User"), its size. */
+export class MemoryFile extends Schema.Class<MemoryFile>("MemoryFile")({
+  path: Schema.String,
+  source: Schema.String,
+  tokens: Schema.Int,
+}) {}
+
+/**
  * How full the Agent Session's context window is, as its Harness last reported
  * it: the tokens the latest model call carried, of the window its Model has.
  */
@@ -94,6 +111,25 @@ export class ContextUsage extends Schema.Class<ContextUsage>("ContextUsage")({
   usedTokens: Schema.Int,
   /** The Model's context window; null while the Harness hasn't said. */
   windowTokens: Schema.NullOr(Schema.Int),
+  /** What fills the window, by category, as the Harness counts it; empty when it gives totals only. */
+  categories: optionalArray(ContextCategory),
+  /** Instruction files loaded into the window (CLAUDE.md, rules), when the Harness lists them. */
+  memoryFiles: optionalArray(MemoryFile),
+  /** The `usedTokens` the breakdown was counted at; the total can move on before the next count. */
+  categoriesTotal: optionalNullable(Schema.Int),
+  /** Whether the Harness compacts on its own as the window fills; null when it doesn't say. */
+  autoCompact: optionalNullable(Schema.Boolean),
+}) {}
+
+/** How one Harness compaction went: the tokens the window held before and after. */
+export class Compaction extends Schema.Class<Compaction>("Compaction")({
+  /** The Turn it happened in, when one was in flight. */
+  turnId: Schema.NullOr(TurnId),
+  /** `auto` when the window filled, `manual` for `/compact`; null when the Harness doesn't say. */
+  trigger: Schema.NullOr(Schema.Literals(["auto", "manual"])),
+  beforeTokens: Schema.NullOr(Schema.Int),
+  afterTokens: Schema.NullOr(Schema.Int),
+  at: Timestamp,
 }) {}
 
 export const PermissionMode = Schema.Literals(["supervised", "auto-edits", "auto", "full-access"]);
@@ -139,6 +175,8 @@ export class AgentSession extends Schema.Class<AgentSession>("AgentSession")({
   turnCount: Schema.Int,
   /** Null until the Harness reports it; some Harnesses never do. */
   contextUsage: addedNullable(ContextUsage),
+  /** The Harness's latest compaction, when it reported one (capability `session.compaction`). */
+  lastCompaction: optionalNullable(Compaction),
   worktreeSetup: optionalNullable(WorktreeSetupRun),
   lastError: Schema.NullOr(Schema.String),
   /** The index of the last Turn the user accepted (`AcceptTurns`); null before any. */
@@ -223,11 +261,20 @@ export class Subagent extends Schema.Class<Subagent>("Subagent")({
   endedAt: Schema.NullOr(Timestamp),
 }) {}
 
+/**
+ * When the Harness started an item, as its driver first saw it; strictly increasing per
+ * Agent Session. Null on older items, the Daemon's own, and drivers that don't stamp.
+ */
+const startedAt = optionalNullable(Timestamp);
+
 /** One normalized piece of Harness output within a Turn. `raw` keeps the native frame. */
 export const TurnItem = Schema.TaggedUnion({
-  AssistantMessage: { id: Schema.String, text: Schema.String },
-  /** Guidance the user sent into the Turn in flight (a steer), once the Harness took it. */
-  UserMessage: { id: Schema.String, text: Schema.String },
+  AssistantMessage: { id: Schema.String, text: Schema.String, startedAt },
+  /**
+   * Guidance the user sent into the Turn in flight (a steer), once the model took it in;
+   * `startedAt` is when it did, so it follows whatever held it back.
+   */
+  UserMessage: { id: Schema.String, text: Schema.String, startedAt },
   Reasoning: {
     id: Schema.String,
     text: Schema.String,
@@ -237,6 +284,7 @@ export const TurnItem = Schema.TaggedUnion({
   },
   CommandExecution: {
     id: Schema.String,
+    startedAt,
     command: Schema.String,
     cwd: Schema.String,
     output: Schema.String,
@@ -245,6 +293,7 @@ export const TurnItem = Schema.TaggedUnion({
   },
   FileChange: {
     id: Schema.String,
+    startedAt,
     changes: Schema.Array(
       Schema.Struct({ path: Schema.String, kind: Schema.Literals(["add", "modify", "delete"]) })
     ),
@@ -252,6 +301,7 @@ export const TurnItem = Schema.TaggedUnion({
   },
   ToolCall: {
     id: Schema.String,
+    startedAt,
     name: Schema.String,
     input: Schema.Unknown,
     output: Schema.NullOr(Schema.Unknown),
@@ -259,6 +309,7 @@ export const TurnItem = Schema.TaggedUnion({
   },
   Plan: {
     id: Schema.String,
+    startedAt,
     steps: Schema.Array(
       Schema.Struct({
         text: Schema.String,
@@ -270,10 +321,33 @@ export const TurnItem = Schema.TaggedUnion({
     /** Why the plan is what it is (Codex's plan explanation), when the Harness gives one. */
     explanation: addedNullable(Schema.String),
   },
-  Error: { id: Schema.String, message: Schema.String },
+  Error: { id: Schema.String, message: Schema.String, startedAt },
 });
 
 export type TurnItem = typeof TurnItem.Type;
+
+/**
+ * `items` with `item` placed by when it started: an item already there keeps its place
+ * and takes the new content, a stamped one goes before the first stamped item that
+ * started later, and an unstamped one goes at the end (where it completed).
+ */
+export const placeItem = (items: ReadonlyArray<TurnItem>, item: TurnItem): Array<TurnItem> => {
+  const at = items.findIndex((i) => i.id === item.id);
+
+  if (at !== -1) return items.map((i, n) => (n === at ? item : i));
+  const start = item.startedAt;
+
+  const before =
+    start === null ? -1 : items.findIndex((i) => i.startedAt !== null && i.startedAt > start);
+
+  return before === -1
+    ? [...items, item]
+    : [...items.slice(0, before), item, ...items.slice(before)];
+};
+
+/** Items listed in completion order (as stored and sent), placed by when they started. */
+export const inStartOrder = (items: ReadonlyArray<TurnItem>): Array<TurnItem> =>
+  items.reduce<Array<TurnItem>>(placeItem, []);
 
 export const ApprovalKind = Schema.Literals(["command", "file-change", "tool", "question"]);
 

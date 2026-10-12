@@ -35,6 +35,7 @@ import {
   observe,
   observeModel,
   pathsFor,
+  BACKGROUND_COMMAND,
   SESSION,
   type Step,
   stepModel,
@@ -214,6 +215,17 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
             return;
           }
 
+          case "stopBackground": {
+            yield* dispatch(
+              Command.cases.StopBackgroundTasks.make({ sessionId: SESSION, taskIds: null })
+            );
+
+            // The fake Harness stops them and reports none left.
+            if (snapshot.live) emit(snapshot, HarnessEvent.BackgroundTasksChanged({ tasks: [] }));
+
+            return;
+          }
+
           case "approve":
             return yield* dispatch(
               Command.cases.RespondToApproval.make({
@@ -285,6 +297,11 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
                   tasks: [{ id: "sub1", kind: "subagent" }],
                 }),
               })
+            );
+          case "reportBackground":
+            return emit(
+              snapshot,
+              HarnessEvent.BackgroundTasksChanged({ tasks: [BACKGROUND_COMMAND] })
             );
           case "complete":
           case "failTurn":
