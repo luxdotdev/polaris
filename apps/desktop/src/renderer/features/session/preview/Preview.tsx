@@ -36,6 +36,7 @@ import {
   attachments,
   failed,
   interrupted,
+  items as itemsScene,
   long,
   markdown,
   planning,
@@ -81,6 +82,7 @@ const host: HostView = {
 
 const SCENES = {
   session: planning,
+  items: itemsScene,
   approval,
   question,
   interrupted,
@@ -95,6 +97,7 @@ const SCENES = {
 
 const SCENE_NAMES = [
   "session",
+  "items",
   "approval",
   "question",
   "interrupted",

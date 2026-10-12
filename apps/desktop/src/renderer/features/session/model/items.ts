@@ -5,6 +5,7 @@
 import type { TurnItem } from "@polaris/protocol";
 import { Match, Predicate } from "effect";
 import type { LiveItem } from "../../../store/sessionModel.ts";
+import { polarisTool } from "./runs.ts";
 
 export type ItemStatus = "running" | "completed" | "failed" | "declined";
 
@@ -50,8 +51,12 @@ export type ItemView =
       readonly kind: "tool";
       readonly name: string;
       readonly summary: string;
+      /** The summary unclipped, for the row's tooltip. */
+      readonly full: string;
       /** The file it read or wrote, when its input names one: what opens in the editor. */
       readonly file: ToolFile | null;
+      /** A Constellation tool (`claim`, `dispatch`…): its row carries the Constellation mark. */
+      readonly polaris: boolean;
       readonly status: ItemStatus;
     })
   | (Base & {
@@ -63,6 +68,9 @@ export type ItemView =
 
 const SUMMARY_MAX = 160;
 
+/** The tooltip's copy: long enough for any real command or path. */
+const FULL_MAX = 4000;
+
 /** Claude's tool a Subagent hands its report back with (`Subagent.report`). */
 export const HANDBACK = "SubagentHandback";
 
@@ -72,14 +80,16 @@ export type ToolInput = Extract<TurnItem, { readonly _tag: "ToolCall" }>["input"
 /** The argument that says what a tool call touched, in the order Harnesses name them. */
 const SUBJECT_KEYS = ["file_path", "path", "command", "pattern", "query", "url", "description"];
 
-const clip = (text: string) =>
-  text.length > SUMMARY_MAX ? `${text.slice(0, SUMMARY_MAX - 1)}…` : text;
+const clipTo = (max: number) => (text: string) =>
+  text.length > max ? `${text.slice(0, max - 1)}…` : text;
 
 /**
  * What a tool call touched, on one line (rule/say-what-happened): its path, command or
  * query when it has one, else a string input as is, else compact JSON.
  */
-export const toolSummary = (input: ToolInput): string => {
+export const toolSummary = (input: ToolInput, max = SUMMARY_MAX): string => {
+  const clip = clipTo(max);
+
   if (input === null || input === undefined) return "";
 
   if (Predicate.isString(input)) return clip(input);
@@ -93,25 +103,76 @@ export const toolSummary = (input: ToolInput): string => {
   return clip(JSON.stringify(input) ?? "");
 };
 
+const words = (tag: string) => tag.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
+
+/** A Constellation tool's subject: its Task and what it does to it ("A1 · send back"). */
+export const polarisSummary = (input: ToolInput): string => {
+  if (!Predicate.isObject(input)) return "";
+  const task = Predicate.hasProperty(input, "task") ? input["task"] : undefined;
+  const action = Predicate.hasProperty(input, "action") ? input["action"] : undefined;
+  const tag = Predicate.hasProperty(action, "_tag") ? action["_tag"] : undefined;
+
+  return [task, Predicate.isString(tag) ? words(tag) : undefined]
+    .filter(Predicate.isString)
+    .join(" · ");
+};
+
 export interface ToolFile {
   readonly path: string;
   readonly line: number | null;
+  /** An image (Codex's view_image, Claude Code's Read on a PNG): it opens in the image viewer. */
+  readonly image: boolean;
 }
+
+const IMAGE_TYPES = new Map([
+  ["png", "image/png"],
+  ["jpg", "image/jpeg"],
+  ["jpeg", "image/jpeg"],
+  ["gif", "image/gif"],
+  ["webp", "image/webp"],
+  ["bmp", "image/bmp"],
+  ["avif", "image/avif"],
+  ["svg", "image/svg+xml"],
+]);
+
+const extension = (path: string) => /\.([a-z0-9]+)$/i.exec(path)?.[1]?.toLowerCase() ?? "";
+
+/** The image's MIME type from its extension; null for anything else. */
+export const imageMime = (path: string): string | null => IMAGE_TYPES.get(extension(path)) ?? null;
 
 const FILE_KEYS = ["file_path", "notebook_path"];
 
-/** The file a tool's input names (Claude Code's Read, Edit, Write), with Read's starting line. */
+const stringAt = (input: ToolInput, key: string) => {
+  const value = Predicate.hasProperty(input, key) ? input[key] : undefined;
+
+  return Predicate.isString(value) && value !== "" ? value : undefined;
+};
+
+/**
+ * The file a tool's input names (Claude Code's Read, Edit, Write), with Read's starting line;
+ * a bare `path` counts only when it names an image (Codex's view_image).
+ */
 export const toolFile = (input: ToolInput): ToolFile | null => {
   if (!Predicate.isObject(input)) return null;
+  const named = FILE_KEYS.map((key) => stringAt(input, key)).find(Predicate.isString);
+  const bare = stringAt(input, "path");
+  const path = named ?? (bare !== undefined && imageMime(bare) !== null ? bare : undefined);
 
-  const path = FILE_KEYS.map((key) =>
-    Predicate.hasProperty(input, key) ? input[key] : undefined
-  ).find(Predicate.isString);
-
-  if (path === undefined || path === "") return null;
+  if (path === undefined) return null;
   const offset = Predicate.hasProperty(input, "offset") ? input["offset"] : undefined;
 
-  return { path, line: Predicate.isNumber(offset) && offset >= 1 ? offset : null };
+  return {
+    path,
+    line: Predicate.isNumber(offset) && offset >= 1 ? offset : null,
+    image: imageMime(path) !== null,
+  };
+};
+
+const toolCallSummary = (name: string, input: ToolInput, max = SUMMARY_MAX) => {
+  // The handback's input is the report, shown under its Subagent card; never as JSON.
+  if (name === HANDBACK) return "";
+
+  return polarisTool(name) === null ? toolSummary(input, max) : polarisSummary(input);
 };
 
 const fromItem = (item: TurnItem, live: boolean): ItemView =>
@@ -148,9 +209,10 @@ const fromItem = (item: TurnItem, live: boolean): ItemView =>
         id: i.id,
         live,
         name: i.name,
-        // The handback's input is the report, shown under its Subagent card; never as JSON.
-        summary: i.name === HANDBACK ? "" : toolSummary(i.input),
+        summary: toolCallSummary(i.name, i.input),
+        full: toolCallSummary(i.name, i.input, FULL_MAX),
         file: toolFile(i.input),
+        polaris: polarisTool(i.name) !== null,
         status: i.status,
       }),
       Plan: (i): ItemView => ({
@@ -222,3 +284,11 @@ export const outputTail = (output: string, lines: number): OutputTail => {
 
   return { text: all.slice(-lines).join("\n"), hidden: all.length - lines };
 };
+
+/** A Turn's output to copy: the agent's messages as Markdown, in order, a blank line apart. */
+export const turnOutput = (items: ReadonlyArray<ItemView>): string =>
+  items
+    .flatMap((item) =>
+      item.kind === "message" && item.text.trim() !== "" ? [item.text.trim()] : []
+    )
+    .join("\n\n");

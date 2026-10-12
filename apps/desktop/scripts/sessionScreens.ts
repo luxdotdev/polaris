@@ -59,6 +59,8 @@ const SHOT_SCENES = new Map([
   ["background-row", "background"],
   ["background-open", "background"],
   ["context", "session"],
+  ["image", "items"],
+  ["command-open", "items"],
 ]);
 
 /** The subagents scene's first run and Subagent, opened. */
@@ -102,6 +104,25 @@ const openBackground = async (page: Page, scene: string) => {
   }
 };
 
+const TRANSCRIPT_SHOTS = new Set(["image", "command-open", "context"]);
+
+/** T-ITEMS' shots: an image a tool showed, a command opened whole, the Session context card. */
+const openTranscriptShot = async (page: Page, scene: string) => {
+  if (scene === "image") {
+    await page.getByTestId("image-link").first().click();
+    await page.getByTestId("image-viewer").locator("img").waitFor();
+  } else if (scene === "command-open") {
+    const line = page.locator('[data-testid="command"] > button').first();
+
+    if ((await line.getAttribute("aria-expanded")) !== "true") await line.click();
+    await page.getByTestId("command-text").first().hover();
+  } else {
+    await page.mouse.move(0, 0);
+    await page.getByTestId("session-context").click();
+    await page.getByTestId("context-card").waitFor();
+  }
+};
+
 /** Opens what a shot shows, again after each theme or density change closes it. */
 const open = async (page: Page, scene: string) => {
   // Close what's open first; esc elsewhere would leave the new-session page.
@@ -130,10 +151,8 @@ const open = async (page: Page, scene: string) => {
     await openSubagent(page);
   } else if (scene.startsWith("background-")) {
     await openBackground(page, scene);
-  } else if (scene === "context") {
-    await page.mouse.move(0, 0);
-    await page.getByTestId("session-context").click();
-    await page.getByTestId("context-card").waitFor();
+  } else if (TRANSCRIPT_SHOTS.has(scene)) {
+    await openTranscriptShot(page, scene);
   } else if (scene === "viewer") {
     await page.locator('[data-testid="sent-image"][data-state="ready"]').first().click();
     await page.getByTestId("attachment-viewer").locator("img").waitFor();

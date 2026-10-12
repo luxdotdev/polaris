@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ItemView } from "./items.ts";
-import { type Entry, groupItems, runKind, runSummary, toolVerb } from "./runs.ts";
+import { type Entry, groupItems, polarisTool, runKind, runSummary, toolVerb } from "./runs.ts";
 
 const tool = (
   id: string,
@@ -12,7 +12,9 @@ const tool = (
   live: status === "running",
   name,
   summary: `${id}.ts`,
+  full: `${id}.ts`,
   file: null,
+  polaris: false,
   status,
 });
 
@@ -95,6 +97,16 @@ describe("tool runs", () => {
   test("tool rows read as verbs", () => {
     expect(toolVerb("Read", false)).toBe("Read");
     expect(toolVerb("Grep", true)).toBe("Searching");
+    expect(toolVerb("view_image", false)).toBe("Viewed an image");
     expect(toolVerb("mcp__linear__get_issue", false)).toBe("mcp__linear__get_issue");
+  });
+
+  test("Constellation tools read as verbs, from Claude Code and Codex alike", () => {
+    expect(toolVerb("mcp__polaris__claim", false)).toBe("Claimed");
+    expect(toolVerb("mcp__polaris_1__dispatch", true)).toBe("Dispatching");
+    expect(toolVerb("polaris.review", false)).toBe("Reviewed a claim");
+    expect(toolVerb("polaris_2.status", false)).toBe("Checked the constellation");
+    expect(toolVerb("polaris.new_tool", false)).toBe("New tool");
+    expect([polarisTool("mcp__polarisx__claim"), polarisTool("polaris")]).toEqual([null, null]);
   });
 });
