@@ -13,11 +13,21 @@ export interface PolarisCardArgs {
   readonly onToggle: () => void;
 }
 
+export interface SteerCardArgs {
+  /** The Turn the steer landed in. */
+  readonly turnId: string;
+  /** The landed steer's item (`steer:…`). */
+  readonly itemId: string;
+  readonly text: string;
+}
+
 export interface SessionChrome {
   /** Replaces the session header. */
   readonly header?: ReactNode;
   /** A Polaris-authored Turn's card in place of the prompt bubble; null keeps the bubble. */
   readonly promptCard?: (args: PolarisCardArgs) => ReactNode | null;
+  /** A Polaris-authored steer's card (a steered digest) in place of the steer bubble; null keeps it. */
+  readonly steerCard?: (args: SteerCardArgs) => ReactNode | null;
   /** Replaces the conversation (a handover summary); the composer stays. */
   readonly body?: ReactNode;
   /** Closes the conversation, after the last row. */
