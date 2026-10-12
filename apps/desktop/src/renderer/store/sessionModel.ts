@@ -13,7 +13,9 @@ import {
   type SessionStreamItem,
   type Subagent,
   type Turn,
+  type TurnDetail,
   type TurnItem,
+  type TurnPage,
 } from "@polaris/protocol";
 import { Match } from "effect";
 import type { SessionData } from "./plain.ts";
@@ -60,6 +62,18 @@ export const emptySessionModel: SessionModel = {
 };
 
 const noLive: ReadonlyMap<string, LiveItem> = new Map();
+
+/** A Turn as a Snapshot or a page of history sends it, with its items placed by start. */
+const turnViewOf = (detail: TurnDetail): TurnView => ({
+  turn: detail.turn,
+  items: inStartOrder(detail.items),
+  live: noLive,
+  subagents: detail.subagents.map(({ subagent, items }) => ({
+    subagent,
+    items: inStartOrder(items),
+    live: noLive,
+  })),
+});
 
 const updateTurn = (
   model: SessionModel,
@@ -367,16 +381,7 @@ export const applySessionItem = (model: SessionModel, item: SessionStreamItem): 
         sequence: snapshot.sequence,
         synchronized: false,
         session: snapshot.session,
-        turns: snapshot.turns.map((detail) => ({
-          turn: detail.turn,
-          items: inStartOrder(detail.items),
-          live: noLive,
-          subagents: detail.subagents.map(({ subagent, items }) => ({
-            subagent,
-            items: inStartOrder(items),
-            live: noLive,
-          })),
-        })),
+        turns: snapshot.turns.map(turnViewOf),
         pendingApprovals: snapshot.pendingApprovals,
       }),
       Event: ({ envelope }) => applyEnvelope(model, envelope),
@@ -393,6 +398,25 @@ export const applySessionItem = (model: SessionModel, item: SessionStreamItem): 
       Synchronized: (): SessionModel => ({ ...model, synchronized: true }),
     })
   );
+
+/**
+ * A page of older Turns (`session.turns`) merged in: Turns the model doesn't have yet,
+ * their items placed by start. Turns already there keep what the feed gave them.
+ */
+export const withOlderTurns = (model: SessionModel, page: TurnPage): SessionModel => {
+  const known = new Set(model.turns.map((t) => t.turn.id));
+
+  const older = page.turns
+    .filter((detail) => !known.has(detail.turn.id))
+    .map((detail) => turnViewOf(detail));
+
+  if (older.length === 0) return model;
+
+  return {
+    ...model,
+    turns: [...older, ...model.turns].sort((a, b) => a.turn.index - b.turn.index),
+  };
+};
 
 export const applySessionItems = (model: SessionModel, items: ReadonlyArray<SessionStreamItem>) =>
   items.reduce(applySessionItem, model);

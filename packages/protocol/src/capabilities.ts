@@ -44,6 +44,8 @@ export const Capability = Schema.Literals([
   "session.subagents",
   /** Live background task snapshots and SessionBackgroundTasksChanged events. */
   "session.background-tasks",
+  /** `session.turns`: older Turns a page at a time. */
+  "session.turn-paging",
   "files.read",
   "files.versioned",
   "files.write",

@@ -283,6 +283,8 @@ export const defaultHandlers = (options: {
       Stream.fail(new NotFound({ what: "session", id: sessionId })),
     "session.terminalCommand": ({ sessionId }) =>
       Effect.fail(new NotFound({ what: "session", id: sessionId })),
+    "session.turns": ({ sessionId }) =>
+      Effect.fail(new NotFound({ what: "session", id: sessionId })),
 
     "harness.models": () => Effect.fail(new Unsupported({ capability: "harness.models" })),
     "harness.commands": () => Effect.fail(new Unsupported({ capability: "harness.commands" })),

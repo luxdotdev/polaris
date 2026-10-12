@@ -4,10 +4,17 @@ import {
   DomainEvent as Events,
   SessionStreamItem,
   TurnDetail,
+  TurnId,
   TurnItem,
+  TurnPage,
 } from "@polaris/protocol";
-import { applySessionItems, emptySessionModel, entriesInStartOrder } from "./sessionModel.ts";
-import { envelope, seq, session, sessionId, turn, turnId } from "./fixtures.testing.ts";
+import {
+  applySessionItems,
+  emptySessionModel,
+  entriesInStartOrder,
+  withOlderTurns,
+} from "./sessionModel.ts";
+import { envelope, seq, session, sessionId, turn, turnId, turnWith } from "./fixtures.testing.ts";
 
 const S = SessionStreamItem.cases;
 
@@ -85,5 +92,34 @@ describe("item order", () => {
       { kind: "completed", id: "quick" },
       { kind: "live", id: "m1" },
     ]);
+  });
+});
+
+describe("older Turns", () => {
+  const older = (index: number) =>
+    new TurnDetail({
+      turn: turnWith({ id: TurnId.make(`older-${index}`), index, status: "completed" }),
+      items: [command("quick", 2, "completed"), command("sleep", 1, "completed")],
+      subagents: [],
+    });
+
+  test("a page goes before the Turns the feed opened on, items placed by start", () => {
+    const model = withOlderTurns(
+      started,
+      new TurnPage({ turns: [older(-2), older(-1)], sequence: seq(3), hasMore: true })
+    );
+
+    expect(model.turns.map((t) => String(t.turn.id))).toEqual(["older--2", "older--1", turn.id]);
+    expect(ids(model.turns[0]?.items ?? [])).toEqual(["sleep", "quick"]);
+  });
+
+  test("a Turn the model already has is left as the feed gave it", () => {
+    const page = new TurnPage({
+      turns: [new TurnDetail({ turn, items: [], subagents: [] })],
+      sequence: seq(3),
+      hasMore: false,
+    });
+
+    expect(withOlderTurns(started, page)).toBe(started);
   });
 });

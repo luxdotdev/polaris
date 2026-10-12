@@ -39,7 +39,6 @@ import {
   HostInfo,
   Subagent,
   Timestamp,
-  Turn,
   TurnItem,
   Workspace,
   Worktree,
@@ -74,13 +73,14 @@ import {
 } from "./review.ts";
 import { HarnessCommands } from "./slashCommands.ts";
 import { UsageReport, UsageStreamItem } from "./usage.ts";
+import { NotFound } from "./errors.ts";
+import { SessionTurnRpcs, TurnDetail } from "./turns.ts";
+
+export { NotFound } from "./errors.ts";
+
+export { ReadTurns, SessionTurnRpcs, SubagentDetail, TurnDetail, TurnPage } from "./turns.ts";
 
 // ── Errors ──────────────────────────────────────────────────────────────────
-
-export class NotFound extends Schema.TaggedError<NotFound>()("NotFound", {
-  what: Schema.String,
-  id: Schema.String,
-}) {}
 
 export class CommandRejected extends Schema.TaggedError<CommandRejected>()("CommandRejected", {
   commandId: CommandId,
@@ -179,20 +179,6 @@ export const SubscribeHost = Rpc.make("subscribeHost", {
   success: HostStreamItem,
   stream: true,
 });
-
-/** A Subagent and its own items, viewable on its own. */
-export class SubagentDetail extends Schema.Class<SubagentDetail>("SubagentDetail")({
-  subagent: Subagent,
-  items: Schema.Array(TurnItem),
-}) {}
-
-export class TurnDetail extends Schema.Class<TurnDetail>("TurnDetail")({
-  turn: Turn,
-  /** The Turn's own items; its Subagents' items are under `subagents`. */
-  items: Schema.Array(TurnItem),
-  /** The Subagents the Turn spawned, empty for Clients without `session.subagents`. */
-  subagents: addedArray(SubagentDetail),
-}) {}
 
 export const SessionStreamItem = Schema.TaggedUnion({
   Snapshot: {
@@ -834,4 +820,5 @@ export class DaemonRpcs extends RpcGroup.make(
   .merge(ConstellationHostRpcs)
   .merge(ResourceRpcs)
   .merge(EditorFileRpcs)
-  .merge(LanguageRpcs) {}
+  .merge(LanguageRpcs)
+  .merge(SessionTurnRpcs) {}
