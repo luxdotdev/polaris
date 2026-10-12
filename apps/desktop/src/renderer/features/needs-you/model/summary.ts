@@ -1,15 +1,67 @@
-/** The inbox as the main process needs it: the count, and who is waiting on what. */
+/** The inbox as the main process needs it: the count, who is waiting on what, and who is working. */
 import { harnessHue } from "@polaris/ui";
-import type { NeedsYouSession, NeedsYouSummary } from "../../../../shared/needsYou.ts";
+import type { HostView } from "../../../../shared/api.ts";
+import type {
+  NeedsYouSession,
+  NeedsYouSummary,
+  NeedsYouTurn,
+} from "../../../../shared/needsYou.ts";
+import type { HostModel } from "../../../store/hostModel.ts";
+import type { ConstellationView } from "../../sessions/source.ts";
 import type { Inbox } from "./inbox.ts";
 
 export interface SummaryInput {
   readonly inbox: Inbox;
   /** The session the window shows, if any. */
   readonly focused: { readonly hostKey: string; readonly sessionId: string } | null;
+  /** Working and Idle sessions (`turnsOf`); none when left out. */
+  readonly turns?: ReadonlyArray<NeedsYouTurn>;
 }
 
-export const toSummary = ({ inbox, focused }: SummaryInput): NeedsYouSummary => {
+export interface TurnsInput {
+  readonly hosts: ReadonlyArray<HostView>;
+  readonly models: Readonly<Record<string, HostModel>>;
+  readonly views: Readonly<Record<string, ReadonlyArray<ConstellationView>>>;
+}
+
+/** Constellation workers' sessions: their Lead reports on them, so their Turns aren't news. */
+const workerSessions = (views: TurnsInput["views"]) =>
+  new Set(
+    Object.values(views).flatMap((list) =>
+      list.flatMap(({ constellation }) =>
+        constellation.attempts
+          .map((a) => a.sessionId)
+          .filter((id) => id !== constellation.leadSessionId)
+      )
+    )
+  );
+
+/** Every Working or Idle session outside a Constellation's workers, for Turn-ended notifications. */
+export const turnsOf = ({ hosts, models, views }: TurnsInput): Array<NeedsYouTurn> => {
+  const workers = workerSessions(views);
+
+  return hosts.flatMap((host) =>
+    [...(models[host.key]?.sessions.values() ?? [])].flatMap((entry): Array<NeedsYouTurn> => {
+      const { id, state, title, harness } = entry.session;
+
+      if ((state !== "working" && state !== "idle") || workers.has(id)) return [];
+
+      return [
+        {
+          hostKey: host.key,
+          hostLabel: host.label,
+          sessionId: id,
+          title,
+          harness: harnessHue(harness).name,
+          state,
+          prompt: entry.lastTurnPreview,
+        },
+      ];
+    })
+  );
+};
+
+export const toSummary = ({ inbox, focused, turns = [] }: SummaryInput): NeedsYouSummary => {
   const waiting = inbox.waiting.map((w): NeedsYouSession => ({
     hostKey: w.hostKey,
     hostLabel: w.hostLabel,
@@ -38,5 +90,5 @@ export const toSummary = ({ inbox, focused }: SummaryInput): NeedsYouSummary => 
       requests: [],
     }));
 
-  return { count: inbox.count, sessions: [...waiting, ...interrupted], focused };
+  return { count: inbox.count, sessions: [...waiting, ...interrupted], focused, turns };
 };

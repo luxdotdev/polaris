@@ -13,6 +13,7 @@ import {
   notificationHandlers,
 } from "./actions.ts";
 import { focusWindow } from "./focus.ts";
+import { emptyTurnState, planTurnNotifications, type TurnNotification } from "./turnPlan.ts";
 import {
   emptyNotificationState,
   type NotificationContent,
@@ -23,9 +24,10 @@ import {
 export interface NeedsYouCenterInput {
   readonly window: () => BrowserWindow | null;
   readonly send: (event: AppEvent) => void;
-  /** Off for hidden runs (smoke tests, benchmarks): nothing pops up on the machine. */
   /** Asked before each banner: off when hidden (tests) or switched off in Settings → Sessions. */
   readonly notify: () => boolean;
+  /** The same for Turn-ended banners, which are off by default; never shown without it. */
+  readonly notifyTurns?: () => boolean;
 }
 
 export interface NeedsYouCenter {
@@ -47,6 +49,8 @@ export interface NeedsYouProbe {
   readonly press: (key: string, index: number) => boolean;
   /** Sends a standing notification's inline reply through its own handler. */
   readonly reply: (key: string, text: string) => boolean;
+  /** Turn-ended notifications planned so far, by session key, whether or not shown. */
+  readonly turns: () => ReadonlyArray<string>;
 }
 
 export interface StandingNotification {
@@ -64,10 +68,13 @@ export const createNeedsYouCenter = ({
   window,
   send,
   notify,
+  notifyTurns = () => false,
 }: NeedsYouCenterInput): NeedsYouCenter => {
   let state = emptyNotificationState;
-  let summary: NeedsYouSummary = { count: 0, sessions: [], focused: null };
+  let turnState = emptyTurnState;
+  let summary: NeedsYouSummary = { count: 0, sessions: [], focused: null, turns: [] };
   let planned = 0;
+  const turnsPlanned: Array<string> = [];
   const live = new Map<string, Notification>();
   const standing = new Map<string, { content: NotificationContent; on: NotificationHandlers }>();
 
@@ -124,20 +131,41 @@ export const createNeedsYouCenter = ({
     notification.show();
   };
 
-  const publish = (next: NeedsYouSummary) => {
-    summary = next;
+  const showTurn = (content: TurnNotification) => {
+    turnsPlanned.push(content.key);
+    close(content.key);
 
-    const plan = planNotifications({
-      state,
-      summary,
-      windowFocused: window()?.isFocused() ?? false,
+    if (!notifyTurns() || !Notification.isSupported()) return;
+    const { hostKey, sessionId } = content.turn;
+
+    const notification = new Notification({
+      title: content.title,
+      subtitle: content.subtitle,
+      body: content.body,
     });
 
-    state = plan.state;
+    notification.on("click", () => open(hostKey, sessionId));
+    notification.on("close", () => {
+      if (live.get(content.key) === notification) live.delete(content.key);
+    });
+    live.set(content.key, notification);
+    notification.show();
+  };
 
-    for (const key of plan.close) close(key);
+  const publish = (next: NeedsYouSummary) => {
+    summary = next;
+    const windowFocused = window()?.isFocused() ?? false;
+    const plan = planNotifications({ state, summary, windowFocused });
+    const turns = planTurnNotifications({ state: turnState, summary, windowFocused });
+
+    state = plan.state;
+    turnState = turns.state;
+
+    for (const key of [...plan.close, ...turns.close]) close(key);
 
     for (const content of plan.show) show(content);
+
+    for (const content of turns.show) showTurn(content);
     tray.update(summary);
     app.dock?.setBadge(summary.count > 0 ? String(summary.count) : "");
   };
@@ -170,6 +198,7 @@ export const createNeedsYouCenter = ({
 
       return true;
     },
+    turns: () => [...turnsPlanned],
   };
 
   return {

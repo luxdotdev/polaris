@@ -97,6 +97,17 @@ export const SessionsPage = () => {
           />
         </SettingRow>
         <SettingRow
+          title="Notify when a turn finishes"
+          caption="A macOS notification when a session goes idle, unless Polaris shows it. Not for constellation workers."
+          htmlFor="notify-turn-ended"
+        >
+          <Switch
+            id="notify-turn-ended"
+            checked={prefs.notifyTurnEnded}
+            onCheckedChange={(on) => setSessionPrefs({ notifyTurnEnded: on })}
+          />
+        </SettingRow>
+        <SettingRow
           title="Notify when your review is requested"
           caption="A macOS notification per new request on GitHub. Reviews in needs you still lists them."
           htmlFor="notify-review-requests"
