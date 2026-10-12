@@ -1,0 +1,42 @@
+/**
+ * The `git.*` IPC owned by the Explorer's Changes tab, spread into `RequestInputs`,
+ * `SubscriptionInputs` and their outputs in `api.ts`.
+ */
+import type { GitCommitItem, GitStatus } from "@polaris/protocol";
+import { Schema } from "effect";
+import type { Rpc } from "effect/rpc";
+
+const HostKey = Schema.String.check(Schema.isMinLength(1));
+
+/** Paths relative to the repository's top level, as `git.status` gave them. */
+const Paths = { hostKey: HostKey, cwd: Schema.String, paths: Schema.Array(Schema.String) };
+
+export const GitRequestInputs = {
+  /** `ignored` also lists ignored paths, an ignored folder as one entry (the explorer greys them). */
+  "git.status": Schema.Struct({
+    hostKey: HostKey,
+    cwd: Schema.String,
+    ignored: Schema.optional(Schema.Boolean),
+  }),
+  /** Capability `git.write`, like the two below. */
+  "git.stage": Schema.Struct(Paths),
+  "git.unstage": Schema.Struct(Paths),
+  /** Tracked paths only; the Changes tab trashes an untracked file with `files.delete`. */
+  "git.discard": Schema.Struct(Paths),
+};
+
+export interface GitRequestOutputs {
+  "git.status": Rpc.Success<typeof GitStatus>;
+  "git.stage": null;
+  "git.unstage": null;
+  "git.discard": null;
+}
+
+export const GitSubscriptionInputs = {
+  /** One commit: the hooks' output, then Committed or Failed. Closing it doesn't stop git. */
+  "git.commit": Schema.Struct({ hostKey: HostKey, cwd: Schema.String, message: Schema.String }),
+};
+
+export interface GitSubscriptionItems {
+  "git.commit": GitCommitItem;
+}

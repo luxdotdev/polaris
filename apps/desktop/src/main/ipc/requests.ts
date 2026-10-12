@@ -24,6 +24,7 @@ import {
 } from "../../shared/contract.ts";
 import { type ClientServices, HostDirectory, toIpcError } from "../hosts.ts";
 import { githubHandlers } from "../github/ipc.ts";
+import { gitHandlers } from "./git.ts";
 import { constellationHandlers, resourceHandlers } from "./constellation.ts";
 import { Machines } from "../machines/service.ts";
 import type { NeedsYouSummary } from "../../shared/needsYou.ts";
@@ -116,6 +117,7 @@ const local = (): InstallView => ({
 
 export const requestHandlers = (ctx: RequestContext): Handlers => ({
   ...githubHandlers,
+  ...gitHandlers,
   ...constellationHandlers,
   ...resourceHandlers,
   "updates.get": () => Effect.sync(ctx.updates.get),
@@ -204,7 +206,6 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
         )
       )
     ),
-  "git.status": ({ hostKey, cwd }) => onLive(hostKey, (s) => s.client["git.status"]({ cwd })),
   "git.diff": ({ hostKey, cwd, spec }) =>
     onLive(hostKey, (s) =>
       Effect.flatMap(s.client["git.diff"]({ cwd, spec }), (diff) =>
