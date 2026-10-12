@@ -5,10 +5,12 @@ import { useNeedsYouCount } from "../features/needs-you/index.ts";
 import { jumpCopy } from "../features/jump/copy.ts";
 import { useSelection, useShellActions } from "./hooks.ts";
 import { preloadEditor } from "../features/editor/preload.ts";
+import { OfflineIndicator } from "./HostState.tsx";
 
 /**
  * The `hiddenInset` title bar (DESIGN.md, Titlebar): the lockup after the traffic
- * lights, the mode switch (⌘1–3), the jump field (K) and, outside Review, New session (⌘N).
+ * lights, the mode switch (⌘1–3), the offline indicator, the jump field (K) and, outside
+ * Review, New session (⌘N).
  */
 export const TitleBar = () => {
   const { mode, hostKey } = useSelection();
@@ -62,6 +64,7 @@ export const TitleBar = () => {
         <SegmentedControl aria-label="Mode" options={modes} value={mode} onValueChange={setMode} />
       </div>
       <span className="flex-1" />
+      <OfflineIndicator />
       <button
         type="button"
         onClick={openJump}
