@@ -1,7 +1,7 @@
 /**
  * `@polaris/ui`'s Composer wired for typing: ↵ sends, ⇧↵ breaks the line, esc
- * stops a Working Turn, pasted or dropped files become attachment chips, and
- * `/` lists the Harness's Skills and Slash Commands above it.
+ * stops a Working Turn, ↑/↓ bring back sent messages, pasted or dropped files
+ * become attachment chips, and `/` lists the Harness's Skills and Slash Commands.
  */
 import type { PolarisAction } from "@polaris/protocol";
 import { Composer, type Harness } from "@polaris/ui";
@@ -78,6 +78,8 @@ export interface DraftComposerProps {
   readonly autoFocus?: boolean;
   readonly className?: string;
   readonly commands?: ComposerCommands;
+  /** What the user sent in this session, oldest first, for ↑/↓. */
+  readonly history?: ReadonlyArray<string>;
 }
 
 export const DraftComposer = ({
@@ -104,6 +106,7 @@ export const DraftComposer = ({
   autoFocus = false,
   className,
   commands = NO_COMMANDS,
+  history,
 }: DraftComposerProps) => {
   // The menu draws in this box, above the card (which clips what it holds).
   const [menuSlot, setMenuSlot] = useState<HTMLDivElement | null>(null);
@@ -160,6 +163,7 @@ export const DraftComposer = ({
                 onPicked={commands.onPicked}
                 onFocus={commands.want}
                 menuSlot={menuSlot}
+                history={history}
               />
             }
           />
