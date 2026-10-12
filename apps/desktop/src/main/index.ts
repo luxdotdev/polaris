@@ -350,6 +350,8 @@ const start = async () => {
     window: () => (win.isDestroyed() ? null : win),
     send: (event) => win.webContents.send(CHANNELS.app, event),
     notify: () => env.POLARIS_DESKTOP_HIDDEN !== "1" && sessionPrefsOf(settings).notifyNeedsYou,
+    notifyTurns: () =>
+      env.POLARIS_DESKTOP_HIDDEN !== "1" && sessionPrefsOf(settings).notifyTurnEnded,
   });
 
   reviews = createReviewNotifier({

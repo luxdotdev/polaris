@@ -49,8 +49,8 @@ export interface NeedsYouProbe {
   readonly press: (key: string, index: number) => boolean;
   /** Sends a standing notification's inline reply through its own handler. */
   readonly reply: (key: string, text: string) => boolean;
-  /** Turn-ended notifications planned so far, by session key, whether or not shown. */
-  readonly turns: () => ReadonlyArray<string>;
+  /** Turn-ended notifications planned so far, and whether each was shown on screen. */
+  readonly turns: () => ReadonlyArray<{ readonly key: string; readonly shown: boolean }>;
 }
 
 export interface StandingNotification {
@@ -74,7 +74,7 @@ export const createNeedsYouCenter = ({
   let turnState = emptyTurnState;
   let summary: NeedsYouSummary = { count: 0, sessions: [], focused: null, turns: [] };
   let planned = 0;
-  const turnsPlanned: Array<string> = [];
+  const turnsPlanned: Array<{ key: string; shown: boolean }> = [];
   const live = new Map<string, Notification>();
   const standing = new Map<string, { content: NotificationContent; on: NotificationHandlers }>();
 
@@ -132,10 +132,12 @@ export const createNeedsYouCenter = ({
   };
 
   const showTurn = (content: TurnNotification) => {
-    turnsPlanned.push(content.key);
     close(content.key);
+    const shown = notifyTurns() && Notification.isSupported();
 
-    if (!notifyTurns() || !Notification.isSupported()) return;
+    turnsPlanned.push({ key: content.key, shown });
+
+    if (!shown) return;
     const { hostKey, sessionId } = content.turn;
 
     const notification = new Notification({
