@@ -389,6 +389,7 @@ const actionArb: fc.Arbitrary<Action> = fc.oneof(
         "withdraw",
         "end",
         "fail",
+        "limit",
         "late",
         "auto"
       ),

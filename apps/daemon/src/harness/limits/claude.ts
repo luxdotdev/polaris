@@ -127,7 +127,7 @@ const SEVERITY_STATUS = new Map<string, PlanLimitStatus>([
 
 const clamp = (percent: number) => Math.min(100, Math.max(0, percent));
 
-const isoFromEpochSeconds = (seconds: number | null | undefined): string | null =>
+export const isoFromEpochSeconds = (seconds: number | null | undefined): string | null =>
   Predicate.isNotNullish(seconds) && Number.isFinite(seconds) && seconds > 0
     ? new Date(seconds * 1000).toISOString()
     : null;

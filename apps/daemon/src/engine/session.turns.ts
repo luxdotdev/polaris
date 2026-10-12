@@ -68,7 +68,8 @@ export const takesTurn = (record: SessionRecord): boolean => {
     return false;
   const { state } = record.session;
 
-  if (state === "idle" || state === "dormant" || state === "failed") return true;
+  if (state === "idle" || state === "dormant" || state === "failed" || state === "limited")
+    return true;
 
   // Needs You after a Daemon restart (an Interrupted Turn, nothing pending) takes a new Turn too.
   return state === "needs-you" && record.pending.size === 0;

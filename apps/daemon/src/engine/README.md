@@ -51,6 +51,7 @@ stateDiagram-v2
   state "In Terminal" as in_terminal
   state "Dormant" as dormant
   state "Failed" as failed
+  state "Limited" as limited
   state "Archived" as archived
   state "live (Harness running)" as live {
     state "Idle" as idle
@@ -77,6 +78,11 @@ stateDiagram-v2
   failed --> in_terminal: terminal.open
   in_terminal --> starting: terminal.return
   live --> failed: harness.turnEnded (failed), harness.exited (error), session.fail
+  live --> limited: harness.turnEnded (failed at a usage limit; the Turn ends Interrupted)
+  limited --> starting: turn.send, turn.deliver, turn.continue (the user's, or Resume at reset's)
+  limited --> working: harness.turnStarted (the live Harness ran again: the limit lifted)
+  limited --> in_terminal: terminal.open
+  limited --> archived: session.archive
   live --> dormant: harness.exited, turn.interruptUnattended
   live --> needs_you: daemon.recover (Turn in flight → Interrupted)
   live --> dormant: daemon.recover (no Turn)
@@ -97,8 +103,8 @@ Not drawn: `model.set` changes no Session State (it records `SessionModelChanged
 
 | Input | Accepted in | Refused with |
 |---|---|---|
-| `turn.send` | Idle (→ Working), Dormant, Failed, Needs You after a restart with nothing pending (→ Starting); a prompt during an autonomous Working Turn steers that Turn | "the session is Archived", "… In Terminal; return it first", "the session is working; wait for the Turn to end" |
-| `turn.continue` | the same states, and only when the last Turn is Interrupted | "there is no Interrupted Turn to continue", "the session is \<state\>" |
+| `turn.send` | Idle (→ Working), Dormant, Failed, Limited, Needs You after a restart with nothing pending (→ Starting); a prompt during an autonomous Working Turn steers that Turn | "the session is Archived", "… In Terminal; return it first", "the session is working; wait for the Turn to end" |
+| `turn.continue` | the same states and Limited, and only when the last Turn is Interrupted | "there is no Interrupted Turn to continue", "the session is \<state\>" |
 | `turn.retry` | the same states, and only when the last Turn Failed; a new Turn with its prompt and attachments | "there is no Failed Turn to retry", "the session is \<state\>" |
 | `turn.steer` / `turn.interrupt` | a Turn in flight (steer: not In Terminal, and the Harness supports it) | "there is no Turn in flight …" |
 | `approval.respond` | a pending request (the last answer in Needs You → Working, if a Turn is in flight) | "request … is already resolved" (first Client wins) |
@@ -186,10 +192,10 @@ Every state but `absent` and `removing` takes `checkout.reportHead` (it records 
 
 | Driver | States (shortest paths) | State-changing transitions (one path each) |
 |---|---|---|
-| Claude (sequential hand-off) | 44 | 247 |
-| Codex (live co-attach) | 52 | 333 |
+| Claude (sequential hand-off) | 47 | 277 |
+| Codex (live co-attach) | 55 | 367 |
 
-Simple paths are too many to replay (455k and 2.4M), so every transition is covered instead. Not replayed: `idle.timeout` (the Engine's timer; covered by `Engine.test.ts`) and `session.fail` (a failing Worktree or Harness open). `session.test.ts` checks the machine on its own: all eight Session States are reachable, the rebuild-from-fold property, the guards, recovery and effects.
+Simple paths are too many to replay (455k and 2.4M), so every transition is covered instead. Not replayed: `idle.timeout` (the Engine's timer; covered by `Engine.test.ts`) and `session.fail` (a failing Worktree or Harness open). `session.test.ts` checks the machine on its own: all nine Session States are reachable, the rebuild-from-fold property, the guards, recovery and effects.
 
 When you change the lifecycle: change `session.ts`, then `session.testing.ts` if a new Step or Engine follow-up is needed, update the counts above and in `session.test.ts`, and keep this diagram in step.
 

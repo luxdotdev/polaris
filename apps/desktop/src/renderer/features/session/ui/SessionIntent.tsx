@@ -22,7 +22,13 @@ import { useHost, useSession, hasCapability } from "../hooks.ts";
 import { waitingOn } from "../model/background.ts";
 import { conversationRows } from "../model/conversation.ts";
 import { tildePath } from "../model/format.ts";
-import { composerMode, continueCommand, openQuestion, retryCommand } from "../model/intent.ts";
+import {
+  composerMode,
+  continueCommand,
+  openQuestion,
+  resumeAtResetCommand,
+  retryCommand,
+} from "../model/intent.ts";
 import { useOutbox } from "../outbox.ts";
 import { holdOpenFrom, setTurnOpen, showTurnDiff, uiKey, useSessionUi } from "../state.ts";
 import { ForkDialog, type ForkTarget } from "./ForkDialog.tsx";
@@ -132,6 +138,19 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
         "Couldn't answer"
       ),
     onContinue: () => void send(hostKey, continueCommand(sessionId), "Couldn't continue"),
+    limit:
+      session.state === "limited"
+        ? {
+            resetsAt: session.limitResetsAt ?? null,
+            resumeAtReset: session.resumeAtReset,
+            onSetResumeAtReset: (on) =>
+              void send(
+                hostKey,
+                resumeAtResetCommand(sessionId, on),
+                on ? "Couldn't turn on Resume at reset" : "Couldn't turn off Resume at reset"
+              ),
+          }
+        : null,
     onRetry: () => void send(hostKey, retryCommand(sessionId), "Couldn't retry"),
     modelLabel: (model, effort) => modelLabel(models.models, model, effort),
     canSteer: mode?.kind === "steer",

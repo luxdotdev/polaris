@@ -27,7 +27,7 @@ import {
 import { useState } from "react";
 import { Commands } from "../../../commands.ts";
 import type { SessionData } from "../../../store/plain.ts";
-import { sessionStateLabel } from "../../../shell/copy.ts";
+import { sessionStateLabel, usageLimitLine } from "../../../shell/copy.ts";
 import { keepTerminalFocus, OpenInTerminalItem } from "../../terminal/index.ts";
 import { send } from "../dispatch.ts";
 import {
@@ -184,7 +184,11 @@ export const SessionHeader = (props: SessionHeaderProps) => {
   const waiting = waitingOn(session);
 
   const state =
-    waiting.length > 0 ? waitingPhrase(waiting) : capitalized(sessionStateLabel[session.state]);
+    waiting.length > 0
+      ? waitingPhrase(waiting)
+      : session.state === "limited"
+        ? usageLimitLine(session.limitResetsAt)
+        : capitalized(sessionStateLabel[session.state]);
 
   const context = contextLabel(session.contextUsage);
 
@@ -196,7 +200,7 @@ export const SessionHeader = (props: SessionHeaderProps) => {
       )}
       data-testid="session-state"
     >
-      {turnNumber === null ? state : `${state} · turn ${turnNumber}`}
+      {turnNumber === null || session.state === "limited" ? state : `${state} · turn ${turnNumber}`}
     </span>
   );
 

@@ -480,6 +480,9 @@ export const openSession = (
           turnId,
           status: p.turn.status === "inProgress" ? "completed" : p.turn.status,
           error: p.turn.error ? readableError(p.turn.error.message) : null,
+          // The reset comes from Codex's Plan Limits, read by the engine.
+          limit:
+            p.turn.error?.codexErrorInfo === "usageLimitExceeded" ? { resetsAt: null } : undefined,
         })
       );
     };

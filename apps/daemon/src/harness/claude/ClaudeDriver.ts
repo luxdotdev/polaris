@@ -76,6 +76,7 @@ import {
   toPermissionResult,
 } from "./permissions.ts";
 import { type ClaudePlanLimits, claudePlanLimitReader } from "./planLimits.ts";
+import { usageLimitWatch } from "./usageLimit.ts";
 import { ClaudeTranslator } from "./translate.ts";
 import { which } from "../../service/userPath.ts";
 import {
@@ -213,6 +214,7 @@ const openSession = Effect.fnUntraced(function* (
   const events = yield* Queue.unbounded<HarnessEvent, Cause.Done>();
   const clock = new ItemClock();
   const emit = (event: HarnessEvent) => Queue.offerUnsafe(events, clock.stamp(event));
+  const usageLimit = usageLimitWatch();
 
   const emitAll = (list: ReadonlyArray<HarnessEvent>) => {
     for (const e of list) emit(e);
@@ -273,7 +275,15 @@ const openSession = Effect.fnUntraced(function* (
     for (const [uuid, steer] of steers) if (steer.turnId === turn.turnId) steers.delete(uuid);
     emitAll(translator.closeOpenTools(turn.turnId, status === "completed" ? "failed" : "declined"));
     translator.endTurn();
-    emit(HarnessEvent.TurnEnded({ turnId: turn.turnId, status, error }));
+    const limit = usageLimit.take();
+    emit(
+      HarnessEvent.TurnEnded({
+        turnId: turn.turnId,
+        status,
+        error,
+        limit: status === "failed" ? limit : undefined,
+      })
+    );
     limits?.refresh();
     readContext();
   };
@@ -483,6 +493,7 @@ const openSession = Effect.fnUntraced(function* (
     }
 
     limits?.onMessage(message);
+    usageLimit.onMessage(message);
     const echo = "user_message_uuid" in message ? message.user_message_uuid : undefined;
 
     if (echo !== undefined && cancelled.delete(echo)) {

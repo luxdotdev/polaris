@@ -253,7 +253,11 @@ export const ThreadLoadedListResponse = Schema.Struct({
 
 const TurnStatus = Schema.Literals(["completed", "interrupted", "failed", "inProgress"]);
 
-const TurnError = Schema.Struct({ message: Schema.String });
+const TurnError = Schema.Struct({
+  message: Schema.String,
+  /** A string for the plain kinds (`usageLimitExceeded`), an object for HTTP ones. */
+  codexErrorInfo: Schema.optional(Schema.NullOr(Schema.Unknown)),
+});
 
 export const TurnStartedNotification = Schema.Struct({
   threadId: Schema.String,

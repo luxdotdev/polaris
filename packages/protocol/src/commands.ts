@@ -90,6 +90,8 @@ export const Command = Schema.TaggedUnion({
   RenameSession: { sessionId: SessionId, title: Schema.String },
   /** Pin the session to the top of the list, or unpin it (capability `session.pin`). */
   PinSession: { sessionId: SessionId, pinned: Schema.Boolean },
+  /** Continue the session on its own when its usage limit resets (capability `session.limited`). */
+  SetResumeAtReset: { sessionId: SessionId, resumeAtReset: Schema.Boolean },
   SetPermissionMode: { sessionId: SessionId, permissionMode: PermissionMode },
   /**
    * The Model and effort for the next Turns (capability `session.set-model`).

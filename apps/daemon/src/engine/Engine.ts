@@ -33,6 +33,7 @@ import { Context, Effect, Layer, Option, type Stream } from "effect";
 import type { ServiceError } from "../services.ts";
 import { registerHandoffContributor } from "../service/upgrade.ts";
 import { Dispatcher, type DispatchInput } from "./dispatch.ts";
+import { LimitResume } from "./limitResume.ts";
 import { CheckpointPruning } from "./pruning.ts";
 import { Reactors } from "./reactors.ts";
 import { ReviewCheckouts } from "./reviewCheckouts.ts";
@@ -115,7 +116,8 @@ const EngineParts = Layer.mergeAll(Dispatcher.layer, Streams.layer).pipe(
     )
   ),
   Layer.provideMerge(Supervisor.layer),
-  Layer.provideMerge(EngineRuntime.layer)
+  Layer.provideMerge(EngineRuntime.layer),
+  (parts) => LimitResume.layer.pipe(Layer.provideMerge(parts))
 );
 
 const make = Effect.gen(function* () {
@@ -140,6 +142,7 @@ const make = Effect.gen(function* () {
   });
 
   yield* pruning.startSweeper;
+  yield* (yield* LimitResume).start;
 
   yield* Effect.addFinalizer(() =>
     Effect.forEach([...runtime.live.keys()], (id) => runtime.stopHarness(id), { discard: true })

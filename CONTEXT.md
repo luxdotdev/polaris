@@ -100,7 +100,7 @@ _Avoid_: Step, exchange
 A new Agent Session started from a checkpoint of another, linked to its parent; the way to switch Harness or retry differently.
 
 **Session State**:
-Where an Agent Session stands right now: exactly one of Starting, Working, Needs You, Idle, In Terminal, Dormant, Failed, or Archived.
+Where an Agent Session stands right now: exactly one of Starting, Working, Needs You, Idle, In Terminal, Dormant, Failed, Limited, or Archived.
 _Avoid_: Status (unqualified), phase
 
 **Starting**:
@@ -128,6 +128,10 @@ The state of an Agent Session whose Harness process is not running but which can
 **Failed**:
 The state of an Agent Session whose Harness process crashed or errored out of a Turn.
 _Avoid_: Errored, dead
+
+**Limited**:
+The state of an Agent Session whose Harness stopped a Turn at a usage limit; the Turn is Interrupted, and Continue picks it up once the limit resets, or Polaris does if the user turned on Resume at reset.
+_Avoid_: Rate limited, throttled, out of credits, or Failed for a usage limit
 
 **Archived**:
 The state of an Agent Session the user has put away after reviewing or merging its work; there is no "Done".

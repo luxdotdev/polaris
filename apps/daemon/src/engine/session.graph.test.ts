@@ -36,6 +36,7 @@ import {
   observeModel,
   pathsFor,
   BACKGROUND_COMMAND,
+  RESETS_AT,
   SESSION,
   type Step,
   stepModel,
@@ -311,6 +312,16 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
                 turnId: yield* working(),
                 status: step.type === "complete" ? "completed" : "failed",
                 error: step.type === "complete" ? null : "the Turn failed",
+              })
+            );
+          case "limitTurn":
+            return emit(
+              snapshot,
+              HarnessEvent.TurnEnded({
+                turnId: yield* working(),
+                status: "failed",
+                error: "usage limit",
+                limit: { resetsAt: RESETS_AT },
               })
             );
           case "exit":

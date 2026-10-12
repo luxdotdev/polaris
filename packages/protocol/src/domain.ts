@@ -1,7 +1,7 @@
 /**
  * Domain model shared by the Daemon and every Client. Names follow CONTEXT.md.
  */
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 import { HarnessKind } from "./harnesses.ts";
 import {
   AttachmentId,
@@ -35,6 +35,8 @@ export const SessionState = Schema.Literals([
   "in-terminal",
   "dormant",
   "failed",
+  /** At a usage limit (capability `session.limited`; older Clients see Failed). */
+  "limited",
   "archived",
 ]);
 
@@ -192,6 +194,13 @@ export class AgentSession extends Schema.Class<AgentSession>("AgentSession")({
   origin: optionalNullable(SessionOrigin),
   /** When the user pinned it to the top of the list (`PinSession`); null when it isn't. */
   pinnedAt: optionalNullable(Timestamp),
+  /** While Limited: when the usage limit resets; null when the Harness didn't say. */
+  limitResetsAt: optionalNullable(Timestamp),
+  /** Continue a Limited session on its own at the reset (`SetResumeAtReset`); off by default. */
+  resumeAtReset: Schema.Boolean.pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(false)),
+    Schema.withConstructorDefault(Effect.succeed(false))
+  ),
   createdAt: Timestamp,
   updatedAt: Timestamp,
 }) {}

@@ -247,6 +247,8 @@ const make = Effect.gen(function* () {
       SetWorkspaceHidden: () => Effect.void,
       RenameSession: () => Effect.void,
       PinSession: () => Effect.void,
+      // LimitResume follows the committed event and schedules the Continue.
+      SetResumeAtReset: () => Effect.void,
       SendFeedback: (command) => runStartedTurn(command.sessionId, committed.result.envelopes),
       AcceptTurns: (command) => revertAfterAccept(rt.store, command),
       LinkPullRequest: () => Effect.void,

@@ -263,11 +263,12 @@ const fold = (event: DomainEvent): Fold =>
         ({ session }): Fold =>
         (m) => ({ ...m, session }),
       SessionStateChanged:
-        ({ state, reason }): Fold =>
+        ({ state, reason, resetsAt }): Fold =>
         (m) =>
           patchSession(m, {
             state,
             lastError: state === "failed" ? reason : (m.session?.lastError ?? null),
+            limitResetsAt: state === "limited" ? (resetsAt ?? null) : null,
           }),
       SessionRenamed:
         ({ title }): Fold =>
@@ -278,6 +279,10 @@ const fold = (event: DomainEvent): Fold =>
         ({ pinnedAt }): Fold =>
         (m) =>
           patchSession(m, { pinnedAt }),
+      SessionResumeAtResetChanged:
+        ({ resumeAtReset }): Fold =>
+        (m) =>
+          patchSession(m, { resumeAtReset }),
       SessionCursorUpdated:
         ({ harnessCursor }): Fold =>
         (m) =>

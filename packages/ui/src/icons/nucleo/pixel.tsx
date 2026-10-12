@@ -265,3 +265,23 @@ const ALERT_PATHS = [
   "M8 5L8 7",
   "M10 3H14",
 ];
+
+/** Nucleo pixel `HourglassOutline24`. */
+export function PixelHourglassIcon(props: NucleoIconProps) {
+  return <Pixels paths={HOURGLASS_PATHS} {...props} />;
+}
+
+const HOURGLASS_PATHS = [
+  "M18 2V8",
+  "M6 2V8",
+  "M18 16V22",
+  "M6 16V22",
+  "M14 12H14.01",
+  "M10 12H10.01",
+  "M16 10H16.01",
+  "M8 10H8.01",
+  "M16 14H16.01",
+  "M8 14H8.01",
+  "M4 2H20",
+  "M4 22H20",
+];

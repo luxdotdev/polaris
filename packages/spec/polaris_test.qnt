@@ -10,6 +10,7 @@ module polaris_test {
     RECORDS_LATE_REQUESTS = false,
     CONTINUES_ACCEPTED = false,
     REVIEW_COMMANDS = true,
+    USAGE_LIMITS = true,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1", "s2"],
     CMD_IDS = Set("k1", "k2", "k3", "k4"),
@@ -171,6 +172,36 @@ module polaris_test {
         viewOf(log, "s1").state == "working",
         harness == Set("s1"),
         witnessRetried,
+        safety,
+      })
+
+  /** A usage limit: the Turn is Interrupted, the session Limited; a restart leaves it, and Continue resumes it. */
+  run aUsageLimitWaitsForContinueTest =
+    waitingOnApproval
+      .then(harnessReports("s1", HTurnLimited))
+      .then(commitBatch)
+      .then(publishBatch)
+      .expect(all {
+        log[4].kind == ApprovalWithdrawn({ req: "r1", by: "harness" }),
+        log[5].kind == TurnEnded("interrupted"),
+        log[6].kind == StateChanged("limited"),
+        safety,
+      })
+      .then(crash)
+      .then(restart)
+      .expect(all { log.length() == 7, viewOf(log, "s1").state == "limited", safety })
+      .then(clientSends("mac", "k2", Retry("s1")))
+      .then(clientSends("phone", "k3", Continue("s1")))
+      .then(commitBatch)
+      .then(publishBatch)
+      .then(reactorRuns("s1"))
+      .expect(all {
+        answers.get("k2") == [Rejected],
+        answers.get("k3") == [Ok(9)],
+        viewOf(log, "s1").turns == 1,
+        viewOf(log, "s1").state == "working",
+        harness == Set("s1"),
+        witnessLimitContinued,
         safety,
       })
 
@@ -476,6 +507,7 @@ module polaris_finding1_test {
     RECORDS_LATE_REQUESTS = false,
     CONTINUES_ACCEPTED = false,
     REVIEW_COMMANDS = true,
+    USAGE_LIMITS = true,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1", "s2"],
     CMD_IDS = Set("k1", "k2", "k3", "k4"),
@@ -523,6 +555,7 @@ module polaris_finding2_test {
     RECORDS_LATE_REQUESTS = false,
     CONTINUES_ACCEPTED = false,
     REVIEW_COMMANDS = true,
+    USAGE_LIMITS = true,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1", "s2"],
     CMD_IDS = Set("k1", "k2", "k3", "k4"),
@@ -568,6 +601,7 @@ module polaris_finding3_test {
     RECORDS_LATE_REQUESTS = true,
     CONTINUES_ACCEPTED = false,
     REVIEW_COMMANDS = true,
+    USAGE_LIMITS = true,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1", "s2"],
     CMD_IDS = Set("k1", "k2", "k3", "k4"),
@@ -615,6 +649,7 @@ module polaris_finding4_test {
     RECORDS_LATE_REQUESTS = false,
     CONTINUES_ACCEPTED = true,
     REVIEW_COMMANDS = true,
+    USAGE_LIMITS = true,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1", "s2"],
     CMD_IDS = Set("k1", "k2", "k3", "k4"),

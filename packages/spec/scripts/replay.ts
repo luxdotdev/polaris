@@ -173,6 +173,29 @@ const specCommand = (
 /** The Turn ends a Harness reports: completed goes Idle, failed goes Failed. */
 const ENDS = new Set(["completed", "failed"]);
 
+/** A usage limit ends the Turn Interrupted, then the session goes Limited. */
+const limitEndAt = (log: ReadonlyArray<TEvent>, j: number): boolean => {
+  const e = log[j]!;
+
+  if (e.tag !== "TurnEnded" || e.status !== "interrupted" || e.commandId !== null) return false;
+  let k = j + 1;
+
+  while (k < log.length && log[k]!.session === e.session && DROPPED.has(log[k]!.tag)) k++;
+
+  return (
+    k < log.length &&
+    log[k]!.commandId === null &&
+    log[k]!.tag === "SessionStateChanged" &&
+    log[k]!.state === "limited"
+  );
+};
+
+/** A Turn's end the Harness reported (not a restart's or a Client's). */
+const harnessEndAt = (log: ReadonlyArray<TEvent>, j: number): boolean =>
+  log[j]!.commandId === null &&
+  log[j]!.tag === "TurnEnded" &&
+  (ENDS.has(log[j]!.status!) || limitEndAt(log, j));
+
 /** A Turn's reactor opens the Harness; Archive's stops it. */
 const REACTS = new Set(["SendTurn", "Continue", "Retry", "ArchiveSession"]);
 
@@ -399,7 +422,7 @@ class Replayer {
   private endsTurn(e: TEvent, s: string): boolean {
     return (
       (e.tag === "ApprovalWithdrawn" && byOf(e) === "harness" && this.endsTurnAfter(this.i, s)) ||
-      (e.tag === "TurnEnded" && ENDS.has(e.status!))
+      harnessEndAt(this.log, this.i)
     );
   }
 
@@ -413,12 +436,17 @@ class Replayer {
 
     const ended = this.log[this.i++]!;
     events.push(ended);
-    const failed = ended.status === "failed";
-    const next = failed ? "failed" : "idle";
+
+    const [next, report] = Match.value(ended.status).pipe(
+      Match.when("failed", () => ["failed", "HTurnFailed"] as const),
+      Match.when("interrupted", () => ["limited", "HTurnLimited"] as const),
+      Match.orElse(() => ["idle", "HTurnEnded"] as const)
+    );
+
     const closing = this.take(s, (x) => x.tag === "SessionStateChanged" && x.state === next);
 
     if (closing === null) throw new Error(`seq ${e.seq}: a Turn ended without going ${next}`);
-    this.harness(s, failed ? "HTurnFailed" : "HTurnEnded", [...events, closing]);
+    this.harness(s, report, [...events, closing]);
   }
 
   /** The next Daemon event of session `s` if `pred` holds for it, skipping dropped ones. */
@@ -463,12 +491,7 @@ class Replayer {
       j++;
     }
 
-    return (
-      j < log.length &&
-      log[j]!.commandId === null &&
-      log[j]!.tag === "TurnEnded" &&
-      ENDS.has(log[j]!.status!)
-    );
+    return j < log.length && harnessEndAt(log, j);
   }
 }
 
@@ -514,6 +537,7 @@ module ${name} {
     RECORDS_LATE_REQUESTS = false,
     CONTINUES_ACCEPTED = false,
     REVIEW_COMMANDS = true,
+    USAGE_LIMITS = true,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1", "s2"],
     CMD_IDS = Set(${[...cmdIds].map(q).join(", ")}),

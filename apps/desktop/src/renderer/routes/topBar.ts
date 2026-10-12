@@ -37,6 +37,7 @@ const STATE_PRIORITY: ReadonlyArray<SessionState> = [
   "failed",
   "working",
   "starting",
+  "limited",
   "in-terminal",
   "idle",
   "dormant",

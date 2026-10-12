@@ -11,14 +11,7 @@ import {
 import { deferredDelivery, refusedInput } from "./session.deferred.ts";
 import { harnessTurn, takesTurn, turnRefusal } from "./session.turns.ts";
 import { modelChanged } from "./session.model.ts";
-import {
-  DomainEvent,
-  type RequestId,
-  type SessionId,
-  type SessionState,
-  type Turn,
-  type TurnId,
-} from "@polaris/protocol";
+import { DomainEvent, type RequestId, type SessionState, type Turn } from "@polaris/protocol";
 import { Predicate, Result } from "effect";
 import { createMachine, isUnhandled, transition, types } from "xstate";
 import {
@@ -39,6 +32,7 @@ import {
 import { interruptedSetup, setupChanged } from "./session.setup.ts";
 import { acceptTurns, lastIsAccepted } from "./session.accept.ts";
 import { endBackgroundWork, subagentEnded, subagentStarted } from "./session.subagents.ts";
+import { endTurn, RECOVERY_REASON, stateChanged, withdrawPending } from "./session.events.ts";
 
 export type { SessionEffect, SessionInput } from "./session.inputs.ts";
 
@@ -49,45 +43,7 @@ interface Context {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-export const stateChanged = (
-  sessionId: SessionId,
-  state: SessionState,
-  reason: string | null = null
-): DomainEvent => DomainEvent.cases.SessionStateChanged.make({ sessionId, state, reason });
-
-const endTurn = (
-  turn: Turn,
-  status: "completed" | "interrupted" | "failed",
-  endedAt: string,
-  checkpointAfter: string | null = turn.checkpointAfter
-): DomainEvent =>
-  DomainEvent.cases.TurnEnded.make({
-    turn: patchTurn(turn, { status, endedAt, checkpointAfter }),
-  });
-
-const withdrawPending = (
-  record: SessionRecord,
-  withdrawnBy: "harness" | "daemon",
-  reason: string,
-  onlyTurn?: TurnId
-): Array<DomainEvent> =>
-  [...record.pending.values()].flatMap((request) =>
-    onlyTurn === undefined || request.turnId === onlyTurn
-      ? [
-          DomainEvent.cases.ApprovalWithdrawn.make({
-            sessionId: record.session.id,
-            requestId: request.id,
-            withdrawnBy,
-            reason,
-          }),
-        ]
-      : []
-  );
-
-const RECOVERY_REASON = {
-  restart: "The Daemon restarted",
-  upgrade: "The Daemon is upgrading",
-} as const;
+export { stateChanged } from "./session.events.ts";
 
 const need = (context: Context): SessionRecord => {
   if (context.record === null) throw new Error("the session machine needs a session");
@@ -114,13 +70,20 @@ const settle = (
   enq: Enqueue,
   record: SessionRecord | null,
   events: ReadonlyArray<DomainEvent>,
-  enter?: { readonly state: SessionState; readonly reason?: string | null }
+  enter?: {
+    readonly state: SessionState;
+    readonly reason?: string | null;
+    readonly resetsAt?: string | null;
+  }
 ) => {
   const sessionId =
     record?.session.id ?? (events[0]?._tag === "SessionCreated" ? events[0].session.id : undefined);
 
   if (sessionId === undefined) return undefined;
-  const all = enter ? [...events, stateChanged(sessionId, enter.state, enter.reason)] : events;
+
+  const all = enter
+    ? [...events, stateChanged(sessionId, enter.state, enter.reason, enter.resetsAt)]
+    : events;
 
   if (all.length === 0) return HANDLED;
 
@@ -204,21 +167,26 @@ const turnEnded = (
     );
   }
 
+  // At a usage limit the Turn stops short, like an interrupt, so Continue picks it up.
+  const limited = withState && event.status === "failed" && event.limit != null;
+  const status = limited ? "interrupted" : event.status;
+
   events.push(
     ...withdrawPending(record, "harness", "The Turn ended", turn.id),
-    endTurn(turn, event.status, event.at, event.checkpoint?.ref ?? turn.checkpointAfter)
+    endTurn(turn, status, event.at, event.checkpoint?.ref ?? turn.checkpointAfter)
   );
 
-  return settle(
-    enq,
-    record,
-    events,
-    !withState
-      ? undefined
-      : event.status === "failed"
-        ? { state: "failed", reason: event.error ?? "The Turn failed" }
-        : { state: "idle" }
-  );
+  return settle(enq, record, events, withState ? turnEndState(event) : undefined);
+};
+
+const turnEndState = (event: TurnEndedInput) => {
+  if (event.status !== "failed") return { state: "idle" } as const;
+
+  const reason = event.error ?? "The Turn failed";
+
+  return event.limit == null
+    ? ({ state: "failed", reason } as const)
+    : ({ state: "limited", reason, resetsAt: event.limit.resetsAt } as const);
 };
 
 type ExitedInput = Extract<SessionInput, { type: "harness.exited" }>;
@@ -274,7 +242,11 @@ const recover = (record: SessionRecord, event: RecoverInput, enq: Enqueue) => {
     return settle(enq, record, events, { state: "needs-you", reason: "interrupted" });
   }
 
-  if (state === "failed" || (state === "needs-you" && lastTurn(record)?.status === "interrupted")) {
+  if (
+    state === "failed" ||
+    state === "limited" ||
+    (state === "needs-you" && lastTurn(record)?.status === "interrupted")
+  ) {
     return settle(enq, record, events);
   }
 
@@ -748,6 +720,26 @@ export const sessionMachine = createMachine({
         "turn.retry": retryTurn,
         "terminal.open": ({ context }, enq) =>
           settle(enq, need(context), [], { state: "in-terminal" }),
+      },
+    },
+    /** A usage limit stopped the last Turn; Continue (the user's, or at the reset) picks it up. */
+    limited: {
+      id: "limited",
+      on: {
+        "turn.send": sendTurn,
+        "turn.continue": continueTurn,
+        "terminal.open": ({ context }, enq) =>
+          settle(enq, need(context), [], { state: "in-terminal" }),
+        // A still-live Harness calling the model again means the limit has lifted.
+        "harness.turnStarted": ({ context, event }, enq) => {
+          const started = harnessTurn(need(context), event);
+
+          return started === null
+            ? undefined
+            : settle(enq, need(context), [started], { state: "working" });
+        },
+        // The limit is still the fact; a Harness that goes away only ends its background work.
+        "harness.exited": ({ context, event }, enq) => exited(need(context), event, enq, false),
       },
     },
     archived: {

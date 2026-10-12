@@ -36,7 +36,13 @@ import {
 } from "./ids.ts";
 import { WorktreeSetupRun } from "./worktreeSetup.ts";
 import { notificationEventFields } from "./notification.ts";
-import { addedNullable, ServiceTier, ModelId, ReasoningEffort } from "./models.ts";
+import {
+  addedNullable,
+  optionalNullable,
+  ServiceTier,
+  ModelId,
+  ReasoningEffort,
+} from "./models.ts";
 import {
   FindingResolution,
   LayerRun,
@@ -67,10 +73,14 @@ export const DomainEvent = Schema.TaggedUnion({
     sessionId: SessionId,
     state: SessionState,
     reason: Schema.NullOr(Schema.String),
+    /** Entering Limited: when the usage limit resets, null when unknown. */
+    resetsAt: optionalNullable(Timestamp),
   },
   SessionRenamed: { sessionId: SessionId, title: Schema.String },
   /** `PinSession`: when it was pinned, or null when unpinned (capability `session.pin`). */
   SessionPinned: { sessionId: SessionId, pinnedAt: Schema.NullOr(Timestamp) },
+  /** `SetResumeAtReset` (capability `session.limited`). */
+  SessionResumeAtResetChanged: { sessionId: SessionId, resumeAtReset: Schema.Boolean },
   SessionCursorUpdated: { sessionId: SessionId, harnessCursor: Schema.String },
   SessionPermissionModeChanged: { sessionId: SessionId, permissionMode: PermissionMode },
   /** `SetModel`: the Model and effort the next Turns run on. */

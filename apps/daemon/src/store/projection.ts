@@ -251,6 +251,7 @@ const projectionOf: (event: DomainEvent) => Projection = DomainEvent.match<Proje
   SessionStateChanged: (event) => sessionRow(event.sessionId),
   SessionRenamed: (event) => sessionRow(event.sessionId),
   SessionPinned: (event) => sessionRow(event.sessionId),
+  SessionResumeAtResetChanged: (event) => sessionRow(event.sessionId),
   SessionCursorUpdated: (event) => sessionRow(event.sessionId),
   SessionPermissionModeChanged: (event) => sessionRow(event.sessionId),
   SessionModelChanged: (event) => sessionRow(event.sessionId),

@@ -100,6 +100,20 @@ const failing = (
   };
 };
 
+describe("usage limit", () => {
+  test("a Limited row reads the reset neutrally, or that it is unknown", () => {
+    const resetsAt = new Date(2026, 9, 12, 14, 0).toISOString();
+
+    const limited = (at: string | null) => ({
+      ...base,
+      session: { ...base.session, state: "limited" as const, limitResetsAt: at },
+    });
+
+    expect(sessionLine(limited(resetsAt))).toBe("Usage limit · resets 14:00");
+    expect(sessionLine(limited(null))).toBe("Usage limit · reset time unknown");
+  });
+});
+
 describe("host copy", () => {
   test("says what happened in words, never the raw error or a path", () => {
     const reconnecting = hostSentence(failing("reconnecting", "connection-lost"), "12s");
