@@ -4,7 +4,7 @@
  * window's keyboard handler. ⌘/ stays the editor's: it toggles a comment.
  */
 import type { KeyBinding as CmBinding } from "@codemirror/view";
-import { chordKey, isBare, parseChord } from "../../../../shared/chord.ts";
+import { type Chord, chordKey, formatChord, isBare, parseChord } from "../../../../shared/chord.ts";
 import { KEYMAP } from "../../../../shared/keymap.ts";
 
 /** Chords the editor keeps although the shell binds them too. */
@@ -39,8 +39,8 @@ const codeOfCmKey = (key: string): string => {
   return /^\d$/.test(key) ? `Digit${key}` : key;
 };
 
-/** A CodeMirror key name ("Mod-Alt-ArrowUp") as the shell's canonical chord. */
-export const cmChord = (name: string, mac: boolean): string => {
+/** A CodeMirror key name ("Mod-Alt-ArrowUp") as a chord. */
+const cmChordOf = (name: string, mac: boolean): Chord => {
   // "Mod--" ends in the minus key itself.
   const parts = name.endsWith("--") ? [...name.slice(0, -2).split("-"), "-"] : name.split("-");
   const key = parts.pop() ?? "";
@@ -48,14 +48,14 @@ export const cmChord = (name: string, mac: boolean): string => {
   const mod = has("Mod") || (mac ? has("Cmd", "Meta") : has("Ctrl"));
   const ctrl = mac && has("Ctrl");
 
-  return chordKey({
-    mod,
-    ctrl,
-    alt: has("Alt"),
-    shift: has("Shift"),
-    code: codeOfCmKey(key),
-  });
+  return { mod, ctrl, alt: has("Alt"), shift: has("Shift"), code: codeOfCmKey(key) };
 };
+
+/** A CodeMirror key name as the shell's canonical chord. */
+export const cmChord = (name: string, mac: boolean): string => chordKey(cmChordOf(name, mac));
+
+/** A CodeMirror key name as the app shows chords ("⌃Space", "⇧F12"), in macOS glyphs. */
+export const cmShortcut = (name: string): string => formatChord(cmChordOf(name, true));
 
 const digitChords = ["Ctrl", "Alt"].flatMap((m) =>
   ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"].map((d) => `${m}+Digit${d}`)

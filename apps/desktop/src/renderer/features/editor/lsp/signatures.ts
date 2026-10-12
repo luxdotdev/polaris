@@ -12,6 +12,18 @@ const ACK_ATTEMPTS = SETTLE_MS / ACK_POLL_MS;
 
 const signature = StateEffect.define<Tooltip | null>();
 
+/** Each mounted view's signature request, so the palette and the editor menu open the same popup. */
+const requests = new WeakMap<EditorView, () => void>();
+
+/** Signature help at the caret, as ⌃⇧Space opens it; false when the file has no language tooling. */
+export const showSignatureHelp = (view: EditorView): boolean => {
+  const request = requests.get(view);
+
+  request?.();
+
+  return request !== undefined;
+};
+
 const field = StateField.define<Tooltip | null>({
   create: () => null,
   update: (current, transaction) => {
@@ -95,11 +107,7 @@ export const signatureExtension = (
     keymap.of([
       {
         key: "Ctrl-Shift-Space",
-        run: (view) => {
-          void request(view);
-
-          return true;
-        },
+        run: showSignatureHelp,
       },
       {
         key: "Escape",
@@ -113,10 +121,12 @@ export const signatureExtension = (
     ]),
     ViewPlugin.define((view) => {
       alive.add(view);
+      requests.set(view, () => void request(view));
 
       return {
         destroy: () => {
           alive.delete(view);
+          requests.delete(view);
         },
         update: (update) => {
           if (

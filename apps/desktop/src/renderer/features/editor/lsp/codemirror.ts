@@ -1,5 +1,6 @@
 import {
   closeCompletion,
+  completeAnyWord,
   type Completion,
   type CompletionSource,
   pickedCompletion,
@@ -256,6 +257,23 @@ export const completionSource =
       .slice(0, 2000);
 
     return options.length ? { from, to: context.pos, options, getMatch } : null;
+  };
+
+/** What the footnote names when the list holds the file's own words. */
+export const WORDS_FOOTNOTE = "Words in this file";
+
+/** ⌃Space with no server answer (none, still setting up, or nothing here) lists the file's words. */
+export const withWordFallback =
+  (source: CompletionSource): CompletionSource =>
+  async (context) => {
+    const result = await source(context);
+
+    if (result !== null || !context.explicit || context.aborted) return result;
+    const words = await completeAnyWord(context);
+
+    if (words === null || words.options.length === 0) return null;
+
+    return { ...words, options: words.options.map((o) => offeredBy(o, WORDS_FOOTNOTE)) };
   };
 
 /** Markdown hovers render sanitized (`docs.tsx`); the first hover waits for that chunk. */

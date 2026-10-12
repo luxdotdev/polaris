@@ -103,6 +103,7 @@ const GLYPHS = new Map<string, string>([
   ["Backquote", "`"],
   ["BracketLeft", "["],
   ["BracketRight", "]"],
+  ["Minus", "-"],
   ["Space", "Space"],
   ["Tab", "⇥"],
 ]);

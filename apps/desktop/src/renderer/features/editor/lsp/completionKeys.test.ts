@@ -1,0 +1,94 @@
+import "../../../test/dom.testing.ts";
+import { afterEach, expect, test } from "bun:test";
+import { autocompletion, currentCompletions } from "@codemirror/autocomplete";
+import { EditorSelection, EditorState, type Extension } from "@codemirror/state";
+import { EditorView } from "@codemirror/view";
+import { cmChord, forwardShellChords, shellChords } from "../cm/keys.ts";
+import { vimExtension } from "../cm/vim.ts";
+import { LANGUAGE_NAVIGATION, shortcutOf } from "../navigation/commands.ts";
+import { footnoteOf } from "./completionMenu.ts";
+import { WORDS_FOOTNOTE, withWordFallback } from "./codemirror.ts";
+
+let view: EditorView | null = null;
+
+let unforward: (() => void) | null = null;
+
+afterEach(() => {
+  unforward?.();
+  view?.destroy();
+  view = null;
+  unforward = null;
+});
+
+/** An editor whose server answers nothing, as one still setting up (or none at all) does. */
+const editor = (doc: string, extra: Extension = []) => {
+  const parent = document.createElement("div");
+  document.body.append(parent);
+  unforward = forwardShellChords(parent, true);
+  view = new EditorView({
+    state: EditorState.create({
+      doc,
+      selection: EditorSelection.cursor(doc.length),
+      extensions: [extra, autocompletion({ override: [withWordFallback(async () => null)] })],
+    }),
+    parent,
+  });
+  view.focus();
+
+  return view;
+};
+
+const ctrlSpace = (target: EditorView) =>
+  target.contentDOM.dispatchEvent(
+    new KeyboardEvent("keydown", {
+      key: " ",
+      code: "Space",
+      keyCode: 32,
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    })
+  );
+
+const listed = async (target: EditorView) => {
+  for (let wait = 0; wait < 40 && currentCompletions(target.state).length === 0; wait++)
+    await new Promise((resolve) => setTimeout(resolve, 25));
+
+  return currentCompletions(target.state);
+};
+
+test("⌃Space opens completion with the file's words when no server answers", async () => {
+  const shown = editor("alpha beta\nal");
+
+  ctrlSpace(shown);
+  const options = await listed(shown);
+
+  expect(options.map((o) => o.label)).toContain("alpha");
+  expect(footnoteOf(options)).toBe(WORDS_FOOTNOTE);
+});
+
+test("⌃Space opens completion in vim's insert mode", async () => {
+  const shown = editor("alpha beta\nal", await vimExtension());
+  const { Vim, getCM } = await import("@replit/codemirror-vim");
+  const cm = getCM(shown);
+
+  if (cm === null) throw new Error("vim did not attach");
+  Vim.handleKey(cm, "A", "user");
+  ctrlSpace(shown);
+
+  expect((await listed(shown)).map((o) => o.label)).toContain("alpha");
+});
+
+test("no shell chord takes ⌃Space or ⌃⇧Space from the editor", () => {
+  const shell = shellChords();
+
+  for (const key of ["Ctrl-Space", "Ctrl-Shift-Space"])
+    expect(shell.has(cmChord(key, true))).toBe(false);
+});
+
+test("completion and signature help are listed with their chords", () => {
+  const byId = new Map(LANGUAGE_NAVIGATION.map((c) => [c.id, shortcutOf(c)]));
+
+  expect(byId.get("editor.language.completion")).toBe("⌃Space");
+  expect(byId.get("editor.language.signature")).toBe("⌃⇧Space");
+});
