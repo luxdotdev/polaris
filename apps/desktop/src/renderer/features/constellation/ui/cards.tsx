@@ -141,11 +141,15 @@ const settledLine = (r: ConstellationRecord, attemptId: string, state: string, f
 
     return (
       <>
-        claimed{" "}
-        <span className="text-code-inline text-text-subtle font-mono">{shortSha(g.head)}</span>
+        <span className="whitespace-nowrap">
+          claimed{" "}
+          <span className="text-code-inline text-text-subtle font-mono">{shortSha(g.head)}</span>
+        </span>
         <Checks checks={g.checks.filter((c) => c.ok === false)} />
         {g.questions === 0 ? null : (
-          <span className="text-needs-you-text">{pluralize(g.questions, "question")}</span>
+          <span className="text-needs-you-text whitespace-nowrap">
+            {pluralize(g.questions, "question")}
+          </span>
         )}
       </>
     );
@@ -183,7 +187,7 @@ const BlockedBody = ({
           ))}
         </span>
       )}
-      <span className="text-text-faint truncate">{reason}</span>
+      <span className="text-text-faint max-w-full min-w-0 truncate">{reason}</span>
     </>
   );
 };
@@ -229,7 +233,7 @@ const lineOf = (r: ConstellationRecord, n: NotificationData, facts: Facts): Dige
         task: task(attemptId),
         glyph: "needs-you",
         tone: "text-needs-you-text",
-        body: <span className="truncate">asks: {question.text}</span>,
+        body: <span className="max-w-full min-w-0 truncate">asks: {question.text}</span>,
       }),
       Proposal: ({ attemptId, proposalId }): DigestLine => ({
         key: n.id,
@@ -243,7 +247,7 @@ const lineOf = (r: ConstellationRecord, n: NotificationData, facts: Facts): Dige
         task: null,
         glyph: "waiting",
         tone: "text-text-subtle",
-        body: <span className="truncate">{text}</span>,
+        body: <span className="max-w-full min-w-0 truncate">{text}</span>,
       }),
       // An answer isn't accepted work (rule/constellation-colour): a neutral glyph.
       QuestionAnswered: ({ attemptId, text }): DigestLine => ({
@@ -251,7 +255,7 @@ const lineOf = (r: ConstellationRecord, n: NotificationData, facts: Facts): Dige
         task: task(attemptId),
         glyph: "waiting",
         tone: "text-text-subtle",
-        body: <span className="truncate">you answered: {text}</span>,
+        body: <span className="max-w-full min-w-0 truncate">you answered: {text}</span>,
       }),
     })
   );
@@ -288,15 +292,19 @@ export const DigestCard = ({
         {lines.map((line) => (
           <li
             key={line.key}
-            className="text-body text-text-default flex h-7 items-center gap-3 px-3.5"
+            className="text-body text-text-default flex min-h-7 items-start gap-3 px-3.5 py-1"
           >
-            <TaskGlyph glyph={line.glyph} harness={null} size={14} />
+            <span className="flex h-5 shrink-0 items-center">
+              <TaskGlyph glyph={line.glyph} harness={null} size={14} />
+            </span>
             {line.task === null ? (
               <LaneSpacer />
             ) : (
               <IdLane id={line.task.id} max={LANE_MAX.digest} className={line.tone} />
             )}
-            <span className="flex min-w-0 items-center gap-2">{line.body}</span>
+            <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
+              {line.body}
+            </span>
           </li>
         ))}
       </ul>

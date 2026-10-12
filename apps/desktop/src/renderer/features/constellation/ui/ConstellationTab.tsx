@@ -324,7 +324,7 @@ export const ConstellationTab = (props: ConstellationTabProps) => {
           aria-label="Tasks"
           tabIndex={0}
           onKeyDown={onKeyDown}
-          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1"
+          className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-1"
           style={laneStyle(laneWidth(rail.ids, LANE_MAX.tab))}
           data-testid="constellation-rail"
         >

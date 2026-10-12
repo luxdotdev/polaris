@@ -42,7 +42,9 @@ const Receipt = ({ r }: { readonly r: ReceiptView }) => (
 const Row = ({ label, children, tone }: { label: string; children: ReactNode; tone?: string }) => (
   <div className="flex gap-3">
     <dt className="text-body text-text-subtle w-20 shrink-0">{label}</dt>
-    <dd className={cn("text-body text-text-default min-w-0", tone)}>{children}</dd>
+    <dd className={cn("text-body text-text-default min-w-0 [overflow-wrap:anywhere]", tone)}>
+      {children}
+    </dd>
   </div>
 );
 
@@ -95,7 +97,7 @@ const Choice = ({
     role={square ? "checkbox" : "radio"}
     aria-checked={checked}
     onClick={onSelect}
-    className="flex h-7 cursor-default items-center gap-2.5 text-left"
+    className="flex h-7 max-w-full min-w-0 cursor-default items-center gap-2.5 text-left"
   >
     <span
       className={cn(
@@ -109,8 +111,8 @@ const Choice = ({
         />
       ) : null}
     </span>
-    <span className="text-body text-text-default">{label}</span>
-    <span className="text-body text-text-subtle">{hint}</span>
+    <span className="text-body text-text-default min-w-0 truncate">{label}</span>
+    <span className="text-body text-text-subtle shrink-0">{hint}</span>
   </button>
 );
 

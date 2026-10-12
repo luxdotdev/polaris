@@ -109,14 +109,14 @@ export const Checks = ({
         <span
           key={`${c.label}${n}`}
           className={cn(
-            "flex shrink-0 items-center gap-1",
+            "flex max-w-full min-w-0 shrink-0 items-center gap-1 whitespace-nowrap",
             c.ok === true && !hollow && "text-accepted-text",
             c.ok === false && "text-failed-text"
           )}
         >
           <CheckMark check={hollow ? { ok: null, tier: c.tier } : c} />
-          {c.label}
-          {hollow ? <span className="text-text-subtle">(reported)</span> : null}
+          <span className="min-w-0 truncate">{c.label}</span>
+          {hollow ? <span className="text-text-subtle shrink-0">(reported)</span> : null}
         </span>
       );
     })}
