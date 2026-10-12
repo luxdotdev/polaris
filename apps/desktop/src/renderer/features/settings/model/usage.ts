@@ -19,8 +19,6 @@ export const RANGES = [7, 30, 90] as const;
 
 export type RangeDays = (typeof RANGES)[number];
 
-const DAY_MS = 86_400_000;
-
 export const totalTokens = (t: Tokens): number => t.input + t.cacheRead + t.cacheWrite + t.output;
 
 const minus = (a: Tokens, b: Tokens): Tokens => ({
@@ -76,7 +74,7 @@ export interface HarnessDay {
 }
 
 export interface Day {
-  /** `YYYY-MM-DD`, UTC. */
+  /** `YYYY-MM-DD`, local. */
   readonly date: string;
   /** In `harnesses` order; every Harness present, zero when idle. */
   readonly series: ReadonlyArray<HarnessDay>;
@@ -104,17 +102,27 @@ export interface UsageSummary {
   readonly byModel: ReadonlyArray<ModelRow>;
 }
 
-const dayOf = (iso: string) => iso.slice(0, 10);
+const pad = (n: number) => String(n).padStart(2, "0");
 
-/** The UTC days in the range, oldest first, ending today. */
+const localDate = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+/** A bucket's local day, by the hour it starts; a half-hour zone puts a straddling hour in its first day. */
+const dayOf = (iso: string) => localDate(new Date(iso));
+
+/** Local midnight `back` calendar days before `now`'s day; DST-safe, unlike subtracting 24h. */
+const midnightBefore = (now: number, back: number) => {
+  const d = new Date(now);
+
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() - back);
+};
+
+/** The local days in the range, oldest first, ending today. */
 export const rangeDays = (days: RangeDays, now: number): ReadonlyArray<string> =>
-  Array.from({ length: days }, (_, i) =>
-    new Date(now - (days - 1 - i) * DAY_MS).toISOString().slice(0, 10)
-  );
+  Array.from({ length: days }, (_, i) => localDate(midnightBefore(now, days - 1 - i)));
 
-/** The query window for a range: from the start of its first UTC day to now. */
+/** The query window for a range: from local midnight of its first day to now. */
 export const rangeWindow = (days: RangeDays, now: number) => ({
-  from: `${rangeDays(days, now)[0]}T00:00:00.000Z`,
+  from: midnightBefore(now, days - 1).toISOString(),
   to: new Date(now).toISOString(),
 });
 

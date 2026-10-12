@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import { SessionId } from "@polaris/protocol";
 import {
   type Bucket,
@@ -9,6 +9,7 @@ import {
   formatShare,
   splitByDefault,
   pricedEstimate,
+  rangeDays,
   rangeWindow,
   usageSummary,
 } from "./usage.ts";
@@ -115,7 +116,7 @@ describe("usageSummary", () => {
     expect(summary.cost.partial).toBe(true);
   });
 
-  test("the query window starts at the first day's midnight, UTC", () => {
+  test("the query window starts at the first day's local midnight (here UTC)", () => {
     expect(rangeWindow(7, NOW)).toEqual({
       from: "2026-09-24T00:00:00.000Z",
       to: "2026-09-30T15:00:00.000Z",
@@ -213,6 +214,63 @@ describe("usageSummary", () => {
     const idle = dayTip(summary.days[0]!);
 
     expect([idle.rows, idle.tokens, idle.cost]).toEqual([[], "0", ""]);
+  });
+});
+
+describe("local days", () => {
+  // Bun's test zone is UTC; deleting TZ instead would freeze the last zone set.
+  const zone = process.env.TZ ?? "Etc/UTC";
+
+  afterEach(() => {
+    process.env.TZ = zone;
+  });
+
+  const at = (hour: string) => bucket({ hour });
+
+  test("after 8pm EDT, Today is still the local day and holds the evening's hours", () => {
+    process.env.TZ = "America/New_York";
+
+    const now = Date.parse("2026-10-12T01:00:00Z");
+
+    const summary = usageSummary({
+      days: 7,
+      now,
+      buckets: [at("2026-10-12T00:00:00Z"), at("2026-10-11T12:00:00Z"), at("2026-10-11T03:00:00Z")],
+    });
+
+    expect(summary.days.at(-1)?.date).toBe("2026-10-11");
+    expect(summary.days.at(-1)?.total).toBe(200);
+    expect(summary.days.at(-2)?.total).toBe(100);
+    expect(rangeWindow(7, now).from).toBe("2026-10-05T04:00:00.000Z");
+  });
+
+  test("a half-hour zone: an hour straddling midnight counts in the day it starts", () => {
+    process.env.TZ = "Asia/Kolkata";
+
+    const now = Date.parse("2026-10-11T19:00:00Z");
+
+    const summary = usageSummary({
+      days: 7,
+      now,
+      buckets: [at("2026-10-11T18:00:00Z"), at("2026-10-11T19:00:00Z")],
+    });
+
+    expect(summary.days.at(-1)).toMatchObject({ date: "2026-10-12", total: 100 });
+    expect(summary.days.at(-2)).toMatchObject({ date: "2026-10-11", total: 100 });
+    expect(rangeWindow(7, now).from).toBe("2026-10-05T18:30:00.000Z");
+  });
+
+  test("a range across the end of daylight saving has every day once", () => {
+    process.env.TZ = "America/New_York";
+    expect(rangeDays(7, Date.parse("2026-11-03T12:00:00Z"))).toEqual([
+      "2026-10-28",
+      "2026-10-29",
+      "2026-10-30",
+      "2026-10-31",
+      "2026-11-01",
+      "2026-11-02",
+      "2026-11-03",
+    ]);
   });
 });
 

@@ -9,8 +9,12 @@ import { type Day, dayTip, type UsageSummary } from "../model/usage.ts";
 /** Usage outside Polaris at ~32% of the Harness hue (DESIGN.md, Settings). */
 const outsideFill = (harness: string) => `color-mix(in oklab, ${hueVar(harness)} 32%, transparent)`;
 
-const shortDate = (date: string) =>
-  new Date(`${date}T12:00:00Z`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+/** A local `YYYY-MM-DD` read as that local day, not as UTC midnight. */
+const shortDate = (date: string) => {
+  const [y = 0, m = 1, d = 1] = date.split("-").map(Number);
+
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+};
 
 const Bar = memo(
   ({
