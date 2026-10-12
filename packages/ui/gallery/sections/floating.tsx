@@ -7,9 +7,7 @@ import {
   Composer,
   ContextMenu,
   ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuShortcut,
+  ContextMenuEntries,
   ContextMenuTrigger,
   Dialog,
   DialogContent,
@@ -29,6 +27,7 @@ import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
+  MENU_SEPARATOR_ENTRY,
   PixelHandIcon,
   PixelPolarisIcon,
   Popover,
@@ -44,6 +43,8 @@ import {
 } from "../../src";
 import { JumpMenu, JumpMenuDialog } from "../jump-menu";
 import { Section } from "./layout";
+
+const noop = () => undefined;
 
 export function ComposerSection() {
   return (
@@ -104,17 +105,16 @@ function Triggers() {
         </DropdownMenuTrigger>
         <DropdownMenuContent>
           <DropdownMenuLabel>Agent session</DropdownMenuLabel>
-          <DropdownMenuItem>
-            Open in terminal <DropdownMenuShortcut>⌘T</DropdownMenuShortcut>
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            Fork from turn 24 <DropdownMenuShortcut>⌘F</DropdownMenuShortcut>
-          </DropdownMenuItem>
+          <DropdownMenuItem needsInput>Rename…</DropdownMenuItem>
+          <DropdownMenuItem>Open in terminal</DropdownMenuItem>
+          <DropdownMenuItem needsInput>Fork…</DropdownMenuItem>
           <DropdownMenuCheckboxItem checked={checked} onCheckedChange={setChecked}>
             Follow the agent
           </DropdownMenuCheckboxItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem disabled>Archive</DropdownMenuItem>
+          <DropdownMenuItem disabled>
+            Archive <DropdownMenuShortcut>Host offline</DropdownMenuShortcut>
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <ContextMenu>
@@ -122,12 +122,35 @@ function Triggers() {
           Right-click here
         </ContextMenuTrigger>
         <ContextMenuContent>
-          <ContextMenuItem>
-            Copy path <ContextMenuShortcut>⌥⌘C</ContextMenuShortcut>
-          </ContextMenuItem>
-          <ContextMenuItem>Reveal in Finder</ContextMenuItem>
-          <ContextMenuSeparator />
-          <ContextMenuItem>Add to agent session</ContextMenuItem>
+          <ContextMenuEntries
+            entries={[
+              { kind: "item", label: "New file", onSelect: noop },
+              { kind: "item", label: "New folder", onSelect: noop },
+              MENU_SEPARATOR_ENTRY,
+              { kind: "item", label: "Rename", shortcut: "F2", onSelect: noop },
+              MENU_SEPARATOR_ENTRY,
+              { kind: "item", label: "Copy path", onSelect: noop },
+              { kind: "item", label: "Copy relative path", onSelect: noop },
+              { kind: "item", label: "Reveal in Finder", onSelect: noop },
+              {
+                kind: "sub",
+                label: "Message the lead about this",
+                entries: [
+                  { kind: "item", label: "Ask for a recommendation", onSelect: noop },
+                  { kind: "item", label: "Let it decide", onSelect: noop },
+                ],
+              },
+              MENU_SEPARATOR_ENTRY,
+              {
+                kind: "item",
+                label: "Delete…",
+                needsInput: true,
+                destructive: true,
+                shortcut: "⌘⌫",
+                onSelect: noop,
+              },
+            ]}
+          />
         </ContextMenuContent>
       </ContextMenu>
       <Tooltip>

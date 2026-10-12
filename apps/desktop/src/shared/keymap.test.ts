@@ -3,6 +3,7 @@ import { chordKey, formatChord, isBare, parseChord } from "./chord.ts";
 import {
   bindingOf,
   type CommandId,
+  EDIT_CHORDS,
   fillTitle,
   holds,
   KEYMAP,
@@ -107,5 +108,16 @@ describe("command registry metadata", () => {
     const open = bindingOf("palette.open");
 
     expect(open === undefined ? "missing" : paletteEntry(open)).toBeNull();
+  });
+
+  test("menus format F-keys, ⌫ and the edit chords like any other", () => {
+    expect(formatChord(parseChord("F2"))).toBe("F2");
+    expect(formatChord(parseChord("CmdOrCtrl+Backspace"))).toBe("⌘⌫");
+    expect(Object.values(EDIT_CHORDS).map((k) => formatChord(parseChord(k)))).toEqual([
+      "⌘X",
+      "⌘C",
+      "⌘V",
+      "⌘A",
+    ]);
   });
 });

@@ -445,8 +445,8 @@ Flat. Depth comes from tonal layers (`surface-sunken` < `bg` < `surface-raised`)
 | Token | Radius | Use |
 |---|---|---|
 | `control` | 6px | Buttons, inputs, badges, segmented controls. |
-| `row` | 10px | Selected and hovered rows, tiles. |
-| `card` | 14px | Cards, popovers, menus, toasts, dialogs. |
+| `row` | 10px | Selected and hovered rows, tiles, and menus (their 6px rows plus the 4px inset). |
+| `card` | 14px | Cards, popovers, toasts, dialogs. |
 | `full` | 999px | Status dots and avatars only. |
 
 The window uses the native macOS corner radius. Pixel icons and dither are drawn on a strict pixel grid (see Components) and never rounded or anti-aliased.
@@ -469,6 +469,16 @@ Every copy in the app is one component, `CopyButton` in `@polaris/ui`, writing t
 ### Rows and lists
 
 The main unit of the app. A row is an optional 16px icon or tile, a `label` title, and optional `caption` metadata on the right. Hover gives `fill-hover`, selection gives `fill-selected`, both at the `row` radius, inset from the panel edge by the panel padding. Sidebar section headers are `caption` in `text-subtle`, with no dividers.
+
+### Menus
+
+One look for every menu, right-click or ⋯ (Paper M1–M5, dark and light; owner, 2026-10-12): `ContextMenu` and `DropdownMenu` in `@polaris/ui`, built from `ContextMenuEntries` / `DropdownMenuEntries` where a surface has both. The surface is `surface-raised` with a hairline and the float shadow, a 4px inset and `row` corners (10px), 200–320px wide; long labels truncate. Rows are `body` (13px regular) at the tree-row height (28 / 24 / 22px by density), `control` corners, with no leading icons; a 16px check lane appears only in a menu with toggles. The highlight is `fill-selected` with `text-strong`, never Starlight. Groups run open and create, edit, copy and reveal, send elsewhere, and destructive last, a hairline between. A submenu shows a chevron in the shortcut lane.
+
+- **Shortcuts.** Right-aligned, `caption` (12px) in `text-subtle`, always formatted by the app's chord formatting (`formatChord`) from KEYMAP, `EDIT_CHORDS` (⌘X/C/V/A in the composer and terminal) or a feature's own key table (the explorer's F2 and ⌘⌫, the rail's A, S and ↵); never typed by hand. A chord shows only where it acts on the menu's target: ⇧⌘A on the selected session's card, ⌘N and ⌘3 on the current Workspace's chip.
+- **Hidden, not dimmed.** An action that can't apply to this target is left out. A row is dimmed, its reason in the shortcut lane ("Host offline"), only where its absence would confuse.
+- **Destructive.** Only what Polaris can't undo reads in `failed-text`: Delete… and Discard changes…. Archive and Dismiss stay neutral.
+- **Keyboard.** ↑↓ move, ↵ or Space choose, esc closes, typing jumps to a row; ⇧F10 or the menu key opens the menu on the focused row (sidebar, file tree, tabs). It fades in over 160ms and closes at once.
+- **rule/ellipsis-means-input:** as on macOS, a menu item or command title ends in "…" exactly when it asks for more before it runs (a dialog, picker, inline field or confirmation): Rename…, Fork…, Delete…, Attach files…. One that acts at once never has one: Archive, Copy path, Open in terminal. A submenu's chevron is not an ellipsis ("More models", not "More models…"). Items declare it (`needsInput`) and KEYMAP titles declare it (`needsInput`), and `shell/menu/ellipsis.test.ts` fails when a label and its declaration disagree, or a label uses three dots.
 
 ### Session rows
 
@@ -549,7 +559,7 @@ Bottom-right, 360px wide, 16px in from the window's edges, and clear of the 28px
 
 A chip in every composer: a small Harness tile, `@claude` or `@codex` in `label` type, the model in `caption`, and a chevron. It may take the Harness hue on its text and a 30% Harness-hue border while that Harness is Working. On the new-session page it expands into the Harness choice (see New session).
 
-- **Models: the newest four.** The menu shows four Models, the newest of each family in the Harness's own order: a Model is set aside when the Harness also lists a newer one of its family (read from the name it shows, "Opus 5.5" over "Opus 5", "GPT-6.1-Sol" over "GPT-6-Sol"), and the Harness's default is always among them. Today that is Opus 5.5, Fable 5.1, Sonnet 5.5 and Haiku 4.5 for Claude Code, and GPT-6.1-Sol, GPT-6-Astra, GPT-6-Luna and GPT-5.6-Terra for Codex. Everything else is under "More models…". Settings → Harnesses' "New sessions start with" offers the same four (plus a saved Model outside them).
+- **Models: the newest four.** The menu shows four Models, the newest of each family in the Harness's own order: a Model is set aside when the Harness also lists a newer one of its family (read from the name it shows, "Opus 5.5" over "Opus 5", "GPT-6.1-Sol" over "GPT-6-Sol"), and the Harness's default is always among them. Today that is Opus 5.5, Fable 5.1, Sonnet 5.5 and Haiku 4.5 for Claude Code, and GPT-6.1-Sol, GPT-6-Astra, GPT-6-Luna and GPT-5.6-Terra for Codex. Everything else is under "More models". Settings → Harnesses' "New sessions start with" offers the same four (plus a saved Model outside them).
 - **Effort: a dither bar.** Under the Models, the selected Model's effort is a row of 2px-cell dither segments in the Harness hue, one per level, lit up to the current one, with the level named on the right in `caption`. Each lit segment is denser than the one before; the lowest level is still and sparse, and each step up steps the field faster (from still to 70ms a frame at the top). ← and → move it, Home and End jump, and a press on a segment or a drag across the bar picks that level, keeping the menu open. It moves only while the menu is open, and Reduce Motion stills it to its density alone.
 - **Picks are sent once.** Choosing a Model keeps the menu open so its effort can follow; what the menu shows is sent when it closes (click outside, or Enter), as one `SetModel` or Fork. Escape closes it without sending.
 

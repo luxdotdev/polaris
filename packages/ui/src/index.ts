@@ -8,6 +8,8 @@ export type { CssVars } from "./lib/css";
 
 export { REVEAL_MOTION } from "./lib/float";
 
+export { ELLIPSIS, ellipsisProblem } from "./lib/menu";
+
 export { reducedMotion } from "./lib/motion";
 
 export { useExitPresence } from "./lib/presence";
@@ -77,6 +79,8 @@ export * from "./components/polaris/disclosure-chevron";
 export * from "./components/polaris/dither";
 
 export * from "./components/polaris/empty-state";
+
+export * from "./components/polaris/menu-entries";
 
 export * from "./components/polaris/git-status-letter";
 

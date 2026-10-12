@@ -84,6 +84,7 @@ export const SessionMenu = ({ hostKey, entry, onRename, children, ...slot }: Ses
           <ContextMenuItem onSelect={pin}>{pinned ? "Unpin" : "Pin to top"}</ContextMenuItem>
         ) : null}
         <ContextMenuItem
+          needsInput
           onSelect={() => {
             renamingNext.current = true;
             onRename();

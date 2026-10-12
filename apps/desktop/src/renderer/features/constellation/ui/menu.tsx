@@ -42,6 +42,7 @@ type Entry =
       readonly kind: "item";
       readonly label: string;
       readonly key?: string;
+      readonly needsInput?: boolean;
       readonly run: () => void;
     }
   | { readonly kind: "separator" }
@@ -82,8 +83,20 @@ export const menuEntries = (row: TaskRow, on: MenuActions): ReadonlyArray<Entry>
 
   return [
     approve,
-    { kind: "item", label: "Accept…", key: "a", run: () => on.onReview(row, "accept") },
-    { kind: "item", label: "Send back…", key: "s", run: () => on.onReview(row, "send-back") },
+    {
+      kind: "item",
+      label: "Accept…",
+      needsInput: true,
+      key: "a",
+      run: () => on.onReview(row, "accept"),
+    },
+    {
+      kind: "item",
+      label: "Send back…",
+      needsInput: true,
+      key: "s",
+      run: () => on.onReview(row, "send-back"),
+    },
     { kind: "separator" },
     open,
     focus,
@@ -99,7 +112,7 @@ const Dropdown = ({ entries }: { readonly entries: ReadonlyArray<Entry> }): Reac
     switch (e.kind) {
       case "item":
         return (
-          <DropdownMenuItem key={n} onSelect={e.run}>
+          <DropdownMenuItem key={n} needsInput={e.needsInput} onSelect={e.run}>
             {e.label}
             {e.key === undefined ? null : <DropdownMenuShortcut>{e.key}</DropdownMenuShortcut>}
           </DropdownMenuItem>
@@ -125,7 +138,7 @@ const Context = ({ entries }: { readonly entries: ReadonlyArray<Entry> }): React
     switch (e.kind) {
       case "item":
         return (
-          <ContextMenuItem key={n} onSelect={e.run}>
+          <ContextMenuItem key={n} needsInput={e.needsInput} onSelect={e.run}>
             {e.label}
             {e.key === undefined ? null : <ContextMenuShortcut>{e.key}</ContextMenuShortcut>}
           </ContextMenuItem>

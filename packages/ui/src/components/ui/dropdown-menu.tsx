@@ -6,6 +6,7 @@ import { CheckIcon, ChevronRightIcon, DotIcon } from "../../icons/chrome";
 import { cn } from "../../lib/cn";
 import {
   MENU_CONTENT,
+  MENU_DESTRUCTIVE,
   MENU_INDICATOR,
   MENU_ITEM,
   MENU_LABEL,
@@ -55,14 +56,25 @@ export function DropdownMenuContent({
 
 export interface DropdownMenuItemProps extends ComponentProps<typeof DropdownMenuPrimitive.Item> {
   readonly inset?: boolean;
+  /** It asks for more before it runs; its label ends in "…" (rule/ellipsis-means-input). */
+  readonly needsInput?: boolean | undefined;
+  /** It can't be undone in Polaris. */
+  readonly destructive?: boolean | undefined;
 }
 
-export function DropdownMenuItem({ className, inset, ...props }: DropdownMenuItemProps) {
+export function DropdownMenuItem({
+  className,
+  inset,
+  needsInput,
+  destructive,
+  ...props
+}: DropdownMenuItemProps) {
   return (
     <DropdownMenuPrimitive.Item
       data-slot="menu-item"
       data-inset={inset ? "" : undefined}
-      className={cn(MENU_ITEM, className)}
+      data-needs-input={needsInput ? "" : undefined}
+      className={cn(MENU_ITEM, destructive && MENU_DESTRUCTIVE, className)}
       {...props}
     />
   );
@@ -131,7 +143,7 @@ export function DropdownMenuSubTrigger({
       {...props}
     >
       {children}
-      <ChevronRightIcon className="ml-auto" />
+      <ChevronRightIcon size={12} className="ml-auto" />
     </DropdownMenuPrimitive.SubTrigger>
   );
 }
@@ -142,7 +154,11 @@ export function DropdownMenuSubContent({
 }: ComponentProps<typeof DropdownMenuPrimitive.SubContent>) {
   return (
     <DropdownMenuPrimitive.Portal>
-      <DropdownMenuPrimitive.SubContent className={cn(MENU_CONTENT, className)} {...props} />
+      <DropdownMenuPrimitive.SubContent
+        alignOffset={-5}
+        className={cn(MENU_CONTENT, className)}
+        {...props}
+      />
     </DropdownMenuPrimitive.Portal>
   );
 }

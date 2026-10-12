@@ -144,7 +144,7 @@ const SessionMenu = ({
             </DropdownMenuRadioGroup>
           </DropdownMenuSubContent>
         </DropdownMenuSub>
-        <DropdownMenuItem disabled={!canFork} onSelect={onFork}>
+        <DropdownMenuItem needsInput disabled={!canFork} onSelect={onFork}>
           Fork…
         </DropdownMenuItem>
         <OpenInTerminalItem

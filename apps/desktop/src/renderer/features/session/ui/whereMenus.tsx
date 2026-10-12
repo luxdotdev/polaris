@@ -139,6 +139,7 @@ export const WorkspaceMenu = (props: WhereMenuProps & { readonly path: string })
         </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem
+          needsInput
           onSelect={() => openFolder(props.hostKey)}
           data-testid="where-open-folder"
         >

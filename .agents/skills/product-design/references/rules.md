@@ -27,6 +27,7 @@ the full text is in the named canonical file; do not restate it.
 | rule/commands-are-chips | DESIGN.md, Layout, Named Rules; Skills and Slash Commands in the composer | agent + `composerFlow.ts` smoke |
 | rule/only-working-moves | DESIGN.md, Session State indicators | agent |
 | rule/needs-you-is-loudest | DESIGN.md, Session State indicators | agent |
+| rule/ellipsis-means-input | DESIGN.md, Menus | `apps/desktop/src/renderer/shell/menu/ellipsis.test.ts` |
 | rule/scene-text-contrast | DESIGN.md, Pixel scenes | agent |
 
 ## From PRODUCT.md (citations)
