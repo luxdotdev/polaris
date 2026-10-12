@@ -47,6 +47,8 @@ export interface RowContext {
   readonly onOpenDiff: (turnId: string) => void;
   readonly onRespond: (request: ApprovalRequest, decision: ApprovalDecision) => void;
   readonly onContinue: () => void;
+  /** Asks again for the Turns before the first one shown, after a failure. */
+  readonly onLoadOlder: () => void;
   readonly onRetry: () => void;
   /** "Opus 5 · high", as the Harness names them. */
   readonly modelLabel: (model: string | null, effort: string | null) => string;
@@ -181,8 +183,27 @@ const TriggerRow = ({ row, ctx }: { row: Extract<Row, { kind: "trigger" }>; ctx:
 /** An item's kind, or "run" / "subagent" for those rows (tests and smoke read it). */
 const entryKind = (entry: Entry) => (entry.kind === "item" ? entry.item.kind : entry.kind);
 
+/** A reply's time, on hover, in the gutter left of it (under the avatar on a Turn's first). */
+const ReplyTime = ({ row }: { row: Extract<Row, { kind: "item" }> }) =>
+  row.startedAt === null || entryKind(row.entry) !== "message" ? null : (
+    <span
+      className={cn(
+        "text-caption text-text-faint pointer-events-none absolute -left-5 w-11 pr-2 text-right opacity-0 group-hover/item:opacity-100",
+        row.lead ? "top-7" : "top-0.5"
+      )}
+      data-testid="reply-time"
+    >
+      <TurnTime iso={row.startedAt} />
+    </span>
+  );
+
 const Agent = ({ row, ctx }: { row: Extract<Row, { kind: "item" }>; ctx: RowContext }) => (
-  <div className="flex gap-3" data-testid="turn-item" data-kind={entryKind(row.entry)}>
+  <div
+    className="group/item relative flex gap-3"
+    data-testid="turn-item"
+    data-kind={entryKind(row.entry)}
+  >
+    <ReplyTime row={row} />
     <div className={AVATAR}>
       {row.lead && ctx.harness !== null ? (
         <HarnessMark
@@ -292,11 +313,33 @@ const FoldedTurn = ({ row, ctx }: { row: Extract<Row, { kind: "summary" }>; ctx:
     onToggle: () => ctx.onSetTurnOpen(row.turnId, true),
   }) ?? <Summary row={row} ctx={ctx} />;
 
+/** Opens the list while older Turns remain: they load as it comes into view. */
+const Older = ({ row, onRetry }: { row: Extract<Row, { kind: "older" }>; onRetry: () => void }) => (
+  <div
+    className="text-caption text-text-subtle flex h-8 items-center justify-center gap-2"
+    data-testid="older-turns"
+    data-state={row.state}
+  >
+    {row.state === "failed" ? (
+      <>
+        Couldn't load earlier turns
+        <Button variant="ghost" size="sm" onClick={onRetry}>
+          Try again
+        </Button>
+      </>
+    ) : (
+      "Loading earlier turns…"
+    )}
+  </div>
+);
+
 /** One row, by kind. */
 export const ConversationRow = ({ row, ctx }: { row: Row; ctx: RowContext }) => {
   switch (row.kind) {
     case "setup":
       return <SetupCard setup={row.setup} />;
+    case "older":
+      return <Older row={row} onRetry={ctx.onLoadOlder} />;
     case "summary":
       return <FoldedTurn row={row} ctx={ctx} />;
     case "prompt":
@@ -316,7 +359,10 @@ export const ConversationRow = ({ row, ctx }: { row: Row; ctx: RowContext }) => 
       return ctx.chrome.trailer ?? null;
     case "item":
       return row.entry.kind === "item" && row.entry.item.kind === "user" ? (
-        <Steered text={row.entry.item.text} />
+        <Steered
+          text={row.entry.item.text}
+          time={row.startedAt === null ? null : <TurnTime iso={row.startedAt} />}
+        />
       ) : (
         <Agent row={row} ctx={ctx} />
       );

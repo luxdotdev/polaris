@@ -45,6 +45,7 @@ import type {
   SessionStreamItem,
   TerminalId,
   TerminalLaunch,
+  TurnPage,
   UsageBucket,
   UsageReport,
   UsageStreamItem,
@@ -404,6 +405,7 @@ export interface RequestOutputs
   "harness.spinnerVerbs": Plain<SpinnerVerbs> | null;
   "harness.availability": Plain<HostHarnesses>;
   "session.terminalCommand": TerminalLaunch | null;
+  "session.turns": TurnPage;
   "usage.query": UsageQueryView;
   "terminal.open": { readonly terminalId: TerminalId };
   "terminal.input": null;

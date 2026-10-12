@@ -16,7 +16,7 @@ import type {
   WorktreeSetupRun,
 } from "@polaris/protocol";
 import { Predicate } from "effect";
-import type { TurnView } from "../../../store/sessionModel.ts";
+import { entriesInStartOrder, type TurnView } from "../../../store/sessionModel.ts";
 import { triggerPhrase } from "./background.ts";
 import { completedItemView, liveItemView } from "./items.ts";
 import type { Outgoing } from "./outbox.ts";
@@ -44,6 +44,12 @@ export const turnTime = (iso: string, now: Date): string => {
     ? `${day} ${clock}`
     : `${day}, ${at.getFullYear()} ${clock}`;
 };
+
+/** Loading Turns older than the feed's first (`session.turns`). */
+export type OlderState = "idle" | "loading" | "failed";
+
+/** The row that opens the list while older Turns remain on the Host. */
+export const olderRow = (state: OlderState): Row => ({ kind: "older", key: "older", state });
 
 export interface TurnSummary {
   readonly turnId: TurnId;
@@ -96,6 +102,8 @@ export type Row =
       readonly lead: boolean;
       /** Its Turn is the session's latest (in-Turn defaults read it). */
       readonly latest: boolean;
+      /** When a single item started (ISO); null for runs, Subagents, or no stamp. */
+      readonly startedAt: string | null;
     }
   | { readonly kind: "approval"; readonly key: string; readonly request: ApprovalRequest }
   /** A steer or queued follow-up that hasn't landed yet (`outbox.ts`). */
@@ -106,6 +114,8 @@ export type Row =
       readonly key: string;
       readonly tasks: ReadonlyArray<BackgroundTask>;
     }
+  /** Turns before the first one loaded: being fetched as the list reaches the top, or failed. */
+  | { readonly kind: "older"; readonly key: string; readonly state: OlderState }
   /** Whatever the session's chrome closes the list with (a Claim card). */
   | { readonly kind: "trailer"; readonly key: string }
   | {
@@ -175,10 +185,10 @@ const turnEntries = (view: TurnView): ReadonlyArray<Entry> => {
     )
   );
 
-  const items = [
-    ...view.items.map(completedItemView),
-    ...[...view.live].map(([id, live]) => liveItemView(id, live)),
-  ];
+  // In the order the model started them (H2), so a running command stays where it began.
+  const items = entriesInStartOrder(view).map((entry) =>
+    entry.kind === "completed" ? completedItemView(entry.item) : liveItemView(entry.id, entry.live)
+  );
 
   const entries = groupItems(items).map((entry): Entry => {
     const sub = entry.kind === "item" ? byParent.get(entry.item.id) : undefined;
@@ -212,9 +222,23 @@ const entryKey = (entry: Entry) => {
 
 const isSteer = (entry: Entry | undefined) => entry?.kind === "item" && entry.item.kind === "user";
 
+/** When each item started, by id; null when the Harness didn't say (`TurnItem.startedAt`). */
+const itemStarts = (view: TurnView): ReadonlyMap<string, string | null> =>
+  new Map([
+    ...view.items.map((item): [string, string | null] => [item.id, item.startedAt]),
+    ...[...view.live].map(([id, live]): [string, string | null] => [
+      id,
+      live.item?.startedAt ?? null,
+    ]),
+  ]);
+
+const entryStart = (entry: Entry, starts: ReadonlyMap<string, string | null>) =>
+  entry.kind === "item" ? (starts.get(entry.item.id) ?? null) : null;
+
 const itemRows = (view: TurnView, isLast: boolean): ReadonlyArray<Row> => {
   const turnId = view.turn.id;
   const entries = turnEntries(view);
+  const starts = itemStarts(view);
 
   // The first agent row carries the avatar, and so does the first one after a steer.
   return entries.map((entry, n) => ({
@@ -224,6 +248,7 @@ const itemRows = (view: TurnView, isLast: boolean): ReadonlyArray<Row> => {
     entry,
     lead: !isSteer(entry) && (n === 0 || isSteer(entries[n - 1])),
     latest: isLast,
+    startedAt: entryStart(entry, starts),
   }));
 };
 

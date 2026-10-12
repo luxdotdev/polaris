@@ -157,6 +157,62 @@ describe("conversation rows", () => {
     expect(latestTurnOpen(turns, noFolds)).toBe(true);
   });
 
+  test("a running command stays where it began, above a reply that started later", () => {
+    const running = I.CommandExecution.make({
+      id: "c1",
+      command: "sleep 20",
+      cwd: "/r",
+      output: "",
+      exitCode: null,
+      status: "running",
+      startedAt: "2026-10-11T20:00:01.000Z",
+    });
+
+    const read = I.ToolCall.make({
+      id: "r1",
+      name: "Read",
+      input: { file_path: "a.ts" },
+      output: null,
+      status: "completed",
+      startedAt: "2026-10-11T20:00:02.000Z",
+    });
+
+    const reply = I.AssistantMessage.make({
+      id: "m1",
+      text: "Read a.ts while it runs",
+      startedAt: "2026-10-11T20:00:03.000Z",
+    });
+
+    const live = new Map([["c1", { item: running, text: "", output: "" }]]);
+    const rows = turnRows(view(0, [read, reply], live, "working"), true, true);
+    const items = rows.flatMap((r) => (r.kind === "item" && r.entry.kind === "item" ? [r] : []));
+
+    expect(items.map((r) => r.entry.kind === "item" && r.entry.item.id)).toEqual([
+      "c1",
+      "r1",
+      "m1",
+    ]);
+    expect(items.map((r) => r.startedAt)).toEqual([
+      "2026-10-11T20:00:01.000Z",
+      "2026-10-11T20:00:02.000Z",
+      "2026-10-11T20:00:03.000Z",
+    ]);
+  });
+
+  test("items with no start keep completion order, live text last", () => {
+    const live = new Map([["m2", { item: null, text: "still typing", output: "" }]]);
+
+    const rows = turnRows(
+      view(0, [message("m0", "a"), message("m1", "b")], live, "working"),
+      true,
+      true
+    );
+
+    expect(
+      rows.flatMap((r) => (r.kind === "item" && r.entry.kind === "item" ? [r.entry.item.id] : []))
+    ).toEqual(["m0", "m1", "m2"]);
+  });
+
   test("a Turn's start row by id", () => {
     const rows = conversationRows({ turns: [earlier, last], approvals: [] });
 

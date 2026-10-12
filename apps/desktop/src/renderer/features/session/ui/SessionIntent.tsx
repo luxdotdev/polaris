@@ -117,7 +117,7 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
       ? listed
       : [...listed, { kind: "trailer" as const, key: "trailer" }];
 
-  const ctx: RowContext = {
+  const ctx: Omit<RowContext, "onLoadOlder"> = {
     harness,
     state: session.state,
     liveTurnId: lastTurn?.status === "working" && session.state === "working" ? lastTurn.id : null,
@@ -170,7 +170,17 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
             }}
           />
         )}
-        {chrome.body ?? <Transcript uiKey={key} turns={model.turns} rows={rows} ctx={ctx} />}
+        {chrome.body ?? (
+          <Transcript
+            uiKey={key}
+            hostKey={hostKey}
+            sessionId={sessionId}
+            canPage={hasCapability(host, "session.turn-paging")}
+            turns={model.turns}
+            rows={rows}
+            ctx={ctx}
+          />
+        )}
         <InTerminalBar
           session={{
             hostKey,
