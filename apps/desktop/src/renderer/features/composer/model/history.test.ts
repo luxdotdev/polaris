@@ -46,7 +46,21 @@ describe("what the user sent", () => {
       turn("t5", "again"),
     ];
 
-    expect(sentMessages(turns, (id) => id === "t2")).toEqual(["ship it", "again"]);
+    expect(sentMessages(turns, (id, item) => id === "t2" && item === null)).toEqual([
+      "ship it",
+      "again",
+    ]);
+  });
+
+  test("skips steers Polaris wrote (a steered digest)", () => {
+    const turns = [
+      turn("t1", "fix it", { items: [steer("digest: B2 finished"), steer("and lint")] }),
+    ];
+
+    expect(sentMessages(turns, (_, item) => item === "digest: B2 finished")).toEqual([
+      "fix it",
+      "and lint",
+    ]);
   });
 });
 

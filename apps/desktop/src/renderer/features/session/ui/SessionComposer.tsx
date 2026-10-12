@@ -40,7 +40,7 @@ import { promptFor, sentMessages } from "../../composer/index.ts";
 import { RotatingVerb, useWorkingVerbs } from "../verbs/index.ts";
 import { type ComposerCommands, DraftComposer } from "./DraftComposer.tsx";
 import { useComposerCommands } from "./useComposerCommands.ts";
-import { type SessionChrome, useSessionChrome } from "../chrome.ts";
+import { polarisAuthored, type SessionChrome, useSessionChrome } from "../chrome.ts";
 
 export interface SessionComposerProps {
   readonly hostKey: string;
@@ -125,22 +125,17 @@ const useModelChange = ({ hostKey, session, model, onOpenSession }: SessionCompo
   };
 };
 
-/** ↑/↓'s messages: Turns with a Polaris card (a digest, a brief) weren't typed here. */
-const sentHistory = (turns: SessionModel["turns"], chrome: SessionChrome) => {
-  const authored = (turnId: string) =>
-    (chrome.promptCard?.({ turnId, folded: true, canFold: false, onToggle: () => undefined }) ??
-      null) !== null;
-
-  return sentMessages(
+/** ↑/↓'s messages: Turns and steers with a Polaris card (a digest, a brief) weren't typed here. */
+const sentHistory = (turns: SessionModel["turns"], chrome: SessionChrome) =>
+  sentMessages(
     turns.map(({ turn, items }) => ({
       id: turn.id,
       prompt: turn.prompt,
       notTyped: (turn.trigger ?? null) !== null || (turn.feedback ?? null) !== null,
       items,
     })),
-    authored
+    (turnId, itemId) => polarisAuthored(chrome, turnId, itemId)
   );
-};
 
 const SEND_FAILURES: Readonly<Record<ComposerMode["kind"], string>> = {
   send: "Couldn't send",
