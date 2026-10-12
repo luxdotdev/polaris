@@ -7,6 +7,7 @@ import type { ApprovalDecision, ApprovalRequest, SessionId, SessionState } from 
 import {
   ApprovalCard,
   Button,
+  ChevronDownIcon,
   ChevronRightIcon,
   cn,
   type Harness,
@@ -21,7 +22,7 @@ import { age } from "../../../shell/copy.ts";
 import { SentAttachments } from "../../attachments/index.ts";
 import { useNow } from "../../../shell/useNow.ts";
 import { Decisions } from "../../../commands.ts";
-import type { Row } from "../model/conversation.ts";
+import { type Row, turnTime } from "../model/conversation.ts";
 import { totals } from "../model/diff.ts";
 import { plural } from "../model/format.ts";
 import { useTurnDiff } from "../turnDiff.ts";
@@ -41,7 +42,8 @@ export interface RowContext {
   /** The Turn in flight, whose avatar shimmers; null between Turns. */
   readonly liveTurnId: string | null;
   readonly where: string;
-  readonly onToggleTurn: (turnId: string) => void;
+  /** Opens or folds a Turn; it stays so as newer Turns arrive. */
+  readonly onSetTurnOpen: (turnId: string, open: boolean) => void;
   readonly onOpenDiff: (turnId: string) => void;
   readonly onRespond: (request: ApprovalRequest, decision: ApprovalDecision) => void;
   readonly onContinue: () => void;
@@ -95,7 +97,7 @@ const SummaryCounts = ({
 const Summary = ({ row, ctx }: { row: Extract<Row, { kind: "summary" }>; ctx: RowContext }) => (
   <button
     type="button"
-    onClick={() => ctx.onToggleTurn(row.turnId)}
+    onClick={() => ctx.onSetTurnOpen(row.turnId, true)}
     aria-label={`Turn ${row.number}: ${row.summary}`}
     className="rounded-row border-hairline bg-surface-raised/50 hover:bg-fill-hover gap-row-x flex h-10 w-full cursor-default items-center border px-3 text-left"
     data-testid="turn-summary"
@@ -112,19 +114,69 @@ const Summary = ({ row, ctx }: { row: Extract<Row, { kind: "summary" }>; ctx: Ro
   </button>
 );
 
+/** When the Turn started; the full date and time on hover. */
+const TurnTime = ({ iso }: { iso: string }) => {
+  const text = turnTime(iso, new Date());
+
+  return text === "" ? null : (
+    <time
+      dateTime={iso}
+      title={new Date(iso).toLocaleString()}
+      className="tabular shrink-0"
+      data-testid="turn-time"
+    >
+      {text}
+    </time>
+  );
+};
+
+/** Folds an open Turn to its summary; quiet until the row is hovered or focused. */
+const FoldButton = ({ row, ctx }: { row: { turnId: string; number: number }; ctx: RowContext }) => (
+  <button
+    type="button"
+    onClick={() => ctx.onSetTurnOpen(row.turnId, false)}
+    aria-label={`Fold turn ${row.number}`}
+    title="Fold this turn"
+    className="rounded-control text-text-faint hover:text-text-subtle hover:bg-fill-hover focus-visible:text-text-subtle grid size-5 shrink-0 cursor-default place-items-center opacity-0 group-focus-within/turn:opacity-100 group-hover/turn:opacity-100 focus-visible:opacity-100"
+    data-testid="turn-fold"
+  >
+    <ChevronDownIcon size={10} />
+  </button>
+);
+
 const Prompt = ({ row, ctx }: { row: Extract<Row, { kind: "prompt" }>; ctx: RowContext }) => (
-  <div className="flex flex-col items-end gap-1.5" data-testid="prompt">
+  <div className="group/turn flex flex-col items-end gap-1.5" data-testid="prompt">
     <SentAttachments hostKey={ctx.diff.hostKey} attachments={row.attachments} />
     {row.text === "" ? null : (
       <p className="rounded-card bg-fill-selected text-body text-text-strong py-row-x max-w-[340px] px-3.5 break-words whitespace-pre-wrap">
         {softWrap(row.text)}
       </p>
     )}
-    <p className="text-caption text-text-subtle max-w-[340px] truncate" data-testid="turn-model">
-      {ctx.modelLabel(row.model, row.effort)}
-    </p>
+    <div className="text-caption text-text-subtle flex max-w-[340px] min-w-0 items-center gap-1.5">
+      <FoldButton row={row} ctx={ctx} />
+      <span className="min-w-0 truncate" data-testid="turn-model">
+        {ctx.modelLabel(row.model, row.effort)}
+      </span>
+      <span aria-hidden="true">·</span>
+      <TurnTime iso={row.startedAt} />
+    </div>
   </div>
 );
+
+/** A Turn the Harness started: what woke it, its Model and time, and the fold control. */
+const TriggerRow = ({ row, ctx }: { row: Extract<Row, { kind: "trigger" }>; ctx: RowContext }) => {
+  const time = turnTime(row.startedAt, new Date());
+  const label = ctx.modelLabel(row.model, row.effort);
+
+  return (
+    <div className="group/turn flex items-center gap-1.5">
+      <div className="min-w-0 flex-1">
+        <Trigger text={row.text} model={[label, time].filter((p) => p !== "").join(" · ")} />
+      </div>
+      <FoldButton row={row} ctx={ctx} />
+    </div>
+  );
+};
 
 /** An item's kind, or "run" / "subagent" for those rows (tests and smoke read it). */
 const entryKind = (entry: Entry) => (entry.kind === "item" ? entry.item.kind : entry.kind);
@@ -231,29 +283,33 @@ const Ending = ({ row, ctx }: { row: Extract<Row, { kind: "ending" }>; ctx: RowC
   </div>
 );
 
+/** A folded Turn: its summary row, or the Polaris card (a digest, a brief) folded. */
+const FoldedTurn = ({ row, ctx }: { row: Extract<Row, { kind: "summary" }>; ctx: RowContext }) =>
+  ctx.chrome.promptCard?.({
+    turnId: row.turnId,
+    folded: true,
+    canFold: true,
+    onToggle: () => ctx.onSetTurnOpen(row.turnId, true),
+  }) ?? <Summary row={row} ctx={ctx} />;
+
 /** One row, by kind. */
 export const ConversationRow = ({ row, ctx }: { row: Row; ctx: RowContext }) => {
   switch (row.kind) {
     case "setup":
       return <SetupCard setup={row.setup} />;
     case "summary":
-      return (
-        ctx.chrome.promptCard?.({
-          turnId: row.turnId,
-          folded: true,
-          onToggle: () => ctx.onToggleTurn(row.turnId),
-        }) ?? <Summary row={row} ctx={ctx} />
-      );
+      return <FoldedTurn row={row} ctx={ctx} />;
     case "prompt":
       return (
         ctx.chrome.promptCard?.({
           turnId: row.turnId,
           folded: false,
-          onToggle: () => ctx.onToggleTurn(row.turnId),
+          canFold: true,
+          onToggle: () => ctx.onSetTurnOpen(row.turnId, false),
         }) ?? <Prompt row={row} ctx={ctx} />
       );
     case "trigger":
-      return <Trigger text={row.text} model={ctx.modelLabel(row.model, row.effort)} />;
+      return <TriggerRow row={row} ctx={ctx} />;
     case "waiting":
       return <Waiting tasks={row.tasks} hue={ctx.harness} />;
     case "trailer":

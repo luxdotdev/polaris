@@ -431,16 +431,16 @@ export const mountPreview = (root: HTMLElement, hash: string) => {
   }
 
   if ((scene === "attachments" || scene === "background") && shown?.session != null) {
-    const unfolded = new Set(shown.turns.map((t) => t.turn.id));
+    const folds = { chosen: new Map(), openFrom: shown.turns[0]?.turn.id ?? null };
 
-    patchSessionUi(uiKey(HOST, shown.session.id), () => ({ unfolded }));
+    patchSessionUi(uiKey(HOST, shown.session.id), () => ({ folds }));
   }
 
   // The long scene opens every Turn, so scrolling crosses thousands of rows.
   if (scene === "long" && shown?.session != null) {
-    const unfolded = new Set(shown.turns.map((t) => t.turn.id));
+    const folds = { chosen: new Map(), openFrom: shown.turns[0]?.turn.id ?? null };
 
-    patchSessionUi(uiKey(HOST, shown.session.id), () => ({ unfolded }));
+    patchSessionUi(uiKey(HOST, shown.session.id), () => ({ folds }));
   }
 
   if (isUsage(scene)) navigation.actions.openSettings("usage");
