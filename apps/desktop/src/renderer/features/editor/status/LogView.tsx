@@ -2,9 +2,8 @@
  * The language server log tab (DESIGN.md, Editor: Language server log; Paper L6): read-only,
  * a toolbar with the server, counts as filters, Find, Wrap, Follow and Copy all, then mono lines.
  */
-import { cn } from "@polaris/ui";
+import { cn, CopyButton } from "@polaris/ui";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { polaris } from "../../bridge.ts";
 import { logKey, useServerLog, type LogLevel, type LogLine, type LogScope } from "./log.ts";
 import {
   copyText,
@@ -129,7 +128,6 @@ export const LogView = ({ scope, server, detail }: LogViewProps) => {
   const [finding, setFinding] = useState(false);
   const [query, setQuery] = useState("");
   const [wrap, setWrap] = useState(false);
-  const [copied, setCopied] = useState(false);
   const find = useRef<HTMLInputElement>(null);
   const total = counts(lines);
   const shown = useMemo(() => visibleLines(lines, { only, query }), [lines, only, query]);
@@ -148,12 +146,6 @@ export const LogView = ({ scope, server, detail }: LogViewProps) => {
 
       return next;
     });
-
-  const copy = () => {
-    void polaris()
-      .request("clipboard.write", { text: copyText(shown) })
-      .then((result) => setCopied(result.ok));
-  };
 
   return (
     <section
@@ -218,9 +210,11 @@ export const LogView = ({ scope, server, detail }: LogViewProps) => {
           />
           Follow
         </ToolbarButton>
-        <ToolbarButton strong onClick={copy}>
-          {copied ? "Copied" : "Copy all"}
-        </ToolbarButton>
+        <CopyButton
+          text={() => copyText(shown)}
+          label="Copy all"
+          className="rounded-control text-text-strong h-6 px-2.5 font-medium"
+        />
       </div>
       <div
         ref={scroller}

@@ -1,6 +1,7 @@
 import "../../../test/dom.testing.ts";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { act, cleanup, fireEvent, render, within } from "@testing-library/react";
+import { CopyProvider } from "@polaris/ui";
+import { act, cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import * as P from "@polaris/protocol";
 import { workspaceKey } from "../model/drafts.ts";
@@ -17,6 +18,14 @@ import { statusOpened, statusDiscovered, statusStore } from "./store.ts";
 import { fileKey } from "../model/drafts.ts";
 import { eligible } from "./fixtures.testing.ts";
 import { LogView } from "./LogView.tsx";
+
+const written: string[] = [];
+
+const record = async (text: string) => {
+  written.push(text);
+
+  return true;
+};
 
 const scope: LogScope = { hostKey: HOST, checkout, providerId: "typescript-language-server" };
 
@@ -168,23 +177,15 @@ describe("the log tab", () => {
 
   test("toolbar counts are filters; Find, Wrap, Follow and Copy all work", async () => {
     appendLogLines(scope, lines);
-    const written: string[] = [];
-    Object.defineProperty(window, "polaris", {
-      configurable: true,
-      value: {
-        request: async (_: string, input: { text: string }) => {
-          written.push(input.text);
-
-          return { ok: true };
-        },
-      },
-    });
+    written.length = 0;
     render(
-      <LogView
-        scope={scope}
-        server="typescript-language-server 6.0.1"
-        detail="bundled TypeScript 6.0.3"
-      />
+      <CopyProvider write={record}>
+        <LogView
+          scope={scope}
+          server="typescript-language-server 6.0.1"
+          detail="bundled TypeScript 6.0.3"
+        />
+      </CopyProvider>
     );
 
     expect(view().getByText(/4 lines/)).toBeTruthy();
@@ -218,8 +219,10 @@ describe("the log tab", () => {
     fireEvent.click(follow!);
     expect(follow?.getAttribute("aria-pressed")).toBe("false");
 
-    fireEvent.click(view().getByText("Copy all"));
-    await view().findByText("Copied");
+    const copyAll = view().getByRole("button", { name: "Copy all" });
+
+    fireEvent.click(copyAll);
+    await waitFor(() => expect(copyAll.getAttribute("data-copy-state")).toBe("copied"));
     expect(written).toEqual(["14:05:40.117 warn Skipped tsconfig plugin"]);
   });
 

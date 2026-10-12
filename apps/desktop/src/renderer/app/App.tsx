@@ -1,5 +1,5 @@
 /** The renderer root: providers around the shell. */
-import { Toaster, TooltipProvider } from "@polaris/ui";
+import { CopyProvider, Toaster, TooltipProvider } from "@polaris/ui";
 import { StrictMode } from "react";
 import {
   type Onboarding,
@@ -17,6 +17,7 @@ import { ConstellationDefaultsPublisher } from "../features/settings/index.ts";
 import { PullsPublisher } from "../features/pulls/index.ts";
 // Not the feature's index: that loads the Review view's chunk.
 import { CheckoutPublisher } from "../features/review/checkout/Publisher.tsx";
+import { writeClipboard } from "../features/clipboard.ts";
 import { Shell } from "./Shell.tsx";
 
 export interface AppProps {
@@ -31,17 +32,19 @@ export const App = ({ value, onboarding = settled }: AppProps) => (
   <StrictMode>
     <AppProvider value={value}>
       <OnboardingProvider value={onboarding}>
-        <TooltipProvider>
-          <Shell />
-          <NeedsYouPublisher />
-          <ConstellationDefaultsPublisher />
-          <PullsPublisher />
-          <CheckoutPublisher />
-          <LinkedPullsPublisher />
-          <ConstellationFeeds />
-          <UpgradeStatusPublisher />
-          <Toaster />
-        </TooltipProvider>
+        <CopyProvider write={writeClipboard}>
+          <TooltipProvider>
+            <Shell />
+            <NeedsYouPublisher />
+            <ConstellationDefaultsPublisher />
+            <PullsPublisher />
+            <CheckoutPublisher />
+            <LinkedPullsPublisher />
+            <ConstellationFeeds />
+            <UpgradeStatusPublisher />
+            <Toaster />
+          </TooltipProvider>
+        </CopyProvider>
       </OnboardingProvider>
     </AppProvider>
   </StrictMode>

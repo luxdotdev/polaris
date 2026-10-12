@@ -4,7 +4,7 @@
  * well, and its actions, all secondary: "Add a host" is the page's one
  * primary button (DESIGN.md, Settings · Hosts; Buttons). Never a modal.
  */
-import { Button, Dither, InstallWell, Kbd } from "@polaris/ui";
+import { Button, CopyButton, Dither, InstallWell, Kbd } from "@polaris/ui";
 import { useEffect, useState } from "react";
 import type { MachineView } from "../../../shared/api.ts";
 import { slots } from "../../app/slots.tsx";
@@ -17,12 +17,7 @@ interface ActionContext {
   readonly openSsh: () => void;
 }
 
-const runAction = (
-  machine: MachineView,
-  action: CardAction,
-  detail: string | null,
-  context: ActionContext
-) => {
+const runAction = (machine: MachineView, action: CardAction, context: ActionContext) => {
   const hostKey = machine.key;
 
   switch (action) {
@@ -35,7 +30,8 @@ const runAction = (
     case "start-daemon":
       return call("machines.startDaemon", { hostKey });
     case "copy-detail":
-      return detail === null ? null : call("clipboard.write", { text: detail });
+      // A CopyButton writes and says so itself (`ActionButton`).
+      return null;
     case "approve":
       return machine.install?.offer == null
         ? null
@@ -72,7 +68,7 @@ const useApproveShortcut = (approve: () => void) =>
 
 export const Approval = ({ machine }: { readonly machine: MachineView }) => {
   const facts = offerFacts(machine);
-  const approve = () => void runAction(machine, "approve", null, { openSsh: () => undefined });
+  const approve = () => void runAction(machine, "approve", { openSsh: () => undefined });
 
   useApproveShortcut(approve);
 
@@ -92,7 +88,7 @@ export const Approval = ({ machine }: { readonly machine: MachineView }) => {
         </Button>
         <Button
           variant="ghost"
-          onClick={() => void runAction(machine, "dismiss", null, { openSsh: () => undefined })}
+          onClick={() => void runAction(machine, "dismiss", { openSsh: () => undefined })}
         >
           Not now
         </Button>
@@ -107,16 +103,26 @@ export const Approval = ({ machine }: { readonly machine: MachineView }) => {
 const ActionButton = ({
   button,
   ghost,
+  detail,
   onAction,
 }: {
   readonly button: CardButton;
   readonly ghost: boolean;
+  readonly detail: string | null;
   readonly onAction: () => void;
-}) => (
-  <Button variant={ghost ? "ghost" : "secondary"} onClick={onAction}>
-    {button.label}
-  </Button>
-);
+}) =>
+  button.action === "copy-detail" && detail !== null ? (
+    <CopyButton
+      variant="button"
+      buttonVariant={ghost ? "ghost" : "secondary"}
+      label={button.label}
+      text={detail}
+    />
+  ) : (
+    <Button variant={ghost ? "ghost" : "secondary"} onClick={onAction}>
+      {button.label}
+    </Button>
+  );
 
 /**
  * The row's reason, flat; and `ssh <alias>` in a terminal on this Mac's local
@@ -137,8 +143,7 @@ export const Attention = ({ machine }: { readonly machine: MachineView }) => {
       localUp ? setSsh(true) : void call("machines.openSsh", { hostKey: machine.key }),
   };
 
-  const run = (button: CardButton) => () =>
-    void runAction(machine, button.action, model.detail, context);
+  const run = (button: CardButton) => () => void runAction(machine, button.action, context);
   // The client reports steps, not bytes: work in progress is the dither, never a guessed bar.
 
   const busy = model.reason === "checking" || model.reason === "installing";
@@ -159,12 +164,18 @@ export const Attention = ({ machine }: { readonly machine: MachineView }) => {
       {model.fix === null && model.secondary === null ? null : (
         <div className="gap-gap flex items-center">
           {model.fix === null ? null : (
-            <ActionButton button={model.fix} ghost={false} onAction={run(model.fix)} />
+            <ActionButton
+              button={model.fix}
+              ghost={false}
+              detail={model.detail}
+              onAction={run(model.fix)}
+            />
           )}
           {model.secondary === null ? null : (
             <ActionButton
               button={model.secondary}
               ghost={model.fix !== null}
+              detail={model.detail}
               onAction={run(model.secondary)}
             />
           )}
