@@ -34,8 +34,8 @@ for await (const chunk of Bun.stdin.stream()) {
 
     const method = message.method;
 
-    if (mode === "logs" && method === "initialized") {
-      process.stderr.write("private fixture stderr\n");
+    if ((mode === "logs" || mode === "log-only") && method === "initialized") {
+      if (mode === "logs") process.stderr.write("private fixture stderr\n");
       send({
         jsonrpc: "2.0",
         method: "window/logMessage",

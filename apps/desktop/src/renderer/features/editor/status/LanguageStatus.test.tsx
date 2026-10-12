@@ -87,7 +87,7 @@ describe("the popover", () => {
     );
 
     expect(screen().getByRole("heading").className).toContain("text-failed-text");
-    expect(screen().getByText(/FATAL ERROR/).tagName).toBe("PRE");
+    expect(screen().getByText("Allocation failed").tagName).toBe("PRE");
     fireEvent.click(screen().getByText("Restart TypeScript server"));
     fireEvent.click(screen().getByText("Show language server log"));
     expect(ran).toEqual(["restart", "show-log"]);
@@ -294,4 +294,63 @@ describe("popover actions", () => {
 
     expect(calls.map((call) => call.method)).toEqual(["show-log", "settings", "recheck"]);
   });
+});
+
+test("repeated failure appears once and never exposes a raw transport placeholder", () => {
+  const view = statusView(
+    input({
+      file: {
+        ...input().file!,
+        phase: "failed",
+        failure: { reason: "server-failed", message: "Language operation: server-failed" },
+      },
+      runtimes: [],
+    })
+  );
+
+  const failure = actionFailure(
+    new P.LanguageError({
+      reason: "server-failed",
+      message: "Language operation: server-failed",
+      retryable: true,
+    }),
+    "lucas-rpi"
+  );
+
+  render(
+    <StatusPopover
+      view={view}
+      running={null}
+      failure={failure}
+      onRun={() => undefined}
+      titleId="t"
+    />
+  );
+  expect(document.body.textContent).not.toContain("Language operation:");
+  expect(screen().queryByRole("alert")).toBeNull();
+  expect(screen().getAllByText(/couldn't start or stopped responding/)).toHaveLength(1);
+  expect(screen().getByText("Restart TypeScript server")).toBeTruthy();
+  expect(screen().getByText("Show language server log")).toBeTruthy();
+});
+
+test("a failed check with no context restarts by discovering again", async () => {
+  let rechecked = 0;
+  await runAction(
+    "restart",
+    { hostKey: HOST, path: "/code/a.ts", checkout, providerId: null, trust: null },
+    {
+      api: {
+        request: async () => {
+          throw new Error("No server context exists");
+        },
+        subscribe: () => () => undefined,
+      },
+      recheck: async () => {
+        rechecked++;
+      },
+      showLog: () => undefined,
+      openSettings: () => undefined,
+    }
+  );
+  expect(rechecked).toBe(1);
 });

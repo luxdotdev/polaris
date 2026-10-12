@@ -58,7 +58,7 @@ async function dependencyArchive(
 }
 
 function dependencyEntries(archive: Uint8Array, pin: Dependency, signal: AbortSignal) {
-  const entries = tarEntries(archive, signal, upstreamRuntimeLimits, undefined, true);
+  const entries = tarEntries(archive, signal, upstreamRuntimeLimits, undefined, { npm: true });
   const typesRoot = pin.name.startsWith("@types/") ? pin.name.slice(7) : "package";
   const firstPath = entries[0]?.path;
 

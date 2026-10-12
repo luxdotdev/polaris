@@ -11,6 +11,10 @@ import { needsConstellationStartup } from "../constellation/composition/startup.
 import type { constellationHandlers } from "../constellation/composition/index.ts";
 import { ConstellationHarness } from "../constellation/composition/attachments.ts";
 
+/** Protect publication of the cached Exit as well as construction (ADR 0031). */
+export const cacheDaemonBuild = <A, E, R>(build: Effect.Effect<A, E, R>) =>
+  Effect.cached(build).pipe(Effect.map((load) => load.pipe(Effect.uninterruptible)));
+
 type ConstellationBase = Layer.Services<ReturnType<typeof constellationHandlers>>;
 
 /** Handler implementations own Daemon resources; each invocation retains its request Scope and BlobChannel. */
@@ -76,7 +80,7 @@ export const lazyConstellationHandlers = Layer.fromBuild((memoMap, scope) =>
     const store = yield* EventStore;
     const root = paths().root;
 
-    const load = yield* Effect.cached(
+    const load = yield* cacheDaemonBuild(
       Effect.gen(function* () {
         const module = yield* Effect.promise(() => import("../constellation/composition/index.ts"));
 
@@ -85,7 +89,7 @@ export const lazyConstellationHandlers = Layer.fromBuild((memoMap, scope) =>
           memoMap,
           scope
         ).pipe(Effect.provide(context), Effect.orDie);
-      }).pipe(Effect.uninterruptible)
+      })
     );
 
     yield* (yield* ConstellationHarness).defer(Effect.asVoid(load));
@@ -105,7 +109,7 @@ export const lazyHostResources = Layer.fromBuild((memoMap, scope) =>
   Effect.gen(function* () {
     const store = yield* EventStore;
 
-    const load = yield* Effect.cached(
+    const load = yield* cacheDaemonBuild(
       Effect.gen(function* () {
         const module = yield* Effect.promise(() => import("../resources/index.ts"));
 
@@ -115,7 +119,7 @@ export const lazyHostResources = Layer.fromBuild((memoMap, scope) =>
         );
 
         return Context.get(context, HostResources);
-      }).pipe(Effect.uninterruptible)
+      })
     );
 
     const model = (yield* store.model).hostResources;

@@ -292,6 +292,7 @@ test("read deadlines and concurrent limits release all bounded demand work", asy
   const lifetime = new AbortController();
 
   const states = createHostToolStates({
+    timeoutMs: 20,
     hostId,
     platform,
     tools: [Schema.decodeUnknownSync(Tool)(artifactFixture().tool)],
@@ -358,4 +359,113 @@ test("prerequisites refresh on demand and a refresh publishes to an existing Hos
   expect(probes).toBe(2);
   await watch.return?.();
   lifetime.abort();
+});
+
+test("Host snapshots share private Node verification only within one read and bound parallel rows", async () => {
+  const source = artifactFixture().tool;
+  const calls = new Map<string, number>();
+  let active = 0;
+  let peak = 0;
+
+  const tools = ["node", "one", "two", "three", "four", "five"].map((id) =>
+    Schema.decodeUnknownSync(Tool)({
+      ...source,
+      id,
+      requirements:
+        id === "node"
+          ? []
+          : [
+              {
+                id: "node",
+                scope: "server",
+                executable: "node",
+                version: ">=24.18.0",
+                detail: "Private Node",
+                required: true,
+              },
+            ],
+    })
+  );
+
+  const states = createHostToolStates({
+    hostId,
+    platform,
+    tools,
+    lifetime: signal(),
+    installer: {
+      current: async (id) => {
+        calls.set(id, (calls.get(id) ?? 0) + 1);
+        active++;
+        peak = Math.max(peak, active);
+        await Bun.sleep(5);
+        active--;
+
+        return null;
+      },
+      progress: () => null,
+      recoveryFacts: async () => [],
+      subscribe: () => () => {},
+    },
+  });
+
+  const first = await states.read({ toolIds: [], refresh: true }, signal());
+
+  expect(first.tools.map((row) => row.toolId)).toEqual(tools.map((tool) => tool.id));
+  expect(calls.get("node")).toBe(1);
+  expect(peak).toBeGreaterThan(1);
+  expect(peak).toBeLessThanOrEqual(4);
+  await states.read({ toolIds: [], refresh: false }, signal());
+  expect(calls.get("node")).toBe(2);
+  expect(states.stats().readers).toBe(0);
+});
+
+test("a Host row verifies its package while prerequisite observation is pending", async () => {
+  let release = () => {};
+
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+
+  const tool = Schema.decodeUnknownSync(Tool)({
+    ...artifactFixture().tool,
+    requirements: [
+      {
+        id: "python-interpreter",
+        scope: "project",
+        executable: "python",
+        version: "present",
+        detail: "Python",
+        required: true,
+      },
+    ],
+  });
+
+  const states = createHostToolStates({
+    hostId,
+    platform,
+    tools: [tool],
+    lifetime: signal(),
+    probes: () => ({
+      probe: async () => {
+        await gate;
+
+        return { presence: "present", path: "/usr/bin/python3", version: null };
+      },
+      stats: () => ({ checks: 1 }),
+    }),
+    installer: {
+      current: async () => {
+        release();
+
+        return null;
+      },
+      progress: () => null,
+      recoveryFacts: async () => [],
+      subscribe: () => () => {},
+    },
+  });
+
+  const result = await states.read({ toolIds: [tool.id], refresh: true }, signal());
+  expect(result.tools[0]?.prerequisites[0]?.presence).toBe("present");
+  expect(Predicate.isTagged(result.tools[0]?.state, "NotDownloaded")).toBe(true);
 });

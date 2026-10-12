@@ -1,6 +1,6 @@
 import { test, expect } from "bun:test";
 import { rejects } from "node:assert/strict";
-import { readFile, writeFile, mkdir, rm } from "node:fs/promises";
+import { readFile, writeFile, mkdir, rm, symlink } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { Schema } from "effect";
 import { LanguageInstallProgress } from "@polaris/protocol";
@@ -13,6 +13,77 @@ async function rejected(promise: Promise<unknown>, reason: string) {
     Schema.is(Schema.Struct({ reason: Schema.Literal(reason) }))(cause)
   );
 }
+
+test("download progress has a bounded rate while phase changes report exact final bytes", async () => {
+  const source = artifactFixture();
+
+  const f = await fixture({
+    async *download() {
+      for (const byte of source.bytes) yield Uint8Array.of(byte);
+    },
+  });
+
+  try {
+    const events: Progress[] = [];
+    const off = f.installer.subscribe((event) => events.push(event));
+    const started = performance.now();
+
+    await f.installer.install(f.request).result;
+    const elapsed = performance.now() - started;
+
+    off();
+    expect(events.filter((event) => event.phase === "downloading").length).toBeLessThanOrEqual(
+      1 + Math.ceil(elapsed / 100)
+    );
+    expect(events.find((event) => event.phase === "verifying")?.downloadedBytes).toBe(
+      source.bytes.length
+    );
+    expect(events.at(-1)?.downloadedBytes).toBe(source.bytes.length);
+    expect(events.at(-1)?.phase).toBe("completed");
+  } finally {
+    await f.close();
+  }
+});
+
+test("installer copies typed-array bytes directly and isolates staging from adapter mutation", async () => {
+  const source = artifactFixture();
+  const executable = Buffer.alloc(4 * 1024 * 1024, 42);
+
+  const noElements = () => {
+    throw new Error("Binary copies must not allocate JavaScript elements");
+  };
+
+  Object.defineProperty(source.bytes, Symbol.iterator, { value: noElements });
+  Object.defineProperty(executable, Symbol.iterator, { value: noElements });
+
+  const payload = {
+    ...source.payload,
+    entries: source.payload.entries.map((entry) =>
+      entry.path === "bin/tool" ? { ...entry, bytes: executable } : entry
+    ),
+  };
+
+  const f = await fixture({
+    async *download() {
+      yield source.bytes;
+    },
+    decode: async () => payload,
+  });
+
+  try {
+    f.installer.subscribe((progress) => {
+      if (progress.phase === "staging") executable.fill(0);
+    });
+    const installed = await f.installer.install(f.request).result;
+
+    expect(await readFile(join(installed.directory, "bin/tool"))).toEqual(
+      Buffer.alloc(executable.length, 42)
+    );
+    expect(executable[0]).toBe(0);
+  } finally {
+    await f.close();
+  }
+});
 
 test("deduplicates exact jobs, retains notices/metadata, observes monotonic isolated progress and restarts", async () => {
   const f = await fixture();
@@ -417,6 +488,46 @@ test("receipt size has its own enforced bound without widening catalog metadata"
     await rejected(f.installer.install(f.request).result, "too-large");
     expect(await f.installer.current("fake-tool")).toBeNull();
     expect(await f.debris()).toEqual([]);
+  } finally {
+    await f.close();
+  }
+});
+
+test("overlapping stored verification isolates readers and never caches a settled success or failure", async () => {
+  const f = await fixture();
+
+  try {
+    const installed = await f.installer.install(f.request).result;
+
+    const readers = await Promise.all(
+      Array.from({ length: 8 }, () => f.installer.current("fake-tool"))
+    );
+
+    expect(Reflect.set(readers[0]!.descriptor, "version", "mutated-reader")).toBe(true);
+    expect(readers[1]!.descriptor.version).toBe("1.0.0");
+    const executable = join(installed.directory, "bin/tool");
+    const original = await readFile(executable);
+    await writeFile(executable, "corrupted");
+    await rejected(f.installer.current("fake-tool"), "install-failed");
+    await writeFile(executable, original);
+    expect((await f.installer.current("fake-tool"))?.identity).toBe(installed.identity);
+  } finally {
+    await f.close();
+  }
+});
+
+test("stored tree scans reject a nested late-batch symlink and reverify after repair", async () => {
+  const f = await fixture();
+
+  try {
+    const version = await f.installer.install(f.request).result;
+    const extra = join(version.directory, "extra");
+
+    for (let n = 0; n < 32; n++) await mkdir(join(extra, `directory-${n}`), { recursive: true });
+    await symlink(join(version.directory, "bin/tool"), join(extra, "directory-31/link"));
+    await rejects(f.installer.current("fake-tool"), { message: "Stored tree path is unsafe" });
+    await rm(extra, { recursive: true });
+    expect((await f.installer.current("fake-tool"))?.identity).toBe(version.identity);
   } finally {
     await f.close();
   }

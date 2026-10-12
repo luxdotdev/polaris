@@ -1,4 +1,5 @@
 import type {
+  LanguageEditSnapshot,
   LanguagePositionEncoding,
   LanguageTreeEditProposal,
   LanguageTreeOperationOutcome,
@@ -64,13 +65,30 @@ export const validateInventory = (
 
     if (
       !doc ||
-      !equal(doc.buffer, snapshot.buffer) ||
+      !snapshotBufferMatches(proposal, doc, snapshot) ||
       (snapshot.buffer !== null && doc.text !== snapshot.buffer.text) ||
       !equal(doc.diskVersion, snapshot.diskVersion) ||
       doc.diskText !== snapshot.diskText
     )
       throw new Error("Text snapshot changed before preview.");
   }
+};
+
+const snapshotBufferMatches = (
+  proposal: LanguageTreeEditProposal,
+  doc: DraftDocument,
+  snapshot: typeof LanguageEditSnapshot.Type
+) => {
+  if (snapshot.buffer !== null || doc.buffer === null) return equal(doc.buffer, snapshot.buffer);
+
+  // A clean view outside this provider's fence retains its local tuple, checked again at acceptance.
+  return (
+    !proposal.fence.documents.some((document) => document.uri === snapshot.uri) &&
+    !doc.dirty &&
+    snapshot.diskVersion !== null &&
+    snapshot.diskText !== null &&
+    doc.text === snapshot.diskText
+  );
 };
 
 const validateDocument = (doc: DraftDocument) => {

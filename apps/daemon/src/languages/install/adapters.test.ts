@@ -106,6 +106,35 @@ test("selected Node files support GNU names while refusing traversal, selected l
   );
 });
 
+test("pinned GNU headers retain regular files and directories but reject unsafe entries and extensions", () => {
+  const signal = new AbortController().signal;
+
+  const read = (bytes: Buffer) =>
+    tarEntries(bytes, signal, defaultLimits, undefined, { gnuHeaders: true });
+
+  expect(read(tar("ruff-linux/ruff", "0", Buffer.from("runtime"), true))[0]).toMatchObject({
+    path: "ruff-linux/ruff",
+    bytes: Buffer.from("runtime"),
+  });
+  expect(read(tar("ruff-linux/", "5", Buffer.alloc(0), true))[0]?.kind).toBe("directory");
+  throws(() => tarEntries(tar("ruff-linux/ruff", "0", Buffer.from("runtime"), true), signal), {
+    reason: "install-failed",
+  });
+
+  for (const type of ["1", "2", "3", "4", "6", "S", "x", "g", "K", "L"])
+    throws(() => read(tar("ruff-linux/ruff", type, Buffer.alloc(0), true)), {
+      reason: "install-failed",
+    });
+  throws(() => read(tar("././@LongLink", "L", Buffer.from("ruff-linux/ruff\0"), true)), {
+    reason: "install-failed",
+  });
+  throws(() => read(tar("../escape", "0", Buffer.alloc(0), true)), { reason: "install-failed" });
+
+  const corrupt = tar("ruff-linux/ruff", "0", Buffer.from("runtime"), true);
+  corrupt.write("X", 0);
+  throws(() => read(corrupt), { reason: "install-failed" });
+});
+
 test("Host HTTPS download preserves bytes, requires exact URL and cancels its body on limits", async () => {
   const f = exactFixture();
   let init: RequestInit | undefined;
@@ -195,10 +224,12 @@ test("frozen npm decoding accepts old node-tar timestamps with an empty prefix a
 
   throws(() => tarEntries(legacy("package/index.js"), signal));
   expect(
-    tarEntries(legacy("package/index.js"), signal, defaultLimits, undefined, true)[0]?.path
+    tarEntries(legacy("package/index.js"), signal, defaultLimits, undefined, { npm: true })[0]?.path
   ).toBe("package/index.js");
-  throws(() => tarEntries(legacy("../escape"), signal, defaultLimits, undefined, true));
-  throws(() => tarEntries(legacy("package/link", "2"), signal, defaultLimits, undefined, true));
+  throws(() => tarEntries(legacy("../escape"), signal, defaultLimits, undefined, { npm: true }));
+  throws(() =>
+    tarEntries(legacy("package/link", "2"), signal, defaultLimits, undefined, { npm: true })
+  );
 });
 
 test("verified packaged evidence and pure binary decoder retain exact notices and reject tampering/links", async () => {

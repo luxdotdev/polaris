@@ -1,6 +1,7 @@
 import { createSqlSelection, SqlSelection } from "../sql/selection.ts";
 import { SqlCore } from "../sql/core.ts";
-import { webProviders, webTools } from "../web/index.ts";
+import { webProviders } from "../web/index.ts";
+import { managedProviderIds, providerAvailability } from "./managedAvailability.ts";
 import { PrivateNodeRuntime } from "./privateNode.ts";
 import { createPythonEnvironment, PythonEnvironment } from "../python/environment.ts";
 import { PythonCore } from "../python/core.ts";
@@ -120,6 +121,7 @@ export const languageHostServices = (
 
           const adapters = managedLaunchAdapters({
             host,
+            pinnedProviders: options.managed === undefined ? [] : managedProviderIds,
             ledger,
             plan: options.managed?.plan,
             toolId: (facts) => {
@@ -143,42 +145,15 @@ export const languageHostServices = (
 
           return LanguageProviderAccess.of({
             availability: (toolId, phase, trusted, admission, settings) =>
-              Effect.gen(function* () {
-                if (
-                  [
-                    "typescript-language-server",
-                    "basedpyright",
-                    "ruff",
-                    ...webTools,
-                    "bash-language-server",
-                    "sqllens-language-server",
-                  ].includes(toolId) &&
-                  phase === "feature" &&
-                  options.managed !== undefined &&
-                  admission !== undefined &&
-                  settings !== undefined
-                )
-                  yield* Effect.tryPromise({
-                    try: (signal) => options.managed!.ensure(settings, admission, signal, toolId),
-                    catch: installationError,
-                  });
-
-                return yield* installation.inspect(
-                  toolId,
-                  phase,
-                  trusted ||
-                    ([
-                      "typescript-language-server",
-                      "basedpyright",
-                      "ruff",
-                      ...webTools,
-                      "bash-language-server",
-                      "sqllens-language-server",
-                    ].includes(toolId) &&
-                      options.managed !== undefined),
-                  admission
-                );
-              }),
+              providerAvailability(
+                installation,
+                options.managed,
+                toolId,
+                phase,
+                trusted,
+                admission,
+                settings
+              ),
             reserveLaunch: (request) =>
               configuredExecutable(request.facts) === undefined
                 ? (async () => {

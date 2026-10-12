@@ -36,9 +36,15 @@ clearCloseOnExec(fd);
 
 if (mode === "cloexec") setCloseOnExec(file);
 
+const inherited: Record<string, number> = {};
+
+if (mode === "children") inherited["terminal:missing"] = 999_999;
+
+if (mode === "file-child") inherited["harness:invalid"] = file;
+
 process.env.POLARIS_HANDOFF = JSON.stringify({
   listenerFd: byMode.get(mode ?? "") ?? fd,
-  fds: mode === "children" ? { "terminal:missing": 999_999 } : {},
+  fds: inherited,
   children: {},
   fromVersion: "0.0.0-test",
   requestId: "invalid-envelope",

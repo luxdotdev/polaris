@@ -17,6 +17,7 @@ export interface ActionTarget {
   readonly checkout: P.LanguageCheckout | null;
   readonly providerId: string | null;
   readonly trust: TrustStatus | null;
+  readonly contextAcquired?: boolean;
 }
 
 export interface ActionPorts {
@@ -75,7 +76,11 @@ export const runAction = async (id: ActionId, target: ActionTarget, ports: Actio
       if (api === undefined) throw unavailable();
 
       return Match.value(remote).pipe(
-        Match.when("restart", () => restartServer(api, target)),
+        Match.when("restart", async () => {
+          if (target.providerId !== null) await restartServer(api, target);
+
+          if (target.providerId === null || target.contextAcquired === false) await ports.recheck();
+        }),
         // "Trust {workspace}…" brings the Trust card back with what would run.
         Match.when("trust", () => trustChange(api, target, "ask-again")),
         Match.when("use-bundled", () => trustChange(api, target, "use-bundled")),

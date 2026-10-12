@@ -41,8 +41,36 @@ export const snapshotsObserved = (hostKey: string, snapshots: readonly unknown[]
   }
 };
 
-/** The Host's installation state for every catalog tool, from its feed, until disposed. */
-export const watchHostTools = (api: LanguageApi, hostKey: string) => {
+/** Catalog dependencies needed by this file's integration, without unrelated language tools. */
+export const statusToolIds = (catalog: P.LanguageCatalog, language: string) => {
+  const offered = new Map(catalog.tools.map((tool) => [tool.id, tool]));
+
+  const integrations = catalog.integrations.filter(
+    (item) =>
+      item.languageIds.includes(language) ||
+      item.providers.some((provider) => provider.id === language)
+  );
+
+  const ids = new Set(
+    integrations.flatMap((item) => [
+      ...item.providers.map((provider) => provider.tool),
+      ...item.companions,
+      ...(item.formatter.source === "managed" ? [item.formatter.tool] : []),
+    ])
+  );
+
+  // Bundled TypeScript is selected alongside the managed server (ADR 0029).
+  if (ids.has("typescript-language-server")) ids.add("typescript");
+
+  for (const id of ids)
+    for (const requirement of offered.get(id)?.requirements ?? [])
+      if (offered.has(requirement.id)) ids.add(requirement.id);
+
+  return [...ids].filter((id) => offered.has(id));
+};
+
+/** The file's installation facts, from the sole Host installer feed, until disposed. */
+export const watchHostTools = (api: LanguageApi, hostKey: string, language: string) => {
   let active = true;
   let unwatch: (() => void) | null = null;
 
@@ -50,12 +78,14 @@ export const watchHostTools = (api: LanguageApi, hostKey: string) => {
     const catalog = await api.request("languages.catalog", { hostKey });
 
     if (!active || !catalog.ok) return;
-    catalogArrived(hostKey, Schema.decodeUnknownSync(P.LanguageCatalog)(catalog.value));
+    const decoded = Schema.decodeUnknownSync(P.LanguageCatalog)(catalog.value);
+    catalogArrived(hostKey, decoded);
+    const toolIds = statusToolIds(decoded, language);
 
-    // An empty list is the whole catalog; the feed opens with a full snapshot.
+    if (!toolIds.length) return;
     unwatch = api.subscribe(
       "languages.host.state.watch",
-      { hostKey, toolIds: [], refresh: false },
+      { hostKey, toolIds, refresh: false },
       {
         items: (items) => {
           for (const item of items)

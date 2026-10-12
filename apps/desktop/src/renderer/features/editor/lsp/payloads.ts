@@ -223,12 +223,46 @@ export const hoverPart = (markup: typeof Markup.Type): HoverPart => {
   return { kind: markup.kind, text: markup.value };
 };
 
+const EMPTY_FENCE = /^ {0,3}(`{3,}|~{3,})[^\n`]*\n(?:[ \t]*\n)*[ \t]*\1[ \t]*$/gm;
+
+/** Markdown backslash escapes and the entities servers write for `<`, `>`, `&` and spaces. */
+const unescape = (line: string) =>
+  line
+    .replace(/\\([\\`*_{}[\]()#+\-.!|<>])/g, "$1")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&lt;", "<")
+    .replaceAll("&nbsp;", " ")
+    .replaceAll("&amp;", "&")
+    .replace(/ {2}$/, "");
+
+/** A pydoc call line: `str(object='') -> str`, `str(bytes_or_buffer[, encoding]) -> str`. */
+const PYDOC = /^[A-Za-z_][\w.]*\(.*\)(?: -> .+)?$/;
+
+/** Docs opening with pydoc call lines (after a `---` rule) get them as code, not prose. */
+const fencePydoc = (text: string) =>
+  text.replace(/\n---\n([^\n]+(?:\n[^\n]+)*)/, (whole, paragraph: string) => {
+    const lines = paragraph.split("\n").map(unescape);
+
+    return lines.every((line) => PYDOC.test(line))
+      ? `\n---\n${fence("", lines.join("\n"))}`
+      : whole;
+  });
+
+/** Hover Markdown without the noise servers send: empty fences, blank runs, pydoc as prose. */
+export const tidyHover = (part: HoverPart): HoverPart => {
+  const collapsed = part.text.replace(/\n[ \t]*(?:\n[ \t]*){2,}/g, "\n\n").trim();
+
+  if (part.kind === "plaintext") return { kind: "plaintext", text: collapsed };
+
+  return { kind: "markdown", text: fencePydoc(collapsed.replace(EMPTY_FENCE, "")).trim() };
+};
+
 type HoverContents = NonNullable<typeof Hover.Type>["contents"];
 
 export const hoverParts = (contents: HoverContents): readonly HoverPart[] =>
   (Predicate.isString(contents) || "value" in contents ? [contents] : contents)
-    .map(hoverPart)
-    .filter((part) => part.text.trim() !== "");
+    .map((markup) => tidyHover(hoverPart(markup)))
+    .filter((part) => part.text !== "");
 
 export const decodePayload = <S extends Schema.ConstraintDecoder<unknown>>(
   schema: S,
