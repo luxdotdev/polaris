@@ -6,6 +6,39 @@ import { LanguageEffectiveSettings } from "@polaris/protocol";
 import { createProjectDiscovery } from "./index.ts";
 import { fixture } from "./fixture.ts";
 
+for (const executable of ["bin/python3", ".local/share/uv/python/cpython-3.13.5/bin/python3"])
+  test(`refresh discovers newly installed Host Python at ${executable} without executing it`, async () => {
+    const f = await fixture();
+
+    try {
+      const home = join(f.root, "host");
+      const path = await f.put("project/main.py");
+
+      const discovery = createProjectDiscovery({
+        registry: f.registry,
+        pythonHost: { home, directories: [join(home, "bin")] },
+      });
+
+      const input = {
+        checkout: f.checkout,
+        path,
+        providerId: "basedpyright",
+        settings: f.settings,
+      };
+
+      expect((await discovery.discover(input)).interpreter).toBeNull();
+
+      const entry = join(home, executable);
+
+      await mkdir(join(entry, ".."), { recursive: true });
+      await writeFile(entry, "#!/bin/sh\necho MUST_NOT_RUN\n", { mode: 0o755 });
+      expect((await discovery.discover(input)).interpreter).toBeNull();
+      expect((await discovery.discover({ ...input, refresh: true })).interpreter).toBe(entry);
+    } finally {
+      await f.cleanup();
+    }
+  });
+
 test("Sightline topology: alias SDK, JSONC inherited plugins, nested roots, Prisma and Go", async () => {
   const f = await fixture();
 

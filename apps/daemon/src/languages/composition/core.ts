@@ -150,6 +150,7 @@ function makeCore(
     path: string;
     documentLanguageId: string;
     settings: typeof LanguageEffectiveSettings.Type;
+    refresh?: boolean;
   }) =>
     Effect.gen(function* () {
       const auth = yield* requestAuthority(hostId);

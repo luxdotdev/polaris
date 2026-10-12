@@ -17,6 +17,9 @@ import { statusOpened, statusDiscovered, statusStore } from "./store.ts";
 import { fileKey } from "../model/drafts.ts";
 import { eligible } from "./fixtures.testing.ts";
 import { LogView } from "./LogView.tsx";
+import { standInBridge } from "../../bridge.ts";
+
+beforeEach(() => standInBridge(null));
 
 const scope: LogScope = { hostKey: HOST, checkout, providerId: "typescript-language-server" };
 
