@@ -4,6 +4,7 @@
  * tokens. The review flags the first added line of the diff it was given; a
  * follow-up answers, and withdraws the Finding it names when asked to.
  */
+import { isTestPath } from "@polaris/protocol";
 import type { ReviewerOutput } from "../../reviewer/output.ts";
 import { WALKTHROUGH_MARKER } from "../../reviewer/walkthroughPrompt.ts";
 import { REVIEWER_MARKER } from "../../reviewer/prompt.ts";
@@ -46,9 +47,46 @@ const fenced = (document: ReviewerOutput) =>
 
 const empty: ReviewerOutput = { findings: [], revised: [], withdrawn: [], answer: null };
 
+const benchGroup = (key: string, label: string, category: string, paths: ReadonlyArray<string>) =>
+  paths.length === 0
+    ? []
+    : [
+        {
+          key,
+          label,
+          summary: `The bench groups ${label.toLowerCase()} by path.`,
+          category,
+          critical: false,
+          paths,
+        },
+      ];
+
+/** Intent groups by path for every file the prompt's changed-files list names. */
+const benchGroups = (prompt: string) => {
+  const listed = [...prompt.matchAll(/^[A-Z]\S* (.+?) \+\d+ -\d+((?: \[\w+\])*)$/gm)];
+
+  const pathsWhere = (generated: boolean) =>
+    listed.flatMap((m) => (m[2]?.includes("[generated]") === generated ? [m[1] ?? ""] : []));
+
+  const generated = pathsWhere(true);
+  const rest = pathsWhere(false);
+  const tests = rest.filter(isTestPath);
+  const docs = rest.filter((p) => !isTestPath(p) && p.endsWith(".md"));
+  const code = rest.filter((p) => !isTestPath(p) && !p.endsWith(".md"));
+
+  const groups = [
+    ...benchGroup("change", "The change", "core", code),
+    ...benchGroup("tests", "Its tests", "tests", tests),
+    ...benchGroup("docs", "Docs", "docs", docs),
+    ...benchGroup("generated", "Lockfiles", "deps", generated),
+  ];
+
+  return `## Intent groups\n\`\`\`json\n${JSON.stringify({ groups })}\n\`\`\``;
+};
+
 export const benchReviewReply = (prompt: string): string => {
   if (prompt.startsWith(WALKTHROUGH_MARKER))
-    return "## Why the change\nThis change makes the behavior shown in the diff possible.\n\n## Special things to note\n- Check the changed paths before accepting.\n\n## Change outline\n```diff\n- previous behavior\n+ behavior in the composed diff\n```";
+    return `## Why the change\nThis change makes the behavior shown in the diff possible.\n\n## Special things to note\n- Check the changed paths before accepting.\n\n## Change outline\n\`\`\`diff\n- previous behavior\n+ behavior in the composed diff\n\`\`\`\n\n${benchGroups(prompt)}`;
 
   if (prompt.includes("couldn't be read")) return fenced(empty);
 

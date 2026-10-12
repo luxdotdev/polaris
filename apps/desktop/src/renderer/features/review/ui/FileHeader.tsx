@@ -12,6 +12,7 @@ import { OpenInEditorButton } from "../../editor-links/index.ts";
 import type { DividerRow } from "../model/layout.ts";
 import type { MarkSeverity } from "../model/marks.ts";
 import type { PatchFileStatus } from "../model/patch.ts";
+import { IntentGlyph } from "./IntentGlyph.tsx";
 
 export interface HeaderModel {
   readonly path: string;
@@ -80,6 +81,13 @@ const STATUS_WORDS = {
   modified: null,
 } satisfies Record<PatchFileStatus, string | null>;
 
+/** A Turn quotes its prompt; an Intent Group's "why" is the Walkthrough's own words. */
+const quoteOf = (divider: DividerRow) => {
+  if (divider.quote === null) return "";
+
+  return divider.intent === undefined ? `“${divider.quote}”` : divider.quote;
+};
+
 const Divider = ({ divider }: { readonly divider: DividerRow }) => {
   const actions = useStore(headerStore, (s) => s.actions);
 
@@ -92,11 +100,16 @@ const Divider = ({ divider }: { readonly divider: DividerRow }) => {
       onClick={() => actions?.openSections(divider.sectionIds)}
       className="text-caption gap-row-x h-tree-row flex w-full cursor-default items-center text-left"
     >
-      <Tile hue={divider.harness} size={18} />
+      {divider.intent === undefined ? (
+        <Tile hue={divider.harness} size={18} />
+      ) : (
+        <span className="flex size-[18px] shrink-0 items-center justify-center">
+          <IntentGlyph category={divider.intent.category} />
+        </span>
+      )}
       <span className="text-text-default font-medium">{divider.label}</span>
-      <span className="text-text-subtle min-w-0 flex-1 truncate">
-        {divider.quote === null ? "" : `“${divider.quote}”`}
-      </span>
+      {divider.intent?.critical === true && <SeverityBadge severity="critical" />}
+      <span className="text-text-subtle min-w-0 flex-1 truncate">{quoteOf(divider)}</span>
       <span className="text-text-subtle shrink-0">{divider.caption}</span>
       {divider.folded && divider.reviewed && (
         <CheckIcon size={14} className="text-diff-added-text shrink-0" />

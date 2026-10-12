@@ -75,8 +75,19 @@ import { HarnessCommands } from "./slashCommands.ts";
 import { UsageReport, UsageStreamItem } from "./usage.ts";
 import { NotFound } from "./errors.ts";
 import { SessionTurnRpcs, TurnDetail } from "./turns.ts";
+import { GitError, GitWriteRpcs } from "./git.ts";
 
 export { NotFound } from "./errors.ts";
+
+export {
+  GitCommit,
+  GitCommitItem,
+  GitDiscard,
+  GitError,
+  GitStage,
+  GitUnstage,
+  GitWriteRpcs,
+} from "./git.ts";
 
 export { ReadTurns, SessionTurnRpcs, SubagentDetail, TurnDetail, TurnPage } from "./turns.ts";
 
@@ -89,11 +100,6 @@ export class CommandRejected extends Schema.TaggedError<CommandRejected>()("Comm
 
 export class Unsupported extends Schema.TaggedError<Unsupported>()("Unsupported", {
   capability: Schema.String,
-}) {}
-
-export class GitError extends Schema.TaggedError<GitError>()("GitError", {
-  cwd: Schema.String,
-  message: Schema.String,
 }) {}
 
 /** The Harness can't answer on this Host: not installed, not signed in, or it failed. */
@@ -437,7 +443,11 @@ export class GitStatusEntry extends Schema.Class<GitStatusEntry>("GitStatusEntry
 }) {}
 
 export const GitStatus = Rpc.make("git.status", {
-  payload: { cwd: Schema.String },
+  payload: {
+    cwd: Schema.String,
+    /** Also list ignored paths (`!`), a folder as one entry. Older Daemons drop the field. */
+    ignored: Schema.optional(Schema.Boolean),
+  },
   success: Schema.Struct({
     branch: Schema.NullOr(Schema.String),
     head: Schema.NullOr(Schema.String),
@@ -822,4 +832,5 @@ export class DaemonRpcs extends RpcGroup.make(
   .merge(ResourceRpcs)
   .merge(EditorFileRpcs)
   .merge(LanguageRpcs)
-  .merge(SessionTurnRpcs) {}
+  .merge(SessionTurnRpcs)
+  .merge(GitWriteRpcs) {}

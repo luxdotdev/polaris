@@ -319,6 +319,10 @@ export const defaultHandlers = (options: {
     "git.status": ({ cwd }) => Effect.fail(new GitError({ cwd, message: notYet("git") })),
     "git.diff": ({ cwd }) => Effect.fail(new GitError({ cwd, message: notYet("git") })),
     "git.show": ({ cwd }) => Effect.fail(new GitError({ cwd, message: notYet("git") })),
+    "git.stage": ({ cwd }) => Effect.fail(new GitError({ cwd, message: notYet("git") })),
+    "git.unstage": ({ cwd }) => Effect.fail(new GitError({ cwd, message: notYet("git") })),
+    "git.discard": ({ cwd }) => Effect.fail(new GitError({ cwd, message: notYet("git") })),
+    "git.commit": ({ cwd }) => Stream.fail(new GitError({ cwd, message: notYet("git") })),
 
     // TODO(M2-C checkout): the live status of a Review Checkout.
     "review.checkoutStatus": () => Effect.fail(new Unsupported({ capability: "review.checkouts" })),

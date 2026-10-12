@@ -25,6 +25,8 @@ export interface AgentNotification {
 
 export interface NotifyPlan {
   readonly show: ReadonlyArray<AgentNotification>;
+  /** New notifications for the session the focused window shows: no banner, you were there. */
+  readonly held: ReadonlyArray<NeedsYouNotification>;
   readonly state: NotifyState;
 }
 
@@ -49,12 +51,12 @@ export const planAgentNotifications = ({
 
   for (const n of all) seen.set(agentKey(n.hostKey, n.sessionId), n.id);
 
-  const shown = fresh.filter(
-    (n) =>
-      !windowFocused ||
-      summary.focused?.hostKey !== n.hostKey ||
-      summary.focused.sessionId !== n.sessionId
-  );
+  const here = (n: NeedsYouNotification) =>
+    windowFocused &&
+    summary.focused?.hostKey === n.hostKey &&
+    summary.focused.sessionId === n.sessionId;
+
+  const shown = fresh.filter((n) => !here(n));
 
   return {
     show: shown.map((n) => ({
@@ -64,6 +66,7 @@ export const planAgentNotifications = ({
       subtitle: `${n.sessionTitle} · ${n.hostLabel}`,
       body: n.body,
     })),
+    held: fresh.filter(here),
     state: { seen },
   };
 };

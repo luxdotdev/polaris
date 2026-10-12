@@ -5,7 +5,11 @@
  */
 import { app, type BrowserWindow, Notification } from "electron";
 import type { AppEvent } from "../../shared/api.ts";
-import type { NeedsYouAction, NeedsYouSummary } from "../../shared/needsYou.ts";
+import type {
+  NeedsYouAction,
+  NeedsYouNotification,
+  NeedsYouSummary,
+} from "../../shared/needsYou.ts";
 import { createStarTray, type StarTray } from "../tray/index.ts";
 import {
   NOTIFICATION_BUTTONS,
@@ -167,11 +171,24 @@ export const createNeedsYouCenter = ({
     notification.show();
   };
 
+  /** The Desktop App's record of each agent banner, for the `notify` row (`agent-banner`). */
+  const record = (n: NeedsYouNotification, banner: "shown" | "here" | "off") =>
+    send({
+      kind: "agent-banner",
+      hostKey: n.hostKey,
+      sessionId: n.sessionId,
+      id: n.id,
+      title: n.title,
+      body: n.body,
+      banner,
+    });
+
   const showAgent = (content: AgentNotification) => {
     close(content.key);
     const shown = notifyAgents() && agentBannersOn() && Notification.isSupported();
 
     agentsPlanned.push({ id: content.notification.id, shown });
+    record(content.notification, shown ? "shown" : "off");
 
     if (!shown) return;
     const { hostKey, sessionId } = content.notification;
@@ -208,6 +225,8 @@ export const createNeedsYouCenter = ({
     for (const content of turns.show) showTurn(content);
 
     for (const content of agents.show) showAgent(content);
+
+    for (const n of agents.held) record(n, "here");
     tray.update(summary);
     app.dock?.setBadge(summary.count > 0 ? String(summary.count) : "");
   };

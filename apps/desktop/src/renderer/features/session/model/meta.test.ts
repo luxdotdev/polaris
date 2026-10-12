@@ -59,9 +59,12 @@ describe("contextLabel", () => {
     expect(contextLabel(usage(260_000, 200_000))?.text).toBe("Context 100% · nearly full");
   });
 
-  test("hidden until the Harness reports its window", () => {
+  test("hidden until the Harness reports usage; the total alone while the window is unknown", () => {
     expect(contextLabel(null)).toBeNull();
-    expect(contextLabel(usage(5000, null))).toBeNull();
+    expect(contextLabel(usage(84_000, null))).toEqual({
+      text: "Context 84k",
+      detail: "84k tokens in context",
+    });
   });
 
   test("token counts read short", () => {

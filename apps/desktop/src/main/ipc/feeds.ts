@@ -14,6 +14,7 @@ import {
 } from "../../shared/contract.ts";
 import { type ClientServices, HostDirectory, toIpcError } from "../hosts.ts";
 import { githubOpeners } from "../github/ipc.ts";
+import { gitOpeners } from "./git.ts";
 import { constellationFeed } from "./constellation.ts";
 import { Machines } from "../machines/service.ts";
 
@@ -47,6 +48,7 @@ type Openers = { readonly [K in SubscriptionKind]: (input: SubscriptionInput<K>)
 
 const openers: Openers = {
   ...githubOpeners,
+  ...gitOpeners,
   hosts: () => Stream.unwrap(HostDirectory.useSync((dir) => SubscriptionRef.changes(dir.views))),
   machines: () =>
     Stream.unwrap(Machines.useSync((machines) => SubscriptionRef.changes(machines.views))),

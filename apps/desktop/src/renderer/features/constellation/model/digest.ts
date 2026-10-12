@@ -23,3 +23,31 @@ export const digestFold = (view: TurnView): DigestFold => {
  */
 export const digestStarted = (digests: ReadonlyArray<Digest>, turnId: string) =>
   digests.some((d) => d.turnId === turnId && d.steered !== true);
+
+/** How the Daemon opens a digest it steers into a Working Lead (`steeredDigestPrompt`). */
+export const STEERED_DIGEST_OPENING = "This update arrived during your Turn.";
+
+/**
+ * The steered digest a landed steer carried, or null when the user wrote it. Several in one
+ * Turn pair up in order: the n-th digest steer with the n-th steered digest.
+ */
+export const steeredDigest = (
+  digests: ReadonlyArray<Digest>,
+  view: TurnView,
+  itemId: string
+): Digest | null => {
+  const steers = view.items.filter(
+    (item) =>
+      Predicate.isTagged(item, "UserMessage") && item.text.startsWith(STEERED_DIGEST_OPENING)
+  );
+
+  const n = steers.findIndex((item) => item.id === itemId);
+
+  if (n === -1) return null;
+
+  const landed = digests
+    .filter((d) => d.steered === true && d.turnId === view.turn.id)
+    .toSorted((a, b) => a.at.localeCompare(b.at));
+
+  return landed[n] ?? landed.at(-1) ?? null;
+};

@@ -83,6 +83,8 @@ export const Capability = Schema.Literals([
   "git.diff-turns",
   /** `git.show`: a file's content at a revision (context expansion in Review). */
   "git.show",
+  /** `git.stage`, `git.unstage`, `git.discard` and `git.commit`: the Explorer's Changes tab. */
+  "git.write",
   "attachments.stage",
   /** `attachments.settings`, `attachments.setSettings`, `attachments.clear`: cleanup in Settings. */
   "attachments.settings",

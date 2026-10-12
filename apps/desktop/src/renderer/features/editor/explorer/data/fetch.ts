@@ -69,7 +69,8 @@ export const toplevelOf = (hostKey: string, root: string) => {
   return known;
 };
 
-const refreshGit = async (key: string, hostKey: string, root: string) => {
+/** Re-reads `git.status`; the Changes tab calls it after each write. */
+export const refreshGit = async (key: string, hostKey: string, root: string) => {
   const toplevel = await toplevelOf(hostKey, root);
 
   if (toplevel === null) {
@@ -78,7 +79,7 @@ const refreshGit = async (key: string, hostKey: string, root: string) => {
     return;
   }
 
-  const result = await polaris().request("git.status", { hostKey, cwd: root });
+  const result = await polaris().request("git.status", { hostKey, cwd: root, ignored: true });
 
   patchExplorer(key, () => ({
     git: result.ok
@@ -89,6 +90,7 @@ const refreshGit = async (key: string, hostKey: string, root: string) => {
           branch: result.value.branch,
           ahead: result.value.ahead,
           marks: gitMarks(toplevel, root, result.value.entries),
+          entries: result.value.entries,
         }
       : "none",
   }));

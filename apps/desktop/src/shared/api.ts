@@ -22,7 +22,6 @@ import type {
   GetReviewerSettings,
   GetRiskSummary,
   ListVerdicts,
-  GitStatus,
   Grep,
   HarnessCommands,
   HarnessModels,
@@ -57,6 +56,7 @@ import type { PullRef } from "./github.ts";
 import type { ConstellationDefaultsMethod, ConstellationMethod } from "./constellationContract.ts";
 import type { ResourceMethod } from "./resourcesContract.ts";
 import type { GitHubRequestOutputs, GitHubSubscriptionItems } from "./githubContract.ts";
+import type { GitRequestOutputs, GitSubscriptionItems } from "./gitContract.ts";
 import type { NeedsYouAction } from "./needsYou.ts";
 import type {
   CachedHost,
@@ -352,7 +352,11 @@ export type ResourceRequestOutputs = {
 };
 
 export interface RequestOutputs
-  extends GitHubRequestOutputs, ConstellationRequestOutputs, ResourceRequestOutputs {
+  extends
+    GitHubRequestOutputs,
+    GitRequestOutputs,
+    ConstellationRequestOutputs,
+    ResourceRequestOutputs {
   "constellation.stats": ConstellationStatsView;
   "settings.get": SettingsView;
   "updates.get": AppUpdateView;
@@ -385,7 +389,6 @@ export interface RequestOutputs
     readonly content: FileContentView;
   };
   "files.write": FileWriteView;
-  "git.status": Rpc.Success<typeof GitStatus>;
   "git.diff": {
     readonly bytes: Uint8Array;
     readonly files: number;
@@ -463,7 +466,7 @@ export type TerminalItem =
   | { readonly _tag: "Output"; readonly data: Uint8Array }
   | { readonly _tag: "Exit"; readonly code: number | null };
 
-export interface SubscriptionItems extends GitHubSubscriptionItems {
+export interface SubscriptionItems extends GitHubSubscriptionItems, GitSubscriptionItems {
   hosts: ReadonlyArray<HostView>;
   machines: ReadonlyArray<MachineView>;
   host: HostStreamItem;
@@ -510,6 +513,16 @@ export type AppEvent =
   | { readonly kind: "proof"; readonly hostKey: string }
   /** The menu bar star or a notification: open a waiting session, or answer it. */
   | ({ readonly kind: "needs-you" } & NeedsYouAction)
+  /** Main decided an agent's `notify` banner: shown, held while you were in that session, or off. */
+  | {
+      readonly kind: "agent-banner";
+      readonly hostKey: string;
+      readonly sessionId: string;
+      readonly id: string;
+      readonly title: string;
+      readonly body: string;
+      readonly banner: "shown" | "here" | "off";
+    }
   /** A review-request notification: open its pull request in Review, or the list (null). */
   | { readonly kind: "open-pull"; readonly pull: OpenPull | null }
   /** The quit prompt's "Save and quit": the Editor saves every file, then answers `editor.savedAll`. */

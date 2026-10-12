@@ -37,7 +37,9 @@ import {
   b1Model,
   LATER_DIGEST_TURN,
   leadModel,
+  leadModelSteered,
   leadModelWithLaterDigest,
+  STEERED_TURN,
   leadSession,
   previousLead,
   workerSessions,
@@ -101,6 +103,7 @@ const SCENES = [
   "tree",
   "digests",
   "failures",
+  "steered",
 ] as const;
 
 type Scene = (typeof SCENES)[number];
@@ -147,6 +150,26 @@ const recordFor = (scene: Scene): ConstellationRecord => {
         };
   }
 
+  if (scene === "steered") {
+    const record = slugRecord();
+    const [first] = record.digests;
+
+    return first === undefined
+      ? record
+      : {
+          ...record,
+          digests: [
+            ...record.digests,
+            {
+              ...first,
+              turnId: TurnId.make(STEERED_TURN),
+              steered: true,
+              at: new Date().toISOString(),
+            },
+          ],
+        };
+  }
+
   return slugRecord(scene === "paused" ? { state: "paused" } : {});
 };
 
@@ -170,6 +193,7 @@ const UI: Readonly<Record<Scene, Partial<LeadUi>>> = {
   lead: {},
   digests: {},
   failures: {},
+  steered: {},
   menu: { selected: "task:B1", menu: "task:B1" },
   focus: { focus: { kind: "task", taskId: "B1" }, selected: "task:B1" },
   handed: { focus: { kind: "task", taskId: "B1" }, selected: "task:B1" },
@@ -196,9 +220,14 @@ const UI: Readonly<Record<Scene, Partial<LeadUi>>> = {
   tree: { selected: "task:F2", folds: TREE_FOLDS },
 };
 
+const LEADS = new Map<Scene, () => SessionModel>([
+  ["digests", leadModelWithLaterDigest],
+  ["steered", leadModelSteered],
+]);
+
 const stateFor = (record: ConstellationRecord, scene: Scene): AppState => {
   const sessions = [leadSession, previousLead, ...workerSessions, ...setupSessions];
-  const lead = scene === "digests" ? leadModelWithLaterDigest() : leadModel();
+  const lead = (LEADS.get(scene) ?? leadModel)();
   const open: ReadonlyArray<SessionModel> = [lead, b1Model(), b8Model()];
 
   return {
