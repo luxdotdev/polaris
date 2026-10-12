@@ -229,6 +229,7 @@ export const DiscoverLanguageProject = Rpc.make("languages.discover", {
     path: LanguagePath,
     documentLanguageId: LanguageKey,
     settings: LanguageEffectiveSettings,
+    refresh: Schema.optionalKey(Schema.Boolean),
   },
   success: LanguageDiscovery,
   error: LanguageError,

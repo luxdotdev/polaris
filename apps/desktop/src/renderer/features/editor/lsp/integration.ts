@@ -45,7 +45,7 @@ import { providerLabel, trustDiscovered, trustStore } from "../trust/store.ts";
 import { refreshTrust } from "../trust/decide.ts";
 import { DiagnosticPull } from "./pull.ts";
 import * as Status from "../status/store.ts";
-import { contextObserved } from "../status/feed.ts";
+import { contextObserved, refreshHostTools } from "../status/feed.ts";
 
 interface Entry {
   readonly input: EditorLanguageMount;
@@ -294,7 +294,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
     return { host, document, identity: usable ? identity : null };
   }
 
-  private async refreshEntry(entry: Entry, force = false, reportFailure = false) {
+  private async refreshEntry(entry: Entry, force = false, reportFailure = false, refresh = false) {
     if (entry.disposed) return;
     const environment = this.environment(entry);
 
@@ -350,7 +350,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
     const { identity, document } = environment;
 
     await this.observations
-      .settled(() => this.configure(entry, identity, document.checkout, stamp, signal))
+      .settled(() => this.configure(entry, identity, document.checkout, stamp, signal, refresh))
       .catch((error: P.LanguageError | Error) => {
         if (entry.disposed || signal.aborted || stamp !== entry.stamp) return;
         Status.statusFailed(key, {
@@ -402,7 +402,8 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
     identity: AuthenticatedLanguageIdentity,
     checkout: P.LanguageCheckout,
     stamp: string,
-    signal: AbortSignal
+    signal: AbortSignal,
+    refresh = false
   ) {
     const api = this.api();
 
@@ -436,7 +437,8 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
       scope,
       file.path,
       documentLanguageId(entry.language),
-      configuration.settings
+      configuration.settings,
+      refresh
     );
 
     if (!current() || JSON.stringify(found.checkout) !== JSON.stringify(checkout)) return;
@@ -787,9 +789,24 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
   async recheck(key: string) {
     const entry = this.entries.get(key);
 
-    if (entry === undefined) return;
+    if (entry === undefined)
+      throw new P.LanguageError({
+        reason: "not-ready",
+        message:
+          "This file's language tooling is no longer attached. Reopen the file and try again.",
+        retryable: true,
+      });
     this.observations.invalidate();
-    await this.refreshEntry(entry, true, true);
+    const api = this.api();
+
+    if (api === undefined)
+      throw new P.LanguageError({
+        reason: "not-connected",
+        message: "Language tooling is unavailable on this Host.",
+        retryable: true,
+      });
+    await refreshHostTools(api, entry.input.file.hostKey, documentLanguageId(entry.language));
+    await this.refreshEntry(entry, true, true, true);
   }
   private release(entry: Entry) {
     if (entry.disposed) return;

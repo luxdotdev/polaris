@@ -49,6 +49,7 @@ export function createManagedDelivery(
   pythonHost?: Parameters<typeof createHostPrerequisiteProbe>[0]
 ) {
   let host: HostInstallation | undefined;
+  const hostPrerequisites = createHostPrerequisiteProbe(pythonHost);
 
   const installation = () => {
     if (host === undefined) throw failure("not-ready", "Private runtime is unavailable");
@@ -125,7 +126,7 @@ export function createManagedDelivery(
         return pythonLaunch(facts, installed, node);
 
       if (["bash-language-server", "sqllens-language-server"].includes(facts.providerId))
-        return sqlShellLaunch(facts, installed, node, installation(), pythonHost);
+        return sqlShellLaunch(facts, installed, node, installation(), hostPrerequisites);
 
       if (facts.providerId in webProviders) return webLaunch(facts, installed, node);
       const typescript = await installation().current("typescript");
@@ -216,9 +217,7 @@ export function createManagedDelivery(
         const entry = admission?.pythonInterpreter;
 
         const presence =
-          entry === undefined
-            ? await createHostPrerequisiteProbe(pythonHost)().probe(python, signal)
-            : null;
+          entry === undefined ? await hostPrerequisites().probe(python, signal) : null;
 
         const executable = entry === undefined ? (presence?.path ?? null) : entry;
 
@@ -229,7 +228,7 @@ export function createManagedDelivery(
       const shellcheck = tool.requirements.find((requirement) => requirement.id === "shellcheck");
 
       if (shellcheck !== undefined) {
-        const present = await createHostPrerequisiteProbe(pythonHost)().probe(shellcheck, signal);
+        const present = await hostPrerequisites().probe(shellcheck, signal);
         probes.push({
           id: shellcheck.id,
           executable: present.path,

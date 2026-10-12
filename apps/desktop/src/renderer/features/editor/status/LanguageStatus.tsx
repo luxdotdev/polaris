@@ -4,7 +4,7 @@ import { failureDetail, failureReason } from "./failureCopy.ts";
  * L3). The pill is the one place these states live: no toasts, and the popover ends in Restart
  * or Show log.
  */
-import type * as P from "@polaris/protocol";
+import * as P from "@polaris/protocol";
 import { cn, CopyButton, Popover, PopoverContent, PopoverTrigger } from "@polaris/ui";
 import { Match } from "effect";
 
@@ -14,7 +14,7 @@ import { useApp, useShellActions } from "../../../shell/hooks.ts";
 import { polaris } from "../../bridge.ts";
 import { fileKey } from "../model/drafts.ts";
 import { LANGUAGES, type LanguageId } from "../model/language.ts";
-import { editorLanguages } from "../runtime/app.ts";
+import { getEditorLanguages } from "../runtime/app.ts";
 import { useTrustStatus } from "../trust/store.ts";
 import { refreshInterpreters } from "../python/store.ts";
 import { refreshDialect } from "../sql/store.ts";
@@ -159,12 +159,20 @@ export interface StatusPopoverProps {
   readonly view: StatusView;
   readonly running: Running;
   readonly failure: string | null;
+  readonly feedback?: string | null;
   readonly onRun: (action: StatusAction) => void;
   readonly titleId: string;
 }
 
 /** The popover's body (Paper L1/L3): state sentence and why, facts, then the action rows. */
-export const StatusPopover = ({ view, running, failure, onRun, titleId }: StatusPopoverProps) => (
+export const StatusPopover = ({
+  view,
+  running,
+  failure,
+  feedback,
+  onRun,
+  titleId,
+}: StatusPopoverProps) => (
   <>
     <div className="flex flex-col gap-1 px-4 pt-3.5 pb-3">
       <h2
@@ -179,6 +187,11 @@ export const StatusPopover = ({ view, running, failure, onRun, titleId }: Status
       <p className="text-caption text-text-subtle wrap-anywhere">{view.why}</p>
     </div>
     {view.progress === null ? null : <ProgressBlock progress={view.progress} />}
+    {feedback == null ? null : (
+      <p role="status" className="text-caption text-text-subtle border-hairline border-t px-4 py-2">
+        {feedback}
+      </p>
+    )}
     {view.stderr === null ? null : (
       <Section>
         <pre className="text-caption text-text-default max-h-40 overflow-auto font-mono leading-[18px] wrap-anywhere whitespace-pre-wrap">
@@ -272,6 +285,7 @@ export const LanguageStatus = ({
   const [open, setOpen] = useState(false);
   const [running, setRunning] = useState<Running>(null);
   const [failure, setFailure] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
   const titleId = useId();
   const view = useLanguageStatus(hostKey, workspaceId, path, language);
   const trust = useTrustStatus(fileKey(hostKey, path));
@@ -290,6 +304,7 @@ export const LanguageStatus = ({
   const onRun = (action: StatusAction) => {
     if (running !== null) return;
     setFailure(null);
+    setFeedback(null);
     setRunning({ id: action.id });
     runAction(
       action.id,
@@ -304,7 +319,15 @@ export const LanguageStatus = ({
       {
         api: polaris().languages,
         recheck: async () => {
-          await editorLanguages?.recheck(fileKey(hostKey, path));
+          const languages = getEditorLanguages();
+
+          if (languages === null)
+            throw new P.LanguageError({
+              reason: "not-ready",
+              message: "Language tooling is unavailable. Reopen the file and try again.",
+              retryable: true,
+            });
+          await languages.recheck(fileKey(hostKey, path));
         },
         showLog: () => {
           if (checkout !== null)
@@ -321,6 +344,9 @@ export const LanguageStatus = ({
       }
     )
       .then(() => {
+        if (action.id === "check-again")
+          setFeedback("Checked again. Host language-tool facts are up to date.");
+
         if (action.id !== "restart" && action.id !== "check-again") setOpen(false);
       })
       .catch((error: P.LanguageError) => setFailure(actionFailure(error, host)))
@@ -333,7 +359,10 @@ export const LanguageStatus = ({
       onOpenChange={(next) => {
         setOpen(next);
 
-        if (!next) setFailure(null);
+        if (!next) {
+          setFailure(null);
+          setFeedback(null);
+        }
       }}
     >
       <PopoverTrigger
@@ -362,6 +391,13 @@ export const LanguageStatus = ({
           view={view}
           running={running}
           failure={failure}
+          feedback={
+            feedback === null
+              ? null
+              : view.kind === "prerequisite"
+                ? "Still not found. Checked standard Host locations, including /opt/homebrew/bin, /usr/local/bin, /usr/bin and user tool directories."
+                : feedback
+          }
           onRun={onRun}
           titleId={titleId}
         />

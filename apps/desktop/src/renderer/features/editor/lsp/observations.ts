@@ -79,7 +79,8 @@ export class EditorLanguageObservations {
     scope: Scope,
     path: string,
     language: string,
-    settings: typeof P.LanguageEffectiveSettings.Type
+    settings: typeof P.LanguageEffectiveSettings.Type,
+    refresh = false
   ) {
     const directory = path.slice(0, path.lastIndexOf("/"));
 
@@ -97,6 +98,7 @@ export class EditorLanguageObservations {
         path,
         documentLanguageId: language,
         settings,
+        refresh,
       });
 
       if (!discovery.ok) throw languageIpcError(discovery.error);

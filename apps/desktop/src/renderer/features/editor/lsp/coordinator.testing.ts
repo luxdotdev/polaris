@@ -18,6 +18,7 @@ export const coordinatorFixture = (
   const workspaceId = P.WorkspaceId.make("reuse");
   const service = new EditorProviderFixture(hostId);
   const requests: string[] = [];
+  const requestInputs: unknown[] = [];
   let discoverGate: Promise<void> | null = null;
   let settingsRevision = 0;
   let settingsPatch: P.LanguageSettingsPatch = {};
@@ -25,6 +26,7 @@ export const coordinatorFixture = (
   const api: LanguageApi = {
     request: async (method, input) => {
       requests.push(method);
+      requestInputs.push({ method, input });
 
       if (method === "languages.discover" && discoverGate !== null) await discoverGate;
       const failure = method === "languages.discover" ? discoveryFailure?.() : null;
@@ -194,6 +196,7 @@ export const coordinatorFixture = (
       return release;
     },
     requests,
+    requestInputs,
     open,
     settled,
     replace,

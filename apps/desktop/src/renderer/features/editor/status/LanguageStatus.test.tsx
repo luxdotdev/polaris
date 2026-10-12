@@ -2,7 +2,8 @@ import "../../../test/dom.testing.ts";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { CopyProvider } from "@polaris/ui";
 import { cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { standInBridge } from "../../bridge.ts";
 import * as P from "@polaris/protocol";
 import type { IpcError, LanguageApi } from "../../../../shared/api.ts";
 import { Schema } from "effect";
@@ -36,6 +37,22 @@ beforeAll(() => {
 });
 
 afterEach(cleanup);
+
+beforeEach(() => standInBridge(null));
+
+test("an unchanged prerequisite retry announces its completed check", () => {
+  render(
+    <StatusPopover
+      view={statusView(input())}
+      running={null}
+      failure={null}
+      feedback="Still not found. Checked standard Host locations."
+      onRun={() => {}}
+      titleId="checked"
+    />
+  );
+  expect(within(document.body).getByRole("status").textContent).toContain("Still not found");
+});
 
 const screen = () => within(document.body);
 

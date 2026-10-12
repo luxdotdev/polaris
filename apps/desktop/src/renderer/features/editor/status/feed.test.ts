@@ -3,9 +3,40 @@ import { Schema } from "effect";
 import * as P from "@polaris/protocol";
 import rawCatalog from "../../../../../../daemon/src/languages/catalog/catalog.json";
 import type { LanguageApi } from "../../../../shared/api.ts";
-import { statusToolIds, watchHostTools } from "./feed.ts";
+import { refreshHostTools, statusToolIds, watchHostTools } from "./feed.ts";
+import { statusStore } from "./store.ts";
 
 const catalog = Schema.decodeUnknownSync(P.LanguageCatalog)(rawCatalog);
+
+for (const language of ["shellscript", "python"])
+  test(`Check again refreshes only ${language} tools and folds the authoritative Host reply`, async () => {
+    const calls: unknown[] = [];
+
+    const state = P.LanguageHostState.make({
+      hostId: P.HostId.make("recheck"),
+      platform: { os: "darwin", arch: "arm64", libc: "none" },
+      tools: [],
+    });
+
+    const api: LanguageApi = {
+      request: async (method, input) => {
+        calls.push({ method, input });
+
+        return { ok: true, value: method === "languages.catalog" ? catalog : state };
+      },
+      subscribe: () => () => {},
+    };
+
+    await refreshHostTools(api, "recheck", language);
+    expect(calls).toEqual([
+      { method: "languages.catalog", input: { hostKey: "recheck" } },
+      {
+        method: "languages.host.state",
+        input: { hostKey: "recheck", toolIds: statusToolIds(catalog, language), refresh: true },
+      },
+    ]);
+    expect(statusStore.getState().hosts.recheck?.platform).toEqual(state.platform);
+  });
 
 test("Python status observes its actual provider dependencies without verifying TypeScript", () => {
   expect(statusToolIds(catalog, "python").sort()).toEqual(["basedpyright", "node", "ruff"]);

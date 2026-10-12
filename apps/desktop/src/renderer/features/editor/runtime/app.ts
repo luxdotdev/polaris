@@ -17,7 +17,14 @@ import type { SpillStore } from "../model/draftStore.ts";
 import { indexedDbSpill } from "./idbSpill.ts";
 import { setVimHandlers } from "../cm/vim.ts";
 import { closeTab, saveFile, startEditor } from "./actions.ts";
-import { dirtyKeys, isConfigured, saveAll, setVim, unkeptKeys } from "./buffers.ts";
+import {
+  configuredLanguageRuntime,
+  dirtyKeys,
+  isConfigured,
+  saveAll,
+  setVim,
+  unkeptKeys,
+} from "./buffers.ts";
 import { polaris } from "../../bridge.ts";
 import { editorStore } from "./store.ts";
 import { bindLanguageSettingsRefresh, openFinder } from "../api.ts";
@@ -29,6 +36,8 @@ import { bindAppLanguageIdentities } from "../lsp/identityComposition.ts";
 export let editorLanguages: EditorLanguageCoordinator | null = null;
 
 export let editorLanguageQueries: LanguageQueries | null = null;
+
+export const getEditorLanguages = () => configuredLanguageRuntime()?.coordinator ?? editorLanguages;
 
 const prefs = () => {
   const { editorVim, editorAutosave } = settingsStore.getState().sessions;
@@ -101,6 +110,9 @@ export const ensureEditor = ({
   subscribeApp,
 }: StartInput) => {
   if (isConfigured()) {
+    const retained = configuredLanguageRuntime();
+    editorLanguages = retained?.coordinator ?? editorLanguages;
+    editorLanguageQueries = retained?.queries ?? editorLanguageQueries;
     editorLanguages?.refreshHosts();
 
     return;
@@ -134,6 +146,7 @@ export const ensureEditor = ({
   const draftStorage = kv === undefined ? storage() : kv;
 
   startEditor({
+    languageRuntime: { coordinator: editorLanguages, queries: editorLanguageQueries },
     languages: editorLanguages,
     files: editorFiles,
     groups: groupStore,

@@ -11,7 +11,7 @@ export async function sqlShellLaunch(
   installed: InstalledVersion,
   node: { executable: string } | null,
   host: HostInstallation,
-  probeOptions?: Parameters<typeof createHostPrerequisiteProbe>[0]
+  hostPrerequisites = createHostPrerequisiteProbe()
 ): Promise<VerifiedLaunchPlan> {
   if (node === null) throw failure("not-installed", "Private Node is unavailable");
 
@@ -27,10 +27,7 @@ export async function sqlShellLaunch(
   const presence =
     sql || requirement === undefined
       ? null
-      : await createHostPrerequisiteProbe(probeOptions)().probe(
-          requirement,
-          AbortSignal.timeout(2000)
-        );
+      : await hostPrerequisites().probe(requirement, AbortSignal.timeout(2000));
 
   const entry = join(installed.directory, sql ? "polaris-sql.mjs" : "out/cli.js");
 

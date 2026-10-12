@@ -8,6 +8,7 @@ import { Match, Option, Predicate, Schema } from "effect";
 import type { LanguageApi } from "../../../../shared/api.ts";
 import { appendFeed, appendStderr, type LogScope } from "./log.ts";
 import { catalogArrived, hostStateArrived, runtimeArrived, type Runtime } from "./store.ts";
+import { languageIpcError } from "../../../../shared/languageError.ts";
 
 export const scopeOf = (hostKey: string, context: P.LanguageContextIdentity): LogScope => ({
   hostKey,
@@ -67,6 +68,22 @@ export const statusToolIds = (catalog: P.LanguageCatalog, language: string) => {
       if (offered.has(requirement.id)) ids.add(requirement.id);
 
   return [...ids].filter((id) => offered.has(id));
+};
+
+/** Explicit recheck publishes fresh Prerequisite facts to every open Host-state watch. */
+export const refreshHostTools = async (api: LanguageApi, hostKey: string, language: string) => {
+  const catalog = await api.request("languages.catalog", { hostKey });
+
+  if (!catalog.ok) throw languageIpcError(catalog.error);
+  const decoded = Schema.decodeUnknownSync(P.LanguageCatalog)(catalog.value);
+  const toolIds = statusToolIds(decoded, language);
+  catalogArrived(hostKey, decoded);
+
+  if (!toolIds.length) return;
+  const state = await api.request("languages.host.state", { hostKey, toolIds, refresh: true });
+
+  if (!state.ok) throw languageIpcError(state.error);
+  hostStateArrived(hostKey, Schema.decodeUnknownSync(P.LanguageHostState)(state.value));
 };
 
 /** The file's installation facts, from the sole Host installer feed, until disposed. */

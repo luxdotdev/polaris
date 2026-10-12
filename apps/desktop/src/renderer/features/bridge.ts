@@ -9,6 +9,6 @@ let standIn: PolarisApi | null = null;
 export const polaris = (): PolarisApi => standIn ?? window.polaris;
 
 /** Preview only: answer the feature's requests from fixtures. */
-export const standInBridge = (api: PolarisApi) => {
+export const standInBridge = (api: PolarisApi | null) => {
   standIn = api;
 };
