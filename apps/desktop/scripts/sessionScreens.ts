@@ -58,6 +58,7 @@ const SHOT_SCENES = new Map([
   ["background-hover", "background"],
   ["background-row", "background"],
   ["background-open", "background"],
+  ["context", "session"],
 ]);
 
 /** The subagents scene's first run and Subagent, opened. */
@@ -129,6 +130,10 @@ const open = async (page: Page, scene: string) => {
     await openSubagent(page);
   } else if (scene.startsWith("background-")) {
     await openBackground(page, scene);
+  } else if (scene === "context") {
+    await page.mouse.move(0, 0);
+    await page.getByTestId("session-context").click();
+    await page.getByTestId("context-card").waitFor();
   } else if (scene === "viewer") {
     await page.locator('[data-testid="sent-image"][data-state="ready"]').first().click();
     await page.getByTestId("attachment-viewer").locator("img").waitFor();

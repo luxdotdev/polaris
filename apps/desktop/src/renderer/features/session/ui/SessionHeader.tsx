@@ -1,6 +1,7 @@
 /**
  * The Intent column's header (artboard 5): the session title (click to
- * rename), its Harness and state, how full its context is, and a menu for
+ * rename), its Harness and state, how full its context is (hover for the
+ * Session context card), and a menu for
  * permission mode, Fork and Archive. A refused Archive (a Turn in flight)
  * says why in a toast.
  */
@@ -39,6 +40,7 @@ import {
 import { waitingOn, waitingPhrase } from "../model/background.ts";
 import { contextLabel } from "../model/meta.ts";
 import { BackgroundTasksHover } from "./background.tsx";
+import { ContextReadout } from "./ContextCard.tsx";
 import { settingsStore } from "../../settings/index.ts";
 
 export interface SessionHeaderProps {
@@ -219,13 +221,13 @@ export const SessionHeader = (props: SessionHeaderProps) => {
         )}
         <span className="flex-1" />
         {context === null ? null : (
-          <span
-            className="text-caption text-text-subtle tabular min-w-0 truncate"
-            title={`${context.text}: ${context.detail}`}
-            data-testid="session-context"
-          >
-            {context.text}
-          </span>
+          <ContextReadout
+            hostKey={hostKey}
+            session={session}
+            label={context.text}
+            detail={context.detail}
+            turnNumber={turnNumber}
+          />
         )}
         <span className="text-caption text-text-subtle shrink-0 whitespace-nowrap">
           {permissionLabel(session.permissionMode)}
