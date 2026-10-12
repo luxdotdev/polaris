@@ -4,7 +4,7 @@
  */
 import { cn, harnessHue, hueVar } from "@polaris/ui";
 import { type KeyboardEvent, memo, type PointerEvent, useId, useState } from "react";
-import { type Day, dayTip, type UsageSummary } from "../model/usage.ts";
+import { type Day, type DayTipRow, dayTip, type UsageSummary } from "../model/usage.ts";
 
 /** Usage outside Polaris at ~32% of the Harness hue (DESIGN.md, Settings). */
 const outsideFill = (harness: string) => `color-mix(in oklab, ${hueVar(harness)} 32%, transparent)`;
@@ -78,20 +78,66 @@ const Legend = ({
   </>
 );
 
-/** One day's Models, tokens and cost; estimates carry "~", reported costs don't. */
+const TipLine = ({
+  label,
+  tokens,
+  cost,
+}: {
+  readonly label: string;
+  readonly tokens: string;
+  readonly cost: string;
+}) => (
+  <span className="border-hairline flex items-center gap-1.5 border-t pt-1">
+    <span className="text-text-subtle flex-1">{label}</span>
+    <span className="text-text-default tabular shrink-0">{tokens}</span>
+    <span className="text-text-subtle tabular w-[68px] shrink-0 text-right">{cost}</span>
+  </span>
+);
+
+const TipRow = ({ row }: { readonly row: DayTipRow }) => (
+  <span className="flex items-center gap-1.5" data-outside={row.outside || undefined}>
+    <span
+      className="size-2 shrink-0"
+      style={{ background: row.outside ? outsideFill(row.harness) : hueVar(row.harness) }}
+    />
+    <span
+      className={cn(
+        "min-w-0 flex-1 truncate",
+        row.outside ? "text-text-subtle" : "text-text-default"
+      )}
+    >
+      {row.model}
+    </span>
+    <span
+      className={cn("tabular shrink-0", row.outside ? "text-text-subtle" : "text-text-default")}
+    >
+      {row.tokens}
+    </span>
+    <span className="text-text-subtle tabular w-[68px] shrink-0 text-right">{row.cost}</span>
+  </span>
+);
+
+/**
+ * One day's Models, tokens and cost; estimates carry "~", reported costs don't. Split, the
+ * Polaris rows and their subtotal lead and usage outside Polaris follows, dimmed.
+ */
 const DayTooltip = ({
   id,
   day,
   today,
+  split,
   at,
 }: {
   readonly id: string;
   readonly day: Day;
   readonly today: boolean;
+  readonly split: boolean;
   /** 0–1 across the chart: the tooltip slides with it so it never leaves the chart. */
   readonly at: number;
 }) => {
-  const tip = dayTip(day);
+  const tip = dayTip(day, split);
+  const inside = tip.rows.filter((r) => !r.outside);
+  const outside = tip.rows.filter((r) => r.outside);
 
   return (
     <div
@@ -106,23 +152,14 @@ const DayTooltip = ({
         <span className="text-text-subtle">No tokens</span>
       ) : (
         <>
-          {tip.rows.map((row) => (
-            <span key={row.key} className="flex items-center gap-1.5">
-              <span className="size-2 shrink-0" style={{ background: hueVar(row.harness) }} />
-              <span className="text-text-default min-w-0 flex-1 truncate">{row.model}</span>
-              <span className="text-text-default tabular shrink-0">{row.tokens}</span>
-              <span className="text-text-subtle tabular w-[68px] shrink-0 text-right">
-                {row.cost}
-              </span>
-            </span>
+          {inside.map((row) => (
+            <TipRow key={row.key} row={row} />
           ))}
-          <span className="border-hairline flex items-center gap-1.5 border-t pt-1">
-            <span className="text-text-subtle flex-1">Total</span>
-            <span className="text-text-default tabular shrink-0">{tip.tokens}</span>
-            <span className="text-text-subtle tabular w-[68px] shrink-0 text-right">
-              {tip.cost}
-            </span>
-          </span>
+          {tip.polaris === null ? null : <TipLine label="In Polaris sessions" {...tip.polaris} />}
+          {outside.map((row) => (
+            <TipRow key={row.key} row={row} />
+          ))}
+          <TipLine label="Total" tokens={tip.tokens} cost={tip.cost} />
         </>
       )}
     </div>
@@ -193,6 +230,7 @@ export const UsageChart = ({
             id={tipId}
             day={shown}
             today={active === last}
+            split={split}
             at={(active + 0.5) / days.length}
           />
         )}

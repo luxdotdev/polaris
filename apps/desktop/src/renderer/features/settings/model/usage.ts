@@ -81,6 +81,9 @@ export interface Day {
   readonly total: number;
   /** The day's Models, most tokens first: the chart's tooltip. */
   readonly models: ReadonlyArray<ModelRow>;
+  /** The same Models split by whether they ran in an Agent Session, for the split tooltip. */
+  readonly polarisModels: ReadonlyArray<ModelRow>;
+  readonly outsideModels: ReadonlyArray<ModelRow>;
   readonly cost: Cost;
 }
 
@@ -160,13 +163,22 @@ const dailySeries = (
       outside: cells.get(`${date}|${harness}|out`) ?? 0,
     }));
 
-    const models = modelRows(byDay.get(date) ?? [], estimate);
+    const all = byDay.get(date) ?? [];
+    const models = modelRows(all, estimate);
 
     return {
       date,
       series,
       total: series.reduce((n, s) => n + s.polaris + s.outside, 0),
       models,
+      polarisModels: modelRows(
+        all.filter((b) => b.sessionId !== null),
+        estimate
+      ),
+      outsideModels: modelRows(
+        all.filter((b) => b.sessionId === null),
+        estimate
+      ),
       cost: models.reduce((c, m) => addCost(c, m.cost), NO_COST),
     };
   });
@@ -273,28 +285,51 @@ export interface DayTipRow {
   readonly harness: string;
   readonly tokens: string;
   readonly cost: string;
+  /** Ran outside Polaris while the split is on: drawn dimmed, under the Polaris subtotal. */
+  readonly outside: boolean;
 }
 
 export interface DayTip {
   readonly date: string;
   readonly rows: ReadonlyArray<DayTipRow>;
+  /** With the split on and usage both in and outside Polaris: the Polaris rows' total. */
+  readonly polaris: { readonly tokens: string; readonly cost: string } | null;
   readonly tokens: string;
   readonly cost: string;
 }
 
-/** The chart's tooltip for one day: each Model with its tokens and cost, then the day's total. */
-export const dayTip = (day: Day): DayTip => ({
-  date: day.date,
-  rows: day.models.map((m) => ({
-    key: `${m.harness}/${m.model}`,
+const tipRows = (models: ReadonlyArray<ModelRow>, outside: boolean): Array<DayTipRow> =>
+  models.map((m) => ({
+    key: `${m.harness}/${m.model}${outside ? "/outside" : ""}`,
     model: m.model,
     harness: m.harness,
     tokens: compactTokens(m.tokens),
     cost: tipCost(m.cost),
-  })),
-  tokens: compactTokens(day.total),
-  cost: day.total === 0 ? "" : tipCost(day.cost),
+    outside,
+  }));
+
+const subtotal = (models: ReadonlyArray<ModelRow>) => ({
+  tokens: compactTokens(models.reduce((n, m) => n + m.tokens, 0)),
+  cost: tipCost(models.reduce((c, m) => addCost(c, m.cost), NO_COST)),
 });
+
+/**
+ * The chart's tooltip for one day: each Model with its tokens and cost, then the day's total.
+ * Split, Polaris rows come first with their subtotal, then the rest dimmed.
+ */
+export const dayTip = (day: Day, split = false): DayTip => {
+  const both = day.polarisModels.length > 0 && day.outsideModels.length > 0;
+
+  return {
+    date: day.date,
+    rows: split
+      ? [...tipRows(day.polarisModels, false), ...tipRows(day.outsideModels, true)]
+      : tipRows(day.models, false),
+    polaris: split && both ? subtotal(day.polarisModels) : null,
+    tokens: compactTokens(day.total),
+    cost: day.total === 0 ? "" : tipCost(day.cost),
+  };
+};
 
 /**
  * The share in Polaris sessions as a figure: a share that rounds to 0% or 100%
