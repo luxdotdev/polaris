@@ -156,6 +156,9 @@ try {
   await count.filter({ hasText: /^2 of \d+$/ }).waitFor();
   await field.press("Shift+Enter");
   await count.filter({ hasText: /^1 of \d+$/ }).waitFor();
+  // Prompts and replies only: the bench's `bun test` command line isn't searched.
+  await field.fill("bun test");
+  await count.filter({ hasText: "No matches" }).waitFor();
   await field.fill("nothing like this anywhere");
   await count.filter({ hasText: "No matches" }).waitFor();
   await shoot(page, "c4-no-matches");
@@ -163,6 +166,91 @@ try {
   await page.getByTestId("transcript-search").waitFor({ state: "detached" });
   assert.deepEqual(await lit(), [0, 0]);
   console.log("ok: ↵ and ⇧↵ step, esc closes and clears");
+
+  // C1: the Turn rail, a tick per Turn; hover arcs and previews, click jumps, keys move.
+  const rail = page.getByTestId("turn-rail");
+  const options = rail.getByRole("option");
+
+  await rail.waitFor();
+  assert.equal(await options.count(), 4);
+
+  const box = await rail.getByRole("listbox").boundingBox();
+
+  assert.ok(box !== null, "the rail has a box");
+  await page.mouse.move(box.x + box.width - 8, box.y + 6);
+  const preview = page.getByTestId("turn-rail-preview");
+
+  await preview.filter({ hasText: "Turn 1" }).waitFor();
+  await page.waitForTimeout(200);
+  await shoot(page, "c1-rail-hover");
+  await page.mouse.click(box.x + box.width - 8, box.y + 6);
+  await page.waitForTimeout(400);
+
+  const top = Number(
+    await page.evaluate(`(() => {
+    const list = document.querySelector('[data-testid="conversation"]').getBoundingClientRect();
+    const first = document.querySelector('[data-testid="prompt"]').getBoundingClientRect();
+    return first.top - list.top;
+  })()`)
+  );
+
+  assert.ok(top >= 0 && top < 80, `Turn 1's prompt sits at the top (${top}px)`);
+  console.log("ok: hover previews Turn 1, click jumps to it");
+
+  await page.mouse.move(box.x - 300, box.y);
+  // Tab backwards from the composer until the rail has focus, as a keyboard user would.
+  await page.getByTestId("composer-input").click();
+
+  for (let i = 0; i < 40; i++) {
+    const role = await page.evaluate(`document.activeElement?.getAttribute("role")`);
+
+    if (role === "listbox") break;
+    await page.keyboard.press("Shift+Tab");
+  }
+
+  await preview.waitFor();
+  await page.keyboard.press("End");
+  await page.waitForTimeout(300);
+  await preview.filter({ hasText: "Turn 4" }).waitFor();
+  await page.keyboard.press("ArrowUp");
+  await preview.filter({ hasText: "Turn 3" }).waitFor();
+  assert.equal(
+    await page.evaluate(`getComputedStyle(document.activeElement).outlineStyle`),
+    "solid",
+    "the focused rail shows the Starlight ring"
+  );
+  await shoot(page, "c1-rail-keyboard");
+  await page.keyboard.press("Enter");
+  console.log("ok: Tab in, ↑ moves, ↵ jumps");
+
+  // The arc animates transform only, 140ms; Reduce Motion keeps only the pointed tick long.
+  const ticks = () =>
+    page.evaluate(`[...document.querySelectorAll('[data-testid="turn-rail"] [role="option"] span')].map((t) => {
+      const style = getComputedStyle(t);
+      return [Number(new DOMMatrix(style.transform).a.toFixed(2)), style.transitionDuration];
+    })`);
+
+  await page.mouse.move(box.x + box.width - 8, box.y + 4 + 8 + 4);
+  await page.waitForTimeout(300);
+  assert.deepEqual(await ticks(), [
+    [0.86, "0.14s"],
+    [1, "0.14s"],
+    [0.86, "0.14s"],
+    [0.73, "0.14s"],
+  ]);
+  await page.evaluate(
+    `window.polaris.request("settings.setAppearance", { patch: { motion: "reduce" } })`
+  );
+  await page.locator('html[data-reduce-motion="true"]').waitFor({ state: "attached" });
+  await page.mouse.move(box.x + box.width - 10, box.y + 4 + 8 + 5);
+  await page.waitForTimeout(100);
+  assert.deepEqual(await ticks(), [
+    [0.36, "0s"],
+    [1, "0s"],
+    [0.36, "0s"],
+    [0.36, "0s"],
+  ]);
+  console.log("ok: 140ms arc on transform; Reduce Motion drops it");
 } finally {
   await app?.close().catch(() => undefined);
   await daemon?.stop();

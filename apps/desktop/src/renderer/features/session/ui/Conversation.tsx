@@ -5,6 +5,7 @@
  * follows, and restores its measurements and offset when a session reopens.
  * `reveal` scrolls a row into the middle (⌘F, the Turn rail).
  */
+import { cn } from "@polaris/ui";
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
 import { useEffect, useRef } from "react";
 import type { Row } from "../model/conversation.ts";
@@ -25,6 +26,8 @@ const ESTIMATE = 64;
 export interface Reveal {
   readonly key: string;
   readonly nonce: number;
+  /** Where the row lands: the middle (a find match) or the top (a Turn from the rail). */
+  readonly align?: "center" | "start";
 }
 
 export interface ConversationProps {
@@ -33,9 +36,20 @@ export interface ConversationProps {
   readonly rows: ReadonlyArray<Row>;
   readonly ctx: RowContext;
   readonly reveal?: Reveal | null;
+  /** Rows rendered now (the virtualizer's range), on every scroll: keep the work cheap. */
+  readonly onRange?: (start: number, end: number) => void;
+  /** Room on the right for the Turn rail. */
+  readonly gutter?: boolean;
 }
 
-export const Conversation = ({ scrollKey, rows, ctx, reveal = null }: ConversationProps) => {
+export const Conversation = ({
+  scrollKey,
+  rows,
+  ctx,
+  reveal = null,
+  onRange,
+  gutter = false,
+}: ConversationProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const restore = saved.get(scrollKey);
 
@@ -51,6 +65,9 @@ export const Conversation = ({ scrollKey, rows, ctx, reveal = null }: Conversati
     paddingStart: 20,
     paddingEnd: 20,
     directDomUpdates: true,
+    onChange: (instance) => {
+      if (instance.range !== null) onRange?.(instance.range.startIndex, instance.range.endIndex);
+    },
     initialMeasurementsCache: restore === undefined ? [] : [...restore.measurements],
     initialOffset: () =>
       restore === undefined || restore.atEnd ? Number.MAX_SAFE_INTEGER : restore.offset,
@@ -67,7 +84,7 @@ export const Conversation = ({ scrollKey, rows, ctx, reveal = null }: Conversati
 
     if (index === -1) return;
     revealed.current = reveal.nonce;
-    virtualizer.scrollToIndex(index, { align: "center" });
+    virtualizer.scrollToIndex(index, { align: reveal.align ?? "center" });
   }, [reveal, rows, virtualizer]);
 
   // Streaming grows the last row: `anchorTo: "end"` follows it as the row is re-measured.
@@ -99,7 +116,10 @@ export const Conversation = ({ scrollKey, rows, ctx, reveal = null }: Conversati
               ref={virtualizer.measureElement}
               data-index={item.index}
               data-row-key={row.key}
-              className="pb-panel absolute top-0 left-0 w-full px-5"
+              className={cn(
+                "pb-panel absolute top-0 left-0 w-full pl-5",
+                gutter ? "pr-10" : "pr-5"
+              )}
             >
               <ConversationRow row={row} ctx={ctx} />
             </div>
