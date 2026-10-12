@@ -10,12 +10,13 @@ import {
   AcceptBranch,
   AcceptRefused,
   Command,
+  CommandRejected,
   SessionId,
   SessionPlacement,
   TurnItem,
   type TurnId,
 } from "@polaris/protocol";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Predicate } from "effect";
 import { RpcTest } from "effect/rpc";
 import { Engine } from "../engine/Engine.ts";
 import {
@@ -32,6 +33,8 @@ import { gitText } from "../git/git.ts";
 import { makeRepo, removeDir, tempDir, write } from "../git/testing.ts";
 import { HarnessEvent } from "../harness/HarnessDriver.ts";
 import { HarnessRegistry } from "../services.ts";
+import { EventStore } from "../store/EventStore.ts";
+import type { ReadModel } from "../store/model.ts";
 import { AcceptRpcs, AcceptRpcsLive } from "./AcceptRpcs.ts";
 
 const cleanup: Array<string> = [];
@@ -48,13 +51,15 @@ const DRAFT = JSON.stringify({
   turnTitles: ["Add the greeting", "Add the farewell"],
 });
 
-/** Each Turn writes `<prompt>.txt`; the draft Turn answers JSON. */
+/** Each Turn writes `<name>.txt` for a prompt `<name>[:<content>]`; the draft Turn answers JSON. */
 const harness = (repo: string): FakeDriver =>
   makeFakeDriver("claude", {
     onTurn: (input) => {
       const drafting = input.turnId.endsWith("accept-draft-turn");
 
-      if (!drafting) write(repo, `${input.prompt}.txt`, `${input.prompt}\n`);
+      const [name, content = name] = input.prompt.split(":");
+
+      if (!drafting) write(repo, `${name}.txt`, `${content}\n`);
 
       return [
         HarnessEvent.TurnStarted({ turnId: input.turnId, prompt: input.prompt }),
@@ -95,18 +100,23 @@ const dispatch = (command: Command) =>
 
 const sessionId = SessionId.make("s-accept");
 
-/** Registers `repo`, then runs one Turn per prompt; answers the Turn ids. */
-const runTurns = (repo: string, prompts: ReadonlyArray<string>) =>
+/** Registers `repo` (once), then runs one Turn per prompt in session `id`; answers the Turn ids. */
+const runTurns = (repo: string, prompts: ReadonlyArray<string>, id = sessionId) =>
   Effect.gen(function* () {
-    yield* dispatch(Command.cases.RegisterWorkspace.make({ path: repo, name: null }));
-    const model = yield* waitFor((m) => [...m.workspaces.values()].some((w) => w.path === repo));
+    const registered = (m: ReadModel) => [...m.workspaces.values()].some((w) => w.path === repo);
+
+    if (!registered(yield* Effect.flatMap(EventStore, (store) => store.model))) {
+      yield* dispatch(Command.cases.RegisterWorkspace.make({ path: repo, name: null }));
+    }
+
+    const model = yield* waitFor(registered);
     const workspace = [...model.workspaces.values()].find((w) => w.path === repo)!;
 
     for (const [i, prompt] of prompts.entries()) {
       yield* dispatch(
         i === 0
           ? Command.cases.StartSession.make({
-              sessionId,
+              sessionId: id,
               workspaceId: workspace.id,
               harness: "claude",
               placement: SessionPlacement.cases.InPlace.make({}),
@@ -116,18 +126,18 @@ const runTurns = (repo: string, prompts: ReadonlyArray<string>) =>
               prompt,
               attachments: [],
             })
-          : Command.cases.SendTurn.make({ sessionId, prompt, attachments: [] })
+          : Command.cases.SendTurn.make({ sessionId: id, prompt, attachments: [] })
       );
       yield* waitFor((m) => {
-        const turn = m.sessions.get(sessionId)?.turns[i];
+        const turn = m.sessions.get(id)?.turns[i];
 
         return turn?.status === "completed" && turn.checkpointAfter !== null;
       }, 5000);
     }
 
-    const done = yield* waitFor((m) => m.sessions.get(sessionId)?.session.state === "idle");
+    const done = yield* waitFor((m) => m.sessions.get(id)?.session.state === "idle");
 
-    return done.sessions.get(sessionId)!.turns.map((t) => t.id);
+    return done.sessions.get(id)!.turns.map((t) => t.id);
   });
 
 const accept = (throughTurnId: TurnId, revertLaterTurns: boolean) =>
@@ -254,6 +264,63 @@ describe("accepting an Agent Session's work", () => {
             false
           );
           expect(readFileSync(join(repo, "keep.txt"), "utf8")).toBe("keep\n");
+        }).pipe(Effect.provide(setup(repo)))
+      )
+    );
+  }, 30_000);
+
+  test("a revert that would restore another session's files in the same directory is refused", async () => {
+    const { repo } = await withRepo();
+    const other = SessionId.make("s-other");
+
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const turns = yield* runTurns(repo, ["keep", "shared:mine"]);
+          yield* runTurns(repo, ["shared:theirs"], other);
+
+          const refused = yield* dispatch(
+            Command.cases.AcceptTurns.make({
+              sessionId,
+              throughTurnId: turns[0]!,
+              revertLaterTurns: true,
+            })
+          ).pipe(Effect.flip);
+
+          expect(refused).toBeInstanceOf(CommandRejected);
+          expect(
+            String(Predicate.isTagged(refused, "CommandRejected") && refused.reason)
+          ).toContain(
+            "another Agent Session in this checkout changed files the revert would restore"
+          );
+          expect(readFileSync(join(repo, "shared.txt"), "utf8")).toBe("theirs\n");
+          const model = yield* Effect.flatMap(EventStore, (store) => store.model);
+          expect(model.sessions.get(sessionId)?.session.acceptedThroughIndex ?? null).toBeNull();
+        }).pipe(Effect.provide(setup(repo)))
+      )
+    );
+  }, 30_000);
+
+  test("another session in the same directory with disjoint files doesn't stop a revert", async () => {
+    const { repo } = await withRepo();
+    const other = SessionId.make("s-other");
+
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const turns = yield* runTurns(repo, ["keep", "drop"]);
+          yield* runTurns(repo, ["theirs"], other);
+          yield* accept(turns[0]!, true);
+          yield* Effect.promise(async () => {
+            for (let i = 0; i < 100 && (await Bun.file(join(repo, "drop.txt")).exists()); i++) {
+              await Bun.sleep(20);
+            }
+          });
+
+          expect(yield* Effect.promise(() => Bun.file(join(repo, "drop.txt")).exists())).toBe(
+            false
+          );
+          expect(readFileSync(join(repo, "theirs.txt"), "utf8")).toBe("theirs\n");
         }).pipe(Effect.provide(setup(repo)))
       )
     );

@@ -68,6 +68,7 @@ export const statusView = (status: ConnectionStatus): ConnectionStatusView => ({
           kind: status.failure.kind,
           reason: status.failure.reason,
           detail: status.failure.detail,
+          older: status.failure.older,
         },
   attempt: status.attempt,
   since: status.since,

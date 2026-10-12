@@ -11,5 +11,6 @@ ENG-224: the user accepts a session's Turns through one, and the work ends in a 
 | `push.ts` | `git push -u` with the Host's credentials, never prompting. |
 | `draft.ts` | The commit message and pull request text: the session's Harness answers JSON in one Turn of a fresh native session (its prompts and replies as a Fork's preamble, plus the diff stat; approvals are denied), 90 s at most; otherwise a template from the Turns' prompts, with a note saying why. |
 | `revert.ts`, `reactor.ts` | `AcceptTurns` with `revertLaterTurns`: files the later Turns changed go back to the accepted Turn's after-checkpoint, then `TurnsReverted`. |
+| `shared.ts` | Before a revert: other Agent Sessions whose directory contains the checkout or sits inside it (by realpath), and whose Turns since the accepted one, or still running, changed a file the revert would restore. `dispatch` refuses the command with their names and files; the reactor checks again before writing. Adapted from T3 Code (see `ATTRIBUTION.md`). |
 
 The bench Harness answers the draft prompt (`../harness/bench/accept.ts`), so the smoke runs the Harness's path without tokens.

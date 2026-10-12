@@ -42,7 +42,7 @@ import {
   initialConnection,
   type ReconnectPolicy,
 } from "./connection.ts";
-import { ConnectFailure } from "./failures.ts";
+import { ConnectFailure, olderSide } from "./failures.ts";
 import { type Feed, openHostFeed, openSessionFeed } from "./resume.ts";
 import {
   type ClientBlobs,
@@ -314,6 +314,7 @@ export const makeHostConnection = Effect.fnUntraced(function* (
             kind: "needs-attention",
             reason: "protocol-mismatch",
             detail: `the Daemon speaks protocol ${hello.protocolVersion}, this Client ${PROTOCOL_VERSION}`,
+            older: olderSide(hello.protocolVersion, PROTOCOL_VERSION),
           });
         }
 

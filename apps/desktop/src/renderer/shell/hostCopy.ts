@@ -4,7 +4,7 @@
  */
 import type { ConnectionState } from "@polaris/protocol";
 import { Match } from "effect";
-import type { HostView } from "../../shared/api.ts";
+import type { ConnectionFailureView, HostView } from "../../shared/api.ts";
 
 /** A round trip this slow makes typing into a remote agent feel it: shown as "Slow link". */
 export const SLOW_LINK_MS = 250;
@@ -35,9 +35,16 @@ const ATTENTION = new Map<string, (label: string) => string>(
     "command-missing": (l: string) => `The Polaris command is missing on ${l}.`,
     "polaris-not-installed": (l: string) => `Polaris isn't installed on ${l}.`,
     "daemon-not-running": (l: string) => `The daemon on ${l} isn't running.`,
-    "protocol-mismatch": (l: string) => `${l} runs an older daemon.`,
   })
 );
+
+/** A protocol mismatch, naming the older side; without one, neither is blamed. */
+export const mismatchWords = (label: string, older: ConnectionFailureView["older"]): string =>
+  Match.value(older).pipe(
+    Match.when("daemon", () => `${label} runs an older daemon`),
+    Match.when("client", () => `Polaris on this Mac is older than the daemon on ${label}`),
+    Match.orElse(() => `The daemon on ${label} doesn't match Polaris on this Mac`)
+  );
 
 /** One or two sentences for the sidebar while the Host isn't connected. */
 export const hostSentence = (host: HostView, since: string | undefined): string => {
@@ -45,6 +52,8 @@ export const hostSentence = (host: HostView, since: string | undefined): string 
   const reason = failure?.reason ?? "";
 
   if (state === "needs-attention") {
+    if (reason === "protocol-mismatch") return `${mismatchWords(host.label, failure?.older)}.`;
+
     return ATTENTION.get(reason)?.(host.label) ?? `${host.label} needs attention.`;
   }
 
