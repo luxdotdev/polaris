@@ -59,6 +59,7 @@ const Caption = ({
 
 const LivenessLine = ({ line }: { readonly line: Liveness }) => (
   <Caption>
+    {line.idle ? <span className="shrink-0">waiting, not working</span> : null}
     {line.activity === null ? null : (
       <span className={cn("truncate", line.mono && "text-code-inline font-mono")}>
         {line.activity}

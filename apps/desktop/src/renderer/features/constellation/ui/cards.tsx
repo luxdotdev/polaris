@@ -16,6 +16,8 @@ import {
   type Facts,
   LANE_MAX,
   laneWidth,
+  failedText,
+  neutralFailure,
   type NotificationData,
   pluralize,
   shortSha,
@@ -214,12 +216,16 @@ const lineOf = (r: ConstellationRecord, n: NotificationData, facts: Facts): Dige
         tone: "text-text-subtle",
         body: "stopped without reporting back",
       }),
-      Settled: ({ attemptId, state }): DigestLine => ({
+      Settled: ({ attemptId, state, failureKind, resetsAt }): DigestLine => ({
         key: n.id,
         task: task(attemptId),
-        glyph: SETTLED_GLYPH[state] ?? "stopped",
+        // A failure that isn't the worker's work reads neutral (DESIGN.md, Polaris-authored cards).
+        glyph: neutralFailure(failureKind) ? "stopped" : (SETTLED_GLYPH[state] ?? "stopped"),
         tone: state === "accepted" ? "text-accepted-text" : "text-text-subtle",
-        body: settledLine(r, attemptId, state, facts),
+        body:
+          state === "failed"
+            ? failedText(failureKind, resetsAt)
+            : settledLine(r, attemptId, state, facts),
       }),
       // The user's verdict isn't accepted work yet (rule/constellation-colour): neutral.
       Approved: ({ attemptId }): DigestLine => ({

@@ -38,6 +38,8 @@ export interface WorkerFacts {
   readonly approvalSince: string | null;
   /** The worker ended without a Claim after its one nudge. */
   readonly stoppedWithoutClaiming: boolean;
+  /** Whether the worker's session has a Turn in flight; null when no Daemon has said. */
+  readonly activeTurn: boolean | null;
   /** Subagents still working in the worker's session (rail nodes under its Attempt). */
   readonly subagents: ReadonlyArray<SubagentFact>;
 }
@@ -61,6 +63,7 @@ export const NO_FACTS: WorkerFacts = {
   quietSince: null,
   approvalSince: null,
   stoppedWithoutClaiming: false,
+  activeTurn: null,
   subagents: [],
 };
 

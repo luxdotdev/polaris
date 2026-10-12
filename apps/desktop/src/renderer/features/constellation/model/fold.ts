@@ -250,8 +250,14 @@ const stepFor = (event: Event, at: string): Step =>
         })),
       AttemptRejected: ({ attemptId, attemptRevision }) =>
         patchAttempt(attemptId, attemptRevision, () => ({ state: "rejected", endedAt: at })),
-      AttemptSettled: ({ attemptId, attemptRevision, outcome }) =>
-        patchAttempt(attemptId, attemptRevision, () => ({ state: outcome, endedAt: at })),
+      AttemptSettled: ({ attemptId, attemptRevision, outcome, reason, failureKind, resetsAt }) =>
+        patchAttempt(attemptId, attemptRevision, () => ({
+          state: outcome,
+          settleReason: reason,
+          failureKind: failureKind ?? null,
+          resetsAt: resetsAt ?? null,
+          endedAt: at,
+        })),
       GatePromoted: () => (r: ConstellationRecord) => r,
       NotificationQueued: ({ notification }) =>
         compose(
@@ -264,7 +270,7 @@ const stepFor = (event: Event, at: string): Step =>
             notifications: new Map(r.notifications).set(notification.id, notification),
           })
         ),
-      LeadNotified: ({ items, turnId, leadSessionId, revision }) =>
+      LeadNotified: ({ items, turnId, leadSessionId, revision, steered }) =>
         compose(
           (r) => ({
             ...r,
@@ -272,6 +278,7 @@ const stepFor = (event: Event, at: string): Step =>
               ...r.digests,
               {
                 turnId,
+                steered,
                 leadSessionId,
                 revision,
                 at,
