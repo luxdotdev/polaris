@@ -42,7 +42,12 @@ const LeadIntent = ({
   const ui = useLeadUi(leadKey(hostKey, sessionId));
   const leadTitle = useTitle(hostKey, sessionId);
   const facts = useFacts(record);
-  const digests = new Map<string, Digest>(record.digests.map((d) => [d.turnId, d]));
+
+  // Only a digest Polaris started a Turn for takes that Turn's prompt; a steered one doesn't.
+  const digests = new Map<string, Digest>(
+    record.digests.flatMap((d) => (d.steered === true ? [] : [[d.turnId, d]]))
+  );
+
   const turns = useApp((s) => s.sessions[sessionKey(hostKey, sessionId)]?.turns) ?? NO_TURNS;
 
   // A Lead's Output holds its Constellation: open it unless the user chose otherwise.
