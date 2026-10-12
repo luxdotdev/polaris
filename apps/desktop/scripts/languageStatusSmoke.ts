@@ -10,6 +10,7 @@ import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { _electron as electron, type Page } from "playwright-core";
+import { rowCount, type RowKeyInput } from "../src/renderer/features/settings/editor/rowKey.ts";
 import { startDaemon } from "./lib/daemon.ts";
 import { APP_DIR, REPO_ROOT, stockElectronBinary } from "./lib/electron.ts";
 
@@ -331,17 +332,17 @@ try {
   await page.getByText("What each language has on the host you pick.").waitFor({ timeout: 15_000 });
   await page.getByText("TypeScript and JavaScript").first().waitFor({ timeout: 30_000 });
 
-  // One row per offered Language Integration (shared servers share a row); the rest are syntax only.
-  const groups = await page.evaluate<number>(`(async () => {
+  // One row per offered Language Integration, keyed as Settings keys them (rowKey.ts).
+  const catalog = await page.evaluate<ReadonlyArray<RowKeyInput>>(`(async () => {
     const reply = await window.polaris.languages.request("languages.catalog", { hostKey: "local" });
     if (!reply.ok) throw new Error(JSON.stringify(reply.error));
-    return new Set(
-      reply.value.integrations.filter((i) => i.offered === true).map((i) => i.providers[0]?.tool ?? i.id)
-    ).size;
+    return reply.value.integrations;
   })()`);
 
+  const groups = rowCount(catalog);
+
   const rows = await page.getByRole("switch", { name: / language tools$/ }).count();
-  console.log(`Settings rows: ${rows}; offered integrations by server: ${groups}`);
+  console.log(`Settings rows: ${rows}; rows the catalog implies: ${groups}`);
   assert.equal(rows, groups, "Settings lists the Host's offered Language Integrations");
   await page.getByText(/^Ready · uses each project's TypeScript/).waitFor({ timeout: 30_000 });
   await page.getByText("TypeScript and JavaScript").first().click();
