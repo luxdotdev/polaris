@@ -112,6 +112,41 @@ describe("Claude Plan Limits", () => {
     await close();
   });
 
+  test("a Turn that fails at a rejected limit says so, with the reset; a later one doesn't", async () => {
+    const { fake, session, events, close } = await open();
+
+    const turn = (id: string) =>
+      Effect.runPromise(
+        session.sendTurn({
+          turnId: TurnId.make(id),
+          prompt: "hi",
+          attachments: [],
+          model: null,
+          effort: null,
+        })
+      );
+
+    await turn("turn-1");
+    const first = await fake.nextInput(0);
+    fake.emit(init("claude-1"));
+    fake.emit(
+      rateLimitEvent({ status: "rejected", rateLimitType: "five_hour", resetsAt: 1790671800 })
+    );
+    fake.emit(result([first.uuid ?? ""], { isError: true, text: "You've hit your limit" }));
+    await until(() => events.some(HarnessEvent.$is("TurnEnded")), "the first Turn's end");
+
+    await turn("turn-2");
+    const second = await fake.nextInput(1);
+    fake.emit(result([second.uuid ?? ""], { isError: true, text: "API Error: 500" }));
+    await until(() => events.filter(HarnessEvent.$is("TurnEnded")).length === 2, "the second end");
+
+    expect(events.filter(HarnessEvent.$is("TurnEnded")).map((e) => e.limit)).toEqual([
+      { resetsAt: "2026-09-29T08:50:00.000Z" },
+      undefined,
+    ]);
+    await close();
+  });
+
   test("an SDK without get_usage, or one that fails it, only means no value", async () => {
     const failing = await open({ reply: new Error("unsupported control request") });
 

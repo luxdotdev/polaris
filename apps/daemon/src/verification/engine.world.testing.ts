@@ -93,6 +93,7 @@ export type HarnessWhat =
   | "withdraw"
   | "end"
   | "fail"
+  | "limit"
   | "late"
   | "auto";
 
@@ -557,6 +558,17 @@ export class World {
         this.endedTurns.add(turnId);
 
         return harness.emit(HarnessEvent.TurnEnded({ turnId, status: "failed", error: "boom" }));
+      case "limit":
+        this.endedTurns.add(turnId);
+
+        return harness.emit(
+          HarnessEvent.TurnEnded({
+            turnId,
+            status: "failed",
+            error: "You've hit your limit",
+            limit: { resetsAt: null },
+          })
+        );
     }
   }
 

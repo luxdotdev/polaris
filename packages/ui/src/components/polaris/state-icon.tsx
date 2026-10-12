@@ -5,6 +5,7 @@ import {
   PixelArchiveIcon,
   PixelFailedIcon,
   PixelHandIcon,
+  PixelHourglassIcon,
   PixelTerminalIcon,
 } from "../../icons/pixel";
 import { cn } from "../../lib/cn";
@@ -23,6 +24,7 @@ export type StateGlyph =
   | "pixel-terminal"
   | "dot-hollow"
   | "pixel-failed"
+  | "pixel-hourglass"
   | "pixel-archive";
 
 export const SESSION_STATES: readonly SessionState[] = [
@@ -33,6 +35,7 @@ export const SESSION_STATES: readonly SessionState[] = [
   "in-terminal",
   "dormant",
   "failed",
+  "limited",
   "archived",
 ];
 
@@ -45,6 +48,7 @@ export const STATE_GLYPHS: Record<SessionState, StateGlyph> = {
   "in-terminal": "pixel-terminal",
   dormant: "dot-hollow",
   failed: "pixel-failed",
+  limited: "pixel-hourglass",
   archived: "pixel-archive",
 };
 
@@ -57,6 +61,7 @@ export const STATE_LABELS: Record<SessionState, string> = {
   "in-terminal": "In terminal",
   dormant: "Dormant",
   failed: "Failed",
+  limited: "Usage limit",
   archived: "Archived",
 };
 
@@ -85,6 +90,7 @@ function glyph(state: SessionState, harness: Harness, size: number): ReactNode {
       <span className="border-text-faint rounded-full border" style={{ width: dot, height: dot }} />
     ),
     "pixel-failed": () => <PixelFailedIcon size={pixel} className="text-failed" />,
+    "pixel-hourglass": () => <PixelHourglassIcon size={pixel} className="text-text-subtle" />,
     "pixel-archive": () => <PixelArchiveIcon size={pixel} className="text-text-subtle" />,
   };
 

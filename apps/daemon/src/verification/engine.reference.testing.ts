@@ -175,7 +175,7 @@ export type Reference = ReadonlyArray<string> | "reject";
 
 const acceptsTurn = (v: View) =>
   workingTurnOf(v) === undefined &&
-  (["idle", "dormant", "failed"].includes(v.state) ||
+  (["idle", "dormant", "failed", "limited"].includes(v.state) ||
     (v.state === "needs-you" && v.pending.size === 0));
 
 const turnStart = (v: View): Reference => [

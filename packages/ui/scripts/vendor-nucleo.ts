@@ -66,6 +66,7 @@ const PIXEL: ReadonlyArray<readonly [string, string]> = [
   ["PixelSparkleIcon", "SparkleOutline24"],
   ["PixelCheckIcon", "CheckOutline24"],
   ["PixelAlertIcon", "TriangleWarningOutline24"],
+  ["PixelHourglassIcon", "HourglassOutline24"],
 ];
 
 function inner(family: string, component: string): string {

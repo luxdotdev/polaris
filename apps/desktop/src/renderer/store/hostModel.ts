@@ -251,12 +251,18 @@ const fold = (event: DomainEvent): Fold =>
             subagents: [],
           }),
         }),
-      SessionStateChanged: ({ sessionId, state, reason }) =>
+      SessionStateChanged: ({ sessionId, state, reason, resetsAt }) =>
         onSession(sessionId, (entry) =>
-          patch({ state, lastError: state === "failed" ? reason : entry.session.lastError })(entry)
+          patch({
+            state,
+            lastError: state === "failed" ? reason : entry.session.lastError,
+            limitResetsAt: state === "limited" ? (resetsAt ?? null) : null,
+          })(entry)
         ),
       SessionRenamed: ({ sessionId, title }) => onSession(sessionId, patch({ title })),
       SessionPinned: ({ sessionId, pinnedAt }) => onSession(sessionId, patch({ pinnedAt })),
+      SessionResumeAtResetChanged: ({ sessionId, resumeAtReset }) =>
+        onSession(sessionId, patch({ resumeAtReset })),
       SessionCursorUpdated: ({ sessionId, harnessCursor }) =>
         onSession(sessionId, patch({ harnessCursor })),
       SessionModelChanged: ({ sessionId, model, effort, serviceTier }) =>

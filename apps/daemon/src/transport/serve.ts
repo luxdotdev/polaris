@@ -143,6 +143,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "session.compaction",
   "session.notify",
   "session.pin",
+  "session.limited",
   "files.read",
   "files.versioned",
   "files.write",

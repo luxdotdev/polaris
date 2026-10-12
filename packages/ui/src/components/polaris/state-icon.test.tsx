@@ -21,6 +21,7 @@ describe("StateIcon", () => {
       "in-terminal": "pixel-terminal",
       dormant: "dot-hollow",
       failed: "pixel-failed",
+      limited: "pixel-hourglass",
       archived: "pixel-archive",
     });
   });

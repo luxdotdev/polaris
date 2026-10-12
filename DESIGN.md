@@ -487,10 +487,12 @@ Each Agent Session shows its state as a glyph inside its Harness tile (session r
 | In Terminal | Pixel terminal icon in `text-subtle` | No |
 | Dormant | Hollow dot in `text-faint` | No |
 | Failed | Pixel "failed" icon in `failed` | No |
+| Limited | Pixel hourglass in `text-subtle` | No |
 | Archived | Hidden from active lists; shown in `text-subtle` where listed | No |
 
 - **rule/only-working-moves:** on working surfaces nothing loops except the Working dither. The other moving things are a pixel scene's ambient life (see Pixel scenes), and scenes never sit behind working surfaces, and the effort bar while the Harness picker is open (see Harness picker).
 - **rule/needs-you-is-loudest:** Needs You is the only Session State with an attention colour, and it sorts to the top.
+- **Limited (Paper 16 dark, 16b light; owner, 2026-10-12).** A Harness stopped the Turn at a usage limit: a wait, not a failure, so it is never red (rule/colour-means-something). The row's second line and the session header read "Usage limit · resets 14:00" (or "Usage limit · reset time unknown"), `text-subtle`, with no turn number. The last Turn ends with a `row`-radius card on `surface-raised`: the hourglass and the same words as a `label`, "turn 24 interrupted" in `text-faint`, one `caption` line ("Claude Code stopped at your plan's limit. Continue picks this Turn up where it stopped."), then Continue (secondary) and, on the right, a **Resume at reset** switch, off by default and remembered per session. On, the line reads "Polaris continues this Turn at 14:00. You can still Continue now or start a new Turn."; with no reset time the switch dims and a `text-faint` note says it waits until the Harness reports one. The composer still starts a new Turn. Workspace chips rank Limited after Starting. A 529 overload stays Failed (Retry fits), a Constellation worker at a limit stays Failed with the capacity copy above, and an older Client sees Failed.
 
 ### Risk Findings
 

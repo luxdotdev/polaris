@@ -36,6 +36,7 @@ import { OutgoingMessage, Steered } from "./outgoing.tsx";
 import { softWrap } from "./softWrap.tsx";
 import { SessionTargetContext } from "./polarisTool/target.ts";
 import { TurnEnd } from "./turnEnd.tsx";
+import { LimitCard, type UsageLimit } from "./LimitCard.tsx";
 import type { SessionChrome } from "../chrome.ts";
 
 export interface RowContext {
@@ -49,6 +50,8 @@ export interface RowContext {
   readonly onOpenDiff: (turnId: string) => void;
   readonly onRespond: (request: ApprovalRequest, decision: ApprovalDecision) => void;
   readonly onContinue: () => void;
+  /** The session is Limited: its last Turn ends with the usage-limit card. */
+  readonly limit: UsageLimit | null;
   /** Asks again for the Turns before the first one shown, after a failure. */
   readonly onLoadOlder: () => void;
   readonly onRetry: () => void;
@@ -293,7 +296,25 @@ const Approval = ({ request, ctx }: { request: ApprovalRequest; ctx: RowContext 
   );
 };
 
-const Ending = ({ row, ctx }: { row: Extract<Row, { kind: "ending" }>; ctx: RowContext }) => (
+const Ending = ({ row, ctx }: { row: Extract<Row, { kind: "ending" }>; ctx: RowContext }) =>
+  row.canContinue && ctx.limit !== null ? (
+    <LimitCard
+      harness={ctx.harness}
+      number={row.number}
+      limit={ctx.limit}
+      onContinue={ctx.onContinue}
+    />
+  ) : (
+    <InterruptedOrFailed row={row} ctx={ctx} />
+  );
+
+const InterruptedOrFailed = ({
+  row,
+  ctx,
+}: {
+  row: Extract<Row, { kind: "ending" }>;
+  ctx: RowContext;
+}) => (
   <div className="flex items-center gap-3" data-testid="turn-ending">
     <div className={cn(AVATAR, "flex justify-center")}>
       {row.status === "failed" ? <PixelFailedIcon size={14} className="text-failed" /> : null}

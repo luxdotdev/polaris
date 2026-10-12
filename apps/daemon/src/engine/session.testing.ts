@@ -74,6 +74,8 @@ export type Step =
   | { readonly type: "reportBackground" }
   | { readonly type: "complete" }
   | { readonly type: "failTurn" }
+  /** …the Turn stopped at a usage limit. */
+  | { readonly type: "limitTurn" }
   | { readonly type: "exit" }
   | { readonly type: "crash" }
   /** The Daemon restarts onto the same store. */
@@ -210,16 +212,22 @@ const firstPending = (record: SessionRecord | undefined) => {
   return first;
 };
 
-const turnEnded = (c: StepContext, completed: boolean): Inputs =>
+/** When the model's usage limit resets. */
+export const RESETS_AT = "2026-01-01T05:00:00.000Z";
+
+const TURN_ERRORS = { complete: null, fail: "the Turn failed", limit: "usage limit" } as const;
+
+const turnEnded = (c: StepContext, end: keyof typeof TURN_ERRORS): Inputs =>
   c.channel === null || c.working === undefined
     ? []
     : [
         {
           type: "harness.turnEnded",
           turnId: c.working.id,
-          status: completed ? "completed" : "failed",
-          error: completed ? null : "the Turn failed",
+          status: end === "complete" ? "completed" : "failed",
+          error: TURN_ERRORS[end],
           checkpoint: null,
+          limit: end === "limit" ? { resetsAt: RESETS_AT } : null,
           at: AT,
         },
       ];
@@ -334,8 +342,9 @@ const INPUTS = {
     c.snapshot.live
       ? [{ type: "harness.backgroundTasksChanged", tasks: [BACKGROUND_COMMAND] }]
       : [],
-  complete: (c) => turnEnded(c, true),
-  failTurn: (c) => turnEnded(c, false),
+  complete: (c) => turnEnded(c, "complete"),
+  failTurn: (c) => turnEnded(c, "fail"),
+  limitTurn: (c) => turnEnded(c, "limit"),
   exit: (c) => exited(c, null),
   crash: (c) => exited(c, "boom"),
   restart: (c) =>
@@ -454,6 +463,7 @@ export const ALL_STEPS: ReadonlyArray<Step> = [
   { type: "reportBackground" },
   { type: "complete" },
   { type: "failTurn" },
+  { type: "limitTurn" },
   { type: "exit" },
   { type: "crash" },
   { type: "restart" },

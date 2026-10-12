@@ -54,6 +54,8 @@ export const Capability = Schema.Literals([
   "session.notify",
   /** `PinSession`, `SessionPinned`, and `AgentSession.pinnedAt` and `origin`. */
   "session.pin",
+  /** The Limited Session State, `SetResumeAtReset` and `SessionResumeAtResetChanged`. */
+  "session.limited",
   "files.read",
   "files.versioned",
   "files.write",

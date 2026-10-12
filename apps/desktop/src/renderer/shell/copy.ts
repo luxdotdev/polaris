@@ -1,5 +1,6 @@
 /** UI copy: glossary terms lowercase (DESIGN.md rule/glossary-lowercase), what happened (rule/say-what-happened). */
 import type { ConnectionState, SessionState } from "@polaris/protocol";
+import { capacityReset } from "../features/constellation/model/failure.ts";
 import { waitingOn, waitingPhrase } from "../features/session/model/background.ts";
 import type { SessionEntry } from "../store/hostModel.ts";
 
@@ -20,8 +21,13 @@ export const sessionStateLabel: Readonly<Record<SessionState, string>> = {
   "in-terminal": "in terminal",
   dormant: "dormant",
   failed: "failed",
+  limited: "usage limit",
   archived: "archived",
 };
+
+/** "Usage limit · resets 14:00" or "Usage limit · reset time unknown", always neutral. */
+export const usageLimitLine = (resetsAt: string | null | undefined) =>
+  `Usage limit · ${capacityReset(resetsAt)}`;
 
 const turnLabel = (entry: SessionEntry) => `turn ${entry.session.turnCount}`;
 
@@ -33,6 +39,7 @@ const STATE_LINES: Readonly<Record<SessionState, (entry: SessionEntry) => string
   "in-terminal": () => "In terminal",
   dormant: () => "Dormant · resumes on reply",
   failed: (e) => e.session.lastError ?? "Failed",
+  limited: (e) => usageLimitLine(e.session.limitResetsAt),
   archived: () => "Archived",
 };
 

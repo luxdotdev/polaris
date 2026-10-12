@@ -8,6 +8,7 @@ import { Effect, Fiber, Option, Stream } from "effect";
 import { HarnessEvent } from "../HarnessDriver.ts";
 import {
   BENCH_PROMPT_PREFIX,
+  benchTurnEnd,
   DEFAULT_SCRIPT,
   makeBenchDriver,
   parseScript,
@@ -21,6 +22,28 @@ describe("parseScript", () => {
     });
     expect(parseScript("Fix the flaky test")).toEqual(DEFAULT_SCRIPT);
     expect(parseScript(`${BENCH_PROMPT_PREFIX}{not json`)).toEqual(DEFAULT_SCRIPT);
+  });
+});
+
+describe("benchTurnEnd", () => {
+  test("a usageLimit script fails the Turn at a limit, with its reset or none", () => {
+    const turnId = TurnId.make("t1");
+
+    expect(benchTurnEnd(turnId, DEFAULT_SCRIPT)).toMatchObject({ status: "completed" });
+    expect(benchTurnEnd(turnId, { ...DEFAULT_SCRIPT, usageLimit: true })).toMatchObject({
+      status: "failed",
+      limit: { resetsAt: null },
+    });
+
+    const timed = benchTurnEnd(turnId, {
+      ...DEFAULT_SCRIPT,
+      usageLimit: true,
+      usageLimitResetsInMs: 60_000,
+    });
+
+    expect(
+      HarnessEvent.$is("TurnEnded")(timed) && Date.parse(timed.limit?.resetsAt ?? "")
+    ).toBeGreaterThan(Date.now());
   });
 });
 

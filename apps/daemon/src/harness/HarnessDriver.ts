@@ -117,6 +117,8 @@ export type HarnessEvent = Data.TaggedEnum<{
     readonly turnId: TurnId;
     readonly status: "completed" | "interrupted" | "failed";
     readonly error: string | null;
+    /** A failed Turn the Harness itself reported as stopped at a usage limit. */
+    readonly limit?: { readonly resetsAt: string | null } | undefined;
   };
   TitleSuggested: { readonly title: string };
   /**

@@ -136,6 +136,7 @@ export const sessionOf: (event: DomainEvent) => SessionId | null =
     SessionStateChanged: bySessionId,
     SessionRenamed: bySessionId,
     SessionPinned: bySessionId,
+    SessionResumeAtResetChanged: bySessionId,
     SessionCursorUpdated: bySessionId,
     SessionPermissionModeChanged: bySessionId,
     SessionModelChanged: bySessionId,
@@ -243,6 +244,7 @@ export const gatingCapabilities: ReadonlyArray<Capability> = [
   "session.compaction",
   "session.notify",
   "session.pin",
+  "session.limited",
 ];
 
 const needs = (capability: Capability) => (): Capability => capability;
@@ -298,6 +300,7 @@ export const eventCapability = (event: DomainEvent): Capability | null =>
       SessionCompacted: needs("session.compaction"),
       SessionNotified: needs("session.notify"),
       SessionPinned: needs("session.pin"),
+      SessionResumeAtResetChanged: needs("session.limited"),
       SessionSetupChanged: needs("workspace.setup"),
       TurnsAccepted: needs("session.accept"),
       TurnsReverted: needs("session.accept"),
@@ -367,6 +370,8 @@ export const patchSession = (session: AgentSession, patch: SessionPatch): AgentS
     pullRequest: session.pullRequest,
     origin: session.origin,
     pinnedAt: session.pinnedAt,
+    limitResetsAt: session.limitResetsAt,
+    resumeAtReset: session.resumeAtReset,
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
     ...patch,
@@ -624,6 +629,7 @@ const apply: (event: DomainEvent) => Reducer = DomainEvent.match<Reducer>({
       session: {
         state: event.state,
         lastError: event.state === "failed" ? event.reason : r.session.lastError,
+        limitResetsAt: event.state === "limited" ? (event.resetsAt ?? null) : null,
       },
     })),
   SessionRenamed: (event) => (fold) =>
@@ -634,6 +640,10 @@ const apply: (event: DomainEvent) => Reducer = DomainEvent.match<Reducer>({
     })),
   SessionPinned: (event) => (fold) =>
     updateSession(fold, event.sessionId, () => ({ session: { pinnedAt: event.pinnedAt } })),
+  SessionResumeAtResetChanged: (event) => (fold) =>
+    updateSession(fold, event.sessionId, () => ({
+      session: { resumeAtReset: event.resumeAtReset },
+    })),
   SessionCursorUpdated: (event) => (fold) =>
     updateSession(fold, event.sessionId, () => ({
       session: { harnessCursor: event.harnessCursor },

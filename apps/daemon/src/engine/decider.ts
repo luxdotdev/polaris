@@ -391,6 +391,21 @@ const pinSession = (d: Deciding, command: CommandOf<"PinSession">): Decision =>
     );
   });
 
+/** A session preference, not lifecycle: the reset itself goes through the machine as a Continue. */
+const setResumeAtReset = (d: Deciding, command: CommandOf<"SetResumeAtReset">): Decision =>
+  d.withSession(command.sessionId, (record) => {
+    if (record.session.state === "archived") return d.reject("the session is Archived");
+
+    if (command.resumeAtReset === record.session.resumeAtReset) return d.ok();
+
+    return d.ok(
+      DomainEvent.cases.SessionResumeAtResetChanged.make({
+        sessionId: command.sessionId,
+        resumeAtReset: command.resumeAtReset,
+      })
+    );
+  });
+
 /** A new Turn with the last Turn's prompt and attachments; the machine checks that it Failed. */
 const retry = (d: Deciding, command: CommandOf<"Retry">): Decision =>
   d.withSession(command.sessionId, (record) => {
@@ -458,6 +473,7 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
       }),
     RenameSession: (c) => renameSession(d, c),
     PinSession: (c) => pinSession(d, c),
+    SetResumeAtReset: (c) => setResumeAtReset(d, c),
     SetPermissionMode: (c) =>
       onSession(d, c.sessionId, { type: "permissionMode.set", permissionMode: c.permissionMode }),
     SetModel: (c) => setModel(d, c),

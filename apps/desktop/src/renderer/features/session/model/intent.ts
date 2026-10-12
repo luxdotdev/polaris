@@ -132,6 +132,9 @@ export const continueCommand = (sessionId: SessionId) => Commands.Continue({ ses
 
 export const retryCommand = (sessionId: SessionId) => Commands.Retry({ sessionId });
 
+export const resumeAtResetCommand = (sessionId: SessionId, resumeAtReset: boolean) =>
+  Commands.SetResumeAtReset({ sessionId, resumeAtReset });
+
 export const renameCommand = (sessionId: SessionId, title: string): Command | null => {
   const trimmed = title.trim();
 

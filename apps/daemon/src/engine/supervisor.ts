@@ -28,6 +28,8 @@ import {
 } from "../constellation/liveness.ts";
 import { LiveItem } from "../store/EventStore.ts";
 import { workingTurn } from "../store/model.ts";
+import { UsageIndex } from "../usage/index.ts";
+import { isWorker, usageLimitOf } from "./limits.ts";
 import { worktreeIdFor } from "./decider.ts";
 import { contextChanged, contextUsageOf } from "./context.ts";
 import { finalReply, forkPreamble } from "./fork.ts";
@@ -49,7 +51,8 @@ const make = (
   rt: EngineRuntime["Service"],
   policy: Option.Option<ApprovalPolicy["Service"]>,
   attachments: ConstellationHarnessService,
-  liveness: ConstellationLivenessService
+  liveness: ConstellationLivenessService,
+  usage: Option.Option<UsageIndex["Service"]>
 ): Supervisor["Service"] => {
   const { store, live, progress } = rt;
 
@@ -359,6 +362,24 @@ const make = (
       );
     });
 
+  /** A plain session's failed Turn at a usage limit; a worker's stays failed for the Lead. */
+  const limitOf = (sessionId: SessionId, event: HarnessEventOf<"TurnEnded">, at: string) =>
+    Effect.gen(function* () {
+      if (event.status !== "failed") return null;
+      const model = yield* store.model;
+      const record = model.sessions.get(sessionId);
+
+      if (record === undefined || isWorker(model, sessionId)) return null;
+
+      return usageLimitOf({
+        error: event.error,
+        hint: event.limit,
+        harness: record.session.harness,
+        limits: Option.isSome(usage) ? yield* usage.value.planLimits : [],
+        now: at,
+      });
+    });
+
   const onTurnEnded = (sessionId: SessionId, event: HarnessEventOf<"TurnEnded">, at: string) =>
     Effect.gen(function* () {
       rt.dropProgress(sessionId, event.turnId);
@@ -369,6 +390,7 @@ const make = (
         status: event.status,
         error: event.error,
         checkpoint: after,
+        limit: yield* limitOf(sessionId, event, at),
         at,
       });
     });
@@ -554,7 +576,8 @@ export class Supervisor extends Context.Service<
         yield* EngineRuntime,
         yield* Effect.serviceOption(ApprovalPolicy),
         yield* ConstellationHarness,
-        yield* ConstellationLiveness
+        yield* ConstellationLiveness,
+        yield* Effect.serviceOption(UsageIndex)
       );
     })
   );
