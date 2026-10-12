@@ -4,13 +4,14 @@ import { useNow } from "../../shell/useNow.ts";
 import { useAllConstellations } from "../sessions/source.ts";
 import { answeredHere } from "./answered.ts";
 import { dismissed } from "./dismissed.ts";
-import { applyDismissed, type DismissedInbox } from "./model/dismissed.ts";
+import { applyDismissed, type DismissedInbox, type Dismissible } from "./model/dismissed.ts";
 import {
   buildConstellationInbox,
   type ConstellationInbox,
   withConstellations,
 } from "./model/constellation.ts";
 import { buildInbox, type Inbox } from "./model/inbox.ts";
+import { dismiss } from "./dismissed.ts";
 
 /** Constellation items grouped under their Leads (Paper C5). */
 export const useConstellationInbox = (): ConstellationInbox => {
@@ -60,3 +61,26 @@ export const useQuietSessions = (): ReadonlySet<string> => useInboxUntimedView()
 
 /** What needs you on every Host, Constellation items included: the Orchestrate and sidebar badges. */
 export const useNeedsYouCount = (): number => useInboxUntimed().count;
+
+/** The inbox without the sessions shown under their Lead (Constellation items). */
+export const withoutConstellations = (inbox: Inbox, constellations: ConstellationInbox): Inbox => ({
+  ...inbox,
+  waiting: inbox.waiting.filter((w) => !constellations.sessions.has(w.key)),
+  also: inbox.also.filter((a) => !constellations.sessions.has(a.key)),
+});
+
+/** What "Dismiss all" hides: every session card in the inbox (Paper 10, in the sidebar header). */
+export const useDismissAll = (): {
+  readonly items: ReadonlyArray<Dismissible>;
+  readonly dismissAll: () => void;
+} => {
+  const { inbox } = useInboxUntimedView();
+  const constellations = useConstellationInbox();
+
+  return useMemo(() => {
+    const shown = withoutConstellations(inbox, constellations);
+    const items = [...shown.waiting, ...shown.also];
+
+    return { items, dismissAll: () => dismiss(items) };
+  }, [inbox, constellations]);
+};
