@@ -58,7 +58,7 @@ describe("stats", () => {
 
   test("coverage notes say when Usage is partial", () => {
     expect(statsCoverage(view)).toEqual([
-      "Usage is still being indexed on this Host; totals will grow.",
+      "Usage is still being indexed on this host; totals will grow.",
       "Usage is local to this Host; remote worker Usage must be joined by the Client.",
     ]);
   });

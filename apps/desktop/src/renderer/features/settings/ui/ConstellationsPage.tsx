@@ -25,13 +25,14 @@ const ROLES: ReadonlyArray<{
 }> = [
   {
     role: "backend",
-    title: "Backend and systems",
-    caption: "Daemon, protocol, engine, tools and scripts.",
+    title: "Backend and infrastructure",
+    caption:
+      "Servers, APIs, data, infrastructure, tests and scripts. Any task that isn't UI or design.",
   },
   {
     role: "ui",
-    title: "UI and design",
-    caption: "The Desktop App, mockups, copy and anything a user sees.",
+    title: "Frontend and design",
+    caption: "Web and app interfaces, components, styling, mockups and copy.",
   },
 ];
 
@@ -106,7 +107,7 @@ export const ConstellationsPage = () => {
     <Column>
       <PageHeader title={info.title} blurb={info.blurb} />
       <div className="flex flex-col gap-3" data-testid="constellation-defaults">
-        <Heading aside={<span className="text-caption text-text-subtle">by the task's role</span>}>
+        <Heading aside={<span className="text-caption text-text-subtle">by the kind of task</span>}>
           Workers start on
         </Heading>
         <Group label="Worker defaults">

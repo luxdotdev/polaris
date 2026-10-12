@@ -212,7 +212,7 @@ const lineOf = (r: ConstellationRecord, n: NotificationData, facts: Facts): Dige
         task: task(attemptId),
         glyph: "stopped",
         tone: "text-text-subtle",
-        body: "stopped without claiming",
+        body: "stopped without reporting back",
       }),
       Settled: ({ attemptId, state }): DigestLine => ({
         key: n.id,
@@ -316,7 +316,7 @@ export const DigestCard = (props: DigestCardProps) => {
       {record.constellation.name}
       <span className="text-text-subtle font-normal">
         {" "}
-        · {pluralize(digest.items.length, "update")} for the lead
+        · {pluralize(digest.items.length, "update")} sent to the lead
       </span>
     </>
   );

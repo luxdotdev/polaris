@@ -224,7 +224,7 @@ export const WorkerFocus = ({
 const FocusMissing = ({ onBack }: { readonly onBack: () => void }) => (
   <section className="text-body text-text-subtle grid flex-1 place-items-center">
     <button type="button" onClick={onBack} className="cursor-default">
-      This task has no attempt yet · back to the lead
+      No worker has started this task yet · back to the lead
     </button>
   </section>
 );
@@ -253,7 +253,7 @@ const WorkerFocusOn = ({ leadHostKey, record, task, attempt, leadTitle }: Worker
       />
     ),
     composer: {
-      placeholder: `Steer ${task.id} directly · reported to the lead`,
+      placeholder: `Steer ${task.id} directly · the lead sees it`,
       onSubmit: (text) =>
         constellationCommands.message(
           leadHostKey,
@@ -365,7 +365,7 @@ export const HandoverFocus = ({
         title={`Handed to a new lead at ${new Date(handover.at).toTimeString().slice(0, 5)}`}
         harness={facts.lead.harness}
         status="previous lead → this session"
-        aside={`atomic · rev ${handover.revision}`}
+        aside={null}
       />
     ),
     body: (

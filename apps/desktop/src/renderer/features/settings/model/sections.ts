@@ -92,7 +92,18 @@ const GROUPS: ReadonlyArray<GroupSource> = [
         title: "Constellations",
         blurb:
           "What a lead's workers start on when it doesn't say. The lead's own choice for a task comes first; you can still change a worker afterwards.",
-        keywords: ["constellation", "lead", "worker", "task", "backend", "ui", "design", "model"],
+        keywords: [
+          "constellation",
+          "lead",
+          "worker",
+          "task",
+          "backend",
+          "infrastructure",
+          "frontend",
+          "ui",
+          "design",
+          "model",
+        ],
       },
       {
         id: "usage",

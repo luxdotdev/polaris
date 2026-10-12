@@ -92,11 +92,10 @@ export const HandoverBody = ({
         <p className="flex items-center gap-2 pb-2">
           <ConstellationMark size={14} />
           <span className="text-label text-text-strong">From the previous lead</span>
-          <span className="text-caption text-text-subtle">· /handoff</span>
         </p>
         <p className="text-body text-text-default whitespace-pre-wrap">
           {handover.summary === ""
-            ? "The previous lead wrote no summary; the header below carried the work."
+            ? "The previous lead left no summary. What it handed over is below."
             : handover.summary}
         </p>
       </div>

@@ -61,7 +61,7 @@ const Waiting = ({ state }: { readonly state: StatsState }) => {
   return (
     <p className="text-body text-text-subtle py-6 text-center">
       {state.kind === "loading"
-        ? "Reading the Constellation's history…"
+        ? "Reading the constellation's history…"
         : `Couldn't read stats: ${state.error.message}`}
     </p>
   );

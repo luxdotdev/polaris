@@ -68,7 +68,7 @@ const Facts_ = ({ claim, task }: { readonly claim: ClaimData; readonly task: Tas
     <Row label="Area">
       {claim.outsideArea.length === 0
         ? task.area.length === 0
-          ? "No area declared"
+          ? "No paths declared"
           : `Stayed inside ${task.area.join(", ")}`
         : claim.outsideArea.map((o) => (
             <span key={o.path} className="block">
@@ -213,13 +213,13 @@ const SendBack = ({ hostKey, record, task, attempt, place, onClose }: FormProps)
           checked={!fresh}
           onSelect={() => setFresh(false)}
           label="Same session"
-          hint="a new Turn with the reason"
+          hint="a new turn with the reason"
         />
         <Choice
           checked={fresh}
           onSelect={() => setFresh(true)}
           label="Fresh session"
-          hint="same worktree, brief + this claim"
+          hint="same worktree, with the brief and this claim"
         />
       </div>
       <div className="flex items-center gap-2">
@@ -266,9 +266,9 @@ const SendBack = ({ hostKey, record, task, attempt, place, onClose }: FormProps)
 };
 
 const tierOf = (receipts: ReadonlyArray<ReceiptView>) => {
-  if (receipts.length === 0) return "asserted";
+  if (receipts.length === 0) return "no checks";
 
-  return receipts.some((r) => r.tier === "verified") ? "verified" : "reported";
+  return receipts.some((r) => r.tier === "verified") ? "verified checks" : "reported checks";
 };
 
 /** Why Accept was refused, in the user's words, with Approve beside it when that would work. */
@@ -545,7 +545,7 @@ export const ClaimCard = (props: ClaimCardProps) => {
       >
         <ClaimHead attempt={attempt} claim={claim} />
         {receipts.length === 0 ? (
-          <p className="text-body text-text-subtle px-3.5 py-2.5">No receipts: asserted</p>
+          <p className="text-body text-text-subtle px-3.5 py-2.5">No checks reported</p>
         ) : (
           <ul className="py-1">
             {receipts.map((r, n) => (

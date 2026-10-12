@@ -132,11 +132,11 @@ const leadLines = (view: ConstellationStatsView): ReadonlyArray<StatLine> => {
   return [
     line("Wakeups", pluralize(lead.wakeups, "digest")),
     line(
-      "Updates per wakeup",
+      "Updates per lead turn",
       lead.wakeups === 0 ? "none yet" : (lead.deliveredItems / lead.wakeups).toFixed(1),
-      lead.coalescingHitRate === null ? null : `${percent(lead.coalescingHitRate)} coalesced`
+      lead.coalescingHitRate === null ? null : `${percent(lead.coalescingHitRate)} batched`
     ),
-    maybe(stats, "Per digest", "lead.digests", lead.meanTokensPerDigest, (n) =>
+    maybe(stats, "Per update turn", "lead.digests", lead.meanTokensPerDigest, (n) =>
       perDigest === null ? `${tokens(n)} tokens` : `${tokens(n)} tokens · ${usd(perDigest)}`
     ),
   ];
@@ -207,7 +207,7 @@ export const statsCoverage = (view: ConstellationStatsView): ReadonlyArray<strin
   const notes = new Set<string>();
 
   if (view.stats.indexing)
-    notes.add("Usage is still being indexed on this Host; totals will grow.");
+    notes.add("Usage is still being indexed on this host; totals will grow.");
 
   for (const c of view.stats.coverage) if (c.metric === "usage") notes.add(c.reason);
 
@@ -243,7 +243,7 @@ export const completionFacts = (
         stats.workers.totals.workingMs,
         duration
       ),
-      line("Lead wakeups", pluralize(stats.lead.wakeups, "digest")),
+      line("Lead turns from updates", String(stats.lead.wakeups)),
     ],
   };
 };

@@ -30,7 +30,7 @@ import { type KeyAction, railKey } from "../model/keys.ts";
 import { leadKey, type LeadUi, patchLeadUi, useLeadUi } from "../state.ts";
 import { ConstellationMark } from "./glyphs.tsx";
 import { laneStyle } from "./lane.tsx";
-import { Filters, Header, KeyHints } from "./header.tsx";
+import { Filters, Header, KeyHints, type RowKeys } from "./header.tsx";
 import { CompletionCard } from "./stats.tsx";
 import { approveClaim, placeOf } from "./claimActions.ts";
 import { type MenuActions, RowContextMenu, RowMenu } from "./menu.tsx";
@@ -52,10 +52,15 @@ const focusKey = ({ focus }: LeadUi) => {
   return focus.kind === "task" ? `task:${focus.taskId}` : `handover:${focus.revision}`;
 };
 
-const lastHint = (row: RailRow | undefined) =>
-  row?.kind === "task" && row.projection.state === "review"
-    ? "a accept or send back"
-    : "m message lead";
+const MESSAGE_LEAD: RowKeys = [["m", "message lead"]];
+
+const REVIEW_KEYS: RowKeys = [
+  ["a", "accept"],
+  ["s", "send back"],
+];
+
+const lastHint = (row: RailRow | undefined): RowKeys =>
+  row?.kind === "task" && row.projection.state === "review" ? REVIEW_KEYS : MESSAGE_LEAD;
 
 /** Scrolls a row into view once the virtualizer knows where it is. */
 const indexOf = (rows: ReadonlyArray<RailRow>, key: string) => rows.findIndex((r) => r.key === key);
@@ -381,7 +386,7 @@ export const ConstellationTab = (props: ConstellationTabProps) => {
       <KeyHints
         last={
           ui.focus?.kind === "task"
-            ? "m message lead"
+            ? MESSAGE_LEAD
             : lastHint(rows.find((r) => r.key === ui.selected))
         }
       />
