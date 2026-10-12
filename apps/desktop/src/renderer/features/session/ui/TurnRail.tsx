@@ -37,18 +37,20 @@ export interface RowRange {
 
 export const createRowRange = (): RowRange => {
   const listeners = new Set<(start: number, end: number) => void>();
-  let last: readonly [number, number] = [0, 0];
+  // Null until the list has said what it renders.
+  let last: readonly [number, number] | null = null;
 
   return {
     emit: (start, end) => {
-      if (last[0] === start && last[1] === end) return;
+      if (last !== null && last[0] === start && last[1] === end) return;
       last = [start, end];
 
       for (const listener of listeners) listener(start, end);
     },
     subscribe: (listener) => {
       listeners.add(listener);
-      listener(last[0], last[1]);
+
+      if (last !== null) listener(last[0], last[1]);
 
       return () => listeners.delete(listener);
     },

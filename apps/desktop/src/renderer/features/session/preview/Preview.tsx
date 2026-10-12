@@ -36,18 +36,19 @@ import {
   attachments,
   failed,
   interrupted,
-  items as itemsScene,
   long,
   markdown,
   planning,
   question,
   steer,
+  order,
   steerOutbox,
   subagents,
   workspace,
   workspaceId,
   worktree,
 } from "./fixtures.ts";
+import { items as itemsScene } from "./itemsScene.ts";
 import { background, waitingSidebar } from "./background.ts";
 import { MODELS, PATCH } from "./fixtureData.ts";
 
@@ -93,6 +94,7 @@ const SCENES = {
   attachments,
   subagents,
   background,
+  order,
 } as const;
 
 const SCENE_NAMES = [
@@ -108,6 +110,7 @@ const SCENE_NAMES = [
   "attachments",
   "subagents",
   "background",
+  "order",
   "new",
   "setup",
   "none-ready",

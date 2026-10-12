@@ -32,7 +32,6 @@ import type {
   SubagentView,
   TurnView,
 } from "../../../store/sessionModel.ts";
-import type { ToolInput } from "../model/items.ts";
 import { MISSED_STEER, type Outgoing, queuedOutgoing, steerOutgoing } from "../model/outbox.ts";
 import type { StagedAttachment } from "../state.ts";
 
@@ -452,6 +451,56 @@ export const steer = (): SessionModel => {
   });
 };
 
+/** H2: a command still running where it began, a steer the model took after it, and times. */
+export const order = (): SessionModel => {
+  const s = session("s-order", { title: "Wait on the slow build" });
+
+  const running = I.CommandExecution.make({
+    id: "c9",
+    command: "bun run build:slow",
+    cwd: s.cwd,
+    output: "",
+    exitCode: null,
+    status: "running",
+    startedAt: ago(40),
+  });
+
+  return model({
+    session: s,
+    turns: [
+      view(
+        turn(s.id, 8, "Start the slow build and check the routes while it runs", "working"),
+        [
+          I.ToolCall.make({
+            id: "t9",
+            name: "Read",
+            input: { file_path: "src/routes/index.ts" },
+            output: null,
+            status: "completed",
+            startedAt: ago(35),
+          }),
+          I.AssistantMessage.make({
+            id: "m9",
+            text: "The routes look right; waiting on the build before I touch them.",
+            startedAt: ago(30),
+          }),
+          I.UserMessage.make({
+            id: "steer:9",
+            text: "Skip the admin routes",
+            startedAt: ago(20),
+          }),
+          I.AssistantMessage.make({
+            id: "m9b",
+            text: "Leaving the admin routes alone.",
+            startedAt: ago(15),
+          }),
+        ],
+        [["c9", { item: running, text: "", output: "building…\n" }]]
+      ),
+    ],
+  });
+};
+
 /** The steer scene's outbox: a steer on its way, one refused, and a queued follow-up. */
 export const steerOutbox = (turnId: string): ReadonlyArray<Outgoing<StagedAttachment>> => [
   {
@@ -722,37 +771,4 @@ export const long = (): SessionModel => {
   );
 
   return model({ session: s, turns });
-};
-
-/** T-ITEMS: Constellation tool calls, an image a tool showed, a long command and a silent one. */
-export const items = (): SessionModel => {
-  const s = session("s-items", { title: "Claim the session rows task" });
-
-  const tool = (id: string, name: string, input: ToolInput) =>
-    I.ToolCall.make({ id, name, input, output: null, status: "completed" });
-
-  return model({
-    session: s,
-    turns: [
-      view(turn(s.id, 11, "Finish the rows and claim A2", "working"), [
-        tool("k1", "mcp__polaris__status", {}),
-        tool("k2", "mcp__polaris__progress", { task: "A2", text: "Rows at 32px" }),
-        tool("i1", "view_image", { path: "screens/rows-dark.png" }),
-        I.CommandExecution.make({
-          id: "c11",
-          command:
-            "bun run --cwd apps/desktop scripts/sessionScreens.ts --out ../../.dagr/evidence/rows --scenes session,approval,question,interrupted --densities calm,balanced,compact",
-          cwd: s.cwd,
-          output: "",
-          exitCode: 0,
-          status: "completed",
-        }),
-        I.AssistantMessage.make({
-          id: "m11",
-          text: "Rows are **32px** in calm and balanced, 28px in compact. Both themes checked.",
-        }),
-        tool("k3", "polaris.claim", { task: "A2" }),
-      ]),
-    ],
-  });
 };

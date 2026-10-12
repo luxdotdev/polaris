@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { effortKey, effortStep, segmentWidth } from "./effort-bar";
+import { effortAt, effortKey, effortStep, segmentWidth } from "./effort-bar";
 
 describe("the effort bar", () => {
   test("the lowest level is still and sparse; each step up is denser and faster", () => {
@@ -28,5 +28,16 @@ describe("the effort bar", () => {
 
   test("segments sit on the 2px cell grid", () => {
     for (const n of [1, 3, 4, 5, 6]) expect(segmentWidth(n) % 2).toBe(0);
+  });
+
+  test("a drag picks the segment under the pointer and holds at the ends", () => {
+    const pitch = segmentWidth(5) + 2;
+
+    expect(effortAt(-30, 5)).toBe(0);
+    expect(effortAt(0, 5)).toBe(0);
+    expect(effortAt(pitch - 1, 5)).toBe(0);
+    expect(effortAt(pitch, 5)).toBe(1);
+    expect(effortAt(pitch * 3 + 4, 5)).toBe(3);
+    expect(effortAt(1000, 5)).toBe(4);
   });
 });
