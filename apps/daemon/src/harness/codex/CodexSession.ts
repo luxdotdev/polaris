@@ -53,6 +53,7 @@ import * as P from "./protocol.ts";
 import { type ApprovalPrompt, approvalPrompts } from "./approvalPrompts.ts";
 import { codexError, Incoming, type RpcConnection } from "./RpcConnection.ts";
 import { ReasoningTimes } from "./reasoning.ts";
+import { CodexProcesses } from "./processes.ts";
 import { CodexSteers } from "./steers.ts";
 import { CodexSubagents } from "./subagents.ts";
 import { requestCompat } from "./compat.ts";
@@ -119,6 +120,8 @@ const newRequestId = () => RequestId.make(crypto.randomUUID());
 
 /** Items whose text streams as deltas; the others show live progress while running. */
 const isStreamedText = TurnItem.isAnyOf(["AssistantMessage", "Reasoning"]);
+
+const isCommand = Schema.is(P.CommandExecutionItem);
 
 type ItemNotification = typeof P.ItemNotification.Type;
 
@@ -245,6 +248,11 @@ export const openSession = (
     let errorCount = 0;
     const subagents = new CodexSubagents();
     const steers = new CodexSteers();
+    const processes = new CodexProcesses();
+
+    const backgroundChanged = (changed: boolean) => {
+      if (changed) emit(HarnessEvent.BackgroundTasksChanged({ tasks: processes.tasks() }));
+    };
 
     const announce = (codexTurnId: string, prompt: string | null) => {
       const turnId = turns.get(codexTurnId);
@@ -401,6 +409,11 @@ export const openSession = (
       if (p.item.type === "userMessage") return onUserMessage(p);
       const turnId = turnFor(p.turnId);
       landSteers(turnId, steers.take(p.turnId));
+      backgroundChanged(
+        isCommand(p.item)
+          ? processes.commandStarted(p.item.id, p.item.command, p.item.processId ?? null)
+          : processes.itemStarted(p.item.id ?? "")
+      );
 
       const item =
         p.item.type === "reasoning" && p.item.id !== undefined
@@ -425,6 +438,8 @@ export const openSession = (
 
       if (item !== null)
         emit(HarnessEvent.ItemCompleted({ turnId, item: reasoning.finish(item, p.completedAtMs) }));
+
+      if (isCommand(p.item)) backgroundChanged(processes.completed(p.item.id));
 
       for (const event of subagents.fromParentItem(turnId, p.item)) emit(event);
       openAsyncQuestions(turnId, p.item);
@@ -455,6 +470,7 @@ export const openSession = (
 
       endedTurns.add(p.turn.id);
       landSteers(turnId, steers.end(p.turn.id));
+      backgroundChanged(processes.turnEnded());
 
       if (activeCodexTurn === p.turn.id) activeCodexTurn = null;
 
