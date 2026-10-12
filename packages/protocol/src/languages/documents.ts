@@ -101,6 +101,7 @@ export const LanguageRuntime = deferredSchema(() =>
     Stopped: {
       reason: Schema.Literals([
         "no-demand",
+        "process-budget",
         "manual",
         "connection-lost",
         "replaced",

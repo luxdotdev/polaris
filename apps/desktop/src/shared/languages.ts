@@ -57,6 +57,12 @@ export const LanguageRequestInputs = {
   "languages.python.interpreters": onHost(Languages.ListPythonInterpreters.payloadSchema.fields),
   "languages.python.select": onHost(Languages.SelectPythonInterpreter.payloadSchema.fields),
   "languages.host.state": onHost(Languages.GetLanguageHostState.payloadSchema.fields),
+  "languages.host.processBudget.get": onHost(
+    Languages.GetLanguageProcessBudget.payloadSchema.fields
+  ),
+  "languages.host.processBudget.set": onHost(
+    Languages.SetLanguageProcessBudget.payloadSchema.fields
+  ),
   "languages.identity.get": onHost({}),
   "languages.catalog": onHost(Languages.GetLanguageCatalog.payloadSchema.fields),
   "languages.availability": onHost(Languages.GetLanguageAvailability.payloadSchema.fields),
@@ -115,6 +121,8 @@ export const LanguageRequestOutputs = {
   "languages.python.interpreters": Languages.ListPythonInterpreters.successSchema,
   "languages.python.select": Languages.SelectPythonInterpreter.successSchema,
   "languages.host.state": Languages.GetLanguageHostState.successSchema,
+  "languages.host.processBudget.get": Languages.GetLanguageProcessBudget.successSchema,
+  "languages.host.processBudget.set": Languages.SetLanguageProcessBudget.successSchema,
   "languages.identity.get": LanguageClientIdentity,
   "languages.catalog": Languages.GetLanguageCatalog.successSchema,
   "languages.availability": Languages.GetLanguageAvailability.successSchema,

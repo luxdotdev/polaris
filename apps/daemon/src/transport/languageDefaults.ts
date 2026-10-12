@@ -20,6 +20,8 @@ export const languageDefaults = {
   "languages.python.select": request,
   "languages.catalog": request,
   "languages.host.state": request,
+  "languages.host.processBudget.get": request,
+  "languages.host.processBudget.set": request,
   "languages.host.state.watch": feed,
   "languages.availability": request,
   "languages.availability.watch": feed,

@@ -3,7 +3,9 @@
  * positioned by the virtualizer directly (no React render per scroll frame).
  * It stays pinned to the end while the user is there, so streaming output
  * follows, and restores its measurements and offset when a session reopens.
+ * `reveal` scrolls a row into the middle (⌘F, the Turn rail).
  */
+import { cn } from "@polaris/ui";
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
 import { useEffect, useRef } from "react";
 import type { Row } from "../model/conversation.ts";
@@ -20,14 +22,34 @@ const saved = new Map<string, Saved>();
 
 const ESTIMATE = 64;
 
+/** A row to bring into view; a new `nonce` asks again for the same row. */
+export interface Reveal {
+  readonly key: string;
+  readonly nonce: number;
+  /** Where the row lands: the middle (a find match) or the top (a Turn from the rail). */
+  readonly align?: "center" | "start";
+}
+
 export interface ConversationProps {
   /** Where to keep this list's scroll between visits (the session's key). */
   readonly scrollKey: string;
   readonly rows: ReadonlyArray<Row>;
   readonly ctx: RowContext;
+  readonly reveal?: Reveal | null;
+  /** Rows rendered now (the virtualizer's range), on every scroll: keep the work cheap. */
+  readonly onRange?: (start: number, end: number) => void;
+  /** Room on the right for the Turn rail. */
+  readonly gutter?: boolean;
 }
 
-export const Conversation = ({ scrollKey, rows, ctx }: ConversationProps) => {
+export const Conversation = ({
+  scrollKey,
+  rows,
+  ctx,
+  reveal = null,
+  onRange,
+  gutter = false,
+}: ConversationProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const restore = saved.get(scrollKey);
 
@@ -43,12 +65,27 @@ export const Conversation = ({ scrollKey, rows, ctx }: ConversationProps) => {
     paddingStart: 20,
     paddingEnd: 20,
     directDomUpdates: true,
+    onChange: (instance) => {
+      if (instance.range !== null) onRange?.(instance.range.startIndex, instance.range.endIndex);
+    },
     initialMeasurementsCache: restore === undefined ? [] : [...restore.measurements],
     initialOffset: () =>
       restore === undefined || restore.atEnd ? Number.MAX_SAFE_INTEGER : restore.offset,
   });
 
   useEffect(preloadMarkdown, []);
+
+  const revealed = useRef<number | null>(null);
+
+  // The row may appear only after its Turn opens, so this waits for it in `rows`.
+  useEffect(() => {
+    if (reveal === null || revealed.current === reveal.nonce) return;
+    const index = rows.findIndex((r) => r.key === reveal.key);
+
+    if (index === -1) return;
+    revealed.current = reveal.nonce;
+    virtualizer.scrollToIndex(index, { align: reveal.align ?? "center" });
+  }, [reveal, rows, virtualizer]);
 
   // Streaming grows the last row: `anchorTo: "end"` follows it as the row is re-measured.
   // No per-commit isAtEnd/scrollToEnd: each one forces a layout of the whole list.
@@ -78,7 +115,11 @@ export const Conversation = ({ scrollKey, rows, ctx }: ConversationProps) => {
               key={item.key}
               ref={virtualizer.measureElement}
               data-index={item.index}
-              className="pb-panel absolute top-0 left-0 w-full px-5"
+              data-row-key={row.key}
+              className={cn(
+                "pb-panel absolute top-0 left-0 w-full pl-5",
+                gutter ? "pr-10" : "pr-5"
+              )}
             >
               <ConversationRow row={row} ctx={ctx} />
             </div>

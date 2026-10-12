@@ -2,6 +2,13 @@
 export const FLOAT_SURFACE =
   "rounded-card border border-hairline bg-surface-raised text-text-default shadow-float outline-hidden";
 
-/** Small reveals fade over 160ms, ease-out; opacity only (DESIGN.md, Motion). */
+/** Small reveals fade in over 160ms, ease-out, and close at once (DESIGN.md, Motion). */
 export const FLOAT_MOTION =
-  "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 duration-160 ease-out";
+  "data-[state=open]:animate-in data-[state=open]:fade-in-0 duration-160 ease-out";
+
+/** A mount-only reveal: fades in over 160ms, ease-out. */
+export const REVEAL_MOTION = "animate-in fade-in-0 duration-160 ease-out";
+
+/** Tooltips: the first one fades in over 160ms; later ones (skip-delay) and closing are instant. */
+export const TOOLTIP_MOTION =
+  "data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 duration-160 ease-out";

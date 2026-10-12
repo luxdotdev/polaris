@@ -78,7 +78,7 @@ const Trailing = ({
       >
         <ChevronDownIcon
           size={14}
-          className={cn("transition-transform duration-120", expanded && "rotate-180")}
+          className={cn("transition-transform duration-120 ease-out", expanded && "rotate-180")}
         />
       </button>
     ) : (

@@ -1,5 +1,7 @@
 import { createSqlSelection, SqlSelection } from "../sql/selection.ts";
 import { SqlCore } from "../sql/core.ts";
+import { createProcessSettings } from "../runtime/processSettings.ts";
+import { LanguageProcessBudgetCore } from "./processBudget.ts";
 import { webProviders } from "../web/index.ts";
 import { managedProviderIds, providerAvailability } from "./managedAvailability.ts";
 import { PrivateNodeRuntime } from "./privateNode.ts";
@@ -188,10 +190,15 @@ export const languageHostServices = (
         })
       ).pipe(Layer.provide(installationLayer), Layer.provide(shared));
 
-      const broker = languageBrokerLayer({ hostId: options.hostId }).pipe(
-        Layer.provide(providers),
-        Layer.provide(shared)
-      );
+      const processSettings = yield* Effect.tryPromise({
+        try: () => createProcessSettings(options.hostId, options.root),
+        catch: installationError,
+      });
+
+      const broker = languageBrokerLayer({
+        hostId: options.hostId,
+        processLimit: processSettings.snapshot().effectiveLimit,
+      }).pipe(Layer.provide(providers), Layer.provide(shared));
 
       const receipts = LanguageResourceReceiptAuthority.layer.pipe(
         Layer.provide(broker),
@@ -208,6 +215,9 @@ export const languageHostServices = (
         installationLayer,
         PrivateNodeRuntime.layer.pipe(Layer.provide(installationLayer)),
         LanguageHostStateCore.layer(options.hostId, host),
+        LanguageProcessBudgetCore.layer(options.hostId, processSettings).pipe(
+          Layer.provide(broker)
+        ),
         LanguageInstallCore.layer(options.hostId, host).pipe(
           Layer.provide(LanguageInstallGrantAuthority.denyLayer)
         ),

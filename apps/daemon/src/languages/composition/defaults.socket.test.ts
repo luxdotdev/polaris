@@ -49,6 +49,12 @@ test("mounted Host core uses transport Host identity and refuses unapproved mana
 
         expect(denied.reason).toBe("not-owner");
 
+        const budgetDenied = yield* Effect.flip(
+          absent.client["languages.host.processBudget.get"]({})
+        );
+
+        expect(budgetDenied.reason).toBe("not-owner");
+
         const owned = yield* connectRpc(yield* socketTransport(server.socketPath));
 
         const reply = yield* owned.client.hello(hello(Redacted.make("e".repeat(64))));
@@ -62,6 +68,25 @@ test("mounted Host core uses transport Host identity and refuses unapproved mana
 
         expect(hostState.hostId).toBe(reply.host.hostId);
         expect(hostState.tools).toHaveLength(catalog.tools.length);
+        const budget = yield* owned.client["languages.host.processBudget.get"]({});
+        expect(budget.hostId).toBe(reply.host.hostId);
+        expect(budget.maxProcesses).toBeNull();
+
+        const selected = yield* owned.client["languages.host.processBudget.set"]({
+          expectedRevision: budget.revision,
+          maxProcesses: 12,
+        });
+
+        expect(selected.effectiveLimit).toBe(12);
+
+        const raced = yield* Effect.flip(
+          owned.client["languages.host.processBudget.set"]({
+            expectedRevision: budget.revision,
+            maxProcesses: 16,
+          })
+        );
+
+        expect(raced.reason).toBe("conflict");
 
         const state = hostState.tools.find(
           (tool) => tool.toolId === "typescript-language-server"

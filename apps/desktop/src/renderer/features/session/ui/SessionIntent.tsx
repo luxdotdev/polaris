@@ -10,7 +10,7 @@ import {
   type SessionId,
 } from "@polaris/protocol";
 import type { Harness } from "@polaris/ui";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Commands } from "../../../commands.ts";
 import { emptyHostModel } from "../../../store/hostModel.ts";
 import type { SessionData } from "../../../store/plain.ts";
@@ -24,12 +24,12 @@ import { conversationRows } from "../model/conversation.ts";
 import { tildePath } from "../model/format.ts";
 import { composerMode, continueCommand, openQuestion, retryCommand } from "../model/intent.ts";
 import { useOutbox } from "../outbox.ts";
-import { showTurnDiff, toggleUnfolded, uiKey, useSessionUi } from "../state.ts";
-import { Conversation } from "./Conversation.tsx";
+import { holdOpenFrom, setTurnOpen, showTurnDiff, uiKey, useSessionUi } from "../state.ts";
 import { ForkDialog, type ForkTarget } from "./ForkDialog.tsx";
 import type { RowContext } from "./rows.tsx";
 import { SessionComposer } from "./SessionComposer.tsx";
 import { SessionHeader } from "./SessionHeader.tsx";
+import { Transcript } from "./Transcript.tsx";
 import { useSessionChrome } from "../chrome.ts";
 import { EditorPlaceProvider } from "../../editor-links/index.ts";
 
@@ -71,6 +71,12 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
   const chrome = useSessionChrome();
   const models = useHarnessModels(hostKey, model.session?.harness ?? "", model.session !== null);
   const { session } = model;
+  const latestId = model.turns.at(-1)?.turn.id;
+
+  // The latest Turn when the session is first shown, so later Turns never fold it.
+  useEffect(() => {
+    if (latestId !== undefined) holdOpenFrom(key, latestId);
+  }, [key, latestId]);
 
   const mode =
     session === null
@@ -101,7 +107,7 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
     setup: session.worktreeSetup,
     turns: model.turns,
     approvals: model.pendingApprovals,
-    unfolded: ui.unfolded,
+    folds: ui.folds,
     outbox: ui.outbox,
     waiting: waitingOn(session),
   });
@@ -117,7 +123,7 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
     liveTurnId: lastTurn?.status === "working" && session.state === "working" ? lastTurn.id : null,
     where,
     diff: { hostKey, cwd: session.cwd, sessionId },
-    onToggleTurn: (turnId) => toggleUnfolded(key, turnId),
+    onSetTurnOpen: (turnId, open) => setTurnOpen(key, turnId, open),
     onOpenDiff: (turnId) => showTurnDiff(key, turnId),
     onRespond: (request: ApprovalRequest, decision: ApprovalDecision) =>
       void send(
@@ -164,7 +170,7 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
             }}
           />
         )}
-        {chrome.body ?? <Conversation scrollKey={key} rows={rows} ctx={ctx} />}
+        {chrome.body ?? <Transcript uiKey={key} turns={model.turns} rows={rows} ctx={ctx} />}
         <InTerminalBar
           session={{
             hostKey,

@@ -10,6 +10,8 @@ export const languageMethods = {
   "languages.python.interpreters": P.ListPythonInterpreters,
   "languages.python.select": P.SelectPythonInterpreter,
   "languages.host.state": P.GetLanguageHostState,
+  "languages.host.processBudget.get": P.GetLanguageProcessBudget,
+  "languages.host.processBudget.set": P.SetLanguageProcessBudget,
   "languages.availability": P.GetLanguageAvailability,
   "languages.install": P.InstallLanguageTool,
   "languages.install.cancel": P.CancelLanguageInstall,

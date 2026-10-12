@@ -261,7 +261,7 @@ const Resolved = (props: EntryProps & { readonly thread: ThreadItem }) => {
       >
         <span
           aria-hidden="true"
-          className={cn("transition-transform duration-120", open && "rotate-90")}
+          className={cn("transition-transform duration-120 ease-out", open && "rotate-90")}
         >
           ›
         </span>

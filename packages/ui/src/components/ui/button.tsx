@@ -10,7 +10,7 @@ import { cn } from "../../lib/cn";
  * Focus is the global 2px Starlight ring; Starlight never fills a button (rule/starlight-is-rare).
  */
 export const buttonVariants = cva(
-  "inline-flex shrink-0 cursor-default items-center justify-center gap-1.5 rounded-control text-label whitespace-nowrap select-none disabled:pointer-events-none disabled:opacity-(--opacity-dimmed) [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  "inline-flex shrink-0 cursor-default items-center justify-center gap-1.5 rounded-control text-label whitespace-nowrap select-none transition-transform duration-120 ease-out active:scale-[0.97] disabled:pointer-events-none disabled:opacity-(--opacity-dimmed) [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     variants: {
       variant: {

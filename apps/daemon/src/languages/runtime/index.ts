@@ -9,7 +9,8 @@ import { Acquire } from "./acquire.ts";
 import { enqueue } from "./queue.ts";
 import { AcknowledgmentOwners } from "./acknowledgmentOwners.ts";
 import { LaunchAdmission } from "./launchAdmission.ts";
-import { ProcessBudget } from "./process-budget.ts";
+import type { ProcessReservation } from "./process-budget.ts";
+import { processAdmission } from "./processAdmission.ts";
 import { BrokerCleanup, acquisitionTask, settleClientDisconnect } from "./clientSettlement.ts";
 import type { ClientAcquisition } from "./clientSettlement.ts";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -73,7 +74,7 @@ export function createLanguageBroker(options: BrokerOptions) {
   const acquisitions = new Set<ClientAcquisition>();
 
   let documentBytes = 0;
-  const processBudget = new ProcessBudget();
+  const processes = processAdmission(options, entries, move, shutdown);
   const featureEvidence = new FeatureEvidence();
 
   const documents = (context: LanguageContextIdentity) =>
@@ -101,7 +102,8 @@ export function createLanguageBroker(options: BrokerOptions) {
 
   function move(entry: Entry, input: LifecycleEvent) {
     entry.lifecycle = decideLifecycle(entry.lifecycle, input);
-    options.observeLifecycle?.({ event: input, phase: String(entry.lifecycle.value) });
+    const step = { event: input, phase: String(entry.lifecycle.value) };
+    options.observeLifecycle?.({ ...step, contextId: entry.identity.contextId });
   }
 
   function demanded(entry: Entry) {
@@ -135,6 +137,7 @@ export function createLanguageBroker(options: BrokerOptions) {
     graceful = false,
     preserveDocuments = false
   ) {
+    processes.retire(entry);
     const retained = preserveDocuments ? [...entry.documents.open.values()] : [];
     const sequence = entry.documents.sequence;
     acknowledgments.retire(entry);
@@ -261,11 +264,11 @@ export function createLanguageBroker(options: BrokerOptions) {
     move(entry, { type: "demand" });
     state(entry, LanguageRuntime.cases.Starting.make({}));
 
-    let reservation: ReturnType<typeof processBudget.reserve> | undefined;
+    let reservation: ProcessReservation | undefined;
 
     try {
       await entry.launchRetirement;
-      reservation = processBudget.reserve();
+      reservation = await processes.reserve(entry, admission.request);
       await trusted(entry);
 
       const launch = await admission.resolve(
@@ -408,13 +411,13 @@ export function createLanguageBroker(options: BrokerOptions) {
     );
   }
 
-  async function shutdown(entry: Entry) {
+  async function shutdown(entry: Entry, reason: "no-demand" | "process-budget" = "no-demand") {
     const source = entry.identity;
     retire(entry, "closed", true, true);
 
     if (entry.interests.size === 0) watches.unwatch(entry);
     options.invalidateDiscovery();
-    entry.runtime = LanguageRuntime.cases.Stopped.make({ reason: "no-demand" });
+    entry.runtime = LanguageRuntime.cases.Stopped.make({ reason });
     publishReplacement(entry, source);
     state(entry, entry.runtime);
     await entry.launchRetirement;
@@ -509,6 +512,7 @@ export function createLanguageBroker(options: BrokerOptions) {
 
     return enqueue(entry, async () => {
       owned(clientId, valid.context);
+      processes.touch(entry);
       const canonical = await trusted(entry);
       await checkoutPath(canonical, fileURLToPath(valid.notification.uri));
       owned(clientId, valid.context);
@@ -541,7 +545,11 @@ export function createLanguageBroker(options: BrokerOptions) {
       if (demanded(entry)) {
         cancelGrace(entry);
         ensureStart(entry);
-      } else scheduleGrace(entry);
+      } else {
+        processes.cancel(entry);
+        scheduleGrace(entry);
+      }
+
       const ack = entry.documents.ack();
       event(entry, LanguageContextEvent.cases.Synchronized.make({ ack }));
 
@@ -569,6 +577,7 @@ export function createLanguageBroker(options: BrokerOptions) {
     const operation = await enqueue(entry, async () => {
       if (signal?.aborted) throw failure("cancelled", "Language request cancelled");
       owned(clientId, fence.context);
+      processes.touch(entry);
       await trusted(entry);
       entry.documents.fence(fence);
       const connection = entry.connection;
@@ -820,6 +829,7 @@ export function createLanguageBroker(options: BrokerOptions) {
       principal: Parameters<AcknowledgmentOwners["disconnect"]>[0]
     ) => acknowledgments.disconnect(principal),
     request,
+    setProcessLimit: (limit: number) => processes.budget.setLimit(limit),
     format: bindFormat(owned, requestRaw),
     watchLog: (clientId: string, context: LanguageContextIdentity, signal?: AbortSignal) => {
       const logs = owned(clientId, context).logs;
@@ -861,7 +871,8 @@ export function createLanguageBroker(options: BrokerOptions) {
       contexts: entries.size,
       cleanup: cleanup.size,
       acquiring,
-      processSlots: processBudget.used,
+      processSlots: processes.budget.used,
+      processLimit: processes.budget.limit,
       documentBytes,
       processes: [...entries.values()].filter((entry) => entry.connection !== undefined).length,
     }),

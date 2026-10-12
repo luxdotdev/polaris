@@ -143,3 +143,12 @@ describe("accessibility hooks", () => {
     expect(theme).toMatch(/\[data-text-size="large"\]\s*\{\s*--text-scale: calc\(14 \/ 13\);/);
   });
 });
+
+describe("motion tokens", () => {
+  test("press, reveal and panel durations sit beside the house curve", () => {
+    expect(tokens).toContain("--duration-press: 120ms;");
+    expect(tokens).toContain("--duration-reveal: 160ms;");
+    expect(tokens).toContain("--duration-panel: 200ms;");
+    expect(tokens).toContain("--default-transition-timing-function: var(--ease-out);");
+  });
+});

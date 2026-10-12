@@ -6,8 +6,10 @@ import { createContext, type ReactNode, useContext } from "react";
 
 export interface PolarisCardArgs {
   readonly turnId: string;
-  /** The Turn is folded to its one-line summary. */
+  /** The Turn is folded to its one-line summary; a folded card shows the agent's reply itself. */
   readonly folded: boolean;
+  /** The user can fold this Turn. Every Turn folds now, the latest included (C2). */
+  readonly canFold: boolean;
   readonly onToggle: () => void;
 }
 

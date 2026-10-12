@@ -34,6 +34,7 @@ export interface AcquireInput extends DiscoveryInput {
 
 export interface BrokerOptions {
   hostId: HostId;
+  processLimit?: number;
   discover: (input: DiscoveryInput) => Promise<DiscoveryFacts>;
   invalidateDiscovery: () => void;
   requireTrust: (checkout: LanguageCheckout, facts?: DiscoveryFacts) => Promise<CanonicalCheckout>;
@@ -47,7 +48,9 @@ export interface BrokerOptions {
   spawn?: (launch: Launch) => ProcessPort;
   prepareEdit?: PrepareServerEdit;
   supportsTreeEdits?: (request: LaunchAdmissionRequest) => boolean;
-  observeLifecycle?: ((record: { event: LifecycleEvent; phase: string }) => void) | undefined;
+  observeLifecycle?:
+    | ((record: { event: LifecycleEvent; phase: string; contextId: string }) => void)
+    | undefined;
   graceMs?: number;
   retryMs?: number;
   crashWindowMs?: number | undefined;

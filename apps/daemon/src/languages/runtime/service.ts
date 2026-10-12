@@ -136,6 +136,9 @@ function effectBroker(broker: ReturnType<typeof createLanguageBroker>) {
         })
       ),
     stats: Effect.sync(broker.stats),
+    setProcessLimit: Effect.fn("LanguageBroker.setProcessLimit")((limit: number) =>
+      Effect.sync(() => broker.setProcessLimit(limit))
+    ),
   };
 }
 

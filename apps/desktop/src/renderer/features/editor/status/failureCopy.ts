@@ -29,6 +29,8 @@ export const failureReason = (reason: P.LanguageError["reason"] | "unknown", hos
       () => "The language tools changed while this request was running. Try again."
     ),
     Match.when("queue-full", () => "Language tools are busy. Try again in a moment."),
+    Match.when("process-limit", () => `Every language-server slot on ${host} is in active use.`),
+    Match.when("process-retiring", () => `A language server on ${host} is still stopping.`),
     Match.whenOr(
       "unsupported-platform",
       "unsupported-capability",

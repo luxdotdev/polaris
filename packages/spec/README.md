@@ -755,3 +755,19 @@ registration is acknowledged for the context's fixed root; root changes replace
 the context. Configuration notification registration acknowledges the existing
 settings delivery and context replacement path. Notification registrations are
 not exposed as feature methods.
+
+### Host language process admission
+
+`language-runtime.qnt` maps Evict to the grace-to-stopped transition in
+`languages/runtime/lifecycle.ts`. Runtime admission selects only idle server
+contexts with no open documents across Clients sharing the checkout, project,
+provider and configuration, publishes the existing Replaced handoff,
+and awaits actual teardown before reusing capacity. `processAdmission.test.ts`
+checks LRU selection, cross-Client protection, all-busy refusal, lowering capacity
+without killing active servers, independent configurations, cancellation during
+held retirement, and retirement timeout without spending crash retries.
+`process-capacity.test.ts` binds policy to measured Mac/Pi resource inputs;
+`processSettings.test.ts` checks Host revision-CAS and restart persistence.
+The authenticated Host setting is configuration outside EventStore, like SQL
+dialect and Python interpreter selection. No EventStore command, commit, stream,
+acknowledgment or recovery semantics change. Runtime trace replay includes Evict.
