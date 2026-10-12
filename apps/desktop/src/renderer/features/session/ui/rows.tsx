@@ -35,7 +35,7 @@ import { EntryView } from "./entries.tsx";
 import { OutgoingMessage, Steered } from "./outgoing.tsx";
 import { softWrap } from "./softWrap.tsx";
 import { SessionTargetContext } from "./polarisTool/target.ts";
-import { TurnEnd } from "./turnEnd.tsx";
+import { TurnMenu } from "./turnMenu.tsx";
 import { LimitCard, type UsageLimit } from "./LimitCard.tsx";
 import type { SessionChrome } from "../chrome.ts";
 
@@ -202,44 +202,49 @@ const ReplyTime = ({ row }: { row: Extract<Row, { kind: "item" }> }) =>
     </span>
   );
 
+/** The row's reply text, once it has finished streaming; null for every other item. */
+const finishedMessage = (row: Extract<Row, { kind: "item" }>) =>
+  row.entry.kind === "item" && row.entry.item.kind === "message" && !row.entry.item.live
+    ? row.entry.item.text
+    : null;
+
 const Agent = ({ row, ctx }: { row: Extract<Row, { kind: "item" }>; ctx: RowContext }) => (
-  <div
-    className="group/item relative flex gap-3"
-    data-testid="turn-item"
-    data-kind={entryKind(row.entry)}
+  <TurnMenu
+    hostKey={ctx.diff.hostKey}
+    sessionId={ctx.diff.sessionId}
+    turnId={row.turnId}
+    message={finishedMessage(row)}
+    live={row.turnId === ctx.liveTurnId}
   >
-    <ReplyTime row={row} />
-    <div className={AVATAR}>
-      {row.lead && ctx.harness !== null ? (
-        <HarnessMark
-          harness={ctx.harness}
-          size={24}
-          {...(row.turnId === ctx.liveTurnId ? { state: "working" as const } : {})}
-        />
-      ) : null}
+    <div
+      className="group/item relative flex gap-3"
+      data-testid="turn-item"
+      data-kind={entryKind(row.entry)}
+    >
+      <ReplyTime row={row} />
+      <div className={AVATAR}>
+        {row.lead && ctx.harness !== null ? (
+          <HarnessMark
+            harness={ctx.harness}
+            size={24}
+            {...(row.turnId === ctx.liveTurnId ? { state: "working" as const } : {})}
+          />
+        ) : null}
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <SessionTargetContext.Provider value={ctx.diff}>
+          <EntryView
+            entry={row.entry}
+            ctx={{
+              hue: ctx.harness,
+              onOpenDiff: () => ctx.onOpenDiff(row.turnId),
+              latest: row.latest,
+            }}
+          />
+        </SessionTargetContext.Provider>
+      </div>
     </div>
-    <div className="flex min-w-0 flex-1 flex-col">
-      <SessionTargetContext.Provider value={ctx.diff}>
-        <EntryView
-          entry={row.entry}
-          ctx={{
-            hue: ctx.harness,
-            onOpenDiff: () => ctx.onOpenDiff(row.turnId),
-            latest: row.latest,
-          }}
-        />
-      </SessionTargetContext.Provider>
-      {row.entry.kind === "item" && row.entry.item.kind === "message" ? (
-        <TurnEnd
-          hostKey={ctx.diff.hostKey}
-          sessionId={ctx.diff.sessionId}
-          turnId={row.turnId}
-          itemId={row.entry.item.id}
-          live={row.turnId === ctx.liveTurnId}
-        />
-      ) : null}
-    </div>
-  </div>
+  </TurnMenu>
 );
 
 const KIND_WANTS: Record<ApprovalRequest["kind"], string> = {
