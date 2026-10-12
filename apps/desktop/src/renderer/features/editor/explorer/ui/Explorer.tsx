@@ -28,12 +28,16 @@ import { openFile, setAgentEdits, setAgentFiles, useEditorTabs } from "../../ind
 import { basename } from "../model/paths.ts";
 import { AgentsIn } from "./AgentsIn.tsx";
 import { ChangesList } from "./ChangesList.tsx";
+import { GitPanel } from "./GitPanel.tsx";
 import { Tree } from "./Tree.tsx";
 
 export interface ExplorerProps {
   readonly host: HostView;
   readonly workspace: Workspace;
 }
+
+const canWriteGit = (host: HostView) =>
+  host.status.state === "connected" && host.status.capabilities.includes("git.write");
 
 const canManage = (host: HostView) =>
   host.status.state === "connected" && host.status.capabilities.includes("files.manage");
@@ -211,6 +215,15 @@ export const Explorer = ({ host, workspace }: ExplorerProps) => {
             tabs={tabs}
             hostLabel={host.label}
             canManage={canManage(host)}
+            onOpen={open}
+          />
+        ) : canWriteGit(host) && data.state.git !== null && data.state.git !== "none" ? (
+          <GitPanel
+            place={place}
+            git={data.state.git}
+            agents={data.agents}
+            tabs={tabs}
+            hostLabel={host.label}
             onOpen={open}
           />
         ) : (

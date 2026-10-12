@@ -56,7 +56,7 @@ import type { PullRef } from "./github.ts";
 import type { ConstellationDefaultsMethod, ConstellationMethod } from "./constellationContract.ts";
 import type { ResourceMethod } from "./resourcesContract.ts";
 import type { GitHubRequestOutputs, GitHubSubscriptionItems } from "./githubContract.ts";
-import type { GitRequestOutputs } from "./gitContract.ts";
+import type { GitRequestOutputs, GitSubscriptionItems } from "./gitContract.ts";
 import type { NeedsYouAction } from "./needsYou.ts";
 import type {
   CachedHost,
@@ -466,7 +466,7 @@ export type TerminalItem =
   | { readonly _tag: "Output"; readonly data: Uint8Array }
   | { readonly _tag: "Exit"; readonly code: number | null };
 
-export interface SubscriptionItems extends GitHubSubscriptionItems {
+export interface SubscriptionItems extends GitHubSubscriptionItems, GitSubscriptionItems {
   hosts: ReadonlyArray<HostView>;
   machines: ReadonlyArray<MachineView>;
   host: HostStreamItem;

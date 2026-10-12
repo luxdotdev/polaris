@@ -41,7 +41,7 @@ import {
 } from "./constellationContract.ts";
 import { ResourceRequestInputs } from "./resourcesContract.ts";
 import { GitHubRequestInputs, GitHubSubscriptionInputs } from "./githubContract.ts";
-import { GitRequestInputs } from "./gitContract.ts";
+import { GitRequestInputs, GitSubscriptionInputs } from "./gitContract.ts";
 import { BRANCH_PREFIX } from "./sessionPrefs.ts";
 
 /** A Host's stable key in the HostRegistry: "local", or an SSH alias. */
@@ -499,6 +499,7 @@ export const SubscriptionInputs = {
   /** An inline proposal (`inline.propose`, capability `inline.propose`); closing it cancels. */
   "inline.propose": onHost(InlineRequest.fields),
   ...GitHubSubscriptionInputs,
+  ...GitSubscriptionInputs,
   /** One Constellation's stream (`constellation.subscribe`): Snapshot, Synchronized, then events. */
   constellation: Schema.Struct({
     hostKey: HostKey,

@@ -1,17 +1,22 @@
 /**
- * Handlers for `git.status` and `git.diff`. The transport mounts this layer
- * next to the other partial handler layers of `DaemonRpcs`.
+ * Handlers for `git.*`: status, diff, show, and the Changes tab's writes. The
+ * transport mounts this layer next to the other partial handler layers.
  */
 import {
   DiffFile,
+  GitCommit,
+  GitCommitItem,
   GitDiff,
+  GitDiscard,
   GitError,
   GitShow,
+  GitStage,
   GitStatus,
   GitStatusEntry,
+  GitUnstage,
   NotFound,
 } from "@polaris/protocol";
-import { Effect } from "effect";
+import { Cause, Effect, Queue, Stream } from "effect";
 import { RpcGroup } from "effect/rpc";
 import { BlobChannel } from "../services.ts";
 import { ReadContent, toContent } from "../files/fs.ts";
@@ -20,8 +25,17 @@ import { computeDiff, DiffNotFound, type DiffResult } from "./diff.ts";
 import { indexDiff } from "./diffIndex.ts";
 import { showFile } from "./show.ts";
 import { gitStatus } from "./status.ts";
+import { commit, type CommitEvent, discardPaths, stagePaths, unstagePaths } from "./write.ts";
 
-export class GitRpcs extends RpcGroup.make(GitStatus, GitDiff, GitShow) {}
+export class GitRpcs extends RpcGroup.make(
+  GitStatus,
+  GitDiff,
+  GitShow,
+  GitStage,
+  GitUnstage,
+  GitDiscard,
+  GitCommit
+) {}
 
 const gitError = (cwd: string) => (cause: unknown) =>
   new GitError({ cwd, message: cause instanceof Error ? cause.message : String(cause) });
@@ -111,6 +125,38 @@ export const handleGitShow = Effect.fn("git.show")(function* ({
   return { size: file.size, mimeType: file.mimeType, content: { _tag: "Blob" as const, blobId } };
 });
 
+const pathsWith =
+  (name: string, write: (cwd: string, paths: ReadonlyArray<string>) => Promise<void>) =>
+  ({ cwd, paths }: typeof GitStage.payloadSchema.Type) =>
+    Effect.tryPromise({ try: () => write(cwd, paths), catch: gitError(cwd) }).pipe(
+      Effect.withSpan(name)
+    );
+
+export const handleGitStage = pathsWith("git.stage", stagePaths);
+
+export const handleGitUnstage = pathsWith("git.unstage", unstagePaths);
+
+export const handleGitDiscard = pathsWith("git.discard", discardPaths);
+
+const commitItem = (event: CommitEvent): GitCommitItem => {
+  if (event.kind === "output") return GitCommitItem.cases.Output.make({ text: event.text });
+
+  if (event.kind === "committed") return GitCommitItem.cases.Committed.make({ head: event.head });
+
+  return GitCommitItem.cases.Failed.make({ exitCode: event.exitCode });
+};
+
+/** The commit runs in a promise of its own, so closing the stream never stops git midway. */
+export const handleGitCommit = ({ cwd, message }: typeof GitCommit.payloadSchema.Type) =>
+  Stream.callback<GitCommitItem, GitError>((queue) =>
+    Effect.sync(() => {
+      commit(cwd, message, (event) => Queue.offerUnsafe(queue, commitItem(event))).then(
+        () => Queue.endUnsafe(queue),
+        (cause: unknown) => Queue.failCauseUnsafe(queue, Cause.fail(gitError(cwd)(cause)))
+      );
+    })
+  );
+
 /**
  * Requires `BlobChannel` per request: when the transport provides it per
  * connection through an RpcMiddleware, the handler picks that one up.
@@ -119,4 +165,8 @@ export const GitRpcsLive = GitRpcs.toLayer({
   "git.status": handleGitStatus,
   "git.diff": handleGitDiff,
   "git.show": handleGitShow,
+  "git.stage": handleGitStage,
+  "git.unstage": handleGitUnstage,
+  "git.discard": handleGitDiscard,
+  "git.commit": handleGitCommit,
 });
