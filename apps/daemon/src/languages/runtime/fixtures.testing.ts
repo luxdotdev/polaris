@@ -34,6 +34,8 @@ export async function fixture(
     changeDebounceMs?: number;
     crashWindowMs?: number;
     reserveGate?: Promise<void>;
+    processLimit?: number;
+    failAdmissionOnce?: LanguageError;
   } = {}
 ) {
   const root = await realpath(tempDirectory(join(tmpdir(), "m31-t1-")));
@@ -66,10 +68,12 @@ export async function fixture(
   const discovery = createProjectDiscovery({ registry });
 
   let trusted = true;
+  let admissionFailure = lifecycleOptions.failAdmissionOnce;
   const processes: ReturnType<typeof spawnLanguageProcess>[] = [];
 
   const broker = createLanguageBroker({
     hostId: HostId.make("host"),
+    processLimit: lifecycleOptions.processLimit ?? 8,
     discover: async (input) => {
       await discoveryGate;
 
@@ -90,6 +94,12 @@ export async function fixture(
     },
     reserveLaunch: async (request) => {
       await lifecycleOptions.reserveGate;
+
+      if (admissionFailure !== undefined) {
+        const failure = admissionFailure;
+        admissionFailure = undefined;
+        throw failure;
+      }
 
       return {
         selectionIdentity: "fake-fixture-selection",
@@ -133,13 +143,17 @@ export async function fixture(
     origins: {},
   });
 
-  async function acquire(clientId = "one", contextId = clientId) {
+  async function acquire(
+    clientId = "one",
+    contextId = clientId,
+    providerId = lifecycleOptions.providerId ?? "fake"
+  ) {
     return broker.acquire(clientId, {
       clientId,
       contextId,
       checkout,
       path: join(root, "file.ts"),
-      providerId: lifecycleOptions.providerId ?? "fake",
+      providerId,
       settings,
       interestId: "file",
     });

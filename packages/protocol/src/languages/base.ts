@@ -135,6 +135,8 @@ export class LanguageError extends Schema.TaggedError<LanguageError>()("Language
     "not-installed",
     "not-ready",
     "queue-full",
+    "process-limit",
+    "process-retiring",
     "too-large",
     "method-not-found",
     "timeout",

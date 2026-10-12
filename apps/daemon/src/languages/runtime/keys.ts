@@ -17,6 +17,9 @@ export const contextKey = (clientId: string, facts: DiscoveryFacts) =>
     facts.configurationFingerprint,
   ]);
 
+export const sameProcessCohort = (one: Entry, two: Entry) =>
+  contextKey("", one.facts) === contextKey("", two.facts);
+
 export function initialization(entry: Entry): typeof LanguageJsonObject.Type {
   const settings = entry.facts.effectiveSettings.settings;
 

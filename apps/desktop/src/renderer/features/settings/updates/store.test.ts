@@ -1,4 +1,4 @@
-import { beforeEach, expect, test } from "bun:test";
+import { afterEach, beforeEach, expect, test } from "bun:test";
 import type { AppEvent, PolarisApi, Result } from "../../../../shared/api.ts";
 import type { AppUpdateView } from "../../../../shared/appUpdates.ts";
 import { standInBridge } from "../../bridge.ts";
@@ -61,6 +61,8 @@ const fake = (delayedMethod: string) => {
 };
 
 beforeEach(() => updatesStore.setState({ view: null, problem: null, changing: false }));
+
+afterEach(() => standInBridge(null));
 
 test("a ready AppEvent wins a delayed checking reply", async () => {
   const api = fake("updates.check");
