@@ -1,16 +1,23 @@
 /**
  * The sidebar's "Needs you" view across every Host (Paper 1G2-0): a card per waiting session,
  * approvals answered inline, questions shown and answered in the conversation; then "Also
- * waiting on you" with one action each; answers another device gave, for a minute.
+ * waiting on you" with one action each; answers another device gave, for a minute. Any
+ * session item can be dismissed on this Mac until it changes (N1; Paper 10, 10b).
  */
 import type { SessionId } from "@polaris/protocol";
 import {
+  Button,
+  CloseIcon,
+  cn,
   EmptyState,
   NeedsYouCard,
   PixelFailedIcon,
   PixelHandIcon,
   PixelCheckIcon,
   PixelTerminalIcon,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
   WaitingCard,
 } from "@polaris/ui";
 import type { ReactNode } from "react";
@@ -18,9 +25,11 @@ import { age } from "../../../shell/copy.ts";
 import { useApp, useSelection, useShellActions } from "../../../shell/hooks.ts";
 import { useNow } from "../../../shell/useNow.ts";
 import { ReviewsGroup, useRequestedCount } from "../../pulls/index.ts";
-import { useConstellationInbox, useInbox } from "../hooks.ts";
+import { dismiss, restoreDismissed } from "../dismissed.ts";
+import { useConstellationInbox, useInboxView } from "../hooks.ts";
 import { ConstellationGroups } from "./ConstellationGroups.tsx";
 import { quietFact } from "../model/quiet.ts";
+import type { Dismissible } from "../model/dismissed.ts";
 import type {
   AlsoKind,
   AlsoWaiting,
@@ -52,7 +61,48 @@ const Title = ({
   </button>
 );
 
-const Waiting = ({ item, now }: { readonly item: WaitingSession; readonly now: number }) => {
+/** A card with a × that shows on hover or focus; dismissing hides it on this Mac only. */
+const Dismissable = ({
+  item,
+  children,
+}: {
+  readonly item: Dismissible;
+  readonly children: (reserve: string) => ReactNode;
+}) => (
+  <div className="group relative" data-testid="dismissable">
+    {children("group-hover:pr-9 group-focus-within:pr-9")}
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          aria-label="Dismiss on this Mac"
+          data-testid="dismiss"
+          onClick={() => dismiss([item])}
+          className={cn(
+            "rounded-control text-text-default hover:bg-fill-selected focus-visible:bg-fill-selected absolute right-2.5 flex size-5 cursor-default items-center justify-center opacity-0 group-focus-within:opacity-100 group-hover:opacity-100",
+            "requests" in item ? "top-3" : "top-1/2 -translate-y-1/2"
+          )}
+        >
+          <CloseIcon size={12} />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent className="h-auto flex-col items-start gap-0.5 py-1.5">
+        <span className="text-text-strong font-medium">Dismiss on this Mac</span>
+        <span className="text-text-subtle">It comes back if the session changes</span>
+      </TooltipContent>
+    </Tooltip>
+  </div>
+);
+
+const Waiting = ({
+  item,
+  now,
+  reserve,
+}: {
+  readonly item: WaitingSession;
+  readonly now: number;
+  readonly reserve: string;
+}) => {
   const { selectSession } = useShellActions();
   const selection = useSelection();
   const { session } = item.entry;
@@ -65,6 +115,7 @@ const Waiting = ({ item, now }: { readonly item: WaitingSession; readonly now: n
 
   return (
     <NeedsYouCard
+      className={reserve}
       data-testid="needs-you-card"
       data-session={session.id}
       harness={session.harness}
@@ -98,7 +149,7 @@ const alsoDetail = (item: AlsoWaiting): string => {
   return item.kind === "in-terminal" ? "In your terminal" : "Interrupted when the daemon stopped";
 };
 
-const Also = ({ item }: { readonly item: AlsoWaiting }) => {
+const Also = ({ item, reserve }: { readonly item: AlsoWaiting; readonly reserve: string }) => {
   const { selectSession } = useShellActions();
   const { session } = item.entry;
   const id: SessionId = session.id;
@@ -120,6 +171,7 @@ const Also = ({ item }: { readonly item: AlsoWaiting }) => {
 
   return (
     <WaitingCard
+      className={reserve}
       data-testid="waiting-card"
       kind={item.kind}
       icon={ALSO[item.kind].icon}
@@ -165,8 +217,27 @@ const Empty = () => {
   );
 };
 
+/** "2 dismissed on this Mac · Show": what Dismiss hid, and the way back. */
+const DismissedLine = ({ hidden }: { readonly hidden: number }) =>
+  hidden === 0 ? null : (
+    <p
+      className="text-caption text-text-subtle flex items-center gap-1.5 px-1.5 pt-2"
+      data-testid="dismissed-line"
+    >
+      {hidden} dismissed on this Mac
+      <span className="text-text-faint">·</span>
+      <button
+        type="button"
+        className="text-text-default cursor-default font-medium hover:underline hover:underline-offset-2"
+        onClick={restoreDismissed}
+      >
+        Show
+      </button>
+    </p>
+  );
+
 export const NeedsYouInbox = () => {
-  const all = useInbox();
+  const { inbox: all, hidden } = useInboxView();
   const constellations = useConstellationInbox();
   const now = useNow(30_000);
   const reviews = useRequestedCount();
@@ -178,17 +249,43 @@ export const NeedsYouInbox = () => {
     also: all.also.filter((a) => !constellations.sessions.has(a.key)),
   };
 
+  const items: ReadonlyArray<Dismissible> = [...inbox.waiting, ...inbox.also];
+
   const nothing =
     constellations.groups.length === 0 &&
-    inbox.waiting.length === 0 &&
-    inbox.also.length === 0 &&
+    items.length === 0 &&
     inbox.answered.length === 0 &&
     reviews === 0;
 
-  if (nothing) return <Empty />;
+  if (nothing) {
+    return (
+      <div className="flex flex-col">
+        <Empty />
+        <div className="flex justify-center px-2">
+          <DismissedLine hidden={hidden} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-2 px-2 pt-2 pb-4" data-testid="needs-you-inbox">
+      {items.length === 0 ? null : (
+        <div className="flex items-center gap-2 pl-1.5">
+          <span className="text-caption text-text-subtle tabular flex-1">
+            {items.length} waiting
+          </span>
+          <Button
+            variant="ghost"
+            size="xs"
+            data-testid="dismiss-all"
+            title="Dismiss every item on this Mac · each comes back if its session changes"
+            onClick={() => dismiss(items)}
+          >
+            Dismiss all
+          </Button>
+        </div>
+      )}
       {inbox.answered.map((item) => (
         <Answered key={item.key} item={item} />
       ))}
@@ -197,14 +294,19 @@ export const NeedsYouInbox = () => {
         <p className="text-caption text-text-subtle px-1.5 pt-2.5 pb-0.5">Sessions</p>
       ) : null}
       {inbox.waiting.map((item) => (
-        <Waiting key={item.key} item={item} now={now} />
+        <Dismissable key={item.key} item={item}>
+          {(reserve) => <Waiting item={item} now={now} reserve={reserve} />}
+        </Dismissable>
       ))}
       {inbox.also.length === 0 ? null : (
         <p className="text-caption text-text-subtle px-1.5 pt-2.5 pb-0.5">Also waiting on you</p>
       )}
       {inbox.also.map((item) => (
-        <Also key={item.key} item={item} />
+        <Dismissable key={item.key} item={item}>
+          {(reserve) => <Also item={item} reserve={reserve} />}
+        </Dismissable>
       ))}
+      <DismissedLine hidden={hidden} />
       <ReviewsGroup />
     </div>
   );

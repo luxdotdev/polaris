@@ -2,12 +2,13 @@ import { useEffect, useMemo } from "react";
 import { useApp, useSelection } from "../../../shell/hooks.ts";
 import { useAllConstellations } from "../../sessions/source.ts";
 import { publishSummary } from "../bridge.ts";
-import { useInboxUntimed } from "../hooks.ts";
+import { pruneDismissed } from "../dismissed.ts";
+import { useInboxUntimedView } from "../hooks.ts";
 import { toSummary, turnsOf } from "../model/summary.ts";
 
 /** Mounted once in the app: keeps the main process's Needs You summary current. */
 export const NeedsYouPublisher = () => {
-  const inbox = useInboxUntimed();
+  const { inbox, current } = useInboxUntimedView();
   const { pane, mode, settings, hostKey, sessionId } = useSelection();
   const hosts = useApp((s) => s.hosts);
   const models = useApp((s) => s.hostModels);
@@ -23,6 +24,8 @@ export const NeedsYouPublisher = () => {
   }, [inbox, pane, mode, settings, hostKey, sessionId, turns]);
 
   useEffect(() => publishSummary(summary), [summary]);
+  // Dismissals whose session changed since are dropped, so the item stays back.
+  useEffect(() => pruneDismissed(current), [current]);
 
   return null;
 };
