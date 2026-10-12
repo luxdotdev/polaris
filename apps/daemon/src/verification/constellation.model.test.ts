@@ -193,7 +193,15 @@ const claimStep = (ref: Reference, taskId: TaskId, index: number): Step => {
       mutable &&
       (attempt?.state === "working" ||
         (attempt?.state === "review" &&
-          attempt.head !== (index % 2 === 0 ? "head" : "revised-head"))),
+          attempt.head !== (index % 2 === 0 ? "head" : "revised-head"))) &&
+      // A head an earlier Attempt on this Task had sent back needs a disposition; these Claims carry none.
+      ![...ref.attempts.values()].some(
+        (a) =>
+          a.taskId === taskId &&
+          a.id !== attempt?.id &&
+          a.state === "rejected" &&
+          a.head === (index % 2 === 0 ? "head" : "revised-head")
+      ),
   };
 };
 

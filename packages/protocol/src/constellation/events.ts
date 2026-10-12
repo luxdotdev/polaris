@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 import { HostId, SessionId, TurnId, Timestamp } from "../ids.ts";
 import { optionalNullable } from "../models.ts";
 import { ConstellationCommand, MessageAuthority, MessageTarget } from "./commands.ts";
@@ -13,13 +13,21 @@ import {
   ConstellationNotification,
   ConstellationState,
   EvidenceTier,
+  FailureKind,
   HostResource,
   ResourceLease,
   Revision,
+  StallAudit,
   Task,
   TaskDefinition,
   TaskId,
 } from "./domain.ts";
+
+/** A boolean added after logs were written: absent decodes and constructs as false. */
+const addedFalse = Schema.Boolean.pipe(
+  Schema.withDecodingDefaultKey(Effect.succeed(false)),
+  Schema.withConstructorDefault(Effect.succeed(false))
+);
 
 const graph = { constellationId: ConstellationId, revision: Revision };
 
@@ -97,14 +105,22 @@ export const constellationEventFields = {
     ...attempt,
     outcome: Schema.Literals(["lost", "failed"]),
     reason: Schema.String,
+    /** Classified from the Harness failure; null for a commanded or lost settle. */
+    failureKind: optionalNullable(FailureKind),
+    /** A capacity failure's Plan Limit reset, when known. Nothing redispatches at it. */
+    resetsAt: optionalNullable(Timestamp),
   },
   GatePromoted: task,
   NotificationQueued: { ...graph, notification: Schema.suspend(() => ConstellationNotification) },
+  /** `steered` lands the digest in the Lead's working Turn; otherwise `turnId` is a new Turn. */
   LeadNotified: {
     ...graph,
     leadSessionId: SessionId,
     items: Schema.Array(Schema.String),
     turnId: TurnId,
+    steered: addedFalse,
+    /** A stall audit delivered with (or instead of) items; null when nothing stalled. */
+    audit: optionalNullable(Schema.suspend(() => StallAudit)),
   },
   OperatorMessageSent: {
     ...graph,

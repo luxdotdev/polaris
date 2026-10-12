@@ -29,6 +29,7 @@ export interface RefAttempt {
   handedUp: string | null;
   nudged: string | null;
   rejectionReason: string | null;
+  failureKind: string | null;
   blockedOn: ReadonlyArray<string>;
   blockedReason: string | null;
   blockedAt: string | null;
@@ -77,6 +78,7 @@ const refAttempt = (attempt: import("@polaris/protocol").Attempt): RefAttempt =>
   handedUp: attempt.handedUpAt,
   nudged: attempt.nudgedAt,
   rejectionReason: attempt.rejectionReason,
+  failureKind: attempt.failureKind,
   blockedOn: attempt.blockedOn,
   blockedReason: attempt.blockedReason,
   blockedAt: attempt.blockedAt,
@@ -167,7 +169,11 @@ export const foldReference = (ref: Reference, events: ReadonlyArray<DomainEvent>
       AttemptNudged: (e) => patch(ref, e, { nudged: e.at }),
       AttemptAccepted: (e) => patch(ref, e, { state: "accepted", evidence: e.evidence }),
       AttemptRejected: (e) => patch(ref, e, { state: "rejected", rejectionReason: e.reason }),
-      AttemptSettled: (e) => patch(ref, e, { state: e.outcome }),
+      AttemptSettled: (e) => {
+        if ((e.outcome === "failed") === (e.failureKind === null))
+          throw new Error("reference: a failed settle carries one kind, a lost settle none");
+        patch(ref, e, { state: e.outcome, failureKind: e.failureKind });
+      },
       GatePromoted: (e) => {
         if (ref.promoted.has(e.taskId)) throw new Error("reference: gate promoted twice");
         const task = ref.tasks.get(e.taskId);
@@ -187,6 +193,8 @@ export const foldReference = (ref: Reference, events: ReadonlyArray<DomainEvent>
       },
       LeadNotified: (e) => {
         if (e.leadSessionId !== ref.lead) throw new Error("reference: old lead delivery");
+
+        if (e.items.length === 0 && e.audit === null) throw new Error("reference: empty delivery");
 
         for (const id of e.items) {
           if (!ref.pending.delete(id)) throw new Error("reference: duplicate delivery");

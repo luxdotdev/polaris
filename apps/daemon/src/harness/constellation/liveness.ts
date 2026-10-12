@@ -100,12 +100,18 @@ export const restoreLiveness = (
   );
 
 /** Evaluate when viewed; queued input comes from the owning Engine's delivery journal. */
-export const projectLiveness = (facts: LivenessFacts, now: number, queuedInput: number) => {
+export const projectLiveness = (
+  facts: LivenessFacts,
+  now: number,
+  queuedInput: number,
+  activeTurn?: boolean
+) => {
   const current = [...facts.activities.values()].at(-1) ?? null;
 
   return {
     current:
       current === null ? null : { ...current, elapsedMs: Math.max(0, now - current.startedAt) },
+    activeTurn,
     lastOutputAt: facts.lastOutputAt,
     contextPercent:
       facts.usedTokens === null || facts.windowTokens === null || facts.windowTokens <= 0

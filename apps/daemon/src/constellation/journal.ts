@@ -2,7 +2,9 @@ import {
   ConstellationEvent,
   type DomainEvent,
   type AttemptId,
+  type FailureKind,
   type SessionId,
+  type StallAudit,
   type TurnId,
   NotificationItem,
 } from "@polaris/protocol";
@@ -34,6 +36,8 @@ export type ConstellationJournalInput =
       readonly attemptId: AttemptId;
       readonly outcome: "lost" | "failed";
       readonly reason: string;
+      readonly failureKind?: FailureKind | null;
+      readonly resetsAt?: string | null;
     }
   | {
       readonly type: "notified";
@@ -41,6 +45,9 @@ export type ConstellationJournalInput =
       readonly items: ReadonlyArray<string>;
       readonly turnId: TurnId;
       readonly turnEvents: ReadonlyArray<DomainEvent>;
+      /** The digest lands in the Lead's working Turn `turnId`; no TurnStarted is committed. */
+      readonly steered?: boolean;
+      readonly audit?: StallAudit | null;
     }
   | {
       readonly type: "nudged";
@@ -78,9 +85,9 @@ const notified = (
       "Keep the notifications queued for the current Lead."
     );
   const pending = new Set(d.record.graph.pendingNotifications.map((n) => n.id));
+  const audit = input.audit ?? null;
 
   if (
-    input.items.length === 0 ||
     new Set(input.items).size !== input.items.length ||
     input.items.some((id) => !pending.has(id))
   )
@@ -90,11 +97,24 @@ const notified = (
       "Deliver each pending notification once."
     );
 
-  if (!hasTurn(input.turnEvents, input.leadSessionId, input.turnId))
+  if (input.items.length === 0 && (audit === null || audit.key === d.record.lastAudit))
+    d.reject(
+      "E-DELIVERY-EMPTY",
+      "Delivery carries no pending items and no new stall audit",
+      "Deliver pending notifications or a stall audit the Lead has not seen."
+    );
+
+  if (
+    input.steered === true
+      ? input.turnEvents.length > 0
+      : !hasTurn(input.turnEvents, input.leadSessionId, input.turnId)
+  )
     d.reject(
       "E-DELIVERY-TURN",
-      "Delivery requires its session-machine TurnStarted in this commit",
-      "Commit the digest Turn and LeadNotified atomically."
+      input.steered === true
+        ? "A steered delivery lands in the Lead's working Turn and starts none"
+        : "Delivery requires its session-machine TurnStarted in this commit",
+      "Commit the digest Turn and LeadNotified atomically, or steer into the working Turn."
     );
 
   d.emit(
@@ -103,6 +123,8 @@ const notified = (
       leadSessionId: input.leadSessionId,
       items: [...input.items],
       turnId: input.turnId,
+      steered: input.steered === true,
+      audit,
     })
   );
 };
@@ -180,6 +202,8 @@ const settle = (
         "An offline worker cannot settle mechanically",
         "Keep it stale until the Host returns or the user or Lead issues a command."
       );
+    const failureKind = input.outcome === "failed" ? (input.failureKind ?? "harness") : null;
+    const resetsAt = failureKind === "capacity" ? (input.resetsAt ?? null) : null;
     d.emit(
       ConstellationEvent.cases.AttemptSettled.make({
         ...d.fields(),
@@ -187,9 +211,18 @@ const settle = (
         attemptRevision: attempt.revision + 1,
         outcome: input.outcome,
         reason: input.reason,
+        failureKind,
+        resetsAt,
       })
     );
-    d.notify(NotificationItem.cases.Settled.make({ attemptId: attempt.id, state: input.outcome }));
+    d.notify(
+      NotificationItem.cases.Settled.make({
+        attemptId: attempt.id,
+        state: input.outcome,
+        failureKind,
+        resetsAt,
+      })
+    );
   }
 };
 

@@ -11,6 +11,7 @@ import {
   ReviewAction,
   SessionId,
   SetConstellationStateAction,
+  StallAudit,
   Turn,
   TurnId,
   WorkerPlacement,
@@ -79,22 +80,25 @@ test("complete committed trace includes questions, send-back, recovery, delivery
         constellationId: CID,
         attemptId: attempt.id,
         revision: attempt.revision,
-        action: ReviewAction.cases.Accept.make({ mergedHead: "head", receipts: [] }),
+        action: ReviewAction.cases.Accept.make({
+          mergedHead: attempt.claim?.head ?? "head",
+          receipts: [],
+        }),
       })
     );
   };
 
-  const claim = () => {
+  const claim = (head = "head") => {
     const attempt = graph().graph.attempts.at(-1)!;
     command(
       C.WorkerClaim.make({
         constellationId: CID,
         attemptId: attempt.id,
-        claim: report(attempt.branch),
+        claim: report(attempt.branch, head),
       }),
       ctx({
         binding: { kind: "session", sessionId: attempt.sessionId },
-        claimProbe: { dirtyPaths: [], branch: attempt.branch, head: "head" },
+        claimProbe: { dirtyPaths: [], branch: attempt.branch, head },
       })
     );
   };
@@ -162,6 +166,15 @@ test("complete committed trace includes questions, send-back, recovery, delivery
     turnEvents: [DomainEvent.cases.TurnStarted.make({ turn: nudgeTurn })],
   });
   claim();
+  // The Lead is mid-Turn: this digest is steered into that Turn and starts none.
+  journal({
+    type: "notified",
+    leadSessionId: LEAD,
+    turnId: TurnId.make("lead-working"),
+    items: graph().graph.pendingNotifications.map((n) => n.id),
+    turnEvents: [],
+    steered: true,
+  });
   const reviewAttempt = () => graph().graph.attempts.at(-1)!;
   command(
     C.Review.make({
@@ -233,7 +246,8 @@ test("complete committed trace includes questions, send-back, recovery, delivery
       }),
     ],
   });
-  claim();
+  // The retry fixes the sent-back head; re-claiming it would be refused (E-CLAIM-REJECTED-HEAD).
+  claim("head-b2");
   accept();
   command(C.Dispatch.make({ constellationId: CID }), ctx({ attempts: [draft(G, "g1", LEAD)] }));
   claim();
@@ -262,6 +276,7 @@ test("complete committed trace includes questions, send-back, recovery, delivery
     type: "notified",
     leadSessionId,
     turnId: digestId,
+    audit: new StallAudit({ key: "trace", working: [B], gates: [], lead: false }),
     items: graph().graph.pendingNotifications.map((n) => n.id),
     turnEvents: [
       DomainEvent.cases.TurnStarted.make({

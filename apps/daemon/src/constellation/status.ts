@@ -1,6 +1,14 @@
-import type { Task, Attempt, TaskDefinition } from "@polaris/protocol";
+import {
+  ConstellationEvent,
+  type Task,
+  type Attempt,
+  type EventEnvelope,
+  type TaskDefinition,
+} from "@polaris/protocol";
+import { Match } from "effect";
 import type { SessionRecord } from "../store/model.ts";
-import type { ConstellationRecord } from "../store/constellation.ts";
+import { graphEvent, type ConstellationRecord } from "../store/constellation.ts";
+import { capacityBlocked, failureKindLabel } from "./failureKind.ts";
 import { childTasks, isParent } from "./parents.ts";
 import { activeAttempt, latestAttempt, projectTask } from "./projections.ts";
 
@@ -54,6 +62,8 @@ const reviewLines = (attempt: Attempt, session?: SessionRecord): ReadonlyArray<s
     session.session.updatedAt > attempt.nudgedAt
   )
     lines.push("  Stopped without claiming · nudged once.");
+  else if (attempt.state === "working" && session !== undefined)
+    lines.push(...turnLines(attempt, session));
 
   if (attempt.state === "blocked")
     lines.push(
@@ -62,6 +72,29 @@ const reviewLines = (attempt: Attempt, session?: SessionRecord): ReadonlyArray<s
 
   return lines;
 };
+
+/** "working" is the Attempt's state; whether a Turn is in flight is a separate fact. */
+const turnLines = (attempt: Attempt, session: SessionRecord): ReadonlyArray<string> => {
+  if (session.turns.some((t) => t.status === "working")) return [];
+  const last = session.turns.findLast((t) => t.startedAt >= attempt.startedAt);
+
+  if (last === undefined) return ["  No Turn yet · the brief has not been delivered."];
+
+  return [
+    `  No active Turn · last Turn ${last.status}${last.endedAt === null ? "" : ` at ${last.endedAt}`}; the worker is waiting, not working.`,
+  ];
+};
+
+const failureLines = (attempt: Attempt): ReadonlyArray<string> =>
+  attempt.failureKind === "capacity"
+    ? [
+        `  ${capacityBlocked(attempt.resetsAt)}${attempt.settleReason === null ? "" : `: ${attempt.settleReason.replace(/\s+/g, " ").trim()}`} · not redispatched automatically`,
+      ]
+    : attempt.state === "failed" || attempt.state === "lost"
+      ? [
+          `  ${attempt.state}${attempt.failureKind === null ? "" : ` · ${failureKindLabel(attempt.failureKind)}`}${attempt.settleReason === null ? "" : `: ${attempt.settleReason.replace(/\s+/g, " ").trim()}`}`,
+        ]
+      : [];
 
 const rejectionLines = (record: ConstellationRecord, task: Task): ReadonlyArray<string> => {
   const lines: string[] = [];
@@ -105,6 +138,7 @@ const taskLines = (
     );
 
     lines.push(...reviewLines(attempt, sessions?.get(attempt.sessionId)));
+    lines.push(...failureLines(attempt));
 
     if (attempt.claim !== null && attempt.state === "review")
       lines.push(
@@ -192,4 +226,103 @@ export const statusOutline = (
     lines.push("All tasks are done. The lead or user can complete the constellation.");
 
   return lines.join("\n");
+};
+
+const first = (text: string) => text.split("\n")[0]?.trim() ?? "";
+
+/** One line per graph event, in the Lead's words; internal bookkeeping stays out. */
+const eventLine = (record: ConstellationRecord, e: ConstellationEvent): string | null => {
+  const task = (id: string) => record.graph.attempts.find((a) => a.id === id)?.taskId ?? id;
+
+  return ConstellationEvent.match(e, {
+    ConstellationStarted: () => "Constellation started.",
+    ConstellationStateChanged: (x) => `Constellation ${x.state}.`,
+    LeadHandoverRequested: (x) => `Handover requested by ${x.from}.`,
+    LeadHandoverCancelled: (x) => `Handover cancelled: ${x.reason}.`,
+    LeadChanged: (x) => `Lead changed to ${x.to}.`,
+    TaskDeclared: (x) => `${x.task.id} declared · ${x.task.title}.`,
+    TaskEdited: (x) => `${x.task.id} edited · deps ${x.task.deps.join(", ") || "none"}.`,
+    TaskCanceled: (x) => `${x.taskId} canceled.`,
+    TaskProposed: (x) => `${task(x.by)} proposed ${x.task.id} · ${x.task.title}.`,
+    ProposalAccepted: (x) => `Proposal accepted: ${x.task.id}.`,
+    ProposalDeclined: (x) => `Proposal declined: ${first(x.reason)}.`,
+    AttemptStarted: (x) =>
+      `${x.attempt.taskId}: ${x.attempt.id} started on ${x.attempt.sessionId} (${x.attempt.cause._tag}).`,
+    AttemptProgressed: (x) => `${task(x.attemptId)}: progress · ${first(x.note)}.`,
+    AttemptClaimed: (x) =>
+      `${task(x.attemptId)}: claimed ${x.claim.head} · ${first(x.claim.summary)}.`,
+    ClaimApproved: (x) => `${task(x.attemptId)}: approved by the user.`,
+    ClaimHandedUp: (x) => `${task(x.attemptId)}: handed up to the user.`,
+    AttemptBlocked: (x) =>
+      `${task(x.attemptId)}: blocked${x.on.length === 0 ? " awaiting the Lead" : ` by ${x.on.join(", ")}`} · ${first(x.reason)}.`,
+    AttemptUnblocked: (x) => `${task(x.attemptId)}: unblocked (${x.cause}).`,
+    AttemptNudged: (x) => `${task(x.attemptId)}: nudged after a silent end.`,
+    AttemptInterrupted: (x) => `${task(x.attemptId)}: Turn interrupted by a Daemon restart.`,
+    AttemptStale: (x) => `${task(x.attemptId)}: Host offline.`,
+    AttemptFresh: (x) => `${task(x.attemptId)}: Host back.`,
+    AttemptAccepted: (x) => `${task(x.attemptId)}: accepted at ${x.mergedHead} (${x.evidence}).`,
+    AttemptRejected: (x) => `${task(x.attemptId)}: sent back · ${first(x.reason)}.`,
+    AttemptSettled: (x) =>
+      `${task(x.attemptId)}: ${x.outcome}${x.failureKind === null ? "" : ` · ${failureKindLabel(x.failureKind)}`} · ${first(x.reason)}.`,
+    GatePromoted: (x) => `Gate ${x.taskId} is ready: every dependency accepted.`,
+    NotificationQueued: () => null,
+    LeadNotified: (x) =>
+      `Digest ${x.steered ? "steered into your Turn" : "delivered"} · ${x.items.length} item(s)${x.audit === null ? "" : " · stall audit"}.`,
+    OperatorMessageSent: (x) =>
+      `Message ${x.id} to ${Match.value(x.target).pipe(
+        Match.tag("Lead", () => "you"),
+        Match.tag("All", () => "all workers"),
+        Match.tag("Worker", (t) => task(t.attemptId)),
+        Match.exhaustive
+      )} · ${first(x.text)}.`,
+    WorkerInputDelivered: () => null,
+    OperatorMessageResolved: () => null,
+    PeerMessage: (x) => `${task(x.from)} → ${task(x.to)}: ${first(x.text)}.`,
+    AttemptRecoveryContinued: (x) => `${task(x.attemptId)}: continued after a Daemon restart.`,
+  });
+};
+
+/** What changed after a graph revision, then where things stand; for a Lead that already knows the rest. */
+export const statusSince = (
+  record: ConstellationRecord,
+  events: ReadonlyArray<EventEnvelope>,
+  since: number,
+  sessions?: ReadonlyMap<Attempt["sessionId"], SessionRecord>
+): string => {
+  const { graph } = record;
+
+  const changes = events.flatMap((envelope) => {
+    const event = graphEvent(envelope.event);
+
+    if (event === null || event.revision <= since) return [];
+    const text = eventLine(record, event);
+
+    return text === null ? [] : [`${event.revision} · ${envelope.occurredAt} · ${text}`];
+  });
+
+  const ready = graph.tasks
+    .filter((task) => !isParent(graph, task.id) && projectTask(record, task).state === "ready")
+    .map((task) => task.id);
+
+  const stalled = graph.attempts.filter(
+    (a) =>
+      a.state === "working" &&
+      !sessions?.get(a.sessionId)?.turns.some((t) => t.status === "working")
+  );
+
+  return [
+    `${graph.name} · ${graph.state} · revision ${graph.revision} · changes since revision ${since}: ${changes.length}`,
+    ...(changes.length === 0 ? ["Nothing changed."] : changes),
+    `In review: ${
+      graph.attempts
+        .filter((a) => a.state === "review")
+        .map((a) => a.taskId)
+        .join(", ") || "none"
+    }`,
+    `Ready: ${ready.length > 0 ? ready.join(", ") : "none"}`,
+    ...(sessions === undefined || stalled.length === 0
+      ? []
+      : [`Working with no active Turn: ${stalled.map((a) => a.taskId).join(", ")}`]),
+    `Lead updates queued: ${graph.pendingNotifications.length}`,
+  ].join("\n");
 };

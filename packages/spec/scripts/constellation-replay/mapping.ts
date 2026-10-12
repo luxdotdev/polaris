@@ -215,7 +215,7 @@ export const mapGraphEvent = (
       AttemptProgressed: ({ attemptId }) => record(`AttemptProgressed(${g.attemptId(attemptId)})`),
       AttemptClaimed: ({ attemptId, claim }) =>
         record(
-          `AttemptClaimed({ attempt: ${g.attemptId(attemptId)}, sha: ${g.heads.id(claim.head)} })`
+          `AttemptClaimed({ attempt: ${g.attemptId(attemptId)}, sha: ${g.heads.id(claim.head)}, disposed: ${claim.decisions.some((decision) => decision.includes(claim.head))} })`
         ),
       ClaimApproved: ({ attemptId }) => record(`ClaimApproved(${g.attemptId(attemptId)})`),
       ClaimHandedUp: ({ attemptId }) => record(`ClaimHandedUp(${g.attemptId(attemptId)})`),
@@ -239,7 +239,7 @@ export const mapGraphEvent = (
         record(
           `AttemptRejected({ attempt: ${g.attemptId(attemptId)}, reason: ${quintText(reason)} })`
         ),
-      AttemptSettled: ({ attemptId, outcome }) => {
+      AttemptSettled: ({ attemptId, outcome, failureKind }) => {
         if (context === undefined)
           throw new Error(
             "AttemptSettled requires batch.context (offlineSessionIds and commanded)"
@@ -248,7 +248,7 @@ export const mapGraphEvent = (
         const stale = worker !== undefined && context.offlineSessionIds.includes(worker);
 
         return record(
-          `AttemptSettled({ attempt: ${g.attemptId(attemptId)}, outcome: ${JSON.stringify(outcome)}, stale: ${stale}, commanded: ${context.commanded} })`
+          `AttemptSettled({ attempt: ${g.attemptId(attemptId)}, outcome: ${JSON.stringify(outcome)}, stale: ${stale}, commanded: ${context.commanded}, kind: ${JSON.stringify(failureKind ?? "")} })`
         );
       },
       GatePromoted: ({ taskId }) => record(`GatePromoted(${g.tasks.id(taskId)})`),
@@ -263,12 +263,12 @@ export const mapGraphEvent = (
           `NotificationQueued({ id: ${g.notifications.id(notification.id)}, kind: ${JSON.stringify(kind)} })`
         );
       },
-      LeadNotified: ({ items, leadSessionId }) => {
+      LeadNotified: ({ items, leadSessionId, steered, audit }) => {
         if (new Set(items).size !== items.length)
           throw new Error("LeadNotified repeats a notification ID");
 
         return record(
-          `LeadNotified({ ids: Set(${items.map((id) => g.notifications.id(id)).join(", ")}), lead: ${g.sessions.id(leadSessionId)} })`
+          `LeadNotified({ ids: Set(${items.map((id) => g.notifications.id(id)).join(", ")}), lead: ${g.sessions.id(leadSessionId)}, steered: ${steered}, audit: Set(${(audit?.gates ?? []).map((id) => g.tasks.id(id)).join(", ")}) })`
         );
       },
       AttemptRecoveryContinued: ({ attemptId, interruptionId }) =>

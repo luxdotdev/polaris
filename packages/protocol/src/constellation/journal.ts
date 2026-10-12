@@ -43,13 +43,18 @@ export class PendingOperatorMessage extends Schema.Class<PendingOperatorMessage>
   at: Timestamp,
 }) {}
 
-/** One digest Turn (LeadNotified) with the notifications it delivered. */
+/**
+ * One digest (LeadNotified) with the notifications it delivered. `steered` false: Polaris
+ * started `turnId` for it. `steered` true: it landed in `turnId`, a Turn already running.
+ */
 export class ConstellationDigest extends Schema.Class<ConstellationDigest>("ConstellationDigest")({
   turnId: TurnId,
   leadSessionId: SessionId,
   revision: Revision,
   at: Timestamp,
   items: Schema.Array(ConstellationNotification),
+  /** Absent from older Daemons and Client folds: read absent as false. */
+  steered: Schema.optionalKey(Schema.Boolean),
 }) {}
 
 /** A handover (LeadChanged) and the graph as it stood at the switch (C9's structured part). */

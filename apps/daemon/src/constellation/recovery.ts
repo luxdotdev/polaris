@@ -8,6 +8,7 @@ import { ConstellationSessionEffects, type RecoveryCandidate } from "./delivery/
 import { commitJournal, journalContext } from "./delivery/journal.ts";
 import { ConstellationDelivery } from "./delivery/index.ts";
 import { startedTurn } from "./delivery/turns.ts";
+import { sessionRestartNote } from "./restartNote.ts";
 
 export const RECOVERY_PROMPT = "The Daemon restarted; continue your Task";
 
@@ -30,6 +31,7 @@ export const recoverAttempt = Effect.fn("Constellation.recoverAttempt")(function
   const store = yield* EventStore;
   const hostId = yield* ConstellationOwner;
   const effects = yield* ConstellationSessionEffects;
+  const note = yield* sessionRestartNote(store, candidate.sessionId);
 
   const commit = yield* store.commit({
     commandId: null,
@@ -93,7 +95,11 @@ export const recoverAttempt = Effect.fn("Constellation.recoverAttempt")(function
   if (Predicate.isTagged(commit, "Committed")) {
     const turn = startedTurn(commit.envelopes.map((e) => e.event));
 
-    if (turn !== undefined) yield* effects.runTurn(turn, RECOVERY_PROMPT);
+    if (turn !== undefined)
+      yield* effects.runTurn(
+        turn,
+        note === null ? RECOVERY_PROMPT : `${RECOVERY_PROMPT}\n\n${note}`
+      );
   }
 });
 

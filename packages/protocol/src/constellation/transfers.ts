@@ -4,7 +4,7 @@ import { optionalNullable } from "../models.ts";
 import { Rpc, RpcGroup } from "effect/rpc";
 import { WorkerPlacement } from "./commands.ts";
 import { BlobId, SessionId, HostId } from "../ids.ts";
-import { TurnItem } from "../domain.ts";
+import { PermissionMode, TurnItem } from "../domain.ts";
 import {
   Attempt,
   AttemptId,
@@ -87,6 +87,8 @@ export class RemotePlacementRequest extends Schema.Class<RemotePlacementRequest>
   baseHead: Schema.NonEmptyString,
   worktreeSetup: optionalNullable(WorktreeSetup),
   forceSetup: optionalNullable(Schema.Boolean),
+  /** The Lead's permission mode on the owner: the worker's ceiling; null from an older owner. */
+  leadPermissionMode: optionalNullable(PermissionMode),
 }) {}
 
 export const RemotePlacementResponse = Schema.TaggedUnion({

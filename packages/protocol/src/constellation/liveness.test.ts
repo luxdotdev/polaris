@@ -111,3 +111,12 @@ test("unknown context/output remain null and invalid observed counters are rejec
   expect(() => decode({ ...unknown, contextPercent: 101 })).toThrow();
   expect(() => decode({ ...unknown, lastOutputAt: -1 })).toThrow();
 });
+
+test("activeTurn is absent from an older Daemon and decodes as unknown", () => {
+  const encoded = Schema.encodeSync(WorkerLiveness)(liveness);
+  expect("activeTurn" in encoded).toBe(false);
+  expect(Schema.decodeUnknownSync(WorkerLiveness)(encoded).activeTurn).toBeUndefined();
+  expect(
+    Schema.decodeUnknownSync(WorkerLiveness)({ ...encoded, activeTurn: false }).activeTurn
+  ).toBe(false);
+});

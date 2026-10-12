@@ -1,5 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { ConstellationQuestion, DomainEvent, SessionId, Turn, TurnId } from "@polaris/protocol";
+import {
+  ConstellationQuestion,
+  DomainEvent,
+  SessionId,
+  StallAudit,
+  Turn,
+  TurnId,
+} from "@polaris/protocol";
+import { Predicate } from "effect";
 import {
   AT,
   C,
@@ -73,6 +81,108 @@ describe("Constellation delivery journal", () => {
     expect(nudged.graph.attempts[0]?.nudgedAt).toBe(AT);
     expect(nudged.graph.attempts[0]?.state).toBe("working");
     expect(decideConstellationJournal(nudged, input, ctx()).events).toEqual([]);
+  });
+  test("a steered digest lands in the Lead's working Turn and starts none; an empty digest is refused", () => {
+    const record = claimed();
+    const items = record.graph.pendingNotifications.map((n) => n.id);
+    const base = { type: "notified" as const, leadSessionId: LEAD, turnId: TurnId.make("live") };
+
+    const steered = decideConstellationJournal(
+      record,
+      { ...base, items, turnEvents: [], steered: true },
+      ctx()
+    );
+
+    expect(steered.rejection).toBeNull();
+    const after = foldDecision(record, steered.events);
+    expect(after.graph.pendingNotifications).toEqual([]);
+    expect(after.steeredDigests.has(TurnId.make("live"))).toBe(true);
+    expect(after.digests[0]?.turnId).toBe(TurnId.make("live"));
+    expect(after.digests[0]?.steered).toBe(true);
+
+    expect(
+      decideConstellationJournal(
+        record,
+        { ...base, items, turnEvents: turnEvents(LEAD, "live"), steered: true },
+        ctx()
+      ).rejection?.findings.map((f) => f.code)
+    ).toEqual(["E-DELIVERY-TURN"]);
+
+    expect(
+      decideConstellationJournal(
+        after,
+        { ...base, items: [], turnEvents: turnEvents(LEAD, "empty"), turnId: TurnId.make("empty") },
+        ctx()
+      ).rejection?.findings.map((f) => f.code)
+    ).toEqual(["E-DELIVERY-EMPTY"]);
+
+    const audit = new StallAudit({ key: "k1", working: [], gates: [], lead: true });
+
+    const audited = decideConstellationJournal(
+      after,
+      {
+        ...base,
+        items: [],
+        turnEvents: turnEvents(LEAD, "audit"),
+        turnId: TurnId.make("audit"),
+        audit,
+      },
+      ctx()
+    );
+
+    expect(audited.rejection).toBeNull();
+    const noted = foldDecision(after, audited.events);
+    expect(noted.lastAudit).toBe("k1");
+    expect(
+      decideConstellationJournal(
+        noted,
+        {
+          ...base,
+          items: [],
+          turnEvents: turnEvents(LEAD, "again"),
+          turnId: TurnId.make("again"),
+          audit,
+        },
+        ctx()
+      ).rejection?.findings.map((f) => f.code)
+    ).toEqual(["E-DELIVERY-EMPTY"]);
+  });
+  test("a failed settle carries its classified kind; a lost settle carries none", () => {
+    const record = dispatched();
+    const attempt = record.graph.attempts[0]!;
+
+    const failed = decideConstellationJournal(
+      record,
+      {
+        type: "settle",
+        attemptId: attempt.id,
+        outcome: "failed",
+        reason: "Selected model is at capacity.",
+        failureKind: "capacity",
+      },
+      ctx()
+    );
+
+    expect(failed.rejection).toBeNull();
+    const settled = foldDecision(record, failed.events);
+    expect(settled.graph.attempts[0]?.failureKind).toBe("capacity");
+    expect(settled.graph.attempts[0]?.settleReason).toBe("Selected model is at capacity.");
+    const note = settled.graph.pendingNotifications.at(-1)!.item;
+    expect(Predicate.isTagged(note, "Settled") && note.failureKind).toBe("capacity");
+
+    const lost = decideConstellationJournal(
+      record,
+      {
+        type: "settle",
+        attemptId: attempt.id,
+        outcome: "lost",
+        reason: "stopped",
+        failureKind: "capacity",
+      },
+      ctx({ commanded: true })
+    );
+
+    expect(foldDecision(record, lost.events).graph.attempts[0]?.failureKind).toBeNull();
   });
   test("delivery consumes pending IDs once and requires the matching current Lead Turn atomically", () => {
     const record = claimed();
