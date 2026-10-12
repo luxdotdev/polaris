@@ -16,6 +16,7 @@ import { polaris } from "../../../bridge.ts";
 import { toplevelOf } from "../data/fetch.ts";
 import { explorerKey, explorerOf, subscribeExplorers } from "../data/store.ts";
 import { type EditorFile, editorFile } from "../../index.ts";
+import { gitMarks, ignoredAt } from "../model/git.ts";
 import { type GutterMark, gutterMarks, linesOf } from "../model/lineDiff.ts";
 import { dirname, isUnder, relative } from "../model/paths.ts";
 
@@ -110,7 +111,12 @@ const shown = StateField.define<RangeSet<GutterMarker>>({
  * for a file outside it (another checkout's tab), that file's own repository.
  */
 type Where =
-  | { readonly kind: "explorer"; readonly toplevel: string; readonly head: string | null }
+  | {
+      readonly kind: "explorer";
+      readonly toplevel: string;
+      readonly head: string | null;
+      readonly ignored: boolean;
+    }
   | { readonly kind: "own" };
 
 /** Null while the explorer's git status is still unknown. */
@@ -120,11 +126,30 @@ const whereOf = (file: EditorFile): Where | null => {
   if (git === null) return null;
 
   return git !== "none" && isUnder(file.path, git.toplevel)
-    ? { kind: "explorer", toplevel: git.toplevel, head: git.head }
+    ? {
+        kind: "explorer",
+        toplevel: git.toplevel,
+        head: git.head,
+        ignored: ignoredAt(git.marks, file.path, git.toplevel),
+      }
     : { kind: "own" };
 };
 
-const whereKey = (where: Where) => (where.kind === "own" ? "own" : `head:${where.head ?? ""}`);
+const whereKey = (where: Where) =>
+  where.kind === "own" ? "own" : where.ignored ? "ignored" : `head:${where.head ?? ""}`;
+
+/** Outside the explorer's repository the tree's marks don't reach, so ask that one's status. */
+const ignoredIn = async (file: EditorFile, toplevel: string) => {
+  const result = await polaris().request("git.status", {
+    hostKey: file.hostKey,
+    cwd: toplevel,
+    ignored: true,
+  });
+
+  return (
+    result.ok && ignoredAt(gitMarks(toplevel, toplevel, result.value.entries), file.path, toplevel)
+  );
+};
 
 const show = async (file: EditorFile, toplevel: string, revision: string) => {
   const result = await polaris().request("git.show", {
@@ -141,12 +166,19 @@ const show = async (file: EditorFile, toplevel: string, revision: string) => {
 };
 
 const fetchBase = async (file: EditorFile, where: Where): Promise<ReadonlyArray<string> | null> => {
-  if (where.kind === "explorer")
+  if (where.kind === "explorer") {
+    if (where.ignored) return null;
+
     return where.head === null ? [] : show(file, where.toplevel, where.head);
+  }
 
   const toplevel = await toplevelOf(file.hostKey, dirname(file.path));
 
-  return toplevel === null ? null : show(file, toplevel, "HEAD");
+  if (toplevel === null) return null;
+  const base = await show(file, toplevel, "HEAD");
+
+  // Not at HEAD: new, unless git ignores it.
+  return base?.length === 0 && (await ignoredIn(file, toplevel)) ? null : base;
 };
 
 /** The file's base as lines; null when git has none for it (outside a repo, binary). */

@@ -6,6 +6,7 @@
 import * as P from "@polaris/protocol";
 import { Match, Predicate } from "effect";
 import { LANGUAGES, LANGUAGE_IDS, type LanguageId } from "../../editor/model/language.ts";
+import { rowKeyOf } from "./rowKey.ts";
 
 type Catalog = P.LanguageCatalog;
 
@@ -276,9 +277,7 @@ export const languageRows = (
   const groups = new Map<string, Integration[]>();
 
   for (const integration of catalog.integrations.filter(offered)) {
-    const key = ["json", "css", "html", "actions"].includes(integration.id)
-      ? integration.id
-      : (integration.providers[0]?.tool ?? integration.id);
+    const key = rowKeyOf(integration);
 
     groups.set(key, [...(groups.get(key) ?? []), integration]);
   }

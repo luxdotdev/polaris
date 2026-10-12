@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { catalog, facts } from "./fixture.testing.ts";
 import { languageRows, rowEnabled, syntaxOnly, syntaxOnlyLine } from "./model.ts";
+import { rowCount } from "./rowKey.ts";
 
 const rows = (download = true) =>
   languageRows(catalog, facts(), { host: "this Mac", downloadAutomatically: download });
@@ -23,6 +24,10 @@ describe("languageRows", () => {
       "Rust",
       "Go",
     ]);
+  });
+
+  test("the smoke's row count from the catalog matches the rows", () => {
+    expect(rowCount(catalog.integrations)).toBe(rows().length);
   });
 
   test("states read as the mockup's caption lines", () => {

@@ -17,7 +17,7 @@ import { LanguageDiagnosticFeed, cmDiagnostics } from "./diagnostics.ts";
 import { completionSource, hoverExtension } from "./codemirror.ts";
 import { documentLanguageId, type LanguageBuffer } from "./types.ts";
 import { readLanguageConfiguration } from "./configuration.ts";
-import { pruneLanguageGroups, admitLanguageGroup } from "./groups.ts";
+import { pruneLanguageGroups, admitLanguageGroup, contextIdOf } from "./groups.ts";
 import { EditorLanguageObservations } from "./observations.ts";
 import { EditorLanguageSession } from "./sessions.ts";
 import { languagePatch, languageStore } from "./state.ts";
@@ -515,7 +515,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
         file.hostKey,
         {
           clientId: identity.clientId,
-          contextId: `editor-${crypto.randomUUID()}`,
+          contextId: contextIdOf(groupKey),
           checkout,
           path: file.path,
           providerId: id,
