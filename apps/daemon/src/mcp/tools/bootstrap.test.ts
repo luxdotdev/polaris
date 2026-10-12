@@ -62,6 +62,8 @@ for (const kind of ["codex", "claude"] as const) {
               "message",
               "status",
               "set_state",
+              "read_worker",
+              "wait_for_command",
             ]);
             expect(names).not.toContain("claim");
             expect(names).not.toContain("ask");

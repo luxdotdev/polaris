@@ -32,6 +32,7 @@ test("worker tools cannot forge role, Constellation, Attempt or operator authori
     "propose",
     "message",
     "status",
+    "wait_for_command",
   ]);
 
   for (const fields of [

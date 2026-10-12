@@ -34,7 +34,7 @@ test("every mutating tool takes requestId; status doesn't", () => {
 
       expect([tool.name, properties.includes("requestId")]).toEqual([
         tool.name,
-        tool.name !== "status",
+        !["status", "read_worker", "wait_for_command"].includes(tool.name),
       ]);
     }
 });

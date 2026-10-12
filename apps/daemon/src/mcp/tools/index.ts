@@ -5,6 +5,8 @@ import { leadTools } from "./lead.ts";
 import { workerTools } from "./worker.ts";
 import { resolvers } from "./resolve.ts";
 import { CallCommandId, idempotency, type Idempotency } from "./idempotency.ts";
+import { readWorkerTool, waitForCommandTool } from "./session.ts";
+import { unavailableSessions, type SessionTools } from "../sessions/index.ts";
 import {
   toolFactory,
   rejection,
@@ -30,6 +32,13 @@ const idsFor = (commands: ConstellationCommands) => {
   idsByCommands.set(commands, ids);
 
   return ids;
+};
+
+const sessionsByCommands = new WeakMap<ConstellationCommands, SessionTools>();
+
+/** The session tools that serve catalogs over these commands; `mcpHttp` registers the Daemon's. */
+export const attachSessionTools = (commands: ConstellationCommands, sessions: SessionTools) => {
+  sessionsByCommands.set(commands, sessions);
 };
 
 /** E reauthorizes the authenticated session under the store lock on every command. */
@@ -59,9 +68,21 @@ export const constellationTools = (
     { json: (input) => input.json ?? false }
   );
 
-  return McpBinding.match(binding, {
+  const sessions = sessionsByCommands.get(commands) ?? unavailableSessions;
+  const wait = waitForCommandTool(binding.sessionId, sessions);
+
+  const lead = (): ReadonlyArray<BoundTool> => {
+    const resolve = resolvers(binding, commands);
+
+    return [
+      ...leadTools(binding, define, submit, resolve, status),
+      readWorkerTool(binding, commands, resolve, sessions),
+    ];
+  };
+
+  const catalog = McpBinding.match(binding, {
     Plain: () =>
-      leadTools(binding, define, submit, resolvers(binding, commands), status).map((tool) => ({
+      lead().map((tool): BoundTool => ({
         ...tool,
         call: (input) =>
           tool.call(input).then((result) => {
@@ -81,7 +102,9 @@ export const constellationTools = (
             );
           }),
       })),
-    Lead: () => leadTools(binding, define, submit, resolvers(binding, commands), status),
+    Lead: lead,
     Worker: (bound) => workerTools(bound, define, submit, status),
   });
+
+  return [...catalog, wait];
 };

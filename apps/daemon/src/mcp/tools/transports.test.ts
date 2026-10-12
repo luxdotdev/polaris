@@ -83,6 +83,8 @@ for (const transport of ["http", "claude"] as const) {
                   "message",
                   "status",
                   "set_state",
+                  "read_worker",
+                  "wait_for_command",
                 ]);
 
                 const result = await client.callTool({
