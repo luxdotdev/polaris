@@ -49,11 +49,16 @@ const machine = (patch: Partial<MachineView> = {}): MachineView => ({
   ...patch,
 });
 
-const attention = (reason: string, detail = "stderr line") =>
+const attention = (reason: string, detail = "stderr line", older?: "daemon" | "client") =>
   machine({
     status: status({
       state: "needs-attention",
-      failure: { kind: "needs-attention", reason, detail },
+      failure: {
+        kind: "needs-attention",
+        reason,
+        detail,
+        older,
+      },
     }),
   });
 
@@ -88,6 +93,17 @@ describe("attention cards", () => {
       attentionCard(attention("auth-failed", "pi@10.0.0.9: Permission denied (publickey)."))?.detail
     ).toBe("pi@10.0.0.9: Permission denied (publickey).");
     expect(attentionCard(attention("daemon-not-running"))?.fix?.action).toBe("start-daemon");
+  });
+
+  test("a protocol mismatch names the older side and offers the fix on that side", () => {
+    expect(attentionCard(attention("protocol-mismatch", "v", "daemon"))).toMatchObject({
+      title: "Raspberry Pi 4 runs an older daemon",
+      fix: { label: "Upgrade", action: "check" },
+    });
+    expect(attentionCard(attention("protocol-mismatch", "v", "client"))).toMatchObject({
+      title: "Polaris on this Mac is older than the daemon on Raspberry Pi 4",
+      fix: { action: "retry" },
+    });
   });
 
   test("the install flow's card wins over the connection's while it runs", () => {

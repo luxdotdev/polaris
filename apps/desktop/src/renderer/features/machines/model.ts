@@ -5,6 +5,7 @@
  * Copy follows DESIGN.md (Onboarding, Settings · Hosts; rule/glossary-lowercase).
  */
 import type { MachineView } from "../../../shared/api.ts";
+import { mismatchWords } from "../../shell/hostCopy.ts";
 
 /** What a card's buttons do; the view binds each to a request. */
 export type CardAction =
@@ -96,13 +97,21 @@ const connectionCard = (machine: MachineView): CardModel | null => {
         RETRY
       );
     case "protocol-mismatch":
-      return card(
-        failure.reason,
-        `${label} runs an older daemon`,
-        "The upgrade hands off in place; working agent sessions keep going.",
-        detail,
-        { label: "Upgrade", action: "check" }
-      );
+      return failure.older === "client"
+        ? card(
+            failure.reason,
+            mismatchWords(label, failure.older),
+            `Update Polaris on this Mac to connect; agent sessions on ${label} keep going.`,
+            detail,
+            RETRY
+          )
+        : card(
+            failure.reason,
+            mismatchWords(label, failure.older),
+            "The upgrade hands off in place; working agent sessions keep going.",
+            detail,
+            { label: "Upgrade", action: "check" }
+          );
     case "polaris-not-installed":
       return card(
         failure.reason,

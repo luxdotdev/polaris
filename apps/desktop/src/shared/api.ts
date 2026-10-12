@@ -135,6 +135,8 @@ export interface ConnectionFailureView {
   readonly kind: "transient" | "needs-attention";
   readonly reason: string;
   readonly detail: string;
+  /** A protocol-mismatch on versions: the side speaking the older protocol. */
+  readonly older?: "daemon" | "client" | undefined;
 }
 
 /** `ConnectionStatus` from `@polaris/client`, flattened for structured clone. */

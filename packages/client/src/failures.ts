@@ -43,7 +43,13 @@ export class ConnectFailure extends Schema.TaggedError<ConnectFailure>()("Connec
   reason: Schema.Union([NeedsAttentionReason, TransientReason]),
   /** A short human-readable line, usually the relevant stderr line. */
   detail: Schema.String,
+  /** A `protocol-mismatch` on versions: the side speaking the older protocol. */
+  older: Schema.optionalKey(Schema.Literals(["daemon", "client"])),
 }) {}
+
+/** The side of a `protocol-mismatch` speaking the older protocol. */
+export const olderSide = (daemon: number, client: number): "daemon" | "client" =>
+  daemon < client ? "daemon" : "client";
 
 const needs = (reason: NeedsAttentionReason, detail: string) =>
   new ConnectFailure({ kind: "needs-attention", reason, detail });
