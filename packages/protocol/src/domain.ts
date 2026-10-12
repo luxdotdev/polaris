@@ -105,6 +105,45 @@ export class MemoryFile extends Schema.Class<MemoryFile>("MemoryFile")({
   tokens: Schema.Int,
 }) {}
 
+/** One MCP server's tools as the Harness counts them: loaded ones sit in the window, the rest wait. */
+export class McpServerUsage extends Schema.Class<McpServerUsage>("McpServerUsage")({
+  name: Schema.String,
+  tools: Schema.Int,
+  loadedTools: Schema.Int,
+  /** Its loaded tools' tokens, in the window. */
+  tokens: Schema.Int,
+  /** Its other tools' tokens, outside the window until the model loads them. */
+  deferredTokens: Schema.Int,
+}) {}
+
+/** A skill, custom agent or similar entry the Harness lists in the window, with its size. */
+export class ContextEntry extends Schema.Class<ContextEntry>("ContextEntry")({
+  name: Schema.String,
+  /** Where it comes from, in the Harness's words ("userSettings", "plugin"). */
+  source: Schema.String,
+  tokens: Schema.Int,
+}) {}
+
+/** Skills in the window: how many, their tokens, and the largest few (`top`, capped). */
+export class ContextSkills extends Schema.Class<ContextSkills>("ContextSkills")({
+  total: Schema.Int,
+  included: Schema.Int,
+  tokens: Schema.Int,
+  top: Schema.Array(ContextEntry),
+}) {}
+
+/** The conversation's tokens by what carried them. */
+export class MessageUsage extends Schema.Class<MessageUsage>("MessageUsage")({
+  toolCalls: Schema.Int,
+  toolResults: Schema.Int,
+  replies: Schema.Int,
+  userMessages: Schema.Int,
+  /** Attachments and reminders the Harness adds to messages. */
+  attachments: Schema.Int,
+  /** What the Harness couldn't attribute, or redirected context. */
+  other: Schema.Int,
+}) {}
+
 /**
  * How full the Agent Session's context window is, as its Harness last reported
  * it: the tokens the latest model call carried, of the window its Model has.
@@ -121,6 +160,14 @@ export class ContextUsage extends Schema.Class<ContextUsage>("ContextUsage")({
   categoriesTotal: optionalNullable(Schema.Int),
   /** Whether the Harness compacts on its own as the window fills; null when it doesn't say. */
   autoCompact: optionalNullable(Schema.Boolean),
+  /** The used tokens at which it compacts; null when it doesn't say. */
+  autoCompactAt: optionalNullable(Schema.Int),
+  /** MCP servers by their tools, largest first; the servers' instructions are a category. */
+  mcpServers: optionalArray(McpServerUsage),
+  skills: optionalNullable(ContextSkills),
+  /** Custom agents (subagent definitions) listed in the window. */
+  agents: optionalArray(ContextEntry),
+  messages: optionalNullable(MessageUsage),
 }) {}
 
 /** How one Harness compaction went: the tokens the window held before and after. */

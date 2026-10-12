@@ -74,6 +74,15 @@ export class FakeClaude {
     maxTokens: number;
     categories?: Array<{ name: string; tokens: number; kind: "used" | "free" | "buffer" }>;
     memoryFiles?: Array<{ path: string; type: string; tokens: number }>;
+    mcpTools?: Array<{ name: string; serverName: string; tokens: number; isLoaded?: boolean }>;
+    agents?: Array<{ agentType: string; source: string; tokens: number }>;
+    skills?: {
+      totalSkills: number;
+      includedSkills: number;
+      tokens: number;
+      skillFrontmatter: Array<{ name: string; source: string; tokens: number }>;
+    };
+    autoCompactThreshold?: number;
   } | null = null;
   private readonly out = new Inbox<SDKMessage>();
   private inputWaiters: Array<() => void> = [];
@@ -151,11 +160,13 @@ export class FakeClaude {
         const reply = {
           categories: [],
           memoryFiles: [],
+          mcpTools: [],
+          agents: [],
           isAutoCompactEnabled: true,
           ...this.contextReply,
         };
 
-        // SAFETY: the driver reads only the totals, categories, memory files and auto-compact flag.
+        // SAFETY: the driver reads only the fields above and the optional ones `contextReply` may set.
         return reply as Awaited<ReturnType<Query["getContextUsage"]>>;
       },
     };

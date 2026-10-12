@@ -7,6 +7,7 @@ import {
   Button,
   cn,
   type CssVars,
+  DisclosureChevron,
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
@@ -32,6 +33,7 @@ import {
   type SessionSpend,
   type Tone,
 } from "../model/context.ts";
+import type { Details } from "../model/contextDetails.ts";
 import { queuedOutgoing } from "../model/outbox.ts";
 import { formatTokens } from "../model/meta.ts";
 import { patchSessionUi, uiKey } from "../state.ts";
@@ -70,7 +72,7 @@ const toneClass = (tone: Tone, swatch = false) => {
 
 const Meter = ({ card, focus }: { readonly card: Card; readonly focus: string | null }) => (
   <div
-    className="px-panel grid grid-cols-[repeat(25,11px)] gap-0.5 pb-3.5"
+    className="px-panel grid shrink-0 grid-cols-[repeat(25,11px)] gap-0.5 pb-3.5"
     aria-hidden
     data-testid="context-meter"
   >
@@ -89,45 +91,77 @@ const Meter = ({ card, focus }: { readonly card: Card; readonly focus: string | 
   </div>
 );
 
+const DetailRows = ({ details }: { readonly details: Details }) => (
+  <ul className="pl-row pr-session-row flex flex-col pb-1" data-testid="context-details">
+    {details.rows.map((d) => (
+      <li key={d.key} className="flex h-[22px] shrink-0 items-center gap-1.5">
+        <span
+          className={cn(
+            "text-caption min-w-0 truncate",
+            d.mono ? "text-text-default font-mono" : "text-text-subtle"
+          )}
+        >
+          {d.label}
+        </span>
+        {d.note === null ? null : (
+          <span className="text-caption text-text-faint shrink-0">{d.note}</span>
+        )}
+        <span className="flex-1" />
+        <span className="text-caption text-text-subtle tabular shrink-0">
+          {rowTokens(d.tokens)}
+        </span>
+      </li>
+    ))}
+    {details.footnote === null ? null : (
+      <li className="flex h-[22px] shrink-0 items-center">
+        <span className="text-caption text-text-faint truncate">{details.footnote.text}</span>
+        <span className="flex-1" />
+        {details.footnote.tokens === null ? null : (
+          <span className="text-caption text-text-faint tabular shrink-0">
+            {rowTokens(details.footnote.tokens)}
+          </span>
+        )}
+      </li>
+    )}
+  </ul>
+);
+
+const labelTone = (quiet: boolean, focused: boolean) => {
+  if (quiet) return "text-text-subtle";
+
+  return focused ? "text-text-strong" : "text-text-default";
+};
+
 const Row = ({
   segment,
   window,
   focused,
+  open,
   onFocus,
+  onToggle,
 }: {
   readonly segment: Segment;
   readonly window: number;
   readonly focused: boolean;
+  readonly open: boolean;
   readonly onFocus: (key: string | null) => void;
+  readonly onToggle: (key: string) => void;
 }) => {
   const quiet = segment.tone === "free" || segment.tone === "reserve";
+  const { details } = segment;
+  const opens = details.rows.length > 0 || details.footnote !== null;
 
-  return (
-    <li
-      className={cn(
-        "h-tree-row px-gap gap-gap rounded-control flex shrink-0 items-center",
-        focused && "bg-fill-selected"
-      )}
-      onPointerEnter={() => onFocus(segment.key)}
-      onPointerLeave={() => onFocus(null)}
-    >
+  const line = (
+    <>
       <span
         className={cn("size-gap shrink-0", toneClass(segment.tone, true))}
         style={toneStyle(segment.tone)}
       />
-      <span
-        className={cn(
-          "text-body truncate",
-          quiet ? "text-text-subtle" : focused ? "text-text-strong" : "text-text-default"
-        )}
-      >
-        {segment.label}
-      </span>
-      {segment.files === null ? null : (
-        <span className="text-caption text-text-subtle min-w-0 truncate font-mono">
-          {segment.files}
-        </span>
+      <span className={cn("text-body truncate", labelTone(quiet, focused))}>{segment.label}</span>
+      {details.count === null ? null : (
+        <span className="text-caption text-text-subtle shrink-0">{details.count}</span>
       )}
+      {opens ? <DisclosureChevron open={open} className="text-text-faint" /> : null}
       <span className="flex-1" />
       <span
         className={cn("text-caption tabular", quiet ? "text-text-subtle" : "text-text-default")}
@@ -137,6 +171,40 @@ const Row = ({
       <span className="text-caption text-text-subtle w-row tabular shrink-0 text-right">
         {rowShare(segment.tokens, window)}
       </span>
+    </>
+  );
+
+  const rowClass = cn(
+    "h-tree-row px-gap gap-gap rounded-control flex w-full shrink-0 items-center text-left",
+    focused && "bg-fill-selected"
+  );
+
+  return (
+    <li
+      className="flex flex-col"
+      data-testid="context-row"
+      data-key={segment.key}
+      onPointerEnter={() => onFocus(segment.key)}
+      onPointerLeave={() => onFocus(null)}
+    >
+      {opens ? (
+        <button
+          type="button"
+          aria-expanded={open}
+          className={cn(
+            rowClass,
+            "focus-visible:outline-starlight cursor-default outline-none focus-visible:outline-2"
+          )}
+          onClick={() => onToggle(segment.key)}
+          onFocus={() => onFocus(segment.key)}
+          onBlur={() => onFocus(null)}
+        >
+          {line}
+        </button>
+      ) : (
+        <div className={rowClass}>{line}</div>
+      )}
+      {opens && open ? <DetailRows details={details} /> : null}
     </li>
   );
 };
@@ -216,7 +284,10 @@ const Compacted = ({
   const when = age(compaction.at, now);
 
   return (
-    <div className="px-panel gap-gap flex items-center pb-3" data-testid="context-compaction">
+    <div
+      className="px-panel gap-gap flex shrink-0 items-center pb-3"
+      data-testid="context-compaction"
+    >
       <CompactGlyph />
       <span className="text-caption text-text-default min-w-0 truncate">
         {compactionLine(compaction, index === null ? null : index + 1)}
@@ -243,7 +314,7 @@ const CompactGlyph = () => (
 );
 
 const Summary = ({ card, caption }: { readonly card: Card; readonly caption: string }) => (
-  <div className="px-panel pt-panel flex flex-col gap-1 pb-3">
+  <div className="px-panel pt-panel flex shrink-0 flex-col gap-1 pb-3">
     <div className="flex items-baseline gap-1.5">
       <span className="text-display text-text-strong tabular font-medium tracking-[-0.01em]">
         {formatTokens(card.used)}
@@ -262,24 +333,44 @@ const Summary = ({ card, caption }: { readonly card: Card; readonly caption: str
   </div>
 );
 
-const Breakdown = ({ card }: { readonly card: Card }) => {
+const Breakdown = ({ card, harness }: { readonly card: Card; readonly harness: string }) => {
   const [focus, setFocus] = useState<string | null>(null);
+  const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
+
+  const toggle = (key: string) =>
+    setOpen((prev) => {
+      const next = new Set(prev);
+
+      if (!next.delete(key)) next.add(key);
+
+      return next;
+    });
 
   if (card.window === null) return null;
 
   return (
     <>
       <Meter card={card} focus={focus} />
-      <ul className="flex flex-col px-2 pb-2.5" data-testid="context-breakdown">
+      <ul
+        className="flex min-h-0 flex-col overflow-y-auto px-2 pb-2.5"
+        data-testid="context-breakdown"
+      >
         {card.legend.map((segment) => (
           <Row
             key={segment.key}
             segment={segment}
             window={card.window ?? 1}
             focused={focus === segment.key}
+            open={open.has(segment.key)}
             onFocus={setFocus}
+            onToggle={toggle}
           />
         ))}
+        {card.totalsOnly ? (
+          <li className="text-caption text-text-subtle px-gap pt-1.5">
+            {harness} reports the total only, not what fills it.
+          </li>
+        ) : null}
         {card.nearlyFull ? (
           <li className="text-caption text-text-subtle px-gap pt-1.5">
             Compacting summarises earlier turns to make room.
@@ -300,7 +391,7 @@ const Footer = ({
   if (spend === null && compact === null) return null;
 
   return (
-    <div className="px-panel py-row-pad gap-gap border-hairline flex items-center border-t bg-[light-dark(#f7f7f9,#1e1f22)]">
+    <div className="px-panel py-row-pad gap-gap border-hairline flex shrink-0 items-center border-t bg-[light-dark(#f7f7f9,#1e1f22)]">
       <div className="flex min-w-0 flex-1 flex-col">
         {spend === null ? null : (
           <>
@@ -402,7 +493,8 @@ export const ContextReadout = (props: ContextReadoutProps) => {
         onBlur={(event) => {
           if (!within(event)) setOpen(false);
         }}
-        className="w-[360px] outline-none"
+        // The breakdown scrolls when open rows outgrow the window.
+        className="flex max-h-[calc(var(--radix-hover-card-content-available-height)-12px)] w-[360px] flex-col outline-none"
       >
         <Summary card={card} caption={caption} />
         <Compacted hostKey={hostKey} session={session} />
@@ -411,7 +503,7 @@ export const ContextReadout = (props: ContextReadoutProps) => {
             {name} hasn't said how large this model's window is, so there's no percentage.
           </p>
         ) : (
-          <Breakdown card={card} />
+          <Breakdown card={card} harness={name} />
         )}
         <Footer
           spend={spend}

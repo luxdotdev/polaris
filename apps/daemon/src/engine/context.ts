@@ -3,10 +3,30 @@
  * every model call; the log keeps a report only when the header would change.
  */
 import { ContextUsage } from "@polaris/protocol";
-import type { HarnessEvent } from "../harness/HarnessDriver.ts";
+import type { ContextBreakdown, HarnessEvent } from "../harness/HarnessDriver.ts";
 
 /** Without a known window, a change this big (in tokens) is worth recording. */
 const UNKNOWN_WINDOW_STEP = 1000;
+
+type Detail = Pick<ContextUsage, "autoCompactAt" | "mcpServers" | "skills" | "agents" | "messages">;
+
+/** The finer breakdown, from a fresh count when there is one, else kept from the last. */
+const detailOf = (counted: ContextBreakdown | undefined, previous: ContextUsage | null): Detail =>
+  counted === undefined
+    ? {
+        autoCompactAt: previous?.autoCompactAt ?? null,
+        mcpServers: previous?.mcpServers ?? [],
+        skills: previous?.skills ?? null,
+        agents: previous?.agents ?? [],
+        messages: previous?.messages ?? null,
+      }
+    : {
+        autoCompactAt: counted.autoCompactAt ?? null,
+        mcpServers: counted.mcpServers ?? [],
+        skills: counted.skills ?? null,
+        agents: counted.agents ?? [],
+        messages: counted.messages ?? null,
+      };
 
 /**
  * A Harness report as the session's usage. A total-only report keeps the last
@@ -25,6 +45,7 @@ export const contextUsageOf = (
     memoryFiles: counted?.memoryFiles ?? previous?.memoryFiles ?? [],
     categoriesTotal: counted?.countedTokens ?? previous?.categoriesTotal ?? null,
     autoCompact: counted?.autoCompact ?? previous?.autoCompact ?? null,
+    ...detailOf(counted, previous),
   });
 };
 
