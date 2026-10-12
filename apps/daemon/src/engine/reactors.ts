@@ -16,6 +16,7 @@ import {
 } from "@polaris/protocol";
 import { Context, Effect, Layer, Predicate } from "effect";
 import { revertAfterAccept } from "../accept/reactor.ts";
+import { sessionRestartNote } from "../constellation/restartNote.ts";
 import type { HarnessError } from "../harness/HarnessDriver.ts";
 import type { ServiceError } from "../services.ts";
 import type { CommitResult } from "../store/EventStore.ts";
@@ -106,18 +107,22 @@ const make = Effect.gen(function* () {
       });
     });
 
-  const continueTurn = (sessionId: SessionId, { result }: Committed) => {
-    const turn = turnFrom(result.envelopes);
+  /** Continue resumes the same Turn; after a restart it names the background work that was lost. */
+  const continueTurn = (sessionId: SessionId, { result }: Committed) =>
+    Effect.gen(function* () {
+      const turn = turnFrom(result.envelopes);
 
-    return turn === undefined
-      ? Effect.void
-      : supervisor.runTurn({
-          sessionId,
-          turnId: turn.id,
-          prompt: CONTINUE_PROMPT,
-          attachments: [],
-        });
-  };
+      if (turn === undefined) return;
+      // Read as of just before this commit: its TurnStarted would clear the note.
+      const before = result.envelopes[0]!.sequence - 1;
+      const note = yield* sessionRestartNote(rt.store, sessionId, before);
+      yield* supervisor.runTurn({
+        sessionId,
+        turnId: turn.id,
+        prompt: note === null ? CONTINUE_PROMPT : `${CONTINUE_PROMPT}\n\n${note}`,
+        attachments: [],
+      });
+    });
 
   const interrupt = (sessionId: SessionId) =>
     Effect.gen(function* () {
