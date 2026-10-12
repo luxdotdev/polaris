@@ -427,6 +427,20 @@ export const RequestInputs = {
           harness: Schema.String,
           state: Schema.Literals(["working", "idle"]),
           prompt: Schema.NullOr(Schema.String),
+          digestStarted: Schema.optionalKey(Schema.Boolean),
+        })
+      )
+    ),
+    notifications: Schema.optionalKey(
+      Schema.Array(
+        Schema.Struct({
+          hostKey: HostKey,
+          hostLabel: Schema.String,
+          sessionId: Schema.String,
+          sessionTitle: Schema.String,
+          id: Schema.String,
+          title: Schema.String,
+          body: Schema.String,
         })
       )
     ),
