@@ -3,7 +3,7 @@
  * surface-raised with the Constellation mark, never the user's prompt bubble.
  */
 import type { AttemptState } from "@polaris/protocol";
-import { ChevronRightIcon, cn } from "@polaris/ui";
+import { ChevronDownIcon, ChevronRightIcon, cn } from "@polaris/ui";
 import { Match } from "effect";
 import { Fragment, type ReactNode } from "react";
 import {
@@ -12,6 +12,7 @@ import {
   clock,
   type ConstellationRecord,
   type Digest,
+  type DigestFold,
   type Facts,
   LANE_MAX,
   laneWidth,
@@ -261,33 +262,88 @@ const lineOf = (r: ConstellationRecord, n: NotificationData, facts: Facts): Dige
   );
 };
 
-/** A Lead's digest Turn: one row per settle or question, each with its glyph and coloured id. */
-export const DigestCard = ({
-  record,
-  digest,
-  facts,
-}: {
+export interface DigestCardProps {
   readonly record: ConstellationRecord;
   readonly digest: Digest;
   readonly facts: Facts;
-}) => {
+  /** The Turn is folded: one line with the Lead's reply, which unfolds it. */
+  readonly folded: boolean;
+  /** Folds or unfolds the Turn; null when it can't fold (the latest Turn). */
+  readonly onToggle: (() => void) | null;
+  readonly fold: DigestFold | null;
+}
+
+/** A folded digest Turn, like any folded Turn: its number, the updates, the Lead's reply. */
+const FoldedDigest = ({ record, digest, onToggle, fold }: DigestCardProps) => (
+  <button
+    type="button"
+    onClick={onToggle ?? undefined}
+    aria-expanded={false}
+    aria-label={`Turn ${fold?.number ?? ""}: ${pluralize(digest.items.length, "update")} from ${record.constellation.name}`}
+    className={cn(
+      CARD,
+      "hover:bg-fill-hover flex h-10 w-full cursor-default items-center gap-2 px-3.5 text-left"
+    )}
+    data-testid="digest-card"
+    data-folded=""
+  >
+    <ConstellationMark size={14} />
+    {fold === null ? null : (
+      <span className="text-caption text-text-subtle tabular shrink-0 font-medium">
+        Turn {fold.number}
+      </span>
+    )}
+    <span className="text-label text-text-strong shrink-0">
+      {pluralize(digest.items.length, "update")}
+    </span>
+    <span className="text-body text-text-subtle min-w-0 flex-1 truncate">{fold?.reply ?? ""}</span>
+    <span className="text-caption text-text-subtle tabular shrink-0">{clock(digest.at)}</span>
+    <ChevronRightIcon size={10} className="text-text-faint shrink-0" />
+  </button>
+);
+
+/** A Lead's digest Turn: one row per settle or question, each with its glyph and coloured id. */
+export const DigestCard = (props: DigestCardProps) => {
+  const { record, digest, facts, folded, onToggle } = props;
+
+  if (folded) return <FoldedDigest {...props} />;
+
   const lines = digest.items.map((n) => lineOf(record, n, facts));
   const ids = lines.flatMap((l) => (l.task === null ? [] : [l.task.id]));
 
+  const title = (
+    <>
+      {record.constellation.name}
+      <span className="text-text-subtle font-normal">
+        {" "}
+        · {pluralize(digest.items.length, "update")} for the lead
+      </span>
+    </>
+  );
+
   return (
     <div className={CARD} data-testid="digest-card">
-      <CardHead
-        title={
-          <>
-            {record.constellation.name}
-            <span className="text-text-subtle font-normal">
-              {" "}
-              · {pluralize(digest.items.length, "update")} for the lead
-            </span>
-          </>
-        }
-        aside={clock(digest.at)}
-      />
+      {onToggle === null ? (
+        <CardHead title={title} aside={clock(digest.at)} />
+      ) : (
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded
+          className="block w-full cursor-default text-left"
+          data-testid="digest-fold"
+        >
+          <CardHead
+            title={title}
+            aside={
+              <span className="flex items-center gap-2">
+                {clock(digest.at)}
+                <ChevronDownIcon size={10} className="text-text-faint" />
+              </span>
+            }
+          />
+        </button>
+      )}
       <ul className="flex flex-col pb-2" style={laneStyle(laneWidth(ids, LANE_MAX.digest))}>
         {lines.map((line) => (
           <li

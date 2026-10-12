@@ -7,6 +7,8 @@ import type { SessionId } from "@polaris/protocol";
 import { Button, cn, ChevronRightIcon, IconButton, Kbd } from "@polaris/ui";
 import { type ReactNode, useEffect } from "react";
 import { useApp, useCommands } from "../../../shell/hooks.ts";
+import type { TurnView } from "../../../store/sessionModel.ts";
+import { sessionKey } from "../../../store/store.ts";
 import {
   hideOutput,
   offerOutput,
@@ -16,7 +18,7 @@ import {
   SessionOutput,
 } from "../../session/index.ts";
 import { useFacts, useLeadConstellation, useWorkerAttempt, type WorkerAttempt } from "../hooks.ts";
-import type { ConstellationRecord, Digest } from "../model/index.ts";
+import { type ConstellationRecord, type Digest, digestFold } from "../model/index.ts";
 import { leadKey, patchLeadUi, useLeadUi } from "../state.ts";
 import { DigestCard } from "./cards.tsx";
 import { ConstellationTab } from "./ConstellationTab.tsx";
@@ -26,6 +28,8 @@ export interface SessionSlot {
   readonly hostKey: string;
   readonly sessionId: SessionId;
 }
+
+const NO_TURNS: ReadonlyArray<TurnView> = [];
 
 const useTitle = (hostKey: string, sessionId: string) =>
   useApp((s) => s.hostModels[hostKey]?.sessions.get(sessionId)?.session.title ?? "the lead");
@@ -39,6 +43,7 @@ const LeadIntent = ({
   const leadTitle = useTitle(hostKey, sessionId);
   const facts = useFacts(record);
   const digests = new Map<string, Digest>(record.digests.map((d) => [d.turnId, d]));
+  const turns = useApp((s) => s.sessions[sessionKey(hostKey, sessionId)]?.turns) ?? NO_TURNS;
 
   // A Lead's Output holds its Constellation: open it unless the user chose otherwise.
   useEffect(() => offerOutput(hostKey, sessionId), [hostKey, sessionId]);
@@ -64,11 +69,19 @@ const LeadIntent = ({
     );
 
   const chrome: SessionChrome = {
-    promptCard: ({ turnId }) => {
+    promptCard: ({ turnId, folded, onToggle }) => {
       const digest = digests.get(turnId);
+      const view = turns.find((t) => t.turn.id === turnId);
 
       return digest === undefined ? null : (
-        <DigestCard record={record} digest={digest} facts={facts} />
+        <DigestCard
+          record={record}
+          digest={digest}
+          facts={facts}
+          folded={folded}
+          onToggle={turns.at(-1)?.turn.id === turnId ? null : onToggle}
+          fold={view === undefined ? null : digestFold(view)}
+        />
       );
     },
   };

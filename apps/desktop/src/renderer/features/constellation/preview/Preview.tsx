@@ -2,7 +2,7 @@
  * The Constellation tab on fixtures, for screenshots against Paper C1–C9: `#constellation/<scene>`
  * renders the real shell on a stand-in store and a fake Daemon. Its own chunk.
  */
-import { Capability, constellationSummaryOf, HostId, Sequence } from "@polaris/protocol";
+import { Capability, constellationSummaryOf, HostId, Sequence, TurnId } from "@polaris/protocol";
 import { createRoot } from "react-dom/client";
 import { createStore } from "zustand/vanilla";
 import type { HostView, PolarisApi } from "../../../../shared/api.ts";
@@ -34,7 +34,9 @@ import { b8Model, setupRecord, setupSessions } from "./setup.ts";
 import { statsFixture } from "./stats.ts";
 import {
   b1Model,
+  LATER_DIGEST_TURN,
   leadModel,
+  leadModelWithLaterDigest,
   leadSession,
   previousLead,
   workerSessions,
@@ -96,6 +98,7 @@ const SCENES = [
   "setup-focus",
   "slugs",
   "tree",
+  "digests",
 ] as const;
 
 type Scene = (typeof SCENES)[number];
@@ -120,6 +123,26 @@ const recordFor = (scene: Scene): ConstellationRecord => {
 
   if (scene === "completed") return c1Record({ state: "completed", attempts: completedAttempts() });
 
+  if (scene === "digests") {
+    const record = slugRecord();
+    const [first] = record.digests;
+
+    return first === undefined
+      ? record
+      : {
+          ...record,
+          digests: [
+            ...record.digests,
+            {
+              ...first,
+              turnId: TurnId.make(LATER_DIGEST_TURN),
+              revision: first.revision + 2,
+              items: first.items.slice(1, 2),
+            },
+          ],
+        };
+  }
+
   return slugRecord(scene === "paused" ? { state: "paused" } : {});
 };
 
@@ -141,6 +164,7 @@ const TREE_FOLDS = new Map([
 
 const UI: Readonly<Record<Scene, Partial<LeadUi>>> = {
   lead: {},
+  digests: {},
   menu: { selected: "task:B1", menu: "task:B1" },
   focus: { focus: { kind: "task", taskId: "B1" }, selected: "task:B1" },
   handed: { focus: { kind: "task", taskId: "B1" }, selected: "task:B1" },
@@ -167,9 +191,10 @@ const UI: Readonly<Record<Scene, Partial<LeadUi>>> = {
   tree: { selected: "task:F2", folds: TREE_FOLDS },
 };
 
-const stateFor = (record: ConstellationRecord): AppState => {
+const stateFor = (record: ConstellationRecord, scene: Scene): AppState => {
   const sessions = [leadSession, previousLead, ...workerSessions, ...setupSessions];
-  const open: ReadonlyArray<SessionModel> = [leadModel(), b1Model(), b8Model()];
+  const lead = scene === "digests" ? leadModelWithLaterDigest() : leadModel();
+  const open: ReadonlyArray<SessionModel> = [lead, b1Model(), b8Model()];
 
   return {
     ...initialState,
@@ -259,7 +284,7 @@ const sceneOf = (hash: string): Scene => {
 /** Mounts the real shell with the Lead selected and the scene's tab state. */
 export const mountConstellationPreview = (root: HTMLElement, hash: string) => {
   const scene = sceneOf(hash);
-  const store = createStore<AppState>(() => stateFor(recordFor(scene)));
+  const store = createStore<AppState>(() => stateFor(recordFor(scene), scene));
 
   const connection: Connection = {
     store,
