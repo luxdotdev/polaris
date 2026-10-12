@@ -16,6 +16,8 @@ import { ConstellationOwner, ConstellationRuntime } from "../../constellation/ru
 import { ConstellationDefaultsPath } from "../../constellation/defaults.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { McpTokens } from "../tokens.ts";
+import { sessionTools } from "../sessions/index.ts";
+import { attachSessionTools } from "./index.ts";
 import { attachConstellation } from "../../harness/constellation/attachment.ts";
 import {
   CID,
@@ -61,6 +63,7 @@ test("Lead dispatches three bench workers, sends a Claim back, and accepts the d
           const commands = yield* Constellations;
           const driver = makeBenchDriver("codex");
           const store = yield* EventStore;
+          attachSessionTools(commands, sessionTools(store));
           const lead = yield* attachConstellation(leadBinding, "http://127.0.0.1:12345", commands);
           yield* runBenchTurn(lead, repo(root, "G1"), 'bench:{"deltaIntervalMs":0}', driver);
 
@@ -122,6 +125,9 @@ test("Lead dispatches three bench workers, sends a Claim back, and accepts the d
           );
 
           const a1 = first[0]!;
+          const read = yield* call(lead.tools, "read_worker", { task: "A1" });
+          expect(read.content[0]?.text).toContain("Task A1 · Attempt");
+          expect(read.content[0]?.text).toContain("## Turn 1");
           yield* call(a1.attachment.tools, "progress", {
             note: "Implementation checked",
             completed: 1,
@@ -254,7 +260,7 @@ test("Lead dispatches three bench workers, sends a Claim back, and accepts the d
       ).pipe(Effect.provide(layers))
     );
     expect(counter.stats).toEqual({
-      calls: 23,
+      calls: 24,
       errors: 4,
     });
     expect(counter.findings).toEqual(["E-NOT-READY", "E-CLAIM-DIRTY", "E-REVISION", "E-REVOKED"]);
