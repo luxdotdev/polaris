@@ -11,11 +11,14 @@ interface AttachmentOptions {
 export interface ConstellationHarnessDelegate {
   readonly install: (origin: string, commands: ConstellationCommands) => Effect.Effect<void>;
   readonly open: (id: SessionId, readOnly?: boolean) => Effect.Effect<AttachmentOptions>;
+  /** Whether the installed MCP endpoint answers; a worker never starts against a dead one. */
+  readonly probe?: () => Effect.Effect<boolean>;
 }
 
 export interface ConstellationHarnessService extends ConstellationHarnessDelegate {
   readonly activate: (delegate: ConstellationHarnessDelegate) => Effect.Effect<void>;
   readonly defer: (load: Effect.Effect<void>) => Effect.Effect<void>;
+  readonly probe: () => Effect.Effect<boolean>;
 }
 
 const proxy = (): ConstellationHarnessService => {
@@ -36,6 +39,7 @@ const proxy = (): ConstellationHarnessService => {
         delegate = implementation;
       }),
     install: (origin, commands) => Effect.suspend(() => delegate.install(origin, commands)),
+    probe: () => Effect.suspend(() => delegate.probe?.() ?? Effect.succeed(true)),
     open: (id, readOnly) =>
       readOnly === true
         ? Effect.succeed({ constellations: [], environment: {} })

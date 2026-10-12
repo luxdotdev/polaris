@@ -23,6 +23,7 @@ import { recoverAttempt } from "../recovery.ts";
 import { recordAbandonedStartup, recordStartupFailure, runStartupSetup } from "./startupSetup.ts";
 import { mergeFirst, reviewFeedback } from "./feedback.ts";
 import { StartupAbandoned } from "./startupAbandoned.ts";
+import { ConstellationHarness } from "./attachments.ts";
 
 export const canStartAttempt = (graph: Constellation, attempt: Attempt) =>
   graph.state !== "completed" &&
@@ -37,6 +38,21 @@ const startupAllowed = (graph: Constellation, attempt: Attempt, model: ReadModel
 
   return canStartAttempt(local?.graph ?? graph, attempt) && !local?.stale.has(attempt.id);
 };
+
+/** A worker whose Polaris tools cannot answer would run its whole brief blind: refuse to start it. */
+const requireEndpoint = Effect.fnUntraced(function* (attempt: Attempt) {
+  if (yield* (yield* ConstellationHarness).probe()) return;
+
+  const error = new ServiceError({
+    service: "Constellation",
+    message:
+      "The Polaris MCP endpoint did not answer before the first Turn. Restart the Daemon, stop this Attempt and dispatch again.",
+  });
+
+  yield* recordStartupFailure(attempt, error);
+
+  return yield* error;
+});
 
 const start = Effect.fn("Constellation.startAttempt")(function* (
   graph: Constellation,
@@ -88,6 +104,8 @@ const start = Effect.fn("Constellation.startAttempt")(function* (
   const boundary = yield* store.model;
 
   if (!startupAllowed(graph, attempt, boundary) || !(yield* guard(boundary))) return;
+
+  yield* requireEndpoint(attempt);
   yield* runStartupSetup(graph, attempt).pipe(
     Effect.tapError((error) => recordStartupFailure(attempt, error))
   );

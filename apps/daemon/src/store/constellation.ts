@@ -13,6 +13,7 @@ import {
   type TaskDefinition,
   type SessionId,
   type TaskId,
+  type TurnId,
   Task,
 } from "@polaris/protocol";
 import { attemptData, graphData, taskData } from "../constellation/data.ts";
@@ -60,6 +61,10 @@ export interface ConstellationRecord {
   /** Every notification queued, so a digest can carry its items after delivery. */
   readonly notifications: ReadonlyMap<string, ConstellationNotification>;
   readonly digests: ReadonlyArray<ConstellationDigest>;
+  /** Digests steered into a working Lead Turn, by that Turn's id. */
+  readonly steeredDigests: ReadonlySet<TurnId>;
+  /** The key of the last stall audit the Lead received; the same stalled state is noted once. */
+  readonly lastAudit: string | null;
   readonly handovers: ReadonlyArray<ConstellationHandover>;
 }
 
@@ -162,6 +167,8 @@ const started = (graph: Constellation): ConstellationRecord => ({
   stamps: new Map(),
   notifications: new Map(),
   digests: [],
+  steeredDigests: new Set(),
+  lastAudit: null,
   handovers: [],
 });
 
@@ -352,7 +359,12 @@ export const foldConstellation = (
         next = { ...next, handoverStopped: new Set([...next.handoverStopped, e.attemptId]) };
       graph = new Constellation({
         ...graphData(graph),
-        attempts: patchAttempt(next, e, { state: e.outcome, endedAt: at }),
+        attempts: patchAttempt(next, e, {
+          state: e.outcome,
+          settleReason: e.reason,
+          failureKind: e.failureKind,
+          endedAt: at,
+        }),
       });
     },
     GatePromoted: (e) => {
@@ -395,10 +407,15 @@ export const foldConstellation = (
       next = {
         ...next,
         delivered: new Set([...next.delivered, ...e.items]),
+        steeredDigests: e.steered
+          ? new Set([...next.steeredDigests, e.turnId])
+          : next.steeredDigests,
+        lastAudit: e.audit?.key ?? next.lastAudit,
         digests: [
           ...next.digests,
           new ConstellationDigest({
             turnId: e.turnId,
+            steered: e.steered,
             leadSessionId: e.leadSessionId,
             revision: e.revision,
             at,

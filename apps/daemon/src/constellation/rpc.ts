@@ -81,8 +81,8 @@ export const ConstellationRpcHandlers = ConstellationRpcs.toLayer(
         graphs.command(caller(client.annotations), commandId, C.WorkerPropose.make(payload)),
       "constellation.worker.message": ({ commandId, ...payload }, { client }) =>
         graphs.command(caller(client.annotations), commandId, C.WorkerMessage.make(payload)),
-      "constellation.status": ({ constellationId, json }, { client }) =>
-        graphs.status(caller(client.annotations), constellationId, json === true),
+      "constellation.status": ({ constellationId, json, since }, { client }) =>
+        graphs.status(caller(client.annotations), constellationId, json === true, since),
       "constellation.stats": ({ constellationId }, { client }) =>
         stats.get(caller(client.annotations), constellationId),
       "constellation.subscribe": ({ constellationId, afterSequence }, { client }) =>

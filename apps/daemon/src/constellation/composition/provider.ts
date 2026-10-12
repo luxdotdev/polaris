@@ -13,6 +13,20 @@ import { workerEnvironment } from "../host.ts";
 
 import { ConstellationHarness, type ConstellationHarnessDelegate } from "./attachments.ts";
 
+/** Any HTTP answer proves the listener; an unknown token is refused with 401, as expected. */
+export const probeEndpoint = (origin: string) =>
+  Effect.tryPromise(() =>
+    fetch(`${origin}/mcp/${"0".repeat(64)}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}",
+      signal: AbortSignal.timeout(2000),
+    })
+  ).pipe(
+    Effect.map(() => true),
+    Effect.catch(() => Effect.succeed(false))
+  );
+
 const plainBinding = (model: ReadModel, sessionId: SessionId): ReadonlyArray<McpBinding> => {
   const session = model.sessions.get(sessionId)?.session;
 
@@ -40,6 +54,8 @@ export const attachmentProvider = Layer.effectDiscard(
         Effect.sync(() => {
           endpoint = { origin, commands };
         }),
+      probe: () =>
+        endpoint === undefined ? Effect.succeed(false) : probeEndpoint(endpoint.origin),
       open: Effect.fnUntraced(function* (sessionId) {
         const bindings: Array<McpBinding> = [];
         const model = yield* store.model;

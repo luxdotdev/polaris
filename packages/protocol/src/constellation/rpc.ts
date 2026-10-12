@@ -118,10 +118,17 @@ export const ConstellationWorkerMessage = Rpc.make("constellation.worker.message
   payload: { commandId: CommandId, ...commandFields(C.WorkerMessage.fields) },
 });
 
-/** Both roles use the same read-only outline; json requests include the folded graph. */
+/**
+ * Both roles use the same read-only outline; json requests include the folded graph.
+ * `since` (a graph revision) returns what changed after it instead of the whole outline.
+ */
 export const ConstellationStatus = Rpc.make("constellation.status", {
   ...mutation,
-  payload: { constellationId: ConstellationId, json: Schema.optionalKey(Schema.Boolean) },
+  payload: {
+    constellationId: ConstellationId,
+    json: Schema.optionalKey(Schema.Boolean),
+    since: Schema.optionalKey(Revision),
+  },
 });
 
 export const ConstellationStreamItem = Schema.TaggedUnion({

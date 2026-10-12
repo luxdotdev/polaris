@@ -1,6 +1,7 @@
 import type { ConstellationId, SessionId, TurnId } from "@polaris/protocol";
 import { Effect } from "effect";
 import { EventStore } from "../../store/EventStore.ts";
+import { classifyFailure } from "../failureKind.ts";
 import { decideConstellationJournal } from "../journal.ts";
 import { ConstellationOwner } from "../runtime.ts";
 import { journalContext } from "./journal.ts";
@@ -44,6 +45,7 @@ export const settleFailedWorker = Effect.fn("Constellation.settleFailedWorker")(
           attemptId: attempt.id,
           outcome: "failed",
           reason: record.session.lastError ?? "The worker Harness failed",
+          failureKind: classifyFailure(record.session.lastError),
         },
         journalContext(graph, new Date().toISOString())
       );

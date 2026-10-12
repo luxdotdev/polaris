@@ -2,17 +2,24 @@ import { expect, test } from "bun:test";
 import {
   Attempt,
   Constellation,
+  DomainEvent,
+  EventEnvelope,
+  Sequence,
   TaskDefinition,
   TaskId,
+  Turn,
   ConstellationNotification,
   NotificationItem,
 } from "@polaris/protocol";
 import { Struct } from "effect";
-import { A, claimed, draft, report } from "../engine/constellation.testing.ts";
+import { A, claimed, dispatched, draft, report } from "../engine/constellation.testing.ts";
 import { stampKey } from "../store/constellation.ts";
 import { graphResult } from "./service.ts";
 import { notificationLine } from "./delivery/format.ts";
-import { statusOutline } from "./status.ts";
+import { statusOutline, statusSince } from "./status.ts";
+import { newTurn } from "./delivery/turns.ts";
+import { session } from "./delivery/testing.ts";
+import type { SessionRecord } from "../store/model.ts";
 
 test("status keeps only the latest rejected Claim with three indented feedback lines", () => {
   const record = claimed();
@@ -96,4 +103,91 @@ test("proposal details are available in status, digest and structured JSON", () 
   });
 
   expect(notificationLine(enriched, sentBack)).toBe("A: sent back.");
+});
+
+test("status separates a working Attempt from a Turn in flight and names a failed settle's kind", () => {
+  const record = dispatched();
+  const attempt = record.graph.attempts[0]!;
+  const worker = session(attempt.sessionId);
+
+  const withTurns = (turns: ReadonlyArray<Turn>): SessionRecord => ({
+    session: worker,
+    titleLocked: false,
+    turns,
+    pending: new Map(),
+    subagents: new Map(),
+  });
+
+  const sessions = (turns: ReadonlyArray<Turn>) => new Map([[attempt.sessionId, withTurns(turns)]]);
+
+  expect(statusOutline(record, sessions([]))).toContain(
+    "No Turn yet · the brief has not been delivered."
+  );
+
+  const ended = Turn.make(
+    Struct.assign(newTurn(worker, "Build", attempt.startedAt), {
+      status: "completed" as const,
+      endedAt: "2026-10-01T01:00:00.000Z",
+    })
+  );
+
+  expect(statusOutline(record, sessions([ended]))).toContain(
+    "No active Turn · last Turn completed at 2026-10-01T01:00:00.000Z; the worker is waiting, not working."
+  );
+  expect(
+    statusOutline(record, sessions([newTurn(worker, "Build", attempt.startedAt)]))
+  ).not.toContain("No active Turn");
+
+  const failed = Constellation.make(
+    Struct.assign(record.graph, {
+      attempts: [
+        Attempt.make(
+          Struct.assign(attempt, {
+            state: "failed" as const,
+            failureKind: "capacity" as const,
+            settleReason: "Selected model is at capacity.",
+          })
+        ),
+      ],
+    })
+  );
+
+  expect(statusOutline({ ...record, graph: failed })).toContain(
+    "  failed · model capacity: Selected model is at capacity."
+  );
+});
+
+test("status since a revision lists only later graph events, one line each, then where things stand", () => {
+  const record = claimed();
+  const attempt = record.graph.attempts[0]!;
+
+  const events = [
+    DomainEvent.cases.ConstellationStateChanged.make({
+      constellationId: record.graph.id,
+      revision: 1,
+      state: "running",
+    }),
+    DomainEvent.cases.AttemptClaimed.make({
+      constellationId: record.graph.id,
+      revision: 5,
+      attemptId: attempt.id,
+      attemptRevision: attempt.revision,
+      claim: report(),
+    }),
+  ].map(
+    (event, i) =>
+      new EventEnvelope({
+        sequence: Sequence.make(i + 1),
+        occurredAt: `2026-10-01T00:0${i}:00.000Z`,
+        commandId: null,
+        event,
+      })
+  );
+
+  const text = statusSince(record, events, 4);
+  expect(text).toContain("changes since revision 4: 1");
+  expect(text).toContain("5 · 2026-10-01T00:01:00.000Z · A: claimed head · Implemented the task.");
+  expect(text).not.toContain("Constellation running.");
+  expect(text).toContain("In review: A");
+  expect(statusSince(record, events, 99)).toContain("Nothing changed.");
 });

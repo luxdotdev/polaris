@@ -194,6 +194,13 @@ module constellations_test {
     .then(startFirstTurn(1)).then(restart).then(startFirstTurn(1))
     .expect(view.firstTurns == [1] and firstTurnAtMostOnce and safety)
 
+  run rejectedHeadNeedsADispositionTest = claimed
+    .then(reject(0, 2)).then(start(0, 2, 0))
+    .then(claim(1, 1, 42, false, true)).expect(view.attempts[1].status == "working" and safety)
+    .then(claimAs(1, 1, 42, false, true, true)).expect(view.attempts[1].status == "review" and claimsValid and safety)
+    .then(reject(1, 2)).then(start(0, 3, 1))
+    .then(claim(2, 1, 43, false, true)).expect(view.attempts[2].status == "review" and safety)
+
   run linkedCausesPointBackwardTest = claimed
     .then(reject(0, 2)).then(start(0, 2, 0))
     .expect(view.attempts.length() == 2 and view.attempts[1].ref == 0 and causesPointBackward and safety)
@@ -226,6 +233,21 @@ module constellations_test {
     .then(restart).then(deliver)
     .expect(delivered == Set(0, 10) and pending == Set() and exactlyOnceDelivery and safety)
     .then(restart).then(deliver).expect(view.deliveries.length() == 2 and safety)
+
+  run steeredDigestConsumesPendingOnceTest = claimed
+    .then(deliverSteered).expect(delivered == Set(10) and pending == Set() and view.steers == 1 and exactlyOnceDelivery and safety)
+    .then(deliverSteered).then(deliver).expect(view.deliveries.length() == 1 and safety)
+
+  run stallAuditNamesUnclaimedGateOnceTest = claimed.then(accept(0, 2, 42)).then(deliver)
+    .then(start(1, 2, -1)).then(claim(1, 1, 42, false, true)).then(accept(1, 2, 42))
+    .expect(view.promotions == [2] and stalledGates(view) == Set(2) and safety)
+    .then(audit).expect(view.audited == Set(2) and pending == Set() and safety)
+    .then(audit).expect(view.deliveries.length() == 2 and view.audited == Set(2) and safety)
+    .then(start(2, 0, -1)).expect(stalledGates(view) == Set() and safety)
+
+  run failedSettleCarriesItsKindTest = working
+    .then(harnessFailAs(0, "capacity"))
+    .expect(view.attempts[0].status == "failed" and failureKindValid and safety)
 
   run settledAttemptsNeverChangeTest = claimed.then(accept(0, 2, 42))
     .then(progress(0, 3)).then(claim(0, 3, 43, false, true)).then(reject(0, 3)).then(stop(0, 3))
@@ -330,7 +352,10 @@ module constellations_property_test {
     .then(commit(OWNER, [FirstTurnStarted(0)])).expect(not(firstTurnValid))
   run detectsFirstTurnAfterSettledTest = claimed.then(accept(0, 2, 42))
     .then(commit(OWNER, [FirstTurnStarted(0)])).expect(not(firstTurnValid))
-  run detectsUnchangedReclaimTest = claimed.then(commit(OWNER, [AttemptClaimed({ attempt: 0, sha: 42 })]))
+  run detectsUnchangedReclaimTest = claimed.then(commit(OWNER, [AttemptClaimed({ attempt: 0, sha: 42, disposed: false })]))
+    .expect(not(claimsValid))
+  run detectsUndisposedRejectedHeadReclaimTest = claimed.then(reject(0, 2)).then(start(0, 2, 0))
+    .then(commit(OWNER, [AttemptClaimed({ attempt: 1, sha: 42, disposed: false }), NotificationQueued({ id: 12, kind: "settle" })]))
     .expect(not(claimsValid))
 
   run queuedHandoverSurvivesRestartTest = claimed.then(requestHandover(3)).then(restart)
@@ -379,10 +404,19 @@ module constellations_property_test {
     .then(commit(OWNER, [AttemptStarted({ task: 1, session: 1, ref: -1, mergeBase: "" })]))
     .expect(not(oneActiveAttemptPerSession))
   run detectsRepeatedNotificationTest = claimed.then(deliver)
-    .then(commit(OWNER, [LeadNotified({ ids: Set(10), lead: 0 })]))
+    .then(commit(OWNER, [LeadNotified({ ids: Set(10), lead: 0, steered: false, audit: Set() })]))
     .expect(not(exactlyOnceDelivery))
+  run detectsEmptyDeliveryTest = claimed.then(deliver)
+    .then(commit(OWNER, [LeadNotified({ ids: Set(), lead: 0, steered: true, audit: Set() })]))
+    .expect(not(auditNamesStalledGates))
+  run detectsAuditWithoutStalledGateTest = claimed
+    .then(commit(OWNER, [LeadNotified({ ids: Set(10), lead: 0, steered: false, audit: Set(2) })]))
+    .expect(not(auditNamesStalledGates))
+  run detectsFailedSettleWithoutKindTest = working
+    .then(commit(OWNER, [AttemptSettled({ attempt: 0, outcome: "failed", stale: false, commanded: false, kind: "" }), NotificationQueued({ id: 10, kind: "settle" })]))
+    .expect(not(failureKindValid))
   run detectsDroppedSettleNotificationTest = working
-    .then(commit(OWNER, [AttemptClaimed({ attempt: 0, sha: 42 })]))
+    .then(commit(OWNER, [AttemptClaimed({ attempt: 0, sha: 42, disposed: false })]))
     .expect(not(exactlyOnceDelivery))
   run detectsSettledAttemptMutationTest = claimed.then(accept(0, 2, 42))
     .then(commit(OWNER, [AttemptProgressed(0)])).expect(not(settledAttemptImmutable))
@@ -393,13 +427,13 @@ module constellations_property_test {
     .then(commit(OWNER, [AttemptRecoveryContinued({ attempt: 0, interruption: 1 }), AttemptRecoveryContinued({ attempt: 0, interruption: 2 })]))
     .expect(not(recoveryAtMostOnce))
   run detectsRetiredSettlementOutcomeTest = working
-    .then(commit(OWNER, [AttemptSettled({ attempt: 0, outcome: "settled_unverified", stale: false, commanded: false }), NotificationQueued({ id: 10, kind: "settle" })]))
+    .then(commit(OWNER, [AttemptSettled({ attempt: 0, outcome: "settled_unverified", stale: false, commanded: false, kind: "" }), NotificationQueued({ id: 10, kind: "settle" })]))
     .expect(not(settlementOutcomesValid) and not(safety))
   run detectsStaleMechanicalSettleTest = working
-    .then(commit(OWNER, [AttemptSettled({ attempt: 0, outcome: "lost", stale: true, commanded: false }), NotificationQueued({ id: 10, kind: "settle" })]))
+    .then(commit(OWNER, [AttemptSettled({ attempt: 0, outcome: "lost", stale: true, commanded: false, kind: "" }), NotificationQueued({ id: 10, kind: "settle" })]))
     .expect(not(staleNeverSettlesWithoutCommand))
   run detectsOldLeadDeliveryTest = claimed.then(handover(3))
-    .then(commit(OWNER, [LeadNotified({ ids: Set(10), lead: 0 })]))
+    .then(commit(OWNER, [LeadNotified({ ids: Set(10), lead: 0, steered: false, audit: Set() })]))
     .expect(not(noOldLeadDelivery))
   run detectsCapacityViolationTest = init.then(request(0)).then(request(1)).then(request(2))
     .then(commit(OWNER, [ResourceLeased(0), ResourceLeased(1), ResourceLeased(2)]))

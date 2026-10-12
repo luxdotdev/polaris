@@ -1,28 +1,69 @@
 import type { Attempt, Claim, Constellation } from "@polaris/protocol";
-import { Predicate } from "effect";
+import { Match, Predicate } from "effect";
+import { failureKindLabel } from "../failureKind.ts";
 
 interface ReviewFeedback {
   feedback?: string;
   rejectedClaim?: Claim;
 }
 
-/** Follow the retry's cause, rather than another Attempt that happens to share its Session. */
-export const reviewFeedback = (graph: Constellation, attempt: Attempt) => {
-  const cause = attempt.cause;
+const line = (text: string) => text.replace(/\s+/g, " ").trim();
 
-  if (!Predicate.isTagged(cause, "SentBack") && !Predicate.isTagged(cause, "MergeConflict"))
-    return {};
+type LinkedCause = Exclude<Attempt["cause"], { readonly _tag: "Initial" }>;
 
-  const rejected = graph.attempts.find((a) => a.id === cause.ref);
+const linkedFeedback = (graph: Constellation, cause: LinkedCause): ReviewFeedback => {
+  const previous = graph.attempts.find((a) => a.id === cause.ref);
 
+  if (previous === undefined) return {};
   const fields: ReviewFeedback = {};
 
-  if (rejected?.rejectionReason != null) fields.feedback = rejected.rejectionReason;
+  if (previous.claim != null) fields.rejectedClaim = previous.claim;
 
-  if (rejected?.claim != null) fields.rejectedClaim = rejected.claim;
+  const settled = previous.settleReason === null ? "" : `: ${line(previous.settleReason)}`;
+
+  const feedback: string | undefined = Match.value(cause).pipe(
+    Match.tag("SentBack", "MergeConflict", () => previous.rejectionReason ?? undefined),
+    Match.tag(
+      "Superseded",
+      () =>
+        `Attempt ${previous.id} was stopped by a Lead handover${previous.settleReason === null ? "" : ` (${line(previous.settleReason)})`}. Rerun its checks on the current graph; do not assume its result still holds.`
+    ),
+    Match.tag(
+      "Recover",
+      () =>
+        `Attempt ${previous.id} could not be continued${settled}. Check the branch for uncommitted or unclaimed work before starting over.`
+    ),
+    Match.tag("Followup", (): string | undefined => {
+      if (previous.state === "lost" || previous.state === "failed") {
+        const kind =
+          previous.failureKind === null ? "" : ` (${failureKindLabel(previous.failureKind)})`;
+
+        const verdict =
+          previous.failureKind === "capacity" || previous.failureKind === "transport"
+            ? "the failure was not the implementation's"
+            : "read the branch before deciding what to keep";
+
+        return `Attempt ${previous.id} ${previous.state}${kind}${settled}. Its branch may hold partial work; ${verdict}.`;
+      }
+
+      if (previous.state === "rejected") return previous.rejectionReason ?? undefined;
+
+      return `Attempt ${previous.id} was ${previous.state}; this Attempt follows it on the same Task.`;
+    }),
+    Match.exhaustive
+  );
+
+  if (feedback !== undefined) fields.feedback = feedback;
 
   return fields;
 };
+
+/** Every cause that names an earlier Attempt carries what that Attempt left behind. */
+export const reviewFeedback = (graph: Constellation, attempt: Attempt): ReviewFeedback =>
+  Match.value(attempt.cause).pipe(
+    Match.tag("Initial", (): ReviewFeedback => ({})),
+    Match.orElse((cause) => linkedFeedback(graph, cause))
+  );
 
 export const mergeFirst = (attempt: Attempt): string =>
   Predicate.isTagged(attempt.cause, "MergeConflict")

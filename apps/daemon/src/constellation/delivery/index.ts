@@ -195,7 +195,7 @@ const make = Effect.gen(function* () {
 
     yield* refreshHandover(id).pipe(Effect.provide(dependencies));
     yield* sendInputs(id).pipe(Effect.provide(dependencies));
-    const delay = digestDelay(record);
+    const delay = digestDelay(record, (yield* store.model).sessions);
 
     if (delay === null || record.graph.state !== "running" || record.handoverRequest !== null) {
       yield* cancelTimer(id);
@@ -206,8 +206,9 @@ const make = Effect.gen(function* () {
     const now = yield* Clock.currentTimeMillis;
     const existing = timers.get(id);
 
+    // A delivered window ends; what arrives next coalesces afresh instead of riding the old timer.
     if (existing?.due) {
-      yield* deliverDigest(id).pipe(Effect.provide(dependencies));
+      if (yield* deliverDigest(id).pipe(Effect.provide(dependencies))) timers.delete(id);
 
       return;
     }

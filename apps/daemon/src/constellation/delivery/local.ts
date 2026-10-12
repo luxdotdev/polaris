@@ -5,11 +5,14 @@ import { decideSession } from "../../engine/session.ts";
 import { serialInput, startupReceipted } from "./boundary.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { GraphDecision } from "../decision.ts";
-import { decideConstellationJournal } from "../journal.ts";
+import { decideConstellationJournal, type ConstellationJournalInput } from "../journal.ts";
 import { ConstellationOwner } from "../runtime.ts";
 import { ConstellationSessionEffects } from "./inputs.ts";
 import { journalContext } from "./journal.ts";
-import { digestPrompt } from "./format.ts";
+import { digestPrompt, steeredDigestPrompt } from "./format.ts";
+import { dueAudit } from "../stall.ts";
+import type { ConstellationRecord } from "../../store/constellation.ts";
+import type { SessionRecord } from "../../store/model.ts";
 import { pendingInputs, type PendingInput } from "./messages.ts";
 import { newTurn, startedTurn, takesDelivery } from "./turns.ts";
 import { unblocksAttempt } from "../blocked.ts";
@@ -115,52 +118,118 @@ const digest = Effect.fn("Constellation.deliverDigest")(function* (id: Constella
   const store = yield* EventStore;
   const effects = yield* ConstellationSessionEffects;
   const owner = yield* ConstellationOwner;
+  const leadSessionId = (yield* store.model).constellations.get(id)?.graph.leadSessionId;
+  const canSteer = leadSessionId === undefined ? false : yield* effects.canSteer(leadSessionId);
 
   const result = yield* store.commit({
     commandId: null,
-    decide: (model) => {
-      const graph = model.constellations.get(id);
+    decide: (model) =>
+      Effect.gen(function* () {
+        const graph = model.constellations.get(id);
 
-      if (
-        graph === undefined ||
-        graph.graph.hostId !== owner ||
-        graph.graph.state !== "running" ||
-        graph.handoverRequest !== null ||
-        graph.graph.pendingNotifications.length === 0
-      )
-        return Effect.succeed([]);
-      const record = model.sessions.get(graph.graph.leadSessionId);
+        if (
+          graph === undefined ||
+          graph.graph.hostId !== owner ||
+          graph.graph.state !== "running" ||
+          graph.handoverRequest !== null
+        )
+          return [];
+        const record = model.sessions.get(graph.graph.leadSessionId);
+        const audit = dueAudit(graph, model.sessions);
 
-      if (record === undefined) return Effect.succeed([]);
-      const turn = newTurn(record.session, digestPrompt(graph), new Date().toISOString());
+        if (
+          record === undefined ||
+          (graph.graph.pendingNotifications.length === 0 && audit === null)
+        )
+          return [];
+        const now = new Date().toISOString();
+        const working = record.turns.find((t) => t.status === "working");
+        const items = graph.graph.pendingNotifications.map((n) => n.id);
 
-      if (!takesDelivery(record, turn)) return Effect.succeed([]);
-      const session = decideSession(record, { type: "turn.send", turn });
+        // A working Lead whose Harness can steer hears the digest inside its live Turn.
+        if (working !== undefined && canSteer && (yield* leadSteerable(store, graph, record))) {
+          const session = decideSession(record, { type: "turn.steer", canSteer });
 
-      const decision = decideConstellationJournal(
-        graph,
-        {
-          type: "notified",
-          leadSessionId: turn.sessionId,
-          turnId: turn.id,
-          items: graph.graph.pendingNotifications.map((n) => n.id),
-          turnEvents: session.events,
-        },
-        journalContext(graph, turn.startedAt)
-      );
+          if (session.rejection !== null) return [];
 
-      return decision.rejection === null
-        ? Effect.succeed(decision.events)
-        : Effect.fail(decision.rejection);
-    },
+          return yield* journal(
+            graph,
+            {
+              type: "notified",
+              leadSessionId: record.session.id,
+              turnId: working.id,
+              items,
+              turnEvents: session.events,
+              steered: true,
+              audit,
+            },
+            now
+          );
+        }
+
+        const turn = newTurn(record.session, digestPrompt(graph, audit), now);
+
+        if (!takesDelivery(record, turn)) return [];
+        const session = decideSession(record, { type: "turn.send", turn });
+
+        return yield* journal(
+          graph,
+          {
+            type: "notified",
+            leadSessionId: turn.sessionId,
+            turnId: turn.id,
+            items,
+            turnEvents: session.events,
+            audit,
+          },
+          now
+        );
+      }),
   });
 
-  if (Predicate.isTagged(result, "Committed")) {
-    const turn = startedTurn(result.envelopes.map((e) => e.event));
+  if (!Predicate.isTagged(result, "Committed") || result.envelopes.length === 0) return false;
+  const events = result.envelopes.map((e) => e.event);
+  const turn = startedTurn(events);
 
-    if (turn !== undefined) yield* effects.runTurn(turn, turn.prompt);
+  if (turn !== undefined) {
+    yield* effects.runTurn(turn, turn.prompt);
+
+    return true;
   }
+
+  const notified = events.find((e) => Predicate.isTagged(e, "LeadNotified"));
+  const record = (yield* store.model).constellations.get(id);
+
+  if (notified !== undefined && record !== undefined)
+    yield* effects.steer(notified.leadSessionId, steeredDigestPrompt(record, notified));
+
+  return true;
 });
+
+/** A Lead carrying a Gate Attempt hears digests only once that Attempt's brief has a receipt. */
+const leadSteerable = Effect.fnUntraced(function* (
+  store: EventStore["Service"],
+  graph: ConstellationRecord,
+  record: SessionRecord
+) {
+  const attempt = graph.graph.attempts.findLast(
+    (a) => a.sessionId === record.session.id && a.state !== "accepted"
+  );
+
+  return attempt === undefined || (yield* startupReceipted(store, attempt.id));
+});
+
+const journal = (
+  graph: ConstellationRecord,
+  input: Extract<ConstellationJournalInput, { type: "notified" }>,
+  now: string
+) => {
+  const decision = decideConstellationJournal(graph, input, journalContext(graph, now));
+
+  return decision.rejection === null
+    ? Effect.succeed(decision.events)
+    : Effect.fail(decision.rejection);
+};
 
 const nudge = Effect.fn("Constellation.nudgeSilentWorker")(function* (
   id: ConstellationId,
@@ -193,8 +262,7 @@ const nudge = Effect.fn("Constellation.nudgeSilentWorker")(function* (
         [...graph.questions.values()].some(
           (q) => q.attemptId === attempt.id && q.answer === null && q.question.blocking
         ) ||
-        graph.graph.state === "archived" ||
-        graph.graph.state === "completed"
+        graph.graph.state !== "running"
       )
         return Effect.succeed([]);
 
@@ -277,12 +345,13 @@ export const deliverLocalInput = (id: ConstellationId, input: PendingInput) =>
       });
   });
 
+/** True when a digest committed; a busy or paused Lead leaves the window due. */
 export const deliverDigest = (id: ConstellationId) =>
   Effect.gen(function* () {
     const store = yield* EventStore;
     const sessionId = (yield* store.model).constellations.get(id)?.graph.leadSessionId;
 
-    if (sessionId !== undefined) yield* serialInput(sessionId, digest(id));
+    return sessionId === undefined ? false : yield* serialInput(sessionId, digest(id));
   });
 
 export const nudgeSilentWorker = (

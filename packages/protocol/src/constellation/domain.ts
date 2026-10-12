@@ -60,6 +60,22 @@ export const EvidenceTier = Schema.Literals(["verified", "reported", "asserted"]
 
 export type EvidenceTier = typeof EvidenceTier.Type;
 
+/** Why a mechanical settle happened; `implementation` is never inferred from a Harness failure. */
+export const FailureKind = Schema.Literals(["capacity", "transport", "harness", "implementation"]);
+
+export type FailureKind = typeof FailureKind.Type;
+
+/** What a stall audit found: `key` is stable for one stalled state, so one audit is noted once. */
+export class StallAudit extends Schema.Class<StallAudit>("ConstellationStallAudit")({
+  key: Schema.NonEmptyString,
+  /** Working Attempts with no active Turn and no queued input. */
+  working: Schema.Array(TaskId),
+  /** Promoted Gates with no active Attempt. */
+  gates: Schema.Array(TaskId),
+  /** The Lead has no active Turn while Claims, ready Tasks or Gates wait on it. */
+  lead: Schema.Boolean,
+}) {}
+
 export const Area = Schema.Array(Schema.NonEmptyString);
 
 export type Area = typeof Area.Type;
@@ -190,6 +206,10 @@ export class Attempt extends Schema.Class<Attempt>("ConstellationAttempt")({
   rejectionReason: optionalNullable(Schema.String),
   /** The one automatic nudge after a silent end (AttemptNudged). */
   nudgedAt: Schema.NullOr(Timestamp),
+  /** Why a lost or failed Attempt settled (AttemptSettled.reason); null while active. */
+  settleReason: optionalNullable(Schema.String),
+  /** The classified cause of a failed settle; null for lost, accepted or active Attempts. */
+  failureKind: optionalNullable(FailureKind),
   blockedOn: optionalArray(TaskId),
   blockedReason: optionalNullable(Schema.String),
   blockedAt: optionalNullable(Timestamp),
@@ -217,7 +237,11 @@ export const NotificationItem = Schema.TaggedUnion({
     reason: Schema.NonEmptyString,
   },
   Stopped: { taskId: TaskId, attemptId: AttemptId },
-  Settled: { attemptId: AttemptId, state: AttemptState },
+  Settled: {
+    attemptId: AttemptId,
+    state: AttemptState,
+    failureKind: optionalNullable(Schema.suspend(() => FailureKind)),
+  },
   /** The user approved a Claim; the Lead merges its head and accepts it. */
   Approved: { attemptId: AttemptId },
   Question: { attemptId: AttemptId, question: ConstellationQuestion },
