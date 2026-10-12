@@ -1,8 +1,10 @@
 /**
  * The conversation as a flat list of rows, the unit the virtualized list
- * renders: earlier Turns fold to one summary row, the rest expand into the
- * prompt, each item and the Turn's ending. Rows are cached per Turn view, so
- * a streaming Turn rebuilds only its own rows each frame.
+ * renders: a folded Turn is one summary row, an open one expands into the
+ * prompt, each item and the Turn's ending. Turns that were already there when
+ * the session was first shown start folded; the latest one then and every
+ * Turn after it stay open until the user folds them. Rows are cached per Turn
+ * view, so a streaming Turn rebuilds only its own rows each frame.
  */
 import type {
   ApprovalRequest,
@@ -21,6 +23,28 @@ import type { Outgoing } from "./outbox.ts";
 import { type Entry, groupItems } from "./runs.ts";
 import { subagentCard } from "./subagents.ts";
 
+const pad = (n: number) => String(n).padStart(2, "0");
+
+const sameDay = (a: Date, b: Date) =>
+  a.getFullYear() === b.getFullYear() &&
+  a.getMonth() === b.getMonth() &&
+  a.getDate() === b.getDate();
+
+/** When a Turn started, in local time: "14:02" today, "Sep 20 14:02" before. */
+export const turnTime = (iso: string, now: Date): string => {
+  const at = new Date(iso);
+
+  if (Number.isNaN(at.getTime())) return "";
+  const clock = `${pad(at.getHours())}:${pad(at.getMinutes())}`;
+
+  if (sameDay(at, now)) return clock;
+  const day = at.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+  return at.getFullYear() === now.getFullYear()
+    ? `${day} ${clock}`
+    : `${day}, ${at.getFullYear()} ${clock}`;
+};
+
 export interface TurnSummary {
   readonly turnId: TurnId;
   /** One-based, as the UI numbers Turns. */
@@ -29,6 +53,8 @@ export interface TurnSummary {
   /** The last assistant message's first line, else the prompt's. */
   readonly summary: string;
   readonly files: number;
+  /** When the Turn started (ISO). */
+  readonly startedAt: string;
 }
 
 export type Row =
@@ -38,21 +64,27 @@ export type Row =
       readonly kind: "prompt";
       readonly key: string;
       readonly turnId: string;
+      /** One-based, as the UI numbers Turns. */
+      readonly number: number;
       readonly text: string;
       /** What the prompt carried, in the order attached (previews above the bubble). */
       readonly attachments: ReadonlyArray<Attachment>;
       /** The Model and effort the Turn ran on; null for the Harness's defaults. */
       readonly model: string | null;
       readonly effort: string | null;
+      /** When the Turn started (ISO). */
+      readonly startedAt: string;
     }
   /** A Turn the Harness started itself: what woke it, in place of a prompt. */
   | {
       readonly kind: "trigger";
       readonly key: string;
       readonly turnId: string;
+      readonly number: number;
       readonly text: string;
       readonly model: string | null;
       readonly effort: string | null;
+      readonly startedAt: string;
     }
   | {
       readonly kind: "item";
@@ -62,6 +94,8 @@ export type Row =
       readonly entry: Entry;
       /** The first agent row of its Turn carries the Harness avatar. */
       readonly lead: boolean;
+      /** Its Turn is the session's latest (in-Turn defaults read it). */
+      readonly latest: boolean;
     }
   | { readonly kind: "approval"; readonly key: string; readonly request: ApprovalRequest }
   /** A steer or queued follow-up that hasn't landed yet (`outbox.ts`). */
@@ -121,6 +155,7 @@ export const summarize = (view: TurnView): TurnSummary => {
     status: view.turn.status,
     summary: firstLine(text),
     files: touchedFiles(view.items),
+    startedAt: view.turn.startedAt,
   };
 };
 
@@ -177,7 +212,7 @@ const entryKey = (entry: Entry) => {
 
 const isSteer = (entry: Entry | undefined) => entry?.kind === "item" && entry.item.kind === "user";
 
-const itemRows = (view: TurnView): ReadonlyArray<Row> => {
+const itemRows = (view: TurnView, isLast: boolean): ReadonlyArray<Row> => {
   const turnId = view.turn.id;
   const entries = turnEntries(view);
 
@@ -188,6 +223,7 @@ const itemRows = (view: TurnView): ReadonlyArray<Row> => {
     turnId,
     entry,
     lead: !isSteer(entry) && (n === 0 || isSteer(entries[n - 1])),
+    latest: isLast,
   }));
 };
 
@@ -215,23 +251,27 @@ const openingRow = ({ turn }: TurnView): Row =>
         kind: "prompt",
         key: `${turn.id}:prompt`,
         turnId: turn.id,
+        number: turn.index + 1,
         text: turn.prompt,
         attachments: turn.attachments,
         model: turn.model,
         effort: turn.effort,
+        startedAt: turn.startedAt,
       }
     : {
         kind: "trigger",
         key: `${turn.id}:trigger`,
         turnId: turn.id,
+        number: turn.index + 1,
         text: triggerPhrase(turn.trigger),
         model: turn.model,
         effort: turn.effort,
+        startedAt: turn.startedAt,
       };
 
 const expandedRows = (view: TurnView, isLast: boolean): ReadonlyArray<Row> => [
   openingRow(view),
-  ...itemRows(view),
+  ...itemRows(view, isLast),
   ...endingRow(view, isLast),
 ];
 
@@ -258,11 +298,36 @@ export const turnRows = (view: TurnView, expanded: boolean, isLast: boolean) => 
   return rows;
 };
 
+/** Which Turns are open: the user's own choices, else from `openFrom` on. */
+export interface Folds {
+  /** Per Turn, what the user chose: true opened, false folded. */
+  readonly chosen: ReadonlyMap<string, boolean>;
+  /** The latest Turn when the session was first shown; null until then (the last Turn). */
+  readonly openFrom: string | null;
+}
+
+export const noFolds: Folds = { chosen: new Map(), openFrom: null };
+
+/** Whether each Turn is open; a newer Turn arriving never folds one. */
+export const openTurns = (
+  turns: ReadonlyArray<TurnView>,
+  { chosen, openFrom }: Folds
+): ReadonlyArray<boolean> => {
+  const from = turns.findIndex((t) => t.turn.id === openFrom);
+  const first = from === -1 ? turns.length - 1 : from;
+
+  return turns.map((view, n) => chosen.get(view.turn.id) ?? n >= first);
+};
+
+/** Whether the session's latest Turn is open (T-ITEMS opens its runs by default). */
+export const latestTurnOpen = (turns: ReadonlyArray<TurnView>, folds: Folds): boolean =>
+  openTurns(turns, folds).at(-1) ?? false;
+
 export interface ConversationInput {
   readonly turns: ReadonlyArray<TurnView>;
   readonly approvals: ReadonlyArray<ApprovalRequest>;
-  /** Turns the user unfolded; the last Turn is always open. */
-  readonly unfolded: ReadonlySet<string>;
+  /** Which Turns are open; default: only the last. */
+  readonly folds?: Folds;
   /** Steers and follow-ups not landed yet; they close the list. */
   readonly setup?: WorktreeSetupRun | null;
   readonly outbox?: ReadonlyArray<Outgoing>;
@@ -280,7 +345,7 @@ const approvalRow = (request: ApprovalRequest): Row => ({
 export const conversationRows = ({
   turns,
   approvals,
-  unfolded,
+  folds = noFolds,
   outbox = [],
   setup = null,
   waiting = [],
@@ -288,11 +353,10 @@ export const conversationRows = ({
   const rows: Array<Row> = setup === null ? [] : [{ kind: "setup", key: setup.id, setup }];
   const placed = new Set<string>();
   const lastIndex = turns.length - 1;
+  const open = openTurns(turns, folds);
 
   turns.forEach((view, n) => {
-    const isLast = n === lastIndex;
-
-    rows.push(...turnRows(view, isLast || unfolded.has(view.turn.id), isLast));
+    rows.push(...turnRows(view, open[n] ?? true, n === lastIndex));
 
     for (const request of approvals) {
       if (request.turnId !== view.turn.id) continue;
@@ -309,3 +373,10 @@ export const conversationRows = ({
 
   return rows;
 };
+
+/** The row a Turn starts at (its summary, prompt or trigger); -1 when it isn't listed. */
+export const turnStartRow = (rows: ReadonlyArray<Row>, turnId: string): number =>
+  rows.findIndex(
+    (r) =>
+      (r.kind === "summary" || r.kind === "prompt" || r.kind === "trigger") && r.turnId === turnId
+  );

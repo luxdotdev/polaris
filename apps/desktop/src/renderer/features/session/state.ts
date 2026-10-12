@@ -1,11 +1,12 @@
 /**
- * The session view's own UI state, per Agent Session: which earlier Turns are
- * unfolded, which Turn Output shows, and the composer's draft. It outlives the
+ * The session view's own UI state, per Agent Session: which Turns are open
+ * (`model/conversation.ts`), which Turn Output shows, and the composer's draft. It outlives the
  * view, so switching back to a session paints it as it was left.
  */
 import type { AttachmentId } from "@polaris/protocol";
 import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
+import { type Folds, noFolds } from "./model/conversation.ts";
 import type { Outgoing } from "./model/outbox.ts";
 
 export interface StagedAttachment {
@@ -20,7 +21,7 @@ export interface StagedAttachment {
 }
 
 export interface SessionUi {
-  readonly unfolded: ReadonlySet<string>;
+  readonly folds: Folds;
   /** The Turn whose diff Output shows; null follows the latest Turn. */
   readonly diffTurnId: string | null;
   readonly draft: string;
@@ -30,7 +31,7 @@ export interface SessionUi {
 }
 
 const EMPTY: SessionUi = {
-  unfolded: new Set(),
+  folds: noFolds,
   diffTurnId: null,
   draft: "",
   attachments: [],
@@ -52,14 +53,17 @@ export const patchSessionUi = (key: string, patch: (ui: SessionUi) => Partial<Se
     return { ...s, [key]: { ...current, ...patch(current) } };
   });
 
-export const toggleUnfolded = (key: string, turnId: string) =>
-  patchSessionUi(key, ({ unfolded }) => {
-    const next = new Set(unfolded);
+/** The user opens or folds one Turn; it stays that way whatever arrives after it. */
+export const setTurnOpen = (key: string, turnId: string, open: boolean) =>
+  patchSessionUi(key, ({ folds }) => ({
+    folds: { ...folds, chosen: new Map(folds.chosen).set(turnId, open) },
+  }));
 
-    if (!next.delete(turnId)) next.add(turnId);
-
-    return { unfolded: next };
-  });
+/** Marks the latest Turn when the session is first shown: it and every later Turn start open. */
+export const holdOpenFrom = (key: string, turnId: string) =>
+  patchSessionUi(key, ({ folds }) =>
+    folds.openFrom === null ? { folds: { ...folds, openFrom: turnId } } : {}
+  );
 
 export const showTurnDiff = (key: string, turnId: string | null) =>
   patchSessionUi(key, () => ({ diffTurnId: turnId }));

@@ -33,7 +33,6 @@ test("a self-started Turn opens with what woke it, never a user bubble", () => {
   const rows = conversationRows({
     turns: [prompted, continuation(1)],
     approvals: [],
-    unfolded: new Set(),
   });
 
   expect(rows.map((r) => r.kind)).toEqual(["summary", "trigger"]);
@@ -55,7 +54,6 @@ test("background tasks an Idle session waits on close the list, before outgoing 
   const rows = conversationRows({
     turns: [prompted],
     approvals: [],
-    unfolded: new Set(),
     waiting: tasks,
   });
 
