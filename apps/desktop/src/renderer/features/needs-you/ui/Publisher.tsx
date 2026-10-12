@@ -1,6 +1,5 @@
 import { useEffect, useMemo } from "react";
 import { useApp, useSelection } from "../../../shell/hooks.ts";
-import { useAllConstellations } from "../../sessions/source.ts";
 import { publishSummary } from "../bridge.ts";
 import { pruneDismissed } from "../dismissed.ts";
 import { useInboxUntimedView } from "../hooks.ts";
@@ -12,7 +11,17 @@ export const NeedsYouPublisher = () => {
   const { pane, mode, settings, hostKey, sessionId } = useSelection();
   const hosts = useApp((s) => s.hosts);
   const models = useApp((s) => s.hostModels);
-  const views = useAllConstellations();
+  const constellations = useApp((s) => s.constellations);
+
+  // Whole records, not views: a Lead's digests tell its digest-started Turns apart.
+  const views = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(constellations).map(([key, model]) => [key, [...model.byId.values()]])
+      ),
+    [constellations]
+  );
+
   const turns = useMemo(() => turnsOf({ hosts, models, views }), [hosts, models, views]);
 
   const summary = useMemo(() => {

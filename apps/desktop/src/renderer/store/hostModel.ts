@@ -39,6 +39,8 @@ export interface SessionEntry {
   /** The latest resolutions this Client saw live, newest last; not in snapshots. */
   readonly resolved?: ReadonlyArray<ResolvedApproval>;
   readonly lastTurnPreview: string | null;
+  /** The latest Turn's id, seen live; snapshots don't carry it. */
+  readonly lastTurnId?: string | null;
   /** Subagents still working in this session. */
   readonly subagents: ReadonlyArray<Subagent>;
 }
@@ -130,6 +132,7 @@ const onSession =
     updateSession({ model, sessionId, at, change });
 
 const onTurn = (turn: {
+  readonly id: string;
   readonly sessionId: string;
   readonly index: number;
   readonly prompt: string;
@@ -137,6 +140,7 @@ const onTurn = (turn: {
   onSession(turn.sessionId, (entry) => ({
     ...entry,
     lastTurnPreview: turn.prompt.slice(0, 140),
+    lastTurnId: turn.id,
     session: { ...entry.session, turnCount: Math.max(entry.session.turnCount, turn.index + 1) },
   }));
 

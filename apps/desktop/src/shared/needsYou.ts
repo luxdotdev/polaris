@@ -36,6 +36,8 @@ export interface NeedsYouTurn {
   readonly state: "working" | "idle";
   /** The latest Turn's prompt, shortened. */
   readonly prompt: string | null;
+  /** Polaris started the latest Turn for a Constellation digest: not the user's Turn. */
+  readonly digestStarted?: boolean;
 }
 
 export interface NeedsYouSummary {

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { TurnId } from "@polaris/protocol";
 import { C1, HOSTS, MODELS } from "../../sessions/preview/fixtures.ts";
 import { turnsOf } from "./summary.ts";
 
@@ -23,5 +24,36 @@ describe("turnsOf", () => {
     expect(all.some((t) => workers.has(t.sessionId))).toBe(true);
     expect(shown.some((t) => workers.has(t.sessionId))).toBe(false);
     expect(shown.length).toBe(all.filter((t) => !workers.has(t.sessionId)).length);
+  });
+
+  test("marks a Lead's digest-started Turn, but not a Turn a digest was steered into", () => {
+    const lead = C1.constellation.leadSessionId;
+    const base = { leadSessionId: lead, revision: 1, at: "2026-10-11T12:00:00Z", items: [] };
+    const host = MODELS.local;
+    const entry = host.sessions.get(lead);
+
+    if (entry === undefined) throw new Error("fixture has the Lead");
+
+    const withTurn = (turnId: string) => ({
+      ...MODELS,
+      local: { ...host, sessions: new Map([[lead, { ...entry, lastTurnId: turnId }]]) },
+    });
+
+    const view = {
+      ...C1,
+      digests: [
+        { ...base, turnId: TurnId.make("t-digest") },
+        { ...base, turnId: TurnId.make("t-user"), steered: true },
+      ],
+    };
+
+    const flag = (turnId: string) =>
+      turnsOf({ hosts: HOSTS, models: withTurn(turnId), views: { local: [view] } }).find(
+        (t) => t.sessionId === lead
+      )?.digestStarted;
+
+    expect(flag("t-digest")).toBe(true);
+    expect(flag("t-user")).toBe(false);
+    expect(flag("t-other")).toBe(false);
   });
 });
