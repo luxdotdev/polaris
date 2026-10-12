@@ -116,7 +116,9 @@ const switchModel = async (
   await page.getByTestId("model-option").filter({ hasText: "Bench Large" }).click();
   await page.getByTestId("effort-high").waitFor();
   await shoot("model-picker");
+  // A press on the bar keeps the menu open; Enter sends what it shows.
   await page.getByTestId("effort-high").click();
+  await page.keyboard.press("Enter");
   await chip.filter({ hasText: MODEL }).waitFor({ timeout: 10_000 });
   step(`SetModel between Turns: ${MODEL}`);
 };
