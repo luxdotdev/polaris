@@ -1,9 +1,10 @@
 import { CommandId } from "@polaris/protocol";
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 import { McpBinding, sessionBinding } from "../binding.ts";
 import { leadTools } from "./lead.ts";
 import { workerTools } from "./worker.ts";
 import { resolvers } from "./resolve.ts";
+import { CallCommandId, idempotency, type Idempotency } from "./idempotency.ts";
 import {
   toolFactory,
   rejection,
@@ -18,16 +19,37 @@ export type { BoundTool, ConstellationCommands, McpToolResult } from "./shared.t
 
 export { unavailableCommands } from "./unavailable.ts";
 
+/** Each Daemon's commands keep their own recent implicit ids. */
+const idsByCommands = new WeakMap<ConstellationCommands, Idempotency>();
+
+const idsFor = (commands: ConstellationCommands) => {
+  const known = idsByCommands.get(commands);
+
+  if (known !== undefined) return known;
+  const ids = idempotency();
+  idsByCommands.set(commands, ids);
+
+  return ids;
+};
+
 /** E reauthorizes the authenticated session under the store lock on every command. */
 export const constellationTools = (
   binding: McpBinding,
   commands: ConstellationCommands
 ): ReadonlyArray<BoundTool> => {
   const caller = sessionBinding(binding);
-  const define = toolFactory(() => commands.status(caller, binding.constellationId, true));
+
+  const define = toolFactory(() => commands.status(caller, binding.constellationId, true), {
+    sessionId: binding.sessionId,
+    ids: idsFor(commands),
+  });
 
   const submit = (command: Parameters<ConstellationCommands["command"]>[2]) =>
-    commands.command(caller, CommandId.make(crypto.randomUUID()), command);
+    Effect.gen(function* () {
+      const id = yield* CallCommandId;
+
+      return yield* commands.command(caller, id ?? CommandId.make(crypto.randomUUID()), command);
+    });
 
   const status = define(
     "status",
