@@ -77,4 +77,23 @@ describe("planAgentNotifications", () => {
       ["n1"],
     ]);
   });
+
+  test("a notification held for the focused session is recorded as held, once", () => {
+    const focused = { hostKey: "local", sessionId: "s1" };
+
+    const first = planAgentNotifications({
+      state: emptyNotifyState,
+      summary: summary([], focused),
+      windowFocused: true,
+    });
+
+    const next = summary([note("n1"), note("n2", "s2")], focused);
+
+    const plan = planAgentNotifications({ state: first.state, summary: next, windowFocused: true });
+
+    expect(plan.held.map((n) => n.id)).toEqual(["n1"]);
+    expect(
+      planAgentNotifications({ state: plan.state, summary: next, windowFocused: true }).held
+    ).toEqual([]);
+  });
 });

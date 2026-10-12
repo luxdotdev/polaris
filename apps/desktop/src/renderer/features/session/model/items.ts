@@ -5,6 +5,7 @@
 import type { TurnItem } from "@polaris/protocol";
 import { Match, Predicate } from "effect";
 import type { LiveItem } from "../../../store/sessionModel.ts";
+import { type PolarisToolView, polarisToolView } from "./polarisTools/index.ts";
 import { polarisTool } from "./runs.ts";
 
 export type ItemStatus = "running" | "completed" | "failed" | "declined";
@@ -57,6 +58,8 @@ export type ItemView =
       readonly file: ToolFile | null;
       /** A Constellation tool (`claim`, `dispatch`…): its row carries the Constellation mark. */
       readonly polaris: boolean;
+      /** A Polaris tool's own row (`polarisTools`); null for any other tool. */
+      readonly view: PolarisToolView | null;
       readonly status: ItemStatus;
     })
   | (Base & {
@@ -213,6 +216,7 @@ const fromItem = (item: TurnItem, live: boolean): ItemView =>
         full: toolCallSummary(i.name, i.input, FULL_MAX),
         file: toolFile(i.input),
         polaris: polarisTool(i.name) !== null,
+        view: polarisToolView(i),
         status: i.status,
       }),
       Plan: (i): ItemView => ({

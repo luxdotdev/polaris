@@ -15,6 +15,7 @@ const tool = (
   full: `${id}.ts`,
   file: null,
   polaris: false,
+  view: null,
   status,
 });
 

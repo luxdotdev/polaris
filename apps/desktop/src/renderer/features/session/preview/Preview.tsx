@@ -49,8 +49,10 @@ import {
   worktree,
 } from "./fixtures.ts";
 import { items as itemsScene } from "./itemsScene.ts";
+import { polarisTools, PREVIEW_NOTICE } from "./polarisScene.ts";
 import { background, waitingSidebar } from "./background.ts";
 import { MODELS, PATCH } from "./fixtureData.ts";
+import { recordBanner } from "../banners.ts";
 
 const HOST = "local";
 
@@ -95,6 +97,7 @@ const SCENES = {
   subagents,
   background,
   order,
+  polaris: polarisTools,
 } as const;
 
 const SCENE_NAMES = [
@@ -111,6 +114,7 @@ const SCENE_NAMES = [
   "subagents",
   "background",
   "order",
+  "polaris",
   "new",
   "setup",
   "none-ready",
@@ -460,7 +464,20 @@ export const mountPreview = (root: HTMLElement, hash: string) => {
     patchSessionUi(key, () => ({ outbox: steerOutbox(turnId) }));
   }
 
-  if ((scene === "attachments" || scene === "background") && shown?.session != null) {
+  // Main's record of the notify call's banner, which the preview has no main process to send.
+  if (scene === "polaris" && shown?.session != null)
+    recordBanner({
+      hostKey: HOST,
+      sessionId: shown.session.id,
+      id: "n1",
+      ...PREVIEW_NOTICE,
+      banner: "shown",
+    });
+
+  if (
+    (scene === "attachments" || scene === "background" || scene === "polaris") &&
+    shown?.session != null
+  ) {
     const folds = { chosen: new Map(), openFrom: shown.turns[0]?.turn.id ?? null };
 
     patchSessionUi(uiKey(HOST, shown.session.id), () => ({ folds }));

@@ -22,6 +22,7 @@ import { Command } from "./command.tsx";
 import { ImageViewer } from "./ImageViewer.tsx";
 import { Markdown } from "./markdown/index.tsx";
 import { Plan } from "./plan.tsx";
+import { PolarisTool } from "./polarisTool/index.tsx";
 import { Reasoning } from "./reasoning.tsx";
 import { softWrap } from "./softWrap.tsx";
 
@@ -200,7 +201,11 @@ export const Item = ({ item, hue, onOpenDiff, latest = false }: ItemProps) => {
     case "files":
       return <Files item={item} onOpenDiff={onOpenDiff} />;
     case "tool":
-      return <Tool item={item} hue={hue} />;
+      return item.view === null ? (
+        <Tool item={item} hue={hue} />
+      ) : (
+        <PolarisTool id={item.id} view={item.view} hue={hue} />
+      );
     case "plan":
       return <Plan item={item} hue={hue} />;
     case "error":

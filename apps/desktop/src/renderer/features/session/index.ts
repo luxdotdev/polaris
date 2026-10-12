@@ -33,4 +33,6 @@ export {
   type SteerCardArgs,
 } from "./chrome.ts";
 
+export { bannerEntry, type BannerEntry, recordBanner } from "./banners.ts";
+
 export { updateDraft } from "./state.ts";

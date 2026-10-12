@@ -79,6 +79,8 @@ const LeadIntent = ({
     );
 
   const chrome: SessionChrome = {
+    openTask: (taskId) =>
+      patchLeadUi(leadKey(hostKey, sessionId), () => ({ focus: { kind: "task", taskId } })),
     promptCard: ({ turnId, folded, canFold, onToggle }) => {
       const digest = digests.get(turnId);
       const view = turns.find((t) => t.turn.id === turnId);

@@ -32,6 +32,8 @@ export interface SessionChrome {
   readonly body?: ReactNode;
   /** Closes the conversation, after the last row. */
   readonly trailer?: ReactNode;
+  /** Opens a Task's worker where the Lead reads it: a Polaris tool row's "Open B2". */
+  readonly openTask?: (taskId: string) => void;
   /** Sends the composer's text somewhere other than the session (a journaled steer). */
   readonly composer?: {
     readonly placeholder: string;
