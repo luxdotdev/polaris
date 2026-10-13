@@ -12,6 +12,7 @@ import { localHostEnabled } from "../localDaemon.ts";
 import type { InstallOutcome, InstallSnapshot } from "./installFlow.ts";
 import { daemonUpdateView, type UpdateFacts } from "./updateFacts.ts";
 import { clientCopy } from "../../shared/clientCopy.ts";
+import { clientPlatform } from "../../shared/platform.ts";
 
 /** A Host's install flow as `Machines` tracks it. */
 export interface InstallRecord {
@@ -57,7 +58,7 @@ export const machineViews = ({
   bundledVersion = null,
   bundledVersions,
   localManaged = false,
-  platform = process.platform,
+  platform = clientPlatform(),
 }: MachineViewsInput): ReadonlyArray<MachineView> => {
   const status = (key: string) => hosts.find((h) => h.key === key)?.status ?? null;
   const local = hosts.find((h) => h.key === LOCAL_HOST_KEY);
