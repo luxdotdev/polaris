@@ -167,6 +167,8 @@ export const languageHostServices = (
                         ...Object.keys(webProviders),
                         "bash-language-server",
                         "sqllens-language-server",
+                        "rust-analyzer",
+                        "lua-language-server",
                       ].includes(request.facts.providerId) &&
                       options.managed !== undefined
                     ) {

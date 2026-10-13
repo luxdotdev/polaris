@@ -39,6 +39,7 @@ import { prepareFeatureEdit, type PreparationIntent } from "./preparation.ts";
 import { configuredExecutable } from "./configuredLaunch.ts";
 import { observationAdmission } from "./observation.ts";
 import { managedWithoutTrust } from "./managedPolicy.ts";
+import { trustLanguage, trustProvider } from "./trustProvider.ts";
 import {
   LanguageProviderAccess,
   LanguageTrustGrantAuthority,
@@ -201,6 +202,8 @@ function makeCore(
             "typescript-language-server",
             "svelte-language-server",
             "prisma-language-server",
+            "rust-analyzer",
+            "lua-language-server",
           ].includes(providerId)
         )
           trustRequest = trustStatus(found, observed.trust, trust);
@@ -350,13 +353,9 @@ function makeCore(
         discovery.discover({
           checkout,
           path,
-          providerId: path.endsWith(".svelte")
-            ? "svelte-language-server"
-            : path.endsWith(".prisma")
-              ? "prisma-language-server"
-              : "typescript-language-server",
+          providerId: trustProvider(path),
           settings: effectiveSettings(
-            { hostId, workspaceId: checkout.workspaceId, language: "typescript" },
+            { hostId, workspaceId: checkout.workspaceId, language: trustLanguage(path) },
             [],
             0
           ),

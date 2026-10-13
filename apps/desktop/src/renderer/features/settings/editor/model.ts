@@ -63,6 +63,7 @@ const MONOGRAMS = new Map<string, string>([
   ["yaml", "YM"],
   ["actions", "YM"],
   ["prisma", "PR"],
+  ["lua", "LU"],
 ]);
 
 /** What the row adds after "Ready" for an integration with something to say. */

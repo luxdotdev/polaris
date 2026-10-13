@@ -1,5 +1,6 @@
 import { opendir, stat } from "node:fs/promises";
-import { dirname, join, relative, sep } from "node:path";
+import { homedir } from "node:os";
+import { dirname, extname, join, relative, sep } from "node:path";
 import { LanguageProjectFormatter, type LanguageProjectFormatterTool } from "@polaris/protocol";
 import { Option, Schema } from "effect";
 import { within } from "../trust/checkout.ts";
@@ -12,6 +13,8 @@ interface ToolFacts {
   readonly dependency: string;
   readonly bin: string;
   readonly ignoreFiles: readonly string[];
+  /** Extensions the tool formats; none means every file but `OWN_FORMATTER`'s. */
+  readonly extensions?: readonly string[];
 }
 
 const configs = (stem: string, extensions: readonly string[]) =>
@@ -53,7 +56,28 @@ export const PROJECT_FORMATTERS: readonly ToolFacts[] = [
     bin: "prettier",
     ignoreFiles: [".prettierignore"],
   },
+  {
+    tool: "stylua",
+    configs: ["stylua.toml", ".stylua.toml"],
+    dependency: "@johnnymorganz/stylua-bin",
+    bin: "stylua",
+    ignoreFiles: [".styluaignore"],
+    extensions: [".lua", ".luau"],
+  },
 ];
+
+/** Their language server formats these unless a tool claims the extension (rustfmt for Rust). */
+const OWN_FORMATTER = new Set([".rs", ".lua", ".luau"]);
+
+const formattersFor = (file: string) => {
+  const extension = extname(file);
+
+  return PROJECT_FORMATTERS.filter((facts) =>
+    facts.extensions === undefined
+      ? !OWN_FORMATTER.has(extension)
+      : facts.extensions.includes(extension)
+  );
+};
 
 const factsOf = (tool: LanguageProjectFormatterTool) =>
   PROJECT_FORMATTERS.find((facts) => facts.tool === tool)!;
@@ -125,17 +149,21 @@ interface Found {
   readonly config: string | null;
 }
 
-const configIn = async (directory: string): Promise<Found | null> => {
+const configIn = async (
+  directory: string,
+  formatters: readonly ToolFacts[]
+): Promise<Found | null> => {
   const names = await entries(directory);
 
-  for (const facts of PROJECT_FORMATTERS) {
+  for (const facts of formatters) {
     const config = facts.configs.find((name) => names.has(name));
 
     if (config !== undefined)
       return { tool: facts.tool, root: directory, config: join(directory, config) };
   }
 
-  if (!names.has("package.json")) return null;
+  if (!names.has("package.json") || !formatters.some((facts) => facts.tool === "prettier"))
+    return null;
   const pkg = await manifest(directory);
 
   return pkg?.prettier === undefined
@@ -143,12 +171,15 @@ const configIn = async (directory: string): Promise<Found | null> => {
     : { tool: "prettier", root: directory, config: join(directory, "package.json") };
 };
 
-const dependencyIn = async (directory: string): Promise<Found | null> => {
+const dependencyIn = async (
+  directory: string,
+  formatters: readonly ToolFacts[]
+): Promise<Found | null> => {
   const pkg = await manifest(directory);
 
   if (pkg === null) return null;
   const declared = { ...pkg.dependencies, ...pkg.devDependencies };
-  const facts = PROJECT_FORMATTERS.find((entry) => Object.hasOwn(declared, entry.dependency));
+  const facts = formatters.find((entry) => Object.hasOwn(declared, entry.dependency));
 
   return facts === undefined ? null : { tool: facts.tool, root: directory, config: null };
 };
@@ -168,6 +199,33 @@ export const formatterBinary = async (
       if ((await stat(candidate)).isFile()) return candidate;
     } catch {
       /* Not installed at this level. */
+    }
+  }
+
+  return null;
+};
+
+/** StyLua is a native tool, usually installed on the Host: standard places only, never PATH. */
+const HOST_DIRECTORIES = (home: string) => [
+  join(home, ".cargo/bin"),
+  join(home, ".rokit/bin"),
+  join(home, ".aftman/bin"),
+  join(home, ".local/bin"),
+  "/opt/homebrew/bin",
+  "/usr/local/bin",
+  "/usr/bin",
+];
+
+export const hostFormatterBinary = async (tool: LanguageProjectFormatterTool, home = homedir()) => {
+  if (tool !== "stylua") return null;
+
+  for (const directory of HOST_DIRECTORIES(home)) {
+    const candidate = join(directory, factsOf(tool).bin);
+
+    try {
+      if ((await stat(candidate)).isFile()) return candidate;
+    } catch {
+      /* Not installed here. */
     }
   }
 
@@ -197,14 +255,17 @@ export async function detectProjectFormatter(
   file: string
 ): Promise<LanguageProjectFormatter | null> {
   const directories = ancestors(checkoutRoot, file);
+  const formatters = formattersFor(file);
+
+  if (formatters.length === 0) return null;
   let dependency: Found | null = null;
   let found: Found | null = null;
 
   for (const directory of directories) {
-    found = await configIn(directory);
+    found = await configIn(directory, formatters);
 
     if (found !== null) break;
-    dependency ??= await dependencyIn(directory);
+    dependency ??= await dependencyIn(directory, formatters);
   }
 
   found ??= dependency;
@@ -215,7 +276,9 @@ export async function detectProjectFormatter(
     tool: found.tool,
     root: found.root,
     config: found.config,
-    installed: (await formatterBinary(checkoutRoot, found.root, found.tool)) !== null,
+    installed:
+      (await formatterBinary(checkoutRoot, found.root, found.tool)) !== null ||
+      (await hostFormatterBinary(found.tool)) !== null,
     ignored: await ignoredBy(found, file),
   });
 }

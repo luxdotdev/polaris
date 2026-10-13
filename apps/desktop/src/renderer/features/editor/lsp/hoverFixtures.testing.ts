@@ -32,6 +32,17 @@ export const MARKDOWN = {
     kind: "markdown",
     value: "\n```typescript\n(property) Host.label: string\n```\nIts name, as the user wrote it.",
   } satisfies Contents,
+  /** rust-analyzer 2026-09-28, before Trust (a rust-project.json from Cargo.toml), on 2026-10-12. */
+  RUST_FUNCTION: {
+    kind: "markdown",
+    value:
+      "\n```rust\nutil\n```\n\n```rust\npub fn add(a: i32, b: i32) -> i32\n```\n\n---\n\nAdds two numbers.",
+  } satisfies Contents,
+  /** lua-language-server 3.19.1 on a `---@param` annotated local function, on 2026-10-12. */
+  LUA_FUNCTION: {
+    kind: "markdown",
+    value: "```lua\nfunction greet(name: string)\n  -> string\n```\n\n---\n\nGreets someone.",
+  } satisfies Contents,
 };
 
 /** As basedpyright answered before the Daemon advertised `contentFormat` (older Daemons). */

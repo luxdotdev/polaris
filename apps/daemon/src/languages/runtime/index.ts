@@ -38,7 +38,7 @@ import { notificationMessage, clientCapabilities, drainStderr } from "./wire.ts"
 import { ContextEvents } from "./events.ts";
 import { Documents } from "./documents.ts";
 import { decideLifecycle, lifecycleInitial, type LifecycleEvent } from "./lifecycle.ts";
-import { managedSqlShellSettings } from "../sql/settings.ts";
+import { launchSettings } from "../rust/settings.ts";
 import { pythonServerSettings } from "../python/launch.ts";
 import { negotiate, pythonCapabilities } from "./capabilities.ts";
 import { ServerBridge } from "./server.ts";
@@ -295,7 +295,7 @@ export function createLanguageBroker(options: BrokerOptions) {
         context: identity,
         documents: entry.documents,
         connection,
-        settings: managedSqlShellSettings(entry.facts, launch) ?? serverSettings(entry),
+        settings: launchSettings(entry.facts, launch, () => serverSettings(entry)),
         log: (source, level, text) => {
           if (active(entry, identity)) logs.append(source, level, text);
         },
@@ -354,7 +354,7 @@ export function createLanguageBroker(options: BrokerOptions) {
       await connection.send({
         jsonrpc: "2.0",
         method: "workspace/didChangeConfiguration",
-        params: { settings: managedSqlShellSettings(entry.facts, launch) ?? serverSettings(entry) },
+        params: { settings: launchSettings(entry.facts, launch, () => serverSettings(entry)) },
       });
 
       if (!active(entry, identity)) return;

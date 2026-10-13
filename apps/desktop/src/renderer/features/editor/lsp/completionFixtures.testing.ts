@@ -349,3 +349,104 @@ export const TS_IMPORT_RESOLVED = {
     },
   ],
 };
+
+/** rust-analyzer 2026-09-28 after `v.` on a `Vec<i32>`, before Trust; docs arrive on resolve. */
+export const RUST_PUSH_ITEM = {
+  label: "push",
+  kind: 2,
+  sortText: "7ffffff6",
+  filterText: "push",
+  textEdit: {
+    range: {
+      start: {
+        line: 4,
+        character: 6,
+      },
+      end: {
+        line: 4,
+        character: 6,
+      },
+    },
+    newText: "push",
+  },
+  data: {
+    position: {
+      textDocument: {
+        uri: "file:///project/src/main.rs",
+      },
+      position: {
+        line: 4,
+        character: 6,
+      },
+    },
+    version: 1,
+    for_ref: false,
+    hash: "IeWbOguyXjyXxQdk64gm5WSSjQ0=",
+  },
+};
+
+export const RUST_PUSH_RESOLVED = {
+  label: "push",
+  kind: 2,
+  detail: "fn(&mut self, T)",
+  documentation: {
+    kind: "markdown",
+    value:
+      "Appends an element to the back of a collection.\n\n# Panics\n\nPanics if the new capacity exceeds `isize::MAX` _bytes_.\n\n# Examples\n\n```rust\nlet mut vec = vec![1, 2];\nvec.push(3);\nassert_eq!(vec, [1, 2, 3]);\n```\n\n# Time complexity\n\nTakes amortized *O*(1) time. If the vector's length would exceed its\ncapacity after the push, *O*(*capacity*) time is taken to copy the\nvector's elements to a larger allocation. This expensive operation is\noffset by the *capacity* *O*(1) insertions it allows.",
+  },
+  preselect: true,
+  sortText: "7ffffff6",
+  filterText: "push",
+  textEdit: {
+    range: {
+      start: {
+        line: 4,
+        character: 6,
+      },
+      end: {
+        line: 4,
+        character: 6,
+      },
+    },
+    newText: "push",
+  },
+};
+
+/** lua-language-server 3.19.1 after `string.`: snippet items, docs on resolve. */
+export const LUA_BYTE_ITEM = {
+  command: {
+    command: "editor.action.triggerParameterHints",
+    title: "trigger signature",
+  },
+  data: {
+    id: 2,
+    uri: "file:///project/main.lua",
+  },
+  insertText: "byte(${1:s}, ${2:i?}, ${3:j?})",
+  insertTextFormat: 2,
+  kind: 3,
+  label: "byte(s, i, j)",
+  sortText: "0001",
+};
+
+export const LUA_BYTE_RESOLVED = {
+  command: {
+    command: "editor.action.triggerParameterHints",
+    title: "trigger signature",
+  },
+  data: {
+    id: 2,
+    uri: "file:///project/main.lua",
+  },
+  detail: "function",
+  documentation: {
+    kind: "markdown",
+    value:
+      "```lua\nfunction string.byte(s: string|number, i?: integer, j?: integer)\n  -> ...integer\n```\n\n---\n\n\nReturns the internal numeric codes of the characters `s[i], s[i+1], ..., s[j]`.\n\n[View documents](http://www.lua.org/manual/5.4/manual.html#pdf-string.byte)",
+  },
+  insertText: "byte(${1:s}, ${2:i?}, ${3:j?})",
+  insertTextFormat: 2,
+  kind: 3,
+  label: "byte(s, i, j)",
+  sortText: "0001",
+};

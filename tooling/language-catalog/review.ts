@@ -157,6 +157,7 @@ const manifestFailures = (
         "runtime-review-records.json",
         "runtime-sql-shell-review-records.json",
         "runtime-web-review-records.json",
+        "runtime-rust-lua-review-records.json",
       ].includes(reference.path)
     )
       continue;
@@ -238,6 +239,7 @@ export const readReviewRecords = (root: string): ReadonlyArray<ReviewRecord> => 
     ...decode(readFileSync(join(root, "runtime-review-records.json"), "utf8")),
     ...decode(readFileSync(join(root, "runtime-sql-shell-review-records.json"), "utf8")),
     ...decode(readFileSync(join(root, "runtime-web-review-records.json"), "utf8")),
+    ...decode(readFileSync(join(root, "runtime-rust-lua-review-records.json"), "utf8")),
   ];
 
   return [
@@ -267,6 +269,7 @@ export const reviewRootFailures = (
                 "runtime-review-records.json",
                 "runtime-sql-shell-review-records.json",
                 "runtime-web-review-records.json",
+                "runtime-rust-lua-review-records.json",
               ].includes(file.path)
             : file.path === "review-records.json"
         );

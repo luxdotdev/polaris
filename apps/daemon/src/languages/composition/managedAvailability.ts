@@ -14,6 +14,8 @@ export const managedProviderIds: readonly string[] = [
   ...webTools,
   "bash-language-server",
   "sqllens-language-server",
+  "rust-analyzer",
+  "lua-language-server",
 ];
 
 const managedProviders = new Set(managedProviderIds);
