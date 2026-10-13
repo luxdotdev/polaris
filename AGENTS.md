@@ -28,7 +28,14 @@ Polaris is an IDE and agent orchestrator: a Bun Daemon per Host, an Electron Des
 - Bun ≥ 1.3.9 (pinned in `packageManager`), Turborepo, TypeScript 7, oxfmt (formatting), oxlint (linting).
 - **Effect 4** (`effect@4.0.0-rc.118`, pinned exactly; the `@effect/*` packages must match). APIs differ from Effect 3: read `node_modules/effect/AGENTS.md` and `node_modules/effect/ai-docs/` rather than relying on memory. RPC is `effect/rpc`, SQL is `effect/sql`, sockets `effect/socket`.
 - Services use `Context.Service`; functions use `Effect.fn`; errors are `Schema.TaggedError`.
-- Tests use `bun test`, next to the code as `*.test.ts`.
+- Tests use `bun test`, next to the code as `*.test.ts`. Every test must fail if the behaviour it names breaks; before adding one, ask what bug it would catch. Don't write tautological tests:
+  - asserting what the test itself just set up, or that a mock returns what it was told to;
+  - copying the implementation's constants or logic into the expectation;
+  - restating what the types or an Effect Schema already guarantee;
+  - checking only that mocks were called, in order, instead of the outcome;
+  - `toBeDefined`/`toBeTruthy` on a value that can't be missing, or no assertion at all;
+  - repeating a behaviour another test already covers at the same level (parametrize instead).
+  Assert observable outcomes through the real code, with fakes only at the boundary (the fake GitHub, fake Harnesses, test Layers). Product copy is a real requirement and may be asserted; incidental output is not. When you fix a bug, add the test that fails without the fix.
 - Never use node-pty; terminals use `Bun.Terminal`.
 - **Lifecycle changes go through the state machines**, never ad-hoc `if (state === …)` code: Session States through the Agent Session machine (`apps/daemon/src/engine/session.ts`, the engine's pure decider; see its README), Connection States through `packages/client/src/connection.ts`. They use XState v6 (`xstate@6.0.0-alpha.61`, an alpha, pinned exactly): read the bundled types in `node_modules/xstate/dist/declarations` rather than v5 docs or memory. The event log stays the source of truth: a machine snapshot is always derived from folded events, never kept only in an actor. Update the model-based tests (`*.testing.ts`, `*.graph.test.ts`) and the Mermaid diagrams with the machine.
 - Run `bun run typecheck && bun run test && bun run lint` before committing.
