@@ -1,3 +1,4 @@
+import type { PredictionPlacementOutputs } from "./predictionPlacement.ts";
 /**
  * The typed bridge between the main process and the renderer: channel names,
  * what every request returns, what every subscription delivers, and the API
@@ -378,7 +379,8 @@ export interface RequestOutputs
     GitHubRequestOutputs,
     GitRequestOutputs,
     ConstellationRequestOutputs,
-    ResourceRequestOutputs {
+    ResourceRequestOutputs,
+    PredictionPlacementOutputs {
   "constellation.stats": ConstellationStatsView;
   "settings.get": SettingsView;
   "updates.get": AppUpdateView;

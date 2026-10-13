@@ -1,3 +1,6 @@
+import { modelServerResources } from "@polaris/client/prediction/probe";
+import type { MainPredictionPlacement } from "../prediction/placement.ts";
+import type { PredictionSettings } from "../prediction/preferences.ts";
 /**
  * The handlers behind `window.polaris.request`: one per method, each taking the
  * decoded input and returning a structured-clone-friendly output. Blobs the
@@ -39,6 +42,8 @@ import type { AppUpdates } from "../updates/index.ts";
 
 /** What the handlers need from the app outside the Client runtime. */
 export interface RequestContext {
+  readonly predictionSettings?: PredictionSettings;
+  readonly predictionPlacement?: MainPredictionPlacement;
   readonly updates: Pick<AppUpdates, "get" | "check" | "setAutomatic">;
   readonly restartToUpdate: () => void;
   readonly showAppInFinder: () => void;
@@ -123,6 +128,37 @@ const local = (): InstallView => ({
 });
 
 export const requestHandlers = (ctx: RequestContext): Handlers => ({
+  "prediction.clientEndpoints.get": () =>
+    ctx.predictionSettings
+      ? Effect.sync(() => ctx.predictionSettings!.getClientEndpoints())
+      : Effect.fail({ code: "Unavailable", message: "Prediction settings unavailable" }),
+  "prediction.clientEndpoints.set": ({ endpoints }) =>
+    ctx.predictionSettings
+      ? Effect.sync(() => {
+          const saved = ctx.predictionSettings!.setClientEndpoints(endpoints);
+          ctx.predictionPlacement?.invalidateAll();
+
+          return saved;
+        })
+      : Effect.fail({ code: "Unavailable", message: "Prediction settings unavailable" }),
+  "prediction.resources.get": () =>
+    Effect.tryPromise({
+      try: modelServerResources,
+      catch: () => ({ code: "Unavailable", message: "Model server memory unavailable" }),
+    }),
+  "prediction.settings.get": ({ hostKey }) =>
+    ctx.predictionSettings
+      ? Effect.sync(() => ctx.predictionSettings!.get(hostKey))
+      : Effect.fail({ code: "Unavailable", message: "Prediction settings unavailable" }),
+  "prediction.settings.set": ({ hostKey, preferences }) =>
+    ctx.predictionSettings
+      ? Effect.sync(() => {
+          const saved = ctx.predictionSettings!.set(hostKey, preferences);
+          ctx.predictionPlacement?.invalidateHost(hostKey);
+
+          return saved;
+        })
+      : Effect.fail({ code: "Unavailable", message: "Prediction settings unavailable" }),
   ...githubHandlers,
   ...gitHandlers,
   ...constellationHandlers,
