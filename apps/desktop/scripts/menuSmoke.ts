@@ -5,7 +5,7 @@
  *
  *   node scripts/menuSmoke.ts --out <dir> [--build]
  */
-import { mkdirSync, mkdtempSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -290,6 +290,148 @@ try {
     expected: ["New terminal", "—", "Close terminal"],
   });
   await page.keyboard.press("Control+Backquote");
+
+  // Edit: a git Workspace with a commit, one change and one new file.
+  await choose(page, chip("polaris")(page), "workspace-context-menu", "Copy path");
+  const root = pbpaste();
+
+  const git = (...argv: Array<string>) =>
+    execFileSync(
+      "git",
+      ["-c", "user.name=Polaris", "-c", "user.email=smoke@polaris.dev", ...argv],
+      {
+        cwd: root,
+      }
+    );
+
+  for (const name of ["alpha.ts", "beta.ts", "gamma.ts"])
+    writeFileSync(join(root, name), `export const ${name.slice(0, -3)} = 1;\n`);
+  git("init", "-q");
+  git("add", "alpha.ts", "beta.ts", "gamma.ts");
+  git("commit", "-qm", "seed");
+  writeFileSync(join(root, "alpha.ts"), "export const alpha = 2;\n");
+  writeFileSync(join(root, "fresh.ts"), "export const fresh = 1;\n");
+
+  await page.keyboard.press("Meta+3");
+
+  const treeRow = (name: string) => (p: Page) =>
+    p.locator(`[data-testid="tree-row"][data-path$="/${name}"]`).first();
+
+  await treeRow("alpha.ts")(page).waitFor();
+  await treeRow("alpha.ts")(page).dblclick();
+  await treeRow("beta.ts")(page).dblclick();
+  await page.getByTestId("editor-tab").nth(1).waitFor();
+
+  await check(page, {
+    name: "editor-tab",
+    target: (p) => p.getByTestId("editor-tab").last(),
+    menu: "editor-tab-menu",
+    expected: [
+      "Close ⌘W",
+      "Close others ⌥⌘T",
+      "Close saved",
+      "—",
+      "Copy path",
+      "Copy relative path",
+      "Reveal in file tree",
+      "Reveal in Finder",
+    ],
+  });
+  await check(page, {
+    name: "editor-tab-inactive",
+    target: (p) => p.getByTestId("editor-tab").first(),
+    menu: "editor-tab-menu",
+    expected: [
+      "Close",
+      "Close others",
+      "Close to the right",
+      "Close saved",
+      "—",
+      "Copy path",
+      "Copy relative path",
+      "Reveal in file tree",
+      "Reveal in Finder",
+    ],
+  });
+  await check(page, {
+    name: "explorer-row",
+    target: treeRow("gamma.ts"),
+    menu: "explorer-menu",
+    expected: [
+      "New file…",
+      "New folder…",
+      "—",
+      "Copy path",
+      "Copy relative path",
+      "Reveal in Finder",
+      "—",
+      "Rename… F2",
+      "Delete ⌘⌫",
+    ],
+  });
+
+  await page.getByRole("radio", { name: /Changes/ }).click();
+
+  const stageRow = (side: string, name: string) => (p: Page) =>
+    p.getByTestId(`${side}-row`).filter({ hasText: name }).first();
+
+  await stageRow("unstaged", "alpha.ts")(page).waitFor();
+  await check(page, {
+    name: "changes-row",
+    target: stageRow("unstaged", "alpha.ts"),
+    menu: "stage-row-menu",
+    expected: [
+      "Open file",
+      "—",
+      "Stage",
+      "Stage all",
+      "—",
+      "Copy path",
+      "Reveal in file tree",
+      "—",
+      "Discard changes…",
+    ],
+  });
+  await check(page, {
+    name: "changes-row-untracked",
+    target: stageRow("unstaged", "fresh.ts"),
+    menu: "stage-row-menu",
+    expected: [
+      "Open file",
+      "—",
+      "Stage",
+      "Stage all",
+      "—",
+      "Copy path",
+      "Reveal in file tree",
+      "—",
+      "Move to Trash…",
+    ],
+  });
+
+  // Discard changes… asks first: its popover opens with Cancel focused.
+  await choose(page, stageRow("unstaged", "alpha.ts")(page), "stage-row-menu", "Discard changes…");
+  await page.getByTestId("confirm-discard").waitFor();
+  expectEqual("discard asks", await page.locator(":focus").innerText(), "Cancel");
+  await page.keyboard.press("Escape");
+
+  await choose(page, stageRow("unstaged", "alpha.ts")(page), "stage-row-menu", "Stage");
+  await stageRow("staged", "alpha.ts")(page).waitFor();
+  await check(page, {
+    name: "changes-row-staged",
+    target: stageRow("staged", "alpha.ts"),
+    menu: "stage-row-menu",
+    expected: ["Open file", "—", "Unstage", "Unstage all", "—", "Copy path", "Reveal in file tree"],
+  });
+
+  await choose(
+    page,
+    page.getByTestId("editor-tab").first(),
+    "editor-tab-menu",
+    "Close to the right"
+  );
+  expectEqual("close to the right", String(await page.getByTestId("editor-tab").count()), "1");
+  await page.keyboard.press("Meta+1");
 
   await sidebar(page)
     .getByRole("radio", { name: /Needs you/ })

@@ -193,6 +193,7 @@ export const GitPanel = ({ place, git, agents, tabs, hostLabel, onOpen }: GitPan
 
   const section = (side: StageSide, rows: ReadonlyArray<StageRow>) => (
     <StageSection
+      place={place}
       side={side}
       rows={rows}
       active={tabs.active}

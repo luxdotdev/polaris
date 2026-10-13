@@ -5,7 +5,13 @@
 import {
   Button,
   cn,
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuEntries,
+  ContextMenuTrigger,
   IconButton,
+  MENU_SEPARATOR_ENTRY,
+  type MenuEntryInput,
   PlusIcon,
   Popover,
   PopoverAnchor,
@@ -15,6 +21,9 @@ import {
   SectionHeader,
 } from "@polaris/ui";
 import type { SVGProps } from "react";
+import { copyEntry } from "../../../../shell/menu/index.ts";
+import type { Place } from "../data/actions.ts";
+import { revealInExplorer } from "../data/reveal.ts";
 import { type StageRow } from "../model/stage.ts";
 import { AgentSlot, GitSlot, nameTone } from "./slots.tsx";
 
@@ -39,6 +48,7 @@ const DiscardIcon = (props: SVGProps<SVGSVGElement>) => (
 export type StageSide = "staged" | "unstaged";
 
 export interface StageSectionProps {
+  readonly place: Place;
   readonly side: StageSide;
   readonly rows: ReadonlyArray<StageRow>;
   readonly active: string | null;
@@ -87,7 +97,50 @@ interface RowProps extends Omit<StageSectionProps, "rows" | "onMove" | "confirmi
   readonly row: StageRow;
   readonly confirming: boolean;
   readonly onMove: () => void;
+  readonly onMoveAll: () => void;
 }
+
+/** A row's right-click menu (Paper M3); a staged row has no Discard. */
+const rowEntries = (props: RowProps): ReadonlyArray<MenuEntryInput> => {
+  const { place, side, row, locked } = props;
+  const staged = side === "staged";
+
+  return [
+    row.git !== "deleted" && {
+      kind: "item",
+      label: "Open file",
+      onSelect: () => props.onOpen(row.path, true),
+    },
+    MENU_SEPARATOR_ENTRY,
+    !locked && { kind: "item", label: staged ? "Unstage" : "Stage", onSelect: props.onMove },
+    !locked && {
+      kind: "item",
+      label: staged ? "Unstage all" : "Stage all",
+      onSelect: props.onMoveAll,
+    },
+    MENU_SEPARATOR_ENTRY,
+    copyEntry("Copy path", row.path),
+    row.git !== "deleted" && {
+      kind: "item",
+      label: "Reveal in file tree",
+      onSelect: () =>
+        revealInExplorer({
+          hostKey: place.hostKey,
+          workspaceId: place.workspaceId,
+          path: row.path,
+        }),
+    },
+    MENU_SEPARATOR_ENTRY,
+    !staged &&
+      !locked && {
+        kind: "item",
+        label: row.untracked ? "Move to Trash…" : "Discard changes…",
+        needsInput: true,
+        destructive: true,
+        onSelect: () => props.onAskDiscard(row),
+      },
+  ];
+};
 
 const Actions = ({ side, row, locked, onMove, onAskDiscard }: RowProps) => (
   <span
@@ -125,39 +178,52 @@ const Row = (props: RowProps) => {
   return (
     <li className="group relative" data-testid={`${props.side}-row`} data-path={row.path}>
       <Popover open={confirming} onOpenChange={(open) => onAskDiscard(open ? row : null)}>
-        <PopoverAnchor asChild>
-          <div
-            className={cn(
-              "h-tree-row flex w-full items-center gap-1 rounded-[8px] pr-2 pl-2.5",
-              selected || confirming ? "bg-fill-selected" : "hover:bg-fill-hover",
-              locked && "opacity-(--opacity-dimmed)"
-            )}
-          >
-            <button
-              type="button"
-              disabled={deleted}
-              title={row.folder === "" ? row.name : `${row.folder}/${row.name}`}
-              onClick={(event) => onOpen(row.path, event.detail >= 2)}
-              className="focus-visible:ring-starlight flex min-w-0 flex-1 cursor-default items-baseline gap-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset"
-            >
-              <span
+        <ContextMenu>
+          <PopoverAnchor asChild>
+            <ContextMenuTrigger asChild>
+              <div
                 className={cn(
-                  "max-w-full shrink-0 truncate text-label font-regular",
-                  nameTone(row.git, selected, false),
-                  deleted && "line-through"
+                  "h-tree-row flex w-full items-center gap-1 rounded-[8px] pr-2 pl-2.5",
+                  selected || confirming ? "bg-fill-selected" : "hover:bg-fill-hover",
+                  locked && "opacity-(--opacity-dimmed)"
                 )}
               >
-                {row.name}
-              </span>
-              <span className="text-caption text-text-subtle min-w-0 flex-1 truncate">
-                {row.folder}
-              </span>
-            </button>
-            <Actions {...props} />
-            <AgentSlot agent={row.agent} hand={false} />
-            <GitSlot git={row.git} dirty={false} />
-          </div>
-        </PopoverAnchor>
+                <button
+                  type="button"
+                  disabled={deleted}
+                  title={row.folder === "" ? row.name : `${row.folder}/${row.name}`}
+                  onClick={(event) => onOpen(row.path, event.detail >= 2)}
+                  className="focus-visible:ring-starlight flex min-w-0 flex-1 cursor-default items-baseline gap-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset"
+                >
+                  <span
+                    className={cn(
+                      "max-w-full shrink-0 truncate text-label font-regular",
+                      nameTone(row.git, selected, false),
+                      deleted && "line-through"
+                    )}
+                  >
+                    {row.name}
+                  </span>
+                  <span className="text-caption text-text-subtle min-w-0 flex-1 truncate">
+                    {row.folder}
+                  </span>
+                </button>
+                <Actions {...props} />
+                <AgentSlot agent={row.agent} hand={false} />
+                <GitSlot git={row.git} dirty={false} />
+              </div>
+            </ContextMenuTrigger>
+          </PopoverAnchor>
+          <ContextMenuContent
+            data-testid="stage-row-menu"
+            onCloseAutoFocus={(event) => {
+              // The Discard popover takes focus (its Cancel) rather than the row.
+              if (confirming) event.preventDefault();
+            }}
+          >
+            <ContextMenuEntries entries={rowEntries(props)} />
+          </ContextMenuContent>
+        </ContextMenu>
         {confirming ? (
           <ConfirmDiscard
             row={row}
@@ -202,6 +268,7 @@ export const StageSection = (props: StageSectionProps) => {
             row={row}
             confirming={confirming === rowKey(side, row)}
             onMove={() => onMove([row])}
+            onMoveAll={() => onMove(rows)}
           />
         ))}
       </ul>

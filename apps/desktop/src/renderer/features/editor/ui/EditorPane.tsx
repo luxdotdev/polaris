@@ -37,6 +37,7 @@ import { CloseDialog } from "./CloseDialog.tsx";
 import { CodeHost } from "./CodeHost.tsx";
 import { Compare } from "./Compare.tsx";
 import { FileNotice } from "./FileNotice.tsx";
+import { tabEntries } from "./tabMenu.ts";
 import { Tabs } from "./Tabs.tsx";
 import { LanguagePanel } from "./LanguagePanel.tsx";
 import { RenameField } from "../navigation/RenameField.tsx";
@@ -173,6 +174,9 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
       onPin={(path) => pinFile(hostKey, workspaceId, path)}
       onClose={(id) =>
         isLogTab(id) ? closeLogTab(hostKey, workspaceId, id) : closeTab(hostKey, workspaceId, id)
+      }
+      menuFor={(tab, selected) =>
+        isLogTab(tab.id) ? null : tabEntries({ hostKey, workspaceId, root, tabs }, tab, selected)
       }
     />
   );

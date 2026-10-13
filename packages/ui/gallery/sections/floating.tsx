@@ -124,10 +124,10 @@ function Triggers() {
         <ContextMenuContent>
           <ContextMenuEntries
             entries={[
-              { kind: "item", label: "New file", onSelect: noop },
-              { kind: "item", label: "New folder", onSelect: noop },
+              { kind: "item", label: "New file…", needsInput: true, onSelect: noop },
+              { kind: "item", label: "New folder…", needsInput: true, onSelect: noop },
               MENU_SEPARATOR_ENTRY,
-              { kind: "item", label: "Rename", shortcut: "F2", onSelect: noop },
+              { kind: "item", label: "Rename…", needsInput: true, shortcut: "F2", onSelect: noop },
               MENU_SEPARATOR_ENTRY,
               { kind: "item", label: "Copy path", onSelect: noop },
               { kind: "item", label: "Copy relative path", onSelect: noop },
@@ -143,8 +143,7 @@ function Triggers() {
               MENU_SEPARATOR_ENTRY,
               {
                 kind: "item",
-                label: "Delete…",
-                needsInput: true,
+                label: "Delete",
                 destructive: true,
                 shortcut: "⌘⌫",
                 onSelect: noop,

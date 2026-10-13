@@ -79,7 +79,7 @@ export interface ContextMenuItemProps extends ComponentProps<typeof ContextMenuP
   readonly inset?: boolean;
   /** It asks for more before it runs; its label ends in "…" (rule/ellipsis-means-input). */
   readonly needsInput?: boolean | undefined;
-  /** It can't be undone in Polaris (Delete…, Discard changes…). */
+  /** It can't be undone in Polaris (Delete, Discard changes…). */
   readonly destructive?: boolean | undefined;
 }
 
