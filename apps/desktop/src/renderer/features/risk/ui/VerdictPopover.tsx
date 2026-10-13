@@ -132,11 +132,18 @@ const Form = ({ onSave }: { readonly onSave: (draft: VerdictDraft) => Promise<bo
 export const ThumbDown = ({
   title,
   onSave,
+  open: shown,
+  onOpenChange,
 }: {
   readonly title: string;
   readonly onSave: (draft: VerdictDraft) => Promise<boolean>;
+  /** Held by the caller when the form opens from elsewhere too (the finding's menu). */
+  readonly open?: boolean;
+  readonly onOpenChange?: (open: boolean) => void;
 }) => {
-  const [open, setOpen] = useState(false);
+  const [own, setOwn] = useState(false);
+  const open = shown ?? own;
+  const setOpen = onOpenChange ?? setOwn;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

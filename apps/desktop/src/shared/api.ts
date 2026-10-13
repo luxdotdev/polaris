@@ -372,6 +372,7 @@ export interface RequestOutputs
   "settings.setSessionDefault": null;
   "settings.setSessions": null;
   "shell.openExternal": null;
+  "shell.revealInFinder": null;
   "host.retryNow": null;
   dispatch: { readonly sequence: number | null };
   "files.listDir": ReadonlyArray<FileEntry>;
@@ -448,7 +449,7 @@ export interface RequestOutputs
   "machines.setLocalEnabled": null;
   "machines.openSsh": null;
   "clipboard.write": null;
-  "clipboard.read": string;
+  "edit.run": null;
   "onboarding.found": { readonly sshHosts: ReadonlyArray<string>; readonly version: string };
   "onboarding.welcomeSeen": null;
   "dialog.pickFolder": { readonly path: string | null };

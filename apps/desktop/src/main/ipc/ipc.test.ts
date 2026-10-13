@@ -90,6 +90,8 @@ const github = GitHub.layer({
 
 const services = Layer.mergeAll(clientServices, github);
 
+const revealed: Array<string> = [];
+
 const context: RequestContext = {
   updates: {
     get: () => updateView,
@@ -105,6 +107,7 @@ const context: RequestContext = {
   setSessionDefault: () => undefined,
   setSessions: () => undefined,
   openExternal: () => Promise.resolve(),
+  revealInFinder: (path) => void revealed.push(path),
   proofWorkspace: () => null,
   sshHosts: () => ["studio", "pi"],
   setWelcomeSeen: () => undefined,
@@ -112,7 +115,7 @@ const context: RequestContext = {
   pickFolder: () => Promise.resolve(null),
   daemonDist: null,
   writeClipboard: () => Promise.resolve(),
-  readClipboard: () => Promise.resolve(""),
+  editAction: () => undefined,
   needsYou: () => undefined,
 };
 
@@ -157,6 +160,14 @@ describe("requests", () => {
 
     expect(Exit.isSuccess(await run(open({ url: "https://opencode.ai/docs" })))).toBe(true);
     expect(Exit.isFailure(await run(open({ url: "file:///etc/passwd" })))).toBe(true);
+  });
+
+  test("Reveal in Finder works for this Mac's Host only", async () => {
+    const reveal = requestRunner(handlers, "shell.revealInFinder");
+
+    expect(Exit.isSuccess(await run(reveal({ hostKey: "local", path: "/tmp/a.ts" })))).toBe(true);
+    expect(Exit.isFailure(await run(reveal({ hostKey: "studio", path: "/tmp/a.ts" })))).toBe(true);
+    expect(revealed).toEqual(["/tmp/a.ts"]);
   });
 
   test("onboarding.found lists the ssh config's Host aliases", async () => {

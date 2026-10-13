@@ -69,6 +69,8 @@ const Files = ({
       <div
         key={change.path}
         className="group/file hover:bg-fill-hover h-row flex items-center pr-1"
+        data-menu-path={change.kind === "delete" ? undefined : change.path}
+        data-menu-diff=""
       >
         <button
           type="button"
@@ -152,11 +154,16 @@ const Subject = ({ item }: { readonly item: ToolView }) => {
   );
 };
 
+/** A tool that names a text file: its menu opens or reveals that file. */
+const textFile = (item: ToolView) => (item.file === null || item.file.image ? null : item.file);
+
 const Tool = ({ item, hue }: { item: ToolView; hue: Hue }) => (
   <div
     className="flex h-6 min-w-0 items-center gap-2"
     data-testid="tool-call"
     data-status={item.status}
+    data-menu-path={textFile(item)?.path}
+    data-menu-line={textFile(item)?.line ?? undefined}
   >
     <ToolMark item={item} hue={hue} />
     <span className="text-caption text-text-subtle shrink-0 font-medium">

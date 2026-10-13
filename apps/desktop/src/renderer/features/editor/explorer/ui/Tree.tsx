@@ -5,24 +5,20 @@
 import {
   ContextMenu,
   ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuShortcut,
+  ContextMenuEntries,
   ContextMenuTrigger,
-  COPY_FAILED,
-  type CopyWrite,
-  PixelCheckIcon,
-  PixelFailedIcon,
-  showToast,
-  useCopyWrite,
+  MENU_SEPARATOR_ENTRY,
+  type MenuEntryInput,
 } from "@polaris/ui";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { createElement, type KeyboardEvent, useRef, useState } from "react";
+import { type KeyboardEvent, useRef, useState } from "react";
+import { acceleratorLabel } from "../../../../../shared/chord.ts";
 import { useApp } from "../../../../shell/hooks.ts";
+import { copyEntry, revealInFinderEntry } from "../../../../shell/menu/index.ts";
 import { cancelDraft, commitDraft, deleteEntry, type Place, startDraft } from "../data/actions.ts";
 import { type Draft, patchExplorer, toggleFolder } from "../data/store.ts";
 import type { TabsView } from "../../index.ts";
-import { treeKey } from "../model/keys.ts";
+import { TREE_CHORDS, treeKey } from "../model/keys.ts";
 import { basename, dirname, relative } from "../model/paths.ts";
 import type { TreeRow as Row } from "../model/tree.ts";
 import { ConfirmDelete } from "./ConfirmDelete.tsx";
@@ -82,20 +78,6 @@ export interface TreeProps {
 const folderFor = (row: Row | undefined, root: string) =>
   row === undefined ? root : row.kind === "folder" ? row.path : dirname(row.path);
 
-/** A path copied from the menu says so in a short toast, as the editor's other toasts do. */
-const copyPath = (write: CopyWrite, text: string, what: string) =>
-  void write(text)
-    .catch(() => false)
-    .then((ok) =>
-      showToast({
-        source: "starlight",
-        icon: createElement(ok ? PixelCheckIcon : PixelFailedIcon, { size: 16 }),
-        title: ok ? `Copied ${what}` : COPY_FAILED,
-        message: text,
-        duration: 1500,
-      })
-    );
-
 export const Tree = ({
   place,
   rows,
@@ -107,7 +89,6 @@ export const Tree = ({
   onOpen,
 }: TreeProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const write = useCopyWrite();
   const density = useApp((s) => s.density);
   const [confirming, setConfirming] = useState<string | null>(null);
   const items = itemsOf(rows, draft);
@@ -162,6 +143,65 @@ export const Tree = ({
       startDraft(place.key, { kind: "rename", path: action.row.path });
     else if (canManage && action.kind === "delete") void remove(action.row.path, false);
   };
+
+  const editable = canManage && target !== undefined && !target.deleted;
+
+  const create = (entry: "file" | "directory") => () =>
+    startDraft(place.key, { kind: "create", dir: folderFor(target, place.root), entry });
+
+  // Rows that can't act here are left out (DESIGN.md, Menus: hidden, not dimmed).
+  const entries: ReadonlyArray<MenuEntryInput> =
+    target === undefined
+      ? [
+          canManage && {
+            kind: "item",
+            label: "New file…",
+            needsInput: true,
+            onSelect: create("file"),
+          },
+          canManage && {
+            kind: "item",
+            label: "New folder…",
+            needsInput: true,
+            onSelect: create("directory"),
+          },
+          MENU_SEPARATOR_ENTRY,
+          copyEntry("Copy path", place.root),
+          revealInFinderEntry(place.hostKey, place.root),
+        ]
+      : [
+          canManage && {
+            kind: "item",
+            label: "New file…",
+            needsInput: true,
+            onSelect: create("file"),
+          },
+          canManage && {
+            kind: "item",
+            label: "New folder…",
+            needsInput: true,
+            onSelect: create("directory"),
+          },
+          MENU_SEPARATOR_ENTRY,
+          copyEntry("Copy path", target.path),
+          copyEntry("Copy relative path", relative(target.path, place.root)),
+          revealInFinderEntry(place.hostKey, target.path),
+          MENU_SEPARATOR_ENTRY,
+          editable && {
+            kind: "item",
+            label: "Rename…",
+            needsInput: true,
+            shortcut: acceleratorLabel(TREE_CHORDS.rename),
+            onSelect: () => startDraft(place.key, { kind: "rename", path: target.path }),
+          },
+          editable && {
+            kind: "item",
+            label: "Delete",
+            destructive: true,
+            shortcut: acceleratorLabel(TREE_CHORDS.delete),
+            onSelect: () => void remove(target.path, false),
+          },
+        ];
 
   return (
     <>
@@ -230,59 +270,8 @@ export const Tree = ({
             </div>
           </div>
         </ContextMenuTrigger>
-        <ContextMenuContent>
-          <ContextMenuItem
-            disabled={!canManage}
-            onSelect={() =>
-              startDraft(place.key, {
-                kind: "create",
-                dir: folderFor(target, place.root),
-                entry: "file",
-              })
-            }
-          >
-            New file
-          </ContextMenuItem>
-          <ContextMenuItem
-            disabled={!canManage}
-            onSelect={() =>
-              startDraft(place.key, {
-                kind: "create",
-                dir: folderFor(target, place.root),
-                entry: "directory",
-              })
-            }
-          >
-            New folder
-          </ContextMenuItem>
-          {target === undefined ? null : (
-            <>
-              <ContextMenuSeparator />
-              <ContextMenuItem
-                disabled={!canManage || target.deleted}
-                onSelect={() => startDraft(place.key, { kind: "rename", path: target.path })}
-              >
-                Rename
-                <ContextMenuShortcut>F2</ContextMenuShortcut>
-              </ContextMenuItem>
-              <ContextMenuItem
-                disabled={!canManage || target.deleted}
-                onSelect={() => void remove(target.path, false)}
-              >
-                Delete
-                <ContextMenuShortcut>⌘⌫</ContextMenuShortcut>
-              </ContextMenuItem>
-              <ContextMenuSeparator />
-              <ContextMenuItem onSelect={() => copyPath(write, target.path, "path")}>
-                Copy path
-              </ContextMenuItem>
-              <ContextMenuItem
-                onSelect={() => copyPath(write, relative(target.path, place.root), "relative path")}
-              >
-                Copy relative path
-              </ContextMenuItem>
-            </>
-          )}
+        <ContextMenuContent data-testid="explorer-menu">
+          <ContextMenuEntries entries={entries} />
         </ContextMenuContent>
       </ContextMenu>
       <ConfirmDelete

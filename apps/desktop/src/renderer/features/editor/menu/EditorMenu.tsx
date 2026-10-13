@@ -5,20 +5,15 @@
 import {
   ContextMenu,
   ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuShortcut,
+  ContextMenuEntries,
   ContextMenuTrigger,
-  COPY_FAILED,
-  PixelCheckIcon,
-  PixelFailedIcon,
-  showToast,
-  useCopyWrite,
+  type MenuEntry,
 } from "@polaris/ui";
 import type { EditorView } from "@codemirror/view";
-import { createElement, type MouseEvent, type ReactNode, useRef, useState } from "react";
+import { type KeyboardEvent, type MouseEvent, type ReactNode, useRef, useState } from "react";
+import { copyWithToast, revealInFinderEntry } from "../../../shell/menu/index.ts";
 import { useCommands, useShellActions } from "../../../shell/hooks.ts";
-import { readClipboard } from "../../clipboard.ts";
+import { polaris } from "../../bridge.ts";
 import { runInTerminal } from "../../terminal/actions.ts";
 import { revealInExplorer } from "../explorer/index.ts";
 import { basename, dirname, relative } from "../explorer/model/paths.ts";
@@ -29,13 +24,7 @@ import { editorLanguageQueries } from "../runtime/app.ts";
 import { viewOf } from "../runtime/buffers.ts";
 import { statusStore } from "../status/store.ts";
 import { placeCaret, selectLineIfEmpty } from "./caret.ts";
-import {
-  type Clipboard,
-  type EditorMenuActions,
-  editorMenuEntries,
-  type MenuEntry,
-  serverStateOf,
-} from "./entries.ts";
+import { type EditorMenuActions, editorMenuEntries, serverStateOf } from "./entries.ts";
 
 export interface EditorMenuProps {
   readonly hostKey: string;
@@ -46,70 +35,38 @@ export interface EditorMenuProps {
   readonly children: ReactNode;
 }
 
-/** Cut and copy go through CodeMirror's own handlers; paste reads the clipboard through main. */
-const clipboard = (view: EditorView, what: Clipboard) => {
-  if (what !== "paste") {
-    document.execCommand(what);
+/** Rows run once the menu has closed and the code has focus again, so edits land in it. */
+const deferred = (
+  entries: ReadonlyArray<MenuEntry>,
+  defer: (run: () => void) => void
+): ReadonlyArray<MenuEntry> =>
+  entries.map((entry) =>
+    entry.kind === "item" ? { ...entry, onSelect: () => defer(entry.onSelect) } : entry
+  );
 
-    return;
-  }
+/** ⇧F10 or the menu key: the menu opens at the caret, which stays where it is. */
+const openAtCaret = (event: KeyboardEvent, view: EditorView | null) => {
+  const menuKey = event.key === "ContextMenu" || (event.key === "F10" && event.shiftKey);
+  const coords = menuKey && view !== null ? view.coordsAtPos(view.state.selection.main.head) : null;
 
-  void readClipboard().then((text) => {
-    if (text !== null && text !== "")
-      view.dispatch(view.state.replaceSelection(text), {
-        userEvent: "input.paste",
-        scrollIntoView: true,
-      });
-  });
+  if (coords === null || !(event.target instanceof HTMLElement)) return;
+  event.preventDefault();
+  event.target.dispatchEvent(
+    new globalThis.MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+      clientX: coords.left,
+      clientY: coords.bottom,
+    })
+  );
 };
-
-const Rows = ({
-  entries,
-  choose,
-}: {
-  readonly entries: ReadonlyArray<MenuEntry>;
-  readonly choose: (run: () => void) => void;
-}) =>
-  entries.map((entry, index) => {
-    if (entry.kind === "separator") return <ContextMenuSeparator key={index} />;
-    const trailing = entry.disabled === true ? entry.reason : entry.shortcut;
-
-    return (
-      <ContextMenuItem
-        key={index}
-        disabled={entry.disabled === true}
-        data-needs-input={entry.needsInput === true ? "" : undefined}
-        data-testid={entry.testId}
-        onSelect={() => choose(entry.onSelect)}
-      >
-        <span className="min-w-0 flex-1 truncate">{entry.label}</span>
-        {trailing === undefined || trailing === "" ? null : (
-          <ContextMenuShortcut>{trailing}</ContextMenuShortcut>
-        )}
-      </ContextMenuItem>
-    );
-  });
 
 export const EditorMenu = ({ hostKey, workspaceId, root, path, children }: EditorMenuProps) => {
   const commands = useCommands();
   const shell = useShellActions();
-  const write = useCopyWrite();
   const key = fileKey(hostKey, path);
   const [entries, setEntries] = useState<ReadonlyArray<MenuEntry>>([]);
   const pending = useRef<(() => void) | null>(null);
-
-  const copyPath = (text: string, what: string) =>
-    void write(text)
-      .catch(() => false)
-      .then((ok) =>
-        showToast({
-          source: "starlight",
-          icon: createElement(ok ? PixelCheckIcon : PixelFailedIcon, { size: 16 }),
-          title: ok ? `Copied ${what}` : COPY_FAILED,
-          message: text,
-          duration: 1500,
-        })
-      );
 
   const actions = (view: EditorView): EditorMenuActions => ({
     navigate: (action) => runNavigation(key, action, editorLanguageQueries),
@@ -118,9 +75,12 @@ export const EditorMenu = ({ hostKey, workspaceId, root, path, children }: Edito
       selectLineIfEmpty(view);
       commands.run("editor.addToSession");
     },
-    clipboard: (what) => clipboard(view, what),
+    // The native Edit menu's own action, as ⌘X/⌘C/⌘V would run it in the focused code.
+    clipboard: (action) => void polaris().request("edit.run", { action }),
     copyPath: (isRelative) =>
-      isRelative ? copyPath(relative(path, root), "relative path") : copyPath(path, "path"),
+      isRelative
+        ? copyWithToast(relative(path, root), "relative path")
+        : copyWithToast(path, "path"),
     revealInTree: () => revealInExplorer({ hostKey, workspaceId, path }),
     // A new tab in the file's folder; the drawer lives in Orchestrate, so that is where it shows.
     openInTerminal: () => {
@@ -138,23 +98,38 @@ export const EditorMenu = ({ hostKey, workspaceId, root, path, children }: Edito
     const view = viewOf(key);
 
     if (view === null) return;
-    placeCaret(view, event.clientX, event.clientY);
+
+    // A real click moves the caret; the keyboard's opening (openAtCaret) leaves it.
+    if (event.nativeEvent.isTrusted) placeCaret(view, event.clientX, event.clientY);
+
+    const defer = (run: () => void) => {
+      pending.current = run;
+    };
+
     setEntries(
-      editorMenuEntries({
-        server: serverStateOf(
-          languageStore.getState().files[key],
-          statusStore.getState().files[key]
-        ),
-        enabled: (id) => commands.enabled(id),
-        actions: actions(view),
-      })
+      deferred(
+        editorMenuEntries({
+          server: serverStateOf(
+            languageStore.getState().files[key],
+            statusStore.getState().files[key]
+          ),
+          enabled: (id) => commands.enabled(id),
+          actions: actions(view),
+          finder: revealInFinderEntry(hostKey, path),
+        }),
+        defer
+      )
     );
   };
 
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <div className="flex min-h-0 flex-1 flex-col" onContextMenu={open}>
+        <div
+          className="flex min-h-0 flex-1 flex-col"
+          onContextMenu={open}
+          onKeyDown={(event) => openAtCaret(event, viewOf(key))}
+        >
           {children}
         </div>
       </ContextMenuTrigger>
@@ -169,12 +144,7 @@ export const EditorMenu = ({ hostKey, workspaceId, root, path, children }: Edito
           run?.();
         }}
       >
-        <Rows
-          entries={entries}
-          choose={(run) => {
-            pending.current = run;
-          }}
-        />
+        <ContextMenuEntries entries={entries} />
       </ContextMenuContent>
     </ContextMenu>
   );

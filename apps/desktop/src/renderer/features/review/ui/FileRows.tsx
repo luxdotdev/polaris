@@ -6,6 +6,7 @@ import { CheckIcon, cn, SeverityGlyph } from "@polaris/ui";
 import type { Fold } from "../model/fileList.ts";
 import type { ReviewFile } from "../model/layout.ts";
 import type { MarkSeverity } from "../model/marks.ts";
+import { ReviewFileMenu } from "./fileMenu.tsx";
 
 export const Check = ({ checked }: { readonly checked: boolean }) => (
   <span
@@ -97,42 +98,49 @@ export const FileRow = ({
   onOpen,
   onViewed,
 }: FileRowProps) => (
-  <div
-    data-testid="review-file-row"
-    data-path={file.file.path}
-    className={cn(
-      "rounded-row hover:bg-fill-hover flex h-tree-row items-center gap-row-x pr-gap",
-      nested ? "pl-[48px]" : "pl-gap",
-      current && "bg-fill-hover"
-    )}
+  <ReviewFileMenu
+    path={file.file.path}
+    deleted={file.file.status === "deleted"}
+    viewed={viewed}
+    onViewed={(next) => onViewed(file.key, next)}
   >
-    <label className="flex shrink-0 cursor-default items-center" title="Viewed">
-      <input
-        type="checkbox"
-        className="peer sr-only"
-        checked={viewed}
-        aria-label={`Viewed ${file.file.path}`}
-        onChange={(event) => onViewed(file.key, event.target.checked)}
-      />
-      <Check checked={viewed} />
-    </label>
-    <button
-      type="button"
-      onClick={() => onOpen(file.key)}
+    <div
+      data-testid="review-file-row"
+      data-path={file.file.path}
       className={cn(
-        "text-caption min-w-0 flex-1 cursor-default truncate text-left font-mono",
-        viewed ? "text-text-subtle" : "text-text-default",
-        current && "text-text-strong"
+        "rounded-row hover:bg-fill-hover flex h-tree-row items-center gap-row-x pr-gap",
+        nested ? "pl-[48px]" : "pl-gap",
+        current && "bg-fill-hover"
       )}
-      title={file.file.path}
     >
-      {file.file.path}
-    </button>
-    {changed && (
-      <span className="text-caption text-text-subtle shrink-0" title="Changed since viewed">
-        changed
-      </span>
-    )}
-    {severity !== undefined && <SeverityGlyph severity={severity} tone="text" />}
-  </div>
+      <label className="flex shrink-0 cursor-default items-center" title="Viewed">
+        <input
+          type="checkbox"
+          className="peer sr-only"
+          checked={viewed}
+          aria-label={`Viewed ${file.file.path}`}
+          onChange={(event) => onViewed(file.key, event.target.checked)}
+        />
+        <Check checked={viewed} />
+      </label>
+      <button
+        type="button"
+        onClick={() => onOpen(file.key)}
+        className={cn(
+          "text-caption min-w-0 flex-1 cursor-default truncate text-left font-mono",
+          viewed ? "text-text-subtle" : "text-text-default",
+          current && "text-text-strong"
+        )}
+        title={file.file.path}
+      >
+        {file.file.path}
+      </button>
+      {changed && (
+        <span className="text-caption text-text-subtle shrink-0" title="Changed since viewed">
+          changed
+        </span>
+      )}
+      {severity !== undefined && <SeverityGlyph severity={severity} tone="text" />}
+    </div>
+  </ReviewFileMenu>
 );

@@ -35,7 +35,7 @@ import { EntryView } from "./entries.tsx";
 import { OutgoingMessage, Steered } from "./outgoing.tsx";
 import { softWrap } from "./softWrap.tsx";
 import { SessionTargetContext } from "./polarisTool/target.ts";
-import { TurnMenu } from "./turnMenu.tsx";
+import { PromptMenu, TurnMenu } from "./turnMenu.tsx";
 import { LimitCard, type UsageLimit } from "./LimitCard.tsx";
 import type { SessionChrome } from "../chrome.ts";
 
@@ -152,22 +152,24 @@ const FoldButton = ({ row, ctx }: { row: { turnId: string; number: number }; ctx
 );
 
 const Prompt = ({ row, ctx }: { row: Extract<Row, { kind: "prompt" }>; ctx: RowContext }) => (
-  <div className="group/turn flex flex-col items-end gap-1.5" data-testid="prompt">
-    <SentAttachments hostKey={ctx.diff.hostKey} attachments={row.attachments} />
-    {row.text === "" ? null : (
-      <p className="rounded-card bg-fill-selected text-body text-text-strong py-row-x max-w-[340px] px-3.5 break-words whitespace-pre-wrap">
-        {softWrap(row.text)}
-      </p>
-    )}
-    <div className="text-caption text-text-subtle flex max-w-[340px] min-w-0 items-center gap-1.5">
-      <FoldButton row={row} ctx={ctx} />
-      <span className="min-w-0 truncate" data-testid="turn-model">
-        {ctx.modelLabel(row.model, row.effort)}
-      </span>
-      <span aria-hidden="true">·</span>
-      <TurnTime iso={row.startedAt} />
+  <PromptMenu text={row.text} onFold={() => ctx.onSetTurnOpen(row.turnId, false)}>
+    <div className="group/turn flex flex-col items-end gap-1.5" data-testid="prompt">
+      <SentAttachments hostKey={ctx.diff.hostKey} attachments={row.attachments} />
+      {row.text === "" ? null : (
+        <p className="rounded-card bg-fill-selected text-body text-text-strong py-row-x max-w-[340px] px-3.5 break-words whitespace-pre-wrap">
+          {softWrap(row.text)}
+        </p>
+      )}
+      <div className="text-caption text-text-subtle flex max-w-[340px] min-w-0 items-center gap-1.5">
+        <FoldButton row={row} ctx={ctx} />
+        <span className="min-w-0 truncate" data-testid="turn-model">
+          {ctx.modelLabel(row.model, row.effort)}
+        </span>
+        <span aria-hidden="true">·</span>
+        <TurnTime iso={row.startedAt} />
+      </div>
     </div>
-  </div>
+  </PromptMenu>
 );
 
 /** A Turn the Harness started: what woke it, its Model and time, and the fold control. */
@@ -215,6 +217,7 @@ const Agent = ({ row, ctx }: { row: Extract<Row, { kind: "item" }>; ctx: RowCont
     turnId={row.turnId}
     message={finishedMessage(row)}
     live={row.turnId === ctx.liveTurnId}
+    onOpenDiff={() => ctx.onOpenDiff(row.turnId)}
   >
     <div
       className="group/item relative flex gap-3"

@@ -2,8 +2,9 @@
  * The Editor's right-click menu as data (DESIGN.md, Menus; Paper 19–19c). Rows the file's
  * servers can't serve are left out; while a server starts, its rows dim with "Starting".
  */
-import { formatChord, parseChord } from "../../../../shared/chord.ts";
-import { bindingOf, type CommandId, RESERVED } from "../../../../shared/keymap.ts";
+import { MENU_SEPARATOR_ENTRY, type MenuAction, type MenuEntry, tidyEntries } from "@polaris/ui";
+import { acceleratorLabel } from "../../../../shared/chord.ts";
+import { bindingOf, type CommandId, EDIT_CHORDS } from "../../../../shared/keymap.ts";
 import type { LanguageViewState } from "../lsp/state.ts";
 import type { FileLanguage } from "../status/store.ts";
 import {
@@ -13,46 +14,7 @@ import {
   shortcutOf,
 } from "../navigation/commands.ts";
 
-/** The shape of `MenuAction` in `@polaris/ui`'s menu entries, so the list renders either way. */
-export interface MenuAction {
-  readonly kind: "item";
-  readonly label: string;
-  readonly onSelect: () => void;
-  /** It asks for more before it runs; the label ends in "…". */
-  readonly needsInput?: boolean | undefined;
-  readonly disabled?: boolean | undefined;
-  /** Why it's disabled, in the shortcut lane. */
-  readonly reason?: string | undefined;
-  readonly shortcut?: string | undefined;
-  readonly testId?: string | undefined;
-}
-
-export interface MenuSeparatorEntry {
-  readonly kind: "separator";
-}
-
-export type MenuEntry = MenuAction | MenuSeparatorEntry;
-
-export type MenuEntryInput = MenuEntry | null | false | undefined;
-
-const SEPARATOR: MenuSeparatorEntry = { kind: "separator" };
-
-/** Drops hidden entries and any separator that would lead, trail or follow another. */
-export const tidyEntries = (input: ReadonlyArray<MenuEntryInput>): ReadonlyArray<MenuEntry> => {
-  const out: Array<MenuEntry> = [];
-
-  for (const entry of input) {
-    if (entry === null || entry === false || entry === undefined) continue;
-
-    if (entry.kind === "separator" && (out.length === 0 || out.at(-1)?.kind === "separator"))
-      continue;
-    out.push(entry);
-  }
-
-  while (out.at(-1)?.kind === "separator") out.pop();
-
-  return out;
-};
+export type { MenuAction, MenuEntry } from "@polaris/ui";
 
 /** What the file's language servers can do right now. */
 export type ServerState =
@@ -93,6 +55,8 @@ export interface EditorMenuInput {
   /** Whether a KEYMAP command can run now (the registry's `enabled`). */
   readonly enabled: (id: CommandId) => boolean;
   readonly actions: EditorMenuActions;
+  /** Reveal in Finder, on this Mac's Host only (`revealInFinderEntry`). */
+  readonly finder: MenuAction | null;
 }
 
 /** The LSP method each server row needs. */
@@ -114,9 +78,6 @@ const WHILE_STARTING: ReadonlySet<string> = new Set([
 ]);
 
 const STARTING = "Starting";
-
-const chordOf = (accelerator: string | undefined) =>
-  accelerator === undefined ? undefined : formatChord(parseChord(accelerator));
 
 const commandOf = (id: string): LanguageNavigationCommand => {
   const found = LANGUAGE_NAVIGATION.find((command) => command.id === id);
@@ -159,23 +120,18 @@ const keymapRow = (id: CommandId, run: () => void): MenuAction | null => {
         kind: "item",
         label: binding.title,
         onSelect: run,
-        needsInput: binding.palette !== false && binding.palette?.followUp === true,
-        shortcut: chordOf(binding.keys[0]),
+        needsInput: binding.needsInput === true,
+        shortcut: acceleratorLabel(binding.keys[0]),
         testId: testIdOf(id),
       };
 };
 
-/** Cut, Copy and Paste: the standard menus own their chords (KEYMAP's RESERVED). */
-const clipboardRow = (
-  label: string,
-  what: Clipboard,
-  accelerator: string,
-  input: EditorMenuInput
-): MenuAction => ({
+/** Cut, Copy and Paste: the native Edit menu owns their chords (EDIT_CHORDS). */
+const clipboardRow = (label: string, what: Clipboard, input: EditorMenuInput): MenuAction => ({
   kind: "item",
   label,
   onSelect: () => input.actions.clipboard(what),
-  shortcut: chordOf(RESERVED.find((key) => key === accelerator)),
+  shortcut: acceleratorLabel(EDIT_CHORDS[what]),
   testId: `editor-menu-${what}`,
 });
 
@@ -186,19 +142,19 @@ const action = (label: string, onSelect: () => void, testId: string): MenuAction
   testId: `editor-menu-${testId}`,
 });
 
-/** The first dimmed row carries the reason; the rest just dim. */
+/** The first dimmed row carries the reason; the rest just dim, without their chords. */
 const withStartingReason = (entries: ReadonlyArray<MenuEntry>): ReadonlyArray<MenuEntry> => {
   const first = entries.findIndex((entry) => entry.kind === "item" && entry.disabled === true);
 
   return entries.map((entry, index) =>
     entry.kind === "item" && entry.disabled === true
-      ? { ...entry, reason: index === first ? STARTING : undefined }
+      ? { ...entry, reason: index === first ? STARTING : undefined, shortcut: undefined }
       : entry
   );
 };
 
 export const editorMenuEntries = (input: EditorMenuInput): ReadonlyArray<MenuEntry> => {
-  const { enabled, actions, server } = input;
+  const { enabled, actions, server, finder } = input;
   const language = (id: string) => languageRow(id, input);
   const command = (id: CommandId) => keymapRow(id, () => actions.command(id));
 
@@ -208,25 +164,26 @@ export const editorMenuEntries = (input: EditorMenuInput): ReadonlyArray<MenuEnt
       language("editor.language.typeDefinition"),
       language("editor.language.implementation"),
       language("editor.language.references"),
-      SEPARATOR,
+      MENU_SEPARATOR_ENTRY,
       language("editor.language.rename"),
       language("editor.language.actions"),
       server.kind === "ready" && enabled("editor.format") && command("editor.format"),
-      SEPARATOR,
+      MENU_SEPARATOR_ENTRY,
       language("editor.language.completion"),
       language("editor.language.signature"),
       enabled("editor.markdownPreview") && command("editor.markdownPreview"),
-      SEPARATOR,
+      MENU_SEPARATOR_ENTRY,
       enabled("editor.inlineChat") && command("editor.inlineChat"),
       enabled("editor.inlineChat") && keymapRow("editor.addToSession", actions.addToSession),
-      SEPARATOR,
-      clipboardRow("Cut", "cut", "CmdOrCtrl+X", input),
-      clipboardRow("Copy", "copy", "CmdOrCtrl+C", input),
-      clipboardRow("Paste", "paste", "CmdOrCtrl+V", input),
-      SEPARATOR,
+      MENU_SEPARATOR_ENTRY,
+      clipboardRow("Cut", "cut", input),
+      clipboardRow("Copy", "copy", input),
+      clipboardRow("Paste", "paste", input),
+      MENU_SEPARATOR_ENTRY,
       action("Copy path", () => actions.copyPath(false), "copy-path"),
       action("Copy relative path", () => actions.copyPath(true), "copy-relative-path"),
       action("Reveal in file tree", actions.revealInTree, "reveal-in-tree"),
+      finder,
       action("Open in terminal", actions.openInTerminal, "open-in-terminal"),
     ])
   );

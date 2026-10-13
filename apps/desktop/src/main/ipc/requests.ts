@@ -22,7 +22,7 @@ import {
   type RequestMethod,
   type SessionPrefsPatch,
 } from "../../shared/contract.ts";
-import { type ClientServices, HostDirectory, toIpcError } from "../hosts.ts";
+import { type ClientServices, HostDirectory, LOCAL_HOST_KEY, toIpcError } from "../hosts.ts";
 import { githubHandlers } from "../github/ipc.ts";
 import { gitHandlers } from "./git.ts";
 import { constellationHandlers, resourceHandlers } from "./constellation.ts";
@@ -49,6 +49,8 @@ export interface RequestContext {
   readonly setSessionDefault: (harness: string, value: SessionDefault | null) => void;
   readonly setSessions: (patch: SessionPrefsPatch) => void;
   readonly openExternal: (url: string) => Promise<void>;
+  /** Finder, selecting the item at an absolute path on this Mac. */
+  readonly revealInFinder: (path: string) => void;
   /** A fresh temp directory, or null when the local Daemon doesn't run the bench Harness. */
   readonly proofWorkspace: () => string | null;
   /** The literal Host aliases in `~/.ssh/config`. */
@@ -60,7 +62,8 @@ export interface RequestContext {
   /** The bundled Daemon builds (`manifest.json`), or null when this build has none. */
   readonly daemonDist: string | null;
   readonly writeClipboard: (text: string) => Promise<void>;
-  readonly readClipboard: () => Promise<string>;
+  /** Cut, Copy, Paste or Select All in the focused window, as its Edit menu would. */
+  readonly editAction: (action: "cut" | "copy" | "paste" | "selectAll") => void;
   /** The renderer's Needs You summary, for the menu bar star, Dock badge and notifications. */
   readonly needsYou: (summary: NeedsYouSummary) => void;
 }
@@ -158,6 +161,10 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
       try: () => ctx.openExternal(url),
       catch: (cause): IpcError => ({ code: "OpenFailed", message: String(cause) }),
     }).pipe(done),
+  "shell.revealInFinder": ({ hostKey, path }) =>
+    hostKey === LOCAL_HOST_KEY
+      ? Effect.sync(() => ctx.revealInFinder(path)).pipe(done)
+      : Effect.fail<IpcError>({ code: "NotLocal", message: "Reveal in Finder is for this Mac" }),
   "host.retryNow": ({ hostKey }) => onHost(hostKey, (c) => c.retryNow).pipe(done),
   dispatch: ({ hostKey, commandId, command }) =>
     onLive(hostKey, (s) => s.client.dispatch({ commandId, command })),
@@ -346,7 +353,7 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
     machines((m) => m.setLocalEnabled(enabled)).pipe(done),
   "machines.openSsh": ({ hostKey }) => machines((m) => m.openSsh(hostKey)).pipe(done),
   "clipboard.write": ({ text }) => Effect.promise(() => ctx.writeClipboard(text)).pipe(done),
-  "clipboard.read": () => Effect.promise(() => ctx.readClipboard()),
+  "edit.run": ({ action }) => Effect.sync(() => ctx.editAction(action)).pipe(done),
   "onboarding.found": () =>
     Effect.sync(() => ({ sshHosts: ctx.sshHosts(), version: ctx.appVersion })),
   "onboarding.welcomeSeen": () => Effect.sync(ctx.setWelcomeSeen).pipe(done),

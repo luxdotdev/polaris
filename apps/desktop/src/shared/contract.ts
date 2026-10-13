@@ -224,6 +224,8 @@ export const RequestInputs = {
   "shell.openExternal": Schema.Struct({
     url: Schema.String.check(Schema.isPattern(/^https:\/\//)),
   }),
+  /** Shows a file or folder in Finder; this Mac's Host only, an absolute path. */
+  "shell.revealInFinder": onHost({ path: Schema.String.check(Schema.isPattern(/^\//)) }),
   "host.retryNow": onHost({}),
   dispatch: onHost({ commandId: CommandId, command: Command }),
   "files.listDir": onHost({ path: Schema.String }),
@@ -384,8 +386,8 @@ export const RequestInputs = {
    */
   "machines.openSsh": onHost({}),
   "clipboard.write": Schema.Struct({ text: Schema.String }),
-  /** The clipboard's text, for the Editor menu's Paste: the renderer may not read it itself. */
-  "clipboard.read": Schema.Struct({}),
+  /** The Edit menu's own action on the focused field (a context menu's Cut, Copy, Paste). */
+  "edit.run": Schema.Struct({ action: Schema.Literals(["cut", "copy", "paste", "selectAll"]) }),
   /** What onboarding found on this Mac: the Host aliases in `~/.ssh/config`, and the app's version. */
   "onboarding.found": Schema.Struct({}),
   /** "Get started": the welcome isn't shown again. */

@@ -4,6 +4,7 @@ import type { CommandId } from "../../../../shared/keymap.ts";
 import { caretForClick } from "./caret.ts";
 import {
   type EditorMenuActions,
+  type MenuAction,
   editorMenuEntries,
   type MenuEntry,
   type ServerState,
@@ -40,8 +41,13 @@ const actions: EditorMenuActions = {
   openInTerminal: () => ran.push("openInTerminal"),
 };
 
-const menu = (server: ServerState, enabled: ReadonlyArray<CommandId> = []) =>
-  editorMenuEntries({ server, enabled: (id) => enabled.includes(id), actions });
+const FINDER: MenuAction = { kind: "item", label: "Reveal in Finder", onSelect: () => {} };
+
+const menu = (
+  server: ServerState,
+  enabled: ReadonlyArray<CommandId> = [],
+  finder: MenuAction | null = null
+) => editorMenuEntries({ server, enabled: (id) => enabled.includes(id), actions, finder });
 
 const ready = (methods: ReadonlyArray<string>): ServerState => ({
   kind: "ready",
@@ -52,6 +58,8 @@ const ready = (methods: ReadonlyArray<string>): ServerState => ({
 const read = (entries: ReadonlyArray<MenuEntry>) =>
   entries.map((entry) => {
     if (entry.kind === "separator") return "—";
+
+    if (entry.kind !== "item") throw new Error(`no ${entry.kind} in the Editor menu`);
     const trailing = entry.disabled === true ? entry.reason : entry.shortcut;
     const label = entry.disabled === true ? `(${entry.label})` : entry.label;
 
@@ -87,7 +95,7 @@ describe("the Editor's right-click menu", () => {
       "Show completions  ⌃Space",
       "Show signature help  ⌃⇧Space",
       "—",
-      "Edit or ask  ⌘I",
+      "Edit or ask…  ⌘I",
       "Add to agent session  ⌘L",
       ...FILE_ROWS,
     ]);
@@ -127,9 +135,15 @@ describe("the Editor's right-click menu", () => {
       "Show completions  ⌃Space",
       "Open Markdown preview  ⇧⌘V",
       "—",
-      "Edit or ask  ⌘I",
+      "Edit or ask…  ⌘I",
       "Add to agent session  ⌘L",
     ]);
+  });
+
+  test("Reveal in Finder sits between the file tree and the terminal, when given", () => {
+    const rows = read(menu(ready(ALL_METHODS), AGENT, FINDER));
+
+    expect(rows.slice(-3)).toEqual(["Reveal in file tree", "Reveal in Finder", "Open in terminal"]);
   });
 
   test("format shows only where the registry says it can run", () => {

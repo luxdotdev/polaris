@@ -177,6 +177,7 @@ export const Command = ({
     <div
       className={cn(WELL, "flex flex-col overflow-clip")}
       data-testid="command"
+      data-menu-command={item.id}
       data-folded={canFold && !open ? "" : undefined}
       {...hover}
     >

@@ -285,7 +285,17 @@ const retheme = () => {
   for (const inst of instances.values()) inst.term.options.theme = theme;
 };
 
-loaded.runtime = { disposeTerminal, reattachDropped, focusTerminal };
+const termOf = (hostKey: string, terminalId: string) =>
+  instances.get(keyOf(hostKey, terminalId))?.term;
+
+loaded.runtime = {
+  disposeTerminal,
+  reattachDropped,
+  focusTerminal,
+  selection: (hostKey, terminalId) => termOf(hostKey, terminalId)?.getSelection() ?? "",
+  selectAll: (hostKey, terminalId) => termOf(hostKey, terminalId)?.selectAll(),
+  clear: (hostKey, terminalId) => termOf(hostKey, terminalId)?.clear(),
+};
 
 if ("document" in globalThis) {
   new MutationObserver(retheme).observe(document.documentElement, {

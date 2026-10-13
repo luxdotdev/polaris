@@ -2,6 +2,7 @@
  * The tab's own UI state, per Lead: what the Intent column has focused, the selected row,
  * folds, filter and query, the Output tab, and an open review form. It outlives the view.
  */
+import type { MessageAuthority } from "@polaris/protocol";
 import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
 import type { Filter, ReceiptResult, WorkerFacts } from "./model/index.ts";
@@ -12,6 +13,24 @@ export type Focus =
   | { readonly kind: "handover"; readonly revision: number };
 
 export type ReviewMode = "approve" | "accept" | "send-back";
+
+/** A note to the Lead being written (MessageLead.tsx), from the tab or a worker's sidebar row. */
+export interface MessageDraft {
+  readonly title: string;
+  readonly authority: MessageAuthority;
+  readonly text: string;
+}
+
+/** "Message the lead about B1", prefilled "About B1 (its title): ". */
+export const draftAbout = (
+  taskId: string,
+  title: string,
+  authority: MessageAuthority
+): MessageDraft => ({
+  title: `Message the lead about ${taskId}`,
+  authority,
+  text: `About ${taskId} (${title}): `,
+});
 
 export interface LeadUi {
   readonly focus: Focus | null;
@@ -26,6 +45,7 @@ export interface LeadUi {
   readonly menu: string | null;
   /** The Claim card's review form, open on one Attempt. */
   readonly review: { readonly attemptId: string; readonly mode: ReviewMode } | null;
+  readonly draft: MessageDraft | null;
 }
 
 const EMPTY: LeadUi = {
@@ -38,6 +58,7 @@ const EMPTY: LeadUi = {
   stats: false,
   menu: null,
   review: null,
+  draft: null,
 };
 
 const store = createStore<Readonly<Record<string, LeadUi>>>(() => ({}));

@@ -243,6 +243,7 @@ const Ready = ({
                 themeType={themeType}
                 loadDiffFiles={model.loadDiffFiles}
                 itemKeys={model.itemKeys}
+                subjectKey={subjectKey}
                 onSelect={(id, range) => {
                   const file = model.files.find((f) => f.key === id);
                   const parsed = model.items.find((p) => p.item.id === id)?.item;

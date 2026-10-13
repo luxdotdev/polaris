@@ -19,6 +19,7 @@ import {
   Prompt,
 } from "../../composer/index.ts";
 import type { StagedAttachment } from "../state.ts";
+import { ComposerMenu } from "./ComposerMenu.tsx";
 
 /** The `/` menu's list, and what to do for a command Polaris runs itself. */
 export interface ComposerCommands {
@@ -146,25 +147,29 @@ export const DraftComposer = ({
               />
             }
             input={
-              <Prompt
-                value={value}
-                onChange={onChange}
-                placeholder={placeholder}
-                disabled={disabled}
-                autoFocus={autoFocus}
-                options={commands.options}
-                loading={commands.loading}
-                onSubmit={submit}
-                onEscape={escape}
-                takesFiles={onFiles !== undefined}
-                onAction={commands.onAction}
-                notice={commands.notice}
-                frecency={commands.frecency}
-                onPicked={commands.onPicked}
-                onFocus={commands.want}
-                menuSlot={menuSlot}
-                history={history}
-              />
+              <ComposerMenu
+                onFiles={onFiles === undefined ? undefined : (files) => onFiles(files, "attach")}
+              >
+                <Prompt
+                  value={value}
+                  onChange={onChange}
+                  placeholder={placeholder}
+                  disabled={disabled}
+                  autoFocus={autoFocus}
+                  options={commands.options}
+                  loading={commands.loading}
+                  onSubmit={submit}
+                  onEscape={escape}
+                  takesFiles={onFiles !== undefined}
+                  onAction={commands.onAction}
+                  notice={commands.notice}
+                  frecency={commands.frecency}
+                  onPicked={commands.onPicked}
+                  onFocus={commands.want}
+                  menuSlot={menuSlot}
+                  history={history}
+                />
+              </ComposerMenu>
             }
           />
         </AttachmentDrop>

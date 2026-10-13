@@ -16,7 +16,7 @@ const args = process.argv.slice(2);
 
 const at = args.indexOf("--out");
 
-const evidence = at === -1 ? join(REPO_ROOT, ".dagr/evidence/edmenu/run-4") : String(args[at + 1]);
+const evidence = at === -1 ? join(REPO_ROOT, ".dagr/evidence/edmenu/run-8") : String(args[at + 1]);
 
 const home = realpathSync(mkdtempSync(join(tmpdir(), "polaris-editor-menu-")));
 
@@ -182,9 +182,20 @@ try {
     for (const row of ["Go to definition  F12", "Rename symbol…  F2", "Show completions  ⌃Space"])
       assert.ok(rows.includes(row), `ts ${theme}: ${row} in ${rows.join(" | ")}`);
     assert.ok(rows.includes("Copy  ⌘C") && rows.includes("Open in terminal"), "file rows");
+    assert.ok(rows.includes("Edit or ask…  ⌘I"), "Edit or ask asks for input");
+    assert.ok(rows.includes("Reveal in Finder"), "this Mac's file: Reveal in Finder");
     await shot(page, `ts-ready-${theme}`);
     await page.keyboard.press("Escape");
   }
+
+  // ⇧F10 opens the menu at the caret and leaves it there.
+  const before = await status(page);
+  await page.keyboard.press("Shift+F10");
+  await menu(page).waitFor();
+  assert.equal(await status(page), before, "⇧F10: the caret stays");
+  await page.waitForTimeout(300);
+  await shot(page, "ts-shift-f10-light");
+  await page.keyboard.press("Escape");
 
   // Go to definition from a use lands on the declaration.
   await rightClick(page, 1, "params", 2);

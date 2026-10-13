@@ -5,12 +5,18 @@
  */
 export { TerminalDock, type TerminalDockProps } from "./ui/TerminalDock.tsx";
 
-export { InTerminalBar, OpenInTerminalItem, type HandoffSession } from "./ui/InTerminal.tsx";
+export {
+  InTerminalBar,
+  OpenInTerminalItem,
+  openInTerminalEntry,
+  type HandoffSession,
+} from "./ui/InTerminal.tsx";
 
 export { claimFocusFromMenu, keepTerminalFocus } from "./focus.ts";
 
 export {
   hideTerminal,
+  openShell,
   runInTerminal,
   toggleTerminal,
   type TerminalPlace,

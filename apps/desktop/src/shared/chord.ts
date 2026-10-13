@@ -31,6 +31,8 @@ const NAMED = new Map<string, string>([
   ["Escape", "Escape"],
   ["Space", "Space"],
   ["Tab", "Tab"],
+  ["Backspace", "Backspace"],
+  ["Delete", "Delete"],
 ]);
 
 const codeOf = (key: string): string => {
@@ -41,6 +43,8 @@ const codeOf = (key: string): string => {
   if (/^[A-Za-z]$/.test(key)) return `Key${key.toUpperCase()}`;
 
   if (/^\d$/.test(key)) return `Digit${key}`;
+
+  if (/^F(?:[1-9]|1[0-2])$/.test(key)) return key;
 
   throw new Error(`no key code for "${key}"`);
 };
@@ -106,6 +110,8 @@ const GLYPHS = new Map<string, string>([
   ["Minus", "-"],
   ["Space", "Space"],
   ["Tab", "⇥"],
+  ["Backspace", "⌫"],
+  ["Delete", "⌦"],
 ]);
 
 const keyGlyph = (code: string) =>
@@ -117,3 +123,7 @@ export const formatChord = (chord: Chord): string => {
 
   return `${chord.ctrl ? "⌃" : ""}${chord.alt ? "⌥" : ""}${chord.shift ? "⇧" : ""}${chord.mod ? "⌘" : ""}${keyGlyph(chord.code)}`;
 };
+
+/** An accelerator as a menu or hint shows it, or nothing when there is none. */
+export const acceleratorLabel = (accelerator: string | undefined): string | undefined =>
+  accelerator === undefined ? undefined : formatChord(parseChord(accelerator));

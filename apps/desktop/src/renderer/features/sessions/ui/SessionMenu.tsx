@@ -1,25 +1,28 @@
 /**
- * A session row's right-click menu (C9, Paper 12): Pin to top or Unpin, Rename…, Open in
- * Review, Copy session ID, Archive. Rename edits the row's title in place.
+ * A session row's right-click menu (C9, Paper 12 and M2): Pin to top or Unpin, Rename… ·
+ * Open in Review, Open in terminal, Fork… · Copy session ID · Archive. Rename edits in place.
  */
 import {
   ContextMenu,
   ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
+  ContextMenuEntries,
   ContextMenuTrigger,
   Input,
+  MENU_SEPARATOR_ENTRY,
+  type MenuEntryInput,
 } from "@polaris/ui";
 import { type ComponentProps, type ReactElement, useRef, useState } from "react";
 import { Commands } from "../../../commands.ts";
 import { openSessionReview } from "../../../routes/review.ts";
 import { useShellActions } from "../../../shell/hooks.ts";
+import { copyEntry } from "../../../shell/menu/index.ts";
 import type { SessionEntry } from "../../../store/hostModel.ts";
-import { writeClipboard } from "../../clipboard.ts";
 import { send } from "../../session/dispatch.ts";
+import { requestFork } from "../../session/forkRequest.ts";
 import { hasCapability, useHost } from "../../session/hooks.ts";
 import { archiveCommand, renameCommand } from "../../session/model/intent.ts";
 import { settingsStore } from "../../settings/index.ts";
+import { openInTerminalEntry } from "../../terminal/index.ts";
 import { isReviewSession } from "../model/sections.ts";
 
 /** A hover card's trigger around the menu passes its props through to the row. */
@@ -39,12 +42,13 @@ const reviewable = (entry: SessionEntry) =>
 
 export const SessionMenu = ({ hostKey, entry, onRename, children, ...slot }: SessionMenuProps) => {
   const actions = useShellActions();
-  const canPin = hasCapability(useHost(hostKey), "session.pin");
+  const host = useHost(hostKey);
   const { session } = entry;
   const pinned = session.pinnedAt != null;
   const archived = session.state === "archived";
   // Closing the menu refocuses the row, which would blur the rename field at once.
   const renamingNext = useRef(false);
+  const open = () => actions.selectSession({ hostKey, sessionId: session.id });
 
   const pin = () =>
     void send(
@@ -52,11 +56,6 @@ export const SessionMenu = ({ hostKey, entry, onRename, children, ...slot }: Ses
       Commands.PinSession({ sessionId: session.id, pinned: !pinned }),
       pinned ? "Couldn't unpin" : "Couldn't pin"
     );
-
-  const review = () => {
-    actions.selectSession({ hostKey, sessionId: session.id });
-    openSessionReview(actions, hostKey, session.id);
-  };
 
   const archive = () =>
     void send(
@@ -67,38 +66,67 @@ export const SessionMenu = ({ hostKey, entry, onRename, children, ...slot }: Ses
       archived ? "Couldn't unarchive" : "Couldn't archive"
     );
 
+  const entries: ReadonlyArray<MenuEntryInput> = [
+    hasCapability(host, "session.pin") && {
+      kind: "item",
+      label: pinned ? "Unpin" : "Pin to top",
+      onSelect: pin,
+    },
+    {
+      kind: "item",
+      label: "Rename…",
+      needsInput: true,
+      onSelect: () => {
+        renamingNext.current = true;
+        onRename();
+      },
+    },
+    MENU_SEPARATOR_ENTRY,
+    reviewable(entry) && {
+      kind: "item",
+      label: "Open in Review",
+      onSelect: () => {
+        open();
+        openSessionReview(actions, hostKey, session.id);
+      },
+    },
+    openInTerminalEntry({
+      hostKey,
+      workspaceId: session.workspaceId,
+      sessionId: session.id,
+      state: session.state,
+      title: session.title === "" ? session.harness : session.title,
+    }),
+    session.turnCount > 0 &&
+      !archived &&
+      hasCapability(host, "session.fork") && {
+        kind: "item",
+        label: "Fork…",
+        needsInput: true,
+        onSelect: () => {
+          open();
+          requestFork(hostKey, session.id);
+        },
+      },
+    MENU_SEPARATOR_ENTRY,
+    copyEntry("Copy session ID", session.id),
+    MENU_SEPARATOR_ENTRY,
+    { kind: "item", label: archived ? "Unarchive" : "Archive", onSelect: archive },
+  ];
+
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild {...slot}>
         {children}
       </ContextMenuTrigger>
       <ContextMenuContent
-        className="min-w-52"
         data-testid="session-context-menu"
         onCloseAutoFocus={(event) => {
           if (renamingNext.current) event.preventDefault();
           renamingNext.current = false;
         }}
       >
-        {canPin ? (
-          <ContextMenuItem onSelect={pin}>{pinned ? "Unpin" : "Pin to top"}</ContextMenuItem>
-        ) : null}
-        <ContextMenuItem
-          onSelect={() => {
-            renamingNext.current = true;
-            onRename();
-          }}
-        >
-          Rename…
-        </ContextMenuItem>
-        {reviewable(entry) ? (
-          <ContextMenuItem onSelect={review}>Open in Review</ContextMenuItem>
-        ) : null}
-        <ContextMenuItem onSelect={() => void writeClipboard(session.id)}>
-          Copy session ID
-        </ContextMenuItem>
-        <ContextMenuSeparator />
-        <ContextMenuItem onSelect={archive}>{archived ? "Unarchive" : "Archive"}</ContextMenuItem>
+        <ContextMenuEntries entries={entries} />
       </ContextMenuContent>
     </ContextMenu>
   );
