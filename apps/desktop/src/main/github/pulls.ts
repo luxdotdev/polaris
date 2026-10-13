@@ -1,6 +1,6 @@
 /**
  * The pull request list, polled without a server: an ETag'd REST `pulls` request
- * per matched repository (a 304 is free), then GraphQL searches for the three
+ * per matched repository (a 304 is free), then GraphQL searches for the four
  * groups only when something changed, or every few minutes for requests elsewhere.
  */
 import { Clock, Effect } from "effect";
@@ -9,6 +9,7 @@ import {
   type PullRowView,
   type RepoRef,
   type ReviewDecision,
+  type ViewerReview,
   GITHUB_HOST,
   repoKey,
   type WorkspaceRef,
@@ -30,7 +31,12 @@ export const QUERIES = {
   mine: `${OPEN} author:@me`,
   other: (repos: ReadonlyArray<string>) =>
     `${OPEN} ${repos.map((r) => `repo:${r}`).join(" ")} -author:@me -review-requested:@me`,
+  /** Open pull requests the viewer reviewed, in any repository (Review's Reviewed group). */
+  reviewed: `${OPEN} reviewed-by:@me -author:@me -review-requested:@me`,
 };
+
+/** GraphQL searches one account's poll sends. */
+export const SEARCHES = Object.keys(QUERIES).length;
 
 /** A watched repository and the Workspaces whose remotes point at it. */
 export interface Watched {
@@ -44,11 +50,32 @@ const DECISIONS = new Map<string, ReviewDecision>([
   ["REVIEW_REQUIRED", "review-required"],
 ]);
 
+/** The viewer's latest submitted review, from `viewerReviews` (`author: $login`). */
+const viewerReviewOf = (pull: SearchPull): ViewerReview | null => {
+  const last = pull.viewerReviews?.nodes.at(-1);
+
+  return last?.submittedAt == null
+    ? null
+    : { at: last.submittedAt, commitOid: last.commit?.oid ?? null };
+};
+
+/**
+ * Whether GitHub asks the viewer by name for a review now, read live (the search index lags
+ * a review). A team's request doesn't count: a member's review may leave it standing.
+ */
+const viewerRequestedOf = (pull: SearchPull, login: string | null) =>
+  login !== null &&
+  pull.reviewRequests.nodes.some(
+    (n) => n.requestedReviewer?.login?.toLowerCase() === login.toLowerCase()
+  );
+
 export const rowOf = (
   pull: SearchPull,
   accountId: number,
   workspaces: ReadonlyArray<WorkspaceRef>,
-  host: string = GITHUB_HOST
+  host: string = GITHUB_HOST,
+  /** The account's login when the pull request came from its review-requested search. */
+  requestedOf: string | null = null
 ): PullRowView => ({
   id: pull.id,
   number: pull.number,
@@ -66,6 +93,8 @@ export const rowOf = (
   updatedAt: pull.updatedAt,
   reviewDecision: DECISIONS.get(pull.reviewDecision ?? "") ?? null,
   viewerLatestReview: pull.viewerLatestReview?.state ?? null,
+  viewerReview: viewerReviewOf(pull),
+  viewerRequested: viewerRequestedOf(pull, requestedOf),
   requestedReviewers: pull.reviewRequests.nodes.flatMap((n) => {
     const name = n.requestedReviewer?.login ?? n.requestedReviewer?.slug;
 
@@ -90,16 +119,19 @@ const merge = (rows: ReadonlyArray<PullRowView>, taken: ReadonlySet<string>) => 
 export interface Found {
   readonly accountId: number;
   readonly host: string;
+  /** Absent in older callers; the requested rows then never say the viewer is asked. */
+  readonly login?: string;
   readonly requested: ReadonlyArray<SearchPull>;
   readonly mine: ReadonlyArray<SearchPull>;
   readonly other: ReadonlyArray<SearchPull>;
+  readonly reviewed?: ReadonlyArray<SearchPull>;
 }
 
 /** The three groups across every account; Workspaces attached by repository. */
 export const groups = (found: ReadonlyArray<Found>, watched: ReadonlyArray<Watched>) => {
   const byRepo = new Map(watched.map((w) => [repoKey(w.repo), w.workspaces]));
 
-  const rows = (pick: (f: Found) => ReadonlyArray<SearchPull>) =>
+  const rows = (pick: (f: Found) => ReadonlyArray<SearchPull>, asked = false) =>
     found.flatMap((f) =>
       pick(f).map((p) => {
         const [owner = "", name = ""] = p.repository.nameWithOwner.split("/");
@@ -108,13 +140,14 @@ export const groups = (found: ReadonlyArray<Found>, watched: ReadonlyArray<Watch
           p,
           f.accountId,
           byRepo.get(repoKey({ host: f.host, owner, name })) ?? [],
-          f.host
+          f.host,
+          asked ? (f.login ?? null) : null
         );
       })
     );
 
   const requested = merge(
-    rows((f) => f.requested),
+    rows((f) => f.requested, true),
     new Set()
   );
 
@@ -128,12 +161,22 @@ export const groups = (found: ReadonlyArray<Found>, watched: ReadonlyArray<Watch
     new Set([...requested, ...mine].map((r) => r.id))
   );
 
+  const reviewed = merge(
+    rows((f) => f.reviewed ?? []),
+    new Set([...requested, ...mine, ...other].map((r) => r.id))
+  );
+
   // A stack's layers can sit in different groups: infer across all of them at once.
-  const stacked = withStacks([...requested, ...mine, ...other]);
+  const stacked = withStacks([...requested, ...mine, ...other, ...reviewed]);
   const byId = new Map(stacked.map((r) => [r.id, r]));
   const back = (list: ReadonlyArray<PullRowView>) => list.map((r) => byId.get(r.id) ?? r);
 
-  return { requested: back(requested), mine: back(mine), other: back(other) };
+  return {
+    requested: back(requested),
+    mine: back(mine),
+    other: back(other),
+    reviewed: back(reviewed),
+  };
 };
 
 export interface PullsInput {
@@ -176,20 +219,33 @@ export const newPulls = ({ client, routing }: PullsInput) => {
 
   const search = (account: AccountRecord, q: string) =>
     client
-      .graphql(account.id, PullSearchData, pullSearch({ q }, account.host === GITHUB_HOST))
+      .graphql(
+        account.id,
+        PullSearchData,
+        pullSearch({ q, login: account.login }, account.host === GITHUB_HOST)
+      )
       .pipe(Effect.map(({ search: s }) => s.nodes));
 
   const searchAccount = (account: AccountRecord, repos: ReadonlyArray<string>) =>
     Effect.gen(function* () {
-      const [requested, mine, other] = yield* Effect.all([
+      const [requested, mine, other, reviewed] = yield* Effect.all([
         search(account, QUERIES.requested),
         search(account, QUERIES.mine),
         repos.length === 0 ? Effect.succeed([]) : search(account, QUERIES.other(repos)),
+        search(account, QUERIES.reviewed),
       ]);
 
       lastSearch.set(account.id, yield* Clock.currentTimeMillis);
 
-      return { accountId: account.id, host: account.host, requested, mine, other } satisfies Found;
+      return {
+        accountId: account.id,
+        host: account.host,
+        login: account.login,
+        requested,
+        mine,
+        other,
+        reviewed,
+      } satisfies Found;
     });
 
   const due = (account: AccountRecord, dirty: ReadonlySet<number>, now: number) =>
@@ -224,7 +280,7 @@ export const newPulls = ({ client, routing }: PullsInput) => {
           continue;
         }
 
-        if (!client.budget.allows(account.id, "graphql", 3)) {
+        if (!client.budget.allows(account.id, "graphql", SEARCHES)) {
           throttled = true;
 
           if (previous !== undefined) next.push(previous);
@@ -254,6 +310,7 @@ export const EMPTY_LIST: PullListView = {
   requested: [],
   mine: [],
   other: [],
+  reviewed: [],
   repos: [],
   updatedAt: null,
   polling: "idle",

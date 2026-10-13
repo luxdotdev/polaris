@@ -242,7 +242,12 @@ const ownerKind = (world: World, _viewer: FakeUser, variables: Variables) => {
   return { repositoryOwner: isUser ? { __typename: "User" } : null };
 };
 
-const matches = (pull: FakePull, viewer: FakeUser, terms: ReadonlyArray<string>) => {
+const reviewedBy = (world: World, pull: FakePull, viewer: FakeUser) =>
+  world.reviews.some(
+    (r) => r.pullId === pull.id && r.author === viewer.login && r.state !== "PENDING"
+  );
+
+const matches = (world: World, pull: FakePull, viewer: FakeUser, terms: ReadonlyArray<string>) => {
   const repos = terms.flatMap((t) => (t.startsWith("repo:") ? [t.slice(5).toLowerCase()] : []));
 
   const checks: ReadonlyArray<[string, boolean]> = [
@@ -250,6 +255,7 @@ const matches = (pull: FakePull, viewer: FakeUser, terms: ReadonlyArray<string>)
     ["review-requested:@me", pull.reviewRequests.includes(viewer.login)],
     ["user-review-requested:@me", pull.reviewRequests.includes(viewer.login)],
     ["author:@me", pull.author === viewer.login],
+    ["reviewed-by:@me", reviewedBy(world, pull, viewer)],
   ];
 
   for (const [term, holds] of checks) {
@@ -291,13 +297,19 @@ const searchNode = (world: World, pull: FakePull, viewer: FakeUser, stacks: bool
       })),
     },
     viewerLatestReview: latest === undefined ? null : { state: latest.state },
+    viewerReviews: {
+      nodes:
+        latest === undefined
+          ? []
+          : [{ submittedAt: latest.submittedAt, commit: { oid: latest.commitOid } }],
+    },
   };
 };
 
 const pullSearch = (world: World, viewer: FakeUser, variables: Variables) => {
   const { q } = vars(Schema.Struct({ q: Schema.String }), variables);
   const terms = q.split(/\s+/).filter((t) => t !== "");
-  const found = visiblePulls(world, viewer).filter((p) => matches(p, viewer, terms));
+  const found = visiblePulls(world, viewer).filter((p) => matches(world, p, viewer, terms));
 
   return {
     search: {

@@ -21,6 +21,7 @@ node scripts/reviewNoiseScreens.ts [--build] --out <dir>   # Review with generat
 node scripts/needsYouScreens.ts --out <dir>   # the Needs You inbox and hover card on fixtures (#needs-you/<scene>) against Paper 1G2-0 / 1-0
 node scripts/pullsScreens.ts --out <dir> [--build]   # the pull request list and Needs You's Reviews group on fixtures (#pulls/<scene>) against Paper R3
 node scripts/reviewScreens.ts --out <dir> [--build] [--findings]  # Review on fixtures (#review/<scene>) against Paper R1 / R2, every theme, density and the -cvd palette; --findings: R1, R6, R7, R8
+node scripts/reviewQueueScreens.ts --out <dir> [--build]  # the Review queue's Reviewed group, done pane and pull request menus (#review/queue-reviewed, queue-done), both themes, every density
 node scripts/reviewBench.ts [--quick] [--json <path>] # Review under load on a real Daemon (2k / 5k / 12k files, a 100k-line file); also `bun run bench review`
 node scripts/emptyScreens.ts --out <dir> [--build]      # the empty states and the terminal drawer from a fresh Daemon, every theme and density
 node scripts/tabCompletionScreens.ts --out <dir> [--build]   # Settings → Editor → Tab completion on fixtures (#tab-completion/hosts, /empty), every theme and density

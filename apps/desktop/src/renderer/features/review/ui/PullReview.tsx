@@ -19,6 +19,7 @@ import { useCommitScope } from "../overview/model/scope.ts";
 import { useReviewDiff } from "../data/useReviewDiff.ts";
 import { reviewSlots, subjectKey } from "../surface.ts";
 import { type Placeholder, ReviewBody } from "./ReviewBody.tsx";
+import { pullUrlOf, usePullCommands } from "./pullMenu.tsx";
 import { PullHeader } from "./SubjectHeader.tsx";
 
 const labelOf = (hosts: ReadonlyArray<HostView>, hostKey: string) =>
@@ -103,6 +104,9 @@ export const PullReview = ({ subject }: { readonly subject: PullSubject }) => {
 
   const { CheckoutChip, PrimaryAction } = reviewSlots.current;
   const name = `${pull.repo.owner}/${pull.repo.name}`;
+  const url = loaded?.url ?? pullUrlOf(pull);
+
+  usePullCommands(pull.number, url);
 
   return (
     <section
@@ -114,6 +118,7 @@ export const PullReview = ({ subject }: { readonly subject: PullSubject }) => {
         name={name}
         number={pull.number}
         detail={loaded}
+        url={url}
         actions={
           <>
             <CheckoutChip {...slotProps} />

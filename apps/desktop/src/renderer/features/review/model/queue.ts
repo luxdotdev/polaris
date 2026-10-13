@@ -1,11 +1,18 @@
 /**
  * Review's queue (Paper R1 1TC-0, DESIGN.md Review → Queue): Review requested, Agent
- * sessions ready, Mine, Other open. An Agent Session is ready when its last Turn ended
- * and some Turns are not yet accepted; the newest first, a few at most.
+ * sessions ready, Mine, Other open, then Reviewed (closed by default). An Agent Session is
+ * ready when its last Turn ended and some Turns are not yet accepted; the newest first, a
+ * few at most. Where a reviewed pull request goes is `reviewed.ts`'s.
  */
 import type { SessionId } from "@polaris/protocol";
 import type { OpenPull } from "../../../../shared/api.ts";
-import { type PullListView, type PullRowView, repoOfRow } from "../../../../shared/github.ts";
+import {
+  type PullListView,
+  type PullRowView,
+  repoOfRow,
+  type ViewerReview,
+} from "../../../../shared/github.ts";
+import { type LocalReviews, placePulls } from "./reviewed.ts";
 
 export interface QueuePull {
   readonly kind: "pull";
@@ -14,6 +21,11 @@ export interface QueuePull {
   readonly title: string;
   readonly meta: string;
   readonly number: number;
+  /** Its page on GitHub. */
+  readonly url: string;
+  readonly head: string;
+  /** Back in Review requested after new commits: the commit the viewer's review was on. */
+  readonly since: ViewerReview | null;
 }
 
 export interface QueueSession {
@@ -29,11 +41,13 @@ export interface QueueSession {
 export type QueueRow = QueuePull | QueueSession;
 
 export interface QueueGroup {
-  readonly id: "requested" | "claims" | "sessions" | "mine" | "other";
+  readonly id: "requested" | "claims" | "sessions" | "mine" | "other" | "reviewed";
   readonly label: string;
   readonly rows: ReadonlyArray<QueueRow>;
   /** Two-line rows with a tile (requested, sessions) or one-line rows with the number. */
   readonly compact: boolean;
+  /** It folds under its header (Reviewed). */
+  readonly collapsible?: boolean;
 }
 
 /** What the queue needs of an Agent Session (`SessionData`). */
@@ -54,7 +68,7 @@ export const READY_LIMIT = 5;
 
 const READY_STATES = new Set(["idle", "dormant"]);
 
-const pullRow = (row: PullRowView): QueuePull => {
+const pullRow = (row: PullRowView, since: ViewerReview | null = null): QueuePull => {
   const repo = repoOfRow(row);
   const { name } = repo;
 
@@ -65,6 +79,9 @@ const pullRow = (row: PullRowView): QueuePull => {
     title: row.title,
     meta: `#${row.number} · ${name} · ${row.author?.login ?? "ghost"}`,
     number: row.number,
+    url: row.url,
+    head: row.headRefOid,
+    since,
   };
 };
 
@@ -105,15 +122,18 @@ export const notWorkers = (
 export const queueGroups = (
   list: PullListView | null,
   all: ReadonlyArray<SessionInfo>,
-  workers: Workers = NO_WORKERS
+  workers: Workers = NO_WORKERS,
+  local: LocalReviews = {},
+  now: number = Date.now()
 ): ReadonlyArray<QueueGroup> => {
   const sessions = notWorkers(all, workers.workers);
+  const placed = placePulls(list, local, now);
 
   const groups: ReadonlyArray<QueueGroup> = [
     {
       id: "requested",
       label: "Review requested",
-      rows: (list?.requested ?? []).map(pullRow),
+      rows: placed.requested.map((p) => pullRow(p.row, p.since)),
       compact: false,
     },
     { id: "claims", label: "Workers' claims", rows: workers.claims, compact: false },
@@ -123,9 +143,53 @@ export const queueGroups = (
       rows: readySessions(sessions),
       compact: false,
     },
-    { id: "mine", label: "Mine", rows: (list?.mine ?? []).map(pullRow), compact: true },
-    { id: "other", label: "Other open", rows: (list?.other ?? []).map(pullRow), compact: true },
+    {
+      id: "mine",
+      label: "Mine",
+      rows: (list?.mine ?? []).map((row) => pullRow(row)),
+      compact: true,
+    },
+    {
+      id: "other",
+      label: "Other open",
+      rows: placed.other.map((row) => pullRow(row)),
+      compact: true,
+    },
+    {
+      id: "reviewed",
+      label: "Reviewed",
+      rows: placed.reviewed.map((r) => pullRow(r.row)),
+      compact: true,
+      collapsible: true,
+    },
   ];
 
   return groups.filter((g) => g.rows.length > 0);
+};
+
+/** The rows ⌃1…⌃9 reach, in the order they show: a folded group's are out of sight. */
+export const visibleRows = (groups: ReadonlyArray<QueueGroup>, reviewedOpen: boolean) =>
+  groups.flatMap((group) => (group.collapsible === true && !reviewedOpen ? [] : group.rows));
+
+/** Where the queue goes once a review is submitted; `stay` when it can't say. */
+export type Advance =
+  | { readonly kind: "open"; readonly row: QueueRow }
+  | { readonly kind: "done"; readonly group: QueueGroup["id"] }
+  | { readonly kind: "stay" };
+
+/** Groups whose pull requests move to Reviewed once reviewed. */
+const ADVANCING = new Set<QueueGroup["id"]>(["requested", "other"]);
+
+/**
+ * After reviewing `id`: the next row of its group in the queue's order (the one after it,
+ * else the first left), or done when it was the group's last.
+ */
+export const advanceFrom = (groups: ReadonlyArray<QueueGroup>, id: string): Advance => {
+  const group = groups.find((g) => g.rows.some((r) => r.id === id));
+
+  if (group === undefined || !ADVANCING.has(group.id)) return { kind: "stay" };
+  const at = group.rows.findIndex((r) => r.id === id);
+  const next = group.rows[at + 1] ?? group.rows.find((r) => r.id !== id);
+
+  return next === undefined ? { kind: "done", group: group.id } : { kind: "open", row: next };
 };

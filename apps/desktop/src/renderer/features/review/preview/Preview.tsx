@@ -1,8 +1,9 @@
 /**
  * Review on fixtures, for screenshots against Paper R1 / R2 (`scripts/reviewScreens.ts`)
  * and the large-Review bench: `#review/pull`, `#review/session`, `#review/large` (2,500
- * files, collapsed) and `#review/list-only` (12,000 files). A stand-in bridge serves the
- * patches; no Daemon or GitHub is involved. Its own chunk.
+ * files, collapsed) and `#review/list-only` (12,000 files); the queue's Reviewed group in
+ * `#review/queue-reviewed` and `#review/queue-done`. A stand-in bridge serves the patches;
+ * no Daemon or GitHub is involved. Its own chunk.
  */
 import { stackedDetail } from "../../pulls/preview/stack.ts";
 import { type GitDiffSpec, ReviewCheckout } from "@polaris/protocol";
@@ -25,6 +26,8 @@ import {
   setUpScene,
   withThreads,
 } from "../../risk/preview/fixtures.ts";
+import { doneStore } from "../data/advance.ts";
+import { reviewedStore } from "../data/reviewedStore.ts";
 import { markLocal } from "../data/viewedStore.ts";
 import { fingerprint, indexPatch } from "../model/patch.ts";
 import { subjectKey, updateSurface } from "../surface.ts";
@@ -43,6 +46,14 @@ import {
   sessionModel,
   TURN_PATCHES,
 } from "./fixtures.ts";
+import {
+  QUEUE_CHECKOUT,
+  QUEUE_COMPARE,
+  QUEUE_DETAIL,
+  QUEUE_DONE_LIST,
+  QUEUE_LIST,
+  QUEUE_PULL,
+} from "./queueFixtures.ts";
 
 const encode = (text: string) => new TextEncoder().encode(text);
 
@@ -62,6 +73,8 @@ interface PreviewInput {
 const ok = <A,>(value: A): Promise<Result<A>> => Promise.resolve({ ok: true, value });
 
 const detailFor = (scene: string) => {
+  if (scene.startsWith("queue-")) return QUEUE_DETAIL;
+
   if (scene === "stacked") return stackedDetail(PULL_DETAIL);
 
   if (scene.startsWith("ov")) return overviewDetail(PULL_DETAIL, scene);
@@ -79,6 +92,8 @@ const request = (scene: string) => (method: string, input: PreviewInput) => {
   }
 
   if (method === "github.pull.detail") return ok(detailFor(scene));
+
+  if (method === "github.pull.compare") return ok(QUEUE_COMPARE);
 
   if (method === "review.runRiskSummary") {
     return ok(
@@ -110,6 +125,22 @@ const PULL: OpenPull = {
 
 /** `#review/stacked`: layer 2 of a four-layer GitHub stack (features/pulls/preview/stack.ts). */
 const STACKED_PULL: OpenPull = { ...PULL, number: 632, pullId: "PR_632" };
+
+const pullOf = (scene: string) => {
+  if (scene.startsWith("queue-")) return QUEUE_PULL;
+
+  return scene === "stacked" ? STACKED_PULL : PULL;
+};
+
+/** `#review/queue-…`: Reviewed open beside #88, or the done pane once #88 emptied its group. */
+const setUpQueue = (scene: string) => {
+  if (!scene.startsWith("queue-")) return;
+  const done = scene === "queue-done";
+
+  pullsStore.setState({ list: done ? QUEUE_DONE_LIST : QUEUE_LIST, accounts: ACCOUNTS });
+  reviewedStore.setState({ reviews: {}, open: !done });
+  doneStore.setState({ done: done ? { pullId: "PR_88", group: "requested" } : null });
+};
 
 /**
  * `#review/bench?cwd=…&base=…&head=…`: a real repository through the real Daemon on the
@@ -162,7 +193,7 @@ const setUpOverview = (scene: string) => {
 
   const key = scene.startsWith("session")
     ? subjectKey({ kind: "session", hostKey: "local", sessionId: SESSION.id })
-    : subjectKey({ kind: "pull", pull: scene === "stacked" ? STACKED_PULL : PULL });
+    : subjectKey({ kind: "pull", pull: pullOf(scene) });
 
   // The diff's scenes (Paper R1, R2) open on Changes; the real app opens every Review on Overview.
   if (!overview) {
@@ -197,7 +228,11 @@ export const mountReviewPreview = (root: HTMLElement, hash: string) => {
           studio: {
             ...studio,
             sessions: new Map(),
-            reviewCheckouts: new Map([[CHECKOUT.id, CHECKOUT]]),
+            reviewCheckouts: new Map([
+              scene.startsWith("queue-")
+                ? [QUEUE_CHECKOUT.id, QUEUE_CHECKOUT]
+                : [CHECKOUT.id, CHECKOUT],
+            ]),
           },
           local: {
             ...local,
@@ -224,6 +259,7 @@ export const mountReviewPreview = (root: HTMLElement, hash: string) => {
   if (!bench) {
     standInBridge(bridge(scene));
     pullsStore.setState({ list: LIST, accounts: ACCOUNTS });
+    setUpQueue(scene);
   }
 
   setUpScene(scene, subjectKey({ kind: "session", hostKey: "local", sessionId: SESSION.id }));
@@ -237,7 +273,7 @@ export const mountReviewPreview = (root: HTMLElement, hash: string) => {
       selectedFinding: SESSION_FINDINGS[0]?.id ?? null,
     });
   } else {
-    const pull = scene === "stacked" ? STACKED_PULL : PULL;
+    const pull = pullOf(scene);
 
     openPull(navigation.actions, pull);
     updateSurface(subjectKey({ kind: "pull", pull }), {

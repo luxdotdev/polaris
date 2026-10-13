@@ -3,6 +3,28 @@ import { Effect } from "effect";
 import type { PullListView } from "../../shared/github.ts";
 import { harness, memoryCrypto, signIn, until } from "./github.testing.ts";
 import { GitHub, type WorkspaceRemotes } from "./index.ts";
+import { type Found, groups, SEARCHES } from "./pulls.ts";
+import type { SearchPull } from "./queries.ts";
+
+const BASE_PULL: SearchPull = {
+  id: "",
+  number: 0,
+  title: "A change",
+  url: "",
+  isDraft: false,
+  state: "OPEN",
+  updatedAt: "2026-10-12T10:00:00Z",
+  headRefName: "feature",
+  headRefOid: "abc",
+  baseRefName: "main",
+  additions: 1,
+  deletions: 0,
+  repository: { nameWithOwner: "" },
+  author: { login: "hubot", avatarUrl: "" },
+  reviewDecision: null,
+  reviewRequests: { nodes: [] },
+  viewerLatestReview: { state: "APPROVED" },
+};
 
 const harnesses: Array<ReturnType<typeof harness>> = [];
 
@@ -111,9 +133,81 @@ describe("the pull request list", () => {
         const changed = yield* until(gh.pulls, (v) => v.requested.length === 3);
 
         expect(numbers(changed.other)).toEqual([]);
-        expect(searches(h)).toBe(before + 3);
+        expect(searches(h)).toBe(before + SEARCHES);
       })
     );
+  });
+
+  test("a review leaves Review requested with its commit; a push or a new request reads live", async () => {
+    const h = open();
+
+    await h.run(
+      Effect.gen(function* () {
+        const gh = yield* GitHub;
+        const first = yield* firstList(h);
+        const row42 = first.requested.find((r) => r.number === 42);
+
+        expect(row42?.viewerRequested).toBe(true);
+        expect(row42?.viewerReview).toBeNull();
+
+        const submitted = yield* gh.submitReview({
+          pull: { repo: { owner: "acme", name: "widgets" }, number: 42 },
+          pullId: row42?.id ?? "",
+          event: "approve",
+          body: "",
+        });
+
+        expect(submitted.commitOid).toBe(row42?.headRefOid ?? "");
+        expect(submitted.at).not.toBeNull();
+
+        const after = yield* until(gh.pulls, (v) => v.other.some((r) => r.number === 42));
+        const reviewed = after.other.find((r) => r.number === 42);
+
+        expect(reviewed?.viewerReview).toEqual({
+          at: submitted.at ?? "",
+          commitOid: submitted.commitOid,
+        });
+        expect(reviewed?.viewerRequested).toBe(false);
+
+        h.fake.push("acme/widgets", 42);
+        h.fake.requestReview("acme/widgets", 42, "mona");
+        yield* h.advance(60_000);
+
+        const back = yield* until(gh.pulls, (v) => v.requested.some((r) => r.number === 42));
+        const again = back.requested.find((r) => r.number === 42);
+
+        expect(again?.viewerRequested).toBe(true);
+        expect(again?.headRefOid).not.toBe(submitted.commitOid);
+      })
+    );
+  });
+
+  test("reviewed elsewhere: open pull requests the viewer reviewed outside watched repos", () => {
+    const pull = (number: number, repo: string) => ({
+      ...BASE_PULL,
+      id: `PR_${number}`,
+      number,
+      repository: { nameWithOwner: repo },
+      viewerReviews: { nodes: [{ submittedAt: "2026-10-12T10:00:00Z", commit: { oid: "abc" } }] },
+    });
+
+    const found: Found = {
+      accountId: 1,
+      host: "github.com",
+      login: "mona",
+      requested: [],
+      mine: [],
+      other: [pull(1, "acme/widgets")],
+      reviewed: [pull(1, "acme/widgets"), pull(2, "else/where")],
+    };
+
+    const listed = groups([found], []);
+
+    expect(listed.reviewed.map((r) => r.number)).toEqual([2]);
+    expect(listed.reviewed[0]?.viewerReview).toEqual({
+      at: "2026-10-12T10:00:00Z",
+      commitOid: "abc",
+    });
   });
 
   test("polls every five minutes while no window is focused", async () => {

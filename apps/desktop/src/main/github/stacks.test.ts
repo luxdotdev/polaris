@@ -75,8 +75,8 @@ describe("inferring a stack from base and head branches", () => {
   test("Enterprise hosts never ask for stack fields", () => {
     const text = (request: { readonly query: string }) => request.query;
 
-    expect(text(pullSearch({ q: "" }, true))).toContain("stackEntry");
-    expect(text(pullSearch({ q: "" }, false))).not.toContain("stackEntry");
+    expect(text(pullSearch({ q: "", login: "" }, true))).toContain("stackEntry");
+    expect(text(pullSearch({ q: "", login: "" }, false))).not.toContain("stackEntry");
     expect(text(pullDetail({ owner: "o", name: "n", number: 1 }, false))).not.toContain("stack");
   });
 });
