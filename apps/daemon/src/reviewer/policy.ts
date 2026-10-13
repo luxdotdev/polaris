@@ -1,20 +1,27 @@
 /** The Reviewer's sandbox runs allowed commands; escaped permission requests are declined. */
 import { ApprovalDecision, type HarnessKind } from "@polaris/protocol";
 import type { PolicyRequest } from "../services.ts";
-import { which } from "../service/userPath.ts";
+import { type ClaudeSandbox, probeClaudeSandbox } from "../harness/claude/sandbox.ts";
 
 /**
- * Whether the Reviewer may run checks on this Harness: Codex's read-only
- * sandbox has no network; Claude Code's sandbox needs bubblewrap and socat on Linux.
+ * What the Reviewer may run on this Host: `checks` (git, tests, lint in a sandbox
+ * with no network), `git` (read-only git only) or `none` (no shell: it only reads files).
  */
-export const canRunChecks = (harness: HarnessKind, platform = process.platform): boolean => {
-  if (harness === "codex") return true;
+export type ReviewerShell = "checks" | "git" | "none";
 
-  if (harness !== "claude") return false;
+/**
+ * Codex's read-only sandbox has no network. Claude Code's needs Seatbelt or
+ * bubblewrap and socat; without it the Claude driver gives the Reviewer no shell.
+ */
+export const reviewerShell = (
+  harness: HarnessKind,
+  claudeSandbox: () => ClaudeSandbox = probeClaudeSandbox
+): ReviewerShell => {
+  if (harness === "codex") return "checks";
 
-  if (platform === "darwin") return true;
+  if (harness !== "claude") return "git";
 
-  return platform === "linux" && which("bwrap") !== null && which("socat") !== null;
+  return claudeSandbox().available ? "checks" : "none";
 };
 
 /** Requests that escape the Harness's no-prompt policy are always declined. */

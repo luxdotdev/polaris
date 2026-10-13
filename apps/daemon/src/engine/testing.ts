@@ -34,6 +34,7 @@ import {
 } from "../services.ts";
 import { EventStore, StoreConfig } from "../store/EventStore.ts";
 import type { ReadModel } from "../store/model.ts";
+import { DEFAULT_HARNESS_START_TIMEOUT } from "./supervisor.start.ts";
 import { Engine, EngineConfig, type EngineSettings } from "./Engine.ts";
 
 // ── Harness ────────────────────────────────────────────────────────────────
@@ -325,6 +326,7 @@ export const engineLayer = (options: {
   /** Default: the fake, which writes no refs; `CheckpointsLive` snapshots real repositories. */
   readonly checkpoints?: Layer.Layer<Checkpoints>;
   readonly resumeAtResetGrace?: Duration.Input;
+  readonly harnessStartTimeout?: Duration.Input;
 }) => {
   const baseStore = EventStore.layerSqlite(options.filename).pipe(
     Layer.provide(
@@ -344,6 +346,7 @@ export const engineLayer = (options: {
     backgroundIdleTimeout: options.backgroundIdleTimeout ?? Duration.hours(8),
     checkpointSweepInterval: options.checkpointSweepInterval ?? null,
     resumeAtResetGrace: options.resumeAtResetGrace ?? Duration.zero,
+    harnessStartTimeout: options.harnessStartTimeout ?? DEFAULT_HARNESS_START_TIMEOUT,
   };
 
   return Engine.layer.pipe(

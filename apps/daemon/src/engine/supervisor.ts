@@ -36,6 +36,8 @@ import { finalReply, forkPreamble } from "./fork.ts";
 import { EngineRuntime, type EventSource, type LiveHarness, type Progress } from "./runtime.ts";
 import { deferredUserTurns, refuseUserTurn } from "./supervisor.turns.ts";
 import { HarnessTurnAliases } from "./supervisor.aliases.ts";
+import { DEFAULT_HARNESS_START_TIMEOUT, timedStart } from "./supervisor.start.ts";
+import { shortHostName } from "../service/hostName.ts";
 
 type HarnessEventOf<Tag extends HarnessEvent["_tag"]> = Extract<HarnessEvent, { _tag: Tag }>;
 
@@ -467,7 +469,13 @@ const make = (
               ? yield* withForkContext(session, session.parentSessionId, prompt)
               : prompt;
 
-          const entry = yield* openHarness(sessionId);
+          const entry = yield* timedStart(
+            openHarness(sessionId),
+            session?.harness ?? "harness",
+            rt.config.harnessStartTimeout ?? DEFAULT_HARNESS_START_TIMEOUT,
+            shortHostName()
+          );
+
           yield* rt.signal(sessionId, { type: "harness.opened" });
 
           const turnInput = {

@@ -14,7 +14,7 @@ import {
   type SessionId,
   type Turn,
 } from "@polaris/protocol";
-import { Context, Effect, Layer, Predicate } from "effect";
+import { Context, Effect, Inspectable, Layer, Predicate } from "effect";
 import { revertAfterAccept } from "../accept/reactor.ts";
 import { sessionRestartNote } from "../constellation/restartNote.ts";
 import type { HarnessError } from "../harness/HarnessDriver.ts";
@@ -105,7 +105,17 @@ const make = Effect.gen(function* () {
         prompt: turn.prompt,
         attachments: turn.attachments,
       });
-    });
+    }).pipe(
+      // A crash while starting must not leave the session Starting: it Fails, saying why.
+      Effect.catchDefect((defect) =>
+        rt.failSession(
+          command.sessionId,
+          `The session couldn't start: ${
+            defect instanceof Error ? defect.message : Inspectable.toStringUnknown(defect)
+          }`
+        )
+      )
+    );
 
   /** Continue resumes the same Turn; after a restart it names the background work that was lost. */
   const continueTurn = (sessionId: SessionId, { result }: Committed) =>

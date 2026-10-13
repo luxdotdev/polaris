@@ -37,7 +37,9 @@ import {
 } from "./output.ts";
 import { repairPrompt, reviewPrompt } from "./prompt.ts";
 import { carryForward, previousReviewerSession, previousSummary } from "./merge.ts";
-import { canRunChecks } from "./policy.ts";
+import { reviewerShell } from "./policy.ts";
+import { probeClaudeSandbox, unsandboxedReviewerNote } from "../harness/claude/sandbox.ts";
+import { shortHostName } from "../service/hostName.ts";
 import { type ReviewRange, resolveRange } from "./range.ts";
 import { askFirst, changedLines, switchedOff } from "./when.ts";
 import { continueReviewerSession, startReviewerSession, type TurnOutcome } from "./session.ts";
@@ -285,6 +287,13 @@ const askReviewer = Effect.fn("askReviewer")(function* (input: AgentInput) {
   const current = yield* readSummary(summary.id);
   const previous = yield* previousRun(range);
 
+  const sandbox = probeClaudeSandbox();
+  const shell = reviewerShell(choice.harness, () => sandbox);
+
+  // A Claude Code Reviewer without the sandbox ran with no shell; say so and how to fix it.
+  const shellNote =
+    choice.harness === "claude" ? unsandboxedReviewerNote(sandbox, shortHostName()) : null;
+
   const prompt = reviewPrompt({
     subject: input.context === null ? range.title : `${range.title}: ${input.context.title}`,
     why: whyOf(range, input.context),
@@ -296,7 +305,7 @@ const askReviewer = Effect.fn("askReviewer")(function* (input: AgentInput) {
     head: range.head,
     since: range.key.since,
     earlierFindings: previous.findings,
-    runChecks: canRunChecks(choice.harness),
+    shell,
   });
 
   const outcome =
@@ -329,7 +338,7 @@ const askReviewer = Effect.fn("askReviewer")(function* (input: AgentInput) {
     sessionId: outcome.sessionId,
     output: Result.isSuccess(decoded) ? decoded.success : null,
     note: Result.isSuccess(decoded)
-      ? null
+      ? shellNote
       : "The Reviewer's reply couldn't be read, even after asking again.",
   } satisfies AgentResult;
 });
@@ -382,7 +391,10 @@ const runAgentLayer = (input: AgentInput) =>
       DomainEvent.cases.RiskSummaryLayerChanged.make({
         summaryId: summary.id,
         layer: "agent",
-        run: LayerRun.make({ status: "completed", note: dropped }),
+        run: LayerRun.make({
+          status: "completed",
+          note: [dropped, result.note].filter((n) => n !== null).join(" ") || null,
+        }),
       }),
     ]);
 

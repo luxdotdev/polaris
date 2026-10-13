@@ -25,7 +25,7 @@ Implements `HarnessDriver` (`../HarnessDriver.ts`) for Claude Code (ENG-192, dec
 
 ### Reviewer sessions
 
-`OpenOptions.readOnly` applies `READ_ONLY_OPTIONS`: `dontAsk`, read/search/Agent tools, sandboxed Bash with no filesystem writes or network, and no user/project settings, hooks or MCP servers. A missing sandbox fails closed. Subagents inherit these restrictions. A late `canUseTool` callback is denied before it can emit an approval, and a later permission mode change stays `dontAsk`.
+`OpenOptions.readOnly` applies `readOnlyOptions` (`readOnly.ts`): `dontAsk`, read/search/Agent tools, sandboxed Bash with no filesystem writes or network, and no user/project settings, hooks or MCP servers. `sandbox.ts` checks the sandbox the way Claude Code does (Seatbelt on macOS, `bwrap` and `socat` on Linux); where it can't start, the session has no Bash instead of failing (ADR 0042). If the sandbox still fails to start, the session fails closed, and Claude Code's "Sandbox required but unavailable" error is rewritten to name the Host and the install command, in agent sessions too (where the sandbox is the user's own setting). Subagents inherit these restrictions. A late `canUseTool` callback is denied before it can emit an approval, and a later permission mode change stays `dontAsk`.
 
 ### Skills and Slash Commands (`commands.ts`)
 

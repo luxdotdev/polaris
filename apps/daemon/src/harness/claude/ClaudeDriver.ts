@@ -76,6 +76,9 @@ import {
 import { type ClaudePlanLimits, claudePlanLimitReader } from "./planLimits.ts";
 import { usageLimitWatch } from "./usageLimit.ts";
 import { ClaudeTranslator } from "./translate.ts";
+import { readOnlyOptions } from "./readOnly.ts";
+import { type ClaudeSandbox, describeSandboxFailure, probeClaudeSandbox } from "./sandbox.ts";
+import { shortHostName } from "../../service/hostName.ts";
 import { which } from "../../service/userPath.ts";
 import {
   messageAutoFallback,
@@ -107,6 +110,10 @@ export interface ClaudeDriverOptions {
   readonly onStderr?: (line: string) => void;
   /** Receives the account's Plan Limits as Claude Code reports them. */
   readonly planLimits?: PlanLimitReporter["Service"];
+  /** Whether Claude Code's sandbox can start here; injectable for tests. */
+  readonly sandbox?: () => ClaudeSandbox;
+  /** The Host's name in error messages; default the machine's short hostname. */
+  readonly hostName?: string;
 }
 
 const HARNESS = "claude";
@@ -196,6 +203,16 @@ const openSession = Effect.fnUntraced(function* (
     return yield* harnessError("Claude Code is not installed: `claude` was not found on PATH");
 
   const scope = yield* Scope.Scope;
+  const sandbox = driver.sandbox ?? (() => probeClaudeSandbox());
+
+  // The sandbox is Polaris's in a read-only session, else the user's own setting.
+  const human = (error: string) =>
+    describeSandboxFailure(error, {
+      host: driver.hostName ?? shortHostName(),
+      sandbox: sandbox(),
+      own: options.readOnly !== true,
+    }) ?? error;
+
   const events = yield* Queue.unbounded<HarnessEvent, Cause.Done>();
   const clock = new ItemClock();
   const emit = (event: HarnessEvent) => Queue.offerUnsafe(events, clock.stamp(event));
@@ -250,8 +267,9 @@ const openSession = Effect.fnUntraced(function* (
     }
   };
 
-  const endTurn = (status: "completed" | "interrupted" | "failed", error: string | null) => {
+  const endTurn = (status: "completed" | "interrupted" | "failed", raw: string | null) => {
     const turn = active;
+    const error = raw === null ? null : human(raw);
 
     if (!turn) return;
     active = null;
@@ -355,7 +373,7 @@ const openSession = Effect.fnUntraced(function* (
     Object.assign(sdkOptions, claudeConstellationOptions(attachments));
   }
 
-  if (options.readOnly === true) Object.assign(sdkOptions, READ_ONLY_OPTIONS);
+  if (options.readOnly === true) Object.assign(sdkOptions, readOnlyOptions(sandbox()));
 
   if (options.model !== null) sdkOptions.model = options.model;
 
@@ -399,7 +417,7 @@ const openSession = Effect.fnUntraced(function* (
     exited = true;
     withdrawAll("Claude Code stopped.");
     endTurn(error === null && closing ? "interrupted" : "failed", error ?? "Claude Code exited");
-    emit(HarnessEvent.Exited({ error }));
+    emit(HarnessEvent.Exited({ error: error === null ? null : human(error) }));
     Queue.endUnsafe(events);
   };
 
@@ -773,37 +791,6 @@ const causeMessage = (cause: Cause.Cause<unknown>): string | null => {
 
   return null;
 };
-
-/**
- * A read-only session (the Reviewer): Bash runs in Claude Code's sandbox with
- * no network (an empty strict allowlist) and never outside it; no web tools.
- * If the sandbox can't start, the session fails rather than running unsandboxed.
- */
-export const READ_ONLY_OPTIONS = {
-  permissionMode: "dontAsk",
-  settingSources: [],
-  settings: { disableAllHooks: true },
-  mcpServers: {},
-  strictMcpConfig: true,
-  tools: ["Read", "Glob", "Grep", "Bash", "Agent"],
-  sandbox: {
-    enabled: true,
-    failIfUnavailable: true,
-    autoAllowBashIfSandboxed: true,
-    allowUnsandboxedCommands: false,
-    excludedCommands: [],
-    filesystem: { denyWrite: ["/"] },
-    network: {
-      allowedDomains: [],
-      deniedDomains: ["*"],
-      strictAllowlist: true,
-      allowLocalBinding: false,
-      allowAllUnixSockets: false,
-    },
-  },
-  allowedTools: ["Read", "Glob", "Grep", "Agent"],
-  disallowedTools: ["Edit", "Write", "NotebookEdit", "WebFetch", "WebSearch"],
-} satisfies Partial<Options>;
 
 export const makeClaudeDriver = (options: ClaudeDriverOptions = {}): HarnessDriver => {
   const driver = {

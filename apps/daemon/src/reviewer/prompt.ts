@@ -7,6 +7,7 @@ import type { RiskFinding } from "@polaris/protocol";
 import { changedFilesSection, diffSection } from "./changedFiles.ts";
 import type { ChangeDiff } from "./diff.ts";
 import { reviewerOutputJsonSchema } from "./output.ts";
+import type { ReviewerShell } from "./policy.ts";
 
 /** Marks a Reviewer prompt; the bench Harness answers it with schema output. */
 export const REVIEWER_MARKER = "<!-- polaris:reviewer -->";
@@ -27,8 +28,8 @@ export interface ReviewPromptInput {
   readonly since: string | null;
   /** Findings already open on this Review (an incremental run), so they aren't repeated. */
   readonly earlierFindings: ReadonlyArray<RiskFinding>;
-  /** False where tests can't be kept off the network: the Reviewer only reads. */
-  readonly runChecks: boolean;
+  /** What the Reviewer may run here (see `reviewerShell`). */
+  readonly shell: ReviewerShell;
 }
 
 const lines = (finding: RiskFinding) =>
@@ -59,6 +60,9 @@ const CONTRACT = (schema: string) =>
 const NO_CHECKS =
   "On this Host the repo's tests, lint and typecheck can't be kept off the network, so they are refused too: judge from reading the code.";
 
+const NO_SHELL =
+  "On this Host you have no shell: no git, tests, lint or typecheck. Read and search the files in this checkout (they are at head); where the diff below is cut short, read the changed files whole.";
+
 const RULES = [
   "You are Polaris's Reviewer: a careful senior engineer reviewing a change for risks.",
   "You are read-only. You may read and search files, run `git diff`, `git log`, `git show` and similar read-only git commands, and run the repo's tests, lint and typecheck. You can't edit files, and you have no network. Anything else is refused.",
@@ -66,7 +70,8 @@ const RULES = [
 ].join("\n");
 
 export const reviewPrompt = (input: ReviewPromptInput): string => {
-  const sections = [REVIEWER_MARKER, input.runChecks ? RULES : `${RULES}\n${NO_CHECKS}`];
+  const rules = { checks: RULES, git: `${RULES}\n${NO_CHECKS}`, none: `${RULES}\n${NO_SHELL}` };
+  const sections = [REVIEWER_MARKER, rules[input.shell]];
 
   if (input.diff.files.length > 0) sections.push(changedFilesSection(input.diff, input.generated));
 

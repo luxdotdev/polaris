@@ -295,7 +295,7 @@ describe("Claude driver", () => {
   });
 
   test("a read-only session runs Bash in the sandbox with no network and no web tools", async () => {
-    const t = await openFake({ readOnly: true });
+    const t = await openFake({ readOnly: true }, { sandbox: () => ({ available: true }) });
     const o = t.fake.options!;
 
     expect(o.sandbox).toMatchObject({
