@@ -6,6 +6,7 @@
  */
 import type { MachineView } from "../../../shared/api.ts";
 import { mismatchWords } from "../../shell/hostCopy.ts";
+import { hostWhere } from "./wsl.ts";
 
 /** What a card's buttons do; the view binds each to a request. */
 export type CardAction =
@@ -125,6 +126,23 @@ const connectionCard = (machine: MachineView): CardModel | null => {
         failure.reason,
         `ssh refused its config for ${alias}`,
         "Fix what ssh names below, in ~/.ssh, then retry.",
+        detail,
+        RETRY
+      );
+    case "wsl-missing":
+      return card(
+        failure.reason,
+        "WSL didn't start on this PC",
+        "wsl.exe is missing or disabled. Polaris stopped before sending anything. Install WSL again, then retry; the distro and its workspaces are kept.",
+        "wsl --install --no-distribution",
+        COPY,
+        RETRY
+      );
+    case "wsl-distro-missing":
+      return card(
+        failure.reason,
+        `WSL no longer lists a distro called ${alias}`,
+        "If you renamed or unregistered it, its workspaces went with it; add the new distro as a host, or remove this one.",
         detail,
         RETRY
       );
@@ -327,9 +345,9 @@ export const connectionLine = (machine: MachineView, now: number): ConnectionLin
   }
 };
 
-/** "ssh studio · 3 workspaces", or "This Mac · 2 workspaces". */
+/** "ssh studio · 3 workspaces", "wsl Ubuntu · 1 workspace", or "This Mac · 2 workspaces". */
 export const hostCaption = (machine: MachineView, workspaces: number | null): string => {
-  const where = machine.alias === null ? "This Mac" : `ssh ${machine.alias}`;
+  const where = hostWhere(machine);
 
   return workspaces === null ? where : `${where} · ${workspacesText(workspaces)}`;
 };

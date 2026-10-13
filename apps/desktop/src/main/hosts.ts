@@ -197,7 +197,10 @@ export const remoteEntry = (remote: RemoteHostSetting): HostEntry => ({
   colour: remote.colour ?? null,
   alias: remote.alias,
   proofHarness: false,
-  target: HostTarget.Ssh({ alias: remote.alias, forwardAgent: remote.forwardAgent ?? false }),
+  target:
+    remote.kind === "wsl"
+      ? HostTarget.Wsl({ distro: remote.alias })
+      : HostTarget.Ssh({ alias: remote.alias, forwardAgent: remote.forwardAgent ?? false }),
   remoteCommand: remoteCommandArgv(remote.remoteCommand),
   simulatedLatencyMs: null,
 });

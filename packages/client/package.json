@@ -8,7 +8,9 @@
     ".": "./src/index.ts",
     "./install": "./src/install/index.ts",
     "./testing": "./src/connection.testing.ts",
-    "./usage": "./src/usage/index.ts"
+    "./usage": "./src/usage/index.ts",
+    "./wsl": "./src/wsl/index.ts",
+    "./wsl/testing": "./src/wsl/fakeWsl.testing.ts"
   },
   "scripts": {
     "typecheck": "tsc -p .",

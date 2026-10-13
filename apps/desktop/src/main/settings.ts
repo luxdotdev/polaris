@@ -25,6 +25,8 @@ import { DaemonUpdateResultSchema } from "../shared/daemonUpdates.ts";
 
 export const RemoteHostSetting = Schema.Struct({
   keepDaemonUpToDate: Schema.optionalKey(Schema.Boolean),
+  /** How the Host is reached; absent means ssh. For "wsl" the alias is the distro name. */
+  kind: Schema.optionalKey(Schema.Literals(["ssh", "wsl"])),
   alias: Schema.String.check(Schema.isMinLength(1)),
   label: Schema.optionalKey(Schema.String),
   colour: Schema.optionalKey(Schema.NullOr(Schema.String)),

@@ -349,8 +349,11 @@ export const RequestInputs = {
   "install.ensure": onHost({ approvedSha256: Schema.NullOr(Schema.String) }),
   /** The literal `Host` aliases in `~/.ssh/config` (Includes followed, wildcards skipped). */
   "machines.sshAliases": Schema.Struct({}),
-  /** Adds a remote Host by alias and checks it: probe, then ask to install. */
+  /** The WSL distros on this Windows machine (`unsupported` elsewhere). */
+  "machines.wslDistros": Schema.Struct({}),
+  /** Adds a remote Host by alias (or a WSL distro by name) and checks it: probe, then ask to install. */
   "machines.add": Schema.Struct({
+    kind: Schema.optionalKey(Schema.Literals(["ssh", "wsl"])),
     alias: SshAlias,
     label: Schema.String,
     colour: Schema.NullOr(MachineColour),

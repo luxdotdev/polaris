@@ -5,6 +5,7 @@
  * Settings rows. A background check (a reconnect) never installs.
  */
 import { InstallPlan, type InstallTrigger, Ssh } from "@polaris/client/install";
+import { WslDiscovery } from "@polaris/client/wsl";
 import {
   Context,
   Effect,
@@ -16,7 +17,7 @@ import {
   Stream,
   SubscriptionRef,
 } from "effect";
-import type { MachineView, SshAliasView } from "../../shared/api.ts";
+import type { MachineView, SshAliasView, WslDistrosView } from "../../shared/api.ts";
 import { HostDirectory, LOCAL_HOST_KEY, localEntry, remoteEntry } from "../hosts.ts";
 import { localHostEnabled, type LocalDaemon } from "../localDaemon.ts";
 import type { RemoteHostSetting, Settings } from "../settings.ts";
@@ -27,6 +28,7 @@ import { applyWork, failureMessage, planFor, startDaemon } from "./remote.ts";
 import { sshArgv } from "./terminal.ts";
 import { backgroundCheckKey, type InstallRecord, localUpgradeKey, machineViews } from "./views.ts";
 import { type UpdateFacts, updatePolicy } from "./updateFacts.ts";
+import { COPYING_WSL, PROBING_WSL, wslDistrosView, wslTerminalArgv } from "./wsl.ts";
 import type { DaemonUpdateProgress, DaemonUpdateResult } from "../../shared/daemonUpdates.ts";
 
 export class MachineError extends Schema.TaggedError<MachineError>()("MachineError", {
@@ -56,9 +58,16 @@ export interface MachinesInput {
   readonly openTerminal: (argv: ReadonlyArray<string>) => Promise<void>;
   /** How install commands reach a Host (`Ssh.layer`; tests replace it). */
   readonly ssh: Layer.Layer<Ssh>;
+  /** WSL distros as Hosts (Windows): install commands through `wsl.exe`, and the distro list. */
+  readonly wsl?: {
+    readonly ssh: Layer.Layer<Ssh>;
+    readonly discover: Effect.Effect<WslDiscovery>;
+  };
 }
 
 export interface AddMachine {
+  /** Absent means ssh; "wsl" adds the distro named by `alias`. */
+  readonly kind?: "ssh" | "wsl";
   readonly alias: string;
   readonly label: string;
   readonly colour: string | null;
@@ -78,6 +87,10 @@ type Failure = { readonly message: string };
 const PROBING = "Asking over SSH for the platform and any installed daemon.";
 
 const PROBING_LOCAL = "Checking the daemon installed on this Mac.";
+
+const COPYING = "Copying the build over SSH and checking its SHA-256";
+
+const COPYING_LOCAL = "Copying the build and checking its SHA-256";
 
 /** The local Host only ever upgrades: installing a Daemon here is the user's own step. */
 const NO_LOCAL_INSTALL =
@@ -110,6 +123,8 @@ export class Machines extends Context.Service<
   {
     readonly views: SubscriptionRef.SubscriptionRef<ReadonlyArray<MachineView>>;
     readonly sshAliases: Effect.Effect<ReadonlyArray<SshAliasView>>;
+    /** The WSL distros on this machine; `unsupported` off Windows. */
+    readonly wslDistros: Effect.Effect<WslDistrosView>;
     readonly add: (input: AddMachine) => Effect.Effect<string, MachineError>;
     readonly update: (key: string, patch: MachinePatch) => Effect.Effect<void, MachineError>;
     readonly remove: (key: string) => Effect.Effect<void, MachineError>;
@@ -174,13 +189,27 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
     return remote === undefined ? fail(`no remote host "${key}"`) : Effect.succeed(remote);
   };
 
-  /** How a check reaches the Host: ssh to a remote alias, or a local shell for this Mac. */
+  const isWsl = (key: string) => remoteSetting(key)?.kind === "wsl" && input.wsl !== undefined;
+
+  /** How a check reaches the Host: ssh to a remote alias, wsl.exe for a distro, or a local shell for this Mac. */
   const target = (key: string) => {
     const home = key === LOCAL_HOST_KEY ? input.localHome() : null;
 
-    return home === null
-      ? { alias: key, ssh: input.ssh, local: false, probing: PROBING }
-      : { alias: "local", ssh: Ssh.local(home), local: true, probing: PROBING_LOCAL };
+    if (home !== null) {
+      return {
+        alias: "local",
+        ssh: Ssh.local(home),
+        local: true,
+        probing: PROBING_LOCAL,
+        copying: COPYING_LOCAL,
+      };
+    }
+
+    const wsl = isWsl(key) ? input.wsl : undefined;
+
+    return wsl === undefined
+      ? { alias: key, ssh: input.ssh, local: false, probing: PROBING, copying: COPYING }
+      : { alias: key, ssh: wsl.ssh, local: false, probing: PROBING_WSL, copying: COPYING_WSL };
   };
 
   const requireCheckable = (key: string) =>
@@ -378,13 +407,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
 
       yield* setRecord(key, { offerSize: size });
 
-      const planned = yield* step(
-        key,
-        { type: "planned", plan },
-        to.local
-          ? "Copying the build and checking its SHA-256"
-          : "Copying the build over SSH and checking its SHA-256"
-      );
+      const planned = yield* step(key, { type: "planned", plan }, to.copying);
 
       const pending = planned.value === "installing" ? planned.context.work : null;
 
@@ -515,8 +538,10 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
         return yield* fail(`${machine.alias} is already a host`);
       }
 
+      const base: RemoteHostSetting = { alias: machine.alias, forwardAgent: machine.forwardAgent };
+
       const setting: RemoteHostSetting = patched(
-        { alias: machine.alias, forwardAgent: machine.forwardAgent },
+        machine.kind === "wsl" ? { ...base, kind: "wsl" } : base,
         { label: machine.label.trim() || machine.alias, colour: machine.colour }
       );
 
@@ -583,7 +608,10 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
   const restart = (key: string) =>
     Effect.gen(function* () {
       yield* requireRemote(key);
-      yield* startDaemon(key).pipe(Effect.provide(input.ssh), Effect.mapError(asMachineError));
+      yield* startDaemon(key).pipe(
+        Effect.provide(target(key).ssh),
+        Effect.mapError(asMachineError)
+      );
       yield* retryConnection(key);
     });
 
@@ -670,10 +698,18 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
     dismiss: (key) => Effect.asVoid(step(key, { type: "dismiss" })),
     startDaemon: restart,
     setLocalEnabled,
+    wslDistros:
+      input.wsl === undefined
+        ? Effect.succeed(wslDistrosView(WslDiscovery.Unsupported()))
+        : Effect.map(input.wsl.discover, wslDistrosView),
     openSsh: (key) =>
       Effect.andThen(
         requireRemote(key),
-        terminal(sshArgv(key, { platform: input.platform, sshBinary: input.sshBinary }))
+        terminal(
+          isWsl(key)
+            ? wslTerminalArgv(key)
+            : sshArgv(key, { platform: input.platform, sshBinary: input.sshBinary })
+        )
       ),
   });
 });

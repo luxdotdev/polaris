@@ -1,12 +1,15 @@
 /**
- * "Add a host": pick an alias from `~/.ssh/config`, name it, optionally mark
- * it with a colour, and leave agent forwarding off unless needed. Never asks
- * for an IP or a key. Adding probes the Host and asks before installing.
+ * "Add a host": pick an alias from `~/.ssh/config` (or, on Windows, a WSL
+ * distro: Paper W1), name it, optionally mark it with a colour, and leave
+ * agent forwarding off unless needed. Never asks for an IP or a key. Adding
+ * probes the Host and asks before installing.
  */
 import { Button, cn, Input, Switch } from "@polaris/ui";
 import { useEffect, useState } from "react";
-import type { SshAliasView } from "../../../shared/api.ts";
+import type { SshAliasView, WslDistrosView } from "../../../shared/api.ts";
+import { AddWsl } from "./AddWsl.tsx";
 import { call } from "./hooks.tsx";
+import { wslFooter, wslSection } from "./wsl.ts";
 
 /** Low-chroma marks for telling machines apart; never a signal hue (rule/colour-means-something). */
 export const MACHINE_COLOURS: ReadonlyArray<{ readonly name: string; readonly value: string }> = [
@@ -18,8 +21,11 @@ export const MACHINE_COLOURS: ReadonlyArray<{ readonly name: string; readonly va
 ];
 
 export interface AddMachineProps {
-  /** Aliases already added; they aren't offered again. */
+  /** Aliases (and distro names) already added; they aren't offered again. */
   readonly taken: ReadonlySet<string>;
+  /** The WSL distros, when the main process has answered; `unsupported` hides the section. */
+  readonly wsl?: WslDistrosView | null;
+  readonly onLookAgain?: () => void;
   readonly onAdded: (key: string) => void;
   readonly onCancel: () => void;
 }
@@ -100,9 +106,22 @@ const Swatches = ({
   </div>
 );
 
-export const AddMachine = ({ taken, onAdded, onCancel }: AddMachineProps) => {
+/** What was picked: an ssh alias or a WSL distro (its name is the alias). */
+interface Picked {
+  readonly kind: "ssh" | "wsl";
+  readonly alias: string;
+}
+
+export const AddMachine = ({
+  taken,
+  wsl = null,
+  onLookAgain = () => undefined,
+  onAdded,
+  onCancel,
+}: AddMachineProps) => {
   const [aliases, setAliases] = useState<ReadonlyArray<SshAliasView> | null>(null);
-  const [alias, setAlias] = useState<string | null>(null);
+  const [picked, setPicked] = useState<Picked | null>(null);
+  const alias = picked?.alias ?? null;
   const [label, setLabel] = useState("");
   const [colour, setColour] = useState<string | null>(null);
   const [forwardAgent, setForwardAgent] = useState(false);
@@ -114,10 +133,23 @@ export const AddMachine = ({ taken, onAdded, onCancel }: AddMachineProps) => {
 
   const offered = (aliases ?? []).filter((a) => !taken.has(a.alias));
 
+  const withWsl = wslSection(wsl).kind !== "hidden";
+
+  const pick = (kind: Picked["kind"], name: string) => {
+    setPicked({ kind, alias: name });
+    setLabel((current) => (current === "" || current === alias ? name : current));
+  };
+
   const add = () => {
-    if (alias === null) return;
+    if (picked === null) return;
     setBusy(true);
-    void call("machines.add", { alias, label: label.trim() || alias, colour, forwardAgent })
+    void call("machines.add", {
+      kind: picked.kind,
+      alias: picked.alias,
+      label: label.trim() || picked.alias,
+      colour,
+      forwardAgent: picked.kind === "wsl" ? false : forwardAgent,
+    })
       .then((added) => {
         if (added !== null) onAdded(added.key);
       })
@@ -133,9 +165,23 @@ export const AddMachine = ({ taken, onAdded, onCancel }: AddMachineProps) => {
       <div className="flex flex-col gap-1">
         <p className="text-heading-sm text-text-strong">Add a host</p>
         <p className="text-caption text-text-subtle">
-          Hosts come from ~/.ssh/config, so ssh already knows the address, user and key.
+          {withWsl
+            ? "A WSL distro on this PC, or an alias from ~/.ssh/config. The first install asks for your approval."
+            : "Hosts come from ~/.ssh/config, so ssh already knows the address, user and key."}
         </p>
       </div>
+      <AddWsl
+        view={wsl}
+        taken={taken}
+        selected={picked?.kind === "wsl" ? picked.alias : null}
+        onSelect={(distro) => pick("wsl", distro.name)}
+        onLookAgain={onLookAgain}
+      />
+      {withWsl ? (
+        <p className="text-caption text-text-subtle px-row-x -mb-3 font-medium">
+          From ~/.ssh/config
+        </p>
+      ) : null}
       {aliases === null ? (
         <p className="text-caption text-text-subtle">Reading ~/.ssh/config…</p>
       ) : offered.length === 0 ? (
@@ -145,11 +191,8 @@ export const AddMachine = ({ taken, onAdded, onCancel }: AddMachineProps) => {
       ) : (
         <AliasList
           aliases={offered}
-          selected={alias}
-          onSelect={(picked) => {
-            setAlias(picked.alias);
-            setLabel((current) => (current === "" || current === alias ? picked.alias : current));
-          }}
+          selected={picked?.kind === "ssh" ? picked.alias : null}
+          onSelect={(found) => pick("ssh", found.alias)}
         />
       )}
       <div className="flex items-center gap-3">
@@ -164,22 +207,29 @@ export const AddMachine = ({ taken, onAdded, onCancel }: AddMachineProps) => {
         </label>
         <Swatches value={colour} onChange={setColour} />
       </div>
-      <label className="flex items-center gap-3">
-        <span className="flex flex-1 flex-col gap-0.5">
-          <span className="text-label text-text-default">Forward ssh-agent</span>
-          <span className="text-caption text-text-subtle">
-            Off unless agents there need your keys for git.
+      {picked?.kind === "wsl" ? null : (
+        <label className="flex items-center gap-3">
+          <span className="flex flex-1 flex-col gap-0.5">
+            <span className="text-label text-text-default">Forward ssh-agent</span>
+            <span className="text-caption text-text-subtle">
+              Off unless agents there need your keys for git.
+            </span>
           </span>
-        </span>
-        <Switch
-          checked={forwardAgent}
-          onCheckedChange={setForwardAgent}
-          aria-label="Forward ssh-agent"
-        />
-      </label>
-      <div className="flex items-center justify-end gap-2">
+          <Switch
+            checked={forwardAgent}
+            onCheckedChange={setForwardAgent}
+            aria-label="Forward ssh-agent"
+          />
+        </label>
+      )}
+      <div className="flex items-center justify-end gap-3">
+        {picked?.kind === "wsl" ? (
+          <p className="text-caption text-text-subtle flex-1" data-testid="wsl-footer">
+            {wslFooter(picked.alias)}
+          </p>
+        ) : null}
         <Button onClick={onCancel}>Cancel</Button>
-        <Button variant="primary" disabled={alias === null || busy} onClick={add}>
+        <Button variant="primary" disabled={picked === null || busy} onClick={add}>
           Add host
         </Button>
       </div>

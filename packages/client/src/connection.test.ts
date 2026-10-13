@@ -17,7 +17,7 @@ import {
   MANUAL_REASONS,
   type ReconnectPolicy,
 } from "./connection.ts";
-import type { ConnectFailure } from "./failures.ts";
+import { ConnectFailure } from "./failures.ts";
 
 /**
  * The reconnect loop's decision as HostConnection made it before the machine
@@ -108,6 +108,26 @@ const expectOracleDecision = (
 
 const reachedModels = (): Array<ConnectionModel> =>
   connectionPaths().states.map((steps) => steps.reduce(stepConnection, initialConnectionModel()));
+
+describe("WSL reasons", () => {
+  test("a missing wsl.exe or distro is the user's to fix: no automatic retry", () => {
+    const now = 1000;
+    let machine = initialConnection(DEFAULT_POLICY, now);
+
+    for (const reason of ["wsl-missing", "wsl-distro-missing"] as const) {
+      expect(MANUAL_REASONS.has(reason)).toBe(true);
+      const failure = new ConnectFailure({ kind: "needs-attention", reason, detail: "model" });
+      machine = connectionMachine.transition(machine, {
+        type: "failed",
+        failure,
+        now,
+        jitter: 0,
+      })[0];
+      expect(machine.value).toBe("needs-attention");
+      expect(machine.context.delay).toBeNull();
+    }
+  });
+});
 
 describe("Connection State machine", () => {
   test("decides every failure exactly as the reconnect loop did (every reachable state)", () => {

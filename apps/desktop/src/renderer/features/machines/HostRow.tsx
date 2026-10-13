@@ -1,6 +1,6 @@
 /**
  * One Host in Settings · Hosts (Paper S4, 7CV-1): name and "ssh alias · N
- * workspaces", Daemon version, Connection State, and a trailing lane. Lanes
+ * workspaces" ("wsl distro" for a WSL Host, Paper W2), Daemon version, Connection State, and a trailing lane. Lanes
  * are fixed widths so they align across rows.
  */
 import {
@@ -16,6 +16,7 @@ import type { ReactNode } from "react";
 import type { MachineView } from "../../../shared/api.ts";
 import { type ConnectionLine, connectionLine, workspacesText } from "./model.ts";
 import { platformLabel } from "./updates/model.ts";
+import { hostWhere } from "./wsl.ts";
 
 export const LANES = {
   daemon: "w-[84px] shrink-0",
@@ -180,10 +181,11 @@ export const HostRow = ({
           </span>
           <span className="text-caption text-text-subtle truncate">
             {machine.alias === null ? (
-              "This Mac"
+              hostWhere(machine)
             ) : (
               <>
-                ssh <span className="text-code-inline font-mono">{machine.alias}</span>
+                {machine.kind === "wsl" ? "wsl" : "ssh"}{" "}
+                <span className="text-code-inline font-mono">{machine.alias}</span>
               </>
             )}
             {platform === null ? null : ` · ${platformLabel(platform)}`}
