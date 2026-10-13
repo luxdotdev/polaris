@@ -1,7 +1,8 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { ConnectionState } from "@polaris/protocol";
 import type { HostView } from "../../shared/api.ts";
 import { durationLabel, offlineView } from "./offline.ts";
+import { setClientPlatform } from "../../shared/platform.ts";
 
 const NOW = Date.parse("2026-10-11T13:02:23Z");
 
@@ -36,6 +37,11 @@ const input = (hosts: ReadonlyArray<HostView>, online = true) => ({
   offlineSince: online ? null : NOW - 134_000,
   now: NOW,
 });
+
+// The copy names the Client's machine ("this Mac"); pin the platform it expects.
+beforeEach(() => setClientPlatform("darwin"));
+
+afterEach(() => setClientPlatform(null));
 
 describe("offlineView", () => {
   test("hidden while online and any remote Host is connected", () => {
@@ -90,6 +96,19 @@ describe("offlineView", () => {
     expect(view?.rows).toEqual([]);
     expect(view?.caption).toBe("Agent sessions on this Mac keep working.");
     expect(offlineView(input([host("local", "connected")]))).toBeNull();
+  });
+
+  test("names the Client's own machine on each platform", () => {
+    for (const [platform, machine] of [
+      ["darwin", "this Mac"],
+      ["win32", "this PC"],
+      ["linux", "this computer"],
+    ] as const) {
+      setClientPlatform(platform);
+      expect(offlineView(input([host("local", "connected")], false))?.caption).toBe(
+        `Agent sessions on ${machine} keep working.`
+      );
+    }
   });
 
   test("durations", () => {

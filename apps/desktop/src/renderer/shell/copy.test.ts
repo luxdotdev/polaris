@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { ApprovalRequest, BackgroundTask, RequestId, TurnItem } from "@polaris/protocol";
 import type { HostView } from "../../shared/api.ts";
 import { hostModel, hostView } from "../routes/fixtures.testing.ts";
@@ -7,6 +7,7 @@ import type { SessionEntry } from "../store/hostModel.ts";
 import type { SessionModel } from "../store/sessionModel.ts";
 import { activityOf, sessionLine } from "./copy.ts";
 import { hostSentence, isSlowLink, SLOW_LINK_MS } from "./hostCopy.ts";
+import { setClientPlatform } from "../../shared/platform.ts";
 
 const base = (() => {
   const found = [
@@ -41,6 +42,11 @@ const working = (item: TurnItem | null, text = ""): SessionModel => ({
   pendingApprovals: [],
   turns: [{ turn, items: [], live: new Map([["x", { item, text, output: "" }]]), subagents: [] }],
 });
+
+// The copy names the Client's machine ("this Mac"); pin the platform it expects.
+beforeEach(() => setClientPlatform("darwin"));
+
+afterEach(() => setClientPlatform(null));
 
 describe("session row line", () => {
   test("a question is the ask itself, not 'Wants to …' (V1 B1)", () => {

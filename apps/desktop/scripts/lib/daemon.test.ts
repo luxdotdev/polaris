@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { testEnv } from "./daemon.ts";
 
@@ -19,7 +19,8 @@ test("smoke environment excludes overridden handoff and preserves fixture settin
 test.each(["inherited", "override"])(
   "a fresh source Daemon excludes %s upgrade hand-off",
   (mode) => {
-    const home = mkdtempSync("/private/tmp/polaris-smoke-handoff-");
+    // A short root: the Daemon's socket path must stay under ~104 bytes (macOS's TMPDIR is long).
+    const home = mkdtempSync(join(realpathSync("/tmp"), "polaris-smoke-handoff-"));
 
     try {
       const result = spawnSync(

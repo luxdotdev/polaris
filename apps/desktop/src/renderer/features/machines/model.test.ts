@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { ConnectionStatusView, InstallFlowView, MachineView } from "../../../shared/api.ts";
 import {
   ago,
@@ -10,6 +10,7 @@ import {
   offerFacts,
   outcomeNote,
 } from "./model.ts";
+import { setClientPlatform } from "../../../shared/platform.ts";
 
 const status = (patch: Partial<ConnectionStatusView> = {}): ConnectionStatusView => ({
   state: "connected",
@@ -62,6 +63,11 @@ const attention = (reason: string, detail = "stderr line", older?: "daemon" | "c
       },
     }),
   });
+
+// The copy names the Client's machine ("this Mac"); pin the platform it expects.
+beforeEach(() => setClientPlatform("darwin"));
+
+afterEach(() => setClientPlatform(null));
 
 describe("attention cards", () => {
   test("every needs-attention reason gets a card with at most one fix", () => {
