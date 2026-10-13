@@ -12,6 +12,7 @@ const privateAddress = (host: string): boolean => {
 
   return (
     a === 127 ||
+    (a === 100 && b !== undefined && b >= 64 && b <= 127) ||
     a === 10 ||
     (a === 192 && b === 168) ||
     (a === 172 && b !== undefined && b >= 16 && b <= 31)
