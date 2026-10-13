@@ -5,12 +5,12 @@
  * Each transport can explain, after it failed, why: `diagnose` classifies the
  * exit status and stderr into a ConnectFailure the Connection State uses.
  */
-import { spawn } from "node:child_process";
 import { connect, type Socket } from "node:net";
 import { type ByteTransport, readEvents, writeEvents } from "@polaris/protocol";
 import { Deferred, Effect, Exit, Option, type Scope } from "effect";
 import { ConnectFailure, classifyExit, type NeedsAttentionReason } from "./failures.ts";
 import { localDaemonFailure } from "./localDaemon.ts";
+import { type ChildProcessApi, childProcesses, spawnFailed } from "./process/index.ts";
 
 export interface ClientTransport extends ByteTransport {
   /** Why the transport closed or failed; waits briefly for the process to exit. */
@@ -36,10 +36,10 @@ export interface SpawnOptions {
     readonly signal: string | null;
     readonly stderr: string;
   }) => ConnectFailure;
-  /** The reason when the command itself can't be spawned; default by the command's name. */
+  /** The reason when the command itself can't be spawned, from the Host's kind (`ssh-missing`). */
   readonly spawnFailureReason?: NeedsAttentionReason;
-  /** Starts the process; `node:child_process`'s by default (tests record the options). */
-  readonly spawn?: typeof spawn;
+  /** Starts the process (`ChildProcess`); tests script or record it. */
+  readonly processes?: ChildProcessApi;
 }
 
 /** Runs `argv` and speaks the wire over its stdin/stdout. */
@@ -68,11 +68,11 @@ export const spawnTransport = (
 
     const { child, incoming } = yield* Effect.acquireRelease(
       Effect.sync(() => {
-        // windowsHide: a GUI parent on Windows would give ssh.exe or wsl.exe a console window.
-        const child = (options.spawn ?? spawn)(command, args, {
+        const child = (options.processes ?? childProcesses).spawn({
+          file: command,
+          args,
           stdio: ["pipe", "pipe", "pipe"],
           env: options.env ?? process.env,
-          windowsHide: true,
         });
 
         child.on("error", (error: NodeJS.ErrnoException) => {
@@ -117,8 +117,7 @@ export const spawnTransport = (
       });
     }
 
-    const missingReason =
-      options.spawnFailureReason ?? (command === "ssh" ? "ssh-missing" : "command-missing");
+    const missingReason = options.spawnFailureReason ?? "command-missing";
 
     // A spawn failure arrives on the next tick; wait for it so the attempt fails outright.
     yield* Effect.callback<void>((resume) => {
@@ -131,7 +130,7 @@ export const spawnTransport = (
       return yield* new ConnectFailure({
         kind: "needs-attention",
         reason: missingReason,
-        detail: `${command}: ${notStarted.code ?? notStarted.message}`,
+        detail: `${command}: ${spawnFailed(command, notStarted).code}`,
       });
     }
 
@@ -144,7 +143,7 @@ export const spawnTransport = (
           ? new ConnectFailure({
               kind: "needs-attention",
               reason: missingReason,
-              detail: `${command}: ${failed.code ?? failed.message}`,
+              detail: `${command}: ${spawnFailed(command, failed).code}`,
             })
           : classify({
               code: Option.isSome(exit) ? exit.value.code : null,

@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { childProcesses } from "@polaris/client/process/node";
 import { win32 } from "node:path";
 
 export const squirrelCommand = (platform: string, argv: ReadonlyArray<string>, exe: string) => {
@@ -43,7 +43,13 @@ export const handleSquirrelStartup = async (
 
 const runShortcut = (exe: string, args: string[]): Promise<void> =>
   new Promise((resolve, reject) => {
-    const child = spawn(exe, args, { windowsHide: true, timeout: 10_000 });
+    const child = childProcesses.spawn({
+      file: exe,
+      args,
+      stdio: ["pipe", "pipe", "pipe"],
+      timeoutMs: 10_000,
+    });
+
     child.once("error", reject);
     child.once("exit", (code) =>
       code === 0 ? resolve() : reject(new Error("Squirrel shortcut operation failed"))

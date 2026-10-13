@@ -3,6 +3,7 @@ import {
   compareVersions,
   type DaemonBuild,
   backgroundUpgradeDue,
+  buildPlatformOf,
   isDevVersion,
   platformFromUname,
   upgradeDue,
@@ -53,6 +54,16 @@ describe("platformFromUname", () => {
     expect(platformFromUname("Linux", "aarch64")).toBe("linux-arm64");
     expect(platformFromUname("Darwin", "x86_64")).toBeNull();
     expect(platformFromUname("FreeBSD", "amd64")).toBeNull();
+  });
+});
+
+describe("buildPlatformOf", () => {
+  test("keys a Host's build by its hello: platform plus the libc it reports", () => {
+    expect(buildPlatformOf({ platform: "linux-x64", libc: "musl" })).toBe("linux-x64-musl");
+    expect(buildPlatformOf({ platform: "linux-arm64", libc: "glibc" })).toBe("linux-arm64");
+    expect(buildPlatformOf({ platform: "darwin-arm64" })).toBe("darwin-arm64");
+    // An older Daemon sends no libc.
+    expect(buildPlatformOf({ platform: "linux-x64" })).toBe("linux-x64");
   });
 });
 

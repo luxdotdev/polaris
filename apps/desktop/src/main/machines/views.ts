@@ -3,16 +3,14 @@
  * the settings, the Host list and each Host's install flow, and when a
  * Connection State calls for a background check.
  */
-import { type DaemonReport, backgroundUpgradeDue } from "@polaris/client/install";
+import { type DaemonReport, backgroundUpgradeDue, buildPlatformOf } from "@polaris/client/install";
 import { Predicate } from "effect";
 import type { HostView, InstallFlowView, MachineView, SshAliasView } from "../../shared/api.ts";
 import { LOCAL_HOST_KEY } from "../hosts.ts";
 import type { Settings } from "../settings.ts";
-import { localHostEnabled } from "../localDaemon.ts";
 import type { InstallOutcome, InstallSnapshot } from "./installFlow.ts";
 import { daemonUpdateView, type UpdateFacts } from "./updateFacts.ts";
 import { clientCopy } from "../../shared/clientCopy.ts";
-import { clientPlatform } from "../../shared/platform.ts";
 
 /** A Host's install flow as `Machines` tracks it. */
 export interface InstallRecord {
@@ -37,7 +35,6 @@ export const installFlowView = ({
 });
 
 export interface MachineViewsInput {
-  readonly platform?: NodeJS.Platform | undefined;
   readonly settings: Settings;
   readonly hosts: ReadonlyArray<HostView>;
   readonly installs: ReadonlyMap<string, InstallRecord>;
@@ -46,6 +43,10 @@ export interface MachineViewsInput {
   readonly bundledVersion?: string | null;
   readonly bundledVersions?: ReadonlyMap<string, string>;
   readonly localManaged?: boolean;
+  /** Whether this Client has a local Host (`LocalHost.supported`); no row when it hasn't. */
+  readonly localSupported?: boolean;
+  /** The local Host's name (`LocalHost.label`). */
+  readonly localLabel?: string;
 }
 
 /** This Mac first (even while switched off), then the remote Hosts in settings order. */
@@ -58,20 +59,23 @@ export const machineViews = ({
   bundledVersion = null,
   bundledVersions,
   localManaged = false,
-  platform = clientPlatform(),
+  localSupported = true,
+  localLabel = clientCopy().localHost,
 }: MachineViewsInput): ReadonlyArray<MachineView> => {
   const status = (key: string) => hosts.find((h) => h.key === key)?.status ?? null;
   const local = hosts.find((h) => h.key === LOCAL_HOST_KEY);
   const localInstall = installs.get(LOCAL_HOST_KEY);
 
+  const helloPlatform = (key: string) => {
+    const host = hosts.find((h) => h.key === key)?.status.host;
+
+    return host === null || host === undefined ? "" : buildPlatformOf(host);
+  };
+
   const versionFor = (key: string) =>
     bundledVersions === undefined
       ? bundledVersion
-      : (bundledVersions.get(
-          updates?.get(key)?.platform ??
-            hosts.find((h) => h.key === key)?.status.host?.platform ??
-            ""
-        ) ?? null);
+      : (bundledVersions.get(updates?.get(key)?.platform ?? helloPlatform(key)) ?? null);
 
   const localView: MachineView = {
     daemon: daemonUpdateView(
@@ -83,12 +87,12 @@ export const machineViews = ({
       localManaged
     ),
     key: LOCAL_HOST_KEY,
-    label: local?.label ?? clientCopy(platform).localHost,
+    label: local?.label ?? localLabel,
     colour: null,
     alias: null,
     kind: "local",
     target: null,
-    enabled: localHostEnabled(settings.local?.enabled, platform),
+    enabled: localSupported && (settings.local?.enabled ?? true),
     forwardAgent: false,
     remoteCommand: null,
     status: status(LOCAL_HOST_KEY),
@@ -125,7 +129,7 @@ export const machineViews = ({
     };
   });
 
-  return platform === "win32" ? remotes : [localView, ...remotes];
+  return localSupported ? [localView, ...remotes] : remotes;
 };
 
 /** Reasons the install flow can fix: no Daemon installed, or one too old to talk to. */

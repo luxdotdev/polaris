@@ -5,10 +5,12 @@
  */
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { downloadBuild, Ssh } from "@polaris/client/install";
-import { discoverDistros, wslInstallLayer } from "@polaris/client/wsl";
+import { HostAccess } from "@polaris/client/access";
+import { downloadBuild } from "@polaris/client/install";
+import { discoverDistros } from "@polaris/client/wsl";
+import { Layer } from "effect";
 import { shell } from "electron";
-import type { LocalDaemon } from "../localDaemon.ts";
+import type { LocalHost } from "../local/index.ts";
 import { approvalsPath, openApprovals } from "./approvals.ts";
 import { locateBuilds } from "./builds.ts";
 import { Machines, type SettingsStore } from "./service.ts";
@@ -36,15 +38,13 @@ export interface MachinesLayerInput {
   readonly resources: string | null;
   readonly repoRoot: string;
   readonly dev: boolean;
-  readonly localDaemon: () => Promise<LocalDaemon>;
-  readonly localHome: () => string | null;
-  readonly localListening: (home: string) => Promise<void>;
+  /** This Client's local Host, if it can have one (`LocalHost.forPlatform`). */
+  readonly localHost: Layer.Layer<LocalHost>;
 }
 
 export const machinesLayer = (input: MachinesLayerInput) =>
   Machines.layer({
     platform: input.platform ?? process.platform,
-    sshBinary: input.settings.get().sshBinary,
     settings: input.settings,
     approvals: openApprovals(approvalsPath(input.userData)),
     // Release builds bundle only this machine's Daemon; a Host that can't download its own gets it from here.
@@ -60,17 +60,21 @@ export const machinesLayer = (input: MachinesLayerInput) =>
       buildOnDemand: input.dev,
     }),
     aliases: () => readSshAliases(sshHome(input.env), { platform: input.platform, env: input.env }),
-    localDaemon: input.localDaemon,
-    localHome: input.localHome,
-    localListening: input.localListening,
     openTerminal: (argv) =>
       openClientTerminal(argv, input.platform ?? process.platform, {
         env: input.env,
         openPath: (path) => shell.openPath(path),
       }),
-    ssh: Ssh.withOptions({ platform: input.platform, sshBinary: input.settings.get().sshBinary }),
-    wsl: {
-      ssh: wslInstallLayer({ env: input.env }),
-      discover: discoverDistros({ env: input.env, platform: input.platform }),
-    },
-  });
+    discoverWsl: discoverDistros({ env: input.env, platform: input.platform }),
+  }).pipe(
+    Layer.provide(
+      Layer.mergeAll(
+        HostAccess.layer({
+          platform: input.platform ?? process.platform,
+          ssh: { sshBinary: input.settings.get().sshBinary },
+          wsl: { env: input.env },
+        }),
+        input.localHost
+      )
+    )
+  );

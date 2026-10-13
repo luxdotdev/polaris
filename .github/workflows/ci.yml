@@ -56,6 +56,9 @@ jobs:
           apps/desktop/src/renderer/features/settings/updates/model.test.ts apps/desktop/src/main/updates
           apps/desktop/scripts/packaging/windows.test.ts
           packages/client/src/connection.test.ts
+          packages/client/src/access/access.test.ts apps/desktop/src/main/machines/access.test.ts
+          packages/client/src/process/process.test.ts
+          apps/desktop/src/main/local/local.test.ts
           packages/client/src/constellation/connections.test.ts
           packages/client/src/languages/access.test.ts packages/client/src/languages/context.test.ts
       - name: Typecheck and test scripts

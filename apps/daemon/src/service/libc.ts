@@ -12,27 +12,12 @@
  */
 
 import { CString, dlopen, FFIType, ptr, read } from "bun:ffi";
-import { readdirSync } from "node:fs";
+import { hostPlatform, libcPath } from "../platform/index.ts";
 
-const isDarwin = process.platform === "darwin";
+const isDarwin = hostPlatform().os === "darwin";
 
-/**
- * musl's libc is its dynamic loader (`/lib/ld-musl-<arch>.so.1`); Alpine has
- * no `libc.so.6`.
- */
-const muslLoader = (): string | null => {
-  if (process.platform !== "linux") return null;
-
-  try {
-    const name = readdirSync("/lib").find((f) => f.startsWith("ld-musl-") && f.endsWith(".so.1"));
-
-    return name === undefined ? null : `/lib/${name}`;
-  } catch {
-    return null;
-  }
-};
-
-const LIBC_PATH = isDarwin ? "/usr/lib/libSystem.B.dylib" : (muslLoader() ?? "libc.so.6");
+/** musl's libc is its dynamic loader; Alpine has no `libc.so.6`. */
+const LIBC_PATH = libcPath();
 
 /** `_IO('f', 2)` on Darwin; the asm-generic value on Linux. */
 const FIONCLEX = isDarwin ? 0x20006602n : 0x5450n;

@@ -9,6 +9,8 @@ export interface ClientCopy {
   readonly machine: string;
   /** The local Host's own name, as a label: "This Mac", "This PC". */
   readonly localHost: string;
+  /** Why this Client has no local Host (Windows: no native Daemon). */
+  readonly localHostUnsupported: string;
   /** Picking a folder in the OS's own dialog. */
   readonly chooseFolder: string;
   /** Where to start Polaris again so it can reach the token store. */
@@ -32,6 +34,7 @@ export interface ClientCopy {
 const MAC: ClientCopy = {
   machine: "this Mac",
   localHost: "This Mac",
+  localHostUnsupported: "A local daemon is not supported on this Mac.",
   chooseFolder: "Choose in Finder…",
   relaunch: "Open Polaris from the Dock or Finder",
   tokenStoreBlockedTitle: "Polaris can’t use the macOS Keychain from this session",
@@ -47,6 +50,7 @@ const MAC: ClientCopy = {
 const WINDOWS: ClientCopy = {
   machine: "this PC",
   localHost: "This PC",
+  localHostUnsupported: "A local Windows Daemon is not supported.",
   chooseFolder: "Choose in Explorer…",
   relaunch: "Open Polaris from the Start menu",
   tokenStoreBlockedTitle: "Polaris can’t encrypt tokens from this session",
@@ -61,6 +65,7 @@ const WINDOWS: ClientCopy = {
 const LINUX: ClientCopy = {
   machine: "this computer",
   localHost: "This computer",
+  localHostUnsupported: "A local daemon is not supported on this computer.",
   chooseFolder: "Choose a folder…",
   relaunch: "Open Polaris from your app launcher",
   tokenStoreBlockedTitle: "Polaris can’t use the system keyring from this session",

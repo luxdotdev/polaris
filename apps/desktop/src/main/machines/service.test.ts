@@ -8,11 +8,13 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { HostAccess } from "@polaris/client/access";
 import { Ssh, SshError } from "@polaris/client/install";
 import { HostId, HostInfo } from "@polaris/protocol";
 import { Effect, Layer, ManagedRuntime, Option, Schema, Stream, SubscriptionRef } from "effect";
 import type { ConnectionStatusView, HostView, MachineView } from "../../shared/api.ts";
 import { HostDirectory, type HostEntry, UnknownHost } from "../hosts.ts";
+import { LocalHost, testDaemon } from "../local/index.ts";
 import type { Settings } from "../settings.ts";
 import { openApprovals } from "./approvals.ts";
 import { locateBuilds } from "./builds.ts";
@@ -89,40 +91,56 @@ const setup = (
       buildOnDemand: false,
     }),
     aliases: () => [{ alias: "studio", hostName: "studio.lan", user: null }],
-    localDaemon: () => Promise.reject(new Error("unused")),
-    localHome: () => localHome,
-    localListening,
     openTerminal: () => Promise.resolve(),
-    ssh: Layer.succeed(
-      Ssh,
-      Ssh.of({
-        exec: (alias, command, options) =>
-          sshFails
-            ? Effect.fail(
-                new SshError({
-                  alias,
-                  failure: "host-key",
-                  message: "Host key verification failed.",
-                })
-              )
-            : Effect.sync(() => void commands.push(command)).pipe(
-                Effect.andThen(
-                  probeOutput !== undefined && command.includes("uname -s")
-                    ? Effect.succeed({
-                        code: 0,
-                        stdout: probeOutput(),
-                        stderr: "",
-                      })
-                    : Ssh.use((ssh) => ssh.exec(alias, command, options)).pipe(
-                        Effect.provide(Ssh.local(home))
-                      )
-                )
-              ),
-      })
-    ),
   });
 
-  const runtime = ManagedRuntime.make(Layer.provideMerge(machines, directory));
+  // This Mac's Daemon: installed in `localHome`, or with none the app's own dev Daemon.
+  const localHost =
+    clientPlatform === "win32"
+      ? LocalHost.unsupported()
+      : LocalHost.test({ daemon: testDaemon(localHome), listening: localListening });
+
+  const remote = Layer.succeed(
+    Ssh,
+    Ssh.of({
+      exec: (alias, command, options) =>
+        sshFails
+          ? Effect.fail(
+              new SshError({
+                alias,
+                failure: "host-key",
+                message: "Host key verification failed.",
+              })
+            )
+          : Effect.sync(() => void commands.push(command)).pipe(
+              Effect.andThen(
+                probeOutput !== undefined && command.includes("uname -s")
+                  ? Effect.succeed({
+                      code: 0,
+                      stdout: probeOutput(),
+                      stderr: "",
+                    })
+                  : Ssh.use((ssh) => ssh.exec(alias, command, options)).pipe(
+                      Effect.provide(Ssh.local(home))
+                    )
+              )
+            ),
+    })
+  );
+
+  // Remote commands go to the fake Host above; this Mac's run in a local shell.
+  const access = HostAccess.fromRunners(
+    {
+      ssh: remote,
+      wsl: Layer.succeed(Ssh, Ssh.of({ exec: () => Effect.die("no WSL Host in this test") })),
+      local: (localHome) => Ssh.local(localHome),
+    },
+    { platform: clientPlatform }
+  );
+
+  const runtime = ManagedRuntime.make(
+    Layer.provideMerge(Layer.provide(machines, Layer.mergeAll(access, localHost)), directory)
+  );
 
   /** Waits until the studio row satisfies `predicate`. */
   const studio = (predicate: (view: MachineView) => boolean) =>

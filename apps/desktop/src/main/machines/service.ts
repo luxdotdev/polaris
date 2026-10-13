@@ -6,13 +6,21 @@
  */
 import { existsSync } from "node:fs";
 import { installedPaths } from "@polaris/client";
-import { type DownloadBuild, InstallPlan, type InstallTrigger, Ssh } from "@polaris/client/install";
+import type { HostInfo } from "@polaris/protocol";
+import { HostAccess, type HostChannel } from "@polaris/client/access";
+import {
+  buildPlatformOf,
+  type DownloadBuild,
+  InstallPlan,
+  type InstallTrigger,
+} from "@polaris/client/install";
 import { WslDiscovery } from "@polaris/client/wsl";
 import {
   Context,
   Effect,
   Fiber,
   Layer,
+  Option,
   Predicate,
   Queue,
   Schema,
@@ -22,17 +30,17 @@ import {
 import type { MachineView, SshAliasView, WslDistrosView } from "../../shared/api.ts";
 import { clientCopy } from "../../shared/clientCopy.ts";
 import { HostDirectory, LOCAL_HOST_KEY, localEntry, remoteEntry } from "../hosts.ts";
-import { localHostEnabled, type LocalDaemon } from "../localDaemon.ts";
+import { LocalHost, localTarget } from "../local/index.ts";
 import type { RemoteHostSetting, Settings } from "../settings.ts";
 import type { Approvals } from "./approvals.ts";
 import type { DaemonBuilds } from "./builds.ts";
 import { deliveryActivity } from "./delivery.ts";
 import { type InstallEvent, initialInstall, stepInstall } from "./installFlow.ts";
+import { channelActivity, unmanagedLocal, unsupportedMessage } from "./channels.ts";
 import { applyWork, failureMessage, planFor, startDaemon } from "./remote.ts";
-import { sshArgv } from "./terminal.ts";
 import { backgroundCheckKey, type InstallRecord, localUpgradeKey, machineViews } from "./views.ts";
 import { type UpdateFacts, updatePolicy } from "./updateFacts.ts";
-import { COPYING_WSL, PROBING_WSL, wslDistrosView, wslTerminalArgv } from "./wsl.ts";
+import { wslDistrosView } from "./wsl.ts";
 import type { DaemonUpdateProgress, DaemonUpdateResult } from "../../shared/daemonUpdates.ts";
 
 export class MachineError extends Schema.TaggedError<MachineError>()("MachineError", {
@@ -46,7 +54,6 @@ export interface SettingsStore {
 
 export interface MachinesInput {
   readonly platform?: NodeJS.Platform | undefined;
-  readonly sshBinary?: string | undefined;
   readonly settings: SettingsStore;
   readonly approvals: Approvals;
   readonly builds: DaemonBuilds;
@@ -55,27 +62,10 @@ export interface MachinesInput {
   /** Sent with downloads for the site's telemetry. */
   readonly clientVersion?: string | undefined;
   readonly aliases: () => ReadonlyArray<SshAliasView>;
-  /** Finds or starts the local Daemon when the local Host is switched on. */
-  readonly localDaemon: () => Promise<LocalDaemon>;
-  /**
-   * The home whose installed Daemon (`~/.polaris`) serves the local Host, so
-   * it upgrades like a remote one; null when this app runs its own or was given a socket.
-   */
-  readonly localHome: () => string | null;
-  /**
-   * Resolves once the Daemon installed in `home` listens, after an install or
-   * a start; rejects with why it doesn't (its log). Absent, nothing is awaited.
-   */
-  readonly localListening?: (home: string) => Promise<void>;
   /** Opens a terminal window on this Client running `argv`. */
   readonly openTerminal: (argv: ReadonlyArray<string>) => Promise<void>;
-  /** How install commands reach a Host (`Ssh.layer`; tests replace it). */
-  readonly ssh: Layer.Layer<Ssh>;
-  /** WSL distros as Hosts (Windows): install commands through `wsl.exe`, and the distro list. */
-  readonly wsl?: {
-    readonly ssh: Layer.Layer<Ssh>;
-    readonly discover: Effect.Effect<WslDiscovery>;
-  };
+  /** The WSL distros on this machine (Windows), for "Add a host". */
+  readonly discoverWsl?: Effect.Effect<WslDiscovery>;
 }
 
 export interface AddMachine {
@@ -96,15 +86,12 @@ export interface MachinePatch {
 
 type Failure = { readonly message: string };
 
-/** What a check is doing while it runs, under the card's "Checking <host>". */
-const PROBING = "Asking over SSH for the platform and any installed daemon.";
-
-const COPYING = "Copying the build over SSH and checking its SHA-256";
-
-const COPYING_LOCAL = "Copying the build and checking its SHA-256";
-
 const installsAnew = (plan: InstallPlan) =>
   Predicate.isTagged(plan, "NeedsApproval") || Predicate.isTagged(plan, "Install");
+
+/** The build a connected Host runs (`linux-arm64-musl`), from its `hello`; null before one. */
+const helloBuildPlatform = (host: HostInfo | null | undefined) =>
+  host === null || host === undefined ? null : buildPlatformOf(host);
 
 const fail = (message: string) => Effect.fail(new MachineError({ message }));
 
@@ -154,9 +141,16 @@ export class Machines extends Context.Service<
 }
 
 const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
-  const localAvailable = localHostEnabled(true, input.platform);
+  const local = yield* LocalHost;
+
+  /** The home of the installed Daemon serving the local Host, so it upgrades like a remote one. */
+  const localHome = Effect.map(local.current, (daemon) =>
+    Option.match(daemon, { onNone: () => null, onSome: (found) => found.installedHome })
+  );
+
   const copy = clientCopy(input.platform);
   const dir = yield* HostDirectory;
+  const access = yield* HostAccess;
   const scope = yield* Effect.scope;
   const installs = new Map<string, InstallRecord>();
   const work = new Map<string, Fiber.Fiber<void>>();
@@ -171,8 +165,11 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
 
   let bundled = bundledBuilds[0]?.version ?? null;
 
-  const publish = Effect.flatMap(SubscriptionRef.get(dir.views), (hosts) =>
-    SubscriptionRef.set(
+  const publish = Effect.gen(function* () {
+    const hosts = yield* SubscriptionRef.get(dir.views);
+    const home = yield* localHome;
+
+    yield* SubscriptionRef.set(
       views,
       machineViews({
         settings: input.settings.get(),
@@ -182,11 +179,12 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
         updates,
         bundledVersion: bundled,
         bundledVersions: new Map(bundledBuilds.map((b) => [b.platform, b.version])),
-        localManaged: input.localHome() !== null,
-        platform: input.platform,
+        localManaged: home !== null,
+        localSupported: local.supported,
+        localLabel: local.label,
       })
-    )
-  );
+    );
+  });
 
   const remoteSetting = (key: string) =>
     (input.settings.get().hosts ?? []).find((h) => h.alias === key);
@@ -197,55 +195,34 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
     return remote === undefined ? fail(`no remote host "${key}"`) : Effect.succeed(remote);
   };
 
-  const isWsl = (key: string) => remoteSetting(key)?.kind === "wsl" && input.wsl !== undefined;
+  /** The Host a key names: the local Host's Daemon, or a remote one from the settings. */
+  const targetOf = (key: string) => {
+    if (key !== LOCAL_HOST_KEY) return Effect.map(requireRemote(key), (r) => remoteEntry(r).target);
 
-  /** How a check reaches the Host: ssh to a remote alias, wsl.exe for a distro, or a local shell for this Mac. */
-  const target = (key: string) => {
-    const home = key === LOCAL_HOST_KEY ? input.localHome() : null;
+    if (!local.supported) return fail(copy.localHostUnsupported);
 
-    if (home !== null) {
-      return {
-        alias: "local",
-        ssh: Ssh.local(home),
-        local: true,
-        home,
-        probing: `Checking the daemon installed on ${copy.machine}.`,
-        copying: COPYING_LOCAL,
-      };
-    }
-
-    const wsl = isWsl(key) ? input.wsl : undefined;
-
-    return wsl === undefined
-      ? { alias: key, ssh: input.ssh, local: false, home: null, probing: PROBING, copying: COPYING }
-      : {
-          alias: key,
-          ssh: wsl.ssh,
-          local: false,
-          home: null,
-          probing: PROBING_WSL,
-          copying: COPYING_WSL,
-        };
+    return Effect.flatMap(local.current, (daemon) =>
+      Option.match(daemon, {
+        onNone: () => fail(unmanagedLocal(copy)),
+        onSome: (found) => Effect.succeed(localTarget(found)),
+      })
+    );
   };
 
-  const requireCheckable = (key: string) =>
-    key !== LOCAL_HOST_KEY
-      ? requireRemote(key)
-      : !localAvailable
-        ? fail("A local Windows Daemon is not supported.")
-        : input.localHome() === null
-          ? fail(`${copy.machine}'s daemon is the app's own, not one Polaris installed`)
-          : Effect.void;
+  /** How the Client acts on the Host: ssh, wsl.exe, or a local shell for this Mac's installed Daemon. */
+  const channelFor = (key: string) =>
+    targetOf(key).pipe(
+      Effect.flatMap(access.channel),
+      Effect.catchTag("HostActionUnsupported", (error) => fail(unsupportedMessage(error, copy)))
+    );
 
   /** Waits for this Mac's Daemon to listen after an install or start. */
   const localListening = (home: string | null) =>
-    home === null || input.localListening === undefined
+    home === null
       ? Effect.void
-      : Effect.tryPromise({
-          try: () => input.localListening!(home),
-          catch: (cause) =>
-            new MachineError({ message: cause instanceof Error ? cause.message : String(cause) }),
-        });
+      : local
+          .listening(home)
+          .pipe(Effect.mapError((error) => new MachineError({ message: error.message })));
 
   const record = (key: string): InstallRecord =>
     installs.get(key) ?? { snapshot: initialInstall(), activity: null, offerSize: null };
@@ -274,7 +251,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
       const host = hosts.find((h) => h.key === key);
       const previous = updates.get(key);
       updates.set(key, {
-        platform: host?.status.host?.platform ?? null,
+        platform: helloBuildPlatform(host?.status.host),
         installedVersion: host?.status.host?.daemonVersion ?? null,
         bundledVersion: bundled,
         epoch: host?.status.epoch ?? 0,
@@ -365,21 +342,17 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
     });
 
   /** The flow after `check` moved to checking: plan, then maybe install. */
-  const checkBody = (key: string, trigger: InstallTrigger, updateOnly = false) => {
-    const to = target(key);
-
-    return Effect.gen(function* () {
+  const checkBody = (key: string, to: HostChannel, trigger: InstallTrigger, updateOnly = false) =>
+    Effect.gen(function* () {
       const {
         platform,
         plan: proposed,
         size,
         installedVersion,
         bundledVersion,
-      } = yield* planFor({
-        alias: to.alias,
+      } = yield* planFor(to, {
         trigger,
-        approved: to.local ? new Set<string>() : input.approvals.approved(key),
-        trusted: to.local,
+        approved: to.trusted ? new Set<string>() : input.approvals.approved(key),
         builds: input.builds,
         onBuild: setRecord(key, { activity: "Building the daemon for this host from source" }),
       });
@@ -404,7 +377,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
           : proposed;
 
       if (updateOnly && installsAnew(plan)) {
-        const message = to.local
+        const message = to.trusted
           ? `${copy.localHost} has no daemon Polaris installed yet. Use Install first.`
           : "No daemon is installed. Use Install daemon first.";
 
@@ -424,11 +397,11 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
 
       const activity = deliveryActivity(plan, {
         host: to.alias,
-        copying: to.copying,
+        copying: channelActivity(to, copy).copying,
         platform: input.platform ?? process.platform,
       });
 
-      const planned = yield* step(key, { type: "planned", plan, trusted: to.local }, activity);
+      const planned = yield* step(key, { type: "planned", plan, trusted: to.trusted }, activity);
 
       const pending = planned.value === "installing" ? planned.context.work : null;
 
@@ -438,7 +411,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
         return;
       }
 
-      const outcome = yield* applyWork(to.alias, pending, {
+      const outcome = yield* applyWork(to, pending, {
         progress: progress(key),
         download: input.download,
         clientVersion: input.clientVersion,
@@ -456,7 +429,6 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
       });
       yield* retryConnection(key);
     }).pipe(
-      Effect.provide(to.ssh),
       Effect.catchTag("SshError", (error) =>
         step(key, {
           type: "failed",
@@ -501,18 +473,26 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
       ),
       Effect.asVoid
     );
-  };
 
-  const runCheck = (key: string, trigger: InstallTrigger, updateOnly = false) =>
+  const runCheck = (key: string, to: HostChannel, trigger: InstallTrigger, updateOnly = false) =>
     Effect.gen(function* () {
       const previous = record(key).snapshot;
-      const started = yield* step(key, { type: "check", trigger }, target(key).probing);
+
+      const started = yield* step(
+        key,
+        { type: "check", trigger },
+        channelActivity(to, copy).probing
+      );
 
       if (started !== previous && started.value === "checking") {
         yield* updateFacts(key, { progress: { stage: "checking", bytes: 0, total: 0 } });
-        yield* launch(key, checkBody(key, trigger, updateOnly));
+        yield* launch(key, checkBody(key, to, trigger, updateOnly));
       }
     });
+
+  /** The user asked for a check (or an update only) of the Host `key`. */
+  const userCheck = (key: string, updateOnly = false) =>
+    Effect.flatMap(channelFor(key), (to) => runCheck(key, to, "user", updateOnly));
 
   // Background checks: once per occasion a Host's Connection State calls for one.
   const occasions = new Map<string, string>();
@@ -535,7 +515,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
       yield* publish;
 
       for (const host of hosts) {
-        if (host.key === LOCAL_HOST_KEY && !localAvailable) continue;
+        if (host.key === LOCAL_HOST_KEY && !local.supported) continue;
         const policy = updatePolicy(input.settings.get(), host.key);
         const missing = host.status.failure?.reason === "polaris-not-installed";
 
@@ -543,7 +523,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
 
         const occasion =
           host.key === LOCAL_HOST_KEY
-            ? localUpgradeKey(host, bundled, input.localHome())
+            ? localUpgradeKey(host, bundled, yield* localHome)
             : backgroundCheckKey(host, bundled);
 
         if (occasion === null) continue;
@@ -551,7 +531,11 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
 
         if (occasions.get(host.key) === key) continue;
         occasions.set(host.key, key);
-        yield* runCheck(host.alias ?? host.key, "background");
+        // A Host with no channel (a test socket Host) is never checked.
+        yield* channelFor(host.key).pipe(
+          Effect.flatMap((to) => runCheck(host.key, to, "background")),
+          Effect.ignore
+        );
       }
     });
 
@@ -579,7 +563,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
 
       input.settings.update((s) => ({ ...s, hosts: [...(s.hosts ?? []), setting] }));
       // The user's check starts before the connection can ask for a background one.
-      yield* runCheck(machine.alias, "user");
+      yield* userCheck(machine.alias);
       yield* dir.add(remoteEntry(setting));
       yield* publish;
 
@@ -628,44 +612,45 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
         return yield* fail("that build is no longer the one offered; check again");
       }
 
+      const to = yield* channelFor(key);
       input.approvals.approve(key, { ...offer, approvedAt: Date.now() });
-      const approved = yield* step(key, { type: "approve" }, target(key).probing);
+      const approved = yield* step(key, { type: "approve" }, channelActivity(to, copy).probing);
 
       if (approved.value === "checking") {
         yield* updateFacts(key, { progress: { stage: "checking", bytes: 0, total: 0 } });
-        yield* launch(key, checkBody(key, "user"));
+        yield* launch(key, checkBody(key, to, "user"));
       }
     });
 
   /** Start daemon: `polaris install` with the installed build; on this Mac with none, install it. */
   const restart = (key: string) =>
     Effect.gen(function* () {
-      yield* requireCheckable(key);
-      const to = target(key);
+      const to = yield* channelFor(key);
 
       if (to.home !== null && !existsSync(installedPaths(to.home).binary)) {
-        return yield* runCheck(key, "user");
+        return yield* runCheck(key, to, "user");
       }
 
-      yield* startDaemon(to.alias).pipe(Effect.provide(to.ssh), Effect.mapError(asMachineError));
+      yield* startDaemon(to).pipe(Effect.mapError(asMachineError));
       yield* localListening(to.home).pipe(Effect.ensuring(retryConnection(key)));
     });
 
   const setLocalEnabled = (enabled: boolean) =>
     Effect.gen(function* () {
-      if (!localAvailable) return yield* fail("A local Windows Daemon is not supported.");
+      if (!local.supported) return yield* fail(copy.localHostUnsupported);
       input.settings.update((s) => ({ ...s, local: { ...s.local, enabled } }));
 
       if (!enabled) {
         yield* dir.remove(LOCAL_HOST_KEY);
       } else if (dir.entry(LOCAL_HOST_KEY) === undefined) {
-        const local = yield* Effect.tryPromise({
-          try: input.localDaemon,
-          catch: (cause) =>
-            new MachineError({ message: `the local daemon didn't start: ${String(cause)}` }),
-        });
+        const daemon = yield* local.resolve.pipe(
+          Effect.mapError(
+            (error) =>
+              new MachineError({ message: `the local daemon didn't start: ${error.message}` })
+          )
+        );
 
-        yield* dir.add(localEntry(local));
+        yield* dir.add(localEntry(daemon, local.label));
       }
 
       occasions.delete(LOCAL_HOST_KEY);
@@ -683,8 +668,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
 
   const setDaemonUpdateOverride = (key: string, enabled: boolean | null) =>
     Effect.gen(function* () {
-      if (key === LOCAL_HOST_KEY && !localAvailable)
-        return yield* fail("A local Windows Daemon is not supported.");
+      if (key === LOCAL_HOST_KEY && !local.supported) return yield* fail(copy.localHostUnsupported);
 
       if (key !== LOCAL_HOST_KEY) yield* requireRemote(key);
       input.settings.update((s) => {
@@ -714,8 +698,8 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
     add,
     update,
     remove,
-    check: (key) => Effect.andThen(requireCheckable(key), runCheck(key, "user")),
-    updateDaemon: (key) => Effect.andThen(requireCheckable(key), runCheck(key, "user", true)),
+    check: (key) => userCheck(key),
+    updateDaemon: (key) => userCheck(key, true),
     setKeepDaemonsUpToDate: (enabled) =>
       Effect.sync(() =>
         input.settings.update((s) => ({ ...s, keepDaemonsUpToDate: enabled }))
@@ -735,17 +719,14 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
     startDaemon: restart,
     setLocalEnabled,
     wslDistros:
-      input.wsl === undefined
+      input.discoverWsl === undefined
         ? Effect.succeed(wslDistrosView(WslDiscovery.Unsupported()))
-        : Effect.map(input.wsl.discover, wslDistrosView),
+        : Effect.map(input.discoverWsl, wslDistrosView),
     openSsh: (key) =>
-      Effect.andThen(
-        requireRemote(key),
-        terminal(
-          isWsl(key)
-            ? wslTerminalArgv(key)
-            : sshArgv(key, { platform: input.platform, sshBinary: input.sshBinary })
-        )
+      channelFor(key).pipe(
+        Effect.flatMap((to) => to.interactiveArgv),
+        Effect.catchTag("HostActionUnsupported", (error) => fail(unsupportedMessage(error, copy))),
+        Effect.flatMap(terminal)
       ),
   });
 });

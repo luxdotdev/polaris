@@ -4,8 +4,8 @@
  * state word still yields the name; the first line is always the header.
  * UNVERIFIED on real WSL: only the fake `wsl.exe` (fakeWsl.testing.ts) ran it.
  */
-import { spawn } from "node:child_process";
 import { Data, Effect, Schema } from "effect";
+import { type ChildProcessApi, childProcesses } from "../process/index.ts";
 import { decodeWslOutput, wslEnv } from "./output.ts";
 
 export const WslDistroState = Schema.Literals(["running", "stopped", "unknown"]);
@@ -90,6 +90,8 @@ export interface DiscoverOptions {
   /** `process.platform` by default; off Windows the answer is `Unsupported` without spawning. */
   readonly platform?: NodeJS.Platform | undefined;
   readonly timeoutMs?: number;
+  /** Starts `wsl.exe` (`ChildProcess`); tests script it. */
+  readonly processes?: ChildProcessApi;
 }
 
 export const DEFAULT_WSL_BINARY = "wsl.exe";
@@ -113,12 +115,17 @@ const concat = (chunks: ReadonlyArray<Uint8Array>): Uint8Array => {
   return out;
 };
 
-const runList = (binary: string, env: Record<string, string | undefined>, timeoutMs: number) =>
+const runList = (
+  binary: string,
+  env: Record<string, string | undefined>,
+  timeoutMs: number,
+  processes: ChildProcessApi
+) =>
   Effect.callback<RawResult>((resume) => {
-    const child = spawn(binary, ["--list", "--verbose"], {
-      stdio: ["ignore", "pipe", "pipe"],
+    const child = processes.spawn({
+      file: binary,
+      args: ["--list", "--verbose"],
       env: wslEnv(env),
-      windowsHide: true,
     });
 
     const stdout: Array<Uint8Array> = [];
@@ -175,7 +182,8 @@ export const discoverDistros = (options: DiscoverOptions = {}): Effect.Effect<Ws
     runList(
       options.wslBinary ?? DEFAULT_WSL_BINARY,
       options.env ?? process.env,
-      options.timeoutMs ?? 15_000
+      options.timeoutMs ?? 15_000,
+      options.processes ?? childProcesses
     ),
     discoveryOf
   );

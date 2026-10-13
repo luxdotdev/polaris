@@ -10,24 +10,16 @@
  * so the grammars are copied to `~/.polaris/lib/grammars/` on first use.
  * Linux builds pick glibc or musl with `--define process.env.POLARIS_LIBC='"musl"'`.
  */
-import { existsSync, mkdirSync, readdirSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, renameSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import type * as Napi from "@ast-grep/napi";
 import { paths } from "../../paths.ts";
+import { isMusl } from "../../platform/index.ts";
 import type { PackLanguage } from "./pack.ts";
 
 export type AstGrep = typeof Napi;
 
 type LangRegistration = Parameters<AstGrep["registerDynamicLanguage"]>[0][string];
-
-/** From source, where no libc is defined: musl if its loader is there. */
-const muslHost = (): boolean => {
-  try {
-    return readdirSync("/lib").some((name) => name.startsWith("ld-musl-"));
-  } catch {
-    return false;
-  }
-};
 
 /* oxlint-disable typescript/no-require-imports -- Bun loads and embeds an N-API addon only through require */
 /** The platform's addon (`import` can't load one in Bun). */
@@ -38,13 +30,13 @@ const requireAddon = (): AstGrep => {
     addon = require("@ast-grep/napi-darwin-arm64/ast-grep-napi.darwin-arm64.node");
   } else if (process.platform === "linux" && process.arch === "x64") {
     // `process.env.POLARIS_LIBC` is replaced at build time, so the bundler keeps one addon.
-    if (process.env.POLARIS_LIBC === "musl" || (process.env.POLARIS_LIBC !== "gnu" && muslHost())) {
+    if (process.env.POLARIS_LIBC === "musl" || (process.env.POLARIS_LIBC !== "gnu" && isMusl())) {
       addon = require("@ast-grep/napi-linux-x64-musl/ast-grep-napi.linux-x64-musl.node");
     } else {
       addon = require("@ast-grep/napi-linux-x64-gnu/ast-grep-napi.linux-x64-gnu.node");
     }
   } else if (process.platform === "linux" && process.arch === "arm64") {
-    if (process.env.POLARIS_LIBC === "musl" || (process.env.POLARIS_LIBC !== "gnu" && muslHost())) {
+    if (process.env.POLARIS_LIBC === "musl" || (process.env.POLARIS_LIBC !== "gnu" && isMusl())) {
       addon = require("@ast-grep/napi-linux-arm64-musl/ast-grep-napi.linux-arm64-musl.node");
     } else {
       addon = require("@ast-grep/napi-linux-arm64-gnu/ast-grep-napi.linux-arm64-gnu.node");

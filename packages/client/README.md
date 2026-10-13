@@ -12,6 +12,8 @@ The Client runtime: one `HostConnection` per Host, many at once in a `HostRegist
 | `resume.ts` | `makeFeed`: one upstream subscription, multicast, cached, resumed after reconnect. |
 | `transport.ts` | Transports: a spawned command's stdio (`ssh … polaris bridge`) or the local Unix socket. `Connector` is injectable. |
 | `ssh.ts` | The `ssh` argv. |
+| `access/` | `HostAccess` (`@polaris/client/access`): one command channel per `HostTarget` (local install, ssh, wsl), for install, upgrade and the interactive hand-off. See docs/adr/0045-platform-services.md. |
+| `process/` | `ChildProcess` (`@polaris/client/process`): every helper the Client starts, hidden by default on Windows, spawn failures classified, `stopChild`, and a scripted test Layer. `process/node` is its Effect-free half for the Squirrel bootstrap. |
 | `failures.ts` | `ConnectFailure` and the stderr / exit-status classifier. |
 | `wsl/` | WSL 2 distros as Hosts on Windows (`@polaris/client/wsl`, experimental): distro discovery, the `wsl.exe --exec` bridge transport and install commands, and a fake `wsl.exe` for tests (`@polaris/client/wsl/testing`). See "WSL" below and docs/adr/0036-wsl-hosts.md. |
 | `usage/` | Usage cost estimates (`@polaris/client/usage`): the price book, per-bucket cost, and the summaries the Usage view shows. See "Usage cost" below. |

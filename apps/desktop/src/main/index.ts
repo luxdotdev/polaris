@@ -37,7 +37,7 @@ import {
   startClientRuntime,
   whenConnected,
 } from "./hosts.ts";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Option } from "effect";
 import { followFocus, followReviewRequests, githubLayer } from "./github/electron.ts";
 import { legacyTokens } from "./github/store.ts";
 import { secureStorageLayer } from "./secure/electron.ts";
@@ -50,12 +50,7 @@ import { LanguageIdentityEpochs } from "./languages/identityEpochs.ts";
 import { createMainLanguageApi } from "./languages/runtime.ts";
 import { LanguagePreferences } from "./languages/settings.ts";
 import { machinesLayer, sshAliasNames } from "./machines/index.ts";
-import {
-  awaitInstalledDaemon,
-  type LocalDaemon,
-  localHostEnabled,
-  resolveLocalDaemon,
-} from "./localDaemon.ts";
+import { LocalHost, type LocalHostApi } from "./local/index.ts";
 import { buildMenu, popupAppMenu } from "./menu.ts";
 import { setClientPlatform, toClientPlatform } from "../shared/platform.ts";
 import { createNeedsYouCenter, type NeedsYouCenter } from "./notifications/index.ts";
@@ -137,7 +132,8 @@ let languageRuntime: ReturnType<typeof createMainLanguageApi> | null = null;
 
 let languageIpc: ReturnType<typeof registerLanguageIpc> | null = null;
 
-let localDaemon: LocalDaemon | null = null;
+/** Picked once for this platform: none on Windows (`LocalHost.unsupported`). */
+let localHost: LocalHostApi | null = null;
 
 let ipc: { readonly dispose: () => void } | null = null;
 
@@ -153,9 +149,6 @@ let restartForUpdate = false;
 let exiting = false;
 
 const trusted = (url: string) => isTrustedUrl(url, devUrl);
-
-const localLabel = (label: string | undefined): { localLabel?: string } =>
-  label === undefined || label === "" ? {} : { localLabel: label };
 
 const start = async () => {
   showIcon({ repoRoot });
@@ -273,17 +266,33 @@ const start = async () => {
 
   applyAppearance();
 
-  const localEnabled = localHostEnabled(settings.local?.enabled);
+  const platformLocal = Effect.runSync(
+    LocalHost.useSync((service) => service).pipe(
+      Effect.provide(
+        LocalHost.forPlatform(process.platform, {
+          dev,
+          repoRoot,
+          env,
+          label: env.POLARIS_DESKTOP_LOCAL_LABEL,
+        })
+      )
+    )
+  );
 
-  const startLocal = async () => {
-    localDaemon ??= await resolveLocalDaemon({ dev, repoRoot, env });
-    proofHostKey = localDaemon.benchHarness ? LOCAL_HOST_KEY : null;
-    applyAppearance();
-
-    return localDaemon;
+  // Resolving the local Daemon also says whether it runs the bench Harness (the proof session).
+  const local: LocalHostApi = {
+    ...platformLocal,
+    resolve: Effect.tap(platformLocal.resolve, (daemon) =>
+      Effect.sync(() => {
+        proofHostKey = daemon.benchHarness ? LOCAL_HOST_KEY : null;
+        applyAppearance();
+      })
+    ),
   };
 
-  const local = localEnabled ? await startLocal() : null;
+  localHost = local;
+  const localEnabled = local.supported && (settings.local?.enabled ?? true);
+  const localDaemon = localEnabled ? await Effect.runPromise(local.resolve) : null;
   const userData = app.getPath("userData");
 
   const secureStorage = Layer.succeed(
@@ -309,10 +318,10 @@ const start = async () => {
   runtime = startClientRuntime(
     {
       entries: hostEntries({
-        local,
+        local: localDaemon,
         remotes: settings.hosts ?? [],
-        extras: localHostEnabled(true) ? extraHosts(env.POLARIS_DESKTOP_EXTRA_HOSTS) : [],
-        ...localLabel(env.POLARIS_DESKTOP_LOCAL_LABEL),
+        extras: local.supported ? extraHosts(env.POLARIS_DESKTOP_EXTRA_HOSTS) : [],
+        localLabel: local.label,
       }),
       identity: clientIdentity(app.getVersion()),
       ssh: settings.sshBinary === undefined ? {} : { sshBinary: settings.sshBinary },
@@ -329,9 +338,7 @@ const start = async () => {
       resources: app.isPackaged ? process.resourcesPath : null,
       repoRoot,
       dev,
-      localDaemon: startLocal,
-      localHome: () => localDaemon?.installedHome ?? null,
-      localListening: async (home) => awaitInstalledDaemon((await startLocal()).socketPath, home),
+      localHost: Layer.succeed(LocalHost, local),
     }),
     githubLayer({ userData, env, secureStorage })
   );
@@ -385,7 +392,9 @@ const start = async () => {
       pickFolder,
       appVersion: app.getVersion(),
       proofWorkspace: () =>
-        localDaemon?.benchHarness === true ? mkdtempSync(join(tmpdir(), "polaris-proof-")) : null,
+        Option.exists(Effect.runSync(local.current), (daemon) => daemon.benchHarness)
+          ? mkdtempSync(join(tmpdir(), "polaris-proof-"))
+          : null,
       writeClipboard: async (text) => clipboard.writeText(text),
       // The one main window; a hidden one (smoke runs) has no focus to find it by.
       editAction: (action) =>
@@ -465,7 +474,9 @@ const finishQuit = () => {
   reviews?.dispose();
   updates?.dispose();
   // The dev Daemon (if this app started it) goes down with the app.
-  void Promise.allSettled([runtime?.dispose(), localDaemon?.stop()]).then(() => {
+  const stopLocal = localHost === null ? undefined : Effect.runPromise(localHost.stop);
+
+  void Promise.allSettled([runtime?.dispose(), stopLocal]).then(() => {
     if (restartForUpdate && updates?.get().phase === "ready") updates.install();
     else app.quit();
   });

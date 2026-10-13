@@ -93,15 +93,3 @@ test("install uses the selected SSH binary and streams the local file unchanged"
     rmSync(root, { recursive: true, force: true });
   }
 });
-
-test("a Windows local installer fails before invoking a shell", async () => {
-  const error = await Effect.runPromise(
-    Ssh.use((ssh) => ssh.exec("local", "exit 0")).pipe(
-      Effect.provide(Ssh.local("/nonexistent", "win32")),
-      Effect.flip
-    )
-  );
-
-  expect(error.failure).toBe("spawn");
-  expect(error.message).toBe("A local Windows Daemon is not supported.");
-});

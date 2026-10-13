@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { HostAccess } from "@polaris/client/access";
 import { Ssh } from "@polaris/client/install";
 import { discoverDistros, wslInstallLayer } from "@polaris/client/wsl";
 import { writeFakeWsl } from "@polaris/client/wsl/testing";
@@ -23,6 +24,7 @@ import {
 } from "effect";
 import type { HostView, MachineView } from "../../shared/api.ts";
 import { HostDirectory, type HostEntry, UnknownHost } from "../hosts.ts";
+import { LocalHost } from "../local/index.ts";
 import type { Settings } from "../settings.ts";
 import { openApprovals } from "./approvals.ts";
 import { locateBuilds } from "./builds.ts";
@@ -78,22 +80,26 @@ const setup = () => {
       buildOnDemand: false,
     }),
     aliases: () => [],
-    localDaemon: () => Promise.reject(new Error("unused")),
-    localHome: () => null,
     openTerminal: (argv) => {
       terminals.push(argv);
 
       return Promise.resolve();
     },
-    ssh: Layer.succeed(
-      Ssh,
-      Ssh.of({ exec: () => Effect.die("ssh must not be used for a WSL Host") })
-    ),
-    wsl: {
-      ssh: wslInstallLayer(fake),
-      discover: discoverDistros({ ...fake, platform: "win32" }),
-    },
-  });
+    discoverWsl: discoverDistros({ ...fake, platform: "win32" }),
+  }).pipe(
+    Layer.provide(LocalHost.test()),
+    Layer.provide(
+      HostAccess.fromRunners({
+        ssh: Layer.succeed(
+          Ssh,
+          Ssh.of({ exec: () => Effect.die("ssh must not be used for a WSL Host") })
+        ),
+        wsl: wslInstallLayer(fake),
+        local: () =>
+          Layer.succeed(Ssh, Ssh.of({ exec: () => Effect.die("no local Host in this test") })),
+      })
+    )
+  );
 
   const runtime = ManagedRuntime.make(Layer.provideMerge(machines, directory));
 
