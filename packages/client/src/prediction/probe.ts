@@ -114,7 +114,11 @@ export class CapabilityProbe {
     string,
     { expiresAt: number; value: Promise<CapabilityReport> }
   >();
-  constructor(private readonly options: ProbeOptions = {}) {}
+  private readonly options: ProbeOptions;
+
+  constructor(options: ProbeOptions = {}) {
+    this.options = options;
+  }
 
   get(configured: ReadonlyArray<ReachableEndpoint> = []): Promise<CapabilityReport> {
     const endpoints = [
