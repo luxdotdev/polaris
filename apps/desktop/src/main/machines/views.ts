@@ -93,7 +93,10 @@ export const machineViews = ({
     install: localInstall === undefined ? null : installFlowView(localInstall),
   };
 
-  const remotes = (settings.hosts ?? []).map((remote): MachineView => {
+  // A stored alias named "local" predates the reserved key; it never connected, so it gets no row.
+  const stored = (settings.hosts ?? []).filter((remote) => remote.alias !== LOCAL_HOST_KEY);
+
+  const remotes = stored.map((remote): MachineView => {
     const target = aliases.find((a) => a.alias === remote.alias);
     const install = installs.get(remote.alias);
 

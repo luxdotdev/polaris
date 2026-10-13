@@ -20,6 +20,7 @@ import {
   SubscriptionRef,
 } from "effect";
 import type { MachineView, SshAliasView, WslDistrosView } from "../../shared/api.ts";
+import { clientCopy } from "../../shared/clientCopy.ts";
 import { HostDirectory, LOCAL_HOST_KEY, localEntry, remoteEntry } from "../hosts.ts";
 import { localHostEnabled, type LocalDaemon } from "../localDaemon.ts";
 import type { RemoteHostSetting, Settings } from "../settings.ts";
@@ -545,6 +546,12 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
 
   const add = (machine: AddMachine) =>
     Effect.gen(function* () {
+      if (machine.alias === LOCAL_HOST_KEY) {
+        return yield* fail(
+          `Polaris names ${clientCopy(input.platform).machine} "local"; rename the alias to add it`
+        );
+      }
+
       if (remoteSetting(machine.alias) !== undefined) {
         return yield* fail(`${machine.alias} is already a host`);
       }
