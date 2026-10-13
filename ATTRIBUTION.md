@@ -23,6 +23,7 @@ Used as development dependencies only: never copied into Polaris and never shipp
 ## Assets under other licences
 
 - **Nucleo icons** (Copyright © Nucleo, Nucleo License, **not Apache-2.0**): 30 UI outline icons (chrome) and 11 pixel icons (Session States and Polaris concepts), vendored into `packages/ui/src/icons/nucleo/` by `packages/ui/scripts/vendor-nucleo.ts` from a licensed install, with `LICENSE.md` beside them and a line in the root `NOTICE`. The pixel hand, terminal and circled x-mark were already in `design/scripts/gen_dither.py` and `design/assets/icons/`. Nucleo allows at most 100 icons in an open-source project with its copyright notice and forbids redistributing them apart from the product; a project decision (2026-09-30) that may be revisited. Changes: the SVG bodies are wrapped in Polaris components (16px, a 1px stroke for UI outline, `currentColor`, `aria-hidden`); no paths changed.
+- **Contributor Covenant** version 2.1 (CC BY 4.0), from contributor-covenant.org: the text of `CODE_OF_CONDUCT.md`, with its attribution section kept. Changes: the enforcement contact placeholder is filled with the repository's private reporting form.
 
 ## Copied or adapted code
 
