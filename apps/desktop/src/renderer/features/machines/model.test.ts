@@ -74,11 +74,29 @@ describe("attention cards", () => {
       "polaris-not-installed",
       "ssh-config-error",
       "ssh-missing",
+      "wsl-missing",
+      "wsl-distro-missing",
     ]) {
       const model = attentionCard(attention(reason));
       expect(model?.reason).toBe(reason);
       expect(model?.title.length).toBeGreaterThan(0);
     }
+  });
+
+  test("a WSL Host's reasons: WSL gone (copy the install command), the distro gone (retry or remove)", () => {
+    const distro = { ...attention("wsl-missing"), kind: "wsl" as const, alias: "Ubuntu" };
+    expect(attentionCard(distro)).toMatchObject({
+      detail: "wsl --install --no-distribution",
+      fix: { action: "copy-detail" },
+      secondary: { action: "retry" },
+    });
+    expect(
+      attentionCard({ ...distro, status: attention("wsl-distro-missing").status })
+    ).toMatchObject({
+      title: "WSL no longer lists a distro called Ubuntu",
+      fix: { action: "retry" },
+      secondary: null,
+    });
   });
 
   test("a changed host key never gets a one-click fix", () => {
@@ -241,6 +259,9 @@ describe("rows", () => {
     expect(hostCaption(machine(), 1)).toBe("ssh pi · 1 workspace");
     expect(hostCaption(machine({ alias: null }), 2)).toBe("This Mac · 2 workspaces");
     expect(hostCaption(machine(), null)).toBe("ssh pi");
+    expect(hostCaption(machine({ kind: "wsl", alias: "Ubuntu" }), 1)).toBe(
+      "wsl Ubuntu · 1 workspace"
+    );
     expect(
       outcomeNote(
         machine({

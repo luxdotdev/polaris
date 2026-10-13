@@ -1,6 +1,11 @@
 /** Hosts for the Settings → Hosts preview: every daemon update state, no real host involved. */
 import { Capability, HostId, type Platform } from "@polaris/protocol";
-import type { ConnectionStatusView, MachineView } from "../../../../shared/api.ts";
+import type {
+  ConnectionStatusView,
+  MachineView,
+  SshAliasView,
+  WslDistrosView,
+} from "../../../../shared/api.ts";
 import type { DaemonUpdateView } from "../../../../shared/daemonUpdates.ts";
 
 const MINUTE = 60_000;
@@ -26,6 +31,20 @@ const connected = (
   capabilities: Capability.literals,
   epoch: 1,
   latencyMs,
+  lastSeenAt: null,
+});
+
+/** A WSL Host whose wsl.exe or distro went missing (Paper W2). */
+const attention = (reason: string, detail: string): ConnectionStatusView => ({
+  state: "needs-attention",
+  failure: { kind: "needs-attention", reason, detail },
+  attempt: 1,
+  since: 0,
+  nextAttemptAt: null,
+  host: null,
+  capabilities: [],
+  epoch: 0,
+  latencyMs: null,
   lastSeenAt: null,
 });
 
@@ -60,13 +79,14 @@ const machine = (
   label: string,
   alias: string | null,
   status: ConnectionStatusView,
-  update: DaemonUpdateView
+  update: DaemonUpdateView,
+  kind: MachineView["kind"] = alias === null ? "local" : "ssh"
 ): MachineView => ({
   key,
   label,
   colour: null,
   alias,
-  kind: alias === null ? "local" : "ssh",
+  kind,
   target: alias === null ? null : { hostName: `${alias}.local`, user: "lucas" },
   enabled: true,
   forwardAgent: false,
@@ -76,9 +96,9 @@ const machine = (
   daemon: update,
 });
 
-export type Scene = "all" | "current" | "failures" | "live";
+export type Scene = "all" | "current" | "failures" | "live" | "wsl";
 
-export const SCENES: ReadonlyArray<Scene> = ["all", "current", "failures", "live"];
+export const SCENES: ReadonlyArray<Scene> = ["all", "current", "failures", "live", "wsl"];
 
 const thisMac = (update: DaemonUpdateView) =>
   machine(
@@ -147,6 +167,14 @@ const all = (now: number): ReadonlyArray<MachineView> => [
     offline(now),
     daemon({ installedVersion: "0.3.9" })
   ),
+  machine(
+    "Ubuntu",
+    "Ubuntu",
+    "Ubuntu",
+    connected("linux-x64", "0.4.1", 2),
+    daemon({ keepUpToDateOverride: false, keepUpToDate: false }),
+    "wsl"
+  ),
 ];
 
 const failed = (
@@ -196,6 +224,22 @@ const failures = (now: number): ReadonlyArray<MachineView> => [
       },
       now
     )
+  ),
+  machine(
+    "Debian",
+    "Debian",
+    "Debian",
+    attention("wsl-missing", "wsl.exe: not found"),
+    daemon({ installedVersion: "0.4.0" }),
+    "wsl"
+  ),
+  machine(
+    "Fedora",
+    "Fedora",
+    "Fedora",
+    attention("wsl-distro-missing", "There is no distribution with the supplied name."),
+    daemon({ installedVersion: "0.4.0" }),
+    "wsl"
   ),
   machine(
     "box",
@@ -263,8 +307,68 @@ const live = (): ReadonlyArray<MachineView> => [
   machine("pi", "Raspberry Pi", "lucas-rpi", connected("linux-arm64", "0.4.1", 38), daemon()),
 ];
 
+/** A Windows PC (Paper W1–W2): WSL Hosts connected, with wsl.exe gone, and with the distro gone. */
+const wsl = (): ReadonlyArray<MachineView> => [
+  machine(
+    "local",
+    "Lucas's PC",
+    null,
+    connected("linux-x64", "0.5.0", null),
+    daemon({ installedVersion: "0.5.0", updateAvailable: false })
+  ),
+  machine(
+    "Ubuntu",
+    "Ubuntu",
+    "Ubuntu",
+    connected("linux-x64", "0.5.0", 2),
+    daemon({ installedVersion: "0.5.0", updateAvailable: false }),
+    "wsl"
+  ),
+  machine(
+    "Debian",
+    "Debian",
+    "Debian",
+    attention("wsl-missing", "wsl.exe: not found"),
+    daemon({ installedVersion: "0.5.0", updateAvailable: false }),
+    "wsl"
+  ),
+  machine(
+    "Fedora",
+    "Fedora",
+    "Fedora",
+    attention("wsl-distro-missing", "There is no distribution with the supplied name."),
+    daemon({ installedVersion: "0.5.0", updateAvailable: false }),
+    "wsl"
+  ),
+];
+
+/** What "Add a host" is offered on the `wsl` scene; the other scenes are Macs (no WSL). */
+export const WSL_DISTROS: WslDistrosView = {
+  status: "distros",
+  distros: [
+    { name: "Ubuntu", version: 2, state: "running", isDefault: true, unsupported: null },
+    { name: "Debian", version: 2, state: "stopped", isDefault: false, unsupported: null },
+    { name: "Alpine", version: 2, state: "stopped", isDefault: false, unsupported: null },
+    {
+      name: "Legacy",
+      version: 1,
+      state: "stopped",
+      isDefault: false,
+      unsupported: "WSL 1: convert it with wsl --set-version first",
+    },
+  ],
+  detail: null,
+};
+
+export const SSH_ALIASES: ReadonlyArray<SshAliasView> = [
+  { alias: "studio", hostName: "studio.lan", user: "lucas" },
+  { alias: "work-vm", hostName: "10.0.0.12", user: "lucas" },
+];
+
 export const machinesFor = (scene: Scene, now: number): ReadonlyArray<MachineView> => {
   switch (scene) {
+    case "wsl":
+      return wsl();
     case "current":
       return current();
     case "failures":

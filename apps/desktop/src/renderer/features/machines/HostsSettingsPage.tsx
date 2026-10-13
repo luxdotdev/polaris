@@ -9,7 +9,7 @@ import type { MachineView } from "../../../shared/api.ts";
 import { emptyHostModel, visibleWorkspaces } from "../../store/hostModel.ts";
 import { useApp } from "../../shell/hooks.ts";
 import { AddMachine } from "./AddMachine.tsx";
-import { call, useMachines, useNow } from "./hooks.tsx";
+import { call, useMachines, useNow, useWslDistros } from "./hooks.tsx";
 import { HostDetails } from "./HostDetails.tsx";
 import { HostRow, LANES } from "./HostRow.tsx";
 import { attentionCard, needsUser } from "./model.ts";
@@ -21,6 +21,7 @@ import {
 import { KeepUpToDate, OverrideMenuItems } from "./updates/Controls.tsx";
 import { type FailureAction, updateLine } from "./updates/model.ts";
 import { useUpgradeClock } from "./updates/UpgradeStatus.tsx";
+import { addHint, hostsIntro } from "./wsl.ts";
 import { UpdateStrip } from "./updates/UpdateStrip.tsx";
 
 const failureAction = (machine: MachineView, action: FailureAction) => {
@@ -114,6 +115,9 @@ export interface HostsSettingsPageProps {
 
 export const HostsSettingsPage = ({ adding = false }: HostsSettingsPageProps) => {
   const machines = useMachines();
+  const { wsl, again } = useWslDistros();
+  // Off Windows the answer is `unsupported` and the page reads as it always has.
+  const onWindows = wsl !== null && wsl.status !== "unsupported";
   const [adder, setAdder] = useState(adding);
 
   // "Connect a host" can open this page again while it is showing.
@@ -155,10 +159,7 @@ export const HostsSettingsPage = ({ adding = false }: HostsSettingsPageProps) =>
     >
       <div className="flex flex-col gap-1.5">
         <h1 className="text-title text-text-strong">Hosts</h1>
-        <p className="text-body text-text-subtle">
-          Machines Polaris reaches over SSH, using your ~/.ssh/config. Each runs its own daemon;
-          this Mac installs and upgrades them.
-        </p>
+        <p className="text-body text-text-subtle">{hostsIntro(onWindows)}</p>
       </div>
       <div className="border-hairline rounded-card flex flex-col overflow-clip border">
         <Header />
@@ -179,6 +180,8 @@ export const HostsSettingsPage = ({ adding = false }: HostsSettingsPageProps) =>
       {adder ? (
         <AddMachine
           taken={taken}
+          wsl={wsl}
+          onLookAgain={again}
           onCancel={() => setAdder(false)}
           onAdded={(key) => {
             setAdder(false);
@@ -191,9 +194,7 @@ export const HostsSettingsPage = ({ adding = false }: HostsSettingsPageProps) =>
             <PlusIcon size={12} />
             Add a host
           </Button>
-          <span className="text-caption text-text-subtle">
-            Pick an alias from ~/.ssh/config; the first install asks for your approval.
-          </span>
+          <span className="text-caption text-text-subtle">{addHint(onWindows)}</span>
         </div>
       )}
     </div>
