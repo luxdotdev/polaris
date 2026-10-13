@@ -551,6 +551,8 @@ export interface LanguageApi {
 }
 
 export interface PolarisApi {
+  /** The Client's OS from `process.platform`; read it through `clientPlatform()` (shared/platform.ts). */
+  readonly platform?: string;
   readonly languages?: LanguageApi;
   readonly request: <M extends RequestMethod>(
     method: M,
