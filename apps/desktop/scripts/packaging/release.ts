@@ -58,11 +58,14 @@ export const selectIdentity = (credentials: SigningCredentials, output: string):
 
 export const resolveSigning = (
   credentials: SigningCredentials | null,
-  execute: Run = run
-): Signing | null => {
+  execute: Run = run,
+  platform: NodeJS.Platform = process.platform
+): Signing | null | "unsigned" => {
+  if (platform === "win32") return "unsigned";
+
   if (credentials === null) return null;
 
-  if (process.platform !== "darwin") throw new Error("signing requires macOS");
+  if (platform !== "darwin") throw new Error("signing requires macOS");
 
   if (!existsSync(credentials.appleApiKey))
     throw new Error("APPLE_API_KEY must be a path to the .p8 API key file");
@@ -109,11 +112,16 @@ export const macSigningOptions = (
   };
 };
 
-export const assertReleaseVersions = (desktop: string, daemon: string, reuse: boolean) => {
+export const assertReleaseVersions = (
+  desktop: string,
+  daemon: string,
+  reuse: boolean,
+  platform: NodeJS.Platform = "darwin"
+) => {
   if (desktop !== daemon)
     throw new Error(`release version mismatch: Desktop App ${desktop}, Daemon ${daemon}`);
 
-  if (reuse)
+  if (reuse && platform !== "win32")
     throw new Error("--reuse-daemon cannot be used with --release; rebuild every release Daemon");
 };
 

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join, resolve, sep } from "node:path";
+import { join, resolve, sep, win32 } from "node:path";
+import { existsSync } from "node:fs";
 import { Option, Schema } from "effect";
 
 const InstallId = Schema.String.check(
@@ -27,7 +28,22 @@ export const installId = (userData: string): string => {
 };
 
 /** Downloads, disk images and Gatekeeper's translocated copies cannot replace themselves. */
-export const cannotInstallHere = (appPath: string, downloads: string): boolean => {
+export const cannotInstallHere = (
+  appPath: string,
+  downloads: string,
+  platform: NodeJS.Platform = process.platform,
+  executable: string = process.execPath,
+  exists: (path: string) => boolean = existsSync
+): boolean => {
+  if (platform === "win32") {
+    const folder = win32.dirname(executable);
+
+    return (
+      !/^app-\d+\.\d+\.\d+(?:[-.][\w.-]+)?$/i.test(win32.basename(folder)) ||
+      !exists(win32.resolve(folder, "../Update.exe"))
+    );
+  }
+
   const path = resolve(appPath);
 
   return (

@@ -29,6 +29,8 @@ const checkRow = (
 export const appUpdateRow = (view: AppUpdateView): AppUpdateRow => {
   const release = view.availableVersion === null ? "Polaris" : `Polaris ${view.availableVersion}`;
 
+  const copy = platformCopy(view.platform);
+
   switch (view.phase) {
     case "checking":
       return {
@@ -57,10 +59,10 @@ export const appUpdateRow = (view: AppUpdateView): AppUpdateRow => {
     case "blocked":
       return {
         title: `${release} can't install here`,
-        caption: "Move Polaris to Applications, then check again",
+        caption: copy.install,
         glyph: "folder",
         action: "finder",
-        actionLabel: "Show in Finder",
+        actionLabel: copy.reveal,
       };
     case "failed":
       return {
@@ -73,11 +75,7 @@ export const appUpdateRow = (view: AppUpdateView): AppUpdateRow => {
     case "idle":
     case "current":
       if (!view.supported)
-        return checkRow(
-          "Updates are available in the installed Mac app",
-          "This build doesn't check the update feed",
-          "off"
-        );
+        return checkRow(copy.unsupported, "This build doesn't check the update feed", "off");
 
       if (!view.automatic)
         return checkRow(
@@ -94,3 +92,16 @@ export const appUpdateRow = (view: AppUpdateView): AppUpdateRow => {
       );
   }
 };
+
+const platformCopy = (platform: string | undefined) =>
+  platform === "win32"
+    ? {
+        install: "Install Polaris with Setup.exe, then check again",
+        reveal: "Show in Explorer",
+        unsupported: "Updates are available in the installed Windows app",
+      }
+    : {
+        install: "Move Polaris to Applications, then check again",
+        reveal: "Show in Finder",
+        unsupported: "Updates are available in the installed Mac app",
+      };

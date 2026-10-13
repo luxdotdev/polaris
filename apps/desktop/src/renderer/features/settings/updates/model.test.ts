@@ -16,6 +16,15 @@ const view = (patch: Partial<AppUpdateView> = {}): AppUpdateView => ({
 });
 
 describe("About Update states", () => {
+  test("Windows install guidance names Setup.exe and Explorer", () => {
+    expect(appUpdateRow(view({ platform: "win32", phase: "blocked" }))).toMatchObject({
+      caption: "Install Polaris with Setup.exe, then check again",
+      actionLabel: "Show in Explorer",
+    });
+    expect(appUpdateRow(view({ platform: "win32", supported: false })).title).toContain(
+      "installed Windows app"
+    );
+  });
   test("available metadata is absent until macOS finishes downloading", () => {
     expect(appUpdateRow(view({ phase: "downloading" }))).toMatchObject({
       title: "Downloading Polaris",
