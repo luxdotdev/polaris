@@ -99,6 +99,8 @@ stateDiagram-v2
 
 Not drawn: `model.set` changes no Session State (it records `SessionModelChanged`; each Turn records the session's Model, effort and service tier when it starts). `starting`, `dormant` and `failed` also take `harness.approvalRequested` (→ Needs You) and `harness.turnEnded` (→ Idle or Failed) like the live states, and every state but Archived takes `session.fail` (→ Failed) and `turn.interruptUnattended` (→ Dormant). Every state ignores `harness.approvalRequested` for a Turn that is not the Turn in flight (one that ended, a stale or misbehaving Harness), as every state ignores `harness.turnEnded` for a Turn that is not working. So an approval is pending only while its Turn is in flight, and a session is Working only with a Turn in flight (ENG-209, findings 2 and 3).
 
+Starting never waits forever: the supervisor gives a Harness `harnessStartTimeout` (90 seconds) to open (`supervisor.start.ts`), and a crash while opening, or anywhere in StartSession's reactor, becomes `session.fail` (→ Failed) with a line naming the Harness and the Host, rather than a log line that leaves the session Starting.
+
 ### Guards (illegal transitions are refused)
 
 | Input | Accepted in | Refused with |

@@ -44,6 +44,8 @@ export type SignalResult = CommitResult & { readonly effects: ReadonlyArray<Sess
 export interface EngineSettings {
   /** How long an Idle session keeps its Harness process before going Dormant. */
   readonly idleTimeout: Duration.Input;
+  /** How long a Harness may take to open for a Turn before the session Fails; default 90 seconds. */
+  readonly harnessStartTimeout?: Duration.Input;
   /** Maximum silence while an Idle session waits on background work; default two hours. */
   readonly backgroundIdleTimeout?: Duration.Input;
   /** Checkpoint pruning policy (`git/prune.ts`); `DEFAULT_CHECKPOINT_POLICY` when unset. */
