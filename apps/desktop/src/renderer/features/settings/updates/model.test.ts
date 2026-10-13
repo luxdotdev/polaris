@@ -25,6 +25,15 @@ describe("About Update states", () => {
       "installed Windows app"
     );
   });
+  test("the reveal action names each platform's file manager", () => {
+    const label = (platform: string) =>
+      appUpdateRow(view({ platform, phase: "blocked" })).actionLabel;
+
+    expect(label("darwin")).toBe("Show in Finder");
+    expect(label("win32")).toBe("Show in Explorer");
+    expect(label("linux")).toBe("Show in folder");
+  });
+
   test("available metadata is absent until macOS finishes downloading", () => {
     expect(appUpdateRow(view({ phase: "downloading" }))).toMatchObject({
       title: "Downloading Polaris",

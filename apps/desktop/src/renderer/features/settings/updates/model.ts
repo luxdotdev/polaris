@@ -1,4 +1,6 @@
 /** Reachable update-row copy from DESIGN.md, Updates (U1–U3). */
+import { clientCopy } from "../../../../shared/clientCopy.ts";
+import { clientPlatform } from "../../../../shared/platform.ts";
 import type { AppUpdateView } from "../../../../shared/appUpdates.ts";
 
 export interface AppUpdateRow {
@@ -93,15 +95,19 @@ export const appUpdateRow = (view: AppUpdateView): AppUpdateRow => {
   }
 };
 
-const platformCopy = (platform: string | undefined) =>
-  platform === "win32"
+/** The update's platform, as main reports it; the Client's own when it doesn't say. */
+const platformCopy = (platform: string = clientPlatform()) => {
+  const reveal = clientCopy(platform).showApp;
+
+  return platform === "win32"
     ? {
         install: "Install Polaris with Setup.exe, then check again",
-        reveal: "Show in Explorer",
+        reveal,
         unsupported: "Updates are available in the installed Windows app",
       }
     : {
         install: "Move Polaris to Applications, then check again",
-        reveal: "Show in Finder",
+        reveal,
         unsupported: "Updates are available in the installed Mac app",
       };
+};

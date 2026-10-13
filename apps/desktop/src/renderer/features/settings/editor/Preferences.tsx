@@ -1,4 +1,5 @@
 /** The Editor preferences group (Paper L4): language preferences, then the Editor's own keys and saving. */
+import { clientCopy } from "../../../../shared/clientCopy.ts";
 import * as P from "@polaris/protocol";
 import { Switch } from "@polaris/ui";
 import type { ReactNode } from "react";
@@ -89,7 +90,7 @@ export const Preferences = ({
       <PreferenceRow
         id="editor-autosave"
         title="Autosave after a short pause"
-        caption="Saves a second after you stop typing. Unsaved edits are kept on this Mac either way, and a save never overwrites a newer version on disk."
+        caption={`Saves a second after you stop typing. Unsaved edits are kept on ${clientCopy().machine} either way, and a save never overwrites a newer version on disk.`}
       >
         <Switch id="editor-autosave" checked={keys.autosave} onCheckedChange={keys.onAutosave} />
       </PreferenceRow>

@@ -1,4 +1,7 @@
 /** Settings → About: quiet app Updates and the precise per-check privacy fields. */
+import { Match } from "effect";
+import { clientCopy } from "../../../../shared/clientCopy.ts";
+import { clientPlatform, toClientPlatform } from "../../../../shared/platform.ts";
 import { Button, Dither, FolderIcon, PixelCheckIcon, PixelPolarisIcon, Switch } from "@polaris/ui";
 import { useId } from "react";
 import type { AppUpdateView } from "../../../../shared/appUpdates.ts";
@@ -215,17 +218,22 @@ export const AboutPage = () => {
   );
 };
 
+/** The About header and version row for the platform main reports (the Client's own otherwise). */
 const aboutPlatform = (view: AppUpdateView) => {
-  if (view.platform === "win32")
-    return {
-      os: "Windows",
-      device: "this PC",
-      description: `Windows ${view.arch} · experimental`,
-    };
+  const platform = view.platform ?? clientPlatform();
+  const { os, machine } = clientCopy(platform);
 
-  return {
-    os: "macOS",
-    device: "this Mac",
-    description: view.arch === "arm64" ? "Apple silicon" : view.arch,
-  };
+  return Match.value(toClientPlatform(platform)).pipe(
+    Match.when("win32", () => ({
+      os,
+      device: machine,
+      description: `Windows ${view.arch} · experimental`,
+    })),
+    Match.when("darwin", () => ({
+      os,
+      device: machine,
+      description: view.arch === "arm64" ? "Apple silicon" : view.arch,
+    })),
+    Match.orElse(() => ({ os, device: machine, description: `Linux ${view.arch}` }))
+  );
 };

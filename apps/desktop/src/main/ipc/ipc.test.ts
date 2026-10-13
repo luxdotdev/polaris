@@ -117,6 +117,7 @@ const context: RequestContext = {
   writeClipboard: () => Promise.resolve(),
   editAction: () => undefined,
   needsYou: () => undefined,
+  showAppMenu: () => {},
 };
 
 const handlers = requestHandlers(context);

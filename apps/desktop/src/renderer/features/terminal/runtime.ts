@@ -10,7 +10,10 @@ import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import type { TerminalId } from "@polaris/protocol";
 import { Predicate } from "effect";
+import { clientPlatform } from "../../../shared/platform.ts";
 import { polaris } from "../bridge.ts";
+import { writeClipboard } from "../clipboard.ts";
+import { clipboardKey } from "./clipboardKeys.ts";
 import { loaded } from "./loaded.ts";
 import { applyStatus } from "./store.ts";
 import { terminalTheme } from "./theme.ts";
@@ -182,6 +185,23 @@ const create = (hostKey: string, terminalId: string): Instance => {
     resizeTimer: null,
   };
 
+  const platform = clientPlatform();
+
+  // Windows: copy and paste keys of their own; false keeps them from the shell.
+  term.attachCustomKeyEventHandler((event) => {
+    const action = clipboardKey(event, platform);
+
+    if (action === null) return true;
+
+    if (event.type === "keydown") {
+      if (action === "copy" && term.hasSelection()) void writeClipboard(term.getSelection());
+
+      // Main pastes into the focused xterm textarea, which sends it as typed input.
+      if (action === "paste") void polaris().request("edit.run", { action: "paste" });
+    }
+
+    return false;
+  });
   term.onData((data) => send(inst, encoder.encode(data)));
   term.onBinary((data) =>
     send(

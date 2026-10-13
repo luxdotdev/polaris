@@ -3,6 +3,7 @@
  * the default), adding one through the device flow, which account each owner uses with
  * each owner's access, and the Workspaces that override their owner.
  */
+import { clientCopy } from "../../../../shared/clientCopy.ts";
 import {
   Badge,
   Button,
@@ -69,7 +70,7 @@ const AccountMenu = ({
         className="text-failed-text"
         onSelect={() => void polaris().request("github.accounts.remove", { accountId: row.id })}
       >
-        Remove {row.login} from this Mac
+        Remove {row.login} from {clientCopy().machine}
       </DropdownMenuItem>
     </DropdownMenuContent>
   </DropdownMenu>
@@ -148,7 +149,7 @@ const AddRow = ({ view }: { readonly view: GitHubAccountsView }) => (
     <span className="text-caption text-text-subtle">
       {view.storageAvailable
         ? "Signs in through github.com with a one-time code"
-        : "This Mac has no keychain to keep tokens in, so Polaris can't sign in"}
+        : clientCopy().noTokenStore}
     </span>
   </div>
 );

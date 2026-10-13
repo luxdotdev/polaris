@@ -3,6 +3,8 @@
  * real scenes, density with a live session-row preview, text size, code font,
  * colourblind-safe diffs and Reduce motion. Every change applies at once.
  */
+import { clientCopy } from "../../../../shared/clientCopy.ts";
+import { isWindows } from "../../../../shared/platform.ts";
 import {
   CheckIcon,
   ChevronDownIcon,
@@ -44,7 +46,7 @@ interface ThemeCard {
 const THEMES: ReadonlyArray<ThemeCard> = [
   { value: "dark", name: "Night", hint: "Dark" },
   { value: "light", name: "Dawn", hint: "Light" },
-  { value: "system", name: "Match macOS", hint: "Auto" },
+  { value: "system", name: `Match ${clientCopy().os}`, hint: "Auto" },
 ];
 
 /** A scene as its theme draws it (`--scene` in a `data-theme` subtree); a class, as inline url()s resolve against the page. */
@@ -217,10 +219,15 @@ const CODE_FONTS: ReadonlyArray<{
   readonly value: CodeFont;
   readonly name: string;
   readonly family: string;
-}> = [
-  { value: "sf-mono", name: "SF Mono", family: '"SF Mono", ui-monospace, monospace' },
-  { value: "menlo", name: "Menlo", family: "Menlo, ui-monospace, monospace" },
-];
+}> = isWindows()
+  ? [
+      { value: "sf-mono", name: "Cascadia Mono", family: '"Cascadia Mono", Consolas, monospace' },
+      { value: "menlo", name: "Consolas", family: "Consolas, monospace" },
+    ]
+  : [
+      { value: "sf-mono", name: "SF Mono", family: '"SF Mono", ui-monospace, monospace' },
+      { value: "menlo", name: "Menlo", family: "Menlo, ui-monospace, monospace" },
+    ];
 
 const CODE_SIZES: ReadonlyArray<CodeFontSize> = [12, 13, 14, 15];
 
@@ -271,7 +278,7 @@ const CodeFontMenu = ({ font, size }: { readonly font: CodeFont; readonly size: 
 );
 
 const MOTION: ReadonlyArray<{ readonly value: MotionSource; readonly name: string }> = [
-  { value: "system", name: "Match macOS" },
+  { value: "system", name: `Match ${clientCopy().os}` },
   { value: "reduce", name: "On" },
   { value: "full", name: "Off" },
 ];
