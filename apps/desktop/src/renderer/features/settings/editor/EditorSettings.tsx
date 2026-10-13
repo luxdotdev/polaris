@@ -5,6 +5,7 @@
 import { clientCopy } from "../../../../shared/clientCopy.ts";
 import * as P from "@polaris/protocol";
 import { useCallback, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import type { HostView, LanguageApi } from "../../../../shared/api.ts";
 import { hostInSentence } from "../../../shell/hostCopy.ts";
 import { Column, PageHeader } from "../ui/parts.tsx";
@@ -18,6 +19,7 @@ import { Preferences, type EditorKeys } from "./Preferences.tsx";
 import { APP_SCOPE, type SettingsScope } from "./records.ts";
 
 export interface EditorSettingsProps {
+  readonly tabCompletion?: ReactNode;
   readonly api: LanguageApi | undefined;
   readonly hosts: ReadonlyArray<HostView>;
   readonly workspacesOf: (hostKey: string) => ReadonlyArray<PolicyWorkspace>;
@@ -51,6 +53,7 @@ const notice = (
 const NO_LANGUAGES: ReadonlyArray<P.LanguageSyntaxId> = [];
 
 export const EditorSettings = ({
+  tabCompletion,
   api,
   hosts,
   workspacesOf,
@@ -120,6 +123,7 @@ export const EditorSettings = ({
         onChange={(change) => void app.update(change)}
         keys={keys}
       />
+      {tabCompletion}
       <div className="flex items-end justify-between gap-4 pt-2">
         <div className="flex flex-col gap-0.5">
           <h2 className="text-heading-sm text-text-strong leading-[18px] font-medium">Languages</h2>

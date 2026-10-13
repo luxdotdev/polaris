@@ -17,7 +17,7 @@ import {
 import { digitModifiersFor, keymapFor } from "../../../../shared/keymap.ts";
 
 /** Chords the editor keeps although the shell binds them too. */
-const EDITOR_OWNS = new Set(["Mod+Slash"]);
+const EDITOR_OWNS = new Set(["Mod+Slash", "Alt+ArrowRight", "Mod+ArrowRight"]);
 
 /** ⌘I, ⌘L, ⌘P belong to the inline chat, ⌘L's picker and the finder; ⌘S to saving. */
 const RESERVED_ALWAYS = ["CmdOrCtrl+I", "CmdOrCtrl+L", "CmdOrCtrl+P", "CmdOrCtrl+S"];

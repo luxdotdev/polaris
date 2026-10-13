@@ -58,6 +58,9 @@ export type CommandId =
   | "palette.open"
   | "editor.format"
   | "editor.toggleInlineDiagnostics"
+  | "editor.prediction.accept"
+  | "editor.prediction.acceptWord"
+  | "editor.prediction.dismiss"
   | "language.restart"
   | "language.restartAll"
   | "language.showLog"
@@ -79,6 +82,7 @@ export const CONTEXT_KEYS = [
   "mode.edit",
   /** A file is open and focused in Edit. */
   "editor.file",
+  "prediction.ghost",
   /** The focused file's Language Integration has a language server. */
   "language.server",
   "language.formatter",
@@ -208,6 +212,28 @@ const SETTINGS = (keywords: ReadonlyArray<string>): PaletteEntry => ({ group: "a
 const TRUST_KNOWN: Condition = { all: ["editor.file", "trust.known"] };
 
 export const KEYMAP: ReadonlyArray<KeyBinding> = [
+  {
+    id: "editor.prediction.accept",
+    title: "Accept tab completion",
+    keys: ["Tab"],
+    when: { all: ["editor.file", "prediction.ghost"] },
+    palette: false,
+  },
+  {
+    id: "editor.prediction.acceptWord",
+    title: "Accept a word of tab completion",
+    keys: ["Alt+Right"],
+    when: { all: ["editor.file", "prediction.ghost"] },
+    palette: false,
+  },
+  {
+    id: "editor.prediction.dismiss",
+    title: "Dismiss tab completion",
+    keys: ["Esc"],
+    when: { all: ["editor.file", "prediction.ghost"] },
+    palette: false,
+    shares: "session.interrupt",
+  },
   {
     id: "palette.open",
     title: "Command Palette…",
@@ -692,6 +718,7 @@ export const reservedFor = (platform: KeyPlatform): ReadonlyArray<string> =>
  * so those chords move; Ctrl picks Workspaces and sessions, Alt the views. Empty: menu and palette only.
  */
 export const PC_KEYS: Partial<Record<CommandId, ReadonlyArray<string>>> = {
+  "editor.prediction.acceptWord": ["Ctrl+Right"],
   "language.restart": ["CmdOrCtrl+Shift+R"],
   "view.orchestrate": ["Alt+1"],
   "view.review": ["Alt+2"],

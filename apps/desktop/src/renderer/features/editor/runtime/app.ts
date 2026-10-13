@@ -33,6 +33,7 @@ import { EditorLanguageCoordinator } from "../lsp/integration.ts";
 import type { LanguageIdentityLookup } from "../lsp/lifecycle.ts";
 import { LanguageQueries } from "../lsp/queries.ts";
 import { bindAppLanguageIdentities } from "../lsp/identityComposition.ts";
+import { installPredictions } from "../prediction/runtime.ts";
 
 export let editorLanguages: EditorLanguageCoordinator | null = null;
 
@@ -184,6 +185,8 @@ export const ensureEditor = ({
   });
 
   publishDirty();
+  const removePredictions = installPredictions(app, subscribeApp);
+  globalThis.addEventListener("pagehide", removePredictions, { once: true });
 
   if (prefs().vim) void setVim(true);
   setInlineDiagnostics(settingsStore.getState().sessions.editorInlineDiagnostics);

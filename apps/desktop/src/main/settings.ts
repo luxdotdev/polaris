@@ -39,6 +39,9 @@ export const RemoteHostSetting = Schema.Struct({
 export type RemoteHostSetting = typeof RemoteHostSetting.Type;
 
 export const Settings = Schema.Struct({
+  predictionEnabled: Schema.optionalKey(Schema.Boolean),
+  predictionConfigured: Schema.optionalKey(Schema.Boolean),
+  predictionDiscoveryShown: Schema.optionalKey(Schema.Boolean),
   predictionClientEndpoints: Schema.optionalKey(PredictionClientEndpoints),
   prediction: Schema.optionalKey(Schema.Record(Schema.String, PredictionPreferences)),
   sshBinary: Schema.optionalKey(Schema.String.check(Schema.isMinLength(1))),
