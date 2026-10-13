@@ -12,8 +12,11 @@ import { tempDir } from "../engine/testing.ts";
 import { removeDir } from "../git/testing.ts";
 import { FakeClaude } from "../harness/claude/fakeClaude.ts";
 import { makeClaudeDriver } from "../harness/claude/ClaudeDriver.ts";
-import { userPath } from "../service/userPath.ts";
-import { canRunChecks } from "./policy.ts";
+import { userPath, which } from "../service/userPath.ts";
+import { probeClaudeSandbox } from "../harness/claude/sandbox.ts";
+import { reviewerShell } from "./policy.ts";
+
+const onLinux = () => probeClaudeSandbox({ platform: "linux", find: which });
 
 const cleanup: Array<string> = [];
 
@@ -68,10 +71,10 @@ describe("the Reviewer under a bare systemd PATH", () => {
     );
 
     expect(fake.options?.pathToClaudeCodeExecutable).toBe(claude);
-    expect(canRunChecks("claude", "linux")).toBe(true);
+    expect(reviewerShell("claude", onLinux)).toBe("checks");
     await Effect.runPromise(Scope.close(scope, Exit.void));
 
     process.env.PATH = "/usr/bin:/bin";
-    expect(canRunChecks("claude", "linux")).toBe(false);
+    expect(reviewerShell("claude", onLinux)).toBe("none");
   });
 });

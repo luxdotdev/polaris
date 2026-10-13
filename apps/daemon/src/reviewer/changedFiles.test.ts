@@ -36,7 +36,7 @@ const walkthrough = () =>
     context: "",
     findings: [],
     instructions: "",
-    checksAllowed: true,
+    shell: "checks",
   });
 
 const review = () =>
@@ -51,7 +51,7 @@ const review = () =>
     head: "h1",
     since: null,
     earlierFindings: [],
-    runChecks: true,
+    shell: "checks",
   });
 
 describe("the prompts' view of a change", () => {
@@ -115,7 +115,7 @@ describe("the prompts' view of a change", () => {
       context: "",
       findings: [],
       instructions: "",
-      checksAllowed: false,
+      shell: "git",
     });
 
     // b.ts doesn't fit after a.ts, but the smaller c.ts after it still does, whole.

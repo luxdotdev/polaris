@@ -125,7 +125,7 @@ describe("generated files", () => {
       head,
       since: null,
       earlierFindings: [],
-      runChecks: false,
+      shell: "git",
     });
 
     expect(prompt).toContain("evil.example");

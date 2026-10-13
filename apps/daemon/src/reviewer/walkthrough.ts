@@ -19,7 +19,7 @@ import { readDiff } from "./diff.ts";
 import { generatedPaths } from "./generated.ts";
 import { parseGroups, splitGroups } from "./groups.ts";
 import { readInstructions } from "./instructions.ts";
-import { canRunChecks } from "./policy.ts";
+import { reviewerShell } from "./policy.ts";
 import { type ReviewRange, resolveRange } from "./range.ts";
 import { continueReviewerSession, startReviewerSession } from "./session.ts";
 import { groupsRepairPrompt, walkthroughProblem, walkthroughPrompt } from "./walkthroughPrompt.ts";
@@ -228,7 +228,7 @@ const runOne = (
         context,
         findings: open,
         instructions: instructions.text ?? "",
-        checksAllowed: canRunChecks(choice.harness),
+        shell: reviewerShell(choice.harness),
       });
 
       const outcome = yield* startReviewerSession({
