@@ -118,7 +118,7 @@ export const Tabs = ({ tabs, active, onSelect, onPin, onClose, menuFor }: TabsPr
               }}
               onClick={() => onSelect(tab.id)}
               onDoubleClick={() => {
-                if (tab.view === undefined) onPin(tab.id);
+                if (tab.view === undefined || tab.view === "diff") onPin(tab.id);
               }}
               onKeyDown={(event) => {
                 if (event.key === "Enter" || event.key === " ") {

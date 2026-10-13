@@ -120,4 +120,15 @@ describe("Turns diffs and files at a revision", () => {
 
     expect(showFile(root, first, "missing.ts")).rejects.toBeInstanceOf(DiffNotFound);
   });
+
+  test("git.show with no revision reads the index, as the Editor's staged diffs do", async () => {
+    const root = await makeRepo({ "src/a.ts": "old\n" });
+    cleanup.push(root);
+    write(root, "src/a.ts", "staged\n");
+    await gitText(root, ["add", "src/a.ts"]);
+    write(root, "src/a.ts", "unstaged\n");
+
+    const shown = await showFile(root, "", "src/a.ts");
+    expect(text.decode(shown.bytes)).toBe("staged\n");
+  });
 });

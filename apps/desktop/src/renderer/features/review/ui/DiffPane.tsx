@@ -20,11 +20,9 @@ import type { ReviewAnnotation } from "../surface.ts";
 import { revealStore } from "../surface.ts";
 import type { FindingInfo } from "../model/findings.ts";
 import { hunkLabel } from "../model/marks.ts";
-import { THEMES } from "../model/theme.ts";
-import { MAX_LINE_LENGTH } from "../data/pierre.tsx";
+import { DIFF_CLASS, MAX_LINE_LENGTH, THEMES } from "../../diffs/index.ts";
 import { FileHeader } from "./FileHeader.tsx";
 import { FindingRow } from "./FindingRow.tsx";
-import "./diff.css";
 
 /** What an annotation row under a line holds. */
 export type RowMeta =
@@ -305,7 +303,7 @@ export const DiffPane = ({
       ref={handle}
       initialItems={[]}
       options={options}
-      className="review-diff px-panel min-h-0 flex-1 overflow-auto"
+      className={`${DIFF_CLASS} px-panel min-h-0 flex-1 overflow-auto`}
       renderCustomHeader={(item) => <FileHeader id={item.id} />}
       renderAnnotation={(
         annotation: DiffLineAnnotation<RowMeta> | { readonly metadata: RowMeta }

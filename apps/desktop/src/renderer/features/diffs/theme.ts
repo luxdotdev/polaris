@@ -1,5 +1,5 @@
 /**
- * The Shiki theme Review's diffs are highlighted with: every colour is a `--color-syntax-*`
+ * The Shiki theme every Pierre diff is highlighted with: every colour is a `--color-syntax-*`
  * token (DESIGN.md, rule/syntax-is-moonlit), so one theme serves both appearances and the
  * tokens' `light-dark()` values switch with the app, with no re-highlighting.
  */
@@ -18,10 +18,10 @@ export const moonlitTheme = (type: "dark" | "light"): ThemeRegistration => ({
   name: THEMES[type],
   type,
   fg: "var(--color-text-default)",
-  bg: "var(--review-diff-bg)",
+  bg: "var(--polaris-diff-bg)",
   colors: {
     "editor.foreground": "var(--color-text-default)",
-    "editor.background": "var(--review-diff-bg)",
+    "editor.background": "var(--polaris-diff-bg)",
   },
   tokenColors: [
     token(

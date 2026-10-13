@@ -1,9 +1,9 @@
 /*
  * Pierre Diffs on Polaris tokens (DESIGN.md, Diff (Pierre Diffs)). Custom properties
- * inherit into each file's shadow root; the stylesheet injected there is `diffStyles` (DiffPane.tsx).
+ * inherit into each file's shadow root; each view injects its own stylesheet there (`unsafeCSS`).
  */
-.review-diff {
-  --review-diff-bg: light-dark(var(--color-surface-raised), var(--color-surface-sunken));
+.polaris-diff {
+  --polaris-diff-bg: light-dark(var(--color-surface-raised), var(--color-surface-sunken));
   --diffs-font-family: var(--font-mono);
   --diffs-font-size: var(--text-code, 13px);
   --diffs-line-height: var(--text-code--line-height);
@@ -24,6 +24,6 @@
 }
 
 /* Pierre's `:host` picks light or dark from macOS; each file follows the app's theme instead. */
-.review-diff diffs-container {
+.polaris-diff diffs-container {
   color-scheme: inherit;
 }

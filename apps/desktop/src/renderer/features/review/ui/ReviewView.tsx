@@ -13,7 +13,7 @@ import { useApp, useShellActions } from "../../../shell/hooks.ts";
 import { useStore } from "zustand";
 import { usePulls } from "../../pulls/store.ts";
 import "../checkout/install.ts";
-import { DiffWorkers } from "../data/pierre.tsx";
+import { DiffWorkers } from "../../diffs/index.ts";
 import { useDetailsFeed } from "../data/pullDetail.ts";
 import { riskMark } from "../model/findings.ts";
 import { queueGroups, type QueueRow } from "../model/queue.ts";
