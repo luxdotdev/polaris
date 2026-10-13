@@ -93,6 +93,7 @@ const host = (key: string, label: string): HostView => ({
   label,
   colour: null,
   alias: null,
+  kind: "local",
   proofHarness: false,
   status: {
     state: "connected",

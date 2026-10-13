@@ -1,12 +1,13 @@
 /** The dialog's rows for what is typed: recent folders, the folder listed and its subfolders. */
 import { useMemo } from "react";
 import type { HostView } from "../../../shared/api.ts";
+import { clientCopy } from "../../../shared/clientCopy.ts";
 import { useApp } from "../../shell/hooks.ts";
 import { browseOf, folderRows, listError, START, tilde } from "./model.ts";
 import { readRecent } from "./recent.ts";
 import { type Listing, useListing } from "./useListing.ts";
 
-/** What a row does: open a folder as a Workspace, step into one, or ask Finder (this Mac). */
+/** What a row does: open a folder as a Workspace, step into one, or ask the OS folder picker (the local Host). */
 export type Target =
   | { readonly kind: "open"; readonly path: string }
   | { readonly kind: "folder"; readonly path: string }
@@ -80,13 +81,13 @@ export const buildGroups = (input: RowsInput): ReadonlyArray<Group> => {
       : null;
 
   const finder: Group | null =
-    input.host.alias === null
+    input.host.kind === "local"
       ? {
           heading: input.host.label,
           rows: [
             {
               id: "finder",
-              title: "Choose in Finder…",
+              title: clientCopy().chooseFolder,
               target: { kind: "finder" },
               testId: "folder-finder",
               meta: undefined,

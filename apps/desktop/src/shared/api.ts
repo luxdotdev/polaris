@@ -160,13 +160,20 @@ export interface ConnectionStatusView {
   readonly lastSeenAt: number | null;
 }
 
+export type HostKind = "local" | "ssh" | "wsl" | "socket";
+
 export interface HostView {
   readonly key: string;
   readonly label: string;
   /** From the machine settings; null picks a neutral. */
   readonly colour: string | null;
-  /** The `~/.ssh/config` alias; null for the local Host. */
+  /** The `~/.ssh/config` alias or WSL distro; null for the local Host and socket Hosts. */
   readonly alias: string | null;
+  /**
+   * How the Host is reached: this machine's own Host, ssh, a WSL distro, or another Daemon's
+   * socket on this machine (`POLARIS_DESKTOP_EXTRA_HOSTS`, for dev and screenshots).
+   */
+  readonly kind: HostKind;
   /** The Daemon runs the scripted bench Harness (the dev Daemon): the proof session may run here. */
   readonly proofHarness: boolean;
   readonly status: ConnectionStatusView;

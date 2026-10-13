@@ -23,6 +23,7 @@ const host = (key: string, patch: Partial<ConnectionStatusView> = {}): HostView 
   label: key,
   colour: null,
   alias: key === "local" ? null : key,
+  kind: key === "local" ? "local" : "ssh",
   proofHarness: false,
   status: status(patch),
 });

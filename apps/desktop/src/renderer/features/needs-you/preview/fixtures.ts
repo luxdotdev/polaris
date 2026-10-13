@@ -27,6 +27,7 @@ const hostView = (key: string, label: string): HostView => ({
   label,
   colour: null,
   alias: key === "local" ? null : key,
+  kind: key === "local" ? "local" : "ssh",
   proofHarness: false,
   status: {
     state: "connected",

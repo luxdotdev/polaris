@@ -73,6 +73,7 @@ export const coordinatorFixture = (
         label: "reuse",
         colour: null,
         alias: null,
+        kind: "local",
         proofHarness: false,
         status: {
           state: "connected",

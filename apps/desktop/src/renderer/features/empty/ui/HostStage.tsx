@@ -97,7 +97,7 @@ const StartRow = ({ host }: { readonly host: HostView }) => {
 
 /** The Host in view, else the local one: a workspace needs a machine to live on. */
 const useStageHost = (hostKey: string | null) =>
-  useApp((s) => s.hosts.find((h) => h.key === hostKey) ?? s.hosts.find((h) => h.alias === null));
+  useApp((s) => s.hosts.find((h) => h.key === hostKey) ?? s.hosts.find((h) => h.kind === "local"));
 
 export const HostStage = ({ hostKey }: { readonly hostKey: string | null }) => {
   const host = useStageHost(hostKey);

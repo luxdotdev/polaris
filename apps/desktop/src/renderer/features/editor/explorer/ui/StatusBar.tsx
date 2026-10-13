@@ -19,7 +19,7 @@ const hostNote = (host: HostView): string | null => {
 
   if (state === "reconnecting" || state === "offline") return state;
 
-  return host.alias !== null && latencyMs !== null ? `${Math.round(latencyMs)} ms` : null;
+  return host.kind !== "local" && latencyMs !== null ? `${Math.round(latencyMs)} ms` : null;
 };
 
 export const StatusBar = ({ host, git, right }: StatusBarProps) => {

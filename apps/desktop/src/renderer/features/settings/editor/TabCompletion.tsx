@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Option, Schema } from "effect";
 import { Button, Input, Switch } from "@polaris/ui";
 import type { HostView } from "../../../../shared/api.ts";
+import { clientCopy } from "../../../../shared/clientCopy.ts";
 import {
   ConfiguredPredictionEndpoint,
   type PredictionClientEndpoints,
@@ -177,7 +178,7 @@ export const TabCompletion = ({ hosts }: { readonly hosts: ReadonlyArray<HostVie
     };
   }, [keys, epochs]);
 
-  const clientLabel = hosts.find((host) => host.alias === null)?.label ?? "This machine";
+  const clientLabel = hosts.find((host) => host.kind === "local")?.label ?? clientCopy().localHost;
 
   const scopeHost = hosts.find((host) => host.key === scope);
   const machine = scope === "client" ? clientLabel : (scopeHost?.label ?? scope);
@@ -243,7 +244,7 @@ export const TabCompletion = ({ hosts }: { readonly hosts: ReadonlyArray<HostVie
           >
             <option value="client">{clientLabel}</option>
             {hosts
-              .filter((host) => host.alias !== null)
+              .filter((host) => host.kind !== "local")
               .map((host) => (
                 <option key={host.key} value={host.key}>
                   {host.label}

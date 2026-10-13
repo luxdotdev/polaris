@@ -19,6 +19,7 @@ export const hostView = (
   label: key,
   colour: null,
   alias: key === "local" ? null : key,
+  kind: key === "local" ? "local" : "ssh",
   proofHarness: false,
   status: {
     state,

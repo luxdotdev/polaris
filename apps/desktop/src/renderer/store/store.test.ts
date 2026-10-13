@@ -9,6 +9,7 @@ const host: HostView = {
   label: "This Mac",
   colour: null,
   alias: null,
+  kind: "local",
   proofHarness: true,
   status: {
     state: "connected",

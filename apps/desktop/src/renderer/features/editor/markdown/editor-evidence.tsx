@@ -160,6 +160,7 @@ const host = {
   label: "Fake Linux",
   colour: null,
   alias: "fake",
+  kind: "ssh",
   proofHarness: false,
   status: {
     state: "connected",

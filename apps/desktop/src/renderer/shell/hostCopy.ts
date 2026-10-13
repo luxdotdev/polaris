@@ -85,6 +85,6 @@ export const stateWords = (state: ConnectionState): string | null =>
 export const hostInSentence = (host: HostView | undefined) =>
   host === undefined
     ? "this host"
-    : host.alias === null && host.label.toLowerCase() === "this mac"
-      ? "this Mac"
+    : host.kind === "local" && host.label === clientCopy().localHost
+      ? clientCopy().machine
       : host.label;

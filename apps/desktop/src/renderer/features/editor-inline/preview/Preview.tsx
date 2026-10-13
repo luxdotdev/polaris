@@ -48,6 +48,7 @@ const host: HostView = {
   label: "Mac Studio",
   colour: null,
   alias: null,
+  kind: "local",
   proofHarness: false,
   status: {
     state: "connected",

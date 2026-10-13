@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { HostId, HostInfo } from "@polaris/protocol";
 import type { HostView } from "../../../shared/api.ts";
+import { setClientPlatform } from "../../../shared/platform.ts";
 import { hostView } from "../../routes/fixtures.testing.ts";
 import { buildGroups, emptyLine } from "./rows.ts";
 import type { Listing } from "./useListing.ts";
@@ -67,6 +68,36 @@ describe("buildGroups", () => {
       ["local", "Choose in Finder…"],
     ]);
     expect(groups[0]?.rows[0]?.meta).toBe("workspace");
+  });
+
+  test("a socket Host has no alias but is not the local Host: no folder picker", () => {
+    const groups = buildGroups({
+      host: { ...withHome("bench"), alias: null, kind: "socket" },
+      typed: "~/",
+      listing: listed,
+      workspaces: [],
+      recent: [],
+    });
+
+    expect(groups.some((g) => g.rows.some((r) => r.id === "finder"))).toBe(false);
+  });
+
+  test("a Windows Client's local Host picks in Explorer, not Finder", () => {
+    setClientPlatform("win32");
+
+    try {
+      const groups = buildGroups({
+        host: withHome("local"),
+        typed: "~/",
+        listing: listed,
+        workspaces: [],
+        recent: [],
+      });
+
+      expect(groups.at(-1)?.rows.map((r) => r.title)).toEqual(["Choose in Explorer…"]);
+    } finally {
+      setClientPlatform(null);
+    }
   });
 
   test("nothing listed yet, or a failure: no folder rows", () => {

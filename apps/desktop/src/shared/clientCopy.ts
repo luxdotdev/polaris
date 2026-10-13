@@ -7,6 +7,10 @@ import { type ClientPlatform, clientPlatform, toClientPlatform } from "./platfor
 export interface ClientCopy {
   /** In running text: "this Mac", "this PC". */
   readonly machine: string;
+  /** The local Host's own name, as a label: "This Mac", "This PC". */
+  readonly localHost: string;
+  /** Picking a folder in the OS's own dialog. */
+  readonly chooseFolder: string;
   /** The OS by name, for "A macOS notification" and "Match macOS". */
   readonly os: string;
   /** The menu item that selects a file in the file manager. */
@@ -23,6 +27,8 @@ export interface ClientCopy {
 
 const MAC: ClientCopy = {
   machine: "this Mac",
+  localHost: "This Mac",
+  chooseFolder: "Choose in Finder…",
   os: "macOS",
   reveal: "Reveal in Finder",
   showApp: "Show in Finder",
@@ -34,6 +40,8 @@ const MAC: ClientCopy = {
 
 const WINDOWS: ClientCopy = {
   machine: "this PC",
+  localHost: "This PC",
+  chooseFolder: "Choose in Explorer…",
   os: "Windows",
   reveal: "Show in Explorer",
   showApp: "Show in Explorer",
@@ -44,6 +52,8 @@ const WINDOWS: ClientCopy = {
 
 const LINUX: ClientCopy = {
   machine: "this computer",
+  localHost: "This computer",
+  chooseFolder: "Choose a folder…",
   os: "Linux",
   reveal: "Show in folder",
   showApp: "Show in folder",

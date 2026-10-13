@@ -39,6 +39,7 @@ const view: HostView = {
   label: "This Mac",
   colour: null,
   alias: null,
+  kind: "local",
   proofHarness: false,
   status: {
     state: "reconnecting",
