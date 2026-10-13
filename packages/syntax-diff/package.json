@@ -9,7 +9,7 @@
     "./typescript": "./src/typescript.ts"
   },
   "scripts": {
-    "typecheck": "../../node_modules/.bin/tsc -p .",
+    "typecheck": "node ../../node_modules/typescript/bin/tsc -p .",
     "test": "bun test --pass-with-no-tests"
   },
   "dependencies": {
