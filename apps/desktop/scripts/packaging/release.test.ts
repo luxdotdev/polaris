@@ -127,6 +127,18 @@ describe("release packaging", () => {
 
       return "";
     });
-    expect(commands.map((argv) => argv[0])).toEqual(["ditto"]);
+    expect(commands).toEqual([
+      ["codesign", "--force", "--deep", "--sign", "-", "/app"],
+      ["codesign", "--verify", "--deep", "--strict", "/app"],
+      [
+        "ditto",
+        "-c",
+        "-k",
+        "--sequesterRsrc",
+        "--keepParent",
+        "/app",
+        "/dist/Polaris-0.1.0-arm64-mac.zip",
+      ],
+    ]);
   });
 });

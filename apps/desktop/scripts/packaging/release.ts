@@ -142,6 +142,10 @@ export const updateZip = (
     execute(["codesign", "--verify", "--deep", "--strict", bundle]);
     // @electron/notarize has already stapled the app before packager returns.
     execute(["xcrun", "stapler", "validate", bundle]);
+  } else {
+    // Unsealed, Apple silicon calls a downloaded app "damaged"; ad hoc it gets "Open Anyway".
+    execute(["codesign", "--force", "--deep", "--sign", "-", bundle]);
+    execute(["codesign", "--verify", "--deep", "--strict", bundle]);
   }
 
   const zip = join(outputDir, `Polaris-${version}-arm64-mac.zip`);
