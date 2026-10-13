@@ -13,6 +13,7 @@ The Client runtime: one `HostConnection` per Host, many at once in a `HostRegist
 | `transport.ts` | Transports: a spawned command's stdio (`ssh … polaris bridge`) or the local Unix socket. `Connector` is injectable. |
 | `ssh.ts` | The `ssh` argv. |
 | `failures.ts` | `ConnectFailure` and the stderr / exit-status classifier. |
+| `wsl/` | WSL 2 distros as Hosts on Windows (`@polaris/client/wsl`, experimental): distro discovery, the `wsl.exe --exec` bridge transport and install commands, and a fake `wsl.exe` for tests (`@polaris/client/wsl/testing`). See "WSL" below and docs/adr/0034-wsl-hosts.md. |
 | `usage/` | Usage cost estimates (`@polaris/client/usage`): the price book, per-bucket cost, and the summaries the Usage view shows. See "Usage cost" below. |
 
 ## Usage
@@ -43,12 +44,16 @@ The remote command defaults to the installed Daemon (`DEFAULT_REMOTE_COMMAND`), 
 
 Polaris never writes `known_hosts` (`StrictHostKeyChecking=yes`, `UpdateHostKeys=no`, whatever the user's config says); trusting a new key is the user's own `ssh <alias>`. The ControlMaster is private to Polaris (its own directory, mode 0700), so it never interferes with the user's multiplexing. Everything else (HostName, User, ProxyJump, keys) comes from `~/.ssh/config`. Agent forwarding is off unless the Host's `forwardAgent` toggle is on; then the bridge keeps `~/.polaris/agent.sock` on the Host pointing at the forwarded agent.
 
+## WSL
+
+On Windows, `target: { _tag: "Wsl", distro }` reaches the Linux Daemon inside a WSL 2 distro: `wsl.exe --distribution <distro> --exec /bin/sh -c 'exec ~/.polaris/bin/current/polaris bridge'` over the same `spawnTransport`, with `WSL_UTF8=1`. `wsl.exe`'s own failures become Needs Attention: `wsl-missing` (no `wsl.exe`, or the stub saying WSL is not installed) and `wsl-distro-missing` (the distro was unregistered); the rest is classified as for ssh. `discoverDistros` parses `wsl.exe --list --verbose` (UTF-16LE unless WSL honours `WSL_UTF8`). The Client's bridge process is what keeps the distro running; nothing here has run on real WSL yet (docs/adr/0034-wsl-hosts.md).
+
 ## Connection State
 
 | Situation | State | Retry |
 |---|---|---|
 | Before the first connection, after a drop, transient failures (unreachable, timeout, lost) | Reconnecting | exponential backoff 0.5 s → 2 min (×2, ±20% jitter); the first retry after a drop is immediate |
-| Host key changed / unknown, auth failed (incl. a password or 2FA prompt), bad ssh config, ssh missing | Needs Attention | none until `retryNow` (never hammer sshd with failing auth) |
+| Host key changed / unknown, auth failed (incl. a password or 2FA prompt), bad ssh config, ssh missing, WSL missing or its distro gone | Needs Attention | none until `retryNow` (never hammer sshd with failing auth) |
 | `polaris` not installed, no Daemon running, protocol mismatch | Needs Attention | every 2 min, or `retryNow` after the install / upgrade flow |
 | No Daemon running within 30 s of a drop | Reconnecting | backoff (a Daemon restart or upgrade) |
 | Transient failures for 10 min since the last good connection | Offline | every 10 min, or `retryNow` |

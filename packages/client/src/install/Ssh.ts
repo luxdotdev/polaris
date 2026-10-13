@@ -57,7 +57,7 @@ export const shellQuote = (value: string): string => `'${value.replaceAll("'", `
  */
 export const shScript = (script: string): string => `sh -c ${shellQuote(script)}`;
 
-interface Spawned {
+export interface Spawned {
   readonly alias: string;
   readonly file: string;
   readonly args: ReadonlyArray<string>;
@@ -68,7 +68,15 @@ interface Spawned {
   readonly transportFailure: number | null;
 }
 
-const run = ({ alias, file, args, env, stdinFile, onStdinBytes, transportFailure }: Spawned) =>
+export const runCommand = ({
+  alias,
+  file,
+  args,
+  env,
+  stdinFile,
+  onStdinBytes,
+  transportFailure,
+}: Spawned) =>
   Effect.callback<SshResult, SshError>((resume) => {
     const child = spawn(file, args, {
       stdio: [stdinFile ? "pipe" : "ignore", "pipe", "pipe"],
@@ -147,7 +155,7 @@ export class Ssh extends Context.Service<
       exec: (alias, command, options) =>
         alias.startsWith("-")
           ? Effect.fail(new SshError({ alias, failure: "spawn", message: "invalid alias" }))
-          : run({
+          : runCommand({
               alias,
               file: "ssh",
               args: [
@@ -183,7 +191,7 @@ export class Ssh extends Context.Service<
       Ssh,
       Ssh.of({
         exec: (alias, command, options) =>
-          run({
+          runCommand({
             alias,
             file: "/bin/sh",
             args: ["-c", command],

@@ -55,6 +55,8 @@ export const MANUAL_REASONS: ReadonlySet<ConnectFailure["reason"]> = new Set([
   "ssh-config-error",
   "ssh-missing",
   "command-missing",
+  "wsl-missing",
+  "wsl-distro-missing",
 ]);
 
 export interface ConnectionContext {
