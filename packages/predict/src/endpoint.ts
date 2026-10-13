@@ -1,0 +1,151 @@
+import { PredictionError, type PredictionRequest } from "@polaris/protocol";
+import { Schema } from "effect";
+import { records } from "./records.ts";
+import type { PredictionPrompt } from "./prompt.ts";
+
+interface OpenAiBody {
+  model: string;
+  prompt: string;
+  suffix?: string;
+  stream: boolean;
+  temperature: number;
+  max_tokens: number;
+  stop: readonly string[];
+}
+
+export type PredictionFetch = (url: string, init: RequestInit) => Promise<Response>;
+
+const OpenAiChunk = Schema.Struct({
+  choices: Schema.Array(
+    Schema.Struct({
+      text: Schema.optional(Schema.String),
+      finish_reason: Schema.optional(Schema.NullOr(Schema.String)),
+    })
+  ),
+});
+
+const OllamaChunk = Schema.Struct({ response: Schema.String, done: Schema.Boolean });
+
+const decodeOpenAi = Schema.decodeUnknownSync(Schema.fromJsonString(OpenAiChunk));
+
+const decodeOllama = Schema.decodeUnknownSync(Schema.fromJsonString(OllamaChunk));
+
+export const endpointUrl = (request: PredictionRequest): string => {
+  const url = new URL(request.endpoint.url);
+
+  if (
+    !["http:", "https:"].includes(url.protocol) ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash
+  ) {
+    throw new PredictionError({
+      reason: "invalid-request",
+      message: "Use an HTTP endpoint without credentials, query or fragment",
+    });
+  }
+
+  const path = url.pathname.replace(/\/$/, "");
+  url.pathname =
+    request.endpoint.kind === "ollama"
+      ? `${path}/api/generate`
+      : `${path.endsWith("/v1") ? path : `${path}/v1`}/completions`;
+
+  return url.href;
+};
+
+const requestBody = (request: PredictionRequest, prompt: PredictionPrompt) => {
+  if (request.endpoint.kind === "ollama") {
+    if (request.format === "suffix")
+      throw new PredictionError({
+        reason: "invalid-request",
+        message: "Suffix format requires an OpenAI-compatible endpoint",
+      });
+
+    return {
+      model: request.model,
+      prompt: prompt.prompt,
+      raw: true,
+      stream: true,
+      options: { temperature: 0, num_predict: request.maxTokens, stop: prompt.stop },
+    };
+  }
+
+  const body: OpenAiBody = {
+    model: request.model,
+    prompt: prompt.prompt,
+    stream: true,
+    temperature: 0,
+    max_tokens: request.maxTokens,
+    stop: prompt.stop,
+  };
+
+  if (prompt.suffix !== undefined) body.suffix = prompt.suffix;
+
+  return body;
+};
+
+function parseChunk(data: string, ollama: boolean) {
+  try {
+    if (ollama) {
+      const chunk = decodeOllama(data);
+
+      return { text: chunk.response, done: chunk.done };
+    }
+
+    if (data === "[DONE]") return { text: "", done: true };
+    const chunk = decodeOpenAi(data);
+
+    return {
+      text: chunk.choices[0]?.text ?? "",
+      done: chunk.choices.some((choice) => choice.finish_reason != null),
+    };
+  } catch {
+    throw new PredictionError({
+      reason: "invalid-response",
+      message: "Malformed completion stream",
+    });
+  }
+}
+
+export async function* endpointDeltas(
+  request: PredictionRequest,
+  prompt: PredictionPrompt,
+  signal: AbortSignal,
+  fetcher: PredictionFetch
+) {
+  const response = await fetcher(endpointUrl(request), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: request.endpoint.kind === "ollama" ? "application/x-ndjson" : "text/event-stream",
+    },
+    body: JSON.stringify(requestBody(request, prompt)),
+    signal,
+    redirect: "error",
+    credentials: "omit",
+  });
+
+  if (!response.ok || !response.body) {
+    await response.body?.cancel();
+    throw new PredictionError({
+      reason: "endpoint-failed",
+      message: `Completion endpoint returned HTTP ${response.status}`,
+    });
+  }
+
+  for await (const record of records(response.body, request.endpoint.kind === "ollama", signal)) {
+    signal.throwIfAborted();
+    const chunk = parseChunk(record, request.endpoint.kind === "ollama");
+
+    if (chunk.text) yield chunk.text;
+
+    if (chunk.done) return;
+  }
+
+  throw new PredictionError({
+    reason: "invalid-response",
+    message: "Completion stream ended before its final record",
+  });
+}

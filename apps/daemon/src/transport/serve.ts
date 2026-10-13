@@ -18,6 +18,7 @@ import { installDebugHooks } from "../debug.ts";
 import { Engine } from "../engine/Engine.ts";
 import { EngineRpcHandlers } from "../engine/rpc.ts";
 import { FileSearchLive } from "../files/FileSearch.ts";
+import { PredictionRpcsLive } from "../prediction/index.ts";
 import { InlineRpcsLive } from "../inline/index.ts";
 import { CommitMessageRpcsLive } from "../commitMessage/index.ts";
 import { FilesRpcsLive } from "../files/FilesRpcs.ts";
@@ -96,6 +97,7 @@ const daemonServices = ReviewerLive().pipe(Layer.provideMerge(engineServices));
 export const daemonHandlers = Layer.mergeAll(
   lazyLanguageHandlers,
   InlineRpcsLive,
+  PredictionRpcsLive,
   CommitMessageRpcsLive,
   EngineRpcHandlers,
   ResourceRpcsLive,
@@ -114,6 +116,7 @@ export const daemonHandlers = Layer.mergeAll(
 
 export const daemonCapabilities: ReadonlyArray<Capability> = [
   "inline.propose",
+  "prediction.complete",
   "commit.suggest-message",
   "languages",
   "languages.trust",
