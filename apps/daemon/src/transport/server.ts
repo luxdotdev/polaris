@@ -72,6 +72,8 @@ export interface ServeOptions<ROut, E, RIn> {
    * in-process tests leave it off.
    */
   readonly upgrades?: boolean;
+  /** Told each startup step as it begins, so a stuck startup can say where (`deadline.ts`). */
+  readonly onPhase?: (phase: string) => void;
 }
 
 export interface RunningServer {
@@ -126,6 +128,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
     const defaults = paths();
     const socketPath = options.socketPath ?? defaults.socket;
     const lockPath = options.lockPath ?? defaults.lock;
+    const phase = (name: string) => Effect.sync(() => options.onPhase?.(name));
 
     // After an execve upgrade this process inherits the lock (same pid) and a listener.
     const adopted =
@@ -137,7 +140,9 @@ export const startServer = <ROut = never, E = never, RIn = never>(
           )
         : null;
 
+    yield* phase("taking the Daemon lock");
     yield* acquireLock(lockPath);
+    yield* phase("preparing the socket and Host info");
 
     // The inherited socket still accepts (queued in the old listener), so don't probe it.
     if (adopted === null) yield* prepareSocketPath(socketPath);
@@ -234,6 +239,8 @@ export const startServer = <ROut = never, E = never, RIn = never>(
         })
       );
     });
+
+    yield* phase("starting the Daemon's services (event store, Engine, Constellations)");
 
     const handlers = yield* Layer.build(
       Layer.merge(
@@ -335,6 +342,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       );
 
     const scope = yield* Effect.scope;
+    yield* phase(`listening on ${socketPath}`);
     const listener = yield* listen(socketPath);
     yield* listener.connections.pipe(
       Stream.runForEach((transport) => Effect.forkIn(serveConnection(transport), scope)),

@@ -53,3 +53,9 @@ test("per-kind decoding rejects unknown tags and malformed nested payloads befor
     expect(() => EventJson.decode(text)).toThrow();
   }
 });
+
+test("an event from a newer Daemon is named as such, not as a schema mismatch", () => {
+  expect(() => EventJson.decode(`{"_tag":"SessionFromTheFuture","sessionId":"s"}`)).toThrow(
+    'the event log holds a "SessionFromTheFuture" event, which this Daemon does not know'
+  );
+});

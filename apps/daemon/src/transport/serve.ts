@@ -44,6 +44,7 @@ import { TerminalsDaemonLive } from "../terminal/Terminals.ts";
 import { UsageIndexLive, UsageRpcsLive, UsageSessions } from "../usage/index.ts";
 import { ResourceRpcsLive } from "../resources/rpc.ts";
 import { startServer } from "./server.ts";
+import { armShutdownGrace, deadline, exitStuck, STARTUP_DEADLINE_MS } from "./deadline.ts";
 import { lazyLanguageHandlers } from "./lazyLanguages.ts";
 
 /** Exit status when another Daemon already holds the lock or answers on the socket. */
@@ -187,16 +188,31 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
 
 export const serveProgram = Effect.scoped(
   Effect.gen(function* () {
+    const startup = yield* Effect.acquireRelease(
+      Effect.sync(() =>
+        deadline("taking the upgrade hand-off", {
+          ms: STARTUP_DEADLINE_MS,
+          onExpire: exitStuck("startup"),
+        })
+      ),
+      (armed) => Effect.sync(armed.clear)
+    );
+
     yield* takeHandoff();
 
     // Adopt descriptors before the login-shell PATH probe or any handler starts a child.
+    startup.phase("probing the login shell's PATH");
+
     if (!bench) process.env.PATH = userPath({ env: process.env });
 
     const server = yield* startServer({
       handlers: daemonHandlers,
       capabilities: daemonCapabilities,
       upgrades: true,
+      onPhase: startup.phase,
     });
+
+    startup.clear();
 
     // Return temporary startup allocations once every handler and listener is installed.
     yield* releaseMemory;
@@ -216,5 +232,6 @@ export const serveProgram = Effect.scoped(
 
 export const runServe = () => {
   installDebugHooks();
+  armShutdownGrace();
   BunRuntime.runMain(serveProgram);
 };
