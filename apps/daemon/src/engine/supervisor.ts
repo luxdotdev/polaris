@@ -473,7 +473,8 @@ const make = (
             openHarness(sessionId),
             session?.harness ?? "harness",
             rt.config.harnessStartTimeout ?? DEFAULT_HARNESS_START_TIMEOUT,
-            shortHostName()
+            shortHostName(),
+            sessionId
           );
 
           yield* rt.signal(sessionId, { type: "harness.opened" });

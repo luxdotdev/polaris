@@ -207,7 +207,8 @@ export interface HostConnection {
   readonly retryNow: Effect.Effect<void>;
 }
 
-const connectorFor = (options: HostConnectionOptions): Connector => {
+/** The transport the target implies, unless `options.connector` replaces it. */
+export const connectorFor = (options: HostConnectionOptions): Connector => {
   if (options.connector !== undefined) return options.connector;
 
   return HostTarget.$match(options.target, {
@@ -222,7 +223,9 @@ const connectorFor = (options: HostConnectionOptions): Connector => {
             ...options.ssh,
             controlDir,
             forwardAgent: target.forwardAgent ?? false,
-          })
+          }),
+          // A configured sshBinary is still ssh, whatever its name.
+          { spawnFailureReason: "ssh-missing" }
         );
       }),
     Wsl: (target) => {

@@ -80,7 +80,7 @@ export const AboutPage = () => {
     ],
     ["Version", view.version],
     ["Arch", view.arch],
-    [platform.os, view.macOSVersion],
+    [platform.os, view.osVersion],
   ];
 
   return (

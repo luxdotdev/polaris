@@ -38,6 +38,8 @@ export interface SpawnOptions {
   }) => ConnectFailure;
   /** The reason when the command itself can't be spawned; default by the command's name. */
   readonly spawnFailureReason?: NeedsAttentionReason;
+  /** Starts the process; `node:child_process`'s by default (tests record the options). */
+  readonly spawn?: typeof spawn;
 }
 
 /** Runs `argv` and speaks the wire over its stdin/stdout. */
@@ -66,9 +68,11 @@ export const spawnTransport = (
 
     const { child, incoming } = yield* Effect.acquireRelease(
       Effect.sync(() => {
-        const child = spawn(command, args, {
+        // windowsHide: a GUI parent on Windows would give ssh.exe or wsl.exe a console window.
+        const child = (options.spawn ?? spawn)(command, args, {
           stdio: ["pipe", "pipe", "pipe"],
           env: options.env ?? process.env,
+          windowsHide: true,
         });
 
         child.on("error", (error: NodeJS.ErrnoException) => {

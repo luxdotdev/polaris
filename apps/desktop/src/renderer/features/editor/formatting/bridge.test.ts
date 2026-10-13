@@ -181,6 +181,7 @@ const app = {
       label: "fixture",
       colour: null,
       alias: null,
+      kind: "local",
       proofHarness: false,
       status: {
         state: "connected",

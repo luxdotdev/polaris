@@ -20,6 +20,7 @@ import {
   SubscriptionRef,
 } from "effect";
 import type { MachineView, SshAliasView, WslDistrosView } from "../../shared/api.ts";
+import { clientCopy } from "../../shared/clientCopy.ts";
 import { HostDirectory, LOCAL_HOST_KEY, localEntry, remoteEntry } from "../hosts.ts";
 import { localHostEnabled, type LocalDaemon } from "../localDaemon.ts";
 import type { RemoteHostSetting, Settings } from "../settings.ts";
@@ -66,7 +67,7 @@ export interface MachinesInput {
    * a start; rejects with why it doesn't (its log). Absent, nothing is awaited.
    */
   readonly localListening?: (home: string) => Promise<void>;
-  /** Opens Terminal on this Mac running `argv`. */
+  /** Opens a terminal window on this Client running `argv`. */
   readonly openTerminal: (argv: ReadonlyArray<string>) => Promise<void>;
   /** How install commands reach a Host (`Ssh.layer`; tests replace it). */
   readonly ssh: Layer.Layer<Ssh>;
@@ -97,8 +98,6 @@ type Failure = { readonly message: string };
 
 /** What a check is doing while it runs, under the card's "Checking <host>". */
 const PROBING = "Asking over SSH for the platform and any installed daemon.";
-
-const PROBING_LOCAL = "Checking the daemon installed on this Mac.";
 
 const COPYING = "Copying the build over SSH and checking its SHA-256";
 
@@ -156,6 +155,7 @@ export class Machines extends Context.Service<
 
 const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
   const localAvailable = localHostEnabled(true, input.platform);
+  const copy = clientCopy(input.platform);
   const dir = yield* HostDirectory;
   const scope = yield* Effect.scope;
   const installs = new Map<string, InstallRecord>();
@@ -209,7 +209,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
         ssh: Ssh.local(home),
         local: true,
         home,
-        probing: PROBING_LOCAL,
+        probing: `Checking the daemon installed on ${copy.machine}.`,
         copying: COPYING_LOCAL,
       };
     }
@@ -234,7 +234,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
       : !localAvailable
         ? fail("A local Windows Daemon is not supported.")
         : input.localHome() === null
-          ? fail("this Mac's daemon is the app's own, not one Polaris installed")
+          ? fail(`${copy.machine}'s daemon is the app's own, not one Polaris installed`)
           : Effect.void;
 
   /** Waits for this Mac's Daemon to listen after an install or start. */
@@ -405,7 +405,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
 
       if (updateOnly && installsAnew(plan)) {
         const message = to.local
-          ? "This Mac has no daemon Polaris installed yet. Use Install first."
+          ? `${copy.localHost} has no daemon Polaris installed yet. Use Install first.`
           : "No daemon is installed. Use Install daemon first.";
 
         yield* step(key, { type: "failed", problem: { kind: "failed", message, command: null } });
@@ -562,6 +562,10 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
 
   const add = (machine: AddMachine) =>
     Effect.gen(function* () {
+      if (machine.alias === LOCAL_HOST_KEY) {
+        return yield* fail(`Polaris names ${copy.machine} "local"; rename the alias to add it`);
+      }
+
       if (remoteSetting(machine.alias) !== undefined) {
         return yield* fail(`${machine.alias} is already a host`);
       }
@@ -625,7 +629,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
       }
 
       input.approvals.approve(key, { ...offer, approvedAt: Date.now() });
-      const approved = yield* step(key, { type: "approve" }, PROBING);
+      const approved = yield* step(key, { type: "approve" }, target(key).probing);
 
       if (approved.value === "checking") {
         yield* updateFacts(key, { progress: { stage: "checking", bytes: 0, total: 0 } });

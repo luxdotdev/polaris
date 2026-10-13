@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync } from "node:fs";
+import { existsSync, watch } from "node:fs";
 import { join } from "node:path";
 import { Effect, Fiber, Stream } from "effect";
 import { type WorktreeInfo, WorktreeTracker } from "../services.ts";
 import { gitText, runGitRaw } from "./git.ts";
 import { commitAll, makeRepo, removeDir, tempDir, write } from "./testing.ts";
-import { parseWorktreeList, WorktreeTrackerLive } from "./WorktreeTracker.ts";
+import { parseWorktreeList, watchWorktrees, WorktreeTrackerLive } from "./WorktreeTracker.ts";
 
 const cleanup: Array<string> = [];
 
@@ -108,6 +108,49 @@ describe("WorktreeTracker", () => {
     await tracker((t) => t.remove({ repoPath: root, path: unmerged, deleteBranchIfMerged: true }));
     expect(existsSync(unmerged)).toBe(false);
     expect(await branchExists(root, "unmerged")).toBe(true);
+  });
+
+  test("on Linux each worktree gets a shallow watch that sees its HEAD move", async () => {
+    const root = await makeRepo();
+    const outside = tempDir("polaris-wt-");
+    cleanup.push(root, outside);
+    const external = join(outside, "external");
+    const opened: Array<{ path: string; recursive: boolean }> = [];
+    const seen: Array<ReadonlyArray<WorktreeInfo>> = [];
+
+    const waitFor = async (predicate: (list: ReadonlyArray<WorktreeInfo>) => boolean) => {
+      const deadline = Date.now() + 5000;
+
+      while (Date.now() < deadline) {
+        if (seen.some(predicate)) return;
+        await Bun.sleep(25);
+      }
+
+      throw new Error(`timed out; saw ${JSON.stringify(seen)}`);
+    };
+
+    const fiber = Effect.runFork(
+      watchWorktrees(root, {
+        platform: "linux",
+        open: (path, recursive, changed) => {
+          opened.push({ path, recursive });
+
+          return watch(path, { recursive: false }, changed);
+        },
+      }).pipe(Stream.runForEach((list) => Effect.sync(() => seen.push(list))))
+    );
+
+    try {
+      await waitFor((list) => list.length === 1);
+      await gitText(root, ["worktree", "add", "-q", "-b", "ext", external]);
+      await waitFor((list) => list.some((w) => w.branch === "ext"));
+      await gitText(external, ["switch", "-q", "-c", "moved"]);
+      await waitFor((list) => list.some((w) => w.branch === "moved"));
+      expect(opened.some((o) => o.path.endsWith(join("worktrees", "external")))).toBe(true);
+      expect(opened.every((o) => !o.recursive)).toBe(true);
+    } finally {
+      await Effect.runPromise(Fiber.interrupt(fiber));
+    }
   });
 
   test("watch detects a worktree created and removed outside Polaris", async () => {

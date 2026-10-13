@@ -40,6 +40,7 @@ const host: HostView = {
   key: "remote",
   label: "Remote",
   alias: "fake",
+  kind: "ssh",
   colour: null,
   proofHarness: false,
   status: {

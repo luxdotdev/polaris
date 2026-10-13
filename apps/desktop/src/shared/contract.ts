@@ -231,7 +231,7 @@ export const RequestInputs = {
   "shell.openExternal": Schema.Struct({
     url: Schema.String.check(Schema.isPattern(/^https:\/\//)),
   }),
-  /** Shows a file or folder in Finder; this Mac's Host only, an absolute path. */
+  /** Shows a file or folder in Finder or Explorer: the local Host's, or a WSL distro's (`main/reveal.ts`). */
   "shell.revealInFinder": onHost({ path: Schema.String.check(Schema.isPattern(/^\//)) }),
   "host.retryNow": onHost({}),
   dispatch: onHost({ commandId: CommandId, command: Command }),
@@ -352,8 +352,6 @@ export const RequestInputs = {
     turnTitles: Schema.Array(Schema.String),
   }),
   "session.pushAccepted": onHost({ sessionId: SessionId, branch: Schema.String }),
-  /** Probe a remote Host and plan an install or upgrade; installs only with an approved SHA-256. */
-  "install.ensure": onHost({ approvedSha256: Schema.NullOr(Schema.String) }),
   /** The literal `Host` aliases in `~/.ssh/config` (Includes followed, wildcards skipped). */
   "machines.sshAliases": Schema.Struct({}),
   /** The WSL distros on this Windows machine (`unsupported` elsewhere). */
@@ -391,7 +389,7 @@ export const RequestInputs = {
   /** Switch the local Host on or off on this machine. */
   "machines.setLocalEnabled": Schema.Struct({ enabled: Schema.Boolean }),
   /**
-   * Opens macOS Terminal on this Mac running `ssh <alias>` (to trust a host key); the
+   * Opens a terminal on this Client running `ssh <alias>` (to trust a host key); the
    * fallback when the local Host is off, since the in-app terminal runs on a Daemon.
    */
   "machines.openSsh": onHost({}),

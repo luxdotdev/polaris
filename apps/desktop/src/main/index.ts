@@ -9,9 +9,9 @@ import { createPredictionBridge } from "./prediction/bridge.ts";
  *   POLARIS_DESKTOP_HIDDEN=1          never show the window (smoke tests, benchmarks)
  *   ELECTRON_RENDERER_URL=<url>       dev: load the renderer from the Vite server
  *   POLARIS_DESKTOP_EXTRA_HOSTS=<json> screenshots and tests: [{ key, label, socket }] as more Hosts
- *   POLARIS_DESKTOP_LOCAL_LABEL=<name> the local Host's name (default "This Mac")
+ *   POLARIS_DESKTOP_LOCAL_LABEL=<name> the local Host's name (default clientCopy().localHost, "This Mac")
  */
-import { existsSync, mkdtempSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -184,7 +184,7 @@ const start = async () => {
     native: autoUpdater,
     version: app.getVersion(),
     installId: installId(app.getPath("userData")),
-    macOSVersion: process.getSystemVersion(),
+    osVersion: process.getSystemVersion(),
     platform: process.platform,
     firstRun: process.platform === "win32" && process.argv.includes("--squirrel-firstrun"),
     arch: process.arch,
@@ -346,8 +346,6 @@ const start = async () => {
   languageIpc = registerLanguageIpc(ipcMain, languageRuntime.api, trusted);
   followFocus(runtime);
 
-  const daemonDist = join(repoRoot, "apps/daemon/dist");
-
   const predictionSettings = new PredictionSettings(
     () => settings,
     (value) => updateSettings(() => value)
@@ -388,7 +386,6 @@ const start = async () => {
       appVersion: app.getVersion(),
       proofWorkspace: () =>
         localDaemon?.benchHarness === true ? mkdtempSync(join(tmpdir(), "polaris-proof-")) : null,
-      daemonDist: existsSync(join(daemonDist, "manifest.json")) ? daemonDist : null,
       writeClipboard: async (text) => clipboard.writeText(text),
       // The one main window; a hidden one (smoke runs) has no focus to find it by.
       editAction: (action) =>

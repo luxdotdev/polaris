@@ -29,13 +29,22 @@ import {
   Stream,
   SubscriptionRef,
 } from "effect";
-import type { ConnectionStatusView, HostView, IpcError } from "../shared/api.ts";
+import type { ConnectionStatusView, HostKind, HostView, IpcError } from "../shared/api.ts";
 import type { GitHub } from "./github/index.ts";
 import type { LocalDaemon } from "./localDaemon.ts";
 import type { Machines } from "./machines/service.ts";
 import type { RemoteHostSetting } from "./settings.ts";
+import { clientCopy } from "../shared/clientCopy.ts";
 
 export const LOCAL_HOST_KEY = "local";
+
+/** The local Host by its key; any other socket target is an extra Host's. */
+export const hostKind = (entry: Pick<HostEntry, "key" | "target">): HostKind =>
+  HostTarget.$match(entry.target, {
+    Local: (): HostKind => (entry.key === LOCAL_HOST_KEY ? "local" : "socket"),
+    Ssh: (): HostKind => "ssh",
+    Wsl: (): HostKind => "wsl",
+  });
 
 export class UnknownHost extends Error {
   readonly _tag = "UnknownHost";
@@ -98,6 +107,7 @@ export const hostView = (
     label: entry.label,
     colour: entry.colour,
     alias: entry.alias,
+    kind: hostKind(entry),
     proofHarness: entry.proofHarness,
     status: {
       ...statusView(status),
@@ -131,7 +141,7 @@ export interface HostEntriesInput {
   readonly local: LocalDaemon | null;
   readonly remotes: ReadonlyArray<RemoteHostSetting>;
   readonly extras?: ReadonlyArray<ExtraHost>;
-  /** The local Host's name; "This Mac" by default. */
+  /** The local Host's name; `clientCopy().localHost` ("This Mac") by default. */
   readonly localLabel?: string;
 }
 
@@ -140,7 +150,7 @@ export const hostEntries = ({
   local,
   remotes,
   extras = [],
-  localLabel = "This Mac",
+  localLabel = clientCopy().localHost,
 }: HostEntriesInput): ReadonlyArray<HostEntry> => {
   const seen = new Set<string>([LOCAL_HOST_KEY]);
 
@@ -170,7 +180,7 @@ export const hostEntries = ({
   return entries;
 };
 
-export const localEntry = (local: LocalDaemon, label = "This Mac"): HostEntry => ({
+export const localEntry = (local: LocalDaemon, label = clientCopy().localHost): HostEntry => ({
   key: LOCAL_HOST_KEY,
   label,
   colour: null,

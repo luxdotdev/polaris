@@ -7,6 +7,14 @@ import { type ClientPlatform, clientPlatform, toClientPlatform } from "./platfor
 export interface ClientCopy {
   /** In running text: "this Mac", "this PC". */
   readonly machine: string;
+  /** The local Host's own name, as a label: "This Mac", "This PC". */
+  readonly localHost: string;
+  /** Picking a folder in the OS's own dialog. */
+  readonly chooseFolder: string;
+  /** Where to start Polaris again so it can reach the token store. */
+  readonly relaunch: string;
+  /** The token store refused this session, as a title. */
+  readonly tokenStoreBlockedTitle: string;
   /** The OS by name, for "A macOS notification" and "Match macOS". */
   readonly os: string;
   /** The menu item that selects a file in the file manager. */
@@ -23,6 +31,10 @@ export interface ClientCopy {
 
 const MAC: ClientCopy = {
   machine: "this Mac",
+  localHost: "This Mac",
+  chooseFolder: "Choose in Finder…",
+  relaunch: "Open Polaris from the Dock or Finder",
+  tokenStoreBlockedTitle: "Polaris can’t use the macOS Keychain from this session",
   os: "macOS",
   reveal: "Reveal in Finder",
   showApp: "Show in Finder",
@@ -34,6 +46,10 @@ const MAC: ClientCopy = {
 
 const WINDOWS: ClientCopy = {
   machine: "this PC",
+  localHost: "This PC",
+  chooseFolder: "Choose in Explorer…",
+  relaunch: "Open Polaris from the Start menu",
+  tokenStoreBlockedTitle: "Polaris can’t encrypt tokens from this session",
   os: "Windows",
   reveal: "Show in Explorer",
   showApp: "Show in Explorer",
@@ -44,6 +60,10 @@ const WINDOWS: ClientCopy = {
 
 const LINUX: ClientCopy = {
   machine: "this computer",
+  localHost: "This computer",
+  chooseFolder: "Choose a folder…",
+  relaunch: "Open Polaris from your app launcher",
+  tokenStoreBlockedTitle: "Polaris can’t use the system keyring from this session",
   os: "Linux",
   reveal: "Show in folder",
   showApp: "Show in folder",
@@ -62,3 +82,10 @@ const COPY: Readonly<Record<ClientPlatform, ClientCopy>> = {
 /** This Client's copy; pass a platform (any `process.platform` value) to name another's. */
 export const clientCopy = (platform: string = clientPlatform()): ClientCopy =>
   COPY[toClientPlatform(platform)];
+
+/**
+ * A Host's label inside a sentence: the local Host's default name is a description, not a
+ * proper noun, so "This Mac" reads "this Mac" (rule/glossary-lowercase); given names stay.
+ */
+export const inSentence = (label: string, copy: ClientCopy = clientCopy()): string =>
+  label.toLowerCase() === copy.localHost.toLowerCase() ? copy.machine : label;

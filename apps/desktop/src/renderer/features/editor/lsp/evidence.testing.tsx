@@ -71,6 +71,7 @@ const host: AppState["hosts"][number] = {
   label: "Scripted Host",
   colour: null,
   alias: null,
+  kind: "local",
   proofHarness: false,
   status: {
     state: "connected",

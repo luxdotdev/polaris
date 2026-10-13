@@ -2,6 +2,7 @@
  * "Check out on": every Host whose Workspace holds the pull request's repository, the last
  * used first (ENG-185), then in the PR list's order. Pure over plain facts.
  */
+import { clientCopy, inSentence } from "../../../../../shared/clientCopy.ts";
 
 export interface Place {
   readonly hostKey: string;
@@ -80,7 +81,7 @@ export const hostChoices = (input: ChoicesInput): ReadonlyArray<HostChoice> => {
       const caption = [
         place.hostKey === input.lastHostKey ? "last used" : null,
         // The local Host's own name may already say so ("This Mac").
-        host.local && host.label.toLowerCase() !== "this mac" ? "this Mac" : null,
+        host.local && inSentence(host.label) === host.label ? clientCopy().machine : null,
         input.workspaceName(place),
       ]
         .filter((part) => part !== null)

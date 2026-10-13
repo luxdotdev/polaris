@@ -1,5 +1,6 @@
 /** Quiet Upgrade notes: one hour in the machine bar, one day in Hosts. */
 import type { DaemonUpdateResult } from "../../../../shared/daemonUpdates.ts";
+import { clientCopy } from "../../../../shared/clientCopy.ts";
 
 export const UPGRADE_CAPTION_MS = 60 * 60 * 1000;
 
@@ -40,6 +41,6 @@ export const upgradeHover = (
 
   return {
     title: `Daemon upgraded to ${last.version} · ${ago}`,
-    body: `${last.from === null ? "Upgraded" : `From ${last.from}`}, to match this Mac. Agent sessions kept working.`,
+    body: `${last.from === null ? "Upgraded" : `From ${last.from}`}, to match ${clientCopy().machine}. Agent sessions kept working.`,
   };
 };

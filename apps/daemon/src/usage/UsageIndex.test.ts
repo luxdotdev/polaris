@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
-import { existsSync } from "node:fs";
+import { existsSync, watch } from "node:fs";
 import { join } from "node:path";
 import { PlanLimit, SessionId, UsageStreamItem } from "@polaris/protocol";
 import { Deferred, Effect, Fiber, Layer, Queue, Schema, type Scope, Stream } from "effect";
@@ -295,6 +295,53 @@ describe("UsageIndex", () => {
     // Only the file watcher indexes the second line: nothing else runs a pass after it.
     const hours = items.flatMap((i) => (isUsageChanged(i) ? i.buckets.map((b) => b.hour) : []));
     expect(hours).toEqual(["2026-09-01T10:00:00.000Z", "2026-09-01T11:00:00.000Z"]);
+  });
+
+  test("on Linux the logs are watched one directory at a time, never as a native tree", async () => {
+    const opened: Array<{ path: string; recursive: boolean }> = [];
+
+    const { host, transcript, run } = setup([], {
+      watch: {
+        platform: "linux",
+        open: (path, recursive, changed) => {
+          opened.push({ path, recursive });
+
+          return watch(path, { recursive: false }, (event, name) => {
+            if (name !== null) changed(event, join(path, name.toString()));
+          });
+        },
+      },
+    });
+
+    const file = host.append(
+      transcript("n"),
+      claudeLine({ session: "n", ts: "2026-09-01T10:00:00Z", msg: "a" })
+    );
+
+    const items = await run(() =>
+      Effect.gen(function* () {
+        const client = yield* RpcTest.makeClient(UsageRpcs);
+        const updates = yield* Queue.unbounded<UsageStreamItem>();
+        yield* client["usage.watch"]({}).pipe(
+          Stream.runForEach((i) => Queue.offer(updates, i)),
+          Effect.forkChild
+        );
+        yield* client["usage.query"](day);
+        host.append(file, claudeLine({ session: "n", ts: "2026-09-01T11:00:00Z", msg: "b" }));
+
+        // Only the project directory's own watch can index the second line.
+        for (;;) {
+          const item = yield* Queue.take(updates);
+
+          if (isUsageChanged(item) && item.buckets.some((b) => b.hour.startsWith("2026-09-01T11")))
+            return item;
+        }
+      })
+    );
+
+    expect(isUsageChanged(items)).toBe(true);
+    expect(opened.map((o) => o.path)).toContain(join(host.claudeProjects, "-code-app"));
+    expect(opened.every((o) => !o.recursive)).toBe(true);
   });
 
   test("a Turn's end catches the index up; a new cursor moves its Usage to the Agent Session", async () => {

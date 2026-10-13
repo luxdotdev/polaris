@@ -77,6 +77,9 @@ import { type ClaudePlanLimits, claudePlanLimitReader } from "./planLimits.ts";
 import { usageLimitWatch } from "./usageLimit.ts";
 import { ClaudeTranslator } from "./translate.ts";
 import { readOnlyOptions } from "./readOnly.ts";
+import { withoutShadowedWarning } from "./sdkWarnings.ts";
+import { claudeStartLog } from "./startLog.ts";
+import { logStart } from "../startLog.ts";
 import { type ClaudeSandbox, describeSandboxFailure, probeClaudeSandbox } from "./sandbox.ts";
 import { shortHostName } from "../../service/hostName.ts";
 import { which } from "../../service/userPath.ts";
@@ -192,6 +195,24 @@ interface ActiveTurn {
   resultArrived: boolean;
 }
 
+/** Starts the query; the SDK's expected shadowed-`canUseTool` warning becomes one debug line. */
+const startQuery = Effect.fnUntraced(function* (
+  query: QueryFn,
+  params: Parameters<QueryFn>[0],
+  sessionId: string
+) {
+  const started = yield* Effect.try({
+    try: () => withoutShadowedWarning(() => query(params)),
+    catch: (cause) => harnessError("Could not start Claude Code", cause),
+  });
+
+  if (started.shadowed !== null)
+    yield* Effect.logDebug(`session ${sessionId}: ${started.shadowed}`);
+  yield* logStart(sessionId, "Claude Code started; waiting for it to be ready");
+
+  return started.value;
+});
+
 const openSession = Effect.fnUntraced(function* (
   driver: Required<Pick<ClaudeDriverOptions, "query" | "claudePath">> &
     ClaudeDriverOptions & { readonly limits: ClaudePlanLimits | null },
@@ -201,6 +222,9 @@ const openSession = Effect.fnUntraced(function* (
 
   if (claudePath === null)
     return yield* harnessError("Claude Code is not installed: `claude` was not found on PATH");
+  yield* logStart(options.sessionId, `starting Claude Code at ${claudePath}`);
+  const context = yield* Effect.context<never>();
+  const startLog = claudeStartLog(options.sessionId, (log) => Effect.runForkWith(context)(log));
 
   const scope = yield* Scope.Scope;
   const sandbox = driver.sandbox ?? (() => probeClaudeSandbox());
@@ -386,10 +410,11 @@ const openSession = Effect.fnUntraced(function* (
 
   if (driver.onStderr) sdkOptions.stderr = driver.onStderr;
 
-  const q = yield* Effect.try({
-    try: () => driver.query({ prompt: inbox, options: sdkOptions }),
-    catch: (cause) => harnessError("Could not start Claude Code", cause),
-  });
+  const q = yield* startQuery(
+    driver.query,
+    { prompt: inbox, options: sdkOptions },
+    options.sessionId
+  );
 
   const limits = driver.limits ? claudePlanLimitReader(driver.limits, q) : null;
   limits?.read();
@@ -415,6 +440,7 @@ const openSession = Effect.fnUntraced(function* (
   const finish = (error: string | null) => {
     if (exited) return;
     exited = true;
+    startLog.onExit(error);
     withdrawAll("Claude Code stopped.");
     endTurn(error === null && closing ? "interrupted" : "failed", error ?? "Claude Code exited");
     emit(HarnessEvent.Exited({ error: error === null ? null : human(error) }));
@@ -474,6 +500,7 @@ const openSession = Effect.fnUntraced(function* (
   };
 
   const onMessage = (message: SDKMessage) => {
+    startLog.onMessage(message);
     const error = messageAutoFallback(permissionMode, message, options.readOnly);
 
     if (error !== null) {

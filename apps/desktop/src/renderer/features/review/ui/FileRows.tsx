@@ -7,6 +7,7 @@ import type { Fold } from "../model/fileList.ts";
 import type { ReviewFile } from "../model/layout.ts";
 import type { MarkSeverity } from "../model/marks.ts";
 import { ReviewFileMenu } from "./fileMenu.tsx";
+import { clientCopy } from "../../../../shared/clientCopy.ts";
 
 export const Check = ({ checked }: { readonly checked: boolean }) => (
   <span
@@ -47,8 +48,8 @@ const FOLD_TITLES: Partial<Record<Fold, (row: FoldRowModel) => string>> = {
   generated: () => "Lockfiles and generated files; not counted as viewed",
   tests: (row) =>
     row.open
-      ? "Hide test files on this Mac; tests with findings stay"
-      : `Show ${plural(row.count, "test file", "test files")} in the diff · Hidden on this Mac · tests with findings stay`,
+      ? `Hide test files on ${clientCopy().machine}; tests with findings stay`
+      : `Show ${plural(row.count, "test file", "test files")} in the diff · Hidden on ${clientCopy().machine} · tests with findings stay`,
 };
 
 export const FoldRow = ({

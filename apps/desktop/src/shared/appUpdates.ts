@@ -6,7 +6,8 @@ export interface AppUpdateView {
   readonly automatic: boolean;
   readonly lastCheckedAt: number | null;
   readonly installId: string;
-  readonly macOSVersion: string;
+  /** The Client OS's own version (macOS 26.1, Windows 10.0.26100), for About and the update feed. */
+  readonly osVersion: string;
   readonly platform?: string;
   readonly arch: string;
   readonly supported: boolean;

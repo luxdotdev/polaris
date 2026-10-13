@@ -61,6 +61,7 @@ const host = (
   label,
   colour: null,
   alias: key === LOCAL ? null : key,
+  kind: key === LOCAL ? "local" : "ssh",
   proofHarness: false,
   status: {
     state,

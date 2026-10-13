@@ -40,7 +40,7 @@ export const usePlaces = (pull: OpenPull): ReadonlyArray<Place> =>
 const placeHost = (h: HostView): PlaceHost => ({
   key: h.key,
   label: h.label,
-  local: h.alias === null,
+  local: h.kind === "local",
   state: h.status.state,
   latencyMs: h.status.latencyMs,
 });

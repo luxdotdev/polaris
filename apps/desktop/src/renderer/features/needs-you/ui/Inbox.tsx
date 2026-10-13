@@ -38,6 +38,7 @@ import type {
   WaitingSession,
 } from "../model/inbox.ts";
 import { approve, continueTurn, deny, retryTurn, takeBack } from "../respond.ts";
+import { clientCopy } from "../../../../shared/clientCopy.ts";
 
 /** "Host · Workspace · age"; without `iso`, just where. */
 export const where = (place: Place, iso: string | null, now: number) =>
@@ -75,7 +76,7 @@ const Dismissable = ({
       <TooltipTrigger asChild>
         <button
           type="button"
-          aria-label="Dismiss on this Mac"
+          aria-label={`Dismiss on ${clientCopy().machine}`}
           data-testid="dismiss"
           onClick={() => dismiss([item])}
           className={cn(
@@ -87,7 +88,7 @@ const Dismissable = ({
         </button>
       </TooltipTrigger>
       <TooltipContent className="h-auto flex-col items-start gap-0.5 py-1.5">
-        <span className="text-text-strong font-medium">Dismiss on this Mac</span>
+        <span className="text-text-strong font-medium">Dismiss on {clientCopy().machine}</span>
         <span className="text-text-subtle">It comes back if the session changes</span>
       </TooltipContent>
     </Tooltip>
@@ -244,7 +245,7 @@ const DismissedLine = ({ hidden }: { readonly hidden: number }) =>
       className="text-caption text-text-subtle flex items-center gap-1.5 px-1.5 pt-2"
       data-testid="dismissed-line"
     >
-      {hidden} dismissed on this Mac
+      {hidden} dismissed on {clientCopy().machine}
       <span className="text-text-faint">·</span>
       <button
         type="button"

@@ -16,7 +16,6 @@ import type {
   Appearance,
   FileContentView,
   SessionDefault,
-  InstallView,
   IpcError,
   RequestOutput,
 } from "../../shared/api.ts";
@@ -26,7 +25,8 @@ import {
   type RequestMethod,
   type SessionPrefsPatch,
 } from "../../shared/contract.ts";
-import { type ClientServices, HostDirectory, LOCAL_HOST_KEY, toIpcError } from "../hosts.ts";
+import { type ClientServices, HostDirectory, toIpcError } from "../hosts.ts";
+import { revealPath } from "../reveal.ts";
 import { githubHandlers } from "../github/ipc.ts";
 import { gitHandlers } from "./git.ts";
 import { constellationHandlers, resourceHandlers } from "./constellation.ts";
@@ -36,7 +36,6 @@ import { appearanceOf, sessionPrefsOf, type Settings } from "../settings.ts";
 import { estimate, type Prices } from "../prices.ts";
 import { pricedStats } from "./constellationStats.ts";
 import type { SnapshotCache } from "../snapshotCache.ts";
-import { ensureInstalled } from "./install.ts";
 import { publishDirty, savedAll } from "../editorDirty.ts";
 import type { AppUpdates } from "../updates/index.ts";
 import type { PredictionBridge } from "../prediction/bridge.ts";
@@ -57,7 +56,7 @@ export interface RequestContext {
   readonly setSessionDefault: (harness: string, value: SessionDefault | null) => void;
   readonly setSessions: (patch: SessionPrefsPatch) => void;
   readonly openExternal: (url: string) => Promise<void>;
-  /** Finder, selecting the item at an absolute path on this Mac. */
+  /** Finder or Explorer, selecting the item at a path on this Client (a `\\wsl.localhost` one included). */
   readonly revealInFinder: (path: string) => void;
   /** A fresh temp directory, or null when the local Daemon doesn't run the bench Harness. */
   readonly proofWorkspace: () => string | null;
@@ -67,8 +66,6 @@ export interface RequestContext {
   readonly appVersion: string;
   /** The native folder picker on the focused window; null when cancelled. */
   readonly pickFolder: () => Promise<string | null>;
-  /** The bundled Daemon builds (`manifest.json`), or null when this build has none. */
-  readonly daemonDist: string | null;
   readonly writeClipboard: (text: string) => Promise<void>;
   /** Cut, Copy, Paste or Select All in the focused window, as its Edit menu would. */
   readonly editAction: (action: "cut" | "copy" | "paste" | "selectAll") => void;
@@ -119,14 +116,6 @@ const plainVersion = (v: FileVersion): FileVersionView => ({
   mtimeMs: v.mtimeMs,
   size: v.size,
   hash: v.hash,
-});
-
-const local = (): InstallView => ({
-  result: "Local",
-  platform: null,
-  version: null,
-  sha256: null,
-  command: null,
 });
 
 export const requestHandlers = (ctx: RequestContext): Handlers => ({
@@ -242,12 +231,16 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
       catch: (cause): IpcError => ({ code: "OpenFailed", message: String(cause) }),
     }).pipe(done),
   "shell.revealInFinder": ({ hostKey, path }) =>
-    hostKey === LOCAL_HOST_KEY
-      ? Effect.sync(() => ctx.revealInFinder(path)).pipe(done)
-      : Effect.fail<IpcError>({
-          code: "NotLocal",
-          message: `${clientCopy().reveal} is for ${clientCopy().machine}`,
-        }),
+    HostDirectory.use((dir) => {
+      const shown = revealPath(dir.entry(hostKey), path);
+
+      return shown === null
+        ? Effect.fail<IpcError>({
+            code: "NotLocal",
+            message: `${clientCopy().reveal} is for ${clientCopy().machine}`,
+          })
+        : Effect.sync(() => ctx.revealInFinder(shown)).pipe(done);
+    }),
   "host.retryNow": ({ hostKey }) => onHost(hostKey, (c) => c.retryNow).pipe(done),
   dispatch: ({ hostKey, commandId, command }) =>
     onLive(hostKey, (s) => s.client.dispatch({ commandId, command })),
@@ -409,14 +402,6 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
     onLive(hostKey, (s) => s.client["session.commitAccepted"](payload)),
   "session.pushAccepted": ({ hostKey, ...payload }) =>
     onLive(hostKey, (s) => s.client["session.pushAccepted"](payload)),
-  "install.ensure": ({ hostKey, approvedSha256 }) =>
-    HostDirectory.use((dir) => {
-      const alias = dir.entry(hostKey)?.alias ?? null;
-
-      if (alias === null) return Effect.succeed(local());
-
-      return ensureInstalled({ alias, approvedSha256, dist: ctx.daemonDist });
-    }),
   "machines.sshAliases": () => machines((m) => m.sshAliases),
   "machines.wslDistros": () => machines((m) => m.wslDistros),
   "machines.add": (input) => machines((m) => Effect.map(m.add(input), (key) => ({ key }))),

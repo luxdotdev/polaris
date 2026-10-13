@@ -3,7 +3,7 @@
  * registry (`git worktree list --porcelain`) is the source of truth; the
  * watcher only tells us when to re-read it.
  */
-import { existsSync, type FSWatcher, watch as fsWatch, realpathSync } from "node:fs";
+import { existsSync, type FSWatcher, watch as fsWatch, readdirSync, realpathSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { Cause, Effect, Layer, Queue, Stream } from "effect";
@@ -200,13 +200,36 @@ const toServiceError = (cause: unknown) =>
 
 const attempt = <A>(f: () => Promise<A>) => Effect.tryPromise({ try: f, catch: toServiceError });
 
+export interface WatchWorktreesOptions {
+  readonly platform?: NodeJS.Platform;
+  /** Opens one watch; `fs.watch` by default (tests record the calls). */
+  readonly open?: (path: string, recursive: boolean, changed: () => void) => FSWatcher;
+}
+
+const openWatch = (path: string, recursive: boolean, changed: () => void) =>
+  fsWatch(path, { recursive }, changed);
+
+/** The worktrees' own directories, where their HEAD, index and lock files change. */
+const worktreeDirs = (worktreesDir: string): Array<string> => {
+  try {
+    return readdirSync(worktreesDir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => join(worktreesDir, entry.name));
+  } catch {
+    return [];
+  }
+};
+
 /**
  * Emits the list at once, then again whenever it changes. Watches the common
  * git dir (for `worktrees/` appearing and the main HEAD) and `worktrees/`
- * recursively (per-worktree HEAD, locks, removal), debounced, plus a slow poll.
+ * (per-worktree HEAD, locks, removal), debounced, plus a slow poll. `worktrees/` is one
+ * FSEvents watch on macOS; elsewhere it and each worktree's directory get a shallow
+ * watch, never a native recursive one (`files/search/watch.ts`'s policy).
  */
 export const watchWorktrees = (
-  repoPath: string
+  repoPath: string,
+  options: WatchWorktreesOptions = {}
 ): Stream.Stream<ReadonlyArray<WorktreeInfo>, ServiceError> =>
   Stream.callback<ReadonlyArray<WorktreeInfo>, ServiceError>((queue) =>
     Effect.gen(function* () {
@@ -218,6 +241,8 @@ export const watchWorktrees = (
       let again = false;
       let closed = false;
       const watchers = new Map<string, FSWatcher>();
+      const recursive = (options.platform ?? process.platform) === "darwin";
+      const open = options.open ?? openWatch;
 
       const refresh = async () => {
         if (running) {
@@ -255,11 +280,11 @@ export const watchWorktrees = (
         }, WATCH_DEBOUNCE_MS);
       };
 
-      const arm = (path: string, recursive: boolean) => {
+      const arm = (path: string, deep: boolean) => {
         if (watchers.has(path) || !existsSync(path)) return;
 
         try {
-          const watcher = fsWatch(path, { recursive }, schedule);
+          const watcher = open(path, deep, schedule);
           watcher.on("error", () => {
             watcher.close();
             watchers.delete(path);
@@ -272,14 +297,16 @@ export const watchWorktrees = (
       };
 
       const armWorktreesDir = () => {
-        const existing = watchers.get(worktreesDir);
-
-        if (existing !== undefined && !existsSync(worktreesDir)) {
-          existing.close();
-          watchers.delete(worktreesDir);
+        for (const [path, watcher] of watchers) {
+          if (path !== common && !existsSync(path)) {
+            watcher.close();
+            watchers.delete(path);
+          }
         }
 
-        arm(worktreesDir, true);
+        arm(worktreesDir, recursive);
+
+        if (!recursive) for (const dir of worktreeDirs(worktreesDir)) arm(dir, false);
       };
 
       arm(common, false);
@@ -304,7 +331,7 @@ export const WorktreeTrackerLive = Layer.succeed(
   WorktreeTracker,
   WorktreeTracker.of({
     list: (repoPath) => attempt(() => listWorktrees(repoPath)),
-    watch: watchWorktrees,
+    watch: (repoPath) => watchWorktrees(repoPath),
     create: (options) => attempt(() => createWorktree(options)),
     remove: (options) => attempt(() => removeWorktree(options)).pipe(Effect.asVoid),
   })

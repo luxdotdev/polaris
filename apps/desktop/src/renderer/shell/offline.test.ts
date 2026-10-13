@@ -15,6 +15,7 @@ const host = (
   label: key === "local" ? "MacBook Pro" : key,
   colour: null,
   alias: key === "local" ? null : key,
+  kind: key === "local" ? "local" : "ssh",
   proofHarness: false,
   status: {
     state,

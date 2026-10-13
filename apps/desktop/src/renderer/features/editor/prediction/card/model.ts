@@ -17,6 +17,7 @@ import { inSentence, placementRow } from "../../../settings/editor/placementRows
 import type { Fact } from "../../status/model.ts";
 import { modelName, type CompletionStatus } from "../store.ts";
 import { contextFact, latencyFact, placementNote, SERVER_NAMES } from "./facts.ts";
+import { clientCopy } from "../../../../../shared/clientCopy.ts";
 
 export type CardKind =
   | "offline"
@@ -103,7 +104,8 @@ export interface CompletionCardView {
 
 const capitalized = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
-const clientNameOf = (input: CardInput) => inSentence(input.inspection?.clientLabel ?? "This Mac");
+const clientNameOf = (input: CardInput) =>
+  inSentence(input.inspection?.clientLabel ?? clientCopy().localHost);
 
 const scored = (input: CardInput) =>
   input.inspection === undefined

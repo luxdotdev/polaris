@@ -42,7 +42,7 @@ const fixture = (
     native,
     version: "0.4.0",
     installId: "c30721f9-24ca-48e4-bdb7-eb9dd579e65b",
-    macOSVersion: "26.1",
+    osVersion: "26.1",
     arch: "arm64",
     supported: true,
     blocked: false,

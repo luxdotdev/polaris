@@ -2,7 +2,7 @@
  * What a Host's Connection State means, in words (rule/say-what-happened,
  * rule/glossary-lowercase): never the client's raw error or a socket path.
  */
-import { clientCopy } from "../../shared/clientCopy.ts";
+import { clientCopy, inSentence } from "../../shared/clientCopy.ts";
 import type { ConnectionState } from "@polaris/protocol";
 import { Match } from "effect";
 import type { ConnectionFailureView, HostView } from "../../shared/api.ts";
@@ -83,8 +83,4 @@ export const stateWords = (state: ConnectionState): string | null =>
 
 /** A Host's name inside a sentence: the local default reads "this Mac"; given names stay as named. */
 export const hostInSentence = (host: HostView | undefined) =>
-  host === undefined
-    ? "this host"
-    : host.alias === null && host.label.toLowerCase() === "this mac"
-      ? "this Mac"
-      : host.label;
+  host === undefined ? "this host" : host.kind === "local" ? inSentence(host.label) : host.label;

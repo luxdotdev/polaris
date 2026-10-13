@@ -5,6 +5,7 @@
  */
 import type { PullListView, RepoAccessView, WorkspaceRef } from "../../../../shared/github.ts";
 import { plural } from "../../../shell/copy.ts";
+import { clientCopy } from "../../../../shared/clientCopy.ts";
 
 export type Notice =
   | {
@@ -110,9 +111,8 @@ export const noticesOf = (input: NoticesInput): ReadonlyArray<Notice> => {
             key: "error",
             ...(input.list.errorKind === "keychain"
               ? {
-                  title: "Polaris can’t use the macOS Keychain from this session",
-                  caption:
-                    "Your GitHub sign-in is sealed there. Open Polaris from the Dock or Finder, then try again",
+                  title: clientCopy().tokenStoreBlockedTitle,
+                  caption: `Your GitHub sign-in is sealed there. ${clientCopy().relaunch}, then try again`,
                 }
               : { title: "Couldn’t reach GitHub", caption: input.list.error }),
           },

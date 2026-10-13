@@ -11,6 +11,7 @@ import type { Settings } from "../settings.ts";
 import { localHostEnabled } from "../localDaemon.ts";
 import type { InstallOutcome, InstallSnapshot } from "./installFlow.ts";
 import { daemonUpdateView, type UpdateFacts } from "./updateFacts.ts";
+import { clientCopy } from "../../shared/clientCopy.ts";
 
 /** A Host's install flow as `Machines` tracks it. */
 export interface InstallRecord {
@@ -81,7 +82,7 @@ export const machineViews = ({
       localManaged
     ),
     key: LOCAL_HOST_KEY,
-    label: local?.label ?? "This Mac",
+    label: local?.label ?? clientCopy(platform).localHost,
     colour: null,
     alias: null,
     kind: "local",
@@ -93,7 +94,10 @@ export const machineViews = ({
     install: localInstall === undefined ? null : installFlowView(localInstall),
   };
 
-  const remotes = (settings.hosts ?? []).map((remote): MachineView => {
+  // A stored alias named "local" predates the reserved key; it never connected, so it gets no row.
+  const stored = (settings.hosts ?? []).filter((remote) => remote.alias !== LOCAL_HOST_KEY);
+
+  const remotes = stored.map((remote): MachineView => {
     const target = aliases.find((a) => a.alias === remote.alias);
     const install = installs.get(remote.alias);
 

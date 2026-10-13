@@ -19,8 +19,11 @@ export const DEFAULT_ENDPOINTS: ReadonlyArray<ReachableEndpoint> = [
 
 const command = (file: string, args: string[]): Promise<string> =>
   new Promise((resolve) => {
-    execFile(file, args, { timeout: 1000, maxBuffer: 1048576 }, (error, stdout) =>
-      resolve(error ? "" : stdout.trim())
+    execFile(
+      file,
+      args,
+      { timeout: 1000, maxBuffer: 1048576, windowsHide: true },
+      (error, stdout) => resolve(error ? "" : stdout.trim())
     );
   });
 

@@ -13,6 +13,7 @@ const host = (key: string, label: string, state: ConnectionState = "connected"):
   label,
   colour: null,
   alias: key === "local" ? null : key,
+  kind: key === "local" ? "local" : "ssh",
   proofHarness: false,
   status: {
     state,

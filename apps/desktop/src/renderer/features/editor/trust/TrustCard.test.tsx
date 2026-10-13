@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import * as P from "@polaris/protocol";
 import { Schema } from "effect";
-import type { IpcError, LanguageApi } from "../../../../shared/api.ts";
+import type { HostKind, IpcError, LanguageApi } from "../../../../shared/api.ts";
 import { changeTrust, decideTrust } from "./decide.ts";
 import { providerName, trustCopy, trustFailure, type TrustStatus } from "./model.ts";
 import { hostInSentence } from "../../../shell/hostCopy.ts";
@@ -368,19 +368,21 @@ describe("What runs, in words", () => {
   });
 
   test("the local host reads this Mac mid-sentence; a named host keeps its name", () => {
-    const host = (label: string, alias: string | null) => ({
+    const host = (label: string, kind: HostKind) => ({
       key: label,
       label,
       colour: null,
-      alias,
+      alias: kind === "ssh" ? "this-mac" : null,
+      kind,
       proofHarness: false,
-      // SAFETY: hostInSentence reads only the label and alias.
+      // SAFETY: hostInSentence reads only the label and kind.
       status: { state: "connected" as const, latencyMs: null } as never,
     });
 
-    expect(hostInSentence(host("This Mac", null))).toBe("this Mac");
-    expect(hostInSentence(host("Mac Studio", null))).toBe("Mac Studio");
-    expect(hostInSentence(host("This Mac", "this-mac"))).toBe("This Mac");
+    expect(hostInSentence(host("This Mac", "local"))).toBe("this Mac");
+    expect(hostInSentence(host("Mac Studio", "local"))).toBe("Mac Studio");
+    expect(hostInSentence(host("This Mac", "ssh"))).toBe("This Mac");
+    expect(hostInSentence(host("This Mac", "socket"))).toBe("This Mac");
     expect(hostInSentence(undefined)).toBe("this host");
   });
 });

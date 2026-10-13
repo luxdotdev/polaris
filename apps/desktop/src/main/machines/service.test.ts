@@ -146,6 +146,7 @@ const setup = (
           label: "Mac Studio",
           colour: null,
           alias: "studio",
+          kind: "ssh",
           proofHarness: false,
           status: status(patch),
         },
@@ -174,6 +175,7 @@ const setup = (
           label: "This Mac",
           colour: null,
           alias: null,
+          kind: "local",
           proofHarness: false,
           status: status(patch),
         },
@@ -502,6 +504,20 @@ describe("Machines", () => {
       message: "Host key verification failed.",
       command: null,
     });
+    await runtime.dispose();
+  });
+
+  test("an ssh alias named local is refused before it can shadow the local Host", async () => {
+    const { runtime, settings } = setup(false, null, {}, undefined, "darwin");
+
+    const error = await runtime.runPromise(
+      Machines.use((m) =>
+        m.add({ alias: "local", label: "", colour: null, forwardAgent: false })
+      ).pipe(Effect.flip)
+    );
+
+    expect(error.message).toBe('Polaris names this Mac "local"; rename the alias to add it');
+    expect(settings().hosts).toBeUndefined();
     await runtime.dispose();
   });
 

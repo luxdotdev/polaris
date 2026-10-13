@@ -160,13 +160,20 @@ export interface ConnectionStatusView {
   readonly lastSeenAt: number | null;
 }
 
+export type HostKind = "local" | "ssh" | "wsl" | "socket";
+
 export interface HostView {
   readonly key: string;
   readonly label: string;
   /** From the machine settings; null picks a neutral. */
   readonly colour: string | null;
-  /** The `~/.ssh/config` alias; null for the local Host. */
+  /** The `~/.ssh/config` alias or WSL distro; null for the local Host and socket Hosts. */
   readonly alias: string | null;
+  /**
+   * How the Host is reached: this machine's own Host, ssh, a WSL distro, or another Daemon's
+   * socket on this machine (`POLARIS_DESKTOP_EXTRA_HOSTS`, for dev and screenshots).
+   */
+  readonly kind: HostKind;
   /** The Daemon runs the scripted bench Harness (the dev Daemon): the proof session may run here. */
   readonly proofHarness: boolean;
   readonly status: ConnectionStatusView;
@@ -329,17 +336,6 @@ export type FileWriteView =
   | { readonly kind: "written"; readonly version: FileVersionView }
   | { readonly kind: "changed-on-disk"; readonly current: FileVersionView | null };
 
-/** `install.ensure`'s outcome, flattened (`EnsureResult` in `@polaris/client/install`). */
-export interface InstallView {
-  readonly result: "Local" | "Ready" | "ApprovalNeeded" | "Unavailable" | "HostSetupNeeded";
-  readonly platform: string | null;
-  readonly version: string | null;
-  /** Show it for the one-time approval, then call again with it approved. */
-  readonly sha256: string | null;
-  /** For `HostSetupNeeded`: what an administrator must run on the Host. */
-  readonly command: string | null;
-}
-
 /** Every Constellation request answers with the RPC's result: summary, next, revision. */
 export type ConstellationRequestOutputs = {
   readonly [M in ConstellationMethod]: Plain<ConstellationResult>;
@@ -460,7 +456,6 @@ export interface RequestOutputs
   "session.draftAccept": Plain<AcceptDraft>;
   "session.commitAccepted": Plain<AcceptCommitted>;
   "session.pushAccepted": Plain<AcceptPushed>;
-  "install.ensure": InstallView;
   "machines.sshAliases": ReadonlyArray<SshAliasView>;
   "machines.wslDistros": WslDistrosView;
   "machines.add": { readonly key: string };

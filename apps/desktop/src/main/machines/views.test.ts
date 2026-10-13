@@ -23,6 +23,7 @@ const host = (key: string, patch: Partial<ConnectionStatusView> = {}): HostView 
   label: key,
   colour: null,
   alias: key === "local" ? null : key,
+  kind: key === "local" ? "local" : "ssh",
   proofHarness: false,
   status: status(patch),
 });
@@ -176,6 +177,33 @@ describe("machineViews", () => {
     expect(views[1]?.install?.step).toBe("idle");
     expect(views[2]?.forwardAgent).toBe(true);
     expect(views[2]?.install).toBeNull();
+  });
+
+  test("a Linux Client's local Host is this computer, not this Mac", () => {
+    const views = machineViews({
+      settings: { local: { enabled: true } },
+      hosts: [],
+      installs: new Map(),
+      aliases: [],
+      platform: "linux",
+    });
+
+    expect(views[0]?.label).toBe("This computer");
+  });
+
+  test("a stored ssh alias named local never shadows the local Host's row", () => {
+    const views = machineViews({
+      settings: { local: { enabled: true }, hosts: [{ alias: "local" }, { alias: "pi" }] },
+      hosts: [host("local")],
+      installs: new Map(),
+      aliases: [],
+      platform: "darwin",
+    });
+
+    expect(views.map((v) => [v.key, v.kind])).toEqual([
+      ["local", "local"],
+      ["pi", "ssh"],
+    ]);
   });
 });
 

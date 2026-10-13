@@ -275,7 +275,7 @@ const WorkspaceSidebar = () => {
 
   // The chosen Host; with none chosen yet, this Mac.
   const shown = useApp(
-    (s) => s.hosts.find((h) => h.key === hostKey) ?? s.hosts.find((h) => h.alias === null)
+    (s) => s.hosts.find((h) => h.key === hostKey) ?? s.hosts.find((h) => h.kind === "local")
   );
 
   const hostCount = useApp((s) => s.hosts.length);

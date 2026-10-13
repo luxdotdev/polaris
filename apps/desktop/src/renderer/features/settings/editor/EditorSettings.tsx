@@ -30,7 +30,7 @@ export interface EditorSettingsProps {
 }
 
 const firstPickable = (hosts: ReadonlyArray<HostView>) =>
-  (hosts.find((h) => pickable(h) && h.alias === null) ?? hosts.find(pickable))?.key ?? null;
+  (hosts.find((h) => pickable(h) && h.kind === "local") ?? hosts.find(pickable))?.key ?? null;
 
 const notice = (
   api: LanguageApi | undefined,

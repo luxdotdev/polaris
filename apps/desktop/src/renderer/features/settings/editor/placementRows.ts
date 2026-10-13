@@ -7,6 +7,7 @@ import type { ConnectionState } from "@polaris/protocol";
 import type { PredictionInspection } from "../../../../shared/predictionContract.ts";
 import type { PredictionPreferences } from "../../../../shared/predictionPlacement.ts";
 import { modelName } from "../../editor/prediction/store.ts";
+import { inSentence as localInSentence } from "../../../../shared/clientCopy.ts";
 
 export interface PlacementHost {
   readonly key: string;
@@ -43,8 +44,7 @@ export interface PlacementRow {
 }
 
 /** A machine's label inside a sentence: the default "This Mac" becomes "this Mac". */
-export const inSentence = (label: string) =>
-  label.toLowerCase() === "this mac" ? "this Mac" : label;
+export const inSentence = (label: string) => localInSentence(label);
 
 const AWAY: Readonly<Record<Exclude<ConnectionState, "connected">, string>> = {
   reconnecting: "Reconnecting",

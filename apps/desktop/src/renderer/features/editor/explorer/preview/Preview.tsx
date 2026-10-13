@@ -71,6 +71,7 @@ const host = (scene: Scene): HostView => ({
   label: scene === "remote" ? "Linux VM" : "Mac Studio",
   colour: null,
   alias: scene === "remote" ? "linux-vm" : null,
+  kind: scene === "remote" ? "ssh" : "local",
   proofHarness: false,
   status: {
     state: scene === "remote" ? "reconnecting" : "connected",

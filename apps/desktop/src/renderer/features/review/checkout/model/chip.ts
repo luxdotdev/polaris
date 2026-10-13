@@ -5,12 +5,10 @@
  */
 import type { ReviewCheckout, ReviewCheckoutBlock, SessionId } from "@polaris/protocol";
 import { Match } from "effect";
+import { inSentence as localInSentence } from "../../../../../shared/clientCopy.ts";
 
-/**
- * A Host's name inside a sentence: the local Host's default name is a description, not a
- * proper noun, so "Checked out on this Mac" (rule/glossary-lowercase).
- */
-export const inSentence = (host: string) => (host.toLowerCase() === "this mac" ? "this Mac" : host);
+/** A Host's name inside a sentence: "Checked out on this Mac" (`clientCopy`'s `inSentence`). */
+export const inSentence = (host: string) => localInSentence(host);
 
 /** Commits are shown by their first seven characters. */
 export const shortSha = (sha: string | null) => (sha === null ? "" : sha.slice(0, 7));

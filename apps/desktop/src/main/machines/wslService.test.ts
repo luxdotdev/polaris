@@ -11,7 +11,16 @@ import { join } from "node:path";
 import { Ssh } from "@polaris/client/install";
 import { discoverDistros, wslInstallLayer } from "@polaris/client/wsl";
 import { writeFakeWsl } from "@polaris/client/wsl/testing";
-import { Effect, Layer, ManagedRuntime, Option, Predicate, Stream, SubscriptionRef } from "effect";
+import {
+  Effect,
+  Fiber,
+  Layer,
+  ManagedRuntime,
+  Option,
+  Predicate,
+  Stream,
+  SubscriptionRef,
+} from "effect";
 import type { HostView, MachineView } from "../../shared/api.ts";
 import { HostDirectory, type HostEntry, UnknownHost } from "../hosts.ts";
 import type { Settings } from "../settings.ts";
@@ -141,6 +150,37 @@ describe("a WSL distro as a Host", () => {
     const ready = await t.ubuntu((v) => v.install?.step === "ready");
     expect(ready?.install?.outcome?.kind).toBe("installed");
     expect(installed()).toBe(true);
+    await t.runtime.dispose();
+  });
+
+  test("approving says it asks the distro, not ssh", async () => {
+    const t = setup();
+    const activities: Array<string> = [];
+
+    const watcher = t.runtime.runFork(
+      Machines.use((m) =>
+        SubscriptionRef.changes(m.views).pipe(
+          Stream.runForEach((views) =>
+            Effect.sync(() => {
+              const activity = views.find((v) => v.key === "Ubuntu")?.install?.activity;
+
+              if (activity !== null && activity !== undefined) activities.push(activity);
+            })
+          )
+        )
+      )
+    );
+
+    await t.call((m) =>
+      m.add({ kind: "wsl", alias: "Ubuntu", label: "Ubuntu", colour: null, forwardAgent: false })
+    );
+    const asked = await t.ubuntu((v) => v.install?.step === "approval");
+    activities.length = 0;
+    await t.call((m) => m.approve("Ubuntu", asked?.install?.offer?.sha256 ?? ""));
+    await t.ubuntu((v) => v.install?.step === "ready");
+    expect(activities.length).toBeGreaterThan(0);
+    expect(activities.filter((a) => a.includes("SSH"))).toEqual([]);
+    await t.runtime.runPromise(Fiber.interrupt(watcher));
     await t.runtime.dispose();
   });
 
