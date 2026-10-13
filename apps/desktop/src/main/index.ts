@@ -69,6 +69,12 @@ import { createMainWindow } from "./window.ts";
 import { askToQuit, holdsQuit } from "./editorQuit.ts";
 import { createAppUpdates, type AppUpdates } from "./updates/index.ts";
 import { cannotInstallHere, installId } from "./updates/identity.ts";
+import { revealAppPath, updatePlatform, windowsAppId } from "./updates/platform.ts";
+import { handleSquirrelStartup } from "./updates/squirrel.ts";
+
+if (await handleSquirrelStartup(process.platform, process.argv, process.execPath)) app.exit(0);
+
+if (process.platform === "win32") app.setAppUserModelId(windowsAppId(process.arch));
 
 const env = process.env;
 
@@ -161,9 +167,16 @@ const start = async () => {
     version: app.getVersion(),
     installId: installId(app.getPath("userData")),
     macOSVersion: process.getSystemVersion(),
+    platform: process.platform,
+    firstRun: process.platform === "win32" && process.argv.includes("--squirrel-firstrun"),
     arch: process.arch,
-    supported: app.isPackaged && !dev && process.platform === "darwin" && process.arch === "arm64",
-    blocked: cannotInstallHere(app.getAppPath(), app.getPath("downloads")),
+    supported: app.isPackaged && !dev && updatePlatform(process.platform, process.arch) !== null,
+    blocked: cannotInstallHere(
+      app.getAppPath(),
+      app.getPath("downloads"),
+      process.platform,
+      process.execPath
+    ),
     automatic: settings.automaticAppUpdates ?? true,
     lastCheckedAt: settings.appUpdateLastCheckedAt ?? null,
     save: saveSettings,
@@ -302,7 +315,8 @@ const start = async () => {
     context: {
       updates: currentUpdates,
       restartToUpdate,
-      showAppInFinder: () => shell.showItemInFolder(join(dirname(app.getPath("exe")), "../..")),
+      showAppInFinder: () =>
+        shell.showItemInFolder(revealAppPath(process.platform, app.getPath("exe"))),
       settings: () => settings,
       cache: openSnapshotCache(app.getPath("userData")),
       prices: openPrices(app.getPath("userData")),
