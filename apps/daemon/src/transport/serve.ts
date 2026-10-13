@@ -118,6 +118,7 @@ export const daemonHandlers = Layer.mergeAll(
 
 export const daemonCapabilities: ReadonlyArray<Capability> = [
   "prediction.capability",
+  "prediction.context",
   "inline.propose",
   "prediction.complete",
   "commit.suggest-message",
