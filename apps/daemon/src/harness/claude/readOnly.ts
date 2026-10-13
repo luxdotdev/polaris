@@ -1,7 +1,7 @@
 /**
  * The SDK options of a read-only session (the Reviewer): `dontAsk`, no user or
  * project settings, hooks or MCP servers, and no tool that writes or reaches the network.
- * See docs/adr/0039-reviewer-without-the-sandbox.md.
+ * See docs/adr/0042-reviewer-without-the-sandbox.md.
  */
 import type { Options } from "@anthropic-ai/claude-agent-sdk";
 import type { ClaudeSandbox } from "./sandbox.ts";
