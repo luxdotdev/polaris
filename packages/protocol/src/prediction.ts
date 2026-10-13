@@ -1,6 +1,9 @@
 import { Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/rpc";
 import { WorkspaceId } from "./ids.ts";
+import { PredictionEndpointUrl } from "./predictionEndpoint.ts";
+
+export { PredictionEndpointUrl } from "./predictionEndpoint.ts";
 
 const Offset = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0));
 
@@ -122,7 +125,17 @@ export class PredictionError extends Schema.TaggedError<PredictionError>()("Pred
   message: Schema.String,
 }) {}
 
+/** Absent or empty endpoints probes the Host defaults only (8080, 1234, 11434). */
+export const PredictionCapabilityRequest = Schema.UndefinedOr(
+  Schema.Struct({
+    endpoints: Schema.optional(Schema.Array(PredictionEndpointUrl).check(Schema.isMaxLength(16))),
+  })
+);
+
+export type PredictionCapabilityRequest = typeof PredictionCapabilityRequest.Type;
+
 export const PredictionCapabilityQuery = Rpc.make("prediction.capability", {
+  payload: PredictionCapabilityRequest,
   success: PredictionCapability,
   error: PredictionError,
 });
