@@ -13,7 +13,7 @@ The Client runtime: one `HostConnection` per Host, many at once in a `HostRegist
 | `transport.ts` | Transports: a spawned command's stdio (`ssh … polaris bridge`) or the local Unix socket. `Connector` is injectable. |
 | `ssh.ts` | The `ssh` argv. |
 | `failures.ts` | `ConnectFailure` and the stderr / exit-status classifier. |
-| `wsl/` | WSL 2 distros as Hosts on Windows (`@polaris/client/wsl`, experimental): distro discovery, the `wsl.exe --exec` bridge transport and install commands, and a fake `wsl.exe` for tests (`@polaris/client/wsl/testing`). See "WSL" below and docs/adr/0034-wsl-hosts.md. |
+| `wsl/` | WSL 2 distros as Hosts on Windows (`@polaris/client/wsl`, experimental): distro discovery, the `wsl.exe --exec` bridge transport and install commands, and a fake `wsl.exe` for tests (`@polaris/client/wsl/testing`). See "WSL" below and docs/adr/0036-wsl-hosts.md. |
 | `usage/` | Usage cost estimates (`@polaris/client/usage`): the price book, per-bucket cost, and the summaries the Usage view shows. See "Usage cost" below. |
 
 ## Usage
@@ -46,7 +46,7 @@ Polaris never writes `known_hosts` (`StrictHostKeyChecking=yes`, `UpdateHostKeys
 
 ## WSL
 
-On Windows, `target: { _tag: "Wsl", distro }` reaches the Linux Daemon inside a WSL 2 distro: `wsl.exe --distribution <distro> --exec /bin/sh -c 'exec ~/.polaris/bin/current/polaris bridge'` over the same `spawnTransport`, with `WSL_UTF8=1`. `wsl.exe`'s own failures become Needs Attention: `wsl-missing` (no `wsl.exe`, or the stub saying WSL is not installed) and `wsl-distro-missing` (the distro was unregistered); the rest is classified as for ssh. `discoverDistros` parses `wsl.exe --list --verbose` (UTF-16LE unless WSL honours `WSL_UTF8`). The Client's bridge process is what keeps the distro running; nothing here has run on real WSL yet (docs/adr/0034-wsl-hosts.md).
+On Windows, `target: { _tag: "Wsl", distro }` reaches the Linux Daemon inside a WSL 2 distro: `wsl.exe --distribution <distro> --exec /bin/sh -c 'exec ~/.polaris/bin/current/polaris bridge'` over the same `spawnTransport`, with `WSL_UTF8=1`. `wsl.exe`'s own failures become Needs Attention: `wsl-missing` (no `wsl.exe`, or the stub saying WSL is not installed) and `wsl-distro-missing` (the distro was unregistered); the rest is classified as for ssh. `discoverDistros` parses `wsl.exe --list --verbose` (UTF-16LE unless WSL honours `WSL_UTF8`). The Client's bridge process is what keeps the distro running; nothing here has run on real WSL yet (docs/adr/0036-wsl-hosts.md).
 
 ## Connection State
 

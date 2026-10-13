@@ -18,6 +18,7 @@ const Persisted = Schema.Record(
     open: Schema.Boolean,
     height: Schema.Number,
     active: Schema.NullOr(Schema.String),
+    tucked: Schema.optionalKey(Schema.Boolean),
     tabs: Schema.Array(
       Schema.Struct({
         key: Schema.String,
@@ -74,9 +75,9 @@ export const updateDrawer = (key: string, update: (drawer: Drawer) => Drawer) =>
 export const useDrawer = (key: string | null): Drawer =>
   useStore(drawers, (s) => (key === null ? emptyDrawer : (s[key] ?? emptyDrawer)));
 
-/** Whether a Workspace's drawer is showing terminals (the Output lane opens for it). */
+/** Whether a Workspace's drawer is showing terminals in Orchestrate (the Output lane opens for it). */
 const shows = (drawer: Drawer | undefined) =>
-  drawer !== undefined && drawer.open && drawer.tabs.length > 0;
+  drawer !== undefined && drawer.open && drawer.tucked !== true && drawer.tabs.length > 0;
 
 export const useTerminalShown = (hostKey: string, workspaceId: string): boolean =>
   useStore(drawers, (s) => shows(s[drawerKey(hostKey, workspaceId)]));

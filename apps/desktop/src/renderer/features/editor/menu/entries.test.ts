@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { EditorSelection } from "@codemirror/state";
 import type { CommandId } from "../../../../shared/keymap.ts";
 import { caretForClick } from "./caret.ts";
@@ -10,6 +10,12 @@ import {
   type ServerState,
   serverStateOf,
 } from "./entries.ts";
+import { setClientPlatform } from "../../../../shared/platform.ts";
+
+// These tests read macOS labels ("⌘↵", "⌃Space").
+beforeAll(() => setClientPlatform("darwin"));
+
+afterAll(() => setClientPlatform(null));
 
 const ALL_METHODS = [
   "textDocument/definition",

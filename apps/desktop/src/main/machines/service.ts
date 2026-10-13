@@ -19,7 +19,7 @@ import {
 } from "effect";
 import type { MachineView, SshAliasView, WslDistrosView } from "../../shared/api.ts";
 import { HostDirectory, LOCAL_HOST_KEY, localEntry, remoteEntry } from "../hosts.ts";
-import type { LocalDaemon } from "../localDaemon.ts";
+import { localHostEnabled, type LocalDaemon } from "../localDaemon.ts";
 import type { RemoteHostSetting, Settings } from "../settings.ts";
 import type { Approvals } from "./approvals.ts";
 import type { DaemonBuilds } from "./builds.ts";
@@ -41,6 +41,8 @@ export interface SettingsStore {
 }
 
 export interface MachinesInput {
+  readonly platform?: NodeJS.Platform | undefined;
+  readonly sshBinary?: string | undefined;
   readonly settings: SettingsStore;
   readonly approvals: Approvals;
   readonly builds: DaemonBuilds;
@@ -145,6 +147,7 @@ export class Machines extends Context.Service<
 }
 
 const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
+  const localAvailable = localHostEnabled(true, input.platform);
   const dir = yield* HostDirectory;
   const scope = yield* Effect.scope;
   const installs = new Map<string, InstallRecord>();
@@ -172,6 +175,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
         bundledVersion: bundled,
         bundledVersions: new Map(bundledBuilds.map((b) => [b.platform, b.version])),
         localManaged: input.localHome() !== null,
+        platform: input.platform,
       })
     )
   );
@@ -211,9 +215,11 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
   const requireCheckable = (key: string) =>
     key !== LOCAL_HOST_KEY
       ? requireRemote(key)
-      : input.localHome() === null
-        ? fail("this Mac's daemon is the app's own, not one Polaris installed")
-        : Effect.void;
+      : !localAvailable
+        ? fail("A local Windows Daemon is not supported.")
+        : input.localHome() === null
+          ? fail("this Mac's daemon is the app's own, not one Polaris installed")
+          : Effect.void;
 
   const record = (key: string): InstallRecord =>
     installs.get(key) ?? { snapshot: initialInstall(), activity: null, offerSize: null };
@@ -501,6 +507,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
       yield* publish;
 
       for (const host of hosts) {
+        if (host.key === LOCAL_HOST_KEY && !localAvailable) continue;
         const policy = updatePolicy(input.settings.get(), host.key);
         const missing = host.status.failure?.reason === "polaris-not-installed";
 
@@ -610,6 +617,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
 
   const setLocalEnabled = (enabled: boolean) =>
     Effect.gen(function* () {
+      if (!localAvailable) return yield* fail("A local Windows Daemon is not supported.");
       input.settings.update((s) => ({ ...s, local: { ...s.local, enabled } }));
 
       if (!enabled) {
@@ -639,6 +647,9 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
 
   const setDaemonUpdateOverride = (key: string, enabled: boolean | null) =>
     Effect.gen(function* () {
+      if (key === LOCAL_HOST_KEY && !localAvailable)
+        return yield* fail("A local Windows Daemon is not supported.");
+
       if (key !== LOCAL_HOST_KEY) yield* requireRemote(key);
       input.settings.update((s) => {
         const override = <T extends { readonly keepDaemonUpToDate?: boolean }>(host: T) => {
@@ -694,7 +705,11 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
     openSsh: (key) =>
       Effect.andThen(
         requireRemote(key),
-        terminal(isWsl(key) ? wslTerminalArgv(key) : sshArgv(key))
+        terminal(
+          isWsl(key)
+            ? wslTerminalArgv(key)
+            : sshArgv(key, { platform: input.platform, sshBinary: input.sshBinary })
+        )
       ),
   });
 });

@@ -2,7 +2,7 @@
  * The `wsl.exe` command lines a Client runs against a WSL 2 distro, in place
  * of `ssh <alias> …`: `wsl.exe --distribution <distro> --exec /bin/sh -c <script>`.
  * `--exec` skips the distro's login shell, so argv reaches `sh` untouched and
- * `$HOME` is the distro user's home. UNVERIFIED on real WSL (docs/adr/0034-wsl-hosts.md).
+ * `$HOME` is the distro user's home. UNVERIFIED on real WSL (docs/adr/0036-wsl-hosts.md).
  */
 import { BRIDGE_EXIT_NO_DAEMON } from "@polaris/protocol";
 import { ConnectFailure, classifyExit } from "../failures.ts";

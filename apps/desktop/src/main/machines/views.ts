@@ -8,6 +8,7 @@ import { Predicate } from "effect";
 import type { HostView, InstallFlowView, MachineView, SshAliasView } from "../../shared/api.ts";
 import { LOCAL_HOST_KEY } from "../hosts.ts";
 import type { Settings } from "../settings.ts";
+import { localHostEnabled } from "../localDaemon.ts";
 import type { InstallOutcome, InstallSnapshot } from "./installFlow.ts";
 import { daemonUpdateView, type UpdateFacts } from "./updateFacts.ts";
 
@@ -34,6 +35,7 @@ export const installFlowView = ({
 });
 
 export interface MachineViewsInput {
+  readonly platform?: NodeJS.Platform | undefined;
   readonly settings: Settings;
   readonly hosts: ReadonlyArray<HostView>;
   readonly installs: ReadonlyMap<string, InstallRecord>;
@@ -54,6 +56,7 @@ export const machineViews = ({
   bundledVersion = null,
   bundledVersions,
   localManaged = false,
+  platform = process.platform,
 }: MachineViewsInput): ReadonlyArray<MachineView> => {
   const status = (key: string) => hosts.find((h) => h.key === key)?.status ?? null;
   const local = hosts.find((h) => h.key === LOCAL_HOST_KEY);
@@ -83,7 +86,7 @@ export const machineViews = ({
     alias: null,
     kind: "local",
     target: null,
-    enabled: settings.local?.enabled ?? true,
+    enabled: localHostEnabled(settings.local?.enabled, platform),
     forwardAgent: false,
     remoteCommand: null,
     status: status(LOCAL_HOST_KEY),
@@ -117,7 +120,7 @@ export const machineViews = ({
     };
   });
 
-  return [localView, ...remotes];
+  return platform === "win32" ? remotes : [localView, ...remotes];
 };
 
 /** Reasons the install flow can fix: no Daemon installed, or one too old to talk to. */

@@ -26,6 +26,8 @@ import {
   submitChoices,
   submitProblem,
 } from "../model/threads.ts";
+import { shortcutLabel } from "../../../../shared/chord.ts";
+import { FIELD_CHORDS } from "../../../../shared/keymap.ts";
 
 const ORDER = ["critical", "high", "medium", "low"] as const;
 
@@ -209,7 +211,8 @@ const Dialog = ({
           title={problem ?? undefined}
           onClick={() => void submit()}
         >
-          {SUBMIT_LABEL[event]} <span className="opacity-60">⌘↵</span>
+          {SUBMIT_LABEL[event]}{" "}
+          <span className="opacity-60">{shortcutLabel(FIELD_CHORDS.submit)}</span>
         </Button>
       </div>
     </div>

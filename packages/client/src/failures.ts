@@ -115,7 +115,11 @@ export const classifyExit = (exit: {
   )
     return needs("polaris-not-installed", lastLine(stderr, /not found|No such file/));
 
-  if (has(/Could not resolve hostname|Network is unreachable|No route to host|Connection refused/))
+  if (
+    has(
+      /Could not resolve hostname|No such host is known|Network is unreachable|No route to host|Connection refused/
+    )
+  )
     return transient("unreachable", lastLine(stderr, /resolve|unreachable|route|refused/));
 
   if (has(/timed out|Timeout/)) return transient("timeout", lastLine(stderr, /timed out|Timeout/));

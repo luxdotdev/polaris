@@ -48,6 +48,7 @@ import { EditorTrust } from "../trust/TrustCard.tsx";
 import { activateLogTab, closeLogTab, isLogTab, useLogTabs } from "../status/logTabs.ts";
 import { LogTabBody, useLogTabViews } from "../status/LogTab.tsx";
 import { useLanguageCommands } from "../commands/useLanguageCommands.ts";
+import { commandShortcut } from "../../../../shared/keymap.ts";
 
 export interface EditorPaneProps {
   readonly hostKey: string;
@@ -203,7 +204,7 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
         <EmptyState
           icon={<PixelFolderIcon size={24} className="text-text-strong" />}
           title="No file open"
-          fact="Pick a file in the explorer, or press ⌘P to find one."
+          fact={`Pick a file in the explorer, or press ${commandShortcut("editor.findFile")} to find one.`}
         />
       </section>
     );

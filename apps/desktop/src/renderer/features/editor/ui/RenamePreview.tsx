@@ -17,6 +17,8 @@ import {
   type Hunk,
   type RenameFile,
 } from "../refactors/renamePreview.ts";
+import { shortcutLabel } from "../../../../shared/chord.ts";
+import { FIELD_CHORDS } from "../../../../shared/keymap.ts";
 
 const OPERATION_MARKS = { create: "+", rename: "→", delete: "−" } as const;
 
@@ -234,7 +236,7 @@ export const RenamePreviewCard = ({
         {failure === null ? (
           <span className="text-caption text-text-subtle truncate">
             {operations.length === 0
-              ? "Edits stay unsaved in each file · ⌘Z undoes the rename everywhere"
+              ? `Edits stay unsaved in each file · ${shortcutLabel(FIELD_CHORDS.undo)} undoes the rename everywhere`
               : "Text edits stay unsaved · file operations change disk when you apply"}
           </span>
         ) : (
@@ -258,7 +260,7 @@ export const RenamePreviewCard = ({
           className="rounded-control bg-text-strong text-body text-bg focus-visible:outline-starlight flex h-[30px] shrink-0 items-center gap-2 px-3 font-medium focus-visible:outline-2 disabled:opacity-55"
         >
           {busy ? "Applying…" : words.accept}
-          <span className="text-caption text-text-faint">⌘↵</span>
+          <span className="text-caption text-text-faint">{shortcutLabel(FIELD_CHORDS.submit)}</span>
         </button>
       </div>
     </>

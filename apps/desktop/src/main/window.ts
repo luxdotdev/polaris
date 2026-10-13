@@ -1,8 +1,11 @@
 /**
- * The single main window: `hiddenInset` title bar with native traffic lights,
- * hardened web preferences, and no navigation away from the app.
+ * The single main window: the platform's title bar (chrome.ts), hardened web preferences,
+ * and no navigation away from the app.
  */
 import { BrowserWindow, nativeTheme, shell } from "electron";
+import { clientPlatform, PLATFORM_ARG } from "../shared/platform.ts";
+import { chromeOptions, menuKeys, titleBarOverlay } from "./chrome.ts";
+import { popupAppMenu } from "./menu.ts";
 
 export interface MainWindowInput {
   readonly url: string;
@@ -18,6 +21,8 @@ export interface MainWindowInput {
 export const windowBackground = () => (nativeTheme.shouldUseDarkColors ? "#1A1B1D" : "#FBFBFC");
 
 export const createMainWindow = ({ url, preload, trusted, show, icon }: MainWindowInput) => {
+  const platform = clientPlatform();
+
   const win = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -26,9 +31,7 @@ export const createMainWindow = ({ url, preload, trusted, show, icon }: MainWind
     show: false,
     title: "Polaris",
     backgroundColor: windowBackground(),
-    titleBarStyle: "hiddenInset",
-    // Centred on the 44px title bar (Paper 1BC-0).
-    trafficLightPosition: { x: 16, y: 15 },
+    ...chromeOptions(platform, nativeTheme.shouldUseDarkColors),
     webPreferences: {
       preload,
       contextIsolation: true,
@@ -37,10 +40,24 @@ export const createMainWindow = ({ url, preload, trusted, show, icon }: MainWind
       webSecurity: true,
       spellcheck: false,
       v8CacheOptions: "bypassHeatCheck",
+      additionalArguments: [`${PLATFORM_ARG}${platform}`],
     },
   });
 
-  if (process.platform === "linux" && icon !== null) win.setIcon(icon);
+  if (platform === "linux" && icon !== null) win.setIcon(icon);
+
+  if (platform === "win32") {
+    const keys = menuKeys();
+
+    // The menu bar stays hidden; F10 or a lone Alt drops the menu from the lockup instead.
+    win.setMenuBarVisibility(false);
+    win.webContents.on("before-input-event", (event, input) => {
+      if (!keys.opens(input)) return;
+      event.preventDefault();
+      popupAppMenu(win);
+    });
+    win.on("blur", keys.reset);
+  }
 
   win.webContents.setWindowOpenHandler(({ url: target }) => {
     if (target.startsWith("https://")) void shell.openExternal(target);
@@ -50,8 +67,14 @@ export const createMainWindow = ({ url, preload, trusted, show, icon }: MainWind
   win.webContents.on("will-navigate", (event, target) => {
     if (!trusted(target)) event.preventDefault();
   });
+  // Appearance changes set themeSource, which lands here: the overlay follows the bar.
   nativeTheme.on("updated", () => {
-    if (!win.isDestroyed()) win.setBackgroundColor(windowBackground());
+    if (win.isDestroyed()) return;
+    win.setBackgroundColor(windowBackground());
+
+    if (platform === "win32") {
+      win.setTitleBarOverlay(titleBarOverlay(nativeTheme.shouldUseDarkColors));
+    }
   });
 
   if (show) win.once("ready-to-show", () => win.show());

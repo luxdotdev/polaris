@@ -22,6 +22,7 @@ import { type GitFacts, useGitFacts } from "./gitStatus.ts";
 import { RAIL_WIDTH } from "./layout.ts";
 import { useSettings } from "../../settings/index.ts";
 import { useFilesTick } from "./watch.ts";
+import { commandShortcut } from "../../../../shared/keymap.ts";
 
 /** The toaster's right inset (polish): toasts clear the rail while it shows. */
 const useToastInset = () =>
@@ -67,7 +68,7 @@ const Fact = ({
   </div>
 );
 
-export const SHOW_HINT = "⌘⌥B";
+export const showHint = () => commandShortcut("view.output");
 
 const branchText = (git: GitFacts) => {
   if (git.kind === "ready") return git.branch ?? "detached HEAD";
@@ -139,7 +140,7 @@ export const OutputRail = ({ hostKey, sessionId }: SessionViewProps) => {
         <IconButton
           size="sm"
           label="Show output"
-          shortcut={SHOW_HINT}
+          shortcut={showHint()}
           icon={<ChevronLeftIcon size={14} />}
           onClick={open}
         />

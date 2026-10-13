@@ -31,6 +31,8 @@ import { pendingCount } from "../model/threads.ts";
 import { anchorLabel, sessionPlace, suggestionBlock } from "../model/composer.ts";
 import { Avatar } from "./Avatar.tsx";
 import { useSessionHarness, useWorkerFeedback } from "./hooks.ts";
+import { shortcutLabel } from "../../../../shared/chord.ts";
+import { FIELD_CHORDS } from "../../../../shared/keymap.ts";
 
 interface Props {
   readonly subjectKey: string;
@@ -187,7 +189,7 @@ const Actions = ({ subjectKey, composer }: Props & { readonly composer: Composer
           onClick={run(kind === "pull" ? addToReview : addToFeedback)}
         >
           {kind === "pull" ? "Add to review" : "Add to feedback"}
-          <span className="opacity-60">⌘↵</span>
+          <span className="opacity-60">{shortcutLabel(FIELD_CHORDS.submit)}</span>
         </Button>
       </div>
     </div>

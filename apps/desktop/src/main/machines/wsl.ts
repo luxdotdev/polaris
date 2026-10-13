@@ -1,7 +1,7 @@
 /**
  * WSL 2 distros as Hosts in Settings (Windows, experimental): the distro list
  * the "Add a host" card shows and the copy the install flow uses for a
- * distro. Pure; `Machines` runs the discovery. See docs/adr/0034-wsl-hosts.md.
+ * distro. Pure; `Machines` runs the discovery. See docs/adr/0036-wsl-hosts.md.
  */
 import { type WslDiscovery, type WslDistro, wslShellArgv } from "@polaris/client/wsl";
 import { Match } from "effect";

@@ -6,7 +6,7 @@
 import { Match } from "effect";
 import type { MachineView, WslDistrosView, WslDistroView } from "../../../shared/api.ts";
 
-/** The one command Polaris suggests and never runs (ADR 0034: an admin prompt and a reboot). */
+/** The one command Polaris suggests and never runs (ADR 0036: an admin prompt and a reboot). */
 export const WSL_INSTALL_COMMAND = "wsl --install";
 
 export interface WslEmpty {

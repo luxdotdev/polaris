@@ -88,7 +88,7 @@ export interface DiscoverOptions {
   readonly wslBinary?: string;
   readonly env?: Record<string, string | undefined>;
   /** `process.platform` by default; off Windows the answer is `Unsupported` without spawning. */
-  readonly platform?: NodeJS.Platform;
+  readonly platform?: NodeJS.Platform | undefined;
   readonly timeoutMs?: number;
 }
 

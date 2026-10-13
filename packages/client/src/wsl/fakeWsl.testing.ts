@@ -2,7 +2,7 @@
  * A fake `wsl.exe` for tests on macOS and Linux: `--list --verbose` prints
  * the configured distros as UTF-16LE (or UTF-8 under `WSL_UTF8=1`, like WSL ≥
  * 0.64), and `--distribution <name> --exec <argv…>` runs `argv` locally with
- * HOME at that distro's directory. Not shipped. See docs/adr/0034-wsl-hosts.md.
+ * HOME at that distro's directory. Not shipped. See docs/adr/0036-wsl-hosts.md.
  */
 import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";

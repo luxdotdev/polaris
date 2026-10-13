@@ -3,6 +3,7 @@
  * this Mac has no network, or every remote Host is unreachable, with one row per remote
  * Host that isn't connected. Pure, so it is tested; the Connection State machine is untouched.
  */
+import { clientCopy } from "../../shared/clientCopy.ts";
 import type { HostView } from "../../shared/api.ts";
 
 const SECOND = 1000;
@@ -94,14 +95,14 @@ export const offlineView = ({ hosts, online, offlineSince, now }: OfflineInput) 
 
   // The network's own time when it is the cause; else since the last Host dropped.
   const since = online ? Math.max(...remote.map((h) => h.status.since)) : (offlineSince ?? now);
-  const what = online ? "Can't reach your other hosts" : "No network on this Mac";
+  const what = online ? "Can't reach your other hosts" : `No network on ${clientCopy().machine}`;
 
   const view: OfflineView = {
     reason: online ? "hosts" : "network",
     title: `${what} · ${durationLabel(now - since)}`,
     caption:
       remote.length === 0
-        ? "Agent sessions on this Mac keep working."
+        ? `Agent sessions on ${clientCopy().machine} keep working.`
         : "Agent sessions on other hosts keep working there. Polaris keeps retrying on its own.",
     rows,
   };

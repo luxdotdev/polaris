@@ -9,6 +9,7 @@ import { EditMode } from "../features/editor/explorer/index.ts";
 import { CommandPalette } from "../features/palette/index.ts";
 import { preloadReview } from "../features/review/index.ts";
 import { SettingsPage } from "../features/settings/index.ts";
+import { useTerminalKey } from "../features/terminal/index.ts";
 import { closeReviewSubject, useReviewSubject } from "../routes/review.ts";
 import { Columns } from "../shell/Columns.tsx";
 import { ShortcutHelp } from "../shell/ShortcutHelp.tsx";
@@ -58,12 +59,31 @@ const Body = () => {
   );
 };
 
+/** In Edit, toasts also clear the status bar under the Terminal strip (DESIGN.md, Toasts). */
+const useEditToastInset = () => {
+  const edit = useSelection().mode === "edit";
+
+  useEffect(() => {
+    if (!edit) return;
+    const root = document.documentElement.style;
+
+    root.setProperty("--toast-inset-bottom", "70px");
+
+    return () => {
+      root.removeProperty("--toast-inset-bottom");
+    };
+  }, [edit]);
+};
+
 /** The selection bar, ⌘I and ⌘L live with the editor: mounted, and loaded, only in Edit. */
 const InlineInEdit = () => (useSelection().mode === "edit" ? <LazyInline /> : null);
 
 export const Shell = () => {
   const jumpOpen = useNav((s) => s.jumpOpen);
   const { setJumpOpen } = useShellActions();
+
+  useTerminalKey();
+  useEditToastInset();
   const welcome = useOnboardingState((s) => s.welcome);
   // Set once Welcome has shown in this window, so only the shell that follows it fades in.
   const [justOnboarded, setJustOnboarded] = useState(false);

@@ -2,7 +2,7 @@
  * What `wsl.exe` prints. Its own messages (distro lists, errors) are UTF-16LE
  * unless `WSL_UTF8=1` (WSL ≥ 0.64); a Linux program's stdio is relayed as the
  * raw bytes it wrote. Both can land on one stderr pipe, so chunks are sniffed:
- * see docs/adr/0034-wsl-hosts.md.
+ * see docs/adr/0036-wsl-hosts.md.
  */
 
 /** The environment every `wsl.exe` spawn gets: UTF-8 output where WSL supports it. */

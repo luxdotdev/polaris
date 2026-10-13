@@ -172,7 +172,7 @@ export const mountHostsPreview = (root: HTMLElement, hash: string) => {
   standInBridge(bridgeFor(feed, scene));
   navigation.actions.openSettings("hosts");
 
-  const commands = createCommandRegistry({ mac: true });
+  const commands = createCommandRegistry({ platform: "mac" });
 
   createRoot(root).render(<App value={{ connection, navigation, commands }} />);
 

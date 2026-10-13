@@ -3,6 +3,7 @@ import { PixelFailedIcon, showToast } from "@polaris/ui";
 import { createElement, useCallback } from "react";
 import { type EditorLocation, openInEditor } from "../../routes/editor.ts";
 import { useConnection, useNavigation } from "../../shell/hooks.ts";
+import { commandShortcut } from "../../../shared/keymap.ts";
 
 export type OpenInEditor = (location: EditorLocation) => boolean;
 
@@ -28,7 +29,7 @@ export const useOpenInEditor = (): OpenInEditor => {
           source: "starlight",
           icon: createElement(PixelFailedIcon, { size: 16 }),
           title: `Not in a workspace on ${host}`,
-          message: "Add its folder as a workspace (⌘O) to edit it.",
+          message: `Add its folder as a workspace (${commandShortcut("workspace.add")}) to edit it.`,
         });
       }
 

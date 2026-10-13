@@ -211,7 +211,7 @@ const connectorFor = (options: HostConnectionOptions): Connector => {
     Ssh: (target) =>
       Effect.suspend(() => {
         const controlDir = options.ssh?.controlDir ?? defaultControlDir();
-        ensureControlDir(controlDir);
+        ensureControlDir(controlDir, options.ssh?.platform);
 
         return spawnTransport(
           sshArgv(target.alias, {

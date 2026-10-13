@@ -1,31 +1,14 @@
 /**
- * The menu bar star: the flat 16x16 Polaris mark (DESIGN.md, Brand) as a macOS template
- * image, drawn from the same cells as the pixel mark, at 1x and 2x.
+ * The menu bar star: the flat 16x16 Polaris mark (DESIGN.md, Brand) at 1x and 2x. On macOS a
+ * template image; on Windows drawn in the taskbar's ink with the needs-you dot (pixels.ts).
  */
-import { starCells } from "@polaris/ui/star";
 import { nativeImage, type NativeImage } from "electron";
+import { type Bitmap, trayStar } from "./pixels.ts";
 
-const bitmap = (scale: number) => {
-  const size = 16 * scale;
-  const pixels = Buffer.alloc(size * size * 4);
-
-  for (const [x, y] of starCells()) {
-    for (let dy = 0; dy < scale; dy++) {
-      for (let dx = 0; dx < scale; dx++) {
-        const at = ((y * scale + dy) * size + (x * scale + dx)) * 4;
-
-        // Template images use alpha only; the colour channels stay black.
-        pixels[at + 3] = 255;
-      }
-    }
-  }
-
-  return { size, pixels };
-};
-
-export const starImage = (): NativeImage => {
-  const one = bitmap(1);
-  const two = bitmap(2);
+/** A 1x and 2x image from one drawing. */
+export const imageAt = (draw: (scale: number) => Bitmap): NativeImage => {
+  const one = draw(1);
+  const two = draw(2);
   const image = nativeImage.createFromBitmap(one.pixels, { width: one.size, height: one.size });
 
   image.addRepresentation({
@@ -34,7 +17,19 @@ export const starImage = (): NativeImage => {
     height: two.size,
     buffer: two.pixels,
   });
+
+  return image;
+};
+
+/** macOS: template images use alpha only, so the star is drawn black and the OS tints it. */
+export const starImage = (): NativeImage => {
+  const image = imageAt((scale) => trayStar(scale, "#000000", null));
+
   image.setTemplateImage(true);
 
   return image;
 };
+
+/** Windows: white on a dark taskbar, near-black on a light one, with the needs-you dot. */
+export const inkedStarImage = (ink: string, dot: string | null): NativeImage =>
+  imageAt((scale) => trayStar(scale, ink, dot));

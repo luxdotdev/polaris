@@ -9,7 +9,7 @@ import { Commands, Decisions } from "../commands.ts";
 import { send } from "../features/session/dispatch.ts";
 import { toggleOutput } from "../features/session/index.ts";
 import { archiveCommand, interruptCommand } from "../features/session/model/intent.ts";
-import type { ContextValue } from "../../shared/keymap.ts";
+import type { ContextKey, ContextValue } from "../../shared/keymap.ts";
 import type { CommandHandlers, ContextPart } from "../routes/commands.ts";
 import type { Navigation } from "../routes/navigation.ts";
 import { type Selection, sessionOrder } from "../routes/selection.ts";
@@ -54,7 +54,7 @@ export const stepSession = (
 export const shellContext =
   ({ connection, navigation }: Omit<ShellCommandsInput, "dark">) =>
   (): ContextPart => {
-    const { hostKey, workspaceId, sessionId } = navigation.current();
+    const { hostKey, workspaceId, sessionId, mode } = navigation.current();
     const model = hostKey === null ? undefined : connection.store.getState().hostModels[hostKey];
     const workspace = workspaceId === null ? undefined : model?.workspaces.get(workspaceId)?.name;
     const session = sessionId === null ? undefined : model?.sessions.get(sessionId)?.session;
@@ -65,7 +65,11 @@ export const shellContext =
 
     if (session !== undefined) values.session = session.title || "Untitled session";
 
-    return { keys: workspace === undefined ? [] : ["workspace"], values };
+    const keys: Array<ContextKey> = workspace === undefined ? [] : ["workspace"];
+
+    if (mode === "edit") keys.push("mode.edit");
+
+    return { keys, values };
   };
 
 export interface ShellCommandsInput {
