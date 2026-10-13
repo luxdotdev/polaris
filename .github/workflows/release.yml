@@ -204,28 +204,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      # Shared with windows-test-build.yml: restore the Daemon, package, smoke-test x64.
+      - uses: ./.github/actions/package-windows
         with:
-          bun-version-file: package.json
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-      - run: bun install --frozen-lockfile
-      - uses: actions/download-artifact@v4
-        with:
-          name: release-daemon-dist
-          path: .
-      - name: Restore the macOS job's Daemon artifact without rebuilding or signing
-        run: tar -xzf polaris-daemon-dist.tar.gz -C apps/daemon
-      - name: Package both Windows architectures and Squirrel installers
-        run: bun run --cwd apps/desktop package --windows --release --reuse-daemon
-      - name: Install the x64 app and verify a native window opens (remote-only Client)
-        env:
-          VERSION: ${{ needs.release.outputs.version }}
-        run: >-
-          ./apps/desktop/scripts/packaging/windows-smoke.ps1
-          -Installer "apps/desktop/out/dist/squirrel-x64/Polaris-$env:VERSION-x64-win-Setup.exe"
-          -Arch x64
+          daemon-artifact: release-daemon-dist
+          release: "true"
       - name: Upload exact Windows assets to the existing draft
         env:
           GH_TOKEN: ${{ github.token }}
