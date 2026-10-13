@@ -1,6 +1,6 @@
 export * from "./types.ts";
 
-export { scorePlacement } from "./score.ts";
+export { hostCanServe, scorePlacement } from "./score.ts";
 
 export { placementMachine, type PlacementSnapshot } from "./machine.ts";
 

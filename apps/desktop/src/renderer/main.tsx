@@ -99,6 +99,9 @@ const editorPreview = location.hash.startsWith("#editor/");
 // `#editor-inline/<scene>`: the selection bar, inline card and ⌘L picker on fixtures (features/editor-inline/preview).
 const editorInlinePreview = location.hash.startsWith("#editor-inline/");
 
+// `#tab-completion/<scene>`: Settings → Editor → Tab completion on fixtures (features/settings/editor/preview).
+const tabCompletionPreview = location.hash.startsWith("#tab-completion/");
+
 let setPreviewDensity: ((density: Density) => void) | null = null;
 
 const appearance = (value: Appearance) => {
@@ -182,6 +185,10 @@ if (root !== null && preview) {
 } else if (root !== null && editorInlinePreview) {
   void import("./features/editor-inline/preview/Preview.tsx").then((m) => {
     setPreviewDensity = m.mountEditorInlinePreview(root, location.hash);
+  });
+} else if (root !== null && tabCompletionPreview) {
+  void import("./features/settings/editor/preview/Preview.tsx").then((m) => {
+    setPreviewDensity = m.mountTabCompletionPreview(root, location.hash);
   });
 } else if (root !== null) {
   createRoot(root).render(

@@ -13,6 +13,10 @@ const mediumModel = /mellum[\W_]*2.*12b.*a2[._-]?5b/i;
 
 const tierOf = (ramBytes: number) => (ramBytes >= 16 * GiB ? 2 : 1);
 
+/** A Host serves completion only with 8 GB or more and not on a Raspberry Pi-class chip. */
+export const hostCanServe = (machine: CapabilityReport["machine"]) =>
+  machine.ramBytes >= 8 * GiB && !/raspberry|cortex-a72|bcm27/i.test(machine.chip);
+
 const targets = (
   side: PredictionSide,
   report: CapabilityReport | null,
@@ -20,9 +24,7 @@ const targets = (
 ): PredictionTarget[] => {
   if (report === null) return [];
 
-  if (side === "host" && report.machine.ramBytes < 8 * GiB) return [];
-
-  if (side === "host" && /raspberry|cortex-a72|bcm27/i.test(report.machine.chip)) return [];
+  if (side === "host" && !hostCanServe(report.machine)) return [];
   const tier = tierOf(report.machine.ramBytes);
   const models = tier === 2 ? mediumModel : smallModel;
 

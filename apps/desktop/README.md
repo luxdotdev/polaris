@@ -22,6 +22,7 @@ node scripts/pullsScreens.ts --out <dir> [--build]   # the pull request list and
 node scripts/reviewScreens.ts --out <dir> [--build] [--findings]  # Review on fixtures (#review/<scene>) against Paper R1 / R2, every theme, density and the -cvd palette; --findings: R1, R6, R7, R8
 node scripts/reviewBench.ts [--quick] [--json <path>] # Review under load on a real Daemon (2k / 5k / 12k files, a 100k-line file); also `bun run bench review`
 node scripts/emptyScreens.ts --out <dir> [--build]      # the empty states and the terminal drawer from a fresh Daemon, every theme and density
+node scripts/tabCompletionScreens.ts --out <dir> [--build]   # Settings → Editor → Tab completion on fixtures (#tab-completion/hosts, /empty), every theme and density
 node scripts/diagnosticsScreens.ts --out <dir>             # editor diagnostics on TypeScript and Prisma (build first): the hover's width, the Problems panel, inline messages (off, held under completion), both themes
 ```
 
