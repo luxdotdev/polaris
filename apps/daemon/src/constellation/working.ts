@@ -1,5 +1,5 @@
 import type { Attempt, AttemptId, SessionId, DomainEvent } from "@polaris/protocol";
-import { Deferred, Effect, Exit, Layer, Predicate, Scope, Stream } from "effect";
+import { Cause, Deferred, Effect, Exit, Layer, Predicate, Scope, Stream } from "effect";
 import {
   cancelWorkerAdmissionWait,
   clearClosedWorkerAdmission,
@@ -179,7 +179,18 @@ export const workingAttemptsLayer = <E>(hooks: WorkingAttemptHooks<E>) =>
       );
 
       // A bounded subscriber can close under load; replay the missed suffix before listening again.
-      yield* observe.pipe(Effect.forever, Effect.forkIn(parent));
+      // A replay that dies (an event this Daemon can't decode) fails startup rather than parking it.
+      yield* observe.pipe(
+        Effect.forever,
+        Effect.onError((cause) =>
+          Effect.flatMap(Deferred.failCause(ready, cause), (startup) =>
+            startup || Cause.hasInterruptsOnly(cause)
+              ? Effect.void
+              : Effect.logError("Constellation event observation stopped", cause)
+          )
+        ),
+        Effect.forkIn(parent)
+      );
       yield* Deferred.await(ready);
 
       const start = Effect.fnUntraced(function* (attempt: Attempt, resume: boolean) {

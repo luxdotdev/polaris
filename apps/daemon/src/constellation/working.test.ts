@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { Effect, Layer, Semaphore, Predicate } from "effect";
+import { Cause, Effect, Exit, Layer, Semaphore, Predicate } from "effect";
 import {
   CommandId,
   ConstellationSettings,
@@ -87,6 +87,45 @@ test("committed hooks replay archives at startup and recover a dropped bounded o
       Effect.provideService(StoreConfig, { subscriberCapacity: 1 })
     )
   );
+});
+
+test("a startup replay that cannot read the log fails the build instead of hanging it", async () => {
+  const unreadable = new Error('Expected "SessionCreated" | … at ["_tag"]');
+
+  const exit = await Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const store = yield* EventStore;
+
+        const hooks = workingAttemptsLayer({
+          runtime: {
+            prepare: () =>
+              Effect.succeed({
+                attempts: [],
+                newLeadSessionId: null,
+                claimProbe: null,
+                recordedChecks: [],
+              }),
+            afterCommit: () => Effect.void,
+            resumeWorking: () => Effect.void,
+          },
+          acquireWorker: () => Effect.void,
+          startWorker: () => Effect.void,
+          resumeWorker: () => Effect.void,
+          failed: () => Effect.void,
+        }).pipe(
+          Layer.provide(
+            // A newer Daemon's event in the log: this Daemon's schema can't decode it.
+            Layer.succeed(EventStore)({ ...store, readEvents: () => Effect.die(unreadable) })
+          )
+        );
+
+        return yield* Layer.build(hooks).pipe(Effect.timeout("2 seconds"), Effect.exit);
+      })
+    ).pipe(Effect.provide(EventStore.layerSqlite(":memory:")))
+  );
+
+  expect(Exit.isFailure(exit) && Cause.squash(exit.cause)).toBe(unreadable);
 });
 
 const slotLifetime = async (stopWaiter: boolean) => {
