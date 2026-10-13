@@ -126,6 +126,9 @@ test("LSP popup hides the ghost and takes acceptance", async () => {
   expect(view.dom.querySelector(".cm-tooltip-autocomplete")).not.toBeNull();
   expect(view.dom.querySelector(".cm-prediction-inline")).toBeNull();
   expect(acceptPrediction(view)).toBe(false);
+  press(view, "Escape", "Escape", 27);
+  expect(view.dom.querySelector(".cm-tooltip-autocomplete") === null).toBe(true);
+  expect(view.state.field(ghost)).toBeNull();
 });
 
 test("every edit starts immediately, aborts its predecessor and ignores stale results", async () => {

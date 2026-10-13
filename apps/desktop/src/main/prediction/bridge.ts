@@ -55,8 +55,9 @@ export const createPredictionBridge = (ports: PredictionBridgePorts) => {
         const directory = yield* HostDirectory;
 
         return {
-          clientLabel: directory.entry("local")?.label ?? hostname(),
-          hostLabel: directory.entry(hostKey)?.label ?? hostKey,
+          clientLabel: hostname(),
+          hostLabel:
+            hostKey === "local" ? hostname() : (directory.entry(hostKey)?.label ?? hostKey),
         };
       })
     );

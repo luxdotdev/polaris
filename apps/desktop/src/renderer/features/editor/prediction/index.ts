@@ -8,6 +8,7 @@ import {
   ghost,
   ghostDecorations,
   ghostTheme,
+  popupOrSnippet,
   setGhost,
 } from "./state.ts";
 import type { PredictionPort } from "./types.ts";
@@ -101,12 +102,13 @@ export const predictionExtension = (port: PredictionPort): Extension => {
         {
           key: "Escape",
           run: (view) => {
+            const delegate = popupOrSnippet(view.state);
             const pending = view.plugin(requests)?.dismiss() ?? false;
 
             if (view.state.field(ghost) === null && !pending) return false;
             view.dispatch({ effects: setGhost.of(null) });
 
-            return true;
+            return !delegate;
           },
         },
       ])
