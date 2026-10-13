@@ -19,6 +19,7 @@ import { endedLine } from "../model/launch.ts";
 import { activeTab, clampHeight, type Drawer, type TerminalTab } from "../model/tabs.ts";
 import { loaded } from "../loaded.ts";
 import { drawerKey, useDrawer } from "../store.ts";
+import { SurfaceMenu, TabMenu } from "./TerminalMenus.tsx";
 import { TerminalSurface } from "./TerminalSurface.tsx";
 
 export interface TerminalDockProps {
@@ -163,12 +164,14 @@ const useResize = (place: TerminalPlace, dock: React.RefObject<HTMLDivElement | 
 interface OpenDrawerProps {
   readonly place: TerminalPlace;
   readonly drawer: Drawer;
+  /** The Workspace's folder and name, where a new terminal starts. */
+  readonly home: { readonly cwd: string; readonly title: string };
   readonly where: string;
   readonly onHide: () => void;
   readonly dock: React.RefObject<HTMLDivElement | null>;
 }
 
-const OpenDrawer = ({ place, drawer, where, onHide, dock }: OpenDrawerProps) => {
+const OpenDrawer = ({ place, drawer, home, where, onHide, dock }: OpenDrawerProps) => {
   const tab = activeTab(drawer);
   const onResize = useResize(place, dock);
   const available = dock.current?.getBoundingClientRect().height ?? Number.POSITIVE_INFINITY;
@@ -189,13 +192,14 @@ const OpenDrawer = ({ place, drawer, where, onHide, dock }: OpenDrawerProps) => 
       />
       <div className="flex h-9 shrink-0 items-center gap-1 px-1.5" role="tablist">
         {drawer.tabs.map((t) => (
-          <Tab
-            key={t.key}
-            tab={t}
-            active={t.key === tab?.key}
-            onSelect={() => activateTab(place, t.key)}
-            onClose={() => closeTab(place, t.key)}
-          />
+          <TabMenu key={t.key} place={place} drawer={drawer} tab={t} {...home}>
+            <Tab
+              tab={t}
+              active={t.key === tab?.key}
+              onSelect={() => activateTab(place, t.key)}
+              onClose={() => closeTab(place, t.key)}
+            />
+          </TabMenu>
         ))}
         <span className="flex-1" />
         <span className="text-code-inline text-text-subtle truncate px-2 font-mono">{where}</span>
@@ -210,12 +214,14 @@ const OpenDrawer = ({ place, drawer, where, onHide, dock }: OpenDrawerProps) => 
       {tab === undefined || tab.terminalId === null ? (
         <div className="flex-1" />
       ) : (
-        <TerminalSurface
+        <SurfaceMenu
           key={`${place.hostKey}/${tab.terminalId}`}
-          hostKey={place.hostKey}
+          place={place}
+          tab={tab}
           terminalId={tab.terminalId}
-          autoFocus
-        />
+        >
+          <TerminalSurface hostKey={place.hostKey} terminalId={tab.terminalId} autoFocus />
+        </SurfaceMenu>
       )}
       {tab === undefined ? null : <Ended tab={tab} onReopen={() => void reopenTab(place, tab)} />}
     </section>
@@ -249,7 +255,14 @@ export const TerminalDock = ({ hostKey, workspaceId, children }: TerminalDockPro
     <div ref={dock} className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex min-h-0 flex-1 flex-col">{children}</div>
       {cwd === null ? null : drawer.open && drawer.tabs.length > 0 ? (
-        <OpenDrawer place={place} drawer={drawer} where={where} onHide={toggle} dock={dock} />
+        <OpenDrawer
+          place={place}
+          drawer={drawer}
+          home={{ cwd, title: workspace?.name ?? "Terminal" }}
+          where={where}
+          onHide={toggle}
+          dock={dock}
+        />
       ) : (
         <Strip onToggle={toggle} count={drawer.tabs.length} />
       )}

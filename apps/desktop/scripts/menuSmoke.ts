@@ -8,7 +8,7 @@
 import { mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { _electron as electron, type Locator, type Page } from "playwright-core";
 import { APP_DIR, electronBinary } from "./lib/electron.ts";
 import { startDaemon } from "./lib/daemon.ts";
@@ -43,6 +43,26 @@ const app = await electron.launch({
 });
 
 const failures: Array<string> = [];
+
+const pbpaste = () => execFileSync("pbpaste", { encoding: "utf8" });
+
+const pbcopy = (text: string) => execFileSync("pbcopy", { input: text });
+
+// The actions below use the real clipboard: keep what was there and put it back at the end.
+const kept = pbpaste();
+
+/** Right-clicks the target and chooses a row by its label. */
+const choose = async (page: Page, target: Locator, menu: string, label: string) => {
+  await target.click({ button: "right" });
+  await page.getByTestId(menu).getByRole("menuitem", { name: label, exact: false }).first().click();
+  await page.getByTestId(menu).waitFor({ state: "detached" });
+  await page.waitForTimeout(300);
+};
+
+const expectEqual = (what: string, actual: string, expected: string) => {
+  if (actual !== expected) failures.push(`${what}: ${JSON.stringify(actual)}`);
+  else console.log(`menus: ${what}`);
+};
 
 const theme = async (page: Page, name: string) => {
   await page.evaluate(`window.polaris.request("settings.setTheme", { theme: "${name}" })`);
@@ -127,6 +147,11 @@ try {
         sessions: [
           { title: "Glossary first pass", state: "idle" },
           { title: "Spike GPUI review screen", state: "needs-you" },
+          {
+            title: "Transcript menus",
+            state: "idle",
+            prompt: `bench:${JSON.stringify({ items: 5, deltasPerItem: 1, deltaIntervalMs: 1 })}`,
+          },
         ],
       },
     ])
@@ -175,6 +200,97 @@ try {
     expected: ["New session on This Mac…", "—", "Host details"],
   });
 
+  await row("Transcript menus")(page).click();
+  await page.getByTestId("command").first().waitFor();
+  await page.waitForTimeout(500);
+
+  const item = (kind: string) => (p: Page) =>
+    p.locator(`[data-testid="turn-item"][data-kind="${kind}"]`).first();
+
+  await check(page, {
+    name: "transcript-prompt",
+    target: (p) => p.getByTestId("prompt").first().locator("p"),
+    menu: "prompt-menu",
+    expected: ["Copy prompt", "—", "Fold turn"],
+  });
+  await check(page, {
+    name: "transcript-message",
+    target: item("message"),
+    menu: "turn-menu",
+    expected: ["Copy message"],
+  });
+  await check(page, {
+    name: "transcript-command",
+    target: (p) => p.getByTestId("command").first(),
+    menu: "turn-menu",
+    expected: ["Copy command", "Copy output", "—", "Copy turn output"],
+  });
+  await check(page, {
+    name: "transcript-tool",
+    target: (p) => p.getByTestId("tool-call").first(),
+    menu: "turn-menu",
+    expected: ["Copy turn output"],
+  });
+  await check(page, {
+    name: "transcript-file",
+    target: (p) => p.getByTestId("file-change").locator("[data-menu-path]").first(),
+    menu: "turn-menu",
+    expected: [
+      "Open in Editor",
+      "Open diff",
+      "—",
+      "Copy path",
+      "Reveal in file tree",
+      "—",
+      "Copy turn output",
+    ],
+  });
+  await check(page, {
+    name: "composer",
+    target: (p) => p.locator("[contenteditable]").first(),
+    menu: "composer-menu",
+    expected: ["Cut ⌘X", "Copy ⌘C", "Paste ⌘V", "Select all ⌘A", "—", "Attach files…"],
+  });
+
+  // What the rows do: Copy path writes the file's absolute path; the composer's edits run in main.
+  await choose(
+    page,
+    page.getByTestId("file-change").locator("[data-menu-path]").first(),
+    "turn-menu",
+    "Copy path"
+  );
+  expectEqual("copy path", pbpaste().replace(/^.*\/polaris-proof-[^/]+\//, ""), "src/index.ts");
+
+  const composer = page.locator("[contenteditable]").first();
+
+  pbcopy("pasted from the menu");
+  await choose(page, composer, "composer-menu", "Paste");
+  expectEqual("composer paste", (await composer.innerText()).trim(), "pasted from the menu");
+  await choose(page, composer, "composer-menu", "Select all");
+  await choose(page, composer, "composer-menu", "Cut");
+  expectEqual(
+    "composer cut",
+    `${(await composer.innerText()).trim()}|${pbpaste()}`,
+    "|pasted from the menu"
+  );
+
+  await page.keyboard.press("Control+Backquote");
+  await page.getByTestId("terminal-surface").waitFor();
+  await page.waitForTimeout(1500);
+  await check(page, {
+    name: "terminal",
+    target: (p) => p.getByTestId("terminal-surface"),
+    menu: "terminal-menu",
+    expected: ["Copy ⌘C", "Paste ⌘V", "Select all ⌘A", "—", "Clear", "—", "Close terminal"],
+  });
+  await check(page, {
+    name: "terminal-tab",
+    target: (p) => p.getByTestId("terminal-tab").first(),
+    menu: "terminal-tab-menu",
+    expected: ["New terminal", "—", "Close terminal"],
+  });
+  await page.keyboard.press("Control+Backquote");
+
   await sidebar(page)
     .getByRole("radio", { name: /Needs you/ })
     .click();
@@ -210,6 +326,7 @@ try {
     ],
   });
 } finally {
+  pbcopy(kept);
   await app.close();
   await daemon.stop();
 }

@@ -318,6 +318,11 @@ const start = async () => {
         localDaemon?.benchHarness === true ? mkdtempSync(join(tmpdir(), "polaris-proof-")) : null,
       daemonDist: existsSync(join(daemonDist, "manifest.json")) ? daemonDist : null,
       writeClipboard: async (text) => clipboard.writeText(text),
+      // The one main window; a hidden one (smoke runs) has no focus to find it by.
+      editAction: (action) =>
+        (BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0])?.webContents[
+          action
+        ](),
       needsYou: (summary) => needsYou?.publish(summary),
     },
   });

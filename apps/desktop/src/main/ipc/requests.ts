@@ -62,6 +62,8 @@ export interface RequestContext {
   /** The bundled Daemon builds (`manifest.json`), or null when this build has none. */
   readonly daemonDist: string | null;
   readonly writeClipboard: (text: string) => Promise<void>;
+  /** Cut, Copy, Paste or Select All in the focused window, as its Edit menu would. */
+  readonly editAction: (action: "cut" | "copy" | "paste" | "selectAll") => void;
   /** The renderer's Needs You summary, for the menu bar star, Dock badge and notifications. */
   readonly needsYou: (summary: NeedsYouSummary) => void;
 }
@@ -351,6 +353,7 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
     machines((m) => m.setLocalEnabled(enabled)).pipe(done),
   "machines.openSsh": ({ hostKey }) => machines((m) => m.openSsh(hostKey)).pipe(done),
   "clipboard.write": ({ text }) => Effect.promise(() => ctx.writeClipboard(text)).pipe(done),
+  "edit.run": ({ action }) => Effect.sync(() => ctx.editAction(action)).pipe(done),
   "onboarding.found": () =>
     Effect.sync(() => ({ sshHosts: ctx.sshHosts(), version: ctx.appVersion })),
   "onboarding.welcomeSeen": () => Effect.sync(ctx.setWelcomeSeen).pipe(done),
