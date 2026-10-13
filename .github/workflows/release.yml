@@ -17,6 +17,8 @@ jobs:
     runs-on: macos-15
     environment: release
     timeout-minutes: 90
+    outputs:
+      version: ${{ steps.metadata.outputs.version }}
     defaults:
       run:
         shell: bash
@@ -128,6 +130,14 @@ jobs:
       - name: Smoke-test packaged app
         run: node apps/desktop/scripts/packageCheck.ts
 
+      - name: Archive the final Daemon bytes and manifest for Windows
+        run: tar -czf polaris-daemon-dist.tar.gz -C apps/daemon dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-daemon-dist
+          path: polaris-daemon-dist.tar.gz
+          if-no-files-found: error
+
       - name: Assess signed app and validate stapled tickets
         if: steps.metadata.outputs.signed == 'true'
         env:
@@ -183,3 +193,63 @@ jobs:
             flags+=(--notes 'Unsigned release candidate for testing. Signing and notarisation were skipped.')
           fi
           gh release create "$RELEASE_TAG" "$dmg" "$zip" "${flags[@]}"
+
+  windows:
+    name: Windows x64 and arm64 (experimental, unsigned)
+    needs: release
+    runs-on: windows-latest
+    environment: release
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: bun install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-daemon-dist
+          path: .
+      - name: Restore the macOS job's Daemon artifact without rebuilding or signing
+        run: tar -xzf polaris-daemon-dist.tar.gz -C apps/daemon
+      - name: Package both Windows architectures and Squirrel installers
+        run: bun run --cwd apps/desktop package --windows --release --reuse-daemon
+      - name: Install the x64 app and verify a native window opens (remote-only Client)
+        env:
+          VERSION: ${{ needs.release.outputs.version }}
+        run: >-
+          ./apps/desktop/scripts/packaging/windows-smoke.ps1
+          -Installer "apps/desktop/out/dist/squirrel-x64/Polaris-$env:VERSION-x64-win-Setup.exe"
+          -Arch x64
+      - name: Upload exact Windows assets to the existing draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          $assets = @()
+          foreach ($arch in @('x64', 'arm64')) {
+            $directory = "apps/desktop/out/dist/squirrel-$arch"
+            $assets += "$directory/Polaris-$env:VERSION-$arch-win-Setup.exe"
+            $nugetVersion = $env:VERSION -replace '-rc\.', '-rc'
+            $assets += "$directory/Polaris-$arch-win-$nugetVersion-full.nupkg"
+            $assets += "$directory/Polaris-$env:VERSION-$arch-win-RELEASES"
+          }
+          foreach ($asset in $assets) {
+            if (!(Test-Path $asset) -or (Get-Item $asset).Length -eq 0) { throw "Missing asset: $asset" }
+          }
+          gh release upload $env:RELEASE_TAG @assets
+          if ($LASTEXITCODE -ne 0) { throw 'Windows asset upload failed' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-installers
+          path: |
+            apps/desktop/out/dist/squirrel-x64/*
+            apps/desktop/out/dist/squirrel-arm64/*
+          if-no-files-found: error

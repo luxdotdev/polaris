@@ -36,6 +36,7 @@ export const RemoteHostSetting = Schema.Struct({
 export type RemoteHostSetting = typeof RemoteHostSetting.Type;
 
 export const Settings = Schema.Struct({
+  sshBinary: Schema.optionalKey(Schema.String.check(Schema.isMinLength(1))),
   automaticAppUpdates: Schema.optionalKey(Schema.Boolean),
   appUpdateLastCheckedAt: Schema.optionalKey(Schema.Number),
   languageSettings: Schema.optionalKey(

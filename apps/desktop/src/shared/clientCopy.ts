@@ -1,8 +1,8 @@
 /**
  * Copy that names the Client's own machine or its OS ("this Mac", "Finder", "macOS"), the one
- * place it varies by platform. Linux keeps the macOS wording it has always shown.
+ * place it varies by platform.
  */
-import { type ClientPlatform, clientPlatform } from "./platform.ts";
+import { type ClientPlatform, clientPlatform, toClientPlatform } from "./platform.ts";
 
 export interface ClientCopy {
   /** In running text: "this Mac", "this PC". */
@@ -42,5 +42,23 @@ const WINDOWS: ClientCopy = {
   tokenStoreBlocked: "Polaris can't encrypt tokens from this session, so it can't keep the sign-in",
 };
 
-export const clientCopy = (platform: ClientPlatform = clientPlatform()): ClientCopy =>
-  platform === "win32" ? WINDOWS : MAC;
+const LINUX: ClientCopy = {
+  machine: "this computer",
+  os: "Linux",
+  reveal: "Show in folder",
+  showApp: "Show in folder",
+  tokenStore: "in the system keyring",
+  noTokenStore: "This computer has no keyring to keep tokens in, so Polaris can't sign in",
+  tokenStoreBlocked:
+    "Polaris can't use the system keyring from this session, so it can't keep the sign-in",
+};
+
+const COPY: Readonly<Record<ClientPlatform, ClientCopy>> = {
+  darwin: MAC,
+  win32: WINDOWS,
+  linux: LINUX,
+};
+
+/** This Client's copy; pass a platform (any `process.platform` value) to name another's. */
+export const clientCopy = (platform: string = clientPlatform()): ClientCopy =>
+  COPY[toClientPlatform(platform)];

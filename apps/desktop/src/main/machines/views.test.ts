@@ -82,6 +82,20 @@ describe("backgroundCheckKey", () => {
 });
 
 describe("machineViews", () => {
+  test("Windows offers only remote Hosts even with a persisted enabled local Host", () => {
+    const input = {
+      settings: { local: { enabled: true }, hosts: [{ alias: "pi" }] },
+      hosts: [host("local"), host("pi")],
+      installs: new Map(),
+      aliases: [],
+      localManaged: true,
+    };
+
+    expect(machineViews({ ...input, platform: "win32" }).map((view) => view.key)).toEqual(["pi"]);
+
+    for (const platform of ["darwin", "linux"] as const)
+      expect(machineViews({ ...input, platform }).map((view) => view.key)).toEqual(["local", "pi"]);
+  });
   test("a musl probe does not offer a glibc build from the Hello platform", () => {
     const views = machineViews({
       settings: { hosts: [{ alias: "alpine" }] },

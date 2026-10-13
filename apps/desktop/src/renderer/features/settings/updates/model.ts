@@ -1,5 +1,6 @@
 /** Reachable update-row copy from DESIGN.md, Updates (U1–U3). */
 import { clientCopy } from "../../../../shared/clientCopy.ts";
+import { clientPlatform } from "../../../../shared/platform.ts";
 import type { AppUpdateView } from "../../../../shared/appUpdates.ts";
 
 export interface AppUpdateRow {
@@ -30,6 +31,8 @@ const checkRow = (
 export const appUpdateRow = (view: AppUpdateView): AppUpdateRow => {
   const release = view.availableVersion === null ? "Polaris" : `Polaris ${view.availableVersion}`;
 
+  const copy = platformCopy(view.platform);
+
   switch (view.phase) {
     case "checking":
       return {
@@ -58,10 +61,10 @@ export const appUpdateRow = (view: AppUpdateView): AppUpdateRow => {
     case "blocked":
       return {
         title: `${release} can't install here`,
-        caption: "Move Polaris to Applications, then check again",
+        caption: copy.install,
         glyph: "folder",
         action: "finder",
-        actionLabel: clientCopy().showApp,
+        actionLabel: copy.reveal,
       };
     case "failed":
       return {
@@ -74,11 +77,7 @@ export const appUpdateRow = (view: AppUpdateView): AppUpdateRow => {
     case "idle":
     case "current":
       if (!view.supported)
-        return checkRow(
-          "Updates are available in the installed Mac app",
-          "This build doesn't check the update feed",
-          "off"
-        );
+        return checkRow(copy.unsupported, "This build doesn't check the update feed", "off");
 
       if (!view.automatic)
         return checkRow(
@@ -94,4 +93,21 @@ export const appUpdateRow = (view: AppUpdateView): AppUpdateRow => {
           : `${view.version} is the latest release · checked ${checkedAt(view.lastCheckedAt)}`
       );
   }
+};
+
+/** The update's platform, as main reports it; the Client's own when it doesn't say. */
+const platformCopy = (platform: string = clientPlatform()) => {
+  const reveal = clientCopy(platform).showApp;
+
+  return platform === "win32"
+    ? {
+        install: "Install Polaris with Setup.exe, then check again",
+        reveal,
+        unsupported: "Updates are available in the installed Windows app",
+      }
+    : {
+        install: "Move Polaris to Applications, then check again",
+        reveal,
+        unsupported: "Updates are available in the installed Mac app",
+      };
 };

@@ -12,12 +12,14 @@ const { version } = Schema.decodeUnknownSync(Schema.Struct({ version: Schema.Str
 
 const output = join(OUT_DIR, "dist");
 
+const signing = resolveSigning(signingCredentials(process.env));
+
 console.log(
   installerDmg(
     join(output, "Polaris-darwin-arm64/Polaris.app"),
     version,
     output,
     join(REPO_ROOT, "design/assets"),
-    resolveSigning(signingCredentials(process.env))
+    signing === "unsigned" ? null : signing
   )
 );

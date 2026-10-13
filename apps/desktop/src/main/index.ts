@@ -43,10 +43,9 @@ import { LanguageIdentityEpochs } from "./languages/identityEpochs.ts";
 import { createMainLanguageApi } from "./languages/runtime.ts";
 import { LanguagePreferences } from "./languages/settings.ts";
 import { machinesLayer, sshAliasNames } from "./machines/index.ts";
-import { type LocalDaemon, resolveLocalDaemon } from "./localDaemon.ts";
+import { type LocalDaemon, localHostEnabled, resolveLocalDaemon } from "./localDaemon.ts";
 import { buildMenu, popupAppMenu } from "./menu.ts";
-import { appRevealPath } from "./reveal.ts";
-import { clientPlatform, setClientPlatform, toClientPlatform } from "../shared/platform.ts";
+import { setClientPlatform, toClientPlatform } from "../shared/platform.ts";
 import { createNeedsYouCenter, type NeedsYouCenter } from "./notifications/index.ts";
 import { createReviewNotifier, type ReviewNotifier } from "./notifications/reviews.ts";
 import {
@@ -71,6 +70,12 @@ import { createMainWindow } from "./window.ts";
 import { askToQuit, holdsQuit } from "./editorQuit.ts";
 import { createAppUpdates, type AppUpdates } from "./updates/index.ts";
 import { cannotInstallHere, installId } from "./updates/identity.ts";
+import { revealAppPath, updatePlatform, windowsAppId } from "./updates/platform.ts";
+import { handleSquirrelStartup } from "./updates/squirrel.ts";
+
+if (await handleSquirrelStartup(process.platform, process.argv, process.execPath)) app.exit(0);
+
+if (process.platform === "win32") app.setAppUserModelId(windowsAppId(process.arch));
 
 const env = process.env;
 
@@ -168,9 +173,16 @@ const start = async () => {
     version: app.getVersion(),
     installId: installId(app.getPath("userData")),
     macOSVersion: process.getSystemVersion(),
+    platform: process.platform,
+    firstRun: process.platform === "win32" && process.argv.includes("--squirrel-firstrun"),
     arch: process.arch,
-    supported: app.isPackaged && !dev && process.platform === "darwin" && process.arch === "arm64",
-    blocked: cannotInstallHere(app.getAppPath(), app.getPath("downloads")),
+    supported: app.isPackaged && !dev && updatePlatform(process.platform, process.arch) !== null,
+    blocked: cannotInstallHere(
+      app.getAppPath(),
+      app.getPath("downloads"),
+      process.platform,
+      process.execPath
+    ),
     automatic: settings.automaticAppUpdates ?? true,
     lastCheckedAt: settings.appUpdateLastCheckedAt ?? null,
     save: saveSettings,
@@ -249,7 +261,7 @@ const start = async () => {
 
   applyAppearance();
 
-  const localEnabled = settings.local?.enabled ?? true;
+  const localEnabled = localHostEnabled(settings.local?.enabled);
 
   const startLocal = async () => {
     localDaemon ??= await resolveLocalDaemon({ dev, repoRoot, env });
@@ -266,10 +278,11 @@ const start = async () => {
       entries: hostEntries({
         local,
         remotes: settings.hosts ?? [],
-        extras: extraHosts(env.POLARIS_DESKTOP_EXTRA_HOSTS),
+        extras: localHostEnabled(true) ? extraHosts(env.POLARIS_DESKTOP_EXTRA_HOSTS) : [],
         ...localLabel(env.POLARIS_DESKTOP_LOCAL_LABEL),
       }),
       identity: clientIdentity(app.getVersion()),
+      ssh: settings.sshBinary === undefined ? {} : { sshBinary: settings.sshBinary },
       ...optionalLanguageCredential(join(app.getPath("userData"), "language-private"), (message) =>
         console.warn(message)
       ),
@@ -309,7 +322,7 @@ const start = async () => {
       updates: currentUpdates,
       restartToUpdate,
       showAppInFinder: () =>
-        shell.showItemInFolder(appRevealPath(clientPlatform(), app.getPath("exe"))),
+        shell.showItemInFolder(revealAppPath(process.platform, app.getPath("exe"))),
       settings: () => settings,
       cache: openSnapshotCache(app.getPath("userData")),
       prices: openPrices(app.getPath("userData")),

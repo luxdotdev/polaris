@@ -1,7 +1,8 @@
 /**
  * The terminal drawer under a pane (DESIGN.md, Terminal): a 28px strip while
  * hidden, a resizable drawer with tabs when shown. ⌃` toggles it. One per
- * Workspace; its tabs are the Workspace's shell and any hand-off terminals.
+ * Workspace, the same in Orchestrate and Edit; its tabs are the Workspace's
+ * shell, any opened in a folder, and any hand-off terminals.
  */
 import { Button, ChevronDownIcon, CloseIcon, cn, IconButton, Kbd } from "@polaris/ui";
 import { type PointerEvent, type ReactNode, useEffect, useRef } from "react";
@@ -19,6 +20,7 @@ import { endedLine } from "../model/launch.ts";
 import { activeTab, clampHeight, type Drawer, type TerminalTab } from "../model/tabs.ts";
 import { loaded } from "../loaded.ts";
 import { drawerKey, useDrawer } from "../store.ts";
+import { useToggleTarget } from "../toggleKey.ts";
 import { SurfaceMenu, TabMenu } from "./TerminalMenus.tsx";
 import { TerminalSurface } from "./TerminalSurface.tsx";
 
@@ -26,30 +28,14 @@ export interface TerminalDockProps {
   readonly hostKey: string;
   readonly workspaceId: string;
   readonly children: ReactNode;
+  /** Under Orchestrate's Output: a tucked drawer (Output collapsed over it) shows as the strip. */
+  readonly tuckable?: boolean;
 }
 
 const TOGGLE_HINT = "⌃`";
 
 const useWorkspace = (hostKey: string, workspaceId: string) =>
   useApp((s) => (s.hostModels[hostKey] ?? emptyHostModel).workspaces.get(workspaceId));
-
-/** ⌃` (Control and the key left of 1, whatever the layout prints on it). */
-const useToggleKey = (toggle: () => void) => {
-  const latest = useRef(toggle);
-
-  latest.current = toggle;
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.code !== "Backquote" || !event.ctrlKey || event.metaKey || event.altKey) return;
-      event.preventDefault();
-      latest.current();
-    };
-
-    window.addEventListener("keydown", onKey, { capture: true });
-
-    return () => window.removeEventListener("keydown", onKey, { capture: true });
-  }, []);
-};
 
 /** Reattaches this Host's terminal feeds once its connection is back. */
 const useReattach = (hostKey: string) => {
@@ -228,19 +214,25 @@ const OpenDrawer = ({ place, drawer, home, where, onHide, dock }: OpenDrawerProp
   );
 };
 
-export const TerminalDock = ({ hostKey, workspaceId, children }: TerminalDockProps) => {
+export const TerminalDock = ({
+  hostKey,
+  workspaceId,
+  children,
+  tuckable = false,
+}: TerminalDockProps) => {
   const place: TerminalPlace = { hostKey, workspaceId };
   const drawer = useDrawer(drawerKey(hostKey, workspaceId));
   const workspace = useWorkspace(hostKey, workspaceId);
   const homeDir = useApp((s) => s.hosts.find((h) => h.key === hostKey)?.status.host?.homeDir);
   const dock = useRef<HTMLDivElement>(null);
   const cwd = workspace?.path ?? null;
+  const shown = drawer.open && drawer.tabs.length > 0 && !(tuckable && drawer.tucked === true);
 
   const toggle = () => {
-    if (cwd !== null) toggleTerminal(place, cwd, workspace?.name ?? "Terminal");
+    if (cwd !== null) toggleTerminal(place, cwd, workspace?.name ?? "Terminal", shown);
   };
 
-  useToggleKey(toggle);
+  useToggleTarget(toggle);
   useReattach(hostKey);
 
   const tab = activeTab(drawer);
@@ -252,9 +244,15 @@ export const TerminalDock = ({ hostKey, workspaceId, children }: TerminalDockPro
       : shownCwd;
 
   return (
-    <div ref={dock} className="flex min-h-0 min-w-0 flex-1 flex-col">
+    <div
+      ref={dock}
+      className="flex min-h-0 min-w-0 flex-1 flex-col"
+      data-host-key={hostKey}
+      data-workspace-id={workspaceId}
+      data-testid="terminal-dock"
+    >
       <div className="flex min-h-0 flex-1 flex-col">{children}</div>
-      {cwd === null ? null : drawer.open && drawer.tabs.length > 0 ? (
+      {cwd === null ? null : shown ? (
         <OpenDrawer
           place={place}
           drawer={drawer}
