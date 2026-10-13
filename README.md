@@ -1,7 +1,7 @@
 <a href="https://polaris.lux.dev">
   <picture>
     <source media="(prefers-color-scheme: light)" srcset="docs/assets/readme/hero-light.webp">
-    <img alt="Polaris, the north star for your agents: the Orchestrator with several agent sessions, one at work beside the changes from its latest turn." src="docs/assets/readme/hero-dark.webp" width="100%">
+    <img alt="Polaris, the north star for your agents: several agent sessions, one at work beside the changes from its latest turn." src="docs/assets/readme/hero-dark.webp" width="100%">
   </picture>
 </a>
 
@@ -26,45 +26,45 @@
 </p>
 
 > [!NOTE]
-> Polaris is early and moving quickly. The Desktop App ships for macOS on Apple silicon. The Windows build is experimental and unsigned, and connects only to remote Hosts.
+> Polaris is early and changing fast. It runs on Macs with Apple silicon. A Windows build is available as an experiment: it's unsigned, and it connects only to remote machines.
 
 ## About
 
-Polaris is an IDE and agent orchestrator. It drives the coding agents you already use, such as Claude Code and Codex, rather than reimplementing one, and supervises their Agent Sessions across this Mac and any machine you can reach over SSH, all from one window.
+You already have coding agents. Polaris is where you run them all and see what each one is doing.
 
-It shows what every agent is doing, calls you only when one Needs You, and puts the riskiest changes first when you review. Then you read and edit the code yourself, in the same app.
+It drives the agents you use today, such as Claude Code and Codex, instead of replacing them. Run them side by side on your Mac, a Linux VM, a Raspberry Pi, or any machine you can reach over SSH, all from one window. Polaris tells you which agent needs you, and when you review its work, it puts the riskiest changes first. Then you can read and edit the code yourself in the same app.
 
-Each Host runs a small Bun Daemon that owns its Agent Sessions, files, terminals and language tooling. Sessions outlive the Harness process and Daemon restarts, and the Desktop App picks up where it left off when a connection comes back.
+Close the app, lose your connection or restart a machine: your agent sessions are still there when you come back.
 
 ## Features
 
-- **Orchestrate.** Start, watch and steer Agent Sessions in [Claude Code, Codex, OpenCode, Gemini CLI and GitHub Copilot CLI](packages/protocol/src/harnesses.ts), side by side, across Hosts and Workspaces. Each session's Session State is visible at a glance; approvals and questions collect in one Needs You inbox, with notifications and a menu bar count. Polaris never installs a Harness or signs in for one ([ADR 0001](docs/adr/0001-polaris-never-touches-provider-credentials.md)).
-- **Any Host.** The Mac you're on, a Linux VM, a Raspberry Pi: Polaris installs and upgrades its Daemon over your existing SSH config, after you approve its SHA-256. On Windows, WSL 2 distros can be Hosts too (experimental).
-- **Constellations.** A Lead session maps work into a graph of Tasks, starts an Attempt at each in its own Agent Session, and hears their Claims. You see what is blocked, in review or waiting on you.
-- **Review.** Judge an open pull request or an Agent Session's Turns in a Review Checkout, away from your own working tree. A Risk Summary from rules, a secret scanner and a Reviewer of your choice ranks the Risk Findings by Severity, and you record a Verdict on each.
-- **Editor.** Read and edit code on any Host with language servers for TypeScript, Python, Go, Rust, Java, PHP, Lua, SQL, Svelte and more; follow a Harness as it edits a file; ask for an inline change.
-- **Tab completion.** Fill-in-the-middle completions from a model server you run yourself (llama-server, LM Studio, Ollama or any OpenAI-compatible endpoint).
-- **Terminals.** Real terminals on every Host, and a Harness's own terminal UI when you want to take a session over (In Terminal) and hand it back.
+- **Run agents side by side.** Start, watch and steer [Claude Code, Codex, OpenCode, Gemini CLI and GitHub Copilot CLI](packages/protocol/src/harnesses.ts) across machines and projects. Every session shows whether it's working, done or stuck. Approvals and questions land in one "needs you" inbox, with notifications and a count in the menu bar. Polaris never signs in to an agent for you or touches its credentials ([ADR 0001](docs/adr/0001-polaris-never-touches-provider-credentials.md)).
+- **Use any machine.** Your Mac, a Linux VM, a Raspberry Pi. Polaris sets itself up over the SSH config you already have, and asks before it installs anything. On Windows, WSL 2 distros can be hosts too (experimental).
+- **Split big jobs.** A lead agent breaks work into a graph of tasks and hands each to its own agent. You see what's blocked, what's ready for review and what's waiting on you.
+- **Review with the risk up front.** Check a pull request, or what an agent just did, in a separate checkout, so your own working copy stays untouched. A risk summary from rules, a secret scanner and a reviewer agent of your choice ranks what to look at first, and you mark each finding as you go.
+- **Edit the code.** A full editor with language servers for TypeScript, Python, Go, Rust, Java, PHP, Lua, SQL, Svelte and more, on any machine. Follow along as an agent edits a file, or ask for an inline change.
+- **Tab completion, on your hardware.** Suggestions as you type, from a model server you run yourself: llama-server, LM Studio, Ollama or any OpenAI-compatible endpoint. Nothing leaves your machines.
+- **Real terminals.** On every machine, plus the agent's own terminal UI when you want to take a session over and hand it back.
 
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="docs/assets/readme/constellation-light.webp">
-  <img alt="A Constellation: the Lead's Agent Session beside its Tasks, grouped by Parent, with Attempts working, in review, and one that Needs You." src="docs/assets/readme/constellation-dark.webp" width="100%">
+  <img alt="A lead agent beside its graph of tasks, grouped by parent, with some working, some in review and one that needs you." src="docs/assets/readme/constellation-dark.webp" width="100%">
 </picture>
-<p align="center"><sub>A Lead and its Constellation</sub></p>
+<p align="center"><sub>A lead agent and its tasks</sub></p>
 
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="docs/assets/readme/review-light.webp">
-  <img alt="Review of an Agent Session's Turns: a Risk Summary with a Critical finding for a committed API key and a High finding, beside the diff." src="docs/assets/readme/review-dark.webp" width="100%">
+  <img alt="Reviewing an agent's turns: a risk summary flags a committed API key as critical, beside the diff." src="docs/assets/readme/review-dark.webp" width="100%">
 </picture>
-<p align="center"><sub>Review, guided by a Risk Summary</sub></p>
+<p align="center"><sub>Review, with the riskiest change first</sub></p>
 
-<sub>Screenshots show the Desktop App running on fixtures.</sub>
+<sub>Screenshots use sample data.</sub>
 
 ## Install
 
-**Download.** Get the DMG for macOS (Apple silicon) from the [latest release](https://github.com/luxdotdev/polaris/releases) or [polaris.lux.dev](https://polaris.lux.dev). The Desktop App updates itself to each new Release and carries the Daemon builds it installs on your Hosts. Install at least one [Harness](packages/protocol/src/harnesses.ts) on the Hosts where you want agents to run.
+**Download.** Get the Mac app (Apple silicon) from [polaris.lux.dev](https://polaris.lux.dev) or the [latest release](https://github.com/luxdotdev/polaris/releases). It updates itself, and it brings along everything it installs on your other machines. You'll also need at least one agent, like Claude Code or Codex, installed wherever you want agents to run.
 
-**Build from source.** You need [Bun](https://bun.sh) 1.3.9 or later and git.
+**Build from source.** You need [Bun](https://bun.sh) 1.3.9 or later, and git.
 
 ```sh
 git clone https://github.com/luxdotdev/polaris.git
@@ -73,25 +73,25 @@ bun install
 bun run --cwd apps/desktop dev
 ```
 
-In dev the Desktop App connects to the Daemon at `~/.polaris/daemon.sock` if one answers; otherwise it starts its own from source, with a scripted Harness that spends no tokens ([ADR 0007](docs/adr/0007-the-desktop-dev-daemon-is-its-own.md)). Packaging and releases are in [`apps/desktop/README.md`](apps/desktop/README.md).
+In development, the app uses the daemon already running on your Mac if there is one. Otherwise it starts its own, with a scripted test agent that spends no tokens ([ADR 0007](docs/adr/0007-the-desktop-dev-daemon-is-its-own.md)). Packaging and releases are covered in [`apps/desktop/README.md`](apps/desktop/README.md).
 
 ## How it works
 
 ```mermaid
 flowchart TB
-  subgraph Client["Desktop App (Electron)"]
+  subgraph Client["Desktop app (Electron)"]
     direction LR
     UI["Renderer<br/>React on @polaris/ui"] <--> RT["Client runtime<br/>@polaris/client"]
   end
 
-  subgraph H3["Host: Raspberry Pi"]
-    D3["Daemon"] --> A3["Harnesses"]
+  subgraph H3["Raspberry Pi"]
+    D3["Daemon"] --> A3["Agents"]
   end
-  subgraph H2["Host: Linux VM"]
-    D2["Daemon"] --> A2["Harnesses"]
+  subgraph H2["Linux VM"]
+    D2["Daemon"] --> A2["Agents"]
   end
-  subgraph H1["Host: this Mac"]
-    D1["Daemon"] --> A1["Harnesses<br/>Claude Code, Codex, …"]
+  subgraph H1["This Mac"]
+    D1["Daemon"] --> A1["Agents<br/>Claude Code, Codex, …"]
   end
 
   RT -- "local socket" --> D1
@@ -99,26 +99,26 @@ flowchart TB
   RT -- "SSH bridge" --> D3
 ```
 
-- A **Host** is a machine where code lives and agents run. Its **Daemon** (`polaris`, a compiled Bun binary) runs as a user service and owns that Host's Agent Sessions, event store, git and Worktrees, files, terminals and language servers.
-- A **Client** connects to many Daemons at once: the local one over a socket, remote ones through `ssh <host> polaris bridge`. Each connection has its own Connection State, and resumes from the last event it saw.
-- Every change is an event in the Daemon's log; Session States are derived from it by a pure state machine, so recovery after a crash or restart never continues a Turn on its own ([ADR 0004](docs/adr/0004-restart-recovery-never-continues-a-turn.md)).
-- The wire contract is [`packages/protocol`](packages/protocol), on Effect Schema and Effect RPC. The store, streams, recovery, approvals and resume are specified in Quint in [`packages/spec`](packages/spec) and checked against the real code by model-based tests.
+- A **host** is any machine where your code lives and agents run. Each host runs a small background service, the **daemon** (`polaris`, a single compiled Bun binary). It owns that machine's agent sessions, files, git, terminals and language servers.
+- The **desktop app** talks to many daemons at once: the one on your Mac over a local socket, and the others through `ssh <host> polaris bridge`. If a connection drops, it picks up from the last thing it saw.
+- Everything that happens is recorded as an event in the daemon's log, and the app's view is rebuilt from that log. After a crash or restart, an agent never carries on with a half-finished turn by itself ([ADR 0004](docs/adr/0004-restart-recovery-never-continues-a-turn.md)).
+- The protocol between them lives in [`packages/protocol`](packages/protocol). The trickiest parts (the event store, streaming, recovery, approvals and reconnecting) are specified in Quint in [`packages/spec`](packages/spec) and tested against the real code.
 
-The words used here are defined in [`CONTEXT.md`](CONTEXT.md); the decisions behind them are in [`docs/adr`](docs/adr).
+Every term is defined in [`CONTEXT.md`](CONTEXT.md), and the decisions behind the design are in [`docs/adr`](docs/adr).
 
 ## Repository layout
 
 | Path | What |
 |---|---|
-| [`apps/daemon`](apps/daemon) | The Daemon: event store, Harness drivers, transport, files, git, terminals, language tooling. |
-| [`apps/desktop`](apps/desktop) | The Electron Desktop App: Client runtime in the main process, a typed IPC bridge, a React renderer. |
+| [`apps/daemon`](apps/daemon) | The daemon: event store, agent drivers, transport, files, git, terminals, language tooling. |
+| [`apps/desktop`](apps/desktop) | The Electron desktop app: the client runtime in the main process, a typed IPC bridge and a React renderer. |
 | [`apps/site`](apps/site) | [polaris.lux.dev](https://polaris.lux.dev), with the download and update feed routes. |
-| [`packages/protocol`](packages/protocol) | The wire contract every Client and the Daemon depend on. |
-| [`packages/client`](packages/client) | Connections to many Daemons over SSH, Connection States, resume, install and upgrade. |
+| [`packages/protocol`](packages/protocol) | The protocol the app and every daemon share. |
+| [`packages/client`](packages/client) | Connecting to many daemons over SSH: connection states, resuming, installing and upgrading. |
 | [`packages/ui`](packages/ui) | The design system in code: DESIGN.md's tokens, components and a gallery. |
 | [`packages/predict`](packages/predict) | The fill-in-the-middle predictor behind tab completion. |
 | [`packages/spec`](packages/spec) | The Quint specification and its checks. |
-| [`packages/bench`](packages/bench) | Benchmarks: the real Daemon under scripted load, with per-machine baselines. |
+| [`packages/bench`](packages/bench) | Benchmarks: the real daemon under scripted load, with per-machine baselines. |
 | [`packages/lint-config`](packages/lint-config) | Shared oxlint and oxfmt config and custom rules. |
 | [`tooling`](tooling) | The lint ratchet, the quality runner and the git hooks. |
 | [`design`](design) | Brand assets and the scripts that generate them. |
@@ -127,11 +127,11 @@ Product and design truth live in [`PRODUCT.md`](PRODUCT.md) and [`DESIGN.md`](DE
 
 ## Contributing
 
-Issues and pull requests are welcome. Read [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, the git hooks, the lint ratchet, tests, the spec and the rules for borrowed code. Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
+Issues and pull requests are welcome. [`CONTRIBUTING.md`](CONTRIBUTING.md) covers setup, the git hooks, linting, tests, the spec and the rules for borrowed code. Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Security
 
-Please don't open a public issue for a vulnerability. See [`SECURITY.md`](SECURITY.md) for how to report one privately.
+Found a vulnerability? Please don't open a public issue. Report it privately through [GitHub](https://github.com/luxdotdev/polaris/security/advisories/new) or to [security@lux.dev](mailto:security@lux.dev); [`SECURITY.md`](SECURITY.md) has the details.
 
 ## Licence
 

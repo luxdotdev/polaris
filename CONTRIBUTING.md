@@ -4,7 +4,7 @@ Thanks for helping. This guide covers what you need to make a change that passes
 
 ## Before you start
 
-- **Read the vocabulary.** [`CONTEXT.md`](CONTEXT.md) defines Host, Daemon, Workspace, Agent Session, Turn, Session State and the rest. Use those words exactly in code, comments, docs and UI copy.
+- **Read the vocabulary.** [`CONTEXT.md`](CONTEXT.md) defines host, daemon, workspace, agent session, turn, session state and the rest. Use those words exactly in code, comments, docs and UI copy; UI copy writes them in lowercase.
 - **Read the product and design docs** for anything a user sees: [`PRODUCT.md`](PRODUCT.md) (users, voice, principles) and [`DESIGN.md`](DESIGN.md) (tokens, components, motion, brand).
 - **Check the decisions.** The reasons behind the architecture are in [`docs/adr`](docs/adr), and research notes in [`docs/research`](docs/research).
 - **Open an issue first** for a large change, a new dependency, or anything that changes the protocol, so we can agree on the shape before you build it.
@@ -17,7 +17,7 @@ You need [Bun](https://bun.sh) 1.3.9 or later (the exact version is pinned in `p
 git clone https://github.com/luxdotdev/polaris.git
 cd polaris
 bun install                        # also installs the git hooks
-bun run --cwd apps/desktop dev     # the Desktop App, with its own dev Daemon
+bun run --cwd apps/desktop dev     # the desktop app, with its own dev daemon
 ```
 
 Other entry points:
@@ -33,7 +33,7 @@ Each app and package has a README with its own commands.
 
 - Bun, Turborepo, TypeScript, oxfmt for formatting and oxlint for linting.
 - **Effect 4** (pinned exactly, with every `@effect/*` package matching). Its APIs differ from Effect 3: read `node_modules/effect/AGENTS.md` and `node_modules/effect/ai-docs/` rather than older guides. Services use `Context.Service`, functions `Effect.fn`, errors `Schema.TaggedError`.
-- **Lifecycle changes go through the state machines** (XState v6 alpha, pinned exactly): Session States in `apps/daemon/src/engine/session.ts`, Connection States in `packages/client/src/connection.ts`. Never add ad-hoc `if (state === …)` lifecycle code. The event log stays the source of truth; update the model-based tests and the Mermaid diagrams with the machine.
+- **Lifecycle changes go through the state machines** (XState v6 alpha, pinned exactly): session states in `apps/daemon/src/engine/session.ts`, connection states in `packages/client/src/connection.ts`. Never add ad-hoc `if (state === …)` lifecycle code. The event log stays the source of truth; update the model-based tests and the Mermaid diagrams with the machine.
 - Terminals use `Bun.Terminal`, never node-pty.
 
 ## Making a change
@@ -73,13 +73,13 @@ Repository-wide formatting commits are listed in `.git-blame-ignore-revs`. Run `
 
 ### Performance
 
-The Daemon must stay light on a Raspberry Pi 4 and a small Linux VM, and the Desktop App has budgets (under 1 GB in a heavy session, display-rate frames, a Workspace switch under 100 ms). If your change could move memory, CPU or latency, run the relevant benchmark scenarios before and after against your machine's baseline:
+The daemon must stay light on a Raspberry Pi 4 and a small Linux VM, and the desktop app has budgets (under 1 GB in a heavy session, display-rate frames, a workspace switch under 100 ms). If your change could move memory, CPU or latency, run the relevant benchmark scenarios before and after against your machine's baseline:
 
 ```sh
 bun run bench sessions history --runs 3 --compare packages/bench/baselines/<machine>.json
 ```
 
-Don't regress a baseline silently: fix it, or explain it in the commit and update the baseline in the same change. Anything that wakes an idle Daemon (timers, polling, watchers) must justify itself in the `idle` scenario. See [`packages/bench`](packages/bench/README.md).
+Don't regress a baseline silently: fix it, or explain it in the commit and update the baseline in the same change. Anything that wakes an idle daemon (timers, polling, watchers) must justify itself in the `idle` scenario. See [`packages/bench`](packages/bench/README.md).
 
 ### The specification
 
