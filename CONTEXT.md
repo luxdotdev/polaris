@@ -204,6 +204,14 @@ _Avoid_: Issue, warning, comment
 The Harness and Model the user chooses to write the Agent part of every Risk Summary, set once in Settings and independent of the Harness that made the change.
 _Avoid_: Review agent, review bot
 
+**Classifier**:
+A decision model that answers narrow, written questions about a change (does this hunk break this rule?) with typed answers and a confidence, never prose; it adds its own Risk Findings and may raise the Reviewer's, but never hides, lowers or demotes any Finding.
+_Avoid_: Decision model, System One (in anything a user reads), judge
+
+**Classifier Backend**:
+The service a Classifier's questions go to (a hosted model, Cloudflare Workers AI, or a server the user runs themselves), chosen once in Settings; with none chosen there is no Classifier.
+_Avoid_: Provider, engine
+
 **Walkthrough**:
 Polaris's read-only account of a change under Review, written by its own session beside the Reviewer: why the change, the few things to note, and an outline of only the views that explain it. Kept per head commit; a re-review adds a short one covering only the new commits.
 _Avoid_: Summary (that is the Risk Summary), PR description
