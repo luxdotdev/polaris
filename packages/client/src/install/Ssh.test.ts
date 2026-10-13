@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { type SpawnOptions, spawn } from "node:child_process";
 import { Effect } from "effect";
+import { nodeChildProcess } from "../process/index.ts";
 import { runCommand } from "./Ssh.ts";
 
 describe("runCommand", () => {
@@ -20,7 +21,7 @@ describe("runCommand", () => {
         file: "sh",
         args: ["-c", "echo ok"],
         transportFailure: null,
-        spawn: recording,
+        processes: nodeChildProcess(recording),
       })
     );
 

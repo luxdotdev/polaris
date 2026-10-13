@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { type SpawnOptions as NodeSpawnOptions, spawn } from "node:child_process";
 import { Effect } from "effect";
 import { connectorFor, HostTarget } from "./HostConnection.ts";
+import { nodeChildProcess } from "./process/index.ts";
 import { spawnTransport } from "./transport.ts";
 
 const identity = { name: "test", version: "0.0.0", deviceLabel: "test", capabilities: [] };
@@ -49,7 +50,9 @@ describe("spawnTransport", () => {
     }) as typeof spawn;
 
     await Effect.runPromise(
-      Effect.scoped(spawnTransport(["true"], { spawn: recording, killAfterMs: 10 }))
+      Effect.scoped(
+        spawnTransport(["true"], { processes: nodeChildProcess(recording), killAfterMs: 10 })
+      )
     );
     expect(seen.map((options) => options.windowsHide)).toEqual([true]);
   });

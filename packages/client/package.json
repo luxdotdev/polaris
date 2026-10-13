@@ -10,6 +10,8 @@
     "./install": "./src/install/index.ts",
     "./testing": "./src/connection.testing.ts",
     "./prediction": "./src/prediction/index.ts",
+    "./process": "./src/process/index.ts",
+    "./process/node": "./src/process/node.ts",
     "./prediction/probe": "./src/prediction/probe.ts",
     "./prediction/score": "./src/prediction/score.ts",
     "./prediction/server": "./src/prediction/server.ts",

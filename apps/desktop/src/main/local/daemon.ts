@@ -8,12 +8,12 @@
  *   POLARIS_DESKTOP_LOCAL_HOME=<dir>      with a given socket: its Daemon is installed in
  *                                         <dir>/.polaris and upgrades like the system one (tests)
  */
-import { type ChildProcess, spawn } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { connect } from "node:net";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { localDaemonFailure } from "@polaris/client";
+import { childProcesses, type Spawned, stopChild } from "@polaris/client/process";
 
 export interface LocalDaemon {
   readonly socketPath: string;
@@ -75,7 +75,7 @@ export const socketLive = (socketPath: string, timeoutMs = 500): Promise<boolean
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const waitForSocket = async (socketPath: string, child: ChildProcess, timeoutMs: number) => {
+const waitForSocket = async (socketPath: string, child: Spawned, timeoutMs: number) => {
   const deadline = Date.now() + timeoutMs;
 
   while (Date.now() < deadline) {
@@ -87,23 +87,6 @@ const waitForSocket = async (socketPath: string, child: ChildProcess, timeoutMs:
 
   throw new Error(`dev Daemon did not open ${socketPath} within ${timeoutMs} ms`);
 };
-
-const stopChild = (child: ChildProcess) =>
-  new Promise<void>((resolve) => {
-    if (child.exitCode !== null || child.signalCode !== null) {
-      resolve();
-
-      return;
-    }
-
-    const kill = setTimeout(() => child.kill("SIGKILL"), 3000);
-
-    child.once("exit", () => {
-      clearTimeout(kill);
-      resolve();
-    });
-    child.kill("SIGTERM");
-  });
 
 /** Starts `bun apps/daemon/src/main.ts serve --foreground` with the bench Harness and its own home. */
 export const startDevDaemon = async ({
@@ -121,7 +104,9 @@ export const startDevDaemon = async ({
     return external(socketPath, true, null);
   }
 
-  const child = spawn("bun", [join(repoRoot, "apps/daemon/src/main.ts"), "serve", "--foreground"], {
+  const child = childProcesses.spawn({
+    file: "bun",
+    args: [join(repoRoot, "apps/daemon/src/main.ts"), "serve", "--foreground"],
     cwd: repoRoot,
     env: { ...env, POLARIS_HOME: home, POLARIS_BENCH_HARNESS: "1" },
     stdio: ["ignore", "inherit", "inherit"],

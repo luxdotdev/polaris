@@ -5,11 +5,10 @@
  */
 import { shellQuote } from "@polaris/client/install";
 import { resolveSshBinary, type SshOptions } from "@polaris/client";
-import { spawn } from "node:child_process";
+import { childProcesses, spawnFailed } from "@polaris/client/process";
 import { chmodSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, win32 } from "node:path";
-import { Option, Schema } from "effect";
 
 /**
  * The script the terminal runs: the command, then a note so its output stays readable. Linux
@@ -60,27 +59,29 @@ export const windowsTerminalCommands = (
   ];
 };
 
-const spawnError = Schema.decodeUnknownOption(Schema.Struct({ code: Schema.String }));
-
 const launch = ({
   file,
   args,
   windowsVerbatimArguments = false,
 }: TerminalCommand): Promise<boolean> =>
   new Promise((resolve, reject) => {
-    const child = spawn(file, args, {
+    // The one child the user is meant to see: a terminal window.
+    const child = childProcesses.spawn({
+      file,
+      args,
       detached: true,
-      stdio: "ignore",
-      windowsHide: false,
-      windowsVerbatimArguments,
+      stdio: ["ignore", "ignore", "ignore"],
+      visible: true,
+      verbatimArguments: windowsVerbatimArguments,
     });
 
     child.once("spawn", () => {
       child.unref();
       resolve(true);
     });
+    // A missing program means try the next terminal; anything else is a real failure.
     child.once("error", (error) => {
-      if (Option.exists(spawnError(error), (value) => value.code === "ENOENT")) resolve(false);
+      if (spawnFailed(file, error).reason === "missing") resolve(false);
       else reject(error);
     });
   });

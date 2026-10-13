@@ -4,7 +4,7 @@
  * packaged app's `Resources/daemon`, then the repo's `apps/daemon/dist`. In
  * dev a missing platform is built from source on demand.
  */
-import { spawn } from "node:child_process";
+import { childProcesses } from "@polaris/client/process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { type DaemonBuild, loadBuilds, type Platform } from "@polaris/client/install";
@@ -52,7 +52,9 @@ const load = (dir: string) =>
 /** Rebuild every target together so one new version cannot drop the other platforms. */
 const buildFromSource = (repoRoot: string, platform: Platform) =>
   Effect.callback<void, BuildUnavailable>((resume) => {
-    const child = spawn("bun", [join(repoRoot, "scripts/build-daemon.ts")], {
+    const child = childProcesses.spawn({
+      file: "bun",
+      args: [join(repoRoot, "scripts/build-daemon.ts")],
       cwd: repoRoot,
       stdio: ["ignore", "ignore", "pipe"],
     });

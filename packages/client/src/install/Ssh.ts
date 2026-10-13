@@ -3,9 +3,9 @@
  * never answers prompts itself: `BatchMode=yes` turns a password, 2FA or
  * changed-host-key prompt into a failure that surfaces as Needs Attention.
  */
-import { spawn } from "node:child_process";
 import { createReadStream } from "node:fs";
 import { Context, Effect, Layer, Schema } from "effect";
+import { type ChildProcessApi, childProcesses, spawnFailed } from "../process/index.ts";
 import { resolveSshBinary, type SshOptions } from "../ssh.ts";
 
 export interface SshResult {
@@ -70,8 +70,8 @@ export interface Spawned {
   readonly onStdinBytes?: ((bytes: number) => void) | undefined;
   /** ssh's own exit code; a local shell has none, so every exit is the command's. */
   readonly transportFailure: number | null;
-  /** Starts the process; `node:child_process`'s by default (tests record the options). */
-  readonly spawn?: typeof spawn;
+  /** Starts the process (`ChildProcess`); tests script or record it. */
+  readonly processes?: ChildProcessApi;
 }
 
 export const runCommand = ({
@@ -82,14 +82,14 @@ export const runCommand = ({
   stdinFile,
   onStdinBytes,
   transportFailure,
-  spawn: start = spawn,
+  processes = childProcesses,
 }: Spawned) =>
   Effect.callback<SshResult, SshError>((resume) => {
-    // No console window per install command when the Client is a Windows GUI app.
-    const child = start(file, args, {
+    const child = processes.spawn({
+      file,
+      args,
       stdio: [stdinFile ? "pipe" : "ignore", "pipe", "pipe"],
       env: env ?? process.env,
-      windowsHide: true,
     });
 
     let stdout = "";
@@ -119,8 +119,12 @@ export const runCommand = ({
       input.pipe(child.stdin);
     }
 
-    child.on("error", (error) =>
-      resume(Effect.fail(new SshError({ alias, failure: "spawn", message: error.message })))
+    child.on("error", (error: NodeJS.ErrnoException) =>
+      resume(
+        Effect.fail(
+          new SshError({ alias, failure: "spawn", message: spawnFailed(file, error).message })
+        )
+      )
     );
     child.on("close", (code) => {
       input?.destroy();
