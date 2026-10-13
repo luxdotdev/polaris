@@ -8,8 +8,11 @@ import {
   type PredictionClientEndpoints,
   type PredictionPreferences,
 } from "../../../../shared/predictionPlacement.ts";
+import type { PredictionEndpoint } from "@polaris/protocol";
+import type { PredictionSide } from "@polaris/client/prediction";
 import {
   PredictionFeedItem,
+  type PredictionContextSummary,
   type PredictionEnabled,
   type PredictionInspection,
 } from "../../../../shared/predictionContract.ts";
@@ -22,6 +25,13 @@ export interface CompletionStatus {
   readonly model: string;
   readonly machine: string;
   readonly elapsedMs: number;
+  readonly side?: PredictionSide | undefined;
+  readonly endpoint?: PredictionEndpoint | undefined;
+  readonly latency?:
+    | { readonly p50: number; readonly last: number; readonly count: number }
+    | null
+    | undefined;
+  readonly context?: PredictionContextSummary | null | undefined;
 }
 
 export interface PredictionState {
@@ -168,6 +178,19 @@ export const turnOnDiscoveredServer = async (api: PolarisApi, hostKey: string) =
     });
   else throw new Error("No model server found");
   await setPredictionEnabled(api, true);
+};
+
+export const setHostPreferences = (
+  api: PolarisApi,
+  hostKey: string,
+  patch: Partial<PredictionPreferences>
+) => setPredictionPreferences(api, hostKey, { ...preferencesOf(hostKey), ...patch });
+
+/** Clears the last failure and asks both sides again; the next keystroke retries completion. */
+export const checkPredictionAgain = (api: PolarisApi, hostKey: string) => {
+  predictionStore.setState((state) => ({ failures: { ...state.failures, [hostKey]: "" } }));
+
+  return inspectPredictionHost(api, hostKey, true);
 };
 
 /** Deltas are display-only; only Final can enable acceptance. */

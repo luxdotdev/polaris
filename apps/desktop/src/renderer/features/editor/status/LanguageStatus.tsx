@@ -22,7 +22,8 @@ import { runAction } from "./actions.ts";
 import { useHostToolsWatch, useLanguageStatus } from "./hooks.ts";
 import { openLanguageLog } from "../intents/languageLog.ts";
 import "./intent.ts";
-import type { Fact, InstallCommand, Mark, StatusAction, StatusView } from "./model.ts";
+import type { InstallCommand, Mark, StatusAction, StatusView } from "./model.ts";
+import { ActionRows, FactRow, Section } from "./cardParts.tsx";
 
 export const PillMark = ({ mark }: { readonly mark: Mark }) =>
   mark === "none" ? null : (
@@ -37,24 +38,6 @@ export const PillMark = ({ mark }: { readonly mark: Mark }) =>
       )}
     />
   );
-
-const FactRow = ({ fact }: { readonly fact: Fact }) => (
-  <div className="text-caption flex items-center gap-2">
-    <span className="text-text-faint w-[84px] shrink-0">{fact.label}</span>
-    <span className={cn("text-text-default min-w-0 truncate", fact.mono && "font-mono")}>
-      {fact.value}
-    </span>
-    {fact.note === undefined ? null : (
-      <span className="text-text-subtle shrink-0">{fact.note}</span>
-    )}
-  </div>
-);
-
-const Section = ({ children, className }: { children: ReactNode; className?: string }) => (
-  <div className={cn("border-hairline flex flex-col border-t px-4 py-3", className)}>
-    {children}
-  </div>
-);
 
 const CommandRow = ({ command }: { readonly command: InstallCommand }) => (
   <>
@@ -120,40 +103,6 @@ export const actionFailure = (error: P.LanguageError, host: string) => {
 };
 
 type Running = { readonly id: StatusAction["id"] } | null;
-
-const ActionRows = ({
-  actions,
-  running,
-  onRun,
-}: {
-  readonly actions: readonly StatusAction[];
-  readonly running: Running;
-  readonly onRun: (action: StatusAction) => void;
-}) => (
-  <div className="border-hairline flex flex-col border-t p-1.5" role="menu">
-    {actions.map((action, index) => (
-      <button
-        key={action.id}
-        type="button"
-        role="menuitem"
-        data-action={action.id}
-        aria-busy={running?.id === action.id}
-        aria-disabled={running !== null}
-        autoFocus={index === 0}
-        onClick={() => onRun(action)}
-        className={cn(
-          "rounded-control text-body text-text-default hover:bg-fill-selected hover:text-text-strong focus-visible:bg-fill-selected focus-visible:text-text-strong flex h-[30px] shrink-0 items-center justify-between gap-3 px-2.5 text-left outline-none",
-          running !== null && running.id !== action.id && "opacity-55"
-        )}
-      >
-        <span className="truncate">{action.label}</span>
-        {action.hint === undefined ? null : (
-          <span className="text-caption text-text-faint shrink-0 font-mono">{action.hint}</span>
-        )}
-      </button>
-    ))}
-  </div>
-);
 
 export interface StatusPopoverProps {
   readonly view: StatusView;

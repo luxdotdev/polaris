@@ -191,4 +191,8 @@ test("Successful Host requests record round-trip latency in the shared recorder"
   expect(recorders.length).toBe(2);
   expect(recorders[1]?.p50(report.endpoints[0]!)).not.toBeNull();
   expect(recorders[0]?.p50(report.endpoints[0]!)).toBeNull();
+  // The status card reads the same samples, per side.
+  expect(main.latency("mac", "host", report.endpoints[0]!)?.count).toBe(1);
+  expect(main.latency("mac", "client", report.endpoints[0]!)).toBeNull();
+  expect(main.latency("other", "host", report.endpoints[0]!)).toBeNull();
 });

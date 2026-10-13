@@ -15,7 +15,7 @@ export { buildPrompt } from "./prompt.ts";
 
 export { postprocess } from "./postprocess.ts";
 
-export { LatencyRecorder } from "./latency.ts";
+export { LatencyRecorder, type LatencyStats } from "./latency.ts";
 
 export { createPredictor } from "./predictor.ts";
 

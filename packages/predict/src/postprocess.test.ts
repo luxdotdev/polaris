@@ -25,6 +25,7 @@ test("rolling p50 retains only 31 successes per endpoint and 32 endpoints", () =
 
   for (let sample = 0; sample < 40; sample++) recorder.record(request.endpoint, sample);
   expect(recorder.p50(request.endpoint)).toBe(24);
+  expect(recorder.stats(request.endpoint)).toEqual({ p50: 24, last: 39, count: 31 });
   recorder.record(request.endpoint, Number.NaN);
   recorder.record(request.endpoint, -1);
   expect(recorder.p50(request.endpoint)).toBe(24);

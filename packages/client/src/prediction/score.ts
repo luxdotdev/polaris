@@ -11,6 +11,9 @@ const smallModel = /qwen[\W_]*2[._-]?5[\W_]*coder[\W_]*1[._-]?5b/i;
 
 const mediumModel = /mellum[\W_]*2.*12b.*a2[._-]?5b/i;
 
+/** Polaris knows how to prompt these models without a chosen format. */
+export const promptableModel = (model: string) => mediumModel.test(model) || smallModel.test(model);
+
 const tierOf = (ramBytes: number) => (ramBytes >= 16 * GiB ? 2 : 1);
 
 /** A Host serves completion only with 8 GB or more and not on a Raspberry Pi-class chip. */

@@ -23,6 +23,7 @@ node scripts/reviewScreens.ts --out <dir> [--build] [--findings]  # Review on fi
 node scripts/reviewBench.ts [--quick] [--json <path>] # Review under load on a real Daemon (2k / 5k / 12k files, a 100k-line file); also `bun run bench review`
 node scripts/emptyScreens.ts --out <dir> [--build]      # the empty states and the terminal drawer from a fresh Daemon, every theme and density
 node scripts/tabCompletionScreens.ts --out <dir> [--build]   # Settings → Editor → Tab completion on fixtures (#tab-completion/hosts, /empty), every theme and density
+node scripts/completionCardScreens.ts --out <dir> [--build]   # the status bar's tab completion card (#completion-card/states, /bar), every theme and density, focus and Reduce Motion
 node scripts/diagnosticsScreens.ts --out <dir>             # editor diagnostics on TypeScript and Prisma (build first): the hover's width, the Problems panel, inline messages (off, held under completion), both themes
 ```
 

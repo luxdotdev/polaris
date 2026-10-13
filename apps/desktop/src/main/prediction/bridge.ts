@@ -1,14 +1,23 @@
 import { hostname } from "node:os";
 import { CapabilityProbe } from "@polaris/client/prediction/probe";
 import type { PredictionTarget } from "@polaris/client/prediction";
-import { PredictionError, PredictionRequest, PredictionStreamItem } from "@polaris/protocol";
+import { countTokens } from "@polaris/predict";
+import {
+  PredictionError,
+  PredictionRequest,
+  PredictionStreamItem,
+  type PredictionContext,
+  type PredictionServerReport,
+} from "@polaris/protocol";
 import { Effect, ManagedRuntime, Predicate, Queue, Stream, type Layer } from "effect";
 import { HostDirectory, LOCAL_HOST_KEY, type ClientRuntime } from "../hosts.ts";
 import type { Settings } from "../settings.ts";
 import {
   PredictionFeedItem,
   type PredictionCompletionInput,
+  type PredictionContextSummary,
   type PredictionInspection,
+  type PredictionUiInputs,
 } from "../../shared/predictionContract.ts";
 import type { IpcError } from "../../shared/api.ts";
 import type { MainPredictionPlacement } from "./placement.ts";
@@ -24,6 +33,21 @@ export interface PredictionBridgePorts {
   readonly read: () => Settings;
   readonly commit: (settings: Settings) => void;
 }
+
+type Final = typeof PredictionFeedItem.cases.Final.Type;
+
+type PredictionServerInput = (typeof PredictionUiInputs)["prediction.server"]["Type"];
+
+/** An older Daemon can't say which server it reaches, so it offers no recovery. */
+const UNKNOWN_SERVER: PredictionServerReport = { kind: "unknown", actions: [], outcome: null };
+
+const contextSummary = (context: PredictionContext): PredictionContextSummary => ({
+  pieces: context.length,
+  languageServer: context.filter(
+    (piece) => piece.kind === "definition" || piece.kind === "diagnostic"
+  ).length,
+  tokens: context.reduce((sum, piece) => sum + countTokens(`${piece.source}\n${piece.text}\n`), 0),
+});
 
 /** One LocalPredictor Layer per main process, shared by all completion subscriptions. */
 export const createPredictionBridge = (ports: PredictionBridgePorts) => {
@@ -94,6 +118,30 @@ export const createPredictionBridge = (ports: PredictionBridgePorts) => {
     return { ...names, client, host, offer };
   };
 
+  const withLatency = (hostKey: string, result: Final): Final =>
+    result.side === undefined || result.endpoint === undefined
+      ? result
+      : { ...result, latency: ports.placement.latency(hostKey, result.side, result.endpoint) };
+
+  /** The model server behind an endpoint, asked on the side that owns it. */
+  const server = async (input: PredictionServerInput): Promise<PredictionServerReport> => {
+    const request = { endpoint: input.endpoint, model: input.model, action: input.action };
+
+    if (input.side === "client") {
+      const module = await import("@polaris/client/prediction/server");
+
+      return module.runServerAction(request);
+    }
+
+    return ports.runtime.runPromise(
+      Effect.flatMap(hostSession(input.hostKey), (session) =>
+        session.capabilities.includes("prediction.server")
+          ? session.client["prediction.server"](request)
+          : Effect.succeed(UNKNOWN_SERVER)
+      )
+    );
+  };
+
   const complete = (input: PredictionCompletionInput) =>
     Stream.callback<PredictionFeedItem, IpcError>(
       Effect.fn("prediction.bridge.complete")(function* (queue) {
@@ -132,6 +180,10 @@ export const createPredictionBridge = (ports: PredictionBridgePorts) => {
             : [];
 
           mark("context");
+
+          const summary = session.capabilities.includes("prediction.context")
+            ? contextSummary(context)
+            : null;
 
           const request = PredictionRequest.make({
             context,
@@ -203,6 +255,9 @@ export const createPredictionBridge = (ports: PredictionBridgePorts) => {
             elapsedMs: result.elapsedMs,
             model: target.model,
             machine: target.side === "client" ? names.clientLabel : names.hostLabel,
+            side: target.side,
+            endpoint: { kind: target.endpoint.kind, url: target.endpoint.url },
+            context: summary,
           });
         };
 
@@ -217,7 +272,8 @@ export const createPredictionBridge = (ports: PredictionBridgePorts) => {
               controller.signal
             );
 
-            Queue.offerUnsafe(queue, result);
+            // Placement records this round trip after serve returns, so latency is read here.
+            Queue.offerUnsafe(queue, withLatency(input.hostKey, result));
             Queue.endUnsafe(queue);
           },
           catch: (error): IpcError => ({ code: "PredictionUnavailable", message: String(error) }),
@@ -232,6 +288,7 @@ export const createPredictionBridge = (ports: PredictionBridgePorts) => {
     setEnabled,
     inspect,
     complete,
+    server,
     discoveryShown: () => ports.commit({ ...ports.read(), predictionDiscoveryShown: true }),
     release: (hostKey: string, workspaceId: string) =>
       ports.placement.release(hostKey, workspaceId),

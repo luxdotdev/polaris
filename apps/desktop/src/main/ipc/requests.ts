@@ -151,6 +151,18 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
       },
       catch: (error): IpcError => ({ code: "PredictionUnavailable", message: String(error) }),
     }),
+  "prediction.server": (input) =>
+    Effect.tryPromise({
+      try: async () => {
+        if (!ctx.predictionBridge) throw new Error("Tab completion unavailable");
+
+        return ctx.predictionBridge.server(input);
+      },
+      catch: (error): IpcError => ({
+        code: "PredictionUnavailable",
+        message: error instanceof Error ? error.message : String(error),
+      }),
+    }),
   "prediction.release": ({ hostKey, workspaceId }) =>
     Effect.sync(() => {
       ctx.predictionBridge?.release(hostKey, workspaceId);

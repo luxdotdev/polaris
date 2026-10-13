@@ -1,5 +1,11 @@
 import type { PredictionEndpoint } from "@polaris/protocol";
 
+export interface LatencyStats {
+  readonly p50: number;
+  readonly last: number;
+  readonly count: number;
+}
+
 /** Bounded request-driven recorder; no timers or idle work. Only successful requests count. */
 export class LatencyRecorder {
   private readonly samples = new Map<string, number[]>();
@@ -22,10 +28,17 @@ export class LatencyRecorder {
   }
 
   p50(endpoint: PredictionEndpoint): number | null {
-    const values = this.samples
-      .get(`${endpoint.kind}:${endpoint.url.replace(/\/$/, "")}`)
-      ?.toSorted((a, b) => a - b);
+    return this.stats(endpoint)?.p50 ?? null;
+  }
 
-    return values?.[Math.floor(values.length / 2)] ?? null;
+  /** The median, the latest and how many recent successes they cover; null before the first. */
+  stats(endpoint: PredictionEndpoint): LatencyStats | null {
+    const values = this.samples.get(`${endpoint.kind}:${endpoint.url.replace(/\/$/, "")}`);
+    const last = values?.at(-1);
+
+    if (values === undefined || last === undefined) return null;
+    const sorted = values.toSorted((a, b) => a - b);
+
+    return { p50: sorted[Math.floor(sorted.length / 2)] ?? last, last, count: values.length };
   }
 }
