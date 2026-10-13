@@ -86,6 +86,10 @@ create/remove shortcuts before importing the Client runtime, keeping cold startu
 within Squirrel's hook deadline. Temporary vendor cleanup retries transient
 Windows file locks for a bounded interval.
 
+The Squirrel launcher's version scan ignores `app-0.0.0`. Windows development
+packaging maps the repository's placeholder `0.0.0` to `0.0.1-dev`; a release
+at `0.0.0` is rejected. Other release and prerelease versions are unchanged.
+
 `windows-smoke.ps1 -Installer <Setup.exe> -Arch <x64|arm64>` installs on a fresh
 Windows account/throwaway VM and waits for an actual Polaris window handle.
 It uses isolated settings with the local Host and automatic update checks off.

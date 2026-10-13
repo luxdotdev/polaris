@@ -30,7 +30,7 @@ import {
 import { run } from "./packaging/command.ts";
 import { installerDmg } from "./packaging/dmg.ts";
 import { packageTargets, targetOptions } from "./packaging/targets.ts";
-import { installerWindows } from "./packaging/windows.ts";
+import { installerWindows, windowsPackageVersion } from "./packaging/windows.ts";
 
 const args = process.argv.slice(2);
 
@@ -56,6 +56,8 @@ const decodePackage = Schema.decodeUnknownSync(
 );
 
 const pkg = decodePackage(await Bun.file(join(APP_DIR, "package.json")).json());
+
+const version = windows ? windowsPackageVersion(pkg.version, release) : pkg.version;
 
 if (release) {
   const daemon = Schema.decodeUnknownSync(Schema.Struct({ version: Schema.String }))(
@@ -141,7 +143,7 @@ writeFileSync(
     {
       name: "polaris",
       productName: "Polaris",
-      version: pkg.version,
+      version,
       license: "Apache-2.0",
       type: "module",
       main: windows ? "out/main/startup.js" : "out/main/index.js",
@@ -170,7 +172,7 @@ for (const target of targets) {
     appBundleId: "dev.lux.polaris",
     appCategoryType: "public.app-category.developer-tools",
     appCopyright: "© 2026 lux.dev LLC",
-    appVersion: pkg.version,
+    appVersion: version,
     electronVersion,
     extraResource: [join(resources, "daemon"), join(resources, "icon.png")],
     darwinDarkModeSupport: true,
@@ -187,7 +189,7 @@ for (const target of targets) {
 
     if (!args.includes("--no-installer"))
       console.log(
-        `installer ${await installerWindows(path, pkg.version, target.arch, join(OUT_DIR, "dist"), ICONS)}`
+        `installer ${await installerWindows(path, version, target.arch, join(OUT_DIR, "dist"), ICONS)}`
       );
   }
 

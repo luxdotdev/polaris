@@ -13,6 +13,14 @@ import { rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { convertVersion, type SquirrelWindowsOptions } from "electron-winstaller";
 
+export const windowsPackageVersion = (version: string, release: boolean): string => {
+  if (!/^0\.0\.0(?:[-+].*)?$/.test(version)) return version;
+
+  if (release) throw new Error("Squirrel releases require a version greater than 0.0.0");
+
+  return "0.0.1-dev";
+};
+
 export const windowsInstallerOptions = (
   app: string,
   version: string,
@@ -59,6 +67,7 @@ export const installerWindows = async (
   dist: string,
   icons: string
 ): Promise<string> => {
+  windowsPackageVersion(version, true);
   const output = join(dist, `squirrel-${arch}`);
   rmSync(output, { recursive: true, force: true });
   mkdirSync(output, { recursive: true });

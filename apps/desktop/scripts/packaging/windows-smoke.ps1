@@ -31,7 +31,7 @@ try {
     Where-Object { Test-Path $_ } |
     Select-Object -First 1
   if (!$application) { throw 'Installer did not create Polaris.exe' }
-  Start-Process -FilePath $application | Out-Null
+  Start-Process -FilePath (Join-Path $installRoot 'Polaris.exe') | Out-Null
 
   $deadline = (Get-Date).AddSeconds(60)
   do {
