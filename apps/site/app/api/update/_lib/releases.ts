@@ -21,6 +21,16 @@ const decodeRelease = Schema.decodeUnknownSync(Release);
 
 export const RELEASE_API = "https://api.github.com/repos/luxdotdev/polaris/releases/latest";
 
+/** Where a download goes when no stable Release can serve it: prereleases and notes live here. */
+export const RELEASES_PAGE = "https://github.com/luxdotdev/polaris/releases";
+
+/** A download with nothing to serve sends people to the Releases page instead of an error. */
+export const releasesPage = () =>
+  new Response(null, {
+    status: 307,
+    headers: { "Cache-Control": "no-store", Location: RELEASES_PAGE },
+  });
+
 export const RELEASE_TTL_MS = 300_000;
 
 function validateRelease(release: typeof Release.Type) {

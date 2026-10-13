@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { fixture, zip, dmg } from "./fixtures.ts";
 import { createReleaseRoutes } from "./index.ts";
-import { publishedRelease, type PublishedRelease } from "./releases.ts";
+import { publishedRelease, RELEASES_PAGE, type PublishedRelease } from "./releases.ts";
 import type { WideEvent } from "../../../../lib/log";
 
 function setup(
@@ -110,7 +110,7 @@ test("download redirects temporarily to the latest DMG and logs once", async () 
   });
 });
 
-test("no published Release means no update, and download unavailable; both log", async () => {
+test("no published Release means no update, and the download goes to the Releases page; both log", async () => {
   const { routes, callbacks, events } = setup(async () => null);
   expect(
     (
@@ -119,14 +119,14 @@ test("no published Release means no update, and download unavailable; both log",
       })
     ).status
   ).toBe(204);
-  expect((await routes.download(new Request("https://polaris.lux.dev/"), undefined)).status).toBe(
-    503
-  );
+  const download = await routes.download(new Request("https://polaris.lux.dev/"), undefined);
+  expect(download.status).toBe(307);
+  expect(download.headers.get("location")).toBe(RELEASES_PAGE);
   await Promise.all(callbacks.map((callback) => callback()));
-  expect(events.map((event) => event.status_code)).toEqual([204, 503]);
+  expect(events.map((event) => event.status_code)).toEqual([204, 307]);
 });
 
-test("upstream failures or missing assets return retryable 503 and still log once", async () => {
+test("upstream failures or missing assets: update is a retryable 503, download goes to the Releases page; both log", async () => {
   for (const latest of [
     async () => {
       throw new Error("private upstream details");
@@ -141,11 +141,11 @@ test("upstream failures or missing assets return retryable 503 and still log onc
 
     const download = await routes.download(new Request("https://polaris.lux.dev/"), undefined);
 
-    for (const response of [update, download]) {
-      expect(response.status).toBe(503);
-      expect(response.headers.get("retry-after")).toBe("60");
-      expect(await response.text()).not.toContain("private");
-    }
+    expect(update.status).toBe(503);
+    expect(update.headers.get("retry-after")).toBe("60");
+    expect(await update.text()).not.toContain("private");
+    expect(download.status).toBe(307);
+    expect(download.headers.get("location")).toBe(RELEASES_PAGE);
 
     expect(callbacks).toHaveLength(2);
     await Promise.all(callbacks.map((callback) => callback()));

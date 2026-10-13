@@ -1,5 +1,5 @@
 import { errorInfo, withWideEvent, type ErrorInfo, type WideEvent } from "../../../../lib/log";
-import { latestRelease, releaseAsset, type PublishedRelease } from "./releases.ts";
+import { latestRelease, releaseAsset, releasesPage, type PublishedRelease } from "./releases.ts";
 import { requestFields } from "./telemetry.ts";
 import { compareVersions, parseVersion } from "./version.ts";
 
@@ -86,9 +86,11 @@ export function createReleaseRoutes(deps: Dependencies) {
             status: 307,
             headers: { ...headers, Location: releaseAsset(latest, "dmg") },
           })
-        : unavailable();
+        : releasesPage();
     } catch (error) {
-      return failed(errorInfo(error), event);
+      failed(errorInfo(error), event);
+
+      return releasesPage();
     }
   }
 

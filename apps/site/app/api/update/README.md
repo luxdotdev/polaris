@@ -25,8 +25,10 @@ account or identity lookup. Manual checks follow the updater's consent policy.
 - GitHub failure, invalid Release or missing/unsafe update asset: **503** with
   `Retry-After: 60`. No upstream error text is returned or logged.
 
-`GET /download/mac` redirects **307** to the latest DMG. With no published Release,
-an upstream failure or a missing/unsafe DMG, it returns **503** with `Retry-After`.
+`GET /download/mac` redirects **307** to the latest DMG. With no published stable
+Release, an upstream failure or a missing/unsafe DMG, it redirects **307** to the
+GitHub Releases page instead, where prereleases (alphas, release candidates) live.
+`/download/windows` does the same when no stable Release carries the installer.
 Neither route nor redirect is HTTP/CDN cached (`Cache-Control: no-store`), so
 requests reach logging even when the Release lookup is cached.
 

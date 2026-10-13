@@ -2,6 +2,7 @@ import { errorInfo, withWideEvent } from "../../../../lib/log";
 import {
   latestRelease,
   releaseAssetNamed,
+  releasesPage,
   windowsAssetName,
   type PublishedRelease,
   type WindowsArch,
@@ -118,7 +119,7 @@ export const createWindowsRoutes = (deps: Dependencies) => ({
         const release = await deps.latest();
         event.release_version = release?.tag_name ?? null;
 
-        if (!release) return unavailable();
+        if (!release) return releasesPage();
 
         const url = releaseAssetNamed(
           release,
@@ -130,7 +131,7 @@ export const createWindowsRoutes = (deps: Dependencies) => ({
         event.failure = "release_unavailable";
         event.error = errorInfo(error);
 
-        return unavailable();
+        return releasesPage();
       }
     },
     deps.log

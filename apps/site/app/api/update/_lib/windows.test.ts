@@ -4,6 +4,7 @@ import { fixture } from "./fixtures.ts";
 import {
   publishedRelease,
   releaseAssetNamed,
+  RELEASES_PAGE,
   windowsAssetName,
   type WindowsArch,
 } from "./releases.ts";
@@ -172,7 +173,7 @@ test("download selects explicit arch, Client hints or ARM UA, with x64 emulation
   ).toBe(400);
 });
 
-test("a macOS-only Release or no Release is a retryable 503, never a broken redirect", async () => {
+test("a macOS-only Release or no Release sends the download to the Releases page, never a broken asset", async () => {
   for (const latest of [async () => publishedRelease(fixture), async () => null]) {
     const { routes } = setup({ latest });
 
@@ -182,9 +183,8 @@ test("a macOS-only Release or no Release is a retryable 503, never a broken redi
         undefined
       );
 
-      expect(response.status).toBe(503);
-      expect(response.headers.get("location")).toBeNull();
-      expect(response.headers.get("retry-after")).toBe("60");
+      expect(response.status).toBe(307);
+      expect(response.headers.get("location")).toBe(RELEASES_PAGE);
       expect(response.headers.get("cache-control")).toBe("no-store");
     }
   }
