@@ -324,6 +324,7 @@ const start = async () => {
     machinesLayer({
       settings: { get: () => settings, update: updateSettings },
       userData: app.getPath("userData"),
+      appVersion: app.getVersion(),
       env,
       resources: app.isPackaged ? process.resourcesPath : null,
       repoRoot,

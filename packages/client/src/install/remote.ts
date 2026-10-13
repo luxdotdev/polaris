@@ -1,19 +1,32 @@
 /**
  * Install and upgrade the Daemon on a Host over SSH:
  *
- *   probeHost      uname + `~/.polaris/bin/current/polaris version`, one round trip
- *   planInstall    (plan.ts) install / upgrade / nothing / needs approval
- *   applyPlan      upload the bundled build via ssh stdin, verify its SHA-256
- *                  on the Host, then `polaris install` or `polaris upgrade <path>`
+ *   probeHost      uname, libc, download tools and `polaris version`, one round trip
+ *   planInstall    (plan.ts) install / upgrade / nothing / needs approval, and the delivery
+ *   applyPlan      get the build onto the Host (upload it, or let the Host download the
+ *                  Release archive, falling back to downloading here and uploading),
+ *                  verify every SHA-256 there, then `polaris install` or `polaris upgrade <path>`
  *   ensureDaemon   all three
  *
- * Nothing is downloaded on the Host and nothing needs sudo.
+ * Nothing needs sudo.
  */
 import { randomBytes } from "node:crypto";
 import { Data, Effect, Match, Option, Predicate, Schema } from "effect";
-import { type DaemonBuild, MUSL_RUNTIME_LIBRARIES } from "./builds.ts";
-import { type HostProbe, type InstallPlan, type PlanOptions, planInstall } from "./plan.ts";
-import { Ssh, type SshError, shScript } from "./Ssh.ts";
+import {
+  archiveRequestUrl,
+  type DaemonArchive,
+  type DaemonBuild,
+  GLIBC_LOADERS,
+  MUSL_RUNTIME_LIBRARIES,
+} from "./builds.ts";
+import {
+  type FetchTool,
+  type HostProbe,
+  type InstallPlan,
+  type PlanOptions,
+  planInstall,
+} from "./plan.ts";
+import { Ssh, type SshError, shellQuote, shScript } from "./Ssh.ts";
 
 export class RemoteInstallError extends Schema.TaggedError<RemoteInstallError>()(
   "RemoteInstallError",
@@ -24,15 +37,26 @@ export class RemoteInstallError extends Schema.TaggedError<RemoteInstallError>()
   }
 ) {}
 
-export const PROBE_SCRIPT = [
-  `printf 'os=%s\\n' "$(uname -s)"`,
-  `printf 'arch=%s\\n' "$(uname -m)"`,
-  // musl's loader is /lib/ld-musl-<arch>.so.1; `ldd --version` says "musl" there too.
-  `if ls /lib/ld-musl-* >/dev/null 2>&1 || (ldd --version 2>&1 | grep -qi musl); then echo libc=musl; ` +
-    `for l in ${MUSL_RUNTIME_LIBRARIES.join(" ")}; do [ -e "/usr/lib/$l" ] || [ -e "/lib/$l" ] || printf 'missing=%s\\n' "$l"; done; fi`,
-  `v=$("$HOME/.polaris/bin/current/polaris" version 2>/dev/null) && printf 'installed=%s\\n' "$v"`,
-  "exit 0",
-].join("; ");
+/**
+ * The probe. `root` prefixes the loader paths, so tests can play a Host's
+ * filesystem. glibc wins when its loader exists: musl only when it is the sole libc.
+ */
+export const probeScript = (root = "") =>
+  [
+    `printf 'os=%s\\n' "$(uname -s)"`,
+    `printf 'arch=%s\\n' "$(uname -m)"`,
+    `gnu=; for f in ${GLIBC_LOADERS.map((path) => shellQuote(root + path)).join(" ")}; do [ -e "$f" ] && gnu=1; done`,
+    // musl's loader is /lib/ld-musl-<arch>.so.1; `ldd --version` says "musl" there too.
+    `if [ -z "$gnu" ] && { ls ${shellQuote(root)}/lib/ld-musl-* >/dev/null 2>&1 || (ldd --version 2>&1 | grep -qi musl); }; then echo libc=musl; ` +
+      `for l in ${MUSL_RUNTIME_LIBRARIES.join(" ")}; do [ -e ${shellQuote(root)}"/usr/lib/$l" ] || [ -e ${shellQuote(root)}"/lib/$l" ] || printf 'missing=%s\\n' "$l"; done; fi`,
+    `for t in curl wget; do command -v "$t" >/dev/null 2>&1 && { printf 'fetch=%s\\n' "$t"; break; }; done`,
+    "command -v tar >/dev/null 2>&1 && echo tar=1",
+    "{ command -v sha256sum || command -v shasum; } >/dev/null 2>&1 && echo sha256=1",
+    `v=$("$HOME/.polaris/bin/current/polaris" version 2>/dev/null) && printf 'installed=%s\\n' "$v"`,
+    "exit 0",
+  ].join("; ");
+
+export const PROBE_SCRIPT = probeScript();
 
 export const parseProbe = (stdout: string): HostProbe | null => {
   const fields = new Map(
@@ -55,10 +79,17 @@ export const parseProbe = (stdout: string): HostProbe | null => {
     .filter((line) => line.startsWith("missing="))
     .map((line) => line.slice("missing=".length));
 
+  const fetch = fields.get("fetch");
+
   const probe: HostProbe = {
     os,
     arch,
     installed: version ? { version: version[1]!, platform: version[2]! } : null,
+    tools: {
+      fetch: fetch === "curl" || fetch === "wget" ? fetch : null,
+      tar: fields.get("tar") === "1",
+      sha256: fields.get("sha256") === "1",
+    },
   };
 
   if (fields.get("libc") !== "musl") return probe;
@@ -93,12 +124,29 @@ const failed = (
     message: `exit ${result.code}: ${(result.stderr || result.stdout).trim()}`,
   });
 
-/** Upload every file of `build` into a fresh `~/.polaris/upload-<id>/`, verifying hashes there. */
 export interface ApplyProgress {
-  readonly stage: "uploading" | "switching";
+  readonly stage: "downloading" | "uploading" | "switching";
+  /** While downloading: on the Host itself, or on this machine before uploading. */
+  readonly via?: "host" | "client";
   readonly bytes: number;
   readonly total: number;
 }
+
+/** Downloads a build that isn't bundled into this machine's cache, verified (`download.ts`). */
+export type DownloadBuild = (
+  build: DaemonBuild,
+  onBytes: (bytes: number) => void
+) => Effect.Effect<DaemonBuild, RemoteInstallError>;
+
+export interface ApplyOptions {
+  readonly progress?: ((value: ApplyProgress) => void) | undefined;
+  /** Without it, a build that isn't bundled can only be downloaded by the Host. */
+  readonly download?: DownloadBuild | undefined;
+  /** This Client's version, sent with Host downloads for the site's telemetry. */
+  readonly clientVersion?: string | undefined;
+}
+
+/** Upload every file of `build` into a fresh `~/.polaris/upload-<id>/`, verifying hashes there. */
 
 const upload = Effect.fn("upload")(function* (
   alias: string,
@@ -155,6 +203,92 @@ const upload = Effect.fn("upload")(function* (
   return { dir, binary: `"$HOME/${dir}/${build.files[0]!.name}"` };
 });
 
+const fileModes = (build: DaemonBuild, dir: string) =>
+  build.files.map((file) => `chmod ${file.executable ? "755" : "644"} "$HOME/${dir}/${file.name}"`);
+
+/** The Host's `sha256sum`-style lines checked against every file of `build`; null when all match. */
+const mismatch = (build: DaemonBuild, stdout: string): string | null => {
+  const found = new Map(
+    stdout
+      .trim()
+      .split("\n")
+      .map((line) => line.trim().split(/\s+\*?/))
+      .map(([hash, name]) => [name ?? "", hash ?? ""])
+  );
+
+  const wrong = build.files.find((file) => found.get(file.name) !== file.sha256);
+
+  return wrong === undefined
+    ? null
+    : `${wrong.name}: SHA-256 on the Host is ${found.get(wrong.name) || "missing"}, expected ${wrong.sha256}`;
+};
+
+/** The Host downloads the Release archive with curl or wget, checks it, and unpacks it into `dir`. */
+const hostFetch = Effect.fn("hostFetch")(function* (
+  alias: string,
+  build: DaemonBuild,
+  archive: DaemonArchive,
+  tool: FetchTool,
+  dir: string,
+  options: ApplyOptions
+) {
+  const ssh = yield* Ssh;
+  const url = shellQuote(archiveRequestUrl(archive, "host", options.clientVersion));
+  const target = `"$HOME/${dir}/${archive.name}"`;
+  const names = build.files.map((file) => shellQuote(file.name)).join(" ");
+
+  const get =
+    tool === "curl"
+      ? `curl -fsSL --proto '=https' --connect-timeout 15 --retry 2 -o ${target} ${url}`
+      : `wget -q -O ${target} ${url}`;
+
+  const script = [
+    "set -e",
+    `mkdir -p "$HOME/${dir}"`,
+    get,
+    `s=$( (sha256sum ${target} 2>/dev/null || shasum -a 256 ${target}) | cut -d' ' -f1)`,
+    `[ "$s" = "${archive.sha256}" ] || { echo "archive SHA-256 is $s, expected ${archive.sha256}" >&2; exit 3; }`,
+    `tar -xzf ${target} -C "$HOME/${dir}"`,
+    `rm -f ${target}`,
+    ...fileModes(build, dir),
+    `cd "$HOME/${dir}"`,
+    `sha256sum ${names} 2>/dev/null || shasum -a 256 ${names}`,
+  ].join("; ");
+
+  options.progress?.({ stage: "downloading", via: "host", bytes: 0, total: archive.size });
+  const result = yield* ssh.exec(alias, shScript(script));
+
+  if (result.code !== 0) return yield* failed(alias, "download on the host", result);
+  const wrong = mismatch(build, result.stdout);
+
+  if (wrong !== null)
+    return yield* new RemoteInstallError({ alias, step: "download on the host", message: wrong });
+  const total = build.files.reduce((sum, file) => sum + file.size, 0);
+  options.progress?.({ stage: "switching", bytes: total, total });
+
+  return { dir, binary: `"$HOME/${dir}/${build.files[0]!.name}"` };
+});
+
+/** This machine downloads the build into its cache, then uploads it like a bundled one. */
+const clientFetch = (alias: string, build: DaemonBuild, dir: string, options: ApplyOptions) => {
+  const total = build.archive?.size ?? 0;
+
+  if (options.download === undefined)
+    return Effect.fail(
+      new RemoteInstallError({
+        alias,
+        step: "download",
+        message: `This app carries no ${build.platform} daemon and cannot download one.`,
+      })
+    );
+
+  return options
+    .download(build, (bytes) =>
+      options.progress?.({ stage: "downloading", via: "client", bytes, total })
+    )
+    .pipe(Effect.flatMap((local) => upload(alias, local, dir, options.progress)));
+};
+
 const cleanUp = (alias: string, dir: string) =>
   Effect.gen(function* () {
     const ssh = yield* Ssh;
@@ -196,16 +330,47 @@ export type ApplyResult = Data.TaggedEnum<{
 
 export const ApplyResult = Data.taggedEnum<ApplyResult>();
 
+/** Gets the build's files into `dir` on the Host by the plan's delivery, falling back as it says. */
+const deliver = (
+  alias: string,
+  plan: Extract<InstallPlan, { _tag: "Install" | "Upgrade" }>,
+  dir: string,
+  options: ApplyOptions
+) =>
+  Match.value(plan.delivery).pipe(
+    Match.tagsExhaustive({
+      Upload: () => upload(alias, plan.build, dir, options.progress),
+      ClientFetch: () => clientFetch(alias, plan.build, dir, options),
+      HostFetch: ({ tool }) =>
+        hostFetch(alias, plan.build, plan.build.archive!, tool, dir, options).pipe(
+          Effect.catchTag("RemoteInstallError", (onHost) =>
+            cleanUp(alias, dir).pipe(
+              Effect.andThen(clientFetch(alias, plan.build, dir, options)),
+              Effect.catchTag("RemoteInstallError", (error) =>
+                Effect.fail(
+                  new RemoteInstallError({
+                    alias,
+                    step: error.step,
+                    message: `${error.message} (${onHost.step} failed first: ${onHost.message})`,
+                  })
+                )
+              )
+            )
+          )
+        ),
+    })
+  );
+
 /** Carry out an `Install` or `Upgrade` plan. */
 export const applyPlan = Effect.fn("applyPlan")(function* (
   alias: string,
   plan: Extract<InstallPlan, { _tag: "Install" | "Upgrade" }>,
-  progress?: (value: ApplyProgress) => void
+  options: ApplyOptions = {}
 ) {
   const dir = `.polaris/upload-${randomBytes(6).toString("hex")}`;
 
   return yield* Effect.gen(function* () {
-    const uploaded = yield* upload(alias, plan.build, dir, progress);
+    const uploaded = yield* deliver(alias, plan, dir, options);
 
     const run = Match.value(plan).pipe(
       Match.tagsExhaustive({
@@ -251,7 +416,8 @@ export const EnsureResult = Data.taggedEnum<EnsureResult>();
 export const ensureDaemon = Effect.fn("ensureDaemon")(function* (
   alias: string,
   builds: ReadonlyArray<DaemonBuild>,
-  options: PlanOptions
+  options: PlanOptions,
+  apply: ApplyOptions = {}
 ): Effect.fn.Return<EnsureResult, RemoteInstallError | SshError, Ssh> {
   const probe = yield* probeHost(alias);
   const plan = planInstall(probe, builds, options);
@@ -269,8 +435,8 @@ export const ensureDaemon = Effect.fn("ensureDaemon")(function* (
       MissingLibraries: (missing) => decided(EnsureResult.HostSetupNeeded({ plan: missing })),
       UpToDate: () => decided(ready(null)),
       InstalledNewer: () => decided(ready(null)),
-      Install: (install) => Effect.map(applyPlan(alias, install), ready),
-      Upgrade: (upgrade) => Effect.map(applyPlan(alias, upgrade), ready),
+      Install: (install) => Effect.map(applyPlan(alias, install, apply), ready),
+      Upgrade: (upgrade) => Effect.map(applyPlan(alias, upgrade, apply), ready),
     })
   );
 });

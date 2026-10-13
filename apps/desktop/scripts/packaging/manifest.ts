@@ -18,12 +18,18 @@ const Embedded = Schema.Struct({
   embedded: Schema.Boolean,
 });
 
+const Archive = Schema.Struct({ name: Schema.String, sha256: Schema.String, size: Schema.Number });
+
 const Manifest = Schema.Struct({
   version: Schema.String,
   commit: Schema.String,
   fff: Embedded,
   astGrep: Embedded,
   betterleaks: Schema.Struct({ version: Schema.String, file: Schema.String }),
+  /** Release: where Hosts download each platform's archive (`archives.ts`). */
+  download: Schema.optional(Schema.Struct({ url: Schema.String })),
+  /** A staged app's platforms with files present; absent means all. */
+  bundled: Schema.optional(Schema.Array(Schema.String)),
   platforms: Schema.Record(
     Schema.String,
     Schema.Struct({
@@ -31,16 +37,19 @@ const Manifest = Schema.Struct({
       binary: Schema.String,
       sha256: Schema.String,
       files: Schema.Record(Schema.String, FileEntry),
+      archive: Schema.optional(Archive),
     })
   ),
 });
 
+export type DaemonManifest = typeof Manifest.Type;
+
 const decodeManifest = Schema.decodeUnknownSync(Schema.fromJsonString(Manifest));
 
-const readManifest = (dist: string) =>
+export const readManifest = (dist: string) =>
   decodeManifest(readFileSync(join(dist, "manifest.json"), "utf8"));
 
-const fileFacts = (path: string) => ({
+export const fileFacts = (path: string) => ({
   sha256: createHash("sha256").update(readFileSync(path)).digest("hex"),
   size: statSync(path).size,
 });
@@ -64,6 +73,9 @@ export const verifyDaemonManifest = (dist: string, version?: string): void => {
   for (const [platform, build] of Object.entries(manifest.platforms)) {
     if (build.sha256 !== build.files[build.binary]?.sha256)
       throw new Error(`${platform}: binary SHA differs from files entry`);
+
+    // A release app carries only its own platform's files; the others are downloaded.
+    if (manifest.bundled !== undefined && !manifest.bundled.includes(platform)) continue;
 
     for (const [name, entry] of Object.entries(build.files)) {
       const facts = fileFacts(join(dist, platform, name));

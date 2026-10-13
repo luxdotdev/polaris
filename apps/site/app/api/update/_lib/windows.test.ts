@@ -31,6 +31,8 @@ const setup = (patch: Partial<Parameters<typeof createWindowsRoutes>[0]> = {}) =
   const requests: string[] = [];
   const callbacks: Array<() => Promise<void>> = [];
   const events: WideEvent[] = [];
+  const tracked: Array<{ name: string; properties: object }> = [];
+  const trackTasks: Array<() => Promise<void>> = [];
 
   const routes = createWindowsRoutes({
     latest: async () => release,
@@ -48,10 +50,18 @@ const setup = (patch: Partial<Parameters<typeof createWindowsRoutes>[0]> = {}) =
         events.push(event);
       },
     },
+    analytics: {
+      schedule: (task) => {
+        trackTasks.push(task);
+      },
+      track: async (name, properties) => {
+        tracked.push({ name, properties });
+      },
+    },
     ...patch,
   });
 
-  return { routes, requests, callbacks, events };
+  return { routes, requests, callbacks, events, tracked, trackTasks };
 };
 
 test.each(["x64", "arm64"] as const)(
@@ -201,4 +211,23 @@ test("a macOS-only Release or no Release sends the download to the Releases page
       expect(response.headers.get("cache-control")).toBe("no-store");
     }
   }
+});
+
+test("the Windows download records one Vercel Analytics event after responding", async () => {
+  const { routes, tracked, trackTasks } = setup();
+
+  const response = await routes.download(
+    new Request("https://polaris.lux.dev/download/windows?arch=arm64"),
+    undefined
+  );
+
+  expect(response.status).toBe(307);
+  expect(tracked).toHaveLength(0);
+  await Promise.all(trackTasks.map((task) => task()));
+  expect(tracked).toEqual([
+    {
+      name: "download",
+      properties: { platform: "win32", arch: "arm64", release_version: release.tag_name },
+    },
+  ]);
 });

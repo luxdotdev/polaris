@@ -19,7 +19,9 @@ export const DaemonUpdateResultSchema = Schema.Struct({
 
 /** Update progress travels on the existing `machines` feed, including for this Mac. */
 export interface DaemonUpdateProgress {
-  readonly stage: "checking" | "uploading" | "switching" | "done" | "failed";
+  readonly stage: "checking" | "downloading" | "uploading" | "switching" | "done" | "failed";
+  /** While downloading: on the Host itself, or on this machine before copying. */
+  readonly via?: "host" | "client";
   readonly bytes: number;
   readonly total: number;
 }

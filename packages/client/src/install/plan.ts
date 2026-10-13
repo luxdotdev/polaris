@@ -24,7 +24,42 @@ export interface HostProbe {
   readonly missingLibraries?: ReadonlyArray<string>;
   /** `polaris version` of `~/.polaris/bin/current/polaris`, or null if none is installed. */
   readonly installed: { readonly version: string; readonly platform: string } | null;
+  /** What the Host can download and check a Release archive with; absent means nothing. */
+  readonly tools?: HostTools;
 }
+
+export type FetchTool = "curl" | "wget";
+
+export interface HostTools {
+  readonly fetch: FetchTool | null;
+  readonly tar: boolean;
+  /** `sha256sum` or `shasum`. */
+  readonly sha256: boolean;
+}
+
+/** How the build's files reach the Host. */
+export type Delivery = Data.TaggedEnum<{
+  /** The files are on this machine: stream them over SSH. */
+  Upload: Record<never, never>;
+  /** The Host downloads the Release archive itself; on any failure, `ClientFetch`. */
+  HostFetch: { readonly tool: FetchTool };
+  /** This machine downloads the archive into its cache, then uploads it. */
+  ClientFetch: Record<never, never>;
+}>;
+
+export const Delivery = Data.taggedEnum<Delivery>();
+
+/** Null when this app can neither upload nor download the build (a dev manifest without files). */
+export const deliveryFor = (build: DaemonBuild, probe: HostProbe): Delivery | null => {
+  if (build.bundled) return Delivery.Upload();
+
+  if (build.archive === null) return null;
+  const tools = probe.tools;
+
+  return tools?.fetch && tools.tar && tools.sha256
+    ? Delivery.HostFetch({ tool: tools.fetch })
+    : Delivery.ClientFetch();
+};
 
 export type InstallTrigger =
   /** The user asked (added the Host, pressed Install / Retry). */
@@ -69,11 +104,31 @@ export type InstallPlan = Data.TaggedEnum<{
     readonly sha256: string;
     readonly reason: "first-install" | "background";
   };
-  Install: { readonly build: DaemonBuild };
-  Upgrade: { readonly from: string; readonly build: DaemonBuild };
+  Install: { readonly build: DaemonBuild; readonly delivery: Delivery };
+  Upgrade: { readonly from: string; readonly build: DaemonBuild; readonly delivery: Delivery };
 }>;
 
 export const InstallPlan = Data.taggedEnum<InstallPlan>();
+
+/** The plan for a Host that already runs a build of its platform. */
+const planUpgrade = (
+  installed: string,
+  build: DaemonBuild,
+  delivery: Delivery,
+  options: PlanOptions
+): InstallPlan => {
+  // Upgrades need no new approval. A dev build replaces any other version (`upgradeDue`),
+  // but a background check never installs an older dev build over a newer one.
+  const due = options.trigger === "background" ? backgroundUpgradeDue : upgradeDue;
+
+  if (due(installed, build.version))
+    return InstallPlan.Upgrade({ from: installed, build, delivery });
+
+  if (compareVersions(installed, build.version) > 0)
+    return InstallPlan.InstalledNewer({ installed, bundled: build.version });
+
+  return InstallPlan.UpToDate({ version: build.version });
+};
 
 export const planInstall = (
   probe: HostProbe,
@@ -85,7 +140,9 @@ export const planInstall = (
   if (platform === null) return InstallPlan.Unsupported({ os: probe.os, arch: probe.arch });
   const build = builds.find((candidate) => candidate.platform === platform);
 
-  if (build === undefined) return InstallPlan.MissingBuild({ platform });
+  const delivery = build === undefined ? null : deliveryFor(build, probe);
+
+  if (build === undefined || delivery === null) return InstallPlan.MissingBuild({ platform });
 
   if (probe.libc === "musl" && (probe.missingLibraries?.length ?? 0) > 0) {
     return InstallPlan.MissingLibraries({
@@ -95,30 +152,17 @@ export const planInstall = (
     });
   }
 
-  if (probe.installed !== null && probe.installed.platform === platform) {
-    const installed = probe.installed.version;
-
-    // Upgrades need no new approval. A dev build replaces any other version (`upgradeDue`),
-    // but a background check never installs an older dev build over a newer one.
-    const due = options.trigger === "background" ? backgroundUpgradeDue : upgradeDue;
-
-    if (due(installed, build.version)) return InstallPlan.Upgrade({ from: installed, build });
-
-    if (compareVersions(installed, build.version) > 0) {
-      return InstallPlan.InstalledNewer({ installed, bundled: build.version });
-    }
-
-    return InstallPlan.UpToDate({ version: build.version });
-  }
+  if (probe.installed !== null && probe.installed.platform === platform)
+    return planUpgrade(probe.installed.version, build, delivery, options);
 
   const needsApproval = (reason: "first-install" | "background") =>
     InstallPlan.NeedsApproval({ platform, version: build.version, sha256: build.sha256, reason });
 
-  if (options.trusted === true) return InstallPlan.Install({ build });
+  if (options.trusted === true) return InstallPlan.Install({ build, delivery });
 
   if (options.trigger === "background") return needsApproval("background");
 
   if (!options.approvedSha256.has(build.sha256)) return needsApproval("first-install");
 
-  return InstallPlan.Install({ build });
+  return InstallPlan.Install({ build, delivery });
 };

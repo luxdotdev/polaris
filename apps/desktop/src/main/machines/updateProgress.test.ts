@@ -39,7 +39,7 @@ const upgrade = (corrupt: boolean) => {
 
     if (!Predicate.isTagged(plan, "Upgrade")) throw new Error("expected upgrade");
 
-    return yield* applyPlan("fake", plan, (p) => progress.push(p));
+    return yield* applyPlan("fake", plan, { progress: (p) => progress.push(p) });
   }).pipe(Effect.provide(Ssh.local(home)));
 
   return { home, progress, builds, run };

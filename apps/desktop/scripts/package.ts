@@ -2,7 +2,8 @@
 /**
  * Packages the Desktop App with @electron/packager: `out/dist/Polaris-darwin-arm64/Polaris.app`
  * (and, with `--linux`, `Polaris-linux-x64/`), appId `dev.lux.polaris`, the generated app
- * icon, and every Daemon build in `Resources/daemon` (see src/main/machines/README.md).
+ * icon, and the Daemon builds in `Resources/daemon`: every platform for dev, only the app's
+ * own for a release, whose other platforms ship as Release archives (packaging/README.md).
  * Signs and notarises when Apple credentials are provided (README, Packaging).
  *
  *   bun scripts/package.ts                 this Mac (darwin arm64)
@@ -27,6 +28,12 @@ import {
   updateZip,
   verifyDaemonManifest,
 } from "./packaging/index.ts";
+import {
+  bundledPlatforms,
+  stageDaemon,
+  verifyDownloadable,
+  writeDaemonArchives,
+} from "./packaging/archives.ts";
 import { run } from "./packaging/command.ts";
 import { installerDmg } from "./packaging/dmg.ts";
 import { packageTargets, targetOptions } from "./packaging/targets.ts";
@@ -123,6 +130,13 @@ verifyDaemonManifest(DAEMON_DIST, release ? pkg.version : undefined);
 
 if (!windows) signDaemonBuilds(DAEMON_DIST, signing, ENTITLEMENTS);
 
+// The release job uploads these after signing; Hosts download them (docs/adr/0043).
+if (release && !windows)
+  for (const asset of writeDaemonArchives(DAEMON_DIST)) console.log(`daemon archive ${asset}`);
+
+// Windows reuses the macOS job's dist, whose manifest already names every archive.
+if (release && windows) verifyDownloadable(DAEMON_DIST);
+
 // The app directory holds only what runs: the bundles are self-contained (just `electron`).
 rmSync(STAGE, { recursive: true, force: true });
 
@@ -153,8 +167,6 @@ writeFileSync(
   )
 );
 
-cpSync(DAEMON_DIST, join(resources, "daemon"), { recursive: true });
-
 cpSync(join(ICONS, "linux/512x512.png"), join(resources, "icon.png"));
 
 const electronVersion = pkg.devDependencies.electron;
@@ -162,6 +174,9 @@ const electronVersion = pkg.devDependencies.electron;
 if (electronVersion === undefined) throw new Error("electron is not a devDependency");
 
 for (const target of targets) {
+  const daemon = join(STAGE, `daemon-${target.platform}-${target.arch}`, "daemon");
+  stageDaemon(DAEMON_DIST, daemon, bundledPlatforms(target, release));
+
   const [path] = await packager({
     dir: app,
     out: join(OUT_DIR, "dist"),
@@ -174,7 +189,7 @@ for (const target of targets) {
     appCopyright: "© 2026 lux.dev LLC",
     appVersion: version,
     electronVersion,
-    extraResource: [join(resources, "daemon"), join(resources, "icon.png")],
+    extraResource: [daemon, join(resources, "icon.png")],
     darwinDarkModeSupport: true,
     asar: true,
     prune: false,
@@ -184,8 +199,15 @@ for (const target of targets) {
 
   if (path === undefined) throw new Error(`packager returned no ${target.platform} output`);
 
+  const bundledDaemon = join(
+    path,
+    target.platform === "darwin" ? "Polaris.app/Contents/Resources/daemon" : "resources/daemon"
+  );
+
+  if (release) verifyDownloadable(bundledDaemon);
+
   if (target.platform === "win32") {
-    verifyDaemonManifest(join(path, "resources/daemon"), release ? pkg.version : undefined);
+    verifyDaemonManifest(bundledDaemon, release ? pkg.version : undefined);
 
     if (!args.includes("--no-installer"))
       console.log(
@@ -196,10 +218,7 @@ for (const target of targets) {
   if (target.platform === "darwin") {
     const bundle = join(path, "Polaris.app");
 
-    verifyDaemonManifest(
-      join(bundle, "Contents/Resources/daemon"),
-      release ? pkg.version : undefined
-    );
+    verifyDaemonManifest(bundledDaemon, release ? pkg.version : undefined);
     console.log(`archived ${updateZip(bundle, pkg.version, join(OUT_DIR, "dist"), signing)}`);
     console.log(
       `installer ${installerDmg(bundle, pkg.version, join(OUT_DIR, "dist"), join(REPO_ROOT, "design/assets"), signing)}`

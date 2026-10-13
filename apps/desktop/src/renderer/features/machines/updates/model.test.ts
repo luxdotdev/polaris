@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { clientCopy } from "../../../../shared/clientCopy.ts";
 import type { DaemonUpdateProblem, DaemonUpdateView } from "./contract.ts";
 import { overrideChoice, platformLabel, updateLine } from "./model.ts";
 
@@ -78,6 +79,23 @@ describe("a host's daemon update line", () => {
     });
     expect(line(daemon({ progress: { stage: "switching", bytes: 0, total: 0 } }))).toMatchObject({
       text: "Switching to 0.5.0; agent sessions keep going",
+    });
+  });
+
+  test("says where the daemon is downloading: on the host, or here before copying", () => {
+    expect(
+      line(daemon({ progress: { stage: "downloading", via: "host", bytes: 0, total: 9_000_000 } }))
+    ).toEqual({ kind: "busy", text: "Downloading polaris 0.5.0 on pi", fraction: null });
+    expect(
+      line(
+        daemon({
+          progress: { stage: "downloading", via: "client", bytes: 4_200_000, total: 16_800_000 },
+        })
+      )
+    ).toEqual({
+      kind: "busy",
+      text: `Downloading polaris 0.5.0 to ${clientCopy().machine} · 4.2 of 16.8 MB`,
+      fraction: 0.25,
     });
   });
 

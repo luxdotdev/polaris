@@ -6,7 +6,7 @@
 import { chmodSync, mkdtempSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { Ssh } from "@polaris/client/install";
+import { downloadBuild, Ssh } from "@polaris/client/install";
 import { discoverDistros, wslInstallLayer } from "@polaris/client/wsl";
 import { shell } from "electron";
 import type { LocalDaemon } from "../localDaemon.ts";
@@ -30,6 +30,8 @@ export interface MachinesLayerInput {
   readonly platform?: NodeJS.Platform;
   readonly settings: SettingsStore;
   readonly userData: string;
+  /** Sent with Daemon downloads for the site's telemetry. */
+  readonly appVersion?: string;
   readonly env: Record<string, string | undefined>;
   /** `process.resourcesPath` when packaged. */
   readonly resources: string | null;
@@ -63,6 +65,12 @@ export const machinesLayer = (input: MachinesLayerInput) =>
     sshBinary: input.settings.get().sshBinary,
     settings: input.settings,
     approvals: openApprovals(approvalsPath(input.userData)),
+    // Release builds bundle only this machine's Daemon; a Host that can't download its own gets it from here.
+    download: downloadBuild({
+      cacheDir: join(input.userData, "daemon-builds"),
+      clientVersion: input.appVersion,
+    }),
+    clientVersion: input.appVersion,
     builds: locateBuilds({
       env: input.env,
       resources: input.resources,

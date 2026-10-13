@@ -49,6 +49,29 @@ staging directory and leave any previous verified output intact. Without
 credentials the image is built and checksum-verified unsigned; partial credentials
 fail before building. Real Apple-service validation awaits ENG-253 credentials.
 
+## Daemon downloads
+
+A release app bundles only the Daemon its machine runs ([ADR 0043](../../../../docs/adr/0043-daemon-downloads.md)).
+With `--release`, after the darwin-arm64 build is signed, `archives.ts` writes
+`apps/daemon/dist/release/polaris-daemon-<version>-<platform>.tar.gz` for all five
+platforms (a deterministic gzipped ustar of `polaris` and `betterleaks`, with their
+modes) and `polaris-daemon-<version>-SHA256SUMS`, and records in `manifest.json`
+each archive's name, SHA-256 and size plus the download URL template
+(`https://polaris.lux.dev/api/daemon/{version}/{platform}`). Each target then gets
+its own staged `Resources/daemon` (`stageDaemon`): the Mac only `darwin-arm64/`,
+Windows no platform directory, both with the full manifest and
+`bundled: [<platforms present>]`. Packaging checks that every platform is still
+downloadable from the staged manifest and that the bundled files match it.
+The `release/` directory never enters an app; the release workflow uploads it with
+the DMG and ZIP, and leaves it out of the dist artifact the Windows job reuses.
+
+Without `--release` (and in `dev`) nothing changes: every platform is bundled and the
+manifest has no archives, since no Release exists to download from.
+
+Measured on 0.1.0-alpha.2, unsigned: `Polaris.app` 423 MB (was 980 MB),
+`Resources/daemon` 101 MB (was 657 MB), DMG 174 MB (was about 390 MB), update ZIP
+174 MB. The five archives are 37 MB (darwin-arm64) to 56 MB (linux-x64).
+
 ## Windows (experimental, unsigned)
 
 `bun run --cwd apps/desktop package --windows --reuse-daemon` builds win32 x64
@@ -61,7 +84,8 @@ cross-builds without those tools. Regenerate `Polaris.ico` with
 
 Windows always returns `unsigned` at `resolveSigning`; Apple credentials are
 ignored. Authenticode can be introduced at this seam later. No native Windows
-Daemon is built. `--windows` requires `--reuse-daemon` and an existing verified
+Daemon is built, and a release installer bundles no Daemon files at all: WSL
+distros and remote Hosts download theirs. `--windows` requires `--reuse-daemon` and an existing verified
 manifest; it never builds, signs or rewrites Daemon files. Release versions must
 match. The macOS release job archives its final Daemon dist after signing;
 the Windows job restores that tarball and verifies the copied bytes again.

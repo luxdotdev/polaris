@@ -7,7 +7,7 @@ import {
   platformFromUname,
   upgradeDue,
 } from "./builds.ts";
-import { type HostProbe, InstallPlan, planInstall } from "./plan.ts";
+import { Delivery, deliveryFor, type HostProbe, InstallPlan, planInstall } from "./plan.ts";
 
 const build = (platform: DaemonBuild["platform"], version = "1.2.0"): DaemonBuild => ({
   platform,
@@ -16,7 +16,23 @@ const build = (platform: DaemonBuild["platform"], version = "1.2.0"): DaemonBuil
   files: [
     { name: "polaris", path: `/dist/${platform}/polaris`, sha256: "x", size: 1, executable: true },
   ],
+  bundled: true,
+  archive: null,
 });
+
+/** A release build this app doesn't bundle: it lists the files and a Release archive. */
+const published = (platform: DaemonBuild["platform"], version = "1.2.0"): DaemonBuild => ({
+  ...build(platform, version),
+  bundled: false,
+  archive: {
+    name: `polaris-daemon-${version}-${platform}.tar.gz`,
+    sha256: "archive-sha",
+    size: 10,
+    url: `https://polaris.lux.dev/api/daemon/${version}/${platform}`,
+  },
+});
+
+const allTools = { fetch: "curl", tar: true, sha256: true } as const;
 
 const linuxX64 = build("linux-x64");
 
@@ -137,7 +153,7 @@ describe("dev builds", () => {
           trigger: "background",
           approvedSha256: new Set(),
         })
-      ).toEqual(InstallPlan.Upgrade({ from: installed, build: dev }));
+      ).toEqual(InstallPlan.Upgrade({ from: installed, build: dev, delivery: Delivery.Upload() }));
     }
 
     expect(
@@ -159,7 +175,11 @@ describe("dev builds", () => {
       InstallPlan.InstalledNewer({ installed: "0.0.0-dev.1260.058f292", bundled: stale.version })
     );
     expect(planInstall(host, [stale], user)).toEqual(
-      InstallPlan.Upgrade({ from: "0.0.0-dev.1260.058f292", build: stale })
+      InstallPlan.Upgrade({
+        from: "0.0.0-dev.1260.058f292",
+        build: stale,
+        delivery: Delivery.Upload(),
+      })
     );
   });
 });
@@ -182,7 +202,7 @@ describe("planInstall", () => {
       approvedSha256: new Set(["sha-linux-x64-1.2.0"]),
     });
 
-    expect(plan).toEqual(InstallPlan.Install({ build: linuxX64 }));
+    expect(plan).toEqual(InstallPlan.Install({ build: linuxX64, delivery: Delivery.Upload() }));
   });
 
   test("never installs on a background reconnect, even if approved", () => {
@@ -209,7 +229,9 @@ describe("planInstall", () => {
         trusted: true,
       });
 
-      expect(plan).toEqual(InstallPlan.Install({ build: linuxX64 }));
+      expect(plan).toEqual(
+        InstallPlan.Install({ build: linuxX64, delivery: deliveryFor(linuxX64, linux())! })
+      );
     }
   });
 
@@ -219,7 +241,9 @@ describe("planInstall", () => {
       approvedSha256: new Set(),
     });
 
-    expect(plan).toEqual(InstallPlan.Upgrade({ from: "1.1.0", build: linuxX64 }));
+    expect(plan).toEqual(
+      InstallPlan.Upgrade({ from: "1.1.0", build: linuxX64, delivery: Delivery.Upload() })
+    );
   });
 
   test("does nothing when up to date, and never downgrades", () => {
@@ -285,5 +309,73 @@ describe("musl Hosts", () => {
   test("an installed glibc Daemon on a musl Host is replaced by the musl build", () => {
     const probe = { ...alpine(), installed: { version: "1.2.0", platform: "linux-arm64" } };
     expect(planInstall(probe, withMusl, user)).toEqual(approveMusl);
+  });
+});
+
+describe("delivery", () => {
+  const approved = (b: DaemonBuild) =>
+    ({ trigger: "user", approvedSha256: new Set([b.sha256]) }) as const;
+
+  test("a bundled build uploads, whatever the Host has", () => {
+    expect(deliveryFor(linuxX64, { ...linux(), tools: allTools })).toEqual(Delivery.Upload());
+  });
+
+  test("a published build the Host can fetch and check is downloaded on the Host", () => {
+    const remote = published("linux-x64");
+
+    expect(planInstall({ ...linux(), tools: allTools }, [remote], approved(remote))).toEqual(
+      InstallPlan.Install({ build: remote, delivery: Delivery.HostFetch({ tool: "curl" }) })
+    );
+    expect(deliveryFor(remote, { ...linux(), tools: { ...allTools, fetch: "wget" } })).toEqual(
+      Delivery.HostFetch({ tool: "wget" })
+    );
+  });
+
+  test.each([
+    ["no curl or wget", { ...allTools, fetch: null }],
+    ["no tar", { ...allTools, tar: false }],
+    ["no sha256sum or shasum", { ...allTools, sha256: false }],
+  ] as const)("with %s, this machine downloads and uploads", (_, tools) => {
+    expect(deliveryFor(published("linux-x64"), { ...linux(), tools })).toEqual(
+      Delivery.ClientFetch()
+    );
+  });
+
+  test("an old probe without tools falls back to this machine", () => {
+    expect(deliveryFor(published("linux-x64"), linux())).toEqual(Delivery.ClientFetch());
+  });
+
+  test("upgrades take the same path", () => {
+    const remote = published("linux-x64", "1.3.0");
+    const probe = { ...linux({ version: "1.2.0", platform: "linux-x64" }), tools: allTools };
+
+    expect(planInstall(probe, [remote], user)).toEqual(
+      InstallPlan.Upgrade({
+        from: "1.2.0",
+        build: remote,
+        delivery: Delivery.HostFetch({ tool: "curl" }),
+      })
+    );
+  });
+
+  test("a build neither bundled nor published is a MissingBuild", () => {
+    const missing = { ...linuxX64, bundled: false };
+
+    expect(planInstall({ ...linux(), tools: allTools }, [missing], approved(missing))).toEqual(
+      InstallPlan.MissingBuild({ platform: "linux-x64" })
+    );
+  });
+
+  test("approval still names the binary's SHA-256, not the archive's", () => {
+    const remote = published("linux-x64");
+
+    expect(planInstall({ ...linux(), tools: allTools }, [remote], user)).toEqual(
+      InstallPlan.NeedsApproval({
+        platform: "linux-x64",
+        version: remote.version,
+        sha256: remote.sha256,
+        reason: "first-install",
+      })
+    );
   });
 });
