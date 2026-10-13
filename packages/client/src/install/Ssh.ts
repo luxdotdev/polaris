@@ -34,6 +34,9 @@ export const classifySshFailure = (stderr: string): SshFailure => {
   if (/host key verification failed|remote host identification has changed/i.test(stderr))
     return "host-key";
 
+  if (/^ssh: connect to host .+ port \d+: permission denied\.?\r?$/im.test(stderr))
+    return "unreachable";
+
   if (
     /permission denied|too many authentication failures|no supported authentication/i.test(stderr)
   )

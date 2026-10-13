@@ -101,6 +101,9 @@ export const classifyExit = (exit: {
   )
     return needs("ssh-config-error", lastLine(stderr, /Bad|Can't|UNPROTECTED/));
 
+  if (has(/^ssh: connect to host .+ port \d+: Permission denied\.?\r?$/m))
+    return transient("unreachable", lastLine(stderr, /^ssh: connect to host/));
+
   if (has(/Permission denied|Too many authentication failures|Authentication failed/))
     return needs(
       "auth-failed",

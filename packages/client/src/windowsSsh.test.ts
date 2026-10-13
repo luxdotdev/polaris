@@ -18,9 +18,22 @@ test.each([
   ["ssh: Could not resolve hostname pi: No such host is known.", "unreachable", "unreachable"],
   ["channel 0: open failed: connect failed: No such host is known.", "unreachable", "unreachable"],
   ["ssh: connect to host pi port 22: Connection timed out", "timeout", "unreachable"],
+  ["ssh: connect to host pi port 22: Permission denied\r\n", "unreachable", "unreachable"],
+  ["ssh: connect to host pi port 2222: Permission denied.\r\n", "unreachable", "unreachable"],
 ] as const)("Windows diagnostic: %s", (stderr, reason, installFailure) => {
   expect(classifyExit({ code: 255, signal: null, stderr }).reason).toBe(reason);
   expect(classifySshFailure(stderr)).toBe(installFailure);
+});
+
+test("a Windows firewall refusal retries without asking for credentials", () => {
+  const failure = classifyExit({
+    code: 255,
+    signal: null,
+    stderr: "ssh: connect to host pi port 22: Permission denied\r\n",
+  });
+
+  expect(failure.kind).toBe("transient");
+  expect(failure.reason).toBe("unreachable");
 });
 
 test.each([
