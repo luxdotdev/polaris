@@ -19,7 +19,7 @@ const gopls = catalog.tools.find((tool) => tool.id === "gopls")!;
 const sentinel = (marker: string) => `#!/bin/sh\necho ran > ${JSON.stringify(marker)}\n`;
 
 async function host() {
-  const home = await realpath(await mkdtemp("/private/tmp/polaris-go-"));
+  const home = await realpath(await mkdtemp("/tmp/polaris-go-"));
   const bin = join(home, "go/bin");
   await mkdir(bin, { recursive: true });
   const probes = createHostPrerequisiteProbe({ home, directories: [bin] });

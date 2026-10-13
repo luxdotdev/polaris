@@ -23,7 +23,7 @@ test("Python providers run without Trust, preserve drafts on selection, and neve
     Effect.scoped(
       Effect.gen(function* () {
         const root = yield* Effect.acquireRelease(
-          Effect.promise(async () => realpath(await mkdtemp("/private/tmp/polaris-python-live-"))),
+          Effect.promise(async () => realpath(await mkdtemp("/tmp/polaris-python-live-"))),
           (path) => Effect.promise(() => rm(path, { recursive: true, force: true }))
         );
 

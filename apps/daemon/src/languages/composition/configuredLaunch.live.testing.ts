@@ -38,7 +38,7 @@ test("actual default Host routes fence TS completion, live logs across a crash a
     Effect.scoped(
       Effect.gen(function* () {
         const root = yield* Effect.acquireRelease(
-          Effect.promise(async () => realpath(await mkdtemp("/private/tmp/m31-live-ts-"))),
+          Effect.promise(async () => realpath(await mkdtemp("/tmp/m31-live-ts-"))),
           (r) => Effect.promise(() => rm(r, { recursive: true, force: true }))
         );
 

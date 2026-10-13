@@ -15,7 +15,7 @@ import { ProposalProvenance } from "../preparation/provenanceService.ts";
 import { prepareServerEdit } from "./serverPreparation.ts";
 
 test("server preparation reads canonical closed snapshots and rejects replaced independent ownership", async () => {
-  const root = await realpath(await mkdtemp("/private/tmp/m31-server-preparation-"));
+  const root = await realpath(await mkdtemp("/tmp/m31-server-preparation-"));
 
   try {
     const path = join(root, "file.ts");

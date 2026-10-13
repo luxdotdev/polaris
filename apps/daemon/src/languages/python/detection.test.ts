@@ -10,7 +10,7 @@ import { LanguageCheckout, HostId } from "@polaris/protocol";
 import { effectiveSettings } from "../discovery/configuration.ts";
 
 async function fixture() {
-  const root = await realpath(await mkdtemp("/private/tmp/polaris-python-detection-"));
+  const root = await realpath(await mkdtemp("/tmp/polaris-python-detection-"));
   const executable = join(root, "host-python");
   await writeFile(executable, "#!/bin/sh\nexit 99\n");
   await chmod(executable, 0o755);

@@ -128,7 +128,7 @@ for (const legacy of ["slice4", "owner-copy"])
       Effect.scoped(
         Effect.gen(function* () {
           const root = yield* Effect.acquireRelease(
-            Effect.promise(async () => realpath(await mkdtemp("/private/tmp/polaris-upgrade-"))),
+            Effect.promise(async () => realpath(await mkdtemp("/tmp/polaris-upgrade-"))),
             (path) => Effect.promise(() => rm(path, { recursive: true, force: true }))
           );
 

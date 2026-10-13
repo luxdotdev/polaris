@@ -29,7 +29,7 @@ export const fixture = (
 ) =>
   Effect.gen(function* () {
     const root = yield* Effect.acquireRelease(
-      Effect.promise(async () => realpath(await mkdtemp("/private/tmp/m31-h1-core-"))),
+      Effect.promise(async () => realpath(await mkdtemp("/tmp/m31-h1-core-"))),
       (path) => Effect.promise(() => rm(path, { recursive: true, force: true }))
     );
 

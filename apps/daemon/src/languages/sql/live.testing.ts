@@ -14,9 +14,7 @@ test("real managed SQL and Shell through authenticated RPC, dialect CAS and draf
     Effect.scoped(
       Effect.gen(function* () {
         const root = yield* Effect.acquireRelease(
-          Effect.promise(async () =>
-            realpath(await mkdtemp("/private/tmp/polaris-sql-shell-live-"))
-          ),
+          Effect.promise(async () => realpath(await mkdtemp("/tmp/polaris-sql-shell-live-"))),
           (directory) => Effect.promise(() => rm(directory, { recursive: true, force: true }))
         );
 

@@ -14,7 +14,7 @@ afterEach(async () => {
 });
 
 async function fixture() {
-  const root = await realpath(await mkdtemp("/private/tmp/polaris-sql-dialect-"));
+  const root = await realpath(await mkdtemp("/tmp/polaris-sql-dialect-"));
   roots.push(root);
   const path = join(root, "query.sql");
   await writeFile(path, "select 1;");

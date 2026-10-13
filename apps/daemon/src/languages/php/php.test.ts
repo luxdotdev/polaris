@@ -79,7 +79,7 @@ test("the PHAR installs as one non-executable file beside its notices", async ()
 });
 
 async function project() {
-  const root = await realpath(await mkdtemp("/private/tmp/polaris-php-"));
+  const root = await realpath(await mkdtemp("/tmp/polaris-php-"));
   await mkdir(join(root, "vendor/bin"), { recursive: true });
   await mkdir(join(root, "bin"));
   await writeFile(join(root, ".phpactor.json"), '{"composer.enable": true}');

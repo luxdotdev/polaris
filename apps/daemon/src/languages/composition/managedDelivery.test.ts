@@ -23,7 +23,7 @@ const settings = (automatic = true) =>
   });
 
 async function fixture(corrupt = false, legacy = false) {
-  const root = await realpath(await mkdtemp("/private/tmp/slice-1-delivery-"));
+  const root = await realpath(await mkdtemp("/tmp/slice-1-delivery-"));
   const source = artifactFixture();
   const downloads = new Map<string, number>();
 
