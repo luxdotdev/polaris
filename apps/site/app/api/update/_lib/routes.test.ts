@@ -26,7 +26,7 @@ function setup(
   return { routes, callbacks, events };
 }
 
-test.each(["1.2.3", "1.2.3+local", "1.2.4", "2.0.0"])(
+test.each(["1.2.3", "1.2.3+local", "1.2.4", "1.2.4-alpha.1", "2.0.0"])(
   "204 without body for same or newer %s, logs each request",
   async (version) => {
     const { routes, callbacks, events } = setup();
@@ -51,7 +51,7 @@ test.each(["1.2.3", "1.2.3+local", "1.2.4", "2.0.0"])(
   }
 );
 
-test.each(["1.2.2", "1.2.3-rc.1", "1.1.99", "0.9.9"])(
+test.each(["1.2.2", "1.2.3-alpha.1", "1.2.3-beta.2", "1.2.3-rc.1", "1.1.99", "0.9.9"])(
   "Squirrel JSON for older %s",
   async (version) => {
     const { routes, callbacks, events } = setup();

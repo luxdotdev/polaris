@@ -47,6 +47,63 @@ describe("compareVersions", () => {
     expect(compareVersions("1.2.0-rc.1", "1.2.0")).toBeLessThan(0);
     expect(compareVersions("1.2.0-rc.10", "1.2.0-rc.9")).toBeGreaterThan(0);
   });
+
+  test("follows semver prerelease precedence across alpha, beta and rc", () => {
+    const ordered = [
+      "0.0.0-dev.412.5821ca0",
+      "0.0.0",
+      "0.1.0-alpha.1-dev.3.aaaaaaa",
+      "0.1.0-alpha.1",
+      "0.1.0-alpha.2",
+      "0.1.0-alpha.10",
+      "0.1.0-beta.1",
+      "0.1.0-rc.1",
+      "0.1.0-dev.7.bbbbbbb",
+      "0.1.0",
+      "0.1.1-alpha.1",
+    ];
+
+    for (const [i, lower] of ordered.entries()) {
+      for (const higher of ordered.slice(i + 1)) {
+        expect(compareVersions(lower, higher)).toBeLessThan(0);
+        expect(compareVersions(higher, lower)).toBeGreaterThan(0);
+      }
+    }
+
+    expect(compareVersions("0.1.0-alpha.1+build.5", "0.1.0-alpha.1")).toBe(0);
+    expect(compareVersions("0.1.0-alpha", "0.1.0-alpha.1")).toBeLessThan(0);
+  });
+
+  test("dev builds of one version order by commit count", () => {
+    expect(
+      compareVersions("0.1.0-alpha.1-dev.9.aaaaaaa", "0.1.0-alpha.1-dev.10.bbbbbbb")
+    ).toBeLessThan(0);
+  });
+});
+
+describe("prerelease upgrades", () => {
+  test("a release replaces only an older release or prerelease", () => {
+    expect(upgradeDue("0.1.0-alpha.1", "0.1.0-alpha.2")).toBe(true);
+    expect(upgradeDue("0.1.0-alpha.2", "0.1.0-beta.1")).toBe(true);
+    expect(upgradeDue("0.1.0-rc.1", "0.1.0")).toBe(true);
+    expect(upgradeDue("0.0.0-dev.412.5821ca0", "0.1.0-alpha.1")).toBe(true);
+    expect(upgradeDue("0.1.0-alpha.2", "0.1.0-alpha.1")).toBe(false);
+    expect(upgradeDue("0.1.0", "0.1.0-rc.1")).toBe(false);
+  });
+
+  test("a background check never downgrades a dev build", () => {
+    expect(backgroundUpgradeDue("0.1.0-alpha.1-dev.9.aaaaaaa", "0.1.0-alpha.1-dev.3.bbbbbbb")).toBe(
+      false
+    );
+    expect(backgroundUpgradeDue("0.1.0-alpha.1-dev.3.aaaaaaa", "0.1.0-alpha.1-dev.9.bbbbbbb")).toBe(
+      true
+    );
+    expect(backgroundUpgradeDue("0.1.0-alpha.2-dev.1.aaaaaaa", "0.1.0-alpha.1-dev.9.bbbbbbb")).toBe(
+      false
+    );
+    expect(backgroundUpgradeDue("0.1.0-alpha.1", "0.1.0-alpha.2")).toBe(true);
+    expect(backgroundUpgradeDue("0.1.0-alpha.2", "0.1.0-alpha.1")).toBe(false);
+  });
 });
 
 describe("dev builds", () => {
