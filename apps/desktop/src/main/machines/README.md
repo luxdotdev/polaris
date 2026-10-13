@@ -61,6 +61,11 @@ stateDiagram-v2
 
 ## Windows OpenSSH
 
+Windows Firewall can make OpenSSH report `ssh: connect to host … port 22: Permission denied`
+before authentication begins (verified on Windows 11 ARM64). Both bridge and installer classify
+that connect-time refusal as unreachable, so the Connection State keeps retrying. The distinct
+`Permission denied (publickey,…)` authentication response still requires attention.
+
 Windows Clients expose remote Hosts only. Persisted local-Host preferences and local socket overrides cannot start, connect, install or upgrade a native Windows Daemon. The `machines` feed omits the local row; renderer layout and copy stay with WSHELL.
 
 The bridge uses one long-lived SSH process per Host. Windows omits `ControlMaster`, `ControlPath` and `ControlPersist` and creates no control directory. RPC calls and subscriptions share that bridge; a reconnect replaces it. macOS and Linux retain Polaris' multiplexing.
