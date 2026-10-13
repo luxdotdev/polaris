@@ -15,8 +15,9 @@ import {
   tabOf,
   type TerminalTab,
 } from "./model/tabs.ts";
+import { baseName } from "./model/launch.ts";
 import { loaded } from "./loaded.ts";
-import { drawerKey, getDrawer, updateDrawer } from "./store.ts";
+import { drawerKey, getDrawer, isTerminalShown, updateDrawer } from "./store.ts";
 
 /** Opens at a size the first fit corrects straight away. */
 const INITIAL = { cols: 100, rows: 24 };
@@ -99,6 +100,27 @@ export const reopenTab = (place: TerminalPlace, tab: TerminalTab) =>
 export const openShell = (place: TerminalPlace, cwd: string, title: string) =>
   runInTerminal(place, { key: SHELL_TAB, title, cwd, argv: null });
 
+/**
+ * "Open in terminal": a new shell tab in `cwd`, titled by its folder, and the
+ * drawer shown in whichever mode is on screen (both mount the same drawer).
+ */
+export const openTerminalIn = (place: TerminalPlace, cwd: string) =>
+  runInTerminal(place, {
+    key: `shell:${crypto.randomUUID()}`,
+    title: baseName(cwd),
+    cwd,
+    argv: null,
+  });
+
+declare global {
+  interface Window {
+    /** The smoke test drives "Open in terminal" here until the Editor's menu calls it. */
+    __polarisOpenTerminalIn?: typeof openTerminalIn;
+  }
+}
+
+if ("window" in globalThis) window.__polarisOpenTerminalIn = openTerminalIn;
+
 export const closeTab = (place: TerminalPlace, tabKey: string) => {
   const key = drawerKey(place.hostKey, place.workspaceId);
   const tab = tabOf(getDrawer(key), tabKey);
@@ -113,23 +135,33 @@ export const activateTab = (place: TerminalPlace, tabKey: string) =>
 export const setDrawerHeight = (place: TerminalPlace, height: number) =>
   updateDrawer(drawerKey(place.hostKey, place.workspaceId), (d) => ({ ...d, height }));
 
-/** Hides the drawer; its terminals keep running. */
-export const hideTerminal = (place: TerminalPlace) =>
+/**
+ * Orchestrate collapsed Output over the open drawer: it shows as the strip
+ * there and stays open in Edit; its terminals keep running.
+ */
+export const tuckTerminal = (place: TerminalPlace) =>
   updateDrawer(drawerKey(place.hostKey, place.workspaceId), (d) =>
-    d.open ? { ...d, open: false } : d
+    d.open && d.tucked !== true ? { ...d, tucked: true } : d
   );
 
-/** Shows or hides the drawer; showing an empty one opens the Workspace's shell in `cwd`. */
-export const toggleTerminal = (place: TerminalPlace, cwd: string, title: string) => {
+/**
+ * Shows or hides the drawer; showing an empty one opens the Workspace's shell
+ * in `cwd`. `shownHere` is whether the mounted drawer is showing (a tucked one isn't).
+ */
+export const toggleTerminal = (
+  place: TerminalPlace,
+  cwd: string,
+  title: string,
+  shownHere = isTerminalShown(place.hostKey, place.workspaceId)
+) => {
   const key = drawerKey(place.hostKey, place.workspaceId);
-  const drawer = getDrawer(key);
 
-  if (drawer.open) {
-    updateDrawer(key, (d) => ({ ...d, open: false }));
+  if (shownHere) {
+    updateDrawer(key, (d) => ({ ...d, open: false, tucked: false }));
 
     return;
   }
 
-  if (drawer.tabs.length === 0) void openShell(place, cwd, title);
-  else updateDrawer(key, (d) => ({ ...d, open: true }));
+  if (getDrawer(key).tabs.length === 0) void openShell(place, cwd, title);
+  else updateDrawer(key, (d) => ({ ...d, open: true, tucked: false }));
 };
