@@ -104,6 +104,8 @@ test("mounted Host core uses transport Host identity and refuses unapproved mana
           "css",
           "python",
           "bash",
+          "php",
+          "go",
           "sql",
           "prisma",
           "yaml",

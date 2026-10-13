@@ -1,6 +1,7 @@
 /**
  * Raw `textDocument/hover` payloads captured from the pinned servers (basedpyright 1.40.2,
  * typescript-language-server via the Daemon) on 2026-10-11. Ruff answers no hovers (Polaris turns them off).
+ * gopls v0.23.0 and Phpactor 2026.10.07.0, via the Daemon, on 2026-10-12.
  */
 import type { Hover } from "./payloads.ts";
 
@@ -31,6 +32,16 @@ export const MARKDOWN = {
   TS_PROPERTY: {
     kind: "markdown",
     value: "\n```typescript\n(property) Host.label: string\n```\nIts name, as the user wrote it.",
+  } satisfies Contents,
+  GOPLS_FUNCTION: {
+    kind: "markdown",
+    value:
+      "```go\nfunc Greet(name string) string\n```\n\n---\n\nGreet says hello.\n\n\n---\n\n[`main.Greet` on pkg.go.dev](https://pkg.go.dev/example.com/fixture#Greet)",
+  } satisfies Contents,
+  PHPACTOR_METHOD: {
+    kind: "markdown",
+    value:
+      "### Greeter # greet\n\nSays hello.\n\n```php\n<?php public function greet(string $name): string\n```",
   } satisfies Contents,
 };
 

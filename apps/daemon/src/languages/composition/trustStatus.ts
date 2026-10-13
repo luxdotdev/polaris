@@ -10,6 +10,7 @@ export function trustStatus(
   const workspaceTools = [
     facts.svelteConfiguration === null ? null : "Svelte config and preprocessors",
     facts.prisma?.config == null ? null : "Prisma config",
+    ...facts.workspaceTools,
   ].filter((tool): tool is string => tool !== null);
 
   const project = facts.sdk !== null || facts.plugins.length > 0 || workspaceTools.length > 0;

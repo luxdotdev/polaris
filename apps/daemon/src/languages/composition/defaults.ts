@@ -74,6 +74,7 @@ export const DefaultLanguageHostHandlers = Layer.unwrap(
               "sqllens-language-server",
               "sql-formatter",
               ...webTools,
+              "phpactor",
             ].includes(exact.tool.id),
             identity: exact.identity,
           }),

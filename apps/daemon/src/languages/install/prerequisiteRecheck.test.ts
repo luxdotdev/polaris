@@ -12,6 +12,9 @@ for (const [id, executable] of [
   ["shellcheck", "shellcheck"],
   ["python-interpreter", "python3"],
   ["uv", "uv"],
+  ["go", "go"],
+  ["gopls", "gopls"],
+  ["php", "php"],
 ] as const)
   test(`explicit recheck replaces cached ${id} absence and republishes to the existing watch`, async () => {
     const home = await realpath(await mkdtemp("/private/tmp/prerequisite-recheck-"));

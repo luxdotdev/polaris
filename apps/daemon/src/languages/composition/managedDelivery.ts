@@ -1,4 +1,5 @@
 import { sqlShellLaunch } from "../sql/launch.ts";
+import { phpactorLaunch } from "../php/launch.ts";
 import { webLaunch, webProviders, webTools } from "../web/index.ts";
 import { Match } from "effect";
 import { pythonLaunch } from "../python/launch.ts";
@@ -15,6 +16,9 @@ import type { DiscoveryFacts } from "../discovery/index.ts";
 import type { HostInstallation, ObservationAdmission } from "../install/host.ts";
 import { descriptor, defaultLimits, type InstalledVersion } from "../install/types.ts";
 import { checkAbort, failure } from "../install/validation.ts";
+
+/** Host Prerequisites observed by presence at fixed locations, never by running them. */
+const hostPresence = ["shellcheck", "php", "go", "gopls"];
 
 export interface ManagedDelivery {
   bind: (host: HostInstallation) => void;
@@ -83,6 +87,7 @@ export function createManagedDelivery(
           : Match.value(providerId).pipe(
               Match.when("basedpyright", () => ["node", "basedpyright"]),
               Match.when("ruff", () => ["ruff"]),
+              Match.when("phpactor", () => ["phpactor"]),
               Match.when("bash-language-server", () => ["node", "shfmt", "bash-language-server"]),
               Match.when("sqllens-language-server", () => [
                 "node",
@@ -120,6 +125,14 @@ export function createManagedDelivery(
       }
     },
     async plan(facts, installed) {
+      if (facts.providerId === "phpactor")
+        return phpactorLaunch(
+          facts,
+          installed,
+          installation().tool("phpactor").requirements,
+          hostPrerequisites
+        );
+
       const node = facts.providerId === "ruff" ? null : await privateNode();
 
       if (["basedpyright", "ruff"].includes(facts.providerId))
@@ -198,7 +211,7 @@ export function createManagedDelivery(
       const nodeRequirements = tool.requirements.filter((requirement) => requirement.id === "node");
 
       const others = tool.requirements.filter(
-        (requirement) => !["node", "python-interpreter", "shellcheck"].includes(requirement.id)
+        (requirement) => !["node", "python-interpreter", ...hostPresence].includes(requirement.id)
       );
 
       const node = nodeRequirements.length ? await privateNode() : null;
@@ -225,12 +238,10 @@ export function createManagedDelivery(
         probes.push({ id: python.id, executable, version: executable === null ? null : "present" });
       }
 
-      const shellcheck = tool.requirements.find((requirement) => requirement.id === "shellcheck");
-
-      if (shellcheck !== undefined) {
-        const present = await hostPrerequisites().probe(shellcheck, signal);
+      for (const requirement of tool.requirements.filter(({ id }) => hostPresence.includes(id))) {
+        const present = await hostPrerequisites().probe(requirement, signal);
         probes.push({
-          id: shellcheck.id,
+          id: requirement.id,
           executable: present.path,
           version: present.path === null ? null : "present",
         });

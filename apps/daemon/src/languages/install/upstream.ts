@@ -21,6 +21,26 @@ const combinedEvidence = { ...upstreamEvidence, ...webEvidence };
 
 const EvidenceKey = Schema.Literals(Object.keys(combinedEvidence));
 
+/** A one-file artifact beside its notices; a PHAR runs on the Host's PHP, so it isn't executable. */
+const singleFile = (
+  exact: ExactArtifact,
+  bytes: Uint8Array,
+  notices: Readonly<Record<string, string>>
+): ArtifactPayload["entries"] => [
+  {
+    path: exact.artifact.entry,
+    kind: "file",
+    mode: exact.artifact.format === "phar" ? 0o644 : 0o755,
+    bytes,
+  },
+  ...Object.entries(notices).map(([path, notice]) => ({
+    path,
+    kind: "file" as const,
+    mode: 0o644,
+    bytes: Buffer.from(notice),
+  })),
+];
+
 /** Pinned upstream archives only; Node retains its executable and licence, never npm or package scripts. */
 export async function decodeUpstream(
   bytes: Uint8Array,
@@ -39,19 +59,8 @@ export async function decodeUpstream(
 
   const prefix = archivePrefix(exact);
 
-  if (exact.artifact.format === "binary")
-    return {
-      manifestBytes,
-      entries: [
-        { path: exact.artifact.entry, kind: "file", mode: 0o755, bytes },
-        ...Object.entries(evidence.notices).map(([path, notice]) => ({
-          path,
-          kind: "file" as const,
-          mode: 0o644,
-          bytes: Buffer.from(notice),
-        })),
-      ],
-    };
+  if (exact.artifact.format === "binary" || exact.artifact.format === "phar")
+    return { manifestBytes, entries: singleFile(exact, bytes, evidence.notices) };
   const archive = await gunzip(bytes, signal, upstreamLimits.expandedBytes);
 
   const select = isNode

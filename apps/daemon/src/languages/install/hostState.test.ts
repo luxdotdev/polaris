@@ -257,6 +257,8 @@ test("known catalog requirements publish platform-specific commands and every ma
     "shellscript",
     "bash",
     "sh",
+    "php",
+    "go",
     "sql",
     "prisma",
     "yaml",

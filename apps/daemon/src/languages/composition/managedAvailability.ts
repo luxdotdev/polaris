@@ -5,6 +5,8 @@ import type { HostLanguageInstallation } from "../availability/service.ts";
 import type { ObservationAdmission } from "../install/host.ts";
 import type { ManagedDelivery } from "./managedDelivery.ts";
 import { webTools } from "../web/index.ts";
+import { developerAvailability } from "../go/availability.ts";
+import { developerProvider } from "../go/launch.ts";
 
 /** Providers Polaris installs itself; they need no Trust and reuse verified receipts. */
 export const managedProviderIds: readonly string[] = [
@@ -14,6 +16,7 @@ export const managedProviderIds: readonly string[] = [
   ...webTools,
   "bash-language-server",
   "sqllens-language-server",
+  "phpactor",
 ];
 
 const managedProviders = new Set(managedProviderIds);
@@ -28,6 +31,9 @@ export const providerAvailability = (
   admission?: ObservationAdmission,
   settings?: typeof LanguageEffectiveSettings.Type
 ) => {
+  if (developerProvider(toolId))
+    return developerAvailability(installation, toolId, phase, trusted, admission);
+
   if (
     !managedProviders.has(toolId) ||
     phase !== "feature" ||

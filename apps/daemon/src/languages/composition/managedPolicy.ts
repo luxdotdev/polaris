@@ -23,4 +23,7 @@ export const managedWithoutTrust = (facts: DiscoveryFacts) =>
     configuredExecutable(facts) === undefined) ||
   (facts.managedPython === true &&
     ["basedpyright", "ruff"].includes(facts.providerId) &&
+    configuredExecutable(facts) === undefined) ||
+  (facts.managedPhp === true &&
+    facts.providerId === "phpactor" &&
     configuredExecutable(facts) === undefined);
