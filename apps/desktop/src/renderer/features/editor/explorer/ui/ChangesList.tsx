@@ -8,6 +8,8 @@ export interface ChangesListProps {
   readonly active: string | null;
   readonly git: "none" | "loading" | "ready";
   readonly onOpen: (path: string, pin: boolean) => void;
+  /** Opens the row's diff against HEAD; null on a Host that can't show diffs. */
+  readonly onOpenChanges: ((path: string, pin: boolean) => void) | null;
 }
 
 const Empty = ({ text }: { readonly text: string }) => (
@@ -16,7 +18,7 @@ const Empty = ({ text }: { readonly text: string }) => (
   </p>
 );
 
-export const ChangesList = ({ rows, active, git, onOpen }: ChangesListProps) => {
+export const ChangesList = ({ rows, active, git, onOpen, onOpenChanges }: ChangesListProps) => {
   if (git === "none") return <Empty text="This folder isn't a git repository." />;
 
   if (git === "loading") return null;
@@ -37,10 +39,10 @@ export const ChangesList = ({ rows, active, git, onOpen }: ChangesListProps) => 
           <li key={row.path}>
             <button
               type="button"
-              disabled={deleted}
+              disabled={deleted && onOpenChanges === null}
               data-testid="change-row"
               title={row.folder === "" ? row.name : `${row.folder}/${row.name}`}
-              onClick={(event) => onOpen(row.path, event.detail >= 2)}
+              onClick={(event) => (onOpenChanges ?? onOpen)(row.path, event.detail >= 2)}
               className={cn(
                 "h-tree-row flex w-full cursor-default items-center gap-2 rounded-[8px] pr-2 pl-2.5 text-left outline-none",
                 "focus-visible:ring-starlight focus-visible:ring-2 focus-visible:ring-inset",

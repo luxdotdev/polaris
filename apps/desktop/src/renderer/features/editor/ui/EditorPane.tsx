@@ -4,7 +4,7 @@
  * ⌃⇥ cycles tabs; the pane starts the Editor on first mount.
  */
 import { EmptyState, PixelFolderIcon } from "@polaris/ui";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useCommands, useConnection, useShellActions } from "../../../shell/hooks.ts";
 import { bannerFor, type BannerAction } from "../model/banner.ts";
 import { fileKey, workspaceKey } from "../model/drafts.ts";
@@ -26,7 +26,7 @@ import {
 import { languageFor } from "../model/language.ts";
 import { MarkdownBuffer, PreviewControls, useMarkdownDocument } from "./MarkdownHost.tsx";
 import { ensureEditor } from "../runtime/app.ts";
-import { useBuffer, useEditorTabs } from "../runtime/hooks.ts";
+import { type TabView, useBuffer, useEditorTabs } from "../runtime/hooks.ts";
 import { type BufferView, useEditor } from "../runtime/store.ts";
 import { AgentStrip } from "./AgentStrip.tsx";
 import { Banner } from "./Banner.tsx";
@@ -46,9 +46,26 @@ import { SymbolSearch } from "../navigation/SymbolSearch.tsx";
 import { useLanguageNavigationCommands } from "../navigation/contribute.ts";
 import { usePredictionCommands } from "../prediction/commands.ts";
 import { EditorTrust } from "../trust/TrustCard.tsx";
-import { activateLogTab, closeLogTab, isLogTab, useLogTabs } from "../status/logTabs.ts";
+import {
+  activateLogTab,
+  closeLogTab,
+  isLogTab,
+  type LogTab,
+  useLogTabs,
+} from "../status/logTabs.ts";
 import { LogTabBody, useLogTabViews } from "../status/LogTab.tsx";
 import { useLanguageCommands } from "../commands/useLanguageCommands.ts";
+import {
+  activateDiffTab,
+  closeDiffTab,
+  type DiffTab,
+  DiffTabBody,
+  diffTabViews,
+  isDiffTab,
+  pinDiffTab,
+  useDiffTabs,
+  useOpenChanges,
+} from "../diff/index.ts";
 import { commandShortcut } from "../../../../shared/keymap.ts";
 import { PANE_CLASS } from "./paneLayout.ts";
 
@@ -59,12 +76,31 @@ export interface EditorPaneProps {
   readonly root: string;
 }
 
+/** A tab's actions by its kind: a log, a diff, or a file. */
+const tabActions = (hostKey: string, workspaceId: string) => ({
+  select: (id: string) => {
+    if (isLogTab(id)) return activateLogTab(hostKey, workspaceId, id);
+
+    if (isDiffTab(id)) return activateDiffTab(hostKey, workspaceId, id);
+    activateDiffTab(hostKey, workspaceId, null);
+    activateLogTab(hostKey, workspaceId, null);
+    activateTab(hostKey, workspaceId, id);
+  },
+  close: (id: string) => {
+    if (isLogTab(id)) closeLogTab(hostKey, workspaceId, id);
+    else if (isDiffTab(id)) closeDiffTab(hostKey, workspaceId, id);
+    else closeTab(hostKey, workspaceId, id);
+  },
+  pin: (id: string) =>
+    isDiffTab(id) ? pinDiffTab(hostKey, workspaceId, id) : pinFile(hostKey, workspaceId, id),
+});
+
 const useEditorCommands = (
   hostKey: string,
   workspaceId: string,
   active: string | null,
   current: string | null,
-  logTabs: ReadonlyArray<{ readonly id: string }>
+  extraTabs: ReadonlyArray<{ readonly id: string }>
 ) => {
   const commands = useCommands();
 
@@ -82,24 +118,70 @@ const useEditorCommands = (
         "tab.close": {
           run: () => {
             if (current === null) window.close();
-            else if (isLogTab(current)) closeLogTab(hostKey, workspaceId, current);
-            else closeTab(hostKey, workspaceId, current);
+            else tabActions(hostKey, workspaceId).close(current);
           },
         },
         "tab.closeOthers": {
           run: () => {
             closeOtherTabs(hostKey, workspaceId, current);
 
-            for (const { id } of logTabs) if (id !== current) closeLogTab(hostKey, workspaceId, id);
+            for (const { id } of extraTabs)
+              if (id !== current) tabActions(hostKey, workspaceId).close(id);
           },
           enabled: () => current !== null,
         },
         "editor.nextTab": { run: () => cycleTabs(hostKey, workspaceId, 1) },
         "editor.previousTab": { run: () => cycleTabs(hostKey, workspaceId, -1) },
       }),
-    [commands, hostKey, workspaceId, active, current, logTabs]
+    [commands, hostKey, workspaceId, active, current, extraTabs]
   );
 };
+
+type Shown =
+  | { readonly kind: "log"; readonly tab: LogTab }
+  | { readonly kind: "diff"; readonly tab: DiffTab };
+
+const shownOf = (log: LogTab | undefined, diff: DiffTab | undefined): Shown | null => {
+  if (log !== undefined) return { kind: "log", tab: log };
+
+  return diff === undefined ? null : { kind: "diff", tab: diff };
+};
+
+/** The strip's tabs, files then diffs then logs, and the diff or log shown instead of a file. */
+const useStrip = (
+  hostKey: string,
+  workspaceId: string,
+  fileTabs: ReadonlyArray<TabView>,
+  activeId: string | null
+) => {
+  const logs = useLogTabs(hostKey, workspaceId);
+  const logViews = useLogTabViews(logs.tabs);
+  const diffs = useDiffTabs(hostKey, workspaceId);
+  const extraTabs = useMemo(() => [...diffs.tabs, ...logs.tabs], [diffs.tabs, logs.tabs]);
+
+  const shown = shownOf(
+    logs.tabs.find((tab) => tab.id === logs.active),
+    diffs.tabs.find((tab) => tab.id === diffs.active)
+  );
+
+  return {
+    tabs:
+      extraTabs.length === 0 ? fileTabs : [...fileTabs, ...diffTabViews(diffs.tabs), ...logViews],
+    extraTabs,
+    shown,
+    current: shown?.tab.id ?? activeId,
+  };
+};
+
+const ShownBody = ({ shown, root }: { readonly shown: Shown; readonly root: string }) =>
+  shown.kind === "log" ? (
+    <LogTabBody tab={shown.tab} />
+  ) : (
+    <DiffTabBody tab={shown.tab} root={root} />
+  );
+
+/** Files and their Markdown previews have the file tab menu; logs and diffs have none. */
+const isFileTab = (tab: TabView) => tab.view === undefined || tab.view === "markdown";
 
 const theirsOf = (buffer: BufferView | null) =>
   buffer?.status.kind === "ready" ? (buffer.status.model.conflict?.theirs.text ?? null) : null;
@@ -113,10 +195,9 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
   });
 
   const { tabs: fileTabs, active, activeId, rendered } = useEditorTabs(hostKey, workspaceId);
-  const logs = useLogTabs(hostKey, workspaceId);
-  const logViews = useLogTabViews(logs.tabs);
-  const tabs = logViews.length === 0 ? fileTabs : [...fileTabs, ...logViews];
-  const shownLog = logs.tabs.find((tab) => tab.id === logs.active) ?? null;
+  const tabStrip = useStrip(hostKey, workspaceId, fileTabs, activeId ?? null);
+  const { tabs, extraTabs, shown, current } = tabStrip;
+  const actions = tabActions(hostKey, workspaceId);
   const buffer = useBuffer(hostKey, active);
 
   const { document, epoch, connectionState, hostLabel } = useMarkdownDocument(
@@ -146,7 +227,8 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
     if (theirs === null) setComparing(false);
   }, [theirs]);
 
-  useEditorCommands(hostKey, workspaceId, active, shownLog?.id ?? activeId ?? null, logs.tabs);
+  useEditorCommands(hostKey, workspaceId, active, current, extraTabs);
+  useOpenChanges(hostKey, workspaceId, active);
   useLanguageNavigationCommands();
   usePredictionCommands();
   useLanguageCommands(hostKey, workspaceId, active);
@@ -170,27 +252,21 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
   const strip = (
     <Tabs
       tabs={tabs}
-      active={shownLog?.id ?? activeId ?? active}
-      onSelect={(id) =>
-        isLogTab(id)
-          ? activateLogTab(hostKey, workspaceId, id)
-          : activateTab(hostKey, workspaceId, id)
-      }
-      onPin={(path) => pinFile(hostKey, workspaceId, path)}
-      onClose={(id) =>
-        isLogTab(id) ? closeLogTab(hostKey, workspaceId, id) : closeTab(hostKey, workspaceId, id)
-      }
+      active={current ?? active}
+      onSelect={actions.select}
+      onPin={actions.pin}
+      onClose={actions.close}
       menuFor={(tab, selected) =>
-        isLogTab(tab.id) ? null : tabEntries({ hostKey, workspaceId, root, tabs }, tab, selected)
+        isFileTab(tab) ? tabEntries({ hostKey, workspaceId, root, tabs }, tab, selected) : null
       }
     />
   );
 
-  if (shownLog !== null) {
+  if (shown !== null) {
     return (
       <section aria-label="Editor" className={PANE_CLASS} data-testid="editor-pane">
         {strip}
-        <LogTabBody tab={shownLog} />
+        <ShownBody shown={shown} root={root} />
       </section>
     );
   }

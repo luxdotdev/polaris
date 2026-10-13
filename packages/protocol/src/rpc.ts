@@ -516,8 +516,8 @@ export const GitDiff = Rpc.make("git.diff", {
 });
 
 /**
- * A file's content at a revision (capability `git.show`), for expanding
- * context around a hunk. Like `files.read`: inline text, or a blob when large or binary.
+ * A file's content at a revision (capability `git.show`; an empty `revision` is the index), for
+ * diff context. Like `files.read`: inline text, or a blob when large or binary.
  */
 export const GitShow = Rpc.make("git.show", {
   payload: { cwd: Schema.String, revision: Schema.String, path: Schema.String },

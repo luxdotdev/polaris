@@ -7,6 +7,7 @@
  */
 import { Predicate } from "effect";
 import { acceleratorLabel, currentKeyPlatform, type KeyPlatform } from "./chord.ts";
+import { DIFF_BINDINGS, type DiffCommandId } from "./keymapDiff.ts";
 
 export type CommandId =
   | "view.orchestrate"
@@ -52,6 +53,7 @@ export type CommandId =
   | "editor.save"
   | "editor.nextTab"
   | "editor.previousTab"
+  | DiffCommandId
   | "tab.close"
   | "tab.closeOthers"
   | "window.close"
@@ -633,6 +635,8 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
     when: "mode.edit",
     palette: FILE(),
   },
+  // Diff tabs (DESIGN.md, Editor: diff tabs).
+  ...DIFF_BINDINGS,
   // With no tab open, Close tab closes the window, as in VS Code.
   { id: "tab.close", title: "Close tab", keys: ["CmdOrCtrl+W"], menu: "File", palette: FILE() },
   {

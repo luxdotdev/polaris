@@ -36,7 +36,7 @@ import {
 import type { Grouping } from "../model/groups.ts";
 import { useRisk } from "../../risk/data/riskStore.ts";
 import { FileList } from "./FileList.tsx";
-import { useThemeType } from "./theme.ts";
+import { useThemeType } from "../../diffs/index.ts";
 import { type PullViewed, useReviewModel } from "./useReviewModel.ts";
 
 export interface Placeholder {

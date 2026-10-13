@@ -5,6 +5,7 @@
 import { Button, CodeWell, CopyButton, cn } from "@polaris/ui";
 import { useEffect, useMemo, useState } from "react";
 import { saveFile, type TabsView } from "../../index.ts";
+import { selectedPath } from "../../diff/index.ts";
 import type { Place } from "../data/actions.ts";
 import {
   commit,
@@ -32,6 +33,10 @@ export interface GitPanelProps {
   readonly tabs: TabsView;
   readonly hostLabel: string;
   readonly onOpen: (path: string, pin: boolean) => void;
+  /** Opens a row's diff on its side; null on a Host that can't show diffs. */
+  readonly onOpenChanges: ((side: StageSide, path: string, pin: boolean) => void) | null;
+  /** The diff tab shown in the Workspace, by id ("diff:staged:/abs/path"). */
+  readonly shownDiff: string | null;
 }
 
 const useSeconds = (since: number | null) => {
@@ -169,7 +174,9 @@ const Clean = ({
   </div>
 );
 
-export const GitPanel = ({ place, git, agents, tabs, hostLabel, onOpen }: GitPanelProps) => {
+export const GitPanel = (props: GitPanelProps) => {
+  const { place, git, agents, tabs, hostLabel, onOpen, onOpenChanges, shownDiff } = props;
+
   const lists = useMemo(
     () => stageLists(git.toplevel, place.root, git.entries, agents),
     [git.toplevel, git.entries, place.root, agents]
@@ -188,10 +195,11 @@ export const GitPanel = ({ place, git, agents, tabs, hostLabel, onOpen }: GitPan
       place={place}
       side={side}
       rows={rows}
-      active={tabs.active}
+      active={selectedPath(side, shownDiff, tabs.active)}
       locked={locked}
       confirming={confirming}
       onOpen={onOpen}
+      onOpenChanges={onOpenChanges === null ? null : (path, pin) => onOpenChanges(side, path, pin)}
       onMove={(moved) =>
         void (side === "staged" ? unstage : stage)(place, place.root, allPaths(moved))
       }

@@ -57,6 +57,8 @@ export interface StageSectionProps {
   /** The row whose Discard popover is open, by `rowKey`. */
   readonly confirming: string | null;
   readonly onOpen: (path: string, pin: boolean) => void;
+  /** Opens the row's diff on this side; null on a Host that can't show diffs. */
+  readonly onOpenChanges: ((path: string, pin: boolean) => void) | null;
   readonly onMove: (rows: ReadonlyArray<StageRow>) => void;
   readonly onAskDiscard: (row: StageRow | null) => void;
   readonly onDiscard: (row: StageRow) => void;
@@ -105,7 +107,14 @@ const rowEntries = (props: RowProps): ReadonlyArray<MenuEntryInput> => {
   const { place, side, row, locked } = props;
   const staged = side === "staged";
 
+  const { onOpenChanges } = props;
+
   return [
+    onOpenChanges !== null && {
+      kind: "item",
+      label: "Open changes",
+      onSelect: () => onOpenChanges(row.path, true),
+    },
     row.git !== "deleted" && {
       kind: "item",
       label: "Open file",
@@ -171,7 +180,7 @@ const Actions = ({ side, row, locked, onMove, onAskDiscard }: RowProps) => (
 );
 
 const Row = (props: RowProps) => {
-  const { row, active, locked, confirming, onOpen, onAskDiscard, onDiscard } = props;
+  const { row, active, locked, confirming, onOpen, onOpenChanges, onAskDiscard, onDiscard } = props;
   const selected = row.path === active;
   const deleted = row.git === "deleted";
 
@@ -190,9 +199,9 @@ const Row = (props: RowProps) => {
               >
                 <button
                   type="button"
-                  disabled={deleted}
+                  disabled={deleted && onOpenChanges === null}
                   title={row.folder === "" ? row.name : `${row.folder}/${row.name}`}
-                  onClick={(event) => onOpen(row.path, event.detail >= 2)}
+                  onClick={(event) => (onOpenChanges ?? onOpen)(row.path, event.detail >= 2)}
                   className="focus-visible:ring-starlight flex min-w-0 flex-1 cursor-default items-baseline gap-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset"
                 >
                   <span

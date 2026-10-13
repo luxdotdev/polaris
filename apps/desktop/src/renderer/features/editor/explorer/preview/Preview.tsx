@@ -20,6 +20,16 @@ import { standInBridge } from "../../../bridge.ts";
 import { startDraft } from "../data/actions.ts";
 import { explorerKey, patchExplorer } from "../data/store.ts";
 import { openFile } from "../../index.ts";
+import { openDiff, targetOf } from "../../diff/index.ts";
+import { setDiffPrefs } from "../../diff/model/prefs.ts";
+import {
+  DIFF_ENTRIES,
+  DIFF_OPEN,
+  DIFF_SCENES,
+  type DiffScene,
+  shown,
+  worktree,
+} from "./diffFixtures.ts";
 import {
   CHECKOUT,
   HOME,
@@ -41,9 +51,20 @@ import {
 
 const LOCAL = "local";
 
-const SCENES = ["files", "changes", "draft", "no-git", "remote", "checkout", "agent"] as const;
+const SCENES = [
+  "files",
+  "changes",
+  "draft",
+  "no-git",
+  "remote",
+  "checkout",
+  "agent",
+  ...DIFF_SCENES,
+] as const;
 
 type Scene = (typeof SCENES)[number];
+
+const isDiffScene = (scene: Scene): scene is DiffScene => scene.startsWith("diff");
 
 const host = (scene: Scene): HostView => ({
   key: LOCAL,
@@ -108,6 +129,7 @@ const refuse = (code: string) =>
 interface Input {
   readonly path?: string;
   readonly cwd?: string;
+  readonly revision?: string;
 }
 
 const isReconnect = (path: string | undefined) =>
@@ -136,14 +158,25 @@ const handlers = (scene: Scene) =>
       scene !== "no-git" && (path === `${ROOT}/.git` || path === `${CHECKOUT}/.git`)
         ? ok({ name: ".git", path, kind: "directory", size: 0, modifiedAt: "" })
         : refuse("FileError"),
-    "git.status": ({ cwd }) => ok(cwd === CHECKOUT ? { ...STATUS, entries: [] } : STATUS),
+    "git.status": ({ cwd }) =>
+      ok(
+        cwd === CHECKOUT
+          ? { ...STATUS, entries: [] }
+          : isDiffScene(scene)
+            ? { ...STATUS, entries: [...STATUS.entries, ...DIFF_ENTRIES] }
+            : STATUS
+      ),
+    "files.read": ({ path }) =>
+      ok({ size: 0, mimeType: "text/plain", content: worktree(path ?? "") }),
     "files.readVersioned": ({ path }) =>
       ok({ version: VERSION, mimeType: "text/plain", content: { kind: "text", text: text(path) } }),
-    "git.show": ({ path }) =>
+    "git.show": ({ path, revision }) =>
       ok({
         size: 0,
         mimeType: "text/plain",
-        content: { kind: "text", text: isReconnect(path) ? RECONNECT_HEAD : text(path) },
+        content: isDiffScene(scene)
+          ? shown(revision ?? "", path ?? "")
+          : { kind: "text", text: isReconnect(path) ? RECONNECT_HEAD : text(path) },
       }),
   }) satisfies Record<string, Handler>;
 
@@ -178,11 +211,25 @@ const openTabs = (scene: Scene) => {
       : "daemon/src/hosts/reconnect.ts";
 
   openFile({ hostKey: LOCAL, workspaceId: WORKSPACE, path: `${ROOT}/${active}` });
+
+  if (isDiffScene(scene)) openSceneDiff(scene);
+};
+
+/** The diff a scene shows, opened as a click in Changes would. */
+const openSceneDiff = (scene: DiffScene) => {
+  const { path, side, style, syntax } = DIFF_OPEN[scene];
+  const where = { hostKey: LOCAL, workspaceId: WORKSPACE, toplevel: ROOT };
+  const entry = { path, origPath: null, index: ".", worktree: "M" };
+  const target = targetOf(where, entry, side, side === "staged" ? "added" : "modified");
+
+  setDiffPrefs({ style, syntax });
+
+  if (target !== null) openDiff(target, true);
 };
 
 const prepare = (scene: Scene) => {
   patchExplorer(KEY, () => ({
-    view: scene === "changes" ? "changes" : "files",
+    view: scene === "changes" || isDiffScene(scene) ? "changes" : "files",
     root: scene === "checkout" ? CHECKOUT : null,
     expanded: new Set([
       `${ROOT}/daemon`,

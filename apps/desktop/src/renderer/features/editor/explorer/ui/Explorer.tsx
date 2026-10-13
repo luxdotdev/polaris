@@ -25,6 +25,7 @@ import { type Place, startDraft } from "../data/actions.ts";
 import { type ExplorerView, patchExplorer } from "../data/store.ts";
 import { useExplorer } from "../data/useExplorer.ts";
 import { openFile, setAgentEdits, setAgentFiles, useEditorTabs } from "../../index.ts";
+import { selectedPath, useChangeOpener, useShownDiff } from "../../diff/index.ts";
 import { basename } from "../model/paths.ts";
 import { AgentsIn } from "./AgentsIn.tsx";
 import { ChangesList } from "./ChangesList.tsx";
@@ -165,6 +166,9 @@ export const Explorer = ({ host, workspace }: ExplorerProps) => {
   const open = (path: string, pin: boolean) =>
     openFile({ hostKey: host.key, workspaceId: workspace.id, path, preview: !pin });
 
+  const openChanges = useChangeOpener(place, data.state.git, open);
+  const shownDiff = useShownDiff(host.key, workspace.id);
+
   return (
     <aside
       aria-label="Explorer"
@@ -225,13 +229,18 @@ export const Explorer = ({ host, workspace }: ExplorerProps) => {
             tabs={tabs}
             hostLabel={host.label}
             onOpen={open}
+            onOpenChanges={openChanges}
+            shownDiff={shownDiff}
           />
         ) : (
           <ChangesList
             rows={data.changes}
-            active={tabs.active}
+            active={selectedPath("head", shownDiff, tabs.active)}
             git={gitState(data.state.git)}
             onOpen={open}
+            onOpenChanges={
+              openChanges === null ? null : (path, pin) => openChanges("head", path, pin)
+            }
           />
         )}
       </div>

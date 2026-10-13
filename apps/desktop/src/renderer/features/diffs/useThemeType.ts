@@ -1,6 +1,6 @@
 /** Light or dark as the app shows it now: the theme setting, or macOS for "system". */
 import { useSyncExternalStore } from "react";
-import { useApp } from "../../../shell/hooks.ts";
+import { useApp } from "../../shell/hooks.ts";
 
 const query = () => matchMedia("(prefers-color-scheme: dark)");
 
