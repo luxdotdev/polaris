@@ -32,4 +32,6 @@ export { checkoutsOf } from "./data/source.ts";
 
 export { pullReviewed } from "./data/advance.ts";
 
+export { useMergeLeads } from "./merge/data/store.ts";
+
 export type { ReviewFile } from "./model/layout.ts";

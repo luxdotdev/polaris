@@ -45,6 +45,13 @@ export const githubHandlers: GitHubHandlers = {
   "github.files.setViewed": (input) => gh((g) => g.setViewed(input)).pipe(done),
   "github.checkouts.watch": ({ checkouts, group }) =>
     gh((g) => g.watchCheckouts(checkouts, group)).pipe(done),
+  "github.pull.actions": ({ pull }) => gh((g) => g.pullActions(pull)),
+  "github.reviewers.search": ({ pull, query }) => gh((g) => g.searchReviewers(pull, query)),
+  "github.reviewers.request": (input) => gh((g) => g.requestReviewers(input)).pipe(done),
+  "github.reviewers.remove": (input) => gh((g) => g.removeReviewers(input)).pipe(done),
+  "github.pull.merge": (input) => gh((g) => g.merge(input)),
+  "github.pull.autoMerge": (input) => gh((g) => g.autoMerge(input)).pipe(done),
+  "github.branch.restore": (input) => gh((g) => g.restoreBranch(input)).pipe(done),
 };
 
 type GitHubOpeners = {

@@ -2,7 +2,14 @@ import "../../../test/dom.testing.ts";
 import { cleanup, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import type { QueueGroup, QueuePull, QueueRow } from "../model/queue.ts";
-import { clearDone, doneStore, pullReviewed, useAdvance } from "./advance.ts";
+import {
+  clearDone,
+  doneStore,
+  mergedStore,
+  pullMerged,
+  pullReviewed,
+  useAdvance,
+} from "./advance.ts";
 import { reviewedStore } from "./reviewedStore.ts";
 
 const pull = (number: number): QueuePull => ({
@@ -27,6 +34,7 @@ afterEach(() => {
   cleanup();
   clearDone();
   reviewedStore.setState({ reviews: {} });
+  mergedStore.setState({ merged: new Set() });
 });
 
 describe("after a review is submitted", () => {
@@ -51,7 +59,11 @@ describe("after a review is submitted", () => {
     pullReviewed("PR_1", SUBMITTED);
 
     expect(open).not.toHaveBeenCalled();
-    expect(doneStore.getState().done).toEqual({ pullId: "PR_1", group: "requested" });
+    expect(doneStore.getState().done).toEqual({
+      pullId: "PR_1",
+      group: "requested",
+      moved: "reviewed",
+    });
   });
 
   test("the user moved on while it was submitting: it is recorded, nothing moves", () => {
@@ -63,5 +75,35 @@ describe("after a review is submitted", () => {
     expect(reviewedStore.getState().reviews.PR_1).toBeDefined();
     expect(open).not.toHaveBeenCalled();
     expect(doneStore.getState().done).toBeNull();
+  });
+});
+
+describe("after a merge", () => {
+  const mine = (...rows: ReadonlyArray<QueueRow>): ReadonlyArray<QueueGroup> => [
+    { id: "mine", label: "Yours", rows, compact: false },
+  ];
+
+  test("it leaves the queue, which opens the next pull request, even among the viewer's own", () => {
+    const open = mock((_row: QueueRow) => undefined);
+
+    renderHook(() => useAdvance(mine(pull(1), pull(2)), "PR_1", open));
+    pullMerged("PR_1");
+
+    expect(mergedStore.getState().merged.has("PR_1")).toBe(true);
+    expect(open.mock.calls[0]?.[0].id).toBe("PR_2");
+    expect(reviewedStore.getState().reviews.PR_1).toBeUndefined();
+  });
+
+  test("the group's last: the done pane says it merged", () => {
+    const open = mock((_row: QueueRow) => undefined);
+
+    renderHook(() => useAdvance(requested(pull(1)), "PR_1", open));
+    pullMerged("PR_1");
+
+    expect(doneStore.getState().done).toEqual({
+      pullId: "PR_1",
+      group: "requested",
+      moved: "merged",
+    });
   });
 });

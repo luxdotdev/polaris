@@ -141,7 +141,36 @@ export type FakePull = Mutable<Omit<Fixture["pulls"][number], "threads" | "revie
   reviewRequests: Array<string>;
   mergedAt: string | null;
   closedAt: string | null;
+  /** Teams asked to review, by slug (`merging.ts`). */
+  teamRequests?: Array<string>;
+  /** Its head conflicts with the base. */
+  conflicting?: boolean;
+  /** The head's checks counted, overriding `checks` (`setChecks`). */
+  checkCounts?: { passing: number; failing: number; pending: number };
+  /** Auto-merge as turned on: GitHub merges once it can. */
+  autoMerge?: { method: string; by: string } | null;
+  /** How it was merged, for tests. */
+  mergedWith?: { method: string; title: string | null; body: string | null; by: string };
 };
+
+/** A repository's merge settings and branch rules (`merging.ts` fills in defaults). */
+export interface FakeRepoSettings {
+  mergeCommitAllowed: boolean;
+  squashMergeAllowed: boolean;
+  rebaseMergeAllowed: boolean;
+  autoMergeAllowed: boolean;
+  deleteBranchOnMerge: boolean;
+  defaultBranch: string;
+  defaultMethod: "MERGE" | "SQUASH" | "REBASE";
+  /** Branch name → its rule. */
+  protection: Record<string, { requiredApprovals: number; requiredChecks: boolean }>;
+}
+
+export interface FakeTeam {
+  readonly slug: string;
+  readonly name: string;
+  readonly members: ReadonlyArray<string>;
+}
 
 /** A commit on a pull request's branch, oldest first in `World.commits`. */
 export interface FakeCommit {
@@ -183,6 +212,12 @@ export interface World {
   readonly commits: Map<string, Array<FakeCommit>>;
   /** GitHub's stacks (`seedStacks`); empty in the base world. */
   readonly stacks: Array<FakeStack>;
+  /** Lowercased `owner/name` → its merge settings, made on first use. */
+  readonly settings: Map<string, FakeRepoSettings>;
+  /** `owner/name:branch` (lowercased repository) of deleted branches. */
+  readonly deletedBranches: Set<string>;
+  /** Lowercased org → its teams. */
+  readonly teams: Map<string, Array<FakeTeam>>;
   nextId: number;
 }
 
@@ -228,6 +263,17 @@ export const worldFrom = (fixture: Fixture): World => ({
   ),
   viewed: new Map(),
   stacks: [...(fixture.stacks ?? [])],
+  settings: new Map(),
+  deletedBranches: new Set(),
+  teams: new Map([
+    [
+      "acme",
+      [
+        { slug: "platform", name: "Platform", members: ["hubot", "octocat"] },
+        { slug: "docs", name: "Docs", members: ["mona"] },
+      ],
+    ],
+  ]),
   nextId: 1,
 });
 

@@ -13,6 +13,12 @@ import type {
   SignInView,
   SubmittedReview,
 } from "./github.ts";
+import {
+  type MergeResult,
+  type PullActionsView,
+  REVIEWER_PATTERN,
+  type ReviewerView,
+} from "./githubActions.ts";
 
 const Name = Schema.String.check(Schema.isPattern(/^[A-Za-z0-9_.-]+$/));
 
@@ -39,6 +45,22 @@ const PullOp = { pull: PullRef, pullId: Schema.String };
 const DiffSide = Schema.Literals(["left", "right"]);
 
 const AccountId = Schema.Int;
+
+const Reviewer = Schema.String.check(Schema.isPattern(REVIEWER_PATTERN));
+
+const ReviewerChange = Schema.Struct({
+  pull: PullRef,
+  users: Schema.Array(Reviewer),
+  teams: Schema.Array(Reviewer),
+});
+
+const MergeFields = {
+  ...PullOp,
+  method: Schema.Literals(["merge", "squash", "rebase"]),
+  title: Schema.String,
+  body: Schema.String,
+  expectedHeadOid: Sha,
+};
 
 export const GitHubRequestInputs = {
   /** Starts the device flow on `host` (github.com when absent); the code also arrives on `github.accounts`. */
@@ -129,6 +151,25 @@ export const GitHubRequestInputs = {
     path: Schema.String,
     viewed: Schema.Boolean,
   }),
+  /** The pull request's merge state and reviewers, fresh from GitHub. */
+  "github.pull.actions": Schema.Struct({ pull: PullRef }),
+  "github.reviewers.search": Schema.Struct({ pull: PullRef, query: Schema.String }),
+  "github.reviewers.request": ReviewerChange,
+  "github.reviewers.remove": ReviewerChange,
+  "github.pull.merge": Schema.Struct({
+    ...MergeFields,
+    /** Delete the head branch afterwards, when nothing keeps it. */
+    deleteBranch: Schema.Boolean,
+  }),
+  /** Turns auto-merge on (GitHub merges once it can) or off. */
+  "github.pull.autoMerge": Schema.Struct({ ...MergeFields, enable: Schema.Boolean }),
+  /** Puts a head branch deleted after a merge back (`repo`: `owner/name` it lived in). */
+  "github.branch.restore": Schema.Struct({
+    repo: Schema.String.check(Schema.isPattern(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/)),
+    host: Schema.optionalKey(Host),
+    name: Schema.String.check(Schema.isMinLength(1)),
+    sha: Sha,
+  }),
   /**
    * Pull requests watched for merge, close and new commits: every Review Checkout's, or
    * (`group: "sessions"`) every accepted Agent Session's. Each group replaces only itself.
@@ -167,6 +208,13 @@ export interface GitHubRequestOutputs {
   "github.review.discard": null;
   "github.files.setViewed": null;
   "github.checkouts.watch": null;
+  "github.pull.actions": PullActionsView;
+  "github.reviewers.search": ReadonlyArray<ReviewerView>;
+  "github.reviewers.request": null;
+  "github.reviewers.remove": null;
+  "github.pull.merge": MergeResult;
+  "github.pull.autoMerge": null;
+  "github.branch.restore": null;
 }
 
 export const GitHubSubscriptionInputs = {

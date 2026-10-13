@@ -41,6 +41,12 @@ export class GitHubInvalidReview extends Schema.TaggedError<GitHubInvalidReview>
   { message: Schema.String }
 ) {}
 
+/** A merge or reviewer request GitHub would refuse, caught before asking. */
+export class GitHubInvalidAction extends Schema.TaggedError<GitHubInvalidAction>()(
+  "GitHubInvalidAction",
+  { message: Schema.String }
+) {}
+
 /** Tokens can't be stored safely on this machine, or the stored ones can't be read. */
 export class GitHubStorageError extends Schema.TaggedError<GitHubStorageError>()(
   "GitHubStorageError",
