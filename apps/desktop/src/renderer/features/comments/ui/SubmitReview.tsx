@@ -12,6 +12,7 @@ import {
   type ReviewSlotProps,
   subjectKey as keyOf,
   surfaceStore,
+  useMergeLeads,
 } from "../../review/index.ts";
 import { discardReview, submitReview } from "../data/actions.ts";
 import { Avatar } from "./Avatar.tsx";
@@ -225,12 +226,14 @@ export const SubmitReviewAction = (props: ReviewSlotProps) => {
   const detail = useComments((s) => s.pulls[key]?.detail ?? null);
   const [open, setOpen] = useState(false);
   const pending = pendingCount(detail);
+  // Merge is the one primary once the viewer is done with the pull request.
+  const merging = useMergeLeads(props.subject);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
-          variant="primary"
+          variant={merging ? "secondary" : "primary"}
           disabled={detail === null || detail.state !== "open"}
           data-testid="submit-review-open"
         >

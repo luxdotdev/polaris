@@ -16,8 +16,8 @@ import "../checkout/install.ts";
 import { DiffWorkers } from "../../diffs/index.ts";
 import { useDetailsFeed } from "../data/pullDetail.ts";
 import { riskMark } from "../model/findings.ts";
-import { queueGroups, type QueueRow } from "../model/queue.ts";
-import { clearDone, useAdvance, useDone } from "../data/advance.ts";
+import { queueGroups, type QueueRow, withoutPulls } from "../model/queue.ts";
+import { clearDone, useAdvance, useDone, useMerged } from "../data/advance.ts";
 import { setReviewedOpen, useLocalReviews, useReviewedOpen } from "../data/reviewedStore.ts";
 import { QueueDone } from "./QueueDone.tsx";
 import { sessionsOf } from "../model/sessions.ts";
@@ -54,7 +54,8 @@ export const ReviewView = ({ subject, onBack }: ReviewViewProps) => {
   const local = useLocalReviews();
   const reviewedOpen = useReviewedOpen();
   const done = useDone();
-  const groups = queueGroups(list, sessionsOf(models), workers, local);
+  const merged = useMerged();
+  const groups = queueGroups(withoutPulls(list, merged), sessionsOf(models), workers, local);
   const selected = selectedId(subject);
 
   const surfaces = useStore(surfaceStore, (s) => s);
@@ -105,7 +106,7 @@ export const ReviewView = ({ subject, onBack }: ReviewViewProps) => {
           onReviewedOpen={setReviewedOpen}
         />
         {finished && subject.kind === "pull" ? (
-          <QueueDone pull={subject.pull} group={done.group} onBack={clearDone} />
+          <QueueDone pull={subject.pull} group={done.group} moved={done.moved} onBack={clearDone} />
         ) : subject.kind === "pull" ? (
           <PullReview
             key={`${subject.pull.repo.owner}/${subject.pull.repo.name}#${subject.pull.number}`}

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { PullListView, PullRowView } from "../../../../shared/github.ts";
-import { advanceFrom, queueGroups, visibleRows } from "./queue.ts";
+import { advanceFrom, queueGroups, visibleRows, withoutPulls } from "./queue.ts";
 import { LOCAL_GRACE_MS, type LocalReviews, placeOf, placePulls, snapshotOf } from "./reviewed.ts";
 
 const AT = "2026-10-13T10:00:00Z";
@@ -170,5 +170,24 @@ describe("the queue's Reviewed group and advancing", () => {
     const mine = queueGroups(list({ mine: [row(7)] }), []);
 
     expect(advanceFrom(mine, "PR_7")).toEqual({ kind: "stay" });
+  });
+
+  test("after a merge it leaves any group, Mine and Reviewed too", () => {
+    const mine = queueGroups(list({ mine: [row(7), row(8)] }), []);
+
+    expect(advanceFrom(mine, "PR_7", "merged")).toMatchObject({
+      kind: "open",
+      row: { id: "PR_8" },
+    });
+    expect(advanceFrom(groups, "PR_1", "merged")).toEqual({ kind: "done", group: "reviewed" });
+  });
+
+  test("merged pull requests leave the lists until GitHub's catch up", () => {
+    const shown = queueGroups(
+      withoutPulls(list({ requested: [row(3), row(2)] }), new Set(["PR_3"])),
+      []
+    );
+
+    expect(ids(visibleRows(shown, true))).toEqual(["PR_2"]);
   });
 });

@@ -30,12 +30,20 @@ import { DEFAULT_INTERVALS, type Intervals, newPoller } from "./poller.ts";
 import { EMPTY_LIST, newPulls, type Watched } from "./pulls.ts";
 import { join } from "node:path";
 import { newOverviewActions } from "./overviewActions.ts";
+import {
+  type AutoMergeInput,
+  type MergeInput,
+  newPullActions,
+  type ReviewerChange,
+} from "./pullActions.ts";
 import { MUTATION_GAP_MS, newReviews } from "./reviews.ts";
 import { newRouting } from "./routing.ts";
 import { type Crypto, openStore } from "./store.ts";
 import { type Fetch, newTransport } from "./transport.ts";
 
 export type { NewPull } from "./create.ts";
+
+export type { AutoMergeInput, BranchRestore, MergeInput, ReviewerChange } from "./pullActions.ts";
 
 export type {
   CommentEdit,
@@ -113,6 +121,7 @@ const make = Effect.fn("GitHub.make")(function* (input: GitHubInput) {
   const routing = newRouting({ client, accounts });
   const reviews = newReviews({ client, routing, gapMs: input.mutationGapMs ?? MUTATION_GAP_MS });
   const overview = newOverviewActions(reviews, join(input.dir, "published-descriptions.json"));
+  const pullActions = newPullActions({ client, reviews });
   const list = yield* SubscriptionRef.make<PullListView>(EMPTY_LIST);
   const detailViews = yield* SubscriptionRef.make<ReadonlyArray<PullDetailView>>([]);
 
@@ -226,6 +235,17 @@ const make = Effect.fn("GitHub.make")(function* (input: GitHubInput) {
     setViewed: reviews.setViewed,
     createPull: newCreate(client, routing),
     compare: newCompare(client, routing),
+    pullActions: pullActions.actions,
+    searchReviewers: pullActions.search,
+    requestReviewers: (change: ReviewerChange) =>
+      pullActions.request(change).pipe(Effect.tap(() => poller.poke(true))),
+    removeReviewers: (change: ReviewerChange) =>
+      pullActions.unrequest(change).pipe(Effect.tap(() => poller.poke(true))),
+    merge: (input: MergeInput) =>
+      pullActions.merge(input).pipe(Effect.tap(() => poller.poke(true))),
+    autoMerge: (input: AutoMergeInput) =>
+      pullActions.autoMerge(input).pipe(Effect.tap(() => poller.poke(true))),
+    restoreBranch: pullActions.restoreBranch,
   };
 });
 

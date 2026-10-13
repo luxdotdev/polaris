@@ -2,7 +2,8 @@
  * Review on fixtures, for screenshots against Paper R1 / R2 (`scripts/reviewScreens.ts`)
  * and the large-Review bench: `#review/pull`, `#review/session`, `#review/large` (2,500
  * files, collapsed) and `#review/list-only` (12,000 files); the queue's Reviewed group in
- * `#review/queue-reviewed` and `#review/queue-done`. A stand-in bridge serves the patches;
+ * `#review/queue-reviewed` and `#review/queue-done`; Reviewers and Merge in `#review/merge-…`
+ * and `#review/reviewers…` (mergeFixtures.ts). A stand-in bridge serves the patches;
  * no Daemon or GitHub is involved. Its own chunk.
  */
 import { stackedDetail } from "../../pulls/preview/stack.ts";
@@ -54,6 +55,7 @@ import {
   QUEUE_LIST,
   QUEUE_PULL,
 } from "./queueFixtures.ts";
+import { mergeAnswer, setUpMerge } from "./mergeScenes.ts";
 
 const encode = (text: string) => new TextEncoder().encode(text);
 
@@ -72,8 +74,12 @@ interface PreviewInput {
 
 const ok = <A,>(value: A): Promise<Result<A>> => Promise.resolve({ ok: true, value });
 
+/** The queue's and Merge's scenes are on acme/atlas #88. */
+const onQueue = (scene: string) =>
+  scene.startsWith("queue-") || scene.startsWith("merge-") || scene.startsWith("reviewers");
+
 const detailFor = (scene: string) => {
-  if (scene.startsWith("queue-")) return QUEUE_DETAIL;
+  if (onQueue(scene)) return QUEUE_DETAIL;
 
   if (scene === "stacked") return stackedDetail(PULL_DETAIL);
 
@@ -105,6 +111,10 @@ const request = (scene: string) => (method: string, input: PreviewInput) => {
 
   if (method === "review.verdicts") return ok([]);
 
+  const merging = mergeAnswer(scene, method);
+
+  if (merging !== null) return ok(merging);
+
   if (method === "github.files.setViewed" || method === "dispatch") return ok(null);
 
   return Promise.resolve({ ok: false, error: { code: "Unsupported", message: "preview" } });
@@ -127,14 +137,14 @@ const PULL: OpenPull = {
 const STACKED_PULL: OpenPull = { ...PULL, number: 632, pullId: "PR_632" };
 
 const pullOf = (scene: string) => {
-  if (scene.startsWith("queue-")) return QUEUE_PULL;
+  if (onQueue(scene)) return QUEUE_PULL;
 
   return scene === "stacked" ? STACKED_PULL : PULL;
 };
 
 /** `#review/queue-…`: Reviewed open beside #88, or the done pane once #88 emptied its group. */
 const setUpQueue = (scene: string) => {
-  if (!scene.startsWith("queue-")) return;
+  if (!onQueue(scene)) return;
   const done = scene === "queue-done";
 
   pullsStore.setState({ list: done ? QUEUE_DONE_LIST : QUEUE_LIST, accounts: ACCOUNTS });
@@ -229,9 +239,7 @@ export const mountReviewPreview = (root: HTMLElement, hash: string) => {
             ...studio,
             sessions: new Map(),
             reviewCheckouts: new Map([
-              scene.startsWith("queue-")
-                ? [QUEUE_CHECKOUT.id, QUEUE_CHECKOUT]
-                : [CHECKOUT.id, CHECKOUT],
+              onQueue(scene) ? [QUEUE_CHECKOUT.id, QUEUE_CHECKOUT] : [CHECKOUT.id, CHECKOUT],
             ]),
           },
           local: {
@@ -262,6 +270,7 @@ export const mountReviewPreview = (root: HTMLElement, hash: string) => {
     setUpQueue(scene);
   }
 
+  setUpMerge(scene);
   setUpScene(scene, subjectKey({ kind: "session", hostKey: "local", sessionId: SESSION.id }));
   setUpOverview(scene);
 

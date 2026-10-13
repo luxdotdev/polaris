@@ -10,6 +10,8 @@ import { newAuth } from "./auth.ts";
 import { errorResponse, GraphQLFailure, QUERIES } from "./graphql.ts";
 import { type FakeRequest, type FakeResponse, json } from "./http.ts";
 import { MUTATIONS } from "./mutations.ts";
+import { MERGE_OPERATIONS } from "./mergeGraphql.ts";
+import { mergingRest } from "./merging.ts";
 import { rest } from "./rest.ts";
 import { type Fixture, type FakeUser, type World, loadFixture, worldFrom } from "./world.ts";
 import { seedOverview } from "./overview.ts";
@@ -56,7 +58,7 @@ const GraphQLBody = Schema.Struct({
 
 const decodeGraphQL = Schema.decodeUnknownOption(Schema.fromJsonString(GraphQLBody));
 
-const RESOLVERS = new Map([...QUERIES, ...MUTATIONS]);
+const RESOLVERS = new Map([...QUERIES, ...MUTATIONS, ...MERGE_OPERATIONS]);
 
 export const createGitHubFake = (options: GitHubFakeOptions = {}) => {
   const now = options.now ?? Date.now;
@@ -118,7 +120,11 @@ export const createGitHubFake = (options: GitHubFakeOptions = {}) => {
   };
 
   const restCall = (request: FakeRequest, user: FakeUser) => {
-    const response = rest({ world, user, request, now }) ?? json(404, { message: "Not Found" });
+    const response =
+      rest({ world, user, request, now }) ??
+      mergingRest({ world, user, request }) ??
+      json(404, { message: "Not Found" });
+
     const { exhausted, headers } = auth.spend(user.login, "core", response.status === 304 ? 0 : 1);
 
     const answered = exhausted

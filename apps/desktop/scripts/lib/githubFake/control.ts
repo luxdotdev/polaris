@@ -7,7 +7,8 @@ import { createHash } from "node:crypto";
 import { Schema } from "effect";
 import type { FakeAuth } from "./auth.ts";
 import { type FakeRequest, type FakeResponse, json } from "./http.ts";
-import { type FakeCommit, seedStacks, type World } from "./world.ts";
+import { completeMerge, mergeStateOf, settingsOf } from "./merging.ts";
+import { type FakeCommit, type FakeRepoSettings, seedStacks, type World } from "./world.ts";
 
 export interface ControlInput {
   readonly world: World;
@@ -109,6 +110,41 @@ export const newControl = ({ world, auth, failures, now }: ControlInput) => {
     seedStacks: () => seedStacks(world),
     restrictOrg: (org: string, restricted: boolean) => {
       for (const o of world.orgs) if (o.login === org) o.restricted = restricted;
+    },
+    /** Changes a repository's merge settings (allowed methods, auto-merge, default branch…). */
+    setRepo: (repo: string, patch: Partial<FakeRepoSettings>) =>
+      Object.assign(settingsOf(world, repo), patch),
+    /** A branch rule on `branch`: approvals and passing checks before merging; protected from deletion. */
+    protectBranch: (
+      repo: string,
+      branch: string,
+      rule: { requiredApprovals?: number; requiredChecks?: boolean } = {}
+    ) => {
+      settingsOf(world, repo).protection[branch] = {
+        requiredApprovals: rule.requiredApprovals ?? 0,
+        requiredChecks: rule.requiredChecks ?? false,
+      };
+    },
+    /** The head's checks; a pull request with auto-merge on merges once nothing blocks it. */
+    setChecks: (
+      repo: string,
+      number: number,
+      counts: { passing?: number; failing?: number; pending?: number }
+    ) => {
+      const p = touch(repo, number);
+
+      p.checkCounts = { passing: 0, failing: 0, pending: 0, ...counts };
+      const auto = p.autoMerge ?? null;
+      const { status } = mergeStateOf(world, p);
+
+      if (auto !== null && (status === "CLEAN" || status === "UNSTABLE"))
+        completeMerge(world, p, { method: auto.method, title: null, body: null, by: auto.by });
+    },
+    setConflicting: (repo: string, number: number, conflicting: boolean) => {
+      touch(repo, number).conflicting = conflicting;
+    },
+    setDraft: (repo: string, number: number, draft: boolean) => {
+      touch(repo, number).isDraft = draft;
     },
     /** The next request (any) answers `status` instead. */
     failNext: (status: number) => failures.push(json(status, { message: `injected ${status}` })),

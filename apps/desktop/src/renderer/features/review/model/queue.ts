@@ -167,6 +167,23 @@ export const queueGroups = (
   return groups.filter((g) => g.rows.length > 0);
 };
 
+/** The list without pull requests merged from this Mac, until GitHub's lists catch up. */
+export const withoutPulls = (
+  list: PullListView | null,
+  gone: ReadonlySet<string>
+): PullListView | null => {
+  if (list === null || gone.size === 0) return list;
+  const keep = (rows: ReadonlyArray<PullRowView>) => rows.filter((r) => !gone.has(r.id));
+
+  return {
+    ...list,
+    requested: keep(list.requested),
+    mine: keep(list.mine),
+    other: keep(list.other),
+    reviewed: keep(list.reviewed ?? []),
+  };
+};
+
 /** The rows ⌃1…⌃9 reach, in the order they show: a folded group's are out of sight. */
 export const visibleRows = (groups: ReadonlyArray<QueueGroup>, reviewedOpen: boolean) =>
   groups.flatMap((group) => (group.collapsible === true && !reviewedOpen ? [] : group.rows));
@@ -177,17 +194,27 @@ export type Advance =
   | { readonly kind: "done"; readonly group: QueueGroup["id"] }
   | { readonly kind: "stay" };
 
-/** Groups whose pull requests move to Reviewed once reviewed. */
-const ADVANCING = new Set<QueueGroup["id"]>(["requested", "other"]);
+/** What moved a pull request on: a review (it moves to Reviewed) or a merge (it leaves). */
+export type Moved = "reviewed" | "merged";
+
+/** Groups a pull request leaves once reviewed, or once merged. */
+const ADVANCING: Readonly<Record<Moved, ReadonlySet<QueueGroup["id"]>>> = {
+  reviewed: new Set(["requested", "other"]),
+  merged: new Set(["requested", "mine", "other", "reviewed"]),
+};
 
 /**
- * After reviewing `id`: the next row of its group in the queue's order (the one after it,
- * else the first left), or done when it was the group's last.
+ * After reviewing or merging `id`: the next row of its group in the queue's order (the one
+ * after it, else the first left), or done when it was the group's last.
  */
-export const advanceFrom = (groups: ReadonlyArray<QueueGroup>, id: string): Advance => {
+export const advanceFrom = (
+  groups: ReadonlyArray<QueueGroup>,
+  id: string,
+  moved: Moved = "reviewed"
+): Advance => {
   const group = groups.find((g) => g.rows.some((r) => r.id === id));
 
-  if (group === undefined || !ADVANCING.has(group.id)) return { kind: "stay" };
+  if (group === undefined || !ADVANCING[moved].has(group.id)) return { kind: "stay" };
   const at = group.rows.findIndex((r) => r.id === id);
   const next = group.rows[at + 1] ?? group.rows.find((r) => r.id !== id);
 

@@ -21,6 +21,7 @@ import { reviewSlots, subjectKey } from "../surface.ts";
 import { type Placeholder, ReviewBody } from "./ReviewBody.tsx";
 import { pullUrlOf, usePullCommands } from "./pullMenu.tsx";
 import { PullHeader } from "./SubjectHeader.tsx";
+import { HeaderActions } from "../merge/ui/HeaderActions.tsx";
 
 const labelOf = (hosts: ReadonlyArray<HostView>, hostKey: string) =>
   hosts.find((h) => h.key === hostKey)?.label ?? hostKey;
@@ -120,10 +121,17 @@ export const PullReview = ({ subject }: { readonly subject: PullSubject }) => {
         detail={loaded}
         url={url}
         actions={
-          <>
-            <CheckoutChip {...slotProps} />
-            <PrimaryAction {...slotProps} />
-          </>
+          <HeaderActions
+            pull={pull}
+            detail={loaded}
+            checkout={
+              slotProps.checkout === null
+                ? null
+                : { ...slotProps.checkout, hostLabel: labelOf(hosts, slotProps.checkout.hostKey) }
+            }
+            chip={<CheckoutChip {...slotProps} />}
+            primary={<PrimaryAction {...slotProps} />}
+          />
         }
       />
       <ReviewBody
