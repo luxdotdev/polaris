@@ -17,6 +17,8 @@ test("decodes only a published stable Release and selects its exact assets", () 
     { draft: true },
     { prerelease: true },
     { tag_name: "v1.2.3-rc.1" },
+    { tag_name: "v1.2.3-alpha.1" },
+    { tag_name: "v1.2.3-beta.1" },
     { tag_name: "invalid" },
     { published_at: null },
     { published_at: "invalid" },

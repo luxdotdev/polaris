@@ -69,7 +69,7 @@ Both jobs share `.github/actions/package-windows`.
 
 For test installers without a release, run the "Windows test build" workflow
 (`gh workflow run windows-test-build.yml --ref <branch>`). It builds a dev Daemon
-on macOS, packages `0.0.1-dev` installers for both architectures, smoke-tests x64,
+on macOS, packages installers at the Desktop App's package version (`0.0.1-dev` while it is `0.0.0`) for both architectures, smoke-tests x64,
 and keeps `polaris-windows-<arch>-unsigned-experimental` as artifacts for 14 days.
 
 Under `out/dist/squirrel-<arch>/`:
@@ -78,7 +78,7 @@ Under `out/dist/squirrel-<arch>/`:
 - `Polaris-<arch>-win-<NuGet version>-full.nupkg`
 - `RELEASES`, and its GitHub asset alias `Polaris-<version>-<arch>-win-RELEASES`
 
-NuGet removes prerelease dots (`1.2.3-rc.1` becomes `1.2.3-rc1`). Package IDs
+NuGet removes prerelease dots (`1.2.3-alpha.1` becomes `1.2.3-alpha1`; the release workflow takes this name from `tooling/release/metadata.py`). Squirrel compares these SemVer 1 strings lexically, so `alpha10` sorts before `alpha9`; the site feed compares semver and serves only stable releases. Package IDs
 include the architecture so feeds cannot offer an incompatible executable.
 Only full packages are published; delta generation is disabled until a
 previous-release artifact contract exists. Each RELEASES hash/size is checked

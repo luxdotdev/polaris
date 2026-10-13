@@ -2,7 +2,7 @@ name: Windows test build
 
 # Unsigned Windows x64 and arm64 installers from any branch, without a release: Actions →
 # "Windows test build" → Run workflow, or `gh workflow run windows-test-build.yml --ref <branch>`.
-# The installers are dev builds (0.0.1-dev, the Daemons' version names the commit) and are
+# The installers carry the Desktop App's package version (0.0.1-dev for 0.0.0); the Daemons are dev builds naming the commit and are
 # kept as workflow artifacts for 14 days.
 on:
   workflow_dispatch:

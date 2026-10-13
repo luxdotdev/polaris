@@ -88,7 +88,7 @@ test.each(["x64", "arm64"] as const)(
   }
 );
 
-test.each(["1.2.3", "1.2.3+local", "2.0.0", "invalid"])(
+test.each(["1.2.3", "1.2.3+local", "1.2.4-alpha.1", "2.0.0", "invalid"])(
   "%s avoids manifest fetch and cannot downgrade",
   async (version) => {
     const { routes, requests } = setup();
@@ -99,6 +99,19 @@ test.each(["1.2.3", "1.2.3+local", "2.0.0", "invalid"])(
 
     expect(response.status).toBe(version === "invalid" ? 400 : 204);
     expect(requests).toHaveLength(0);
+  }
+);
+
+test.each(["1.2.3-alpha.1", "1.2.3-rc.2"])(
+  "a %s prerelease is offered the stable release",
+  async (version) => {
+    const { routes } = setup();
+
+    const response = await routes.releases("x64")(new Request("https://polaris.lux.dev/"), {
+      params: Promise.resolve({ version }),
+    });
+
+    expect(response.status).toBe(200);
   }
 );
 

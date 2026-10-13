@@ -19,6 +19,7 @@ jobs:
     timeout-minutes: 90
     outputs:
       version: ${{ steps.metadata.outputs.version }}
+      nuget_version: ${{ steps.metadata.outputs.nuget_version }}
     defaults:
       run:
         shell: bash
@@ -37,33 +38,8 @@ jobs:
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          python3 - <<'PY'
-          import json, os, re
-          from pathlib import Path
-
-          tag = os.environ["RELEASE_TAG"]
-          number = r"(?:0|[1-9][0-9]*)"
-          if not re.fullmatch(rf"v{number}\.{number}\.{number}(?:-rc\.{number})?", tag):
-              raise SystemExit("Expected v<major>.<minor>.<patch> or v<major>.<minor>.<patch>-rc.N")
-          version = tag[1:]
-          for package in ("desktop", "daemon"):
-              actual = json.loads(Path(f"apps/{package}/package.json").read_text())["version"]
-              if actual != version:
-                  raise SystemExit(f"Tag/version mismatch: {package} is {actual}, tag is {version}")
-
-          names = ("MACOS_CERT_P12", "MACOS_CERT_PASSWORD", "APPLE_API_KEY",
-                   "APPLE_API_KEY_ID", "APPLE_API_ISSUER", "APPLE_TEAM_ID")
-          present = [name for name in names if os.environ.get(name, "").strip()]
-          if present and len(present) != len(names):
-              raise SystemExit("Incomplete signing secrets: missing " + ", ".join(n for n in names if n not in present))
-          prerelease = "-rc." in version
-          signed = bool(present)
-          if not prerelease and not signed:
-              raise SystemExit("Stable tags require all six signing secrets")
-          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
-              output.write(f"version={version}\nprerelease={str(prerelease).lower()}\nsigned={str(signed).lower()}\n")
-          PY
+        # Tags: vX.Y.Z (signed) or vX.Y.Z-<alpha|beta|rc>.N (a prerelease, may be unsigned).
+        run: python3 -I tooling/release/metadata.py
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
@@ -185,13 +161,23 @@ jobs:
           zip="apps/desktop/out/dist/Polaris-$VERSION-arm64-mac.zip"
           test -s "$dmg"
           test -s "$zip"
-          flags=(--draft --verify-tag --generate-notes)
+          flags=(--draft --verify-tag --title "Polaris $VERSION")
           if [[ "$PRERELEASE" == true ]]; then
             flags+=(--prerelease --latest=false)
           fi
-          if [[ "$SIGNED" == false ]]; then
-            flags+=(--notes 'Unsigned release candidate for testing. Signing and notarisation were skipped.')
+          # Curated notes (docs/releases/<tag>.md) replace GitHub's generated ones.
+          curated="docs/releases/$RELEASE_TAG.md"
+          notes="$RUNNER_TEMP/release-notes.md"
+          : > "$notes"
+          if [[ "$SIGNED" == false && ! -f "$curated" ]]; then
+            printf '%s\n\n' 'Unsigned prerelease for testing. Signing and notarisation were skipped.' >> "$notes"
           fi
+          if [[ -f "$curated" ]]; then
+            cat "$curated" >> "$notes"
+          else
+            flags+=(--generate-notes)
+          fi
+          flags+=(--notes-file "$notes")
           gh release create "$RELEASE_TAG" "$dmg" "$zip" "${flags[@]}"
 
   windows:
@@ -215,13 +201,13 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
           VERSION: ${{ needs.release.outputs.version }}
+          NUGET_VERSION: ${{ needs.release.outputs.nuget_version }}
         run: |
           $assets = @()
           foreach ($arch in @('x64', 'arm64')) {
             $directory = "apps/desktop/out/dist/squirrel-$arch"
             $assets += "$directory/Polaris-$env:VERSION-$arch-win-Setup.exe"
-            $nugetVersion = $env:VERSION -replace '-rc\.', '-rc'
-            $assets += "$directory/Polaris-$arch-win-$nugetVersion-full.nupkg"
+            $assets += "$directory/Polaris-$arch-win-$env:NUGET_VERSION-full.nupkg"
             $assets += "$directory/Polaris-$env:VERSION-$arch-win-RELEASES"
           }
           foreach ($asset in $assets) {

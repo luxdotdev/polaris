@@ -124,29 +124,77 @@ export const loadBuilds = (distDir: string): ReadonlyArray<DaemonBuild> => {
   });
 };
 
-/**
- * Compare dotted versions with an optional `-prerelease` (a prerelease sorts
- * before its release). Returns <0, 0 or >0.
- */
-export const compareVersions = (a: string, b: string): number => {
-  const [coreA = "", preA] = a.split("-", 2);
-  const [coreB = "", preB] = b.split("-", 2);
-  const partsA = coreA.split(".").map(Number);
-  const partsB = coreB.split(".").map(Number);
+const isNumeric = (identifier: string): boolean => /^\d+$/.test(identifier);
 
-  for (let i = 0; i < Math.max(partsA.length, partsB.length); i++) {
-    const diff = (partsA[i] ?? 0) - (partsB[i] ?? 0);
+/** Semver precedence of one prerelease identifier: numbers sort numerically and before words. */
+const compareIdentifiers = (a: string, b: string): number => {
+  if (a === b) return 0;
+
+  if (isNumeric(a) && isNumeric(b)) return BigInt(a) < BigInt(b) ? -1 : 1;
+
+  if (isNumeric(a) !== isNumeric(b)) return isNumeric(a) ? -1 : 1;
+
+  return a < b ? -1 : 1;
+};
+
+const comparePrereleases = (a: string | undefined, b: string | undefined): number => {
+  if (a === b) return 0;
+
+  if (a === undefined) return 1;
+
+  if (b === undefined) return -1;
+  const partsA = a.split(".");
+  const partsB = b.split(".");
+
+  for (let i = 0; i < Math.min(partsA.length, partsB.length); i++) {
+    const diff = compareIdentifiers(partsA[i]!, partsB[i]!);
 
     if (diff !== 0) return diff;
   }
 
-  if (preA === preB) return 0;
+  return partsA.length - partsB.length;
+};
 
-  if (preA === undefined) return 1;
+interface ParsedVersion {
+  readonly core: number[];
+  readonly prerelease: string | undefined;
+  /** What follows `-dev.` in a dev build (`scripts/buildVersion.ts`). */
+  readonly dev: string | undefined;
+}
 
-  if (preB === undefined) return -1;
+const parseVersion = (version: string): ParsedVersion => {
+  const [withoutBuild = ""] = version.split("+", 1);
+  const devMatch = /^(.*?)-dev\.(\d+\..*)$/.exec(withoutBuild);
+  const base = devMatch ? devMatch[1]! : withoutBuild;
+  const dash = base.indexOf("-");
 
-  return preA.localeCompare(preB, undefined, { numeric: true });
+  return {
+    core: (dash === -1 ? base : base.slice(0, dash)).split(".").map(Number),
+    prerelease: dash === -1 ? undefined : base.slice(dash + 1),
+    dev: devMatch?.[2],
+  };
+};
+
+/**
+ * Compare versions by semver precedence: dotted numbers, then an optional
+ * `-prerelease` that sorts before its release (`1.0.0-alpha.1` < `1.0.0-alpha.2`
+ * < `1.0.0-beta.1` < `1.0.0-rc.1` < `1.0.0`); `+build` is ignored. A dev build of
+ * a version sorts just before it, and dev builds of one version by commit count.
+ * Returns <0, 0 or >0.
+ */
+export const compareVersions = (a: string, b: string): number => {
+  const left = parseVersion(a);
+  const right = parseVersion(b);
+
+  for (let i = 0; i < Math.max(left.core.length, right.core.length); i++) {
+    const diff = (left.core[i] ?? 0) - (right.core[i] ?? 0);
+
+    if (diff !== 0) return diff;
+  }
+
+  return (
+    comparePrereleases(left.prerelease, right.prerelease) || comparePrereleases(left.dev, right.dev)
+  );
 };
 
 /** A dev build's version (`scripts/buildVersion.ts`): `<version>-dev.<commit count>.<sha>…`. */

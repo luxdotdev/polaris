@@ -3,7 +3,7 @@ import { EventEmitter } from "node:events";
 import { join } from "node:path";
 import type { FeedURLOptions } from "electron";
 import { cannotInstallHere } from "./identity.ts";
-import { createAppUpdates, versionFromAsset, type UpdateInput } from "./index.ts";
+import { createAppUpdates, versionFromAsset, versionFromNuget, type UpdateInput } from "./index.ts";
 import { revealAppPath, updateFeed, updatePlatform, windowsAppId } from "./platform.ts";
 import { handleSquirrelStartup, repairSquirrelFirstRun, squirrelCommand } from "./squirrel.ts";
 
@@ -198,4 +198,20 @@ test("platform support and Windows asset versions exclude other builds", () => {
   expect(versionFromAsset("https://example.test/Polaris-x64-win-1.2.3-full.nupkg")).toBe("1.2.3");
   expect(versionFromAsset("https://example.test/Polaris-1.2.3-arm64-win-Setup.exe")).toBe("1.2.3");
   expect(versionFromAsset("https://example.test/Polaris-x64-win-01.2.3-full.nupkg")).toBeNull();
+});
+
+test("prerelease assets and NuGet names map back to the release's semver", () => {
+  expect(versionFromAsset("https://example.test/Polaris-x64-win-0.1.0-alpha1-full.nupkg")).toBe(
+    "0.1.0-alpha.1"
+  );
+  expect(versionFromAsset("https://example.test/Polaris-0.1.0-beta.2-arm64-win-Setup.exe")).toBe(
+    "0.1.0-beta.2"
+  );
+  expect(versionFromAsset("https://example.test/Polaris-0.1.0-rc.10-arm64-mac.zip")).toBe(
+    "0.1.0-rc.10"
+  );
+  expect(versionFromAsset("https://example.test/Polaris-0.1.0-dev.1-arm64-mac.zip")).toBeNull();
+  expect(versionFromNuget("0.1.0-alpha1")).toBe("0.1.0-alpha.1");
+  expect(versionFromNuget("0.1.0")).toBe("0.1.0");
+  expect(versionFromNuget("0.1.0-alpha01")).toBeNull();
 });
