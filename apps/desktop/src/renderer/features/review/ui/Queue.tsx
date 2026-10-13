@@ -6,8 +6,6 @@ import { cn, Kbd, SEVERITY_LABELS, SeverityGlyph, Tile } from "@polaris/ui";
 import { useEffect, useState } from "react";
 import { reviewDigits } from "../../../routes/review.ts";
 import { shortcutLabel } from "../../../routes/topBar.ts";
-import { currentKeyPlatform } from "../../../../shared/chord.ts";
-import { digitModifiersFor } from "../../../../shared/keymap.ts";
 import type { RiskMark } from "../model/findings.ts";
 import type { OpenPull } from "../../../../shared/api.ts";
 import { ByUrl } from "../../pulls/ui/ByUrl.tsx";
@@ -39,21 +37,17 @@ const Mark = ({ mark }: { readonly mark: RiskMark | null }) =>
     </span>
   );
 
-/** Whether the digit modifier is held (Control; Alt on Windows): the first nine rows show their chord. */
+/** Whether Control is held: the first nine rows show their ⌃N (Ctrl+N off macOS). */
 const useCtrlHeld = () => {
   const [held, setHeld] = useState(false);
 
   useEffect(() => {
-    const alt = digitModifiersFor(currentKeyPlatform())[0] === "Alt";
-    const key = alt ? "Alt" : "Control";
-
     const down = (event: KeyboardEvent) => {
-      if (event.key !== key) return;
-      setHeld(!event.metaKey && !event.shiftKey && (alt ? !event.ctrlKey : !event.altKey));
+      if (event.key === "Control") setHeld(!event.metaKey && !event.altKey && !event.shiftKey);
     };
 
     const up = (event: KeyboardEvent) => {
-      if (event.key === key || !(alt ? event.altKey : event.ctrlKey)) setHeld(false);
+      if (event.key === "Control" || !event.ctrlKey) setHeld(false);
     };
 
     const blur = () => setHeld(false);

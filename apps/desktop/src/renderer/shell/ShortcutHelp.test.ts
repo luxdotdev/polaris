@@ -9,8 +9,9 @@ describe("the shortcut overlay", () => {
     const rows = keysOf("windows");
 
     expect(rows.filter((r) => /[⌘⌥⇧⌃↵]/.test(r))).toEqual([]);
-    expect(rows).toContain("Workspace or machine 1–10: Alt+1…Alt+0");
-    expect(rows).toContain("Next session: Ctrl+PageDown");
+    expect(rows).toContain("Workspace or machine 1–10: Ctrl+1…Ctrl+0");
+    expect(rows).toContain("Next session: Ctrl+PageDown Ctrl+Tab");
+    expect(rows).toContain("Edit: Alt+3");
     expect(rows).toContain("Show or hide output: Ctrl+Shift+B");
     expect(rows).toContain("Queue a follow-up for after the turn: Ctrl+Enter");
     expect(rows.some((r) => r.startsWith("Close other tabs"))).toBe(false);
@@ -20,7 +21,7 @@ describe("the shortcut overlay", () => {
     const rows = keysOf("mac");
 
     expect(rows).toContain("Workspace or machine 1–10: ⌃1…⌃0 ⌥1…⌥0");
-    expect(rows).toContain("Next session: ⌥⌘↓");
+    expect(rows).toContain("Next session: ⌥⌘↓ ⌃⇥");
     expect(rows).toContain("Queue a follow-up for after the turn: ⌘↵");
   });
 });

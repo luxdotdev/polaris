@@ -97,9 +97,9 @@ export interface KeyEventLike {
   readonly shiftKey: boolean;
 }
 
-/** On Windows Control is the mod key, so "Ctrl+Tab" and "CmdOrCtrl+Tab" are one chord. */
+/** Off macOS Control is the mod key, so "Ctrl+Tab" and "CmdOrCtrl+Tab" are one chord. */
 export const onPlatform = (chord: Chord, platform: KeyPlatform): Chord =>
-  platform === "windows" ? { ...chord, mod: chord.mod || chord.ctrl, ctrl: false } : chord;
+  platform === "mac" ? chord : { ...chord, mod: chord.mod || chord.ctrl, ctrl: false };
 
 /** The canonical spelling of a chord as it is pressed on a platform. */
 export const platformChordKey = (chord: Chord, platform: KeyPlatform): string =>

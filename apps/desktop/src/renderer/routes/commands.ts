@@ -129,10 +129,15 @@ interface Bound {
   readonly inFields: boolean;
 }
 
-const boundOn = (platform: KeyPlatform): ReadonlyArray<Bound> =>
-  keymapFor(platform).flatMap((b) =>
+/** A command that `shares` a chord is tried before the one it shares with, which is the fallback. */
+const boundOn = (platform: KeyPlatform): ReadonlyArray<Bound> => {
+  const keymap = keymapFor(platform);
+  const ordered = [...keymap.filter((b) => b.shares), ...keymap.filter((b) => !b.shares)];
+
+  return ordered.flatMap((b) =>
     b.keys.map((key) => ({ id: b.id, chord: parseChord(key), inFields: b.inFields ?? true }))
   );
+};
 
 const WHEN = new Map<string, Condition | undefined>(KEYMAP.map((b) => [b.id, b.when]));
 
@@ -153,11 +158,14 @@ const mergeContext = (parts: ReadonlyArray<ContextPart>): CommandContext => {
   return { keys, values };
 };
 
-const shortcutOf = (keys: ReadonlyArray<string>, platform: KeyPlatform) => {
-  const first = keys[0];
+/** The chords a row shows: the first, plus any other with a modifier ("⌥⌘↓ / ⌃⇥"). */
+const shownKeys = (keys: ReadonlyArray<string>) =>
+  keys.filter((k, i) => i === 0 || !isBare(parseChord(k)));
 
-  return first === undefined ? "" : formatChord(parseChord(first), platform);
-};
+const shortcutOf = (keys: ReadonlyArray<string>, platform: KeyPlatform) =>
+  shownKeys(keys)
+    .map((k) => formatChord(parseChord(k), platform))
+    .join(" / ");
 
 /** An accelerator as `aria-keyshortcuts` spells it: the mod key is Meta on macOS, Control elsewhere. */
 export const ariaKeys = (
@@ -187,7 +195,9 @@ const rowOf = (
     group: entry.group,
     keywords: entry.keywords ?? [],
     shortcut: shortcutOf(base.keys, platform),
-    ariaKeys: ariaKeys(base.keys[0], platform),
+    ariaKeys: shownKeys(base.keys)
+      .map((k) => ariaKeys(k, platform))
+      .join(" "),
     followUp: entry.followUp ?? false,
     searchOnly: entry.searchOnly ?? false,
   };

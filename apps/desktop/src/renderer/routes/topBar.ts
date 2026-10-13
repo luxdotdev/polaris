@@ -158,7 +158,7 @@ export const barHosts = ({ hosts, models, quiet }: BarInput): ReadonlyArray<BarH
 export const barWorkspaces = (hosts: ReadonlyArray<BarHost>): ReadonlyArray<BarWorkspace> =>
   hosts.flatMap((h) => h.workspaces);
 
-/** "⌃1" … "⌃9", "⌃0" for the tenth ("Alt+1" on Windows); nothing past it. */
+/** "⌃1" … "⌃9", "⌃0" for the tenth ("Ctrl+1" off macOS); nothing past it. */
 export const shortcutLabel = (
   index: number,
   platform: KeyPlatform = currentKeyPlatform()

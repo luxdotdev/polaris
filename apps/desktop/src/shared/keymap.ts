@@ -74,6 +74,8 @@ export type CommandGroup = "file" | "workspace" | "app";
 
 /** Facts about the moment that features put in the command context; `when` reads them. */
 export const CONTEXT_KEYS = [
+  /** The Edit view is showing. */
+  "mode.edit",
   /** A file is open and focused in Edit. */
   "editor.file",
   /** The focused file's Language Integration has a language server. */
@@ -342,8 +344,19 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
     keys: ["CmdOrCtrl+K", "K"],
     menu: "Go",
   },
-  { id: "session.next", title: "Next session", keys: ["CmdOrCtrl+Alt+Down"], menu: "Go" },
-  { id: "session.previous", title: "Previous session", keys: ["CmdOrCtrl+Alt+Up"], menu: "Go" },
+  // Control+Tab on every platform; in Edit it cycles editor tabs instead (`shares`).
+  {
+    id: "session.next",
+    title: "Next session",
+    keys: ["CmdOrCtrl+Alt+Down", "Ctrl+Tab"],
+    menu: "Go",
+  },
+  {
+    id: "session.previous",
+    title: "Previous session",
+    keys: ["CmdOrCtrl+Alt+Up", "Ctrl+Shift+Tab"],
+    menu: "Go",
+  },
   {
     id: "session.new",
     title: "New session",
@@ -570,11 +583,20 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
     palette: FILE({ keywords: ["render"] }),
   },
   { id: "editor.save", title: "Save file", keys: ["CmdOrCtrl+S"], palette: FILE() },
-  { id: "editor.nextTab", title: "Next editor tab", keys: ["Ctrl+Tab"], palette: FILE() },
+  {
+    id: "editor.nextTab",
+    title: "Next editor tab",
+    keys: ["Ctrl+Tab"],
+    shares: "session.next",
+    when: "mode.edit",
+    palette: FILE(),
+  },
   {
     id: "editor.previousTab",
     title: "Previous editor tab",
     keys: ["Ctrl+Shift+Tab"],
+    shares: "session.previous",
+    when: "mode.edit",
     palette: FILE(),
   },
   // With no tab open, Close tab closes the window, as in VS Code.
@@ -627,10 +649,10 @@ export const RESERVED: ReadonlyArray<string> = [
 ];
 
 /**
- * Windows' own chords, the menu roles' Windows accelerators, Shift+F10 (context
- * menus) and Ctrl+H (Replace, by convention). The Windows key never appears in a binding.
+ * Windows' and Linux desktops' own chords, the menu roles' accelerators there, Shift+F10
+ * (context menus) and Ctrl+H (Replace, by convention). The Windows key never appears in a binding.
  */
-export const WINDOWS_RESERVED: ReadonlyArray<string> = [
+export const PC_RESERVED: ReadonlyArray<string> = [
   "Alt+F4",
   "Alt+Space",
   "Alt+Tab",
@@ -653,31 +675,34 @@ export const WINDOWS_RESERVED: ReadonlyArray<string> = [
   "Ctrl+Space",
 ];
 
-/** The chords a platform keeps for itself; Linux keeps macOS's list for now. */
+/** The chords a platform keeps for itself. */
 export const reservedFor = (platform: KeyPlatform): ReadonlyArray<string> =>
-  platform === "windows" ? WINDOWS_RESERVED : RESERVED;
+  platform === "mac" ? RESERVED : PC_RESERVED;
 
 /**
- * Where Windows differs: Ctrl+Alt is AltGr on European layouts (it types @, {, €),
- * so those chords move to Ctrl+Shift or PageUp/PageDown. An empty list: menu and palette only.
+ * Where Windows and Linux differ: Ctrl+Alt is AltGr on European layouts (it types @, {, €),
+ * so those chords move; Ctrl picks Workspaces and sessions, Alt the views. Empty: menu and palette only.
  */
-export const WINDOWS_KEYS: Partial<Record<CommandId, ReadonlyArray<string>>> = {
+export const PC_KEYS: Partial<Record<CommandId, ReadonlyArray<string>>> = {
   "language.restart": ["CmdOrCtrl+Shift+R"],
+  "view.orchestrate": ["Alt+1"],
+  "view.review": ["Alt+2"],
+  "view.edit": ["Alt+3"],
   "view.output": ["CmdOrCtrl+Shift+B"],
-  "session.next": ["CmdOrCtrl+PageDown"],
-  "session.previous": ["CmdOrCtrl+PageUp"],
+  "session.next": ["CmdOrCtrl+PageDown", "Ctrl+Tab"],
+  "session.previous": ["CmdOrCtrl+PageUp", "Ctrl+Shift+Tab"],
   "tab.closeOthers": [],
 };
 
 /** The keymap with a platform's own keys. */
 export const keymapFor = (platform: KeyPlatform): ReadonlyArray<KeyBinding> =>
-  platform === "windows"
-    ? KEYMAP.map((b) => {
-        const keys = WINDOWS_KEYS[b.id];
+  platform === "mac"
+    ? KEYMAP
+    : KEYMAP.map((b) => {
+        const keys = PC_KEYS[b.id];
 
         return keys === undefined ? b : { ...b, keys };
-      })
-    : KEYMAP;
+      });
 
 /** ⌃` toggles the terminal drawer (Ctrl+` on Windows and Linux); the drawer handles it. */
 export const TERMINAL_TOGGLE = "Ctrl+`";
@@ -697,9 +722,9 @@ export const FIELD_CHORDS = {
 /** ⌃1…⌃0 and ⌥1…⌥0 pick Workspace chips or machines; they are data-driven, so outside KEYMAP. */
 export const SHORTCUT_DIGIT_MODIFIERS: ReadonlyArray<string> = ["Ctrl", "Alt"];
 
-/** On Windows only Alt+1…0: Ctrl+1–3 are the views there, as ⌘1–3 are on macOS. */
+/** On Windows and Linux only Ctrl+1…0, as browser tabs: Alt+1–3 are the views there. */
 export const digitModifiersFor = (platform: KeyPlatform): ReadonlyArray<"Ctrl" | "Alt"> =>
-  platform === "windows" ? ["Alt"] : ["Ctrl", "Alt"];
+  platform === "mac" ? ["Ctrl", "Alt"] : ["Ctrl"];
 
 /** The chord of the chip at `index` ("Ctrl+1"; "Ctrl+0" is the tenth), in the platform's first modifier. */
 export const digitChord = (index: number, platform: KeyPlatform): string | undefined => {

@@ -46,11 +46,11 @@ export const handleKey = (
   const plain = !event.metaKey && !event.shiftKey;
   const firstOnly = plain && holds(event, first) && !holds(event, other);
 
-  // In Review, ⌃N (Alt+N on Windows) opens the queue's Nth review; Orchestrate keeps its chips.
+  // In Review, ⌃N (Ctrl+N elsewhere) opens the queue's Nth review; Orchestrate keeps its chips.
   if (digit !== null && firstOnly && reviewDigits.pick?.(digit) === true) return true;
 
-  // On Windows Ctrl+Alt is AltGr, so only Alt alone picks a chip.
-  const chip = platform === "windows" ? firstOnly : plain && modifiers.some((m) => holds(event, m));
+  // Off macOS Ctrl+Alt is AltGr (it types { on German), so only Ctrl alone picks a chip.
+  const chip = platform === "mac" ? plain && modifiers.some((m) => holds(event, m)) : firstOnly;
 
   if (digit !== null && chip) {
     actions.selectShortcut(digit, event.timeStamp);

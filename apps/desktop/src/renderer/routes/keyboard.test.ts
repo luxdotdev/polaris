@@ -76,26 +76,28 @@ describe("keyboard", () => {
     expect(calls).toEqual(["chip 1", "chip 9"]);
   });
 
-  test("on Windows Alt+N picks a chip, Ctrl+1 is Orchestrate and Ctrl+Alt (AltGr) does nothing", () => {
-    const { calls, context } = setup("windows");
+  for (const platform of ["windows", "linux"] as const) {
+    test(`on ${platform} Ctrl+N picks a chip, Alt+1 is Orchestrate and Ctrl+Alt (AltGr) does nothing`, () => {
+      const { calls, context } = setup(platform);
 
-    handleKey(key("Digit2", { alt: true }), context, "windows");
-    handleKey(key("Digit1", { ctrl: true }), context, "windows");
-    handleKey(key("Digit3", { ctrl: true, alt: true }), context, "windows");
-    handleKey(key("Tab", { ctrl: true }), context, "windows");
-    handleKey(key("PageDown", { ctrl: true }), context, "windows");
-    expect(calls).toEqual(["chip 1", "view.orchestrate", "editor.nextTab", "session.next"]);
-  });
+      handleKey(key("Digit2", { ctrl: true }), context, platform);
+      handleKey(key("Digit1", { alt: true }), context, platform);
+      handleKey(key("Digit7", { ctrl: true, alt: true }), context, platform);
+      handleKey(key("Tab", { ctrl: true }), context, platform);
+      handleKey(key("PageDown", { ctrl: true }), context, platform);
+      expect(calls).toEqual(["chip 1", "view.orchestrate", "session.next", "session.next"]);
+    });
 
-  test("on Windows, in Review, Alt+N opens the queue's Nth review", () => {
-    const { calls, context } = setup("windows");
+    test(`on ${platform}, in Review, Ctrl+N opens the queue's Nth review`, () => {
+      const { calls, context } = setup(platform);
 
-    reviewDigits.pick = (index) => calls.push(`review ${index}`) > 0;
-    handleKey(key("Digit2", { alt: true }), context, "windows");
-    handleKey(key("Digit2", { ctrl: true }), context, "windows");
-    reviewDigits.pick = null;
-    expect(calls).toEqual(["review 1"]);
-  });
+      reviewDigits.pick = (index) => calls.push(`review ${index}`) > 0;
+      handleKey(key("Digit2", { ctrl: true }), context, platform);
+      handleKey(key("Digit2", { ctrl: true, alt: true }), context, platform);
+      reviewDigits.pick = null;
+      expect(calls).toEqual(["review 1"]);
+    });
+  }
 
   test("in Review, ⌃N opens the queue's Nth review; ⌥N and an empty slot still pick a chip", () => {
     const { calls, context } = setup();

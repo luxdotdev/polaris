@@ -165,3 +165,64 @@ describe("follow-ups", () => {
     expect(registry.palette()[0]).toMatchObject({ followUp: true });
   });
 });
+
+describe("Control+Tab by mode", () => {
+  const press = (
+    code: string,
+    mods: Partial<Record<"meta" | "ctrl" | "alt" | "shift", boolean>>
+  ) => ({
+    code,
+    metaKey: mods.meta ?? false,
+    ctrlKey: mods.ctrl ?? false,
+    altKey: mods.alt ?? false,
+    shiftKey: mods.shift ?? false,
+    typing: false,
+  });
+
+  for (const platform of ["mac", "windows", "linux"] as const)
+    test(`on ${platform} Edit cycles editor tabs, everywhere else sessions`, () => {
+      const registry = createCommandRegistry({ platform });
+      const calls: Array<string> = [];
+      let edit = false;
+
+      registry.provide(() => ({ keys: edit ? ["mode.edit"] : [] }));
+      registry.register({
+        "session.next": { run: () => void calls.push("session.next") },
+        "session.previous": { run: () => void calls.push("session.previous") },
+        "editor.nextTab": { run: () => void calls.push("editor.nextTab") },
+        "editor.previousTab": { run: () => void calls.push("editor.previousTab") },
+      });
+
+      registry.handleKey(press("Tab", { ctrl: true }));
+      registry.handleKey(press("Tab", { ctrl: true, shift: true }));
+      edit = true;
+      registry.handleKey(press("Tab", { ctrl: true }));
+      registry.handleKey(press("Tab", { ctrl: true, shift: true }));
+      registry.handleKey(
+        platform === "mac"
+          ? press("ArrowDown", { meta: true, alt: true })
+          : press("PageDown", { ctrl: true })
+      );
+
+      expect(calls).toEqual([
+        "session.next",
+        "session.previous",
+        "editor.nextTab",
+        "editor.previousTab",
+        "session.next",
+      ]);
+    });
+
+  test("the palette shows both session chords", () => {
+    const registry = createCommandRegistry({ platform: "windows" });
+
+    registry.register({ "session.next": { run: () => undefined } });
+
+    const row = registry.palette().find((r) => r.id === "session.next");
+
+    expect([row?.shortcut, row?.ariaKeys]).toEqual([
+      "Ctrl+PageDown / Ctrl+Tab",
+      "Control+PageDown Control+Tab",
+    ]);
+  });
+});

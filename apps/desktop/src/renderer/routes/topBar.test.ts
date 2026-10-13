@@ -26,7 +26,7 @@ describe("top bar mode (ENG-177)", () => {
       "⌃0",
       undefined,
     ]);
-    expect([0, 9].map((i) => shortcutLabel(i, "windows"))).toEqual(["Alt+1", "Alt+0"]);
+    expect([0, 9].map((i) => shortcutLabel(i, "windows"))).toEqual(["Ctrl+1", "Ctrl+0"]);
   });
 });
 

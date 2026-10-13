@@ -9,6 +9,7 @@ import {
   modKey,
   parseChord,
   platformChordKey,
+  shortcutLabel,
 } from "./chord.ts";
 import {
   chordOf,
@@ -19,7 +20,8 @@ import {
   keymapFor,
   reservedFor,
   TERMINAL_TOGGLE,
-  WINDOWS_KEYS,
+  KEYMAP,
+  PC_KEYS,
 } from "./keymap.ts";
 import { setClientPlatform } from "./platform.ts";
 
@@ -92,6 +94,7 @@ describe("labels per platform", () => {
     try {
       expect(commandShortcut("palette.open")).toBe("Ctrl+Shift+P");
       expect(commandShortcut("view.output")).toBe("Ctrl+Shift+B");
+      expect(commandShortcut("view.edit")).toBe("Alt+3");
     } finally {
       setClientPlatform(null);
     }
@@ -100,49 +103,97 @@ describe("labels per platform", () => {
   });
 });
 
-describe("Windows keys", () => {
-  test("Control is the mod key, so Ctrl+Tab fires", () => {
-    const tab = parseChord("Ctrl+Tab");
+const PCS = ["windows", "linux"] as const;
 
-    expect(matches(tab, press("Tab", { ctrl: true }), "windows")).toBe(true);
-    expect(matches(parseChord("CmdOrCtrl+S"), press("KeyS", { ctrl: true }), "windows")).toBe(true);
-    expect(matches(parseChord("CmdOrCtrl+S"), press("KeyS", { meta: true }), "windows")).toBe(
-      false
-    );
+const keysOf = (id: CommandId, platform: KeyPlatform) =>
+  (keymapFor(platform).find((b) => b.id === id)?.keys ?? []).map(
+    (k) => acceleratorLabel(k, platform) ?? ""
+  );
+
+describe("Windows and Linux keys", () => {
+  test("Control is the mod key, so Ctrl+Tab fires", () => {
+    for (const platform of PCS) {
+      expect(matches(parseChord("Ctrl+Tab"), press("Tab", { ctrl: true }), platform)).toBe(true);
+      expect(matches(parseChord("CmdOrCtrl+S"), press("KeyS", { meta: true }), platform)).toBe(
+        false
+      );
+    }
   });
 
   test("no binding uses Ctrl+Alt, which is AltGr on European layouts", () => {
-    const altGr = chordsOn("windows").filter((c) => /Mod\+Alt\b/.test(c.key));
-
-    expect(altGr).toEqual([]);
+    for (const platform of PCS)
+      expect(chordsOn(platform).filter((c) => /Mod\+Alt\b/.test(c.key))).toEqual([]);
   });
 
-  test("the overrides are the approved table", () => {
-    // SAFETY: WINDOWS_KEYS is typed by CommandId, so its own keys are command ids.
-    const ids = Object.keys(WINDOWS_KEYS) as Array<CommandId>;
+  test("Alt+1–3 are the views and never fire with Ctrl held (AltGr+7 types {)", () => {
+    const orchestrate = parseChord(chordOf("view.orchestrate", "windows") ?? "");
 
-    const shown = Object.fromEntries(
-      ids.map((id) => [id, acceleratorLabel(chordOf(id, "windows"), "windows") ?? ""])
-    );
+    expect(matches(orchestrate, press("Digit1", { alt: true }), "windows")).toBe(true);
+    expect(matches(orchestrate, press("Digit1", { alt: true, ctrl: true }), "windows")).toBe(false);
+  });
 
-    expect(shown).toEqual({
+  test("the overrides are the approved table, the same on Windows and Linux", () => {
+    // SAFETY: PC_KEYS is typed by CommandId, so its own keys are command ids.
+    const ids = Object.keys(PC_KEYS) as Array<CommandId>;
+
+    const table = (platform: KeyPlatform) =>
+      Object.fromEntries(ids.map((id) => [id, keysOf(id, platform).join(" / ")]));
+
+    expect(table("windows")).toEqual({
       "language.restart": "Ctrl+Shift+R",
+      "view.orchestrate": "Alt+1",
+      "view.review": "Alt+2",
+      "view.edit": "Alt+3",
       "view.output": "Ctrl+Shift+B",
-      "session.next": "Ctrl+PageDown",
-      "session.previous": "Ctrl+PageUp",
+      "session.next": "Ctrl+PageDown / Ctrl+Tab",
+      "session.previous": "Ctrl+PageUp / Ctrl+Shift+Tab",
       "tab.closeOthers": "",
     });
+    expect(table("linux")).toEqual(table("windows"));
   });
 
-  test("macOS and Linux keep their keys", () => {
-    expect(keymapFor("linux")).toBe(keymapFor("mac"));
-    expect(chordOf("view.output", "mac")).toBe("CmdOrCtrl+Alt+B");
+  test("macOS keeps its keys, plus Control+Tab for sessions", () => {
+    expect(keymapFor("mac")).toBe(KEYMAP);
+    expect(keysOf("view.output", "mac")).toEqual(["⌥⌘B"]);
+    expect(keysOf("view.orchestrate", "mac")).toEqual(["⌘1"]);
+    expect(keysOf("session.next", "mac")).toEqual(["⌥⌘↓", "⌃⇥"]);
+    expect(keysOf("session.previous", "mac")).toEqual(["⌥⌘↑", "⌃⇧⇥"]);
   });
 
-  test("Workspace chips are Alt+1…0 only; Ctrl+1–3 stay the views", () => {
-    expect(digitModifiersFor("windows")).toEqual(["Alt"]);
-    expect([0, 9, 10].map((i) => digitChord(i, "windows"))).toEqual(["Alt+1", "Alt+0", undefined]);
-    expect(chordOf("view.orchestrate", "windows")).toBe("CmdOrCtrl+1");
+  test("Workspace chips are Ctrl+1…0 only, as browser tabs", () => {
+    for (const platform of PCS) {
+      expect(digitModifiersFor(platform)).toEqual(["Ctrl"]);
+      expect([0, 9, 10].map((i) => digitChord(i, platform))).toEqual([
+        "Ctrl+1",
+        "Ctrl+0",
+        undefined,
+      ]);
+    }
+
+    expect(digitModifiersFor("mac")).toEqual(["Ctrl", "Alt"]);
+  });
+});
+
+describe("Control+Tab by mode", () => {
+  test("in Edit the editor tabs take it; everywhere else the sessions do", () => {
+    for (const platform of PLATFORMS) {
+      const bindings = keymapFor(platform);
+      const next = bindings.find((b) => b.id === "editor.nextTab");
+      const previous = bindings.find((b) => b.id === "editor.previousTab");
+
+      expect([next?.shares, next?.when]).toEqual(["session.next", "mode.edit"]);
+      expect([previous?.shares, previous?.when]).toEqual(["session.previous", "mode.edit"]);
+      expect(keysOf("session.next", platform)).toContain(shortcutLabel("Ctrl+Tab", platform));
+    }
+  });
+
+  test("⌘Tab stays macOS's; Control+Tab is not reserved anywhere", () => {
+    expect(key("Ctrl+Tab", "mac")).not.toBe(key("CmdOrCtrl+Tab", "mac"));
+
+    for (const platform of PLATFORMS)
+      expect(reservedFor(platform).map((r) => key(r, platform))).not.toContain(
+        key("Ctrl+Tab", platform)
+      );
   });
 });
 
