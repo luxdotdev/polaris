@@ -44,6 +44,7 @@ ipcRenderer.on(CHANNELS.batch, (_event, entries: ReadonlyArray<BatchEntry>) => {
 });
 
 const api: PolarisApi = {
+  platform: process.platform,
   languages: languageApi,
   request: (method, input) => ipcRenderer.invoke(CHANNELS.request, { method, input }),
   subscribe: (kind, input, listener) => {
