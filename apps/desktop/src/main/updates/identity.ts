@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join, resolve, sep, win32 } from "node:path";
+import { join, posix, win32 } from "node:path";
 import { existsSync } from "node:fs";
 import { Option, Schema } from "effect";
 
@@ -44,11 +44,12 @@ export const cannotInstallHere = (
     );
   }
 
-  const path = resolve(appPath);
+  // macOS and Linux paths: posix, so the check is the same whichever OS runs it.
+  const path = posix.resolve(appPath);
 
   return (
-    path === resolve(downloads) ||
-    path.startsWith(`${resolve(downloads)}${sep}`) ||
+    path === posix.resolve(downloads) ||
+    path.startsWith(`${posix.resolve(downloads)}/`) ||
     path.startsWith("/Volumes/") ||
     path.includes("/AppTranslocation/")
   );
