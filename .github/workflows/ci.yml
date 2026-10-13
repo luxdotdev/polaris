@@ -60,7 +60,7 @@ jobs:
           packages/client/src/languages/access.test.ts packages/client/src/languages/context.test.ts
       - name: Typecheck and test scripts
         if: runner.os != 'Windows'
-        run: bunx tsc -p scripts && bun test scripts
+        run: bunx tsc -p scripts && bun test ./scripts
       - name: Typecheck scripts (Windows)
         if: runner.os == 'Windows'
         run: bunx tsc -p scripts
