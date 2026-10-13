@@ -1,12 +1,18 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import {
   clientPlatform,
   isMac,
   isWindows,
+  pinTestPlatform,
   platformFromArgv,
   setClientPlatform,
   toClientPlatform,
 } from "./platform.ts";
+
+// These tests read the real platform, so the preload's pin is lifted here.
+beforeAll(() => pinTestPlatform(null));
+
+afterAll(() => pinTestPlatform("darwin"));
 
 afterEach(() => setClientPlatform(null));
 

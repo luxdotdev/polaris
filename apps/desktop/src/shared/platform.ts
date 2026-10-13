@@ -27,18 +27,27 @@ const globals = globalThis as {
 
 let override: ClientPlatform | null = null;
 
-/** Which OS this Client runs on; a test's override wins. */
+let testBase: ClientPlatform | null = null;
+
+/** Which OS this Client runs on; a test's override wins, then the test run's base. */
 export const clientPlatform = (): ClientPlatform => {
   if (override !== null) return override;
+
+  if (testBase !== null) return testBase;
 
   const platform = globals.polaris?.platform ?? globals.process?.platform;
 
   return platform === undefined ? "linux" : toClientPlatform(platform);
 };
 
-/** Tests pretend to be another OS; `null` restores the real one. */
+/** Tests pretend to be another OS; `null` restores the run's base (see `pinTestPlatform`). */
 export const setClientPlatform = (platform: ClientPlatform | null) => {
   override = platform;
+};
+
+/** The test preload pins one OS so copy assertions don't depend on the CI runner's. */
+export const pinTestPlatform = (platform: ClientPlatform | null) => {
+  testBase = platform;
 };
 
 export const isMac = () => clientPlatform() === "darwin";
