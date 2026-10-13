@@ -48,6 +48,8 @@ import { EditorTrust } from "../trust/TrustCard.tsx";
 import { activateLogTab, closeLogTab, isLogTab, useLogTabs } from "../status/logTabs.ts";
 import { LogTabBody, useLogTabViews } from "../status/LogTab.tsx";
 import { useLanguageCommands } from "../commands/useLanguageCommands.ts";
+import { commandShortcut } from "../../../../shared/keymap.ts";
+import { PANE_CLASS } from "./paneLayout.ts";
 
 export interface EditorPaneProps {
   readonly hostKey: string;
@@ -184,11 +186,7 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
 
   if (shownLog !== null) {
     return (
-      <section
-        aria-label="Editor"
-        className="bg-bg flex min-w-0 flex-1 flex-col"
-        data-testid="editor-pane"
-      >
+      <section aria-label="Editor" className={PANE_CLASS} data-testid="editor-pane">
         {strip}
         <LogTabBody tab={shownLog} />
       </section>
@@ -197,13 +195,13 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
 
   if (fileTabs.length === 0 || active === null) {
     return (
-      <section aria-label="Editor" className="bg-bg grid min-w-0 flex-1 place-items-center">
+      <section aria-label="Editor" className="bg-bg grid min-h-0 min-w-0 flex-1 place-items-center">
         <RefactorPreview hostKey={hostKey} root={root} />
         <RefactorRecovery hostKey={hostKey} root={root} />
         <EmptyState
           icon={<PixelFolderIcon size={24} className="text-text-strong" />}
           title="No file open"
-          fact="Pick a file in the explorer, or press ⌘P to find one."
+          fact={`Pick a file in the explorer, or press ${commandShortcut("editor.findFile")} to find one.`}
         />
       </section>
     );
@@ -218,11 +216,7 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
       : null;
 
   return (
-    <section
-      aria-label="Editor"
-      className="bg-bg flex min-w-0 flex-1 flex-col"
-      data-testid="editor-pane"
-    >
+    <section aria-label="Editor" className={PANE_CLASS} data-testid="editor-pane">
       <RefactorPreview hostKey={hostKey} root={root} />
       {strip}
       <PreviewControls

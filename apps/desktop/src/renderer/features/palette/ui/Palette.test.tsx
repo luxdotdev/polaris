@@ -81,7 +81,7 @@ const press = (key: string, shiftKey = false) => {
 beforeEach(() => {
   memory.clear();
   ran = [];
-  commands = createCommandRegistry({ mac: true });
+  commands = createCommandRegistry({ platform: "mac" });
   navigation = createNavigation({ app: createStore<AppState>(() => initialState), storage: null });
   uninstall = installPalette({ commands, actions: navigation.actions, storage });
 

@@ -49,3 +49,18 @@ const runShortcut = (exe: string, args: string[]): Promise<void> =>
       code === 0 ? resolve() : reject(new Error("Squirrel shortcut operation failed"))
     );
   });
+
+/** First launch repairs shortcuts if a cold maintenance launch missed Squirrel's deadline. */
+export const repairSquirrelFirstRun = async (
+  platform: string,
+  argv: ReadonlyArray<string>,
+  exe: string,
+  execute: (exe: string, args: string[]) => Promise<void>
+): Promise<void> => {
+  if (platform !== "win32" || !argv.includes("--squirrel-firstrun")) return;
+
+  await execute(win32.resolve(win32.dirname(exe), "../Update.exe"), [
+    "--createShortcut",
+    win32.basename(exe),
+  ]);
+};

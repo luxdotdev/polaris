@@ -3,8 +3,21 @@
  * where it lives, plus the keys other parts of the app handle themselves.
  */
 import { Dialog, DialogContent, DialogDescription, DialogTitle, Kbd } from "@polaris/ui";
-import { formatChord, parseChord } from "../../shared/chord.ts";
-import { KEYMAP, type MenuName, paletteEntry } from "../../shared/keymap.ts";
+import {
+  currentKeyPlatform,
+  formatChord,
+  type KeyPlatform,
+  parseChord,
+  shortcutLabel,
+} from "../../shared/chord.ts";
+import {
+  digitModifiersFor,
+  FIELD_CHORDS,
+  type KeyBinding,
+  keymapFor,
+  type MenuName,
+  paletteEntry,
+} from "../../shared/keymap.ts";
 import { useNav, useShellActions } from "./hooks.ts";
 
 interface Row {
@@ -12,40 +25,58 @@ interface Row {
   readonly keys: ReadonlyArray<string>;
 }
 
-const fromKeymap = (menu: MenuName): ReadonlyArray<Row> =>
-  KEYMAP.filter((b) => b.menu === menu && b.keys.length > 0).map((b) => ({
-    title: b.title,
-    keys: b.keys.map((k) => formatChord(parseChord(k))),
-  }));
+const labels = (b: KeyBinding, platform: KeyPlatform) =>
+  b.keys.map((k) => formatChord(parseChord(k), platform));
+
+const fromKeymap = (menu: MenuName, platform: KeyPlatform): ReadonlyArray<Row> =>
+  keymapFor(platform)
+    .filter((b) => b.menu === menu && b.keys.length > 0)
+    .map((b) => ({ title: b.title, keys: labels(b, platform) }));
 
 /** The focused file's commands with a shortcut and no menu (save, restart the server…). */
-const editorRows: ReadonlyArray<Row> = KEYMAP.filter(
-  (b) => b.menu === undefined && b.keys.length > 0 && paletteEntry(b)?.group === "file"
-).map((b) => ({ title: b.title, keys: b.keys.map((k) => formatChord(parseChord(k))) }));
+const editorRows = (platform: KeyPlatform): ReadonlyArray<Row> =>
+  keymapFor(platform)
+    .filter((b) => b.menu === undefined && b.keys.length > 0 && paletteEntry(b)?.group === "file")
+    .map((b) => ({ title: b.title, keys: labels(b, platform) }));
 
-const SECTIONS: ReadonlyArray<{ readonly heading: string; readonly rows: ReadonlyArray<Row> }> = [
+/** "⌃1…⌃0", or "Alt+1…Alt+0" on Windows. */
+const digitRange = (modifier: string, platform: KeyPlatform) =>
+  `${shortcutLabel(`${modifier}+1`, platform)}…${shortcutLabel(`${modifier}+0`, platform)}`;
+
+interface Section {
+  readonly heading: string;
+  readonly rows: ReadonlyArray<Row>;
+}
+
+export const shortcutSections = (platform: KeyPlatform): ReadonlyArray<Section> => [
   {
     heading: "Move around",
     rows: [
-      ...fromKeymap("Go"),
-      { title: "Workspace or machine 1–10", keys: ["⌃1…⌃0", "⌥1…⌥0"] },
+      ...fromKeymap("Go", platform),
+      {
+        title: "Workspace or machine 1–10",
+        keys: digitModifiersFor(platform).map((m) => digitRange(m, platform)),
+      },
       { title: "Between session rows", keys: ["↑", "↓"] },
-      ...fromKeymap("View"),
-      ...fromKeymap("App"),
+      ...fromKeymap("View", platform),
+      ...fromKeymap("App", platform),
     ],
   },
   {
     heading: "Sessions",
     rows: [
-      ...fromKeymap("Session"),
-      { title: "Send, or steer while working", keys: ["↵"] },
-      { title: "Queue a follow-up for after the turn", keys: ["⌘↵"] },
-      { title: "New line", keys: ["⇧↵"] },
-      { title: "Stop from the composer", keys: ["esc"] },
+      ...fromKeymap("Session", platform),
+      { title: "Send, or steer while working", keys: [shortcutLabel("Enter", platform)] },
+      {
+        title: "Queue a follow-up for after the turn",
+        keys: [shortcutLabel(FIELD_CHORDS.submit, platform)],
+      },
+      { title: "New line", keys: [shortcutLabel(FIELD_CHORDS.newLine, platform)] },
+      { title: "Stop from the composer", keys: [shortcutLabel("Esc", platform)] },
     ],
   },
-  { heading: "Editor", rows: editorRows },
-  { heading: "Help", rows: fromKeymap("Help") },
+  { heading: "Editor", rows: editorRows(platform) },
+  { heading: "Help", rows: fromKeymap("Help", platform) },
 ];
 
 export const ShortcutHelp = () => {
@@ -67,7 +98,7 @@ export const ShortcutHelp = () => {
           Every keyboard shortcut in Polaris
         </DialogDescription>
         <div className="gap-section flex flex-col pt-2">
-          {SECTIONS.map((section) => (
+          {shortcutSections(currentKeyPlatform()).map((section) => (
             <section
               key={section.heading}
               aria-label={section.heading}

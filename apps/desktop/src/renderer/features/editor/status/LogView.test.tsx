@@ -2,7 +2,7 @@ import "../../../test/dom.testing.ts";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { CopyProvider } from "@polaris/ui";
 import { act, cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import * as P from "@polaris/protocol";
 import { workspaceKey } from "../model/drafts.ts";
 import { editorStore } from "../runtime/store.ts";
@@ -19,6 +19,12 @@ import { fileKey } from "../model/drafts.ts";
 import { eligible } from "./fixtures.testing.ts";
 import { LogView } from "./LogView.tsx";
 import { standInBridge } from "../../bridge.ts";
+import { setClientPlatform } from "../../../../shared/platform.ts";
+
+// These tests read macOS labels ("⌘↵", "⌃Space").
+beforeAll(() => setClientPlatform("darwin"));
+
+afterAll(() => setClientPlatform(null));
 
 beforeEach(() => standInBridge(null));
 

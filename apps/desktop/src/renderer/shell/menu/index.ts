@@ -13,14 +13,15 @@ import {
   showToast,
 } from "@polaris/ui";
 import { createElement } from "react";
-import { acceleratorLabel } from "../../../shared/chord.ts";
+import { acceleratorLabel, currentKeyPlatform } from "../../../shared/chord.ts";
 import { chordOf, type CommandId, EDIT_CHORDS } from "../../../shared/keymap.ts";
 import { polaris } from "../../features/bridge.ts";
 import { writeClipboard } from "../../features/clipboard.ts";
 import { LOCAL_HOST } from "../../routes/topBar.ts";
 
 /** A command's chord as the menu shows it ("⌥⌘T"), or nothing when it has none. */
-export const menuShortcut = (id: CommandId): string | undefined => acceleratorLabel(chordOf(id));
+export const menuShortcut = (id: CommandId): string | undefined =>
+  acceleratorLabel(chordOf(id, currentKeyPlatform()));
 
 /** The standard edit chords the native Edit menu owns ("⌘C"). */
 export const editShortcut = (action: keyof typeof EDIT_CHORDS): string =>

@@ -5,9 +5,22 @@ import type { FeedURLOptions } from "electron";
 import { cannotInstallHere } from "./identity.ts";
 import { createAppUpdates, versionFromAsset, type UpdateInput } from "./index.ts";
 import { revealAppPath, updateFeed, updatePlatform, windowsAppId } from "./platform.ts";
-import { handleSquirrelStartup, squirrelCommand } from "./squirrel.ts";
+import { handleSquirrelStartup, repairSquirrelFirstRun, squirrelCommand } from "./squirrel.ts";
 
 const exe = "C:\\Users\\me\\AppData\\Local\\Polaris-arm64-win\\app-1.2.3\\Polaris.exe";
+
+test("Windows first launch repairs shortcuts after a timed-out maintenance hook", async () => {
+  const calls: string[][] = [];
+
+  const execute = async (_exe: string, args: string[]) => {
+    calls.push(args);
+  };
+
+  await repairSquirrelFirstRun("win32", [exe, "--squirrel-firstrun"], exe, execute);
+  await repairSquirrelFirstRun("win32", [exe], exe, execute);
+  await repairSquirrelFirstRun("darwin", [exe, "--squirrel-firstrun"], exe, execute);
+  expect(calls).toEqual([["--createShortcut", "Polaris.exe"]]);
+});
 
 test("maintenance events create/remove shortcuts; first run remains a normal launch", async () => {
   const calls: Array<{ exe: string; args: string[] }> = [];

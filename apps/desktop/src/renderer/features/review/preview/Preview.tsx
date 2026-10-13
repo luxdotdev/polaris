@@ -247,7 +247,7 @@ export const mountReviewPreview = (root: HTMLElement, hash: string) => {
     });
   }
 
-  const commands = createCommandRegistry({ mac: true });
+  const commands = createCommandRegistry({ platform: "mac" });
 
   createRoot(root).render(<App value={{ connection, navigation, commands }} />);
 

@@ -7,6 +7,7 @@ const ARGUMENTS: Record<LanguageProjectFormatterTool, (file: string) => string[]
   prettier: (file) => ["--stdin-filepath", file],
   biome: (file) => ["format", `--stdin-file-path=${file}`],
   dprint: (file) => ["fmt", "--stdin", file],
+  stylua: (file) => ["--stdin-filepath", file, "-"],
 };
 
 export interface FormatterRun {

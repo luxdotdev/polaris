@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { EditorSelection } from "@codemirror/state";
 import type { CommandId } from "../../../../shared/keymap.ts";
 import { caretForClick } from "./caret.ts";
@@ -10,6 +10,12 @@ import {
   type ServerState,
   serverStateOf,
 } from "./entries.ts";
+import { setClientPlatform } from "../../../../shared/platform.ts";
+
+// These tests read macOS labels ("⌘↵", "⌃Space").
+beforeAll(() => setClientPlatform("darwin"));
+
+afterAll(() => setClientPlatform(null));
 
 const ALL_METHODS = [
   "textDocument/definition",
@@ -27,6 +33,29 @@ const CSS_METHODS = [
   "textDocument/references",
   "textDocument/rename",
   "textDocument/codeAction",
+];
+
+/** As gopls v0.23.0 and Phpactor 2026.10.07.0 (before Trust) reported them through the Daemon. */
+const GOPLS_METHODS = [
+  "textDocument/hover",
+  "textDocument/signatureHelp",
+  "textDocument/definition",
+  "textDocument/typeDefinition",
+  "textDocument/implementation",
+  "textDocument/references",
+  "textDocument/rename",
+  "textDocument/codeAction",
+  "textDocument/documentSymbol",
+  "workspace/symbol",
+  "textDocument/formatting",
+  "textDocument/completion",
+  "workspace/executeCommand",
+];
+
+const PHPACTOR_METHODS = [
+  ...GOPLS_METHODS.filter((method) => method !== "textDocument/formatting"),
+  "completionItem/resolve",
+  "textDocument/prepareRename",
 ];
 
 const ran: Array<string> = [];
@@ -99,6 +128,13 @@ describe("the Editor's right-click menu", () => {
       "Add to agent session  ⌘L",
       ...FILE_ROWS,
     ]);
+  });
+
+  test("gopls and Phpactor serve every language row", () => {
+    const all = read(menu(ready(ALL_METHODS), AGENT));
+
+    expect(read(menu(ready(GOPLS_METHODS), AGENT))).toEqual(all);
+    expect(read(menu(ready(PHPACTOR_METHODS), AGENT))).toEqual(all);
   });
 
   test("rows the file's servers can't serve are left out (CSS, Paper 19)", () => {

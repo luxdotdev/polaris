@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { defaultKeymap } from "@codemirror/commands";
 import { EditorState } from "@codemirror/state";
-import { cmChord, shellChords, shellSafe } from "./keys.ts";
+import { cmChord, cmShortcut, shellChords, shellSafe } from "./keys.ts";
+import { LANGUAGE_NAVIGATION } from "../navigation/commands.ts";
 import { minimalChange, reloadPlan } from "./reload.ts";
 import { cursorOf } from "./cursor.ts";
 import { lineEnding, lineEndingCompartment } from "../runtime/editorState.ts";
@@ -11,14 +12,14 @@ import { positionText } from "../ui/EditorStatus.tsx";
 
 describe("shell chords stay the shell's", () => {
   test("CodeMirror key names map to the shell's chords", () => {
-    expect(cmChord("Mod-i", true)).toBe("Mod+KeyI");
-    expect(cmChord("Mod-Alt-ArrowUp", true)).toBe("Mod+Alt+ArrowUp");
-    expect(cmChord("Ctrl-Space", true)).toBe("Ctrl+Space");
-    expect(cmChord("Mod--", true)).toBe("Mod+Minus");
+    expect(cmChord("Mod-i", "mac")).toBe("Mod+KeyI");
+    expect(cmChord("Mod-Alt-ArrowUp", "mac")).toBe("Mod+Alt+ArrowUp");
+    expect(cmChord("Ctrl-Space", "mac")).toBe("Ctrl+Space");
+    expect(cmChord("Mod--", "mac")).toBe("Mod+Minus");
   });
 
   test("⌘I, ⌘L, ⌘P, ⌘S and ⌃1…9 are reserved; ⌘/ stays the editor's", () => {
-    const reserved = shellChords();
+    const reserved = shellChords("mac");
 
     for (const chord of [
       "Mod+KeyI",
@@ -36,7 +37,7 @@ describe("shell chords stay the shell's", () => {
   });
 
   test("the default keymap loses select-line (⌘L) and add-cursor-above (⌘⌥↑)", () => {
-    const kept = shellSafe(defaultKeymap, true);
+    const kept = shellSafe(defaultKeymap, "mac");
     const keys = kept.map((b) => b.mac ?? b.key);
 
     expect(keys).not.toContain("Mod-l");
@@ -44,6 +45,29 @@ describe("shell chords stay the shell's", () => {
     expect(keys).not.toContain("Mod-Alt-ArrowUp");
     expect(keys).toContain("Mod-/");
     expect(kept.length).toBeGreaterThan(defaultKeymap.length - 8);
+  });
+});
+
+describe.each(["mac", "windows", "linux"] as const)("editor keys on %s", (platform) => {
+  test("no language command's key is a shell chord", () => {
+    const shell = shellChords(platform);
+    const keys = LANGUAGE_NAVIGATION.flatMap((c) => (c.key === undefined ? [] : [c.key]));
+
+    expect(keys.filter((k) => shell.has(cmChord(k, platform)))).toEqual([]);
+  });
+});
+
+describe("editor keys on Windows", () => {
+  test("Ctrl is the mod key and labels read as words", () => {
+    expect(cmChord("Ctrl-Space", "windows")).toBe("Mod+Space");
+    expect(cmShortcut("Shift-F12", "windows")).toBe("Shift+F12");
+    expect(cmShortcut("Ctrl--", "windows")).toBe("Ctrl+-");
+  });
+
+  test("the default keymap loses only Ctrl+I (select parent syntax) to the shell", () => {
+    const kept = new Set(shellSafe(defaultKeymap, "windows"));
+
+    expect(defaultKeymap.filter((b) => !kept.has(b)).map((b) => b.key)).toEqual(["Mod-i"]);
   });
 });
 

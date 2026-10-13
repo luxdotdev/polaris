@@ -29,7 +29,7 @@ export interface GitOptions {
  * TTY), never take optional locks (a background `git status` must not fight
  * the user's own git for `index.lock`), and a stable locale for parsing.
  */
-const baseEnv = () => ({
+export const baseEnv = () => ({
   ...process.env,
   GIT_TERMINAL_PROMPT: "0",
   GIT_OPTIONAL_LOCKS: "0",

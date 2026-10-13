@@ -1,0 +1,46 @@
+# Host prediction context
+
+`prediction.context` uses the existing lazy Host language graph, registered
+checkout resolver, Trust service, authenticated connection and LanguageBroker.
+It never acquires or synchronizes a language context. Only a Ready UTF-16 server
+owned by the current Editor connection, with exactly the submitted draft, can
+contribute LSP context. Trust is mandatory here even for bundled servers which
+can otherwise run before Trust. Revocation, replacement, document edits and
+connection loss fence results before return.
+
+The language graph registers a thin lazy handler. The assembler and outline
+parser import only on the first `prediction.context` request, with one cached
+build in the Daemon scope. Native tree-sitter and its grammars load only when
+that request parses supported code; no prediction WASM or grammar loads at startup.
+
+The request path selects the most specific registered Workspace, Worktree or
+ready Review Checkout. Relative paths are relative to the Workspace. Import
+outlines currently support TypeScript/JavaScript local relative imports (four
+modules, no recursive graph walk). Tree-sitter extracts exported signatures;
+no Workspace code or module loader runs. Files are at most 128 KiB, read through
+held descriptors beneath the canonical checkout, with symlink/root checks.
+Larger files and unsupported languages still get bounded LSP context and edits.
+
+Definitions use hover, definition targets and document symbols from existing
+sessions; diagnostics reuse versioned publications. Request deadlines expire
+70 ms after selecting the session; unavailable methods degrade to other pieces.
+Stable definitions and outlines precede diagnostics and frozen edit hunks.
+`packages/predict` counts and packs all text including source labels. Its default
+UTF-8 byte counter is deliberately conservative, not the model tokenizer.
+
+Caches contain at most 32 bounded file parses; exact text comparison invalidates
+on both buffer and imported-file edits without watchers. Edit snapshots are
+scoped to the exact connection and file. They update on the first request after
+a 500 ms pause, detected by comparing request times. There are no new polling
+loops or background timers. Cold lazy initialization is reported separately.
+
+## Auto-import seam
+
+v1 does not request completions speculatively or apply additionalTextEdits.
+A future adapter can consume an Editor completion result already retained by
+`runtime/FeatureEvidence`, select candidates for identifiers in generated text,
+and emit their label and import signature as definition pieces. It must retain
+the original `LanguageFeatureRequest`/fence and route additionalTextEdits through
+existing preparation and proposal authorities after acceptance. A model-produced
+piece is never edit authority. This keeps import edits out of ghost acceptance
+until the Client can validate the exact captured completion item.

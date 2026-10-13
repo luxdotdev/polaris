@@ -27,7 +27,8 @@ export const completionDocs = (item: CompletionItem, language: string): readonly
   const docs = item.documentation ? tidyDocs(hoverPart(item.documentation)) : undefined;
   const parts: HoverPart[] = [];
 
-  if (detail && !docs?.text.includes(detail))
+  // Docs that open with their own signature (basedpyright, Phpactor) need no detail above them.
+  if (detail && !docs?.text.includes(detail) && !/^(`{3,}|~{3,})/.test(docs?.text ?? ""))
     parts.push({ kind: "markdown", text: fence(language, detail) });
 
   if (docs && docs.text !== "") {

@@ -52,6 +52,7 @@ import {
 } from "./rpc.ts";
 import { defaultControlDir, ensureControlDir, type SshOptions, sshArgv } from "./ssh.ts";
 import { type Connector, socketTransport, spawnTransport } from "./transport.ts";
+import { type WslConnectorOptions, wslConnector } from "./wsl/transport.ts";
 
 export type HostTarget = Data.TaggedEnum<{
   Local: { readonly socketPath: string };
@@ -60,6 +61,8 @@ export type HostTarget = Data.TaggedEnum<{
     /** Per-Host toggle; off by default. */
     readonly forwardAgent?: boolean;
   };
+  /** A WSL 2 distro on this Windows machine (experimental; `wsl/`). */
+  Wsl: { readonly distro: string };
 }>;
 
 export const HostTarget = Data.taggedEnum<HostTarget>();
@@ -93,6 +96,7 @@ export interface HostConnectionOptions {
   readonly policy?: Partial<ReconnectPolicy>;
   readonly rpc?: RpcConnectionOptions;
   readonly ssh?: SshOptions;
+  readonly wsl?: WslConnectorOptions;
 }
 
 export interface ConnectionStatus {
@@ -217,6 +221,14 @@ const connectorFor = (options: HostConnectionOptions): Connector => {
           })
         );
       }),
+    Wsl: (target) => {
+      const remoteCommand = options.ssh?.remoteCommand;
+
+      return wslConnector(
+        target.distro,
+        remoteCommand === undefined ? (options.wsl ?? {}) : { ...options.wsl, remoteCommand }
+      );
+    },
   });
 };
 

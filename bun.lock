@@ -31,6 +31,7 @@
         "@effect/sql-sqlite-bun": "4.0.0-rc.118",
         "@ff-labs/fff-bun": "0.11.1-nightly.89c1927",
         "@polaris/client": "workspace:*",
+        "@polaris/predict": "workspace:*",
         "@polaris/protocol": "workspace:*",
         "effect": "4.0.0-rc.118",
         "xstate": "6.0.0-alpha.61",
@@ -81,6 +82,7 @@
         "@pierre/diffs": "1.5.1",
         "@polaris/bench": "workspace:*",
         "@polaris/client": "workspace:*",
+        "@polaris/predict": "workspace:*",
         "@polaris/protocol": "workspace:*",
         "@polaris/ui": "workspace:*",
         "@replit/codemirror-vim": "^6.4.0",
@@ -169,6 +171,14 @@
         "@oxlint/plugins": "1.86.0",
         "effect": "4.0.0-rc.118",
         "eslint-plugin-sonarjs": "4.2.2",
+      },
+    },
+    "packages/predict": {
+      "name": "@polaris/predict",
+      "version": "0.0.0",
+      "dependencies": {
+        "@polaris/protocol": "workspace:*",
+        "effect": "4.0.0-rc.118",
       },
     },
     "packages/protocol": {
@@ -808,6 +818,8 @@
     "@polaris/desktop": ["@polaris/desktop@workspace:apps/desktop"],
 
     "@polaris/lint-config": ["@polaris/lint-config@workspace:packages/lint-config"],
+
+    "@polaris/predict": ["@polaris/predict@workspace:packages/predict"],
 
     "@polaris/protocol": ["@polaris/protocol@workspace:packages/protocol"],
 

@@ -1,11 +1,12 @@
 /**
  * O1 Welcome (DESIGN.md, Onboarding; Paper 571-1 night, 5OY-1 dawn): the one
  * brand moment. The scene, the lockup, the tagline, "Get started", and what
- * was found on this Mac.
+ * was found on this machine.
  */
 import { HARNESS_CATALOGUE } from "@polaris/protocol";
 import { Button, ButtonKeycap, Clearing, Scene } from "@polaris/ui";
 import { type ReactNode, useEffect } from "react";
+import { clientCopy } from "../../../../shared/clientCopy.ts";
 import { useOnboarding, useOnboardingState } from "../hooks.ts";
 import { drivesLine, foundLine, installedNames } from "../model.ts";
 import { useAvailability } from "./useAvailability.ts";
@@ -66,8 +67,8 @@ export const Welcome = () => {
             The north star for your agents.
           </p>
           <p className="text-heading-sm text-text-default font-regular">
-            Launch, steer, and review {drivesLine(installed, CATALOGUE)} on this Mac and every host
-            you reach over SSH.
+            Launch, steer, and review {drivesLine(installed, CATALOGUE)} on {clientCopy().machine}{" "}
+            and every host you reach over SSH.
           </p>
         </div>
         <Button
@@ -85,7 +86,7 @@ export const Welcome = () => {
         className="absolute inset-x-8 bottom-7 flex items-center justify-between gap-4"
       >
         <Note>
-          <span className="text-text-strong">Found on this Mac</span>
+          <span className="text-text-strong">Found on {clientCopy().machine}</span>
           <span className="text-text-default truncate">
             {foundLine(availability, sshHosts?.length ?? null)}
           </span>

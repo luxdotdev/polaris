@@ -21,6 +21,32 @@ const combinedEvidence = { ...upstreamEvidence, ...webEvidence };
 
 const EvidenceKey = Schema.Literals(Object.keys(combinedEvidence));
 
+/** A bare or gzipped executable, or a PHAR (run by the Host's PHP, so not executable), with its notices. */
+async function singleExecutable(
+  bytes: Uint8Array,
+  exact: ExactArtifact,
+  notices: Readonly<Record<string, string>>,
+  signal: AbortSignal
+) {
+  const executable =
+    exact.artifact.format === "gz" ? await gunzip(bytes, signal, upstreamLimits.fileBytes) : bytes;
+
+  return [
+    {
+      path: exact.artifact.entry,
+      kind: "file" as const,
+      mode: exact.artifact.format === "phar" ? 0o644 : 0o755,
+      bytes: executable,
+    },
+    ...Object.entries(notices).map(([path, notice]) => ({
+      path,
+      kind: "file" as const,
+      mode: 0o644,
+      bytes: Buffer.from(notice),
+    })),
+  ];
+}
+
 /** Pinned upstream archives only; Node retains its executable and licence, never npm or package scripts. */
 export async function decodeUpstream(
   bytes: Uint8Array,
@@ -39,19 +65,12 @@ export async function decodeUpstream(
 
   const prefix = archivePrefix(exact);
 
-  if (exact.artifact.format === "binary")
+  if (["binary", "gz", "phar"].includes(exact.artifact.format))
     return {
       manifestBytes,
-      entries: [
-        { path: exact.artifact.entry, kind: "file", mode: 0o755, bytes },
-        ...Object.entries(evidence.notices).map(([path, notice]) => ({
-          path,
-          kind: "file" as const,
-          mode: 0o644,
-          bytes: Buffer.from(notice),
-        })),
-      ],
+      entries: await singleExecutable(bytes, exact, evidence.notices, signal),
     };
+
   const archive = await gunzip(bytes, signal, upstreamLimits.expandedBytes);
 
   const select = isNode
@@ -59,7 +78,7 @@ export async function decodeUpstream(
     : undefined;
 
   const entries = tarEntries(archive, signal, upstreamLimits, select, {
-    gnuHeaders: exact.tool.id === "ruff",
+    gnuHeaders: ["ruff", "lua-language-server"].includes(exact.tool.id),
   })
     .filter((entry) => entry.path !== prefix.slice(0, -1))
     .map((entry) => {
@@ -131,5 +150,5 @@ function archivePrefix(exact: ExactArtifact) {
   if (exact.tool.id === "node")
     return `node-v${exact.tool.version}-${exact.platform.os}-${exact.platform.arch}/`;
 
-  return exact.tool.id === "ruff" ? "" : "package/";
+  return ["ruff", "lua-language-server"].includes(exact.tool.id) ? "" : "package/";
 }

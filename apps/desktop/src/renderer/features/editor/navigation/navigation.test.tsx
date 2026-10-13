@@ -1,7 +1,7 @@
 import "../../../test/dom.testing.ts";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { act, cleanup, fireEvent, render, within } from "@testing-library/react";
-import { afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { KEYMAP } from "../../../../shared/keymap.ts";
 import type { LanguageQueries } from "../lsp/queries.ts";
 import type { LanguageRow } from "../lsp/state.ts";
@@ -12,6 +12,12 @@ import { runNavigation } from "./run.ts";
 import { navigationStore, openRename, openSymbolSearch } from "./store.ts";
 import { Command } from "@polaris/ui";
 import { SymbolResults } from "./SymbolSearch.tsx";
+import { setClientPlatform } from "../../../../shared/platform.ts";
+
+// These tests read macOS labels ("⌘↵", "⌃Space").
+beforeAll(() => setClientPlatform("darwin"));
+
+afterAll(() => setClientPlatform(null));
 
 // Another DOM test file may have unregistered happy-dom already.
 beforeAll(() => {

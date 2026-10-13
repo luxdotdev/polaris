@@ -61,7 +61,8 @@
     "react-dom": "19.3.0",
     "streamdown": "2.7.0",
     "xstate": "6.0.0-alpha.61",
-    "zustand": "5.0.15"
+    "zustand": "5.0.15",
+    "@polaris/predict": "workspace:*"
   },
   "devDependencies": {
     "@babel/core": "8.0.6",

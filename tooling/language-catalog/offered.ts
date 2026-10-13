@@ -5,7 +5,9 @@ export const offeredTools = (data: Catalog): ReadonlyArray<Tool> =>
 
 const artifactFailures = (data: Catalog): ReadonlyArray<string> =>
   offeredTools(data).flatMap((tool) => [
-    ...(tool.artifacts.length === 0 ? [`${tool.id}: missing-artifacts`] : []),
+    ...(tool.artifacts.length === 0 && tool.distribution !== "developer"
+      ? [`${tool.id}: missing-artifacts`]
+      : []),
     ...tool.artifacts.flatMap((artifact) =>
       artifact.format === "npm" && !artifact.bundle && tool.distribution !== "runtime-upstream"
         ? [`${tool.id}: missing-npm-bundle`]
@@ -43,6 +45,12 @@ export const referenceFailures = (data: Catalog): ReadonlyArray<string> => {
     failures.push(...companionFailures(integration, managed));
 
     if (integration.formatter.source === "managed") continue;
+
+    if (
+      integration.formatter.source === "developer" &&
+      integration.providers.some((provider) => provider.tool === integration.formatter.tool)
+    )
+      continue;
 
     const declared = integration.providers.some((provider) =>
       data.tools

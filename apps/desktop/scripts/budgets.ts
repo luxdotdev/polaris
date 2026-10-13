@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { modelServerMemory } from "./lib/modelServerMemory.ts";
 /**
  * The Desktop App's M1 budgets, measured on the built app against a throwaway
  * Daemon on the bench Harness (PRODUCT.md, DESIGN.md Performance):
@@ -240,6 +241,7 @@ interface Measured {
   };
   memory?: {
     readonly trees: ReadonlyArray<TreeMemory>;
+    readonly modelServers: ReadonlyArray<TreeMemory>;
     readonly footprintMiB: number;
     readonly rssMiB: number;
   };
@@ -354,7 +356,22 @@ try {
   const total = (field: "rssMiB" | "footprintMiB") =>
     trees.reduce((sum, tree) => sum + (tree[field] ?? tree.rssMiB), 0);
 
-  measured.memory = { trees, footprintMiB: total("footprintMiB"), rssMiB: total("rssMiB") };
+  const modelServers = await modelServerMemory(APP_DIR);
+  measured.memory = {
+    trees,
+    modelServers,
+    footprintMiB: total("footprintMiB"),
+    rssMiB: total("rssMiB"),
+  };
+
+  for (const server of modelServers) {
+    report(
+      "Model servers (outside Desktop App budget)",
+      `${(server.footprintMiB ?? server.rssMiB).toFixed(0)} MiB`,
+      "reported separately",
+      true
+    );
+  }
 
   for (const tree of trees) {
     step(

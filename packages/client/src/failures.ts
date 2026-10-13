@@ -18,6 +18,10 @@ export const NeedsAttentionReason = Schema.Literals([
   "ssh-config-error",
   "ssh-missing",
   "command-missing",
+  /** `wsl.exe` is missing or WSL isn't installed on this Windows machine. */
+  "wsl-missing",
+  /** The WSL distro the Host names no longer exists (unregistered or renamed). */
+  "wsl-distro-missing",
   /** No `~/.polaris/bin/current/polaris` (or `polaris` on PATH): the install flow is needed. */
   "polaris-not-installed",
   /** `polaris bridge` ran but no Daemon is listening on the Host. */

@@ -63,11 +63,14 @@ const MONOGRAMS = new Map<string, string>([
   ["yaml", "YM"],
   ["actions", "YM"],
   ["prisma", "PR"],
+  ["lua", "LU"],
 ]);
 
 /** What the row adds after "Ready" for an integration with something to say. */
 const READY_NOTES = new Map<string, string>([
   ["typescript", "uses each project's TypeScript once you trust it"],
+  ["php", "uses the project's Composer and php-cs-fixer once you trust it"],
+  ["go", "starts once you trust the workspace"],
 ]);
 
 const ROLE_LABELS = {
@@ -150,18 +153,25 @@ const notDownloaded = (
   return `Not downloaded yet · ${listed(servers)} ${verb} with your first ${file}`;
 };
 
+/** A developer tool is never downloaded: it is ready once its Prerequisites are on the Host. */
+const ready = (fact: Availability, developer: ReadonlySet<string>) =>
+  Predicate.isTagged(fact.state, "Installed") ||
+  (developer.has(fact.toolId) &&
+    fact.prerequisites.every((p) => !p.requirement.required || p.presence === "present"));
+
 const stateOf = (
   integrationId: string,
   servers: ReadonlyArray<string>,
   syntaxIds: ReadonlyArray<P.LanguageSyntaxId>,
   facts: ReadonlyArray<Availability>,
-  context: RowContext
+  context: RowContext,
+  developer: ReadonlySet<string>
 ) => {
   const urgent = installState(facts) ?? missingPrerequisite(facts, context.host);
 
   if (urgent !== null) return urgent;
 
-  if (facts.length > 0 && facts.every((f) => Predicate.isTagged(f.state, "Installed"))) {
+  if (facts.length > 0 && facts.every((f) => ready(f, developer))) {
     const note = READY_NOTES.get(integrationId);
 
     return note === undefined ? "Ready" : `Ready · ${note}`;
@@ -227,11 +237,20 @@ const factsOf = (
     const tool = tools.get(provider.tool);
 
     if (tool === undefined) continue;
-    facts.push({
-      label: ROLE_LABELS[provider.role],
-      value: `${tool.id} ${versionOf(availability.get(tool.id), tool.version)}`,
-      mono: true,
-    });
+    facts.push(
+      tool.distribution === "developer"
+        ? {
+            label: ROLE_LABELS[provider.role],
+            value: tool.id,
+            mono: true,
+            note: `yours, on ${host}`,
+          }
+        : {
+            label: ROLE_LABELS[provider.role],
+            value: `${tool.id} ${versionOf(availability.get(tool.id), tool.version)}`,
+            mono: true,
+          }
+    );
   }
 
   const bundled = group.some((i) => i.id === "typescript") ? tools.get("typescript") : undefined;
@@ -274,6 +293,11 @@ export const languageRows = (
   context: RowContext
 ): ReadonlyArray<LanguageRow> => {
   const byTool = new Map(availability.map((a) => [a.toolId, a]));
+
+  const developer = new Set(
+    catalog.tools.filter((tool) => tool.distribution === "developer").map((tool) => tool.id)
+  );
+
   const groups = new Map<string, Integration[]>();
 
   for (const integration of catalog.integrations.filter(offered)) {
@@ -299,7 +323,7 @@ export const languageRows = (
       id: key,
       name: listed([...new Set(group.map(nameOf))].sort((a, b) => a.length - b.length)),
       monogram: MONOGRAMS.get(first.id) ?? nameOf(first).slice(0, 2).toUpperCase(),
-      state: stateOf(first.id, servers, syntaxIds, facts, context),
+      state: stateOf(first.id, servers, syntaxIds, facts, context, developer),
       syntaxIds,
       facts: factsOf(group, catalog, byTool, context.host),
     };

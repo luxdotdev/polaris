@@ -5,6 +5,7 @@
 import { cn, Kbd, SEVERITY_LABELS, SeverityGlyph, Tile } from "@polaris/ui";
 import { useEffect, useState } from "react";
 import { reviewDigits } from "../../../routes/review.ts";
+import { shortcutLabel } from "../../../routes/topBar.ts";
 import type { RiskMark } from "../model/findings.ts";
 import type { OpenPull } from "../../../../shared/api.ts";
 import { ByUrl } from "../../pulls/ui/ByUrl.tsx";
@@ -36,7 +37,7 @@ const Mark = ({ mark }: { readonly mark: RiskMark | null }) =>
     </span>
   );
 
-/** Whether Control is held: the first nine rows show their ⌃N. */
+/** Whether Control is held: the first nine rows show their ⌃N (Ctrl+N off macOS). */
 const useCtrlHeld = () => {
   const [held, setHeld] = useState(false);
 
@@ -185,7 +186,7 @@ export const Queue = ({
                     <TallRow row={row} selected={isSelected} />
                   )}
                   {held && digit < 9 ? (
-                    <Kbd data-testid="review-queue-digit">⌃{digit + 1}</Kbd>
+                    <Kbd data-testid="review-queue-digit">{shortcutLabel(digit)}</Kbd>
                   ) : (
                     <Mark mark={markOf(row)} />
                   )}

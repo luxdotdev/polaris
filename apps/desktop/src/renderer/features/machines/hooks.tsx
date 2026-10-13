@@ -7,6 +7,7 @@ import type {
   RequestInput,
   RequestMethod,
   RequestOutput,
+  WslDistrosView,
 } from "../../../shared/api.ts";
 import { polaris } from "../bridge.ts";
 
@@ -39,6 +40,38 @@ export const call = async <M extends RequestMethod>(
   });
 
   return null;
+};
+
+export interface WslDistrosHook {
+  /** null until answered; `unsupported` off Windows. */
+  readonly wsl: WslDistrosView | null;
+  /** Asks once more ("Look again" after installing WSL). */
+  readonly again: () => void;
+}
+
+const NO_WSL: WslDistrosView = { status: "unsupported", distros: [], detail: null };
+
+/** The WSL distros on this machine, asked once per page and on demand; a refusal reads as none. */
+export const useWslDistros = (): WslDistrosHook => {
+  const [wsl, setWsl] = useState<WslDistrosView | null>(null);
+  const [asked, setAsked] = useState(0);
+
+  useEffect(() => {
+    let live = true;
+
+    // Not a toast: a main process without the request (the preview) just has no WSL.
+    void polaris()
+      .request("machines.wslDistros", {})
+      .then((result) => {
+        if (live) setWsl(result.ok ? result.value : NO_WSL);
+      });
+
+    return () => {
+      live = false;
+    };
+  }, [asked]);
+
+  return { wsl, again: () => setAsked((n) => n + 1) };
 };
 
 /** The current time, ticking every second while `live`; still otherwise (idle costs nothing). */

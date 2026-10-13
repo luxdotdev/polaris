@@ -16,6 +16,8 @@ import {
 } from "react";
 import type { TurnView } from "../../../store/sessionModel.ts";
 import { findInTranscript, type Hit } from "../model/search.ts";
+import { shortcutLabel } from "../../../../shared/chord.ts";
+import { FIELD_CHORDS } from "../../../../shared/keymap.ts";
 
 const MATCH = "transcript-match";
 
@@ -250,13 +252,17 @@ export const TranscriptSearch = ({
         {countLabel(deferred, hits.length, Math.min(index, hits.length - 1))}
       </span>
       <IconButton
-        label="Match case (⌥C)"
+        label={`Match case (${shortcutLabel(FIELD_CHORDS.matchCase)})`}
         pressed={matchCase}
         onClick={() => setMatchCase((v) => !v)}
       >
         <span className="font-mono text-[12px]">Aa</span>
       </IconButton>
-      <IconButton label="Previous match (⇧↵)" disabled={hits.length === 0} onClick={() => step(-1)}>
+      <IconButton
+        label={`Previous match (${shortcutLabel(FIELD_CHORDS.previousMatch)})`}
+        disabled={hits.length === 0}
+        onClick={() => step(-1)}
+      >
         <ChevronUpIcon size={10} />
       </IconButton>
       <IconButton label="Next match (↵)" disabled={hits.length === 0} onClick={() => step(1)}>

@@ -1,5 +1,6 @@
 import type * as P from "@polaris/protocol";
 import { Match, Predicate } from "effect";
+import { commandShortcut } from "../../../../shared/keymap.ts";
 
 export type TrustStatus = typeof P.LanguageTrustStatus.Type;
 
@@ -49,8 +50,7 @@ export const trustCopy = (status: TrustStatus, workspace: string, host: string):
         ? "Run this review checkout's own language tools?"
         : `Run ${workspace}'s own language tools?`,
       body: `${review ? "This review checkout" : "This workspace"} has ${workspaceTools.join(" and ")}. Trusting it runs them on ${host} as you.`,
-      caption:
-        "Until then, bundled tools check your code without project config. Change this any time with ⇧⌘P.",
+      caption: `Until then, bundled tools check your code without project config. Change this any time with ${commandShortcut("palette.open")}.`,
       trust: review ? "Trust review checkout" : `Trust ${workspace}`,
     };
 
@@ -68,7 +68,7 @@ export const trustCopy = (status: TrustStatus, workspace: string, host: string):
       ? "Run this review checkout's own TypeScript?"
       : `Run ${workspace}'s own TypeScript?`,
     body: `${subject} has ${has}. Trusting it runs ${them} on ${host} as you, so errors match what tsc reports.`,
-    caption: "Until then, the bundled TypeScript checks your code. Change this any time with ⇧⌘P.",
+    caption: `Until then, the bundled TypeScript checks your code. Change this any time with ${commandShortcut("palette.open")}.`,
     trust: review ? "Trust review checkout" : `Trust ${workspace}`,
   };
 };

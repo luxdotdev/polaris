@@ -20,7 +20,13 @@ describe("top bar mode (ENG-177)", () => {
   });
 
   test("⌃1…⌃9 then ⌃0 for the tenth, nothing after", () => {
-    expect([0, 8, 9, 10].map(shortcutLabel)).toEqual(["⌃1", "⌃9", "⌃0", undefined]);
+    expect([0, 8, 9, 10].map((i) => shortcutLabel(i, "mac"))).toEqual([
+      "⌃1",
+      "⌃9",
+      "⌃0",
+      undefined,
+    ]);
+    expect([0, 9].map((i) => shortcutLabel(i, "windows"))).toEqual(["Ctrl+1", "Ctrl+0"]);
   });
 });
 

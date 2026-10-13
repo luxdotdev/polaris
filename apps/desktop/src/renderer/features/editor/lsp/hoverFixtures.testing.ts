@@ -1,6 +1,7 @@
 /**
  * Raw `textDocument/hover` payloads captured from the pinned servers (basedpyright 1.40.2,
  * typescript-language-server via the Daemon) on 2026-10-11. Ruff answers no hovers (Polaris turns them off).
+ * gopls v0.23.0 and Phpactor 2026.10.07.0, via the Daemon, on 2026-10-12.
  */
 import type { Hover } from "./payloads.ts";
 
@@ -31,6 +32,27 @@ export const MARKDOWN = {
   TS_PROPERTY: {
     kind: "markdown",
     value: "\n```typescript\n(property) Host.label: string\n```\nIts name, as the user wrote it.",
+  } satisfies Contents,
+  GOPLS_FUNCTION: {
+    kind: "markdown",
+    value:
+      "```go\nfunc Greet(name string) string\n```\n\n---\n\nGreet says hello.\n\n\n---\n\n[`main.Greet` on pkg.go.dev](https://pkg.go.dev/example.com/fixture#Greet)",
+  } satisfies Contents,
+  PHPACTOR_METHOD: {
+    kind: "markdown",
+    value:
+      "### Greeter # greet\n\nSays hello.\n\n```php\n<?php public function greet(string $name): string\n```",
+  } satisfies Contents,
+  /** rust-analyzer 2026-09-28, before Trust (a rust-project.json from Cargo.toml), on 2026-10-12. */
+  RUST_FUNCTION: {
+    kind: "markdown",
+    value:
+      "\n```rust\nutil\n```\n\n```rust\npub fn add(a: i32, b: i32) -> i32\n```\n\n---\n\nAdds two numbers.",
+  } satisfies Contents,
+  /** lua-language-server 3.19.1 on a `---@param` annotated local function, on 2026-10-12. */
+  LUA_FUNCTION: {
+    kind: "markdown",
+    value: "```lua\nfunction greet(name: string)\n  -> string\n```\n\n---\n\nGreets someone.",
   } satisfies Contents,
 };
 

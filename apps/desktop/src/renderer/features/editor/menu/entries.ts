@@ -3,8 +3,8 @@
  * servers can't serve are left out; while a server starts, its rows dim with "Starting".
  */
 import { MENU_SEPARATOR_ENTRY, type MenuAction, type MenuEntry, tidyEntries } from "@polaris/ui";
-import { acceleratorLabel } from "../../../../shared/chord.ts";
-import { bindingOf, type CommandId, EDIT_CHORDS } from "../../../../shared/keymap.ts";
+import { acceleratorLabel, currentKeyPlatform } from "../../../../shared/chord.ts";
+import { bindingOf, chordOf, type CommandId, EDIT_CHORDS } from "../../../../shared/keymap.ts";
 import type { LanguageViewState } from "../lsp/state.ts";
 import type { FileLanguage } from "../status/store.ts";
 import {
@@ -121,7 +121,7 @@ const keymapRow = (id: CommandId, run: () => void): MenuAction | null => {
         label: binding.title,
         onSelect: run,
         needsInput: binding.needsInput === true,
-        shortcut: acceleratorLabel(binding.keys[0]),
+        shortcut: acceleratorLabel(chordOf(id, currentKeyPlatform())),
         testId: testIdOf(id),
       };
 };
