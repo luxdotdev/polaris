@@ -72,9 +72,22 @@ export function configurationWatches(
   }
 
   async function metadata(root: string, group: WatchGroup, changed: (path: string) => void) {
-    for (const stop of group.metadataStops) stop();
+    // Subscribe before releasing the old watches, so a still-wanted directory keeps its watcher.
+    const previous = group.metadataStops;
     group.metadataStops = [];
 
+    try {
+      await subscribeMetadata(root, group, changed);
+    } finally {
+      for (const stop of previous) stop();
+    }
+  }
+
+  async function subscribeMetadata(
+    root: string,
+    group: WatchGroup,
+    changed: (path: string) => void
+  ) {
     const directories = new Set([root]);
 
     for (const path of manifestPaths(root, group)) {
@@ -90,10 +103,9 @@ export function configurationWatches(
 
       if (canonical === null) continue;
       group.metadataStops.push(
-        subscribeDirectoryChanges(canonical, (path) => {
-          if (["node_modules", "typescript", "package.json"].includes(basename(path)))
-            changed(path);
-        })
+        // Any event here may be a manifest's: Bun on Linux delivers only the first of events read
+        // together (a mkdir then a rename names just the mkdir), so the flush's versions decide.
+        subscribeDirectoryChanges(canonical, () => changed(join(canonical, "package.json")))
       );
     }
   }
