@@ -54,7 +54,12 @@ export interface InstallContext {
 
 export type InstallEvent =
   | { readonly type: "check"; readonly trigger: InstallTrigger }
-  | { readonly type: "planned"; readonly plan: InstallPlan }
+  | {
+      readonly type: "planned";
+      readonly plan: InstallPlan;
+      /** This Mac's own Daemon, from the app's build: an install needs no approval. */
+      readonly trusted?: boolean;
+    }
   | { readonly type: "approve" }
   | { readonly type: "dismiss" }
   | { readonly type: "applied"; readonly outcome: InstallOutcome }
@@ -104,7 +109,7 @@ const planned = ({ context, event }: { context: InstallContext; event: Omit<Plan
     Match.tagsExhaustive({
       NeedsApproval: (plan) => ask(plan),
       Install: (plan) =>
-        context.trigger === "user"
+        context.trigger === "user" || event.trusted === true
           ? { target: "installing" as const, context: { ...cleared, work: plan } }
           : ask(plan),
       Upgrade: (plan) => ({ target: "installing" as const, context: { ...cleared, work: plan } }),

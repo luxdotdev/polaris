@@ -120,6 +120,25 @@ describe("attention cards", () => {
     expect(attentionCard(attention("daemon-not-running"))?.fix?.action).toBe("start-daemon");
   });
 
+  test("this Mac with nothing installed offers Install with no approval; its log shows when stopped", () => {
+    const local = { kind: "local" as const, key: "local", alias: null, label: "This Mac" };
+    const missing = { ...attention("polaris-not-installed"), ...local };
+
+    expect(attentionCard(missing)).toMatchObject({
+      title: "Polaris isn't installed on This Mac",
+      fix: { label: "Install", action: "check" },
+    });
+    expect(attentionCard(missing)?.body).toContain("~/.polaris");
+
+    const log = "no Daemon is listening on /s.sock\n/h/.polaris/logs/daemon.err.log:\nkilled";
+    const stopped = { ...attention("daemon-not-running", log), ...local };
+
+    expect(attentionCard(stopped)).toMatchObject({
+      detail: log,
+      fix: { action: "start-daemon" },
+    });
+  });
+
   test("a protocol mismatch names the older side and offers the fix on that side", () => {
     expect(attentionCard(attention("protocol-mismatch", "v", "daemon"))).toMatchObject({
       title: "Raspberry Pi 4 runs an older daemon",

@@ -13,6 +13,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import { connect } from "node:net";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import { localDaemonFailure } from "@polaris/client";
 
 export interface LocalDaemon {
   readonly socketPath: string;
@@ -143,6 +144,29 @@ export const startDevDaemon = async ({
   await waitForSocket(socketPath, child, 15_000);
 
   return { socketPath, benchHarness: true, installedHome: null, stop: () => stopChild(child) };
+};
+
+/**
+ * Waits for the Daemon `polaris install` just started from `home` to listen
+ * (launchd takes a second or two); on timeout, fails with what its log says.
+ */
+export const awaitInstalledDaemon = async (
+  socketPath: string,
+  home: string,
+  timeoutMs = 15_000
+): Promise<void> => {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    if (await socketLive(socketPath, 200)) return;
+    await sleep(100);
+  }
+
+  const evidence = localDaemonFailure(socketPath, home).detail.split("\n").slice(1);
+
+  throw new Error(
+    [`the daemon didn't start listening within ${timeoutMs / 1000} s`, ...evidence].join(" · ")
+  );
 };
 
 export const resolveLocalDaemon = async (options: LocalDaemonOptions): Promise<LocalDaemon> => {

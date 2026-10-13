@@ -37,6 +37,7 @@ export interface MachinesLayerInput {
   readonly dev: boolean;
   readonly localDaemon: () => Promise<LocalDaemon>;
   readonly localHome: () => string | null;
+  readonly localListening: (home: string) => Promise<void>;
 }
 
 /** Runs `argv` in a new Terminal window, through a `.command` file macOS opens there. */
@@ -71,6 +72,7 @@ export const machinesLayer = (input: MachinesLayerInput) =>
     aliases: () => readSshAliases(sshHome(input.env), { platform: input.platform, env: input.env }),
     localDaemon: input.localDaemon,
     localHome: input.localHome,
+    localListening: input.localListening,
     openTerminal: (argv) => openTerminal(argv, input.platform ?? process.platform, input.env),
     ssh: Ssh.withOptions({ platform: input.platform, sshBinary: input.settings.get().sshBinary }),
     wsl: {

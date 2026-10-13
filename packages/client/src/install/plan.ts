@@ -36,6 +36,11 @@ export interface PlanOptions {
   readonly trigger: InstallTrigger;
   /** SHA-256 values the user has approved for first install on this Host. */
   readonly approvedSha256: ReadonlySet<string>;
+  /**
+   * The Client's own machine, whose build ships inside the app the user runs:
+   * a first install needs no approval, even on a background check.
+   */
+  readonly trusted?: boolean;
 }
 
 export type InstallPlan = Data.TaggedEnum<{
@@ -108,6 +113,8 @@ export const planInstall = (
 
   const needsApproval = (reason: "first-install" | "background") =>
     InstallPlan.NeedsApproval({ platform, version: build.version, sha256: build.sha256, reason });
+
+  if (options.trusted === true) return InstallPlan.Install({ build });
 
   if (options.trigger === "background") return needsApproval("background");
 

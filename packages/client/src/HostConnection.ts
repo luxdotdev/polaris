@@ -55,7 +55,11 @@ import { type Connector, socketTransport, spawnTransport } from "./transport.ts"
 import { type WslConnectorOptions, wslConnector } from "./wsl/transport.ts";
 
 export type HostTarget = Data.TaggedEnum<{
-  Local: { readonly socketPath: string };
+  Local: {
+    readonly socketPath: string;
+    /** The home whose `~/.polaris` Daemon this is, so a refusal can say why. */
+    readonly installedHome?: string;
+  };
   Ssh: {
     readonly alias: string;
     /** Per-Host toggle; off by default. */
@@ -207,7 +211,7 @@ const connectorFor = (options: HostConnectionOptions): Connector => {
   if (options.connector !== undefined) return options.connector;
 
   return HostTarget.$match(options.target, {
-    Local: (target) => socketTransport(target.socketPath),
+    Local: (target) => socketTransport(target.socketPath, target.installedHome),
     Ssh: (target) =>
       Effect.suspend(() => {
         const controlDir = options.ssh?.controlDir ?? defaultControlDir();

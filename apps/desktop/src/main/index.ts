@@ -46,7 +46,12 @@ import { LanguageIdentityEpochs } from "./languages/identityEpochs.ts";
 import { createMainLanguageApi } from "./languages/runtime.ts";
 import { LanguagePreferences } from "./languages/settings.ts";
 import { machinesLayer, sshAliasNames } from "./machines/index.ts";
-import { type LocalDaemon, localHostEnabled, resolveLocalDaemon } from "./localDaemon.ts";
+import {
+  awaitInstalledDaemon,
+  type LocalDaemon,
+  localHostEnabled,
+  resolveLocalDaemon,
+} from "./localDaemon.ts";
 import { buildMenu, popupAppMenu } from "./menu.ts";
 import { setClientPlatform, toClientPlatform } from "../shared/platform.ts";
 import { createNeedsYouCenter, type NeedsYouCenter } from "./notifications/index.ts";
@@ -302,6 +307,7 @@ const start = async () => {
       dev,
       localDaemon: startLocal,
       localHome: () => localDaemon?.installedHome ?? null,
+      localListening: async (home) => awaitInstalledDaemon((await startLocal()).socketPath, home),
     }),
     githubLayer({ userData: app.getPath("userData"), env })
   );

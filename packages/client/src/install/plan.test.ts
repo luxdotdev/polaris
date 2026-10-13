@@ -201,6 +201,18 @@ describe("planInstall", () => {
     );
   });
 
+  test("installs on the Client's own machine without approval, also in the background", () => {
+    for (const trigger of ["user", "background"] as const) {
+      const plan = planInstall(linux(), builds, {
+        trigger,
+        approvedSha256: new Set(),
+        trusted: true,
+      });
+
+      expect(plan).toEqual(InstallPlan.Install({ build: linuxX64 }));
+    }
+  });
+
   test("upgrades an older Daemon without asking again, also in the background", () => {
     const plan = planInstall(linux({ version: "1.1.0", platform: "linux-x64" }), builds, {
       trigger: "background",
