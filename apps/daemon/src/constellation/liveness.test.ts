@@ -4,6 +4,7 @@ import {
   ConstellationSettings,
   PlanOperation,
   Sequence,
+  SessionId,
   TurnId,
   TurnItem,
 } from "@polaris/protocol";
@@ -163,6 +164,48 @@ test("resume seeds current liveness and older Clients receive only graph frames"
         expect(enrichProjections(record, new Map())[0]?.liveness).toBeNull();
       })
     ).pipe(Effect.provide(layer))
+  );
+});
+
+test("a Session that never ran an Attempt is observed without reading the model; a worker still publishes", async () => {
+  let modelReads = 0;
+
+  const counting = Layer.effect(
+    EventStore,
+    Effect.gen(function* () {
+      const store = yield* EventStore;
+
+      return EventStore.of({
+        ...store,
+        model: Effect.suspend(() => {
+          modelReads++;
+
+          return store.model;
+        }),
+      });
+    })
+  ).pipe(Layer.provide(EventStore.layerSqlite(":memory:")));
+
+  await Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        yield* seed;
+        const feed = yield* ConstellationLiveness;
+        const updates = yield* feed.subscribe(CID);
+        const turnId = TurnId.make("delta-turn");
+        const delta = HarnessEvent.ItemDelta({ turnId, itemId: "m", field: "text", text: "hi" });
+        modelReads = 0;
+
+        for (let at = 0; at < 100; at++) yield* feed.observe(SessionId.make("plain"), delta, at);
+        yield* feed.queued(SessionId.make("plain"), 1);
+        expect(modelReads).toBe(0);
+
+        yield* feed.observe(draft().sessionId, delta, 500);
+        expect(modelReads).toBeGreaterThan(0);
+        const [update] = yield* updates.pipe(Stream.take(1), Stream.runCollect);
+        expect(update).toMatchObject({ attemptId: draft().id, liveness: { lastOutputAt: 500 } });
+      })
+    ).pipe(Effect.provide(ConstellationLiveness.layer.pipe(Layer.provideMerge(counting))))
   );
 });
 
