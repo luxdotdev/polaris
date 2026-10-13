@@ -117,6 +117,9 @@ test("synthetic hung process trees are bounded and reaped", async () => {
   expect(() => process.kill(pid, 0)).toThrow();
 }, 6000);
 
+// The fixture runs with no PATH, so its shebang names this machine's python3 outright.
+const PYTHON = Bun.which("python3") ?? "/usr/bin/python3";
+
 test("synthetic new-session held pipes fail closed; fixture owner reaps escaped descendants", async () => {
   for (const ending of [
     "print('ShellCheck\\nversion: 0.11.0', flush=True); os._exit(0)",
@@ -127,7 +130,7 @@ test("synthetic new-session held pipes fail closed; fixture owner reaps escaped 
     const f = await fixture("");
     await writeFile(
       f.path,
-      `#!/opt/homebrew/bin/python3
+      `#!${PYTHON}
 import os,time
 pid=os.fork()
 if pid==0:
