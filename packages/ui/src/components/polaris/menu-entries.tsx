@@ -34,17 +34,17 @@ export interface MenuAction {
   readonly destructive?: boolean | undefined;
   readonly disabled?: boolean | undefined;
   /** Why it's disabled, in the shortcut lane, when that isn't obvious ("No changes"). */
-  readonly reason?: string;
+  readonly reason?: string | undefined;
   /** Its chord, already formatted ("⌥⌘T"), shown only when it would act on this target. */
-  readonly shortcut?: string;
-  readonly testId?: string;
+  readonly shortcut?: string | undefined;
+  readonly testId?: string | undefined;
 }
 
 export interface MenuSubmenu {
   readonly kind: "sub";
   readonly label: string;
   readonly entries: ReadonlyArray<MenuEntryInput>;
-  readonly testId?: string;
+  readonly testId?: string | undefined;
 }
 
 export interface MenuSeparatorEntry {

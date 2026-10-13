@@ -372,6 +372,7 @@ export interface RequestOutputs
   "settings.setSessionDefault": null;
   "settings.setSessions": null;
   "shell.openExternal": null;
+  "shell.revealInFinder": null;
   "host.retryNow": null;
   dispatch: { readonly sequence: number | null };
   "files.listDir": ReadonlyArray<FileEntry>;

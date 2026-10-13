@@ -5,7 +5,7 @@
 import { AnswerAction } from "@polaris/protocol";
 import { Button, cn, ContextMenu, ContextMenuTrigger, EmptyState } from "@polaris/ui";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { type KeyboardEvent, useMemo, useRef, useState } from "react";
+import { type KeyboardEvent, useMemo, useRef } from "react";
 import { openSessionReview } from "../../../routes/review.ts";
 import { useApp, useCommands, useShellActions } from "../../../shell/hooks.ts";
 import { constellationCommands } from "../client.ts";
@@ -27,7 +27,7 @@ import {
   type TaskRow,
 } from "../model/index.ts";
 import { type KeyAction, railKey } from "../model/keys.ts";
-import { leadKey, type LeadUi, patchLeadUi, useLeadUi } from "../state.ts";
+import { draftAbout, leadKey, type LeadUi, patchLeadUi, useLeadUi } from "../state.ts";
 import { ConstellationMark } from "./glyphs.tsx";
 import { laneStyle } from "./lane.tsx";
 import { Filters, Header, KeyHints, type RowKeys } from "./header.tsx";
@@ -100,12 +100,7 @@ const useTabActions = (
       if (row.attempt === null) return;
       void approveClaim(hostKey, record, row.attempt, placeOf(row.attempt, leadBranch));
     },
-    onMessageLead: (row, authority) =>
-      setDraft({
-        title: `Message the lead about ${row.task.id}`,
-        authority,
-        text: `About ${row.task.id} (${row.task.title}): `,
-      }),
+    onMessageLead: (row, authority) => setDraft(draftAbout(row.task.id, row.task.title, authority)),
   };
 
   const answer = (proposalId: string, accept: boolean) =>
@@ -199,7 +194,8 @@ const Empty = ({ onAdd }: { readonly onAdd: () => void }) => (
 export const ConstellationTab = (props: ConstellationTabProps) => {
   const { hostKey, record } = props;
   const c = record.constellation;
-  const [draft, setDraft] = useState<MessageDraft | null>(null);
+  const draftKey = leadKey(hostKey, c.leadSessionId);
+  const setDraft = (draft: MessageDraft | null) => patchLeadUi(draftKey, () => ({ draft }));
   const actions = useTabActions(props, setDraft);
   const ui = useLeadUi(actions.key);
   const facts = useFacts(record);
@@ -393,7 +389,7 @@ export const ConstellationTab = (props: ConstellationTabProps) => {
       <MessageLeadDialog
         hostKey={hostKey}
         constellationId={c.id}
-        draft={draft}
+        draft={ui.draft}
         onClose={() => setDraft(null)}
       />
     </section>

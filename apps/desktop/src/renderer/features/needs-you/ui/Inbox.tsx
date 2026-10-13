@@ -26,6 +26,7 @@ import { useNow } from "../../../shell/useNow.ts";
 import { ReviewsGroup, useRequestedCount } from "../../pulls/index.ts";
 import { dismiss, restoreDismissed } from "../dismissed.ts";
 import { useConstellationInbox, useInboxView, withoutConstellations } from "../hooks.ts";
+import { type CardAction, CardMenu } from "./CardMenu.tsx";
 import { ConstellationGroups } from "./ConstellationGroups.tsx";
 import { quietFact } from "../model/quiet.ts";
 import type { Dismissible } from "../model/dismissed.ts";
@@ -112,26 +113,37 @@ const Waiting = ({
 
   if (request === undefined) return null;
 
+  const answers: ReadonlyArray<CardAction> =
+    request.kind === "question"
+      ? []
+      : [
+          { label: "Approve", run: () => void approve(target), command: "approval.approve" },
+          { label: "Always allow", run: () => void approve(target, true) },
+          { label: "Deny", run: () => void deny(target), command: "approval.deny" },
+        ];
+
   return (
-    <NeedsYouCard
-      className={reserve}
-      data-testid="needs-you-card"
-      data-session={session.id}
-      harness={session.harness}
-      selected={selection.pane === "session" && selection.sessionId === session.id}
-      title={<Title onOpen={open}>{session.title}</Title>}
-      where={`${where(item, item.since, now)}${more}`}
-      {...(request.kind === "question"
-        ? { question: request.title }
-        : {
-            approval: {
-              command: request.detail ?? request.title,
-              onApprove: () => void approve(target),
-              onAlwaysAllow: () => void approve(target, true),
-              onDeny: () => void deny(target),
-            },
-          })}
-    />
+    <CardMenu item={item} sessionId={session.id} onOpen={open} answers={answers}>
+      <NeedsYouCard
+        className={reserve}
+        data-testid="needs-you-card"
+        data-session={session.id}
+        harness={session.harness}
+        selected={selection.pane === "session" && selection.sessionId === session.id}
+        title={<Title onOpen={open}>{session.title}</Title>}
+        where={`${where(item, item.since, now)}${more}`}
+        {...(request.kind === "question"
+          ? { question: request.title }
+          : {
+              approval: {
+                command: request.detail ?? request.title,
+                onApprove: () => void approve(target),
+                onAlwaysAllow: () => void approve(target, true),
+                onDeny: () => void deny(target),
+              },
+            })}
+      />
+    </CardMenu>
   );
 };
 
@@ -168,16 +180,25 @@ const Also = ({ item, reserve }: { readonly item: AlsoWaiting; readonly reserve:
     else void retryTurn(item.hostKey, id).then((ok) => ok || open());
   };
 
+  const label = setupFailed ? "Open setup" : ALSO[item.kind].action;
+
   return (
-    <WaitingCard
-      className={reserve}
-      data-testid="waiting-card"
-      kind={item.kind}
-      icon={ALSO[item.kind].icon}
-      title={<Title onOpen={open}>{session.title}</Title>}
-      detail={alsoDetail(item)}
-      action={{ label: setupFailed ? "Open setup" : ALSO[item.kind].action, onAction: run }}
-    />
+    <CardMenu
+      item={item}
+      sessionId={id}
+      onOpen={open}
+      answers={setupFailed ? [] : [{ label, run }]}
+    >
+      <WaitingCard
+        className={reserve}
+        data-testid="waiting-card"
+        kind={item.kind}
+        icon={ALSO[item.kind].icon}
+        title={<Title onOpen={open}>{session.title}</Title>}
+        detail={alsoDetail(item)}
+        action={{ label, onAction: run }}
+      />
+    </CardMenu>
   );
 };
 

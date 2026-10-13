@@ -309,6 +309,7 @@ const start = async () => {
       setSessionDefault,
       setSessions,
       openExternal: (url) => shell.openExternal(url),
+      revealInFinder: (path) => shell.showItemInFolder(path),
       sshHosts: () => sshAliasNames(env),
       setWelcomeSeen: () => saveSettings({ welcomeSeen: true }),
       pickFolder,

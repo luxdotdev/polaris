@@ -27,6 +27,7 @@ import {
 import { blockedHover, setupHover, shownWorker, TONE_CLASS } from "../model/workerCopy.ts";
 import { ConstellationPeek, useSpacePeek } from "../../constellation/ui/peek.tsx";
 import { RenameField, SessionMenu, useRenaming } from "./SessionMenu.tsx";
+import { WorkerMenu } from "./WorkerMenu.tsx";
 import { useConstellationActions, useFocusedTask } from "../source.ts";
 
 interface GroupProps {
@@ -112,26 +113,28 @@ const Worker = ({
   };
 
   return (
-    <Row
-      {...buttonProps(select)}
-      data-testid="worker-row"
-      data-task={row.taskId}
-      data-worker-state={row.state}
-      aria-current={selected}
-      selected={selected}
-      className={cn(selected && "border-hairline bg-row-selected hover:bg-row-selected")}
-      leading={
-        <TaskGlyph glyph={shown.glyph} harness={row.entry?.session.harness ?? null} size={16} />
-      }
-      title={
-        <WorkerTitle
-          row={row}
-          idOnly={idOnly}
-          tone={shown.tone === "needs-you" ? "text-needs-you-text" : "text-text-subtle"}
-        />
-      }
-      meta={<WorkerMeta row={row} shown={shown} hostLabel={hostLabel} now={now} />}
-    />
+    <WorkerMenu hostKey={hostKey} group={group} row={row} onFocus={select}>
+      <Row
+        {...buttonProps(select)}
+        data-testid="worker-row"
+        data-task={row.taskId}
+        data-worker-state={row.state}
+        aria-current={selected}
+        selected={selected}
+        className={cn(selected && "border-hairline bg-row-selected hover:bg-row-selected")}
+        leading={
+          <TaskGlyph glyph={shown.glyph} harness={row.entry?.session.harness ?? null} size={16} />
+        }
+        title={
+          <WorkerTitle
+            row={row}
+            idOnly={idOnly}
+            tone={shown.tone === "needs-you" ? "text-needs-you-text" : "text-text-subtle"}
+          />
+        }
+        meta={<WorkerMeta row={row} shown={shown} hostLabel={hostLabel} now={now} />}
+      />
+    </WorkerMenu>
   );
 };
 

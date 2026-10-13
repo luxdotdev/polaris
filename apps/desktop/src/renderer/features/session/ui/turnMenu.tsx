@@ -7,31 +7,15 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
-  COPY_FAILED,
-  type CopyWrite,
-  PixelCheckIcon,
-  PixelFailedIcon,
-  showToast,
   useCopyWrite,
 } from "@polaris/ui";
 import { Predicate } from "effect";
-import { createElement, type ReactElement, useState } from "react";
+import { type ReactElement, useState } from "react";
 import { useApp } from "../../../shell/hooks.ts";
+import { copyWithToast } from "../../../shell/menu/index.ts";
 import type { TurnView } from "../../../store/sessionModel.ts";
 import { sessionKey } from "../../../store/store.ts";
 import { completedItemView, turnOutput } from "../model/items.ts";
-
-const copyText = (write: CopyWrite, text: string, what: string) =>
-  void write(text)
-    .catch(() => false)
-    .then((ok) =>
-      showToast({
-        source: "starlight",
-        icon: createElement(ok ? PixelCheckIcon : PixelFailedIcon, { size: 16 }),
-        title: ok ? `Copied ${what}` : COPY_FAILED,
-        duration: 1500,
-      })
-    );
 
 const replies = (view: TurnView) =>
   view.items.filter((item) => Predicate.isTagged(item, "AssistantMessage")).length;
@@ -93,19 +77,19 @@ export const TurnMenu = ({
       </ContextMenuTrigger>
       <ContextMenuContent className="min-w-44" data-testid="turn-menu">
         {selected === "" ? null : (
-          <ContextMenuItem onSelect={() => copyText(write, selected, "selection")}>
+          <ContextMenuItem onSelect={() => copyWithToast(selected, "selection", write)}>
             Copy
           </ContextMenuItem>
         )}
         {message === null ? null : (
-          <ContextMenuItem onSelect={() => copyText(write, message, "message")}>
+          <ContextMenuItem onSelect={() => copyWithToast(message, "message", write)}>
             Copy message
           </ContextMenuItem>
         )}
         {output === null ? null : (
           <ContextMenuItem
             onSelect={() =>
-              copyText(write, turnOutput(output.items.map(completedItemView)), "turn output")
+              copyWithToast(turnOutput(output.items.map(completedItemView)), "turn output", write)
             }
           >
             Copy turn output

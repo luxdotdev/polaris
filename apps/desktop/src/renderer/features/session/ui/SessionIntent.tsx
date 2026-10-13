@@ -30,6 +30,7 @@ import {
   retryCommand,
 } from "../model/intent.ts";
 import { useOutbox } from "../outbox.ts";
+import { useForkRequest } from "../forkRequest.ts";
 import { holdOpenFrom, setTurnOpen, showTurnDiff, uiKey, useSessionUi } from "../state.ts";
 import { ForkDialog, type ForkTarget } from "./ForkDialog.tsx";
 import type { RowContext } from "./rows.tsx";
@@ -104,10 +105,31 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
     canSteer: mode?.kind === "steer",
   });
 
-  if (session === null) return <Placeholder>Loading the session…</Placeholder>;
-  const harness: Harness | null = isKnownHarness(session.harness) ? session.harness : null;
-  const lastTurn = model.turns.at(-1)?.turn ?? null;
   const lastDone = model.turns.findLast((t) => t.turn.status !== "working")?.turn;
+  const forkHarness = session !== null && isKnownHarness(session.harness) ? session.harness : null;
+
+  const canFork =
+    forkHarness !== null && lastDone !== undefined && hasCapability(host, "session.fork");
+
+  const startFork = (): boolean => {
+    if (session === null || forkHarness === null || lastDone === undefined) return false;
+    setForking({
+      sessionId,
+      turnId: lastDone.id,
+      turnNumber: lastDone.index + 1,
+      harness: forkHarness,
+      model: session.model,
+      effort: session.effort,
+    });
+
+    return true;
+  };
+
+  useForkRequest(key, () => canFork && startFork());
+
+  if (session === null) return <Placeholder>Loading the session…</Placeholder>;
+  const harness: Harness | null = forkHarness;
+  const lastTurn = model.turns.at(-1)?.turn ?? null;
 
   const listed = conversationRows({
     setup: session.worktreeSetup,
@@ -173,20 +195,8 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
             session={session}
             harness={harness}
             turnNumber={lastTurn === null ? null : lastTurn.index + 1}
-            canFork={
-              harness !== null && lastDone !== undefined && hasCapability(host, "session.fork")
-            }
-            onFork={() => {
-              if (harness === null || lastDone === undefined) return;
-              setForking({
-                sessionId,
-                turnId: lastDone.id,
-                turnNumber: lastDone.index + 1,
-                harness,
-                model: session.model,
-                effort: session.effort,
-              });
-            }}
+            canFork={canFork}
+            onFork={() => void startFork()}
           />
         )}
         {chrome.body ?? (

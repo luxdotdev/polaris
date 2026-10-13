@@ -224,6 +224,8 @@ export const RequestInputs = {
   "shell.openExternal": Schema.Struct({
     url: Schema.String.check(Schema.isPattern(/^https:\/\//)),
   }),
+  /** Shows a file or folder in Finder; this Mac's Host only, an absolute path. */
+  "shell.revealInFinder": onHost({ path: Schema.String.check(Schema.isPattern(/^\//)) }),
   "host.retryNow": onHost({}),
   dispatch: onHost({ commandId: CommandId, command: Command }),
   "files.listDir": onHost({ path: Schema.String }),

@@ -13,7 +13,12 @@ import { WorkspaceStage } from "../features/empty/index.ts";
 import { SessionList, type SessionListProps } from "../features/sessions/index.ts";
 import { JumpMenu } from "../features/jump/index.ts";
 import { OpenFolderDialog } from "../features/open-folder/index.ts";
-import { HarnessTerminal, type HarnessTerminalProps } from "../features/terminal/index.ts";
+import {
+  HarnessTerminal,
+  type HarnessTerminalProps,
+  openShell,
+  type TerminalPlace,
+} from "../features/terminal/index.ts";
 import { PullList, type PullListProps } from "../features/pulls/index.ts";
 import { ReviewView, type ReviewViewProps } from "../features/review/index.ts";
 
@@ -82,6 +87,8 @@ export interface ShellSlots {
   readonly PullRequests: ComponentType<PullListProps>;
   /** Review of one subject, a pull request (R1) or an Agent Session's Turns (R2); from `routes/review.ts`. */
   readonly ReviewSubject: ComponentType<ReviewViewProps>;
+  /** A Workspace's shell in its terminal drawer (the chip's "Open terminal here"). */
+  readonly openTerminal: (place: TerminalPlace, cwd: string, title: string) => void;
 }
 
 export const slots: ShellSlots = {
@@ -99,4 +106,5 @@ export const slots: ShellSlots = {
   HarnessTerminal,
   PullRequests: PullList,
   ReviewSubject: ReviewView,
+  openTerminal: (place, cwd, title) => void openShell(place, cwd, title),
 };
