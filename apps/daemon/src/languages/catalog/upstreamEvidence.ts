@@ -1,4 +1,5 @@
 import { sqlShellEvidence } from "./sqlShellEvidence.ts";
+import { phpEvidence } from "./phpEvidence.ts";
 import { rustLuaEvidence } from "./rustLuaEvidence.ts";
 import ruffLicense from "./upstream-evidence/python-notice-2597d854122b77ddc71971564ca2350a37608575ce324adc5650a2b2051c8f18.txt" with { type: "text" };
 import ruffNotices from "./upstream-evidence/python-notice-e85e4ba113dc4ddd9a599665d5c0d877201650c5527ff97da0c3b092d52a3cb6.txt" with { type: "text" };
@@ -29,6 +30,7 @@ import notice8 from "./upstream-evidence/notice-9.txt" with { type: "text" };
 
 export const upstreamEvidence = {
   ...sqlShellEvidence,
+  ...phpEvidence,
   ...rustLuaEvidence,
   "ruff-aarch64-apple-darwin.tar.gz": {
     manifest: ruffDarwinArm64,

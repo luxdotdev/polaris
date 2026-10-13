@@ -35,6 +35,29 @@ const CSS_METHODS = [
   "textDocument/codeAction",
 ];
 
+/** As gopls v0.23.0 and Phpactor 2026.10.07.0 (before Trust) reported them through the Daemon. */
+const GOPLS_METHODS = [
+  "textDocument/hover",
+  "textDocument/signatureHelp",
+  "textDocument/definition",
+  "textDocument/typeDefinition",
+  "textDocument/implementation",
+  "textDocument/references",
+  "textDocument/rename",
+  "textDocument/codeAction",
+  "textDocument/documentSymbol",
+  "workspace/symbol",
+  "textDocument/formatting",
+  "textDocument/completion",
+  "workspace/executeCommand",
+];
+
+const PHPACTOR_METHODS = [
+  ...GOPLS_METHODS.filter((method) => method !== "textDocument/formatting"),
+  "completionItem/resolve",
+  "textDocument/prepareRename",
+];
+
 const ran: Array<string> = [];
 
 const actions: EditorMenuActions = {
@@ -105,6 +128,13 @@ describe("the Editor's right-click menu", () => {
       "Add to agent session  ⌘L",
       ...FILE_ROWS,
     ]);
+  });
+
+  test("gopls and Phpactor serve every language row", () => {
+    const all = read(menu(ready(ALL_METHODS), AGENT));
+
+    expect(read(menu(ready(GOPLS_METHODS), AGENT))).toEqual(all);
+    expect(read(menu(ready(PHPACTOR_METHODS), AGENT))).toEqual(all);
   });
 
   test("rows the file's servers can't serve are left out (CSS, Paper 19)", () => {

@@ -1,0 +1,35 @@
+[
+  {
+    "tool": "phpactor",
+    "version": "2026.10.07.0",
+    "status": "policy-clear",
+    "artifacts": [
+      {
+        "id": "phpactor.phar",
+        "integrity": "sha256:b28bf6166e016d539fc2f2aec18ef918b12590e436a6f1ccbdf30b5bbdbdb16b",
+        "bundleIntegrity": null,
+        "packaging": null
+      }
+    ],
+    "evidence": [],
+    "notices": [
+      {
+        "path": "notices/4287c3b7c293133dc59e92cb32a1aae899c4441ac6d64455c537c82070c84caa.txt",
+        "integrity": "sha256:4287c3b7c293133dc59e92cb32a1aae899c4441ac6d64455c537c82070c84caa"
+      },
+      {
+        "path": "notices/c8cce4b6b9729f264ffdf9296d505d63432497feeed1f586d1902b942197e024.txt",
+        "integrity": "sha256:c8cce4b6b9729f264ffdf9296d505d63432497feeed1f586d1902b942197e024"
+      }
+    ],
+    "missingEvidence": [],
+    "obligations": [
+      "Verify pinned checksum.",
+      "Retain the upstream MIT license and the PHAR's bundled Composer license.",
+      "Runtime download only; no installer bundling.",
+      "Run with the Host's PHP, a Prerequisite; never install PHP."
+    ],
+    "policyScope": "phpactor@2026.10.07.0: ADR-0022 runtime download",
+    "policyRequests": []
+  }
+]

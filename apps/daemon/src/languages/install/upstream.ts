@@ -21,7 +21,7 @@ const combinedEvidence = { ...upstreamEvidence, ...webEvidence };
 
 const EvidenceKey = Schema.Literals(Object.keys(combinedEvidence));
 
-/** A bare or gzipped executable, with its retained notices beside it. */
+/** A bare or gzipped executable, or a PHAR (run by the Host's PHP, so not executable), with its notices. */
 async function singleExecutable(
   bytes: Uint8Array,
   exact: ExactArtifact,
@@ -32,7 +32,12 @@ async function singleExecutable(
     exact.artifact.format === "gz" ? await gunzip(bytes, signal, upstreamLimits.fileBytes) : bytes;
 
   return [
-    { path: exact.artifact.entry, kind: "file" as const, mode: 0o755, bytes: executable },
+    {
+      path: exact.artifact.entry,
+      kind: "file" as const,
+      mode: exact.artifact.format === "phar" ? 0o644 : 0o755,
+      bytes: executable,
+    },
     ...Object.entries(notices).map(([path, notice]) => ({
       path,
       kind: "file" as const,
@@ -60,7 +65,7 @@ export async function decodeUpstream(
 
   const prefix = archivePrefix(exact);
 
-  if (exact.artifact.format === "binary" || exact.artifact.format === "gz")
+  if (["binary", "gz", "phar"].includes(exact.artifact.format))
     return {
       manifestBytes,
       entries: await singleExecutable(bytes, exact, evidence.notices, signal),

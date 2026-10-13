@@ -1,4 +1,6 @@
 import { createSqlSelection, SqlSelection } from "../sql/selection.ts";
+import { developerLaunchAdapters, developerProvider } from "../go/launch.ts";
+import { createHostPrerequisiteProbe } from "../install/hostStateProbes.ts";
 import { SqlCore } from "../sql/core.ts";
 import { createProcessSettings } from "../runtime/processSettings.ts";
 import { LanguageProcessBudgetCore } from "./processBudget.ts";
@@ -16,7 +18,8 @@ import { LanguageError } from "@polaris/protocol";
 import { ProposalPreparation } from "../preparation/index.ts";
 import { ProposalProvenance } from "../preparation/provenanceService.ts";
 import { catalog } from "../catalog/index.ts";
-import { ProjectDiscovery } from "../discovery/index.ts";
+import { ProjectDiscovery, type DiscoveryFacts } from "../discovery/index.ts";
+import type { LaunchAdmissionRequest } from "../runtime/launchAdmission.ts";
 import { ExecutionTrustService } from "../trust/index.ts";
 import {
   createHostInstallations,
@@ -145,6 +148,18 @@ export const languageHostServices = (
 
           const configured = configuredLaunchAdapters(ledger);
 
+          const developer = developerLaunchAdapters(
+            ledger,
+            createHostPrerequisiteProbe(discoveryOptions.pythonHost)
+          );
+
+          const launchAdapters = (facts: DiscoveryFacts) =>
+            configuredExecutable(facts) !== undefined
+              ? configured
+              : developerProvider(facts.providerId)
+                ? developer
+                : undefined;
+
           return LanguageProviderAccess.of({
             availability: (toolId, phase, trusted, admission, settings) =>
               providerAvailability(
@@ -157,8 +172,9 @@ export const languageHostServices = (
                 settings
               ),
             reserveLaunch: (request) =>
-              configuredExecutable(request.facts) === undefined
-                ? (async () => {
+              (
+                launchAdapters(request.facts) ?? {
+                  reserveLaunch: async (request: LaunchAdmissionRequest) => {
                     if (
                       [
                         "typescript-language-server",
@@ -167,6 +183,7 @@ export const languageHostServices = (
                         ...Object.keys(webProviders),
                         "bash-language-server",
                         "sqllens-language-server",
+                        "phpactor",
                         "rust-analyzer",
                         "lua-language-server",
                       ].includes(request.facts.providerId) &&
@@ -182,12 +199,11 @@ export const languageHostServices = (
                     }
 
                     return adapters.reserveLaunch(request);
-                  })()
-                : configured.reserveLaunch(request),
+                  },
+                }
+              ).reserveLaunch(request),
             resolveLaunch: (facts, lease, request) =>
-              configuredExecutable(facts) === undefined
-                ? adapters.resolveLaunch(facts, lease, request)
-                : configured.resolveLaunch(facts, lease, request),
+              (launchAdapters(facts) ?? adapters).resolveLaunch(facts, lease, request),
           });
         })
       ).pipe(Layer.provide(installationLayer), Layer.provide(shared));

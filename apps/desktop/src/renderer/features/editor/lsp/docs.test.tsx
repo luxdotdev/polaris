@@ -132,6 +132,29 @@ describe("language docs: hover", () => {
     expect(container.querySelectorAll("p")).toHaveLength(3);
   });
 
+  test("gopls: the signature, a rule, the doc comment, and its pkg.go.dev link", async () => {
+    const { container } = view(MARKDOWN.GOPLS_FUNCTION);
+
+    await waitFor(() => expect(container.querySelector("pre")).not.toBeNull());
+    expect(container.querySelectorAll("pre")).toHaveLength(1);
+    expect(container.querySelector("pre")?.textContent).toBe("func Greet(name string) string");
+    expect(container.querySelector("p")?.textContent).toBe("Greet says hello.");
+    expect(container.querySelector("a")?.textContent).toContain("main.Greet");
+  });
+
+  test("Phpactor: the signature first without `<?php` or the heading, then its docs", async () => {
+    const { container } = view(MARKDOWN.PHPACTOR_METHOD);
+
+    await waitFor(() => expect(container.querySelector("pre")).not.toBeNull());
+    expect(container.querySelector("pre")?.textContent).toBe(
+      "public function greet(string $name): string"
+    );
+    expect(container.querySelector("h3")).toBeNull();
+    expect(container.querySelectorAll("hr")).toHaveLength(1);
+    expect(container.querySelector("p")?.textContent).toBe("Says hello.");
+    expect(container.textContent).not.toContain("<?php");
+  });
+
   test("rust-analyzer's hover: the crate path and signature as code, then the doc comment", async () => {
     const { container } = view(MARKDOWN.RUST_FUNCTION);
 

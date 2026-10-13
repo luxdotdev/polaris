@@ -19,6 +19,7 @@ import { pythonInterpreter } from "./python.ts";
 import { detectPython, type PythonProbeOptions } from "../python/detection.ts";
 import { interpreterEntry, type createPythonEnvironment } from "../python/environment.ts";
 import { configurationFingerprint } from "./configuration.ts";
+import { workspaceTools } from "../php/projectTools.ts";
 import { rustLuaFacts } from "../rust/facts.ts";
 
 export { effectiveSettings, configurationFingerprint } from "./configuration.ts";
@@ -130,6 +131,14 @@ async function supportedShell(provider: string, path: string) {
   }
 }
 
+/** Which bundled servers run: none once the user names a custom server or executable. */
+const managedFacts = (plain: boolean, provider: string) => ({
+  managedSqlShell: plain && ["sql", "bash"].includes(provider),
+  managedWeb: plain,
+  managedPython: plain && provider === "python",
+  managedPhp: plain && provider === "php",
+});
+
 async function discover(
   context: Awaited<ReturnType<typeof canonicalCheckout>>,
   path: string,
@@ -148,12 +157,11 @@ async function discover(
     };
   const custom = settings.settings.customServers?.find(({ id }) => id === input.providerId);
 
+  const executable = settings.settings.executableOverrides?.[input.providerId] ?? custom?.launch;
+  const plain = bundled && custom === undefined && executable === undefined;
+
   const bundledTypeScript =
-    bundled &&
-    provider === "typescript" &&
-    custom === undefined &&
-    settings.settings.executableOverrides?.[input.providerId] === undefined &&
-    input.useProjectTypeScript !== true;
+    plain && provider === "typescript" && input.useProjectTypeScript !== true;
 
   await supportedShell(provider, path);
 
@@ -186,8 +194,6 @@ async function discover(
       ? await configPlugins(context.root, configuration)
       : [];
 
-  const executable = settings.settings.executableOverrides?.[input.providerId] ?? custom?.launch;
-
   const python = await interpreterFacts(
     context.root,
     start,
@@ -198,25 +204,17 @@ async function discover(
 
   await detectedInterpreter(python, context.root, start, provider, platform, pythonOptions.host);
 
-  const managed = bundled && custom === undefined && executable === undefined;
-
   return {
     checkout: context.checkout,
     projectRoot: root,
     providerId: input.providerId,
     bundledTypeScript,
-    managedSqlShell:
-      bundled &&
-      ["sql", "bash"].includes(provider) &&
-      custom === undefined &&
-      executable === undefined,
     workspaceTrusted: input.workspaceTrusted === true,
-    managedWeb: managed,
+    ...managedFacts(plain, provider),
     svelteConfiguration: await svelteConfiguration(context.root, start, provider),
-    managedPython:
-      bundled && provider === "python" && custom === undefined && executable === undefined,
+    workspaceTools: await workspaceTools(context.root, root, provider),
     ...(await rustLuaFacts(context.root, root, provider, input.workspaceTrusted === true, {
-      managed,
+      managed: plain,
     })),
     configuration: provider === "typescript" ? configuration : null,
     ...(await sdkFacts(context.root, root, provider, settings.settings.sdk)),

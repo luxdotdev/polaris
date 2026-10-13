@@ -1,4 +1,5 @@
 import { sqlShellLaunch } from "../sql/launch.ts";
+import { phpactorLaunch } from "../php/launch.ts";
 import { rustLaunch } from "../rust/launch.ts";
 import { rustToolchainIds, rustToolchainProbes } from "../rust/probes.ts";
 import { luaLaunch } from "../lua/launch.ts";
@@ -18,6 +19,9 @@ import type { DiscoveryFacts } from "../discovery/index.ts";
 import type { HostInstallation, ObservationAdmission } from "../install/host.ts";
 import { descriptor, defaultLimits, type InstalledVersion } from "../install/types.ts";
 import { checkAbort, failure } from "../install/validation.ts";
+
+/** Host Prerequisites observed by presence at fixed locations, never by running them. */
+const hostPresence = ["shellcheck", "php", "go", "gopls"];
 
 export interface ManagedDelivery {
   bind: (host: HostInstallation) => void;
@@ -86,6 +90,7 @@ export function createManagedDelivery(
           : Match.value(providerId).pipe(
               Match.when("basedpyright", () => ["node", "basedpyright"]),
               Match.when("ruff", () => ["ruff"]),
+              Match.when("phpactor", () => ["phpactor"]),
               Match.when("bash-language-server", () => ["node", "shfmt", "bash-language-server"]),
               Match.when("rust-analyzer", () => ["rust-analyzer"]),
               Match.when("lua-language-server", () => ["lua-language-server"]),
@@ -125,9 +130,23 @@ export function createManagedDelivery(
       }
     },
     async plan(facts, installed) {
-      if (facts.providerId === "rust-analyzer") return rustLaunch(facts, installed);
+      // Servers that run on their own binary or the Host's runtime, not the private Node.
+      const own = new Map([
+        [
+          "phpactor",
+          () =>
+            phpactorLaunch(
+              facts,
+              installed,
+              installation().tool("phpactor").requirements,
+              hostPrerequisites
+            ),
+        ],
+        ["rust-analyzer", () => rustLaunch(facts, installed)],
+        ["lua-language-server", () => luaLaunch(facts, installed)],
+      ]).get(facts.providerId);
 
-      if (facts.providerId === "lua-language-server") return luaLaunch(facts, installed);
+      if (own !== undefined) return own();
 
       const node = facts.providerId === "ruff" ? null : await privateNode();
 
@@ -208,7 +227,7 @@ export function createManagedDelivery(
 
       const others = tool.requirements.filter(
         (requirement) =>
-          !["node", "python-interpreter", "shellcheck", ...rustToolchainIds].includes(
+          !["node", "python-interpreter", ...hostPresence, ...rustToolchainIds].includes(
             requirement.id
           )
       );
@@ -237,12 +256,10 @@ export function createManagedDelivery(
         probes.push({ id: python.id, executable, version: executable === null ? null : "present" });
       }
 
-      const shellcheck = tool.requirements.find((requirement) => requirement.id === "shellcheck");
-
-      if (shellcheck !== undefined) {
-        const present = await hostPrerequisites().probe(shellcheck, signal);
+      for (const requirement of tool.requirements.filter(({ id }) => hostPresence.includes(id))) {
+        const present = await hostPrerequisites().probe(requirement, signal);
         probes.push({
-          id: shellcheck.id,
+          id: requirement.id,
           executable: present.path,
           version: present.path === null ? null : "present",
         });

@@ -72,6 +72,25 @@ export const trustStatusArrived = (target: TrustTarget, status: TrustStatus) => 
   });
 };
 
+/** Open files whose Trust scope changed revision: a provider blocked on Trust has no context to restart. */
+export const trustChangedFiles = (state: TrustState, previous: TrustState) => {
+  const scopes = new Set(
+    Object.entries(state.statuses)
+      .filter(([key, value]) => {
+        const before = previous.statuses[key];
+
+        return before !== undefined && value.trust.revision !== before.trust.revision;
+      })
+      .map(([key]) => key)
+  );
+
+  return new Set(
+    Object.entries(state.files)
+      .filter(([, scope]) => scopes.has(scope))
+      .map(([file]) => file)
+  );
+};
+
 /** Discovery tells which scope a file belongs to, and may carry the Daemon's ask. */
 export const trustDiscovered = (
   target: TrustTarget,

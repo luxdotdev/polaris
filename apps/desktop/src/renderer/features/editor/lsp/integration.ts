@@ -42,7 +42,7 @@ import {
 import { offerServerEdit } from "./serverEdits.ts";
 import { configurationItems } from "./serverConfiguration.ts";
 import { ownedProvider } from "./ownership.ts";
-import { providerLabel, trustDiscovered, trustStore } from "../trust/store.ts";
+import { providerLabel, trustChangedFiles, trustDiscovered, trustStore } from "../trust/store.ts";
 import { refreshTrust } from "../trust/decide.ts";
 import { DiagnosticPull } from "./pull.ts";
 import * as Status from "../status/store.ts";
@@ -87,14 +87,14 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
   private readonly observations = new EditorLanguageObservations();
   private readonly instance = crypto.randomUUID();
   private readonly untrust = trustStore.subscribe((state, previous) => {
-    if (
-      Object.entries(state.statuses).some(
-        ([key, value]) =>
-          previous.statuses[key] !== undefined &&
-          value.trust.revision !== previous.statuses[key]?.trust.revision
-      )
-    )
-      this.observations.invalidate();
+    const changed = trustChangedFiles(state, previous);
+
+    if (changed.size === 0) return;
+    this.observations.invalidate();
+
+    for (const entry of this.entries.values())
+      if (changed.has(fileKey(entry.input.file.hostKey, entry.input.file.path)))
+        void this.refreshEntry(entry, true);
   });
   private readonly refresh = () => {
     pruneLanguageGroups(this.groups, this.identity);

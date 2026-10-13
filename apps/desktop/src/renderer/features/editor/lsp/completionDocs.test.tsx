@@ -10,6 +10,9 @@ import {
   CSS_DISPLAY,
   CSS_ITEMS,
   CSS_PLAINTEXT_ITEMS,
+  GOPLS_ITEMS,
+  PHPACTOR_GREET_RESOLVED,
+  PHPACTOR_ITEMS,
   PYRIGHT_DUMPS_RESOLVED,
   PYRIGHT_ITEMS,
   LUA_BYTE_ITEM,
@@ -58,7 +61,17 @@ afterEach(async () => {
 
 describe("completion payloads from real servers", () => {
   test("every captured list decodes, and no row carries a long detail", () => {
-    for (const items of [CSS_ITEMS, TS_ITEMS, PYRIGHT_ITEMS, [RUST_PUSH_ITEM], [LUA_BYTE_ITEM]]) {
+    expect(decodePayload(CompletionResult, PHPACTOR_ITEMS)).toMatchObject({ isIncomplete: true });
+
+    for (const items of [
+      CSS_ITEMS,
+      TS_ITEMS,
+      PYRIGHT_ITEMS,
+      GOPLS_ITEMS,
+      PHPACTOR_ITEMS.items,
+      [RUST_PUSH_ITEM],
+      [LUA_BYTE_ITEM],
+    ]) {
       const decoded = decodePayload(CompletionResult, items);
 
       expect(decoded).toBeArray();
@@ -150,6 +163,40 @@ describe("completion info", () => {
     );
     expect(container.querySelectorAll("hr")).toHaveLength(1);
     expect(container.querySelector("a")?.textContent).toBe("MDN Reference↗");
+  });
+
+  test("gopls sends docs inline: its type as code above a rule, then the doc comment", async () => {
+    const parts = completionDocs(item(byLabel(GOPLS_ITEMS, "Println")), "go");
+
+    expect(parts.map((part) => part.text.split("\n")[0])).toEqual([
+      "```go",
+      "---",
+      "Println formats using the default formats for its operands and writes to standard output. Spaces are always added between operands and a newline is appended. It returns the number of bytes written and any write error encountered.",
+    ]);
+
+    const { container } = panel(parts);
+
+    await waitFor(() => expect(container.querySelector("pre")).not.toBeNull());
+    expect(container.querySelector("pre")?.textContent).toBe("func(a ...any) (n int, err error)");
+  });
+
+  test("Phpactor sends docs on resolve: one signature, no heading, then the docs", async () => {
+    expect(completionDocs(item(PHPACTOR_ITEMS.items[0]!), "php")).toEqual([]);
+
+    const parts = completionDocs(item(PHPACTOR_GREET_RESOLVED), "php");
+
+    expect(parts).toEqual([
+      {
+        kind: "markdown",
+        text: "```php\npublic function greet(string $name): string\n```\n---\nSays hello.",
+      },
+    ]);
+
+    const { container } = panel(parts);
+
+    await waitFor(() => expect(container.querySelector("pre")).not.toBeNull());
+    expect(container.querySelectorAll("pre")).toHaveLength(1);
+    expect(container.querySelector("p")?.textContent).toBe("Says hello.");
   });
 
   test("basedpyright's resolved docs keep their own signature fence and no duplicate", async () => {

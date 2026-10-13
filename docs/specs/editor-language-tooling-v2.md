@@ -37,6 +37,14 @@ exists but has not passed both is not done.
 - **Python.** basedpyright for types and Ruff for lint and format. The
   environment comes from `.venv` or uv; with none found, "needs Python" shows as
   a Prerequisite. Reading the environment needs no Trust.
+- **Go.** gopls and the Go toolchain are Prerequisites; Polaris never downloads
+  or builds gopls (the pill gives `go install golang.org/x/tools/gopls@latest`).
+  gopls starts only after Trust, since loading packages runs `go list`; it
+  formats with gofmt (ADR 0035).
+- **PHP.** Managed Phpactor PHAR on the Host's PHP 8.2+, a Prerequisite. Before
+  Trust: no Composer, project config or project tools, and nothing forks (ADR
+  0035). After Trust: the normal configuration, and php-cs-fixer formats when
+  the project has it.
 - **Rust.** Managed rust-analyzer; cargo and rustc (via rustup) are a
   Prerequisite. Before Trust: local analysis only, nothing in the project runs
   (ADR 0034). After Trust: the normal configuration and the project's toolchain;
@@ -44,7 +52,7 @@ exists but has not passed both is not done.
 - **Lua.** Managed lua-language-server, no Prerequisite; a `.luarc` plugin runs
   only after Trust. StyLua formats after Trust where the project configures it,
   otherwise the server's formatter.
-- **Java.** Skipped for now.
+- **Java.** Skipped (owner: Java users use IntelliJ).
 
 ## 3. Trust
 
@@ -114,6 +122,7 @@ alongside 1–2.
 | 6 | Remote Host: slices 1, 2 and 5 on `lucas-rpi` | The same scripts on the Pi |
 | 7 | More languages: JSON/CSS/HTML, then SQL, Rust and the rest of the Stack Overflow survey top 10 | One script per language |
 | 8a | Rust (managed rust-analyzer; the Rust toolchain is a Prerequisite; before Trust no build scripts, proc-macros or `cargo check`, ADR 0034) and Lua (managed lua-language-server; a `.luarc` plugin runs only after Trust; StyLua formats after Trust where configured). Java is skipped | A Cargo crate and a Lua file get hover, diagnostics, completion, definition and format on save; before Trust nothing in the crate runs; both start on `lucas-rpi` |
+| 8b | Go (gopls and the Go toolchain are Prerequisites, gopls after Trust) and PHP (managed Phpactor on the Host's PHP; before Trust no Composer, config or project tools; php-cs-fixer formats after Trust when the project has it), ADR 0035. Java is skipped | A Go module and a Composer project get hover, diagnostics, completion, definition and format on save after Trust; before Trust PHP gives that subset without running project code; with gopls missing the pill gives `go install` and Check again finds it (`goPhpLanguageSmoke.ts`, `goPhp.live.testing.ts`) |
 
 ## 8. Out of scope
 

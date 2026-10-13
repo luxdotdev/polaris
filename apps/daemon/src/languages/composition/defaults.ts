@@ -76,6 +76,7 @@ export const DefaultLanguageHostHandlers = Layer.unwrap(
               "rust-analyzer",
               "lua-language-server",
               ...webTools,
+              "phpactor",
             ].includes(exact.tool.id),
             identity: exact.identity,
           }),

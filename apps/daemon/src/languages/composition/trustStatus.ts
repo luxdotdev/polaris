@@ -10,6 +10,7 @@ export function trustStatus(
   const workspaceTools = [
     facts.svelteConfiguration === null ? null : "Svelte config and preprocessors",
     facts.prisma?.config == null ? null : "Prisma config",
+    ...facts.workspaceTools,
     facts.providerId === "rust-analyzer" && facts.build.manifest
       ? "Cargo build scripts, proc-macros and checks"
       : null,

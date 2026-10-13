@@ -98,7 +98,8 @@ export const checkCatalog = (): ReadonlyArray<string> => {
   if (new Set(toolIds).size !== toolIds.length) failures.push("duplicate-tool-id");
 
   for (const tool of catalog.tools)
-    if (tool.artifacts.length === 0) failures.push(`${tool.id}: missing-artifacts`);
+    if ((tool.artifacts.length === 0) !== (tool.distribution === "developer"))
+      failures.push(`${tool.id}: missing-artifacts`);
 
   return [...failures, ...referenceFailures(catalog)];
 };

@@ -39,6 +39,7 @@ import { prepareFeatureEdit, type PreparationIntent } from "./preparation.ts";
 import { configuredExecutable } from "./configuredLaunch.ts";
 import { observationAdmission } from "./observation.ts";
 import { managedWithoutTrust } from "./managedPolicy.ts";
+import { developerProvider } from "../go/launch.ts";
 import { trustLanguage, trustProvider } from "./trustProvider.ts";
 import {
   LanguageProviderAccess,
@@ -202,6 +203,8 @@ function makeCore(
             "typescript-language-server",
             "svelte-language-server",
             "prisma-language-server",
+            "phpactor",
+            "gopls",
             "rust-analyzer",
             "lua-language-server",
           ].includes(providerId)
@@ -231,7 +234,7 @@ function makeCore(
                     observed.trust.revision,
                     trust,
                     owners,
-                    !managedWithoutTrust(found)
+                    !managedWithoutTrust(found) && !developerProvider(providerId)
                   ),
                   pythonInterpreter: found.interpreter,
                 },

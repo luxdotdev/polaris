@@ -1,8 +1,9 @@
 /**
  * Raw completion and signature payloads, captured 2026-10-12 over stdio with the Daemon's
  * client capabilities: vscode-langservers-extracted 4.10.0 (CSS), typescript-language-server
- * 6.0.1 with TypeScript 6.0.3, basedpyright 1.40.2. `*_RESOLVED` is the `completionItem/resolve`
- * answer; CSS_PLAINTEXT_ITEMS is what CSS sent before the Daemon asked for Markdown.
+ * 6.0.1 with TypeScript 6.0.3, basedpyright 1.40.2; gopls v0.23.0 and Phpactor 2026.10.07.0 via the
+ * Daemon. `*_RESOLVED` is the `completionItem/resolve` answer; CSS_PLAINTEXT_ITEMS is what CSS sent
+ * before the Daemon asked for Markdown.
  */
 
 export const CSS_ITEMS = [
@@ -348,6 +349,90 @@ export const TS_IMPORT_RESOLVED = {
       newText: 'import { hostLabel } from "./hosts";\n\n',
     },
   ],
+};
+
+/** gopls v0.23.0 after `fmt.Pr`: docs arrive inline (gopls offers no resolve). */
+export const GOPLS_ITEMS = [
+  {
+    label: "Print",
+    kind: 3,
+    detail: "func(a ...any) (n int, err error)",
+    documentation: {
+      kind: "markdown",
+      value:
+        "Print formats using the default formats for its operands and writes to standard output. Spaces are added between operands when neither is a string. It returns the number of bytes written and any write error encountered.\n",
+    },
+    preselect: true,
+    sortText: "00000",
+    filterText: "Print",
+    insertTextFormat: 2,
+    textEdit: {
+      range: { start: { line: 5, character: 5 }, end: { line: 5, character: 12 } },
+      newText: "Print(${1:})",
+    },
+  },
+  {
+    label: "Printf",
+    kind: 3,
+    detail: "func(format string, a ...any) (n int, err error)",
+    documentation: {
+      kind: "markdown",
+      value:
+        "Printf formats according to a format specifier and writes to standard output. It returns the number of bytes written and any write error encountered.\n",
+    },
+    sortText: "00001",
+    filterText: "Printf",
+    insertTextFormat: 2,
+    textEdit: {
+      range: { start: { line: 5, character: 5 }, end: { line: 5, character: 12 } },
+      newText: "Printf(${1:})",
+    },
+  },
+  {
+    label: "Println",
+    kind: 3,
+    detail: "func(a ...any) (n int, err error)",
+    documentation: {
+      kind: "markdown",
+      value:
+        "Println formats using the default formats for its operands and writes to standard output. Spaces are always added between operands and a newline is appended. It returns the number of bytes written and any write error encountered.\n",
+    },
+    sortText: "00002",
+    filterText: "Println",
+    insertTextFormat: 2,
+    textEdit: {
+      range: { start: { line: 5, character: 5 }, end: { line: 5, character: 12 } },
+      newText: "Println(${1:})",
+    },
+  },
+];
+
+/** Phpactor 2026.10.07.0 after `$greeter->gr`: a list with no docs until resolve. */
+export const PHPACTOR_ITEMS = {
+  isIncomplete: true,
+  items: [
+    {
+      label: "greet",
+      kind: 2,
+      insertText: "greet(${1:\\$name})${0}",
+      insertTextFormat: 2,
+      data: 0,
+    },
+  ],
+};
+
+export const PHPACTOR_GREET_RESOLVED = {
+  label: "greet",
+  kind: 2,
+  detail: "pub greet(string $name): string",
+  documentation: {
+    kind: "markdown",
+    value:
+      "### App\\Greeter::greet\n\nSays hello.\n\n```php\n<?php public function greet(string $name): string\n```",
+  },
+  insertText: "greet(${1:\\$name})${0}",
+  insertTextFormat: 2,
+  data: 0,
 };
 
 /** rust-analyzer 2026-09-28 after `v.` on a `Vec<i32>`, before Trust; docs arrive on resolve. */

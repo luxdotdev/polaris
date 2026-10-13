@@ -1395,15 +1395,15 @@
     {
       "id": "phpactor",
       "disposition": "offered",
-      "version": "2026.06.23.0",
-      "source": "https://github.com/phpactor/phpactor/releases/tag/2026.06.23.0",
+      "version": "2026.10.07.0",
+      "source": "https://github.com/phpactor/phpactor/releases/tag/2026.10.07.0",
       "license": "MIT",
       "artifacts": [
         {
           "id": "phpactor.phar",
           "format": "phar",
-          "url": "https://github.com/phpactor/phpactor/releases/download/2026.06.23.0/phpactor.phar",
-          "integrity": "sha256:25645647d9aa2dc69536fb4f75c976e33ef1a7b5533534a8456736e5e6fd5079",
+          "url": "https://github.com/phpactor/phpactor/releases/download/2026.10.07.0/phpactor.phar",
+          "integrity": "sha256:b28bf6166e016d539fc2f2aec18ef918b12590e436a6f1ccbdf30b5bbdbdb16b",
           "platforms": [
             {
               "os": "darwin",
@@ -1438,9 +1438,9 @@
           ],
           "entry": "phpactor.phar",
           "bundle": null,
-          "audit": "pending",
-          "auditReason": "A1 review required for exact artifact, dependency notices and source-delivery record",
-          "auditRoot": "sha256:087707dfd98517ea5cbb21bb807fe59c411ed8869cbcae376e150f465d8bca89"
+          "audit": "verified",
+          "auditReason": "Runtime upstream download: MIT license and the PHAR's Composer license retained (ADR-0022).",
+          "auditRoot": "sha256:8141528ef4ca6b79880a6e0f5e1178b87b0b88d932b3b44bc5072e8182afb00f"
         }
       ],
       "requirements": [
@@ -1448,53 +1448,52 @@
           "id": "php",
           "scope": "server",
           "executable": "php",
-          "version": ">=8.2.0",
-          "detail": "",
-          "required": true,
-          "installCommands": []
-        },
-        {
-          "id": "php-mbstring",
-          "scope": "server",
-          "executable": "php",
           "version": "present",
-          "detail": "PHP extension mbstring",
+          "detail": "Phpactor runs on the Host's PHP 8.2 or later, with the posix and tokenizer extensions; Polaris never installs PHP.",
           "required": true,
-          "installCommands": []
-        },
-        {
-          "id": "php-posix",
-          "scope": "server",
-          "executable": "php",
-          "version": "present",
-          "detail": "PHP extension posix",
-          "required": true,
-          "installCommands": []
-        },
-        {
-          "id": "php-tokenizer",
-          "scope": "server",
-          "executable": "php",
-          "version": "present",
-          "detail": "PHP extension tokenizer",
-          "required": true,
-          "installCommands": []
-        },
-        {
-          "id": "configured-php-formatter",
-          "scope": "formatter",
-          "executable": "configured-php-formatter",
-          "version": "present",
-          "detail": "Explicit configured project formatter; required only when formatting selected",
-          "required": false,
-          "installCommands": []
+          "installCommands": [
+            {
+              "platforms": [
+                {
+                  "os": "darwin",
+                  "arch": "arm64",
+                  "libc": "none"
+                },
+                {
+                  "os": "darwin",
+                  "arch": "x64",
+                  "libc": "none"
+                }
+              ],
+              "label": "Homebrew",
+              "command": "brew install php"
+            },
+            {
+              "platforms": [
+                {
+                  "os": "linux",
+                  "arch": "arm64",
+                  "libc": "glibc"
+                },
+                {
+                  "os": "linux",
+                  "arch": "x64",
+                  "libc": "glibc"
+                }
+              ],
+              "label": "Debian / Ubuntu",
+              "command": "sudo apt install php-cli"
+            }
+          ]
         }
       ],
       "argv": ["language-server"],
       "environment": {},
       "limitations": [
-        "PHAR strips most vendor license files and Composer installed metadata; external source/notice completion required. K1 Host lacks PHP, so rename/parity not verified."
-      ]
+        "The PHAR keeps only Phpactor's and Composer's license files; both are retained beside the installation.",
+        "PHP's version and extensions are checked by Phpactor at startup; a missing one stops the server with its message in the log."
+      ],
+      "distribution": "runtime-upstream"
     },
     {
       "id": "jdtls",
@@ -1564,72 +1563,105 @@
     {
       "id": "gopls",
       "disposition": "offered",
-      "version": "0.23.0",
-      "source": "https://proxy.golang.org/golang.org/x/tools/gopls/@v/v0.23.0.info",
+      "distribution": "developer",
+      "version": "developer",
+      "source": "https://pkg.go.dev/golang.org/x/tools/gopls",
       "license": "BSD-3-Clause",
-      "artifacts": [
-        {
-          "id": "gopls-source",
-          "format": "go-module",
-          "url": "https://proxy.golang.org/golang.org/x/tools/gopls/@v/v0.23.0.zip",
-          "integrity": "sha256:b3bb593ef163f614e358cdb14a9feede3cad2bfc9087b8e4dca73b2fff858b74",
-          "platforms": [
-            {
-              "os": "darwin",
-              "arch": "arm64",
-              "libc": "none"
-            },
-            {
-              "os": "darwin",
-              "arch": "x64",
-              "libc": "none"
-            },
-            {
-              "os": "linux",
-              "arch": "arm64",
-              "libc": "glibc"
-            },
-            {
-              "os": "linux",
-              "arch": "arm64",
-              "libc": "musl"
-            },
-            {
-              "os": "linux",
-              "arch": "x64",
-              "libc": "glibc"
-            },
-            {
-              "os": "linux",
-              "arch": "x64",
-              "libc": "musl"
-            }
-          ],
-          "entry": "golang.org/x/tools/gopls",
-          "bundle": null,
-          "audit": "pending",
-          "auditReason": "A1 review required for exact artifact, dependency notices and source-delivery record",
-          "auditRoot": "sha256:1d71664c5158ada8e437584ba297235a0365d3ba2fae53258d652b0a7e11cf43"
-        }
-      ],
+      "artifacts": [],
       "requirements": [
         {
           "id": "go",
           "scope": "server",
           "executable": "go",
-          "version": ">=1.26.0",
-          "detail": "Build with GOTOOLCHAIN=local; never download a Go runtime",
+          "version": "present",
+          "detail": "gopls loads packages with the Go toolchain; Polaris never installs it.",
           "required": true,
-          "installCommands": []
+          "installCommands": [
+            {
+              "platforms": [
+                {
+                  "os": "darwin",
+                  "arch": "arm64",
+                  "libc": "none"
+                },
+                {
+                  "os": "darwin",
+                  "arch": "x64",
+                  "libc": "none"
+                }
+              ],
+              "label": "Homebrew",
+              "command": "brew install go"
+            },
+            {
+              "platforms": [
+                {
+                  "os": "linux",
+                  "arch": "arm64",
+                  "libc": "glibc"
+                },
+                {
+                  "os": "linux",
+                  "arch": "x64",
+                  "libc": "glibc"
+                }
+              ],
+              "label": "Debian / Ubuntu",
+              "command": "sudo apt install golang-go"
+            }
+          ]
+        },
+        {
+          "id": "gopls",
+          "scope": "server",
+          "executable": "gopls",
+          "version": "present",
+          "detail": "gopls is the Go team's language server; Polaris never downloads or builds it.",
+          "required": true,
+          "installCommands": [
+            {
+              "platforms": [
+                {
+                  "os": "darwin",
+                  "arch": "arm64",
+                  "libc": "none"
+                },
+                {
+                  "os": "darwin",
+                  "arch": "x64",
+                  "libc": "none"
+                },
+                {
+                  "os": "linux",
+                  "arch": "arm64",
+                  "libc": "glibc"
+                },
+                {
+                  "os": "linux",
+                  "arch": "arm64",
+                  "libc": "musl"
+                },
+                {
+                  "os": "linux",
+                  "arch": "x64",
+                  "libc": "glibc"
+                },
+                {
+                  "os": "linux",
+                  "arch": "x64",
+                  "libc": "musl"
+                }
+              ],
+              "label": "Go",
+              "command": "go install golang.org/x/tools/gopls@latest"
+            }
+          ]
         }
       ],
       "argv": [],
-      "environment": {
-        "GOTOOLCHAIN": "local",
-        "GOTELEMETRY": "off"
-      },
+      "environment": {},
       "limitations": [
-        "Upstream publishes source, not managed prebuilt executables. Build in private GOBIN/GOMODCACHE/GOCACHE with developer Go."
+        "Developer-installed gopls is a Host Prerequisite. It starts only after Trust: loading packages through go list can run Workspace code."
       ]
     },
     {
@@ -2332,7 +2364,8 @@
         "configuration": "Project configuration after trust; effective paths resolved by D1"
       },
       "limitations": [
-        "Project JDK/build tool remains developer-owned; JDT LS may execute project build code after trust."
+        "Project JDK/build tool remains developer-owned; JDT LS may execute project build code after trust.",
+        "Skipped (owner: Java users use IntelliJ)."
       ],
       "offered": false
     },
@@ -2353,20 +2386,20 @@
       ],
       "companions": [],
       "formatter": {
-        "tool": "configured-php-formatter",
-        "source": "configured",
-        "mode": "configured",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "tool": "phpactor",
+        "source": "managed",
+        "mode": "lsp",
+        "detail": "Phpactor formats through the project's php-cs-fixer after Trust, when the project has one."
       },
       "policy": {
         "trust": "workspace-before-execution",
         "network": "server-default",
-        "configuration": "Project configuration after trust; effective paths resolved by D1"
+        "configuration": "Before Trust: no Composer autoloader, project config or tool extensions. After Trust: the project's .phpactor.json and Composer class maps."
       },
       "limitations": [
-        "Phpactor rename must pass V2 live fixture; no PHP runtime on K1 Host, no parity claim. PHP formatting needs separately configured project formatter. Do not substitute paid Intelephense features silently."
+        "PHP formatting needs the project's php-cs-fixer (vendor/bin/php-cs-fixer) and Trust."
       ],
-      "offered": false
+      "offered": true
     },
     {
       "id": "go",
@@ -2386,17 +2419,19 @@
       "companions": [],
       "formatter": {
         "tool": "gopls",
-        "source": "managed",
+        "source": "developer",
         "mode": "lsp",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "detail": "gopls formats with gofmt."
       },
       "policy": {
         "trust": "workspace-before-execution",
         "network": "server-default",
-        "configuration": "Project configuration after trust; effective paths resolved by D1"
+        "configuration": "gopls runs only after Trust, with the Host's Go toolchain and the user's Go environment."
       },
-      "limitations": [],
-      "offered": false
+      "limitations": [
+        "gopls and Go are Host Prerequisites; Polaris never downloads or builds them."
+      ],
+      "offered": true
     },
     {
       "id": "rust",

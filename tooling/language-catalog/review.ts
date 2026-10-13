@@ -157,6 +157,7 @@ const manifestFailures = (
         "runtime-review-records.json",
         "runtime-sql-shell-review-records.json",
         "runtime-web-review-records.json",
+        "runtime-go-php-review-records.json",
         "runtime-rust-lua-review-records.json",
       ].includes(reference.path)
     )
@@ -201,7 +202,10 @@ const recordFailures = (tool: Tool, record: ReviewRecord, read: ReviewInput["rea
 
 /** Pre-review is evidence readiness only; it never grants release or activation approval. */
 export const reviewFailures = ({ tools, records, read }: ReviewInput): ReadonlyArray<string> => {
-  const offered = tools.filter((tool) => tool.disposition === "offered");
+  const offered = tools.filter(
+    (tool) => tool.disposition === "offered" && tool.distribution !== "developer"
+  );
+
   const failures: string[] = [];
 
   if (new Set(records.map((record) => record.tool)).size !== records.length)
@@ -239,11 +243,14 @@ export const readReviewRecords = (root: string): ReadonlyArray<ReviewRecord> => 
     ...decode(readFileSync(join(root, "runtime-review-records.json"), "utf8")),
     ...decode(readFileSync(join(root, "runtime-sql-shell-review-records.json"), "utf8")),
     ...decode(readFileSync(join(root, "runtime-web-review-records.json"), "utf8")),
+    ...decode(readFileSync(join(root, "runtime-go-php-review-records.json"), "utf8")),
     ...decode(readFileSync(join(root, "runtime-rust-lua-review-records.json"), "utf8")),
   ];
 
   return [
-    ...retained.filter((record) => !runtime.some((next) => next.tool === record.tool)),
+    ...retained.filter(
+      (record) => record.tool !== "gopls" && !runtime.some((next) => next.tool === record.tool)
+    ),
     ...runtime,
   ];
 };
@@ -269,6 +276,7 @@ export const reviewRootFailures = (
                 "runtime-review-records.json",
                 "runtime-sql-shell-review-records.json",
                 "runtime-web-review-records.json",
+                "runtime-go-php-review-records.json",
                 "runtime-rust-lua-review-records.json",
               ].includes(file.path)
             : file.path === "review-records.json"

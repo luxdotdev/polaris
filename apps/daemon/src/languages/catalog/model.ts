@@ -79,7 +79,10 @@ export type Artifact = typeof Artifact.Type;
 export const Tool = Schema.Struct({
   id: Id,
   disposition: Schema.Literals(["offered", "evaluation"]),
-  distribution: Schema.optionalKey(Schema.Literals(["runtime-upstream", "installer-bundled"])),
+  /** `developer`: a Host Prerequisite Polaris never downloads, so it has no artifacts. */
+  distribution: Schema.optionalKey(
+    Schema.Literals(["runtime-upstream", "installer-bundled", "developer"])
+  ),
   version: Schema.String,
   source: Schema.String,
   license: Schema.String,

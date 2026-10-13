@@ -7,7 +7,7 @@ import type { IpcError, LanguageApi } from "../../../../shared/api.ts";
 import { changeTrust, decideTrust } from "./decide.ts";
 import { providerName, trustCopy, trustFailure, type TrustStatus } from "./model.ts";
 import { hostInSentence } from "../../../shell/hostCopy.ts";
-import { trustDiscovered, trustStore, useTrustAsk } from "./store.ts";
+import { trustChangedFiles, trustDiscovered, trustStore, useTrustAsk } from "./store.ts";
 import { TrustCard } from "./TrustCard.tsx";
 import { setClientPlatform } from "../../../../shared/platform.ts";
 
@@ -405,4 +405,22 @@ test("Svelte and Prisma share the existing Workspace Trust ask", () => {
   expect(Object.values(trustStore.getState().asks)).toHaveLength(1);
   expect(Object.values(trustStore.getState().asks)[0]?.status).toEqual(svelte);
   expect(trustCopy(svelte, "web", "this Mac").body).toContain("Svelte config and preprocessors");
+});
+
+test("a Trust change names the open files of its scope, so a Trust-blocked server is looked for again", () => {
+  const before = {
+    asks: {},
+    settled: {},
+    targets: {},
+    files: { "go/main.go": "scope", "other/a.ts": "other" },
+    statuses: { scope: status({ revision: 1 }), other: status({ revision: 4 }) },
+  };
+
+  const after = {
+    ...before,
+    statuses: { ...before.statuses, scope: status({ revision: 2, decision: "trusted" }) },
+  };
+
+  expect([...trustChangedFiles(after, before)]).toEqual(["go/main.go"]);
+  expect(trustChangedFiles(before, before).size).toBe(0);
 });
