@@ -1,3 +1,4 @@
+import { PredictionCapabilityLive } from "../prediction/capability.ts";
 /**
  * `polaris serve`: run the Daemon until SIGINT / SIGTERM.
  *
@@ -95,6 +96,7 @@ const daemonServices = ReviewerLive().pipe(Layer.provideMerge(engineServices));
 
 /** Every real handler layer the Daemon mounts. Compose new modules' layers here. */
 export const daemonHandlers = Layer.mergeAll(
+  PredictionCapabilityLive,
   lazyLanguageHandlers,
   InlineRpcsLive,
   PredictionRpcsLive,
@@ -115,6 +117,7 @@ export const daemonHandlers = Layer.mergeAll(
 ).pipe(Layer.provide(daemonServices));
 
 export const daemonCapabilities: ReadonlyArray<Capability> = [
+  "prediction.capability",
   "inline.propose",
   "prediction.complete",
   "commit.suggest-message",

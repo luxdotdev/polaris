@@ -3,6 +3,7 @@
  * defaults for new sessions, and the remote Hosts (by `~/.ssh/config` alias). A missing or unreadable file means
  * the defaults; the file is rewritten whole on every change.
  */
+import { PredictionClientEndpoints, PredictionPreferences } from "../shared/predictionPlacement.ts";
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -38,6 +39,8 @@ export const RemoteHostSetting = Schema.Struct({
 export type RemoteHostSetting = typeof RemoteHostSetting.Type;
 
 export const Settings = Schema.Struct({
+  predictionClientEndpoints: Schema.optionalKey(PredictionClientEndpoints),
+  prediction: Schema.optionalKey(Schema.Record(Schema.String, PredictionPreferences)),
   sshBinary: Schema.optionalKey(Schema.String.check(Schema.isMinLength(1))),
   automaticAppUpdates: Schema.optionalKey(Schema.Boolean),
   appUpdateLastCheckedAt: Schema.optionalKey(Schema.Number),
