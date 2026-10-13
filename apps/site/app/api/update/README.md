@@ -88,6 +88,13 @@ cookies, email addresses and upstream error bodies. The event uses an explicit
 allowlist. Client values are untrusted; ID, OS version and country are validated
 and malformed caller versions are never logged verbatim.
 
+`/download/mac` and `/download/windows` also record a Vercel Analytics event
+`download` (`platform`, `arch`, `release_version`) with `@vercel/analytics/server`'s
+`track`, scheduled with `after()` like the wide event, so neither delays the
+redirect. It carries only the User-Agent as session context (no IP, cookies or
+other headers); a tracking failure only logs a generic warning. Update checks
+record no Analytics event.
+
 Logging has a five-second timeout and no retry (avoids duplicate events). Missing
 configuration or failed ingest emits only a generic server warning and does not
 break updates/downloads. This is best-effort delivery, not a durable queue:

@@ -1,10 +1,11 @@
 # Client: installing and upgrading the Daemon over SSH
 
-`@polaris/client/install` makes sure a Host runs a Daemon the Client can talk to. The Desktop App bundles all three Daemon builds (`apps/daemon/dist/`, see `apps/daemon/src/service/README.md`), so nothing is ever downloaded on the Host.
+`@polaris/client/install` makes sure a Host runs a Daemon the Client can talk to. A dev Desktop App bundles every platform's Daemon build (`apps/daemon/dist/`, see `apps/daemon/src/service/README.md`). A release app bundles only its own platform's (the Mac's darwin-arm64; none on Windows), and its manifest lists every platform with the files' and the Release archive's SHA-256, so a Host downloads its build and checks it against what shipped in the app ([ADR 0043](../../../../docs/adr/0043-daemon-downloads.md)).
 
 ```ts
 const builds = loadBuilds(bundledDistDir)
-const result = yield* ensureDaemon(alias, builds, { trigger: "user", approvedSha256 }).pipe(
+const download = downloadBuild({ cacheDir, clientVersion })
+const result = yield* ensureDaemon(alias, builds, { trigger: "user", approvedSha256 }, { download }).pipe(
   Effect.provide(Ssh.layer),
 )
 ```
@@ -13,13 +14,15 @@ const result = yield* ensureDaemon(alias, builds, { trigger: "user", approvedSha
 |---|---|
 | `Ssh.ts` | `Ssh` service: one non-interactive command over the system `ssh` (`-T -o BatchMode=yes -o StrictHostKeyChecking=yes -o UpdateHostKeys=no -o ForwardAgent=no -o ConnectTimeout=15 -- <alias>`), with optional stdin streamed from a local file and an `onStdinBytes` callback for actual upload progress. ssh's own failures (exit 255) become `SshError` with a `failure` of `host-key`, `auth`, `unreachable`, `spawn` or `unknown`. `needsAttention` is true for the first two. Remote commands are wrapped in `sh -c '…'`, so the user's login shell does not matter. `Ssh.local(home)` runs the same commands in a local `/bin/sh` with `HOME` set, for the Client's own machine (the Desktop App upgrading this Mac's installed Daemon). |
 | `../wsl/install.ts` | `wslInstallLayer(options)`: the same `Ssh` service for a WSL 2 distro on Windows, each command as `wsl.exe --distribution <distro> --exec /bin/sh -c '…'` (the alias is the distro name). A missing distro is `unreachable`, a missing WSL `spawn`. |
-| `builds.ts` | `loadBuilds(distDir)` reads `manifest.json`. Also `platformFromUname` and `compareVersions` (semver precedence: `0.1.0-alpha.1` < `-alpha.2` < `-beta.1` < `-rc.1` < `0.1.0`; a dev build of a version sorts just before it). |
-| `plan.ts` | `planInstall(probe, builds, options)`, a pure function; every branch is unit-tested. |
+| `builds.ts` | `loadBuilds(distDir)` reads `manifest.json`: each build says whether its files are `bundled` and, for a release, its `archive` (name, SHA-256, size, URL from `DAEMON_DOWNLOAD_URL`). Also `GLIBC_LOADERS`, `platformFromUname` and `compareVersions` (semver precedence: `0.1.0-alpha.1` < `-alpha.2` < `-beta.1` < `-rc.1` < `0.1.0`; a dev build of a version sorts just before it). |
+| `plan.ts` | `planInstall(probe, builds, options)` and `deliveryFor(build, probe)`, pure functions; every branch is unit-tested. |
 | `remote.ts` | `probeHost`, `applyPlan`, `ensureDaemon`. |
+| `archive.ts` | The Release archive format: `packArchive` (deterministic gzipped ustar of plain files, used by packaging) and `unpackArchive` (refuses paths, links and directories). |
+| `download.ts` | `downloadBuild({ cacheDir, clientVersion, fetch })`: the Client-side download into `<cacheDir>/<version>/<platform>/`, checked against the manifest; other versions are removed. |
 
 ## Flow
 
-1. **Probe** (one round trip): `uname -s`, `uname -m`, the C library on Linux (`libc=musl` when `/lib/ld-musl-*` exists or `ldd --version` says musl, plus a `missing=<lib>` line for each of `libstdc++.so.6` and `libgcc_s.so.1` not found in `/usr/lib` or `/lib`), and `~/.polaris/bin/current/polaris version`.
+1. **Probe** (one round trip): `uname -s`, `uname -m`, the C library on Linux, the download tools, and `~/.polaris/bin/current/polaris version`. glibc wins: a Host with any of `GLIBC_LOADERS` is glibc even with musl's loader installed beside it, as the Daemon itself decides. Only otherwise is it `libc=musl` (when `/lib/ld-musl-*` exists or `ldd --version` says musl), plus a `missing=<lib>` line for each of `libstdc++.so.6` and `libgcc_s.so.1` not found in `/usr/lib` or `/lib`. Tools: `fetch=curl|wget` (curl preferred), `tar=1`, `sha256=1` (`sha256sum` or `shasum`).
 2. **Plan**:
    - `Unsupported` / `MissingBuild`: the Host is not a platform we ship, or its build is not bundled. A musl Host maps to `linux-x64-musl` / `linux-arm64-musl`, never to a glibc build (it would not run).
    - `MissingLibraries` (`EnsureResult` `HostSetupNeeded`, shown as Needs Attention): a musl Host without `libstdc++` / `libgcc`, which Bun's musl runtime links dynamically. Installing them needs root, so the plan carries the exact `command` (`apk add libstdc++ libgcc`) for an administrator; then retry. Verified on Alpine 3.24 arm64: without them the binary fails to load (`Error loading shared library libstdc++.so.6`); with them `polaris selftest` prints `fff: ok`.
@@ -27,15 +30,21 @@ const result = yield* ensureDaemon(alias, builds, { trigger: "user", approvedSha
    - `NeedsApproval`: no Daemon yet. It carries the **platform, version and SHA-256** for the one-time approval, shown inline on the Host as Needs Attention. A **background reconnect never installs**, even for an approved SHA (`reason: "background"`).
    - `Install`: no Daemon, the user asked, and this build's SHA-256 is in `approvedSha256`.
    - `Upgrade`: an older Daemon is installed, or (`upgradeDue`) the bundled build is a **dev build** (`0.0.0-dev.<commit count>.<sha>`, from `scripts/build-daemon.ts` without `--release`) and the Host runs any other version, newer-looking or not: a dev Client installs exactly the build it carries. Approval was given at first install, so no new approval is needed, and it may run on a background reconnect. The Desktop App's background check (`backgroundCheckKey`) uses the same rule.
-3. **Apply**: upload every file of the build into `~/.polaris/upload-<random>/` through ssh stdin (`cat > f.part && chmod && mv`; mode 755 for the binary and files the manifest marks `executable`, such as `betterleaks`, else 644). Check each file's SHA-256 on the Host (`sha256sum`, or `shasum -a 256` on macOS), then run:
+   `Install` and `Upgrade` carry the **delivery** (`deliveryFor`): `Upload` when the build is bundled; `HostFetch` when it isn't and the Host has a downloader, `tar` and a SHA-256 tool; else `ClientFetch`. A build neither bundled nor published (a dev manifest without its files) is `MissingBuild`.
+3. **Deliver** into `~/.polaris/upload-<random>/`:
+   - `Upload`: every file of the build through ssh stdin (`cat > f.part && chmod && mv`; mode 755 for the binary and files the manifest marks `executable`, such as `betterleaks`, else 644).
+   - `HostFetch`: the Host runs `curl -fsSL --proto '=https'` (or `wget -q`) on `<archive url>?client=<version>&via=host`, checks the archive's SHA-256, `tar -xzf`s it and sets the modes. Any failure (no egress, 404 for an unpublished version, a mismatch) removes the directory and falls back to `ClientFetch`; ssh's own failures do not fall back.
+   - `ClientFetch`: `ApplyOptions.download` (`downloadBuild`) fetches `<archive url>?client=<version>&via=client` into its cache, checks the archive and every file, and the result uploads like a bundled build. Without `download` the install fails, naming both attempts.
+
+   Then check each file's SHA-256 on the Host (`sha256sum`, or `shasum -a 256` on macOS) against the bundled manifest, and run:
    - Install: `<upload>/polaris install --json`
    - Upgrade: `~/.polaris/bin/current/polaris upgrade <upload>/polaris --json` (execve hand-off, same PID; Harnesses keep running)
 
-   `applyPlan` accepts an optional progress callback: uploading byte counts across all files, then switching after all hashes match. Progress is throttled to 10 updates/s and has no idle timer. The upload directory is removed after a failed upload as well as after a completed install/upgrade. The JSON line the Daemon prints is returned in `applied.report`. Show its `notes` to the user; in particular `supervisor: "fallback"` means the Linux Host has no systemd user bus and the Daemon runs under Polaris' own supervisor, which only returns after a reboot if `autostart` includes `cron`.
+   `applyPlan` accepts `ApplyOptions`: `progress` reports `downloading` (`via: "host"` with no byte count, or `via: "client"` with real bytes), uploading byte counts across all files, then switching after all hashes match. Progress is throttled to 10 updates/s and has no idle timer. The upload directory is removed after a failed upload as well as after a completed install/upgrade. The JSON line the Daemon prints is returned in `applied.report`. Show its `notes` to the user; in particular `supervisor: "fallback"` means the Linux Host has no systemd user bus and the Daemon runs under Polaris' own supervisor, which only returns after a reboot if `autostart` includes `cron`.
 
 ## Tests
 
-`plan.test.ts` covers the pure decisions. `remote.test.ts` runs the whole flow against a fake `Ssh` that executes each remote command in a local `sh` with `HOME` set to a temporary "Host", so the real probe, upload and SHA-check scripts run. A shell stand-in plays `polaris install/upgrade`. It covers approval gating, install, idempotence, upgrade, a corrupted upload, and ssh failure classification.
+`plan.test.ts` covers the pure decisions. `remote.test.ts` runs the whole flow against a fake `Ssh` that executes each remote command in a local `sh` with `HOME` set to a temporary "Host", so the real probe, upload and SHA-check scripts run. A shell stand-in plays `polaris install/upgrade`. It covers approval gating, install, idempotence, upgrade, a corrupted upload, and ssh failure classification. For release builds a fake `curl` on the "Host"'s PATH serves a packed archive: the Host-side download, a corrupted one falling back to a fake-fetch Client download and upload, a 404 without a fallback, a tampered Client download, the cache, and dev builds never downloading. The probe's libc decision runs against a fake filesystem root (glibc with musl's loader present stays glibc). `archive.test.ts` checks the format against the system `tar`. No test reaches the network.
 
 ## Known gaps / TODO
 
