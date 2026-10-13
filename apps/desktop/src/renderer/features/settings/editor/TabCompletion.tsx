@@ -8,12 +8,13 @@ import {
 } from "../../../../shared/predictionPlacement.ts";
 import { commandShortcut } from "../../../../shared/keymap.ts";
 import { polaris } from "../../bridge.ts";
-import { Heading, SettingRow } from "../ui/parts.tsx";
+import { Group, Heading, SettingRow } from "../ui/parts.tsx";
+import { CompletionPlacement } from "./CompletionPlacement.tsx";
+import { memoryLine, placementRow } from "./placementRows.ts";
 import {
   hostConnected,
   inspectPredictionHost,
   loadPredictionSettings,
-  modelName,
   preferencesOf,
   setClientEndpoints,
   setPredictionEnabled,
@@ -24,14 +25,10 @@ import {
 const CONTROL =
   "bg-surface-sunken border-hairline rounded-control text-body text-text-default h-row min-w-0 border px-row-pad";
 
-const CHOICES = [
-  { value: "auto", label: "Auto" },
-  { value: "client", label: "This machine" },
-  { value: "host", label: "Host" },
-  { value: "off", label: "Off" },
-] as const;
-
-const Placement = Schema.Literals(["auto", "client", "host", "off"]);
+interface ModelServerMemory {
+  readonly rssBytes: number;
+  readonly processes: number;
+}
 
 const EndpointForm = ({
   endpoints,
@@ -156,7 +153,7 @@ export const TabCompletion = ({ hosts }: { readonly hosts: ReadonlyArray<HostVie
   const state = usePrediction((value) => value);
   const [scope, setScope] = useState("client");
   const [error, setError] = useState<string | null>(null);
-  const [memory, setMemory] = useState<number | null>(null);
+  const [memory, setMemory] = useState<ModelServerMemory | null>(null);
 
   const keys = hosts.map((host) => host.key).join("\u0000");
   const epochs = hosts.map((host) => host.status.epoch).join("\u0000");
@@ -172,7 +169,7 @@ export const TabCompletion = ({ hosts }: { readonly hosts: ReadonlyArray<HostVie
         (cause) => live && setError(String(cause))
       );
     void api.request("prediction.resources.get", {}).then((result) => {
-      if (live && result.ok) setMemory(result.value.rssBytes);
+      if (live && result.ok) setMemory(result.value);
     });
 
     return () => {
@@ -180,10 +177,7 @@ export const TabCompletion = ({ hosts }: { readonly hosts: ReadonlyArray<HostVie
     };
   }, [keys, epochs]);
 
-  const clientLabel =
-    Object.values(state.inspections)[0]?.clientLabel ??
-    hosts.find((host) => host.alias === null)?.label ??
-    "Client device";
+  const clientLabel = hosts.find((host) => host.alias === null)?.label ?? "This machine";
 
   const scopeHost = hosts.find((host) => host.key === scope);
   const machine = scope === "client" ? clientLabel : (scopeHost?.label ?? scope);
@@ -215,27 +209,29 @@ export const TabCompletion = ({ hosts }: { readonly hosts: ReadonlyArray<HostVie
   return (
     <section id="tab-completion" aria-label="Tab completion" className="gap-section flex flex-col">
       <Heading>Tab completion</Heading>
-      <SettingRow
-        htmlFor="enable-tab-completion"
-        title="Enable tab completion"
-        caption={`Suggest code as you type. Tab accepts; ${commandShortcut("editor.prediction.acceptWord")} accepts a word.`}
-      >
-        <Switch
-          id="enable-tab-completion"
-          checked={state.enabled}
-          disabled={
-            !state.loaded ||
-            (!state.enabled &&
-              state.clientEndpoints.length +
-                Object.values(state.preferences).reduce(
-                  (count, prefs) => count + prefs.hostEndpoints.length,
-                  0
-                ) ===
-                0)
-          }
-          onCheckedChange={(on) => void enabled(on)}
-        />
-      </SettingRow>
+      <Group label="Enable tab completion">
+        <SettingRow
+          htmlFor="enable-tab-completion"
+          title="Enable tab completion"
+          caption={`Suggest code as you type. Tab accepts; ${commandShortcut("editor.prediction.acceptWord")} accepts a word. Works before you trust a workspace; language-server context joins once you do.`}
+        >
+          <Switch
+            id="enable-tab-completion"
+            checked={state.enabled}
+            disabled={
+              !state.loaded ||
+              (!state.enabled &&
+                state.clientEndpoints.length +
+                  Object.values(state.preferences).reduce(
+                    (count, prefs) => count + prefs.hostEndpoints.length,
+                    0
+                  ) ===
+                  0)
+            }
+            onCheckedChange={(on) => void enabled(on)}
+          />
+        </SettingRow>
+      </Group>
       <div className="gap-gap flex flex-col">
         <div className="flex items-center justify-between gap-4">
           <h3 className="text-heading-sm text-text-strong font-medium">Model server</h3>
@@ -245,7 +241,7 @@ export const TabCompletion = ({ hosts }: { readonly hosts: ReadonlyArray<HostVie
             aria-label="Model server machine"
             className={`${CONTROL} max-w-64`}
           >
-            <option value="client">This machine · {clientLabel}</option>
+            <option value="client">{clientLabel}</option>
             {hosts
               .filter((host) => host.alias !== null)
               .map((host) => (
@@ -261,101 +257,24 @@ export const TabCompletion = ({ hosts }: { readonly hosts: ReadonlyArray<HostVie
         </p>
         <EndpointForm key={scope} endpoints={endpoints} machine={machine} save={save} />
       </div>
-      <div className="gap-gap flex flex-col">
-        <Heading>Completion placement</Heading>
-        <p className="text-caption text-text-subtle">
-          Auto uses the stronger machine, then falls back to the other side if available.
-        </p>
-        {hosts.map((host) => {
-          const preferences = state.preferences[host.key] ?? preferencesOf(host.key);
-          const inspection = state.inspections[host.key];
-          const result = state.results[host.key];
-          const weak = /raspberry pi/i.test(inspection?.host?.machine.chip ?? "");
-
-          const models = [
-            ...new Set(
-              [
-                ...(inspection?.client.endpoints ?? []),
-                ...(inspection?.host?.endpoints ?? []),
-              ].flatMap((endpoint) => endpoint.models)
-            ),
-          ];
-
-          const caption = result
-            ? `Served by ${result.machine} · ${modelName(result.model)}${weak ? " · this host is too small to serve" : ""}`
-            : weak
-              ? `This host is too small to serve; ${clientLabel} can serve instead`
-              : "Not yet used";
-
-          return (
-            <div
-              key={host.key}
-              className="border-hairline gap-gap pb-row-pad flex flex-col border-b"
-            >
-              <SettingRow title={host.label} caption={caption}>
-                <select
-                  aria-label={`Completion placement for ${host.label}`}
-                  className={`${CONTROL} w-40`}
-                  value={preferences.placement}
-                  onChange={(event) => {
-                    const placement = Schema.decodeUnknownSync(Placement)(event.target.value);
-                    void setPredictionPreferences(polaris(), host.key, {
-                      ...preferences,
-                      placement,
-                    }).catch((cause) => setError(String(cause)));
-                  }}
-                >
-                  {CHOICES.map((choice) => (
-                    <option
-                      key={choice.value}
-                      value={choice.value}
-                      disabled={choice.value === "host" && weak}
-                    >
-                      {choice.label}
-                    </option>
-                  ))}
-                </select>
-              </SettingRow>
-              <label className="text-caption text-text-subtle flex items-center gap-4">
-                Model for code on {host.label}
-                <select
-                  className={`${CONTROL} flex-1`}
-                  aria-label={`Completion model for ${host.label}`}
-                  value={preferences.model ?? ""}
-                  onChange={(event) =>
-                    void setPredictionPreferences(polaris(), host.key, {
-                      ...preferences,
-                      model: event.target.value || null,
-                      format: null,
-                    }).catch((cause) => setError(String(cause)))
-                  }
-                >
-                  <option value="">
-                    Automatic · Mellum2 on 16 GB+, Qwen2.5-Coder on smaller machines
-                  </option>
-                  {preferences.model !== null && !models.includes(preferences.model) && (
-                    <option value={preferences.model}>{preferences.model} · unavailable</option>
-                  )}
-                  {models.map((model) => (
-                    <option key={model} value={model}>
-                      {model}
-                      {/qwen3.*30b/i.test(model) ? " · large, unmeasured" : ""}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-          );
-        })}
-      </div>
-      <p className="text-caption text-text-subtle">
-        Tab completion works before you trust a workspace; language-server context is added after.
-      </p>
-      {memory !== null && (
-        <p className="text-caption text-text-subtle">
-          Model server · {(memory / 1024 ** 3).toFixed(1)} GB RSS · separate from Desktop App memory
-        </p>
-      )}
+      <CompletionPlacement
+        rows={hosts.map((host) =>
+          placementRow({
+            host: { key: host.key, label: host.label, state: host.status.state },
+            preferences: state.preferences[host.key] ?? preferencesOf(host.key),
+            inspection: state.inspections[host.key],
+            result: state.results[host.key],
+            clientName: clientLabel,
+          })
+        )}
+        memory={memoryLine(memory, clientLabel)}
+        onChange={(hostKey, patch) =>
+          void setPredictionPreferences(polaris(), hostKey, {
+            ...preferencesOf(hostKey),
+            ...patch,
+          }).catch((cause) => setError(String(cause)))
+        }
+      />
       {error && (
         <p role="status" className="text-caption text-text-subtle">
           {error}

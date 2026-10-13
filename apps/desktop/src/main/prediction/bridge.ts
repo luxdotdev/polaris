@@ -3,7 +3,7 @@ import { CapabilityProbe } from "@polaris/client/prediction/probe";
 import type { PredictionTarget } from "@polaris/client/prediction";
 import { PredictionError, PredictionRequest, PredictionStreamItem } from "@polaris/protocol";
 import { Effect, ManagedRuntime, Predicate, Queue, Stream, type Layer } from "effect";
-import { HostDirectory, type ClientRuntime } from "../hosts.ts";
+import { HostDirectory, LOCAL_HOST_KEY, type ClientRuntime } from "../hosts.ts";
 import type { Settings } from "../settings.ts";
 import {
   PredictionFeedItem,
@@ -53,11 +53,13 @@ export const createPredictionBridge = (ports: PredictionBridgePorts) => {
     ports.runtime.runPromise(
       Effect.gen(function* () {
         const directory = yield* HostDirectory;
+        // The local Host's own name ("This Mac"), never the network hostname.
+        const clientLabel = directory.entry(LOCAL_HOST_KEY)?.label ?? hostname();
 
         return {
-          clientLabel: hostname(),
+          clientLabel,
           hostLabel:
-            hostKey === "local" ? hostname() : (directory.entry(hostKey)?.label ?? hostKey),
+            directory.entry(hostKey)?.label ?? (hostKey === LOCAL_HOST_KEY ? clientLabel : hostKey),
         };
       })
     );
