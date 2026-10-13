@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
-import { join } from "node:path";
 import { Effect, Exit } from "effect";
 import { FAKE_GHE_CLIENT_ID } from "../../../scripts/lib/githubFake/index.ts";
 import type { PullRef } from "../../shared/github.ts";
@@ -144,7 +143,7 @@ describe("GitHub Enterprise hosts", () => {
     ]);
     expect(h.ghe.requests.map((r) => r.name)).toContain("GET /user");
     expect(onlyEnterprisePaths(h)).toEqual([]);
-    expect(existsSync(join(h.dir, "tokens", "-1.bin"))).toBe(true);
+    expect(existsSync(h.tokenPath(-1))).toBe(true);
   });
 
   test("lists, routes and reviews pull requests on GHE beside github.com", async () => {
@@ -293,6 +292,6 @@ describe("GitHub Enterprise hosts", () => {
 
     expect(view.accounts).toEqual([]);
     expect(view.owners).toEqual({});
-    expect(existsSync(join(h.dir, "tokens", "-1.bin"))).toBe(false);
+    expect(existsSync(h.tokenPath(-1))).toBe(false);
   });
 });

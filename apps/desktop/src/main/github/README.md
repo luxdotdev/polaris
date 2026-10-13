@@ -8,12 +8,12 @@ The Desktop App calls GitHub itself; the Daemon never sees a GitHub token (ENG-1
 |---|---|
 | `index.ts` | The `GitHub` service and its layer: everything below wired together, the poll loop forked in its scope. |
 | `ipc.ts` | The `github.*` requests and feeds behind the typed bridge (inputs in `shared/githubContract.ts`, views in `shared/github.ts`). |
-| `electron.ts` | `safeStorage` (async API) as the keychain, endpoints from the environment, window focus → poll rate. The only file that imports Electron. |
+| `electron.ts` | Endpoints from the environment, window focus → poll rate, the layer on Main's `SecureStorage`. The only file here that imports Electron. |
 | `config.ts` | Endpoints per host: `api.github.com`; GHES `https://<host>/api/v3` and `/api/graphql`; GHE.com `api.<name>.ghe.com`. `POLARIS_GITHUB_WEB_URL`/`_API_URL` move github.com and `POLARIS_GITHUB_HOST_URLS` (JSON, host → base URL) moves Enterprise hosts, for fakes. |
 | `accountFile.ts` | `accounts.json` as data: hosts (github.com built in, Enterprise hosts with the OAuth App client ID their admins registered), accounts with their host and user id (Polaris ids are GitHub's user id on github.com and negative elsewhere, so two hosts' users never collide), and the Settings view. |
 | `transport.ts` | One HTTP call (REST, GraphQL, OAuth): statuses → tagged errors, `x-ratelimit-*` → the budget, bodies decoded with Effect Schema. |
 | `credentials.ts`, `client.ts` | Access tokens per account. Refreshed 30 minutes before the 8-hour expiry and after a 401, serialized per account (each refresh rotates both tokens), the new pair written before use. A failed refresh signs the account out. |
-| `store.ts` | `<userData>/github/accounts.json` (logins, order, owner and Workspace routing; nothing secret) and `tokens/<id>.bin`, one sealed record per account, keyed by GitHub's numeric user id. |
+| `store.ts` | `<userData>/github/accounts.json` (logins, order, owner and Workspace routing; nothing secret) and each account's tokens in `SecureStorage` (`../secure`) as `github/tokens/<id>`, keyed by GitHub's numeric user id. Tokens sealed under `github/tokens/<id>.bin` before it are adopted when the store opens (ADR 0044). |
 | `accounts.ts`, `deviceFlow.ts` | The device flow (`repo read:org`), several accounts, order, removal, routing preferences. |
 | `routing.ts` | Repository → account: the Workspace's override, the owner's mapping, then the first account whose `viewerPermission` isn't null. An org repository nobody sees is `blocked`, with the request-access and SSO links; it is checked again after 30 minutes or on `github.recheck`, never on every poll. |
 | `pulls.ts`, `poller.ts`, `budget.ts` | The PR list. Every minute while a window is focused (five otherwise): an ETag'd `GET /repos/{o}/{r}/pulls` per watched repository (a 304 is free), then four GraphQL searches per account (review requested, mine, other open in its repositories, and open ones the viewer reviewed anywhere) only when one changed; every row carries the viewer's latest submitted review (its commit and time) and whether GitHub asks the viewer by name (ADR 0038), or every ten minutes for requests elsewhere. Background polling stops at 25% of each hourly limit, or when under 10% remains for anyone. |
@@ -30,7 +30,7 @@ Who acts on what it reports: the renderer's `features/pulls` sends `github.watch
 
 ## Testing
 
-`*.test.ts` here run the real service on the in-process fake (`scripts/lib/githubFake`, see its README) with a TestClock and an in-memory keychain (`github.testing.ts`). The smoke (`scripts/lib/githubFlow.ts`) serves the fake on 127.0.0.1 and points the app at it with `POLARIS_GITHUB_WEB_URL` / `POLARIS_GITHUB_API_URL`, launched with `--use-mock-keychain`. Nothing here touches the real GitHub.
+`*.test.ts` here run the real service on the in-process fake (`scripts/lib/githubFake`, see its README) with a TestClock and `SecureStorage` on a test sealer under a throwaway userData (`github.testing.ts`). The smoke (`scripts/lib/githubFlow.ts`) serves the fake on 127.0.0.1 and points the app at it with `POLARIS_GITHUB_WEB_URL` / `POLARIS_GITHUB_API_URL`, launched with `--use-mock-keychain`. Nothing here touches the real GitHub.
 
 ## Overview
 

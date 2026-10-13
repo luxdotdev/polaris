@@ -1,26 +1,21 @@
 /**
- * What the GitHub client keeps on disk under `<userData>/github`: `accounts.json`
- * (logins, order, routing; nothing secret) and one encrypted token file per account,
- * sealed with Electron's `safeStorage` (the macOS keychain holds its key).
+ * What the GitHub client keeps: `<userData>/github/accounts.json` (logins, order,
+ * routing; nothing secret) and each account's tokens in `SecureStorage` as `github/tokens/<id>`.
  */
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Effect, Option, Schema } from "effect";
 import { GITHUB_HOST } from "../../shared/github.ts";
+import type { Adoption, SecureStorageApi } from "../secure/index.ts";
 import { GitHubStorageError } from "./errors.ts";
 
-/** `safeStorage`'s async API, or an in-memory stand-in in tests. */
-export interface Crypto {
-  readonly available: () => Promise<boolean>;
-  readonly encrypt: (plain: string) => Promise<Uint8Array>;
-  readonly decrypt: (sealed: Uint8Array) => Promise<Decrypted>;
-}
+const tokenKey = (id: number) => `github/tokens/${id}`;
 
-export interface Decrypted {
-  readonly text: string;
-  /** The keychain key rotated: write the record again. */
-  readonly shouldReEncrypt: boolean;
-}
+/** Where tokens were sealed before `SecureStorage`: `<userData>/github/tokens/<id>.bin`. */
+export const legacyTokens = (userData: string): Adoption => ({
+  from: join(userData, "github", "tokens"),
+  prefix: "github/tokens",
+});
 
 const orNull = Schema.NullOr(Schema.Number).pipe(
   Schema.withDecodingDefaultKey(Effect.succeed(null))
@@ -81,8 +76,11 @@ const decodeTokens = Schema.decodeUnknownEffect(Schema.fromJsonString(TokenPair)
 
 const storageError = (cause: unknown) => new GitHubStorageError({ message: String(cause) });
 
+const failed = (error: { readonly message: string }) =>
+  new GitHubStorageError({ message: error.message });
+
 /** Writes through a temporary file, so a crash never leaves half a record. */
-const writeAtomically = (path: string, data: string | Uint8Array) =>
+const writeAtomically = (path: string, data: string) =>
   Effect.tryPromise({
     try: async () => {
       await writeFile(`${path}.part`, data, { mode: 0o600 });
@@ -93,15 +91,14 @@ const writeAtomically = (path: string, data: string | Uint8Array) =>
 
 export interface StoreInput {
   readonly dir: string;
-  readonly crypto: Crypto;
+  readonly storage: SecureStorageApi;
 }
 
-export const openStore = ({ dir, crypto }: StoreInput) => {
+export const openStore = ({ dir, storage }: StoreInput) => {
   const accountsPath = join(dir, "accounts.json");
-  const tokenPath = (id: number) => join(dir, "tokens", `${id}.bin`);
 
   const ready = Effect.tryPromise({
-    try: () => mkdir(join(dir, "tokens"), { recursive: true, mode: 0o700 }),
+    try: () => mkdir(dir, { recursive: true, mode: 0o700 }),
     catch: storageError,
   });
 
@@ -113,46 +110,24 @@ export const openStore = ({ dir, crypto }: StoreInput) => {
     Effect.andThen(ready, writeAtomically(accountsPath, `${JSON.stringify(file, null, 2)}\n`));
 
   const writeTokens = (id: number, tokens: TokenPair) =>
-    Effect.gen(function* () {
-      yield* ready;
+    storage.set(tokenKey(id), JSON.stringify(tokens)).pipe(Effect.mapError(failed));
 
-      const sealed = yield* Effect.tryPromise({
-        try: () => crypto.encrypt(JSON.stringify(tokens)),
-        catch: storageError,
-      });
-
-      yield* writeAtomically(tokenPath(id), sealed);
-    });
-
-  /** None when the account has no token file (removed, or never stored). */
+  /** None when the account has no stored tokens (removed, or never stored). */
   const readTokens = (id: number) =>
-    Effect.gen(function* () {
-      const sealed = yield* Effect.promise(() =>
-        readFile(tokenPath(id)).then(
-          (bytes) => Option.some(new Uint8Array(bytes)),
-          () => Option.none<Uint8Array>()
-        )
-      );
+    storage.get(tokenKey(id)).pipe(
+      Effect.flatMap(
+        Option.match({
+          onNone: () => Effect.succeed(Option.none<TokenPair>()),
+          onSome: (text) => Effect.map(decodeTokens(text), Option.some),
+        })
+      ),
+      Effect.mapError(failed)
+    );
 
-      if (Option.isNone(sealed)) return Option.none<TokenPair>();
-
-      const opened = yield* Effect.tryPromise({
-        try: () => crypto.decrypt(sealed.value),
-        catch: storageError,
-      });
-
-      const tokens = yield* decodeTokens(opened.text).pipe(Effect.mapError(storageError));
-
-      if (opened.shouldReEncrypt) yield* writeTokens(id, tokens);
-
-      return Option.some(tokens);
-    });
-
-  const removeTokens = (id: number) =>
-    Effect.promise(() => rm(tokenPath(id), { force: true }).catch(() => undefined));
+  const removeTokens = (id: number) => Effect.ignore(storage.delete(tokenKey(id)));
 
   return {
-    available: Effect.promise(() => crypto.available().catch(() => false)),
+    available: storage.available,
     readAccounts,
     writeAccounts,
     readTokens,

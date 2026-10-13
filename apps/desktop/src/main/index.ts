@@ -37,7 +37,11 @@ import {
   startClientRuntime,
   whenConnected,
 } from "./hosts.ts";
+import { Effect, Layer } from "effect";
 import { followFocus, followReviewRequests, githubLayer } from "./github/electron.ts";
+import { legacyTokens } from "./github/store.ts";
+import { secureStorageLayer } from "./secure/electron.ts";
+import { SecureStorage } from "./secure/index.ts";
 import { iconPng, nameApp, showIcon } from "./identity.ts";
 import { registerIpc } from "./ipc/index.ts";
 import { registerLanguageIpc } from "./ipc/languages.ts";
@@ -280,6 +284,27 @@ const start = async () => {
   };
 
   const local = localEnabled ? await startLocal() : null;
+  const userData = app.getPath("userData");
+
+  const secureStorage = Layer.succeed(
+    SecureStorage,
+    await Effect.runPromise(
+      Effect.provide(
+        SecureStorage.useSync((storage) => storage),
+        secureStorageLayer(userData, [legacyTokens(userData)])
+      )
+    )
+  );
+
+  const languageCredential = await Effect.runPromise(
+    Effect.provide(
+      optionalLanguageCredential(
+        { legacyDirectory: join(userData, "language-private"), platform: process.platform },
+        (message) => console.warn(message)
+      ),
+      secureStorage
+    )
+  );
 
   runtime = startClientRuntime(
     {
@@ -291,9 +316,7 @@ const start = async () => {
       }),
       identity: clientIdentity(app.getVersion()),
       ssh: settings.sshBinary === undefined ? {} : { sshBinary: settings.sshBinary },
-      ...optionalLanguageCredential(join(app.getPath("userData"), "language-private"), (message) =>
-        console.warn(message)
-      ),
+      ...languageCredential,
       languageEpoch: (hostKey, session) =>
         languageIdentities.bind(hostKey, session)?.connectionEpoch ?? null,
       invalidateLanguage: (hostKey) => languageIdentities.invalidate(hostKey),
@@ -309,7 +332,7 @@ const start = async () => {
       localHome: () => localDaemon?.installedHome ?? null,
       localListening: async (home) => awaitInstalledDaemon((await startLocal()).socketPath, home),
     }),
-    githubLayer({ userData: app.getPath("userData"), env })
+    githubLayer({ userData, env, secureStorage })
   );
   languageRuntime = createMainLanguageApi({
     runtime,

@@ -1,10 +1,10 @@
 /**
  * Test harness: the GitHub service on the in-process fake, a throwaway userData
- * directory, an in-memory keychain and a TestClock the fake shares.
+ * directory, `SecureStorage` on a test sealer and a TestClock the fake shares.
  */
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { Effect, Layer, Stream, SubscriptionRef } from "effect";
 import { TestClock } from "effect/testing";
 import {
@@ -14,23 +14,10 @@ import {
   type GitHubFakeOptions,
 } from "../../../scripts/lib/githubFake/index.ts";
 import { type BudgetPolicy, DEFAULT_POLICY } from "./budget.ts";
+import { type Sealer, SecureStorage } from "../secure/index.ts";
+import { testSealer } from "../secure/secure.testing.ts";
 import { GitHub } from "./index.ts";
-import type { Crypto } from "./store.ts";
-
-/** Seals with base64 behind a prefix: enough to prove no token is written in the clear. */
-export const memoryCrypto = (available = true): Crypto => ({
-  available: () => Promise.resolve(available),
-  encrypt: (plain) =>
-    Promise.resolve(new TextEncoder().encode(`sealed:${Buffer.from(plain).toString("base64")}`)),
-  decrypt: (sealed) => {
-    const text = new TextDecoder().decode(sealed).replace(/^sealed:/, "");
-
-    return Promise.resolve({
-      text: Buffer.from(text, "base64").toString("utf8"),
-      shouldReEncrypt: false,
-    });
-  },
-});
+import { legacyTokens } from "./store.ts";
 
 /** The fake GitHub Enterprise Server: `https://ghe.acme.test/api/v3`, `/api/graphql`. */
 export const GHE_HOST = "ghe.acme.test";
@@ -38,7 +25,8 @@ export const GHE_HOST = "ghe.acme.test";
 export interface HarnessOptions {
   readonly fake?: GitHubFakeOptions;
   readonly policy?: BudgetPolicy;
-  readonly crypto?: Crypto;
+  readonly sealer?: Sealer;
+  /** `<userData>/github`; tokens live under `<userData>/secure`, as in the app. */
   readonly dir?: string;
   /** Another harness's fake: a second app on the same GitHub. */
   readonly sharedFake?: GitHubFake;
@@ -49,11 +37,19 @@ export const harness = (options: HarnessOptions = {}) => {
   let now = 0;
   const fake = options.sharedFake ?? createGitHubFake({ now: () => now, ...options.fake });
   const ghe = createGitHubEnterpriseFake({ now: () => now });
-  const dir = options.dir ?? mkdtempSync(join(tmpdir(), "polaris-github-"));
+  const dir = options.dir ?? join(mkdtempSync(join(tmpdir(), "polaris-github-")), "github");
+  const userData = dirname(dir);
+
+  mkdirSync(dir, { recursive: true });
+
+  const storage = SecureStorage.files({
+    dir: join(userData, "secure"),
+    sealer: options.sealer ?? testSealer(),
+    adopt: [legacyTokens(userData)],
+  });
 
   const layer = GitHub.layer({
     dir,
-    crypto: options.crypto ?? memoryCrypto(),
     // github.com's fake at github.test, GHE's at its own host with GHES paths.
     fetch: (url, init) =>
       new URL(url).host === GHE_HOST ? ghe.fetch(url, init) : fake.fetch(url, init),
@@ -61,7 +57,7 @@ export const harness = (options: HarnessOptions = {}) => {
     now: () => now,
     policy: options.policy ?? DEFAULT_POLICY,
     mutationGapMs: options.mutationGapMs ?? 0,
-  }).pipe(Layer.provideMerge(TestClock.layer({ warningDelay: "1 hour" })));
+  }).pipe(Layer.provide(storage), Layer.provideMerge(TestClock.layer({ warningDelay: "1 hour" })));
 
   /** Moves the TestClock and the fake's clock together. */
   const advance = (ms: number) =>
@@ -79,9 +75,11 @@ export const harness = (options: HarnessOptions = {}) => {
     fake,
     ghe,
     dir,
+    /** Where `SecureStorage` keeps an account's sealed tokens. */
+    tokenPath: (id: number) => join(userData, "secure", "github", "tokens", `${id}.bin`),
     advance,
     run,
-    cleanup: () => rmSync(dir, { recursive: true, force: true }),
+    cleanup: () => rmSync(userData, { recursive: true, force: true }),
   };
 };
 
