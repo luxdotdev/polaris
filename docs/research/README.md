@@ -31,3 +31,4 @@ The prototype and spike code is throwaway and stays on its own branches, not on 
 - `prototype/pierre-diffs-spike` ([ENG-218](https://linear.app/luxdev/issue/ENG-218))
 
 The original `research/*` branches remain.
+- [tab-completion.md](tab-completion.md): tab completion spike; models, latency, context and CodeMirror integration (2026-10-13).
