@@ -1,12 +1,64 @@
 import { expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { windowsIcon } from "./icon.ts";
 import { assertReleaseVersions, resolveSigning } from "./release.ts";
 import { packageTargets, targetOptions } from "./targets.ts";
-import { verifyWindowsRelease, windowsInstallerOptions } from "./windows.ts";
+import {
+  installerWindows,
+  verifyWindowsRelease,
+  windowsInstallerOptions,
+  windowsPackageVersion,
+} from "./windows.ts";
+
+test("an invalid Squirrel version preserves the previous installer output", async () => {
+  const dist = mkdtempSync(join(tmpdir(), "polaris-squirrel-version-"));
+  const output = join(dist, "squirrel-arm64");
+  mkdirSync(output);
+  writeFileSync(join(output, "Setup.exe"), "previous installer");
+
+  try {
+    const failure = await installerWindows("/missing", "0.0.0", "arm64", dist, "/icons").then(
+      () => null,
+      (cause: unknown) => cause
+    );
+
+    expect(failure).toMatchObject({
+      message: "Squirrel releases require a version greater than 0.0.0",
+    });
+    expect(readFileSync(join(output, "Setup.exe"), "utf8")).toBe("previous installer");
+  } finally {
+    rmSync(dist, { recursive: true, force: true });
+  }
+});
+
+test.each(["0.0.0", "0.0.0-dev.1", "0.0.0+build"])(
+  "Squirrel's launcher requires a nonzero development version: %s",
+  (version) => {
+    expect(windowsPackageVersion(version, false)).toBe("0.0.1-dev");
+    expect(() => windowsPackageVersion(version, true)).toThrow("greater than 0.0.0");
+    expect(windowsPackageVersion("1.2.3", true)).toBe("1.2.3");
+    expect(windowsPackageVersion("1.2.3-rc.1", false)).toBe("1.2.3-rc.1");
+  }
+);
+
+test("Squirrel startup bundles maintenance without the Client runtime", async () => {
+  const result = await Bun.build({
+    entrypoints: [join(import.meta.dir, "../../src/main/updates/startup.ts")],
+    target: "node",
+    format: "esm",
+    external: ["electron"],
+    minify: true,
+  });
+
+  expect(result.success).toBe(true);
+  const bootstrap = await result.outputs[0]?.text();
+  expect(bootstrap).toContain("--squirrel-install");
+  expect(bootstrap).toContain("./index.js");
+  expect(bootstrap?.length).toBeLessThan(4096);
+});
 
 test("Windows builds reuse Daemons, validate release versions and remain unsigned", () => {
   expect(packageTargets(["--windows", "--reuse-daemon"])).toEqual([
