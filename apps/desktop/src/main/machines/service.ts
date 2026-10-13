@@ -6,8 +6,14 @@
  */
 import { existsSync } from "node:fs";
 import { installedPaths } from "@polaris/client";
+import type { HostInfo } from "@polaris/protocol";
 import { HostAccess, type HostChannel } from "@polaris/client/access";
-import { type DownloadBuild, InstallPlan, type InstallTrigger } from "@polaris/client/install";
+import {
+  buildPlatformOf,
+  type DownloadBuild,
+  InstallPlan,
+  type InstallTrigger,
+} from "@polaris/client/install";
 import { WslDiscovery } from "@polaris/client/wsl";
 import {
   Context,
@@ -82,6 +88,10 @@ type Failure = { readonly message: string };
 
 const installsAnew = (plan: InstallPlan) =>
   Predicate.isTagged(plan, "NeedsApproval") || Predicate.isTagged(plan, "Install");
+
+/** The build a connected Host runs (`linux-arm64-musl`), from its `hello`; null before one. */
+const helloBuildPlatform = (host: HostInfo | null | undefined) =>
+  host === null || host === undefined ? null : buildPlatformOf(host);
 
 const fail = (message: string) => Effect.fail(new MachineError({ message }));
 
@@ -241,7 +251,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
       const host = hosts.find((h) => h.key === key);
       const previous = updates.get(key);
       updates.set(key, {
-        platform: host?.status.host?.platform ?? null,
+        platform: helloBuildPlatform(host?.status.host),
         installedVersion: host?.status.host?.daemonVersion ?? null,
         bundledVersion: bundled,
         epoch: host?.status.epoch ?? 0,
