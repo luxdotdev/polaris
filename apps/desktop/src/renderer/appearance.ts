@@ -4,11 +4,14 @@
  * face and size.
  */
 import type { Appearance, CodeFont } from "../shared/api.ts";
+import { isWindows } from "../shared/platform.ts";
 
-/** `--font-mono` for each code face; null keeps the token's own (SF Mono). */
+/** `--font-mono` for each code face; null keeps the token's own (SF Mono, or Cascadia Mono). */
 const CODE_FONTS: Readonly<Record<CodeFont, string | null>> = {
   "sf-mono": null,
-  menlo: 'Menlo, ui-monospace, "SF Mono", monospace',
+  menlo: isWindows()
+    ? 'Consolas, "Cascadia Mono", monospace'
+    : 'Menlo, ui-monospace, "SF Mono", monospace',
 };
 
 const setOrClear = (root: HTMLElement, key: string, value: string | null) => {

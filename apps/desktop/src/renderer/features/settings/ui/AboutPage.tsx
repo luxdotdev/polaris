@@ -1,4 +1,5 @@
 /** Settings → About: quiet app Updates and the precise per-check privacy fields. */
+import { clientCopy } from "../../../../shared/clientCopy.ts";
 import { Button, Dither, FolderIcon, PixelCheckIcon, PixelPolarisIcon, Switch } from "@polaris/ui";
 import { useId } from "react";
 import { polaris } from "../../bridge.ts";
@@ -69,7 +70,7 @@ export const AboutPage = () => {
     [
       "Install ID",
       view.automatic
-        ? `${view.installId.slice(0, 8)}…${view.installId.slice(-4)} · random, made on this Mac`
+        ? `${view.installId.slice(0, 8)}…${view.installId.slice(-4)} · random, made on ${clientCopy().machine}`
         : "Not sent while automatic checks are off",
     ],
     ["Version", view.version],

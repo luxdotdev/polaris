@@ -1,4 +1,5 @@
 /** Reachable update-row copy from DESIGN.md, Updates (U1–U3). */
+import { clientCopy } from "../../../../shared/clientCopy.ts";
 import type { AppUpdateView } from "../../../../shared/appUpdates.ts";
 
 export interface AppUpdateRow {
@@ -60,7 +61,7 @@ export const appUpdateRow = (view: AppUpdateView): AppUpdateRow => {
         caption: "Move Polaris to Applications, then check again",
         glyph: "folder",
         action: "finder",
-        actionLabel: "Show in Finder",
+        actionLabel: clientCopy().showApp,
       };
     case "failed":
       return {

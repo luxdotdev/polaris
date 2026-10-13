@@ -3,6 +3,7 @@
  * Workspace bar, or the selected machine's sessions grouped by Workspace in
  * the machine bar; the Sessions / Needs you switch; "Needs you elsewhere".
  */
+import { clientCopy } from "../../../shared/clientCopy.ts";
 import type { Workspace } from "@polaris/protocol";
 import {
   Button,
@@ -103,7 +104,7 @@ const Header = ({ title, caption, canStart, host }: HeaderProps) => {
             variant="ghost"
             size="xs"
             data-testid="dismiss-all"
-            title="Dismiss every item on this Mac · each comes back if its session changes"
+            title={`Dismiss every item on ${clientCopy().machine} · each comes back if its session changes`}
             onClick={inbox.dismissAll}
           >
             Dismiss all

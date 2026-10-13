@@ -44,7 +44,9 @@ import { createMainLanguageApi } from "./languages/runtime.ts";
 import { LanguagePreferences } from "./languages/settings.ts";
 import { machinesLayer, sshAliasNames } from "./machines/index.ts";
 import { type LocalDaemon, resolveLocalDaemon } from "./localDaemon.ts";
-import { buildMenu } from "./menu.ts";
+import { buildMenu, popupAppMenu } from "./menu.ts";
+import { appRevealPath } from "./reveal.ts";
+import { clientPlatform, setClientPlatform, toClientPlatform } from "../shared/platform.ts";
 import { createNeedsYouCenter, type NeedsYouCenter } from "./notifications/index.ts";
 import { createReviewNotifier, type ReviewNotifier } from "./notifications/reviews.ts";
 import {
@@ -85,6 +87,11 @@ nameApp();
 
 if (env.POLARIS_DESKTOP_USER_DATA !== undefined) {
   app.setPath("userData", env.POLARIS_DESKTOP_USER_DATA);
+}
+
+// Screenshot runs draw another OS's chrome on this one; a release (app.asar) never pretends.
+if (!app.getAppPath().endsWith(".asar") && env.POLARIS_DESKTOP_PLATFORM !== undefined) {
+  setClientPlatform(toClientPlatform(env.POLARIS_DESKTOP_PLATFORM));
 }
 
 // The spike measured these as harmless and never needed: see ENG-184's NOTES.md.
@@ -301,7 +308,8 @@ const start = async () => {
     context: {
       updates: currentUpdates,
       restartToUpdate,
-      showAppInFinder: () => shell.showItemInFolder(join(dirname(app.getPath("exe")), "../..")),
+      showAppInFinder: () =>
+        shell.showItemInFolder(appRevealPath(clientPlatform(), app.getPath("exe"))),
       settings: () => settings,
       cache: openSnapshotCache(app.getPath("userData")),
       prices: openPrices(app.getPath("userData")),
@@ -324,6 +332,11 @@ const start = async () => {
           action
         ](),
       needsYou: (summary) => needsYou?.publish(summary),
+      showAppMenu: () => {
+        const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+
+        if (win !== undefined) popupAppMenu(win);
+      },
     },
   });
 

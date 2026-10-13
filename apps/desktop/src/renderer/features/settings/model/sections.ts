@@ -1,4 +1,5 @@
 /** The Settings nav (DESIGN.md, Settings): its groups, their sections, and each page's one line. */
+import { clientCopy } from "../../../../shared/clientCopy.ts";
 import type { SettingsSection } from "../../../routes/selection.ts";
 
 export interface SectionInfo {
@@ -22,8 +23,7 @@ const GROUPS: ReadonlyArray<GroupSource> = [
       {
         id: "appearance",
         title: "Appearance",
-        blurb:
-          "How Polaris looks on this Mac. These settings stay on this Mac; hosts don't share them.",
+        blurb: `How Polaris looks on ${clientCopy().machine}. These settings stay on ${clientCopy().machine}; hosts don't share them.`,
         keywords: [
           "theme",
           "dark",
@@ -60,7 +60,7 @@ const GROUPS: ReadonlyArray<GroupSource> = [
       {
         id: "editor",
         title: "Editor",
-        blurb: "How files edit and save in Edit mode. These settings stay on this Mac.",
+        blurb: `How files edit and save in Edit mode. These settings stay on ${clientCopy().machine}.`,
         keywords: [
           "vim",
           "autosave",
@@ -145,8 +145,7 @@ const GROUPS: ReadonlyArray<GroupSource> = [
       {
         id: "github",
         title: "GitHub accounts",
-        blurb:
-          "Accounts this Mac uses to list pull requests and send reviews. Tokens stay in the macOS keychain; hosts fetch code with their own git credentials.",
+        blurb: `Accounts ${clientCopy().machine} uses to list pull requests and send reviews. Tokens stay ${clientCopy().tokenStore}; hosts fetch code with their own git credentials.`,
         keywords: ["github", "account", "owner", "organization", "sign in", "sso", "access"],
       },
     ],
@@ -168,7 +167,7 @@ export const SECTIONS: ReadonlyArray<SectionInfo> = [
   {
     id: "about",
     title: "About",
-    blurb: "Polaris on this Mac.",
+    blurb: `Polaris on ${clientCopy().machine}.`,
     keywords: ["update", "version", "release", "restart"],
   },
 ];

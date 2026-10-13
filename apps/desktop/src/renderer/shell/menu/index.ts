@@ -3,6 +3,7 @@
  * table) through the app's chord formatting, never typed by hand, and the copy and reveal
  * actions (DESIGN.md, Menus).
  */
+import { clientCopy } from "../../../shared/clientCopy.ts";
 import {
   COPY_FAILED,
   type CopyWrite,
@@ -49,12 +50,12 @@ export const copyEntry = (label: string, text: string, testId?: string): MenuAct
 const lowerFirst = (text: string) =>
   /^[A-Z][a-z]/.test(text) ? `${text.charAt(0).toLowerCase()}${text.slice(1)}` : text;
 
-/** Reveal in Finder, for this Mac's Workspaces only; a remote Host's path has no Finder. */
+/** Reveal in Finder (Show in Explorer), for local Workspaces only; a remote Host's path has none. */
 export const revealInFinderEntry = (hostKey: string, path: string): MenuAction | null =>
   hostKey === LOCAL_HOST
     ? {
         kind: "item",
-        label: "Reveal in Finder",
+        label: clientCopy().reveal,
         onSelect: () => void polaris().request("shell.revealInFinder", { hostKey, path }),
         testId: "menu-reveal-in-finder",
       }
