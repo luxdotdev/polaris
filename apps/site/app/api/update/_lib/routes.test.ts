@@ -9,6 +9,8 @@ function setup(
 ) {
   const callbacks: (() => Promise<void>)[] = [];
   const events: WideEvent[] = [];
+  const tracked: Array<{ name: string; properties: object }> = [];
+  const trackTasks: Array<() => Promise<void>> = [];
 
   const routes = createReleaseRoutes({
     latest,
@@ -21,9 +23,17 @@ function setup(
         events.push(event);
       },
     },
+    analytics: {
+      schedule: (task) => {
+        trackTasks.push(task);
+      },
+      track: async (name, properties) => {
+        tracked.push({ name, properties });
+      },
+    },
   });
 
-  return { routes, callbacks, events };
+  return { routes, callbacks, events, tracked, trackTasks };
 }
 
 test.each(["1.2.3", "1.2.3+local", "1.2.4", "1.2.4-alpha.1", "2.0.0"])(
@@ -151,4 +161,23 @@ test("upstream failures or missing assets: update is a retryable 503, download g
     await Promise.all(callbacks.map((callback) => callback()));
     expect(events).toHaveLength(2);
   }
+});
+
+test("the Mac download records one Vercel Analytics event after responding", async () => {
+  const { routes, tracked, trackTasks } = setup();
+
+  const response = await routes.download(
+    new Request("https://polaris.lux.dev/download/mac"),
+    undefined
+  );
+
+  expect(response.status).toBe(307);
+  expect(tracked).toHaveLength(0);
+  await Promise.all(trackTasks.map((task) => task()));
+  expect(tracked).toEqual([
+    {
+      name: "download",
+      properties: { platform: "darwin", arch: "arm64", release_version: fixture.tag_name },
+    },
+  ]);
 });

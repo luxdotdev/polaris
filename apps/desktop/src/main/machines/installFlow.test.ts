@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { type DaemonBuild, InstallPlan, planInstall } from "@polaris/client/install";
+import { type DaemonBuild, Delivery, InstallPlan, planInstall } from "@polaris/client/install";
 import {
   type InstallEvent,
   type InstallSnapshot,
@@ -21,6 +21,8 @@ const build: DaemonBuild = {
       executable: true,
     },
   ],
+  bundled: true,
+  archive: null,
 };
 
 const run = (...events: ReadonlyArray<InstallEvent>): InstallSnapshot =>
@@ -81,7 +83,7 @@ describe("install flow", () => {
     // Even an Install plan arriving on a background check only asks.
     const forced = run(
       { type: "check", trigger: "background" },
-      { type: "planned", plan: InstallPlan.Install({ build }) }
+      { type: "planned", plan: InstallPlan.Install({ build, delivery: Delivery.Upload() }) }
     );
 
     expect([forced.value, forced.context.work]).toEqual(["approval", null]);
@@ -98,7 +100,12 @@ describe("install flow", () => {
       const checked = stepInstall(from, { type: "check", trigger: "background" });
 
       if (checked.value !== "checking") continue;
-      const next = stepInstall(checked, { type: "planned", plan: InstallPlan.Install({ build }) });
+
+      const next = stepInstall(checked, {
+        type: "planned",
+        plan: InstallPlan.Install({ build, delivery: Delivery.Upload() }),
+      });
+
       expect(next.value).not.toBe("installing");
     }
   });

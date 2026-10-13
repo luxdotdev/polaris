@@ -3,6 +3,7 @@
  * an update to offer, the work in progress, what the last one did, or why it
  * stopped. Pure, so every state is tested (DESIGN.md, Settings · Hosts).
  */
+import { clientCopy } from "../../../../shared/clientCopy.ts";
 import type { DaemonUpdateProblem, DaemonUpdateView } from "./contract.ts";
 
 /** How long "Upgraded to …" stays on the row after an update. */
@@ -156,6 +157,20 @@ const busy = (daemon: DaemonUpdateView, label: string): UpdateLine | null => {
   switch (progress?.stage) {
     case "checking":
       return { kind: "busy", text: `Checking ${label}`, fraction: null };
+    case "downloading": {
+      if (progress.via === "host")
+        return { kind: "busy", text: `Downloading polaris ${target} on ${label}`, fraction: null };
+      const { bytes, total } = progress;
+      const counted = total > 0;
+      const where = `Downloading polaris ${target} to ${clientCopy().machine}`;
+
+      return {
+        kind: "busy",
+        text: counted ? `${where} · ${transferText(bytes, total)}` : where,
+        fraction: counted ? Math.min(1, bytes / total) : null,
+      };
+    }
+
     case "uploading": {
       const { bytes, total } = progress;
       const counted = total > 0;

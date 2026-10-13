@@ -107,7 +107,8 @@ jobs:
         run: node apps/desktop/scripts/packageCheck.ts
 
       - name: Archive the final Daemon bytes and manifest for Windows
-        run: tar -czf polaris-daemon-dist.tar.gz -C apps/daemon dist
+        # The manifest names every platform's Release archive; the archives themselves upload below.
+        run: tar -czf polaris-daemon-dist.tar.gz --exclude dist/release -C apps/daemon dist
       - uses: actions/upload-artifact@v4
         with:
           name: release-daemon-dist
@@ -161,6 +162,12 @@ jobs:
           zip="apps/desktop/out/dist/Polaris-$VERSION-arm64-mac.zip"
           test -s "$dmg"
           test -s "$zip"
+          # Each platform's Daemon (polaris + betterleaks) and their checksums; Hosts download
+          # these through polaris.lux.dev/api/daemon/<version>/<platform> (docs/adr/0043).
+          daemons=(apps/daemon/dist/release/polaris-daemon-"$VERSION"-*.tar.gz)
+          sums="apps/daemon/dist/release/polaris-daemon-$VERSION-SHA256SUMS"
+          test "${#daemons[@]}" -eq 5
+          for asset in "${daemons[@]}" "$sums"; do test -s "$asset"; done
           flags=(--draft --verify-tag --title "Polaris $VERSION")
           if [[ "$PRERELEASE" == true ]]; then
             flags+=(--prerelease --latest=false)
@@ -178,7 +185,7 @@ jobs:
             flags+=(--generate-notes)
           fi
           flags+=(--notes-file "$notes")
-          gh release create "$RELEASE_TAG" "$dmg" "$zip" "${flags[@]}"
+          gh release create "$RELEASE_TAG" "$dmg" "$zip" "${daemons[@]}" "$sums" "${flags[@]}"
 
   windows:
     name: Windows x64 and arm64 (experimental, unsigned)

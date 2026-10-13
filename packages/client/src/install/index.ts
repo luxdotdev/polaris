@@ -1,4 +1,8 @@
+export * from "./archive.ts";
+
 export * from "./builds.ts";
+
+export * from "./download.ts";
 
 export * from "./plan.ts";
 

@@ -1,4 +1,6 @@
-import { errorInfo, withWideEvent } from "../../../../lib/log";
+import { trackAfter, type AnalyticsOptions } from "../../../../lib/analytics";
+import { Predicate } from "effect";
+import { errorInfo, withWideEvent, type WideEvent } from "../../../../lib/log";
 import {
   latestRelease,
   releaseAssetNamed,
@@ -50,6 +52,8 @@ interface Dependencies {
   readonly latest: () => Promise<PublishedRelease | null>;
   readonly fetch?: (url: string, init: RequestInit) => Promise<Response>;
   readonly log?: NonNullable<Parameters<typeof withWideEvent>[2]>;
+  /** Overrides for the Vercel Analytics event (tests). */
+  readonly analytics?: Partial<AnalyticsOptions>;
 }
 
 export const createWindowsRoutes = (deps: Dependencies) => ({
@@ -114,28 +118,40 @@ export const createWindowsRoutes = (deps: Dependencies) => ({
       if (arch === null)
         return Response.json({ error: "Use arch=x64 or arch=arm64." }, { status: 400, headers });
       Object.assign(event, requestFields(request, "download", null, { platform: "win32", arch }));
+      const response = await windowsDownload(deps, event, arch);
+      trackAfter(
+        request,
+        "download",
+        {
+          platform: "win32",
+          arch,
+          release_version: Predicate.isString(event.release_version) ? event.release_version : null,
+        },
+        deps.analytics
+      );
 
-      try {
-        const release = await deps.latest();
-        event.release_version = release?.tag_name ?? null;
-
-        if (!release) return releasesPage();
-
-        const url = releaseAssetNamed(
-          release,
-          windowsAssetName(release.version.text, arch, "setup")
-        );
-
-        return new Response(null, { status: 307, headers: { ...headers, Location: url } });
-      } catch (error) {
-        event.failure = "release_unavailable";
-        event.error = errorInfo(error);
-
-        return releasesPage();
-      }
+      return response;
     },
     deps.log
   ),
 });
+
+async function windowsDownload(deps: Dependencies, event: WideEvent, arch: WindowsArch) {
+  try {
+    const release = await deps.latest();
+    event.release_version = release?.tag_name ?? null;
+
+    if (!release) return releasesPage();
+
+    const url = releaseAssetNamed(release, windowsAssetName(release.version.text, arch, "setup"));
+
+    return new Response(null, { status: 307, headers: { ...headers, Location: url } });
+  } catch (error) {
+    event.failure = "release_unavailable";
+    event.error = errorInfo(error);
+
+    return releasesPage();
+  }
+}
 
 export const windowsRoutes = createWindowsRoutes({ latest: latestRelease });

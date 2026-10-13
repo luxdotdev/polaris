@@ -6,7 +6,7 @@
 import {
   applyPlan,
   type DaemonBuild,
-  type ApplyProgress,
+  type ApplyOptions,
   type InstallPlan,
   type InstallTrigger,
   planInstall,
@@ -67,13 +67,9 @@ export const planFor = Effect.fn("planFor")(function* (input: PlanInput) {
   } satisfies Planned;
 });
 
-/** Upload the build, check its SHA-256 on the Host, and run `polaris install|upgrade`. */
-export const applyWork = (
-  alias: string,
-  work: InstallWork,
-  progress?: (value: ApplyProgress) => void
-) =>
-  Effect.map(applyPlan(alias, work, progress), (applied): InstallOutcome =>
+/** Get the build onto the Host (upload, or a download there or here), check it, and run `polaris install|upgrade`. */
+export const applyWork = (alias: string, work: InstallWork, options: ApplyOptions = {}) =>
+  Effect.map(applyPlan(alias, work, options), (applied): InstallOutcome =>
     Match.value(applied).pipe(
       Match.tagsExhaustive({
         Installed: ({ version, report }) =>

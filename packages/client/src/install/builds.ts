@@ -1,9 +1,9 @@
 /**
- * The Daemon builds the Desktop App bundles: one per platform, as produced
- * by `scripts/build-daemon.ts` (`<dir>/manifest.json` plus
- * `<dir>/<platform>/polaris`, a single self-contained file today; any other
- * files the manifest lists travel with it). Nothing is ever downloaded on
- * the Host.
+ * The Daemon builds the Desktop App knows: one per platform, as produced by
+ * `scripts/build-daemon.ts` (`<dir>/manifest.json` plus `<dir>/<platform>/`
+ * holding `polaris` and the files that travel with it). A release app bundles
+ * only its own platform's files; the manifest still lists every platform with
+ * its hashes and Release archive, which a Host downloads (docs/adr/0043).
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -19,10 +19,21 @@ export const PLATFORMS = [
 
 export type Platform = (typeof PLATFORMS)[number];
 
-const isPlatform = Schema.is(Schema.Literals(PLATFORMS));
+export const isPlatform = Schema.is(Schema.Literals(PLATFORMS));
 
 /** A Linux Host's C library: glibc builds don't run on musl (Alpine) and vice versa. */
 export type Libc = "gnu" | "musl";
+
+/**
+ * glibc's dynamic loaders. A Host with one is glibc even when musl's loader is
+ * installed beside it (Debian's `musl` package), as the Daemon's own check decides.
+ */
+export const GLIBC_LOADERS = [
+  "/lib64/ld-linux-x86-64.so.2",
+  "/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+  "/lib/ld-linux-aarch64.so.1",
+  "/lib/aarch64-linux-gnu/ld-linux-aarch64.so.1",
+] as const;
 
 /**
  * Map `uname -s` / `uname -m` (and, on Linux, the C library) to a Daemon
@@ -72,7 +83,43 @@ export interface DaemonBuild {
   readonly sha256: string;
   /** The binary first, then the files that travel with it. */
   readonly files: ReadonlyArray<BuildFile>;
+  /** Whether the files are on this machine (each `path` exists); else they come from `archive`. */
+  readonly bundled: boolean;
+  /** Null for dev builds, which have no Release. */
+  readonly archive: DaemonArchive | null;
 }
+
+/** A platform's Release archive (`polaris-daemon-<version>-<platform>.tar.gz`). */
+export interface DaemonArchive {
+  readonly name: string;
+  readonly sha256: string;
+  readonly size: number;
+  /** The site route that redirects to the Release asset. */
+  readonly url: string;
+}
+
+/** Where a Release's Daemon archives are downloaded from; the site redirects to GitHub. */
+export const DAEMON_DOWNLOAD_URL = "https://polaris.lux.dev/api/daemon/{version}/{platform}";
+
+export const daemonArchiveName = (version: string, platform: Platform): string =>
+  `polaris-daemon-${version}-${platform}.tar.gz`;
+
+/** The archive's URL with the telemetry the site logs: who downloads, and this Client's version. */
+export const archiveRequestUrl = (
+  archive: DaemonArchive,
+  via: "host" | "client",
+  clientVersion: string | undefined
+): string => {
+  const url = new URL(archive.url);
+
+  if (clientVersion) url.searchParams.set("client", clientVersion);
+  url.searchParams.set("via", via);
+
+  return url.href;
+};
+
+export const daemonDownloadUrl = (template: string, version: string, platform: Platform) =>
+  template.replaceAll("{version}", encodeURIComponent(version)).replaceAll("{platform}", platform);
 
 const FileEntry = Schema.Struct({
   sha256: Schema.String,
@@ -81,14 +128,25 @@ const FileEntry = Schema.Struct({
   executable: Schema.optional(Schema.Boolean),
 });
 
+const ArchiveEntry = Schema.Struct({
+  name: Schema.String,
+  sha256: Schema.String,
+  size: Schema.Number,
+});
+
 const Manifest = Schema.Struct({
   version: Schema.String,
+  /** Release manifests: the download URL template (`DAEMON_DOWNLOAD_URL`). */
+  download: Schema.optional(Schema.Struct({ url: Schema.String })),
+  /** The platforms whose files are present; absent means all of them (dev). */
+  bundled: Schema.optional(Schema.Array(Schema.String)),
   platforms: Schema.Record(
     Schema.String,
     Schema.Struct({
       binary: Schema.String,
       sha256: Schema.String,
       files: Schema.Record(Schema.String, FileEntry),
+      archive: Schema.optional(ArchiveEntry),
     })
   ),
 });
@@ -107,11 +165,21 @@ export const loadBuilds = (distDir: string): ReadonlyArray<DaemonBuild> => {
       ...Object.keys(build.files).filter((name) => name !== build.binary),
     ];
 
+    const archive =
+      build.archive && manifest.download
+        ? {
+            ...build.archive,
+            url: daemonDownloadUrl(manifest.download.url, manifest.version, platform),
+          }
+        : null;
+
     return [
       {
         platform,
         version: manifest.version,
         sha256: build.sha256,
+        bundled: manifest.bundled?.includes(platform) ?? true,
+        archive,
         files: names.map((name) => ({
           name,
           path: join(distDir, platform, name),

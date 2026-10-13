@@ -1,3 +1,5 @@
+import { Predicate } from "effect";
+import { trackAfter, type AnalyticsOptions } from "../../../../lib/analytics";
 import { errorInfo, withWideEvent, type ErrorInfo, type WideEvent } from "../../../../lib/log";
 import { latestRelease, releaseAsset, releasesPage, type PublishedRelease } from "./releases.ts";
 import { requestFields } from "./telemetry.ts";
@@ -9,6 +11,8 @@ interface Dependencies {
   latest: () => Promise<PublishedRelease | null>;
   /** Overrides for the wide event's scheduling, emission, environment and clock (tests). */
   log?: WideEventOptions;
+  /** Overrides for the Vercel Analytics event (tests). */
+  analytics?: Partial<AnalyticsOptions>;
 }
 
 const headers = { "Cache-Control": "no-store" };
@@ -109,8 +113,21 @@ export function createReleaseRoutes(deps: Dependencies) {
       DOWNLOAD_ROUTE,
       async (request, event) => {
         Object.assign(event, requestFields(request, "download", null));
+        const response = await downloadResponse(event);
+        trackAfter(
+          request,
+          "download",
+          {
+            platform: "darwin",
+            arch: "arm64",
+            release_version: Predicate.isString(event.release_version)
+              ? event.release_version
+              : null,
+          },
+          deps.analytics
+        );
 
-        return downloadResponse(event);
+        return response;
       },
       deps.log
     ),

@@ -4,7 +4,7 @@
  * approval, install or upgrade), switches the local Host, and publishes the
  * Settings rows. A background check (a reconnect) never installs.
  */
-import { InstallPlan, type InstallTrigger, Ssh } from "@polaris/client/install";
+import { type DownloadBuild, InstallPlan, type InstallTrigger, Ssh } from "@polaris/client/install";
 import { WslDiscovery } from "@polaris/client/wsl";
 import {
   Context,
@@ -23,6 +23,7 @@ import { localHostEnabled, type LocalDaemon } from "../localDaemon.ts";
 import type { RemoteHostSetting, Settings } from "../settings.ts";
 import type { Approvals } from "./approvals.ts";
 import type { DaemonBuilds } from "./builds.ts";
+import { deliveryActivity } from "./delivery.ts";
 import { type InstallEvent, initialInstall, stepInstall } from "./installFlow.ts";
 import { applyWork, failureMessage, planFor, startDaemon } from "./remote.ts";
 import { sshArgv } from "./terminal.ts";
@@ -46,6 +47,10 @@ export interface MachinesInput {
   readonly settings: SettingsStore;
   readonly approvals: Approvals;
   readonly builds: DaemonBuilds;
+  /** Downloads a build this app doesn't bundle, for a Host that can't download it itself. */
+  readonly download?: DownloadBuild | undefined;
+  /** Sent with downloads for the site's telemetry. */
+  readonly clientVersion?: string | undefined;
   readonly aliases: () => ReadonlyArray<SshAliasView>;
   /** Finds or starts the local Daemon when the local Host is switched on. */
   readonly localDaemon: () => Promise<LocalDaemon>;
@@ -407,7 +412,13 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
 
       yield* setRecord(key, { offerSize: size });
 
-      const planned = yield* step(key, { type: "planned", plan }, to.copying);
+      const activity = deliveryActivity(plan, {
+        host: to.alias,
+        copying: to.copying,
+        platform: input.platform ?? process.platform,
+      });
+
+      const planned = yield* step(key, { type: "planned", plan }, activity);
 
       const pending = planned.value === "installing" ? planned.context.work : null;
 
@@ -417,7 +428,12 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
         return;
       }
 
-      const outcome = yield* applyWork(to.alias, pending, progress(key));
+      const outcome = yield* applyWork(to.alias, pending, {
+        progress: progress(key),
+        download: input.download,
+        clientVersion: input.clientVersion,
+      });
+
       yield* step(key, { type: "applied", outcome });
       yield* finishUpdate(key, {
         at: Date.now(),
