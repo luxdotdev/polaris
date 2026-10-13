@@ -22,6 +22,13 @@ const ROOT_MARKERS: RootRules = {
   lua: [".luarc.json", ".luarc.jsonc"],
   yaml: [".github", ".yamllint", "package.json"],
   actions: [".github"],
+  svelte: [
+    "svelte.config.js",
+    "svelte.config.cjs",
+    "svelte.config.mjs",
+    "svelte.config.ts",
+    "package.json",
+  ],
 };
 
 export async function projectRoot(
@@ -67,6 +74,23 @@ export async function prismaFacts(root: string, project: string) {
       : await existing(root, join(project, declared));
 
   return { config: config?.path ?? null, schema, configurationDeferred: config !== null };
+}
+
+export async function svelteConfiguration(root: string, start: string, provider: string) {
+  if (provider !== "svelte") return null;
+
+  return (
+    (
+      await nearest(root, ancestors(root, start), [
+        "svelte.config.js",
+        "svelte.config.cjs",
+        "svelte.config.mjs",
+        "svelte.config.ts",
+        "vite.config.js",
+        "vite.config.ts",
+      ])
+    )?.path ?? null
+  );
 }
 
 export async function workspaceFacts(root: string, project: string, provider: string) {

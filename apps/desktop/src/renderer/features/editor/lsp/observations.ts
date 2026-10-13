@@ -79,10 +79,17 @@ export class EditorLanguageObservations {
     scope: Scope,
     path: string,
     language: string,
-    settings: typeof P.LanguageEffectiveSettings.Type
+    settings: typeof P.LanguageEffectiveSettings.Type,
+    refresh = false
   ) {
     const directory = path.slice(0, path.lastIndexOf("/"));
-    const key = JSON.stringify([this.scope(scope), directory, language, settings]);
+
+    const key = JSON.stringify([
+      this.scope(scope),
+      language === "sql" ? path : directory,
+      language,
+      settings,
+    ]);
 
     return this.retain(this.discoveries, key, async () => {
       const discovery = await api.request("languages.discover", {
@@ -91,6 +98,7 @@ export class EditorLanguageObservations {
         path,
         documentLanguageId: language,
         settings,
+        refresh,
       });
 
       if (!discovery.ok) throw languageIpcError(discovery.error);

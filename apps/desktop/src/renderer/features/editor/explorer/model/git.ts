@@ -91,6 +91,10 @@ export const statusAt = (marks: GitMarks, path: string, root: string): GitStatus
   return null;
 };
 
+/** Git ignores the file (or a folder above it): the gutter shows no marks, as the tree greys it. */
+export const ignoredAt = (marks: GitMarks, path: string, toplevel: string) =>
+  statusAt(marks, path, toplevel) === "ignored";
+
 /** Deleted files whose folder is `dir`: listed in the tree, struck through, though not on disk. */
 export const deletedIn = (marks: GitMarks, dir: string): ReadonlyArray<string> =>
   [...marks.files].flatMap(([path, status]) =>

@@ -81,6 +81,12 @@ export const languageTransportFor = (
   const client = session.client;
 
   const calls: Record<LanguageMethod, (input: unknown) => Effect.Effect<unknown, unknown>> = {
+    "languages.sql.dialect.get": (input) =>
+      client["languages.sql.dialect.get"](decodeLanguage(P.GetSqlDialect.payloadSchema, input)),
+    "languages.sql.dialect.select": (input) =>
+      client["languages.sql.dialect.select"](
+        decodeLanguage(P.SelectSqlDialect.payloadSchema, input)
+      ),
     "languages.python.interpreters": (input) =>
       client["languages.python.interpreters"](
         decodeLanguage(P.ListPythonInterpreters.payloadSchema, input)
@@ -91,6 +97,14 @@ export const languageTransportFor = (
       ),
     "languages.host.state": (input) =>
       client["languages.host.state"](decodeLanguage(P.GetLanguageHostState.payloadSchema, input)),
+    "languages.host.processBudget.get": (input) =>
+      client["languages.host.processBudget.get"](
+        decodeLanguage(P.GetLanguageProcessBudget.payloadSchema, input)
+      ),
+    "languages.host.processBudget.set": (input) =>
+      client["languages.host.processBudget.set"](
+        decodeLanguage(P.SetLanguageProcessBudget.payloadSchema, input)
+      ),
     "languages.catalog": (input) =>
       client["languages.catalog"](decodeLanguage(P.GetLanguageCatalog.payloadSchema, input)),
     "languages.availability": (input) =>

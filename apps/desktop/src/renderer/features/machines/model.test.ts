@@ -37,6 +37,7 @@ const install = (patch: Partial<InstallFlowView> = {}): InstallFlowView => ({
 const machine = (patch: Partial<MachineView> = {}): MachineView => ({
   daemon: null,
   key: "pi",
+  kind: "ssh",
   label: "Raspberry Pi 4",
   colour: null,
   alias: "pi",
@@ -49,11 +50,16 @@ const machine = (patch: Partial<MachineView> = {}): MachineView => ({
   ...patch,
 });
 
-const attention = (reason: string, detail = "stderr line") =>
+const attention = (reason: string, detail = "stderr line", older?: "daemon" | "client") =>
   machine({
     status: status({
       state: "needs-attention",
-      failure: { kind: "needs-attention", reason, detail },
+      failure: {
+        kind: "needs-attention",
+        reason,
+        detail,
+        older,
+      },
     }),
   });
 
@@ -68,11 +74,29 @@ describe("attention cards", () => {
       "polaris-not-installed",
       "ssh-config-error",
       "ssh-missing",
+      "wsl-missing",
+      "wsl-distro-missing",
     ]) {
       const model = attentionCard(attention(reason));
       expect(model?.reason).toBe(reason);
       expect(model?.title.length).toBeGreaterThan(0);
     }
+  });
+
+  test("a WSL Host's reasons: WSL gone (copy the install command), the distro gone (retry or remove)", () => {
+    const distro = { ...attention("wsl-missing"), kind: "wsl" as const, alias: "Ubuntu" };
+    expect(attentionCard(distro)).toMatchObject({
+      detail: "wsl --install --no-distribution",
+      fix: { action: "copy-detail" },
+      secondary: { action: "retry" },
+    });
+    expect(
+      attentionCard({ ...distro, status: attention("wsl-distro-missing").status })
+    ).toMatchObject({
+      title: "WSL no longer lists a distro called Ubuntu",
+      fix: { action: "retry" },
+      secondary: null,
+    });
   });
 
   test("a changed host key never gets a one-click fix", () => {
@@ -88,6 +112,17 @@ describe("attention cards", () => {
       attentionCard(attention("auth-failed", "pi@10.0.0.9: Permission denied (publickey)."))?.detail
     ).toBe("pi@10.0.0.9: Permission denied (publickey).");
     expect(attentionCard(attention("daemon-not-running"))?.fix?.action).toBe("start-daemon");
+  });
+
+  test("a protocol mismatch names the older side and offers the fix on that side", () => {
+    expect(attentionCard(attention("protocol-mismatch", "v", "daemon"))).toMatchObject({
+      title: "Raspberry Pi 4 runs an older daemon",
+      fix: { label: "Upgrade", action: "check" },
+    });
+    expect(attentionCard(attention("protocol-mismatch", "v", "client"))).toMatchObject({
+      title: "Polaris on this Mac is older than the daemon on Raspberry Pi 4",
+      fix: { action: "retry" },
+    });
   });
 
   test("the install flow's card wins over the connection's while it runs", () => {
@@ -224,6 +259,9 @@ describe("rows", () => {
     expect(hostCaption(machine(), 1)).toBe("ssh pi · 1 workspace");
     expect(hostCaption(machine({ alias: null }), 2)).toBe("This Mac · 2 workspaces");
     expect(hostCaption(machine(), null)).toBe("ssh pi");
+    expect(hostCaption(machine({ kind: "wsl", alias: "Ubuntu" }), 1)).toBe(
+      "wsl Ubuntu · 1 workspace"
+    );
     expect(
       outcomeNote(
         machine({

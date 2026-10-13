@@ -50,6 +50,7 @@ const UI_MORE: ReadonlyArray<readonly [string, string]> = [
   ["DotsIcon", "DotsOutline18"],
   ["EditorIcon", "CodeEditorOutline18"],
   ["ChatIcon", "ChatBubbleOutline18"],
+  ["CopyIcon", "CopyOutline18"],
 ];
 
 /** Polaris name → Nucleo pixel outline 24px component. Polaris-owned concepts only. */
@@ -65,6 +66,7 @@ const PIXEL: ReadonlyArray<readonly [string, string]> = [
   ["PixelSparkleIcon", "SparkleOutline24"],
   ["PixelCheckIcon", "CheckOutline24"],
   ["PixelAlertIcon", "TriangleWarningOutline24"],
+  ["PixelHourglassIcon", "HourglassOutline24"],
 ];
 
 function inner(family: string, component: string): string {

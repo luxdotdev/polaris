@@ -1,3 +1,6 @@
+import { relative } from "node:path";
+import { detectDialect } from "../sql/detection.ts";
+import type { createSqlSelection } from "../sql/selection.ts";
 import { realpath } from "node:fs/promises";
 import { dirname, isAbsolute, resolve } from "node:path";
 import { LanguageCheckout, LanguageEffectiveSettings, LanguageError } from "@polaris/protocol";
@@ -9,13 +12,15 @@ import {
   type CheckoutRegistry,
 } from "../trust/index.ts";
 import { invalid } from "../trust/checkout.ts";
-import { ancestors, isDirectory, nearest, withDiscoveryBudget } from "./files.ts";
+import { ancestors, isDirectory, nearest, readText, withDiscoveryBudget } from "./files.ts";
 import { configPlugins, pluginFacts, typescriptSdk } from "./typescript.ts";
-import { projectRoot, prismaFacts, workspaceFacts } from "./roots.ts";
+import { projectRoot, prismaFacts, workspaceFacts, svelteConfiguration } from "./roots.ts";
 import { pythonInterpreter } from "./python.ts";
 import { detectPython, type PythonProbeOptions } from "../python/detection.ts";
 import { interpreterEntry, type createPythonEnvironment } from "../python/environment.ts";
 import { configurationFingerprint } from "./configuration.ts";
+import { workspaceTools } from "../php/projectTools.ts";
+import { rustLuaFacts } from "../rust/facts.ts";
 
 export { effectiveSettings, configurationFingerprint } from "./configuration.ts";
 
@@ -28,6 +33,7 @@ export interface DiscoveryInput {
   settings: typeof LanguageEffectiveSettings.Type;
   refresh?: boolean;
   useProjectTypeScript?: boolean;
+  workspaceTrusted?: boolean;
 }
 
 const family = (provider: string) =>
@@ -47,6 +53,7 @@ const family = (provider: string) =>
     "vscode-html-language-server": "html",
     "vscode-css-language-server": "css",
     "bash-language-server": "bash",
+    "svelte-language-server": "svelte",
     "sqllens-language-server": "sql",
   })[provider] ?? provider;
 
@@ -107,6 +114,31 @@ async function interpreterFacts(
   };
 }
 
+async function supportedShell(provider: string, path: string) {
+  if (provider === "bash" && !(await isDirectory(path))) {
+    const name = path.split("/").at(-1) ?? "";
+    const firstLine = (await readText(path)).split("\n", 1)[0] ?? "";
+
+    if (
+      /\.(zsh|fish)$|^\.(zshrc|zprofile|zlogin|zlogout)$/.test(name) ||
+      /^#!.*\b(zsh|fish)\b/.test(firstLine)
+    )
+      throw new LanguageError({
+        reason: "unsupported-capability",
+        message: "Bash tooling supports Bash and POSIX shells; zsh and fish are highlighted only",
+        retryable: false,
+      });
+  }
+}
+
+/** Which bundled servers run: none once the user names a custom server or executable. */
+const managedFacts = (plain: boolean, provider: string) => ({
+  managedSqlShell: plain && ["sql", "bash"].includes(provider),
+  managedWeb: plain,
+  managedPython: plain && provider === "python",
+  managedPhp: plain && provider === "php",
+});
+
 async function discover(
   context: Awaited<ReturnType<typeof canonicalCheckout>>,
   path: string,
@@ -125,12 +157,13 @@ async function discover(
     };
   const custom = settings.settings.customServers?.find(({ id }) => id === input.providerId);
 
+  const executable = settings.settings.executableOverrides?.[input.providerId] ?? custom?.launch;
+  const plain = bundled && custom === undefined && executable === undefined;
+
   const bundledTypeScript =
-    bundled &&
-    provider === "typescript" &&
-    custom === undefined &&
-    settings.settings.executableOverrides?.[input.providerId] === undefined &&
-    input.useProjectTypeScript !== true;
+    plain && provider === "typescript" && input.useProjectTypeScript !== true;
+
+  await supportedShell(provider, path);
 
   const start = (await isDirectory(path)) ? path : dirname(path);
 
@@ -161,8 +194,6 @@ async function discover(
       ? await configPlugins(context.root, configuration)
       : [];
 
-  const executable = settings.settings.executableOverrides?.[input.providerId] ?? custom?.launch;
-
   const python = await interpreterFacts(
     context.root,
     start,
@@ -178,8 +209,13 @@ async function discover(
     projectRoot: root,
     providerId: input.providerId,
     bundledTypeScript,
-    managedPython:
-      bundled && provider === "python" && custom === undefined && executable === undefined,
+    workspaceTrusted: input.workspaceTrusted === true,
+    ...managedFacts(plain, provider),
+    svelteConfiguration: await svelteConfiguration(context.root, start, provider),
+    workspaceTools: await workspaceTools(context.root, root, provider),
+    ...(await rustLuaFacts(context.root, root, provider, input.workspaceTrusted === true, {
+      managed: plain,
+    })),
     configuration: provider === "typescript" ? configuration : null,
     ...(await sdkFacts(context.root, root, provider, settings.settings.sdk)),
     ...python,
@@ -212,6 +248,7 @@ async function discover(
 }
 
 export type DiscoveryFacts = Awaited<ReturnType<typeof discover>> & {
+  sqlDialect?: import("@polaris/protocol").LanguageSqlDialect | null;
   configurationFingerprint: string;
   configurationInputs: Record<string, string>;
 };
@@ -225,6 +262,7 @@ export function createProjectDiscovery(options: {
   bundledTypeScript?: boolean;
   pythonEnvironment?: ReturnType<typeof createPythonEnvironment>;
   pythonHost?: PythonProbeOptions;
+  sqlSelection?: ReturnType<typeof createSqlSelection>;
 }) {
   const capacity = options.capacity ?? 128;
   const maxPending = options.maxPending ?? 8;
@@ -276,6 +314,7 @@ export function createProjectDiscovery(options: {
         input.providerId,
         input.settings,
         input.useProjectTypeScript ?? false,
+        input.workspaceTrusted ?? false,
       ]);
 
       const cached = cache.get(key);
@@ -305,7 +344,28 @@ export function createProjectDiscovery(options: {
         )
       );
 
-      const facts = { ...observed.value, configurationInputs: observed.configurationInputs };
+      const sqlRecord =
+        family(input.providerId) === "sql"
+          ? await options.sqlSelection?.read(context.checkout)
+          : undefined;
+
+      const sql =
+        family(input.providerId) === "sql"
+          ? await withDiscoveryBudget(context.root, async () => {
+              const record = sqlRecord;
+              const detected = await detectDialect(context.root, path);
+
+              return (
+                record?.files[relative(context.root, path)] ?? record?.workspace ?? detected.dialect
+              );
+            })
+          : null;
+
+      const facts = {
+        ...observed.value,
+        sqlDialect: sql?.value ?? null,
+        configurationInputs: { ...observed.configurationInputs, ...sql?.configurationInputs },
+      };
 
       const result = { ...facts, configurationFingerprint: providerFingerprint(facts) };
       const size = Buffer.byteLength(JSON.stringify(result));

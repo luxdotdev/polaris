@@ -105,6 +105,12 @@ interface AttemptSpec {
   readonly nudgedMinutesAgo?: number;
   /** A blocked Attempt's targets and reason. */
   readonly blocked?: { readonly on: ReadonlyArray<string>; readonly reason: string };
+  /** A failed settle's kind, reason and Plan Limit reset. */
+  readonly failure?: {
+    readonly kind: Attempt["failureKind"];
+    readonly reason: string;
+    readonly resetsAt?: string;
+  };
 }
 
 export const attempt = (spec: AttemptSpec) =>
@@ -132,6 +138,9 @@ export const attempt = (spec: AttemptSpec) =>
     blockedOn: (spec.blocked?.on ?? []).map((id) => TaskId.make(id)),
     blockedReason: spec.blocked?.reason ?? null,
     blockedAt: spec.blocked === undefined ? null : ago(Math.max(1, spec.minutes - 5)),
+    settleReason: spec.failure?.reason ?? null,
+    failureKind: spec.failure?.kind ?? null,
+    resetsAt: spec.failure?.resetsAt ?? null,
     startedAt: ago(spec.minutes),
     endedAt:
       spec.state === "working" || spec.state === "review" || spec.state === "blocked"

@@ -35,6 +35,8 @@ import {
   observe,
   observeModel,
   pathsFor,
+  BACKGROUND_COMMAND,
+  RESETS_AT,
   SESSION,
   type Step,
   stepModel,
@@ -214,6 +216,17 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
             return;
           }
 
+          case "stopBackground": {
+            yield* dispatch(
+              Command.cases.StopBackgroundTasks.make({ sessionId: SESSION, taskIds: null })
+            );
+
+            // The fake Harness stops them and reports none left.
+            if (snapshot.live) emit(snapshot, HarnessEvent.BackgroundTasksChanged({ tasks: [] }));
+
+            return;
+          }
+
           case "approve":
             return yield* dispatch(
               Command.cases.RespondToApproval.make({
@@ -286,6 +299,11 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
                 }),
               })
             );
+          case "reportBackground":
+            return emit(
+              snapshot,
+              HarnessEvent.BackgroundTasksChanged({ tasks: [BACKGROUND_COMMAND] })
+            );
           case "complete":
           case "failTurn":
             return emit(
@@ -294,6 +312,16 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
                 turnId: yield* working(),
                 status: step.type === "complete" ? "completed" : "failed",
                 error: step.type === "complete" ? null : "the Turn failed",
+              })
+            );
+          case "limitTurn":
+            return emit(
+              snapshot,
+              HarnessEvent.TurnEnded({
+                turnId: yield* working(),
+                status: "failed",
+                error: "usage limit",
+                limit: { resetsAt: RESETS_AT },
               })
             );
           case "exit":

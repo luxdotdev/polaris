@@ -1,3 +1,9 @@
+import { sqlShellLaunch } from "../sql/launch.ts";
+import { phpactorLaunch } from "../php/launch.ts";
+import { rustLaunch } from "../rust/launch.ts";
+import { rustToolchainIds, rustToolchainProbes } from "../rust/probes.ts";
+import { luaLaunch } from "../lua/launch.ts";
+import { webLaunch, webProviders, webTools } from "../web/index.ts";
 import { Match } from "effect";
 import { pythonLaunch } from "../python/launch.ts";
 import { createHostPrerequisiteProbe } from "../install/hostStateProbes.ts";
@@ -13,6 +19,9 @@ import type { DiscoveryFacts } from "../discovery/index.ts";
 import type { HostInstallation, ObservationAdmission } from "../install/host.ts";
 import { descriptor, defaultLimits, type InstalledVersion } from "../install/types.ts";
 import { checkAbort, failure } from "../install/validation.ts";
+
+/** Host Prerequisites observed by presence at fixed locations, never by running them. */
+const hostPresence = ["shellcheck", "php", "go", "gopls"];
 
 export interface ManagedDelivery {
   bind: (host: HostInstallation) => void;
@@ -47,6 +56,7 @@ export function createManagedDelivery(
   pythonHost?: Parameters<typeof createHostPrerequisiteProbe>[0]
 ) {
   let host: HostInstallation | undefined;
+  const hostPrerequisites = createHostPrerequisiteProbe(pythonHost);
 
   const installation = () => {
     if (host === undefined) throw failure("not-ready", "Private runtime is unavailable");
@@ -74,11 +84,23 @@ export function createManagedDelivery(
       host = value;
     },
     async ensure(settings, admission, signal, providerId = "typescript-language-server") {
-      const tools = Match.value(providerId).pipe(
-        Match.when("basedpyright", () => ["node", "basedpyright"]),
-        Match.when("ruff", () => ["ruff"]),
-        Match.orElse(() => ["node", "typescript", "typescript-language-server"])
-      );
+      const tools =
+        webTools.includes(providerId) || providerId in webProviders
+          ? ["node", webProviders[providerId] ?? providerId]
+          : Match.value(providerId).pipe(
+              Match.when("basedpyright", () => ["node", "basedpyright"]),
+              Match.when("ruff", () => ["ruff"]),
+              Match.when("phpactor", () => ["phpactor"]),
+              Match.when("bash-language-server", () => ["node", "shfmt", "bash-language-server"]),
+              Match.when("rust-analyzer", () => ["rust-analyzer"]),
+              Match.when("lua-language-server", () => ["lua-language-server"]),
+              Match.when("sqllens-language-server", () => [
+                "node",
+                "sql-formatter",
+                "sqllens-language-server",
+              ]),
+              Match.orElse(() => ["node", "typescript", "typescript-language-server"])
+            );
 
       for (const toolId of tools) {
         checkAbort(signal);
@@ -108,10 +130,33 @@ export function createManagedDelivery(
       }
     },
     async plan(facts, installed) {
+      // Servers that run on their own binary or the Host's runtime, not the private Node.
+      const own = new Map([
+        [
+          "phpactor",
+          () =>
+            phpactorLaunch(
+              facts,
+              installed,
+              installation().tool("phpactor").requirements,
+              hostPrerequisites
+            ),
+        ],
+        ["rust-analyzer", () => rustLaunch(facts, installed)],
+        ["lua-language-server", () => luaLaunch(facts, installed)],
+      ]).get(facts.providerId);
+
+      if (own !== undefined) return own();
+
       const node = facts.providerId === "ruff" ? null : await privateNode();
 
       if (["basedpyright", "ruff"].includes(facts.providerId))
         return pythonLaunch(facts, installed, node);
+
+      if (["bash-language-server", "sqllens-language-server"].includes(facts.providerId))
+        return sqlShellLaunch(facts, installed, node, installation(), hostPrerequisites);
+
+      if (facts.providerId in webProviders) return webLaunch(facts, installed, node);
       const typescript = await installation().current("typescript");
 
       if (node === null || typescript === null)
@@ -181,7 +226,10 @@ export function createManagedDelivery(
       const nodeRequirements = tool.requirements.filter((requirement) => requirement.id === "node");
 
       const others = tool.requirements.filter(
-        (requirement) => !["node", "python-interpreter"].includes(requirement.id)
+        (requirement) =>
+          !["node", "python-interpreter", ...hostPresence, ...rustToolchainIds].includes(
+            requirement.id
+          )
       );
 
       const node = nodeRequirements.length ? await privateNode() : null;
@@ -200,9 +248,7 @@ export function createManagedDelivery(
         const entry = admission?.pythonInterpreter;
 
         const presence =
-          entry === undefined
-            ? await createHostPrerequisiteProbe(pythonHost)().probe(python, signal)
-            : null;
+          entry === undefined ? await hostPrerequisites().probe(python, signal) : null;
 
         const executable = entry === undefined ? (presence?.path ?? null) : entry;
 
@@ -210,6 +256,16 @@ export function createManagedDelivery(
         probes.push({ id: python.id, executable, version: executable === null ? null : "present" });
       }
 
+      for (const requirement of tool.requirements.filter(({ id }) => hostPresence.includes(id))) {
+        const present = await hostPrerequisites().probe(requirement, signal);
+        probes.push({
+          id: requirement.id,
+          executable: present.path,
+          version: present.path === null ? null : "present",
+        });
+      }
+
+      probes.push(...(await rustToolchainProbes(tool.requirements)));
       probes.push(...(await developerProbes(others, trusted, signal, admission)));
 
       return { connected: true, probes };

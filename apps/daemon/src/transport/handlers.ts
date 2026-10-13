@@ -5,6 +5,8 @@
  */
 import {
   InlineError,
+  PredictionError,
+  CommitMessageError,
   LanguageIdentityError,
   type Capability,
   CommandRejected,
@@ -51,6 +53,24 @@ export const defaultHandlers = (options: {
 }) =>
   ServerRpcs.toLayer({
     ...languageDefaults,
+    "prediction.capability": () =>
+      Effect.fail(
+        new PredictionError({
+          reason: "unavailable",
+          message: "Prediction capability is unavailable",
+        })
+      ),
+    "prediction.context": () =>
+      Effect.fail(
+        new PredictionError({ reason: "unavailable", message: "Prediction context is unavailable" })
+      ),
+    "prediction.complete": () =>
+      Stream.fail(
+        new PredictionError({
+          reason: "unavailable",
+          message: "Prediction completion is unavailable",
+        })
+      ),
     "host.resources.get": () =>
       Effect.fail(new ResourceError({ message: "Host resources are unavailable" })),
     "host.resources.declare": () =>
@@ -283,6 +303,8 @@ export const defaultHandlers = (options: {
       Stream.fail(new NotFound({ what: "session", id: sessionId })),
     "session.terminalCommand": ({ sessionId }) =>
       Effect.fail(new NotFound({ what: "session", id: sessionId })),
+    "session.turns": ({ sessionId }) =>
+      Effect.fail(new NotFound({ what: "session", id: sessionId })),
 
     "harness.models": () => Effect.fail(new Unsupported({ capability: "harness.models" })),
     "harness.commands": () => Effect.fail(new Unsupported({ capability: "harness.commands" })),
@@ -300,6 +322,13 @@ export const defaultHandlers = (options: {
         })
       ),
     "usage.watch": () => Stream.fail(new Unsupported({ capability: "usage" })),
+    "commit.suggestMessage": () =>
+      Stream.fail(
+        new CommitMessageError({
+          reason: "harness-failed",
+          message: "This Daemon does not support commit.suggestMessage",
+        })
+      ),
 
     "files.listDir": ({ path }) => Effect.fail(fileError(path, "files")),
     "files.stat": ({ path }) => Effect.fail(fileError(path, "files")),
@@ -317,6 +346,10 @@ export const defaultHandlers = (options: {
     "git.status": ({ cwd }) => Effect.fail(new GitError({ cwd, message: notYet("git") })),
     "git.diff": ({ cwd }) => Effect.fail(new GitError({ cwd, message: notYet("git") })),
     "git.show": ({ cwd }) => Effect.fail(new GitError({ cwd, message: notYet("git") })),
+    "git.stage": ({ cwd }) => Effect.fail(new GitError({ cwd, message: notYet("git") })),
+    "git.unstage": ({ cwd }) => Effect.fail(new GitError({ cwd, message: notYet("git") })),
+    "git.discard": ({ cwd }) => Effect.fail(new GitError({ cwd, message: notYet("git") })),
+    "git.commit": ({ cwd }) => Stream.fail(new GitError({ cwd, message: notYet("git") })),
 
     // TODO(M2-C checkout): the live status of a Review Checkout.
     "review.checkoutStatus": () => Effect.fail(new Unsupported({ capability: "review.checkouts" })),

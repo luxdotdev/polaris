@@ -26,7 +26,7 @@ import { ConstellationBranchStatus } from "./transfers/branches.ts";
 import { ConstellationLiveness } from "./liveness.ts";
 import { activeAttempt, projectTasks, enrichProjections } from "./projections.ts";
 import { ConstellationOwner, ConstellationRuntime } from "./runtime.ts";
-import { statusOutline } from "./status.ts";
+import { statusOutline, statusSince } from "./status.ts";
 import { subscribeConstellation } from "./streams.ts";
 
 export const canRead = (binding: ConstellationBinding, record: ConstellationRecord) =>
@@ -121,12 +121,13 @@ const make = Effect.gen(function* () {
   const status = Effect.fn("Constellations.status")(function* (
     binding: ConstellationBinding,
     id: ConstellationId,
-    json: boolean
+    json: boolean,
+    since?: number
   ) {
     const model = yield* store.model;
     const record = yield* authorize(model, id, binding);
 
-    return graphResult(
+    const result = graphResult(
       record,
       null,
       json,
@@ -135,6 +136,27 @@ const make = Effect.gen(function* () {
       }),
       model.sessions
     );
+
+    if (since === undefined) return result;
+
+    // A read of this graph's own stream; the Lead asks for it, no timer does.
+    const events = yield* store
+      .readConstellationEvents({ constellationId: id, after: 0, upTo: model.sequence })
+      .pipe(
+        Effect.mapError((error) =>
+          refusal(record, [finding("E-STORE", error.message, "Retry status without since.")])
+        )
+      );
+
+    return new ConstellationResult({
+      summary: statusSince(record, events, since, model.sessions),
+      next: result.next,
+      revision: result.revision,
+      sequence: result.sequence,
+      constellation: result.constellation,
+      projections: result.projections,
+      proposals: result.proposals,
+    });
   });
 
   const resolve = Effect.fn("Constellations.resolve")(function* (

@@ -1,9 +1,11 @@
 /**
  * What the diff shows, as rows for Pierre's CodeView: one per file, grouped into sections
- * (an Agent Session's Turns, newest first; a pull request is one section with no divider).
- * The first file of a section carries its divider in its header (ENG-218 option a). Older
- * Turns and reviewed ones fold, a run of them to one line ("Turns 22–23"), until opened.
+ * (an Agent Session's Turns, newest first, or its Intent Groups; a pull request is one
+ * section with no divider). The first file of a section carries its divider in its header
+ * (ENG-218 option a). Older Turns and reviewed ones fold, a run of them to one line
+ * ("Turns 22–23"), until opened; an Intent Group folds alone, once reviewed.
  */
+import type { IntentCategory } from "@polaris/protocol";
 import type { PatchFile } from "./patch.ts";
 import type { ReviewScale } from "./policy.ts";
 
@@ -15,6 +17,10 @@ export interface ReviewFile {
   readonly section: string;
   readonly file: PatchFile;
   readonly fingerprint: string;
+  /** A lockfile or generated file (`noiseOf`): opens collapsed, outside Viewed progress. */
+  readonly generated: boolean;
+  /** A test file (`noiseOf`); never also generated. */
+  readonly test: boolean;
 }
 
 export interface ReviewSection {
@@ -29,8 +35,18 @@ export interface SectionDivider {
   readonly turn: number;
   /** Its Harness, for the divider's tile. */
   readonly harness: string;
-  /** The Turn's prompt, quoted; null when there is none. */
+  /** The Turn's prompt, quoted; null when there is none. An Intent Group's "why". */
   readonly quote: string | null;
+  /** Set on an Intent Group's section ("By intent", Paper R11b). */
+  readonly intent?: IntentDivider;
+}
+
+export interface IntentDivider {
+  readonly label: string;
+  readonly category: IntentCategory;
+  readonly critical: boolean;
+  /** The Turns its files come from, oldest first. */
+  readonly turns: ReadonlyArray<number>;
 }
 
 /** One CodeView item. */
@@ -70,7 +86,10 @@ const filesCaption = (count: number, allViewed: boolean) =>
   `${count.toLocaleString("en-US")} ${count === 1 ? "file" : "files"}${allViewed ? " · all viewed" : ""}`;
 
 const defaultCollapsed = (input: LayoutInput, file: ReviewFile) =>
-  input.scale !== "full" || input.viewed(file) || file.file.binary;
+  input.scale !== "full" || input.viewed(file) || file.file.binary || file.generated;
+
+const turnList = (turns: ReadonlyArray<number>) =>
+  `${turns.length === 1 ? "Turn" : "Turns"} ${turns.join(", ")}`;
 
 const turnsLabel = (turns: ReadonlyArray<number>) => {
   const low = Math.min(...turns);
@@ -94,8 +113,12 @@ const place = (input: LayoutInput): ReadonlyArray<Placed> =>
 
     if (first === undefined) return [];
 
-    const allViewed = section.files.every(input.viewed);
-    const foldable = section.divider !== null && (index > 0 || allViewed);
+    // Generated files don't hold a Turn open: they sit outside Viewed progress.
+    const allViewed = section.files.filter((f) => !f.generated).every(input.viewed);
+
+    const foldable =
+      section.divider !== null &&
+      (allViewed || (index > 0 && section.divider.intent === undefined));
 
     return [
       { section, first, allViewed, folded: foldable && !input.openedSections.has(section.id) },
@@ -111,16 +134,33 @@ const dividerOf = (run: ReadonlyArray<Placed>, folded: boolean): DividerRow | nu
   const allViewed = run.every((p) => p.allViewed);
   const turns = run.map((p) => p.section.divider?.turn ?? 0);
 
+  const files = filesCaption(
+    run.reduce((n, p) => n + p.section.files.length, 0),
+    allViewed
+  );
+
+  if (divider.intent !== undefined) {
+    // A group of generated files folds like them and stays outside Viewed.
+    const generated = head.section.files.every((f) => f.generated);
+    const count = head.section.files.length.toLocaleString("en-US");
+
+    return {
+      ...divider,
+      label: divider.intent.label,
+      sectionIds: [head.section.id],
+      caption: `${turnList(divider.intent.turns)} · ${generated ? `${count} generated` : files}`,
+      folded,
+      reviewed: allViewed && !generated,
+    };
+  }
+
   return {
     ...divider,
     label: turnsLabel(turns),
     // A folded run quotes its newest Turn (sections come newest first).
     quote: divider.quote,
     sectionIds: run.map((p) => p.section.id),
-    caption: filesCaption(
-      run.reduce((n, p) => n + p.section.files.length, 0),
-      allViewed
-    ),
+    caption: files,
     folded,
     reviewed: allViewed,
   };
@@ -154,6 +194,8 @@ export const layoutRows = (input: LayoutInput): ReadonlyArray<LayoutRow> => {
 
   for (const placed of place(input)) {
     if (placed.folded) {
+      // An Intent Group folds to its own row; consecutive Turns share one.
+      if (placed.section.divider?.intent !== undefined) flush();
       run.push(placed);
       continue;
     }

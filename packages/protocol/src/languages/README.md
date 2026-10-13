@@ -140,6 +140,13 @@ source tabs. Relative links use shared Host-aware Editor navigation.
 
 ## Host state and release visibility
 
+An explicit Check again requests `languages.host.state` with `refresh: true` and
+`languages.discover` with optional `refresh: true`. The Host-state read re-probes
+bounded standard locations and republishes to existing watches; discovery discards
+its metadata cache, including a previously absent Python interpreter. No polling
+or login shell is needed. Managed Shell launch and observation use the same Host
+Prerequisite resolver and pass the canonical ShellCheck path to the server.
+
 `languages.host.state` and `languages.host.state.watch` read tool installation
 state and Host Prerequisite presence without a checkout or Trust. Empty toolIds
 means the catalog; a watch yields full snapshots and coalesces pending updates.

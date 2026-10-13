@@ -12,6 +12,8 @@ import { OpenInEditorButton } from "../../editor-links/index.ts";
 import type { DividerRow } from "../model/layout.ts";
 import type { MarkSeverity } from "../model/marks.ts";
 import type { PatchFileStatus } from "../model/patch.ts";
+import { ReviewFileMenu } from "./fileMenu.tsx";
+import { IntentGlyph } from "./IntentGlyph.tsx";
 
 export interface HeaderModel {
   readonly path: string;
@@ -80,6 +82,13 @@ const STATUS_WORDS = {
   modified: null,
 } satisfies Record<PatchFileStatus, string | null>;
 
+/** A Turn quotes its prompt; an Intent Group's "why" is the Walkthrough's own words. */
+const quoteOf = (divider: DividerRow) => {
+  if (divider.quote === null) return "";
+
+  return divider.intent === undefined ? `“${divider.quote}”` : divider.quote;
+};
+
 const Divider = ({ divider }: { readonly divider: DividerRow }) => {
   const actions = useStore(headerStore, (s) => s.actions);
 
@@ -92,11 +101,16 @@ const Divider = ({ divider }: { readonly divider: DividerRow }) => {
       onClick={() => actions?.openSections(divider.sectionIds)}
       className="text-caption gap-row-x h-tree-row flex w-full cursor-default items-center text-left"
     >
-      <Tile hue={divider.harness} size={18} />
+      {divider.intent === undefined ? (
+        <Tile hue={divider.harness} size={18} />
+      ) : (
+        <span className="flex size-[18px] shrink-0 items-center justify-center">
+          <IntentGlyph category={divider.intent.category} />
+        </span>
+      )}
       <span className="text-text-default font-medium">{divider.label}</span>
-      <span className="text-text-subtle min-w-0 flex-1 truncate">
-        {divider.quote === null ? "" : `“${divider.quote}”`}
-      </span>
+      {divider.intent?.critical === true && <SeverityBadge severity="critical" />}
+      <span className="text-text-subtle min-w-0 flex-1 truncate">{quoteOf(divider)}</span>
       <span className="text-text-subtle shrink-0">{divider.caption}</span>
       {divider.folded && divider.reviewed && (
         <CheckIcon size={14} className="text-diff-added-text shrink-0" />
@@ -118,58 +132,66 @@ const Header = ({ id }: { readonly id: string }) => {
   return (
     <div className="flex flex-col">
       {row.divider !== null && <Divider divider={row.divider} />}
-      <div
-        data-testid="review-file"
-        data-path={row.path}
-        data-collapsed={row.collapsed ? "" : undefined}
-        onClick={() => actions?.toggle(id)}
-        className={cn(
-          "border-hairline bg-surface-raised group/header flex h-10 cursor-default items-center gap-row-x border px-3",
-          row.collapsed ? "rounded-row" : "rounded-t-row border-b-hairline"
-        )}
+      <ReviewFileMenu
+        path={row.path}
+        deleted={row.status === "deleted"}
+        viewed={row.viewed}
+        onViewed={(viewed) => actions?.setViewed(id, viewed)}
+        fold={{ collapsed: row.collapsed, toggle: () => actions?.toggle(id) }}
       >
-        {row.collapsed ? (
-          <ChevronRightIcon size={12} className="text-text-faint shrink-0" />
-        ) : (
-          <ChevronDownIcon size={12} className="text-text-subtle shrink-0" />
-        )}
-        <span className="text-caption text-text-default min-w-0 truncate font-mono">
-          {row.oldPath === null ? row.path : `${row.oldPath} → ${row.path}`}
-        </span>
-        {row.additions > 0 && (
-          <span className="text-caption text-diff-added-text shrink-0 font-mono">
-            +{row.additions}
+        <div
+          data-testid="review-file"
+          data-path={row.path}
+          data-collapsed={row.collapsed ? "" : undefined}
+          onClick={() => actions?.toggle(id)}
+          className={cn(
+            "border-hairline bg-surface-raised group/header flex h-10 cursor-default items-center gap-row-x border px-3",
+            row.collapsed ? "rounded-row" : "rounded-t-row border-b-hairline"
+          )}
+        >
+          {row.collapsed ? (
+            <ChevronRightIcon size={12} className="text-text-faint shrink-0" />
+          ) : (
+            <ChevronDownIcon size={12} className="text-text-subtle shrink-0" />
+          )}
+          <span className="text-caption text-text-default min-w-0 truncate font-mono">
+            {row.oldPath === null ? row.path : `${row.oldPath} → ${row.path}`}
           </span>
-        )}
-        {row.deletions > 0 && (
-          <span className="text-caption text-diff-removed-text shrink-0 font-mono">
-            −{row.deletions}
-          </span>
-        )}
-        {(status !== null || row.binary) && (
-          <span className="text-caption text-text-subtle shrink-0">
-            {row.binary ? "binary" : status}
-          </span>
-        )}
-        <span className="flex-1" />
-        {row.note !== null && (
-          <span className="text-caption text-text-subtle shrink-0">{row.note}</span>
-        )}
-        {row.changed && (
-          <span className="text-caption text-text-subtle shrink-0" data-testid="review-changed">
-            Changed since viewed
-          </span>
-        )}
-        {row.severity !== null && <SeverityBadge severity={row.severity} />}
-        {row.status !== "deleted" && (
-          <OpenInEditorButton
-            path={row.path}
-            className="opacity-0 group-hover/header:opacity-100 focus-visible:opacity-100"
-          />
-        )}
-        <span aria-hidden="true" className="bg-hairline h-4 w-px shrink-0" />
-        <Viewed id={id} viewed={row.viewed} />
-      </div>
+          {row.additions > 0 && (
+            <span className="text-caption text-diff-added-text shrink-0 font-mono">
+              +{row.additions}
+            </span>
+          )}
+          {row.deletions > 0 && (
+            <span className="text-caption text-diff-removed-text shrink-0 font-mono">
+              −{row.deletions}
+            </span>
+          )}
+          {(status !== null || row.binary) && (
+            <span className="text-caption text-text-subtle shrink-0">
+              {row.binary ? "binary" : status}
+            </span>
+          )}
+          <span className="flex-1" />
+          {row.note !== null && (
+            <span className="text-caption text-text-subtle shrink-0">{row.note}</span>
+          )}
+          {row.changed && (
+            <span className="text-caption text-text-subtle shrink-0" data-testid="review-changed">
+              Changed since viewed
+            </span>
+          )}
+          {row.severity !== null && <SeverityBadge severity={row.severity} />}
+          {row.status !== "deleted" && (
+            <OpenInEditorButton
+              path={row.path}
+              className="opacity-0 group-hover/header:opacity-100 focus-visible:opacity-100"
+            />
+          )}
+          <span aria-hidden="true" className="bg-hairline h-4 w-px shrink-0" />
+          <Viewed id={id} viewed={row.viewed} />
+        </div>
+      </ReviewFileMenu>
     </div>
   );
 };

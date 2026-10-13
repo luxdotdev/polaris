@@ -61,15 +61,21 @@ export const formatTokens = (tokens: number): string => {
 };
 
 export interface ContextLabel {
-  /** "Context 42%", or "Context 91% · nearly full". */
+  /** "Context 42%", "Context 91% · nearly full", or "Context 84k" while the window is unknown. */
   readonly text: string;
-  /** "84k of 200k tokens", for the tooltip. */
+  /** "84k of 200k tokens in context", for assistive tech. */
   readonly detail: string;
 }
 
-/** The header's context line; null (hidden) until the Harness reports its window. */
+/** The header's context line; null (hidden) until the Harness reports any usage. */
 export const contextLabel = (usage: Plain<ContextUsage> | null): ContextLabel | null => {
-  if (usage === null || usage.windowTokens === null || usage.windowTokens <= 0) return null;
+  if (usage === null) return null;
+
+  if (usage.windowTokens === null || usage.windowTokens <= 0)
+    return {
+      text: `Context ${formatTokens(usage.usedTokens)}`,
+      detail: `${formatTokens(usage.usedTokens)} tokens in context`,
+    };
   const share = Math.min(1, Math.max(0, usage.usedTokens / usage.windowTokens));
   const percent = `Context ${Math.round(share * 100)}%`;
 

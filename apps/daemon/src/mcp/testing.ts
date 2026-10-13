@@ -21,7 +21,7 @@ export const leadBinding = McpBinding.cases.Lead.make({
 });
 
 export const fakeCommands = () => {
-  const calls: Array<{ binding: SessionBinding; command: ConstellationCommand }> = [];
+  const calls: Array<{ binding: SessionBinding; command: ConstellationCommand; id: string }> = [];
   const references: Array<string> = [];
 
   const result = new ConstellationResult({
@@ -32,9 +32,9 @@ export const fakeCommands = () => {
   });
 
   const commands: ConstellationCommands = {
-    command: (binding, _id, command) =>
+    command: (binding, id, command) =>
       Effect.sync(() => {
-        calls.push({ binding, command });
+        calls.push({ binding, command, id });
 
         return result;
       }),

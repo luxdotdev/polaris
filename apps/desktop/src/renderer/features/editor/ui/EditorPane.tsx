@@ -37,15 +37,20 @@ import { CloseDialog } from "./CloseDialog.tsx";
 import { CodeHost } from "./CodeHost.tsx";
 import { Compare } from "./Compare.tsx";
 import { FileNotice } from "./FileNotice.tsx";
+import { tabEntries } from "./tabMenu.ts";
 import { Tabs } from "./Tabs.tsx";
+import { EditorMenu } from "../menu/EditorMenu.tsx";
 import { LanguagePanel } from "./LanguagePanel.tsx";
 import { RenameField } from "../navigation/RenameField.tsx";
 import { SymbolSearch } from "../navigation/SymbolSearch.tsx";
 import { useLanguageNavigationCommands } from "../navigation/contribute.ts";
+import { usePredictionCommands } from "../prediction/commands.ts";
 import { EditorTrust } from "../trust/TrustCard.tsx";
 import { activateLogTab, closeLogTab, isLogTab, useLogTabs } from "../status/logTabs.ts";
 import { LogTabBody, useLogTabViews } from "../status/LogTab.tsx";
 import { useLanguageCommands } from "../commands/useLanguageCommands.ts";
+import { commandShortcut } from "../../../../shared/keymap.ts";
+import { PANE_CLASS } from "./paneLayout.ts";
 
 export interface EditorPaneProps {
   readonly hostKey: string;
@@ -143,6 +148,7 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
 
   useEditorCommands(hostKey, workspaceId, active, shownLog?.id ?? activeId ?? null, logs.tabs);
   useLanguageNavigationCommands();
+  usePredictionCommands();
   useLanguageCommands(hostKey, workspaceId, active);
 
   const onAction = (action: BannerAction) => {
@@ -174,16 +180,15 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
       onClose={(id) =>
         isLogTab(id) ? closeLogTab(hostKey, workspaceId, id) : closeTab(hostKey, workspaceId, id)
       }
+      menuFor={(tab, selected) =>
+        isLogTab(tab.id) ? null : tabEntries({ hostKey, workspaceId, root, tabs }, tab, selected)
+      }
     />
   );
 
   if (shownLog !== null) {
     return (
-      <section
-        aria-label="Editor"
-        className="bg-bg flex min-w-0 flex-1 flex-col"
-        data-testid="editor-pane"
-      >
+      <section aria-label="Editor" className={PANE_CLASS} data-testid="editor-pane">
         {strip}
         <LogTabBody tab={shownLog} />
       </section>
@@ -192,13 +197,13 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
 
   if (fileTabs.length === 0 || active === null) {
     return (
-      <section aria-label="Editor" className="bg-bg grid min-w-0 flex-1 place-items-center">
+      <section aria-label="Editor" className="bg-bg grid min-h-0 min-w-0 flex-1 place-items-center">
         <RefactorPreview hostKey={hostKey} root={root} />
         <RefactorRecovery hostKey={hostKey} root={root} />
         <EmptyState
           icon={<PixelFolderIcon size={24} className="text-text-strong" />}
           title="No file open"
-          fact="Pick a file in the explorer, or press ⌘P to find one."
+          fact={`Pick a file in the explorer, or press ${commandShortcut("editor.findFile")} to find one.`}
         />
       </section>
     );
@@ -213,11 +218,7 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
       : null;
 
   return (
-    <section
-      aria-label="Editor"
-      className="bg-bg flex min-w-0 flex-1 flex-col"
-      data-testid="editor-pane"
-    >
+    <section aria-label="Editor" className={PANE_CLASS} data-testid="editor-pane">
       <RefactorPreview hostKey={hostKey} root={root} />
       {strip}
       <PreviewControls
@@ -263,7 +264,9 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
             hostLabel={hostLabel}
           />
         ) : (
-          <CodeHost bufferKey={fileKey(hostKey, active)} ready={ready} focus />
+          <EditorMenu hostKey={hostKey} workspaceId={workspaceId} root={root} path={active}>
+            <CodeHost bufferKey={fileKey(hostKey, active)} ready={ready} focus />
+          </EditorMenu>
         )}
       </div>
       <CloseDialog hostKey={hostKey} workspaceId={workspaceId} />

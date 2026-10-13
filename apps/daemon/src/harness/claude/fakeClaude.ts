@@ -27,6 +27,7 @@ type FakeQuery = Pick<
   | "throw"
   | typeof Symbol.asyncIterator
   | "interrupt"
+  | "stopTask"
   | "setPermissionMode"
   | "setModel"
   | "applyFlagSettings"
@@ -60,13 +61,29 @@ export class FakeClaude {
   /** What `supportedCommands()` answers. */
   commands: Awaited<ReturnType<Query["supportedCommands"]>> = [];
   interrupts = 0;
+  /** Task ids the driver asked to stop. */
+  readonly stoppedTasks: Array<string> = [];
   closed = false;
   /** How often the driver asked `get_usage`, and what the fake answers (a reply or a failure). */
   usageCalls = 0;
   usageReply: Json | Error = { rate_limits_available: false, rate_limits: null };
   /** How often the driver asked `getContextUsage`, and what the fake answers (null: it refuses). */
   contextCalls = 0;
-  contextReply: { totalTokens: number; maxTokens: number } | null = null;
+  contextReply: {
+    totalTokens: number;
+    maxTokens: number;
+    categories?: Array<{ name: string; tokens: number; kind: "used" | "free" | "buffer" }>;
+    memoryFiles?: Array<{ path: string; type: string; tokens: number }>;
+    mcpTools?: Array<{ name: string; serverName: string; tokens: number; isLoaded?: boolean }>;
+    agents?: Array<{ agentType: string; source: string; tokens: number }>;
+    skills?: {
+      totalSkills: number;
+      includedSkills: number;
+      tokens: number;
+      skillFrontmatter: Array<{ name: string; source: string; tokens: number }>;
+    };
+    autoCompactThreshold?: number;
+  } | null = null;
   private readonly out = new Inbox<SDKMessage>();
   private inputWaiters: Array<() => void> = [];
   private emitted = 0;
@@ -98,6 +115,9 @@ export class FakeClaude {
         this.interrupts++;
 
         return undefined;
+      },
+      stopTask: async (taskId) => {
+        this.stoppedTasks.push(taskId);
       },
       setPermissionMode: async (mode) => {
         if (this.refuses.has("setPermissionMode")) throw new Error("Auto mode is unavailable");
@@ -137,8 +157,17 @@ export class FakeClaude {
 
         if (this.contextReply === null) throw new Error("Unsupported control request");
 
-        // SAFETY: the driver reads only `totalTokens` and `maxTokens` of the reply.
-        return this.contextReply as Awaited<ReturnType<Query["getContextUsage"]>>;
+        const reply = {
+          categories: [],
+          memoryFiles: [],
+          mcpTools: [],
+          agents: [],
+          isAutoCompactEnabled: true,
+          ...this.contextReply,
+        };
+
+        // SAFETY: the driver reads only the fields above and the optional ones `contextReply` may set.
+        return reply as Awaited<ReturnType<Query["getContextUsage"]>>;
       },
     };
 

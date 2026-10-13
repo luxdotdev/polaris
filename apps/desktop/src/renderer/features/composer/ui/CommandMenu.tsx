@@ -3,7 +3,7 @@
  * Slash Commands, filtered as you type. Keyboard-first: the editor keeps focus
  * and owns ↑ ↓ ↵ ⇥ esc; a click picks too (DESIGN.md, Skills and Slash Commands).
  */
-import { Button, CommandIcon, cn, Kbd, SkillIcon } from "@polaris/ui";
+import { Button, CommandIcon, cn, Kbd, REVEAL_MOTION, SkillIcon } from "@polaris/ui";
 import { useEffect, useRef } from "react";
 import type { CommandOption, Menu } from "../model/commands.ts";
 import type { CommandNotice } from "../model/notice.ts";
@@ -125,7 +125,10 @@ export const CommandMenu = ({
       <div
         role="status"
         aria-live="polite"
-        className="rounded-card border-hairline bg-surface-raised shadow-float animate-in fade-in-0 mb-2 max-w-[560px] border p-1.5 duration-160 ease-out"
+        className={cn(
+          REVEAL_MOTION,
+          "rounded-card border-hairline bg-surface-raised shadow-float mb-2 max-w-[560px] border p-1.5"
+        )}
       >
         <NoticeRow notice={notice} />
       </div>
@@ -155,7 +158,10 @@ export const CommandMenu = ({
       role="listbox"
       aria-label="Skills and commands"
       data-testid="command-menu"
-      className="rounded-card border-hairline bg-surface-raised shadow-float animate-in fade-in-0 mb-2 max-h-[min(320px,40vh)] max-w-[560px] overflow-y-auto border p-1.5 duration-160 ease-out"
+      className={cn(
+        REVEAL_MOTION,
+        "rounded-card border-hairline bg-surface-raised shadow-float mb-2 max-h-[min(320px,40vh)] max-w-[560px] overflow-y-auto border p-1.5"
+      )}
     >
       {menu === null ? (
         <p className="text-caption text-text-subtle px-row-x py-1.5">

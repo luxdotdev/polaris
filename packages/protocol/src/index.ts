@@ -14,6 +14,8 @@ export * from "./domain.ts";
 
 export * from "./events.ts";
 
+export * from "./notification.ts";
+
 export * from "./frame.ts";
 
 export * from "./harnesses.ts";
@@ -22,9 +24,13 @@ export * from "./ids.ts";
 
 export * from "./inline.ts";
 
+export * from "./commitMessage.ts";
+
 export * from "./models.ts";
 
 export * from "./review.ts";
+
+export * from "./reviewPaths.ts";
 
 export * from "./rpc.ts";
 
@@ -45,3 +51,5 @@ export * from "./files.ts";
 export * from "./worktreeSetup.ts";
 
 export * from "./languages/index.ts";
+
+export * from "./prediction.ts";

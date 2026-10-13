@@ -59,3 +59,15 @@ already ended the Turn; a later user interruption cannot reuse it. Resume
 acquires the working slot before consuming the allowance. Remote auto-Continue
 remains unavailable until the worker provides verified interruption and continued
 Turn receipts; an owner enqueue is not that proof.
+
+
+## Amendment: Resume at reset
+
+A session a usage limit stopped is Limited, not Needs You, and its Turn is
+Interrupted. Recovery keeps it Limited, like Failed. The Daemon continues it
+without a user Turn only when the user turned on Resume at reset for that
+session (off by default): `LimitResume` sends `Continue` once the reset passes,
+under the stable command id `resume-at-reset:<session>:<turn>:<reset>`, so a
+restart re-arms the timer from the log and a repeat replays the receipt. This is
+the user's decision made ahead of time, not recovery acting on its own: a
+restart alone still never continues a Turn.

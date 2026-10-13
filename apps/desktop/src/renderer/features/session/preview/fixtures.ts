@@ -9,7 +9,10 @@ import {
   SubagentId,
   Attachment,
   AttachmentId,
+  Compaction,
+  ContextCategory,
   ContextUsage,
+  MemoryFile,
   ApprovalRequest,
   RequestId,
   Sequence,
@@ -149,10 +152,42 @@ export const model = (patch: Partial<SessionModel>): SessionModel => ({
   ...patch,
 });
 
+const category = (name: string, kind: ContextCategory["kind"], tokens: number) =>
+  new ContextCategory({ name, kind, tokens });
+
+/** Paper "11 · Session context": Claude Code's breakdown, after one compaction. */
+const planningContext = new ContextUsage({
+  usedTokens: 124_000,
+  windowTokens: 200_000,
+  categories: [
+    category("System prompt", "used", 4_400),
+    category("System tools", "used", 25_000),
+    category("Memory files", "used", 4_600),
+    category("Messages", "used", 86_000),
+    category("Free space", "free", 35_000),
+    category("Autocompact buffer", "buffer", 45_000),
+  ],
+  memoryFiles: [
+    new MemoryFile({ path: `${workspace.path}/CLAUDE.md`, source: "Project", tokens: 600 }),
+    new MemoryFile({ path: `${workspace.path}/AGENTS.md`, source: "Project", tokens: 4_000 }),
+  ],
+  categoriesTotal: 120_000,
+  autoCompact: true,
+});
+
 /** Artboard 5: Working on turn 24, the plan live, turn 23 folded. */
 export const planning = (): SessionModel => {
   const s = session("s-planning", {
-    contextUsage: new ContextUsage({ usedTokens: 84_000, windowTokens: 200_000 }),
+    model: "claude-opus-5",
+    turnCount: 24,
+    contextUsage: planningContext,
+    lastCompaction: new Compaction({
+      turnId: TurnId.make("s-planning-t22"),
+      trigger: "auto",
+      beforeTokens: 188_000,
+      afterTokens: 36_000,
+      at: ago(12 * 60),
+    }),
   });
 
   const thinking = I.Reasoning.make({ id: "r25", text: "", startedAt: ago(4), endedAt: null });
@@ -412,6 +447,56 @@ export const steer = (): SessionModel => {
           text: "Got it: compact keeps **28px**, the rest go to 32px.",
         }),
       ]),
+    ],
+  });
+};
+
+/** H2: a command still running where it began, a steer the model took after it, and times. */
+export const order = (): SessionModel => {
+  const s = session("s-order", { title: "Wait on the slow build" });
+
+  const running = I.CommandExecution.make({
+    id: "c9",
+    command: "bun run build:slow",
+    cwd: s.cwd,
+    output: "",
+    exitCode: null,
+    status: "running",
+    startedAt: ago(40),
+  });
+
+  return model({
+    session: s,
+    turns: [
+      view(
+        turn(s.id, 8, "Start the slow build and check the routes while it runs", "working"),
+        [
+          I.ToolCall.make({
+            id: "t9",
+            name: "Read",
+            input: { file_path: "src/routes/index.ts" },
+            output: null,
+            status: "completed",
+            startedAt: ago(35),
+          }),
+          I.AssistantMessage.make({
+            id: "m9",
+            text: "The routes look right; waiting on the build before I touch them.",
+            startedAt: ago(30),
+          }),
+          I.UserMessage.make({
+            id: "steer:9",
+            text: "Skip the admin routes",
+            startedAt: ago(20),
+          }),
+          I.AssistantMessage.make({
+            id: "m9b",
+            text: "Leaving the admin routes alone.",
+            startedAt: ago(15),
+          }),
+        ],
+        [["c9", { item: running, text: "", output: "building…\n" }]]
+      ),
     ],
   });
 };

@@ -78,7 +78,11 @@ describe("session row line", () => {
   });
 });
 
-const failing = (state: HostView["status"]["state"], reason: string): HostView => {
+const failing = (
+  state: HostView["status"]["state"],
+  reason: string,
+  older?: "daemon" | "client"
+): HostView => {
   const view = hostView("vm", state);
 
   return {
@@ -86,10 +90,29 @@ const failing = (state: HostView["status"]["state"], reason: string): HostView =
     label: "Linux VM",
     status: {
       ...view.status,
-      failure: { kind: "transient", reason, detail: "/var/folders/x/daemon.sock" },
+      failure: {
+        kind: "transient",
+        reason,
+        detail: "/var/folders/x/daemon.sock",
+        older,
+      },
     },
   };
 };
+
+describe("usage limit", () => {
+  test("a Limited row reads the reset neutrally, or that it is unknown", () => {
+    const resetsAt = new Date(2026, 9, 12, 14, 0).toISOString();
+
+    const limited = (at: string | null) => ({
+      ...base,
+      session: { ...base.session, state: "limited" as const, limitResetsAt: at },
+    });
+
+    expect(sessionLine(limited(resetsAt))).toBe("Usage limit · resets 14:00");
+    expect(sessionLine(limited(null))).toBe("Usage limit · reset time unknown");
+  });
+});
 
 describe("host copy", () => {
   test("says what happened in words, never the raw error or a path", () => {
@@ -104,6 +127,18 @@ describe("host copy", () => {
     );
     expect(hostSentence(failing("offline", "unreachable"), "09:14")).toContain(
       "Offline since 09:14"
+    );
+  });
+
+  test("a protocol mismatch names the older side, either way", () => {
+    expect(hostSentence(failing("needs-attention", "protocol-mismatch", "daemon"), undefined)).toBe(
+      "Linux VM runs an older daemon."
+    );
+    expect(hostSentence(failing("needs-attention", "protocol-mismatch", "client"), undefined)).toBe(
+      "Polaris on this Mac is older than the daemon on Linux VM."
+    );
+    expect(hostSentence(failing("needs-attention", "protocol-mismatch"), undefined)).toBe(
+      "The daemon on Linux VM doesn't match Polaris on this Mac."
     );
   });
 

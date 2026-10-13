@@ -2,7 +2,7 @@
  * The Harness picker chip (DESIGN.md, Harness picker; artboards 4 and 5): the
  * Harness tile, its handle and Model, opening a menu of the Host's Harnesses
  * (ready or needing sign-in only; the rest under "Other harnesses") and the
- * Harness's Models (its newest four, the rest under "More models…"), the effort bar, a refresh,
+ * Harness's Models (its newest four, the rest under "More models"), the effort bar, a refresh,
  * and its Plan Limits. Picks are staged while the menu is open and sent once when it closes.
  */
 import type { HarnessKind } from "@polaris/protocol";
@@ -118,7 +118,10 @@ const ModelRows = ({
   </DropdownMenuRadioGroup>
 );
 
-/** DESIGN.md, Harness picker: effort as a dither bar; ←/→ move it, Enter or a click sends it. */
+/**
+ * DESIGN.md, Harness picker: effort as a dither bar. ←/→, a press or a drag move it and keep
+ * the menu open; Enter sends it.
+ */
 const EffortRow = ({
   harness,
   model,
@@ -142,6 +145,10 @@ const EffortRow = ({
         aria-label={`Effort: ${level ?? "none"}. Left and right arrows change it.`}
         aria-keyshortcuts="ArrowLeft ArrowRight Home End"
         data-testid="effort-bar"
+        // A pointer's click would select the row and close the menu; Enter's (detail 0) still does.
+        onClick={(event) => {
+          if (event.detail > 0) event.preventDefault();
+        }}
         onKeyDown={(event) => {
           const next = effortKey(event.key, index, model.efforts.length);
 
@@ -271,7 +278,7 @@ const ModelSection = ({
           {more.length === 0 ? null : (
             <DropdownMenuSub>
               <DropdownMenuSubTrigger data-testid="more-models">
-                <span className="text-text-subtle">More models…</span>
+                <span className="text-text-subtle">More models</span>
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent>
                 <ModelRows models={more} shown={shownModel} onStage={stage} />
@@ -397,7 +404,11 @@ export const HarnessChip = (props: HarnessChipProps) => {
             </>
           )}
           <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => setSheet(true)} data-testid="other-harnesses">
+          <DropdownMenuItem
+            needsInput
+            onSelect={() => setSheet(true)}
+            data-testid="other-harnesses"
+          >
             <span className="text-text-subtle">Other harnesses…</span>
           </DropdownMenuItem>
         </DropdownMenuContent>

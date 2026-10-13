@@ -6,7 +6,25 @@ export { cn } from "./lib/cn";
 
 export type { CssVars } from "./lib/css";
 
+export { REVEAL_MOTION } from "./lib/float";
+
+export {
+  ELLIPSIS,
+  ellipsisProblem,
+  MENU_CONTENT,
+  MENU_DESTRUCTIVE,
+  MENU_ITEM,
+  MENU_LABEL,
+  MENU_LABEL_TEXT,
+  MENU_SEPARATOR,
+  MENU_SHORTCUT,
+} from "./lib/menu";
+
+export { reducedMotion } from "./lib/motion";
+
 export { useExitPresence } from "./lib/presence";
+
+export { CopyProvider, type CopyState, type CopyWrite, useCopy, useCopyWrite } from "./lib/copy";
 
 export {
   haloVar,
@@ -62,11 +80,17 @@ export * from "./components/polaris/chip";
 
 export * from "./components/polaris/code-well";
 
+export * from "./components/polaris/copy-button";
+
 export * from "./components/polaris/composer";
+
+export * from "./components/polaris/disclosure-chevron";
 
 export * from "./components/polaris/dither";
 
 export * from "./components/polaris/empty-state";
+
+export * from "./components/polaris/menu-entries";
 
 export * from "./components/polaris/git-status-letter";
 

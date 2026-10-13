@@ -9,16 +9,38 @@ import {
   SessionId,
   Workspace,
   type HostId,
+  type PermissionMode,
 } from "@polaris/protocol";
+import type { ReadModel } from "../../store/model.ts";
 import { Effect, Predicate } from "effect";
 import { decideSession } from "../../engine/session.ts";
 import { selectWorker } from "../../harness/constellation/index.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { HarnessRegistry } from "../../services.ts";
 import { finding, refusal } from "../decision.ts";
+import { exceedsCeiling } from "../permissionCeiling.ts";
 import { WorktreeSetupService } from "../setup/index.ts";
 import { startupSetupIntent } from "./startupSetup.ts";
 import type { WorkerPreparation } from "../transfers/prepareWorkers.ts";
+
+/** A reused Session broader than the Lead's permission mode is refused before any Attempt. */
+const withinCeiling = (
+  model: ReadModel,
+  input: WorkerPreparation,
+  existing: AgentSession | undefined,
+  ceiling: PermissionMode | null
+) =>
+  existing === undefined || ceiling === null || !exceedsCeiling(existing.permissionMode, ceiling)
+    ? Effect.void
+    : Effect.fail(
+        refusal(model.constellations.get(input.graph.id), [
+          finding(
+            "E-PERMISSION-CEILING",
+            `Session ${existing.id} runs ${existing.permissionMode}, broader than the Lead's ${ceiling}`,
+            `Lower that Session's permission mode to ${ceiling} or narrower, or dispatch to a new Session.`
+          ),
+        ])
+      );
 
 /** Provision only the Session; the committed Attempt's acquired startup hook owns its first Turn. */
 export const prepareSession = Effect.fn("Constellation.prepareSession")(function* (
@@ -53,6 +75,10 @@ export const prepareSession = Effect.fn("Constellation.prepareSession")(function
       finding("E-SESSION", "The selected Session is archived", "Choose an active Session."),
     ]);
 
+  const ceiling = lead?.permissionMode ?? input.leadPermissionMode ?? null;
+
+  yield* withinCeiling(model, input, existing, ceiling);
+
   const session =
     existing ??
     new AgentSession({
@@ -63,7 +89,7 @@ export const prepareSession = Effect.fn("Constellation.prepareSession")(function
       worktreeId: null,
       title: `${input.task.id} · ${input.task.title}`,
       state: "dormant",
-      permissionMode: lead?.permissionMode ?? "supervised",
+      permissionMode: ceiling ?? "supervised",
       parentSessionId: null,
       forkedFromTurnId: null,
       harnessCursor: null,

@@ -1,3 +1,4 @@
+import { webTools } from "../web/index.ts";
 import { realpath } from "node:fs/promises";
 import { join } from "node:path";
 import { Effect, Layer } from "effect";
@@ -68,6 +69,14 @@ export const DefaultLanguageHostHandlers = Layer.unwrap(
               "typescript-language-server",
               "basedpyright",
               "ruff",
+              "bash-language-server",
+              "shfmt",
+              "sqllens-language-server",
+              "sql-formatter",
+              "rust-analyzer",
+              "lua-language-server",
+              ...webTools,
+              "phpactor",
             ].includes(exact.tool.id),
             identity: exact.identity,
           }),

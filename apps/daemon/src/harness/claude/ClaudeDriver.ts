@@ -54,6 +54,8 @@ import {
   type OpenOptions,
   type TurnInput,
 } from "../HarnessDriver.ts";
+import { ItemClock } from "../itemClock.ts";
+import { breakdownOf } from "./context.ts";
 import { emptyClaudeLimitContext } from "../limits/claude.ts";
 import type { PlanLimitReporter } from "../limits/PlanLimitReporter.ts";
 import { ClaudeHookReceiver } from "./hooks.ts";
@@ -72,6 +74,7 @@ import {
   toPermissionResult,
 } from "./permissions.ts";
 import { type ClaudePlanLimits, claudePlanLimitReader } from "./planLimits.ts";
+import { usageLimitWatch } from "./usageLimit.ts";
 import { ClaudeTranslator } from "./translate.ts";
 import { which } from "../../service/userPath.ts";
 import {
@@ -141,6 +144,7 @@ interface TurnOutcome {
 }
 
 /** The largest context window among the Models a result used: the Turn's own Model. */
+
 const contextWindowOf = (result: SDKResultMessage): number | null => {
   const usage = decodeModelUsage(result.modelUsage);
 
@@ -193,7 +197,9 @@ const openSession = Effect.fnUntraced(function* (
 
   const scope = yield* Scope.Scope;
   const events = yield* Queue.unbounded<HarnessEvent, Cause.Done>();
-  const emit = (event: HarnessEvent) => Queue.offerUnsafe(events, event);
+  const clock = new ItemClock();
+  const emit = (event: HarnessEvent) => Queue.offerUnsafe(events, clock.stamp(event));
+  const usageLimit = usageLimitWatch();
 
   const emitAll = (list: ReadonlyArray<HarnessEvent>) => {
     for (const e of list) emit(e);
@@ -204,6 +210,23 @@ const openSession = Effect.fnUntraced(function* (
   const approvals = new Map<RequestId, PendingApproval>();
   /** Steer messages an interrupt cancelled; if Claude starts on one anyway, interrupt again. */
   const cancelled = new Set<string>();
+  /** Steers sent that Claude Code hasn't folded into the Turn yet, by uuid. */
+  const steers = new Map<string, { readonly turnId: TurnId; readonly text: string }>();
+
+  /** Claude Code took the steer in: it shows in its Turn from here. */
+  const landSteer = (uuid: string) => {
+    const steer = steers.get(uuid);
+
+    if (steer === undefined) return;
+    steers.delete(uuid);
+    emit(
+      HarnessEvent.ItemCompleted({
+        turnId: steer.turnId,
+        item: TurnItem.cases.UserMessage.make({ id: `steer:${uuid}`, text: steer.text }),
+      })
+    );
+  };
+
   let active: ActiveTurn | null = null;
   let permissionMode: PermissionMode = options.permissionMode;
   let closing = false;
@@ -232,9 +255,20 @@ const openSession = Effect.fnUntraced(function* (
 
     if (!turn) return;
     active = null;
+
+    // Never taken in (an interrupt recalled it): it doesn't show as part of the Turn.
+    for (const [uuid, steer] of steers) if (steer.turnId === turn.turnId) steers.delete(uuid);
     emitAll(translator.closeOpenTools(turn.turnId, status === "completed" ? "failed" : "declined"));
     translator.endTurn();
-    emit(HarnessEvent.TurnEnded({ turnId: turn.turnId, status, error }));
+    const limit = usageLimit.take();
+    emit(
+      HarnessEvent.TurnEnded({
+        turnId: turn.turnId,
+        status,
+        error,
+        limit: status === "failed" ? limit : undefined,
+      })
+    );
     limits?.refresh();
     readContext();
   };
@@ -293,6 +327,8 @@ const openSession = Effect.fnUntraced(function* (
     // SDK's CLAUDE_SDK_CAN_USE_TOOL_SHADOWED warning is expected. See this driver's README.
     canUseTool,
     includePartialMessages: true,
+    // Claude Code echoes each user message when it takes it in: a steer lands then.
+    extraArgs: { "replay-user-messages": null },
     // Subagents' own text and thinking, not only their tool calls (see translate.ts).
     forwardSubagentText: true,
     systemPrompt: { type: "preset", preset: "claude_code", append: polarisInstructions(options) },
@@ -347,7 +383,10 @@ const openSession = Effect.fnUntraced(function* (
       .then(() => q.getContextUsage({ detail: "summary" }))
       .then(
         (usage) => {
-          if (!exited) emitAll(translator.onContextUsage(usage.totalTokens, usage.maxTokens));
+          if (!exited)
+            emitAll(
+              translator.onContextUsage(usage.totalTokens, usage.maxTokens, breakdownOf(usage))
+            );
         },
         () => {}
       );
@@ -399,6 +438,9 @@ const openSession = Effect.fnUntraced(function* (
     if (uuids === null && result.origin?.kind === "task-notification" && turn.pending.size > 0)
       return;
 
+    // CLIs that don't echo steers: what the result answered was taken in.
+    for (const u of uuids ?? [...steers.keys()]) landSteer(u);
+
     if (uuids === null) turn.pending.clear();
     else for (const u of uuids) turn.pending.delete(u);
     turn.resultArrived = true;
@@ -426,6 +468,9 @@ const openSession = Effect.fnUntraced(function* (
 
     if (exited) return;
 
+    if (message.type === "user" && "isReplay" in message && message.isReplay)
+      landSteer(message.uuid);
+
     if (message.type === "result") {
       if (message.origin?.kind === "task-notification") continueOnReports();
 
@@ -433,6 +478,7 @@ const openSession = Effect.fnUntraced(function* (
     }
 
     limits?.onMessage(message);
+    usageLimit.onMessage(message);
     const echo = "user_message_uuid" in message ? message.user_message_uuid : undefined;
 
     if (echo !== undefined && cancelled.delete(echo)) {
@@ -615,14 +661,9 @@ const openSession = Effect.fnUntraced(function* (
       )
     );
 
+    // It shows in the Turn once Claude Code folds it in (its echo), not while a tool runs.
+    steers.set(uuid, { turnId: turn.turnId, text });
     inbox.push(message);
-    // Claude Code has taken it into the Turn's input: record it where it landed.
-    emit(
-      HarnessEvent.ItemCompleted({
-        turnId: turn.turnId,
-        item: TurnItem.cases.UserMessage.make({ id: `steer:${uuid}`, text }),
-      })
-    );
   });
 
   const steer = (text: string) => steerInput(text, null);
@@ -645,6 +686,13 @@ const openSession = Effect.fnUntraced(function* (
       catch: (cause) => harnessError("Could not interrupt Claude", cause),
     });
   }).pipe(Effect.withSpan("ClaudeSession.interrupt"));
+
+  /** Claude Code reports each stopped task with a `stopped` task notification. */
+  const stopBackground = (taskIds: ReadonlyArray<string>) =>
+    Effect.tryPromise({
+      try: () => Promise.all(taskIds.map((id) => q.stopTask(id))),
+      catch: (cause) => harnessError("Could not stop Claude's background task", cause),
+    }).pipe(Effect.asVoid, Effect.withSpan("ClaudeSession.stopBackground"));
 
   const respond = Effect.fn("ClaudeSession.respond")(function* (
     requestId: RequestId,
@@ -705,6 +753,7 @@ const openSession = Effect.fnUntraced(function* (
     steer,
     steerTurn,
     interrupt,
+    stopBackground,
     respond,
     setPermissionMode,
     terminalCommand,
@@ -785,7 +834,7 @@ export const makeClaudeDriver = (options: ClaudeDriverOptions = {}): HarnessDriv
 
   const claude: HarnessDriver = {
     kind: "claude",
-    capabilities: { steer: true, liveCoAttach: false, switchModel: true },
+    capabilities: { steer: true, liveCoAttach: false, switchModel: true, stopBackground: true },
     probe,
     listModels: listClaudeModels(driver),
     listCommands: listClaudeCommands(driver),

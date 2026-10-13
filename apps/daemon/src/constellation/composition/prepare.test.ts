@@ -112,3 +112,88 @@ test("unsupported inherited auto permissions refuse dispatch before Session regi
     )
   );
 });
+
+const ceilingCase = (input: {
+  readonly lead: "supervised" | "auto-edits" | "auto" | "full-access" | null;
+  readonly worker: "supervised" | "auto-edits" | "auto" | "full-access";
+  readonly remoteCeiling?: "supervised" | "auto-edits" | "auto" | "full-access";
+}) =>
+  Effect.runPromise(
+    Effect.gen(function* () {
+      const store = yield* EventStore;
+      const graph = planned().graph;
+
+      const worker = patchSession(session(SessionId.make("reused")), {
+        permissionMode: input.worker,
+      });
+
+      yield* store.commit({
+        commandId: CommandId.make("seed"),
+        decide: () =>
+          Effect.succeed([
+            ...(input.lead === null
+              ? []
+              : decideSession(undefined, {
+                  type: "session.fork",
+                  session: patchSession(session(LEAD), { permissionMode: input.lead }),
+                }).events),
+            ...decideSession(undefined, { type: "session.fork", session: worker }).events,
+            DomainEvent.cases.ConstellationStarted.make({
+              constellationId: graph.id,
+              revision: graph.revision,
+              constellation: graph,
+            }),
+          ]),
+      });
+
+      const result = yield* Effect.result(
+        prepareSession(
+          {
+            key: "dispatch:reuse",
+            graph,
+            task: graph.tasks[0]!,
+            previous: null,
+            placement: WorkerPlacement.cases.Existing.make({ sessionId: worker.id }),
+            leadPermissionMode: input.remoteCeiling ?? null,
+            worktree: new PreparedWorktree({
+              repoPath: "/tmp",
+              worktree: "/tmp",
+              branch: "worker",
+              base: "base",
+              managed: false,
+              managedBranch: false,
+            }),
+          },
+          HOST
+        )
+      );
+
+      return Result.isFailure(result) ? result.failure.findings.map((f) => f.code) : [];
+    }).pipe(
+      Effect.provide(
+        Layer.mergeAll(
+          Layer.succeed(HarnessRegistry)({
+            get: () => Effect.succeed(makeFakeDriver("codex").driver),
+            all: Effect.succeed([makeFakeDriver("codex").driver]),
+          }),
+          WorktreeSetupService.layer.pipe(Layer.provideMerge(EventStore.layerSqlite(":memory:")))
+        )
+      )
+    )
+  );
+
+test("a reused worker Session may not run broader than the Lead; equal or narrower passes", async () => {
+  expect(await ceilingCase({ lead: "supervised", worker: "full-access" })).toContain(
+    "E-PERMISSION-CEILING"
+  );
+  expect(await ceilingCase({ lead: "auto", worker: "auto-edits" })).not.toContain(
+    "E-PERMISSION-CEILING"
+  );
+  expect(await ceilingCase({ lead: "auto-edits", worker: "auto-edits" })).not.toContain(
+    "E-PERMISSION-CEILING"
+  );
+  // On a worker Host the Lead's Session is absent; the owner sends its mode with the request.
+  expect(await ceilingCase({ lead: null, worker: "auto", remoteCeiling: "auto-edits" })).toContain(
+    "E-PERMISSION-CEILING"
+  );
+});

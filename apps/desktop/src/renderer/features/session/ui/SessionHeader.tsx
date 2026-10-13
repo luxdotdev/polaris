@@ -1,6 +1,7 @@
 /**
  * The Intent column's header (artboard 5): the session title (click to
- * rename), its Harness and state, how full its context is, and a menu for
+ * rename), its Harness and state, how full its context is (hover for the
+ * Session context card), and a menu for
  * permission mode, Fork and Archive. A refused Archive (a Turn in flight)
  * says why in a toast.
  */
@@ -26,7 +27,7 @@ import {
 import { useState } from "react";
 import { Commands } from "../../../commands.ts";
 import type { SessionData } from "../../../store/plain.ts";
-import { sessionStateLabel } from "../../../shell/copy.ts";
+import { sessionStateLabel, usageLimitLine } from "../../../shell/copy.ts";
 import { keepTerminalFocus, OpenInTerminalItem } from "../../terminal/index.ts";
 import { send } from "../dispatch.ts";
 import {
@@ -39,6 +40,7 @@ import {
 import { waitingOn, waitingPhrase } from "../model/background.ts";
 import { contextLabel } from "../model/meta.ts";
 import { BackgroundTasksHover } from "./background.tsx";
+import { ContextReadout } from "./ContextCard.tsx";
 import { settingsStore } from "../../settings/index.ts";
 
 export interface SessionHeaderProps {
@@ -142,7 +144,7 @@ const SessionMenu = ({
             </DropdownMenuRadioGroup>
           </DropdownMenuSubContent>
         </DropdownMenuSub>
-        <DropdownMenuItem disabled={!canFork} onSelect={onFork}>
+        <DropdownMenuItem needsInput disabled={!canFork} onSelect={onFork}>
           Fork…
         </DropdownMenuItem>
         <OpenInTerminalItem
@@ -182,7 +184,11 @@ export const SessionHeader = (props: SessionHeaderProps) => {
   const waiting = waitingOn(session);
 
   const state =
-    waiting.length > 0 ? waitingPhrase(waiting) : capitalized(sessionStateLabel[session.state]);
+    waiting.length > 0
+      ? waitingPhrase(waiting)
+      : session.state === "limited"
+        ? usageLimitLine(session.limitResetsAt)
+        : capitalized(sessionStateLabel[session.state]);
 
   const context = contextLabel(session.contextUsage);
 
@@ -194,7 +200,7 @@ export const SessionHeader = (props: SessionHeaderProps) => {
       )}
       data-testid="session-state"
     >
-      {turnNumber === null ? state : `${state} · turn ${turnNumber}`}
+      {turnNumber === null || session.state === "limited" ? state : `${state} · turn ${turnNumber}`}
     </span>
   );
 
@@ -219,13 +225,13 @@ export const SessionHeader = (props: SessionHeaderProps) => {
         )}
         <span className="flex-1" />
         {context === null ? null : (
-          <span
-            className="text-caption text-text-subtle tabular min-w-0 truncate"
-            title={`${context.text}: ${context.detail}`}
-            data-testid="session-context"
-          >
-            {context.text}
-          </span>
+          <ContextReadout
+            hostKey={hostKey}
+            session={session}
+            label={context.text}
+            detail={context.detail}
+            turnNumber={turnNumber}
+          />
         )}
         <span className="text-caption text-text-subtle shrink-0 whitespace-nowrap">
           {permissionLabel(session.permissionMode)}

@@ -1,8 +1,7 @@
 import { LanguageContextEvent, LanguageRuntime, LanguageError } from "@polaris/protocol";
 import type { LanguageContextIdentity } from "@polaris/protocol";
 import { blockedLaunchReasons } from "./launchAdmission.ts";
-import { checkoutKey } from "../trust/index.ts";
-import { contextKey } from "./keys.ts";
+import { contextKey, sameProcessCohort } from "./keys.ts";
 import type { LifecycleEvent } from "./lifecycle.ts";
 import type { OrderedConnection } from "../transport/index.ts";
 import type { BrokerOptions, Entry } from "./types.ts";
@@ -26,11 +25,7 @@ export function bindLifecycle(ports: {
   const demanded = (entry: Entry) => entry.documents.open.size > 0;
 
   const peers = (entry: Entry) =>
-    [...entries.values()].filter(
-      (other) =>
-        checkoutKey(other.facts.checkout) === checkoutKey(entry.facts.checkout) &&
-        other.facts.providerId === entry.facts.providerId
-    );
+    [...entries.values()].filter((other) => sameProcessCohort(entry, other));
 
   function publishReplacement(entry: Entry, source: LanguageContextIdentity) {
     delete entry.replacementSource;
@@ -102,15 +97,18 @@ export function bindLifecycle(ports: {
   ) {
     if (!active(entry, identity)) return;
 
-    if (!demanded(entry) && error?.reason === "stale-generation") {
+    if (!spawned && error?.reason === "stale-generation") {
       move(entry, { type: "stop" });
       retire(entry, "restart", false, true);
       entry.runtime = LanguageRuntime.cases.Stopped.make({ reason: "no-demand" });
       publishReplacement(entry, identity);
       state(entry, entry.runtime);
 
-      if (entry.interests.size === 0) ports.stopWatching(entry);
-      scheduleGrace(entry);
+      if (demanded(entry)) ensureStart(entry);
+      else {
+        if (entry.interests.size === 0) ports.stopWatching(entry);
+        scheduleGrace(entry);
+      }
     } else if (error !== undefined && blockedLaunchReasons.has(error.reason)) {
       const lastLogLine = lastServerLine(entry);
 

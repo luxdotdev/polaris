@@ -21,10 +21,10 @@ const setup = (status: WorktreeSetupRun["status"]) =>
 
 test("Turn-less worker setup occupies its own row, before prompts and Claim trailers", () => {
   const card = setup("running");
-  expect(conversationRows({ turns: [], approvals: [], unfolded: new Set(), setup: card })).toEqual([
+  expect(conversationRows({ turns: [], approvals: [], setup: card })).toEqual([
     { kind: "setup", key: card.id, setup: card },
   ]);
-  expect(conversationRows({ turns: [], approvals: [], unfolded: new Set() })).toEqual([]);
+  expect(conversationRows({ turns: [], approvals: [] })).toEqual([]);
 });
 
 test("setup cards state the command, output and failure action without Harness chrome", () => {

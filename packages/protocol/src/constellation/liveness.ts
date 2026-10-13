@@ -20,4 +20,9 @@ export class WorkerLiveness extends Schema.Class<WorkerLiveness>("ConstellationW
   contextPercent: Schema.NullOr(Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 100 }))),
   /** Inputs queued by the owning Engine's delivery journal. */
   queuedInput: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+  /**
+   * Whether the worker's Session has a Turn in flight; absent from an older Daemon.
+   * A working Attempt without one is waiting, never "working".
+   */
+  activeTurn: Schema.optionalKey(Schema.Boolean),
 }) {}

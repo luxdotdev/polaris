@@ -1,7 +1,8 @@
 /**
  * A command in the conversation: its line with how it ended, and its output
  * tail in a well. Once it succeeds the output folds to that line after a
- * moment (`model/collapse.ts`); a click on the line opens or folds it.
+ * moment (`model/collapse.ts`); a click on the line opens or folds it, and
+ * open, the line wraps to the whole command.
  */
 import { CheckIcon, ChevronDownIcon, ChevronRightIcon, cn, PixelFailedIcon } from "@polaris/ui";
 import { useEffect, useRef, useState } from "react";
@@ -88,46 +89,95 @@ const StatusMark = ({ item, failed, hue }: { item: CommandView; failed: boolean;
   );
 };
 
-export const Command = ({ item, hue }: { readonly item: CommandView; readonly hue: Hue }) => {
+/** Whether the command is open, and its toggle: `model/collapse.ts`, with the user's choice. */
+const useFold = (item: CommandView, latest: boolean) => {
   const running = item.live || item.status === "running";
   const failed = item.status === "failed" || (item.exitCode !== null && item.exitCode !== 0);
+  const hasOutput = item.output !== "";
   const { settled, hover } = useSettled(!running);
   const [choice, setChoice] = useState(() => collapseChoice(item.id));
-  const hasOutput = item.output !== "";
-  const open = outputOpen({ running, failed, settled, choice });
-  const canFold = hasOutput && !running;
+
+  // Finished in the latest Turn: kept open as if chosen, so a newer Turn never folds it.
+  useEffect(() => {
+    if (latest && !running && hasOutput && choice === null) {
+      chooseCollapse(item.id, true);
+      setChoice(true);
+    }
+  }, [latest, running, hasOutput, item.id, choice]);
+
+  // Without output there's nothing to show unless asked: only the whole command.
+  const open = hasOutput
+    ? outputOpen({ running, failed, settled, choice, latest })
+    : (choice ?? false);
 
   const toggle = () => {
     chooseCollapse(item.id, !open);
     setChoice(!open);
   };
 
-  const line = (
-    <>
-      <StatusMark item={item} failed={failed} hue={hue} />
-      <span className="text-code-inline text-text-default flex-1 truncate font-mono">
-        {item.command === "" ? "Running a command" : `$ ${item.command}`}
+  return { running, failed, hasOutput, open, toggle, hover };
+};
+
+const Line = ({
+  item,
+  hue,
+  failed,
+  open,
+  canFold,
+}: {
+  readonly item: CommandView;
+  readonly hue: Hue;
+  readonly failed: boolean;
+  readonly open: boolean;
+  readonly canFold: boolean;
+}) => (
+  <>
+    <StatusMark item={item} failed={failed} hue={hue} />
+    <span
+      className={cn(
+        "text-code-inline text-text-default min-w-0 flex-1 font-mono",
+        open ? "py-1.5 break-all whitespace-pre-wrap" : "truncate"
+      )}
+      data-testid="command-text"
+    >
+      {item.command === "" ? "Running a command" : `$ ${item.command}`}
+    </span>
+    {item.output !== "" && canFold && !open ? (
+      <span className="text-caption text-text-subtle tabular">
+        {plural(lineCount(item.output), "line")}
       </span>
-      {canFold && !open ? (
-        <span className="text-caption text-text-subtle tabular">
-          {plural(lineCount(item.output), "line")}
-        </span>
-      ) : null}
-      <span className="text-caption text-text-subtle tabular">{exitLabel(item)}</span>
-      {canFold ? (
-        open ? (
-          <ChevronDownIcon size={10} className="text-text-faint shrink-0" />
-        ) : (
-          <ChevronRightIcon size={10} className="text-text-faint shrink-0" />
-        )
-      ) : null}
-    </>
+    ) : null}
+    <span className="text-caption text-text-subtle tabular">{exitLabel(item)}</span>
+    {canFold ? <Chevron open={open} /> : null}
+  </>
+);
+
+const Chevron = ({ open }: { readonly open: boolean }) =>
+  open ? (
+    <ChevronDownIcon size={10} className="text-text-faint shrink-0" />
+  ) : (
+    <ChevronRightIcon size={10} className="text-text-faint shrink-0" />
   );
+
+export const Command = ({
+  item,
+  hue,
+  latest = false,
+}: {
+  readonly item: CommandView;
+  readonly hue: Hue;
+  readonly latest?: boolean;
+}) => {
+  const { running, failed, hasOutput, open, toggle, hover } = useFold(item, latest);
+  // Always, so a long command can be read whole even with no output.
+  const canFold = !running;
+  const line = <Line item={item} hue={hue} failed={failed} open={open} canFold={canFold} />;
 
   return (
     <div
       className={cn(WELL, "flex flex-col overflow-clip")}
       data-testid="command"
+      data-menu-command={item.id}
       data-folded={canFold && !open ? "" : undefined}
       {...hover}
     >
@@ -136,14 +186,20 @@ export const Command = ({ item, hue }: { readonly item: CommandView; readonly hu
           type="button"
           aria-expanded={open}
           onClick={toggle}
-          className="h-row gap-row-x hover:bg-fill-hover flex cursor-default items-center px-3 text-left"
+          title={open ? undefined : item.command}
+          className="min-h-row gap-row-x hover:bg-fill-hover flex cursor-default items-center px-3 text-left"
         >
           {line}
         </button>
       ) : (
-        <div className="h-row gap-row-x flex items-center px-3">{line}</div>
+        <div className="min-h-row gap-row-x flex items-center px-3">{line}</div>
       )}
       {hasOutput && open ? <Output output={item.output} /> : null}
+      {!hasOutput && open ? (
+        <p className="text-caption text-text-subtle border-hairline border-t px-3 py-1.5">
+          No output
+        </p>
+      ) : null}
     </div>
   );
 };

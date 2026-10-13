@@ -5,6 +5,9 @@
 import type { RailRow } from "./rail.ts";
 import type { TaskRow } from "./task.ts";
 
+/** The keys a Task row's menu lists, as accelerators. */
+export const RAIL_KEYS = { focus: "Enter", accept: "a", sendBack: "s" } as const;
+
 export type KeyAction =
   | { readonly kind: "select"; readonly key: string }
   | { readonly kind: "focus"; readonly row: TaskRow }
@@ -97,7 +100,7 @@ export const railKey = (
       return move(rows, at, 1);
     case "ArrowUp":
       return move(rows, at, -1);
-    case "Enter":
+    case RAIL_KEYS.focus:
       return enter(row);
     case "ArrowLeft":
       return left(rows, at);
@@ -105,9 +108,9 @@ export const railKey = (
       return right(row);
     case "Tab":
       return { kind: "next-needs-you" };
-    case "a":
+    case RAIL_KEYS.accept:
       return reviewable(row) ? { kind: "review", row, mode: "accept" } : null;
-    case "s":
+    case RAIL_KEYS.sendBack:
       return reviewable(row) ? { kind: "review", row, mode: "send-back" } : null;
     case "m":
       return { kind: "message-lead" };

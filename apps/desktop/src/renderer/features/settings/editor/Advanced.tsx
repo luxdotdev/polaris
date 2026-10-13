@@ -1,6 +1,6 @@
 /** Advanced (Paper L4): collapsed; custom servers, executable overrides and Markdown images, per Host. */
 import * as P from "@polaris/protocol";
-import { ChevronDownIcon, ChevronRightIcon } from "@polaris/ui";
+import { DisclosureChevron } from "@polaris/ui";
 import { useMemo, useState } from "react";
 import type { LanguageApi } from "../../../../shared/api.ts";
 import { CustomServers } from "./CustomServers.tsx";
@@ -92,7 +92,6 @@ export const Advanced = (props: {
   readonly onPolicySaved: (workspaceId: P.WorkspaceId) => void;
 }) => {
   const [open, setOpen] = useState(false);
-  const Chevron = open ? ChevronDownIcon : ChevronRightIcon;
   const { api, host } = props;
 
   return (
@@ -103,7 +102,7 @@ export const Advanced = (props: {
         onClick={() => setOpen(!open)}
         className="flex cursor-default items-center gap-2 self-start px-0.5 py-1 text-left"
       >
-        <Chevron size={12} className="text-text-subtle shrink-0" />
+        <DisclosureChevron open={open} size={12} className="text-text-subtle" />
         <span className="text-body text-text-default font-medium">Advanced</span>
         <span className="text-caption text-text-faint">
           Custom language servers and executable overrides, per host

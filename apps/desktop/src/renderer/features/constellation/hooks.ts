@@ -21,7 +21,8 @@ import {
   type TaskData,
   type WorkerFacts,
 } from "./model/index.ts";
-import { type Focus, leadKey, patchLeadUi, useLeadUi, useSignals } from "./state.ts";
+import type { MessageAuthority } from "@polaris/protocol";
+import { draftAbout, type Focus, leadKey, patchLeadUi, useLeadUi, useSignals } from "./state.ts";
 
 const NONE: ReadonlyArray<ConstellationRecord> = [];
 
@@ -264,6 +265,19 @@ export const useConstellationActions = () => {
     },
     openHandover: (target: FocusTarget & { readonly revision: number }) => {
       setFocus(target, { kind: "handover", revision: target.revision });
+      select(target);
+    },
+    /** Selects the Lead with "Message the lead about B1" open (a worker row's menu). */
+    messageLead: (
+      target: FocusTarget & {
+        readonly taskId: string;
+        readonly title: string;
+        readonly authority: MessageAuthority;
+      }
+    ) => {
+      patchLeadUi(leadKey(target.hostKey, target.leadSessionId), () => ({
+        draft: draftAbout(target.taskId, target.title, target.authority),
+      }));
       select(target);
     },
     /** Back to the Lead's own conversation (the sidebar's Lead row). */

@@ -14,10 +14,14 @@ const feed = () => Stream.fail(unavailable());
 
 /** Typed defaults mount no services, processes or capabilities; real handler layers override them. */
 export const languageDefaults = {
+  "languages.sql.dialect.get": request,
+  "languages.sql.dialect.select": request,
   "languages.python.interpreters": request,
   "languages.python.select": request,
   "languages.catalog": request,
   "languages.host.state": request,
+  "languages.host.processBudget.get": request,
+  "languages.host.processBudget.set": request,
   "languages.host.state.watch": feed,
   "languages.availability": request,
   "languages.availability.watch": feed,

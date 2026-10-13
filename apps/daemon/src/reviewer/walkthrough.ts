@@ -7,19 +7,22 @@ import {
   type ReviewerSettings,
   type RiskSummary,
   RiskSummaryRef,
+  type SessionId,
   Walkthrough,
 } from "@polaris/protocol";
-import { Cause, Clock, Effect } from "effect";
+import { Cause, Clock, Effect, Result } from "effect";
 import { Engine } from "../engine/Engine.ts";
 import { EventStore } from "../store/EventStore.ts";
 import { reviewerCost } from "./cost.ts";
 import { previousSummary } from "./merge.ts";
 import { readDiff } from "./diff.ts";
-import { isIgnored, readInstructions } from "./instructions.ts";
+import { generatedPaths } from "./generated.ts";
+import { parseGroups, splitGroups } from "./groups.ts";
+import { readInstructions } from "./instructions.ts";
 import { canRunChecks } from "./policy.ts";
 import { type ReviewRange, resolveRange } from "./range.ts";
-import { startReviewerSession } from "./session.ts";
-import { walkthroughProblem, walkthroughPrompt } from "./walkthroughPrompt.ts";
+import { continueReviewerSession, startReviewerSession } from "./session.ts";
+import { groupsRepairPrompt, walkthroughProblem, walkthroughPrompt } from "./walkthroughPrompt.ts";
 
 export const walkthroughChoice = (
   settings: ReviewerSettings,
@@ -105,7 +108,7 @@ export const storeWalkthrough = (summary: RiskSummary, value: Walkthrough, delta
       .pipe(Effect.orDie);
   });
 
-export const changeWalkthrough = (value: Walkthrough, change: Partial<Walkthrough>) =>
+const changed = (value: Walkthrough, change: Partial<Walkthrough>) =>
   Walkthrough.make({
     state: value.state,
     markdown: value.markdown,
@@ -128,6 +131,12 @@ export const changeWalkthrough = (value: Walkthrough, change: Partial<Walkthroug
     ...change,
   });
 
+/** `change` applied, keeping the groups unless it replaces them. */
+export const changeWalkthrough = (value: Walkthrough, change: Partial<Walkthrough>) =>
+  value.groups === undefined
+    ? changed(value, change)
+    : changed(value, { groups: value.groups, ...change });
+
 const latestSummary = (summary: RiskSummary) =>
   Effect.flatMap(EventStore, (store) =>
     store.review.riskSummary(RiskSummaryRef.cases.ById.make({ summaryId: summary.id }))
@@ -135,6 +144,16 @@ const latestSummary = (summary: RiskSummary) =>
 
 export const walkthroughKey = (summary: RiskSummary, value: Walkthrough, delta: boolean) =>
   `${summary.key.repo}:${summary.key.mergeBase}:${value.head}:${delta ? value.fromHead : "full"}`;
+
+/** One repair Turn for groups that didn't decode or cover the change; null when it fails too. */
+const repairGroups = (sessionId: SessionId, problem: string, paths: ReadonlyArray<string>) =>
+  Effect.gen(function* () {
+    const repaired = yield* continueReviewerSession(sessionId, groupsRepairPrompt(problem));
+    const text = repaired.reply ?? "";
+    const again = parseGroups(splitGroups(text).block ?? text, paths);
+
+    return Result.isSuccess(again) ? again.success : null;
+  }).pipe(Effect.catchCause(() => Effect.succeed(null)));
 
 const runOne = (
   summary: RiskSummary,
@@ -186,6 +205,15 @@ const runOne = (
         readInstructions({ cwd: range.cwd, head: range.head, repo: range.key.repo })
       );
 
+      const generated = yield* Effect.promise(() =>
+        generatedPaths({
+          root: range.cwd,
+          at: range.rulesAt,
+          repo: range.key.repo,
+          paths: diff.files.map((f) => f.path),
+        })
+      );
+
       const fresh = yield* latestSummary(summary);
       const previous = yield* previousSummary(range);
       const open = [...(fresh?.findings ?? []), ...(previous?.findings ?? [])];
@@ -195,7 +223,8 @@ const runOne = (
         base: range.base,
         head: range.head,
         fromHead: initial.fromHead,
-        diff: { files: diff.files.filter((file) => !isIgnored(instructions.ignore, file.path)) },
+        diff,
+        generated,
         context,
         findings: open,
         instructions: instructions.text ?? "",
@@ -207,6 +236,7 @@ const runOne = (
         checkoutId: range.checkoutId,
         choice,
         title: `Walkthrough · ${range.title}${delta ? " · new commits" : ""}`,
+        origin: "walkthrough",
         prompt,
         onStarted: (sessionId) =>
           Effect.gen(function* () {
@@ -233,15 +263,17 @@ const runOne = (
           if (count <= sections) return Effect.void;
           sections = count;
 
-          return save(changeWalkthrough(current, { markdown })).pipe(
-            Effect.provideService(EventStore, store)
-          );
+          return save(
+            changeWalkthrough(current, { markdown: splitGroups(markdown).markdown })
+          ).pipe(Effect.provideService(EventStore, store));
         },
       });
 
+      const reply = splitGroups(outcome.reply ?? "");
+
       const problem =
         outcome.status === "completed"
-          ? walkthroughProblem(outcome.reply ?? "")
+          ? walkthroughProblem(reply.markdown)
           : (outcome.error ?? "The walkthrough Turn did not complete.");
 
       if (problem !== null) {
@@ -264,16 +296,27 @@ const runOne = (
       ).pipe(Effect.catchCause(() => Effect.succeed(null)));
 
       const finished = yield* Clock.currentTimeMillis;
+      const paths = diff.files.map((f) => f.path);
+      const first = parseGroups(reply.block, paths);
 
-      yield* save(
-        changeWalkthrough(current, {
-          state: "ready",
-          markdown: outcome.reply ?? "",
-          sessionId: outcome.sessionId,
-          durationMs: finished - started,
-          tokens: cost?.tokens ?? null,
-        })
-      );
+      const ready = changeWalkthrough(current, {
+        state: "ready",
+        markdown: reply.markdown,
+        sessionId: outcome.sessionId,
+        durationMs: finished - started,
+        tokens: cost?.tokens ?? null,
+      });
+
+      if (Result.isSuccess(first)) {
+        yield* save(changeWalkthrough(ready, { groups: first.success }));
+
+        return;
+      }
+
+      yield* save(ready);
+      const groups = yield* repairGroups(outcome.sessionId, first.failure, paths);
+
+      if (groups !== null) yield* save(changeWalkthrough(current, { groups }));
     });
 
     yield* work.pipe(

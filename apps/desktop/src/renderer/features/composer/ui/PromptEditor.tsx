@@ -18,6 +18,7 @@ import {
   type Menu,
 } from "../model/commands.ts";
 import type { FrecencyTable } from "../model/frecency.ts";
+import { AT_DRAFT, type HistoryCursor, stepHistory } from "../model/history.ts";
 import { type CommandNotice, noticeOpens } from "../model/notice.ts";
 import { CommandMenu } from "./CommandMenu.tsx";
 import "./composer.css";
@@ -48,7 +49,11 @@ export interface PromptEditorProps {
   readonly frecency: FrecencyTable;
   /** A command was picked from the menu (it counts toward frecency). */
   readonly onPicked: (option: CommandOption) => void;
+  /** What the user sent here, oldest first, for ↑/↓ (`sentMessages`). */
+  readonly history?: ReadonlyArray<string> | undefined;
 }
+
+const NO_HISTORY: ReadonlyArray<string> = [];
 
 const optionsKey = (options: ReadonlyArray<CommandOption>) =>
   options.map((o) => `${o.sigil}${o.name}`).join("\u0000");
@@ -92,6 +97,9 @@ export default function PromptEditor(props: PromptEditorProps) {
   const open = menu !== null;
   const latest = useRef({ props, menu, index, dismissed });
   const emitted = useRef<string | null>(null);
+  // ↑/↓'s place in history, and the text it last showed; any other edit returns to the draft.
+  const cursor = useRef<HistoryCursor>(AT_DRAFT);
+  const recalled = useRef<string | null>(null);
 
   useEffect(() => {
     latest.current = { props, menu, index, dismissed };
@@ -148,6 +156,7 @@ export default function PromptEditor(props: PromptEditorProps) {
     const hooks = (): EditorHooks => ({
       options: () => latest.current.props.options,
       onDraft: (next) => {
+        if (next.text !== recalled.current) cursor.current = AT_DRAFT;
         setDraft(next);
         emitted.current = next.text;
         latest.current.props.onChange(next.text);
@@ -171,6 +180,16 @@ export default function PromptEditor(props: PromptEditorProps) {
           else liveNotice()?.action?.run();
         },
         dismiss: () => setDismissed(handle.read().typed?.word ?? null),
+      },
+      recall: (toward) => {
+        const entries = latest.current.props.history ?? NO_HISTORY;
+        const step = stepHistory(entries, cursor.current, toward, handle.read().draft.text);
+
+        if (step === null) return null;
+        cursor.current = step.cursor;
+        recalled.current = step.text;
+
+        return step.text;
       },
       onSubmit: (queue) => latest.current.props.onSubmit(queue),
       onEscape: () => latest.current.props.onEscape(),

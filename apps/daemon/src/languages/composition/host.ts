@@ -1,4 +1,12 @@
-import { providerAvailability } from "./managedAvailability.ts";
+import { lazyPredictionContextHandlers } from "../../prediction/handlers.ts";
+import { createSqlSelection, SqlSelection } from "../sql/selection.ts";
+import { developerLaunchAdapters, developerProvider } from "../go/launch.ts";
+import { createHostPrerequisiteProbe } from "../install/hostStateProbes.ts";
+import { SqlCore } from "../sql/core.ts";
+import { createProcessSettings } from "../runtime/processSettings.ts";
+import { LanguageProcessBudgetCore } from "./processBudget.ts";
+import { webProviders } from "../web/index.ts";
+import { managedProviderIds, providerAvailability } from "./managedAvailability.ts";
 import { PrivateNodeRuntime } from "./privateNode.ts";
 import { createPythonEnvironment, PythonEnvironment } from "../python/environment.ts";
 import { PythonCore } from "../python/core.ts";
@@ -11,7 +19,8 @@ import { LanguageError } from "@polaris/protocol";
 import { ProposalPreparation } from "../preparation/index.ts";
 import { ProposalProvenance } from "../preparation/provenanceService.ts";
 import { catalog } from "../catalog/index.ts";
-import { ProjectDiscovery } from "../discovery/index.ts";
+import { ProjectDiscovery, type DiscoveryFacts } from "../discovery/index.ts";
+import type { LaunchAdmissionRequest } from "../runtime/launchAdmission.ts";
 import { ExecutionTrustService } from "../trust/index.ts";
 import {
   createHostInstallations,
@@ -60,6 +69,7 @@ export const languageHostServices = (
   trustOptions: Parameters<typeof ExecutionTrustService.layer>[0],
   trustGrants = LanguageTrustGrantAuthority.denyLayer
 ) => {
+  const sql = createSqlSelection(join(options.root, "sql-dialects"));
   const python = createPythonEnvironment(join(options.root, "python-interpreters"));
   const authority = LanguageAcquisitionAuthority.layer;
   const trust = ExecutionTrustService.layer(trustOptions);
@@ -67,11 +77,13 @@ export const languageHostServices = (
   const discovery = ProjectDiscovery.layer({
     ...discoveryOptions,
     pythonEnvironment: python,
+    sqlSelection: sql,
     bundledTypeScript: options.managed !== undefined,
   }).pipe(Layer.provide(trust));
 
   const shared = Layer.mergeAll(
     Layer.succeed(PythonEnvironment)(python),
+    Layer.succeed(SqlSelection)(sql),
     authority,
     trust,
     discovery,
@@ -115,10 +127,7 @@ export const languageHostServices = (
 
           const adapters = managedLaunchAdapters({
             host,
-            pinnedProviders:
-              options.managed === undefined
-                ? []
-                : ["typescript-language-server", "basedpyright", "ruff"],
+            pinnedProviders: options.managed === undefined ? [] : managedProviderIds,
             ledger,
             plan: options.managed?.plan,
             toolId: (facts) => {
@@ -140,6 +149,18 @@ export const languageHostServices = (
 
           const configured = configuredLaunchAdapters(ledger);
 
+          const developer = developerLaunchAdapters(
+            ledger,
+            createHostPrerequisiteProbe(discoveryOptions.pythonHost)
+          );
+
+          const launchAdapters = (facts: DiscoveryFacts) =>
+            configuredExecutable(facts) !== undefined
+              ? configured
+              : developerProvider(facts.providerId)
+                ? developer
+                : undefined;
+
           return LanguageProviderAccess.of({
             availability: (toolId, phase, trusted, admission, settings) =>
               providerAvailability(
@@ -152,12 +173,21 @@ export const languageHostServices = (
                 settings
               ),
             reserveLaunch: (request) =>
-              configuredExecutable(request.facts) === undefined
-                ? (async () => {
+              (
+                launchAdapters(request.facts) ?? {
+                  reserveLaunch: async (request: LaunchAdmissionRequest) => {
                     if (
-                      ["typescript-language-server", "basedpyright", "ruff"].includes(
-                        request.facts.providerId
-                      ) &&
+                      [
+                        "typescript-language-server",
+                        "basedpyright",
+                        "ruff",
+                        ...Object.keys(webProviders),
+                        "bash-language-server",
+                        "sqllens-language-server",
+                        "phpactor",
+                        "rust-analyzer",
+                        "lua-language-server",
+                      ].includes(request.facts.providerId) &&
                       options.managed !== undefined
                     ) {
                       const guard = owners.guard(request, executionTrust).validate;
@@ -170,20 +200,24 @@ export const languageHostServices = (
                     }
 
                     return adapters.reserveLaunch(request);
-                  })()
-                : configured.reserveLaunch(request),
+                  },
+                }
+              ).reserveLaunch(request),
             resolveLaunch: (facts, lease, request) =>
-              configuredExecutable(facts) === undefined
-                ? adapters.resolveLaunch(facts, lease, request)
-                : configured.resolveLaunch(facts, lease, request),
+              (launchAdapters(facts) ?? adapters).resolveLaunch(facts, lease, request),
           });
         })
       ).pipe(Layer.provide(installationLayer), Layer.provide(shared));
 
-      const broker = languageBrokerLayer({ hostId: options.hostId }).pipe(
-        Layer.provide(providers),
-        Layer.provide(shared)
-      );
+      const processSettings = yield* Effect.tryPromise({
+        try: () => createProcessSettings(options.hostId, options.root),
+        catch: installationError,
+      });
+
+      const broker = languageBrokerLayer({
+        hostId: options.hostId,
+        processLimit: processSettings.snapshot().effectiveLimit,
+      }).pipe(Layer.provide(providers), Layer.provide(shared));
 
       const receipts = LanguageResourceReceiptAuthority.layer.pipe(
         Layer.provide(broker),
@@ -200,6 +234,9 @@ export const languageHostServices = (
         installationLayer,
         PrivateNodeRuntime.layer.pipe(Layer.provide(installationLayer)),
         LanguageHostStateCore.layer(options.hostId, host),
+        LanguageProcessBudgetCore.layer(options.hostId, processSettings).pipe(
+          Layer.provide(broker)
+        ),
         LanguageInstallCore.layer(options.hostId, host).pipe(
           Layer.provide(LanguageInstallGrantAuthority.denyLayer)
         ),
@@ -207,6 +244,7 @@ export const languageHostServices = (
           Layer.provide(broker),
           Layer.provide(shared)
         ),
+        SqlCore.layer(options.hostId).pipe(Layer.provide(broker), Layer.provide(shared)),
         providers,
         resources,
         broker
@@ -221,6 +259,8 @@ export const languageHostHandlers = (
   trustOptions: Parameters<typeof ExecutionTrustService.layer>[0],
   trustGrants = LanguageTrustGrantAuthority.denyLayer
 ) =>
-  Layer.mergeAll(languageCoreHandlers(options.hostId), languageResourceEditHandlers).pipe(
-    Layer.provide(languageHostServices(options, discoveryOptions, trustOptions, trustGrants))
-  );
+  Layer.mergeAll(
+    languageCoreHandlers(options.hostId),
+    languageResourceEditHandlers,
+    lazyPredictionContextHandlers(options.hostId)
+  ).pipe(Layer.provide(languageHostServices(options, discoveryOptions, trustOptions, trustGrants)));

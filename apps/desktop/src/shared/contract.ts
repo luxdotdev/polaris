@@ -1,3 +1,4 @@
+import { PredictionPlacementInputs } from "./predictionPlacement.ts";
 /**
  * The IPC contract's inputs as Effect Schemas: the main process decodes every
  * request and subscription from a renderer with these before acting on it.
@@ -41,7 +42,9 @@ import {
 } from "./constellationContract.ts";
 import { ResourceRequestInputs } from "./resourcesContract.ts";
 import { GitHubRequestInputs, GitHubSubscriptionInputs } from "./githubContract.ts";
+import { GitRequestInputs, GitSubscriptionInputs } from "./gitContract.ts";
 import { BRANCH_PREFIX } from "./sessionPrefs.ts";
+import { PredictionUiInputs, PredictionCompletionInput } from "./predictionContract.ts";
 
 /** A Host's stable key in the HostRegistry: "local", or an SSH alias. */
 export const HostKey = Schema.String.check(Schema.isMinLength(1));
@@ -136,6 +139,8 @@ export const SessionPrefs = Schema.Struct({
   openOutputOnEdit: Schema.Boolean,
   /** Native notifications when a session needs you. */
   notifyNeedsYou: Schema.Boolean,
+  /** Native notifications when a session's Turn ends and it goes Idle (off by default). */
+  notifyTurnEnded: Schema.Boolean,
   /** Native notifications when someone requests your review on GitHub (ENG-229). */
   notifyReviewRequests: Schema.Boolean,
   /** Archive deletes a session's branch once it is merged; unmerged branches always stay. */
@@ -152,6 +157,10 @@ export const SessionPrefs = Schema.Struct({
   editorVim: Schema.Boolean,
   /** Settings → Editor: save after a short pause in typing (off by default, spec §3). */
   editorAutosave: Schema.Boolean,
+  /** Settings → Editor: each line's most severe diagnostic at its end (on by default). */
+  editorInlineDiagnostics: Schema.Boolean,
+  /** Settings → Editor: the Harness and Model that write commit messages (a small, fast one). */
+  commitMessages: RoleDefault,
 });
 
 export type SessionPrefs = typeof SessionPrefs.Type;
@@ -161,6 +170,7 @@ export const SessionPrefsPatch = Schema.Struct({
   branchPrefix: Schema.optionalKey(BranchPrefix),
   openOutputOnEdit: Schema.optionalKey(Schema.Boolean),
   notifyNeedsYou: Schema.optionalKey(Schema.Boolean),
+  notifyTurnEnded: Schema.optionalKey(Schema.Boolean),
   notifyReviewRequests: Schema.optionalKey(Schema.Boolean),
   deleteMergedBranch: Schema.optionalKey(Schema.Boolean),
   spinnerVerbs: Schema.optionalKey(Schema.NullOr(Schema.Array(Schema.String))),
@@ -170,6 +180,8 @@ export const SessionPrefsPatch = Schema.Struct({
   constellationDefaults: Schema.optionalKey(ConstellationDefaults),
   editorVim: Schema.optionalKey(Schema.Boolean),
   editorAutosave: Schema.optionalKey(Schema.Boolean),
+  editorInlineDiagnostics: Schema.optionalKey(Schema.Boolean),
+  commitMessages: Schema.optionalKey(RoleDefault),
 });
 
 export type SessionPrefsPatch = typeof SessionPrefsPatch.Type;
@@ -196,6 +208,8 @@ export type CachedHost = typeof CachedHost.Type;
 
 /** Every request a renderer can make, keyed by method. Outputs are in `api.ts`. */
 export const RequestInputs = {
+  ...PredictionUiInputs,
+  ...PredictionPlacementInputs,
   "settings.get": Schema.Struct({}),
   "updates.get": Schema.Struct({}),
   "updates.check": Schema.Struct({}),
@@ -217,6 +231,8 @@ export const RequestInputs = {
   "shell.openExternal": Schema.Struct({
     url: Schema.String.check(Schema.isPattern(/^https:\/\//)),
   }),
+  /** Shows a file or folder in Finder; this Mac's Host only, an absolute path. */
+  "shell.revealInFinder": onHost({ path: Schema.String.check(Schema.isPattern(/^\//)) }),
   "host.retryNow": onHost({}),
   dispatch: onHost({ commandId: CommandId, command: Command }),
   "files.listDir": onHost({ path: Schema.String }),
@@ -242,7 +258,6 @@ export const RequestInputs = {
     text: Schema.String,
     expected: Schema.Struct({ mtimeMs: Schema.Number, size: Schema.Int, hash: Schema.String }),
   }),
-  "git.status": onHost({ cwd: Schema.String }),
   "git.diff": onHost({ cwd: Schema.String, spec: GitDiffSpec }),
   /** A file at a revision (capability `git.show`): Review's context expansion. */
   "git.show": onHost({ cwd: Schema.String, revision: Schema.String, path: Schema.String }),
@@ -263,6 +278,7 @@ export const RequestInputs = {
   /** Each catalogue Harness's status on the Host (capability `harness.availability`). */
   "harness.availability": onHost({ refresh: Schema.Boolean }),
   "session.terminalCommand": onHost({ sessionId: SessionId }),
+  "session.turns": onHost({ sessionId: SessionId, beforeIndex: Schema.Int, limit: Schema.Int }),
   /** Hourly Usage buckets overlapping `[from, to)` (capability `usage`). */
   "usage.query": onHost({
     from: Timestamp,
@@ -340,8 +356,11 @@ export const RequestInputs = {
   "install.ensure": onHost({ approvedSha256: Schema.NullOr(Schema.String) }),
   /** The literal `Host` aliases in `~/.ssh/config` (Includes followed, wildcards skipped). */
   "machines.sshAliases": Schema.Struct({}),
-  /** Adds a remote Host by alias and checks it: probe, then ask to install. */
+  /** The WSL distros on this Windows machine (`unsupported` elsewhere). */
+  "machines.wslDistros": Schema.Struct({}),
+  /** Adds a remote Host by alias (or a WSL distro by name) and checks it: probe, then ask to install. */
   "machines.add": Schema.Struct({
+    kind: Schema.optionalKey(Schema.Literals(["ssh", "wsl"])),
     alias: SshAlias,
     label: Schema.String,
     colour: Schema.NullOr(MachineColour),
@@ -377,6 +396,10 @@ export const RequestInputs = {
    */
   "machines.openSsh": onHost({}),
   "clipboard.write": Schema.Struct({ text: Schema.String }),
+  /** The Edit menu's own action on the focused field (a context menu's Cut, Copy, Paste). */
+  "edit.run": Schema.Struct({ action: Schema.Literals(["cut", "copy", "paste", "selectAll"]) }),
+  /** Windows: the app menu, dropped from the title bar's lockup. */
+  "app.menu": Schema.Struct({}),
   /** What onboarding found on this Mac: the Host aliases in `~/.ssh/config`, and the app's version. */
   "onboarding.found": Schema.Struct({}),
   /** "Get started": the welcome isn't shown again. */
@@ -414,10 +437,38 @@ export const RequestInputs = {
       })
     ),
     focused: Schema.NullOr(Schema.Struct({ hostKey: HostKey, sessionId: Schema.String })),
+    turns: Schema.optionalKey(
+      Schema.Array(
+        Schema.Struct({
+          hostKey: HostKey,
+          hostLabel: Schema.String,
+          sessionId: Schema.String,
+          title: Schema.String,
+          harness: Schema.String,
+          state: Schema.Literals(["working", "idle"]),
+          prompt: Schema.NullOr(Schema.String),
+          digestStarted: Schema.optionalKey(Schema.Boolean),
+        })
+      )
+    ),
+    notifications: Schema.optionalKey(
+      Schema.Array(
+        Schema.Struct({
+          hostKey: HostKey,
+          hostLabel: Schema.String,
+          sessionId: Schema.String,
+          sessionTitle: Schema.String,
+          id: Schema.String,
+          title: Schema.String,
+          body: Schema.String,
+        })
+      )
+    ),
   }),
   /** Dev only: a fresh temporary directory on the dev Daemon's Host for the proof session. */
   "dev.proofWorkspace": Schema.Struct({}),
   ...GitHubRequestInputs,
+  ...GitRequestInputs,
   ...ConstellationRequestInputs,
   ...ConstellationDefaultsInputs,
   ...ConstellationStatsInputs,
@@ -446,6 +497,7 @@ export const UnsubscribeEnvelope = Schema.Struct({ id: Schema.Int });
 
 /** Every live feed a renderer can open, keyed by kind. Items are in `api.ts`. */
 export const SubscriptionInputs = {
+  "prediction.complete": PredictionCompletionInput,
   /** The Host list with each Host's Connection State; the whole list on every change. */
   hosts: Schema.Struct({}),
   /** The machines for Settings: each Host's settings, Connection State and install flow. */
@@ -467,6 +519,7 @@ export const SubscriptionInputs = {
   /** An inline proposal (`inline.propose`, capability `inline.propose`); closing it cancels. */
   "inline.propose": onHost(InlineRequest.fields),
   ...GitHubSubscriptionInputs,
+  ...GitSubscriptionInputs,
   /** One Constellation's stream (`constellation.subscribe`): Snapshot, Synchronized, then events. */
   constellation: Schema.Struct({
     hostKey: HostKey,

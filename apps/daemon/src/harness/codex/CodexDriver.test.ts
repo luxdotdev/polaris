@@ -118,6 +118,40 @@ describe("Codex driver against a fake app-server", () => {
     expect(
       events.flatMap((e) => (HarnessEvent.$is("ItemCompleted")(e) ? [e.item] : []))
     ).toContainEqual(TurnItem.cases.Error.make({ id: "t1:error:1", message: readable }));
+    expect(events.find(HarnessEvent.$is("TurnEnded"))?.limit).toBeUndefined();
+  });
+
+  test("a Turn Codex ends at the usage limit says so; its reset comes from Plan Limits", async () => {
+    const error = {
+      message: "You've hit your usage limit. Try again at 2:00 PM.",
+      codexErrorInfo: "usageLimitExceeded",
+      additionalDetails: null,
+    };
+
+    const handler = scripted((request, conn) => {
+      if (request.method !== "turn/start") return;
+      conn.reply({ turn: turn("t1") });
+      conn.notify("turn/started", { threadId: THREAD, turn: turn("t1") });
+      conn.notify("turn/completed", { threadId: THREAD, turn: turn("t1", "failed", error) });
+    });
+
+    const { events } = await withSession(handler, ({ session, waitFor }) =>
+      Effect.gen(function* () {
+        yield* session.sendTurn({
+          turnId: TurnId.make("turn-1"),
+          prompt: "hi",
+          attachments: [],
+          model: null,
+          effort: null,
+        });
+        yield* waitFor("TurnEnded");
+      })
+    );
+
+    expect(events.find(HarnessEvent.$is("TurnEnded"))).toMatchObject({
+      status: "failed",
+      limit: { resetsAt: null },
+    });
   });
 
   test("reasoning is live and timed by Codex's stamps; token usage reports the context", async () => {

@@ -1,17 +1,24 @@
+import { Schema } from "effect";
+import historical from "./fixtures/bash-installer-review.json";
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { catalog } from "../../apps/daemon/src/languages/catalog";
 import { Tool } from "../../apps/daemon/src/languages/catalog/model";
-import { readReviewRecords, reviewFailures, reviewRootFailures } from "./review";
+import { ReviewRecord, readReviewRecords, reviewFailures, reviewRootFailures } from "./review";
 
-const read = (path: string): Uint8Array => readFileSync(join(import.meta.dir, path));
+const activeRead = (path: string): Uint8Array => readFileSync(join(import.meta.dir, path));
+
+const read = (path: string): Uint8Array =>
+  path === "audits/bash-language-server-npm.json"
+    ? Buffer.from(historical.manifestText)
+    : activeRead(path);
 
 const records = readReviewRecords(import.meta.dir);
 
-const tool = catalog.tools.find((candidate) => candidate.id === "bash-language-server")!;
+const tool = Schema.decodeUnknownSync(Tool)(historical.tool);
 
-const record = records.find((candidate) => candidate.tool === tool.id)!;
+const record = Schema.decodeUnknownSync(ReviewRecord)(historical.record);
 
 const failures = (changed: typeof record, reader = read): ReadonlyArray<string> =>
   reviewFailures({ tools: [tool], records: [changed], read: reader });
@@ -83,20 +90,18 @@ test("record cannot migrate to another version, artifact or evaluation root", ()
 });
 
 test("the exact catalog remains blocked on real evidence gaps, without circular A1 requirements", () => {
-  const actual = reviewFailures({ tools: catalog.tools, records, read });
+  const actual = reviewFailures({ tools: catalog.tools, records, read: activeRead });
   expect(
     actual
       .filter((failure) => failure.includes(":missing-evidence:"))
       .map((failure) => failure.split(":")[0])
       .sort((a, b) => (a ?? "").localeCompare(b ?? ""))
-  ).toEqual(["jdtls", "lua-language-server", "rust-analyzer", "shellcheck"]);
+  ).toEqual(["jdtls", "shellcheck"]);
   expect(actual.some((failure) => failure.includes("false-awaiting-review"))).toBe(false);
-  expect(reviewRootFailures(catalog.tools, read)).toEqual([]);
+  expect(reviewRootFailures(catalog.tools, activeRead)).toEqual([]);
 });
 
 const retainedNativeEvidence = [
-  ["rust-analyzer", "rust-target-sources.json"],
-  ["lua-language-server", "lua-retained-source-map.json"],
   ["jdtls", "jdt-nested-metadata.json"],
   ["jdtls", "jdt-nested-maven-sources.json"],
   ["jdtls", "jdt-nested-parent-sources.json"],

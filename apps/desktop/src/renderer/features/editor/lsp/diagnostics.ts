@@ -165,6 +165,16 @@ export class LanguageDiagnosticFeed {
   }
 }
 
+/** LSP tags 1 (unnecessary) and 2 (deprecated) as classes on the marked range. */
+const markClassOf = (tags: (typeof P.LanguageDiagnostic.Type)["tags"]): { markClass?: string } => {
+  const classes = [
+    ...(tags.includes(1) ? ["cm-lintRange-unnecessary"] : []),
+    ...(tags.includes(2) ? ["cm-lintRange-deprecated"] : []),
+  ];
+
+  return classes.length === 0 ? {} : { markClass: classes.join(" ") };
+};
+
 export const cmDiagnostics = (
   requests: LanguageRequests,
   values: readonly ProviderDiagnostics[],
@@ -199,6 +209,7 @@ export const cmDiagnostics = (
           const severity = Match.value(item.severity).pipe(
             Match.when(1, () => "error" as const),
             Match.when(2, () => "warning" as const),
+            Match.when(4, () => "hint" as const),
             Match.orElse(() => "info" as const)
           );
 
@@ -209,6 +220,7 @@ export const cmDiagnostics = (
               severity,
               message: item.message,
               source: `${label(provider)}${item.source ? ` · ${item.source}` : ""}`,
+              ...markClassOf(item.tags),
             },
           ];
         } catch {

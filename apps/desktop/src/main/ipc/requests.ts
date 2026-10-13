@@ -1,8 +1,12 @@
+import { modelServerResources } from "@polaris/client/prediction/probe";
+import type { MainPredictionPlacement } from "../prediction/placement.ts";
+import type { PredictionSettings } from "../prediction/preferences.ts";
 /**
  * The handlers behind `window.polaris.request`: one per method, each taking the
  * decoded input and returning a structured-clone-friendly output. Blobs the
  * Daemon sends (file contents, diffs) are taken here and cross IPC as bytes.
  */
+import { clientCopy } from "../../shared/clientCopy.ts";
 import type { HostConnection, LiveSession } from "@polaris/client";
 import { FileContent, FileVersion } from "@polaris/protocol";
 import { Effect, flow, Match, Schema } from "effect";
@@ -22,8 +26,9 @@ import {
   type RequestMethod,
   type SessionPrefsPatch,
 } from "../../shared/contract.ts";
-import { type ClientServices, HostDirectory, toIpcError } from "../hosts.ts";
+import { type ClientServices, HostDirectory, LOCAL_HOST_KEY, toIpcError } from "../hosts.ts";
 import { githubHandlers } from "../github/ipc.ts";
+import { gitHandlers } from "./git.ts";
 import { constellationHandlers, resourceHandlers } from "./constellation.ts";
 import { Machines } from "../machines/service.ts";
 import type { NeedsYouSummary } from "../../shared/needsYou.ts";
@@ -34,9 +39,13 @@ import type { SnapshotCache } from "../snapshotCache.ts";
 import { ensureInstalled } from "./install.ts";
 import { publishDirty, savedAll } from "../editorDirty.ts";
 import type { AppUpdates } from "../updates/index.ts";
+import type { PredictionBridge } from "../prediction/bridge.ts";
 
 /** What the handlers need from the app outside the Client runtime. */
 export interface RequestContext {
+  readonly predictionBridge?: PredictionBridge;
+  readonly predictionSettings?: PredictionSettings;
+  readonly predictionPlacement?: MainPredictionPlacement;
   readonly updates: Pick<AppUpdates, "get" | "check" | "setAutomatic">;
   readonly restartToUpdate: () => void;
   readonly showAppInFinder: () => void;
@@ -48,6 +57,8 @@ export interface RequestContext {
   readonly setSessionDefault: (harness: string, value: SessionDefault | null) => void;
   readonly setSessions: (patch: SessionPrefsPatch) => void;
   readonly openExternal: (url: string) => Promise<void>;
+  /** Finder, selecting the item at an absolute path on this Mac. */
+  readonly revealInFinder: (path: string) => void;
   /** A fresh temp directory, or null when the local Daemon doesn't run the bench Harness. */
   readonly proofWorkspace: () => string | null;
   /** The literal Host aliases in `~/.ssh/config`. */
@@ -59,6 +70,10 @@ export interface RequestContext {
   /** The bundled Daemon builds (`manifest.json`), or null when this build has none. */
   readonly daemonDist: string | null;
   readonly writeClipboard: (text: string) => Promise<void>;
+  /** Cut, Copy, Paste or Select All in the focused window, as its Edit menu would. */
+  readonly editAction: (action: "cut" | "copy" | "paste" | "selectAll") => void;
+  /** Windows: the app menu under the title bar's lockup. */
+  readonly showAppMenu: () => void;
   /** The renderer's Needs You summary, for the menu bar star, Dock badge and notifications. */
   readonly needsYou: (summary: NeedsYouSummary) => void;
 }
@@ -115,7 +130,66 @@ const local = (): InstallView => ({
 });
 
 export const requestHandlers = (ctx: RequestContext): Handlers => ({
+  "prediction.discoveryShown": () =>
+    Effect.sync(() => {
+      ctx.predictionBridge?.discoveryShown();
+
+      return null;
+    }),
+  "prediction.enabled.get": () =>
+    Effect.sync(() => ctx.predictionBridge?.enabled() ?? { enabled: false, configured: false }),
+  "prediction.enabled.set": ({ enabled }) =>
+    ctx.predictionBridge
+      ? Effect.sync(() => ctx.predictionBridge!.setEnabled(enabled))
+      : Effect.fail({ code: "Unavailable", message: "Tab completion unavailable" }),
+  "prediction.inspect": ({ hostKey }) =>
+    Effect.tryPromise({
+      try: async () => {
+        if (!ctx.predictionBridge) throw new Error("Tab completion unavailable");
+
+        return ctx.predictionBridge.inspect(hostKey);
+      },
+      catch: (error): IpcError => ({ code: "PredictionUnavailable", message: String(error) }),
+    }),
+  "prediction.release": ({ hostKey, workspaceId }) =>
+    Effect.sync(() => {
+      ctx.predictionBridge?.release(hostKey, workspaceId);
+
+      return null;
+    }),
+  "prediction.clientEndpoints.get": () =>
+    ctx.predictionSettings
+      ? Effect.sync(() => ctx.predictionSettings!.getClientEndpoints())
+      : Effect.fail({ code: "Unavailable", message: "Prediction settings unavailable" }),
+  "prediction.clientEndpoints.set": ({ endpoints }) =>
+    ctx.predictionSettings
+      ? Effect.sync(() => {
+          const saved = ctx.predictionSettings!.setClientEndpoints(endpoints);
+          ctx.predictionPlacement?.invalidateAll();
+
+          return saved;
+        })
+      : Effect.fail({ code: "Unavailable", message: "Prediction settings unavailable" }),
+  "prediction.resources.get": () =>
+    Effect.tryPromise({
+      try: modelServerResources,
+      catch: () => ({ code: "Unavailable", message: "Model server memory unavailable" }),
+    }),
+  "prediction.settings.get": ({ hostKey }) =>
+    ctx.predictionSettings
+      ? Effect.sync(() => ctx.predictionSettings!.get(hostKey))
+      : Effect.fail({ code: "Unavailable", message: "Prediction settings unavailable" }),
+  "prediction.settings.set": ({ hostKey, preferences }) =>
+    ctx.predictionSettings
+      ? Effect.sync(() => {
+          const saved = ctx.predictionSettings!.set(hostKey, preferences);
+          ctx.predictionPlacement?.invalidateHost(hostKey);
+
+          return saved;
+        })
+      : Effect.fail({ code: "Unavailable", message: "Prediction settings unavailable" }),
   ...githubHandlers,
+  ...gitHandlers,
   ...constellationHandlers,
   ...resourceHandlers,
   "updates.get": () => Effect.sync(ctx.updates.get),
@@ -155,6 +229,13 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
       try: () => ctx.openExternal(url),
       catch: (cause): IpcError => ({ code: "OpenFailed", message: String(cause) }),
     }).pipe(done),
+  "shell.revealInFinder": ({ hostKey, path }) =>
+    hostKey === LOCAL_HOST_KEY
+      ? Effect.sync(() => ctx.revealInFinder(path)).pipe(done)
+      : Effect.fail<IpcError>({
+          code: "NotLocal",
+          message: `${clientCopy().reveal} is for ${clientCopy().machine}`,
+        }),
   "host.retryNow": ({ hostKey }) => onHost(hostKey, (c) => c.retryNow).pipe(done),
   dispatch: ({ hostKey, commandId, command }) =>
     onLive(hostKey, (s) => s.client.dispatch({ commandId, command })),
@@ -204,7 +285,6 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
         )
       )
     ),
-  "git.status": ({ hostKey, cwd }) => onLive(hostKey, (s) => s.client["git.status"]({ cwd })),
   "git.diff": ({ hostKey, cwd, spec }) =>
     onLive(hostKey, (s) =>
       Effect.flatMap(s.client["git.diff"]({ cwd, spec }), (diff) =>
@@ -251,6 +331,8 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
     onLive(hostKey, (s) => s.client["harness.availability"]({ refresh })),
   "session.terminalCommand": ({ hostKey, sessionId }) =>
     onLive(hostKey, (s) => s.client["session.terminalCommand"]({ sessionId })),
+  "session.turns": ({ hostKey, sessionId, beforeIndex, limit }) =>
+    onLive(hostKey, (s) => s.client["session.turns"]({ sessionId, beforeIndex, limit })),
   "constellation.stats": ({ hostKey, constellationId }) =>
     onHost(hostKey, (c) =>
       Effect.flatMap(c.session, (s) => s.client["constellation.stats"]({ constellationId }))
@@ -324,6 +406,7 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
       return ensureInstalled({ alias, approvedSha256, dist: ctx.daemonDist });
     }),
   "machines.sshAliases": () => machines((m) => m.sshAliases),
+  "machines.wslDistros": () => machines((m) => m.wslDistros),
   "machines.add": (input) => machines((m) => Effect.map(m.add(input), (key) => ({ key }))),
   "machines.update": ({ hostKey, ...patch }) =>
     machines((m) => m.update(hostKey, patch)).pipe(done),
@@ -342,6 +425,8 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
     machines((m) => m.setLocalEnabled(enabled)).pipe(done),
   "machines.openSsh": ({ hostKey }) => machines((m) => m.openSsh(hostKey)).pipe(done),
   "clipboard.write": ({ text }) => Effect.promise(() => ctx.writeClipboard(text)).pipe(done),
+  "edit.run": ({ action }) => Effect.sync(() => ctx.editAction(action)).pipe(done),
+  "app.menu": () => Effect.sync(ctx.showAppMenu).pipe(done),
   "onboarding.found": () =>
     Effect.sync(() => ({ sshHosts: ctx.sshHosts(), version: ctx.appVersion })),
   "onboarding.welcomeSeen": () => Effect.sync(ctx.setWelcomeSeen).pipe(done),

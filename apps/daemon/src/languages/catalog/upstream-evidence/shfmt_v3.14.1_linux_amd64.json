@@ -1,0 +1,17 @@
+{
+  "artifactId": "shfmt_v3.14.1_linux_amd64",
+  "artifactIntegrity": "sha256:76e77641faa025814b77f153b29796b8e6fa2fca03e0c76a691608b86c7ea7bf",
+  "coverage": "complete",
+  "notices": [
+    {
+      "path": "notices/ce63850f77649f00d1394045e2794ffb09a5596beabac51c9548edd958845d7c.txt",
+      "integrity": "sha256:ce63850f77649f00d1394045e2794ffb09a5596beabac51c9548edd958845d7c"
+    }
+  ],
+  "evidence": [
+    {
+      "path": "runtime-sql-shell-review-records.json",
+      "integrity": "sha256:7a9995e9e3a3425e281ba18fa87f1f8e2c0601f82d6b3a44932bca32bfc15902"
+    }
+  ]
+}

@@ -337,8 +337,44 @@ export const SummaryLayer = Schema.Literals(["rules", "agent"]);
 
 export type SummaryLayer = typeof SummaryLayer.Type;
 
+/** Which part of the system an Intent Group touches; Clients give each a neutral glyph. */
+export const IntentCategory = Schema.Literals([
+  "ui",
+  "api",
+  "core",
+  "data",
+  "cli",
+  "security",
+  "tests",
+  "docs",
+  "examples",
+  "deps",
+  "build",
+  "scripts",
+  "config",
+  "i18n",
+  "assets",
+  "other",
+]);
+
+export type IntentCategory = typeof IntentCategory.Type;
+
+/** A Walkthrough's group of changed files that share one intent; every file is in exactly one. */
+export class IntentGroup extends Schema.Class<IntentGroup>("IntentGroup")({
+  key: Schema.String,
+  label: Schema.String,
+  /** Why, in one to three sentences of Markdown. */
+  summary: Schema.String,
+  category: IntentCategory,
+  /** The whole group deserves extra care: it borrows the Critical treatment. */
+  critical: Schema.Boolean,
+  paths: Schema.Array(Schema.String),
+}) {}
+
 /** The separate read-only walkthrough, persisted with the Risk Summary for its head. */
 export class Walkthrough extends Schema.Class<Walkthrough>("Walkthrough")({
+  /** Review priority order; absent until the Walkthrough returned a grouping that covers the change. */
+  groups: Schema.optionalKey(Schema.Array(IntentGroup)),
   state: Schema.Literals(["off", "waiting", "writing", "ready", "failed"]),
   markdown: Schema.String,
   head: Schema.String,

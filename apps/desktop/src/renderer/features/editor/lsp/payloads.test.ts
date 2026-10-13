@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { MARKDOWN } from "./hoverFixtures.testing.ts";
-import { hoverParts, tidyHover } from "./payloads.ts";
+import { hoverParts, tidyDocs } from "./payloads.ts";
 
-const markdown = (text: string) => tidyHover({ kind: "markdown", text }).text;
+const markdown = (text: string) => tidyDocs({ kind: "markdown", text }).text;
 
 describe("hover Markdown tidying", () => {
   test("pydoc call lines right after the rule become a code fence, unescaped", () => {
@@ -27,7 +27,7 @@ describe("hover Markdown tidying", () => {
   });
 
   test("plaintext keeps its words and single blank lines", () => {
-    expect(tidyHover({ kind: "plaintext", text: "a\n\n\n\nb\n\nc  " })).toEqual({
+    expect(tidyDocs({ kind: "plaintext", text: "a\n\n\n\nb\n\nc  " })).toEqual({
       kind: "plaintext",
       text: "a\n\nb\n\nc",
     });

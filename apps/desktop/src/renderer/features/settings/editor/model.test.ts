@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { catalog, facts } from "./fixture.testing.ts";
 import { languageRows, rowEnabled, syntaxOnly, syntaxOnlyLine } from "./model.ts";
+import { rowCount } from "./rowKey.ts";
 
 const rows = (download = true) =>
   languageRows(catalog, facts(), { host: "this Mac", downloadAutomatically: download });
@@ -14,26 +15,29 @@ const row = (id: string, download = true) => {
 };
 
 describe("languageRows", () => {
-  test("one row per primary server: HTML and CSS share theirs", () => {
+  test("each offered language has a row even with a shared server", () => {
     expect(rows().map((r) => r.name)).toEqual([
       "TypeScript and JavaScript",
-      "CSS and HTML",
+      "HTML",
+      "CSS",
       "Python",
       "Rust",
       "Go",
     ]);
   });
 
+  test("the smoke's row count from the catalog matches the rows", () => {
+    expect(rowCount(catalog.integrations)).toBe(rows().length);
+  });
+
   test("states read as the mockup's caption lines", () => {
     expect(row("typescript-language-server").state).toBe(
       "Ready · uses each project's TypeScript once you trust it"
     );
-    expect(row("vscode-langservers-extracted").state).toBe(
+    expect(row("html").state).toBe(
       "Not downloaded yet · vscode-langservers-extracted arrives with your first .html file"
     );
-    expect(row("vscode-langservers-extracted", false).state).toBe(
-      "Not downloaded yet · downloading is off"
-    );
+    expect(row("html", false).state).toBe("Not downloaded yet · downloading is off");
     expect(row("pyright").state).toBe("Setting up · downloading pyright");
     expect(row("rust-analyzer").state).toBe("Needs cargo on this Mac");
     expect(row("gopls").state).toBe("Couldn't download gopls");

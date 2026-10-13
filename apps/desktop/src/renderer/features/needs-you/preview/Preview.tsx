@@ -46,7 +46,7 @@ export const mountNeedsYouPreview = (root: HTMLElement, hash: string) => {
 
   if (scene !== "hover") navigation.actions.showSidebar("needs-you");
 
-  const commands = createCommandRegistry({ mac: true });
+  const commands = createCommandRegistry({ platform: "mac" });
 
   createRoot(root).render(<App value={{ connection, navigation, commands }} />);
 

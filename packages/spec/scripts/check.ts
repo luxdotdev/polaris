@@ -43,6 +43,7 @@ const WITNESSES = [
   "witnessHarnessWithdrew",
   "witnessRestartWithdrew",
   "witnessContinued",
+  "witnessLimited",
   "witnessRetried",
   "witnessBatchOfTwo",
   "witnessArchived",
@@ -236,6 +237,20 @@ run("language log safety", [
   `--seed=${seed}`,
 ]);
 
+run("typecheck sql-dialect.qnt", ["typecheck", "sql-dialect.qnt"]);
+
+run("SQL dialect scenarios", ["test", "sql-dialect.qnt", "--main=sql_dialect_test"]);
+
+run("SQL dialect simulation", [
+  "run",
+  "sql-dialect.qnt",
+  "--main=sql_dialect",
+  "--invariant=safety",
+  `--max-samples=${samples}`,
+  "--max-steps=30",
+  `--seed=${seed}`,
+]);
+
 run("typecheck python-environment.qnt", ["typecheck", "python-environment.qnt"]);
 
 run("Python interpreter scenarios", [
@@ -372,6 +387,8 @@ simulateWitnessed(
     "witnessGate",
     "witnessHandover",
     "witnessDelivery",
+    "witnessSteeredDelivery",
+    "witnessAudit",
     "witnessRelay",
     "witnessRecovery",
     "witnessLease",

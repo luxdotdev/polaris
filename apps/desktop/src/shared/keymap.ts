@@ -6,6 +6,7 @@
  * Features add commands of their own at run time (`routes/commands.ts`, `contribute`).
  */
 import { Predicate } from "effect";
+import { acceleratorLabel, currentKeyPlatform, type KeyPlatform } from "./chord.ts";
 
 export type CommandId =
   | "view.orchestrate"
@@ -23,6 +24,7 @@ export type CommandId =
   | "approval.deny"
   | "session.archive"
   | "session.openInTerminal"
+  | "transcript.find"
   | "theme.toggle"
   | "settings.open"
   | "settings.about"
@@ -46,6 +48,7 @@ export type CommandId =
   | "editor.inlineChat"
   | "editor.addToSession"
   | "editor.markdownPreview"
+  | "git.writeMessage"
   | "editor.save"
   | "editor.nextTab"
   | "editor.previousTab"
@@ -54,11 +57,16 @@ export type CommandId =
   | "window.close"
   | "palette.open"
   | "editor.format"
+  | "editor.toggleInlineDiagnostics"
+  | "editor.prediction.accept"
+  | "editor.prediction.acceptWord"
+  | "editor.prediction.dismiss"
   | "language.restart"
   | "language.restartAll"
   | "language.showLog"
   | "typescript.selectVersion"
   | "python.selectInterpreter"
+  | "sql.selectDialect"
   | "trust.grant"
   | "trust.revoke"
   | "trust.askAgain";
@@ -70,14 +78,19 @@ export type CommandGroup = "file" | "workspace" | "app";
 
 /** Facts about the moment that features put in the command context; `when` reads them. */
 export const CONTEXT_KEYS = [
+  /** The Edit view is showing. */
+  "mode.edit",
   /** A file is open and focused in Edit. */
   "editor.file",
+  "prediction.ghost",
   /** The focused file's Language Integration has a language server. */
   "language.server",
   "language.formatter",
   "language.typescript",
   /** A Python file whose checkout the Daemon has named, so its interpreters can be listed. */
   "language.python",
+  /** A SQL file whose checkout the Daemon has named, so its dialect can be read. */
+  "language.sql",
   /** Something can open the language server log (`features/editor/intents/languageLog.ts`). */
   "language.log",
   "workspace",
@@ -102,6 +115,7 @@ export type ContextValue =
   | "trustSubject"
   | "typescriptChoice"
   | "pythonInterpreter"
+  | "sqlDialect"
   | "updateVersion";
 
 export interface CommandContext {
@@ -151,7 +165,7 @@ export interface PaletteEntry {
   readonly detail?: string;
   /** Other words it is found by. */
   readonly keywords?: ReadonlyArray<string>;
-  /** It asks a follow-up in the palette; the title ends in "…". */
+  /** It asks a follow-up in the palette; the binding needs input (rule/ellipsis-means-input). */
   readonly followUp?: boolean;
   /** Found only by searching, never listed on an empty query (easter eggs). */
   readonly searchOnly?: boolean;
@@ -162,6 +176,8 @@ export interface KeyBinding {
   readonly title: string;
   /** Accelerators; the first is the one menus and hints show. Empty: menu or jump menu only. */
   readonly keys: ReadonlyArray<string>;
+  /** It asks for more (a dialog, picker or confirmation) before it runs; titles end in "…". */
+  readonly needsInput?: boolean;
   /** Bare keys (no ⌘/⌃/⌥) never fire while typing in a field; chords do unless this is false. */
   readonly inFields?: boolean;
   /** Where the native menu lists it, if anywhere. */
@@ -197,8 +213,31 @@ const TRUST_KNOWN: Condition = { all: ["editor.file", "trust.known"] };
 
 export const KEYMAP: ReadonlyArray<KeyBinding> = [
   {
+    id: "editor.prediction.accept",
+    title: "Accept tab completion",
+    keys: ["Tab"],
+    when: { all: ["editor.file", "prediction.ghost"] },
+    palette: false,
+  },
+  {
+    id: "editor.prediction.acceptWord",
+    title: "Accept a word of tab completion",
+    keys: ["Alt+Right"],
+    when: { all: ["editor.file", "prediction.ghost"] },
+    palette: false,
+  },
+  {
+    id: "editor.prediction.dismiss",
+    title: "Dismiss tab completion",
+    keys: ["Esc"],
+    when: { all: ["editor.file", "prediction.ghost"] },
+    palette: false,
+    shares: "session.interrupt",
+  },
+  {
     id: "palette.open",
     title: "Command Palette…",
+    needsInput: true,
     keys: ["CmdOrCtrl+Shift+P"],
     menu: "View",
     palette: false,
@@ -214,6 +253,7 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
   {
     id: "typescript.selectVersion",
     title: "Select TypeScript version…",
+    needsInput: true,
     keys: [],
     when: { all: [TRUST_KNOWN, "language.typescript"] },
     palette: FILE({
@@ -225,11 +265,24 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
   {
     id: "python.selectInterpreter",
     title: "Python: Select interpreter…",
+    needsInput: true,
     keys: [],
     when: { all: ["editor.file", "language.python"] },
     palette: FILE({
       detail: "{pythonInterpreter}",
       keywords: ["venv", "uv", "python3", "environment", "basedpyright"],
+      followUp: true,
+    }),
+  },
+  {
+    id: "sql.selectDialect",
+    title: "SQL: Select dialect…",
+    needsInput: true,
+    keys: [],
+    when: { all: ["editor.file", "language.sql"] },
+    palette: FILE({
+      detail: "{sqlDialect}",
+      keywords: ["postgres", "postgresql", "mysql", "sqlite", "sqllens"],
       followUp: true,
     }),
   },
@@ -260,6 +313,7 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
   {
     id: "trust.grant",
     title: "Trust workspace…",
+    needsInput: true,
     keys: [],
     when: { all: [TRUST_KNOWN, { not: "trust.trusted" }] },
     palette: WORKSPACE({
@@ -310,9 +364,26 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
     menu: "View",
     palette: WORKSPACE({ keywords: ["changes", "diff", "panel", "rail"] }),
   },
-  { id: "jump.open", title: "Jump to…", keys: ["CmdOrCtrl+K", "K"], menu: "Go" },
-  { id: "session.next", title: "Next session", keys: ["CmdOrCtrl+Alt+Down"], menu: "Go" },
-  { id: "session.previous", title: "Previous session", keys: ["CmdOrCtrl+Alt+Up"], menu: "Go" },
+  {
+    id: "jump.open",
+    title: "Jump to…",
+    needsInput: true,
+    keys: ["CmdOrCtrl+K", "K"],
+    menu: "Go",
+  },
+  // Control+Tab on every platform; in Edit it cycles editor tabs instead (`shares`).
+  {
+    id: "session.next",
+    title: "Next session",
+    keys: ["CmdOrCtrl+Alt+Down", "Ctrl+Tab"],
+    menu: "Go",
+  },
+  {
+    id: "session.previous",
+    title: "Previous session",
+    keys: ["CmdOrCtrl+Alt+Up", "Ctrl+Shift+Tab"],
+    menu: "Go",
+  },
   {
     id: "session.new",
     title: "New session",
@@ -326,6 +397,7 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
   {
     id: "editor.findFile",
     title: "Go to file…",
+    needsInput: true,
     keys: ["CmdOrCtrl+P"],
     menu: "Go",
     palette: WORKSPACE({ keywords: ["open", "file", "finder"] }),
@@ -333,13 +405,15 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
   {
     id: "editor.findInWorkspace",
     title: "Find in workspace…",
+    needsInput: true,
     keys: ["CmdOrCtrl+Shift+F"],
     menu: "Go",
-    palette: WORKSPACE({ title: "Find in {workspace}", keywords: ["search", "grep"] }),
+    palette: WORKSPACE({ title: "Find in {workspace}…", keywords: ["search", "grep"] }),
   },
   {
     id: "editor.inlineChat",
-    title: "Edit or ask",
+    title: "Edit or ask…",
+    needsInput: true,
     keys: ["CmdOrCtrl+I"],
     palette: FILE({ keywords: ["inline", "chat", "agent"] }),
   },
@@ -387,6 +461,14 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
     palette: WORKSPACE({ title: "Open {session} in terminal", keywords: ["tui", "handoff"] }),
   },
   {
+    id: "transcript.find",
+    title: "Find in transcript…",
+    needsInput: true,
+    keys: ["CmdOrCtrl+F"],
+    menu: "Session",
+    palette: WORKSPACE({ keywords: ["search", "chat", "conversation", "turn"] }),
+  },
+  {
     id: "session.archive",
     title: "Archive session",
     keys: [],
@@ -409,6 +491,7 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
   {
     id: "workspace.add",
     title: "Add workspace…",
+    needsInput: true,
     keys: ["CmdOrCtrl+O"],
     menu: "Go",
     palette: SETTINGS(["open", "folder", "repository"]),
@@ -417,6 +500,7 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
   {
     id: "settings.open",
     title: "Settings…",
+    needsInput: true,
     keys: ["CmdOrCtrl+,"],
     menu: "App",
     palette: SETTINGS(["preferences"]),
@@ -462,6 +546,12 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
     palette: SETTINGS(["vim", "format on save", "languages", "autosave"]),
   },
   {
+    id: "editor.toggleInlineDiagnostics",
+    title: "Toggle inline diagnostics",
+    keys: [],
+    palette: SETTINGS(["error lens", "errors", "warnings", "problems", "diagnostics"]),
+  },
+  {
     id: "settings.harnesses",
     title: "Settings: Harnesses",
     keys: [],
@@ -500,6 +590,7 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
   {
     id: "github.addAccount",
     title: "Add GitHub account…",
+    needsInput: true,
     keys: [],
     palette: SETTINGS(["github", "sign in", "device code"]),
   },
@@ -519,11 +610,27 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
     palette: FILE({ keywords: ["render"] }),
   },
   { id: "editor.save", title: "Save file", keys: ["CmdOrCtrl+S"], palette: FILE() },
-  { id: "editor.nextTab", title: "Next editor tab", keys: ["Ctrl+Tab"], palette: FILE() },
+  {
+    id: "git.writeMessage",
+    title: "Write commit message",
+    keys: ["CmdOrCtrl+Alt+G"],
+    when: "mode.edit",
+    palette: WORKSPACE({ keywords: ["git", "commit", "message", "generate"] }),
+  },
+  {
+    id: "editor.nextTab",
+    title: "Next editor tab",
+    keys: ["Ctrl+Tab"],
+    shares: "session.next",
+    when: "mode.edit",
+    palette: FILE(),
+  },
   {
     id: "editor.previousTab",
     title: "Previous editor tab",
     keys: ["Ctrl+Shift+Tab"],
+    shares: "session.previous",
+    when: "mode.edit",
     palette: FILE(),
   },
   // With no tab open, Close tab closes the window, as in VS Code.
@@ -544,16 +651,21 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
   },
 ];
 
+/** The standard edit chords, which the native Edit menu owns; context menus show them. */
+export const EDIT_CHORDS = {
+  cut: "CmdOrCtrl+X",
+  copy: "CmdOrCtrl+C",
+  paste: "CmdOrCtrl+V",
+  selectAll: "CmdOrCtrl+A",
+} as const;
+
 /** Chords macOS, Electron or the standard menus own; nothing here may take them. */
 export const RESERVED: ReadonlyArray<string> = [
   "CmdOrCtrl+Q",
   "CmdOrCtrl+H",
   "CmdOrCtrl+Alt+H",
   "CmdOrCtrl+M",
-  "CmdOrCtrl+C",
-  "CmdOrCtrl+V",
-  "CmdOrCtrl+X",
-  "CmdOrCtrl+A",
+  ...Object.values(EDIT_CHORDS),
   "CmdOrCtrl+Z",
   "CmdOrCtrl+Shift+Z",
   "CmdOrCtrl+`",
@@ -570,7 +682,101 @@ export const RESERVED: ReadonlyArray<string> = [
   "CmdOrCtrl+Tab",
 ];
 
+/**
+ * Windows' and Linux desktops' own chords, the menu roles' accelerators there, Shift+F10
+ * (context menus) and Ctrl+H (Replace, by convention). The Windows key never appears in a binding.
+ */
+export const PC_RESERVED: ReadonlyArray<string> = [
+  "Alt+F4",
+  "Alt+Space",
+  "Alt+Tab",
+  "Alt+Shift+Tab",
+  "Alt+Esc",
+  "Ctrl+Esc",
+  "Ctrl+Shift+Esc",
+  "Ctrl+Alt+Delete",
+  "F10",
+  "Shift+F10",
+  "F11",
+  ...Object.values(EDIT_CHORDS),
+  "CmdOrCtrl+Z",
+  "CmdOrCtrl+Y",
+  "CmdOrCtrl+Shift+Z",
+  "CmdOrCtrl+R",
+  "CmdOrCtrl+Shift+I",
+  "CmdOrCtrl+H",
+  "CmdOrCtrl+Q",
+  "Ctrl+Space",
+];
+
+/** The chords a platform keeps for itself. */
+export const reservedFor = (platform: KeyPlatform): ReadonlyArray<string> =>
+  platform === "mac" ? RESERVED : PC_RESERVED;
+
+/**
+ * Where Windows and Linux differ: Ctrl+Alt is AltGr on European layouts (it types @, {, €),
+ * so those chords move; Ctrl picks Workspaces and sessions, Alt the views. Empty: menu and palette only.
+ */
+export const PC_KEYS: Partial<Record<CommandId, ReadonlyArray<string>>> = {
+  "editor.prediction.acceptWord": ["Ctrl+Right"],
+  "language.restart": ["CmdOrCtrl+Shift+R"],
+  "view.orchestrate": ["Alt+1"],
+  "view.review": ["Alt+2"],
+  "view.edit": ["Alt+3"],
+  "view.output": ["CmdOrCtrl+Shift+B"],
+  "session.next": ["CmdOrCtrl+PageDown", "Ctrl+Tab"],
+  "session.previous": ["CmdOrCtrl+PageUp", "Ctrl+Shift+Tab"],
+  "tab.closeOthers": [],
+  "git.writeMessage": ["CmdOrCtrl+Shift+G"],
+};
+
+/** The keymap with a platform's own keys. */
+export const keymapFor = (platform: KeyPlatform): ReadonlyArray<KeyBinding> =>
+  platform === "mac"
+    ? KEYMAP
+    : KEYMAP.map((b) => {
+        const keys = PC_KEYS[b.id];
+
+        return keys === undefined ? b : { ...b, keys };
+      });
+
+/** ⌃` toggles the terminal drawer (Ctrl+` on Windows and Linux); the drawer handles it. */
+export const TERMINAL_TOGGLE = "Ctrl+`";
+
+/** Keys a field or dialog handles itself, so their hints read the platform's way. */
+export const FIELD_CHORDS = {
+  submit: "CmdOrCtrl+Enter",
+  newLine: "Shift+Enter",
+  previousMatch: "Shift+Enter",
+  matchCase: "Alt+C",
+  regex: "Alt+R",
+  folderUp: "CmdOrCtrl+Up",
+  nextHost: "Ctrl+Tab",
+  undo: "CmdOrCtrl+Z",
+} as const;
+
 /** ⌃1…⌃0 and ⌥1…⌥0 pick Workspace chips or machines; they are data-driven, so outside KEYMAP. */
 export const SHORTCUT_DIGIT_MODIFIERS: ReadonlyArray<string> = ["Ctrl", "Alt"];
 
+/** On Windows and Linux only Ctrl+1…0, as browser tabs: Alt+1–3 are the views there. */
+export const digitModifiersFor = (platform: KeyPlatform): ReadonlyArray<"Ctrl" | "Alt"> =>
+  platform === "mac" ? ["Ctrl", "Alt"] : ["Ctrl"];
+
+/** The chord of the chip at `index` ("Ctrl+1"; "Ctrl+0" is the tenth), in the platform's first modifier. */
+export const digitChord = (index: number, platform: KeyPlatform): string | undefined => {
+  if (index < 0 || index > 9) return undefined;
+
+  return `${digitModifiersFor(platform)[0] ?? "Ctrl"}+${(index + 1) % 10}`;
+};
+
 export const bindingOf = (id: CommandId): KeyBinding | undefined => KEYMAP.find((b) => b.id === id);
+
+/** The chord a menu shows for a command: its first accelerator on the platform, if it has one. */
+export const chordOf = (id: CommandId, platform: KeyPlatform): string | undefined =>
+  keymapFor(platform).find((b) => b.id === id)?.keys[0];
+
+/** A command's shortcut as copy shows it ("⌘N", "Ctrl+N"), or "" when it has none there. */
+export const commandShortcut = (
+  id: CommandId,
+  platform: KeyPlatform = currentKeyPlatform()
+): string => acceleratorLabel(chordOf(id, platform), platform) ?? "";

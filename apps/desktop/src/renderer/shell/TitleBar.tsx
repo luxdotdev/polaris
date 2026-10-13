@@ -1,16 +1,22 @@
 import { Button, Kbd, PlusIcon, SearchIcon, SegmentedControl, Wordmark } from "@polaris/ui";
 import type { Route } from "../../shared/api.ts";
+import { isWindows } from "../../shared/platform.ts";
 import { useRequestedCount } from "../features/pulls/store.ts";
 import { useNeedsYouCount } from "../features/needs-you/index.ts";
 import { jumpCopy } from "../features/jump/copy.ts";
 import { useSelection, useShellActions } from "./hooks.ts";
 import { preloadEditor } from "../features/editor/preload.ts";
+import { OfflineIndicator } from "./HostState.tsx";
+import { AppMenuButton, CaptionSpace } from "./windowsChrome.tsx";
 
 /**
- * The `hiddenInset` title bar (DESIGN.md, Titlebar): the lockup after the traffic
- * lights, the mode switch (⌘1–3), the jump field (K) and, outside Review, New session (⌘N).
+ * The title bar (DESIGN.md, Titlebar): on macOS the lockup after the traffic lights; on
+ * Windows the lockup as the app menu, with the native caption buttons over the right end.
+ * Then the mode switch (⌘1–3), the offline indicator, the jump field (K) and, outside
+ * Review, New session (⌘N).
  */
 export const TitleBar = () => {
+  const windows = isWindows();
   const { mode, hostKey } = useSelection();
   const { setMode, openJump, startNewSession } = useShellActions();
   const waiting = useNeedsYouCount();
@@ -53,15 +59,24 @@ export const TitleBar = () => {
   ];
 
   return (
-    <header className="app-drag border-hairline bg-surface-sunken flex h-11 shrink-0 items-center gap-4 border-b pr-3 pl-4">
-      {/* The native traffic lights sit here (window.ts); fixed, never density-scaled. */}
-      <span className="w-[60px] shrink-0" aria-hidden />
-      <Wordmark />
+    <header
+      className={`app-drag border-hairline bg-surface-sunken flex h-11 shrink-0 items-center gap-4 border-b ${windows ? "pl-3" : "pr-3 pl-4"}`}
+    >
+      {windows ? (
+        <AppMenuButton />
+      ) : (
+        <>
+          {/* The native traffic lights sit here (window.ts); fixed, never density-scaled. */}
+          <span className="w-[60px] shrink-0" aria-hidden />
+          <Wordmark />
+        </>
+      )}
       {/* Reaching for the switch warms Edit mode, so its first open is quick. */}
       <div className="app-no-drag flex" onPointerEnter={preloadEditor} onFocus={preloadEditor}>
         <SegmentedControl aria-label="Mode" options={modes} value={mode} onValueChange={setMode} />
       </div>
       <span className="flex-1" />
+      <OfflineIndicator />
       <button
         type="button"
         onClick={openJump}
@@ -83,6 +98,8 @@ export const TitleBar = () => {
           New session
         </Button>
       )}
+      {/* Windows draws its caption buttons over this space (main/chrome.ts). */}
+      {windows && <CaptionSpace />}
     </header>
   );
 };

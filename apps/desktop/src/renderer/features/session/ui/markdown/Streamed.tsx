@@ -6,22 +6,26 @@
 import "./markdown.css";
 import { type Components, type ControlsConfig, defaultRehypePlugins, Streamdown } from "streamdown";
 import { FileLink } from "../../../editor-links/index.ts";
+import { COPY_CODE, COPY_TABLE } from "./copyControls.tsx";
 import { editorLinkOf, rehypeFileLinks } from "./fileLinks.ts";
 import { needsOf } from "./needs.ts";
 import { rehypeSoftBreaks } from "./softBreaks.ts";
 import { usePlugins } from "./plugins.ts";
 import { MERMAID_CONFIG, POLARIS_SHIKI } from "./theme.ts";
 
+// Copy is Polaris's own CopyButton (`copyControls.tsx`), not Streamdown's.
 const CONTROLS: ControlsConfig = {
-  code: { copy: true, download: false },
-  table: { copy: true, download: false, fullscreen: false },
-  mermaid: { copy: true, download: false, fullscreen: false, panZoom: false },
+  code: { copy: false, download: false },
+  table: { copy: false, download: false, fullscreen: false },
+  mermaid: { copy: false, download: false, fullscreen: false, panZoom: false },
 };
 
 // After sanitizing, so the `<wbr>` and the editor links they add stay.
 const REHYPE = [...Object.values(defaultRehypePlugins), rehypeFileLinks, rehypeSoftBreaks];
 
 const COMPONENTS: Components = {
+  ...COPY_CODE,
+  ...COPY_TABLE,
   // `path:line` (rehypeFileLinks) opens in the editor; other links in the user's browser (https only).
   a: ({ href, children, node }) => {
     const target = editorLinkOf(node?.properties);

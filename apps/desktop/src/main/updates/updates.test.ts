@@ -270,29 +270,25 @@ test("install ID survives relaunch and is a private random UUID v4", () => {
     expect(id).toMatch(/^[\da-f-]{14}4[\da-f-]{21}$/);
     expect(installId(home)).toBe(id);
     expect(readFileSync(join(home, "install-id"), "utf8").trim()).toBe(id);
-    expect(statSync(join(home, "install-id")).mode & 0o777).toBe(0o600);
+
+    if (process.platform !== "win32")
+      expect(statSync(join(home, "install-id")).mode & 0o777).toBe(0o600);
   } finally {
     rmSync(home, { recursive: true, force: true });
   }
 });
 
+const macLocation = (app: string, downloads: string) => cannotInstallHere(app, downloads, "darwin");
+
 test("installation location and authoritative asset version", () => {
   expect(
-    cannotInstallHere(
-      "/Users/me/Downloads/Polaris.app/Contents/Resources/app",
-      "/Users/me/Downloads"
-    )
+    macLocation("/Users/me/Downloads/Polaris.app/Contents/Resources/app", "/Users/me/Downloads")
   ).toBe(true);
-  expect(cannotInstallHere("/Volumes/Polaris/Polaris.app", "/Users/me/Downloads")).toBe(true);
+  expect(macLocation("/Volumes/Polaris/Polaris.app", "/Users/me/Downloads")).toBe(true);
   expect(
-    cannotInstallHere(
-      "/private/var/folders/x/AppTranslocation/y/Polaris.app",
-      "/Users/me/Downloads"
-    )
+    macLocation("/private/var/folders/x/AppTranslocation/y/Polaris.app", "/Users/me/Downloads")
   ).toBe(true);
-  expect(cannotInstallHere("/Users/me/Downloads-other/Polaris.app", "/Users/me/Downloads")).toBe(
-    false
-  );
-  expect(cannotInstallHere("/Applications/Polaris.app", "/Users/me/Downloads")).toBe(false);
+  expect(macLocation("/Users/me/Downloads-other/Polaris.app", "/Users/me/Downloads")).toBe(false);
+  expect(macLocation("/Applications/Polaris.app", "/Users/me/Downloads")).toBe(false);
   expect(versionFromAsset("https://example.test/Polaris-01.2.3-arm64-mac.zip")).toBeNull();
 });

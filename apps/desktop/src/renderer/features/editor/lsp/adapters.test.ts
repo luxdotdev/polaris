@@ -397,6 +397,32 @@ test("diagnostic provider replacement, unchanged result IDs and conservative fre
   f.features.dispose();
 });
 
+test("hints keep their severity and LSP tags become range classes", () => {
+  const f = fixture();
+  const feed = new LanguageDiagnosticFeed(f.features.requests, () => {});
+  const p = f.providers[0]!;
+  const base = diagnostic(p);
+  const [item] = base.items;
+  feed.receive(p, {
+    ...base,
+    items: [
+      { ...item!, severity: 4, message: "unused", tags: [1] },
+      { ...item!, severity: 3, message: "note", tags: [2] },
+    ],
+  });
+  expect(
+    cmDiagnostics(f.features.requests, feed.values()).map(({ severity, markClass }) => [
+      severity,
+      markClass,
+    ])
+  ).toEqual([
+    ["hint", "cm-lintRange-unnecessary"],
+    ["info", "cm-lintRange-deprecated"],
+  ]);
+  feed.dispose();
+  f.features.dispose();
+});
+
 test("an unversioned push paints only at the version acknowledged when it arrived", () => {
   const f = fixture();
   const feed = new LanguageDiagnosticFeed(f.features.requests, () => {});
@@ -661,6 +687,11 @@ test("completion applies a single atomic local edit transaction with additional 
 
   if (!Predicate.isFunction(completion.apply)) throw new Error("No completion apply");
   completion.apply(view, completion, 5, 8);
+  expect(state.doc.toString()).toBe("a😀é\nitem");
+  // Acceptance waits on the provider's resolve, then applies the resolved item.
+  expect(f.pending.at(-1)?.request.method).toBe("completionItem/resolve");
+  f.reply(f.pending.length - 1, { label: "replacement" });
+  await new Promise((resolve) => setTimeout(resolve, 10));
   expect(state.doc.toString()).toBe("b😀é\nreplacement");
   f.features.dispose();
 });

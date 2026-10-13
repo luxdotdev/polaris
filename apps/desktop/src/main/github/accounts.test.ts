@@ -105,6 +105,26 @@ describe("signing in with the device flow", () => {
     expect(h.fake.requests).toEqual([]);
   });
 
+  test("a Keychain that refuses the token fails as keychain, not network", async () => {
+    const refusing = { ...memoryCrypto(), encrypt: () => Promise.reject(new Error("-25308")) };
+    const h = open({ crypto: refusing });
+
+    const view = await h.run(
+      Effect.gen(function* () {
+        const gh = yield* GitHub;
+        const started = yield* gh.startSignIn();
+
+        h.fake.approveDevice(started.userCode, "mona");
+        yield* h.advance(5000);
+
+        return yield* until(gh.accounts, (v) => v.signIn?.state === "failed");
+      })
+    );
+
+    expect(view.signIn?.failure).toBe("keychain");
+    expect(view.accounts).toEqual([]);
+  });
+
   test("several accounts keep their order; removing one forgets its tokens", async () => {
     const h = open();
 

@@ -48,18 +48,20 @@ export const parseInstructions = (source: string): ReviewInstructions => {
 
 const decoder = new TextDecoder();
 
-const committedAt = async (cwd: string, head: string): Promise<string | null> => {
-  const result = await checkoutGitRaw(cwd, ["show", `${head}:${COMMITTED_INSTRUCTIONS}`]);
-
-  return result.code === 0 ? decoder.decode(result.stdout) : null;
-};
-
 const readPrivate = async (path: string): Promise<string | null> => {
   try {
     return await readFile(path, "utf8");
   } catch {
     return null;
   }
+};
+
+/** The committed file at `head`, or the working tree's when `head` is null. */
+const committedAt = async (cwd: string, head: string | null): Promise<string | null> => {
+  if (head === null) return readPrivate(join(cwd, COMMITTED_INSTRUCTIONS));
+  const result = await checkoutGitRaw(cwd, ["show", `${head}:${COMMITTED_INSTRUCTIONS}`]);
+
+  return result.code === 0 ? decoder.decode(result.stdout) : null;
 };
 
 /**
@@ -80,12 +82,34 @@ export const privateInstructionsName = async (repo: string): Promise<string> => 
 export const privateInstructionsPath = (name: string): string =>
   join(polarisHome(), "review", `${name}.md`);
 
+/** Names by Workspace path: a remote rarely changes, and `git.diff` asks once per Turn. */
+const names = new Map<string, Promise<string>>();
+
+const KEPT_NAMES = 64;
+
+const cachedName = (repo: string): Promise<string> => {
+  const known = names.get(repo);
+
+  if (known !== undefined) return known;
+
+  if (names.size >= KEPT_NAMES) names.clear();
+  const name = privateInstructionsName(repo);
+  names.set(repo, name);
+
+  return name;
+};
+
 export const readInstructions = async (options: {
   readonly cwd: string;
-  readonly head: string;
+  /** Null reads the committed file from the working tree. */
+  readonly head: string | null;
   readonly repo: string;
+  /** Reuse this Daemon's earlier answer for the repo's private file name (`git.diff`). */
+  readonly cachedName?: boolean;
 }): Promise<ReviewInstructions> => {
-  const name = await privateInstructionsName(options.repo);
+  const name = await (options.cachedName === true
+    ? cachedName(options.repo)
+    : privateInstructionsName(options.repo));
 
   const sources = [
     await committedAt(options.cwd, options.head),

@@ -1,3 +1,4 @@
+import type { PredictionPlacementOutputs } from "./predictionPlacement.ts";
 /**
  * The typed bridge between the main process and the renderer: channel names,
  * what every request returns, what every subscription delivers, and the API
@@ -22,7 +23,6 @@ import type {
   GetReviewerSettings,
   GetRiskSummary,
   ListVerdicts,
-  GitStatus,
   Grep,
   HarnessCommands,
   HarnessModels,
@@ -45,17 +45,20 @@ import type {
   SessionStreamItem,
   TerminalId,
   TerminalLaunch,
+  TurnPage,
   UsageBucket,
   UsageReport,
   UsageStreamItem,
 } from "@polaris/protocol";
 import type { Rpc } from "effect/rpc";
 import type { CommandId } from "./keymap.ts";
+import type { PredictionUiOutputs, PredictionFeedItem } from "./predictionContract.ts";
 import type { AppUpdateView } from "./appUpdates.ts";
 import type { PullRef } from "./github.ts";
 import type { ConstellationDefaultsMethod, ConstellationMethod } from "./constellationContract.ts";
 import type { ResourceMethod } from "./resourcesContract.ts";
 import type { GitHubRequestOutputs, GitHubSubscriptionItems } from "./githubContract.ts";
+import type { GitRequestOutputs, GitSubscriptionItems } from "./gitContract.ts";
 import type { NeedsYouAction } from "./needsYou.ts";
 import type {
   CachedHost,
@@ -135,6 +138,8 @@ export interface ConnectionFailureView {
   readonly kind: "transient" | "needs-attention";
   readonly reason: string;
   readonly detail: string;
+  /** A protocol-mismatch on versions: the side speaking the older protocol. */
+  readonly older?: "daemon" | "client" | undefined;
 }
 
 /** `ConnectionStatus` from `@polaris/client`, flattened for structured clone. */
@@ -174,6 +179,24 @@ export interface SshAliasView {
   readonly alias: string;
   readonly hostName: string | null;
   readonly user: string | null;
+}
+
+/** A WSL distro on this Windows machine, for "Add a host" (`src/main/machines/wsl.ts`). */
+export interface WslDistroView {
+  readonly name: string;
+  readonly version: number;
+  readonly state: "running" | "stopped" | "unknown";
+  readonly isDefault: boolean;
+  /** Why it can't be a Host (a WSL 1 distro); null when it can. */
+  readonly unsupported: string | null;
+}
+
+export interface WslDistrosView {
+  /** `unsupported`: not Windows; `not-installed`: no wsl.exe or the stub; `no-distros`: WSL without a distro. */
+  readonly status: "distros" | "no-distros" | "not-installed" | "unsupported" | "failed";
+  readonly distros: ReadonlyArray<WslDistroView>;
+  /** wsl.exe's own line, for `not-installed` and `failed`. */
+  readonly detail: string | null;
 }
 
 /** The install flow's step (`src/main/machines/installFlow.ts`). */
@@ -219,6 +242,8 @@ export interface MachineView {
   readonly colour: string | null;
   /** Null for the local Host. */
   readonly alias: string | null;
+  /** How the Host is reached; for "wsl" the alias is the distro name. */
+  readonly kind: "local" | "ssh" | "wsl";
   /** Where the alias points, from `~/.ssh/config`. */
   readonly target: { readonly hostName: string | null; readonly user: string | null } | null;
   /** The local Host can be switched off on this machine; remote Hosts are always on. */
@@ -267,6 +292,8 @@ export interface SettingsView extends Appearance {
     readonly label: string;
     readonly colour: string | null;
     readonly forwardAgent: boolean;
+    /** Absent means ssh; "wsl" adds the distro named by `alias`. */
+    readonly kind?: "ssh" | "wsl";
   }>;
 }
 
@@ -349,7 +376,13 @@ export type ResourceRequestOutputs = {
 };
 
 export interface RequestOutputs
-  extends GitHubRequestOutputs, ConstellationRequestOutputs, ResourceRequestOutputs {
+  extends
+    PredictionUiOutputs,
+    GitHubRequestOutputs,
+    GitRequestOutputs,
+    ConstellationRequestOutputs,
+    ResourceRequestOutputs,
+    PredictionPlacementOutputs {
   "constellation.stats": ConstellationStatsView;
   "settings.get": SettingsView;
   "updates.get": AppUpdateView;
@@ -365,6 +398,7 @@ export interface RequestOutputs
   "settings.setSessionDefault": null;
   "settings.setSessions": null;
   "shell.openExternal": null;
+  "shell.revealInFinder": null;
   "host.retryNow": null;
   dispatch: { readonly sequence: number | null };
   "files.listDir": ReadonlyArray<FileEntry>;
@@ -382,7 +416,6 @@ export interface RequestOutputs
     readonly content: FileContentView;
   };
   "files.write": FileWriteView;
-  "git.status": Rpc.Success<typeof GitStatus>;
   "git.diff": {
     readonly bytes: Uint8Array;
     readonly files: number;
@@ -402,6 +435,7 @@ export interface RequestOutputs
   "harness.spinnerVerbs": Plain<SpinnerVerbs> | null;
   "harness.availability": Plain<HostHarnesses>;
   "session.terminalCommand": TerminalLaunch | null;
+  "session.turns": TurnPage;
   "usage.query": UsageQueryView;
   "terminal.open": { readonly terminalId: TerminalId };
   "terminal.input": null;
@@ -428,6 +462,7 @@ export interface RequestOutputs
   "session.pushAccepted": Plain<AcceptPushed>;
   "install.ensure": InstallView;
   "machines.sshAliases": ReadonlyArray<SshAliasView>;
+  "machines.wslDistros": WslDistrosView;
   "machines.add": { readonly key: string };
   "machines.update": null;
   "machines.remove": null;
@@ -441,6 +476,8 @@ export interface RequestOutputs
   "machines.setLocalEnabled": null;
   "machines.openSsh": null;
   "clipboard.write": null;
+  "edit.run": null;
+  "app.menu": null;
   "onboarding.found": { readonly sshHosts: ReadonlyArray<string>; readonly version: string };
   "onboarding.welcomeSeen": null;
   "dialog.pickFolder": { readonly path: string | null };
@@ -459,7 +496,8 @@ export type TerminalItem =
   | { readonly _tag: "Output"; readonly data: Uint8Array }
   | { readonly _tag: "Exit"; readonly code: number | null };
 
-export interface SubscriptionItems extends GitHubSubscriptionItems {
+export interface SubscriptionItems extends GitHubSubscriptionItems, GitSubscriptionItems {
+  "prediction.complete": PredictionFeedItem;
   hosts: ReadonlyArray<HostView>;
   machines: ReadonlyArray<MachineView>;
   host: HostStreamItem;
@@ -506,6 +544,16 @@ export type AppEvent =
   | { readonly kind: "proof"; readonly hostKey: string }
   /** The menu bar star or a notification: open a waiting session, or answer it. */
   | ({ readonly kind: "needs-you" } & NeedsYouAction)
+  /** Main decided an agent's `notify` banner: shown, held while you were in that session, or off. */
+  | {
+      readonly kind: "agent-banner";
+      readonly hostKey: string;
+      readonly sessionId: string;
+      readonly id: string;
+      readonly title: string;
+      readonly body: string;
+      readonly banner: "shown" | "here" | "off";
+    }
   /** A review-request notification: open its pull request in Review, or the list (null). */
   | { readonly kind: "open-pull"; readonly pull: OpenPull | null }
   /** The quit prompt's "Save and quit": the Editor saves every file, then answers `editor.savedAll`. */
@@ -532,6 +580,8 @@ export interface LanguageApi {
 }
 
 export interface PolarisApi {
+  /** The Client's OS from `process.platform`; read it through `clientPlatform()` (shared/platform.ts). */
+  readonly platform?: string;
   readonly languages?: LanguageApi;
   readonly request: <M extends RequestMethod>(
     method: M,

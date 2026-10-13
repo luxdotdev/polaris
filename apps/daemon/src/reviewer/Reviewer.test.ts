@@ -285,6 +285,10 @@ describe("the Reviewer", () => {
         expect(done.walkthrough?.head).toBe(s.v1);
         expect(done.walkthrough?.sessionId).not.toBe(done.reviewer?.sessionId);
         expect(done.walkthrough?.markdown).toContain("## Why the change");
+        expect(done.walkthrough?.markdown).not.toContain("## Intent groups");
+        expect(done.walkthrough?.groups?.flatMap((g) => g.paths).length).toBe(
+          done.walkthrough?.filesTotal
+        );
         expect(driver.latest(done.walkthrough!.sessionId!)?.options.readOnly).toBe(true);
         expect(done.deltaWalkthrough).toBeUndefined();
         expect(done.status).toBe("completed");

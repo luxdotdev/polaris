@@ -1,14 +1,20 @@
 import "../../../test/dom.testing.ts";
 import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import * as P from "@polaris/protocol";
 import { Schema } from "effect";
 import type { IpcError, LanguageApi } from "../../../../shared/api.ts";
 import { changeTrust, decideTrust } from "./decide.ts";
 import { providerName, trustCopy, trustFailure, type TrustStatus } from "./model.ts";
 import { hostInSentence } from "../../../shell/hostCopy.ts";
-import { trustDiscovered, trustStore, useTrustAsk } from "./store.ts";
+import { trustChangedFiles, trustDiscovered, trustStore, useTrustAsk } from "./store.ts";
 import { TrustCard } from "./TrustCard.tsx";
+import { setClientPlatform } from "../../../../shared/platform.ts";
+
+// These tests read macOS labels ("⌘↵", "⌃Space").
+beforeAll(() => setClientPlatform("darwin"));
+
+afterAll(() => setClientPlatform(null));
 
 const HOST = "mac-studio";
 
@@ -377,4 +383,44 @@ describe("What runs, in words", () => {
     expect(hostInSentence(host("This Mac", "this-mac"))).toBe("This Mac");
     expect(hostInSentence(undefined)).toBe("this host");
   });
+});
+
+test("Svelte and Prisma share the existing Workspace Trust ask", () => {
+  const first = status({ version: null, plugins: [] });
+
+  const prisma = P.LanguageTrustStatus.make({
+    ...first,
+    wouldRun: { ...first.wouldRun, workspaceTools: ["Prisma config"] },
+  });
+
+  discover(workspaceCheckout, prisma, "schema.prisma");
+
+  const svelte = P.LanguageTrustStatus.make({
+    ...first,
+    ask: false,
+    wouldRun: { ...first.wouldRun, workspaceTools: ["Svelte config and preprocessors"] },
+  });
+
+  discover(workspaceCheckout, svelte, "Component.svelte");
+  expect(Object.values(trustStore.getState().asks)).toHaveLength(1);
+  expect(Object.values(trustStore.getState().asks)[0]?.status).toEqual(svelte);
+  expect(trustCopy(svelte, "web", "this Mac").body).toContain("Svelte config and preprocessors");
+});
+
+test("a Trust change names the open files of its scope, so a Trust-blocked server is looked for again", () => {
+  const before = {
+    asks: {},
+    settled: {},
+    targets: {},
+    files: { "go/main.go": "scope", "other/a.ts": "other" },
+    statuses: { scope: status({ revision: 1 }), other: status({ revision: 4 }) },
+  };
+
+  const after = {
+    ...before,
+    statuses: { ...before.statuses, scope: status({ revision: 2, decision: "trusted" }) },
+  };
+
+  expect([...trustChangedFiles(after, before)]).toEqual(["go/main.go"]);
+  expect(trustChangedFiles(before, before).size).toBe(0);
 });

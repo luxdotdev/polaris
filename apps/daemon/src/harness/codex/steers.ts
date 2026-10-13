@@ -1,9 +1,9 @@
 /**
- * Steers on Codex, as Turn items. A steer lands twice: `turn/steer` answers
- * once Codex took the input, and Codex may also report it as a `userMessage`
- * item of the Turn (as it does for a steer typed in a co-attached TUI). The
- * first of the two records it as a `UserMessage`; the other is dropped. A
- * Turn's first user message is its prompt, not a steer.
+ * Steers on Codex, as Turn items. Codex answers `turn/steer` and reports the steer as
+ * a `userMessage` item as soon as it queues it; the first of the two queues it, the
+ * other is dropped. The model reads it only when it next samples, which a running
+ * command can hold off, so it lands when the Turn's next item starts or the Turn ends.
+ * A Turn's first user message is its prompt, not a steer.
  */
 import { TurnItem } from "@polaris/protocol";
 
@@ -19,37 +19,45 @@ export class CodexSteers {
   private readonly messages = new Map<string, Set<string>>();
   /** Per Codex turn: steer texts recorded by one source, awaiting the other. */
   private readonly awaiting = new Map<string, Array<Awaiting>>();
+  /** Per Codex turn: steers Codex took that the model hasn't read yet. */
+  private readonly queued = new Map<string, Array<TurnItem>>();
   private count = 0;
 
-  /**
-   * A `userMessage` item of a turn: its steer item when it is not the prompt and
-   * wasn't recorded yet; null otherwise. Started and completed both call it.
-   */
-  fromItem(codexTurnId: string, itemId: string, text: string | null): TurnItem | null {
+  /** A `userMessage` item of a turn: queued as a steer unless it is the prompt or seen. */
+  fromItem(codexTurnId: string, itemId: string, text: string | null) {
     const seen = this.messages.get(codexTurnId) ?? new Set<string>();
     const first = seen.size === 0;
 
     this.messages.set(codexTurnId, seen);
 
-    if (seen.has(itemId)) return null;
+    if (seen.has(itemId)) return;
     seen.add(itemId);
 
-    if (first || text === null) return null;
-
-    return this.record(codexTurnId, "item", itemId, text);
+    if (first || text === null) return;
+    this.record(codexTurnId, "item", itemId, text);
   }
 
-  /** `turn/steer` answered: its item, unless the Turn already reported it. */
-  fromResponse(codexTurnId: string, text: string): TurnItem | null {
+  /** `turn/steer` answered: queued, unless the Turn already reported it. */
+  fromResponse(codexTurnId: string, text: string) {
     this.count += 1;
-
-    return this.record(codexTurnId, "response", `steer:${codexTurnId}:${this.count}`, text);
+    this.record(codexTurnId, "response", `steer:${codexTurnId}:${this.count}`, text);
   }
 
-  /** The Turn ended: forget it. */
-  end(codexTurnId: string) {
+  /** Another item of the Turn started: the model has read every steer queued before it. */
+  take(codexTurnId: string): ReadonlyArray<TurnItem> {
+    const queued = this.queued.get(codexTurnId) ?? [];
+    this.queued.delete(codexTurnId);
+
+    return queued;
+  }
+
+  /** The Turn ended: the steers still queued (it read them last), and the Turn forgotten. */
+  end(codexTurnId: string): ReadonlyArray<TurnItem> {
+    const queued = this.take(codexTurnId);
     this.messages.delete(codexTurnId);
     this.awaiting.delete(codexTurnId);
+
+    return queued;
   }
 
   private record(codexTurnId: string, source: Source, id: string, text: string) {
@@ -59,11 +67,11 @@ export class CodexSteers {
     if (match !== -1) {
       waiting.splice(match, 1);
 
-      return null;
+      return;
     }
 
     this.awaiting.set(codexTurnId, [...waiting, { source, text }]);
-
-    return TurnItem.cases.UserMessage.make({ id, text });
+    const queued = this.queued.get(codexTurnId) ?? [];
+    this.queued.set(codexTurnId, [...queued, TurnItem.cases.UserMessage.make({ id, text })]);
   }
 }

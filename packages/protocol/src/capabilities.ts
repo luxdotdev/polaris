@@ -1,4 +1,5 @@
 import { Schema, SchemaTransformation } from "effect";
+import { PREDICTION_CAPABILITIES } from "./prediction.ts";
 import { HARNESS_CATALOGUE } from "./harnesses.ts";
 
 /** Bumped only for changes capability negotiation can't absorb. */
@@ -44,6 +45,18 @@ export const Capability = Schema.Literals([
   "session.subagents",
   /** Live background task snapshots and SessionBackgroundTasksChanged events. */
   "session.background-tasks",
+  /** `session.turns`: older Turns a page at a time. */
+  "session.turn-paging",
+  /** The `StopBackgroundTasks` command. */
+  "session.stop-background",
+  /** `SessionCompacted` and `AgentSession.lastCompaction`; `ContextUsage`'s breakdown fields need nothing. */
+  "session.compaction",
+  /** `SessionNotified`: an agent's notification for the user (MCP `notify`). */
+  "session.notify",
+  /** `PinSession`, `SessionPinned`, and `AgentSession.pinnedAt` and `origin`. */
+  "session.pin",
+  /** The Limited Session State, `SetResumeAtReset` and `SessionResumeAtResetChanged`. */
+  "session.limited",
   "files.read",
   "files.versioned",
   "files.write",
@@ -53,6 +66,9 @@ export const Capability = Schema.Literals([
   "files.search",
   "files.watch",
   "inline.propose",
+  ...PREDICTION_CAPABILITIES,
+  /** `commit.suggestMessage`: a Harness drafts the Commit box's message from the staged diff. */
+  "commit.suggest-message",
   /** Optional language extension, advertised only after the corresponding handlers are implemented. */
   "languages",
   "languages.install",
@@ -73,6 +89,8 @@ export const Capability = Schema.Literals([
   "git.diff-turns",
   /** `git.show`: a file's content at a revision (context expansion in Review). */
   "git.show",
+  /** `git.stage`, `git.unstage`, `git.discard` and `git.commit`: the Explorer's Changes tab. */
+  "git.write",
   "attachments.stage",
   /** `attachments.settings`, `attachments.setSettings`, `attachments.clear`: cleanup in Settings. */
   "attachments.settings",

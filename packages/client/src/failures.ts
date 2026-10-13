@@ -18,6 +18,10 @@ export const NeedsAttentionReason = Schema.Literals([
   "ssh-config-error",
   "ssh-missing",
   "command-missing",
+  /** `wsl.exe` is missing or WSL isn't installed on this Windows machine. */
+  "wsl-missing",
+  /** The WSL distro the Host names no longer exists (unregistered or renamed). */
+  "wsl-distro-missing",
   /** No `~/.polaris/bin/current/polaris` (or `polaris` on PATH): the install flow is needed. */
   "polaris-not-installed",
   /** `polaris bridge` ran but no Daemon is listening on the Host. */
@@ -43,7 +47,13 @@ export class ConnectFailure extends Schema.TaggedError<ConnectFailure>()("Connec
   reason: Schema.Union([NeedsAttentionReason, TransientReason]),
   /** A short human-readable line, usually the relevant stderr line. */
   detail: Schema.String,
+  /** A `protocol-mismatch` on versions: the side speaking the older protocol. */
+  older: Schema.optionalKey(Schema.Literals(["daemon", "client"])),
 }) {}
+
+/** The side of a `protocol-mismatch` speaking the older protocol. */
+export const olderSide = (daemon: number, client: number): "daemon" | "client" =>
+  daemon < client ? "daemon" : "client";
 
 const needs = (reason: NeedsAttentionReason, detail: string) =>
   new ConnectFailure({ kind: "needs-attention", reason, detail });
@@ -91,6 +101,9 @@ export const classifyExit = (exit: {
   )
     return needs("ssh-config-error", lastLine(stderr, /Bad|Can't|UNPROTECTED/));
 
+  if (has(/^ssh: connect to host .+ port \d+: Permission denied\.?\r?$/m))
+    return transient("unreachable", lastLine(stderr, /^ssh: connect to host/));
+
   if (has(/Permission denied|Too many authentication failures|Authentication failed/))
     return needs(
       "auth-failed",
@@ -105,7 +118,11 @@ export const classifyExit = (exit: {
   )
     return needs("polaris-not-installed", lastLine(stderr, /not found|No such file/));
 
-  if (has(/Could not resolve hostname|Network is unreachable|No route to host|Connection refused/))
+  if (
+    has(
+      /Could not resolve hostname|No such host is known|Network is unreachable|No route to host|Connection refused/
+    )
+  )
     return transient("unreachable", lastLine(stderr, /resolve|unreachable|route|refused/));
 
   if (has(/timed out|Timeout/)) return transient("timeout", lastLine(stderr, /timed out|Timeout/));

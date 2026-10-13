@@ -421,6 +421,24 @@ describe("Review contract", () => {
     });
 
     expect(roundTrip(DiffFile, file)).toEqual(file);
+    // An older Daemon doesn't say whether a file is generated: the Client decides by path.
+    expect(file.generated).toBeNull();
+    expect(
+      roundTrip(
+        DiffFile,
+        new DiffFile({
+          path: "a",
+          oldPath: null,
+          status: "modified",
+          offset: 0,
+          length: 10,
+          additions: 1,
+          deletions: 0,
+          binary: false,
+          generated: true,
+        })
+      ).generated
+    ).toBe(true);
   });
 
   test("an older peer drops the Review capabilities it doesn't know", () => {

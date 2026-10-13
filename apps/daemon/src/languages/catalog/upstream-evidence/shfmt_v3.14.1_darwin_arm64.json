@@ -1,0 +1,17 @@
+{
+  "artifactId": "shfmt_v3.14.1_darwin_arm64",
+  "artifactIntegrity": "sha256:b7c872db63553ccffc7253aba3ed7d4885a27d83f1ba567b1138c6315a5847e5",
+  "coverage": "complete",
+  "notices": [
+    {
+      "path": "notices/ce63850f77649f00d1394045e2794ffb09a5596beabac51c9548edd958845d7c.txt",
+      "integrity": "sha256:ce63850f77649f00d1394045e2794ffb09a5596beabac51c9548edd958845d7c"
+    }
+  ],
+  "evidence": [
+    {
+      "path": "runtime-sql-shell-review-records.json",
+      "integrity": "sha256:7a9995e9e3a3425e281ba18fa87f1f8e2c0601f82d6b3a44932bca32bfc15902"
+    }
+  ]
+}

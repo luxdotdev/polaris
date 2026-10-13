@@ -16,8 +16,16 @@ import type { KeyValue } from "../model/drafts.ts";
 import type { SpillStore } from "../model/draftStore.ts";
 import { indexedDbSpill } from "./idbSpill.ts";
 import { setVimHandlers } from "../cm/vim.ts";
+import { setInlineDiagnostics } from "../cm/inlineDiagnostics.ts";
 import { closeTab, saveFile, startEditor } from "./actions.ts";
-import { dirtyKeys, isConfigured, saveAll, setVim, unkeptKeys } from "./buffers.ts";
+import {
+  configuredLanguageRuntime,
+  dirtyKeys,
+  isConfigured,
+  saveAll,
+  setVim,
+  unkeptKeys,
+} from "./buffers.ts";
 import { polaris } from "../../bridge.ts";
 import { editorStore } from "./store.ts";
 import { bindLanguageSettingsRefresh, openFinder } from "../api.ts";
@@ -25,10 +33,13 @@ import { EditorLanguageCoordinator } from "../lsp/integration.ts";
 import type { LanguageIdentityLookup } from "../lsp/lifecycle.ts";
 import { LanguageQueries } from "../lsp/queries.ts";
 import { bindAppLanguageIdentities } from "../lsp/identityComposition.ts";
+import { installPredictions } from "../prediction/runtime.ts";
 
 export let editorLanguages: EditorLanguageCoordinator | null = null;
 
 export let editorLanguageQueries: LanguageQueries | null = null;
+
+export const getEditorLanguages = () => configuredLanguageRuntime()?.coordinator ?? editorLanguages;
 
 const prefs = () => {
   const { editorVim, editorAutosave } = settingsStore.getState().sessions;
@@ -101,6 +112,9 @@ export const ensureEditor = ({
   subscribeApp,
 }: StartInput) => {
   if (isConfigured()) {
+    const retained = configuredLanguageRuntime();
+    editorLanguages = retained?.coordinator ?? editorLanguages;
+    editorLanguageQueries = retained?.queries ?? editorLanguageQueries;
     editorLanguages?.refreshHosts();
 
     return;
@@ -134,6 +148,7 @@ export const ensureEditor = ({
   const draftStorage = kv === undefined ? storage() : kv;
 
   startEditor({
+    languageRuntime: { coordinator: editorLanguages, queries: editorLanguageQueries },
     languages: editorLanguages,
     files: editorFiles,
     groups: groupStore,
@@ -170,10 +185,14 @@ export const ensureEditor = ({
   });
 
   publishDirty();
+  const removePredictions = installPredictions(app, subscribeApp);
+  globalThis.addEventListener("pagehide", removePredictions, { once: true });
 
   if (prefs().vim) void setVim(true);
+  setInlineDiagnostics(settingsStore.getState().sessions.editorInlineDiagnostics);
   settingsStore.subscribe((state, previous) => {
     if (state.sessions.editorVim !== previous.sessions.editorVim)
       void setVim(state.sessions.editorVim);
+    setInlineDiagnostics(state.sessions.editorInlineDiagnostics);
   });
 };

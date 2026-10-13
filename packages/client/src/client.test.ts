@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { Data, Effect, Fiber, Queue, Stream } from "effect";
-import { classifyExit, type NeedsAttentionReason, type TransientReason } from "./failures.ts";
+import {
+  classifyExit,
+  type NeedsAttentionReason,
+  olderSide,
+  type TransientReason,
+} from "./failures.ts";
 import { makeFeed, reopenBackoff, type SequenceMark } from "./resume.ts";
 import { sshArgv } from "./ssh.ts";
 
@@ -48,6 +53,11 @@ describe("classifyExit", () => {
       "transient"
     );
   });
+});
+
+test("a protocol mismatch names the side speaking the older protocol", () => {
+  expect(olderSide(1, 2)).toBe("daemon");
+  expect(olderSide(3, 2)).toBe("client");
 });
 
 describe("sshArgv", () => {

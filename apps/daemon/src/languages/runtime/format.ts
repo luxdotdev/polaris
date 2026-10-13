@@ -7,6 +7,7 @@ import {
 import { Predicate, Schema } from "effect";
 import type { Entry } from "./types.ts";
 import type { LanguageRequestFence, LanguageJsonObject, LanguageJson } from "@polaris/protocol";
+import { shellFormatting } from "../sql/shellFormatting.ts";
 import { failure } from "../transport/framing.ts";
 
 const Edits = Schema.NullOr(Schema.Array(LanguageTextEdit).check(Schema.isMaxLength(4096)));
@@ -91,7 +92,11 @@ export function bindFormat(
         requestId: input.requestId,
         fence: input.fence,
         document: input.document,
-        edits: Schema.decodeUnknownSync(Edits)(result) ?? [],
+        edits: shellFormatting(
+          entry.identity.providerId,
+          input.snapshot,
+          Schema.decodeUnknownSync(Edits)(result) ?? []
+        ),
       });
     } catch (cause) {
       return formatFailure(input.requestId, cause);

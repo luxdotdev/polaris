@@ -193,7 +193,7 @@ const checkApprovals = (world: World, log: ReadonlyArray<AEvent>) => {
 const acceptsDeferredInput = (before: View | undefined) =>
   before !== undefined &&
   workingTurnOf(before) === undefined &&
-  (["idle", "dormant", "failed"].includes(before.state) ||
+  (["idle", "dormant", "failed", "limited"].includes(before.state) ||
     (before.state === "needs-you" && before.pending.size === 0));
 
 /** Only a live idle Harness starts a fresh Turn; approval requests need their Turn in flight. */

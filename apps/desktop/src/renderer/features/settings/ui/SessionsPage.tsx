@@ -4,6 +4,7 @@
  * strip's verbs, where accepted work is committed, and Archive.
  * Each Harness's Model, effort and permissions stay in Settings → Harnesses.
  */
+import { clientCopy } from "../../../../shared/clientCopy.ts";
 import { Button, Input, Switch } from "@polaris/ui";
 import { useState } from "react";
 import { isBranchPrefix } from "../../../../shared/sessionPrefs.ts";
@@ -87,7 +88,7 @@ export const SessionsPage = () => {
         </SettingRow>
         <SettingRow
           title="Notify when a session needs you"
-          caption="A macOS notification, unless Polaris shows that session. The star still counts."
+          caption={`A ${clientCopy().os} notification, unless Polaris shows that session. The star still counts.`}
           htmlFor="notify-needs-you"
         >
           <Switch
@@ -97,8 +98,19 @@ export const SessionsPage = () => {
           />
         </SettingRow>
         <SettingRow
+          title="Notify when a turn finishes"
+          caption={`A ${clientCopy().os} notification when a session goes idle, unless Polaris shows it. Not for constellation workers.`}
+          htmlFor="notify-turn-ended"
+        >
+          <Switch
+            id="notify-turn-ended"
+            checked={prefs.notifyTurnEnded}
+            onCheckedChange={(on) => setSessionPrefs({ notifyTurnEnded: on })}
+          />
+        </SettingRow>
+        <SettingRow
           title="Notify when your review is requested"
-          caption="A macOS notification per new request on GitHub. Reviews in needs you still lists them."
+          caption={`A ${clientCopy().os} notification per new request on GitHub. Reviews in needs you still lists them.`}
           htmlFor="notify-review-requests"
         >
           <Switch

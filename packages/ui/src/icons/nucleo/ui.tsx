@@ -432,3 +432,42 @@ export function BranchIcon({ size = 16, strokeWidth = STROKE, ...props }: Nucleo
     </svg>
   );
 }
+
+/** Nucleo UI outline `SparkleOutline18`: a Harness writes something for you. */
+export function SparkleIcon({ size = 16, strokeWidth = STROKE, ...props }: NucleoIconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 18 18"
+      aria-hidden="true"
+      focusable="false"
+      {...props}
+    >
+      <path
+        d="M6.658 4.026L5.395 3.605L4.974 2.342C4.837 1.934 4.162 1.934 4.025 2.342L3.604 3.605L2.341 4.026C2.137 4.094 1.999 4.285 1.999 4.5C1.999 4.715 2.137 4.906 2.341 4.974L3.604 5.395L4.025 6.658C4.093 6.862 4.285 7 4.5 7C4.715 7 4.906 6.862 4.975 6.658L5.396 5.395L6.659 4.974C6.863 4.906 7.001 4.715 7.001 4.5C7.001 4.285 6.862 4.094 6.658 4.026Z"
+        fill="currentColor"
+      ></path>
+      <path
+        d="M15.658 13.026L14.395 12.605L13.974 11.342C13.837 10.934 13.162 10.934 13.025 11.342L12.604 12.605L11.341 13.026C11.137 13.094 10.999 13.285 10.999 13.5C10.999 13.715 11.137 13.906 11.341 13.974L12.604 14.395L13.025 15.658C13.093 15.862 13.285 16 13.5 16C13.715 16 13.906 15.862 13.975 15.658L14.396 14.395L15.659 13.974C15.863 13.906 16.001 13.715 16.001 13.5C16.001 13.285 15.862 13.094 15.658 13.026Z"
+        fill="currentColor"
+      ></path>
+      <path
+        d="M6 8.75L6.671 11.329L9.25 12L6.671 12.671L6 15.25L5.329 12.671L2.75 12L5.329 11.329L6 8.75Z"
+        fill="currentColor"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={strokeWidth}
+      ></path>
+      <path
+        d="M12 2.75L12.671 5.329L15.25 6L12.671 6.671L12 9.25L11.329 6.671L8.75 6L11.329 5.329L12 2.75Z"
+        fill="currentColor"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={strokeWidth}
+      ></path>
+    </svg>
+  );
+}

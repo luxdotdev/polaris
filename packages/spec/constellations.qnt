@@ -15,7 +15,7 @@ module constellations {
     | TaskCanceled(int)
     | AttemptStarted({ task: int, session: int, ref: int, mergeBase: str })
     | AttemptProgressed(int)
-    | AttemptClaimed({ attempt: int, sha: int })
+    | AttemptClaimed({ attempt: int, sha: int, disposed: bool })
     | ClaimApproved(int)
     | ClaimHandedUp(int)
     | AttemptBlocked({ attempt: int, on: Set[int] })
@@ -24,7 +24,7 @@ module constellations {
     | AttemptAccepted({ attempt: int, sha: int })
     | AttemptRejected({ attempt: int, reason: str })
     | FirstTurnStarted(int)
-    | AttemptSettled({ attempt: int, outcome: str, stale: bool, commanded: bool })
+    | AttemptSettled({ attempt: int, outcome: str, stale: bool, commanded: bool, kind: str })
     | GatePromoted(int)
     | LeadHandoverRequested({ id: int, from: int })
     | LeadHandoverCancelled(int)
@@ -35,7 +35,7 @@ module constellations {
     | WorkerInputDelivered({ id: int, session: int })
     | ConstellationStateChanged(str)
     | NotificationQueued({ id: int, kind: str })
-    | LeadNotified({ ids: Set[int], lead: int })
+    | LeadNotified({ ids: Set[int], lead: int, steered: bool, audit: Set[int] })
     | OutboxApplied(int)
     | AttemptRecoveryContinued(Recovery)
     | ResourceDeclared(int)
@@ -50,7 +50,7 @@ module constellations {
     handoverRequest: int, handoverFrom: int, stale: Set[int], inputs: List[{ id: int, session: int }],
     approvals: List[int], handups: List[int], nudges: List[int], firstTurns: List[int], earlyInputs: Set[int],
     blocks: int -> Set[int],
-    promotions: List[int], notes: int -> str, deliveries: List[Delivery],
+    promotions: List[int], notes: int -> str, deliveries: List[Delivery], steers: int, audited: Set[int],
     proofs: Set[{ attempt: int, interruption: int }],
     applied: List[int], recoveries: List[Recovery], waiters: List[int],
     holders: Set[int], requests: List[int], grants: List[int], capacity: int, canceled: Set[int],
@@ -67,12 +67,15 @@ module constellations {
     approvals: [], handups: [], nudges: [], firstTurns: [], earlyInputs: Set(),
     blocks: Map(),
     proofs: Set(),
-    promotions: [], notes: Map(), deliveries: [], applied: [], recoveries: [],
+    promotions: [], notes: Map(), deliveries: [], steers: 0, audited: Set(), applied: [], recoveries: [],
     waiters: [], holders: Set(), requests: [], grants: [], capacity: CAPACITY, canceled: Set(),
   }
 // The event log is durable; projections and pending notification IDs are always re-folded.
   pure def claimable(v: View, a: int, sha: int): bool = v.attempts.indices().contains(a) and
     (v.attempts[a].status == "working" or v.attempts[a].status == "review" and v.attempts[a].sha != sha)
+  // A head an earlier Attempt on the same Task had sent back; claiming it again needs a disposition.
+  pure def rejectedHead(v: View, a: int, sha: int): bool = v.attempts.indices().exists(r =>
+    r != a and v.attempts[r].task == v.attempts[a].task and v.attempts[r].status == "rejected" and v.attempts[r].sha == sha)
   pure def has(xs: List[int], x: int): bool = xs.indices().exists(i => xs[i] == x)
   pure def active(a: Attempt): bool = Set("working", "blocked", "review").contains(a.status)
   pure def change(v: View, a: int, status: str, sha: int): View = {
@@ -124,7 +127,8 @@ module constellations {
           and not(has(v.firstTurns, a)))) }
     | ConstellationStateChanged(s) => { ...v, state: s }
     | NotificationQueued(p) => { ...v, notes: v.notes.put(p.id, p.kind) }
-    | LeadNotified(p) => { ...v, deliveries: p.ids.fold(v.deliveries, (acc, id) => acc.append({ id: id, lead: p.lead })) }
+    | LeadNotified(p) => { ...v, deliveries: p.ids.fold(v.deliveries, (acc, id) => acc.append({ id: id, lead: p.lead })),
+        steers: v.steers + (if (p.steered) 1 else 0), audited: v.audited.union(p.audit) }
     | OutboxApplied(id) => { ...v, applied: v.applied.append(id) }
     | AttemptRecoveryContinued(p) => { ...v, recoveries: v.recoveries.append(p) }
     | ResourceDeclared(capacity) => { ...v, capacity: capacity }
@@ -135,7 +139,8 @@ module constellations {
     | ResourceLeaseCanceled(id) => { ...v, waiters: v.waiters.select(waiter => waiter != id), canceled: v.canceled.union(Set(id)) }
   }
   pure def foldEvents(events: List[Event]): View = events.foldl(empty, (v, e) => apply(v, e.kind))
-  pure def latest(v: View, t: int): int = v.attempts.indices().fold(-1, (acc, i) => if (v.attempts[i].task == t) i else acc)
+  // Set folds have no order: the latest Attempt is the greatest index on the Task, not the last visited.
+  pure def latest(v: View, t: int): int = v.attempts.indices().fold(-1, (acc, i) => if (v.attempts[i].task == t and i > acc) i else acc)
   // Parent closure is bounded by TASKS; the wire supports arbitrary finite depth.
   pure def children(v: View, t: int): Set[int] = TASKS.filter(c =>
     v.tasks.get(c).declared and not(v.tasks.get(c).canceled) and v.tasks.get(c).parent == t)
@@ -225,6 +230,10 @@ module constellations {
     and latest(v, v.attempts[a].task) == a and active(v.attempts[a]) and v.attempts[a].revision == rev
   pure def promote(v: View): List[EventKind] = TASKS.fold([], (acc, t) =>
     if (v.tasks.get(t).gate and ready(v, t) and not(has(v.promotions, t))) acc.append(GatePromoted(t)) else acc)
+  // A promoted Gate nobody carries: the audit names it to the Lead once per stalled state.
+  pure def stalledGates(v: View): Set[int] = TASKS.filter(t =>
+    v.tasks.get(t).gate and not(v.tasks.get(t).canceled) and has(v.promotions, t) and not(accepted(v, t))
+    and (latest(v, t) < 0 or not(active(v.attempts[latest(v, t)]))))
   pure def finish(v: View, a: int, event: EventKind): List[EventKind] = {
     val updated = apply(v, event)
     val events = [event, NotificationQueued({ id: 10 + 2 * a + (if (v.attempts[a].status == "review") 1 else 0), kind: "settle" })]
@@ -285,9 +294,10 @@ module constellations {
     if (fresh) unblockEvents(view, a, rev, cause, turn) else [])
   action progress(a: int, rev: int): bool = commit(OWNER,
     if (current(view, a, rev) and view.attempts[a].status == "working") [AttemptProgressed(a)] else [])
-  action claim(a: int, rev: int, sha: int, dirty: bool, onBranch: bool): bool = commit(OWNER,
-    if (current(view, a, rev) and claimable(view, a, sha) and not(dirty) and onBranch)
-    finish(view, a, AttemptClaimed({ attempt: a, sha: sha })) else [])
+  action claimAs(a: int, rev: int, sha: int, dirty: bool, onBranch: bool, disposed: bool): bool = commit(OWNER,
+    if (current(view, a, rev) and claimable(view, a, sha) and not(dirty) and onBranch and (disposed or not(rejectedHead(view, a, sha))))
+    finish(view, a, AttemptClaimed({ attempt: a, sha: sha, disposed: disposed })) else [])
+  action claim(a: int, rev: int, sha: int, dirty: bool, onBranch: bool): bool = claimAs(a, rev, sha, dirty, onBranch, false)
   action accept(a: int, rev: int, sha: int): bool = commit(OWNER,
     if (current(view, a, rev) and view.attempts[a].status == "review" and view.attempts[a].sha == sha)
     [AttemptAccepted({ attempt: a, sha: sha })].concat(promote(apply(view, AttemptAccepted({ attempt: a, sha: sha })))) else [])
@@ -295,15 +305,23 @@ module constellations {
     if (current(view, a, rev) and Set("review", "blocked").contains(view.attempts[a].status)) [AttemptRejected({ attempt: a, reason: reason })] else [])
   action reject(a: int, rev: int): bool = rejectWithReason(a, rev, "fix")
   action stop(a: int, rev: int): bool = commit(OWNER,
-    if (current(view, a, rev)) finish(view, a, AttemptSettled({ attempt: a, outcome: "lost", stale: offline.contains(view.attempts[a].session), commanded: true })) else [])
-  action harnessFail(a: int): bool = commit(OWNER,
+    if (current(view, a, rev)) finish(view, a, AttemptSettled({ attempt: a, outcome: "lost", stale: offline.contains(view.attempts[a].session), commanded: true, kind: "" })) else [])
+  action harnessFailAs(a: int, kind: str): bool = commit(OWNER,
     if (view.attempts.indices().contains(a) and active(view.attempts[a]) and not(offline.contains(view.attempts[a].session)))
-    finish(view, a, AttemptSettled({ attempt: a, outcome: "failed", stale: false, commanded: false })) else [])
+    finish(view, a, AttemptSettled({ attempt: a, outcome: "failed", stale: false, commanded: false, kind: kind })) else [])
+  action harnessFail(a: int): bool = harnessFailAs(a, "harness")
   action ask(a: int, id: int): bool = commit(OWNER,
     if (view.attempts.indices().contains(a) and active(view.attempts[a]) and not(view.notes.keys().contains(id)))
     [NotificationQueued({ id: id, kind: "question" })] else [])
-  action deliver = commit(OWNER,
-    if (view.state == "running" and pending.size() > 0) [LeadNotified({ ids: pending, lead: view.lead })] else [])
+  // Whether the Lead's Turn is live belongs to the Session machine; here a steer is a free choice.
+  action deliverAs(steered: bool): bool = commit(OWNER,
+    if (view.state == "running" and pending.size() > 0) [LeadNotified({ ids: pending, lead: view.lead, steered: steered, audit: Set() })] else [])
+  action deliver = deliverAs(false)
+  action deliverSteered = deliverAs(true)
+  // A stall audit rides the digest; alone it needs a stalled Gate the Lead has not been told about.
+  action audit = commit(OWNER,
+    if (view.state == "running" and stalledGates(view).exclude(view.audited) != Set())
+      [LeadNotified({ ids: pending, lead: view.lead, steered: false, audit: stalledGates(view).exclude(view.audited) })] else [])
   action requestHandover(id: int): bool = commit(OWNER,
     if (Set("planning", "running", "paused").contains(view.state))
       [LeadHandoverRequested({ id: id, from: view.lead })] else [])
@@ -311,7 +329,7 @@ module constellations {
     if (view.handoverRequest >= 0) [LeadHandoverCancelled(view.handoverRequest)] else [])
   pure def handoverEvents(v: View, id: int, s: int): List[EventKind] = {
     val gates = v.attempts.indices().filter(a => active(v.attempts[a]) and v.attempts[a].session == v.lead and v.tasks.get(v.attempts[a].task).gate)
-    gates.fold([], (events, a) => events.concat(finish(v, a, AttemptSettled({ attempt: a, outcome: "lost", stale: false, commanded: true })))).append(LeadChanged({ to: s, request: id }))
+    gates.fold([], (events, a) => events.concat(finish(v, a, AttemptSettled({ attempt: a, outcome: "lost", stale: false, commanded: true, kind: "" })))).append(LeadChanged({ to: s, request: id }))
   }
   action finishHandover(id: int, s: int): bool = commit(OWNER,
     if (view.handoverRequest == id and view.handoverFrom == view.lead and s != view.lead
@@ -354,8 +372,8 @@ module constellations {
       val r = outbox.get(id)
       val appliedEvents = [OutboxApplied(id)]
       appliedEvents.concat(if (view.attempts.indices().contains(r.attempt)
-        and current(view, r.attempt, view.attempts[r.attempt].revision) and claimable(view, r.attempt, r.sha))
-        finish(view, r.attempt, AttemptClaimed({ attempt: r.attempt, sha: r.sha })) else [])
+        and current(view, r.attempt, view.attempts[r.attempt].revision) and claimable(view, r.attempt, r.sha) and not(rejectedHead(view, r.attempt, r.sha)))
+        finish(view, r.attempt, AttemptClaimed({ attempt: r.attempt, sha: r.sha, disposed: false })) else [])
     } else [])
   action request(id: int): bool = commit(OWNER, if (view.capacity > 0 and not(has(view.requests, id))) [ResourceLeaseQueued(id)] else [])
   action grant = commit(OWNER, if (view.waiters.length() > 0 and view.holders.size() < view.capacity) [ResourceLeased(view.waiters[0])] else [])
@@ -373,10 +391,10 @@ module constellations {
       plan([Add({ task: t, deps: Set(), parent: -1, gate: t == 2 })]),
       plan([Edit({ task: t, deps: Set(dep), parent: -1, gate: t == 2, revision: rev })]),
       plan([Cancel({ task: t, revision: rev })]),
-      start(t, s, latest(view, t)), progress(a, rev), claim(a, rev, 42, false, true),
+      start(t, s, latest(view, t)), progress(a, rev), claim(a, rev, 42, false, true), claimAs(a, rev, 42, false, true, true),
       block(a, Set(dep), rev), block(a, Set(), rev), unblock(a, rev, "Accepted", true), unblock(a, rev, "Lead", true),
       claim(a, rev, 42, true, true), accept(a, rev, 42), accept(a, rev, 43), reject(a, rev), startFirstTurn(a), stop(a, rev), harnessFail(a),
-      ask(a, id), deliver, handover(s), requestHandover(id), cancelHandover, finishHandover(id, s), setState("running"), setState("paused"),
+      ask(a, id), deliver, deliverSteered, audit, harnessFailAs(a, "capacity"), handover(s), requestHandover(id), cancelHandover, finishHandover(id, s), setState("running"), setState("paused"),
       all { TASKS.forall(task => accepted(view, task)), setState("completed") },
       setState("archived"), interrupt(a), recoverPending, restart,
       availability(false, true, Set(s)), availability(true, false, Set()), availability(true, true, Set()),
@@ -394,6 +412,7 @@ module constellations {
   })
   val claimsValid = log.indices().forall(i => match log[i].kind {
     | AttemptClaimed(p) => claimable(foldEvents(log.slice(0, i)), p.attempt, p.sha)
+      and (p.disposed or not(rejectedHead(foldEvents(log.slice(0, i)), p.attempt, p.sha)))
     | _ => true
   })
   val firstTurnAtMostOnce = view.firstTurns.length() == view.firstTurns.foldl(Set(), (acc, a) => acc.union(Set(a))).size()
@@ -447,6 +466,16 @@ module constellations {
     and view.attempts.indices().forall(a => view.recoveries.select(r => r.attempt == a).length() <= 1)
   val settlementOutcomesValid = log.indices().forall(i => match log[i].kind {
     | AttemptSettled(p) => Set("lost", "failed").contains(p.outcome)
+    | _ => true
+  })
+  // A failed settle carries one classified kind; a lost (commanded) settle carries none.
+  val failureKindValid = log.indices().forall(i => match log[i].kind {
+    | AttemptSettled(p) => if (p.outcome == "failed") Set("capacity", "transport", "harness", "implementation").contains(p.kind) else p.kind == ""
+    | _ => true
+  })
+  // A delivery says something: pending items, or an audit naming Gates that were stalled when it committed.
+  val auditNamesStalledGates = log.indices().forall(i => match log[i].kind {
+    | LeadNotified(p) => (p.ids != Set() or p.audit != Set()) and p.audit.subseteq(stalledGates(foldEvents(log.slice(0, i))))
     | _ => true
   })
   val staleNeverSettlesWithoutCommand = log.indices().forall(i => match log[i].kind {
@@ -514,12 +543,15 @@ module constellations {
     oneLead, firstTurnValid, claimsValid, firstTurnAtMostOnce, oneActiveAttemptPerSession, exactlyOnceDelivery, settledAttemptImmutable,
     outboxAppliedExactlyOnce, onlyOwnerCommits, recoveryAtMostOnce, recoveryHasEligibleProof, settlementOutcomesValid, staleNeverSettlesWithoutCommand,
     noOldLeadDelivery, handoverRequestOrdered, inputDeliveredAtMostOnce, blockTransitionsValid, lifecycleValid, reviewMetadataValid, resourceCapacity, resourceRemovalSafe, fifoGrantOrder, acceptanceMatchesClaim,
+    failureKindValid, auditNamesStalledGates,
   }
   val witnessClaim = view.attempts.indices().exists(i => view.attempts[i].status == "review")
   val witnessAccepted = view.attempts.indices().exists(i => view.attempts[i].status == "accepted")
   val witnessGate = view.promotions.length() > 0
   val witnessHandover = view.lead != 0
   val witnessDelivery = view.deliveries.length() > 0
+  val witnessSteeredDelivery = view.steers > 0
+  val witnessAudit = view.audited != Set()
   val witnessRelay = view.applied.length() > 0
   val witnessRecovery = view.recoveries.length() > 0
   val witnessLease = view.grants.length() > 0

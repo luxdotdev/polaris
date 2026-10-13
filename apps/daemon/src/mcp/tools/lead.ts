@@ -56,7 +56,7 @@ export const leadTools = (
         C.Plan.make({ ...fields, start: { ...input.start, leadSessionId: binding.sessionId } })
       );
     },
-    { summary: "Plan recorded." }
+    { summary: "Plan recorded.", mutates: true }
   ),
   define(
     "dispatch",
@@ -82,7 +82,7 @@ export const leadTools = (
         C.Dispatch.make({ constellationId: binding.constellationId, tasks, defaultWorker })
       );
     }),
-    { summary: "Dispatch recorded." }
+    { summary: "Dispatch recorded.", mutates: true }
   ),
   define(
     "review",
@@ -112,7 +112,7 @@ export const leadTools = (
         })
       );
     }),
-    { summary: "Review recorded." }
+    { summary: "Review recorded.", mutates: true }
   ),
   define(
     "answer",
@@ -133,7 +133,7 @@ export const leadTools = (
 
       return yield* submit(C.Answer.make({ constellationId: binding.constellationId, action }));
     }),
-    { summary: "Answer recorded." }
+    { summary: "Answer recorded.", mutates: true }
   ),
   define(
     "message",
@@ -149,7 +149,7 @@ export const leadTools = (
         C.Message.make({ constellationId: binding.constellationId, target, text: input.text })
       );
     }),
-    { summary: "Message queued." }
+    { summary: "Message queued.", mutates: true }
   ),
   status,
   define(
@@ -173,6 +173,6 @@ export const leadTools = (
 
       return yield* submit(C.SetState.make({ constellationId: binding.constellationId, action }));
     }),
-    { summary: "Constellation state action recorded." }
+    { summary: "Constellation state action recorded.", mutates: true }
   ),
 ];

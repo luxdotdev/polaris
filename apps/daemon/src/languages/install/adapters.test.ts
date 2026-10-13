@@ -12,6 +12,8 @@ import { httpsArtifactDownload } from "./download.ts";
 import { artifactDecoder } from "./decode.ts";
 import { packagedEvidenceReader } from "./evidence.ts";
 import { gunzip, tarEntries } from "./archive.ts";
+import { webDependencies } from "./webDependencies.ts";
+import { createHash } from "node:crypto";
 
 function exactFixture(format: "binary" | "tar.gz" = "binary") {
   const source = artifactFixture();
@@ -106,7 +108,10 @@ test("selected Node files support GNU names while refusing traversal, selected l
 
 test("pinned GNU headers retain regular files and directories but reject unsafe entries and extensions", () => {
   const signal = new AbortController().signal;
-  const read = (bytes: Buffer) => tarEntries(bytes, signal, defaultLimits, undefined, true);
+
+  const read = (bytes: Buffer) =>
+    tarEntries(bytes, signal, defaultLimits, undefined, { gnuHeaders: true });
+
   expect(read(tar("ruff-linux/ruff", "0", Buffer.from("runtime"), true))[0]).toMatchObject({
     path: "ruff-linux/ruff",
     bytes: Buffer.from("runtime"),
@@ -201,6 +206,30 @@ test("strict archive decoding rejects links, traversal, truncation, corrupt head
   await rejects(gunzip(gzipSync(Buffer.alloc(1)), aborted.signal, 32), {
     reason: "cancelled",
   });
+});
+
+test("frozen npm decoding accepts old node-tar timestamps with an empty prefix and keeps path/type checks", () => {
+  const signal = new AbortController().signal;
+
+  const legacy = (path: string, type = "0") => {
+    const bytes = tar(path, type);
+    bytes.write("15176726014\0", 476);
+    bytes.write("15176726014\0", 488);
+    bytes.fill(32, 148, 156);
+    const checksum = bytes.subarray(0, 512).reduce((sum, byte) => sum + byte, 0);
+    bytes.write(checksum.toString(8).padStart(6, "0") + "\0 ", 148);
+
+    return bytes;
+  };
+
+  throws(() => tarEntries(legacy("package/index.js"), signal));
+  expect(
+    tarEntries(legacy("package/index.js"), signal, defaultLimits, undefined, { npm: true })[0]?.path
+  ).toBe("package/index.js");
+  throws(() => tarEntries(legacy("../escape"), signal, defaultLimits, undefined, { npm: true }));
+  throws(() =>
+    tarEntries(legacy("package/link", "2"), signal, defaultLimits, undefined, { npm: true })
+  );
 });
 
 test("verified packaged evidence and pure binary decoder retain exact notices and reject tampering/links", async () => {
@@ -312,4 +341,64 @@ test("GitHub release permits one pinned asset-host redirect and refuses other ta
   ])
     await rejects(collect(location), { reason: "audit-required" });
   await rejects(collect(target, 302), { reason: "install-failed" });
+});
+
+test("frozen web dependencies reject substituted bytes and unsafe paths before installation", async () => {
+  const f = exactFixture("tar.gz");
+  const bytes = gzipSync(tar("package/index.js"));
+
+  const pin = {
+    location: "node_modules/example",
+    name: "example",
+    version: "1.0.0",
+    url: "https://registry.npmjs.org/example/-/example-1.0.0.tgz",
+    integrity: digest(bytes),
+    registryIntegrity: "sha512-" + createHash("sha512").update(bytes).digest("base64"),
+    license: "MIT",
+  };
+
+  const signal = new AbortController().signal;
+  const download = httpsArtifactDownload(async () => new Response(bytes));
+
+  const run = (change = {}) =>
+    webDependencies({ root: "root", packages: [{ ...pin, ...change }] }, f.exact, signal, download);
+
+  expect((await run())[0]?.path).toBe("node_modules/example/index.js");
+  await rejects(run({ integrity: digest(Buffer.from("substitution")) }), {
+    reason: "audit-required",
+  });
+  await rejects(run({ registryIntegrity: "sha512-incorrect" }), { reason: "audit-required" });
+  await rejects(run({ url: "https://example.com/payload.tgz" }), { reason: "audit-required" });
+  await rejects(run({ location: "elsewhere/example" }), { reason: "audit-required" });
+  await rejects(run({ location: "node_modules/../escape" }));
+
+  const typesBytes = gzipSync(tar("estree/index.d.ts"));
+
+  const typesPin = {
+    ...pin,
+    name: "@types/estree",
+    location: "node_modules/@types/estree",
+    integrity: digest(typesBytes),
+    registryIntegrity: "sha512-" + createHash("sha512").update(typesBytes).digest("base64"),
+  };
+
+  const typesDownload = httpsArtifactDownload(async () => new Response(typesBytes));
+
+  const typesEntries = await webDependencies(
+    { root: "root", packages: [typesPin] },
+    f.exact,
+    signal,
+    typesDownload
+  );
+
+  expect(typesEntries[0]?.path).toBe("node_modules/@types/estree/index.d.ts");
+  await rejects(
+    webDependencies(
+      { root: "root", packages: [{ ...typesPin, name: "other" }] },
+      f.exact,
+      signal,
+      typesDownload
+    ),
+    { reason: "install-failed" }
+  );
 });

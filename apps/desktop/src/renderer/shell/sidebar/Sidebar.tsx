@@ -3,10 +3,11 @@
  * Workspace bar, or the selected machine's sessions grouped by Workspace in
  * the machine bar; the Sessions / Needs you switch; "Needs you elsewhere".
  */
+import { clientCopy } from "../../../shared/clientCopy.ts";
 import type { Workspace } from "@polaris/protocol";
 import {
-  ChevronDownIcon,
-  ChevronRightIcon,
+  Button,
+  DisclosureChevron,
   GearIcon,
   IconButton,
   Kbd,
@@ -16,8 +17,13 @@ import {
 } from "@polaris/ui";
 import { useMemo } from "react";
 import { slots } from "../../app/slots.tsx";
-import { useNeedsYouCount } from "../../features/needs-you/index.ts";
-import { useConstellationCount } from "../../features/sessions/index.ts";
+import { useDismissAll, useNeedsYouCount } from "../../features/needs-you/index.ts";
+import {
+  ReviewsGroup,
+  reviewsKey,
+  sectionsOf,
+  useConstellationCount,
+} from "../../features/sessions/index.ts";
 import { type SidebarView, sessionOrder, workspaceKey } from "../../routes/selection.ts";
 import { activeSessions, shownState, shownWorkspaces } from "../../routes/topBar.ts";
 import { emptyHostModel, type HostModel, type SessionEntry } from "../../store/hostModel.ts";
@@ -28,6 +34,7 @@ import { useApp, useNav, useSelection, useShellActions } from "../hooks.ts";
 import { useNow } from "../useNow.ts";
 import { Elsewhere } from "./Elsewhere.tsx";
 import { CompactSessionRow } from "./SessionRow.tsx";
+import { commandShortcut } from "../../../shared/keymap.ts";
 
 const useHostModel = (hostKey: string | null) =>
   useApp((s) => (hostKey === null ? undefined : s.hostModels[hostKey])) ?? emptyHostModel;
@@ -65,21 +72,50 @@ interface HeaderProps {
   readonly host?: HostView | undefined;
 }
 
+/** Paper 10: in the Needs you view the header is the inbox's, with Dismiss all. */
+const useInboxHeader = () => {
+  const { sidebar } = useSelection();
+  const { items, dismissAll } = useDismissAll();
+
+  if (sidebar !== "needs-you") return null;
+
+  return {
+    caption: items.length === 0 ? "Nothing waiting" : `${items.length} waiting`,
+    dismissAll: items.length === 0 ? null : dismissAll,
+  };
+};
+
 const Header = ({ title, caption, canStart, host }: HeaderProps) => {
   const { startNewSession } = useShellActions();
+  const inbox = useInboxHeader();
 
   return (
     <div className="px-panel pt-panel flex flex-col gap-3 pb-2">
       <div className="flex items-center gap-2">
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <h1 className="text-heading text-text-strong truncate">{title}</h1>
-          <p className="text-caption text-text-subtle truncate">{caption}</p>
+          <h1 className="text-heading text-text-strong truncate">
+            {inbox === null ? title : "Inbox"}
+          </h1>
+          <p className="text-caption text-text-subtle tabular truncate">
+            {inbox === null ? caption : inbox.caption}
+          </p>
         </div>
+        {inbox?.dismissAll ? (
+          <Button
+            variant="ghost"
+            size="xs"
+            data-testid="dismiss-all"
+            title={`Dismiss every item on ${clientCopy().machine} · each comes back if its session changes`}
+            onClick={inbox.dismissAll}
+          >
+            Dismiss all
+          </Button>
+        ) : null}
         {canStart ? (
           <IconButton
             label="New session"
             icon={<PlusIcon />}
-            shortcut="⌘N"
+            shortcut={commandShortcut("session.new")}
             onClick={startNewSession}
           />
         ) : null}
@@ -106,10 +142,14 @@ const WorkspaceSessions = ({ hostKey, model, workspace }: WorkspaceListProps) =>
 
   return (
     <div className="flex flex-col gap-0.5 px-2 pt-2">
-      <SectionHeader empty={entries.length === 0 ? `None in ${workspace.name}` : undefined}>
-        Sessions
-      </SectionHeader>
-      <slots.SessionList hostKey={hostKey} model={model} entries={entries} now={now} />
+      <slots.SessionList
+        hostKey={hostKey}
+        model={model}
+        entries={entries}
+        now={now}
+        scope={workspaceKey(hostKey, workspace.id)}
+        empty={`None in ${workspace.name}`}
+      />
     </div>
   );
 };
@@ -136,8 +176,10 @@ const MachineGroup = ({
   const folded = useNav((s) => s.folded[key]);
   const { sessionId } = useSelection();
 
+  // Pinned and Reviews sessions sit in their own sections above and below the groups.
   const entries = useMemo(
-    () => [...activeSessions(model, workspace.id)].sort(sessionOrder),
+    () =>
+      sectionsOf([...activeSessions(model, workspace.id)].sort(sessionOrder), (e) => e).sessions,
     [model, workspace.id]
   );
 
@@ -157,11 +199,7 @@ const MachineGroup = ({
         onClick={() => toggleFolded(key, !open)}
         className="h-tree-row text-caption flex cursor-default items-center gap-1.5 px-2"
       >
-        {open ? (
-          <ChevronDownIcon size={10} className="text-text-faint" />
-        ) : (
-          <ChevronRightIcon size={10} className="text-text-faint" />
-        )}
+        <DisclosureChevron open={open} className="text-text-faint" />
         <span
           className="text-text-subtle flex-1 truncate text-left font-medium"
           title={workspace.path}
@@ -201,7 +239,7 @@ const Footer = ({ caption }: { readonly caption: string }) => {
       <span className="text-caption text-text-subtle min-w-0 truncate">{caption}</span>
       <IconButton
         label="Settings"
-        shortcut="⌘,"
+        shortcut={commandShortcut("settings.open")}
         size="sm"
         icon={<GearIcon size={14} />}
         className="text-text-subtle"
@@ -315,6 +353,7 @@ const MachineSidebar = () => {
         <slots.NeedsYouInbox />
       ) : (
         <>
+          <MachinePinned hostKey={hostKey} model={model} now={now} />
           {workspaces.map((workspace) => (
             <MachineGroup
               key={workspace.id}
@@ -324,10 +363,65 @@ const MachineSidebar = () => {
               now={now}
             />
           ))}
+          <MachineReviews hostKey={hostKey} model={model} now={now} />
           <Elsewhere hostKey={hostKey} workspaceId={null} />
         </>
       )}
     </SidebarFrame>
+  );
+};
+
+interface MachineSectionProps {
+  readonly hostKey: string;
+  readonly model: HostModel;
+  readonly now: number;
+}
+
+/** The machine's sections across its shown Workspaces (Paper 12b). */
+const useMachineSections = (model: HostModel) =>
+  useMemo(() => {
+    const shown = new Set(shownWorkspaces(model).map((w) => w.id));
+
+    const entries = activeSessions(model)
+      .filter((e) => shown.has(e.session.workspaceId))
+      .sort(sessionOrder);
+
+    return sectionsOf(entries, (e) => e);
+  }, [model]);
+
+const compactRows = (hostKey: string, entries: ReadonlyArray<SessionEntry>, now: number) =>
+  entries.map((entry) => (
+    <CompactSessionRow
+      key={entry.session.id}
+      hostKey={hostKey}
+      entry={entry}
+      now={now}
+      meta={age(entry.session.createdAt, now)}
+    />
+  ));
+
+const MachinePinned = ({ hostKey, model, now }: MachineSectionProps) => {
+  const { pinned } = useMachineSections(model);
+
+  if (pinned.length === 0) return null;
+
+  return (
+    <div className="flex flex-col px-2 pt-2">
+      <SectionHeader>Pinned</SectionHeader>
+      {compactRows(hostKey, pinned, now)}
+    </div>
+  );
+};
+
+const MachineReviews = ({ hostKey, model, now }: MachineSectionProps) => {
+  const { reviews } = useMachineSections(model);
+
+  return (
+    <div className="flex flex-col px-2">
+      <ReviewsGroup foldKey={reviewsKey(hostKey)} entries={reviews}>
+        {compactRows(hostKey, reviews, now)}
+      </ReviewsGroup>
+    </div>
   );
 };
 

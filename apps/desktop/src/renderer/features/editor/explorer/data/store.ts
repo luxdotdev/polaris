@@ -5,7 +5,7 @@
  */
 import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
-import type { GitMarks } from "../model/git.ts";
+import type { GitMarks, StatusEntry } from "../model/git.ts";
 import type { Listing } from "../model/tree.ts";
 
 export type ExplorerView = "files" | "changes";
@@ -20,6 +20,8 @@ export interface GitFacts {
   readonly branch: string | null;
   readonly ahead: number;
   readonly marks: GitMarks;
+  /** The raw entries, relative to `toplevel`: the Changes tab's Staged and Changes lists. */
+  readonly entries: ReadonlyArray<StatusEntry>;
 }
 
 /** A row being typed into: a new file or folder in `dir`, or a rename of `path`. */

@@ -1,10 +1,27 @@
-import type { ConstellationNotification } from "@polaris/protocol";
+import type { ConstellationEvent, ConstellationNotification, StallAudit } from "@polaris/protocol";
 import { Match, Predicate } from "effect";
 import type { ConstellationRecord } from "../../store/constellation.ts";
-
+import { capacityBlocked, failureKindLabel } from "../failureKind.ts";
+import { auditLines, dueAudit } from "../stall.ts";
 import { proposalDetails } from "../status.ts";
 
 const line = (text: string) => text.replace(/\s+/g, " ").trim();
+
+const settledLine = (
+  record: ConstellationRecord,
+  task: string,
+  i: Extract<ConstellationNotification["item"], { _tag: "Settled" }>
+) => {
+  const reason = line(record.graph.attempts.find((a) => a.id === i.attemptId)?.settleReason ?? "");
+
+  if (i.state === "failed" && i.failureKind === "capacity")
+    return `${task}: ${capacityBlocked(i.resetsAt)}: ${reason}. Polaris will not redispatch it; dispatch it again after the reset or on another Model.`;
+
+  if (i.state === "failed" && i.failureKind !== null)
+    return `${task}: failed (${failureKindLabel(i.failureKind)}): ${reason}`.trim();
+
+  return `${task}: ${i.state === "rejected" ? "sent back" : i.state}.`;
+};
 
 export const notificationLine = (record: ConstellationRecord, n: ConstellationNotification) => {
   const worker = (id: string) => record.graph.attempts.find((a) => a.id === id)?.taskId ?? id;
@@ -16,10 +33,7 @@ export const notificationLine = (record: ConstellationRecord, n: ConstellationNo
         `${i.taskId}: blocked${i.on.length === 0 ? " awaiting the Lead" : ` by ${i.on.join(", ")}`}: ${line(i.reason)}`
     ),
     Match.tag("Stopped", (i) => `${i.taskId} stopped without claiming.`),
-    Match.tag(
-      "Settled",
-      (i) => `${worker(i.attemptId)}: ${i.state === "rejected" ? "sent back" : i.state}.`
-    ),
+    Match.tag("Settled", (i) => settledLine(record, worker(i.attemptId), i)),
     Match.tag("Approved", (i) => {
       const attempt = record.graph.attempts.find((a) => a.id === i.attemptId);
 
@@ -70,10 +84,18 @@ export const wakesLead = (n: ConstellationNotification) =>
     Match.exhaustive
   );
 
-export const digestDelay = (record: ConstellationRecord): number | null => {
+export const digestDelay = (
+  record: ConstellationRecord,
+  sessions?: ReadonlyMap<
+    ConstellationRecord["graph"]["leadSessionId"],
+    import("../../store/model.ts").SessionRecord
+  >
+): number | null => {
   const pending = record.graph.pendingNotifications;
 
-  if (!pending.some(wakesLead)) return null;
+  // A stall audit is Lead-worthy on its own and shares the Claim window; no extra timer.
+  if (!pending.some(wakesLead) && (sessions === undefined || dueAudit(record, sessions) === null))
+    return null;
 
   const blocking = pending.some(
     (n) =>
@@ -87,9 +109,34 @@ export const digestDelay = (record: ConstellationRecord): number | null => {
     : (record.graph.settings.claimCoalescingMs ?? 20000);
 };
 
-export const digestPrompt = (record: ConstellationRecord) =>
+const digestBody = (
+  record: ConstellationRecord,
+  items: ReadonlyArray<ConstellationNotification>,
+  audit: StallAudit | null
+) => [
+  `Polaris · ${record.graph.name} · revision ${record.graph.revision}`,
+  ...items.map((n) => notificationLine(record, n)),
+  ...(audit === null ? [] : auditLines(audit)),
+  "Next: review Claims, answer open questions, then dispatch ready Tasks. Use status for details.",
+];
+
+export const digestPrompt = (record: ConstellationRecord, audit: StallAudit | null = null) =>
+  digestBody(record, record.graph.pendingNotifications, audit).join("\n");
+
+/** The same digest, worded for a Lead that hears it mid-Turn. */
+export const steeredDigestPrompt = (
+  record: ConstellationRecord,
+  notified: Extract<ConstellationEvent, { _tag: "LeadNotified" }>
+) =>
   [
-    `Polaris · ${record.graph.name} · revision ${record.graph.revision}`,
-    ...record.graph.pendingNotifications.map((n) => notificationLine(record, n)),
-    "Next: review Claims, answer open questions, then dispatch ready Tasks. Use status for details.",
+    "This update arrived during your Turn. Fold it into your current work; it is not a new request.",
+    ...digestBody(
+      record,
+      notified.items.flatMap((id) => {
+        const n = record.notifications.get(id);
+
+        return n === undefined ? [] : [n];
+      }),
+      notified.audit
+    ),
   ].join("\n");

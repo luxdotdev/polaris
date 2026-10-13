@@ -28,7 +28,7 @@ const Bubble = ({
 }) => (
   <div className="flex flex-col items-end gap-1.5" data-testid={testId}>
     {above}
-    <p className={cn(BUBBLE, "transition-opacity duration-200", faded && "opacity-60")}>
+    <p className={cn(BUBBLE, "transition-opacity duration-200 ease-out", faded && "opacity-60")}>
       {softWrap(text)}
     </p>
     <div className="text-caption text-text-subtle flex h-5 max-w-[340px] items-center gap-2">
@@ -38,9 +38,17 @@ const Bubble = ({
 );
 
 /** A steer the Harness took, in the Turn where it landed. */
-export const Steered = ({ text }: { readonly text: string }) => (
+export const Steered = ({
+  text,
+  time = null,
+}: {
+  readonly text: string;
+  readonly time?: ReactNode;
+}) => (
   <Bubble text={text} testId="steered">
     Steered this turn
+    {time === null ? null : <span aria-hidden="true">·</span>}
+    {time}
   </Bubble>
 );
 

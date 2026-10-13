@@ -68,11 +68,29 @@ function octal(header: Buffer, start: number, length: number) {
   return value;
 }
 
-function archivePath(header: Buffer, gnu: boolean, longPath?: string) {
+/** `npm` accepts legacy npm pack headers; `gnuHeaders` accepts GNU headers without a selector. */
+interface TarOptions {
+  readonly npm?: boolean;
+  readonly gnuHeaders?: boolean;
+}
+
+function archivePath(header: Buffer, gnu: boolean, longPath?: string, npm = false) {
   const name = text(header, 0, 100);
 
   if (gnu && header[156] === 76 && name === "././@LongLink") return null;
-  const prefix = gnu ? "" : text(header, 345, 155);
+
+  const legacyNpm =
+    npm &&
+    header.subarray(345, 476).every((byte) => byte === 0) &&
+    header.subarray(476, 500).some((byte) => byte !== 0) &&
+    header.subarray(500).every((byte) => byte === 0);
+
+  if (legacyNpm) {
+    octal(header, 476, 12);
+    octal(header, 488, 12);
+  }
+
+  const prefix = gnu || legacyNpm ? "" : text(header, 345, 155);
   let path = longPath ?? (prefix ? `${prefix}/${name}` : name);
 
   if (header[156] === 53 && path.endsWith("/")) path = path.slice(0, -1);
@@ -101,7 +119,7 @@ function entry(
   header: Buffer,
   select?: (path: string) => boolean,
   longPath?: string,
-  gnuHeaders = false
+  options: TarOptions = {}
 ) {
   let sum = 0;
 
@@ -113,10 +131,10 @@ function entry(
   const magic = text(header, 257, 6);
   const gnu = magic === "ustar " && header[263] === 32 && header[264] === 0;
 
-  if (magic !== "ustar" && !(gnu && (select !== undefined || gnuHeaders)))
+  if (magic !== "ustar" && !(gnu && (select !== undefined || options.gnuHeaders === true)))
     throw failure("install-failed", "Unsupported archive header format");
   const type = header[156];
-  const path = archivePath(header, gnu, longPath);
+  const path = archivePath(header, gnu, longPath, options.npm);
 
   if (path === null && select === undefined)
     throw failure("install-failed", "Unselected archive extensions are not permitted");
@@ -159,7 +177,7 @@ export function tarEntries(
   signal: AbortSignal,
   limits: InstallLimits = defaultLimits,
   select?: (path: string) => boolean,
-  gnuHeaders = false
+  options: TarOptions = {}
 ) {
   if (bytes.length > limits.expandedBytes + limits.entries * 1024)
     throw failure("too-large", "Archive exceeds expansion and header limits");
@@ -182,7 +200,7 @@ export function tarEntries(
     }
 
     if (++count > limits.entries) throw failure("too-large", "Archive entry count exceeds limit");
-    const parsed = entry(header, select, longPath, gnuHeaders);
+    const parsed = entry(header, select, longPath, options);
     expanded += parsed.size;
 
     if (parsed.size > limits.fileBytes || expanded > limits.expandedBytes)

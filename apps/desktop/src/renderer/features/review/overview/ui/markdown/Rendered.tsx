@@ -7,6 +7,7 @@ import "../../../../session/ui/markdown/markdown.css";
 import "./review-md.css";
 import { type ReactNode, useMemo } from "react";
 import { type Components, defaultRehypePlugins, Streamdown } from "streamdown";
+import { COPY_CODE } from "../../../../session/ui/markdown/copyControls.tsx";
 import { needsOf } from "../../../../session/ui/markdown/needs.ts";
 import { usePlugins } from "../../../../session/ui/markdown/plugins.ts";
 import { POLARIS_SHIKI } from "../../../../session/ui/markdown/theme.ts";
@@ -29,6 +30,7 @@ const Rendered = ({ markdown, paths, renderLink }: RenderedProps) => {
   );
 
   const components: Components = {
+    ...COPY_CODE,
     a: ({ href, children }) => {
       const link = linkOf(href ?? "");
 
@@ -54,7 +56,7 @@ const Rendered = ({ markdown, paths, renderLink }: RenderedProps) => {
       plugins={plugins.code === undefined ? {} : { code: plugins.code }}
       rehypePlugins={rehype}
       components={components}
-      controls={{ code: { copy: true, download: false }, table: false }}
+      controls={{ code: { copy: false, download: false }, table: false }}
       shikiTheme={[POLARIS_SHIKI, POLARIS_SHIKI]}
       linkSafety={{ enabled: false }}
       lineNumbers={false}

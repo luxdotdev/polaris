@@ -2,7 +2,7 @@
  * The language server log tab (DESIGN.md, Editor: Language server log; Paper L6): read-only,
  * a toolbar with the server, counts as filters, Find, Wrap, Follow and Copy all, then mono lines.
  */
-import { cn } from "@polaris/ui";
+import { cn, CopyButton } from "@polaris/ui";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { logKey, useServerLog, type LogLevel, type LogLine, type LogScope } from "./log.ts";
 import {
@@ -14,6 +14,7 @@ import {
   timeText,
   visibleLines,
 } from "./logModel.ts";
+import { shortcutLabel } from "../../../../shared/chord.ts";
 
 export interface LogViewProps {
   readonly scope: LogScope;
@@ -128,7 +129,6 @@ export const LogView = ({ scope, server, detail }: LogViewProps) => {
   const [finding, setFinding] = useState(false);
   const [query, setQuery] = useState("");
   const [wrap, setWrap] = useState(false);
-  const [copied, setCopied] = useState(false);
   const find = useRef<HTMLInputElement>(null);
   const total = counts(lines);
   const shown = useMemo(() => visibleLines(lines, { only, query }), [lines, only, query]);
@@ -147,13 +147,6 @@ export const LogView = ({ scope, server, detail }: LogViewProps) => {
 
       return next;
     });
-
-  const copy = () => {
-    void navigator.clipboard
-      ?.writeText(copyText(shown))
-      .then(() => setCopied(true))
-      .catch(() => undefined);
-  };
 
   return (
     <section
@@ -203,7 +196,9 @@ export const LogView = ({ scope, server, detail }: LogViewProps) => {
             className="rounded-control border-hairline bg-surface-sunken text-caption text-text-default focus-visible:outline-starlight h-6 w-44 border px-2 font-mono focus-visible:outline-2"
           />
         ) : (
-          <ToolbarButton onClick={() => setFinding(true)}>Find ⌘F</ToolbarButton>
+          <ToolbarButton onClick={() => setFinding(true)}>
+            Find {shortcutLabel("CmdOrCtrl+F")}
+          </ToolbarButton>
         )}
         <ToolbarButton pressed={wrap} onClick={() => setWrap((value) => !value)}>
           Wrap
@@ -218,9 +213,11 @@ export const LogView = ({ scope, server, detail }: LogViewProps) => {
           />
           Follow
         </ToolbarButton>
-        <ToolbarButton strong onClick={copy}>
-          {copied ? "Copied" : "Copy all"}
-        </ToolbarButton>
+        <CopyButton
+          text={() => copyText(shown)}
+          label="Copy all"
+          className="rounded-control text-text-strong h-6 px-2.5 font-medium"
+        />
       </div>
       <div
         ref={scroller}

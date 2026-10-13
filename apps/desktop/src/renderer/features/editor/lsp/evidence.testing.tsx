@@ -168,7 +168,7 @@ if (root === null) throw new Error("Missing fixture root");
 
 const navigation = createNavigation({ app: store, storage: null });
 
-const commands = createCommandRegistry({ mac: true });
+const commands = createCommandRegistry({ platform: "mac" });
 
 createRoot(root).render(
   <AppProvider value={{ connection, navigation, commands }}>

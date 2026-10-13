@@ -16,6 +16,7 @@ import {
 } from "@polaris/protocol";
 import { Context, Effect, Layer, Predicate } from "effect";
 import { revertAfterAccept } from "../accept/reactor.ts";
+import { sessionRestartNote } from "../constellation/restartNote.ts";
 import type { HarnessError } from "../harness/HarnessDriver.ts";
 import type { ServiceError } from "../services.ts";
 import type { CommitResult } from "../store/EventStore.ts";
@@ -106,18 +107,22 @@ const make = Effect.gen(function* () {
       });
     });
 
-  const continueTurn = (sessionId: SessionId, { result }: Committed) => {
-    const turn = turnFrom(result.envelopes);
+  /** Continue resumes the same Turn; after a restart it names the background work that was lost. */
+  const continueTurn = (sessionId: SessionId, { result }: Committed) =>
+    Effect.gen(function* () {
+      const turn = turnFrom(result.envelopes);
 
-    return turn === undefined
-      ? Effect.void
-      : supervisor.runTurn({
-          sessionId,
-          turnId: turn.id,
-          prompt: CONTINUE_PROMPT,
-          attachments: [],
-        });
-  };
+      if (turn === undefined) return;
+      // Read as of just before this commit: its TurnStarted would clear the note.
+      const before = result.envelopes[0]!.sequence - 1;
+      const note = yield* sessionRestartNote(rt.store, sessionId, before);
+      yield* supervisor.runTurn({
+        sessionId,
+        turnId: turn.id,
+        prompt: note === null ? CONTINUE_PROMPT : `${CONTINUE_PROMPT}\n\n${note}`,
+        attachments: [],
+      });
+    });
 
   const interrupt = (sessionId: SessionId) =>
     Effect.gen(function* () {
@@ -126,6 +131,17 @@ const make = Effect.gen(function* () {
       if (entry !== undefined) return yield* entry.session.interrupt;
       // No Harness is running the Turn; end it here.
       yield* rt.signal(sessionId, { type: "turn.interruptUnattended", at: yield* rt.now });
+    });
+
+  /** The live Harness stops the tasks; its next `BackgroundTasksChanged` drops them. */
+  const stopBackground = (sessionId: SessionId, taskIds: ReadonlyArray<string> | null) =>
+    Effect.gen(function* () {
+      const entry = live.get(sessionId);
+      const record = (yield* rt.store.model).sessions.get(sessionId);
+
+      if (entry?.session.stopBackground === undefined || record === undefined) return;
+      const ids = taskIds ?? record.session.backgroundTasks.map((task) => task.id);
+      yield* entry.session.stopBackground(ids);
     });
 
   const respond = (
@@ -210,6 +226,7 @@ const make = Effect.gen(function* () {
           () => live.get(command.sessionId)?.session.steer(command.text) ?? Effect.void
         ),
       Interrupt: (command) => interrupt(command.sessionId),
+      StopBackgroundTasks: (command) => stopBackground(command.sessionId, command.taskIds),
       RespondToApproval: (command) =>
         respond(command.sessionId, command.requestId, command.decision),
       SetPermissionMode: (command) =>
@@ -229,6 +246,9 @@ const make = Effect.gen(function* () {
       SetWorktreeSetup: () => Effect.void,
       SetWorkspaceHidden: () => Effect.void,
       RenameSession: () => Effect.void,
+      PinSession: () => Effect.void,
+      // LimitResume follows the committed event and schedules the Continue.
+      SetResumeAtReset: () => Effect.void,
       SendFeedback: (command) => runStartedTurn(command.sessionId, committed.result.envelopes),
       AcceptTurns: (command) => revertAfterAccept(rt.store, command),
       LinkPullRequest: () => Effect.void,

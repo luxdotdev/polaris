@@ -18,7 +18,14 @@ import { notWorkers } from "../../review/model/queue.ts";
 import { sessionsOf } from "../../review/model/sessions.ts";
 import { checkoutsByPull } from "../model/checkouts.ts";
 import { type GroupId, listModel, type PlaceOf, readyInfos, type RowModel } from "../model/list.ts";
-import { noticesOf } from "../model/notices.ts";
+import {
+  EMPTY_LIST,
+  emptyOf,
+  githubNoticeOf,
+  githubStateOf,
+  showsCaption,
+} from "../model/githubState.ts";
+import { accountNotice, noticesOf } from "../model/notices.ts";
 import { usePulls } from "../store.ts";
 import { AccountMark } from "./AccountMark.tsx";
 import { ByUrl } from "./ByUrl.tsx";
@@ -221,8 +228,6 @@ export const PullList = ({ onAddAccount }: PullListProps) => {
   const changesOf = useSessionChanges(ready, acceptLatest);
 
   const model = useMemo(() => {
-    if (list === null) return null;
-
     const hostOf = (hostKey: string) => {
       const host = hosts.find((h) => h.key === hostKey);
 
@@ -243,7 +248,7 @@ export const PullList = ({ onAddAccount }: PullListProps) => {
     );
 
     return listModel({
-      list,
+      list: list ?? EMPTY_LIST,
       accounts,
       accountId,
       placeOf,
@@ -282,19 +287,9 @@ export const PullList = ({ onAddAccount }: PullListProps) => {
   const openRow = (row: RowModel) =>
     row.kind === "pull" ? open(row.pull) : openSessionReview(actions, row.hostKey, row.sessionId);
 
-  const signedIn = accounts?.accounts.some((a) => a.state === "ok") ?? false;
-
-  const empty = (() => {
-    if (accounts === null) return "loading";
-
-    if (!accounts.storageAvailable && !signedIn) return "no-keychain";
-
-    if (!signedIn) return "signed-out";
-
-    if (model === null || list?.updatedAt === null) return "loading";
-
-    return model.total === 0 ? "none" : null;
-  })();
+  const github = githubStateOf(accounts, list);
+  const empty = emptyOf(github, model.total);
+  const accountState = githubNoticeOf(github, model.total);
 
   return (
     <section
@@ -303,23 +298,19 @@ export const PullList = ({ onAddAccount }: PullListProps) => {
     >
       <div className="flex items-end gap-4">
         <div className="min-w-0 flex-1">
-          <Header
-            caption={
-              empty === "signed-out" || empty === "no-keychain"
-                ? null
-                : (model?.caption ?? "Checking GitHub…")
-            }
-          />
+          <Header caption={showsCaption(github) ? model.caption : null} />
         </div>
-        <AccountFilter accounts={model?.accounts ?? []} value={accountId} onChange={setAccountId} />
+        <AccountFilter accounts={model.accounts} value={accountId} onChange={setAccountId} />
         <ByUrl onOpen={open} />
       </div>
+      {accountState === null ? null : (
+        <NoticeRow notice={accountNotice(accountState)} onAddAccount={onAddAccount} />
+      )}
       {notices.map((notice) => (
         <NoticeRow key={notice.key} notice={notice} onAddAccount={onAddAccount} />
       ))}
-      {empty !== null || model === null ? (
-        <Empty kind={empty ?? "loading"} onAddAccount={onAddAccount} />
-      ) : (
+      {empty !== null ? <Empty kind={empty} onAddAccount={onAddAccount} /> : null}
+      {model.total === 0 ? null : (
         <div className="flex flex-col gap-0.5" onKeyDown={moveFocus} role="presentation">
           <ColumnHeads />
           {model.groups.map((group) => (

@@ -6,6 +6,7 @@ import { polaris } from "../../bridge.ts";
 import { fileKey } from "../model/drafts.ts";
 import { useTrustStatus } from "../trust/store.ts";
 import { useInterpreters } from "../python/store.ts";
+import { useDialect } from "../sql/store.ts";
 import { logKey, useServerLog } from "./log.ts";
 import { watchHostTools } from "./feed.ts";
 import { statusView, type StatusView } from "./model.ts";
@@ -29,6 +30,7 @@ export const useLanguageStatus = (
   const trust = useTrustStatus(key);
   const tools = useHostTools(hostKey);
   const python = useInterpreters(key);
+  const sql = useDialect(key);
 
   const log = useServerLog(
     file?.checkout == null
@@ -69,11 +71,12 @@ export const useLanguageStatus = (
       workspace,
       now: Date.now(),
       python,
+      sql,
       lastLogLine: log?.lines.at(-1)?.text ?? null,
     });
 
     return { ...view, file };
-  }, [file, runtimes, trust, tools, host, workspace, language, hostKey, python, log]);
+  }, [file, runtimes, trust, tools, host, workspace, language, hostKey, python, sql, log]);
 };
 
 /** Install facts for the Host while something needs them; the watch ends with the need. */

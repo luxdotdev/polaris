@@ -5,6 +5,7 @@
 import type { TaskState } from "@polaris/protocol";
 import { Predicate } from "effect";
 import { idRanges, span } from "./copy.ts";
+import { neutralFailure } from "./failure.ts";
 import type { Facts, WorkerFacts } from "./facts.ts";
 import { currentSetup, type SetupRun } from "./setup.ts";
 import type { AttemptData, ConstellationData, ProjectionData, TaskData } from "./types.ts";
@@ -161,7 +162,7 @@ const wordFor = (task: TaskData, p: ProjectionData, attempt: AttemptData | null,
   if (p.state === "working" && attempt !== null) return `working · ${span(attempt.startedAt, now)}`;
 
   if (task.kind === "gate" && (p.state === "waiting" || p.state === "ready"))
-    return p.blockedBy.length > 0 ? `waits ${idRanges(p.blockedBy)}` : "ready";
+    return p.blockedBy.length > 0 ? `after ${idRanges(p.blockedBy)}` : "ready";
 
   return STATE_WORD[p.state];
 };
@@ -233,6 +234,29 @@ export const taskLook = (
       evidence: null,
       attention: null,
       bucket: "working",
+    };
+
+  // A working Attempt with no Turn in flight is waiting, never "working" (F9).
+  if (projection.state === "working" && attempt !== null && worker?.activeTurn === false)
+    return {
+      glyph: "waiting",
+      idTone: "neutral",
+      word: `waiting · ${span(worker.quietSince ?? attempt.startedAt, facts.now)}`,
+      wordTone: "neutral",
+      evidence: null,
+      attention: null,
+      bucket: "waiting",
+    };
+
+  if (projection.state === "failed" && neutralFailure(attempt?.failureKind))
+    return {
+      glyph: "stopped",
+      idTone: "neutral",
+      word: attempt?.failureKind === "capacity" ? "usage limit" : "failed",
+      wordTone: "neutral",
+      evidence: null,
+      attention: null,
+      bucket: BUCKET.failed,
     };
   const tone = toneOf(projection.state);
 

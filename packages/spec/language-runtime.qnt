@@ -1,6 +1,6 @@
 /** Ephemeral Host process state: no draft text or executable configuration is durable model data. */
 module language_runtime {
-  type Signal = Demand | Ready | Empty | Grace | Fail(bool) | Retry | Disconnect | Revoke | Restart | Stop | Window(int) | Change
+  type Signal = Demand | Ready | Empty | Grace | Evict | Fail(bool) | Retry | Disconnect | Revoke | Restart | Stop | Window(int) | Change
   var phase: str
   var attempts: int
   action init = all { phase' = "stopped", attempts' = 0 }
@@ -15,6 +15,7 @@ module language_runtime {
     | Ready => if (p == "starting") "ready" else p
     | Empty => if (Set("starting", "ready").contains(p)) "grace" else if (p == "backoff") "stopped" else p
     | Grace => if (p == "grace") "stopped" else p
+    | Evict => if (p == "grace") "stopped" else p
     | Fail(retry) => if (Set("starting", "ready", "grace").contains(p)) { if (retry) "backoff" else "failed" } else p
     | Retry => if (p == "backoff") "starting" else p
   }
@@ -28,7 +29,7 @@ module language_runtime {
     },
   }
   action step = {
-    nondet e = Set(Demand, Ready, Empty, Grace, Fail(attempts < 2), Retry, Disconnect, Revoke, Restart, Stop, Change, Window(0)).oneOf()
+    nondet e = Set(Demand, Ready, Empty, Grace, Evict, Fail(attempts < 2), Retry, Disconnect, Revoke, Restart, Stop, Change, Window(0)).oneOf()
     publish(e)
   }
   val safety = all {
@@ -39,6 +40,10 @@ module language_runtime {
 
 module language_runtime_test {
   import language_runtime.* from "./language-runtime"
+  run evictionTest = init.then(publish(Demand)).then(publish(Ready))
+    .then(publish(Evict)).expect(phase == "ready")
+    .then(publish(Empty)).then(publish(Evict)).expect(phase == "stopped" and attempts == 0 and safety)
+    .then(publish(Demand)).expect(phase == "starting")
   run demandGraceTest = init.then(publish(Demand)).then(publish(Ready)).then(publish(Empty))
     .expect(phase == "grace").then(publish(Demand)).expect(phase == "ready")
     .then(publish(Empty)).then(publish(Grace)).expect(phase == "stopped" and safety)

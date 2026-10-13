@@ -198,7 +198,13 @@ test("configuration correspondence, registration/removal, progress and unsupport
       jsonrpc: "2.0",
       id: 2,
       method: "client/registerCapability",
-      params: { registrations: [{ id: "hover", method: "textDocument/hover" }] },
+      params: {
+        registrations: [
+          { id: "hover", method: "textDocument/hover" },
+          { id: "folders", method: "workspace/didChangeWorkspaceFolders", registerOptions: {} },
+          { id: "settings", method: "workspace/didChangeConfiguration" },
+        ],
+      },
     });
     f.bridge.receive({
       jsonrpc: "2.0",
@@ -209,6 +215,7 @@ test("configuration correspondence, registration/removal, progress and unsupport
     f.bridge.receive({ jsonrpc: "2.0", id: 4, method: "custom/unsupported" });
     await Bun.sleep(5);
     expect(f.messages.find((value) => value.id === 1)).toHaveProperty("result", [7, null]);
+    expect(f.messages.find((value) => value.id === 2)).toHaveProperty("result", null);
     expect(f.messages.find((value) => value.id === 4)).toHaveProperty("error.code", -32601);
     f.bridge.receive({
       jsonrpc: "2.0",
@@ -225,6 +232,10 @@ test("configuration correspondence, registration/removal, progress and unsupport
     expect(f.events.some(Schema.is(LanguageContextEvent.cases.Progress))).toBe(true);
     const capabilities = f.events.filter(Schema.is(LanguageContextEvent.cases.CapabilitiesChanged));
     expect(capabilities[1]?.capabilities.methods).toContain("textDocument/hover");
+    expect(capabilities[1]?.capabilities.methods).not.toContain(
+      "workspace/didChangeWorkspaceFolders"
+    );
+    expect(capabilities[1]?.capabilities.methods).not.toContain("workspace/didChangeConfiguration");
     expect(capabilities[2]?.capabilities.methods).not.toContain("textDocument/hover");
   } finally {
     await f.close();

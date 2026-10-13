@@ -15,6 +15,7 @@ import {
   type LivenessFacts,
 } from "../../harness/constellation/liveness.ts";
 import { EventStore } from "../../store/EventStore.ts";
+import type { ReadModel } from "../../store/model.ts";
 import { latestAttempt } from "../projections.ts";
 import type { ConstellationLivenessDelegate } from "../liveness.ts";
 
@@ -26,11 +27,12 @@ export const livenessProvider = Effect.gen(function* () {
   const queued = new Map<AttemptId, number>();
   const subscribers = new Map<ConstellationId, Set<Queue.Queue<Update, Cause.Done>>>();
 
-  const wire = (attemptId: AttemptId) => {
+  const wire = (attemptId: AttemptId, activeTurn: boolean) => {
     const projected = projectLiveness(
       facts.get(attemptId) ?? emptyLiveness(),
       Date.now(),
-      queued.get(attemptId) ?? 0
+      queued.get(attemptId) ?? 0,
+      activeTurn
     );
 
     const current = projected.current;
@@ -48,8 +50,13 @@ export const livenessProvider = Effect.gen(function* () {
       lastOutputAt: projected.lastOutputAt,
       contextPercent: projected.contextPercent,
       queuedInput: projected.queuedInput,
+      activeTurn,
     });
   };
+
+  /** From the Session fold, so "working" never implies a Turn the Session does not have. */
+  const turnInFlight = (model: ReadModel, attempt: Attempt) =>
+    model.sessions.get(attempt.sessionId)?.turns.some((t) => t.status === "working") === true;
 
   const publish = Effect.fnUntraced(function* (
     sessionId: SessionId,
@@ -74,7 +81,7 @@ export const livenessProvider = Effect.gen(function* () {
 
     const item = ConstellationStreamItem.cases.LivenessChanged.make({
       attemptId: attempt.id,
-      liveness: wire(attempt.id),
+      liveness: wire(attempt.id, turnInFlight(model, attempt)),
     });
 
     for (const queue of subscribers.get(record.graph.id) ?? []) Queue.offerUnsafe(queue, item);
@@ -83,7 +90,8 @@ export const livenessProvider = Effect.gen(function* () {
   const service = {
     read: Effect.fnUntraced(function* (record) {
       const result = new Map<AttemptId, WorkerLiveness>();
-      const cut = (yield* store.model).sequence;
+      const model = yield* store.model;
+      const cut = model.sequence;
 
       for (const task of record.graph.tasks) {
         const attempt = latestAttempt(record.graph, task.id);
@@ -111,7 +119,7 @@ export const livenessProvider = Effect.gen(function* () {
           );
         }
 
-        result.set(attempt.id, wire(attempt.id));
+        result.set(attempt.id, wire(attempt.id, turnInFlight(model, attempt)));
       }
 
       return result;

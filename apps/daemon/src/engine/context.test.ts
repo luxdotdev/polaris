@@ -1,6 +1,7 @@
-import { ContextUsage } from "@polaris/protocol";
+import { ContextCategory, ContextUsage, McpServerUsage, MemoryFile } from "@polaris/protocol";
 import { describe, expect, test } from "bun:test";
-import { contextChanged } from "./context.ts";
+import { HarnessEvent } from "../harness/HarnessDriver.ts";
+import { contextChanged, contextUsageOf } from "./context.ts";
 
 const usage = (usedTokens: number, windowTokens: number | null) =>
   new ContextUsage({ usedTokens, windowTokens });
@@ -23,5 +24,88 @@ describe("contextChanged", () => {
   test("without a window, a thousand tokens is the step", () => {
     expect(contextChanged(usage(5000, null), usage(5999, null))).toBe(false);
     expect(contextChanged(usage(5000, null), usage(6000, null))).toBe(true);
+  });
+});
+
+describe("contextUsageOf", () => {
+  const breakdown = {
+    categories: [new ContextCategory({ name: "Messages", kind: "used", tokens: 30_000 })],
+    memoryFiles: [new MemoryFile({ path: "/repo/CLAUDE.md", source: "Project", tokens: 900 })],
+    countedTokens: 40_000,
+    autoCompact: true,
+  } as const;
+
+  test("a total-only report keeps the last breakdown, dated by what it was counted at", () => {
+    const counted = contextUsageOf(
+      HarnessEvent.ContextUsed({ usedTokens: 40_000, windowTokens: 200_000, breakdown }),
+      null
+    );
+
+    const later = contextUsageOf(
+      HarnessEvent.ContextUsed({ usedTokens: 52_000, windowTokens: 200_000 }),
+      counted
+    );
+
+    expect(later).toMatchObject({
+      usedTokens: 52_000,
+      categoriesTotal: 40_000,
+      autoCompact: true,
+      categories: breakdown.categories,
+      memoryFiles: breakdown.memoryFiles,
+    });
+  });
+
+  test("the finer breakdown is kept between counts and replaced by the next", () => {
+    const servers = [
+      new McpServerUsage({
+        name: "linear",
+        tools: 76,
+        loadedTools: 4,
+        tokens: 3100,
+        deferredTokens: 46_000,
+      }),
+    ];
+
+    const counted = contextUsageOf(
+      HarnessEvent.ContextUsed({
+        usedTokens: 40_000,
+        windowTokens: 200_000,
+        breakdown: { ...breakdown, mcpServers: servers, autoCompactAt: 167_000 },
+      }),
+      null
+    );
+
+    const later = contextUsageOf(
+      HarnessEvent.ContextUsed({ usedTokens: 52_000, windowTokens: 200_000 }),
+      counted
+    );
+
+    expect(later.mcpServers).toEqual(servers);
+    expect(later.autoCompactAt).toBe(167_000);
+
+    const recount = contextUsageOf(
+      HarnessEvent.ContextUsed({ usedTokens: 60_000, windowTokens: 200_000, breakdown }),
+      later
+    );
+
+    expect([recount.mcpServers, recount.autoCompactAt]).toEqual([[], null]);
+  });
+
+  test("a fresh count is recorded even when the total barely moved", () => {
+    const counted = contextUsageOf(
+      HarnessEvent.ContextUsed({ usedTokens: 40_000, windowTokens: 200_000, breakdown }),
+      null
+    );
+
+    const recount = contextUsageOf(
+      HarnessEvent.ContextUsed({
+        usedTokens: 40_100,
+        windowTokens: 200_000,
+        breakdown: { ...breakdown, countedTokens: 40_100 },
+      }),
+      counted
+    );
+
+    expect(contextChanged(counted, recount)).toBe(true);
   });
 });

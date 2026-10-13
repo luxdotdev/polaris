@@ -58,7 +58,60 @@ const SHOT_SCENES = new Map([
   ["background-hover", "background"],
   ["background-row", "background"],
   ["background-open", "background"],
+  ["context", "session"],
+  ["image", "items"],
+  ["command-open", "items"],
+  ["polaris-lead", "polaris"],
+  ["polaris-worker", "polaris"],
+  ["polaris-raw", "polaris"],
+  ["polaris-notify", "polaris"],
 ]);
+
+/** Paper 14's open rows: the Lead's calls, the worker's, and one call's raw input and reply. */
+const POLARIS_OPEN = new Map([
+  ["polaris-lead", ["p1", "p3", "p5", "p9", "p10"]],
+  ["polaris-worker", ["w1"]],
+  ["polaris-notify", ["w6", "w9", "w10"]],
+  ["polaris-raw", ["p2"]],
+]);
+
+const openPolaris = async (page: Page, scene: string) => {
+  const ids = POLARIS_OPEN.get(scene) ?? [];
+
+  const scroll = (by: number | null) =>
+    page.evaluate(
+      `(() => { const el = document.querySelector('[data-testid="conversation"]'); ${by === null ? "el.scrollTop = 0" : `el.scrollTop += ${by}`}; })()`
+    );
+
+  await scroll(null);
+
+  // The list is virtualized: scroll down until each row is mounted.
+  for (const id of ids) {
+    const line = page.locator(`[data-testid="polaris-tool"][data-item="${id}"] > button`);
+
+    // A row can unmount while the list settles; find it again and retry.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      for (let step = 0; step < 40 && (await line.count()) === 0; step++) await scroll(240);
+
+      const placed = await line
+        .scrollIntoViewIfNeeded({ timeout: 2000 })
+        .then(() => true)
+        .catch(() => false);
+
+      if (placed) break;
+    }
+
+    if ((await line.getAttribute("aria-expanded")) !== "true") await line.click();
+  }
+
+  const showRaw = page.getByTestId("polaris-tool-show-raw").filter({ hasText: "Show raw" });
+
+  if (scene === "polaris-raw" && (await showRaw.count()) > 0) await showRaw.first().click();
+  await page
+    .locator(`[data-testid="polaris-tool"][data-item="${ids[0]}"]`)
+    .scrollIntoViewIfNeeded();
+  await page.mouse.move(0, 0);
+};
 
 /** The subagents scene's first run and Subagent, opened. */
 const openSubagent = async (page: Page) => {
@@ -101,6 +154,25 @@ const openBackground = async (page: Page, scene: string) => {
   }
 };
 
+const TRANSCRIPT_SHOTS = new Set(["image", "command-open", "context"]);
+
+/** T-ITEMS' shots: an image a tool showed, a command opened whole, the Session context card. */
+const openTranscriptShot = async (page: Page, scene: string) => {
+  if (scene === "image") {
+    await page.getByTestId("image-link").first().click();
+    await page.getByTestId("image-viewer").locator("img").waitFor();
+  } else if (scene === "command-open") {
+    const line = page.locator('[data-testid="command"] > button').first();
+
+    if ((await line.getAttribute("aria-expanded")) !== "true") await line.click();
+    await page.getByTestId("command-text").first().hover();
+  } else {
+    await page.mouse.move(0, 0);
+    await page.getByTestId("session-context").click();
+    await page.getByTestId("context-card").waitFor();
+  }
+};
+
 /** Opens what a shot shows, again after each theme or density change closes it. */
 const open = async (page: Page, scene: string) => {
   // Close what's open first; esc elsewhere would leave the new-session page.
@@ -129,6 +201,10 @@ const open = async (page: Page, scene: string) => {
     await openSubagent(page);
   } else if (scene.startsWith("background-")) {
     await openBackground(page, scene);
+  } else if (POLARIS_OPEN.has(scene)) {
+    await openPolaris(page, scene);
+  } else if (TRANSCRIPT_SHOTS.has(scene)) {
+    await openTranscriptShot(page, scene);
   } else if (scene === "viewer") {
     await page.locator('[data-testid="sent-image"][data-state="ready"]').first().click();
     await page.getByTestId("attachment-viewer").locator("img").waitFor();

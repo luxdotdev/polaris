@@ -50,6 +50,16 @@ const actionsOf = ({ notice, onAddAccount }: NoticeRowProps): ReactNode => {
     );
   }
 
+  if (notice.kind === "no-keychain") return null;
+
+  if (notice.kind === "signed-out") {
+    return (
+      <Action primary onClick={onAddAccount}>
+        Add GitHub account
+      </Action>
+    );
+  }
+
   if (notice.kind === "no-account") {
     return (
       <>

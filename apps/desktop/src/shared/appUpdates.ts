@@ -7,6 +7,7 @@ export interface AppUpdateView {
   readonly lastCheckedAt: number | null;
   readonly installId: string;
   readonly macOSVersion: string;
+  readonly platform?: string;
   readonly arch: string;
   readonly supported: boolean;
 }

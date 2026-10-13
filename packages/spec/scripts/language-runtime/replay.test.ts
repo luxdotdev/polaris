@@ -18,6 +18,70 @@ import {
 
 const tracePath = "/tmp/m31-t1-lifecycle.trace.json";
 
+test("observed idle eviction and new admission replay per context, rejecting a false eviction result", async () => {
+  const traces = new Map<string, (typeof RuntimeTrace.Type)["steps"][number][]>();
+
+  const f = await fixture(
+    "ordinary",
+    60000,
+    ({ event, phase, contextId }) => {
+      const steps = traces.get(contextId) ?? [];
+      steps.push(
+        Schema.decodeUnknownSync(RuntimeStep)({
+          event: Schema.decodeUnknownSync(RuntimeSignal)({ ...event, _tag: event.type }),
+          phase,
+        })
+      );
+      traces.set(contextId, steps);
+    },
+    undefined,
+    undefined,
+    false,
+    { processLimit: 1 }
+  );
+
+  try {
+    const old = await f.acquire("old", "old", "fake-old");
+    await f.open("old", old.context);
+    await f.ready("old", old.context);
+    await f.broker.sync("old", {
+      context: old.context,
+      sequence: 2,
+      notification: LanguageDocumentNotification.cases.Close.make({ uri: f.uri, version: 1 }),
+    });
+    const next = await f.acquire("next", "next", "fake-next");
+    await f.open("next", next.context);
+    await f.ready("next", next.context);
+    const retired = await f.acquire("old", "old", "fake-old");
+    expect(Predicate.isTagged(retired.runtime, "Stopped")).toBe(true);
+  } finally {
+    await f.dispose();
+  }
+
+  for (const steps of traces.values()) {
+    const trace = RuntimeTrace.make({ version: 1, source: "runtime", steps });
+    expect((await replayRuntime(trace)).steps).toBe(steps.length);
+  }
+
+  const old = traces.get("old")!;
+  expect(old.some((step) => Predicate.isTagged(step.event, "evict"))).toBe(true);
+
+  const mutant = RuntimeTrace.make({
+    version: 1,
+    source: "runtime",
+    steps: old.map((step) =>
+      Predicate.isTagged(step.event, "evict") ? RuntimeStep.make({ ...step, phase: "ready" }) : step
+    ),
+  });
+
+  expect(
+    await replayRuntime(mutant).then(
+      () => "accepted",
+      () => "rejected"
+    )
+  ).toBe("rejected");
+}, 15000);
+
 test("actual process lifecycle trace replays in Quint and rejects false observations", async () => {
   const steps: (typeof RuntimeTrace.Type)["steps"][number][] = [];
 

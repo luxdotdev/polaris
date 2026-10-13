@@ -3,7 +3,7 @@
  * breadcrumbs at the editor's top right while the Daemon asks to run the open
  * checkout's own TypeScript. Esc is Not now; failures stay on the card.
  */
-import { Button } from "@polaris/ui";
+import { Button, cn, REVEAL_MOTION } from "@polaris/ui";
 import { useId, type KeyboardEvent } from "react";
 import { hostInSentence } from "../../../shell/hostCopy.ts";
 import { useApp } from "../../../shell/hooks.ts";
@@ -53,7 +53,10 @@ export const TrustCard = ({ status, phase, workspace, host, onDecide }: TrustCar
       data-testid="trust-card"
       data-phase={phase.kind}
       onKeyDown={onKeyDown}
-      className="rounded-card border-hairline bg-surface-raised shadow-float animate-in fade-in-0 top-panel p-panel absolute right-5 z-20 flex w-[392px] max-w-[calc(100%-40px)] flex-col gap-[calc(var(--spacing-gap)*1.5)] border duration-160 ease-out"
+      className={cn(
+        REVEAL_MOTION,
+        "rounded-card border-hairline bg-surface-raised shadow-float top-panel p-panel absolute right-5 z-20 flex w-[392px] max-w-[calc(100%-40px)] flex-col gap-[calc(var(--spacing-gap)*1.5)] border"
+      )}
     >
       <div className="flex flex-col gap-1.5">
         <h2 id={`${id}-title`} className="text-heading-sm text-text-strong">

@@ -1,0 +1,49 @@
+import { createRequire } from "node:module";
+import { dirname } from "node:path";
+import { pathToFileURL } from "node:url";
+import { createConnection, ProposedFeatures } from "vscode-languageserver/node";
+import { TextDocument } from "vscode-languageserver-textdocument";
+import { startServer } from "./dist/server.js";
+
+const formatter = createRequire(pathToFileURL(process.env.POLARIS_SQL_FORMATTER))(
+  process.env.POLARIS_SQL_FORMATTER
+);
+const connection = createConnection(ProposedFeatures.all);
+const documents = new Map();
+const dialect = process.env.POLARIS_SQL_DIALECT;
+const generic = dialect === "generic";
+const initialize = connection.onInitialize.bind(connection);
+connection.onInitialize = (handler) => initialize(async (params) => {
+  const result = await handler({ ...params, rootUri: pathToFileURL(dirname(process.argv[1])).href,
+    rootPath: dirname(process.argv[1]), workspaceFolders: null });
+  const capabilities = generic ? { textDocumentSync: result.capabilities.textDocumentSync } : result.capabilities;
+  return { ...result, capabilities: { ...capabilities, documentFormattingProvider: true } };
+});
+const open = connection.onDidOpenTextDocument.bind(connection);
+connection.onDidOpenTextDocument = (handler) => open((params) => {
+  const doc = params.textDocument;
+  documents.set(doc.uri, TextDocument.create(doc.uri, doc.languageId, doc.version, doc.text));
+  if (!generic) handler({ textDocument: { ...doc, languageId: "sql-" +
+    (dialect === "postgresql" ? "postgres" : dialect) } });
+});
+const change = connection.onDidChangeTextDocument.bind(connection);
+connection.onDidChangeTextDocument = (handler) => change((params) => {
+  const doc = documents.get(params.textDocument.uri);
+  if (doc) documents.set(doc.uri, TextDocument.update(doc, params.contentChanges, params.textDocument.version));
+  if (!generic) handler(params);
+});
+const close = connection.onDidCloseTextDocument.bind(connection);
+connection.onDidCloseTextDocument = (handler) => close((params) => {
+  documents.delete(params.textDocument.uri);
+  if (!generic) handler(params);
+});
+startServer(connection, { userConfigPath: process.env.SQLLENS_USER_CONFIG });
+connection.onDocumentFormatting((params) => {
+  const doc = documents.get(params.textDocument.uri);
+  if (!doc) return [];
+  const text = doc.getText();
+  const formatted = formatter.format(text, { language: generic ? "sql" : dialect,
+    tabWidth: params.options.tabSize, useTabs: !params.options.insertSpaces });
+  return [{ range: { start: { line: 0, character: 0 }, end: doc.positionAt(text.length) },
+    newText: formatted }];
+});

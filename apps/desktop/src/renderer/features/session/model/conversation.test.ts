@@ -2,7 +2,15 @@ import { describe, expect, test } from "bun:test";
 import { SessionId, Subagent, SubagentId, TurnId, TurnItem } from "@polaris/protocol";
 import { approval, turnWith } from "../../../store/fixtures.testing.ts";
 import type { LiveItem, SubagentView, TurnView } from "../../../store/sessionModel.ts";
-import { conversationRows, summarize, turnRows } from "./conversation.ts";
+import {
+  conversationRows,
+  latestTurnOpen,
+  noFolds,
+  summarize,
+  turnRows,
+  turnStartRow,
+  turnTime,
+} from "./conversation.ts";
 import { completedItemView, liveItemView, outputTail, toolSummary } from "./items.ts";
 import { queuedOutgoing } from "./outbox.ts";
 
@@ -79,21 +87,147 @@ describe("conversation rows", () => {
   const last = view(1, [message("m1", "done")], new Map(), "working");
 
   test("earlier Turns fold to one summary; the last stays open", () => {
-    const rows = conversationRows({ turns: [earlier, last], approvals: [], unfolded: new Set() });
+    const rows = conversationRows({ turns: [earlier, last], approvals: [] });
 
     expect(rows.map((r) => r.kind)).toEqual(["summary", "prompt", "item"]);
     expect(rows[0]).toMatchObject({ number: 1, summary: "Recorded the decision", files: 2 });
   });
 
-  test("an unfolded Turn expands", () => {
+  test("a Turn the user opened expands", () => {
     const rows = conversationRows({
       turns: [earlier, last],
       approvals: [],
-      unfolded: new Set(["t0"]),
+      folds: { chosen: new Map([["t0", true]]), openFrom: null },
     });
 
     expect(rows.map((r) => r.kind)).toEqual(["prompt", "item", "item", "prompt", "item"]);
     expect(rows.filter((r) => r.kind === "item").map((r) => r.lead)).toEqual([true, false, true]);
+    expect(rows.filter((r) => r.kind === "item").map((r) => r.latest)).toEqual([
+      false,
+      false,
+      true,
+    ]);
+  });
+
+  test("a new Turn never folds the Turn being read", () => {
+    const shown = { chosen: new Map(), openFrom: "t0" };
+    const reading = view(0, [message("m0", "Here is the plan")]);
+    const next = view(1, [], new Map(), "working");
+
+    expect(
+      conversationRows({ turns: [reading], approvals: [], folds: shown }).map((r) => r.kind)
+    ).toEqual(["prompt", "item"]);
+    expect(
+      conversationRows({ turns: [reading, next], approvals: [], folds: shown }).map((r) => r.kind)
+    ).toEqual(["prompt", "item", "prompt"]);
+  });
+
+  test("a digest Turn arriving keeps the Lead's earlier reply open", () => {
+    const shown = { chosen: new Map(), openFrom: "t1" };
+
+    const turns = [
+      view(0, [message("m0", "old")]),
+      view(1, [message("m1", "Dispatched three workers")]),
+      view(2, [message("m2", "Noted F1's report")]),
+      view(3, [], new Map(), "working"),
+    ];
+
+    const rows = conversationRows({ turns, approvals: [], folds: shown });
+
+    expect(rows.map((r) => r.kind)).toEqual([
+      "summary",
+      "prompt",
+      "item",
+      "prompt",
+      "item",
+      "prompt",
+    ]);
+  });
+
+  test("a Turn the user folded stays folded, even the latest", () => {
+    const folds = { chosen: new Map([["t1", false]]), openFrom: "t0" };
+    const turns = [view(0, [message("m0", "a")]), view(1, [message("m1", "b")])];
+
+    expect(conversationRows({ turns, approvals: [], folds }).map((r) => r.kind)).toEqual([
+      "prompt",
+      "item",
+      "summary",
+    ]);
+    expect(latestTurnOpen(turns, folds)).toBe(false);
+    expect(latestTurnOpen(turns, noFolds)).toBe(true);
+  });
+
+  test("a running command stays where it began, above a reply that started later", () => {
+    const running = I.CommandExecution.make({
+      id: "c1",
+      command: "sleep 20",
+      cwd: "/r",
+      output: "",
+      exitCode: null,
+      status: "running",
+      startedAt: "2026-10-11T20:00:01.000Z",
+    });
+
+    const read = I.ToolCall.make({
+      id: "r1",
+      name: "Read",
+      input: { file_path: "a.ts" },
+      output: null,
+      status: "completed",
+      startedAt: "2026-10-11T20:00:02.000Z",
+    });
+
+    const reply = I.AssistantMessage.make({
+      id: "m1",
+      text: "Read a.ts while it runs",
+      startedAt: "2026-10-11T20:00:03.000Z",
+    });
+
+    const live = new Map([["c1", { item: running, text: "", output: "" }]]);
+    const rows = turnRows(view(0, [read, reply], live, "working"), true, true);
+    const items = rows.flatMap((r) => (r.kind === "item" && r.entry.kind === "item" ? [r] : []));
+
+    expect(items.map((r) => r.entry.kind === "item" && r.entry.item.id)).toEqual([
+      "c1",
+      "r1",
+      "m1",
+    ]);
+    expect(items.map((r) => r.startedAt)).toEqual([
+      "2026-10-11T20:00:01.000Z",
+      "2026-10-11T20:00:02.000Z",
+      "2026-10-11T20:00:03.000Z",
+    ]);
+  });
+
+  test("items with no start keep completion order, live text last", () => {
+    const live = new Map([["m2", { item: null, text: "still typing", output: "" }]]);
+
+    const rows = turnRows(
+      view(0, [message("m0", "a"), message("m1", "b")], live, "working"),
+      true,
+      true
+    );
+
+    expect(
+      rows.flatMap((r) => (r.kind === "item" && r.entry.kind === "item" ? [r.entry.item.id] : []))
+    ).toEqual(["m0", "m1", "m2"]);
+  });
+
+  test("a Turn's start row by id", () => {
+    const rows = conversationRows({ turns: [earlier, last], approvals: [] });
+
+    expect(turnStartRow(rows, "t0")).toBe(0);
+    expect(turnStartRow(rows, "t1")).toBe(1);
+    expect(turnStartRow(rows, "nope")).toBe(-1);
+  });
+
+  test("a Turn's time reads as a clock today, with the date before", () => {
+    const now = new Date(2026, 9, 11, 16, 30);
+
+    expect(turnTime(new Date(2026, 9, 11, 9, 5).toISOString(), now)).toBe("09:05");
+    expect(turnTime(new Date(2026, 8, 20, 14, 2).toISOString(), now)).toBe("Sep 20 14:02");
+    expect(turnTime(new Date(2025, 11, 31, 23, 59).toISOString(), now)).toBe("Dec 31, 2025 23:59");
+    expect(turnTime("not a time", now)).toBe("");
   });
 
   test("a summary falls back to the prompt", () => {
@@ -120,13 +254,13 @@ describe("conversation rows", () => {
 
   test("approvals follow the Turn that asked", () => {
     const asking = view(0, [], new Map(), "working");
-    const rows = conversationRows({ turns: [asking], approvals: [approval], unfolded: new Set() });
+    const rows = conversationRows({ turns: [asking], approvals: [approval] });
 
     expect(rows.map((r) => r.kind)).toEqual(["prompt", "approval"]);
   });
 
   test("an approval for a Turn not loaded closes the list", () => {
-    const rows = conversationRows({ turns: [], approvals: [approval], unfolded: new Set() });
+    const rows = conversationRows({ turns: [], approvals: [approval] });
 
     expect(rows.map((r) => r.kind)).toEqual(["approval"]);
   });
@@ -186,7 +320,6 @@ describe("steers in the conversation", () => {
     const rows = conversationRows({
       turns: [view(0, [])],
       approvals: [],
-      unfolded: new Set(),
       outbox,
     });
 

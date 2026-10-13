@@ -5,6 +5,9 @@
  */
 import type { TreeRow } from "./tree.ts";
 
+/** The row chords as accelerators, for the menu's shortcut lane. */
+export const TREE_CHORDS = { rename: "F2", delete: "CmdOrCtrl+Backspace" } as const;
+
 export type TreeKeyAction =
   | { readonly kind: "focus"; readonly path: string }
   | { readonly kind: "toggle"; readonly row: TreeRow; readonly open: boolean }

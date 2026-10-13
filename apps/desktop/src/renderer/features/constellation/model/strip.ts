@@ -18,7 +18,11 @@ export type StripTone =
   | "waiting";
 
 export interface Segment {
+  /** The Task's id. */
   readonly key: string;
+  readonly title: string;
+  /** The state word its row shows ("working", "blocked", "done"). */
+  readonly word: string;
   readonly tone: StripTone;
   readonly harness: HarnessKind | null;
 }
@@ -28,7 +32,8 @@ const toneOf = (row: TaskRow): StripTone => {
 
   if (row.look.bucket === "blocked") return "blocked";
 
-  if (row.look.glyph === "waiting") return "waiting";
+  // Waiting with no Turn in flight, or failed for a reason that isn't the worker's: neutral.
+  if (row.look.glyph === "waiting" || row.look.glyph === "stopped") return "waiting";
 
   switch (row.projection.state) {
     case "done":
@@ -48,7 +53,15 @@ export const segments = (rows: ReadonlyArray<TaskRow>): ReadonlyArray<Segment> =
   rows.flatMap((r) =>
     r.projection.state === "canceled"
       ? []
-      : [{ key: r.task.id, tone: toneOf(r), harness: r.harness }]
+      : [
+          {
+            key: r.task.id,
+            title: r.task.title,
+            word: r.look.word,
+            tone: toneOf(r),
+            harness: r.harness,
+          },
+        ]
   );
 
 export interface BarPart {

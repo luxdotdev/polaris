@@ -34,6 +34,7 @@ const LIST: PullListView = {
   polling: "idle",
   throttledUntil: null,
   error: null,
+  errorKind: null,
 };
 
 const finding = (id: string, severity: JumpFinding["severity"], status = "open"): JumpFinding => ({

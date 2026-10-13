@@ -1,7 +1,8 @@
 /**
  * Settings → Hosts on fixtures, for screenshots and the smoke: `#hosts/all`,
- * `#hosts/current`, `#hosts/failures` and `#hosts/live`, where Update walks a
- * fake host through checking, copying and switching. Nothing is installed.
+ * `#hosts/current`, `#hosts/failures`, `#hosts/live`, where Update walks a
+ * fake host through checking, copying and switching, and `#hosts/wsl`, a
+ * Windows PC with WSL Hosts and distros to add. Nothing is installed.
  */
 import { Option, Schema } from "effect";
 import { createRoot } from "react-dom/client";
@@ -13,7 +14,7 @@ import { createCommandRegistry } from "../../../routes/commands.ts";
 import { createNavigation } from "../../../routes/navigation.ts";
 import { type AppState, type Connection, initialState } from "../../../store/store.ts";
 import { standInBridge } from "../../bridge.ts";
-import { machinesFor, type Scene, SCENES } from "./fixtures.ts";
+import { machinesFor, type Scene, SCENES, SSH_ALIASES, WSL_DISTROS } from "./fixtures.ts";
 
 const OK: Result<null> = { ok: true, value: null };
 
@@ -85,13 +86,18 @@ const Input = Schema.Struct({
   enabled: Schema.optional(Schema.NullOr(Schema.Boolean)),
 });
 
-/** The three update requests change the feed; the rest answer "unsupported" (a toast). */
+/** The three update requests change the feed; "Add a host" is answered on the `wsl` scene; the rest "unsupported" (a toast). */
 const answer = (
   feed: Feed,
+  scene: Scene,
   method: string,
   { hostKey, enabled }: typeof Input.Type
-): Result<null> | null => {
+): Result<unknown> | null => {
   switch (method) {
+    case "machines.wslDistros":
+      return scene === "wsl" ? { ok: true, value: WSL_DISTROS } : null;
+    case "machines.sshAliases":
+      return scene === "wsl" ? { ok: true, value: SSH_ALIASES } : null;
     case "machines.updateDaemon":
       if (hostKey !== undefined) simulateUpdate(feed, hostKey);
 
@@ -127,12 +133,12 @@ const answer = (
   }
 };
 
-const bridgeFor = (feed: Feed): PolarisApi => ({
+const bridgeFor = (feed: Feed, scene: Scene): PolarisApi => ({
   request: (method, input) => {
     const fields = Option.getOrElse(Schema.decodeUnknownOption(Input)(input), () => ({}));
 
-    // SAFETY: every request this preview answers has a null output.
-    return Promise.resolve((answer(feed, method, fields) ?? UNSUPPORTED) as never);
+    // SAFETY: every request this preview answers returns that request's output type.
+    return Promise.resolve((answer(feed, scene, method, fields) ?? UNSUPPORTED) as never);
   },
   subscribe: (kind, _input, listener) => {
     if (kind !== "machines") return () => undefined;
@@ -150,7 +156,8 @@ const sceneOf = (hash: string): Scene => {
 };
 
 export const mountHostsPreview = (root: HTMLElement, hash: string) => {
-  const feed = createFeed(machinesFor(sceneOf(hash), Date.now()));
+  const scene = sceneOf(hash);
+  const feed = createFeed(machinesFor(scene, Date.now()));
   const store = createStore<AppState>(() => initialState);
 
   const connection: Connection = {
@@ -162,10 +169,10 @@ export const mountHostsPreview = (root: HTMLElement, hash: string) => {
 
   const navigation = createNavigation({ app: store, storage: null });
 
-  standInBridge(bridgeFor(feed));
+  standInBridge(bridgeFor(feed, scene));
   navigation.actions.openSettings("hosts");
 
-  const commands = createCommandRegistry({ mac: true });
+  const commands = createCommandRegistry({ platform: "mac" });
 
   createRoot(root).render(<App value={{ connection, navigation, commands }} />);
 

@@ -48,3 +48,54 @@ Only then is the staged DMG moved to its stable output name. Failures clean the
 staging directory and leave any previous verified output intact. Without
 credentials the image is built and checksum-verified unsigned; partial credentials
 fail before building. Real Apple-service validation awaits ENG-253 credentials.
+
+## Windows (experimental, unsigned)
+
+`bun run --cwd apps/desktop package --windows --reuse-daemon` builds win32 x64
+and arm64 with the existing pixel icon and Windows executable metadata, then
+runs `electron-winstaller` 5.4.4 (MIT) for each. Installer generation needs
+Windows, or both Mono and Wine on macOS/Linux. `--no-installer` allows local
+cross-builds without those tools. Regenerate `Polaris.ico` with
+`bun apps/desktop/scripts/packaging/icon.ts`: its six PNG entries (16, 32, 48,
+64, 128, 256) are the existing natively drawn Linux PNGs, without resampling.
+
+Windows always returns `unsigned` at `resolveSigning`; Apple credentials are
+ignored. Authenticode can be introduced at this seam later. No native Windows
+Daemon is built. `--windows` requires `--reuse-daemon` and an existing verified
+manifest; it never builds, signs or rewrites Daemon files. Release versions must
+match. The macOS release job archives its final Daemon dist after signing;
+the Windows job restores that tarball and verifies the copied bytes again.
+
+Under `out/dist/squirrel-<arch>/`:
+
+- `Polaris-<version>-<arch>-win-Setup.exe`
+- `Polaris-<arch>-win-<NuGet version>-full.nupkg`
+- `RELEASES`, and its GitHub asset alias `Polaris-<version>-<arch>-win-RELEASES`
+
+NuGet removes prerelease dots (`1.2.3-rc.1` becomes `1.2.3-rc1`). Package IDs
+include the architecture so feeds cannot offer an incompatible executable.
+Only full packages are published; delta generation is disabled until a
+previous-release artifact contract exists. Each RELEASES hash/size is checked
+against the generated nupkg before upload. Bun skips the dependency's install
+script, so the installer seam copies its vendor tools into a temporary folder
+and selects the build Host's 7-Zip binaries there. It adds no trusted dependency.
+The standard licence gate passes; the build-only package declares MIT.
+
+Windows packages enter through a small Squirrel bootstrap. Maintenance launches
+create/remove shortcuts with Electron's native Windows API before importing the
+Client runtime. The target and working directory stay at the install root;
+Squirrel's application and toast activation IDs are retained. This avoids a
+second .NET process inside Squirrel's hook deadline. Temporary vendor cleanup retries transient
+Windows file locks for a bounded interval.
+
+The Squirrel launcher's version scan ignores `app-0.0.0`. Windows development
+packaging maps the repository's placeholder `0.0.0` to `0.0.1-dev`; a release
+at `0.0.0` is rejected. Other release and prerelease versions are unchanged.
+
+`windows-smoke.ps1 -Installer <Setup.exe> -Arch <x64|arm64>` installs on a fresh
+Windows account/throwaway VM and waits for an actual Polaris window handle.
+It uses isolated settings with the local Host and automatic update checks off.
+It refuses to overwrite an existing installation, stops only that installation's
+processes, and removes only its temporary settings. It leaves the installation
+and shortcuts in place. The release job runs it for x64 on `windows-latest`;
+arm64 installation/launch still requires the owner's Windows arm64 VM.

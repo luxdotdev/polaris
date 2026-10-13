@@ -4,6 +4,7 @@
  * see its Turn diff, then send a follow-up Turn and sample frame intervals
  * while it streams.
  */
+import { strict as assert } from "node:assert";
 import { execFileSync } from "node:child_process";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -116,7 +117,9 @@ const switchModel = async (
   await page.getByTestId("model-option").filter({ hasText: "Bench Large" }).click();
   await page.getByTestId("effort-high").waitFor();
   await shoot("model-picker");
+  // A press on the bar keeps the menu open; Enter sends what it shows.
   await page.getByTestId("effort-high").click();
+  await page.keyboard.press("Enter");
   await chip.filter({ hasText: MODEL }).waitFor({ timeout: 10_000 });
   step(`SetModel between Turns: ${MODEL}`);
 };
@@ -228,12 +231,20 @@ export const sessionFlow = async ({ page, repo, step, shoot, atFirstApproval }: 
 
   step(`frames while streaming: ${JSON.stringify(frames)}`);
   await page.getByTestId("session-state").filter({ hasText: /^Idle/ }).waitFor({ timeout: 60_000 });
-  // The folded Turn is at the top, virtualized out while the list sits at the end.
+  // The first Turn is at the top, virtualized out while the list sits at the end. A new
+  // Turn never folds the one being read (DESIGN.md, Orchestrator conversation), so it's open.
   await page.evaluate(
     `document.querySelector('[data-testid="conversation"]').scrollTo({ top: 0 })`
   );
+  const first = page.getByTestId("prompt").first();
+
+  await first.waitFor({ timeout: 5_000 });
+  assert.equal(await page.getByTestId("turn-summary").count(), 0, "the first Turn stayed open");
+  // Folded by hand, as the flows after this one expect.
+  await first.hover();
+  await first.getByTestId("turn-fold").click();
   await page.getByTestId("turn-summary").first().waitFor({ timeout: 5_000 });
-  step("follow-up Turn finished; the first folded");
+  step("follow-up Turn finished; the first stayed open, then folded by hand");
 
   return frames;
 };

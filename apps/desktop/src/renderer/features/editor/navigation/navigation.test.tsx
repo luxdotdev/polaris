@@ -1,17 +1,23 @@
 import "../../../test/dom.testing.ts";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { act, cleanup, fireEvent, render, within } from "@testing-library/react";
-import { afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { KEYMAP } from "../../../../shared/keymap.ts";
 import type { LanguageQueries } from "../lsp/queries.ts";
 import type { LanguageRow } from "../lsp/state.ts";
-import { LANGUAGE_NAVIGATION } from "./commands.ts";
+import { LANGUAGE_NAVIGATION, shortcutOf } from "./commands.ts";
 import { navigationContributions } from "./contribute.ts";
 import { RenameField } from "./RenameField.tsx";
 import { runNavigation } from "./run.ts";
 import { navigationStore, openRename, openSymbolSearch } from "./store.ts";
 import { Command } from "@polaris/ui";
 import { SymbolResults } from "./SymbolSearch.tsx";
+import { setClientPlatform } from "../../../../shared/platform.ts";
+
+// These tests read macOS labels ("⌘↵", "⌃Space").
+beforeAll(() => setClientPlatform("darwin"));
+
+afterAll(() => setClientPlatform(null));
 
 // Another DOM test file may have unregistered happy-dom already.
 beforeAll(() => {
@@ -38,7 +44,7 @@ const queries = (rows: readonly LanguageRow[], seen: string[] = []): Lookup => (
 
 describe("language commands", () => {
   test("every feature the tools row had is a command, with VS Code's keys", () => {
-    expect(LANGUAGE_NAVIGATION.map((c) => [c.title, c.shortcut ?? ""])).toEqual([
+    expect(LANGUAGE_NAVIGATION.map((c) => [c.title, shortcutOf(c)])).toEqual([
       ["Go to definition", "F12"],
       ["Go to type definition", ""],
       ["Go to implementation", ""],
@@ -49,7 +55,8 @@ describe("language commands", () => {
       ["Rename symbol…", "F2"],
       ["Show problems", "⇧⌘M"],
       ["Show code actions", ""],
-      ["Show signature help", ""],
+      ["Show completions", "⌃Space"],
+      ["Show signature help", "⌃⇧Space"],
       ["Go to next problem", "F8"],
       ["Go to previous problem", "⇧F8"],
       ["Go back", "⌃-"],
@@ -66,6 +73,8 @@ describe("language commands", () => {
       ["Mod-Shift-o", "CmdOrCtrl+Shift+O"],
       ["Ctrl--", "Ctrl+-"],
       ["F2", "F2"],
+      ["Ctrl-Space", "Ctrl+Space"],
+      ["Ctrl-Shift-Space", "Ctrl+Shift+Space"],
       ["F12", "F12"],
       ["Shift-F12", "Shift+F12"],
     ]);

@@ -96,7 +96,7 @@ const everyEdge = (options: ModelOptions) => {
 };
 
 describe("session machine", () => {
-  test("reaches all eight Session States", () => {
+  test("reaches all nine Session States", () => {
     for (const options of [claude, codex]) {
       const states = new Set(everyEdge(options).map((s) => stateOf(s.machine)));
       expect([...states].sort()).toEqual(
@@ -110,6 +110,7 @@ describe("session machine", () => {
             "in-terminal",
             "dormant",
             "failed",
+            "limited",
             "archived",
           ] satisfies Array<SessionState | "new">
         )
@@ -141,8 +142,8 @@ describe("session machine", () => {
 
     // Update README.md when these move.
     expect(counts).toEqual([
-      [29, 135],
-      [35, 182],
+      [47, 277],
+      [55, 367],
     ]);
   });
 

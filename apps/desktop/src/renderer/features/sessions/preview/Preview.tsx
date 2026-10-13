@@ -117,7 +117,7 @@ export const mountConstellationsPreview = (root: HTMLElement, hash: string) => {
 
   if (section !== undefined) navigation.actions.openSettings(section);
 
-  const commands = createCommandRegistry({ mac: true });
+  const commands = createCommandRegistry({ platform: "mac" });
 
   createRoot(root).render(<App value={{ connection, navigation, commands }} />);
 

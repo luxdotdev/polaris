@@ -2,6 +2,7 @@ import "./styles.css";
 import { createRoot } from "react-dom/client";
 import { App } from "./app/App.tsx";
 import { onNeedsYouEvent } from "./features/needs-you/index.ts";
+import { bannerEntry, recordBanner } from "./features/session/index.ts";
 import { applyAppearance } from "./appearance.ts";
 import { connectSettings, settingsCommands, settingsStore } from "./features/settings/index.ts";
 import { connectUpdates, updatesStore } from "./features/settings/updates/store.ts";
@@ -35,7 +36,7 @@ const navigation = createNavigation({
   ensureWorkspace: onboarding.workspaceFor,
 });
 
-const commands = createCommandRegistry({ mac: /Mac/.test(navigator.userAgent) });
+const commands = createCommandRegistry();
 
 commands.register(settingsCommands(navigation.actions));
 
@@ -120,6 +121,7 @@ window.polaris.onAppEvent((event) => {
   if (event.kind === "command") commands.run(event.id);
   else if (event.kind === "needs-you") onNeedsYouEvent(event, navigation.actions);
   else if (event.kind === "open-pull") onOpenPullEvent(event.pull, navigation.actions);
+  else if (event.kind === "agent-banner") recordBanner(bannerEntry(event));
   else if (event.kind === "proof") {
     void startProofSession({ api: window.polaris, store: connection.store, hostKey: event.hostKey })
       .then((sessionId) => navigation.actions.selectSession({ hostKey: event.hostKey, sessionId }))

@@ -26,7 +26,7 @@ const itemFor = (row: TaskRow, facts: Facts): AttentionItem | null => {
       case "handed":
         return { taskId: id, text: `${id}'s claim handed to you`, rank: 3 };
       case "stopped":
-        return { taskId: id, text: `${id} stopped without claiming`, rank: 4 };
+        return { taskId: id, text: `${id} stopped without reporting back`, rank: 4 };
       case "setup":
         return { taskId: id, text: `${id} setup failed · ${setupOutcome(attention.run)}`, rank: 4 };
     }

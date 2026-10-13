@@ -2,7 +2,7 @@
  * The Languages group (DESIGN.md, Settings: Editor · languages; Paper L4): a row
  * per Language Integration with its state, parts on disclosure and an on/off switch.
  */
-import { ChevronDownIcon, ChevronRightIcon, cn, Switch } from "@polaris/ui";
+import { cn, DisclosureChevron, Switch } from "@polaris/ui";
 import { useState } from "react";
 import { Group } from "../ui/parts.tsx";
 import type { Fact, LanguageRow } from "./model.ts";
@@ -42,7 +42,6 @@ export const IntegrationRow = ({
 }) => {
   const [open, setOpen] = useState(false);
   const factsId = `language-facts-${row.id}`;
-  const Chevron = open ? ChevronDownIcon : ChevronRightIcon;
 
   return (
     <div className="px-panel flex flex-col gap-3 py-[calc(var(--spacing-gap)+4px)]">
@@ -59,7 +58,7 @@ export const IntegrationRow = ({
             <span className="text-body text-text-strong font-medium">{row.name}</span>
             <span className="text-caption text-text-subtle">{row.state}</span>
           </span>
-          <Chevron size={12} className="text-text-subtle shrink-0" />
+          <DisclosureChevron open={open} size={12} className="text-text-subtle" />
         </button>
         <span className="flex w-[26px] shrink-0 justify-end">
           {switchable && (

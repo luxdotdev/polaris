@@ -36,6 +36,11 @@ export interface ReviewRange {
   readonly mergeBase: string;
   readonly mode: RulesMode;
   readonly checkoutId: ReviewCheckoutId | null;
+  /**
+   * Where `.gitattributes` and `.polaris/review.md` decide generated files: a PR's merge
+   * base, so a PR can't hide its own code; null (the working tree) for an Agent Session.
+   */
+  readonly rulesAt: string | null;
   /** "Pull request #12", or the session's title. */
   readonly title: string;
   /** For Agent Sessions: the Turns' prompts, in order. */
@@ -90,6 +95,7 @@ const pullRequestRange = Effect.fn("pullRequestRange")(function* (
     mergeBase: checkout.mergeBase,
     mode: "history",
     checkoutId: checkout.id,
+    rulesAt: checkout.mergeBase,
     title: `Pull request #${subject.pullRequest.number}`,
     prompts: [],
     promptViews: [],
@@ -207,6 +213,7 @@ const sessionRange = Effect.fn("sessionRange")(function* (
     mergeBase: first,
     mode: "snapshot",
     checkoutId: checkout?.id ?? null,
+    rulesAt: null,
     title: record.session.title,
     prompts: covered.map((t) => t.prompt),
     promptViews,

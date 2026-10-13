@@ -234,7 +234,7 @@ export const mountEditorPreview = (root: HTMLElement, hash: string) => {
   };
 
   const navigation = createNavigation({ app: store, storage: null });
-  const commands = createCommandRegistry({ mac: true });
+  const commands = createCommandRegistry({ platform: "mac" });
   const files = createFakeFiles(seed(), { readOnlyHosts: ["pi"] });
 
   standInBridge(bridge);

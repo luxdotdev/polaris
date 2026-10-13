@@ -37,6 +37,8 @@ module polaris {
   const CONTINUES_ACCEPTED: bool
   /** Clients also accept Turns and record Verdicts (the `review` and `finding4` instances). */
   const REVIEW_COMMANDS: bool
+  /** Harnesses also stop Turns at usage limits (the `current` instance; the mutants predate it). */
+  const USAGE_LIMITS: bool
   /** Client devices, each with a feed per stream. */
   const CLIENTS: Set[str]
   /** Agent Sessions; recovery visits them in this order (any order gives the same result). */
@@ -66,7 +68,7 @@ module polaris {
     | UserTurnStarted // accepted input delivered after an autonomous Turn ended
     | TurnEnded(str) // "completed" | "interrupted" | "failed"
     | ItemCompleted // session-only: the host stream leaves it out
-    | StateChanged(str) // "working" | "needs-you" | "idle" | "dormant" | "failed" | "archived"
+    | StateChanged(str) // "working" | "needs-you" | "idle" | "dormant" | "failed" | "limited" | "archived"
     | ApprovalRequested(str)
     | ApprovalResolved({ req: str, by: str })
     | ApprovalWithdrawn({ req: str, by: str }) // by "harness" | "daemon"
@@ -95,6 +97,7 @@ module polaris {
     | HUserTurnStarted
     | HTurnEnded
     | HTurnFailed
+    | HTurnLimited // failed at a usage limit: Interrupted, so Continue picks it up
 
   /**
    * Something waiting for the next group commit. A Harness report carries the
@@ -310,6 +313,11 @@ module polaris {
             if (v.state == "archived") [] else [StateChanged("failed")]
           )
         else []
+      | HTurnLimited =>
+        // Archived keeps the Harness's own word, as for any Turn that ends there.
+        if (not(inFlight(v, turn))) []
+        else if (v.state == "archived") withdrawAll(v, "harness").concat([TurnEnded("failed")])
+        else withdrawAll(v, "harness").concat([TurnEnded("interrupted"), StateChanged("limited")])
     }
 
   pure def sessionOfCmd(cmd: Command): str =
@@ -358,7 +366,8 @@ module polaris {
       val interrupted = if (v.turn == "working") [TurnEnded("interrupted")] else []
       val closing =
         if (v.turn == "working") [StateChanged("needs-you")]
-        else if (v.state == "failed" or (v.state == "needs-you" and v.turn == "interrupted")) []
+        else if (v.state == "failed" or v.state == "limited"
+          or (v.state == "needs-you" and v.turn == "interrupted")) []
         else [StateChanged("dormant")]
       appendEvents(events, s, "", interrupted.concat(withdrawAll(v, "daemon")).concat(closing))
     }
@@ -512,6 +521,7 @@ module polaris {
       | HInputRefused => v.turns > 0
       | HTurnEnded => v.turn == "working"
       | HTurnFailed => v.turn == "working"
+      | HTurnLimited => v.turn == "working"
     },
     queue' = queue.append(HarnessEv({ session: s, ev: ev, turn: viewOf(log, s).turns + (if (ev == HTurnStarted or ev == HUserTurnStarted) 1 else 0) })),
     unchangedClients,
@@ -713,6 +723,7 @@ module polaris {
 
   pure val HARNESS_EVENTS: Set[HarnessEvent] =
     REQUESTS.map(r => HRequest(r)).union(REQUESTS.map(r => HWithdraw(r))).union(Set(HItem, HTurnStarted, HUserTurnStarted, HTurnEnded, HTurnFailed))
+      .union(if (USAGE_LIMITS) Set(HTurnLimited) else Set())
 
   action step = any {
     nondet c = CLIENTS.oneOf()
@@ -816,7 +827,10 @@ module polaris {
     SESSIONS.forall(s => viewOf(log, s).pending.forall(r =>
       log.indices().exists(i => i >= lastRestart and log[i].kind == ApprovalRequested(r))))
 
-  /** Only a Client continues an interrupted Turn; a live Harness can start a fresh Turn while Idle. */
+  /**
+   * Only a command continues an interrupted Turn (a Client's, or Resume at reset's Continue,
+   * which the user opted into); a live Harness can start a fresh Turn while Idle.
+   */
   val noAutoContinue: bool =
     log.indices().forall(i => match log[i].kind {
       | TurnStarted(continued) => log[i].cmd != "" or (not(continued)
@@ -829,13 +843,14 @@ module polaris {
           and match log[i].kind { | TurnStarted(_) => true | _ => false }))
 
   /**
-   * An Interrupted Turn leaves its session Needs You until a Client continues
-   * or replaces it, or archives the session.
+   * An Interrupted Turn leaves its session Needs You (Limited, when a usage limit stopped it)
+   * until a command continues or replaces it, or the session is archived.
    */
   val interruptedNeedsYou: bool =
     SESSIONS.forall(s => {
       val v = viewOf(log, s)
-      v.turn == "interrupted" implies (v.state == "needs-you" or v.archivedSinceTurn)
+      v.turn == "interrupted"
+        implies (v.state == "needs-you" or v.state == "limited" or v.archivedSinceTurn)
     })
 
   /** An approval is pending only while a Turn is in flight to answer it for (finding 3). */
@@ -928,6 +943,12 @@ module polaris {
   val witnessRestartWithdrew: bool =
     log.indices().exists(i => match log[i].kind { | ApprovalWithdrawn(x) => x.by == "daemon" | _ => false })
   val witnessContinued: bool = log.indices().exists(i => log[i].kind == TurnStarted(true))
+  /** A usage limit stopped a Turn (Continue from Limited: `aUsageLimitWaitsForContinueTest`). */
+  val witnessLimited: bool = log.indices().exists(i => log[i].kind == StateChanged("limited"))
+  /** A Limited session's Turn continued (by the user, or at the reset). */
+  val witnessLimitContinued: bool =
+    log.indices().exists(i => log[i].kind == TurnStarted(true)
+      and viewOf(log.slice(0, i), log[i].session).state == "limited")
   /** A Turn started right after a Failed one: a Retry. */
   val witnessRetried: bool =
     log.indices().exists(i => i > 0 and log[i].kind == TurnStarted(false) and log[i].cmd != ""
@@ -993,6 +1014,7 @@ module current {
     RECORDS_LATE_REQUESTS = false,
     CONTINUES_ACCEPTED = false,
     REVIEW_COMMANDS = false,
+    USAGE_LIMITS = true,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1", "s2"],
     CMD_IDS = Set("k1", "k2", "k3", "k4"),
@@ -1012,6 +1034,7 @@ module finding1 {
     RECORDS_LATE_REQUESTS = false,
     CONTINUES_ACCEPTED = false,
     REVIEW_COMMANDS = false,
+    USAGE_LIMITS = false,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1", "s2"],
     CMD_IDS = Set("k1", "k2", "k3", "k4"),
@@ -1031,6 +1054,7 @@ module finding2 {
     RECORDS_LATE_REQUESTS = false,
     CONTINUES_ACCEPTED = false,
     REVIEW_COMMANDS = false,
+    USAGE_LIMITS = false,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1", "s2"],
     CMD_IDS = Set("k1", "k2", "k3", "k4"),
@@ -1050,6 +1074,7 @@ module finding3 {
     RECORDS_LATE_REQUESTS = true,
     CONTINUES_ACCEPTED = false,
     REVIEW_COMMANDS = false,
+    USAGE_LIMITS = false,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1", "s2"],
     CMD_IDS = Set("k1", "k2", "k3", "k4"),
@@ -1072,6 +1097,7 @@ module finding4 {
     RECORDS_LATE_REQUESTS = false,
     CONTINUES_ACCEPTED = true,
     REVIEW_COMMANDS = true,
+    USAGE_LIMITS = false,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1"],
     CMD_IDS = Set("k1", "k2", "k3", "k4"),
@@ -1094,6 +1120,7 @@ module review {
     RECORDS_LATE_REQUESTS = false,
     CONTINUES_ACCEPTED = false,
     REVIEW_COMMANDS = true,
+    USAGE_LIMITS = false,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1"],
     CMD_IDS = Set("k1", "k2", "k3", "k4", "k5", "k6"),
@@ -1113,6 +1140,7 @@ module small {
     RECORDS_LATE_REQUESTS = false,
     CONTINUES_ACCEPTED = false,
     REVIEW_COMMANDS = false,
+    USAGE_LIMITS = true,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1"],
     CMD_IDS = Set("k1", "k2"),

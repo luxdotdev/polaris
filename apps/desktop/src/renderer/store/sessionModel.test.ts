@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   ApprovalDecision,
+  Compaction,
   ContextUsage,
   type DomainEvent,
   DomainEvent as Events,
@@ -52,6 +53,22 @@ describe("session model", () => {
     expect(model.session?.title).toBe("Proof session");
     expect(model.turns[0]?.items).toEqual([message]);
     expect(model.pendingApprovals).toEqual([approval]);
+  });
+
+  test("a compaction folds into the session, for the context card", () => {
+    const compaction = new Compaction({
+      turnId,
+      trigger: "auto",
+      beforeTokens: 180_000,
+      afterTokens: 20_000,
+      at: "2026-10-11T10:00:00.000Z",
+    });
+
+    const model = applySessionItems(started, [
+      event(4, E.SessionCompacted.make({ sessionId, compaction })),
+    ]);
+
+    expect(model.session?.lastCompaction).toEqual(compaction);
   });
 
   test("context usage folds into the session the header reads", () => {

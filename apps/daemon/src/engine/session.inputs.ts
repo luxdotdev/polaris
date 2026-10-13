@@ -40,6 +40,12 @@ export const eventSchemas = {
   "turn.retry": standard(Schema.Struct({ turn: Turn })),
   "turn.steer": standard(Schema.Struct({ canSteer: Schema.Boolean })),
   "turn.interrupt": Nothing,
+  "background.stop": standard(
+    Schema.Struct({
+      taskIds: Schema.NullOr(Schema.Array(Schema.String)),
+      canStop: Schema.Boolean,
+    })
+  ),
   "approval.respond": standard(
     Schema.Struct({ requestId: RequestId, decision: ApprovalDecision, resolvedBy: Schema.String })
   ),
@@ -98,6 +104,10 @@ export const eventSchemas = {
       status: Schema.Literals(["completed", "interrupted", "failed"]),
       error: Schema.NullOr(Schema.String),
       checkpoint: Schema.NullOr(Schema.Struct({ ref: Schema.String, commit: Schema.String })),
+      /** A failed Turn the Harness ended at a usage limit (the supervisor classifies it). */
+      limit: Schema.optionalKey(
+        Schema.NullOr(Schema.Struct({ resetsAt: Schema.NullOr(Schema.String) }))
+      ),
       ...At,
     })
   ),
@@ -145,7 +155,9 @@ const EMITTED: ReadonlySet<string> = new Set<Emitted["type"]>(["domain", "reject
 /** What the machine emits is ours: every `enq.emit` here passes an `Emitted`. */
 export const isEmitted = (event: EventObject): event is Emitted => EMITTED.has(event.type);
 
-export const normalizedInput = (input: SessionInput, at: string) =>
-  input.type === "idle.timeout"
-    ? { ...input, backgroundExpired: input.backgroundExpired ?? false, at: input.at ?? at }
-    : input;
+export const normalizedInput = (input: SessionInput, at: string) => {
+  if (input.type === "idle.timeout")
+    return { ...input, backgroundExpired: input.backgroundExpired ?? false, at: input.at ?? at };
+
+  return input.type === "harness.turnEnded" ? { ...input, limit: input.limit ?? null } : input;
+};

@@ -104,6 +104,7 @@ describe("Python: Select interpreter…", () => {
       canShowLog: false,
       hasCheckout: true,
       pythonInterpreter: interpreterSummary(list()),
+      sqlDialect: "",
     };
 
     const { keys, values } = fileContext(python);

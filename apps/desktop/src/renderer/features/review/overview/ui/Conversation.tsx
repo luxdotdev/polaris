@@ -19,6 +19,8 @@ import {
 import type { PullOverviewView, TimelineItemView } from "../model/types.ts";
 import { Mark } from "./parts.tsx";
 import { type EntryProps, TimelineEntryView } from "./TimelineEntry.tsx";
+import { modKey, shortcutLabel } from "../../../../../shared/chord.ts";
+import { FIELD_CHORDS } from "../../../../../shared/keymap.ts";
 
 const FILTERS = [
   { value: "all", label: "All" },
@@ -119,7 +121,7 @@ const Composer = ({
             setAdded(false);
           }}
           onKeyDown={(event) => {
-            if (event.key === "Enter" && event.metaKey) {
+            if (event.key === "Enter" && modKey(event)) {
               event.preventDefault();
               add();
             }
@@ -149,7 +151,8 @@ const Composer = ({
           onClick={add}
           data-testid="conversation-add-to-review"
         >
-          Add to review <Kbd className="border-current/25 text-current">⌘↵</Kbd>
+          Add to review{" "}
+          <Kbd className="border-current/25 text-current">{shortcutLabel(FIELD_CHORDS.submit)}</Kbd>
         </Button>
       </div>
     </div>

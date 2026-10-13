@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { ReviewAction } from "@polaris/protocol";
+import { tidyEntries } from "@polaris/ui";
 import { installConstellationClient, type Outcome, type ReviewInput } from "../client.ts";
 import { merged } from "../model/fold.ts";
 import { buildRail, plainFacts, type TaskRow } from "../model/index.ts";
@@ -36,7 +37,7 @@ const noop: MenuActions = {
 };
 
 const labels = (row: TaskRow) =>
-  menuEntries(row, noop).map((e) =>
+  tidyEntries(menuEntries(row, noop)).map((e) =>
     e.kind === "item" || e.kind === "sub" ? e.label : e.kind === "label" ? `(${e.text})` : "—"
   );
 
@@ -75,7 +76,7 @@ describe("a handed-up Claim", () => {
 
     const first = menuEntries(row, { ...noop, onApprove: (r) => approved.push(r.task.id) })[0];
 
-    if (first?.kind === "item") first.run();
+    if (first !== null && first !== false && first?.kind === "item") first.onSelect();
     expect(approved).toEqual(["B1"]);
   });
 

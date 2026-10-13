@@ -37,6 +37,7 @@ export class ProjectDiscovery extends Context.Service<
                 try: () =>
                   discovery.discover({
                     ...input,
+                    workspaceTrusted: observed?.trust.trusted === true,
                     useProjectTypeScript:
                       observed?.trust.trusted === true &&
                       observed.trust.typescriptProvider !== "bundled",

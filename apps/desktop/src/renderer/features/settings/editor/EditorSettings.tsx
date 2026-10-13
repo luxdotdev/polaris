@@ -2,8 +2,10 @@
  * Settings → Editor (DESIGN.md, Settings: Editor · languages; Paper L4): the
  * preferences, then Languages on the picked Host, then Advanced, collapsed.
  */
+import { clientCopy } from "../../../../shared/clientCopy.ts";
 import * as P from "@polaris/protocol";
 import { useCallback, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import type { HostView, LanguageApi } from "../../../../shared/api.ts";
 import { hostInSentence } from "../../../shell/hostCopy.ts";
 import { Column, PageHeader } from "../ui/parts.tsx";
@@ -17,6 +19,7 @@ import { Preferences, type EditorKeys } from "./Preferences.tsx";
 import { APP_SCOPE, type SettingsScope } from "./records.ts";
 
 export interface EditorSettingsProps {
+  readonly tabCompletion?: ReactNode;
   readonly api: LanguageApi | undefined;
   readonly hosts: ReadonlyArray<HostView>;
   readonly workspacesOf: (hostKey: string) => ReadonlyArray<PolicyWorkspace>;
@@ -36,7 +39,7 @@ const notice = (
   loaded: boolean
 ) => {
   if (!api)
-    return "Language tools need a newer Polaris on this Mac. Syntax highlighting still works.";
+    return `Language tools need a newer Polaris on ${clientCopy().machine}. Syntax highlighting still works.`;
 
   if (picked === undefined || !pickable(picked))
     return "Pick a connected host to see its languages.";
@@ -50,6 +53,7 @@ const notice = (
 const NO_LANGUAGES: ReadonlyArray<P.LanguageSyntaxId> = [];
 
 export const EditorSettings = ({
+  tabCompletion,
   api,
   hosts,
   workspacesOf,
@@ -111,7 +115,7 @@ export const EditorSettings = ({
     <Column>
       <PageHeader
         title="Editor"
-        blurb="How code reads and behaves in the Edit view. Language tools run on each host; this Mac keeps your preferences."
+        blurb={`How code reads and behaves in the Edit view. Language tools run on each host; ${clientCopy().machine} keeps your preferences.`}
       />
       <Preferences
         record={app.record}
@@ -119,6 +123,7 @@ export const EditorSettings = ({
         onChange={(change) => void app.update(change)}
         keys={keys}
       />
+      {tabCompletion}
       <div className="flex items-end justify-between gap-4 pt-2">
         <div className="flex flex-col gap-0.5">
           <h2 className="text-heading-sm text-text-strong leading-[18px] font-medium">Languages</h2>

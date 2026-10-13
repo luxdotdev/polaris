@@ -1,7 +1,7 @@
 /**
  * `@polaris/ui`'s Composer wired for typing: ↵ sends, ⇧↵ breaks the line, esc
- * stops a Working Turn, pasted or dropped files become attachment chips, and
- * `/` lists the Harness's Skills and Slash Commands above it.
+ * stops a Working Turn, ↑/↓ bring back sent messages, pasted or dropped files
+ * become attachment chips, and `/` lists the Harness's Skills and Slash Commands.
  */
 import type { PolarisAction } from "@polaris/protocol";
 import { Composer, type Harness } from "@polaris/ui";
@@ -19,6 +19,7 @@ import {
   Prompt,
 } from "../../composer/index.ts";
 import type { StagedAttachment } from "../state.ts";
+import { ComposerMenu } from "./ComposerMenu.tsx";
 
 /** The `/` menu's list, and what to do for a command Polaris runs itself. */
 export interface ComposerCommands {
@@ -53,7 +54,12 @@ export interface DraftComposerProps {
   readonly placeholder: string;
   readonly canSubmit: boolean;
   readonly working?:
-    | { readonly elapsed: ReactNode; readonly onStop: () => void; readonly label?: ReactNode }
+    | {
+        readonly elapsed: ReactNode;
+        readonly onStop: () => void;
+        readonly label?: ReactNode;
+        readonly detail?: ReactNode;
+      }
     | undefined;
   readonly onEscape?: (() => void) | undefined;
   /** ⌘↵: queue the draft as a follow-up for after the Turn in flight. */
@@ -73,6 +79,8 @@ export interface DraftComposerProps {
   readonly autoFocus?: boolean;
   readonly className?: string;
   readonly commands?: ComposerCommands;
+  /** What the user sent in this session, oldest first, for ↑/↓. */
+  readonly history?: ReadonlyArray<string>;
 }
 
 export const DraftComposer = ({
@@ -99,6 +107,7 @@ export const DraftComposer = ({
   autoFocus = false,
   className,
   commands = NO_COMMANDS,
+  history,
 }: DraftComposerProps) => {
   // The menu draws in this box, above the card (which clips what it holds).
   const [menuSlot, setMenuSlot] = useState<HTMLDivElement | null>(null);
@@ -138,24 +147,29 @@ export const DraftComposer = ({
               />
             }
             input={
-              <Prompt
-                value={value}
-                onChange={onChange}
-                placeholder={placeholder}
-                disabled={disabled}
-                autoFocus={autoFocus}
-                options={commands.options}
-                loading={commands.loading}
-                onSubmit={submit}
-                onEscape={escape}
-                takesFiles={onFiles !== undefined}
-                onAction={commands.onAction}
-                notice={commands.notice}
-                frecency={commands.frecency}
-                onPicked={commands.onPicked}
-                onFocus={commands.want}
-                menuSlot={menuSlot}
-              />
+              <ComposerMenu
+                onFiles={onFiles === undefined ? undefined : (files) => onFiles(files, "attach")}
+              >
+                <Prompt
+                  value={value}
+                  onChange={onChange}
+                  placeholder={placeholder}
+                  disabled={disabled}
+                  autoFocus={autoFocus}
+                  options={commands.options}
+                  loading={commands.loading}
+                  onSubmit={submit}
+                  onEscape={escape}
+                  takesFiles={onFiles !== undefined}
+                  onAction={commands.onAction}
+                  notice={commands.notice}
+                  frecency={commands.frecency}
+                  onPicked={commands.onPicked}
+                  onFocus={commands.want}
+                  menuSlot={menuSlot}
+                  history={history}
+                />
+              </ComposerMenu>
             }
           />
         </AttachmentDrop>

@@ -7,7 +7,7 @@ import {
   type AgentSession,
   ApprovalRequest,
   type Attachment,
-  ContextUsage,
+  Compaction,
   DomainEvent,
   NotFound,
   type SessionId,
@@ -27,8 +27,11 @@ import {
   type ConstellationLivenessService,
 } from "../constellation/liveness.ts";
 import { LiveItem } from "../store/EventStore.ts";
+import { workingTurn } from "../store/model.ts";
+import { UsageIndex } from "../usage/index.ts";
+import { isWorker, usageLimitOf } from "./limits.ts";
 import { worktreeIdFor } from "./decider.ts";
-import { contextChanged } from "./context.ts";
+import { contextChanged, contextUsageOf } from "./context.ts";
 import { finalReply, forkPreamble } from "./fork.ts";
 import { EngineRuntime, type EventSource, type LiveHarness, type Progress } from "./runtime.ts";
 import { deferredUserTurns, refuseUserTurn } from "./supervisor.turns.ts";
@@ -48,7 +51,8 @@ const make = (
   rt: EngineRuntime["Service"],
   policy: Option.Option<ApprovalPolicy["Service"]>,
   attachments: ConstellationHarnessService,
-  liveness: ConstellationLivenessService
+  liveness: ConstellationLivenessService,
+  usage: Option.Option<UsageIndex["Service"]>
 ): Supervisor["Service"] => {
   const { store, live, progress } = rt;
 
@@ -320,13 +324,26 @@ const make = (
         ),
       ContextUsed: (e) =>
         rt.recordFor(sessionId, (record) => {
-          const usage = new ContextUsage({
-            usedTokens: e.usedTokens,
-            windowTokens: e.windowTokens,
-          });
+          const usage = contextUsageOf(e, record.session.contextUsage);
 
-          return contextChanged(record.session.contextUsage, usage)
-            ? [DomainEvent.cases.SessionContextUsed.make({ sessionId, usage })]
+          const compacted =
+            e.compacted === undefined
+              ? []
+              : [
+                  DomainEvent.cases.SessionCompacted.make({
+                    sessionId,
+                    compaction: new Compaction({
+                      turnId: workingTurn(record)?.id ?? null,
+                      trigger: e.compacted.trigger,
+                      beforeTokens: e.compacted.beforeTokens,
+                      afterTokens: e.compacted.afterTokens,
+                      at,
+                    }),
+                  }),
+                ];
+
+          return compacted.length > 0 || contextChanged(record.session.contextUsage, usage)
+            ? [...compacted, DomainEvent.cases.SessionContextUsed.make({ sessionId, usage })]
             : [];
         }),
       WorktreeCreated: (e) => onWorktreeCreated(sessionId, e.path),
@@ -345,6 +362,24 @@ const make = (
       );
     });
 
+  /** A plain session's failed Turn at a usage limit; a worker's stays failed for the Lead. */
+  const limitOf = (sessionId: SessionId, event: HarnessEventOf<"TurnEnded">, at: string) =>
+    Effect.gen(function* () {
+      if (event.status !== "failed") return null;
+      const model = yield* store.model;
+      const record = model.sessions.get(sessionId);
+
+      if (record === undefined || isWorker(model, sessionId)) return null;
+
+      return usageLimitOf({
+        error: event.error,
+        hint: event.limit,
+        harness: record.session.harness,
+        limits: Option.isSome(usage) ? yield* usage.value.planLimits : [],
+        now: at,
+      });
+    });
+
   const onTurnEnded = (sessionId: SessionId, event: HarnessEventOf<"TurnEnded">, at: string) =>
     Effect.gen(function* () {
       rt.dropProgress(sessionId, event.turnId);
@@ -355,6 +390,7 @@ const make = (
         status: event.status,
         error: event.error,
         checkpoint: after,
+        limit: yield* limitOf(sessionId, event, at),
         at,
       });
     });
@@ -540,7 +576,8 @@ export class Supervisor extends Context.Service<
         yield* EngineRuntime,
         yield* Effect.serviceOption(ApprovalPolicy),
         yield* ConstellationHarness,
-        yield* ConstellationLiveness
+        yield* ConstellationLiveness,
+        yield* Effect.serviceOption(UsageIndex)
       );
     })
   );

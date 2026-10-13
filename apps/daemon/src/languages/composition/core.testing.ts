@@ -212,6 +212,7 @@ export const fixture = (
 
     return {
       root,
+      servicesContext,
       core,
       broker,
       run,

@@ -41,14 +41,18 @@ import {
   planning,
   question,
   steer,
+  order,
   steerOutbox,
   subagents,
   workspace,
   workspaceId,
   worktree,
 } from "./fixtures.ts";
+import { items as itemsScene } from "./itemsScene.ts";
+import { polarisTools, PREVIEW_NOTICE } from "./polarisScene.ts";
 import { background, waitingSidebar } from "./background.ts";
 import { MODELS, PATCH } from "./fixtureData.ts";
+import { recordBanner } from "../banners.ts";
 
 const HOST = "local";
 
@@ -81,6 +85,7 @@ const host: HostView = {
 
 const SCENES = {
   session: planning,
+  items: itemsScene,
   approval,
   question,
   interrupted,
@@ -91,10 +96,13 @@ const SCENES = {
   attachments,
   subagents,
   background,
+  order,
+  polaris: polarisTools,
 } as const;
 
 const SCENE_NAMES = [
   "session",
+  "items",
   "approval",
   "question",
   "interrupted",
@@ -105,6 +113,8 @@ const SCENE_NAMES = [
   "attachments",
   "subagents",
   "background",
+  "order",
+  "polaris",
   "new",
   "setup",
   "none-ready",
@@ -113,6 +123,24 @@ const SCENE_NAMES = [
 ] as const;
 
 type Scene = (typeof SCENE_NAMES)[number];
+
+/** The Session context card's footer: "3.8M tokens · ~$4.12 · 91% read from cache". */
+const SESSION_BUCKET = {
+  hour: "2026-10-11T09:00:00.000Z",
+  harness: "claude",
+  model: "claude-opus-5",
+  sessionId: null,
+  tokens: {
+    input: 230_000,
+    cacheRead: 3_300_000,
+    cacheWrite: 96_000,
+    output: 174_000,
+    reasoning: 0,
+    cacheWrite1h: 0,
+  },
+  reportedCost: null,
+  longContext: [],
+};
 
 const harnessOf = (input: RequestInput<RequestMethod>) =>
   "harness" in input && input.harness === "codex" ? "codex" : "claude";
@@ -282,11 +310,17 @@ const answer = (
   if (method === "dispatch") return { ok: true, value: { sequence: null } };
 
   if (method === "usage.query") {
+    const forSession = "sessionId" in input && input.sessionId !== null;
+
     return {
       ok: true,
       value: {
-        report: { buckets: [], indexedAt: null, indexing: false },
-        estimates: [],
+        report: {
+          buckets: forSession ? [SESSION_BUCKET] : [],
+          indexedAt: null,
+          indexing: false,
+        },
+        estimates: forSession ? [{ estimatedUsd: 4.12, unpricedTokens: 0 }] : [],
         pricesFetchedAt: null,
       },
     };
@@ -430,22 +464,35 @@ export const mountPreview = (root: HTMLElement, hash: string) => {
     patchSessionUi(key, () => ({ outbox: steerOutbox(turnId) }));
   }
 
-  if ((scene === "attachments" || scene === "background") && shown?.session != null) {
-    const unfolded = new Set(shown.turns.map((t) => t.turn.id));
+  // Main's record of the notify call's banner, which the preview has no main process to send.
+  if (scene === "polaris" && shown?.session != null)
+    recordBanner({
+      hostKey: HOST,
+      sessionId: shown.session.id,
+      id: "n1",
+      ...PREVIEW_NOTICE,
+      banner: "shown",
+    });
 
-    patchSessionUi(uiKey(HOST, shown.session.id), () => ({ unfolded }));
+  if (
+    (scene === "attachments" || scene === "background" || scene === "polaris") &&
+    shown?.session != null
+  ) {
+    const folds = { chosen: new Map(), openFrom: shown.turns[0]?.turn.id ?? null };
+
+    patchSessionUi(uiKey(HOST, shown.session.id), () => ({ folds }));
   }
 
   // The long scene opens every Turn, so scrolling crosses thousands of rows.
   if (scene === "long" && shown?.session != null) {
-    const unfolded = new Set(shown.turns.map((t) => t.turn.id));
+    const folds = { chosen: new Map(), openFrom: shown.turns[0]?.turn.id ?? null };
 
-    patchSessionUi(uiKey(HOST, shown.session.id), () => ({ unfolded }));
+    patchSessionUi(uiKey(HOST, shown.session.id), () => ({ folds }));
   }
 
   if (isUsage(scene)) navigation.actions.openSettings("usage");
 
-  const commands = createCommandRegistry({ mac: true });
+  const commands = createCommandRegistry({ platform: "mac" });
 
   createRoot(root).render(<App value={{ connection, navigation, commands }} />);
 

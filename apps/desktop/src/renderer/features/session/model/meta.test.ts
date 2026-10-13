@@ -36,26 +36,40 @@ describe("stepLabel", () => {
   });
 });
 
+/** Totals only, as Codex reports them. */
+const usage = (usedTokens: number, windowTokens: number | null) => ({
+  usedTokens,
+  windowTokens,
+  categories: [],
+  memoryFiles: [],
+  categoriesTotal: null,
+  autoCompact: null,
+  autoCompactAt: null,
+  mcpServers: [],
+  skills: null,
+  agents: [],
+  messages: null,
+});
+
 describe("contextLabel", () => {
   test("a share of the window, with the tokens for the tooltip", () => {
-    expect(contextLabel({ usedTokens: 84_000, windowTokens: 200_000 })).toEqual({
+    expect(contextLabel(usage(84_000, 200_000))).toEqual({
       text: "Context 42%",
       detail: "84k of 200k tokens in context",
     });
   });
 
   test("near the limit the words change, never the colour", () => {
-    expect(contextLabel({ usedTokens: 172_000, windowTokens: 200_000 })?.text).toBe(
-      "Context 86% · nearly full"
-    );
-    expect(contextLabel({ usedTokens: 260_000, windowTokens: 200_000 })?.text).toBe(
-      "Context 100% · nearly full"
-    );
+    expect(contextLabel(usage(172_000, 200_000))?.text).toBe("Context 86% · nearly full");
+    expect(contextLabel(usage(260_000, 200_000))?.text).toBe("Context 100% · nearly full");
   });
 
-  test("hidden until the Harness reports its window", () => {
+  test("hidden until the Harness reports usage; the total alone while the window is unknown", () => {
     expect(contextLabel(null)).toBeNull();
-    expect(contextLabel({ usedTokens: 5000, windowTokens: null })).toBeNull();
+    expect(contextLabel(usage(84_000, null))).toEqual({
+      text: "Context 84k",
+      detail: "84k tokens in context",
+    });
   });
 
   test("token counts read short", () => {

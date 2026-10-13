@@ -7,6 +7,7 @@ import { Match } from "effect";
 import type { Overlap } from "./areas.ts";
 import { acceptedGlance, type ClaimGlance, claimGlance, type ReceiptView } from "./claim.ts";
 import { actorLine, harnessWord, span } from "./copy.ts";
+import { failureNote, neutralFailure } from "./failure.ts";
 import { type Activity, CONTEXT_WARN, type Facts, NO_FACTS, type WorkerFacts } from "./facts.ts";
 import {
   glyphFor,
@@ -39,6 +40,8 @@ export interface Liveness {
   readonly away: string | null;
   /** No command running and no output for a while: "quiet 3m". */
   readonly quiet: string | null;
+  /** The Daemon says no Turn is in flight: "waiting, not working". */
+  readonly idle: boolean;
 }
 
 export type Line =
@@ -160,10 +163,15 @@ const liveness = (w: WorkerFacts, progress: Progress | undefined, now: number): 
     progress: progressText(progress),
     away: awayText(w),
     quiet: a === null && w.quietSince !== null ? quietFor(w.quietSince, now) : null,
+    idle: w.activeTurn === false,
   };
 
   const empty =
-    activity === null && line.progress === null && line.away === null && line.quiet === null;
+    !line.idle &&
+    activity === null &&
+    line.progress === null &&
+    line.away === null &&
+    line.quiet === null;
 
   return empty && (w.contextPercent ?? 0) < CONTEXT_WARN && w.queued === 0 ? null : line;
 };
@@ -200,6 +208,23 @@ const reviewLine = ({ row, worker, facts }: LineInput): Line | null => {
       };
 };
 
+/** "resets 14:00" for a usage limit, else the failure's kind; the Harness's reason after it. */
+const failedLine = (attempt: AttemptData): Line | null => {
+  const kind = attempt.failureKind ?? null;
+  const reason = attempt.settleReason ?? null;
+
+  if (kind === null && reason === null) return null;
+
+  if (kind === null) return { kind: "note", text: reason ?? "", tone: "neutral", detail: null };
+
+  return {
+    kind: "note",
+    text: failureNote(kind, attempt.resetsAt),
+    tone: "neutral",
+    detail: reason,
+  };
+};
+
 const lineFor = (input: LineInput): Line | null => {
   const { row, worker, record, facts } = input;
   const { attention } = row.look;
@@ -215,9 +240,9 @@ const lineFor = (input: LineInput): Line | null => {
   if (attention?.kind === "stopped")
     return {
       kind: "note",
-      text: "stopped without claiming",
+      text: "stopped without reporting back",
       tone: "neutral",
-      detail: "nudged once",
+      detail: "reminded once",
     };
 
   if (attention?.kind === "question")
@@ -230,6 +255,8 @@ const lineFor = (input: LineInput): Line | null => {
 
   if (row.projection.state === "working" && row.attempt !== null)
     return liveness(worker, record.progress.get(row.attempt.id), facts.now);
+
+  if (row.projection.state === "failed" && row.attempt !== null) return failedLine(row.attempt);
 
   if (row.task.kind === "gate" && row.projection.state === "done" && row.attempt !== null) {
     const glance = acceptedGlance(row.attempt, facts);
@@ -298,7 +325,10 @@ const inputGlyphs = (task: TaskData, ctx: TaskContext): ReadonlyArray<GateInput>
 
     return {
       taskId: dep,
-      glyph: glyphFor(p, { needsYou: false, isGate: ctx.tasks.get(dep)?.kind === "gate" }),
+      glyph:
+        p.state === "failed" && neutralFailure(attempt?.failureKind)
+          ? "stopped"
+          : glyphFor(p, { needsYou: false, isGate: ctx.tasks.get(dep)?.kind === "gate" }),
       harness,
     };
   });

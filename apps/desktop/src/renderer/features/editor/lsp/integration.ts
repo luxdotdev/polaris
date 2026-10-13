@@ -14,10 +14,11 @@ import { languageFor, type LanguageId } from "../model/language.ts";
 import { bindEntryFormatter } from "./formatting.ts";
 import { LanguageFeatures } from "./features.ts";
 import { LanguageDiagnosticFeed, cmDiagnostics } from "./diagnostics.ts";
-import { completionSource, hoverExtension } from "./codemirror.ts";
+import { completionSource, hoverExtension, withWordFallback } from "./codemirror.ts";
+import { completionFootnote } from "./completionMenu.ts";
 import { documentLanguageId, type LanguageBuffer } from "./types.ts";
 import { readLanguageConfiguration } from "./configuration.ts";
-import { pruneLanguageGroups, admitLanguageGroup } from "./groups.ts";
+import { pruneLanguageGroups, admitLanguageGroup, contextIdOf } from "./groups.ts";
 import { EditorLanguageObservations } from "./observations.ts";
 import { EditorLanguageSession } from "./sessions.ts";
 import { languagePatch, languageStore } from "./state.ts";
@@ -41,11 +42,11 @@ import {
 import { offerServerEdit } from "./serverEdits.ts";
 import { configurationItems } from "./serverConfiguration.ts";
 import { ownedProvider } from "./ownership.ts";
-import { providerLabel, trustDiscovered, trustStore } from "../trust/store.ts";
+import { providerLabel, trustChangedFiles, trustDiscovered, trustStore } from "../trust/store.ts";
 import { refreshTrust } from "../trust/decide.ts";
 import { DiagnosticPull } from "./pull.ts";
 import * as Status from "../status/store.ts";
-import { contextObserved } from "../status/feed.ts";
+import { contextObserved, refreshHostTools } from "../status/feed.ts";
 
 interface Entry {
   readonly input: EditorLanguageMount;
@@ -86,14 +87,14 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
   private readonly observations = new EditorLanguageObservations();
   private readonly instance = crypto.randomUUID();
   private readonly untrust = trustStore.subscribe((state, previous) => {
-    if (
-      Object.entries(state.statuses).some(
-        ([key, value]) =>
-          previous.statuses[key] !== undefined &&
-          value.trust.revision !== previous.statuses[key]?.trust.revision
-      )
-    )
-      this.observations.invalidate();
+    const changed = trustChangedFiles(state, previous);
+
+    if (changed.size === 0) return;
+    this.observations.invalidate();
+
+    for (const entry of this.entries.values())
+      if (changed.has(fileKey(entry.input.file.hostKey, entry.input.file.path)))
+        void this.refreshEntry(entry, true);
   });
   private readonly refresh = () => {
     pruneLanguageGroups(this.groups, this.identity);
@@ -196,30 +197,39 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
         },
       },
     }));
+    const label = (provider: LanguageProvider) => providerLabel(key, provider.context.providerId);
+
     input.view.dispatch({
       effects: StateEffect.appendConfig.of(
         entry.compartment.of([
           autocompletion({
             override: [
-              completionSource(features, {
-                propose: (proposal) => {
-                  if (completionProposal === null)
-                    languagePatch(key, {
-                      panel: "Completion",
-                      rows: [
-                        {
-                          label: "This completion requires an edit proposal.",
-                          detail: "The edit coordinator is unavailable.",
-                        },
-                      ],
-                    });
-                  else completionProposal(proposal);
-                },
-              }),
+              withWordFallback(
+                completionSource(
+                  features,
+                  {
+                    propose: (proposal) => {
+                      if (completionProposal === null)
+                        languagePatch(key, {
+                          panel: "Completion",
+                          rows: [
+                            {
+                              label: "This completion requires an edit proposal.",
+                              detail: "The edit coordinator is unavailable.",
+                            },
+                          ],
+                        });
+                      else completionProposal(proposal);
+                    },
+                  },
+                  label
+                )
+              ),
             ],
           }),
-          hoverExtension(features, (provider) => providerLabel(key, provider.context.providerId)),
-          signatureExtension(features),
+          completionFootnote,
+          hoverExtension(features, label),
+          signatureExtension(features, label),
           languageKeys((command) => this.command?.(key, command)),
           refactorUndoKeys(input.file),
         ])
@@ -294,7 +304,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
     return { host, document, identity: usable ? identity : null };
   }
 
-  private async refreshEntry(entry: Entry, force = false, reportFailure = false) {
+  private async refreshEntry(entry: Entry, force = false, reportFailure = false, refresh = false) {
     if (entry.disposed) return;
     const environment = this.environment(entry);
 
@@ -350,7 +360,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
     const { identity, document } = environment;
 
     await this.observations
-      .settled(() => this.configure(entry, identity, document.checkout, stamp, signal))
+      .settled(() => this.configure(entry, identity, document.checkout, stamp, signal, refresh))
       .catch((error: P.LanguageError | Error) => {
         if (entry.disposed || signal.aborted || stamp !== entry.stamp) return;
         Status.statusFailed(key, {
@@ -402,7 +412,8 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
     identity: AuthenticatedLanguageIdentity,
     checkout: P.LanguageCheckout,
     stamp: string,
-    signal: AbortSignal
+    signal: AbortSignal,
+    refresh = false
   ) {
     const api = this.api();
 
@@ -436,7 +447,8 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
       scope,
       file.path,
       documentLanguageId(entry.language),
-      configuration.settings
+      configuration.settings,
+      refresh
     );
 
     if (!current() || JSON.stringify(found.checkout) !== JSON.stringify(checkout)) return;
@@ -501,6 +513,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
       found.projectRoot,
       id,
       found.effectiveSettings,
+      entry.language === "sql" ? file.path : null,
     ]);
 
     let group = this.groups.get(groupKey);
@@ -512,7 +525,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
         file.hostKey,
         {
           clientId: identity.clientId,
-          contextId: `editor-${crypto.randomUUID()}`,
+          contextId: contextIdOf(groupKey),
           checkout,
           path: file.path,
           providerId: id,
@@ -585,6 +598,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
             language: entry.language,
             manual: entry.manual,
             providers: providers.map((provider) => provider.context.providerId),
+            methods: [...new Set(providers.flatMap((provider) => provider.capabilities.methods))],
             status: providers.length ? "ready" : "unavailable",
             fact: providers.length ? "" : "Language tooling is unavailable or synchronizing.",
           });
@@ -786,9 +800,24 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
   async recheck(key: string) {
     const entry = this.entries.get(key);
 
-    if (entry === undefined) return;
+    if (entry === undefined)
+      throw new P.LanguageError({
+        reason: "not-ready",
+        message:
+          "This file's language tooling is no longer attached. Reopen the file and try again.",
+        retryable: true,
+      });
     this.observations.invalidate();
-    await this.refreshEntry(entry, true, true);
+    const api = this.api();
+
+    if (api === undefined)
+      throw new P.LanguageError({
+        reason: "not-connected",
+        message: "Language tooling is unavailable on this Host.",
+        retryable: true,
+      });
+    await refreshHostTools(api, entry.input.file.hostKey, documentLanguageId(entry.language));
+    await this.refreshEntry(entry, true, true, true);
   }
   private release(entry: Entry) {
     if (entry.disposed) return;

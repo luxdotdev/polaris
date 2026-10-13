@@ -1,6 +1,7 @@
-import type { ConstellationId, SessionId, TurnId } from "@polaris/protocol";
+import type { ConstellationId, PlanLimit, SessionId, TurnId } from "@polaris/protocol";
 import { Effect } from "effect";
 import { EventStore } from "../../store/EventStore.ts";
+import { capacityResetsAt, classifyFailure } from "../failureKind.ts";
 import { decideConstellationJournal } from "../journal.ts";
 import { ConstellationOwner } from "../runtime.ts";
 import { journalContext } from "./journal.ts";
@@ -9,10 +10,13 @@ import { journalContext } from "./journal.ts";
 export const settleFailedWorker = Effect.fn("Constellation.settleFailedWorker")(function* (
   id: ConstellationId,
   sessionId: SessionId,
-  turnId: TurnId
+  turnId: TurnId,
+  limits: Effect.Effect<ReadonlyArray<PlanLimit>> = Effect.succeed([])
 ) {
   const store = yield* EventStore;
   const owner = yield* ConstellationOwner;
+  // Read before the commit: the decision stays pure and the Usage index stays outside the lock.
+  const known = yield* limits;
   yield* store.commit({
     commandId: null,
     decide: (model) => {
@@ -37,6 +41,10 @@ export const settleFailedWorker = Effect.fn("Constellation.settleFailedWorker")(
       )
         return Effect.succeed([]);
 
+      const now = new Date().toISOString();
+      const failureKind = classifyFailure(record.session.lastError);
+
+      // Capacity is reported, never redispatched: the Lead decides when and where to retry.
       const decision = decideConstellationJournal(
         graph,
         {
@@ -44,8 +52,13 @@ export const settleFailedWorker = Effect.fn("Constellation.settleFailedWorker")(
           attemptId: attempt.id,
           outcome: "failed",
           reason: record.session.lastError ?? "The worker Harness failed",
+          failureKind,
+          resetsAt:
+            failureKind === "capacity"
+              ? capacityResetsAt(record.session.harness, known, now)
+              : null,
         },
-        journalContext(graph, new Date().toISOString())
+        journalContext(graph, now)
       );
 
       return decision.rejection === null

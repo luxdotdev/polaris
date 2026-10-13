@@ -3,6 +3,7 @@
  * defaults for new sessions, and the remote Hosts (by `~/.ssh/config` alias). A missing or unreadable file means
  * the defaults; the file is rewritten whole on every change.
  */
+import { PredictionClientEndpoints, PredictionPreferences } from "../shared/predictionPlacement.ts";
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -25,6 +26,8 @@ import { DaemonUpdateResultSchema } from "../shared/daemonUpdates.ts";
 
 export const RemoteHostSetting = Schema.Struct({
   keepDaemonUpToDate: Schema.optionalKey(Schema.Boolean),
+  /** How the Host is reached; absent means ssh. For "wsl" the alias is the distro name. */
+  kind: Schema.optionalKey(Schema.Literals(["ssh", "wsl"])),
   alias: Schema.String.check(Schema.isMinLength(1)),
   label: Schema.optionalKey(Schema.String),
   colour: Schema.optionalKey(Schema.NullOr(Schema.String)),
@@ -36,6 +39,12 @@ export const RemoteHostSetting = Schema.Struct({
 export type RemoteHostSetting = typeof RemoteHostSetting.Type;
 
 export const Settings = Schema.Struct({
+  predictionEnabled: Schema.optionalKey(Schema.Boolean),
+  predictionConfigured: Schema.optionalKey(Schema.Boolean),
+  predictionDiscoveryShown: Schema.optionalKey(Schema.Boolean),
+  predictionClientEndpoints: Schema.optionalKey(PredictionClientEndpoints),
+  prediction: Schema.optionalKey(Schema.Record(Schema.String, PredictionPreferences)),
+  sshBinary: Schema.optionalKey(Schema.String.check(Schema.isMinLength(1))),
   automaticAppUpdates: Schema.optionalKey(Schema.Boolean),
   appUpdateLastCheckedAt: Schema.optionalKey(Schema.Number),
   languageSettings: Schema.optionalKey(

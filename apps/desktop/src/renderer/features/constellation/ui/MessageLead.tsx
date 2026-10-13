@@ -15,12 +15,9 @@ import {
 } from "@polaris/ui";
 import { useState } from "react";
 import { constellationCommands } from "../client.ts";
+import type { MessageDraft } from "../state.ts";
 
-export interface MessageDraft {
-  readonly title: string;
-  readonly authority: MessageAuthority;
-  readonly text: string;
-}
+export type { MessageDraft } from "../state.ts";
 
 const EXPLAIN: Readonly<Record<MessageAuthority, string>> = {
   conversation: "The lead reads it in its next turn.",

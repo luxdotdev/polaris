@@ -3,6 +3,7 @@
  * besides github.com, adding one with its OAuth App's client ID, and an account per
  * server. UI copy says "server": "Host" is a machine running a Daemon (CONTEXT.md).
  */
+import { clientCopy } from "../../../../shared/clientCopy.ts";
 import {
   Button,
   DotsIcon,
@@ -49,7 +50,7 @@ const ServerMenu = ({ server }: { readonly server: GitHubHostView }) => (
         className="text-failed-text"
         onSelect={() => void polaris().request("github.hosts.remove", { host: server.host })}
       >
-        Remove {server.host} and its accounts from this Mac
+        Remove {server.host} and its accounts from {clientCopy().machine}
       </DropdownMenuItem>
     </DropdownMenuContent>
   </DropdownMenu>

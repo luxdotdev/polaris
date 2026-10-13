@@ -14,11 +14,15 @@ node scripts/budgets.ts [--json <path>] [--markdown <path>]   # the M1 budgets (
 bun run bench desktop-idle          # memory and CPU of the built app, settled (packages/bench)
 node scripts/screens.ts <dir>       # screenshots against Paper 11U-0 / MX-0, from four seeded local Daemons
 node scripts/sessionScreens.ts --out <dir> [--frames]   # the shell with the session view on fixtures (#preview/<scene>), every theme and density
+node scripts/reviewWithoutGitHubScreens.ts --out <dir>   # Review signed out and with GitHub unreachable, on a real Daemon and the GitHub fake
+node scripts/leadPeekSmoke.ts --out <dir>   # Space on a Lead row (Paper 13), grouped and compact in the machine sidebar: the preview opens, the sidebar never scrolls
+node scripts/reviewNoiseScreens.ts [--build] --out <dir>   # Review with generated and test files on a real Daemon (Paper R10): folds, "Hide tests" across a relaunch, both themes
 node scripts/needsYouScreens.ts --out <dir>   # the Needs You inbox and hover card on fixtures (#needs-you/<scene>) against Paper 1G2-0 / 1-0
 node scripts/pullsScreens.ts --out <dir> [--build]   # the pull request list and Needs You's Reviews group on fixtures (#pulls/<scene>) against Paper R3
 node scripts/reviewScreens.ts --out <dir> [--build] [--findings]  # Review on fixtures (#review/<scene>) against Paper R1 / R2, every theme, density and the -cvd palette; --findings: R1, R6, R7, R8
 node scripts/reviewBench.ts [--quick] [--json <path>] # Review under load on a real Daemon (2k / 5k / 12k files, a 100k-line file); also `bun run bench review`
 node scripts/emptyScreens.ts --out <dir> [--build]      # the empty states and the terminal drawer from a fresh Daemon, every theme and density
+node scripts/diagnosticsScreens.ts --out <dir>             # editor diagnostics on TypeScript and Prisma (build first): the hover's width, the Problems panel, inline messages (off, held under completion), both themes
 ```
 
 **GitHub.** The main process holds the GitHub client (`src/main/github`, see its README): accounts by device flow, tokens sealed with `safeStorage`, the pull request list, reviews and Review Checkout states, over `github.*` IPC. Tests and the smoke use the fake in `scripts/lib/githubFake`; set `POLARIS_GITHUB_WEB_URL` / `POLARIS_GITHUB_API_URL` to point the app at another GitHub.

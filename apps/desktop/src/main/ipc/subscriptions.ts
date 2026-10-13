@@ -2,7 +2,9 @@
  * One window's open subscriptions: each runs its feed on the Client runtime and
  * pushes items into the window's batcher. Closing the window interrupts them all.
  */
-import { Cause, Effect, Exit, Fiber, Option, Stream } from "effect";
+import { Cause, Effect, Exit, Fiber, Option, Schema, Stream } from "effect";
+import { PredictionCompletionInput } from "../../shared/predictionContract.ts";
+import type { PredictionBridge } from "../prediction/bridge.ts";
 import { CHANNELS, type BatchEntry, type IpcError } from "../../shared/api.ts";
 import type { ClientRuntime } from "../hosts.ts";
 import { newBatcher } from "./batcher.ts";
@@ -21,6 +23,7 @@ export interface WindowSubscriptions {
 }
 
 export interface WindowSubscriptionsInput {
+  readonly prediction?: PredictionBridge | undefined;
   readonly runtime: ClientRuntime;
   readonly target: WindowTarget;
 }
@@ -36,10 +39,12 @@ const endError = (exit: Exit.Exit<void, IpcError>): IpcError | null =>
   });
 
 export const windowSubscriptions = ({
+  prediction,
   runtime,
   target,
 }: WindowSubscriptionsInput): WindowSubscriptions => {
   const fibers = new Map<number, Fiber.Fiber<void, IpcError>>();
+  const workspaces = new Map<string, { hostKey: string; workspaceId: string }>();
 
   const batcher = newBatcher({
     send: (entries) => {
@@ -56,10 +61,19 @@ export const windowSubscriptions = ({
       return;
     }
 
+    if (kind === "prediction.complete")
+      Option.map(Schema.decodeUnknownOption(PredictionCompletionInput)(input), (value) => {
+        workspaces.set(JSON.stringify([value.hostKey, value.workspaceId]), {
+          hostKey: value.hostKey,
+          workspaceId: value.workspaceId,
+        });
+      });
+
     const fiber = runtime.runFork(
-      feedOpener(kind)(input).pipe(
-        Stream.runForEach((item) => Effect.sync(() => batcher.push(id, item)))
-      )
+      feedOpener(
+        kind,
+        prediction
+      )(input).pipe(Stream.runForEach((item) => Effect.sync(() => batcher.push(id, item))))
     );
 
     fibers.set(id, fiber);
@@ -80,6 +94,9 @@ export const windowSubscriptions = ({
       runtime.runFork(Fiber.interrupt(fiber));
     },
     dispose: () => {
+      for (const { hostKey, workspaceId } of workspaces.values())
+        prediction?.release(hostKey, workspaceId);
+      workspaces.clear();
       batcher.dispose();
       runtime.runFork(Fiber.interruptAll([...fibers.values()]));
       fibers.clear();

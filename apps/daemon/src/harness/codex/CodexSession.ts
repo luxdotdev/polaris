@@ -9,7 +9,6 @@
  */
 import {
   ApprovalDecision,
-  type ApprovalKind,
   type PermissionMode,
   RequestId,
   TurnId,
@@ -33,6 +32,7 @@ import {
   type OpenOptions,
   type TurnInput,
 } from "../HarnessDriver.ts";
+import { ItemClock } from "../itemClock.ts";
 import type { AppServer } from "./AppServer.ts";
 import {
   type CodexPlanLimits,
@@ -41,21 +41,19 @@ import {
   readRateLimits,
 } from "./planLimits.ts";
 import {
-  approvalDecision,
-  elicitationDecision,
-  permissionsDecision,
   policyFor,
   readableError,
   sandboxPolicyFor,
   toPlanItem,
   toTurnItem,
   turnInput,
-  userInputDecision,
   userMessageText,
 } from "./mapping.ts";
 import * as P from "./protocol.ts";
+import { type ApprovalPrompt, approvalPrompts } from "./approvalPrompts.ts";
 import { codexError, Incoming, type RpcConnection } from "./RpcConnection.ts";
 import { ReasoningTimes } from "./reasoning.ts";
+import { CodexProcesses, terminateProcess } from "./processes.ts";
 import { CodexSteers } from "./steers.ts";
 import { CodexSubagents } from "./subagents.ts";
 import { requestCompat } from "./compat.ts";
@@ -85,15 +83,6 @@ const isRpc = PendingRequest.$is("Rpc");
 
 /** Hoisted: the taggedEnum accessor builds a new constructor on every property read. */
 const { ItemDelta } = HarnessEvent;
-
-/** A server request Polaris shows as an approval, and how to answer it. */
-interface ApprovalPrompt {
-  readonly kind: ApprovalKind;
-  readonly title: string;
-  readonly detail: string | null;
-  readonly options: ReadonlyArray<string>;
-  readonly respond: (decision: ApprovalDecision) => P.ServerRequestResponse;
-}
 
 const decode = <S extends Schema.Decoder<unknown>>(schema: S) => {
   const decodeOption = Schema.decodeUnknownOption(schema);
@@ -125,22 +114,14 @@ const decodeError = decode(P.ErrorNotification);
 
 const decodeName = decode(P.ThreadNameUpdatedNotification);
 
-const decodeCommandApproval = decode(P.CommandApprovalParams);
-
-const decodeFileApproval = decode(P.FileChangeApprovalParams);
-
-const decodePermissions = decode(P.PermissionsApprovalParams);
-
-const decodeUserInput = decode(P.UserInputParams);
-
-const decodeElicitation = decode(P.ElicitationParams);
-
 const newTurnId = () => TurnId.make(crypto.randomUUID());
 
 const newRequestId = () => RequestId.make(crypto.randomUUID());
 
 /** Items whose text streams as deltas; the others show live progress while running. */
 const isStreamedText = TurnItem.isAnyOf(["AssistantMessage", "Reasoning"]);
+
+const isCommand = Schema.is(P.CommandExecutionItem);
 
 type ItemNotification = typeof P.ItemNotification.Type;
 
@@ -152,126 +133,16 @@ const asyncQuestions = (item: P.ThreadItem): AgentMessage["questions"] =>
     ? item.questions
     : null;
 
-/** The approval shown for each server request Polaris answers; null when its params don't parse. */
-const approvalPrompts = new Map<
-  string,
-  (params: P.RpcPayload) => {
-    readonly threadId: string;
-    readonly turnId: string | null;
-    readonly prompt: ApprovalPrompt;
-  } | null
->([
-  [
-    "item/commandExecution/requestApproval",
-    (params) => {
-      const p = decodeCommandApproval(params);
-
-      return p === null
-        ? null
-        : {
-            threadId: p.threadId,
-            turnId: p.turnId,
-            prompt: {
-              kind: "command",
-              title: p.command ?? "Run a command",
-              detail: p.reason ?? p.cwd ?? null,
-              options: [],
-              respond: approvalDecision,
-            },
-          };
-    },
-  ],
-  [
-    "item/fileChange/requestApproval",
-    (params) => {
-      const p = decodeFileApproval(params);
-
-      return p === null
-        ? null
-        : {
-            threadId: p.threadId,
-            turnId: p.turnId,
-            prompt: {
-              kind: "file-change",
-              title: p.grantRoot ? `Allow writes under ${p.grantRoot}` : "Apply file changes",
-              detail: p.reason ?? null,
-              options: [],
-              respond: approvalDecision,
-            },
-          };
-    },
-  ],
-  [
-    "item/permissions/requestApproval",
-    (params) => {
-      const p = decodePermissions(params);
-
-      return p === null
-        ? null
-        : {
-            threadId: p.threadId,
-            turnId: p.turnId,
-            prompt: {
-              kind: "tool",
-              title: "Grant additional permissions",
-              detail: [p.reason, JSON.stringify(p.permissions)].filter(Boolean).join("\n"),
-              options: [],
-              respond: (decision) => permissionsDecision(p.permissions, decision),
-            },
-          };
-    },
-  ],
-  [
-    "item/tool/requestUserInput",
-    (params) => {
-      const p = decodeUserInput(params);
-
-      return p === null
-        ? null
-        : {
-            threadId: p.threadId,
-            turnId: p.turnId,
-            prompt: {
-              kind: "question",
-              title: p.questions.map((q) => q.question).join("\n"),
-              detail: p.questions.map((q) => q.header).join(" · ") || null,
-              options: p.questions[0]?.options?.map((o) => o.label) ?? [],
-              respond: (decision) => userInputDecision(p.questions, decision),
-            },
-          };
-    },
-  ],
-  [
-    "mcpServer/elicitation/request",
-    (params) => {
-      const p = decodeElicitation(params);
-
-      return p === null
-        ? null
-        : {
-            threadId: p.threadId,
-            turnId: p.turnId,
-            prompt: {
-              kind: "tool",
-              title: `${p.serverName}: ${p.message}`,
-              detail: null,
-              options: [],
-              respond: elicitationDecision,
-            },
-          };
-    },
-  ],
-]);
-
 export const openSession = (
   config: SessionConfig,
   options: OpenOptions
 ): Effect.Effect<HarnessSession, HarnessError, Scope.Scope> =>
   Effect.gen(function* () {
     const events = yield* Queue.unbounded<HarnessEvent, Cause.Done>();
+    const clock = new ItemClock();
 
     const emit = (event: HarnessEvent) => {
-      Queue.offerUnsafe(events, event);
+      Queue.offerUnsafe(events, clock.stamp(event));
     };
 
     const conn: RpcConnection = yield* config.appServer.connect;
@@ -377,6 +248,11 @@ export const openSession = (
     let errorCount = 0;
     const subagents = new CodexSubagents();
     const steers = new CodexSteers();
+    const processes = new CodexProcesses();
+
+    const backgroundChanged = (changed: boolean) => {
+      if (changed) emit(HarnessEvent.BackgroundTasksChanged({ tasks: processes.tasks() }));
+    };
 
     const announce = (codexTurnId: string, prompt: string | null) => {
       const turnId = turns.get(codexTurnId);
@@ -486,12 +362,15 @@ export const openSession = (
       p !== null && p.threadId === threadId;
 
     const onUserMessage = (p: ItemNotification) => {
-      const turnId = turnFor(p.turnId, { announce: false });
+      turnFor(p.turnId, { announce: false });
       const text = userMessageText(p.item);
       announce(p.turnId, text);
-      const steer = steers.fromItem(p.turnId, p.item.id ?? `text:${text}`, text);
+      steers.fromItem(p.turnId, p.item.id ?? `text:${text}`, text);
+    };
 
-      if (steer !== null) emit(HarnessEvent.ItemCompleted({ turnId, item: steer }));
+    /** Steers the model has now read land just before what it does next. */
+    const landSteers = (turnId: TurnId, landed: ReadonlyArray<TurnItem>) => {
+      for (const item of landed) emit(HarnessEvent.ItemCompleted({ turnId, item }));
     };
 
     const openAsyncQuestions = (turnId: TurnId, item: P.ThreadItem) => {
@@ -529,6 +408,12 @@ export const openSession = (
 
       if (p.item.type === "userMessage") return onUserMessage(p);
       const turnId = turnFor(p.turnId);
+      landSteers(turnId, steers.take(p.turnId));
+      backgroundChanged(
+        isCommand(p.item)
+          ? processes.commandStarted(p.item.id, p.item.command, p.item.processId ?? null)
+          : processes.itemStarted(p.item.id ?? "")
+      );
 
       const item =
         p.item.type === "reasoning" && p.item.id !== undefined
@@ -553,6 +438,8 @@ export const openSession = (
 
       if (item !== null)
         emit(HarnessEvent.ItemCompleted({ turnId, item: reasoning.finish(item, p.completedAtMs) }));
+
+      if (isCommand(p.item)) backgroundChanged(processes.completed(p.item.id));
 
       for (const event of subagents.fromParentItem(turnId, p.item)) emit(event);
       openAsyncQuestions(turnId, p.item);
@@ -582,7 +469,8 @@ export const openSession = (
       }
 
       endedTurns.add(p.turn.id);
-      steers.end(p.turn.id);
+      landSteers(turnId, steers.end(p.turn.id));
+      backgroundChanged(processes.turnEnded());
 
       if (activeCodexTurn === p.turn.id) activeCodexTurn = null;
 
@@ -592,6 +480,9 @@ export const openSession = (
           turnId,
           status: p.turn.status === "inProgress" ? "completed" : p.turn.status,
           error: p.turn.error ? readableError(p.turn.error.message) : null,
+          // The reset comes from Codex's Plan Limits, read by the engine.
+          limit:
+            p.turn.error?.codexErrorInfo === "usageLimitExceeded" ? { resetsAt: null } : undefined,
         })
       );
     };
@@ -833,10 +724,7 @@ export const openSession = (
           input: [{ type: "text", text, text_elements: [] }],
           expectedTurnId: codexTurnId,
         } satisfies P.ClientParams["turn/steer"]);
-        const steer = steers.fromResponse(codexTurnId, text);
-
-        if (steer !== null)
-          emit(HarnessEvent.ItemCompleted({ turnId: turnFor(codexTurnId), item: steer }));
+        steers.fromResponse(codexTurnId, text);
       });
 
     const session: HarnessSession = {
@@ -852,6 +740,13 @@ export const openSession = (
           return startTurn(input.turnId, input.prompt, turnInput(input.prompt, input.attachments));
         }),
       steer: steerText,
+      stopBackground: (taskIds) =>
+        Effect.forEach(
+          taskIds.flatMap((id) => processes.processOf(id) ?? []),
+          (processId) =>
+            terminateProcess(config.appServer, config.clientVersion, threadId, processId),
+          { discard: true }
+        ),
       interrupt: Effect.suspend(() =>
         activeCodexTurn === null
           ? Effect.void

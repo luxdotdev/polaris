@@ -50,6 +50,7 @@ export const registerIpc = ({ runtime, context, trusted }: IpcInput) => {
     if (subs === undefined) {
       subs = windowSubscriptions({
         runtime,
+        prediction: context.predictionBridge,
         target: {
           isDestroyed: () => sender.isDestroyed(),
           send: (channel, entries) => sender.send(channel, entries),
@@ -110,6 +111,7 @@ export const registerIpc = ({ runtime, context, trusted }: IpcInput) => {
     dispose: () => {
       for (const subs of windows.values()) subs.dispose();
       windows.clear();
+      void context.predictionBridge?.dispose();
       ipcMain.removeHandler(CHANNELS.request);
       ipcMain.removeAllListeners(CHANNELS.subscribe);
       ipcMain.removeAllListeners(CHANNELS.unsubscribe);

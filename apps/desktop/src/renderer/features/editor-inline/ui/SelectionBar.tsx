@@ -5,6 +5,7 @@
  */
 import { ChatIcon, Kbd } from "@polaris/ui";
 import type { BarPlace } from "../cm/index.ts";
+import { commandShortcut } from "../../../../shared/keymap.ts";
 
 export interface SelectionBarProps {
   readonly place: BarPlace;
@@ -33,7 +34,7 @@ export const SelectionBar = ({ place, onAsk, onAdd }: SelectionBarProps) => (
     >
       <ChatIcon size={14} />
       Edit or ask
-      <Kbd>⌘I</Kbd>
+      <Kbd>{commandShortcut("editor.inlineChat")}</Kbd>
     </button>
     <button
       type="button"
@@ -42,7 +43,7 @@ export const SelectionBar = ({ place, onAsk, onAdd }: SelectionBarProps) => (
       className={`${ACTION} text-text-subtle hover:bg-fill-hover hover:text-text-default`}
     >
       Add to agent session
-      <Kbd>⌘L</Kbd>
+      <Kbd>{commandShortcut("editor.addToSession")}</Kbd>
     </button>
   </div>
 );

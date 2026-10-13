@@ -1,6 +1,6 @@
 /**
  * Handlers for the engine's RPCs: `dispatch`, `subscribeHost`,
- * `subscribeSession`, `session.terminalCommand` and `review.checkoutStatus`. The transport mounts
+ * `subscribeSession`, `session.turns`, `session.terminalCommand` and `review.checkoutStatus`. The transport mounts
  * `EngineRpcHandlers` next to the other modules' handlers when it builds the
  * `DaemonRpcs` server:
  *
@@ -15,8 +15,9 @@
  * `session.live-items` get `ItemProgress` on session streams).
  */
 import { type Capability, DaemonRpcs, NotFound } from "@polaris/protocol";
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Stream } from "effect";
 import { Engine } from "./Engine.ts";
+import { hostItemsFor, sessionItemsFor } from "./limitedCompat.ts";
 
 /** Per-connection annotation set by the `hello` handler. */
 export class DeviceLabel extends Context.Service<DeviceLabel, string>()(
@@ -58,11 +59,17 @@ const SubscribeHostHandler = DaemonRpcs.toLayerHandler(
   Effect.gen(function* () {
     const engine = yield* Engine;
 
-    return ({ afterSequence }, { client }) =>
-      engine.subscribeHost(afterSequence, {
+    return ({ afterSequence }, { client }) => {
+      const capabilities = announcedAll(client.annotations);
+      const compat = hostItemsFor(capabilities);
+
+      const items = engine.subscribeHost(afterSequence, {
         subagents: announced(client.annotations, "session.subagents"),
-        capabilities: announcedAll(client.annotations),
+        capabilities,
       });
+
+      return compat === null ? items : Stream.map(items, compat);
+    };
   })
 );
 
@@ -71,15 +78,21 @@ const SubscribeSessionHandler = DaemonRpcs.toLayerHandler(
   Effect.gen(function* () {
     const engine = yield* Engine;
 
-    return ({ sessionId, afterSequence, turnLimit }, { client }) =>
-      engine.subscribeSession({
+    return ({ sessionId, afterSequence, turnLimit }, { client }) => {
+      const capabilities = announcedAll(client.annotations);
+      const compat = sessionItemsFor(capabilities);
+
+      const items = engine.subscribeSession({
         sessionId,
         afterSequence,
         turnLimit,
         liveItems: announced(client.annotations, "session.live-items"),
         subagents: announced(client.annotations, "session.subagents"),
-        capabilities: announcedAll(client.annotations),
+        capabilities,
       });
+
+      return compat === null ? items : Stream.map(items, compat);
+    };
   })
 );
 
@@ -99,6 +112,21 @@ const TerminalCommandHandler = DaemonRpcs.toLayerHandler(
   })
 );
 
+const ReadTurnsHandler = DaemonRpcs.toLayerHandler(
+  "session.turns",
+  Effect.gen(function* () {
+    const engine = yield* Engine;
+
+    return ({ sessionId, beforeIndex, limit }, { client }) =>
+      engine.readTurnPage({
+        sessionId,
+        beforeIndex,
+        limit,
+        subagents: announced(client.annotations, "session.subagents"),
+      });
+  })
+);
+
 const CheckoutStatusHandler = DaemonRpcs.toLayerHandler(
   "review.checkoutStatus",
   Effect.gen(function* () {
@@ -113,5 +141,6 @@ export const EngineRpcHandlers = Layer.mergeAll(
   SubscribeHostHandler,
   SubscribeSessionHandler,
   TerminalCommandHandler,
+  ReadTurnsHandler,
   CheckoutStatusHandler
 );

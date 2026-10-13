@@ -5,6 +5,7 @@
  */
 import { EmptyState, PixelFolderIcon } from "@polaris/ui";
 import { useEffect } from "react";
+import { TerminalDock } from "../../../terminal/index.ts";
 import { TopBar } from "../../../../shell/TopBar.tsx";
 import { useApp, useSelection } from "../../../../shell/hooks.ts";
 import { explorerKey, useExplorerState } from "../data/store.ts";
@@ -12,13 +13,14 @@ import { EditorPane, EditorStatus, registerEditorExtensions } from "../../index.
 import { gitGutter } from "../gutter/gitGutter.ts";
 import { Explorer } from "./Explorer.tsx";
 import { StatusBar } from "./StatusBar.tsx";
+import { commandShortcut } from "../../../../../shared/keymap.ts";
 
 const NoWorkspace = () => (
   <div className="grid flex-1 place-items-center" data-testid="edit-no-workspace">
     <EmptyState
       icon={<PixelFolderIcon size={24} className="text-text-strong" />}
       title="No workspace to edit"
-      fact="Choose one in the bar above, or ⌘O opens a folder"
+      fact={`Choose one in the bar above, or ${commandShortcut("workspace.add")} opens a folder`}
     />
   </div>
 );
@@ -41,7 +43,9 @@ const Workbench = ({
     <div className="flex min-h-0 flex-1 flex-col" data-testid="edit-mode">
       <div className="flex min-h-0 flex-1">
         <Explorer host={host} workspace={workspace} />
-        <EditorPane hostKey={hostKey} workspaceId={workspaceId} root={root} />
+        <TerminalDock hostKey={hostKey} workspaceId={workspaceId}>
+          <EditorPane hostKey={hostKey} workspaceId={workspaceId} root={root} />
+        </TerminalDock>
       </div>
       <StatusBar
         host={host}

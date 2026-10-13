@@ -3,6 +3,7 @@
  * with each owner's Workspaces and access, the Workspace overrides, and the device-flow
  * card's words. The first account is the default: routing tries accounts in order.
  */
+import { clientCopy } from "../../../../shared/clientCopy.ts";
 import type {
   GitHubAccountsView,
   PullListView,
@@ -228,6 +229,7 @@ const FAILURES: Readonly<Record<SignInFailure, string>> = {
   disabled: "Device sign-in is turned off for Polaris on GitHub",
   network: "Couldn't reach GitHub",
   unavailable: "GitHub couldn't start a sign-in right now",
+  keychain: clientCopy().tokenStoreBlocked,
 };
 
 /** "14:32", never below zero. */

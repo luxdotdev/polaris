@@ -529,7 +529,7 @@ export const buildRail = (
           {
             kind: "note",
             key: "note",
-            text: `${all.length} tasks · groups with nothing for you stay folded; one that needs you or is blocked opens itself`,
+            text: `${all.length} tasks · a group opens when something in it needs you or is blocked`,
           },
         ]
       : [];

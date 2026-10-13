@@ -657,3 +657,59 @@ test("Main preserves typed install diagnostics and hides untyped transport failu
     bridge.dispose();
   }
 });
+
+test("SQL dialect selection's bare-word scope routes, and its checkout is still authorized", async () => {
+  const { preferences } = prefs();
+  const calls: unknown[] = [];
+
+  const access = new LanguageAccess({
+    hostId,
+    clientId: "client",
+    capabilities: ["languages"],
+    signal: new AbortController().signal,
+    invoke: async (_method, input) => {
+      calls.push(input);
+
+      return P.LanguageSqlDialectState.make({
+        checkout,
+        path: "/fixture/a.sql",
+        revision: 1,
+        dialect: "sqlite",
+        source: "file",
+        fileOverride: "sqlite",
+        workspaceOverride: null,
+      });
+    },
+    watch: async function* () {},
+    takeBlob: async () => png,
+  });
+
+  const current = host(access);
+  const bridge = createLanguageBridge({ preferences, lookup: () => current });
+
+  const select = (target: typeof checkout, scope: "file" | "workspace") =>
+    bridge.request("languages.sql.dialect.select", {
+      hostKey: "host",
+      checkout: target,
+      path: "/fixture/a.sql",
+      scope,
+      dialect: "sqlite",
+      expectedRevision: 0,
+    });
+
+  expect((await select(checkout, "file")).ok).toBe(true);
+  expect((await select(checkout, "workspace")).ok).toBe(true);
+  expect(calls).toHaveLength(2);
+
+  const foreign = P.LanguageCheckout.cases.Workspace.make({
+    workspaceId: P.WorkspaceId.make("workspace-b"),
+    path: "/elsewhere",
+  });
+
+  expect(await select(foreign, "file")).toMatchObject({
+    ok: false,
+    error: { languageError: { reason: "not-owner" } },
+  });
+  expect(calls).toHaveLength(2);
+  bridge.dispose();
+});

@@ -25,6 +25,9 @@ import {
   workerSections,
 } from "../model/leadGroups.ts";
 import { blockedHover, setupHover, shownWorker, TONE_CLASS } from "../model/workerCopy.ts";
+import { ConstellationPeek, useSpacePeek } from "../../constellation/ui/peek.tsx";
+import { RenameField, SessionMenu, useRenaming } from "./SessionMenu.tsx";
+import { WorkerMenu } from "./WorkerMenu.tsx";
 import { useConstellationActions, useFocusedTask } from "../source.ts";
 
 interface GroupProps {
@@ -110,26 +113,28 @@ const Worker = ({
   };
 
   return (
-    <Row
-      {...buttonProps(select)}
-      data-testid="worker-row"
-      data-task={row.taskId}
-      data-worker-state={row.state}
-      aria-current={selected}
-      selected={selected}
-      className={cn(selected && "border-hairline bg-row-selected hover:bg-row-selected")}
-      leading={
-        <TaskGlyph glyph={shown.glyph} harness={row.entry?.session.harness ?? null} size={16} />
-      }
-      title={
-        <WorkerTitle
-          row={row}
-          idOnly={idOnly}
-          tone={shown.tone === "needs-you" ? "text-needs-you-text" : "text-text-subtle"}
-        />
-      }
-      meta={<WorkerMeta row={row} shown={shown} hostLabel={hostLabel} now={now} />}
-    />
+    <WorkerMenu hostKey={hostKey} group={group} row={row} onFocus={select}>
+      <Row
+        {...buttonProps(select)}
+        data-testid="worker-row"
+        data-task={row.taskId}
+        data-worker-state={row.state}
+        aria-current={selected}
+        selected={selected}
+        className={cn(selected && "border-hairline bg-row-selected hover:bg-row-selected")}
+        leading={
+          <TaskGlyph glyph={shown.glyph} harness={row.entry?.session.harness ?? null} size={16} />
+        }
+        title={
+          <WorkerTitle
+            row={row}
+            idOnly={idOnly}
+            tone={shown.tone === "needs-you" ? "text-needs-you-text" : "text-text-subtle"}
+          />
+        }
+        meta={<WorkerMeta row={row} shown={shown} hostLabel={hostLabel} now={now} />}
+      />
+    </WorkerMenu>
   );
 };
 
@@ -288,8 +293,20 @@ export const LeadGroup = ({ hostKey, group, now }: GroupProps) => {
     selection.pane === "session" && selection.sessionId === leadId && focused === null;
 
   const props = buttonProps(select);
+  const peek = useSpacePeek();
+  const rename = useRenaming();
 
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    // Space previews the Constellation (Paper 13); Enter still opens the Lead.
+    if (event.key === " ") {
+      event.preventDefault();
+      peek.toggle();
+
+      return;
+    }
+
+    if (event.key === "Enter") peek.setOpen(false);
+
     if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
       event.preventDefault();
       toggleFolded(group.key, event.key === "ArrowRight");
@@ -312,39 +329,55 @@ export const LeadGroup = ({ hostKey, group, now }: GroupProps) => {
   return (
     <div className="flex flex-col" data-testid="lead-group" data-lead={leadId}>
       <WithHover hostKey={hostKey} entry={lead}>
-        <Row
-          {...props}
-          onKeyDown={onKeyDown}
-          aria-current={selected}
-          aria-expanded={open}
-          data-state={shownState(lead)}
-          variant="session"
-          selected={selected}
-          tone={needsYou(lead) ? "needs-you" : "default"}
-          leading={
-            <SessionTile
-              state={shownState(lead)}
-              harness={lead.session.harness}
-              density={density}
+        <SessionMenu hostKey={hostKey} entry={lead} onRename={rename.start}>
+          <ConstellationPeek
+            hostKey={hostKey}
+            leadSessionId={leadId}
+            open={peek.open}
+            onOpenChange={peek.setOpen}
+          >
+            <Row
+              {...props}
+              {...peek.rowProps}
+              onKeyDown={onKeyDown}
+              aria-current={selected}
+              aria-expanded={open}
+              data-state={shownState(lead)}
+              variant="session"
+              selected={selected}
+              tone={needsYou(lead) ? "needs-you" : "default"}
+              leading={
+                <SessionTile
+                  state={shownState(lead)}
+                  harness={lead.session.harness}
+                  density={density}
+                />
+              }
+              title={
+                rename.renaming ? (
+                  <RenameField hostKey={hostKey} entry={lead} onDone={rename.stop} />
+                ) : (
+                  lead.session.title || group.view.constellation.name
+                )
+              }
+              description={<LeadLine group={group} open={open} />}
+              meta={age(lead.session.createdAt, now)}
+              trailing={
+                <button
+                  type="button"
+                  aria-label={open ? "Fold workers" : "Show workers"}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    toggleFolded(group.key, !open);
+                  }}
+                  className="text-text-faint hover:text-text-default -mr-1 hidden size-4 cursor-default items-center justify-center group-hover/row:flex"
+                >
+                  {open ? <ChevronDownIcon size={10} /> : <ChevronRightIcon size={10} />}
+                </button>
+              }
             />
-          }
-          title={lead.session.title || group.view.constellation.name}
-          description={<LeadLine group={group} open={open} />}
-          meta={age(lead.session.createdAt, now)}
-          trailing={
-            <button
-              type="button"
-              aria-label={open ? "Fold workers" : "Show workers"}
-              onClick={(event) => {
-                event.stopPropagation();
-                toggleFolded(group.key, !open);
-              }}
-              className="text-text-faint hover:text-text-default -mr-1 hidden size-4 cursor-default items-center justify-center group-hover/row:flex"
-            >
-              {open ? <ChevronDownIcon size={10} /> : <ChevronRightIcon size={10} />}
-            </button>
-          }
-        />
+          </ConstellationPeek>
+        </SessionMenu>
       </WithHover>
       {open ? (
         <div

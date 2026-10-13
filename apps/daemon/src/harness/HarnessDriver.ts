@@ -10,7 +10,13 @@ import type {
   ApprovalDecision,
   ApprovalKind,
   Attachment,
+  ContextCategory,
+  ContextEntry,
+  ContextSkills,
   HarnessKind,
+  McpServerUsage,
+  MessageUsage,
+  MemoryFile,
   Model,
   ModelId,
   PermissionMode,
@@ -32,6 +38,21 @@ export class HarnessError extends Schema.TaggedError<HarnessError>()("HarnessErr
   message: Schema.String,
   cause: Schema.optional(Schema.Defect()),
 }) {}
+
+/** What fills the context window, as the Harness last counted it (see `ContextUsage`). */
+export interface ContextBreakdown {
+  readonly categories: ReadonlyArray<ContextCategory>;
+  readonly memoryFiles: ReadonlyArray<MemoryFile>;
+  /** The total the categories add up to when counted. */
+  readonly countedTokens: number;
+  readonly autoCompact: boolean | null;
+  /** The rest of `ContextUsage`'s breakdown, when the Harness gives it. */
+  readonly autoCompactAt?: number | null;
+  readonly mcpServers?: ReadonlyArray<McpServerUsage>;
+  readonly skills?: ContextSkills | null;
+  readonly agents?: ReadonlyArray<ContextEntry>;
+  readonly messages?: MessageUsage | null;
+}
 
 export type HarnessEvent = Data.TaggedEnum<{
   /** The Harness-native resume handle is known (or changed); persist it. */
@@ -106,13 +127,28 @@ export type HarnessEvent = Data.TaggedEnum<{
     readonly turnId: TurnId;
     readonly status: "completed" | "interrupted" | "failed";
     readonly error: string | null;
+    /** A failed Turn the Harness itself reported as stopped at a usage limit. */
+    readonly limit?: { readonly resetsAt: string | null } | undefined;
   };
   TitleSuggested: { readonly title: string };
   /**
    * How full the context window is after the latest model call: the tokens it
    * carried, of the Model's window (null while the Harness hasn't said).
    */
-  ContextUsed: { readonly usedTokens: number; readonly windowTokens: number | null };
+  ContextUsed: {
+    readonly usedTokens: number;
+    readonly windowTokens: number | null;
+    /** The Harness's latest breakdown of the window, when it gives one (Claude). */
+    readonly breakdown?: ContextBreakdown | undefined;
+    /** Set when this report follows a compaction of the window. */
+    readonly compacted?:
+      | undefined
+      | {
+          readonly trigger: "auto" | "manual" | null;
+          readonly beforeTokens: number | null;
+          readonly afterTokens: number | null;
+        };
+  };
   /** A Worktree the Harness created, so the engine can attribute it to this session. */
   WorktreeCreated: { readonly path: string };
   /** The Harness process went away. `error` is null for a clean shutdown. */
@@ -162,6 +198,8 @@ export interface HarnessSession {
   /** Add guidance to the Turn in flight; fails if the Harness lacks `steer`. */
   readonly steer: (text: string) => Effect.Effect<void, HarnessError>;
   readonly interrupt: Effect.Effect<void, HarnessError>;
+  /** Stop these background tasks (ids from `BackgroundTasksChanged`); needs `stopBackground`. */
+  readonly stopBackground?: (taskIds: ReadonlyArray<string>) => Effect.Effect<void, HarnessError>;
   readonly respond: (
     requestId: RequestId,
     decision: ApprovalDecision
@@ -189,6 +227,8 @@ export interface HarnessDriver {
     readonly liveCoAttach: boolean;
     /** The Harness can change a session's Model between Turns (`SetModel`). */
     readonly switchModel: boolean;
+    /** The Harness can stop its background tasks (`StopBackgroundTasks`). */
+    readonly stopBackground?: boolean;
   };
   /**
    * For Harnesses that hand off sequentially (`liveCoAttach: false`): what the

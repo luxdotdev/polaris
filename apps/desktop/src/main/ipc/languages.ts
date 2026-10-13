@@ -3,6 +3,7 @@ import { decodeLanguage } from "@polaris/client";
 import { Schema } from "effect";
 import type { LanguageApi, IpcError } from "../../shared/api.ts";
 import { LANGUAGE_CHANNELS } from "../../shared/languageChannels.ts";
+import { LanguagePage } from "../languages/pages.ts";
 import {
   LanguageRequestInputs,
   LanguageSubscriptionInputs,
@@ -59,10 +60,48 @@ export const registerLanguageIpc = (
   trusted: (url: string) => boolean
 ) => {
   const windows = new Map<number, Map<number, () => void>>();
+  const pages = new Map<number, LanguagePage>();
+  /** A page that left is still being cleaned up; its sender's next page waits for it. */
+  const leaving = new Map<number, Promise<void>>();
+  const watched = new Set<number>();
 
   const clear = (id: number) => {
     for (const stop of windows.get(id)?.values() ?? []) stop();
     windows.delete(id);
+  };
+
+  const pageGone = (id: number) => {
+    clear(id);
+    const page = pages.get(id);
+
+    pages.delete(id);
+
+    if (page === undefined) return;
+
+    const done = page.cleanup(api).finally(() => {
+      if (leaving.get(id) === done) leaving.delete(id);
+    });
+
+    leaving.set(id, done);
+  };
+
+  /** Each sender's page lifetime: a reload or close ends what the page held. */
+  const pageOf = (sender: LanguageSender) => {
+    if (!watched.has(sender.id)) {
+      watched.add(sender.id);
+      sender.once("destroyed", () => {
+        watched.delete(sender.id);
+        pageGone(sender.id);
+      });
+      sender.on("did-start-navigation", (details) => {
+        if (details.isMainFrame && !details.isSameDocument) pageGone(sender.id);
+      });
+    }
+
+    const page = pages.get(sender.id) ?? new LanguagePage();
+    pages.set(sender.id, page);
+
+    return page;
   };
 
   const allowed = (event: LanguageIpcEvent) =>
@@ -78,9 +117,11 @@ export const registerLanguageIpc = (
       if (!Object.hasOwn(LanguageRequestInputs, input.method)) return invalid;
       // SAFETY: own-property membership establishes the closed method table key.
       const method = input.method as LanguageRequestMethod;
+      const page = pageOf(event.sender);
 
-      // SAFETY: the bridge decodes method-specific payloads before dispatch.
-      return api.request(method, input.input as never);
+      await leaving.get(event.sender.id);
+
+      return page.request(api, method, input.input);
     } catch {
       return invalid;
     }
@@ -94,13 +135,11 @@ export const registerLanguageIpc = (
       if (!Object.hasOwn(LanguageSubscriptionInputs, input.kind)) return;
       let entries = windows.get(event.sender.id);
 
+      pageOf(event.sender);
+
       if (entries === undefined) {
         entries = new Map();
         windows.set(event.sender.id, entries);
-        event.sender.once("destroyed", () => clear(event.sender.id));
-        event.sender.on("did-start-navigation", (details) => {
-          if (details.isMainFrame && !details.isSameDocument) clear(event.sender.id);
-        });
       }
 
       if (entries.size >= 512 && !entries.has(input.id)) return;

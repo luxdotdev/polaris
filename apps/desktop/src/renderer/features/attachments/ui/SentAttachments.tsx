@@ -57,9 +57,9 @@ const Thumbnail = ({
           alt=""
           draggable={false}
           className={cn(
-            "size-full transition-opacity duration-200",
+            "size-full transition-opacity duration-200 ease-out",
             known ? "object-contain" : "object-cover",
-            state.kind === "loading" && "opacity-60 blur-[2px]"
+            state.kind === "loading" && "opacity-60"
           )}
         />
       )}

@@ -2,6 +2,8 @@ import {
   Attempt,
   AttemptCause,
   CheckReceipt,
+  type Claim,
+  type Constellation,
   ConstellationEvent,
   NotificationItem,
   type TaskId,
@@ -451,6 +453,20 @@ const claimQuestions = (
   return freshQuestions;
 };
 
+/** An earlier sent-back Attempt on the same Task whose Claim had this head. */
+export const rejectedHead = (graph: Constellation, attempt: Attempt, head: string) =>
+  graph.attempts.find(
+    (a) =>
+      a.taskId === attempt.taskId &&
+      a.id !== attempt.id &&
+      a.state === "rejected" &&
+      a.claim?.head === head
+  );
+
+/** A disposition is a decision that names the head; the worker says why it stands unchanged. */
+export const claimDisposes = (claim: Claim) =>
+  claim.decisions.some((decision) => decision.includes(claim.head));
+
 export const claim = (d: GraphDecision, command: GraphCommand<"WorkerClaim">, attempt: Attempt) => {
   validateClaimHead(d, command, attempt);
 
@@ -477,6 +493,15 @@ export const claim = (d: GraphDecision, command: GraphCommand<"WorkerClaim">, at
       "E-CLAIM-UNCHANGED",
       "The current branch head is already in review",
       "Commit the additional work before claiming again, or review the existing Claim."
+    );
+
+  const rejected = rejectedHead(d.record.graph, attempt, command.claim.head);
+
+  if (rejected !== undefined && !claimDisposes(command.claim))
+    d.reject(
+      "E-CLAIM-REJECTED-HEAD",
+      `Head ${command.claim.head} was sent back on Attempt ${rejected.id}${rejected.rejectionReason === null ? "" : `: ${rejected.rejectionReason.split("\n")[0]}`}`,
+      "Commit the fix and claim the new head, or add a decision naming this head and why it stands."
     );
 
   const freshQuestions = claimQuestions(d, command, attempt);

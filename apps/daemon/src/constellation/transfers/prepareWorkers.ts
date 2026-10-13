@@ -1,4 +1,5 @@
 import {
+  type PermissionMode,
   type Attempt,
   type CommandId,
   type ConstellationCommand,
@@ -30,6 +31,8 @@ export interface WorkerPreparation {
   readonly placement: WorkerPlacement;
   readonly worktree: PreparedWorktree;
   readonly previous: Attempt | null;
+  /** The ceiling when the Lead's Session lives on another Host. */
+  readonly leadPermissionMode?: PermissionMode | null;
 }
 
 export interface WorkerPreparationHooks<R> {
@@ -126,6 +129,8 @@ const prepareRemote = Effect.fnUntraced(function* (
           ? input.placement.sessionId
           : null,
         previous: input.previous,
+        leadPermissionMode:
+          input.model.sessions.get(input.graph.leadSessionId)?.session.permissionMode ?? null,
       })
     )
     .pipe(Effect.mapError(transferFailure(input)));

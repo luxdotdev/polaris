@@ -32,7 +32,11 @@ NJH-412: a third of last quarter's rejected applications had a monthly figure en
 ### How to test
 1. Open \`/apply\` and enter 54,000 for a household of 3.
 2. The form should say the household qualifies (limit 74,550).
-3. \`bun test forms\`
+3. Run the form's tests:
+
+\`\`\`sh
+bun test forms
+\`\`\`
 `;
 
 const BUNDLE_ROWS = Array.from(

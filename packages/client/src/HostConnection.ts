@@ -42,7 +42,7 @@ import {
   initialConnection,
   type ReconnectPolicy,
 } from "./connection.ts";
-import { ConnectFailure } from "./failures.ts";
+import { ConnectFailure, olderSide } from "./failures.ts";
 import { type Feed, openHostFeed, openSessionFeed } from "./resume.ts";
 import {
   type ClientBlobs,
@@ -52,6 +52,7 @@ import {
 } from "./rpc.ts";
 import { defaultControlDir, ensureControlDir, type SshOptions, sshArgv } from "./ssh.ts";
 import { type Connector, socketTransport, spawnTransport } from "./transport.ts";
+import { type WslConnectorOptions, wslConnector } from "./wsl/transport.ts";
 
 export type HostTarget = Data.TaggedEnum<{
   Local: { readonly socketPath: string };
@@ -60,6 +61,8 @@ export type HostTarget = Data.TaggedEnum<{
     /** Per-Host toggle; off by default. */
     readonly forwardAgent?: boolean;
   };
+  /** A WSL 2 distro on this Windows machine (experimental; `wsl/`). */
+  Wsl: { readonly distro: string };
 }>;
 
 export const HostTarget = Data.taggedEnum<HostTarget>();
@@ -93,6 +96,7 @@ export interface HostConnectionOptions {
   readonly policy?: Partial<ReconnectPolicy>;
   readonly rpc?: RpcConnectionOptions;
   readonly ssh?: SshOptions;
+  readonly wsl?: WslConnectorOptions;
 }
 
 export interface ConnectionStatus {
@@ -207,7 +211,7 @@ const connectorFor = (options: HostConnectionOptions): Connector => {
     Ssh: (target) =>
       Effect.suspend(() => {
         const controlDir = options.ssh?.controlDir ?? defaultControlDir();
-        ensureControlDir(controlDir);
+        ensureControlDir(controlDir, options.ssh?.platform);
 
         return spawnTransport(
           sshArgv(target.alias, {
@@ -217,6 +221,14 @@ const connectorFor = (options: HostConnectionOptions): Connector => {
           })
         );
       }),
+    Wsl: (target) => {
+      const remoteCommand = options.ssh?.remoteCommand;
+
+      return wslConnector(
+        target.distro,
+        remoteCommand === undefined ? (options.wsl ?? {}) : { ...options.wsl, remoteCommand }
+      );
+    },
   });
 };
 
@@ -314,6 +326,7 @@ export const makeHostConnection = Effect.fnUntraced(function* (
             kind: "needs-attention",
             reason: "protocol-mismatch",
             detail: `the Daemon speaks protocol ${hello.protocolVersion}, this Client ${PROTOCOL_VERSION}`,
+            older: olderSide(hello.protocolVersion, PROTOCOL_VERSION),
           });
         }
 

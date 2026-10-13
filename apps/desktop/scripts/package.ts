@@ -9,6 +9,8 @@
  *   bun scripts/package.ts --linux         …and Linux x64
  *   bun scripts/package.ts --reuse-daemon  keep apps/daemon/dist as it is
  *   bun scripts/package.ts --release       matching release versions, fresh Daemons
+ *   bun scripts/package.ts --windows --reuse-daemon  Windows x64 and arm64, Squirrel installers
+ *   bun scripts/package.ts --windows --reuse-daemon --no-installer  unpacked cross-builds
  */
 import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -27,8 +29,14 @@ import {
 } from "./packaging/index.ts";
 import { run } from "./packaging/command.ts";
 import { installerDmg } from "./packaging/dmg.ts";
+import { packageTargets, targetOptions } from "./packaging/targets.ts";
+import { installerWindows, windowsPackageVersion } from "./packaging/windows.ts";
 
 const args = process.argv.slice(2);
+
+const targets = packageTargets(args);
+
+const windows = targets.every((target) => target.platform === "win32");
 
 const started = performance.now();
 
@@ -49,15 +57,28 @@ const decodePackage = Schema.decodeUnknownSync(
 
 const pkg = decodePackage(await Bun.file(join(APP_DIR, "package.json")).json());
 
+const version = windows ? windowsPackageVersion(pkg.version, release) : pkg.version;
+
 if (release) {
   const daemon = Schema.decodeUnknownSync(Schema.Struct({ version: Schema.String }))(
     await Bun.file(join(REPO_ROOT, "apps/daemon/package.json")).json()
   );
 
-  assertReleaseVersions(pkg.version, daemon.version, args.includes("--reuse-daemon"));
+  assertReleaseVersions(
+    pkg.version,
+    daemon.version,
+    args.includes("--reuse-daemon"),
+    windows ? "win32" : "darwin"
+  );
 }
 
-const signing = resolveSigning(signingCredentials(process.env));
+const resolved = resolveSigning(
+  windows ? null : signingCredentials(process.env),
+  undefined,
+  windows ? "win32" : process.platform
+);
+
+const signing = resolved === "unsigned" ? null : resolved;
 
 const ENTITLEMENTS = join(import.meta.dir, "packaging/entitlements");
 
@@ -67,7 +88,7 @@ console.log(
     : "signing and notarising with Developer ID"
 );
 
-if (!existsSync(join(ICONS, "Polaris.icns")))
+if (!existsSync(join(ICONS, windows ? "Polaris.ico" : "Polaris.icns")))
   throw new Error(
     "no app icon: run `uv run --with numpy --with pillow design/scripts/gen_app_icon.py`"
   );
@@ -76,12 +97,31 @@ await buildRenderer();
 
 await buildMain({ minify: true });
 
-if (!args.includes("--reuse-daemon") || !existsSync(join(DAEMON_DIST, "manifest.json")))
+if (windows) {
+  const startup = await Bun.build({
+    entrypoints: [join(APP_DIR, "src/main/updates/startup.ts")],
+    outdir: join(OUT_DIR, "main"),
+    target: "node",
+    format: "esm",
+    external: ["electron"],
+    minify: true,
+  });
+
+  if (!startup.success) throw new Error("Windows startup build failed");
+}
+
+if (windows && !existsSync(join(DAEMON_DIST, "manifest.json")))
+  throw new Error("Windows packaging requires the existing macOS Daemon dist artifact");
+
+if (
+  !windows &&
+  (!args.includes("--reuse-daemon") || !existsSync(join(DAEMON_DIST, "manifest.json")))
+)
   console.log(run(daemonBuildCommand(REPO_ROOT, release)).trim());
 
 verifyDaemonManifest(DAEMON_DIST, release ? pkg.version : undefined);
 
-signDaemonBuilds(DAEMON_DIST, signing, ENTITLEMENTS);
+if (!windows) signDaemonBuilds(DAEMON_DIST, signing, ENTITLEMENTS);
 
 // The app directory holds only what runs: the bundles are self-contained (just `electron`).
 rmSync(STAGE, { recursive: true, force: true });
@@ -103,10 +143,10 @@ writeFileSync(
     {
       name: "polaris",
       productName: "Polaris",
-      version: pkg.version,
+      version,
       license: "Apache-2.0",
       type: "module",
-      main: "out/main/index.js",
+      main: windows ? "out/main/startup.js" : "out/main/index.js",
     },
     null,
     2
@@ -121,12 +161,6 @@ const electronVersion = pkg.devDependencies.electron;
 
 if (electronVersion === undefined) throw new Error("electron is not a devDependency");
 
-const targets: Array<{ platform: "darwin" | "linux"; arch: "arm64" | "x64" }> = [
-  { platform: "darwin", arch: "arm64" },
-];
-
-if (args.includes("--linux")) targets.push({ platform: "linux", arch: "x64" });
-
 for (const target of targets) {
   const [path] = await packager({
     dir: app,
@@ -134,13 +168,12 @@ for (const target of targets) {
     overwrite: true,
     ...target,
     name: "Polaris",
-    executableName: target.platform === "linux" ? "polaris" : "Polaris",
+    ...targetOptions(target, ICONS),
     appBundleId: "dev.lux.polaris",
     appCategoryType: "public.app-category.developer-tools",
     appCopyright: "© 2026 lux.dev LLC",
-    appVersion: pkg.version,
+    appVersion: version,
     electronVersion,
-    icon: join(ICONS, "Polaris.icns"),
     extraResource: [join(resources, "daemon"), join(resources, "icon.png")],
     darwinDarkModeSupport: true,
     asar: true,
@@ -150,6 +183,15 @@ for (const target of targets) {
   });
 
   if (path === undefined) throw new Error(`packager returned no ${target.platform} output`);
+
+  if (target.platform === "win32") {
+    verifyDaemonManifest(join(path, "resources/daemon"), release ? pkg.version : undefined);
+
+    if (!args.includes("--no-installer"))
+      console.log(
+        `installer ${await installerWindows(path, version, target.arch, join(OUT_DIR, "dist"), ICONS)}`
+      );
+  }
 
   if (target.platform === "darwin") {
     const bundle = join(path, "Polaris.app");

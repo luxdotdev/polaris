@@ -28,7 +28,7 @@ export const pickableModels = (
 ): ReadonlyArray<ModelData> =>
   harness === "claude" ? models.filter((m) => m.id !== CLAUDE_DEFAULT_ROW) : models;
 
-/** How many Models the picker shows before "More models…". */
+/** How many Models the picker shows before "More models". */
 export const SHORTLIST = 4;
 
 export interface Lineage {
@@ -88,7 +88,7 @@ export interface Shortlist {
 }
 
 /**
- * The picker's Models: a Model a newer one of its family supersedes moves to "More models…", and
+ * The picker's Models: a Model a newer one of its family supersedes moves to "More models", and
  * the first four left, in the Harness's own order, are shown. The Harness's default always is.
  */
 export const shortlist = (harness: string, models: ReadonlyArray<ModelData>): Shortlist => {

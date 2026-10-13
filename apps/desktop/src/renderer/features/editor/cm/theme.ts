@@ -8,6 +8,8 @@ import { HighlightStyle, syntaxHighlighting, type Language } from "@codemirror/l
 import type { Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { tags as t } from "@lezer/highlight";
+import { completionTheme } from "./completionLook.ts";
+import { diagnosticTheme } from "./diagnosticLook.ts";
 
 const v = (token: string) => `var(--color-${token})`;
 
@@ -37,7 +39,8 @@ const editorTheme = EditorView.theme({
     scrollbarWidth: "thin",
     scrollbarColor: `color-mix(in srgb, ${v("text-subtle")} 35%, transparent) transparent`,
   },
-  ".cm-content": { padding: "8px 0 40vh", caretColor: v("text-strong") },
+  // CodeMirror clips tooltips at the gutter's rounded width; 1px keeps column 0's (completion, hover) in.
+  ".cm-content": { padding: "8px 0 40vh 1px", caretColor: v("text-strong") },
   ".cm-line": { padding: "0 16px 0 0" },
   ".cm-cursor, .cm-dropCursor": { borderLeft: `2px solid ${v("text-strong")}` },
   // Vim's block cursor ships pink, which reads as a signal (rule/colour-means-something): neutral here.
@@ -241,4 +244,9 @@ export const moonlitMarkdown = (language: Language) =>
     HighlightStyle.define([{ tag: t.labelName, color: v("syntax-keyword") }], { scope: language })
   );
 
-export const editorLook: Extension = [editorTheme, syntaxHighlighting(moonlit)];
+export const editorLook: Extension = [
+  editorTheme,
+  diagnosticTheme,
+  completionTheme,
+  syntaxHighlighting(moonlit),
+];

@@ -2,7 +2,7 @@
  * The Constellation tab on fixtures, for screenshots against Paper C1–C9: `#constellation/<scene>`
  * renders the real shell on a stand-in store and a fake Daemon. Its own chunk.
  */
-import { Capability, constellationSummaryOf, HostId, Sequence } from "@polaris/protocol";
+import { Capability, constellationSummaryOf, HostId, Sequence, TurnId } from "@polaris/protocol";
 import { createRoot } from "react-dom/client";
 import { createStore } from "zustand/vanilla";
 import type { HostView, PolarisApi } from "../../../../shared/api.ts";
@@ -29,12 +29,17 @@ import {
   STUDIO,
   WORKSPACE,
 } from "./graph.ts";
+import { FAILURE_SIGNALS, failuresRecord } from "./failures.ts";
 import { largeRecord } from "./large.ts";
 import { b8Model, setupRecord, setupSessions } from "./setup.ts";
 import { statsFixture } from "./stats.ts";
 import {
   b1Model,
+  LATER_DIGEST_TURN,
   leadModel,
+  leadModelSteered,
+  leadModelWithLaterDigest,
+  STEERED_TURN,
   leadSession,
   previousLead,
   workerSessions,
@@ -96,6 +101,9 @@ const SCENES = [
   "setup-focus",
   "slugs",
   "tree",
+  "digests",
+  "failures",
+  "steered",
 ] as const;
 
 type Scene = (typeof SCENES)[number];
@@ -120,6 +128,48 @@ const recordFor = (scene: Scene): ConstellationRecord => {
 
   if (scene === "completed") return c1Record({ state: "completed", attempts: completedAttempts() });
 
+  if (scene === "failures") return failuresRecord();
+
+  if (scene === "digests") {
+    const record = slugRecord();
+    const [first] = record.digests;
+
+    return first === undefined
+      ? record
+      : {
+          ...record,
+          digests: [
+            ...record.digests,
+            {
+              ...first,
+              turnId: TurnId.make(LATER_DIGEST_TURN),
+              revision: first.revision + 2,
+              items: first.items.slice(1, 2),
+            },
+          ],
+        };
+  }
+
+  if (scene === "steered") {
+    const record = slugRecord();
+    const [first] = record.digests;
+
+    return first === undefined
+      ? record
+      : {
+          ...record,
+          digests: [
+            ...record.digests,
+            {
+              ...first,
+              turnId: TurnId.make(STEERED_TURN),
+              steered: true,
+              at: new Date().toISOString(),
+            },
+          ],
+        };
+  }
+
   return slugRecord(scene === "paused" ? { state: "paused" } : {});
 };
 
@@ -141,6 +191,9 @@ const TREE_FOLDS = new Map([
 
 const UI: Readonly<Record<Scene, Partial<LeadUi>>> = {
   lead: {},
+  digests: {},
+  failures: {},
+  steered: {},
   menu: { selected: "task:B1", menu: "task:B1" },
   focus: { focus: { kind: "task", taskId: "B1" }, selected: "task:B1" },
   handed: { focus: { kind: "task", taskId: "B1" }, selected: "task:B1" },
@@ -167,9 +220,15 @@ const UI: Readonly<Record<Scene, Partial<LeadUi>>> = {
   tree: { selected: "task:F2", folds: TREE_FOLDS },
 };
 
-const stateFor = (record: ConstellationRecord): AppState => {
+const LEADS = new Map<Scene, () => SessionModel>([
+  ["digests", leadModelWithLaterDigest],
+  ["steered", leadModelSteered],
+]);
+
+const stateFor = (record: ConstellationRecord, scene: Scene): AppState => {
   const sessions = [leadSession, previousLead, ...workerSessions, ...setupSessions];
-  const open: ReadonlyArray<SessionModel> = [leadModel(), b1Model(), b8Model()];
+  const lead = (LEADS.get(scene) ?? leadModel)();
+  const open: ReadonlyArray<SessionModel> = [lead, b1Model(), b8Model()];
 
   return {
     ...initialState,
@@ -217,7 +276,7 @@ const bridge: PolarisApi = {
   onAppEvent: () => () => undefined,
 };
 
-const setPreviewSignals = () => {
+const setPreviewSignals = (scene: Scene) => {
   setSignals({
     workers: new Map<string, Partial<WorkerFacts>>([
       [
@@ -238,6 +297,8 @@ const setPreviewSignals = () => {
         "att-C4-1",
         { activity: { kind: "command", text: "bun test apps/daemon/src/mcp", since: ago(1) } },
       ],
+      // Later entries win: the failures scene's B2 has no Turn in flight.
+      ...(scene === "failures" ? FAILURE_SIGNALS : []),
     ]),
     receipts: new Map([
       ["i-spec", { command: "bun run spec", exitCode: 0 }],
@@ -259,7 +320,7 @@ const sceneOf = (hash: string): Scene => {
 /** Mounts the real shell with the Lead selected and the scene's tab state. */
 export const mountConstellationPreview = (root: HTMLElement, hash: string) => {
   const scene = sceneOf(hash);
-  const store = createStore<AppState>(() => stateFor(recordFor(scene)));
+  const store = createStore<AppState>(() => stateFor(recordFor(scene), scene));
 
   const connection: Connection = {
     store,
@@ -272,12 +333,12 @@ export const mountConstellationPreview = (root: HTMLElement, hash: string) => {
 
   standInBridge(bridge);
   installConstellationClient(fakeClient(store, { unmerged: scene === "handed-unmerged" }));
-  setPreviewSignals();
+  setPreviewSignals(scene);
   patchLeadUi(leadKey(LOCAL, LEAD), () => UI[scene]);
   navigation.actions.selectSession({ hostKey: LOCAL, sessionId: LEAD });
   showOutput({ hostKey: LOCAL, workspaceId: WORKSPACE }, LEAD);
 
-  const commands = createCommandRegistry({ mac: true });
+  const commands = createCommandRegistry({ platform: "mac" });
 
   createRoot(root).render(<App value={{ connection, navigation, commands }} />);
 

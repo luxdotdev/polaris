@@ -7,7 +7,7 @@ import {
 } from "@polaris/protocol";
 import { Effect } from "effect";
 import { TestClock } from "effect/testing";
-import { C, CID, LEAD, report } from "../../engine/constellation.testing.ts";
+import { AT, C, CID, LEAD, report } from "../../engine/constellation.testing.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { Constellations } from "../service.ts";
 import { ConstellationDelivery } from "./index.ts";
@@ -92,7 +92,7 @@ test("a blocking Lead question takes 5s; user questions and worker approvals nev
 });
 
 test("busy, terminal and paused Leads keep pending IDs until their boundary or take-back", async () => {
-  const w = world();
+  const w = world(":memory:", { canSteer: false });
   await w.run(
     Effect.gen(function* () {
       yield* setup();
@@ -179,6 +179,115 @@ test("ordinary steering does not wake Lead; the next digest includes it; a silen
       yield* TestClock.adjust(20000);
       yield* wait(() => Effect.succeed(w.turns.length === 2));
       expect(w.turns[1]!.prompt).toContain("You told A: Use base2");
+    })
+  );
+});
+
+test("a working Lead whose Harness can steer hears the digest inside its live Turn", async () => {
+  const w = world();
+  await w.run(
+    Effect.gen(function* () {
+      yield* setup();
+      const delivery = yield* ConstellationDelivery;
+      const graphs = yield* Constellations;
+      const store = yield* EventStore;
+      yield* send(LEAD, "Plan the work");
+      yield* delivery.start();
+      yield* graphs.command({ kind: "session", sessionId: WORKER }, commandId(), claim);
+      yield* readyTimer();
+      yield* TestClock.adjust(20000);
+      yield* wait(() => Effect.succeed(w.steers.length === 1));
+      expect(w.turns).toHaveLength(0);
+      expect(w.steers[0]).toContain("arrived during your Turn");
+      expect(w.steers[0]).toMatch(/A: review\./);
+      const record = (yield* store.model).constellations.get(CID)!;
+      const leadTurn = (yield* store.model).sessions.get(LEAD)!.turns.at(-1)!;
+      expect(record.graph.pendingNotifications).toHaveLength(0);
+      expect(record.digests).toHaveLength(1);
+      expect(record.digests[0]!.turnId).toBe(leadTurn.id);
+      expect(record.steeredDigests.has(leadTurn.id)).toBe(true);
+      yield* finish(LEAD);
+      yield* delivery.flush();
+      expect(w.turns).toHaveLength(0);
+      expect(w.steers).toHaveLength(1);
+    })
+  );
+});
+
+test("a Lead left idle with a delivered Claim unreviewed gets one stall audit per stalled state", async () => {
+  const w = world(":memory:", { canSteer: false });
+  await w.run(
+    Effect.gen(function* () {
+      yield* setup();
+      const delivery = yield* ConstellationDelivery;
+      const graphs = yield* Constellations;
+      const store = yield* EventStore;
+      yield* delivery.start();
+      yield* graphs.command({ kind: "session", sessionId: WORKER }, commandId(), claim);
+      yield* readyTimer();
+      yield* TestClock.adjust(20000);
+      yield* wait(() => Effect.succeed(w.turns.length === 1));
+      expect(w.turns[0]!.prompt).not.toContain("Nothing is in flight");
+      // The Lead's digest Turn ends without a review: the whole Constellation now waits on it.
+      yield* finish(LEAD);
+      yield* readyTimer();
+      yield* TestClock.adjust(20000);
+      yield* wait(() => Effect.succeed(w.turns.length === 2));
+      expect(w.turns[1]!.prompt).toContain("Nothing is in flight. Review the pending Claims");
+      const record = (yield* store.model).constellations.get(CID)!;
+      expect(record.lastAudit).not.toBeNull();
+      expect(record.digests[1]!.items).toHaveLength(0);
+      // The same stalled state is noted once: another silent end starts no third Turn.
+      yield* finish(LEAD);
+      yield* delivery.flush();
+      expect(yield* delivery.pendingTimers).toBe(0);
+      expect(w.turns).toHaveLength(2);
+    })
+  );
+});
+
+test("a worker that hits a usage limit is reported capacity-blocked and never redispatched", async () => {
+  const w = world(":memory:", { canSteer: false });
+  await w.run(
+    Effect.gen(function* () {
+      yield* setup();
+      const delivery = yield* ConstellationDelivery;
+      const store = yield* EventStore;
+      yield* send(WORKER);
+      yield* delivery.start();
+      const turn = (yield* store.model).sessions.get(WORKER)!.turns.at(-1)!;
+      yield* signal(WORKER, { type: "harness.opened" });
+      yield* signal(WORKER, {
+        type: "harness.turnEnded",
+        turnId: turn.id,
+        status: "failed",
+        at: AT,
+        checkpoint: null,
+        error: "You've hit your usage limit. Try again later.",
+      });
+      yield* wait(() =>
+        Effect.map(
+          store.model,
+          (m) => m.constellations.get(CID)!.graph.attempts[0]!.state === "failed"
+        )
+      );
+      const attempt = (yield* store.model).constellations.get(CID)!.graph.attempts[0]!;
+      expect(attempt.failureKind).toBe("capacity");
+      expect(attempt.resetsAt).toBeNull();
+      yield* readyTimer();
+      yield* TestClock.adjust(20000);
+      yield* wait(() => Effect.succeed(w.turns.length === 1));
+      expect(w.turns[0]!.sessionId).toBe(LEAD);
+      expect(w.turns[0]!.prompt).toContain("A: capacity-blocked (reset time unknown)");
+      expect(w.turns[0]!.prompt).toContain("Polaris will not redispatch it");
+      // Nothing starts the Task again on its own: one Attempt, no worker Turn, no nudge.
+      yield* finish(LEAD);
+      yield* delivery.flush();
+      yield* TestClock.adjust(60000);
+      const after = (yield* store.model).constellations.get(CID)!.graph;
+      expect(after.attempts).toHaveLength(1);
+      expect(after.attempts[0]!.nudgedAt).toBeNull();
+      expect(w.turns.filter((t) => t.sessionId === WORKER)).toHaveLength(0);
     })
   );
 });

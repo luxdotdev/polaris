@@ -12,6 +12,7 @@ import {
   WorktreeId,
 } from "@polaris/protocol";
 import type { SessionModel, TurnView } from "../../../store/sessionModel.ts";
+import { STEERED_DIGEST_OPENING } from "../model/index.ts";
 import { LEAD, PREVIOUS_LEAD, WORKSPACE, worker } from "./graph.ts";
 
 const I = TurnItem.cases;
@@ -148,7 +149,10 @@ const command = (id: string, text: string, exitCode: number | null, output = "")
     status: statusOf(exitCode),
   });
 
-export const leadModel = (digestTurn = "t-lead-digest"): SessionModel => ({
+export const leadModel = (
+  digestTurn = "t-lead-digest",
+  digestStatus: TurnStatus = "working"
+): SessionModel => ({
   // SAFETY: preview sequences only need to be numbers.
   sequence: 50 as SessionModel["sequence"],
   synchronized: true,
@@ -171,18 +175,84 @@ export const leadModel = (digestTurn = "t-lead-digest"): SessionModel => ({
         }),
       ]
     ),
-    view(turn(LEAD, digestTurn, 13, "Constellations v1 · 3 updates for the lead", "working", 3), [
-      I.Reasoning.make({ id: "r13", text: "", startedAt: ago(3), endedAt: ago(3) }),
-      I.AssistantMessage.make({
-        id: "m13",
-        text: "B1's trace check fails on the handover log, which is B5's Task. I'll review B1 against its head, then restart B5 fresh with the failing trace as its brief. The lease proposal is yours to decide.",
-      }),
-      command("c13a", "git log --oneline -1 3f9c2e1", 0, "3f9c2e1 Quint properties for ENG-236\n"),
-      command("c13b", "bun run spec", 0, "8 properties checked\n"),
-      command("c13c", "bun test apps/daemon/src/verification", null),
-    ]),
+    view(
+      turn(LEAD, digestTurn, 13, "Constellations v1 · 3 updates for the lead", digestStatus, 3),
+      [
+        I.Reasoning.make({ id: "r13", text: "", startedAt: ago(3), endedAt: ago(3) }),
+        I.AssistantMessage.make({
+          id: "m13",
+          text: "B1's trace check fails on the handover log, which is B5's Task. I'll review B1 against its head, then restart B5 fresh with the failing trace as its brief. The lease proposal is yours to decide.",
+        }),
+        command(
+          "c13a",
+          "git log --oneline -1 3f9c2e1",
+          0,
+          "3f9c2e1 Quint properties for ENG-236\n"
+        ),
+        command("c13b", "bun run spec", 0, "8 properties checked\n"),
+        command("c13c", "bun test apps/daemon/src/verification", null),
+      ]
+    ),
   ],
 });
+
+export const LATER_DIGEST_TURN = "t-lead-digest-2";
+
+/** The Lead after a second digest: the first digest Turn has ended and folds. */
+export const leadModelWithLaterDigest = (): SessionModel => {
+  const base = leadModel("t-lead-digest", "completed");
+
+  return {
+    ...base,
+    turns: [
+      ...base.turns,
+      view(
+        turn(
+          LEAD,
+          LATER_DIGEST_TURN,
+          14,
+          "Constellations v1 · 1 update for the lead",
+          "working",
+          1
+        ),
+        [
+          I.AssistantMessage.make({
+            id: "m14",
+            text: "B2 proposed a lease task. Leaving it for you; B3 keeps waiting on the bench lock.",
+          }),
+        ]
+      ),
+    ],
+  };
+};
+
+export const STEERED_TURN = "t-lead-steered";
+
+/** The Lead mid-Turn when a digest is steered in: its card sits where the Lead took it. */
+export const leadModelSteered = (): SessionModel => {
+  const base = leadModel("t-lead-digest", "completed");
+
+  return {
+    ...base,
+    turns: [
+      ...base.turns,
+      view(turn(LEAD, STEERED_TURN, 14, "Review B1 against its head.", "completed", 2), [
+        I.AssistantMessage.make({
+          id: "m14a",
+          text: "Reviewing B1 at 3f9c2e1: seven properties hold, trace validation is the gap.",
+        }),
+        I.UserMessage.make({
+          id: "steer:digest",
+          text: `${STEERED_DIGEST_OPENING} Fold it into your current work; it is not a new request.`,
+        }),
+        I.AssistantMessage.make({
+          id: "m14b",
+          text: "Noted the new Claim. Finishing B1's review first, then I'll look at it.",
+        }),
+      ]),
+    ],
+  };
+};
 
 export const B1_BRIEF_TURN = "t-b1-brief";
 

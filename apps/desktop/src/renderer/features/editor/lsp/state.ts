@@ -18,6 +18,8 @@ export interface LanguageViewState {
   readonly status: "unavailable" | "loading" | "ready";
   readonly fact: string;
   readonly providers: readonly string[];
+  /** The LSP methods its servers serve now ("textDocument/rename"), for the right-click menu. */
+  readonly methods?: readonly string[];
   readonly panel: string | null;
   readonly rows: readonly LanguageRow[];
   readonly busy: boolean;

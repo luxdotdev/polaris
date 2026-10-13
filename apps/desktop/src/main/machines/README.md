@@ -11,6 +11,7 @@ The Hosts in Settings: adding and removing remote Hosts by `~/.ssh/config` alias
 | `sshConfig.ts` | The literal `Host` aliases in `~/.ssh/config`: `Include` followed (globs, `~`, relative to `~/.ssh`, 16 deep), wildcards and negations skipped, `Match` blocks ignored. |
 | `approvals.ts` | `<userData>/approvals.json`: approved SHA-256 per alias. |
 | `builds.ts` | Where the Daemon builds come from (below). |
+| `wsl.ts` | WSL 2 distros as Hosts on Windows (experimental): the distro list for "Add a host" (WSL 1 distros marked unsupported; not-installed / no-distros states), the install copy for a distro, and the terminal command. `Machines` gets `wsl: { ssh, discover }` from `@polaris/client/wsl`; a `RemoteHostSetting` with `kind: "wsl"` names the distro in `alias` and its install flow runs the same probe, upload and `polaris install` through `wsl.exe --exec`. Decisions: docs/adr/0036-wsl-hosts.md. Unverified on real WSL; `wslService.test.ts` runs it through the fake `wsl.exe`. |
 | `terminal.ts` | The macOS Terminal fallback for `ssh <alias>` (a `.command` file) when this Mac's local Host is off. Otherwise the renderer runs it, and a Harness's sign-in, in the shell's `HarnessTerminal` slot on a Daemon. |
 | `fakeHost.testing.ts` | A fake remote Host for `service.test.ts` and the smoke test; not shipped. |
 
@@ -57,3 +58,34 @@ stateDiagram-v2
 ## Tests
 
 `installFlow.test.ts` (the machine, with the real planner), `views.test.ts`, `sshConfig.test.ts` (Include, Match, wildcards, globs, depth), `approvals.test.ts`, and `service.test.ts`: `Machines` against a fake Host whose ssh commands run in a local `sh` with HOME at a temp dir (add → approve → install; a reconnect with no Daemon asks and never installs, even approved; a background upgrade; not now; remove forgets approvals; an ssh failure). `updateProgress.test.ts` verifies real streaming byte counts and failed-upload cleanup; `builds.test.ts` checks bundled-source precedence and all-target recovery. End to end: `scripts/daemonUpdatesSmoke.ts` exercises install approval, explicit Update, settings and byte progress over typed IPC; `scripts/smoke.ts` adds `fake-studio` through a stand-in `ssh` on PATH, approves the install into a temp home and waits for it to connect to a real Daemon.
+
+## Windows OpenSSH
+
+Windows Firewall can make OpenSSH report `ssh: connect to host … port 22: Permission denied`
+before authentication begins (verified on Windows 11 ARM64). Both bridge and installer classify
+that connect-time refusal as unreachable, so the Connection State keeps retrying. The distinct
+`Permission denied (publickey,…)` authentication response still requires attention.
+
+Windows Clients expose remote Hosts only. Persisted local-Host preferences and local socket overrides cannot start, connect, install or upgrade a native Windows Daemon. The `machines` feed omits the local row; renderer layout and copy stay with WSHELL.
+
+The bridge uses one long-lived SSH process per Host. Windows omits `ControlMaster`, `ControlPath` and `ControlPersist` and creates no control directory. RPC calls and subscriptions share that bridge; a reconnect replaces it. macOS and Linux retain Polaris' multiplexing.
+
+All SSH entry points prefer `%SystemRoot%\System32\OpenSSH\ssh.exe` on Windows, then PATH. An optional top-level `sshBinary` in `settings.json` overrides the bridge, installer and interactive trust command (restart the Desktop App after editing). For example, `"sshBinary": "C:\\Program Files\\Git\\usr\\bin\\ssh.exe"` selects Git Bash's client. Alternative clients may use different agents, config locations and `known_hosts`; configure and trust the alias with the selected client. Polaris never writes keys or `known_hosts`. Alias discovery still reads the Desktop App user's `.ssh/config`.
+
+Discovery follows backslash Include globs, drive and UNC roots, quoted spaces, `~\`, `%USERPROFILE%` and `${USERPROFILE}` (environment names are case-insensitive; missing variables skip the Include). Native OpenSSH configuration accepts `${USERPROFILE}`; discovery's `%USERPROFILE%` convenience does not rewrite the config passed to SSH. Use `${USERPROFILE}` or a literal path in configurations consumed by native OpenSSH. Trust handoff launches `wt.exe new-tab -- <ssh> -- <alias>`, falling back on ENOENT to `cmd.exe /k`; shell metacharacters are rejected before either launch. The cmd command line uses explicit nested quotes and `windowsVerbatimArguments` to preserve paths containing spaces ([Node process-spawning contract](https://nodejs.org/api/child_process.html#child_processspawncommand-args-options)).
+
+Without multiplexing the SSH process counts are:
+
+| Operation | SSH processes |
+|---|---:|
+| Connect / reconnect | 1 each |
+| RPC / subscription on a connected Host | 0 additional |
+| Probe (platform, libc, runtime prerequisites, installed version together) | 1 |
+| Install / upgrade application, with N bundled files | N uploads + 1 apply + 1 cleanup |
+| Probe plus install / upgrade | N + 3 |
+| Approval after an earlier probe | 1 fresh probe before application |
+| Start an installed Daemon | 1 |
+
+Uploads retain one hash-checked transfer per file. The probe already batches remote checks in one call; background checks remain driven by Connection State occasions. No polling or extra bridge was introduced.
+
+Diagnostic fixtures were checked against [PowerShell/openssh-portable at d0c65f24](https://github.com/PowerShell/openssh-portable/tree/d0c65f24b6eec32b7cae4ed08eca81e8c1df791c): [host-key verification and authentication](https://github.com/PowerShell/openssh-portable/blob/d0c65f24b6eec32b7cae4ed08eca81e8c1df791c/sshconnect2.c#L108), [authentication methods](https://github.com/PowerShell/openssh-portable/blob/d0c65f24b6eec32b7cae4ed08eca81e8c1df791c/sshconnect2.c#L552), [unknown host key](https://github.com/PowerShell/openssh-portable/blob/d0c65f24b6eec32b7cae4ed08eca81e8c1df791c/sshconnect.c#L1247), [changed host key](https://github.com/PowerShell/openssh-portable/blob/d0c65f24b6eec32b7cae4ed08eca81e8c1df791c/sshconnect.c#L1765), [bad options](https://github.com/PowerShell/openssh-portable/blob/d0c65f24b6eec32b7cae4ed08eca81e8c1df791c/readconf.c#L983) and [Windows config ACLs](https://github.com/PowerShell/openssh-portable/blob/d0c65f24b6eec32b7cae4ed08eca81e8c1df791c/readconf.c#L2660). Win32-OpenSSH [issue 1887](https://github.com/PowerShell/Win32-OpenSSH/issues/1887) supplies the ProxyJump diagnostic `No such host is known`; both bridge and install classification recognize it.

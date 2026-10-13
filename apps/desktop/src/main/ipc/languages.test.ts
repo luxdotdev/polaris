@@ -2,6 +2,7 @@
 import { expect, test } from "bun:test";
 import { registerLanguageIpc, LANGUAGE_CHANNELS, type LanguageIpcRegistrar } from "./languages.ts";
 import type { LanguageApi } from "../../shared/api.ts";
+import { acquire, fakeLanguages, release } from "../languages/pages.fixture.testing.ts";
 
 // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Fake Electron sends raw envelopes through the production decoders.
 type Handler = (
@@ -83,4 +84,43 @@ test("optional Electron routes reject foreign frames and dispose per-window subs
   expect(stops).toBe(2);
   registered.dispose();
   expect(handlers.size).toBe(0);
+});
+
+test("after a reload the page's next request waits until the old page's contexts are released", async () => {
+  const handlers = new Map<string, Handler>();
+
+  const ipc: LanguageIpcRegistrar = {
+    handle: (channel, handler) => handlers.set(channel, handler),
+    on: (channel, handler) => handlers.set(channel, handler),
+    removeHandler: () => {},
+    removeAllListeners: () => {},
+  };
+
+  const { api, calls } = fakeLanguages([]);
+  let navigated: ((details: { isMainFrame: boolean; isSameDocument: boolean }) => void) | undefined;
+
+  const sender = {
+    id: 1,
+    send: () => {},
+    once: () => {},
+    on: (_event: "did-start-navigation", callback: NonNullable<typeof navigated>) => {
+      navigated = callback;
+    },
+  };
+
+  const origin = { sender, senderFrame: { url: "app://polaris" } };
+  registerLanguageIpc(ipc, api, () => true);
+  const request = handlers.get(LANGUAGE_CHANNELS.request);
+
+  await request?.(origin, { method: "languages.context.acquire", input: acquire });
+  calls.length = 0;
+  navigated?.({ isMainFrame: true, isSameDocument: false });
+  await request?.(origin, { method: "languages.context.release", input: release });
+
+  expect(calls.map((call) => call.method)).toEqual([
+    "languages.context.acquire",
+    "languages.context.release",
+    "languages.context.release",
+    "languages.context.release",
+  ]);
 });

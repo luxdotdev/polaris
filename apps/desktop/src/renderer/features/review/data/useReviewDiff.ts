@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import type { IpcError } from "../../../../shared/api.ts";
 import { polaris } from "../../bridge.ts";
 import type { ReviewFile } from "../model/layout.ts";
+import { noiseOf } from "../model/noise.ts";
 import { fingerprint, indexPatch } from "../model/patch.ts";
 import type { ReviewScale } from "../model/policy.ts";
 import { type Fetched, failureOf, loadReviewDiff, type ReviewDiff } from "./load.ts";
@@ -37,6 +38,7 @@ const fetchSection = async (
     section: section.id,
     file,
     fingerprint: fingerprint(bytes, file),
+    ...noiseOf(file),
   }));
 
   return { section, bytes, files };

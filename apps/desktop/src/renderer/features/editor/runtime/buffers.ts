@@ -5,7 +5,6 @@
  * file, alive while any tab shows it.
  */
 import { readRefactorState, intervene } from "../refactors/drafts.ts";
-import type { GroupStore } from "../refactors/group.ts";
 import {
   discardRefactorBuffer,
   refactorDocument,
@@ -31,7 +30,7 @@ import {
   vimCompartment,
 } from "./editorState.ts";
 import { clearFlash, FLASH_MS, reloadPlan, normalized, reloadChanges } from "../cm/reload.ts";
-import { SaveCoordinator, type FormattingPort, type SaveReason } from "../formatting/index.ts";
+import { SaveCoordinator, type SaveReason } from "../formatting/index.ts";
 import { cursorOf } from "../cm/cursor.ts";
 import { loadLanguage } from "../cm/languages.ts";
 import { currentMode, vimExtension } from "../cm/vim.ts";
@@ -46,38 +45,19 @@ import {
   sameVersion,
   step,
 } from "../model/buffer.ts";
-import { type Draft, draftMatches, fileKey, type KeyValue, workspaceKey } from "../model/drafts.ts";
-import { createDraftStore, type DraftStore, type SpillStore } from "../model/draftStore.ts";
+import { type Draft, draftMatches, fileKey, workspaceKey } from "../model/drafts.ts";
+import { createDraftStore, type DraftStore } from "../model/draftStore.ts";
 import { indentLabel, type Indent, lineSeparatorOf } from "../model/indent.ts";
 import { languageFor, type LanguageId } from "../model/language.ts";
 import type { Unreadable } from "../model/notices.ts";
-import type { EditorFiles, FileTarget } from "../files/port.ts";
+import type { FileTarget } from "../files/port.ts";
 import { editorStore, modelOf, patchBuffer, setBufferModel } from "./store.ts";
 import { agentReload, staleAgent } from "./agent.ts";
-import type { EditorLanguageLifetime, EditorLanguagePort } from "../lsp/lifecycle.ts";
+import type { EditorLanguageLifetime } from "../lsp/lifecycle.ts";
 
-export interface EditorPrefs {
-  readonly vim: boolean;
-  readonly autosave: boolean;
-}
+import type { EditorConfig } from "./configuration.ts";
 
-export interface EditorConfig {
-  readonly languages?: EditorLanguagePort;
-  readonly formatting?: FormattingPort;
-  readonly groups?: GroupStore | undefined;
-  readonly files: EditorFiles;
-  /** Where drafts are kept; null keeps them in memory only. */
-  readonly kv: KeyValue | null;
-  /** Where big drafts' text goes (IndexedDB in the app). */
-  readonly spill?: SpillStore | null;
-  readonly prefs: () => EditorPrefs;
-  /** The Host's name for messages ("Mac Studio"). */
-  readonly hostLabel: (hostKey: string) => string;
-  /** The Host's home directory, for `~` in paths; null until it has said. */
-  readonly hostHome: (hostKey: string) => string | null;
-  /** Whether a Host's Daemon can save (capability `files.write`). */
-  readonly canWrite: (hostKey: string) => boolean;
-}
+export type { EditorConfig, EditorPrefs } from "./configuration.ts";
 
 /** Edits settle this long before the exact dirty check and the draft write. */
 const SETTLE_MS = 300;
@@ -135,6 +115,9 @@ const drafts = (): DraftStore => {
 export const editorDraftStore = () => drafts();
 
 export const isConfigured = () => config !== null;
+
+/** Read the language owner already retained by open buffers, including after a dev hot reload. */
+export const configuredLanguageRuntime = () => config?.languageRuntime;
 
 export const hostOf = (hostKey: string) => ({
   label: need().hostLabel(hostKey),

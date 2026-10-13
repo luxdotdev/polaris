@@ -43,6 +43,8 @@ export interface FakeHarnessSession {
   readonly turns: Array<TurnInput>;
   readonly responses: Array<{ requestId: RequestId; decision: ApprovalDecision }>;
   readonly steers: Array<string>;
+  /** Background task ids the engine asked it to stop. */
+  readonly stopped: Array<string>;
   interrupts: number;
   closed: boolean;
   /** Push a Harness event, as if the vendor process emitted it. */
@@ -108,6 +110,7 @@ export const makeFakeDriver = (
       steer: options.steer ?? false,
       liveCoAttach: options.liveCoAttach ?? false,
       switchModel: options.switchModel ?? true,
+      stopBackground: true,
     },
     probe: Effect.succeed({ available: true, version: "fake", detail: null }),
     open: (openOptions) =>
@@ -121,6 +124,7 @@ export const makeFakeDriver = (
           turns: [],
           responses: [],
           steers: [],
+          stopped: [],
           interrupts: 0,
           closed: false,
           emit: (...events) => {
@@ -162,6 +166,7 @@ export const makeFakeDriver = (
             session.interrupts++;
             session.emit(...(options.onInterrupt?.(session) ?? []));
           }),
+          stopBackground: (taskIds) => Effect.sync(() => void session.stopped.push(...taskIds)),
           respond: (requestId, decision) =>
             Effect.sync(() => void session.responses.push({ requestId, decision })),
           setPermissionMode: () => Effect.void,
@@ -319,6 +324,7 @@ export const engineLayer = (options: {
   readonly reviewCheckoutGit?: Layer.Layer<ReviewCheckoutGit>;
   /** Default: the fake, which writes no refs; `CheckpointsLive` snapshots real repositories. */
   readonly checkpoints?: Layer.Layer<Checkpoints>;
+  readonly resumeAtResetGrace?: Duration.Input;
 }) => {
   const baseStore = EventStore.layerSqlite(options.filename).pipe(
     Layer.provide(
@@ -337,6 +343,7 @@ export const engineLayer = (options: {
     idleTimeout: options.idleTimeout ?? Duration.minutes(30),
     backgroundIdleTimeout: options.backgroundIdleTimeout ?? Duration.hours(8),
     checkpointSweepInterval: options.checkpointSweepInterval ?? null,
+    resumeAtResetGrace: options.resumeAtResetGrace ?? Duration.zero,
   };
 
   return Engine.layer.pipe(

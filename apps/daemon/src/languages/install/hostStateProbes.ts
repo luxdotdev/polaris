@@ -1,7 +1,7 @@
 import { access, opendir, realpath, stat } from "node:fs/promises";
 import { constants } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 import { Schema } from "effect";
 import type { LanguageHostPrerequisite } from "@polaris/protocol";
 import type { Requirement } from "../catalog/model.ts";
@@ -21,13 +21,25 @@ interface HostExecutableNames {
 
 const executables: HostExecutableNames = {
   node: ["node"],
+  shellcheck: ["shellcheck"],
+  uv: ["uv"],
   "python-interpreter": ["python3.13", "python3.14", "python3", "python"],
   cargo: ["cargo"],
   rustfmt: ["rustfmt"],
   java: ["java"],
   php: ["php"],
   go: ["go"],
+  gopls: ["gopls"],
 };
+
+/** Where `go install` puts gopls and where Go's installers put go, beside the shared bin directories. */
+const goDirectories = (home: string) => [
+  ...[process.env.GOBIN, process.env.GOPATH?.split(":")[0]?.concat("/bin")].filter(
+    (directory): directory is string => directory !== undefined && isAbsolute(directory)
+  ),
+  join(home, "go/bin"),
+  "/usr/local/go/bin",
+];
 
 /** Presence only: fixed locations, no PATH, Workspace, configured code or executable invocation. */
 export function createHostPrerequisiteProbe(
@@ -47,6 +59,7 @@ export function createHostPrerequisiteProbe(
     "/usr/local/opt/python@3.13/bin",
     join(home, ".local/bin"),
     join(home, ".cargo/bin"),
+    ...goDirectories(home),
   ];
 
   return () => {

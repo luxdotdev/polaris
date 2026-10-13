@@ -17,7 +17,7 @@ const manifest = Schema.decodeUnknownSync(Schema.fromJsonString(AuditManifest))(
   manifestBytes.toString()
 );
 
-test("offline delivery retains every exact PHP runtime/grant/reference notice without granting readiness", () => {
+test("offline delivery retains every pinned Phpactor notice without granting readiness", () => {
   const root = mkdtempSync(join("/tmp", "k2-delivery-"));
 
   try {
@@ -32,7 +32,7 @@ test("offline delivery retains every exact PHP runtime/grant/reference notice wi
     expect(
       verifyIntegrity(readFileSync(join(destination, "audit-manifest.json")), artifact.auditRoot!)
     ).toBe(true);
-    expect(artifact.audit).toBe("pending");
+    expect(artifact.audit).toBe("verified");
     expect(readFileSync(join(destination, "delivery.json"), "utf8")).toContain(
       "no installation or activation approval"
     );

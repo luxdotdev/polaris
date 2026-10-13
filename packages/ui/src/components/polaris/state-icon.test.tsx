@@ -1,6 +1,6 @@
 import { SessionState } from "@polaris/protocol";
 import { act, cleanup, render } from "@testing-library/react";
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, jest, test } from "bun:test";
 
 import { SEVERITIES, SEVERITY_MARKS, SeverityBadge } from "./severity-badge";
 import { SESSION_STATES, STATE_GLYPHS, STATE_LABELS, StateIcon } from "./state-icon";
@@ -21,6 +21,7 @@ describe("StateIcon", () => {
       "in-terminal": "pixel-terminal",
       dormant: "dot-hollow",
       failed: "pixel-failed",
+      limited: "pixel-hourglass",
       archived: "pixel-archive",
     });
   });
@@ -129,6 +130,34 @@ describe("leaving Working", () => {
 
     await act(() => new Promise((resolve) => setTimeout(resolve, 250)));
     expect(container.querySelector("[data-leaving]")).toBeNull();
+  });
+
+  test("Working resumed mid-exit keeps the same dither, so it resumes instead of replaying", async () => {
+    jest.useFakeTimers();
+
+    try {
+      const { container, rerender } = render(<StateIcon state="working" harness="claude" />);
+      const dither = container.querySelector(".polaris-dither");
+
+      rerender(<StateIcon state="idle" harness="claude" />);
+      expect(container.querySelector(".polaris-dither")).toBe(dither);
+      expect(dither?.hasAttribute("data-leaving")).toBe(true);
+
+      await act(async () => {
+        jest.advanceTimersByTime(100);
+      });
+      rerender(<StateIcon state="working" harness="claude" />);
+      expect(container.querySelector(".polaris-dither")).toBe(dither);
+      expect(dither?.hasAttribute("data-leaving")).toBe(false);
+
+      rerender(<StateIcon state="idle" harness="claude" />);
+      await act(async () => {
+        jest.advanceTimersByTime(200);
+      });
+      expect(container.querySelector(".polaris-dither")).toBeNull();
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   test("never leaves from another state", () => {

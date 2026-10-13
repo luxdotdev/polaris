@@ -69,7 +69,7 @@
           "id": "vscode-langservers-extracted-npm",
           "format": "npm",
           "url": "https://registry.npmjs.org/vscode-langservers-extracted/-/vscode-langservers-extracted-4.10.0.tgz",
-          "integrity": "sha512-EFf9uQI4dAKbzMQFjDvVm1xJq1DXAQvBEuEfPGrK/xzfsL5xWTfIuRr90NgfmqwO+IEt6vLZm9EOj6R66xIifg==",
+          "integrity": "sha256:d6e2d090d09c4b91daa74e9e7462a3d3f244efb96aa5111004cfffa49d6dc9ef",
           "platforms": [
             {
               "os": "darwin",
@@ -88,25 +88,15 @@
             },
             {
               "os": "linux",
-              "arch": "arm64",
-              "libc": "musl"
-            },
-            {
-              "os": "linux",
               "arch": "x64",
               "libc": "glibc"
-            },
-            {
-              "os": "linux",
-              "arch": "x64",
-              "libc": "musl"
             }
           ],
           "entry": "bin/vscode-css-language-server",
-          "bundle": "vscode-langservers-extracted",
+          "bundle": null,
           "audit": "verified",
           "auditReason": "",
-          "auditRoot": "sha256:6b07e3edd3912fd6fe9f0127acf33be4f40896effe9cb09485f886dfaf800a1d"
+          "auditRoot": "sha256:6f200e9e9591c2862757de90e1aef01c0a1a93db9945270615d573a551a5a75e"
         }
       ],
       "requirements": [
@@ -115,14 +105,15 @@
           "scope": "server",
           "executable": "node",
           "version": ">=22.22.2",
-          "detail": "Developer-owned Node; conservative common catalog floor; Node24.18 fixture tested. No runtime download.",
+          "detail": "Pinned private Node; never resolved from PATH.",
           "required": true,
           "installCommands": []
         }
       ],
       "argv": ["--stdio"],
       "environment": {},
-      "limitations": []
+      "limitations": [],
+      "distribution": "runtime-upstream"
     },
     {
       "id": "pyright",
@@ -313,10 +304,10 @@
             }
           ],
           "entry": "out/cli.js",
-          "bundle": "bash-language-server",
-          "audit": "pending",
-          "auditReason": "minimatch@10.2.6: license-review:BlueOak-1.0.0",
-          "auditRoot": "sha256:706147959d1a4beebc6b864d3b24b94331b6da425f942fa7d623fc8658c86bd6"
+          "bundle": null,
+          "audit": "verified",
+          "auditReason": "Pinned upstream release, retained license; ADR-0022",
+          "auditRoot": "sha256:2d76d993e8c8c7af102d050a9d32b6c26f8de2a4e3b683c0a28cc9a3ea956d78"
         }
       ],
       "requirements": [
@@ -325,14 +316,67 @@
           "scope": "server",
           "executable": "node",
           "version": ">=22.22.2",
-          "detail": "Developer-owned Node; conservative common catalog floor; Node24.18 fixture tested. No runtime download.",
+          "detail": "Private managed Node, never resolved from PATH.",
           "required": true,
           "installCommands": []
+        },
+        {
+          "id": "shellcheck",
+          "scope": "companion",
+          "executable": "shellcheck",
+          "version": "present",
+          "detail": "ShellCheck enables shell diagnostics; Polaris never downloads it.",
+          "required": true,
+          "installCommands": [
+            {
+              "platforms": [
+                {
+                  "os": "darwin",
+                  "arch": "arm64",
+                  "libc": "none"
+                },
+                {
+                  "os": "darwin",
+                  "arch": "x64",
+                  "libc": "none"
+                }
+              ],
+              "label": "Homebrew",
+              "command": "brew install shellcheck"
+            },
+            {
+              "platforms": [
+                {
+                  "os": "linux",
+                  "arch": "arm64",
+                  "libc": "glibc"
+                },
+                {
+                  "os": "linux",
+                  "arch": "arm64",
+                  "libc": "musl"
+                },
+                {
+                  "os": "linux",
+                  "arch": "x64",
+                  "libc": "glibc"
+                },
+                {
+                  "os": "linux",
+                  "arch": "x64",
+                  "libc": "musl"
+                }
+              ],
+              "label": "apt",
+              "command": "sudo apt install shellcheck"
+            }
+          ]
         }
       ],
       "argv": ["start"],
       "environment": {},
-      "limitations": []
+      "limitations": [],
+      "distribution": "runtime-upstream"
     },
     {
       "id": "sql-language-server",
@@ -411,7 +455,7 @@
           "id": "prisma-language-server-npm",
           "format": "npm",
           "url": "https://registry.npmjs.org/@prisma/language-server/-/language-server-31.12.10.tgz",
-          "integrity": "sha512-72vmV3j8cH98yx0aPp7nn+rKTw1eKLYH6P1APKwgl3QNXMktffcZJEu6KFj1jX8RBI9Clh5L9WdRKFnV8HTe3A==",
+          "integrity": "sha256:e5d68ad4b7677a12d398166f68b2ac5aa2beb63b762b2c59171bba373e6313d3",
           "platforms": [
             {
               "os": "darwin",
@@ -430,25 +474,15 @@
             },
             {
               "os": "linux",
-              "arch": "arm64",
-              "libc": "musl"
-            },
-            {
-              "os": "linux",
               "arch": "x64",
               "libc": "glibc"
-            },
-            {
-              "os": "linux",
-              "arch": "x64",
-              "libc": "musl"
             }
           ],
           "entry": "dist/bin.js",
-          "bundle": "@prisma_language-server",
+          "bundle": null,
           "audit": "verified",
           "auditReason": "",
-          "auditRoot": "sha256:8bc3007afe6009d379b6a7167f9eb2c699d2d1417fb5a9f2c878c1c3b7fd4ddd"
+          "auditRoot": "sha256:b8136771211641e998f21cbfe64c5cc51eb54754cac4cec70de305128015c054"
         }
       ],
       "requirements": [
@@ -457,14 +491,15 @@
           "scope": "server",
           "executable": "node",
           "version": ">=22.22.2",
-          "detail": "Developer-owned Node; conservative common catalog floor; Node24.18 fixture tested. No runtime download.",
+          "detail": "Pinned private Node; never resolved from PATH.",
           "required": true,
           "installCommands": []
         }
       ],
       "argv": ["--stdio"],
       "environment": {},
-      "limitations": []
+      "limitations": [],
+      "distribution": "runtime-upstream"
     },
     {
       "id": "yaml-language-server",
@@ -477,7 +512,7 @@
           "id": "yaml-language-server-npm",
           "format": "npm",
           "url": "https://registry.npmjs.org/yaml-language-server/-/yaml-language-server-1.24.0.tgz",
-          "integrity": "sha512-+HGcwu4M7IC+UDhDZScTZR8qsl2MMj/X1E5e83QcWzWn2pctj0fv8HHdrHHcbc1KB3CuRPJ4gc1Nm36D0iCu0g==",
+          "integrity": "sha256:11a321032012131f2ccdf7952dc347ce05291c66931a5de2f449b2dfc81f24b2",
           "platforms": [
             {
               "os": "darwin",
@@ -496,25 +531,15 @@
             },
             {
               "os": "linux",
-              "arch": "arm64",
-              "libc": "musl"
-            },
-            {
-              "os": "linux",
               "arch": "x64",
               "libc": "glibc"
-            },
-            {
-              "os": "linux",
-              "arch": "x64",
-              "libc": "musl"
             }
           ],
           "entry": "bin/yaml-language-server",
-          "bundle": "yaml-language-server",
+          "bundle": null,
           "audit": "verified",
           "auditReason": "",
-          "auditRoot": "sha256:5d03b330bebf21bd75b4ce2cf54a7f55fbf3e967bad867f226b6c8510b8d778b"
+          "auditRoot": "sha256:8b2e9852399cfb6498c4e2753649aca4da8b3c7b089bc8186c3198897e5e6c01"
         }
       ],
       "requirements": [
@@ -523,14 +548,15 @@
           "scope": "server",
           "executable": "node",
           "version": ">=22.22.2",
-          "detail": "Developer-owned Node; conservative common catalog floor; Node24.18 fixture tested. No runtime download.",
+          "detail": "Pinned private Node; never resolved from PATH.",
           "required": true,
           "installCommands": []
         }
       ],
       "argv": ["--stdio"],
       "environment": {},
-      "limitations": []
+      "limitations": [],
+      "distribution": "runtime-upstream"
     },
     {
       "id": "actions-language-server",
@@ -543,7 +569,7 @@
           "id": "actions-language-server-npm",
           "format": "npm",
           "url": "https://registry.npmjs.org/@actions/languageserver/-/languageserver-0.3.61.tgz",
-          "integrity": "sha512-L5Vf3zc3yD11xUSM8zMxrNwYLZpiUNG6U8kFK2BsxVyRKhU8gQEt02ydR+FZgidkrHSQO/2P7eU9vHPcOwwsOQ==",
+          "integrity": "sha256:d152725064c64f862da5158cd630d4c67973edfb58bdabaa44054ffef03b9d03",
           "platforms": [
             {
               "os": "darwin",
@@ -562,25 +588,15 @@
             },
             {
               "os": "linux",
-              "arch": "arm64",
-              "libc": "musl"
-            },
-            {
-              "os": "linux",
               "arch": "x64",
               "libc": "glibc"
-            },
-            {
-              "os": "linux",
-              "arch": "x64",
-              "libc": "musl"
             }
           ],
           "entry": "bin/actions-languageserver",
-          "bundle": "@actions_languageserver",
+          "bundle": null,
           "audit": "verified",
           "auditReason": "",
-          "auditRoot": "sha256:e90519fe728488a8ccd3ed8b3fcac054e517357a8897750bb72ba1350bf8d9c5"
+          "auditRoot": "sha256:e95ecf46a51b37c1ac7e5e375b53620358b2ebfef651b6f84d30eeb070c5e686"
         }
       ],
       "requirements": [
@@ -589,14 +605,15 @@
           "scope": "server",
           "executable": "node",
           "version": ">=22.22.2",
-          "detail": "Developer-owned Node; conservative common catalog floor; Node24.18 fixture tested. No runtime download.",
+          "detail": "Pinned private Node; never resolved from PATH.",
           "required": true,
           "installCommands": []
         }
       ],
       "argv": ["--stdio"],
       "environment": {},
-      "limitations": []
+      "limitations": [],
+      "distribution": "runtime-upstream"
     },
     {
       "id": "prettier",
@@ -886,9 +903,9 @@
           ],
           "entry": "rust-analyzer",
           "bundle": null,
-          "audit": "pending",
-          "auditReason": "Compiler runtime/vendor closure and musl loader prerequisite packaging need exact scoped resolution.",
-          "auditRoot": "sha256:a51bc9ed1d88969596b3c5bbbba960ed782c71011c37bd8011cc6fd017d54d59"
+          "audit": "verified",
+          "auditReason": "Runtime upstream download: MIT and Apache-2.0 license texts retained (ADR-0022).",
+          "auditRoot": "sha256:e49bf679fb58dad693fc40fd812baf9227c6b4626aab0a7f9f9188a15b8dda34"
         },
         {
           "id": "rust-analyzer-aarch64-unknown-linux-gnu.gz",
@@ -904,9 +921,9 @@
           ],
           "entry": "rust-analyzer",
           "bundle": null,
-          "audit": "pending",
-          "auditReason": "Compiler runtime/vendor closure and musl loader prerequisite packaging need exact scoped resolution.",
-          "auditRoot": "sha256:1d4bffb39dd7e521ba55f9b546b2769720abe54bd8ed67873b3b03e0645bc636"
+          "audit": "verified",
+          "auditReason": "Runtime upstream download: MIT and Apache-2.0 license texts retained (ADR-0022).",
+          "auditRoot": "sha256:5b27d5d3821d9b38731099be917bfe1c758ad82ed29618afd8556298aecd0bca"
         },
         {
           "id": "rust-analyzer-x86_64-apple-darwin.gz",
@@ -922,9 +939,9 @@
           ],
           "entry": "rust-analyzer",
           "bundle": null,
-          "audit": "pending",
-          "auditReason": "Compiler runtime/vendor closure and musl loader prerequisite packaging need exact scoped resolution.",
-          "auditRoot": "sha256:e5b3b8973389876cc7c66bd14a3b2bdd07b24e1a15ea242361606349d9156179"
+          "audit": "verified",
+          "auditReason": "Runtime upstream download: MIT and Apache-2.0 license texts retained (ADR-0022).",
+          "auditRoot": "sha256:7f9f6b7d3e900ec7c81a8c58edd06fa1bff511dc086f02bd7b1bf4a859d1b5cb"
         },
         {
           "id": "rust-analyzer-x86_64-unknown-linux-gnu.gz",
@@ -940,9 +957,9 @@
           ],
           "entry": "rust-analyzer",
           "bundle": null,
-          "audit": "pending",
-          "auditReason": "Compiler runtime/vendor closure and musl loader prerequisite packaging need exact scoped resolution.",
-          "auditRoot": "sha256:a03368656c85d26bba5753145df03431ee550898f22612f5fd84c116c8cfe462"
+          "audit": "verified",
+          "auditReason": "Runtime upstream download: MIT and Apache-2.0 license texts retained (ADR-0022).",
+          "auditRoot": "sha256:126bc2a58e8fb805f849bf271e54ce8db62bfe2fe095d0e2a61c49a16454c605"
         },
         {
           "id": "rust-analyzer-x86_64-unknown-linux-musl.gz",
@@ -958,9 +975,9 @@
           ],
           "entry": "rust-analyzer",
           "bundle": null,
-          "audit": "pending",
-          "auditReason": "Compiler runtime/vendor closure and musl loader prerequisite packaging need exact scoped resolution.",
-          "auditRoot": "sha256:54763e93656fff109b2114cbef8039c9df4028cb8ddded9dc1d36b68dfa9a8ab"
+          "audit": "verified",
+          "auditReason": "Runtime upstream download: MIT and Apache-2.0 license texts retained (ADR-0022).",
+          "auditRoot": "sha256:f019410817a500e0fd926c7d0407b3e2d9595ba348bf5b191acd036cf9c2bf74"
         }
       ],
       "requirements": [
@@ -969,7 +986,7 @@
           "scope": "project",
           "executable": "cargo",
           "version": "present",
-          "detail": "Project-owned Rust toolchain",
+          "detail": "The Rust toolchain (cargo and rustc, via rustup)",
           "required": true,
           "installCommands": [
             {
@@ -1005,8 +1022,8 @@
                   "libc": "musl"
                 }
               ],
-              "label": "rustup (already installed)",
-              "command": "rustup toolchain install stable --component rust-src --component rustfmt"
+              "label": "rustup",
+              "command": "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --component rust-src"
             }
           ]
         },
@@ -1015,53 +1032,7 @@
           "scope": "project",
           "executable": "rust-src",
           "version": "present",
-          "detail": "Project standard-library source component",
-          "required": true,
-          "installCommands": [
-            {
-              "platforms": [
-                {
-                  "os": "darwin",
-                  "arch": "arm64",
-                  "libc": "none"
-                },
-                {
-                  "os": "darwin",
-                  "arch": "x64",
-                  "libc": "none"
-                },
-                {
-                  "os": "linux",
-                  "arch": "arm64",
-                  "libc": "glibc"
-                },
-                {
-                  "os": "linux",
-                  "arch": "arm64",
-                  "libc": "musl"
-                },
-                {
-                  "os": "linux",
-                  "arch": "x64",
-                  "libc": "glibc"
-                },
-                {
-                  "os": "linux",
-                  "arch": "x64",
-                  "libc": "musl"
-                }
-              ],
-              "label": "rustup (already installed)",
-              "command": "rustup component add rust-src"
-            }
-          ]
-        },
-        {
-          "id": "rustfmt",
-          "scope": "formatter",
-          "executable": "rustfmt",
-          "version": "present",
-          "detail": "Developer toolchain component; only required for selected formatting",
+          "detail": "The standard library's source, for completion and hover on std",
           "required": false,
           "installCommands": [
             {
@@ -1097,7 +1068,53 @@
                   "libc": "musl"
                 }
               ],
-              "label": "rustup (already installed)",
+              "label": "rustup",
+              "command": "rustup component add rust-src"
+            }
+          ]
+        },
+        {
+          "id": "rustfmt",
+          "scope": "formatter",
+          "executable": "rustfmt",
+          "version": "present",
+          "detail": "rustfmt, for formatting",
+          "required": false,
+          "installCommands": [
+            {
+              "platforms": [
+                {
+                  "os": "darwin",
+                  "arch": "arm64",
+                  "libc": "none"
+                },
+                {
+                  "os": "darwin",
+                  "arch": "x64",
+                  "libc": "none"
+                },
+                {
+                  "os": "linux",
+                  "arch": "arm64",
+                  "libc": "glibc"
+                },
+                {
+                  "os": "linux",
+                  "arch": "arm64",
+                  "libc": "musl"
+                },
+                {
+                  "os": "linux",
+                  "arch": "x64",
+                  "libc": "glibc"
+                },
+                {
+                  "os": "linux",
+                  "arch": "x64",
+                  "libc": "musl"
+                }
+              ],
+              "label": "rustup",
               "command": "rustup component add rustfmt"
             }
           ]
@@ -1105,7 +1122,8 @@
       ],
       "argv": [],
       "environment": {},
-      "limitations": []
+      "limitations": ["The Rust toolchain is a detected prerequisite, never installed by Polaris."],
+      "distribution": "runtime-upstream"
     },
     {
       "id": "lua-language-server",
@@ -1128,17 +1146,9 @@
           ],
           "entry": "bin/lua-language-server",
           "bundle": null,
-          "audit": "pending",
-          "auditReason": "Exact source/legal evidence for retained vendor code and published Linux static compiler/runtime closure remains unverified; Lua runtime legal comments are retained and do not certify which other libraries were embedded.",
-          "auditRoot": "sha256:31cd05c4e7cff9adcb39ff491c83b4f8829639cc18aa1d3150cfff02e4f2db87",
-          "packaging": {
-            "filter": "lua-core-v1",
-            "sourceIntegrity": "sha256:0bc077f4447f076b4c92c14e9fd303f5b569eda2ec74b4dca2b55f75fae2e90c",
-            "manifest": "packaging/lua-language-server-3.19.1-darwin-arm64.tar.gz.json",
-            "manifestIntegrity": "sha256:e206e08487e2d4e9efe1852e986d31dbe8aa1ccfffd353ad9ba56d7b982d4bee",
-            "postFilterIntegrity": "sha256:d6f3b657e3656ae7f6f34d39f9d68198801e75086589696895b9a4e0b9b0db9a",
-            "disableThirdPartyDiscovery": true
-          }
+          "audit": "verified",
+          "auditReason": "Runtime upstream download: MIT license retained (ADR-0022).",
+          "auditRoot": "sha256:99f6055e41b7a4f0f4c7ca1a98f35506918eb3d287264f6ba24d409c42c1692d"
         },
         {
           "id": "lua-language-server-3.19.1-darwin-x64.tar.gz",
@@ -1154,17 +1164,9 @@
           ],
           "entry": "bin/lua-language-server",
           "bundle": null,
-          "audit": "pending",
-          "auditReason": "Exact source/legal evidence for retained vendor code and published Linux static compiler/runtime closure remains unverified; Lua runtime legal comments are retained and do not certify which other libraries were embedded.",
-          "auditRoot": "sha256:4f8dc617f4ef093bf3f6bc9d3c1e64044db77d2ff1acb1b250b2da9d0a720cf0",
-          "packaging": {
-            "filter": "lua-core-v1",
-            "sourceIntegrity": "sha256:eb373c159cbe556711d7cd316315de2dce969bfd54b31edb7eb9cab2937f2cca",
-            "manifest": "packaging/lua-language-server-3.19.1-darwin-x64.tar.gz.json",
-            "manifestIntegrity": "sha256:1016d418b333f34cf919dc9dcf6995cbae1bd4200d44e41a5ed709fe8cbea3bb",
-            "postFilterIntegrity": "sha256:82eaac806c00b27de63c76b9eeb93ffea290dead3f6692001afeb5c5374e9f5d",
-            "disableThirdPartyDiscovery": true
-          }
+          "audit": "verified",
+          "auditReason": "Runtime upstream download: MIT license retained (ADR-0022).",
+          "auditRoot": "sha256:de3ec3ea0a9f540aeb410bbd2eb873d7198a25b79f40f0ddb95519fe6dd3dac1"
         },
         {
           "id": "lua-language-server-3.19.1-linux-arm64.tar.gz",
@@ -1180,17 +1182,9 @@
           ],
           "entry": "bin/lua-language-server",
           "bundle": null,
-          "audit": "pending",
-          "auditReason": "Exact source/legal evidence for retained vendor code and published Linux static compiler/runtime closure remains unverified; Lua runtime legal comments are retained and do not certify which other libraries were embedded.",
-          "auditRoot": "sha256:d47c4c961a5205232ef6cfd20d9d874913e55300d8f6befb7b1c96e604edd6b7",
-          "packaging": {
-            "filter": "lua-core-v1",
-            "sourceIntegrity": "sha256:abd2572e8fc929dc838a81ffb8473c5bce0bf39bfe8edb4b120b3b623176ce83",
-            "manifest": "packaging/lua-language-server-3.19.1-linux-arm64.tar.gz.json",
-            "manifestIntegrity": "sha256:d0b071cf5e3bddffbb3ad54524f65713ae819177e9c5b0c391894fa4389ba11b",
-            "postFilterIntegrity": "sha256:9ef25a5803aa58332a9adb11db429edcb71e6ab6ee434944732d00a6cdde1b03",
-            "disableThirdPartyDiscovery": true
-          }
+          "audit": "verified",
+          "auditReason": "Runtime upstream download: MIT license retained (ADR-0022).",
+          "auditRoot": "sha256:98b80a78054220f4e46eb8ebf2ab4fd7b316ef4af0ad5e3b6cf18d238773e1c3"
         },
         {
           "id": "lua-language-server-3.19.1-linux-x64.tar.gz",
@@ -1206,33 +1200,16 @@
           ],
           "entry": "bin/lua-language-server",
           "bundle": null,
-          "audit": "pending",
-          "auditReason": "Exact source/legal evidence for retained vendor code and published Linux static compiler/runtime closure remains unverified; Lua runtime legal comments are retained and do not certify which other libraries were embedded.",
-          "auditRoot": "sha256:c04dd51c26f8288cbf18b56d93dba6691eadd963c619990a6535c8efa55a4e07",
-          "packaging": {
-            "filter": "lua-core-v1",
-            "sourceIntegrity": "sha256:e9235d2d72ef55bc41cf8c99cda2ed64777682024b4bb81f5dea425060c5cbb8",
-            "manifest": "packaging/lua-language-server-3.19.1-linux-x64.tar.gz.json",
-            "manifestIntegrity": "sha256:b12596f471f3bf5a819b7e25f27015430d18900adbd4103bb77e1fa091d2f923",
-            "postFilterIntegrity": "sha256:6359c351eb22125e874344258c1b17d7327d09802cec1b40cdffc9703aab7a44",
-            "disableThirdPartyDiscovery": true
-          }
+          "audit": "verified",
+          "auditReason": "Runtime upstream download: MIT license retained (ADR-0022).",
+          "auditRoot": "sha256:f4b23023385d77c64ab2434701c05847d5edef1f6bd90a112351f1dd08ec6808"
         }
       ],
-      "requirements": [
-        {
-          "id": "configured-lua-formatter",
-          "scope": "formatter",
-          "executable": "configured-lua-formatter",
-          "version": "present",
-          "detail": "Explicit configured project formatter; required only when formatting selected",
-          "required": false,
-          "installCommands": []
-        }
-      ],
+      "requirements": [],
       "argv": [],
       "environment": {},
-      "limitations": []
+      "limitations": [],
+      "distribution": "runtime-upstream"
     },
     {
       "id": "shfmt",
@@ -1255,9 +1232,9 @@
           ],
           "entry": "shfmt",
           "bundle": null,
-          "audit": "pending",
-          "auditReason": "A1 review required for exact artifact, dependency notices and source-delivery record",
-          "auditRoot": "sha256:ed8647e73038644ea38f08dd2de36295b730116917a0fb59e3a45ca6336436df"
+          "audit": "verified",
+          "auditReason": "Pinned upstream release, retained license; ADR-0022",
+          "auditRoot": "sha256:c052faa416527c0c8c8716a46a047e5575bb82d6f8e21eee8df128dbc0b8c9ab"
         },
         {
           "id": "shfmt_v3.14.1_darwin_arm64",
@@ -1273,9 +1250,9 @@
           ],
           "entry": "shfmt",
           "bundle": null,
-          "audit": "pending",
-          "auditReason": "A1 review required for exact artifact, dependency notices and source-delivery record",
-          "auditRoot": "sha256:c6e62fedd059f6c2b513f38b86a250bbb7148ab01d59393f8abad0709d2cafa6"
+          "audit": "verified",
+          "auditReason": "Pinned upstream release, retained license; ADR-0022",
+          "auditRoot": "sha256:9f5262c6aa13fd5744b89f30ba615a166d527f612c587ee6e6a1c3a63ac9f205"
         },
         {
           "id": "shfmt_v3.14.1_linux_amd64",
@@ -1296,9 +1273,9 @@
           ],
           "entry": "shfmt",
           "bundle": null,
-          "audit": "pending",
-          "auditReason": "A1 review required for exact artifact, dependency notices and source-delivery record",
-          "auditRoot": "sha256:eb944c289da3fad96e98d8aaba3d6f609046da22ff555132df76d513c7b39db2"
+          "audit": "verified",
+          "auditReason": "Pinned upstream release, retained license; ADR-0022",
+          "auditRoot": "sha256:9433e1764eaafb4684995f2dfbfefe5879820e92d30049092adb276fd5af3d84"
         },
         {
           "id": "shfmt_v3.14.1_linux_arm64",
@@ -1319,15 +1296,16 @@
           ],
           "entry": "shfmt",
           "bundle": null,
-          "audit": "pending",
-          "auditReason": "A1 review required for exact artifact, dependency notices and source-delivery record",
-          "auditRoot": "sha256:e2adcb6a52ffbf56847383ff749f36bfe4a1ffe26c597a97873416caf4e4dcc8"
+          "audit": "verified",
+          "auditReason": "Pinned upstream release, retained license; ADR-0022",
+          "auditRoot": "sha256:d3854f06815e556d0f58e706cf0087cea93cd4f2610efcc725221552f8a07d53"
         }
       ],
       "requirements": [],
       "argv": [],
       "environment": {},
-      "limitations": []
+      "limitations": [],
+      "distribution": "runtime-upstream"
     },
     {
       "id": "shellcheck",
@@ -1417,15 +1395,15 @@
     {
       "id": "phpactor",
       "disposition": "offered",
-      "version": "2026.06.23.0",
-      "source": "https://github.com/phpactor/phpactor/releases/tag/2026.06.23.0",
+      "version": "2026.10.07.0",
+      "source": "https://github.com/phpactor/phpactor/releases/tag/2026.10.07.0",
       "license": "MIT",
       "artifacts": [
         {
           "id": "phpactor.phar",
           "format": "phar",
-          "url": "https://github.com/phpactor/phpactor/releases/download/2026.06.23.0/phpactor.phar",
-          "integrity": "sha256:25645647d9aa2dc69536fb4f75c976e33ef1a7b5533534a8456736e5e6fd5079",
+          "url": "https://github.com/phpactor/phpactor/releases/download/2026.10.07.0/phpactor.phar",
+          "integrity": "sha256:b28bf6166e016d539fc2f2aec18ef918b12590e436a6f1ccbdf30b5bbdbdb16b",
           "platforms": [
             {
               "os": "darwin",
@@ -1460,9 +1438,9 @@
           ],
           "entry": "phpactor.phar",
           "bundle": null,
-          "audit": "pending",
-          "auditReason": "A1 review required for exact artifact, dependency notices and source-delivery record",
-          "auditRoot": "sha256:087707dfd98517ea5cbb21bb807fe59c411ed8869cbcae376e150f465d8bca89"
+          "audit": "verified",
+          "auditReason": "Runtime upstream download: MIT license and the PHAR's Composer license retained (ADR-0022).",
+          "auditRoot": "sha256:8141528ef4ca6b79880a6e0f5e1178b87b0b88d932b3b44bc5072e8182afb00f"
         }
       ],
       "requirements": [
@@ -1470,53 +1448,52 @@
           "id": "php",
           "scope": "server",
           "executable": "php",
-          "version": ">=8.2.0",
-          "detail": "",
-          "required": true,
-          "installCommands": []
-        },
-        {
-          "id": "php-mbstring",
-          "scope": "server",
-          "executable": "php",
           "version": "present",
-          "detail": "PHP extension mbstring",
+          "detail": "Phpactor runs on the Host's PHP 8.2 or later, with the posix and tokenizer extensions; Polaris never installs PHP.",
           "required": true,
-          "installCommands": []
-        },
-        {
-          "id": "php-posix",
-          "scope": "server",
-          "executable": "php",
-          "version": "present",
-          "detail": "PHP extension posix",
-          "required": true,
-          "installCommands": []
-        },
-        {
-          "id": "php-tokenizer",
-          "scope": "server",
-          "executable": "php",
-          "version": "present",
-          "detail": "PHP extension tokenizer",
-          "required": true,
-          "installCommands": []
-        },
-        {
-          "id": "configured-php-formatter",
-          "scope": "formatter",
-          "executable": "configured-php-formatter",
-          "version": "present",
-          "detail": "Explicit configured project formatter; required only when formatting selected",
-          "required": false,
-          "installCommands": []
+          "installCommands": [
+            {
+              "platforms": [
+                {
+                  "os": "darwin",
+                  "arch": "arm64",
+                  "libc": "none"
+                },
+                {
+                  "os": "darwin",
+                  "arch": "x64",
+                  "libc": "none"
+                }
+              ],
+              "label": "Homebrew",
+              "command": "brew install php"
+            },
+            {
+              "platforms": [
+                {
+                  "os": "linux",
+                  "arch": "arm64",
+                  "libc": "glibc"
+                },
+                {
+                  "os": "linux",
+                  "arch": "x64",
+                  "libc": "glibc"
+                }
+              ],
+              "label": "Debian / Ubuntu",
+              "command": "sudo apt install php-cli"
+            }
+          ]
         }
       ],
       "argv": ["language-server"],
       "environment": {},
       "limitations": [
-        "PHAR strips most vendor license files and Composer installed metadata; external source/notice completion required. K1 Host lacks PHP, so rename/parity not verified."
-      ]
+        "The PHAR keeps only Phpactor's and Composer's license files; both are retained beside the installation.",
+        "PHP's version and extensions are checked by Phpactor at startup; a missing one stops the server with its message in the log."
+      ],
+      "distribution": "runtime-upstream"
     },
     {
       "id": "jdtls",
@@ -1586,72 +1563,105 @@
     {
       "id": "gopls",
       "disposition": "offered",
-      "version": "0.23.0",
-      "source": "https://proxy.golang.org/golang.org/x/tools/gopls/@v/v0.23.0.info",
+      "distribution": "developer",
+      "version": "developer",
+      "source": "https://pkg.go.dev/golang.org/x/tools/gopls",
       "license": "BSD-3-Clause",
-      "artifacts": [
-        {
-          "id": "gopls-source",
-          "format": "go-module",
-          "url": "https://proxy.golang.org/golang.org/x/tools/gopls/@v/v0.23.0.zip",
-          "integrity": "sha256:b3bb593ef163f614e358cdb14a9feede3cad2bfc9087b8e4dca73b2fff858b74",
-          "platforms": [
-            {
-              "os": "darwin",
-              "arch": "arm64",
-              "libc": "none"
-            },
-            {
-              "os": "darwin",
-              "arch": "x64",
-              "libc": "none"
-            },
-            {
-              "os": "linux",
-              "arch": "arm64",
-              "libc": "glibc"
-            },
-            {
-              "os": "linux",
-              "arch": "arm64",
-              "libc": "musl"
-            },
-            {
-              "os": "linux",
-              "arch": "x64",
-              "libc": "glibc"
-            },
-            {
-              "os": "linux",
-              "arch": "x64",
-              "libc": "musl"
-            }
-          ],
-          "entry": "golang.org/x/tools/gopls",
-          "bundle": null,
-          "audit": "pending",
-          "auditReason": "A1 review required for exact artifact, dependency notices and source-delivery record",
-          "auditRoot": "sha256:1d71664c5158ada8e437584ba297235a0365d3ba2fae53258d652b0a7e11cf43"
-        }
-      ],
+      "artifacts": [],
       "requirements": [
         {
           "id": "go",
           "scope": "server",
           "executable": "go",
-          "version": ">=1.26.0",
-          "detail": "Build with GOTOOLCHAIN=local; never download a Go runtime",
+          "version": "present",
+          "detail": "gopls loads packages with the Go toolchain; Polaris never installs it.",
           "required": true,
-          "installCommands": []
+          "installCommands": [
+            {
+              "platforms": [
+                {
+                  "os": "darwin",
+                  "arch": "arm64",
+                  "libc": "none"
+                },
+                {
+                  "os": "darwin",
+                  "arch": "x64",
+                  "libc": "none"
+                }
+              ],
+              "label": "Homebrew",
+              "command": "brew install go"
+            },
+            {
+              "platforms": [
+                {
+                  "os": "linux",
+                  "arch": "arm64",
+                  "libc": "glibc"
+                },
+                {
+                  "os": "linux",
+                  "arch": "x64",
+                  "libc": "glibc"
+                }
+              ],
+              "label": "Debian / Ubuntu",
+              "command": "sudo apt install golang-go"
+            }
+          ]
+        },
+        {
+          "id": "gopls",
+          "scope": "server",
+          "executable": "gopls",
+          "version": "present",
+          "detail": "gopls is the Go team's language server; Polaris never downloads or builds it.",
+          "required": true,
+          "installCommands": [
+            {
+              "platforms": [
+                {
+                  "os": "darwin",
+                  "arch": "arm64",
+                  "libc": "none"
+                },
+                {
+                  "os": "darwin",
+                  "arch": "x64",
+                  "libc": "none"
+                },
+                {
+                  "os": "linux",
+                  "arch": "arm64",
+                  "libc": "glibc"
+                },
+                {
+                  "os": "linux",
+                  "arch": "arm64",
+                  "libc": "musl"
+                },
+                {
+                  "os": "linux",
+                  "arch": "x64",
+                  "libc": "glibc"
+                },
+                {
+                  "os": "linux",
+                  "arch": "x64",
+                  "libc": "musl"
+                }
+              ],
+              "label": "Go",
+              "command": "go install golang.org/x/tools/gopls@latest"
+            }
+          ]
         }
       ],
       "argv": [],
-      "environment": {
-        "GOTOOLCHAIN": "local",
-        "GOTELEMETRY": "off"
-      },
+      "environment": {},
       "limitations": [
-        "Upstream publishes source, not managed prebuilt executables. Build in private GOBIN/GOMODCACHE/GOCACHE with developer Go."
+        "Developer-installed gopls is a Host Prerequisite. It starts only after Trust: loading packages through go list can run Workspace code."
       ]
     },
     {
@@ -1699,10 +1709,10 @@
             }
           ],
           "entry": "bin/sql-formatter-cli.cjs",
-          "bundle": "sql-formatter",
-          "audit": "pending",
-          "auditReason": "argparse@2.0.1: license-review:Python-2.0; railroad-diagrams@1.0.0: license-review:CC0-1.0",
-          "auditRoot": "sha256:3f2d7db2b6988f19357690902d32222129bffe63966e0afcf266c6122b930e4e"
+          "bundle": null,
+          "audit": "verified",
+          "auditReason": "Pinned upstream release, retained license; ADR-0022",
+          "auditRoot": "sha256:c283f516f2ed74c5d99f2f302723805174a719db1d5d2897d113eb055be5d54e"
         }
       ],
       "requirements": [
@@ -1711,14 +1721,15 @@
           "scope": "server",
           "executable": "node",
           "version": ">=22.22.2",
-          "detail": "Developer-owned Node; conservative common catalog floor; Node24.18 fixture tested. No runtime download.",
+          "detail": "Private managed Node, never resolved from PATH.",
           "required": true,
           "installCommands": []
         }
       ],
       "argv": [],
       "environment": {},
-      "limitations": []
+      "limitations": [],
+      "distribution": "runtime-upstream"
     },
     {
       "id": "sqllens-language-server",
@@ -1764,11 +1775,11 @@
               "libc": "musl"
             }
           ],
-          "entry": "bin/cli.js",
-          "bundle": "sqllens-language-server",
-          "audit": "pending",
-          "auditReason": "minimatch@10.2.6: license-review:BlueOak-1.0.0",
-          "auditRoot": "sha256:d5106e10aa31e3519101e0486bd0507f2ffb8017c666885333fe8826d3747848"
+          "entry": "polaris-sql.mjs",
+          "bundle": null,
+          "audit": "verified",
+          "auditReason": "Pinned upstream release, retained license; ADR-0022",
+          "auditRoot": "sha256:be3ada2b7f295a5892ed25a8be9a09b405d5d79ef9a71d668a5b1ee8bdebabb4"
         }
       ],
       "requirements": [
@@ -1777,7 +1788,7 @@
           "scope": "server",
           "executable": "node",
           "version": ">=22.22.2",
-          "detail": "Developer-owned Node; conservative common catalog floor; Node24.18 fixture tested. No runtime download.",
+          "detail": "Private managed Node, never resolved from PATH.",
           "required": true,
           "installCommands": []
         }
@@ -1786,7 +1797,8 @@
       "environment": {
         "SQLLENS_NO_PLUGINS": "1"
       },
-      "limitations": []
+      "limitations": [],
+      "distribution": "runtime-upstream"
     },
     {
       "id": "node",
@@ -2065,6 +2077,63 @@
         "Managed server blocks interpreter and Workspace code execution; import paths are read from the selected environment."
       ],
       "distribution": "runtime-upstream"
+    },
+    {
+      "id": "svelte-language-server",
+      "disposition": "offered",
+      "version": "0.18.4",
+      "source": "https://registry.npmjs.org/svelte-language-server/0.18.4",
+      "license": "MIT",
+      "artifacts": [
+        {
+          "id": "svelte-language-server-npm",
+          "format": "npm",
+          "url": "https://registry.npmjs.org/svelte-language-server/-/svelte-language-server-0.18.4.tgz",
+          "integrity": "sha256:3700f0d4af450fd898efd90b29ab7f0c9f5a5c7e8967f5c2cebf528a18341757",
+          "platforms": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "libc": "none"
+            },
+            {
+              "os": "darwin",
+              "arch": "x64",
+              "libc": "none"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "glibc"
+            }
+          ],
+          "entry": "bin/server.js",
+          "bundle": null,
+          "audit": "verified",
+          "auditReason": "",
+          "auditRoot": "sha256:ffc2f27a066ccc6b14880362e8cee7fa5c993fe55cfbe625a18983b5d249e61d"
+        }
+      ],
+      "requirements": [
+        {
+          "id": "node",
+          "scope": "server",
+          "executable": "node",
+          "version": ">=22.22.2",
+          "detail": "Pinned private Node; never resolved from PATH.",
+          "required": true,
+          "installCommands": []
+        }
+      ],
+      "argv": ["--stdio"],
+      "environment": {},
+      "limitations": [],
+      "distribution": "runtime-upstream"
     }
   ],
   "integrations": [
@@ -2101,6 +2170,38 @@
       "offered": true
     },
     {
+      "id": "json",
+      "languageIds": ["json", "jsonc"],
+      "patterns": ["*.json", "*.jsonc"],
+      "providers": [
+        {
+          "id": "vscode-json-language-server",
+          "tool": "vscode-langservers-extracted",
+          "role": "primary",
+          "diagnostics": "primary",
+          "disableFeatures": [],
+          "entry": "bin/vscode-json-language-server",
+          "argv": ["--stdio"]
+        }
+      ],
+      "companions": [],
+      "formatter": {
+        "tool": "vscode-langservers-extracted",
+        "source": "managed",
+        "mode": "lsp",
+        "detail": "Project formatter after Trust where supported; otherwise the language server's formatter."
+      },
+      "policy": {
+        "trust": "workspace-before-execution",
+        "network": "server-default",
+        "configuration": "Managed server without Trust; Workspace code only after Trust."
+      },
+      "limitations": [
+        "package.json and tsconfig schema associations fetch HTTPS schemas from SchemaStore; these schemas are not bundled."
+      ],
+      "offered": true
+    },
+    {
       "id": "html",
       "languageIds": ["html"],
       "patterns": ["*.html"],
@@ -2117,18 +2218,18 @@
       ],
       "companions": [],
       "formatter": {
-        "tool": "prettier",
+        "tool": "vscode-langservers-extracted",
         "source": "managed",
-        "mode": "cli",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "mode": "lsp",
+        "detail": "Project formatter after Trust where supported; otherwise the language server's formatter."
       },
       "policy": {
         "trust": "workspace-before-execution",
         "network": "server-default",
-        "configuration": "Project configuration after trust; effective paths resolved by D1"
+        "configuration": "Managed server without Trust; Workspace code only after Trust."
       },
       "limitations": [],
-      "offered": false
+      "offered": true
     },
     {
       "id": "css",
@@ -2147,18 +2248,18 @@
       ],
       "companions": [],
       "formatter": {
-        "tool": "prettier",
+        "tool": "vscode-langservers-extracted",
         "source": "managed",
-        "mode": "cli",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "mode": "lsp",
+        "detail": "Project formatter after Trust where supported; otherwise the language server's formatter."
       },
       "policy": {
         "trust": "workspace-before-execution",
         "network": "server-default",
-        "configuration": "Project configuration after trust; effective paths resolved by D1"
+        "configuration": "Managed server without Trust; Workspace code only after Trust."
       },
       "limitations": [],
-      "offered": false
+      "offered": true
     },
     {
       "id": "python",
@@ -2203,8 +2304,8 @@
     },
     {
       "id": "bash",
-      "languageIds": ["shellscript"],
-      "patterns": ["*.sh", "*.bash", ".envrc"],
+      "languageIds": ["shellscript", "bash", "sh"],
+      "patterns": ["*.sh", "*.bash", "*.command"],
       "providers": [
         {
           "id": "bash-language-server",
@@ -2216,12 +2317,12 @@
           "argv": []
         }
       ],
-      "companions": ["shellcheck", "shfmt"],
+      "companions": ["shfmt"],
       "formatter": {
-        "tool": "shfmt",
+        "tool": "bash-language-server",
         "source": "managed",
-        "mode": "cli",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "mode": "lsp",
+        "detail": "Managed shfmt through Bash Language Server."
       },
       "policy": {
         "trust": "workspace-before-execution",
@@ -2229,9 +2330,11 @@
         "configuration": "Project configuration after trust; effective paths resolved by D1"
       },
       "limitations": [
-        "ShellCheck diagnostics pass through Bash only; do not launch a duplicate diagnostic provider. No zsh/fish parity."
+        "Bash/POSIX shells only. zsh syntax is unsupported by ShellCheck and shfmt; zsh files are highlighted but not analyzed or formatted.",
+        "ShellCheck is a Host Prerequisite; Polaris never downloads it."
       ],
-      "offered": false
+      "offered": true,
+      "developerCompanions": []
     },
     {
       "id": "java",
@@ -2261,7 +2364,8 @@
         "configuration": "Project configuration after trust; effective paths resolved by D1"
       },
       "limitations": [
-        "Project JDK/build tool remains developer-owned; JDT LS may execute project build code after trust."
+        "Project JDK/build tool remains developer-owned; JDT LS may execute project build code after trust.",
+        "Skipped (owner: Java users use IntelliJ)."
       ],
       "offered": false
     },
@@ -2282,20 +2386,20 @@
       ],
       "companions": [],
       "formatter": {
-        "tool": "configured-php-formatter",
-        "source": "configured",
-        "mode": "configured",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "tool": "phpactor",
+        "source": "managed",
+        "mode": "lsp",
+        "detail": "Phpactor formats through the project's php-cs-fixer after Trust, when the project has one."
       },
       "policy": {
         "trust": "workspace-before-execution",
         "network": "server-default",
-        "configuration": "Project configuration after trust; effective paths resolved by D1"
+        "configuration": "Before Trust: no Composer autoloader, project config or tool extensions. After Trust: the project's .phpactor.json and Composer class maps."
       },
       "limitations": [
-        "Phpactor rename must pass V2 live fixture; no PHP runtime on K1 Host, no parity claim. PHP formatting needs separately configured project formatter. Do not substitute paid Intelephense features silently."
+        "PHP formatting needs the project's php-cs-fixer (vendor/bin/php-cs-fixer) and Trust."
       ],
-      "offered": false
+      "offered": true
     },
     {
       "id": "go",
@@ -2315,17 +2419,19 @@
       "companions": [],
       "formatter": {
         "tool": "gopls",
-        "source": "managed",
+        "source": "developer",
         "mode": "lsp",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "detail": "gopls formats with gofmt."
       },
       "policy": {
         "trust": "workspace-before-execution",
         "network": "server-default",
-        "configuration": "Project configuration after trust; effective paths resolved by D1"
+        "configuration": "gopls runs only after Trust, with the Host's Go toolchain and the user's Go environment."
       },
-      "limitations": [],
-      "offered": false
+      "limitations": [
+        "gopls and Go are Host Prerequisites; Polaris never downloads or builds them."
+      ],
+      "offered": true
     },
     {
       "id": "rust",
@@ -2347,17 +2453,17 @@
         "tool": "rustfmt",
         "source": "developer",
         "mode": "lsp",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "detail": "rustfmt from the Rust toolchain, through rust-analyzer: the Host's default toolchain before Trust, the project's after."
       },
       "policy": {
         "trust": "workspace-before-execution",
         "network": "server-default",
-        "configuration": "Project configuration after trust; effective paths resolved by D1"
+        "configuration": "Before Trust: no cargo in the Workspace, no build scripts, proc-macros or check on save; local analysis of the crate's own sources. After Trust: cargo metadata, build scripts, proc-macros and check on save."
       },
       "limitations": [
-        "rustfmt is a developer toolchain component invoked by rust-analyzer. Build scripts/proc macros require trust."
+        "Before Trust, rust-analyzer does not resolve dependencies or expand proc-macros."
       ],
-      "offered": false
+      "offered": true
     },
     {
       "id": "lua",
@@ -2376,20 +2482,18 @@
       ],
       "companions": [],
       "formatter": {
-        "tool": "configured-lua-formatter",
-        "source": "configured",
-        "mode": "configured",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "tool": "lua-language-server",
+        "source": "managed",
+        "mode": "lsp",
+        "detail": "StyLua after Trust where the project configures it; otherwise the language server's formatter."
       },
       "policy": {
         "trust": "workspace-before-execution",
         "network": "server-default",
-        "configuration": "Project configuration after trust; effective paths resolved by D1"
+        "configuration": "Managed server without Trust; a .luarc plugin runs only after Trust."
       },
-      "limitations": [
-        "LuaLS supplies no assumed document formatting; select a developer-provided formatter. Lua libraries/runtime version are project settings."
-      ],
-      "offered": false
+      "limitations": [],
+      "offered": true
     },
     {
       "id": "sql",
@@ -2401,28 +2505,28 @@
           "tool": "sqllens-language-server",
           "role": "primary",
           "diagnostics": "sql-offline",
-          "disableFeatures": ["formatting"],
+          "disableFeatures": [],
           "entry": null,
           "argv": []
         }
       ],
-      "companions": [],
+      "companions": ["sql-formatter"],
       "formatter": {
-        "tool": "sql-formatter",
+        "tool": "sqllens-language-server",
         "source": "managed",
-        "mode": "cli",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "mode": "lsp",
+        "detail": "sql-formatter with the selected SQL dialect."
       },
       "policy": {
         "trust": "workspace-before-execution",
         "network": "offline-only",
-        "configuration": "Dialect via sql-<dialect> document ID; optional static JSON schema catalog and glob dialect mapping. SQLLENS_NO_PLUGINS=1 and private HOME/SQLLENS_USER_CONFIG. No connections, credentials or query commands."
+        "configuration": "Host dialect selection; plugins disabled; private static configuration; no database connections or query execution."
       },
       "limitations": [
-        "sqllens 0.5.0 recommended after real explicit-dialect/static-schema probes; exact minimatch BlueOak notice policy awaits G1 review.",
-        "Advertised LSP capabilities are negotiated; exercised completion, pull diagnostics, typed hover, initialize/shutdown. sql-formatter alone owns formatting."
+        "Generic SQL supports formatting only. Select PostgreSQL, MySQL or SQLite for completion and diagnostics.",
+        "No database connections or query execution."
       ],
-      "offered": false
+      "offered": true
     },
     {
       "id": "prisma",
@@ -2444,17 +2548,17 @@
         "tool": "prisma-language-server",
         "source": "managed",
         "mode": "lsp",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "detail": "Project formatter after Trust where supported; otherwise the language server's formatter."
       },
       "policy": {
         "trust": "workspace-before-execution",
         "network": "server-default",
-        "configuration": "Project configuration after trust; effective paths resolved by D1"
+        "configuration": "Managed server without Trust; Workspace code only after Trust."
       },
       "limitations": [
         "Prisma config evaluation/generator/project dependencies require trust and remain developer-owned."
       ],
-      "offered": false
+      "offered": true
     },
     {
       "id": "yaml",
@@ -2473,18 +2577,18 @@
       ],
       "companions": [],
       "formatter": {
-        "tool": "prettier",
+        "tool": "yaml-language-server",
         "source": "managed",
-        "mode": "cli",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "mode": "lsp",
+        "detail": "Project formatter after Trust where supported; otherwise the language server's formatter."
       },
       "policy": {
         "trust": "workspace-before-execution",
         "network": "no-account",
-        "configuration": "Explicit schema associations; no implicit remote schema downloads before consent"
+        "configuration": "Managed server without Trust; Workspace code only after Trust."
       },
       "limitations": [],
-      "offered": false
+      "offered": true
     },
     {
       "id": "actions",
@@ -2505,6 +2609,38 @@
           "tool": "actions-language-server",
           "role": "expressions",
           "diagnostics": "actions-expressions",
+          "disableFeatures": ["formatting"],
+          "entry": null,
+          "argv": []
+        }
+      ],
+      "companions": [],
+      "formatter": {
+        "tool": "yaml-language-server",
+        "source": "managed",
+        "mode": "lsp",
+        "detail": "Project formatter after Trust where supported; otherwise the language server's formatter."
+      },
+      "policy": {
+        "trust": "workspace-before-execution",
+        "network": "no-account",
+        "configuration": "Managed server without Trust; Workspace code only after Trust."
+      },
+      "limitations": [
+        "Upstream is not accepting community contributions; pinned server reviewed with offline expression fixture."
+      ],
+      "offered": true
+    },
+    {
+      "id": "svelte",
+      "languageIds": ["svelte"],
+      "patterns": ["*.svelte"],
+      "providers": [
+        {
+          "id": "svelte-language-server",
+          "tool": "svelte-language-server",
+          "role": "primary",
+          "diagnostics": "primary",
           "disableFeatures": [],
           "entry": null,
           "argv": []
@@ -2512,20 +2648,20 @@
       ],
       "companions": [],
       "formatter": {
-        "tool": "prettier",
+        "tool": "svelte-language-server",
         "source": "managed",
-        "mode": "cli",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "mode": "lsp",
+        "detail": "Project formatter after Trust where supported; otherwise the language server's formatter."
       },
       "policy": {
         "trust": "workspace-before-execution",
-        "network": "no-account",
-        "configuration": "No sessionToken, repos or GitHub account lookup; disable duplicate YAML schema validation and route Actions expressions separately"
+        "network": "server-default",
+        "configuration": "Managed server without Trust; Workspace code only after Trust."
       },
       "limitations": [
-        "Upstream is not accepting community contributions; pinned server reviewed with offline expression fixture."
+        "Before Trust: bundled compiler and upstream isTrusted=false; no project config, packages or preprocessors."
       ],
-      "offered": false
+      "offered": true
     }
   ]
 }

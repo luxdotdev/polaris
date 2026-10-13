@@ -1,3 +1,4 @@
+import { CopySection } from "./sections/copy";
 import { CoverageSection } from "./sections/coverage";
 import { ControlsSection, TypeSection, ColourSection } from "./sections/basics";
 import { FloatingSection, ComposerSection } from "./sections/floating";
@@ -36,6 +37,7 @@ function Column({ theme, density, textSize, palette, only }: ColumnProps) {
           <TypeSection />
           <ColourSection />
           <ControlsSection />
+          <CopySection />
           <IdentitySection />
           <SignalSection />
           <ListSection />

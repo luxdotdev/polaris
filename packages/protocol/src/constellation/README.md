@@ -25,6 +25,13 @@ Desktop App authorization is checked by the Daemon, not asserted in a payload.
   Workspace, Lead and settings; `operations` is an atomic Add/Edit/Cancel batch;
   `resources` declares Host-scoped resources. Edit carries a full replacement
   definition and its previous revision. Cancel carries the current Task revision.
+- A failed settle classified `capacity` also carries `resetsAt` (on `AttemptSettled`,
+  `Attempt` and the `Settled` digest item): the latest reset among the Harness's
+  reached Plan Limit windows, or null when unknown (a provider-side capacity error).
+  The worker is reported capacity-blocked; nothing redispatches it at the reset.
+- Worker placement never widens permissions: a reused Session broader than the
+  Lead's permission mode is refused (`E-PERMISSION-CEILING`), and a remote
+  placement carries `leadPermissionMode` so the worker Host applies the same ceiling.
 - `constellation.dispatch`: named `tasks` pair short Task IDs with placements;
   empty means every ready Task, using `defaultWorker` and graph defaults.
   `New` carries Host, optional Harness/Model/effort, base and optional existing
@@ -50,7 +57,11 @@ Desktop App authorization is checked by the Daemon, not asserted in a payload.
   latest active Attempt. Peer messages name the recipient Task's short ID.
 - `constellation.defaults.get/set`: Host copies of the user-level settings; omitted
   `plan.start.settings` snapshots these defaults for the new Constellation.
-- `constellation.status`: the shared read-only outline; `json` requests the
+- `constellation.worker.claim` refuses `E-CLAIM-REJECTED-HEAD` when the head was
+  sent back on an earlier Attempt of the same Task, unless a `decisions` entry
+  names that head (the worker's disposition for why it stands).
+- `constellation.status`: the shared read-only outline; `since` (a graph revision)
+  returns one line per graph event after it plus where things stand; `json` requests the
   folded Constellation and its Task projections in addition to the text.
 - `constellation.stats`: `{ constellationId }` returns `ConstellationStats`,
   derived on view from graph, Session, resource and existing Usage histories.
@@ -132,7 +143,14 @@ Their answers use `OperatorMessageSent.questionId` and a QuestionAnswered digest
 item; resolution is journaled with `OperatorMessageResolved`. Notification IDs
 are retained through restart/handover; `LeadNotified.items` lists the IDs consumed
 by the one recorded digest Turn. The delivery journal must be atomic with that
-Turn, not just an in-memory acknowledgement.
+Turn, not just an in-memory acknowledgement. `LeadNotified.steered` (additive,
+default false) marks a digest steered into the Lead's working Turn `turnId`
+instead of a new Turn; `LeadNotified.audit` (additive, nullable `StallAudit`)
+carries a stall audit (silent working Attempts, promoted Gates with no Attempt,
+a silent Lead) and may be the digest's only content, once per audit `key`.
+`AttemptSettled.failureKind` and `Attempt.failureKind` / `Attempt.settleReason`
+(additive, nullable) classify a failed settle as capacity, transport, harness or
+implementation; a `Settled` digest item repeats the kind. A lost settle has none.
 
 `ClaimApproved`, `ClaimHandedUp` and `AttemptNudged` preserve approval, hand-up
 and once-only nudge facts. They advance Attempt and graph revisions without

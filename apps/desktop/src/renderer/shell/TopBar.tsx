@@ -14,11 +14,14 @@ import {
   useUpgradeCaption,
 } from "../features/machines/updates/UpgradeStatus.tsx";
 import { slots } from "../app/slots.tsx";
+import { useQuietSessions } from "../features/needs-you/index.ts";
 import { plural } from "./copy.ts";
 import { HostBarLabel, HostStateCaption } from "./HostState.tsx";
 import { isSlowLink } from "./hostCopy.ts";
 import { SummaryGlyph } from "./glyphs.tsx";
 import { useApp, useCommands, useSelection, useShellActions } from "./hooks.ts";
+import { HostMenu, WorkspaceChipMenu } from "./TopBarMenus.tsx";
+import { commandShortcut } from "../../shared/keymap.ts";
 
 /** ⌃N, only on the first ten chips (Chip takes no undefined shortcut). */
 interface ChipShortcut {
@@ -28,8 +31,9 @@ interface ChipShortcut {
 const useBar = () => {
   const hosts = useApp((s) => s.hosts);
   const models = useApp((s) => s.hostModels);
+  const quiet = useQuietSessions();
 
-  return useMemo(() => barHosts({ hosts, models }), [hosts, models]);
+  return useMemo(() => barHosts({ hosts, models, quiet }), [hosts, models, quiet]);
 };
 
 const connected = (host: HostView) => host.status.state === "connected";
@@ -53,7 +57,7 @@ const AddWorkspaceChip = ({ hostKey }: { readonly hostKey: string | null }) => {
     >
       <span className="text-label text-text-subtle">+ Add workspace</span>
       <Kbd variant="plain" className="text-text-subtle">
-        ⌘O
+        {commandShortcut("workspace.add")}
       </Kbd>
     </button>
   );
@@ -76,24 +80,28 @@ const HostLabel = ({ group }: { readonly group: BarHost }) => {
   // Needs Attention is its own bordered chip (a button); the others are a label to select the Host.
   if (host.status.state === "needs-attention") {
     return (
-      <span className="flex shrink-0" data-host={host.key} data-connection={host.status.state}>
-        <HostBarLabel host={host} onOpen={() => open()} />
-      </span>
+      <HostMenu host={host}>
+        <span className="flex shrink-0" data-host={host.key} data-connection={host.status.state}>
+          <HostBarLabel host={host} onOpen={() => open()} />
+        </span>
+      </HostMenu>
     );
   }
 
   return (
     <UpgradeHover hostKey={host.key}>
-      <button
-        type="button"
-        aria-pressed={host.key === selection.hostKey && selection.workspaceId === null}
-        onClick={(event) => open(event.timeStamp)}
-        className="hover:bg-fill-hover rounded-control flex h-7 shrink-0 cursor-default items-center"
-        data-host={host.key}
-        data-connection={host.status.state}
-      >
-        <HostBarLabel host={host} onOpen={() => open()} />
-      </button>
+      <HostMenu host={host}>
+        <button
+          type="button"
+          aria-pressed={host.key === selection.hostKey && selection.workspaceId === null}
+          onClick={(event) => open(event.timeStamp)}
+          className="hover:bg-fill-hover rounded-control flex h-7 shrink-0 cursor-default items-center"
+          data-host={host.key}
+          data-connection={host.status.state}
+        >
+          <HostBarLabel host={host} onOpen={() => open()} />
+        </button>
+      </HostMenu>
     </UpgradeHover>
   );
 };
@@ -112,27 +120,33 @@ const WorkspaceBar = ({ bar }: { readonly bar: ReadonlyArray<BarHost> }) => {
         <Fragment key={group.host.key}>
           {groupIndex === 0 ? null : <span className="bg-text-faint/25 mx-1.5 h-4 w-px shrink-0" />}
           <HostLabel group={group} />
-          {group.workspaces.map(({ hostKey, workspace, summary }) => {
+          {group.workspaces.map((item) => {
+            const { hostKey, workspace, summary } = item;
             const shortcut = shortcutLabel(index++);
             const extra: ChipShortcut = {};
+
+            const selected =
+              hostKey === selection.hostKey && workspace.id === selection.workspaceId;
 
             if (shortcut !== undefined) extra.shortcut = shortcut;
 
             return (
               <slots.NeedsYouHover key={workspace.id} hostKey={hostKey} workspaceId={workspace.id}>
-                <Chip
-                  title={workspace.path}
-                  className={cn(dimmed(group.host) && "opacity-(--opacity-dimmed)")}
-                  selected={hostKey === selection.hostKey && workspace.id === selection.workspaceId}
-                  needsYou={summary.needsYou}
-                  {...extra}
-                  leading={<SummaryGlyph summary={summary} />}
-                  onClick={(event) =>
-                    selectWorkspace({ hostKey, workspaceId: workspace.id }, event.timeStamp)
-                  }
-                >
-                  {workspace.name}
-                </Chip>
+                <WorkspaceChipMenu item={item} current={selected}>
+                  <Chip
+                    title={workspace.path}
+                    className={cn(dimmed(group.host) && "opacity-(--opacity-dimmed)")}
+                    selected={selected}
+                    needsYou={summary.needsYou}
+                    {...extra}
+                    leading={<SummaryGlyph summary={summary} />}
+                    onClick={(event) =>
+                      selectWorkspace({ hostKey, workspaceId: workspace.id }, event.timeStamp)
+                    }
+                  >
+                    {workspace.name}
+                  </Chip>
+                </WorkspaceChipMenu>
               </slots.NeedsYouHover>
             );
           })}
@@ -172,38 +186,43 @@ const MachineBar = ({ bar }: { readonly bar: ReadonlyArray<BarHost> }) => {
 
         return (
           <UpgradeHover key={group.host.key} hostKey={group.host.key}>
-            <button
-              type="button"
-              aria-pressed={selected}
-              data-host={group.host.key}
-              data-connection={group.host.status.state}
-              onClick={(event) => {
-                acknowledgeUpgrade(group.host.key);
-                selectHost(group.host.key, event.timeStamp);
-              }}
-              className={cn(
-                "gap-gap px-row-x flex h-[34px] shrink-0 cursor-default items-center rounded-[8px] border border-transparent",
-                selected
-                  ? "border-hairline bg-surface-raised shadow-[0_1px_2px_#0000000a]"
-                  : "hover:bg-fill-hover"
-              )}
-            >
-              <SummaryGlyph summary={group.summary} />
-              <span className="flex min-w-0 flex-col gap-0.5">
-                <span
-                  className={cn("text-label", selected ? "text-text-strong" : "text-text-default")}
-                >
-                  {group.host.label}
+            <HostMenu host={group.host}>
+              <button
+                type="button"
+                aria-pressed={selected}
+                data-host={group.host.key}
+                data-connection={group.host.status.state}
+                onClick={(event) => {
+                  acknowledgeUpgrade(group.host.key);
+                  selectHost(group.host.key, event.timeStamp);
+                }}
+                className={cn(
+                  "gap-gap px-row-x flex h-[34px] shrink-0 cursor-default items-center rounded-[8px] border border-transparent",
+                  selected
+                    ? "border-hairline bg-surface-raised shadow-[0_1px_2px_#0000000a]"
+                    : "hover:bg-fill-hover"
+                )}
+              >
+                <SummaryGlyph summary={group.summary} />
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <span
+                    className={cn(
+                      "text-label",
+                      selected ? "text-text-strong" : "text-text-default"
+                    )}
+                  >
+                    {group.host.label}
+                  </span>
+                  <MachineCaption group={group} />
                 </span>
-                <MachineCaption group={group} />
-              </span>
-              {group.summary.needsYou > 0 ? (
-                <Badge tone="needs-you" size="count">
-                  {group.summary.needsYou}
-                </Badge>
-              ) : null}
-              {shortcut === undefined ? null : <Kbd variant="plain">{shortcut}</Kbd>}
-            </button>
+                {group.summary.needsYou > 0 ? (
+                  <Badge tone="needs-you" size="count">
+                    {group.summary.needsYou}
+                  </Badge>
+                ) : null}
+                {shortcut === undefined ? null : <Kbd variant="plain">{shortcut}</Kbd>}
+              </button>
+            </HostMenu>
           </UpgradeHover>
         );
       })}

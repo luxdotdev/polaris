@@ -10,7 +10,7 @@ import {
   type SessionId,
 } from "@polaris/protocol";
 import type { Harness } from "@polaris/ui";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Commands } from "../../../commands.ts";
 import { emptyHostModel } from "../../../store/hostModel.ts";
 import type { SessionData } from "../../../store/plain.ts";
@@ -22,14 +22,21 @@ import { useHost, useSession, hasCapability } from "../hooks.ts";
 import { waitingOn } from "../model/background.ts";
 import { conversationRows } from "../model/conversation.ts";
 import { tildePath } from "../model/format.ts";
-import { composerMode, continueCommand, openQuestion, retryCommand } from "../model/intent.ts";
+import {
+  composerMode,
+  continueCommand,
+  openQuestion,
+  resumeAtResetCommand,
+  retryCommand,
+} from "../model/intent.ts";
 import { useOutbox } from "../outbox.ts";
-import { showTurnDiff, toggleUnfolded, uiKey, useSessionUi } from "../state.ts";
-import { Conversation } from "./Conversation.tsx";
+import { useForkRequest } from "../forkRequest.ts";
+import { holdOpenFrom, setTurnOpen, showTurnDiff, uiKey, useSessionUi } from "../state.ts";
 import { ForkDialog, type ForkTarget } from "./ForkDialog.tsx";
 import type { RowContext } from "./rows.tsx";
 import { SessionComposer } from "./SessionComposer.tsx";
 import { SessionHeader } from "./SessionHeader.tsx";
+import { Transcript } from "./Transcript.tsx";
 import { useSessionChrome } from "../chrome.ts";
 import { EditorPlaceProvider } from "../../editor-links/index.ts";
 
@@ -71,6 +78,12 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
   const chrome = useSessionChrome();
   const models = useHarnessModels(hostKey, model.session?.harness ?? "", model.session !== null);
   const { session } = model;
+  const latestId = model.turns.at(-1)?.turn.id;
+
+  // The latest Turn when the session is first shown, so later Turns never fold it.
+  useEffect(() => {
+    if (latestId !== undefined) holdOpenFrom(key, latestId);
+  }, [key, latestId]);
 
   const mode =
     session === null
@@ -92,16 +105,37 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
     canSteer: mode?.kind === "steer",
   });
 
-  if (session === null) return <Placeholder>Loading the session…</Placeholder>;
-  const harness: Harness | null = isKnownHarness(session.harness) ? session.harness : null;
-  const lastTurn = model.turns.at(-1)?.turn ?? null;
   const lastDone = model.turns.findLast((t) => t.turn.status !== "working")?.turn;
+  const forkHarness = session !== null && isKnownHarness(session.harness) ? session.harness : null;
+
+  const canFork =
+    forkHarness !== null && lastDone !== undefined && hasCapability(host, "session.fork");
+
+  const startFork = (): boolean => {
+    if (session === null || forkHarness === null || lastDone === undefined) return false;
+    setForking({
+      sessionId,
+      turnId: lastDone.id,
+      turnNumber: lastDone.index + 1,
+      harness: forkHarness,
+      model: session.model,
+      effort: session.effort,
+    });
+
+    return true;
+  };
+
+  useForkRequest(key, () => canFork && startFork());
+
+  if (session === null) return <Placeholder>Loading the session…</Placeholder>;
+  const harness: Harness | null = forkHarness;
+  const lastTurn = model.turns.at(-1)?.turn ?? null;
 
   const listed = conversationRows({
     setup: session.worktreeSetup,
     turns: model.turns,
     approvals: model.pendingApprovals,
-    unfolded: ui.unfolded,
+    folds: ui.folds,
     outbox: ui.outbox,
     waiting: waitingOn(session),
   });
@@ -111,13 +145,13 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
       ? listed
       : [...listed, { kind: "trailer" as const, key: "trailer" }];
 
-  const ctx: RowContext = {
+  const ctx: Omit<RowContext, "onLoadOlder"> = {
     harness,
     state: session.state,
     liveTurnId: lastTurn?.status === "working" && session.state === "working" ? lastTurn.id : null,
     where,
     diff: { hostKey, cwd: session.cwd, sessionId },
-    onToggleTurn: (turnId) => toggleUnfolded(key, turnId),
+    onSetTurnOpen: (turnId, open) => setTurnOpen(key, turnId, open),
     onOpenDiff: (turnId) => showTurnDiff(key, turnId),
     onRespond: (request: ApprovalRequest, decision: ApprovalDecision) =>
       void send(
@@ -126,6 +160,19 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
         "Couldn't answer"
       ),
     onContinue: () => void send(hostKey, continueCommand(sessionId), "Couldn't continue"),
+    limit:
+      session.state === "limited"
+        ? {
+            resetsAt: session.limitResetsAt ?? null,
+            resumeAtReset: session.resumeAtReset,
+            onSetResumeAtReset: (on) =>
+              void send(
+                hostKey,
+                resumeAtResetCommand(sessionId, on),
+                on ? "Couldn't turn on Resume at reset" : "Couldn't turn off Resume at reset"
+              ),
+          }
+        : null,
     onRetry: () => void send(hostKey, retryCommand(sessionId), "Couldn't retry"),
     modelLabel: (model, effort) => modelLabel(models.models, model, effort),
     canSteer: mode?.kind === "steer",
@@ -148,23 +195,21 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
             session={session}
             harness={harness}
             turnNumber={lastTurn === null ? null : lastTurn.index + 1}
-            canFork={
-              harness !== null && lastDone !== undefined && hasCapability(host, "session.fork")
-            }
-            onFork={() => {
-              if (harness === null || lastDone === undefined) return;
-              setForking({
-                sessionId,
-                turnId: lastDone.id,
-                turnNumber: lastDone.index + 1,
-                harness,
-                model: session.model,
-                effort: session.effort,
-              });
-            }}
+            canFork={canFork}
+            onFork={() => void startFork()}
           />
         )}
-        {chrome.body ?? <Conversation scrollKey={key} rows={rows} ctx={ctx} />}
+        {chrome.body ?? (
+          <Transcript
+            uiKey={key}
+            hostKey={hostKey}
+            sessionId={sessionId}
+            canPage={hasCapability(host, "session.turn-paging")}
+            turns={model.turns}
+            rows={rows}
+            ctx={ctx}
+          />
+        )}
         <InTerminalBar
           session={{
             hostKey,

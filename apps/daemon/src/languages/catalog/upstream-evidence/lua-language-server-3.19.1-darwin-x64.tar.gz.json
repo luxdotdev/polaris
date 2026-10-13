@@ -1,0 +1,17 @@
+{
+  "artifactId": "lua-language-server-3.19.1-darwin-x64.tar.gz",
+  "artifactIntegrity": "sha256:eb373c159cbe556711d7cd316315de2dce969bfd54b31edb7eb9cab2937f2cca",
+  "coverage": "complete",
+  "notices": [
+    {
+      "path": "notices/a0a65ffcdc8620548598ce8ac5ce1a7ec36edf3034a5df2d6593e49fcececa64.txt",
+      "integrity": "sha256:a0a65ffcdc8620548598ce8ac5ce1a7ec36edf3034a5df2d6593e49fcececa64"
+    }
+  ],
+  "evidence": [
+    {
+      "path": "runtime-rust-lua-review-records.json",
+      "integrity": "sha256:636b2e51af3bb55fd26d231c47b443daa1d62ca012567fb40f54cb4fe9829c21"
+    }
+  ]
+}

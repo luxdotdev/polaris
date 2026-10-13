@@ -1,9 +1,24 @@
 /** The Editor preferences group (Paper L4): language preferences, then the Editor's own keys and saving. */
+import { clientCopy } from "../../../../shared/clientCopy.ts";
 import * as P from "@polaris/protocol";
 import { Switch } from "@polaris/ui";
+import { currentKeyPlatform, shortcutLabel } from "../../../../shared/chord.ts";
+import { commandShortcut, digitChord } from "../../../../shared/keymap.ts";
 import type { ReactNode } from "react";
 import { Group } from "../ui/parts.tsx";
 import { withKey, type SettingsRecord } from "./records.ts";
+
+const vimCaption = () => {
+  const kept = (
+    ["editor.save", "editor.findFile", "editor.inlineChat", "editor.addToSession"] as const
+  )
+    .map((id) => commandShortcut(id))
+    .join(", ");
+
+  const chip = shortcutLabel(digitChord(0, currentKeyPlatform()) ?? "Ctrl+1");
+
+  return `Normal, insert and visual modes, :w, :q, :wq and :e. ${kept} and ${chip}…9 keep working in every mode.`;
+};
 
 type Change = (settings: P.LanguageSettingsPatch) => P.LanguageSettingsPatch;
 
@@ -35,6 +50,10 @@ export interface EditorKeys {
   readonly autosave: boolean;
   readonly onVim: (on: boolean) => void;
   readonly onAutosave: (on: boolean) => void;
+  readonly inlineDiagnostics: boolean;
+  readonly onInlineDiagnostics: (on: boolean) => void;
+  /** The commit messages' Harness and Model chips; absent in tests. */
+  readonly commitMessages?: ReactNode;
 }
 
 export const Preferences = ({
@@ -65,6 +84,17 @@ export const Preferences = ({
           onCheckedChange={(on) => onChange(withKey("formatOnSave", on))}
         />
       </PreferenceRow>
+      {keys.commitMessages === undefined ? null : (
+        <PreferenceRow
+          id="editor-commit-messages"
+          title="Commit messages"
+          caption="Drafts from the staged changes in one click. A small model keeps it quick."
+        >
+          <div id="editor-commit-messages" className="shrink-0">
+            {keys.commitMessages}
+          </div>
+        </PreferenceRow>
+      )}
       <PreferenceRow
         id="editor-download-tools"
         title="Download language tools automatically"
@@ -77,19 +107,26 @@ export const Preferences = ({
           onCheckedChange={(on) => onChange(withKey("downloadLanguageToolsAutomatically", on))}
         />
       </PreferenceRow>
-      <PreferenceRow
-        id="editor-vim"
-        title="Vim mode"
-        caption="Normal, insert and visual modes, :w, :q, :wq and :e. ⌘S, ⌘P, ⌘I, ⌘L and ⌃1…9 keep working in every mode."
-      >
+      <PreferenceRow id="editor-vim" title="Vim mode" caption={vimCaption()}>
         <Switch id="editor-vim" checked={keys.vim} onCheckedChange={keys.onVim} />
       </PreferenceRow>
       <PreferenceRow
         id="editor-autosave"
         title="Autosave after a short pause"
-        caption="Saves a second after you stop typing. Unsaved edits are kept on this Mac either way, and a save never overwrites a newer version on disk."
+        caption={`Saves a second after you stop typing. Unsaved edits are kept on ${clientCopy().machine} either way, and a save never overwrites a newer version on disk.`}
       >
         <Switch id="editor-autosave" checked={keys.autosave} onCheckedChange={keys.onAutosave} />
+      </PreferenceRow>
+      <PreferenceRow
+        id="editor-inline-diagnostics"
+        title="Inline diagnostics"
+        caption="Each line's most severe error, warning or info at its end. Squiggles and the hover stay either way."
+      >
+        <Switch
+          id="editor-inline-diagnostics"
+          checked={keys.inlineDiagnostics}
+          onCheckedChange={keys.onInlineDiagnostics}
+        />
       </PreferenceRow>
       {failed && (
         <p role="status" className="px-panel text-caption text-text-subtle py-2">

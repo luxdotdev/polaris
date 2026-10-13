@@ -50,6 +50,8 @@ export interface EngineSettings {
   readonly checkpointPolicy?: CheckpointPolicy;
   /** How often the checkpoint sweeper runs (6 hours when unset); null turns it off. */
   readonly checkpointSweepInterval?: Duration.Input | null;
+  /** How long after a usage limit's reset Resume at reset continues (30 seconds when unset). */
+  readonly resumeAtResetGrace?: Duration.Input;
 }
 
 export const EngineConfig = Context.Reference<EngineSettings>(

@@ -5,18 +5,20 @@
 import {
   ContextMenu,
   ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuShortcut,
+  ContextMenuEntries,
   ContextMenuTrigger,
+  MENU_SEPARATOR_ENTRY,
+  type MenuEntryInput,
 } from "@polaris/ui";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { type KeyboardEvent, useRef, useState } from "react";
+import { acceleratorLabel } from "../../../../../shared/chord.ts";
 import { useApp } from "../../../../shell/hooks.ts";
+import { copyEntry, revealInFinderEntry } from "../../../../shell/menu/index.ts";
 import { cancelDraft, commitDraft, deleteEntry, type Place, startDraft } from "../data/actions.ts";
 import { type Draft, patchExplorer, toggleFolder } from "../data/store.ts";
 import type { TabsView } from "../../index.ts";
-import { treeKey } from "../model/keys.ts";
+import { TREE_CHORDS, treeKey } from "../model/keys.ts";
 import { basename, dirname, relative } from "../model/paths.ts";
 import type { TreeRow as Row } from "../model/tree.ts";
 import { ConfirmDelete } from "./ConfirmDelete.tsx";
@@ -75,8 +77,6 @@ export interface TreeProps {
 /** The folder a new entry goes in from a row: the folder itself, or a file's folder. */
 const folderFor = (row: Row | undefined, root: string) =>
   row === undefined ? root : row.kind === "folder" ? row.path : dirname(row.path);
-
-const copy = (text: string) => void navigator.clipboard?.writeText(text);
 
 export const Tree = ({
   place,
@@ -143,6 +143,65 @@ export const Tree = ({
       startDraft(place.key, { kind: "rename", path: action.row.path });
     else if (canManage && action.kind === "delete") void remove(action.row.path, false);
   };
+
+  const editable = canManage && target !== undefined && !target.deleted;
+
+  const create = (entry: "file" | "directory") => () =>
+    startDraft(place.key, { kind: "create", dir: folderFor(target, place.root), entry });
+
+  // Rows that can't act here are left out (DESIGN.md, Menus: hidden, not dimmed).
+  const entries: ReadonlyArray<MenuEntryInput> =
+    target === undefined
+      ? [
+          canManage && {
+            kind: "item",
+            label: "New file…",
+            needsInput: true,
+            onSelect: create("file"),
+          },
+          canManage && {
+            kind: "item",
+            label: "New folder…",
+            needsInput: true,
+            onSelect: create("directory"),
+          },
+          MENU_SEPARATOR_ENTRY,
+          copyEntry("Copy path", place.root),
+          revealInFinderEntry(place.hostKey, place.root),
+        ]
+      : [
+          canManage && {
+            kind: "item",
+            label: "New file…",
+            needsInput: true,
+            onSelect: create("file"),
+          },
+          canManage && {
+            kind: "item",
+            label: "New folder…",
+            needsInput: true,
+            onSelect: create("directory"),
+          },
+          MENU_SEPARATOR_ENTRY,
+          copyEntry("Copy path", target.path),
+          copyEntry("Copy relative path", relative(target.path, place.root)),
+          revealInFinderEntry(place.hostKey, target.path),
+          MENU_SEPARATOR_ENTRY,
+          editable && {
+            kind: "item",
+            label: "Rename…",
+            needsInput: true,
+            shortcut: acceleratorLabel(TREE_CHORDS.rename),
+            onSelect: () => startDraft(place.key, { kind: "rename", path: target.path }),
+          },
+          editable && {
+            kind: "item",
+            label: "Delete",
+            destructive: true,
+            shortcut: acceleratorLabel(TREE_CHORDS.delete),
+            onSelect: () => void remove(target.path, false),
+          },
+        ];
 
   return (
     <>
@@ -211,55 +270,8 @@ export const Tree = ({
             </div>
           </div>
         </ContextMenuTrigger>
-        <ContextMenuContent>
-          <ContextMenuItem
-            disabled={!canManage}
-            onSelect={() =>
-              startDraft(place.key, {
-                kind: "create",
-                dir: folderFor(target, place.root),
-                entry: "file",
-              })
-            }
-          >
-            New file
-          </ContextMenuItem>
-          <ContextMenuItem
-            disabled={!canManage}
-            onSelect={() =>
-              startDraft(place.key, {
-                kind: "create",
-                dir: folderFor(target, place.root),
-                entry: "directory",
-              })
-            }
-          >
-            New folder
-          </ContextMenuItem>
-          {target === undefined ? null : (
-            <>
-              <ContextMenuSeparator />
-              <ContextMenuItem
-                disabled={!canManage || target.deleted}
-                onSelect={() => startDraft(place.key, { kind: "rename", path: target.path })}
-              >
-                Rename
-                <ContextMenuShortcut>F2</ContextMenuShortcut>
-              </ContextMenuItem>
-              <ContextMenuItem
-                disabled={!canManage || target.deleted}
-                onSelect={() => void remove(target.path, false)}
-              >
-                Delete
-                <ContextMenuShortcut>⌘⌫</ContextMenuShortcut>
-              </ContextMenuItem>
-              <ContextMenuSeparator />
-              <ContextMenuItem onSelect={() => copy(target.path)}>Copy path</ContextMenuItem>
-              <ContextMenuItem onSelect={() => copy(relative(target.path, place.root))}>
-                Copy relative path
-              </ContextMenuItem>
-            </>
-          )}
+        <ContextMenuContent data-testid="explorer-menu">
+          <ContextMenuEntries entries={entries} />
         </ContextMenuContent>
       </ContextMenu>
       <ConfirmDelete

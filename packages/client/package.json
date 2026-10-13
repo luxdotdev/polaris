@@ -8,7 +8,11 @@
     ".": "./src/index.ts",
     "./install": "./src/install/index.ts",
     "./testing": "./src/connection.testing.ts",
-    "./usage": "./src/usage/index.ts"
+    "./prediction": "./src/prediction/index.ts",
+    "./prediction/probe": "./src/prediction/probe.ts",
+    "./usage": "./src/usage/index.ts",
+    "./wsl": "./src/wsl/index.ts",
+    "./wsl/testing": "./src/wsl/fakeWsl.testing.ts"
   },
   "scripts": {
     "typecheck": "tsc -p .",

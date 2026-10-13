@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parseLine, parseSshConfig, readSshAliases } from "./sshConfig.ts";
+import { expandGlob, parseLine, parseSshConfig, readSshAliases } from "./sshConfig.ts";
 
 const files = (map: Record<string, string>) => ({
   home: "/h",
@@ -80,6 +80,25 @@ describe("parseSshConfig", () => {
 });
 
 describe("readSshAliases", () => {
+  test("Windows discovers backslash globs and environment Includes in real files", () => {
+    const home = mkdtempSync(join(tmpdir(), "polaris-win-ssh-"));
+
+    try {
+      mkdirSync(join(home, ".ssh", "config.d"), { recursive: true });
+      writeFileSync(
+        join(home, ".ssh", "config"),
+        'Include "config.d\\*.conf"\nInclude "%USERPROFILE%\\extra"\n'
+      );
+      writeFileSync(join(home, ".ssh", "config.d", "b.conf"), "Host pi\n");
+      writeFileSync(join(home, ".ssh", "config.d", "a.conf"), "Host vm\n");
+      writeFileSync(join(home, "extra"), "Host extra\n");
+      expect(
+        readSshAliases(home, { platform: "win32", env: { USERPROFILE: home } }).map((a) => a.alias)
+      ).toEqual(["vm", "pi", "extra"]);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
   test("reads the real files, expanding Include globs", () => {
     const home = mkdtempSync(join(tmpdir(), "polaris-ssh-"));
 
@@ -94,4 +113,47 @@ describe("readSshAliases", () => {
       rmSync(home, { recursive: true, force: true });
     }
   });
+});
+
+test("Windows Include paths preserve drive roots, UNC roots, home and spaces", () => {
+  const patterns: Array<string> = [];
+  parseSshConfig(
+    'Include "config.d\\*.conf" "~\\extra" "%USERPROFILE%\\with space\\*.conf" "D:\\ssh\\?.conf" "\\\\server\\share\\*.conf" "${USERPROFILE}\\other" "%UNSET%\\missing"',
+    {
+      home: "C:\\Users\\Lucas",
+      platform: "win32",
+      env: { UserProfile: "C:\\Users\\Lucas" },
+      read: () => null,
+      expand: (pattern) => {
+        patterns.push(pattern);
+
+        return [];
+      },
+    }
+  );
+  expect(patterns).toEqual([
+    "C:/Users/Lucas/.ssh/config.d/*.conf",
+    "C:/Users/Lucas/extra",
+    "C:/Users/Lucas/with space/*.conf",
+    "D:/ssh/?.conf",
+    "//server/share/*.conf",
+    "C:/Users/Lucas/other",
+  ]);
+});
+
+test("Windows glob expansion traverses drive and UNC roots in sorted order", () => {
+  for (const root of ["C:/Users/Lucas", "//server/share"]) {
+    const paths = expandGlob(`${root.replaceAll("/", "\\")}\\*\\?.conf`, "win32", {
+      list: (dir) =>
+        dir.replace(/\/$/, "") === root ? ["b", ".hidden", "a"] : ["b.conf", "a.conf", "long.conf"],
+      isFile: (path) => path.endsWith(".conf"),
+    });
+
+    expect(paths).toEqual([
+      `${root}/a/a.conf`,
+      `${root}/a/b.conf`,
+      `${root}/b/a.conf`,
+      `${root}/b/b.conf`,
+    ]);
+  }
 });

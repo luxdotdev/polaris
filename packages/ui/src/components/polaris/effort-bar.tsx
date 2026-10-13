@@ -1,4 +1,4 @@
-import type { HTMLAttributes } from "react";
+import type { HTMLAttributes, PointerEvent } from "react";
 
 import { cn } from "../../lib/cn";
 import type { TintHue } from "../../lib/hue";
@@ -49,26 +49,51 @@ const GAP = 2;
 export const segmentWidth = (count: number) =>
   Math.floor((WIDTH - GAP * (count - 1)) / Math.max(1, count) / 2) * 2;
 
+/** The level under `x`, measured from the bar's left edge; past either end holds at it. */
+export const effortAt = (x: number, count: number): number =>
+  Math.min(count - 1, Math.max(0, Math.floor(x / (segmentWidth(count) + GAP))));
+
 export interface EffortBarProps extends Omit<HTMLAttributes<HTMLDivElement>, "onChange"> {
   readonly levels: readonly string[];
   readonly value: number;
   readonly hue: TintHue;
-  /** A segment was clicked. */
+  /** A segment was pressed, or the pointer dragged onto one. */
   readonly onChange?: (index: number) => void;
 }
 
 /**
  * DESIGN.md, Harness picker: effort as a row of dither segments in the Harness hue, lit up to
  * the level. Each lit segment is denser than the one before, and the field steps faster as the
- * level rises (still at the lowest). Reduce Motion stills it like any dither.
+ * level rises (still at the lowest). Reduce Motion stills it like any dither. Press a segment,
+ * or drag across the bar, to pick a level.
  */
 export function EffortBar({ levels, value, hue, onChange, className, ...props }: EffortBarProps) {
   const count = levels.length;
   const width = segmentWidth(count);
   const pace = effortStep(value, count);
 
+  const pick = (event: PointerEvent<HTMLDivElement>) => {
+    const level = effortAt(event.clientX - event.currentTarget.getBoundingClientRect().left, count);
+
+    if (level !== value) onChange?.(level);
+  };
+
   return (
-    <div data-slot="effort-bar" className={cn("flex items-center gap-0.5", className)} {...props}>
+    <div
+      data-slot="effort-bar"
+      className={cn("flex touch-none items-center gap-0.5", className)}
+      onPointerDown={(event) => {
+        if (event.button !== 0) return;
+        event.preventDefault();
+        // Captured, so a drag keeps picking past the bar's ends and the release lands here.
+        event.currentTarget.setPointerCapture(event.pointerId);
+        pick(event);
+      }}
+      onPointerMove={(event) => {
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) pick(event);
+      }}
+      {...props}
+    >
       {levels.map((level, i) => (
         <span
           key={level}
@@ -76,10 +101,6 @@ export function EffortBar({ levels, value, hue, onChange, className, ...props }:
           data-testid={`effort-${level}`}
           className="bg-hairline flex shrink-0"
           style={{ width, height: HEIGHT }}
-          onPointerDown={(event) => {
-            event.preventDefault();
-            onChange?.(i);
-          }}
         >
           {i > value ? null : (
             <Dither

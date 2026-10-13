@@ -37,6 +37,7 @@ const list = (requested: ReadonlyArray<PullRowView>, loaded = true): PullListVie
   polling: "focused",
   throttledUntil: null,
   error: null,
+  errorKind: null,
 });
 
 const LAUNCH = Date.parse("2026-10-01T09:00:00Z");

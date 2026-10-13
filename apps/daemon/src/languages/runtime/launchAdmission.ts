@@ -20,6 +20,8 @@ export interface LaunchSelectionLease {
 
 export const blockedLaunchReasons = new Set([
   "queue-full",
+  "process-limit",
+  "process-retiring",
   "missing-prerequisite",
   "not-installed",
   "audit-required",

@@ -1,6 +1,6 @@
 /**
  * One Host in Settings · Hosts (Paper S4, 7CV-1): name and "ssh alias · N
- * workspaces", Daemon version, Connection State, and a trailing lane. Lanes
+ * workspaces" ("wsl distro" for a WSL Host, Paper W2), Daemon version, Connection State, and a trailing lane. Lanes
  * are fixed widths so they align across rows.
  */
 import {
@@ -16,6 +16,7 @@ import type { ReactNode } from "react";
 import type { MachineView } from "../../../shared/api.ts";
 import { type ConnectionLine, connectionLine, workspacesText } from "./model.ts";
 import { platformLabel } from "./updates/model.ts";
+import { hostWhere } from "./wsl.ts";
 
 export const LANES = {
   daemon: "w-[84px] shrink-0",
@@ -78,7 +79,7 @@ const Trailing = ({
       >
         <ChevronDownIcon
           size={14}
-          className={cn("transition-transform duration-120", expanded && "rotate-180")}
+          className={cn("transition-transform duration-120 ease-out", expanded && "rotate-180")}
         />
       </button>
     ) : (
@@ -146,6 +147,7 @@ export const HostRow = ({
   const attention = line.state === "needs-attention";
   const quiet = line.state === "offline" || line.state === "off";
   const platform = machine.status?.host?.platform ?? null;
+  const version = daemonVersion ?? machine.status?.host?.daemonVersion ?? "—";
 
   return (
     <li
@@ -180,18 +182,22 @@ export const HostRow = ({
           </span>
           <span className="text-caption text-text-subtle truncate">
             {machine.alias === null ? (
-              "This Mac"
+              hostWhere(machine)
             ) : (
               <>
-                ssh <span className="text-code-inline font-mono">{machine.alias}</span>
+                {machine.kind === "wsl" ? "wsl" : "ssh"}{" "}
+                <span className="text-code-inline font-mono">{machine.alias}</span>
               </>
             )}
             {platform === null ? null : ` · ${platformLabel(platform)}`}
             {workspaces === null ? null : ` · ${workspacesText(workspaces)}`}
           </span>
         </button>
-        <span className={cn(LANES.daemon, "text-caption text-text-subtle tabular")}>
-          {daemonVersion ?? machine.status?.host?.daemonVersion ?? "—"}
+        <span
+          className={cn(LANES.daemon, "text-caption text-text-subtle tabular truncate pr-2")}
+          title={version}
+        >
+          {version}
         </span>
         <span
           className={cn(LANES.connection, "flex items-center gap-gap")}

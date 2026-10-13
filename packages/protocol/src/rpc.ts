@@ -1,7 +1,5 @@
 /**
- * The Daemon's RPC surface: snapshots followed by resumable sequenced events.
- * Design follows pingdotgg/t3code@de251fc (MIT): `subscribeShell` /
- * `subscribeThread` with `afterSequence`.
+ * Portions adapted from pingdotgg/t3code@de251fc (MIT): resumable sequenced subscriptions.
  */
 import { Schema } from "effect";
 
@@ -30,7 +28,9 @@ import {
 import { AttachmentSettings, AttachmentUsage, StagedAmount } from "./attachments.ts";
 import { HostHarnesses } from "./availability.ts";
 import { CapabilityList } from "./capabilities.ts";
+import { PredictionRpcs } from "./prediction.ts";
 import { InlinePropose } from "./inline.ts";
+import { CommitMessageRpcs } from "./commitMessage.ts";
 import { Command } from "./commands.ts";
 import {
   AgentSession,
@@ -39,7 +39,6 @@ import {
   HostInfo,
   Subagent,
   Timestamp,
-  Turn,
   TurnItem,
   Workspace,
   Worktree,
@@ -60,7 +59,7 @@ import {
   TurnId,
   WorkspaceId,
 } from "./ids.ts";
-import { addedArray, addedNullable, Model, optionalArray } from "./models.ts";
+import { addedArray, addedNullable, Model, optionalArray, optionalNullable } from "./models.ts";
 import {
   ReviewCheckout,
   ReviewCheckoutStatus,
@@ -74,13 +73,25 @@ import {
 } from "./review.ts";
 import { HarnessCommands } from "./slashCommands.ts";
 import { UsageReport, UsageStreamItem } from "./usage.ts";
+import { NotFound } from "./errors.ts";
+import { SessionTurnRpcs, TurnDetail } from "./turns.ts";
+import { GitError, GitWriteRpcs } from "./git.ts";
+
+export { NotFound } from "./errors.ts";
+
+export {
+  GitCommit,
+  GitCommitItem,
+  GitDiscard,
+  GitError,
+  GitStage,
+  GitUnstage,
+  GitWriteRpcs,
+} from "./git.ts";
+
+export { ReadTurns, SessionTurnRpcs, SubagentDetail, TurnDetail, TurnPage } from "./turns.ts";
 
 // ── Errors ──────────────────────────────────────────────────────────────────
-
-export class NotFound extends Schema.TaggedError<NotFound>()("NotFound", {
-  what: Schema.String,
-  id: Schema.String,
-}) {}
 
 export class CommandRejected extends Schema.TaggedError<CommandRejected>()("CommandRejected", {
   commandId: CommandId,
@@ -89,11 +100,6 @@ export class CommandRejected extends Schema.TaggedError<CommandRejected>()("Comm
 
 export class Unsupported extends Schema.TaggedError<Unsupported>()("Unsupported", {
   capability: Schema.String,
-}) {}
-
-export class GitError extends Schema.TaggedError<GitError>()("GitError", {
-  cwd: Schema.String,
-  message: Schema.String,
 }) {}
 
 /** The Harness can't answer on this Host: not installed, not signed in, or it failed. */
@@ -179,20 +185,6 @@ export const SubscribeHost = Rpc.make("subscribeHost", {
   success: HostStreamItem,
   stream: true,
 });
-
-/** A Subagent and its own items, viewable on its own. */
-export class SubagentDetail extends Schema.Class<SubagentDetail>("SubagentDetail")({
-  subagent: Subagent,
-  items: Schema.Array(TurnItem),
-}) {}
-
-export class TurnDetail extends Schema.Class<TurnDetail>("TurnDetail")({
-  turn: Turn,
-  /** The Turn's own items; its Subagents' items are under `subagents`. */
-  items: Schema.Array(TurnItem),
-  /** The Subagents the Turn spawned, empty for Clients without `session.subagents`. */
-  subagents: addedArray(SubagentDetail),
-}) {}
 
 export const SessionStreamItem = Schema.TaggedUnion({
   Snapshot: {
@@ -451,7 +443,11 @@ export class GitStatusEntry extends Schema.Class<GitStatusEntry>("GitStatusEntry
 }) {}
 
 export const GitStatus = Rpc.make("git.status", {
-  payload: { cwd: Schema.String },
+  payload: {
+    cwd: Schema.String,
+    /** Also list ignored paths (`!`), a folder as one entry. Older Daemons drop the field. */
+    ignored: Schema.optional(Schema.Boolean),
+  },
   success: Schema.Struct({
     branch: Schema.NullOr(Schema.String),
     head: Schema.NullOr(Schema.String),
@@ -500,6 +496,7 @@ export class DiffFile extends Schema.Class<DiffFile>("DiffFile")({
   additions: Schema.Int,
   deletions: Schema.Int,
   binary: Schema.Boolean,
+  generated: optionalNullable(Schema.Boolean), // Generated or lockfile; null: older Daemon.
 }) {}
 
 /** A unified diff; delivered as a blob because diffs can be very large. */
@@ -834,4 +831,7 @@ export class DaemonRpcs extends RpcGroup.make(
   .merge(ConstellationHostRpcs)
   .merge(ResourceRpcs)
   .merge(EditorFileRpcs)
-  .merge(LanguageRpcs) {}
+  .merge(LanguageRpcs)
+  .merge(PredictionRpcs)
+  .merge(SessionTurnRpcs)
+  .merge(GitWriteRpcs, CommitMessageRpcs) {}

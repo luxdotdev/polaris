@@ -1,8 +1,28 @@
 import { StateEffect, StateField, type Extension } from "@codemirror/state";
 import { EditorView, keymap, showTooltip, ViewPlugin, type Tooltip } from "@codemirror/view";
+import { SETTLE_MS } from "./completionResolve.ts";
+import { signatureDocs } from "./docParts.ts";
+import { loadDocRenderer, mountDocs } from "./docs.tsx";
 import type { LanguageFeatures } from "./features.ts";
+import type { LanguageProvider } from "./types.ts";
+
+const ACK_POLL_MS = 50;
+
+const ACK_ATTEMPTS = SETTLE_MS / ACK_POLL_MS;
 
 const signature = StateEffect.define<Tooltip | null>();
+
+/** Each mounted view's signature request, so the palette and the editor menu open the same popup. */
+const requests = new WeakMap<EditorView, () => void>();
+
+/** Signature help at the caret, as ⌃⇧Space opens it; false when the file has no language tooling. */
+export const showSignatureHelp = (view: EditorView): boolean => {
+  const request = requests.get(view);
+
+  request?.();
+
+  return request !== undefined;
+};
 
 const field = StateField.define<Tooltip | null>({
   create: () => null,
@@ -16,14 +36,17 @@ const field = StateField.define<Tooltip | null>({
   provide: (value) => showTooltip.from(value),
 });
 
-/** Safe text-only signature help, anchored at the actual unsaved caret and dismissed on change. */
-export const signatureExtension = (features: LanguageFeatures): Extension => {
+/** Signature help on the shared docs renderer, anchored at the unsaved caret and dismissed on change. */
+export const signatureExtension = (
+  features: LanguageFeatures,
+  label: (provider: LanguageProvider) => string = (provider) => provider.context.providerId
+): Extension => {
   const alive = new WeakSet<EditorView>();
 
   const request = async (view: EditorView) => {
     const buffer = features.options.buffer();
     const head = view.state.selection.main.head;
-    const answers = await features.signature(head);
+    const [answers] = await Promise.all([features.signature(head), loadDocRenderer()]);
 
     if (
       !alive.has(view) ||
@@ -33,28 +56,28 @@ export const signatureExtension = (features: LanguageFeatures): Extension => {
     )
       return;
 
-    const text = answers
-      .flatMap(({ provider, payload }) => {
-        const selected = payload.signatures[payload.activeSignature ?? 0];
+    const shown = answers.flatMap(({ provider, payload }) => {
+      const parts = signatureDocs(payload);
 
-        return selected ? [`${provider.context.providerId} · ${selected.label}`] : [];
-      })
-      .join("\n");
+      return parts.length ? [{ parts, label: label(provider) }] : [];
+    });
+
+    const footnote = [...new Set(shown.map((answer) => answer.label))].join(", ");
 
     view.dispatch({
       effects: signature.of(
-        text
+        shown.length
           ? {
               pos: head,
               above: false,
               create: () => {
                 const dom = document.createElement("div");
-                dom.className =
-                  "text-caption text-text-default bg-surface-raised border-hairline max-w-lg whitespace-pre-wrap rounded-control border px-row-x py-gap shadow-float";
                 dom.setAttribute("role", "status");
-                dom.textContent = text;
+                dom.setAttribute("data-signature-help", "");
 
-                return { dom };
+                const sections = shown.map((answer) => answer.parts);
+
+                return { dom, ...mountDocs(dom, { sections, footnote, variant: "hover" }) };
               },
             }
           : null
@@ -62,16 +85,29 @@ export const signatureExtension = (features: LanguageFeatures): Extension => {
     });
   };
 
+  /** A typed `(` or `,` waits for a server to acknowledge the edit; until then no server is asked. */
+  const typed = async (view: EditorView) => {
+    const doc = view.state.doc;
+
+    for (let attempt = 0; attempt < ACK_ATTEMPTS; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, ACK_POLL_MS));
+
+      if (!alive.has(view) || view.state.doc !== doc) return;
+      const buffer = features.options.buffer();
+
+      if (
+        features.options.providers().some((provider) => features.requests.current(provider, buffer))
+      )
+        return request(view);
+    }
+  };
+
   return [
     field,
     keymap.of([
       {
         key: "Ctrl-Shift-Space",
-        run: (view) => {
-          void request(view);
-
-          return true;
-        },
+        run: showSignatureHelp,
       },
       {
         key: "Escape",
@@ -85,10 +121,12 @@ export const signatureExtension = (features: LanguageFeatures): Extension => {
     ]),
     ViewPlugin.define((view) => {
       alive.add(view);
+      requests.set(view, () => void request(view));
 
       return {
         destroy: () => {
           alive.delete(view);
+          requests.delete(view);
         },
         update: (update) => {
           if (
@@ -102,7 +140,7 @@ export const signatureExtension = (features: LanguageFeatures): Extension => {
             update.state.selection.main.head
           );
 
-          if (char === "(" || char === ",") void request(update.view);
+          if (char === "(" || char === ",") void typed(update.view);
         },
       };
     }),

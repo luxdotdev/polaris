@@ -4,8 +4,9 @@ import { failureDetail, failureReason } from "./failureCopy.ts";
  * L3). The pill is the one place these states live: no toasts, and the popover ends in Restart
  * or Show log.
  */
-import type * as P from "@polaris/protocol";
-import { cn, Popover, PopoverContent, PopoverTrigger } from "@polaris/ui";
+import * as P from "@polaris/protocol";
+import { cn, CopyButton, Popover, PopoverContent, PopoverTrigger } from "@polaris/ui";
+import { Match } from "effect";
 
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { hostInSentence } from "../../../shell/hostCopy.ts";
@@ -13,9 +14,10 @@ import { useApp, useShellActions } from "../../../shell/hooks.ts";
 import { polaris } from "../../bridge.ts";
 import { fileKey } from "../model/drafts.ts";
 import { LANGUAGES, type LanguageId } from "../model/language.ts";
-import { editorLanguages } from "../runtime/app.ts";
+import { getEditorLanguages } from "../runtime/app.ts";
 import { useTrustStatus } from "../trust/store.ts";
 import { refreshInterpreters } from "../python/store.ts";
+import { refreshDialect } from "../sql/store.ts";
 import { runAction } from "./actions.ts";
 import { useHostToolsWatch, useLanguageStatus } from "./hooks.ts";
 import { openLanguageLog } from "../intents/languageLog.ts";
@@ -54,30 +56,15 @@ const Section = ({ children, className }: { children: ReactNode; className?: str
   </div>
 );
 
-const CommandRow = ({ command }: { readonly command: InstallCommand }) => {
-  const [copied, setCopied] = useState(false);
-
-  return (
-    <>
-      <span className="text-caption text-text-faint">{command.label}</span>
-      <div className="rounded-control border-hairline bg-surface-sunken flex h-8 items-center justify-between border pr-1.5 pl-2.5">
-        <code className="text-caption text-text-default truncate font-mono">{command.command}</code>
-        <button
-          type="button"
-          onClick={() =>
-            void navigator.clipboard
-              ?.writeText(command.command)
-              .then(() => setCopied(true))
-              .catch(() => undefined)
-          }
-          className="bg-fill-selected text-caption text-text-default focus-visible:outline-starlight h-[22px] shrink-0 rounded-[4px] px-2 focus-visible:outline-2"
-        >
-          {copied ? "Copied" : "Copy"}
-        </button>
-      </div>
-    </>
-  );
-};
+const CommandRow = ({ command }: { readonly command: InstallCommand }) => (
+  <>
+    <span className="text-caption text-text-faint">{command.label}</span>
+    <div className="rounded-control border-hairline bg-surface-sunken flex h-8 items-center justify-between border pr-1.5 pl-2.5">
+      <code className="text-caption text-text-default truncate font-mono">{command.command}</code>
+      <CopyButton text={command.command} />
+    </div>
+  </>
+);
 
 /** "Run on {host}", then each way the catalog offers to install it on this platform. */
 const CommandBlock = ({
@@ -110,7 +97,7 @@ const ProgressBlock = ({
       className="bg-fill-selected flex h-1 overflow-hidden rounded-full"
     >
       <span
-        className="bg-text-subtle h-1 w-full origin-left rounded-full transition-transform duration-160 ease-out"
+        className="bg-text-subtle h-1 w-full origin-left rounded-full transition-transform duration-200 ease-out"
         style={{ transform: `scaleX(${progress.fraction ?? 0.1})` }}
       />
     </div>
@@ -172,12 +159,20 @@ export interface StatusPopoverProps {
   readonly view: StatusView;
   readonly running: Running;
   readonly failure: string | null;
+  readonly feedback?: string | null;
   readonly onRun: (action: StatusAction) => void;
   readonly titleId: string;
 }
 
 /** The popover's body (Paper L1/L3): state sentence and why, facts, then the action rows. */
-export const StatusPopover = ({ view, running, failure, onRun, titleId }: StatusPopoverProps) => (
+export const StatusPopover = ({
+  view,
+  running,
+  failure,
+  feedback,
+  onRun,
+  titleId,
+}: StatusPopoverProps) => (
   <>
     <div className="flex flex-col gap-1 px-4 pt-3.5 pb-3">
       <h2
@@ -192,6 +187,11 @@ export const StatusPopover = ({ view, running, failure, onRun, titleId }: Status
       <p className="text-caption text-text-subtle wrap-anywhere">{view.why}</p>
     </div>
     {view.progress === null ? null : <ProgressBlock progress={view.progress} />}
+    {feedback == null ? null : (
+      <p role="status" className="text-caption text-text-subtle border-hairline border-t px-4 py-2">
+        {feedback}
+      </p>
+    )}
     {view.stderr === null ? null : (
       <Section>
         <pre className="text-caption text-text-default max-h-40 overflow-auto font-mono leading-[18px] wrap-anywhere whitespace-pre-wrap">
@@ -252,8 +252,9 @@ export interface LanguageStatusProps {
   readonly languageMode?: ReactNode;
 }
 
-/** Lists a Python file's interpreters for the Interpreter row: on focus and whenever it opens. */
-const usePythonInterpreters = (
+/** Reads what the Host chose for a Python or SQL file's row: on focus and whenever it opens. */
+const useHostChoice = (
+  languageId: LanguageId,
   checkout: P.LanguageCheckout | null,
   hostKey: string,
   path: string,
@@ -261,11 +262,17 @@ const usePythonInterpreters = (
 ) =>
   useEffect(() => {
     if (checkout === null) return;
-    // A failed list only leaves the row out; the palette's follow-up says why.
-    refreshInterpreters({ key: fileKey(hostKey, path), hostKey, checkout, path }).catch(
-      () => undefined
+    const target = { key: fileKey(hostKey, path), hostKey, checkout, path };
+
+    const read = Match.value(languageId).pipe(
+      Match.when("python", () => refreshInterpreters),
+      Match.when("sql", () => refreshDialect),
+      Match.orElse(() => null)
     );
-  }, [checkout, hostKey, path, open]);
+
+    // A failed read only leaves the row out; the palette's follow-up says why.
+    read?.(target).catch(() => undefined);
+  }, [languageId, checkout, hostKey, path, open]);
 
 export const LanguageStatus = ({
   hostKey,
@@ -278,6 +285,7 @@ export const LanguageStatus = ({
   const [open, setOpen] = useState(false);
   const [running, setRunning] = useState<Running>(null);
   const [failure, setFailure] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
   const titleId = useId();
   const view = useLanguageStatus(hostKey, workspaceId, path, language);
   const trust = useTrustStatus(fileKey(hostKey, path));
@@ -291,11 +299,12 @@ export const LanguageStatus = ({
 
   const providerId = view.providerId ?? view.file?.providers[0]?.providerId ?? null;
   const checkout = view.file?.checkout ?? null;
-  usePythonInterpreters(languageId === "python" ? checkout : null, hostKey, path, open);
+  useHostChoice(languageId, checkout, hostKey, path, open);
 
   const onRun = (action: StatusAction) => {
     if (running !== null) return;
     setFailure(null);
+    setFeedback(null);
     setRunning({ id: action.id });
     runAction(
       action.id,
@@ -310,7 +319,15 @@ export const LanguageStatus = ({
       {
         api: polaris().languages,
         recheck: async () => {
-          await editorLanguages?.recheck(fileKey(hostKey, path));
+          const languages = getEditorLanguages();
+
+          if (languages === null)
+            throw new P.LanguageError({
+              reason: "not-ready",
+              message: "Language tooling is unavailable. Reopen the file and try again.",
+              retryable: true,
+            });
+          await languages.recheck(fileKey(hostKey, path));
         },
         showLog: () => {
           if (checkout !== null)
@@ -327,6 +344,9 @@ export const LanguageStatus = ({
       }
     )
       .then(() => {
+        if (action.id === "check-again")
+          setFeedback("Checked again. Host language-tool facts are up to date.");
+
         if (action.id !== "restart" && action.id !== "check-again") setOpen(false);
       })
       .catch((error: P.LanguageError) => setFailure(actionFailure(error, host)))
@@ -339,7 +359,10 @@ export const LanguageStatus = ({
       onOpenChange={(next) => {
         setOpen(next);
 
-        if (!next) setFailure(null);
+        if (!next) {
+          setFailure(null);
+          setFeedback(null);
+        }
       }}
     >
       <PopoverTrigger
@@ -368,6 +391,13 @@ export const LanguageStatus = ({
           view={view}
           running={running}
           failure={failure}
+          feedback={
+            feedback === null
+              ? null
+              : view.kind === "prerequisite"
+                ? "Still not found. Checked standard Host locations, including /opt/homebrew/bin, /usr/local/bin, /usr/bin and user tool directories."
+                : feedback
+          }
           onRun={onRun}
           titleId={titleId}
         />

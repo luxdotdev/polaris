@@ -5,7 +5,7 @@
 import { AnswerAction } from "@polaris/protocol";
 import { Button, cn, ContextMenu, ContextMenuTrigger, EmptyState } from "@polaris/ui";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { type KeyboardEvent, useMemo, useRef, useState } from "react";
+import { type KeyboardEvent, useMemo, useRef } from "react";
 import { openSessionReview } from "../../../routes/review.ts";
 import { useApp, useCommands, useShellActions } from "../../../shell/hooks.ts";
 import { constellationCommands } from "../client.ts";
@@ -27,10 +27,10 @@ import {
   type TaskRow,
 } from "../model/index.ts";
 import { type KeyAction, railKey } from "../model/keys.ts";
-import { leadKey, type LeadUi, patchLeadUi, useLeadUi } from "../state.ts";
+import { draftAbout, leadKey, type LeadUi, patchLeadUi, useLeadUi } from "../state.ts";
 import { ConstellationMark } from "./glyphs.tsx";
 import { laneStyle } from "./lane.tsx";
-import { Filters, Header, KeyHints } from "./header.tsx";
+import { Filters, Header, KeyHints, type RowKeys } from "./header.tsx";
 import { CompletionCard } from "./stats.tsx";
 import { approveClaim, placeOf } from "./claimActions.ts";
 import { type MenuActions, RowContextMenu, RowMenu } from "./menu.tsx";
@@ -52,10 +52,15 @@ const focusKey = ({ focus }: LeadUi) => {
   return focus.kind === "task" ? `task:${focus.taskId}` : `handover:${focus.revision}`;
 };
 
-const lastHint = (row: RailRow | undefined) =>
-  row?.kind === "task" && row.projection.state === "review"
-    ? "a accept or send back"
-    : "m message lead";
+const MESSAGE_LEAD: RowKeys = [["m", "message lead"]];
+
+const REVIEW_KEYS: RowKeys = [
+  ["a", "accept"],
+  ["s", "send back"],
+];
+
+const lastHint = (row: RailRow | undefined): RowKeys =>
+  row?.kind === "task" && row.projection.state === "review" ? REVIEW_KEYS : MESSAGE_LEAD;
 
 /** Scrolls a row into view once the virtualizer knows where it is. */
 const indexOf = (rows: ReadonlyArray<RailRow>, key: string) => rows.findIndex((r) => r.key === key);
@@ -95,12 +100,7 @@ const useTabActions = (
       if (row.attempt === null) return;
       void approveClaim(hostKey, record, row.attempt, placeOf(row.attempt, leadBranch));
     },
-    onMessageLead: (row, authority) =>
-      setDraft({
-        title: `Message the lead about ${row.task.id}`,
-        authority,
-        text: `About ${row.task.id} (${row.task.title}): `,
-      }),
+    onMessageLead: (row, authority) => setDraft(draftAbout(row.task.id, row.task.title, authority)),
   };
 
   const answer = (proposalId: string, accept: boolean) =>
@@ -194,7 +194,8 @@ const Empty = ({ onAdd }: { readonly onAdd: () => void }) => (
 export const ConstellationTab = (props: ConstellationTabProps) => {
   const { hostKey, record } = props;
   const c = record.constellation;
-  const [draft, setDraft] = useState<MessageDraft | null>(null);
+  const draftKey = leadKey(hostKey, c.leadSessionId);
+  const setDraft = (draft: MessageDraft | null) => patchLeadUi(draftKey, () => ({ draft }));
   const actions = useTabActions(props, setDraft);
   const ui = useLeadUi(actions.key);
   const facts = useFacts(record);
@@ -324,7 +325,7 @@ export const ConstellationTab = (props: ConstellationTabProps) => {
           aria-label="Tasks"
           tabIndex={0}
           onKeyDown={onKeyDown}
-          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1"
+          className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-1"
           style={laneStyle(laneWidth(rail.ids, LANE_MAX.tab))}
           data-testid="constellation-rail"
         >
@@ -381,14 +382,14 @@ export const ConstellationTab = (props: ConstellationTabProps) => {
       <KeyHints
         last={
           ui.focus?.kind === "task"
-            ? "m message lead"
+            ? MESSAGE_LEAD
             : lastHint(rows.find((r) => r.key === ui.selected))
         }
       />
       <MessageLeadDialog
         hostKey={hostKey}
         constellationId={c.id}
-        draft={draft}
+        draft={ui.draft}
         onClose={() => setDraft(null)}
       />
     </section>

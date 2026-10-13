@@ -1,3 +1,5 @@
+import { LanguageSqlDialect, LanguageSqlDialectState } from "./sql.ts";
+import { LanguageHostProcessBudget, LanguageProcessLimit } from "./processBudget.ts";
 import { LanguagePythonInterpreters } from "./python.ts";
 import { LanguageServerLogEvent } from "./logs.ts";
 import { LanguageHostState } from "./hostState.ts";
@@ -90,6 +92,24 @@ export const GetLanguageCatalog = Rpc.make("languages.catalog", {
   error: LanguageError,
 });
 
+export const GetSqlDialect = Rpc.make("languages.sql.dialect.get", {
+  payload: { checkout: LanguageCheckout, path: LanguagePath },
+  success: LanguageSqlDialectState,
+  error: LanguageError,
+});
+
+export const SelectSqlDialect = Rpc.make("languages.sql.dialect.select", {
+  payload: {
+    checkout: LanguageCheckout,
+    path: LanguagePath,
+    scope: Schema.Literals(["file", "workspace"]),
+    dialect: Schema.NullOr(LanguageSqlDialect),
+    expectedRevision: LanguageCounter,
+  },
+  success: LanguageSqlDialectState,
+  error: LanguageError,
+});
+
 export const ListPythonInterpreters = Rpc.make("languages.python.interpreters", {
   payload: { checkout: LanguageCheckout, path: LanguagePath },
   success: LanguagePythonInterpreters,
@@ -115,6 +135,21 @@ const hostStateInput = {
 export const GetLanguageHostState = Rpc.make("languages.host.state", {
   payload: hostStateInput,
   success: LanguageHostState,
+  error: LanguageError,
+});
+
+export const GetLanguageProcessBudget = Rpc.make("languages.host.processBudget.get", {
+  payload: {},
+  success: LanguageHostProcessBudget,
+  error: LanguageError,
+});
+
+export const SetLanguageProcessBudget = Rpc.make("languages.host.processBudget.set", {
+  payload: {
+    expectedRevision: LanguageCounter,
+    maxProcesses: Schema.NullOr(LanguageProcessLimit),
+  },
+  success: LanguageHostProcessBudget,
   error: LanguageError,
 });
 
@@ -210,6 +245,7 @@ export const DiscoverLanguageProject = Rpc.make("languages.discover", {
     path: LanguagePath,
     documentLanguageId: LanguageKey,
     settings: LanguageEffectiveSettings,
+    refresh: Schema.optionalKey(Schema.Boolean),
   },
   success: LanguageDiscovery,
   error: LanguageError,
@@ -433,10 +469,14 @@ export const SetLanguagePreviewPolicy = Rpc.make("languages.preview.policy.set",
 /** The existing Daemon wire owns these schemas; capabilities require implemented handler layers. */
 
 export class LanguageRpcs extends RpcGroup.make(
+  GetSqlDialect,
+  SelectSqlDialect,
   ListPythonInterpreters,
   SelectPythonInterpreter,
   GetLanguageCatalog,
   GetLanguageHostState,
+  GetLanguageProcessBudget,
+  SetLanguageProcessBudget,
   WatchLanguageHostState,
   GetLanguageAvailability,
   WatchLanguageAvailability,

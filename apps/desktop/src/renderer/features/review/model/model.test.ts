@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { fileListRows } from "./fileList.ts";
+import { fileListRows, reviewProgress } from "./fileList.ts";
 import { layoutRows, type LayoutInput, type ReviewFile, type ReviewSection } from "./layout.ts";
 import {
   hunkLabel,
@@ -93,6 +93,7 @@ describe("indexPatch", () => {
         additions: 1,
         deletions: 0,
         binary: false,
+        generated: null,
       },
     ];
 
@@ -225,6 +226,8 @@ describe("layoutRows", () => {
     section,
     file: at(files, i),
     fingerprint: "x",
+    generated: false,
+    test: false,
   });
 
   const turn = (id: string, ...indices: ReadonlyArray<number>): ReviewSection => ({
@@ -299,6 +302,18 @@ describe("layoutRows", () => {
     ]);
   });
 
+  test("generated files open collapsed and don't keep a Turn from reading reviewed", () => {
+    const generated = (f: ReviewFile): ReviewFile => ({ ...f, generated: true });
+    const section = turn("1", 0, 2);
+    const sections = [{ ...section, files: [section.files[0]!, generated(section.files[1]!)] }];
+
+    expect(layoutRows(input({ sections })).map((r) => r.collapsed)).toEqual([false, true]);
+
+    const rows = layoutRows(input({ sections, viewed: (f) => f.index === 0 }));
+
+    expect(rows[0]?.divider).toMatchObject({ folded: true, reviewed: true });
+  });
+
   test("large Reviews open collapsed; the user's toggle wins", () => {
     const rows = layoutRows(
       input({
@@ -334,12 +349,14 @@ describe("fileListRows", () => {
     section: "pr",
     file,
     fingerprint: "x",
+    generated: false,
+    test: false,
   }));
 
   const viewed = (f: ReviewFile) => f.index % 2 === 1;
 
   test("files to view first, then one row for the viewed ones", () => {
-    const rows = fileListRows(files, viewed, false);
+    const rows = fileListRows(files, viewed, new Set());
 
     expect(rows.map((r) => (r.kind === "file" ? r.file.key : `+${r.count}`))).toEqual([
       "src/a.ts",
@@ -350,11 +367,32 @@ describe("fileListRows", () => {
   });
 
   test("opened, the viewed files follow it", () => {
-    expect(fileListRows(files, viewed, true).slice(-2)).toMatchObject([
+    expect(fileListRows(files, viewed, new Set(["viewed"])).slice(-2)).toMatchObject([
       { kind: "file", viewed: true, file: { key: "new.ts" } },
       { kind: "file", viewed: true, file: { key: "img.png" } },
     ]);
-    expect(fileListRows(files, () => false, false)).toHaveLength(5);
+    expect(fileListRows(files, () => false, new Set())).toHaveLength(5);
+  });
+
+  test("generated files fold last, viewed or not, and stay out of Viewed progress", () => {
+    const marked = files.map((f) => ({
+      ...f,
+      generated: f.key === "gone.ts" || f.key === "new.ts",
+    }));
+
+    const rows = fileListRows(marked, viewed, new Set());
+
+    expect(rows.map((r) => (r.kind === "file" ? r.file.key : `+${r.count} ${r.fold}`))).toEqual([
+      "src/a.ts",
+      "run.sh",
+      "+1 viewed",
+      "+2 generated",
+    ]);
+    expect(fileListRows(marked, viewed, new Set(["generated"])).slice(-2)).toMatchObject([
+      { kind: "file", viewed: true, file: { key: "new.ts" } },
+      { kind: "file", viewed: false, file: { key: "gone.ts" } },
+    ]);
+    expect(reviewProgress(marked, viewed).label).toBe("1 of 3 viewed");
   });
 });
 

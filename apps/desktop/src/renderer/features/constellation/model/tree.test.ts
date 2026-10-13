@@ -124,6 +124,15 @@ describe("the tree on the rail", () => {
     expect(tones).toEqual(["accepted", "working", "blocked", "blocked"]);
   });
 
+  test("each strip segment names its Task and the state word its row shows", () => {
+    const parts = segments(rail.tasks).filter((s) => s.key.startsWith("F"));
+
+    expect(parts.map((s) => [s.key, s.word])).toEqual(
+      rail.tasks.flatMap((r) => (r.task.id.startsWith("F") ? [[r.task.id, r.look.word]] : []))
+    );
+    expect(parts.every((s) => s.title !== "")).toBe(true);
+  });
+
   test("folding a parent hides its subtree; ← and → fold and climb", () => {
     const folded = buildRail(slugRecord(), facts, {
       folds: new Map([[parentFold("F1"), false]]),

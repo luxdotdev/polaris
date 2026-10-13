@@ -7,6 +7,7 @@ import type { ApprovalDecision, ApprovalRequest, SessionId, SessionState } from 
 import {
   ApprovalCard,
   Button,
+  ChevronDownIcon,
   ChevronRightIcon,
   cn,
   type Harness,
@@ -21,7 +22,7 @@ import { age } from "../../../shell/copy.ts";
 import { SentAttachments } from "../../attachments/index.ts";
 import { useNow } from "../../../shell/useNow.ts";
 import { Decisions } from "../../../commands.ts";
-import type { Row } from "../model/conversation.ts";
+import { type Row, turnTime } from "../model/conversation.ts";
 import { totals } from "../model/diff.ts";
 import { plural } from "../model/format.ts";
 import { useTurnDiff } from "../turnDiff.ts";
@@ -33,6 +34,9 @@ import { SetupCard } from "./SetupCard.tsx";
 import { EntryView } from "./entries.tsx";
 import { OutgoingMessage, Steered } from "./outgoing.tsx";
 import { softWrap } from "./softWrap.tsx";
+import { SessionTargetContext } from "./polarisTool/target.ts";
+import { PromptMenu, TurnMenu } from "./turnMenu.tsx";
+import { LimitCard, type UsageLimit } from "./LimitCard.tsx";
 import type { SessionChrome } from "../chrome.ts";
 
 export interface RowContext {
@@ -41,10 +45,15 @@ export interface RowContext {
   /** The Turn in flight, whose avatar shimmers; null between Turns. */
   readonly liveTurnId: string | null;
   readonly where: string;
-  readonly onToggleTurn: (turnId: string) => void;
+  /** Opens or folds a Turn; it stays so as newer Turns arrive. */
+  readonly onSetTurnOpen: (turnId: string, open: boolean) => void;
   readonly onOpenDiff: (turnId: string) => void;
   readonly onRespond: (request: ApprovalRequest, decision: ApprovalDecision) => void;
   readonly onContinue: () => void;
+  /** The session is Limited: its last Turn ends with the usage-limit card. */
+  readonly limit: UsageLimit | null;
+  /** Asks again for the Turns before the first one shown, after a failure. */
+  readonly onLoadOlder: () => void;
   readonly onRetry: () => void;
   /** "Opus 5 · high", as the Harness names them. */
   readonly modelLabel: (model: string | null, effort: string | null) => string;
@@ -95,7 +104,7 @@ const SummaryCounts = ({
 const Summary = ({ row, ctx }: { row: Extract<Row, { kind: "summary" }>; ctx: RowContext }) => (
   <button
     type="button"
-    onClick={() => ctx.onToggleTurn(row.turnId)}
+    onClick={() => ctx.onSetTurnOpen(row.turnId, true)}
     aria-label={`Turn ${row.number}: ${row.summary}`}
     className="rounded-row border-hairline bg-surface-raised/50 hover:bg-fill-hover gap-row-x flex h-10 w-full cursor-default items-center border px-3 text-left"
     data-testid="turn-summary"
@@ -112,41 +121,133 @@ const Summary = ({ row, ctx }: { row: Extract<Row, { kind: "summary" }>; ctx: Ro
   </button>
 );
 
-const Prompt = ({ row, ctx }: { row: Extract<Row, { kind: "prompt" }>; ctx: RowContext }) => (
-  <div className="flex flex-col items-end gap-1.5" data-testid="prompt">
-    <SentAttachments hostKey={ctx.diff.hostKey} attachments={row.attachments} />
-    {row.text === "" ? null : (
-      <p className="rounded-card bg-fill-selected text-body text-text-strong py-row-x max-w-[340px] px-3.5 break-words whitespace-pre-wrap">
-        {softWrap(row.text)}
-      </p>
-    )}
-    <p className="text-caption text-text-subtle max-w-[340px] truncate" data-testid="turn-model">
-      {ctx.modelLabel(row.model, row.effort)}
-    </p>
-  </div>
+/** When the Turn started; the full date and time on hover. */
+const TurnTime = ({ iso }: { iso: string }) => {
+  const text = turnTime(iso, new Date());
+
+  return text === "" ? null : (
+    <time
+      dateTime={iso}
+      title={new Date(iso).toLocaleString()}
+      className="tabular shrink-0"
+      data-testid="turn-time"
+    >
+      {text}
+    </time>
+  );
+};
+
+/** Folds an open Turn to its summary; quiet until the row is hovered or focused. */
+const FoldButton = ({ row, ctx }: { row: { turnId: string; number: number }; ctx: RowContext }) => (
+  <button
+    type="button"
+    onClick={() => ctx.onSetTurnOpen(row.turnId, false)}
+    aria-label={`Fold turn ${row.number}`}
+    title="Fold this turn"
+    className="rounded-control text-text-faint hover:text-text-subtle hover:bg-fill-hover focus-visible:text-text-subtle grid size-5 shrink-0 cursor-default place-items-center opacity-0 group-focus-within/turn:opacity-100 group-hover/turn:opacity-100 focus-visible:opacity-100"
+    data-testid="turn-fold"
+  >
+    <ChevronDownIcon size={10} />
+  </button>
 );
+
+const Prompt = ({ row, ctx }: { row: Extract<Row, { kind: "prompt" }>; ctx: RowContext }) => (
+  <PromptMenu text={row.text} onFold={() => ctx.onSetTurnOpen(row.turnId, false)}>
+    <div className="group/turn flex flex-col items-end gap-1.5" data-testid="prompt">
+      <SentAttachments hostKey={ctx.diff.hostKey} attachments={row.attachments} />
+      {row.text === "" ? null : (
+        <p className="rounded-card bg-fill-selected text-body text-text-strong py-row-x max-w-[340px] px-3.5 break-words whitespace-pre-wrap">
+          {softWrap(row.text)}
+        </p>
+      )}
+      <div className="text-caption text-text-subtle flex max-w-[340px] min-w-0 items-center gap-1.5">
+        <FoldButton row={row} ctx={ctx} />
+        <span className="min-w-0 truncate" data-testid="turn-model">
+          {ctx.modelLabel(row.model, row.effort)}
+        </span>
+        <span aria-hidden="true">·</span>
+        <TurnTime iso={row.startedAt} />
+      </div>
+    </div>
+  </PromptMenu>
+);
+
+/** A Turn the Harness started: what woke it, its Model and time, and the fold control. */
+const TriggerRow = ({ row, ctx }: { row: Extract<Row, { kind: "trigger" }>; ctx: RowContext }) => {
+  const time = turnTime(row.startedAt, new Date());
+  const label = ctx.modelLabel(row.model, row.effort);
+
+  return (
+    <div className="group/turn flex items-center gap-1.5">
+      <div className="min-w-0 flex-1">
+        <Trigger text={row.text} model={[label, time].filter((p) => p !== "").join(" · ")} />
+      </div>
+      <FoldButton row={row} ctx={ctx} />
+    </div>
+  );
+};
 
 /** An item's kind, or "run" / "subagent" for those rows (tests and smoke read it). */
 const entryKind = (entry: Entry) => (entry.kind === "item" ? entry.item.kind : entry.kind);
 
+/** A reply's time, on hover, in the gutter left of it (under the avatar on a Turn's first). */
+const ReplyTime = ({ row }: { row: Extract<Row, { kind: "item" }> }) =>
+  row.startedAt === null || entryKind(row.entry) !== "message" ? null : (
+    <span
+      className={cn(
+        "text-caption text-text-faint pointer-events-none absolute -left-5 w-11 pr-2 text-right opacity-0 group-hover/item:opacity-100",
+        row.lead ? "top-7" : "top-0.5"
+      )}
+      data-testid="reply-time"
+    >
+      <TurnTime iso={row.startedAt} />
+    </span>
+  );
+
+/** The row's reply text, once it has finished streaming; null for every other item. */
+const finishedMessage = (row: Extract<Row, { kind: "item" }>) =>
+  row.entry.kind === "item" && row.entry.item.kind === "message" && !row.entry.item.live
+    ? row.entry.item.text
+    : null;
+
 const Agent = ({ row, ctx }: { row: Extract<Row, { kind: "item" }>; ctx: RowContext }) => (
-  <div className="flex gap-3" data-testid="turn-item" data-kind={entryKind(row.entry)}>
-    <div className={AVATAR}>
-      {row.lead && ctx.harness !== null ? (
-        <HarnessMark
-          harness={ctx.harness}
-          size={24}
-          {...(row.turnId === ctx.liveTurnId ? { state: "working" as const } : {})}
-        />
-      ) : null}
+  <TurnMenu
+    hostKey={ctx.diff.hostKey}
+    sessionId={ctx.diff.sessionId}
+    turnId={row.turnId}
+    message={finishedMessage(row)}
+    live={row.turnId === ctx.liveTurnId}
+    onOpenDiff={() => ctx.onOpenDiff(row.turnId)}
+  >
+    <div
+      className="group/item relative flex gap-3"
+      data-testid="turn-item"
+      data-kind={entryKind(row.entry)}
+    >
+      <ReplyTime row={row} />
+      <div className={AVATAR}>
+        {row.lead && ctx.harness !== null ? (
+          <HarnessMark
+            harness={ctx.harness}
+            size={24}
+            {...(row.turnId === ctx.liveTurnId ? { state: "working" as const } : {})}
+          />
+        ) : null}
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <SessionTargetContext.Provider value={ctx.diff}>
+          <EntryView
+            entry={row.entry}
+            ctx={{
+              hue: ctx.harness,
+              onOpenDiff: () => ctx.onOpenDiff(row.turnId),
+              latest: row.latest,
+            }}
+          />
+        </SessionTargetContext.Provider>
+      </div>
     </div>
-    <div className="flex min-w-0 flex-1 flex-col">
-      <EntryView
-        entry={row.entry}
-        ctx={{ hue: ctx.harness, onOpenDiff: () => ctx.onOpenDiff(row.turnId) }}
-      />
-    </div>
-  </div>
+  </TurnMenu>
 );
 
 const KIND_WANTS: Record<ApprovalRequest["kind"], string> = {
@@ -203,7 +304,25 @@ const Approval = ({ request, ctx }: { request: ApprovalRequest; ctx: RowContext 
   );
 };
 
-const Ending = ({ row, ctx }: { row: Extract<Row, { kind: "ending" }>; ctx: RowContext }) => (
+const Ending = ({ row, ctx }: { row: Extract<Row, { kind: "ending" }>; ctx: RowContext }) =>
+  row.canContinue && ctx.limit !== null ? (
+    <LimitCard
+      harness={ctx.harness}
+      number={row.number}
+      limit={ctx.limit}
+      onContinue={ctx.onContinue}
+    />
+  ) : (
+    <InterruptedOrFailed row={row} ctx={ctx} />
+  );
+
+const InterruptedOrFailed = ({
+  row,
+  ctx,
+}: {
+  row: Extract<Row, { kind: "ending" }>;
+  ctx: RowContext;
+}) => (
   <div className="flex items-center gap-3" data-testid="turn-ending">
     <div className={cn(AVATAR, "flex justify-center")}>
       {row.status === "failed" ? <PixelFailedIcon size={14} className="text-failed" /> : null}
@@ -231,36 +350,71 @@ const Ending = ({ row, ctx }: { row: Extract<Row, { kind: "ending" }>; ctx: RowC
   </div>
 );
 
+/** A folded Turn: its summary row, or the Polaris card (a digest, a brief) folded. */
+const FoldedTurn = ({ row, ctx }: { row: Extract<Row, { kind: "summary" }>; ctx: RowContext }) =>
+  ctx.chrome.promptCard?.({
+    turnId: row.turnId,
+    folded: true,
+    canFold: true,
+    onToggle: () => ctx.onSetTurnOpen(row.turnId, true),
+  }) ?? <Summary row={row} ctx={ctx} />;
+
+/** Opens the list while older Turns remain: they load as it comes into view. */
+const Older = ({ row, onRetry }: { row: Extract<Row, { kind: "older" }>; onRetry: () => void }) => (
+  <div
+    className="text-caption text-text-subtle flex h-8 items-center justify-center gap-2"
+    data-testid="older-turns"
+    data-state={row.state}
+  >
+    {row.state === "failed" ? (
+      <>
+        Couldn't load earlier turns
+        <Button variant="ghost" size="sm" onClick={onRetry}>
+          Try again
+        </Button>
+      </>
+    ) : (
+      "Loading earlier turns…"
+    )}
+  </div>
+);
+
 /** One row, by kind. */
 export const ConversationRow = ({ row, ctx }: { row: Row; ctx: RowContext }) => {
   switch (row.kind) {
     case "setup":
       return <SetupCard setup={row.setup} />;
+    case "older":
+      return <Older row={row} onRetry={ctx.onLoadOlder} />;
     case "summary":
-      return (
-        ctx.chrome.promptCard?.({
-          turnId: row.turnId,
-          folded: true,
-          onToggle: () => ctx.onToggleTurn(row.turnId),
-        }) ?? <Summary row={row} ctx={ctx} />
-      );
+      return <FoldedTurn row={row} ctx={ctx} />;
     case "prompt":
       return (
         ctx.chrome.promptCard?.({
           turnId: row.turnId,
           folded: false,
-          onToggle: () => ctx.onToggleTurn(row.turnId),
+          canFold: true,
+          onToggle: () => ctx.onSetTurnOpen(row.turnId, false),
         }) ?? <Prompt row={row} ctx={ctx} />
       );
     case "trigger":
-      return <Trigger text={row.text} model={ctx.modelLabel(row.model, row.effort)} />;
+      return <TriggerRow row={row} ctx={ctx} />;
     case "waiting":
       return <Waiting tasks={row.tasks} hue={ctx.harness} />;
     case "trailer":
       return ctx.chrome.trailer ?? null;
     case "item":
       return row.entry.kind === "item" && row.entry.item.kind === "user" ? (
-        <Steered text={row.entry.item.text} />
+        (ctx.chrome.steerCard?.({
+          turnId: row.turnId,
+          itemId: row.entry.item.id,
+          text: row.entry.item.text,
+        }) ?? (
+          <Steered
+            text={row.entry.item.text}
+            time={row.startedAt === null ? null : <TurnTime iso={row.startedAt} />}
+          />
+        ))
       ) : (
         <Agent row={row} ctx={ctx} />
       );

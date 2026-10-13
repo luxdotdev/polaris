@@ -496,7 +496,7 @@ describe("rail", () => {
   test("a gate waits on its inputs and lists receipts once accepted", () => {
     const rows = buildRail(c1Record(), facts).rows;
 
-    expect(rowFor(rows, "G2")?.look.word).toBe("waits B1–B5");
+    expect(rowFor(rows, "G2")?.look.word).toBe("after B1–B5");
     expect(rowFor(rows, "G2")?.look.glyph).toBe("gate");
     expect(rowFor(rows, "G1")?.look.glyph).toBe("gate-accepted");
     expect(rowFor(rows, "G1")?.line?.kind).toBe("accepted");
@@ -544,8 +544,8 @@ describe("rail", () => {
 
     expect(rowFor(rows, "B5")?.look).toMatchObject({ word: "needs you", glyph: "needs-you" });
     expect(rowFor(rows, "B5")?.line).toMatchObject({
-      text: "stopped without claiming",
-      detail: "nudged once",
+      text: "stopped without reporting back",
+      detail: "reminded once",
     });
     expect(rowFor(rows, "B1")?.look.word).toBe("handed to you");
     expect(rowFor(rows, "B1")?.promoted).toBe(true);
@@ -692,7 +692,7 @@ describe("attention", () => {
 
     expect(items.map((i) => i.text)).toEqual([
       "B2 waiting on your approval",
-      "B5 stopped without claiming",
+      "B5 stopped without reporting back",
     ]);
     expect(nextNeedingYou(items, "B2")).toBe("B5");
     expect(nextNeedingYou(items, "B5")).toBe("B2");

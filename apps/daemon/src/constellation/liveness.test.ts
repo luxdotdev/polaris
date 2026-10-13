@@ -93,6 +93,8 @@ test("observations and queued input publish live facts without changing revision
           current: { startedAt: 1000, command: "bun test" },
           contextPercent: 40,
           queuedInput: 2,
+          // The Session has no Turn in flight: a running tool fact alone never says "working".
+          activeTurn: false,
         });
         expect(projectTasks(record)[0]?.liveness).toBeNull();
         expect(enrichProjections(record, yield* feed.read(record))[0]?.liveness?.queuedInput).toBe(

@@ -3,8 +3,17 @@
  * type, the active one joined to the code, a dot for unsaved edits, a close
  * mark on the active tab, and a 12px dither while an agent changes the file.
  */
-import { cn, CloseIcon, Dither } from "@polaris/ui";
-import { type MouseEvent, useEffect, useRef } from "react";
+import {
+  cn,
+  CloseIcon,
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuEntries,
+  ContextMenuTrigger,
+  Dither,
+  type MenuEntryInput,
+} from "@polaris/ui";
+import { type MouseEvent, type ReactElement, useEffect, useRef } from "react";
 import type { TabView } from "../runtime/hooks.ts";
 
 export interface TabsProps {
@@ -13,7 +22,27 @@ export interface TabsProps {
   readonly onSelect: (path: string) => void;
   readonly onPin: (path: string) => void;
   readonly onClose: (path: string) => void;
+  /** A tab's right-click menu; none when unset. */
+  readonly menuFor?: (tab: TabView, selected: boolean) => ReadonlyArray<MenuEntryInput> | null;
 }
+
+const TabMenu = ({
+  entries,
+  children,
+}: {
+  readonly entries: ReadonlyArray<MenuEntryInput> | null;
+  readonly children: ReactElement;
+}) =>
+  entries === null ? (
+    children
+  ) : (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
+      <ContextMenuContent data-testid="editor-tab-menu">
+        <ContextMenuEntries entries={entries} />
+      </ContextMenuContent>
+    </ContextMenu>
+  );
 
 /** The trailing 12px slot: the unsaved dot, swapped for the close mark on hover or when active. */
 const TrailingSlot = ({
@@ -54,7 +83,7 @@ const TrailingSlot = ({
   );
 };
 
-export const Tabs = ({ tabs, active, onSelect, onPin, onClose }: TabsProps) => {
+export const Tabs = ({ tabs, active, onSelect, onPin, onClose, menuFor }: TabsProps) => {
   const strip = useRef<HTMLDivElement>(null);
 
   // The active tab stays in view however many are open.
@@ -75,65 +104,66 @@ export const Tabs = ({ tabs, active, onSelect, onPin, onClose }: TabsProps) => {
         const selected = tab.id === active;
 
         return (
-          <div
-            key={tab.id}
-            role="tab"
-            tabIndex={selected ? 0 : -1}
-            aria-selected={selected}
-            title={tab.path}
-            data-testid="editor-tab"
-            data-view={tab.view ?? "source"}
-            data-dirty={tab.dirty ? "" : undefined}
-            onMouseDown={(event) => {
-              if (event.button === 1) onClose(tab.id);
-            }}
-            onClick={() => onSelect(tab.id)}
-            onDoubleClick={() => {
-              if (tab.view === undefined) onPin(tab.id);
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                onSelect(tab.id);
-              }
-
-              if (event.key === "Delete" || event.key === "Backspace") {
-                event.preventDefault();
-                onClose(tab.id);
-              }
-
-              if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
-                event.preventDefault();
-                const at = tabs.findIndex((t) => t.id === tab.id);
-
-                let index =
-                  (at + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
-
-                if (event.key === "Home") index = 0;
-
-                if (event.key === "End") index = tabs.length - 1;
-                const next = tabs[index];
-
-                if (next !== undefined) {
-                  onSelect(next.id);
-                  strip.current?.querySelectorAll<HTMLElement>('[role="tab"]')[index]?.focus();
+          <TabMenu key={tab.id} entries={menuFor?.(tab, selected) ?? null}>
+            <div
+              role="tab"
+              tabIndex={selected ? 0 : -1}
+              aria-selected={selected}
+              title={tab.path}
+              data-testid="editor-tab"
+              data-view={tab.view ?? "source"}
+              data-dirty={tab.dirty ? "" : undefined}
+              onMouseDown={(event) => {
+                if (event.button === 1) onClose(tab.id);
+              }}
+              onClick={() => onSelect(tab.id)}
+              onDoubleClick={() => {
+                if (tab.view === undefined) onPin(tab.id);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onSelect(tab.id);
                 }
-              }
-            }}
-            className={cn(
-              "group/tab flex h-9 max-w-[240px] shrink-0 cursor-default focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-starlight items-center gap-2 border-r border-hairline pr-3 pl-3.5 text-label select-none",
-              selected
-                ? "-mb-px h-[37px] bg-bg text-text-strong"
-                : "text-text-subtle hover:text-text-default"
-            )}
-          >
-            {tab.agent === null ? null : <Dither hue={tab.agent} size={12} moving />}
-            <span className={cn("truncate", tab.preview && "italic")}>{tab.label}</span>
-            {tab.detail === undefined ? null : (
-              <span className="text-caption text-text-faint shrink-0">{tab.detail}</span>
-            )}
-            <TrailingSlot tab={tab} active={selected} onClose={() => onClose(tab.id)} />
-          </div>
+
+                if (event.key === "Delete" || event.key === "Backspace") {
+                  event.preventDefault();
+                  onClose(tab.id);
+                }
+
+                if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+                  event.preventDefault();
+                  const at = tabs.findIndex((t) => t.id === tab.id);
+
+                  let index =
+                    (at + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+
+                  if (event.key === "Home") index = 0;
+
+                  if (event.key === "End") index = tabs.length - 1;
+                  const next = tabs[index];
+
+                  if (next !== undefined) {
+                    onSelect(next.id);
+                    strip.current?.querySelectorAll<HTMLElement>('[role="tab"]')[index]?.focus();
+                  }
+                }
+              }}
+              className={cn(
+                "group/tab flex h-9 max-w-[240px] shrink-0 cursor-default focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-starlight items-center gap-2 border-r border-hairline pr-3 pl-3.5 text-label select-none",
+                selected
+                  ? "-mb-px h-[37px] bg-bg text-text-strong"
+                  : "text-text-subtle hover:text-text-default"
+              )}
+            >
+              {tab.agent === null ? null : <Dither hue={tab.agent} size={12} moving />}
+              <span className={cn("truncate", tab.preview && "italic")}>{tab.label}</span>
+              {tab.detail === undefined ? null : (
+                <span className="text-caption text-text-faint shrink-0">{tab.detail}</span>
+              )}
+              <TrailingSlot tab={tab} active={selected} onClose={() => onClose(tab.id)} />
+            </div>
+          </TabMenu>
         );
       })}
     </div>

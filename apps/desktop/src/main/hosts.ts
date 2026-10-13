@@ -68,6 +68,7 @@ export const statusView = (status: ConnectionStatus): ConnectionStatusView => ({
           kind: status.failure.kind,
           reason: status.failure.reason,
           detail: status.failure.detail,
+          older: status.failure.older,
         },
   attempt: status.attempt,
   since: status.since,
@@ -196,7 +197,10 @@ export const remoteEntry = (remote: RemoteHostSetting): HostEntry => ({
   colour: remote.colour ?? null,
   alias: remote.alias,
   proofHarness: false,
-  target: HostTarget.Ssh({ alias: remote.alias, forwardAgent: remote.forwardAgent ?? false }),
+  target:
+    remote.kind === "wsl"
+      ? HostTarget.Wsl({ distro: remote.alias })
+      : HostTarget.Ssh({ alias: remote.alias, forwardAgent: remote.forwardAgent ?? false }),
   remoteCommand: remoteCommandArgv(remote.remoteCommand),
   simulatedLatencyMs: null,
 });
@@ -217,6 +221,7 @@ const replaceView = (views: ReadonlyArray<HostView>, view: HostView) => {
 };
 
 export interface HostDirectoryInput {
+  readonly ssh?: HostConnectionOptions["ssh"];
   readonly entries: ReadonlyArray<HostEntry>;
   readonly identity: ClientIdentity;
   /** Supplied by Main's explicit private credential store, never renderer Settings. */
@@ -242,6 +247,7 @@ export class HostDirectory extends Context.Service<
   static readonly layer = ({
     entries,
     identity,
+    ssh,
     clientIdentity,
     languageEpoch,
     invalidateLanguage,
@@ -305,7 +311,10 @@ export class HostDirectory extends Context.Service<
               name: entry.label,
               target: entry.target,
               identity,
-              ssh: entry.remoteCommand === null ? {} : { remoteCommand: entry.remoteCommand },
+              ssh:
+                entry.remoteCommand === null
+                  ? { ...ssh }
+                  : { ...ssh, remoteCommand: entry.remoteCommand },
             };
 
             if (clientIdentity !== undefined) options = { ...options, clientIdentity };

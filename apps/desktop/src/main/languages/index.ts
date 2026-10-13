@@ -7,7 +7,7 @@ import {
   languageMethods,
   languageFeeds,
 } from "@polaris/client";
-import { Schema } from "effect";
+import { Predicate, Schema } from "effect";
 import type { LanguageApi, Result, IpcError } from "../../shared/api.ts";
 import {
   LanguageRequestInputs,
@@ -52,7 +52,14 @@ const routing = Schema.Struct({
   context: Schema.optionalKey(P.LanguageContextIdentity),
   fence: Schema.optionalKey(P.LanguageRequestFence),
   acceptance: Schema.optionalKey(P.LanguageTreeEditAcceptance),
-  scope: Schema.optionalKey(Schema.Union([P.LanguageSettingsScope, P.LanguageTrustScope])),
+  // SQL dialect selection's scope is a bare word ("file", "workspace"), not a Host-bound scope.
+  scope: Schema.optionalKey(
+    Schema.Union([
+      P.LanguageSettingsScope,
+      P.LanguageTrustScope,
+      Schema.Literals(["file", "workspace"]),
+    ])
+  ),
   policy: Schema.optionalKey(P.LanguagePreviewPolicy),
 });
 
@@ -76,7 +83,7 @@ const hostFor = (options: LanguageBridgeOptions, value: unknown): LanguageHost =
   const checkout = input.checkout ?? context?.checkout;
 
   const scopedHost =
-    input.scope !== undefined && "hostId" in input.scope ? input.scope.hostId : undefined;
+    Predicate.isObject(input.scope) && "hostId" in input.scope ? input.scope.hostId : undefined;
 
   if (
     (context !== undefined && context.hostId !== host.hostId) ||
@@ -89,7 +96,7 @@ const hostFor = (options: LanguageBridgeOptions, value: unknown): LanguageHost =
     input.workspaceId ??
     checkout?.workspaceId ??
     input.policy?.workspaceId ??
-    (input.scope !== undefined && "workspaceId" in input.scope
+    (Predicate.isObject(input.scope) && "workspaceId" in input.scope
       ? input.scope.workspaceId
       : undefined);
 

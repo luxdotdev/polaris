@@ -75,3 +75,30 @@ timer and no checks or timer in dev/unsupported/blocked builds. Quiet Upgrade
 captions use one-shot expiry timers only after an Upgrade, without polling.
 The `idle` scenario measures the Daemon, so it does not prove the packaged
 Desktop App's native downloader overhead or six-hour wakeup cost.
+
+## Windows
+
+Packaged, non-dev win32 x64 and arm64 builds use the same controller, opt-out,
+quit guard and six-hour scheduling. The feed directory is
+`/api/update/win32-<arch>/<version>`; Squirrel appends `/RELEASES`. Maintenance
+launches handle `--squirrel-install`, `--squirrel-updated`, uninstall and obsolete
+before taking the single-instance lock. Shortcut operations wait for Update.exe
+and fail after ten seconds. The matching AUMID is
+`com.squirrel.Polaris-<arch>-win.Polaris`. `--squirrel-firstrun` suppresses the
+launch check because the installer holds a file lock; the normal timer/manual
+check still works. Unpacked/zip builds are blocked unless the executable is in
+an `app-<version>` directory with readable `../Update.exe`.
+
+Electron's Windows Squirrel adapter ignores `setFeedURL` headers. An explicit
+five-second preflight fetch of RELEASES sends `X-Polaris-Windows-Version` and,
+only while automatic checks are on, the install ID. A 204 finishes as current;
+a failure is retryable; disposal prevents starting a native download. Then
+Squirrel fetches the same feed without custom headers and downloads the absolute
+validated nupkg URL. The server logs these native requests with a null install
+ID. Windows' `update-downloaded` release name is the numeric NuGet version;
+its URL is the feed directory, unlike macOS's ZIP URL.
+
+Windows unit tests run on macOS using injected platform, paths, updater and
+transport. They cover both architectures, maintenance/shortcuts, first run,
+preflight headers and opt-out, disposal, package parsing and install gating.
+Native Windows installer/update behavior is a separate verification gate.

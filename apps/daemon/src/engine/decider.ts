@@ -51,6 +51,8 @@ export interface DecideContext {
   readonly canSteer: boolean;
   /** For SetModel: whether the session's Harness can change Model mid-session. */
   readonly canSwitchModel: boolean;
+  /** For StopBackgroundTasks: whether the session's Harness can stop its background tasks. */
+  readonly canStopBackground: boolean;
   /**
    * The Turn the command names, looked up in memory or SQL (null if unknown):
    * ForkSession's `fromTurnId`, AcceptTurns' `throughTurnId`.
@@ -276,6 +278,7 @@ const startSession = (d: Deciding, command: CommandOf<"StartSession">): Decision
     turnCount: 0,
     contextUsage: null,
     lastError: null,
+    origin: command.origin ?? null,
     createdAt: d.ctx.now,
     updatedAt: d.ctx.now,
   });
@@ -375,6 +378,34 @@ const renameSession = (d: Deciding, command: CommandOf<"RenameSession">): Decisi
     return d.ok(DomainEvent.cases.SessionRenamed.make({ sessionId: command.sessionId, title }));
   });
 
+/** Pins at the current time, or unpins; asking for what's already so commits nothing. */
+const pinSession = (d: Deciding, command: CommandOf<"PinSession">): Decision =>
+  d.withSession(command.sessionId, (record) => {
+    if (command.pinned === (record.session.pinnedAt != null)) return d.ok();
+
+    return d.ok(
+      DomainEvent.cases.SessionPinned.make({
+        sessionId: command.sessionId,
+        pinnedAt: command.pinned ? d.ctx.now : null,
+      })
+    );
+  });
+
+/** A session preference, not lifecycle: the reset itself goes through the machine as a Continue. */
+const setResumeAtReset = (d: Deciding, command: CommandOf<"SetResumeAtReset">): Decision =>
+  d.withSession(command.sessionId, (record) => {
+    if (record.session.state === "archived") return d.reject("the session is Archived");
+
+    if (command.resumeAtReset === record.session.resumeAtReset) return d.ok();
+
+    return d.ok(
+      DomainEvent.cases.SessionResumeAtResetChanged.make({
+        sessionId: command.sessionId,
+        resumeAtReset: command.resumeAtReset,
+      })
+    );
+  });
+
 /** A new Turn with the last Turn's prompt and attachments; the machine checks that it Failed. */
 const retry = (d: Deciding, command: CommandOf<"Retry">): Decision =>
   d.withSession(command.sessionId, (record) => {
@@ -427,6 +458,12 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
     Retry: (c) => retry(d, c),
     Steer: (c) => onSession(d, c.sessionId, { type: "turn.steer", canSteer: ctx.canSteer }),
     Interrupt: (c) => onSession(d, c.sessionId, { type: "turn.interrupt" }),
+    StopBackgroundTasks: (c) =>
+      onSession(d, c.sessionId, {
+        type: "background.stop",
+        taskIds: c.taskIds,
+        canStop: ctx.canStopBackground,
+      }),
     RespondToApproval: (c) =>
       onSession(d, c.sessionId, {
         type: "approval.respond",
@@ -435,6 +472,8 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
         resolvedBy: ctx.deviceLabel,
       }),
     RenameSession: (c) => renameSession(d, c),
+    PinSession: (c) => pinSession(d, c),
+    SetResumeAtReset: (c) => setResumeAtReset(d, c),
     SetPermissionMode: (c) =>
       onSession(d, c.sessionId, { type: "permissionMode.set", permissionMode: c.permissionMode }),
     SetModel: (c) => setModel(d, c),

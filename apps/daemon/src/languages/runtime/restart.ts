@@ -117,14 +117,22 @@ export function bindRestarts(ports: {
     clientId: string | null,
     checkout: LanguageCheckout | null,
     workspaceId: string,
-    providerId?: string
+    providerId?: string,
+    selectionScope?: LanguageCheckout
   ) {
+    const scope =
+      selectionScope === undefined
+        ? null
+        : trustScopeKey(trustScope(options.hostId, selectionScope));
+
     const selected = [...entries.values()].filter(
       (entry) =>
         (clientId === null || entry.identity.clientId === clientId) &&
         entry.facts.checkout.workspaceId === workspaceId &&
         (checkout === null || checkoutKey(checkout) === checkoutKey(entry.facts.checkout)) &&
-        (providerId === undefined || providerId === entry.facts.providerId)
+        (providerId === undefined || providerId === entry.facts.providerId) &&
+        (scope === null ||
+          trustScopeKey(trustScope(options.hostId, entry.facts.checkout)) === scope)
     );
 
     const results = [];

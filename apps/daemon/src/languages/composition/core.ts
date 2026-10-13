@@ -1,3 +1,4 @@
+import { workflowPath } from "../web/index.ts";
 import {
   LanguageCatalog,
   LanguagePreflight,
@@ -38,6 +39,8 @@ import { prepareFeatureEdit, type PreparationIntent } from "./preparation.ts";
 import { configuredExecutable } from "./configuredLaunch.ts";
 import { observationAdmission } from "./observation.ts";
 import { managedWithoutTrust } from "./managedPolicy.ts";
+import { developerProvider } from "../go/launch.ts";
+import { trustLanguage, trustProvider } from "./trustProvider.ts";
 import {
   LanguageProviderAccess,
   LanguageTrustGrantAuthority,
@@ -149,6 +152,7 @@ function makeCore(
     path: string;
     documentLanguageId: string;
     settings: typeof LanguageEffectiveSettings.Type;
+    refresh?: boolean;
   }) =>
     Effect.gen(function* () {
       const auth = yield* requestAuthority(hostId);
@@ -160,7 +164,12 @@ function makeCore(
       const ids =
         input.settings.settings.providers ??
         catalog.integrations
-          .filter((item) => item.offered && item.languageIds.includes(input.documentLanguageId))
+          .filter(
+            (item) =>
+              item.offered &&
+              item.languageIds.includes(input.documentLanguageId) &&
+              (item.id !== "actions" || workflowPath(input.path))
+          )
           .flatMap((item) => item.providers.map((provider) => provider.id));
 
       const facts = [];
@@ -189,7 +198,17 @@ function makeCore(
 
         projectRoot = found.projectRoot;
 
-        if (providerId === "typescript-language-server")
+        if (
+          [
+            "typescript-language-server",
+            "svelte-language-server",
+            "prisma-language-server",
+            "phpactor",
+            "gopls",
+            "rust-analyzer",
+            "lua-language-server",
+          ].includes(providerId)
+        )
           trustRequest = trustStatus(found, observed.trust, trust);
 
         const state =
@@ -215,7 +234,7 @@ function makeCore(
                     observed.trust.revision,
                     trust,
                     owners,
-                    !managedWithoutTrust(found)
+                    !managedWithoutTrust(found) && !developerProvider(providerId)
                   ),
                   pythonInterpreter: found.interpreter,
                 },
@@ -337,9 +356,9 @@ function makeCore(
         discovery.discover({
           checkout,
           path,
-          providerId: "typescript-language-server",
+          providerId: trustProvider(path),
           settings: effectiveSettings(
-            { hostId, workspaceId: checkout.workspaceId, language: "typescript" },
+            { hostId, workspaceId: checkout.workspaceId, language: trustLanguage(path) },
             [],
             0
           ),
