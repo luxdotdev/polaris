@@ -1,7 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { chromeOptions, menuKeys, TITLE_BAR_HEIGHT, titleBarOverlay } from "./chrome.ts";
+import {
+  chromeOptions,
+  menuKeys,
+  TITLE_BAR_HEIGHT,
+  titleBarOverlay,
+  WM_ENTERMENULOOP,
+} from "./chrome.ts";
 
 const tokens = readFileSync(
   join(import.meta.dir, "../../../../packages/ui/src/styles/tokens.css"),
@@ -92,5 +98,15 @@ describe("menuKeys", () => {
     keys.opens(key("keyDown", "Alt", { alt: true }));
     keys.reset();
     expect(keys.opens(key("keyUp", "Alt"))).toBe(false);
+  });
+
+  test("Alt+Space: the system menu's loop resets, so its Alt release opens nothing", () => {
+    const keys = menuKeys();
+
+    // The Space never reaches the page; the window sees WM_ENTERMENULOOP instead.
+    keys.opens(key("keyDown", "Alt", { alt: true }));
+    keys.reset();
+    expect(keys.opens(key("keyUp", "Alt"))).toBe(false);
+    expect(WM_ENTERMENULOOP).toBe(0x0211);
   });
 });

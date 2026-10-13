@@ -4,7 +4,7 @@
  */
 import { BrowserWindow, nativeTheme, shell } from "electron";
 import { clientPlatform, PLATFORM_ARG } from "../shared/platform.ts";
-import { chromeOptions, menuKeys, titleBarOverlay } from "./chrome.ts";
+import { chromeOptions, menuKeys, titleBarOverlay, WM_ENTERMENULOOP } from "./chrome.ts";
 import { popupAppMenu } from "./menu.ts";
 
 export interface MainWindowInput {
@@ -57,6 +57,7 @@ export const createMainWindow = ({ url, preload, trusted, show, icon }: MainWind
       popupAppMenu(win);
     });
     win.on("blur", keys.reset);
+    win.hookWindowMessage(WM_ENTERMENULOOP, keys.reset);
   }
 
   win.webContents.setWindowOpenHandler(({ url: target }) => {

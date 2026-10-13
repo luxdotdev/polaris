@@ -92,4 +92,14 @@ describe("menuTemplate", () => {
     expect(accelerator("linux", "Go", "session.next")).toBe("CmdOrCtrl+PageDown");
     expect(accelerator("win32", "&File", "tab.closeOthers")).toBeUndefined();
   });
+
+  test("Windows and Linux menus leave out chords Chromium would name Comma or Period", () => {
+    const accelerator = (platform: "darwin" | "win32" | "linux", menu: string, id: string) =>
+      submenu(menuTemplate(input(platform)), menu).find((item) => item.id === id)?.accelerator;
+
+    expect(accelerator("darwin", "Session", "session.interrupt")).toBe("CmdOrCtrl+.");
+    expect(accelerator("win32", "&Session", "session.interrupt")).toBeUndefined();
+    expect(accelerator("linux", "Session", "session.interrupt")).toBeUndefined();
+    expect(accelerator("win32", "&File", "settings.open")).toBeUndefined();
+  });
 });

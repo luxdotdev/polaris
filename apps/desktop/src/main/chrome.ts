@@ -37,6 +37,9 @@ export const chromeOptions = (
 export const APP_MENU_ORIGIN = { x: 12, y: TITLE_BAR_HEIGHT } as const;
 
 /** The fields of Electron's `before-input-event` input that the menu keys read. */
+/** Windows enters a menu's modal loop: Alt+Space's system menu swallows the Space, so reset. */
+export const WM_ENTERMENULOOP = 0x0211;
+
 export interface MenuKeyInput {
   readonly type: string;
   readonly key: string;

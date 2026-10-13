@@ -29,7 +29,18 @@ export interface TemplateInput extends MenuInput {
 
 type Items = Array<MenuItemConstructorOptions>;
 
-/** A menu's items from the platform's keymap; the first chord with a modifier is the one shown. */
+/** Keys Chromium's Windows and Linux menus name ("Ctrl+Comma"); the palette shows them instead. */
+const MISNAMED = new Set(["Comma", "Period"]);
+
+/** The chord a menu item shows: the first with a modifier, unless the menu would misname it. */
+const shownChord = (keys: ReadonlyArray<string>, platform: ClientPlatform) =>
+  keys.find((k) => {
+    const chord = parseChord(k);
+
+    return !isBare(chord) && (platform === "darwin" || !MISNAMED.has(chord.code));
+  });
+
+/** A menu's items from the platform's keymap, each showing its `shownChord`. */
 const commandItems = (
   menu: MenuName,
   { send, platform }: Pick<TemplateInput, "send" | "platform">
@@ -37,7 +48,7 @@ const commandItems = (
   keymapFor(keyPlatformOf(platform))
     .filter((b) => b.menu === menu)
     .map((b) => {
-      const shown = b.keys.find((k) => !isBare(parseChord(k)));
+      const shown = shownChord(b.keys, platform);
 
       const item: MenuItemConstructorOptions = {
         id: b.id,

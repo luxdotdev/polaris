@@ -221,7 +221,7 @@ describe("Control+Tab by mode", () => {
     const row = registry.palette().find((r) => r.id === "session.next");
 
     expect([row?.shortcut, row?.ariaKeys]).toEqual([
-      "Ctrl+PageDown / Ctrl+Tab",
+      "Ctrl+Page Down / Ctrl+Tab",
       "Control+PageDown Control+Tab",
     ]);
   });

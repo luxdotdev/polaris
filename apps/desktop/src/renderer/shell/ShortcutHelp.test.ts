@@ -10,7 +10,7 @@ describe("the shortcut overlay", () => {
 
     expect(rows.filter((r) => /[⌘⌥⇧⌃↵]/.test(r))).toEqual([]);
     expect(rows).toContain("Workspace or machine 1–10: Ctrl+1…Ctrl+0");
-    expect(rows).toContain("Next session: Ctrl+PageDown Ctrl+Tab");
+    expect(rows).toContain("Next session: Ctrl+Page Down Ctrl+Tab");
     expect(rows).toContain("Edit: Alt+3");
     expect(rows).toContain("Show or hide output: Ctrl+Shift+B");
     expect(rows).toContain("Queue a follow-up for after the turn: Ctrl+Enter");
