@@ -65,6 +65,8 @@ export const Capability = Schema.Literals([
   "files.search",
   "files.watch",
   "inline.propose",
+  /** `commit.suggestMessage`: a Harness drafts the Commit box's message from the staged diff. */
+  "commit.suggest-message",
   /** Optional language extension, advertised only after the corresponding handlers are implemented. */
   "languages",
   "languages.install",

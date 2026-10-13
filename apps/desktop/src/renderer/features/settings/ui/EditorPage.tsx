@@ -8,6 +8,7 @@ import { polaris } from "../../bridge.ts";
 import { refreshLanguageSettings } from "../../editor/api.ts";
 import { useApp, useConnection } from "../../../shell/hooks.ts";
 import { EditorSettings } from "../editor/EditorSettings.tsx";
+import { CommitMessagesChoice } from "./CommitMessagesChoice.tsx";
 import { setSessionPrefs, useSettings } from "../store.ts";
 
 const refreshPreviews = (hostKey: string, workspaceId: P.WorkspaceId) => {
@@ -55,6 +56,7 @@ export const EditorPage = () => {
         onAutosave: (on) => setSessionPrefs({ editorAutosave: on }),
         inlineDiagnostics: prefs.editorInlineDiagnostics,
         onInlineDiagnostics: (on) => setSessionPrefs({ editorInlineDiagnostics: on }),
+        commitMessages: <CommitMessagesChoice />,
       }}
       refreshEditors={refreshEditors}
       refreshPreviews={refreshPreviews}

@@ -1,7 +1,9 @@
 import { childEnv } from "../service/childEnv.ts";
 import { InlineError } from "@polaris/protocol";
-import { Effect, Option, Schema, Stream } from "effect";
+import { Effect, Option, Schema, Stream, type Scope } from "effect";
+import { HarnessError } from "../harness/HarnessDriver.ts";
 import type { InlineBackend } from "./backend.ts";
+import type { StructuredJob } from "./structured.ts";
 import { decodePatch, harnessPrompt, instructions, patchJsonSchema } from "./patch.ts";
 
 const Event = Schema.Struct({
@@ -21,20 +23,17 @@ const Event = Schema.Struct({
   subtype: Schema.optionalKey(Schema.String),
 });
 
-export const claudeArgs = (model: string | null, effort: string | null): string[] => [
+export const claudeArgs = (job: Omit<StructuredJob, "prompt">): string[] => [
   "-p",
   "--output-format",
   "stream-json",
   "--verbose",
   "--include-partial-messages",
   "--json-schema",
-  JSON.stringify(patchJsonSchema),
+  JSON.stringify(job.schema),
   "--system-prompt",
-  instructions,
-  "--tools",
-  "Read",
-  "--allowedTools",
-  "Read",
+  job.instructions,
+  ...(job.read ? ["--tools", "Read", "--allowedTools", "Read"] : ["--tools", ""]),
   "--permission-mode",
   "dontAsk",
   "--permission-prompts",
@@ -50,84 +49,99 @@ export const claudeArgs = (model: string | null, effort: string | null): string[
   "--setting-sources",
   "",
   "--no-chrome",
-  ...(model === null ? [] : ["--model", model]),
-  ...(effort === null ? [] : ["--effort", effort]),
+  ...(job.model === null ? [] : ["--model", job.model]),
+  ...(job.effort === null ? [] : ["--effort", job.effort]),
 ];
+
+const failure = (message: string) => new HarnessError({ harness: "claude", message });
+
+/** One print-mode request; closing the scope kills and reaps the process. */
+export const claudeStructured = Effect.fn("harness.claude.structured")(function* (
+  binary: string,
+  job: StructuredJob,
+  cwd: string,
+  progress: (text: string) => Effect.Effect<void>
+): Effect.fn.Return<unknown, HarnessError, Scope.Scope> {
+  const proc = yield* Effect.acquireRelease(
+    Effect.try({
+      try: () =>
+        Bun.spawn([binary, ...claudeArgs(job)], {
+          cwd,
+          env: childEnv(),
+          stdin: "pipe",
+          stdout: "pipe",
+          stderr: "ignore",
+        }),
+      catch: () => failure("Could not start Claude Code"),
+    }),
+    (child) =>
+      Effect.promise(async () => {
+        child.kill();
+        await child.exited;
+      })
+  );
+
+  yield* Effect.tryPromise({
+    try: async () => {
+      await proc.stdin.write(job.prompt);
+      await proc.stdin.end();
+    },
+    catch: () => failure("Claude Code closed the input stream"),
+  });
+  let result: unknown;
+  let completed = false;
+
+  yield* Stream.fromReadableStream({
+    evaluate: () => proc.stdout,
+    onError: () => failure("Claude Code disconnected"),
+  }).pipe(
+    Stream.decodeText(),
+    Stream.splitLines,
+    Stream.runForEach((line) =>
+      Effect.gen(function* () {
+        const decoded = Schema.decodeUnknownOption(Schema.fromJsonString(Event))(line);
+
+        if (Option.isNone(decoded)) return;
+
+        const event = decoded.value;
+        const text = event.event?.delta?.text ?? event.event?.delta?.partial_json;
+
+        if (event.type === "stream_event" && text) yield* progress(text);
+
+        if (event.type === "result") {
+          if (event.is_error || event.subtype !== "success")
+            return yield* failure("Claude Code did not complete the request");
+
+          result = event.structured_output;
+          completed = true;
+        }
+      })
+    )
+  );
+  const code = yield* Effect.promise(() => proc.exited);
+
+  if (code !== 0 || !completed)
+    return yield* failure("Claude Code exited before returning structured output");
+
+  return result;
+});
 
 export const claudeInline = (binary: string): InlineBackend =>
   Effect.fn("inline.claude")(function* (request, cwd, progress) {
-    const proc = yield* Effect.acquireRelease(
-      Effect.try({
-        try: () =>
-          Bun.spawn([binary, ...claudeArgs(request.model, request.effort)], {
-            cwd,
-            env: childEnv(),
-            stdin: "pipe",
-            stdout: "pipe",
-            stderr: "ignore",
-          }),
-        catch: () =>
-          new InlineError({ reason: "harness-failed", message: "Could not start Claude Code" }),
-      }),
-      (child) =>
-        Effect.promise(async () => {
-          child.kill();
-          await child.exited;
-        })
-    );
+    const job = {
+      instructions,
+      prompt: harnessPrompt(request),
+      schema: patchJsonSchema,
+      model: request.model,
+      effort: request.effort,
+      read: true,
+    };
 
-    yield* Effect.tryPromise({
-      try: async () => {
-        await proc.stdin.write(harnessPrompt(request));
-        await proc.stdin.end();
-      },
-      catch: () =>
-        new InlineError({
-          reason: "harness-failed",
-          message: "Claude Code closed the input stream",
-        }),
-    });
-    let result: unknown;
-    let completed = false;
-
-    yield* Stream.fromReadableStream({
-      evaluate: () => proc.stdout,
-      onError: () =>
-        new InlineError({ reason: "harness-failed", message: "Claude Code disconnected" }),
-    }).pipe(
-      Stream.decodeText(),
-      Stream.splitLines,
-      Stream.runForEach((line) =>
-        Effect.gen(function* () {
-          const decoded = Schema.decodeUnknownOption(Schema.fromJsonString(Event))(line);
-
-          if (Option.isNone(decoded)) return;
-
-          const event = decoded.value;
-          const text = event.event?.delta?.text ?? event.event?.delta?.partial_json;
-
-          if (event.type === "stream_event" && text) yield* progress(text);
-
-          if (event.type === "result") {
-            if (event.is_error || event.subtype !== "success")
-              return yield* new InlineError({
-                reason: "harness-failed",
-                message: "Claude Code did not complete the inline proposal",
-              });
-
-            result = event.structured_output;
-            completed = true;
-          }
-        })
+    const result = yield* claudeStructured(binary, job, cwd, progress).pipe(
+      Effect.mapError(
+        (error) => new InlineError({ reason: "harness-failed", message: error.message })
       )
     );
-    const code = yield* Effect.promise(() => proc.exited);
-
-    if (code !== 0 || !completed)
-      return yield* new InlineError({
-        reason: "harness-failed",
-        message: "Claude Code exited before returning a patch",
-      });
 
     return yield* decodePatch(result);
   });

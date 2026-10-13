@@ -157,6 +157,8 @@ export const SessionPrefs = Schema.Struct({
   editorAutosave: Schema.Boolean,
   /** Settings → Editor: each line's most severe diagnostic at its end (on by default). */
   editorInlineDiagnostics: Schema.Boolean,
+  /** Settings → Editor: the Harness and Model that write commit messages (a small, fast one). */
+  commitMessages: RoleDefault,
 });
 
 export type SessionPrefs = typeof SessionPrefs.Type;
@@ -177,6 +179,7 @@ export const SessionPrefsPatch = Schema.Struct({
   editorVim: Schema.optionalKey(Schema.Boolean),
   editorAutosave: Schema.optionalKey(Schema.Boolean),
   editorInlineDiagnostics: Schema.optionalKey(Schema.Boolean),
+  commitMessages: Schema.optionalKey(RoleDefault),
 });
 
 export type SessionPrefsPatch = typeof SessionPrefsPatch.Type;

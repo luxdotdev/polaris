@@ -52,6 +52,8 @@ export interface EditorKeys {
   readonly onAutosave: (on: boolean) => void;
   readonly inlineDiagnostics: boolean;
   readonly onInlineDiagnostics: (on: boolean) => void;
+  /** The commit messages' Harness and Model chips; absent in tests. */
+  readonly commitMessages?: ReactNode;
 }
 
 export const Preferences = ({
@@ -82,6 +84,17 @@ export const Preferences = ({
           onCheckedChange={(on) => onChange(withKey("formatOnSave", on))}
         />
       </PreferenceRow>
+      {keys.commitMessages === undefined ? null : (
+        <PreferenceRow
+          id="editor-commit-messages"
+          title="Commit messages"
+          caption="Drafts from the staged changes in one click. A small model keeps it quick."
+        >
+          <div id="editor-commit-messages" className="shrink-0">
+            {keys.commitMessages}
+          </div>
+        </PreferenceRow>
+      )}
       <PreferenceRow
         id="editor-download-tools"
         title="Download language tools automatically"

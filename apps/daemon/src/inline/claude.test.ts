@@ -44,7 +44,14 @@ console.log(JSON.stringify({type:'result',subtype:'success',is_error:false,struc
   expect(await Bun.file(join(root, "input.json")).text()).toContain(
     request().content.replaceAll("\r", "\\r").replaceAll("\n", "\\n")
   );
-  const args = claudeArgs("model", "high");
+
+  const args = claudeArgs({
+    instructions: "",
+    schema: {},
+    model: "model",
+    effort: "high",
+    read: true,
+  });
 
   expect(args.slice(args.indexOf("--tools"), args.indexOf("--tools") + 2)).toEqual([
     "--tools",

@@ -2,7 +2,12 @@
  * The `git.*` IPC owned by the Explorer's Changes tab, spread into `RequestInputs`,
  * `SubscriptionInputs` and their outputs in `api.ts`.
  */
-import type { GitCommitItem, GitStatus } from "@polaris/protocol";
+import {
+  CommitMessageRequest,
+  type CommitMessageStreamItem,
+  type GitCommitItem,
+  type GitStatus,
+} from "@polaris/protocol";
 import { Schema } from "effect";
 import type { Rpc } from "effect/rpc";
 
@@ -35,8 +40,11 @@ export interface GitRequestOutputs {
 export const GitSubscriptionInputs = {
   /** One commit: the hooks' output, then Committed or Failed. Closing it doesn't stop git. */
   "git.commit": Schema.Struct({ hostKey: HostKey, cwd: Schema.String, message: Schema.String }),
+  /** A message for the staged changes (capability `commit.suggest-message`); closing it cancels. */
+  "commit.suggestMessage": Schema.Struct({ hostKey: HostKey, ...CommitMessageRequest.fields }),
 };
 
 export interface GitSubscriptionItems {
   "git.commit": GitCommitItem;
+  "commit.suggestMessage": CommitMessageStreamItem;
 }
