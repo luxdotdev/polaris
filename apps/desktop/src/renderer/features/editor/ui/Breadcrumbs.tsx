@@ -10,6 +10,7 @@ import { fileKey } from "../model/drafts.ts";
 import { crumbs } from "../model/paths.ts";
 import { useApp } from "../../../shell/hooks.ts";
 import { useEditor } from "../runtime/store.ts";
+import { commandShortcut } from "../../../../shared/keymap.ts";
 
 export interface BreadcrumbsProps {
   readonly hostKey: string;
@@ -63,7 +64,7 @@ export const Breadcrumbs = ({ hostKey, path, root }: BreadcrumbsProps) => {
       <span className="flex-1" />
       <span className="flex shrink-0 items-center gap-1.5">
         Ask about this file
-        <Kbd>⌘I</Kbd>
+        <Kbd>{commandShortcut("editor.inlineChat")}</Kbd>
       </span>
     </div>
   );

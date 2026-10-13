@@ -9,7 +9,7 @@ import { spawn } from "node:child_process";
 import { connect, type Socket } from "node:net";
 import { type ByteTransport, readEvents, writeEvents } from "@polaris/protocol";
 import { Deferred, Effect, Exit, Option, type Scope } from "effect";
-import { ConnectFailure, classifyExit } from "./failures.ts";
+import { ConnectFailure, classifyExit, type NeedsAttentionReason } from "./failures.ts";
 
 export interface ClientTransport extends ByteTransport {
   /** Why the transport closed or failed; waits briefly for the process to exit. */
@@ -21,10 +21,22 @@ export type Connector = Effect.Effect<ClientTransport, ConnectFailure, Scope.Sco
 
 const STDERR_LIMIT = 16 * 1024;
 
+const decoder = new TextDecoder();
+
 export interface SpawnOptions {
   readonly env?: Record<string, string | undefined>;
   /** Grace period after stdin closes before the process is killed. */
   readonly killAfterMs?: number;
+  /** Decodes stderr chunks; UTF-8 by default (wsl.exe mixes in UTF-16LE). */
+  readonly stderrDecoder?: () => (chunk: Uint8Array) => string;
+  /** Classifies the exit; `classifyExit` (ssh's messages) by default. */
+  readonly classify?: (exit: {
+    readonly code: number | null;
+    readonly signal: string | null;
+    readonly stderr: string;
+  }) => ConnectFailure;
+  /** The reason when the command itself can't be spawned; default by the command's name. */
+  readonly spawnFailureReason?: NeedsAttentionReason;
 }
 
 /** Runs `argv` and speaks the wire over its stdin/stdout. */
@@ -44,8 +56,12 @@ export const spawnTransport = (
     }
 
     const exited = yield* Deferred.make<{ code: number | null; signal: string | null }>();
+    const decode = options.stderrDecoder?.() ?? ((chunk: Uint8Array) => decoder.decode(chunk));
+    const classify = options.classify ?? classifyExit;
     let stderr = "";
     let spawnError: NodeJS.ErrnoException | null = null;
+    // Set from the child's `error` event; read through a call so TypeScript doesn't narrow it.
+    const startError = () => spawnError;
 
     const { child, incoming } = yield* Effect.acquireRelease(
       Effect.sync(() => {
@@ -63,7 +79,7 @@ export const spawnTransport = (
           Deferred.doneUnsafe(exited, Exit.succeed({ code, signal }))
         );
         child.stderr?.on("data", (chunk: Uint8Array) => {
-          stderr = (stderr + new TextDecoder().decode(chunk)).slice(-STDERR_LIMIT);
+          stderr = (stderr + decode(chunk)).slice(-STDERR_LIMIT);
         });
         child.stdin?.on("error", () => {});
 
@@ -96,21 +112,41 @@ export const spawnTransport = (
       });
     }
 
+    const missingReason =
+      options.spawnFailureReason ?? (command === "ssh" ? "ssh-missing" : "command-missing");
+
+    // A spawn failure arrives on the next tick; wait for it so the attempt fails outright.
+    yield* Effect.callback<void>((resume) => {
+      setImmediate(() => resume(Effect.void));
+    });
+
+    const notStarted = startError();
+
+    if (notStarted !== null) {
+      return yield* new ConnectFailure({
+        kind: "needs-attention",
+        reason: missingReason,
+        detail: `${command}: ${notStarted.code ?? notStarted.message}`,
+      });
+    }
+
     const diagnose = Deferred.await(exited).pipe(
       Effect.timeoutOption(3000),
-      Effect.map((exit) =>
-        spawnError !== null
+      Effect.map((exit) => {
+        const failed = startError();
+
+        return failed !== null
           ? new ConnectFailure({
               kind: "needs-attention",
-              reason: command === "ssh" ? "ssh-missing" : "command-missing",
-              detail: `${command}: ${spawnError.code ?? spawnError.message}`,
+              reason: missingReason,
+              detail: `${command}: ${failed.code ?? failed.message}`,
             })
-          : classifyExit({
+          : classify({
               code: Option.isSome(exit) ? exit.value.code : null,
               signal: Option.isSome(exit) ? exit.value.signal : null,
               stderr,
-            })
-      )
+            });
+      })
     );
 
     return {

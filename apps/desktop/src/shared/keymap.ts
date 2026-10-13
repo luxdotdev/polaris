@@ -6,6 +6,7 @@
  * Features add commands of their own at run time (`routes/commands.ts`, `contribute`).
  */
 import { Predicate } from "effect";
+import { acceleratorLabel, currentKeyPlatform, type KeyPlatform } from "./chord.ts";
 
 export type CommandId =
   | "view.orchestrate"
@@ -47,6 +48,7 @@ export type CommandId =
   | "editor.inlineChat"
   | "editor.addToSession"
   | "editor.markdownPreview"
+  | "git.writeMessage"
   | "editor.save"
   | "editor.nextTab"
   | "editor.previousTab"
@@ -56,6 +58,9 @@ export type CommandId =
   | "palette.open"
   | "editor.format"
   | "editor.toggleInlineDiagnostics"
+  | "editor.prediction.accept"
+  | "editor.prediction.acceptWord"
+  | "editor.prediction.dismiss"
   | "language.restart"
   | "language.restartAll"
   | "language.showLog"
@@ -73,8 +78,11 @@ export type CommandGroup = "file" | "workspace" | "app";
 
 /** Facts about the moment that features put in the command context; `when` reads them. */
 export const CONTEXT_KEYS = [
+  /** The Edit view is showing. */
+  "mode.edit",
   /** A file is open and focused in Edit. */
   "editor.file",
+  "prediction.ghost",
   /** The focused file's Language Integration has a language server. */
   "language.server",
   "language.formatter",
@@ -204,6 +212,28 @@ const SETTINGS = (keywords: ReadonlyArray<string>): PaletteEntry => ({ group: "a
 const TRUST_KNOWN: Condition = { all: ["editor.file", "trust.known"] };
 
 export const KEYMAP: ReadonlyArray<KeyBinding> = [
+  {
+    id: "editor.prediction.accept",
+    title: "Accept tab completion",
+    keys: ["Tab"],
+    when: { all: ["editor.file", "prediction.ghost"] },
+    palette: false,
+  },
+  {
+    id: "editor.prediction.acceptWord",
+    title: "Accept a word of tab completion",
+    keys: ["Alt+Right"],
+    when: { all: ["editor.file", "prediction.ghost"] },
+    palette: false,
+  },
+  {
+    id: "editor.prediction.dismiss",
+    title: "Dismiss tab completion",
+    keys: ["Esc"],
+    when: { all: ["editor.file", "prediction.ghost"] },
+    palette: false,
+    shares: "session.interrupt",
+  },
   {
     id: "palette.open",
     title: "Command Palette…",
@@ -341,8 +371,19 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
     keys: ["CmdOrCtrl+K", "K"],
     menu: "Go",
   },
-  { id: "session.next", title: "Next session", keys: ["CmdOrCtrl+Alt+Down"], menu: "Go" },
-  { id: "session.previous", title: "Previous session", keys: ["CmdOrCtrl+Alt+Up"], menu: "Go" },
+  // Control+Tab on every platform; in Edit it cycles editor tabs instead (`shares`).
+  {
+    id: "session.next",
+    title: "Next session",
+    keys: ["CmdOrCtrl+Alt+Down", "Ctrl+Tab"],
+    menu: "Go",
+  },
+  {
+    id: "session.previous",
+    title: "Previous session",
+    keys: ["CmdOrCtrl+Alt+Up", "Ctrl+Shift+Tab"],
+    menu: "Go",
+  },
   {
     id: "session.new",
     title: "New session",
@@ -569,11 +610,27 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
     palette: FILE({ keywords: ["render"] }),
   },
   { id: "editor.save", title: "Save file", keys: ["CmdOrCtrl+S"], palette: FILE() },
-  { id: "editor.nextTab", title: "Next editor tab", keys: ["Ctrl+Tab"], palette: FILE() },
+  {
+    id: "git.writeMessage",
+    title: "Write commit message",
+    keys: ["CmdOrCtrl+Alt+G"],
+    when: "mode.edit",
+    palette: WORKSPACE({ keywords: ["git", "commit", "message", "generate"] }),
+  },
+  {
+    id: "editor.nextTab",
+    title: "Next editor tab",
+    keys: ["Ctrl+Tab"],
+    shares: "session.next",
+    when: "mode.edit",
+    palette: FILE(),
+  },
   {
     id: "editor.previousTab",
     title: "Previous editor tab",
     keys: ["Ctrl+Shift+Tab"],
+    shares: "session.previous",
+    when: "mode.edit",
     palette: FILE(),
   },
   // With no tab open, Close tab closes the window, as in VS Code.
@@ -625,10 +682,101 @@ export const RESERVED: ReadonlyArray<string> = [
   "CmdOrCtrl+Tab",
 ];
 
+/**
+ * Windows' and Linux desktops' own chords, the menu roles' accelerators there, Shift+F10
+ * (context menus) and Ctrl+H (Replace, by convention). The Windows key never appears in a binding.
+ */
+export const PC_RESERVED: ReadonlyArray<string> = [
+  "Alt+F4",
+  "Alt+Space",
+  "Alt+Tab",
+  "Alt+Shift+Tab",
+  "Alt+Esc",
+  "Ctrl+Esc",
+  "Ctrl+Shift+Esc",
+  "Ctrl+Alt+Delete",
+  "F10",
+  "Shift+F10",
+  "F11",
+  ...Object.values(EDIT_CHORDS),
+  "CmdOrCtrl+Z",
+  "CmdOrCtrl+Y",
+  "CmdOrCtrl+Shift+Z",
+  "CmdOrCtrl+R",
+  "CmdOrCtrl+Shift+I",
+  "CmdOrCtrl+H",
+  "CmdOrCtrl+Q",
+  "Ctrl+Space",
+];
+
+/** The chords a platform keeps for itself. */
+export const reservedFor = (platform: KeyPlatform): ReadonlyArray<string> =>
+  platform === "mac" ? RESERVED : PC_RESERVED;
+
+/**
+ * Where Windows and Linux differ: Ctrl+Alt is AltGr on European layouts (it types @, {, €),
+ * so those chords move; Ctrl picks Workspaces and sessions, Alt the views. Empty: menu and palette only.
+ */
+export const PC_KEYS: Partial<Record<CommandId, ReadonlyArray<string>>> = {
+  "editor.prediction.acceptWord": ["Ctrl+Right"],
+  "language.restart": ["CmdOrCtrl+Shift+R"],
+  "view.orchestrate": ["Alt+1"],
+  "view.review": ["Alt+2"],
+  "view.edit": ["Alt+3"],
+  "view.output": ["CmdOrCtrl+Shift+B"],
+  "session.next": ["CmdOrCtrl+PageDown", "Ctrl+Tab"],
+  "session.previous": ["CmdOrCtrl+PageUp", "Ctrl+Shift+Tab"],
+  "tab.closeOthers": [],
+  "git.writeMessage": ["CmdOrCtrl+Shift+G"],
+};
+
+/** The keymap with a platform's own keys. */
+export const keymapFor = (platform: KeyPlatform): ReadonlyArray<KeyBinding> =>
+  platform === "mac"
+    ? KEYMAP
+    : KEYMAP.map((b) => {
+        const keys = PC_KEYS[b.id];
+
+        return keys === undefined ? b : { ...b, keys };
+      });
+
+/** ⌃` toggles the terminal drawer (Ctrl+` on Windows and Linux); the drawer handles it. */
+export const TERMINAL_TOGGLE = "Ctrl+`";
+
+/** Keys a field or dialog handles itself, so their hints read the platform's way. */
+export const FIELD_CHORDS = {
+  submit: "CmdOrCtrl+Enter",
+  newLine: "Shift+Enter",
+  previousMatch: "Shift+Enter",
+  matchCase: "Alt+C",
+  regex: "Alt+R",
+  folderUp: "CmdOrCtrl+Up",
+  nextHost: "Ctrl+Tab",
+  undo: "CmdOrCtrl+Z",
+} as const;
+
 /** ⌃1…⌃0 and ⌥1…⌥0 pick Workspace chips or machines; they are data-driven, so outside KEYMAP. */
 export const SHORTCUT_DIGIT_MODIFIERS: ReadonlyArray<string> = ["Ctrl", "Alt"];
 
+/** On Windows and Linux only Ctrl+1…0, as browser tabs: Alt+1–3 are the views there. */
+export const digitModifiersFor = (platform: KeyPlatform): ReadonlyArray<"Ctrl" | "Alt"> =>
+  platform === "mac" ? ["Ctrl", "Alt"] : ["Ctrl"];
+
+/** The chord of the chip at `index` ("Ctrl+1"; "Ctrl+0" is the tenth), in the platform's first modifier. */
+export const digitChord = (index: number, platform: KeyPlatform): string | undefined => {
+  if (index < 0 || index > 9) return undefined;
+
+  return `${digitModifiersFor(platform)[0] ?? "Ctrl"}+${(index + 1) % 10}`;
+};
+
 export const bindingOf = (id: CommandId): KeyBinding | undefined => KEYMAP.find((b) => b.id === id);
 
-/** The chord a menu shows for a command: its first accelerator, if it has one. */
-export const chordOf = (id: CommandId): string | undefined => bindingOf(id)?.keys[0];
+/** The chord a menu shows for a command: its first accelerator on the platform, if it has one. */
+export const chordOf = (id: CommandId, platform: KeyPlatform): string | undefined =>
+  keymapFor(platform).find((b) => b.id === id)?.keys[0];
+
+/** A command's shortcut as copy shows it ("⌘N", "Ctrl+N"), or "" when it has none there. */
+export const commandShortcut = (
+  id: CommandId,
+  platform: KeyPlatform = currentKeyPlatform()
+): string => acceleratorLabel(chordOf(id, platform), platform) ?? "";

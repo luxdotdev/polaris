@@ -22,7 +22,7 @@ jobs:
       fail-fast: false
       matrix:
         # macOS runs the execve hand-off proof on the platform it matters most on.
-        os: [ubuntu-latest, macos-15]
+        os: [ubuntu-latest, macos-15, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -37,9 +37,26 @@ jobs:
       # oxfmt format check, then oxlint through the ratchet (tooling/lint/baseline.json):
       # fails on new or increased violations. See packages/lint-config/README.md.
       - run: bun run lint
-      - run: bunx turbo run typecheck test
+      - run: bun run typecheck
+      - run: bun run test
+        if: runner.os != 'Windows'
+      - name: Windows Client tests
+        if: runner.os == 'Windows'
+        # Native Daemon, SSH shell fixtures, launchd, PTYs and Mac packaging argv are POSIX-only.
+        # Windows ships a remote-only Client; retain their complete suites on Linux and macOS.
+        run: >-
+          bun test packages/protocol apps/site apps/desktop/src/shared
+          apps/desktop/src/renderer/features/settings/updates/model.test.ts apps/desktop/src/main/updates
+          apps/desktop/scripts/packaging/windows.test.ts
+          packages/client/src/connection.test.ts
+          packages/client/src/constellation/connections.test.ts
+          packages/client/src/languages/access.test.ts packages/client/src/languages/context.test.ts
       - name: Typecheck and test scripts
+        if: runner.os != 'Windows'
         run: bunx tsc -p scripts && bun test scripts
+      - name: Typecheck scripts (Windows)
+        if: runner.os == 'Windows'
+        run: bunx tsc -p scripts
       - run: bun run licenses:check
 
   spec:

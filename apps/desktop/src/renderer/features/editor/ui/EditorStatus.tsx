@@ -12,6 +12,7 @@ import { agentCaretLine } from "../cm/agent.ts";
 import { followingText } from "../model/agent.ts";
 import { fileKey, workspaceKey } from "../model/drafts.ts";
 import { type Cursor, useEditor } from "../runtime/store.ts";
+import { PredictionStatus } from "../prediction/Status.tsx";
 
 export interface EditorStatusProps {
   readonly hostKey: string;
@@ -85,6 +86,7 @@ export const EditorStatus = ({ hostKey, workspaceId }: EditorStatusProps) => {
           }
         />
       )}
+      <PredictionStatus hostKey={hostKey} />
     </div>
   );
 };

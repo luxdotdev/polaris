@@ -90,7 +90,7 @@ export const mountPullsPreview = (root: HTMLElement, hash: string) => {
     navigation.actions.showSidebar("needs-you");
   } else navigation.actions.setMode("review");
 
-  const commands = createCommandRegistry({ mac: true });
+  const commands = createCommandRegistry({ platform: "mac" });
 
   createRoot(root).render(<App value={{ connection, navigation, commands }} />);
 

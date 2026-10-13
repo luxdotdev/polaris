@@ -1,16 +1,16 @@
 /**
  * The menu bar star (DESIGN.md, Brand: "the flat white star plus the needs-you count"):
- * the count from every Host beside the star, and a menu of the waiting sessions.
+ * the count from every Host beside the star, and a menu of the waiting sessions. Windows
+ * can't title a tray icon, so there the star carries a needs-you dot and opens on click.
  */
-import { Menu, type MenuItemConstructorOptions, Tray } from "electron";
-import type { NeedsYouSession, NeedsYouSummary } from "../../shared/needsYou.ts";
-import { starImage } from "./star.ts";
+import { Menu, nativeTheme, Tray } from "electron";
+import type { NeedsYouSummary } from "../../shared/needsYou.ts";
+import { clientPlatform } from "../../shared/platform.ts";
+import { menuTemplate, type StarTrayInput } from "./menu.ts";
+import { badgeColors, starInk } from "./pixels.ts";
+import { inkedStarImage, starImage } from "./star.ts";
 
-export interface StarTrayInput {
-  readonly onOpenSession: (session: NeedsYouSession) => void;
-  readonly onOpenApp: () => void;
-  readonly onQuit: () => void;
-}
+export type { StarTrayInput } from "./menu.ts";
 
 export interface StarTray {
   readonly update: (summary: NeedsYouSummary) => void;
@@ -19,39 +19,45 @@ export interface StarTray {
   readonly destroy: () => void;
 }
 
-const sessionLabel = (session: NeedsYouSession) => {
-  const where =
-    session.workspace === null ? session.hostLabel : `${session.hostLabel} · ${session.workspace}`;
+/** Windows: the star in the taskbar's ink, with the dot while anything needs you. */
+const windowsStar = (count: number) => {
+  const dark = nativeTheme.shouldUseDarkColorsForSystemIntegratedUI;
 
-  return `${session.title || "Untitled session"} — ${where}`;
+  return inkedStarImage(starInk(dark), count > 0 ? badgeColors(dark).fill : null);
 };
 
-export const menuTemplate = (
-  summary: NeedsYouSummary,
-  input: StarTrayInput
-): Array<MenuItemConstructorOptions> => [
-  { label: summary.count === 0 ? "Nothing needs you" : "Needs you", enabled: false },
-  ...summary.sessions.map((session): MenuItemConstructorOptions => ({
-    label: sessionLabel(session),
-    click: () => input.onOpenSession(session),
-  })),
-  { type: "separator" },
-  { label: "Open Polaris", click: input.onOpenApp },
-  { label: "Quit Polaris", accelerator: "Command+Q", click: input.onQuit },
-];
-
 export const createStarTray = (input: StarTrayInput): StarTray => {
-  const tray = new Tray(starImage());
+  const platform = clientPlatform();
+  const windows = platform === "win32";
+  const tray = new Tray(windows ? windowsStar(0) : starImage());
   let title = "";
+  let count = 0;
 
   const update = (summary: NeedsYouSummary) => {
+    count = summary.count;
     title = summary.count > 0 ? String(summary.count) : "";
-    tray.setTitle(title, { fontType: "monospacedDigit" });
+
+    if (windows) tray.setImage(windowsStar(count));
+    else tray.setTitle(title, { fontType: "monospacedDigit" });
     tray.setToolTip(summary.count > 0 ? `Polaris · ${summary.count} need you` : "Polaris");
-    tray.setContextMenu(Menu.buildFromTemplate(menuTemplate(summary, input)));
+    tray.setContextMenu(Menu.buildFromTemplate(menuTemplate(summary, input, platform)));
   };
+
+  const retint = () => tray.setImage(windowsStar(count));
+
+  if (windows) {
+    tray.on("click", input.onOpenApp);
+    nativeTheme.on("updated", retint);
+  }
 
   update({ count: 0, sessions: [], focused: null });
 
-  return { update, title: () => title, destroy: () => tray.destroy() };
+  return {
+    update,
+    title: () => title,
+    destroy: () => {
+      nativeTheme.off("updated", retint);
+      tray.destroy();
+    },
+  };
 };

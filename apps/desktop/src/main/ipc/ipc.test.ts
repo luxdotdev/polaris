@@ -117,6 +117,7 @@ const context: RequestContext = {
   writeClipboard: () => Promise.resolve(),
   editAction: () => undefined,
   needsYou: () => undefined,
+  showAppMenu: () => {},
 };
 
 const handlers = requestHandlers(context);
@@ -258,6 +259,7 @@ describe("subscriptions", () => {
   test("every feed kind in the contract can be opened", () => {
     expect(Object.keys(SubscriptionInputs).sort()).toEqual(
       [
+        "commit.suggestMessage",
         "constellation",
         "files.watch",
         "files.watchFile",
@@ -269,6 +271,7 @@ describe("subscriptions", () => {
         "harness.availability",
         "host",
         "inline.propose",
+        "prediction.complete",
         "hosts",
         "machines",
         "plan-limits",

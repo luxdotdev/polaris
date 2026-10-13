@@ -1,3 +1,4 @@
+import { PredictionCapabilityLive } from "../prediction/capability.ts";
 /**
  * `polaris serve`: run the Daemon until SIGINT / SIGTERM.
  *
@@ -18,7 +19,9 @@ import { installDebugHooks } from "../debug.ts";
 import { Engine } from "../engine/Engine.ts";
 import { EngineRpcHandlers } from "../engine/rpc.ts";
 import { FileSearchLive } from "../files/FileSearch.ts";
+import { PredictionRpcsLive } from "../prediction/index.ts";
 import { InlineRpcsLive } from "../inline/index.ts";
+import { CommitMessageRpcsLive } from "../commitMessage/index.ts";
 import { FilesRpcsLive } from "../files/FilesRpcs.ts";
 import { CheckpointsLive } from "../git/Checkpoints.ts";
 import { GitRpcsLive } from "../git/GitRpcs.ts";
@@ -93,8 +96,11 @@ const daemonServices = ReviewerLive().pipe(Layer.provideMerge(engineServices));
 
 /** Every real handler layer the Daemon mounts. Compose new modules' layers here. */
 export const daemonHandlers = Layer.mergeAll(
+  PredictionCapabilityLive,
   lazyLanguageHandlers,
   InlineRpcsLive,
+  PredictionRpcsLive,
+  CommitMessageRpcsLive,
   EngineRpcHandlers,
   ResourceRpcsLive,
   lazyConstellationHandlers,
@@ -111,7 +117,11 @@ export const daemonHandlers = Layer.mergeAll(
 ).pipe(Layer.provide(daemonServices));
 
 export const daemonCapabilities: ReadonlyArray<Capability> = [
+  "prediction.capability",
+  "prediction.context",
   "inline.propose",
+  "prediction.complete",
+  "commit.suggest-message",
   "languages",
   "languages.trust",
   "languages.format",

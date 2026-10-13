@@ -1,3 +1,4 @@
+import type { PredictionPlacementOutputs } from "./predictionPlacement.ts";
 /**
  * The typed bridge between the main process and the renderer: channel names,
  * what every request returns, what every subscription delivers, and the API
@@ -51,6 +52,7 @@ import type {
 } from "@polaris/protocol";
 import type { Rpc } from "effect/rpc";
 import type { CommandId } from "./keymap.ts";
+import type { PredictionUiOutputs, PredictionFeedItem } from "./predictionContract.ts";
 import type { AppUpdateView } from "./appUpdates.ts";
 import type { PullRef } from "./github.ts";
 import type { ConstellationDefaultsMethod, ConstellationMethod } from "./constellationContract.ts";
@@ -179,6 +181,24 @@ export interface SshAliasView {
   readonly user: string | null;
 }
 
+/** A WSL distro on this Windows machine, for "Add a host" (`src/main/machines/wsl.ts`). */
+export interface WslDistroView {
+  readonly name: string;
+  readonly version: number;
+  readonly state: "running" | "stopped" | "unknown";
+  readonly isDefault: boolean;
+  /** Why it can't be a Host (a WSL 1 distro); null when it can. */
+  readonly unsupported: string | null;
+}
+
+export interface WslDistrosView {
+  /** `unsupported`: not Windows; `not-installed`: no wsl.exe or the stub; `no-distros`: WSL without a distro. */
+  readonly status: "distros" | "no-distros" | "not-installed" | "unsupported" | "failed";
+  readonly distros: ReadonlyArray<WslDistroView>;
+  /** wsl.exe's own line, for `not-installed` and `failed`. */
+  readonly detail: string | null;
+}
+
 /** The install flow's step (`src/main/machines/installFlow.ts`). */
 export type InstallStepView =
   | "idle"
@@ -222,6 +242,8 @@ export interface MachineView {
   readonly colour: string | null;
   /** Null for the local Host. */
   readonly alias: string | null;
+  /** How the Host is reached; for "wsl" the alias is the distro name. */
+  readonly kind: "local" | "ssh" | "wsl";
   /** Where the alias points, from `~/.ssh/config`. */
   readonly target: { readonly hostName: string | null; readonly user: string | null } | null;
   /** The local Host can be switched off on this machine; remote Hosts are always on. */
@@ -270,6 +292,8 @@ export interface SettingsView extends Appearance {
     readonly label: string;
     readonly colour: string | null;
     readonly forwardAgent: boolean;
+    /** Absent means ssh; "wsl" adds the distro named by `alias`. */
+    readonly kind?: "ssh" | "wsl";
   }>;
 }
 
@@ -353,10 +377,12 @@ export type ResourceRequestOutputs = {
 
 export interface RequestOutputs
   extends
+    PredictionUiOutputs,
     GitHubRequestOutputs,
     GitRequestOutputs,
     ConstellationRequestOutputs,
-    ResourceRequestOutputs {
+    ResourceRequestOutputs,
+    PredictionPlacementOutputs {
   "constellation.stats": ConstellationStatsView;
   "settings.get": SettingsView;
   "updates.get": AppUpdateView;
@@ -436,6 +462,7 @@ export interface RequestOutputs
   "session.pushAccepted": Plain<AcceptPushed>;
   "install.ensure": InstallView;
   "machines.sshAliases": ReadonlyArray<SshAliasView>;
+  "machines.wslDistros": WslDistrosView;
   "machines.add": { readonly key: string };
   "machines.update": null;
   "machines.remove": null;
@@ -450,6 +477,7 @@ export interface RequestOutputs
   "machines.openSsh": null;
   "clipboard.write": null;
   "edit.run": null;
+  "app.menu": null;
   "onboarding.found": { readonly sshHosts: ReadonlyArray<string>; readonly version: string };
   "onboarding.welcomeSeen": null;
   "dialog.pickFolder": { readonly path: string | null };
@@ -469,6 +497,7 @@ export type TerminalItem =
   | { readonly _tag: "Exit"; readonly code: number | null };
 
 export interface SubscriptionItems extends GitHubSubscriptionItems, GitSubscriptionItems {
+  "prediction.complete": PredictionFeedItem;
   hosts: ReadonlyArray<HostView>;
   machines: ReadonlyArray<MachineView>;
   host: HostStreamItem;
@@ -551,6 +580,8 @@ export interface LanguageApi {
 }
 
 export interface PolarisApi {
+  /** The Client's OS from `process.platform`; read it through `clientPlatform()` (shared/platform.ts). */
+  readonly platform?: string;
   readonly languages?: LanguageApi;
   readonly request: <M extends RequestMethod>(
     method: M,

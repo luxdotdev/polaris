@@ -1,0 +1,27 @@
+/* Windows: thin rounded scrollbars in the theme's ink, where Chromium would draw classic ones. */
+@layer base {
+  :root[data-platform="win32"] {
+    & ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+      background: transparent;
+    }
+
+    & ::-webkit-scrollbar-thumb {
+      border: 2px solid transparent;
+      border-radius: 9999px;
+      background-clip: content-box;
+      background-color: color-mix(in srgb, var(--color-text-faint) 55%, transparent);
+    }
+
+    & ::-webkit-scrollbar-thumb:hover {
+      background-color: color-mix(in srgb, var(--color-text-faint) 85%, transparent);
+    }
+
+    & ::-webkit-scrollbar-button,
+    & ::-webkit-scrollbar-corner {
+      display: none;
+      background: transparent;
+    }
+  }
+}

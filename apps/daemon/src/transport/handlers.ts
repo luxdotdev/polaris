@@ -5,6 +5,8 @@
  */
 import {
   InlineError,
+  PredictionError,
+  CommitMessageError,
   LanguageIdentityError,
   type Capability,
   CommandRejected,
@@ -51,6 +53,24 @@ export const defaultHandlers = (options: {
 }) =>
   ServerRpcs.toLayer({
     ...languageDefaults,
+    "prediction.capability": () =>
+      Effect.fail(
+        new PredictionError({
+          reason: "unavailable",
+          message: "Prediction capability is unavailable",
+        })
+      ),
+    "prediction.context": () =>
+      Effect.fail(
+        new PredictionError({ reason: "unavailable", message: "Prediction context is unavailable" })
+      ),
+    "prediction.complete": () =>
+      Stream.fail(
+        new PredictionError({
+          reason: "unavailable",
+          message: "Prediction completion is unavailable",
+        })
+      ),
     "host.resources.get": () =>
       Effect.fail(new ResourceError({ message: "Host resources are unavailable" })),
     "host.resources.declare": () =>
@@ -302,6 +322,13 @@ export const defaultHandlers = (options: {
         })
       ),
     "usage.watch": () => Stream.fail(new Unsupported({ capability: "usage" })),
+    "commit.suggestMessage": () =>
+      Stream.fail(
+        new CommitMessageError({
+          reason: "harness-failed",
+          message: "This Daemon does not support commit.suggestMessage",
+        })
+      ),
 
     "files.listDir": ({ path }) => Effect.fail(fileError(path, "files")),
     "files.stat": ({ path }) => Effect.fail(fileError(path, "files")),

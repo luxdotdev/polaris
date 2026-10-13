@@ -29,7 +29,8 @@
     "@polaris/protocol": "workspace:*",
     "effect": "4.0.0-rc.118",
     "xstate": "6.0.0-alpha.61",
-    "zod": "4.6.5"
+    "zod": "4.6.5",
+    "@polaris/predict": "workspace:*"
   },
   "devDependencies": {
     "@agentclientprotocol/sdk": "1.5.1",

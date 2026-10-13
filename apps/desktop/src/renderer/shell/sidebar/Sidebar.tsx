@@ -3,6 +3,7 @@
  * Workspace bar, or the selected machine's sessions grouped by Workspace in
  * the machine bar; the Sessions / Needs you switch; "Needs you elsewhere".
  */
+import { clientCopy } from "../../../shared/clientCopy.ts";
 import type { Workspace } from "@polaris/protocol";
 import {
   Button,
@@ -33,6 +34,7 @@ import { useApp, useNav, useSelection, useShellActions } from "../hooks.ts";
 import { useNow } from "../useNow.ts";
 import { Elsewhere } from "./Elsewhere.tsx";
 import { CompactSessionRow } from "./SessionRow.tsx";
+import { commandShortcut } from "../../../shared/keymap.ts";
 
 const useHostModel = (hostKey: string | null) =>
   useApp((s) => (hostKey === null ? undefined : s.hostModels[hostKey])) ?? emptyHostModel;
@@ -103,7 +105,7 @@ const Header = ({ title, caption, canStart, host }: HeaderProps) => {
             variant="ghost"
             size="xs"
             data-testid="dismiss-all"
-            title="Dismiss every item on this Mac · each comes back if its session changes"
+            title={`Dismiss every item on ${clientCopy().machine} · each comes back if its session changes`}
             onClick={inbox.dismissAll}
           >
             Dismiss all
@@ -113,7 +115,7 @@ const Header = ({ title, caption, canStart, host }: HeaderProps) => {
           <IconButton
             label="New session"
             icon={<PlusIcon />}
-            shortcut="⌘N"
+            shortcut={commandShortcut("session.new")}
             onClick={startNewSession}
           />
         ) : null}
@@ -237,7 +239,7 @@ const Footer = ({ caption }: { readonly caption: string }) => {
       <span className="text-caption text-text-subtle min-w-0 truncate">{caption}</span>
       <IconButton
         label="Settings"
-        shortcut="⌘,"
+        shortcut={commandShortcut("settings.open")}
         size="sm"
         icon={<GearIcon size={14} />}
         className="text-text-subtle"

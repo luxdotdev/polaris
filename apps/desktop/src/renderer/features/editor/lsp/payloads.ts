@@ -261,6 +261,16 @@ const fenceSyntax = (text: string) =>
     (_whole, grammar: string) => `Syntax\n\n${fence("", unescape(grammar))}`
   );
 
+/** Phpactor's `### Name`, docs, then a `<?php` signature fence: the signature first, no heading. */
+const fencePhpactor = (text: string) =>
+  text
+    .replace(/^( {0,3}(`{3,}|~{3,})php\n)<\?php[ \t]+/gm, "$1")
+    .replace(
+      /^#{1,6} [^\n]*\n+(?:([\s\S]*?)\n+)?((`{3,})php\n(?:(?!\3)[\s\S])*\n\3)\s*$/,
+      (_whole, docs: string | undefined, signature: string) =>
+        docs ? `${signature}\n---\n${docs}` : signature
+    );
+
 /** Docs Markdown without the noise servers send: images, empty fences, blank runs, pydoc as prose. */
 export const tidyDocs = (part: HoverPart): HoverPart => {
   const collapsed = part.text.replace(/\n[ \t]*(?:\n[ \t]*){2,}/g, "\n\n").trim();
@@ -268,7 +278,7 @@ export const tidyDocs = (part: HoverPart): HoverPart => {
   if (part.kind === "plaintext") return { kind: "plaintext", text: collapsed };
   const cleaned = collapsed.replace(EMPTY_FENCE, "").replace(IMAGE, "");
 
-  return { kind: "markdown", text: fenceSyntax(fencePydoc(cleaned)).trim() };
+  return { kind: "markdown", text: fencePhpactor(fenceSyntax(fencePydoc(cleaned))).trim() };
 };
 
 type HoverContents = NonNullable<typeof Hover.Type>["contents"];

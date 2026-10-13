@@ -1,3 +1,6 @@
+import { createMainPredictionPlacement } from "./prediction/placement.ts";
+import { PredictionSettings } from "./prediction/preferences.ts";
+import { createPredictionBridge } from "./prediction/bridge.ts";
 /**
  * The Electron main process: the Client runtime (`@polaris/client`'s
  * HostRegistry on Effect), the typed IPC bridge, the menu and the window.
@@ -44,7 +47,8 @@ import { createMainLanguageApi } from "./languages/runtime.ts";
 import { LanguagePreferences } from "./languages/settings.ts";
 import { machinesLayer, sshAliasNames } from "./machines/index.ts";
 import { type LocalDaemon, localHostEnabled, resolveLocalDaemon } from "./localDaemon.ts";
-import { buildMenu } from "./menu.ts";
+import { buildMenu, popupAppMenu } from "./menu.ts";
+import { setClientPlatform, toClientPlatform } from "../shared/platform.ts";
 import { createNeedsYouCenter, type NeedsYouCenter } from "./notifications/index.ts";
 import { createReviewNotifier, type ReviewNotifier } from "./notifications/reviews.ts";
 import {
@@ -69,6 +73,12 @@ import { createMainWindow } from "./window.ts";
 import { askToQuit, holdsQuit } from "./editorQuit.ts";
 import { createAppUpdates, type AppUpdates } from "./updates/index.ts";
 import { cannotInstallHere, installId } from "./updates/identity.ts";
+import { revealAppPath, updatePlatform, windowsAppId } from "./updates/platform.ts";
+import { handleSquirrelStartup } from "./updates/squirrel.ts";
+
+if (await handleSquirrelStartup(process.platform, process.argv, process.execPath)) app.exit(0);
+
+if (process.platform === "win32") app.setAppUserModelId(windowsAppId(process.arch));
 
 const env = process.env;
 
@@ -85,6 +95,11 @@ nameApp();
 
 if (env.POLARIS_DESKTOP_USER_DATA !== undefined) {
   app.setPath("userData", env.POLARIS_DESKTOP_USER_DATA);
+}
+
+// Screenshot runs draw another OS's chrome on this one; a release (app.asar) never pretends.
+if (!app.getAppPath().endsWith(".asar") && env.POLARIS_DESKTOP_PLATFORM !== undefined) {
+  setClientPlatform(toClientPlatform(env.POLARIS_DESKTOP_PLATFORM));
 }
 
 // The spike measured these as harmless and never needed: see ENG-184's NOTES.md.
@@ -161,9 +176,16 @@ const start = async () => {
     version: app.getVersion(),
     installId: installId(app.getPath("userData")),
     macOSVersion: process.getSystemVersion(),
+    platform: process.platform,
+    firstRun: process.platform === "win32" && process.argv.includes("--squirrel-firstrun"),
     arch: process.arch,
-    supported: app.isPackaged && !dev && process.platform === "darwin" && process.arch === "arm64",
-    blocked: cannotInstallHere(app.getAppPath(), app.getPath("downloads")),
+    supported: app.isPackaged && !dev && updatePlatform(process.platform, process.arch) !== null,
+    blocked: cannotInstallHere(
+      app.getAppPath(),
+      app.getPath("downloads"),
+      process.platform,
+      process.execPath
+    ),
     automatic: settings.automaticAppUpdates ?? true,
     lastCheckedAt: settings.appUpdateLastCheckedAt ?? null,
     save: saveSettings,
@@ -296,13 +318,32 @@ const start = async () => {
 
   const daemonDist = join(repoRoot, "apps/daemon/dist");
 
+  const predictionSettings = new PredictionSettings(
+    () => settings,
+    (value) => updateSettings(() => value)
+  );
+
+  const predictionPlacement = createMainPredictionPlacement(runtime, predictionSettings);
+
+  const predictionBridge = createPredictionBridge({
+    runtime,
+    placement: predictionPlacement,
+    preferences: predictionSettings,
+    read: () => settings,
+    commit: (value) => updateSettings(() => value),
+  });
+
   ipc = registerIpc({
     runtime,
     trusted,
     context: {
       updates: currentUpdates,
       restartToUpdate,
-      showAppInFinder: () => shell.showItemInFolder(join(dirname(app.getPath("exe")), "../..")),
+      showAppInFinder: () =>
+        shell.showItemInFolder(revealAppPath(process.platform, app.getPath("exe"))),
+      predictionSettings,
+      predictionPlacement,
+      predictionBridge,
       settings: () => settings,
       cache: openSnapshotCache(app.getPath("userData")),
       prices: openPrices(app.getPath("userData")),
@@ -325,6 +366,11 @@ const start = async () => {
           action
         ](),
       needsYou: (summary) => needsYou?.publish(summary),
+      showAppMenu: () => {
+        const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+
+        if (win !== undefined) popupAppMenu(win);
+      },
     },
   });
 

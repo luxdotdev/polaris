@@ -5,6 +5,8 @@
  */
 import type { AgentSession, SessionState, Workspace, WorkspaceId } from "@polaris/protocol";
 import type { HostView } from "../../shared/api.ts";
+import { acceleratorLabel, currentKeyPlatform, type KeyPlatform } from "../../shared/chord.ts";
+import { digitChord } from "../../shared/keymap.ts";
 import type { HostModel, SessionEntry } from "../store/hostModel.ts";
 
 export type TopBarMode = "workspaces" | "machines" | "hidden";
@@ -156,6 +158,8 @@ export const barHosts = ({ hosts, models, quiet }: BarInput): ReadonlyArray<BarH
 export const barWorkspaces = (hosts: ReadonlyArray<BarHost>): ReadonlyArray<BarWorkspace> =>
   hosts.flatMap((h) => h.workspaces);
 
-/** "⌃1" … "⌃9", "⌃0" for the tenth; nothing past it. */
-export const shortcutLabel = (index: number): string | undefined =>
-  index < 9 ? `⌃${index + 1}` : index === 9 ? "⌃0" : undefined;
+/** "⌃1" … "⌃9", "⌃0" for the tenth ("Ctrl+1" off macOS); nothing past it. */
+export const shortcutLabel = (
+  index: number,
+  platform: KeyPlatform = currentKeyPlatform()
+): string | undefined => acceleratorLabel(digitChord(index, platform), platform);

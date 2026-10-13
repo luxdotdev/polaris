@@ -2,6 +2,7 @@
  * What a Host's Connection State means, in words (rule/say-what-happened,
  * rule/glossary-lowercase): never the client's raw error or a socket path.
  */
+import { clientCopy } from "../../shared/clientCopy.ts";
 import type { ConnectionState } from "@polaris/protocol";
 import { Match } from "effect";
 import type { ConnectionFailureView, HostView } from "../../shared/api.ts";
@@ -20,7 +21,7 @@ const TRANSIENT = new Map<string, (label: string) => string>(
     timeout: (l: string) => `${l} isn't answering.`,
     "connection-lost": (l: string) => `The connection to ${l} dropped.`,
     "connection-failed": (l: string) => `Couldn't connect to ${l}.`,
-    "spawn-failed": (): string => "ssh couldn't start on this Mac.",
+    "spawn-failed": (): string => `ssh couldn't start on ${clientCopy().machine}.`,
     "daemon-not-running": (l: string) => `The daemon on ${l} is restarting.`,
   })
 );
@@ -31,10 +32,12 @@ const ATTENTION = new Map<string, (label: string) => string>(
     "host-key-changed": (l: string) => `${l}'s host key changed.`,
     "auth-failed": (l: string) => `${l} refused the key.`,
     "ssh-config-error": (): string => "ssh refused its config for this host.",
-    "ssh-missing": (): string => "ssh isn't installed on this Mac.",
+    "ssh-missing": (): string => `ssh isn't installed on ${clientCopy().machine}.`,
     "command-missing": (l: string) => `The Polaris command is missing on ${l}.`,
     "polaris-not-installed": (l: string) => `Polaris isn't installed on ${l}.`,
     "daemon-not-running": (l: string) => `The daemon on ${l} isn't running.`,
+    "wsl-missing": (): string => "WSL didn't start on this PC.",
+    "wsl-distro-missing": (l: string) => `WSL no longer lists the distro for ${l}.`,
   })
 );
 
@@ -42,8 +45,11 @@ const ATTENTION = new Map<string, (label: string) => string>(
 export const mismatchWords = (label: string, older: ConnectionFailureView["older"]): string =>
   Match.value(older).pipe(
     Match.when("daemon", () => `${label} runs an older daemon`),
-    Match.when("client", () => `Polaris on this Mac is older than the daemon on ${label}`),
-    Match.orElse(() => `The daemon on ${label} doesn't match Polaris on this Mac`)
+    Match.when(
+      "client",
+      () => `Polaris on ${clientCopy().machine} is older than the daemon on ${label}`
+    ),
+    Match.orElse(() => `The daemon on ${label} doesn't match Polaris on ${clientCopy().machine}`)
   );
 
 /** One or two sentences for the sidebar while the Host isn't connected. */

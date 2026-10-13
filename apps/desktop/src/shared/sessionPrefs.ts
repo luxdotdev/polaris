@@ -25,4 +25,14 @@ export const DEFAULT_SESSION_PREFS: SessionPrefs = {
   editorVim: false,
   editorAutosave: false,
   editorInlineDiagnostics: true,
+  commitMessages: { harness: "claude", model: "claude-haiku-5-5", effort: null },
 };
+
+const COMMIT_MESSAGE_MODELS = new Map([
+  ["claude", "claude-haiku-5-5"],
+  ["codex", "gpt-6-luna"],
+]);
+
+/** A Harness's small, fast Model for commit messages, chosen when the Harness changes. */
+export const commitMessageModel = (harness: string): string | null =>
+  COMMIT_MESSAGE_MODELS.get(harness) ?? null;

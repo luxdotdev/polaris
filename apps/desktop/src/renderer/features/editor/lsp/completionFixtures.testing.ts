@@ -1,8 +1,9 @@
 /**
  * Raw completion and signature payloads, captured 2026-10-12 over stdio with the Daemon's
  * client capabilities: vscode-langservers-extracted 4.10.0 (CSS), typescript-language-server
- * 6.0.1 with TypeScript 6.0.3, basedpyright 1.40.2. `*_RESOLVED` is the `completionItem/resolve`
- * answer; CSS_PLAINTEXT_ITEMS is what CSS sent before the Daemon asked for Markdown.
+ * 6.0.1 with TypeScript 6.0.3, basedpyright 1.40.2; gopls v0.23.0 and Phpactor 2026.10.07.0 via the
+ * Daemon. `*_RESOLVED` is the `completionItem/resolve` answer; CSS_PLAINTEXT_ITEMS is what CSS sent
+ * before the Daemon asked for Markdown.
  */
 
 export const CSS_ITEMS = [
@@ -348,4 +349,189 @@ export const TS_IMPORT_RESOLVED = {
       newText: 'import { hostLabel } from "./hosts";\n\n',
     },
   ],
+};
+
+/** gopls v0.23.0 after `fmt.Pr`: docs arrive inline (gopls offers no resolve). */
+export const GOPLS_ITEMS = [
+  {
+    label: "Print",
+    kind: 3,
+    detail: "func(a ...any) (n int, err error)",
+    documentation: {
+      kind: "markdown",
+      value:
+        "Print formats using the default formats for its operands and writes to standard output. Spaces are added between operands when neither is a string. It returns the number of bytes written and any write error encountered.\n",
+    },
+    preselect: true,
+    sortText: "00000",
+    filterText: "Print",
+    insertTextFormat: 2,
+    textEdit: {
+      range: { start: { line: 5, character: 5 }, end: { line: 5, character: 12 } },
+      newText: "Print(${1:})",
+    },
+  },
+  {
+    label: "Printf",
+    kind: 3,
+    detail: "func(format string, a ...any) (n int, err error)",
+    documentation: {
+      kind: "markdown",
+      value:
+        "Printf formats according to a format specifier and writes to standard output. It returns the number of bytes written and any write error encountered.\n",
+    },
+    sortText: "00001",
+    filterText: "Printf",
+    insertTextFormat: 2,
+    textEdit: {
+      range: { start: { line: 5, character: 5 }, end: { line: 5, character: 12 } },
+      newText: "Printf(${1:})",
+    },
+  },
+  {
+    label: "Println",
+    kind: 3,
+    detail: "func(a ...any) (n int, err error)",
+    documentation: {
+      kind: "markdown",
+      value:
+        "Println formats using the default formats for its operands and writes to standard output. Spaces are always added between operands and a newline is appended. It returns the number of bytes written and any write error encountered.\n",
+    },
+    sortText: "00002",
+    filterText: "Println",
+    insertTextFormat: 2,
+    textEdit: {
+      range: { start: { line: 5, character: 5 }, end: { line: 5, character: 12 } },
+      newText: "Println(${1:})",
+    },
+  },
+];
+
+/** Phpactor 2026.10.07.0 after `$greeter->gr`: a list with no docs until resolve. */
+export const PHPACTOR_ITEMS = {
+  isIncomplete: true,
+  items: [
+    {
+      label: "greet",
+      kind: 2,
+      insertText: "greet(${1:\\$name})${0}",
+      insertTextFormat: 2,
+      data: 0,
+    },
+  ],
+};
+
+export const PHPACTOR_GREET_RESOLVED = {
+  label: "greet",
+  kind: 2,
+  detail: "pub greet(string $name): string",
+  documentation: {
+    kind: "markdown",
+    value:
+      "### App\\Greeter::greet\n\nSays hello.\n\n```php\n<?php public function greet(string $name): string\n```",
+  },
+  insertText: "greet(${1:\\$name})${0}",
+  insertTextFormat: 2,
+  data: 0,
+};
+
+/** rust-analyzer 2026-09-28 after `v.` on a `Vec<i32>`, before Trust; docs arrive on resolve. */
+export const RUST_PUSH_ITEM = {
+  label: "push",
+  kind: 2,
+  sortText: "7ffffff6",
+  filterText: "push",
+  textEdit: {
+    range: {
+      start: {
+        line: 4,
+        character: 6,
+      },
+      end: {
+        line: 4,
+        character: 6,
+      },
+    },
+    newText: "push",
+  },
+  data: {
+    position: {
+      textDocument: {
+        uri: "file:///project/src/main.rs",
+      },
+      position: {
+        line: 4,
+        character: 6,
+      },
+    },
+    version: 1,
+    for_ref: false,
+    hash: "IeWbOguyXjyXxQdk64gm5WSSjQ0=",
+  },
+};
+
+export const RUST_PUSH_RESOLVED = {
+  label: "push",
+  kind: 2,
+  detail: "fn(&mut self, T)",
+  documentation: {
+    kind: "markdown",
+    value:
+      "Appends an element to the back of a collection.\n\n# Panics\n\nPanics if the new capacity exceeds `isize::MAX` _bytes_.\n\n# Examples\n\n```rust\nlet mut vec = vec![1, 2];\nvec.push(3);\nassert_eq!(vec, [1, 2, 3]);\n```\n\n# Time complexity\n\nTakes amortized *O*(1) time. If the vector's length would exceed its\ncapacity after the push, *O*(*capacity*) time is taken to copy the\nvector's elements to a larger allocation. This expensive operation is\noffset by the *capacity* *O*(1) insertions it allows.",
+  },
+  preselect: true,
+  sortText: "7ffffff6",
+  filterText: "push",
+  textEdit: {
+    range: {
+      start: {
+        line: 4,
+        character: 6,
+      },
+      end: {
+        line: 4,
+        character: 6,
+      },
+    },
+    newText: "push",
+  },
+};
+
+/** lua-language-server 3.19.1 after `string.`: snippet items, docs on resolve. */
+export const LUA_BYTE_ITEM = {
+  command: {
+    command: "editor.action.triggerParameterHints",
+    title: "trigger signature",
+  },
+  data: {
+    id: 2,
+    uri: "file:///project/main.lua",
+  },
+  insertText: "byte(${1:s}, ${2:i?}, ${3:j?})",
+  insertTextFormat: 2,
+  kind: 3,
+  label: "byte(s, i, j)",
+  sortText: "0001",
+};
+
+export const LUA_BYTE_RESOLVED = {
+  command: {
+    command: "editor.action.triggerParameterHints",
+    title: "trigger signature",
+  },
+  data: {
+    id: 2,
+    uri: "file:///project/main.lua",
+  },
+  detail: "function",
+  documentation: {
+    kind: "markdown",
+    value:
+      "```lua\nfunction string.byte(s: string|number, i?: integer, j?: integer)\n  -> ...integer\n```\n\n---\n\n\nReturns the internal numeric codes of the characters `s[i], s[i+1], ..., s[j]`.\n\n[View documents](http://www.lua.org/manual/5.4/manual.html#pdf-string.byte)",
+  },
+  insertText: "byte(${1:s}, ${2:i?}, ${3:j?})",
+  insertTextFormat: 2,
+  kind: 3,
+  label: "byte(s, i, j)",
+  sortText: "0001",
 };

@@ -1,3 +1,4 @@
+import { PredictionPlacement } from "./PredictionPlacement.tsx";
 /**
  * A Host's expanded row: the approval (Paper 5FB-1's facts) or what needs the
  * user (S4), its Harnesses, and its settings, all flat in the row.
@@ -150,6 +151,7 @@ const Settings = ({ machine }: { readonly machine: MachineView }) => {
   return (
     <>
       <div className="border-hairline flex flex-col gap-3 border-t pt-3">
+        <PredictionPlacement hostKey={machine.key} />
         {local ? (
           <Field
             label="Use this Mac as a host"

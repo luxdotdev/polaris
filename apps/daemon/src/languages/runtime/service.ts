@@ -135,6 +135,10 @@ function effectBroker(broker: ReturnType<typeof createLanguageBroker>) {
           catch: brokerError,
         })
       ),
+    predictionDocument: Effect.fn("LanguageBroker.predictionDocument")(
+      (...args: Parameters<typeof broker.predictionDocument>) =>
+        Effect.sync(() => broker.predictionDocument(...args))
+    ),
     stats: Effect.sync(broker.stats),
     setProcessLimit: Effect.fn("LanguageBroker.setProcessLimit")((limit: number) =>
       Effect.sync(() => broker.setProcessLimit(limit))

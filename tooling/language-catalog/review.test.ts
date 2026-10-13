@@ -96,14 +96,12 @@ test("the exact catalog remains blocked on real evidence gaps, without circular 
       .filter((failure) => failure.includes(":missing-evidence:"))
       .map((failure) => failure.split(":")[0])
       .sort((a, b) => (a ?? "").localeCompare(b ?? ""))
-  ).toEqual(["jdtls", "lua-language-server", "rust-analyzer", "shellcheck"]);
+  ).toEqual(["jdtls", "shellcheck"]);
   expect(actual.some((failure) => failure.includes("false-awaiting-review"))).toBe(false);
   expect(reviewRootFailures(catalog.tools, activeRead)).toEqual([]);
 });
 
 const retainedNativeEvidence = [
-  ["rust-analyzer", "rust-target-sources.json"],
-  ["lua-language-server", "lua-retained-source-map.json"],
   ["jdtls", "jdt-nested-metadata.json"],
   ["jdtls", "jdt-nested-maven-sources.json"],
   ["jdtls", "jdt-nested-parent-sources.json"],

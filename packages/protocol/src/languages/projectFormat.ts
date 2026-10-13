@@ -16,6 +16,7 @@ export const LanguageProjectFormatterTool = Schema.Literals([
   "prettier",
   "biome",
   "dprint",
+  "stylua",
 ]);
 
 export type LanguageProjectFormatterTool = typeof LanguageProjectFormatterTool.Type;

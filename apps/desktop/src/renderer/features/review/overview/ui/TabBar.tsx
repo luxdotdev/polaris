@@ -4,6 +4,7 @@
  */
 import { cn, Kbd, Tooltip, TooltipContent, TooltipTrigger } from "@polaris/ui";
 import { type TabId, TAB_LABELS } from "../model/tabs.ts";
+import { commandShortcut } from "../../../../../shared/keymap.ts";
 
 export interface TabBarProps {
   readonly tabs: ReadonlyArray<TabId>;
@@ -18,17 +19,17 @@ export interface TabBarProps {
   readonly jumpLabel: string | null;
 }
 
-const NEXT = "⇧⌘]";
+const next = () => commandShortcut("review.nextTab");
 
-const PREVIOUS = "⇧⌘[";
+const previous = () => commandShortcut("review.previousTab");
 
 const keyTo = (tabs: ReadonlyArray<TabId>, current: TabId, tab: TabId) => {
   const from = tabs.indexOf(current);
   const to = tabs.indexOf(tab);
 
-  if ((from + 1) % tabs.length === to) return NEXT;
+  if ((from + 1) % tabs.length === to) return next();
 
-  return (to + 1) % tabs.length === from ? PREVIOUS : null;
+  return (to + 1) % tabs.length === from ? previous() : null;
 };
 
 export const TabBar = ({ tabs, current, figures, hints, news, onPick, jumpLabel }: TabBarProps) => (
@@ -89,7 +90,7 @@ export const TabBar = ({ tabs, current, figures, hints, news, onPick, jumpLabel 
         onClick={() => onPick("changes")}
         className="rounded-control h-tree-row pr-row-x bg-fill-selected text-body text-text-strong hover:bg-fill-selected/70 gap-gap flex shrink-0 cursor-default items-center pl-3 font-medium"
       >
-        {jumpLabel} →{current === "overview" && <Kbd>{NEXT}</Kbd>}
+        {jumpLabel} →{current === "overview" && <Kbd>{next()}</Kbd>}
       </button>
     )}
   </div>

@@ -23,6 +23,7 @@ import { useApp, useShellActions } from "../../../shell/hooks.ts";
 import { stateWords } from "../../../shell/hostCopy.ts";
 import { tildePath } from "../model/format.ts";
 import { patchSessionUi, uiKey } from "../state.ts";
+import { commandShortcut } from "../../../../shared/keymap.ts";
 
 const TRIGGER =
   "decoration-text-faint cursor-default underline decoration-dotted underline-offset-4";
@@ -144,7 +145,7 @@ export const WorkspaceMenu = (props: WhereMenuProps & { readonly path: string })
           data-testid="where-open-folder"
         >
           Open folder…
-          <DropdownMenuShortcut>⌘O</DropdownMenuShortcut>
+          <DropdownMenuShortcut>{commandShortcut("workspace.add")}</DropdownMenuShortcut>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

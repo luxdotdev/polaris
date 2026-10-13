@@ -1,0 +1,21 @@
+{
+  "artifactId": "phpactor.phar",
+  "artifactIntegrity": "sha256:b28bf6166e016d539fc2f2aec18ef918b12590e436a6f1ccbdf30b5bbdbdb16b",
+  "coverage": "complete",
+  "notices": [
+    {
+      "path": "notices/4287c3b7c293133dc59e92cb32a1aae899c4441ac6d64455c537c82070c84caa.txt",
+      "integrity": "sha256:4287c3b7c293133dc59e92cb32a1aae899c4441ac6d64455c537c82070c84caa"
+    },
+    {
+      "path": "notices/c8cce4b6b9729f264ffdf9296d505d63432497feeed1f586d1902b942197e024.txt",
+      "integrity": "sha256:c8cce4b6b9729f264ffdf9296d505d63432497feeed1f586d1902b942197e024"
+    }
+  ],
+  "evidence": [
+    {
+      "path": "runtime-go-php-review-records.json",
+      "integrity": "sha256:85e444397fc2736134151ebe059c932ac2ec33113b0b10950068866df198cf39"
+    }
+  ]
+}

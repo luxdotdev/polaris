@@ -1,5 +1,5 @@
 import "../../../test/dom.testing.ts";
-import { afterEach, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
 import { autocompletion, currentCompletions } from "@codemirror/autocomplete";
 import { EditorSelection, EditorState, type Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
@@ -8,6 +8,12 @@ import { vimExtension } from "../cm/vim.ts";
 import { LANGUAGE_NAVIGATION, shortcutOf } from "../navigation/commands.ts";
 import { footnoteOf } from "./completionMenu.ts";
 import { WORDS_FOOTNOTE, withWordFallback } from "./codemirror.ts";
+import { setClientPlatform } from "../../../../shared/platform.ts";
+
+// These tests read macOS labels ("⌘↵", "⌃Space").
+beforeAll(() => setClientPlatform("darwin"));
+
+afterAll(() => setClientPlatform(null));
 
 let view: EditorView | null = null;
 
@@ -24,7 +30,7 @@ afterEach(() => {
 const editor = (doc: string, extra: Extension = []) => {
   const parent = document.createElement("div");
   document.body.append(parent);
-  unforward = forwardShellChords(parent, true);
+  unforward = forwardShellChords(parent, "mac");
   view = new EditorView({
     state: EditorState.create({
       doc,
@@ -80,10 +86,10 @@ test("⌃Space opens completion in vim's insert mode", async () => {
 });
 
 test("no shell chord takes ⌃Space or ⌃⇧Space from the editor", () => {
-  const shell = shellChords();
+  const shell = shellChords("mac");
 
   for (const key of ["Ctrl-Space", "Ctrl-Shift-Space"])
-    expect(shell.has(cmChord(key, true))).toBe(false);
+    expect(shell.has(cmChord(key, "mac"))).toBe(false);
 });
 
 test("completion and signature help are listed with their chords", () => {

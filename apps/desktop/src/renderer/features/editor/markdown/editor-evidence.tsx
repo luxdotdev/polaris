@@ -209,7 +209,7 @@ const connection: Connection = {
 
 const navigation = createNavigation({ app: store, storage: null });
 
-const commands = createCommandRegistry({ mac: true });
+const commands = createCommandRegistry({ platform: "mac" });
 
 standInBridge(bridge);
 
