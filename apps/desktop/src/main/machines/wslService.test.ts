@@ -24,6 +24,7 @@ import {
 } from "effect";
 import type { HostView, MachineView } from "../../shared/api.ts";
 import { HostDirectory, type HostEntry, UnknownHost } from "../hosts.ts";
+import { LocalHost } from "../local/index.ts";
 import type { Settings } from "../settings.ts";
 import { openApprovals } from "./approvals.ts";
 import { locateBuilds } from "./builds.ts";
@@ -79,8 +80,6 @@ const setup = () => {
       buildOnDemand: false,
     }),
     aliases: () => [],
-    localDaemon: () => Promise.reject(new Error("unused")),
-    localHome: () => null,
     openTerminal: (argv) => {
       terminals.push(argv);
 
@@ -88,6 +87,7 @@ const setup = () => {
     },
     discoverWsl: discoverDistros({ ...fake, platform: "win32" }),
   }).pipe(
+    Layer.provide(LocalHost.test()),
     Layer.provide(
       HostAccess.fromRunners({
         ssh: Layer.succeed(

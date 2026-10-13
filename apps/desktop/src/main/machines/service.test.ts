@@ -14,6 +14,7 @@ import { HostId, HostInfo } from "@polaris/protocol";
 import { Effect, Layer, ManagedRuntime, Option, Schema, Stream, SubscriptionRef } from "effect";
 import type { ConnectionStatusView, HostView, MachineView } from "../../shared/api.ts";
 import { HostDirectory, type HostEntry, UnknownHost } from "../hosts.ts";
+import { LocalHost, testDaemon } from "../local/index.ts";
 import type { Settings } from "../settings.ts";
 import { openApprovals } from "./approvals.ts";
 import { locateBuilds } from "./builds.ts";
@@ -90,11 +91,14 @@ const setup = (
       buildOnDemand: false,
     }),
     aliases: () => [{ alias: "studio", hostName: "studio.lan", user: null }],
-    localDaemon: () => Promise.reject(new Error("unused")),
-    localHome: () => localHome,
-    localListening,
     openTerminal: () => Promise.resolve(),
   });
+
+  // This Mac's Daemon: installed in `localHome`, or with none the app's own dev Daemon.
+  const localHost =
+    clientPlatform === "win32"
+      ? LocalHost.unsupported()
+      : LocalHost.test({ daemon: testDaemon(localHome), listening: localListening });
 
   const remote = Layer.succeed(
     Ssh,
@@ -135,7 +139,7 @@ const setup = (
   );
 
   const runtime = ManagedRuntime.make(
-    Layer.provideMerge(Layer.provide(machines, access), directory)
+    Layer.provideMerge(Layer.provide(machines, Layer.mergeAll(access, localHost)), directory)
   );
 
   /** Waits until the studio row satisfies `predicate`. */

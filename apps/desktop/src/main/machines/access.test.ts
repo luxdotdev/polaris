@@ -11,6 +11,7 @@ import { HostAccess } from "@polaris/client/access";
 import { Effect, Layer, ManagedRuntime, SubscriptionRef } from "effect";
 import type { HostView } from "../../shared/api.ts";
 import { HostDirectory, type HostEntry } from "../hosts.ts";
+import { LocalHost, testDaemon } from "../local/index.ts";
 import type { Settings } from "../settings.ts";
 import { Machines } from "./service.ts";
 
@@ -41,6 +42,14 @@ const setup = (localHome: string | null, platform: NodeJS.Platform = "darwin") =
     { platform }
   );
 
+  const localHost =
+    platform === "win32"
+      ? LocalHost.unsupported(platform)
+      : LocalHost.test({
+          daemon: testDaemon(localHome),
+          listening: (h) => Promise.resolve(void listened.push(h)),
+        });
+
   const directory = Layer.effect(
     HostDirectory,
     Effect.map(SubscriptionRef.make<ReadonlyArray<HostView>>([]), (views) =>
@@ -62,14 +71,11 @@ const setup = (localHome: string | null, platform: NodeJS.Platform = "darwin") =
     approvals: { approved: () => new Set(), approve: () => undefined, forget: () => undefined },
     builds: { source: "none", forPlatform: () => Effect.succeed([]) },
     aliases: () => [],
-    localDaemon: () => Promise.reject(new Error("unused")),
-    localHome: () => localHome,
-    localListening: (h) => Promise.resolve(void listened.push(h)),
     openTerminal: (argv) => Promise.resolve(void terminals.push(argv)),
   });
 
   const runtime = ManagedRuntime.make(
-    Layer.provideMerge(Layer.provide(machines, access), directory)
+    Layer.provideMerge(Layer.provide(machines, Layer.mergeAll(access, localHost)), directory)
   );
 
   const call = <A, E>(use: (m: Machines["Service"]) => Effect.Effect<A, E>) =>
@@ -134,7 +140,7 @@ describe("Machines acts on each Host through its HostAccess channel", () => {
     await t.runtime.dispose();
   });
 
-  test("a Windows Client has no local channel, even with a home", async () => {
+  test("a Windows Client has no local Host to act on, even with a home", async () => {
     install(home);
     const t = setup(home, "win32");
     const error = await t.refused((m) => m.startDaemon("local"));

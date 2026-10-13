@@ -29,22 +29,11 @@ export interface LocalDaemon {
 }
 
 export interface LocalDaemonOptions {
-  readonly platform?: NodeJS.Platform;
   readonly dev: boolean;
   /** The repository root; the dev Daemon runs from `apps/daemon/src/main.ts` there. */
   readonly repoRoot: string;
   readonly env: NodeJS.ProcessEnv;
 }
-
-/** Native Windows Clients only connect to remote Hosts. */
-export const localHostEnabled = (
-  enabled: boolean | undefined,
-  platform: NodeJS.Platform = process.platform
-): boolean => platform !== "win32" && (enabled ?? true);
-
-const requireLocalHost = (platform: NodeJS.Platform = process.platform) => {
-  if (platform === "win32") throw new Error("A local Windows Daemon is not supported.");
-};
 
 export const systemSocket = () => join(homedir(), ".polaris", "daemon.sock");
 
@@ -120,9 +109,7 @@ const stopChild = (child: ChildProcess) =>
 export const startDevDaemon = async ({
   repoRoot,
   env,
-  platform,
 }: LocalDaemonOptions): Promise<LocalDaemon> => {
-  requireLocalHost(platform);
   const home = devHome();
   const socketPath = join(home, "daemon.sock");
 
@@ -169,8 +156,8 @@ export const awaitInstalledDaemon = async (
   );
 };
 
+/** Never called on Windows: `LocalHost.unsupported` serves that Client. */
 export const resolveLocalDaemon = async (options: LocalDaemonOptions): Promise<LocalDaemon> => {
-  requireLocalHost(options.platform);
   const { env } = options;
   const explicit = env.POLARIS_DESKTOP_LOCAL_SOCKET;
 

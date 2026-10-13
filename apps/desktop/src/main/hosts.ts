@@ -31,7 +31,7 @@ import {
 } from "effect";
 import type { ConnectionStatusView, HostKind, HostView, IpcError } from "../shared/api.ts";
 import type { GitHub } from "./github/index.ts";
-import type { LocalDaemon } from "./localDaemon.ts";
+import type { LocalDaemon } from "./local/index.ts";
 import type { Machines } from "./machines/service.ts";
 import type { RemoteHostSetting } from "./settings.ts";
 import { clientCopy } from "../shared/clientCopy.ts";

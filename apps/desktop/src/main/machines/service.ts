@@ -5,7 +5,7 @@
  * Settings rows. A background check (a reconnect) never installs.
  */
 import { existsSync } from "node:fs";
-import { HostTarget, installedPaths } from "@polaris/client";
+import { installedPaths } from "@polaris/client";
 import { HostAccess, type HostChannel } from "@polaris/client/access";
 import { type DownloadBuild, InstallPlan, type InstallTrigger } from "@polaris/client/install";
 import { WslDiscovery } from "@polaris/client/wsl";
@@ -14,6 +14,7 @@ import {
   Effect,
   Fiber,
   Layer,
+  Option,
   Predicate,
   Queue,
   Schema,
@@ -23,13 +24,13 @@ import {
 import type { MachineView, SshAliasView, WslDistrosView } from "../../shared/api.ts";
 import { clientCopy } from "../../shared/clientCopy.ts";
 import { HostDirectory, LOCAL_HOST_KEY, localEntry, remoteEntry } from "../hosts.ts";
-import { localHostEnabled, type LocalDaemon } from "../localDaemon.ts";
+import { LocalHost, localTarget } from "../local/index.ts";
 import type { RemoteHostSetting, Settings } from "../settings.ts";
 import type { Approvals } from "./approvals.ts";
 import type { DaemonBuilds } from "./builds.ts";
 import { deliveryActivity } from "./delivery.ts";
 import { type InstallEvent, initialInstall, stepInstall } from "./installFlow.ts";
-import { channelActivity, unsupportedMessage } from "./channels.ts";
+import { channelActivity, unmanagedLocal, unsupportedMessage } from "./channels.ts";
 import { applyWork, failureMessage, planFor, startDaemon } from "./remote.ts";
 import { backgroundCheckKey, type InstallRecord, localUpgradeKey, machineViews } from "./views.ts";
 import { type UpdateFacts, updatePolicy } from "./updateFacts.ts";
@@ -55,18 +56,6 @@ export interface MachinesInput {
   /** Sent with downloads for the site's telemetry. */
   readonly clientVersion?: string | undefined;
   readonly aliases: () => ReadonlyArray<SshAliasView>;
-  /** Finds or starts the local Daemon when the local Host is switched on. */
-  readonly localDaemon: () => Promise<LocalDaemon>;
-  /**
-   * The home whose installed Daemon (`~/.polaris`) serves the local Host, so
-   * it upgrades like a remote one; null when this app runs its own or was given a socket.
-   */
-  readonly localHome: () => string | null;
-  /**
-   * Resolves once the Daemon installed in `home` listens, after an install or
-   * a start; rejects with why it doesn't (its log). Absent, nothing is awaited.
-   */
-  readonly localListening?: (home: string) => Promise<void>;
   /** Opens a terminal window on this Client running `argv`. */
   readonly openTerminal: (argv: ReadonlyArray<string>) => Promise<void>;
   /** The WSL distros on this machine (Windows), for "Add a host". */
@@ -142,7 +131,13 @@ export class Machines extends Context.Service<
 }
 
 const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
-  const localAvailable = localHostEnabled(true, input.platform);
+  const local = yield* LocalHost;
+
+  /** The home of the installed Daemon serving the local Host, so it upgrades like a remote one. */
+  const localHome = Effect.map(local.current, (daemon) =>
+    Option.match(daemon, { onNone: () => null, onSome: (found) => found.installedHome })
+  );
+
   const copy = clientCopy(input.platform);
   const dir = yield* HostDirectory;
   const access = yield* HostAccess;
@@ -160,8 +155,11 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
 
   let bundled = bundledBuilds[0]?.version ?? null;
 
-  const publish = Effect.flatMap(SubscriptionRef.get(dir.views), (hosts) =>
-    SubscriptionRef.set(
+  const publish = Effect.gen(function* () {
+    const hosts = yield* SubscriptionRef.get(dir.views);
+    const home = yield* localHome;
+
+    yield* SubscriptionRef.set(
       views,
       machineViews({
         settings: input.settings.get(),
@@ -171,11 +169,12 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
         updates,
         bundledVersion: bundled,
         bundledVersions: new Map(bundledBuilds.map((b) => [b.platform, b.version])),
-        localManaged: input.localHome() !== null,
-        platform: input.platform,
+        localManaged: home !== null,
+        localSupported: local.supported,
+        localLabel: local.label,
       })
-    )
-  );
+    );
+  });
 
   const remoteSetting = (key: string) =>
     (input.settings.get().hosts ?? []).find((h) => h.alias === key);
@@ -186,15 +185,17 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
     return remote === undefined ? fail(`no remote host "${key}"`) : Effect.succeed(remote);
   };
 
-  /** The Host a key names: the local Host, or a remote one from the settings. */
+  /** The Host a key names: the local Host's Daemon, or a remote one from the settings. */
   const targetOf = (key: string) => {
     if (key !== LOCAL_HOST_KEY) return Effect.map(requireRemote(key), (r) => remoteEntry(r).target);
-    const home = input.localHome();
 
-    return Effect.succeed(
-      home === null
-        ? HostTarget.Local({ socketPath: "" })
-        : HostTarget.Local({ socketPath: "", installedHome: home })
+    if (!local.supported) return fail(copy.localHostUnsupported);
+
+    return Effect.flatMap(local.current, (daemon) =>
+      Option.match(daemon, {
+        onNone: () => fail(unmanagedLocal(copy)),
+        onSome: (found) => Effect.succeed(localTarget(found)),
+      })
     );
   };
 
@@ -207,13 +208,11 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
 
   /** Waits for this Mac's Daemon to listen after an install or start. */
   const localListening = (home: string | null) =>
-    home === null || input.localListening === undefined
+    home === null
       ? Effect.void
-      : Effect.tryPromise({
-          try: () => input.localListening!(home),
-          catch: (cause) =>
-            new MachineError({ message: cause instanceof Error ? cause.message : String(cause) }),
-        });
+      : local
+          .listening(home)
+          .pipe(Effect.mapError((error) => new MachineError({ message: error.message })));
 
   const record = (key: string): InstallRecord =>
     installs.get(key) ?? { snapshot: initialInstall(), activity: null, offerSize: null };
@@ -506,7 +505,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
       yield* publish;
 
       for (const host of hosts) {
-        if (host.key === LOCAL_HOST_KEY && !localAvailable) continue;
+        if (host.key === LOCAL_HOST_KEY && !local.supported) continue;
         const policy = updatePolicy(input.settings.get(), host.key);
         const missing = host.status.failure?.reason === "polaris-not-installed";
 
@@ -514,7 +513,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
 
         const occasion =
           host.key === LOCAL_HOST_KEY
-            ? localUpgradeKey(host, bundled, input.localHome())
+            ? localUpgradeKey(host, bundled, yield* localHome)
             : backgroundCheckKey(host, bundled);
 
         if (occasion === null) continue;
@@ -628,19 +627,20 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
 
   const setLocalEnabled = (enabled: boolean) =>
     Effect.gen(function* () {
-      if (!localAvailable) return yield* fail("A local Windows Daemon is not supported.");
+      if (!local.supported) return yield* fail(copy.localHostUnsupported);
       input.settings.update((s) => ({ ...s, local: { ...s.local, enabled } }));
 
       if (!enabled) {
         yield* dir.remove(LOCAL_HOST_KEY);
       } else if (dir.entry(LOCAL_HOST_KEY) === undefined) {
-        const local = yield* Effect.tryPromise({
-          try: input.localDaemon,
-          catch: (cause) =>
-            new MachineError({ message: `the local daemon didn't start: ${String(cause)}` }),
-        });
+        const daemon = yield* local.resolve.pipe(
+          Effect.mapError(
+            (error) =>
+              new MachineError({ message: `the local daemon didn't start: ${error.message}` })
+          )
+        );
 
-        yield* dir.add(localEntry(local));
+        yield* dir.add(localEntry(daemon, local.label));
       }
 
       occasions.delete(LOCAL_HOST_KEY);
@@ -658,8 +658,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
 
   const setDaemonUpdateOverride = (key: string, enabled: boolean | null) =>
     Effect.gen(function* () {
-      if (key === LOCAL_HOST_KEY && !localAvailable)
-        return yield* fail("A local Windows Daemon is not supported.");
+      if (key === LOCAL_HOST_KEY && !local.supported) return yield* fail(copy.localHostUnsupported);
 
       if (key !== LOCAL_HOST_KEY) yield* requireRemote(key);
       input.settings.update((s) => {

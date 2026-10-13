@@ -30,14 +30,15 @@ export const channelActivity = (channel: HostChannel, copy: ClientCopy): Channel
     Match.exhaustive
   );
 
+/** The local Host is the app's own dev Daemon or a given socket, which Polaris never touches. */
+export const unmanagedLocal = (copy: ClientCopy): string =>
+  `${copy.machine}'s daemon is the app's own, not one Polaris installed`;
+
 /** Why there's no channel for the action, in the Settings row's words. */
 export const unsupportedMessage = (error: HostActionUnsupported, copy: ClientCopy): string =>
   Match.value(error.reason).pipe(
-    Match.when("local-unsupported", () => "A local Windows Daemon is not supported."),
-    Match.when(
-      "unmanaged-local",
-      () => `${copy.machine}'s daemon is the app's own, not one Polaris installed`
-    ),
+    Match.when("local-unsupported", () => copy.localHostUnsupported),
+    Match.when("unmanaged-local", () => unmanagedLocal(copy)),
     Match.when("no-terminal", () => `${copy.localHost} needs no ssh hand-off`),
     Match.exhaustive
   );

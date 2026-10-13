@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { HostId, HostInfo } from "@polaris/protocol";
 import type { ConnectionStatusView, HostView } from "../../shared/api.ts";
+import { clientCopy } from "../../shared/clientCopy.ts";
 import { initialInstall } from "./installFlow.ts";
 import { backgroundCheckKey, machineViews, reportOutcome } from "./views.ts";
 
@@ -83,7 +84,7 @@ describe("backgroundCheckKey", () => {
 });
 
 describe("machineViews", () => {
-  test("Windows offers only remote Hosts even with a persisted enabled local Host", () => {
+  test("a Client with no local Host offers only remote Hosts, even with one persisted", () => {
     const input = {
       settings: { local: { enabled: true }, hosts: [{ alias: "pi" }] },
       hosts: [host("local"), host("pi")],
@@ -92,10 +93,10 @@ describe("machineViews", () => {
       localManaged: true,
     };
 
-    expect(machineViews({ ...input, platform: "win32" }).map((view) => view.key)).toEqual(["pi"]);
-
-    for (const platform of ["darwin", "linux"] as const)
-      expect(machineViews({ ...input, platform }).map((view) => view.key)).toEqual(["local", "pi"]);
+    expect(machineViews({ ...input, localSupported: false }).map((view) => view.key)).toEqual([
+      "pi",
+    ]);
+    expect(machineViews(input).map((view) => view.key)).toEqual(["local", "pi"]);
   });
   test("a musl probe does not offer a glibc build from the Hello platform", () => {
     const views = machineViews({
@@ -179,13 +180,13 @@ describe("machineViews", () => {
     expect(views[2]?.install).toBeNull();
   });
 
-  test("a Linux Client's local Host is this computer, not this Mac", () => {
+  test("the local row takes LocalHost's name: this computer on Linux, not this Mac", () => {
     const views = machineViews({
       settings: { local: { enabled: true } },
       hosts: [],
       installs: new Map(),
       aliases: [],
-      platform: "linux",
+      localLabel: clientCopy("linux").localHost,
     });
 
     expect(views[0]?.label).toBe("This computer");
@@ -197,7 +198,6 @@ describe("machineViews", () => {
       hosts: [host("local")],
       installs: new Map(),
       aliases: [],
-      platform: "darwin",
     });
 
     expect(views.map((v) => [v.key, v.kind])).toEqual([

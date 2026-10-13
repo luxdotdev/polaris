@@ -67,7 +67,7 @@ before authentication begins (verified on Windows 11 ARM64). Both bridge and ins
 that connect-time refusal as unreachable, so the Connection State keeps retrying. The distinct
 `Permission denied (publickey,…)` authentication response still requires attention.
 
-Windows Clients expose remote Hosts only. Persisted local-Host preferences and local socket overrides cannot start, connect, install or upgrade a native Windows Daemon. The `machines` feed omits the local row; renderer layout and copy stay with WSHELL.
+Windows Clients expose remote Hosts only. The composition root gives them `LocalHost.unsupported` (`../local/`), so persisted local-Host preferences and local socket overrides cannot start, connect, install or upgrade a native Windows Daemon, and `HostAccess` builds no local channel there either. The `machines` feed omits the local row; renderer layout and copy stay with WSHELL.
 
 The bridge uses one long-lived SSH process per Host. Windows omits `ControlMaster`, `ControlPath` and `ControlPersist` and creates no control directory. RPC calls and subscriptions share that bridge; a reconnect replaces it. macOS and Linux retain Polaris' multiplexing.
 

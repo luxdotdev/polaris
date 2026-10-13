@@ -21,6 +21,7 @@ import {
   UnknownHost,
 } from "../hosts.ts";
 import { HostAccess } from "@polaris/client/access";
+import { LocalHost } from "../local/index.ts";
 import { createGitHubFake } from "../../../scripts/lib/githubFake/index.ts";
 import { SecureStorage } from "../secure/index.ts";
 import { GitHub } from "../github/index.ts";
@@ -98,10 +99,15 @@ const clientServices = Layer.provideMerge(
     approvals: { approved: () => new Set(), approve: () => undefined, forget: () => undefined },
     builds: { source: "none", forPlatform: () => Effect.succeed([]) },
     aliases: () => [{ alias: "studio", hostName: null, user: null }],
-    localDaemon: () => Promise.reject(new Error("no local daemon in tests")),
-    localHome: () => null,
     openTerminal: () => Promise.resolve(),
-  }).pipe(Layer.provide(HostAccess.test(() => Effect.die("no ssh in tests")))),
+  }).pipe(
+    Layer.provide(
+      Layer.mergeAll(
+        HostAccess.test(() => Effect.die("no ssh in tests")),
+        LocalHost.test()
+      )
+    )
+  ),
   directory
 );
 

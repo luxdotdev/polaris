@@ -10,7 +10,7 @@ import { existsSync, mkdirSync, symlinkSync, watch } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { createServer } from "vite";
-import { devHome, socketLive, systemSocket } from "../src/main/localDaemon.ts";
+import { devHome, socketLive, systemSocket } from "../src/main/local/index.ts";
 import { APP_DIR, buildMain, electronBinary, REPO_ROOT } from "./lib/build.ts";
 import { startDaemon, type TestDaemon } from "./lib/daemon.ts";
 import { prepareDaemonBuilds } from "./lib/daemonBuilds.ts";
