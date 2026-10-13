@@ -16,7 +16,7 @@ const args = process.argv.slice(2);
 
 const at = args.indexOf("--out");
 
-const evidence = at === -1 ? join(REPO_ROOT, ".dagr/evidence/edmenu/run-8") : String(args[at + 1]);
+const evidence = at === -1 ? join(REPO_ROOT, ".dagr/evidence/edmenu/run-9") : String(args[at + 1]);
 
 const home = realpathSync(mkdtempSync(join(tmpdir(), "polaris-editor-menu-")));
 
@@ -240,14 +240,21 @@ try {
     .locator('[data-testid="tree-row"][aria-selected="true"]', { hasText: "main.ts" })
     .waitFor({ timeout: 10_000 });
 
-  // Open in terminal: a new tab in the file's folder, in Orchestrate's drawer.
+  // Open in terminal: a new tab titled by the file's folder, in Edit's drawer; the mode stays.
+  const folder = project.split("/").at(-1) ?? project;
   await rightClick(page, 0, "params");
   await choose(page, "editor-menu-open-in-terminal");
-  await page.getByTestId("terminal-tab").first().waitFor({ timeout: 20_000 });
+  await page
+    .locator('[data-testid="terminal-tab"][aria-selected="true"]', { hasText: folder })
+    .waitFor({ timeout: 20_000 });
+  await page.getByTestId("terminal-drawer").waitFor();
+  assert.ok(await page.getByTestId("edit-mode").isVisible(), "Open in terminal stays in Edit");
   await page.waitForTimeout(1000);
   await shot(page, "ts-open-in-terminal-light");
-  await page.keyboard.press("Meta+3");
-  await page.getByTestId("editor-code").waitFor();
+  await appearance(page, "dark");
+  await shot(page, "ts-open-in-terminal-dark");
+  await page.keyboard.press("Control+Backquote");
+  await page.getByTestId("terminal-toggle").waitFor();
 
   // Markdown: no server, so only the file's own rows (Paper 19c).
   await open(page, "notes.md");
