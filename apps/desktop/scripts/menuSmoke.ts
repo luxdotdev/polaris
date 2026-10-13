@@ -467,6 +467,80 @@ try {
       "Copy task ID",
     ],
   });
+
+  // Review on fixtures: a file's header and list row, a finding in the risk column and the diff.
+  await page.evaluate(`location.hash = "#review/pull"; location.reload()`);
+  await page.waitForLoadState("domcontentloaded");
+  await page.getByTestId("risk-finding").first().waitFor({ timeout: 20_000 });
+  await page.waitForTimeout(1200);
+  await check(page, {
+    name: "review-file",
+    target: (p) => p.getByTestId("review-file").first().locator("span.font-mono").first(),
+    menu: "review-file-menu",
+    expected: ["Mark as viewed", "Collapse", "—", "Open in Editor", "Copy path"],
+  });
+  await check(page, {
+    name: "review-file-row",
+    target: (p) => p.getByTestId("review-file-row").first(),
+    menu: "review-file-menu",
+    expected: ["Mark as viewed", "—", "Open in Editor", "Copy path"],
+  });
+  await check(page, {
+    name: "risk-finding",
+    target: (p) => p.getByTestId("risk-finding").first(),
+    menu: "finding-menu",
+    expected: [
+      "Comment on this…",
+      "Ask about this…",
+      "—",
+      "Helpful",
+      "Not helpful…",
+      "—",
+      "Copy finding",
+    ],
+  });
+
+  const inDiff = page.getByTestId("finding-row").first();
+
+  if ((await inDiff.count()) > 0)
+    await check(page, {
+      name: "finding-row",
+      target: () => inDiff,
+      menu: "finding-menu",
+      expected: ["Comment on this…", "Ask about this…", "—", "Copy finding"],
+    });
+
+  await choose(page, page.getByTestId("risk-finding").first(), "finding-menu", "Copy finding");
+  expectEqual(
+    "copy finding",
+    pbpaste().split("\n")[0] ?? "",
+    "API client still sends monthly income"
+  );
+  await choose(page, page.getByTestId("risk-finding").first(), "finding-menu", "Not helpful…");
+  await page.getByRole("button", { name: "Save verdict" }).waitFor();
+  console.log("menus: not helpful asks");
+  await page.screenshot({ path: join(out, "finding-not-helpful.png") });
+  await page.keyboard.press("Escape");
+
+  await page.evaluate(`location.hash = "#constellation/menu"; location.reload()`);
+  await page.waitForLoadState("domcontentloaded");
+  await page.getByTestId("constellation-tab").waitFor();
+  await check(page, {
+    name: "task-row",
+    target: (p) =>
+      p.getByRole("button", { name: "B1 actions" }).locator("xpath=ancestor::div[@data-index]"),
+    menu: "task-context-menu",
+    expected: [
+      "Approve",
+      "Accept… A",
+      "Send back… S",
+      "—",
+      "Open in Review",
+      "Focus B1 ↵",
+      "Message the lead about this",
+      "Copy task ID",
+    ],
+  });
 } finally {
   pbcopy(kept);
   await app.close();

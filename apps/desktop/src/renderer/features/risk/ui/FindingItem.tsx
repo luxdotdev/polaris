@@ -7,7 +7,6 @@ import type { Verdict } from "@polaris/protocol";
 import { Button, cn, SeverityBadge, ThumbUpIcon } from "@polaris/ui";
 import { useEffect, useState } from "react";
 import type { Plain } from "../../../store/plain.ts";
-import { openComposer } from "../../comments/index.ts";
 import { revealInDiff, surfaceOf, updateSurface } from "../../review/index.ts";
 import { earlierVerdicts, recordVerdict } from "../data/actions.ts";
 import { setAskAbout } from "../data/ui.ts";
@@ -20,6 +19,7 @@ import {
   type Summary,
 } from "../model/summary.ts";
 import { historyLine } from "../model/verdict.ts";
+import { commentOn, FindingMenu } from "./findingMenu.tsx";
 import { ThumbDown, type VerdictDraft } from "./VerdictPopover.tsx";
 import { FileLink } from "../../editor-links/index.ts";
 
@@ -46,21 +46,6 @@ const select = (subjectKey: string, finding: Finding) => {
   if (!already) revealInDiff(finding.path, finding.lines.end, finding.lines.side);
 };
 
-/** "Comment on this": a draft pre-filled with the reason, never posted on its own (ENG-223). */
-const commentOn = (subjectKey: string, finding: Finding) => {
-  const range = {
-    path: finding.path,
-    side: finding.lines.side,
-    start: finding.lines.start,
-    end: finding.lines.end,
-  };
-
-  const anchor = { ...range, code: surfaceOf(subjectKey).quote?.(range) ?? "", turn: null };
-
-  openComposer(subjectKey, anchor, { text: finding.reason, findingId: finding.id });
-  revealInDiff(finding.path, finding.lines.end, finding.lines.side);
-};
-
 const useHistory = (hostKey: string, finding: Finding, active: boolean) => {
   const [history, setHistory] = useState<Plain<Verdict> | null>(null);
 
@@ -81,10 +66,9 @@ const useHistory = (hostKey: string, finding: Finding, active: boolean) => {
   return history;
 };
 
-const Card = ({ subjectKey, hostKey, summary, finding }: FindingItemProps) => {
-  const history = useHistory(hostKey, finding, true);
-
-  const verdict = (thumb: "up" | "down", draft: VerdictDraft | null) =>
+const verdictOf =
+  ({ hostKey, summary, finding }: FindingItemProps) =>
+  (thumb: "up" | "down", draft: VerdictDraft | null) =>
     recordVerdict({
       hostKey,
       summaryId: summary.id,
@@ -94,6 +78,17 @@ const Card = ({ subjectKey, hostKey, summary, finding }: FindingItemProps) => {
       text: draft?.text ?? null,
       scope: draft?.scope ?? "repo",
     });
+
+interface CardProps extends FindingItemProps {
+  /** The thumbs-down form, open from its button or the menu. */
+  readonly asking: boolean;
+  readonly onAsking: (open: boolean) => void;
+}
+
+const Card = (props: CardProps) => {
+  const { subjectKey, hostKey, finding, asking, onAsking } = props;
+  const history = useHistory(hostKey, finding, true);
+  const verdict = verdictOf(props);
 
   return (
     <div className="flex flex-col gap-2">
@@ -134,7 +129,12 @@ const Card = ({ subjectKey, hostKey, summary, finding }: FindingItemProps) => {
             >
               <ThumbUpIcon size={14} />
             </Button>
-            <ThumbDown title={finding.title} onSave={(draft) => verdict("down", draft)} />
+            <ThumbDown
+              title={finding.title}
+              onSave={(draft) => verdict("down", draft)}
+              open={asking}
+              onOpenChange={onAsking}
+            />
           </div>
         </div>
       </div>
@@ -154,50 +154,61 @@ const Card = ({ subjectKey, hostKey, summary, finding }: FindingItemProps) => {
 export const FindingItem = (props: FindingItemProps) => {
   const { finding, selected, subjectKey } = props;
   const dimmed = isDimmed(finding) && !selected;
+  const [asking, setAsking] = useState(false);
+
+  const verdicts = {
+    helpful: () => void verdictOf(props)("up", null),
+    notHelpful: () => {
+      if (!selected) select(subjectKey, finding);
+      setAsking(true);
+    },
+  };
 
   return (
-    <div
-      data-testid="risk-finding"
-      data-finding={finding.id}
-      data-selected={selected ? "" : undefined}
-      className={cn(
-        "rounded-row flex flex-col border",
-        selected
-          ? cn("bg-row-selected gap-row-x p-3", SEVERITY_BORDER[finding.severity])
-          : "hover:bg-fill-hover border-transparent",
-        // Dimmed once, here; the badge isn't dimmed again (rule/low-confidence-dims).
-        dimmed && "opacity-(--opacity-dimmed)"
-      )}
-    >
-      <button
-        type="button"
-        onClick={() => select(subjectKey, finding)}
-        aria-expanded={selected}
+    <FindingMenu subjectKey={subjectKey} finding={finding} verdicts={verdicts}>
+      <div
+        data-testid="risk-finding"
+        data-finding={finding.id}
+        data-selected={selected ? "" : undefined}
         className={cn(
-          "gap-row-x flex cursor-default items-start text-left",
-          !selected && "py-row-x px-3"
+          "rounded-row flex flex-col border",
+          selected
+            ? cn("bg-row-selected gap-row-x p-3", SEVERITY_BORDER[finding.severity])
+            : "hover:bg-fill-hover border-transparent",
+          // Dimmed once, here; the badge isn't dimmed again (rule/low-confidence-dims).
+          dimmed && "opacity-(--opacity-dimmed)"
         )}
       >
-        <span className="flex w-20 shrink-0">
-          <SeverityBadge severity={finding.severity} />
-        </span>
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span
-            className={cn(
-              "text-body line-clamp-2",
-              selected ? "text-text-strong font-medium" : "text-text-default"
-            )}
-          >
-            {finding.title}
-          </span>
-          {!selected && (
-            <span className="text-caption text-text-subtle truncate">
-              {fileName(finding.path)} · {provenanceOf(finding)}
-            </span>
+        <button
+          type="button"
+          onClick={() => select(subjectKey, finding)}
+          aria-expanded={selected}
+          className={cn(
+            "gap-row-x flex cursor-default items-start text-left",
+            !selected && "py-row-x px-3"
           )}
-        </span>
-      </button>
-      {selected && <Card {...props} />}
-    </div>
+        >
+          <span className="flex w-20 shrink-0">
+            <SeverityBadge severity={finding.severity} />
+          </span>
+          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span
+              className={cn(
+                "text-body line-clamp-2",
+                selected ? "text-text-strong font-medium" : "text-text-default"
+              )}
+            >
+              {finding.title}
+            </span>
+            {!selected && (
+              <span className="text-caption text-text-subtle truncate">
+                {fileName(finding.path)} · {provenanceOf(finding)}
+              </span>
+            )}
+          </span>
+        </button>
+        {selected && <Card {...props} asking={asking} onAsking={setAsking} />}
+      </div>
+    </FindingMenu>
   );
 };

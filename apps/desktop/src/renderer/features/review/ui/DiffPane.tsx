@@ -66,6 +66,8 @@ export interface DiffPaneProps {
   readonly onSelect: (id: string, range: SelectedLineRange | null) => void;
   /** Item keys by item id, set on each file's host element for `marksCss`. */
   readonly itemKeys: ReadonlyMap<string, string>;
+  /** The Review's key, for a finding's menu. */
+  readonly subjectKey: string;
 }
 
 type Handle = CodeViewHandle<RowMeta, undefined>;
@@ -145,8 +147,13 @@ const sync = (handle: Handle, synced: Synced, items: ReadonlyArray<PaneItem>) =>
 };
 
 /** Memoised on its metadata, which only changes when the file's annotations do. */
-const Annotation = memo(({ meta }: { readonly meta: RowMeta }) =>
-  meta.kind === "finding" ? <FindingRow finding={meta.finding} /> : meta.annotation.render()
+const Annotation = memo(
+  ({ meta, subjectKey }: { readonly meta: RowMeta; readonly subjectKey: string }) =>
+    meta.kind === "finding" ? (
+      <FindingRow finding={meta.finding} subjectKey={subjectKey} />
+    ) : (
+      meta.annotation.render()
+    )
 );
 
 export const DiffPane = ({
@@ -156,6 +163,7 @@ export const DiffPane = ({
   loadDiffFiles,
   onSelect,
   itemKeys,
+  subjectKey,
 }: DiffPaneProps) => {
   const handle = useRef<Handle>(null);
   const synced = useRef<Synced>({ order: [], signatures: new Map(), versions: new Map() });
@@ -301,7 +309,7 @@ export const DiffPane = ({
       renderCustomHeader={(item) => <FileHeader id={item.id} />}
       renderAnnotation={(
         annotation: DiffLineAnnotation<RowMeta> | { readonly metadata: RowMeta }
-      ) => <Annotation meta={annotation.metadata} />}
+      ) => <Annotation meta={annotation.metadata} subjectKey={subjectKey} />}
     />
   );
 };

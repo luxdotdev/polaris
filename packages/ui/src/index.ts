@@ -8,7 +8,17 @@ export type { CssVars } from "./lib/css";
 
 export { REVEAL_MOTION } from "./lib/float";
 
-export { ELLIPSIS, ellipsisProblem } from "./lib/menu";
+export {
+  ELLIPSIS,
+  ellipsisProblem,
+  MENU_CONTENT,
+  MENU_DESTRUCTIVE,
+  MENU_ITEM,
+  MENU_LABEL,
+  MENU_LABEL_TEXT,
+  MENU_SEPARATOR,
+  MENU_SHORTCUT,
+} from "./lib/menu";
 
 export { reducedMotion } from "./lib/motion";
 
