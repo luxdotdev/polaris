@@ -6,7 +6,7 @@ import { bindVimCommands } from "../cm/vim.ts";
 import { fileKey } from "../model/drafts.ts";
 import { editorLanguageQueries } from "../runtime/app.ts";
 import { getActiveEditor } from "../runtime/hooks.ts";
-import { LANGUAGE_NAVIGATION, type NavigationAction } from "./commands.ts";
+import { LANGUAGE_NAVIGATION, type NavigationAction, shortcutOf } from "./commands.ts";
 import { runNavigation } from "./run.ts";
 
 const activeKey = () => {
@@ -30,11 +30,11 @@ export const navigationContributions = (): readonly ContributedCommand[] =>
     title: command.title,
     palette: {
       group: "file",
-      detail: command.shortcut ?? "",
+      detail: shortcutOf(command),
       keywords: ["language", command.action],
       followUp: command.followUp === true,
     },
-    when: { all: ["editor.file", "language.server"] },
+    when: { all: command.anyFile === true ? ["editor.file"] : ["editor.file", "language.server"] },
     handler: {
       enabled: () => activeKey() !== null && canRun(command.action),
       run: () => {

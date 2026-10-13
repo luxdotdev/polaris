@@ -14,7 +14,7 @@ import { languageFor, type LanguageId } from "../model/language.ts";
 import { bindEntryFormatter } from "./formatting.ts";
 import { LanguageFeatures } from "./features.ts";
 import { LanguageDiagnosticFeed, cmDiagnostics } from "./diagnostics.ts";
-import { completionSource, hoverExtension } from "./codemirror.ts";
+import { completionSource, hoverExtension, withWordFallback } from "./codemirror.ts";
 import { completionFootnote } from "./completionMenu.ts";
 import { documentLanguageId, type LanguageBuffer } from "./types.ts";
 import { readLanguageConfiguration } from "./configuration.ts";
@@ -204,24 +204,26 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
         entry.compartment.of([
           autocompletion({
             override: [
-              completionSource(
-                features,
-                {
-                  propose: (proposal) => {
-                    if (completionProposal === null)
-                      languagePatch(key, {
-                        panel: "Completion",
-                        rows: [
-                          {
-                            label: "This completion requires an edit proposal.",
-                            detail: "The edit coordinator is unavailable.",
-                          },
-                        ],
-                      });
-                    else completionProposal(proposal);
+              withWordFallback(
+                completionSource(
+                  features,
+                  {
+                    propose: (proposal) => {
+                      if (completionProposal === null)
+                        languagePatch(key, {
+                          panel: "Completion",
+                          rows: [
+                            {
+                              label: "This completion requires an edit proposal.",
+                              detail: "The edit coordinator is unavailable.",
+                            },
+                          ],
+                        });
+                      else completionProposal(proposal);
+                    },
                   },
-                },
-                label
+                  label
+                )
               ),
             ],
           }),
@@ -596,6 +598,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
             language: entry.language,
             manual: entry.manual,
             providers: providers.map((provider) => provider.context.providerId),
+            methods: [...new Set(providers.flatMap((provider) => provider.capabilities.methods))],
             status: providers.length ? "ready" : "unavailable",
             fact: providers.length ? "" : "Language tooling is unavailable or synchronizing.",
           });

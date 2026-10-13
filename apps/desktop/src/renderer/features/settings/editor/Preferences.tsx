@@ -96,7 +96,7 @@ export const Preferences = ({
       <PreferenceRow
         id="editor-inline-diagnostics"
         title="Inline diagnostics"
-        caption="Each line's most severe error, warning or info at its end. The gutter marks and the hover stay either way."
+        caption="Each line's most severe error, warning or info at its end. Squiggles and the hover stay either way."
       >
         <Switch
           id="editor-inline-diagnostics"

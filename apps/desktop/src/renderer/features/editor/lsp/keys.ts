@@ -5,7 +5,7 @@ import { LANGUAGE_NAVIGATION, type NavigationAction } from "../navigation/comman
 export const languageKeys = (run: (action: NavigationAction) => void) =>
   keymap.of(
     LANGUAGE_NAVIGATION.flatMap((command) =>
-      command.key === undefined
+      command.key === undefined || command.ownKeymap === true
         ? []
         : [
             {

@@ -1,7 +1,9 @@
 /** Runs one language command for an open file. */
+import { startCompletion } from "@codemirror/autocomplete";
 import { nextDiagnostic, previousDiagnostic } from "@codemirror/lint";
 import { activateHover, type EditorView } from "@codemirror/view";
 import type { LanguageQueries } from "../lsp/queries.ts";
+import { showSignatureHelp } from "../lsp/signatures.ts";
 import { viewOf } from "../runtime/buffers.ts";
 import type { NavigationAction } from "./commands.ts";
 import { openRename, openSymbolSearch } from "./store.ts";
@@ -35,6 +37,15 @@ const hoverAtCursor = (key: string) => {
   });
 };
 
+/** Completion and signature help open at the caret, as ⌃Space and ⌃⇧Space would. */
+const atCaret = (key: string, open: (view: EditorView) => boolean) => {
+  const view = viewOf(key);
+
+  if (view === null) return;
+  view.focus();
+  open(view);
+};
+
 /** The cursor lands on the problem's start, as vim's ]d does, rather than selecting it. */
 const problem = (key: string, step: (view: EditorView) => boolean) => {
   const view = viewOf(key);
@@ -51,6 +62,8 @@ export const runNavigation = (
   if (action === "back") queries?.back();
   else if (action === "forward") queries?.forward();
   else if (action === "hover") hoverAtCursor(key);
+  else if (action === "completion") atCaret(key, startCompletion);
+  else if (action === "signature-help") atCaret(key, showSignatureHelp);
   else if (action === "next-problem") problem(key, nextDiagnostic);
   else if (action === "previous-problem") problem(key, previousDiagnostic);
   else if (action === "rename-field") startRename(key);

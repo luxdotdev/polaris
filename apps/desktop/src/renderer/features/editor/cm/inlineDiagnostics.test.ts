@@ -52,11 +52,6 @@ const messages = (v: EditorView) =>
     node.textContent,
   ]);
 
-const marks = (v: EditorView) =>
-  [...v.dom.querySelectorAll(".cm-diagnosticMark")].map((node) =>
-    node.className.replace("cm-diagnosticMark ", "")
-  );
-
 test("a line shows its most severe diagnostic's first line, with a count of the rest", () => {
   const lines = summarise(Text.of(DOC.split("\n")), DIAGNOSTICS);
   const found: [number, string, string, number][] = [];
@@ -70,24 +65,19 @@ test("a line shows its most severe diagnostic's first line, with a count of the 
   ]);
 });
 
-test("every line gets a mark; hints get no message", () => {
+test("no gutter marks; hints get no message", () => {
   const v = editor();
-  expect(marks(v)).toEqual([
-    "cm-diagnosticMark-error",
-    "cm-diagnosticMark-hint",
-    "cm-diagnosticMark-info",
-  ]);
+  expect(v.dom.querySelectorAll(".cm-gutter, .cm-gutterElement")).toHaveLength(0);
   expect(messages(v)).toEqual([
     ["cm-inlineDiagnostic-error", "Type 'number' is not assignable to type 'string'.+1"],
     ["cm-inlineDiagnostic-info", "A note."],
   ]);
 });
 
-test("the setting hides the messages and keeps the marks", () => {
+test("the setting hides the messages", () => {
   const v = editor();
   setInlineDiagnostics(false);
   expect(messages(v)).toEqual([]);
-  expect(marks(v)).toHaveLength(3);
   setInlineDiagnostics(true);
   expect(messages(v)).toHaveLength(2);
 });
@@ -103,5 +93,4 @@ test("new diagnostics replace the old ones", () => {
   const v = editor();
   v.dispatch(setDiagnostics(v.state, []));
   expect(messages(v)).toEqual([]);
-  expect(marks(v)).toEqual([]);
 });

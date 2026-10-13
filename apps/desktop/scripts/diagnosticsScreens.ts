@@ -3,6 +3,7 @@
  * node apps/desktop/scripts/diagnosticsScreens.ts --out <dir> (build first).
  * Hovers a long diagnostic and screenshots the editor in both themes, with the tooltip's size,
  * then inline diagnostics: turned off from the palette, and held under an open completion.
+ * The gutter carries no diagnostic mark.
  */
 import { strict as assert } from "node:assert";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
@@ -140,10 +141,11 @@ const palette = async (page: Page, command: string) => {
 
 const inline = async (page: Page) => {
   const shown = await page.locator(".cm-inlineDiagnostic").count();
+  assert.equal(await page.locator(".cm-gutters [class*=diagnostic]").count(), 0, "no gutter mark");
   assert.ok(shown > 0, "no inline diagnostics");
   await palette(page, "Toggle inline diagnostics");
   assert.equal(await page.locator(".cm-inlineDiagnostic").count(), 0);
-  assert.ok((await page.locator(".cm-diagnosticMark").count()) > 0, "marks went with messages");
+  assert.ok((await page.locator(".cm-lintRange").count()) > 0, "squiggles stay without messages");
   await page.screenshot({ path: join(evidence, "ts-inline-off-dark.png") });
   await palette(page, "Toggle inline diagnostics");
   assert.equal(await page.locator(".cm-inlineDiagnostic").count(), shown);
