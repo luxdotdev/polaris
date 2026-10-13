@@ -329,17 +329,6 @@ export type FileWriteView =
   | { readonly kind: "written"; readonly version: FileVersionView }
   | { readonly kind: "changed-on-disk"; readonly current: FileVersionView | null };
 
-/** `install.ensure`'s outcome, flattened (`EnsureResult` in `@polaris/client/install`). */
-export interface InstallView {
-  readonly result: "Local" | "Ready" | "ApprovalNeeded" | "Unavailable" | "HostSetupNeeded";
-  readonly platform: string | null;
-  readonly version: string | null;
-  /** Show it for the one-time approval, then call again with it approved. */
-  readonly sha256: string | null;
-  /** For `HostSetupNeeded`: what an administrator must run on the Host. */
-  readonly command: string | null;
-}
-
 /** Every Constellation request answers with the RPC's result: summary, next, revision. */
 export type ConstellationRequestOutputs = {
   readonly [M in ConstellationMethod]: Plain<ConstellationResult>;
@@ -460,7 +449,6 @@ export interface RequestOutputs
   "session.draftAccept": Plain<AcceptDraft>;
   "session.commitAccepted": Plain<AcceptCommitted>;
   "session.pushAccepted": Plain<AcceptPushed>;
-  "install.ensure": InstallView;
   "machines.sshAliases": ReadonlyArray<SshAliasView>;
   "machines.wslDistros": WslDistrosView;
   "machines.add": { readonly key: string };

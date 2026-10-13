@@ -352,8 +352,6 @@ export const RequestInputs = {
     turnTitles: Schema.Array(Schema.String),
   }),
   "session.pushAccepted": onHost({ sessionId: SessionId, branch: Schema.String }),
-  /** Probe a remote Host and plan an install or upgrade; installs only with an approved SHA-256. */
-  "install.ensure": onHost({ approvedSha256: Schema.NullOr(Schema.String) }),
   /** The literal `Host` aliases in `~/.ssh/config` (Includes followed, wildcards skipped). */
   "machines.sshAliases": Schema.Struct({}),
   /** The WSL distros on this Windows machine (`unsupported` elsewhere). */

@@ -113,7 +113,6 @@ const context: RequestContext = {
   setWelcomeSeen: () => undefined,
   appVersion: "0.1.0",
   pickFolder: () => Promise.resolve(null),
-  daemonDist: null,
   writeClipboard: () => Promise.resolve(),
   editAction: () => undefined,
   needsYou: () => undefined,
@@ -133,6 +132,12 @@ const until = async (ready: () => boolean) => {
 describe("requests", () => {
   test("every method in the contract has a handler", () => {
     expect(Object.keys(handlers).sort()).toEqual(Object.keys(RequestInputs).sort());
+  });
+
+  test("installs go only through machines, which pick ssh, wsl.exe or the local shell", () => {
+    expect(Object.keys(RequestInputs).filter((method) => method.startsWith("install."))).toEqual(
+      []
+    );
   });
 
   test("settings come back with their defaults filled in", async () => {
