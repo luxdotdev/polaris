@@ -113,6 +113,8 @@ export type ContextValue =
   | "language"
   | "file"
   | "workspace"
+  /** Where Workspaces are listed: "top bar", or "sidebar" with the machine bar. */
+  | "workspaceList"
   | "session"
   | "trustSubject"
   | "typescriptChoice"

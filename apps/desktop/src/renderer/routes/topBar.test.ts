@@ -1,6 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import { hostModel, hostView, workspaces } from "./fixtures.testing.ts";
-import { barHosts, barWorkspaces, shortcutLabel, summarize, topBarMode } from "./topBar.ts";
+import { WorkspaceId } from "@polaris/protocol";
+import {
+  barHosts,
+  barWorkspaces,
+  hiddenWorkspaces,
+  shortcutLabel,
+  shownWorkspaces,
+  summarize,
+  topBarMode,
+} from "./topBar.ts";
 
 describe("top bar mode (ENG-177)", () => {
   test("Workspace chips up to 10, the machine bar from 11", () => {
@@ -93,5 +102,50 @@ describe("bar contents", () => {
     expect(chip?.needsYou).toBe(0);
     expect(chip?.state).toBe("working");
     expect(bar[0]?.summary.needsYou).toBe(0);
+  });
+});
+
+describe("hidden Workspaces", () => {
+  const hosts = [hostView("local")];
+
+  const models = {
+    local: hostModel([
+      { id: "a" },
+      { id: "quiet", hidden: true, sessions: [{ id: "q1", state: "working" }] },
+      { id: "asks", hidden: true, sessions: [{ id: "n1", state: "needs-you" }] },
+      { id: "b" },
+    ]),
+  };
+
+  const listed = (bar: ReturnType<typeof barHosts>) =>
+    bar.flatMap((h) => h.workspaces).map((w) => `${w.workspace.name}${w.hidden ? "*" : ""}`);
+
+  test("a hidden one is listed after the shown ones only while it is open or needs you", () => {
+    expect(listed(barHosts({ hosts, models }))).toEqual(["a", "b", "asks*"]);
+
+    const open = { hostKey: "local", workspaceId: WorkspaceId.make("quiet") };
+
+    expect(listed(barHosts({ hosts, models, open }))).toEqual(["a", "b", "quiet*", "asks*"]);
+  });
+
+  test("a needs-you session dismissed on this Mac doesn't bring its hidden Workspace back", () => {
+    const quiet = new Set(["local\u0000n1"]);
+
+    expect(listed(barHosts({ hosts, models, quiet }))).toEqual(["a", "b"]);
+  });
+
+  test("hidden chips take no ⌃N and don't count towards the machine bar", () => {
+    const bar = barHosts({ hosts, models });
+
+    expect(barWorkspaces(bar).map((w) => w.workspace.name)).toEqual(["a", "b"]);
+  });
+
+  test("the Host still counts what needs you in its hidden Workspaces", () => {
+    expect(barHosts({ hosts, models })[0]?.summary.needsYou).toBe(1);
+  });
+
+  test("shown and hidden lists split every Workspace, oldest first", () => {
+    expect(shownWorkspaces(models.local).map((w) => w.name)).toEqual(["a", "b"]);
+    expect(hiddenWorkspaces(models.local).map((w) => w.name)).toEqual(["quiet", "asks"]);
   });
 });

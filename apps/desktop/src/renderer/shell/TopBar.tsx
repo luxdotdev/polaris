@@ -32,8 +32,12 @@ const useBar = () => {
   const hosts = useApp((s) => s.hosts);
   const models = useApp((s) => s.hostModels);
   const quiet = useQuietSessions();
+  const { hostKey, workspaceId } = useSelection();
 
-  return useMemo(() => barHosts({ hosts, models, quiet }), [hosts, models, quiet]);
+  return useMemo(
+    () => barHosts({ hosts, models, quiet, open: { hostKey, workspaceId } }),
+    [hosts, models, quiet, hostKey, workspaceId]
+  );
 };
 
 const connected = (host: HostView) => host.status.state === "connected";
@@ -106,6 +110,10 @@ const HostLabel = ({ group }: { readonly group: BarHost }) => {
   );
 };
 
+/** A hidden chip's tooltip: why it's in the bar now, and until when. */
+const hiddenTitle = (path: string, open: boolean) =>
+  `${path}\nHidden · shown while ${open ? "it's open" : "a session here needs you"}`;
+
 const WorkspaceBar = ({ bar }: { readonly bar: ReadonlyArray<BarHost> }) => {
   const selection = useSelection();
   const { selectWorkspace } = useShellActions();
@@ -122,7 +130,8 @@ const WorkspaceBar = ({ bar }: { readonly bar: ReadonlyArray<BarHost> }) => {
           <HostLabel group={group} />
           {group.workspaces.map((item) => {
             const { hostKey, workspace, summary } = item;
-            const shortcut = shortcutLabel(index++);
+            // A hidden chip (open, or needs you) takes no ⌃N, so the others keep theirs.
+            const shortcut = item.hidden ? undefined : shortcutLabel(index++);
             const extra: ChipShortcut = {};
 
             const selected =
@@ -134,8 +143,9 @@ const WorkspaceBar = ({ bar }: { readonly bar: ReadonlyArray<BarHost> }) => {
               <slots.NeedsYouHover key={workspace.id} hostKey={hostKey} workspaceId={workspace.id}>
                 <WorkspaceChipMenu item={item} current={selected}>
                   <Chip
-                    title={workspace.path}
+                    title={item.hidden ? hiddenTitle(workspace.path, selected) : workspace.path}
                     className={cn(dimmed(group.host) && "opacity-(--opacity-dimmed)")}
+                    data-hidden={item.hidden ? "" : undefined}
                     selected={selected}
                     needsYou={summary.needsYou}
                     {...extra}
@@ -144,7 +154,10 @@ const WorkspaceBar = ({ bar }: { readonly bar: ReadonlyArray<BarHost> }) => {
                       selectWorkspace({ hostKey, workspaceId: workspace.id }, event.timeStamp)
                     }
                   >
-                    {workspace.name}
+                    <span className="max-w-60 truncate">{workspace.name}</span>
+                    {item.hidden ? (
+                      <span className="text-caption text-text-faint">hidden</span>
+                    ) : null}
                   </Chip>
                 </WorkspaceChipMenu>
               </slots.NeedsYouHover>
@@ -166,7 +179,7 @@ const MachineCaption = ({ group }: { readonly group: BarHost }) => {
 
   return (
     <span className="text-caption text-text-subtle">
-      {upgrade ?? plural(group.workspaces.length, "workspace")}
+      {upgrade ?? plural(group.workspaces.filter((w) => !w.hidden).length, "workspace")}
     </span>
   );
 };

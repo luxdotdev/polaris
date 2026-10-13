@@ -20,7 +20,7 @@ import {
   workspaceKey,
 } from "./selection.ts";
 import { timeSwitch } from "./switchTimer.ts";
-import { barHosts, barWorkspaces, type BarHost, topBarMode } from "./topBar.ts";
+import { barHosts, barWorkspaces, type BarHost, isRegistered, topBarMode } from "./topBar.ts";
 
 export type NavStore = StoreApi<NavState>;
 
@@ -223,20 +223,19 @@ export const createNavigation = ({
   };
 
   const startNewSessionIn = (hostKey: string, workspaceId: WorkspaceId | null = null) => {
-    const shown = barOf(app.getState())
-      .find((h) => h.host.key === hostKey)
-      ?.workspaces.some((w) => w.workspace.id === workspaceId);
+    // A hidden Workspace counts: ⌘N in one open from the jump menu starts there.
+    const shown = isRegistered(app.getState().hostModels, hostKey, workspaceId);
 
     set({
       pane: "new-session",
       mode: "orchestrate",
       settings: null,
       hostKey,
-      workspaceId: shown === true ? workspaceId : null,
+      workspaceId: shown ? workspaceId : null,
       sessionId: null,
     });
 
-    if (shown === true || ensureWorkspace === undefined) return;
+    if (shown || ensureWorkspace === undefined) return;
 
     // The stage shows the setup, busy, until the Host's Workspace (or its home) arrives.
     void ensureWorkspace(hostKey).then((id) => {
