@@ -21,6 +21,17 @@ export function AppleIcon() {
   );
 }
 
+export function WindowsIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" className="shrink-0">
+      <path
+        d="M0 0h7.5v7.5H0zM8.5 0H16v7.5H8.5zM0 8.5h7.5V16H0zM8.5 8.5H16V16H8.5z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
 export function LaptopIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" className="shrink-0">
