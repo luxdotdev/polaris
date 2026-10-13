@@ -6,6 +6,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./access": "./src/access/index.ts",
     "./install": "./src/install/index.ts",
     "./testing": "./src/connection.testing.ts",
     "./prediction": "./src/prediction/index.ts",

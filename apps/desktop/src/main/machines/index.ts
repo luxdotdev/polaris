@@ -5,8 +5,10 @@
  */
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { downloadBuild, Ssh } from "@polaris/client/install";
-import { discoverDistros, wslInstallLayer } from "@polaris/client/wsl";
+import { HostAccess } from "@polaris/client/access";
+import { downloadBuild } from "@polaris/client/install";
+import { discoverDistros } from "@polaris/client/wsl";
+import { Layer } from "effect";
 import { shell } from "electron";
 import type { LocalDaemon } from "../localDaemon.ts";
 import { approvalsPath, openApprovals } from "./approvals.ts";
@@ -44,7 +46,6 @@ export interface MachinesLayerInput {
 export const machinesLayer = (input: MachinesLayerInput) =>
   Machines.layer({
     platform: input.platform ?? process.platform,
-    sshBinary: input.settings.get().sshBinary,
     settings: input.settings,
     approvals: openApprovals(approvalsPath(input.userData)),
     // Release builds bundle only this machine's Daemon; a Host that can't download its own gets it from here.
@@ -68,9 +69,13 @@ export const machinesLayer = (input: MachinesLayerInput) =>
         env: input.env,
         openPath: (path) => shell.openPath(path),
       }),
-    ssh: Ssh.withOptions({ platform: input.platform, sshBinary: input.settings.get().sshBinary }),
-    wsl: {
-      ssh: wslInstallLayer({ env: input.env }),
-      discover: discoverDistros({ env: input.env, platform: input.platform }),
-    },
-  });
+    discoverWsl: discoverDistros({ env: input.env, platform: input.platform }),
+  }).pipe(
+    Layer.provide(
+      HostAccess.layer({
+        platform: input.platform ?? process.platform,
+        ssh: { sshBinary: input.settings.get().sshBinary },
+        wsl: { env: input.env },
+      })
+    )
+  );

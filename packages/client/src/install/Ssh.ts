@@ -197,29 +197,22 @@ export class Ssh extends Context.Service<
   /**
    * This machine itself, for its own installed Daemon: the same commands in a
    * local `sh`, with `HOME` as given (tests use a temporary one). The alias is ignored.
+   * `HostAccess` builds it only for a local Host Polaris installed, never on Windows.
    */
-  static readonly local = (home: string, platform: NodeJS.Platform = process.platform) =>
+  static readonly local = (home: string) =>
     Layer.succeed(
       Ssh,
       Ssh.of({
         exec: (alias, command, options) =>
-          platform === "win32"
-            ? Effect.fail(
-                new SshError({
-                  alias,
-                  failure: "spawn",
-                  message: "A local Windows Daemon is not supported.",
-                })
-              )
-            : runCommand({
-                alias,
-                file: "/bin/sh",
-                args: ["-c", command],
-                env: { ...process.env, HOME: home },
-                stdinFile: options?.stdinFile,
-                onStdinBytes: options?.onStdinBytes,
-                transportFailure: null,
-              }),
+          runCommand({
+            alias,
+            file: "/bin/sh",
+            args: ["-c", command],
+            env: { ...process.env, HOME: home },
+            stdinFile: options?.stdinFile,
+            onStdinBytes: options?.onStdinBytes,
+            transportFailure: null,
+          }),
       })
     );
 }
