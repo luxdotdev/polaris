@@ -62,7 +62,7 @@ export interface MachinesInput {
    * a start; rejects with why it doesn't (its log). Absent, nothing is awaited.
    */
   readonly localListening?: (home: string) => Promise<void>;
-  /** Opens Terminal on this Mac running `argv`. */
+  /** Opens a terminal window on this Client running `argv`. */
   readonly openTerminal: (argv: ReadonlyArray<string>) => Promise<void>;
   /** How install commands reach a Host (`Ssh.layer`; tests replace it). */
   readonly ssh: Layer.Layer<Ssh>;

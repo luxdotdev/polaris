@@ -1,11 +1,9 @@
 /**
  * The machines feature in the main process: `Machines` wired to this app's
- * files, the system `ssh`, the Daemon builds and macOS Terminal. See
+ * files, the system `ssh`, the Daemon builds and the Client's terminal. See
  * `README.md` in this folder.
  */
-import { chmodSync, mkdtempSync, writeFileSync } from "node:fs";
-import { homedir, tmpdir } from "node:os";
-import { join } from "node:path";
+import { homedir } from "node:os";
 import { Ssh } from "@polaris/client/install";
 import { discoverDistros, wslInstallLayer } from "@polaris/client/wsl";
 import { shell } from "electron";
@@ -14,7 +12,7 @@ import { approvalsPath, openApprovals } from "./approvals.ts";
 import { locateBuilds } from "./builds.ts";
 import { Machines, type SettingsStore } from "./service.ts";
 import { readSshAliases } from "./sshConfig.ts";
-import { openWindowsTerminal, terminalScript } from "./terminal.ts";
+import { openClientTerminal } from "./terminal.ts";
 
 export { Machines } from "./service.ts";
 
@@ -40,23 +38,6 @@ export interface MachinesLayerInput {
   readonly localListening: (home: string) => Promise<void>;
 }
 
-/** Runs `argv` in a new Terminal window, through a `.command` file macOS opens there. */
-const openTerminal = async (
-  argv: ReadonlyArray<string>,
-  platform: NodeJS.Platform,
-  env: NodeJS.ProcessEnv
-) => {
-  if (platform === "win32") return openWindowsTerminal(argv, undefined, env);
-  const dir = mkdtempSync(join(tmpdir(), "polaris-terminal-"));
-  const script = join(dir, "polaris.command");
-
-  writeFileSync(script, terminalScript(argv));
-  chmodSync(script, 0o700);
-  const error = await shell.openPath(script);
-
-  if (error !== "") throw new Error(error);
-};
-
 export const machinesLayer = (input: MachinesLayerInput) =>
   Machines.layer({
     platform: input.platform ?? process.platform,
@@ -73,7 +54,11 @@ export const machinesLayer = (input: MachinesLayerInput) =>
     localDaemon: input.localDaemon,
     localHome: input.localHome,
     localListening: input.localListening,
-    openTerminal: (argv) => openTerminal(argv, input.platform ?? process.platform, input.env),
+    openTerminal: (argv) =>
+      openClientTerminal(argv, input.platform ?? process.platform, {
+        env: input.env,
+        openPath: (path) => shell.openPath(path),
+      }),
     ssh: Ssh.withOptions({ platform: input.platform, sshBinary: input.settings.get().sshBinary }),
     wsl: {
       ssh: wslInstallLayer({ env: input.env }),
