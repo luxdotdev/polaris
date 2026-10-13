@@ -1,11 +1,12 @@
 import { describe, expect, test } from "bun:test";
+import type { KeyPlatform } from "../../shared/chord.ts";
 import type { CommandId } from "../../shared/keymap.ts";
 import { createCommandRegistry } from "./commands.ts";
 import { digitIndex, handleKey } from "./keyboard.ts";
 import type { ShellActions } from "./navigation.ts";
 import { reviewDigits } from "./review.ts";
 
-const setup = () => {
+const setup = (platform: KeyPlatform = "mac") => {
   const calls: Array<string> = [];
   const noop = () => undefined;
 
@@ -31,13 +32,15 @@ const setup = () => {
     startNewSessionIn: noop,
   };
 
-  const registry = createCommandRegistry({ mac: true });
+  const registry = createCommandRegistry({ platform });
 
   const ids: ReadonlyArray<CommandId> = [
     "jump.open",
     "session.new",
     "help.shortcuts",
     "session.next",
+    "view.orchestrate",
+    "editor.nextTab",
   ];
 
   registry.register(Object.fromEntries(ids.map((id) => [id, { run: () => void calls.push(id) }])));
@@ -67,19 +70,40 @@ describe("keyboard", () => {
   test("⌃N and ⌥N pick a chip; ⇧⌃N doesn't", () => {
     const { calls, context } = setup();
 
-    handleKey(key("Digit2", { ctrl: true }), context);
-    handleKey(key("Digit0", { alt: true }), context);
-    handleKey(key("Digit3", { ctrl: true, shift: true }), context);
+    handleKey(key("Digit2", { ctrl: true }), context, "mac");
+    handleKey(key("Digit0", { alt: true }), context, "mac");
+    handleKey(key("Digit3", { ctrl: true, shift: true }), context, "mac");
     expect(calls).toEqual(["chip 1", "chip 9"]);
+  });
+
+  test("on Windows Alt+N picks a chip, Ctrl+1 is Orchestrate and Ctrl+Alt (AltGr) does nothing", () => {
+    const { calls, context } = setup("windows");
+
+    handleKey(key("Digit2", { alt: true }), context, "windows");
+    handleKey(key("Digit1", { ctrl: true }), context, "windows");
+    handleKey(key("Digit3", { ctrl: true, alt: true }), context, "windows");
+    handleKey(key("Tab", { ctrl: true }), context, "windows");
+    handleKey(key("PageDown", { ctrl: true }), context, "windows");
+    expect(calls).toEqual(["chip 1", "view.orchestrate", "editor.nextTab", "session.next"]);
+  });
+
+  test("on Windows, in Review, Alt+N opens the queue's Nth review", () => {
+    const { calls, context } = setup("windows");
+
+    reviewDigits.pick = (index) => calls.push(`review ${index}`) > 0;
+    handleKey(key("Digit2", { alt: true }), context, "windows");
+    handleKey(key("Digit2", { ctrl: true }), context, "windows");
+    reviewDigits.pick = null;
+    expect(calls).toEqual(["review 1"]);
   });
 
   test("in Review, ⌃N opens the queue's Nth review; ⌥N and an empty slot still pick a chip", () => {
     const { calls, context } = setup();
 
     reviewDigits.pick = (index) => index < 3 && calls.push(`review ${index}`) > 0;
-    handleKey(key("Digit2", { ctrl: true }), context);
-    handleKey(key("Digit2", { alt: true }), context);
-    handleKey(key("Digit9", { ctrl: true }), context);
+    handleKey(key("Digit2", { ctrl: true }), context, "mac");
+    handleKey(key("Digit2", { alt: true }), context, "mac");
+    handleKey(key("Digit9", { ctrl: true }), context, "mac");
     reviewDigits.pick = null;
     expect(calls).toEqual(["review 1", "chip 1", "chip 8"]);
   });

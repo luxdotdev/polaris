@@ -6,7 +6,15 @@
  * also put facts in the command context (`provide`), which `when` conditions
  * read, and may contribute commands of their own (`contribute`).
  */
-import { type Chord, formatChord, isBare, matches, parseChord } from "../../shared/chord.ts";
+import {
+  type Chord,
+  currentKeyPlatform,
+  formatChord,
+  isBare,
+  type KeyPlatform,
+  matches,
+  parseChord,
+} from "../../shared/chord.ts";
 import {
   type CommandContext,
   type CommandGroup,
@@ -17,6 +25,7 @@ import {
   fillTitle,
   holds,
   KEYMAP,
+  keymapFor,
   type PaletteEntry,
   paletteEntry,
 } from "../../shared/keymap.ts";
@@ -120,15 +129,16 @@ interface Bound {
   readonly inFields: boolean;
 }
 
-const BOUND: ReadonlyArray<Bound> = KEYMAP.flatMap((b) =>
-  b.keys.map((key) => ({ id: b.id, chord: parseChord(key), inFields: b.inFields ?? true }))
-);
+const boundOn = (platform: KeyPlatform): ReadonlyArray<Bound> =>
+  keymapFor(platform).flatMap((b) =>
+    b.keys.map((key) => ({ id: b.id, chord: parseChord(key), inFields: b.inFields ?? true }))
+  );
 
 const WHEN = new Map<string, Condition | undefined>(KEYMAP.map((b) => [b.id, b.when]));
 
 export interface RegistryInput {
-  /** ⌘ is the mod key on macOS, Ctrl elsewhere. */
-  readonly mac: boolean;
+  /** Whose keys it runs and shows (⌘ on macOS, Ctrl elsewhere); default: this Client's. */
+  readonly platform?: KeyPlatform;
 }
 
 const mergeContext = (parts: ReadonlyArray<ContextPart>): CommandContext => {
@@ -143,22 +153,28 @@ const mergeContext = (parts: ReadonlyArray<ContextPart>): CommandContext => {
   return { keys, values };
 };
 
-const shortcutOf = (keys: ReadonlyArray<string>) => {
+const shortcutOf = (keys: ReadonlyArray<string>, platform: KeyPlatform) => {
   const first = keys[0];
 
-  return first === undefined ? "" : formatChord(parseChord(first));
+  return first === undefined ? "" : formatChord(parseChord(first), platform);
 };
 
-/** An accelerator as `aria-keyshortcuts` spells it, on macOS. */
-export const ariaKeys = (accelerator: string | undefined) =>
+/** An accelerator as `aria-keyshortcuts` spells it: the mod key is Meta on macOS, Control elsewhere. */
+export const ariaKeys = (
+  accelerator: string | undefined,
+  platform: KeyPlatform = currentKeyPlatform()
+) =>
   accelerator === undefined
     ? ""
-    : accelerator.replace("CmdOrCtrl", "Meta").replace(/\bCtrl\b/, "Control");
+    : accelerator
+        .replace("CmdOrCtrl", platform === "mac" ? "Meta" : "Control")
+        .replace(/\bCtrl\b/, "Control");
 
 const rowOf = (
   base: { readonly id: string; readonly title: string; readonly keys: ReadonlyArray<string> },
   entry: PaletteEntry,
-  values: CommandContext["values"]
+  values: CommandContext["values"],
+  platform: KeyPlatform
 ): PaletteCommand | null => {
   const title = fillTitle(entry.title ?? base.title, values);
 
@@ -170,8 +186,8 @@ const rowOf = (
     detail: entry.detail === undefined ? "" : (fillTitle(entry.detail, values) ?? ""),
     group: entry.group,
     keywords: entry.keywords ?? [],
-    shortcut: shortcutOf(base.keys),
-    ariaKeys: ariaKeys(base.keys[0]),
+    shortcut: shortcutOf(base.keys, platform),
+    ariaKeys: ariaKeys(base.keys[0], platform),
     followUp: entry.followUp ?? false,
     searchOnly: entry.searchOnly ?? false,
   };
@@ -185,7 +201,11 @@ const removeFrom =
     if (at !== -1) list.splice(at, 1);
   };
 
-export const createCommandRegistry = ({ mac }: RegistryInput): CommandRegistry => {
+export const createCommandRegistry = ({
+  platform = currentKeyPlatform(),
+}: RegistryInput = {}): CommandRegistry => {
+  const keymap = keymapFor(platform);
+  const bound = boundOn(platform);
   const layers: Array<CommandHandlers> = [];
   const providers: Array<() => ContextPart> = [];
   const contributed: Array<ReadonlyArray<ContributedCommand>> = [];
@@ -266,21 +286,21 @@ export const createCommandRegistry = ({ mac }: RegistryInput): CommandRegistry =
     palette: () => {
       const { keys, values } = context();
 
-      const fromKeymap = KEYMAP.flatMap((b) => {
+      const fromKeymap = keymap.flatMap((b) => {
         const entry = paletteEntry(b);
         const found = handler(b.id);
 
         if (entry === null || found === undefined || !(found.enabled?.() ?? true)) return [];
 
         if (!holds(b.when, keys)) return [];
-        const row = rowOf(b, entry, values);
+        const row = rowOf(b, entry, values, platform);
 
         return row === null ? [] : [row];
       });
 
       const fromFeatures = contributed.flat().flatMap((c) => {
         if (!(c.handler.enabled?.() ?? true) || !holds(c.when, keys)) return [];
-        const row = rowOf({ ...c, keys: [] }, c.palette, values);
+        const row = rowOf({ ...c, keys: [] }, c.palette, values, platform);
 
         return row === null ? [] : [row];
       });
@@ -294,9 +314,9 @@ export const createCommandRegistry = ({ mac }: RegistryInput): CommandRegistry =
     },
     handleKey: (event) => {
       // A shared chord (`KeyBinding.shares`) runs the first of its commands that is enabled.
-      return BOUND.some(
+      return bound.some(
         (b) =>
-          matches(b.chord, event, mac) &&
+          matches(b.chord, event, platform) &&
           !(event.typing && (isBare(b.chord) || !b.inFields)) &&
           run(b.id)
       );

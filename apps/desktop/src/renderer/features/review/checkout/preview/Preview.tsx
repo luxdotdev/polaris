@@ -72,7 +72,7 @@ export const mountCheckoutPreview = (root: HTMLElement, hash: string) => {
   };
 
   const navigation = createNavigation({ app: store, storage: null });
-  const commands = createCommandRegistry({ mac: true });
+  const commands = createCommandRegistry({ platform: "mac" });
 
   createRoot(root).render(
     <AppProvider value={{ connection, navigation, commands }}>

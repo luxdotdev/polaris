@@ -17,7 +17,7 @@ const withKeys =
 
 describe("availability", () => {
   test("a command runs only when its when-condition holds and its handler is enabled", () => {
-    const registry = createCommandRegistry({ mac: true });
+    const registry = createCommandRegistry({ platform: "mac" });
     let restarts = 0;
 
     registry.register({ "language.restart": { run: () => restarts++ } });
@@ -36,7 +36,7 @@ describe("availability", () => {
   });
 
   test("the handler's own enabled still gates a command whose condition holds", () => {
-    const registry = createCommandRegistry({ mac: true });
+    const registry = createCommandRegistry({ platform: "mac" });
 
     registry.provide(withKeys("editor.file", "trust.known", "trust.trusted"));
     registry.register({ "trust.revoke": { run: () => undefined, enabled: () => false } });
@@ -45,7 +45,7 @@ describe("availability", () => {
   });
 
   test("context parts from several features merge", () => {
-    const registry = createCommandRegistry({ mac: true });
+    const registry = createCommandRegistry({ platform: "mac" });
 
     registry.provide(() => ({ keys: ["workspace"], values: { workspace: "polaris" } }));
     registry.provide(() => ({ keys: ["editor.file"], values: { language: "TypeScript" } }));
@@ -59,7 +59,7 @@ describe("availability", () => {
 
 describe("the palette's rows", () => {
   test("titles fill from the context; a title missing its word is left out", () => {
-    const registry = createCommandRegistry({ mac: true });
+    const registry = createCommandRegistry({ platform: "mac" });
 
     registry.register({
       "session.new": { run: () => undefined },
@@ -81,7 +81,7 @@ describe("the palette's rows", () => {
   });
 
   test("a disabled handler hides its row", () => {
-    const registry = createCommandRegistry({ mac: true });
+    const registry = createCommandRegistry({ platform: "mac" });
 
     registry.register({ "updates.restart": { run: () => undefined, enabled: () => false } });
 
@@ -91,7 +91,7 @@ describe("the palette's rows", () => {
 
 describe("contributions", () => {
   test("a feature's command is listed, runs by id, and goes when removed", () => {
-    const registry = createCommandRegistry({ mac: true });
+    const registry = createCommandRegistry({ platform: "mac" });
     let ran = 0;
 
     const remove = registry.contribute([
@@ -113,7 +113,7 @@ describe("contributions", () => {
   });
 
   test("a contribution can't take a keymap id", () => {
-    const registry = createCommandRegistry({ mac: true });
+    const registry = createCommandRegistry({ platform: "mac" });
 
     registry.contribute([
       {
@@ -128,7 +128,7 @@ describe("contributions", () => {
   });
 
   test("a contribution's when-condition gates it", () => {
-    const registry = createCommandRegistry({ mac: true });
+    const registry = createCommandRegistry({ platform: "mac" });
 
     registry.contribute([
       {
@@ -148,7 +148,7 @@ describe("contributions", () => {
 
 describe("follow-ups", () => {
   test("a '…' command hands its question to the palette instead of running", () => {
-    const registry = createCommandRegistry({ mac: true });
+    const registry = createCommandRegistry({ platform: "mac" });
     const asked: Array<FollowUp> = [];
 
     const question: FollowUp = {

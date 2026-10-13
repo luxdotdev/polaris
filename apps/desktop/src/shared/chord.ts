@@ -1,8 +1,22 @@
 /**
  * Accelerators ("CmdOrCtrl+Alt+Down") as chords a key event can match, and
- * as the glyphs the UI shows ("⌘⌥↓"). Keys match by `event.code`, so ⌥ and
- * keyboard layouts don't change which chord fires.
+ * as the UI shows them: glyphs on macOS ("⌥⌘↓"), words elsewhere ("Ctrl+Alt+Down").
+ * Keys match by `event.code`, so ⌥ and keyboard layouts don't change which chord fires.
  */
+import { clientPlatform } from "./platform.ts";
+
+/** How keys behave and read: macOS, Windows, or Linux (every other OS). */
+export type KeyPlatform = "mac" | "windows" | "linux";
+
+/** A `process.platform` spelling ("darwin", "win32", …) as a key platform. */
+export const keyPlatformOf = (platform: string): KeyPlatform => {
+  if (platform === "darwin") return "mac";
+
+  return platform === "win32" ? "windows" : "linux";
+};
+
+/** The platform this Client runs on, from the one shared source (`platform.ts`). */
+export const currentKeyPlatform = (): KeyPlatform => keyPlatformOf(String(clientPlatform()));
 
 export interface Chord {
   /** ⌘ on macOS, Ctrl elsewhere. */
@@ -33,6 +47,8 @@ const NAMED = new Map<string, string>([
   ["Tab", "Tab"],
   ["Backspace", "Backspace"],
   ["Delete", "Delete"],
+  ["PageUp", "PageUp"],
+  ["PageDown", "PageDown"],
 ]);
 
 const codeOf = (key: string): string => {
@@ -81,16 +97,30 @@ export interface KeyEventLike {
   readonly shiftKey: boolean;
 }
 
-export const matches = (chord: Chord, event: KeyEventLike, mac: boolean): boolean => {
+/** On Windows Control is the mod key, so "Ctrl+Tab" and "CmdOrCtrl+Tab" are one chord. */
+export const onPlatform = (chord: Chord, platform: KeyPlatform): Chord =>
+  platform === "windows" ? { ...chord, mod: chord.mod || chord.ctrl, ctrl: false } : chord;
+
+/** The canonical spelling of a chord as it is pressed on a platform. */
+export const platformChordKey = (chord: Chord, platform: KeyPlatform): string =>
+  chordKey(onPlatform(chord, platform));
+
+export const matches = (
+  chord: Chord,
+  event: KeyEventLike,
+  platform: KeyPlatform = currentKeyPlatform()
+): boolean => {
+  const mac = platform === "mac";
   const mod = mac ? event.metaKey : event.ctrlKey;
   const ctrl = mac ? event.ctrlKey : false;
+  const pressed = onPlatform(chord, platform);
 
   return (
-    event.code === chord.code &&
-    mod === chord.mod &&
-    ctrl === chord.ctrl &&
-    event.altKey === chord.alt &&
-    event.shiftKey === chord.shift
+    event.code === pressed.code &&
+    mod === pressed.mod &&
+    ctrl === pressed.ctrl &&
+    event.altKey === pressed.alt &&
+    event.shiftKey === pressed.shift
   );
 };
 
@@ -114,16 +144,79 @@ const GLYPHS = new Map<string, string>([
   ["Delete", "⌦"],
 ]);
 
-const keyGlyph = (code: string) =>
-  GLYPHS.get(code) ?? code.replace(/^Key/, "").replace(/^Digit/, "");
+/** Windows and Linux spell keys out, as their guidelines do ("Ctrl+Shift+Up", "Esc"). */
+const WORDS = new Map<string, string>([
+  ["ArrowUp", "Up"],
+  ["ArrowDown", "Down"],
+  ["ArrowLeft", "Left"],
+  ["ArrowRight", "Right"],
+  ["Enter", "Enter"],
+  ["Escape", "Esc"],
+  ["Tab", "Tab"],
+  ["Backspace", "Backspace"],
+  ["Delete", "Delete"],
+  ["PageUp", "PageUp"],
+  ["PageDown", "PageDown"],
+]);
 
-/** "⌘⌥↓", "⌘/", "?" (macOS order: ⌃⌥⇧⌘). */
-export const formatChord = (chord: Chord): string => {
+const plainKey = (code: string) => code.replace(/^Key/, "").replace(/^Digit/, "");
+
+const keyGlyph = (code: string) => GLYPHS.get(code) ?? plainKey(code);
+
+const keyWord = (code: string) => WORDS.get(code) ?? keyGlyph(code);
+
+/**
+ * "⌥⌘↓", "⌘/", "?" on macOS (its order: ⌃⌥⇧⌘); "Ctrl+Alt+Down", "Ctrl+/", "?"
+ * elsewhere (Ctrl, Alt, Shift, then the key).
+ */
+export const formatChord = (chord: Chord, platform: KeyPlatform = currentKeyPlatform()): string => {
   if (chord.shift && isBare(chord) && chord.code === "Slash") return "?";
+
+  if (platform !== "mac") {
+    const ctrl = chord.mod || chord.ctrl;
+
+    return [ctrl && "Ctrl", chord.alt && "Alt", chord.shift && "Shift", keyWord(chord.code)]
+      .filter((p) => p !== false)
+      .join("+");
+  }
 
   return `${chord.ctrl ? "⌃" : ""}${chord.alt ? "⌥" : ""}${chord.shift ? "⇧" : ""}${chord.mod ? "⌘" : ""}${keyGlyph(chord.code)}`;
 };
 
 /** An accelerator as a menu or hint shows it, or nothing when there is none. */
-export const acceleratorLabel = (accelerator: string | undefined): string | undefined =>
-  accelerator === undefined ? undefined : formatChord(parseChord(accelerator));
+export const acceleratorLabel = (
+  accelerator: string | undefined,
+  platform: KeyPlatform = currentKeyPlatform()
+): string | undefined =>
+  accelerator === undefined ? undefined : formatChord(parseChord(accelerator), platform);
+
+/** An accelerator's label for copy, where it is always present ("⌘↵", "Ctrl+Enter"). */
+export const shortcutLabel = (
+  accelerator: string,
+  platform: KeyPlatform = currentKeyPlatform()
+): string => formatChord(parseChord(accelerator), platform);
+
+export type Modifier = "CmdOrCtrl" | "Ctrl" | "Alt" | "Shift";
+
+const MAC_MODIFIERS: Record<Modifier, string> = {
+  CmdOrCtrl: "⌘",
+  Ctrl: "⌃",
+  Alt: "⌥",
+  Shift: "⇧",
+};
+
+/** A modifier held on its own, as copy names it ("Hold ⌥", "Hold Alt"; "⌘-click", "Ctrl-click"). */
+export const modifierLabel = (
+  modifier: Modifier,
+  platform: KeyPlatform = currentKeyPlatform()
+): string => {
+  if (platform === "mac") return MAC_MODIFIERS[modifier];
+
+  return modifier === "CmdOrCtrl" ? "Ctrl" : modifier;
+};
+
+/** The mod key of a pointer or key event: ⌘ on macOS, Ctrl elsewhere. */
+export const modKey = (
+  event: { readonly metaKey: boolean; readonly ctrlKey: boolean },
+  platform: KeyPlatform = currentKeyPlatform()
+): boolean => (platform === "mac" ? event.metaKey : event.ctrlKey);

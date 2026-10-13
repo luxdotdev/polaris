@@ -19,6 +19,7 @@ import { useOnboardingState } from "../../onboarding/index.ts";
 import { useReadyLine } from "../hooks.ts";
 import { connectHostCaption, hostStageLine, stageKicker } from "../model.ts";
 import { Stage } from "./Stage.tsx";
+import { commandShortcut } from "../../../../shared/keymap.ts";
 
 /** Opens the ⌘O dialog on this Host: the folder is browsed on the Host's own Daemon. */
 const AddWorkspaceRow = ({ host }: { readonly host: HostView }) => {
@@ -37,7 +38,7 @@ const AddWorkspaceRow = ({ host }: { readonly host: HostView }) => {
           onClick={() => openFolder(host.key)}
           data-testid="add-workspace"
         >
-          Choose folder <Kbd variant="plain">⌘O</Kbd>
+          Choose folder <Kbd variant="plain">{commandShortcut("workspace.add")}</Kbd>
         </Button>
       }
     />

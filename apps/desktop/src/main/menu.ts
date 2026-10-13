@@ -12,8 +12,8 @@ import {
   type Density,
   type ThemeSource,
 } from "../shared/api.ts";
-import { isBare, parseChord } from "../shared/chord.ts";
-import { KEYMAP, type MenuName } from "../shared/keymap.ts";
+import { currentKeyPlatform, isBare, parseChord } from "../shared/chord.ts";
+import { keymapFor, type MenuName } from "../shared/keymap.ts";
 import type { AppUpdateView } from "../shared/appUpdates.ts";
 
 export interface MenuInput {
@@ -36,22 +36,24 @@ const send = (event: AppEvent) =>
 
 /** A menu's items from the keymap; the first chord with a modifier is the one shown. */
 const commandItems = (menu: MenuName): Array<MenuItemConstructorOptions> =>
-  KEYMAP.filter((b) => b.menu === menu).map((b) => {
-    const shown = b.keys.find((k) => !isBare(parseChord(k)));
+  keymapFor(currentKeyPlatform())
+    .filter((b) => b.menu === menu)
+    .map((b) => {
+      const shown = b.keys.find((k) => !isBare(parseChord(k)));
 
-    const item: MenuItemConstructorOptions = {
-      id: b.id,
-      label: b.title,
-      click: () => send({ kind: "command", id: b.id }),
-    };
+      const item: MenuItemConstructorOptions = {
+        id: b.id,
+        label: b.title,
+        click: () => send({ kind: "command", id: b.id }),
+      };
 
-    if (shown !== undefined) {
-      item.accelerator = shown;
-      item.registerAccelerator = false;
-    }
+      if (shown !== undefined) {
+        item.accelerator = shown;
+        item.registerAccelerator = false;
+      }
 
-    return item;
-  });
+      return item;
+    });
 
 const develop = (proofHostKey: string | null): MenuItemConstructorOptions => ({
   label: "Develop",

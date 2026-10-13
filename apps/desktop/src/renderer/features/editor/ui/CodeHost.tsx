@@ -7,8 +7,6 @@ import { useEffect, useRef } from "react";
 import { forwardShellChords } from "../cm/keys.ts";
 import { attachView, detachView } from "../runtime/buffers.ts";
 
-const mac = typeof navigator !== "undefined" && /Mac/.test(navigator.userAgent);
-
 export interface CodeHostProps {
   /** The active file's key; null for none. */
   readonly bufferKey: string | null;
@@ -24,7 +22,7 @@ export const CodeHost = ({ bufferKey, ready, focus }: CodeHostProps) => {
   useEffect(() => {
     const parent = host.current;
 
-    return parent === null ? undefined : forwardShellChords(parent, mac);
+    return parent === null ? undefined : forwardShellChords(parent);
   }, []);
 
   useEffect(() => {

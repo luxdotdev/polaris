@@ -5,6 +5,8 @@
  */
 import { Button, ChevronDownIcon, CloseIcon, cn, IconButton, Kbd } from "@polaris/ui";
 import { type PointerEvent, type ReactNode, useEffect, useRef } from "react";
+import { shortcutLabel } from "../../../../shared/chord.ts";
+import { TERMINAL_TOGGLE } from "../../../../shared/keymap.ts";
 import { useApp } from "../../../shell/hooks.ts";
 import { emptyHostModel } from "../../../store/hostModel.ts";
 import {
@@ -28,12 +30,12 @@ export interface TerminalDockProps {
   readonly children: ReactNode;
 }
 
-const TOGGLE_HINT = "⌃`";
+const toggleHint = () => shortcutLabel(TERMINAL_TOGGLE);
 
 const useWorkspace = (hostKey: string, workspaceId: string) =>
   useApp((s) => (s.hostModels[hostKey] ?? emptyHostModel).workspaces.get(workspaceId));
 
-/** ⌃` (Control and the key left of 1, whatever the layout prints on it). */
+/** TERMINAL_TOGGLE: Control and the key left of 1, whatever the layout prints on it. */
 const useToggleKey = (toggle: () => void) => {
   const latest = useRef(toggle);
 
@@ -134,7 +136,7 @@ const Strip = ({ onToggle, count }: { readonly onToggle: () => void; readonly co
     >
       Terminal
       {count > 1 ? <span className="text-text-subtle tabular">{count}</span> : null}
-      <Kbd variant="plain">{TOGGLE_HINT}</Kbd>
+      <Kbd variant="plain">{toggleHint()}</Kbd>
     </Button>
   </div>
 );
@@ -206,7 +208,7 @@ const OpenDrawer = ({ place, drawer, home, where, onHide, dock }: OpenDrawerProp
         <IconButton
           size="sm"
           label="Hide terminal"
-          shortcut={TOGGLE_HINT}
+          shortcut={toggleHint()}
           icon={<ChevronDownIcon size={14} />}
           onClick={onHide}
         />

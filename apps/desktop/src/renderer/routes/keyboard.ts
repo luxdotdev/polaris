@@ -3,6 +3,8 @@
  * plus ⌃1…⌃0 (or ⌥1…⌥0, since macOS may bind ⌃N to Spaces), which pick a
  * Workspace chip or a machine and depend on the data (in Review, ⌃1…⌃9 pick a review).
  */
+import { currentKeyPlatform, type KeyPlatform } from "../../shared/chord.ts";
+import { digitModifiersFor } from "../../shared/keymap.ts";
 import type { CommandRegistry, KeyInput } from "./commands.ts";
 import type { ShellActions } from "./navigation.ts";
 import { reviewDigits } from "./review.ts";
@@ -28,18 +30,29 @@ export interface KeyContext {
   readonly registry: CommandRegistry;
 }
 
+const holds = (event: KeyInput, modifier: "Ctrl" | "Alt") =>
+  modifier === "Ctrl" ? event.ctrlKey : event.altKey;
+
 /** Runs the shortcut for a key event; true when it handled it. */
 export const handleKey = (
   event: KeyInput & { readonly timeStamp: number },
-  { actions, registry }: KeyContext
+  { actions, registry }: KeyContext,
+  platform: KeyPlatform = currentKeyPlatform()
 ): boolean => {
   const digit = digitIndex(event.code);
-  const ctrlOnly = event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey;
+  const modifiers = digitModifiersFor(platform);
+  const [first = "Ctrl"] = modifiers;
+  const other = first === "Ctrl" ? "Alt" : "Ctrl";
+  const plain = !event.metaKey && !event.shiftKey;
+  const firstOnly = plain && holds(event, first) && !holds(event, other);
 
-  // In Review, ⌃N opens the queue's Nth review; Orchestrate keeps its Workspace chips.
-  if (digit !== null && ctrlOnly && reviewDigits.pick?.(digit) === true) return true;
+  // In Review, ⌃N (Alt+N on Windows) opens the queue's Nth review; Orchestrate keeps its chips.
+  if (digit !== null && firstOnly && reviewDigits.pick?.(digit) === true) return true;
 
-  if (digit !== null && (event.ctrlKey || event.altKey) && !event.metaKey && !event.shiftKey) {
+  // On Windows Ctrl+Alt is AltGr, so only Alt alone picks a chip.
+  const chip = platform === "windows" ? firstOnly : plain && modifiers.some((m) => holds(event, m));
+
+  if (digit !== null && chip) {
     actions.selectShortcut(digit, event.timeStamp);
 
     return true;

@@ -222,7 +222,7 @@ export const mountExplorerPreview = (root: HTMLElement, hash: string) => {
   navigation.actions.setMode("edit");
 
   createRoot(root).render(
-    <App value={{ connection, navigation, commands: createCommandRegistry({ mac: true }) }} />
+    <App value={{ connection, navigation, commands: createCommandRegistry({ platform: "mac" }) }} />
   );
 
   setTimeout(() => openTabs(scene), 100);

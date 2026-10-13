@@ -1,9 +1,23 @@
 /** The Editor preferences group (Paper L4): language preferences, then the Editor's own keys and saving. */
 import * as P from "@polaris/protocol";
 import { Switch } from "@polaris/ui";
+import { currentKeyPlatform, shortcutLabel } from "../../../../shared/chord.ts";
+import { commandShortcut, digitChord } from "../../../../shared/keymap.ts";
 import type { ReactNode } from "react";
 import { Group } from "../ui/parts.tsx";
 import { withKey, type SettingsRecord } from "./records.ts";
+
+const vimCaption = () => {
+  const kept = (
+    ["editor.save", "editor.findFile", "editor.inlineChat", "editor.addToSession"] as const
+  )
+    .map((id) => commandShortcut(id))
+    .join(", ");
+
+  const chip = shortcutLabel(digitChord(0, currentKeyPlatform()) ?? "Ctrl+1");
+
+  return `Normal, insert and visual modes, :w, :q, :wq and :e. ${kept} and ${chip}…9 keep working in every mode.`;
+};
 
 type Change = (settings: P.LanguageSettingsPatch) => P.LanguageSettingsPatch;
 
@@ -79,11 +93,7 @@ export const Preferences = ({
           onCheckedChange={(on) => onChange(withKey("downloadLanguageToolsAutomatically", on))}
         />
       </PreferenceRow>
-      <PreferenceRow
-        id="editor-vim"
-        title="Vim mode"
-        caption="Normal, insert and visual modes, :w, :q, :wq and :e. ⌘S, ⌘P, ⌘I, ⌘L and ⌃1…9 keep working in every mode."
-      >
+      <PreferenceRow id="editor-vim" title="Vim mode" caption={vimCaption()}>
         <Switch id="editor-vim" checked={keys.vim} onCheckedChange={keys.onVim} />
       </PreferenceRow>
       <PreferenceRow

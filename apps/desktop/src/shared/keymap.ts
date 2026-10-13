@@ -6,6 +6,7 @@
  * Features add commands of their own at run time (`routes/commands.ts`, `contribute`).
  */
 import { Predicate } from "effect";
+import { acceleratorLabel, currentKeyPlatform, type KeyPlatform } from "./chord.ts";
 
 export type CommandId =
   | "view.orchestrate"
@@ -625,10 +626,96 @@ export const RESERVED: ReadonlyArray<string> = [
   "CmdOrCtrl+Tab",
 ];
 
+/**
+ * Windows' own chords, the menu roles' Windows accelerators, Shift+F10 (context
+ * menus) and Ctrl+H (Replace, by convention). The Windows key never appears in a binding.
+ */
+export const WINDOWS_RESERVED: ReadonlyArray<string> = [
+  "Alt+F4",
+  "Alt+Space",
+  "Alt+Tab",
+  "Alt+Shift+Tab",
+  "Alt+Esc",
+  "Ctrl+Esc",
+  "Ctrl+Shift+Esc",
+  "Ctrl+Alt+Delete",
+  "F10",
+  "Shift+F10",
+  "F11",
+  ...Object.values(EDIT_CHORDS),
+  "CmdOrCtrl+Z",
+  "CmdOrCtrl+Y",
+  "CmdOrCtrl+Shift+Z",
+  "CmdOrCtrl+R",
+  "CmdOrCtrl+Shift+I",
+  "CmdOrCtrl+H",
+  "CmdOrCtrl+Q",
+  "Ctrl+Space",
+];
+
+/** The chords a platform keeps for itself; Linux keeps macOS's list for now. */
+export const reservedFor = (platform: KeyPlatform): ReadonlyArray<string> =>
+  platform === "windows" ? WINDOWS_RESERVED : RESERVED;
+
+/**
+ * Where Windows differs: Ctrl+Alt is AltGr on European layouts (it types @, {, €),
+ * so those chords move to Ctrl+Shift or PageUp/PageDown. An empty list: menu and palette only.
+ */
+export const WINDOWS_KEYS: Partial<Record<CommandId, ReadonlyArray<string>>> = {
+  "language.restart": ["CmdOrCtrl+Shift+R"],
+  "view.output": ["CmdOrCtrl+Shift+B"],
+  "session.next": ["CmdOrCtrl+PageDown"],
+  "session.previous": ["CmdOrCtrl+PageUp"],
+  "tab.closeOthers": [],
+};
+
+/** The keymap with a platform's own keys. */
+export const keymapFor = (platform: KeyPlatform): ReadonlyArray<KeyBinding> =>
+  platform === "windows"
+    ? KEYMAP.map((b) => {
+        const keys = WINDOWS_KEYS[b.id];
+
+        return keys === undefined ? b : { ...b, keys };
+      })
+    : KEYMAP;
+
+/** ⌃` toggles the terminal drawer (Ctrl+` on Windows and Linux); the drawer handles it. */
+export const TERMINAL_TOGGLE = "Ctrl+`";
+
+/** Keys a field or dialog handles itself, so their hints read the platform's way. */
+export const FIELD_CHORDS = {
+  submit: "CmdOrCtrl+Enter",
+  newLine: "Shift+Enter",
+  previousMatch: "Shift+Enter",
+  matchCase: "Alt+C",
+  regex: "Alt+R",
+  folderUp: "CmdOrCtrl+Up",
+  nextHost: "Ctrl+Tab",
+  undo: "CmdOrCtrl+Z",
+} as const;
+
 /** ⌃1…⌃0 and ⌥1…⌥0 pick Workspace chips or machines; they are data-driven, so outside KEYMAP. */
 export const SHORTCUT_DIGIT_MODIFIERS: ReadonlyArray<string> = ["Ctrl", "Alt"];
 
+/** On Windows only Alt+1…0: Ctrl+1–3 are the views there, as ⌘1–3 are on macOS. */
+export const digitModifiersFor = (platform: KeyPlatform): ReadonlyArray<"Ctrl" | "Alt"> =>
+  platform === "windows" ? ["Alt"] : ["Ctrl", "Alt"];
+
+/** The chord of the chip at `index` ("Ctrl+1"; "Ctrl+0" is the tenth), in the platform's first modifier. */
+export const digitChord = (index: number, platform: KeyPlatform): string | undefined => {
+  if (index < 0 || index > 9) return undefined;
+
+  return `${digitModifiersFor(platform)[0] ?? "Ctrl"}+${(index + 1) % 10}`;
+};
+
 export const bindingOf = (id: CommandId): KeyBinding | undefined => KEYMAP.find((b) => b.id === id);
 
-/** The chord a menu shows for a command: its first accelerator, if it has one. */
-export const chordOf = (id: CommandId): string | undefined => bindingOf(id)?.keys[0];
+/** The chord a menu shows for a command: its first accelerator on the platform, if it has one. */
+export const chordOf = (id: CommandId, platform: KeyPlatform): string | undefined =>
+  keymapFor(platform).find((b) => b.id === id)?.keys[0];
+
+/** A command's shortcut as copy shows it ("⌘N", "Ctrl+N"), or "" when it has none there. */
+export const commandShortcut = (
+  id: CommandId,
+  platform: KeyPlatform = currentKeyPlatform()
+): string => acceleratorLabel(chordOf(id, platform), platform) ?? "";

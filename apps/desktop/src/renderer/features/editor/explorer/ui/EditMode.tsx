@@ -12,13 +12,14 @@ import { EditorPane, EditorStatus, registerEditorExtensions } from "../../index.
 import { gitGutter } from "../gutter/gitGutter.ts";
 import { Explorer } from "./Explorer.tsx";
 import { StatusBar } from "./StatusBar.tsx";
+import { commandShortcut } from "../../../../../shared/keymap.ts";
 
 const NoWorkspace = () => (
   <div className="grid flex-1 place-items-center" data-testid="edit-no-workspace">
     <EmptyState
       icon={<PixelFolderIcon size={24} className="text-text-strong" />}
       title="No workspace to edit"
-      fact="Choose one in the bar above, or ⌘O opens a folder"
+      fact={`Choose one in the bar above, or ${commandShortcut("workspace.add")} opens a folder`}
     />
   </div>
 );
