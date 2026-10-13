@@ -13,7 +13,7 @@ import { approvalsPath, openApprovals } from "./approvals.ts";
 import { locateBuilds } from "./builds.ts";
 import { Machines, type SettingsStore } from "./service.ts";
 import { readSshAliases } from "./sshConfig.ts";
-import { terminalScript } from "./terminal.ts";
+import { openWindowsTerminal, terminalScript } from "./terminal.ts";
 
 export { Machines } from "./service.ts";
 
@@ -26,6 +26,7 @@ export const sshAliasNames = (env: Record<string, string | undefined>): Readonly
   readSshAliases(sshHome(env)).map((a) => a.alias);
 
 export interface MachinesLayerInput {
+  readonly platform?: NodeJS.Platform;
   readonly settings: SettingsStore;
   readonly userData: string;
   readonly env: Record<string, string | undefined>;
@@ -38,7 +39,12 @@ export interface MachinesLayerInput {
 }
 
 /** Runs `argv` in a new Terminal window, through a `.command` file macOS opens there. */
-const openTerminal = async (argv: ReadonlyArray<string>) => {
+const openTerminal = async (
+  argv: ReadonlyArray<string>,
+  platform: NodeJS.Platform,
+  env: NodeJS.ProcessEnv
+) => {
+  if (platform === "win32") return openWindowsTerminal(argv, undefined, env);
   const dir = mkdtempSync(join(tmpdir(), "polaris-terminal-"));
   const script = join(dir, "polaris.command");
 
@@ -51,6 +57,8 @@ const openTerminal = async (argv: ReadonlyArray<string>) => {
 
 export const machinesLayer = (input: MachinesLayerInput) =>
   Machines.layer({
+    platform: input.platform ?? process.platform,
+    sshBinary: input.settings.get().sshBinary,
     settings: input.settings,
     approvals: openApprovals(approvalsPath(input.userData)),
     builds: locateBuilds({
@@ -59,9 +67,9 @@ export const machinesLayer = (input: MachinesLayerInput) =>
       repoRoot: input.repoRoot,
       buildOnDemand: input.dev,
     }),
-    aliases: () => readSshAliases(sshHome(input.env)),
+    aliases: () => readSshAliases(sshHome(input.env), { platform: input.platform, env: input.env }),
     localDaemon: input.localDaemon,
     localHome: input.localHome,
-    openTerminal,
-    ssh: Ssh.layer,
+    openTerminal: (argv) => openTerminal(argv, input.platform ?? process.platform, input.env),
+    ssh: Ssh.withOptions({ platform: input.platform, sshBinary: input.settings.get().sshBinary }),
   });
