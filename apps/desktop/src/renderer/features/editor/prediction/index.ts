@@ -13,8 +13,11 @@ import {
 } from "./state.ts";
 import type { PredictionPort } from "./types.ts";
 
+import { markPrediction } from "./timing.ts";
+
 class Requests {
   private active: AbortController | null = null;
+  private disposed = false;
   private readonly unsubscribe: () => void;
   constructor(
     private readonly view: EditorView,
@@ -26,8 +29,19 @@ class Requests {
     });
   }
   private cancel() {
+    const preview = this.view.state.field(ghost, false);
     this.active?.abort();
     this.active = null;
+
+    if (preview?.provisional)
+      queueMicrotask(() => {
+        if (
+          !this.disposed &&
+          this.active === null &&
+          this.view.state.field(ghost, false) === preview
+        )
+          this.view.dispatch({ effects: setGhost.of(null) });
+      });
   }
   dismiss() {
     const pending = this.active !== null;
@@ -36,7 +50,12 @@ class Requests {
     return pending;
   }
   update(update: ViewUpdate) {
-    if (!update.docChanged && !update.selectionSet && !update.focusChanged) return;
+    if (!update.docChanged && !update.selectionSet) {
+      if (update.focusChanged && !this.view.hasFocus) this.cancel();
+
+      return;
+    }
+
     this.cancel();
 
     if (
@@ -54,30 +73,60 @@ class Requests {
     if (state.selection.ranges.length !== 1 || !state.selection.main.empty) return;
     const controller = new AbortController();
     this.active = controller;
+    markPrediction("keystroke");
     const input = { buffer: state.doc.toString(), cursor: state.selection.main.head };
-    void this.port.request(input, controller.signal).then(
-      (prediction) => {
-        if (
-          controller.signal.aborted ||
-          this.active !== controller ||
-          !this.port.allowed(this.view) ||
-          this.view.state.doc !== state.doc ||
-          this.view.state.selection.main.head !== input.cursor
-        )
-          return;
-        this.active = null;
-        this.view.dispatch({
-          effects: setGhost.of(
-            prediction.text.length === 0 ? null : { ...prediction, at: input.cursor }
-          ),
-        });
-      },
-      () => {
-        if (this.active === controller) this.active = null;
-      }
-    );
+
+    const current = () =>
+      !controller.signal.aborted &&
+      this.active === controller &&
+      this.port.allowed(this.view) &&
+      this.view.state.doc === state.doc &&
+      this.view.state.selection.main.head === input.cursor;
+
+    let rendered = false;
+
+    const renderedOnce = () => {
+      if (rendered) return;
+      rendered = true;
+      markPrediction("render");
+    };
+
+    const show = (text: string, provisional: boolean) => {
+      if (!current() || (this.view.state.field(ghost)?.text ?? "") === text) return;
+      this.view.dispatch({
+        effects: setGhost.of(text ? { text, provisional, at: input.cursor } : null),
+      });
+
+      if (text) renderedOnce();
+    };
+
+    void this.port
+      .request(input, controller.signal, (text) => {
+        queueMicrotask(() => show(text, true));
+      })
+      .then(
+        (prediction) => {
+          if (!current()) return;
+          const shown = this.view.state.field(ghost)?.text;
+          const text = shown && prediction.text.startsWith(shown) ? shown : prediction.text;
+          this.view.dispatch({
+            effects: setGhost.of(
+              text ? { ...prediction, text, provisional: false, at: input.cursor } : null
+            ),
+          });
+          this.active = null;
+
+          if (text) renderedOnce();
+        },
+        () => {
+          if (!current()) return;
+          show("", false);
+          this.active = null;
+        }
+      );
   }
   destroy() {
+    this.disposed = true;
     this.cancel();
     this.unsubscribe();
   }

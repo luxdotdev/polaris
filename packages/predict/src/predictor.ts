@@ -1,6 +1,7 @@
 import { PredictionError, PredictionRequest, PredictionStreamItem } from "@polaris/protocol";
 import { Effect, Predicate, Queue, Schema, Stream } from "effect";
 import { endpointDeltas, type PredictionFetch } from "./endpoint.ts";
+import { generationBudget } from "./generation.ts";
 import { LatencyRecorder } from "./latency.ts";
 import { postprocess } from "./postprocess.ts";
 import { buildPrompt } from "./prompt.ts";
@@ -48,9 +49,23 @@ const generate = (
 
             try {
               signal.throwIfAborted();
-              const prompt = buildPrompt(input, options.countTokens);
+              const budget = generationBudget(input.prefix, input.maxTokens, input.maxLines);
+              const built = buildPrompt(input, options.countTokens);
 
-              for await (const delta of endpointDeltas(input, prompt, signal, fetcher)) {
+              const prompt = {
+                ...built,
+                stop: budget.singleLine ? [...built.stop, "\n"] : built.stop,
+              };
+
+              options.onTiming?.("prompt", performance.now() - start);
+
+              for await (const delta of endpointDeltas(
+                { ...input, maxTokens: budget.maxTokens },
+                prompt,
+                signal,
+                fetcher
+              )) {
+                if (!text) options.onTiming?.("firstToken", performance.now() - start);
                 text += delta;
 
                 if (text.length > 65536)
@@ -62,7 +77,7 @@ const generate = (
 
                 if (
                   prompt.stop.some((marker) => text.includes(marker)) ||
-                  text.split("\n").length > input.maxLines
+                  text.split("\n").length > budget.maxLines
                 )
                   break;
               }
@@ -70,10 +85,11 @@ const generate = (
               signal.throwIfAborted();
               const elapsedMs = Math.max(0, performance.now() - start);
               recorder.record(input.endpoint, elapsedMs);
+              options.onTiming?.("final", elapsedMs);
               Queue.offerUnsafe(
                 queue,
                 PredictionStreamItem.cases.Final.make({
-                  text: postprocess(text, input.suffix, prompt.stop, input.maxLines),
+                  text: postprocess(text, input.suffix, prompt.stop, budget.maxLines),
                   elapsedMs,
                 })
               );

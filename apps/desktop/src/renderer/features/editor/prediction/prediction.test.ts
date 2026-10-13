@@ -227,3 +227,100 @@ test("Tab without ghost falls through to indent", () => {
   press(view, "Tab", "Tab", 9);
   expect(view.state.doc.toString()).toBe("  ");
 });
+
+const streaming = () => {
+  const pending = Promise.withResolvers<{ text: string }>();
+  let preview: ((text: string) => void) | undefined;
+
+  const view = editor("return", {
+    ...idle,
+    request: (_input, _signal, next) => {
+      preview = next;
+
+      return pending.promise;
+    },
+  });
+
+  view.dispatch({ changes: { from: 6, insert: " " }, selection: { anchor: 7 } });
+
+  return { view, pending, preview: (text: string) => preview?.(text) };
+};
+
+test("provisional line is visible but cannot be accepted; Final authorizes only the shown prefix", async () => {
+  const { view, pending, preview } = streaming();
+  preview("value; ");
+  await flush();
+  expect(view.dom.querySelector(".cm-prediction-inline")?.textContent).toBe("value; ");
+  expect(view.dom.querySelector(".cm-prediction-key")).toBeNull();
+  expect(acceptPrediction(view)).toBe(false);
+  expect(acceptPrediction(view, true)).toBe(false);
+  expect(view.state.doc.toString()).toBe("return ");
+  pending.resolve({ text: "value; unseen();" });
+  await flush();
+  expect(view.dom.querySelector(".cm-prediction-key")).not.toBeNull();
+  expect(acceptPrediction(view)).toBe(true);
+  expect(view.state.doc.toString()).toBe("return value; ");
+  expect(acceptPrediction(view)).toBe(false);
+});
+
+test("Final can retract overlap or all text without leaving provisional content acceptable", async () => {
+  const { view, pending, preview } = streaming();
+  preview("value;\n");
+  await flush();
+  pending.resolve({ text: "value" });
+  await flush();
+  expect(view.state.field(ghost)?.text).toBe("value");
+  expect(acceptPrediction(view)).toBe(true);
+  expect(view.state.doc.toString()).toBe("return value");
+  const next = streaming();
+  next.preview("suffix;");
+  await flush();
+  next.pending.resolve({ text: "" });
+  await flush();
+  expect(next.view.state.field(ghost)).toBeNull();
+});
+
+test("failed streams clear provisional text and Escape ignores late preview and Final", async () => {
+  const failed = streaming();
+  failed.preview("value; ");
+  await flush();
+  failed.pending.reject(new Error("endpoint failed"));
+  await flush();
+  expect(failed.view.state.field(ghost)).toBeNull();
+  const canceled = streaming();
+  canceled.preview("value; ");
+  await flush();
+  press(canceled.view, "Escape", "Escape", 27);
+  canceled.preview("late; ");
+  canceled.pending.resolve({ text: "late; " });
+  await flush();
+  expect(canceled.view.state.field(ghost)).toBeNull();
+});
+
+test("a fallback reset clears the first endpoint's preview", async () => {
+  const { view, pending, preview } = streaming();
+  preview("first; ");
+  await flush();
+  preview("");
+  await flush();
+  expect(view.state.field(ghost)).toBeNull();
+  preview("second; ");
+  await flush();
+  pending.resolve({ text: "second; " });
+  await flush();
+  expect(acceptPrediction(view)).toBe(true);
+  expect(view.state.doc.toString()).toBe("return second; ");
+});
+
+test("focus loss clears a provisional ghost and ignores its late Final", async () => {
+  const { view, pending, preview } = streaming();
+  preview("value; ");
+  await flush();
+  view.contentDOM.blur();
+  view.dispatch({});
+  await flush();
+  expect(view.state.field(ghost)).toBeNull();
+  pending.resolve({ text: "value; " });
+  await flush();
+  expect(view.state.field(ghost)).toBeNull();
+});

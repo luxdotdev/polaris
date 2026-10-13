@@ -71,3 +71,19 @@ test("stable context survives large buffers and a one-character edit", () => {
   expect(first.prompt.startsWith("<filename>types.ts")).toBe(true);
   expect(second.prompt.startsWith("<filename>types.ts")).toBe(true);
 });
+
+test("equivalent context order cannot churn the cache prefix", () => {
+  const context = [
+    PredictionContextPiece.make({ kind: "definition", source: "b.ts", text: "type B = string" }),
+    PredictionContextPiece.make({ kind: "definition", source: "a.ts", text: "type A = number" }),
+    PredictionContextPiece.make({
+      kind: "importOutline",
+      source: "c.ts",
+      text: "export const C = 1",
+    }),
+  ];
+
+  expect(buildPrompt({ ...request, context }).prompt).toBe(
+    buildPrompt({ ...request, context: context.toReversed() }).prompt
+  );
+});
