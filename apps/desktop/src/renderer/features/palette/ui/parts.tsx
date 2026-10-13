@@ -5,6 +5,7 @@
  */
 import { cn, Kbd } from "@polaris/ui";
 import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef } from "react";
+import { commandShortcut } from "../../../../shared/keymap.ts";
 
 export interface ShownRow {
   readonly id: string;
@@ -155,7 +156,7 @@ export const RowList = ({
           onKeyDown={onKeyDown}
           className="text-heading-sm text-text-strong caret-starlight placeholder:text-text-faint h-full min-w-0 flex-1 bg-transparent outline-hidden"
         />
-        <Kbd aria-hidden>⇧⌘P</Kbd>
+        <Kbd aria-hidden>{commandShortcut("palette.open")}</Kbd>
       </div>
       {note === undefined ? null : (
         <p className="px-panel pt-gap text-caption text-text-subtle">{note}</p>

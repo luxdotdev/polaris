@@ -5,8 +5,8 @@
  */
 import type { MenuItemConstructorOptions } from "electron";
 import type { AppEvent, Appearance, Density, ThemeSource } from "../shared/api.ts";
-import { isBare, parseChord } from "../shared/chord.ts";
-import { KEYMAP, type MenuName } from "../shared/keymap.ts";
+import { isBare, keyPlatformOf, parseChord } from "../shared/chord.ts";
+import { keymapFor, type MenuName } from "../shared/keymap.ts";
 import type { AppUpdateView } from "../shared/appUpdates.ts";
 import type { ClientPlatform } from "../shared/platform.ts";
 
@@ -29,24 +29,29 @@ export interface TemplateInput extends MenuInput {
 
 type Items = Array<MenuItemConstructorOptions>;
 
-/** A menu's items from the keymap; the first chord with a modifier is the one shown. */
-const commandItems = (menu: MenuName, send: TemplateInput["send"]): Items =>
-  KEYMAP.filter((b) => b.menu === menu).map((b) => {
-    const shown = b.keys.find((k) => !isBare(parseChord(k)));
+/** A menu's items from the platform's keymap; the first chord with a modifier is the one shown. */
+const commandItems = (
+  menu: MenuName,
+  { send, platform }: Pick<TemplateInput, "send" | "platform">
+): Items =>
+  keymapFor(keyPlatformOf(platform))
+    .filter((b) => b.menu === menu)
+    .map((b) => {
+      const shown = b.keys.find((k) => !isBare(parseChord(k)));
 
-    const item: MenuItemConstructorOptions = {
-      id: b.id,
-      label: b.title,
-      click: () => send({ kind: "command", id: b.id }),
-    };
+      const item: MenuItemConstructorOptions = {
+        id: b.id,
+        label: b.title,
+        click: () => send({ kind: "command", id: b.id }),
+      };
 
-    if (shown !== undefined) {
-      item.accelerator = shown;
-      item.registerAccelerator = false;
-    }
+      if (shown !== undefined) {
+        item.accelerator = shown;
+        item.registerAccelerator = false;
+      }
 
-    return item;
-  });
+      return item;
+    });
 
 const develop = ({ proofHostKey, send }: TemplateInput): MenuItemConstructorOptions => ({
   label: "Develop",
@@ -94,7 +99,7 @@ const appMenu = (input: TemplateInput): MenuItemConstructorOptions => ({
     about(input.send),
     updateMenuItem(input),
     { type: "separator" },
-    ...commandItems("App", input.send),
+    ...commandItems("App", input),
     { type: "separator" },
     { role: "services" },
     { type: "separator" },
@@ -118,8 +123,8 @@ const DENSITIES: ReadonlyArray<{ readonly label: string; readonly density: Densi
   { label: "Compact", density: "compact" },
 ];
 
-const viewItems = ({ appearance, setAppearance, send }: TemplateInput): Items => [
-  ...commandItems("View", send),
+const viewItems = ({ appearance, setAppearance, send, platform }: TemplateInput): Items => [
+  ...commandItems("View", { send, platform }),
   { type: "separator" },
   {
     label: "Appearance",
@@ -148,14 +153,14 @@ const developMenu = (input: TemplateInput): Items =>
 
 const macTemplate = (input: TemplateInput): Items => [
   appMenu(input),
-  { label: "File", submenu: commandItems("File", input.send) },
+  { label: "File", submenu: commandItems("File", input) },
   { role: "editMenu" },
   { label: "View", submenu: viewItems(input) },
-  { label: "Go", submenu: commandItems("Go", input.send) },
-  { label: "Session", submenu: commandItems("Session", input.send) },
+  { label: "Go", submenu: commandItems("Go", input) },
+  { label: "Session", submenu: commandItems("Session", input) },
   { role: "windowMenu" },
   ...developMenu(input),
-  { role: "help", submenu: commandItems("Help", input.send) },
+  { role: "help", submenu: commandItems("Help", input) },
 ];
 
 /** Windows has no app menu or Window menu: Settings… and Exit end File, About ends Help. */
@@ -163,22 +168,22 @@ const windowsTemplate = (input: TemplateInput): Items => [
   {
     label: "&File",
     submenu: [
-      ...commandItems("File", input.send),
+      ...commandItems("File", input),
       { type: "separator" },
-      ...commandItems("App", input.send),
+      ...commandItems("App", input),
       { type: "separator" },
       { role: "quit", label: input.updates.phase === "ready" ? "Exit and update" : "Exit" },
     ],
   },
   { role: "editMenu", label: "&Edit" },
   { label: "&View", submenu: viewItems(input) },
-  { label: "&Go", submenu: commandItems("Go", input.send) },
-  { label: "&Session", submenu: commandItems("Session", input.send) },
+  { label: "&Go", submenu: commandItems("Go", input) },
+  { label: "&Session", submenu: commandItems("Session", input) },
   ...developMenu(input),
   {
     label: "&Help",
     submenu: [
-      ...commandItems("Help", input.send),
+      ...commandItems("Help", input),
       { type: "separator" },
       updateMenuItem(input),
       about(input.send),

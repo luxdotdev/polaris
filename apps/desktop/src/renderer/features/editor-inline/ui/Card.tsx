@@ -11,6 +11,8 @@ import { HarnessChip } from "../../harness/index.ts";
 import { type CardSession, footerOf, isAnswer, isInlineHarness } from "../model/card.ts";
 import { rangeLabel } from "../model/patch.ts";
 import { patchCard, useCard } from "../store.ts";
+import { shortcutLabel } from "../../../../shared/chord.ts";
+import { FIELD_CHORDS } from "../../../../shared/keymap.ts";
 
 export interface CardProps {
   readonly view: EditorView;
@@ -123,7 +125,10 @@ const Proposed = (props: CardProps & { readonly session: CardSession }) => {
             tone="primary"
             testId="inline-accept"
           >
-            Accept <span className="text-text-faint text-[11px] leading-3 font-normal">⌘↵</span>
+            Accept{" "}
+            <span className="text-text-faint text-[11px] leading-3 font-normal">
+              {shortcutLabel(FIELD_CHORDS.submit)}
+            </span>
           </Button>
         )}
       </FooterRow>

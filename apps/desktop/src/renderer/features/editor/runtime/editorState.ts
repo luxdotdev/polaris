@@ -25,6 +25,7 @@ import {
 import { shellSafe } from "../cm/keys.ts";
 import { reloadHighlight } from "../cm/reload.ts";
 import { agentMarks } from "../cm/agent.ts";
+import { currentKeyPlatform } from "../../../../shared/chord.ts";
 import { editorLook } from "../cm/theme.ts";
 import { inlineDiagnostics } from "../cm/inlineDiagnostics.ts";
 import { detectIndent, type Indent, lineSeparatorOf } from "../model/indent.ts";
@@ -44,14 +45,15 @@ export const lineEndingCompartment = new Compartment();
 export const lineEnding = (separator: "\r\n" | "\n"): Extension =>
   separator === "\r\n" ? EditorState.lineSeparator.of("\r\n") : [];
 
-const mac = typeof navigator !== "undefined" && /Mac/.test(navigator.userAgent);
-
 /** Built once: the keys with every shell chord taken out. */
 let keys: Extension | null = null;
 
 const editorKeys = () => {
   keys ??= keymap.of([
-    ...shellSafe([...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab], mac),
+    ...shellSafe(
+      [...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab],
+      currentKeyPlatform()
+    ),
   ]);
 
   return keys;

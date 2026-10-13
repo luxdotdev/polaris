@@ -9,6 +9,7 @@ import { useCommands, useShellActions } from "../../../shell/hooks.ts";
 import { type AgentEdit, stripCaption, stripTitle } from "../model/agent.ts";
 import { setFollow } from "../runtime/actions.ts";
 import { useEditor } from "../runtime/store.ts";
+import { commandShortcut } from "../../../../shared/keymap.ts";
 
 export interface AgentStripProps {
   readonly hostKey: string;
@@ -97,7 +98,7 @@ export const AgentStrip = ({ hostKey, edit }: AgentStripProps) => {
       <FollowToggle />
       <Button variant="secondary" onClick={open}>
         Open session
-        <Kbd variant="plain">⌘O</Kbd>
+        <Kbd variant="plain">{commandShortcut("workspace.add")}</Kbd>
       </Button>
     </div>
   );

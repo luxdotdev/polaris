@@ -21,6 +21,7 @@ import { isSlowLink } from "./hostCopy.ts";
 import { SummaryGlyph } from "./glyphs.tsx";
 import { useApp, useCommands, useSelection, useShellActions } from "./hooks.ts";
 import { HostMenu, WorkspaceChipMenu } from "./TopBarMenus.tsx";
+import { commandShortcut } from "../../shared/keymap.ts";
 
 /** ⌃N, only on the first ten chips (Chip takes no undefined shortcut). */
 interface ChipShortcut {
@@ -56,7 +57,7 @@ const AddWorkspaceChip = ({ hostKey }: { readonly hostKey: string | null }) => {
     >
       <span className="text-label text-text-subtle">+ Add workspace</span>
       <Kbd variant="plain" className="text-text-subtle">
-        ⌘O
+        {commandShortcut("workspace.add")}
       </Kbd>
     </button>
   );

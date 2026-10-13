@@ -82,4 +82,14 @@ describe("menuTemplate", () => {
 
     expect(labels(help.slice(-2))).toEqual(["Check for updates…", "About Polaris"]);
   });
+
+  test("accelerators follow the platform's keymap", () => {
+    const accelerator = (platform: "darwin" | "win32" | "linux", menu: string, id: string) =>
+      submenu(menuTemplate(input(platform)), menu).find((item) => item.id === id)?.accelerator;
+
+    expect(accelerator("darwin", "Go", "session.next")).toBe("CmdOrCtrl+Alt+Down");
+    expect(accelerator("win32", "&Go", "session.next")).toBe("CmdOrCtrl+PageDown");
+    expect(accelerator("linux", "Go", "session.next")).toBe("CmdOrCtrl+PageDown");
+    expect(accelerator("win32", "&File", "tab.closeOthers")).toBeUndefined();
+  });
 });

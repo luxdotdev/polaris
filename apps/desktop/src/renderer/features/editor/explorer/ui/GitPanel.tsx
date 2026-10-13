@@ -22,6 +22,8 @@ import { isUnder } from "../model/paths.ts";
 import { allPaths, canCommit, commitLabel, type StageRow, stageLists } from "../model/stage.ts";
 import { ConfirmDelete } from "./ConfirmDelete.tsx";
 import { rowKey, type StageSide, StageSection } from "./StageList.tsx";
+import { shortcutLabel } from "../../../../../shared/chord.ts";
+import { FIELD_CHORDS } from "../../../../../shared/keymap.ts";
 
 export interface GitPanelProps {
   readonly place: Place;
@@ -149,7 +151,9 @@ const CommitBox = ({
       />
       <Button variant="primary" disabled={!ready} onClick={go} data-testid="commit-button">
         {running ? "Committing…" : commitLabel(staged)}
-        {running ? null : <span className="text-micro opacity-60">⌘↵</span>}
+        {running ? null : (
+          <span className="text-micro opacity-60">{shortcutLabel(FIELD_CHORDS.submit)}</span>
+        )}
       </Button>
       <Unsaved place={place} tabs={tabs} />
       <RunOutput run={draft.run} />

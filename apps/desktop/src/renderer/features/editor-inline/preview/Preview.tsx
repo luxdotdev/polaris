@@ -309,7 +309,9 @@ export const mountEditorInlinePreview = (root: HTMLElement, hash: string) => {
   cards.setState({});
 
   createRoot(root).render(
-    <AppProvider value={{ connection, navigation, commands: createCommandRegistry({ mac: true }) }}>
+    <AppProvider
+      value={{ connection, navigation, commands: createCommandRegistry({ platform: "mac" }) }}
+    >
       <TooltipProvider>
         <main className="bg-bg h-full">
           <Editor scene={scene} />

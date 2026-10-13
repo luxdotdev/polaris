@@ -193,6 +193,9 @@ const create = (hostKey: string, terminalId: string): Instance => {
 
     if (action === null) return true;
 
+    // Not also a shell shortcut: Ctrl+Shift+V is Markdown preview off macOS.
+    event.stopPropagation();
+
     if (event.type === "keydown") {
       if (action === "copy" && term.hasSelection()) void writeClipboard(term.getSelection());
 

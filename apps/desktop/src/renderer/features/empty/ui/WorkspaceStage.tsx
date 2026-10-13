@@ -21,6 +21,8 @@ import { toggleTerminal } from "../../terminal/index.ts";
 import { useReadyLine } from "../hooks.ts";
 import { captionPath, noSelectionFact, stageKicker } from "../model.ts";
 import { Stage } from "./Stage.tsx";
+import { shortcutLabel } from "../../../../shared/chord.ts";
+import { TERMINAL_TOGGLE, commandShortcut } from "../../../../shared/keymap.ts";
 
 export interface WorkspaceStageProps {
   readonly hostKey: string;
@@ -49,7 +51,7 @@ const EmptyWorkspace = ({ hostKey, workspaceId, host, workspace }: EmptyWorkspac
           caption={useReadyLine(host)}
           action={
             <Button variant="primary" onClick={startNewSession} data-testid="stage-new-session">
-              New session <Kbd variant="plain">⌘N</Kbd>
+              New session <Kbd variant="plain">{commandShortcut("session.new")}</Kbd>
             </Button>
           }
         />
@@ -63,7 +65,7 @@ const EmptyWorkspace = ({ hostKey, workspaceId, host, workspace }: EmptyWorkspac
                 toggleTerminal({ hostKey, workspaceId }, workspace.path, workspace.name)
               }
             >
-              Terminal <Kbd variant="plain">⌃`</Kbd>
+              Terminal <Kbd variant="plain">{shortcutLabel(TERMINAL_TOGGLE)}</Kbd>
             </Button>
           }
         />
@@ -100,7 +102,7 @@ export const WorkspaceStage = ({ hostKey, workspaceId }: WorkspaceStageProps) =>
         fact={noSelectionFact(sessions, workspace.name)}
         action={
           <Button onClick={startNewSession}>
-            New session <Kbd variant="plain">⌘N</Kbd>
+            New session <Kbd variant="plain">{commandShortcut("session.new")}</Kbd>
           </Button>
         }
       />

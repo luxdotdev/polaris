@@ -13,6 +13,8 @@ import { suggestionBlock } from "../model/composer.ts";
 import { isDraft } from "../model/threads.ts";
 import { ANNOTATION_INSET, surfaceOf } from "../../review/index.ts";
 import { Avatar } from "./Avatar.tsx";
+import { shortcutLabel } from "../../../../shared/chord.ts";
+import { FIELD_CHORDS } from "../../../../shared/keymap.ts";
 
 interface Props {
   readonly subjectKey: string;
@@ -107,7 +109,7 @@ const ReplyBox = ({ subjectKey, threadId, onDone }: Props & { readonly onDone: (
           disabled={text.trim() === "" || state.busy}
           onClick={() => void send()}
         >
-          Reply <span className="opacity-60">⌘↵</span>
+          Reply <span className="opacity-60">{shortcutLabel(FIELD_CHORDS.submit)}</span>
         </Button>
       </div>
     </div>
