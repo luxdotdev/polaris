@@ -1,4 +1,5 @@
 import type { Scenario } from "../types.ts";
+import { predictionContext } from "./prediction-context.ts";
 import { blobs } from "./blobs.ts";
 import { coldStart } from "./cold-start.ts";
 import { desktopIdle } from "./desktop-idle.ts";
@@ -18,6 +19,7 @@ import { usageContention } from "./usage-contention.ts";
 export const SCENARIOS: ReadonlyArray<Scenario> = [
   coldStart,
   idle,
+  predictionContext,
   sessions,
   history,
   blobs,

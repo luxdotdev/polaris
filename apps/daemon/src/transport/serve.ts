@@ -115,6 +115,7 @@ export const daemonHandlers = Layer.mergeAll(
 ).pipe(Layer.provide(daemonServices));
 
 export const daemonCapabilities: ReadonlyArray<Capability> = [
+  "prediction.context",
   "inline.propose",
   "prediction.complete",
   "commit.suggest-message",

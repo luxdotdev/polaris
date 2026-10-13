@@ -1,4 +1,5 @@
-import { webProviders, webServerSettings } from "../web/index.ts";
+import { serverSettings } from "./serverSettings.ts";
+import { predictionDocument, rememberPredictionDiagnostics } from "./prediction.ts";
 import { ServerLogs } from "./logs.ts";
 import { bindFormat } from "./format.ts";
 import { bindResourceReceipt, bindServerResponse, bindRecoveryReceipt } from "./resourceReceipt.ts";
@@ -39,7 +40,6 @@ import { ContextEvents } from "./events.ts";
 import { Documents } from "./documents.ts";
 import { decideLifecycle, lifecycleInitial, type LifecycleEvent } from "./lifecycle.ts";
 import { launchSettings } from "../rust/settings.ts";
-import { pythonServerSettings } from "../python/launch.ts";
 import { negotiate, pythonCapabilities } from "./capabilities.ts";
 import { ServerBridge } from "./server.ts";
 import { bindServerPreparation } from "./serverPreparation.ts";
@@ -89,6 +89,7 @@ export function createLanguageBroker(options: BrokerOptions) {
   const track = clientSettlement.trackGlobal;
 
   function event(entry: Entry, value: LanguageContextEvent) {
+    rememberPredictionDiagnostics(entry, value);
     entry.events.emit(value);
   }
 
@@ -229,25 +230,6 @@ export function createLanguageBroker(options: BrokerOptions) {
       stopWatching: watches.unwatch,
     }
   );
-
-  function serverSettings(entry: Entry): typeof LanguageJsonObject.Type {
-    const settings = entry.facts.effectiveSettings.settings;
-
-    if (entry.facts.managedPython && entry.facts.providerId === "basedpyright")
-      return pythonServerSettings(entry.facts);
-
-    if (entry.facts.managedWeb && entry.facts.providerId in webProviders)
-      return {
-        ...webServerSettings(entry.facts),
-        ...settings.serverSettings?.[entry.facts.providerId],
-      };
-
-    return (
-      settings.customServers?.find(({ id }) => id === entry.facts.providerId)?.settings ??
-      settings.serverSettings?.[entry.facts.providerId] ??
-      {}
-    );
-  }
 
   async function start(entry: Entry) {
     const identity = entry.identity;
@@ -818,6 +800,12 @@ export function createLanguageBroker(options: BrokerOptions) {
 
   return {
     acquire,
+    predictionDocument: (
+      clientId: string,
+      checkout: LanguageCheckout,
+      uri: string,
+      buffer: string
+    ) => predictionDocument(entries.values(), clientId, checkout, uri, buffer),
     sync,
     acknowledgeBuffer: (...args: Parameters<AcknowledgmentOwners["record"]>) =>
       acknowledgments.record(...args),

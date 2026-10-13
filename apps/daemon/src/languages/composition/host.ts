@@ -1,3 +1,4 @@
+import { lazyPredictionContextHandlers } from "../../prediction/handlers.ts";
 import { createSqlSelection, SqlSelection } from "../sql/selection.ts";
 import { developerLaunchAdapters, developerProvider } from "../go/launch.ts";
 import { createHostPrerequisiteProbe } from "../install/hostStateProbes.ts";
@@ -258,6 +259,8 @@ export const languageHostHandlers = (
   trustOptions: Parameters<typeof ExecutionTrustService.layer>[0],
   trustGrants = LanguageTrustGrantAuthority.denyLayer
 ) =>
-  Layer.mergeAll(languageCoreHandlers(options.hostId), languageResourceEditHandlers).pipe(
-    Layer.provide(languageHostServices(options, discoveryOptions, trustOptions, trustGrants))
-  );
+  Layer.mergeAll(
+    languageCoreHandlers(options.hostId),
+    languageResourceEditHandlers,
+    lazyPredictionContextHandlers(options.hostId)
+  ).pipe(Layer.provide(languageHostServices(options, discoveryOptions, trustOptions, trustGrants)));

@@ -1,4 +1,4 @@
-import { LanguageRpcs } from "@polaris/protocol";
+import { LanguageRpcs, PredictionContextQuery } from "@polaris/protocol";
 import { Effect, Layer } from "effect";
 import type { DefaultLanguageHostHandlers } from "../languages/composition/defaults.ts";
 import { cacheDaemonBuild, lazyRpcLayer } from "./lazy.ts";
@@ -8,7 +8,7 @@ const implemented = LanguageRpcs.omit(
   "languages.edit.decide",
   "languages.operation.get",
   "languages.operation.recover"
-);
+).add(PredictionContextQuery);
 
 /** One Host language service graph is loaded on first use and retained by the Daemon scope. */
 export const lazyLanguageHandlers = Layer.fromBuild((memoMap, scope) =>
