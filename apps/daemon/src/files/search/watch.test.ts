@@ -113,6 +113,17 @@ test("macOS keeps its single native recursive FSEvents watch", async () => {
   expect(opened).toEqual([{ path: root, recursive: true }]);
 });
 
+test("macOS keeps one watch even when non-git roots are asked for", async () => {
+  const root = tempDir("polaris-mac-watch-");
+  roots.push(root);
+  write(root, "nested/deeper/a.ts", "");
+  const { opened, open } = recorder();
+  stops.push(
+    await watchRoot(root, () => undefined, { platform: "darwin", open, includeNonGit: true })
+  );
+  expect(opened).toEqual([{ path: root, recursive: true }]);
+});
+
 const waitFor = async (predicate: () => boolean) => {
   for (let i = 0; i < 100; i++) {
     if (predicate()) return;

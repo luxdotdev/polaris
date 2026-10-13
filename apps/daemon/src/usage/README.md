@@ -78,7 +78,7 @@ Nothing runs on a timer. An idle Daemon never opens the index: the `idle` scenar
 - **`usage.watch`** doesn't index by itself. A Client that only wants Plan Limits (the Desktop's Harness menu) costs no log reading.
 - **Once a Client has queried the index in this Daemon:**
   - **After each Turn** (`TurnEnded` from the event store), a pass runs over that Harness's logs.
-  - **While at least one Client watches,** the Daemon runs `fs.watch` (recursive) on the log roots. Changes settle for a second, then a pass runs; the watchers close with the last subscriber.
+  - **While at least one Client watches,** the Daemon watches the log roots with `files/search/watch.ts`'s policy: one recursive FSEvents watch on macOS, at most 256 shallow directory watches elsewhere (never Bun's recursive Linux watch, which takes an inotify watch per directory). Beyond that bound a Turn's end or a query still catches the index up. Changes settle for a second, then a pass runs; the watchers close with the last subscriber.
   - **A new watcher** starts a catch-up pass.
 - **What watchers hear:**
   - **A short pass** (under 300 ms) publishes a `UsageChanged` with every bucket in the hours it touched (a Client replaces buckets by key). It also sends zero buckets for keys it emptied: that happens when a replaced Claude response moves to another Model, or a relink moves Usage to an Agent Session.

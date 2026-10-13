@@ -4,7 +4,6 @@
  * `usage.watch`), after each Turn, and on log changes while a Client watches.
  * Nothing runs on a timer when idle.
  */
-import { type FSWatcher, watch } from "node:fs";
 import { join } from "node:path";
 import {
   type HarnessKind,
@@ -25,6 +24,7 @@ import {
   Schema,
   Stream,
 } from "effect";
+import { watchRoot } from "../files/search/watch.ts";
 import { paths } from "../paths.ts";
 import { PlanLimitSink } from "../services.ts";
 import {
@@ -87,6 +87,8 @@ export interface UsageIndexOptions {
   readonly planLimitSeed?: Effect.Effect<ReadonlyArray<PlanLimit>>;
   /** How long a seed read stands before a new watch reads the logs again. */
   readonly seedEveryMs?: number;
+  /** How the log roots are watched (`watchRoot`'s policy); tests pass a platform and record the watches. */
+  readonly watch?: Pick<NonNullable<Parameters<typeof watchRoot>[2]>, "platform" | "open">;
 }
 
 /** A Harness used outside Polaris moves its limits; a watch opened later reads them again. */
@@ -151,7 +153,7 @@ export const makeUsageIndex = Effect.fnUntraced(function* (options: UsageIndexOp
     Effect.gen(function* () {
       yield* opened;
       used = true;
-      syncWatchers();
+      yield* Effect.promise(syncWatchers);
 
       return yield* passes.request(harnesses);
     });
@@ -251,9 +253,9 @@ export const makeUsageIndex = Effect.fnUntraced(function* (options: UsageIndexOp
       }
     });
 
-  // Watching: fs.watch on the log roots while a Client is subscribed and the index
-  // is in use. A watch for Plan Limits alone (the Desktop's Harness menu) costs nothing.
-  let watchers: Array<FSWatcher> = [];
+  // Watching the log roots while a Client is subscribed and the index is in use; a watch for
+  // Plan Limits alone costs nothing. `watchRoot`: FSEvents on macOS, bounded watches elsewhere.
+  let watchers: Array<Promise<() => void>> = [];
   let subscribers = 0;
 
   const roots = (): Array<[UsageHarness, string]> => [
@@ -262,40 +264,36 @@ export const makeUsageIndex = Effect.fnUntraced(function* (options: UsageIndexOp
     ["codex", join(codexHome(env), "archived_sessions")],
   ];
 
-  const syncWatchers = () => {
+  /** Resolves once every wanted root is armed (a missing root is skipped). */
+  const syncWatchers = (): Promise<void> => {
     const wanted = subscribers > 0 && used;
 
     if (wanted && watchers.length === 0) {
-      watchers = roots().flatMap(([harness, root]) => {
-        try {
-          const watcher = watch(root, { recursive: true }, () =>
-            Queue.offerUnsafe(wakeups, harness)
-          );
-
-          // Unhandled, a watcher's error event (a socket it can't open) kills the Daemon.
-          watcher.on("error", () => undefined);
-
-          return [watcher];
-        } catch {
-          return [];
-        }
-      });
+      watchers = roots().map(([harness, root]) =>
+        watchRoot(root, () => Queue.offerUnsafe(wakeups, harness), {
+          ...options.watch,
+          includeNonGit: true,
+        }).catch(() => () => undefined)
+      );
     }
 
     if (!wanted) {
-      for (const watcher of watchers) watcher.close();
+      for (const watcher of watchers) void watcher.then((stop) => stop());
       watchers = [];
     }
+
+    return Promise.all(watchers).then(() => undefined);
   };
 
+  // Arms in the background; the catch-up `request` below waits for it.
   const startWatching = Effect.sync(() => {
     subscribers++;
-    syncWatchers();
+    void syncWatchers();
   });
 
   const stopWatching = Effect.sync(() => {
     subscribers--;
-    syncWatchers();
+    void syncWatchers();
   });
 
   const changes = Stream.unwrap(

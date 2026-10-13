@@ -130,7 +130,8 @@ export const watchRoot = async (
     if (recursive) arm(root);
     else inRepo = (await findRepoRoot(root)) !== null;
 
-    if (inRepo || options.includeNonGit) {
+    // FSEvents already covers the tree; a scan would arm a second recursive watch per directory.
+    if (!recursive && (inRepo || options.includeNonGit)) {
       scanning = scan(root);
       await scanning;
     }
