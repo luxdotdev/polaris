@@ -60,6 +60,15 @@ export const platformFromUname = (
 };
 
 /**
+ * The build id for a Host from its `hello`: `HostInfo.platform` plus `-musl` when it says
+ * libc is musl. An older Daemon sends no libc, so a musl Host reads as glibc until it upgrades.
+ */
+export const buildPlatformOf = (host: {
+  readonly platform: string;
+  readonly libc?: "glibc" | "musl";
+}): string => (host.libc === "musl" ? `${host.platform}-musl` : host.platform);
+
+/**
  * Shared libraries Bun's musl runtime links dynamically. Alpine's minimal
  * images lack them; installing them needs root (`apk add libstdc++ libgcc`).
  */

@@ -27,7 +27,7 @@ apps/daemon/dist/<platform>/betterleaks   the Rules' secrets scanner, pinned and
 
 for `darwin-arm64`, `linux-x64` and `linux-arm64` (glibc), and `linux-x64-musl` and `linux-arm64-musl` (musl, for Alpine). The build runs `polaris selftest` on the host platform's binary. CI runs it on each glibc Linux binary on native runners (not yet on the musl ones).
 
-On Linux the platform names the libc: a musl process reports `linux-<arch>-musl` (`runtimePlatform()` in `platform.ts`, from `/lib/ld-musl-*`), which is what `polaris version` prints and `polaris upgrade` checks. Bun's musl runtime links `libstdc++.so.6` and `libgcc_s.so.1` dynamically, so an Alpine Host needs `apk add libstdc++ libgcc` (root); the Client's probe checks for them. `HostInfo.platform` (protocol) still says `linux-x64` / `linux-arm64`.
+On Linux the platform names the libc: a musl process reports `linux-<arch>-musl` (`runtimePlatform()`, from `src/platform/`: the compiled `POLARIS_LIBC` define, or from source glibc's loader first, then musl's), which is what `polaris version` prints and `polaris upgrade` checks. Bun's musl runtime links `libstdc++.so.6` and `libgcc_s.so.1` dynamically, so an Alpine Host needs `apk add libstdc++ libgcc` (root); the Client's probe checks for them. `HostInfo.platform` (protocol) still says `linux-x64` / `linux-arm64`; `HostInfo.libc` (optional, absent from older Daemons) says `glibc` or `musl`.
 
 - **darwin needs re-signing.** Bun 1.3.13 appends the bundle after linking, which leaves the linker's ad-hoc signature invalid, and this macOS SIGKILLs the binary on exec (exit 137). The build runs `codesign --force --sign -`, so darwin builds must run on macOS (CI does).
 - **fff's native library is embedded.** The files workstream uses `@ff-labs/fff-bun` (bun:ffi). It imports `@ff-labs/fff-bin-<platform>/libfff_c.*` with `{ type: "file" }`, so `--compile` embeds the library and loads it from `$bunfs`; no file ships beside the binary. That needs two things at build time:
@@ -123,7 +123,7 @@ Every child launch passes an explicit environment through `childEnv` (`service/c
 
 A module with fds or children to keep registers a `HandoffContributor` for the life of its scope (`registerHandoffContributor`): `collect` returns named fds and children (merged with `hooks.collect`), `beforeExec` writes any state the new image needs, and `abort` undoes it if the exec fails. The terminals use this to keep PTYs across upgrades (`terminal/README.md`); the engine registers one with no fds whose `beforeExec` is `Engine.prepareForUpgrade`, which closes in-process (Claude) Harnesses per the recovery rule (`store/README.md`). After the exec, `takeHandoff()` returns the same names.
 
-`libc.ts` loads glibc's `libc.so.6`, or on a musl Host the loader `/lib/ld-musl-<arch>.so.1` (musl's libc; there is no `libc.so.6`). The hand-off tests pass on Alpine arm64.
+`libc.ts` loads glibc's `libc.so.6`, or in a musl process (`libcPath()` in `src/platform/`) the loader `/lib/ld-musl-<arch>.so.1` (musl's libc; there is no `libc.so.6`). The hand-off tests pass on Alpine arm64.
 
 ### Interface for the Harness workstream
 

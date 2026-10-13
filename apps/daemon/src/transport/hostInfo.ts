@@ -6,6 +6,7 @@ import { HostId, HostInfo, Platform } from "@polaris/protocol";
 import { Effect, Schema } from "effect";
 import { ServiceError } from "../services.ts";
 import { VERSION } from "../service/platform.ts";
+import { HostPlatform, wireLibcOf } from "../platform/index.ts";
 
 /** The Daemon's version; `polaris version` and `hello` report it. */
 export const DAEMON_VERSION = VERSION;
@@ -49,14 +50,18 @@ const loadHostId = (root: string) =>
 
 export const loadHostInfo = Effect.fnUntraced(function* (root: string) {
   const hostId = yield* loadHostId(root);
-  const platform = yield* platformOf(process.platform, process.arch);
+  const facts = yield* HostPlatform;
+  const platform = yield* platformOf(facts.os, facts.arch);
+  const libc = wireLibcOf(facts);
 
-  return new HostInfo({
+  const fields = {
     hostId: HostId.make(hostId),
     hostname: hostname(),
     platform,
     daemonVersion: DAEMON_VERSION,
     homeDir: homedir(),
     startedAt: new Date().toISOString(),
-  });
+  };
+
+  return libc === undefined ? new HostInfo(fields) : new HostInfo({ ...fields, libc });
 });

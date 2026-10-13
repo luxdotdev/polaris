@@ -3,7 +3,7 @@
  * the settings, the Host list and each Host's install flow, and when a
  * Connection State calls for a background check.
  */
-import { type DaemonReport, backgroundUpgradeDue } from "@polaris/client/install";
+import { type DaemonReport, backgroundUpgradeDue, buildPlatformOf } from "@polaris/client/install";
 import { Predicate } from "effect";
 import type { HostView, InstallFlowView, MachineView, SshAliasView } from "../../shared/api.ts";
 import { LOCAL_HOST_KEY } from "../hosts.ts";
@@ -66,14 +66,16 @@ export const machineViews = ({
   const local = hosts.find((h) => h.key === LOCAL_HOST_KEY);
   const localInstall = installs.get(LOCAL_HOST_KEY);
 
+  const helloPlatform = (key: string) => {
+    const host = hosts.find((h) => h.key === key)?.status.host;
+
+    return host === null || host === undefined ? "" : buildPlatformOf(host);
+  };
+
   const versionFor = (key: string) =>
     bundledVersions === undefined
       ? bundledVersion
-      : (bundledVersions.get(
-          updates?.get(key)?.platform ??
-            hosts.find((h) => h.key === key)?.status.host?.platform ??
-            ""
-        ) ?? null);
+      : (bundledVersions.get(updates?.get(key)?.platform ?? helloPlatform(key)) ?? null);
 
   const localView: MachineView = {
     daemon: daemonUpdateView(

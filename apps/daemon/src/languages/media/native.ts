@@ -1,7 +1,8 @@
 import { dlopen, FFIType, ptr } from "bun:ffi";
-import { closeSync, constants, fstatSync, openSync, readdirSync } from "node:fs";
+import { closeSync, constants, fstatSync, openSync } from "node:fs";
 import { sep } from "node:path";
 import { LanguageError } from "@polaris/protocol";
+import { hostPlatform, libcPath } from "../../platform/index.ts";
 
 const failure = () =>
   new LanguageError({
@@ -11,17 +12,16 @@ const failure = () =>
   });
 
 function libraryPath() {
-  if (process.platform === "darwin") return "/usr/lib/libSystem.B.dylib";
+  const { os } = hostPlatform();
 
-  if (process.platform !== "linux")
+  if (os !== "darwin" && os !== "linux")
     throw new LanguageError({
       reason: "unsupported-platform",
       message: "Host media requires descriptor-relative file access",
       retryable: false,
     });
-  const loader = readdirSync("/lib").find((name) => /^ld-musl-.+\.so\.1$/.test(name));
 
-  return loader === undefined ? "libc.so.6" : `/lib/${loader}`;
+  return libcPath();
 }
 
 // openat has three fixed arguments; its variadic mode is unused without O_CREAT.

@@ -6,9 +6,9 @@
  * On Linux the platform names the C library too: `linux-x64` and
  * `linux-arm64` are glibc builds, `linux-x64-musl` and `linux-arm64-musl`
  * musl builds (Alpine). A binary only runs on its own libc, so the running
- * process's libc is the build's.
+ * process's libc is the build's (`../platform/`).
  */
-import { readdirSync } from "node:fs";
+import { runtimePlatform } from "../platform/index.ts";
 import pkg from "../../package.json" with { type: "json" };
 
 /** The platforms the Daemon ships for (ENG-181). */
@@ -40,25 +40,7 @@ export const VERSION: string = process.env.POLARIS_BUILD_VERSION ?? pkg.version;
 export const isPlatform = (value: string): value is Platform =>
   PLATFORMS.some((platform) => platform === value);
 
-let musl: boolean | undefined;
-
-/** Whether this process runs on musl libc (its loader is `/lib/ld-musl-<arch>.so.1`). */
-export const isMusl = (): boolean => {
-  if (musl !== undefined) return musl;
-  musl = false;
-
-  if (process.platform === "linux") {
-    try {
-      musl = readdirSync("/lib").some((f) => f.startsWith("ld-musl-"));
-    } catch {}
-  }
-
-  return musl;
-};
-
-/** `<os>-<arch>`, plus `-musl` on a musl Linux. */
-export const runtimePlatform = (): string =>
-  `${process.platform}-${process.arch}${isMusl() ? "-musl" : ""}`;
+export { runtimePlatform } from "../platform/index.ts";
 
 /** This process's platform, or null when the Daemon does not ship for it. */
 export const currentPlatform = (): Platform | null => {

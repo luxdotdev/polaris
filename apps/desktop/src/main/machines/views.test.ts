@@ -123,6 +123,31 @@ describe("machineViews", () => {
     expect(views[1]?.daemon).toMatchObject({ bundledVersion: null, updateAvailable: false });
   });
 
+  test("before any check, a musl Host's hello keys its bundled version by the musl build", () => {
+    const musl = new HostInfo({
+      hostId: HostId.make("h"),
+      hostname: "alpine",
+      platform: "linux-x64",
+      libc: "musl",
+      daemonVersion: "0.1.0",
+      homeDir: "/home/x",
+      startedAt: "2026-09-30T00:00:00Z",
+    });
+
+    const views = machineViews({
+      settings: { hosts: [{ alias: "alpine" }] },
+      hosts: [host("alpine", { host: musl })],
+      installs: new Map(),
+      aliases: [],
+      bundledVersions: new Map([
+        ["linux-x64", "0.2.0"],
+        ["linux-x64-musl", "0.3.0"],
+      ]),
+    });
+
+    expect(views[1]?.daemon).toMatchObject({ bundledVersion: "0.3.0" });
+  });
+
   test("facts use the current target's bundled version and the same app default on every Host", () => {
     const views = machineViews({
       settings: {

@@ -56,10 +56,17 @@ export const Platform = Schema.Literals(["darwin-arm64", "linux-x64", "linux-arm
 
 export type Platform = typeof Platform.Type;
 
+/** A Linux Host's C library; `HostInfo.platform` leaves it out. */
+export const HostLibc = Schema.Literals(["glibc", "musl"]);
+
+export type HostLibc = typeof HostLibc.Type;
+
 export class HostInfo extends Schema.Class<HostInfo>("HostInfo")({
   hostId: HostId,
   hostname: Schema.String,
   platform: Platform,
+  /** Linux only; absent from Daemons before 0.1.0-alpha.4 and on macOS. */
+  libc: Schema.optionalKey(HostLibc),
   daemonVersion: Schema.String,
   homeDir: Schema.String,
   startedAt: Timestamp,
