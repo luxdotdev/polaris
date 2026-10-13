@@ -17,6 +17,7 @@ import { activeSessions, shownWorkspaces } from "../routes/topBar.ts";
 import type { SessionEntry } from "../store/hostModel.ts";
 import { setSessionPrefs, settingsStore } from "../features/settings/index.ts";
 import { type AppState, type Connection, sessionKey } from "../store/store.ts";
+import { workspaceList } from "./visibility.ts";
 
 /** The sessions the sidebar lists, in its order: ⌘⌥↑/↓ walk them. */
 export const sidebarSessions = (
@@ -54,12 +55,12 @@ export const stepSession = (
 export const shellContext =
   ({ connection, navigation }: Omit<ShellCommandsInput, "dark">) =>
   (): ContextPart => {
-    const { hostKey, workspaceId, sessionId, mode } = navigation.current();
+    const { hostKey, workspaceId, sessionId, mode, topBar } = navigation.current();
     const model = hostKey === null ? undefined : connection.store.getState().hostModels[hostKey];
     const workspace = workspaceId === null ? undefined : model?.workspaces.get(workspaceId)?.name;
     const session = sessionId === null ? undefined : model?.sessions.get(sessionId)?.session;
 
-    const values: Partial<Record<ContextValue, string>> = {};
+    const values: Partial<Record<ContextValue, string>> = { workspaceList: workspaceList(topBar) };
 
     if (workspace !== undefined) values.workspace = workspace;
 

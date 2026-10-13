@@ -96,3 +96,37 @@ describe("the first Host with nothing chosen and no Workspace anywhere", () => {
     expect(s.hostKey).toBe("local");
   });
 });
+
+describe("a hidden Workspace", () => {
+  const withHidden = {
+    home: hostModel([
+      { id: "a" },
+      { id: "h", hidden: true, sessions: [{ id: "h1", state: "needs-you" }] },
+    ]),
+  };
+
+  const hidden = (nav: Partial<typeof initialNav>, topBar: typeof initialNav.topBar) =>
+    resolveSelection({
+      nav: { ...initialNav, topBar, ...nav },
+      bar: barHosts({ hosts: [hostView("home")], models: withHidden }),
+      models: withHidden,
+    });
+
+  test("is never picked on its own", () => {
+    expect(hidden({}, "workspaces").workspaceId).toEqual(WorkspaceId.make("a"));
+    expect(hidden({ hostKey: "home" }, "machines").workspaceId).toEqual(WorkspaceId.make("a"));
+  });
+
+  test("stays open once chosen, in either bar", () => {
+    const nav = { hostKey: "home", workspaceId: WorkspaceId.make("h") };
+
+    expect(hidden(nav, "workspaces").workspaceId).toEqual(WorkspaceId.make("h"));
+    expect(hidden(nav, "machines").workspaceId).toEqual(WorkspaceId.make("h"));
+  });
+
+  test("opens with its session when that session is chosen (the inbox, the jump menu)", () => {
+    const s = hidden({ hostKey: "home", sessionId: SessionId.make("h1") }, "workspaces");
+
+    expect([s.workspaceId, s.sessionId]).toEqual([WorkspaceId.make("h"), SessionId.make("h1")]);
+  });
+});

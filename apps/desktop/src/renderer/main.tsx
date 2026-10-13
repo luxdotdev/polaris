@@ -16,6 +16,8 @@ import { createNavigation } from "./routes/navigation.ts";
 import { exposeSwitchTimes } from "./routes/switchTimer.ts";
 import type { Appearance, Density } from "../shared/api.ts";
 import { shellCommands, shellContext } from "./shell/commands.ts";
+import { workspaceCommands } from "./shell/visibility.ts";
+import { send } from "./features/session/dispatch.ts";
 import { connect } from "./store/store.ts";
 
 const connection = connect(window.polaris);
@@ -55,6 +57,8 @@ commands.register(
 );
 
 commands.provide(shellContext({ connection, navigation }));
+
+commands.contribute(workspaceCommands({ app: connection.store.getState, navigation, send }));
 
 commands.provide(() => {
   const version = updatesStore.getState().view?.availableVersion;

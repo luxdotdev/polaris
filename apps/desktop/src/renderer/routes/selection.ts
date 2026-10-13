@@ -10,6 +10,7 @@ import {
   activeSessions,
   type BarHost,
   barWorkspaces,
+  isRegistered,
   LOCAL_HOST,
   needsYou,
   type TopBarMode,
@@ -158,11 +159,13 @@ const pickHost = ({ nav, bar }: ResolveInput): string | null => {
 };
 
 const pickWorkspace = (input: ResolveInput, hostKey: string | null): WorkspaceId | null => {
-  const { nav, bar } = input;
+  const { nav, bar, models } = input;
   const host = bar.find((h) => h.host.key === hostKey);
-  const shown = host?.workspaces ?? [];
+  const shown = (host?.workspaces ?? []).filter((w) => !w.hidden);
 
-  if (shown.some((w) => w.workspace.id === nav.workspaceId)) return nav.workspaceId;
+  // A hidden Workspace stays open once chosen (a jump, a session in it); it is never picked.
+  if (hostKey === nav.hostKey && isRegistered(models, hostKey, nav.workspaceId))
+    return nav.workspaceId;
 
   return shown[0]?.workspace.id ?? null;
 };
@@ -216,12 +219,11 @@ export const resolveSelection = (raw: ResolveInput): Selection => {
   // Host chosen on its own (its label: add a Workspace, or what needs attention) is kept.
   const hostOnly = nav.workspaceId === null && bar.some((h) => h.host.key === nav.hostKey);
 
-  const stale =
-    nav.topBar === "workspaces" &&
-    !hostOnly &&
-    !barWorkspaces(bar).some(
-      (w) => w.hostKey === nav.hostKey && w.workspace.id === nav.workspaceId
-    );
+  const known =
+    bar.some((h) => h.host.key === nav.hostKey) &&
+    isRegistered(input.models, nav.hostKey, nav.workspaceId);
+
+  const stale = nav.topBar === "workspaces" && !hostOnly && !known;
 
   const first = stale ? barWorkspaces(bar)[0] : undefined;
   const hostKey = first?.hostKey ?? pickHost(input);

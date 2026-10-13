@@ -11,9 +11,12 @@ import { recentKey } from "../../routes/selection.ts";
 import {
   activeSessions,
   type BarHost,
+  type BarWorkspace,
   barWorkspaces,
+  hiddenWorkspaces,
   shortcutLabel,
   shownState,
+  summarize,
 } from "../../routes/topBar.ts";
 import { connectionLabel, plural, sessionStateLabel } from "../../shell/copy.ts";
 import type { HostModel } from "../../store/hostModel.ts";
@@ -88,18 +91,49 @@ export const sessionItems = ({ bar, models }: JumpData): ReadonlyArray<JumpItem>
 
 const capitalized = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-export const workspaceItems = ({ bar, machineBar }: JumpData): ReadonlyArray<JumpItem> =>
-  barWorkspaces(bar).map((w, index): JumpItem => ({
+const workspaceItem = (bar: ReadonlyArray<BarHost>, w: BarWorkspace, meta: string): JumpItem => {
+  const host = bar.find((h) => h.host.key === w.hostKey)?.host.label ?? "";
+
+  return {
     id: recentKey("workspace", w.hostKey, w.workspace.id),
     target: { kind: "workspace", hostKey: w.hostKey, workspaceId: w.workspace.id },
     title: w.workspace.name,
-    keywords: [bar.find((h) => h.host.key === w.hostKey)?.host.label ?? "", "workspace"],
-    detail: `${bar.find((h) => h.host.key === w.hostKey)?.host.label ?? ""} · ${plural(w.summary.sessions, "session")}`,
-    meta: machineBar ? "" : (shortcutLabel(index) ?? ""),
+    keywords: [host, "workspace", ...(w.hidden ? ["hidden"] : [])],
+    detail: `${host} · ${plural(w.summary.sessions, "session")}`,
+    meta,
     state: w.summary.state,
     harness: w.summary.harness,
     needsYou: w.summary.needsYou > 0,
-  }));
+  };
+};
+
+/** The shown chips with their ⌃N, then every hidden Workspace, marked "hidden" (it can be opened). */
+export const workspaceItems = ({ bar, models, machineBar }: JumpData): ReadonlyArray<JumpItem> => {
+  const shown = barWorkspaces(bar).map((w, index) =>
+    workspaceItem(bar, w, machineBar ? "" : (shortcutLabel(index) ?? ""))
+  );
+
+  const hidden = bar.flatMap(({ host }) => {
+    const model = models[host.key];
+
+    if (model === undefined) return [];
+
+    return hiddenWorkspaces(model).map((workspace) =>
+      workspaceItem(
+        bar,
+        {
+          hostKey: host.key,
+          workspace,
+          summary: summarize(activeSessions(model, workspace.id)),
+          hidden: true,
+        },
+        "hidden"
+      )
+    );
+  });
+
+  return [...shown, ...hidden];
+};
 
 export const worktreeItems = ({ bar, models }: JumpData): ReadonlyArray<JumpItem> =>
   bar.flatMap(({ host }) => {
@@ -142,7 +176,7 @@ export const hostItems = ({ bar, machineBar }: JumpData): ReadonlyArray<JumpItem
     keywords: [host.alias ?? "", "machine", "host", connectionLabel[host.status.state]],
     detail:
       host.status.state === "connected"
-        ? plural(workspaces.length, "workspace")
+        ? plural(workspaces.filter((w) => !w.hidden).length, "workspace")
         : connectionLabel[host.status.state],
     meta: machineBar ? (shortcutLabel(index) ?? "") : "",
     state: summary.state,

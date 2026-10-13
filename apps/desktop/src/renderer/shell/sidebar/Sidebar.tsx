@@ -25,7 +25,13 @@ import {
   useConstellationCount,
 } from "../../features/sessions/index.ts";
 import { type SidebarView, sessionOrder, workspaceKey } from "../../routes/selection.ts";
-import { activeSessions, shownState, shownWorkspaces } from "../../routes/topBar.ts";
+import {
+  activeSessions,
+  listedWorkspaces,
+  shownState,
+  shownWorkspaces,
+} from "../../routes/topBar.ts";
+import { WorkspaceChipMenu } from "../TopBarMenus.tsx";
 import { emptyHostModel, type HostModel, type SessionEntry } from "../../store/hostModel.ts";
 import type { HostView } from "../../../shared/api.ts";
 import { age, homePath, plural } from "../copy.ts";
@@ -70,6 +76,8 @@ interface HeaderProps {
   readonly caption: string;
   readonly canStart: boolean;
   readonly host?: HostView | undefined;
+  /** The Workspace in view, whose right-click menu the title opens. */
+  readonly workspace?: { readonly hostKey: string; readonly workspace: Workspace } | undefined;
 }
 
 /** Paper 10: in the Needs you view the header is the inbox's, with Dismiss all. */
@@ -85,21 +93,29 @@ const useInboxHeader = () => {
   };
 };
 
-const Header = ({ title, caption, canStart, host }: HeaderProps) => {
+const Header = ({ title, caption, canStart, host, workspace }: HeaderProps) => {
   const { startNewSession } = useShellActions();
   const inbox = useInboxHeader();
+
+  const heading = (
+    <div className="flex min-w-0 flex-1 flex-col gap-0.5" data-testid="sidebar-heading">
+      <h1 className="text-heading text-text-strong truncate">{inbox === null ? title : "Inbox"}</h1>
+      <p className="text-caption text-text-subtle tabular truncate">
+        {inbox === null ? caption : inbox.caption}
+      </p>
+    </div>
+  );
 
   return (
     <div className="px-panel pt-panel flex flex-col gap-3 pb-2">
       <div className="flex items-center gap-2">
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <h1 className="text-heading text-text-strong truncate">
-            {inbox === null ? title : "Inbox"}
-          </h1>
-          <p className="text-caption text-text-subtle tabular truncate">
-            {inbox === null ? caption : inbox.caption}
-          </p>
-        </div>
+        {workspace === undefined || inbox !== null ? (
+          heading
+        ) : (
+          <WorkspaceChipMenu item={workspace} current>
+            {heading}
+          </WorkspaceChipMenu>
+        )}
         {inbox?.dismissAll ? (
           <Button
             variant="ghost"
@@ -174,7 +190,7 @@ const MachineGroup = ({
   const { toggleFolded } = useShellActions();
   const key = workspaceKey(hostKey, workspace.id);
   const folded = useNav((s) => s.folded[key]);
-  const { sessionId } = useSelection();
+  const { sessionId, workspaceId } = useSelection();
 
   // Pinned and Reviews sessions sit in their own sections above and below the groups.
   const entries = useMemo(
@@ -193,21 +209,24 @@ const MachineGroup = ({
 
   return (
     <div className="flex flex-col px-2 pt-2">
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => toggleFolded(key, !open)}
-        className="h-tree-row text-caption flex cursor-default items-center gap-1.5 px-2"
-      >
-        <DisclosureChevron open={open} className="text-text-faint" />
-        <span
-          className="text-text-subtle flex-1 truncate text-left font-medium"
-          title={workspace.path}
+      <WorkspaceChipMenu item={{ hostKey, workspace }} current={workspace.id === workspaceId}>
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => toggleFolded(key, !open)}
+          className="h-tree-row text-caption flex cursor-default items-center gap-1.5 px-2"
         >
-          {workspace.name}
-        </span>
-        <span className="text-text-subtle tabular">{entries.length}</span>
-      </button>
+          <DisclosureChevron open={open} className="text-text-faint" />
+          <span
+            className="text-text-subtle flex-1 truncate text-left font-medium"
+            title={workspace.path}
+          >
+            {workspace.name}
+          </span>
+          {workspace.hidden ? <span className="text-text-faint">hidden</span> : null}
+          <span className="text-text-subtle tabular">{entries.length}</span>
+        </button>
+      </WorkspaceChipMenu>
       {open
         ? shown.map((entry) => (
             <CompactSessionRow
@@ -303,6 +322,7 @@ const WorkspaceSidebar = () => {
           caption={`${host.label} · ${homePath(workspace.path, host.status.host?.homeDir ?? null)}`}
           canStart
           host={host}
+          workspace={{ hostKey, workspace }}
         />
       }
       footer={constellations === 0 ? sessionsLine : plural(constellations, "constellation")}
@@ -320,11 +340,20 @@ const WorkspaceSidebar = () => {
 };
 
 const MachineSidebar = () => {
-  const { hostKey, sidebar } = useSelection();
+  const { hostKey, sidebar, workspaceId } = useSelection();
   const model = useHostModel(hostKey);
   const host = useApp((s) => s.hosts.find((h) => h.key === hostKey));
-  const workspaces = shownWorkspaces(model);
   const now = useNow();
+
+  // A hidden Workspace is listed while it's open or a session in it needs you (topBar.ts).
+  const listed = useMemo(
+    () =>
+      hostKey === null ? [] : listedWorkspaces({ hostKey, model, open: { hostKey, workspaceId } }),
+    [hostKey, model, workspaceId]
+  );
+
+  const workspaces = listed.map((w) => w.workspace);
+  const shownCount = listed.filter((w) => !w.hidden).length;
 
   if (hostKey === null || host === undefined) {
     return (
@@ -347,7 +376,7 @@ const MachineSidebar = () => {
           host={host}
         />
       }
-      footer={plural(workspaces.length, "workspace")}
+      footer={plural(shownCount, "workspace")}
     >
       {sidebar === "needs-you" ? (
         <slots.NeedsYouInbox />

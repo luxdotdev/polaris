@@ -100,16 +100,28 @@ export const summarize = (
   };
 };
 
-/** Workspaces the bar and sidebar list: not hidden (CONTEXT.md: hidden when idle), oldest first. */
+/** Workspaces the user keeps shown (CONTEXT.md: hidden until shown again), oldest first. */
 export const shownWorkspaces = (model: HostModel): ReadonlyArray<Workspace> =>
-  [...model.workspaces.values()]
-    .filter((w) => !w.hidden)
-    .sort((a, b) => a.registeredAt.localeCompare(b.registeredAt) || a.name.localeCompare(b.name));
+  sortWorkspaces([...model.workspaces.values()].filter((w) => !w.hidden));
+
+/** Workspaces the user hid from the top bar, oldest first: what "Show" offers. */
+export const hiddenWorkspaces = (model: HostModel): ReadonlyArray<Workspace> =>
+  sortWorkspaces([...model.workspaces.values()].filter((w) => w.hidden));
+
+const sortWorkspaces = (list: ReadonlyArray<Workspace>) =>
+  list.toSorted(
+    (a, b) => a.registeredAt.localeCompare(b.registeredAt) || a.name.localeCompare(b.name)
+  );
 
 export interface BarWorkspace {
   readonly hostKey: string;
   readonly workspace: Workspace;
   readonly summary: Summary;
+  /**
+   * Hidden by the user but listed for now: it is open, or a session in it needs you.
+   * It has no ⌃N and doesn't count towards the machine bar (docs/adr/0037).
+   */
+  readonly hidden: boolean;
 }
 
 export interface BarHost {
@@ -118,11 +130,18 @@ export interface BarHost {
   readonly summary: Summary;
 }
 
+/** The Workspace in view, which stays listed even while hidden. */
+export interface OpenWorkspace {
+  readonly hostKey: string | null;
+  readonly workspaceId: WorkspaceId | null;
+}
+
 export interface BarInput {
   readonly hosts: ReadonlyArray<HostView>;
   readonly models: Readonly<Record<string, HostModel>>;
   /** Sessions dismissed from Needs You on this Mac (`hostKey\u0000sessionId`): not counted. */
   readonly quiet?: ReadonlySet<string>;
+  readonly open?: OpenWorkspace;
 }
 
 /** The local Host's key (main/hosts.ts `LOCAL_HOST_KEY`). */
@@ -134,29 +153,68 @@ const barOrder = (hosts: ReadonlyArray<HostView>) => [
   ...hosts.filter((h) => h.key === LOCAL_HOST),
 ];
 
-/** Every Host with its shown Workspaces; the source of both bars. */
-export const barHosts = ({ hosts, models, quiet }: BarInput): ReadonlyArray<BarHost> =>
+export interface ListedInput {
+  readonly hostKey: string;
+  readonly model: HostModel;
+  readonly open?: OpenWorkspace | undefined;
+  readonly isQuiet?: (entry: SessionEntry) => boolean;
+}
+
+/**
+ * A Host's Workspaces as the bar and the machine sidebar list them: the shown ones, then
+ * any hidden one that is open or has a session that needs you, which never goes unseen.
+ */
+export const listedWorkspaces = ({
+  hostKey,
+  model,
+  open,
+  isQuiet,
+}: ListedInput): ReadonlyArray<BarWorkspace> => {
+  const item = (workspace: Workspace): BarWorkspace => ({
+    hostKey,
+    workspace,
+    summary: summarize(activeSessions(model, workspace.id), isQuiet),
+    hidden: workspace.hidden,
+  });
+
+  const isOpen = (w: Workspace) => open?.hostKey === hostKey && open.workspaceId === w.id;
+
+  const peeking = hiddenWorkspaces(model)
+    .map(item)
+    .filter((w) => isOpen(w.workspace) || w.summary.needsYou > 0);
+
+  return [...shownWorkspaces(model).map(item), ...peeking];
+};
+
+/** Every Host with its listed Workspaces; the source of both bars. */
+export const barHosts = ({ hosts, models, quiet, open }: BarInput): ReadonlyArray<BarHost> =>
   barOrder(hosts).map((host) => {
     const model = models[host.key];
-    const workspaces = model === undefined ? [] : shownWorkspaces(model);
 
     const isQuiet = (entry: SessionEntry) =>
       quiet?.has(`${host.key}\u0000${entry.session.id}`) ?? false;
 
     return {
       host,
-      workspaces: workspaces.map((workspace) => ({
-        hostKey: host.key,
-        workspace,
-        summary: summarize(model === undefined ? [] : activeSessions(model, workspace.id), isQuiet),
-      })),
+      workspaces:
+        model === undefined ? [] : listedWorkspaces({ hostKey: host.key, model, open, isQuiet }),
       summary: summarize(model === undefined ? [] : activeSessions(model), isQuiet),
     };
   });
 
-/** The Workspace chips in bar order: ⌃1 is the first, ⌃0 the tenth. */
+/** The shown Workspace chips in bar order: ⌃1 is the first, ⌃0 the tenth; hidden ones left out. */
 export const barWorkspaces = (hosts: ReadonlyArray<BarHost>): ReadonlyArray<BarWorkspace> =>
-  hosts.flatMap((h) => h.workspaces);
+  hosts.flatMap((h) => h.workspaces.filter((w) => !w.hidden));
+
+/** Whether a Workspace is registered on a Host, shown or hidden. */
+export const isRegistered = (
+  models: Readonly<Record<string, HostModel>>,
+  hostKey: string | null,
+  workspaceId: WorkspaceId | null
+): boolean =>
+  hostKey !== null &&
+  workspaceId !== null &&
+  (models[hostKey]?.workspaces.has(workspaceId) ?? false);
 
 /** "⌃1" … "⌃9", "⌃0" for the tenth ("Ctrl+1" off macOS); nothing past it. */
 export const shortcutLabel = (
