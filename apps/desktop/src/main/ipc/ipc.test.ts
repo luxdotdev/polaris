@@ -271,6 +271,7 @@ describe("subscriptions", () => {
         "harness.availability",
         "host",
         "inline.propose",
+        "prediction.complete",
         "hosts",
         "machines",
         "plan-limits",

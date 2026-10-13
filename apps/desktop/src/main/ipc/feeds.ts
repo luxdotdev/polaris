@@ -17,6 +17,7 @@ import { githubOpeners } from "../github/ipc.ts";
 import { gitOpeners } from "./git.ts";
 import { constellationFeed } from "./constellation.ts";
 import { Machines } from "../machines/service.ts";
+import type { PredictionBridge } from "../prediction/bridge.ts";
 
 export type Feed<K extends SubscriptionKind> = Stream.Stream<
   SubscriptionItem<K>,
@@ -47,6 +48,8 @@ const onLive = <A, E extends { readonly _tag: string; readonly message: string }
 type Openers = { readonly [K in SubscriptionKind]: (input: SubscriptionInput<K>) => Feed<K> };
 
 const openers: Openers = {
+  "prediction.complete": () =>
+    Stream.fail({ code: "Unavailable", message: "Tab completion unavailable" }),
   ...githubOpeners,
   ...gitOpeners,
   hosts: () => Stream.unwrap(HostDirectory.useSync((dir) => SubscriptionRef.changes(dir.views))),
@@ -92,11 +95,17 @@ const openers: Openers = {
 export const isSubscriptionKind = (kind: string): kind is SubscriptionKind =>
   Object.hasOwn(SubscriptionInputs, kind);
 
+const predictionOpeners = (prediction?: PredictionBridge): Openers => ({
+  ...openers,
+  "prediction.complete": (value) =>
+    prediction?.complete(value) ?? openers["prediction.complete"](value),
+});
+
 /** Decodes a renderer's input for `kind` (untrusted), then opens the feed. */
-export const feedOpener = <K extends SubscriptionKind>(kind: K) =>
+export const feedOpener = <K extends SubscriptionKind>(kind: K, prediction?: PredictionBridge) =>
   flow(
     Schema.decodeUnknownEffect(SubscriptionInputs[kind]),
     Effect.mapError((error): IpcError => ({ code: "InvalidInput", message: error.message })),
-    Effect.map((input): Feed<K> => openers[kind](input)),
+    Effect.map((input): Feed<K> => predictionOpeners(prediction)[kind](input)),
     Stream.unwrap
   );

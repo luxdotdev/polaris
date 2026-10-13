@@ -140,6 +140,7 @@ describe("Windows and Linux keys", () => {
       Object.fromEntries(ids.map((id) => [id, keysOf(id, platform).join(" / ")]));
 
     expect(table("windows")).toEqual({
+      "editor.prediction.acceptWord": "Ctrl+Right",
       "language.restart": "Ctrl+Shift+R",
       "view.orchestrate": "Alt+1",
       "view.review": "Alt+2",

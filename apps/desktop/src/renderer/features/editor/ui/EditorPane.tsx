@@ -44,6 +44,7 @@ import { LanguagePanel } from "./LanguagePanel.tsx";
 import { RenameField } from "../navigation/RenameField.tsx";
 import { SymbolSearch } from "../navigation/SymbolSearch.tsx";
 import { useLanguageNavigationCommands } from "../navigation/contribute.ts";
+import { usePredictionCommands } from "../prediction/commands.ts";
 import { EditorTrust } from "../trust/TrustCard.tsx";
 import { activateLogTab, closeLogTab, isLogTab, useLogTabs } from "../status/logTabs.ts";
 import { LogTabBody, useLogTabViews } from "../status/LogTab.tsx";
@@ -147,6 +148,7 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
 
   useEditorCommands(hostKey, workspaceId, active, shownLog?.id ?? activeId ?? null, logs.tabs);
   useLanguageNavigationCommands();
+  usePredictionCommands();
   useLanguageCommands(hostKey, workspaceId, active);
 
   const onAction = (action: BannerAction) => {

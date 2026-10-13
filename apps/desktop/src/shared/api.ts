@@ -52,6 +52,7 @@ import type {
 } from "@polaris/protocol";
 import type { Rpc } from "effect/rpc";
 import type { CommandId } from "./keymap.ts";
+import type { PredictionUiOutputs, PredictionFeedItem } from "./predictionContract.ts";
 import type { AppUpdateView } from "./appUpdates.ts";
 import type { PullRef } from "./github.ts";
 import type { ConstellationDefaultsMethod, ConstellationMethod } from "./constellationContract.ts";
@@ -376,6 +377,7 @@ export type ResourceRequestOutputs = {
 
 export interface RequestOutputs
   extends
+    PredictionUiOutputs,
     GitHubRequestOutputs,
     GitRequestOutputs,
     ConstellationRequestOutputs,
@@ -495,6 +497,7 @@ export type TerminalItem =
   | { readonly _tag: "Exit"; readonly code: number | null };
 
 export interface SubscriptionItems extends GitHubSubscriptionItems, GitSubscriptionItems {
+  "prediction.complete": PredictionFeedItem;
   hosts: ReadonlyArray<HostView>;
   machines: ReadonlyArray<MachineView>;
   host: HostStreamItem;

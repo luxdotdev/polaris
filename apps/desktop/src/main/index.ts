@@ -1,5 +1,6 @@
 import { createMainPredictionPlacement } from "./prediction/placement.ts";
 import { PredictionSettings } from "./prediction/preferences.ts";
+import { createPredictionBridge } from "./prediction/bridge.ts";
 /**
  * The Electron main process: the Client runtime (`@polaris/client`'s
  * HostRegistry on Effect), the typed IPC bridge, the menu and the window.
@@ -324,6 +325,14 @@ const start = async () => {
 
   const predictionPlacement = createMainPredictionPlacement(runtime, predictionSettings);
 
+  const predictionBridge = createPredictionBridge({
+    runtime,
+    placement: predictionPlacement,
+    preferences: predictionSettings,
+    read: () => settings,
+    commit: (value) => updateSettings(() => value),
+  });
+
   ipc = registerIpc({
     runtime,
     trusted,
@@ -334,6 +343,7 @@ const start = async () => {
         shell.showItemInFolder(revealAppPath(process.platform, app.getPath("exe"))),
       predictionSettings,
       predictionPlacement,
+      predictionBridge,
       settings: () => settings,
       cache: openSnapshotCache(app.getPath("userData")),
       prices: openPrices(app.getPath("userData")),

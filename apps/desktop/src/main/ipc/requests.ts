@@ -39,9 +39,11 @@ import type { SnapshotCache } from "../snapshotCache.ts";
 import { ensureInstalled } from "./install.ts";
 import { publishDirty, savedAll } from "../editorDirty.ts";
 import type { AppUpdates } from "../updates/index.ts";
+import type { PredictionBridge } from "../prediction/bridge.ts";
 
 /** What the handlers need from the app outside the Client runtime. */
 export interface RequestContext {
+  readonly predictionBridge?: PredictionBridge;
   readonly predictionSettings?: PredictionSettings;
   readonly predictionPlacement?: MainPredictionPlacement;
   readonly updates: Pick<AppUpdates, "get" | "check" | "setAutomatic">;
@@ -128,6 +130,33 @@ const local = (): InstallView => ({
 });
 
 export const requestHandlers = (ctx: RequestContext): Handlers => ({
+  "prediction.discoveryShown": () =>
+    Effect.sync(() => {
+      ctx.predictionBridge?.discoveryShown();
+
+      return null;
+    }),
+  "prediction.enabled.get": () =>
+    Effect.sync(() => ctx.predictionBridge?.enabled() ?? { enabled: false, configured: false }),
+  "prediction.enabled.set": ({ enabled }) =>
+    ctx.predictionBridge
+      ? Effect.sync(() => ctx.predictionBridge!.setEnabled(enabled))
+      : Effect.fail({ code: "Unavailable", message: "Tab completion unavailable" }),
+  "prediction.inspect": ({ hostKey }) =>
+    Effect.tryPromise({
+      try: async () => {
+        if (!ctx.predictionBridge) throw new Error("Tab completion unavailable");
+
+        return ctx.predictionBridge.inspect(hostKey);
+      },
+      catch: (error): IpcError => ({ code: "PredictionUnavailable", message: String(error) }),
+    }),
+  "prediction.release": ({ hostKey, workspaceId }) =>
+    Effect.sync(() => {
+      ctx.predictionBridge?.release(hostKey, workspaceId);
+
+      return null;
+    }),
   "prediction.clientEndpoints.get": () =>
     ctx.predictionSettings
       ? Effect.sync(() => ctx.predictionSettings!.getClientEndpoints())
