@@ -86,7 +86,7 @@ export const EditorStatus = ({ hostKey, workspaceId }: EditorStatusProps) => {
           }
         />
       )}
-      <PredictionStatus hostKey={hostKey} />
+      <PredictionStatus hostKey={hostKey} path={active.path} />
     </div>
   );
 };

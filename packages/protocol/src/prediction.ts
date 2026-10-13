@@ -15,6 +15,8 @@ export const PREDICTION_CAPABILITIES = [
   "prediction.capability",
   "prediction.context",
   "prediction.complete",
+  /** `prediction.server`: what the model server behind an endpoint is, and its recovery actions. */
+  "prediction.server",
 ] as const;
 
 export const PredictionFormat = Schema.Literals(["mellum-spm", "qwen-fim", "suffix"]);
@@ -155,8 +157,48 @@ export const PredictionComplete = Rpc.make("prediction.complete", {
   stream: true,
 });
 
+/** The server answering an OpenAI-compatible or Ollama endpoint, told apart by its own API. */
+export const PredictionServerKind = Schema.Literals([
+  "llama-server",
+  "ollama",
+  "lm-studio",
+  "unknown",
+]);
+
+export type PredictionServerKind = typeof PredictionServerKind.Type;
+
+/** Recovery through the server's own API; Polaris never starts or stops its process. */
+export const PredictionServerAction = Schema.Literals(["clear-cache", "reload-model"]);
+
+export type PredictionServerAction = typeof PredictionServerAction.Type;
+
+export const PredictionServerRequest = Schema.Struct({
+  endpoint: Schema.Struct({ kind: PredictionEndpoint.fields.kind, url: PredictionEndpointUrl }),
+  model: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(512)),
+  /** Null only identifies the server. */
+  action: Schema.NullOr(PredictionServerAction),
+});
+
+export type PredictionServerRequest = typeof PredictionServerRequest.Type;
+
+export const PredictionServerReport = Schema.Struct({
+  kind: PredictionServerKind,
+  actions: Schema.Array(PredictionServerAction),
+  /** What the action did, in words; null when only identifying. */
+  outcome: Schema.NullOr(Schema.String),
+});
+
+export type PredictionServerReport = typeof PredictionServerReport.Type;
+
+export const PredictionServerQuery = Rpc.make("prediction.server", {
+  payload: PredictionServerRequest,
+  success: PredictionServerReport,
+  error: PredictionError,
+});
+
 export const PredictionRpcs = RpcGroup.make(
   PredictionCapabilityQuery,
   PredictionContextQuery,
-  PredictionComplete
+  PredictionComplete,
+  PredictionServerQuery
 );

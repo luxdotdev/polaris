@@ -1,7 +1,10 @@
 import {
   PredictionCapability,
   PredictionContextRequest,
+  PredictionEndpoint,
+  PredictionServerRequest,
   PredictionStreamItem,
+  type PredictionServerReport,
 } from "@polaris/protocol";
 import { Schema } from "effect";
 
@@ -22,6 +25,15 @@ export const PredictionInspection = Schema.Struct({
 
 export type PredictionInspection = typeof PredictionInspection.Type;
 
+export const PredictionContextSummary = Schema.Struct({
+  pieces: Schema.Number,
+  /** Definitions and diagnostics: present only once the Workspace is trusted. */
+  languageServer: Schema.Number,
+  tokens: Schema.Number,
+});
+
+export type PredictionContextSummary = typeof PredictionContextSummary.Type;
+
 export const PredictionFeedItem = Schema.TaggedUnion({
   Reset: {},
   Delta: PredictionStreamItem.cases.Delta.fields,
@@ -31,6 +43,17 @@ export const PredictionFeedItem = Schema.TaggedUnion({
     model: Schema.String,
     machine: Schema.String,
     timings: Schema.optional(Schema.Record(Schema.String, Schema.Number)),
+    /** Where it ran, for the status card: which side and endpoint answered. */
+    side: Schema.optional(Schema.Literals(["client", "host"])),
+    endpoint: Schema.optional(PredictionEndpoint),
+    /** Round trips through placement on that side and endpoint, this one included. */
+    latency: Schema.optional(
+      Schema.NullOr(
+        Schema.Struct({ p50: Schema.Number, last: Schema.Number, count: Schema.Number })
+      )
+    ),
+    /** What the Host sent as context; null when it can't send any. */
+    context: Schema.optional(Schema.NullOr(PredictionContextSummary)),
   },
 });
 
@@ -50,6 +73,11 @@ export const PredictionUiInputs = {
   "prediction.inspect": Schema.Struct({ hostKey: Schema.String }),
   "prediction.release": Schema.Struct({ hostKey: Schema.String, workspaceId: Schema.String }),
   "prediction.discoveryShown": Schema.Struct({}),
+  "prediction.server": Schema.Struct({
+    hostKey: Schema.String,
+    side: Schema.Literals(["client", "host"]),
+    ...PredictionServerRequest.fields,
+  }),
 } as const;
 
 export interface PredictionUiOutputs {
@@ -58,4 +86,5 @@ export interface PredictionUiOutputs {
   readonly "prediction.inspect": PredictionInspection;
   readonly "prediction.release": null;
   readonly "prediction.discoveryShown": null;
+  readonly "prediction.server": PredictionServerReport;
 }

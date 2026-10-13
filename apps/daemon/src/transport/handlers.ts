@@ -71,6 +71,13 @@ export const defaultHandlers = (options: {
           message: "Prediction completion is unavailable",
         })
       ),
+    "prediction.server": () =>
+      Effect.fail(
+        new PredictionError({
+          reason: "unavailable",
+          message: "Model server checks are unavailable",
+        })
+      ),
     "host.resources.get": () =>
       Effect.fail(new ResourceError({ message: "Host resources are unavailable" })),
     "host.resources.declare": () =>

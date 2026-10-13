@@ -1,4 +1,4 @@
-import { LatencyRecorder } from "@polaris/predict";
+import { LatencyRecorder, type LatencyStats } from "@polaris/predict";
 import {
   PlacementController,
   type CapabilityReport,
@@ -14,6 +14,7 @@ import type { PredictionSettings } from "./preferences.ts";
 export interface PredictionLatency {
   record(endpoint: PredictionEndpoint, elapsedMs: number): void;
   p50(endpoint: PredictionEndpoint): number | null;
+  stats(endpoint: PredictionEndpoint): LatencyStats | null;
 }
 
 interface PlacementPorts {
@@ -61,6 +62,13 @@ export class MainPredictionPlacement {
         this.requests.get(key)?.abort();
       }
     }
+  }
+
+  /** Round trips through placement for this Host's side: what the status card reports. */
+  latency(hostKey: string, side: PredictionTarget["side"], endpoint: PredictionEndpoint) {
+    const recorder = side === "client" ? this.clientLatency : this.hostLatencies.get(hostKey);
+
+    return recorder?.stats(endpoint) ?? null;
   }
 
   release(hostKey: string, workspaceId: string) {
