@@ -162,3 +162,12 @@ export const upgradeDue = (installed: string, bundled: string): boolean => {
 
   return isDevVersion(bundled) || compareVersions(installed, bundled) < 0;
 };
+
+/**
+ * `upgradeDue` for a check no one asked for (a reconnect): it never moves a Host
+ * to an older dev build. A stale dev Client would otherwise downgrade a newer
+ * Daemon whose event log the older build cannot read; only the user's request does that.
+ */
+export const backgroundUpgradeDue = (installed: string, bundled: string): boolean =>
+  upgradeDue(installed, bundled) &&
+  !(isDevVersion(installed) && isDevVersion(bundled) && compareVersions(installed, bundled) > 0);

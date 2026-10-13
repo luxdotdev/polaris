@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   compareVersions,
   type DaemonBuild,
+  backgroundUpgradeDue,
   isDevVersion,
   platformFromUname,
   upgradeDue,
@@ -73,7 +74,7 @@ describe("dev builds", () => {
   test("a Host on another build upgrades without a new approval", () => {
     const dev = build("linux-x64", "0.0.0-dev.412.5821ca0");
 
-    for (const installed of ["0.0.1-d210", "0.0.0-dev.500.bbbbbbb"]) {
+    for (const installed of ["0.0.1-d210", "0.0.0-dev.400.bbbbbbb"]) {
       expect(
         planInstall(linux({ version: installed, platform: "linux-x64" }), [dev], {
           trigger: "background",
@@ -85,6 +86,24 @@ describe("dev builds", () => {
     expect(
       planInstall(linux({ version: dev.version, platform: "linux-x64" }), [dev], user)
     ).toEqual(InstallPlan.UpToDate({ version: dev.version }));
+  });
+
+  test("a newer dev build is replaced by an older one only when the user asks", () => {
+    const stale = build("linux-x64", "0.0.0-dev.1070.a148fe8");
+    const host = linux({ version: "0.0.0-dev.1260.058f292", platform: "linux-x64" });
+
+    expect(backgroundUpgradeDue("0.0.0-dev.1260.058f292", stale.version)).toBe(false);
+    expect(backgroundUpgradeDue("0.0.0-dev.1070.a148fe8", "0.0.0-dev.1260.058f292")).toBe(true);
+    expect(backgroundUpgradeDue("1.2.0", stale.version)).toBe(true);
+
+    expect(
+      planInstall(host, [stale], { trigger: "background", approvedSha256: new Set() })
+    ).toEqual(
+      InstallPlan.InstalledNewer({ installed: "0.0.0-dev.1260.058f292", bundled: stale.version })
+    );
+    expect(planInstall(host, [stale], user)).toEqual(
+      InstallPlan.Upgrade({ from: "0.0.0-dev.1260.058f292", build: stale })
+    );
   });
 });
 

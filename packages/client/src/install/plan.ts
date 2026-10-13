@@ -4,6 +4,7 @@
  */
 import { Data } from "effect";
 import {
+  backgroundUpgradeDue,
   compareVersions,
   upgradeDue,
   type DaemonBuild,
@@ -92,10 +93,11 @@ export const planInstall = (
   if (probe.installed !== null && probe.installed.platform === platform) {
     const installed = probe.installed.version;
 
-    // An installed Daemon was approved when it was first installed; upgrades need no new
-    // approval. A dev build replaces any other version (`upgradeDue`).
-    if (upgradeDue(installed, build.version))
-      return InstallPlan.Upgrade({ from: installed, build });
+    // Upgrades need no new approval. A dev build replaces any other version (`upgradeDue`),
+    // but a background check never installs an older dev build over a newer one.
+    const due = options.trigger === "background" ? backgroundUpgradeDue : upgradeDue;
+
+    if (due(installed, build.version)) return InstallPlan.Upgrade({ from: installed, build });
 
     if (compareVersions(installed, build.version) > 0) {
       return InstallPlan.InstalledNewer({ installed, bundled: build.version });
