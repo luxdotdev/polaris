@@ -5,10 +5,11 @@
  */
 import { cn, SeverityBadge } from "@polaris/ui";
 import { memo } from "react";
+import { FindingMenu } from "../../risk/ui/findingMenu.tsx";
 import { type FindingInfo, isDimmed } from "../model/findings.ts";
 import { ANNOTATION_INSET } from "../surface.ts";
 
-const Row = ({ finding }: { readonly finding: FindingInfo }) => (
+const Card = ({ finding }: { readonly finding: FindingInfo }) => (
   <div
     data-testid="finding-row"
     data-finding={finding.id}
@@ -28,6 +29,20 @@ const Row = ({ finding }: { readonly finding: FindingInfo }) => (
       </div>
     </div>
   </div>
+);
+
+const Row = ({
+  finding,
+  subjectKey,
+}: {
+  readonly finding: FindingInfo;
+  readonly subjectKey: string;
+}) => (
+  <FindingMenu subjectKey={subjectKey} finding={finding}>
+    <div className="contents">
+      <Card finding={finding} />
+    </div>
+  </FindingMenu>
 );
 
 /** Memoised: Pierre re-renders every mounted annotation as files mount. */

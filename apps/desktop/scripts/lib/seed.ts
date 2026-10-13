@@ -8,6 +8,8 @@ export type SeedState = "working" | "needs-you" | "idle";
 export interface SeedSession {
   readonly title: string;
   readonly state: SeedState;
+  /** A bench script of its own, in place of the state's. */
+  readonly prompt?: string;
 }
 
 export interface SeedWorkspace {
@@ -52,7 +54,7 @@ export const seedSource = (workspaces: ReadonlyArray<SeedWorkspace>) => `(async 
       await dispatch(w.hostKey, {
         _tag: "StartSession", sessionId, workspaceId, harness: s.harness ?? "claude",
         placement: { _tag: "InPlace" }, permissionMode: "auto", model: null, effort: null,
-        prompt: prompts[s.state], attachments: [],
+        prompt: s.prompt ?? prompts[s.state], attachments: [],
       });
       await dispatch(w.hostKey, { _tag: "RenameSession", sessionId, title: s.title });
     }

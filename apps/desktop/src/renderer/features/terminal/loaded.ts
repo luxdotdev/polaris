@@ -6,6 +6,11 @@ export interface RuntimeApi {
   readonly disposeTerminal: (hostKey: string, terminalId: string) => void;
   readonly reattachDropped: (hostKey: string) => void;
   readonly focusTerminal: (hostKey: string, terminalId: string) => void;
+  /** The text selected in it; "" when nothing is. */
+  readonly selection: (hostKey: string, terminalId: string) => string;
+  readonly selectAll: (hostKey: string, terminalId: string) => void;
+  /** Clears its scrollback and screen, as ⌘K does in Terminal. */
+  readonly clear: (hostKey: string, terminalId: string) => void;
 }
 
 export interface Loaded {

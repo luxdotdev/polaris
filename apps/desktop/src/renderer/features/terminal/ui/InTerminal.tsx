@@ -3,7 +3,7 @@
  * the session is In Terminal, a bar above the composer with "Take back".
  */
 import type { SessionId, SessionState } from "@polaris/protocol";
-import { Button, DropdownMenuItem, PixelTerminalIcon } from "@polaris/ui";
+import { Button, DropdownMenuItem, type MenuAction, PixelTerminalIcon } from "@polaris/ui";
 import { useState } from "react";
 import { activateTab } from "../actions.ts";
 import { claimFocusFromMenu } from "../focus.ts";
@@ -41,6 +41,20 @@ const showOrOpen = (s: HandoffSession) => {
 };
 
 const canHandOff = (state: SessionState) => state !== "archived" && state !== "starting";
+
+/** For a session row's right-click menu; hidden while the session can't hand off. */
+export const openInTerminalEntry = (session: HandoffSession): MenuAction | null =>
+  canHandOff(session.state)
+    ? {
+        kind: "item",
+        label: session.state === "in-terminal" ? "Show terminal" : "Open in terminal",
+        onSelect: () => {
+          claimFocusFromMenu();
+          void showOrOpen(session);
+        },
+        testId: "menu-open-in-terminal",
+      }
+    : null;
 
 /** For the session header's menu. */
 export const OpenInTerminalItem = ({ session }: { readonly session: HandoffSession }) => (

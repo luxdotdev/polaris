@@ -157,7 +157,7 @@ export interface PaletteEntry {
   readonly detail?: string;
   /** Other words it is found by. */
   readonly keywords?: ReadonlyArray<string>;
-  /** It asks a follow-up in the palette; the title ends in "…". */
+  /** It asks a follow-up in the palette; the binding needs input (rule/ellipsis-means-input). */
   readonly followUp?: boolean;
   /** Found only by searching, never listed on an empty query (easter eggs). */
   readonly searchOnly?: boolean;
@@ -168,6 +168,8 @@ export interface KeyBinding {
   readonly title: string;
   /** Accelerators; the first is the one menus and hints show. Empty: menu or jump menu only. */
   readonly keys: ReadonlyArray<string>;
+  /** It asks for more (a dialog, picker or confirmation) before it runs; titles end in "…". */
+  readonly needsInput?: boolean;
   /** Bare keys (no ⌘/⌃/⌥) never fire while typing in a field; chords do unless this is false. */
   readonly inFields?: boolean;
   /** Where the native menu lists it, if anywhere. */
@@ -205,6 +207,7 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
   {
     id: "palette.open",
     title: "Command Palette…",
+    needsInput: true,
     keys: ["CmdOrCtrl+Shift+P"],
     menu: "View",
     palette: false,
@@ -220,6 +223,7 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
   {
     id: "typescript.selectVersion",
     title: "Select TypeScript version…",
+    needsInput: true,
     keys: [],
     when: { all: [TRUST_KNOWN, "language.typescript"] },
     palette: FILE({
@@ -231,6 +235,7 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
   {
     id: "python.selectInterpreter",
     title: "Python: Select interpreter…",
+    needsInput: true,
     keys: [],
     when: { all: ["editor.file", "language.python"] },
     palette: FILE({
@@ -242,6 +247,7 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
   {
     id: "sql.selectDialect",
     title: "SQL: Select dialect…",
+    needsInput: true,
     keys: [],
     when: { all: ["editor.file", "language.sql"] },
     palette: FILE({
@@ -277,6 +283,7 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
   {
     id: "trust.grant",
     title: "Trust workspace…",
+    needsInput: true,
     keys: [],
     when: { all: [TRUST_KNOWN, { not: "trust.trusted" }] },
     palette: WORKSPACE({
@@ -327,7 +334,13 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
     menu: "View",
     palette: WORKSPACE({ keywords: ["changes", "diff", "panel", "rail"] }),
   },
-  { id: "jump.open", title: "Jump to…", keys: ["CmdOrCtrl+K", "K"], menu: "Go" },
+  {
+    id: "jump.open",
+    title: "Jump to…",
+    needsInput: true,
+    keys: ["CmdOrCtrl+K", "K"],
+    menu: "Go",
+  },
   { id: "session.next", title: "Next session", keys: ["CmdOrCtrl+Alt+Down"], menu: "Go" },
   { id: "session.previous", title: "Previous session", keys: ["CmdOrCtrl+Alt+Up"], menu: "Go" },
   {
@@ -343,6 +356,7 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
   {
     id: "editor.findFile",
     title: "Go to file…",
+    needsInput: true,
     keys: ["CmdOrCtrl+P"],
     menu: "Go",
     palette: WORKSPACE({ keywords: ["open", "file", "finder"] }),
@@ -350,13 +364,15 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
   {
     id: "editor.findInWorkspace",
     title: "Find in workspace…",
+    needsInput: true,
     keys: ["CmdOrCtrl+Shift+F"],
     menu: "Go",
-    palette: WORKSPACE({ title: "Find in {workspace}", keywords: ["search", "grep"] }),
+    palette: WORKSPACE({ title: "Find in {workspace}…", keywords: ["search", "grep"] }),
   },
   {
     id: "editor.inlineChat",
-    title: "Edit or ask",
+    title: "Edit or ask…",
+    needsInput: true,
     keys: ["CmdOrCtrl+I"],
     palette: FILE({ keywords: ["inline", "chat", "agent"] }),
   },
@@ -405,7 +421,8 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
   },
   {
     id: "transcript.find",
-    title: "Find in transcript",
+    title: "Find in transcript…",
+    needsInput: true,
     keys: ["CmdOrCtrl+F"],
     menu: "Session",
     palette: WORKSPACE({ keywords: ["search", "chat", "conversation", "turn"] }),
@@ -433,6 +450,7 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
   {
     id: "workspace.add",
     title: "Add workspace…",
+    needsInput: true,
     keys: ["CmdOrCtrl+O"],
     menu: "Go",
     palette: SETTINGS(["open", "folder", "repository"]),
@@ -441,6 +459,7 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
   {
     id: "settings.open",
     title: "Settings…",
+    needsInput: true,
     keys: ["CmdOrCtrl+,"],
     menu: "App",
     palette: SETTINGS(["preferences"]),
@@ -530,6 +549,7 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
   {
     id: "github.addAccount",
     title: "Add GitHub account…",
+    needsInput: true,
     keys: [],
     palette: SETTINGS(["github", "sign in", "device code"]),
   },
@@ -574,16 +594,21 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
   },
 ];
 
+/** The standard edit chords, which the native Edit menu owns; context menus show them. */
+export const EDIT_CHORDS = {
+  cut: "CmdOrCtrl+X",
+  copy: "CmdOrCtrl+C",
+  paste: "CmdOrCtrl+V",
+  selectAll: "CmdOrCtrl+A",
+} as const;
+
 /** Chords macOS, Electron or the standard menus own; nothing here may take them. */
 export const RESERVED: ReadonlyArray<string> = [
   "CmdOrCtrl+Q",
   "CmdOrCtrl+H",
   "CmdOrCtrl+Alt+H",
   "CmdOrCtrl+M",
-  "CmdOrCtrl+C",
-  "CmdOrCtrl+V",
-  "CmdOrCtrl+X",
-  "CmdOrCtrl+A",
+  ...Object.values(EDIT_CHORDS),
   "CmdOrCtrl+Z",
   "CmdOrCtrl+Shift+Z",
   "CmdOrCtrl+`",
@@ -604,3 +629,6 @@ export const RESERVED: ReadonlyArray<string> = [
 export const SHORTCUT_DIGIT_MODIFIERS: ReadonlyArray<string> = ["Ctrl", "Alt"];
 
 export const bindingOf = (id: CommandId): KeyBinding | undefined => KEYMAP.find((b) => b.id === id);
+
+/** The chord a menu shows for a command: its first accelerator, if it has one. */
+export const chordOf = (id: CommandId): string | undefined => bindingOf(id)?.keys[0];
