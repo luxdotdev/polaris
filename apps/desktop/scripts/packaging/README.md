@@ -82,8 +82,10 @@ and selects the build Host's 7-Zip binaries there. It adds no trusted dependency
 The standard licence gate passes; the build-only package declares MIT.
 
 Windows packages enter through a small Squirrel bootstrap. Maintenance launches
-create/remove shortcuts before importing the Client runtime, keeping cold startup
-within Squirrel's hook deadline. Temporary vendor cleanup retries transient
+create/remove shortcuts with Electron's native Windows API before importing the
+Client runtime. The target and working directory stay at the install root;
+Squirrel's application and toast activation IDs are retained. This avoids a
+second .NET process inside Squirrel's hook deadline. Temporary vendor cleanup retries transient
 Windows file locks for a bounded interval.
 
 The Squirrel launcher's version scan ignores `app-0.0.0`. Windows development
