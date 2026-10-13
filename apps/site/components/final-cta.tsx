@@ -18,8 +18,12 @@ export function FinalCta() {
           Steer every agent by one star.
         </h2>
         <p className="text-site-copy text-center text-[16px] leading-6 lg:text-[20px] lg:leading-[30px]">
-          <span className="hidden md:inline">Free for macOS. Open source under Apache-2.0.</span>
-          <span className="md:hidden">Free and open source, for macOS.</span>
+          <span className="hidden md:inline">
+            Free for macOS, experimental on Windows. Open source under Apache-2.0.
+          </span>
+          <span className="md:hidden">
+            Free and open source, for macOS and Windows (experimental).
+          </span>
         </p>
         <div className="w-full pt-1 md:w-auto md:pt-0">
           <Actions />

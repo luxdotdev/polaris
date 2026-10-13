@@ -27,7 +27,8 @@ export function Hero() {
         <div className="w-full pt-1 md:w-auto md:pt-0">
           <Actions
             note="For macOS · Agents run locally or over SSH · No account"
-            mobileNote="Polaris runs on macOS · No account"
+            mobileNote="For macOS · Windows is experimental · No account"
+            others
           />
         </div>
       </div>

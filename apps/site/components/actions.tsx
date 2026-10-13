@@ -1,5 +1,6 @@
+import { DownloadButton, DownloadNotes, NavDownloadLink } from "./download";
 import { EmailDownload } from "./email-download";
-import { AppleIcon, GitHubIcon } from "./icons";
+import { GitHubIcon } from "./icons";
 import { links } from "./links";
 
 const base =
@@ -10,16 +11,6 @@ const primary = `${base} bg-site-primary text-site-on-primary shadow-(--site-pri
 const secondary = `${base} border border-site-secondary-border bg-site-secondary text-text-strong hover:bg-site-secondary-hover`;
 
 const large = "h-12 pl-[18px] pr-[22px] text-[16px] leading-5";
-
-/** The one primary action: the Mac download (a route that redirects to the latest DMG). */
-export function DownloadButton() {
-  return (
-    <a href={links.download} className={`${primary} ${large}`}>
-      <AppleIcon />
-      Download for macOS
-    </a>
-  );
-}
 
 /** The secondary action is always the source. */
 const sourceSizes = {
@@ -39,31 +30,33 @@ export function SourceButton({ size = "large" }: { readonly size?: keyof typeof 
 
 export function NavDownload() {
   return (
-    <a
-      href={links.download}
+    <NavDownloadLink
       className={`${primary} rounded-control h-8 px-3.5 text-[14px] leading-5 shadow-none`}
-    >
-      Download
-    </a>
+    />
   );
 }
 
-/** Desktop: Download and source side by side. Phones: email the Mac download instead (S3). */
+/**
+ * Desktop: the visitor's download (macOS, or Windows when detected) and source side by side.
+ * Phones: email the Mac download instead (S3).
+ */
 export function Actions({
   note,
   mobileNote,
+  others = false,
 }: {
   readonly note?: string | undefined;
   readonly mobileNote?: string | undefined;
+  readonly others?: boolean;
 }) {
   return (
     <>
       <div className="hidden flex-col items-center gap-4 pt-3 md:flex">
         <div className="flex items-center gap-3">
-          <DownloadButton />
+          <DownloadButton className={`${primary} ${large}`} />
           <SourceButton />
         </div>
-        {note === undefined ? null : <p className="text-site-copy text-[14px] leading-5">{note}</p>}
+        <DownloadNotes note={note} others={others} />
       </div>
       <div className="flex w-full flex-col gap-2.5 md:hidden">
         <EmailDownload />

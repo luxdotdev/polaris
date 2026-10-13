@@ -1,8 +1,14 @@
-/** Where the site's links go. The download route redirects to the latest Release's DMG. */
+/** Where the site's links go. The download routes redirect to the latest Release's DMG or installer. */
 export const repo = "https://github.com/luxdotdev/polaris";
 
 export const links = {
   download: "/download/mac",
+  /** `detect` lets the route pick the arch from Client hints or the User-Agent. */
+  windows: {
+    detect: "/download/windows",
+    x64: "/download/windows?arch=x64",
+    arm64: "/download/windows?arch=arm64",
+  },
   source: repo,
   docs: `${repo}#readme`,
   changelog: `${repo}/releases`,

@@ -6,6 +6,7 @@ const columns = [
     title: "Product",
     items: [
       { label: "Download", href: links.download },
+      { label: "Windows (experimental)", href: links.windows.detect },
       { label: "Changelog", href: links.changelog },
       { label: "Docs", href: links.docs },
     ],

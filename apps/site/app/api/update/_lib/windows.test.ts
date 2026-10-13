@@ -171,3 +171,21 @@ test("download selects explicit arch, Client hints or ARM UA, with x64 emulation
     (await routes.download(new Request("https://polaris.lux.dev/?arch=ia32"), undefined)).status
   ).toBe(400);
 });
+
+test("a macOS-only Release or no Release is a retryable 503, never a broken redirect", async () => {
+  for (const latest of [async () => publishedRelease(fixture), async () => null]) {
+    const { routes } = setup({ latest });
+
+    for (const url of ["/download/windows", "/download/windows?arch=arm64"]) {
+      const response = await routes.download(
+        new Request(new URL(url, "https://polaris.lux.dev")),
+        undefined
+      );
+
+      expect(response.status).toBe(503);
+      expect(response.headers.get("location")).toBeNull();
+      expect(response.headers.get("retry-after")).toBe("60");
+      expect(response.headers.get("cache-control")).toBe("no-store");
+    }
+  }
+});
