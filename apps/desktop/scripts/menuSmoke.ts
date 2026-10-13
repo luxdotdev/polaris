@@ -179,6 +179,13 @@ try {
     ],
   });
 
+  // ⇧F10 opens the focused row's menu, as the menu key does.
+  await row("Glossary first pass")(page).focus();
+  await page.keyboard.press("Shift+F10");
+  await page.getByTestId("session-context-menu").waitFor();
+  console.log("menus: shift-f10");
+  await page.keyboard.press("Escape");
+
   await check(page, {
     name: "workspace-chip",
     target: chip("polaris"),
