@@ -5,6 +5,7 @@
 import { type HarnessKind, harnessEntry } from "@polaris/protocol";
 import { Duration, Effect, Inspectable } from "effect";
 import { HarnessError } from "../harness/HarnessDriver.ts";
+import { logStart } from "../harness/startLog.ts";
 
 /** How long a Harness may take to open before its session Fails; EngineSettings can change it. */
 export const DEFAULT_HARNESS_START_TIMEOUT = Duration.seconds(90);
@@ -21,7 +22,7 @@ export const startTimedOut = (harness: HarnessKind, after: Duration.Input, host:
   });
 
 /** The open, failed with `startTimedOut` if it takes longer than `after`, and with its defect's message if it dies. */
-export const timedStart = <A, E, R>(
+const guardedOpen = <A, E, R>(
   open: Effect.Effect<A, E, R>,
   harness: HarnessKind,
   after: Duration.Input,
@@ -43,4 +44,23 @@ export const timedStart = <A, E, R>(
       duration: after,
       orElse: () => Effect.fail(startTimedOut(harness, after, host)),
     })
+  );
+
+/** `guardedOpen`, logging for `sessionId` that it starts, how long it took, or why it failed. */
+export const timedStart = <A, E extends { readonly message: string }, R>(
+  open: Effect.Effect<A, E, R>,
+  harness: HarnessKind,
+  after: Duration.Input,
+  host: string,
+  sessionId: string
+): Effect.Effect<A, E | HarnessError, R> =>
+  logStart(sessionId, `opening ${nameOf(harness)}`).pipe(
+    Effect.andThen(Effect.timed(guardedOpen(open, harness, after, host))),
+    Effect.tap(([took]) =>
+      logStart(sessionId, `${nameOf(harness)} opened in ${Math.round(Duration.toMillis(took))} ms`)
+    ),
+    Effect.map(([, opened]) => opened),
+    Effect.tapError((error) =>
+      logStart(sessionId, `${nameOf(harness)} failed to open: ${error.message}`)
+    )
   );

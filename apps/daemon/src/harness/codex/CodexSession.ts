@@ -59,6 +59,7 @@ import { CodexSubagents } from "./subagents.ts";
 import { requestCompat } from "./compat.ts";
 import { polarisInstructions } from "../../constellation/skills/preamble.ts";
 import { type HarnessCall, harnessCallOf } from "./slash.ts";
+import { logStart } from "../startLog.ts";
 
 export interface SessionConfig {
   readonly appServer: AppServer;
@@ -145,6 +146,7 @@ export const openSession = (
       Queue.offerUnsafe(events, clock.stamp(event));
     };
 
+    yield* logStart(options.sessionId, `connecting to the Codex app-server (${config.codexPath})`);
     const conn: RpcConnection = yield* config.appServer.connect;
     yield* conn.request("initialize", {
       clientInfo: { name: "polaris", title: "Polaris", version: config.clientVersion },
@@ -231,6 +233,10 @@ export const openSession = (
 
     if (thread === null) return yield* codexError("Unexpected thread/start response from Codex");
     const threadId = thread.thread.id;
+    yield* logStart(
+      options.sessionId,
+      `Codex thread ${threadId} ${options.resumeCursor === null ? "started" : "resumed"}; ready`
+    );
     emit(HarnessEvent.CursorAssigned({ cursor: threadId }));
 
     // --- Turn bookkeeping -------------------------------------------------
