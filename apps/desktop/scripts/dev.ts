@@ -33,7 +33,7 @@ const devSocket = join(devHome(), "daemon.sock");
 
 // The dev Daemon's HOME is devHome(); link the developer's toolchain dirs in so Prerequisites resolve.
 const linkToolchains = () => {
-  for (const dir of ["go", ".cargo", ".local/bin"]) {
+  for (const dir of ["go", ".cargo", ".rustup", ".local/bin"]) {
     const source = join(homedir(), dir);
     const target = join(devHome(), dir);
 
