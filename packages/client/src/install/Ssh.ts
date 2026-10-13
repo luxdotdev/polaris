@@ -6,6 +6,7 @@
 import { spawn } from "node:child_process";
 import { createReadStream } from "node:fs";
 import { Context, Effect, Layer, Schema } from "effect";
+import { resolveSshBinary, type SshOptions } from "../ssh.ts";
 
 export interface SshResult {
   readonly code: number;
@@ -39,7 +40,7 @@ export const classifySshFailure = (stderr: string): SshFailure => {
     return "auth";
 
   if (
-    /could not resolve hostname|connection refused|timed out|no route to host|network is unreachable|connection closed/i.test(
+    /could not resolve hostname|no such host is known|connection refused|timed out|no route to host|network is unreachable|connection closed/i.test(
       stderr
     )
   )
@@ -141,57 +142,68 @@ export class Ssh extends Context.Service<
   }
 >()("polaris/client/install/Ssh") {
   /** The system `ssh`, honouring the user's ~/.ssh/config for the alias. */
-  static readonly layer = Layer.succeed(
-    Ssh,
-    Ssh.of({
-      exec: (alias, command, options) =>
-        alias.startsWith("-")
-          ? Effect.fail(new SshError({ alias, failure: "spawn", message: "invalid alias" }))
-          : run({
-              alias,
-              file: "ssh",
-              args: [
-                "-T",
-                "-o",
-                "BatchMode=yes",
-                // Never write known_hosts (ssh.ts); no agent for install commands.
-                "-o",
-                "StrictHostKeyChecking=yes",
-                "-o",
-                "UpdateHostKeys=no",
-                "-o",
-                "ForwardAgent=no",
-                "-o",
-                "ConnectTimeout=15",
-                "--",
+  static readonly withOptions = (sshOptions: SshOptions = {}) =>
+    Layer.succeed(
+      Ssh,
+      Ssh.of({
+        exec: (alias, command, options) =>
+          alias.startsWith("-")
+            ? Effect.fail(new SshError({ alias, failure: "spawn", message: "invalid alias" }))
+            : run({
                 alias,
-                command,
-              ],
-              stdinFile: options?.stdinFile,
-              onStdinBytes: options?.onStdinBytes,
-              transportFailure: 255,
-            }),
-    })
-  );
+                file: resolveSshBinary(sshOptions),
+                args: [
+                  "-T",
+                  "-o",
+                  "BatchMode=yes",
+                  // Never write known_hosts (ssh.ts); no agent for install commands.
+                  "-o",
+                  "StrictHostKeyChecking=yes",
+                  "-o",
+                  "UpdateHostKeys=no",
+                  "-o",
+                  "ForwardAgent=no",
+                  "-o",
+                  "ConnectTimeout=15",
+                  "--",
+                  alias,
+                  command,
+                ],
+                stdinFile: options?.stdinFile,
+                onStdinBytes: options?.onStdinBytes,
+                transportFailure: 255,
+              }),
+      })
+    );
+
+  static readonly layer = Ssh.withOptions();
 
   /**
    * This machine itself, for its own installed Daemon: the same commands in a
    * local `sh`, with `HOME` as given (tests use a temporary one). The alias is ignored.
    */
-  static readonly local = (home: string) =>
+  static readonly local = (home: string, platform: NodeJS.Platform = process.platform) =>
     Layer.succeed(
       Ssh,
       Ssh.of({
         exec: (alias, command, options) =>
-          run({
-            alias,
-            file: "/bin/sh",
-            args: ["-c", command],
-            env: { ...process.env, HOME: home },
-            stdinFile: options?.stdinFile,
-            onStdinBytes: options?.onStdinBytes,
-            transportFailure: null,
-          }),
+          platform === "win32"
+            ? Effect.fail(
+                new SshError({
+                  alias,
+                  failure: "spawn",
+                  message: "A local Windows Daemon is not supported.",
+                })
+              )
+            : run({
+                alias,
+                file: "/bin/sh",
+                args: ["-c", command],
+                env: { ...process.env, HOME: home },
+                stdinFile: options?.stdinFile,
+                onStdinBytes: options?.onStdinBytes,
+                transportFailure: null,
+              }),
       })
     );
 }

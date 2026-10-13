@@ -43,7 +43,7 @@ import { LanguageIdentityEpochs } from "./languages/identityEpochs.ts";
 import { createMainLanguageApi } from "./languages/runtime.ts";
 import { LanguagePreferences } from "./languages/settings.ts";
 import { machinesLayer, sshAliasNames } from "./machines/index.ts";
-import { type LocalDaemon, resolveLocalDaemon } from "./localDaemon.ts";
+import { type LocalDaemon, localHostEnabled, resolveLocalDaemon } from "./localDaemon.ts";
 import { buildMenu } from "./menu.ts";
 import { createNeedsYouCenter, type NeedsYouCenter } from "./notifications/index.ts";
 import { createReviewNotifier, type ReviewNotifier } from "./notifications/reviews.ts";
@@ -242,7 +242,7 @@ const start = async () => {
 
   applyAppearance();
 
-  const localEnabled = settings.local?.enabled ?? true;
+  const localEnabled = localHostEnabled(settings.local?.enabled);
 
   const startLocal = async () => {
     localDaemon ??= await resolveLocalDaemon({ dev, repoRoot, env });
@@ -259,10 +259,11 @@ const start = async () => {
       entries: hostEntries({
         local,
         remotes: settings.hosts ?? [],
-        extras: extraHosts(env.POLARIS_DESKTOP_EXTRA_HOSTS),
+        extras: localHostEnabled(true) ? extraHosts(env.POLARIS_DESKTOP_EXTRA_HOSTS) : [],
         ...localLabel(env.POLARIS_DESKTOP_LOCAL_LABEL),
       }),
       identity: clientIdentity(app.getVersion()),
+      ssh: settings.sshBinary === undefined ? {} : { sshBinary: settings.sshBinary },
       ...optionalLanguageCredential(join(app.getPath("userData"), "language-private"), (message) =>
         console.warn(message)
       ),
