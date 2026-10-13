@@ -1,8 +1,15 @@
 /**
  * The Client's own operating system, the one seam every platform-dependent label, key and
- * chrome choice reads. The main process and preload know it from `process.platform`; the
- * sandboxed renderer reads what the preload exposes as `window.polaris.platform`.
+ * chrome choice reads. The main process knows it from `process.platform` and passes it to the
+ * preload, which exposes it to the sandboxed renderer as `window.polaris.platform`.
  */
+
+/** How main tells the preload which platform to report (`webPreferences.additionalArguments`). */
+export const PLATFORM_ARG = "--polaris-platform=";
+
+/** The platform main passed, else this process's own. */
+export const platformFromArgv = (argv: ReadonlyArray<string>, fallback: string): string =>
+  argv.find((arg) => arg.startsWith(PLATFORM_ARG))?.slice(PLATFORM_ARG.length) ?? fallback;
 
 /** Windows, macOS, or anything else (Linux and the BSDs share Linux's conventions). */
 export type ClientPlatform = "darwin" | "win32" | "linux";

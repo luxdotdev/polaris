@@ -3,6 +3,7 @@ import {
   clientPlatform,
   isMac,
   isWindows,
+  platformFromArgv,
   setClientPlatform,
   toClientPlatform,
 } from "./platform.ts";
@@ -47,5 +48,15 @@ describe("clientPlatform", () => {
 
     setClientPlatform(null);
     expect(clientPlatform()).toBe(toClientPlatform(process.platform));
+  });
+});
+
+describe("platformFromArgv", () => {
+  test("reads the platform main passed to the preload", () => {
+    expect(platformFromArgv(["electron", "--polaris-platform=win32"], "darwin")).toBe("win32");
+  });
+
+  test("falls back to the process's own", () => {
+    expect(platformFromArgv(["electron"], "darwin")).toBe("darwin");
   });
 });

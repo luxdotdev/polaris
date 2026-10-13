@@ -1,9 +1,9 @@
 /**
- * Needs You outside the window: native notifications, the menu bar star and the Dock badge,
+ * Needs You outside the window: native notifications, the menu bar star and the app's badge,
  * fed by the renderer's summary (`needsYou.publish`). Answers go back to the renderer as app
  * events, which dispatches them like any other, so every answer from this device is one path.
  */
-import { app, type BrowserWindow, Notification } from "electron";
+import { app, type BrowserWindow, nativeTheme, Notification } from "electron";
 import type { AppEvent } from "../../shared/api.ts";
 import type {
   NeedsYouAction,
@@ -16,6 +16,7 @@ import {
   type NotificationHandlers,
   notificationHandlers,
 } from "./actions.ts";
+import { showBadge } from "./badge.ts";
 import { focusWindow } from "./focus.ts";
 import { emptyTurnState, planTurnNotifications, type TurnNotification } from "./turnPlan.ts";
 import {
@@ -228,8 +229,13 @@ export const createNeedsYouCenter = ({
 
     for (const n of agents.held) record(n, "here");
     tray.update(summary);
-    app.dock?.setBadge(summary.count > 0 ? String(summary.count) : "");
+    showBadge(window(), summary.count);
   };
+
+  // The taskbar's light or dark mode recolours Windows' badge.
+  const rebadge = () => showBadge(window(), summary.count);
+
+  nativeTheme.on("updated", rebadge);
 
   globalThis.__polarisNeedsYou = {
     count: () => summary.count,
@@ -268,6 +274,7 @@ export const createNeedsYouCenter = ({
     dispose: () => {
       for (const key of live.keys()) close(key);
       tray.destroy();
+      nativeTheme.off("updated", rebadge);
       globalThis.__polarisNeedsYou = undefined;
     },
   };

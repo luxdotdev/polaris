@@ -132,7 +132,7 @@ const hostsPage = async ({ page, step, shoot }: FlowInput) => {
       `worker cap didn't set and reset: ${JSON.stringify([capped.workerCap, reset.workerCap])}`
     );
 
-  await page.getByRole("button", { name: "Hosts" }).click();
+  await page.getByTestId("settings").getByRole("button", { name: "Hosts", exact: true }).click();
   await page
     .getByRole("button", { name: /^This Mac/ })
     .first()

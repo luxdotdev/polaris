@@ -12,11 +12,11 @@ import {
 import type { EditorView } from "@codemirror/view";
 import { type KeyboardEvent, type MouseEvent, type ReactNode, useRef, useState } from "react";
 import { copyWithToast, revealInFinderEntry } from "../../../shell/menu/index.ts";
-import { useCommands, useShellActions } from "../../../shell/hooks.ts";
+import { useCommands } from "../../../shell/hooks.ts";
 import { polaris } from "../../bridge.ts";
-import { runInTerminal } from "../../terminal/actions.ts";
+import { openTerminalIn } from "../../terminal/index.ts";
 import { revealInExplorer } from "../explorer/index.ts";
-import { basename, dirname, relative } from "../explorer/model/paths.ts";
+import { dirname, relative } from "../explorer/model/paths.ts";
 import { languageStore } from "../lsp/state.ts";
 import { fileKey } from "../model/drafts.ts";
 import { runNavigation } from "../navigation/run.ts";
@@ -63,7 +63,6 @@ const openAtCaret = (event: KeyboardEvent, view: EditorView | null) => {
 
 export const EditorMenu = ({ hostKey, workspaceId, root, path, children }: EditorMenuProps) => {
   const commands = useCommands();
-  const shell = useShellActions();
   const key = fileKey(hostKey, path);
   const [entries, setEntries] = useState<ReadonlyArray<MenuEntry>>([]);
   const pending = useRef<(() => void) | null>(null);
@@ -82,16 +81,8 @@ export const EditorMenu = ({ hostKey, workspaceId, root, path, children }: Edito
         ? copyWithToast(relative(path, root), "relative path")
         : copyWithToast(path, "path"),
     revealInTree: () => revealInExplorer({ hostKey, workspaceId, path }),
-    // A new tab in the file's folder; the drawer lives in Orchestrate, so that is where it shows.
-    openInTerminal: () => {
-      const cwd = dirname(path);
-
-      void runInTerminal(
-        { hostKey, workspaceId },
-        { key: crypto.randomUUID(), title: basename(cwd), cwd, argv: null }
-      );
-      shell.setMode("orchestrate");
-    },
+    // A new tab in the file's folder, in the drawer of the mode on screen.
+    openInTerminal: () => void openTerminalIn({ hostKey, workspaceId }, dirname(path)),
   });
 
   const open = (event: MouseEvent) => {

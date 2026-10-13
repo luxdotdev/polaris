@@ -1,11 +1,11 @@
 /**
  * Showing and hiding Output for a session. A showing terminal drawer keeps
- * Output open, so hiding Output hides the drawer too (its terminals run on).
+ * Output open, so hiding Output tucks the drawer to its strip (Edit still shows it).
  */
 import {
-  hideTerminal,
   isTerminalShown,
   type TerminalPlace,
+  tuckTerminal,
   useTerminalShown,
 } from "../../terminal/index.ts";
 import { uiKey } from "../state.ts";
@@ -13,7 +13,7 @@ import { isOutputOpen, openForEdit, setOutputOpen, useOutputOpen } from "./open.
 
 export const hideOutput = (place: TerminalPlace, sessionId: string) => {
   setOutputOpen(uiKey(place.hostKey, sessionId), false);
-  hideTerminal(place);
+  tuckTerminal(place);
 };
 
 /** Opens Output unless the user has chosen for this session (a Lead's Constellation tab). */

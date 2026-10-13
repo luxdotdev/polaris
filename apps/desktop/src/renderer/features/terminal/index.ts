@@ -14,11 +14,14 @@ export {
 
 export { claimFocusFromMenu, keepTerminalFocus } from "./focus.ts";
 
+export { useTerminalKey } from "./toggleKey.ts";
+
 export {
-  hideTerminal,
   openShell,
+  openTerminalIn,
   runInTerminal,
   toggleTerminal,
+  tuckTerminal,
   type TerminalPlace,
   type TerminalRun,
 } from "./actions.ts";

@@ -100,7 +100,7 @@ export const OutputLane = ({ hostKey, workspaceId, sessionId, lane }: OutputLane
   if (!shown) {
     return (
       <div className="bg-surface-sunken flex shrink-0 flex-col" style={{ width: RAIL_WIDTH }}>
-        <TerminalDock hostKey={hostKey} workspaceId={workspaceId}>
+        <TerminalDock hostKey={hostKey} workspaceId={workspaceId} tuckable>
           <slots.OutputRail hostKey={hostKey} sessionId={sessionId} />
         </TerminalDock>
       </div>
@@ -114,7 +114,7 @@ export const OutputLane = ({ hostKey, workspaceId, sessionId, lane }: OutputLane
         className={cn("flex min-h-0 flex-1 flex-col", slide && "output-slide-in")}
         data-testid="output-panel"
       >
-        <TerminalDock hostKey={hostKey} workspaceId={workspaceId}>
+        <TerminalDock hostKey={hostKey} workspaceId={workspaceId} tuckable>
           <slots.SessionOutput hostKey={hostKey} sessionId={sessionId} />
         </TerminalDock>
       </div>

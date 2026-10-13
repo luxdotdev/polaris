@@ -5,6 +5,7 @@
  */
 import { EmptyState, PixelFolderIcon } from "@polaris/ui";
 import { useEffect } from "react";
+import { TerminalDock } from "../../../terminal/index.ts";
 import { TopBar } from "../../../../shell/TopBar.tsx";
 import { useApp, useSelection } from "../../../../shell/hooks.ts";
 import { explorerKey, useExplorerState } from "../data/store.ts";
@@ -42,7 +43,9 @@ const Workbench = ({
     <div className="flex min-h-0 flex-1 flex-col" data-testid="edit-mode">
       <div className="flex min-h-0 flex-1">
         <Explorer host={host} workspace={workspace} />
-        <EditorPane hostKey={hostKey} workspaceId={workspaceId} root={root} />
+        <TerminalDock hostKey={hostKey} workspaceId={workspaceId}>
+          <EditorPane hostKey={hostKey} workspaceId={workspaceId} root={root} />
+        </TerminalDock>
       </div>
       <StatusBar
         host={host}

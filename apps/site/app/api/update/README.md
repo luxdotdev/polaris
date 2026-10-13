@@ -99,3 +99,29 @@ After building, run `bun apps/site/scripts/smoke-feed.ts` for the production HTT
 check. It starts `next start` on a free localhost port, replaces all outbound
 fetches with a fake GitHub/Axiom transport, checks six responses and events plus
 the shared Release cache, then stops the child and removes temporary files.
+
+## Windows (experimental)
+
+`/api/update/win32-{x64,arm64}/<version>/RELEASES` is Squirrel.Windows text,
+with SHA-1, the full nupkg's absolute GitHub URL, and byte length. It loads the
+matching uploaded `Polaris-<version>-<arch>-win-RELEASES` asset and accepts
+exactly one valid full-package entry matching
+`Polaris-<arch>-win-<version>-full.nupkg`. Asset URLs use the same exact-tag,
+origin, upload-state and duplicate validation as Mac assets. Older callers get
+200; same/newer callers and no release get 204; invalid versions get 400;
+malformed manifests, missing assets and upstream errors get retryable 503.
+Only published stable releases enter either platform's feed.
+
+`/download/windows?arch=x64|arm64` redirects 307 to
+`Polaris-<version>-<arch>-win-Setup.exe`. Without an explicit architecture,
+ARM Client hints or an ARM64/aarch64 User-Agent select arm64; otherwise x64
+is the compatible fallback (including Windows arm64 emulation). Ambiguous
+browser architecture is not treated as native arm64 detection.
+
+Windows requests log the route's platform and architecture plus an allowlisted
+numeric `X-Polaris-Windows-Version` (e.g. `10.0.26100`). Raw headers, User-Agent,
+query and IP are still excluded. Electron's native Squirrel adapter ignores
+custom headers, so the Client preflights RELEASES with consent-controlled
+headers before handing the download to Squirrel. Native feed requests have
+no install ID. Release metadata caching is shared with Mac routes; neither
+Windows HTTP response is cached. Mac routes and telemetry stay unchanged.

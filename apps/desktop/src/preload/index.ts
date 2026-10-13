@@ -5,6 +5,7 @@
  */
 import { contextBridge, ipcRenderer } from "electron";
 import { languageApi } from "./languages.ts";
+import { platformFromArgv } from "../shared/platform.ts";
 import {
   type BatchEntry,
   CHANNELS,
@@ -44,7 +45,7 @@ ipcRenderer.on(CHANNELS.batch, (_event, entries: ReadonlyArray<BatchEntry>) => {
 });
 
 const api: PolarisApi = {
-  platform: process.platform,
+  platform: platformFromArgv(process.argv, process.platform),
   languages: languageApi,
   request: (method, input) => ipcRenderer.invoke(CHANNELS.request, { method, input }),
   subscribe: (kind, input, listener) => {

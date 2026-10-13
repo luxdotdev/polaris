@@ -53,7 +53,8 @@ const setup = (
   sshFails = false,
   localHome: string | null = null,
   initial: Settings = {},
-  probeOutput?: () => string
+  probeOutput?: () => string,
+  clientPlatform?: NodeJS.Platform
 ) => {
   let settings: Settings = initial;
   const commands: Array<string> = [];
@@ -77,6 +78,7 @@ const setup = (
   );
 
   const machines = Machines.layer({
+    platform: clientPlatform,
     settings: { get: () => settings, update: (change) => void (settings = change(settings)) },
     approvals: openApprovals(join(root, "approvals.json")),
     builds: locateBuilds({
@@ -206,6 +208,27 @@ const info = (daemonVersion: string, reportedPlatform = platform) =>
   });
 
 describe("Machines", () => {
+  test("Windows rejects local enable, checks and upgrades before touching a local Daemon", async () => {
+    const s = setup(false, home, { local: { enabled: true } }, undefined, "win32");
+
+    try {
+      for (const use of [
+        (m: Machines["Service"]) => m.setLocalEnabled(true),
+        (m: Machines["Service"]) => m.check("local"),
+        (m: Machines["Service"]) => m.updateDaemon("local"),
+        (m: Machines["Service"]) => m.setDaemonUpdateOverride("local", true),
+      ]) {
+        const error = await s.runtime.runPromise(Machines.use(use).pipe(Effect.flip));
+        expect(error.message).toBe("A local Windows Daemon is not supported.");
+      }
+
+      const views = await s.runtime.runPromise(Machines.use((m) => SubscriptionRef.get(m.views)));
+      expect(views.some((view) => view.key === "local")).toBe(false);
+      expect(s.commands).toEqual([]);
+    } finally {
+      await s.runtime.dispose();
+    }
+  });
   test.each([
     {
       probe: "os=Windows\narch=x86_64\n",

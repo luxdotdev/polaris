@@ -1,6 +1,10 @@
 /** Settings → About: quiet app Updates and the precise per-check privacy fields. */
+import { Match } from "effect";
+import { clientCopy } from "../../../../shared/clientCopy.ts";
+import { clientPlatform, toClientPlatform } from "../../../../shared/platform.ts";
 import { Button, Dither, FolderIcon, PixelCheckIcon, PixelPolarisIcon, Switch } from "@polaris/ui";
 import { useId } from "react";
+import type { AppUpdateView } from "../../../../shared/appUpdates.ts";
 import { polaris } from "../../bridge.ts";
 import { useShellActions } from "../../../shell/hooks.ts";
 import { useSettings } from "../store.ts";
@@ -65,16 +69,18 @@ export const AboutPage = () => {
   const row = appUpdateRow(view);
   const working = view.phase === "checking" || view.phase === "downloading";
 
+  const platform = aboutPlatform(view);
+
   const fields = [
     [
       "Install ID",
       view.automatic
-        ? `${view.installId.slice(0, 8)}…${view.installId.slice(-4)} · random, made on this Mac`
+        ? `${view.installId.slice(0, 8)}…${view.installId.slice(-4)} · random, made on ${platform.device}`
         : "Not sent while automatic checks are off",
     ],
     ["Version", view.version],
     ["Arch", view.arch],
-    ["macOS", view.macOSVersion],
+    [platform.os, view.macOSVersion],
   ];
 
   return (
@@ -90,9 +96,7 @@ export const AboutPage = () => {
           <h1 className="text-title text-text-strong font-medium">
             Polaris {view.version || version}
           </h1>
-          <p className="text-body text-text-subtle">
-            {view.arch === "arm64" ? "Apple silicon" : view.arch} · Apache-2.0
-          </p>
+          <p className="text-body text-text-subtle">{platform.description} · Apache-2.0</p>
         </div>
       </header>
       <div className="gap-gap flex flex-col">
@@ -211,5 +215,25 @@ export const AboutPage = () => {
         </div>
       </div>
     </Column>
+  );
+};
+
+/** The About header and version row for the platform main reports (the Client's own otherwise). */
+const aboutPlatform = (view: AppUpdateView) => {
+  const platform = view.platform ?? clientPlatform();
+  const { os, machine } = clientCopy(platform);
+
+  return Match.value(toClientPlatform(platform)).pipe(
+    Match.when("win32", () => ({
+      os,
+      device: machine,
+      description: `Windows ${view.arch} · experimental`,
+    })),
+    Match.when("darwin", () => ({
+      os,
+      device: machine,
+      description: view.arch === "arm64" ? "Apple silicon" : view.arch,
+    })),
+    Match.orElse(() => ({ os, device: machine, description: `Linux ${view.arch}` }))
   );
 };

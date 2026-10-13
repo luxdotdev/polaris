@@ -31,6 +31,8 @@ export interface Drawer {
   readonly height: number;
   readonly active: string | null;
   readonly tabs: ReadonlyArray<TerminalTab>;
+  /** Orchestrate collapsed Output over the open drawer: there it shows as the strip; Edit ignores it. */
+  readonly tucked?: boolean;
 }
 
 export const SHELL_TAB = "shell";
@@ -59,6 +61,7 @@ export const putTab = (drawer: Drawer, tab: TerminalTab): Drawer => {
   return {
     ...drawer,
     open: true,
+    tucked: false,
     active: tab.key,
     tabs: exists ? drawer.tabs.map((t) => (t.key === tab.key ? tab : t)) : [...drawer.tabs, tab],
   };

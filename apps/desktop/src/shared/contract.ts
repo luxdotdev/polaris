@@ -388,6 +388,8 @@ export const RequestInputs = {
   "clipboard.write": Schema.Struct({ text: Schema.String }),
   /** The Edit menu's own action on the focused field (a context menu's Cut, Copy, Paste). */
   "edit.run": Schema.Struct({ action: Schema.Literals(["cut", "copy", "paste", "selectAll"]) }),
+  /** Windows: the app menu, dropped from the title bar's lockup. */
+  "app.menu": Schema.Struct({}),
   /** What onboarding found on this Mac: the Host aliases in `~/.ssh/config`, and the app's version. */
   "onboarding.found": Schema.Struct({}),
   /** "Get started": the welcome isn't shown again. */
