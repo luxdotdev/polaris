@@ -21,6 +21,7 @@ import { _electron as electron, type Page } from "playwright-core";
 import { Schema } from "effect";
 import { startDaemon } from "./lib/daemon.ts";
 import { seenUserData } from "./lib/userData.ts";
+import { assertStatusBarShown, longFile } from "./lib/statusBar.ts";
 import { APP_DIR, REPO_ROOT, sizeWindow, stockElectronBinary } from "./lib/electron.ts";
 
 const required = (name: string) => {
@@ -87,6 +88,8 @@ put(
 );
 
 put("php/src/main.php", PHP_MAIN);
+
+put("php/src/Long.php", "<?php\n" + longFile((index) => `$value${index} = ${index};`));
 
 put("php/vendor/autoload.php", run);
 
@@ -348,6 +351,13 @@ try {
   await nudge(page);
   await problems(page, /Method "missing" does not exist/, "php-trusted");
   result.phpTrustedMenu = await menu(page, 5, "greet(", "php-trusted");
+
+  // Two PHP files, the second taller than the window: the status bar shows on both.
+  for (const path of ["php/src/Long.php", "php/src/main.php"]) {
+    await open(page, path);
+    await assertStatusBarShown(page, path);
+  }
+
   await formatOnSave(page, "php/src/main.php", "function  f( ){return 1;}\n", "function f()\n{");
 
   for (const deadline = Date.now() + 30000; Date.now() < deadline && !existsSync(sentinel);)

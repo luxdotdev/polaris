@@ -9,6 +9,7 @@ import * as P from "@polaris/protocol";
 import { Predicate, Schema } from "effect";
 import { localHost, remoteHost, type SmokeHost } from "./lib/rustLuaHost.ts";
 import { seenUserData } from "./lib/userData.ts";
+import { assertStatusBarShown, longFile } from "./lib/statusBar.ts";
 import { APP_DIR, REPO_ROOT, sizeWindow, stockElectronBinary } from "./lib/electron.ts";
 
 const home = realpathSync(
@@ -95,6 +96,11 @@ put(
 );
 
 for (const fixture of fixtures) put(fixture.path, fixture.text);
+
+put(
+  "long.lua",
+  longFile((index) => `local value${index} = ${index}`)
+);
 
 const call = async <S extends Schema.ConstraintDecoder<unknown>>(
   page: Page,
@@ -372,6 +378,12 @@ try {
     before[fixture.provider] = await features(page, snapshot, fixture);
     await problems(page, fixture, `${fixture.provider}-untrusted`);
     await page.screenshot({ path: join(evidence, `${fixture.provider}-untrusted.png`) });
+  }
+
+  // Two Lua files, the second taller than the window: the status bar shows on both.
+  for (const path of ["main.lua", "long.lua", "main.lua"]) {
+    await open(page, path);
+    await assertStatusBarShown(page, path);
   }
 
   await page.waitForTimeout(3000);
