@@ -39,7 +39,7 @@ Each Host runs a small Bun Daemon that owns its Agent Sessions, files, terminals
 ## Features
 
 - **Orchestrate.** Start, watch and steer Agent Sessions in [Claude Code, Codex, OpenCode, Gemini CLI and GitHub Copilot CLI](packages/protocol/src/harnesses.ts), side by side, across Hosts and Workspaces. Each session's Session State is visible at a glance; approvals and questions collect in one Needs You inbox, with notifications and a menu bar count. Polaris never installs a Harness or signs in for one ([ADR 0001](docs/adr/0001-polaris-never-touches-provider-credentials.md)).
-- **Any Host.** The Mac you're on, a Linux VM, a Raspberry Pi: Polaris installs and upgrades its Daemon over your existing SSH config, after you approve its SHA-256. On Windows, WSL 2 distros are Hosts too.
+- **Any Host.** The Mac you're on, a Linux VM, a Raspberry Pi: Polaris installs and upgrades its Daemon over your existing SSH config, after you approve its SHA-256. On Windows, WSL 2 distros can be Hosts too (experimental).
 - **Constellations.** A Lead session maps work into a graph of Tasks, starts an Attempt at each in its own Agent Session, and hears their Claims. You see what is blocked, in review or waiting on you.
 - **Review.** Judge an open pull request or an Agent Session's Turns in a Review Checkout, away from your own working tree. A Risk Summary from rules, a secret scanner and a Reviewer of your choice ranks the Risk Findings by Severity, and you record a Verdict on each.
 - **Editor.** Read and edit code on any Host with language servers for TypeScript, Python, Go, Rust, Java, PHP, Lua, SQL, Svelte and more; follow a Harness as it edits a file; ask for an inline change.
