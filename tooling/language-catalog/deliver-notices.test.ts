@@ -81,36 +81,43 @@ test("delivery rejects a preexisting staging directory or symbolic link", () => 
   }
 });
 
+// jdtls stages ~2,600 notices: well under a second locally, ~7 s on a hosted macOS runner's disk.
+const STAGING_TIMEOUT_MS = 60_000;
+
 for (const candidate of catalog.tools
   .filter((tool) => tool.disposition === "offered" || tool.id === "shellcheck")
   .flatMap((tool) => tool.artifacts)) {
-  test(`offline notice delivery covers ${candidate.id} without activation`, () => {
-    const root = mkdtempSync(join("/tmp", "k3-delivery-artifact-"));
+  test(
+    `offline notice delivery covers ${candidate.id} without activation`,
+    () => {
+      const root = mkdtempSync(join("/tmp", "k3-delivery-artifact-"));
 
-    try {
-      const destination = join(root, "staged");
-      const bytes = readFileSync(join(import.meta.dir, "audits", `${candidate.id}.json`));
+      try {
+        const destination = join(root, "staged");
+        const bytes = readFileSync(join(import.meta.dir, "audits", `${candidate.id}.json`));
 
-      const expected = Schema.decodeUnknownSync(Schema.fromJsonString(AuditManifest))(
-        bytes.toString()
-      );
+        const expected = Schema.decodeUnknownSync(Schema.fromJsonString(AuditManifest))(
+          bytes.toString()
+        );
 
-      expect(
-        deliverNotices({ artifact: candidate, sourceRoot: import.meta.dir, destination })
-      ).toHaveLength(expected.notices.length);
-
-      for (const notice of expected.notices)
         expect(
-          verifyIntegrity(readFileSync(join(destination, notice.path)), notice.integrity)
+          deliverNotices({ artifact: candidate, sourceRoot: import.meta.dir, destination })
+        ).toHaveLength(expected.notices.length);
+
+        for (const notice of expected.notices)
+          expect(
+            verifyIntegrity(readFileSync(join(destination, notice.path)), notice.integrity)
+          ).toBe(true);
+        expect(
+          verifyIntegrity(
+            readFileSync(join(destination, "audit-manifest.json")),
+            candidate.auditRoot!
+          )
         ).toBe(true);
-      expect(
-        verifyIntegrity(
-          readFileSync(join(destination, "audit-manifest.json")),
-          candidate.auditRoot!
-        )
-      ).toBe(true);
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
-  });
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    },
+    STAGING_TIMEOUT_MS
+  );
 }

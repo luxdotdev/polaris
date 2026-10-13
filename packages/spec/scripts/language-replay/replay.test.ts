@@ -52,7 +52,12 @@ test("Quint replay accepts the fixture and rejects a stale-result observation mu
   const run = (path: string) =>
     Bun.spawnSync([process.execPath, replay, path], { stdout: "pipe", stderr: "pipe" });
 
-  expect(run(fixture).exitCode).toBe(0);
+  const accepted = run(fixture);
+
+  // On failure the expectation shows Quint's own output, not just the exit code.
+  expect({ exitCode: accepted.exitCode, stderr: accepted.stderr.toString() }).toMatchObject({
+    exitCode: 0,
+  });
 
   const directory = mkdtempSync(join(tmpdir(), "polaris-language-mutant-"));
 

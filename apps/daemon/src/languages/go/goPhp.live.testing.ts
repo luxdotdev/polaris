@@ -73,9 +73,7 @@ test.skipIf(home === "" || goplsBuild === "" || fixer === "")(
       Effect.scoped(
         Effect.gen(function* () {
           const root = yield* Effect.acquireRelease(
-            Effect.promise(async () =>
-              realpath(await mkdtemp("/private/tmp/polaris-go-php-live-"))
-            ),
+            Effect.promise(async () => realpath(await mkdtemp("/tmp/polaris-go-php-live-"))),
             (directory) => Effect.promise(() => rm(directory, { recursive: true, force: true }))
           );
 

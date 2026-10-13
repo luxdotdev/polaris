@@ -24,7 +24,7 @@ test("mounted Host core uses transport Host identity and refuses unapproved mana
     Effect.scoped(
       Effect.gen(function* () {
         const root = yield* Effect.acquireRelease(
-          Effect.promise(async () => realpath(await mkdtemp("/private/tmp/m31-core-mount-"))),
+          Effect.promise(async () => realpath(await mkdtemp("/tmp/m31-core-mount-"))),
           (path) => Effect.promise(() => rm(path, { recursive: true, force: true }))
         );
 

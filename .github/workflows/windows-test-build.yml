@@ -1,0 +1,65 @@
+name: Windows test build
+
+# Unsigned Windows x64 and arm64 installers from any branch, without a release: Actions →
+# "Windows test build" → Run workflow, or `gh workflow run windows-test-build.yml --ref <branch>`.
+# The installers are dev builds (0.0.1-dev, the Daemons' version names the commit) and are
+# kept as workflow artifacts for 14 days.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: windows-test-build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  daemon:
+    name: Build the Daemon (dev, ad-hoc signed)
+    # darwin builds must be re-signed with macOS codesign; the Linux targets cross-compile.
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - run: bunx turbo run build --filter=@polaris/daemon
+      - name: Archive the Daemon dist for the Windows job
+        run: tar -czf polaris-daemon-dist.tar.gz -C apps/daemon dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-test-daemon-dist
+          path: polaris-daemon-dist.tar.gz
+          if-no-files-found: error
+          retention-days: 1
+
+  windows:
+    name: Windows x64 and arm64 installers (experimental, unsigned)
+    needs: daemon
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/package-windows
+        with:
+          daemon-artifact: windows-test-daemon-dist
+          release: "false"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: polaris-windows-x64-unsigned-experimental
+          path: apps/desktop/out/dist/squirrel-x64/*
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: polaris-windows-arm64-unsigned-experimental
+          path: apps/desktop/out/dist/squirrel-arm64/*
+          if-no-files-found: error
+          retention-days: 14

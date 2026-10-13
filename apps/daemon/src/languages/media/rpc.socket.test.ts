@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync, existsSync } from "node:fs";
+import { mkdtempSync, mkdirSync, realpathSync, rmSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { connectRpc, socketTransport } from "@polaris/client";
 import * as P from "@polaris/protocol";
@@ -32,7 +32,7 @@ const hello = (languageProof?: Redacted.Redacted<unknown>) => {
 
 const fixture = Effect.gen(function* () {
   const root = yield* Effect.acquireRelease(
-    Effect.sync(() => mkdtempSync("/private/tmp/pl-h1-rpc-")),
+    Effect.sync(() => realpathSync(mkdtempSync("/tmp/pl-h1-rpc-"))),
     (path) =>
       Effect.sync(() => {
         rmSync(path, { recursive: true, force: true });

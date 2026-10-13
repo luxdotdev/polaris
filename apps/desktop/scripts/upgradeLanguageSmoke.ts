@@ -18,7 +18,7 @@ import { _electron as electron } from "playwright-core";
 import { startDaemon } from "./lib/daemon.ts";
 import { APP_DIR, REPO_ROOT, stockElectronBinary } from "./lib/electron.ts";
 
-const home = await realpath(await mkdtemp("/private/tmp/polaris-upgrade-ui-"));
+const home = await mkdtemp(join(await realpath("/tmp"), "polaris-upgrade-ui-"));
 
 const evidence = join(REPO_ROOT, ".dagr/evidence/upgrade-repro");
 

@@ -41,7 +41,7 @@ test("bundled ShellCheck stays audit blocked on all four targets before approval
 
     expect(Predicate.isTagged(fact.preflight, "Blocked")).toBe(true);
 
-    const root = await realpath(await mkdtemp("/private/tmp/m31-managed-shellcheck-"));
+    const root = await realpath(await mkdtemp("/tmp/m31-managed-shellcheck-"));
 
     let approvals = 0;
 

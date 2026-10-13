@@ -18,7 +18,7 @@ import { HostLanguageResources, languageHostServices } from "./host.ts";
 
 for (const retainLease of [false, true]) {
   test(`Host scope closes broker before installation resources, retained lease=${retainLease}`, async () => {
-    const root = await realpath(await mkdtemp("/private/tmp/m31-j1-host-scope-"));
+    const root = await realpath(await mkdtemp("/tmp/m31-j1-host-scope-"));
 
     const source = artifactFixture();
 

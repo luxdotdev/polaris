@@ -38,6 +38,13 @@ jobs:
       # fails on new or increased violations. See packages/lint-config/README.md.
       - run: bun run lint
       - run: bun run typecheck
+      # Quint fetches its evaluator on first use through GitHub's unauthenticated API, which
+      # shared runners exhaust; fetch it once, authenticated (the spec replay tests run Quint).
+      - name: Fetch the Quint evaluator
+        if: runner.os != 'Windows'
+        run: bun packages/spec/scripts/fetch-evaluator.ts
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
       - run: bun run test
         if: runner.os != 'Windows'
       - name: Windows Client tests
@@ -70,6 +77,10 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
       - run: bun install --frozen-lockfile
+      - name: Fetch the Quint evaluator
+        run: bun packages/spec/scripts/fetch-evaluator.ts
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
       - name: Quint typecheck, scenario tests, simulation (fixed seed)
         run: bun run spec
       - name: Trace validation (Engine runs replayed through the spec)

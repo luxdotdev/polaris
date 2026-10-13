@@ -50,7 +50,7 @@ let blobs: ReturnType<typeof makeFakeBlobChannel>;
 let authority: PreviewMediaAuthority["Service"];
 
 beforeEach(async () => {
-  temporary = await mkdtemp("/private/tmp/m31-h1-");
+  temporary = await mkdtemp("/tmp/m31-h1-");
   root = await realpath(temporary);
   await mkdir(join(root, "docs"));
   await writeFile(join(root, "docs/a.md"), "![image](a.png)");

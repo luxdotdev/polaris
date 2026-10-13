@@ -10,12 +10,13 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Redacted } from "effect";
 import { loadLanguageCredential, LanguageCredentialError } from "./credential.ts";
 
 const privateRoot = (run: (root: string) => void) => {
-  const root = mkdtempSync("/private/tmp/pl-a0-credential-");
+  const root = mkdtempSync(join(tmpdir(), "pl-a0-credential-"));
 
   try {
     run(root);

@@ -19,7 +19,7 @@ afterEach(async () => {
 });
 
 async function fixture() {
-  const root = await realpath(await mkdtemp("/private/tmp/prediction-"));
+  const root = await realpath(await mkdtemp("/tmp/prediction-"));
   roots.push(root);
   await writeFile(
     join(root, "dep.ts"),

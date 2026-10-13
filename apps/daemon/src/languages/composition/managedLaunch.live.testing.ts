@@ -115,7 +115,7 @@ test("default Host downloads pinned tools without Trust and serves hover, diagno
     Effect.scoped(
       Effect.gen(function* () {
         const root = yield* Effect.acquireRelease(
-          Effect.promise(async () => realpath(await mkdtemp("/private/tmp/m31-live-ts-"))),
+          Effect.promise(async () => realpath(await mkdtemp("/tmp/m31-live-ts-"))),
           (r) => Effect.promise(() => rm(r, { recursive: true, force: true }))
         );
 

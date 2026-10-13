@@ -32,6 +32,9 @@ export const ruleName = (code: string | undefined): string => {
   return plugin === "eslint" ? `${rule}` : `${plugin}/${rule}`;
 };
 
+/** Repo paths use `/` on every OS, as the baseline records them. */
+export const toPosix = (path: string): string => path.replaceAll("\\", "/");
+
 export class OxlintFailed extends Schema.TaggedError<OxlintFailed>()("OxlintFailed", {
   output: Schema.String,
 }) {}
@@ -41,14 +44,15 @@ export class OxlintFailed extends Schema.TaggedError<OxlintFailed>()("OxlintFail
  * applies) over `files`, or the whole repo when `files` is empty.
  */
 export const runOxlint = (files: ReadonlyArray<string>): ReadonlyArray<Violation> => {
-  const bin = join(ROOT, "node_modules/.bin/oxlint");
+  // The package's Node entry, not `.bin/oxlint`: Windows has only shims there.
+  const bin = join(ROOT, "node_modules/oxlint/bin/oxlint");
 
   if (!existsSync(bin)) {
     throw new OxlintFailed({ output: `oxlint isn't installed at ${bin}. Run bun install first.` });
   }
 
   const run = Bun.spawnSync(
-    [bin, "--format", "json", "--no-error-on-unmatched-pattern", ...files],
+    ["node", bin, "--format", "json", "--no-error-on-unmatched-pattern", ...files],
     {
       cwd: ROOT,
       env: { ...process.env, FORCE_COLOR: "0" },
@@ -59,7 +63,7 @@ export const runOxlint = (files: ReadonlyArray<string>): ReadonlyArray<Violation
 
   try {
     return decodeReport(stdout).diagnostics.map((d) => ({
-      file: d.filename,
+      file: toPosix(d.filename),
       rule: ruleName(d.code),
       line: d.labels?.[0]?.span.line ?? 0,
       column: d.labels?.[0]?.span.column ?? 0,

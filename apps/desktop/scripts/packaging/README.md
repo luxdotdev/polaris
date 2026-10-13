@@ -65,6 +65,12 @@ Daemon is built. `--windows` requires `--reuse-daemon` and an existing verified
 manifest; it never builds, signs or rewrites Daemon files. Release versions must
 match. The macOS release job archives its final Daemon dist after signing;
 the Windows job restores that tarball and verifies the copied bytes again.
+Both jobs share `.github/actions/package-windows`.
+
+For test installers without a release, run the "Windows test build" workflow
+(`gh workflow run windows-test-build.yml --ref <branch>`). It builds a dev Daemon
+on macOS, packages `0.0.1-dev` installers for both architectures, smoke-tests x64,
+and keeps `polaris-windows-<arch>-unsigned-experimental` as artifacts for 14 days.
 
 Under `out/dist/squirrel-<arch>/`:
 

@@ -8,7 +8,7 @@ import { BlobChannel } from "../../services.ts";
 import { readRange, ReadContent } from "../../files/fs.ts";
 import { createHostPreviewMedia, PreviewMediaAuthority } from "./index.ts";
 
-const temporary = await mkdtemp("/private/tmp/m31-h1-measure-");
+const temporary = await mkdtemp("/tmp/m31-h1-measure-");
 
 const root = await realpath(temporary);
 

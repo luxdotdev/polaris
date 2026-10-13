@@ -13,7 +13,7 @@ import { artifactFixture, hostId, platform } from "../install/fixture.testing.ts
 import { LanguageInstallCore, LanguageInstallGrantAuthority } from "./install.ts";
 
 test("composition maps pinned install intent and scopes progress to independent connection ownership", async () => {
-  const root = await realpath(await mkdtemp("/private/tmp/m31-install-composition-"));
+  const root = await realpath(await mkdtemp("/tmp/m31-install-composition-"));
   const registry = createHostInstallations();
   const source = artifactFixture();
   const original = LanguageConnectionIdentity.make({ hostId, clientId: "fake-client" });

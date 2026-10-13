@@ -26,7 +26,7 @@ async function until(check: () => boolean | Promise<boolean>) {
 }
 
 test("real TS6 kills exhaust budget; manual recovery, config diagnostics and idle stop retain drafts", async () => {
-  const root = await realpath(await mkdtemp("/private/tmp/polaris-lifecycle-live-"));
+  const root = await realpath(await mkdtemp("/tmp/polaris-lifecycle-live-"));
 
   const checkout = P.LanguageCheckout.cases.Workspace.make({
     workspaceId: P.WorkspaceId.make("live"),
