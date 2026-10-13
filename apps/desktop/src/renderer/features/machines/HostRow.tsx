@@ -147,6 +147,7 @@ export const HostRow = ({
   const attention = line.state === "needs-attention";
   const quiet = line.state === "offline" || line.state === "off";
   const platform = machine.status?.host?.platform ?? null;
+  const version = daemonVersion ?? machine.status?.host?.daemonVersion ?? "—";
 
   return (
     <li
@@ -192,8 +193,11 @@ export const HostRow = ({
             {workspaces === null ? null : ` · ${workspacesText(workspaces)}`}
           </span>
         </button>
-        <span className={cn(LANES.daemon, "text-caption text-text-subtle tabular")}>
-          {daemonVersion ?? machine.status?.host?.daemonVersion ?? "—"}
+        <span
+          className={cn(LANES.daemon, "text-caption text-text-subtle tabular truncate pr-2")}
+          title={version}
+        >
+          {version}
         </span>
         <span
           className={cn(LANES.connection, "flex items-center gap-gap")}
