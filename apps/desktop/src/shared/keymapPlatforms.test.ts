@@ -76,7 +76,7 @@ describe("labels per platform", () => {
         "CmdOrCtrl+PageDown",
         "Shift+Alt+F",
       ].map((a) => formatChord(parseChord(a), "windows"))
-    ).toEqual(["Ctrl+Enter", "Shift+Enter", "Esc", "Ctrl+Tab", "Ctrl+PageDown", "Alt+Shift+F"]);
+    ).toEqual(["Ctrl+Enter", "Shift+Enter", "Esc", "Ctrl+Tab", "Ctrl+Page Down", "Alt+Shift+F"]);
   });
 
   test("held modifiers and the mod key", () => {
@@ -146,8 +146,8 @@ describe("Windows and Linux keys", () => {
       "view.review": "Alt+2",
       "view.edit": "Alt+3",
       "view.output": "Ctrl+Shift+B",
-      "session.next": "Ctrl+PageDown / Ctrl+Tab",
-      "session.previous": "Ctrl+PageUp / Ctrl+Shift+Tab",
+      "session.next": "Ctrl+Page Down / Ctrl+Tab",
+      "session.previous": "Ctrl+Page Up / Ctrl+Shift+Tab",
       "tab.closeOthers": "",
       "git.writeMessage": "Ctrl+Shift+G",
     });

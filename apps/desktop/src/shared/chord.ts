@@ -155,8 +155,8 @@ const WORDS = new Map<string, string>([
   ["Tab", "Tab"],
   ["Backspace", "Backspace"],
   ["Delete", "Delete"],
-  ["PageUp", "PageUp"],
-  ["PageDown", "PageDown"],
+  ["PageUp", "Page Up"],
+  ["PageDown", "Page Down"],
 ]);
 
 const plainKey = (code: string) => code.replace(/^Key/, "").replace(/^Digit/, "");
