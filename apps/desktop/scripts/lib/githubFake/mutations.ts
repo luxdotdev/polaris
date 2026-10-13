@@ -101,6 +101,13 @@ const SUBMITTED: Readonly<Record<typeof Event.Type, ReviewState>> = {
   COMMENT: "COMMENTED",
 };
 
+/** A review as the mutations answer it: its id, and once submitted, when and on what. */
+const submittedView = (review: FakeReview) => ({
+  id: review.id,
+  submittedAt: review.submittedAt,
+  commit: { oid: review.commitOid },
+});
+
 const submit = (
   pull: FakePull,
   review: FakeReview,
@@ -173,7 +180,7 @@ const addReview: Resolver = (world, viewer, variables) => {
   if (args.event !== undefined && args.event !== null)
     submit(pull, review, viewer, args.event, args.body ?? "");
 
-  return { addPullRequestReview: { pullRequestReview: { id: review.id } } };
+  return { addPullRequestReview: { pullRequestReview: submittedView(review) } };
 };
 
 const pendingFor = (
@@ -296,7 +303,7 @@ const submitReview: Resolver = (world, viewer, variables) => {
   if (review.state !== "PENDING") fail("UNPROCESSABLE", "The review was already submitted");
   submit(pullById(world, viewer, review.pullId), review, viewer, args.event, args.body ?? "");
 
-  return { submitPullRequestReview: { pullRequestReview: { id: review.id } } };
+  return { submitPullRequestReview: { pullRequestReview: submittedView(review) } };
 };
 
 const deleteReview: Resolver = (world, viewer, variables) => {

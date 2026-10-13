@@ -200,9 +200,12 @@ const make = Effect.fn("GitHub.make")(function* (input: GitHubInput) {
 
         const current = yield* SubscriptionRef.get(list);
 
-        const row = [...current.requested, ...current.mine, ...current.other].find(
-          (r) => r.id === view.id
-        );
+        const row = [
+          ...current.requested,
+          ...current.mine,
+          ...current.other,
+          ...(current.reviewed ?? []),
+        ].find((r) => r.id === view.id);
 
         return { ...view, stack: row?.stack ?? null };
       }),
@@ -217,7 +220,8 @@ const make = Effect.fn("GitHub.make")(function* (input: GitHubInput) {
     reply: reviews.reply,
     resolveThread: reviews.resolve,
     editComment: reviews.editComment,
-    submitReview: reviews.submit,
+    submitReview: (input: Parameters<typeof reviews.submit>[0]) =>
+      reviews.submit(input).pipe(Effect.tap(() => poller.poke(true))),
     discardReview: reviews.discard,
     setViewed: reviews.setViewed,
     createPull: newCreate(client, routing),

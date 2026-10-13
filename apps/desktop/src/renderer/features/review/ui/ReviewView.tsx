@@ -17,6 +17,9 @@ import { DiffWorkers } from "../../diffs/index.ts";
 import { useDetailsFeed } from "../data/pullDetail.ts";
 import { riskMark } from "../model/findings.ts";
 import { queueGroups, type QueueRow } from "../model/queue.ts";
+import { clearDone, useAdvance, useDone } from "../data/advance.ts";
+import { setReviewedOpen, useLocalReviews, useReviewedOpen } from "../data/reviewedStore.ts";
+import { QueueDone } from "./QueueDone.tsx";
 import { sessionsOf } from "../model/sessions.ts";
 import { subjectKey, surfaceStore } from "../surface.ts";
 import { PullReview } from "./PullReview.tsx";
@@ -48,7 +51,11 @@ export const ReviewView = ({ subject, onBack }: ReviewViewProps) => {
   const hosts = useApp((s) => s.hosts.length);
   const workspaces = Object.values(models).reduce((n, m) => n + m.workspaces.size, 0);
   const workers = useWorkerQueue();
-  const groups = queueGroups(list, sessionsOf(models), workers);
+  const local = useLocalReviews();
+  const reviewedOpen = useReviewedOpen();
+  const done = useDone();
+  const groups = queueGroups(list, sessionsOf(models), workers, local);
+  const selected = selectedId(subject);
 
   const surfaces = useStore(surfaceStore, (s) => s);
 
@@ -65,10 +72,16 @@ export const ReviewView = ({ subject, onBack }: ReviewViewProps) => {
       ]?.findings ?? []
     );
 
-  const open = (row: QueueRow) =>
-    row.kind === "pull"
-      ? openPull(actions, row.pull)
-      : openSessionReview(actions, row.hostKey, row.sessionId);
+  const open = (row: QueueRow) => {
+    clearDone();
+
+    if (row.kind === "pull") openPull(actions, row.pull);
+    else openSessionReview(actions, row.hostKey, row.sessionId);
+  };
+
+  useAdvance(groups, selected, open);
+
+  const finished = subject.kind === "pull" && done !== null && done.pullId === selected;
 
   return (
     <DiffWorkers>
@@ -77,15 +90,23 @@ export const ReviewView = ({ subject, onBack }: ReviewViewProps) => {
           groups={groups}
           markOf={markOf}
           caption={`${plural(hosts, "host")} · ${plural(workspaces, "workspace")}`}
-          selected={selectedId(subject)}
+          selected={finished ? null : selected}
           onOpen={open}
-          onOpenPull={(pull: OpenPull) => openPull(actions, pull)}
+          onOpenPull={(pull: OpenPull) => {
+            clearDone();
+            openPull(actions, pull);
+          }}
           onList={() => {
+            clearDone();
             closeReviewSubject();
             onBack();
           }}
+          reviewedOpen={reviewedOpen}
+          onReviewedOpen={setReviewedOpen}
         />
-        {subject.kind === "pull" ? (
+        {finished && subject.kind === "pull" ? (
+          <QueueDone pull={subject.pull} group={done.group} onBack={clearDone} />
+        ) : subject.kind === "pull" ? (
           <PullReview
             key={`${subject.pull.repo.owner}/${subject.pull.repo.name}#${subject.pull.number}`}
             subject={subject}

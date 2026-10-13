@@ -12,6 +12,7 @@ import {
   type PullDetailView,
   repoKey,
   type ReviewEvent,
+  type SubmittedReview,
 } from "../../shared/github.ts";
 import type { Client } from "./client.ts";
 import { GitHubInvalidReview, GitHubNoAccount, GitHubNotFound } from "./errors.ts";
@@ -19,6 +20,8 @@ import {
   AddReplyData,
   AddReviewData,
   AddThreadData,
+  AddSubmittedReviewData,
+  addSubmittedReview,
   AnyData,
   addReply,
   addReview,
@@ -36,6 +39,7 @@ import {
   pullThreads,
   resolveThread,
   submitReview,
+  SubmitReviewData,
   unmarkViewed,
   unresolveThread,
   updateComment,
@@ -458,18 +462,27 @@ export const newReviews = ({ client, routing, gapMs }: ReviewsInput) => {
         return yield* invalid("Add a comment or a summary first.");
       }
 
-      yield* existing === undefined
-        ? mutate(
-            accountId,
-            AnyData,
-            addReview({ input: { pullRequestId: input.pullId, event, body: input.body } })
-          )
-        : mutate(
-            accountId,
-            AnyData,
-            submitReview({ input: { pullRequestReviewId: existing, event, body: input.body } })
-          );
+      const review =
+        existing === undefined
+          ? (yield* mutate(
+              accountId,
+              AddSubmittedReviewData,
+              addSubmittedReview({
+                input: { pullRequestId: input.pullId, event, body: input.body },
+              })
+            )).addPullRequestReview.pullRequestReview
+          : (yield* mutate(
+              accountId,
+              SubmitReviewData,
+              submitReview({ input: { pullRequestReviewId: existing, event, body: input.body } })
+            )).submitPullRequestReview.pullRequestReview;
+
       pending.delete(input.pullId);
+
+      return {
+        commitOid: review.commit?.oid ?? null,
+        at: review.submittedAt ?? null,
+      } satisfies SubmittedReview;
     });
 
   const discard = (input: Discard) =>

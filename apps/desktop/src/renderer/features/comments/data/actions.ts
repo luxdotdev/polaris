@@ -6,10 +6,10 @@
  */
 import type { SessionId } from "@polaris/protocol";
 import type { IpcError } from "../../../../shared/api.ts";
-import type { ReviewEvent } from "../../../../shared/github.ts";
+import type { ReviewEvent, SubmittedReview } from "../../../../shared/github.ts";
 import { Commands } from "../../../commands.ts";
 import { polaris } from "../../bridge.ts";
-import { refreshPullDetail, surfaceOf, updateSurface } from "../../review/index.ts";
+import { pullReviewed, refreshPullDetail, surfaceOf, updateSurface } from "../../review/index.ts";
 import { linkThread } from "./links.ts";
 import { dispatch, refusalText } from "../../session/dispatch.ts";
 import { addDraft, emptyBatch, removeDraft, toFeedback } from "../model/feedback.ts";
@@ -176,15 +176,37 @@ export const deleteComment = (subjectKey: string, commentId: string) =>
     polaris().request("github.review.editComment", { pull: pull.pull, commentId, body: null })
   );
 
-export const submitReview = (subjectKey: string, event: ReviewEvent, body: string) =>
-  onPull(subjectKey, (pull) =>
-    polaris().request("github.review.submit", {
+/** What GitHub answered a submit, for after the detail is fetched again. */
+interface Taken {
+  review: SubmittedReview | null;
+  pullId: string;
+}
+
+/** Once GitHub took it, the pull request moves to Reviewed and the queue moves on. */
+export const submitReview = async (
+  subjectKey: string,
+  event: ReviewEvent,
+  body: string
+): Promise<Done> => {
+  const taken: Taken = { review: null, pullId: "" };
+
+  const done = await onPull(subjectKey, async (pull) => {
+    const result = await polaris().request("github.review.submit", {
       pull: pull.pull,
       pullId: pull.pullId,
       event,
       body: body.trim(),
-    })
-  );
+    });
+
+    if (result.ok) Object.assign(taken, { review: result.value, pullId: pull.pullId });
+
+    return result;
+  });
+
+  if (done.ok && taken.review !== null) pullReviewed(taken.pullId, taken.review);
+
+  return done;
+};
 
 /** Throws the whole pending review away on GitHub. */
 export const discardReview = (subjectKey: string) =>

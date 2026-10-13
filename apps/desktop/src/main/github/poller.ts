@@ -76,6 +76,7 @@ export const newPoller = Effect.fn("newPoller")(function* (input: PollerInput) {
       requested: result.requested,
       mine: result.mine,
       other: result.other,
+      reviewed: result.reviewed,
       repos: result.access.map((a) => accessView(a, watched)),
       updatedAt: now,
       polling: throttledUntil !== null ? "throttled" : focused ? "focused" : "background",
@@ -114,6 +115,7 @@ export const newPoller = Effect.fn("newPoller")(function* (input: PollerInput) {
           requested: [],
           mine: [],
           other: [],
+          reviewed: [],
           repos,
           polling: "idle",
         }));

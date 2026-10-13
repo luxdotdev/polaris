@@ -9,6 +9,7 @@ import type { ReactNode } from "react";
 import { type PullDetailView, pullStatus, repoOfRow } from "../../../../shared/github.ts";
 import { BranchChip, StackChip, StatusPill } from "../../pulls/ui/StackParts.tsx";
 import type { TurnInfo, TurnPick } from "../data/source.ts";
+import { PullMenu } from "./pullMenu.tsx";
 
 /** A pull request's header tops its two lines (R1); an Agent Session's centres on its tile (R2). */
 const Shell = ({
@@ -74,51 +75,55 @@ export interface PullHeaderProps {
   readonly name: string;
   readonly number: number;
   readonly detail: PullDetailView | null;
+  /** Its page on GitHub, for the title's right-click menu. */
+  readonly url: string;
   readonly actions: ReactNode;
 }
 
-export const PullHeader = ({ name, number, detail, actions }: PullHeaderProps) => {
+export const PullHeader = ({ name, number, detail, url, actions }: PullHeaderProps) => {
   return (
     <Shell>
-      <div className="gap-gap flex min-w-0 flex-1 flex-col">
-        <div className="gap-row-x flex min-w-0 items-baseline">
-          <h1
-            data-testid="pull-review-title"
-            className="text-title text-text-strong truncate font-medium tracking-[-0.01em]"
-          >
-            {detail?.title ?? name}
-          </h1>
-          <span className="text-title text-text-subtle shrink-0 font-normal">#{number}</span>
+      <PullMenu url={url}>
+        <div className="gap-gap flex min-w-0 flex-1 flex-col" data-testid="pull-review-subject">
+          <div className="gap-row-x flex min-w-0 items-baseline">
+            <h1
+              data-testid="pull-review-title"
+              className="text-title text-text-strong truncate font-medium tracking-[-0.01em]"
+            >
+              {detail?.title ?? name}
+            </h1>
+            <span className="text-title text-text-subtle shrink-0 font-normal">#{number}</span>
+          </div>
+          <div className="text-caption text-text-subtle gap-gap flex min-w-0 items-center overflow-hidden whitespace-nowrap [contain:inline-size]">
+            {detail === null ? (
+              <span>{name}</span>
+            ) : (
+              <>
+                <StatusPill status={pullStatus(detail.state, detail.isDraft)} />
+                {detail.stack === null || detail.stack === undefined ? null : (
+                  <StackChip stack={detail.stack} repo={repoOfRow(detail)} />
+                )}
+                {/* Remote images are outside the CSP: the author's initial stands in for the avatar. */}
+                <span
+                  aria-hidden="true"
+                  className="bg-fill-selected text-text-subtle text-micro flex size-[18px] shrink-0 items-center justify-center rounded-full font-medium"
+                >
+                  {(detail.author?.login ?? "?").slice(0, 1).toUpperCase()}
+                </span>
+                <span>
+                  {detail.author?.login ?? "ghost"} wants to merge {detail.commits}{" "}
+                  {detail.commits === 1 ? "commit" : "commits"} into
+                </span>
+                {/* base ← head on one line: long branch names are cut, whole on hover. */}
+                <BranchChip name={detail.baseRefName} />
+                <span aria-label="from">←</span>
+                <BranchChip name={detail.headRefName} />
+                <span className="text-text-subtle truncate">· {detail.repo}</span>
+              </>
+            )}
+          </div>
         </div>
-        <div className="text-caption text-text-subtle gap-gap flex min-w-0 items-center overflow-hidden whitespace-nowrap [contain:inline-size]">
-          {detail === null ? (
-            <span>{name}</span>
-          ) : (
-            <>
-              <StatusPill status={pullStatus(detail.state, detail.isDraft)} />
-              {detail.stack === null || detail.stack === undefined ? null : (
-                <StackChip stack={detail.stack} repo={repoOfRow(detail)} />
-              )}
-              {/* Remote images are outside the CSP: the author's initial stands in for the avatar. */}
-              <span
-                aria-hidden="true"
-                className="bg-fill-selected text-text-subtle text-micro flex size-[18px] shrink-0 items-center justify-center rounded-full font-medium"
-              >
-                {(detail.author?.login ?? "?").slice(0, 1).toUpperCase()}
-              </span>
-              <span>
-                {detail.author?.login ?? "ghost"} wants to merge {detail.commits}{" "}
-                {detail.commits === 1 ? "commit" : "commits"} into
-              </span>
-              {/* base ← head on one line: long branch names are cut, whole on hover. */}
-              <BranchChip name={detail.baseRefName} />
-              <span aria-label="from">←</span>
-              <BranchChip name={detail.headRefName} />
-              <span className="text-text-subtle truncate">· {detail.repo}</span>
-            </>
-          )}
-        </div>
-      </div>
+      </PullMenu>
       <div className="gap-gap flex shrink-0 items-center">{actions}</div>
     </Shell>
   );

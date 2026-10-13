@@ -6,7 +6,7 @@ import { useEffect } from "react";
 import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
 import type { OpenPull } from "../../../../shared/api.ts";
-import type { CompareView } from "../../../../shared/github.ts";
+import type { CompareView, RepoRef } from "../../../../shared/github.ts";
 import { polaris } from "../../bridge.ts";
 import type { Held } from "./actions.ts";
 
@@ -27,9 +27,15 @@ const pairOf = (held: Held | null) => {
     : { base, head: latestHead };
 };
 
-export const useNewCommits = (held: Held | null, pull: OpenPull): CompareView | null => {
-  const pair = pairOf(held);
-  const { owner, name, host } = pull.repo;
+export const useNewCommits = (held: Held | null, pull: OpenPull): CompareView | null =>
+  useCompare(pull.repo, pairOf(held));
+
+/** GitHub's comparison of `pair.base` with `pair.head`, asked once per pair (also the queue's). */
+export const useCompare = (
+  repo: RepoRef,
+  pair: { readonly base: string; readonly head: string } | null
+): CompareView | null => {
+  const { owner, name, host } = repo;
 
   const key =
     pair === null

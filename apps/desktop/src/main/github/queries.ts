@@ -116,10 +116,13 @@ export type ChecksData = typeof Checks.Type;
 // ── The pull request list ────────────────────────────────────────────────────
 
 /** `stacks`: ask for GitHub's stacks (github.com); Enterprise hosts infer them instead. */
-export const pullSearch = (variables: { readonly q: string }, stacks: boolean) =>
+export const pullSearch = (
+  variables: { readonly q: string; readonly login: string },
+  stacks: boolean
+) =>
   op(
     "PullSearch",
-    `query PullSearch($q: String!) {
+    `query PullSearch($q: String!, $login: String!) {
   search(type: ISSUE, query: $q, first: 50) {
     issueCount
     nodes {
@@ -133,6 +136,9 @@ export const pullSearch = (variables: { readonly q: string }, stacks: boolean) =
         reviewDecision
         reviewRequests(first: 10) { nodes { requestedReviewer { __typename ... on User { login } ... on Team { slug } } } }
         viewerLatestReview { state }
+        viewerReviews: reviews(last: 1, author: $login, states: [APPROVED, CHANGES_REQUESTED, COMMENTED]) {
+          nodes { submittedAt commit { oid } }
+        }
       }
     }
   }
@@ -173,6 +179,17 @@ export const SearchPull = Schema.Struct({
     ),
   }),
   viewerLatestReview: Schema.NullOr(Schema.Struct({ state: Schema.String })),
+  /** The viewer's latest submitted review (not a pending one), by `author: $login`. */
+  viewerReviews: Schema.optionalKey(
+    Schema.Struct({
+      nodes: Schema.Array(
+        Schema.Struct({
+          submittedAt: Schema.NullOr(Schema.String),
+          commit: Schema.NullOr(Schema.Struct({ oid: Schema.String })),
+        })
+      ),
+    })
+  ),
 });
 
 export type SearchPull = typeof SearchPull.Type;
@@ -426,8 +443,29 @@ export const deleteComment = mutation(
 export const submitReview = mutation(
   "SubmitPullRequestReview",
   "submitPullRequestReview",
-  "pullRequestReview { id }"
+  "pullRequestReview { id submittedAt commit { oid } }"
 );
+
+/** What a submitted review was on: its commit and when GitHub took it. */
+const Submitted = Schema.Struct({
+  id: Schema.String,
+  submittedAt: Schema.optionalKey(Schema.NullOr(Schema.String)),
+  commit: Schema.optionalKey(Schema.NullOr(Schema.Struct({ oid: Schema.String }))),
+});
+
+export const SubmitReviewData = Schema.Struct({
+  submitPullRequestReview: Schema.Struct({ pullRequestReview: Submitted }),
+});
+
+export const addSubmittedReview = mutation(
+  "AddPullRequestReview",
+  "addPullRequestReview",
+  "pullRequestReview { id submittedAt commit { oid } }"
+);
+
+export const AddSubmittedReviewData = Schema.Struct({
+  addPullRequestReview: Schema.Struct({ pullRequestReview: Submitted }),
+});
 
 export const deleteReview = mutation(
   "DeletePullRequestReview",

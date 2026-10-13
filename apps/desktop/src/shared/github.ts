@@ -166,6 +166,10 @@ export interface PullRowView {
   readonly reviewDecision: ReviewDecision;
   /** The viewer's latest submitted review: APPROVED, CHANGES_REQUESTED, COMMENTED… */
   readonly viewerLatestReview: string | null;
+  /** That review's commit and time; null when the viewer never submitted one. Main sets it. */
+  readonly viewerReview?: ViewerReview | null;
+  /** GitHub asks the viewer by name for a review now, read live. Main sets it. */
+  readonly viewerRequested?: boolean;
   readonly requestedReviewers: ReadonlyArray<string>;
   /** The account that found it. */
   readonly accountId: number;
@@ -241,6 +245,8 @@ export interface PullListView {
   readonly requested: ReadonlyArray<PullRowView>;
   readonly mine: ReadonlyArray<PullRowView>;
   readonly other: ReadonlyArray<PullRowView>;
+  /** Open pull requests the viewer reviewed that no group above has. Main always sets it. */
+  readonly reviewed?: ReadonlyArray<PullRowView>;
   readonly repos: ReadonlyArray<RepoAccessView>;
   readonly updatedAt: number | null;
   readonly polling: PollingState;
@@ -443,6 +449,18 @@ export interface PullDetailView {
 }
 
 export type ReviewEvent = "approve" | "request-changes" | "comment";
+
+/** What `github.review.submit` answers: the commit the review was on and when GitHub took it. */
+export interface SubmittedReview {
+  readonly commitOid: string | null;
+  readonly at: string | null;
+}
+
+/** The viewer's latest submitted review of a pull request: its commit and when. */
+export interface ViewerReview {
+  readonly at: string;
+  readonly commitOid: string | null;
+}
 
 export type PullState = "open" | "closed" | "merged" | "unknown";
 

@@ -40,7 +40,7 @@ export const githubHandlers: GitHubHandlers = {
   "github.review.reply": (input) => gh((g) => g.reply(input)),
   "github.review.resolve": (input) => gh((g) => g.resolveThread(input)).pipe(done),
   "github.review.editComment": (input) => gh((g) => g.editComment(input)).pipe(done),
-  "github.review.submit": (input) => gh((g) => g.submitReview(input)).pipe(done),
+  "github.review.submit": (input) => gh((g) => g.submitReview(input)),
   "github.review.discard": (input) => gh((g) => g.discardReview(input)).pipe(done),
   "github.files.setViewed": (input) => gh((g) => g.setViewed(input)).pipe(done),
   "github.checkouts.watch": ({ checkouts, group }) =>

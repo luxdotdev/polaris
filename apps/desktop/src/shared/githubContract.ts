@@ -11,6 +11,7 @@ import type {
   PullDetailView,
   PullListView,
   SignInView,
+  SubmittedReview,
 } from "./github.ts";
 
 const Name = Schema.String.check(Schema.isPattern(/^[A-Za-z0-9_.-]+$/));
@@ -162,7 +163,7 @@ export interface GitHubRequestOutputs {
   "github.review.reply": { readonly commentId: string };
   "github.review.resolve": null;
   "github.review.editComment": null;
-  "github.review.submit": null;
+  "github.review.submit": SubmittedReview;
   "github.review.discard": null;
   "github.files.setViewed": null;
   "github.checkouts.watch": null;
