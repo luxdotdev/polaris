@@ -73,6 +73,8 @@ export const DefaultLanguageHostHandlers = Layer.unwrap(
               "shfmt",
               "sqllens-language-server",
               "sql-formatter",
+              "rust-analyzer",
+              "lua-language-server",
               ...webTools,
             ].includes(exact.tool.id),
             identity: exact.identity,

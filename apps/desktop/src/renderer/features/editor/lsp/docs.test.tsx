@@ -132,6 +132,29 @@ describe("language docs: hover", () => {
     expect(container.querySelectorAll("p")).toHaveLength(3);
   });
 
+  test("rust-analyzer's hover: the crate path and signature as code, then the doc comment", async () => {
+    const { container } = view(MARKDOWN.RUST_FUNCTION);
+
+    await waitFor(() => expect(container.querySelectorAll("pre")).toHaveLength(2));
+    expect([...container.querySelectorAll("pre")].map((pre) => pre.textContent)).toEqual([
+      "util",
+      "pub fn add(a: i32, b: i32) -> i32",
+    ]);
+    expect(container.querySelectorAll("hr")).toHaveLength(1);
+    expect(container.querySelector("p")?.textContent).toBe("Adds two numbers.");
+  });
+
+  test("lua-language-server's hover: the annotated signature, a rule, the description", async () => {
+    const { container } = view(MARKDOWN.LUA_FUNCTION);
+
+    await waitFor(() => expect(container.querySelector("pre")).not.toBeNull());
+    expect(
+      [...container.querySelectorAll("pre code > span")].map((line) => line.textContent)
+    ).toEqual(["function greet(name: string)", "  -> string"]);
+    expect(container.querySelectorAll("hr")).toHaveLength(1);
+    expect(container.querySelector("p")?.textContent).toBe("Greets someone.");
+  });
+
   test("older Daemons' plaintext keeps its lines, without runs of blank lines", () => {
     const { container } = view(PLAINTEXT.PYRIGHT_STR);
 

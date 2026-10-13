@@ -21,6 +21,10 @@ export const managedWithoutTrust = (facts: DiscoveryFacts) =>
       ["svelte-language-server", "prisma-language-server"].includes(facts.providerId)
     ) &&
     configuredExecutable(facts) === undefined) ||
+  (facts.managedRustLua === true &&
+    ["rust-analyzer", "lua-language-server"].includes(facts.providerId) &&
+    !facts.workspaceTrusted &&
+    configuredExecutable(facts) === undefined) ||
   (facts.managedPython === true &&
     ["basedpyright", "ruff"].includes(facts.providerId) &&
     configuredExecutable(facts) === undefined);

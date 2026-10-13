@@ -19,6 +19,7 @@ import { pythonInterpreter } from "./python.ts";
 import { detectPython, type PythonProbeOptions } from "../python/detection.ts";
 import { interpreterEntry, type createPythonEnvironment } from "../python/environment.ts";
 import { configurationFingerprint } from "./configuration.ts";
+import { rustLuaFacts } from "../rust/facts.ts";
 
 export { effectiveSettings, configurationFingerprint } from "./configuration.ts";
 
@@ -197,6 +198,8 @@ async function discover(
 
   await detectedInterpreter(python, context.root, start, provider, platform, pythonOptions.host);
 
+  const managed = bundled && custom === undefined && executable === undefined;
+
   return {
     checkout: context.checkout,
     projectRoot: root,
@@ -208,10 +211,13 @@ async function discover(
       custom === undefined &&
       executable === undefined,
     workspaceTrusted: input.workspaceTrusted === true,
-    managedWeb: bundled && custom === undefined && executable === undefined,
+    managedWeb: managed,
     svelteConfiguration: await svelteConfiguration(context.root, start, provider),
     managedPython:
       bundled && provider === "python" && custom === undefined && executable === undefined,
+    ...(await rustLuaFacts(context.root, root, provider, input.workspaceTrusted === true, {
+      managed,
+    })),
     configuration: provider === "typescript" ? configuration : null,
     ...(await sdkFacts(context.root, root, provider, settings.settings.sdk)),
     ...python,

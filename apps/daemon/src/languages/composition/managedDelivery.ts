@@ -1,4 +1,7 @@
 import { sqlShellLaunch } from "../sql/launch.ts";
+import { rustLaunch } from "../rust/launch.ts";
+import { rustToolchainIds, rustToolchainProbes } from "../rust/probes.ts";
+import { luaLaunch } from "../lua/launch.ts";
 import { webLaunch, webProviders, webTools } from "../web/index.ts";
 import { Match } from "effect";
 import { pythonLaunch } from "../python/launch.ts";
@@ -84,6 +87,8 @@ export function createManagedDelivery(
               Match.when("basedpyright", () => ["node", "basedpyright"]),
               Match.when("ruff", () => ["ruff"]),
               Match.when("bash-language-server", () => ["node", "shfmt", "bash-language-server"]),
+              Match.when("rust-analyzer", () => ["rust-analyzer"]),
+              Match.when("lua-language-server", () => ["lua-language-server"]),
               Match.when("sqllens-language-server", () => [
                 "node",
                 "sql-formatter",
@@ -120,6 +125,10 @@ export function createManagedDelivery(
       }
     },
     async plan(facts, installed) {
+      if (facts.providerId === "rust-analyzer") return rustLaunch(facts, installed);
+
+      if (facts.providerId === "lua-language-server") return luaLaunch(facts, installed);
+
       const node = facts.providerId === "ruff" ? null : await privateNode();
 
       if (["basedpyright", "ruff"].includes(facts.providerId))
@@ -198,7 +207,10 @@ export function createManagedDelivery(
       const nodeRequirements = tool.requirements.filter((requirement) => requirement.id === "node");
 
       const others = tool.requirements.filter(
-        (requirement) => !["node", "python-interpreter", "shellcheck"].includes(requirement.id)
+        (requirement) =>
+          !["node", "python-interpreter", "shellcheck", ...rustToolchainIds].includes(
+            requirement.id
+          )
       );
 
       const node = nodeRequirements.length ? await privateNode() : null;
@@ -236,6 +248,7 @@ export function createManagedDelivery(
         });
       }
 
+      probes.push(...(await rustToolchainProbes(tool.requirements)));
       probes.push(...(await developerProbes(others, trusted, signal, admission)));
 
       return { connected: true, probes };

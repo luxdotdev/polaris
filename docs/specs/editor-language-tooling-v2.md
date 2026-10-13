@@ -37,6 +37,14 @@ exists but has not passed both is not done.
 - **Python.** basedpyright for types and Ruff for lint and format. The
   environment comes from `.venv` or uv; with none found, "needs Python" shows as
   a Prerequisite. Reading the environment needs no Trust.
+- **Rust.** Managed rust-analyzer; cargo and rustc (via rustup) are a
+  Prerequisite. Before Trust: local analysis only, nothing in the project runs
+  (ADR 0034). After Trust: the normal configuration and the project's toolchain;
+  rustfmt formats.
+- **Lua.** Managed lua-language-server, no Prerequisite; a `.luarc` plugin runs
+  only after Trust. StyLua formats after Trust where the project configures it,
+  otherwise the server's formatter.
+- **Java.** Skipped for now.
 
 ## 3. Trust
 
@@ -105,6 +113,7 @@ alongside 1–2.
 | 5 | Python: basedpyright, Ruff, environment detection, select interpreter | Same four features in a uv project; "needs Python" on a Host without one |
 | 6 | Remote Host: slices 1, 2 and 5 on `lucas-rpi` | The same scripts on the Pi |
 | 7 | More languages: JSON/CSS/HTML, then SQL, Rust and the rest of the Stack Overflow survey top 10 | One script per language |
+| 8a | Rust (managed rust-analyzer; the Rust toolchain is a Prerequisite; before Trust no build scripts, proc-macros or `cargo check`, ADR 0034) and Lua (managed lua-language-server; a `.luarc` plugin runs only after Trust; StyLua formats after Trust where configured). Java is skipped | A Cargo crate and a Lua file get hover, diagnostics, completion, definition and format on save; before Trust nothing in the crate runs; both start on `lucas-rpi` |
 
 ## 8. Out of scope
 
