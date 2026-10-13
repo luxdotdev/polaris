@@ -6,9 +6,9 @@
  * it across restarts. Ctrl-C (or quitting the app) stops everything.
  */
 import { type ChildProcess, spawn } from "node:child_process";
-import { mkdirSync, watch } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { existsSync, mkdirSync, symlinkSync, watch } from "node:fs";
+import { homedir, tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { createServer } from "vite";
 import { devHome, socketLive, systemSocket } from "../src/main/localDaemon.ts";
 import { APP_DIR, buildMain, electronBinary, REPO_ROOT } from "./lib/build.ts";
@@ -31,8 +31,21 @@ const useSystem =
 
 const devSocket = join(devHome(), "daemon.sock");
 
+// The dev Daemon's HOME is devHome(); link the developer's toolchain dirs in so Prerequisites resolve.
+const linkToolchains = () => {
+  for (const dir of ["go", ".cargo", ".local/bin"]) {
+    const source = join(homedir(), dir);
+    const target = join(devHome(), dir);
+
+    if (!existsSync(source) || existsSync(target)) continue;
+    mkdirSync(dirname(target), { recursive: true });
+    symlinkSync(source, target);
+  }
+};
+
 if (!useSystem && !(await socketLive(devSocket))) {
   mkdirSync(devHome(), { recursive: true });
+  linkToolchains();
   daemon = await startDaemon({ home: devHome(), benchHarness: true });
   console.log(`dev: Daemon on the bench Harness at ${daemon.socketPath}`);
 }
