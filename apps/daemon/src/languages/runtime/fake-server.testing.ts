@@ -121,7 +121,7 @@ for await (const chunk of Bun.stdin.stream()) {
         })
       )(message.params);
 
-      if (params.slow) await Bun.sleep(60);
+      if (params.slow) await Bun.sleep(1000);
       send({
         jsonrpc: "2.0",
         id: message.id,
