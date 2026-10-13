@@ -2,6 +2,7 @@
  * What the Editor has unsaved, as the renderers say it, for the quit prompt
  * (`editorQuit.ts`). No Electron here: the IPC handlers import it.
  */
+import { clientCopy } from "../shared/clientCopy.ts";
 
 export interface DirtyFile {
   readonly hostKey: string;
@@ -47,7 +48,7 @@ export const fileList = (files: ReadonlyArray<DirtyFile>): string => {
 
 const detailFor = (files: ReadonlyArray<DirtyFile>) => {
   const unkept = files.filter((f) => f.unkept);
-  const kept = `${fileList(files)} ${files.length === 1 ? "has" : "have"} unsaved edits. If you quit without saving, Polaris keeps them on this Mac and brings them back next time.`;
+  const kept = `${fileList(files)} ${files.length === 1 ? "has" : "have"} unsaved edits. If you quit without saving, Polaris keeps them on ${clientCopy().machine} and brings them back next time.`;
 
   if (unkept.length === 0) return kept;
   const lost = `${fileList(unkept)} ${unkept.length === 1 ? "is" : "are"} too large to keep after quitting: quitting without saving loses ${unkept.length === 1 ? "that edit" : "those edits"}.`;

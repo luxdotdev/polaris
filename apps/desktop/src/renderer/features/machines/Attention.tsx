@@ -13,6 +13,7 @@ import { call } from "./hooks.tsx";
 import { type CardAction, type CardButton, attentionCard, offerFacts } from "./model.ts";
 import { modKey, shortcutLabel } from "../../../shared/chord.ts";
 import { FIELD_CHORDS } from "../../../shared/keymap.ts";
+import { clientCopy } from "../../../shared/clientCopy.ts";
 
 /** What an action needs beyond requests: where "Open in terminal" runs. */
 interface ActionContext {
@@ -95,7 +96,7 @@ export const Approval = ({ machine }: { readonly machine: MachineView }) => {
           Not now
         </Button>
         <span className="text-caption text-text-subtle">
-          Copied from this Mac, nothing downloaded.
+          Copied from {clientCopy().machine}, nothing downloaded.
         </span>
       </div>
     </div>

@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { WslDistroView } from "../../../shared/api.ts";
+import { clientCopy } from "../../../shared/clientCopy.ts";
+import { setClientPlatform } from "../../../shared/platform.ts";
 import { addHint, distroCaption, hostsIntro, hostWhere, wslFooter, wslSection } from "./wsl.ts";
 
 const distro = (patch: Partial<WslDistroView> = {}): WslDistroView => ({
@@ -51,12 +53,24 @@ describe("the WSL section of Add a host", () => {
   test("copy: where a Host is, the footer, the intro", () => {
     expect(hostWhere({ kind: "wsl", alias: "Ubuntu" })).toBe("wsl Ubuntu");
     expect(hostWhere({ kind: "ssh", alias: "pi" })).toBe("ssh pi");
-    expect(hostWhere({ kind: "local", alias: null })).toBe("This Mac");
+    expect(hostWhere({ kind: "local", alias: null })).toBe(clientCopy().localHost);
     expect(wslFooter("Ubuntu")).toContain("\\\\wsl.localhost\\Ubuntu");
-    expect(hostsIntro(false)).toContain("this Mac");
-    expect(hostsIntro(true)).toContain("inside WSL on this PC");
+    expect(hostsIntro(false, clientCopy("darwin"))).toContain("this Mac installs");
+    expect(hostsIntro(true, clientCopy("win32"))).toContain("inside WSL on this PC");
     expect(addHint(false)).toBe(
       "Pick an alias from ~/.ssh/config; the first install asks for your approval."
     );
+  });
+
+  test("a PC without WSL, or a Linux Client, never reads as a Mac", () => {
+    expect(hostsIntro(false, clientCopy("win32"))).toContain("this PC installs");
+    expect(hostsIntro(false, clientCopy("linux"))).toContain("this computer installs");
+    setClientPlatform("linux");
+
+    try {
+      expect(hostWhere({ kind: "local", alias: null })).toBe("This computer");
+    } finally {
+      setClientPlatform(null);
+    }
   });
 });

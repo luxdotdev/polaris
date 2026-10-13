@@ -34,6 +34,7 @@ import type { GitHub } from "./github/index.ts";
 import type { LocalDaemon } from "./localDaemon.ts";
 import type { Machines } from "./machines/service.ts";
 import type { RemoteHostSetting } from "./settings.ts";
+import { clientCopy } from "../shared/clientCopy.ts";
 
 export const LOCAL_HOST_KEY = "local";
 
@@ -140,7 +141,7 @@ export interface HostEntriesInput {
   readonly local: LocalDaemon | null;
   readonly remotes: ReadonlyArray<RemoteHostSetting>;
   readonly extras?: ReadonlyArray<ExtraHost>;
-  /** The local Host's name; "This Mac" by default. */
+  /** The local Host's name; `clientCopy().localHost` ("This Mac") by default. */
   readonly localLabel?: string;
 }
 
@@ -149,7 +150,7 @@ export const hostEntries = ({
   local,
   remotes,
   extras = [],
-  localLabel = "This Mac",
+  localLabel = clientCopy().localHost,
 }: HostEntriesInput): ReadonlyArray<HostEntry> => {
   const seen = new Set<string>([LOCAL_HOST_KEY]);
 
@@ -179,7 +180,7 @@ export const hostEntries = ({
   return entries;
 };
 
-export const localEntry = (local: LocalDaemon, label = "This Mac"): HostEntry => ({
+export const localEntry = (local: LocalDaemon, label = clientCopy().localHost): HostEntry => ({
   key: LOCAL_HOST_KEY,
   label,
   colour: null,

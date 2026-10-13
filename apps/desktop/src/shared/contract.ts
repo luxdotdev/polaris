@@ -389,7 +389,7 @@ export const RequestInputs = {
   /** Switch the local Host on or off on this machine. */
   "machines.setLocalEnabled": Schema.Struct({ enabled: Schema.Boolean }),
   /**
-   * Opens macOS Terminal on this Mac running `ssh <alias>` (to trust a host key); the
+   * Opens a terminal on this Client running `ssh <alias>` (to trust a host key); the
    * fallback when the local Host is off, since the in-app terminal runs on a Daemon.
    */
   "machines.openSsh": onHost({}),

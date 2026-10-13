@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { clientCopy } from "./clientCopy.ts";
+import { clientCopy, inSentence } from "./clientCopy.ts";
 
 describe("clientCopy", () => {
   test("macOS names the Mac, Finder and macOS", () => {
@@ -34,5 +34,13 @@ describe("clientCopy", () => {
     for (const text of Object.values(clientCopy(platform))) {
       expect(text).not.toMatch(/\bMac\b|macOS|Finder/);
     }
+  });
+
+  test("the local Host's default name reads lowercase in a sentence; given names stay", () => {
+    expect(inSentence("This Mac", clientCopy("darwin"))).toBe("this Mac");
+    expect(inSentence("This PC", clientCopy("win32"))).toBe("this PC");
+    expect(inSentence("This computer", clientCopy("linux"))).toBe("this computer");
+    expect(inSentence("This Mac", clientCopy("linux"))).toBe("This Mac");
+    expect(inSentence("Mac Studio", clientCopy("darwin"))).toBe("Mac Studio");
   });
 });

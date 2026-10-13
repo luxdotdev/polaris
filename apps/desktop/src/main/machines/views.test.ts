@@ -179,6 +179,18 @@ describe("machineViews", () => {
     expect(views[2]?.install).toBeNull();
   });
 
+  test("a Linux Client's local Host is this computer, not this Mac", () => {
+    const views = machineViews({
+      settings: { local: { enabled: true } },
+      hosts: [],
+      installs: new Map(),
+      aliases: [],
+      platform: "linux",
+    });
+
+    expect(views[0]?.label).toBe("This computer");
+  });
+
   test("a stored ssh alias named local never shadows the local Host's row", () => {
     const views = machineViews({
       settings: { local: { enabled: true }, hosts: [{ alias: "local" }, { alias: "pi" }] },

@@ -7,6 +7,7 @@
 import type { MachineView } from "../../../shared/api.ts";
 import { mismatchWords } from "../../shell/hostCopy.ts";
 import { hostWhere } from "./wsl.ts";
+import { clientCopy } from "../../../shared/clientCopy.ts";
 
 /** What a card's buttons do; the view binds each to a request. */
 export type CardAction =
@@ -102,7 +103,7 @@ const connectionCard = (machine: MachineView): CardModel | null => {
         ? card(
             failure.reason,
             mismatchWords(label, failure.older),
-            `Update Polaris on this Mac to connect; agent sessions on ${label} keep going.`,
+            `Update Polaris on ${clientCopy().machine} to connect; agent sessions on ${label} keep going.`,
             detail,
             RETRY
           )
@@ -315,7 +316,8 @@ const connectedCaption = (alias: string | null, latencyMs: number | null) => {
 export const connectionLine = (machine: MachineView, now: number): ConnectionLine => {
   const status = machine.status;
 
-  if (status === null) return { state: "off", label: "Off", caption: "on this Mac", retry: false };
+  if (status === null)
+    return { state: "off", label: "Off", caption: `on ${clientCopy().machine}`, retry: false };
 
   switch (status.state) {
     case "connected":

@@ -17,6 +17,7 @@ import { CompletionCard, type Outcome } from "./card/CompletionCard.tsx";
 import { useMemoryLine, useServerReport } from "./card/hooks.ts";
 import { completionCard, type CardAction, type CardActionId } from "./card/model.ts";
 import { setHostPreferences, usePrediction } from "./store.ts";
+import { clientCopy } from "../../../../shared/clientCopy.ts";
 
 const message = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause));
 
@@ -63,7 +64,7 @@ export const PredictionStatus = ({ hostKey, path }: PredictionStatusProps) => {
     return () => cancelAnimationFrame(frame);
   }, [open, focusIn]);
 
-  const clientName = inSentence(inspection?.clientLabel ?? "This Mac");
+  const clientName = inSentence(inspection?.clientLabel ?? clientCopy().localHost);
 
   const input = {
     connection: host?.status.state,

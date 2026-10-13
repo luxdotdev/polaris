@@ -3,6 +3,7 @@ import type { NotifyInput, WaitInput } from "./inputs.ts";
 import type { ToolResult } from "./result.ts";
 import type { Built, Head, PolarisToolView, Segment } from "./types.ts";
 import { count } from "./words.ts";
+import { clientCopy } from "../../../../../shared/clientCopy.ts";
 
 const FINISHED = /^Finished: (.+?)(?: \((?:exit (-?\d+)|(\w+))\))?$/;
 
@@ -131,7 +132,7 @@ const BANNER_CAPTION = new Map<BannerRecord, string>([
 ]);
 
 const BANNER_REPLY = new Map<BannerRecord, string>([
-  ["shown", "shown as a banner on this Mac"],
+  ["shown", `shown as a banner on ${clientCopy().machine}`],
   ["here", "no banner: you were in this session"],
   ["off", "no banner: notifications are off"],
 ]);

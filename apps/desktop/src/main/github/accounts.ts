@@ -25,6 +25,7 @@ import {
 import type { AccountsFile, HostRecord, Store, TokenPair } from "./store.ts";
 import type { Transport } from "./transport.ts";
 import { DeviceCode, TokenResponse, User } from "./wire.ts";
+import { clientCopy } from "../../shared/clientCopy.ts";
 
 export interface AccountsInput {
   readonly store: Store;
@@ -228,7 +229,9 @@ export const openAccounts = Effect.fn("openAccounts")(function* (input: Accounts
 
       if (!storageAvailable) {
         return yield* Effect.fail(
-          new GitHubStorageError({ message: "this Mac can't store GitHub tokens safely" })
+          new GitHubStorageError({
+            message: `${clientCopy().machine} can't store GitHub tokens safely`,
+          })
         );
       }
 

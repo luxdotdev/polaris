@@ -94,8 +94,6 @@ type Failure = { readonly message: string };
 /** What a check is doing while it runs, under the card's "Checking <host>". */
 const PROBING = "Asking over SSH for the platform and any installed daemon.";
 
-const PROBING_LOCAL = "Checking the daemon installed on this Mac.";
-
 const COPYING = "Copying the build over SSH and checking its SHA-256";
 
 const COPYING_LOCAL = "Copying the build and checking its SHA-256";
@@ -152,6 +150,7 @@ export class Machines extends Context.Service<
 
 const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
   const localAvailable = localHostEnabled(true, input.platform);
+  const copy = clientCopy(input.platform);
   const dir = yield* HostDirectory;
   const scope = yield* Effect.scope;
   const installs = new Map<string, InstallRecord>();
@@ -205,7 +204,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
         ssh: Ssh.local(home),
         local: true,
         home,
-        probing: PROBING_LOCAL,
+        probing: `Checking the daemon installed on ${copy.machine}.`,
         copying: COPYING_LOCAL,
       };
     }
@@ -230,7 +229,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
       : !localAvailable
         ? fail("A local Windows Daemon is not supported.")
         : input.localHome() === null
-          ? fail("this Mac's daemon is the app's own, not one Polaris installed")
+          ? fail(`${copy.machine}'s daemon is the app's own, not one Polaris installed`)
           : Effect.void;
 
   /** Waits for this Mac's Daemon to listen after an install or start. */
@@ -401,7 +400,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
 
       if (updateOnly && installsAnew(plan)) {
         const message = to.local
-          ? "This Mac has no daemon Polaris installed yet. Use Install first."
+          ? `${copy.localHost} has no daemon Polaris installed yet. Use Install first.`
           : "No daemon is installed. Use Install daemon first.";
 
         yield* step(key, { type: "failed", problem: { kind: "failed", message, command: null } });
@@ -547,9 +546,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
   const add = (machine: AddMachine) =>
     Effect.gen(function* () {
       if (machine.alias === LOCAL_HOST_KEY) {
-        return yield* fail(
-          `Polaris names ${clientCopy(input.platform).machine} "local"; rename the alias to add it`
-        );
+        return yield* fail(`Polaris names ${copy.machine} "local"; rename the alias to add it`);
       }
 
       if (remoteSetting(machine.alias) !== undefined) {

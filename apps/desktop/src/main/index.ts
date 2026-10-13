@@ -9,7 +9,7 @@ import { createPredictionBridge } from "./prediction/bridge.ts";
  *   POLARIS_DESKTOP_HIDDEN=1          never show the window (smoke tests, benchmarks)
  *   ELECTRON_RENDERER_URL=<url>       dev: load the renderer from the Vite server
  *   POLARIS_DESKTOP_EXTRA_HOSTS=<json> screenshots and tests: [{ key, label, socket }] as more Hosts
- *   POLARIS_DESKTOP_LOCAL_LABEL=<name> the local Host's name (default "This Mac")
+ *   POLARIS_DESKTOP_LOCAL_LABEL=<name> the local Host's name (default clientCopy().localHost, "This Mac")
  */
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";

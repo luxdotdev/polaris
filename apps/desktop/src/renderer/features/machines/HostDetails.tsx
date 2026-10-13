@@ -14,6 +14,7 @@ import { HostResources } from "../settings/ui/HostResources.tsx";
 import { outcomeNote } from "./model.ts";
 import { setDaemonUpdateOverride } from "./updates/actions.ts";
 import { OverrideSelect } from "./updates/Controls.tsx";
+import { clientCopy } from "../../../shared/clientCopy.ts";
 
 export const DEFAULT_REMOTE_COMMAND = "~/.polaris/bin/current/polaris bridge";
 
@@ -154,11 +155,11 @@ const Settings = ({ machine }: { readonly machine: MachineView }) => {
         <PredictionPlacement hostKey={machine.key} />
         {local ? (
           <Field
-            label="Use this Mac as a host"
-            caption="Off, Polaris only drives remote hosts from here and runs nothing on this Mac."
+            label={`Use ${clientCopy().machine} as a host`}
+            caption={`Off, Polaris only drives remote hosts from here and runs nothing on ${clientCopy().machine}.`}
           >
             <Switch
-              aria-label="Use this Mac as a host"
+              aria-label={`Use ${clientCopy().machine} as a host`}
               checked={machine.enabled}
               onCheckedChange={(enabled) => void call("machines.setLocalEnabled", { enabled })}
             />

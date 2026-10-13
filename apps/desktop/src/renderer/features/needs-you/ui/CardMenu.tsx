@@ -19,6 +19,7 @@ import { archiveCommand } from "../../session/model/intent.ts";
 import { settingsStore } from "../../settings/store.ts";
 import { dismiss } from "../dismissed.ts";
 import type { Dismissible } from "../model/dismissed.ts";
+import { clientCopy } from "../../../../shared/clientCopy.ts";
 
 export interface CardAction {
   readonly label: string;
@@ -64,7 +65,7 @@ export const CardMenu = ({ item, sessionId, onOpen, answers, children }: CardMen
       shortcut: here && a.command !== undefined ? menuShortcut(a.command) : undefined,
     })),
     MENU_SEPARATOR_ENTRY,
-    { kind: "item", label: "Dismiss on this Mac", onSelect: () => dismiss([item]) },
+    { kind: "item", label: `Dismiss on ${clientCopy().machine}`, onSelect: () => dismiss([item]) },
     { kind: "item", label: "Archive session", onSelect: archive },
   ];
 

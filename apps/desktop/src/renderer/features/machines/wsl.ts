@@ -5,6 +5,7 @@
  */
 import { Match } from "effect";
 import type { MachineView, WslDistrosView, WslDistroView } from "../../../shared/api.ts";
+import { type ClientCopy, clientCopy } from "../../../shared/clientCopy.ts";
 
 /** The one command Polaris suggests and never runs (ADR 0036: an admin prompt and a reboot). */
 export const WSL_INSTALL_COMMAND = "wsl --install";
@@ -80,7 +81,7 @@ export const distroCaption = (distro: WslDistroView): string => {
 
 /** Where a Host is: "This Mac", "ssh studio" or "wsl Ubuntu" (rule/glossary-lowercase). */
 export const hostWhere = (machine: Pick<MachineView, "kind" | "alias">): string => {
-  if (machine.alias === null) return "This Mac";
+  if (machine.kind === "local" || machine.alias === null) return clientCopy().localHost;
 
   return `${machine.kind === "wsl" ? "wsl" : "ssh"} ${machine.alias}`;
 };
@@ -89,11 +90,11 @@ export const hostWhere = (machine: Pick<MachineView, "kind" | "alias">): string 
 export const wslFooter = (distro: string): string =>
   `Workspaces live inside the distro; Windows sees them at \\\\wsl.localhost\\${distro}. The distro stays up while Polaris is connected to it.`;
 
-/** The page's intro: the Mac wording stays unless WSL is in the picture. */
-export const hostsIntro = (wsl: boolean): string =>
+/** The page's intro: names this Client's machine, and WSL only when it is in the picture. */
+export const hostsIntro = (wsl: boolean, copy: ClientCopy = clientCopy()): string =>
   wsl
-    ? "Machines Polaris reaches over SSH, or inside WSL on this PC. Each runs its own daemon; this PC installs and upgrades them."
-    : "Machines Polaris reaches over SSH, using your ~/.ssh/config. Each runs its own daemon; this Mac installs and upgrades them.";
+    ? `Machines Polaris reaches over SSH, or inside WSL on ${copy.machine}. Each runs its own daemon; ${copy.machine} installs and upgrades them.`
+    : `Machines Polaris reaches over SSH, using your ~/.ssh/config. Each runs its own daemon; ${copy.machine} installs and upgrades them.`;
 
 export const addHint = (wsl: boolean): string =>
   wsl
