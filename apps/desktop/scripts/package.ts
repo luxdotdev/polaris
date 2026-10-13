@@ -95,6 +95,19 @@ await buildRenderer();
 
 await buildMain({ minify: true });
 
+if (windows) {
+  const startup = await Bun.build({
+    entrypoints: [join(APP_DIR, "src/main/updates/startup.ts")],
+    outdir: join(OUT_DIR, "main"),
+    target: "node",
+    format: "esm",
+    external: ["electron"],
+    minify: true,
+  });
+
+  if (!startup.success) throw new Error("Windows startup build failed");
+}
+
 if (windows && !existsSync(join(DAEMON_DIST, "manifest.json")))
   throw new Error("Windows packaging requires the existing macOS Daemon dist artifact");
 
@@ -131,7 +144,7 @@ writeFileSync(
       version: pkg.version,
       license: "Apache-2.0",
       type: "module",
-      main: "out/main/index.js",
+      main: windows ? "out/main/startup.js" : "out/main/index.js",
     },
     null,
     2

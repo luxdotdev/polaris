@@ -81,6 +81,11 @@ script, so the installer seam copies its vendor tools into a temporary folder
 and selects the build Host's 7-Zip binaries there. It adds no trusted dependency.
 The standard licence gate passes; the build-only package declares MIT.
 
+Windows packages enter through a small Squirrel bootstrap. Maintenance launches
+create/remove shortcuts before importing the Client runtime, keeping cold startup
+within Squirrel's hook deadline. Temporary vendor cleanup retries transient
+Windows file locks for a bounded interval.
+
 `windows-smoke.ps1 -Installer <Setup.exe> -Arch <x64|arm64>` installs on a fresh
 Windows account/throwaway VM and waits for an actual Polaris window handle.
 It uses isolated settings with the local Host and automatic update checks off.

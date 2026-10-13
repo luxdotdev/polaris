@@ -9,6 +9,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { createRequire } from "node:module";
+import { rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { convertVersion, type SquirrelWindowsOptions } from "electron-winstaller";
 
@@ -84,6 +85,6 @@ export const installerWindows = async (
 
     return output;
   } finally {
-    rmSync(vendor, { recursive: true, force: true });
+    await rm(vendor, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 };

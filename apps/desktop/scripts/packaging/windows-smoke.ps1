@@ -19,6 +19,13 @@ try {
   if (!$setup.WaitForExit(120000)) { throw 'Installer timed out' }
   if ($setup.ExitCode -ne 0) { throw "Installer failed: $($setup.ExitCode)" }
 
+  $shortcut = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\lux.dev LLC\Polaris.lnk'
+  if (!(Test-Path $shortcut)) { throw 'Installer did not create the Start menu shortcut' }
+  $link = (New-Object -ComObject WScript.Shell).CreateShortcut($shortcut)
+  if ($link.TargetPath -ne (Join-Path $installRoot 'Polaris.exe')) {
+    throw 'Start menu shortcut does not target the installed Polaris launcher'
+  }
+
   $application = Get-ChildItem $installRoot -Directory -Filter 'app-*' |
     ForEach-Object { Join-Path $_.FullName 'Polaris.exe' } |
     Where-Object { Test-Path $_ } |

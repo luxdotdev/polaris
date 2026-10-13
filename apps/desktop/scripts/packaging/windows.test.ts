@@ -8,6 +8,22 @@ import { assertReleaseVersions, resolveSigning } from "./release.ts";
 import { packageTargets, targetOptions } from "./targets.ts";
 import { verifyWindowsRelease, windowsInstallerOptions } from "./windows.ts";
 
+test("Squirrel startup bundles maintenance without the Client runtime", async () => {
+  const result = await Bun.build({
+    entrypoints: [join(import.meta.dir, "../../src/main/updates/startup.ts")],
+    target: "node",
+    format: "esm",
+    external: ["electron"],
+    minify: true,
+  });
+
+  expect(result.success).toBe(true);
+  const bootstrap = await result.outputs[0]?.text();
+  expect(bootstrap).toContain("--squirrel-install");
+  expect(bootstrap).toContain("./index.js");
+  expect(bootstrap?.length).toBeLessThan(4096);
+});
+
 test("Windows builds reuse Daemons, validate release versions and remain unsigned", () => {
   expect(packageTargets(["--windows", "--reuse-daemon"])).toEqual([
     { platform: "win32", arch: "x64" },
