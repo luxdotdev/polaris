@@ -12,7 +12,14 @@ import type { BatchEntry, HostView } from "../../shared/api.ts";
 import { RequestInputs, SubscriptionInputs } from "../../shared/contract.ts";
 import { DEFAULT_SESSION_PREFS } from "../../shared/sessionPrefs.ts";
 import { CommandId, CommandRejected } from "@polaris/protocol";
-import { type ClientServices, HostDirectory, toIpcError, UnknownHost } from "../hosts.ts";
+import { HostTarget } from "@polaris/client";
+import {
+  type ClientServices,
+  HostDirectory,
+  type HostEntry,
+  toIpcError,
+  UnknownHost,
+} from "../hosts.ts";
 import { Ssh } from "@polaris/client/install";
 import { createGitHubFake } from "../../../scripts/lib/githubFake/index.ts";
 import { memoryCrypto } from "../github/github.testing.ts";
@@ -55,12 +62,29 @@ const view: HostView = {
   },
 };
 
+const entryFor = (key: string, target: HostTarget): HostEntry => ({
+  key,
+  label: key,
+  colour: null,
+  alias: null,
+  proofHarness: false,
+  target,
+  remoteCommand: null,
+  simulatedLatencyMs: null,
+});
+
+const ENTRIES = new Map<string, HostEntry>([
+  ["local", entryFor("local", HostTarget.Local({ socketPath: "/tmp/local.sock" }))],
+  ["studio", entryFor("studio", HostTarget.Ssh({ alias: "studio" }))],
+  ["Ubuntu", entryFor("Ubuntu", HostTarget.Wsl({ distro: "Ubuntu" }))],
+]);
+
 const directory = Layer.effect(
   HostDirectory,
   Effect.map(SubscriptionRef.make<ReadonlyArray<HostView>>([view]), (views) =>
     HostDirectory.of({
       views,
-      entry: () => undefined,
+      entry: (key) => ENTRIES.get(key),
       connection: (key) => Effect.fail(new UnknownHost(key)),
       add: () => Effect.void,
       remove: () => Effect.void,
@@ -169,12 +193,13 @@ describe("requests", () => {
     expect(Exit.isFailure(await run(open({ url: "file:///etc/passwd" })))).toBe(true);
   });
 
-  test("Reveal in Finder works for this Mac's Host only", async () => {
+  test("Reveal in Finder works for this Mac's Host and a WSL distro's, never over ssh", async () => {
     const reveal = requestRunner(handlers, "shell.revealInFinder");
 
     expect(Exit.isSuccess(await run(reveal({ hostKey: "local", path: "/tmp/a.ts" })))).toBe(true);
     expect(Exit.isFailure(await run(reveal({ hostKey: "studio", path: "/tmp/a.ts" })))).toBe(true);
-    expect(revealed).toEqual(["/tmp/a.ts"]);
+    expect(Exit.isSuccess(await run(reveal({ hostKey: "Ubuntu", path: "/home/a.ts" })))).toBe(true);
+    expect(revealed).toEqual(["/tmp/a.ts", "\\\\wsl.localhost\\Ubuntu\\home\\a.ts"]);
   });
 
   test("onboarding.found lists the ssh config's Host aliases", async () => {

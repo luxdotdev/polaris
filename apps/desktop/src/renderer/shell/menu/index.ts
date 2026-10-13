@@ -18,6 +18,7 @@ import { chordOf, type CommandId, EDIT_CHORDS } from "../../../shared/keymap.ts"
 import { polaris } from "../../features/bridge.ts";
 import { writeClipboard } from "../../features/clipboard.ts";
 import { LOCAL_HOST } from "../../routes/topBar.ts";
+import { hostKindOf } from "../../store/hostKinds.ts";
 
 /** A command's chord as the menu shows it ("⌥⌘T"), or nothing when it has none. */
 export const menuShortcut = (id: CommandId): string | undefined =>
@@ -51,9 +52,16 @@ export const copyEntry = (label: string, text: string, testId?: string): MenuAct
 const lowerFirst = (text: string) =>
   /^[A-Z][a-z]/.test(text) ? `${text.charAt(0).toLowerCase()}${text.slice(1)}` : text;
 
-/** Reveal in Finder (Show in Explorer), for local Workspaces only; a remote Host's path has none. */
+/** Hosts whose files this Client's file manager can show: its own, and a WSL distro's. */
+const revealable = (hostKey: string) => {
+  const kind = hostKindOf(hostKey) ?? (hostKey === LOCAL_HOST ? "local" : undefined);
+
+  return kind === "local" || kind === "wsl";
+};
+
+/** Reveal in Finder (Show in Explorer), for local and WSL Workspaces; an ssh Host's path has none. */
 export const revealInFinderEntry = (hostKey: string, path: string): MenuAction | null =>
-  hostKey === LOCAL_HOST
+  revealable(hostKey)
     ? {
         kind: "item",
         label: clientCopy().reveal,

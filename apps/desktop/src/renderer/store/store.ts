@@ -15,6 +15,7 @@ import type {
   ThemeSource,
 } from "../../shared/api.ts";
 import { frameQueue } from "./frameQueue.ts";
+import { noteHostKinds } from "./hostKinds.ts";
 import { applyHostItems, emptyHostModel, type HostModel, modelFromSnapshot } from "./hostModel.ts";
 import { applySessionItems, emptySessionModel, type SessionModel } from "./sessionModel.ts";
 import {
@@ -203,6 +204,7 @@ export const connect = (api: PolarisApi): Connection => {
         const hosts = lists.at(-1);
 
         if (hosts === undefined) return;
+        noteHostKinds(hosts);
         queue.push({ kind: "hosts", hosts });
 
         for (const host of hosts) openHost(host.key);

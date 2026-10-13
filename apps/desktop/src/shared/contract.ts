@@ -231,7 +231,7 @@ export const RequestInputs = {
   "shell.openExternal": Schema.Struct({
     url: Schema.String.check(Schema.isPattern(/^https:\/\//)),
   }),
-  /** Shows a file or folder in Finder; this Mac's Host only, an absolute path. */
+  /** Shows a file or folder in Finder or Explorer: the local Host's, or a WSL distro's (`main/reveal.ts`). */
   "shell.revealInFinder": onHost({ path: Schema.String.check(Schema.isPattern(/^\//)) }),
   "host.retryNow": onHost({}),
   dispatch: onHost({ commandId: CommandId, command: Command }),
