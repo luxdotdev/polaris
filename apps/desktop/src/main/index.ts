@@ -317,6 +317,7 @@ const start = async () => {
         localDaemon?.benchHarness === true ? mkdtempSync(join(tmpdir(), "polaris-proof-")) : null,
       daemonDist: existsSync(join(daemonDist, "manifest.json")) ? daemonDist : null,
       writeClipboard: async (text) => clipboard.writeText(text),
+      readClipboard: () => clipboard.readText(),
       needsYou: (summary) => needsYou?.publish(summary),
     },
   });

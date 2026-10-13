@@ -60,6 +60,7 @@ export interface RequestContext {
   /** The bundled Daemon builds (`manifest.json`), or null when this build has none. */
   readonly daemonDist: string | null;
   readonly writeClipboard: (text: string) => Promise<void>;
+  readonly readClipboard: () => Promise<string>;
   /** The renderer's Needs You summary, for the menu bar star, Dock badge and notifications. */
   readonly needsYou: (summary: NeedsYouSummary) => void;
 }
@@ -345,6 +346,7 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
     machines((m) => m.setLocalEnabled(enabled)).pipe(done),
   "machines.openSsh": ({ hostKey }) => machines((m) => m.openSsh(hostKey)).pipe(done),
   "clipboard.write": ({ text }) => Effect.promise(() => ctx.writeClipboard(text)).pipe(done),
+  "clipboard.read": () => Effect.promise(() => ctx.readClipboard()),
   "onboarding.found": () =>
     Effect.sync(() => ({ sshHosts: ctx.sshHosts(), version: ctx.appVersion })),
   "onboarding.welcomeSeen": () => Effect.sync(ctx.setWelcomeSeen).pipe(done),

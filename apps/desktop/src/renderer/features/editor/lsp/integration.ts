@@ -598,6 +598,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
             language: entry.language,
             manual: entry.manual,
             providers: providers.map((provider) => provider.context.providerId),
+            methods: [...new Set(providers.flatMap((provider) => provider.capabilities.methods))],
             status: providers.length ? "ready" : "unavailable",
             fact: providers.length ? "" : "Language tooling is unavailable or synchronizing.",
           });

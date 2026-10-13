@@ -112,6 +112,7 @@ const context: RequestContext = {
   pickFolder: () => Promise.resolve(null),
   daemonDist: null,
   writeClipboard: () => Promise.resolve(),
+  readClipboard: () => Promise.resolve(""),
   needsYou: () => undefined,
 };
 

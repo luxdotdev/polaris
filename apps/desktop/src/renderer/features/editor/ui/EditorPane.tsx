@@ -38,6 +38,7 @@ import { CodeHost } from "./CodeHost.tsx";
 import { Compare } from "./Compare.tsx";
 import { FileNotice } from "./FileNotice.tsx";
 import { Tabs } from "./Tabs.tsx";
+import { EditorMenu } from "../menu/EditorMenu.tsx";
 import { LanguagePanel } from "./LanguagePanel.tsx";
 import { RenameField } from "../navigation/RenameField.tsx";
 import { SymbolSearch } from "../navigation/SymbolSearch.tsx";
@@ -263,7 +264,9 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
             hostLabel={hostLabel}
           />
         ) : (
-          <CodeHost bufferKey={fileKey(hostKey, active)} ready={ready} focus />
+          <EditorMenu hostKey={hostKey} workspaceId={workspaceId} root={root} path={active}>
+            <CodeHost bufferKey={fileKey(hostKey, active)} ready={ready} focus />
+          </EditorMenu>
         )}
       </div>
       <CloseDialog hostKey={hostKey} workspaceId={workspaceId} />

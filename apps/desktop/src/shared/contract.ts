@@ -384,6 +384,8 @@ export const RequestInputs = {
    */
   "machines.openSsh": onHost({}),
   "clipboard.write": Schema.Struct({ text: Schema.String }),
+  /** The clipboard's text, for the Editor menu's Paste: the renderer may not read it itself. */
+  "clipboard.read": Schema.Struct({}),
   /** What onboarding found on this Mac: the Host aliases in `~/.ssh/config`, and the app's version. */
   "onboarding.found": Schema.Struct({}),
   /** "Get started": the welcome isn't shown again. */
