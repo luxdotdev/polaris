@@ -29,7 +29,7 @@ const updateView: AppUpdateView = {
   automatic: true,
   lastCheckedAt: null,
   installId: "00000000-0000-4000-8000-000000000000",
-  macOSVersion: "26.0",
+  osVersion: "26.0",
   arch: "arm64",
   supported: false,
 };

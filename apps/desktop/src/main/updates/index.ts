@@ -19,7 +19,7 @@ export interface UpdateInput {
   >;
   readonly version: string;
   readonly installId: string;
-  readonly macOSVersion: string;
+  readonly osVersion: string;
   readonly platform?: string;
   readonly firstRun?: boolean;
   readonly fetch?: (url: string, init: RequestInit) => Promise<Response>;
@@ -87,7 +87,7 @@ export const createAppUpdates = (input: UpdateInput) => {
     automatic: input.automatic,
     lastCheckedAt: input.lastCheckedAt,
     installId: input.installId,
-    macOSVersion: input.macOSVersion,
+    osVersion: input.osVersion,
     platform,
     arch: input.arch,
     supported: input.supported,
@@ -106,8 +106,8 @@ export const createAppUpdates = (input: UpdateInput) => {
 
     const headers: UpdateHeaders =
       platform === "win32"
-        ? { "X-Polaris-Windows-Version": view.macOSVersion }
-        : { "X-Polaris-macOS-Version": view.macOSVersion };
+        ? { "X-Polaris-Windows-Version": view.osVersion }
+        : { "X-Polaris-macOS-Version": view.osVersion };
 
     if (view.automatic) headers["X-Polaris-Install-ID"] = view.installId;
 

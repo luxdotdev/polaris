@@ -104,7 +104,7 @@ const fixture = (patch: Partial<UpdateInput> = {}) => {
     native,
     platform: "win32",
     arch: "arm64",
-    macOSVersion: "10.0.26100",
+    osVersion: "10.0.26100",
     version: "1.2.2",
     installId: "58baf1dc-3772-4353-86b3-3a8a49219521",
     supported: true,
@@ -144,6 +144,8 @@ test.each(["x64", "arm64"])("%s update feed and Windows native version metadata"
   expect(headers.get("X-Polaris-Windows-Version")).toBe("10.0.26100");
   expect(headers.get("X-Polaris-Install-ID")).toBe(updates.get().installId);
   expect(headers.has("X-Polaris-macOS-Version")).toBe(false);
+  expect(updates.get()).toMatchObject({ platform: "win32", osVersion: "10.0.26100" });
+  expect("macOSVersion" in updates.get()).toBe(false);
   native.emit("update-downloaded", {}, "notes", "1.2.3", new Date(), native.feed?.url);
   expect(updates.get().availableVersion).toBe("1.2.3");
   updates.install();

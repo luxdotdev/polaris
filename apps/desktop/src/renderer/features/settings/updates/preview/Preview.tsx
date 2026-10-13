@@ -34,7 +34,7 @@ const fixtureBridge = (hash: string): PolarisApi => {
     automatic: scene !== "off",
     lastCheckedAt: Date.now() - 2 * 60 * 60_000,
     installId: "58baf1dc-3772-4353-86b3-3a8a49219521",
-    macOSVersion: "26.1",
+    osVersion: "26.1",
     arch: "arm64",
     supported: true,
   };

@@ -180,7 +180,7 @@ const start = async () => {
     native: autoUpdater,
     version: app.getVersion(),
     installId: installId(app.getPath("userData")),
-    macOSVersion: process.getSystemVersion(),
+    osVersion: process.getSystemVersion(),
     platform: process.platform,
     firstRun: process.platform === "win32" && process.argv.includes("--squirrel-firstrun"),
     arch: process.arch,
