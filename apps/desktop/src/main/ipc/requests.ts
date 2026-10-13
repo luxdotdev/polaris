@@ -335,6 +335,7 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
       return ensureInstalled({ alias, approvedSha256, dist: ctx.daemonDist });
     }),
   "machines.sshAliases": () => machines((m) => m.sshAliases),
+  "machines.wslDistros": () => machines((m) => m.wslDistros),
   "machines.add": (input) => machines((m) => Effect.map(m.add(input), (key) => ({ key }))),
   "machines.update": ({ hostKey, ...patch }) =>
     machines((m) => m.update(hostKey, patch)).pipe(done),

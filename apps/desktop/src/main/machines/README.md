@@ -11,6 +11,7 @@ The Hosts in Settings: adding and removing remote Hosts by `~/.ssh/config` alias
 | `sshConfig.ts` | The literal `Host` aliases in `~/.ssh/config`: `Include` followed (globs, `~`, relative to `~/.ssh`, 16 deep), wildcards and negations skipped, `Match` blocks ignored. |
 | `approvals.ts` | `<userData>/approvals.json`: approved SHA-256 per alias. |
 | `builds.ts` | Where the Daemon builds come from (below). |
+| `wsl.ts` | WSL 2 distros as Hosts on Windows (experimental): the distro list for "Add a host" (WSL 1 distros marked unsupported; not-installed / no-distros states), the install copy for a distro, and the terminal command. `Machines` gets `wsl: { ssh, discover }` from `@polaris/client/wsl`; a `RemoteHostSetting` with `kind: "wsl"` names the distro in `alias` and its install flow runs the same probe, upload and `polaris install` through `wsl.exe --exec`. Decisions: docs/adr/0034-wsl-hosts.md. Unverified on real WSL; `wslService.test.ts` runs it through the fake `wsl.exe`. |
 | `terminal.ts` | The macOS Terminal fallback for `ssh <alias>` (a `.command` file) when this Mac's local Host is off. Otherwise the renderer runs it, and a Harness's sign-in, in the shell's `HarnessTerminal` slot on a Daemon. |
 | `fakeHost.testing.ts` | A fake remote Host for `service.test.ts` and the smoke test; not shipped. |
 

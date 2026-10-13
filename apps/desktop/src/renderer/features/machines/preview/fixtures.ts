@@ -66,6 +66,7 @@ const machine = (
   label,
   colour: null,
   alias,
+  kind: alias === null ? "local" : "ssh",
   target: alias === null ? null : { hostName: `${alias}.local`, user: "lucas" },
   enabled: true,
   forwardAgent: false,

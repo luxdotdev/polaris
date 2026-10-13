@@ -7,6 +7,7 @@ import { chmodSync, mkdtempSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { Ssh } from "@polaris/client/install";
+import { discoverDistros, wslInstallLayer } from "@polaris/client/wsl";
 import { shell } from "electron";
 import type { LocalDaemon } from "../localDaemon.ts";
 import { approvalsPath, openApprovals } from "./approvals.ts";
@@ -64,4 +65,8 @@ export const machinesLayer = (input: MachinesLayerInput) =>
     localHome: input.localHome,
     openTerminal,
     ssh: Ssh.layer,
+    wsl: {
+      ssh: wslInstallLayer({ env: input.env }),
+      discover: discoverDistros({ env: input.env }),
+    },
   });
