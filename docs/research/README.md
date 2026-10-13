@@ -32,3 +32,4 @@ The prototype and spike code is throwaway and stays on its own branches, not on 
 
 The original `research/*` branches remain.
 - [tab-completion.md](tab-completion.md): tab completion spike; models, latency, context and CodeMirror integration (2026-10-13).
+- [decision-models.md](decision-models.md): System One decision models (Jev, Clef, Kev, Laya, llama.cpp) as the Risk Summary classifier backends (2026-10-13).
