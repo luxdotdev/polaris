@@ -1,3 +1,10 @@
 # Append-only logs: keep both sides of concurrent additions.
 .agents/skills/product-design/decision-log.md merge=union
 docs/research/README.md merge=union
+
+# LF everywhere, so a Windows checkout matches oxfmt and the macOS/Linux bytes.
+* text=auto eol=lf
+# Upstream legal texts are pinned byte for byte (hashed in audit manifests): never convert.
+tooling/language-catalog/notices/** -text
+apps/daemon/src/languages/catalog/upstream-evidence/** -text
+THIRD_PARTY_NOTICES.md -text

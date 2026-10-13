@@ -20,7 +20,7 @@ import {
   tighten,
   type Violation,
 } from "./baseline.ts";
-import { LINTABLE, ROOT, runOxlint } from "./oxlint.ts";
+import { LINTABLE, ROOT, runOxlint, toPosix } from "./oxlint.ts";
 
 const BASELINE = join(ROOT, "tooling/lint/baseline.json");
 
@@ -39,7 +39,7 @@ const writeBaseline = (violations: Counts) => {
 };
 
 const toRepoPath = (file: string) =>
-  relative(ROOT, isAbsolute(file) ? file : resolve(process.cwd(), file));
+  toPosix(relative(ROOT, isAbsolute(file) ? file : resolve(process.cwd(), file)));
 
 const describeDelta = (d: Delta, violations: ReadonlyArray<Violation>) => {
   const where = violations.flatMap((v) =>
