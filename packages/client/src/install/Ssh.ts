@@ -70,6 +70,8 @@ export interface Spawned {
   readonly onStdinBytes?: ((bytes: number) => void) | undefined;
   /** ssh's own exit code; a local shell has none, so every exit is the command's. */
   readonly transportFailure: number | null;
+  /** Starts the process; `node:child_process`'s by default (tests record the options). */
+  readonly spawn?: typeof spawn;
 }
 
 export const runCommand = ({
@@ -80,11 +82,14 @@ export const runCommand = ({
   stdinFile,
   onStdinBytes,
   transportFailure,
+  spawn: start = spawn,
 }: Spawned) =>
   Effect.callback<SshResult, SshError>((resume) => {
-    const child = spawn(file, args, {
+    // No console window per install command when the Client is a Windows GUI app.
+    const child = start(file, args, {
       stdio: [stdinFile ? "pipe" : "ignore", "pipe", "pipe"],
       env: env ?? process.env,
+      windowsHide: true,
     });
 
     let stdout = "";
