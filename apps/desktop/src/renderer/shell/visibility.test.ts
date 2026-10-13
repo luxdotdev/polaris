@@ -85,9 +85,7 @@ describe("hiding a Workspace", () => {
     navigation.actions.selectWorkspace(target);
     await visibility.hide(target);
     expect(toasts[0]?.title).toBe("Hid b");
-    expect(toasts[0]?.message).toBe(
-      "Nothing was deleted; its sessions keep going. Right-click local to show it again."
-    );
+    expect(toasts[0]?.message).toBe("Nothing was deleted. Right-click local to show it again.");
 
     toasts[0]?.action?.onAction();
     expect(sent.at(-1)?.command).toMatchObject(hiding("b", false));
@@ -169,7 +167,7 @@ describe("the Command Palette's Workspace commands", () => {
 
     expect(registry.runAny("workspace.hideOther")).toBe(true);
     expect(followUps[0]?.choices.map((c) => c.title)).toEqual(["s", "a", "c"]);
-    expect(followUps[0]?.choices[0]?.detail).toBe("studio · /code/s");
+    expect(followUps[0]?.choices[0]?.detail).toBe("studio");
 
     followUps[0]?.choices[0]?.run();
     expect(s.sent[0]).toMatchObject({ hostKey: "studio", command: hiding("s", true) });

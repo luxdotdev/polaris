@@ -16,7 +16,7 @@ const data = { bar: barHosts({ hosts: [hostView("local")], models }), models, ma
 describe("jump menu Workspaces", () => {
   test("hidden ones are listed after the chips, marked hidden, with no ⌃N", () => {
     expect(workspaceItems(data).map((i) => [i.title, i.meta])).toEqual([
-      ["polaris", shortcutLabel(0)],
+      ["polaris", shortcutLabel(0) ?? ""],
       ["sightline", "hidden"],
     ]);
   });

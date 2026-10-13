@@ -108,7 +108,7 @@ export const createVisibility = ({
       source: "starlight",
       icon: createElement(PixelFolderIcon, { size: 16 }),
       title: `Hid ${workspace.name}`,
-      message: `Nothing was deleted; its sessions keep going. Right-click ${hostLabel(state, target.hostKey)} to show it again.`,
+      message: `Nothing was deleted. Right-click ${hostLabel(state, target.hostKey)} to show it again.`,
       action: {
         label: "Undo",
         onAction: () => {
@@ -158,8 +158,7 @@ const choice =
   ({ hostKey, workspace }: Listed): FollowUpChoice => ({
     id: `${hostKey}\u0000${workspace.id}`,
     title: workspace.name,
-    detail:
-      app.hosts.length > 1 ? `${hostLabel(app, hostKey)} · ${workspace.path}` : workspace.path,
+    detail: app.hosts.length > 1 ? hostLabel(app, hostKey) : workspace.path,
     run: () => act({ hostKey, workspaceId: workspace.id }),
   });
 
