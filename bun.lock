@@ -171,6 +171,14 @@
         "eslint-plugin-sonarjs": "4.2.2",
       },
     },
+    "packages/predict": {
+      "name": "@polaris/predict",
+      "version": "0.0.0",
+      "dependencies": {
+        "@polaris/protocol": "workspace:*",
+        "effect": "4.0.0-rc.118",
+      },
+    },
     "packages/protocol": {
       "name": "@polaris/protocol",
       "version": "0.0.0",
@@ -808,6 +816,8 @@
     "@polaris/desktop": ["@polaris/desktop@workspace:apps/desktop"],
 
     "@polaris/lint-config": ["@polaris/lint-config@workspace:packages/lint-config"],
+
+    "@polaris/predict": ["@polaris/predict@workspace:packages/predict"],
 
     "@polaris/protocol": ["@polaris/protocol@workspace:packages/protocol"],
 

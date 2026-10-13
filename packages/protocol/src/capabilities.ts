@@ -1,4 +1,5 @@
 import { Schema, SchemaTransformation } from "effect";
+import { PREDICTION_CAPABILITIES } from "./prediction.ts";
 import { HARNESS_CATALOGUE } from "./harnesses.ts";
 
 /** Bumped only for changes capability negotiation can't absorb. */
@@ -65,6 +66,7 @@ export const Capability = Schema.Literals([
   "files.search",
   "files.watch",
   "inline.propose",
+  ...PREDICTION_CAPABILITIES,
   /** `commit.suggestMessage`: a Harness drafts the Commit box's message from the staged diff. */
   "commit.suggest-message",
   /** Optional language extension, advertised only after the corresponding handlers are implemented. */
