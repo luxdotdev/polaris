@@ -48,6 +48,7 @@ export type CommandId =
   | "editor.inlineChat"
   | "editor.addToSession"
   | "editor.markdownPreview"
+  | "git.writeMessage"
   | "editor.save"
   | "editor.nextTab"
   | "editor.previousTab"
@@ -584,6 +585,13 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
   },
   { id: "editor.save", title: "Save file", keys: ["CmdOrCtrl+S"], palette: FILE() },
   {
+    id: "git.writeMessage",
+    title: "Write commit message",
+    keys: ["CmdOrCtrl+Alt+G"],
+    when: "mode.edit",
+    palette: WORKSPACE({ keywords: ["git", "commit", "message", "generate"] }),
+  },
+  {
     id: "editor.nextTab",
     title: "Next editor tab",
     keys: ["Ctrl+Tab"],
@@ -692,6 +700,7 @@ export const PC_KEYS: Partial<Record<CommandId, ReadonlyArray<string>>> = {
   "session.next": ["CmdOrCtrl+PageDown", "Ctrl+Tab"],
   "session.previous": ["CmdOrCtrl+PageUp", "Ctrl+Shift+Tab"],
   "tab.closeOthers": [],
+  "git.writeMessage": ["CmdOrCtrl+Shift+G"],
 };
 
 /** The keymap with a platform's own keys. */

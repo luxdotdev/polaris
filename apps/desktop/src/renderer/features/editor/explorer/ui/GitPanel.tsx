@@ -2,7 +2,7 @@
  * The Changes tab with `git.write` (Paper 15, 15b): the commit box, then Staged
  * and Changes. Hooks run on the Host; their output streams in under the button.
  */
-import { Button, CodeWell, CopyButton, Textarea, cn } from "@polaris/ui";
+import { Button, CodeWell, CopyButton, cn } from "@polaris/ui";
 import { useEffect, useMemo, useState } from "react";
 import { saveFile, type TabsView } from "../../index.ts";
 import type { Place } from "../data/actions.ts";
@@ -10,7 +10,6 @@ import {
   commit,
   deleteForGood,
   discard,
-  setMessage,
   stage,
   unstage,
   useCommitDraft,
@@ -20,6 +19,7 @@ import type { GitFacts } from "../data/store.ts";
 import type { AgentMarks } from "../model/agents.ts";
 import { isUnder } from "../model/paths.ts";
 import { allPaths, canCommit, commitLabel, type StageRow, stageLists } from "../model/stage.ts";
+import { MessageField, WriteFailed } from "./CommitMessage.tsx";
 import { ConfirmDelete } from "./ConfirmDelete.tsx";
 import { rowKey, type StageSide, StageSection } from "./StageList.tsx";
 import { shortcutLabel } from "../../../../../shared/chord.ts";
@@ -129,32 +129,20 @@ const CommitBox = ({
 }) => {
   const draft = useCommitDraft(place.key);
   const running = draft.run.kind === "running";
-  const ready = canCommit(draft.message, staged, running);
+  const writing = draft.suggestion.kind === "writing";
+  const ready = canCommit(draft.message, staged, running) && !writing;
   const go = () => (ready ? commit(place, place.root) : undefined);
 
   return (
     <div className="flex flex-col gap-2 px-2 pb-1" data-testid="commit-box">
-      <Textarea
-        aria-label="Commit message"
-        placeholder="Message"
-        value={draft.message}
-        disabled={running}
-        data-testid="commit-message"
-        className="max-h-40 min-h-14"
-        onChange={(event) => setMessage(place.key, event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-            event.preventDefault();
-            go();
-          }
-        }}
-      />
+      <MessageField place={place} staged={staged} committing={running} onSubmit={go} />
       <Button variant="primary" disabled={!ready} onClick={go} data-testid="commit-button">
         {running ? "Committing…" : commitLabel(staged)}
         {running ? null : (
           <span className="text-micro opacity-60">{shortcutLabel(FIELD_CHORDS.submit)}</span>
         )}
       </Button>
+      <WriteFailed place={place} />
       <Unsaved place={place} tabs={tabs} />
       <RunOutput run={draft.run} />
     </div>
@@ -219,7 +207,7 @@ export const GitPanel = ({ place, git, agents, tabs, hostLabel, onOpen }: GitPan
 
   return (
     <div
-      className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2"
+      className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-2 pt-1 pb-2"
       data-testid="git-panel"
     >
       <CommitBox place={place} staged={lists.staged.length} tabs={tabs} />

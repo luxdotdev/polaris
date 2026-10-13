@@ -148,6 +148,7 @@ describe("Windows and Linux keys", () => {
       "session.next": "Ctrl+PageDown / Ctrl+Tab",
       "session.previous": "Ctrl+PageUp / Ctrl+Shift+Tab",
       "tab.closeOthers": "",
+      "git.writeMessage": "Ctrl+Shift+G",
     });
     expect(table("linux")).toEqual(table("windows"));
   });
@@ -155,6 +156,7 @@ describe("Windows and Linux keys", () => {
   test("macOS keeps its keys, plus Control+Tab for sessions", () => {
     expect(keymapFor("mac")).toBe(KEYMAP);
     expect(keysOf("view.output", "mac")).toEqual(["⌥⌘B"]);
+    expect(keysOf("git.writeMessage", "mac")).toEqual(["⌥⌘G"]);
     expect(keysOf("view.orchestrate", "mac")).toEqual(["⌘1"]);
     expect(keysOf("session.next", "mac")).toEqual(["⌥⌘↓", "⌃⇥"]);
     expect(keysOf("session.previous", "mac")).toEqual(["⌥⌘↑", "⌃⇧⇥"]);

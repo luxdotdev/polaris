@@ -75,10 +75,12 @@ const ModelChips = ({
   choice,
   modelHost,
   onChange,
+  modelOnly,
 }: {
   readonly choice: Choice;
   readonly modelHost: string | null;
   readonly onChange: (choice: Choice) => void;
+  readonly modelOnly: boolean;
 }) => {
   const models = useModels(modelHost, choice.harness);
   const model = models.find((m) => m.id === choice.model);
@@ -90,7 +92,7 @@ const ModelChips = ({
   const efforts = model?.efforts ?? (choice.effort === null ? [] : [choice.effort]);
 
   const modelOptions: ReadonlyArray<Option> = [
-    { value: DEFAULT, label: "Default" },
+    ...(modelOnly ? [] : [{ value: DEFAULT, label: "Default" }]),
     ...top.map((m) => ({ value: m.id, label: m.name })),
     ...(saved === null ? [] : [{ value: saved, label: model?.name ?? prettyModel(saved) }]),
   ];
@@ -110,16 +112,18 @@ const ModelChips = ({
           });
         }}
       />
-      <Chip
-        label="Effort"
-        value={choice.effort ?? DEFAULT}
-        disabled={efforts.length === 0}
-        options={[
-          { value: DEFAULT, label: "Default" },
-          ...efforts.map((e) => ({ value: e, label: effortLabel(e) })),
-        ]}
-        onChange={(v) => onChange({ ...choice, effort: v === DEFAULT ? null : v })}
-      />
+      {modelOnly ? null : (
+        <Chip
+          label="Effort"
+          value={choice.effort ?? DEFAULT}
+          disabled={efforts.length === 0}
+          options={[
+            { value: DEFAULT, label: "Default" },
+            ...efforts.map((e) => ({ value: e, label: effortLabel(e) })),
+          ]}
+          onChange={(v) => onChange({ ...choice, effort: v === DEFAULT ? null : v })}
+        />
+      )}
     </>
   );
 };
@@ -129,6 +133,7 @@ export const ReviewerChoice = ({
   onChange,
   modelHost,
   allowAuto,
+  modelOnly = false,
 }: {
   /** Null: automatic. */
   readonly value: Choice | null;
@@ -136,6 +141,8 @@ export const ReviewerChoice = ({
   /** A Host where `harness` is ready, to list its Models. */
   readonly modelHost: (harness: string) => string | null;
   readonly allowAuto: boolean;
+  /** Harness and Model only, no Default or Effort (Settings → Editor's commit messages). */
+  readonly modelOnly?: boolean;
 }) => {
   const harnesses: ReadonlyArray<Option> = [
     ...(allowAuto ? [{ value: AUTO, label: "Automatic" }] : []),
@@ -158,7 +165,12 @@ export const ReviewerChoice = ({
         onChange={(v) => onChange(v === AUTO ? null : { harness: v, model: null, effort: null })}
       />
       {value === null ? null : (
-        <ModelChips choice={value} modelHost={modelHost(value.harness)} onChange={onChange} />
+        <ModelChips
+          choice={value}
+          modelHost={modelHost(value.harness)}
+          onChange={onChange}
+          modelOnly={modelOnly}
+        />
       )}
     </div>
   );
