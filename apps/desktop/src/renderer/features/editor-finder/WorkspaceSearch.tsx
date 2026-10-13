@@ -30,6 +30,8 @@ import {
   ROW_CHARS,
   type SearchOptions,
 } from "./searchModel.ts";
+import { shortcutLabel } from "../../../shared/chord.ts";
+import { FIELD_CHORDS } from "../../../shared/keymap.ts";
 
 const LIMIT = 300;
 
@@ -190,12 +192,16 @@ const Results = ({ scope, initial }: { readonly scope: Scope; readonly initial: 
           <span className="flex items-center gap-1">
             <Toggle
               on={caseSensitive}
-              label="Match case (⌥C)"
+              label={`Match case (${shortcutLabel(FIELD_CHORDS.matchCase)})`}
               onToggle={() => setCaseSensitive((v) => !v)}
             >
               Aa
             </Toggle>
-            <Toggle on={regex} label="Regex (⌥R)" onToggle={() => setRegex((v) => !v)}>
+            <Toggle
+              on={regex}
+              label={`Regex (${shortcutLabel(FIELD_CHORDS.regex)})`}
+              onToggle={() => setRegex((v) => !v)}
+            >
               .*
             </Toggle>
           </span>

@@ -2,6 +2,7 @@
  * Settings → Editor (DESIGN.md, Settings: Editor · languages; Paper L4): the
  * preferences, then Languages on the picked Host, then Advanced, collapsed.
  */
+import { clientCopy } from "../../../../shared/clientCopy.ts";
 import * as P from "@polaris/protocol";
 import { useCallback, useMemo, useState } from "react";
 import type { HostView, LanguageApi } from "../../../../shared/api.ts";
@@ -36,7 +37,7 @@ const notice = (
   loaded: boolean
 ) => {
   if (!api)
-    return "Language tools need a newer Polaris on this Mac. Syntax highlighting still works.";
+    return `Language tools need a newer Polaris on ${clientCopy().machine}. Syntax highlighting still works.`;
 
   if (picked === undefined || !pickable(picked))
     return "Pick a connected host to see its languages.";
@@ -111,7 +112,7 @@ export const EditorSettings = ({
     <Column>
       <PageHeader
         title="Editor"
-        blurb="How code reads and behaves in the Edit view. Language tools run on each host; this Mac keeps your preferences."
+        blurb={`How code reads and behaves in the Edit view. Language tools run on each host; ${clientCopy().machine} keeps your preferences.`}
       />
       <Preferences
         record={app.record}

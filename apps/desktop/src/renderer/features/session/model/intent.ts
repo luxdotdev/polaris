@@ -15,6 +15,8 @@ import type {
   TurnStatus,
 } from "@polaris/protocol";
 import { Commands, Decisions } from "../../../commands.ts";
+import { shortcutLabel } from "../../../../shared/chord.ts";
+import { FIELD_CHORDS } from "../../../../shared/keymap.ts";
 
 export type ComposerMode =
   /** A new Turn: `SendTurn`. */
@@ -72,13 +74,15 @@ export const composerMode = (ctx: ComposerContext): ComposerMode => {
 
 const PLACEHOLDERS: Readonly<Record<Exclude<ComposerMode["kind"], "blocked">, string>> = {
   send: "Ask for a change",
-  steer: "Steer this turn · ⌘↵ to queue a follow-up",
+  steer: "Steer this turn · {submit} to queue a follow-up",
   queue: "Queue a follow-up for after this turn",
   answer: "Or answer in your own words",
 };
 
 export const placeholderFor = (mode: ComposerMode): string =>
-  mode.kind === "blocked" ? mode.reason : PLACEHOLDERS[mode.kind];
+  mode.kind === "blocked"
+    ? mode.reason
+    : PLACEHOLDERS[mode.kind].replace("{submit}", shortcutLabel(FIELD_CHORDS.submit));
 
 /** ⌘↵ queues a follow-up while a Turn runs (and ↵ does when it can't be steered). */
 export const canQueue = (mode: ComposerMode) => mode.kind === "steer" || mode.kind === "queue";

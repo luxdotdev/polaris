@@ -3,6 +3,7 @@
  * decoded input and returning a structured-clone-friendly output. Blobs the
  * Daemon sends (file contents, diffs) are taken here and cross IPC as bytes.
  */
+import { clientCopy } from "../../shared/clientCopy.ts";
 import type { HostConnection, LiveSession } from "@polaris/client";
 import { FileContent, FileVersion } from "@polaris/protocol";
 import { Effect, flow, Match, Schema } from "effect";
@@ -64,6 +65,8 @@ export interface RequestContext {
   readonly writeClipboard: (text: string) => Promise<void>;
   /** Cut, Copy, Paste or Select All in the focused window, as its Edit menu would. */
   readonly editAction: (action: "cut" | "copy" | "paste" | "selectAll") => void;
+  /** Windows: the app menu under the title bar's lockup. */
+  readonly showAppMenu: () => void;
   /** The renderer's Needs You summary, for the menu bar star, Dock badge and notifications. */
   readonly needsYou: (summary: NeedsYouSummary) => void;
 }
@@ -164,7 +167,10 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
   "shell.revealInFinder": ({ hostKey, path }) =>
     hostKey === LOCAL_HOST_KEY
       ? Effect.sync(() => ctx.revealInFinder(path)).pipe(done)
-      : Effect.fail<IpcError>({ code: "NotLocal", message: "Reveal in Finder is for this Mac" }),
+      : Effect.fail<IpcError>({
+          code: "NotLocal",
+          message: `${clientCopy().reveal} is for ${clientCopy().machine}`,
+        }),
   "host.retryNow": ({ hostKey }) => onHost(hostKey, (c) => c.retryNow).pipe(done),
   dispatch: ({ hostKey, commandId, command }) =>
     onLive(hostKey, (s) => s.client.dispatch({ commandId, command })),
@@ -354,6 +360,7 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
   "machines.openSsh": ({ hostKey }) => machines((m) => m.openSsh(hostKey)).pipe(done),
   "clipboard.write": ({ text }) => Effect.promise(() => ctx.writeClipboard(text)).pipe(done),
   "edit.run": ({ action }) => Effect.sync(() => ctx.editAction(action)).pipe(done),
+  "app.menu": () => Effect.sync(ctx.showAppMenu).pipe(done),
   "onboarding.found": () =>
     Effect.sync(() => ({ sshHosts: ctx.sshHosts(), version: ctx.appVersion })),
   "onboarding.welcomeSeen": () => Effect.sync(ctx.setWelcomeSeen).pipe(done),

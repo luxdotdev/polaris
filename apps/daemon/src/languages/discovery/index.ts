@@ -20,6 +20,7 @@ import { detectPython, type PythonProbeOptions } from "../python/detection.ts";
 import { interpreterEntry, type createPythonEnvironment } from "../python/environment.ts";
 import { configurationFingerprint } from "./configuration.ts";
 import { workspaceTools } from "../php/projectTools.ts";
+import { rustLuaFacts } from "../rust/facts.ts";
 
 export { effectiveSettings, configurationFingerprint } from "./configuration.ts";
 
@@ -131,7 +132,7 @@ async function supportedShell(provider: string, path: string) {
 }
 
 /** Which bundled servers run: none once the user names a custom server or executable. */
-const managed = (plain: boolean, provider: string) => ({
+const managedFacts = (plain: boolean, provider: string) => ({
   managedSqlShell: plain && ["sql", "bash"].includes(provider),
   managedWeb: plain,
   managedPython: plain && provider === "python",
@@ -209,9 +210,12 @@ async function discover(
     providerId: input.providerId,
     bundledTypeScript,
     workspaceTrusted: input.workspaceTrusted === true,
-    ...managed(plain, provider),
+    ...managedFacts(plain, provider),
     svelteConfiguration: await svelteConfiguration(context.root, start, provider),
     workspaceTools: await workspaceTools(context.root, root, provider),
+    ...(await rustLuaFacts(context.root, root, provider, input.workspaceTrusted === true, {
+      managed: plain,
+    })),
     configuration: provider === "typescript" ? configuration : null,
     ...(await sdkFacts(context.root, root, provider, settings.settings.sdk)),
     ...python,

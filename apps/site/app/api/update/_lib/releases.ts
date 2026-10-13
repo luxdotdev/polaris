@@ -38,10 +38,25 @@ export const publishedRelease = Function.flow(decodeRelease, validateRelease);
 
 export type PublishedRelease = ReturnType<typeof publishedRelease>;
 
+export type WindowsArch = "x64" | "arm64";
+
+export const windowsAssetName = (
+  version: string,
+  arch: WindowsArch,
+  kind: "setup" | "nupkg" | "releases"
+): string => {
+  if (kind === "nupkg") return `Polaris-${arch}-win-${version}-full.nupkg`;
+
+  return `Polaris-${version}-${arch}-win-${kind === "setup" ? "Setup.exe" : "RELEASES"}`;
+};
+
 export function releaseAsset(release: PublishedRelease, kind: "zip" | "dmg"): string {
   const suffix = kind === "zip" ? "arm64-mac.zip" : "arm64.dmg";
-  const name = `Polaris-${release.version.text}-${suffix}`;
 
+  return releaseAssetNamed(release, `Polaris-${release.version.text}-${suffix}`);
+}
+
+export function releaseAssetNamed(release: PublishedRelease, name: string): string {
   const matches = release.assets.filter(
     (asset) => asset.name === name && asset.state === "uploaded"
   );

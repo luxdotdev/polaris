@@ -11,6 +11,8 @@ import { slots } from "../../app/slots.tsx";
 import { useApp } from "../../shell/hooks.ts";
 import { call } from "./hooks.tsx";
 import { type CardAction, type CardButton, attentionCard, offerFacts } from "./model.ts";
+import { modKey, shortcutLabel } from "../../../shared/chord.ts";
+import { FIELD_CHORDS } from "../../../shared/keymap.ts";
 
 /** What an action needs beyond requests: where "Open in terminal" runs. */
 interface ActionContext {
@@ -56,7 +58,7 @@ const isTyping = (target: EventTarget | null) =>
 const useApproveShortcut = (approve: () => void) =>
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "Enter" || !event.metaKey || isTyping(event.target)) return;
+      if (event.key !== "Enter" || !modKey(event) || isTyping(event.target)) return;
       event.preventDefault();
       approve();
     };
@@ -84,7 +86,7 @@ export const Approval = ({ machine }: { readonly machine: MachineView }) => {
       <div className="gap-gap flex items-center">
         <Button onClick={approve}>
           Approve and install
-          <Kbd>⌘↵</Kbd>
+          <Kbd>{shortcutLabel(FIELD_CHORDS.submit)}</Kbd>
         </Button>
         <Button
           variant="ghost"

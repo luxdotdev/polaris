@@ -169,6 +169,47 @@ describe("detection", () => {
     }));
 });
 
+describe("Rust and Lua", () => {
+  test("the JS formatters never take a Rust or Lua file; StyLua takes only Lua", () =>
+    withFixture(async (f) => {
+      await f.put(".prettierrc", "{}");
+      await f.put("package.json", JSON.stringify({ devDependencies: { prettier: "3" } }));
+      const rust = await f.put("src/main.rs");
+      const lua = await f.put("scripts/init.lua");
+      const ts = await f.put("src/a.ts");
+
+      expect(await detectProjectFormatter(f.root, rust)).toBeNull();
+      expect(await detectProjectFormatter(f.root, lua)).toBeNull();
+
+      await f.put("stylua.toml", "indent_type = 'Spaces'");
+      expect(await detectProjectFormatter(f.root, lua)).toMatchObject({
+        tool: "stylua",
+        root: f.root,
+        config: join(f.root, "stylua.toml"),
+      });
+      expect(await detectProjectFormatter(f.root, rust)).toBeNull();
+      expect(await detectProjectFormatter(f.root, ts)).toMatchObject({ tool: "prettier" });
+    }));
+
+  test("StyLua gets the buffer on stdin with the file's path", () =>
+    withFixture(async (f) => {
+      await f.put(".stylua.toml", "");
+      await fakeBinary(f, "node_modules/.bin/stylua");
+
+      expect(
+        await formatWithProject(
+          await canonicalCheckout(f.registry, f.checkout),
+          input(f, join(f.root, "a.lua"), "local x = 1\n"),
+          new AbortController().signal,
+          shimNode
+        )
+      ).toEqual(formatted("LOCAL X = 1\n", "stylua"));
+      expect(await Bun.file(join(f.root, "args.txt")).text()).toBe(
+        `${f.root}\n--stdin-filepath\n${join(f.root, "a.lua")}\n-\n`
+      );
+    }));
+});
+
 describe("ignore matcher", () => {
   test("gitignore semantics: anchoring, directories, negation", () => {
     const ignored = ignoreMatcher("/build\ndist/\n**/*.snap\nfoo/bar.ts\n!dist/keep.ts\n");

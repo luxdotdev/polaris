@@ -2,7 +2,7 @@ import { open, realpath, stat } from "node:fs/promises";
 import { dirname, extname, join } from "node:path";
 import type { LanguageProjectFormatterTool } from "@polaris/protocol";
 import { currentLanguagePlatform } from "../composition/environment.ts";
-import { ancestors, formatterBinary } from "./detect.ts";
+import { ancestors, formatterBinary, hostFormatterBinary } from "./detect.ts";
 
 /** The argv to spawn, and the private Node it needs (first on the child's PATH), if any. */
 export type FormatterLaunch =
@@ -101,6 +101,9 @@ export async function formatterLaunch(
 
   if (native !== null) return { ok: true, argv: [native], node: null };
   const shim = await formatterBinary(checkoutRoot, formatterRoot, tool);
+  const host = shim === null ? await hostFormatterBinary(tool) : null;
+
+  if (host !== null) return { ok: true, argv: [host], node: null };
 
   if (shim === null)
     return { ok: false, message: `${tool} isn't installed in this checkout's node_modules` };

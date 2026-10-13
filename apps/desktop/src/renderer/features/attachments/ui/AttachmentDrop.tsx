@@ -6,6 +6,7 @@
 import { cn } from "@polaris/ui";
 import { type ClipboardEvent, type DragEvent, type ReactNode, useRef, useState } from "react";
 import { type DropMode, dropMode } from "../model.ts";
+import { modifierLabel } from "../../../../shared/chord.ts";
 
 export interface AttachmentDropProps {
   /** Unset when the Host can't stage attachments: drops then do nothing. */
@@ -81,7 +82,7 @@ export const AttachmentDrop = ({ onFiles, copyTo, className, children }: Attachm
           </span>
           {hint === "attach" && copyTo !== null ? (
             <span className="text-caption text-text-subtle">
-              Hold ⌥ to copy into the workspace instead
+              Hold {modifierLabel("Alt")} to copy into the workspace instead
             </span>
           ) : null}
         </div>

@@ -184,6 +184,8 @@ export const languageHostServices = (
                         "bash-language-server",
                         "sqllens-language-server",
                         "phpactor",
+                        "rust-analyzer",
+                        "lua-language-server",
                       ].includes(request.facts.providerId) &&
                       options.managed !== undefined
                     ) {

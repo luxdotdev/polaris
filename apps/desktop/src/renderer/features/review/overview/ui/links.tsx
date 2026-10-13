@@ -8,6 +8,7 @@ import { useStore } from "zustand";
 import { revealInDiff, surfaceOf, surfaceStore, updateSurface } from "../../surface.ts";
 import type { ReviewLink } from "../model/markdown.ts";
 import { useEditorPlace, useOpenInEditor } from "../../../editor-links/index.ts";
+import { modifierLabel } from "../../../../../shared/chord.ts";
 
 const TINT = {
   critical: "bg-[color-mix(in_oklab,var(--color-severity-critical)_12%,transparent)]",
@@ -77,7 +78,9 @@ export const PathLink = ({
       type="button"
       data-testid="walkthrough-path"
       title={
-        place === null ? `Open ${where} in Changes` : `Open ${where} in Changes · ⌘-click: editor`
+        place === null
+          ? `Open ${where} in Changes`
+          : `Open ${where} in Changes · ${modifierLabel("CmdOrCtrl")}-click: editor`
       }
       onClick={(event) => {
         if (place !== null && (event.metaKey || event.ctrlKey)) {

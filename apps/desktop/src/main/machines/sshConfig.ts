@@ -6,7 +6,28 @@
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { isAbsolute, join } from "node:path";
+import { isAbsolute, join, win32 } from "node:path";
+
+export interface SshConfigOptions {
+  readonly platform?: NodeJS.Platform | undefined;
+  readonly env?: NodeJS.ProcessEnv;
+}
+
+const configPath = (path: string, platform: NodeJS.Platform) =>
+  platform === "win32" ? path.replaceAll("\\", "/") : path;
+
+const configJoin = (platform: NodeJS.Platform, ...parts: ReadonlyArray<string>) =>
+  configPath(platform === "win32" ? win32.join(...parts) : join(...parts), platform);
+
+interface GlobFiles {
+  readonly list: (path: string) => ReadonlyArray<string>;
+  readonly isFile: (path: string) => boolean;
+}
+
+const globFiles: GlobFiles = {
+  list: (path) => readdirSync(path),
+  isFile: (path) => existsSync(path) && statSync(path).isFile(),
+};
 
 export interface SshAlias {
   readonly alias: string;
@@ -52,32 +73,39 @@ const globToRegExp = (segment: string) =>
   );
 
 /** Expands `*` and `?` in any path segment, in sorted order (as ssh's glob(3) does). */
-export const expandGlob = (path: string): Array<string> => {
-  const segments = path.split("/");
-  let found = [segments[0] === "" ? "/" : segments[0]!];
+export const expandGlob = (
+  path: string,
+  platform: NodeJS.Platform = process.platform,
+  files: GlobFiles = globFiles
+): Array<string> => {
+  const normalized = configPath(path, platform);
+  const root = platform === "win32" ? win32.parse(normalized).root : "";
+  const segments = normalized.slice(root.length).split("/");
+  let found = [root || (segments[0] === "" ? "/" : segments[0]!)];
 
-  for (const segment of segments.slice(1)) {
+  for (const segment of root ? segments : segments.slice(1)) {
     if (segment === "") continue;
 
     found = found.flatMap((dir) => {
-      if (!/[*?]/.test(segment)) return [join(dir, segment)];
+      if (!/[*?]/.test(segment)) return [configJoin(platform, dir, segment)];
       const pattern = globToRegExp(segment);
 
       try {
-        return readdirSync(dir)
+        return files
+          .list(dir)
           .filter((name) => pattern.test(name) && !name.startsWith("."))
           .toSorted()
-          .map((name) => join(dir, name));
+          .map((name) => configJoin(platform, dir, name));
       } catch {
         return [];
       }
     });
   }
 
-  return found.filter((file) => existsSync(file) && statSync(file).isFile());
+  return found.filter(files.isFile);
 };
 
-export interface ParseContext {
+export interface ParseContext extends SshConfigOptions {
   readonly home: string;
   /** Reads an included file; null if it can't be read. */
   readonly read: (path: string) => string | null;
@@ -90,10 +118,38 @@ interface Block {
   user: string | null;
 }
 
-const includePath = (arg: string, home: string) => {
-  const expanded = arg.startsWith("~/") ? join(home, arg.slice(2)) : arg;
+const includePath = (arg: string, ctx: ParseContext): string | null => {
+  const platform = ctx.platform ?? process.platform;
+  let missing = false;
 
-  return isAbsolute(expanded) ? expanded : join(home, ".ssh", expanded);
+  const argument =
+    platform === "win32"
+      ? arg.replace(
+          /%([^%]+)%|\$\{([^}]+)\}/g,
+          (_match, percent: string | undefined, brace: string | undefined) => {
+            const name = (percent ?? brace ?? "").toLowerCase();
+
+            const value = Object.entries(ctx.env ?? process.env).find(
+              ([key]) => key.toLowerCase() === name
+            )?.[1];
+
+            if (value === undefined) missing = true;
+
+            return value ?? "";
+          }
+        )
+      : arg;
+
+  if (missing) return null;
+  const normalized = configPath(argument, platform);
+
+  const expanded = normalized.startsWith("~/")
+    ? configJoin(platform, ctx.home, normalized.slice(2))
+    : normalized;
+
+  const absolute = platform === "win32" ? win32.isAbsolute(expanded) : isAbsolute(expanded);
+
+  return absolute ? expanded : configJoin(platform, ctx.home, ".ssh", expanded);
 };
 
 interface Walk {
@@ -107,7 +163,11 @@ const include = (walk: Walk, patterns: ReadonlyArray<string>) => {
   if (walk.depth >= MAX_DEPTH) return;
 
   for (const pattern of patterns) {
-    for (const file of walk.ctx.expand(includePath(pattern, walk.ctx.home))) {
+    const path = includePath(pattern, walk.ctx);
+
+    if (path === null) continue;
+
+    for (const file of walk.ctx.expand(path)) {
       const included = walk.ctx.read(file);
 
       if (included !== null) collect(included, walk.ctx, walk.depth + 1, walk.blocks);
@@ -175,10 +235,18 @@ const readOrNull = (path: string) => {
 };
 
 /** The aliases in `<home>/.ssh/config`; none if it doesn't exist. */
-export const readSshAliases = (home: string = homedir()): ReadonlyArray<SshAlias> => {
+export const readSshAliases = (
+  home: string = homedir(),
+  options: SshConfigOptions = {}
+): ReadonlyArray<SshAlias> => {
   const text = readOrNull(join(home, ".ssh", "config"));
 
   if (text === null) return [];
 
-  return parseSshConfig(text, { home, read: readOrNull, expand: expandGlob });
+  return parseSshConfig(text, {
+    ...options,
+    home,
+    read: readOrNull,
+    expand: (path) => expandGlob(path, options.platform),
+  });
 };

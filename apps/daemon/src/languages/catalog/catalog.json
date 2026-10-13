@@ -903,9 +903,9 @@
           ],
           "entry": "rust-analyzer",
           "bundle": null,
-          "audit": "pending",
-          "auditReason": "Compiler runtime/vendor closure and musl loader prerequisite packaging need exact scoped resolution.",
-          "auditRoot": "sha256:a51bc9ed1d88969596b3c5bbbba960ed782c71011c37bd8011cc6fd017d54d59"
+          "audit": "verified",
+          "auditReason": "Runtime upstream download: MIT and Apache-2.0 license texts retained (ADR-0022).",
+          "auditRoot": "sha256:e49bf679fb58dad693fc40fd812baf9227c6b4626aab0a7f9f9188a15b8dda34"
         },
         {
           "id": "rust-analyzer-aarch64-unknown-linux-gnu.gz",
@@ -921,9 +921,9 @@
           ],
           "entry": "rust-analyzer",
           "bundle": null,
-          "audit": "pending",
-          "auditReason": "Compiler runtime/vendor closure and musl loader prerequisite packaging need exact scoped resolution.",
-          "auditRoot": "sha256:1d4bffb39dd7e521ba55f9b546b2769720abe54bd8ed67873b3b03e0645bc636"
+          "audit": "verified",
+          "auditReason": "Runtime upstream download: MIT and Apache-2.0 license texts retained (ADR-0022).",
+          "auditRoot": "sha256:5b27d5d3821d9b38731099be917bfe1c758ad82ed29618afd8556298aecd0bca"
         },
         {
           "id": "rust-analyzer-x86_64-apple-darwin.gz",
@@ -939,9 +939,9 @@
           ],
           "entry": "rust-analyzer",
           "bundle": null,
-          "audit": "pending",
-          "auditReason": "Compiler runtime/vendor closure and musl loader prerequisite packaging need exact scoped resolution.",
-          "auditRoot": "sha256:e5b3b8973389876cc7c66bd14a3b2bdd07b24e1a15ea242361606349d9156179"
+          "audit": "verified",
+          "auditReason": "Runtime upstream download: MIT and Apache-2.0 license texts retained (ADR-0022).",
+          "auditRoot": "sha256:7f9f6b7d3e900ec7c81a8c58edd06fa1bff511dc086f02bd7b1bf4a859d1b5cb"
         },
         {
           "id": "rust-analyzer-x86_64-unknown-linux-gnu.gz",
@@ -957,9 +957,9 @@
           ],
           "entry": "rust-analyzer",
           "bundle": null,
-          "audit": "pending",
-          "auditReason": "Compiler runtime/vendor closure and musl loader prerequisite packaging need exact scoped resolution.",
-          "auditRoot": "sha256:a03368656c85d26bba5753145df03431ee550898f22612f5fd84c116c8cfe462"
+          "audit": "verified",
+          "auditReason": "Runtime upstream download: MIT and Apache-2.0 license texts retained (ADR-0022).",
+          "auditRoot": "sha256:126bc2a58e8fb805f849bf271e54ce8db62bfe2fe095d0e2a61c49a16454c605"
         },
         {
           "id": "rust-analyzer-x86_64-unknown-linux-musl.gz",
@@ -975,9 +975,9 @@
           ],
           "entry": "rust-analyzer",
           "bundle": null,
-          "audit": "pending",
-          "auditReason": "Compiler runtime/vendor closure and musl loader prerequisite packaging need exact scoped resolution.",
-          "auditRoot": "sha256:54763e93656fff109b2114cbef8039c9df4028cb8ddded9dc1d36b68dfa9a8ab"
+          "audit": "verified",
+          "auditReason": "Runtime upstream download: MIT and Apache-2.0 license texts retained (ADR-0022).",
+          "auditRoot": "sha256:f019410817a500e0fd926c7d0407b3e2d9595ba348bf5b191acd036cf9c2bf74"
         }
       ],
       "requirements": [
@@ -986,7 +986,7 @@
           "scope": "project",
           "executable": "cargo",
           "version": "present",
-          "detail": "Project-owned Rust toolchain",
+          "detail": "The Rust toolchain (cargo and rustc, via rustup)",
           "required": true,
           "installCommands": [
             {
@@ -1022,8 +1022,8 @@
                   "libc": "musl"
                 }
               ],
-              "label": "rustup (already installed)",
-              "command": "rustup toolchain install stable --component rust-src --component rustfmt"
+              "label": "rustup",
+              "command": "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --component rust-src"
             }
           ]
         },
@@ -1032,53 +1032,7 @@
           "scope": "project",
           "executable": "rust-src",
           "version": "present",
-          "detail": "Project standard-library source component",
-          "required": true,
-          "installCommands": [
-            {
-              "platforms": [
-                {
-                  "os": "darwin",
-                  "arch": "arm64",
-                  "libc": "none"
-                },
-                {
-                  "os": "darwin",
-                  "arch": "x64",
-                  "libc": "none"
-                },
-                {
-                  "os": "linux",
-                  "arch": "arm64",
-                  "libc": "glibc"
-                },
-                {
-                  "os": "linux",
-                  "arch": "arm64",
-                  "libc": "musl"
-                },
-                {
-                  "os": "linux",
-                  "arch": "x64",
-                  "libc": "glibc"
-                },
-                {
-                  "os": "linux",
-                  "arch": "x64",
-                  "libc": "musl"
-                }
-              ],
-              "label": "rustup (already installed)",
-              "command": "rustup component add rust-src"
-            }
-          ]
-        },
-        {
-          "id": "rustfmt",
-          "scope": "formatter",
-          "executable": "rustfmt",
-          "version": "present",
-          "detail": "Developer toolchain component; only required for selected formatting",
+          "detail": "The standard library's source, for completion and hover on std",
           "required": false,
           "installCommands": [
             {
@@ -1114,7 +1068,53 @@
                   "libc": "musl"
                 }
               ],
-              "label": "rustup (already installed)",
+              "label": "rustup",
+              "command": "rustup component add rust-src"
+            }
+          ]
+        },
+        {
+          "id": "rustfmt",
+          "scope": "formatter",
+          "executable": "rustfmt",
+          "version": "present",
+          "detail": "rustfmt, for formatting",
+          "required": false,
+          "installCommands": [
+            {
+              "platforms": [
+                {
+                  "os": "darwin",
+                  "arch": "arm64",
+                  "libc": "none"
+                },
+                {
+                  "os": "darwin",
+                  "arch": "x64",
+                  "libc": "none"
+                },
+                {
+                  "os": "linux",
+                  "arch": "arm64",
+                  "libc": "glibc"
+                },
+                {
+                  "os": "linux",
+                  "arch": "arm64",
+                  "libc": "musl"
+                },
+                {
+                  "os": "linux",
+                  "arch": "x64",
+                  "libc": "glibc"
+                },
+                {
+                  "os": "linux",
+                  "arch": "x64",
+                  "libc": "musl"
+                }
+              ],
+              "label": "rustup",
               "command": "rustup component add rustfmt"
             }
           ]
@@ -1122,7 +1122,8 @@
       ],
       "argv": [],
       "environment": {},
-      "limitations": []
+      "limitations": ["The Rust toolchain is a detected prerequisite, never installed by Polaris."],
+      "distribution": "runtime-upstream"
     },
     {
       "id": "lua-language-server",
@@ -1145,17 +1146,9 @@
           ],
           "entry": "bin/lua-language-server",
           "bundle": null,
-          "audit": "pending",
-          "auditReason": "Exact source/legal evidence for retained vendor code and published Linux static compiler/runtime closure remains unverified; Lua runtime legal comments are retained and do not certify which other libraries were embedded.",
-          "auditRoot": "sha256:31cd05c4e7cff9adcb39ff491c83b4f8829639cc18aa1d3150cfff02e4f2db87",
-          "packaging": {
-            "filter": "lua-core-v1",
-            "sourceIntegrity": "sha256:0bc077f4447f076b4c92c14e9fd303f5b569eda2ec74b4dca2b55f75fae2e90c",
-            "manifest": "packaging/lua-language-server-3.19.1-darwin-arm64.tar.gz.json",
-            "manifestIntegrity": "sha256:e206e08487e2d4e9efe1852e986d31dbe8aa1ccfffd353ad9ba56d7b982d4bee",
-            "postFilterIntegrity": "sha256:d6f3b657e3656ae7f6f34d39f9d68198801e75086589696895b9a4e0b9b0db9a",
-            "disableThirdPartyDiscovery": true
-          }
+          "audit": "verified",
+          "auditReason": "Runtime upstream download: MIT license retained (ADR-0022).",
+          "auditRoot": "sha256:99f6055e41b7a4f0f4c7ca1a98f35506918eb3d287264f6ba24d409c42c1692d"
         },
         {
           "id": "lua-language-server-3.19.1-darwin-x64.tar.gz",
@@ -1171,17 +1164,9 @@
           ],
           "entry": "bin/lua-language-server",
           "bundle": null,
-          "audit": "pending",
-          "auditReason": "Exact source/legal evidence for retained vendor code and published Linux static compiler/runtime closure remains unverified; Lua runtime legal comments are retained and do not certify which other libraries were embedded.",
-          "auditRoot": "sha256:4f8dc617f4ef093bf3f6bc9d3c1e64044db77d2ff1acb1b250b2da9d0a720cf0",
-          "packaging": {
-            "filter": "lua-core-v1",
-            "sourceIntegrity": "sha256:eb373c159cbe556711d7cd316315de2dce969bfd54b31edb7eb9cab2937f2cca",
-            "manifest": "packaging/lua-language-server-3.19.1-darwin-x64.tar.gz.json",
-            "manifestIntegrity": "sha256:1016d418b333f34cf919dc9dcf6995cbae1bd4200d44e41a5ed709fe8cbea3bb",
-            "postFilterIntegrity": "sha256:82eaac806c00b27de63c76b9eeb93ffea290dead3f6692001afeb5c5374e9f5d",
-            "disableThirdPartyDiscovery": true
-          }
+          "audit": "verified",
+          "auditReason": "Runtime upstream download: MIT license retained (ADR-0022).",
+          "auditRoot": "sha256:de3ec3ea0a9f540aeb410bbd2eb873d7198a25b79f40f0ddb95519fe6dd3dac1"
         },
         {
           "id": "lua-language-server-3.19.1-linux-arm64.tar.gz",
@@ -1197,17 +1182,9 @@
           ],
           "entry": "bin/lua-language-server",
           "bundle": null,
-          "audit": "pending",
-          "auditReason": "Exact source/legal evidence for retained vendor code and published Linux static compiler/runtime closure remains unverified; Lua runtime legal comments are retained and do not certify which other libraries were embedded.",
-          "auditRoot": "sha256:d47c4c961a5205232ef6cfd20d9d874913e55300d8f6befb7b1c96e604edd6b7",
-          "packaging": {
-            "filter": "lua-core-v1",
-            "sourceIntegrity": "sha256:abd2572e8fc929dc838a81ffb8473c5bce0bf39bfe8edb4b120b3b623176ce83",
-            "manifest": "packaging/lua-language-server-3.19.1-linux-arm64.tar.gz.json",
-            "manifestIntegrity": "sha256:d0b071cf5e3bddffbb3ad54524f65713ae819177e9c5b0c391894fa4389ba11b",
-            "postFilterIntegrity": "sha256:9ef25a5803aa58332a9adb11db429edcb71e6ab6ee434944732d00a6cdde1b03",
-            "disableThirdPartyDiscovery": true
-          }
+          "audit": "verified",
+          "auditReason": "Runtime upstream download: MIT license retained (ADR-0022).",
+          "auditRoot": "sha256:98b80a78054220f4e46eb8ebf2ab4fd7b316ef4af0ad5e3b6cf18d238773e1c3"
         },
         {
           "id": "lua-language-server-3.19.1-linux-x64.tar.gz",
@@ -1223,33 +1200,16 @@
           ],
           "entry": "bin/lua-language-server",
           "bundle": null,
-          "audit": "pending",
-          "auditReason": "Exact source/legal evidence for retained vendor code and published Linux static compiler/runtime closure remains unverified; Lua runtime legal comments are retained and do not certify which other libraries were embedded.",
-          "auditRoot": "sha256:c04dd51c26f8288cbf18b56d93dba6691eadd963c619990a6535c8efa55a4e07",
-          "packaging": {
-            "filter": "lua-core-v1",
-            "sourceIntegrity": "sha256:e9235d2d72ef55bc41cf8c99cda2ed64777682024b4bb81f5dea425060c5cbb8",
-            "manifest": "packaging/lua-language-server-3.19.1-linux-x64.tar.gz.json",
-            "manifestIntegrity": "sha256:b12596f471f3bf5a819b7e25f27015430d18900adbd4103bb77e1fa091d2f923",
-            "postFilterIntegrity": "sha256:6359c351eb22125e874344258c1b17d7327d09802cec1b40cdffc9703aab7a44",
-            "disableThirdPartyDiscovery": true
-          }
+          "audit": "verified",
+          "auditReason": "Runtime upstream download: MIT license retained (ADR-0022).",
+          "auditRoot": "sha256:f4b23023385d77c64ab2434701c05847d5edef1f6bd90a112351f1dd08ec6808"
         }
       ],
-      "requirements": [
-        {
-          "id": "configured-lua-formatter",
-          "scope": "formatter",
-          "executable": "configured-lua-formatter",
-          "version": "present",
-          "detail": "Explicit configured project formatter; required only when formatting selected",
-          "required": false,
-          "installCommands": []
-        }
-      ],
+      "requirements": [],
       "argv": [],
       "environment": {},
-      "limitations": []
+      "limitations": [],
+      "distribution": "runtime-upstream"
     },
     {
       "id": "shfmt",
@@ -2493,17 +2453,17 @@
         "tool": "rustfmt",
         "source": "developer",
         "mode": "lsp",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "detail": "rustfmt from the Rust toolchain, through rust-analyzer: the Host's default toolchain before Trust, the project's after."
       },
       "policy": {
         "trust": "workspace-before-execution",
         "network": "server-default",
-        "configuration": "Project configuration after trust; effective paths resolved by D1"
+        "configuration": "Before Trust: no cargo in the Workspace, no build scripts, proc-macros or check on save; local analysis of the crate's own sources. After Trust: cargo metadata, build scripts, proc-macros and check on save."
       },
       "limitations": [
-        "rustfmt is a developer toolchain component invoked by rust-analyzer. Build scripts/proc macros require trust."
+        "Before Trust, rust-analyzer does not resolve dependencies or expand proc-macros."
       ],
-      "offered": false
+      "offered": true
     },
     {
       "id": "lua",
@@ -2522,20 +2482,18 @@
       ],
       "companions": [],
       "formatter": {
-        "tool": "configured-lua-formatter",
-        "source": "configured",
-        "mode": "configured",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "tool": "lua-language-server",
+        "source": "managed",
+        "mode": "lsp",
+        "detail": "StyLua after Trust where the project configures it; otherwise the language server's formatter."
       },
       "policy": {
         "trust": "workspace-before-execution",
         "network": "server-default",
-        "configuration": "Project configuration after trust; effective paths resolved by D1"
+        "configuration": "Managed server without Trust; a .luarc plugin runs only after Trust."
       },
-      "limitations": [
-        "LuaLS supplies no assumed document formatting; select a developer-provided formatter. Lua libraries/runtime version are project settings."
-      ],
-      "offered": false
+      "limitations": [],
+      "offered": true
     },
     {
       "id": "sql",

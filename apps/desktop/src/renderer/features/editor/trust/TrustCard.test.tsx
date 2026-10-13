@@ -1,6 +1,6 @@
 import "../../../test/dom.testing.ts";
 import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import * as P from "@polaris/protocol";
 import { Schema } from "effect";
 import type { IpcError, LanguageApi } from "../../../../shared/api.ts";
@@ -9,6 +9,12 @@ import { providerName, trustCopy, trustFailure, type TrustStatus } from "./model
 import { hostInSentence } from "../../../shell/hostCopy.ts";
 import { trustChangedFiles, trustDiscovered, trustStore, useTrustAsk } from "./store.ts";
 import { TrustCard } from "./TrustCard.tsx";
+import { setClientPlatform } from "../../../../shared/platform.ts";
+
+// These tests read macOS labels ("⌘↵", "⌃Space").
+beforeAll(() => setClientPlatform("darwin"));
+
+afterAll(() => setClientPlatform(null));
 
 const HOST = "mac-studio";
 

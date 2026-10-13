@@ -11,6 +11,10 @@ export function trustStatus(
     facts.svelteConfiguration === null ? null : "Svelte config and preprocessors",
     facts.prisma?.config == null ? null : "Prisma config",
     ...facts.workspaceTools,
+    facts.providerId === "rust-analyzer" && facts.build.manifest
+      ? "Cargo build scripts, proc-macros and checks"
+      : null,
+    facts.luaPlugin == null ? null : "a .luarc plugin",
   ].filter((tool): tool is string => tool !== null);
 
   const project = facts.sdk !== null || facts.plugins.length > 0 || workspaceTools.length > 0;

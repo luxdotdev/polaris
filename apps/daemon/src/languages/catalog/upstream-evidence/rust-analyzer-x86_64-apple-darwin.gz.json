@@ -1,0 +1,21 @@
+{
+  "artifactId": "rust-analyzer-x86_64-apple-darwin.gz",
+  "artifactIntegrity": "sha256:d032c0eb75e4597cc8ffc35ea4cdbd9eecc8341936b6edac6749e679fc3f0682",
+  "coverage": "complete",
+  "notices": [
+    {
+      "path": "notices/62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a.txt",
+      "integrity": "sha256:62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+    },
+    {
+      "path": "notices/23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3.txt",
+      "integrity": "sha256:23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+    }
+  ],
+  "evidence": [
+    {
+      "path": "runtime-rust-lua-review-records.json",
+      "integrity": "sha256:636b2e51af3bb55fd26d231c47b443daa1d62ca012567fb40f54cb4fe9829c21"
+    }
+  ]
+}

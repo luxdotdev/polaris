@@ -14,6 +14,7 @@ import {
   timeText,
   visibleLines,
 } from "./logModel.ts";
+import { shortcutLabel } from "../../../../shared/chord.ts";
 
 export interface LogViewProps {
   readonly scope: LogScope;
@@ -195,7 +196,9 @@ export const LogView = ({ scope, server, detail }: LogViewProps) => {
             className="rounded-control border-hairline bg-surface-sunken text-caption text-text-default focus-visible:outline-starlight h-6 w-44 border px-2 font-mono focus-visible:outline-2"
           />
         ) : (
-          <ToolbarButton onClick={() => setFinding(true)}>Find ⌘F</ToolbarButton>
+          <ToolbarButton onClick={() => setFinding(true)}>
+            Find {shortcutLabel("CmdOrCtrl+F")}
+          </ToolbarButton>
         )}
         <ToolbarButton pressed={wrap} onClick={() => setWrap((value) => !value)}>
           Wrap

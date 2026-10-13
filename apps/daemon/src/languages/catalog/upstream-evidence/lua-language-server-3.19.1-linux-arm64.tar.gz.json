@@ -1,0 +1,17 @@
+{
+  "artifactId": "lua-language-server-3.19.1-linux-arm64.tar.gz",
+  "artifactIntegrity": "sha256:abd2572e8fc929dc838a81ffb8473c5bce0bf39bfe8edb4b120b3b623176ce83",
+  "coverage": "complete",
+  "notices": [
+    {
+      "path": "notices/a0a65ffcdc8620548598ce8ac5ce1a7ec36edf3034a5df2d6593e49fcececa64.txt",
+      "integrity": "sha256:a0a65ffcdc8620548598ce8ac5ce1a7ec36edf3034a5df2d6593e49fcececa64"
+    }
+  ],
+  "evidence": [
+    {
+      "path": "runtime-rust-lua-review-records.json",
+      "integrity": "sha256:636b2e51af3bb55fd26d231c47b443daa1d62ca012567fb40f54cb4fe9829c21"
+    }
+  ]
+}

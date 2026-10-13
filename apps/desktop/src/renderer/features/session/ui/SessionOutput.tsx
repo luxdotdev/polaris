@@ -29,7 +29,7 @@ import { plural } from "../model/format.ts";
 import { showTurnDiff, uiKey, useSessionUi } from "../state.ts";
 import { type DiffState, diffRevision, useTurnDiff } from "../turnDiff.ts";
 import { hideOutput } from "../output/actions.ts";
-import { SHOW_HINT } from "../output/OutputRail.tsx";
+import { showHint } from "../output/OutputRail.tsx";
 import { useFilesTick } from "../output/watch.ts";
 import type { SessionViewProps } from "./SessionIntent.tsx";
 import { EditorPlaceProvider, OpenInEditorButton } from "../../editor-links/index.ts";
@@ -330,7 +330,7 @@ export const SessionOutput = ({ hostKey, sessionId, tabs }: SessionOutputProps) 
             <IconButton
               size="sm"
               label="Hide output"
-              shortcut={SHOW_HINT}
+              shortcut={showHint()}
               icon={<ChevronRightIcon size={14} />}
               onClick={() => hideOutput({ hostKey, workspaceId: session.workspaceId }, sessionId)}
             />

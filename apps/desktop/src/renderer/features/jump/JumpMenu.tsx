@@ -32,6 +32,8 @@ import { jumpGroups, type ReviewSources } from "./groups.ts";
 import { fileItems, findingItems, pullItems } from "./reviewItems.ts";
 import { hostItems, type JumpItem, sessionItems, workspaceItems, worktreeItems } from "./items.ts";
 import { useRunJump } from "./run.ts";
+import { modKey, shortcutLabel } from "../../../shared/chord.ts";
+import { FIELD_CHORDS } from "../../../shared/keymap.ts";
 
 const Leading = ({ item }: { readonly item: JumpItem }) => {
   const { target } = item;
@@ -116,7 +118,7 @@ const Results = ({ onClose }: { readonly onClose: () => void }) => {
 
   // ⌘↵ opens the highlighted session in Review; cmdk marks the highlighted row.
   const onKeyDownCapture = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== "Enter" || !event.metaKey) return;
+    if (event.key !== "Enter" || !modKey(event)) return;
     const highlighted = event.currentTarget.querySelector<HTMLElement>('[data-selected="true"]');
     const item = byId.get(highlighted?.dataset.jumpId ?? "");
 
@@ -159,7 +161,7 @@ const Results = ({ onClose }: { readonly onClose: () => void }) => {
       <CommandFooter>
         <span>↑↓ Move</span>
         <span>↵ Open</span>
-        <span>⌘↵ Open in Review</span>
+        <span>{shortcutLabel(FIELD_CHORDS.submit)} Open in Review</span>
         <span className="flex-1" />
         <span>esc</span>
       </CommandFooter>

@@ -15,6 +15,10 @@ import {
   PHPACTOR_ITEMS,
   PYRIGHT_DUMPS_RESOLVED,
   PYRIGHT_ITEMS,
+  LUA_BYTE_ITEM,
+  LUA_BYTE_RESOLVED,
+  RUST_PUSH_ITEM,
+  RUST_PUSH_RESOLVED,
   TS_APPEND_RESOLVED,
   TS_ITEMS,
   TS_SIGNATURE,
@@ -59,7 +63,15 @@ describe("completion payloads from real servers", () => {
   test("every captured list decodes, and no row carries a long detail", () => {
     expect(decodePayload(CompletionResult, PHPACTOR_ITEMS)).toMatchObject({ isIncomplete: true });
 
-    for (const items of [CSS_ITEMS, TS_ITEMS, PYRIGHT_ITEMS, GOPLS_ITEMS, PHPACTOR_ITEMS.items]) {
+    for (const items of [
+      CSS_ITEMS,
+      TS_ITEMS,
+      PYRIGHT_ITEMS,
+      GOPLS_ITEMS,
+      PHPACTOR_ITEMS.items,
+      [RUST_PUSH_ITEM],
+      [LUA_BYTE_ITEM],
+    ]) {
       const decoded = decodePayload(CompletionResult, items);
 
       expect(decoded).toBeArray();
@@ -201,6 +213,32 @@ describe("completion info", () => {
     expect(container.querySelector("[data-docs-footnote]")).toBeNull();
     expect(container.firstElementChild?.className).toContain("w-[360px]");
     expect(container.firstElementChild?.className).toContain("max-h-80");
+  });
+});
+
+describe("Rust and Lua completion docs", () => {
+  test("rust-analyzer's resolved push: the detail as code, its doc comment, its example fence", async () => {
+    expect(completionDocs(item(RUST_PUSH_ITEM), "rs")).toEqual([]);
+
+    const parts = completionDocs(item(RUST_PUSH_RESOLVED), "rs");
+
+    expect(parts.length).toBeGreaterThan(0);
+
+    const { container } = panel(parts);
+
+    await waitFor(() => expect(container.querySelector("pre")).not.toBeNull());
+    expect(container.textContent).toContain("Appends an element to the back of a collection.");
+    expect(container.textContent).toContain("vec.push(3);");
+  });
+
+  test("lua-language-server's resolved string.byte keeps its own signature fence", async () => {
+    expect(completionDocs(item(LUA_BYTE_ITEM), "lua")).toEqual([]);
+
+    const parts = completionDocs(item(LUA_BYTE_RESOLVED), "lua");
+    const { container } = panel(parts);
+
+    await waitFor(() => expect(container.querySelector("pre")).not.toBeNull());
+    expect(container.querySelector("pre")?.textContent).toStartWith("function string.byte(");
   });
 });
 

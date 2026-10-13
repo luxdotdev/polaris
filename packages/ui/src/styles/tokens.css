@@ -113,9 +113,12 @@
   --color-syntax-comment: light-dark(#a4a6ac, #6e7280);
   --color-syntax-punctuation: light-dark(#74767d, #9a9ca4);
 
-  /* Type: SF Pro and SF Mono are the system faces on macOS; Geist Pixel is the wordmark only. */
-  --font-sans: system-ui, -apple-system, "SF Pro Text", "SF Pro", "Helvetica Neue", sans-serif;
-  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+  /* Type: SF Pro and SF Mono on macOS, Segoe UI and Cascadia Mono on Windows; Geist Pixel is
+     the wordmark only. */
+  --font-sans:
+    system-ui, -apple-system, "SF Pro Text", "SF Pro", "Helvetica Neue", "Segoe UI Variable Text",
+    "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, "Cascadia Mono", Consolas, monospace;
   --font-pixel: "Geist Pixel", ui-monospace, monospace;
   --font-weight-regular: 400;
   --font-weight-medium: 500;

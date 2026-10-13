@@ -338,7 +338,7 @@ export const mountConstellationPreview = (root: HTMLElement, hash: string) => {
   navigation.actions.selectSession({ hostKey: LOCAL, sessionId: LEAD });
   showOutput({ hostKey: LOCAL, workspaceId: WORKSPACE }, LEAD);
 
-  const commands = createCommandRegistry({ mac: true });
+  const commands = createCommandRegistry({ platform: "mac" });
 
   createRoot(root).render(<App value={{ connection, navigation, commands }} />);
 

@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
   ApprovalRequest,
   AttachmentId,
@@ -21,6 +21,12 @@ import {
   submitCommand,
 } from "./intent.ts";
 import { Commands, Decisions } from "../../../commands.ts";
+import { setClientPlatform } from "../../../../shared/platform.ts";
+
+// These tests read macOS labels ("⌘↵", "⌃Space").
+beforeAll(() => setClientPlatform("darwin"));
+
+afterAll(() => setClientPlatform(null));
 
 const sessionId = SessionId.make("s1");
 

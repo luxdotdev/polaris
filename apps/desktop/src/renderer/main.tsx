@@ -36,7 +36,7 @@ const navigation = createNavigation({
   ensureWorkspace: onboarding.workspaceFor,
 });
 
-const commands = createCommandRegistry({ mac: /Mac/.test(navigator.userAgent) });
+const commands = createCommandRegistry();
 
 commands.register(settingsCommands(navigation.actions));
 

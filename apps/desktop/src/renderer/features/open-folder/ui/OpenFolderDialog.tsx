@@ -15,6 +15,8 @@ import {
 } from "@polaris/ui";
 import { type KeyboardEvent, useEffect, useState } from "react";
 import type { HostView } from "../../../../shared/api.ts";
+import { modKey, shortcutLabel } from "../../../../shared/chord.ts";
+import { FIELD_CHORDS } from "../../../../shared/keymap.ts";
 import { hostSentence } from "../../../shell/hostCopy.ts";
 import { useNav, useShellActions } from "../../../shell/hooks.ts";
 import { browsable, enter, START, up } from "../model.ts";
@@ -61,17 +63,17 @@ const Browser = ({ host, hosts, onHost, onHighlight }: BrowserProps) => {
     if (next !== undefined) onHost(next.key);
   };
 
-  // ⌃⇥ changes Host, ⌘↑ goes up, ⌘↵ opens the highlighted folder, ⇥ steps into it.
+  // Ctrl+Tab changes Host, mod+Up goes up, mod+Enter opens the highlighted folder, Tab steps into it.
   const actionFor = (event: KeyboardEvent<HTMLDivElement>): (() => void) | null => {
     if (event.key === "Tab" && event.ctrlKey) return () => cycleHost(event.shiftKey ? -1 : 1);
 
-    if (event.key === "ArrowUp" && event.metaKey) return () => setTyped(up(typed, homeDir));
+    if (event.key === "ArrowUp" && modKey(event)) return () => setTyped(up(typed, homeDir));
 
     const target = byId.get(highlighted(event.currentTarget) ?? "");
 
     if (target === undefined) return null;
 
-    if (event.key === "Enter" && event.metaKey) return () => run(target, true);
+    if (event.key === "Enter" && modKey(event)) return () => run(target, true);
 
     const steps = event.key === "Tab" && !event.shiftKey && target.kind === "folder";
 
@@ -127,12 +129,12 @@ const Browser = ({ host, hosts, onHost, onHighlight }: BrowserProps) => {
         </p>
       )}
       <CommandFooter>
-        <span>↵ Enter folder</span>
-        <span>⌘↵ Open</span>
-        <span>⌘↑ Up</span>
-        {hosts.length > 1 ? <span>⌃⇥ Host</span> : null}
+        <span>{shortcutLabel("Enter")} Enter folder</span>
+        <span>{shortcutLabel(FIELD_CHORDS.submit)} Open</span>
+        <span>{shortcutLabel(FIELD_CHORDS.folderUp)} Up</span>
+        {hosts.length > 1 ? <span>{shortcutLabel(FIELD_CHORDS.nextHost)} Host</span> : null}
         <span className="flex-1" />
-        <span>esc</span>
+        <span>{shortcutLabel("Esc")}</span>
       </CommandFooter>
     </div>
   );
@@ -146,9 +148,9 @@ const Unavailable = ({ host, hosts, onHost }: BrowserProps) => (
       {hostSentence(host, undefined)}
     </p>
     <CommandFooter>
-      {hosts.length > 1 ? <span>⌃⇥ Host</span> : null}
+      {hosts.length > 1 ? <span>{shortcutLabel(FIELD_CHORDS.nextHost)} Host</span> : null}
       <span className="flex-1" />
-      <span>esc</span>
+      <span>{shortcutLabel("Esc")}</span>
     </CommandFooter>
   </div>
 );

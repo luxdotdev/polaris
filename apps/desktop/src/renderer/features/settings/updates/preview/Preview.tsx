@@ -109,7 +109,7 @@ export const mountUpdatesPreview = (root: HTMLElement, hash: string) => {
   updatesStore.setState({ view: null, problem: null });
   connectUpdates(api);
   navigation.actions.openSettings("about");
-  const commands = createCommandRegistry({ mac: true });
+  const commands = createCommandRegistry({ platform: "mac" });
   commands.register(settingsCommands(navigation.actions));
   createRoot(root).render(<App value={{ connection, navigation, commands }} />);
 

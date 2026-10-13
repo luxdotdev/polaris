@@ -4,8 +4,17 @@
  * window's keyboard handler. ⌘/ stays the editor's: it toggles a comment.
  */
 import type { KeyBinding as CmBinding } from "@codemirror/view";
-import { type Chord, chordKey, formatChord, isBare, parseChord } from "../../../../shared/chord.ts";
-import { KEYMAP } from "../../../../shared/keymap.ts";
+import {
+  type Chord,
+  chordKey,
+  currentKeyPlatform,
+  formatChord,
+  isBare,
+  type KeyPlatform,
+  parseChord,
+  platformChordKey,
+} from "../../../../shared/chord.ts";
+import { digitModifiersFor, keymapFor } from "../../../../shared/keymap.ts";
 
 /** Chords the editor keeps although the shell binds them too. */
 const EDITOR_OWNS = new Set(["Mod+Slash"]);
@@ -40,7 +49,8 @@ const codeOfCmKey = (key: string): string => {
 };
 
 /** A CodeMirror key name ("Mod-Alt-ArrowUp") as a chord. */
-const cmChordOf = (name: string, mac: boolean): Chord => {
+const cmChordOf = (name: string, platform: KeyPlatform): Chord => {
+  const mac = platform === "mac";
   // "Mod--" ends in the minus key itself.
   const parts = name.endsWith("--") ? [...name.slice(0, -2).split("-"), "-"] : name.split("-");
   const key = parts.pop() ?? "";
@@ -52,44 +62,48 @@ const cmChordOf = (name: string, mac: boolean): Chord => {
 };
 
 /** A CodeMirror key name as the shell's canonical chord. */
-export const cmChord = (name: string, mac: boolean): string => chordKey(cmChordOf(name, mac));
+export const cmChord = (name: string, platform: KeyPlatform): string =>
+  chordKey(cmChordOf(name, platform));
 
-/** A CodeMirror key name as the app shows chords ("⌃Space", "⇧F12"), in macOS glyphs. */
-export const cmShortcut = (name: string): string => formatChord(cmChordOf(name, true));
+/** A CodeMirror key name as the app shows chords ("⌃Space", "Shift+F12"). */
+export const cmShortcut = (name: string, platform: KeyPlatform = currentKeyPlatform()): string =>
+  formatChord(cmChordOf(name, platform), platform);
 
-const digitChords = ["Ctrl", "Alt"].flatMap((m) =>
-  ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"].map((d) => `${m}+Digit${d}`)
-);
+const DIGITS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
 
 /** Every chord the shell (or a sibling feature) owns, minus the editor's own. */
-export const shellChords = (): ReadonlySet<string> => {
-  const keys = [...KEYMAP.flatMap((b) => b.keys), ...RESERVED_ALWAYS];
+export const shellChords = (platform: KeyPlatform = currentKeyPlatform()): ReadonlySet<string> => {
+  const digits = digitModifiersFor(platform).flatMap((m) => DIGITS.map((d) => `${m}+${d}`));
+
+  const keys = [...keymapFor(platform).flatMap((b) => b.keys), ...RESERVED_ALWAYS, ...digits];
 
   const chords = keys.flatMap((key) => {
     const chord = parseChord(key);
 
-    return isBare(chord) ? [] : [chordKey(chord)];
+    return isBare(chord) ? [] : [platformChordKey(chord, platform)];
   });
 
-  return new Set([...chords, ...digitChords].filter((c) => !EDITOR_OWNS.has(c)));
+  return new Set(chords.filter((c) => !EDITOR_OWNS.has(c)));
 };
 
-const bindingKeys = (binding: CmBinding, mac: boolean) =>
-  [mac ? (binding.mac ?? binding.key) : binding.key].filter((k): k is string => k !== undefined);
+const bindingKeys = (binding: CmBinding, platform: KeyPlatform) =>
+  [platform === "mac" ? (binding.mac ?? binding.key) : binding.key].filter(
+    (k): k is string => k !== undefined
+  );
 
 /** The bindings with every shell chord taken out. */
 export const shellSafe = (
   bindings: ReadonlyArray<CmBinding>,
-  mac: boolean,
-  reserved: ReadonlySet<string> = shellChords()
+  platform: KeyPlatform,
+  reserved: ReadonlySet<string> = shellChords(platform)
 ): ReadonlyArray<CmBinding> =>
-  bindings.filter((b) => !bindingKeys(b, mac).some((k) => reserved.has(cmChord(k, mac))));
+  bindings.filter((b) => !bindingKeys(b, platform).some((k) => reserved.has(cmChord(k, platform))));
 
 /** A key event as the shell's canonical chord. */
-export const eventChord = (event: KeyboardEvent, mac: boolean): string =>
+export const eventChord = (event: KeyboardEvent, platform: KeyPlatform): string =>
   chordKey({
-    mod: mac ? event.metaKey : event.ctrlKey,
-    ctrl: mac && event.ctrlKey,
+    mod: platform === "mac" ? event.metaKey : event.ctrlKey,
+    ctrl: platform === "mac" && event.ctrlKey,
     alt: event.altKey,
     shift: event.shiftKey,
     code: event.code,
@@ -109,11 +123,14 @@ const pick = (e: KeyboardEvent): KeyboardEventInit => ({
  * Vim swallows keys before CodeMirror's keymaps, so shell chords are caught on
  * the way down and sent to the window's keyboard handler instead.
  */
-export const forwardShellChords = (root: HTMLElement, mac: boolean): (() => void) => {
-  const reserved = shellChords();
+export const forwardShellChords = (
+  root: HTMLElement,
+  platform: KeyPlatform = currentKeyPlatform()
+): (() => void) => {
+  const reserved = shellChords(platform);
 
   const capture = (event: KeyboardEvent) => {
-    if (event.isComposing || !reserved.has(eventChord(event, mac))) return;
+    if (event.isComposing || !reserved.has(eventChord(event, platform))) return;
     event.stopPropagation();
 
     const forwarded = new KeyboardEvent("keydown", {

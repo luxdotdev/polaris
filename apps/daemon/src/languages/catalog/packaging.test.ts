@@ -41,6 +41,7 @@ const original = catalog.tools.find((tool) => tool.id === "lua-language-server")
 
 const artifact = Artifact.make({
   ...original,
+  audit: "pending",
   integrity: hash(sourceBytes),
   packaging: {
     filter: "lua-core-v1",

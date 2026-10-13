@@ -17,6 +17,8 @@ export const managedProviderIds: readonly string[] = [
   "bash-language-server",
   "sqllens-language-server",
   "phpactor",
+  "rust-analyzer",
+  "lua-language-server",
 ];
 
 const managedProviders = new Set(managedProviderIds);

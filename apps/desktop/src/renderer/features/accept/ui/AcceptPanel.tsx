@@ -9,6 +9,8 @@ import type { AcceptBranchChoice } from "../../../../shared/acceptBranch.ts";
 import { type AcceptEnd, branchCaption, SUBMIT_LABELS, turnsLabel } from "../model/action.ts";
 import { STEP_LABELS } from "../model/flow.ts";
 import type { AcceptPanelState, Fields, Plain, AcceptPlan } from "./useAcceptPanel.ts";
+import { shortcutLabel } from "../../../../shared/chord.ts";
+import { FIELD_CHORDS } from "../../../../shared/keymap.ts";
 
 const Radio = ({ on }: { readonly on: boolean }) => (
   <span
@@ -232,7 +234,7 @@ const Footer = ({
         className="h-tree-row px-row-x rounded-control gap-gap bg-text-strong text-bg text-caption flex items-center font-medium disabled:opacity-(--opacity-dimmed)"
       >
         {label}
-        <span className="text-micro opacity-60">⌘↵</span>
+        <span className="text-micro opacity-60">{shortcutLabel(FIELD_CHORDS.submit)}</span>
       </button>
     </div>
   );

@@ -189,10 +189,10 @@ const run = async (restart: boolean) => {
 
   assert(labels?.includes("Restart to update to 0.5.0"));
   assert(labels?.includes("Quit and update"));
-  await page.keyboard.press("Meta+k");
-  await page.getByRole("dialog", { name: "Jump" }).waitFor();
+  await page.keyboard.press("Meta+Shift+p");
+  await page.getByRole("dialog", { name: "Command Palette" }).waitFor();
   await page
-    .getByRole("dialog", { name: "Jump" })
+    .getByRole("dialog", { name: "Command Palette" })
     .getByText("Restart to update", { exact: true })
     .waitFor();
   await page.keyboard.press("Escape");
