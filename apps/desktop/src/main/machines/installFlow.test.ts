@@ -87,6 +87,17 @@ describe("install flow", () => {
     expect([forced.value, forced.context.work]).toEqual(["approval", null]);
   });
 
+  test("this Mac's own build installs on a background check (the app's first launch)", () => {
+    const install = InstallPlan.Install({ build });
+
+    const trusted = run(
+      { type: "check", trigger: "background" },
+      { type: "planned", plan: install, trusted: true }
+    );
+
+    expect([trusted.value, trusted.context.work]).toEqual(["installing", install]);
+  });
+
   test("no state reachable from a background check is installing on an Install plan", () => {
     // SAFETY: the machine's config keys are exactly its state values.
     const states = Object.keys(installMachine.config.states) as ReadonlyArray<

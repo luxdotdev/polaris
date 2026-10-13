@@ -117,7 +117,9 @@ const connectionCard = (machine: MachineView): CardModel | null => {
       return card(
         failure.reason,
         `Polaris isn't installed on ${label}`,
-        "The daemon runs there once you approve the install.",
+        machine.kind === "local"
+          ? "Install puts the daemon this app carries in ~/.polaris and starts it at login."
+          : "The daemon runs there once you approve the install.",
         detail,
         { label: "Install", action: "check" }
       );

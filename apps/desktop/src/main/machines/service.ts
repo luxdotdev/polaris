@@ -4,6 +4,8 @@
  * approval, install or upgrade), switches the local Host, and publishes the
  * Settings rows. A background check (a reconnect) never installs.
  */
+import { existsSync } from "node:fs";
+import { installedPaths } from "@polaris/client";
 import { InstallPlan, type InstallTrigger, Ssh } from "@polaris/client/install";
 import { WslDiscovery } from "@polaris/client/wsl";
 import {
@@ -54,6 +56,11 @@ export interface MachinesInput {
    * it upgrades like a remote one; null when this app runs its own or was given a socket.
    */
   readonly localHome: () => string | null;
+  /**
+   * Resolves once the Daemon installed in `home` listens, after an install or
+   * a start; rejects with why it doesn't (its log). Absent, nothing is awaited.
+   */
+  readonly localListening?: (home: string) => Promise<void>;
   /** Opens Terminal on this Mac running `argv`. */
   readonly openTerminal: (argv: ReadonlyArray<string>) => Promise<void>;
   /** How install commands reach a Host (`Ssh.layer`; tests replace it). */
@@ -91,10 +98,6 @@ const PROBING_LOCAL = "Checking the daemon installed on this Mac.";
 const COPYING = "Copying the build over SSH and checking its SHA-256";
 
 const COPYING_LOCAL = "Copying the build and checking its SHA-256";
-
-/** The local Host only ever upgrades: installing a Daemon here is the user's own step. */
-const NO_LOCAL_INSTALL =
-  "This Mac has no daemon Polaris installed, so there is nothing to upgrade.";
 
 const installsAnew = (plan: InstallPlan) =>
   Predicate.isTagged(plan, "NeedsApproval") || Predicate.isTagged(plan, "Install");
@@ -200,6 +203,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
         alias: "local",
         ssh: Ssh.local(home),
         local: true,
+        home,
         probing: PROBING_LOCAL,
         copying: COPYING_LOCAL,
       };
@@ -208,8 +212,15 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
     const wsl = isWsl(key) ? input.wsl : undefined;
 
     return wsl === undefined
-      ? { alias: key, ssh: input.ssh, local: false, probing: PROBING, copying: COPYING }
-      : { alias: key, ssh: wsl.ssh, local: false, probing: PROBING_WSL, copying: COPYING_WSL };
+      ? { alias: key, ssh: input.ssh, local: false, home: null, probing: PROBING, copying: COPYING }
+      : {
+          alias: key,
+          ssh: wsl.ssh,
+          local: false,
+          home: null,
+          probing: PROBING_WSL,
+          copying: COPYING_WSL,
+        };
   };
 
   const requireCheckable = (key: string) =>
@@ -220,6 +231,16 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
         : input.localHome() === null
           ? fail("this Mac's daemon is the app's own, not one Polaris installed")
           : Effect.void;
+
+  /** Waits for this Mac's Daemon to listen after an install or start. */
+  const localListening = (home: string | null) =>
+    home === null || input.localListening === undefined
+      ? Effect.void
+      : Effect.tryPromise({
+          try: () => input.localListening!(home),
+          catch: (cause) =>
+            new MachineError({ message: cause instanceof Error ? cause.message : String(cause) }),
+        });
 
   const record = (key: string): InstallRecord =>
     installs.get(key) ?? { snapshot: initialInstall(), activity: null, offerSize: null };
@@ -353,6 +374,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
         alias: to.alias,
         trigger,
         approved: to.local ? new Set<string>() : input.approvals.approved(key),
+        trusted: to.local,
         builds: input.builds,
         onBuild: setRecord(key, { activity: "Building the daemon for this host from source" }),
       });
@@ -376,30 +398,18 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
           ? InstallPlan.UpToDate({ version: proposed.from })
           : proposed;
 
-      if ((to.local || updateOnly) && installsAnew(plan)) {
-        yield* step(key, {
-          type: "failed",
-          problem: {
-            kind: "failed",
-            message: to.local
-              ? NO_LOCAL_INSTALL
-              : "No daemon is installed. Use Install daemon first.",
-            command: null,
-          },
-        });
+      if (updateOnly && installsAnew(plan)) {
+        const message = to.local
+          ? "This Mac has no daemon Polaris installed yet. Use Install first."
+          : "No daemon is installed. Use Install daemon first.";
+
+        yield* step(key, { type: "failed", problem: { kind: "failed", message, command: null } });
         yield* finishUpdate(key, {
           at: Date.now(),
           result: "failed",
           from: installedVersion,
           version: bundledVersion,
-          problem: {
-            kind: "failed",
-            message: to.local
-              ? NO_LOCAL_INSTALL
-              : "No daemon is installed. Use Install daemon first.",
-            command: null,
-            sshFailure: null,
-          },
+          problem: { kind: "failed", message, command: null, sshFailure: null },
         });
 
         return;
@@ -407,7 +417,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
 
       yield* setRecord(key, { offerSize: size });
 
-      const planned = yield* step(key, { type: "planned", plan }, to.copying);
+      const planned = yield* step(key, { type: "planned", plan, trusted: to.local }, to.copying);
 
       const pending = planned.value === "installing" ? planned.context.work : null;
 
@@ -418,6 +428,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
       }
 
       const outcome = yield* applyWork(to.alias, pending, progress(key));
+      yield* localListening(to.home);
       yield* step(key, { type: "applied", outcome });
       yield* finishUpdate(key, {
         at: Date.now(),
@@ -605,14 +616,18 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
       }
     });
 
+  /** Start daemon: `polaris install` with the installed build; on this Mac with none, install it. */
   const restart = (key: string) =>
     Effect.gen(function* () {
-      yield* requireRemote(key);
-      yield* startDaemon(key).pipe(
-        Effect.provide(target(key).ssh),
-        Effect.mapError(asMachineError)
-      );
-      yield* retryConnection(key);
+      yield* requireCheckable(key);
+      const to = target(key);
+
+      if (to.home !== null && !existsSync(installedPaths(to.home).binary)) {
+        return yield* runCheck(key, "user");
+      }
+
+      yield* startDaemon(to.alias).pipe(Effect.provide(to.ssh), Effect.mapError(asMachineError));
+      yield* localListening(to.home).pipe(Effect.ensuring(retryConnection(key)));
     });
 
   const setLocalEnabled = (enabled: boolean) =>

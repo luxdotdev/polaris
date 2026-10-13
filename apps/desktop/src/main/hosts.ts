@@ -176,7 +176,11 @@ export const localEntry = (local: LocalDaemon, label = "This Mac"): HostEntry =>
   colour: null,
   alias: null,
   proofHarness: local.benchHarness,
-  target: HostTarget.Local({ socketPath: local.socketPath }),
+  target: HostTarget.Local(
+    local.installedHome === null
+      ? { socketPath: local.socketPath }
+      : { socketPath: local.socketPath, installedHome: local.installedHome }
+  ),
   remoteCommand: null,
   simulatedLatencyMs: null,
 });

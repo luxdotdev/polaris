@@ -54,7 +54,8 @@ const setup = (
   localHome: string | null = null,
   initial: Settings = {},
   probeOutput?: () => string,
-  clientPlatform?: NodeJS.Platform
+  clientPlatform?: NodeJS.Platform,
+  localListening: (home: string) => Promise<void> = () => Promise.resolve()
 ) => {
   let settings: Settings = initial;
   const commands: Array<string> = [];
@@ -90,6 +91,7 @@ const setup = (
     aliases: () => [{ alias: "studio", hostName: "studio.lan", user: null }],
     localDaemon: () => Promise.reject(new Error("unused")),
     localHome: () => localHome,
+    localListening,
     openTerminal: () => Promise.resolve(),
     ssh: Layer.succeed(
       Ssh,
@@ -581,15 +583,98 @@ describe("this Mac's own Daemon", () => {
     await runtime.dispose();
   });
 
-  test("a check with nothing installed here never installs", async () => {
+  test("a check with nothing installed here installs the bundled build, with no approval", async () => {
     writeDist(dist, { version: "0.2.0", platform });
-    const { runtime, local, call } = setup(false, home);
+    const listened: Array<string> = [];
+
+    const { runtime, local, call, commands, retried } = setup(
+      false,
+      home,
+      {},
+      undefined,
+      undefined,
+      async (h) => void listened.push(h)
+    );
 
     await call((m) => m.check("local"));
-    const blocked = await local((v) => v.install?.step === "blocked");
+    const done = await local((v) => v.install?.outcome?.kind === "installed");
 
-    expect(blocked?.install?.problem?.message).toContain("no daemon Polaris installed");
-    expect(installed()).toBe(false);
+    expect(done?.install?.outcome?.version).toBe("0.2.0");
+    expect(installedVersion()).toContain("0.2.0");
+    expect(listened).toEqual([home]);
+    expect(retried).toContain("local");
+    // Never over ssh: this Mac's commands run in a local shell.
+    expect(commands).toEqual([]);
+    await runtime.dispose();
+  });
+
+  test("first launch: a local row with nothing installed installs in the background", async () => {
+    writeDist(dist, { version: "0.2.0", platform });
+    const { runtime, local, setLocal } = setup(false, home);
+
+    await setLocal({
+      state: "needs-attention",
+      since: 5,
+      failure: { kind: "needs-attention", reason: "polaris-not-installed", detail: "none" },
+    });
+    await local((v) => v.install?.outcome?.kind === "installed");
+    expect(installed()).toBe(true);
+    await runtime.dispose();
+  });
+
+  test("Start daemon on this Mac installs when nothing is, through the local path", async () => {
+    writeDist(dist, { version: "0.2.0", platform });
+    const { runtime, local, call, commands } = setup(false, home);
+
+    await call((m) => m.startDaemon("local"));
+    await local((v) => v.install?.outcome?.kind === "installed");
+    expect(installed()).toBe(true);
+    expect(commands).toEqual([]);
+    await runtime.dispose();
+  });
+
+  test("Start daemon on this Mac runs the installed polaris locally and waits for it", async () => {
+    writeDist(dist, { version: "0.2.0", platform });
+    runOnFakeHost(home, `mkdir -p "$HOME" && "${join(dist, platform, "polaris")}" install`);
+    const listened: Array<string> = [];
+
+    const { runtime, call, commands, retried } = setup(
+      false,
+      home,
+      {},
+      undefined,
+      undefined,
+      async (h) => void listened.push(h)
+    );
+
+    await call((m) => m.startDaemon("local"));
+    expect(listened).toEqual([home]);
+    expect(retried).toEqual(["local"]);
+    expect(commands).toEqual([]);
+    await runtime.dispose();
+  });
+
+  test("Start daemon on this Mac says why the daemon didn't listen", async () => {
+    writeDist(dist, { version: "0.2.0", platform });
+    runOnFakeHost(home, `mkdir -p "$HOME" && "${join(dist, platform, "polaris")}" install`);
+
+    const { runtime, call, retried } = setup(false, home, {}, undefined, undefined, () =>
+      Promise.reject(new Error("the daemon didn't start listening within 15 s · killed: 9"))
+    );
+
+    const error = await call((m) => Effect.flip(m.startDaemon("local")));
+
+    expect(error.message).toContain("killed: 9");
+    expect(retried).toEqual(["local"]);
+    await runtime.dispose();
+  });
+
+  test("Start daemon on the app's own dev Daemon is refused, never sent to a remote path", async () => {
+    const { runtime, call } = setup(false, null);
+    const error = await call((m) => Effect.flip(m.startDaemon("local")));
+
+    expect(error.message).toContain("not one Polaris installed");
+    expect(error.message).not.toContain("no remote host");
     await runtime.dispose();
   });
 });

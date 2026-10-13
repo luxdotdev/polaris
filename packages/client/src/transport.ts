@@ -10,6 +10,7 @@ import { connect, type Socket } from "node:net";
 import { type ByteTransport, readEvents, writeEvents } from "@polaris/protocol";
 import { Deferred, Effect, Exit, Option, type Scope } from "effect";
 import { ConnectFailure, classifyExit, type NeedsAttentionReason } from "./failures.ts";
+import { localDaemonFailure } from "./localDaemon.ts";
 
 export interface ClientTransport extends ByteTransport {
   /** Why the transport closed or failed; waits briefly for the process to exit. */
@@ -159,8 +160,11 @@ export const spawnTransport = (
     } satisfies ClientTransport;
   });
 
-/** Connects straight to a Daemon's Unix socket (the local Host). */
-export const socketTransport = (path: string): Connector =>
+/**
+ * Connects straight to a Daemon's Unix socket (the local Host). With
+ * `installedHome`, a refusal says whether a Daemon is installed there and what its log says.
+ */
+export const socketTransport = (path: string, installedHome?: string): Connector =>
   Effect.gen(function* () {
     const { socket, incoming } = yield* Effect.acquireRelease(
       Effect.callback<
@@ -173,11 +177,7 @@ export const socketTransport = (path: string): Connector =>
           resume(
             Effect.fail(
               error.code === "ENOENT" || error.code === "ECONNREFUSED"
-                ? new ConnectFailure({
-                    kind: "needs-attention",
-                    reason: "daemon-not-running",
-                    detail: `no Daemon is listening on ${path}`,
-                  })
+                ? localDaemonFailure(path, installedHome)
                 : new ConnectFailure({
                     kind: "transient",
                     reason: "connection-failed",

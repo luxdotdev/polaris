@@ -24,6 +24,8 @@ export interface PlanInput {
   readonly alias: string;
   readonly trigger: InstallTrigger;
   readonly approved: ReadonlySet<string>;
+  /** This Mac's own Daemon: a first install needs no approval (`PlanOptions.trusted`). */
+  readonly trusted?: boolean;
   readonly builds: DaemonBuilds;
   /** Runs before a dev build from source starts. */
   readonly onBuild: Effect.Effect<void>;
@@ -54,6 +56,7 @@ export const planFor = Effect.fn("planFor")(function* (input: PlanInput) {
   const plan = planInstall(probe, builds, {
     trigger: input.trigger,
     approvedSha256: input.approved,
+    trusted: input.trusted ?? false,
   });
 
   const build = builds.find((b) => b.platform === platform);

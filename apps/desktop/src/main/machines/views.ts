@@ -159,8 +159,9 @@ export const backgroundCheckKey = (
 };
 
 /**
- * The local Host's background check: only an upgrade (`backgroundUpgradeDue`) of the
- * Daemon installed in `home`, once per connection. Null when the app runs its own.
+ * The local Host's background check: installing the bundled build when `home`
+ * has none (the app's first launch), once per occasion, or an upgrade
+ * (`backgroundUpgradeDue`) once per connection. Null when the app runs its own.
  */
 export const localUpgradeKey = (
   view: HostView,
@@ -170,6 +171,10 @@ export const localUpgradeKey = (
   const { status } = view;
 
   if (home === null || bundledVersion === null) return null;
+
+  if (status.state === "needs-attention" && status.failure?.reason === "polaris-not-installed") {
+    return `polaris-not-installed:${status.since}`;
+  }
 
   if (status.state !== "connected" || status.host === null) return null;
 
