@@ -608,7 +608,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
       }
 
       input.approvals.approve(key, { ...offer, approvedAt: Date.now() });
-      const approved = yield* step(key, { type: "approve" }, PROBING);
+      const approved = yield* step(key, { type: "approve" }, target(key).probing);
 
       if (approved.value === "checking") {
         yield* updateFacts(key, { progress: { stage: "checking", bytes: 0, total: 0 } });
