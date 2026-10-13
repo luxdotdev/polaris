@@ -31,6 +31,7 @@ import { AttachmentSettings, AttachmentUsage, StagedAmount } from "./attachments
 import { HostHarnesses } from "./availability.ts";
 import { CapabilityList } from "./capabilities.ts";
 import { InlinePropose } from "./inline.ts";
+import { CommitMessageRpcs } from "./commitMessage.ts";
 import { Command } from "./commands.ts";
 import {
   AgentSession,
@@ -833,4 +834,4 @@ export class DaemonRpcs extends RpcGroup.make(
   .merge(EditorFileRpcs)
   .merge(LanguageRpcs)
   .merge(SessionTurnRpcs)
-  .merge(GitWriteRpcs) {}
+  .merge(GitWriteRpcs, CommitMessageRpcs) {}

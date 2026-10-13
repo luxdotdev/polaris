@@ -5,6 +5,7 @@
  */
 import {
   InlineError,
+  CommitMessageError,
   LanguageIdentityError,
   type Capability,
   CommandRejected,
@@ -302,6 +303,13 @@ export const defaultHandlers = (options: {
         })
       ),
     "usage.watch": () => Stream.fail(new Unsupported({ capability: "usage" })),
+    "commit.suggestMessage": () =>
+      Stream.fail(
+        new CommitMessageError({
+          reason: "harness-failed",
+          message: "This Daemon does not support commit.suggestMessage",
+        })
+      ),
 
     "files.listDir": ({ path }) => Effect.fail(fileError(path, "files")),
     "files.stat": ({ path }) => Effect.fail(fileError(path, "files")),

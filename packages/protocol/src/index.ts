@@ -24,6 +24,8 @@ export * from "./ids.ts";
 
 export * from "./inline.ts";
 
+export * from "./commitMessage.ts";
+
 export * from "./models.ts";
 
 export * from "./review.ts";
