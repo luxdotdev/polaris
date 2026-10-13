@@ -2,7 +2,8 @@
  * The shared terminal drawer in the real app on an isolated profile (build first):
  * node apps/desktop/scripts/terminalDrawerSmoke.ts --out <dir>. In each theme: a terminal
  * opened in Orchestrate shows in Edit with its output, still the same process; "Open in
- * terminal" from Edit opens a tab there without switching modes; hiding is shared.
+ * terminal" from the Editor's right-click menu opens a tab there without switching modes;
+ * hiding is shared.
  */
 import { strict as assert } from "node:assert";
 import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
@@ -30,6 +31,8 @@ mkdirSync(out, { recursive: true });
 mkdirSync(userData);
 
 mkdirSync(folder, { recursive: true });
+
+writeFileSync(join(folder, "button.ts"), 'export const label = "Run";\n');
 
 writeFileSync(join(userData, "settings.json"), JSON.stringify({ welcomeSeen: true }));
 
@@ -121,18 +124,19 @@ const flow = async (page: Page, name: string, first: boolean) => {
   await page.screenshot({ path: join(out, `${name}-2-edit-same-terminal.png`) });
   step(`${name}: Edit shows terminal ${shell} with its output, same process (${switched} ms)`);
 
-  const dock = page.getByTestId("terminal-dock");
-
-  const place = {
-    hostKey: await dock.getAttribute("data-host-key"),
-    workspaceId: await dock.getAttribute("data-workspace-id"),
-  };
-
   const before = (await tabs(page)).length;
 
-  await page.evaluate(
-    `window.__polarisOpenTerminalIn(${JSON.stringify(place)}, ${JSON.stringify(folder)})`
-  );
+  // Open in terminal from the Editor's menu on a file in packages/ui.
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Meta+P");
+  await page.getByTestId("finder-input").fill("button.ts");
+  await page.getByTestId("finder-item").first().waitFor({ timeout: 20_000 });
+  await page.keyboard.press("Enter");
+  await page
+    .locator('[data-testid="editor-tab"][aria-selected="true"][title$="button.ts"]')
+    .waitFor();
+  await page.locator(".cm-line").first().click({ button: "right" });
+  await page.getByTestId("editor-menu").getByTestId("editor-menu-open-in-terminal").click();
   await page.getByTestId("terminal-tab").nth(before).waitFor();
   const opened = await shownTerminal(page);
 

@@ -112,15 +112,6 @@ export const openTerminalIn = (place: TerminalPlace, cwd: string) =>
     argv: null,
   });
 
-declare global {
-  interface Window {
-    /** The smoke test drives "Open in terminal" here until the Editor's menu calls it. */
-    __polarisOpenTerminalIn?: typeof openTerminalIn;
-  }
-}
-
-if ("window" in globalThis) window.__polarisOpenTerminalIn = openTerminalIn;
-
 export const closeTab = (place: TerminalPlace, tabKey: string) => {
   const key = drawerKey(place.hostKey, place.workspaceId);
   const tab = tabOf(getDrawer(key), tabKey);
