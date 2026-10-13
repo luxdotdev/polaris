@@ -18,3 +18,5 @@ export { postprocess } from "./postprocess.ts";
 export { LatencyRecorder } from "./latency.ts";
 
 export { createPredictor } from "./predictor.ts";
+
+export { generationBudget, provisionalLine } from "./generation.ts";

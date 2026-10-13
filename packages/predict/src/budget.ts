@@ -7,7 +7,12 @@ export const countTokens: TokenCounter = (text) => new TextEncoder().encode(text
 const priority = { definition: 0, importOutline: 1, editHunk: 2, diagnostic: 3 };
 
 export const orderedContext = (context: PredictionContext): PredictionContext =>
-  context.toSorted((a, b) => priority[a.kind] - priority[b.kind]);
+  context.toSorted(
+    (a, b) =>
+      priority[a.kind] - priority[b.kind] ||
+      a.source.localeCompare(b.source) ||
+      a.text.localeCompare(b.text)
+  );
 
 /** Fits whole pieces in stable order; prompt construction additionally accounts for format markers. */
 export const packContext = (

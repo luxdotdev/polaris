@@ -8,6 +8,7 @@ interface OpenAiBody {
   prompt: string;
   suffix?: string;
   stream: boolean;
+  cache_prompt: boolean;
   temperature: number;
   max_tokens: number;
   stop: readonly string[];
@@ -78,6 +79,7 @@ const requestBody = (request: PredictionRequest, prompt: PredictionPrompt) => {
     stream: true,
     temperature: 0,
     max_tokens: request.maxTokens,
+    cache_prompt: true,
     stop: prompt.stop,
   };
 

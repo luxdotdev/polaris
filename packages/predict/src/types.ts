@@ -7,6 +7,7 @@ export type TokenCounter = (text: string) => number;
 
 export interface PredictionOptions {
   readonly signal?: AbortSignal;
+  readonly onTiming?: (stage: "prompt" | "firstToken" | "final", elapsedMs: number) => void;
   readonly countTokens?: TokenCounter;
 }
 

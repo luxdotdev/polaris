@@ -95,10 +95,26 @@ export const createPredictionBridge = (ports: PredictionBridgePorts) => {
   const complete = (input: PredictionCompletionInput) =>
     Stream.callback<PredictionFeedItem, IpcError>(
       Effect.fn("prediction.bridge.complete")(function* (queue) {
+        const started = performance.now();
+        const timings: Record<string, number> = {};
+
+        if (input.dispatchedAt !== undefined)
+          timings.ipc = Math.max(0, performance.timeOrigin + started - input.dispatchedAt);
+
+        const mark = (stage: string) => {
+          timings[stage] = performance.now() - started;
+        };
+
         const controller = new AbortController();
         yield* Effect.addFinalizer(() => Effect.sync(() => controller.abort()));
 
         const serve = async (target: PredictionTarget, signal: AbortSignal) => {
+          delete timings.firstToken;
+          delete timings.prompt;
+          delete timings.final;
+          mark("placement");
+          Queue.offerUnsafe(queue, PredictionFeedItem.cases.Reset.make({}));
+
           if (input.cursor > input.buffer.length)
             throw new PredictionError({
               reason: "invalid-request",
@@ -112,6 +128,8 @@ export const createPredictionBridge = (ports: PredictionBridgePorts) => {
                 signal,
               })
             : [];
+
+          mark("context");
 
           const request = PredictionRequest.make({
             context,
@@ -127,18 +145,29 @@ export const createPredictionBridge = (ports: PredictionBridgePorts) => {
           });
 
           const names = await labels(input.hostKey);
+          const predictorStart = performance.now() - started;
           let final: typeof PredictionStreamItem.cases.Final.Type | null = null;
 
           const receive = (item: PredictionStreamItem) => {
-            if (Predicate.isTagged(item, "Final")) final = item;
-            else Queue.offerUnsafe(queue, PredictionFeedItem.cases.Delta.make({ text: item.text }));
+            if (Predicate.isTagged(item, "Final")) {
+              final = item;
+              mark("final");
+            } else {
+              if (timings.firstToken === undefined) mark("firstToken");
+              Queue.offerUnsafe(queue, PredictionFeedItem.cases.Delta.make({ text: item.text }));
+            }
           };
 
           if (target.side === "client") {
             await local.runPromise(
               LocalPredictor.use((predictor) =>
                 predictor
-                  .complete(request, { signal })
+                  .complete(request, {
+                    signal,
+                    onTiming: (stage, elapsed) => {
+                      timings[stage] = predictorStart + elapsed;
+                    },
+                  })
                   .pipe(Stream.runForEach((item) => Effect.sync(() => receive(item))))
               ),
               { signal }
@@ -168,6 +197,7 @@ export const createPredictionBridge = (ports: PredictionBridgePorts) => {
 
           return PredictionFeedItem.cases.Final.make({
             text: result.text,
+            timings: { ...timings },
             elapsedMs: result.elapsedMs,
             model: target.model,
             machine: target.side === "client" ? names.clientLabel : names.hostLabel,

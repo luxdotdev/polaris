@@ -50,12 +50,17 @@ export const visibleGhost = (state: EditorState): Ghost | null => {
 class GhostWidget extends WidgetType {
   constructor(
     readonly text: string,
-    readonly block: boolean
+    readonly block: boolean,
+    readonly provisional = false
   ) {
     super();
   }
   override eq(other: GhostWidget) {
-    return this.text === other.text && this.block === other.block;
+    return (
+      this.text === other.text &&
+      this.block === other.block &&
+      this.provisional === other.provisional
+    );
   }
   override toDOM() {
     const node = document.createElement(this.block ? "div" : "span");
@@ -65,7 +70,7 @@ class GhostWidget extends WidgetType {
     text.textContent = this.text;
     node.append(text);
 
-    if (!this.block) {
+    if (!this.block && !this.provisional) {
       const cap = document.createElement("span");
       cap.className = "cm-prediction-key";
       cap.textContent = "Tab";
@@ -85,9 +90,10 @@ const decorationsOf = (state: EditorState): DecorationSet => {
   if (value === null || value.text.length === 0) return Decoration.none;
   const [first = "", ...rest] = value.text.split("\n");
 
-  const inline = Decoration.widget({ widget: new GhostWidget(first, false), side: 1 }).range(
-    value.at
-  );
+  const inline = Decoration.widget({
+    widget: new GhostWidget(first, false, value.provisional),
+    side: 1,
+  }).range(value.at);
 
   return Decoration.set(
     rest.length === 0
@@ -161,7 +167,12 @@ export const acceptPrediction = (view: EditorView, word = false): boolean => {
   const value = visibleGhost(view.state);
   const mode = currentMode(view);
 
-  if (value === null || value.text.length === 0 || (mode !== null && mode !== "insert"))
+  if (
+    value === null ||
+    value.text.length === 0 ||
+    value.provisional ||
+    (mode !== null && mode !== "insert")
+  )
     return false;
 
   if (!validEdits(view.state, value)) {

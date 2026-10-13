@@ -1,3 +1,4 @@
+import { provisionalLine } from "@polaris/predict";
 import { createStore } from "zustand/vanilla";
 import { useStore } from "zustand";
 import { WorkspaceId } from "@polaris/protocol";
@@ -14,6 +15,8 @@ import {
 } from "../../../../shared/predictionContract.ts";
 import type { EditorFile } from "../api.ts";
 import type { PredictionInput, Prediction } from "./types.ts";
+
+import { markPrediction } from "./timing.ts";
 
 export interface CompletionStatus {
   readonly model: string;
@@ -167,15 +170,17 @@ export const turnOnDiscoveredServer = async (api: PolarisApi, hostKey: string) =
   await setPredictionEnabled(api, true);
 };
 
-/** Accept only Final, never the provisional deltas in an IPC batch. */
+/** Deltas are display-only; only Final can enable acceptance. */
 export const requestPrediction = (
   api: PolarisApi,
   file: EditorFile,
   input: PredictionInput,
-  signal: AbortSignal
+  signal: AbortSignal,
+  preview?: (text: string) => void
 ): Promise<Prediction> =>
   new Promise((resolve, reject) => {
     let settled = false;
+    let text = "";
     let stop = () => {};
 
     const finish = (prediction: Prediction | null, error?: string) => {
@@ -197,11 +202,13 @@ export const requestPrediction = (
     }
 
     signal.addEventListener("abort", abort, { once: true });
+    markPrediction("ipc");
     stop = api.subscribe(
       "prediction.complete",
       {
         ...file,
         ...input,
+        dispatchedAt: performance.timeOrigin + performance.now(),
         workspaceId: WorkspaceId.make(file.workspaceId),
         recentEdits: [],
         budgetTokens: 2048,
@@ -212,8 +219,16 @@ export const requestPrediction = (
 
           for (const item of items)
             PredictionFeedItem.match(item, {
-              Delta: () => undefined,
+              Reset: () => {
+                text = "";
+                preview?.("");
+              },
+              Delta: (delta) => {
+                text += delta.text;
+                preview?.(provisionalLine(text));
+              },
               Final: (result) => {
+                markPrediction("final", result.timings);
                 predictionStore.setState((state) => ({
                   results: { ...state.results, [file.hostKey]: result },
                   failures: { ...state.failures, [file.hostKey]: "" },

@@ -10,6 +10,7 @@ export interface AdditionalEdit {
 
 export interface Prediction {
   readonly text: string;
+  readonly provisional?: boolean;
   readonly additionalEdits?: ReadonlyArray<AdditionalEdit>;
 }
 
@@ -20,6 +21,10 @@ export interface PredictionInput {
 
 export interface PredictionPort {
   readonly allowed: (view: EditorView) => boolean;
-  readonly request: (input: PredictionInput, signal: AbortSignal) => Promise<Prediction>;
+  readonly request: (
+    input: PredictionInput,
+    signal: AbortSignal,
+    preview?: (text: string) => void
+  ) => Promise<Prediction>;
   readonly subscribe: (refresh: () => void) => () => void;
 }

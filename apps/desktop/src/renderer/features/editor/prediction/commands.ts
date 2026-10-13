@@ -13,6 +13,12 @@ export const usePredictionCommands = () => {
       return view !== undefined && view.hasFocus && visibleGhost(view.state) !== null;
     };
 
+    const acceptable = () => {
+      const view = getActiveEditor()?.view;
+
+      return available() && view !== undefined && !visibleGhost(view.state)?.provisional;
+    };
+
     const accept = (word: boolean) => {
       const view = getActiveEditor()?.view;
 
@@ -20,8 +26,8 @@ export const usePredictionCommands = () => {
     };
 
     const unregister = registry.register({
-      "editor.prediction.accept": { enabled: available, run: () => accept(false) },
-      "editor.prediction.acceptWord": { enabled: available, run: () => accept(true) },
+      "editor.prediction.accept": { enabled: acceptable, run: () => accept(false) },
+      "editor.prediction.acceptWord": { enabled: acceptable, run: () => accept(true) },
       "editor.prediction.dismiss": {
         enabled: available,
         run: () => {

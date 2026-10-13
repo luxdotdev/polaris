@@ -23,12 +23,14 @@ export const PredictionInspection = Schema.Struct({
 export type PredictionInspection = typeof PredictionInspection.Type;
 
 export const PredictionFeedItem = Schema.TaggedUnion({
+  Reset: {},
   Delta: PredictionStreamItem.cases.Delta.fields,
   Final: {
     text: Schema.String,
     elapsedMs: Schema.Number,
     model: Schema.String,
     machine: Schema.String,
+    timings: Schema.optional(Schema.Record(Schema.String, Schema.Number)),
   },
 });
 
@@ -36,6 +38,7 @@ export type PredictionFeedItem = typeof PredictionFeedItem.Type;
 
 export const PredictionCompletionInput = Schema.Struct({
   hostKey: Schema.String,
+  dispatchedAt: Schema.optional(Schema.Number),
   ...PredictionContextRequest.fields,
 });
 

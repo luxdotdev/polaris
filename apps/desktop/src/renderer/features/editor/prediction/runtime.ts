@@ -34,7 +34,8 @@ export const installPredictions = (
         predictionStore.getState().enabled &&
         preferencesOf(file.hostKey).placement !== "off" &&
         hostConnected(app().hosts, file.hostKey),
-      request: (input, signal) => requestPrediction(polaris(), file, input, signal),
+      request: (input, signal, preview) =>
+        requestPrediction(polaris(), file, input, signal, preview),
       subscribe: (refresh) => {
         const key = JSON.stringify([file.hostKey, file.workspaceId]);
         workspaces.set(key, (workspaces.get(key) ?? 0) + 1);
