@@ -15,6 +15,9 @@ import {
 import { join } from "node:path";
 import { Redacted } from "effect";
 
+/** The POSIX proof file: where the proof lives when there is no `SecureStorage` (ADR 0044). */
+export const LEGACY_PROOF_FILE = "language-client-proof-v1";
+
 export class LanguageCredentialError extends Error {
   constructor() {
     super("Language credential unavailable");
@@ -60,7 +63,7 @@ const readProof = (path: string): Redacted.Redacted<string> => {
 
 /** Explicit private Main directory only; never discovers userData or repairs unsafe records. */
 export const loadLanguageCredential = (directory: string): Redacted.Redacted<string> => {
-  const path = join(directory, "language-client-proof-v1");
+  const path = join(directory, LEGACY_PROOF_FILE);
   let partial: string | null = null;
 
   try {

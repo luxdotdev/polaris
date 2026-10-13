@@ -1,6 +1,6 @@
 /**
  * `GitHub`: the Desktop App's GitHub client (ENG-185, ENG-219). Accounts through
- * the device flow, tokens sealed in the keychain, repositories routed to accounts,
+ * the device flow, tokens in `SecureStorage`, repositories routed to accounts,
  * the pull request list, reviews, Viewed marks and Review Checkout states. The
  * renderer reaches it over IPC (`github.*`); see README.md.
  */
@@ -38,7 +38,8 @@ import {
 } from "./pullActions.ts";
 import { MUTATION_GAP_MS, newReviews } from "./reviews.ts";
 import { newRouting } from "./routing.ts";
-import { type Crypto, openStore } from "./store.ts";
+import { SecureStorage } from "../secure/index.ts";
+import { openStore } from "./store.ts";
 import { type Fetch, newTransport } from "./transport.ts";
 
 export type { NewPull } from "./create.ts";
@@ -58,7 +59,6 @@ export type {
 export interface GitHubInput {
   /** `<userData>/github`. */
   readonly dir: string;
-  readonly crypto: Crypto;
   readonly fetch: Fetch;
   readonly endpoints: EndpointConfig;
   readonly policy?: BudgetPolicy;
@@ -105,7 +105,7 @@ type WatchGroup = "checkouts" | "sessions";
 const make = Effect.fn("GitHub.make")(function* (input: GitHubInput) {
   const scope = yield* Effect.scope;
   const now = input.now ?? Date.now;
-  const store = openStore({ dir: input.dir, crypto: input.crypto });
+  const store = openStore({ dir: input.dir, storage: yield* SecureStorage });
   const budget = newBudget(now, input.policy ?? DEFAULT_POLICY);
   const transport = newTransport({ fetch: input.fetch, budget, now });
   const accounts = yield* openAccounts({ store, transport, endpoints: input.endpoints, scope });

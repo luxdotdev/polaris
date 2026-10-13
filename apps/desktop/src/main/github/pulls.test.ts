@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { Effect } from "effect";
 import type { PullListView } from "../../shared/github.ts";
-import { harness, memoryCrypto, signIn, until } from "./github.testing.ts";
+import { testSealer } from "../secure/secure.testing.ts";
+import { harness, signIn, until } from "./github.testing.ts";
 import { GitHub, type WorkspaceRemotes } from "./index.ts";
 import { type Found, groups, SEARCHES } from "./pulls.ts";
 import type { SearchPull } from "./queries.ts";
@@ -335,8 +336,8 @@ describe("routing repositories to accounts", () => {
 
     await first.run(signIn(first, "mona"));
 
-    const refusing = { ...memoryCrypto(), decrypt: () => Promise.reject(new Error("-25308")) };
-    const second = open({ dir: first.dir, sharedFake: first.fake, crypto: refusing });
+    const refusing = { ...testSealer(), open: () => Promise.reject(new Error("-25308")) };
+    const second = open({ dir: first.dir, sharedFake: first.fake, sealer: refusing });
 
     const list = await second.run(
       Effect.gen(function* () {

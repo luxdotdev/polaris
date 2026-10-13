@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import { Effect, Exit } from "effect";
-import { harness, memoryCrypto, signIn, until } from "./github.testing.ts";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { Effect, Exit, SubscriptionRef } from "effect";
+import { testSealer } from "../secure/secure.testing.ts";
+import { harness, signIn, until } from "./github.testing.ts";
 import { GitHub } from "./index.ts";
 
 const harnesses: Array<ReturnType<typeof harness>> = [];
@@ -31,7 +32,7 @@ describe("signing in with the device flow", () => {
       "https://github.test/settings/connections/applications/Ov23lix8h2ldBZFwXqek"
     );
 
-    const sealed = readFileSync(join(h.dir, "tokens", "1001.bin"), "utf8");
+    const sealed = readFileSync(h.tokenPath(1001), "utf8");
 
     expect(sealed).not.toContain("gho_");
     expect(readFileSync(join(h.dir, "accounts.json"), "utf8")).not.toContain("gho_");
@@ -98,7 +99,7 @@ describe("signing in with the device flow", () => {
   });
 
   test("is refused when tokens can't be stored safely", async () => {
-    const h = open({ crypto: memoryCrypto(false) });
+    const h = open({ sealer: testSealer("plaintext-backend") });
     const exit = await h.run(Effect.exit(GitHub.use((gh) => gh.startSignIn())));
 
     expect(Exit.isFailure(exit)).toBe(true);
@@ -106,8 +107,8 @@ describe("signing in with the device flow", () => {
   });
 
   test("a Keychain that refuses the token fails as keychain, not network", async () => {
-    const refusing = { ...memoryCrypto(), encrypt: () => Promise.reject(new Error("-25308")) };
-    const h = open({ crypto: refusing });
+    const refusing = { ...testSealer(), seal: () => Promise.reject(new Error("-25308")) };
+    const h = open({ sealer: refusing });
 
     const view = await h.run(
       Effect.gen(function* () {
@@ -142,7 +143,7 @@ describe("signing in with the device flow", () => {
     );
 
     expect(view.accounts.map((a) => a.login)).toEqual(["hubot"]);
-    expect(readdirSync(join(h.dir, "tokens"))).toEqual(["2002.bin"]);
+    expect(readdirSync(dirname(h.tokenPath(0)))).toEqual(["2002.bin"]);
   });
 });
 
@@ -221,5 +222,32 @@ describe("tokens", () => {
     );
 
     expect(detail.number).toBe(42);
+  });
+
+  test("survive the upgrade to SecureStorage: tokens sealed under github/tokens are adopted", async () => {
+    const first = open();
+
+    await first.run(signIn(first, "mona"));
+
+    // Puts the record back where (and as) the app sealed it before SecureStorage.
+    const legacy = join(first.dir, "tokens");
+
+    mkdirSync(legacy, { recursive: true });
+    renameSync(first.tokenPath(1001), join(legacy, "1001.bin"));
+    rmSync(dirname(first.tokenPath(1001)), { recursive: true });
+
+    const second = open({ dir: first.dir, sharedFake: first.fake });
+
+    const view = await second.run(GitHub.use((gh) => SubscriptionRef.get(gh.accounts)));
+
+    expect(view.accounts).toMatchObject([{ id: 1001, login: "mona", state: "ok" }]);
+
+    const detail = await second.run(
+      GitHub.use((gh) => gh.detail({ repo: { owner: "acme", name: "widgets" }, number: 42 }))
+    );
+
+    expect(detail.number).toBe(42);
+    expect(existsSync(second.tokenPath(1001))).toBe(true);
+    expect(existsSync(legacy)).toBe(false);
   });
 });

@@ -1,43 +1,28 @@
 /**
- * The GitHub client's Electron side: `safeStorage` (async API) as its keychain,
- * the endpoints from the environment, and window focus setting the poll rate.
+ * The GitHub client's Electron side: the endpoints from the environment, and window
+ * focus setting the poll rate. Tokens go through `SecureStorage` (`../secure/electron.ts`).
  */
 import { join } from "node:path";
-import { Effect, Stream, SubscriptionRef } from "effect";
-import { app, BrowserWindow, safeStorage } from "electron";
+import { Effect, Layer, Stream, SubscriptionRef } from "effect";
+import { app, BrowserWindow } from "electron";
 import type { GitHubAccountsView, PullListView } from "../../shared/github.ts";
 import type { ClientRuntime } from "../hosts.ts";
+import type { SecureStorage } from "../secure/index.ts";
 import { type EndpointEnv, endpointsFrom } from "./config.ts";
 import { GitHub } from "./index.ts";
-import type { Crypto } from "./store.ts";
-
-/** On Linux, `basic_text` "encrypts" with a hardcoded password: refuse to store tokens. */
-const keychainAvailable = async () =>
-  (await safeStorage.isAsyncEncryptionAvailable()) &&
-  !(process.platform === "linux" && safeStorage.getSelectedStorageBackend() === "basic_text");
-
-export const keychain: Crypto = {
-  available: keychainAvailable,
-  encrypt: async (plain) => new Uint8Array(await safeStorage.encryptStringAsync(plain)),
-  decrypt: async (sealed) => {
-    const { result, shouldReEncrypt } = await safeStorage.decryptStringAsync(Buffer.from(sealed));
-
-    return { text: result, shouldReEncrypt };
-  },
-};
 
 export interface GitHubLayerInput {
   readonly userData: string;
   readonly env: EndpointEnv;
+  readonly secureStorage: Layer.Layer<SecureStorage>;
 }
 
-export const githubLayer = ({ userData, env }: GitHubLayerInput) =>
+export const githubLayer = ({ userData, env, secureStorage }: GitHubLayerInput) =>
   GitHub.layer({
     dir: join(userData, "github"),
-    crypto: keychain,
     fetch: (url, init) => fetch(url, init),
     endpoints: endpointsFrom(env),
-  });
+  }).pipe(Layer.provide(secureStorage));
 
 /** Polls every minute while a Polaris window is focused, every five otherwise. */
 export const followFocus = (runtime: ClientRuntime) => {

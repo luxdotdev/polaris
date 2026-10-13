@@ -15,7 +15,7 @@ import { CommandId, CommandRejected } from "@polaris/protocol";
 import { type ClientServices, HostDirectory, toIpcError, UnknownHost } from "../hosts.ts";
 import { Ssh } from "@polaris/client/install";
 import { createGitHubFake } from "../../../scripts/lib/githubFake/index.ts";
-import { memoryCrypto } from "../github/github.testing.ts";
+import { SecureStorage } from "../secure/index.ts";
 import { GitHub } from "../github/index.ts";
 import { Machines } from "../machines/service.ts";
 import { type RequestContext, requestHandlers, requestRunner } from "./requests.ts";
@@ -83,10 +83,9 @@ const clientServices = Layer.provideMerge(
 
 const github = GitHub.layer({
   dir: mkdtempSync(join(tmpdir(), "polaris-ipc-github-")),
-  crypto: memoryCrypto(),
   fetch: createGitHubFake().fetch,
   endpoints: { web: "https://github.test", api: "https://api.github.test" },
-});
+}).pipe(Layer.provide(SecureStorage.memory));
 
 const services = Layer.mergeAll(clientServices, github);
 
