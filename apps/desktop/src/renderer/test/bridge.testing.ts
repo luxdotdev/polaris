@@ -1,6 +1,7 @@
 /**
  * A fake `window.polaris` for renderer tests: it records every request and answers each
- * method as the test set it (ok with null otherwise). Install it in `beforeEach`.
+ * method as the test set it (ok with null otherwise), and keeps each feed opened so a test
+ * can push items into it. Install it in `beforeEach`.
  */
 import type {
   IpcError,
@@ -9,7 +10,10 @@ import type {
   RequestMethod,
   RequestOutput,
   Result,
+  SubscriptionItem,
+  SubscriptionListener,
 } from "../../shared/api.ts";
+import type { SubscriptionInput, SubscriptionKind } from "../../shared/contract.ts";
 import { standInBridge } from "../features/bridge.ts";
 
 type Answerer<M extends RequestMethod> = (
@@ -17,6 +21,15 @@ type Answerer<M extends RequestMethod> = (
 ) => Result<RequestOutput<M>> | Promise<Result<RequestOutput<M>>>;
 
 type Call = { readonly [M in RequestMethod]: readonly [M, RequestInput<M>] }[RequestMethod];
+
+/** A feed the code under test opened. */
+export interface Feed<K extends SubscriptionKind> {
+  readonly kind: K;
+  readonly input: SubscriptionInput<K>;
+  readonly listener: SubscriptionListener<SubscriptionItem<K>>;
+}
+
+type AnyFeed = { readonly [K in SubscriptionKind]: Feed<K> }[SubscriptionKind];
 
 export interface FakeBridge {
   /** Every request, in order. */
@@ -29,11 +42,14 @@ export interface FakeBridge {
   readonly answer: <M extends RequestMethod>(method: M, answerer: Answerer<M>) => void;
   readonly answerOk: <M extends RequestMethod>(method: M, value: RequestOutput<M>) => void;
   readonly refuse: <M extends RequestMethod>(method: M, error: IpcError) => void;
+  /** The feeds of `kind` opened so far, in order. */
+  readonly feeds: <K extends SubscriptionKind>(kind: K) => ReadonlyArray<Feed<K>>;
 }
 
 /** Installs a fresh fake as the bridge; `standInBridge(null)` removes it. */
 export const installFakeBridge = (): FakeBridge => {
   const calls: Array<Call> = [];
+  const feeds: Array<AnyFeed> = [];
   const answers = new Map<RequestMethod, (input: never) => ReturnType<Answerer<RequestMethod>>>();
 
   const answer = <M extends RequestMethod>(method: M, answerer: Answerer<M>) => {
@@ -48,7 +64,12 @@ export const installFakeBridge = (): FakeBridge => {
 
       return (await answers.get(method)?.(input)) ?? { ok: true, value: null };
     }) as PolarisApi["request"],
-    subscribe: () => () => undefined,
+    subscribe: (kind, input, listener) => {
+      // SAFETY: the kind, input and listener arrive together from a typed `subscribe` call.
+      feeds.push({ kind, input, listener } as AnyFeed);
+
+      return () => undefined;
+    },
     onAppEvent: () => () => undefined,
   });
 
@@ -60,5 +81,7 @@ export const installFakeBridge = (): FakeBridge => {
     answer,
     answerOk: (method, value) => answer(method, () => ({ ok: true, value })),
     refuse: (method, error) => answer(method, () => ({ ok: false, error })),
+    // SAFETY: a feed's listener and input are those of the kind it is paired with.
+    feeds: (kind) => feeds.flatMap((feed) => (feed.kind === kind ? [feed as never] : [])),
   };
 };
