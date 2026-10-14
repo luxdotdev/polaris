@@ -109,10 +109,11 @@ export class LaunchAdmission {
   connect(
     invoke: () => ProcessPort,
     receive: ConstructorParameters<typeof OrderedConnection>[1],
-    onClose: ConstructorParameters<typeof OrderedConnection>[2]
+    onClose: ConstructorParameters<typeof OrderedConnection>[2],
+    closeDeadlineMs?: number
   ) {
     const port = this.spawn(invoke);
-    const connection = new OrderedConnection(port, receive, onClose);
+    const connection = new OrderedConnection(port, receive, onClose, closeDeadlineMs);
     this.attach(connection);
 
     return { port, connection };

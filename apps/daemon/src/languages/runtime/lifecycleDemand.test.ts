@@ -65,13 +65,15 @@ test("idle waits for every Client, ignores held interests, and reopens retained 
 });
 
 test("reopening cancels the idle timer without replacing the process", async () => {
-  const f = await fixture("ordinary", 60);
+  const steps: Array<string> = [];
+  const f = await fixture("ordinary", 5000, ({ event }) => void steps.push(event.type));
 
   try {
     const { context } = await f.acquire();
     await f.open("one", context);
     await f.ready("one", context);
     await closeDocument(f, "one", context);
+    expect(steps.at(-1)).toBe("empty");
     await f.broker.sync("one", {
       context,
       sequence: 3,
@@ -82,7 +84,8 @@ test("reopening cancels the idle timer without replacing the process", async () 
         text: "reopened",
       }),
     });
-    await Bun.sleep(100);
+    // The idle timer is cleared at once, not left to find the demand when it fires.
+    expect(steps.slice(-2)).toEqual(["empty", "demand"]);
     expect(f.processes).toHaveLength(1);
     expect(f.broker.stats().processes).toBe(1);
   } finally {
@@ -119,7 +122,6 @@ test("three actual process kills stop retrying with stderr and manual restart re
     expect(stoppedRuntime.reason).toBe("crash-budget");
     expect(stoppedRuntime.failure?.attempts).toBe(3);
     expect(stoppedRuntime.failure?.stderr).toContain("fixture stderr");
-    await Bun.sleep(100);
     expect(f.processes).toHaveLength(3);
     expect(stopped.ack.documents).toHaveLength(1);
     const restarted = await f.broker.restart("one", stopped.context);
