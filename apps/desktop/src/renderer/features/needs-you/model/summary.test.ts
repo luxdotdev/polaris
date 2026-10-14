@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { SessionNotification, TurnId } from "@polaris/protocol";
 import { C1, HOSTS, MODELS } from "../../sessions/preview/fixtures.ts";
+import { host, hostModel, sessionWith } from "./inbox.testing.ts";
 import { notificationsOf, turnsOf } from "./summary.ts";
 
 describe("turnsOf", () => {
@@ -13,9 +14,27 @@ describe("turnsOf", () => {
   );
 
   test("lists Working and Idle sessions only, with their Host and Harness names", () => {
-    expect(all.length).toBeGreaterThan(0);
-    expect(all.every((t) => t.state === "working" || t.state === "idle")).toBe(true);
-    expect(all.every((t) => t.hostLabel.length > 0 && t.harness.length > 0)).toBe(true);
+    const local = hostModel([
+      { session: sessionWith("w", { state: "working" }) },
+      { session: sessionWith("n", { state: "needs-you" }) },
+      { session: sessionWith("f", { state: "failed" }) },
+    ]);
+
+    const vm = hostModel([
+      { session: sessionWith("i", { state: "idle", harness: "codex" }) },
+      { session: sessionWith("x", { state: "archived" }) },
+    ]);
+
+    const turns = turnsOf({
+      hosts: [host("local", "Mac Studio"), host("vm", "Linux VM")],
+      models: { local, vm },
+      views: {},
+    });
+
+    expect(turns.map((t) => [t.hostLabel, t.sessionId, t.state, t.harness])).toEqual([
+      ["Mac Studio", "w", "working", "Claude Code"],
+      ["Linux VM", "i", "idle", "Codex"],
+    ]);
   });
 
   test("leaves out Constellation workers but keeps their Lead", () => {

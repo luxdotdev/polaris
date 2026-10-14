@@ -1,6 +1,7 @@
 {
   "jsPlugins": [{ "name": "polaris", "specifier": "../index.mjs" }],
   "rules": {
-    "polaris/no-long-comment": "error"
+    "polaris/no-long-comment": "error",
+    "polaris/await-expect-promise": "error"
   }
 }

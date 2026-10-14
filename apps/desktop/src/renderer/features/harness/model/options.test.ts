@@ -87,7 +87,7 @@ describe("Harness options", () => {
     expect(otherCount(options)).toBe(3);
   });
 
-  test("not installed: the catalogue's setup line and docs, never an install command", () => {
+  test("not installed: the catalogue's setup line and docs, and no sign-in", () => {
     const [option] = harnessOptions(report(probe(first.kind, "not-installed")), []);
 
     expect(option).toMatchObject({
@@ -97,7 +97,6 @@ describe("Harness options", () => {
       docsUrl: first.setup.docsUrl,
       signInArgv: null,
     });
-    expect(Object.keys(first.setup)).not.toContain("installCommand");
   });
 
   test("needs sign-in carries its own sign-in; outdated says what to do", () => {

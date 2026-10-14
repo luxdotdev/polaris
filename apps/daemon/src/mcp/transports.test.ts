@@ -8,10 +8,9 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { Effect } from "effect";
 import { mcpHttp } from "./http.ts";
 import { McpTokens } from "./tokens.ts";
-import { fakeCommands, workerBinding } from "./testing.ts";
+import { WORKER_TOOL_NAMES, fakeCommands, workerBinding } from "./testing.ts";
 import { attachConstellation } from "../harness/constellation/attachment.ts";
 import { claudeConstellationOptions } from "../harness/claude/constellation.ts";
-import { polarisInstructions } from "../constellation/skills/preamble.ts";
 
 const withServer = async (
   body: (origin: string, token: string, tokens: McpTokens["Service"]) => Promise<void>
@@ -46,17 +45,7 @@ test("Codex's stateless HTTP endpoint works with a real MCP client; revocation c
 
       await client.connect(transport);
       const list = await client.listTools();
-      expect(list.tools.map((tool) => tool.name)).toEqual([
-        "block",
-        "progress",
-        "ask",
-        "claim",
-        "propose",
-        "message",
-        "status",
-        "wait_for_command",
-        "notify",
-      ]);
+      expect(list.tools.map((tool) => tool.name)).toEqual(WORKER_TOOL_NAMES);
 
       const result = await client.callTool({
         name: "progress",
@@ -128,13 +117,7 @@ test("Claude's in-process server exposes valid schemas and bound handlers; revok
           fakeCommands().commands
         );
 
-        const options = claudeConstellationOptions([attachment]);
-        expect(options.strictMcpConfig).toBeUndefined();
-        expect(options.allowedTools).toEqual(["mcp__polaris__*"]);
-        expect(options.systemPrompt).toMatchObject({
-          append: polarisInstructions({ constellations: [attachment] }),
-        });
-        const server = options.mcpServers?.polaris;
+        const server = claudeConstellationOptions([attachment]).mcpServers?.polaris;
 
         if (server === undefined || server.type !== "sdk") throw new Error("Missing SDK server");
         const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();

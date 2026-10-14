@@ -34,7 +34,7 @@ import {
   probeScript,
   RemoteInstallError,
 } from "./remote.ts";
-import { classifySshFailure, Ssh, SshError } from "./Ssh.ts";
+import { Ssh, SshError } from "./Ssh.ts";
 
 const uname = (flag: string) => Bun.spawnSync(["uname", flag]).stdout.toString().trim();
 
@@ -539,11 +539,5 @@ describe("parsing", () => {
       tools: { fetch: null, tar: false, sha256: false },
     });
     expect(parseProbe("os=Linux\narch=x86_64\nlibc=musl\n")?.missingLibraries).toEqual([]);
-  });
-
-  test("classifySshFailure", () => {
-    expect(classifySshFailure("Host key verification failed.")).toBe("host-key");
-    expect(classifySshFailure("user@h: Permission denied (publickey).")).toBe("auth");
-    expect(classifySshFailure("ssh: Could not resolve hostname nope")).toBe("unreachable");
   });
 });

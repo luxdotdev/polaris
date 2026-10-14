@@ -20,7 +20,6 @@ import {
   keymapFor,
   reservedFor,
   TERMINAL_TOGGLE,
-  KEYMAP,
   PC_KEYS,
 } from "./keymap.ts";
 import { setClientPlatform } from "./platform.ts";
@@ -155,7 +154,6 @@ describe("Windows and Linux keys", () => {
   });
 
   test("macOS keeps its keys, plus Control+Tab for sessions", () => {
-    expect(keymapFor("mac")).toBe(KEYMAP);
     expect(keysOf("view.output", "mac")).toEqual(["⌥⌘B"]);
     expect(keysOf("git.writeMessage", "mac")).toEqual(["⌥⌘G"]);
     expect(keysOf("view.orchestrate", "mac")).toEqual(["⌘1"]);

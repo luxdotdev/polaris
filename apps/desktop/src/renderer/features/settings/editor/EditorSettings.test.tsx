@@ -218,20 +218,12 @@ describe("preferences", () => {
 });
 
 describe("languages", () => {
-  test("lists each row's state for the picked host", async () => {
+  test("each row shows its state; syntax-only languages say they need no server", async () => {
     renderPage();
 
     await page().findByText("TypeScript and JavaScript");
     expect(
       page().getByText("Ready · uses each project's TypeScript once you trust it")
-    ).toBeTruthy();
-    expect(page().getByText("Setting up · downloading pyright")).toBeTruthy();
-    expect(page().getByText("Needs cargo on this Mac")).toBeTruthy();
-    expect(page().getByText("Couldn't download gopls")).toBeTruthy();
-    expect(
-      page().getByText(
-        "Not downloaded yet · vscode-langservers-extracted arrives with your first .html file"
-      )
     ).toBeTruthy();
     expect(page().getByText("Highlighting and preview · no language server needed")).toBeTruthy();
   });

@@ -240,9 +240,7 @@ describe("planInstall", () => {
         trusted: true,
       });
 
-      expect(plan).toEqual(
-        InstallPlan.Install({ build: linuxX64, delivery: deliveryFor(linuxX64, linux())! })
-      );
+      expect(plan).toEqual(InstallPlan.Install({ build: linuxX64, delivery: Delivery.Upload() }));
     }
   });
 

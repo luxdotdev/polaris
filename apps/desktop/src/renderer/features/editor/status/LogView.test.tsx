@@ -8,7 +8,7 @@ import { workspaceKey } from "../model/drafts.ts";
 import { editorStore } from "../runtime/store.ts";
 import { contextObserved, watchServerLog } from "./feed.ts";
 import type { LanguageApi } from "../../../../shared/api.ts";
-import { checkout, context, HOST, running, runtimes, workspaceId } from "./fixtures.testing.ts";
+import { checkout, context, HOST, runtimes, workspaceId } from "./fixtures.testing.ts";
 import { appendLogLines, appendStderr, LOG_LIMIT, logKey, logStore, type LogScope } from "./log.ts";
 import { copyText, matchParts, visibleLines } from "./logModel.ts";
 import { closeLogTab, logTabStore, showLogTab } from "./logTabs.ts";
@@ -145,7 +145,6 @@ describe("the log store", () => {
       ["Restarted", "feed"],
       ["boom", "stderr"],
     ]);
-    expect(running(runtimes.ready).context.providerId).toBe(scope.providerId);
   });
 
   test("the log keeps its newest lines within the bound", () => {

@@ -240,8 +240,12 @@ describe("live subscribers", () => {
           expect(
             drained.filter((i) => Predicate.isTagged(i, "Event")).map((i) => i._tag)
           ).toHaveLength(8);
-          // The filtered subscriber buffered none of this session's items, so it stays.
-          expect(unrelated).toBeDefined();
+          // The filtered subscriber buffered none of this session's items, so it stays live.
+          yield* record(store, [DomainEvent.cases.WorkspaceUpdated.make({ workspace })]);
+          const heard = yield* Stream.runCollect(Stream.take(unrelated, 1));
+          expect(
+            heard.map((i) => (Predicate.isTagged(i, "Event") ? i.envelope.event._tag : i._tag))
+          ).toEqual(["WorkspaceUpdated"]);
         })
       ).pipe(
         Effect.provide(

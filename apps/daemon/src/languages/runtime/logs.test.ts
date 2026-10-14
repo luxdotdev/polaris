@@ -91,7 +91,7 @@ test("log backlog and live delivery are atomic; slow subscribers and cancellatio
 
     for (let i = 0; i < 256; i++) logs.append("logMessage", "info", "overflow");
 
-    expect(slow.next()).rejects.toMatchObject({ reason: "queue-full" });
+    await Promise.resolve(expect(slow.next()).rejects.toMatchObject({ reason: "queue-full" }));
 
     expect(logs.stats().subscribers).toBe(0);
 

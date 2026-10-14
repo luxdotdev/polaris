@@ -47,17 +47,47 @@ test("the system tar extracts it, as a Host does", () => {
 });
 
 test("refuses names that are paths", () => {
-  expect(() => packArchive([{ name: "../x", mode: 0o644, bytes: new Uint8Array() }])).toThrow();
-  expect(() => packArchive([{ name: "a/b", mode: 0o644, bytes: new Uint8Array() }])).toThrow();
+  expect(() => packArchive([{ name: "../x", mode: 0o644, bytes: new Uint8Array() }])).toThrow(
+    'archive entry name "../x" is not plain'
+  );
+  expect(() => packArchive([{ name: "a/b", mode: 0o644, bytes: new Uint8Array() }])).toThrow(
+    'archive entry name "a/b" is not plain'
+  );
 });
 
-test("refuses an archive whose entry is a path or a link", () => {
-  const tar = gunzipSync(packArchive([{ name: "abc", mode: 0o644, bytes: new Uint8Array(1) }]));
-  const pathed = Buffer.from(tar);
-  pathed.write("../", 0);
-  expect(() => unpackArchive(gzipSync(pathed))).toThrow();
+const BLOCK = 512;
 
-  const linked = Buffer.from(tar);
+/** The ustar header checksum, as tar computes it, so a test edit can keep it valid. */
+const resum = (tar: Buffer) => {
+  tar.fill(0x20, 148, 156);
+  const sum = tar.subarray(0, BLOCK).reduce((total, byte) => total + byte, 0);
+  tar.write(`${sum.toString(8).padStart(6, "0")}\0 `, 148);
+
+  return tar;
+};
+
+const tarOf = (name: string, size: number) =>
+  Buffer.from(gunzipSync(packArchive([{ name, mode: 0o644, bytes: new Uint8Array(size) }])));
+
+test("refuses an archive whose entry is a path or a link", () => {
+  const pathed = tarOf("abc", 1);
+  pathed.write("../", 0);
+  expect(() => unpackArchive(gzipSync(resum(pathed)))).toThrow('archive entry "../" is not');
+
+  const linked = tarOf("abc", 1);
   linked[156] = 0x32;
-  expect(() => unpackArchive(gzipSync(linked))).toThrow();
+  expect(() => unpackArchive(gzipSync(resum(linked)))).toThrow('archive entry "abc" is not');
+});
+
+test("refuses a header whose checksum differs, even when the edit leaves a plain name", () => {
+  const corrupt = tarOf("abc", 1);
+  corrupt.write("abd", 0);
+
+  expect(() => unpackArchive(gzipSync(corrupt))).toThrow("archive header checksum differs");
+});
+
+test("refuses an archive cut short inside an entry", () => {
+  const cut = tarOf("polaris", 1500).subarray(0, BLOCK + 1000);
+
+  expect(() => unpackArchive(gzipSync(cut))).toThrow("archive is truncated");
 });

@@ -79,7 +79,6 @@ test("an unfinished Reviewer times out, interrupts its Turn, and retains its no-
   await Effect.runPromise(
     Effect.gen(function* () {
       yield* recoverReviewer;
-      expect(reviewerId).toBeDefined();
       expect((yield* ReviewerSessions).has(reviewerId)).toBe(true);
     }).pipe(
       Effect.provide(Layer.mergeAll(EventStore.layerSqlite(filename), ReviewerSessions.layer))

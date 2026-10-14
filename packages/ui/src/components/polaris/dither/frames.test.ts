@@ -44,8 +44,17 @@ describe("dither frames", () => {
     const strip = decodeURIComponent(ditherStripMask({ width: 16, height: 16 }));
 
     expect(strip).toContain(`width="${16 * DITHER_FRAMES}"`);
-    expect(ditherStillMask({ width: 16, height: 16 })).toBe(
-      ditherStillMask({ width: 16, height: 16 })
+  });
+
+  test("the still mask is the strip's first frame, so Starting and Working line up", () => {
+    const rects = (mask: string): string[] =>
+      [...decodeURIComponent(mask).matchAll(/<rect [^>]*\/>/g)].map((m) => m[0]);
+
+    const firstFrame = rects(ditherStripMask({ width: 16, height: 16 })).filter(
+      (rect) => Number(/x="(\d+)"/.exec(rect)?.[1]) < 16
     );
+
+    expect(firstFrame.length).toBeGreaterThan(0);
+    expect(rects(ditherStillMask({ width: 16, height: 16 }))).toEqual(firstFrame);
   });
 });

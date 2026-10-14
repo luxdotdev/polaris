@@ -37,7 +37,8 @@ export class OrderedConnection {
   constructor(
     private readonly port: ProcessPort,
     private readonly receive: (message: LanguageJsonRpcEnvelope) => void,
-    private readonly onFailure: (error: LanguageError) => void
+    private readonly onFailure: (error: LanguageError) => void,
+    private readonly closeDeadlineMs = 10000
   ) {
     this.reader = port.stdout.getReader();
     this.read = this.pump();
@@ -168,7 +169,7 @@ export class OrderedConnection {
       void this.reader.cancel().catch(() => {});
       await Promise.all([this.port.stop(graceful), this.read, this.tail]);
     });
-    this.closeResult = bounded(this.stopping, 10000);
+    this.closeResult = bounded(this.stopping, this.closeDeadlineMs);
     this.fail(failure("cancelled", "Language connection closed"));
 
     return this.closeResult;

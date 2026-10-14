@@ -94,6 +94,7 @@ describe("GitHub account rows", () => {
     );
 
     expect(revoked).toMatchObject({
+      signedOut: true,
       since: null,
       caption: "Signed out · GitHub refused its token 2 days ago",
     });
@@ -118,13 +119,6 @@ describe("GitHub account rows", () => {
     };
 
     expect(signInStatus(flow, NOW).text).toBe("Waiting for ghe.acme.test");
-  });
-
-  test("an older revoked account says so and needs a new sign-in", () => {
-    const row = accountRows(view(), NOW)[2];
-
-    expect(row?.signedOut).toBe(true);
-    expect(row?.caption).toContain("Signed out");
   });
 
   test("an account without repo access says what it can't see", () => {
@@ -172,7 +166,12 @@ describe("account per owner", () => {
   test("a blocked owner carries its request-access and SSO links", () => {
     const blocked = ownerTable(view(), pulls, labels).rows.find((r) => r.owner === "lockedorg");
 
-    expect(blocked?.access).toMatchObject({ kind: "blocked", repo: "lockedorg/vault" });
+    expect(blocked?.access).toEqual({
+      kind: "blocked",
+      repo: "lockedorg/vault",
+      approvalUrl: "https://github.com/orgs/x/policies/applications/1",
+      ssoUrl: "https://github.com/orgs/x/sso",
+    });
   });
 
   test("before the first poll, only mapped owners show", () => {

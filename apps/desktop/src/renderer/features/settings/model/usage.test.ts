@@ -123,7 +123,7 @@ describe("usageSummary", () => {
     });
   });
 
-  test("the cost figure: '~' and 'estimated' only for estimates; unpriced Models said once", () => {
+  test("the cost figure: '~', grouped digits and 'estimated' only for estimates; unpriced Models said once", () => {
     const estimated = { usd: 7526.651, estimated: true, partial: false };
     const reported = { usd: 21.4, estimated: false, partial: false };
 
@@ -141,10 +141,6 @@ describe("usageSummary", () => {
     expect(costCaption({ ...reported, partial: true })).toBe(
       "Reported by harnesses · some models unpriced"
     );
-  });
-
-  test("costs over a thousand dollars group their digits", () => {
-    expect(costLabel({ usd: 4870.849, estimated: true, partial: false })).toBe("~$4,870.85");
   });
 
   test("compact token figures", () => {

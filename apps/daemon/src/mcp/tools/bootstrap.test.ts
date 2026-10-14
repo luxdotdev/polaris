@@ -12,6 +12,7 @@ import { HarnessEvent } from "../../harness/HarnessDriver.ts";
 import { attachConstellation } from "../../harness/constellation/attachment.ts";
 import { McpBinding } from "../binding.ts";
 import { McpTokens } from "../tokens.ts";
+import { LEAD_TOOL_NAMES } from "../testing.ts";
 import { revokeMcpBindings } from "../revoke.ts";
 import { DomainEvent } from "@polaris/protocol";
 import { CID, HOST, LEAD, WS, seed, runtime, repo } from "./eval.fixture.ts";
@@ -54,20 +55,7 @@ for (const kind of ["codex", "claude"] as const) {
             );
 
             const names = attachment.tools.map((tool) => tool.name);
-            expect(names).toEqual([
-              "plan",
-              "dispatch",
-              "review",
-              "answer",
-              "message",
-              "status",
-              "set_state",
-              "read_worker",
-              "wait_for_command",
-              "notify",
-            ]);
-            expect(names).not.toContain("claim");
-            expect(names).not.toContain("ask");
+            expect(names).toEqual(LEAD_TOOL_NAMES);
             const plan = attachment.tools.find((tool) => tool.name === "plan")!;
             const status = attachment.tools.find((tool) => tool.name === "status")!;
             const early = yield* Effect.promise(() => plan.call({ operations: [] }));
@@ -154,7 +142,6 @@ for (const kind of ["codex", "claude"] as const) {
 
             expect(dispatched.isError).not.toBe(true);
             expect((yield* store.model).constellations.get(CID)?.graph.attempts).toHaveLength(1);
-            expect(attachment.tools.map((tool) => tool.name)).toEqual(names);
 
             const token = attachment.url.split("/").at(-1)!;
             const tokens = yield* McpTokens;

@@ -3,6 +3,9 @@ import * as P from "@polaris/protocol";
 import { SaveCoordinator, type FormatSnapshot, type SaveReason } from "./index.ts";
 import { formattedText } from "./edits.ts";
 
+// Every save path (⌘S, :w/:wq, close, quit, Save All) saves as "manual" does; only autosave differs.
+const SAVE_REASONS = ["manual", "autosave"] satisfies SaveReason[];
+
 const provider = P.LanguageFormatterSelection.cases.Provider.make({ providerId: "fixture" });
 
 const deferred = <A>() => {
@@ -96,14 +99,7 @@ const fixture = (format: (snapshot: FormatSnapshot, signal: AbortSignal) => Prom
   };
 };
 
-for (const reason of [
-  "manual",
-  "autosave",
-  "save-all",
-  "vim",
-  "close",
-  "quit",
-] satisfies SaveReason[]) {
+for (const reason of SAVE_REASONS) {
   test(`${reason} awaits formatting before writing`, async () => {
     const gate = deferred<string>();
     const f = fixture(() => gate.promise);
@@ -261,15 +257,7 @@ test("Format document reports a formatter failure to its caller instead of savin
   expect(f.state().writes).toBe(0);
 });
 
-// Every save path (⌘S, :w/:wq, autosave, close, quit, Save All) goes through the coordinator.
-for (const reason of [
-  "manual",
-  "vim",
-  "autosave",
-  "close",
-  "quit",
-  "save-all",
-] satisfies SaveReason[]) {
+for (const reason of SAVE_REASONS) {
   test(`${reason}: with no formatter chosen, the file's own server formats before the write`, async () => {
     const f = fixture(async () => "const n = 1;");
 

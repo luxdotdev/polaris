@@ -66,10 +66,19 @@ test("repeated broker close stays bounded while owned teardown is pending", asyn
     release = resolve;
   });
 
-  const f = await fixture("ordinary", 10, undefined, undefined, (port) => ({
-    ...port,
-    stop: (graceful) => port.stop(graceful).then(() => finalizer),
-  }));
+  const f = await fixture(
+    "ordinary",
+    10,
+    undefined,
+    undefined,
+    (port) => ({
+      ...port,
+      stop: (graceful) => port.stop(graceful).then(() => finalizer),
+    }),
+    false,
+    // A short stand-in for the 2.5 s close deadline.
+    { closeDeadlineMs: 100 }
+  );
 
   try {
     const { context } = await f.acquire();
@@ -95,7 +104,7 @@ test("repeated broker close stays bounded while owned teardown is pending", asyn
     release();
     await f.dispose();
   }
-}, 25000);
+});
 
 test("broker close cancels held stderr without waiting for its source finalizer", async () => {
   let controller: ReadableStreamDefaultController<Uint8Array> | undefined;
@@ -253,10 +262,19 @@ test("close deadline rejects while actual teardown remains owned until settlemen
     release = resolve;
   });
 
-  const f = await fixture("ordinary", 10, undefined, undefined, (port) => ({
-    ...port,
-    stop: (graceful) => port.stop(graceful).then(() => finalizer),
-  }));
+  const f = await fixture(
+    "ordinary",
+    10,
+    undefined,
+    undefined,
+    (port) => ({
+      ...port,
+      stop: (graceful) => port.stop(graceful).then(() => finalizer),
+    }),
+    false,
+    // A short stand-in for the 2.5 s close deadline.
+    { closeDeadlineMs: 100 }
+  );
 
   try {
     const { context } = await f.acquire();
@@ -279,4 +297,4 @@ test("close deadline rejects while actual teardown remains owned until settlemen
     release();
     await f.dispose();
   }
-}, 15000);
+});

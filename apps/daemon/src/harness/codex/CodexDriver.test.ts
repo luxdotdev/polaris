@@ -39,14 +39,6 @@ describe("Codex driver against a fake app-server", () => {
     const threadId = "01a0e68a-7f27-7583-8ddc-d1194aeb14f4";
     const messageId = "msg_0829498457dd13ad016ab9fe9bc67087d1a552d9ba43c74252";
     const turnId = TurnId.make("turn-1");
-    expect(events.map((e) => e._tag)).toEqual([
-      "CursorAssigned",
-      "TurnStarted",
-      "ItemDelta",
-      "ItemCompleted",
-      "TurnEnded",
-      "Exited",
-    ]);
     expect(events).toEqual([
       HarnessEvent.CursorAssigned({ cursor: threadId }),
       HarnessEvent.TurnStarted({ turnId, prompt: "say ok" }),
@@ -651,7 +643,7 @@ describe("Codex driver against a fake app-server", () => {
         drop();
         yield* waitFor("Exited");
         const failed = yield* Effect.flip(session.steer("anything"));
-        expect(failed._tag).toBe("HarnessError");
+        expect(failed.message).toBe("turn/steer: Codex app-server connection is closed");
       })
     );
 
@@ -672,7 +664,10 @@ describe("Codex driver against a fake app-server", () => {
             )
           );
 
-          expect(error.harness).toBe("codex");
+          expect(error).toMatchObject({
+            harness: "codex",
+            message: "No open Codex request nope; it may have been resolved",
+          });
         })
     );
   });
@@ -787,12 +782,14 @@ describe("Constellation attachment", () => {
     expect(params).not.toHaveProperty("config");
   });
   test("an attachment from another session is refused before thread start", async () => {
-    expect(
-      withSession(
-        scripted(() => {}),
-        () => Effect.void,
-        { constellation: { ...attachment, sessionId: SessionId.make("other") } }
-      )
-    ).rejects.toThrow("another session");
+    await Promise.resolve(
+      expect(
+        withSession(
+          scripted(() => {}),
+          () => Effect.void,
+          { constellation: { ...attachment, sessionId: SessionId.make("other") } }
+        )
+      ).rejects.toThrow("another session")
+    );
   });
 });

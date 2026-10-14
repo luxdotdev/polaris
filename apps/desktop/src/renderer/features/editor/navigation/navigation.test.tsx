@@ -200,30 +200,10 @@ describe("the workspace symbol search", () => {
 });
 
 describe("vim keys", () => {
-  test("each vim key names one registry command; there is no second table", () => {
-    const keys = LANGUAGE_NAVIGATION.flatMap((c) => (c.vim ?? []).map((k) => [k, c.id]));
-
-    expect(keys).toEqual([
-      ["gd", "editor.language.definition"],
-      ["gD", "editor.language.definition"],
-      ["gy", "editor.language.typeDefinition"],
-      ["gi", "editor.language.implementation"],
-      ["gr", "editor.language.references"],
-      ["K", "editor.language.hover"],
-      ["]d", "editor.language.nextProblem"],
-      ["[d", "editor.language.previousProblem"],
-      ["<C-o>", "editor.language.back"],
-      ["<C-i>", "editor.language.forward"],
-    ]);
-  });
-
   test("Back and Forward are unavailable with nowhere to go, so vim's own jumps run", () => {
     const byId = new Map(navigationContributions().map((c) => [c.id, c]));
 
     expect(byId.get("editor.language.back")?.handler.enabled?.()).toBe(false);
     expect(byId.get("editor.language.forward")?.handler.enabled?.()).toBe(false);
-    expect(byId.get("editor.language.definition")?.when).toEqual({
-      all: ["editor.file", "language.server"],
-    });
   });
 });

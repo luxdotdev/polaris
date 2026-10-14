@@ -1,7 +1,8 @@
 import "../../../test/dom.testing.ts";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { act, cleanup, render, waitFor } from "@testing-library/react";
+import { render, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { cleanupDocs } from "./docs.testing.ts";
 import { DocView, loadDocRenderer, mountDocs } from "./docs.tsx";
 import { MARKDOWN, PLAINTEXT } from "./hoverFixtures.testing.ts";
 import { hoverParts } from "./payloads.ts";
@@ -20,11 +21,7 @@ beforeAll(() => {
   return loadDocRenderer();
 });
 
-// Shiki arrives after the first fence; let it land before the DOM goes away.
-afterEach(async () => {
-  await act(() => new Promise((resolve) => setTimeout(resolve, 150)));
-  cleanup();
-});
+afterEach(cleanupDocs);
 
 describe("language docs: hover", () => {
   test("a Markdown fence renders as a code block, without its fence marks", async () => {

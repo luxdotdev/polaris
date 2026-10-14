@@ -138,10 +138,7 @@ const proposal = Schema.decodeUnknownSync(LanguageTreeEditProposal)({
   resourceSnapshots: resources,
 });
 
-test("dedicated server tree edit payload preserves resource snapshots before legacy decoding", () => {
-  const payload = LanguageServerRequestPayload.cases.TreeApplyEdit.make({ proposal });
-
-  expect(payload).toEqual(LanguageServerRequestPayload.cases.TreeApplyEdit.make({ proposal }));
+test("dedicated server tree edit payload never mixes regular and tree proposals", () => {
   expect(() =>
     Schema.decodeUnknownSync(LanguageServerRequestPayload)({
       ...LanguageServerRequestPayload.cases.ApplyEdit.make({ proposal: regular }),
@@ -317,7 +314,7 @@ test("aggregate roots/entries/hash bytes/UTF8 encoded bytes and all complete rec
 });
 
 import { LanguageTreeEditDecision } from "./trees.ts";
-import { DecideLanguageTreeEdit, LanguageRpcs } from "./rpc.ts";
+import { DecideLanguageTreeEdit } from "./rpc.ts";
 import { languageRpcAllowed } from "./capabilities.ts";
 
 test("dedicated raw decision boundary allows rejection/null and rejects acceptance/null or mismatched receipt", () => {
@@ -340,16 +337,9 @@ test("dedicated raw decision boundary allows rejection/null and rejects acceptan
 test("dedicated RPC schema retains nested tree ownership before codec and rejects unknown versions", () => {
   const decision = { acceptance, drafts: receipt };
 
-  const encoded = Schema.encodeSync(DecideLanguageTreeEdit.payloadSchema)(
-    Schema.decodeUnknownSync(DecideLanguageTreeEdit.payloadSchema)(decision)
-  );
+  const decoded = Schema.decodeUnknownSync(DecideLanguageTreeEdit.payloadSchema)(decision);
 
-  const roundtrip = Schema.decodeUnknownSync(DecideLanguageTreeEdit.payloadSchema)(encoded);
-
-  expect(roundtrip).toEqual(
-    Schema.decodeUnknownSync(DecideLanguageTreeEdit.payloadSchema)(decision)
-  );
-  expect(roundtrip.acceptance.resourceSnapshots).toEqual(
+  expect(decoded.acceptance.resourceSnapshots).toEqual(
     Schema.decodeUnknownSync(Schema.Array(LanguageResourceSnapshot))(resources)
   );
 
@@ -361,7 +351,6 @@ test("dedicated RPC schema retains nested tree ownership before codec and reject
       })
     ).toThrow();
 
-  expect(LanguageRpcs.requests.has("languages.tree.edit.decide")).toBe(true);
   expect(languageRpcAllowed("languages.tree.edit.decide", ["languages", "languages.edits"])).toBe(
     false
   );

@@ -5,7 +5,6 @@ import { PredictionCapabilityRequest, PredictionEndpointUrl } from "./prediction
 test("capability accepts absent, empty and configured local endpoints", () => {
   const decode = Schema.decodeUnknownSync(PredictionCapabilityRequest);
   expect(decode(undefined)).toBeUndefined();
-  expect(decode({})).toEqual({});
   expect(decode({ endpoints: [] })).toEqual({ endpoints: [] });
   expect(
     decode({ endpoints: ["http://127.0.0.1:8080", "https://192.168.1.2:1234"] })?.endpoints

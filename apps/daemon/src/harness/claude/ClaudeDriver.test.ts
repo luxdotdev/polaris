@@ -289,8 +289,8 @@ describe("Claude driver", () => {
   test("rejects a second Turn while one is in progress", async () => {
     const t = await openFake();
     await t.run(t.session.sendTurn(turn(T1, "one")));
-    const exit = await Effect.runPromiseExit(t.session.sendTurn(turn(T2, "two")));
-    expect(Exit.isFailure(exit)).toBe(true);
+    const busy = await Effect.runPromise(Effect.flip(t.session.sendTurn(turn(T2, "two"))));
+    expect(busy.message).toBe("A Turn is already in progress; steer it instead");
     await t.close();
   });
 
@@ -381,11 +381,13 @@ describe("Claude driver", () => {
     });
 
     // The same request can't be answered twice.
-    const again = await Effect.runPromiseExit(
-      t.session.respond(request.requestId, ApprovalDecision.cases.Deny.make({ reason: null }))
+    const again = await Effect.runPromise(
+      Effect.flip(
+        t.session.respond(request.requestId, ApprovalDecision.cases.Deny.make({ reason: null }))
+      )
     );
 
-    expect(Exit.isFailure(again)).toBe(true);
+    expect(again.message).toBe(`No open request ${request.requestId}`);
     await t.close();
   });
 
@@ -535,7 +537,9 @@ describe("Claude driver", () => {
       })
     );
     // Steering with nothing in flight fails.
-    expect(Exit.isFailure(await Effect.runPromiseExit(t.session.steer("late")))).toBe(true);
+    expect((await Effect.runPromise(Effect.flip(t.session.steer("late")))).message).toBe(
+      "No Turn is in progress to steer"
+    );
     await t.close();
   });
 
@@ -610,7 +614,9 @@ describe("Claude driver", () => {
 
   test("terminal command fails before Claude has a session id", async () => {
     const t = await openFake();
-    expect(Exit.isFailure(await Effect.runPromiseExit(t.session.terminalCommand))).toBe(true);
+    expect((await Effect.runPromise(Effect.flip(t.session.terminalCommand))).message).toBe(
+      "Claude has not started this session yet; send a Turn first"
+    );
     await t.close();
   });
 
@@ -787,8 +793,10 @@ describe("Constellation instructions", () => {
     }
   });
   test("an attachment from another session cannot start a Claude query", async () => {
-    expect(
-      openFake({ constellation: { ...attachment, sessionId: SessionId.make("other") } })
-    ).rejects.toThrow("another session");
+    await Promise.resolve(
+      expect(
+        openFake({ constellation: { ...attachment, sessionId: SessionId.make("other") } })
+      ).rejects.toThrow("another session")
+    );
   });
 });

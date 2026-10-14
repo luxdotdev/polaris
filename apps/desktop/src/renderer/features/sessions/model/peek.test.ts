@@ -1,32 +1,40 @@
 import { describe, expect, test } from "bun:test";
-import { buildRail, tallyOf } from "../../constellation/model/index.ts";
+import { buildRail } from "../../constellation/model/index.ts";
 import { plainFacts } from "../../constellation/model/facts.ts";
 import { setupRecord } from "../../constellation/preview/setup.ts";
-import { PEEK_ROWS, peekCounts, peekRows } from "./peek.ts";
+import { peekCounts, peekRows } from "./peek.ts";
 
 const rail = buildRail(setupRecord(), plainFacts({}));
 
 describe("the Space preview", () => {
   test("counts only the buckets with Tasks, in a fixed order", () => {
-    const counts = peekCounts(tallyOf(rail.tasks));
+    const counts = peekCounts({
+      waiting: 3,
+      "needs-you": 1,
+      blocked: 0,
+      review: 2,
+      working: 0,
+      done: 1,
+      ended: 4,
+      proposed: 0,
+    });
 
-    expect(counts.length).toBeGreaterThan(0);
-    expect(counts.every((c) => !c.text.startsWith("0 "))).toBe(true);
-    const order = ["done", "working", "review", "needs-you", "blocked", "waiting"];
-    const seen = counts.map((c) => order.indexOf(c.bucket));
-    expect(seen).toEqual([...seen].sort((a, b) => a - b));
+    expect(counts.map((c) => c.text)).toEqual([
+      "1 done",
+      "2 in review",
+      "1 needs you",
+      "3 waiting",
+    ]);
   });
 
   test("lists Tasks still in play, needs you first, done ones left out", () => {
-    const { shown, more } = peekRows(rail.tasks);
-    const buckets = shown.map((t) => t.look.bucket);
-
-    expect(buckets).not.toContain("done");
-
-    if (buckets.includes("needs-you")) expect(buckets[0]).toBe("needs-you");
-    expect(shown.length).toBeLessThanOrEqual(PEEK_ROWS);
-    expect(shown.length + more).toBe(
-      rail.tasks.filter((t) => t.look.bucket !== "done" && t.look.bucket !== "ended").length
+    const tasks = rail.tasks.map((t) =>
+      `${t.task.id}` === "G2" ? { ...t, look: { ...t.look, bucket: "needs-you" as const } } : t
     );
+
+    const { shown, more } = peekRows(tasks);
+
+    expect(shown.map((t) => `${t.task.id}`)).toEqual(["G2", "B1", "B4", "B2", "B3", "B5"]);
+    expect(more).toBe(3);
   });
 });

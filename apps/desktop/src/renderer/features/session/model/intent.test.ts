@@ -9,10 +9,8 @@ import {
   type TurnStatus,
 } from "@polaris/protocol";
 import {
-  archiveCommand,
   canQueue,
   composerMode,
-  forkCommand,
   interruptCommand,
   openQuestion,
   placeholderFor,
@@ -166,21 +164,5 @@ describe("composer commands", () => {
   test("rename trims and refuses empty titles", () => {
     expect(renameCommand(sessionId, " New ")).toMatchObject({ title: "New" });
     expect(renameCommand(sessionId, "  ")).toBeNull();
-  });
-
-  test("archive keeps merged branches; fork carries the Model", () => {
-    expect(archiveCommand(sessionId, false)).toMatchObject({ deleteMergedBranch: false });
-    expect(archiveCommand(sessionId, true)).toMatchObject({ deleteMergedBranch: true });
-
-    const fork = {
-      sessionId: SessionId.make("s2"),
-      fromSessionId: sessionId,
-      fromTurnId: TurnId.make("t1"),
-      harness: "codex",
-      model: "gpt-5.5",
-      effort: "high",
-    };
-
-    expect(forkCommand(fork)).toEqual(Commands.ForkSession(fork));
   });
 });

@@ -48,11 +48,13 @@ test("maintenance events create/remove shortcuts; first run remains a normal lau
   expect(squirrelCommand("darwin", [exe, "--squirrel-install"], exe)).toBeNull();
   expect(squirrelCommand("win32", [exe, "--squirrel-firstrun"], exe)).toBeNull();
   expect(squirrelCommand("win32", [exe, "--squirrel-unknown"], exe)).toBeNull();
-  expect(
-    handleSquirrelStartup("win32", [exe, "--squirrel-install"], exe, async () => {
-      throw new Error("failed");
-    })
-  ).rejects.toThrow("failed");
+  await Promise.resolve(
+    expect(
+      handleSquirrelStartup("win32", [exe, "--squirrel-install"], exe, async () => {
+        throw new Error("failed");
+      })
+    ).rejects.toThrow("failed")
+  );
 });
 
 test("installed Squirrel layout permits updates; unpacked and zip layouts are blocked", () => {

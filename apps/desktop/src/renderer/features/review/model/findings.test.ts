@@ -77,7 +77,8 @@ describe("findings in the diff", () => {
 
   test("reason rows, most severe first; low confidence dims all but Critical", () => {
     expect(findingsIn(FINDINGS, "a.ts").map((f) => f.id)).toEqual(["open-medium", "low"]);
-    expect(isDimmed(finding("x", { severity: "low", confidence: 0.3 }))).toBe(true);
+    expect(isDimmed(finding("x", { severity: "low", confidence: 0.49 }))).toBe(true);
+    expect(isDimmed(finding("x", { severity: "low", confidence: 0.5 }))).toBe(false);
     expect(isDimmed(finding("x", { severity: "critical", confidence: 0.1 }))).toBe(false);
   });
 });

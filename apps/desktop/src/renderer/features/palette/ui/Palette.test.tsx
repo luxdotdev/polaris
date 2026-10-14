@@ -68,7 +68,8 @@ const type = (value: string) => {
 
   if (field === null) return;
   Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(field, value);
-  // Without `oninput` in happy-dom, React reads the change on keyup.
+  // React reads the change on input or, when it found no `oninput` as it loaded, on keyup.
+  fireEvent.input(field);
   fireEvent.keyUp(field, { key: value.at(-1) ?? "" });
 };
 

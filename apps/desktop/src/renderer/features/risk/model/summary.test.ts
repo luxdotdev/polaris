@@ -6,7 +6,6 @@ import {
   costLine,
   type Finding,
   groupFindings,
-  isDimmed,
   notesOf,
   placeOf,
   provenanceOf,
@@ -82,12 +81,6 @@ describe("ranking", () => {
       "high-agent",
       "low",
     ]);
-  });
-
-  test("low confidence dims everything but Critical", () => {
-    expect(isDimmed(finding("a", { confidence: 0.49 }))).toBe(true);
-    expect(isDimmed(finding("b", { confidence: 0.5 }))).toBe(false);
-    expect(isDimmed(finding("c", { severity: "critical", confidence: 0.1 }))).toBe(false);
   });
 });
 

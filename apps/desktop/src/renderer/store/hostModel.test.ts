@@ -6,6 +6,9 @@ import {
   ReviewCheckoutId,
   ReviewSubject,
   SessionSummary,
+  Worktree,
+  WorktreeId,
+  WorkspaceId,
 } from "@polaris/protocol";
 import { applyHostItems, emptyHostModel, sessionsOf, visibleWorkspaces } from "./hostModel.ts";
 import {
@@ -159,10 +162,27 @@ describe("host model", () => {
   });
 
   test("removing a Workspace drops its Worktrees; archived sessions are hidden", () => {
+    const worktreeOf = (id: string, workspaceId: WorkspaceId) =>
+      new Worktree({
+        id: WorktreeId.make(id),
+        workspaceId,
+        path: `/tmp/${id}`,
+        branch: id,
+        head: "abc1234",
+        createdBySessionId: null,
+        isMain: false,
+      });
+
     const model = applyHostItems(
       emptyHostModel,
       cloned([
-        snapshot,
+        H.Snapshot.make({
+          ...snapshot,
+          worktrees: [
+            worktreeOf("ours", workspace.id),
+            worktreeOf("theirs", WorkspaceId.make("w2")),
+          ],
+        }),
         event(4, E.SessionStateChanged.make({ sessionId, state: "archived", reason: null })),
       ])
     );
@@ -175,6 +195,7 @@ describe("host model", () => {
     );
 
     expect(visibleWorkspaces(removed)).toEqual([]);
+    expect([...removed.worktrees.keys()]).toEqual(["theirs"]);
   });
 
   test("the cache holds only synchronized live models and paints them marked as cached", () => {

@@ -2,7 +2,14 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { FileError, NotFound, TerminalId } from "@polaris/protocol";
 import { Effect, Exit, Fiber, Layer, ManagedRuntime, Stream } from "effect";
 import { removeDir, tempDir } from "../git/testing.ts";
-import { loginShell, Scrollback, TerminalItem, Terminals, TerminalsLive } from "./Terminals.ts";
+import {
+  loginShell,
+  Scrollback,
+  type ShellSources,
+  TerminalItem,
+  Terminals,
+  TerminalsLive,
+} from "./Terminals.ts";
 
 const encode = (text: string) => new TextEncoder().encode(text);
 
@@ -173,5 +180,41 @@ describe("Terminals", () => {
 
   test("the default is the user's login shell", () => {
     expect(loginShell().startsWith("/")).toBe(true);
+  });
+
+  const unreadable = () => {
+    throw new Error("unreadable");
+  };
+
+  const passwd = () => "root:x:0:0::/root:/bin/bash\nada:x:501:20::/home/ada:/usr/bin/fish\n";
+
+  test.each<[string, ShellSources, string]>([
+    [
+      "the user record",
+      { userShell: () => "/bin/zsh", passwd, uid: 501, envShell: "/bin/ksh" },
+      "/bin/zsh",
+    ],
+    [
+      "passwd when the user record says unknown",
+      { userShell: () => "unknown", passwd, uid: 501, envShell: "/bin/ksh" },
+      "/usr/bin/fish",
+    ],
+    [
+      "SHELL when passwd has no row for the uid",
+      { userShell: () => null, passwd, uid: 1000, envShell: "/opt/bin/nu" },
+      "/opt/bin/nu",
+    ],
+    [
+      "SHELL when neither record can be read",
+      { userShell: unreadable, passwd: unreadable, uid: 501, envShell: "/opt/bin/nu" },
+      "/opt/bin/nu",
+    ],
+    [
+      "/bin/sh when nothing names a shell",
+      { userShell: unreadable, passwd: unreadable, uid: 501, envShell: "" },
+      "/bin/sh",
+    ],
+  ])("the login shell comes from %s", (_, sources, expected) => {
+    expect(loginShell(sources)).toBe(expected);
   });
 });

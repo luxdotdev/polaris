@@ -6,11 +6,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as P from "@polaris/protocol";
 import { LanguageAccess, decodeLanguage } from "@polaris/client";
+import type { IpcError } from "../../shared/api.ts";
 import { readSettings, writeSettings, type Settings } from "../settings.ts";
 import { createLanguageBridge, LanguagePreferences, type LanguageHost } from "./index.ts";
 import { LanguageMedia, imageNetwork, publicImageAddress, type ImageNetwork } from "./media.ts";
 
 const hostId = P.HostId.make("host-a");
+
+/** Why a bridge request was refused, or null when it succeeded. */
+const refusal = (result: { ok: true } | { ok: false; error: IpcError }) =>
+  result.ok ? null : (result.error.languageError?.reason ?? result.error.code);
 
 const workspaceId = P.WorkspaceId.make("workspace-a");
 
@@ -135,7 +140,9 @@ test("old/offline Host retains local policy and denies forged Host/Workspace/che
   const { preferences } = prefs();
   const current = host();
   const bridge = createLanguageBridge({ preferences, lookup: () => current });
-  expect((await bridge.request("languages.catalog", { hostKey: "host" })).ok).toBe(false);
+  expect(refusal(await bridge.request("languages.catalog", { hostKey: "host" }))).toBe(
+    "unsupported-capability"
+  );
 
   const result = await bridge.request("languages.preview.policy.get", {
     hostKey: "host",
@@ -144,23 +151,23 @@ test("old/offline Host retains local policy and denies forged Host/Workspace/che
 
   expect(result.ok && result.value.externalImages).toBe("ask");
   expect(
-    (
+    refusal(
       await bridge.request("languages.preview.policy.set", {
         hostKey: "host",
         policy: { ...policy, hostId: P.HostId.make("foreign") },
       })
-    ).ok
-  ).toBe(false);
+    )
+  ).toBe("not-owner");
   expect(
-    (
+    refusal(
       await bridge.request("languages.preview.policy.get", {
         hostKey: "host",
         workspaceId: P.WorkspaceId.make("foreign"),
       })
-    ).ok
-  ).toBe(false);
+    )
+  ).toBe("not-owner");
   expect(
-    (
+    refusal(
       await bridge.request("languages.preview.media", {
         hostKey: "host",
         checkout: { ...checkout, path: "/outside" },
@@ -168,8 +175,8 @@ test("old/offline Host retains local policy and denies forged Host/Workspace/che
         relativePath: "a.png",
         maxBytes: 100,
       })
-    ).ok
-  ).toBe(false);
+    )
+  ).toBe("not-owner");
   bridge.dispose();
 });
 

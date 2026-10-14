@@ -27,18 +27,6 @@ export type StateGlyph =
   | "pixel-hourglass"
   | "pixel-archive";
 
-export const SESSION_STATES: readonly SessionState[] = [
-  "starting",
-  "working",
-  "needs-you",
-  "idle",
-  "in-terminal",
-  "dormant",
-  "failed",
-  "limited",
-  "archived",
-];
-
 /** DESIGN.md's Session State table. */
 export const STATE_GLYPHS: Record<SessionState, StateGlyph> = {
   starting: "dither-still",
@@ -51,6 +39,9 @@ export const STATE_GLYPHS: Record<SessionState, StateGlyph> = {
   limited: "pixel-hourglass",
   archived: "pixel-archive",
 };
+
+// SAFETY: STATE_GLYPHS is a Record<SessionState, …>, so its keys are exactly the Session States.
+export const SESSION_STATES = Object.keys(STATE_GLYPHS) as readonly SessionState[];
 
 /** Accessible names, in product copy (rule/glossary-lowercase). */
 export const STATE_LABELS: Record<SessionState, string> = {

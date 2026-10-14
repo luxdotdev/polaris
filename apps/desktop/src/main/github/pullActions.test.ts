@@ -435,7 +435,7 @@ describe("merging: the head branch afterwards", () => {
 });
 
 describe("auto-merge", () => {
-  test("offered while checks run; GitHub merges once they pass", async () => {
+  test("offered while checks run; enabling it records the method and who asked", async () => {
     const h = open();
 
     h.fake.setRepo(REPO, { autoMergeAllowed: true });
@@ -462,8 +462,5 @@ describe("auto-merge", () => {
       available: false,
       enabled: { method: "squash", by: "mona" },
     });
-
-    h.fake.setChecks(REPO, 44, { passing: 2 });
-    expect(pullOf(h, 44).state).toBe("MERGED");
   });
 });

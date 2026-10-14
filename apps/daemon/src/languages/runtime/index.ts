@@ -266,7 +266,8 @@ export function createLanguageBroker(options: BrokerOptions) {
       const { port, connection } = admission.connect(
         () => reserved.spawn(() => (options.spawn ?? spawnLanguageProcess)(launch)),
         (message) => entry.bridge?.receive(message),
-        () => onCrash(entry, identity)
+        () => onCrash(entry, identity),
+        options.connectionCloseDeadlineMs
       );
 
       entry.connection = connection;
@@ -783,7 +784,7 @@ export function createLanguageBroker(options: BrokerOptions) {
     keys.clear();
     await watches.close();
     // Return before the connection deadline; owned teardown and leases remain tracked.
-    await bounded(Promise.all(cleanup), 2500);
+    await bounded(Promise.all(cleanup), options.closeDeadlineMs ?? 2500);
   }
 
   const { restart, configure, restartMatching, reloadTrust } = bindRestarts({

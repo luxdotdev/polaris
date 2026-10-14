@@ -333,7 +333,7 @@ test("single user code action can apply directly; a single server request still 
 
   await other.applyAction(server.proposal);
   expect(server.calls).toEqual([]);
-  expect(other.state.getState().hostKey).toBe("host");
+  expect(other.state.getState().preview?.touched).toEqual(["/checkout/a"]);
 });
 
 test("post-transaction fence failure creates no Host request and keeps original drafts", async () => {

@@ -1,6 +1,7 @@
-import { expect, test } from "bun:test";
-import { writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { afterAll, expect, test } from "bun:test";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { Schema, Predicate } from "effect";
 import {
   LanguageError,
@@ -16,7 +17,12 @@ import {
   LanguageTraceObservation,
 } from "../language-replay/index.ts";
 
-const tracePath = "/tmp/m31-t1-lifecycle.trace.json";
+// Per run, so parallel checkouts never share a trace file.
+const traceDir = await mkdtemp(join(tmpdir(), "polaris-language-runtime-"));
+
+afterAll(() => rm(traceDir, { recursive: true, force: true }));
+
+const tracePath = join(traceDir, "lifecycle.trace.json");
 
 test("observed idle eviction and new admission replay per context, rejecting a false eviction result", async () => {
   const traces = new Map<string, (typeof RuntimeTrace.Type)["steps"][number][]>();
@@ -234,7 +240,7 @@ test("actual ordered acknowledgments/results/restart snapshots map to P1 languag
       ),
     });
     const trace = LanguageTrace.make({ version: 1, source: "runtime", events });
-    const path = "/tmp/m31-t1-language.trace.json";
+    const path = join(traceDir, "language.trace.json");
     await writeFile(path, JSON.stringify(trace, null, 2));
 
     const child = Bun.spawn(
@@ -311,13 +317,16 @@ test("automatic crash replacement retains acknowledged versions and replays life
       ],
     });
 
-    await writeFile("/tmp/slice-2b-language.trace.json", JSON.stringify(crashTrace, null, 2));
+    await writeFile(
+      join(traceDir, "crash-language.trace.json"),
+      JSON.stringify(crashTrace, null, 2)
+    );
   } finally {
     await f.dispose();
   }
 
   const trace = RuntimeTrace.make({ version: 1, source: "runtime", steps });
-  await writeFile("/tmp/slice-2b-lifecycle.trace.json", JSON.stringify(trace, null, 2));
+  await writeFile(join(traceDir, "crash-lifecycle.trace.json"), JSON.stringify(trace, null, 2));
   expect((await replayRuntime(trace)).steps).toBeGreaterThan(3);
 }, 15000);
 
@@ -378,6 +387,6 @@ test("configuration restart keeps the crash budget and its observed trace replay
   }
 
   const trace = RuntimeTrace.make({ version: 1, source: "runtime", steps });
-  await writeFile("/tmp/slice-2b-config-budget.trace.json", JSON.stringify(trace, null, 2));
+  await writeFile(join(traceDir, "config-budget.trace.json"), JSON.stringify(trace, null, 2));
   expect((await replayRuntime(trace)).steps).toBeGreaterThan(5);
 }, 15000);

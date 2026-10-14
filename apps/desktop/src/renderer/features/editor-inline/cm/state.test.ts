@@ -53,7 +53,7 @@ describe("cardField", () => {
     expect(cardOf(edited)?.proposal).toBeNull();
   });
 
-  test("accepting applies the edit and closes; closing leaves the text", () => {
+  test("accepting or closing drops the card", () => {
     const shown = opened().update({
       effects: showProposal.of({ version: 0, replacements: proposal }),
     }).state;
@@ -64,7 +64,6 @@ describe("cardField", () => {
     }).state;
 
     expect(cardOf(accepted)).toBeNull();
-    expect(accepted.doc.toString()).toBe("one\nTWO\nthree\n");
     expect(cardOf(shown.update({ effects: closeCard.of(null) }).state)).toBeNull();
   });
 

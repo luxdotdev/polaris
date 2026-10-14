@@ -263,15 +263,19 @@ test("a late approval request cannot leave a session Working without a Turn", as
       expect(late.pending.size).toBe(0);
       expect(late.session.state).toBe("idle");
 
-      if (late.pending.size > 0) {
-        yield* dispatch(
+      // The late request was never recorded, so there is nothing to answer.
+      const answered = yield* Effect.flip(
+        dispatch(
           Command.cases.RespondToApproval.make({
             sessionId: s,
             requestId: RequestId.make("req-late"),
             decision: ApprovalDecision.cases.Allow.make({ remember: false }),
           })
-        );
-      }
+        )
+      );
+
+      expect(answered).toBeInstanceOf(CommandRejected);
+      expect(answered).toMatchObject({ reason: "request req-late is already resolved" });
 
       // With no Turn in flight, a new one must be accepted.
       const sent = yield* Effect.exit(

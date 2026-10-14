@@ -2,6 +2,7 @@ import { describe, expect, spyOn, test } from "bun:test";
 import { EditorState } from "@codemirror/state";
 import { LanguageSupport, StreamLanguage, ensureSyntaxTree } from "@codemirror/language";
 import { classHighlighter, highlightTree } from "@lezer/highlight";
+import * as P from "@polaris/protocol";
 import {
   LANGUAGES,
   LANGUAGE_IDS,
@@ -84,6 +85,10 @@ describe("local language associations", () => {
     expect(LANGUAGES.tsx.documentLanguageId).toBe("typescriptreact");
     expect(LANGUAGES.jsx.documentLanguageId).toBe("javascriptreact");
     expect(LANGUAGES.shell.documentLanguageId).toBe("shellscript");
+  });
+
+  test("the editor's languages are exactly the protocol's syntax IDs", () => {
+    expect(LANGUAGE_IDS).toEqual(Array.from(P.LanguageSyntaxId.literals));
   });
 
   test("dotenv variants are assignments; envrc stays executable shell", () => {

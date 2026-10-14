@@ -72,7 +72,9 @@ test("foreign acquisition and invalidated generation never expose a usable provi
   const foreign = fixture();
   foreign.foreign();
   foreign.buffer("file:///fixture/a.ts");
-  expect(foreign.session.ready()).rejects.toThrow();
+  await Promise.resolve(
+    expect(foreign.session.ready()).rejects.toThrow("Language context ownership changed")
+  );
   expect(foreign.session.provider("file:///fixture/a.ts")).toBeNull();
   foreign.session.dispose();
   const f = fixture();
@@ -132,7 +134,9 @@ test("initial and streamed acknowledgment ownership is independently fenced", as
   const initial = fixture();
   initial.foreignAck();
   initial.buffer("file:///fixture/a.ts");
-  expect(initial.session.ready()).rejects.toThrow();
+  await Promise.resolve(
+    expect(initial.session.ready()).rejects.toThrow("Language acknowledgment ownership changed")
+  );
   expect(initial.notifications).toHaveLength(0);
   expect(initial.stats().releases).toBe(1);
   initial.session.dispose();
@@ -443,13 +447,15 @@ test("renderer provider fixture enforces actual unsaved acknowledgment before re
   expect(service.contexts.get(provider.context.contextId)?.documents.get(uri)?.text).toBe(
     "unsaved😀"
   );
-  expect(
-    service.api.request("languages.request", {
-      hostKey: "fake",
-      ...request,
-      fence: { ...request.fence, documents: [{ uri, version: 2 }] },
-    })
-  ).rejects.toThrow();
+  await Promise.resolve(
+    expect(
+      service.api.request("languages.request", {
+        hostKey: "fake",
+        ...request,
+        fence: { ...request.fence, documents: [{ uri, version: 2 }] },
+      })
+    ).rejects.toThrow("precedes unsaved synchronization")
+  );
   detach();
   await session.ready();
   expect(service.releases).toBe(0);

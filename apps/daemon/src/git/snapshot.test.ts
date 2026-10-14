@@ -1,5 +1,13 @@
 import { afterEach, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { snapshotWorkingTree } from "./snapshot.ts";
@@ -18,6 +26,9 @@ const git = (cwd: string, ...args: Array<string>) => {
   return r.stdout.toString().trim();
 };
 
+/** A whole second safely in the past, for mtimes that share it. */
+const pastSecond = () => Math.floor(Date.now() / 1000) - 10;
+
 test("a same-size edit in the same second as the last index write is still captured", async () => {
   const repo = mkdtempSync(join(tmpdir(), "polaris-racy-"));
   dirs.push(repo);
@@ -26,16 +37,18 @@ test("a same-size edit in the same second as the last index write is still captu
   git(repo, "config", "user.name", "t");
   const file = join(repo, "a.txt");
 
-  // Start just after a second boundary so the commit and the edit share a second:
-  // git then can only tell the file changed through its racy-clean check.
-  await Bun.sleep(1000 - (Date.now() % 1000) + 5);
+  // The commit and the same-size edit share second `past`, and so does the index write:
+  // git can then only tell the file changed through its racy-clean check.
+  const past = pastSecond();
   writeFileSync(file, "one\n");
+  utimesSync(file, past, past);
   git(repo, "add", "a.txt");
   git(repo, "commit", "-qm", "init");
   writeFileSync(file, "two\n");
-  // The snapshot itself runs a second later, as it does under load.
-  await Bun.sleep(1100);
+  utimesSync(file, past, past);
+  utimesSync(join(repo, ".git", "index"), past, past);
 
+  // The snapshot runs seconds later, so an index copy with a fresh mtime would miss the edit.
   const snapshot = await snapshotWorkingTree(repo);
   expect(snapshot?.tree).not.toBe(git(repo, "rev-parse", "HEAD^{tree}"));
 });
@@ -82,11 +95,14 @@ test("keeps its own index between snapshots and never writes the user's", async 
 
 test("a same-size edit in the same second as its own index's last write is still captured", async () => {
   const repo = makeRepo({ "a.txt": "zero\n" });
-  await Bun.sleep(1000 - (Date.now() % 1000) + 5);
+  const past = pastSecond();
   writeFileSync(join(repo, "a.txt"), "one\n");
+  utimesSync(join(repo, "a.txt"), past, past);
   const first = await snapshotWorkingTree(repo);
+  // The edit and the own index's last write share second `past`; the next snapshot is later.
   writeFileSync(join(repo, "a.txt"), "two\n");
-  await Bun.sleep(1100);
+  utimesSync(join(repo, "a.txt"), past, past);
+  utimesSync(ownIndex(repo), past, past);
   const second = await snapshotWorkingTree(repo);
   expect(git(repo, "show", `${first!.tree}:a.txt`)).toBe("one");
   expect(git(repo, "show", `${second!.tree}:a.txt`)).toBe("two");

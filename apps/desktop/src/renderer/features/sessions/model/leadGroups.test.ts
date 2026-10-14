@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { activeSessions } from "../../../routes/topBar.ts";
 import { sessionOrder } from "../../../routes/selection.ts";
 import { type Attempt, SessionId, TaskId, WorktreeSetupRun } from "@polaris/protocol";
+import { approval } from "../../../store/fixtures.testing.ts";
 import { asPlain, type Plain } from "../../../store/plain.ts";
 import { C1, C2, C3, HOSTS, MODELS, withSetupFailure } from "../preview/fixtures.ts";
 import {
@@ -108,6 +109,18 @@ describe("workerState", () => {
 
   test("settled outcomes", () => {
     expect(workerState({ ...attempt, state: "rejected" }, null, false)).toBe("sent-back");
+  });
+
+  test("a blocked worker with a pending approval reads needs you", () => {
+    const entry = MODELS.local.sessions.get("b2");
+
+    if (entry === undefined) throw new Error("B2 has a session");
+    const quiet = { ...entry, session: { ...entry.session, state: "working" as const } };
+    const asking = { ...quiet, pendingApprovals: [approval] };
+    const blocked = { ...attempt, state: "blocked" as const };
+
+    expect(workerState(blocked, quiet, false)).toBe("blocked");
+    expect(workerState(blocked, asking, false)).toBe("needs-you");
   });
 });
 

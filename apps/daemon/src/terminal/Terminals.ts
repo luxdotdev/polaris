@@ -185,11 +185,26 @@ export class Terminals extends Context.Service<
   }
 >()("polaris/daemon/terminal/Terminals") {}
 
+/** Where `loginShell` looks, in order; the readers may throw. */
+export interface ShellSources {
+  readonly userShell: () => string | null | undefined;
+  readonly passwd: () => string;
+  readonly uid: number | undefined;
+  readonly envShell: string | undefined;
+}
+
+const hostShellSources = (): ShellSources => ({
+  userShell: () => userInfo().shell,
+  passwd: () => readFileSync("/etc/passwd", "utf8"),
+  uid: process.getuid?.(),
+  envShell: process.env.SHELL,
+});
+
 /** The Host user's login shell: the passwd entry first (launchd/systemd may not set SHELL). */
-export const loginShell = (): string => {
+export const loginShell = (sources: ShellSources = hostShellSources()): string => {
   try {
     // Bun reports "unknown" for fields it could not read (seen in Alpine and Debian containers).
-    const shell = userInfo().shell;
+    const shell = sources.userShell();
 
     if (shell?.startsWith("/")) return shell;
   } catch {
@@ -197,17 +212,16 @@ export const loginShell = (): string => {
   }
 
   try {
-    const uid = process.getuid?.();
-
-    const entry = readFileSync("/etc/passwd", "utf8")
+    const entry = sources
+      .passwd()
       .split("\n")
       .map((line) => line.split(":"))
-      .find((fields) => fields[2] === String(uid));
+      .find((fields) => fields[2] === String(sources.uid));
 
     if (entry?.[6]?.startsWith("/")) return entry[6];
   } catch {}
 
-  return process.env.SHELL || "/bin/sh";
+  return sources.envShell || "/bin/sh";
 };
 
 const clampSize = (n: number, fallback: number) =>

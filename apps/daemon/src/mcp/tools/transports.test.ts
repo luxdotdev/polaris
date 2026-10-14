@@ -13,7 +13,7 @@ import {
 import { FriendlyReview } from "./inputs.ts";
 import { ReviewAction } from "@polaris/protocol";
 import { Effect, Schema } from "effect";
-import { fakeCommands, leadBinding } from "../testing.ts";
+import { LEAD_TOOL_NAMES, fakeCommands, leadBinding } from "../testing.ts";
 import { McpTokens } from "../tokens.ts";
 import { mcpHttp } from "../http.ts";
 import { attachConstellation } from "../../harness/constellation/attachment.ts";
@@ -75,18 +75,7 @@ for (const transport of ["http", "claude"] as const) {
                 }
 
                 const tools = await client.listTools();
-                expect(tools.tools.map((tool) => tool.name)).toEqual([
-                  "plan",
-                  "dispatch",
-                  "review",
-                  "answer",
-                  "message",
-                  "status",
-                  "set_state",
-                  "read_worker",
-                  "wait_for_command",
-                  "notify",
-                ]);
+                expect(tools.tools.map((tool) => tool.name)).toEqual(LEAD_TOOL_NAMES);
 
                 const result = await client.callTool({
                   name: "review",

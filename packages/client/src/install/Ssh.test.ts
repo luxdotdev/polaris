@@ -1,8 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { type SpawnOptions, spawn } from "node:child_process";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Effect } from "effect";
 import { nodeChildProcess } from "../process/index.ts";
-import { runCommand } from "./Ssh.ts";
+import { runCommand, shellQuote, Ssh, SshError } from "./Ssh.ts";
 
 describe("runCommand", () => {
   test("hides each install command's console window on Windows", async () => {
@@ -28,4 +31,27 @@ describe("runCommand", () => {
     expect(result.stdout.trim()).toBe("ok");
     expect(seen.map((options) => options.windowsHide)).toEqual([true]);
   });
+});
+
+test("an alias that reads as an ssh option is refused before ssh runs", async () => {
+  const root = mkdtempSync(join(tmpdir(), "polaris-ssh-alias-"));
+
+  try {
+    const ran = join(root, "ran");
+    const binary = join(root, "ssh");
+    writeFileSync(binary, `#!/bin/sh\ntouch ${shellQuote(ran)}\n`, { mode: 0o700 });
+    const alias = "-oProxyCommand=touch /tmp/pwned";
+
+    const error = await Effect.runPromise(
+      Ssh.use((ssh) => ssh.exec(alias, "true")).pipe(
+        Effect.flip,
+        Effect.provide(Ssh.withOptions({ platform: "darwin", sshBinary: binary }))
+      )
+    );
+
+    expect(error).toEqual(new SshError({ alias, failure: "spawn", message: "invalid alias" }));
+    expect(existsSync(ran)).toBe(false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

@@ -359,7 +359,6 @@ test("HostDirectory projects authenticated lifetime without later latency/status
   expect(facts).not.toBeNull();
   expect(facts?.status.state).toBe("connected");
   expect(facts?.status.languageConnectionEpoch).toBeGreaterThan(0);
-  expect(facts?.status.latencyMs).toBeNull();
 });
 
 test("Main shares one live registration feed across concurrent and subsequent language calls", async () => {

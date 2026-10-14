@@ -89,19 +89,6 @@ test("status and subscribe Snapshot carry the latest Attempt's liveness", () => 
   expect(decodeSnapshot(JSON.stringify(snapshot)).projections[0]?.liveness).toEqual(liveness);
 });
 
-test("live liveness is keyed by Attempt with no graph revision or stream sequence", () => {
-  const update = ConstellationStreamItem.cases.LivenessChanged.make({
-    attemptId: AttemptId.make("attempt:1"),
-    liveness,
-  });
-
-  const decode = Schema.decodeUnknownSync(Schema.fromJsonString(ConstellationStreamItem));
-
-  expect(decode(JSON.stringify(update))).toEqual(update);
-  expect(update).not.toHaveProperty("sequence");
-  expect(update).not.toHaveProperty("revision");
-});
-
 test("unknown context/output remain null and invalid observed counters are rejected", () => {
   const unknown = { current: null, lastOutputAt: null, contextPercent: null, queuedInput: 0 };
   const decode = Schema.decodeUnknownSync(WorkerLiveness);

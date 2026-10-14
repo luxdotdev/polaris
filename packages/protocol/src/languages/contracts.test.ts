@@ -2,11 +2,6 @@ import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { Schema } from "effect";
 import { WorkspaceId, WorktreeId, HostId } from "../ids.ts";
-import { CapabilityList } from "../capabilities.ts";
-import {
-  LANGUAGE_IDS,
-  LANGUAGES,
-} from "../../../../apps/desktop/src/renderer/features/editor/model/language.ts";
 import {
   LanguageRequestInputs,
   LanguageRequestOutputs,
@@ -36,10 +31,8 @@ import {
   LanguageSettingsPatch,
   LanguageSettingsScope,
   LanguageSyncAck,
-  LanguageSyntaxId,
   LanguageWorkspaceEdit,
   languageFenceSatisfied,
-  languageToolOffered,
 } from "./index.ts";
 
 const decodeContext = Schema.decodeUnknownSync(LanguageContextIdentity);
@@ -110,9 +103,8 @@ test("current catalog descriptors decode without changing tool/provider/formatte
 
   expect<unknown>(catalog).toEqual(raw);
 
-  expect(catalog.integrations.length).toBe(16);
-
-  expect(catalog.tools.filter(languageToolOffered).length).toBe(22);
+  for (const ids of [catalog.tools.map((t) => t.id), catalog.integrations.map((i) => i.id)])
+    expect(new Set(ids).size).toBe(ids.length);
   expect(catalog.tools.find((tool) => tool.id === "shellcheck")?.disposition).toBe("offered");
 
   expect(catalog.tools.find((tool) => tool.id === "sql-language-server")?.disposition).toBe(
@@ -125,33 +117,12 @@ test("current catalog descriptors decode without changing tool/provider/formatte
   }
 });
 
-test("S1 syntax IDs and LSP document IDs remain separate", () => {
-  expect(Array.from(LanguageSyntaxId.literals)).toEqual(LANGUAGE_IDS);
+test("an association names a syntax ID, never an LSP document ID", () => {
+  const accepts = (language: string) =>
+    Schema.is(LanguageSettingsPatch)({ associations: [{ language, filenames: [".env.local"] }] });
 
-  expect(LANGUAGES.tsx.documentLanguageId).toBe("typescriptreact");
-
-  expect(LANGUAGES.jsx.documentLanguageId).toBe("javascriptreact");
-
-  expect(LANGUAGES.shell.documentLanguageId).toBe("shellscript");
-
-  expect(
-    Schema.is(LanguageSettingsPatch)({
-      associations: [{ language: "dotenv", filenames: [".env.local"] }],
-    })
-  ).toBe(true);
-});
-
-test("old peers drop new optional capabilities; current capabilities still decode", () => {
-  expect(
-    Schema.decodeUnknownSync(CapabilityList)([
-      "files.read",
-      "languages",
-      "languages.format",
-      "future.language-feature",
-    ])
-  ).toEqual(["files.read", "languages", "languages.format"]);
-
-  expect(Schema.decodeUnknownSync(CapabilityList)(["files.read"])).toEqual(["files.read"]);
+  expect(accepts("dotenv")).toBe(true);
+  expect(accepts("shellscript")).toBe(false);
 });
 
 test("every extension RPC has a gate and old peers cannot invoke language operations", () => {

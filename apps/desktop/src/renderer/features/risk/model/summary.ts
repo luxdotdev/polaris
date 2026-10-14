@@ -27,10 +27,6 @@ export const rank = (findings: ReadonlyArray<Finding>): ReadonlyArray<Finding> =
       SOURCE_RANK[a.source] - SOURCE_RANK[b.source]
   );
 
-/** Non-Critical findings under 50% confidence are dimmed; a Critical one never is (ENG-185). */
-export const isDimmed = (finding: Finding) =>
-  finding.severity !== "critical" && finding.confidence < 0.5;
-
 /** Nothing hides a Critical finding: it stays in the ranked list whatever its status. */
 const isListed = (finding: Finding) => finding.status === "open" || finding.severity === "critical";
 

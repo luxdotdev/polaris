@@ -27,17 +27,10 @@ test("Generated paths cover every placement state and preserve serving invariant
     new Set(["probing", "serving", "degraded", "off"])
   );
 
-  for (const path of paths) {
-    let state = placementMachine.initialState;
+  for (const { state } of paths.flatMap((path) => path.steps)) {
+    expect(state.context.serving !== null).toBe(state.value === "serving");
 
-    for (const step of path.steps) {
-      state = placementMachine.transition(state, step.event)[0];
-      expect(state.context.serving !== null).toBe(state.value === "serving");
-
-      if (state.context.serving)
-        expect(state.context.failedSides).not.toContain(state.context.serving.side);
-    }
-
-    expect(state).toEqual(path.state);
+    if (state.context.serving)
+      expect(state.context.failedSides).not.toContain(state.context.serving.side);
   }
 });

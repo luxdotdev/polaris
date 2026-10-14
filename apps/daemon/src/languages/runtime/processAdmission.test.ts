@@ -171,7 +171,8 @@ test("retirement timeout retains capacity and spends no crash retries", async ()
       },
     }),
     false,
-    { processLimit: 1 }
+    // Short stand-ins for the 10 s connection close and retirement deadlines, in the same order.
+    { processLimit: 1, connectionCloseDeadlineMs: 150, retirementDeadlineMs: 300 }
   );
 
   try {
@@ -181,9 +182,8 @@ test("retirement timeout retains capacity and spends no crash retries", async ()
     await closed(f, "old", old.context);
     const next = await f.acquire("next", "next", "fake-new");
     await f.open("next", next.context);
-    await until(
-      () => Predicate.isTagged(f.broker.snapshot("next", next.context).runtime, "Failed"),
-      12000
+    await until(() =>
+      Predicate.isTagged(f.broker.snapshot("next", next.context).runtime, "Failed")
     );
     const runtime = f.broker.snapshot("next", next.context).runtime;
     expect(runtime).toMatchObject({
@@ -213,7 +213,7 @@ test("retirement timeout retains capacity and spends no crash retries", async ()
     expect(cleanup).toMatchObject({ reason: "timeout" });
     await rm(f.root, { recursive: true, force: true });
   }
-}, 20000);
+});
 
 test("active documents in any Client protect the provider; all-busy refusal spends no crash budget", async () => {
   const f = await fixture("ordinary", 60000, undefined, undefined, undefined, false, {

@@ -36,6 +36,9 @@ export async function fixture(
     reserveGate?: Promise<void>;
     processLimit?: number;
     failAdmissionOnce?: LanguageError;
+    retirementDeadlineMs?: number;
+    closeDeadlineMs?: number;
+    connectionCloseDeadlineMs?: number;
   } = {}
 ) {
   const root = await realpath(tempDirectory(join(tmpdir(), "m31-t1-")));
@@ -130,6 +133,9 @@ export async function fixture(
     retryMs: 10,
     changeDebounceMs: lifecycleOptions.changeDebounceMs,
     crashWindowMs: lifecycleOptions.crashWindowMs,
+    retirementDeadlineMs: lifecycleOptions.retirementDeadlineMs,
+    closeDeadlineMs: lifecycleOptions.closeDeadlineMs,
+    connectionCloseDeadlineMs: lifecycleOptions.connectionCloseDeadlineMs,
   });
 
   const uri = pathToFileURL(join(root, "file.ts")).href;

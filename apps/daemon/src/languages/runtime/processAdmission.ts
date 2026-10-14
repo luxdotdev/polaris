@@ -23,6 +23,7 @@ export function processAdmission(
 
   const recency = new WeakMap<Entry, number>();
   const waiting = new Map<Entry, AbortController>();
+  const deadline = options.retirementDeadlineMs ?? 10000;
   let clock = 0;
   let tail: Promise<unknown> = Promise.resolve();
 
@@ -56,12 +57,12 @@ export function processAdmission(
 
       if (victim !== undefined) {
         move(victim, { type: "evict" });
-        await abortable(bounded(shutdown(victim, "process-budget"), 10000), signal);
+        await abortable(bounded(shutdown(victim, "process-budget"), deadline), signal);
       } else if (budget.retiring) {
         const controller = new AbortController();
 
         try {
-          await bounded(budget.wait(AbortSignal.any([signal, controller.signal])), 10000);
+          await bounded(budget.wait(AbortSignal.any([signal, controller.signal])), deadline);
         } finally {
           controller.abort();
         }

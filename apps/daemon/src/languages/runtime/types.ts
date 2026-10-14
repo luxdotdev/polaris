@@ -55,6 +55,12 @@ export interface BrokerOptions {
   retryMs?: number;
   crashWindowMs?: number | undefined;
   changeDebounceMs?: number | undefined;
+  /** How long admission waits for a retiring process before refusing; default 10 s. */
+  retirementDeadlineMs?: number | undefined;
+  /** How long `close` waits for owned teardown before returning; default 2.5 s. */
+  closeDeadlineMs?: number | undefined;
+  /** How long a language server connection's close may take before it fails; default 10 s. */
+  connectionCloseDeadlineMs?: number | undefined;
 }
 
 export interface Entry {

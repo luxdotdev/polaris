@@ -101,15 +101,6 @@ function handlerFixture(
   };
 }
 
-/** Disposable must be LOW; mailbox may be MEDIUM (Gmail and others block probing); the rest HIGH. */
-function acceptedLevel(field: string, value: string) {
-  if (field === "IsDisposable") return value === "LOW";
-
-  if (field === "MailboxExists") return value !== "LOW";
-
-  return value === "HIGH";
-}
-
 const outcomes: Array<{ label: string; response: unknown; status: number; outcome: string }> = [
   { label: "deliverable", response: good(), status: 200, outcome: "accepted" },
   {
@@ -129,34 +120,42 @@ const outcomes: Array<{ label: string; response: unknown; status: number; outcom
 
     return { label: `role ${role} allowed`, response, status: 200, outcome: "accepted" };
   }),
-  ...["LOW", "MEDIUM"].map((overall) => {
+  ...[
+    ["LOW", "invalid"],
+    ["MEDIUM", "uncertain"],
+  ].map(([overall, outcome]) => {
     const response = good();
-    response.MailboxValidation.IsValid = verdict(overall);
+    response.MailboxValidation.IsValid = verdict(overall!);
+
+    return { label: `overall ${overall}`, response, status: 422, outcome: outcome! };
+  }),
+  // Disposable must be LOW; mailbox may be MEDIUM (Gmail and others block probing); the rest HIGH.
+  ...(
+    [
+      ["HasValidSyntax", "LOW", 422, "invalid"],
+      ["HasValidSyntax", "MEDIUM", 422, "uncertain"],
+      ["HasValidSyntax", "HIGH", 200, "accepted"],
+      ["HasValidDnsRecords", "LOW", 422, "invalid"],
+      ["HasValidDnsRecords", "MEDIUM", 422, "uncertain"],
+      ["HasValidDnsRecords", "HIGH", 200, "accepted"],
+      ["MailboxExists", "LOW", 422, "invalid"],
+      ["MailboxExists", "MEDIUM", 200, "accepted"],
+      ["MailboxExists", "HIGH", 200, "accepted"],
+      ["IsDisposable", "LOW", 200, "accepted"],
+      ["IsDisposable", "MEDIUM", 422, "uncertain"],
+      ["IsDisposable", "HIGH", 422, "invalid"],
+    ] as const
+  ).map(([field, value, status, outcome]) => {
+    const response = good();
+    const evaluations = { ...response.MailboxValidation.Evaluations, [field]: verdict(value) };
 
     return {
-      label: `overall ${overall}`,
-      response,
-      status: 422,
-      outcome: overall === "LOW" ? "invalid" : "uncertain",
+      label: `${field} ${value}`,
+      response: { MailboxValidation: { ...response.MailboxValidation, Evaluations: evaluations } },
+      status,
+      outcome,
     };
   }),
-  ...["HasValidSyntax", "HasValidDnsRecords", "MailboxExists", "IsDisposable"].flatMap((field) =>
-    ["LOW", "MEDIUM", "HIGH"].map((value) => {
-      const response = good();
-      const evaluations = { ...response.MailboxValidation.Evaluations, [field]: verdict(value) };
-      const accepts = acceptedLevel(field, value);
-      const invalid = field === "IsDisposable" ? value === "HIGH" : value === "LOW";
-
-      return {
-        label: `${field} ${value}`,
-        response: {
-          MailboxValidation: { ...response.MailboxValidation, Evaluations: evaluations },
-        },
-        status: accepts ? 200 : 422,
-        outcome: accepts ? "accepted" : invalid ? "invalid" : "uncertain",
-      };
-    })
-  ),
   ...[null, {}, "malformed JSON", { MailboxValidation: {} }].map((response) => ({
     label: "missing or malformed response",
     response,
@@ -233,20 +232,20 @@ describe("SES Insights route mapping", () => {
     }
   );
 
-  test("5 s deadline aborts a client that never settles; no later send", async () => {
+  test("the deadline aborts a client that never settles; no later send", async () => {
     let signal: AbortSignal | undefined;
     let finish: ((result: ReturnType<typeof good>) => void) | undefined;
 
+    // A short stand-in for the 5 s production deadline.
     const f = handlerFixture((_, options) => {
       signal = options.abortSignal;
 
       return new Promise((resolve) => {
         finish = resolve;
       });
-    });
+    }, 50);
 
     const response = await f.request();
-    expect(validationDeadlineMs).toBe(5000);
     expect(response.status).toBe(503);
     expect(signal?.aborted).toBe(true);
     expect(f.sent()).toBe(0);

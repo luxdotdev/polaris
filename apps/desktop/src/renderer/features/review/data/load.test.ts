@@ -66,7 +66,6 @@ describe("loadReviewDiff", () => {
       parse: () => Promise.reject(new Error("hunk line count mismatch")),
     });
 
-    expect(last().kind).toBe("loading");
     expect(
       await load.then(
         () => null,

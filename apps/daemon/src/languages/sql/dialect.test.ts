@@ -101,11 +101,13 @@ test("Host SQL overrides persist, clear, inherit Worktrees and reject concurrent
   expect(
     (await restarted.select(f.checkout, f.root, f.path, "file", null, 2, current)).files
   ).toEqual({});
-  expect(
-    restarted.select(f.checkout, f.root, f.path, "workspace", "sqlite", 3, async () => {
-      throw new Error("Disconnected");
-    })
-  ).rejects.toThrow("Disconnected");
+  await Promise.resolve(
+    expect(
+      restarted.select(f.checkout, f.root, f.path, "workspace", "sqlite", 3, async () => {
+        throw new Error("Disconnected");
+      })
+    ).rejects.toThrow("Disconnected")
+  );
   expect((await restarted.read(f.checkout)).revision).toBe(3);
 });
 
