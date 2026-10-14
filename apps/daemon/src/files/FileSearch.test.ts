@@ -7,6 +7,7 @@ import { makeRepo, removeDir, tempDir, suiteTempDir, write } from "../git/testin
 import { FileSearch, FileSearchLive } from "./FileSearch.ts";
 import { handleGrep, handleSearchPaths } from "./FilesRpcs.ts";
 import { fuzzyScore, gitGrepThreads } from "./search/fallback.ts";
+import { fffWatchTesting } from "./search/fff.ts";
 import type { FileChange } from "./search/types.ts";
 
 // Keep fff's frecency databases out of the real ~/.polaris.
@@ -50,6 +51,9 @@ const fixture = async () => {
 
 const withSearch = <A, E>(useFff: boolean, effect: Effect.Effect<A, E, FileSearch>) =>
   Effect.runPromise(Effect.scoped(Effect.provide(effect, FileSearchLive({ useFff }))));
+
+/** Beyond the product's worst case to arm a watch: fff's scan wait plus its watcher wait. */
+const ARM_DEADLINE_MS = 15_000;
 
 const waitFor = async (predicate: () => boolean, what: string) => {
   const deadline = Date.now() + 8000;
@@ -217,11 +221,13 @@ for (const useFff of [true, false]) {
               Effect.forkChild
             );
 
-            // Let the watcher arm (fff scans first): touch a probe until a change shows up.
+            // Let the watcher arm: fff scans, then waits up to 5 s for its watcher before falling back.
             yield* search.searchPaths(root, "x", 1);
             yield* Effect.promise(async () => {
+              const deadline = Date.now() + ARM_DEADLINE_MS;
+
               for (let i = 0; !seen.some((c) => c.path.endsWith("probe.ts")); i++) {
-                if (i === 200) throw new Error("the watcher never armed");
+                if (Date.now() > deadline) throw new Error("the watcher never armed");
                 write(root, "src/probe.ts", `${i}\n`);
                 await Bun.sleep(25);
               }
@@ -246,7 +252,7 @@ for (const useFff of [true, false]) {
       ).catch((error) => {
         throw new Error(`${error}; saw ${JSON.stringify(seen)}`);
       });
-    }, 20_000);
+    }, 40_000);
   });
 }
 
@@ -405,4 +411,46 @@ test("open-file subscriptions reuse an existing fff index without creating one",
     )
   );
   expect(notifications).toBeGreaterThan(0);
-});
+}, 20_000);
+
+test("a watch whose fff watcher never arms reports changes through fs.watch", async () => {
+  const root = await fixture();
+  const seen: Array<FileChange> = [];
+  const saved = { ...fffWatchTesting };
+  Object.assign(fffWatchTesting, { disableWatch: true, armMs: 100 });
+
+  try {
+    await withSearch(
+      true,
+      Effect.gen(function* () {
+        const search = yield* FileSearch;
+
+        const fiber = yield* search.watch(root).pipe(
+          Stream.runForEach((batch) => Effect.sync(() => seen.push(...batch))),
+          Effect.forkChild
+        );
+
+        yield* search.searchPaths(root, "x", 1);
+        yield* Effect.promise(async () => {
+          const deadline = Date.now() + ARM_DEADLINE_MS;
+
+          for (let i = 0; !seen.some((c) => c.path.endsWith("probe.ts")); i++) {
+            if (Date.now() > deadline) throw new Error("the watch never reported a change");
+            write(root, "src/probe.ts", `${i}\n`);
+            await Bun.sleep(25);
+          }
+
+          write(root, "src/new.ts", "new\n");
+          await waitFor(
+            () => seen.some((c) => c.path === join(root, "src/new.ts") && c.kind === "created"),
+            "created"
+          );
+        });
+        expect(yield* search.backendOf(root)).toBe("fff");
+        yield* Fiber.interrupt(fiber);
+      })
+    );
+  } finally {
+    Object.assign(fffWatchTesting, saved);
+  }
+}, 20_000);

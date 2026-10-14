@@ -33,7 +33,7 @@ Read-mostly file access for Clients: `files.listDir`, `files.stat`, `files.read`
 
 ## Known gaps / TODOs
 
-- fff drops watch subscriptions made before its first scan finishes (upstream quirk), so `watch` waits for the scan and for `isWatcherReady` before it subscribes.
+- fff drops watch subscriptions made before its first scan finishes (upstream quirk), so `watch` waits for the scan and for `isWatcherReady` before it subscribes. Rarely (seen under load on macOS) fff's watcher never arms and stays down for the whole process; a watch that finds it unarmed after 5 s falls back to the fallback's `fs.watch` for that subscription, instead of subscribing to a watcher that never fires.
 - The fallback's `fs.watch` doesn't filter gitignored paths; fff's watcher does.
 - Regex syntax differs between backends: fff uses Rust regex, the fallback uses PCRE or ERE.
 - A grep that has to read every file (no selective literal) still takes ~0.8 s on a 50k-file tree on macOS, where opening small files dominates (fff doesn't cache files under 16 KiB); it only runs in the worker now.
