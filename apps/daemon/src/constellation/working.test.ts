@@ -296,6 +296,7 @@ const importRuntime = ConstellationRuntime;
 
 test("resumeWorking reacquires an existing assignment once without starting a first Turn", async () => {
   let held = 0;
+  let admissions = 0;
   let resumed = 0;
   let started = 0;
   await Effect.runPromise(
@@ -341,8 +342,10 @@ test("resumeWorking reacquires an existing assignment once without starting a fi
               afterCommit: () => Effect.void,
               resumeWorking: () => Effect.void,
             },
-            acquireWorker: () =>
-              Effect.acquireRelease(
+            acquireWorker: () => {
+              admissions++;
+
+              return Effect.acquireRelease(
                 Effect.sync(() => {
                   held++;
                 }),
@@ -350,7 +353,8 @@ test("resumeWorking reacquires an existing assignment once without starting a fi
                   Effect.sync(() => {
                     held--;
                   })
-              ),
+              );
+            },
             startWorker: () =>
               Effect.sync(() => {
                 started++;
@@ -367,6 +371,8 @@ test("resumeWorking reacquires an existing assignment once without starting a fi
         expect(held).toBe(0);
         yield* runtime.resumeWorking();
         yield* runtime.resumeWorking();
+        // Each resume registers its admission before returning, so a second resume would show here.
+        expect(admissions).toBe(1);
         yield* waitFor(() => resumed === 1);
         expect(held).toBe(1);
         expect(started).toBe(0);
