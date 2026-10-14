@@ -113,6 +113,25 @@ const collect = (sessionId: SessionId, subagents: boolean) =>
     return { items, stop: Fiber.interrupt(fiber) };
   });
 
+/**
+ * Ends a Turn of `control`, which has no background work, and waits for its idle stop: any
+ * plain idle timer armed earlier, with the same timeout, has fired by then.
+ */
+const idleTimeoutElapsed = (driver: FakeDriver, control: SessionId, turns: number) =>
+  Effect.gen(function* () {
+    const model = yield* waitFor((m) => m.sessions.get(control)?.turns.length === turns);
+    const turnId = model.sessions.get(control)!.turns.at(-1)!.id;
+    yield* waitUntil(() => driver.latest(control)?.turns.at(-1)?.turnId === turnId);
+    driver
+      .latest(control)!
+      .emit(HarnessEvent.TurnEnded({ turnId, status: "completed", error: null }));
+    yield* waitFor(
+      (m) =>
+        m.sessions.get(control)?.turns.length === turns &&
+        m.sessions.get(control)?.session.state === "dormant"
+    );
+  });
+
 const tags = (items: ReadonlyArray<SessionStreamItem>) =>
   items.flatMap((i) => {
     if (Predicate.isTagged(i, "Event")) return [i.envelope.event._tag];
@@ -285,7 +304,9 @@ test.each<Array<"subagent" | "command">[number]>(["subagent", "command"])(
         expect(waiting.sessions.get(sessionId)!.session.backgroundTasks).toMatchObject([
           { id: "bg-task", kind },
         ]);
-        yield* Effect.sleep(Duration.millis(100));
+        const control = SessionId.make("s-control");
+        yield* startWorking(driver, control);
+        yield* idleTimeoutElapsed(driver, control, 1);
         expect(harness.closed).toBe(false);
         const autoId = TurnId.make("auto-background");
 
@@ -319,7 +340,11 @@ test.each<Array<"subagent" | "command">[number]>(["subagent", "command"])(
         );
 
         expect(working.sessions.get(sessionId)!.session.state).toBe("working");
-        yield* Effect.sleep(Duration.millis(100));
+        // Waiting ended while Idle, which armed the idle timer; the continuation cancels it.
+        yield* dispatch(
+          Command.cases.SendTurn.make({ sessionId: control, prompt: "again", attachments: [] })
+        );
+        yield* idleTimeoutElapsed(driver, control, 2);
         expect(harness.closed).toBe(false);
         harness.emit(HarnessEvent.TurnEnded({ turnId: autoId, status: "completed", error: null }));
         yield* waitFor((m) => m.sessions.get(sessionId)?.turns.at(-1)?.status === "completed");

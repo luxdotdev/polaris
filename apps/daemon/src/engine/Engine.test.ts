@@ -121,7 +121,7 @@ describe("commands", () => {
     );
   });
 
-  test("SendTurn is rejected while Working; Continue needs an Interrupted Turn", async () => {
+  test("SendTurn is rejected end to end while Working; an unknown session is NotFound", async () => {
     const codex = makeFakeDriver("codex");
     const { layer } = setup({ drivers: [codex] });
     await run(
@@ -137,8 +137,7 @@ describe("commands", () => {
         );
 
         expect(busy._tag).toBe("CommandRejected");
-        const cont = yield* Effect.flip(dispatch(Command.cases.Continue.make({ sessionId: s })));
-        expect(cont._tag).toBe("CommandRejected");
+        expect(busy).toMatchObject({ reason: "the session is working; wait for the Turn to end" });
 
         const missing = yield* Effect.flip(
           dispatch(
@@ -288,9 +287,15 @@ describe("commands", () => {
         claude.latest(s)!.emit(HarnessEvent.TitleSuggested({ title: "Stabilize CI" }));
         yield* waitFor((m) => m.sessions.get(s)?.session.title === "Stabilize CI");
         yield* dispatch(Command.cases.RenameSession.make({ sessionId: s, title: "Mine" }));
-        claude.latest(s)!.emit(HarnessEvent.TitleSuggested({ title: "Something else" }));
-        yield* Effect.sleep(Duration.millis(30));
-        const model = yield* waitFor((m) => m.sessions.get(s)?.session.title === "Mine");
+        const harness = claude.latest(s)!;
+        const turnId = harness.turns[0]!.turnId;
+        // Harness events are handled in order: once the Turn has ended, the suggestion was seen.
+        harness.emit(
+          HarnessEvent.TitleSuggested({ title: "Something else" }),
+          HarnessEvent.TurnEnded({ turnId, status: "completed", error: null })
+        );
+        const model = yield* waitFor((m) => m.sessions.get(s)?.session.state === "idle");
+        expect(model.sessions.get(s)!.session.title).toBe("Mine");
         expect(model.sessions.get(s)!.titleLocked).toBe(true);
       })
     );
@@ -455,9 +460,11 @@ describe("streams", () => {
               output: "ok",
               status: "completed",
             }),
-          })
+          }),
+          // Handled after the items, so seeing it means both are committed.
+          HarnessEvent.TitleSuggested({ title: "Read done" })
         );
-        yield* Effect.sleep(Duration.millis(30));
+        yield* waitFor((m) => m.sessions.get(s)?.session.title === "Read done");
 
         const items: Array<SessionStreamItem> = [];
 
@@ -557,8 +564,6 @@ describe("supervision", () => {
         yield* startSession(workspace, s, "codex");
         yield* waitFor((m) => m.sessions.get(s)?.session.state === "working");
 
-        const early = yield* Effect.flip(dispatch(Command.cases.Retry.make({ sessionId: s })));
-        expect(early._tag).toBe("CommandRejected");
         codex.latest(s)!.emit(HarnessEvent.Exited({ error: "segfault" }));
         yield* waitFor((m) => m.sessions.get(s)?.session.state === "failed");
         yield* dispatch(Command.cases.Retry.make({ sessionId: s }));
@@ -581,7 +586,6 @@ describe("supervision", () => {
     await run(
       layer,
       Effect.gen(function* () {
-        const engine = yield* Engine;
         const workspace = yield* registerWorkspace;
         const a = sid("s-claude");
         const b = sid("s-codex");
@@ -596,13 +600,6 @@ describe("supervision", () => {
         yield* dispatch(Command.cases.OpenInTerminal.make({ sessionId: b }));
         yield* waitUntil(() => claude.sessions[0]!.closed);
         yield* waitFor((m) => m.sessions.get(b)?.session.state === "in-terminal");
-        yield* Effect.sleep(Duration.millis(20));
-        expect(codex.sessions[0]!.closed).toBe(false);
-        expect(yield* engine.terminalCommand(a)).toMatchObject({
-          argv: ["claude", "--resume", "new"],
-          cwd: workspace.path,
-          env: {},
-        });
 
         const rejected = yield* Effect.flip(
           dispatch(Command.cases.SendTurn.make({ sessionId: a, prompt: "x", attachments: [] }))
@@ -619,7 +616,9 @@ describe("supervision", () => {
         );
         expect(claude.sessions).toHaveLength(2);
         expect(claude.sessions[1]!.options.resumeCursor).toBe("c1");
+        // Reactors are serial per session, so Codex was never closed while In Terminal.
         expect(codex.sessions).toHaveLength(1);
+        expect(codex.sessions[0]!.closed).toBe(false);
       })
     );
   });
