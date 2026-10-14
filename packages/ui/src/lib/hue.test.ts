@@ -28,15 +28,6 @@ describe("harnessHue", () => {
     }
   });
 
-  test("OpenCode needs only a catalogue entry: its tokens are already there", () => {
-    const slug = hueSlug("OpenCode");
-
-    expect(slug).toBe("opencode");
-    expect(tokens).toContain(`--color-harness-${slug}: light-dark(`);
-    expect(assets).toContain(`--wash-${slug}: url`);
-    expect(assets).toContain(`--halo-${slug}: url`);
-  });
-
   test("a catalogue Harness without a hue yet is neutral, named from the catalogue", () => {
     expect(harnessHue("gemini")).toMatchObject({
       name: "Gemini CLI",

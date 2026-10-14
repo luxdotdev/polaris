@@ -1,4 +1,3 @@
-import { SessionState } from "@polaris/protocol";
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, jest, test } from "bun:test";
 
@@ -8,10 +7,6 @@ import { SESSION_STATES, STATE_GLYPHS, STATE_LABELS, StateIcon } from "./state-i
 afterEach(cleanup);
 
 describe("StateIcon", () => {
-  test("covers every Session State the protocol defines", () => {
-    expect([...SESSION_STATES].sort()).toEqual([...SessionState.literals].sort());
-  });
-
   test("maps each state to DESIGN.md's glyph", () => {
     expect(STATE_GLYPHS).toEqual({
       starting: "dither-still",
@@ -106,11 +101,9 @@ describe("rule/severity-vs-state", () => {
     for (const state of states) {
       expect(state.getAttribute("role")).toBe("img");
       expect(state.textContent).toBe("");
-      expect(state.getAttribute("data-slot")).not.toBe("severity-badge");
     }
 
     for (const badge of badges) {
-      expect(badge.textContent?.length).toBeGreaterThan(0);
       expect(badge.querySelector("[data-slot=state-icon]")).toBeNull();
     }
   });

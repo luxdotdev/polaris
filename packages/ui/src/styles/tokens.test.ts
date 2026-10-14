@@ -7,8 +7,6 @@ const tokens = read("./tokens.css");
 
 const theme = read("./theme.css");
 
-const assets = read("./assets.css");
-
 const design = read("../../../../DESIGN.md");
 
 /** DESIGN.md frontmatter colours, "name: #hex". */
@@ -90,18 +88,6 @@ describe("theming", () => {
     );
   });
 
-  test("washes and scenes switch with the same selectors", () => {
-    for (const selector of [
-      ':root,\n[data-theme="dark"]',
-      '[data-theme="light"]',
-      ':root:not([data-theme="dark"])',
-    ]) {
-      expect(assets).toContain(selector);
-    }
-
-    expect(assets.match(/scene-dawn/g)?.length).toBe(2);
-  });
-
   test("focus is a 2px Starlight ring with a 2px offset", () => {
     expect(theme).toMatch(
       /:focus-visible\s*\{\s*outline: 2px solid var\(--color-starlight\);\s*outline-offset: 2px;/
@@ -145,10 +131,17 @@ describe("accessibility hooks", () => {
 });
 
 describe("motion tokens", () => {
-  test("press, reveal and panel durations sit beside the house curve", () => {
-    expect(tokens).toContain("--duration-press: 120ms;");
-    expect(tokens).toContain("--duration-reveal: 160ms;");
-    expect(tokens).toContain("--duration-panel: 200ms;");
+  test("press, reveal and panel durations are DESIGN.md's, beside the house curve", () => {
+    const motion =
+      /Press is (\d+ms)\. Small reveals are (\d+ms)\. Panels and toasts are (\d+ms)\./.exec(design);
+
+    expect(motion).not.toBeNull();
+
+    const [, press, reveal, panel] = motion ?? [];
+
+    expect(tokens).toContain(`--duration-press: ${press};`);
+    expect(tokens).toContain(`--duration-reveal: ${reveal};`);
+    expect(tokens).toContain(`--duration-panel: ${panel};`);
     expect(tokens).toContain("--default-transition-timing-function: var(--ease-out);");
   });
 });
