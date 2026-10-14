@@ -1,202 +1,17 @@
 import { expect, test } from "bun:test";
+import { fixture, uri } from "./adapters.testing.ts";
 import { CompletionContext } from "@codemirror/autocomplete";
 import { EditorState } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import * as P from "@polaris/protocol";
 import { Predicate, Schema } from "effect";
-import type { LanguageApi, SubscriptionListener } from "../../../../shared/api.ts";
-import { LanguageRequestOutputs, LanguageSubscriptionItems } from "../../../../shared/languages.ts";
-import { completionSource, cmSnippet } from "./codemirror.ts";
+import { completionSource, cmSnippet, type CompletionProposal } from "./codemirror.ts";
+import { footnoteOf } from "./completionMenu.ts";
 import { LanguageDiagnosticFeed, cmDiagnostics } from "./diagnostics.ts";
-import { LanguageFeatures } from "./features.ts";
 import { offsetAt, positionAt } from "./position.ts";
 import { providerFence } from "./requests.ts";
 import { DiagnosticPull } from "./pull.ts";
-import {
-  bufferText,
-  documentLanguageId,
-  type LanguageBuffer,
-  type LanguageProvider,
-} from "./types.ts";
-
-const uri = "file:///fixture/a.ts";
-
-const methods = Schema.decodeUnknownSync(P.LanguageFeatureMethod)("textDocument/completion");
-
-const provider = (
-  id: string,
-  encoding: typeof P.LanguagePositionEncoding.Type = "utf-16"
-): LanguageProvider => {
-  const context = P.LanguageContextIdentity.make({
-    hostId: P.HostId.make("fake"),
-    clientId: "client",
-    contextId: id,
-    checkout: P.LanguageCheckout.cases.Workspace.make({
-      workspaceId: P.WorkspaceId.make("fake"),
-      path: "/fixture",
-    }),
-    projectRoot: "/fixture",
-    providerId: id,
-    configurationFingerprint: "a".repeat(64),
-    generation: 1,
-  });
-
-  return {
-    hostKey: "fake",
-    context,
-    capabilities: P.LanguageProviderCapabilities.make({
-      positionEncoding: encoding,
-      synchronization: "full",
-      openClose: true,
-      save: false,
-      saveIncludeText: false,
-      methods: [
-        methods,
-        "textDocument/hover",
-        "textDocument/signatureHelp",
-        "textDocument/definition",
-        "textDocument/references",
-        "textDocument/documentSymbol",
-        "workspace/symbol",
-        "textDocument/rename",
-        "textDocument/codeAction",
-        "completionItem/resolve",
-        "codeAction/resolve",
-        "workspace/executeCommand",
-        "textDocument/formatting",
-      ],
-      completionResolve: true,
-      actionResolve: true,
-      executeCommands: ["safe"],
-      diagnostics: "push-and-pull",
-      workspaceDiagnostics: false,
-    }),
-    ack: P.LanguageSyncAck.make({ context, acceptedSequence: 1, documents: [{ uri, version: 1 }] }),
-  };
-};
-
-const fixture = (timeoutMs = 100, maxPending = 32) => {
-  let state = EditorState.create({ doc: "a😀é\nitem" });
-  let buffer: LanguageBuffer = { uri, version: 1, doc: state.doc };
-  let providers = [provider("first", "utf-8"), provider("second", "utf-32")];
-
-  const pending: {
-    request: P.LanguageFeatureRequest;
-    resolve: (value: P.LanguageFeatureResult) => void;
-  }[] = [];
-
-  const cancelled: string[] = [];
-
-  const formats: {
-    input: P.LanguageFormatPreflight;
-    resolve: (value: P.LanguageFormatOutcome) => void;
-  }[] = [];
-
-  const listeners: SubscriptionListener<P.LanguageContextEvent>[] = [];
-  let stopped = 0;
-
-  const api: LanguageApi = {
-    request: async (method, input) => {
-      let value:
-        | typeof P.LanguageJson.Type
-        | P.LanguageFeatureResult
-        | P.LanguageFormatOutcome
-        | undefined;
-
-      if (method === "languages.request") {
-        const request = Schema.decodeUnknownSync(P.LanguageFeatureRequest)(input);
-        value = await new Promise<P.LanguageFeatureResult>((resolve) =>
-          pending.push({ request, resolve })
-        );
-      } else if (method === "languages.format") {
-        const format = Schema.decodeUnknownSync(P.LanguageFormatPreflight)(input);
-        value = await new Promise<P.LanguageFormatOutcome>((resolve) =>
-          formats.push({ input: format, resolve })
-        );
-      } else if (method === "languages.cancel")
-        cancelled.push(
-          Schema.decodeUnknownSync(P.CancelLanguageRequest.payloadSchema)(input).requestId
-        );
-      else throw new Error("Unexpected fake request");
-
-      return {
-        ok: true,
-        value: Schema.decodeUnknownSync(LanguageRequestOutputs[method])(value),
-      };
-    },
-    subscribe: (kind, _input, listener) => {
-      if (kind !== "languages.context.watch") throw new Error("Unexpected fake feed");
-      listeners.push({
-        items: (events) =>
-          listener.items(
-            events.map((event) => {
-              return Schema.decodeUnknownSync(LanguageSubscriptionItems[kind])(event);
-            })
-          ),
-      });
-
-      return () => {
-        stopped++;
-      };
-    },
-  };
-
-  const features = new LanguageFeatures({
-    api,
-    buffer: () => buffer,
-    providers: () => providers,
-    timeoutMs,
-    maxPending,
-  });
-
-  const reply = (
-    index: number,
-    result: typeof P.LanguageJson.Type,
-    fence?: P.LanguageRequestFence
-  ) => {
-    const entry = pending[index];
-
-    if (!entry) throw new Error("No fake pending call");
-    entry.resolve(
-      P.LanguageFeatureResult.make({
-        requestId: entry.request.requestId,
-        fence: fence ?? entry.request.fence,
-        result,
-      })
-    );
-  };
-
-  return {
-    features,
-    pending,
-    cancelled,
-    formats,
-    listeners,
-    reply,
-    get stopped() {
-      return stopped;
-    },
-    get state() {
-      return state;
-    },
-    get buffer() {
-      return buffer;
-    },
-    get providers() {
-      return providers;
-    },
-    setLineSeparator() {
-      buffer = { ...buffer, lineSeparator: "\r\n" };
-    },
-    setProviders(next: LanguageProvider[]) {
-      providers = next;
-    },
-    change() {
-      state = state.update({ changes: { from: state.doc.length, insert: "!" } }).state;
-      buffer = { ...buffer, version: buffer.version + 1, doc: state.doc };
-    },
-  };
-};
+import { bufferText, documentLanguageId, type LanguageProvider } from "./types.ts";
 
 test("position conversion roundtrips Unicode and rejects split/out-of-range positions", () => {
   const doc = EditorState.create({ doc: "a😀é\nz" }).doc;
@@ -321,7 +136,8 @@ test("CodeMirror CompletionContext source retains provider edits and returns bou
   ]);
   f.reply(1, [{ label: "itemB" }]);
   const result = await task;
-  expect(result?.options).toHaveLength(2);
+  expect(result?.options.map((o) => o.label)).toEqual(["itemA", "itemB"]);
+  expect(footnoteOf(result?.options ?? [])).toBe("first, second");
   expect(result?.from).toBe(5);
   expect(cmSnippet("call(${1:value}, $2)$0")).toBe("call(${1:value}, ${2:})${0:}");
   expect(cmSnippet("${1|one,two|}")).toBeNull();
@@ -532,6 +348,10 @@ test("timed-out transport retains bounded capacity until actual settlement", asy
   f.features.dispose();
 });
 
+/** Each provider's decoded answer; nulls and payloads that don't decode are left out. */
+const answered = <A>(answers: ReadonlyArray<{ provider: LanguageProvider; payload: A }>) =>
+  answers.map(({ provider, payload }) => [provider.context.providerId, payload] as const);
+
 test("navigation, references, symbols, actions and pull reports decode method payloads", async () => {
   const f = fixture();
 
@@ -545,22 +365,39 @@ test("navigation, references, symbols, actions and pull reports decode method pa
   f.reply(1, [
     { targetUri: location.uri, targetRange: location.range, targetSelectionRange: location.range },
   ]);
-  expect(await nav).toHaveLength(2);
+  expect(answered(await nav)).toEqual([
+    ["first", location],
+    [
+      "second",
+      [
+        {
+          targetUri: location.uri,
+          targetRange: location.range,
+          targetSelectionRange: location.range,
+        },
+      ],
+    ],
+  ]);
   const refs = f.features.references(0, false);
   expect(f.pending[2]?.request.params.context).toEqual({ includeDeclaration: false });
   f.reply(2, [location]);
-  f.reply(3, []);
-  expect(await refs).toHaveLength(2);
+  f.reply(3, { not: "locations" });
+  expect(answered(await refs)).toEqual([["first", [location]]]);
   const symbols = f.features.documentSymbols();
   f.reply(4, [
     { name: "fn", kind: 12, range: location.range, selectionRange: location.range, children: [] },
   ]);
   f.reply(5, [{ name: "fn", kind: 12, location }]);
-  expect(await symbols).toHaveLength(2);
+  expect(answered(await symbols).map(([id, payload]) => [id, payload?.[0]?.name])).toEqual([
+    ["first", "fn"],
+    ["second", "fn"],
+  ]);
   const workspace = f.features.workspaceSymbols("fn");
   f.reply(6, [{ name: "fn", kind: 12, location: { uri: location.uri }, data: { token: 1 } }]);
   f.reply(7, null);
-  expect(await workspace).toHaveLength(1);
+  expect(answered(await workspace)).toEqual([
+    ["first", [{ name: "fn", kind: 12, location: { uri: location.uri }, data: { token: 1 } }]],
+  ]);
   const actions = f.features.codeActions(0, 1);
   f.reply(8, [
     {
@@ -569,7 +406,9 @@ test("navigation, references, symbols, actions and pull reports decode method pa
     },
   ]);
   f.reply(9, null);
-  expect(await actions).toHaveLength(1);
+  expect(answered(await actions).map(([id, payload]) => [id, payload?.[0]?.title])).toEqual([
+    ["first", "Draft edit"],
+  ]);
   f.setProviders(
     f.providers.map((p) => ({
       ...p,
@@ -587,7 +426,10 @@ test("navigation, references, symbols, actions and pull reports decode method pa
     items: [{ range: location.range, message: "hello" }],
   });
   f.reply(11, { kind: "unchanged", resultId: "old" });
-  expect(await pull).toHaveLength(2);
+  expect(answered(await pull).map(([id, payload]) => [id, payload.kind])).toEqual([
+    ["first", "full"],
+    ["second", "unchanged"],
+  ]);
   f.features.dispose();
 });
 
@@ -734,8 +576,9 @@ test("early provider answer is revalidated after the remaining providers settle"
 test("completion list defaults retain edits/snippets/data and provider trigger characters", async () => {
   const f = fixture();
   f.setProviders(f.providers.map((p) => ({ ...p, completionTriggerCharacters: ["é"] })));
+  const proposed: CompletionProposal[] = [];
 
-  const task = completionSource(f.features, { propose: () => {} })(
+  const task = completionSource(f.features, { propose: (p) => proposed.push(p) })(
     new CompletionContext(f.state, 4, false)
   );
 
@@ -747,10 +590,39 @@ test("completion list defaults retain edits/snippets/data and provider trigger c
       data: { source: "defaults" },
       editRange: { start: { line: 0, character: 0 }, end: { line: 0, character: 7 } },
     },
-    items: [{ label: "completion", textEditText: "${1:replacement}" }],
+    // A choice snippet goes to the coordinator, which shows what the defaults filled in.
+    items: [{ label: "completion", textEditText: "${1|one,two|}" }],
   });
   f.reply(1, null);
-  expect((await task)?.options).toHaveLength(1);
+  const [completion, ...rest] = (await task)?.options ?? [];
+
+  if (completion === undefined || !Predicate.isFunction(completion.apply))
+    throw new Error("No completion to apply");
+  expect(rest).toEqual([]);
+
+  const fake = {
+    state: f.state,
+    dispatch(_spec: Parameters<EditorView["dispatch"]>[0]) {
+      throw new Error("A choice snippet is proposed, not applied");
+    },
+  };
+
+  // SAFETY: a proposed completion's apply only reads state; dispatch throws if it's reached.
+  completion.apply(fake as EditorView, completion, 0, 4);
+  f.reply(f.pending.length - 1, { label: "completion" });
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  const [proposal] = proposed;
+
+  expect(proposal?.item).toMatchObject({
+    insertTextFormat: 2,
+    data: { source: "defaults" },
+    textEdit: {
+      range: { start: { line: 0, character: 0 }, end: { line: 0, character: 7 } },
+      newText: "${1|one,two|}",
+    },
+  });
+  // The UTF-8 provider's seven bytes are the line's four UTF-16 units.
+  expect([proposal?.from, proposal?.to]).toEqual([0, 4]);
   f.features.dispose();
 });
 
@@ -759,7 +631,13 @@ test("formatter preserves the captured CRLF serialization boundary", async () =>
   f.setLineSeparator();
   const input = preflight(f);
   expect(input.snapshot).toBe("a😀é\r\nitem");
+
+  const lf = await f.features.format(f.providers[0]!, { ...input, snapshot: "a😀é\nitem" });
+
+  expect(Predicate.isTagged(lf, "Failed") && lf.reason).toBe("stale");
+  expect(f.formats).toEqual([]);
   const task = f.features.format(f.providers[0]!, input);
+  expect(f.formats.map((call) => call.input.snapshot)).toEqual(["a😀é\r\nitem"]);
   f.formats[0]!.resolve(
     P.LanguageFormatOutcome.cases.Formatted.make({
       requestId: input.requestId,
