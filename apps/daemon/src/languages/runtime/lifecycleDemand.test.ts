@@ -210,6 +210,35 @@ test("config bursts and atomic TypeScript replacement restart all Clients and re
   }
 });
 
+test("a config event with unchanged content does not restart the server", async () => {
+  const f = await fixture("ordinary", 30, undefined, undefined, undefined, false, {
+    changeDebounceMs: 20,
+    providerId: "typescript-language-server",
+  });
+
+  try {
+    const original = await f.acquire();
+    await f.open("one", original.context);
+    await f.ready("one", original.context);
+    await Bun.sleep(50);
+    const config = join(f.root, "tsconfig.json");
+    await writeFile(config, '{"compilerOptions":{"strict":true}}');
+    await until(() => f.processes.length === 2);
+    const restarted = await f.acquire();
+    await f.ready("one", restarted.context);
+    // The same bytes again, as macOS may report one write twice.
+    await writeFile(config, '{"compilerOptions":{"strict":true}}');
+    await Bun.sleep(200);
+    expect((await f.acquire()).context).toEqual(restarted.context);
+    await writeFile(config, '{"compilerOptions":{"strict":false}}');
+    await until(() => f.processes.length === 3);
+    await Bun.sleep(100);
+    expect(f.processes).toHaveLength(3);
+  } finally {
+    await f.dispose();
+  }
+});
+
 test("crashes outside the window do not accumulate and manual restart resets the new budget", async () => {
   const f = await fixture("ordinary", 30, undefined, undefined, undefined, false, {
     crashWindowMs: 40,

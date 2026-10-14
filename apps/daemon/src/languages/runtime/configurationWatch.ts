@@ -1,10 +1,11 @@
-import { realpath } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { realpath, stat } from "node:fs/promises";
 import { join, basename, dirname } from "node:path";
 import { watchRoot } from "../../files/search/watch.ts";
 import { subscribeDirectoryChanges } from "../../files/watch.ts";
 import { Schema } from "effect";
 import { LanguageContextEvent } from "@polaris/protocol";
-import { ancestors, readJson } from "../discovery/files.ts";
+import { ancestors, readJson, readText } from "../discovery/files.ts";
 import type { BrokerOptions, Entry } from "./types.ts";
 
 interface WatchGroup {
@@ -16,9 +17,38 @@ interface WatchGroup {
   closed: boolean;
   tail: Promise<void>;
   version: string | null;
+  configs: Map<string, string | null>;
 }
 
 const Manifest = Schema.Struct({ version: Schema.String });
+
+const isConfig = (path: string) => /^tsconfig(?:\..+)?\.json$/.test(basename(path));
+
+async function configDigest(path: string) {
+  try {
+    return createHash("sha256")
+      .update(await readText(path))
+      .digest("hex");
+  } catch {
+    const info = await stat(path).catch(() => null);
+
+    return info === null ? null : `${info.mtimeMs}:${info.size}`;
+  }
+}
+
+// A config counts when first seen or its content differs: macOS can report one write twice.
+async function configsChanged(paths: string[], group: WatchGroup) {
+  let changed = false;
+
+  for (const path of paths.filter(isConfig)) {
+    const digest = await configDigest(path);
+
+    if (!group.configs.has(path) || group.configs.get(path) !== digest) changed = true;
+    group.configs.set(path, digest);
+  }
+
+  return changed;
+}
 
 function manifestPaths(root: string, group: WatchGroup) {
   const paths = new Set([join(root, "node_modules/typescript/package.json")]);
@@ -116,9 +146,7 @@ export function configurationWatches(
     await metadata(root, group, changed);
     const version = await versionAt(root, group);
 
-    const relevant =
-      paths.some((path) => /^tsconfig(?:\..+)?\.json$/.test(basename(path))) ||
-      version !== group.version;
+    const relevant = (await configsChanged(paths, group)) || version !== group.version;
 
     group.version = version;
 
@@ -150,6 +178,7 @@ export function configurationWatches(
       closed: false,
       tail: Promise.resolve(),
       version: null,
+      configs: new Map(),
     };
 
     groups.set(root, group);
@@ -158,7 +187,7 @@ export function configurationWatches(
       if (group.closed) return;
 
       if (
-        !/^tsconfig(?:\..+)?\.json$/.test(basename(path)) &&
+        !isConfig(path) &&
         !["node_modules", "typescript", "package.json"].includes(basename(path))
       )
         return;
