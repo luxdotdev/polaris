@@ -1,7 +1,8 @@
-import { type FSWatcher, watch as fsWatch } from "node:fs";
+import { watch as fsWatch } from "node:fs";
 import { opendir } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { findRepoRoot, runGit } from "../../git/git.ts";
+import { inotifyAvailable, watchDirectory } from "../inotify.ts";
 
 export const WALK_SKIP = new Set([".git", "node_modules", ".hg", ".svn"]);
 
@@ -11,12 +12,27 @@ const WATCH_MAX_ENTRIES = 4096;
 
 type Changed = (event: string, path: string) => void;
 
-type OpenWatch = (path: string, recursive: boolean, changed: Changed) => FSWatcher;
+/** Opens one native watch and returns its stop function. */
+type OpenWatch = (path: string, recursive: boolean, changed: Changed) => () => void;
 
-const openWatch: OpenWatch = (path, recursive, changed) =>
-  fsWatch(path, { recursive }, (event, name) => {
+const openWatch: OpenWatch = (path, recursive, changed) => {
+  // Bun's Linux fs.watch drops names starting with `.` or `~` (ADR 0047).
+  if (!recursive && inotifyAvailable())
+    return watchDirectory(path, {
+      changed: (event, name) => {
+        if (name !== null) changed(event, join(path, name));
+      },
+    });
+
+  const watcher = fsWatch(path, { recursive }, (event, name) => {
     if (name !== null) changed(event, join(path, name.toString()));
   });
+
+  // Home directories can hold sockets that Bun reports as ENXIO error events.
+  watcher.on("error", () => undefined);
+
+  return () => watcher.close();
+};
 
 /** FSEvents on macOS; bounded tree watches elsewhere, with non-git roots only on explicit demand. */
 export const watchRoot = async (
@@ -30,7 +46,7 @@ export const watchRoot = async (
 ): Promise<() => void> => {
   const recursive = (options.platform ?? process.platform) === "darwin";
   const open = options.open ?? openWatch;
-  const watchers = new Map<string, FSWatcher>();
+  const watchers = new Map<string, () => void>();
   let stopped = false;
   let inRepo = false;
   let entries = 0;
@@ -40,7 +56,7 @@ export const watchRoot = async (
   const stop = () => {
     stopped = true;
 
-    for (const watcher of watchers.values()) watcher.close();
+    for (const close of watchers.values()) close();
     watchers.clear();
   };
 
@@ -109,7 +125,7 @@ export const watchRoot = async (
   };
 
   const arm = (directory: string) => {
-    const watcher = open(directory, recursive, (event, path) => {
+    const close = open(directory, recursive, (event, path) => {
       if (
         relative(root, path)
           .split(/[\\/]/)
@@ -121,9 +137,7 @@ export const watchRoot = async (
       if (!recursive && event === "rename") enqueue(path);
     });
 
-    // Home directories can hold sockets that Bun reports as ENXIO error events.
-    watcher.on("error", () => undefined);
-    watchers.set(directory, watcher);
+    watchers.set(directory, close);
   };
 
   try {

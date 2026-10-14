@@ -1,10 +1,11 @@
-import { type FSWatcher, watch } from "node:fs";
+import { watch } from "node:fs";
 import { realpath, stat } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { FileError, type FileVersion } from "@polaris/protocol";
 import { Cause, Effect, Option, Queue, Stream } from "effect";
 import { FileSearch } from "./FileSearch.ts";
 import { resolveHostPath, toFsFailure } from "./fs.ts";
+import { inotifyAvailable, watchDirectory } from "./inotify.ts";
 import { currentVersion, sameVersion } from "./version.ts";
 
 interface Listener {
@@ -16,7 +17,7 @@ interface Listener {
 }
 
 interface DirectoryWatch {
-  readonly watcher: FSWatcher;
+  readonly close: () => void;
   readonly listeners: Set<Listener>;
   readonly settle: Settle;
 }
@@ -54,6 +55,26 @@ const settler = (directory: string, listeners: Set<Listener>): Settle => {
   };
 };
 
+/** One native watch on `directory`'s entries; `name` is null for the directory itself. */
+const openDirectory = (
+  directory: string,
+  changed: (name: string | null) => void,
+  failed: (cause: unknown) => void
+): (() => void) => {
+  // Bun's Linux fs.watch drops `.env`, `~draft` and the like (ADR 0047).
+  if (inotifyAvailable())
+    return watchDirectory(directory, { changed: (_event, name) => changed(name) });
+
+  // The Daemon listener owns process lifetime, including while tabs are open.
+  const watcher = watch(directory, { persistent: false }, (_event, filename) =>
+    changed(filename?.toString() || null)
+  );
+
+  watcher.on("error", failed);
+
+  return () => watcher.close();
+};
+
 /** Shared parent watches survive atomic replacements; idle watches run no timer. */
 const subscribe = (path: string, listener: Listener): (() => void) => {
   const directory = dirname(path);
@@ -63,20 +84,20 @@ const subscribe = (path: string, listener: Listener): (() => void) => {
     const listeners = new Set<Listener>();
     const settle = settler(directory, listeners);
 
-    // The Daemon listener owns process lifetime, including while tabs are open.
-    const watcher = watch(directory, { persistent: false }, (_event, filename) => {
-      const name = filename?.toString();
+    const close = openDirectory(
+      directory,
+      (name) => {
+        for (const item of listeners)
+          if (!name || item.name === undefined || name === item.name)
+            item.changed(join(directory, name ?? ""));
+        settle.arm();
+      },
+      (cause) => {
+        for (const item of listeners) item.failed(cause);
+      }
+    );
 
-      for (const item of listeners)
-        if (!name || item.name === undefined || name === item.name)
-          item.changed(join(directory, name ?? ""));
-      settle.arm();
-    });
-
-    watcher.on("error", (cause) => {
-      for (const item of listeners) item.failed(cause);
-    });
-    entry = { watcher, listeners, settle };
+    entry = { close, listeners, settle };
     directories.set(directory, entry);
   }
 
@@ -88,7 +109,7 @@ const subscribe = (path: string, listener: Listener): (() => void) => {
 
     if (current.listeners.size === 0) {
       current.settle.cancel();
-      current.watcher.close();
+      current.close();
       directories.delete(directory);
     }
   };

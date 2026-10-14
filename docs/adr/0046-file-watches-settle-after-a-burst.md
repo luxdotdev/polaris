@@ -46,5 +46,5 @@ wakes for nothing.
 - Waiting for an upstream fix: still worth reporting, after which this can go.
 
 Bun also skips directory events for names starting with `.` or `~` on Linux,
-so an open `.env` sees external changes only until its first replacement.
-This ADR does not address that.
+so an open `.env` saw external changes only until its first replacement.
+ADR 0047 moves Linux directory watches onto inotify, which avoids both.
