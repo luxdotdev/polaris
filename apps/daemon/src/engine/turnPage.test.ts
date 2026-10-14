@@ -84,22 +84,36 @@ test("pages walk back from the oldest Turn the Client has to the first", async (
   expect(pages.last.hasMore).toBe(false);
 }, 30_000);
 
-test("a page is capped, and an unknown session is NotFound", async () => {
-  const result = await Effect.runPromise(
+test("a page holds at most MAX_TURN_PAGE Turns, however many the Client asks for", async () => {
+  const page = await Effect.runPromise(
     Effect.gen(function* () {
-      yield* withTurns(2);
+      yield* withTurns(MAX_TURN_PAGE + 1);
       const engine = yield* Engine;
-      const page = yield* engine.readTurnPage({ sessionId, beforeIndex: 2, limit: 10_000 });
 
-      const missing = yield* Effect.exit(
-        engine.readTurnPage({ sessionId: SessionId.make("nope"), beforeIndex: 1, limit: 5 })
-      );
-
-      return { page, missing };
+      return yield* engine.readTurnPage({
+        sessionId,
+        beforeIndex: MAX_TURN_PAGE + 1,
+        limit: 10_000,
+      });
     }).pipe(Effect.provide(layer()))
   );
 
-  expect(result.page.turns).toHaveLength(2);
-  expect(MAX_TURN_PAGE).toBe(50);
-  expect(result.missing).toEqual(Exit.fail(new NotFound({ what: "session", id: "nope" })));
+  expect(page.turns).toHaveLength(MAX_TURN_PAGE);
+  expect(page.turns[0]?.turn.index).toBe(1);
+  expect(page.turns.at(-1)?.turn.index).toBe(MAX_TURN_PAGE);
+  expect(page.hasMore).toBe(true);
 }, 30_000);
+
+test("an unknown session is NotFound", async () => {
+  const missing = await Effect.runPromise(
+    Effect.gen(function* () {
+      const engine = yield* Engine;
+
+      return yield* Effect.exit(
+        engine.readTurnPage({ sessionId: SessionId.make("nope"), beforeIndex: 1, limit: 5 })
+      );
+    }).pipe(Effect.provide(layer()))
+  );
+
+  expect(missing).toEqual(Exit.fail(new NotFound({ what: "session", id: "nope" })));
+});
