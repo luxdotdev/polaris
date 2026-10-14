@@ -13,12 +13,15 @@
  * (`@ff-labs/fff-bin-<platform>`). `bun build --compile` embeds it into the
  * binary (Linux builds need `--define FFF_LIBC='"gnu"'` or `'"musl"'`), with
  * the worker as a second entrypoint. If it can't load, or `POLARIS_FFF=off`,
- * callers fall back to `fallback.ts`.
+ * callers fall back to `fallback.ts`. fff's native watcher can also fail to
+ * arm (seen on macOS, where it then stays down for the process): a watch that
+ * finds it unarmed after `ARM_MS` uses the fallback's `fs.watch` instead.
  */
 import { createHash } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { paths } from "../../paths.ts";
+import { openFallbackBackend } from "./fallback.ts";
 import type { WorkerReply, WorkerRequest, WorkerValue, WorkerWatchEvent } from "./fffWorker.ts";
 import type { FileChange, GrepHit, PathHit, SearchBackend } from "./types.ts";
 
@@ -42,7 +45,7 @@ type Request = Distribute<WorkerRequest>;
 
 class FffUnavailable extends Error {
   constructor(
-    readonly reason: "library" | "root",
+    readonly reason: "library" | "root" | "watcher",
     message: string
   ) {
     super(message);
@@ -66,6 +69,12 @@ let connection: Connection | null = null;
 let nextIndex = 1;
 
 let nextSubscription = 1;
+
+/** How long a watch waits for fff's native watcher to arm before using `fs.watch` instead. */
+const ARM_MS = 5_000;
+
+/** Tests only: fff without its native watcher, and how long a watch waits for it. */
+export const fffWatchTesting = { disableWatch: false, armMs: ARM_MS };
 
 /**
  * The worker's entrypoint. From source it sits next to this file. In the
@@ -185,6 +194,7 @@ export const openFffBackend = async (root: string): Promise<SearchBackend | null
       root,
       frecencyDbPath: join(dbDir, "frecency.mdb"),
       historyDbPath: join(dbDir, "history.mdb"),
+      disableWatch: fffWatchTesting.disableWatch,
     });
   } catch (cause) {
     release(conn, index);
@@ -203,6 +213,14 @@ export const openFffBackend = async (root: string): Promise<SearchBackend | null
 
   const subscriptions = new Set<number>();
   let disposed = false;
+  // Created only when fff's native watcher fails to arm; watches through `fs.watch`.
+  let fallback: SearchBackend | null = null;
+
+  const watchWithFallback = (onBatch: (changes: ReadonlyArray<FileChange>) => void) => {
+    fallback ??= openFallbackBackend(root);
+
+    return fallback.watch(onBatch);
+  };
 
   return {
     kind: "fff",
@@ -223,9 +241,14 @@ export const openFffBackend = async (root: string): Promise<SearchBackend | null
       };
 
       try {
-        await call(conn, { op: "watch", index, subscription });
+        await call(conn, { op: "watch", index, subscription, armMs: fffWatchTesting.armMs });
       } catch (cause) {
         stop();
+
+        if (cause instanceof FffUnavailable && cause.reason === "watcher" && !disposed) {
+          return watchWithFallback(onBatch);
+        }
+
         throw cause;
       }
 
@@ -236,6 +259,7 @@ export const openFffBackend = async (root: string): Promise<SearchBackend | null
 
       for (const subscription of subscriptions) conn.watchers.delete(subscription);
       subscriptions.clear();
+      fallback?.dispose();
       disposed = true;
       release(conn, index);
     },

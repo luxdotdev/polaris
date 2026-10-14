@@ -17,6 +17,8 @@ export type WorkerRequest = { readonly id: number } & (
       readonly root: string;
       readonly frecencyDbPath: string;
       readonly historyDbPath: string;
+      /** Tests only: start fff without its native watcher, as when it never arms. */
+      readonly disableWatch?: boolean;
     }
   | {
       readonly op: "searchPaths";
@@ -25,7 +27,13 @@ export type WorkerRequest = { readonly id: number } & (
       readonly limit: number;
     }
   | { readonly op: "grep"; readonly index: number; readonly query: GrepQuery }
-  | { readonly op: "watch"; readonly index: number; readonly subscription: number }
+  | {
+      readonly op: "watch";
+      readonly index: number;
+      readonly subscription: number;
+      /** How long to wait for fff's native watcher to arm. */
+      readonly armMs: number;
+    }
   | { readonly op: "unwatch"; readonly index: number; readonly subscription: number }
   | { readonly op: "close"; readonly index: number }
 );
@@ -39,8 +47,8 @@ export type WorkerReply =
       readonly id: number;
       readonly ok: false;
       readonly error: string;
-      /** fff can't serve this: its library doesn't load here, or it refused the root. Use the fallback. */
-      readonly unavailable?: "library" | "root";
+      /** fff can't serve this (no library, a refused root, a watcher that never armed): use the fallback. */
+      readonly unavailable?: "library" | "root" | "watcher";
     };
 
 export interface WorkerWatchEvent {
@@ -116,7 +124,7 @@ const get = (id: number): Index => {
 
 class Unavailable extends Error {
   constructor(
-    readonly reason: "library" | "root",
+    readonly reason: "library" | "root" | "watcher",
     message: string
   ) {
     super(message);
@@ -136,6 +144,7 @@ const openIndex = async (request: RequestOf<"open">): Promise<null> => {
       basePath: request.root,
       frecencyDbPath: request.frecencyDbPath,
       historyDbPath: request.historyDbPath,
+      disableWatch: request.disableWatch ?? false,
     });
   } catch (cause) {
     // Thrown (not returned) when the native library itself fails to load.
@@ -158,11 +167,13 @@ const watchIndex = async (request: RequestOf<"watch">): Promise<null> => {
   const index = get(request.index);
   // fff drops subscriptions made before its initial scan and watcher are ready.
   await ready(index);
-  const deadline = Date.now() + SCAN_WAIT_MS;
+  const deadline = Date.now() + request.armMs;
+  const armed = () => unwrap(index.finder.getScanProgress()).isWatcherReady;
 
-  while (!(unwrap(index.finder.getScanProgress()).isWatcherReady || Date.now() > deadline)) {
-    await Bun.sleep(20);
-  }
+  while (!armed() && Date.now() <= deadline) await Bun.sleep(20);
+
+  // A subscription on a watcher that never armed would never fire: let the client fall back.
+  if (!armed()) throw new Unavailable("watcher", `fff's watcher did not arm in ${request.armMs}ms`);
 
   const subscription = request.subscription;
 
