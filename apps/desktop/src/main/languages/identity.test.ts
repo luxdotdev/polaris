@@ -3,9 +3,14 @@ import { LanguageAccess } from "@polaris/client";
 import * as P from "@polaris/protocol";
 import { Schema } from "effect";
 import { createLanguageBridge, LanguagePreferences, type LanguageHost } from "./index.ts";
+import type { IpcError } from "../../shared/api.ts";
 import { LanguageRequestInputs } from "../../shared/languages.ts";
 
 const hostId = P.HostId.make("host-a");
+
+/** Why a bridge request was refused, or null when it succeeded. */
+const refusal = (result: { ok: true } | { ok: false; error: IpcError }) =>
+  result.ok ? null : (result.error.languageError?.reason ?? result.error.code);
 
 const accessOf = (signal: AbortSignal, capabilities: ReadonlyArray<P.Capability> = ["languages"]) =>
   new LanguageAccess({
@@ -73,16 +78,18 @@ test("identity lookup returns only Main-bound identity and epoch", async () => {
 test("absent transport, epoch or capability cannot produce an identity", async () => {
   const controller = new AbortController();
 
-  for (const [access, epoch] of [
-    [null, 1],
-    [accessOf(controller.signal), undefined],
-    [accessOf(controller.signal, []), 1],
-    [accessOf(controller.signal), 0],
-  ] satisfies ReadonlyArray<readonly [LanguageAccess | null, number | undefined]>) {
+  for (const [access, epoch, reason] of [
+    [null, 1, "not-connected"],
+    [accessOf(controller.signal), undefined, "not-connected"],
+    [accessOf(controller.signal, []), 1, "unsupported-capability"],
+    [accessOf(controller.signal), 0, "invalid-input"],
+  ] satisfies ReadonlyArray<readonly [LanguageAccess | null, number | undefined, string]>) {
     const { bridge } = fixture(access, epoch);
 
     try {
-      expect((await bridge.request("languages.identity.get", { hostKey: "local" })).ok).toBe(false);
+      expect(refusal(await bridge.request("languages.identity.get", { hostKey: "local" }))).toBe(
+        reason
+      );
     } finally {
       bridge.dispose();
     }
@@ -97,7 +104,7 @@ test("disconnect during async IPC settlement fences the previously read identity
     const pending = bridge.request("languages.identity.get", { hostKey: "local" });
     controller.abort();
 
-    expect((await pending).ok).toBe(false);
+    expect(refusal(await pending)).toBe("not-connected");
   } finally {
     bridge.dispose();
   }
@@ -111,7 +118,7 @@ test("replacement during async IPC settlement fences the old identity", async ()
     const pending = bridge.request("languages.identity.get", { hostKey: "local" });
     replace();
 
-    expect((await pending).ok).toBe(false);
+    expect(refusal(await pending)).toBe("not-connected");
   } finally {
     bridge.dispose();
   }
