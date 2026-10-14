@@ -50,6 +50,21 @@ export const changeTarget = (
     : targetOf({ ...place, toplevel: git.toplevel }, entry, side, status);
 };
 
+/**
+ * An open tab's target as git sees the file now: a `git add` turns an untracked file's
+ * Changes side into index ↔ working tree. A side left with no change compares its two
+ * sides as they are, so the tab says they match.
+ */
+export const liveTarget = (target: DiffTarget, git: GitFacts | "none" | null): DiffTarget => {
+  if (git === null || git === "none" || target.side === "head") return target;
+  const place = { hostKey: target.hostKey, workspaceId: target.workspaceId };
+  const now = changeTarget(place, git, target.path, target.side);
+
+  if (now === null) return { ...target, git: "modified", origRepoPath: null };
+
+  return now.side === target.side ? now : target;
+};
+
 export type ChangeOpener = (side: DiffSide, path: string, pin: boolean) => void;
 
 /**

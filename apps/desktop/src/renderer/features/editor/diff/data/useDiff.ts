@@ -1,16 +1,18 @@
 /**
  * A diff tab's content, kept live: read again whenever git's view of the Workspace moves
- * (each burst of file changes and each stage or unstage refreshes it, explorer/data/fetch.ts).
- * While the Host is away the last diff stays, and an unchanged reread changes nothing.
+ * (each burst of file or git state changes, and each stage or unstage, refreshes it:
+ * explorer/data/fetch.ts), as git now sees the file (`liveTarget`). While the Host is away
+ * the last diff stays, and an unchanged reread changes nothing.
  */
 import { useWorkerPool } from "@pierre/diffs/react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useApp } from "../../../../shell/hooks.ts";
 import { explorerKey, useExplorerState } from "../../explorer/data/store.ts";
 import { pairOf } from "../model/content.ts";
 import type { DiffTarget } from "../model/target.ts";
 import { type ComposedDiff, composeDiff } from "./compose.ts";
 import { loadSides } from "./load.ts";
+import { liveTarget } from "./openChanges.ts";
 import { syntaxPatch } from "./syntax.ts";
 
 export type DiffState =
@@ -73,6 +75,7 @@ const settle = (before: DiffState, after: DiffState) =>
 export const useDiff = (target: DiffTarget, syntax: boolean): DiffState => {
   const pool = useWorkerPool();
   const git = useExplorerState(explorerKey(target.hostKey, target.workspaceId)).git;
+  const now = useMemo(() => liveTarget(target, git), [target, git]);
 
   const connected = useApp(
     (s) => s.hosts.find((h) => h.key === target.hostKey)?.status.state === "connected"
@@ -87,7 +90,7 @@ export const useDiff = (target: DiffTarget, syntax: boolean): DiffState => {
   const file = JSON.stringify([target.hostKey, target.path, target.side, target.git]);
 
   useEffect(() => {
-    // `git` is the trigger: a new status means the files may have moved.
+    // `now` changes with each new status: the files may have moved.
     if (!connected) return undefined;
     let live = true;
 
@@ -96,7 +99,7 @@ export const useDiff = (target: DiffTarget, syntax: boolean): DiffState => {
       if (live) setState((s) => (s.file === file && s.diff.kind === "ready" ? s : { file, diff }));
     };
 
-    load(target, syntax, pool, early)
+    load(now, syntax, pool, early)
       .then((diff) => {
         if (live) setState((s) => ({ file, diff: s.file === file ? settle(s.diff, diff) : diff }));
       })
@@ -114,7 +117,7 @@ export const useDiff = (target: DiffTarget, syntax: boolean): DiffState => {
     return () => {
       live = false;
     };
-  }, [target, file, syntax, connected, git, pool]);
+  }, [now, file, syntax, connected, pool]);
 
   return state.file === file ? state.diff : LOADING;
 };

@@ -42,9 +42,12 @@ export const GitSubscriptionInputs = {
   "git.commit": Schema.Struct({ hostKey: HostKey, cwd: Schema.String, message: Schema.String }),
   /** A message for the staged changes (capability `commit.suggest-message`); closing it cancels. */
   "commit.suggestMessage": Schema.Struct({ hostKey: HostKey, ...CommitMessageRequest.fields }),
+  /** An item each time the index, HEAD or refs move under `cwd` (capability `git.watch`). */
+  "git.watch": Schema.Struct({ hostKey: HostKey, cwd: Schema.String }),
 };
 
 export interface GitSubscriptionItems {
   "git.commit": GitCommitItem;
   "commit.suggestMessage": CommitMessageStreamItem;
+  "git.watch": null;
 }
