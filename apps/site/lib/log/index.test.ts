@@ -96,8 +96,11 @@ describe("withWideEvent", () => {
       h.options
     );
 
-    expect(handler(new Request("https://polaris.lux.dev/x"), undefined)).rejects.toThrow();
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await Promise.resolve(
+      expect(handler(new Request("https://polaris.lux.dev/x"), undefined)).rejects.toThrow(
+        "private@example.com"
+      )
+    );
     await h.flush();
     expect(h.emitted[0]).toMatchObject({
       level: "error",
