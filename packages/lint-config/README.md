@@ -17,6 +17,7 @@ All at `error`. Type-aware rules run through `oxlint-tsgolint`, which uses the T
 - **`max-lines`**: 750 per file, blank lines skipped, comments counted.
 - **`sonarjs/cognitive-complexity`**: 15 per function.
 - **`polaris/no-long-comment`**: at most two lines of prose per comment.
+- **`polaris/await-expect-promise`**: an `expect(…).rejects` / `.resolves` statement must be awaited. bun types the matcher as `void`, so write `await Promise.resolve(expect(p).rejects.toThrow(…))`; unawaited, the assertions after it run before the promise settles.
 - **anti-slop**: every generic rule, the native companion `oxc/no-accumulating-spread`, and every Effect rule.
 
 ## The ratchet

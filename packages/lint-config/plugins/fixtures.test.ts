@@ -29,13 +29,28 @@ describe("custom oxlint plugins", () => {
   test(
     "polaris/no-long-comment reports each over-long group once",
     () => {
-      const diagnostics = lintFixtures("polaris");
+      const diagnostics = lintFixtures("polaris").filter(
+        (d) => d.code === "polaris(no-long-comment)"
+      );
 
       expect(diagnostics.filter((d) => !d.filename.endsWith("long-comment.ts"))).toEqual([]);
-      expect(diagnostics.filter((d) => d.filename.endsWith("long-comment.ts"))).toHaveLength(4);
-      expect(new Set(diagnostics.map((d) => d.code))).toEqual(
-        new Set(["polaris(no-long-comment)"])
+      expect(diagnostics).toHaveLength(4);
+    },
+    SPAWN_TIMEOUT_MS
+  );
+
+  test(
+    "polaris/await-expect-promise reports only unawaited rejects and resolves",
+    () => {
+      const diagnostics = lintFixtures("polaris").filter(
+        (d) => d.code === "polaris(await-expect-promise)"
       );
+
+      expect(diagnostics.map((d) => d.filename)).toEqual([
+        "fixtures/unawaited-expect.ts",
+        "fixtures/unawaited-expect.ts",
+        "fixtures/unawaited-expect.ts",
+      ]);
     },
     SPAWN_TIMEOUT_MS
   );

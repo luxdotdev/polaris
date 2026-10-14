@@ -102,6 +102,25 @@ function checkFile(context) {
   }
 }
 
+const SETTLING = new Set(["rejects", "resolves"]);
+
+/** Whether a call is `expect(…).rejects…(…)` or `expect(…).resolves…(…)`. */
+function isSettlingExpect(call) {
+  let node = call.callee;
+  let settles = false;
+
+  while (node?.type === "MemberExpression") {
+    if (node.property.type === "Identifier" && SETTLING.has(node.property.name)) settles = true;
+    node = node.object;
+  }
+
+  return settles && node?.type === "CallExpression" && node.callee.name === "expect";
+}
+
+const AWAIT_MESSAGE =
+  "Await `expect(…).rejects` / `.resolves` (as `await Promise.resolve(expect(…)…)`, since " +
+  "bun types the matcher as void): unawaited, later assertions run before it settles.";
+
 export default {
   meta: { name: "polaris" },
   rules: {
@@ -116,6 +135,23 @@ export default {
         return {
           Program() {
             checkFile(context);
+          },
+        };
+      },
+    },
+    "await-expect-promise": {
+      meta: {
+        type: "problem",
+        docs: { description: "Require `await` on `expect(…).rejects` and `.resolves`." },
+      },
+      create(context) {
+        return {
+          ExpressionStatement(node) {
+            const call = node.expression;
+
+            if (call.type === "CallExpression" && isSettlingExpect(call)) {
+              context.report({ node, message: AWAIT_MESSAGE });
+            }
           },
         };
       },
