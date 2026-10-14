@@ -160,8 +160,25 @@ const trace = (batches: ConstellationTrace["batches"]): ConstellationTrace => ({
   batches,
 });
 
+const spec = join(import.meta.dir, "../..");
+
+/**
+ * True when Quint's `replayTest` passes, false only when `safety` fails on a replayed batch
+ * (QNT508); a parse, type or other Quint error throws with Quint's output.
+ */
+const verdict = (main: string, exitCode: number | null, stdout: string, stderr: string) => {
+  if (exitCode === 0) return true;
+
+  const rejected =
+    exitCode === 1 &&
+    stdout.includes("1) replayTest failed") &&
+    stdout.includes("Error [QNT508]: Expect condition does not hold true");
+
+  if (rejected) return false;
+  throw new Error(`quint test ${main} did not replay (exit ${exitCode}):\n${stderr}\n${stdout}`);
+};
+
 const check = (input: ConstellationTrace): boolean => {
-  const spec = join(import.meta.dir, "../..");
   const root = mkdtempSync(join(tmpdir(), "polaris-replay-test-"));
 
   try {
@@ -186,7 +203,12 @@ const check = (input: ConstellationTrace): boolean => {
         { stdout: "pipe", stderr: "pipe" }
       );
 
-      return checked.exitCode === 0;
+      return verdict(
+        source.name,
+        checked.exitCode,
+        checked.stdout.toString(),
+        checked.stderr.toString()
+      );
     });
   } finally {
     rmSync(root, { recursive: true, force: true });
