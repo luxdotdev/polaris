@@ -89,6 +89,8 @@ export const refreshGit = async (key: string, hostKey: string, root: string) => 
           head: result.value.head,
           branch: result.value.branch,
           ahead: result.value.ahead,
+          behind: result.value.behind,
+          tracking: result.value.tracking ?? null,
           marks: gitMarks(toplevel, root, result.value.entries),
           entries: result.value.entries,
         }

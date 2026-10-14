@@ -49,6 +49,7 @@ const Workbench = ({
       </div>
       <StatusBar
         host={host}
+        place={{ key: explorerKey(hostKey, workspaceId), hostKey, workspaceId, root }}
         git={explorer.git}
         right={<EditorStatus hostKey={hostKey} workspaceId={workspaceId} />}
       />

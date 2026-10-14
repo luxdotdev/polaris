@@ -93,6 +93,8 @@ export const Capability = Schema.Literals([
   "git.write",
   /** `git.watch`: a signal when the index, HEAD or refs move, so Clients refetch `git.status`. */
   "git.watch",
+  /** `git.sync` (fetch, pull, push, publish) and `git.status`'s `tracking`. */
+  "git.sync",
   "attachments.stage",
   /** `attachments.settings`, `attachments.setSettings`, `attachments.clear`: cleanup in Settings. */
   "attachments.settings",

@@ -66,6 +66,37 @@ describe("watchGitState", () => {
     expect(await watch.next()).toBe(true);
   });
 
+  test("an external git fetch that brings commits is seen, so behind moves", async () => {
+    const root = await repo();
+    const bare = tempDir("polaris-bare-");
+    const parent = tempDir("polaris-other-");
+    cleanup.push(() => removeDir(bare));
+    cleanup.push(() => removeDir(parent));
+    await gitText(bare, ["init", "-q", "--bare", "-b", "main"]);
+    await gitText(root, ["remote", "add", "origin", bare]);
+    await gitText(root, ["push", "-q", "-u", "origin", "main"]);
+    const other = join(parent, "clone");
+    await gitText(parent, ["clone", "-q", bare, other]);
+
+    const who = [
+      "-c",
+      "user.name=O",
+      "-c",
+      "user.email=o@example.com",
+      "-c",
+      "commit.gpgsign=false",
+    ];
+
+    await gitText(other, [...who, "commit", "-q", "--allow-empty", "-m", "theirs"]);
+    await gitText(other, ["push", "-q", "origin", "main"]);
+    const watch = await watching(root);
+
+    await gitText(root, ["fetch", "-q", "origin"]);
+
+    expect(await watch.next()).toBe(true);
+    expect((await gitStatus(root)).behind).toBe(1);
+  });
+
   test("git stash, which moves the index and HEAD's reflog, is seen", async () => {
     const root = await repo();
     write(root, "a.txt", "two\n");

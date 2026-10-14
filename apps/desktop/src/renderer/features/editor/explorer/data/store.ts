@@ -5,6 +5,7 @@
  */
 import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
+import type { GitTracking } from "@polaris/protocol";
 import type { GitMarks, StatusEntry } from "../model/git.ts";
 import type { Listing } from "../model/tree.ts";
 
@@ -19,6 +20,9 @@ export interface GitFacts {
   readonly head: string | null;
   readonly branch: string | null;
   readonly ahead: number;
+  readonly behind: number;
+  /** The upstream and where Publish would push; null from a Daemon without `git.sync`. */
+  readonly tracking: GitTracking | null;
   readonly marks: GitMarks;
   /** The raw entries, relative to `toplevel`: the Changes tab's Staged and Changes lists. */
   readonly entries: ReadonlyArray<StatusEntry>;

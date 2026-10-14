@@ -53,6 +53,13 @@ const UI_MORE: ReadonlyArray<readonly [string, string]> = [
   ["CopyIcon", "CopyOutline18"],
 ];
 
+/** A third UI file, for the same reason: pull and push. */
+const UI_SYNC: ReadonlyArray<readonly [string, string]> = [
+  ["ArrowDownIcon", "ArrowDownOutline18"],
+  ["SyncIcon", "RefreshOutline18"],
+  ["CloudUploadIcon", "CloudUploadOutline18"],
+];
+
 /** Polaris name → Nucleo pixel outline 24px component. Polaris-owned concepts only. */
 const PIXEL: ReadonlyArray<readonly [string, string]> = [
   ["PixelHandIcon", "HandOutline24"],
@@ -211,6 +218,8 @@ writeFileSync(join(OUT, "ui.tsx"), uiFile(UI, false));
 
 writeFileSync(join(OUT, "ui-more.tsx"), uiFile(UI_MORE, true));
 
+writeFileSync(join(OUT, "ui-sync.tsx"), uiFile(UI_SYNC, true));
+
 writeFileSync(join(OUT, "pixel.tsx"), pixelFile());
 
 /** UI outline icons also needed as CSS masks, for DOM that React doesn't render (composer chips). */
@@ -241,4 +250,6 @@ ${rows.join("\n")}
 
 writeFileSync(join(OUT, "masks.ts"), maskFile());
 
-console.log(`vendored ${UI.length + UI_MORE.length + PIXEL.length} Nucleo icons into ${OUT}`);
+console.log(
+  `vendored ${UI.length + UI_MORE.length + UI_SYNC.length + PIXEL.length} Nucleo icons into ${OUT}`
+);

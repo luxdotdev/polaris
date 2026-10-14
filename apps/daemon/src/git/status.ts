@@ -17,6 +17,9 @@ export interface Status {
   readonly head: string | null;
   readonly ahead: number;
   readonly behind: number;
+  /** The upstream ("origin/main"), or null; `upstreamGone` when its branch no longer exists. */
+  readonly upstream: string | null;
+  readonly upstreamGone: boolean;
   readonly entries: ReadonlyArray<StatusEntry>;
 }
 
@@ -25,6 +28,8 @@ interface BranchHeader {
   head: string | null;
   ahead: number;
   behind: number;
+  upstream: string | null;
+  upstreamGone: boolean;
 }
 
 /** Applies one `# branch.*` header line to `header`. */
@@ -34,8 +39,14 @@ const applyHeader = (header: BranchHeader, record: string): void => {
 
   if (key === "branch.oid") header.head = value === "(initial)" ? null : value;
   else if (key === "branch.head") header.branch = value === "(detached)" ? null : value;
-  else if (key === "branch.ab") {
+  else if (key === "branch.upstream") {
+    // No `branch.ab` follows when the upstream's branch is gone.
+    header.upstream = value;
+    header.upstreamGone = true;
+  } else if (key === "branch.ab") {
     const match = /^\+(\d+) -(\d+)$/.exec(value);
+
+    header.upstreamGone = false;
 
     if (match) {
       header.ahead = Number(match[1]);
@@ -73,7 +84,15 @@ const parseEntry = (record: string): StatusEntry | null => {
 
 /** Parses NUL-separated porcelain v2 output (with `--branch`). */
 export const parsePorcelainV2 = (output: string): Status => {
-  const header: BranchHeader = { branch: null, head: null, ahead: 0, behind: 0 };
+  const header: BranchHeader = {
+    branch: null,
+    head: null,
+    ahead: 0,
+    behind: 0,
+    upstream: null,
+    upstreamGone: false,
+  };
+
   const entries: Array<StatusEntry> = [];
   const records = output.split("\0");
 

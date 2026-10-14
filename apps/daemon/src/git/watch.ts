@@ -19,6 +19,8 @@ const STATE = new Set([
   "CHERRY_PICK_HEAD",
   "REVERT_HEAD",
   "packed-refs",
+  // A fetch from a terminal moves refs/remotes/*, which isn't watched: behind moves with it.
+  "FETCH_HEAD",
 ]);
 
 /** A commit or checkout writes several files within a few ms: one item for them all. */

@@ -13,11 +13,13 @@ import {
   GitStage,
   GitStatus,
   GitStatusEntry,
+  GitSync,
+  GitSyncItem,
   GitUnstage,
   GitWatch,
   NotFound,
 } from "@polaris/protocol";
-import { Cause, Effect, Queue, Stream } from "effect";
+import { Cause, Effect, Match, Queue, Stream } from "effect";
 import { RpcGroup } from "effect/rpc";
 import { BlobChannel } from "../services.ts";
 import { ReadContent, toContent } from "../files/fs.ts";
@@ -25,7 +27,8 @@ import { generatedPaths } from "../reviewer/generated.ts";
 import { computeDiff, DiffNotFound, type DiffResult } from "./diff.ts";
 import { indexDiff } from "./diffIndex.ts";
 import { showFile } from "./show.ts";
-import { gitStatus } from "./status.ts";
+import { gitStatus, type Status } from "./status.ts";
+import { publishRemoteAt, runSync, type SyncEvent } from "./sync.ts";
 import { watchGit } from "./watch.ts";
 import { commit, type CommitEvent, discardPaths, stagePaths, unstagePaths } from "./write.ts";
 
@@ -37,7 +40,8 @@ export class GitRpcs extends RpcGroup.make(
   GitUnstage,
   GitDiscard,
   GitCommit,
-  GitWatch
+  GitWatch,
+  GitSync
 ) {}
 
 const gitError = (cwd: string) => (cause: unknown) =>
@@ -52,10 +56,26 @@ export const handleGitStatus = Effect.fn("git.status")(function* ({
     catch: gitError(cwd),
   });
 
+  const tracking = yield* Effect.promise(() => trackingOf(cwd, status));
+
   return {
-    ...status,
+    branch: status.branch,
+    head: status.head,
+    ahead: status.ahead,
+    behind: status.behind,
     entries: status.entries.map((entry) => new GitStatusEntry(entry)),
+    tracking,
   };
+});
+
+/** `tracking` (capability `git.sync`): asks git for the remotes only when there's no upstream to sync with. */
+const trackingOf = async (cwd: string, status: Status) => ({
+  upstream: status.upstream,
+  gone: status.upstreamGone,
+  remote:
+    status.upstream === null || status.upstreamGone
+      ? await publishRemoteAt(cwd).catch(() => null)
+      : null,
 });
 
 /** The file index with each file's `generated` verdict; null where it couldn't be read. */
@@ -160,6 +180,32 @@ export const handleGitCommit = ({ cwd, message }: typeof GitCommit.payloadSchema
     })
   );
 
+const syncItem = (event: SyncEvent): GitSyncItem =>
+  Match.value(event).pipe(
+    Match.discriminatorsExhaustive("kind")({
+      step: ({ step, remote }) => GitSyncItem.cases.Step.make({ step, remote }),
+      done: () => GitSyncItem.cases.Done.make({}),
+      failed: ({ reason, exitCode, output }) =>
+        GitSyncItem.cases.Failed.make({ reason, exitCode, output }),
+    })
+  );
+
+/** Closing the stream (Cancel, or the Client going away) kills the git step that's running. */
+export const handleGitSync = ({ cwd, action }: typeof GitSync.payloadSchema.Type) =>
+  Stream.callback<GitSyncItem, GitError>((queue) =>
+    Effect.gen(function* () {
+      const stop = new AbortController();
+
+      yield* Effect.addFinalizer(() => Effect.sync(() => stop.abort()));
+      runSync(cwd, action, (event) => Queue.offerUnsafe(queue, syncItem(event)), {
+        signal: stop.signal,
+      }).then(
+        () => Queue.endUnsafe(queue),
+        (cause: unknown) => Queue.failCauseUnsafe(queue, Cause.fail(gitError(cwd)(cause)))
+      );
+    })
+  );
+
 /**
  * Requires `BlobChannel` per request: when the transport provides it per
  * connection through an RpcMiddleware, the handler picks that one up.
@@ -173,4 +219,5 @@ export const GitRpcsLive = GitRpcs.toLayer({
   "git.discard": handleGitDiscard,
   "git.commit": handleGitCommit,
   "git.watch": ({ cwd }) => watchGit(cwd),
+  "git.sync": handleGitSync,
 });
