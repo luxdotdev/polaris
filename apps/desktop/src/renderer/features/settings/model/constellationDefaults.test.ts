@@ -6,12 +6,15 @@ const user = DEFAULT_SESSION_PREFS.constellationDefaults;
 
 describe("constellation defaults on a Host", () => {
   test("a role keeps only what was chosen", () => {
-    expect(selectionOf(user.backend)).toEqual({
+    expect(selectionOf({ harness: "codex", model: "m1", effort: "high" })).toEqual({
       harness: "codex",
-      model: "gpt-6.1-sol",
+      model: "m1",
       effort: "high",
     });
-    expect(selectionOf(user.ui)).toEqual({ harness: "claude", model: "claude-opus-5-5" });
+    expect(selectionOf({ harness: "claude", model: "m2", effort: null })).toEqual({
+      harness: "claude",
+      model: "m2",
+    });
     expect(selectionOf({ harness: "codex", model: null, effort: null })).toEqual({
       harness: "codex",
     });
