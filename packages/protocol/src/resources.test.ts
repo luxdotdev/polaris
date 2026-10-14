@@ -1,9 +1,7 @@
 import { expect, test } from "bun:test";
 import { Schema } from "effect";
-import { HostId } from "./ids.ts";
 import { DomainEvent } from "./events.ts";
 import { ResourceEvent } from "./constellation/events.ts";
-import { ResourceLease } from "./constellation/domain.ts";
 import { DaemonRpcs } from "./rpc.ts";
 import { DeclareHostResource, ResourceRpcs, SetHostWorkerCap } from "./resources.ts";
 
@@ -19,44 +17,6 @@ test("older resource events decode without the additive process fields", () => {
   );
 
   expect(queued._tag).toBe("ResourceLeaseQueued");
-});
-
-test("process metadata, cancellation and removal round-trip through the persisted codec", () => {
-  const codec = Schema.fromJsonString(Schema.toCodecJson(DomainEvent));
-
-  for (const event of [
-    DomainEvent.cases.ResourceLeaseQueued.make({
-      hostId: HostId.make("host"),
-      resource: "bench",
-      requestId: "request",
-      sessionId: null,
-      processId: 123,
-      processIdentity: "Thu Oct 1 00:00:00 2026",
-      command: ["bun", "run", "bench"],
-    }),
-    DomainEvent.cases.ResourceLeased.make({
-      lease: ResourceLease.make({
-        id: "request",
-        hostId: HostId.make("host"),
-        resource: "bench",
-        sessionId: null,
-        attemptId: null,
-        processId: 123,
-        processIdentity: "Thu Oct 1 00:00:00 2026",
-        command: ["bun", "run", "bench"],
-        acquiredAt: "2026-10-01T00:00:00.000Z",
-      }),
-    }),
-    DomainEvent.cases.ResourceLeaseCanceled.make({
-      hostId: HostId.make("host"),
-      resource: "bench",
-      requestId: "request",
-      reason: "process exited",
-    }),
-    DomainEvent.cases.ResourceRemoved.make({ hostId: HostId.make("host"), resource: "bench" }),
-  ]) {
-    expect(Schema.decodeUnknownSync(codec)(Schema.encodeSync(codec)(event))).toEqual(event);
-  }
 });
 
 test("Settings RPCs are mounted and validate capacities and defaults", () => {

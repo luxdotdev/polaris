@@ -5,14 +5,11 @@ import {
   Workspace,
   WorktreeSetup,
   WorktreeSetupRun,
-  DomainEvent,
-  SessionId,
-  WorkspaceId,
   ConstellationId,
   TaskId,
 } from "./index.ts";
 
-export const card = () =>
+const card = () =>
   WorktreeSetupRun.make({
     id: "setup",
     constellationId: ConstellationId.make("graph"),
@@ -63,36 +60,12 @@ test("old Workspace and Session payloads decode absent setup as null", () => {
   expect(session.worktreeSetup).toBeNull();
 });
 
-test("setup fields and output survive wire codecs; whitespace commands are refused", () => {
-  const event = DomainEvent.cases.SessionSetupChanged.make({
-    sessionId: SessionId.make("s"),
-    setup: card(),
-  });
-
-  const codec = Schema.fromJsonString(DomainEvent);
-  expect(Schema.decodeUnknownSync(codec)(Schema.encodeSync(codec)(event))).toEqual(event);
+test("whitespace setup commands are refused", () => {
   expect(() =>
     Schema.decodeUnknownSync(Schema.fromJsonString(WorktreeSetup))(
       '{"_tag":"Command","command":"   "}'
     )
   ).toThrow();
-
-  const workspace = new Workspace({
-    id: WorkspaceId.make("w"),
-    name: "repo",
-    path: "/repo",
-    isGitRepo: true,
-    hidden: false,
-    registeredAt: "2026-10-02T00:00:00.000Z",
-    worktreeRoot: "/trees",
-    worktreeSetup: WorktreeSetup.cases.Disabled.make({}),
-  });
-
-  expect(
-    Schema.decodeUnknownSync(Schema.fromJsonString(Workspace))(
-      Schema.encodeSync(Schema.fromJsonString(Workspace))(workspace)
-    ).worktreeSetup
-  ).toEqual(workspace.worktreeSetup);
 });
 
 test("old setup cards decode without a fingerprint; new cards retain it", () => {

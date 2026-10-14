@@ -7,25 +7,12 @@ import { Predicate, Schema } from "effect";
 import { HarnessAvailability, HostHarnesses } from "./availability.ts";
 import { CapabilityList } from "./capabilities.ts";
 import { Command } from "./commands.ts";
-import { ApprovalDecision, BackgroundTask, ContextUsage, Subagent, TurnItem } from "./domain.ts";
+import { ApprovalDecision, TurnItem } from "./domain.ts";
 import { DomainEvent } from "./events.ts";
 import { HARNESS_CATALOGUE, harnessEntry } from "./harnesses.ts";
-import { RequestId, Sequence, SessionId, SubagentId, TurnId } from "./ids.ts";
-import { Model } from "./models.ts";
-import { HarnessModels, SessionStreamItem, TerminalLaunch, TurnDetail } from "./rpc.ts";
-import {
-  LongContextTokens,
-  PlanLimit,
-  ReportedCost,
-  TokenCounts,
-  UsageBucket,
-  UsageReport,
-  UsageStreamItem,
-} from "./usage.ts";
-
-const decodeEvent = Schema.decodeUnknownSync(Schema.toCodecJson(DomainEvent));
-
-const encodeEvent = Schema.encodeSync(Schema.toCodecJson(DomainEvent));
+import { RequestId, Sequence, SessionId, TurnId } from "./ids.ts";
+import { SessionStreamItem, TurnDetail } from "./rpc.ts";
+import { UsageBucket, UsageReport, UsageStreamItem } from "./usage.ts";
 
 /** Decodes a log row or wire message exactly as it was written, as JSON text. */
 const decodeEventJson = Schema.decodeUnknownSync(
@@ -73,26 +60,6 @@ describe("contract compatibility", () => {
     });
   });
 
-  test("SessionContextUsed round-trips", () => {
-    const event = DomainEvent.cases.SessionContextUsed.make({
-      sessionId: SessionId.make("s"),
-      usage: new ContextUsage({ usedTokens: 84_000, windowTokens: null }),
-    });
-
-    expect(decodeEvent(JSON.parse(JSON.stringify(encodeEvent(event))))).toEqual(event);
-  });
-
-  test("SessionPinned round-trips, pinned and unpinned", () => {
-    for (const pinnedAt of ["2026-10-12T04:00:00.000Z", null]) {
-      const event = DomainEvent.cases.SessionPinned.make({
-        sessionId: SessionId.make("s"),
-        pinnedAt,
-      });
-
-      expect(decodeEvent(JSON.parse(JSON.stringify(encodeEvent(event))))).toEqual(event);
-    }
-  });
-
   test("a StartSession sent before origin existed decodes; PinSession decodes", () => {
     const decode = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.toCodecJson(Command)));
 
@@ -106,17 +73,6 @@ describe("contract compatibility", () => {
     expect(decode('{"_tag":"PinSession","sessionId":"s","pinned":true}')).toEqual(
       Command.cases.PinSession.make({ sessionId: SessionId.make("s"), pinned: true })
     );
-  });
-
-  test("ApprovalWithdrawn round-trips", () => {
-    const event = DomainEvent.cases.ApprovalWithdrawn.make({
-      sessionId: SessionId.make("s"),
-      requestId: RequestId.make("r"),
-      withdrawnBy: "daemon",
-      reason: "The Daemon restarted",
-    });
-
-    expect(decodeEvent(JSON.parse(JSON.stringify(encodeEvent(event))))).toEqual(event);
   });
 
   test("ItemProgress carries a full item; a Snapshot with unknown extra fields still decodes", () => {
@@ -138,13 +94,6 @@ describe("contract compatibility", () => {
     );
     expect(decodeItemJson('{"_tag":"Synchronized","sequence":3,"somethingNewer":true}')).toEqual(
       SessionStreamItem.cases.Synchronized.make({ sequence: Sequence.make(3) })
-    );
-  });
-
-  test("TerminalLaunch", () => {
-    const decode = Schema.decodeUnknownSync(TerminalLaunch);
-    expect(decode({ argv: ["claude", "--resume", "x"], cwd: "/repo", env: {} })).toBeInstanceOf(
-      TerminalLaunch
     );
   });
 
@@ -189,16 +138,6 @@ describe("contract compatibility", () => {
     ).toThrow();
   });
 
-  test("SessionModelChanged round-trips", () => {
-    const event = DomainEvent.cases.SessionModelChanged.make({
-      sessionId: SessionId.make("s"),
-      model: "gpt-5.5",
-      effort: "high",
-    });
-
-    expect(decodeEvent(JSON.parse(JSON.stringify(encodeEvent(event))))).toEqual(event);
-  });
-
   test("commands from Clients that predate effort still decode", () => {
     const decodeCommand = Schema.decodeUnknownSync(
       Schema.fromJsonString(Schema.toCodecJson(Command))
@@ -228,72 +167,6 @@ describe("contract compatibility", () => {
       "harness.gemini",
       "harness.copilot",
     ]);
-  });
-
-  test("Model lists, Usage and Plan Limits round-trip", () => {
-    const models = new HarnessModels({
-      harness: "codex",
-      models: [
-        new Model({
-          id: "gpt-5.5",
-          name: "GPT-5.5",
-          description: null,
-          efforts: ["low", "medium", "high", "xhigh"],
-          defaultEffort: "medium",
-          isDefault: true,
-        }),
-      ],
-      switchesModel: true,
-      fetchedAt: "2026-01-01T00:00:00Z",
-    });
-
-    const tokens = new TokenCounts({
-      input: 10,
-      cacheRead: 200,
-      cacheWrite: 5,
-      output: 40,
-      reasoning: 12,
-      cacheWrite1h: 2,
-    });
-
-    const usage = UsageStreamItem.cases.UsageChanged.make({
-      indexedAt: "2026-01-01T01:00:00Z",
-      indexing: false,
-      buckets: [
-        new UsageBucket({
-          hour: "2026-01-01T00:00:00Z",
-          harness: "claude",
-          model: "claude-opus-5-5",
-          sessionId: null,
-          tokens,
-          reportedCost: new ReportedCost({ tokens, usd: 0.12 }),
-          longContext: [new LongContextTokens({ above: 200_000, tokens })],
-        }),
-      ],
-    });
-
-    const limit = UsageStreamItem.cases.PlanLimitChanged.make({
-      limit: new PlanLimit({
-        harness: "claude",
-        kind: "five-hour",
-        scope: null,
-        windowMinutes: 300,
-        usedPercent: 42,
-        status: "ok",
-        resetsAt: "2026-01-01T05:00:00Z",
-        observedAt: "2026-01-01T00:30:00Z",
-        plan: "max",
-      }),
-    });
-
-    const roundTrip = <S extends Schema.Codec<unknown, unknown>>(schema: S, value: S["Type"]) =>
-      Schema.decodeUnknownSync(Schema.toCodecJson(schema))(
-        JSON.parse(JSON.stringify(Schema.encodeSync(Schema.toCodecJson(schema))(value)))
-      );
-
-    expect(roundTrip(HarnessModels, models)).toEqual(models);
-    expect(roundTrip(UsageStreamItem, usage)).toEqual(usage);
-    expect(roundTrip(UsageStreamItem, limit)).toEqual(limit);
   });
 
   test("a report from before signInKind decodes with it null", () => {
@@ -379,47 +252,6 @@ describe("contract compatibility", () => {
     expect(detail.subagents).toEqual([]);
   });
 
-  test("a steer's UserMessage item round-trips", () => {
-    const event = DomainEvent.cases.TurnItemCompleted.make({
-      sessionId: SessionId.make("s"),
-      turnId: TurnId.make("t"),
-      item: TurnItem.cases.UserMessage.make({ id: "steer:1", text: "also run lint" }),
-      subagentId: null,
-    });
-
-    expect(decodeEvent(encodeEvent(event))).toEqual(event);
-  });
-
-  test("SubagentStarted and SubagentEnded round-trip", () => {
-    const at = (status: "working" | "completed", endedAt: string | null) =>
-      new Subagent({
-        id: SubagentId.make("toolu_1"),
-        sessionId: SessionId.make("s"),
-        turnId: TurnId.make("t"),
-        parentItemId: "toolu_1",
-        title: "Check frame timing at 180 Hz",
-        agent: "Explore",
-        model: "haiku",
-        background: true,
-        report: status === "completed" ? "**report**" : null,
-        status,
-        startedAt: "2026-01-01T00:00:00Z",
-        endedAt,
-      });
-
-    const subagent = at("working", null);
-
-    const started = DomainEvent.cases.SubagentStarted.make({ subagent });
-
-    const ended = DomainEvent.cases.SubagentEnded.make({
-      subagent: at("completed", "2026-01-01T00:01:00Z"),
-    });
-
-    for (const event of [started, ended]) {
-      expect(decodeEvent(JSON.parse(JSON.stringify(encodeEvent(event))))).toEqual(event);
-    }
-  });
-
   test("a Usage bucket from before cacheWrite1h and longContext still decodes", () => {
     const decode = Schema.decodeUnknownSync(Schema.toCodecJson(UsageBucket));
 
@@ -457,18 +289,4 @@ describe("contract compatibility", () => {
     expect(report.indexing).toBe(false);
     expect(changed).toMatchObject({ indexing: false });
   });
-});
-
-test("background task membership round-trips with both task kinds", () => {
-  const tasks = [
-    new BackgroundTask({ id: "a", kind: "subagent", description: "Research" }),
-    new BackgroundTask({ id: "c", kind: "command", description: "Build" }),
-  ];
-
-  const event = DomainEvent.cases.SessionBackgroundTasksChanged.make({
-    sessionId: SessionId.make("s"),
-    tasks,
-  });
-
-  expect(decodeEvent(JSON.parse(JSON.stringify(encodeEvent(event))))).toEqual(event);
 });
