@@ -3,37 +3,26 @@
  * See README.md for how a Risk Summary runs, and Linear ENG-222/225/229 for why.
  */
 import {
-  type GitError,
-  type HarnessUnavailable,
   HostHarnesses,
-  type NotFound,
-  type ResolvedReviewer,
-  type ReviewCheckout,
   type ReviewContext,
-  ReviewSubject,
-  type ReviewerSettings,
   type RiskFindingId,
-  type RiskSummary,
   type RiskSummaryId,
   RiskSummaryRef,
-  type SessionId,
-  type TurnId,
   type WorkspaceId,
-  DomainEvent,
   NotFound as NotFoundError,
 } from "@polaris/protocol";
-import { Context, Effect, Layer, Option, Predicate, Semaphore, Stream } from "effect";
+import { Effect, Layer, Option, Predicate, Semaphore } from "effect";
 import { Engine } from "../engine/Engine.ts";
 import { Availability } from "../harness/availability/index.ts";
-import { ApprovalPolicy, ReviewCheckoutGit, Rules, type ServiceError } from "../services.ts";
+import type { ReviewCheckoutGit, Rules } from "../services.ts";
 import { EventStore } from "../store/EventStore.ts";
-import { WALKTHROUGH_MARKER } from "./walkthroughPrompt.ts";
 import { askReviewer } from "./ask.ts";
+import { followAutomatic } from "./automatic.ts";
 import { ReviewerSessions } from "./sessions.ts";
 import { recoverReviewer } from "./recovery.ts";
-import { reviewerDecision } from "./policy.ts";
 import { resolveRange } from "./range.ts";
 import { type RunRequest, runLayers, startRun } from "./run.ts";
+import { Reviewer } from "./service.ts";
 import {
   recoverWalkthroughs,
   requestWalkthroughs,
@@ -47,45 +36,11 @@ export type { RunRequest } from "./run.ts";
 
 export { ReviewerSessions } from "./sessions.ts";
 
-/** `ApprovalPolicy` for the Engine: the Reviewer's sessions get the read-only policy, others ask the user. */
-export const ReviewerPolicyLive = Layer.effect(
-  ApprovalPolicy,
-  Effect.gen(function* () {
-    const sessions = yield* ReviewerSessions;
+export { automaticRun } from "./automatic.ts";
 
-    return ApprovalPolicy.of({
-      decide: (request) =>
-        Effect.sync(() => (sessions.has(request.sessionId) ? reviewerDecision(request) : null)),
-      readOnly: (sessionId) => sessions.has(sessionId),
-    });
-  })
-);
+export { Reviewer } from "./service.ts";
 
-export class Reviewer extends Context.Service<
-  Reviewer,
-  {
-    /** Start a Risk Summary (Rules, then the Reviewer), or answer the cached one. */
-    readonly run: (request: RunRequest) => Effect.Effect<RiskSummary, NotFound | GitError>;
-    readonly runWalkthrough: (
-      summaryId: RiskSummaryId,
-      context: ReviewContext | null
-    ) => Effect.Effect<RiskSummary, NotFound | GitError>;
-    readonly stopWalkthrough: (summaryId: RiskSummaryId) => Effect.Effect<void, NotFound>;
-    readonly ask: (
-      summaryId: RiskSummaryId,
-      findingId: RiskFindingId | null,
-      question: string
-    ) => Effect.Effect<
-      { readonly sessionId: SessionId; readonly turnId: TurnId },
-      NotFound | HarnessUnavailable
-    >;
-    readonly settings: (workspaceId: WorkspaceId | null) => Effect.Effect<{
-      readonly settings: ReviewerSettings;
-      readonly resolved: ResolvedReviewer;
-    }>;
-    readonly setSettings: (settings: ReviewerSettings) => Effect.Effect<void, ServiceError>;
-  }
->()("polaris/daemon/reviewer/Reviewer") {}
+export { ReviewerPolicyLive } from "./policy.ts";
 
 export interface ReviewerOptions {
   /** Where the settings persist; defaults to `~/.polaris/reviewer-settings.json`. */
@@ -95,76 +50,6 @@ export interface ReviewerOptions {
 }
 
 const NO_HARNESSES = HostHarnesses.make({ harnesses: [], checkedAt: new Date(0).toISOString() });
-
-/** What starts a Risk Summary without a Client asking, for one committed event. */
-export const automaticRun = (
-  event: DomainEvent,
-  checkoutOf: (id: ReviewCheckout["id"]) => ReviewCheckout | undefined,
-  workspaceOfSession: (id: SessionId) => WorkspaceId | null
-): RunRequest | null =>
-  DomainEvent.matchOrElse(
-    event,
-    {
-      TurnEnded: ({ turn }): RunRequest | null => {
-        const workspaceId = workspaceOfSession(turn.sessionId);
-
-        return workspaceId === null || turn.status === "working"
-          ? null
-          : {
-              workspaceId,
-              subject: ReviewSubject.cases.SessionTurns.make({
-                sessionId: turn.sessionId,
-                firstTurnId: turn.id,
-                lastTurnId: turn.id,
-              }),
-              checkoutId: null,
-              since: null,
-              refresh: false,
-              context: null,
-              rulesOnly: true,
-            };
-      },
-      TurnsAccepted: ({ sessionId, throughTurnId }): RunRequest | null => {
-        const workspaceId = workspaceOfSession(sessionId);
-
-        return workspaceId === null
-          ? null
-          : {
-              workspaceId,
-              subject: ReviewSubject.cases.SessionTurns.make({
-                sessionId,
-                firstTurnId: null,
-                lastTurnId: throughTurnId,
-              }),
-              checkoutId: null,
-              since: null,
-              refresh: false,
-              context: null,
-            };
-      },
-      ReviewCheckoutChanged: ({ checkout }): RunRequest | null => {
-        const known = checkoutOf(checkout.id) ?? checkout;
-
-        const moved =
-          known.state === "ready" &&
-          known.reviewedHead !== null &&
-          known.head !== null &&
-          known.head !== known.reviewedHead;
-
-        return moved && Predicate.isTagged(known.subject, "PullRequest")
-          ? {
-              workspaceId: known.workspaceId,
-              subject: known.subject,
-              checkoutId: known.id,
-              since: known.reviewedHead,
-              refresh: false,
-              context: null,
-            }
-          : null;
-      },
-    },
-    () => null
-  );
 
 const make = (options: ReviewerOptions) =>
   Effect.gen(function* () {
@@ -183,12 +68,6 @@ const make = (options: ReviewerOptions) =>
     const path = options.settingsPath ?? settingsPath();
     const starting = yield* Semaphore.make(1);
     const activeWalkthroughs = new Set<string>();
-    const model = yield* store.model;
-
-    for (const record of model.sessions.values()) {
-      if (record.turns.some((turn) => turn.prompt.startsWith(WALKTHROUGH_MARKER)))
-        yield* sessions.register(record.session.id);
-    }
 
     yield* recoverWalkthroughs();
 
@@ -314,35 +193,12 @@ const make = (options: ReviewerOptions) =>
     const stopWalkthrough = (summaryId: RiskSummaryId) =>
       Effect.flatMap(read(summaryId), stopWalkthroughs).pipe(Effect.provide(context));
 
-    if (options.automatic ?? true) {
-      const live = yield* store.subscribe({
-        filter: (item) =>
-          Predicate.isTagged(item, "Event") &&
-          (DomainEvent.guards.TurnsAccepted(item.envelope.event) ||
-            DomainEvent.guards.TurnEnded(item.envelope.event) ||
-            DomainEvent.guards.ReviewCheckoutChanged(item.envelope.event)),
-      });
+    const runAutomatic = (request: RunRequest) => Effect.ignore(start(request));
 
-      yield* fork(
-        Stream.runForEach(live, (item) =>
-          Effect.gen(function* () {
-            if (!Predicate.isTagged(item, "Event")) return;
-            const model = yield* store.model;
-
-            const request = automaticRun(
-              item.envelope.event,
-              (id) => model.reviewCheckouts.get(id),
-              (id) =>
-                sessions.has(id) ? null : (model.sessions.get(id)?.session.workspaceId ?? null)
-            );
-
-            if (request !== null) yield* Effect.ignore(start(request));
-          })
-        )
-      );
-    }
+    if (options.automatic ?? true) yield* followAutomatic(runAutomatic);
 
     return Reviewer.of({
+      runAutomatic,
       runWalkthrough,
       stopWalkthrough,
       run,

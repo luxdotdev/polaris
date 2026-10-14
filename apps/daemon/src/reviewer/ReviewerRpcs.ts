@@ -13,7 +13,7 @@ import {
 } from "@polaris/protocol";
 import { Effect } from "effect";
 import { RpcGroup } from "effect/rpc";
-import { Reviewer } from "./index.ts";
+import { Reviewer } from "./service.ts";
 
 export class ReviewerRpcs extends RpcGroup.make(
   RunRiskSummary,
