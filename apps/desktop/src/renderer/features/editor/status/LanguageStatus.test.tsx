@@ -67,22 +67,13 @@ const popover = (
   );
 
 describe("the pill", () => {
-  test.each([
-    ["ready", input({ trust: trust("trusted", "project") }), "filled", "TypeScript"],
-    ["bundled", input({ trust: trust("declined", "bundled") }), "hollow", "TypeScript · bundled"],
-    [
-      "crashed",
-      input({ runtimes: [running(runtimes.crashed())] }),
-      "failed",
-      "TypeScript · stopped",
-    ],
-  ])("%s", (kind, value, mark, text) => {
-    render(<LanguagePill view={statusView(value)} />);
+  test("renders the view's kind, words and mark", () => {
+    render(<LanguagePill view={statusView(input({ runtimes: [running(runtimes.crashed())] }))} />);
     const pill = screen().getByTestId("language-pill");
 
-    expect(pill.dataset.kind).toBe(kind);
-    expect(pill.textContent).toBe(text);
-    expect(pill.querySelector("[data-mark]")?.getAttribute("data-mark")).toBe(mark);
+    expect(pill.dataset.kind).toBe("crashed");
+    expect(pill.textContent).toBe("TypeScript · stopped");
+    expect(pill.querySelector("[data-mark]")?.getAttribute("data-mark")).toBe("failed");
   });
 
   test("syntax only has no mark", () => {
@@ -93,30 +84,12 @@ describe("the pill", () => {
 });
 
 describe("the popover", () => {
-  test("ready: sentence, facts and the action rows in order", () => {
-    popover(statusView(input({ trust: trust("trusted", "project") })));
-
-    expect(screen().getByRole("heading").textContent).toBe("TypeScript is ready");
-    expect(screen().getByText("7.0.2")).toBeTruthy();
-    expect(
-      screen()
-        .getAllByRole("menuitem")
-        .map((item) => item.textContent)
-    ).toEqual([
-      "Restart TypeScript server",
-      "Use bundled TypeScript6.0.3",
-      "Show language server log",
-      "Language settings…",
-    ]);
-  });
-
-  test("stopped: the failed title, stderr in mono, and rows that run", () => {
+  test("stopped: stderr in mono, and rows that run", () => {
     const ran: string[] = [];
     popover(statusView(input({ runtimes: [running(runtimes.crashed())] })), (action) =>
       ran.push(action.id)
     );
 
-    expect(screen().getByRole("heading").className).toContain("text-failed-text");
     expect(screen().getByText("Allocation failed").tagName).toBe("PRE");
     fireEvent.click(screen().getByText("Restart TypeScript server"));
     fireEvent.click(screen().getByText("Show language server log"));

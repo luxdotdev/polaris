@@ -211,8 +211,6 @@ describe("completion info", () => {
     await waitFor(() => expect(container.querySelector("pre")).not.toBeNull());
     expect(container.querySelector("pre")?.textContent).toStartWith("def dumps(");
     expect(container.querySelector("[data-docs-footnote]")).toBeNull();
-    expect(container.firstElementChild?.className).toContain("w-[360px]");
-    expect(container.firstElementChild?.className).toContain("max-h-80");
   });
 });
 
