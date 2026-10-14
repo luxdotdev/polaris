@@ -31,15 +31,13 @@ test("pending subscriber return and abort release all slots without another even
     const slow = events.watch(snapshot.value)[Symbol.asyncIterator]();
 
     for (let i = 0; i < 256; i++) events.emit(snapshot.value);
-    expect(
-      await slow.next().then(
-        () => false,
-        () => true
-      )
-    ).toBe(true);
+    await Promise.resolve(expect(slow.next()).rejects.toMatchObject({ reason: "queue-full" }));
 
+    // The overflowed subscriber gave its slot back: 16 fit, the 17th is refused.
     for (let i = 0; i < 16; i++) events.watch(snapshot.value);
+    expect(() => events.watch(snapshot.value)).toThrow("Language subscriber limit reached");
     events.close();
+    expect(() => events.watch(snapshot.value)).not.toThrow();
   } finally {
     await f.dispose();
   }
