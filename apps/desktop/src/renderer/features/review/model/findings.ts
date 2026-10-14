@@ -23,8 +23,8 @@ export interface FindingInfo {
 export const isShown = (finding: FindingInfo) =>
   finding.status === "open" || (finding.status === "dismissed" && finding.severity === "critical");
 
-/** Non-Critical findings under 50% confidence are dimmed (ENG-185). */
-export const isDimmed = (finding: FindingInfo) =>
+/** Non-Critical findings under 50% confidence are dimmed; a Critical one never is (ENG-185). */
+export const isDimmed = (finding: Pick<FindingInfo, "severity" | "confidence">) =>
   finding.severity !== "critical" && finding.confidence < 0.5;
 
 const byPath = (findings: ReadonlyArray<FindingInfo>) => {

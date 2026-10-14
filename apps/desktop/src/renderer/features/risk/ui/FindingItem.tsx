@@ -7,17 +7,10 @@ import type { Verdict } from "@polaris/protocol";
 import { Button, cn, SeverityBadge, ThumbUpIcon } from "@polaris/ui";
 import { useEffect, useState } from "react";
 import type { Plain } from "../../../store/plain.ts";
-import { revealInDiff, surfaceOf, updateSurface } from "../../review/index.ts";
+import { isDimmed, revealInDiff, surfaceOf, updateSurface } from "../../review/index.ts";
 import { earlierVerdicts, recordVerdict } from "../data/actions.ts";
 import { setAskAbout } from "../data/ui.ts";
-import {
-  fileName,
-  type Finding,
-  isDimmed,
-  placeOf,
-  provenanceOf,
-  type Summary,
-} from "../model/summary.ts";
+import { fileName, type Finding, placeOf, provenanceOf, type Summary } from "../model/summary.ts";
 import { historyLine } from "../model/verdict.ts";
 import { commentOn, FindingMenu } from "./findingMenu.tsx";
 import { ThumbDown, type VerdictDraft } from "./VerdictPopover.tsx";
