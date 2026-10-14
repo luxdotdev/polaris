@@ -643,7 +643,7 @@ describe("Codex driver against a fake app-server", () => {
         drop();
         yield* waitFor("Exited");
         const failed = yield* Effect.flip(session.steer("anything"));
-        expect(failed._tag).toBe("HarnessError");
+        expect(failed.message).toBe("turn/steer: Codex app-server connection is closed");
       })
     );
 
@@ -664,7 +664,10 @@ describe("Codex driver against a fake app-server", () => {
             )
           );
 
-          expect(error.harness).toBe("codex");
+          expect(error).toMatchObject({
+            harness: "codex",
+            message: "No open Codex request nope; it may have been resolved",
+          });
         })
     );
   });
