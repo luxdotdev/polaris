@@ -39,14 +39,6 @@ describe("Codex driver against a fake app-server", () => {
     const threadId = "01a0e68a-7f27-7583-8ddc-d1194aeb14f4";
     const messageId = "msg_0829498457dd13ad016ab9fe9bc67087d1a552d9ba43c74252";
     const turnId = TurnId.make("turn-1");
-    expect(events.map((e) => e._tag)).toEqual([
-      "CursorAssigned",
-      "TurnStarted",
-      "ItemDelta",
-      "ItemCompleted",
-      "TurnEnded",
-      "Exited",
-    ]);
     expect(events).toEqual([
       HarnessEvent.CursorAssigned({ cursor: threadId }),
       HarnessEvent.TurnStarted({ turnId, prompt: "say ok" }),

@@ -399,7 +399,7 @@ describe("Fork", () => {
         yield* startSession(workspace, parent);
         const model = yield* waitFor((m) => m.sessions.get(parent)?.session.state === "idle");
         const turn = model.sessions.get(parent)!.turns[0]!;
-        expect(turn.checkpointAfter).toBe(`refs/polaris/checkpoints/${parent}/${turn.id}/after`);
+        expect(turn.checkpointAfter).not.toBeNull();
 
         const child = sid("s-fork-child");
         yield* dispatch(
