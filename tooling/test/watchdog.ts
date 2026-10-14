@@ -17,7 +17,8 @@ interface Progress {
 
 const initialProgress: Progress = { file: null, lastTest: null };
 
-const FILE_HEADER = /^(\S.*\.(?:test|spec)\.[cm]?[jt]sx?):$/;
+/** Under GitHub Actions bun wraps each file header in a `::group::` log group. */
+const FILE_HEADER = /^(?:::group::)?(\S.*\.(?:test|spec)\.[cm]?[jt]sx?):$/;
 
 const TEST_LINE = /^\((?:pass|fail|skip|todo)\) /;
 

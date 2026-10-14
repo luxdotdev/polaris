@@ -13,10 +13,14 @@ const suite = (files: Record<string, string>) => {
   return dir;
 };
 
-const watch = async (dir: string, stallSeconds = 1) => {
+const watch = async (dir: string, stallSeconds = 1, githubActions = false) => {
   const proc = Bun.spawn(["bun", WATCHDOG], {
     cwd: dir,
-    env: { ...process.env, POLARIS_TEST_STALL_S: String(stallSeconds) },
+    env: {
+      ...process.env,
+      POLARIS_TEST_STALL_S: String(stallSeconds),
+      GITHUB_ACTIONS: githubActions ? "true" : "",
+    },
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -33,18 +37,25 @@ const watch = async (dir: string, stallSeconds = 1) => {
 const PASSES = `import { test } from "bun:test";\ntest("adds", () => {});\n`;
 
 describe("the test watchdog", () => {
-  test("a hung test fails the run and names its file and the last result before it", async () => {
-    const dir = suite({
-      "a.test.ts": PASSES,
-      "b.test.ts": `import { test } from "bun:test";\ntest("first", () => {});\ntest("hangs", () => new Promise(() => {}), 60_000);\n`,
-    });
+  test.each([
+    ["locally", false],
+    ["under GitHub Actions", true],
+  ])(
+    "a hung test %s fails the run and names its file and the last result before it",
+    async (_, githubActions) => {
+      const dir = suite({
+        "a.test.ts": PASSES,
+        "b.test.ts": `import { test } from "bun:test";\ntest("first", () => {});\ntest("hangs", () => new Promise(() => {}), 60_000);\n`,
+      });
 
-    const { code, output } = await watch(dir);
+      const { code, output } = await watch(dir, 1, githubActions);
 
-    expect(code).toBe(1);
-    expect(output).toContain("bun test stalled: no output for 1s, in b.test.ts");
-    expect(output).toContain("last result: (pass) first");
-  }, 20_000);
+      expect(code).toBe(1);
+      expect(output).toContain("bun test stalled: no output for 1s, in b.test.ts");
+      expect(output).toContain("last result: (pass) first");
+    },
+    20_000
+  );
 
   test.each([
     ["passing", PASSES, 0],
