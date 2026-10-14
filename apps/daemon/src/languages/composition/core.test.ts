@@ -139,31 +139,42 @@ test("core rejects foreign Client, Host, stale generation and forged checkout be
       const f = yield* fixture();
       expect(
         yield* Effect.flip(f.run(f.core.acquire({ ...f.input, clientId: "foreign" })))
-      ).toBeInstanceOf(P.LanguageError);
+      ).toMatchObject({ reason: "not-owner" });
       expect((yield* f.broker.stats).contexts).toBe(0);
       const snapshot = yield* f.run(f.core.acquire(f.input));
 
-      for (const context of [
-        P.LanguageContextIdentity.make({ ...snapshot.context, clientId: "foreign" }),
-        P.LanguageContextIdentity.make({ ...snapshot.context, hostId: P.HostId.make("foreign") }),
-        P.LanguageContextIdentity.make({
-          ...snapshot.context,
-          generation: snapshot.context.generation + 1,
-        }),
-        P.LanguageContextIdentity.make({
-          ...snapshot.context,
-          checkout: P.LanguageCheckout.cases.Workspace.make({
-            workspaceId: f.checkout.workspaceId,
-            path: "/private/tmp",
+      const forged = [
+        [P.LanguageContextIdentity.make({ ...snapshot.context, clientId: "foreign" }), "not-owner"],
+        [
+          P.LanguageContextIdentity.make({ ...snapshot.context, hostId: P.HostId.make("foreign") }),
+          "not-owner",
+        ],
+        [
+          P.LanguageContextIdentity.make({
+            ...snapshot.context,
+            generation: snapshot.context.generation + 1,
           }),
-        }),
-      ])
-        expect(yield* Effect.flip(f.run(f.core.restart(context)))).toBeInstanceOf(P.LanguageError);
+          "stale-generation",
+        ],
+        [
+          P.LanguageContextIdentity.make({
+            ...snapshot.context,
+            checkout: P.LanguageCheckout.cases.Workspace.make({
+              workspaceId: f.checkout.workspaceId,
+              path: "/private/tmp",
+            }),
+          }),
+          "invalid-input",
+        ],
+      ] as const;
+
+      for (const [context, reason] of forged)
+        expect(yield* Effect.flip(f.run(f.core.restart(context)))).toMatchObject({ reason });
       const restarted = yield* f.run(f.core.restart(snapshot.context));
       expect(restarted.context.generation).toBeGreaterThan(snapshot.context.generation);
-      expect(yield* Effect.flip(f.run(f.core.release(snapshot.context, "file")))).toBeInstanceOf(
-        P.LanguageError
-      );
+      expect(yield* Effect.flip(f.run(f.core.release(snapshot.context, "file")))).toMatchObject({
+        reason: "stale-generation",
+      });
       yield* f.run(f.core.cancel(restarted.context, "unknown-request"));
       yield* f.run(f.core.release(restarted.context, "file"));
       expect(f.spawns()).toBe(0);
@@ -369,7 +380,9 @@ test("feature and document sync reach real broker validation without executing a
         deadline: Date.now() + 1000,
       });
 
-      expect(yield* Effect.flip(f.run(f.core.request(request)))).toBeInstanceOf(P.LanguageError);
+      expect(yield* Effect.flip(f.run(f.core.request(request)))).toMatchObject({
+        reason: "awaiting-trust",
+      });
 
       const notification = P.LanguageDocumentNotification.cases.Open.make({
         uri: pathToFileURL(join(f.root, "file.ts")).href,
@@ -382,7 +395,7 @@ test("feature and document sync reach real broker validation without executing a
         yield* Effect.flip(
           f.run(f.core.sync({ context: snapshot.context, sequence: 1, notification }))
         )
-      ).toBeInstanceOf(P.LanguageError);
+      ).toMatchObject({ reason: "stale-generation" });
       expect(f.spawns()).toBe(0);
     })
   );
@@ -400,7 +413,7 @@ test("missing lifetime registration denies acquisition; revoked grant wait canno
               .pipe(Effect.provide(LanguageConnectionLifetime.unavailableLayer))
           )
         )
-      ).toBeInstanceOf(P.LanguageError);
+      ).toMatchObject({ reason: "not-connected" });
       expect((yield* f.broker.stats).contexts).toBe(0);
       const entered = yield* Deferred.make<void>();
       const release = yield* Deferred.make<void>();
@@ -427,7 +440,7 @@ test("missing lifetime registration denies acquisition; revoked grant wait canno
       yield* Deferred.await(entered);
       f.replace();
       yield* Deferred.succeed(release, undefined);
-      expect(yield* Fiber.join(pending)).toBeInstanceOf(P.LanguageError);
+      expect(yield* Fiber.join(pending)).toMatchObject({ reason: "not-owner" });
       expect((yield* f.run(f.core.trustGet(scope))).revision).toBe(0);
       expect(f.spawns()).toBe(0);
     })
