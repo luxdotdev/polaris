@@ -120,7 +120,8 @@ const getMatch = (completion: Completion, matched: readonly number[] = []) => {
 const cmCompletion = (
   features: LanguageFeatures,
   proposal: CompletionProposal,
-  coordinator: CompletionCoordinator
+  coordinator: CompletionCoordinator,
+  settleMs: number
 ): Completion => {
   const { item, provider, buffer } = proposal;
   const resolver = completionResolver(features, proposal);
@@ -192,7 +193,7 @@ const cmCompletion = (
 
       // Auto-import edits arrive on resolve: wait briefly, closed so a second ↵ can't apply twice.
       closeCompletion(view);
-      void resolver.within(SETTLE_MS).then((full) => accept(view, completion, full));
+      void resolver.within(settleMs).then((full) => accept(view, completion, full));
     },
   };
 
@@ -207,7 +208,9 @@ export const completionSource =
   (
     features: LanguageFeatures,
     coordinator: CompletionCoordinator,
-    label: (provider: LanguageProvider) => string = (provider) => provider.context.providerId
+    label: (provider: LanguageProvider) => string = (provider) => provider.context.providerId,
+    /** How long accepting waits for the resolved item; tests shorten it. */
+    settleMs = SETTLE_MS
   ): CompletionSource =>
   async (context) => {
     const buffer = features.options.buffer();
@@ -244,7 +247,8 @@ export const completionSource =
                 cmCompletion(
                   features,
                   { provider, request, result: value, buffer, item, ...range },
-                  coordinator
+                  coordinator,
+                  settleMs
                 ),
                 label(provider)
               ),

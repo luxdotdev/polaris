@@ -1,6 +1,6 @@
 import "../../../test/dom.testing.ts";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { act, cleanup, render, waitFor } from "@testing-library/react";
+import { render, waitFor } from "@testing-library/react";
 import { CompletionContext } from "@codemirror/autocomplete";
 import { EditorState } from "@codemirror/state";
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
@@ -25,6 +25,7 @@ import {
 } from "./completionFixtures.testing.ts";
 import { completionType, footnoteOf, offeredBy } from "./completionMenu.ts";
 import { completionDocs, rowDetail, signatureDocs } from "./docParts.ts";
+import { cleanupDocs } from "./docs.testing.ts";
 import { DocView, loadDocRenderer, type DocPart } from "./docs.tsx";
 import { LanguageFeatures } from "./features.ts";
 import { CompletionItem, CompletionResult, Signature, decodePayload } from "./payloads.ts";
@@ -54,10 +55,7 @@ beforeAll(() => {
   return loadDocRenderer();
 });
 
-afterEach(async () => {
-  await act(() => new Promise((resolve) => setTimeout(resolve, 150)));
-  cleanup();
-});
+afterEach(cleanupDocs);
 
 describe("completion payloads from real servers", () => {
   test("every captured list decodes, and no row carries a long detail", () => {

@@ -7,7 +7,6 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { Predicate } from "effect";
 import { completionSource } from "./codemirror.ts";
 import { TS_IMPORT_ITEM, TS_IMPORT_RESOLVED } from "./completionFixtures.testing.ts";
-import { SETTLE_MS } from "./completionResolve.ts";
 import { LanguageFeatures } from "./features.ts";
 import { CompletionResult, decodePayload } from "./payloads.ts";
 
@@ -21,6 +20,9 @@ beforeAll(() => {
 
 /** tsserver offering `hostLabel` from `./hosts`; resolve answers when `answer` settles. */
 type Resolved = typeof TS_IMPORT_RESOLVED;
+
+/** A short stand-in for SETTLE_MS, how long accepting waits for the resolved item. */
+const SETTLE = 50;
 
 const fixture = async (answer: Promise<Resolved>) => {
   const view = new EditorView({
@@ -61,7 +63,7 @@ const fixture = async (answer: Promise<Resolved>) => {
     features
   );
 
-  const source = completionSource(stub, { propose: () => {} });
+  const source = completionSource(stub, { propose: () => {} }, undefined, SETTLE);
   const result = await source(new CompletionContext(view.state, TYPED.length, true));
   const option: Completion | undefined = result?.options[0];
 
@@ -109,19 +111,15 @@ describe("accepting a completion applies the resolved item", () => {
     f.view.destroy();
   });
 
-  test(
-    "no answer within the bound: the unresolved item, without the import",
-    async () => {
-      const f = await fixture(new Promise<Resolved>(() => {}));
+  test("no answer within the bound: the unresolved item, without the import", async () => {
+    const f = await fixture(new Promise<Resolved>(() => {}));
 
-      f.accept();
-      await settle(SETTLE_MS + 50);
+    f.accept();
+    await settle(SETTLE + 50);
 
-      expect(f.view.state.doc.toString()).toBe("const label = hostLabel\n");
-      f.view.destroy();
-    },
-    SETTLE_MS + 2_000
-  );
+    expect(f.view.state.doc.toString()).toBe("const label = hostLabel\n");
+    f.view.destroy();
+  });
 
   test("text typed or a fence lost while waiting: nothing is applied", async () => {
     let answer = (_value: Resolved) => {};
