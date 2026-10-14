@@ -70,23 +70,23 @@ beforeEach(() => setClientPlatform("darwin"));
 afterEach(() => setClientPlatform(null));
 
 describe("attention cards", () => {
-  test("every needs-attention reason gets a card with at most one fix", () => {
-    for (const reason of [
-      "host-key-unknown",
-      "host-key-changed",
-      "auth-failed",
-      "daemon-not-running",
-      "protocol-mismatch",
-      "polaris-not-installed",
-      "ssh-config-error",
-      "ssh-missing",
-      "wsl-missing",
-      "wsl-distro-missing",
-    ]) {
-      const model = attentionCard(attention(reason));
-      expect(model?.reason).toBe(reason);
-      expect(model?.title.length).toBeGreaterThan(0);
-    }
+  test.each([
+    ["host-key-unknown", "open-ssh", "retry"],
+    ["host-key-changed", null, "copy-detail"],
+    ["auth-failed", "retry", "open-ssh"],
+    ["daemon-not-running", "start-daemon", "retry"],
+    ["protocol-mismatch", "check", null],
+    ["polaris-not-installed", "check", null],
+    ["ssh-config-error", "retry", null],
+    ["ssh-missing", "retry", null],
+    ["wsl-missing", "copy-detail", "retry"],
+    ["wsl-distro-missing", "retry", null],
+  ])("%s: the card offers its own fix, then its fallback", (reason, fix, secondary) => {
+    const model = attentionCard(attention(reason));
+
+    expect(model?.reason).toBe(reason);
+    expect(model?.fix?.action ?? null).toBe(fix);
+    expect(model?.secondary?.action ?? null).toBe(secondary);
   });
 
   test("a WSL Host's reasons: WSL gone (copy the install command), the distro gone (retry or remove)", () => {
