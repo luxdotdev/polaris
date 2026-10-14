@@ -15,7 +15,7 @@ import { AttachmentStoreLive } from "../attachments/AttachmentStore.ts";
 import { ConstellationLiveness } from "../constellation/liveness.ts";
 import { ConstellationHarness } from "../constellation/composition/attachments.ts";
 import { lazyConstellationHandlers, lazyHostResources } from "./lazy.ts";
-import { installDebugHooks } from "../debug.ts";
+import { installDebugHooks, reportStartupModules } from "../debug.ts";
 import { Engine } from "../engine/Engine.ts";
 import { EngineRpcHandlers } from "../engine/rpc.ts";
 import { FileSearchLive } from "../files/FileSearch.ts";
@@ -222,6 +222,8 @@ export const serveProgram = Effect.scoped(
 
     // Return temporary startup allocations once every handler and listener is installed.
     yield* releaseMemory;
+
+    reportStartupModules();
 
     yield* Effect.logInfo(`polaris Daemon listening on ${server.socketPath}`);
 

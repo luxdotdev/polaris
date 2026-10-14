@@ -1,13 +1,40 @@
 /**
  * cold-start: spawn → first successful `hello` on the socket, the Daemon's
- * memory once settled, and how long a Client takes to connect through
- * `polaris bridge` to a running Daemon.
+ * memory once settled, how many modules its start-up loaded, and how long a
+ * Client takes to connect through `polaris bridge` to a running Daemon.
  */
-import { Effect } from "effect";
+import { Effect, Option, Schema } from "effect";
 import { awaitReady, connect } from "../daemon.ts";
 import { settle } from "../drive.ts";
 import { summarize } from "../stats.ts";
-import { cpu, type Metric, memory, type Scenario, time } from "../types.ts";
+import { count, cpu, type Metric, memory, type Scenario, time } from "../types.ts";
+
+/** The line `POLARIS_DEBUG_MODULES=1` makes the Daemon print once it listens (`debug.ts`). */
+const StartupModules = Schema.fromJsonString(
+  Schema.Struct({
+    polarisModules: Schema.Struct({ all: Schema.Number, polaris: Schema.Number }),
+  })
+);
+
+const decodeStartupModules = Schema.decodeUnknownOption(StartupModules);
+
+/** The module counts in the Daemon's logs; none from a compiled binary (one bundle). */
+export const startupModules = (logs: string) => {
+  for (const line of logs.split("\n")) {
+    const decoded = decodeStartupModules(line);
+
+    if (Option.isSome(decoded) && decoded.value.polarisModules.all > 0)
+      return decoded.value.polarisModules;
+  }
+
+  return null;
+};
+
+/**
+ * The start-up graph does not depend on timing, so this gate has no noise: a few modules more
+ * pass, a feature's worth of eager imports (~0.1 MiB each) fails until it loads on first use.
+ */
+const MODULES_TOLERANCE = { relative: 0.03, absolute: 5 };
 
 export const coldStart: Scenario = {
   name: "cold-start",
@@ -19,12 +46,13 @@ export const coldStart: Scenario = {
       const rss: Array<number> = [];
       const footprint: Array<number> = [];
       const bridge: Array<number> = [];
+      const modules: Array<{ readonly all: number; readonly polaris: number }> = [];
       let idleCpu = 0;
 
       for (let i = 0; i < spawns; i++) {
         yield* Effect.scoped(
           Effect.gen(function* () {
-            const daemon = yield* ctx.launch();
+            const daemon = yield* ctx.launch({ env: { POLARIS_DEBUG_MODULES: "1" } });
             const sampler = yield* ctx.sample(daemon, 100);
             hello.push(yield* awaitReady(daemon));
             const ready = sampler.now();
@@ -33,6 +61,9 @@ export const coldStart: Scenario = {
             rss.push(s.rssBytes);
 
             if (s.footprintBytes !== null) footprint.push(s.footprintBytes);
+            const loaded = startupModules(daemon.logs());
+
+            if (loaded !== null) modules.push(loaded);
             const t0 = performance.now();
             yield* Effect.scoped(connect(daemon, "bridge"));
             bridge.push(performance.now() - t0);
@@ -53,6 +84,18 @@ export const coldStart: Scenario = {
 
       if (footprint.length > 0) {
         metrics.footprint_settled_mib = memory(summarize(footprint).median);
+      }
+
+      if (modules.length > 0) {
+        metrics.startup_modules = count(summarize(modules.map((m) => m.all)).median, "modules", {
+          tolerance: MODULES_TOLERANCE,
+        });
+
+        metrics.startup_polaris_modules = count(
+          summarize(modules.map((m) => m.polaris)).median,
+          "modules",
+          { info: true }
+        );
       }
 
       metrics.bridge_connect_ms = time(summarize(bridge).median);

@@ -150,11 +150,11 @@ jobs:
   bench:
     name: Daemon benchmarks (quick; memory gated)
     # Runs the real Daemon (from source) through every scenario at --quick sizes and posts the
-    # numbers to the job summary. Memory gates against packages/bench/baselines/
-    # ci-ubuntu-latest-quick.json, the median of four runner results on AMD EPYC 7763 (most
-    # runners); a run on another CPU model reports without gating (--gate-same-machine).
-    # Latency and CPU never gate: shared runners are too noisy. To refresh the baseline, see
-    # packages/bench/README.md ("CI").
+    # numbers to the job summary. Memory and the start-up module count (noise-free) gate
+    # against packages/bench/baselines/ci-ubuntu-latest-quick.json, the median of several 4-core
+    # runners' results on any CPU model; a runner with another core count reports without
+    # gating (--gate-same-machine). Latency and CPU never gate: shared runners are too noisy.
+    # To refresh the baseline, see packages/bench/README.md ("CI").
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -167,7 +167,7 @@ jobs:
         run: |
           bun run bench --quick --json bench-result.json --markdown "$GITHUB_STEP_SUMMARY" \
             --compare packages/bench/baselines/ci-ubuntu-latest-quick.json \
-            --fail-on memory --gate-same-machine
+            --fail-on memory,cold-start.startup_modules --gate-same-machine
       - uses: actions/upload-artifact@v4
         if: always()
         with:

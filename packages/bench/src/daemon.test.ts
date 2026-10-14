@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { Effect } from "effect";
 import { awaitReady, cleanup, type Daemon, launchDaemon } from "./daemon.ts";
 import { runScenario } from "./runner.ts";
+import { startupModules } from "./scenarios/cold-start.ts";
 
 const ready = async (daemon: Daemon) => {
   const deadline = Date.now() + 30_000;
@@ -79,4 +80,22 @@ test("a zero-process Daemon report fails the scenario visibly", async () => {
   expect(result.error).toContain("measured zero Daemon processes");
   expect(result.metrics).toEqual({});
   expect(logs.some((message) => message.includes("failed"))).toBe(true);
+}, 40_000);
+
+test("a Daemon with POLARIS_DEBUG_MODULES reports its start-up graph in the form cold-start reads", async () => {
+  const daemon = await launchDaemon({ binary: null, env: { POLARIS_DEBUG_MODULES: "1" } });
+
+  try {
+    await ready(daemon);
+    const deadline = Date.now() + 10_000;
+
+    while (startupModules(daemon.logs()) === null && Date.now() < deadline) await Bun.sleep(20);
+    const { all, polaris } = startupModules(daemon.logs()) ?? { all: 0, polaris: 0 };
+
+    expect(polaris).toBeGreaterThan(100);
+    expect(all).toBeGreaterThan(polaris);
+  } finally {
+    await daemon.stop();
+    cleanup(daemon.home);
+  }
 }, 40_000);

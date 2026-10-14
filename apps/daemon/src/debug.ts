@@ -6,6 +6,8 @@
  *                                  (Chrome DevTools format) to <dir>/heap-<pid>-<n>.heapsnapshot
  *   POLARIS_DEBUG_STATS_MS=<ms>    every <ms>, one JSON line on stderr: memoryUsage() and
  *                                  the event-loop lag of that interval
+ *   POLARIS_DEBUG_MODULES=1        once listening, one JSON line on stderr: how many modules
+ *                                  start-up loaded (all, and Polaris's own outside node_modules)
  *
  * SIGUSR2 is taken by in-place upgrades (service/upgrade.ts), so this uses SIGUSR1.
  */
@@ -42,4 +44,14 @@ export const installDebugHooks = (): void => {
       );
     }, statsMs);
   }
+};
+
+/** The start-up graph's size, for the bench's `cold-start` gate (`polarisModules` on stderr). */
+export const reportStartupModules = (): void => {
+  if (process.env.POLARIS_DEBUG_MODULES !== "1") return;
+
+  const loaded = Object.keys(require.cache);
+  const polaris = loaded.filter((path) => !path.includes("/node_modules/")).length;
+
+  process.stderr.write(`${JSON.stringify({ polarisModules: { all: loaded.length, polaris } })}\n`);
 };
