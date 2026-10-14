@@ -86,17 +86,24 @@ describe("the Reviewer's reply", () => {
   test("decodes the last fenced JSON block", () => {
     const decoded = parseReviewerReply(`\`\`\`json\n{}\n\`\`\`\n${reply([finding()])}`);
 
-    expect(Result.isSuccess(decoded)).toBe(true);
+    expect(decoded).toEqual(
+      Result.succeed({ findings: [finding()], revised: [], withdrawn: [], answer: null })
+    );
   });
 
   test("refuses prose, bad JSON and schema violations with a reason", () => {
-    expect(Result.isFailure(parseReviewerReply("Looks fine to me!"))).toBe(true);
+    const refused = (text: string, reason: string) =>
+      expect(
+        Result.match(parseReviewerReply(text), { onSuccess: () => "", onFailure: (why) => why })
+      ).toContain(reason);
+
+    refused("Looks fine to me!", "The reply was not one JSON document");
     // SAFETY: deliberately not a Severity, to see the schema refuse it.
     const urgent = "urgent" as never;
 
-    expect(Result.isFailure(parseReviewerReply(reply([finding({ severity: urgent })])))).toBe(true);
-    expect(Result.isFailure(parseReviewerReply(reply([finding({ confidence: 2 })])))).toBe(true);
-    expect(Result.isFailure(parseReviewerReply(reply([finding({ startLine: 0 })])))).toBe(true);
+    refused(reply([finding({ severity: urgent })]), '["findings"][0]["severity"]');
+    refused(reply([finding({ confidence: 2 })]), '["findings"][0]["confidence"]');
+    refused(reply([finding({ startLine: 0 })]), '["findings"][0]["startLine"]');
   });
 
   test("drops Findings outside the diff and keeps the rest as agent Findings", async () => {
