@@ -210,7 +210,11 @@ const scenarioRows = (
       change,
       allowed,
       status,
-      gating: (failOn.has(m.kind) || failOn.has(`${scenario}.${metric}`)) && !m.info && !b.info,
+      gating:
+        (failOn.has(m.kind) || failOn.has(`${scenario}.${metric}`)) &&
+        !failOn.has(`-${scenario}.${metric}`) &&
+        !m.info &&
+        !b.info,
     });
   }
 

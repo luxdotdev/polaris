@@ -145,6 +145,15 @@ describe("compare", () => {
     expect(c.regressions.map((r) => r.metric)).toEqual(["modules"]);
   });
 
+  test("-scenario.metric drops one metric from its kind's gate and still reports it", () => {
+    const base = result({ rss: metric("memory", 100), peak: metric("memory", 166) });
+    const current = result({ rss: metric("memory", 150), peak: metric("memory", 330) });
+
+    const c = compare(base, current, new Set(["memory", "-s.peak"]));
+    expect(c.regressions.map((r) => r.metric)).toEqual(["rss"]);
+    expect(c.rows.find((r) => r.metric === "peak")?.status).toBe("regressed");
+  });
+
   test("a run on a busy machine warns, whichever side it is", () => {
     const quiet = result({ mem: metric("memory", 100) });
     const busy: BenchResult = { ...quiet, env: { ...quiet.env, backgroundCores: 4.2 } };

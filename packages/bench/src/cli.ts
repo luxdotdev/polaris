@@ -55,7 +55,8 @@ scenarios: ${SCENARIOS.map((s) => s.name).join(", ")} (default: all)
   --compare PATH        compare with a baseline; exit 1 on regressions beyond tolerance
   --fail-on GATES       comma-separated kinds that gate --compare (default: all):
                         ${ALL_KINDS.join(",")}; or single metrics as scenario.metric
-                        (e.g. cold-start.startup_modules); none for no gate
+                        (e.g. cold-start.startup_modules), -scenario.metric to drop
+                        one; none for no gate
   --gate-same-machine   gate memory and counts only on the baseline's OS, arch and core count,
                         and CPU, latency, time and throughput only on its CPU model; the rest
                         is compared and reported without failing (CI)
@@ -86,7 +87,7 @@ const isMetricKind = (kind: string): kind is MetricKind => ALL_KINDS.some((k) =>
 
 const isMetricName = (gate: string) => /^[\w-]+\.[\w.-]+$/.test(gate);
 
-/** `--fail-on memory,cold-start.startup_modules` (or `none`): the kinds and metrics that gate `--compare`. */
+/** `--fail-on memory,cold-start.startup_modules,-git.rss_peak_mib` (or `none`): kinds and metrics that gate `--compare`; `-` drops one. */
 const parseFailOn = (value: string): Set<string> => {
   const gates = value
     .split(",")
@@ -94,7 +95,9 @@ const parseFailOn = (value: string): Set<string> => {
     .filter(Boolean);
 
   for (const gate of gates) {
-    if (!isMetricKind(gate) && !isMetricName(gate) && gate !== "none")
+    const excluded = gate.startsWith("-") && isMetricName(gate.slice(1));
+
+    if (!isMetricKind(gate) && !isMetricName(gate) && !excluded && gate !== "none")
       throw new Error(`unknown kind ${gate}`);
   }
 
