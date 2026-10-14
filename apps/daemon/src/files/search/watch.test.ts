@@ -24,9 +24,11 @@ const recorder = () => {
   ) => {
     opened.push({ path, recursive });
 
-    return watch(path, { recursive: false }, (event, name) => {
+    const watcher = watch(path, { recursive: false }, (event, name) => {
       if (name !== null) changed(event, join(path, name.toString()));
     });
+
+    return () => watcher.close();
   };
 
   return { opened, open };
@@ -103,6 +105,23 @@ test("bounded git watches report nested changes and discover new directories", a
   write(root, "src/after/a.ts", "");
   await Bun.sleep(100);
   expect(opened).toHaveLength(count);
+});
+
+test("bounded git watches report dotfiles and discover dotted directories", async () => {
+  const root = await makeRepo({ ".env": "A=1" });
+  roots.push(root);
+  const seen: Array<string> = [];
+  stops.push(await watchRoot(root, (_event, path) => seen.push(path), { platform: "linux" }));
+  write(root, ".env", "A=2");
+  await waitFor(() => seen.includes(join(root, ".env")));
+  write(root, ".github/workflows/ci.yml", "on: push");
+  await waitFor(() => seen.includes(join(root, ".github")));
+  // Discovery arms `.github` and then `workflows` asynchronously; keep editing until it lands.
+  await waitFor(() => {
+    write(root, ".github/workflows/ci.yml", `on: [push] # ${seen.length}`);
+
+    return seen.includes(join(root, ".github/workflows/ci.yml"));
+  });
 });
 
 test("macOS keeps its single native recursive FSEvents watch", async () => {

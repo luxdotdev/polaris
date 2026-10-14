@@ -22,6 +22,7 @@ import { makeFakeBlobChannel } from "./testing.ts";
 import { currentVersion, readVersioned } from "./version.ts";
 import { createPath, deletePath, renamePath, writeVersioned } from "./write.ts";
 import { linuxTrash } from "./trash.ts";
+import { inotifyOpen } from "./inotify.ts";
 import { openFileWatchCount, watchFile } from "./watch.ts";
 
 let root: string;
@@ -267,6 +268,56 @@ test("an open file's save read in the same burst as a sibling's still reaches it
   );
 }, 15_000);
 
+test.each([".env", "~draft"])(
+  "an open %s sees a save, then in-place edits and its deletion",
+  async (name) => {
+    const path = join(root, name);
+    await writeFile(path, "before");
+    const versions: Array<string | null> = [];
+
+    const reaches = (hash: string | null) =>
+      Effect.promise(async () => {
+        await until(() => versions.at(-1) === hash);
+        expect(versions.at(-1)).toBe(hash);
+      });
+
+    /** Writes in place, as a shell redirect or an editor without atomic saves does. */
+    const edit = (text: string) =>
+      Effect.promise(async () => {
+        writeFileSync(path, text);
+
+        return (await readVersioned(path)).version.hash;
+      });
+
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          yield* watchFile(path).pipe(
+            Stream.tap((event) =>
+              Effect.sync(() => void versions.push(event.version?.hash ?? null))
+            ),
+            Stream.runDrain,
+            Effect.forkScoped
+          );
+          yield* Effect.promise(() => until(() => versions.length >= 1));
+
+          // The save renames a new inode over the file; later edits write to that inode.
+          const saved = yield* Effect.promise(async () =>
+            writeVersioned(path, bytes("saved"), (await readVersioned(path)).version)
+          );
+
+          yield* reaches(saved.hash);
+          yield* reaches(yield* edit("edited in place"));
+          yield* reaches(yield* edit("edited again"));
+          yield* Effect.promise(() => rm(path));
+          yield* reaches(null);
+        })
+      )
+    );
+  },
+  15_000
+);
+
 test("20 open tabs share one parent watcher and cancel all native watches", async () => {
   const paths = Array.from({ length: 20 }, (_, i) => join(root, `file-${i}`));
   await Promise.all(paths.map((path) => writeFile(path, "text")));
@@ -297,6 +348,8 @@ test("20 open tabs share one parent watcher and cancel all native watches", asyn
     )
   );
   expect(openFileWatchCount()).toBe(0);
+  // On Linux the last watch also closes the inotify instance, whose reader holds the event loop.
+  expect(inotifyOpen()).toBe(false);
 });
 
 test("symlink watches follow target changes and retargeting", async () => {

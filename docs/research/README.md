@@ -33,3 +33,4 @@ The prototype and spike code is throwaway and stays on its own branches, not on 
 The original `research/*` branches remain.
 - [tab-completion.md](tab-completion.md): tab completion spike; models, latency, context and CodeMirror integration (2026-10-13).
 - [decision-models.md](decision-models.md): System One decision models (Jev, Clef, Kev, Laya, llama.cpp) as the Risk Summary classifier backends (2026-10-13).
+- [bun-fs-watch-linux.md](bun-fs-watch-linux.md): draft upstream reports for the two Linux `fs.watch` bugs behind ADR 0046 and ADR 0047 (2026-10-14).

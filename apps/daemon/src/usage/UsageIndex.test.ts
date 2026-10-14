@@ -306,9 +306,11 @@ describe("UsageIndex", () => {
         open: (path, recursive, changed) => {
           opened.push({ path, recursive });
 
-          return watch(path, { recursive: false }, (event, name) => {
+          const watcher = watch(path, { recursive: false }, (event, name) => {
             if (name !== null) changed(event, join(path, name.toString()));
           });
+
+          return () => watcher.close();
         },
       },
     });
