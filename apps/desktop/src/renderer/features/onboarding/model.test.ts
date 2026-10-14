@@ -14,40 +14,69 @@ describe("onboardingStage", () => {
   test("the welcome comes first, whatever the Hosts hold", () => {
     const models = { local: synced(hostModel(workspaces("w", 2))) };
 
-    expect(onboardingStage({ welcome: "show", hosts: [local], models })).toBe("welcome");
+    expect(onboardingStage({ welcome: "show", hostsListed: true, hosts: [local], models })).toBe(
+      "welcome"
+    );
   });
 
   test("no Workspace on any Host opens to the setup", () => {
     const models = { local: synced(hostModel([])), studio: synced(hostModel([])) };
 
-    expect(onboardingStage({ welcome: "seen", hosts: [local, studio], models })).toBe("setup");
+    expect(
+      onboardingStage({ welcome: "seen", hostsListed: true, hosts: [local, studio], models })
+    ).toBe("setup");
   });
 
   test("one Workspace anywhere opens the Orchestrator", () => {
     const models = { local: synced(hostModel([])), studio: synced(hostModel(workspaces("w", 1))) };
 
-    expect(onboardingStage({ welcome: "seen", hosts: [local, studio], models })).toBe("shell");
+    expect(
+      onboardingStage({ welcome: "seen", hostsListed: true, hosts: [local, studio], models })
+    ).toBe("shell");
   });
 
   test("the setup comes back when the last Workspace goes", () => {
     const models = { local: synced(hostModel([{ id: "w0", hidden: true }])) };
 
-    expect(onboardingStage({ welcome: "seen", hosts: [local], models })).toBe("setup");
+    expect(onboardingStage({ welcome: "seen", hostsListed: true, hosts: [local], models })).toBe(
+      "setup"
+    );
   });
 
   test("before any Host answers, the stage waits instead of flashing the setup", () => {
-    expect(onboardingStage({ welcome: "seen", hosts: [local], models: {} })).toBe("waiting");
     expect(
-      onboardingStage({ welcome: "unknown", hosts: [local], models: { local: hostModel([]) } })
+      onboardingStage({ welcome: "seen", hostsListed: true, hosts: [local], models: {} })
     ).toBe("waiting");
+    expect(
+      onboardingStage({
+        welcome: "unknown",
+        hostsListed: true,
+        hosts: [local],
+        models: { local: hostModel([]) },
+      })
+    ).toBe("waiting");
+  });
+
+  test("with no Host at all (Windows has no local one), the setup shows once the Hosts are listed", () => {
+    expect(onboardingStage({ welcome: "seen", hostsListed: false, hosts: [], models: {} })).toBe(
+      "waiting"
+    );
+    expect(onboardingStage({ welcome: "seen", hostsListed: true, hosts: [], models: {} })).toBe(
+      "setup"
+    );
   });
 
   test("Workspaces painted from the cache count before the Host answers", () => {
     const cached = { ...hostModel(workspaces("w", 1)), fromCache: true };
 
-    expect(onboardingStage({ welcome: "seen", hosts: [local], models: { local: cached } })).toBe(
-      "shell"
-    );
+    expect(
+      onboardingStage({
+        welcome: "seen",
+        hostsListed: true,
+        hosts: [local],
+        models: { local: cached },
+      })
+    ).toBe("shell");
   });
 });
 

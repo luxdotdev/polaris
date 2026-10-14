@@ -19,6 +19,21 @@ export const hostStageLine = (hostCount: number) =>
     ? "Add a workspace on any of your hosts, or start a session in your home folder."
     : "Add a workspace, or start a session in your home folder. Remote hosts can come now or later.";
 
+/** The line under the headline with no Host at all; a Windows PC can't be one yet. */
+export const noHostLine = (windows: boolean) =>
+  windows
+    ? "Agents run on a host. This PC can't be one yet, so add a WSL distro or any machine you reach over SSH."
+    : "Agents run on a host: any machine you reach over SSH.";
+
+/** The add-a-host caption with no Host yet: what can be added, and what's already found. */
+export const firstHostCaption = (windows: boolean, sshHosts: number): string => {
+  const what = windows
+    ? "A WSL distro on this PC, or a machine over SSH"
+    : "Any machine you can reach over SSH";
+
+  return sshHosts > 0 ? `${what} · ${plural(sshHosts, "host")} in ~/.ssh/config` : what;
+};
+
 /** "A", "A and B", "A, B, and C": the serial comma, as in the rest of the copy. */
 export const serialList = (items: ReadonlyArray<string>): string => {
   if (items.length <= 2) return items.join(" and ");

@@ -13,7 +13,7 @@ export type Welcome = "unknown" | "show" | "seen";
 /**
  * - `welcome`: O1, full-bleed, before anything else.
  * - `waiting`: no Host has said what it holds yet; the stage stays an empty scene.
- * - `setup`: O2, no Workspace on any Host.
+ * - `setup`: O2, no Workspace on any Host, or no Host at all (a Windows PC has no local one).
  * - `shell`: the Orchestrator as usual.
  */
 export type Stage = "welcome" | "waiting" | "setup" | "shell";
@@ -21,6 +21,8 @@ export type Stage = "welcome" | "waiting" | "setup" | "shell";
 export interface StageInput {
   readonly welcome: Welcome;
   readonly hosts: ReadonlyArray<HostView>;
+  /** Whether main has listed the Hosts yet; an empty list before then means nothing. */
+  readonly hostsListed: boolean;
   readonly models: Readonly<Record<string, HostModel>>;
 }
 
@@ -31,8 +33,10 @@ const shown = (model: HostModel | undefined) =>
 const known = (model: HostModel | undefined) =>
   model !== undefined && (model.synchronized || model.fromCache);
 
-export const onboardingStage = ({ welcome, hosts, models }: StageInput): Stage => {
+export const onboardingStage = ({ welcome, hosts, hostsListed, models }: StageInput): Stage => {
   if (welcome === "show") return "welcome";
+
+  if (hostsListed && hosts.length === 0) return welcome === "seen" ? "setup" : "waiting";
 
   if (hosts.some((h) => shown(models[h.key]).length > 0)) return "shell";
 

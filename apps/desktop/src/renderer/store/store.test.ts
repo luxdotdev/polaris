@@ -72,4 +72,9 @@ describe("store updates", () => {
     expect(next.hostModels.local).toBe(state.hostModels.local);
     expect(next.sessions[key]).toBe(state.sessions[key]);
   });
+
+  test("an empty Host list counts as listed only once main has sent it", () => {
+    expect(reduceUpdates(initialState, []).hostsListed).toBe(false);
+    expect(reduceUpdates(initialState, [{ kind: "hosts", hosts: [] }]).hostsListed).toBe(true);
+  });
 });

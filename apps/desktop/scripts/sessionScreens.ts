@@ -258,9 +258,11 @@ try {
 
     const ready = base.startsWith("usage-")
       ? "plan-meter"
-      : isNew
-        ? "new-session"
-        : "session-panel";
+      : base === "no-host"
+        ? "no-host-stage"
+        : isNew
+          ? "new-session"
+          : "session-panel";
 
     await page.getByTestId(ready).first().waitFor();
 

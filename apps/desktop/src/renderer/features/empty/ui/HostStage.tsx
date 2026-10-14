@@ -17,9 +17,16 @@ import type { HostView } from "../../../../shared/api.ts";
 import { useApp, useSelection, useShellActions } from "../../../shell/hooks.ts";
 import { useOnboardingState } from "../../onboarding/index.ts";
 import { useReadyLine } from "../hooks.ts";
-import { connectHostCaption, hostStageLine, stageKicker } from "../model.ts";
+import {
+  connectHostCaption,
+  firstHostCaption,
+  hostStageLine,
+  noHostLine,
+  stageKicker,
+} from "../model.ts";
 import { Stage } from "./Stage.tsx";
 import { commandShortcut } from "../../../../shared/keymap.ts";
+import { clientPlatform } from "../../../../shared/platform.ts";
 
 /** Opens the ⌘O dialog on this Host: the folder is browsed on the Host's own Daemon. */
 const AddWorkspaceRow = ({ host }: { readonly host: HostView }) => {
@@ -95,6 +102,54 @@ const StartRow = ({ host }: { readonly host: HostView }) => {
   );
 };
 
+/**
+ * No Host at all (a Windows PC has no local one): adding a host is the only step, the
+ * others wait on it, so the way in is plain rather than an empty scene.
+ */
+const NoHostStage = () => {
+  const { openSettings } = useShellActions();
+  const sshHosts = useOnboardingState((s) => s.sshHosts?.length ?? 0);
+  const windows = clientPlatform() === "win32";
+
+  return (
+    <Stage
+      kicker="Set up · Polaris"
+      title="Where does your code live?"
+      line={noHostLine(windows)}
+      testId="no-host-stage"
+    >
+      <SetupCard className="shadow-float">
+        <SetupRow
+          icon={<PixelServerIcon size={20} />}
+          title="Add a host"
+          caption={firstHostCaption(windows, sshHosts)}
+          action={
+            <Button
+              variant="primary"
+              onClick={() => openSettings("hosts", { adding: true })}
+              data-testid="add-first-host"
+            >
+              Add host
+            </Button>
+          }
+        />
+        <SetupRow
+          icon={<PixelFolderIcon size={20} />}
+          title="Add a workspace"
+          caption="A repository on that host"
+          locked="Needs a host"
+        />
+        <SetupRow
+          icon={<PixelSparkleIcon size={20} />}
+          title="Start a session"
+          caption="On the host, with Claude Code, Codex or another harness"
+          locked="Needs a host"
+        />
+      </SetupCard>
+    </Stage>
+  );
+};
+
 /** The Host in view, else the local one: a workspace needs a machine to live on. */
 const useStageHost = (hostKey: string | null) =>
   useApp((s) => s.hosts.find((h) => h.key === hostKey) ?? s.hosts.find((h) => h.kind === "local"));
@@ -103,7 +158,7 @@ export const HostStage = ({ hostKey }: { readonly hostKey: string | null }) => {
   const host = useStageHost(hostKey);
   const hostCount = useApp((s) => s.hosts.length);
 
-  if (host === undefined) return <Stage kicker="Polaris" title="Where does your code live?" />;
+  if (host === undefined) return <NoHostStage />;
 
   return (
     <Stage

@@ -289,7 +289,7 @@ const WorkspaceSidebar = () => {
         header={
           <Header
             title="No workspace yet"
-            caption={shown === undefined ? "No machines yet" : shown.label}
+            caption={shown === undefined ? "No hosts yet" : shown.label}
             canStart={shown?.status.state === "connected"}
             host={shown}
           />
@@ -358,7 +358,7 @@ const MachineSidebar = () => {
   if (hostKey === null || host === undefined) {
     return (
       <SidebarFrame
-        header={<Header title="Polaris" caption="No machines yet" canStart={false} />}
+        header={<Header title="Polaris" caption="No hosts yet" canStart={false} />}
         footer=""
       />
     );

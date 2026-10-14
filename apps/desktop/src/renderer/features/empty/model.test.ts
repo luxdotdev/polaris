@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import {
   captionPath,
   connectHostCaption,
+  firstHostCaption,
+  noHostLine,
   hostStageLine,
   noSelectionFact,
   readyLine,
@@ -31,6 +33,17 @@ describe("empty-state copy", () => {
     expect(connectHostCaption(14, 0)).toBe("14 hosts in ~/.ssh/config · optional");
     expect(connectHostCaption(0, 1)).toBe("1 other host added · optional");
     expect(connectHostCaption(0, 0)).toBe("Any machine you can reach over SSH · optional");
+  });
+
+  test("with no host, Windows says this PC can't be one and offers WSL", () => {
+    expect(noHostLine(true)).toBe(
+      "Agents run on a host. This PC can't be one yet, so add a WSL distro or any machine you reach over SSH."
+    );
+    expect(noHostLine(false)).not.toContain("WSL");
+    expect(firstHostCaption(true, 0)).toBe("A WSL distro on this PC, or a machine over SSH");
+    expect(firstHostCaption(false, 3)).toBe(
+      "Any machine you can reach over SSH · 3 hosts in ~/.ssh/config"
+    );
   });
 
   test("ready harnesses read as a list", () => {

@@ -26,6 +26,8 @@ import {
 
 export interface AppState {
   readonly hosts: ReadonlyArray<HostView>;
+  /** False until main first lists the Hosts, so "none yet" isn't read as "none at all". */
+  readonly hostsListed: boolean;
   readonly hostModels: Readonly<Record<string, HostModel>>;
   /** Keyed by `sessionKey(hostKey, sessionId)`. */
   readonly sessions: Readonly<Record<string, SessionModel>>;
@@ -39,6 +41,7 @@ export interface AppState {
 
 export const initialState: AppState = {
   hosts: [],
+  hostsListed: false,
   hostModels: {},
   sessions: {},
   density: "calm",
@@ -84,12 +87,15 @@ const foldGroups = <M, I>({ current, groups, apply }: GroupFold<M, I>) => {
 /** Folds one frame's updates into the state; pure, so it is unit-tested. */
 export const reduceUpdates = (state: AppState, updates: ReadonlyArray<Update>): AppState => {
   let hosts = state.hosts;
+  let hostsListed = state.hostsListed;
   const hostItems: Array<{ hostKey: string; item: HostStreamItem }> = [];
   const sessionItems: Array<{ key: string; item: SessionStreamItem }> = [];
 
   for (const u of updates) {
-    if (u.kind === "hosts") hosts = u.hosts;
-    else if (u.kind === "host") hostItems.push(u);
+    if (u.kind === "hosts") {
+      hosts = u.hosts;
+      hostsListed = true;
+    } else if (u.kind === "host") hostItems.push(u);
     else sessionItems.push(u);
   }
 
@@ -124,7 +130,7 @@ export const reduceUpdates = (state: AppState, updates: ReadonlyArray<Update>): 
       ),
   });
 
-  return { ...state, hosts, hostModels, sessions, constellations };
+  return { ...state, hosts, hostsListed, hostModels, sessions, constellations };
 };
 
 /** A Host model painted from the cache, marked so, until its live Snapshot arrives. */

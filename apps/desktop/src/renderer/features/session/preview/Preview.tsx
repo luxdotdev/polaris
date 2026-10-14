@@ -14,6 +14,7 @@ import {
 } from "@polaris/protocol";
 import { createRoot } from "react-dom/client";
 import { createStore } from "zustand/vanilla";
+import { setClientPlatform } from "../../../../shared/platform.ts";
 import type {
   HostView,
   PolarisApi,
@@ -121,6 +122,7 @@ const SCENE_NAMES = [
   "none-ready",
   "usage-2",
   "usage-3",
+  "no-host",
 ] as const;
 
 type Scene = (typeof SCENE_NAMES)[number];
@@ -436,7 +438,13 @@ export const mountPreview = (root: HTMLElement, hash: string) => {
   const scene = sceneOf(hash);
   // Sidebar-only sessions follow the scenes, so a scene's index still finds its model.
   const models = [...Object.values(SCENES), ...waitingSidebar].map((make) => make());
-  const store = createStore<AppState>(() => stateFor(models));
+
+  // No Host at all, as on a Windows PC before one is added: the first-run stage.
+  const noHost = scene === "no-host";
+
+  const store = createStore<AppState>(() =>
+    noHost ? { ...initialState, hostsListed: true } : stateFor(models)
+  );
 
   const connection: Connection = {
     store,
@@ -451,7 +459,8 @@ export const mountPreview = (root: HTMLElement, hash: string) => {
 
   standInBridge(bridgeFor(scene));
 
-  if (shown?.session == null) {
+  if (noHost) setClientPlatform("win32");
+  else if (shown?.session == null) {
     navigation.actions.selectWorkspace({ hostKey: HOST, workspaceId });
     navigation.actions.startNewSession();
   } else {

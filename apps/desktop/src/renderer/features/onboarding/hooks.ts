@@ -31,7 +31,8 @@ export const useEnsureWorkspace = (): EnsureWorkspace => useOnboarding().ensureW
 export const useStage = (): Stage => {
   const welcome = useOnboardingState((s) => s.welcome);
   const hosts = useApp((s) => s.hosts);
+  const hostsListed = useApp((s) => s.hostsListed);
   const models = useApp((s) => s.hostModels);
 
-  return onboardingStage({ welcome, hosts, models });
+  return onboardingStage({ welcome, hosts, hostsListed, models });
 };
