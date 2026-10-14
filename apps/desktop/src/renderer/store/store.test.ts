@@ -28,7 +28,6 @@ const host: HostView = {
 describe("store updates", () => {
   test("one frame's updates fold per Host and per session, and keep untouched slices", () => {
     const key = sessionKey("local", sessionId);
-    const other = { ...initialState.hostModels };
 
     const state = reduceUpdates(initialState, [
       { kind: "hosts", hosts: [host] },
@@ -65,7 +64,8 @@ describe("store updates", () => {
     expect(state.hostModels.local?.sequence).toBe(seq(2));
     expect(state.hostModels.local?.sessions.size).toBe(1);
     expect(state.sessions[key]?.session?.id).toBe(sessionId);
-    expect(other).toEqual({});
+    expect(initialState.hostModels).toEqual({});
+    expect(initialState.sessions).toEqual({});
 
     const next = reduceUpdates(state, [{ kind: "hosts", hosts: [] }]);
 
