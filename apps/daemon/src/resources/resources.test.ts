@@ -199,24 +199,27 @@ describe("Host resource leases", () => {
 
   test("FIFO, capacity, canceled waiter, hold warning and Release without killing", async () => {
     const { runtime } = setup();
+    // The first holder is a real child, so Release can be seen not to kill it.
+    const holder = Bun.spawn(["sleep", "30"]);
 
     try {
       const resources = await runtime.runPromise(HostResources);
       const identity = await processIdentity(process.pid);
-      expect(identity).not.toBeNull();
+      const holderIdentity = await processIdentity(holder.pid);
+      expect(holderIdentity).not.toBeNull();
       await runtime.runPromise(resources.declare(id("declare"), "bench", 1, 1));
 
-      const request = (requestId: string) =>
+      const request = (requestId: string, processId = process.pid) =>
         resources.acquire({
           requestId,
           name: "bench",
-          processId: process.pid,
-          processIdentity: identity!,
+          processId,
+          processIdentity: (processId === holder.pid ? holderIdentity : identity)!,
           command: ["fixture"],
           sessionId: null,
         });
 
-      const first = await runtime.runPromise(request("first"));
+      const first = await runtime.runPromise(request("first", holder.pid));
       const second = runtime.runFork(request("second"));
       const canceled = runtime.runFork(request("canceled"));
       const third = runtime.runFork(request("third"));
@@ -240,7 +243,8 @@ describe("Host resource leases", () => {
       await runtime.runPromise(resources.release(id("release-first"), first.id));
       expect((await runtime.runPromise(Fiber.join(second))).id).toBe("second");
       expect((await runtime.runPromise(resources.get)).resourceLeases).toHaveLength(1);
-      expect(await processIdentity(process.pid)).toBe(identity);
+      expect(holder.exitCode).toBeNull();
+      expect(await processIdentity(holder.pid)).toBe(holderIdentity);
       await runtime.runPromise(resources.release(id("release-second"), "second"));
       expect((await runtime.runPromise(Fiber.join(third))).id).toBe("third");
       await runtime.runPromise(resources.release(id("release-third"), "third"));
@@ -256,6 +260,7 @@ describe("Host resource leases", () => {
       expect(events.map((e) => e.event._tag)).toContain("ResourceLeaseCanceled");
       await runtime.runPromise(recordResourceTrace);
     } finally {
+      holder.kill();
       await runtime.dispose();
     }
   });
