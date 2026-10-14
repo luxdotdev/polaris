@@ -1,8 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
-  AgentSession,
   ApprovalDecision,
-  ApprovalRequest,
   DomainEvent,
   EventEnvelope,
   HostStreamItem,
@@ -12,102 +10,16 @@ import {
   Worktree,
   WorktreeId,
 } from "@polaris/protocol";
-import type { HostView } from "../../../../shared/api.ts";
-import { at, seq, session, turnId, workspace } from "../../../store/fixtures.testing.ts";
+import { at, seq, workspace } from "../../../store/fixtures.testing.ts";
 import { applyHostItems, emptyHostModel, type HostModel } from "../../../store/hostModel.ts";
 import { ANSWERED_FOR_MS, buildInbox } from "./inbox.ts";
+import { host, hostModel, minutes, request, sessionWith } from "./inbox.testing.ts";
 import { quietFact } from "./quiet.ts";
 import { toSummary } from "./summary.ts";
 
 const H = HostStreamItem.cases;
 
 const E = DomainEvent.cases;
-
-const minutes = (n: number) => new Date(Date.parse(at) + n * 60_000).toISOString();
-
-const request = (
-  id: string,
-  sessionId: string,
-  openedAt: string,
-  kind: ApprovalRequest["kind"] = "command"
-) =>
-  new ApprovalRequest({
-    title: "Run bun test",
-    detail: null,
-    options: [],
-    id: RequestId.make(id),
-    sessionId: SessionId.make(sessionId),
-    turnId,
-    kind,
-    openedAt,
-  });
-
-const sessionWith = (id: string, patch: Partial<AgentSession> = {}) =>
-  new AgentSession({
-    id: SessionId.make(id),
-    workspaceId: workspace.id,
-    harness: session.harness,
-    title: `Session ${id}`,
-    cwd: session.cwd,
-    worktreeId: null,
-    state: "starting",
-    permissionMode: "auto",
-    model: null,
-    effort: null,
-    parentSessionId: null,
-    forkedFromTurnId: null,
-    harnessCursor: null,
-    turnCount: 0,
-    contextUsage: null,
-    lastError: null,
-    createdAt: at,
-    updatedAt: at,
-    ...patch,
-  });
-
-interface Seed {
-  readonly session: AgentSession;
-  readonly pending?: ReadonlyArray<ApprovalRequest>;
-}
-
-const hostModel = (seeds: ReadonlyArray<Seed>): HostModel =>
-  applyHostItems(emptyHostModel, [
-    H.Snapshot.make({
-      sequence: seq(1),
-      workspaces: [workspace],
-      worktrees: [],
-      sessions: seeds.map(
-        (s) =>
-          new SessionSummary({
-            session: s.session,
-            pendingApprovals: [...(s.pending ?? [])],
-            lastTurnPreview: null,
-            subagents: [],
-          })
-      ),
-    }),
-  ]);
-
-const host = (key: string, label: string): HostView => ({
-  key,
-  label,
-  colour: null,
-  alias: null,
-  kind: "local",
-  proofHarness: false,
-  status: {
-    state: "connected",
-    failure: null,
-    attempt: 0,
-    since: 0,
-    nextAttemptAt: null,
-    host: null,
-    capabilities: [],
-    epoch: 0,
-    latencyMs: null,
-    lastSeenAt: null,
-  },
-});
 
 const now = Date.parse(minutes(60));
 
