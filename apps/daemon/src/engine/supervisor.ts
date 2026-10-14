@@ -28,7 +28,7 @@ import {
 } from "../constellation/liveness.ts";
 import { LiveItem } from "../store/EventStore.ts";
 import { workingTurn } from "../store/model.ts";
-import { UsageIndex } from "../usage/index.ts";
+import { UsageIndex } from "../usage/service.ts";
 import { isWorker, usageLimitOf } from "./limits.ts";
 import { worktreeIdFor } from "./decider.ts";
 import { contextChanged, contextUsageOf } from "./context.ts";

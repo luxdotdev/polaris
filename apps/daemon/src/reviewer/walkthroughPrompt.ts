@@ -4,9 +4,10 @@ import type { RiskFinding } from "@polaris/protocol";
 import { changedFilesSection, diffSection } from "./changedFiles.ts";
 import type { ChangeDiff } from "./diff.ts";
 import { GROUPS_HEADING, groupsInstructions } from "./groups.ts";
+import { WALKTHROUGH_MARKER } from "./markers.ts";
 import type { ReviewerShell } from "./policy.ts";
 
-export const WALKTHROUGH_MARKER = "Polaris read-only walkthrough";
+export { WALKTHROUGH_MARKER } from "./markers.ts";
 
 export interface WalkthroughPromptInput {
   readonly title: string;

@@ -1,7 +1,9 @@
 /** The Reviewer's sandbox runs allowed commands; escaped permission requests are declined. */
 import { ApprovalDecision, type HarnessKind } from "@polaris/protocol";
-import type { PolicyRequest } from "../services.ts";
+import { Effect, Layer } from "effect";
+import { ApprovalPolicy, type PolicyRequest } from "../services.ts";
 import { type ClaudeSandbox, probeClaudeSandbox } from "../harness/claude/sandbox.ts";
+import { ReviewerSessions } from "./sessions.ts";
 
 /**
  * What the Reviewer may run on this Host: `checks` (git, tests, lint in a sandbox
@@ -29,3 +31,17 @@ export const reviewerDecision = (_request: PolicyRequest): ApprovalDecision =>
   ApprovalDecision.cases.Deny.make({
     reason: "The Reviewer never requests permission. Run the command inside the read-only sandbox.",
   });
+
+/** `ApprovalPolicy` for the Engine: the Reviewer's sessions get the read-only policy, others ask the user. */
+export const ReviewerPolicyLive = Layer.effect(
+  ApprovalPolicy,
+  Effect.gen(function* () {
+    const sessions = yield* ReviewerSessions;
+
+    return ApprovalPolicy.of({
+      decide: (request) =>
+        Effect.sync(() => (sessions.has(request.sessionId) ? reviewerDecision(request) : null)),
+      readOnly: (sessionId) => sessions.has(sessionId),
+    });
+  })
+);

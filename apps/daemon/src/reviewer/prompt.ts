@@ -7,10 +7,10 @@ import type { RiskFinding } from "@polaris/protocol";
 import { changedFilesSection, diffSection } from "./changedFiles.ts";
 import type { ChangeDiff } from "./diff.ts";
 import { reviewerOutputJsonSchema } from "./output.ts";
+import { REVIEWER_MARKER } from "./markers.ts";
 import type { ReviewerShell } from "./policy.ts";
 
-/** Marks a Reviewer prompt; the bench Harness answers it with schema output. */
-export const REVIEWER_MARKER = "<!-- polaris:reviewer -->";
+export { REVIEWER_MARKER } from "./markers.ts";
 
 export interface ReviewPromptInput {
   /** "Pull request #12: Title", or the Agent Session's title. */

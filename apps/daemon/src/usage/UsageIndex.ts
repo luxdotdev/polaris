@@ -5,13 +5,7 @@
  * Nothing runs on a timer when idle.
  */
 import { join } from "node:path";
-import {
-  type HarnessKind,
-  PlanLimit,
-  type SessionId,
-  UsageReport,
-  UsageStreamItem,
-} from "@polaris/protocol";
+import { PlanLimit, UsageReport, UsageStreamItem } from "@polaris/protocol";
 import {
   Clock,
   Context,
@@ -39,34 +33,15 @@ import { openUsageDb } from "./db.ts";
 import { codexHome, type Env, GC_EVERY_BYTES, type UsageHarness } from "./indexer.ts";
 import { passScheduler } from "./passes.ts";
 import { queryBuckets } from "./query.ts";
-import { queryResponses, type UsageResponseQuery, type UsageResponses } from "./responses.ts";
+import { queryResponses, type UsageResponseQuery } from "./responses.ts";
+import { type UsageQuery, UsageIndex } from "./service.ts";
 import { SessionActivity, UsageSessions } from "./sessions.ts";
 import { inProcessRunner } from "./runner.ts";
 import { writerOver } from "./writer.ts";
 
 const HARNESSES: ReadonlyArray<UsageHarness> = ["claude", "codex"];
 
-export interface UsageQuery {
-  readonly from: string;
-  readonly to: string;
-  readonly harness: HarnessKind | null;
-  readonly sessionId: SessionId | null;
-}
-
-export class UsageIndex extends Context.Service<
-  UsageIndex,
-  {
-    /** Brings the index up to date with the logs (only what was appended since the last pass). */
-    readonly refresh: (harnesses?: ReadonlyArray<UsageHarness>) => Effect.Effect<void>;
-    /** Answers from the index, once a pass it starts has finished or ~250 ms have passed. */
-    readonly query: (query: UsageQuery) => Effect.Effect<UsageReport>;
-    readonly responses: (query: UsageResponseQuery) => Effect.Effect<UsageResponses>;
-    /** Every known Plan Limit, then Usage and Plan Limit changes; watches the logs while subscribed. */
-    readonly changes: Stream.Stream<UsageStreamItem>;
-    /** The latest value of every Plan Limit window known (the Reviewer's near-limit note). */
-    readonly planLimits: Effect.Effect<ReadonlyArray<PlanLimit>>;
-  }
->()("polaris/daemon/usage/UsageIndex") {}
+export { UsageIndex, type UsageQuery } from "./service.ts";
 
 export interface UsageIndexOptions {
   /** Where the logs are found (`HOME`, `CLAUDE_CONFIG_DIR`, `CODEX_HOME`); the Daemon's by default. */

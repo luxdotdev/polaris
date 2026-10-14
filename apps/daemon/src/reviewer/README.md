@@ -4,9 +4,11 @@ The Agent layer of a Risk Summary (CONTEXT.md: Reviewer, Risk Summary, Risk Find
 
 ## Interface (`index.ts`)
 
-- `Reviewer` (`ReviewerLive(options)`): `run`, `ask`, `settings`, `setSettings`. Served by `ReviewerRpcs.ts`: `review.runRiskSummary`, `review.askFinding`, `review.reviewerSettings`, `review.setReviewerSettings`.
-- `ReviewerSessions` and `ReviewerPolicyLive`: the Reviewer's sessions, and the Engine's `ApprovalPolicy` that answers their approvals. Provide one `ReviewerSessions` to both (see `../transport/serve.ts`).
-- `automaticRun`: what starts a summary without a Client asking.
+- `Reviewer` (`ReviewerLive(options)`; the tag lives in `service.ts`): `run`, `runAutomatic`, `ask`, `settings`, `setSettings`. Served by `ReviewerRpcs.ts`: `review.runRiskSummary`, `review.askFinding`, `review.reviewerSettings`, `review.setReviewerSettings`.
+- `ReviewerSessions` and `ReviewerPolicyLive` (`policy.ts`): the Reviewer's sessions, and the Engine's `ApprovalPolicy` that answers their approvals. Provide one `ReviewerSessions` to both (see `../transport/serve.ts`).
+- `automaticRun` and `followAutomatic` (`automatic.ts`): what starts a summary without a Client asking, and the store subscription that starts it.
+
+**Loaded on first use.** The Daemon mounts `../transport/lazyReviewer.ts`: from start it registers the Reviewer's sessions (`registerReviewerSessions`, for the policy) and follows the automatic runs, both from light modules; `index.ts` and the rest load on the first run or request. A restart that left a summary or a walkthrough running (`needsReviewerStartup`) loads it at once, so recovery fails them before Clients connect.
 
 ## A Risk Summary
 

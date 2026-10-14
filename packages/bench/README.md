@@ -21,7 +21,8 @@ Each scenario run gets a **fresh Daemon** with a throwaway `POLARIS_HOME` (under
 | `--runs N` | Run each scenario N times (fresh Daemons every time); every metric reports the median, with the min–max range. |
 | `--json PATH` | Also write the result JSON to PATH. |
 | `--compare PATH` | Compare with a baseline JSON; exits 1 on a regression beyond tolerance. |
-| `--fail-on KINDS` | Which metric kinds gate `--compare` (default all): `memory,cpu,latency,time,throughput,count`, or `none`. |
+| `--fail-on GATES` | What gates `--compare` (default all kinds): kinds from `memory,cpu,latency,time,throughput,count`, single metrics as `scenario.metric` (e.g. `cold-start.startup_modules`), or `none`; `-scenario.metric` drops one metric from the gate. |
+| `--gate-same-machine` | Narrow the gates when the baseline is from another machine: memory, counts and named metrics gate only on the baseline's OS, arch and core count; CPU, latency, time and throughput only on its CPU model. The rest is compared and reported without failing (CI). |
 | `--save-baseline` | Write the result to `baselines/<machine>[-quick].json`. |
 | `--markdown PATH` | Append a Markdown summary (e.g. `$GITHUB_STEP_SUMMARY`). |
 | `--profile` | CPU profile and heap snapshot for each scenario run (below). |
@@ -36,7 +37,7 @@ Sizes are full / `--quick`.
 
 | Scenario | What it does | Key metrics |
 |---|---|---|
-| `cold-start` | Spawns the Daemon 5 / 3 times; polls `hello` on the socket every 2 ms. | `hello_ms` (spawn → first successful hello), `rss_settled_mib` and `footprint_settled_mib` 2 s later, `bridge_connect_ms` (spawn `polaris bridge` → hello). |
+| `cold-start` | Spawns the Daemon 5 / 3 times; polls `hello` on the socket every 2 ms. | `hello_ms` (spawn → first successful hello), `rss_settled_mib` and `footprint_settled_mib` 2 s later, `startup_modules` (modules loaded by the time the Daemon listens, from `POLARIS_DEBUG_MODULES`; held to 3% or 5 modules, since it has no noise; not reported for a compiled binary), `bridge_connect_ms` (spawn `polaris bridge` → hello). |
 | `idle` | 3 Workspaces (git repos), 6 Agent Sessions that ran a Turn and went Dormant across a Daemon restart. 30 s / 10 s with one Client subscribed, then the same with none, beside a bare Bun process as the floor. | CPU % (100 = one core), wakeups/s, RSS. Notes flag CPU or wakeups above the bare-Bun floor. |
 | `prediction-context` | Authenticated context RPC before Trust, local imported signatures, warm requests and imported-file edit invalidation, followed by an idle window. No language server or model server. | Cold and warm p50/p95 latency, piece count, idle CPU and RSS. |
 | `sessions` | Concurrent Agent Sessions on the scripted Harness: phases `m10`, `m50`, `m50c4` (C = Clients, all subscribed to every session) / `m5`, `m10c3`, then `burst` and `repeat`. Realistic Turns: 10 items, 6 of them streaming 20 deltas at 50/s, one approval. | `dispatch_ack`, `dispatch_to_event` (SendTurn → its `TurnStarted` at the Client), `delta_latency` (Harness emit → Client receive, from the timestamp in each delta), `event_latency` (commit → Client, 1 ms resolution), `approval_round_trip`, CPU, peak RSS; `burst.deltas_per_s` (one session streaming without pause: the pipeline's ceiling); `rss_growth_mib` and `rss_growth_repeat_mib` (the biggest phase again: a leak steps up twice). |
@@ -105,11 +106,20 @@ bun run bench --quick --runs 3 --save-baseline        # writes baselines/<machin
 
 and commit it with a message saying why the numbers moved. Never regenerate a baseline to make a regression disappear: fix it, or explain it in the commit.
 
-**CI** (`.github/workflows/ci.yml`, job `bench`): `--quick` on `ubuntu-latest`, summary in the job's step summary, result JSON uploaded as the `bench-result` artifact. **Memory gates** against `baselines/ci-ubuntu-latest-quick.json` (`--fail-on memory --gate-same-machine`); latency and CPU never gate, shared runners being too noisy.
+**CI** (`.github/workflows/ci.yml`, job `bench`): `--quick` on `ubuntu-latest`, summary in the job's step summary, result JSON uploaded as the `bench-result` artifact. It gates against `baselines/ci-ubuntu-latest-quick.json` with `--fail-on memory,cold-start.startup_modules,-git.rss_peak_mib,-blobs.upload_rss_peak_over_base_mib --gate-same-machine`: **memory** and the **start-up module count**, less the git and upload RSS peaks (single-sample maxima that doubled run to run across 26 CI runs), on any runner with the baseline's OS, arch and core count. Latency, time, throughput and CPU never gate in CI, shared runners being too noisy.
 
-- GitHub hands out different CPU models: 6 of the first 7 runs landed on AMD EPYC 7763 and one on EPYC 9V74. The baseline is the median of four EPYC 7763 runs, taken from their `bench-result` artifacts (runs 36520536925, 36520918737, 36726922076 and 36728856352, commits `9804a16` to `3b8b28d`). With `--gate-same-machine`, a run on another CPU model is compared and reported but doesn't fail.
-- Across those four runs, steady memory agreed within a few percent (idle RSS 100–104 MiB). The 30–80% jump seen earlier was the ENG-196 performance work landing between runs, not the CPU.
-- **Refreshing it** (after an intended change): download the `bench-result` artifacts of a few `main` runs on the same CPU (`gh run download <id> -n bench-result`), take each metric's median, and commit the file with a message saying why the numbers moved. A single run also works, since its `env` names its CPU. Never refresh it to make a regression disappear.
+- **Memory doesn't depend on the CPU model; timings do.** GitHub hands the 4-core `ubuntu-latest` runners out on AMD EPYC 7763, 9V74 and 9V45 and on Intel Xeon. Across 26 runs on 2026-10-13, steady memory agreed within a few MiB on all of them (sessions `rss_before_mib` 112.9–118.1, cold-start `rss_settled_mib` 110.6–115.5), while `burst.deltas_per_s` ranged from 37k (EPYC 7763) to 78k (EPYC 9V45). So memory gates on OS + arch + core count, and timings would gate only on the same CPU model.
+- **Why the core count.** The earlier baseline was keyed to the CPU model of a 2-core runner; once the runners became 4-core, no run matched it and `--gate-same-machine` never gated anything. A different core count still disables the gate (memory was only shown to agree within one runner shape), and the job's log says `not gating memory, …` with both machines' classes; refresh the baseline when that happens.
+- **The module count has no noise.** Each Polaris or dependency module the Daemon imports at start costs about 0.1 MiB, and the count is the same on every run of a commit. A feature that adds a dozen eager imports fails it: load the feature on first use (see `apps/daemon/src/transport/lazy*.ts`), or explain the growth and refresh the baseline.
+- **Refreshing it** (after an intended change, or a new runner shape): download the `bench-result` artifacts of a few recent `main` runs, any CPU model, and merge them; each metric becomes its median:
+
+  ```sh
+  gh run list --workflow ci.yml --branch main --limit 5 --json databaseId -q '.[].databaseId'
+  gh run download <id> -n bench-result -D /tmp/bench-ci/<id>     # for each id
+  bun packages/bench/src/merge.ts packages/bench/baselines/ci-ubuntu-latest-quick.json /tmp/bench-ci/*/bench-result.json
+  ```
+
+  `merge.ts` refuses results from different OS, arch or core counts, and names the merged baseline for the CPUs it spans (`linux-x64-4c-mixed`), so its timings gate no CPU model. Commit it with a message saying why the numbers moved. Never refresh it to make a regression disappear.
 
 ## Comparing and tolerances
 
@@ -141,6 +151,7 @@ The hooks live in the Daemon, off by default (`apps/daemon/src/debug.ts`):
 
 - `POLARIS_DEBUG_DIR=<dir>`: `SIGUSR1` runs a full GC and writes a heap snapshot into `<dir>` (SIGUSR2 is taken by upgrades).
 - `POLARIS_DEBUG_STATS_MS=<ms>`: one JSON line on stderr every `<ms>` with `process.memoryUsage()` and the event-loop lag, for watching a live Daemon.
+- `POLARIS_DEBUG_MODULES=1`: once listening, one JSON line on stderr with how many modules start-up loaded (`cold-start` reads it).
 
 ## Adding a scenario
 

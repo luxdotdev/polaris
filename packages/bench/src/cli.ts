@@ -11,7 +11,13 @@
  */
 import { appendFileSync, copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
-import { BUSY_BACKGROUND_CORES, type Comparison, compare, gatingKinds } from "./compare.ts";
+import {
+  BUSY_BACKGROUND_CORES,
+  type Comparison,
+  compare,
+  gatingKinds,
+  memoryClass,
+} from "./compare.ts";
 import { REPO_ROOT, type TransportKind } from "./daemon.ts";
 import { environment, measureBackgroundCores } from "./env.ts";
 import { renderComparison, renderMarkdown, renderResult } from "./report.ts";
@@ -47,10 +53,13 @@ scenarios: ${SCENARIOS.map((s) => s.name).join(", ")} (default: all)
   --runs N              runs per scenario, each with fresh Daemons (default 1); medians are reported
   --json PATH           also write the result JSON to PATH
   --compare PATH        compare with a baseline; exit 1 on regressions beyond tolerance
-  --fail-on KINDS       comma-separated kinds that gate --compare (default: all):
-                        ${ALL_KINDS.join(",")}
-  --gate-same-machine   gate --compare only when the baseline is from this machine (CPU model);
-                        otherwise compare and report without failing (CI)
+  --fail-on GATES       comma-separated kinds that gate --compare (default: all):
+                        ${ALL_KINDS.join(",")}; or single metrics as scenario.metric
+                        (e.g. cold-start.startup_modules), -scenario.metric to drop
+                        one; none for no gate
+  --gate-same-machine   gate memory and counts only on the baseline's OS, arch and core count,
+                        and CPU, latency, time and throughput only on its CPU model; the rest
+                        is compared and reported without failing (CI)
   --save-baseline       write the result to packages/bench/baselines/<machine>.json
   --markdown PATH       append a Markdown summary to PATH (e.g. $GITHUB_STEP_SUMMARY)
   --profile             CPU profile + heap snapshot at peak for each scenario run
@@ -64,7 +73,7 @@ interface Args {
   runs: number;
   json: string | null;
   compare: string | null;
-  failOn: Set<MetricKind>;
+  failOn: Set<string>;
   gateSameMachine: boolean;
   saveBaseline: boolean;
   markdown: string | null;
@@ -76,18 +85,23 @@ interface Args {
 
 const isMetricKind = (kind: string): kind is MetricKind => ALL_KINDS.some((k) => k === kind);
 
-/** `--fail-on memory,cpu` (or `none`): the metric kinds that gate `--compare`. */
-const parseFailOn = (value: string): Set<MetricKind> => {
-  const kinds = value
+const isMetricName = (gate: string) => /^[\w-]+\.[\w.-]+$/.test(gate);
+
+/** `--fail-on memory,cold-start.startup_modules,-git.rss_peak_mib` (or `none`): kinds and metrics that gate `--compare`; `-` drops one. */
+const parseFailOn = (value: string): Set<string> => {
+  const gates = value
     .split(",")
     .map((k) => k.trim())
     .filter(Boolean);
 
-  for (const k of kinds) {
-    if (!isMetricKind(k) && k !== "none") throw new Error(`unknown kind ${k}`);
+  for (const gate of gates) {
+    const excluded = gate.startsWith("-") && isMetricName(gate.slice(1));
+
+    if (!isMetricKind(gate) && !isMetricName(gate) && !excluded && gate !== "none")
+      throw new Error(`unknown kind ${gate}`);
   }
 
-  return new Set(kinds.filter(isMetricKind));
+  return new Set(gates.filter((gate) => gate !== "none"));
 };
 
 const parseTransport = (value: string): TransportKind => {
@@ -105,7 +119,7 @@ const parseArgs = (argv: ReadonlyArray<string>): Args => {
     runs: 1,
     json: null,
     compare: null,
-    failOn: new Set(ALL_KINDS),
+    failOn: new Set<string>(ALL_KINDS),
     gateSameMachine: false,
     saveBaseline: false,
     markdown: null,
@@ -214,9 +228,11 @@ const compareWithBaseline = (
   const baseline = parseBenchResult(readFileSync(baselinePath, "utf8"));
   const failOn = gatingKinds(baseline, result, args.failOn, args.gateSameMachine);
 
-  if (failOn.size === 0 && args.failOn.size > 0) {
+  const ungated = [...args.failOn].filter((kind) => !failOn.has(kind));
+
+  if (ungated.length > 0) {
     console.log(
-      `\nnot gating: the baseline is from ${baseline.env.machineSlug}, this run is ${result.env.machineSlug}`
+      `\nnot gating ${ungated.join(", ")}: the baseline is from ${baseline.env.machineSlug} (${memoryClass(baseline.env)}), this run is ${result.env.machineSlug} (${memoryClass(result.env)})`
     );
   }
 

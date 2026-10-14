@@ -2,7 +2,7 @@
 import { QueryUsage, WatchUsage } from "@polaris/protocol";
 import { Effect } from "effect";
 import { RpcGroup } from "effect/rpc";
-import { UsageIndex } from "./UsageIndex.ts";
+import { UsageIndex } from "./service.ts";
 
 export class UsageRpcs extends RpcGroup.make(QueryUsage, WatchUsage) {}
 

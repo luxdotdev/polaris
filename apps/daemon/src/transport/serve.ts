@@ -10,13 +10,12 @@ import * as BunRuntime from "@effect/platform-bun/BunRuntime";
 import { supportsTrash } from "../files/trash.ts";
 import { type Capability, HARNESS_CATALOGUE } from "@polaris/protocol";
 import { Effect, Layer } from "effect";
-import { AcceptRpcsLive } from "../accept/AcceptRpcs.ts";
 import { AttachmentRpcsLive } from "../attachments/AttachmentRpcs.ts";
 import { AttachmentStoreLive } from "../attachments/AttachmentStore.ts";
 import { ConstellationLiveness } from "../constellation/liveness.ts";
 import { ConstellationHarness } from "../constellation/composition/attachments.ts";
 import { lazyConstellationHandlers, lazyHostResources } from "./lazy.ts";
-import { installDebugHooks } from "../debug.ts";
+import { installDebugHooks, reportStartupModules } from "../debug.ts";
 import { Engine } from "../engine/Engine.ts";
 import { EngineRpcHandlers } from "../engine/rpc.ts";
 import { FileSearchLive } from "../files/FileSearch.ts";
@@ -28,8 +27,9 @@ import { CheckpointsLive } from "../git/Checkpoints.ts";
 import { GitRpcsLive } from "../git/GitRpcs.ts";
 import { ReviewCheckoutGitLive } from "../git/ReviewCheckoutGit.ts";
 import { ReviewReadRpcsLive } from "../review/ReviewRpcs.ts";
-import { ReviewerLive, ReviewerPolicyLive, ReviewerSessions } from "../reviewer/index.ts";
+import { ReviewerPolicyLive } from "../reviewer/policy.ts";
 import { ReviewerRpcsLive } from "../reviewer/ReviewerRpcs.ts";
+import { ReviewerSessions } from "../reviewer/sessions.ts";
 import { RulesLive } from "../rules/index.ts";
 import { WorktreeTrackerLive } from "../git/WorktreeTracker.ts";
 import { Availability, AvailabilityRpcsLive } from "../harness/availability/index.ts";
@@ -42,11 +42,15 @@ import { takeHandoff } from "../service/upgrade.ts";
 import { EventStore } from "../store/EventStore.ts";
 import { TerminalRpcsLive } from "../terminal/TerminalRpcs.ts";
 import { TerminalsDaemonLive } from "../terminal/Terminals.ts";
-import { UsageIndexLive, UsageRpcsLive, UsageSessions } from "../usage/index.ts";
+import { UsageRpcsLive } from "../usage/UsageRpcs.ts";
+import { UsageSessions } from "../usage/sessions.ts";
 import { ResourceRpcsLive } from "../resources/rpc.ts";
 import { startServer } from "./server.ts";
 import { armShutdownGrace, deadline, exitStuck, STARTUP_DEADLINE_MS } from "./deadline.ts";
+import { lazyAcceptHandlers } from "./lazyAccept.ts";
 import { lazyLanguageHandlers } from "./lazyLanguages.ts";
+import { lazyReviewer } from "./lazyReviewer.ts";
+import { lazyUsage } from "./lazyUsage.ts";
 
 /** Exit status when another Daemon already holds the lock or answers on the socket. */
 export const SERVE_EXIT_ALREADY_RUNNING = 75;
@@ -55,11 +59,10 @@ export const SERVE_EXIT_ALREADY_RUNNING = 75;
 const bench = process.env.POLARIS_BENCH_HARNESS === "1";
 
 /**
- * The Usage index and the Plan Limit sink the drivers report to. The index
- * opens nothing until a Client asks for Usage; `usage.watch` seeds Codex's
- * last Plan Limits from its rollout logs.
+ * The Usage index and the Plan Limit sink the drivers report to, loaded on
+ * first use; `usage.watch` seeds Codex's last Plan Limits from its rollout logs.
  */
-const usageServices = UsageIndexLive(bench ? {} : { planLimitSeed: latestRolloutLimits() }).pipe(
+const usageServices = lazyUsage(bench ? {} : { planLimitSeed: latestRolloutLimits() }).pipe(
   Layer.provide(UsageSessions.layer)
 );
 
@@ -94,7 +97,7 @@ const engineServices = Layer.mergeAll(Engine.layer, releaseWhenQuiet()).pipe(
   Layer.provideMerge(EventStore.layerLive)
 );
 
-const daemonServices = ReviewerLive().pipe(Layer.provideMerge(engineServices));
+const daemonServices = lazyReviewer.pipe(Layer.provideMerge(engineServices));
 
 /** Every real handler layer the Daemon mounts. Compose new modules' layers here. */
 export const daemonHandlers = Layer.mergeAll(
@@ -114,7 +117,7 @@ export const daemonHandlers = Layer.mergeAll(
   AvailabilityRpcsLive,
   UsageRpcsLive,
   ReviewReadRpcsLive,
-  AcceptRpcsLive,
+  lazyAcceptHandlers,
   ReviewerRpcsLive,
   TerminalRpcsLive.pipe(Layer.provide(TerminalsDaemonLive))
 ).pipe(Layer.provide(daemonServices));
@@ -219,6 +222,8 @@ export const serveProgram = Effect.scoped(
 
     // Return temporary startup allocations once every handler and listener is installed.
     yield* releaseMemory;
+
+    reportStartupModules();
 
     yield* Effect.logInfo(`polaris Daemon listening on ${server.socketPath}`);
 

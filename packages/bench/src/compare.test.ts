@@ -4,6 +4,7 @@ import { summarize } from "./stats.ts";
 import {
   type AggregatedMetric,
   type BenchResult,
+  type Environment,
   type Metric,
   type MetricKind,
   parseBenchResult,
@@ -19,7 +20,11 @@ const agg = (m: Metric): AggregatedMetric => ({
 const metric = (kind: MetricKind, value: number, better: "lower" | "higher" = "lower") =>
   agg({ value, unit: "", kind, better });
 
-const result = (metrics: Record<string, AggregatedMetric>, slug = "m"): BenchResult => ({
+const result = (
+  metrics: Record<string, AggregatedMetric>,
+  slug = "m",
+  env: Partial<Environment> = {}
+): BenchResult => ({
   schema: 1,
   env: {
     machine: "m",
@@ -37,6 +42,7 @@ const result = (metrics: Record<string, AggregatedMetric>, slug = "m"): BenchRes
     transport: "bridge",
     sampler: "ps",
     date: "",
+    ...env,
   },
   options: { quick: true, runs: 1, profile: false, scenarios: ["s"] },
   scenarios: { s: { metrics, notes: [], durationMs: 1 } },
@@ -119,7 +125,8 @@ describe("compare", () => {
         lat: metric("latency", 100),
         info: agg({ value: 1, unit: "", kind: "memory", better: "lower", info: true }),
       },
-      "other"
+      "other",
+      { cores: 2 }
     );
 
     const c = compare(base, current, new Set(["memory"]));
@@ -128,6 +135,23 @@ describe("compare", () => {
     expect(c.rows.find((r) => r.metric === "info")?.status).toBe("new");
     expect(c.rows.find((r) => r.metric === "gone")?.status).toBe("missing");
     expect(c.warnings.some((w) => w.includes("not comparable"))).toBe(true);
+  });
+
+  test("a gate named scenario.metric gates that metric alone, whatever its kind", () => {
+    const base = result({ modules: metric("count", 500), wakeups: metric("count", 40) });
+    const current = result({ modules: metric("count", 700), wakeups: metric("count", 80) });
+
+    const c = compare(base, current, new Set(["s.modules"]));
+    expect(c.regressions.map((r) => r.metric)).toEqual(["modules"]);
+  });
+
+  test("-scenario.metric drops one metric from its kind's gate and still reports it", () => {
+    const base = result({ rss: metric("memory", 100), peak: metric("memory", 166) });
+    const current = result({ rss: metric("memory", 150), peak: metric("memory", 330) });
+
+    const c = compare(base, current, new Set(["memory", "-s.peak"]));
+    expect(c.regressions.map((r) => r.metric)).toEqual(["rss"]);
+    expect(c.rows.find((r) => r.metric === "peak")?.status).toBe("regressed");
   });
 
   test("a run on a busy machine warns, whichever side it is", () => {
@@ -165,20 +189,43 @@ describe("compare", () => {
 });
 
 describe("gatingKinds", () => {
-  const memoryOnly = new Set<MetricKind>(["memory"]);
+  const requested = new Set<MetricKind>(["memory", "count", "latency", "throughput"]);
+
+  const runner = (cpu: string, cores = 4) =>
+    result({}, `ubuntu-${cpu}-${cores}c`, {
+      cpu,
+      cores,
+      arch: "x64",
+      os: "Ubuntu 24.04.3 LTS (Linux 6.11.0-1018-azure)",
+    });
 
   test("gates as asked on the baseline's machine", () => {
-    expect(gatingKinds(result({}, "epyc-7763"), result({}, "epyc-7763"), memoryOnly, true)).toEqual(
-      memoryOnly
+    expect(gatingKinds(runner("epyc-7763"), runner("epyc-7763"), requested, true)).toEqual(
+      requested
     );
   });
 
-  test("reports without gating on another CPU with --gate-same-machine, gates without it", () => {
+  test("on another CPU model with the same OS, arch and cores, memory and counts gate, timings don't", () => {
+    expect(gatingKinds(runner("epyc-7763"), runner("epyc-9v74"), requested, true)).toEqual(
+      new Set(["memory", "count"])
+    );
     expect(
-      gatingKinds(result({}, "epyc-7763"), result({}, "epyc-9v74"), memoryOnly, true).size
-    ).toBe(0);
-    expect(
-      gatingKinds(result({}, "epyc-7763"), result({}, "epyc-9v74"), memoryOnly, false)
-    ).toEqual(memoryOnly);
+      compare(runner("epyc-7763"), runner("epyc-9v74"), new Set()).warnings.some((w) =>
+        w.includes("memory and counts compare")
+      )
+    ).toBe(true);
+  });
+
+  test("another core count, OS or arch gates nothing with --gate-same-machine; without it, all", () => {
+    const base = runner("epyc-7763", 2);
+
+    for (const other of [
+      runner("epyc-7763", 4),
+      { ...base, env: { ...base.env, machineSlug: "graviton", arch: "arm64" } },
+      { ...base, env: { ...base.env, machineSlug: "mac", os: "macOS 27.0 (Darwin 27.0.0)" } },
+    ]) {
+      expect(gatingKinds(base, other, requested, true).size).toBe(0);
+      expect(gatingKinds(base, other, requested, false)).toEqual(requested);
+    }
   });
 });

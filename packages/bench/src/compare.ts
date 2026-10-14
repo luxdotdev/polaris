@@ -7,7 +7,13 @@
  * memory is steady run to run (a few MiB), so it is held tightly; CPU at low load
  * and tail latencies swing by tens of percent, so they are held loosely.
  */
-import type { AggregatedMetric, BenchResult, MetricKind, ScenarioResult } from "./types.ts";
+import type {
+  AggregatedMetric,
+  BenchResult,
+  Environment,
+  MetricKind,
+  ScenarioResult,
+} from "./types.ts";
 
 export const DEFAULT_TOLERANCE: Record<MetricKind, { relative: number; absolute: number }> = {
   memory: { relative: 0.1, absolute: 5 },
@@ -77,26 +83,54 @@ export const compareMetric = (
  */
 export const BUSY_BACKGROUND_CORES = 2;
 
+/** Kinds that move with the CPU model; memory and counts don't (README "CI"). */
+const CPU_BOUND_KINDS: ReadonlySet<string> = new Set<MetricKind>([
+  "cpu",
+  "latency",
+  "time",
+  "throughput",
+]);
+
 /**
- * The kinds that gate a comparison: `failOn`, or none with `sameMachineOnly` when the two
- * results come from different machines. CI uses it: GitHub's runners come with different CPU
- * models, and a baseline only gates runs on the CPU it was recorded on.
+ * What memory and counts depend on: OS, architecture and core count, not the CPU model. GitHub's
+ * 4-core runners agree within a few MiB across EPYC 7763, 9V74, 9V45 and Xeon.
+ */
+export const memoryClass = (env: Environment): string => {
+  const kernel = /\((\w+) /.exec(env.os)?.[1] ?? env.os;
+
+  return `${kernel}-${env.arch}-${env.cores}c`.toLowerCase();
+};
+
+/**
+ * What gates a comparison: `failOn` (metric kinds, or `scenario.metric` names), narrowed with
+ * `sameMachineOnly` when the results come from different machines. CI uses it: memory, counts
+ * and named metrics gate on the baseline's OS, arch and core count; CPU, latency, time and
+ * throughput only on its CPU model.
  */
 export const gatingKinds = (
   baseline: BenchResult,
   current: BenchResult,
-  failOn: ReadonlySet<MetricKind>,
+  failOn: ReadonlySet<string>,
   sameMachineOnly: boolean
-): ReadonlySet<MetricKind> =>
-  sameMachineOnly && baseline.env.machineSlug !== current.env.machineSlug ? new Set() : failOn;
+): ReadonlySet<string> => {
+  if (!sameMachineOnly || baseline.env.machineSlug === current.env.machineSlug) return failOn;
+
+  if (memoryClass(baseline.env) !== memoryClass(current.env)) return new Set();
+
+  return new Set([...failOn].filter((gate) => !CPU_BOUND_KINDS.has(gate)));
+};
 
 /** Differences in how the two results were produced that make them less comparable. */
 const environmentWarnings = (baseline: BenchResult, current: BenchResult): Array<string> => {
   const warnings: Array<string> = [];
 
-  if (baseline.env.machineSlug !== current.env.machineSlug) {
+  if (memoryClass(baseline.env) !== memoryClass(current.env)) {
     warnings.push(
       `baseline is from ${baseline.env.machineSlug}, this run is ${current.env.machineSlug}: numbers are not comparable`
+    );
+  } else if (baseline.env.machineSlug !== current.env.machineSlug) {
+    warnings.push(
+      `baseline ran on ${baseline.env.cpu}, this run on ${current.env.cpu}: memory and counts compare, CPU and timings do not`
     );
   }
 
@@ -142,7 +176,7 @@ const scenarioRows = (
   scenario: string,
   result: ScenarioResult,
   base: ScenarioResult | undefined,
-  failOn: ReadonlySet<MetricKind>
+  failOn: ReadonlySet<string>
 ): Array<ComparisonRow> => {
   const rows: Array<ComparisonRow> = [];
 
@@ -176,7 +210,11 @@ const scenarioRows = (
       change,
       allowed,
       status,
-      gating: failOn.has(m.kind) && !m.info && !b.info,
+      gating:
+        (failOn.has(m.kind) || failOn.has(`${scenario}.${metric}`)) &&
+        !failOn.has(`-${scenario}.${metric}`) &&
+        !m.info &&
+        !b.info,
     });
   }
 
@@ -202,7 +240,7 @@ const scenarioRows = (
 export const compare = (
   baseline: BenchResult,
   current: BenchResult,
-  failOn: ReadonlySet<MetricKind>
+  failOn: ReadonlySet<string>
 ): Comparison => {
   const rows = Object.entries(current.scenarios).flatMap(([scenario, result]) =>
     scenarioRows(scenario, result, baseline.scenarios[scenario], failOn)

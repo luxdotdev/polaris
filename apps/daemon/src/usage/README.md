@@ -4,6 +4,8 @@ One view of Usage (CONTEXT.md) on this Host, built from each Harness's own logs 
 
 It is a **cache, not events**. The index lives in its own SQLite file (`~/.polaris/usage.sqlite`), never in the event store. Deleting the file only costs a rebuild. A change to the schema or to what a row means bumps `SCHEMA_VERSION` in `db.ts`, and the next open starts over.
 
+**Loaded on first use.** The Daemon mounts `../transport/lazyUsage.ts`, which imports `UsageIndex.ts` on the first `usage.query`, `usage.watch` or Plan Limit a driver reports; `service.ts` holds the tag the Engine and the RPCs use. Until then no Plan Limit is known, as in an index that hasn't opened its file.
+
 Polaris never reads credentials here (ADR 0001). It reads the transcripts and rollouts the Harnesses write, and decodes only the lines that carry usage.
 
 | File | Role |
