@@ -159,7 +159,9 @@ test("every edit starts immediately, aborts its predecessor and ignores stale re
 test("offline/configuration refresh aborts pending work and clears visible ghost", async () => {
   let refresh = () => {};
 
-  let signal: AbortSignal | null = null;
+  const signals: AbortSignal[] = [];
+  let held: ((value: { text: string }) => void) | null = null;
+  let hold = false;
   let allowed = true;
 
   const view = editor("", {
@@ -169,10 +171,10 @@ test("offline/configuration refresh aborts pending work and clears visible ghost
 
       return () => {};
     },
-    request: async (_input, next) => {
-      signal = next;
+    request: (_input, signal) => {
+      signals.push(signal);
 
-      return { text: "ready" };
+      return hold ? new Promise((done) => (held = done)) : Promise.resolve({ text: "ready" });
     },
   });
 
@@ -182,7 +184,18 @@ test("offline/configuration refresh aborts pending work and clears visible ghost
   allowed = false;
   refresh();
   expect(view.state.field(ghost)).toBeNull();
-  expect(signal).not.toBeNull();
+
+  allowed = true;
+  hold = true;
+  view.dispatch({ changes: { from: 1, insert: "b" }, selection: { anchor: 2 } });
+  const pending = signals.at(-1);
+
+  expect(pending?.aborted).toBe(false);
+  refresh();
+  expect(pending?.aborted).toBe(true);
+  held?.({ text: "late" });
+  await flush();
+  expect(view.state.field(ghost)).toBeNull();
 });
 
 test("future additional edits are atomic, fenced, and applied only once on word acceptance", () => {
