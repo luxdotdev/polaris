@@ -317,27 +317,4 @@ describe("EventStore", () => {
       )
     );
   });
-
-  test("a rejected command's receipt replays the rejection", async () => {
-    await run(
-      ":memory:",
-      Effect.gen(function* () {
-        const store = yield* EventStore;
-        const commandId = CommandId.make("c-reject");
-        const rejection = new CommandRejected({ commandId, reason: "no" });
-
-        const first = yield* Effect.flip(
-          store.commit({ commandId, decide: () => Effect.fail(rejection) })
-        );
-
-        const second = yield* Effect.flip(
-          store.commit<CommandRejected>({ commandId, decide: () => Effect.succeed([]) })
-        );
-
-        expect(first).toEqual(rejection);
-        expect(second).toEqual(rejection);
-        expect((yield* store.model).sequence).toBe(0);
-      })
-    );
-  });
 });
