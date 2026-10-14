@@ -1,15 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { createHash } from "node:crypto";
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { loadBuilds, PLATFORMS, unpackArchive } from "@polaris/client/install";
 import {
@@ -21,63 +11,12 @@ import {
   verifyDownloadable,
   writeDaemonArchives,
 } from "./archives.ts";
+import { daemonDist, hash, removeDists } from "./dist.testing.ts";
 import { verifyDaemonManifest } from "./manifest.ts";
 
-const dirs: string[] = [];
-
-afterEach(() => {
-  for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
-});
+afterEach(removeDists);
 
 const VERSION = "0.1.0-alpha.3";
-
-const hash = (bytes: string | Buffer) => createHash("sha256").update(bytes).digest("hex");
-
-const fixture = () => {
-  const dist = mkdtempSync(join(tmpdir(), "polaris-archives-test-"));
-  dirs.push(dist);
-
-  const platforms = Object.fromEntries(
-    PLATFORMS.map((platform) => {
-      mkdirSync(join(dist, platform));
-
-      const files = Object.fromEntries(
-        ["polaris", "betterleaks"].map((name) => {
-          const bytes = `${platform}/${name}`;
-          writeFileSync(join(dist, platform, name), bytes);
-
-          return [
-            name,
-            {
-              sha256: hash(bytes),
-              size: Buffer.byteLength(bytes),
-              executable: name === "betterleaks",
-            },
-          ];
-        })
-      );
-
-      return [
-        platform,
-        { target: `bun-${platform}`, binary: "polaris", sha256: files.polaris!.sha256, files },
-      ];
-    })
-  );
-
-  writeFileSync(
-    join(dist, "manifest.json"),
-    JSON.stringify({
-      version: VERSION,
-      commit: "commit",
-      fff: { package: "fff", version: "1", embedded: true },
-      astGrep: { package: "ast-grep", version: "1", embedded: true },
-      betterleaks: { version: "1", file: "betterleaks" },
-      platforms,
-    })
-  );
-
-  return dist;
-};
 
 const stage = (dist: string, bundled: Parameters<typeof stageDaemon>[2]) => {
   const dest = join(dist, "staged", "daemon");
@@ -88,7 +27,7 @@ const stage = (dist: string, bundled: Parameters<typeof stageDaemon>[2]) => {
 
 describe("release Daemon archives", () => {
   test("one archive per platform with the manifest's files, a checksums file, and the download URL", () => {
-    const dist = fixture();
+    const dist = daemonDist(VERSION);
     const assets = writeDaemonArchives(dist);
 
     expect(assets.map((path) => path.split("/").at(-1))).toEqual([
@@ -121,7 +60,7 @@ describe("release Daemon archives", () => {
   });
 
   test("a tampered archive or a dev manifest is refused", () => {
-    const dist = fixture();
+    const dist = daemonDist(VERSION);
     expect(() => verifyDownloadable(dist)).toThrow("no download URL");
     writeDaemonArchives(dist);
     writeFileSync(join(dist, RELEASE_DIR, `polaris-daemon-${VERSION}-linux-x64.tar.gz`), "x");
@@ -131,7 +70,7 @@ describe("release Daemon archives", () => {
 
 describe("staging the app's Daemon", () => {
   test("a release Mac bundles only darwin-arm64 and still lists every platform", () => {
-    const dist = fixture();
+    const dist = daemonDist(VERSION);
     writeDaemonArchives(dist);
     const dest = stage(dist, bundledPlatforms({ platform: "darwin", arch: "arm64" }, true));
 
@@ -145,7 +84,7 @@ describe("staging the app's Daemon", () => {
   });
 
   test("a release Windows app bundles no Daemon files, only the manifest", () => {
-    const dist = fixture();
+    const dist = daemonDist(VERSION);
     writeDaemonArchives(dist);
     const dest = stage(dist, bundledPlatforms({ platform: "win32", arch: "x64" }, true));
 
@@ -155,7 +94,7 @@ describe("staging the app's Daemon", () => {
   });
 
   test("dev builds bundle every platform and keep the manifest as built", () => {
-    const dist = fixture();
+    const dist = daemonDist(VERSION);
     const dest = stage(dist, bundledPlatforms({ platform: "darwin", arch: "arm64" }, false));
 
     expect(readdirSync(dest).sort()).toEqual([...PLATFORMS, "manifest.json"].sort());
@@ -167,7 +106,7 @@ describe("staging the app's Daemon", () => {
   });
 
   test("the release archives never enter the app", () => {
-    const dist = fixture();
+    const dist = daemonDist(VERSION);
     writeDaemonArchives(dist);
 
     expect(existsSync(join(stage(dist, ["darwin-arm64"]), RELEASE_DIR))).toBe(false);

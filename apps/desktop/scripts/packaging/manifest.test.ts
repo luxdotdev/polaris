@@ -1,65 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { createHash } from "node:crypto";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { PLATFORMS, loadBuilds } from "@polaris/client/install";
+import { daemonDist, hash, removeDists } from "./dist.testing.ts";
 import { signDaemonBuilds, verifyDaemonManifest } from "./manifest.ts";
 import { signingCredentials, type Signing } from "./release.ts";
 
-const dirs: string[] = [];
-
-afterEach(() => {
-  for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
-});
-
-const hash = (bytes: string | Buffer) => createHash("sha256").update(bytes).digest("hex");
-
-const fixture = () => {
-  const dist = mkdtempSync(join(tmpdir(), "polaris-release-test-"));
-  dirs.push(dist);
-
-  const platforms = Object.fromEntries(
-    PLATFORMS.map((platform) => {
-      mkdirSync(join(dist, platform));
-
-      const files = Object.fromEntries(
-        ["polaris", "betterleaks"].map((name) => {
-          const bytes = `${platform}/${name}`;
-          writeFileSync(join(dist, platform, name), bytes);
-
-          return [
-            name,
-            {
-              sha256: hash(bytes),
-              size: Buffer.byteLength(bytes),
-              executable: name === "betterleaks",
-            },
-          ];
-        })
-      );
-
-      return [
-        platform,
-        { target: `bun-${platform}`, binary: "polaris", sha256: files.polaris!.sha256, files },
-      ];
-    })
-  );
-
-  writeFileSync(
-    join(dist, "manifest.json"),
-    JSON.stringify({
-      version: "0.1.0-rc.1",
-      commit: "commit",
-      fff: { package: "fff", version: "1", embedded: true },
-      astGrep: { package: "ast-grep", version: "1", embedded: true },
-      betterleaks: { version: "1", file: "betterleaks" },
-      platforms,
-    })
-  );
-
-  return dist;
-};
+afterEach(removeDists);
 
 const signing: Signing = {
   ...signingCredentials({
@@ -74,7 +21,7 @@ const signing: Signing = {
 
 describe("shipped Daemon manifest", () => {
   test("hashes signed bytes, keeps Linux builds, and survives staging for remote Host installs", () => {
-    const dist = fixture();
+    const dist = daemonDist("0.1.0-rc.1");
     const linuxBefore = readFileSync(join(dist, "linux-x64/polaris"));
     const commands: ReadonlyArray<string>[] = [];
     signDaemonBuilds(dist, signing, "/entitlements", (argv) => {
@@ -114,7 +61,7 @@ describe("shipped Daemon manifest", () => {
   });
 
   test("unsigned builds keep their manifest and never call signing tools", () => {
-    const dist = fixture();
+    const dist = daemonDist("0.1.0-rc.1");
     const before = readFileSync(join(dist, "manifest.json"));
     signDaemonBuilds(dist, null, "/entitlements", () => {
       throw new Error("unexpected signing");
@@ -123,12 +70,11 @@ describe("shipped Daemon manifest", () => {
   });
 
   test("rejects mismatched, stale or incomplete release builds", () => {
-    const dist = fixture();
+    const dist = daemonDist("0.1.0-rc.1");
     expect(() => verifyDaemonManifest(dist, "0.2.0")).toThrow("does not match release");
     writeFileSync(join(dist, "linux-x64/polaris"), "changed");
     expect(() => verifyDaemonManifest(dist)).toThrow("bytes differ");
-    const incomplete = fixture();
-    const builds = loadBuilds(incomplete);
+    const incomplete = daemonDist("0.1.0-rc.1");
     writeFileSync(
       join(incomplete, "manifest.json"),
       readFileSync(join(incomplete, "manifest.json"), "utf8").replace(
@@ -136,14 +82,13 @@ describe("shipped Daemon manifest", () => {
         '"unexpected":'
       )
     );
-    expect(builds).toHaveLength(5);
     expect(() => verifyDaemonManifest(incomplete, "0.1.0-rc.1")).toThrow(
       "missing linux-arm64-musl"
     );
   });
 
   test("a failed signer or signed selftest cannot produce a refreshed manifest", () => {
-    const dist = fixture();
+    const dist = daemonDist("0.1.0-rc.1");
     const before = readFileSync(join(dist, "manifest.json"));
     expect(() =>
       signDaemonBuilds(dist, signing, "/entitlements", () => {
