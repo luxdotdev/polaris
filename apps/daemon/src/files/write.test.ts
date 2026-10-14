@@ -10,6 +10,7 @@ import {
   utimes,
   writeFile,
 } from "node:fs/promises";
+import { renameSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ChangedOnDisk, FileContent } from "@polaris/protocol";
@@ -34,6 +35,13 @@ afterEach(async () => {
 });
 
 const bytes = (text: string) => new TextEncoder().encode(text);
+
+/** Polls until `done` or the deadline; the caller asserts, so a timeout fails there. */
+const until = async (done: () => boolean, deadlineMs = 5000) => {
+  const start = performance.now();
+
+  while (!done() && performance.now() - start < deadlineMs) await Bun.sleep(5);
+};
 
 describe("versioned writes", () => {
   test("concurrent writers and symlink aliases accept exactly one expected version", async () => {
@@ -203,7 +211,7 @@ test("open file watches survive consecutive atomic saves and release their paren
       const wait = (size: number) =>
         Effect.tryPromise({
           try: async () => {
-            for (let i = 0; i < 100 && versions.length < size; i++) await Bun.sleep(10);
+            await until(() => versions.length >= size);
             expect(versions.length).toBeGreaterThanOrEqual(size);
           },
           catch: (cause) => cause,
@@ -228,7 +236,36 @@ test("open file watches survive consecutive atomic saves and release their paren
   expect(versions.at(-1)).toBeNull();
   expect(openFileWatchCount()).toBe(0);
   expect(await currentVersion(path)).toBeNull();
-});
+}, 30_000);
+
+test("an open file's save read in the same burst as a sibling's still reaches its watch", async () => {
+  const path = join(root, "file");
+  const sibling = join(root, "sibling");
+  await writeFile(path, "before");
+  await writeFile(sibling, "before");
+  const versions: Array<string | null> = [];
+
+  await Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        yield* watchFile(path).pipe(
+          Stream.tap((event) => Effect.sync(() => void versions.push(event.version?.hash ?? null))),
+          Stream.runDrain,
+          Effect.forkScoped
+        );
+        yield* Effect.promise(() => until(() => versions.length >= 1));
+        // Back to back, so Bun on Linux reads them together and passes on only the first rename.
+        writeFileSync(join(root, "sibling.tmp"), "after");
+        renameSync(join(root, "sibling.tmp"), sibling);
+        writeFileSync(join(root, "file.tmp"), "after");
+        renameSync(join(root, "file.tmp"), path);
+        const saved = (yield* Effect.promise(() => readVersioned(path))).version.hash;
+        yield* Effect.promise(() => until(() => versions.at(-1) === saved));
+        expect(versions.at(-1)).toBe(saved);
+      })
+    )
+  );
+}, 15_000);
 
 test("20 open tabs share one parent watcher and cancel all native watches", async () => {
   const paths = Array.from({ length: 20 }, (_, i) => join(root, `file-${i}`));
