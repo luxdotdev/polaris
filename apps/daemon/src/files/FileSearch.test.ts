@@ -217,9 +217,15 @@ for (const useFff of [true, false]) {
               Effect.forkChild
             );
 
-            // Let the watcher arm (fff scans first).
+            // Let the watcher arm (fff scans first): touch a probe until a change shows up.
             yield* search.searchPaths(root, "x", 1);
-            yield* Effect.sleep("300 millis");
+            yield* Effect.promise(async () => {
+              for (let i = 0; !seen.some((c) => c.path.endsWith("probe.ts")); i++) {
+                if (i === 200) throw new Error("the watcher never armed");
+                write(root, "src/probe.ts", `${i}\n`);
+                await Bun.sleep(25);
+              }
+            });
             yield* Effect.promise(async () => {
               write(root, "src/new.ts", "new\n");
               await waitFor(() => has("src/new.ts", "created"), "created");
@@ -243,6 +249,15 @@ for (const useFff of [true, false]) {
     }, 20_000);
   });
 }
+
+/** Waits for the idle sweep to drop the index of `root`. */
+const dropped = (search: FileSearch["Service"], root: string) =>
+  Effect.gen(function* () {
+    for (let i = 0; (yield* search.backendOf(root)) !== null; i++) {
+      if (i === 200) return yield* Effect.die(new Error(`the index of ${root} was kept`));
+      yield* Effect.sleep("10 millis");
+    }
+  });
 
 describe("FileSearch lifecycle", () => {
   test("watching a missing root fails instead of hanging", async () => {
@@ -272,8 +287,7 @@ describe("FileSearch lifecycle", () => {
           expect(yield* search.backendOf(root)).toBeNull();
           yield* search.searchPaths(root, "readme", 1);
           expect(yield* search.backendOf(root)).toBe("fallback");
-          yield* Effect.sleep("150 millis");
-          expect(yield* search.backendOf(root)).toBeNull();
+          yield* dropped(search, root);
           yield* search.searchPaths(root, "readme", 1);
           expect(yield* search.backendOf(root)).toBe("fallback");
         }).pipe(Effect.provide(FileSearchLive({ useFff: false, idleMs: 50, sweepMs: 20 })))
@@ -292,8 +306,7 @@ describe("FileSearch lifecycle", () => {
           yield* search.searchPaths(root, "readme", 1);
           expect(yield* search.backendOf(root)).toBe("fff");
           expect(fffWorkerRunning()).toBe(true);
-          yield* Effect.sleep("150 millis");
-          expect(yield* search.backendOf(root)).toBeNull();
+          yield* dropped(search, root);
         }).pipe(Effect.provide(FileSearchLive({ idleMs: 50, sweepMs: 20 })))
       )
     );
@@ -302,16 +315,18 @@ describe("FileSearch lifecycle", () => {
 
   test("an index with a watcher is kept while idle", async () => {
     const root = await fixture();
+    const unwatched = await fixture();
     await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
           const search = yield* FileSearch;
           const fiber = yield* search.watch(root).pipe(Stream.runDrain, Effect.forkChild);
-          yield* Effect.sleep("150 millis");
+          // An unwatched index from the same moment going idle shows the sweep has run.
+          yield* search.searchPaths(unwatched, "readme", 1);
+          yield* dropped(search, unwatched);
           expect(yield* search.backendOf(root)).toBe("fallback");
           yield* Fiber.interrupt(fiber);
-          yield* Effect.sleep("150 millis");
-          expect(yield* search.backendOf(root)).toBeNull();
+          yield* dropped(search, root);
         }).pipe(Effect.provide(FileSearchLive({ useFff: false, idleMs: 50, sweepMs: 20 })))
       )
     );

@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import { Command, SessionId, SessionPlacement, type WorkspaceId } from "@polaris/protocol";
-import { Duration, Effect, Layer } from "effect";
+import { Clock, Duration, Effect, Layer, Scope } from "effect";
+import { TestClock } from "effect/testing";
 import { Engine } from "../engine/Engine.ts";
 import {
   cid,
@@ -11,10 +12,11 @@ import {
   makeFakes,
   tempDir,
   waitFor,
+  waitUntil,
 } from "../engine/testing.ts";
 import { HarnessEvent } from "../harness/HarnessDriver.ts";
 import { workingTurn } from "../store/model.ts";
-import { releaseWhenQuiet } from "./release.ts";
+import { QUIET_AFTER, releaseWhenQuiet } from "./release.ts";
 
 const dispatch = (command: Command) =>
   Effect.flatMap(Engine, (engine) =>
@@ -36,15 +38,38 @@ const start = (workspaceId: WorkspaceId, sessionId: SessionId) =>
     })
   );
 
+/** A TestClock that notes each timed sleep started on it, in milliseconds. */
+const recordingClock = () => {
+  const clock = Effect.runSync(
+    TestClock.make().pipe(Effect.provideService(Scope.Scope, Scope.makeUnsafe()))
+  );
+
+  const sleeps: Array<number> = [];
+
+  const recorded: TestClock.TestClock = {
+    ...clock,
+    sleep: (duration) => {
+      // A zero sleep is a yield: the debounce polls with them while the clock stands still.
+      if (Duration.toMillis(duration) > 0) sleeps.push(Duration.toMillis(duration));
+
+      return clock.sleep(duration);
+    },
+  };
+
+  return { clock: recorded, sleeps };
+};
+
 describe("releaseWhenQuiet", () => {
   test("releases once, after the last Turn in flight ends and the Daemon stays quiet", async () => {
     const claude = makeFakeDriver("claude");
-    let releases = 0;
+    const { clock, sleeps } = recordingClock();
+    const quietMs = Duration.toMillis(QUIET_AFTER);
+    // When each release ran, on the quiet timer's clock.
+    const releases: Array<number> = [];
 
     const release = releaseWhenQuiet({
-      quietAfter: Duration.millis(80),
-      release: Effect.sync(() => releases++),
-    });
+      release: Effect.sync(() => void releases.push(clock.currentTimeMillisUnsafe())),
+    }).pipe(Layer.provide(Layer.succeed(Clock.Clock)(clock)));
 
     const engine = engineLayer({
       filename: join(tempDir(), "state.sqlite"),
@@ -66,27 +91,27 @@ describe("releaseWhenQuiet", () => {
         [a, b].every((s) => m.sessions.get(s)?.session.state === "working")
       );
 
-      const end = (sessionId: SessionId) => {
-        const turnId = workingTurn(model.sessions.get(sessionId)!)!.id;
-        claude
-          .latest(sessionId)!
-          .emit(HarnessEvent.TurnEnded({ turnId, status: "completed", error: null }));
-      };
+      /** Ends the session's Turn, waits for its quiet timer and lets it run out. */
+      const endThenQuiet = (sessionId: SessionId, timers: number) =>
+        Effect.gen(function* () {
+          const turnId = workingTurn(model.sessions.get(sessionId)!)!.id;
+          claude
+            .latest(sessionId)!
+            .emit(HarnessEvent.TurnEnded({ turnId, status: "completed", error: null }));
+          yield* waitUntil(() => sleeps.length === timers);
+          yield* clock.adjust(QUIET_AFTER);
+        });
 
-      // One Turn ends while the other still runs: not quiet.
-      end(a);
-      yield* waitFor((m) => m.sessions.get(a)?.session.state === "idle");
-      yield* Effect.sleep(Duration.millis(200));
-      expect(releases).toBe(0);
-
-      end(b);
-      yield* waitFor((m) => m.sessions.get(b)?.session.state === "idle");
-      yield* Effect.sleep(Duration.millis(200));
-      expect(releases).toBe(1);
+      // One Turn ends while the other still runs: not quiet, so its timer releases nothing.
+      yield* endThenQuiet(a, 1);
+      yield* endThenQuiet(b, 2);
+      yield* waitUntil(() => releases.length > 0);
+      expect(releases).toEqual([2 * quietMs]);
 
       // Quiet stays quiet: no timer wakes an idle Daemon.
-      yield* Effect.sleep(Duration.millis(300));
-      expect(releases).toBe(1);
+      yield* clock.adjust(Duration.hours(1));
+      expect(sleeps).toEqual([quietMs, quietMs]);
+      expect(releases).toHaveLength(1);
     });
 
     await Effect.runPromise(program.pipe(Effect.provide(layer)));

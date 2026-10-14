@@ -61,6 +61,7 @@ const setup = (behaviour: string) => {
     `#!/bin/sh
 echo $$ >>${shQuote(join(root, "starts"))}
 echo $$ >${shQuote(join(root, "daemon.pid"))}
+echo $PPID >${shQuote(join(root, "parent.pid"))}
 n=$(wc -l <${shQuote(join(root, "starts"))} | tr -d ' ')
 case "$(echo ${shQuote(behaviour)} | cut -d, -f"$n")" in
   crash) exit 1 ;;
@@ -131,9 +132,11 @@ describe("fallback supervisor", () => {
   test("gives up when another Daemon already holds the lock (exit 75)", async () => {
     const sup = setup("busy");
     sup.launch();
-    await waitFor(() => sup.starts().length === 1);
-    await waitFor(() => !existsSync(join(root, "supervisor.pid")));
-    await Bun.sleep(1500);
+    await waitFor(() => sup.starts().length === 1 && existsSync(join(root, "parent.pid")));
+    // Once the supervisor that ran it has exited, nothing is left to restart it.
+    const supervisor = Number(readFileSync(join(root, "parent.pid"), "utf8"));
+    await waitFor(() => !alive(supervisor));
+    expect(existsSync(join(root, "supervisor.pid"))).toBe(false);
     expect(sup.starts()).toHaveLength(1);
   }, 20_000);
 
