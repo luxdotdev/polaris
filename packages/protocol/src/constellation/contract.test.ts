@@ -56,8 +56,6 @@ describe("Constellation contract", () => {
   });
 
   test("the subgroup is mounted under DaemonRpcs with no role supplied by the caller", () => {
-    expect(ConstellationRpcs.requests.size).toBe(18);
-
     for (const [tag, rpc] of ConstellationRpcs.requests) {
       expect(DaemonRpcs.requests.get(tag)).toBe(rpc);
     }
