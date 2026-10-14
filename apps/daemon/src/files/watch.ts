@@ -1,5 +1,5 @@
 import { type FSWatcher, watch } from "node:fs";
-import { realpath } from "node:fs/promises";
+import { realpath, stat } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { FileError, type FileVersion } from "@polaris/protocol";
 import { Cause, Effect, Option, Queue, Stream } from "effect";
@@ -11,22 +11,57 @@ interface Listener {
   readonly name?: string;
   readonly changed: (path: string) => void;
   readonly failed: (cause: unknown) => void;
+  /** The settle recheck, when it can be cheaper than `changed`. */
+  readonly recheck?: () => void;
 }
 
 interface DirectoryWatch {
   readonly watcher: FSWatcher;
   readonly listeners: Set<Listener>;
+  readonly settle: Settle;
 }
 
 const directories = new Map<string, DirectoryWatch>();
 
-/** Shared parent watches survive atomic replacements; no polling or debounce timer. */
+/** Quiet time after a directory's last event before all its listeners recheck (ADR 0046). */
+const SETTLE_MS = 20;
+
+interface Settle {
+  readonly arm: () => void;
+  readonly cancel: () => void;
+}
+
+// Bun drops an event read within 1 ms of another on the same watcher; anything it dropped
+// happened before this timer fires, so one recheck per burst catches it.
+const settler = (directory: string, listeners: Set<Listener>): Settle => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
+  const run = () => {
+    timer = undefined;
+
+    for (const item of listeners)
+      if (item.recheck) item.recheck();
+      else item.changed(join(directory, item.name ?? ""));
+  };
+
+  return {
+    arm: () => {
+      clearTimeout(timer);
+      timer = setTimeout(run, SETTLE_MS);
+      timer.unref();
+    },
+    cancel: () => clearTimeout(timer),
+  };
+};
+
+/** Shared parent watches survive atomic replacements; idle watches run no timer. */
 const subscribe = (path: string, listener: Listener): (() => void) => {
   const directory = dirname(path);
   let entry = directories.get(directory);
 
   if (!entry) {
     const listeners = new Set<Listener>();
+    const settle = settler(directory, listeners);
 
     // The Daemon listener owns process lifetime, including while tabs are open.
     const watcher = watch(directory, { persistent: false }, (_event, filename) => {
@@ -35,12 +70,13 @@ const subscribe = (path: string, listener: Listener): (() => void) => {
       for (const item of listeners)
         if (!name || item.name === undefined || name === item.name)
           item.changed(join(directory, name ?? ""));
+      settle.arm();
     });
 
     watcher.on("error", (cause) => {
       for (const item of listeners) item.failed(cause);
     });
-    entry = { watcher, listeners };
+    entry = { watcher, listeners, settle };
     directories.set(directory, entry);
   }
 
@@ -51,6 +87,7 @@ const subscribe = (path: string, listener: Listener): (() => void) => {
     current.listeners.delete(listener);
 
     if (current.listeners.size === 0) {
+      current.settle.cancel();
       current.watcher.close();
       directories.delete(directory);
     }
@@ -63,6 +100,13 @@ export const subscribeDirectoryChanges = (directory: string, changed: (path: str
     changed,
     failed: () => changed(directory),
   });
+
+/** Identity and change times; never throws, so a failed stat compares as its error code. */
+const statKey = (path: string): Promise<string> =>
+  stat(path).then(
+    (s) => `${s.dev}:${s.ino}:${s.size}:${s.mtimeMs}:${s.ctimeMs}`,
+    (cause: unknown) => `error:${toFsFailure(path, cause).code}`
+  );
 
 /** Diagnostic count for watcher lifecycle tests and benchmarks. */
 export const openFileWatchCount = () => directories.size;
@@ -98,6 +142,7 @@ export const watchFile = (input: string) => {
         let stopTarget = () => {};
 
         let target: string | null = null;
+        let seen: string | null = null;
 
         const changed = () => {
           pending = true;
@@ -116,10 +161,11 @@ export const watchFile = (input: string) => {
                 target = nextTarget;
                 stopTarget =
                   target && target !== watchedPath
-                    ? subscribe(target, { name: basename(target), changed, failed: fail })
+                    ? subscribe(target, listener(basename(target)))
                     : () => {};
               }
 
+              seen = await statKey(path);
               const version = await currentVersion(path);
 
               if (!closed && (!initialized || !sameVersion(version, last))) {
@@ -137,9 +183,17 @@ export const watchFile = (input: string) => {
             });
         };
 
+        // `seen` is taken before each read, so an unchanged stat means that read saw this content.
+        const recheck = () =>
+          void statKey(path).then((key) => {
+            if (key !== seen) changed();
+          });
+
+        const listener = (name: string): Listener => ({ name, changed, failed: fail, recheck });
+
         yield* Effect.acquireRelease(
           Effect.try({
-            try: () => subscribe(watchedPath, { name: basename(path), changed, failed: fail }),
+            try: () => subscribe(watchedPath, listener(basename(path))),
             catch: (cause) => {
               const error = toFsFailure(path, cause);
 
