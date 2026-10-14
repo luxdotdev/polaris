@@ -1,0 +1,19 @@
+{
+ "tag": "zeta-q4-frozen-ngram",
+ "fmt": "zeta-frozen",
+ "model": "/Users/lucasdoell/.cache/next-edit-spike/models/zeta-2.1.Q4_K_M.gguf",
+ "serverArgs": [
+  "--spec-type",
+  "ngram-simple",
+  "--spec-ngram-simple-size-n",
+  "8",
+  "--spec-ngram-simple-size-m",
+  "48"
+ ],
+ "memory": {
+  "rssBytes": 7332741120,
+  "footprint": "2342 MB"
+ },
+ "at": "2026-10-14T21:09:00.126Z",
+ "load": "{ 5.18 5.06 4.60 }"
+}

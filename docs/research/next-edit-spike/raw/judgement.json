@@ -1,0 +1,51 @@
+{
+ "_rules": "Hand labels for every non-exact, non-abstaining output at the scored keystroke. acceptable = I would press Tab; wrong = a rejected suggestion that leaves existing code alone; dangerous = deletes or rewrites healthy code, reverts the user's recent edit, or adds a conflicting definition.",
+ "sweep": {
+  "rn01": ["dangerous", "out of window: rewrites `platform,` to `platform: input.platform,` (drops the darwin default)"],
+  "rn04": ["dangerous", "out of window: reverts the user's 'Daemon upgrades' copy back to 'updates'"],
+  "rf06": ["dangerous", "reverts the user's `enabled: acceptable` edits"],
+  "dd06": ["dangerous", "reverts the user's simplified Control check"],
+  "im02": ["dangerous", "reverts `VERSION` to the old literal"],
+  "im04": ["dangerous", "reverts `which(name)` to `Bun.which(name)`"],
+  "im06": ["dangerous", "out of window: reverts `Predicate.isTagged` to the `_tag` comparison"],
+  "in01": ["wrong", "`env: childEnv,` (not called)"],
+  "in04": ["wrong", "invents `case \"outcome\"` with a different body"]
+ },
+ "sweep-difflast": {
+  "rn01": ["dangerous", "as sweep"],
+  "rf01": ["dangerous", "out of window: changes a healthy string literal to `background-upgrade:`"],
+  "rf06": ["dangerous", "rewrites a third, untouched `enabled: available`"],
+  "dd03": ["dangerous", "replaces the dead const with an invented `currentKeyPlatform` that shadows the import"],
+  "dd04": ["dangerous", "out of window: invents a `providers` prop across 20 healthy lines"],
+  "im02": ["dangerous", "rewrites the user's `VERSION` to `process.env.VERSION || \"0.0.0\"`"],
+  "im03": ["dangerous", "out of window: breaks a template literal and invents `childEnv`"],
+  "im04": ["dangerous", "deletes `binary` and invents a local `which`"],
+  "in01": ["wrong", "as sweep"],
+  "in04": ["wrong", "invents `case \"outcome\"`"]
+ },
+ "sweep-related": {
+  "rn01": ["dangerous", "as sweep"],
+  "rn04": ["dangerous", "as sweep (revert)"],
+  "rf01": ["dangerous", "out of window: changes a healthy string literal"],
+  "rf06": ["dangerous", "rewrites three `enabled:` values to `visibleGhost`"],
+  "dd02": ["dangerous", "out of window: reverts the user's edit (re-adds `mac` argument)"],
+  "dd06": ["dangerous", "revert"],
+  "im02": ["dangerous", "revert"],
+  "im04": ["dangerous", "revert"],
+  "im05": ["dangerous", "reverts `polaris()` to `window.polaris`"],
+  "im06": ["dangerous", "out of window: revert"],
+  "in01": ["wrong", "as sweep"],
+  "in04": ["wrong", "as sweep"]
+ },
+ "zeta": {
+  "rn07": ["wrong", "`theme: THEMES.dark` instead of `THEMES` (plausible, not the change)"],
+  "rf06": ["wrong", "defines `acceptable = () => { return available(); }`, missing the provisional check"],
+  "im04": ["wrong", "adds an empty local `which` stub instead of the import"],
+  "in01": ["dangerous", "also rewrites a healthy `};` to `});`, and `childEnv` uncalled"],
+  "in04": ["wrong", "`rank:  };` left incomplete, wrong text"]
+ },
+ "mellum": {
+  "in01": ["wrong", "`childEnv,` (not called)"],
+  "in04": ["acceptable", "`\"setup\":` — the correct first line only (single-line FIM budget)"]
+ }
+}

@@ -1,0 +1,19 @@
+{
+ "tag": "tune-zeta-simple-4-16",
+ "fmt": "zeta-frozen",
+ "model": "/Users/lucasdoell/.cache/next-edit-spike/models/zeta-2.1.Q4_K_M.gguf",
+ "serverArgs": [
+  "--spec-type",
+  "ngram-simple",
+  "--spec-ngram-simple-size-n",
+  "4",
+  "--spec-ngram-simple-size-m",
+  "16"
+ ],
+ "memory": {
+  "rssBytes": 6865502208,
+  "footprint": "1763 MB"
+ },
+ "at": "2026-10-14T20:58:38.169Z",
+ "load": "{ 4.67 4.41 4.33 }"
+}

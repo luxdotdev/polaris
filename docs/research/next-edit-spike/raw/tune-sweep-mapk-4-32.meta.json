@@ -1,0 +1,19 @@
+{
+ "tag": "tune-sweep-mapk-4-32",
+ "fmt": "sweep",
+ "model": "/Users/lucasdoell/.ollama/models/blobs/sha256-1321ea5e5d7529e60f9770c6a0b3a965f89542d16cf4ae51bab267f6a88150da",
+ "serverArgs": [
+  "--spec-type",
+  "ngram-map-k",
+  "--spec-ngram-map-k-size-n",
+  "4",
+  "--spec-ngram-map-k-size-m",
+  "32"
+ ],
+ "memory": {
+  "rssBytes": 2088321024,
+  "footprint": "530 MB"
+ },
+ "at": "2026-10-14T20:47:36.002Z",
+ "load": "{ 6.80 6.49 4.92 }"
+}

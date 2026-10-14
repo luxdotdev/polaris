@@ -1,0 +1,19 @@
+{
+ "tag": "zeta-q4-live-ngram",
+ "fmt": "zeta",
+ "model": "/Users/lucasdoell/.cache/next-edit-spike/models/zeta-2.1.Q4_K_M.gguf",
+ "serverArgs": [
+  "--spec-type",
+  "ngram-simple",
+  "--spec-ngram-simple-size-n",
+  "8",
+  "--spec-ngram-simple-size-m",
+  "48"
+ ],
+ "memory": {
+  "rssBytes": 8631812096,
+  "footprint": "4780 MB"
+ },
+ "at": "2026-10-14T21:15:13.386Z",
+ "load": "{ 4.19 5.06 4.77 }"
+}
