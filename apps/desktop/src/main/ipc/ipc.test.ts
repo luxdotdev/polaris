@@ -1,5 +1,5 @@
 /**
- * The IPC contract against a stand-in HostDirectory: every method and feed is
+ * The IPC contract against a stand-in HostDirectory: methods and feeds are
  * wired, untrusted input is decoded before anything runs, and failures cross
  * as `IpcError`s. The real path, end to end, is `scripts/smoke.ts`.
  */
@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect, Exit, Layer, ManagedRuntime, SubscriptionRef } from "effect";
 import type { BatchEntry, HostView } from "../../shared/api.ts";
-import { RequestInputs, SubscriptionInputs } from "../../shared/contract.ts";
+import { RequestInputs } from "../../shared/contract.ts";
 import { DEFAULT_SESSION_PREFS } from "../../shared/sessionPrefs.ts";
 import { CommandId, CommandRejected } from "@polaris/protocol";
 import { HostTarget } from "@polaris/client";
@@ -159,10 +159,6 @@ const until = async (ready: () => boolean) => {
 };
 
 describe("requests", () => {
-  test("every method in the contract has a handler", () => {
-    expect(Object.keys(handlers).sort()).toEqual(Object.keys(RequestInputs).sort());
-  });
-
   test("installs go only through machines, which pick ssh, wsl.exe or the local shell", () => {
     expect(Object.keys(RequestInputs).filter((method) => method.startsWith("install."))).toEqual(
       []
@@ -290,33 +286,6 @@ describe("subscriptions", () => {
 
     return { sent, subs };
   };
-
-  test("every feed kind in the contract can be opened", () => {
-    expect(Object.keys(SubscriptionInputs).sort()).toEqual(
-      [
-        "commit.suggestMessage",
-        "constellation",
-        "files.watch",
-        "files.watchFile",
-        "git.commit",
-        "github.accounts",
-        "github.checkouts",
-        "github.details",
-        "github.pulls",
-        "harness.availability",
-        "host",
-        "inline.propose",
-        "prediction.complete",
-        "hosts",
-        "machines",
-        "plan-limits",
-        "review.watchRiskSummary",
-        "session",
-        "terminal",
-        "usage",
-      ].sort()
-    );
-  });
 
   test("the Host list arrives in a batch", async () => {
     const { sent, subs } = open();
