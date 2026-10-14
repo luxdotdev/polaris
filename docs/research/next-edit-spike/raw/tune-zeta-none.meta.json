@@ -1,0 +1,12 @@
+{
+ "tag": "tune-zeta-none",
+ "fmt": "zeta-frozen",
+ "model": "/Users/lucasdoell/.cache/next-edit-spike/models/zeta-2.1.Q4_K_M.gguf",
+ "serverArgs": [],
+ "memory": {
+  "rssBytes": 6693339136,
+  "footprint": "1930 MB"
+ },
+ "at": "2026-10-14T20:54:25.890Z",
+ "load": "{ 2.80 3.98 4.25 }"
+}

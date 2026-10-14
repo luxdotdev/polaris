@@ -1,0 +1,9 @@
+
+from utils import get_time_of_day
+
+def greet(name):
+    time_of_day = get_time_of_day()
+    print(f"Hello, {name}! Good {time_of_day}.")
+
+greet("Alice")
+

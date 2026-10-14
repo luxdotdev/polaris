@@ -1,0 +1,12 @@
+{
+ "tag": "tune-sweep-none2",
+ "fmt": "sweep",
+ "model": "/Users/lucasdoell/.ollama/models/blobs/sha256-1321ea5e5d7529e60f9770c6a0b3a965f89542d16cf4ae51bab267f6a88150da",
+ "serverArgs": [],
+ "memory": {
+  "rssBytes": 2050359296,
+  "footprint": "523 MB"
+ },
+ "at": "2026-10-14T20:50:30.877Z",
+ "load": "{ 5.74 5.44 4.71 }"
+}

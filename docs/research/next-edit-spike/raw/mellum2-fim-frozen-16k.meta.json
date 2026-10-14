@@ -1,0 +1,12 @@
+{
+ "tag": "mellum2-fim-frozen-16k",
+ "fmt": "mellum-frozen-16k",
+ "model": "/Users/lucasdoell/.ollama/models/blobs/sha256-f3e8821e643aa89213ecf00d36cb82564efe1a1b8d84de8901ca4c89b960b414",
+ "serverArgs": [],
+ "memory": {
+  "rssBytes": 8173010944,
+  "footprint": "1385 MB"
+ },
+ "at": "2026-10-14T21:31:13.265Z",
+ "load": "{ 5.04 8.59 7.50 }"
+}

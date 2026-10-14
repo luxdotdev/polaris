@@ -1,0 +1,15 @@
+{
+ "tag": "tune-sweep-simple-def",
+ "fmt": "sweep",
+ "model": "/Users/lucasdoell/.ollama/models/blobs/sha256-1321ea5e5d7529e60f9770c6a0b3a965f89542d16cf4ae51bab267f6a88150da",
+ "serverArgs": [
+  "--spec-type",
+  "ngram-simple"
+ ],
+ "memory": {
+  "rssBytes": 2071511040,
+  "footprint": "532 MB"
+ },
+ "at": "2026-10-14T20:45:53.885Z",
+ "load": "{ 12.83 6.88 4.84 }"
+}

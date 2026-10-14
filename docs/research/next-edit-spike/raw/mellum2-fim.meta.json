@@ -1,0 +1,12 @@
+{
+ "tag": "mellum2-fim",
+ "fmt": "mellum",
+ "model": "/Users/lucasdoell/.ollama/models/blobs/sha256-f3e8821e643aa89213ecf00d36cb82564efe1a1b8d84de8901ca4c89b960b414",
+ "serverArgs": [],
+ "memory": {
+  "rssBytes": 8239775744,
+  "footprint": "1533 MB"
+ },
+ "at": "2026-10-14T21:30:21.967Z",
+ "load": "{ 4.38 9.35 7.69 }"
+}
