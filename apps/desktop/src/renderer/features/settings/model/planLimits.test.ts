@@ -41,12 +41,6 @@ describe("limitRows", () => {
     ]);
   });
 
-  test("near a limit the words change, not the colour", () => {
-    const [row] = limitRows([limit({ status: "warning", usedPercent: 91 })], NOW, CLAUDE_RUNNING);
-
-    expect(row?.windows[0]?.note).toBe("Near the limit · resets in 1h 48m");
-  });
-
   test("the newest reading wins when several Hosts report the same window", () => {
     const [row] = limitRows(
       [

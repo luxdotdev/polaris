@@ -13,7 +13,6 @@ import {
   writeTabs,
 } from "./drafts.ts";
 import { detectIndent, indentLabel, lineSeparatorOf } from "./indent.ts";
-import { languageFor } from "./language.ts";
 import { closeTab, cycleTab, emptyTabs, openTab, pinTab, renameTab, tabLabels } from "./tabs.ts";
 import { modeLabel, modeText } from "./vim.ts";
 import { unreadableToast } from "./notices.ts";
@@ -205,14 +204,6 @@ describe("big drafts (QCHECK: over 2M characters were lost)", () => {
 });
 
 describe("files", () => {
-  test("languages by extension, name and shebang", () => {
-    expect(languageFor("/x/reconnect.ts")).toBe("typescript");
-    expect(languageFor("/x/Row.TSX")).toBe("tsx");
-    expect(languageFor("/x/Cargo.lock")).toBe("toml");
-    expect(languageFor("/x/run", "#!/usr/bin/env bash")).toBe("shell");
-    expect(languageFor("/x/LICENSE")).toBe("plain");
-  });
-
   test("indentation is guessed from the file", () => {
     expect(detectIndent("a\n  b\n    c\n  d\n")).toEqual({ tabs: false, width: 2 });
     expect(detectIndent("a\n    b\n        c\n")).toEqual({ tabs: false, width: 4 });

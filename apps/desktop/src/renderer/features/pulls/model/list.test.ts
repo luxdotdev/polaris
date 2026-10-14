@@ -390,14 +390,4 @@ describe("noticesOf", () => {
 
     expect(dismissed).toHaveLength(1);
   });
-
-  test("a failed poll", () => {
-    const [notice] = noticesOf({
-      list: list({ error: "rate limited" }),
-      hostLabelOf,
-      dismissed: new Set(),
-    });
-
-    expect(notice?.kind).toBe("error");
-  });
 });

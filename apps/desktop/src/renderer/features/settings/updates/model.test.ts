@@ -16,15 +16,15 @@ const view = (patch: Partial<AppUpdateView> = {}): AppUpdateView => ({
 });
 
 describe("About Update states", () => {
-  test("Windows install guidance names Setup.exe and Explorer", () => {
-    expect(appUpdateRow(view({ platform: "win32", phase: "blocked" }))).toMatchObject({
-      caption: "Install Polaris with Setup.exe, then check again",
-      actionLabel: "Show in Explorer",
-    });
+  test("Windows install guidance names Setup.exe", () => {
+    expect(appUpdateRow(view({ platform: "win32", phase: "blocked" })).caption).toBe(
+      "Install Polaris with Setup.exe, then check again"
+    );
     expect(appUpdateRow(view({ platform: "win32", supported: false })).title).toContain(
       "installed Windows app"
     );
   });
+
   test("the reveal action names each platform's file manager", () => {
     const label = (platform: string) =>
       appUpdateRow(view({ platform, phase: "blocked" })).actionLabel;
