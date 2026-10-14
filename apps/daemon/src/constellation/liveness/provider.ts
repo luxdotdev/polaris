@@ -54,6 +54,9 @@ export const livenessProvider = Effect.gen(function* () {
     });
   };
 
+  /** True only when no Attempt has ever run in the Session (the store indexes them as they start). */
+  const neverAssigned = (sessionId: SessionId) => store.hasStartupGraphs?.(sessionId) === false;
+
   /** From the Session fold, so "working" never implies a Turn the Session does not have. */
   const turnInFlight = (model: ReadModel, attempt: Attempt) =>
     model.sessions.get(attempt.sessionId)?.turns.some((t) => t.status === "working") === true;
@@ -140,18 +143,28 @@ export const livenessProvider = Effect.gen(function* () {
 
       return Stream.fromQueue(queue);
     }),
-    observe: Effect.fnUntraced(function* (sessionId, event, at, queuedInput) {
-      yield* publish(sessionId, (attempt) => {
-        facts.set(attempt.id, observeLiveness(facts.get(attempt.id) ?? emptyLiveness(), event, at));
+    // Called for every Harness event (every Delta): a Session that never ran an Attempt returns at once.
+    observe: (sessionId, event, at, queuedInput) =>
+      Effect.suspend(() =>
+        neverAssigned(sessionId)
+          ? Effect.void
+          : publish(sessionId, (attempt) => {
+              facts.set(
+                attempt.id,
+                observeLiveness(facts.get(attempt.id) ?? emptyLiveness(), event, at)
+              );
 
-        if (queuedInput !== undefined) queued.set(attempt.id, queuedInput);
-      });
-    }),
-    queued: Effect.fnUntraced(function* (sessionId, count) {
-      yield* publish(sessionId, (attempt) => {
-        queued.set(attempt.id, count);
-      });
-    }),
+              if (queuedInput !== undefined) queued.set(attempt.id, queuedInput);
+            })
+      ),
+    queued: (sessionId, count) =>
+      Effect.suspend(() =>
+        neverAssigned(sessionId)
+          ? Effect.void
+          : publish(sessionId, (attempt) => {
+              queued.set(attempt.id, count);
+            })
+      ),
   } satisfies ConstellationLivenessDelegate;
 
   return service;
