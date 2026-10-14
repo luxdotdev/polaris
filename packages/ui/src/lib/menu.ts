@@ -7,7 +7,7 @@ import { FLOAT_MOTION } from "./float";
 export const MENU_CONTENT = `z-50 min-w-50 max-w-80 overflow-x-hidden overflow-y-auto p-1 rounded-row border border-hairline bg-surface-raised text-text-default shadow-float outline-hidden ${FLOAT_MOTION}`;
 
 export const MENU_ITEM =
-  "relative flex h-tree-row cursor-default items-center gap-4 rounded-control px-row-x text-body text-text-default outline-hidden select-none data-[highlighted]:bg-fill-selected data-[highlighted]:text-text-strong data-[disabled]:pointer-events-none data-[disabled]:opacity-(--opacity-dimmed) data-[inset]:pl-8 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='text-'])]:text-text-subtle";
+  "relative flex min-h-tree-row cursor-default items-center gap-4 rounded-control px-row-x text-body text-text-default outline-hidden select-none data-[highlighted]:bg-fill-selected data-[highlighted]:text-text-strong data-[disabled]:pointer-events-none data-[disabled]:opacity-(--opacity-dimmed) data-[inset]:pl-8 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='text-'])]:text-text-subtle";
 
 /** Only what Polaris can't undo (Delete, Discard changes…): the label in failed-text. */
 export const MENU_DESTRUCTIVE = "text-failed-text data-[highlighted]:text-failed-text";

@@ -90,7 +90,7 @@ export const HostMenu = (props: WhereMenuProps) => {
               disabled={host.status.state !== "connected"}
               data-testid="where-host-item"
             >
-              <span className="flex flex-col">
+              <span className="flex flex-col py-1">
                 <span>{host.label}</span>
                 <span className="text-caption text-text-subtle">
                   {hostCaption(host, workspaces.length)}
@@ -129,7 +129,7 @@ export const WorkspaceMenu = (props: WhereMenuProps & { readonly path: string })
         >
           {shown.map(({ workspace }) => (
             <DropdownMenuRadioItem key={workspace.id} value={workspace.id}>
-              <span className="flex flex-col">
+              <span className="flex flex-col py-1">
                 <span>{workspace.name}</span>
                 <span className="text-caption text-text-subtle font-mono">
                   {tildePath(workspace.path, homeDir)}

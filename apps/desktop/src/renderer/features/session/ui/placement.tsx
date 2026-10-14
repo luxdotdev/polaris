@@ -110,7 +110,7 @@ export const PermissionChip = ({
       >
         {PERMISSION_MODES.map((p) => (
           <DropdownMenuRadioItem key={p.mode} value={p.mode}>
-            <span className="flex flex-col">
+            <span className="flex flex-col py-1">
               <span>{p.label}</span>
               <span className="text-caption text-text-subtle">{p.detail}</span>
             </span>
