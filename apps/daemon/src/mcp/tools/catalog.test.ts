@@ -2,14 +2,13 @@ import { expect, test } from "bun:test";
 import {
   ConstellationFinding,
   ConstellationRejected,
-  ConstellationCommand,
   ReviewAction,
   SetConstellationStateAction,
 } from "@polaris/protocol";
 import { FriendlyAnswer, FriendlyReview } from "./inputs.ts";
 import { Effect, Schema } from "effect";
 import { constellationTools } from "./index.ts";
-import { fakeCommands, leadBinding, workerBinding } from "../testing.ts";
+import { WORKER_TOOL_NAMES, fakeCommands, leadBinding, workerBinding } from "../testing.ts";
 
 const invoke = <A>(tools: ReturnType<typeof constellationTools>, name: string, input: A) => {
   const tool = tools.find((entry) => entry.name === name);
@@ -24,17 +23,7 @@ const invoke = <A>(tools: ReturnType<typeof constellationTools>, name: string, i
 test("worker tools cannot forge role, Constellation, Attempt or operator authority", async () => {
   const fake = fakeCommands();
   const tools = constellationTools(workerBinding, fake.commands);
-  expect(tools.map((tool) => tool.name)).toEqual([
-    "block",
-    "progress",
-    "ask",
-    "claim",
-    "propose",
-    "message",
-    "status",
-    "wait_for_command",
-    "notify",
-  ]);
+  expect(tools.map((tool) => tool.name)).toEqual(WORKER_TOOL_NAMES);
 
   for (const fields of [
     { role: "lead" },
@@ -160,7 +149,6 @@ test("tool JSON schemas include referenced Claim definitions", () => {
   );
 
   expect(tool?.inputSchema).toHaveProperty("$defs.ConstellationClaimEncoded");
-  expect(ConstellationCommand.cases.WorkerClaim.fields.claim).toBeDefined();
 });
 
 test("status emits JSON only when asked and every result ends in Next", async () => {

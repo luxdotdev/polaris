@@ -20,6 +20,32 @@ export const leadBinding = McpBinding.cases.Lead.make({
   constellationId: ConstellationId.make("c1"),
 });
 
+/** The tools each role sees, in order: every transport must list exactly these. */
+export const WORKER_TOOL_NAMES = [
+  "block",
+  "progress",
+  "ask",
+  "claim",
+  "propose",
+  "message",
+  "status",
+  "wait_for_command",
+  "notify",
+];
+
+export const LEAD_TOOL_NAMES = [
+  "plan",
+  "dispatch",
+  "review",
+  "answer",
+  "message",
+  "status",
+  "set_state",
+  "read_worker",
+  "wait_for_command",
+  "notify",
+];
+
 export const fakeCommands = () => {
   const calls: Array<{ binding: SessionBinding; command: ConstellationCommand; id: string }> = [];
   const references: Array<string> = [];
