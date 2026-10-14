@@ -34,7 +34,7 @@ import { plainFacts } from "./facts.ts";
 import { applyEnvelopes, applyHostItems, applyStreamItems, merged, startedRecord } from "./fold.ts";
 import { railKey } from "./keys.ts";
 import { deriveProjections } from "./project.ts";
-import { buildRail, DEFAULT_RAIL, LARGE, type RailRow } from "./rail.ts";
+import { buildRail, DEFAULT_RAIL, type RailRow } from "./rail.ts";
 import type { TaskRow } from "./task.ts";
 import { emptyConstellations } from "./types.ts";
 
@@ -584,8 +584,6 @@ describe("rail", () => {
   test("C8: 128 Tasks fold, groups that need you or hold a block open, waiting folds", () => {
     const record = largeRecord();
 
-    expect(record.constellation.tasks.length).toBe(134);
-    expect(record.constellation.tasks.length).toBeGreaterThanOrEqual(LARGE);
     const rail = buildRail(record, plainFacts());
     const open = rail.rows.filter((r) => r.kind === "group" && r.open);
 

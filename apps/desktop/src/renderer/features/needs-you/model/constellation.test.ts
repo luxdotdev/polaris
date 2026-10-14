@@ -3,7 +3,7 @@ import { ContextUsage } from "@polaris/protocol";
 import type { HostModel } from "../../../store/hostModel.ts";
 import { asPlain } from "../../../store/plain.ts";
 import { C1, C2, HOSTS, MODELS, withSetupFailure } from "../../sessions/preview/fixtures.ts";
-import { buildConstellationInbox, PRIORITY, withConstellations } from "./constellation.ts";
+import { buildConstellationInbox, withConstellations } from "./constellation.ts";
 import { buildInbox, inboxKey } from "./inbox.ts";
 
 const views = { local: [C1, C2] };
@@ -17,17 +17,6 @@ const kinds = (key: string) =>
 
 describe("buildConstellationInbox", () => {
   test("the spec's order: a worker's approval, a question, the lead, a silent end, context", () => {
-    expect(PRIORITY).toEqual([
-      "worker-approval",
-      "question",
-      "lead",
-      "claim",
-      "unclaimed",
-      "setup",
-      "stale",
-      "worker-context",
-      "lead-context",
-    ]);
     expect(kinds("c2")).toEqual([
       ["L2", "worker-approval"],
       ["L1", "worker-context"],

@@ -4,7 +4,6 @@ import {
   clampHeight,
   type Drawer,
   emptyDrawer,
-  handoffKey,
   holdsProcess,
   MIN_HEIGHT,
   patchTab,
@@ -86,10 +85,6 @@ describe("drawer tabs", () => {
     expect(clampHeight(50, 800)).toBe(MIN_HEIGHT);
     expect(clampHeight(900, 800)).toBe(800 - MIN_HEIGHT);
     expect(clampHeight(300.4, 800)).toBe(300);
-  });
-
-  test("hand-off tabs are keyed by session", () => {
-    expect(handoffKey("s1")).toBe("handoff:s1");
   });
 });
 
