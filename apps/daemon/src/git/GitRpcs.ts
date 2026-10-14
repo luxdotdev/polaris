@@ -14,6 +14,7 @@ import {
   GitStatus,
   GitStatusEntry,
   GitUnstage,
+  GitWatch,
   NotFound,
 } from "@polaris/protocol";
 import { Cause, Effect, Queue, Stream } from "effect";
@@ -25,6 +26,7 @@ import { computeDiff, DiffNotFound, type DiffResult } from "./diff.ts";
 import { indexDiff } from "./diffIndex.ts";
 import { showFile } from "./show.ts";
 import { gitStatus } from "./status.ts";
+import { watchGit } from "./watch.ts";
 import { commit, type CommitEvent, discardPaths, stagePaths, unstagePaths } from "./write.ts";
 
 export class GitRpcs extends RpcGroup.make(
@@ -34,7 +36,8 @@ export class GitRpcs extends RpcGroup.make(
   GitStage,
   GitUnstage,
   GitDiscard,
-  GitCommit
+  GitCommit,
+  GitWatch
 ) {}
 
 const gitError = (cwd: string) => (cause: unknown) =>
@@ -169,4 +172,5 @@ export const GitRpcsLive = GitRpcs.toLayer({
   "git.unstage": handleGitUnstage,
   "git.discard": handleGitDiscard,
   "git.commit": handleGitCommit,
+  "git.watch": ({ cwd }) => watchGit(cwd),
 });

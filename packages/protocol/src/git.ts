@@ -1,6 +1,6 @@
 /**
- * Git errors and the Changes tab's writes (capability `git.write`); `git.status`,
- * `git.diff` and `git.show` stay in `rpc.ts`.
+ * Git errors, the Changes tab's writes (capability `git.write`) and `git.watch`;
+ * `git.status`, `git.diff` and `git.show` stay in `rpc.ts`.
  */
 import { Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/rpc";
@@ -59,3 +59,16 @@ export const GitCommit = Rpc.make("git.commit", {
 });
 
 export class GitWriteRpcs extends RpcGroup.make(GitStage, GitUnstage, GitDiscard, GitCommit) {}
+
+/**
+ * One item each time git's own state moves for `cwd`'s checkout: its index, HEAD, HEAD's reflog
+ * or packed refs (capability `git.watch`). The working tree's edits come from `files.watch`.
+ */
+export const GitWatch = Rpc.make("git.watch", {
+  payload: { cwd: Schema.String },
+  success: Schema.Null,
+  error: GitError,
+  stream: true,
+});
+
+export class GitWatchRpcs extends RpcGroup.make(GitWatch) {}
