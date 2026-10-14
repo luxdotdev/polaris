@@ -3,10 +3,11 @@ import type { AcceptDraft, AcceptPlan, SessionId, TurnId } from "@polaris/protoc
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { Result } from "../../../../shared/api.ts";
-import type { PullListView, RepoAccessView } from "../../../../shared/github.ts";
+import type { RepoAccessView } from "../../../../shared/github.ts";
 import { Commands } from "../../../commands.ts";
 import type { Plain } from "../../../store/plain.ts";
 import { type FakeBridge, installFakeBridge } from "../../../test/bridge.testing.ts";
+import { pullList } from "../../../test/github.testing.ts";
 import { standInBridge } from "../../bridge.ts";
 import { pullsStore } from "../../pulls/store.ts";
 import { branchFromPrompt } from "../../session/model/newSession.ts";
@@ -71,19 +72,7 @@ const access = (state: RepoAccessView["state"]): RepoAccessView => ({
 });
 
 const withRepos = (repos: ReadonlyArray<RepoAccessView>) =>
-  pullsStore.setState({
-    list: {
-      requested: [],
-      mine: [],
-      other: [],
-      repos,
-      updatedAt: null,
-      polling: "idle",
-      throttledUntil: null,
-      error: null,
-      errorKind: null,
-    } satisfies PullListView,
-  });
+  pullsStore.setState({ list: pullList([], repos) });
 
 let bridge: FakeBridge;
 
