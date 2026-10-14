@@ -30,6 +30,8 @@ import { basename } from "../model/paths.ts";
 import { AgentsIn } from "./AgentsIn.tsx";
 import { ChangesList } from "./ChangesList.tsx";
 import { GitPanel } from "./GitPanel.tsx";
+import { SyncBar } from "./SyncBar.tsx";
+import { useSync } from "./useSync.ts";
 import { Tree } from "./Tree.tsx";
 
 export interface ExplorerProps {
@@ -168,6 +170,7 @@ export const Explorer = ({ host, workspace }: ExplorerProps) => {
 
   const openChanges = useChangeOpener(place, data.state.git, open);
   const shownDiff = useShownDiff(host.key, workspace.id);
+  const sync = useSync(place, host, data.state.git);
 
   return (
     <aside
@@ -210,6 +213,7 @@ export const Explorer = ({ host, workspace }: ExplorerProps) => {
           host.status.state !== "connected" && "opacity-(--opacity-dimmed)"
         )}
       >
+        {data.state.view === "changes" && sync !== null ? <SyncBar controls={sync} /> : null}
         {data.state.view === "files" ? (
           <Tree
             place={place}

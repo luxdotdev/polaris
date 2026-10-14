@@ -46,6 +46,10 @@ export const gitOpeners: GitOpeners = {
     Stream.unwrap(Effect.map(session(hostKey), (s) => s.client["git.watch"](payload))).pipe(
       Stream.mapError(toIpcError)
     ),
+  "git.sync": ({ hostKey, ...payload }) =>
+    Stream.unwrap(Effect.map(session(hostKey), (s) => s.client["git.sync"](payload))).pipe(
+      Stream.mapError(toIpcError)
+    ),
   /** A refusal's code is its reason (`needs-sign-in`…), so the Commit box can say what to do. */
   "commit.suggestMessage": ({ hostKey, ...payload }) =>
     Stream.unwrap(

@@ -7,6 +7,8 @@ import {
   type CommitMessageStreamItem,
   type GitCommitItem,
   type GitStatus,
+  GitSyncAction,
+  type GitSyncItem,
 } from "@polaris/protocol";
 import { Schema } from "effect";
 import type { Rpc } from "effect/rpc";
@@ -44,10 +46,13 @@ export const GitSubscriptionInputs = {
   "commit.suggestMessage": Schema.Struct({ hostKey: HostKey, ...CommitMessageRequest.fields }),
   /** An item each time the index, HEAD or refs move under `cwd` (capability `git.watch`). */
   "git.watch": Schema.Struct({ hostKey: HostKey, cwd: Schema.String }),
+  /** Fetch, pull, push or publish (capability `git.sync`); closing it stops git. */
+  "git.sync": Schema.Struct({ hostKey: HostKey, cwd: Schema.String, action: GitSyncAction }),
 };
 
 export interface GitSubscriptionItems {
   "git.commit": GitCommitItem;
   "commit.suggestMessage": CommitMessageStreamItem;
   "git.watch": null;
+  "git.sync": GitSyncItem;
 }

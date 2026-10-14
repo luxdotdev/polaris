@@ -10,6 +10,8 @@ const facts = (entries: ReadonlyArray<StatusEntry>): GitFacts => ({
   head: "abc",
   branch: "main",
   ahead: 0,
+  behind: 0,
+  tracking: null,
   marks: gitMarks("/repo", "/repo", entries),
   entries,
 });

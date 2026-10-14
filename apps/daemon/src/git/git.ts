@@ -22,6 +22,8 @@ export interface GitOptions {
   readonly okCodes?: ReadonlyArray<number>;
   /** Kill git (SIGKILL) after this long; it then fails with exit code 137 or similar. */
   readonly timeoutMs?: number;
+  /** Aborting sends SIGTERM to git's process group: git removes its lock files, ssh stops too. */
+  readonly signal?: AbortSignal;
 }
 
 /**
@@ -35,6 +37,14 @@ export const baseEnv = () => ({
   GIT_OPTIONAL_LOCKS: "0",
   LC_ALL: "C",
 });
+
+const killGroup = (pid: number) => {
+  try {
+    process.kill(-pid, "SIGTERM");
+  } catch {
+    // Already gone.
+  }
+};
 
 export const runGitRaw = async (
   cwd: string,
@@ -54,7 +64,16 @@ export const runGitRaw = async (
     spawnOptions.killSignal = "SIGKILL";
   }
 
+  // Its own process group, so an abort also stops what git started (ssh, a credential helper).
+  if (options.signal !== undefined) spawnOptions.detached = true;
+
   const proc = Bun.spawn(["git", ...args], spawnOptions);
+  const stop = () => killGroup(proc.pid);
+
+  options.signal?.addEventListener("abort", stop, { once: true });
+
+  if (options.signal?.aborted === true) stop();
+  void proc.exited.then(() => options.signal?.removeEventListener("abort", stop));
 
   const [stdout, stderr, code] = await Promise.all([
     new Response(proc.stdout).arrayBuffer().then((b) => new Uint8Array(b)),

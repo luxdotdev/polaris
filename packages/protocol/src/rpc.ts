@@ -75,19 +75,9 @@ import { HarnessCommands } from "./slashCommands.ts";
 import { UsageReport, UsageStreamItem } from "./usage.ts";
 import { NotFound } from "./errors.ts";
 import { SessionTurnRpcs, TurnDetail } from "./turns.ts";
-import { GitError, GitWatchRpcs, GitWriteRpcs } from "./git.ts";
+import { GitError, GitTracking, GitWatchRpcs, GitWriteRpcs } from "./git.ts";
 
 export { NotFound } from "./errors.ts";
-
-export {
-  GitCommit,
-  GitCommitItem,
-  GitDiscard,
-  GitError,
-  GitStage,
-  GitUnstage,
-  GitWriteRpcs,
-} from "./git.ts";
 
 export { ReadTurns, SessionTurnRpcs, SubagentDetail, TurnDetail, TurnPage } from "./turns.ts";
 
@@ -454,6 +444,8 @@ export const GitStatus = Rpc.make("git.status", {
     ahead: Schema.Int,
     behind: Schema.Int,
     entries: Schema.Array(GitStatusEntry),
+    /** Capability `git.sync`: the upstream, and where Publish branch would push. */
+    tracking: Schema.optional(GitTracking),
   }),
   error: GitError,
 });

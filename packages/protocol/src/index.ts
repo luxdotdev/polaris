@@ -34,7 +34,7 @@ export * from "./reviewPaths.ts";
 
 export * from "./rpc.ts";
 
-export { GitWatch, GitWatchRpcs } from "./git.ts";
+export * from "./git.ts";
 
 export * from "./slashCommands.ts";
 

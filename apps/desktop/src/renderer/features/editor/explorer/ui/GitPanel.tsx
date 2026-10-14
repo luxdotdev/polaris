@@ -3,7 +3,7 @@
  * and Changes. Hooks run on the Host; their output streams in under the button.
  */
 import { Button, CodeWell, CopyButton, cn } from "@polaris/ui";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { saveFile, type TabsView } from "../../index.ts";
 import { selectedPath } from "../../diff/index.ts";
 import type { Place } from "../data/actions.ts";
@@ -22,6 +22,7 @@ import { isUnder } from "../model/paths.ts";
 import { allPaths, canCommit, commitLabel, type StageRow, stageLists } from "../model/stage.ts";
 import { MessageField, WriteFailed } from "./CommitMessage.tsx";
 import { ConfirmDelete } from "./ConfirmDelete.tsx";
+import { useSeconds } from "./useSeconds.ts";
 import { rowKey, type StageSide, StageSection } from "./StageList.tsx";
 import { shortcutLabel } from "../../../../../shared/chord.ts";
 import { FIELD_CHORDS } from "../../../../../shared/keymap.ts";
@@ -38,19 +39,6 @@ export interface GitPanelProps {
   /** The diff tab shown in the Workspace, by id ("diff:staged:/abs/path"). */
   readonly shownDiff: string | null;
 }
-
-const useSeconds = (since: number | null) => {
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    if (since === null) return;
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-
-    return () => clearInterval(timer);
-  }, [since]);
-
-  return since === null ? 0 : Math.max(0, Math.floor((now - since) / 1000));
-};
 
 const Unsaved = ({ place, tabs }: { readonly place: Place; readonly tabs: TabsView }) => {
   const dirty = tabs.tabs.filter((tab) => tab.dirty && isUnder(tab.path, place.root));

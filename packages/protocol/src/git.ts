@@ -58,8 +58,6 @@ export const GitCommit = Rpc.make("git.commit", {
   stream: true,
 });
 
-export class GitWriteRpcs extends RpcGroup.make(GitStage, GitUnstage, GitDiscard, GitCommit) {}
-
 /**
  * One item each time git's own state moves for `cwd`'s checkout: its index, HEAD, HEAD's reflog
  * or packed refs (capability `git.watch`). The working tree's edits come from `files.watch`.
@@ -72,3 +70,80 @@ export const GitWatch = Rpc.make("git.watch", {
 });
 
 export class GitWatchRpcs extends RpcGroup.make(GitWatch) {}
+
+/**
+ * How the branch stands against its upstream, beside `git.status`'s ahead and
+ * behind (capability `git.sync`). Older Daemons leave it out.
+ */
+export const GitTracking = Schema.Struct({
+  /** The upstream as git names it ("origin/main"); null when the branch has none. */
+  upstream: Schema.NullOr(Schema.String),
+  /** The upstream is configured but its branch is gone from the remote. */
+  gone: Schema.Boolean,
+  /** Where Publish branch pushes (origin, else the first remote); null with an upstream or no remote. */
+  remote: Schema.NullOr(Schema.String),
+});
+
+export type GitTracking = typeof GitTracking.Type;
+
+/**
+ * What `git.sync` does. Pull follows the repository's pull.rebase / pull.ff and
+ * is `--ff-only` when neither is set; push goes to the upstream, publish is
+ * `push -u` to the remote; sync pulls, then pushes what's ahead. Never forced.
+ */
+export const GitSyncAction = Schema.Literals(["fetch", "pull", "push", "publish", "sync"]);
+
+export type GitSyncAction = typeof GitSyncAction.Type;
+
+/** Why a sync stopped, so the Client can say what to do next. */
+export const GitSyncFailure = Schema.Literals([
+  "no-remote",
+  "no-upstream",
+  "detached",
+  /** Pull can't fast-forward and the repository sets no other way to pull. */
+  "diverged",
+  /** The remote refused a push that isn't a fast-forward. */
+  "rejected",
+  "conflicts",
+  /** Pulling would overwrite uncommitted changes. */
+  "local-changes",
+  "auth",
+  "network",
+  "timeout",
+  "failed",
+]);
+
+export type GitSyncFailure = typeof GitSyncFailure.Type;
+
+export const GitSyncStep = Schema.Literals(["fetch", "pull", "push"]);
+
+export type GitSyncStep = typeof GitSyncStep.Type;
+
+/** What `git.sync` streams: each step as it starts, then how it ended. */
+export const GitSyncItem = Schema.TaggedUnion({
+  Step: { step: GitSyncStep, remote: Schema.String },
+  Done: {},
+  /** `output` is git's own words (its last lines). */
+  Failed: { reason: GitSyncFailure, exitCode: Schema.NullOr(Schema.Int), output: Schema.String },
+});
+
+export type GitSyncItem = typeof GitSyncItem.Type;
+
+/**
+ * Fetches, pulls or pushes the branch checked out at `cwd` (capability
+ * `git.sync`), never prompting for credentials. Closing the stream stops git.
+ */
+export const GitSync = Rpc.make("git.sync", {
+  payload: { cwd: Schema.String, action: GitSyncAction },
+  success: GitSyncItem,
+  error: GitError,
+  stream: true,
+});
+
+export class GitWriteRpcs extends RpcGroup.make(
+  GitStage,
+  GitUnstage,
+  GitDiscard,
+  GitCommit,
+  GitSync
+) {}

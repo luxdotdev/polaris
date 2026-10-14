@@ -19,6 +19,8 @@ import {
 import { standInBridge } from "../../../bridge.ts";
 import { startDraft } from "../data/actions.ts";
 import { explorerKey, patchExplorer } from "../data/store.ts";
+import { setSyncRun } from "../data/sync.ts";
+import { SYNC, SYNC_SCENES, type SyncScene } from "./syncFixtures.ts";
 import { openFile } from "../../index.ts";
 import { openDiff, targetOf } from "../../diff/index.ts";
 import { setDiffPrefs } from "../../diff/model/prefs.ts";
@@ -60,21 +62,27 @@ const SCENES = [
   "checkout",
   "agent",
   ...DIFF_SCENES,
+  ...SYNC_SCENES,
 ] as const;
 
 type Scene = (typeof SCENES)[number];
 
 const isDiffScene = (scene: Scene): scene is DiffScene => scene.startsWith("diff");
 
+const isSyncScene = (scene: Scene): scene is SyncScene => scene.startsWith("sync");
+
+const reconnecting = (scene: Scene) =>
+  scene === "remote" || (isSyncScene(scene) && SYNC[scene].reconnecting === true);
+
 const host = (scene: Scene): HostView => ({
   key: LOCAL,
-  label: scene === "remote" ? "Linux VM" : "Mac Studio",
+  label: reconnecting(scene) ? "Linux VM" : "Mac Studio",
   colour: null,
-  alias: scene === "remote" ? "linux-vm" : null,
-  kind: scene === "remote" ? "ssh" : "local",
+  alias: reconnecting(scene) ? "linux-vm" : null,
+  kind: reconnecting(scene) ? "ssh" : "local",
   proofHarness: false,
   status: {
-    state: scene === "remote" ? "reconnecting" : "connected",
+    state: reconnecting(scene) ? "reconnecting" : "connected",
     failure: null,
     attempt: 0,
     since: Date.now() - 12_000,
@@ -89,7 +97,7 @@ const host = (scene: Scene): HostView => ({
     },
     capabilities: Capability.literals,
     epoch: 1,
-    latencyMs: scene === "remote" ? 84 : null,
+    latencyMs: reconnecting(scene) ? 84 : null,
     lastSeenAt: null,
   },
 });
@@ -139,6 +147,20 @@ const isReconnect = (path: string | undefined) =>
 const text = (path: string | undefined) =>
   isReconnect(path) ? RECONNECT : `// ${path?.split("/").at(-1) ?? ""}\n`;
 
+const TRACKED = { upstream: "origin/main", gone: false, remote: null };
+
+const statusFor = (scene: Scene, cwd: string | undefined) => {
+  if (cwd === CHECKOUT) return { ...STATUS, entries: [], tracking: TRACKED };
+
+  if (isDiffScene(scene))
+    return { ...STATUS, entries: [...STATUS.entries, ...DIFF_ENTRIES], tracking: TRACKED };
+
+  if (!isSyncScene(scene)) return { ...STATUS, tracking: TRACKED };
+  const { branch, ahead, behind, tracking } = SYNC[scene];
+
+  return { ...STATUS, branch, ahead, behind, tracking };
+};
+
 const VERSION = { mtimeMs: 0, size: 0, hash: "preview" };
 
 /** What the stand-in bridge answers: a request's Result, success or refusal. */
@@ -159,14 +181,7 @@ const handlers = (scene: Scene) =>
       scene !== "no-git" && (path === `${ROOT}/.git` || path === `${CHECKOUT}/.git`)
         ? ok({ name: ".git", path, kind: "directory", size: 0, modifiedAt: "" })
         : refuse("FileError"),
-    "git.status": ({ cwd }) =>
-      ok(
-        cwd === CHECKOUT
-          ? { ...STATUS, entries: [] }
-          : isDiffScene(scene)
-            ? { ...STATUS, entries: [...STATUS.entries, ...DIFF_ENTRIES] }
-            : STATUS
-      ),
+    "git.status": ({ cwd }) => ok(statusFor(scene, cwd)),
     "files.read": ({ path }) =>
       ok({ size: 0, mimeType: "text/plain", content: worktree(path ?? "") }),
     "files.readVersioned": ({ path }) =>
@@ -229,8 +244,10 @@ const openSceneDiff = (scene: DiffScene) => {
 };
 
 const prepare = (scene: Scene) => {
+  if (isSyncScene(scene)) setSyncRun(KEY, SYNC[scene].run);
+
   patchExplorer(KEY, () => ({
-    view: scene === "changes" || isDiffScene(scene) ? "changes" : "files",
+    view: scene === "changes" || isDiffScene(scene) || isSyncScene(scene) ? "changes" : "files",
     root: scene === "checkout" ? CHECKOUT : null,
     expanded: new Set([
       `${ROOT}/daemon`,
