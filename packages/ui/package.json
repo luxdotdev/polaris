@@ -14,7 +14,7 @@
   },
   "scripts": {
     "typecheck": "tsc -p .",
-    "test": "bun test",
+    "test": "bun ../../tooling/test/watchdog.ts",
     "gallery": "vite --config gallery/vite.config.ts",
     "gallery:build": "vite build --config gallery/vite.config.ts"
   },

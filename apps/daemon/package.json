@@ -11,7 +11,7 @@
     "build": "bun ../../scripts/build-daemon.ts",
     "dev": "bun --watch src/main.ts serve --foreground",
     "typecheck": "tsc -p . && tsc -p scripts",
-    "test": "bun test --pass-with-no-tests",
+    "test": "bun ../../tooling/test/watchdog.ts --pass-with-no-tests",
     "smoke": "bun scripts/smoke.ts",
     "smoke:review": "bun scripts/reviewCheckoutSmoke.ts"
   },

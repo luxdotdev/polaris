@@ -12,7 +12,7 @@
     "start": "electron .",
     "smoke": "node scripts/smoke.ts --build",
     "typecheck": "tsc -p . && tsc -p src/renderer/tsconfig.app.json && tsc -p src/renderer/tsconfig.test.json",
-    "test": "bun test --pass-with-no-tests"
+    "test": "bun ../../tooling/test/watchdog.ts --pass-with-no-tests"
   },
   "dependencies": {
     "@codemirror/autocomplete": "6.20.3",

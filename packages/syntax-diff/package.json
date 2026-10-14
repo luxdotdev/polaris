@@ -10,7 +10,7 @@
   },
   "scripts": {
     "typecheck": "node ../../node_modules/typescript/bin/tsc -p .",
-    "test": "bun test --pass-with-no-tests"
+    "test": "bun ../../tooling/test/watchdog.ts --pass-with-no-tests"
   },
   "dependencies": {
     "typescript-js": "npm:typescript@6.0.3"

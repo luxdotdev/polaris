@@ -11,7 +11,7 @@
   "scripts": {
     "bench": "bun src/cli.ts",
     "typecheck": "tsc -p .",
-    "test": "bun test --pass-with-no-tests"
+    "test": "bun ../../tooling/test/watchdog.ts --pass-with-no-tests"
   },
   "dependencies": {
     "@polaris/client": "workspace:*",

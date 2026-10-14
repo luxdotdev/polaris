@@ -10,7 +10,7 @@
   },
   "scripts": {
     "typecheck": "tsc -p .",
-    "test": "bun test --pass-with-no-tests"
+    "test": "bun ../../tooling/test/watchdog.ts --pass-with-no-tests"
   },
   "dependencies": {
     "effect": "4.0.0-rc.118"

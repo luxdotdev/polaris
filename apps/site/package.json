@@ -9,7 +9,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc -p .",
-    "test": "bun test",
+    "test": "bun ../../tooling/test/watchdog.ts",
     "email:dev": "email dev --dir emails --port 3200"
   },
   "dependencies": {
