@@ -166,7 +166,12 @@ describe("account per owner", () => {
   test("a blocked owner carries its request-access and SSO links", () => {
     const blocked = ownerTable(view(), pulls, labels).rows.find((r) => r.owner === "lockedorg");
 
-    expect(blocked?.access).toMatchObject({ kind: "blocked", repo: "lockedorg/vault" });
+    expect(blocked?.access).toEqual({
+      kind: "blocked",
+      repo: "lockedorg/vault",
+      approvalUrl: "https://github.com/orgs/x/policies/applications/1",
+      ssoUrl: "https://github.com/orgs/x/sso",
+    });
   });
 
   test("before the first poll, only mapped owners show", () => {
