@@ -160,6 +160,18 @@ describe("session machine", () => {
       expect(refusal(waiting, "send")).toBe("the session is needs-you; wait for the Turn to end");
     });
 
+    test("steering needs a Turn in flight, outside the terminal, on a Harness that steers", () => {
+      const steer = (snapshot: ModelSnapshot, canSteer = true) =>
+        decideSession(record(snapshot), { type: "turn.steer", canSteer }).rejection;
+
+      expect(steer(run(["start"]))).toBeNull();
+      expect(steer(run(["start", "complete"]))).toBe("there is no Turn in flight to steer");
+      expect(steer(run(["start", "complete", "openTerminal", "terminalTurn"]))).toBe(
+        "there is no Turn in flight to steer"
+      );
+      expect(steer(run(["start"]), false)).toBe("claude does not support steering");
+    });
+
     test("Continue only for an Interrupted Turn", () => {
       expect(refusal(run(["start", "complete"]), "continue")).toBe(
         "there is no Interrupted Turn to continue"

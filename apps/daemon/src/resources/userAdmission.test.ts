@@ -135,6 +135,7 @@ for (const kind of ["SendTurn", "Continue", "Retry"] as const)
         ).pipe(Effect.flip, Effect.timeout(200));
 
         expect(steer).toBeInstanceOf(CommandRejected);
+        expect(steer).toMatchObject({ reason: "there is no Turn in flight to steer" });
         expect(executionSlots).toEqual([0]);
         yield* Scope.close(other, Exit.void);
         yield* Fiber.join(input);
@@ -275,6 +276,7 @@ for (const outcome of ["resume", "retire"] as const)
         ).pipe(Effect.flip, Effect.timeout(200));
 
         expect(steer).toBeInstanceOf(CommandRejected);
+        expect(steer).toMatchObject({ reason: "there is no Turn in flight to steer" });
 
         if (outcome === "retire") {
           yield* Scope.close(admissionScope, Exit.void);
