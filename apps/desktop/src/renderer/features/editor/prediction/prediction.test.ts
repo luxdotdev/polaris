@@ -160,7 +160,7 @@ test("offline/configuration refresh aborts pending work and clears visible ghost
   let refresh = () => {};
 
   const signals: AbortSignal[] = [];
-  let held: ((value: { text: string }) => void) | null = null;
+  const held: ((value: { text: string }) => void)[] = [];
   let hold = false;
   let allowed = true;
 
@@ -174,7 +174,7 @@ test("offline/configuration refresh aborts pending work and clears visible ghost
     request: (_input, signal) => {
       signals.push(signal);
 
-      return hold ? new Promise((done) => (held = done)) : Promise.resolve({ text: "ready" });
+      return hold ? new Promise((done) => held.push(done)) : Promise.resolve({ text: "ready" });
     },
   });
 
@@ -193,7 +193,7 @@ test("offline/configuration refresh aborts pending work and clears visible ghost
   expect(pending?.aborted).toBe(false);
   refresh();
   expect(pending?.aborted).toBe(true);
-  held?.({ text: "late" });
+  held[0]?.({ text: "late" });
   await flush();
   expect(view.state.field(ghost)).toBeNull();
 });

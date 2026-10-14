@@ -3,6 +3,7 @@ import type { ConnectionStatusView, InstallFlowView, MachineView } from "../../.
 import {
   ago,
   attentionCard,
+  type CardAction,
   connectionLine,
   elapsed,
   hostCaption,
@@ -70,7 +71,7 @@ beforeEach(() => setClientPlatform("darwin"));
 afterEach(() => setClientPlatform(null));
 
 describe("attention cards", () => {
-  test.each([
+  test.each<[string, CardAction | null, CardAction | null]>([
     ["host-key-unknown", "open-ssh", "retry"],
     ["host-key-changed", null, "copy-detail"],
     ["auth-failed", "retry", "open-ssh"],

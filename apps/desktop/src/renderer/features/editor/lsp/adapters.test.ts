@@ -600,14 +600,16 @@ test("completion list defaults retain edits/snippets/data and provider trigger c
     throw new Error("No completion to apply");
   expect(rest).toEqual([]);
 
+  let dispatched = 0;
+
   const fake = {
     state: f.state,
     dispatch(_spec: Parameters<EditorView["dispatch"]>[0]) {
-      throw new Error("A choice snippet is proposed, not applied");
+      dispatched++;
     },
   };
 
-  // SAFETY: a proposed completion's apply only reads state; dispatch throws if it's reached.
+  // SAFETY: a proposed completion's apply only reads state and counts dispatches.
   completion.apply(fake as EditorView, completion, 0, 4);
   f.reply(f.pending.length - 1, { label: "completion" });
   await new Promise((resolve) => setTimeout(resolve, 10));
@@ -621,6 +623,7 @@ test("completion list defaults retain edits/snippets/data and provider trigger c
       newText: "${1|one,two|}",
     },
   });
+  expect(dispatched).toBe(0);
   // The UTF-8 provider's seven bytes are the line's four UTF-16 units.
   expect([proposal?.from, proposal?.to]).toEqual([0, 4]);
   f.features.dispose();
