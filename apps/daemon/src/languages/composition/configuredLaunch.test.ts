@@ -64,17 +64,23 @@ test("explicit configured launch retains its lease and refuses foreign requests,
     expect(launch.args).toEqual(["--stdio"]);
     expect(launch.cwd).toBe(f.request.facts.projectRoot);
     expect(f.ledger.stats().launches).toBe(1);
-    expect(
-      f.adapters.resolveLaunch(f.request.facts, lease, { ...f.request })
-    ).rejects.toMatchObject({ reason: "not-owner" });
+    await Promise.resolve(
+      expect(
+        f.adapters.resolveLaunch(f.request.facts, lease, { ...f.request })
+      ).rejects.toMatchObject({ reason: "not-owner" })
+    );
     f.stale();
-    expect(lease.validate(f.request.signal)).rejects.toMatchObject({ reason: "cancelled" });
+    await Promise.resolve(
+      expect(lease.validate(f.request.signal)).rejects.toMatchObject({ reason: "cancelled" })
+    );
   } finally {
     await lease.release();
     expect(f.ledger.stats().launches).toBe(0);
-    expect(f.adapters.resolveLaunch(f.request.facts, lease, f.request)).rejects.toMatchObject({
-      reason: "not-owner",
-    });
+    await Promise.resolve(
+      expect(f.adapters.resolveLaunch(f.request.facts, lease, f.request)).rejects.toMatchObject({
+        reason: "not-owner",
+      })
+    );
     f.ledger.dispose();
     await f.f.cleanup();
   }
@@ -86,9 +92,11 @@ test("configured executable replacement invalidates an already captured launch",
 
   try {
     await writeFile(f.executable, "changed executable bytes");
-    expect(f.adapters.resolveLaunch(f.request.facts, lease, f.request)).rejects.toMatchObject({
-      reason: "conflict",
-    });
+    await Promise.resolve(
+      expect(f.adapters.resolveLaunch(f.request.facts, lease, f.request)).rejects.toMatchObject({
+        reason: "conflict",
+      })
+    );
   } finally {
     await lease.release();
     f.ledger.dispose();

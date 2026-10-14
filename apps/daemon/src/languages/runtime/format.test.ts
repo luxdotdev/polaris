@@ -84,9 +84,15 @@ test("provider formatter returns edits; snapshot, version, generation and capabi
       }),
     });
     expect(await f.broker.format("one", input)).toMatchObject({ reason: "stale" });
-    expect(f.broker.format("two", input)).rejects.toMatchObject({ reason: "not-owner" });
+    await Promise.resolve(
+      expect(f.broker.format("two", input)).rejects.toMatchObject({ reason: "not-owner" })
+    );
     await f.broker.restart("one", context);
-    expect(f.broker.format("one", input)).rejects.toMatchObject({ reason: "stale-generation" });
+    await Promise.resolve(
+      expect(f.broker.format("one", input)).rejects.toMatchObject({
+        reason: "stale-generation",
+      })
+    );
   } finally {
     await f.dispose();
   }

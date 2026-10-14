@@ -787,12 +787,14 @@ describe("Constellation attachment", () => {
     expect(params).not.toHaveProperty("config");
   });
   test("an attachment from another session is refused before thread start", async () => {
-    expect(
-      withSession(
-        scripted(() => {}),
-        () => Effect.void,
-        { constellation: { ...attachment, sessionId: SessionId.make("other") } }
-      )
-    ).rejects.toThrow("another session");
+    await Promise.resolve(
+      expect(
+        withSession(
+          scripted(() => {}),
+          () => Effect.void,
+          { constellation: { ...attachment, sessionId: SessionId.make("other") } }
+        )
+      ).rejects.toThrow("another session")
+    );
   });
 });

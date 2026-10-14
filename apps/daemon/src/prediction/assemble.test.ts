@@ -97,7 +97,9 @@ test("file reads refuse symlink escape, large files and cancellation", async () 
   expect(await readSource(f.root, join(f.root, "large.ts"), f.signal)).toBeUndefined();
   const controller = new AbortController();
   controller.abort();
-  expect(readSource(f.root, join(f.root, "dep.ts"), controller.signal)).rejects.toBeDefined();
+  await Promise.resolve(
+    expect(readSource(f.root, join(f.root, "dep.ts"), controller.signal)).rejects.toBeDefined()
+  );
 });
 
 test("counter budget includes sources and UTF-8, keeps stable-first order and never splits a surrogate", () => {

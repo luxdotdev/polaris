@@ -118,7 +118,7 @@ test("per-Workspace selection survives repository recreation; CAS races reject a
     const second = await discovery.discover(input);
     expect(second.interpreter).toBeNull();
     expect(second.configurationFingerprint).not.toBe(first.configurationFingerprint);
-    expect(interpreterEntry(join(f.root, "missing"))).rejects.toThrow();
+    await Promise.resolve(expect(interpreterEntry(join(f.root, "missing"))).rejects.toThrow());
   } finally {
     await f.close();
   }

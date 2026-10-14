@@ -118,7 +118,9 @@ describe("Turns diffs and files at a revision", () => {
     expect(shown.size).toBe(4);
     expect(shown.mimeType).toBe("text/typescript");
 
-    expect(showFile(root, first, "missing.ts")).rejects.toBeInstanceOf(DiffNotFound);
+    await Promise.resolve(
+      expect(showFile(root, first, "missing.ts")).rejects.toBeInstanceOf(DiffNotFound)
+    );
   });
 
   test("git.show with no revision reads the index, as the Editor's staged diffs do", async () => {

@@ -91,7 +91,7 @@ describe("versioned writes", () => {
     await writeFile(path, "old");
     await chmod(path, 0o444);
     const expected = (await readVersioned(path)).version;
-    expect(writeVersioned(path, bytes("new"), expected)).rejects.toThrow();
+    await Promise.resolve(expect(writeVersioned(path, bytes("new"), expected)).rejects.toThrow());
     expect(await readFile(path, "utf8")).toBe("old");
     expect(await readdir(root)).toEqual(["file"]);
   });
@@ -101,14 +101,18 @@ describe("versioned writes", () => {
     await writeFile(path, "old");
     const expected = (await readVersioned(path)).version;
     await rm(path);
-    expect(writeVersioned(path, bytes("new"), expected)).rejects.toMatchObject({
-      current: null,
-    });
+    await Promise.resolve(
+      expect(writeVersioned(path, bytes("new"), expected)).rejects.toMatchObject({
+        current: null,
+      })
+    );
     await symlink(path, join(root, "alias"));
-    expect(writeVersioned(join(root, "alias"), bytes("new"), expected)).rejects.toMatchObject({
-      current: null,
-    });
-    expect(readVersioned(root)).rejects.toThrow();
+    await Promise.resolve(
+      expect(writeVersioned(join(root, "alias"), bytes("new"), expected)).rejects.toMatchObject({
+        current: null,
+      })
+    );
+    await Promise.resolve(expect(readVersioned(root)).rejects.toThrow());
   });
 
   test("large reads and blob writes preserve exact bytes over the RPC", async () => {
@@ -154,10 +158,10 @@ test("explorer mutations never clobber a destination and deletion is explicit", 
   await createPath(directory, "directory");
   const path = join(directory, "file");
   await createPath(path, "file");
-  expect(createPath(path, "file")).rejects.toThrow();
+  await Promise.resolve(expect(createPath(path, "file")).rejects.toThrow());
   const target = join(directory, "target");
   await createPath(target, "file");
-  expect(renamePath(path, target)).rejects.toThrow();
+  await Promise.resolve(expect(renamePath(path, target)).rejects.toThrow());
   await deletePath(target, true);
   await renamePath(path, target);
   expect(await readdir(directory)).toEqual(["target"]);

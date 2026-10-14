@@ -36,8 +36,10 @@ test("ordered overwrite chain is durable, duplicate acceptance does not mutate, 
         true
       );
     expect(await api.accept(f.owner, r.proposal, r.acceptance, r.drafts)).toEqual(restored);
-    expect(api.recover(f.owner, "operation", result.receiptRevision, "undo")).rejects.toThrow(
-      "revision"
+    await Promise.resolve(
+      expect(api.recover(f.owner, "operation", result.receiptRevision, "undo")).rejects.toThrow(
+        "revision"
+      )
     );
   } finally {
     await f.cleanup();
@@ -56,7 +58,9 @@ for (const point of ["intent", "mutation", "receipt"] as const) {
           if (at === point && move === index) throw new InjectedCrash("crashed");
         });
 
-        expect(api.accept(f.owner, r.proposal, r.acceptance, r.drafts)).rejects.toThrow("crashed");
+        await Promise.resolve(
+          expect(api.accept(f.owner, r.proposal, r.acceptance, r.drafts)).rejects.toThrow("crashed")
+        );
         const restarted = f.coordinator();
         const known = (await restarted.get(f.owner, "operation"))!;
         expect(await restarted.accept(f.owner, r.proposal, r.acceptance, r.drafts)).toEqual(known);
@@ -80,13 +84,15 @@ for (const point of ["restore-intent", "restore-mutation"] as const) {
     try {
       const r = await f.request(renameChain(f));
       const applied = await f.coordinator().accept(f.owner, r.proposal, r.acceptance, r.drafts);
-      expect(
-        f
-          .coordinator(async (at) => {
-            if (at === point) throw new InjectedCrash("undo crash");
-          })
-          .recover(f.owner, "operation", applied.receiptRevision, "undo")
-      ).rejects.toThrow("undo crash");
+      await Promise.resolve(
+        expect(
+          f
+            .coordinator(async (at) => {
+              if (at === point) throw new InjectedCrash("undo crash");
+            })
+            .recover(f.owner, "operation", applied.receiptRevision, "undo")
+        ).rejects.toThrow("undo crash")
+      );
       const known = (await f.coordinator().get(f.owner, "operation"))!;
       expect(
         (await f.coordinator().recover(f.owner, "operation", known.receiptRevision, "recover"))
@@ -141,13 +147,15 @@ for (const mode of ["write", "absent-target", "crash-write"] as const) {
       const r = await f.request([{ kind: "rename", oldUri: f.uri("a"), newUri: f.uri("c") }]);
 
       if (mode === "crash-write")
-        expect(
-          f
-            .coordinator(async (point) => {
-              if (point === "mutation") throw new InjectedCrash();
-            })
-            .accept(f.owner, r.proposal, r.acceptance, r.drafts)
-        ).rejects.toThrow();
+        await Promise.resolve(
+          expect(
+            f
+              .coordinator(async (point) => {
+                if (point === "mutation") throw new InjectedCrash();
+              })
+              .accept(f.owner, r.proposal, r.acceptance, r.drafts)
+          ).rejects.toThrow()
+        );
       else await f.coordinator().accept(f.owner, r.proposal, r.acceptance, r.drafts);
       const path = join(f.root, mode === "absent-target" ? "a" : "c");
       await writeFile(path, "intervening");
@@ -230,16 +238,18 @@ test("symlink, escape, directory and non-file URI rejection leaves fixtures unto
       "https://invalid/file",
     ]) {
       const r = await f.request([{ kind: "delete", uri }]);
-      expect(
-        f
-          .coordinator()
-          .accept(
-            f.owner,
-            r.proposal,
-            { ...r.acceptance, operationId: `operation${uri.length}` },
-            r.drafts
-          )
-      ).rejects.toThrow();
+      await Promise.resolve(
+        expect(
+          f
+            .coordinator()
+            .accept(
+              f.owner,
+              r.proposal,
+              { ...r.acceptance, operationId: `operation${uri.length}` },
+              r.drafts
+            )
+        ).rejects.toThrow()
+      );
     }
 
     expect(await readFile(join(f.root, "a"), "utf8")).toBe("alpha\r\n");
@@ -253,19 +263,29 @@ test("owner isolation, mismatched retries, durable drafts and acceptance fence e
 
   try {
     const r = await f.request([{ kind: "delete", uri: f.uri("a") }]);
-    expect(
-      f.coordinator().accept(f.owner, r.proposal, r.acceptance, { durable: false, groupId: null })
-    ).rejects.toThrow("durable");
-    expect(
-      f.coordinator().accept({ ...f.owner, clientId: "other" }, r.proposal, r.acceptance, r.drafts)
-    ).rejects.toThrow("owner");
-    expect(
-      f.coordinator().accept(f.owner, r.proposal, { ...r.acceptance, snapshots: [] }, r.drafts)
-    ).rejects.toThrow("match");
+    await Promise.resolve(
+      expect(
+        f.coordinator().accept(f.owner, r.proposal, r.acceptance, { durable: false, groupId: null })
+      ).rejects.toThrow("durable")
+    );
+    await Promise.resolve(
+      expect(
+        f
+          .coordinator()
+          .accept({ ...f.owner, clientId: "other" }, r.proposal, r.acceptance, r.drafts)
+      ).rejects.toThrow("owner")
+    );
+    await Promise.resolve(
+      expect(
+        f.coordinator().accept(f.owner, r.proposal, { ...r.acceptance, snapshots: [] }, r.drafts)
+      ).rejects.toThrow("match")
+    );
     await f.coordinator().accept(f.owner, r.proposal, r.acceptance, r.drafts);
-    expect(
-      f.coordinator().accept(f.owner, { ...r.proposal, label: "changed" }, r.acceptance, r.drafts)
-    ).rejects.toThrow("different");
+    await Promise.resolve(
+      expect(
+        f.coordinator().accept(f.owner, { ...r.proposal, label: "changed" }, r.acceptance, r.drafts)
+      ).rejects.toThrow("different")
+    );
     expect(await f.coordinator().get({ ...f.owner, clientId: "other" }, "operation")).toBe(null);
   } finally {
     await f.cleanup();

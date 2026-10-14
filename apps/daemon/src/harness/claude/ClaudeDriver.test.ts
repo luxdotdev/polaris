@@ -787,8 +787,10 @@ describe("Constellation instructions", () => {
     }
   });
   test("an attachment from another session cannot start a Claude query", async () => {
-    expect(
-      openFake({ constellation: { ...attachment, sessionId: SessionId.make("other") } })
-    ).rejects.toThrow("another session");
+    await Promise.resolve(
+      expect(
+        openFake({ constellation: { ...attachment, sessionId: SessionId.make("other") } })
+      ).rejects.toThrow("another session")
+    );
   });
 });

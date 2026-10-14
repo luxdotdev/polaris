@@ -227,10 +227,14 @@ describe("Host resource leases", () => {
         "second",
         "third",
       ]);
-      expect(runtime.runPromise(resources.remove(id("remove-busy"), "bench"))).rejects.toThrow();
-      expect(
-        runtime.runPromise(resources.declare(id("reserved"), "__workers", 1))
-      ).rejects.toThrow();
+      await Promise.resolve(
+        expect(runtime.runPromise(resources.remove(id("remove-busy"), "bench"))).rejects.toThrow()
+      );
+      await Promise.resolve(
+        expect(
+          runtime.runPromise(resources.declare(id("reserved"), "__workers", 1))
+        ).rejects.toThrow()
+      );
       await Bun.sleep(5);
       expect((await runtime.runPromise(resources.get)).overdueLeaseIds).toContain(first.id);
       await runtime.runPromise(resources.release(id("release-first"), first.id));
