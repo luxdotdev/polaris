@@ -91,6 +91,8 @@ export const Capability = Schema.Literals([
   "git.show",
   /** `git.stage`, `git.unstage`, `git.discard` and `git.commit`: the Explorer's Changes tab. */
   "git.write",
+  /** `git.watch`: a signal when the index, HEAD or refs move, so Clients refetch `git.status`. */
+  "git.watch",
   "attachments.stage",
   /** `attachments.settings`, `attachments.setSettings`, `attachments.clear`: cleanup in Settings. */
   "attachments.settings",

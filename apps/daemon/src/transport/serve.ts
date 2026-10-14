@@ -174,6 +174,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "git.diff-turns",
   "git.show",
   "git.write",
+  "git.watch",
   "session.feedback",
   "session.accept",
   "review.checkouts",
