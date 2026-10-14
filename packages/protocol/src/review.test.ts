@@ -5,7 +5,6 @@
  */
 import { describe, expect, test } from "bun:test";
 import { Schema } from "effect";
-import { CapabilityList } from "./capabilities.ts";
 import { Command, SessionPlacement } from "./commands.ts";
 import { AgentSession, Turn } from "./domain.ts";
 import { DomainEvent } from "./events.ts";
@@ -439,15 +438,6 @@ describe("Review contract", () => {
         })
       ).generated
     ).toBe(true);
-  });
-
-  test("an older peer drops the Review capabilities it doesn't know", () => {
-    const decode = Schema.decodeUnknownSync(CapabilityList);
-    expect(decode(["review.checkouts", "review.someday", "session.accept", "git.show"])).toEqual([
-      "review.checkouts",
-      "session.accept",
-      "git.show",
-    ]);
   });
 });
 

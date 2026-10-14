@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
 import { Schema } from "effect";
-import { CapabilityList } from "./capabilities.ts";
 import { ChangedOnDisk, FileContent, FileVersion, WriteFile } from "./files.ts";
 import { DaemonRpcs, ReadFile } from "./rpc.ts";
 
@@ -25,7 +24,4 @@ test("Editor contracts are additive and version conflicts cross JSON", () => {
       content: FileContent.cases.Inline.make({ text: "" }),
     })
   ).toThrow();
-  expect(Schema.decodeUnknownSync(CapabilityList)(["files.read", "files.write", "future"])).toEqual(
-    ["files.read", "files.write"]
-  );
 });

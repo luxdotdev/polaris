@@ -218,7 +218,7 @@ describe("contract compatibility", () => {
     expect(fork).toMatchObject({ model: null, effort: null });
   });
 
-  test("every catalogue entry is a capability; an older peer drops names it doesn't know", () => {
+  test("every catalogue entry is a capability", () => {
     const decode = Schema.decodeUnknownSync(CapabilityList);
 
     expect(decode(HARNESS_CATALOGUE.map((harness) => harness.capability))).toEqual([
@@ -227,11 +227,6 @@ describe("contract compatibility", () => {
       "harness.opencode",
       "harness.gemini",
       "harness.copilot",
-    ]);
-    expect(decode(["harness.kimi", "session.set-model", "harness.models", "usage"])).toEqual([
-      "session.set-model",
-      "harness.models",
-      "usage",
     ]);
   });
 

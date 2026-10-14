@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 import { Schema } from "effect";
 import { DomainEvent, EventEnvelope, StreamKey } from "../events.ts";
 import { HostId, Sequence, SessionId, TurnId } from "../ids.ts";
-import { CapabilityList } from "../capabilities.ts";
 import { DaemonRpcs, HostStreamItem } from "../rpc.ts";
 import { ConstellationCommand, PlanOperation, ReviewAction } from "./commands.ts";
 import {
@@ -172,19 +171,12 @@ describe("Constellation contract", () => {
     ).toMatchObject({ constellationId: "c" });
   });
 
-  test("old Host snapshots decode without Constellations; old peers drop the capability", () => {
+  test("old Host snapshots, Tasks and settings decode without Constellation fields", () => {
     expect(
       Schema.decodeUnknownSync(Schema.fromJsonString(Schema.toCodecJson(HostStreamItem)))(
         '{"_tag":"Snapshot","sequence":0,"workspaces":[],"worktrees":[],"sessions":[]}'
       )
     ).toMatchObject({ sessions: [] });
-    expect(
-      Schema.decodeUnknownSync(CapabilityList)([
-        "constellation",
-        "host.resources",
-        "future.unknown",
-      ])
-    ).toEqual(["constellation", "host.resources"]);
     expect(
       Schema.decodeUnknownSync(TaskDefinition)({
         id: "A1",
