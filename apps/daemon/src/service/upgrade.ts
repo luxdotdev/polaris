@@ -510,17 +510,13 @@ export const performUpgrade = Effect.fn("performUpgrade")(function* (
 });
 
 /**
- * Write the pid file and exec into a new binary whenever `polaris upgrade`
- * leaves a request and sends SIGUSR2. Scoped: the handler is removed when
- * the scope closes.
+ * Exec into a new binary whenever `polaris upgrade` leaves a request and
+ * sends SIGUSR2. The pid file is written after the handler is installed.
+ * Scoped: the handler is removed when the scope closes.
  */
 export const serveUpgrades = Effect.fn("serveUpgrades")(function* (hooks: UpgradeHooks) {
   const context = yield* Effect.context<CommandRunner>();
   const files = upgradeFiles();
-  yield* Effect.try({
-    try: () => writeFileSync(files.pid, `${process.pid}\n`),
-    catch: fail("write pid file"),
-  });
 
   const onSignal = () => {
     const program = Effect.gen(function* () {
@@ -555,7 +551,23 @@ export const serveUpgrades = Effect.fn("serveUpgrades")(function* (hooks: Upgrad
         } catch {}
       })
   );
+
+  // Only now: SIGUSR2's default action kills the process, and the pid file invites it.
+  yield* Effect.try({
+    try: () => writeFileSync(files.pid, `${process.pid}\n`),
+    catch: fail("write pid file"),
+  });
 });
+
+const isAlive = (pid: number): boolean => {
+  try {
+    process.kill(pid, 0);
+
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 /** The PID of the running Daemon, if its pid file names a live process. */
 export const runningDaemonPid = (): number | null => {
@@ -569,6 +581,41 @@ export const runningDaemonPid = (): number | null => {
   } catch {
     return null;
   }
+};
+
+/** How a request ended, from the status file; null while it is still going. */
+const upgradeOutcome = (
+  status: UpgradeStatus | null,
+  requestId: string,
+  pid: number
+): Effect.Effect<UpgradeStatus, UpgradeError> | null => {
+  if (status?.requestId !== requestId) {
+    if (isAlive(pid)) return null;
+
+    return Effect.fail(
+      new UpgradeError({
+        step: "wait",
+        message: `the Daemon (PID ${pid}) exited instead of upgrading`,
+      })
+    );
+  }
+
+  if (status.state === "failed") {
+    return Effect.fail(new UpgradeError({ step: "daemon", message: status.error ?? "failed" }));
+  }
+
+  if (status.state !== "done") return null;
+
+  if (status.pid !== pid) {
+    return Effect.fail(
+      new UpgradeError({
+        step: "verify",
+        message: `Daemon came back as PID ${status.pid}, not ${pid}`,
+      })
+    );
+  }
+
+  return Effect.succeed(status);
 };
 
 /**
@@ -600,25 +647,9 @@ export const requestUpgrade = Effect.fn("requestUpgrade")(function* (options: {
   const deadline = Date.now() + (options.timeoutMs ?? 20_000);
 
   while (Date.now() < deadline) {
-    const status = yield* readStatus();
+    const outcome = upgradeOutcome(yield* readStatus(), request.requestId, options.pid);
 
-    if (status?.requestId === request.requestId) {
-      if (status.state === "done") {
-        if (status.pid !== options.pid) {
-          return yield* new UpgradeError({
-            step: "verify",
-            message: `Daemon came back as PID ${status.pid}, not ${options.pid}`,
-          });
-        }
-
-        return status;
-      }
-
-      if (status.state === "failed") {
-        return yield* new UpgradeError({ step: "daemon", message: status.error ?? "failed" });
-      }
-    }
-
+    if (outcome !== null) return yield* outcome;
     yield* Effect.sleep(50);
   }
 

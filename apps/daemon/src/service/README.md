@@ -79,7 +79,7 @@ The Client uploads the new build and runs `~/.polaris/bin/current/polaris upgrad
 
 1. validates the new binary (`<path> version` must print this Host's platform);
 2. stages it as `~/.polaris/bin/<version>/` and repoints `current`, so a later crash-restart also comes up on the new version;
-3. if a Daemon is running (`~/.polaris/daemon.pid` names a live process), writes `~/.polaris/upgrade-request.json` and sends it `SIGUSR2`, then waits for `~/.polaris/upgrade-status.json` to report `done` from the same PID. If no Daemon is running, it just (re)starts the service.
+3. if a Daemon is running (`~/.polaris/daemon.pid` names a live process), writes `~/.polaris/upgrade-request.json` and sends it `SIGUSR2`, then waits for `~/.polaris/upgrade-status.json` to report `done` from the same PID. The Daemon writes its pid file only after installing its `SIGUSR2` handler (the signal's default action would kill it), and the wait fails at once if the Daemon dies. If no Daemon is running, it just (re)starts the service.
 
 The running Daemon (`serveUpgrades`) validates the binary again, collects the fds to keep, clears close-on-exec on them, and `execve`s into the new binary in the same PID. It passes the hand-off in `POLARIS_HANDOFF` (listener fd, named fds, child PIDs, and the version it came from). launchd and systemd see nothing change. SQLite needs nothing special: an exec is like a crash to it, and committed transactions are durable.
 
