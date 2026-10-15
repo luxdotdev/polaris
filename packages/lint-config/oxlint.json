@@ -5,7 +5,8 @@
     { "name": "polaris", "specifier": "./plugins/polaris/index.mjs" },
     { "name": "anti-slop", "specifier": "./plugins/anti-slop/index.ts" },
     { "name": "anti-slop-effect", "specifier": "./plugins/anti-slop/effect/index.ts" },
-    { "name": "sonarjs", "specifier": "./plugins/sonarjs/index.mjs" }
+    { "name": "sonarjs", "specifier": "./plugins/sonarjs/index.mjs" },
+    { "name": "security", "specifier": "./plugins/security/index.mjs" }
   ],
   "categories": {
     "correctness": "error"
@@ -65,6 +66,10 @@
 
     "polaris/no-long-comment": "error",
     "polaris/await-expect-promise": "error",
+    "security/git-spawn": "error",
+    "security/git-config-mode": "error",
+    "security/image-decode": "error",
+    "security/repository-env": "error",
     "sonarjs/cognitive-complexity": ["error", 15],
     "max-lines": ["error", { "max": 750, "skipBlankLines": true, "skipComments": false }],
 
