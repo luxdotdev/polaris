@@ -3,7 +3,7 @@ import { Schema } from "effect";
 import type { Fetcher, Level, WideEvent } from "../../../../lib/log";
 import { createEmailHandler } from "./index";
 import type { EmailTransport } from "./transport";
-import type { EmailValidator } from "./validator";
+import { EmailValidationError, type EmailValidator } from "./validator";
 import {
   createAdmission,
   limits,
@@ -244,6 +244,38 @@ describe("recipient cooldown", () => {
     expect(f.sent).toEqual(["ada@example.com"]);
   });
 
+  test.each([
+    ["an invalid verdict", async () => false],
+    [
+      "an uncertain verdict",
+      async (): Promise<boolean> => {
+        throw new EmailValidationError("uncertain");
+      },
+    ],
+  ])("%s holds the cooldown, so the address isn't validated again", async (_, verdict) => {
+    let validations = 0;
+
+    const validator: EmailValidator = {
+      validate: () => {
+        validations += 1;
+
+        return verdict();
+      },
+    };
+
+    const submit = handlerWith(
+      memoryStore(() => 0),
+      validator,
+      failing({}).sender
+    );
+
+    await submit("ada@example.com");
+    expect((await submit("ada@example.com")).event).toMatchObject({
+      rejection: "recipient_cooldown",
+    });
+    expect(validations).toBe(1);
+  });
+
   test("a sent email holds the cooldown", async () => {
     const f = failing({});
 
@@ -300,19 +332,21 @@ describe("sources", () => {
     expect(await admit(from("192.0.2.1"), "bob@example.com")).toBe("source_limited");
   });
 
-  test("without Vercel's header, the platform's rightmost forwarded hop is the source", async () => {
-    const admit = local(true);
-    const via = (forwarded: string) => new Headers({ "x-forwarded-for": forwarded });
+  test.each(["x-forwarded-for", "x-real-ip"])(
+    "rotating %s without Vercel's header stays in the unidentified bucket",
+    async (header) => {
+      const admit = local(true);
+      const verdicts = [];
 
-    for (let i = 0; i < 3; i++) {
-      expect(await admit(via(`203.0.113.${i}, 192.0.2.1`), `a${i}@example.com`)).toBe("admitted");
-      expect(await admit(new Headers({ "x-real-ip": "192.0.2.2" }), `b${i}@example.com`)).toBe(
-        "admitted"
-      );
+      for (let i = 0; i <= limits.unknownSource; i++)
+        verdicts.push(
+          await admit(new Headers({ [header]: `203.0.113.${i}` }), `a${i}@example.com`)
+        );
+
+      expect(verdicts.at(-2)).toBe("admitted");
+      expect(verdicts.at(-1)).toBe("source_limited");
     }
-
-    expect(await admit(via("203.0.113.99, 192.0.2.1"), "c@example.com")).toBe("source_limited");
-  });
+  );
 
   test("IPv6 spellings and hosts in one /64 share a source bucket", async () => {
     const admit = local(true);
@@ -333,31 +367,65 @@ describe("sources", () => {
 });
 
 describe("process-local fallback", () => {
-  test("a full store evicts instead of refusing", async () => {
-    const store = memoryStore(() => 0, 2);
-    expect(await store.claim("a", 10)).toBe(true);
-    expect(await store.increment("b", 10)).toBe(1);
-    expect(await store.claim("c", 10)).toBe(true);
-    expect(await store.increment("d", 10)).toBe(1);
+  const flooded = (capacity: number) => {
+    const admit = createAdmission({
+      store: memoryStore(() => 0, capacity),
+      vercel: true,
+      now: () => 0,
+    }).admit;
+
+    const flood = async (count: number) => {
+      const verdicts = [];
+
+      for (let i = 0; i < count; i++)
+        verdicts.push(await admit(from(`10.1.${i >> 8}.${i & 255}`), `flood${i}@example.com`));
+
+      return verdicts;
+    };
+
+    return { admit, flood };
+  };
+
+  test("a flood of new sources doesn't reset a limited source's counter", async () => {
+    const { admit, flood } = flooded(4);
+
+    for (let i = 0; i < limits.perSource; i++) await admit(from("192.0.2.1"), `a${i}@example.com`);
+    await flood(100);
+
+    expect(await admit(from("192.0.2.1"), "b@example.com")).toBe("source_limited");
   });
 
-  test("eviction takes the least recently used entry, so a busy counter survives a flood", async () => {
+  test("sources past capacity share one overflow budget", async () => {
+    const { flood } = flooded(4);
+    const verdicts = await flood(4 + limits.overflowSource + 1);
+
+    expect(verdicts.indexOf("source_limited")).toBe(verdicts.length - 1);
+  });
+
+  test("a flood of new sources and recipients doesn't lift a recipient's cooldown", async () => {
+    const { admit, flood } = flooded(4);
+
+    expect(await admit(from("192.0.2.1"), "ada@example.com")).toBe("admitted");
+    await flood(8);
+
+    expect(await admit(from("192.0.2.2"), "ada@example.com")).toBe("recipient_cooldown");
+  });
+
+  test("a flood of new sources doesn't reset the total", async () => {
     const store = memoryStore(() => 0, 2);
     await store.increment("total", 10);
 
-    for (let i = 0; i < 100; i++) {
-      await store.increment(`source-${i}`, 10);
-      await store.increment("total", 10);
-    }
+    for (let i = 0; i < 100; i++) await store.increment(`source-${i}`, 10, "overflow");
 
-    expect(await store.increment("total", 10)).toBe(102);
+    expect((await store.increment("total", 10)).count).toBe(2);
   });
 
-  test("expired entries go before live ones", async () => {
+  test("a full store refuses new claims until one expires", async () => {
     let now = 0;
     const store = memoryStore(() => now, 2);
     expect(await store.claim("short", 5)).toBe(true);
     expect(await store.claim("long", 100)).toBe(true);
+    expect(await store.claim("new", 100)).toBe(false);
     now = 10;
     expect(await store.claim("new", 100)).toBe(true);
     expect(await store.claim("long", 100)).toBe(false);

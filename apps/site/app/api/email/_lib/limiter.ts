@@ -9,15 +9,22 @@ export const windowMs = 15 * 60 * 1000;
 export const limits = {
   perSource: 3,
   unknownSource: 30,
+  overflowSource: 10,
   total: 450,
   recipientCooldownMs: 10 * 60 * 1000,
 } as const;
 
+/** A counter's value after an increment; `overflowed` when it was counted in the overflow key. */
+export type Count = { count: number; overflowed: boolean };
+
 /** Counters and claims the limiter keeps; keys are prefixed digests, never addresses or IPs. */
 export interface LimitStore {
-  /** Atomically adds one to `key` (expiring `ttlMs` after it was created) and returns the count. */
-  increment(key: string, ttlMs: number): Promise<number>;
-  /** Sets `key` for `ttlMs` only if it is absent; true when this call set it. */
+  /**
+   * Atomically adds one to `key` (expiring `ttlMs` after it was created) and returns the count.
+   * A store with no room for a new `key` counts `overflow` instead; without one it always makes room.
+   */
+  increment(key: string, ttlMs: number, overflow?: string): Promise<Count>;
+  /** Sets `key` for `ttlMs` only if it is absent; true when this call set it, false when full. */
   claim(key: string, ttlMs: number): Promise<boolean>;
   /** Removes `key`, so a claim that sent nothing doesn't hold its cooldown. */
   release(key: string): Promise<void>;
@@ -25,49 +32,66 @@ export interface LimitStore {
 
 export type Admission = "admitted" | "source_limited" | "total_limited" | "recipient_cooldown";
 
-/** Process-local fallback: bounded, evicting expired and then least recently used entries. */
-export function memoryStore(now: () => number = Date.now, capacity = 10_000): LimitStore {
-  const entries = new Map<string, { count: number; expires: number }>();
+type Entry = { count: number; expires: number };
 
-  const live = (key: string) => {
+/** Drops expired entries from the front; the limiter gives each map one TTL, so that is expiry order. */
+function purge(entries: Map<string, Entry>, now: number) {
+  for (const [key, entry] of entries) {
+    if (entry.expires > now) return;
+    entries.delete(key);
+  }
+}
+
+/**
+ * Process-local fallback. It never evicts a live entry: once `capacity` keys that name an
+ * overflow are live, new ones count the overflow, and once `capacity` claims are live, claims fail.
+ */
+export function memoryStore(now: () => number = Date.now, capacity = 10_000): LimitStore {
+  const bounded = new Map<string, Entry>();
+  const unbounded = new Map<string, Entry>();
+  const claims = new Map<string, Entry>();
+
+  const live = (entries: Map<string, Entry>, key: string) => {
     const entry = entries.get(key);
+
+    if (entry && entry.expires > now()) return entry;
     entries.delete(key);
 
-    if (!entry || entry.expires <= now()) return undefined;
-    entries.set(key, entry);
-
-    return entry;
+    return undefined;
   };
 
-  const insert = (key: string, ttlMs: number) => {
-    if (entries.size >= capacity)
-      for (const [stale, entry] of entries) if (entry.expires <= now()) entries.delete(stale);
+  const add = (entries: Map<string, Entry>, key: string, ttlMs: number, overflowed: boolean) => {
+    const entry = live(entries, key);
 
-    for (const oldest of entries.keys()) {
-      if (entries.size < capacity) break;
-      entries.delete(oldest);
-    }
-
+    if (entry) return { count: ++entry.count, overflowed };
+    purge(entries, now());
     entries.set(key, { count: 1, expires: now() + ttlMs });
+
+    return { count: 1, overflowed };
+  };
+
+  const full = (entries: Map<string, Entry>) => {
+    if (entries.size >= capacity) purge(entries, now());
+
+    return entries.size >= capacity;
   };
 
   return {
-    increment: async (key, ttlMs) => {
-      const entry = live(key);
+    increment: async (key, ttlMs, overflow) => {
+      if (overflow === undefined) return add(unbounded, key, ttlMs, false);
 
-      if (entry) return ++entry.count;
-      insert(key, ttlMs);
+      if (live(bounded, key) || !full(bounded)) return add(bounded, key, ttlMs, false);
 
-      return 1;
+      return add(unbounded, overflow, ttlMs, true);
     },
     claim: async (key, ttlMs) => {
-      if (live(key)) return false;
-      insert(key, ttlMs);
+      if (live(claims, key) || full(claims)) return false;
+      claims.set(key, { count: 1, expires: now() + ttlMs });
 
       return true;
     },
     release: async (key) => {
-      entries.delete(key);
+      claims.delete(key);
     },
   };
 }
@@ -107,7 +131,7 @@ export function upstashStore(url: string, token: string, fetcher: Fetcher = fetc
         ["INCR", key],
       ]);
 
-      return decodeIncrement(reply)[1].result;
+      return { count: decodeIncrement(reply)[1].result, overflowed: false };
     },
     claim: async (key, ttlMs) =>
       decodeClaim(await transact([["SET", key, "1", "PX", ttlMs, "NX"]]))[0].result === "OK",
@@ -179,20 +203,16 @@ function canonicalSource(value: string | null) {
   return version === 6 ? ipv6Source(raw) : undefined;
 }
 
-/** Headers Vercel's edge sets itself, most specific first; elsewhere none can be trusted. */
-const platformHeaders = ["x-vercel-forwarded-for", "x-real-ip", "x-forwarded-for"] as const;
-
+/** Only Vercel's own header names the source; anything else a client could have written. */
 export function sourceIdentity(headers: Headers, vercel: boolean): string | undefined {
-  if (!vercel) return undefined;
-
-  for (const name of platformHeaders) {
-    const source = canonicalSource(headers.get(name));
-
-    if (source) return source;
-  }
-
-  return undefined;
+  return vercel ? canonicalSource(headers.get("x-vercel-forwarded-for")) : undefined;
 }
+
+const sourceBudget = (identity: string | undefined, source: Count) => {
+  if (!identity) return limits.unknownSource;
+
+  return source.overflowed ? limits.overflowSource : limits.perSource;
+};
 
 type Options = {
   store: LimitStore;
@@ -204,7 +224,7 @@ type Options = {
 /**
  * Admits a submission only within its source's window, the deployment-wide ceiling and
  * the recipient's cooldown, checked in that order so a refused one spends no later budget.
- * `release` lifts the cooldown again for a submission that sent nothing.
+ * `release` lifts the cooldown again, only for a submission that our side failed to send.
  */
 export function createAdmission({
   store,
@@ -220,13 +240,15 @@ export function createAdmission({
   const admit = async (headers: Headers, email: string): Promise<Admission> => {
     const window = Math.floor(now() / windowMs);
     const identity = sourceIdentity(headers, vercel);
-    const source = identity ? digest(identity) : "unknown";
-    const budget = identity ? limits.perSource : limits.unknownSource;
+    const sources = `polaris:email:source:${window}`;
 
-    if ((await store.increment(`polaris:email:source:${window}:${source}`, windowMs)) > budget)
-      return "source_limited";
+    const source = identity
+      ? await store.increment(`${sources}:${digest(identity)}`, windowMs, `${sources}:overflow`)
+      : await store.increment(`${sources}:unknown`, windowMs);
 
-    if ((await store.increment(`polaris:email:total:${window}`, windowMs)) > limits.total)
+    if (source.count > sourceBudget(identity, source)) return "source_limited";
+
+    if ((await store.increment(`polaris:email:total:${window}`, windowMs)).count > limits.total)
       return "total_limited";
 
     return (await store.claim(recipientKey(email), limits.recipientCooldownMs))

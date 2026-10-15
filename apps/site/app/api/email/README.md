@@ -175,12 +175,15 @@ Before any SES call, each syntax-valid submission must pass, in order (a refusal
 spends no later budget):
 
 1. **Source** (the primary control): 3 per 15-minute fixed window per IP. Only on
-   Vercel (`VERCEL=1`) are forwarding headers trusted, all set by Vercel's edge:
-   `x-vercel-forwarded-for`, then `x-real-ip`, then the rightmost hop of
-   `x-forwarded-for` (the one the platform appended; earlier hops are client-supplied).
-   IPv6 sources are keyed by their /64 and IPv4-mapped IPv6 by its IPv4 address.
-   Submissions with no usable source (or off Vercel) share one `unknown` bucket of 30
-   per window, so a missing header neither limits every visitor to 3 nor escapes limits.
+   Vercel (`VERCEL=1`), and only `x-vercel-forwarded-for` (its rightmost hop) is
+   trusted: `x-real-ip` and `x-forwarded-for` are never read, since a client can send
+   them and rotate its identity. IPv6 sources are keyed by their /64 and IPv4-mapped IPv6
+   by its IPv4 address. Submissions with no usable source (or off Vercel) share one
+   `unknown` bucket of 30 per window, so a missing header neither limits every visitor
+   to 3 nor escapes limits. The process-local fallback store never evicts a live counter
+   or cooldown: once it tracks 10,000 sources, new ones share one `overflow` bucket of 10
+   per window, and once it holds 10,000 cooldowns, new recipients are refused as
+   `recipient_cooldown` until some expire.
 2. **Deployment ceiling:** 450 per 15-minute window across every instance. It is a
    cost and quota backstop, not the everyday limit: 450 per window is 0.5/second on
    average, half the 1/second planned for `GetEmailAddressInsights`, and 43,200 a day,
@@ -191,9 +194,11 @@ spends no later budget):
 3. **Recipient cooldown:** one email per mailbox per 10 minutes, whichever source
    asks, to stop repeated mail to one inbox. The mailbox is the address lowercased,
    without a `+tag`, and for Gmail without dots. The cooldown is claimed at admission so
-   concurrent submissions can't both send, and released when nothing was sent (invalid,
-   uncertain or unavailable validation, missing configuration, a failed send), so a
-   failure never blocks the address and only a delivered email holds it.
+   concurrent submissions can't both send. It is released only when our side failed
+   before any Insights verdict or send (validation unconfigured or a provider error,
+   missing email configuration, a failed send). An `invalid` or `uncertain` verdict, a
+   malformed reply or a timeout holds it, so one address can't be validated (a paid
+   call) again within the cooldown.
 
 All three live in a `LimitStore` (`increment` with expiry, `claim` if absent). With
 `KV_REST_API_URL`/`KV_REST_API_TOKEN` (or the `UPSTASH_REDIS_REST_*` pair) set to an

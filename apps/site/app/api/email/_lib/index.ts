@@ -8,6 +8,7 @@ import {
   EmailValidationError,
   unavailableValidator,
   type EmailValidator,
+  type ValidationFailure,
 } from "./validator";
 import { readSubmission, validEmail } from "./validation";
 
@@ -16,7 +17,7 @@ type Dependencies = {
   validator?: EmailValidator;
   transport: () => EmailTransport | null;
   admit: (headers: Headers, email: string) => Promise<Admission>;
-  /** Lifts the recipient's cooldown after an admitted submission that sent nothing. */
+  /** Lifts the recipient's cooldown after our side failed to validate or send. */
   release?: (email: string) => Promise<void>;
   /** `shared` when the deployment-wide store is configured, recorded on every event. */
   limiter?: "shared" | "local";
@@ -98,9 +99,15 @@ function validationFailure(failure: EmailValidationError, event: WideEvent): Lev
   return failure.reason === "uncertain" ? "info" : "error";
 }
 
-type Delivery = { level: Level; sent: boolean };
+/** `retry` only when our side failed before a verdict or a send, so the cooldown is lifted. */
+type Delivery = { level: Level; retry: boolean };
 
-const unsent = (level: Level): Delivery => ({ level, sent: false });
+const held = (level: Level): Delivery => ({ level, retry: false });
+
+const retryable = (level: Level): Delivery => ({ level, retry: true });
+
+/** Failures that reached no paid verdict; any reply from Insights holds the cooldown. */
+const noVerdict = new Set<ValidationFailure>(["unconfigured", "provider"]);
 
 async function deliver(
   deps: Dependencies,
@@ -112,14 +119,16 @@ async function deliver(
     const accepted = await validator.validate(email, (verdicts) => Object.assign(event, verdicts));
     event.validation = accepted ? "accepted" : "invalid";
 
-    if (!accepted) return unsent("info");
+    if (!accepted) return held("info");
   } catch (error) {
     const failure = Option.getOrElse(
       decodeEmailValidationError(error),
       () => new EmailValidationError("provider", errorInfo(error))
     );
 
-    return unsent(validationFailure(failure, event));
+    const level = validationFailure(failure, event);
+
+    return noVerdict.has(failure.reason) ? retryable(level) : held(level);
   }
 
   const sender = deps.transport();
@@ -128,7 +137,7 @@ async function deliver(
     event.failure = "email_unconfigured";
     event.missing_config = deps.configProblems?.() ?? [];
 
-    return unsent("error");
+    return retryable("error");
   }
 
   try {
@@ -137,12 +146,12 @@ async function deliver(
     event.failure = "send_failed";
     event.error = errorInfo(error);
 
-    return unsent("error");
+    return retryable("error");
   }
 
   event.delivery = sender.preview ? "preview" : "sent";
 
-  return { level: "info", sent: true };
+  return held("info");
 }
 
 async function releaseCooldown(deps: Dependencies, email: string, event: WideEvent) {
@@ -179,9 +188,9 @@ async function admitAndDeliver(
     return admission === "total_limited" ? "error" : "info";
   }
 
-  const { level, sent } = await deliver(deps, validator, email, event);
+  const { level, retry } = await deliver(deps, validator, email, event);
 
-  if (!sent) await releaseCooldown(deps, email, event);
+  if (retry) await releaseCooldown(deps, email, event);
 
   return level;
 }
