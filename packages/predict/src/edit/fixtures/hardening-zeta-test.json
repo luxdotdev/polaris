@@ -1,0 +1,60 @@
+[
+  { "id": "hrn09", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 483.16025 },
+  { "id": "hrn10", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2556.001333 },
+  { "id": "hrn11", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2280.912916 },
+  { "id": "hrn12", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2333.62075 },
+  { "id": "hrn13", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2885.455583000001 },
+  { "id": "hrn14", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2472.060125 },
+  { "id": "hdd09", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 5122.403375000002 },
+  { "id": "hdd10", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2809.396875000002 },
+  { "id": "hdd11", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 3500.439542 },
+  { "id": "hdd12", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 3579.6169169999994 },
+  { "id": "hdd13", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2269.6199579999993 },
+  { "id": "hdd14", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2265.6361250000045 },
+  { "id": "him09", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 3381.285625000004 },
+  { "id": "him10", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2084.4192910000056 },
+  { "id": "him11", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 3092.5131669999973 },
+  { "id": "him12", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 7418.979416999995 },
+  { "id": "him13", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2455.9855000000025 },
+  { "id": "him14", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2226.6007910000044 },
+  {
+    "id": "hin09",
+    "output": "<|marker_1|>\n  const executable = settings.settings.executableOverrides?.[input.providerId] ?? custom?.launch;\n\n  const python = await interpreterFacts(\n    context.root,\n    start,\n    provider,\n    platform,\n    settings.settings.interpreter\n  );\n\n  await detectedInterpreter(python, context.root, start, provider, platform, pythonOptions.host);\n\n  const managed = bundled && custom === undefined && executable === undefined;\n  return {\n    checkout: context.checkout,\n<|marker_2|>",
+    "elapsedMs": 6318.431417
+  },
+  {
+    "id": "hin10",
+    "output": "<|marker_1|>  [\"`\", \"Backquote\"],\n  [\"[\", \"BracketLeft\"],\n  [\"]\", \"BracketRight\"],\n  [\"Up\", \"ArrowUp\"],\n  [\"Down\", \"ArrowDown\"],\n  [\"Left\", \"ArrowLeft\"],\n  [\"Right\", \"ArrowRight\"],\n  [\"Enter\", \"Enter\"],\n  [\"Return\", \"Enter\"],\n  [\"Esc\", \"Escape\"],\n  [\"Escape\", \"Escape\"],\n  [\"Space\", \"Space\"],\n  [\"Tab\", \"Tab\"],\n  [\"Backspace\", \"Backspace\"],\n  [\"Delete\", \"Delete\"],\n]);\n\n<|marker_2|>",
+    "elapsedMs": 2780.478415999998
+  },
+  {
+    "id": "hin11",
+    "output": "<|marker_1|>  if (platform === \"win32\") return openWindowsTerminal(argv, undefined, env);\n  const dir = mkdtempSync(join(tmpdir(), \"polaris-terminal-\"));\n  const script = join(dir, \"polaris.command\");\n\n  writeFileSync(script, terminalScript(argv));\n  chmodSync(script, 0o700);\n  const error = await shell.openPath(script);\n\n  if (error !== \"\") throw new Error(error);\n};\n\nexport const machinesLayer = (input: MachinesLayerInput) =>\n  Machines.layer({\n    platform: input.platform,\n    settings: input.settings,\n    approvals: openApprovals(approvalsPath(input.userData)),\n<|marker_2|>",
+    "elapsedMs": 6469.264291999993
+  },
+  {
+    "id": "hin12",
+    "output": "<|marker_1|>\nconst managedProviders = new Set(managedProviderIds);\n\n/** Discovery checks eligibility; the existing Starting launch admission owns managed downloads. */\nexport const providerAvailability = (\n  installation: Pick<HostLanguageInstallation[\"Service\"], \"inspect\">,\n  managed: ManagedDelivery | undefined,\n  toolId: string,\n  phase: \"install\" | \"feature\",\n  trusted: boolean,\n  admission?: ObservationAdmission,\n  settings?: typeof LanguageEffectiveSettings.Type\n) => {\n  if (developerAvailability(toolId, phase, trusted, admission, settings) === undefined) {\n    return installation.inspect(\n      toolId,\n      phase,\n      trusted || (managedProviders.has(toolId) && managed !== undefined),\n      admission\n    );\n  }\n  <|user_cursor|>\n  if (\n    !managedProviders.has(toolId) ||\n<|marker_2|>",
+    "elapsedMs": 3429.2466660000064
+  },
+  {
+    "id": "hin13",
+    "output": "<|marker_1|>  });\n  languageIpc = registerLanguageIpc(ipcMain, languageRuntime.api, trusted);\n  followFocus(runtime);\n\n  const daemonDist = join(repoRoot, \"apps/daemon/dist\");\n\n  const predictionSettings = new PredictionSettings(\n    () => settings,\n    (value) => updateSettings(() => value)\n  );\n\n  const predictionPlacement = createMainPredictionPlacement(runtime, predictionSettings);\n\n  const predictionBridge = createPredictionBridge(<|user_cursor|>);\n  ipc = registerIpc({\n    runtime,\n<|marker_2|>",
+    "elapsedMs": 7764.670457999993
+  },
+  {
+    "id": "hin14",
+    "output": "<|marker_1|>  languageRuntime = createMainLanguageApi({\n    runtime,\n    identities: languageIdentities,\n    preferences: new LanguagePreferences(\n      () => settings,\n      (value) => updateSettings(() => value)\n    ),\n  });\n  languageIpc = registerLanguageIpc(ipcMain, languageRuntime.api, trusted);\n  followFocus(runtime);\n\n  const daemonDist = join(repoRoot, \"apps/daemon/dist\");\n\n  const predictionSettings = new PredictionSettings(<|user_cursor|>);\n  const predictionPlacement = createMainPredictionPlacement();\n  ipc = registerIpc({\n    runtime,\n<|marker_2|>",
+    "elapsedMs": 4151.109708000004
+  },
+  { "id": "hrf09", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 7334.5797919999895 },
+  { "id": "hrf10", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2222.3481249999895 },
+  {
+    "id": "hrf11",
+    "output": "<|marker_1|>    return yield* connection.session;\n  });\n\n  const labels = (hostKey: string) =>\n    ports.runtime.runPromise(\n      Effect.gen(function* () {\n        const directory = yield* HostDirectory;\n        // The local Host's own name (\"This Mac\"), never the network hostname.\n        const clientLabel = directory.entry(LOCAL_HOST_KEY)?.label ?? hostname();\n\n        return {\n          clientLabel,\n          hostLabel:\n            directory.entry(hostKey)?.label ?? (hostKey === LOCAL_HOST_KEY ? clientLabel : hostKey),\n        };\n      })\n<|marker_2|>",
+    "elapsedMs": 4455.318249999997
+  },
+  { "id": "hrf12", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2274.033374999999 },
+  { "id": "hrf13", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 3747.217374999993 },
+  { "id": "hrf14", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2520.4625420000084 }
+]

@@ -1,0 +1,78 @@
+{
+  "sweep": {
+    "dev": {
+      "raw": {
+        "exact": 10,
+        "acceptable": 0,
+        "wrong": 6,
+        "dangerous": 13,
+        "abstain": 41
+      },
+      "afterGuards": {
+        "exact": 10,
+        "acceptable": 0,
+        "wrong": 6,
+        "dangerous": 0,
+        "abstain": 54
+      },
+      "dangerousCases": [],
+      "usefulSuppressed": []
+    },
+    "test": {
+      "raw": {
+        "exact": 3,
+        "acceptable": 1,
+        "wrong": 3,
+        "dangerous": 3,
+        "abstain": 20
+      },
+      "afterGuards": {
+        "exact": 3,
+        "acceptable": 1,
+        "wrong": 0,
+        "dangerous": 0,
+        "abstain": 26
+      },
+      "dangerousCases": [],
+      "usefulSuppressed": []
+    }
+  },
+  "zeta": {
+    "dev": {
+      "raw": {
+        "exact": 13,
+        "acceptable": 3,
+        "wrong": 8,
+        "dangerous": 2,
+        "abstain": 44
+      },
+      "afterGuards": {
+        "exact": 13,
+        "acceptable": 3,
+        "wrong": 8,
+        "dangerous": 0,
+        "abstain": 46
+      },
+      "dangerousCases": [],
+      "usefulSuppressed": []
+    },
+    "test": {
+      "raw": {
+        "exact": 3,
+        "acceptable": 1,
+        "wrong": 3,
+        "dangerous": 0,
+        "abstain": 23
+      },
+      "afterGuards": {
+        "exact": 3,
+        "acceptable": 1,
+        "wrong": 1,
+        "dangerous": 0,
+        "abstain": 25
+      },
+      "dangerousCases": [],
+      "usefulSuppressed": []
+    }
+  }
+}

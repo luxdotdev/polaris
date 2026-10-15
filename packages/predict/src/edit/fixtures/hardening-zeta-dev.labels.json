@@ -1,0 +1,303 @@
+{
+  "rn01": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "rn02": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "rn03": {
+    "label": "exact",
+    "note": "Matches commit-derived ground truth under the spike whitespace rule."
+  },
+  "rn04": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "rn05": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "rn06": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "rn07": {
+    "label": "wrong",
+    "note": "Uses only THEMES.dark instead of the dark/light mapping requested by the history."
+  },
+  "rf01": {
+    "label": "exact",
+    "note": "Matches commit-derived ground truth under the spike whitespace rule."
+  },
+  "rf02": {
+    "label": "exact",
+    "note": "Matches commit-derived ground truth under the spike whitespace rule."
+  },
+  "rf03": {
+    "label": "exact",
+    "note": "Matches commit-derived ground truth under the spike whitespace rule."
+  },
+  "rf04": {
+    "label": "exact",
+    "note": "Matches commit-derived ground truth under the spike whitespace rule."
+  },
+  "rf05": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "rf06": {
+    "label": "wrong",
+    "note": "Adds a new acceptable helper that merely calls available and omits the provisional check."
+  },
+  "dd01": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "dd02": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "dd03": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "dd04": {
+    "label": "exact",
+    "note": "Matches commit-derived ground truth under the spike whitespace rule."
+  },
+  "dd05": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "dd06": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "im01": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "im02": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "im03": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "im04": {
+    "label": "wrong",
+    "note": "Adds an empty which implementation instead of the missing import; does not replace binary."
+  },
+  "im05": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "im06": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "in01": {
+    "label": "dangerous",
+    "note": "Changes the healthy closing brace to an extra parenthesis while completing env."
+  },
+  "in02": {
+    "label": "exact",
+    "note": "Matches commit-derived ground truth under the spike whitespace rule."
+  },
+  "in03": {
+    "label": "exact",
+    "note": "Matches commit-derived ground truth under the spike whitespace rule."
+  },
+  "in04": {
+    "label": "wrong",
+    "note": "New setup case has an unfinished rank expression and omits setupOutcome."
+  },
+  "in05": {
+    "label": "exact",
+    "note": "Matches commit-derived ground truth under the spike whitespace rule."
+  },
+  "hrn01": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrn02": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrn03": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrn04": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrn05": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrn06": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrn07": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrn08": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hdd01": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hdd02": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hdd03": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hdd04": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hdd05": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hdd06": {
+    "label": "dangerous",
+    "note": "Deletes the healthy isReviewTarget condition and runReviewTarget call, leaving its return and closing brace."
+  },
+  "hdd07": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hdd08": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "him01": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "him02": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "him03": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "him04": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "him05": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "him06": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "him07": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "him08": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hin01": {
+    "label": "wrong",
+    "note": "New resolveSigning invocation omits the required credentials argument."
+  },
+  "hin02": {
+    "label": "exact",
+    "note": "Matches commit-derived ground truth under the spike whitespace rule."
+  },
+  "hin03": {
+    "label": "wrong",
+    "note": "New popupAppMenu invocation omits the required BrowserWindow argument."
+  },
+  "hin04": {
+    "label": "wrong",
+    "note": "New windowsPackageVersion invocation omits the required release argument and its validation."
+  },
+  "hin05": {
+    "label": "exact",
+    "note": "Matches commit-derived ground truth under the spike whitespace rule."
+  },
+  "hin06": {
+    "label": "acceptable",
+    "note": "Useful partial continuation: correct path attribute; React omits null as it omits undefined. The separate diff attribute remains to be typed.",
+    "edits": [
+      {
+        "from": 2542,
+        "to": 2542,
+        "text": " === \"delete\" ? null : change.path}"
+      }
+    ]
+  },
+  "hin07": {
+    "label": "acceptable",
+    "note": "Useful partial continuation: completes the correct useWslDistros destructuring. The next onWindows declaration remains to be typed.",
+    "edits": [
+      {
+        "from": 4196,
+        "to": 4196,
+        "text": "in } = useWslDistros();\n  "
+      }
+    ]
+  },
+  "hin08": {
+    "label": "wrong",
+    "note": "New anyTag decoder repeats the narrow known-tag decoder and omits the known set."
+  },
+  "hrf01": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrf02": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrf03": {
+    "label": "exact",
+    "note": "Matches commit-derived ground truth under the spike whitespace rule."
+  },
+  "hrf04": {
+    "label": "exact",
+    "note": "Matches commit-derived ground truth under the spike whitespace rule."
+  },
+  "hrf05": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrf06": {
+    "label": "acceptable",
+    "note": "Performs the intended posix.resolve refactor; differs from the commit only by omitting its explanatory comment.",
+    "edits": [
+      {
+        "from": 1491,
+        "to": 1491,
+        "text": "posix."
+      }
+    ]
+  },
+  "hrf07": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrf08": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  }
+}

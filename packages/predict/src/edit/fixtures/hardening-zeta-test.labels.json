@@ -1,0 +1,129 @@
+{
+  "hrn09": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrn10": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrn11": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrn12": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrn13": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrn14": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hdd09": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hdd10": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hdd11": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hdd12": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hdd13": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hdd14": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "him09": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "him10": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "him11": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "him12": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "him13": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "him14": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hin09": {
+    "label": "exact",
+    "note": "Matches commit-derived ground truth under the spike whitespace rule."
+  },
+  "hin10": {
+    "label": "exact",
+    "note": "Matches commit-derived ground truth under the spike whitespace rule."
+  },
+  "hin11": {
+    "label": "acceptable",
+    "note": "Useful partial continuation: forwards platform to optional MachinesInput.platform. The explicit fallback and subsequent sshBinary line remain to be typed.",
+    "edits": [
+      {
+        "from": 2343,
+        "to": 2343,
+        "text": "atform,"
+      }
+    ]
+  },
+  "hin12": {
+    "label": "wrong",
+    "note": "New branch calls developerAvailability with the wrong signature and tests its return instead of developerProvider."
+  },
+  "hin13": {
+    "label": "wrong",
+    "note": "New createPredictionBridge call omits its required dependency object."
+  },
+  "hin14": {
+    "label": "wrong",
+    "note": "New PredictionSettings and createMainPredictionPlacement calls omit required dependencies."
+  },
+  "hrf09": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrf10": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrf11": {
+    "label": "exact",
+    "note": "Matches commit-derived ground truth under the spike whitespace rule."
+  },
+  "hrf12": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrf13": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrf14": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  }
+}

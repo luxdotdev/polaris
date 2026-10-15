@@ -162,3 +162,36 @@ python3 table.py ../raw <tag>=<judgement key> …        # quality table with ha
 ```
 
 Models live in `~/.cache/next-edit-spike/models`; the Zeta Q4 GGUF was deleted after its runs. `matrix-a.sh` and `matrix-b.sh` hold the exact run order.
+
+## Live hardening, 2026-10-15
+
+**Workload and split.** [The manifest](next-edit-spike/scripts/cases.json) now contains 100 Polaris-history cases: rename 21, refactor 20, dead-code deletion 20, import 20, insertion 19. The original 30 are dev cases; 70 additional cases were selected by hunk shape and reviewed before inference, 14 per category. New cases apply all non-target hunks as frozen history; insertion cases then type 40% of the target's first line. The miner can emit complete candidate hunks with `--json`. No external source code was copied.
+
+The split was fixed before querying either model: 70 dev and 30 held-out, with six held-out cases in each category. Within each category, the new cases were sorted by SHA-256 of `ep1b:<commit>`; the first eight went to dev and the last six to test. No source commit crosses splits; some file paths do. This is a selected TypeScript/TSX workload, not a random sample. Full target patches fit Sweep's window in 32/70 dev and 8/30 test cases, and Zeta's window in 40/70 dev and 9/30 test cases. Most held-out targets therefore require a jump before the model can reach them.
+
+**Method.** Each model received one request for each frozen final state, using the production prompt builder and streaming endpoint decoder, then the production parser, diff and guards. There were no five-keystroke sequences in this run. Both servers used context 8192, one slot, 99 GPU layers, cache reuse 256, `ngram-simple` with n=8/m=48, greedy sampling, prompt caching, and a 512-token output cap. Sweep used the existing Q8 blob on private port 8091; Zeta 2.1 Q4_K_M used the owner-provided external-SSD GGUF on private port 8092. Only one of these servers ran at a time. No downloads or shared-port-8080 requests occurred. All three private server instances were stopped by their recorded PIDs.
+
+The Host was an Apple M2 Max with 32 GiB RAM, Bun 1.3.13 and llama.cpp 0.6.0 (build 11429, `d81235049`). It was busy: load averages recorded after the runs were 72.18 / 121.92 / 68.71. Zeta initially needed about five minutes to become ready. Its first held-out request produced no completed response before the unchanged 120-second deadline; that acquisition failure is recorded separately. A one-token non-evaluation warmup preceded each successful held-out acquisition. No held-out response was reviewed before the guard sources were frozen, and those sources were unchanged afterward. [Metadata](../../packages/predict/src/edit/fixtures/hardening.meta.json) records the hashes, settings and failure.
+
+All 200 completed responses and their labels are committed under [the replay fixtures](../../packages/predict/src/edit/fixtures/README.md). Exact and abstain use the spike's whitespace-insensitive rule; every other response was reviewed against its history and target. Acceptable includes correct partial insertion continuations. Sweep `dd06` is borderline and remains conservatively labeled dangerous. Labels describe raw output; suppression changes the shown result to abstain without relabeling the raw response.
+
+| Model | Set | Stage | Exact | Acceptable | Wrong | Dangerous | Abstain |
+|---|---|---|---:|---:|---:|---:|---:|
+| Sweep Next-Edit 1.5B Q8 | Dev, 70 | Raw | 10 | 0 | 6 | 13 | 41 |
+| Sweep Next-Edit 1.5B Q8 | Dev, 70 | After guards | 10 | 0 | 6 | 0 | 54 |
+| Sweep Next-Edit 1.5B Q8 | Held-out, 30 | Raw | 3 | 1 | 3 | 3 | 20 |
+| Sweep Next-Edit 1.5B Q8 | Held-out, 30 | After guards | 3 | 1 | 0 | 0 | 26 |
+| Zeta 2.1 Q4_K_M | Dev, 70 | Raw | 13 | 3 | 8 | 2 | 44 |
+| Zeta 2.1 Q4_K_M | Dev, 70 | After guards | 13 | 3 | 8 | 0 | 46 |
+| Zeta 2.1 Q4_K_M | Held-out, 30 | Raw | 3 | 1 | 3 | 0 | 23 |
+| Zeta 2.1 Q4_K_M | Held-out, 30 | After guards | 3 | 1 | 1 | 0 | 25 |
+
+No exact or acceptable response was suppressed on either split or model. Dangerous-after-guards cases and hunks: **Sweep dev `[]`, Sweep held-out `[]`, Zeta dev `[]`, Zeta held-out `[]`**. Sweep's held-out dangerous cases were `hrn14` (changes the newly written version lookup), `hin12` (deletes healthy eligibility checks), and `hrf13` (rewrites the user's `input.models` call in the wrong function); each produced no shown hunks. [The review](next-edit-spike/raw/live-hardening.review.md) records every non-exact/non-abstaining decision and each dangerous raw patch with its post-guard hunks. [Machine-readable counts](../../packages/predict/src/edit/fixtures/hardening-summary.json) preserve both stages. Zeta's held-out raw responses contained no dangerous example, so that split does not measure its guard's sensitivity to a new dangerous output. Zeta `hin12`, a wrong new branch, remained visible.
+
+**Measured restraint.** The dev-driven checks protect authored history lines except pure cursor continuations, closing punctuation including backticks, delimiter balance, existing definitions, imported bindings, and identifier propagation. Mixed edits may remove complete blank lines: Zeta `rf02` is exact under the spike rule and includes one such deletion. The checks are lexical and do not resolve scopes or types. The declaration check also suppressed wrong completions of unfinished names in `hin13`/`hin14`; this corpus does not establish retention of correct completions of such names. The measurements above establish retention and suppression on this corpus; the many abstentions and out-of-window targets limit generalization.
+
+**Runtime cost.** The existing `packages/predict/src/edit/bench.ts` was run for three rounds before and after the change, on the same original 60-response replay workload with in-memory HTTP and no model server. Replay pipeline p50 was 0.298 / 0.241 / 0.186 ms before and 0.332 / 0.251 / 0.194 ms after; p95 was 0.953 / 0.607 / 0.396 ms before and 2.198 / 1.177 / 0.838 ms after. The added scans increased tail cost in these runs; these are busy-Host observations, not a quiet-Host performance gate. FIM prompt p50 stayed within 0.149–0.164 ms across both measurements. No baseline or timeout was relaxed.
+
+Zeta's per-request durations are retained only in its raw fixtures. **They include external-drive behavior and are not speed measurements; no Zeta model latency is included in a latency table.** Ordinary tests use fixtures only; the live acquisition and 100-case harness remain opt-in.
+
+**Verification.** Affected-package typecheck passed; the predictor suite passed 322 tests with two opt-in live tests skipped and zero failures. The 200 new model-response replays plus four coverage checks all passed. Root format/lint and license checks passed (680 production dependencies plus eight platform builds, zero license violations).

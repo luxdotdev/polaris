@@ -1,0 +1,176 @@
+[
+  { "id": "rn01", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2324.8847499999997 },
+  { "id": "rn02", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 1744.5262500000003 },
+  {
+    "id": "rn03",
+    "output": "<|marker_1|>  readonly onPick: (tab: TabId) => void;\n  /** \"Review changes\", \"Review 2 new commits\"; null hides the jump (on Changes). */\n  readonly jumpLabel: string | null;\n}\n\nconst next = () => commandShortcut(\"review.nextTab\");\n\nconst previous = () => commandShortcut(\"review.previousTab\");\n\nconst keyTo = (tabs: ReadonlyArray<TabId>, current: TabId, tab: TabId) => {\n  const from = tabs.indexOf(current);\n  const to = tabs.indexOf(tab);\n\n  if ((from + 1) % tabs.length === to) return next();\n\n  return (to + 1) % tabs.length === from ? previous() : null;\n<|marker_2|>",
+    "elapsedMs": 3445.964709
+  },
+  { "id": "rn04", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 1544.5167499999998 },
+  { "id": "rn05", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2020.5919159999994 },
+  { "id": "rn06", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 867.718417 },
+  {
+    "id": "rn07",
+    "output": "<|marker_2|>export const POOL_SIZE = 4;\n\n/** Lines longer than this are left unhighlighted and get no word diff. */\nexport const MAX_LINE_LENGTH = 1000;\n\nconst poolOptions = { workerFactory: () => new PierreWorker(), poolSize: POOL_SIZE };\n\nconst highlighterOptions = {\n  theme: THEMES.dark,\n  lineDiffType: \"word-alt\" as const,\n  tokenizeMaxLineLength: MAX_LINE_LENGTH,\n  maxLineDiffLength: MAX_LINE_LENGTH,\n};\n<|marker_3|>",
+    "elapsedMs": 2287.022832999999
+  },
+  {
+    "id": "rf01",
+    "output": "<|marker_1|>      : null;\n  }\n\n  if (status.state === \"connected\" && status.host !== null && bundledVersion !== null) {\n    return backgroundUpgradeDue(status.host.daemonVersion, bundledVersion)\n      ? `upgrade:${status.epoch}`\n      : null;\n  }\n\n  return null;\n};\n\n/**\n * The local Host's background check: only an upgrade (`backgroundUpgradeDue`) of the\n * Daemon installed in `home`, once per connection. Null when the app runs its own.\n */\n<|marker_2|>export const localUpgradeKey = (\n  view: HostView,\n  bundledVersion: string | null,\n  home: string | null\n): string | null => {\n  const { status } = view;\n\n  if (home === null || bundledVersion === null) return null;\n\n  if (status.state !== \"connected\" || status.host === null) return null;\n\n  return backgroundUpgradeDue(status.host.daemonVersion, bundledVersion) ? `upgrade:${status.epoch}` : null;\n};\n<|marker_3|>",
+    "elapsedMs": 3891.674000000001
+  },
+  {
+    "id": "rf02",
+    "output": "<|marker_2|>  // The long scene opens every Turn, so scrolling crosses thousands of rows.\n  if (scene === \"long\" && shown?.session != null) {\n    const folds = { chosen: new Map(), openFrom: shown.turns[0]?.turn.id ?? null };\n\n    patchSessionUi(uiKey(HOST, shown.session.id), () => ({ folds }));\n  }\n\n  if (isUsage(scene)) navigation.actions.openSettings(\"usage\");\n\n  const commands = createCommandRegistry({ mac: true });\n\n  createRoot(root).render(<App value={{ connection, navigation, commands }} />);\n<|marker_3|>",
+    "elapsedMs": 3141.660541999998
+  },
+  {
+    "id": "rf03",
+    "output": "<|marker_2|>        <div className=\"flex items-baseline gap-4\">\n          <span className=\"text-caption text-text-subtle w-20 shrink-0\">code-inline</span>\n          <span className=\"text-code-inline text-text-default font-mono\">spike/gpui-review</span>\n        </div>\n        <div className=\"flex items-baseline gap-4\">\n          <span className=\"text-caption text-text-subtle w-20 shrink-0\">text colours</span>\n          <span className=\"text-label text-text-strong\">strong</span>\n          <span className=\"text-label text-text-default\">default</span>\n          <span className=\"text-label text-text-subtle\">subtle</span>\n          <span className=\"text-label text-text-faint\">faint</span>\n        </div>\n      </div>\n    </Section>\n<|marker_3|>",
+    "elapsedMs": 3118.235292000001
+  },
+  {
+    "id": "rf04",
+    "output": "<|marker_2|>          </span>\n          <span className=\"text-caption text-text-default min-w-0 flex-1 truncate\">\n            {p.comment.body}\n          </span>\n        </div>\n      ))}\n      <div className=\"px-gap gap-row-x flex h-[26px] items-center\">\n        <span className=\"text-caption text-text-subtle w-[150px] shrink-0\">Viewed</span>\n        <span className=\"text-caption text-text-default\">\n          {viewed} of {detail.files.length} files{left > 0 ? ` · ${left} not viewed yet` : \"\"}\n        </span>\n      </div>\n    </div>\n<|marker_3|>",
+    "elapsedMs": 3246.027291000002
+  },
+  { "id": "rf05", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2972.0454169999975 },
+  {
+    "id": "rf06",
+    "output": "<|marker_1|>      const view = getActiveEditor()?.view;\n\n      return view !== undefined && view.hasFocus && visibleGhost(view.state) !== null;\n    };\n\n    const acceptable = () => {\n      return available();\n    };\n\n    const accept = (word: boolean) => {\n      const view = getActiveEditor()?.view;\n\n      if (view) acceptPrediction(view, word);\n    };\n\n    const unregister = registry.register({\n      \"editor.prediction.accept\": { enabled: acceptable, run: () => accept(false) },\n      \"editor.prediction.acceptWord\": { enabled: acceptable, run: () => accept(true) },\n      \"editor.prediction.dismiss\": {\n        enabled: available,\n<|marker_2|>",
+    "elapsedMs": 2698.8018749999974
+  },
+  { "id": "dd01", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2018.8793749999968 },
+  { "id": "dd02", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 1327.9854169999962 },
+  { "id": "dd03", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2081.229167000005 },
+  {
+    "id": "dd04",
+    "output": "<|marker_1|>}) => {\n  const [open, setOpen] = useState(false);\n  const { api, host } = props;\n\n  return (\n    <section aria-label=\"Advanced\" className=\"flex flex-col gap-4\">\n      <button\n        type=\"button\"\n        aria-expanded={open}\n        onClick={() => setOpen(!open)}\n        className=\"flex cursor-default items-center gap-2 self-start px-0.5 py-1 text-left\"\n      >\n        <DisclosureChevron open={open} size={12} className=\"text-text-subtle\" />\n        <span className=\"text-body text-text-default font-medium\">Advanced</span>\n        <span className=\"text-caption text-text-faint\">\n<|marker_2|>",
+    "elapsedMs": 3272.5606249999983
+  },
+  { "id": "dd05", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 1897.5645829999994 },
+  { "id": "dd06", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2679.951291999998 },
+  { "id": "im01", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 1491.847167 },
+  { "id": "im02", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 1048.7492500000008 },
+  { "id": "im03", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 1235.1830409999966 },
+  {
+    "id": "im04",
+    "output": "<|marker_1|> * `POLARIS_COPILOT` can point at the binaries explicitly.\n * Requires `PlanLimitReporter`, where the drivers report what their Harness exposes.\n */\nimport type { HarnessKind, KnownHarnessKind } from \"@polaris/protocol\";\nimport { Effect, Layer, Scope } from \"effect\";\nimport { HarnessRegistry, ServiceError } from \"../services.ts\";\nimport { ACP_HARNESSES } from \"./acp/harnesses.ts\";\nimport { isBenchKind } from \"./bench/kinds.ts\";\nimport { ClaudeHookReceiver } from \"./claude/hooks.ts\";\nimport { type HarnessDriver, HarnessError } from \"./HarnessDriver.ts\";\nimport { PlanLimitReporter } from \"./limits/PlanLimitReporter.ts\";\n\nconst binary = (env: string, name: string): string | null =>\n  process.env[env] || which(name) || null;\n\nconst which = (name: string): string | null => {\n  <|user_cursor|>\n};\n\n/** What each driver declares; checked against the loaded drivers in registry.test.ts. */\n<|marker_2|>",
+    "elapsedMs": 3464.762582999996
+  },
+  { "id": "im05", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 1174.9494169999962 },
+  { "id": "im06", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 1691.6975420000017 },
+  {
+    "id": "in01",
+    "output": "<|marker_1|>    if (next.done) break;\n    text = (text + decoder.decode(next.value, { stream: true })).slice(-MAX_OUTPUT);\n  }\n\n  return text + decoder.decode();\n});\n\nexport const executeSetup = Effect.fn(\"WorktreeSetup.execute\")(function* (run: WorktreeSetupRun) {\n  const proc = yield* Effect.acquireRelease(\n    Effect.try({\n      try: () =>\n        Bun.spawn([\"/bin/sh\", \"-c\", run.command], {\n          cwd: run.cwd,\n          env: childEnv(run.cwd),<|user_cursor|>\n          stdin: \"ignore\",\n          stdout: \"pipe\",\n<|marker_2|>",
+    "elapsedMs": 2351.331250000003
+  },
+  {
+    "id": "in02",
+    "output": "<|marker_1|>  ReviewCheckout,\n  ReviewCost,\n  ReviewerRun,\n  RiskFinding,\n  RiskSummary,\n  SummaryLayer,\n  Walkthrough,\n  Verdict,\n} from \"./review.ts\";\n\nexport const DomainEvent = Schema.TaggedUnion({\n  ...constellationEventFields,\n  ...resourceEventFields,\n  ...notificationEventFields,<|user_cursor|>\n  WorkspaceRegistered: { workspace: Workspace },\n  WorkspaceUpdated: { workspace: Workspace },\n<|marker_2|>",
+    "elapsedMs": 2205.7472500000003
+  },
+  {
+    "id": "in03",
+    "output": "<|marker_1|>  Disabled: {},\n  Command: { command: Schema.NonEmptyString.check(Schema.isPattern(/\\S/)) },\n});\n\nexport type WorktreeSetup = typeof WorktreeSetup.Type;\n\n/** Setup is Host work, separate from Turns and working worker slots. */\nexport class WorktreeSetupRun extends Schema.Class<WorktreeSetupRun>(\"WorktreeSetupRun\")({\n  id: Schema.String,\n  constellationId: ConstellationId,\n  taskId: TaskId,\n  command: Schema.String,\n  cwd: Schema.String,\n  fingerprint: optionalNullable(Schema.String),<|user_cursor|>\n  status: Schema.Literals([\"running\", \"completed\", \"failed\"]),\n  output: Schema.String,\n<|marker_2|>",
+    "elapsedMs": 1948.8867499999978
+  },
+  {
+    "id": "in04",
+    "output": "<|marker_1|>  const id = row.task.id;\n  const { attention } = row.look;\n\n  if (attention !== null) {\n    switch (attention.kind) {\n      case \"approval\":\n        return { taskId: id, text: `${id} waiting on your approval`, rank: 1 };\n      case \"question\":\n        return { taskId: id, text: `${id} asks you`, rank: 2 };\n      case \"handed\":\n        return { taskId: id, text: `${id}'s claim handed to you`, rank: 3 };\n      case \"stopped\":\n        return { taskId: id, text: `${id} stopped without claiming`, rank: 4 };\n      case \"setup\":\n        return { taskId: id, text: `${id} needs setup`, rank: <|user_cursor|> };\n    }\n  }\n<|marker_2|>",
+    "elapsedMs": 3173.2311249999984
+  },
+  {
+    "id": "in05",
+    "output": "<|marker_1|>\nconst settled = settledOnboarding();\n\nexport const App = ({ value, onboarding = settled }: AppProps) => (\n  <StrictMode>\n    <AppProvider value={value}>\n      <OnboardingProvider value={onboarding}>\n        <TooltipProvider>\n          <Shell />\n          <NeedsYouPublisher />\n          <PullsPublisher />\n          <CheckoutPublisher />\n          <LinkedPullsPublisher />\n          <ConstellationFeeds />\n          <UpgradeToasts />\n          <Toaster />\n<|marker_2|>",
+    "elapsedMs": 2249.494875000004
+  },
+  { "id": "hrn01", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2151.013500000001 },
+  { "id": "hrn02", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2153.6408749999973 },
+  { "id": "hrn03", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2170.64224999999 },
+  { "id": "hrn04", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 1968.8880840000056 },
+  { "id": "hrn05", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 1957.984208000009 },
+  { "id": "hrn06", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 1872.506625000009 },
+  { "id": "hrn07", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2656.748416000002 },
+  { "id": "hrn08", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2903.772250000009 },
+  { "id": "hdd01", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2017.4372909999947 },
+  { "id": "hdd02", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2897.7709580000082 },
+  { "id": "hdd03", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2421.42908300001 },
+  { "id": "hdd04", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 1976.3548750000045 },
+  { "id": "hdd05", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2294.8023749999993 },
+  {
+    "id": "hdd06",
+    "output": "<|marker_1|>    target.kind === \"file\" ? 0 : target.line,\n    target.kind === \"file\" ? \"new\" : target.side\n  );\n};\n\nexport const useRunJump = () => {\n  const actions = useShellActions();\n  const { topBar } = useSelection();\n  const hosts = useApp((s) => s.hosts);\n  const models = useApp((s) => s.hostModels);\n\n  return (target: JumpTarget, review: boolean) => {\n<|marker_2|>",
+    "elapsedMs": 2816.1635420000093
+  },
+  { "id": "hdd07", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2484.445166999998 },
+  { "id": "hdd08", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2395.2342079999944 },
+  { "id": "him01", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 1439.2177919999958 },
+  { "id": "him02", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2189.7097499999945 },
+  { "id": "him03", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2148.5340829999914 },
+  { "id": "him04", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 1932.9444579999981 },
+  { "id": "him05", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 1156.3979580000014 },
+  { "id": "him06", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2127.9289160000044 },
+  { "id": "him07", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 1685.0150829999911 },
+  { "id": "him08", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2013.1576249999925 },
+  {
+    "id": "hin01",
+    "output": "<|marker_1|>/** Rebuild the installer from an already packaged Polaris.app, without modifying the app. */\nimport { join } from \"node:path\";\nimport { Schema } from \"effect\";\nimport { APP_DIR, OUT_DIR, REPO_ROOT } from \"./lib/build.ts\";\nimport { installerDmg } from \"./packaging/dmg.ts\";\nimport { resolveSigning, signingCredentials } from \"./packaging/release.ts\";\n\nconst { version } = Schema.decodeUnknownSync(Schema.Struct({ version: Schema.String }))(\n  await Bun.file(join(APP_DIR, \"package.json\")).json()\n);\n\nconst output = join(OUT_DIR, \"dist\");\n\nconst signing = resolveSigning(<|user_cursor|>);\nconsole.log(\n  installerDmg(\n<|marker_2|>",
+    "elapsedMs": 2089.2425829999993
+  },
+  {
+    "id": "hin02",
+    "output": "<|marker_1|>          title={problem ?? undefined}\n          onClick={() => void save()}\n        >\n          Save verdict\n        </Button>\n      </div>\n    </div>\n  );\n};\n\nexport const ThumbDown = ({\n  title,\n  onSave,\n  open: shown,\n  onOpenChange,\n}: {\n  readonly title: string;\n<|marker_2|>",
+    "elapsedMs": 2952.899458
+  },
+  {
+    "id": "hin03",
+    "output": "<|marker_1|>      setWelcomeSeen: () => saveSettings({ welcomeSeen: true }),\n      pickFolder,\n      appVersion: app.getVersion(),\n      proofWorkspace: () =>\n        localDaemon?.benchHarness === true ? mkdtempSync(join(tmpdir(), \"polaris-proof-\")) : null,\n      daemonDist: existsSync(join(daemonDist, \"manifest.json\")) ? daemonDist : null,\n      writeClipboard: async (text) => clipboard.writeText(text),\n      // The one main window; a hidden one (smoke runs) has no focus to find it by.\n      editAction: (action) =>\n        (BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0])?.webContents[\n          action\n        ](),\n      needsYou: (summary) => needsYou?.publish(summary),\n      showAppMenu: () => popupAppMenu(),<|user_cursor|>\n    },\n  });\n<|marker_2|>",
+    "elapsedMs": 3567.7995419999934
+  },
+  {
+    "id": "hin04",
+    "output": "<|marker_1|>const STAGE = join(OUT_DIR, \"package\");\n\nconst release = args.includes(\"--release\");\n\nconst decodePackage = Schema.decodeUnknownSync(\n  Schema.Struct({\n    version: Schema.String,\n    devDependencies: Schema.Record(Schema.String, Schema.String),\n  })\n);\n\nconst pkg = decodePackage(await Bun.file(join(APP_DIR, \"package.json\")).json());\n\nconst version = windows ? windowsPackageVersion(pkg.version) : pkg.version;<|user_cursor|>\nif (release) {\n  const daemon = Schema.decodeUnknownSync(Schema.Struct({ version: Schema.String }))(\n<|marker_2|>",
+    "elapsedMs": 3049.5043749999895
+  },
+  {
+    "id": "hin05",
+    "output": "<|marker_1|>const globals = globalThis as {\n  readonly polaris?: { readonly platform?: string };\n  readonly process?: { readonly platform?: string };\n};\n\nlet override: ClientPlatform | null = null;\n\nlet testBase: ClientPlatform | null = null;\n\n/** Which OS this Client runs on; a test's override wins, then the test run's base. */\nexport const clientPlatform = (): ClientPlatform => {\n  if (override !== null) return override;\n\n  if (testBase !== null) return testBase;\n\n  const platform = globals.polaris?.platform ?? globals.process?.platform;\n\n<|marker_2|>",
+    "elapsedMs": 2978.8508750000037
+  },
+  {
+    "id": "hin06",
+    "output": "<|marker_1|>\nconst Files = ({\n  item,\n  onOpenDiff,\n}: {\n  readonly item: Extract<ItemView, { kind: \"files\" }>;\n  readonly onOpenDiff: () => void;\n}) => (\n  <div className={cn(WELL, \"flex flex-col py-1.5\")} data-testid=\"file-change\">\n    {item.changes.map((change) => (\n      <div\n        key={change.path}\n        className=\"group/file hover:bg-fill-hover h-row flex items-center pr-1\"\n        data-menu-path={change.kind === \"delete\" ? null : change.path}<|user_cursor|>\n      >\n        <button\n<|marker_2|>",
+    "elapsedMs": 5589.481916999997
+  },
+  {
+    "id": "hin07",
+    "output": "<|marker_1|>    >\n      <HostDetails machine={machine} settings={settings} />\n    </HostRow>\n  );\n};\n\nexport interface HostsSettingsPageProps {\n  /** Open the add-machine flow at once (the first-run \"connect a host\" row). */\n  readonly adding?: boolean;\n}\n\nexport const HostsSettingsPage = ({ adding = false }: HostsSettingsPageProps) => {\n  const machines = useMachines();\n  const { wsl, again } = useWslDistros();\n  <|user_cursor|>\n  const [adder, setAdder] = useState(adding);\n\n<|marker_2|>",
+    "elapsedMs": 3960.5268750000105
+  },
+  {
+    "id": "hin08",
+    "output": "<|marker_1|>import { DomainEvent } from \"@polaris/protocol\";\nimport { Schema } from \"effect\";\nimport { json } from \"./json.ts\";\n\n// SAFETY: TaggedUnion.cases contains exactly the union's event discriminators.\nconst kinds = Object.keys(DomainEvent.cases) as Array<DomainEvent[\"_tag\"]>;\n\nconst tag = Schema.decodeUnknownSync(Schema.Struct({ _tag: Schema.Literals(kinds) }));\n\nconst anyTag = Schema.decodeUnknownSync(Schema.Struct({ _tag: Schema.Literals(kinds) }));\nconst codecs = new Map<DomainEvent[\"_tag\"], ReturnType<typeof json<DomainEvent, unknown>>>();\n\n<|marker_2|>",
+    "elapsedMs": 2309.9771670000046
+  },
+  { "id": "hrf01", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 1778.1353339999914 },
+  { "id": "hrf02", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 1451.7342920000083 },
+  {
+    "id": "hrf03",
+    "output": "<|marker_1|>      if (budget.used < budget.limit) return budget.reserve(entry);\n\n      const victim = [...entries.values()]\n        .filter(idle)\n        .toSorted((one, two) => (recency.get(one) ?? 0) - (recency.get(two) ?? 0))[0];\n\n      if (victim !== undefined) {\n        move(victim, { type: \"evict\" });\n        await abortable(bounded(shutdown(victim, \"process-budget\"), deadline), signal);\n      } else if (budget.retiring) {\n        const controller = new AbortController();\n\n        try {\n          await bounded(budget.wait(AbortSignal.any([signal, controller.signal])), deadline);\n        } finally {\n          controller.abort();\n<|marker_2|>",
+    "elapsedMs": 3125.301708999992
+  },
+  {
+    "id": "hrf04",
+    "output": "<|marker_1|>export const harnessBinary = (harness: \"claude\" | \"codex\"): string | null =>\n  process.env[harness === \"claude\" ? \"POLARIS_CLAUDE\" : \"POLARIS_CODEX\"] || which(harness) || null;\n\nexport const liveInline: InlineBackend = Effect.fn(\"inline.live\")(\n  function* (request, cwd, progress) {\n    const binary = harnessBinary(request.harness);\n\n    if (!binary)\n      return yield* new InlineError({\n        reason: \"harness-failed\",\n        message: `${request.harness} was not found on PATH`,\n      });\n\n<|marker_2|>",
+    "elapsedMs": 2859.278250000003
+  },
+  { "id": "hrf05", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2096.872000000003 },
+  {
+    "id": "hrf06",
+    "output": "<|marker_1|>  if (platform === \"win32\") {\n    const folder = win32.dirname(executable);\n\n    return (\n      !/^app-\\d+\\.\\d+\\.\\d+(?:[-.][\\w.-]+)?$/i.test(win32.basename(folder)) ||\n      !exists(win32.resolve(folder, \"../Update.exe\"))\n    );\n  }\n\n  const path = posix.resolve(appPath);\n\n  return (\n    path === posix.resolve(downloads) ||\n    path.startsWith(`${posix.resolve(downloads)}/`) ||\n    path.startsWith(\"/Volumes/\") ||\n    path.includes(\"/AppTranslocation/\")\n<|marker_2|>",
+    "elapsedMs": 2771.8318750000035
+  },
+  { "id": "hrf07", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 2167.1501670000143 },
+  { "id": "hrf08", "output": "<|marker_1|><|marker_1|>", "elapsedMs": 1747.1696250000095 }
+]

@@ -7,6 +7,7 @@ const limit = Number(process.argv[2] ?? 1100);
 const log = await $`git -C ${REPO} log --no-merges -n ${limit} --format=%h%x09%s --numstat`.quiet().text();
 let commit = "", subject = "";
 const rows: string[] = [];
+const candidates: { commit: string; path: string; subject: string; hunks: Awaited<ReturnType<typeof hunks>> }[] = [];
 for (const line of log.split("\n")) {
   const head = /^([0-9a-f]{7,})\t(.*)$/.exec(line);
   if (head) { commit = head[1]!; subject = head[2]!; continue; }
@@ -18,6 +19,7 @@ for (const line of log.split("\n")) {
   if (hs.length < 2 || hs.length > 6 || hs.some((h) => h.oldLines.length > 8 || h.newLines.length > 8)) continue;
   const near = hs.some((h, i) => i > 0 && h.oldStart - hs[i - 1]!.oldStart <= 30);
   if (!near) continue;
+  candidates.push({ commit, path, subject, hunks: hs });
   rows.push(`## ${commit} ${path} — ${subject}`);
   for (const h of hs) {
     rows.push(`  @${h.oldStart + 1}`);
@@ -25,4 +27,4 @@ for (const line of log.split("\n")) {
     for (const l of h.newLines) rows.push(`   +${l.slice(0, 110)}`);
   }
 }
-console.log(rows.join("\n"));
+console.log(process.argv.includes("--json") ? JSON.stringify(candidates, null, 2) : rows.join("\n"));
