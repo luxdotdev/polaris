@@ -108,8 +108,9 @@ const createRefs = (repo: string, sessionId: string, turnIds: ReadonlyArray<stri
       )
     );
 
-    // Prepare every lock before refs become visible to Archive or the sweeper.
+    // Prepare every lock before refs become visible; "host" lets the test's hook watch.
     await gitText(repo, ["update-ref", "--stdin"], {
+      config: "host",
       stdin: `start\n${updates.join("\n")}\nprepare\ncommit\n`,
     });
   });
