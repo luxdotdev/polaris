@@ -5,9 +5,8 @@
  */
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@polaris/ui";
 import { useEffect, useState } from "react";
-import { polaris } from "../../bridge.ts";
 import { useEditorPlace } from "../../editor-links/index.ts";
-import { imageMime } from "../model/items.ts";
+import { readHostImage } from "../../host-images/index.ts";
 
 const absolute = (root: string | null, path: string) =>
   root === null || path.startsWith("/") || path.startsWith("~")
@@ -17,6 +16,7 @@ const absolute = (root: string | null, path: string) =>
 type Loaded =
   | { readonly kind: "loading" }
   | { readonly kind: "ready"; readonly url: string; readonly size: number }
+  | { readonly kind: "too-large" }
   | { readonly kind: "failed" };
 
 /** The image's bytes from the Host, as an object URL revoked on close. */
@@ -27,22 +27,18 @@ const useImage = (hostKey: string, path: string): Loaded => {
     let live = true;
     let url: string | null = null;
 
-    void polaris()
-      .request("files.read", { hostKey, path, offset: null, length: null })
-      .then((read) => {
-        if (!live) return;
+    void readHostImage(hostKey, path).then((image) => {
+      if (!live) return;
 
-        if (!read.ok || read.value.content.kind !== "bytes") {
-          setState({ kind: "failed" });
+      if (image.kind !== "ready") {
+        setState(image);
 
-          return;
-        }
+        return;
+      }
 
-        const bytes = new Uint8Array(read.value.content.bytes);
-
-        url = URL.createObjectURL(new Blob([bytes], { type: imageMime(path) ?? "" }));
-        setState({ kind: "ready", url, size: bytes.byteLength });
-      });
+      url = URL.createObjectURL(image.blob);
+      setState({ kind: "ready", url, size: image.bytes });
+    });
 
     return () => {
       live = false;
@@ -53,6 +49,12 @@ const useImage = (hostKey: string, path: string): Loaded => {
 
   return state;
 };
+
+const unready = {
+  loading: "Loading the image…",
+  "too-large": "This image is too large to preview",
+  failed: "Couldn't read this image",
+} as const;
 
 const kilobytes = (bytes: number) =>
   bytes < 1024 * 1024
@@ -92,9 +94,7 @@ const Body = ({ hostKey, path }: { readonly hostKey: string; readonly path: stri
             }
           />
         ) : (
-          <span className="text-body text-text-subtle">
-            {image.kind === "loading" ? "Loading the image…" : "Couldn't read this image"}
-          </span>
+          <span className="text-body text-text-subtle">{unready[image.kind]}</span>
         )}
       </div>
     </>

@@ -1,5 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { Workspace, WorkspaceId, Worktree, WorktreeId } from "@polaris/protocol";
+import {
+  ReviewCheckout,
+  ReviewCheckoutId,
+  ReviewSubject,
+  Workspace,
+  WorkspaceId,
+  Worktree,
+  WorktreeId,
+} from "@polaris/protocol";
 import type { HostModel } from "../store/hostModel.ts";
 import {
   editorRequest,
@@ -94,14 +102,70 @@ describe("editorRequest", () => {
     expect(editorRequest(app, { hostKey: "pi", path: "/code/polaris/a" })).toBeNull();
   });
 
-  test("an explicit Workspace wins", () => {
+  test("a given Workspace narrows the search but never stands in for containment", () => {
+    const sightline = WorkspaceId.make("sightline");
+
+    expect(
+      editorRequest(app, { hostKey: "local", path: "/tmp/a", workspaceId: sightline })
+    ).toBeNull();
     expect(
       editorRequest(app, {
         hostKey: "local",
-        path: "/tmp/a",
-        workspaceId: WorkspaceId.make("sightline"),
-      })?.workspaceId
-    ).toBe(WorkspaceId.make("sightline"));
+        path: "/Users/me/.codex/auth.json",
+        root: "/code/sightline",
+        workspaceId: sightline,
+      })
+    ).toBeNull();
+    expect(
+      editorRequest(app, {
+        hostKey: "local",
+        path: "../../Users/me/.codex/auth.json",
+        root: "/code/sightline",
+        workspaceId: sightline,
+      })
+    ).toBeNull();
+    expect(
+      editorRequest(app, { hostKey: "local", path: "/code/polaris/a.ts", workspaceId: sightline })
+    ).toBeNull();
+  });
+
+  test("a Review Checkout outside the Workspace folder opens in its Workspace", () => {
+    const checkout = new ReviewCheckout({
+      id: ReviewCheckoutId.make("c1"),
+      workspaceId: WorkspaceId.make("sightline"),
+      subject: ReviewSubject.cases.PullRequest.make({
+        pullRequest: { repo: { host: "github.com", owner: "acme", name: "x" }, number: 42 },
+        baseRef: "main",
+      }),
+      path: "/code/sightline.worktrees/.review/pr-42",
+      state: "ready",
+      blocked: null,
+      head: "abc",
+      mergeBase: "b1",
+      latestHead: "abc",
+      latestBase: "b0",
+      reviewedHead: null,
+      reviewedMergeBase: null,
+      openedAt: "2026-10-01T00:00:00.000Z",
+      updatedAt: "2026-10-01T00:00:00.000Z",
+    });
+
+    const withCheckout = { ...model, reviewCheckouts: new Map([["c1", checkout]]) };
+
+    expect(
+      editorRequest(
+        { hostModels: { local: withCheckout } },
+        {
+          hostKey: "local",
+          path: "src/a.ts",
+          root: checkout.path,
+          workspaceId: WorkspaceId.make("sightline"),
+        }
+      )
+    ).toMatchObject({
+      workspaceId: WorkspaceId.make("sightline"),
+      path: "/code/sightline.worktrees/.review/pr-42/src/a.ts",
+    });
   });
 });
 

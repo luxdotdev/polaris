@@ -1,6 +1,9 @@
 import { Schema } from "effect";
 import type { LanguageApi } from "../../../../shared/api.ts";
-import { LanguagePreviewMediaView } from "../../../../shared/languages.ts";
+import {
+  LanguagePreviewMediaView,
+  PREVIEW_IMAGE_MAX_DECODED_BYTES,
+} from "../../../../shared/languages.ts";
 import type { LanguagePreviewPolicy } from "@polaris/protocol";
 import { previewTarget, type PreviewDocument, type PreviewTarget } from "./targets.ts";
 
@@ -31,11 +34,15 @@ const urls: ObjectUrls = {
 
 /** One bounded pool per preview, disposed when its Host, checkout or policy changes. */
 export class PreviewMediaPool {
-  private readonly active = new Map<string, number>();
+  private readonly active = new Map<
+    string,
+    { readonly bytes: number; readonly decodedBytes: number }
+  >();
   private readonly queue: Array<MediaJob> = [];
   private readonly running = new Set<MediaJob>();
   private reserved = 0;
   private bytes = 0;
+  private decodedBytes = 0;
   private disposed = false;
 
   constructor(
@@ -46,7 +53,9 @@ export class PreviewMediaPool {
     private readonly limit = 32 * 1024 * 1024,
     private readonly slots = 16,
     private readonly queueLimit = 16,
-    private readonly admissionMs = 15000
+    private readonly admissionMs = 15000,
+    /** Decoded bytes held at once, as main measured them; encoded bytes don't bound a decode. */
+    private readonly decodedLimit = PREVIEW_IMAGE_MAX_DECODED_BYTES
   ) {}
 
   async acquire(source: string, signal?: AbortSignal): Promise<MediaLease> {
@@ -157,14 +166,19 @@ export class PreviewMediaPool {
       if (!result.ok) throw new Error(result.error.message);
       const media = Schema.decodeUnknownSync(LanguagePreviewMediaView)(result.value);
 
-      if (media.bytes > this.policy.maxMediaBytes || this.bytes + media.bytes > this.limit)
+      if (
+        media.bytes > this.policy.maxMediaBytes ||
+        this.bytes + media.bytes > this.limit ||
+        this.decodedBytes + media.decodedBytes > this.decodedLimit
+      )
         throw new Error("Preview image limit reached");
       const raw = atob(media.base64);
       const data = Uint8Array.from(raw, (character) => character.charCodeAt(0));
       this.releaseReservation(job);
       const url = this.objectUrls.create(new Blob([data], { type: media.mimeType }));
-      this.active.set(url, media.bytes);
+      this.active.set(url, { bytes: media.bytes, decodedBytes: media.decodedBytes });
       this.bytes += media.bytes;
+      this.decodedBytes += media.decodedBytes;
       job.resolve({ url, release: () => this.release(url) });
     } catch {
       job.reject(new Error("Preview image response unavailable"));
@@ -184,11 +198,12 @@ export class PreviewMediaPool {
   }
 
   private release(url: string): void {
-    const bytes = this.active.get(url);
+    const held = this.active.get(url);
 
-    if (bytes === undefined) return;
+    if (held === undefined) return;
     this.active.delete(url);
-    this.bytes -= bytes;
+    this.bytes -= held.bytes;
+    this.decodedBytes -= held.decodedBytes;
     this.objectUrls.revoke(url);
     this.drain();
   }

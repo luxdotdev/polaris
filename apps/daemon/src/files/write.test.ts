@@ -7,13 +7,14 @@ import {
   readdir,
   rm,
   symlink,
+  truncate,
   utimes,
   writeFile,
 } from "node:fs/promises";
 import { renameSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { ChangedOnDisk, FileContent } from "@polaris/protocol";
+import { ChangedOnDisk, EDITOR_FILE_MAX_BYTES, FileContent, FileError } from "@polaris/protocol";
 import { Effect, Exit, Stream } from "effect";
 import { RpcTest } from "effect/rpc";
 import { EditorFileRpcs } from "@polaris/protocol";
@@ -160,6 +161,37 @@ describe("versioned writes", () => {
     expect(Exit.isFailure(result.conflict)).toBe(true);
     expect(await readFile(path, "utf8")).toBe(text + "// end\r\n");
   });
+});
+
+test("a file over the editor limit is refused before anything is read or offered", async () => {
+  const path = join(root, "huge.log");
+  await writeFile(path, "");
+  // Sparse: 8 GiB on paper, nothing on disk; reading it whole would exhaust the Daemon.
+  await truncate(path, 8 * 1024 ** 3);
+  const blobs = makeFakeBlobChannel();
+
+  const error = await Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const client = yield* RpcTest.makeClient(EditorFileRpcs);
+
+        return yield* Effect.flip(client["files.readVersioned"]({ path }));
+      })
+    ).pipe(Effect.provide(EditorFilesRpcsLive), Effect.provide(blobs.layer))
+  );
+
+  expect(error).toBeInstanceOf(FileError);
+  expect(error.code).toBe("EFBIG");
+  expect(error.message.startsWith("EFBIG: ")).toBe(true);
+  expect(blobs.blobs.size).toBe(0);
+});
+
+test("a file at the editor limit still opens", async () => {
+  const path = join(root, "limit.txt");
+  await writeFile(path, "");
+  await truncate(path, EDITOR_FILE_MAX_BYTES);
+
+  expect((await readVersioned(path)).version.size).toBe(EDITOR_FILE_MAX_BYTES);
 });
 
 test("explorer mutations never clobber a destination and deletion is explicit", async () => {

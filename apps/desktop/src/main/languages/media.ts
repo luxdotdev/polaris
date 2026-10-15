@@ -6,6 +6,7 @@ import { posix } from "node:path";
 import { LanguageAccess, abortable, languageFailure } from "@polaris/client";
 import * as P from "@polaris/protocol";
 import { LanguagePreviewMediaView } from "../../shared/languages.ts";
+import { admitRaster } from "../../shared/raster/index.ts";
 import type { LanguagePreferences } from "./settings.ts";
 
 export const publicImageAddress = (address: string): boolean => {
@@ -71,35 +72,22 @@ export const imageNetwork: ImageNetwork = {
     }),
 };
 
+/** Admits an image only if its sniffed format, canvas, frames and decode work are all in bounds. */
 export const rasterView = (
   bytes: Uint8Array,
   maxBytes: number
 ): typeof LanguagePreviewMediaView.Type => {
-  if (bytes.length > maxBytes || bytes.length === 0) throw languageFailure("too-large");
-  const data = Buffer.from(bytes);
-  let mimeType: string;
+  const admission = admitRaster(bytes, maxBytes);
 
-  if (data.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])))
-    mimeType = "image/png";
-  else if (data[0] === 255 && data[1] === 216 && data[2] === 255) mimeType = "image/jpeg";
-  else if (["GIF87a", "GIF89a"].includes(data.subarray(0, 6).toString("ascii")))
-    mimeType = "image/gif";
-  else if (
-    data.subarray(0, 4).toString("ascii") === "RIFF" &&
-    data.subarray(8, 12).toString("ascii") === "WEBP"
-  )
-    mimeType = "image/webp";
-  else if (
-    data.subarray(4, 8).toString("ascii") === "ftyp" &&
-    ["avif", "avis"].includes(data.subarray(8, 12).toString("ascii"))
-  )
-    mimeType = "image/avif";
-  else throw languageFailure("invalid-input");
+  if (admission.kind === "too-large") throw languageFailure("too-large");
+
+  if (admission.kind === "invalid") throw languageFailure("invalid-input");
 
   return LanguagePreviewMediaView.make({
-    mimeType,
+    mimeType: admission.measure.mimeType,
     bytes: bytes.length,
-    base64: data.toString("base64"),
+    decodedBytes: admission.measure.decodedBytes,
+    base64: Buffer.from(bytes).toString("base64"),
   });
 };
 

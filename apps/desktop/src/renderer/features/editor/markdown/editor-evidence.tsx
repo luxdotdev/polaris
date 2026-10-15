@@ -127,14 +127,17 @@ const png =
 const languageApi: LanguageApi = {
   request: async <M extends LanguageRequestMethod>(method: M, input: LanguageRequestInput<M>) => {
     calls.push({ method, input });
-    let value: LanguagePreviewPolicy | { mimeType: string; bytes: number; base64: string };
+
+    let value:
+      | LanguagePreviewPolicy
+      | { mimeType: string; bytes: number; decodedBytes: number; base64: string };
 
     if (method === "languages.preview.policy.get") value = policy;
     else if (method === "languages.preview.policy.set") {
       policy = LanguagePreviewPolicy.make({ ...policy, externalImages: "allow" });
       value = policy;
     } else if (method === "languages.preview.media" || method === "languages.preview.external")
-      value = { mimeType: "image/png", bytes: atob(png).length, base64: png };
+      value = { mimeType: "image/png", bytes: atob(png).length, decodedBytes: 4, base64: png };
     else
       return {
         ok: false,

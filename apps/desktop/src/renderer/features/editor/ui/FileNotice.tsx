@@ -1,8 +1,9 @@
 /**
  * What the code area says when there's no text to show yet or at all:
- * opening (only after a beat, so a fast open never flashes), not text, gone,
+ * opening (only after a beat, so a fast open never flashes), not text, too large, gone,
  * or the Daemon's reason it couldn't be read.
  */
+import { EDITOR_FILE_MAX_BYTES } from "@polaris/protocol";
 import { Button } from "@polaris/ui";
 import { useEffect, useState } from "react";
 import { baseName } from "../model/language.ts";
@@ -50,6 +51,10 @@ export const FileNotice = ({ buffer, path, onClose }: FileNoticeProps) => {
     binary: {
       title: `${name} isn't text`,
       fact: status.kind === "binary" ? size(status.size) : null,
+    },
+    "too-large": {
+      title: `${name} is too large to open`,
+      fact: `The editor opens files up to ${EDITOR_FILE_MAX_BYTES / 1024 / 1024} MB.`,
     },
     missing: { title: `${name} isn't on disk`, fact: "It was moved or deleted." },
     error: {

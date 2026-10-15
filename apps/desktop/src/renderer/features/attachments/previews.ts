@@ -5,7 +5,7 @@
  * object URL in a bounded LRU while shown. Two reads at a time at most.
  */
 import { useEffect, useState } from "react";
-import { polaris } from "../bridge.ts";
+import { readHostImage } from "../host-images/index.ts";
 import { Lru, THUMB_EDGE } from "./preview.ts";
 import { thumbnailOf } from "./useUploads.ts";
 
@@ -43,19 +43,11 @@ const limited = async <A>(task: () => Promise<A>): Promise<A> => {
   }
 };
 
-/** The staged file's bytes from its Host; null when it's gone or unreadable. */
+/** The staged file from its Host; null when it's gone, unreadable or too costly to decode. */
 export const readStaged = async (t: PreviewTarget): Promise<Blob | null> => {
-  const read = await polaris().request("files.read", {
-    hostKey: t.hostKey,
-    path: t.hostPath,
-    offset: null,
-    length: null,
-  });
+  const image = await readHostImage(t.hostKey, t.hostPath);
 
-  if (!read.ok || read.value.content.kind !== "bytes") return null;
-
-  // A copy on its own ArrayBuffer, as Blob requires (IPC bytes may sit on a shared one).
-  return new Blob([new Uint8Array(read.value.content.bytes)], { type: t.mimeType });
+  return image.kind === "ready" ? image.blob : null;
 };
 
 /** Scaled to fit `edge` (never up), as WebP; the bitmap is released at once. */

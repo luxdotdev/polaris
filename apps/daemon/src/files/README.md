@@ -34,6 +34,7 @@ Read-mostly file access for Clients: `files.listDir`, `files.stat`, `files.read`
 
 ## Known gaps / TODOs
 
+- Reads aren't contained to a Workspace (see Reach): the Desktop App refuses to open a path outside one in the editor (`editorRequest`), but Daemon-side containment of `files.read` is deferred, since any Client holding the SSH session already has a shell.
 - fff drops watch subscriptions made before its first scan finishes (upstream quirk), so `watch` waits for the scan and for `isWatcherReady` before it subscribes. Rarely (seen under load on macOS) fff's watcher never arms and stays down for the whole process; a watch that finds it unarmed after 5 s falls back to the fallback's `fs.watch` for that subscription, instead of subscribing to a watcher that never fires.
 - The fallback's `fs.watch` doesn't filter gitignored paths; fff's watcher does.
 - Regex syntax differs between backends: fff uses Rust regex, the fallback uses PCRE or ERE.
