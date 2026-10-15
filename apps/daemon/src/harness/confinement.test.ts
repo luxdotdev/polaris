@@ -1,5 +1,5 @@
-import { afterEach, expect, test } from "bun:test";
-import { mkdirSync, realpathSync, writeFileSync } from "node:fs";
+import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
+import { chmodSync, lstatSync, mkdirSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
 import { isWithin } from "../files/fs.ts";
@@ -9,8 +9,25 @@ import { readConfinement } from "./confinement.ts";
 
 const cleanup: Array<string> = [];
 
+const savedHome = process.env.POLARIS_HOME;
+
+let polarisHome = "";
+
+// The confined git's config is generated under Polaris's state, never the real ~/.polaris here.
+beforeAll(() => {
+  polarisHome = tempDir("polaris-confine-state-");
+  process.env.POLARIS_HOME = polarisHome;
+});
+
+afterAll(() => {
+  if (savedHome === undefined) delete process.env.POLARIS_HOME;
+  else process.env.POLARIS_HOME = savedHome;
+  removeDir(polarisHome);
+});
+
 afterEach(() => {
   for (const dir of cleanup.splice(0)) removeDir(dir);
+  removeDir(join(polarisHome, "confined-git"));
 });
 
 const TOKEN = "ghp_reviewerMustNeverSeeThis";
@@ -78,6 +95,135 @@ test("the shell's git reads history through a sanitized config, never one that c
   for (const leak of [TOKEN, "credential.", "include.", "remote."])
     expect(config).not.toContain(leak);
 });
+
+/** Plain git as the confined shell runs it: only the shell's git variables, no Polaris flags. */
+const shellGit = (
+  cwd: string,
+  args: ReadonlyArray<string>,
+  env: Readonly<Record<string, string>>
+) => {
+  const run = Bun.spawnSync(["git", ...args], {
+    cwd,
+    env: { PATH: process.env.PATH ?? "", ...env },
+  });
+
+  return { code: run.exitCode, out: run.stdout.toString().trim(), err: run.stderr.toString() };
+};
+
+/** Keys git reads in the shell, whatever the repository's config holds besides its format. */
+const ALLOWED = new Set([
+  "core.repositoryformatversion",
+  "core.bare",
+  "core.worktree",
+  "core.excludesfile",
+  "core.attributesfile",
+  "extensions.objectformat",
+  "extensions.refstorage",
+]);
+
+test("the shell's git config is built from an allowlist: a key that runs a program or names a file never reaches it", async () => {
+  const { checkout, common } = await reviewCheckout();
+
+  for (const [key, value] of [
+    ["core.fsmonitor", "/tmp/evil"],
+    ["core.hooksPath", "/tmp/hooks"],
+    ["core.sshCommand", "/tmp/ssh"],
+    ["core.pager", "/tmp/pager"],
+    ["core.autocrlf", "true"],
+    ["core.filemode", "false"],
+    ["filter.lfs.process", "/tmp/filter"],
+    ["diff.x.textconv", "/tmp/textconv"],
+    ["url.https://evil/.insteadOf", "https://github.com/"],
+    ["http.proxy", "http://evil:1"],
+    ["include.path", "/tmp/elsewhere"],
+    ["extensions.partialClone", "origin"],
+  ] as const)
+    await gitText(common, ["config", key, value]);
+
+  const { shellEnv } = await readConfinement(checkout, { PATH: "" });
+  const listed = shellGit(checkout, ["config", "--list", "--name-only"], shellEnv).out;
+
+  expect(listed.split("\n").filter((key) => !ALLOWED.has(key))).toEqual([]);
+  expect(shellGit(checkout, ["config", "core.worktree"], shellEnv).out).toBe(checkout);
+  expect(shellGit(checkout, ["config", "core.bare"], shellEnv).out).toBe("false");
+  expect(shellGit(checkout, ["status", "--porcelain"], shellEnv)).toMatchObject({
+    code: 0,
+    out: "",
+  });
+});
+
+test("a SHA-256 repository keeps its object format, so the shell's git still reads its history", async () => {
+  const repo = tempDir("polaris-confine-sha256-");
+  const base = tempDir("polaris-confine-");
+  cleanup.push(repo, base);
+  await gitText(repo, ["init", "-q", "-b", "main", "--object-format=sha256"]);
+  writeFileSync(join(repo, "README.md"), "hello\n");
+  await gitText(repo, ["add", "-A"]);
+  await gitText(repo, [
+    "-c",
+    "user.name=T",
+    "-c",
+    "user.email=t@e",
+    "-c",
+    "commit.gpgsign=false",
+    "commit",
+    "-q",
+    "-m",
+    "initial",
+  ]);
+  const checkout = join(base, "pr-8");
+  await gitText(repo, ["worktree", "add", "-q", "--detach", checkout]);
+
+  const { shellEnv } = await readConfinement(checkout, { PATH: "" });
+
+  expect(shellGit(checkout, ["log", "--format=%s"], shellEnv)).toMatchObject({
+    code: 0,
+    out: "initial",
+  });
+});
+
+test("the shell's git reads a config generated outside the repository, which a later change to the repository can't reach", async () => {
+  const { checkout, common, gitDir } = await reviewCheckout();
+
+  const confinement = await readConfinement(checkout, { PATH: "" });
+  const dir = confinement.shellEnv.GIT_COMMON_DIR ?? "";
+  const generated = lstatSync(dir);
+
+  expect(isWithin(realpathSync(join(polarisHome, "confined-git")), dir)).toBe(true);
+  expect(isWithin(common, dir)).toBe(false);
+  expect(generated.mode & 0o077).toBe(0);
+  expect(confinement.shellEnv).toMatchObject({
+    GIT_CONFIG_NOSYSTEM: "1",
+    GIT_CONFIG_GLOBAL: "/dev/null",
+  });
+
+  // Where the generated config lived inside the worktree's git dir, and the repository's own.
+  mkdirSync(join(gitDir, "polaris-common"), { recursive: true });
+  const planted = `[remote "origin"]\n\turl = https://x:${TOKEN}@h/r\n`;
+  writeFileSync(join(gitDir, "polaris-common", "config"), planted);
+  await gitText(common, ["config", "core.fsmonitor", "/tmp/evil"]);
+
+  const config = shellGit(checkout, ["config", "--list"], confinement.shellEnv).out;
+
+  expect(config).toContain("core.repositoryformatversion");
+
+  for (const leak of [TOKEN, "remote.", "fsmonitor"]) expect(config).not.toContain(leak);
+});
+
+test.each([
+  ["others can write", (dir: string) => (mkdirSync(dir), chmodSync(dir, 0o777))],
+  ["is a link elsewhere", (dir: string) => symlinkSync(tempDir("polaris-confine-elsewhere-"), dir)],
+])(
+  "the reviewer doesn't start when Polaris's dir for the generated config %s",
+  async (_, plant) => {
+    const { checkout } = await reviewCheckout();
+    plant(join(polarisHome, "confined-git"));
+
+    const failure = await readConfinement(checkout, { PATH: "" }).then(() => null, String);
+
+    expect(failure).toContain("others can write it");
+  }
+);
 
 test("a checkout that is the repository itself has its git dir hidden, and no git", async () => {
   const repo = await makeRepo();

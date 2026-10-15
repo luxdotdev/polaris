@@ -164,7 +164,7 @@ export const readConfinement = async (
     throw new Error(`The reviewer can't be kept to ${root}: it holds your home directory.`);
   const dirs = await gitDirs(root);
   const inside = dirs !== null && isWithin(root, dirs.common);
-  const git = dirs === null || inside ? null : await confinedGit(dirs.common, dirs.gitDir);
+  const git = dirs === null || inside ? null : await confinedGit(dirs.common, dirs.gitDir, root);
   const developer = await developerDir();
   const tools = await toolchain([...homes, state], developer);
   const shellRoots = unique([...(git?.readable ?? []), ...tools]);
