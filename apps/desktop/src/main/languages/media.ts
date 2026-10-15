@@ -5,14 +5,8 @@ import { isIP } from "node:net";
 import { posix } from "node:path";
 import { LanguageAccess, abortable, languageFailure } from "@polaris/client";
 import * as P from "@polaris/protocol";
-import {
-  LanguagePreviewMediaView,
-  PREVIEW_IMAGE_MAX_BYTES,
-  PREVIEW_IMAGE_MAX_DECODED_BYTES,
-  PREVIEW_IMAGE_MAX_FRAMES,
-  PREVIEW_IMAGE_MAX_PIXELS,
-} from "../../shared/languages.ts";
-import { measureRaster } from "./raster/index.ts";
+import { LanguagePreviewMediaView } from "../../shared/languages.ts";
+import { admitRaster } from "../../shared/raster/index.ts";
 import type { LanguagePreferences } from "./settings.ts";
 
 export const publicImageAddress = (address: string): boolean => {
@@ -83,23 +77,16 @@ export const rasterView = (
   bytes: Uint8Array,
   maxBytes: number
 ): typeof LanguagePreviewMediaView.Type => {
-  if (bytes.length > Math.min(maxBytes, PREVIEW_IMAGE_MAX_BYTES) || bytes.length === 0)
-    throw languageFailure("too-large");
-  const measure = measureRaster(bytes);
+  const admission = admitRaster(bytes, maxBytes);
 
-  if (measure === null) throw languageFailure("invalid-input");
+  if (admission.kind === "too-large") throw languageFailure("too-large");
 
-  if (
-    measure.largestPixels > PREVIEW_IMAGE_MAX_PIXELS ||
-    measure.frames > PREVIEW_IMAGE_MAX_FRAMES ||
-    measure.decodedBytes > PREVIEW_IMAGE_MAX_DECODED_BYTES
-  )
-    throw languageFailure("too-large");
+  if (admission.kind === "invalid") throw languageFailure("invalid-input");
 
   return LanguagePreviewMediaView.make({
-    mimeType: measure.mimeType,
+    mimeType: admission.measure.mimeType,
     bytes: bytes.length,
-    decodedBytes: measure.decodedBytes,
+    decodedBytes: admission.measure.decodedBytes,
     base64: Buffer.from(bytes).toString("base64"),
   });
 };

@@ -1,9 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { rasterView } from "../media.ts";
+import { rasterView } from "../../main/languages/media.ts";
 import {
   acTL,
   anmf,
   animation,
+  avif,
   bytes,
   exifThumbnail,
   fcTL,
@@ -11,6 +12,7 @@ import {
   jpeg,
   png,
   sof,
+  still,
   vp8,
   vp8l,
   vp8x,
@@ -148,5 +150,22 @@ describe("rasterView refuses what Chromium would decode larger than the header s
     expect(rasterView(gif(100, 100, frames(3, 100, 100)), MAX).decodedBytes).toBe(
       3 * 4 * 100 * 100
     );
+  });
+});
+
+describe("the format is sniffed as Blink sniffs it", () => {
+  /** An AVIF whose `ftyp` box is `length` bytes long: 16 bytes, then 4 a brand. */
+  const avifWithFtyp = (length: number) =>
+    avif([still(64, 64)], { brands: Array.from({ length: (length - 16) / 4 }, () => "mif1") });
+
+  test("an AVIF reads as one whatever its brand list", () => {
+    expect(measureRaster(avifWithFtyp(252))?.mimeType).toBe("image/avif");
+  });
+
+  test.each([
+    ["ICO", 256],
+    ["CUR", 512],
+  ] as const)("an AVIF whose ftyp box begins with the %s signature is refused", (_, length) => {
+    expect(measureRaster(avifWithFtyp(length))).toBeNull();
   });
 });

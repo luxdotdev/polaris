@@ -20,6 +20,12 @@ export interface RasterMeasure extends RasterSize {
 /** Chromium decodes to 4 bytes a pixel, or to 8 (half float) from samples deeper than 8 bits. */
 export const outputBytes = (deep: boolean): number => (deep ? 8 : 4);
 
+/**
+ * One animation frame's buffer: Blink allocates every frame at the canvas size, and a frame's
+ * dependency chain stays cached for the whole decode (see docs/adr/0060-preview-images-are-measured-before-decoding.md).
+ */
+export const canvasFrameBytes = (canvas: RasterSize): number => outputBytes(false) * area(canvas);
+
 export const size = (width: number, height: number): RasterSize =>
   width > 0 && height > 0 ? { width, height } : malformed();
 

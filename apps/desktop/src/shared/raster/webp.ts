@@ -3,6 +3,7 @@ import {
   type RasterMeasure,
   type RasterSize,
   area,
+  canvasFrameBytes,
   inside,
   outputBytes,
   sameSize,
@@ -85,10 +86,12 @@ const animationFrame = (data: Bytes, canvas: RasterSize, chunk: Chunk): Image =>
   return decoded;
 };
 
-/** Every frame's output, and the largest frame's working buffers (freed between frames). */
-const decodedBytes = (images: ReadonlyArray<Image>): number =>
-  images.reduce((sum, { size: frame }) => sum + outputBytes(false) * area(frame), 0) +
+/** Each frame's output, and the largest frame's working buffers (freed between frames). */
+const decodedBytes = (images: ReadonlyArray<Image>, frameBytes: (image: Image) => number) =>
+  images.reduce((sum, image) => sum + frameBytes(image), 0) +
   Math.max(0, ...images.map((decoded) => decoded.working));
+
+const ownOutput = (image: Image) => outputBytes(false) * area(image.size);
 
 /** VP8X: a still's one image must be the canvas; an animation's every frame must fit it. */
 const extended = (data: Bytes, header: Chunk, rest: ReadonlyArray<Chunk>): RasterMeasure => {
@@ -105,7 +108,7 @@ const extended = (data: Bytes, header: Chunk, rest: ReadonlyArray<Chunk>): Raste
       mimeType: "image/webp",
       ...canvas,
       frames: 1,
-      decodedBytes: decodedBytes([still]),
+      decodedBytes: decodedBytes([still], ownOutput),
       largestPixels: area(canvas),
     };
   }
@@ -117,7 +120,7 @@ const extended = (data: Bytes, header: Chunk, rest: ReadonlyArray<Chunk>): Raste
     mimeType: "image/webp",
     ...canvas,
     frames: frames.length,
-    decodedBytes: decodedBytes(decoded),
+    decodedBytes: decodedBytes(decoded, () => canvasFrameBytes(canvas)),
     largestPixels: area(canvas),
   };
 };
@@ -134,7 +137,7 @@ export const webp = (data: Bytes): RasterMeasure => {
     mimeType: "image/webp",
     ...still.size,
     frames: 1,
-    decodedBytes: decodedBytes([still]),
+    decodedBytes: decodedBytes([still], ownOutput),
     largestPixels: area(still.size),
   };
 };

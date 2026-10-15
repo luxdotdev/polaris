@@ -3,8 +3,8 @@ import { type RasterMeasure, area, inside, outputBytes, size } from "./measure.t
 
 /**
  * PNG and APNG: IHDR first, then every chunk to IEND. Each `fcTL` frame must fit the canvas,
- * and the frame count is the larger of `acTL`'s and the `fcTL`s seen. 16-bit samples decode to
- * half float, and an interlaced image also keeps a canvas-sized buffer for its passes.
+ * and costs a whole canvas; the frame count is the larger of `acTL`'s and the `fcTL`s seen.
+ * 16-bit samples decode to half float; an interlaced image also keeps a buffer for its passes.
  */
 export const png = (data: Bytes): RasterMeasure => {
   if (data.u32(8) !== 13 || !data.is(12, "IHDR")) return malformed();
@@ -34,7 +34,7 @@ export const png = (data: Bytes): RasterMeasure => {
 
       inside(canvas, data.u32(body + 12), data.u32(body + 16), frame);
       controls++;
-      decodedBytes += pixel * area(frame);
+      decodedBytes += pixel * area(canvas);
     }
 
     at = body + length + 4;

@@ -299,6 +299,8 @@ export interface AvifExtras {
   readonly properties?: ReadonlyArray<number>;
   /** Raw top-level boxes after `meta`. */
   readonly after?: ReadonlyArray<number>;
+  /** Compatible brands in `ftyp`, each 4 bytes of its length. */
+  readonly brands?: ReadonlyArray<string>;
 }
 
 /** An AVIF whose items' bytes all live in `idat`, so offsets don't depend on the file layout. */
@@ -350,7 +352,7 @@ export const avif = (items: ReadonlyArray<AvifItem>, extras: AvifExtras = {}) =>
   );
 
   return bytes(
-    box("ftyp", ascii("avif"), [0, 0, 0, 0], ascii("mif1")),
+    box("ftyp", ascii("avif"), [0, 0, 0, 0], ...(extras.brands ?? ["mif1"]).map(ascii)),
     fullBox(
       "meta",
       0,

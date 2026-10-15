@@ -1,5 +1,5 @@
 import { type Bytes, malformed } from "./bytes.ts";
-import { type RasterMeasure, area, inside, outputBytes, size } from "./measure.ts";
+import { type RasterMeasure, area, canvasFrameBytes, inside, size } from "./measure.ts";
 
 const colorTable = (flags: number) => (flags & 0x80 ? 3 * 2 ** ((flags & 7) + 1) : 0);
 
@@ -14,7 +14,7 @@ const subBlocks = (data: Bytes, from: number): number => {
 
 /**
  * Every image descriptor to the trailer: each frame must fit the logical screen, since a
- * decoder may grow the canvas to a first frame that doesn't.
+ * decoder may grow the canvas to a first frame that doesn't. Each frame costs a whole canvas.
  */
 export const gif = (data: Bytes): RasterMeasure => {
   const screen = size(data.u16le(6), data.u16le(8));
@@ -33,7 +33,7 @@ export const gif = (data: Bytes): RasterMeasure => {
 
     inside(screen, data.u16le(at + 1), data.u16le(at + 3), frame);
     frames++;
-    decodedBytes += outputBytes(false) * area(frame);
+    decodedBytes += canvasFrameBytes(screen);
     at = subBlocks(data, at + 11 + colorTable(data.u8(at + 9)));
   }
 

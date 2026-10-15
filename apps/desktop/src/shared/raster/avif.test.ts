@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { rasterView } from "../media.ts";
+import { rasterView } from "../../main/languages/media.ts";
 import { ascii, av1, avif, be32, box, grid, ispe, still } from "./fixtures.testing.ts";
 import { measureRaster } from "./index.ts";
 

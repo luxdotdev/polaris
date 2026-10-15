@@ -8,6 +8,9 @@ const isSof = (marker: number) =>
 /** Progressive frames, Huffman and arithmetic, sequential and hierarchical. */
 const PROGRESSIVE = new Set([0xc2, 0xc6, 0xca, 0xce]);
 
+/** Lossless frames (SOF3, SOF7, SOF11, SOF15), which the DCT cost here doesn't describe. */
+const LOSSLESS = new Set([0xc3, 0xc7, 0xcb, 0xcf]);
+
 /** Markers with no length: TEM and the restart markers. */
 const standalone = (marker: number) => marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7);
 
@@ -182,7 +185,8 @@ export const jpeg = (data: Bytes): RasterMeasure => {
     if (marker === 0xda) break;
 
     if (isSof(marker)) {
-      if (frame !== null) return malformed();
+      // Blink reads 8-bit samples; another precision, or a lossless frame, isn't measured.
+      if (frame !== null || LOSSLESS.has(marker) || data.u8(at + 4) !== 8) return malformed();
       frame = frameAt(data, at);
     }
 

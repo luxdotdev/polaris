@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { rasterView } from "../media.ts";
+import { rasterView } from "../../main/languages/media.ts";
 import {
   type Av1Color,
   acTL,
@@ -9,7 +9,9 @@ import {
   avif,
   bytes,
   fcTL,
+  gif,
   jpeg,
+  png,
   pngWith,
   segment,
   sof,
@@ -157,5 +159,49 @@ describe("AVIF decode cost", () => {
   test("a gain map (tmap) is decoded to its own output beside the primary image", () => {
     passes(items(2, { depth: 10, layout: "444" }));
     refused(items(2, { depth: 10, layout: "444" }, true));
+  });
+});
+
+describe("an animation frame costs the whole canvas, as Blink allocates it", () => {
+  const tiny = (count: number) => Array.from({ length: count }, () => ({ width: 1, height: 1 }));
+
+  test("a GIF whose one frame is a pixel on a large screen costs the screen", () => {
+    expect(rasterView(gif(4898, 4898, tiny(1)), MAX).decodedBytes).toBe(4 * 4898 * 4898);
+  });
+
+  test.each([
+    ["GIF", gif(4000, 4000, tiny(9))],
+    ["APNG", png(4000, 4000, acTL(9), ...tiny(9).map((frame) => fcTL(frame)))],
+    ["WebP", webp(vp8x(4000, 4000, true), animation(), ...tiny(9).map((frame) => anmf(frame)))],
+  ] as const)("an animated %s of tiny frames over the budget is refused", (_, data) => {
+    refused(data);
+  });
+});
+
+describe("JPEG precision", () => {
+  /** A frame header with its sample precision set to `bits`. */
+  const precision = (bits: number) => {
+    const header = sof(64, 64);
+
+    header[4] = bits;
+
+    return header;
+  };
+
+  test.each([
+    ["SOF3", 0xc3],
+    ["SOF7", 0xc7],
+    ["SOF11", 0xcb],
+    ["SOF15", 0xcf],
+  ] as const)("a lossless %s frame is refused", (_, marker) => {
+    expect(() => rasterView(jpeg(sof(64, 64, marker)), MAX)).toThrow("invalid-input");
+  });
+
+  test.each([12, 16])("a %i-bit frame is refused", (bits) => {
+    expect(() => rasterView(jpeg(precision(bits)), MAX)).toThrow("invalid-input");
+  });
+
+  test("an 8-bit frame passes", () => {
+    passes(jpeg(precision(8)));
   });
 });
