@@ -61,8 +61,8 @@ test("Serving names the model, machine, placement reason, endpoint, latency and 
     "Mellum2 on this Mac completes at the cursor. It can't suggest edits elsewhere."
   );
   expect(fact(view, "Model")).toMatchObject({
-    value: "Insertion only · Mellum2",
-    note: "recommended",
+    value: "Mellum2",
+    note: "insertion only · recommended",
   });
   expect(fact(view, "Runs on")).toMatchObject({
     value: "This Mac",
@@ -85,7 +85,10 @@ test("A next-edit model reads as one and the log's counts follow the context; ra
   expect(view.why).toBe(
     "Sweep Next-Edit 1.5B on this Mac suggests edits near the cursor and in the rest of this file."
   );
-  expect(fact(view, "Model")?.value).toBe("Next edit · Sweep Next-Edit 1.5B");
+  expect(fact(view, "Model")).toMatchObject({
+    value: "Sweep Next-Edit 1.5B",
+    note: "next edit · recommended",
+  });
   expect(view.facts.map((item) => item.label)).toEqual([
     "Model",
     "Runs on",

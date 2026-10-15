@@ -16,7 +16,7 @@ import {
 import { useState } from "react";
 import type { HostView } from "../../../../shared/api.ts";
 import { chordOf } from "../../../../shared/keymap.ts";
-import { currentKeyPlatform } from "../../../../shared/chord.ts";
+import { currentKeyPlatform, modifierLabel } from "../../../../shared/chord.ts";
 import {
   PREDICTION_ACCEPT_BINDING,
   type PredictionAggressiveness,
@@ -86,7 +86,7 @@ export const EditPredictionRows = ({
     <>
       <SettingRow
         title="Display"
-        caption="Full shows the edit in place. Subtle shows a marker; hold ⌥ to preview."
+        caption={`Full shows the edit in place. Subtle shows a marker; hold ${modifierLabel("Alt")} to preview.`}
       >
         <SegmentedControl
           variant="well"

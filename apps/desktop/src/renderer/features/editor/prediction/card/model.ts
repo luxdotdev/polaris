@@ -138,8 +138,8 @@ const capitalized = (text: string) => text.charAt(0).toUpperCase() + text.slice(
 
 const nextEdit = (model: string) => editModelFormat(model) !== null;
 
-/** What the model does, as the card's Model fact reads it first (DESIGN.md, EP8). */
-const kindOf = (model: string) => (nextEdit(model) ? "Next edit" : "Insertion only");
+/** What the model does, in the Model fact's note so the name never truncates (DESIGN.md, EP8). */
+const kindOf = (model: string) => (nextEdit(model) ? "next edit" : "insertion only");
 
 /** A model server of the user's own that completes at the cursor only (EP8b). */
 const insertionOnly = (target: CardTarget | null, managed: ManagedView | null) =>
@@ -389,8 +389,8 @@ const facts = (
   return [
     {
       label: "Model",
-      value: `${kindOf(target.model)} · ${modelName(target.model)}`,
-      note: input.preferences.model === null ? "recommended" : "chosen",
+      value: modelName(target.model),
+      note: `${kindOf(target.model)} · ${input.preferences.model === null ? "recommended" : "chosen"}`,
     },
     {
       label: "Runs on",
