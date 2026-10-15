@@ -120,6 +120,11 @@ export interface Placed {
   readonly phase?: EditPhase;
   /** v1 ghost text at the cursor instead of an Edit Prediction. */
   readonly ghost?: string;
+  /** An import Edit Prediction with the server's title, and the diagnostic it fixes. */
+  readonly import?: {
+    readonly title: string;
+    readonly diagnostic: { readonly from: number; readonly to: number; readonly message: string };
+  };
 }
 
 export interface EditScene {
@@ -153,6 +158,35 @@ const DELETE_IMPORT = '} from "./types.ts";\nimport { hostCanServe } from "./pro
 
 const LARGE_IMPORT =
   '} from "./types.ts";\nimport { hostCanServe, promptableModel, tierOf } from "./probe.ts";\nconst GiB';
+
+const LOCAL_HOST_CAN_SERVE = `/** A Host serves completion only with 8 GB or more and not on a Raspberry Pi-class chip. */
+export const hostCanServe = (machine: CapabilityReport["machine"]) =>
+  machine.ramBytes >= 8 * GiB && !/raspberry|cortex-a72|bcm27/i.test(machine.chip);
+
+`;
+
+const placeImport = (doc: string): Placed => {
+  const from = at(doc, "hostCanServe(report");
+
+  return {
+    cursor: lineEnd(doc, "hostCanServe(report"),
+    hunks: [
+      {
+        from: lineStart(doc, "\nconst GiB"),
+        to: lineStart(doc, "\nconst GiB"),
+        text: 'import { hostCanServe } from "./probe.ts";\n',
+      },
+    ],
+    import: {
+      title: 'Add import from "./probe.ts"',
+      diagnostic: {
+        from,
+        to: from + "hostCanServe".length,
+        message: "Cannot find name 'hostCanServe'.",
+      },
+    },
+  };
+};
 
 const SCENES = {
   replace: { doc: RENAMED_TIER, preferences: FULL, place: replaceTierOf },
@@ -252,6 +286,12 @@ const SCENES = {
       hunks: [],
       ghost: " // tier 2 needs 16 GB",
     }),
+  },
+  import: { doc: swap(BASE, LOCAL_HOST_CAN_SERVE, ""), preferences: FULL, place: placeImport },
+  "import-subtle": {
+    doc: swap(BASE, LOCAL_HOST_CAN_SERVE, ""),
+    preferences: SUBTLE,
+    place: placeImport,
   },
 } satisfies Record<string, EditScene>;
 

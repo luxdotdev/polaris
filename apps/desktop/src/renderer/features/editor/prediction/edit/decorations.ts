@@ -118,8 +118,8 @@ const struck = Decoration.mark({ class: "cm-ep-struck" });
 
 const blockLines = (text: string) => (text.endsWith("\n") ? text.slice(0, -1) : text).split("\n");
 
-const hintAt = (pos: number, hint: Hint) =>
-  Decoration.widget({ widget: new HintWidget(hint), side: 10 }).range(pos);
+const hintAt = (pos: number, hint: Hint, side = 10) =>
+  Decoration.widget({ widget: new HintWidget(hint), side }).range(pos);
 
 const blockAfter = (pos: number, lines: ReadonlyArray<string>, hint: Hint | null) =>
   Decoration.widget({ widget: new GhostBlock(lines, hint), block: true, side: 2 }).range(pos);
@@ -201,6 +201,12 @@ export const decorationsOf = (state: EditorState): DecorationSet => {
   const { doc } = state;
   const subtle = !drawsInPlace(state);
   const cursorLine = doc.lineAt(state.selection.main.head);
+
+  if (prediction.import !== undefined)
+    // Before the inline diagnostic (side 1): the fix, then the message it answers (DESIGN.md EP5).
+    return Decoration.set([
+      hintAt(cursorLine.to, { label: subtle ? null : prediction.import.title }, 0.5),
+    ]);
 
   if (jumpPending(prediction))
     return Decoration.set([hintAt(cursorLine.to, { label: jumpLabel(doc, prediction, subtle) })]);

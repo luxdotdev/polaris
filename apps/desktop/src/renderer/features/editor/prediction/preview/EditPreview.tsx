@@ -2,8 +2,10 @@
  * `#edit-prediction/<scene>`: the Editor on the Paper EP fixtures with an Edit Prediction drawn
  * directly into its state, so every display state can be screenshotted without a model. Scenes:
  * replace, multiline, delete, delete-large, jump, jump-offscreen, jumped, subtle, subtle-held,
- * insert. Its own chunk.
+ * insert, import, import-subtle. Its own chunk.
  */
+import { setDiagnostics } from "@codemirror/lint";
+import type { Text } from "@codemirror/state";
 import { Toaster, TooltipProvider } from "@polaris/ui";
 import { createRoot } from "react-dom/client";
 import { createStore } from "zustand/vanilla";
@@ -24,9 +26,9 @@ import { EditorPane } from "../../ui/EditorPane.tsx";
 import { EditorStatus } from "../../ui/EditorStatus.tsx";
 import { HOST, ROOT, WORKSPACE } from "../../preview/fixtures.ts";
 import { setAltHeld } from "../edit/state.ts";
-import { setEditPrediction, setGhost } from "../index.ts";
+import { type EditPrediction, setEditPrediction, setGhost } from "../index.ts";
 import { predictionStore } from "../store.ts";
-import { EDIT_SCENES, SCORE_PATH, type EditScene } from "./editFixtures.ts";
+import { EDIT_SCENES, type EditScene, type Placed, SCORE_PATH } from "./editFixtures.ts";
 
 const bridge: PolarisApi = {
   request: () => Promise.resolve({ ok: false, error: { code: "Unsupported", message: "preview" } }),
@@ -66,6 +68,36 @@ const Frame = () => (
   </div>
 );
 
+const previewPrediction = (placed: Placed, doc: Text): EditPrediction => {
+  const prediction: EditPrediction = {
+    id: "preview",
+    hunks: placed.hunks,
+    cursor: null,
+    window: { from: 0, to: doc.length },
+    doc,
+    anchor: placed.anchor ?? placed.cursor,
+    phase: placed.phase ?? "shown",
+    shownAt: performance.now() - 1000,
+    finalToShown: 0,
+    model: "zeta-2.1",
+    format: "zeta-2.1",
+    side: "client",
+    requestToFinal: 1500,
+  };
+
+  if (placed.import === undefined) return prediction;
+
+  const { title } = placed.import;
+
+  return {
+    ...prediction,
+    model: "",
+    format: null,
+    side: "host",
+    import: { title, current: () => true },
+  };
+};
+
 const draw = async (scene: EditScene) => {
   const view = await activeView();
   const placed = scene.place(view.state.doc.toString());
@@ -83,25 +115,19 @@ const draw = async (scene: EditScene) => {
   view.dispatch({
     selection: { anchor: placed.cursor },
     effects: [
-      setEditPrediction.of({
-        id: "preview",
-        hunks: placed.hunks,
-        cursor: null,
-        window: { from: 0, to: view.state.doc.length },
-        doc: view.state.doc,
-        anchor: placed.anchor ?? placed.cursor,
-        phase: placed.phase ?? "shown",
-        shownAt: performance.now() - 1000,
-        finalToShown: 0,
-        model: "zeta-2.1",
-        format: "zeta-2.1",
-        side: "client",
-        requestToFinal: 1500,
-      }),
+      setEditPrediction.of(previewPrediction(placed, view.state.doc)),
       ...(scene.altHeld ? [setAltHeld.of(true)] : []),
     ],
     scrollIntoView: false,
   });
+
+  if (placed.import !== undefined) {
+    const { from, to, message } = placed.import.diagnostic;
+    view.dispatch(
+      setDiagnostics(view.state, [{ from, to, severity: "error", message, source: "ts" }])
+    );
+  }
+
   view.focus();
 };
 

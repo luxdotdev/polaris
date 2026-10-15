@@ -3,6 +3,7 @@ import type { AppState } from "../../../store/store.ts";
 import { predictionPreferenceView } from "../../../../shared/predictionPlacement.ts";
 import { registerEditorExtensions, type EditorFile } from "../api.ts";
 import { languageFor } from "../model/language.ts";
+import { forwardPredictionLog } from "./edit/forward.ts";
 import { type EditPredictionPort, predictionExtension } from "./index.ts";
 import {
   editAvailable,
@@ -100,7 +101,9 @@ export const installPredictions = (
     };
   };
 
-  return registerEditorExtensions((file) => {
+  const unforward = forwardPredictionLog(() => polaris().notify);
+
+  const unregister = registerEditorExtensions((file) => {
     const subscribeShared = shared(file);
 
     const language = languageFor(file.path);
@@ -125,4 +128,9 @@ export const installPredictions = (
       edit
     );
   });
+
+  return () => {
+    unregister();
+    unforward();
+  };
 };

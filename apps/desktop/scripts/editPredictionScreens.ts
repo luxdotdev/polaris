@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Screenshots of the Editor's Edit Prediction display states on fixtures
- * (`#edit-prediction/<scene>`) against Paper EP1–EP6a: both themes, every density, and the
+ * (`#edit-prediction/<scene>`) against Paper EP1–EP6a and EP5: both themes, every density, and the
  * colourblind palette for the tinted states. No Daemon: the preview serves its file from memory.
  *
  *   node scripts/editPredictionScreens.ts --out <dir> [--build] [--quick] [--scenes a,b]
@@ -39,6 +39,8 @@ const ALL = [
   "subtle",
   "subtle-held",
   "insert",
+  "import",
+  "import-subtle",
 ];
 
 const scenes = flag("--scenes")?.split(",") ?? ALL;
