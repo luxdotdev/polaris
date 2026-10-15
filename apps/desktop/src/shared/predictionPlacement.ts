@@ -1,5 +1,6 @@
 import {
   EditPredictionFormat,
+  ManagedModelId,
   PredictionEndpoint,
   PredictionEndpointUrl,
   PredictionFormat,
@@ -56,6 +57,10 @@ export const PredictionPreferences = Schema.Struct({
   modelsDir: Schema.NullOr(Schema.String.check(Schema.isMaxLength(4096))).pipe(
     Schema.withDecodingDefaultKey(Effect.succeed(null))
   ),
+  /** The managed model (ADR 0048): null is Sweep; "zeta-2.1" is the higher-quality opt-in. */
+  managedModel: Schema.NullOr(ManagedModelId).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(null))
+  ),
 });
 
 export type PredictionPreferences = typeof PredictionPreferences.Type;
@@ -78,6 +83,7 @@ export const DEFAULT_PREDICTION_PREFERENCES: PredictionPreferences = {
   disabledLanguages: [],
   editModel: null,
   modelsDir: null,
+  managedModel: null,
 };
 
 export const PredictionClientEndpoints = Schema.Array(ConfiguredPredictionEndpoint).check(

@@ -54,9 +54,9 @@ next-edit candidates across both sides and falls back to FIM only when none exis
 Recognised ids match `/zeta[\W_]*2[._-]?1/i` or `/sweep.*next[\W_]*edit/i`;
 these are also promptable entries in the existing Model list.
 
-Each serving machine searches all its discovered endpoints: at least 32 GiB
-selects Zeta 2.1 when available, otherwise Sweep Next-Edit. Smaller machines
-select Sweep. An explicit recognised model overrides that default and derives
+Each serving machine searches all its discovered endpoints and selects Sweep
+Next-Edit by default on every machine (owner, 2026-10-15); Zeta 2.1 serves
+only as a chosen model, or when it is the only next-edit model served. An explicit recognised model overrides that default and derives
 its edit format even when an old FIM format preference is saved. RAM ranking,
 side overrides, Pi exclusions, latency, cancellation and fallback use the same
 placement machine. Older Daemons cannot be next-edit serving candidates.

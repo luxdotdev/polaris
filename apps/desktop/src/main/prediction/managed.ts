@@ -31,6 +31,7 @@ export const createManagedBridge = ({ runtime, preferences, hostSession }: Manag
       session.capabilities.includes("prediction.managed")
         ? session.client["prediction.managed"]({
             modelsDir: preferences.get(key).modelsDir,
+            model: preferences.get(key).managedModel,
             action,
           })
         : Effect.succeed(null)
@@ -62,6 +63,7 @@ export const createManagedBridge = ({ runtime, preferences, hostSession }: Manag
         session.capabilities.includes("prediction.managed")
           ? session.client["prediction.managed.watch"]({
               modelsDir: preferences.get(key).modelsDir,
+              model: preferences.get(key).managedModel,
             })
           : Stream.empty
       )
@@ -84,6 +86,7 @@ export const createManagedBridge = ({ runtime, preferences, hostSession }: Manag
             ? session.client["prediction.capability"]({
                 endpoints: endpoints.map((endpoint) => endpoint.url),
                 modelsDir: preferences.get(LOCAL_HOST_KEY).modelsDir,
+                model: preferences.get(LOCAL_HOST_KEY).managedModel,
               })
             : Effect.fail(new Error("no managed server"))
         )

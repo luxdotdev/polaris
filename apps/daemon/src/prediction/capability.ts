@@ -19,7 +19,7 @@ export const PredictionCapabilityLive = Layer.suspend(() => {
       const report = yield* Effect.tryPromise({
         try: async () => {
           // The managed endpoint is listed even while stopped: a request starts it (ADR 0048).
-          await managed.status(request?.modelsDir ?? null);
+          await managed.status(request?.modelsDir ?? null, request?.model ?? null);
           const own = managed.endpoint();
 
           const probed = await probe.get(

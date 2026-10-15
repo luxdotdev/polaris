@@ -59,6 +59,7 @@ export const MODELS: Readonly<Record<ManagedModelId, ManagedModel>> = {
     alias: "zeta-2.1-q4_k_m",
     sizeBytes: 5_071_410_080,
     serverBytes: 0,
+    memoryBytes: 8_700_000_000,
     licence: "Apache-2.0",
     publisher: "mradermacher/zeta-2.1-GGUF (base zed-industries/zeta-2.1)",
     file: {
@@ -74,6 +75,7 @@ export const MODELS: Readonly<Record<ManagedModelId, ManagedModel>> = {
     alias: "sweep-next-edit-1.5b-q8_0",
     sizeBytes: 1_537_269_856,
     serverBytes: 0,
+    memoryBytes: 2_600_000_000,
     licence: "Apache-2.0",
     publisher: "sweepai/sweep-next-edit-1.5B",
     file: {
@@ -85,11 +87,13 @@ export const MODELS: Readonly<Record<ManagedModelId, ManagedModel>> = {
   },
 };
 
-const GiB = 1024 ** 3;
+/** Sweep on every machine (owner, 2026-10-15); Zeta only when the user opted in. */
+export const DEFAULT_MODEL: ManagedModelId = "sweep-next-edit-1.5b";
 
-/** The v1.1 rule: 32 GB or more gets Zeta 2.1, anything smaller Sweep. */
-export const pickModel = (ramBytes: number): ManagedModel =>
-  ramBytes >= 32 * GiB ? MODELS["zeta-2.1"] : MODELS["sweep-next-edit-1.5b"];
+export const modelFor = (
+  id: ManagedModelId | null,
+  models: Readonly<Record<ManagedModelId, ManagedModel>> = MODELS
+): ManagedModel => models[id ?? DEFAULT_MODEL];
 
 export const platformAsset = (platform: string, arch: string): PinnedFile | null => {
   const key = `${platform}-${arch}`;

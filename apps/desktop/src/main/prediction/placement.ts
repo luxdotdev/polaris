@@ -199,6 +199,7 @@ export const createMainPredictionPlacement = (
             const report = yield* session.client["prediction.capability"]({
               endpoints: preferences.get(hostKey).hostEndpoints.map((endpoint) => endpoint.url),
               modelsDir: preferences.get(hostKey).modelsDir,
+              model: preferences.get(hostKey).managedModel,
             });
 
             if (mode === "complete" || session.capabilities.includes("prediction.edit"))

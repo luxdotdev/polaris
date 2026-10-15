@@ -95,7 +95,7 @@ placement/model/format/hostEndpoints fields and add:
 | editModel | `null` | Recommended, or an endpoint model ID recognized as Zeta 2.1 / Sweep Next-Edit |
 
 `editModel` overrides next-edit placement without replacing the v1 FIM model.
-Recommended delegates to placement's serving-machine RAM rule. The legacy
+Recommended is Sweep Next-Edit on every machine (owner, 2026-10-15). The legacy
 `format` field also accepts next-edit formats. Missing new fields in v1 files
 decode to defaults; the next settings write persists them while preserving
 unrelated settings and the separate global Client endpoint list.

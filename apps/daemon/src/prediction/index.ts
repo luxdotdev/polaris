@@ -59,4 +59,4 @@ export const PredictionRpcsLive = Layer.mergeAll(
 
 /** A test-only managed server that owns no endpoint, so every request passes through. */
 export const managedServerForTests = (defaultDir: string) =>
-  Layer.succeed(ManagedModelServer, new ManagedServer({ ramBytes: 0, defaultDir }));
+  Layer.succeed(ManagedModelServer, new ManagedServer({ defaultDir }));

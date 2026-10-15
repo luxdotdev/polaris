@@ -138,6 +138,8 @@ export const PredictionCapabilityRequest = Schema.UndefinedOr(
     endpoints: Schema.optional(Schema.Array(PredictionEndpointUrl).check(Schema.isMaxLength(16))),
     /** Where the managed model lives on this Host (ADR 0048); absent or null is the default. */
     modelsDir: Schema.optional(Schema.NullOr(Schema.String.check(Schema.isMaxLength(4096)))),
+    /** The managed model the user chose; absent or null is the default, Sweep. */
+    model: Schema.optional(Schema.NullOr(Schema.Literals(["zeta-2.1", "sweep-next-edit-1.5b"]))),
   })
 );
 

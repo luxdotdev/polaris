@@ -13,7 +13,7 @@ export const ManagedModelId = Schema.Literals(["zeta-2.1", "sweep-next-edit-1.5b
 
 export type ManagedModelId = typeof ManagedModelId.Type;
 
-/** The model picked for the serving machine by its RAM (spec §2), with its download size. */
+/** The model the setup would download (Sweep unless the user chose Zeta, spec §2), with its sizes. */
 export const ManagedModelFacts = Schema.Struct({
   id: ManagedModelId,
   /** "Zeta 2.1", "Sweep Next-Edit 1.5B". */
@@ -21,6 +21,8 @@ export const ManagedModelFacts = Schema.Struct({
   sizeBytes: Bytes,
   /** The server build's archive, so the setup step can say the whole download. */
   serverBytes: Bytes,
+  /** What the loaded model takes in memory, roughly, for the opt-in's cost in Settings. */
+  memoryBytes: Bytes,
 });
 
 export type ManagedModelFacts = typeof ManagedModelFacts.Type;
@@ -95,6 +97,8 @@ export type ManagedServerAction = typeof ManagedServerAction.Type;
 export const ManagedServerRequest = Schema.Struct({
   /** Null is the Host's default, `~/.polaris/models`. */
   modelsDir: Schema.NullOr(Schema.String.check(Schema.isMaxLength(4096))),
+  /** Null is the default, Sweep; "zeta-2.1" is the user's higher-quality opt-in. */
+  model: Schema.NullOr(ManagedModelId),
   /** Null only reports the status. */
   action: Schema.NullOr(ManagedServerAction),
 });
@@ -109,7 +113,10 @@ export const PredictionManagedQuery = Rpc.make("prediction.managed", {
 
 /** The status now, then every change while the stream is open. */
 export const PredictionManagedWatch = Rpc.make("prediction.managed.watch", {
-  payload: Schema.Struct({ modelsDir: ManagedServerRequest.fields.modelsDir }),
+  payload: Schema.Struct({
+    modelsDir: ManagedServerRequest.fields.modelsDir,
+    model: ManagedServerRequest.fields.model,
+  }),
   success: ManagedServerStatus,
   error: PredictionError,
   stream: true,

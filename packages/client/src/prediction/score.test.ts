@@ -61,14 +61,14 @@ test("a managed server beats the user's own on the same tier, even with worse la
   const managed = {
     kind: "openai",
     url: "http://127.0.0.1:43210",
-    models: ["zeta-2.1-q4_k_m"],
+    models: ["sweep-next-edit-1.5b-q8_0"],
     managed: true,
   } as const;
 
   const own = {
     kind: "openai",
     url: "http://127.0.0.1:8080",
-    models: ["zeta-2.1-Q4_K_M.gguf"],
+    models: ["sweep-next-edit-1.5b.q8_0.v2.gguf"],
   } as const;
 
   const client = { ...capability(), endpoints: [own, managed] };
@@ -85,6 +85,6 @@ test("a managed server beats the user's own on the same tier, even with worse la
     [own.url, false],
   ]);
   expect(
-    scorePlacement({ ...input(), client, host: capability(64, "zeta-2.1") })[0]?.endpoint.url
+    scorePlacement({ ...input(), client, host: capability(64, "sweep-next-edit") })[0]?.endpoint.url
   ).toBe(managed.url);
 });

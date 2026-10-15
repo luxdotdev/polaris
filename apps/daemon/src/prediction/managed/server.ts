@@ -5,10 +5,14 @@
  */
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
-import { ManagedServerPhase, type ManagedServerStatus } from "@polaris/protocol";
+import {
+  ManagedServerPhase,
+  type ManagedModelId,
+  type ManagedServerStatus,
+} from "@polaris/protocol";
 import { Match } from "effect";
 import {
-  pickModel,
+  modelFor,
   platformAsset,
   serverArgs,
   type ManagedModel,
@@ -44,7 +48,6 @@ export interface Timers {
 export interface ManagedPorts {
   readonly platform: string;
   readonly arch: string;
-  readonly ramBytes: number;
   readonly defaultDir: string;
   readonly fetch: Fetcher;
   readonly spawn: Spawn;
@@ -57,7 +60,10 @@ export interface ManagedPorts {
   /** True when the machine is too small to serve (a Raspberry Pi-class Host). */
   readonly tooSmall: boolean;
   /** Tests pin small fixture files; the Daemon uses the catalog's. */
-  readonly catalog: { readonly model: ManagedModel; readonly asset: PinnedFile | null } | null;
+  readonly catalog: {
+    readonly models: Readonly<Record<ManagedModelId, ManagedModel>>;
+    readonly asset: PinnedFile | null;
+  } | null;
 }
 
 export const IDLE_UNLOAD_MS = 15 * 60 * 1000;
@@ -88,7 +94,6 @@ type Failure = Extract<ManagedServerPhase, { _tag: "Failed" }>;
 const defaultPorts = (): ManagedPorts => ({
   platform: process.platform,
   arch: process.arch,
-  ramBytes: 0,
   defaultDir: "",
   fetch: (url, init) => fetch(url, init),
   spawn: spawnServer,
@@ -112,7 +117,7 @@ const defaultPorts = (): ManagedPorts => ({
 export class ManagedServer {
   private state: ManagedState = managedInitial();
   private readonly ports: ManagedPorts;
-  private readonly model: ManagedModel;
+  private model: ManagedModel;
   private readonly asset: PinnedFile | null;
   private dir: string;
   private port: number | null = null;
@@ -129,9 +134,9 @@ export class ManagedServer {
   /** Folders whose files were hashed this run, so status needn't hash 5 GB again. */
   private readonly verified = new Map<string, boolean>();
 
-  constructor(ports: Partial<ManagedPorts> & Pick<ManagedPorts, "ramBytes" | "defaultDir">) {
+  constructor(ports: Partial<ManagedPorts> & Pick<ManagedPorts, "defaultDir">) {
     this.ports = { ...defaultPorts(), ...ports };
-    this.model = this.ports.catalog?.model ?? pickModel(this.ports.ramBytes);
+    this.model = this.resolveModel(null);
     this.asset = this.ports.catalog
       ? this.ports.catalog.asset
       : platformAsset(this.ports.platform, this.ports.arch);
@@ -150,7 +155,7 @@ export class ManagedServer {
 
   private notify() {
     if (this.watchers.size === 0) return;
-    void this.status(this.dir).then((status) => {
+    void this.snapshot().then((status) => {
       for (const watcher of this.watchers) watcher(status);
     });
   }
@@ -183,10 +188,15 @@ export class ManagedServer {
     return dir === null || dir.trim() === "" ? this.ports.defaultDir : dir;
   }
 
-  /** A folder change outside a download or a run re-reads what is on disk. */
-  private async adopt(dir: string) {
+  private resolveModel(id: ManagedModelId | null) {
+    return modelFor(id, this.ports.catalog?.models);
+  }
+
+  /** A folder or model change outside a download or a run re-reads what is on disk. */
+  private async adopt(dir: string, model: ManagedModelId | null) {
     if (!this.state.matches("absent") && !this.state.matches("stopped")) return;
     this.dir = dir;
+    this.model = this.resolveModel(model);
     const present = await this.present(dir);
 
     if (present && this.state.matches("absent")) {
@@ -201,11 +211,15 @@ export class ManagedServer {
 
     if (!(await this.onDisk(dir))) return false;
 
-    if (this.verified.get(dir) === true) return true;
+    if (this.verified.get(this.verifiedKey(dir)) === true) return true;
     const ok = await isDownloaded(dir, this.model.file);
-    this.verified.set(dir, ok);
+    this.verified.set(this.verifiedKey(dir), ok);
 
     return ok;
+  }
+
+  private verifiedKey(dir: string) {
+    return `${this.model.id}\n${dir}`;
   }
 
   /** The cheap check before each start: both files there, the model at its pinned size. */
@@ -226,10 +240,17 @@ export class ManagedServer {
     return `http://127.0.0.1:${this.port}`;
   }
 
-  async status(dir: string | null = null): Promise<ManagedServerStatus> {
-    const resolved = this.resolveDir(dir);
-    await this.adopt(resolved);
+  async status(
+    dir: string | null = null,
+    model: ManagedModelId | null = null
+  ): Promise<ManagedServerStatus> {
+    await this.adopt(this.resolveDir(dir), model);
 
+    return this.snapshot();
+  }
+
+  /** The status as it stands, without adopting a folder or model. */
+  private async snapshot(): Promise<ManagedServerStatus> {
     if (this.port === null && !this.state.matches("absent") && !this.state.matches("unsupported"))
       this.port = await this.ports.port();
     const running = this.state.matches("serving") || this.state.matches("starting");
@@ -240,6 +261,7 @@ export class ManagedServer {
         name: this.model.name,
         sizeBytes: this.model.sizeBytes,
         serverBytes: this.asset?.sizeBytes ?? 0,
+        memoryBytes: this.model.memoryBytes,
       },
       modelsDir: this.dir,
       freeBytes: await this.ports.free(this.dir),
@@ -270,15 +292,15 @@ export class ManagedServer {
   }
 
   /** Downloads the build then the model; a file already verified in the folder is skipped. */
-  async setup(dir: string | null = null): Promise<void> {
+  async setup(dir: string | null = null, model: ManagedModelId | null = null): Promise<void> {
     const resolved = this.resolveDir(dir);
-    await this.adopt(resolved);
+    await this.adopt(resolved, model);
 
     if (this.state.matches("unsupported") || this.state.matches("downloading")) return;
 
     if (this.state.matches("stopped")) return;
     this.dir = resolved;
-    this.verified.delete(resolved);
+    this.verified.delete(this.verifiedKey(resolved));
     this.failure = null;
     const controller = new AbortController();
     this.download = controller;
@@ -286,7 +308,7 @@ export class ManagedServer {
 
     try {
       await this.fetchAll(resolved, controller.signal);
-      this.verified.set(resolved, true);
+      this.verified.set(this.verifiedKey(resolved), true);
       this.move({ type: "downloaded" });
     } catch (error) {
       if (controller.signal.aborted && this.state.matches("downloading")) {
@@ -387,7 +409,7 @@ export class ManagedServer {
     this.move({ type: "demand" });
 
     if (!(await this.onDisk(this.dir))) {
-      this.verified.delete(this.dir);
+      this.verified.delete(this.verifiedKey(this.dir));
       const message = `${this.model.file.name} in ${this.dir} doesn't match its checksum`;
       this.fail("checksum-mismatch", message);
       this.move({ type: "exit", retry: false });
@@ -530,14 +552,15 @@ export class ManagedServer {
   }
 
   /** Stops the server and deletes the model, its part file and the build. */
-  async remove(dir: string | null = null): Promise<void> {
+  async remove(dir: string | null = null, model: ManagedModelId | null = null): Promise<void> {
     const resolved = this.resolveDir(dir);
     this.cancel();
     this.stop();
+    this.model = this.resolveModel(model);
     await rm(join(resolved, this.model.file.name), { force: true });
     await rm(partPath(resolved, this.model.file), { force: true });
     await rm(buildDir(resolved), { recursive: true, force: true });
-    this.verified.delete(resolved);
+    this.verified.delete(this.verifiedKey(resolved));
     this.dir = resolved;
     this.move({ type: "remove" });
   }

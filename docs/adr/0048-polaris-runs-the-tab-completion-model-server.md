@@ -36,13 +36,16 @@ once per Daemon run (never 8080, 1234 or 11434, the discovery ports). Downloadin
 beats bundling: the three archives are 12 to 18 MB each and change with llama.cpp,
 and the app must not grow for a feature that is off by default.
 
-**Which model.** One per machine, picked by RAM as the v1.1 spec says: 32 GB or more
-gets Zeta 2.1 Q4_K_M (5.07 GB, `mradermacher/zeta-2.1-GGUF`, Apache-2.0, base
-`zed-industries/zeta-2.1` Apache-2.0); less gets Sweep Next-Edit 1.5B Q8_0 (1.54 GB,
-`sweepai/sweep-next-edit-1.5B`, Apache-2.0). Both are next-edit models, which also
-handle plain insertion, so no FIM model is downloaded. Polaris downloads from the
-publisher on the user's machine; it redistributes nothing. Both licences allow it;
-a non-permissive model would be refused here.
+**Which model.** One per machine, and only a next-edit model, which also handles plain
+insertion, so no FIM model is ever installed beside it (the owner ruled ~16 GB for
+completion too much). The default on every machine is Sweep Next-Edit 1.5B Q8_0
+(1.54 GB on disk, about 2.6 GB in memory, `sweepai/sweep-next-edit-1.5B`, Apache-2.0);
+the owner's decision of 2026-10-15, replacing the spec's RAM rule. Zeta 2.1 Q4_K_M
+(5.07 GB on disk, about 7–9 GB in memory, `mradermacher/zeta-2.1-GGUF`, Apache-2.0, base
+`zed-industries/zeta-2.1` Apache-2.0) is an opt-in "higher quality" choice in Settings,
+shown with that memory cost; the setup downloads it only when chosen. Polaris downloads
+from the publisher on the user's machine; it redistributes nothing. Both licences allow
+it; a non-permissive model would be refused here.
 
 **Disk.** Free space is checked before the download and shown in the setup step. The
 model folder defaults to `~/.polaris/models` on the serving machine and can be any

@@ -110,6 +110,7 @@ export const createPredictionBridge = (ports: PredictionBridgePorts) => {
                     .get(hostKey)
                     .hostEndpoints.map((endpoint) => endpoint.url),
                   modelsDir: ports.preferences.get(hostKey).modelsDir,
+                  model: ports.preferences.get(hostKey).managedModel,
                 })
               : Effect.succeed(null)
           )

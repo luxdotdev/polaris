@@ -26,12 +26,27 @@ const model: ManagedModel = {
   alias: "sweep-next-edit-1.5b-q8_0",
   sizeBytes: MODEL_BYTES.length,
   serverBytes: ASSET_BYTES.length,
+  memoryBytes: 2_600_000_000,
   licence: "Apache-2.0",
   publisher: "fixture",
   file: pinned("sweep.gguf", MODEL_BYTES),
 };
 
+const ZETA_BYTES = Buffer.from("a bigger next-edit model".repeat(60));
+
+const zeta: ManagedModel = {
+  ...model,
+  id: "zeta-2.1",
+  name: "Zeta 2.1",
+  alias: "zeta-2.1-q4_k_m",
+  sizeBytes: ZETA_BYTES.length,
+  memoryBytes: 8_700_000_000,
+  file: pinned("zeta.gguf", ZETA_BYTES),
+};
+
 const asset = pinned("llama-fixture.tar.gz", ASSET_BYTES);
+
+const catalog = { models: { "sweep-next-edit-1.5b": model, "zeta-2.1": zeta }, asset };
 
 /** A clock the test advances by hand; timers fire in order of their due time. */
 const fakeClock = () => {
@@ -114,7 +129,9 @@ const fakeProcesses = () => {
   };
 
   const health = async (_url: string, alias: string) =>
-    alias === model.alias && spawned.at(-1)?.healthy === true && !spawned.at(-1)?.killed;
+    (alias === model.alias || alias === zeta.alias) &&
+    spawned.at(-1)?.healthy === true &&
+    !spawned.at(-1)?.killed;
 
   return { spawn, health, spawned };
 };
@@ -128,19 +145,22 @@ const installed = (dir: string) => {
   writeFileSync(join(dir, "sweep.gguf"), MODEL_BYTES);
 };
 
-const make = (dir: string, options: { readonly ramBytes?: number } = {}) => {
+const make = (dir: string) => {
   const clock = fakeClock();
   const processes = fakeProcesses();
   const statuses: ManagedServerStatus[] = [];
 
   const server = new ManagedServer({
-    ramBytes: options.ramBytes ?? 16 * 1024 ** 3,
     defaultDir: dir,
     platform: "darwin",
     arch: "arm64",
-    catalog: { model, asset },
+    catalog,
     fetch: async (url) => {
-      const bytes = url.endsWith(model.file.name) ? MODEL_BYTES : ASSET_BYTES;
+      const bytes = url.endsWith(model.file.name)
+        ? MODEL_BYTES
+        : url.endsWith(zeta.file.name)
+          ? ZETA_BYTES
+          : ASSET_BYTES;
 
       return new Response(new Uint8Array(bytes), { status: 200 });
     },
@@ -374,39 +394,36 @@ test("remove deletes the model and the build and the status is absent again", as
   }
 });
 
-test("the model is picked by the machine's RAM and a platform without a build is unsupported", async () => {
+test("Sweep is the default everywhere; Zeta is downloaded only when asked for", async () => {
   const dir = scratch();
 
   try {
-    const big = new ManagedServer({
-      ramBytes: 64 * 1024 ** 3,
-      defaultDir: dir,
-      platform: "darwin",
-      arch: "arm64",
+    const { server } = make(dir);
+    expect((await server.status()).model.id).toBe("sweep-next-edit-1.5b");
+    expect((await server.status(null, "zeta-2.1")).model).toMatchObject({
+      id: "zeta-2.1",
+      memoryBytes: zeta.memoryBytes,
     });
+    await server.setup(null, "zeta-2.1");
+    expect(existsSync(join(dir, "zeta.gguf"))).toBe(true);
+    expect(existsSync(join(dir, "sweep.gguf"))).toBe(false);
+    expect(phase(await server.status(null, "zeta-2.1"))).toBe("Stopped");
+    expect(server.endpoint()?.models).toEqual([zeta.alias]);
+    // Switching the preference back to Sweep reads that model's own state: not downloaded.
+    expect(phase(await server.status(null, null))).toBe("Absent");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
 
-    expect((await big.status()).model.id).toBe("zeta-2.1");
+test("a platform without a build, or a machine too small, is unsupported", async () => {
+  const dir = scratch();
 
-    const small = new ManagedServer({
-      ramBytes: 16 * 1024 ** 3,
-      defaultDir: dir,
-      platform: "linux",
-      arch: "x64",
-    });
-
-    expect((await small.status()).model.id).toBe("sweep-next-edit-1.5b");
-
-    const windows = new ManagedServer({
-      ramBytes: 64 * 1024 ** 3,
-      defaultDir: dir,
-      platform: "win32",
-      arch: "x64",
-    });
-
+  try {
+    const windows = new ManagedServer({ defaultDir: dir, platform: "win32", arch: "x64" });
     expect((await windows.status()).phase).toEqual(cases.Unsupported.make({ reason: "platform" }));
 
     const pi = new ManagedServer({
-      ramBytes: 8 * 1024 ** 3,
       defaultDir: dir,
       platform: "linux",
       arch: "arm64",

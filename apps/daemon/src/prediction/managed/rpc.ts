@@ -5,6 +5,7 @@
 import {
   PredictionError,
   type ManagedServerAction,
+  type ManagedServerRequest,
   type ManagedServerStatus,
 } from "@polaris/protocol";
 import { Effect, Layer, Match, Queue, Stream } from "effect";
@@ -18,13 +19,14 @@ const asError = (cause: unknown) =>
     message: cause instanceof Error ? cause.message : String(cause),
   });
 
-const act = (server: ManagedServer, action: ManagedServerAction, modelsDir: string | null) =>
+const act = (server: ManagedServer, request: ManagedServerRequest, action: ManagedServerAction) =>
   Match.value(action).pipe(
-    Match.when("setup", () => server.setup(modelsDir)),
+    Match.when("setup", () => server.setup(request.modelsDir, request.model)),
     Match.when("cancel", () => Promise.resolve(server.cancel())),
-    Match.when("start", () => server.start()),
+    // A start from a Client-side request also resets the idle clock (ADR 0048).
+    Match.when("start", () => server.start().then(() => server.touch())),
     Match.when("stop", () => Promise.resolve(server.stop())),
-    Match.when("remove", () => server.remove(modelsDir)),
+    Match.when("remove", () => server.remove(request.modelsDir, request.model)),
     Match.exhaustive
   );
 
@@ -34,16 +36,14 @@ const managedQuery = ServerRpcs.toLayerHandler("prediction.managed", (request) =
 
     if (request.action === "setup") {
       // The download runs on; the caller watches progress rather than holding the RPC open.
-      void server.setup(request.modelsDir).catch(() => {});
+      void server.setup(request.modelsDir, request.model).catch(() => {});
     } else if (request.action !== null) {
-      yield* Effect.tryPromise({
-        try: () => act(server, request.action ?? "stop", request.modelsDir),
-        catch: asError,
-      });
+      const action = request.action;
+      yield* Effect.tryPromise({ try: () => act(server, request, action), catch: asError });
     }
 
     return yield* Effect.tryPromise({
-      try: () => server.status(request.modelsDir),
+      try: () => server.status(request.modelsDir, request.model),
       catch: asError,
     });
   })
@@ -57,7 +57,7 @@ const managedWatch = ServerRpcs.toLayerHandler("prediction.managed.watch", (requ
       return Stream.callback<ManagedServerStatus, PredictionError>(
         Effect.fn("prediction.managed.watch")(function* (queue) {
           const first = yield* Effect.tryPromise({
-            try: () => server.status(request.modelsDir),
+            try: () => server.status(request.modelsDir, request.model),
             catch: asError,
           });
 
