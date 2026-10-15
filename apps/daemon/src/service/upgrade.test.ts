@@ -239,4 +239,41 @@ describe("execve hand-off", () => {
     expect(error.message).toContain("plan9-mips");
     expect((await info(socketPath)).version).toBe("1.0.0");
   }, 30_000);
+
+  test("a SIGUSR2 sent the moment the pid file appears doesn't kill the Daemon", async () => {
+    const pidFile = join(home, "daemon.pid");
+    daemon = Bun.spawn([process.execPath, fixture, "--as", "1.0.0"], {
+      env: { ...process.env, POLARIS_HOME: home },
+      stdio: ["ignore", "ignore", "ignore"],
+    });
+
+    const deadline = Date.now() + 10_000;
+
+    // Spin, not sleep: the signal must land right after the pid file is written.
+    while (!existsSync(pidFile) && Date.now() < deadline) {}
+
+    process.kill(daemon.pid, "SIGUSR2");
+    await Bun.sleep(300);
+    expect({ exit: daemon.exitCode, signal: daemon.signalCode }).toEqual({
+      exit: null,
+      signal: null,
+    });
+    expect((await info(join(home, "daemon.sock"))).version).toBe("1.0.0");
+  }, 30_000);
+
+  test("a Daemon that dies instead of upgrading fails the request at once", async () => {
+    // `sleep` has no SIGUSR2 handler, so the request's signal kills it.
+    daemon = Bun.spawn(["sleep", "30"]);
+    const started = Date.now();
+
+    const error = await Effect.runPromise(
+      requestUpgrade({ pid: daemon.pid, binary: "/bin/true", version: "2.0.0" }).pipe(
+        Effect.flip,
+        Effect.provide(CommandRunner.layer)
+      )
+    );
+
+    expect(error.message).toBe(`the Daemon (PID ${daemon.pid}) exited instead of upgrading`);
+    expect(Date.now() - started).toBeLessThan(5000);
+  }, 30_000);
 });

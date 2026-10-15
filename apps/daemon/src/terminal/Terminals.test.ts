@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { FileError, NotFound, TerminalId } from "@polaris/protocol";
 import { Effect, Exit, Fiber, Layer, ManagedRuntime, Stream } from "effect";
+import { cpus } from "node:os";
+import { join } from "node:path";
 import { removeDir, tempDir } from "../git/testing.ts";
 import {
   loginShell,
@@ -10,6 +12,10 @@ import {
   Terminals,
   TerminalsLive,
 } from "./Terminals.ts";
+
+const RUN_TIMEOUT_MS = 3000;
+
+const fastExits = join(import.meta.dir, "fixtures", "fast-exits.ts");
 
 const encode = (text: string) => new TextEncoder().encode(text);
 
@@ -30,11 +36,17 @@ const setup = () => {
   const dir = tempDir("polaris-term-");
   cleanup.push(dir);
 
+  /** Fails in RUN_TIMEOUT_MS instead of hanging the file (bun's test timeout can't fire if a call blocks the thread). */
   const run = <A, E>(f: (t: Terminals["Service"]) => Effect.Effect<A, E>) =>
     runtime.runPromise(
       Effect.gen(function* () {
         return yield* f(yield* Terminals);
-      })
+      }).pipe(
+        Effect.timeoutOrElse({
+          duration: RUN_TIMEOUT_MS,
+          orElse: () => Effect.die(new Error(`a Terminals call took over ${RUN_TIMEOUT_MS} ms`)),
+        })
+      )
     );
 
   /** Attaches and collects items into an array until the stream ends or is stopped. */
@@ -177,6 +189,32 @@ describe("Terminals", () => {
     const missing = await run((t) => Effect.flip(t.resize(TerminalId.make("nope"), 1, 1)));
     expect(missing._tag).toBe("NotFound");
   });
+
+  // Under load the command could exit before Bun watched it, and Bun.spawn then hung (ADR 0052).
+  test.skipIf(process.platform !== "darwin")(
+    "commands that exit at once can't freeze the Daemon on a loaded macOS Host",
+    async () => {
+      const dir = tempDir("polaris-term-");
+      cleanup.push(dir);
+
+      // Busy loops that end themselves (alarm) even if this test is killed.
+      const load = Array.from({ length: cpus().length * 2 }, () =>
+        Bun.spawn(["perl", "-e", "alarm 40; 1 while 1"], { stdout: "ignore", stderr: "ignore" })
+      );
+
+      try {
+        const child = Bun.spawn(["bun", fastExits, "200", dir], { stdout: "pipe", stderr: "pipe" });
+        const deadline = setTimeout(() => child.kill("SIGKILL"), 25_000);
+        const [out, err] = await Promise.all([child.stdout.text(), child.stderr.text()]);
+        await child.exited;
+        clearTimeout(deadline);
+        expect({ out: out.trim(), err }).toEqual({ out: "done 200", err: "" });
+      } finally {
+        for (const p of load) p.kill("SIGKILL");
+      }
+    },
+    40_000
+  );
 
   test("the default is the user's login shell", () => {
     expect(loginShell().startsWith("/")).toBe(true);

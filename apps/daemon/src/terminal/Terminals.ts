@@ -224,6 +224,21 @@ export const loginShell = (sources: ShellSources = hostShellSources()): string =
   return sources.envShell || "/bin/sh";
 };
 
+/**
+ * On macOS the command waits on fd 3 until `Bun.spawn` has returned, so it
+ * can't exit before Bun watches it: see ADR 0052 (a deadlock otherwise).
+ */
+const SPAWN_GATE = ["/bin/sh", "-c", 'read -r _ <&3; exec 3<&-; exec "$0" "$@"'];
+
+const gateSpawns = process.platform === "darwin";
+
+/** Lets a gated command run; it may already be gone (EPIPE). */
+const openGate = (fd: number | null | undefined) => {
+  try {
+    if (fd !== undefined && fd !== null) writeSync(fd, "\n");
+  } catch {}
+};
+
 const clampSize = (n: number, fallback: number) =>
   Number.isFinite(n) && n > 0 ? Math.min(Math.floor(n), 10_000) : fallback;
 
@@ -697,11 +712,19 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
       const spawned = yield* Effect.try({
         try: () => {
           // Synchronous from here to findMaster: no other fd can appear in between.
+          const env = childEnv({ ...process.env, TERM: "xterm-256color", COLORTERM: "truecolor" });
+
+          // The gate's sh would report a missing command only in the terminal: keep it a FileError.
+          if (gateSpawns && Bun.which(argv[0]!, { cwd, PATH: env.PATH ?? "" }) === null) {
+            throw Object.assign(new Error(`no such command: ${argv[0]}`), { code: "ENOENT" });
+          }
+
           const before = handoffFile === null ? null : openFdsOrNull();
 
-          const proc = Bun.spawn(argv, {
+          const proc = Bun.spawn(gateSpawns ? [...SPAWN_GATE, ...argv] : argv, {
             cwd,
-            env: childEnv({ ...process.env, TERM: "xterm-256color", COLORTERM: "truecolor" }),
+            env,
+            stdio: ["ignore", "ignore", "ignore", gateSpawns ? "pipe" : "ignore"],
             terminal: {
               cols,
               rows,
@@ -719,6 +742,8 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
           try {
             master = before === null ? null : findMaster(before);
           } catch {}
+
+          if (gateSpawns) openGate(proc.stdio[3]);
 
           return { proc, master };
         },
