@@ -39,7 +39,7 @@ export const ensureCheckout = async (options: {
   if (existing !== undefined && existsSync(path)) return;
 
   if (existing !== undefined) await pruneMissing(repoPath, path);
-  await createWorktree({ repoPath, path, detach: head, config: ["core.hooksPath=/dev/null"] });
+  await createWorktree({ repoPath, path, detach: head });
   await checkoutGit(repoPath, ["worktree", "lock", "--reason", lockReason, path]);
 };
 

@@ -48,6 +48,7 @@ const fixture = (
     blocked: false,
     automatic: true,
     lastCheckedAt: null,
+    fetch: () => Promise.reject(new Error("only Windows preflights")),
     ...patch,
     save: (value) => {
       saves.push(value);

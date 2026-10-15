@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { Attempt, CommandId, WorktreeSetup } from "@polaris/protocol";
 import { Effect, Exit, Layer, Struct } from "effect";
 import { join } from "node:path";
-import { CID, draft } from "../engine/constellation.testing.ts";
+import { CID, WS, draft } from "../engine/constellation.testing.ts";
 import { withSessionInput } from "../engine/sessionBoundary.ts";
 import { startAttempt } from "../constellation/composition/workers.ts";
 import { finish, send, setup, world } from "../constellation/delivery/testing.ts";
@@ -47,7 +47,8 @@ for (const crashBeforeMarker of [false, true])
               root,
               WorktreeSetup.cases.Command.make({ command: "exit 7" }),
               CID,
-              attempt.taskId
+              attempt.taskId,
+              WS
             );
           } else
             expect(Exit.isFailure(yield* startAttempt(graph, attempt).pipe(Effect.exit))).toBe(
@@ -84,7 +85,8 @@ for (const crashBeforeMarker of [false, true])
             root,
             WorktreeSetup.cases.Command.make({ command: "true" }),
             CID,
-            attempt.taskId
+            attempt.taskId,
+            WS
           );
           expect(
             (yield* store.model).sessions.get(attempt.sessionId)!.session.worktreeSetup?.status

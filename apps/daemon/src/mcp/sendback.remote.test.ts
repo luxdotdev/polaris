@@ -41,6 +41,7 @@ import {
   mirrorRemoteAssignments,
   relayOutboxPacket,
 } from "../../../../packages/client/src/constellation/transfer.ts";
+import { trustedSetup } from "../constellation/setup/trust.testing.ts";
 
 interface WorkerBridge {
   hooks?: RemoteWorkerHooks;
@@ -92,7 +93,10 @@ const mount = Effect.fnUntraced(function* (
       Layer.provide(
         Layer.mergeAll(
           Layer.succeed(EventStore)(host.store),
-          WorktreeSetupService.layer.pipe(Layer.provide(Layer.succeed(EventStore)(host.store))),
+          WorktreeSetupService.layer.pipe(
+            Layer.provide(trustedSetup),
+            Layer.provide(Layer.succeed(EventStore)(host.store))
+          ),
           Layer.succeed(TransferStorage)(host.storage),
           Layer.succeed(ConstellationOwner)(host.host.hostId),
           Layer.succeed(HostResources)(resources),
