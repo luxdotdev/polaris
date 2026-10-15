@@ -200,6 +200,12 @@ const failureLog = (status: ManagedServerStatus) =>
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 5));
 
+/** Waits until the server has spawned `count` processes; a loaded CI runner can take longer than one settle. */
+const untilSpawned = async (processes: { readonly spawned: readonly unknown[] }, count = 1) => {
+  for (let i = 0; i < 1000 && processes.spawned.length < count; i++) await settle();
+  expect(processes.spawned.length).toBeGreaterThanOrEqual(count);
+};
+
 /** The status once a model found in the folder has been hashed. */
 const verified = async (server: ManagedServer, dir?: string) => {
   let status = await server.status(dir);
@@ -285,9 +291,9 @@ test("the first request starts the server lazily and idling 15 minutes unloads i
   try {
     installed(dir);
     const { server, clock, processes } = make(dir);
-    await server.status();
+    await verified(server);
     const started = server.start();
-    await settle();
+    await untilSpawned(processes);
     expect(phase(await server.status())).toBe("Starting");
     expect(processes.spawned[0]?.args).toContain("--alias");
     expect(processes.spawned[0]?.args).toContain("--cache-reuse");
@@ -326,10 +332,10 @@ test("the load time is reported while it serves and forgotten once it unloads", 
   try {
     installed(dir);
     const { server, clock, processes } = make(dir);
-    await server.status();
+    await verified(server);
     expect(server.isServing()).toBe(false);
     const started = server.start();
-    await settle();
+    await untilSpawned(processes);
     expect((await server.status()).loadMs).toBeNull();
     await clock.advance(1000);
     processes.spawned[0]!.healthy = true;
@@ -353,10 +359,10 @@ test("a crash restarts with doubling backoff, then gives up with the server's la
   try {
     installed(dir);
     const { server, clock, processes } = make(dir);
-    await server.status();
+    await verified(server);
     const started = server.start();
     started.catch(() => {});
-    await settle();
+    await untilSpawned(processes);
     processes.spawned[0]!.healthy = true;
     await clock.advance(500);
     await started;
@@ -401,10 +407,10 @@ test("turning it off stops the process and cancels a pending restart", async () 
   try {
     installed(dir);
     const { server, clock, processes } = make(dir);
-    await server.status();
+    await verified(server);
     const started = server.start();
     started.catch(() => {});
-    await settle();
+    await untilSpawned(processes);
     processes.spawned[0]!.healthy = true;
     await clock.advance(500);
     await started;

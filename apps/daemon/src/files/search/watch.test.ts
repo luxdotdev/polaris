@@ -167,7 +167,10 @@ test("explicit language demand watches non-git Linux checkout configs without re
   );
   expect(opened.map((entry) => entry.path)).toContain(join(root, "nested"));
   expect(opened.every((entry) => !entry.recursive)).toBe(true);
-  write(root, "nested/tsconfig.json", '{"compilerOptions":{"strict":true}}');
-  await waitFor(() => seen.includes(join(root, "nested/tsconfig.json")));
+  await waitFor(() => {
+    write(root, "nested/tsconfig.json", `{"compilerOptions":{"strict":true}} // ${seen.length}`);
+
+    return seen.includes(join(root, "nested/tsconfig.json"));
+  });
   expect(seen).toContain(join(root, "nested/tsconfig.json"));
 });
