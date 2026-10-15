@@ -29,9 +29,9 @@ export interface GitOptions {
   /**
    * `"host"` is git the user asked for (commit, sync, Accept, stage): the Host's
    * config and hooks as they are. The default turns off everything that runs a command;
-   * `"fetch"` (a Review fetch) keeps the repository's own ssh command and credential helpers.
+   * `"trusted-fetch"` (a Review fetch in a trusted Workspace) keeps its ssh command, proxy and helpers.
    */
-  readonly config?: "safe" | "fetch" | "host";
+  readonly config?: "safe" | "trusted-fetch" | "host";
   /** Stop git once stdout passes this; it then fails with `GitOutputTooLarge`. */
   readonly maxOutputBytes?: number;
 }
@@ -82,7 +82,7 @@ export const runGitRaw = async (
 ): Promise<GitResult> => {
   const host = options.config === "host";
   const base = { ...baseEnv(), ...options.env };
-  const mode = options.config === "fetch" ? "fetch" : "safe";
+  const mode = options.config === "trusted-fetch" ? "trusted-fetch" : "safe";
   const safe = host ? {} : await safeConfigEnv(cwd, base, { args, mode });
 
   const spawnOptions: Bun.SpawnOptions.OptionsObject<"ignore" | Blob, "pipe", "pipe"> = {

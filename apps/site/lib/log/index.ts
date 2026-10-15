@@ -128,21 +128,52 @@ function startEvent(request: Request, route: string, env: LogEnv, started: numbe
   };
 }
 
-/** Wraps a route handler so it emits exactly one wide event per request. */
+/** Work a handler hands off to run after its response; `"error"` raises the event's level. */
+export type Background = (task: () => Promise<Level | void>) => void;
+
+async function settle(tasks: ReadonlyArray<() => Promise<Level | void>>, event: WideEvent) {
+  const results = await Promise.allSettled(tasks.map((task) => task()));
+  let failed = false;
+
+  for (const result of results) {
+    if (result.status === "rejected") event.error = errorInfo(result.reason);
+
+    if (result.status === "rejected" || result.value === "error") failed = true;
+  }
+
+  if (!failed) return "info";
+  event.outcome = "error";
+
+  return "error";
+}
+
+/**
+ * Wraps a route handler so it emits exactly one wide event per request. Background work
+ * runs after the response and before the emit, so its fields land on the same event.
+ */
 export function withWideEvent<C>(
   route: string,
-  handler: (request: Request, event: WideEvent, context: C) => Promise<Response>,
+  handler: (
+    request: Request,
+    event: WideEvent,
+    context: C,
+    background: Background
+  ) => Promise<Response>,
   overrides: Partial<Options> = {}
 ) {
   return async (request: Request, context: C): Promise<Response> => {
     const options = { ...defaults(), ...overrides };
     const started = options.now();
     const event = startEvent(request, route, options.env, started);
+    const tasks: Array<() => Promise<Level | void>> = [];
 
     let level: Level = "info";
 
     try {
-      const response = await handler(request, event, context);
+      const response = await handler(request, event, context, (task) => {
+        tasks.push(task);
+      });
+
       event.status_code = response.status;
 
       if (response.status >= 500) {
@@ -159,7 +190,10 @@ export function withWideEvent<C>(
       throw error;
     } finally {
       event.duration_ms = options.now() - started;
-      options.schedule(() => options.emit(event, level, options.env));
+      options.schedule(async () => {
+        if (tasks.length > 0 && (await settle(tasks, event)) === "error") level = "error";
+        await options.emit(event, level, options.env);
+      });
     }
   };
 }

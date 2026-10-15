@@ -52,6 +52,11 @@ export interface PullRequestFetch {
   readonly baseCommit: string;
   /** Fetch full history (`--unshallow`): only when the user asked for it. */
   readonly unshallow: boolean;
+  /**
+   * The user trusts the Workspace on this Host: its own ssh command, git proxy and
+   * credential helpers authenticate the fetch. Untrusted, only the Host's run.
+   */
+  readonly trusted: boolean;
   /** `DEEPEN_STEPS` unless a test sets them. */
   readonly deepenSteps?: ReadonlyArray<number>;
   readonly timeoutMs?: number;
@@ -102,13 +107,13 @@ const mergeBaseOf = async (repoPath: string, a: string, b: string): Promise<stri
 };
 
 const runFetch = async (
-  repoPath: string,
+  fetch: PullRequestFetch,
   source: FetchSource,
   refspecs: ReadonlyArray<string>,
   options: { readonly unshallow?: boolean; readonly deepen?: number; readonly timeoutMs: number }
 ): Promise<GitResult> =>
   checkoutGitRaw(
-    repoPath,
+    fetch.repoPath,
     [
       ...NO_PROMPT_CONFIG,
       "fetch",
@@ -119,8 +124,8 @@ const runFetch = async (
       ...refspecs,
     ],
     {
-      config: "fetch",
-      env: { GIT_SSH_COMMAND: await batchSshCommand(repoPath) },
+      config: fetch.trusted ? "trusted-fetch" : "safe",
+      env: { GIT_SSH_COMMAND: await batchSshCommand(fetch.repoPath, fetch.trusted) },
       timeoutMs: options.timeoutMs,
     }
   );
@@ -140,7 +145,7 @@ const fetchBaseCommit = async (
   if (options.baseCommit === "") return null;
   const target = reviewRef(options.key, "base-commit");
 
-  const fetched = await runFetch(options.repoPath, source, [`+${options.baseCommit}:${target}`], {
+  const fetched = await runFetch(options, source, [`+${options.baseCommit}:${target}`], {
     timeoutMs,
   });
 
@@ -167,7 +172,7 @@ const shallowMergeBase = async (
   }
 
   for (const depth of options.deepenSteps ?? DEEPEN_STEPS) {
-    const deepened = await runFetch(repoPath, source, pullRefspecs(options), {
+    const deepened = await runFetch(options, source, pullRefspecs(options), {
       deepen: depth,
       timeoutMs,
     });
@@ -196,7 +201,7 @@ export const fetchPullRequest = async (options: PullRequestFetch): Promise<Fetch
   const source = await pickFetchSource(repoPath, options.repo);
   const shallow = await isShallow(repoPath);
 
-  const result = await runFetch(repoPath, source, pullRefspecs(options), {
+  const result = await runFetch(options, source, pullRefspecs(options), {
     unshallow: options.unshallow && shallow,
     timeoutMs,
   });

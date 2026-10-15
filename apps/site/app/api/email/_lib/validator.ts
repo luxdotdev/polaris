@@ -12,7 +12,16 @@ export interface EmailValidator {
   validate(email: string, report?: (verdicts: InsightsVerdicts) => void): Promise<boolean>;
 }
 
-export type ValidationFailure = "unconfigured" | "uncertain" | "timeout" | "malformed" | "provider";
+export type ValidationFailure =
+  | "unconfigured"
+  | "uncertain"
+  | "rejected"
+  | "timeout"
+  | "malformed"
+  | "provider";
+
+/** SES errors that judge the address itself; throttling, auth, 5xx and network are `provider`. */
+const addressRejections = new Set(["BadRequestException", "ValidationException"]);
 
 /** A fail-closed validation with a loggable reason; its message stays generic. */
 export class EmailValidationError extends Error {
@@ -203,16 +212,20 @@ export function createValidator(
           client.destroy?.();
         }
       } catch (error) {
-        counters.record("unavailable");
         // SDK and schema failures can contain the address: keep only the error's type and status.
+        const info = errorInfo(error);
+        const rejected = addressRejections.has(info.type);
+        counters.record(rejected ? "invalid" : "unavailable");
 
         if (Option.isSome(decodeEmailValidationError(error))) throw error;
+
+        if (rejected) throw new EmailValidationError("rejected", info);
 
         if (Option.isSome(decodeTimeout(error))) throw new EmailValidationError("timeout");
 
         if (Schema.isSchemaError(error)) throw new EmailValidationError("malformed");
 
-        throw new EmailValidationError("provider", errorInfo(error));
+        throw new EmailValidationError("provider", info);
       }
 
       counters.record(outcome);

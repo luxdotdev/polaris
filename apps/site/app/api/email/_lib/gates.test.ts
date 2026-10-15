@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { checkBotId } from "botid/server";
+import type { Level } from "../../../../lib/log";
 import { checkEmailBot } from "./bot";
 import { createEmailHandler } from "./index";
 import type { EmailValidator } from "./validator";
@@ -10,6 +11,15 @@ const request = (email = "ada@example.com") =>
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, website: "" }),
   });
+
+/** Runs the handler, then the work it handed to the background. */
+async function run(handler: ReturnType<typeof createEmailHandler>, input: Request) {
+  const tasks: Array<() => Promise<Level | void>> = [];
+  const response = await handler(input, {}, (task) => tasks.push(task));
+  await Promise.all(tasks.map((task) => task()));
+
+  return response;
+}
 
 describe("BotID gate", () => {
   test.each([
@@ -22,6 +32,7 @@ describe("BotID gate", () => {
 
     const handler = createEmailHandler({
       checkBot: async () => verdict,
+      preview: false,
       validator: {
         validate: async () => {
           calls.push("validator");
@@ -29,10 +40,10 @@ describe("BotID gate", () => {
           return true;
         },
       },
-      rateLimit: () => {
-        calls.push("rate");
+      admit: async () => {
+        calls.push("admit");
 
-        return 0;
+        return "admitted";
       },
       requested: () => {
         calls.push("telemetry");
@@ -44,7 +55,7 @@ describe("BotID gate", () => {
       },
     });
 
-    expect((await handler(input)).status).toBe(403);
+    expect((await run(handler, input)).status).toBe(403);
     expect(input.bodyUsed).toBe(false);
     expect(calls).toEqual([]);
   });
@@ -54,14 +65,15 @@ describe("BotID gate", () => {
       checkBot: async () => {
         throw new Error("private headers");
       },
-      rateLimit: () => {
+      preview: false,
+      admit: async () => {
         throw new Error("must not run");
       },
       requested: () => {},
       transport: () => null,
     });
 
-    const response = await handler(request());
+    const response = await run(handler, request());
     expect(response.status).toBe(503);
     expect(await response.text()).not.toContain("private");
   });
@@ -91,7 +103,7 @@ describe("BotID gate", () => {
 });
 
 describe("recipient validator seam", () => {
-  function fixture(validator?: EmailValidator) {
+  function fixture(validator?: EmailValidator, admitted = true) {
     const calls: string[] = [];
 
     const dependencies = {
@@ -100,10 +112,11 @@ describe("recipient validator seam", () => {
 
         return { isBot: false, isVerifiedBot: false };
       },
-      rateLimit: () => {
-        calls.push("rate");
+      preview: false,
+      admit: async () => {
+        calls.push("admit");
 
-        return 0;
+        return admitted ? ("admitted" as const) : ("recipient_cooldown" as const);
       },
       requested: () => {},
       transport: () => ({
@@ -132,7 +145,7 @@ describe("recipient validator seam", () => {
     return { handler, calls };
   }
 
-  test("human → syntax/honeypot → rate → validator → SES", async () => {
+  test("human → syntax/honeypot → admission → validator → SES", async () => {
     const f = fixture({
       validate: async (email) => {
         expect(email).toBe("ada@example.com");
@@ -141,25 +154,31 @@ describe("recipient validator seam", () => {
       },
     });
 
-    expect((await f.handler(request())).status).toBe(200);
-    expect(f.calls).toEqual(["BotID", "rate", "validator", "SES"]);
+    expect((await run(f.handler, request())).status).toBe(202);
+    expect(f.calls).toEqual(["BotID", "admit", "validator", "SES"]);
   });
 
-  test("syntax rejection does not reach rate, provider or SES", async () => {
+  test("a refused admission reaches neither the provider nor SES", async () => {
+    const f = fixture({ validate: async () => true }, false);
+    expect((await run(f.handler, request())).status).toBe(202);
+    expect(f.calls).toEqual(["BotID", "admit"]);
+  });
+
+  test("syntax rejection does not reach admission, provider or SES", async () => {
     const f = fixture({
       validate: async () => {
         throw new Error("must not run");
       },
     });
 
-    expect((await f.handler(request("bad"))).status).toBe(400);
+    expect((await run(f.handler, request("bad"))).status).toBe(400);
     expect(f.calls).toEqual(["BotID"]);
   });
 
   test("provider rejection blocks SES", async () => {
     const f = fixture({ validate: async () => false });
-    expect((await f.handler(request())).status).toBe(422);
-    expect(f.calls).toEqual(["BotID", "rate", "validator"]);
+    await run(f.handler, request());
+    expect(f.calls).toEqual(["BotID", "admit", "validator"]);
   });
 
   test("provider error fails closed", async () => {
@@ -169,15 +188,14 @@ describe("recipient validator seam", () => {
       },
     });
 
-    const response = await f.handler(request());
-    expect(response.status).toBe(503);
+    const response = await run(f.handler, request());
     expect(await response.text()).not.toContain("private");
-    expect(f.calls).toEqual(["BotID", "rate", "validator"]);
+    expect(f.calls).toEqual(["BotID", "admit", "validator"]);
   });
 
   test("missing validator fails closed instead of bypassing validation", async () => {
     const f = fixture();
-    expect((await f.handler(request())).status).toBe(503);
-    expect(f.calls).toEqual(["BotID", "rate"]);
+    await run(f.handler, request());
+    expect(f.calls).toEqual(["BotID", "admit"]);
   });
 });

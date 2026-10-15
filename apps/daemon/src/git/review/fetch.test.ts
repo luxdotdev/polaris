@@ -45,6 +45,7 @@ const pr = (repoPath: string, overrides: Partial<PullRequestFetch> = {}): PullRe
   baseRef: "main",
   baseCommit: "",
   unshallow: false,
+  trusted: false,
   ...overrides,
 });
 
@@ -190,29 +191,67 @@ describe("fetchPullRequest", () => {
     );
   });
 
-  test("ssh runs the user's own ssh command with BatchMode, and fails without prompting", async () => {
-    const { forge } = await setup();
-    const user = await userClone(forge, { remoteUrl: "git@github.com:acme/app.git" });
-    cleanup.push(user);
-    await gitText(user, ["config", "--unset-all", `url.${forge.base}.insteadOf`]);
-    const bin = tempDir("polaris-ssh-");
-    cleanup.push(bin);
-    const log = join(bin, "args");
-    const ssh = join(bin, "fake-ssh");
+  /** A fake ssh that logs its arguments to `<bin>/<name>.args` and fails authentication. */
+  const fakeSsh = (bin: string, name: string) => {
+    const log = join(bin, `${name}.args`);
     write(
       bin,
-      "fake-ssh",
+      name,
       `#!/bin/sh\necho "$@" > ${log}\necho "git@github.com: Permission denied (publickey)." >&2\nexit 255\n`
     );
-    chmodSync(ssh, 0o755);
-    await gitText(user, ["config", "core.sshCommand", `${ssh} -o UserOwnOption=yes`]);
+    chmodSync(join(bin, name), 0o755);
 
-    const blocker = await blockerOf(fetchPullRequest(pr(user)));
+    return { command: join(bin, name), log };
+  };
 
-    expect(readFileSync(log, "utf8")).toContain("-o UserOwnOption=yes -o BatchMode=yes");
+  /** A clone with an ssh remote whose own config names an ssh command; the Host's names another. */
+  const sshSetup = async () => {
+    const { forge } = await setup();
+    const user = await userClone(forge, { remoteUrl: "git@github.com:acme/app.git" });
+    const bin = tempDir("polaris-ssh-");
+    cleanup.push(user, bin);
+    await gitText(user, ["config", "--unset-all", `url.${forge.base}.insteadOf`]);
+    const own = fakeSsh(bin, "repo-ssh");
+    const host = fakeSsh(bin, "host-ssh");
+    await gitText(user, ["config", "core.sshCommand", `${own.command} -o UserOwnOption=yes`]);
+    write(bin, "gitconfig", `[core]\n\tsshCommand = ${host.command} -o HostOption=yes\n`);
+
+    return { user, own, host, hostConfig: join(bin, "gitconfig") };
+  };
+
+  const withHostConfig = async <A>(path: string, f: () => Promise<A>) => {
+    const saved = process.env.GIT_CONFIG_GLOBAL;
+    process.env.GIT_CONFIG_GLOBAL = path;
+
+    try {
+      return await f();
+    } finally {
+      if (saved === undefined) delete process.env.GIT_CONFIG_GLOBAL;
+      else process.env.GIT_CONFIG_GLOBAL = saved;
+    }
+  };
+
+  test("in a trusted Workspace, ssh runs the repository's own ssh command with BatchMode, and fails without prompting", async () => {
+    const s = await sshSetup();
+
+    const blocker = await withHostConfig(s.hostConfig, () =>
+      blockerOf(fetchPullRequest(pr(s.user, { trusted: true })))
+    );
+
+    expect(readFileSync(s.own.log, "utf8")).toContain("-o UserOwnOption=yes -o BatchMode=yes");
+    expect(existsSync(s.host.log)).toBe(false);
     expect(Predicate.isTagged(blocker, "FetchFailed") ? blocker.message : "").toStartWith(
       "ssh could not authenticate on this Host"
     );
+  });
+
+  test("in an untrusted Workspace, ssh runs the Host's ssh command, never the repository's", async () => {
+    const s = await sshSetup();
+
+    await withHostConfig(s.hostConfig, () => blockerOf(fetchPullRequest(pr(s.user))));
+
+    expect(readFileSync(s.host.log, "utf8")).toContain("-o HostOption=yes -o BatchMode=yes");
+    expect(existsSync(s.own.log)).toBe(false);
   });
 
   test("a shallow clone fetches the code host's base commit when it is the merge base", async () => {

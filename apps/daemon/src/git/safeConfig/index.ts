@@ -5,18 +5,33 @@
  */
 import { childEnv } from "../../service/childEnv.ts";
 import { readBounded } from "../output.ts";
-import { cacheKey, discoveryPaths, hostFiles, type Located, stampAll } from "./discovery.ts";
+import {
+  cacheKey,
+  discoveryPaths,
+  hostCandidates,
+  listedFiles,
+  type Located,
+  ownFiles,
+  stampAll,
+} from "./discovery.ts";
 import {
   configEnv,
   type Entry,
   FIXED,
   globalOptions,
   parseListing,
+  repositoryEnv,
   repositoryOverrides,
   type SafeMode,
 } from "./settings.ts";
 
-export { globalOptions, parseListing, repositoryOverrides, safeArgs } from "./settings.ts";
+export {
+  globalOptions,
+  parseListing,
+  repositoryEnv,
+  repositoryOverrides,
+  safeArgs,
+} from "./settings.ts";
 
 export type { SafeMode } from "./settings.ts";
 
@@ -86,30 +101,54 @@ const cache = new Map<string, Cached>();
 
 const CACHE_SIZE = 64;
 
-/** Stamped before the listing is read, so a change made while it is read shows next time. */
+/** The files `git var <name>` says git reads, "" for none; null when this git can't say. */
+const filesGitReads = async (
+  cwd: string,
+  options: ReadonlyArray<string>,
+  name: string,
+  base: Env
+) => {
+  const out = await read(cwd, [...options, "var", name], base);
+
+  if (out.code === 0) return out.stdout;
+
+  return out.code === 1 && out.stderr === "" ? "" : null;
+};
+
+/** Every config file git can read here, stamped before the listing so a change made meanwhile shows next time. */
 const listAndCache = async (
   cwd: string,
   options: ReadonlyArray<string>,
   base: Env,
   key: string
 ) => {
-  const found = await locate(cwd, options, base);
-  const paths = found === null ? null : discoveryPaths(cwd, found);
-  const stamps = paths === null ? "" : stampAll(paths);
+  const [found, system, global] = await Promise.all([
+    locate(cwd, options, base),
+    filesGitReads(cwd, options, "GIT_CONFIG_SYSTEM", base),
+    filesGitReads(cwd, options, "GIT_CONFIG_GLOBAL", base),
+  ]);
+
+  const discovery = found === null ? null : discoveryPaths(cwd, found);
+
+  if (found === null || discovery === null || system === null || global === null) {
+    return listConfig(cwd, options, base);
+  }
+
+  const candidates = hostCandidates(system, global);
+  const paths = [...discovery, ...ownFiles(found), ...candidates];
+  const stamps = stampAll(paths);
   const listing = await listConfig(cwd, options, base);
 
-  if (found === null || paths === null) return listing;
-  const again = await locate(cwd, options, base);
-  const host = hostFiles(found, listing);
+  const extra = stamps === null ? null : listedFiles(found, listing, candidates, base.HOME);
 
-  if (JSON.stringify(again) !== JSON.stringify(found) || host === null) return listing;
+  if (extra === null) return listing;
+  const again = await locate(cwd, options, base);
+  const extraStamps = stampAll(extra);
+
+  if (JSON.stringify(again) !== JSON.stringify(found) || extraStamps === null) return listing;
 
   if (cache.size >= CACHE_SIZE) cache.delete(cache.keys().next().value ?? "");
-  cache.set(key, {
-    paths: [...paths, ...host],
-    stamps: `${stamps}|${stampAll(host)}`,
-    listing,
-  });
+  cache.set(key, { paths: [...paths, ...extra], stamps: `${stamps}|${extraStamps}`, listing });
 
   return listing;
 };
@@ -137,7 +176,8 @@ export const safeConfigEnv = async (
   options: { readonly args?: ReadonlyArray<string>; readonly mode?: SafeMode } = {}
 ) => {
   const listing = await listingFor(cwd, options.args ?? [], base);
-  const overrides = repositoryOverrides(listing, options.mode ?? "safe");
+  const mode = options.mode ?? "safe";
+  const overrides = repositoryOverrides(listing, mode);
 
-  return configEnv([...FIXED, ...overrides], base);
+  return { ...configEnv([...FIXED, ...overrides], base), ...repositoryEnv(listing, mode, base) };
 };

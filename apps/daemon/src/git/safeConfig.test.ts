@@ -165,6 +165,28 @@ describe("where git reads its config from", () => {
     expect(ran(markers)).toEqual([]);
   });
 
+  // Each starts missing, so the first listing names none of them.
+  const lateHostFiles = [
+    ["the XDG config", "", "xdg/git/config"],
+    ["a file the global config includes", "[include]\n\tpath = extra\n", "extra"],
+  ] as const;
+
+  test.each(lateHostFiles)(
+    "%s, written after a call, is read by the next",
+    async (_name, global, late) => {
+      const home = dir(tempDir("polaris-home-"));
+      const root = dir(await makeRepo({ "a.txt": "a\n" }));
+      await gitText(root, ["config", "core.sshCommand", "evil-ssh"]);
+      write(home, ".gitconfig", global);
+      const env = { HOME: home, XDG_CONFIG_HOME: join(home, "xdg") };
+      expect(await gitText(root, ["config", "--get", "core.sshCommand"], { env })).toBe("ssh");
+
+      write(home, late, "[core]\n\tsshCommand = host-ssh\n");
+
+      expect(await gitText(root, ["config", "--get", "core.sshCommand"], { env })).toBe("host-ssh");
+    }
+  );
+
   test("a `-C` in the arguments reads that repository's drivers, not the cwd's", async () => {
     const markers = dir(tempDir("polaris-markers-"));
     const elsewhere = dir(tempDir("polaris-cwd-"));
@@ -255,7 +277,7 @@ const hostConfig = (lines: string) => {
 const effective = (
   root: string,
   key: string,
-  options: { readonly env: Record<string, string>; readonly config?: "fetch" }
+  options: { readonly env: Record<string, string>; readonly config?: "trusted-fetch" }
 ) => gitText(root, ["config", "--get", key], options);
 
 describe("network settings on automatic git", () => {
@@ -278,8 +300,10 @@ describe("network settings on automatic git", () => {
     expect(inUse.join("\n")).not.toContain("evil");
     expect(await effective(root, "core.sshCommand", { env })).toBe("host-ssh");
 
-    // A Review fetch keeps them: per-repository deploy keys and helpers authenticate it.
-    expect(await effective(root, "core.sshCommand", { env, config: "fetch" })).toBe("evil-ssh");
+    // A Review fetch in a trusted Workspace keeps them: per-repository deploy keys and helpers.
+    expect(await effective(root, "core.sshCommand", { env, config: "trusted-fetch" })).toBe(
+      "evil-ssh"
+    );
   });
 
   test("a fetch from a local remote never runs the upload-pack the repository's config names", async () => {
@@ -295,13 +319,29 @@ describe("network settings on automatic git", () => {
 
     await gitText(root, ["fetch", "-q", "origin", "main:refs/polaris/test/safe"]);
     await gitText(root, ["fetch", "-q", "origin", "main:refs/polaris/test/main"], {
-      config: "fetch",
+      config: "trusted-fetch",
     });
 
     expect(ran(markers)).toEqual([]);
     expect(await gitText(root, ["rev-parse", "refs/polaris/test/main"])).toBe(
       await gitText(upstream, ["rev-parse", "HEAD"])
     );
+  });
+});
+
+describe("a git:// remote", () => {
+  test("never runs the proxy command the repository's config names, unless a trusted Review fetch", async () => {
+    const markers = dir(tempDir("polaris-markers-"));
+    const root = dir(await makeRepo({ "a.txt": "a\n" }));
+    // Nothing listens on port 1: the fetch fails either way, after the proxy would run.
+    await gitText(root, ["remote", "add", "origin", "git://127.0.0.1:1/app.git"]);
+    await gitText(root, ["config", "core.gitProxy", script(markers, "proxy")]);
+
+    await runGitRaw(root, ["fetch", "-q", "origin"]);
+    expect(ran(markers)).toEqual([]);
+
+    await runGitRaw(root, ["fetch", "-q", "origin"], { config: "trusted-fetch" });
+    expect(ran(markers)).toEqual(["proxy"]);
   });
 });
 
