@@ -35,3 +35,13 @@ Use `test` instead of `dev` only after freezing the guards. Acquisition refuses 
 Each recorded duration covers prompt construction and production endpoint streaming, before offline parsing and guards. **Zeta was served from an external SSD: its durations are diagnostic records, not speed measurements.** They must not enter a latency comparison table. No model was downloaded; only the explicitly started private server PIDs were stopped. The shared port 8080 was not used.
 
 The successful held-out runs used `POLARIS_EDIT_WARMUP=1`, which sends a separate one-token `hello` before the cases. That warmup has a startup-only allowance; evaluation requests retain the 120-second deadline. The metadata preserves the earlier failed Zeta acquisition.
+
+## Hill-climb fixtures (2026-10-15)
+
+- `fresh-cases.json`: the 56-case held-out set. It was mined by edit shape only and frozen before any experiment (sha256 `c5ecc7d6…f5bc9b`).
+- `hillclimb-dev-base.json` and `hillclimb-dev-a10b20.json`: live Sweep outputs over the 100 hardening cases with the spike layout and with the final layout.
+- `hillclimb-fresh-base.json` and `hillclimb-fresh-final.json`: the single held-out runs.
+- `hillclimb-labels.json`: rubric labels of the shown states, keyed by case and by the sha256 prefix of the whitespace-stripped buffer.
+- `hillclimb-corpus.json`: every labelled state from any run, as edits.
+
+`docs/research/next-edit-spike/scripts/hc-fixtures.ts` regenerates all of these from `raw/hc/`; see the hill-climb section of `docs/research/next-edit-spike.md`.

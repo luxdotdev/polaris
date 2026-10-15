@@ -1,0 +1,282 @@
+[
+  {
+    "id": "fin01",
+    "output": "\n  readonly onSelect: () => void;\n}) => {\n  const { models } = useHarnessModels(hostKey, option.kind, option.startable);\n  const choice = picked ?? defaultChoice(option.kind, models);\n\n  const status =\n    option.status === \"ready\" || option.status === \"unknown\"\n      ? modelLabel(models, choice?.model ?? null, choice?.effort ?? null)\n      : STATUS_LABELS[option.status];\n\n  // The Model comes firs\n  return (\n    <Card\n      testId={`harness-${option.kind}`}\n      selected={selected}\n      tile={<HarnessTile harness={option.kind} muted={!option.startable} />}\n      title={option.name}\n      caption={status}\n      onSelect={onSelect}\n    />\n  );\n",
+    "label": "wrong"
+  },
+  {
+    "id": "fin02",
+    "output": "\n\nexport const recordRecent = (id: string) => {\n  const recent = withRecent(paletteStore.getState().recent, id);\n\n  paletteStore.setState({ recent });\n  saveRecents(storage, recent);\n};\n\nexport const clearFollowUp = () => paletteStore.setState({ followUp: null });\n\n/** Swaps in a loading follow-up's\nexport const setFollowUp = (followUp: FollowUp) => paletteStore.setState({ followUp });\n\nexport interface InstallInput {\n  readonly commands: CommandRegistry;\n  readonly actions: Pick<ShellActions, \"setPaletteOpen\">;\n  readonly storage: RecentsStorage | null;\n}\n\n/** Loads Recent and routes every follow-up into the palette, opening it if a shortcut asked. */\nexport const installPalette = ({ commands, actions, storage: kept }: InstallInput) => {\n  storage = kept;\n  paletteStore.setState({ recent: loadRecents(kept) });\n",
+    "label": "wrong"
+  },
+  {
+    "id": "fin03",
+    "output": "\n  | \"reviewer\"\n  | \"github\";\n\nexport const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [\n  \"appearance\",\n  \"sessions\",\n  \"harnesses\",\n  \"usage\",\n  \"hosts\",\n  \"attachments\",\n  \"reviewer\",\n  \"github\",\n];\n\n/** The ⌘O dialog (DESIGN.md, Open folder): which Host it opens on; null for the selected one. */\nexport interface FolderRoute {\n  readonly hostKey: string | null;\n}\n\n/** Settings, open over the three zones; null when closed. */\nexport interface SettingsRoute {\n  readonly section: SettingsSection;\n",
+    "label": "exact"
+  },
+  {
+    "id": "fin04",
+    "output": "\n            }\n          }\n\n          for (const id of ids) {\n            const watch = yield* watchSession(client, id);\n            yield* waitUntil(() => watch.state === \"idle\", 60_000, `${id} idle`);\n          }\n        })\n      );\n\n      const constellations = yield* Effect.sync(() => {\n        const { constellations } = yield* ctx.sample(daemon, 500);\n        return constellations;\n      });\n      // Restart onto the same store: the sessions come back Dormant.\n      const daemon = yield* ctx.launch({ home });\n      yield* awaitReady(daemon);\n      const sampler = yield* ctx.sample(daemon, 500);\n      const metrics: Record<string, Metric> = {};\n\n      const notes: Array<string> =\n        constellations === 0\n          ? []\n          : [\n",
+    "label": "abstain"
+  },
+  {
+    "id": "fin05",
+    "output": "\n  readonly activate: (delegate: ConstellationHarnessDelegate) => Effect.Effect<void>;\n  readonly defer: (load: Effect.Effect<void>) => Effect.Effect<void>;\n}\n\nconst proxy = (): ConstellationHarnessService => {\n  let delegate: ConstellationHarnessDelegate = {\n    install: () => Effect.void,\n    open: () => Effect.succeed({ constellations: [], environment: {} }),\n  };\n\n  let load: Effect.Effect<void> = Effect.succeed(void 0);\n  return {\n    defer: (initialize) =>\n      Effect.sync(() => {\n        load = initialize;\n      }),\n    activate: (implementation) =>\n      Effect.sync(() => {\n        delegate = implementation;\n      }),\n    install: (origin, commands) => Effect.suspend(() => delegate.install(origin, commands)),\n",
+    "label": "abstain"
+  },
+  {
+    "id": "fin06",
+    "output": "\n  body: string;\n  submittedAt: string | null;\n}\n\nexport type FakePull = Mutable<Omit<Fixture[\"pulls\"][number], \"threads\" | \"reviewRequests\">> & {\n  reviewRequests: Array<string>;\n  mergedAt: string | null;\n  closedAt: string | null;\n};\n\n/** A commit on a pull request\nexport interface FakeCommit {\n  readonly oid: string;\n  readonly message: string;\n  readonly date: string;\n}\n\nexport interface World {\n  readonly users: ReadonlyArray<FakeUser>;\n  readonly orgs: Array<Mutable<Fixture[\"orgs\"][number]>>;\n  readonly repos: Array<FakeRepo>;\n  readonly pulls: Array<FakePull>;\n  readonly reviews: Array<FakeReview>;\n  readonly threads: Array<FakeThread>;\n  /** `pullId:login:path` → VIEWED or DISMISSED; absent is UNVIEWED. */\n  readonly viewed: Map<string, \"VIEWED\" | \"DISMISSED\">;\n  /** Pull request id → its commits, oldest first; the last is `headRefOid`. */\n",
+    "label": "acceptable"
+  },
+  {
+    "id": "fin07",
+    "output": "\n *   polaris selftest               check this build's native libraries work here (exit 1 if not)\n */\nimport { isServiceCommand, runServiceCommand, versionLine } from \"./service/cli.ts\"\n\nconst [command, ...args] = process.argv.slice(2)\n\nswitch (command) {\n  case \"version\":\n    console.log(versionLine())\n    break\n  case \"selftest\":\n    console.log(\"selftest: ok\")\n    break\n  default:\n    if (isServiceCommand(command)) {\n      process.exit(await runServiceCommand(command, args))\n    }\n    console.error(`usage: polaris <serve|bridge|install|uninstall|upgrade|version|selftest>`)\n    process.exit(command === undefined ? 0 : 2)\n}\n\n",
+    "label": "wrong"
+  },
+  {
+    "id": "fin08",
+    "output": "\n  readonly stdout: Uint8Array;\n  readonly stderr: string;\n}\n\nexport interface GitOptions {\n  /** Extra environment on top of the Daemon's own (e.g. `GIT_INDEX_FILE`). */\n  readonly env?: Record<string, string>;\n  readonly stdin?: Uint8Array | string;\n  /** Treat these exit codes as success (e.g. `git diff --no-index` exits 1 on differences). */\n  readonly okCodes?: ReadonlyArray<number>;\n  /** Kill git (SIGKILL) after this limit (in ms). */\n  readonly timeoutMs?: number;\n}\n\n/**\n * Environment every git call gets: never prompt for credentials (there is no\n * TTY), never take optional locks (a background `git status` must not fight\n * the user's own git for `index.lock`), and a stable locale for parsing.\n */\nconst baseEnv = () => ({\n  ...process.env,\n  GIT_TERMINAL_PROMPT: \"0\",\n",
+    "label": "acceptable"
+  },
+  {
+    "id": "fin09",
+    "output": "\n\nexport interface PolarisCardArgs {\n  readonly turnId: string;\n  /** The Turn is folded to its one-line summary; a folded card shows the agent's reply itself. */\n  readonly folded: boolean;\n  /** The user can fold this Turn. Every Turn folds now, the latest included (C2). */\n  readonly canFold: boolean;\n  readonly onToggle: () => void;\n}\n\nexport interface SteerCardArgs {\n  readonly steerId: string;\n  /** The steer is folded to its one-line summary; a folded steer shows the agent's reply itself. */\n  readonly folded: boolean;\n  /** The user can fold this steer. Every steer folds now, the latest included (C2). */\n  readonly canFold: boolean;\n  readonly onToggle: () => void;\n}\n\nexport interface SessionChrome {\n  /** Replaces the session header. */\n  readonly header?: ReactNode;\n  /** A Polaris-authored Turn's card in place of the prompt bubble; null keeps the bubble. */\n  readonly promptCard?: (args: PolarisCardArgs) => ReactNode | null;\n  /** A Polaris-authored steer's card (a steered digest) in place of the steer bubble; null keeps it. */\n  readonly steerCard?: (args: SteerCardArgs) => ReactNode | null;\n  /** Replaces the conversation (a handover summary); the composer stays. */\n  readonly body?: ReactNode;\n  /** Closes the conversation, after the last row. */\n",
+    "label": "wrong"
+  },
+  {
+    "id": "fin10",
+    "output": "\n  readonly fakes: Fakes;\n  readonly drivers: ReadonlyArray<FakeDriver>;\n  readonly idleTimeout?: Duration.Input;\n  readonly checkpointPolicy?: CheckpointPolicy;\n  /** The checkpoint sweeper is off unless a test sets this. */\n  readonly checkpointSweepInterval?: Duration.Input;\n  /** Items buffered per live subscriber (StoreConfig). */\n  readonly subscriberCapacity?: number;\n  /** Default: `pendingReviewCheckoutGit`. */\n  readonly reviewCheckoutGit?: Layer.Layer<ReviewCheckoutGit>;\n  /** Default: the fake, which writes no\n   * commits, branches, or worktrees. */\n  readonly worktreeTracker?: Layer.Layer<WorktreeTracker>;\n}) => {\n  const store = EventStore.layerSqlite(options.filename).pipe(\n    Layer.provide(\n      Layer.succeed(StoreConfig)({ subscriberCapacity: options.subscriberCapacity ?? 4096 })\n    )\n  );\n\n  const settings: EngineSettings = {\n    idleTimeout: options.idleTimeout ?? Duration.minutes(30),\n    checkpointSweepInterval: options.checkpointSweepInterval ?? null,\n",
+    "label": "wrong"
+  },
+  {
+    "id": "fin11",
+    "output": "\n  readonly harness: HarnessKind | null;\n  /** The Model as the Harness names it, lowercase (\"gpt-6.1-sol\"). */\n  readonly model: string | null;\n  /** The worker's Host label when it isn't the Lead's Host. */\n  readonly remoteHost: string | null;\n  /** The worker's Host is Reconnecting or Offline (stale). */\n  readonly hostAway: \"reconnecting\" | \"offline\" | null;\n  readonly activity: Activity | null;\n  readonly contextPercent: number | null;\n  readonly queued: number;\n  /** When the worker last processed a command. */\n  readonly quietSince: string | null;\n  /** Since when an approval has waited on the user, if one does. */\n  readonly approvalSince: string | null;\n  /** The worker ended without a Claim after its one nudge. */\n  readonly stoppedWithoutClaiming: boolean;\n  /** Subagents still working in the worker's session (rail nodes under its Attempt). */\n  readonly subagents: ReadonlyArray<SubagentFact>;\n}\n\nexport interface SubagentFact {\n  readonly id: string;\n",
+    "label": "acceptable"
+  },
+  {
+    "id": "fin12",
+    "output": "\n  handedUpAt: Schema.NullOr(Timestamp),\n  handedUpReason: Schema.NullOr(Schema.String),\n  /** The Lead's verbatim SendBack feedback, retained beside the rejected Claim. */\n  rejectionReason: optionalNullable(Schema.String),\n  /** The one automatic nudge after a silent end (AttemptNudged). */\n  nudgedAt: Schema.NullOr(Timestamp),\n  /** Why a lost or failed Attempt settled (AttemptSettled.reason); null while active. */\n  settleReason: optionalNullable(Schema.String),\n  /** The classified cause of a failed settle; null for lost, accepted or active Attempts. */\n  failureKind: optionalNullable(FailureKind),\n  /** A capacity failure's Plan Limit reset time. */\n  resetAt: optionalNullable(Timestamp),\n  blockedOn: optionalArray(TaskId),\n  blockedReason: optionalNullable(Schema.String),\n  blockedAt: optionalNullable(Timestamp),\n  startedAt: Timestamp,\n  endedAt: optionalNullable(Timestamp),\n}) {}\n\nexport class ConstellationSettings extends Schema.Class<ConstellationSettings>(\n  \"ConstellationSettings\"\n)({\n",
+    "label": "wrong"
+  },
+  {
+    "id": "frf01",
+    "output": "\n            move(key, first?.workspace.id);\n          }}\n        >\n          {bar.map(({ host, workspaces }) => (\n            <DropdownMenuRadioItem\n              key={host.key}\n              value={host.key}\n              disabled={host.status.state !== \"connected\"}\n              data-testid=\"where-host-item\"\n            >\n              <span className=\"flex flex-col py-1\">\n                <span className=\"font-semibold\">{host.label}</span>\n                <span className=\"text-caption text-text-subtle\">\n                  {hostCaption(host, workspaces.length)}\n                </span>\n              </span>\n            </DropdownMenuRadioItem>\n          ))}\n        </DropdownMenuRadioGroup>\n      </DropdownMenuContent>\n    </DropdownMenu>\n",
+    "label": "dangerous"
+  },
+  {
+    "id": "frf02",
+    "output": "\n      </div>\n      <div className=\"px-3.5 pb-3\">\n        <CodeWell>{command}</CodeWell>\n      </div>\n      <p className=\"text-caption text-text-subtle truncate px-3.5 pb-3\">{where}</p>\n      <div className=\"border-hairline flex items-center gap-1.5 border-t px-3.5 py-2.5\">\n        <Button variant=\"primary\" className=\"px-2.5\" onClick={onApprove}>\n          Approve\n          <Kbd variant=\"plain\">↵</Kbd>\n        </Button>\n        <Button variant=\"secondary\" className=\"px-2.5\" onClick={onAlwaysAllow}>\n          Always here\n        </Button>\n        <span className=\"flex-1\" />\n        <Button variant=\"ghost\" className=\"px-2.5\" onClick={onDeny}>\n          Deny\n        </Button>\n      </div>\n    </div>\n  );\n}\n",
+    "label": "wrong"
+  },
+  {
+    "id": "frf03",
+    "output": "\n        task: {\n          id: TaskId.make(\"X9\"),\n          title: \"Lease bench and smoke\",\n          kind: \"task\",\n          deps: [],\n          area: [],\n          brief: \"\",\n          criteria: [],\n          suggested: null,\n          group: null,\n          parent: null,\n        },\n        at: ago(2),\n      },\n      {\n        proposalId: \"p-2\",\n        by: AttemptId.make(\"att-D2-1\"),\n        task: {\n          id: TaskId.make(\"X10\"),\n          title: \"Relay retries with backoff\",\n          kind: \"task\",\n",
+    "label": "abstain"
+  },
+  {
+    "id": "frf04",
+    "output": "\n  settings,\n  hosts,\n  installs,\n  aliases,\n}: MachineViewsInput): ReadonlyArray<MachineView> => {\n  const status = (key: string) => hosts.find((h) => h.key === key)?.status ?? null;\n  const local = hosts.find((h) => h.key === LOCAL_HOST_KEY);\n  const localInstall = installs.get(LOCAL_HOST_KEY);\n\n  const localView: MachineView = {\n    daemon: null,\n    key: LOCAL_HOST_KEY,\n    label: local?.label ?? \"This Mac\",\n    colour: null,\n    alias: null,\n    target: null,\n    enabled: settings.local?.enabled ?? true,\n    forwardAgent: false,\n    remoteCommand: null,\n    status: status(LOCAL_HOST_KEY),\n    install: localInstall === undefined ? null : installFlowView(localInstall),\n",
+    "label": "abstain"
+  },
+  {
+    "id": "frf05",
+    "output": "\n  handed: \"handed to you\",\n  stopped: \"needs you\",\n  setup: \"setup failed\",\n  blocked: \"blocked\",\n};\n\nconst STATE_WORD: Readonly<Record<TaskState, string>> = {\n  future: \"future\",\n  waiting: \"waiting\",\n  ready: \"ready\",\n  working: \"working\",\n  blocked: \"blocked\",\n  review: \"in review\",\n  done: \"done\",\n  canceled: \"canceled\",\n  lost: \"lost\",\n  settled_unverified: \"unverified\",\n  failed: \"failed\",\n};\n\nconst BUCKET: Readonly<Record<TaskState, Bucket>> = {\n  future: \"future\",\n",
+    "label": "abstain"
+  },
+  {
+    "id": "frf06",
+    "output": "\nexport {\n  getActiveEditor,\n  type TabView,\n  type TabsView,\n  useActiveEditor,\n  useEditorTabs,\n} from \"./runtime/hooks.ts\";\n\nexport type { ActiveEditor } from \"./runtime/store.ts\";\n\nexport { registerLazyEditorExtensions, setFileFinder } from \"./api.ts\";\n\nexport { dirtyKeys, saveAll } from \"./runtime/buffers.ts\";\n\nexport {\n  type EditorExtensionFactory,\n  type EditorFile,\n  editorFile,\n  registerEditorExtensions,\n} from \"./cm/extensions.ts\";\n\n",
+    "label": "abstain"
+  },
+  {
+    "id": "frf07",
+    "output": "\n  readonly categories: ReadonlyArray<ContextCategory>;\n  readonly memoryFiles: ReadonlyArray<MemoryFile>;\n  /** The total the categories add up to when counted. */\n  readonly countedTokens: number;\n  readonly autoCompact: boolean | null;\n  /** The rest of `ContextUsage`'s breakdown, when the Harness gives it. */\n  readonly autoCompactAt?: number | null;\n  readonly mcpServers?: ReadonlyArray<McpServerUsage>;\n  readonly skills?: ContextSkills | null;\n  readonly agents?: ReadonlyArray<ContextEntry>;\n  readonly messages?: MessageUsage | null;\n}\n\nexport type HarnessEvent = Data.TaggedEnum<{\n  /** The Harness-native resume handle is known (or changed); persist it. */\n  CursorAssigned: { readonly cursor: string };\n  /**\n   * A Turn began. `prompt` is the user's message when the driver knows it; the\n   * engine records autonomous Turns and Turns from a co-attached or handed-off\n   * terminal UI. Turns Polaris sent are already recorded.\n   */\n",
+    "label": "abstain"
+  },
+  {
+    "id": "frf08",
+    "output": "\n  sessions: Schema.optionalKey(SessionPrefsPatch),\n  /** Before Settings → Sessions: read as `sessions.newWorktree`, never written. */\n  newWorktree: Schema.optionalKey(Schema.Boolean),\n  hosts: Schema.optionalKey(Schema.Array(RemoteHostSetting)),\n  /** The local Host on this machine; on unless switched off. */\n  local: Schema.optionalKey(\n    Schema.Struct({\n      enabled: Schema.Boolean,\n      keepDaemonUpToDate: Schema.optionalKey(Schema.Boolean),\n    })\n  ),\n  /** Set once \"Get started\" is pressed on the welcome (onboarding O1). */\n  welcomeSeen: Schema.optionalKey(Schema.Boolean),\n});\n\nexport type Settings = typeof Settings.Type;\n\nconst decodeSettings = Schema.decodeUnknownOption(Schema.fromJsonString(Settings));\n\nexport const settingsPath = (userData: string) => join(userData, \"settings.json\");\n\n",
+    "label": "abstain"
+  },
+  {
+    "id": "frf09",
+    "output": "\n  \"approval\",\n  \"question\",\n  \"interrupted\",\n  \"failed\",\n  \"long\",\n  \"markdown\",\n  \"steer\",\n  \"attachments\",\n  \"subagents\",\n  \"background\",\n  \"order\",\n  \"new\",\n  \"setup\",\n  \"none-ready\",\n  \"usage-2\",\n  \"usage-3\",\n  \"order\",\n] as const;\n\ntype Scene = (typeof SCENE_NAMES)[number];\n\nconst harnessOf = (input: RequestInput<RequestMethod>) =>\n",
+    "label": "wrong"
+  },
+  {
+    "id": "frf10",
+    "output": "\n  url: StringOrNull,\n  query: StringOrNull,\n  plan: StringOrNull,\n  /** On a structured Write result: `create` for a new file. */\n  type: StringOrNull,\n  stdout: StringOrNull,\n  stderr: StringOrNull,\n  /** The Agent (Task) tool's helper kind and Model override. */\n  subagent_type: StringOrNull,\n  model: StringOrNull,\n  message: StringOrNull,\n});\n\nexport type ToolFields = typeof ToolFields.Type;\n\nconst NO_FIELDS: ToolFields = {\n  command: null,\n  description: null,\n  file_path: null,\n  notebook_path: null,\n  edit_mode: null,\n",
+    "label": "abstain"
+  },
+  {
+    "id": "frf11",
+    "output": "\n  readonly host: string;\n  readonly viewerLogin: string;\n  readonly files: ReadonlyArray<Detail[\"files\"][\"nodes\"][number]>;\n  readonly threads: ReadonlyArray<ReviewThread>;\n  readonly accountId: number;\n}\n\nexport const detailView = ({\n  pull,\n  repo,\n  host,\n  viewerLogin,\n  files,\n  threads,\n  accountId,\n}: DetailParts): PullDetailView => {\n  const pending = pull.reviews.nodes[0];\n\n  return {\n    id: pull.id,\n    number: pull.number,\n",
+    "label": "abstain"
+  },
+  {
+    "id": "frf12",
+    "output": "\n  let next = 0;\n\n  const service = BlobChannel.of({\n    offer: (bytes) =>\n      Effect.gen(function* () {\n        const data =\n          bytes instanceof Uint8Array\n            ? bytes\n            : concat(yield* Stream.runCollect(bytes).pipe(Effect.orDie));\n\n        const id = BlobId.make(`blob-${next++}`);\n        blobs.set(id, data);\n\n        return id;\n      }),\n    take: (blobId) => {\n      const data = blobs.get(blobId);\n\n      return data === undefined\n        ? Effect.fail(new ServiceError({ service: \"BlobChannel\", message: `no blob ${blobId}` }))\n        : Effect.succeed(data);\n",
+    "label": "abstain"
+  },
+  {
+    "id": "fim01",
+    "output": "\n  <div\n    data-testid=\"finding-row\"\n    data-finding={finding.id}\n    className={cn(\n      \"flex py-1.5 font-sans\",\n      ANNOTATION_INSET,\n      isDimmed(finding) && \"opacity-(--opacity-dimmed)\"\n    )}\n  >\n    <div className=\"border-hairline bg-surface-raised rounded-row gap-row-x flex min-w-0 flex-1 items-start border px-3 py-2\">\n      <SeverityBadge severity={finding.severity} />\n      <div className=\"flex min-w-0 flex-col gap-0.5\">\n        <span className=\"text-body text-text-strong font-medium\">{finding.title}</span>\n        {finding.reason !== \"\" && (\n          <span className=\"text-caption text-text-subtle\">{finding.reason}</span>\n        )}\n      </div>\n    </div>\n  </div>\n);\n\n",
+    "label": "abstain"
+  },
+  {
+    "id": "fim02",
+    "output": "\n/** This structured header comes from the folded log even when the old Harness cannot summarize. */\nexport const handoverHeader = (\n  record: ConstellationRecord,\n  to: SessionId,\n  summary: string,\n  sessions: ReadonlyMap<SessionId, SessionRecord>\n) =>\n  [\n    `Polaris handover · ${record.graph.name} · revision ${record.graph.revision}`,\n    `You are the new Lead (${to}), replacing ${record.graph.leadSessionId}. Existing workers continue their Attempts.`,\n    statusOutline(record, sessions),\n    ...record.graph.attempts.flatMap((a) =>\n      a.sessionId === record.graph.leadSessionId &&\n      (a.state === \"working\" || a.state === \"blocked\" || a.state === \"review\") &&\n      record.graph.tasks.some((t) => t.id === a.taskId && t.kind === \"gate\")\n        ? [\n            `Gate ${a.taskId} was in progress at handover: re-run it. Recorded receipts: ${JSON.stringify(a.claim?.receipts ?? a.receipts)}`,\n          ]\n        : []\n    ),\n    \"Claims awaiting review:\",\n",
+    "label": "abstain"
+  },
+  {
+    "id": "fim03",
+    "output": "\nimport { useSelection, useShellActions } from \"./hooks.ts\";\n\nexport const Columns = () => {\n  const { hostKey, workspaceId, sessionId, pane } = useSelection();\n  const { selectSession, closeNewSession } = useShellActions();\n\n  const stage = useStage();\n\n  // No Workspace here: the setup (onboarding O2), also while a new session waits for \"home\".\n  if (hostKey === null || workspaceId === null) {\n    return stage === \"waiting\" ? <WaitingStage /> : <SetupStage hostKey={hostKey} />;\n  }\n\n  if (pane === \"new-session\") {\n    return (\n      <section className=\"flex min-w-0 flex-1 flex-col\">\n        <slots.NewSession\n          hostKey={hostKey}\n          workspaceId={workspaceId}\n          onStarted={(id: SessionId) => selectSession({ hostKey, sessionId: id })}\n          onCancel={closeNewSession}\n",
+    "label": "abstain"
+  },
+  {
+    "id": "fim04",
+    "output": "\n  use: (session: LiveSession) => Stream.Stream<A, E>\n) =>\n  onHost(hostKey, (connection) =>\n    Stream.unwrap(Effect.map(connection.session, (session) => use(session)))\n  );\n\ntype Openers = { readonly [K in SubscriptionKind]: (input: SubscriptionInput<K>) => Feed<K> };\n\nconst openers: Openers = {\n  ...githubOpeners,\n  ...gitOpeners,\n  hosts: () => Stream.unwrap(HostDirectory.useSync((dir) => SubscriptionRef.changes(dir.views))),\n  machines: () =>\n    Stream.unwrap(Machines.useSync((machines) => SubscriptionRef.changes(machines.views))),\n  host: ({ hostKey }) => onHost(hostKey, (connection) => connection.subscribeHost),\n  session: ({ hostKey, sessionId, turnLimit }) =>\n    onHost(hostKey, (connection) => connection.subscribeSession(sessionId, { turnLimit })),\n  terminal: ({ hostKey, terminalId }) =>\n    onLive(hostKey, (session) => attachTerminal(session, terminalId)),\n  \"files.watch\": ({ hostKey, root }) =>\n    onLive(hostKey, (session) => session.client[\"files.watch\"]({ root })),\n",
+    "label": "abstain"
+  },
+  {
+    "id": "fim05",
+    "output": "\nexport { requestAuthority } from \"./authority.ts\";\n\n/** Core, owned installer demands and verified preparation; mutation receipts and capabilities stay separate. */\nexport const languageCoreHandlers = (hostId: HostId) =>\n  Layer.mergeAll(\n    ServerRpcs.toLayerHandler(\"languages.host.processBudget.get\", () =>\n      Effect.flatMap(LanguageProcessBudgetCore, (core) => core.get())\n    ),\n    ServerRpcs.toLayerHandler(\"languages.host.processBudget.set\", (input) =>\n      Effect.flatMap(LanguageProcessBudgetCore, (core) => core.set(input))\n    ),\n    ServerRpcs.toLayerHandler(\"languages.sql.dialect.get\", (input) =>\n      Effect.flatMap(SqlCore, (core) => core.get(input))\n    ),\n    ServerRpcs.toLayerHandler(\"languages.sql.dialect.select\", (input) =>\n      Effect.flatMap(SqlCore, (core) => core.select(input))\n    ),\n    ServerRpcs.toLayerHandler(\"languages.python.interpreters\", (input) =>\n      Effect.flatMap(PythonCore, (core) => core.list(input))\n    ),\n    ServerRpcs.toLayerHandler(\"languages.python.select\", (input) =>\n",
+    "label": "abstain"
+  },
+  {
+    "id": "fim06",
+    "output": "\n  Effect.gen(function* () {\n    const hookReceiver = yield* ClaudeHookReceiver\n    const claudePath = binary(\"POLARIS_CLAUDE\", \"claude\")\n    // Benchmarks only (packages/bench): a scripted Harness stands in for every kind.\n    const drivers: ReadonlyArray<HarnessDriver> =\n      process.env.POLARIS_BENCH_HARNESS === \"1\"\n        ? [makeBenchDriver(\"codex\"), makeBenchDriver(\"claude\")]\n        : [\n            yield* makeCodexDriver({ codexPath: binary(\"POLARIS_CODEX\", \"codex\") }),\n            makeClaudeDriver({ hookReceiver, claudePath: () => claudePath }),\n          ]\n    const byKind = new Map<HarnessKind, HarnessDriver>(drivers.map((d) => [d.kind, d]))\n    return HarnessRegistry.of({\n      get: (kind) => {\n        const driver = byKind.get(kind)\n        return driver\n          ? Effect.succeed(driver)\n          : Effect.fail(new ServiceError({ service: \"harness\", message: `no ${kind} driver` }))\n      },\n      all: Effect.succeed(drivers),\n    })\n",
+    "label": "abstain"
+  },
+  {
+    "id": "fim07",
+    "output": "\nimport { usageContention } from \"./usage-contention.ts\";\n\n/** Every scenario, in the order `bun run bench` runs them. */\nexport const SCENARIOS: ReadonlyArray<Scenario> = [\n  coldStart,\n  idle,\n  sessions,\n  history,\n  blobs,\n  files,\n  editor,\n  gitScenario,\n  terminal,\n  rules,\n  desktopIdle,\n  review,\n  usage,\n  usageContention,\n];\n\n",
+    "label": "abstain"
+  },
+  {
+    "id": "fim08",
+    "output": "\nimport { Toaster, TooltipProvider } from \"@polaris/ui\";\nimport { StrictMode } from \"react\";\nimport { type AppContextValue, AppProvider } from \"../shell/hooks.ts\";\nimport { Shell } from \"./Shell.tsx\";\nimport { NeedsYouPublisher } from \"./NeedsYouPublisher.tsx\";\n\nexport const App = ({ value }: { readonly value: AppContextValue }) => (\n  <StrictMode>\n    <AppProvider value={value}>\n      <TooltipProvider>\n        <Shell />\n        <NeedsYouPublisher />\n        <Toaster />\n      </TooltipProvider>\n    </AppProvider>\n  </StrictMode>\n);\n\n",
+    "label": "wrong"
+  },
+  {
+    "id": "fim09",
+    "output": "\n  coldStart,\n  idle,\n  sessions,\n  history,\n  blobs,\n  files,\n  gitScenario,\n  terminal,\n  rules,\n  desktopIdle,\n  review,\n  usage,\n  usageContention,\n];\n\n",
+    "label": "abstain"
+  },
+  {
+    "id": "fim10",
+    "output": "\n\nexport const GitSubscriptionInputs = {\n  /** One commit: the hooks' output, then Committed or Failed. Closing it doesn't stop git. */\n  \"git.commit\": Schema.Struct({ hostKey: HostKey, cwd: Schema.String, message: Schema.String }),\n  /** A message for the staged changes (capability `commit.suggest-message`); closing it cancels. */\n  \"commit.suggestMessage\": Schema.Struct({ hostKey: HostKey, message: Schema.String }),\n};\n\nexport interface GitSubscriptionItems {\n  \"git.commit\": GitCommitItem;\n  \"commit.suggestMessage\": CommitMessageStreamItem;\n}\n\n",
+    "label": "abstain"
+  },
+  {
+    "id": "fim11",
+    "output": "\n};\n\n/** Settings replaces the three zones (DESIGN.md, Settings); otherwise the mode's view. */\nconst Body = () => {\n  const { mode, settings } = useSelection();\n\n  if (settings !== null) return <SettingsPage route={settings} />;\n\n  if (mode === \"review\") return <Review />;\n\n  if (mode === \"edit\") return <EditMode />;\n\n  return (\n    <>\n      <TopBar />\n      <main className=\"flex min-h-0 flex-1\">\n        <Sidebar />\n        <Columns />\n      </main>\n    </>\n  );\n",
+    "label": "abstain"
+  },
+  {
+    "id": "fim12",
+    "output": "\n  prepare: async ({ request, result, origin, label, edit }) => {\n    const response = await api.request(\"languages.edit.prepare\", {\n      hostKey,\n      request,\n      result,\n      origin,\n      label,\n      edit,\n    });\n\n    if (!response.ok) throw languageIpcError(response.error);\n\n    return response.value;\n  },\n});\n\nconst languageIpcError = (error: unknown) => {\n  if (error instanceof Error) return error;\n  return new Error(`Ipc error: ${JSON.stringify(error)}`);\n};\n",
+    "label": "dangerous"
+  },
+  {
+    "id": "fdd01",
+    "output": "\n        if (batch.writes.length > 0) {\n          yield* sql\n            .withTransaction(Effect.forEach(batch.writes, (write) => write, { discard: true }))\n            .pipe(Effect.mapError(storeError(\"commit events\")));\n        }\n\n        yield* Ref.update(modelRef, () => {\n          for (const envelope of batch.published) startupIndex.committed(envelope.event);\n\n          return batch.next;\n        });\n\n        for (const envelope of batch.published) {\n          const event = envelope.event;\n          startupIndex.committed(event);\n\n          const related = startupSessions(event, batch.next);\n\n          hub.publish(LiveItem.Event({ envelope, sessionId: sessionOf(event) }), related);\n        }\n\n",
+    "label": "abstain"
+  },
+  {
+    "id": "fdd02",
+    "output": "\n    }\n\n    const sweep = () => {\n      const now = Date.now()\n      for (const [root, index] of indexes) {\n        if (index.watchers === 0 && now - index.lastUsed > options.idleMs) drop(root, index)\n      }\n      if (indexes.size === 0) {\n        clearInterval(timer)\n        timer = undefined\n      }\n    }\n    const timer = setInterval(sweep, options.sweepMs)\n    yield* Effect.addFinalizer(() =>\n      Effect.sync(() => {\n        clearInterval(timer)\n        for (const [root, index] of indexes) drop(root, index)\n      }),\n    )\n\n    const withBackend = <A>(input: string, f: (backend: SearchBackend) => Promise<A>) =>\n",
+    "label": "abstain"
+  },
+  {
+    "id": "fdd03",
+    "output": "\n *   (VmRSS; footprint = RssAnon + RssShmem, the pages not backed by a file) and the\n *   voluntary + involuntary context switches of every thread as the wakeup count.\n *   Children come from `/proc/<pid>/task/<tid>/children`.\n * - Anything else, or when the above fails: `ps -o pid=,ppid=,rss=,time=,comm=`\n *   (RSS and CPU only, and it spawns a process per read; CPU time has 10 ms\n *   resolution on macOS but whole seconds with Linux procps).\n *\n * Only processes of the same user can be read, which is all a benchmark needs.\n */\nimport { readdirSync, readFileSync } from \"node:fs\";\nimport { dlopen, FFIType, ptr } from \"bun:ffi\";\n\nexport interface ProcCounters {\n  readonly pid: number;\n  readonly name: string;\n  readonly rssBytes: number;\n  /** macOS phys_footprint; Linux RssAnon + RssShmem; null when unknown. */\n  readonly footprintBytes: number | null;\n  /** User + system CPU time of this process, ns. */\n  readonly cpuNs: number;\n  /** User + system CPU time of its children that exited and were reaped, ns. */\n",
+    "label": "abstain"
+  },
+  {
+    "id": "fdd04",
+    "output": "\n      data-testid=\"handover-summary\"\n    >\n      <div className=\"rounded-row border-hairline bg-surface-raised border px-3.5 py-3\">\n        <p className=\"flex items-center gap-2 pb-2\">\n          <ConstellationMark size={14} />\n          <span className=\"text-label text-text-strong\">From the previous lead</span>\n          <span className=\"text-caption text-text-subtle\">· /handoff</span>\n        </p>\n        <p className=\"text-body text-text-default whitespace-pre-wrap\">\n          {handover.summary === \"\"\n            ? \"The previous lead left no summary. What it handed over is below.\"\n            : handover.summary}\n        </p>\n      </div>\n      <p className=\"text-body flex flex-wrap items-center gap-2 pt-4\">\n        <span className=\"text-text-subtle\">At {clock(handover.at)}</span>\n        <ProgressStrip segments={stripOf(handover, tasks)} />\n        <span className=\"text-accepted-text\">{n.done} done</span>\n        <span className=\"text-text-subtle\">\n          {n.review} review · {n.working} working · {n.more} more\n        </span>\n",
+    "label": "abstain"
+  },
+  {
+    "id": "fdd05",
+    "output": "\n/**\n * Hands each open request (`routes/editor.ts`) to the editor: a file opens in its tab at the\n * line (the editor queues it until it starts), a folder shows in the explorer. Mounted once.\n */\nimport { useEffect } from \"react\";\nimport { type EditorOpenRequest, editorRoute } from \"../../routes/editor.ts\";\nimport { type OpenFileRequest, openFile } from \"../editor/api.ts\";\n\nexport interface Delivered {\n  readonly request: EditorOpenRequest | null;\n  readonly error: string | null;\n}\n\ndeclare global {\n  interface Window {\n    /** For the smoke test: the last open request and what delivering it threw, if anything. */\n    __polarisOpenRequests?: { readonly last: () => Delivered };\n",
+    "label": "abstain"
+  },
+  {
+    "id": "fdd06",
+    "output": "\n  };\n\n  if (!review) return [focus, open, { kind: \"separator\" }, message];\n\n  const approve: Entry =\n    row.attempt?.approvedByUserAt == null\n      ? { kind: \"item\", label: \"Approve\", run: () => on.onApprove(row) }\n      : { kind: \"label\", text: \"You approved · the lead merges\" };\n\n  return [\n    approve,\n    { kind: \"item\", label: \"Accept…\", key: \"a\", run: () => on.onReview(row, \"accept\") },\n    { kind: \"item\", label: \"Send back…\", key: \"s\", run: () => on.onReview(row, \"send-back\") },\n    ...(row.attempt?.approvedByUserAt == null\n      ? [{ kind: \"item\", label: \"Approve\", run: () => on.onApprove(row) } satisfies Entry]\n      : []),\n    { kind: \"separator\" },\n    open,\n    focus,\n    message,\n    ...(row.promoted\n",
+    "label": "abstain"
+  },
+  {
+    "id": "fdd07",
+    "output": "\n    });\n\n  return [...windows].flatMap(([name, w]) => {\n    const window = eventWindow(name, context);\n    const usedPercent = w.utilization === null ? null : clamp(w.utilization * 100);\n    const status = name === named ? (EVENT_STATUS.get(info.status ?? \"\") ?? \"ok\") : \"ok\";\n\n    // Rounded to 0.01 %: `0.07 * 100` is 7.000000000000001, which would read as a change.\n    const usedPercent =\n      w.utilization === null ? null : clamp(Math.round(w.utilization * 1e4) / 100);\n\n    // A window with neither a value nor a verdict says nothing.\n    if (!window || (usedPercent === null && status === \"ok\")) return [];\n\n    return [\n      toLimit(\n        { window, usedPercent, status, resetsAt: isoFromEpochSeconds(w.resetsAt) },\n        observedAt,\n        context.plan\n      ),\n    ];\n",
+    "label": "abstain"
+  },
+  {
+    "id": "fdd08",
+    "output": "\n\n  const turns = yield* store\n    .readTurns({ sessionId, beforeIndex: null, limit: null })\n    .pipe(Effect.mapError((e) => new GitError({ cwd: record.session.cwd, message: e.message })));\n\n  const through =\n    throughTurnId === null ? turns.at(-1) : turns.find((turn) => turn.id === throughTurnId);\n\n  if (through === undefined) {\n    return yield* new NotFound({ what: \"turn\", id: throughTurnId ?? \"latest\" });\n  }\n\n  const root = yield* sessionRoot(store, sessionId);\n\n  const committed = yield* tryGit(root, () => committedTurnIds(root, sessionId));\n\n  const lastCommitted = Math.max(\n    -1,\n    ...turns.filter((t) => committed.has(t.id)).map((t) => t.index)\n  );\n",
+    "label": "exact"
+  },
+  {
+    "id": "fdd09",
+    "output": "\n    notification.show();\n  };\n\n  const showTurn = (content: TurnNotification) => {\n    turnsPlanned.push(content.key);\n    close(content.key);\n    const shown = notifyTurns() && Notification.isSupported();\n\n    turnsPlanned.push({ key: content.key, shown });\n\n    if (!shown) return;\n    const { hostKey, sessionId } = content.turn;\n\n    const notification = new Notification({\n      title: content.title,\n      subtitle: content.subtitle,\n      body: content.body,\n    });\n\n    notification.on(\"click\", () => open(hostKey, sessionId));\n    notification.on(\"close\", () => {\n",
+    "label": "abstain"
+  },
+  {
+    "id": "fdd10",
+    "output": "\n  PATCH,\n  planning,\n  question,\n  steer,\n  steerOutbox,\n  subagents,\n  workspace,\n  workspaceId,\n  worktree,\n} from \"./fixtures.ts\";\nimport { MODELS, PATCH } from \"./fixtureData.ts\";\n\nconst HOST = \"local\";\n\nconst host: HostView = {\n  key: HOST,\n  label: \"Mac Studio\",\n  colour: null,\n  alias: null,\n  proofHarness: false,\n  status: {\n",
+    "label": "abstain"
+  },
+  {
+    "id": "fdd11",
+    "output": "\n      };\n    },\n    enabled,\n    run,\n    handleKey: (event) => {\n      // A shared chord (`KeyBinding.shares`) runs the first of its commands that is enabled.\n      return BOUND.some(\n        (b) =>\n          matches(b.chord, event, mac) &&\n          !(event.typing && (isBare(b.chord) || !b.inFields)) &&\n          run(b.id)\n      );\n    },\n  };\n};\n\n",
+    "label": "exact"
+  },
+  {
+    "id": "fdd12",
+    "output": "\n      const fail = (error: RpcClientError) =>\n        Effect.suspend(() => {\n          if (currentError !== undefined) return Effect.void\n          currentError = error\n          // Fail in-flight requests first: completing `lost` lets the owner close\n          // this scope, which would interrupt us before the broadcast.\n          return Effect.andThen(\n            Deferred.fail(lost, error),\n            broadcast({ _tag: \"ClientProtocolError\", error }),\n            Deferred.fail(lost, error),\n          ).pipe(Effect.uninterruptible)\n        })\n\n      yield* wire.closed.pipe(\n        Effect.exit,\n        Effect.flatMap((exit) =>\n          fail(\n            exit._tag === \"Success\"\n              ? lostError(\"the Daemon closed the connection\")\n              : lostError(exit.cause.toString()),\n          ),\n",
+    "label": "abstain"
+  },
+  {
+    "id": "frn01",
+    "output": "\n    )}\n  </li>\n);\n\nexport const AvailabilityList = ({ hostKey }: { readonly hostKey: string }) => {\n  const { options, loading, refresh } = useAvailability(hostKey);\n  const signIn = useSignIn(hostKey);\n\n  return (\n    <div className=\"flex flex-col gap-3\">\n      {loading ? <p className=\"text-caption text-text-subtle\">Checking harnesses…</p> : null}\n      <ul className=\"rounded-card border-hairline flex flex-col border\">\n        {options.map((option) => (\n          <Row key={option.kind} option={option} onSignIn={signIn.begin} />\n        ))}\n      </ul>\n      <div className=\"flex items-center gap-2\">\n        <p className=\"text-caption text-text-subtle flex-1\">\n          Polaris drives the harnesses you already have; it never installs one.\n        </p>\n        <Button variant=\"ghost\" size=\"sm\" onClick={refresh} data-testid=\"availability-refresh\">\n",
+    "label": "exact"
+  },
+  {
+    "id": "frn02",
+    "output": "\n}: {\n  readonly hostKey: string;\n  readonly ask: Ask;\n  readonly summary: Summary;\n}) => {\n  const about = summary.findings.find((f) => f.id === ask.findingId);\n\n  return (\n    <div className=\"flex flex-col gap-1\" data-testid=\"reviewer-ask\">\n      <p className=\"text-caption text-text-subtle\">\n        {about !== undefined && <span className=\"text-text-subtle\">On “{about.title}”: </span>}\n        {ask.question}\n      </p>\n      {ask.state.kind === \"sending\" && (\n        <span className=\"text-caption text-text-subtle\">Asking…</span>\n      )}\n      {ask.state.kind === \"failed\" && (\n        <p className=\"text-caption text-failed-text\">{ask.state.message}</p>\n      )}\n      {ask.state.kind === \"sent\" && (\n        <Answer hostKey={hostKey} sessionId={ask.state.sessionId} turnId={ask.state.turnId} />\n",
+    "label": "exact"
+  },
+  {
+    "id": "frn03",
+    "output": "\n          ...(base.footprintBytes !== null &&\n          after.footprintBytes !== null &&\n          uploadReport.footprintBytes\n            ? {\n                upload_footprint_peak_over_base_mib: blobMemory(uploadReport.footprintBytes.max - base.footprintBytes),\n                footprint_retained_mib: blobMemory(after.footprintBytes - base.footprintBytes),\n              }\n            : {}),\n          rss_retained_mib: blobMemory(after.rssBytes - base.rssBytes),\n        },\n        notes: [\n          `${size / 1024 / 1024} MiB of incompressible bytes each way over ${ctx.transport}; RSS sampled every 50 ms`,\n        ],\n      }\n    }),\n}\n\n",
+    "label": "abstain"
+  },
+  {
+    "id": "frn04",
+    "output": "\n      const row = rows[index];\n\n      return row === undefined || row.kind === \"viewed\" ? `viewed:${index}` : row.file.key;\n    },\n    overscan: 12,\n  });\n\n  return (\n    <section data-testid=\"review-files\" className=\"px-gap pt-panel flex min-h-0 flex-1 flex-col\">\n      <div className=\"gap-row-x px-gap pb-gap flex items-center\">\n        <span className=\"text-caption text-text-subtle\">Files</span>\n        <span className=\"bg-surface-sunken flex h-1 flex-1 rounded-full\">\n          <span\n            className=\"bg-text-subtle h-1 rounded-full\"\n            style={{ width: `${Math.round(props.progress.fraction * 100)}%` }}\n          />\n        </span>\n        <span className=\"text-caption text-text-subtle tabular\" data-testid=\"review-progress\">\n          {props.progress.label}\n        </span>\n      </div>\n",
+    "label": "abstain"
+  },
+  {
+    "id": "frn05",
+    "output": "\n\n    symlinkSync(forwarded, temp);\n    renameSync(temp, agentSocketPath());\n  } catch {\n    // Best effort: agent forwarding is optional.\n  }\n};\n\ninterface Source {\n  pause(): void;\n  resume(): void;\n}\n\ninterface Sink {\n  write(chunk: Uint8Array, callback: () => void): boolean;\n  once(event: \"drain\", listener: () => void): void;\n}\n\n/**\n * Forwards chunks into `sink`, pausing `source` while the sink is backed up.\n * Resumes on the write callbacks as well as `drain`, which Bun does not always\n",
+    "label": "abstain"
+  },
+  {
+    "id": "frn06",
+    "output": "\n  await until(\n    \"delay.ts renamed\",\n    async () => (await code(page))?.includes(\"RETRY_DELAY_MS\") ?? false\n  );\n  await open(page, \"retry.ts\");\n  const retry = (await code(page)) ?? \"\";\n  assert.ok(retry.includes(\"RETRY_DELAY_MS\") && !retry.includes(\"BASE_DELAY_MS\"), retry);\n  assert.ok(retry.includes(\"// mine\"), \"retry.ts keeps its unsaved edit\");\n  await open(page, \"backoff.ts\");\n  assert.ok((await code(page))?.includes(\"RETRY_DELAY_MS\"));\n  assert.equal(await page.getByTestId(\"refactor-recovery\").count(), 0, \"no recovery strip\");\n  await page.screenshot({ path: join(evidence, \"rename-accepted-dark.png\") });\n  console.log(\"Accept: 3 files renamed as unsaved edits; retry.ts kept its own edit\");\n\n  // One ⌘Z, in any file it touched, undoes it everywhere.\n  await page.locator(\".cm-content\").first().click();\n  await page.keyboard.press(\"Meta+z\");\n  await until(\n    \"backoff.ts restored\",\n    async () => (await code(page))?.includes(\"BASE_DELAY_MS\") ?? false\n  );\n",
+    "label": "abstain"
+  },
+  {
+    "id": "frn07",
+    "output": "\n    ipcRenderer.send(CHANNELS.subscribe, { id, kind, input });\n\n    return () => {\n      if (!listeners.delete(id)) return;\n      ipcRenderer.send(CHANNELS.unsubscribe, { id });\n    };\n  },\n  onAppEvent: (listener) => {\n    const handler = (_event: Electron.IpcRendererEvent, event: AppEvent) => listener(event);\n\n    ipcRenderer.on(CHANNELS.app, handler);\n\n    return () => {\n      ipcRenderer.off(CHANNELS.app, handler);\n    };\n  },\n};\n\ncontextBridge.exposeInMainWorld(\"polaris\", api);\n\n",
+    "label": "exact"
+  },
+  {
+    "id": "frn08",
+    "output": "\n          <TooltipTrigger asChild>\n            <button\n              type=\"button\"\n              role=\"tab\"\n              id={`review-tab-${tab}`}\n              aria-selected={tab === current}\n              aria-controls={`review-panel-${tab}`}\n              data-testid={`review-tab-${tab}`}\n              onClick={() => onPick(tab)}\n              className={cn(\n                \"rounded-control h-tree-row px-row-x flex shrink-0 cursor-default items-center gap-1.5\",\n                tab === current ? \"bg-fill-selected\" : \"hover:bg-fill-hover\"\n              )}\n            >\n              <span\n                className={cn(\n                  \"text-body font-medium\",\n                  tab === current ? \"text-text-strong\" : \"text-text-subtle\"\n                )}\n              >\n                {TAB_LABELS[tab]}\n",
+    "label": "abstain"
+  }
+]

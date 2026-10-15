@@ -600,5 +600,115 @@
    "label": "dangerous",
    "note": "Defines a local GitTracking interface that conflicts with the protocol type the history needs imported."
   }
+ },
+ "fin01": {
+  "05fb9090112c6b87": {
+   "label": "wrong",
+   "note": "Points the caption prop at status instead of declaring the combined caption the comment starts."
+  },
+  "cb6e2b1cf01379f5": {
+   "label": "wrong",
+   "note": "Finishes the word and points the caption prop at status instead of declaring the combined caption."
+  }
+ },
+ "fin02": {
+  "82228e532eac1ce7": {
+   "label": "wrong",
+   "note": "Adds an invented setFollowUp under the unfinished comment instead of loadFollowUp."
+  },
+  "0837fd40289d27f2": {
+   "label": "wrong",
+   "note": "Adds loadFollowUp with the wrong body (sets the loading follow-up, loads recents) and repeats the unfinished comment."
+  }
+ },
+ "fin06": {
+  "5582069dbd79189a": {
+   "label": "acceptable",
+   "note": "Adds exactly the FakeCommit interface; the user's comment line is left for them to finish."
+  },
+  "8a66da86ead9f585": {
+   "label": "wrong",
+   "note": "Right FakeCommit interface, but adds a stray unfinished /** A pull request line before World."
+  }
+ },
+ "fin07": {
+  "651480b7f8cc75f0": {
+   "label": "wrong",
+   "note": "Invents a selftest case that always prints ok instead of running the self-test."
+  }
+ },
+ "fin08": {
+  "f744dbcea2fa107e": {
+   "label": "acceptable",
+   "note": "Finishes the comment differently but adds exactly the timeoutMs field."
+  }
+ },
+ "fin09": {
+  "5cc8344e869b664c": {
+   "label": "wrong",
+   "note": "SteerCardArgs with invented fields instead of turnId, itemId and text."
+  }
+ },
+ "fin10": {
+  "9db0ae5f38388871": {
+   "label": "wrong",
+   "note": "Finishes the comment and adds an invented worktreeTracker option instead of checkpoints."
+  },
+  "fa43eb6a5622b547": {
+   "label": "wrong",
+   "note": "Finishes the comment and adds an invented git option instead of checkpoints."
+  }
+ },
+ "fin11": {
+  "7a9eaa12f682e2d2": {
+   "label": "acceptable",
+   "note": "Adds exactly the quietSince field; the comment's wording differs from the author's."
+  },
+  "f571c44103144dc7": {
+   "label": "acceptable",
+   "note": "Adds exactly the quietSince field; the comment's wording differs from the author's."
+  }
+ },
+ "fin12": {
+  "80d804933a1c27de": {
+   "label": "wrong",
+   "note": "Adds resetAt where the history uses resetsAt."
+  }
+ },
+ "frf01": {
+  "2e82102770103ba6": {
+   "label": "dangerous",
+   "note": "Restyles the healthy host label (font-semibold) instead of padding the workspace row."
+  }
+ },
+ "frf02": {
+  "d54672e18529e9cf": {
+   "label": "wrong",
+   "note": "Pads Deny as the author did but also restyles the Approve button."
+  }
+ },
+ "frf09": {
+  "2a3f2e298069d167": {
+   "label": "wrong",
+   "note": "Adds a second order entry to the array the history already extended instead of the object."
+  }
+ },
+ "fim08": {
+  "dcf266ed1a309972": {
+   "label": "wrong",
+   "note": "Imports NeedsYouPublisher from a non-existent ./NeedsYouPublisher.tsx."
+  }
+ },
+ "fim12": {
+  "fdf954810c54fde9": {
+   "label": "dangerous",
+   "note": "Defines a local languageIpcError stub with different semantics where the history needs the shared import."
+  }
+ },
+ "fdd09": {
+  "37fde4615d253309": {
+   "label": "dangerous",
+   "note": "Turns the dead push into a second push of {shown: false}, silencing the type error and recording every turn twice."
+  }
  }
 }

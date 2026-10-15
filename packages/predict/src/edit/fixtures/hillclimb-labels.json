@@ -30,5 +30,54 @@
   },
   "hrf11": {
     "dae745d1c3472074": "acceptable"
+  },
+  "fin01": {
+    "05fb9090112c6b87": "wrong",
+    "cb6e2b1cf01379f5": "wrong"
+  },
+  "fin02": {
+    "82228e532eac1ce7": "wrong",
+    "0837fd40289d27f2": "wrong"
+  },
+  "fin06": {
+    "5582069dbd79189a": "acceptable",
+    "8a66da86ead9f585": "wrong"
+  },
+  "fin07": {
+    "651480b7f8cc75f0": "wrong"
+  },
+  "fin08": {
+    "f744dbcea2fa107e": "acceptable"
+  },
+  "fin09": {
+    "5cc8344e869b664c": "wrong"
+  },
+  "fin10": {
+    "9db0ae5f38388871": "wrong"
+  },
+  "fin11": {
+    "7a9eaa12f682e2d2": "acceptable",
+    "f571c44103144dc7": "acceptable"
+  },
+  "fin12": {
+    "80d804933a1c27de": "wrong"
+  },
+  "frf01": {
+    "2e82102770103ba6": "dangerous"
+  },
+  "frf02": {
+    "d54672e18529e9cf": "wrong"
+  },
+  "frf09": {
+    "2a3f2e298069d167": "wrong"
+  },
+  "fim08": {
+    "dcf266ed1a309972": "wrong"
+  },
+  "fim12": {
+    "fdf954810c54fde9": "dangerous"
+  },
+  "fdd09": {
+    "37fde4615d253309": "dangerous"
   }
 }
