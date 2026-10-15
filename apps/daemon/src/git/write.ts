@@ -1,6 +1,6 @@
 /**
  * The Changes tab's writes: stage, unstage, discard and commit, with the Host's
- * own git so its config and hooks apply. Paths are relative to the top level.
+ * own git, config and hooks (`config: "host"`). Paths are relative to the top level.
  */
 import { childEnv } from "../service/childEnv.ts";
 import { runGit, gitText } from "./git.ts";
@@ -11,6 +11,7 @@ const pathspecArgs = ["--pathspec-from-file=-", "--pathspec-file-nul"];
 const pathOptions = (paths: ReadonlyArray<string>) => ({
   stdin: paths.map((path) => `${path}\0`).join(""),
   env: { GIT_LITERAL_PATHSPECS: "1" },
+  config: "host" as const,
 });
 
 export const toplevel = (cwd: string) => gitText(cwd, ["rev-parse", "--show-toplevel"]);

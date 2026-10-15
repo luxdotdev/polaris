@@ -16,6 +16,7 @@ export const pushBranch = async (root: string, remote: Remote, branch: string): 
     root,
     ["push", "--porcelain", "-u", remote.name, `${ref}:${ref}`],
     {
+      config: "host",
       timeoutMs: PUSH_TIMEOUT_MS,
       env: { GIT_SSH_COMMAND: process.env.GIT_SSH_COMMAND ?? "ssh -o BatchMode=yes" },
     }

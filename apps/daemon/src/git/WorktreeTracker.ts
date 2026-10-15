@@ -136,7 +136,10 @@ const worktreeAddArgs = async (options: CreateWorktreeOptions): Promise<Array<st
 export const createWorktree = async (options: CreateWorktreeOptions): Promise<WorktreeInfo> => {
   const { repoPath, path } = options;
   await mkdir(dirname(resolve(repoPath, path)), { recursive: true });
-  await gitText(repoPath, await worktreeAddArgs(options));
+  // A session's own Worktree runs the Host's hooks (post-checkout setup); a Review Checkout never does.
+  await gitText(repoPath, await worktreeAddArgs(options), {
+    config: "detach" in options ? "safe" : "host",
+  });
 
   const created = (await listWorktrees(repoPath)).find((w) =>
     samePath(w.path, resolve(repoPath, path))

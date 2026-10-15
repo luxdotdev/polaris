@@ -1,12 +1,14 @@
 /**
- * The one way the Daemon runs git: the Host's own `git` CLI, so the user's
- * config, credentials and hooks apply. No JS git implementation.
+ * The one way the Daemon runs git: the Host's own `git` CLI and credentials, no JS
+ * git. Calls run with `safeConfig.ts`'s settings unless they're git the user asked for.
  */
 import { childEnv } from "../service/childEnv.ts";
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { Effect } from "effect";
 import { ServiceError } from "../services.ts";
+import { megabytes, readBounded, readHead } from "./output.ts";
+import { safeConfigEnv, withoutDiffDrivers } from "./safeConfig.ts";
 
 export interface GitResult {
   readonly code: number;
@@ -24,6 +26,29 @@ export interface GitOptions {
   readonly timeoutMs?: number;
   /** Aborting sends SIGTERM to git's process group: git removes its lock files, ssh stops too. */
   readonly signal?: AbortSignal;
+  /**
+   * `"host"` is git the user asked for (commit, sync, Accept, stage): the Host's
+   * config and hooks as they are. The default turns off everything that runs a command.
+   */
+  readonly config?: "safe" | "host";
+  /** Stop git once stdout passes this; it then fails with `GitOutputTooLarge`. */
+  readonly maxOutputBytes?: number;
+}
+
+/** What any one git call may print: far past real metadata, well short of the Daemon's memory. */
+export const MAX_OUTPUT_BYTES = 256 * 1024 * 1024;
+
+const MAX_STDERR_BYTES = 64 * 1024;
+
+/** git printed more than its caller's limit; it was killed before the rest was read. */
+export class GitOutputTooLarge extends Error {
+  constructor(
+    readonly args: ReadonlyArray<string>,
+    readonly limit: number,
+    message = `git's output passed ${megabytes(limit)}, so Polaris stopped it`
+  ) {
+    super(message);
+  }
 }
 
 /**
@@ -51,9 +76,13 @@ export const runGitRaw = async (
   args: ReadonlyArray<string>,
   options: GitOptions = {}
 ): Promise<GitResult> => {
+  const host = options.config === "host";
+  const base = { ...baseEnv(), ...options.env };
+  const safe = host ? {} : await safeConfigEnv(cwd, base);
+
   const spawnOptions: Bun.SpawnOptions.OptionsObject<"ignore" | Blob, "pipe", "pipe"> = {
     cwd,
-    env: childEnv({ ...baseEnv(), ...options.env }),
+    env: childEnv({ ...base, ...safe }),
     stdin: options.stdin === undefined ? "ignore" : new Blob([options.stdin]),
     stdout: "pipe",
     stderr: "pipe",
@@ -67,19 +96,29 @@ export const runGitRaw = async (
   // Its own process group, so an abort also stops what git started (ssh, a credential helper).
   if (options.signal !== undefined) spawnOptions.detached = true;
 
-  const proc = Bun.spawn(["git", ...args], spawnOptions);
+  const proc = Bun.spawn(["git", ...(host ? args : withoutDiffDrivers(args))], spawnOptions);
   const stop = () => killGroup(proc.pid);
+
+  const overflow = () => {
+    proc.kill("SIGKILL");
+
+    if (spawnOptions.detached === true) killGroup(proc.pid);
+  };
 
   options.signal?.addEventListener("abort", stop, { once: true });
 
   if (options.signal?.aborted === true) stop();
   void proc.exited.then(() => options.signal?.removeEventListener("abort", stop));
 
+  const limit = options.maxOutputBytes ?? MAX_OUTPUT_BYTES;
+
   const [stdout, stderr, code] = await Promise.all([
-    new Response(proc.stdout).arrayBuffer().then((b) => new Uint8Array(b)),
-    new Response(proc.stderr).text(),
+    readBounded(proc.stdout, limit, overflow),
+    readHead(proc.stderr, MAX_STDERR_BYTES),
     proc.exited,
   ]);
+
+  if (stdout === null) throw new GitOutputTooLarge(args, limit);
 
   return { code, stdout, stderr };
 };

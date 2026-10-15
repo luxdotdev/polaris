@@ -9,7 +9,8 @@ import { existsSync } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { availableParallelism } from "node:os";
 import { join, relative } from "node:path";
-import { findRepoRoot, runGit } from "../../git/git.ts";
+import { baseEnv, findRepoRoot, runGit } from "../../git/git.ts";
+import { safeConfigEnv } from "../../git/safeConfig.ts";
 import type { FileChange, GrepHit, GrepQuery, PathHit, SearchBackend } from "./types.ts";
 import { WALK_SKIP, watchRoot } from "./watch.ts";
 
@@ -185,12 +186,7 @@ const runGitGrep = async (
 ): Promise<Array<GrepHit>> => {
   const proc = Bun.spawn(["git", ...gitGrepArgs(inRepo, flavour, query)], {
     cwd: root,
-    env: childEnv({
-      ...process.env,
-      GIT_TERMINAL_PROMPT: "0",
-      GIT_OPTIONAL_LOCKS: "0",
-      LC_ALL: "C",
-    }),
+    env: childEnv({ ...baseEnv(), ...(await safeConfigEnv(root, baseEnv())) }),
     stdin: "ignore",
     stdout: "pipe",
     stderr: "pipe",

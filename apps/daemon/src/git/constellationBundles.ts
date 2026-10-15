@@ -84,6 +84,7 @@ export const pushOrigin = async (
   if ((await resolveCommit(repoPath, `refs/heads/${branch}`)) !== head)
     throw new Error("The Claim branch moved before transfer");
   await runGit(repoPath, ["push", "origin", `${head}:refs/heads/${branch}`], {
+    config: "host",
     timeoutMs: 600_000,
   });
 };
