@@ -8,12 +8,16 @@ import {
   type WorktreeSetup,
   type ConstellationId,
   type TaskId,
+  type WorkspaceId,
 } from "@polaris/protocol";
 import { Cause, Context, Effect, Exit, Layer, Match, Option, Semaphore, Struct } from "effect";
 import { decideSession } from "../../engine/session.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { setupFingerprint } from "./inputs.ts";
 import { executeSetup } from "./process.ts";
+import { WorktreeSetupTrust, type WorktreeSetupUntrusted } from "./trust.ts";
+
+export { WorktreeSetupTrust, WorktreeSetupUntrusted } from "./trust.ts";
 
 const DEFAULTS = [
   ["bun.lock", "bun install"],
@@ -64,14 +68,18 @@ export class WorktreeSetupService extends Context.Service<
       setting: WorktreeSetup | null,
       constellationId: ConstellationId,
       taskId: TaskId,
+      workspaceId: WorkspaceId,
       force?: boolean
-    ) => Effect.Effect<WorktreeSetupRun | null, CommandRejected>;
+    ) => Effect.Effect<WorktreeSetupRun | null, CommandRejected | WorktreeSetupUntrusted>;
+    /** Fails unless setup may run Workspace code; `run` rechecks just before it spawns. */
+    readonly authorize: (workspaceId: WorkspaceId) => Effect.Effect<void, WorktreeSetupUntrusted>;
   }
 >()("polaris/daemon/WorktreeSetup") {
   static readonly layer = Layer.effect(
     WorktreeSetupService,
     Effect.gen(function* () {
       const store = yield* EventStore;
+      const trust = yield* WorktreeSetupTrust;
       const locks = new Map<string, { semaphore: Semaphore.Semaphore; users: number }>();
 
       const record = Effect.fnUntraced(function* (sessionId: SessionId, setup: WorktreeSetupRun) {
@@ -104,6 +112,7 @@ export class WorktreeSetupService extends Context.Service<
         setting: WorktreeSetup | null,
         constellationId: ConstellationId,
         taskId: TaskId,
+        workspaceId: WorkspaceId,
         force = false
       ) {
         const command = yield* setupCommand(cwd, setting);
@@ -138,6 +147,8 @@ export class WorktreeSetupService extends Context.Service<
                 previous?.fingerprint === fingerprint.value
               )
                 return previous;
+
+              yield* trust.require(workspaceId);
 
               const started = new WorktreeSetupRun({
                 id: `${key}:setup:${crypto.randomUUID()}`,
@@ -237,7 +248,7 @@ export class WorktreeSetupService extends Context.Service<
           );
       });
 
-      return { run };
+      return { run, authorize: trust.require };
     })
   );
 }

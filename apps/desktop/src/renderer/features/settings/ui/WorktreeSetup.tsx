@@ -110,8 +110,8 @@ export const WorktreeSetupSettings = () => {
   return (
     <Group label="Worker worktree setup">
       <p className="px-panel text-caption text-text-subtle py-2">
-        Before a worker's first turn, detect bun, npm, pnpm or uv from its lockfile. Setup runs
-        outside the worker cap.
+        Before a worker's first turn, detect bun, npm, pnpm or uv from its lockfile. Setup runs only
+        in workspaces you trust on that host, outside the worker cap.
       </p>
       {hosts
         .filter((host) => hasCapability(host, "workspace.setup"))

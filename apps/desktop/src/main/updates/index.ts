@@ -22,7 +22,8 @@ export interface UpdateInput {
   readonly osVersion: string;
   readonly platform?: string;
   readonly firstRun?: boolean;
-  readonly fetch?: (url: string, init: RequestInit) => Promise<Response>;
+  /** The Windows preflight's request; the app passes `internetFetch`. */
+  readonly fetch: (url: string, init: RequestInit) => Promise<Response>;
   readonly arch: string;
   readonly supported: boolean;
   readonly blocked: boolean;
@@ -127,11 +128,12 @@ export const createAppUpdates = (input: UpdateInput) => {
     try {
       if (platform === "win32") {
         // Squirrel ignores custom headers; the preflight carries the consent-controlled telemetry.
-        void (input.fetch ?? fetch)(`${url}/RELEASES`, {
-          headers,
-          cache: "no-store",
-          signal: AbortSignal.timeout(5_000),
-        })
+        void input
+          .fetch(`${url}/RELEASES`, {
+            headers,
+            cache: "no-store",
+            signal: AbortSignal.timeout(5_000),
+          })
           .then((response) => {
             if (disposed) return;
 

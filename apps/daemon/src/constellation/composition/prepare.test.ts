@@ -17,6 +17,7 @@ import { patchSession } from "../../store/model.ts";
 import { session } from "../delivery/testing.ts";
 import { WorktreeSetupService } from "../setup/index.ts";
 import { prepareSession } from "./prepare.ts";
+import { trustedSetup } from "../setup/trust.testing.ts";
 
 test("unsupported inherited auto permissions refuse dispatch before Session registration or Attempt creation", async () => {
   let checked = 0;
@@ -106,7 +107,10 @@ test("unsupported inherited auto permissions refuse dispatch before Session regi
       Effect.provide(
         Layer.mergeAll(
           registry,
-          WorktreeSetupService.layer.pipe(Layer.provideMerge(EventStore.layerSqlite(":memory:")))
+          WorktreeSetupService.layer.pipe(
+            Layer.provide(trustedSetup),
+            Layer.provideMerge(EventStore.layerSqlite(":memory:"))
+          )
         )
       )
     )
@@ -176,7 +180,10 @@ const ceilingCase = (input: {
             get: () => Effect.succeed(makeFakeDriver("codex").driver),
             all: Effect.succeed([makeFakeDriver("codex").driver]),
           }),
-          WorktreeSetupService.layer.pipe(Layer.provideMerge(EventStore.layerSqlite(":memory:")))
+          WorktreeSetupService.layer.pipe(
+            Layer.provide(trustedSetup),
+            Layer.provideMerge(EventStore.layerSqlite(":memory:"))
+          )
         )
       )
     )

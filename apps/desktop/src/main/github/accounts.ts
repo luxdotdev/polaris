@@ -3,7 +3,7 @@
  * adding one through its host's device flow, removing and ordering them, the hosts
  * themselves, and the owner and Workspace routing. Tokens never leave the main process.
  */
-import { Clock, Effect, Fiber, Option, Ref, Scope, SubscriptionRef } from "effect";
+import { Clock, Effect, Fiber, Option, Ref, Result, Scope, SubscriptionRef } from "effect";
 import {
   GITHUB_HOST,
   GITHUB_SCOPES,
@@ -11,11 +11,12 @@ import {
   ownerKey,
   type SignInFailure,
   type SignInView,
+  type StartedSignIn,
 } from "../../shared/github.ts";
 import { hostsOf, idFor, viewOf, withAccount, withoutAccounts } from "./accountFile.ts";
 import { type EndpointConfig, endpointsFor, type GitHubEndpoints } from "./config.ts";
 import type { Credentials } from "./credentials.ts";
-import { pollStep } from "./deviceFlow.ts";
+import { MAX_MISSES, pollStep, requestFailure, retryDelay } from "./deviceFlow.ts";
 import {
   GitHubAuthError,
   GitHubInvalidHost,
@@ -112,11 +113,11 @@ export const openAccounts = Effect.fn("openAccounts")(function* (input: Accounts
 
   const setSignIn = (next: SignInView | null) => Effect.andThen(Ref.set(signIn, next), publish);
 
-  const failSignIn = (failure: SignInFailure) =>
+  const failSignIn = (failure: SignInFailure, detail: string | null = null) =>
     Effect.gen(function* () {
       const current = yield* Ref.get(signIn);
 
-      if (current !== null) yield* setSignIn({ ...current, state: "failed", failure });
+      if (current !== null) yield* setSignIn({ ...current, state: "failed", failure, detail });
     });
 
   /** Signed out: the first time records when. */
@@ -192,25 +193,43 @@ export const openAccounts = Effect.fn("openAccounts")(function* (input: Accounts
   const poll = (host: HostAccess, code: DeviceCode, credentials: Credentials) =>
     Effect.gen(function* () {
       let interval = code.interval;
+      let wait = interval;
+      let misses = 0;
       const expiresAt = (yield* Clock.currentTimeMillis) + code.expires_in * 1000;
 
       while ((yield* Clock.currentTimeMillis) < expiresAt) {
-        yield* Effect.sleep(`${interval} seconds`);
+        yield* Effect.sleep(`${wait} seconds`);
 
-        const response = yield* transport
+        const answer = yield* transport
           .oauth(host.endpoints, "/login/oauth/access_token", TokenResponse, {
             client_id: host.clientId,
             device_code: code.device_code,
             grant_type: "urn:ietf:params:oauth:grant-type:device_code",
           })
-          .pipe(Effect.orElseSucceed((): TokenResponse => ({ error: "authorization_pending" })));
+          .pipe(Effect.result);
 
-        const step = pollStep(response, interval, yield* Clock.currentTimeMillis);
+        if (Result.isFailure(answer)) {
+          misses += 1;
+
+          if (misses > MAX_MISSES) {
+            const { failure, detail } = requestFailure(answer.failure);
+
+            return yield* failSignIn(failure, detail);
+          }
+
+          wait = retryDelay(interval, misses);
+          continue;
+        }
+
+        misses = 0;
+
+        const step = pollStep(answer.success, interval, yield* Clock.currentTimeMillis);
 
         if (step.kind === "fail") return yield* failSignIn(step.failure);
 
         if (step.kind === "done") return yield* finish(host, step.tokens, step.scopes, credentials);
         interval = step.interval;
+        wait = interval;
       }
 
       return yield* failSignIn("expired");
@@ -237,12 +256,26 @@ export const openAccounts = Effect.fn("openAccounts")(function* (input: Accounts
 
       const host = yield* hostAccess(hostName);
 
-      const code = yield* transport.oauth(host.endpoints, "/login/device/code", DeviceCode, {
-        client_id: host.clientId,
-        scope: GITHUB_SCOPES.join(" "),
-      });
+      const code = yield* transport
+        .oauth(host.endpoints, "/login/device/code", DeviceCode, {
+          client_id: host.clientId,
+          scope: GITHUB_SCOPES.join(" "),
+        })
+        .pipe(
+          Effect.tapError((error) =>
+            setSignIn({
+              flowId: "unstarted",
+              host: host.host,
+              userCode: null,
+              verificationUri: null,
+              expiresAt: 0,
+              state: "failed",
+              ...requestFailure(error),
+            })
+          )
+        );
 
-      const started: SignInView = {
+      const started: StartedSignIn = {
         flowId: code.device_code.slice(-8),
         host: host.host,
         userCode: code.user_code,

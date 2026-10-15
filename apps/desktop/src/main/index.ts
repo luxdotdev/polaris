@@ -64,6 +64,7 @@ import {
   registerAppScheme,
   serveRenderer,
 } from "./protocol.ts";
+import { internetFetch } from "./net.ts";
 import { openPrices } from "./prices.ts";
 import { openSnapshotCache } from "./snapshotCache.ts";
 import type { SessionPrefsPatch } from "../shared/contract.ts";
@@ -184,6 +185,7 @@ const start = async () => {
     osVersion: process.getSystemVersion(),
     platform: process.platform,
     firstRun: process.platform === "win32" && process.argv.includes("--squirrel-firstrun"),
+    fetch: internetFetch,
     arch: process.arch,
     supported: app.isPackaged && !dev && updatePlatform(process.platform, process.arch) !== null,
     blocked: cannotInstallHere(

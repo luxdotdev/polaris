@@ -33,6 +33,10 @@ export interface HarnessOptions {
   readonly mutationGapMs?: number;
 }
 
+export interface Network {
+  down: Error | null;
+}
+
 export const harness = (options: HarnessOptions = {}) => {
   let now = 0;
   const fake = options.sharedFake ?? createGitHubFake({ now: () => now, ...options.fake });
@@ -48,11 +52,17 @@ export const harness = (options: HarnessOptions = {}) => {
     adopt: [legacyTokens(userData)],
   });
 
+  /** While set, every request rejects with it before reaching a fake, as a dropped network does. */
+  const network: Network = { down: null };
+
   const layer = GitHub.layer({
     dir,
     // github.com's fake at github.test, GHE's at its own host with GHES paths.
-    fetch: (url, init) =>
-      new URL(url).host === GHE_HOST ? ghe.fetch(url, init) : fake.fetch(url, init),
+    fetch: (url, init) => {
+      if (network.down !== null) return Promise.reject(network.down);
+
+      return new URL(url).host === GHE_HOST ? ghe.fetch(url, init) : fake.fetch(url, init);
+    },
     endpoints: { web: "https://github.test", api: "https://api.github.test" },
     now: () => now,
     policy: options.policy ?? DEFAULT_POLICY,
@@ -74,6 +84,7 @@ export const harness = (options: HarnessOptions = {}) => {
   return {
     fake,
     ghe,
+    network,
     dir,
     /** Where `SecureStorage` keeps an account's sealed tokens. */
     tokenPath: (id: number) => join(userData, "secure", "github", "tokens", `${id}.bin`),
