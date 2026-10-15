@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { type LspCodeAction, selectImportFix, type UnresolvedName } from "./index.ts";
+import {
+  type LspCodeAction,
+  selectImportFix,
+  type UnresolvedName,
+  unresolvedInBurst,
+} from "./index.ts";
 
 const uri = "file:///workspace/apps/daemon/src/files/trash.ts";
 
@@ -174,5 +179,31 @@ describe("selectImportFix", () => {
     ]);
 
     expect(choice?.diagnostic.message).toBe("Cannot find name 'pullUrlOf'.");
+  });
+});
+
+describe("unresolvedInBurst", () => {
+  const diagnostic = (name: string, line: number, code = 2304) => ({
+    ...unresolved(name, line, []).diagnostic,
+    code,
+  });
+
+  test("keeps unresolved names on the burst's lines or written by the burst, nothing else", () => {
+    const burst = { lines: new Set([19]), names: new Set(["REVIEWER_MARKER"]) };
+
+    const kept = unresolvedInBurst(
+      [
+        diagnostic("childEnv", 19),
+        diagnostic("REVIEWER_MARKER", 72),
+        diagnostic("elsewhere", 90),
+        diagnostic("childEnv", 19, 2322),
+      ],
+      burst
+    );
+
+    expect(kept.map((d) => [d.range.start.line, d.code])).toEqual([
+      [19, 2304],
+      [72, 2304],
+    ]);
   });
 });

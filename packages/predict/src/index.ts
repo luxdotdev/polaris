@@ -28,6 +28,8 @@ export { reachFocuses, type ReachInput, type ReachOptions } from "./edit/reach/i
 export {
   selectImportFix,
   UNRESOLVED_NAME_CODES,
+  unresolvedInBurst,
+  type Burst,
   type ImportChoice,
   type LspCodeAction,
   type UnresolvedName,

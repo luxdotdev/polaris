@@ -9,11 +9,11 @@ import { tmpdir } from "node:os";
 import { hardeningCases } from "../../../../packages/predict/src/edit/hardening.testing.ts";
 import {
   selectImportFix,
-  UNRESOLVED_NAME_CODES,
+  unresolvedInBurst,
   type ImportChoice,
   type UnresolvedName,
 } from "../../../../packages/predict/src/edit/imports/index.ts";
-import { LspClient, type Diagnostic } from "./lsp-client.ts";
+import { LspClient } from "./lsp-client.ts";
 import { applyLspEdits, changedRegion, type ImportCase } from "./imports-shared.ts";
 
 const split = process.argv[2];
@@ -49,14 +49,9 @@ const run = async (lsp: LspClient, uri: string, language: string, c: ImportCase,
   for (let round = 0; round < 6; round++) {
     // Located by text each round, so applied imports don't shift the burst's lines.
     const region = changedRegion(text, c.history);
-    const inScope = (d: Diagnostic) => {
-      if (!UNRESOLVED_NAME_CODES.has(Number(d.code))) return false;
-      if ([...region.lines].some((l) => l >= d.range.start.line && l <= d.range.end.line)) return true;
-      const name = /'([$\w]+)'/.exec(d.message)?.[1];
-      return scope === "range+names" && name !== undefined && region.names.has(name);
-    };
+    const burst = scope === "range+names" ? region : { lines: region.lines, names: new Set<string>() };
     const names: UnresolvedName[] = [];
-    for (const diagnostic of diagnostics.filter(inScope))
+    for (const diagnostic of unresolvedInBurst(diagnostics, burst))
       names.push({ diagnostic, actions: (await lsp.request("textDocument/codeAction", { textDocument: { uri },
         range: diagnostic.range, context: { diagnostics: [diagnostic], only: ["quickfix"] } })) ?? [] });
     const choice = rule === "ts-first" ? tsFirst(uri, names) : selectImportFix({ uri, text }, names, rule);

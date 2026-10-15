@@ -216,3 +216,27 @@ export const selectImportFix = (
 
   return null;
 };
+
+/** The burst's lines in the document and the names its text wrote. */
+export interface Burst {
+  readonly lines: ReadonlySet<number>;
+  readonly names: ReadonlySet<string>;
+}
+
+/**
+ * Unresolved-name diagnostics to ask quick fixes for: on a line the burst changed, or naming
+ * something the burst wrote (a re-export or a moved declaration leaves its uses elsewhere).
+ */
+export const unresolvedInBurst = <D extends LspDiagnostic>(
+  diagnostics: readonly D[],
+  burst: Burst
+): D[] =>
+  diagnostics.filter((d) => {
+    if (!UNRESOLVED_NAME_CODES.has(Number(d.code))) return false;
+
+    for (let line = d.range.start.line; line <= d.range.end.line; line++)
+      if (burst.lines.has(line)) return true;
+    const name = /'([$\w]+)'/.exec(d.message)?.[1];
+
+    return name !== undefined && burst.names.has(name);
+  });
