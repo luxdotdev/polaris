@@ -2,7 +2,13 @@ export { type BucketCost, billedTokens, bucketCost, priceTokens } from "./cost.t
 
 export { fastMultiplier } from "./fast-multipliers.ts";
 
-export { bundledPrices, PriceBook, type PriceBookOptions, PriceListError } from "./PriceBook.ts";
+export {
+  bundledPrices,
+  PriceBook,
+  type PriceBookOptions,
+  PriceListError,
+  textFetcher,
+} from "./PriceBook.ts";
 
 export {
   buildPriceTable,

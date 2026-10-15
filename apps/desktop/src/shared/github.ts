@@ -67,25 +67,37 @@ export interface GitHubAccountView {
   readonly signedOutAt: number | null;
 }
 
-/** `keychain`: GitHub signed in, but the token couldn't be sealed (no Keychain from this session). */
+/**
+ * `network`: GitHub couldn't be reached; `certificate`: its certificate wasn't trusted.
+ * `keychain`: GitHub signed in, but the token couldn't be sealed (no Keychain from this session).
+ */
 export type SignInFailure =
   | "expired"
   | "denied"
   | "disabled"
   | "network"
+  | "certificate"
   | "unavailable"
   | "keychain";
 
-/** A device flow in progress: show `userCode`, open `verificationUri`. */
+/** A device flow: show `userCode`, open `verificationUri`. Both are null when no code came. */
 export interface SignInView {
   readonly flowId: string;
   /** Main always sets it; absent means github.com. */
   readonly host?: string;
-  readonly userCode: string;
-  readonly verificationUri: string;
+  readonly userCode: string | null;
+  readonly verificationUri: string | null;
   readonly expiresAt: number;
   readonly state: "waiting" | "failed";
   readonly failure: SignInFailure | null;
+  /** The underlying error when it failed, e.g. `net::ERR_PROXY_CONNECTION_FAILED`. */
+  readonly detail?: string | null;
+}
+
+/** A device flow GitHub started: it has its code. */
+export interface StartedSignIn extends SignInView {
+  readonly userCode: string;
+  readonly verificationUri: string;
 }
 
 /** A GitHub that accounts can sign in to: github.com, or a GitHub Enterprise host the user added. */

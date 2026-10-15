@@ -5,7 +5,7 @@
 import type { ConstellationStats, StatsUsage } from "@polaris/protocol";
 import type { ConstellationStatsView, PricedStatsUsage } from "../../shared/api.ts";
 import type { PriceTable } from "@polaris/client/usage";
-import { estimate } from "../prices.ts";
+import { estimate } from "../estimate.ts";
 
 const priced = (usage: StatsUsage, table: PriceTable | null): PricedStatsUsage => ({
   ...usage,
