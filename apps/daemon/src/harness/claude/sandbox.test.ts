@@ -5,7 +5,9 @@ import {
   probeClaudeSandbox,
   unsandboxedReviewerNote,
 } from "./sandbox.ts";
-import { readOnlyOptions, SANDBOXED_READ_ONLY, UNSANDBOXED_READ_ONLY } from "./readOnly.ts";
+import { readOnlyOptions } from "./readOnly.ts";
+
+const CONFINEMENT = { root: "/work/review", shellRoots: ["/work/repo/.git"], denied: ["/home/u"] };
 
 const linux = (...installed: ReadonlyArray<string>) =>
   probeClaudeSandbox({
@@ -35,20 +37,28 @@ describe("Claude Code's sandbox on a Host", () => {
   });
 
   test("a read-only session keeps the sandbox where it can start", () => {
-    const options = readOnlyOptions(linux("bwrap", "socat"));
+    const options = readOnlyOptions(linux("bwrap", "socat"), CONFINEMENT);
 
-    expect(options).toBe(SANDBOXED_READ_ONLY);
-    expect(options.sandbox).toMatchObject({ enabled: true, failIfUnavailable: true });
+    expect(options.sandbox).toMatchObject({
+      enabled: true,
+      failIfUnavailable: true,
+      filesystem: {
+        denyWrite: ["/"],
+        denyRead: ["/home/u"],
+        allowRead: ["/work/review", "/work/repo/.git"],
+      },
+    });
     expect(options.tools).toContain("Bash");
   });
 
   test("without the sandbox a read-only session has no shell and nothing that writes", () => {
-    const options = readOnlyOptions(linux("bwrap"));
+    const options = readOnlyOptions(linux("bwrap"), CONFINEMENT);
 
-    expect(options).toBe(UNSANDBOXED_READ_ONLY);
     expect(options.sandbox).toEqual({ enabled: false });
     expect(options.tools).toEqual(["Read", "Glob", "Grep", "Agent"]);
-    expect(options.allowedTools).toEqual(["Read", "Glob", "Grep", "Agent"]);
+    // Reads are allowed by path only: a bare `Read` would let Claude Code read anywhere.
+    expect(options.allowedTools).toEqual(["Read(//work/review/**)", "Agent"]);
+    expect(options.additionalDirectories).toEqual([]);
 
     for (const tool of ["Bash", "Edit", "Write", "NotebookEdit", "WebFetch", "WebSearch"])
       expect(options.disallowedTools).toContain(tool);

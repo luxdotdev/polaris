@@ -779,7 +779,7 @@ describe("Constellation attachment", () => {
 
     const params = server.requests("thread/start")[0]?.params;
     expect(params).toHaveProperty("developerInstructions", polarisInstructions({ readOnly: true }));
-    expect(params).not.toHaveProperty("config");
+    expect(JSON.stringify(params)).not.toContain("mcp_servers");
   });
   test("an attachment from another session is refused before thread start", async () => {
     await Promise.resolve(

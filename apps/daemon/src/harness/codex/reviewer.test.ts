@@ -2,6 +2,8 @@ import { afterEach, expect, test } from "bun:test";
 import { ApprovalDecision, TurnId } from "@polaris/protocol";
 import { Effect } from "effect";
 import { makeCodexDriver } from "./CodexDriver.ts";
+import { PROFILE_MIN_VERSION, REVIEWER_PROFILE } from "./confinement.ts";
+import type { Handler } from "./testing/FakeAppServer.ts";
 import { cleanup, ofTag, scripted, sessionWith, THREAD, turn } from "./testing/session.ts";
 
 afterEach(() => {
@@ -22,10 +24,40 @@ test("a new read-only thread opens without prompts even when its permission mode
     }
   );
 
-  expect(server.requests("thread/start")[0]?.params).toMatchObject({
+  const params = server.requests("thread/start")[0]?.params;
+
+  // The legacy `read-only` sandbox reads the whole disk; the profile reads only the checkout.
+  expect(params).toMatchObject({
     approvalPolicy: "never",
-    sandbox: "read-only",
+    config: {
+      default_permissions: REVIEWER_PROFILE,
+      permissions: {
+        [REVIEWER_PROFILE]: {
+          filesystem: { "/repo": "read", ":slash_tmp": "deny", ":tmpdir": "deny" },
+        },
+      },
+      "shell_environment_policy.set": { GIT_CONFIG_GLOBAL: "/dev/null" },
+    },
   });
+  expect(params).not.toHaveProperty("sandbox");
+});
+
+test("a read-only thread doesn't start on a Codex too old to hold it to the checkout", async () => {
+  const old: Handler = (request, conn) =>
+    request.method === "initialize"
+      ? conn.reply({ userAgent: "polaris/0.158.0 (Mac OS 27.0.0; arm64)" })
+      : scripted(() => {})(request, conn);
+
+  const failure = await withSession(old, () => Effect.void, { readOnly: true }).then(
+    () => null,
+    String
+  );
+
+  expect(failure).toContain("Codex 0.158.0 can't keep the reviewer to its checkout");
+  expect(failure).toContain(`Update Codex to ${PROFILE_MIN_VERSION} or later`);
+
+  const plain = await withSession(old, () => Effect.void, {});
+  expect(plain.server.requests("thread/start")[0]?.params).toMatchObject({ sandbox: "read-only" });
 });
 
 const activity = (child: string, kind: string) => ({
@@ -159,16 +191,18 @@ test.each([false, true])(
     if (readOnly) {
       expect(ofTag(events, "ApprovalRequested")).toEqual([]);
       expect(recording.answers).toEqual([{ decision: "decline" }, { decision: "decline" }]);
-      expect(server.requests("thread/resume")[0]?.params).toMatchObject({
+      const resumed = server.requests("thread/resume")[0]?.params;
+      expect(resumed).toMatchObject({
         approvalPolicy: "never",
-        sandbox: "read-only",
+        config: { default_permissions: REVIEWER_PROFILE },
       });
+      expect(resumed).not.toHaveProperty("sandbox");
 
-      for (const request of server.requests("turn/start"))
-        expect(request.params).toMatchObject({
-          approvalPolicy: "never",
-          sandboxPolicy: { type: "readOnly", networkAccess: false },
-        });
+      // Even after a mode change, no Turn swaps the profile for a legacy policy.
+      for (const request of server.requests("turn/start")) {
+        expect(request.params).toMatchObject({ approvalPolicy: "never" });
+        expect(request.params).not.toHaveProperty("sandboxPolicy");
+      }
     }
   }
 );

@@ -143,6 +143,30 @@ const configOptions = [
 ];
 
 describe("ACP driver", () => {
+  test("a read-only session (the Reviewer) is refused: the agent's own tools could read anywhere", async () => {
+    const agent = await start({ initialize: { protocolVersion: 1, agentCapabilities: {} } });
+    const scope = Effect.runSync(Scope.make());
+
+    const error = await failure(
+      Scope.provide(
+        agent.driver.open({
+          sessionId: SessionId.make("s-1"),
+          cwd: agent.dir,
+          permissionMode: "supervised",
+          model: null,
+          effort: null,
+          resumeCursor: null,
+          readOnly: true,
+        }),
+        scope
+      )
+    );
+
+    expect(error.message).toBe(
+      "GitHub Copilot CLI can't keep the reviewer to its checkout. Choose Claude Code, Codex or OpenCode as the reviewer."
+    );
+  });
+
   test("fresh and resumed sessions get hidden first-Turn context; only the user prompt is visible", async () => {
     for (const resumeCursor of [null, "acp-existing"]) {
       const context = polarisContextWithoutTools();

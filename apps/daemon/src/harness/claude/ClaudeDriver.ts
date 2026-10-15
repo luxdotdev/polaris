@@ -76,6 +76,7 @@ import {
 import { type ClaudePlanLimits, claudePlanLimitReader } from "./planLimits.ts";
 import { usageLimitWatch } from "./usageLimit.ts";
 import { ClaudeTranslator } from "./translate.ts";
+import { CONFINED_GIT_ENV, readConfinement } from "../confinement.ts";
 import { readOnlyOptions } from "./readOnly.ts";
 import { withoutShadowedWarning } from "./sdkWarnings.ts";
 import { claudeStartLog } from "./startLog.ts";
@@ -397,7 +398,11 @@ const openSession = Effect.fnUntraced(function* (
     Object.assign(sdkOptions, claudeConstellationOptions(attachments));
   }
 
-  if (options.readOnly === true) Object.assign(sdkOptions, readOnlyOptions(sandbox()));
+  if (options.readOnly === true) {
+    const confinement = yield* Effect.promise(() => readConfinement(options.cwd));
+    Object.assign(sdkOptions, readOnlyOptions(sandbox(), confinement));
+    sdkOptions.env = { ...sdkOptions.env, ...CONFINED_GIT_ENV };
+  }
 
   if (options.model !== null) sdkOptions.model = options.model;
 

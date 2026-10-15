@@ -113,6 +113,11 @@ export const makeAcpDriver = (
       listCommands: (cwd) => Effect.sync(() => commands.list(cwd)),
       open: (openOptions) =>
         Effect.gen(function* () {
+          // An ACP agent reads files with its own tools, which Polaris can't hold to a checkout.
+          if (openOptions.readOnly === true)
+            return yield* fail(
+              `${name} can't keep the reviewer to its checkout. Choose Claude Code, Codex or OpenCode as the reviewer.`
+            );
           const { conn, path } = yield* RcRef.get(agent);
 
           return yield* openSession({ harness, binaryPath: path, conn, commands }, openOptions);

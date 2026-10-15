@@ -57,6 +57,7 @@ import { CodexProcesses, terminateProcess } from "./processes.ts";
 import { CodexSteers } from "./steers.ts";
 import { CodexSubagents } from "./subagents.ts";
 import { requestCompat } from "./compat.ts";
+import { threadSandboxing } from "./confinement.ts";
 import { polarisInstructions } from "../../constellation/skills/preamble.ts";
 import { type HarnessCall, harnessCallOf } from "./slash.ts";
 import { logStart } from "../startLog.ts";
@@ -90,6 +91,8 @@ const decode = <S extends Schema.Decoder<unknown>>(schema: S) => {
 
   return (input: P.RpcPayload): S["Type"] | null => Option.getOrNull(decodeOption(input));
 };
+
+const decodeInitialize = decode(P.InitializeResponse);
 
 const decodeThread = decode(P.ThreadResponse);
 
@@ -148,16 +151,25 @@ export const openSession = (
 
     yield* logStart(options.sessionId, `connecting to the Codex app-server (${config.codexPath})`);
     const conn: RpcConnection = yield* config.appServer.connect;
-    yield* conn.request("initialize", {
+
+    const initialized = yield* conn.request("initialize", {
       clientInfo: { name: "polaris", title: "Polaris", version: config.clientVersion },
       capabilities: { experimentalApi: false, requestAttestation: false },
     } satisfies P.ClientParams["initialize"]);
+
     yield* conn.notify("initialized");
 
     if (config.planLimits) yield* Effect.forkScoped(readRateLimits(conn, config.planLimits));
 
     let permissionMode: PermissionMode = options.permissionMode;
     const policy = policyFor(permissionMode, options.readOnly);
+
+    const sandboxing = yield* threadSandboxing({
+      readOnly: options.readOnly,
+      sandbox: policy.sandbox,
+      userAgent: decodeInitialize(initialized)?.userAgent ?? "",
+      cwd: options.cwd,
+    });
 
     const common: Pick<
       P.ClientParams["thread/start"],
@@ -173,7 +185,7 @@ export const openSession = (
       cwd: options.cwd,
       approvalPolicy: policy.approvalPolicy,
       approvalsReviewer: policy.approvalsReviewer,
-      sandbox: policy.sandbox,
+      ...sandboxing.mode,
     };
 
     const attachments =
@@ -199,6 +211,8 @@ export const openSession = (
       options.readOnly !== true
     )
       common.config = { ...common.config, "shell_environment_policy.set": options.environment };
+
+    if (sandboxing.config !== null) common.config = { ...common.config, ...sandboxing.config };
 
     if (options.model !== null) common.model = options.model;
 
@@ -698,8 +712,10 @@ export const openSession = (
           input,
           approvalPolicy: policy.approvalPolicy,
           approvalsReviewer: policy.approvalsReviewer,
-          sandboxPolicy: sandboxPolicyFor(policy.sandbox),
         };
+
+        // A legacy policy here would replace a read-only thread's profile for good.
+        if (options.readOnly !== true) params.sandboxPolicy = sandboxPolicyFor(policy.sandbox);
 
         // Codex keeps a Turn's overrides for the thread's later Turns; null leaves them as they are.
         if (chosen.model !== null) params.model = chosen.model;
