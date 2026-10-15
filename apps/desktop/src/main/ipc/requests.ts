@@ -131,6 +131,15 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
     ctx.predictionBridge
       ? Effect.sync(() => ctx.predictionBridge!.setEnabled(enabled))
       : Effect.fail({ code: "Unavailable", message: "Tab completion unavailable" }),
+  "prediction.target": ({ hostKey, workspaceId }) =>
+    Effect.tryPromise({
+      try: async () => {
+        if (!ctx.predictionBridge) throw new Error("Tab completion unavailable");
+
+        return ctx.predictionBridge.target(hostKey, workspaceId);
+      },
+      catch: (error): IpcError => ({ code: "PredictionUnavailable", message: String(error) }),
+    }),
   "prediction.inspect": ({ hostKey }) =>
     Effect.tryPromise({
       try: async () => {

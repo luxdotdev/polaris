@@ -1,6 +1,7 @@
 import { LatencyRecorder, type LatencyStats } from "@polaris/predict";
 import {
   PlacementController,
+  editModelFormat,
   type CapabilityReport,
   type PredictionTarget,
   type PlacementInput,
@@ -20,7 +21,11 @@ export interface PredictionLatency {
 interface PlacementPorts {
   readonly recorder?: () => PredictionLatency;
   readonly client: (hostKey: string) => Promise<CapabilityReport | null>;
-  readonly host: (hostKey: string, signal: AbortSignal) => Promise<CapabilityReport | null>;
+  readonly host: (
+    hostKey: string,
+    signal: AbortSignal,
+    mode?: PlacementInput["mode"]
+  ) => Promise<CapabilityReport | null>;
   readonly preferences: PredictionSettings;
   readonly latency?: PlacementInput["latency"] | undefined;
 }
@@ -79,8 +84,14 @@ export class MainPredictionPlacement {
     this.workspaces.delete(key);
   }
 
-  async choose(hostKey: string, workspaceId: string, signal: AbortSignal) {
-    const controller = this.controller(hostKey, workspaceId);
+  async choose(
+    hostKey: string,
+    workspaceId: string,
+    signal: AbortSignal,
+    mode: PlacementInput["mode"] = "complete",
+    preview = false
+  ) {
+    const controller = preview ? new PlacementController() : this.controller(hostKey, workspaceId);
     const preferences = this.ports.preferences.get(hostKey);
 
     if (preferences.placement === "off") {
@@ -92,12 +103,13 @@ export class MainPredictionPlacement {
     return controller.probe(async () => {
       const [client, host] = await Promise.all([
         this.ports.client(hostKey).catch(() => null),
-        this.ports.host(hostKey, signal).catch(() => null),
+        this.ports.host(hostKey, signal, mode).catch(() => null),
       ]);
 
       signal.throwIfAborted();
 
       return {
+        mode,
         client,
         host,
         override: preferences.placement,
@@ -118,7 +130,8 @@ export class MainPredictionPlacement {
     hostKey: string,
     workspaceId: string,
     serve: (target: PredictionTarget, signal: AbortSignal) => Promise<A>,
-    signal: AbortSignal
+    signal: AbortSignal,
+    mode: PlacementInput["mode"] = "complete"
   ): Promise<A> {
     const key = JSON.stringify([hostKey, workspaceId]);
     this.requests.get(key)?.abort();
@@ -127,7 +140,7 @@ export class MainPredictionPlacement {
     const combined = AbortSignal.any([signal, active.signal]);
 
     try {
-      await this.choose(hostKey, workspaceId, combined);
+      await this.choose(hostKey, workspaceId, combined, mode);
 
       return await this.controller(hostKey, workspaceId).run(async (target) => {
         const start = performance.now();
@@ -164,7 +177,7 @@ export const createMainPredictionPlacement = (
     recorder: () => new LatencyRecorder(),
     client: () =>
       probe.get(preferences.getClientEndpoints().map((endpoint) => ({ ...endpoint, models: [] }))),
-    host: (hostKey, signal) =>
+    host: (hostKey, signal, mode) =>
       runtime.runPromise(
         HostDirectory.use((directory) =>
           Effect.gen(function* () {
@@ -173,9 +186,20 @@ export const createMainPredictionPlacement = (
 
             if (!session.capabilities.includes("prediction.capability")) return null;
 
-            return yield* session.client["prediction.capability"]({
+            const report = yield* session.client["prediction.capability"]({
               endpoints: preferences.get(hostKey).hostEndpoints.map((endpoint) => endpoint.url),
             });
+
+            if (mode === "complete" || session.capabilities.includes("prediction.edit"))
+              return report;
+
+            return {
+              ...report,
+              endpoints: report.endpoints.map((endpoint) => ({
+                ...endpoint,
+                models: endpoint.models.filter((model) => editModelFormat(model) === null),
+              })),
+            };
           })
         ),
         { signal }

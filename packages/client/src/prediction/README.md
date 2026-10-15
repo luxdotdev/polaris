@@ -44,3 +44,18 @@ invalidates only that Host. `MainPredictionPlacement.run` aborts the previous
 request for that Workspace and passes a combined signal to the consumer.
 Successful consumers feed the shared LatencyRecorder, including the Host
 round trip; disposal calls `release`.
+
+## Next-edit model selection
+
+Placement accepts `mode: "complete" | "edit" | "auto"` (default `auto`;
+v1 main-process callers explicitly request `complete`). Auto prefers eligible
+next-edit candidates across both sides and falls back to FIM only when none exists. Edit mode never sends a FIM request.
+Recognised ids match `/zeta[\W_]*2[._-]?1/i` or `/sweep.*next[\W_]*edit/i`;
+these are also promptable entries in the existing Model list.
+
+Each serving machine searches all its discovered endpoints: at least 32 GiB
+selects Zeta 2.1 when available, otherwise Sweep Next-Edit. Smaller machines
+select Sweep. An explicit recognised model overrides that default and derives
+its edit format even when an old FIM format preference is saved. RAM ranking,
+side overrides, Pi exclusions, latency, cancellation and fallback use the same
+placement machine. Older Daemons cannot be next-edit serving candidates.

@@ -44,7 +44,11 @@ import { ResourceRequestInputs } from "./resourcesContract.ts";
 import { GitHubRequestInputs, GitHubSubscriptionInputs } from "./githubContract.ts";
 import { GitRequestInputs, GitSubscriptionInputs } from "./gitContract.ts";
 import { BRANCH_PREFIX } from "./sessionPrefs.ts";
-import { PredictionUiInputs, PredictionCompletionInput } from "./predictionContract.ts";
+import {
+  PredictionUiInputs,
+  PredictionCompletionInput,
+  EditPredictionInput,
+} from "./predictionContract.ts";
 
 /** A Host's stable key in the HostRegistry: "local", or an SSH alias. */
 export const HostKey = Schema.String.check(Schema.isMinLength(1));
@@ -496,6 +500,7 @@ export const UnsubscribeEnvelope = Schema.Struct({ id: Schema.Int });
 /** Every live feed a renderer can open, keyed by kind. Items are in `api.ts`. */
 export const SubscriptionInputs = {
   "prediction.complete": PredictionCompletionInput,
+  "prediction.edit": EditPredictionInput,
   /** The Host list with each Host's Connection State; the whole list on every change. */
   hosts: Schema.Struct({}),
   /** The machines for Settings: each Host's settings, Connection State and install flow. */

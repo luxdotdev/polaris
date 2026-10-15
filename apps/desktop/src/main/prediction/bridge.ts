@@ -1,3 +1,4 @@
+import { createEditBridge } from "./editBridge.ts";
 import { hostname } from "node:os";
 import { CapabilityProbe } from "@polaris/client/prediction/probe";
 import type { PredictionTarget } from "@polaris/client/prediction";
@@ -5,11 +6,12 @@ import { countTokens } from "@polaris/predict";
 import {
   PredictionError,
   PredictionRequest,
+  PredictionFormat,
   PredictionStreamItem,
   type PredictionContext,
   type PredictionServerReport,
 } from "@polaris/protocol";
-import { Effect, ManagedRuntime, Predicate, Queue, Stream, type Layer } from "effect";
+import { Effect, ManagedRuntime, Predicate, Queue, Schema, Stream, type Layer } from "effect";
 import { HostDirectory, LOCAL_HOST_KEY, type ClientRuntime } from "../hosts.ts";
 import type { Settings } from "../settings.ts";
 import {
@@ -191,7 +193,7 @@ export const createPredictionBridge = (ports: PredictionBridgePorts) => {
             prefix: input.buffer.slice(0, input.cursor).split("\n").slice(-121).join("\n"),
             suffix: input.buffer.slice(input.cursor).split("\n").slice(0, 41).join("\n"),
             model: target.model,
-            format: target.format,
+            format: Schema.decodeUnknownSync(PredictionFormat)(target.format),
             endpoint: target.endpoint,
             budgetTokens: input.budgetTokens,
             maxTokens: 128,
@@ -283,7 +285,10 @@ export const createPredictionBridge = (ports: PredictionBridgePorts) => {
       })
     );
 
+  const edits = createEditBridge({ ports, local, hostSession, labels, enabled, contextSummary });
+
   return {
+    ...edits,
     enabled,
     setEnabled,
     inspect,

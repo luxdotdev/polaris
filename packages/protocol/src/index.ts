@@ -57,3 +57,5 @@ export * from "./languages/index.ts";
 export * from "./prediction.ts";
 
 export * from "./editPrediction.ts";
+
+export * from "./predictionRpcs.ts";

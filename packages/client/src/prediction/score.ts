@@ -1,3 +1,4 @@
+import { editModelFormat, editTargets } from "./edit.ts";
 import type {
   CapabilityReport,
   PlacementInput,
@@ -12,7 +13,8 @@ const smallModel = /qwen[\W_]*2[._-]?5[\W_]*coder[\W_]*1[._-]?5b/i;
 const mediumModel = /mellum[\W_]*2.*12b.*a2[._-]?5b/i;
 
 /** Polaris knows how to prompt these models without a chosen format. */
-export const promptableModel = (model: string) => mediumModel.test(model) || smallModel.test(model);
+export const promptableModel = (model: string) =>
+  mediumModel.test(model) || smallModel.test(model) || editModelFormat(model) !== null;
 
 const tierOf = (ramBytes: number) => (ramBytes >= 16 * GiB ? 2 : 1);
 
@@ -36,7 +38,9 @@ const targets = (
       ? endpoint.models.find((name) => name === input.model)
       : endpoint.models.find((name) => models.test(name));
 
-    if (!model) return [];
+    if (!model || editModelFormat(model) !== null) return [];
+
+    if (input.format === "zeta-2.1" || input.format === "sweep-next-edit") return [];
 
     if (!input.format && !mediumModel.test(model) && !smallModel.test(model)) return [];
     const format = input.format ?? (mediumModel.test(model) ? "mellum-spm" : "qwen-fim");
@@ -54,12 +58,24 @@ export const scorePlacement = (input: PlacementInput): ReadonlyArray<PredictionT
   const sides: ReadonlyArray<PredictionSide> =
     input.override === "auto" ? ["client", "host"] : [input.override];
 
-  return sides
-    .flatMap((side) => targets(side, input[side], input))
-    .sort(
-      (a, b) =>
-        b.tier - a.tier ||
-        (a.p50Ms !== null && b.p50Ms !== null ? a.p50Ms - b.p50Ms : 0) ||
-        (a.side === b.side ? 0 : a.side === "client" ? -1 : 1)
-    );
+  const edits =
+    input.mode === "complete"
+      ? []
+      : sides
+          .filter(
+            (side) => side === "client" || (input.host !== null && hostCanServe(input.host.machine))
+          )
+          .flatMap((side) => editTargets(side, input[side], input));
+
+  const candidates =
+    edits.length > 0 || input.mode === "edit"
+      ? edits
+      : sides.flatMap((side) => targets(side, input[side], input));
+
+  return candidates.sort(
+    (a, b) =>
+      b.tier - a.tier ||
+      (a.p50Ms !== null && b.p50Ms !== null ? a.p50Ms - b.p50Ms : 0) ||
+      (a.side === b.side ? 0 : a.side === "client" ? -1 : 1)
+  );
 };

@@ -52,7 +52,11 @@ import type {
 } from "@polaris/protocol";
 import type { Rpc } from "effect/rpc";
 import type { CommandId } from "./keymap.ts";
-import type { PredictionUiOutputs, PredictionFeedItem } from "./predictionContract.ts";
+import type {
+  PredictionUiOutputs,
+  PredictionFeedItem,
+  EditPredictionFeedItem,
+} from "./predictionContract.ts";
 import type { AppUpdateView } from "./appUpdates.ts";
 import type { PullRef } from "./github.ts";
 import type { ConstellationDefaultsMethod, ConstellationMethod } from "./constellationContract.ts";
@@ -493,6 +497,7 @@ export type TerminalItem =
 
 export interface SubscriptionItems extends GitHubSubscriptionItems, GitSubscriptionItems {
   "prediction.complete": PredictionFeedItem;
+  "prediction.edit": EditPredictionFeedItem;
   hosts: ReadonlyArray<HostView>;
   machines: ReadonlyArray<MachineView>;
   host: HostStreamItem;

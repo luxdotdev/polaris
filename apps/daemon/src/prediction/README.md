@@ -44,3 +44,12 @@ the original `LanguageFeatureRequest`/fence and route additionalTextEdits throug
 existing preparation and proposal authorities after acceptance. A model-produced
 piece is never edit authority. This keeps import edits out of ghost acceptance
 until the Client can validate the exact captured completion item.
+
+## Edit Predictions
+
+`prediction.edit` is advertised alongside `prediction.complete` and is ephemeral:
+no EventStore, file writes, receipts or recovery state. Its handler imports the
+shared `createEditPredictor` only on first consumption. Closing the RPC stream
+aborts the predictor's HTTP signal. The request carries the whole unsaved buffer,
+optional focus and frozen edit history; success streams one `EditPredictionItem.Final`.
+No model server process, download, polling or idle timer is introduced.

@@ -196,3 +196,40 @@ test("Successful Host requests record round-trip latency in the shared recorder"
   expect(main.latency("mac", "client", report.endpoints[0]!)).toBeNull();
   expect(main.latency("other", "host", report.endpoints[0]!)).toBeNull();
 });
+
+test("target previews do not replace the active edit request or its fallback state", async () => {
+  const preferences = new PredictionSettings(
+    () => ({}),
+    () => {}
+  );
+
+  const edits = { ...report, endpoints: [{ ...report.endpoints[0]!, models: ["zeta-2.1"] }] };
+
+  const main = new MainPredictionPlacement({
+    client: async () => edits,
+    host: async () => edits,
+    preferences,
+  });
+
+  const started = Promise.withResolvers<AbortSignal>();
+  const finish = Promise.withResolvers<string>();
+
+  const pending = main.run(
+    "mac",
+    "one",
+    async (_target, signal) => {
+      started.resolve(signal);
+
+      return finish.promise;
+    },
+    new AbortController().signal,
+    "edit"
+  );
+
+  const signal = await started.promise;
+  const preview = await main.choose("mac", "one", new AbortController().signal, "auto", true);
+  expect(preview.context.serving?.format).toBe("zeta-2.1");
+  expect(signal.aborted).toBe(false);
+  finish.resolve("authoritative final");
+  expect(await pending).toBe("authoritative final");
+});

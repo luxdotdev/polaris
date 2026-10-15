@@ -71,6 +71,10 @@ export const defaultHandlers = (options: {
           message: "Prediction completion is unavailable",
         })
       ),
+    "prediction.edit": () =>
+      Stream.fail(
+        new PredictionError({ reason: "unavailable", message: "Edit prediction is unavailable" })
+      ),
     "prediction.server": () =>
       Effect.fail(
         new PredictionError({

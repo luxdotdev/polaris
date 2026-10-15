@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import type { HostConnection, LiveSession } from "@polaris/client";
-import { Effect, Exit, Layer, ManagedRuntime, Stream, SubscriptionRef } from "effect";
+import { Effect, Exit, Layer, ManagedRuntime, Schema, Stream, SubscriptionRef } from "effect";
 import * as P from "@polaris/protocol";
 import { HostDirectory, type ClientRuntime } from "../hosts.ts";
 import type { Settings } from "../settings.ts";
@@ -8,8 +8,11 @@ import { PredictionSettings } from "./preferences.ts";
 import { MainPredictionPlacement } from "./placement.ts";
 import { LocalPredictor } from "./localPredictor.ts";
 import { createPredictionBridge } from "./bridge.ts";
-import { PredictionCompletionInput } from "../../shared/predictionContract.ts";
-import type { HostView } from "../../shared/api.ts";
+import {
+  EditPredictionFeedItem,
+  PredictionCompletionInput,
+} from "../../shared/predictionContract.ts";
+import type { BatchEntry, HostView } from "../../shared/api.ts";
 
 const cleanup: (() => Promise<void>)[] = [];
 
@@ -31,6 +34,8 @@ const setup = async (
   options: {
     readonly localLayer?: Layer.Layer<LocalPredictor>;
     readonly hostStrong?: boolean;
+    readonly models?: string[];
+    readonly hostEdit?: boolean;
     readonly enabled?: boolean;
     readonly url?: string;
   } = {}
@@ -47,7 +52,7 @@ const setup = async (
   const endpoint = {
     kind: "openai",
     url: options.url ?? "http://127.0.0.1:8080",
-    models: ["mellum2-12b-a2.5b"],
+    models: options.models ?? ["mellum2-12b-a2.5b"],
   } satisfies P.PredictionCapability["endpoints"][number];
 
   const client = P.PredictionCapability.make({
@@ -79,8 +84,22 @@ const setup = async (
 
   const contextInputs: P.PredictionContextRequest[] = [];
   const requests: P.PredictionRequest[] = [];
+  const editRequests: P.EditPredictionRequest[] = [];
 
   const methods = {
+    "prediction.edit": (request: P.EditPredictionRequest) => {
+      editRequests.push(request);
+
+      return Stream.make(
+        P.EditPredictionItem.cases.Final.make({
+          edits: [{ from: request.cursor, to: request.cursor, text: "host edit" }],
+          cursor: request.cursor + 9,
+          window: { from: 0, to: request.buffer.length },
+          suppressed: [],
+          elapsedMs: 8,
+        })
+      );
+    },
     "prediction.context": (request: P.PredictionContextRequest) =>
       Effect.sync(() => {
         contextInputs.push(request);
@@ -102,7 +121,9 @@ const setup = async (
   };
 
   const session: Partial<LiveSession> = {
-    capabilities: [...P.PREDICTION_CAPABILITIES],
+    capabilities: P.PREDICTION_CAPABILITIES.filter(
+      (capability) => options.hostEdit !== false || capability !== "prediction.edit"
+    ),
     // SAFETY: this fixture is consumed only through its three implemented prediction RPC methods.
     // oxlint-disable-next-line anti-slop/no-chained-type-assertions -- RPC discard/queue generics are unused by this partial fixture.
     client: methods as unknown as LiveSession["client"],
@@ -147,7 +168,15 @@ const setup = async (
     await runtime.dispose();
   });
 
-  return { bridge, preferences, contextInputs, requests, settings: () => settings };
+  return {
+    bridge,
+    preferences,
+    contextInputs,
+    requests,
+    editRequests,
+    runtime,
+    settings: () => settings,
+  };
 };
 
 test("IPC completion serves through the real predictor against a fake endpoint, with Host context and Final processing", async () => {
@@ -206,6 +235,7 @@ test("closing the subscription aborts the combined signal and LocalPredictor con
     LocalPredictor,
     LocalPredictor.of({
       p50: () => null,
+      predict: () => Stream.never,
       complete: (_request, options) => {
         active = options?.signal ?? null;
 
@@ -229,3 +259,203 @@ test("closing the subscription aborts the combined signal and LocalPredictor con
   // SAFETY: the LocalPredictor callback stored the signal before the assertion above.
   expect((active as AbortSignal | null)?.aborted).toBe(true);
 });
+
+const editInput = {
+  ...input,
+  focus: null,
+  history: [{ path: input.path, line: 0, before: "return 0", after: "return " }],
+  dispatchedAt: performance.timeOrigin + performance.now(),
+};
+
+const localEdits = (requests: P.EditPredictionRequest[] = []) =>
+  Layer.succeed(
+    LocalPredictor,
+    LocalPredictor.of({
+      p50: () => null,
+      complete: () => Stream.never,
+      predict: (request) => {
+        requests.push(request);
+
+        return Stream.make(
+          P.EditPredictionItem.cases.Final.make({
+            edits: [{ from: request.cursor, to: request.cursor, text: "local edit" }],
+            cursor: request.cursor + 10,
+            window: { from: 0, to: request.buffer.length },
+            suppressed: [],
+            elapsedMs: 5,
+          })
+        );
+      },
+    })
+  );
+
+test("renderer edit feed decodes input and returns Client Final with history, Host context, target and timings", async () => {
+  const requests: P.EditPredictionRequest[] = [];
+
+  const { bridge, runtime } = await setup({
+    models: ["zeta-2.1", "sweep-next-edit"],
+    localLayer: localEdits(requests),
+  });
+
+  expect(await bridge.target("pi", input.workspaceId)).toMatchObject({
+    editAvailable: true,
+    target: { model: "zeta-2.1", format: "zeta-2.1", side: "client" },
+  });
+  const { windowSubscriptions } = await import("../ipc/subscriptions.ts");
+  const delivered = Promise.withResolvers<ReadonlyArray<BatchEntry>>();
+
+  const subscriptions = windowSubscriptions({
+    prediction: bridge,
+    // SAFETY: this prediction subscription supplies its own runtimes and only reads HostDirectory.
+    runtime: runtime as ClientRuntime,
+    target: { isDestroyed: () => false, send: (_channel, entries) => delivered.resolve(entries) },
+  });
+
+  cleanup.push(async () => subscriptions.dispose());
+  subscriptions.subscribe({
+    id: 1,
+    kind: "prediction.edit",
+    input: JSON.parse(JSON.stringify(editInput)),
+  });
+  const batch = await delivered.promise;
+  const items = Schema.decodeUnknownSync(Schema.Array(EditPredictionFeedItem))(batch[0]?.items);
+
+  expect(batch[0]?.end).toBeNull();
+  expect(items).toHaveLength(1);
+  expect(items[0]).toMatchObject({
+    edits: [{ from: 7, to: 7, text: "local edit" }],
+    cursor: 17,
+    model: "zeta-2.1",
+    format: "zeta-2.1",
+    side: "client",
+    context: { languageServer: 1 },
+  });
+
+  for (const stage of ["ipc", "placement", "context", "final"])
+    expect(items[0]?.timings[stage]).toBeGreaterThanOrEqual(0);
+
+  expect(requests[0]).toMatchObject({
+    buffer: input.buffer,
+    history: editInput.history,
+    focus: null,
+    context: [{ kind: "definition" }],
+  });
+});
+
+test("Host edit override consumes the negotiated edit RPC and keeps Final edits intact", async () => {
+  const { bridge, preferences, editRequests } = await setup({
+    models: ["sweep-next-edit"],
+    hostStrong: true,
+  });
+
+  preferences.set("pi", { ...preferences.get("pi"), placement: "host" });
+  const items = await Effect.runPromise(Stream.runCollect(bridge.edit(editInput)));
+  expect(items).toHaveLength(1);
+  expect(items[0]).toMatchObject({
+    edits: [{ from: 7, to: 7, text: "host edit" }],
+    cursor: 16,
+    model: "sweep-next-edit",
+    format: "sweep-next-edit",
+    side: "host",
+  });
+  expect(editRequests[0]?.history).toEqual(editInput.history);
+});
+
+test("a failed Client edit request falls back to the Host without publishing a failed attempt", async () => {
+  const layer = Layer.succeed(
+    LocalPredictor,
+    LocalPredictor.of({
+      p50: () => null,
+      complete: () => Stream.never,
+      predict: () =>
+        Stream.fail(new P.PredictionError({ reason: "endpoint-failed", message: "fixture" })),
+    })
+  );
+
+  const { bridge } = await setup({
+    models: ["sweep-next-edit"],
+    hostStrong: true,
+    localLayer: layer,
+  });
+
+  const items = await Effect.runPromise(Stream.runCollect(bridge.edit(editInput)));
+  expect(items).toHaveLength(1);
+  expect(items[0]).toMatchObject({ side: "host", edits: [{ text: "host edit" }] });
+});
+
+test("FIM remains the target when no next-edit model is available, and Off exposes no target", async () => {
+  const { bridge } = await setup();
+  expect(await bridge.target("pi", input.workspaceId)).toMatchObject({
+    editAvailable: false,
+    target: { model: "mellum2-12b-a2.5b", format: "mellum-spm" },
+  });
+  bridge.setEnabled(false);
+  expect(await bridge.target("pi", input.workspaceId)).toEqual({
+    editAvailable: false,
+    target: null,
+  });
+});
+
+test("unsubscribe aborts the Client edit signal and does not fall back", async () => {
+  const started = Promise.withResolvers<AbortSignal | undefined>();
+
+  const layer = Layer.succeed(
+    LocalPredictor,
+    LocalPredictor.of({
+      p50: () => null,
+      complete: () => Stream.never,
+      predict: (_request, options) => {
+        started.resolve(options?.signal);
+
+        return Stream.never;
+      },
+    })
+  );
+
+  const { bridge, editRequests } = await setup({
+    models: ["zeta-2.1"],
+    hostStrong: true,
+    localLayer: layer,
+  });
+
+  const controller = new AbortController();
+
+  const pending = Effect.runPromiseExit(Stream.runCollect(bridge.edit(editInput)), {
+    signal: controller.signal,
+  });
+
+  const signal = await started.promise;
+  controller.abort();
+  await pending;
+  expect(signal?.aborted).toBe(true);
+  expect(editRequests).toEqual([]);
+});
+
+test.each([0, 2])(
+  "edit bridge rejects %s Final items instead of exposing an invalid prediction",
+  async (count) => {
+    const layer = Layer.succeed(
+      LocalPredictor,
+      LocalPredictor.of({
+        p50: () => null,
+        complete: () => Stream.never,
+        predict: () =>
+          Stream.fromIterable(
+            Array.from({ length: count }, () =>
+              P.EditPredictionItem.cases.Final.make({
+                edits: [],
+                cursor: null,
+                window: { from: 0, to: input.buffer.length },
+                suppressed: [],
+                elapsedMs: 0,
+              })
+            )
+          ),
+      })
+    );
+
+    const { bridge } = await setup({ models: ["zeta-2.1"], localLayer: layer });
+    const result = await Effect.runPromiseExit(Stream.runCollect(bridge.edit(editInput)));
+    expect(Exit.isFailure(result)).toBe(true);
+  }
+);

@@ -48,6 +48,8 @@ const onLive = <A, E extends { readonly _tag: string; readonly message: string }
 type Openers = { readonly [K in SubscriptionKind]: (input: SubscriptionInput<K>) => Feed<K> };
 
 const openers: Openers = {
+  "prediction.edit": () =>
+    Stream.fail({ code: "Unavailable", message: "Edit prediction unavailable" }),
   "prediction.complete": () =>
     Stream.fail({ code: "Unavailable", message: "Tab completion unavailable" }),
   ...githubOpeners,
@@ -97,6 +99,7 @@ export const isSubscriptionKind = (kind: string): kind is SubscriptionKind =>
 
 const predictionOpeners = (prediction?: PredictionBridge): Openers => ({
   ...openers,
+  "prediction.edit": (value) => prediction?.edit(value) ?? openers["prediction.edit"](value),
   "prediction.complete": (value) =>
     prediction?.complete(value) ?? openers["prediction.complete"](value),
 });
