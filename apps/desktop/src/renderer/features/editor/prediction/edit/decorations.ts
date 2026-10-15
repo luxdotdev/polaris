@@ -240,7 +240,10 @@ export const editTheme = EditorView.baseTheme({
     backgroundColor: "var(--color-diff-removed-emphasis)",
     textDecoration: "line-through",
   },
-  ".cm-ep-removed-line": { backgroundColor: "var(--color-diff-removed-bg)" },
+  // Two classes outrank the theme's `.cm-activeLine`, so the cursor line reads as part of the block.
+  ".cm-ep-removed-line, .cm-activeLine.cm-ep-removed-line": {
+    backgroundColor: "var(--color-diff-removed-bg)",
+  },
   ".cm-ep-struck": { textDecoration: "line-through" },
   ".cm-ep-added, .cm-ep-block": { ...GHOST, color: "var(--color-diff-added-text)" },
   ".cm-ep-block": { padding: "0 2px", lineHeight: "inherit" },
