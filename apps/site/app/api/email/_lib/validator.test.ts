@@ -1,5 +1,6 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import { GetEmailAddressInsightsCommand, type SESv2ClientConfig } from "@aws-sdk/client-sesv2";
+import type { Level } from "../../../../lib/log";
 import { createEmailHandler } from "./index";
 import { createTransport } from "./transport";
 import {
@@ -61,7 +62,8 @@ function handlerFixture(
   const handler = createEmailHandler({
     checkBot: async () => ({ isBot: false, isVerifiedBot: false }),
     validator,
-    rateLimit: () => 0,
+    admit: async () => "admitted",
+    preview: false,
     transport: () => {
       opened++;
 
@@ -76,6 +78,7 @@ function handlerFixture(
 
   const request = async () => {
     const event = {};
+    const tasks: Array<() => Promise<Level | void>> = [];
 
     const response = await handler(
       new Request("https://polaris.lux.dev/api/email", {
@@ -83,9 +86,13 @@ function handlerFixture(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, website: "" }),
       }),
-      event
+      event,
+      (task) => {
+        tasks.push(task);
+      }
     );
 
+    await Promise.all(tasks.map((task) => task()));
     telemetry.push(JSON.stringify(event));
 
     return response;
@@ -101,8 +108,8 @@ function handlerFixture(
   };
 }
 
-const outcomes: Array<{ label: string; response: unknown; status: number; outcome: string }> = [
-  { label: "deliverable", response: good(), status: 200, outcome: "accepted" },
+const outcomes: Array<{ label: string; response: unknown; sends: boolean; outcome: string }> = [
+  { label: "deliverable", response: good(), sends: true, outcome: "accepted" },
   {
     label: "Gmail: overall HIGH, mailbox MEDIUM",
     response: {
@@ -111,14 +118,14 @@ const outcomes: Array<{ label: string; response: unknown; status: number; outcom
         Evaluations: { ...good().MailboxValidation.Evaluations, MailboxExists: verdict("MEDIUM") },
       },
     },
-    status: 200,
+    sends: true,
     outcome: "accepted",
   },
   ...["HIGH", "MEDIUM", "LOW"].map((role) => {
     const response = good();
     response.MailboxValidation.Evaluations.IsRoleAddress = verdict(role);
 
-    return { label: `role ${role} allowed`, response, status: 200, outcome: "accepted" };
+    return { label: `role ${role} allowed`, response, sends: true, outcome: "accepted" };
   }),
   ...[
     ["LOW", "invalid"],
@@ -127,39 +134,39 @@ const outcomes: Array<{ label: string; response: unknown; status: number; outcom
     const response = good();
     response.MailboxValidation.IsValid = verdict(overall!);
 
-    return { label: `overall ${overall}`, response, status: 422, outcome: outcome! };
+    return { label: `overall ${overall}`, response, sends: false, outcome: outcome! };
   }),
   // Disposable must be LOW; mailbox may be MEDIUM (Gmail and others block probing); the rest HIGH.
   ...(
     [
-      ["HasValidSyntax", "LOW", 422, "invalid"],
-      ["HasValidSyntax", "MEDIUM", 422, "uncertain"],
-      ["HasValidSyntax", "HIGH", 200, "accepted"],
-      ["HasValidDnsRecords", "LOW", 422, "invalid"],
-      ["HasValidDnsRecords", "MEDIUM", 422, "uncertain"],
-      ["HasValidDnsRecords", "HIGH", 200, "accepted"],
-      ["MailboxExists", "LOW", 422, "invalid"],
-      ["MailboxExists", "MEDIUM", 200, "accepted"],
-      ["MailboxExists", "HIGH", 200, "accepted"],
-      ["IsDisposable", "LOW", 200, "accepted"],
-      ["IsDisposable", "MEDIUM", 422, "uncertain"],
-      ["IsDisposable", "HIGH", 422, "invalid"],
+      ["HasValidSyntax", "LOW", false, "invalid"],
+      ["HasValidSyntax", "MEDIUM", false, "uncertain"],
+      ["HasValidSyntax", "HIGH", true, "accepted"],
+      ["HasValidDnsRecords", "LOW", false, "invalid"],
+      ["HasValidDnsRecords", "MEDIUM", false, "uncertain"],
+      ["HasValidDnsRecords", "HIGH", true, "accepted"],
+      ["MailboxExists", "LOW", false, "invalid"],
+      ["MailboxExists", "MEDIUM", true, "accepted"],
+      ["MailboxExists", "HIGH", true, "accepted"],
+      ["IsDisposable", "LOW", true, "accepted"],
+      ["IsDisposable", "MEDIUM", false, "uncertain"],
+      ["IsDisposable", "HIGH", false, "invalid"],
     ] as const
-  ).map(([field, value, status, outcome]) => {
+  ).map(([field, value, sends, outcome]) => {
     const response = good();
     const evaluations = { ...response.MailboxValidation.Evaluations, [field]: verdict(value) };
 
     return {
       label: `${field} ${value}`,
       response: { MailboxValidation: { ...response.MailboxValidation, Evaluations: evaluations } },
-      status,
+      sends,
       outcome,
     };
   }),
   ...[null, {}, "malformed JSON", { MailboxValidation: {} }].map((response) => ({
     label: "missing or malformed response",
     response,
-    status: 503,
+    sends: false,
     outcome: "unavailable",
   })),
   ...[
@@ -178,25 +185,25 @@ const outcomes: Array<{ label: string; response: unknown; status: number; outcom
           Evaluations: { ...good().MailboxValidation.Evaluations, [field]: value },
         },
       },
-      status: 503,
+      sends: false,
       outcome: "unavailable",
     }))
   ),
   ...[undefined, verdict("UNKNOWN"), verdict(email)].map((value) => ({
     label: "overall missing/unrecognized",
     response: { MailboxValidation: { ...good().MailboxValidation, IsValid: value } },
-    status: 503,
+    sends: false,
     outcome: "unavailable",
   })),
 ];
 
 describe("SES Insights route mapping", () => {
-  test.each(outcomes)("$label → $status", async ({ response, status, outcome }) => {
+  test.each(outcomes)("$label → sends $sends", async ({ response, sends, outcome }) => {
     const f = handlerFixture(async () => response);
     const result = await f.request();
-    expect(result.status).toBe(status);
-    expect(f.sent()).toBe(status === 200 ? 1 : 0);
-    expect(f.opened()).toBe(status === 200 ? 1 : 0);
+    expect(result.status).toBe(202);
+    expect(f.sent()).toBe(sends ? 1 : 0);
+    expect(f.opened()).toBe(sends ? 1 : 0);
     expect(f.destroyed()).toBe(1);
     expect(f.counters.snapshot()).toEqual({
       accepted: 0,
@@ -223,7 +230,7 @@ describe("SES Insights route mapping", () => {
       });
 
       const response = await f.request();
-      expect(response.status).toBe(503);
+      expect(response.status).toBe(202);
       expect(await response.text()).not.toContain(email);
       expect(f.sent()).toBe(0);
       expect(f.opened()).toBe(0);
@@ -246,7 +253,7 @@ describe("SES Insights route mapping", () => {
     }, 50);
 
     const response = await f.request();
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(202);
     expect(signal?.aborted).toBe(true);
     expect(f.sent()).toBe(0);
     expect(f.destroyed()).toBe(1);
@@ -267,7 +274,7 @@ describe("SES Insights route mapping", () => {
         throw failure;
       });
 
-      expect((await f.request()).status).toBe(503);
+      expect((await f.request()).status).toBe(202);
       expect(f.sent()).toBe(0);
       expect(f.counters.snapshot().unavailable).toBe(1);
     }
@@ -378,7 +385,7 @@ describe("SES Insights configuration and privacy", () => {
         }
 
         const f = handlerFixture(send);
-        expect((await f.request()).status).toBe(503);
+        expect((await f.request()).status).toBe(202);
         expect(JSON.stringify(f.telemetry)).not.toContain(email);
         expect(JSON.stringify(f.counters.snapshot())).not.toContain(email);
       }
@@ -396,7 +403,7 @@ test("the wide event records each Insights confidence level, never the address",
 
   const f = handlerFixture(async () => response);
 
-  expect((await f.request()).status).toBe(200);
+  expect((await f.request()).status).toBe(202);
   expect(JSON.parse(f.telemetry[0] ?? "{}")).toMatchObject({
     insights_valid: "HIGH",
     insights_syntax: "HIGH",

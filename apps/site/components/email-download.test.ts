@@ -10,7 +10,7 @@ describe("email form request", () => {
       expect(url).toBe("/api/email");
       calls.push(options ?? {});
 
-      return Response.json({});
+      return Response.json({}, { status: 202 });
     });
 
     expect(calls).toHaveLength(1);
@@ -20,7 +20,8 @@ describe("email form request", () => {
       ok: true,
       preview: false,
       invalid: false,
-      message: "Check your inbox for the Mac download.",
+      message:
+        "Check your inbox for the Mac download. Not there? Download it on your Mac at polaris.lux.dev.",
     });
   });
 

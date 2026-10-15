@@ -1,3 +1,7 @@
+/** The route gives every well-formed address this same reply, sent or not. */
+export const requestedMessage =
+  "Check your inbox for the Mac download. Not there? Download it on your Mac at polaris.lux.dev.";
+
 export async function requestDownload(
   email: string,
   website: string,
@@ -18,9 +22,7 @@ export async function requestDownload(
         ok: true,
         preview,
         invalid: false,
-        message: preview
-          ? "Preview only. No email was sent."
-          : "Check your inbox for the Mac download.",
+        message: preview ? "Preview only. No email was sent." : requestedMessage,
       };
     }
 
@@ -28,25 +30,12 @@ export async function requestDownload(
 
     if (response.status === 400) message = "Enter a valid email address.";
 
-    if (response.status === 422)
-      message =
-        response.headers.get("X-Polaris-Email-Reason") === "unconfirmed"
-          ? "We couldn't confirm that address. Check it, or download Polaris on your Mac at polaris.lux.dev."
-          : "Use another email address.";
-
     if (response.status === 403)
       message = "This request was blocked. Please try again from your browser.";
 
-    if (response.status === 429) message = "Too many requests. Try again in 15 minutes.";
-
     if (response.status === 503) message = "Email is unavailable. Please try again later.";
 
-    return {
-      ok: false,
-      preview: false,
-      invalid: response.status === 400 || response.status === 422,
-      message,
-    };
+    return { ok: false, preview: false, invalid: response.status === 400, message };
   } catch {
     return {
       ok: false,

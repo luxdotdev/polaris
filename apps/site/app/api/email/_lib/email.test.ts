@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { SendEmailCommand, type SESv2ClientConfig } from "@aws-sdk/client-sesv2";
+import type { Level } from "../../../../lib/log";
 import { createEmailHandler } from "./index";
-import { createRateLimit, windowMs } from "./rate-limit";
-import { createTransport, type EmailEnv, type SesFactory } from "./transport";
+import { createAdmission, memoryStore } from "./limiter";
+import { createTransport, previewOnly, type EmailEnv, type SesFactory } from "./transport";
 import { validEmail } from "./validation";
 import { fakeValidator } from "./validator";
 
@@ -27,7 +28,6 @@ const submission = (
 function fixture(env: EmailEnv = configured) {
   const sent: SendEmailCommand[] = [];
   let logs = 0;
-  const limit = createRateLimit();
 
   const handler = createEmailHandler({
     validator: fakeValidator,
@@ -40,20 +40,32 @@ function fixture(env: EmailEnv = configured) {
           return {};
         },
       })),
-    rateLimit: (headers) => limit(headers, true),
+    admit: createAdmission({ store: memoryStore(), vercel: true }),
+    preview: previewOnly(env),
     requested: () => {
       logs += 1;
     },
   });
 
-  return { handler, sent, logs: () => logs };
+  const run = async (input: Request) => {
+    const tasks: Array<() => Promise<Level | void>> = [];
+    const response = await handler(input, {}, (task) => tasks.push(task));
+    await Promise.all(tasks.map((task) => task()));
+
+    return response;
+  };
+
+  return { handler: run, sent, logs: () => logs };
 }
+
+const from = (ip: string, email = "ada@example.com") =>
+  submission({ email, website: "" }, { "x-vercel-forwarded-for": ip });
 
 describe("email endpoint", () => {
   test("sends one SESv2 email (HTML and plain text) with download and source links", async () => {
     const f = fixture();
     const response = await f.handler(submission({ email: " ada+mac@example.com ", website: "" }));
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(202);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(f.logs()).toBe(1);
     expect(f.sent).toHaveLength(1);
@@ -89,62 +101,44 @@ describe("email endpoint", () => {
     expect(f.logs()).toBe(0);
   });
 
-  test("honeypot returns an innocuous success without transport or telemetry", async () => {
+  test("honeypot gets the same reply as a delivery without transport or telemetry", async () => {
     const f = fixture();
-    expect(
-      (await f.handler(submission({ email: "ada@example.com", website: "bot.example" }))).status
-    ).toBe(200);
+    const delivered = await fixture().handler(submission());
+
+    const trapped = await f.handler(
+      submission({ email: "ada@example.com", website: "bot.example" })
+    );
+
+    expect(trapped.status).toBe(delivered.status);
+    expect(await trapped.text()).toBe(await delivered.text());
     expect(f.sent).toHaveLength(0);
     expect(f.logs()).toBe(0);
   });
 
-  test("fourth request from one IP is limited, another IP is separate", async () => {
+  test("a fourth request from one IP sends nothing, another IP is separate", async () => {
     const f = fixture();
 
     for (let i = 0; i < 3; i++)
-      expect(
-        (await f.handler(submission(undefined, { "x-vercel-forwarded-for": "192.0.2.1" }))).status
-      ).toBe(200);
+      expect((await f.handler(from("192.0.2.1", `ada${i}@example.com`))).status).toBe(202);
 
-    const blocked = await f.handler(
-      submission(undefined, { "x-vercel-forwarded-for": "192.0.2.1" })
-    );
-
-    expect(blocked.status).toBe(429);
-    expect(Number(blocked.headers.get("Retry-After"))).toBeGreaterThan(0);
-    expect(
-      (await f.handler(submission(undefined, { "x-vercel-forwarded-for": "192.0.2.2" }))).status
-    ).toBe(200);
+    expect((await f.handler(from("192.0.2.1", "bob@example.com"))).status).toBe(202);
+    expect(f.sent).toHaveLength(3);
+    await f.handler(from("192.0.2.2", "bob@example.com"));
     expect(f.sent).toHaveLength(4);
-    expect(f.logs()).toBe(4);
+  });
+
+  test("one recipient is mailed once however its address is spelled", async () => {
+    const f = fixture();
+    await f.handler(from("192.0.2.1", "ada@example.com"));
+    await f.handler(from("192.0.2.2", "Ada+again@Example.com"));
+    expect(f.sent).toHaveLength(1);
   });
 
   test("unconfigured production fails closed", async () => {
     const f = fixture({ NODE_ENV: "production" });
-    const response = await f.handler(submission());
-    expect(response.status).toBe(503);
-    expect(await response.text()).toContain("not available yet");
+    expect((await f.handler(submission())).status).toBe(202);
     expect(f.sent).toHaveLength(0);
     expect(f.logs()).toBe(1);
-  });
-
-  test("provider failure discards private details", async () => {
-    const handler = createEmailHandler({
-      validator: fakeValidator,
-      checkBot: async () => ({ isBot: false, isVerifiedBot: false }),
-      transport: () => ({
-        preview: false,
-        send: async () => {
-          throw new Error("ada@example.com 192.0.2.1");
-        },
-      }),
-      rateLimit: () => 0,
-      requested: () => {},
-    });
-
-    const response = await handler(submission());
-    expect(response.status).toBe(503);
-    expect(await response.text()).not.toContain("ada@example.com");
   });
 
   test("cross-origin and non-JSON browser submissions cannot send", async () => {
@@ -171,14 +165,14 @@ describe("email endpoint", () => {
       body: JSON.stringify({ email: "ada@example.com", website: "" }),
     });
 
-    expect((await f.handler(input)).status).toBe(200);
+    expect((await f.handler(input)).status).toBe(202);
     expect(f.sent).toHaveLength(1);
   });
 
   test("development ignores real credentials, performs no SES call and labels preview", async () => {
     const f = fixture({ ...configured, NODE_ENV: "development" });
     const response = await f.handler(submission());
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(202);
     expect(response.headers.get("X-Polaris-Email-Preview")).toBe("1");
     expect(f.sent).toHaveLength(0);
   });
@@ -235,41 +229,7 @@ describe("transport configuration", () => {
   });
 });
 
-describe("abuse guard", () => {
-  test("window resets, missing/untrusted headers share a bounded fallback", () => {
-    let now = 0;
-    const limit = createRateLimit(() => now);
-
-    for (let i = 0; i < 3; i++)
-      expect(limit(new Headers({ "x-vercel-forwarded-for": `192.0.2.${i}` }), false)).toBe(0);
-    expect(limit(new Headers(), false)).toBe(900);
-    now = windowMs;
-    expect(limit(new Headers(), false)).toBe(0);
-  });
-
-  test("IPv6 spellings share a bucket; spoofed forwarded-for is ignored", () => {
-    const limit = createRateLimit(() => 0);
-    const headers = new Headers({ "x-vercel-forwarded-for": "2001:db8::1" });
-
-    for (let i = 0; i < 3; i++) expect(limit(headers, true)).toBe(0);
-    expect(limit(new Headers({ "x-vercel-forwarded-for": "2001:0db8:0:0:0:0:0:1" }), true)).toBe(
-      900
-    );
-    const fallback = createRateLimit(() => 0);
-
-    for (let i = 0; i < 3; i++)
-      expect(fallback(new Headers({ "x-forwarded-for": `192.0.2.${i}` }), true)).toBe(0);
-    expect(fallback(new Headers({ "x-forwarded-for": "192.0.2.10" }), true)).toBe(900);
-  });
-
-  test("per-instance ceiling bounds sends and map growth", () => {
-    const limit = createRateLimit(() => 0);
-
-    for (let i = 0; i < 100; i++)
-      expect(limit(new Headers({ "x-vercel-forwarded-for": `192.0.2.${i}` }), true)).toBe(0);
-    expect(limit(new Headers({ "x-vercel-forwarded-for": "192.0.2.200" }), true)).toBe(900);
-  });
-
+describe("address syntax", () => {
   test.each([
     ".ada@example.com",
     "ada..x@example.com",

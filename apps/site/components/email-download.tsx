@@ -36,7 +36,7 @@ export function EmailDownload() {
 
   if (state === "sending") label = "Sending…";
 
-  if (state === "sent") label = "Email sent";
+  if (state === "sent") label = "Request sent";
 
   if (state === "preview") label = "Preview complete";
 
