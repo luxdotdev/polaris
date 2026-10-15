@@ -574,3 +574,5 @@ The program is rebuilt when a shadow opens and again when it closes. On TypeScri
   - offer `tsc --lsp` as the default TypeScript server; or
   - run a second TypeScript 7 server for verification only, about 1.6 GB on this repo.
 - With TypeScript 7, the deadline suppresses every Final in the slow files and none elsewhere: about 10% of checks in this corpus.
+
+**Update, 2026-10-15.** The owner chose the first: `tsc --lsp` is the default TypeScript server ([ADR 0051](../adr/0051-typescript-7-is-the-default-typescript-server.md)). `dv-wired.ts <states> managed verify` overrides nothing and leaves the Workspace untrusted, so the Daemon picks its default. The verifier attaches on the managed `tsc`, and its 179 verdicts are the same as the project TypeScript 7 run's: 86 rejected for an added error (48.0%) and 18 over the 600 ms deadline (10.1%, 6 of them otherwise allowed). In the Editor 92 of 179 Finals (51.4%) are suppressed; one check failed open.

@@ -159,6 +159,7 @@ const manifestFailures = (
         "runtime-web-review-records.json",
         "runtime-go-php-review-records.json",
         "runtime-rust-lua-review-records.json",
+        "runtime-typescript-go-review-records.json",
       ].includes(reference.path)
     )
       continue;
@@ -245,6 +246,7 @@ export const readReviewRecords = (root: string): ReadonlyArray<ReviewRecord> => 
     ...decode(readFileSync(join(root, "runtime-web-review-records.json"), "utf8")),
     ...decode(readFileSync(join(root, "runtime-go-php-review-records.json"), "utf8")),
     ...decode(readFileSync(join(root, "runtime-rust-lua-review-records.json"), "utf8")),
+    ...decode(readFileSync(join(root, "runtime-typescript-go-review-records.json"), "utf8")),
   ];
 
   return [
@@ -278,6 +280,7 @@ export const reviewRootFailures = (
                 "runtime-web-review-records.json",
                 "runtime-go-php-review-records.json",
                 "runtime-rust-lua-review-records.json",
+                "runtime-typescript-go-review-records.json",
               ].includes(file.path)
             : file.path === "review-records.json"
         );

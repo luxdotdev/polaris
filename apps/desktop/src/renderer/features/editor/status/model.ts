@@ -101,6 +101,10 @@ export interface StatusInput {
 
 const TS = "typescript-language-server";
 
+/** The tool serving TypeScript: tsserver for a project's TypeScript 6 or older, else TypeScript 7. */
+export const typescriptServer = (trust: TrustStatus | null) =>
+  trust?.provider === "project" && !trust.wouldRun.native ? TS : "typescript-go";
+
 /** "TypeScript" for the TypeScript server, which also serves JavaScript; else the language. */
 const serverName = (input: StatusInput, providerId: string | null) =>
   providerId === TS ? "TypeScript" : input.language;
@@ -140,7 +144,8 @@ export const version = (tools: HostTools | null, toolId: string) => {
 
 const TOOL_WORDS = new Map<string, string>([
   ["node", "its Node"],
-  ["typescript", "the bundled TypeScript"],
+  ["typescript-go", "the bundled TypeScript"],
+  ["typescript", "TypeScript's tsserver"],
   [TS, "the language server"],
 ]);
 
@@ -421,11 +426,16 @@ const serverFact = (
   const executable = launch === null ? null : executableName(launch.executable);
 
   if (executable === null || executable === "node") {
-    const v = version(input.tools, runtime.context.providerId);
+    const tool =
+      runtime.context.providerId === TS
+        ? typescriptServer(input.trust)
+        : runtime.context.providerId;
+
+    const v = version(input.tools, tool);
 
     return {
       label: "Server",
-      value: `${runtime.context.providerId}${v === null ? "" : ` ${v}`}`,
+      value: `${tool}${v === null ? "" : ` ${v}`}`,
       mono: true,
       note: up,
     };
@@ -438,7 +448,7 @@ const serverFact = (
 
 const typescriptFacts = (input: StatusInput, trust: TrustStatus | null): Fact[] => {
   if (trust === null) return [];
-  const bundledVersion = version(input.tools, "typescript");
+  const bundledVersion = version(input.tools, "typescript-go");
 
   const ts: Fact =
     trust.provider === "project" && trust.wouldRun.typescriptVersion !== null
@@ -467,7 +477,7 @@ const choiceFacts = (input: StatusInput): Fact[] =>
 const typescriptActions = (input: StatusInput, trust: TrustStatus | null): StatusAction[] => {
   if (trust === null) return [];
   const decision = decisionOf(trust.trust);
-  const bundledVersion = version(input.tools, "typescript");
+  const bundledVersion = version(input.tools, "typescript-go");
 
   if (trust.provider === "project")
     return [

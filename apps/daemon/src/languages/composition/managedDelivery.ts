@@ -19,6 +19,7 @@ import type { DiscoveryFacts } from "../discovery/index.ts";
 import type { HostInstallation, ObservationAdmission } from "../install/host.ts";
 import { descriptor, defaultLimits, type InstalledVersion } from "../install/types.ts";
 import { checkAbort, failure } from "../install/validation.ts";
+import { projectTsserver } from "./managedPolicy.ts";
 
 /** Host Prerequisites observed by presence at fixed locations, never by running them. */
 const hostPresence = ["shellcheck", "php", "go", "gopls"];
@@ -50,6 +51,33 @@ function matchesPin(current: InstalledVersion | null, pinned: Tool) {
         artifact.audit === selected.audit
     )
   );
+}
+
+/** TypeScript 7's `tsc --lsp`: the project's own after Trust, else the managed one. */
+function nativeTypeScript(
+  facts: DiscoveryFacts,
+  installed: InstalledVersion,
+  project: boolean
+): VerifiedLaunchPlan {
+  const managed = join(installed.directory, "lib/tsc");
+  const executable = project ? facts.nativeServer : managed;
+
+  if (executable === null)
+    throw failure(
+      "missing-prerequisite",
+      "The project's native TypeScript platform package is missing"
+    );
+
+  return {
+    identity: installed.identity,
+    entry: executable,
+    launch: {
+      executable,
+      args: ["--lsp", "--stdio"],
+      cwd: facts.projectRoot,
+      environment: { NODE_OPTIONS: "", NODE_PATH: "" },
+    },
+  };
 }
 
 export function createManagedDelivery(
@@ -94,6 +122,7 @@ export function createManagedDelivery(
               Match.when("bash-language-server", () => ["node", "shfmt", "bash-language-server"]),
               Match.when("rust-analyzer", () => ["rust-analyzer"]),
               Match.when("lua-language-server", () => ["lua-language-server"]),
+              Match.when("typescript-go", () => ["typescript-go"]),
               Match.when("sqllens-language-server", () => [
                 "node",
                 "sql-formatter",
@@ -157,31 +186,14 @@ export function createManagedDelivery(
         return sqlShellLaunch(facts, installed, node, installation(), hostPrerequisites);
 
       if (facts.providerId in webProviders) return webLaunch(facts, installed, node);
+      const project = !facts.bundledTypeScript && (facts.sdk !== null || facts.plugins.length > 0);
+
+      if (!projectTsserver(facts)) return nativeTypeScript(facts, installed, project);
       const typescript = await installation().current("typescript");
 
       if (node === null || typescript === null)
         throw failure("not-installed", "Private Node and bundled TypeScript are not installed");
       const entry = join(installed.directory, "lib/cli.mjs");
-      const project = !facts.bundledTypeScript && (facts.sdk !== null || facts.plugins.length > 0);
-
-      if (project && facts.sdkVersion?.startsWith("7.")) {
-        if (facts.nativeServer === null)
-          throw failure(
-            "missing-prerequisite",
-            "The project's native TypeScript platform package is missing"
-          );
-
-        return {
-          identity: installed.identity,
-          entry: facts.nativeServer,
-          launch: {
-            executable: facts.nativeServer,
-            args: ["--lsp", "--stdio"],
-            cwd: facts.projectRoot,
-            environment: { NODE_OPTIONS: "", NODE_PATH: "" },
-          },
-        };
-      }
 
       return {
         identity: installed.identity,
@@ -192,18 +204,13 @@ export function createManagedDelivery(
           args: [entry, "--stdio"],
           cwd: facts.projectRoot,
           environment: {
-            NODE_OPTIONS: project
-              ? ""
-              : `--require ${JSON.stringify(join(typescript.directory, "plugin-guard.cjs"))}`,
+            NODE_OPTIONS: "",
             NODE_PATH: "",
             PATH: join(node.executable, ".."),
           },
           initializationOptions: {
             tsserver: {
-              path:
-                project && facts.tsserver !== null
-                  ? facts.tsserver
-                  : join(typescript.directory, "lib/tsserver.js"),
+              path: facts.tsserver ?? join(typescript.directory, "lib/tsserver.js"),
               useSyntaxServer: "never",
             },
             disableAutomaticTypingAcquisition: true,

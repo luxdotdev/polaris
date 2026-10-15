@@ -1,6 +1,7 @@
-// dv-wired.ts <states.json> <tsls|tsgo> <verify|idle> [cases] [out.tsv]: the Editor's own verifier
+// dv-wired.ts <states.json> <tsls|tsgo|managed> <verify|idle> [cases] [out.tsv]: the Editor's own verifier
 // (renderer session, shadow, requests, verifyDiagnostics) on a real in-process Daemon and server,
 // timed per recorded Final after a simulated keystroke and pause. Env: DV_NODE, DV_TSLS, DV_TSSERVER.
+// `managed` overrides nothing and leaves the Workspace untrusted: the Daemon's default TypeScript.
 import { existsSync } from "node:fs";
 import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -84,11 +85,11 @@ const program = Effect.gen(function* () {
   const rpc = yield* connectRpc(yield* socketTransport(daemon.socketPath));
   const hello = yield* rpc.client.hello({ clientName: "dv-wired", clientVersion: "0", deviceLabel: "isolated", capabilities: caps, languageProof: Redacted.make("f".repeat(64)) });
   const identity = hello.languageIdentity!;
-  yield* rpc.client["languages.trust.set"]({ scope: P.LanguageTrustScope.cases.Workspace.make({ hostId: hello.host.hostId, workspaceId }), trusted: true, expectedRevision: 0 });
+  if (server !== "managed") yield* rpc.client["languages.trust.set"]({ scope: P.LanguageTrustScope.cases.Workspace.make({ hostId: hello.host.hostId, workspaceId }), trusted: true, expectedRevision: 0 });
   const checkout = P.LanguageCheckout.cases.Workspace.make({ workspaceId, path: here });
   const settings = P.LanguageEffectiveSettings.make({
     revision: 0, formatOnSave: false, formatter: P.LanguageFormatterSelection.cases.None.make({}), providers: ["typescript-language-server"], origins: {},
-    settings: { executableOverrides: { "typescript-language-server": server === "tsgo" ? { executable: tsgo, argv: ["--lsp", "--stdio"], environment: {} } : { executable: node, argv: [join(root, "tsls.mjs")], environment: {} } } },
+    settings: server === "managed" ? {} : { executableOverrides: { "typescript-language-server": server === "tsgo" ? { executable: tsgo, argv: ["--lsp", "--stdio"], environment: {} } : { executable: node, argv: [join(root, "tsls.mjs")], environment: {} } } },
   });
 
   // The renderer's LanguageApi as main's bridge forwards it: the Host key dropped, results as JSON.

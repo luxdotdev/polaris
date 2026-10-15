@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { catalog, facts } from "./fixture.testing.ts";
+import { catalog, facts, missingCargo } from "./fixture.testing.ts";
 import { languageRows, rowEnabled, syntaxOnly, syntaxOnlyLine } from "./model.ts";
 import { rowCount } from "./rowKey.ts";
 
@@ -31,7 +31,7 @@ describe("languageRows", () => {
   });
 
   test("states read as the mockup's caption lines", () => {
-    expect(row("typescript-language-server").state).toBe(
+    expect(row("typescript-go").state).toBe(
       "Ready · uses each project's TypeScript once you trust it"
     );
     expect(row("html").state).toBe(
@@ -43,16 +43,63 @@ describe("languageRows", () => {
     expect(row("gopls").state).toBe("Couldn't download gopls");
   });
 
+  test("a server on Polaris's own Node waits for its download, not for the Host's node", () => {
+    const withoutNode = facts().map((fact) =>
+      fact.toolId === "vscode-langservers-extracted"
+        ? {
+            ...fact,
+            prerequisites: [
+              {
+                ...missingCargo,
+                requirement: { ...missingCargo.requirement, id: "node", executable: "node" },
+              },
+            ],
+          }
+        : fact
+    );
+
+    const html = languageRows(catalog, withoutNode, {
+      host: "this Mac",
+      downloadAutomatically: true,
+    }).find((r) => r.id === "html");
+
+    expect(html?.state).toBe(
+      "Not downloaded yet · vscode-langservers-extracted arrives with your first .html file"
+    );
+  });
+
+  test("TypeScript 7 is a native binary, so a Host without Node still has it ready", () => {
+    const withoutNode = facts().map((fact) =>
+      fact.toolId === "typescript-language-server"
+        ? {
+            ...fact,
+            prerequisites: [
+              {
+                ...missingCargo,
+                requirement: { ...missingCargo.requirement, id: "node", executable: "node" },
+              },
+            ],
+          }
+        : fact
+    );
+
+    const ts = languageRows(catalog, withoutNode, {
+      host: "this Mac",
+      downloadAutomatically: true,
+    }).find((r) => r.id === "typescript-go");
+
+    expect(ts?.state).toBe("Ready · uses each project's TypeScript once you trust it");
+  });
+
   test("an open row's parts come only from the host's facts", () => {
-    expect(row("typescript-language-server").facts).toEqual([
-      { label: "Language server", value: "typescript-language-server 6.0.1", mono: true },
+    expect(row("typescript-go").facts).toEqual([
+      { label: "Language server", value: "typescript-go 7.0.2", mono: true },
       {
-        label: "Bundled TypeScript",
-        value: "6.0.3",
+        label: "TypeScript 6 and older",
+        value: "typescript-language-server 6.0.1",
         mono: true,
-        note: "for workspaces you haven't trusted",
+        note: "after Trust, on Polaris's own Node",
       },
-      { label: "Runs on", value: "node 24.18.0", mono: true, note: "Polaris's own" },
       {
         label: "Formatter",
         value: "prettier",
@@ -69,12 +116,7 @@ describe("languageRows", () => {
   });
 
   test("rows map document languages to the editor's syntax ids", () => {
-    expect(row("typescript-language-server").syntaxIds).toEqual([
-      "typescript",
-      "tsx",
-      "javascript",
-      "jsx",
-    ]);
+    expect(row("typescript-go").syntaxIds).toEqual(["typescript", "tsx", "javascript", "jsx"]);
   });
 });
 
@@ -87,7 +129,7 @@ describe("the release gate", () => {
 
 describe("switches", () => {
   test("off only when every language of the row has an explicit empty provider list", () => {
-    const ts = row("typescript-language-server");
+    const ts = row("typescript-go");
 
     expect(rowEnabled(ts, {})).toBe(true);
     expect(rowEnabled(ts, { typescript: { providers: [] } })).toBe(true);

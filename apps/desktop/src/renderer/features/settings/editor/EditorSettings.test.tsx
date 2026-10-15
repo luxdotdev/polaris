@@ -234,13 +234,13 @@ describe("languages", () => {
 
     if (disclosure === null) throw new Error("no disclosure");
     expect(disclosure.getAttribute("aria-expanded")).toBe("false");
-    expect(page().queryByText("Bundled TypeScript")).toBeNull();
+    expect(page().queryByText("TypeScript 6 and older")).toBeNull();
     fireEvent.click(disclosure);
     expect(disclosure.getAttribute("aria-expanded")).toBe("true");
-    expect(page().getByText("Bundled TypeScript")).toBeTruthy();
-    expect(page().getByText("node 24.18.0")).toBeTruthy();
+    expect(page().getByText("TypeScript 6 and older")).toBeTruthy();
+    expect(page().getByText("typescript-go 7.0.2")).toBeTruthy();
     fireEvent.click(disclosure);
-    expect(page().queryByText("Bundled TypeScript")).toBeNull();
+    expect(page().queryByText("TypeScript 6 and older")).toBeNull();
   });
 
   test("switching a row off stores an empty provider list for each of its languages", async () => {

@@ -148,10 +148,10 @@ const hostTool = (
 export const installedTools: HostTools = {
   platform: PLATFORM,
   tools: {
-    typescript: hostTool(
-      "typescript",
-      P.LanguageHostToolStatus.cases.Installed.make({ version: "6.0.3" }),
-      "6.0.3"
+    "typescript-go": hostTool(
+      "typescript-go",
+      P.LanguageHostToolStatus.cases.Installed.make({ version: "7.0.2" }),
+      "7.0.2"
     ),
   },
 };

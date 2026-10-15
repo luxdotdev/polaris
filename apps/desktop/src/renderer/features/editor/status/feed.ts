@@ -60,8 +60,9 @@ export const statusToolIds = (catalog: P.LanguageCatalog, language: string) => {
     ])
   );
 
-  // Bundled TypeScript is selected alongside the managed server (ADR 0029).
-  if (ids.has("typescript-language-server")) ids.add("typescript");
+  // A trusted project's TypeScript 6 or older runs on tsserver instead (ADR 0051).
+  if (ids.has("typescript-go"))
+    for (const id of ["typescript-language-server", "typescript"]) ids.add(id);
 
   for (const id of ids)
     for (const requirement of offered.get(id)?.requirements ?? [])

@@ -54,6 +54,7 @@ export const catalog: P.LanguageCatalog = Schema.decodeUnknownSync(P.LanguageCat
   revision: 1,
   releaseDate: "2026-10-01",
   tools: [
+    tool("typescript-go", "7.0.2"),
     tool("typescript-language-server", "6.0.1", [node("tsls")]),
     tool("vscode-langservers-extracted", "4.10.0", [node("vscode")]),
     tool("pyright", "1.1.414", [
@@ -87,7 +88,7 @@ export const catalog: P.LanguageCatalog = Schema.decodeUnknownSync(P.LanguageCat
     integration(
       "typescript",
       ["typescript", "typescriptreact", "javascript", "javascriptreact"],
-      [["typescript-language-server", "typescript-language-server", "primary"]]
+      [["typescript-language-server", "typescript-go", "primary"]]
     ),
     integration("html", ["html"], [["vscode-html", "vscode-langservers-extracted", "primary"]]),
     integration("css", ["css"], [["vscode-css", "vscode-langservers-extracted", "primary"]]),
@@ -167,6 +168,7 @@ export const missingCargo: Prerequisite = {
 
 /** One of each row state: ready, not downloaded, installing, needs a prerequisite, failed. */
 export const facts = (): ReadonlyArray<P.LanguageHostToolState> => [
+  availability("typescript-go", INSTALLED("7.0.2")),
   availability("typescript-language-server", INSTALLED("6.0.1")),
   availability("vscode-langservers-extracted", NOT_INSTALLED),
   availability("pyright", INSTALLING),

@@ -3,11 +3,39 @@ import { realpath, mkdtemp, rm, writeFile, mkdir, access, cp } from "node:fs/pro
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import * as P from "@polaris/protocol";
-import { Effect, Layer, Predicate, Redacted, Schema, Stream } from "effect";
+import { Effect, Layer, Predicate, Redacted, Schema } from "effect";
 import { connectRpc, socketTransport } from "@polaris/client";
 import { EventStore } from "../../store/EventStore.ts";
 import { startServer } from "../../transport/server.ts";
 import { lazyLanguageHandlers } from "../../transport/lazyLanguages.ts";
+import { selectImportFix } from "@polaris/predict";
+
+const Range = Schema.Struct({
+  start: Schema.Struct({ line: Schema.Number, character: Schema.Number }),
+  end: Schema.Struct({ line: Schema.Number, character: Schema.Number }),
+});
+
+const ImportReport = Schema.Struct({
+  items: Schema.Array(Schema.Struct({ range: Range, message: Schema.String, code: Schema.Number })),
+});
+
+const ImportActions = Schema.Array(
+  Schema.Struct({
+    title: Schema.String,
+    kind: Schema.optionalKey(Schema.String),
+    isPreferred: Schema.optionalKey(Schema.Boolean),
+    edit: Schema.optionalKey(
+      Schema.Struct({
+        changes: Schema.optionalKey(
+          Schema.Record(
+            Schema.String,
+            Schema.Array(Schema.Struct({ range: Range, newText: Schema.String }))
+          )
+        ),
+      })
+    ),
+  })
+);
 
 const caps: P.Capability[] = [
   "languages",
@@ -24,23 +52,19 @@ const projectProvider = Effect.fn("LiveProjectProvider")(function* (
   input: typeof P.AcquireLanguageContext.payloadSchema.Type,
   uri: string
 ) {
-  const compilers = yield* Effect.promise(async () => {
-    const found = [];
+  const compilers = (cwd: string, pattern: string) =>
+    Effect.promise(() =>
+      Array.fromAsync(new Bun.Glob(pattern).scan({ cwd, absolute: true, dot: true }))
+    );
 
-    for await (const path of new Bun.Glob("languages/**/lib/tsserver.js").scan({
-      cwd: root,
-      absolute: true,
-    }))
-      found.push(path);
+  // TypeScript 7 runs before Trust, so a real TypeScript 6 comes from this checkout.
+  const [compiler] = yield* compilers(
+    join(import.meta.dir, "../../../../.."),
+    "node_modules/.bun/typescript@6.*/node_modules/typescript/lib/tsserver.js"
+  );
 
-    return found;
-  });
-
-  expect(compilers).toHaveLength(1);
   yield* Effect.promise(async () => {
-    const compiler = compilers[0];
-
-    if (compiler === undefined) throw new Error("Bundled compiler missing");
+    if (compiler === undefined) throw new Error("A TypeScript 6 compiler is missing");
     await cp(join(compiler, "../.."), join(project, "node_modules/typescript"), {
       recursive: true,
     });
@@ -77,7 +101,8 @@ const projectProvider = Effect.fn("LiveProjectProvider")(function* (
   }
 
   expect(Predicate.isTagged(snapshot.runtime, "Ready")).toBe(true);
-  expect(snapshot.ack.documents).toEqual([{ uri, version: 1 }]);
+  expect(snapshot.ack.documents).toEqual([{ uri, version: 3 }]);
+  expect(yield* compilers(root, "languages/**/lib/tsserver.js")).toHaveLength(1);
 
   const projectHover = yield* client["languages.request"]({
     requestId: "project-hover",
@@ -210,7 +235,9 @@ test("default Host downloads pinned tools without Trust and serves hover, diagno
         });
 
         expect(discovered.providers.map((provider) => provider.preflight)).toEqual([
-          P.LanguagePreflight.cases.Eligible.make({ artifactId: "typescript-language-server-npm" }),
+          P.LanguagePreflight.cases.Eligible.make({
+            artifactId: `typescript-go-${process.platform}-${process.arch}`,
+          }),
         ]);
 
         const input = {
@@ -256,20 +283,16 @@ test("default Host downloads pinned tools without Trust and serves hover, diagno
           documents: [{ uri, version: 1 }],
         });
 
-        const diagnostics = yield* rpc.client["languages.context.watch"]({
-          context: snapshot.context,
-        }).pipe(
-          Stream.filter(
-            (event) =>
-              Predicate.isTagged(event, "Diagnostics") &&
-              event.diagnostics.items.some((item) => item.code === 2322 || item.code === "2322")
-          ),
-          Stream.take(1),
-          Stream.runCollect,
-          Effect.timeout(15000)
-        );
+        // TypeScript 7 serves pull diagnostics, as the Editor asks for them.
+        const pulled = yield* rpc.client["languages.request"]({
+          requestId: "diagnostic",
+          fence,
+          method: "textDocument/diagnostic",
+          params: { textDocument: { uri } },
+          deadline: Date.now() + 15000,
+        });
 
-        expect(diagnostics.length).toBe(1);
+        expect(JSON.stringify(pulled.result)).toContain('"code":2322');
 
         for (const method of [
           "textDocument/hover",
@@ -317,6 +340,74 @@ test("default Host downloads pinned tools without Trust and serves hover, diagno
             expect("format" in prepared).toBe(true);
           }
         }
+
+        // An Edit Prediction's import: TypeScript 7's quick fix, chosen by the predictor.
+        const unimported = "const more = answer;\n";
+
+        const changed = yield* rpc.client["languages.document.sync"]({
+          context: snapshot.context,
+          sequence: 2,
+          notification: P.LanguageDocumentNotification.cases.Change.make({
+            uri,
+            previousVersion: 1,
+            version: 2,
+            changes: [{ text: unimported }],
+          }),
+        });
+
+        const importFence = P.LanguageRequestFence.make({
+          context: snapshot.context,
+          requiredSequence: changed.acceptedSequence,
+          documents: [{ uri, version: 2 }],
+        });
+
+        const report = yield* rpc.client["languages.request"]({
+          requestId: "import-diagnostic",
+          fence: importFence,
+          method: "textDocument/diagnostic",
+          params: { textDocument: { uri } },
+          deadline: Date.now() + 15000,
+        });
+
+        const unresolved = Schema.decodeUnknownSync(ImportReport)(report.result).items.filter(
+          (item) => item.code === 2304
+        );
+
+        const fixes = yield* Effect.forEach(unresolved, (diagnostic) =>
+          rpc.client["languages.request"]({
+            requestId: "import-fix",
+            fence: importFence,
+            method: "textDocument/codeAction",
+            params: {
+              textDocument: { uri },
+              range: diagnostic.range,
+              context: { diagnostics: [diagnostic], only: ["quickfix"], triggerKind: 2 },
+            },
+            deadline: Date.now() + 15000,
+          }).pipe(
+            Effect.map((answer) => ({
+              diagnostic,
+              actions: Schema.decodeUnknownSync(ImportActions)(answer.result),
+            }))
+          )
+        );
+
+        expect(selectImportFix({ uri, text: unimported }, fixes)?.edits).toEqual([
+          {
+            range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+            newText: 'import { answer } from "./value";\n\n',
+          },
+        ]);
+        yield* rpc.client["languages.document.sync"]({
+          context: snapshot.context,
+          sequence: 3,
+          notification: P.LanguageDocumentNotification.cases.Change.make({
+            uri,
+            previousVersion: 2,
+            version: 3,
+            changes: [{ text: draft }],
+          }),
+        });
 
         expect(
           yield* Effect.promise(() =>
