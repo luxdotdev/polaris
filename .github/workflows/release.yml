@@ -1,9 +1,10 @@
 name: Release
 
-# Building, signing and publishing are separate jobs (docs/adr/0053): repository code and its
+# Building, signing and publishing are separate jobs (docs/adr/0057): repository code and its
 # dependencies run without credentials or write access; tooling/release/sign.py from the default
 # branch is the only code that sees Apple credentials, and only `publish` can write the Release.
-# Every hand-off is an artifact whose SHA-256 the next job checks.
+# Every hand-off is an artifact, downloaded by the ID its upload recorded, whose SHA-256 the next
+# job checks; the signer checks its own inputs and unpacks them as hostile.
 on:
   push:
     tags: ["v*"]
@@ -54,6 +55,7 @@ jobs:
       contents: read
     outputs:
       bundle: ${{ steps.handoff.outputs.bundle }}
+      bundle-id: ${{ steps.bundle.outputs.artifact-id }}
       assets: ${{ steps.handoff.outputs.assets }}
       daemon: ${{ steps.handoff.outputs.daemon }}
     defaults:
@@ -92,8 +94,9 @@ jobs:
           VERSION: ${{ needs.metadata.outputs.version }}
         run: |
           dist=apps/desktop/out/dist
-          # tar keeps the app's symlinks and modes, which artifacts drop.
-          tar -cf release-bundle.tar apps/daemon/dist "$dist/Polaris-darwin-arm64/Polaris.app"
+          # tar keeps the app's symlinks and modes, which artifacts drop; no AppleDouble files.
+          COPYFILE_DISABLE=1 tar --no-mac-metadata -cf release-bundle.tar \
+            apps/daemon/dist "$dist/Polaris-darwin-arm64/Polaris.app"
           # The manifest names every platform's Release archive; the archives upload as assets.
           tar -czf polaris-daemon-dist.tar.gz --exclude dist/release -C apps/daemon dist
           mkdir assets
@@ -106,6 +109,7 @@ jobs:
             echo "assets=$(shasum -a 256 assets/assets.sha256 | cut -d' ' -f1)"
           } >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        id: bundle
         with:
           name: release-bundle
           path: release-bundle.tar
@@ -153,18 +157,15 @@ jobs:
           sparse-checkout-cone-mode: false
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          name: release-bundle
+          artifact-ids: ${{ needs.build.outputs.bundle-id }}
           path: handoff
-      - name: Verify and unpack the build
-        env:
-          BUNDLE_SHA256: ${{ needs.build.outputs.bundle }}
-        run: |
-          echo "$BUNDLE_SHA256  handoff/release-bundle.tar" | shasum -a 256 -c -
-          mkdir work
-          tar -xf handoff/release-bundle.tar -C work
+          merge-multiple: true
+      # The signer checks the tar against the build's digest and unpacks it into signed/,
+      # which it creates; the hand-off and its digests come back in signed/.
       - name: Sign, notarise and staple the Daemon, the app and the update ZIP
         env:
           VERSION: ${{ needs.metadata.outputs.version }}
+          BUNDLE_SHA256: ${{ needs.build.outputs.bundle }}
           MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
           MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
           MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
@@ -174,44 +175,30 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: >-
           python3 -I signer/tooling/release/sign.py app
-          --dist work/apps/daemon/dist
-          --app work/apps/desktop/out/dist/Polaris-darwin-arm64/Polaris.app
-          --out work/apps/desktop/out/dist
+          --handoff handoff/release-bundle.tar
+          --sha256 "$BUNDLE_SHA256"
+          --out signed
           --entitlements signer/apps/desktop/scripts/packaging/entitlements
           --version "$VERSION"
-      - name: Hand off the signed outputs with their digests
+      - name: Report the signed outputs' digests
         id: handoff
-        env:
-          VERSION: ${{ needs.metadata.outputs.version }}
-        run: |
-          dist=work/apps/desktop/out/dist
-          tar -cf release-bundle-signed.tar -C work apps/daemon/dist \
-            apps/desktop/out/dist/Polaris-darwin-arm64/Polaris.app
-          tar -czf polaris-daemon-dist.tar.gz --exclude dist/release -C work/apps/daemon dist
-          mkdir assets
-          cp "$dist/Polaris-$VERSION-arm64-mac.zip" work/apps/daemon/dist/release/* assets/
-          (cd assets && shasum -a 256 -- * > ../assets.sha256) && mv assets.sha256 assets/
-          {
-            echo "bundle=$(shasum -a 256 release-bundle-signed.tar | cut -d' ' -f1)"
-            echo "daemon=$(shasum -a 256 polaris-daemon-dist.tar.gz | cut -d' ' -f1)"
-            echo "assets=$(shasum -a 256 assets/assets.sha256 | cut -d' ' -f1)"
-          } >> "$GITHUB_OUTPUT"
+        run: cat signed/digests >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: release-bundle-signed
-          path: release-bundle-signed.tar
+          path: signed/handoff/release-bundle-signed.tar
           if-no-files-found: error
           retention-days: 3
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: release-daemon-dist-signed
-          path: polaris-daemon-dist.tar.gz
+          path: signed/handoff/polaris-daemon-dist.tar.gz
           if-no-files-found: error
           retention-days: 3
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: release-assets-macos-signed
-          path: assets/
+          path: signed/handoff/assets/
           if-no-files-found: error
           retention-days: 3
 
@@ -224,6 +211,7 @@ jobs:
       contents: read
     outputs:
       dmg: ${{ steps.handoff.outputs.dmg }}
+      dmg-id: ${{ steps.upload.outputs.artifact-id }}
     defaults:
       run:
         shell: bash
@@ -278,6 +266,7 @@ jobs:
           mv "apps/desktop/out/dist/Polaris-$VERSION-arm64.dmg" .
           echo "dmg=$(shasum -a 256 "Polaris-$VERSION-arm64.dmg" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        id: upload
         with:
           name: release-dmg
           path: Polaris-${{ needs.metadata.outputs.version }}-arm64.dmg
@@ -307,16 +296,13 @@ jobs:
           sparse-checkout-cone-mode: false
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          name: release-dmg
-          path: assets
-      - name: Verify the DMG
+          artifact-ids: ${{ needs.dmg.outputs.dmg-id }}
+          path: handoff
+          merge-multiple: true
+      - name: Sign, notarise and staple a checked copy of the DMG
         env:
+          VERSION: ${{ needs.metadata.outputs.version }}
           DMG_SHA256: ${{ needs.dmg.outputs.dmg }}
-          VERSION: ${{ needs.metadata.outputs.version }}
-        run: echo "$DMG_SHA256  assets/Polaris-$VERSION-arm64.dmg" | shasum -a 256 -c -
-      - name: Sign, notarise and staple the DMG
-        env:
-          VERSION: ${{ needs.metadata.outputs.version }}
           MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
           MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
           MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
@@ -324,20 +310,23 @@ jobs:
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: python3 -I signer/tooling/release/sign.py dmg --dmg "assets/Polaris-$VERSION-arm64.dmg"
-      - name: Assess the DMG and hand it off with its digest
+        run: >-
+          python3 -I signer/tooling/release/sign.py dmg
+          --dmg "handoff/Polaris-$VERSION-arm64.dmg"
+          --sha256 "$DMG_SHA256"
+          --out signed
+      - name: Assess the DMG and report its digests
         id: handoff
         env:
           VERSION: ${{ needs.metadata.outputs.version }}
         run: |
           spctl --assess --type open --context context:primary-signature --verbose=2 \
-            "assets/Polaris-$VERSION-arm64.dmg"
-          (cd assets && shasum -a 256 -- * > ../assets.sha256) && mv assets.sha256 assets/
-          echo "assets=$(shasum -a 256 assets/assets.sha256 | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+            "signed/assets/Polaris-$VERSION-arm64.dmg"
+          cat signed/digests >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: release-assets-dmg-signed
-          path: assets/
+          path: signed/assets/
           if-no-files-found: error
           retention-days: 3
 

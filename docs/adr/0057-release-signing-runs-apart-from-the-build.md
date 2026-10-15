@@ -19,7 +19,9 @@ signature. A Codex Security audit reported both paths.
 ## Decision
 
 The release is a chain of jobs, each with only the authority it needs, handing off
-artifacts whose SHA-256 the next job checks against the digest its producer reported:
+artifacts whose SHA-256 the next job checks against the digest its producer reported.
+The signing jobs download a hand-off by the artifact ID its upload step recorded as a
+job output, so no later upload under the same name can stand in for it:
 
 | Job | Runs | Secrets | Token |
 |---|---|---|---|
@@ -44,10 +46,28 @@ layout as `archive.ts`) and `SHA256SUMS`, before it seals the app. The DMG is bu
 in an unprivileged job between the two signing jobs, because building it needs
 `dmgbuild` and its dependencies.
 
+A digest only proves the signer got what the build uploaded, and the build ran the
+tag's code, so the signer treats each hand-off as hostile. It copies the file into a
+directory it creates (the run fails if that directory exists), checks the copy's
+SHA-256 itself, and unpacks the tar with its own checks: every entry is a relative
+path without `.` or `..` under `apps/daemon/dist` or the app, and is a directory, a
+regular file or a symlink; hard links, devices and FIFOs are refused, files are
+created exclusively and never through a symlink, and set-ID bits are dropped. A
+symlink may only sit inside the app's `Contents/Frameworks`, with a relative target
+that stays there, and must resolve (`Path.resolve(strict=True)`) inside it: the
+links a framework's `Versions/Current` layout needs, and nothing that reaches out.
+Manifest names (files, binaries, archives) must be plain file names. The signed
+bundle, the Daemon dist for Windows, the release assets and their digests are
+written only into the signer's directory; the workflow uploads them and reports the
+digests from there. `tooling/release/test_sign.py` (run by CI's check job) crafts
+hand-offs with traversal names, outside symlinks and Frameworks links that leave
+the bundle.
+
 Every external action is pinned to a full commit SHA with its version in a comment.
 `tooling/release/workflows.test.ts` fails if an action is unpinned, if any job but
 `publish` can write, or if a job holding a secret value runs anything but checkout,
-artifact transfer and the signer.
+artifact transfer and the signer, or if such a job downloads a hand-off by name or
+handles one with shell tools instead of the signer.
 
 ## Consequences
 

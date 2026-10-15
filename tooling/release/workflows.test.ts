@@ -91,4 +91,19 @@ describe("release authority", () => {
       }
     }
   });
+
+  test("jobs with Apple credentials touch hand-offs only through the signer", () => {
+    for (const [, job] of Object.entries(release.jobs).filter(([, each]) => holdsSecrets(each))) {
+      for (const step of job.steps) {
+        if (step.uses?.startsWith("actions/download-artifact@")) {
+          expect(step.with?.name).toBeUndefined();
+          expect(String(step.with?.["artifact-ids"])).toMatch(/^\$\{\{ needs\.[\w-]+\.outputs\./);
+        }
+
+        if (step.run?.startsWith("python3 -I signer/tooling/release/sign.py ")) continue;
+
+        expect(step.run ?? "").not.toMatch(/\b(tar|cp|mv|ln|ditto|unzip|shasum|cd)\b/);
+      }
+    }
+  });
 });

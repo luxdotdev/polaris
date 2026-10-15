@@ -42,7 +42,7 @@ appearances. No label colour is baked into the background; Finder draws the labe
 
 Packaging with credentials is for a local signed build; the release workflow never
 gives packaging credentials. It packages unsigned and signs the outputs with
-`tooling/release/sign.py` in separate jobs ([ADR 0053](../../../../docs/adr/0053-release-signing-runs-apart-from-the-build.md)).
+`tooling/release/sign.py` in separate jobs ([ADR 0057](../../../../docs/adr/0057-release-signing-runs-apart-from-the-build.md)).
 
 With the same complete credentials consumed by `release.ts`, packaging verifies
 the already signed and stapled app, builds the image without modifying it, signs

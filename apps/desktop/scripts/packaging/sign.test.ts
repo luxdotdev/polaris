@@ -1,9 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import {
   copyFileSync,
+  cpSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
+  rmSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -12,10 +15,23 @@ import { join } from "node:path";
 import { unpackArchive } from "@polaris/client/install";
 import { REPO_ROOT } from "../lib/build.ts";
 import { daemonChecksumsName, RELEASE_DIR, stageDaemon, writeDaemonArchives } from "./archives.ts";
-import { daemonDist, removeDists } from "./dist.testing.ts";
+import { daemonDist, hash, removeDists } from "./dist.testing.ts";
 import { fileFacts, readManifest, verifyDaemonManifest } from "./manifest.ts";
 
-afterEach(removeDists);
+const roots: string[] = [];
+
+const scratch = () => {
+  const root = mkdtempSync(join(tmpdir(), "polaris-sign-"));
+  roots.push(root);
+
+  return root;
+};
+
+afterEach(() => {
+  removeDists();
+
+  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+});
 
 const SIGNER = join(REPO_ROOT, "tooling/release/sign.py");
 
@@ -69,7 +85,7 @@ const bundle = (path: string, executable: string) => {
 
 /** The shape of an Electron app: a helper app and a versioned framework with a library. */
 const releaseApp = (dist: string) => {
-  const app = join(mkdtempSync(join(tmpdir(), "polaris-sign-")), "Polaris.app");
+  const app = join(scratch(), "Polaris.app");
   bundle(app, "Polaris");
   bundle(join(app, "Contents/Frameworks/Polaris Helper.app"), "Polaris Helper");
   const framework = join(app, "Contents/Frameworks/Fake.framework");
@@ -103,20 +119,44 @@ const signer = (...args: string[]) => {
   return { ok: result.exitCode === 0, error: result.stderr.toString() };
 };
 
-const signApp = (dist: string, app: string, out: string) =>
+const DIST = "apps/daemon/dist";
+
+const APP = "apps/desktop/out/dist/Polaris-darwin-arm64/Polaris.app";
+
+/** The build job's hand-off: the Daemon dist and the app in one tar, as release.yml packs it. */
+const handoff = (dist: string, app: string) => {
+  const root = scratch();
+  cpSync(dist, join(root, DIST), { recursive: true, verbatimSymlinks: true });
+  cpSync(app, join(root, APP), { recursive: true, verbatimSymlinks: true });
+  const tar = join(root, "release-bundle.tar");
+  Bun.spawnSync(["tar", "--no-mac-metadata", "-cf", tar, "-C", root, DIST, APP], {
+    env: { ...process.env, COPYFILE_DISABLE: "1" },
+  });
+
+  return { tar, sha256: hash(readFileSync(tar)), out: join(root, "signed") };
+};
+
+const signApp = (bundle: ReturnType<typeof handoff>) =>
   signer(
     "app",
-    "--dist",
-    dist,
-    "--app",
-    app,
+    "--handoff",
+    bundle.tar,
+    "--sha256",
+    bundle.sha256,
     "--out",
-    out,
+    bundle.out,
     "--entitlements",
     ENTITLEMENTS,
     "--version",
     VERSION
   );
+
+/** Where the signer left the signed Daemon dist and app. */
+const signed = (bundle: ReturnType<typeof handoff>) => ({
+  dist: join(bundle.out, "tree", DIST),
+  app: join(bundle.out, "tree", APP),
+  assets: join(bundle.out, "handoff/assets"),
+});
 
 /** `codesign --display` facts: the flags line and the entitlements XML. */
 const signature = (path: string) => {
@@ -138,12 +178,13 @@ const verifies = (...args: string[]) =>
 
 describe.skipIf(process.platform !== "darwin")("the release signer", () => {
   test("re-records the signed Daemon in the manifests, its archive and checksums", () => {
-    const dist = releaseDist();
-    const app = releaseApp(dist);
-    const unsigned = readFileSync(join(dist, "darwin-arm64/polaris"));
+    const source = releaseDist();
+    const bundle = handoff(source, releaseApp(source));
+    const unsigned = readFileSync(join(source, "darwin-arm64/polaris"));
 
-    expect(signApp(dist, app, join(app, ".."))).toEqual({ ok: true, error: "" });
+    expect(signApp(bundle)).toEqual({ ok: true, error: "" });
 
+    const { dist, app } = signed(bundle);
     const polaris = readFileSync(join(dist, "darwin-arm64/polaris"));
     expect(polaris.equals(unsigned)).toBe(false);
     expect(signature(join(dist, "darwin-arm64/polaris"))).toContain("(adhoc,runtime)");
@@ -171,12 +212,12 @@ describe.skipIf(process.platform !== "darwin")("the release signer", () => {
   });
 
   test("signs the app from the inside out, keeping the Daemon's own entitlements", () => {
-    const dist = releaseDist();
-    const app = releaseApp(dist);
-    const out = join(app, "..", "out");
+    const source = releaseDist();
+    const bundle = handoff(source, releaseApp(source));
 
-    expect(signApp(dist, app, out).ok).toBe(true);
+    expect(signApp(bundle).ok).toBe(true);
 
+    const { app, assets } = signed(bundle);
     expect(verifies("--deep", app)).toBe(true);
 
     for (const nested of [
@@ -188,29 +229,87 @@ describe.skipIf(process.platform !== "darwin")("the release signer", () => {
       "com.apple.security.cs.disable-library-validation"
     );
 
-    const listing = Bun.spawnSync(["unzip", "-l", join(out, `Polaris-${VERSION}-arm64-mac.zip`)]);
+    const listing = Bun.spawnSync([
+      "unzip",
+      "-l",
+      join(assets, `Polaris-${VERSION}-arm64-mac.zip`),
+    ]);
+
     expect(listing.stdout.toString()).toContain("Polaris.app/Contents/MacOS/Polaris");
   });
 
-  test("refuses a Daemon whose bytes differ from its manifest", () => {
-    const dist = releaseDist();
-    const app = releaseApp(dist);
-    writeFileSync(join(dist, "darwin-arm64/betterleaks"), "replaced");
+  test("hands off the signed outputs with the digests the next jobs check", () => {
+    const source = releaseDist();
+    const bundle = handoff(source, releaseApp(source));
 
-    const { ok, error } = signApp(dist, app, join(app, ".."));
+    expect(signApp(bundle).ok).toBe(true);
+
+    const { assets } = signed(bundle);
+    const digests = readFileSync(join(bundle.out, "digests"), "utf8").trim().split("\n");
+
+    expect(digests).toEqual([
+      `bundle=${hash(readFileSync(join(bundle.out, "handoff/release-bundle-signed.tar")))}`,
+      `daemon=${hash(readFileSync(join(bundle.out, "handoff/polaris-daemon-dist.tar.gz")))}`,
+      `assets=${hash(readFileSync(join(assets, "assets.sha256")))}`,
+    ]);
+
+    const listed = readFileSync(join(assets, "assets.sha256"), "utf8")
+      .trim()
+      .split("\n")
+      .map((line) => {
+        const [sha256, name] = line.split("  ");
+
+        return [name, sha256 === hash(readFileSync(join(assets, name!)))];
+      });
+
+    expect(listed).toEqual(
+      readdirSync(assets)
+        .filter((name) => name !== "assets.sha256")
+        .toSorted()
+        .map((name) => [name, true])
+    );
+
+    expect(listed.map(([name]) => name)).toContain(`Polaris-${VERSION}-arm64-mac.zip`);
+  });
+
+  test("refuses a Daemon whose bytes differ from its manifest", () => {
+    const source = releaseDist();
+    const app = releaseApp(source);
+    writeFileSync(join(source, "darwin-arm64/betterleaks"), "replaced");
+
+    const { ok, error } = signApp(handoff(source, app));
 
     expect(ok).toBe(false);
     expect(error).toContain("darwin-arm64/betterleaks: bytes differ from the Daemon manifest");
   });
 
-  test("signs the installer image", () => {
-    const dist = releaseDist();
-    const app = releaseApp(dist);
-    const dmg = join(app, "..", "Polaris.dmg");
-    Bun.spawnSync(["hdiutil", "create", "-quiet", "-srcfolder", app, "-format", "UDZO", dmg]);
+  test("refuses a hand-off whose Daemon is a symlink out of it, signing nothing", () => {
+    const source = releaseDist();
+    const app = releaseApp(source);
+    const outside = join(scratch(), "outside");
+    copyFileSync(MACHO, outside);
+    rmSync(join(source, "darwin-arm64/polaris"));
+    symlinkSync(outside, join(source, "darwin-arm64/polaris"));
 
+    const { ok, error } = signApp(handoff(source, app));
+
+    expect(ok).toBe(false);
+    expect(error).toContain("points outside the app's Frameworks");
+    expect(readFileSync(outside).equals(readFileSync(MACHO))).toBe(true);
+  });
+
+  test("signs a copy of the installer image", () => {
+    const source = releaseDist();
+    const app = releaseApp(source);
+    const root = scratch();
+    const dmg = join(root, `Polaris-${VERSION}-arm64.dmg`);
+    Bun.spawnSync(["hdiutil", "create", "-quiet", "-srcfolder", app, "-format", "UDZO", dmg]);
+    const out = join(root, "signed");
+
+    expect(signer("dmg", "--dmg", dmg, "--sha256", hash(readFileSync(dmg)), "--out", out).ok).toBe(
+      true
+    );
     expect(verifies(dmg)).toBe(false);
-    expect(signer("dmg", "--dmg", dmg).ok).toBe(true);
-    expect(verifies(dmg)).toBe(true);
+    expect(verifies(join(out, "assets", `Polaris-${VERSION}-arm64.dmg`))).toBe(true);
   }, 60_000);
 });
