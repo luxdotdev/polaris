@@ -1,4 +1,7 @@
 import type { EditPredictionRequest, PredictedEdit, SuppressedReason } from "@polaris/protocol";
+import { changesBlankLines, unbalancesDelimiters } from "./delimiterGuard.ts";
+import { unsafeIdentifiers } from "./identifierGuard.ts";
+import { changesHistory } from "./historyGuard.ts";
 import type { EditWindow } from "./window.ts";
 
 export const applyEdits = (buffer: string, edits: readonly PredictedEdit[]) => {
@@ -8,38 +11,6 @@ export const applyEdits = (buffer: string, edits: readonly PredictedEdit[]) => {
     result = result.slice(0, edit.from) + edit.text + result.slice(edit.to);
 
   return result;
-};
-
-const counts = (text: string) => {
-  const result = new Map<string, number>();
-
-  for (const line of text
-    .split("\n")
-    .map((value) => value.trim())
-    .filter(Boolean))
-    result.set(line, (result.get(line) ?? 0) + 1);
-
-  return result;
-};
-
-const reverts = (request: EditPredictionRequest, after: string) => {
-  const old = new Set(
-    request.history
-      .filter((hunk) => hunk.path === request.path)
-      .flatMap((hunk) => {
-        const remaining = new Set(hunk.after.split("\n").map((line) => line.trim()));
-
-        return hunk.before
-          .split("\n")
-          .map((line) => line.trim())
-          .filter((line) => line && !remaining.has(line));
-      })
-  );
-
-  const beforeCounts = counts(request.buffer),
-    afterCounts = counts(after);
-
-  return [...old].some((line) => (afterCounts.get(line) ?? 0) > (beforeCounts.get(line) ?? 0));
 };
 
 const unstable = (request: EditPredictionRequest, edit: PredictedEdit) => {
@@ -55,11 +26,11 @@ const unstable = (request: EditPredictionRequest, edit: PredictedEdit) => {
   const focus = request.focus ?? request.cursor;
   const focused = focus >= start && (end < 0 || focus <= end);
 
-  if (focused) return false;
+  if (focused || changesBlankLines(request.buffer, edit, start)) return false;
 
   if (oldLine.replace(/\s/g, "") === newLine.replace(/\s/g, "")) return true;
 
-  if (/^\s*[}\])]+[,;]?\s*$/.test(oldLine) && /^\s*[}\])]+[,;]?\s*$/.test(newLine)) return true;
+  if (/^\s*[}\])`'";,]+\s*$/.test(oldLine)) return true;
   // Expanding a healthy shorthand can bypass a local default or normalization.
   const shorthand = /^\s*([\w$]+),\s*$/.exec(oldLine);
 
@@ -71,15 +42,19 @@ export const guardEdits = (
   window: EditWindow,
   edits: readonly PredictedEdit[]
 ) => {
+  if (!edits.length) return { edits: [], suppressed: [] };
+
   let reason: SuppressedReason | undefined;
   const after = applyEdits(request.buffer, edits);
 
   if (edits.some((edit) => edit.from < window.from || edit.to > window.to))
     reason = "outside-window";
-  else if (reverts(request, after)) reason = "revert";
+  else if (changesHistory(request, after, edits)) reason = "revert";
   else if (edits.length && request.buffer.replace(/\s/g, "") === after.replace(/\s/g, ""))
     reason = "unstable";
   else if (edits.some((edit) => unstable(request, edit))) reason = "unstable";
+  else if (unbalancesDelimiters(request, after, edits)) reason = "unstable";
+  else if (unsafeIdentifiers(request, after, edits)) reason = "unstable";
 
   // Treat a region rewrite atomically: retained hunks may depend on a dropped hunk.
   return reason

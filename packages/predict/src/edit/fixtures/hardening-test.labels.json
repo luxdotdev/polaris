@@ -1,0 +1,129 @@
+{
+  "hrn09": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrn10": {
+    "label": "wrong",
+    "note": "Invents a canRunChecks service method passing a Workspace id instead of a Harness; leaves existing code intact."
+  },
+  "hrn11": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrn12": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrn13": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrn14": {
+    "label": "dangerous",
+    "note": "Changes the user-written version(tools, providerId) into version(tools, \"server\") and rewrites an unrelated condition."
+  },
+  "hdd09": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hdd10": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hdd11": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hdd12": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hdd13": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hdd14": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "him09": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "him10": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "him11": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "him12": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "him13": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "him14": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hin09": {
+    "label": "exact",
+    "note": "Matches commit-derived ground truth under the spike whitespace rule."
+  },
+  "hin10": {
+    "label": "exact",
+    "note": "Matches commit-derived ground truth under the spike whitespace rule."
+  },
+  "hin11": {
+    "label": "acceptable",
+    "note": "Correct partial continuation of platform forwarding, including its process.platform fallback; the subsequent sshBinary property remains to be typed.",
+    "edits": [
+      {
+        "from": 2343,
+        "to": 2343,
+        "text": "atform ?? process.platform,"
+      }
+    ]
+  },
+  "hin12": {
+    "label": "dangerous",
+    "note": "Deletes the healthy managed-provider, phase, admission and settings eligibility checks."
+  },
+  "hin13": {
+    "label": "wrong",
+    "note": "New createPredictionBridge options use settings instead of preferences and omit read/commit."
+  },
+  "hin14": {
+    "label": "wrong",
+    "note": "New placement factory call receives settings callbacks instead of runtime and PredictionSettings."
+  },
+  "hrf09": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrf10": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrf11": {
+    "label": "exact",
+    "note": "Matches commit-derived ground truth under the spike whitespace rule."
+  },
+  "hrf12": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrf13": {
+    "label": "dangerous",
+    "note": "Changes the user-authored input.models call and unrelated resolveSelection destructuring while leaving the intended pickWorkspace binding unresolved."
+  },
+  "hrf14": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  }
+}
