@@ -3,7 +3,6 @@ import { describe, expect, test } from "bun:test";
 import { HostId, WorkspaceId, LanguageCheckout, LanguagePreviewPolicy } from "@polaris/protocol";
 import type { LanguageApi } from "../../../../shared/api.ts";
 import { previewHeadings } from "./headings.ts";
-import { previewDiagrams, safeDiagramSource } from "./diagrams.ts";
 import { PreviewMediaPool } from "./media.ts";
 import { previewTarget, type PreviewDocument } from "./targets.ts";
 
@@ -198,20 +197,6 @@ describe("bounded media lifecycle", () => {
   });
 });
 
-test("strict diagrams reject source configuration and external resource nodes", () => {
-  expect(safeDiagramSource("flowchart LR\n A --> B")).toBe(true);
-
-  for (const source of [
-    '%%{init: {"securityLevel":"loose"}}%%',
-    "---\nconfig: {}",
-    'A@{img: "https://example.com/a"}',
-    "<img src=x>",
-    'A@{icon: "fetchable"}',
-  ]) {
-    expect(safeDiagramSource(source)).toBe(false);
-  }
-});
-
 test("heading fragments are stable and count duplicates over formatted content", () => {
   const tree = {
     type: "root",
@@ -241,31 +226,4 @@ test("heading fragments are stable and count duplicates over formatted content",
   ]);
   previewHeadings()(tree);
   expect(tree.children[1]?.properties).toEqual({ id: "preview-hello-world-1", tabIndex: -1 });
-});
-
-test("quoted Mermaid resource keys never reach the rendering engine", async () => {
-  let renders = 0;
-
-  const plugin = previewDiagrams({
-    name: "mermaid",
-    type: "diagram",
-    language: "mermaid",
-    getMermaid: () => ({
-      initialize: () => {},
-      render: async () => {
-        renders++;
-
-        return { svg: "<svg></svg>" };
-      },
-    }),
-  });
-
-  const engine = plugin.getMermaid();
-  await assert.rejects(
-    engine.render("unsafe", 'flowchart LR\n A@{"img": "https://bad.invalid/image"}'),
-    /unsupported/
-  );
-  expect(renders).toBe(0);
-  await engine.render("safe", "flowchart LR\n A --> B");
-  expect(renders).toBe(1);
 });

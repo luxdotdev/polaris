@@ -9,7 +9,6 @@ import { usePlugins } from "../../session/ui/markdown/plugins.ts";
 import { MERMAID_CONFIG, POLARIS_SHIKI } from "../../session/ui/markdown/theme.ts";
 import { PreviewImage } from "./Image.tsx";
 import { previewTarget, type PreviewDocument } from "./targets.ts";
-import { previewDiagrams } from "./diagrams.ts";
 import { PREVIEW_REHYPE, SAFE_HTML_COMPONENTS } from "./pipeline.tsx";
 import type { PreviewMediaPool } from "./media.ts";
 
@@ -30,12 +29,7 @@ const Rendered = ({ source, document, pool, openDocument, openExternal }: Render
 
   if (needs.code && plugins.code) enabledPlugins.code = plugins.code;
 
-  const diagrams = useMemo(
-    () => (plugins.mermaid ? previewDiagrams(plugins.mermaid) : undefined),
-    [plugins.mermaid]
-  );
-
-  if (needs.mermaid && diagrams) enabledPlugins.mermaid = diagrams;
+  if (needs.mermaid && plugins.mermaid) enabledPlugins.mermaid = plugins.mermaid;
 
   const fragment = (name: string) => {
     const target = Array.from(root.current?.querySelectorAll<HTMLElement>("[id]") ?? []).find(

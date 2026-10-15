@@ -8,7 +8,7 @@
       "reason": "Per-platform builds of @anthropic-ai/claude-agent-sdk (its bundled Claude Code binary), under the same Anthropic terms; same exception, recheck with it."
     },
     "khroma": {
-      "reason": "MIT per its bundled license file (khroma@2.1.0/license); its package.json omits the licence field. Pulled in by mermaid (via @streamdown/mermaid)."
+      "reason": "MIT per its bundled license file (khroma@2.1.0/license); its package.json omits the licence field. Pulled in by mermaid."
     },
     "caniuse-lite": {
       "reason": "CC-BY-4.0 browser-support data (attribution kept in THIRD_PARTY_NOTICES.md), pulled in by next for apps/site; data, not code, and never shipped in the Desktop App or Daemon."

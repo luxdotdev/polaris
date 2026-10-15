@@ -29,9 +29,12 @@ const LOADERS: Readonly<Record<Name, () => Promise<PluginConfig>>> = {
     return { code };
   },
   mermaid: async () => {
-    const { mermaid } = await import("@streamdown/mermaid");
+    const [{ default: mermaid }, { guardedDiagrams }] = await Promise.all([
+      import("mermaid"),
+      import("./diagrams.ts"),
+    ]);
 
-    return { mermaid };
+    return { mermaid: guardedDiagrams(mermaid) };
   },
   math: async () => {
     const [{ createMathPlugin }] = await Promise.all([
