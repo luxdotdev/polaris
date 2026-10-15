@@ -3,7 +3,7 @@
  * `refs/polaris/review/<key>/`, the worktree lock reason, and the hooks-off
  * switch every git call in a checkout carries.
  */
-import { GitCommandError, type GitOptions, type GitResult, runGitRaw } from "../git.ts";
+import { GitCommandError, type GitOptions, type GitResult, HOOKS_OFF, runGitRaw } from "../git.ts";
 
 export const REVIEW_REF_PREFIX = "refs/polaris/review/";
 
@@ -31,11 +31,8 @@ export const LOCK_REASON_PREFIX = "polaris review checkout";
 
 export const lockReasonFor = (label: string): string => `${LOCK_REASON_PREFIX} ${label}`;
 
-/**
- * A PR can ship a hook its own relative `core.hooksPath` points at (husky):
- * no Polaris git call in a checkout may run it (docs/research/review-checkout.md §3).
- */
-export const HOOKS_OFF: ReadonlyArray<string> = ["-c", "core.hooksPath=/dev/null"];
+/** No Polaris git call in a checkout may run a PR's hooks (docs/research/review-checkout.md §3). */
+export { HOOKS_OFF };
 
 /** git in a Review Checkout (or on its behalf), hooks off. */
 export const checkoutGitRaw = (

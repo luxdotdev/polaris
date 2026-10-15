@@ -1,12 +1,13 @@
 /**
- * The GitHub client's Electron side: the endpoints from the environment, and window
- * focus setting the poll rate. Tokens go through `SecureStorage` (`../secure/electron.ts`).
+ * The GitHub client's Electron side: Chromium's network stack, the endpoints from the
+ * environment, and window focus setting the poll rate. Tokens go through `SecureStorage` (`../secure/electron.ts`).
  */
 import { join } from "node:path";
 import { Effect, Layer, Stream, SubscriptionRef } from "effect";
 import { app, BrowserWindow } from "electron";
 import type { GitHubAccountsView, PullListView } from "../../shared/github.ts";
 import type { ClientRuntime } from "../hosts.ts";
+import { internetFetch } from "../net.ts";
 import type { SecureStorage } from "../secure/index.ts";
 import { type EndpointEnv, endpointsFrom } from "./config.ts";
 import { GitHub } from "./index.ts";
@@ -20,7 +21,7 @@ export interface GitHubLayerInput {
 export const githubLayer = ({ userData, env, secureStorage }: GitHubLayerInput) =>
   GitHub.layer({
     dir: join(userData, "github"),
-    fetch: (url, init) => fetch(url, init),
+    fetch: internetFetch,
     endpoints: endpointsFrom(env),
   }).pipe(Layer.provide(secureStorage));
 

@@ -37,7 +37,7 @@ was held (then indexed, decoded and offered as a Blob) whatever its size.
 
 Git the user asked for passes `config: "host"` and runs with the Host's config and hooks as
 before: Changes' stage, unstage, discard and commit, sync, Accept's commit and push, a
-session's own Worktree creation (post-checkout setup), and a Constellation's push to origin
+session's own Worktree creation (with hooks off, as every Polaris-made worktree is), and a Constellation's push to origin
 (git-lfs's pre-push). Network settings (`core.sshCommand`, credential helpers) are not
 touched: automatic fetches use the user's own transport.
 

@@ -264,7 +264,7 @@ The Editor's configured support for one language, combining syntax highlighting 
 _Avoid_: Language plugin, language pack
 
 **Trust**:
-A user's remembered, per-Host choice that lets Polaris run a Workspace's own code (its tooling, plugins, and formatters) for Language Integrations; a Worktree inherits its Workspace's Trust, a Review Checkout never does. Language Integrations that run no Workspace code need no Trust.
+A user's remembered, per-Host choice that lets Polaris run a Workspace's own code: its tooling, plugins, and formatters for Language Integrations, and the setup command a worker's worktree runs before its first Turn. A Worktree inherits its Workspace's Trust, a Review Checkout never does. Language Integrations that run no Workspace code need no Trust.
 _Avoid_: Workspace trust, checkout trust, execution trust, scoped trust
 
 **Prerequisite**:

@@ -71,6 +71,9 @@ const killGroup = (pid: number) => {
   }
 };
 
+/** A repository's own hooks never run in a checkout Polaris makes (a relative husky `core.hooksPath`). */
+export const HOOKS_OFF: ReadonlyArray<string> = ["-c", "core.hooksPath=/dev/null"];
+
 export const runGitRaw = async (
   cwd: string,
   args: ReadonlyArray<string>,

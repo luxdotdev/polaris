@@ -203,6 +203,7 @@ describe("the device-flow card", () => {
     expect(signInStatus(flow(), 900_000 - 872_000)).toEqual({
       waiting: true,
       text: "Waiting for GitHub",
+      hint: null,
       aside: "code expires in 14:32",
     });
   });

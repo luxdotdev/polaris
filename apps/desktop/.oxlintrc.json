@@ -1,4 +1,18 @@
 {
   "$schema": "../../node_modules/oxlint/configuration_schema.json",
-  "extends": ["../../packages/lint-config/oxlint.json"]
+  "extends": ["../../packages/lint-config/oxlint.json"],
+  "overrides": [
+    {
+      "files": ["src/main/**/*.ts"],
+      "rules": {
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "fetch",
+            "message": "Main's internet requests use internetFetch (src/main/net.ts): Node's fetch ignores the system proxy and certificates."
+          }
+        ]
+      }
+    }
+  ]
 }

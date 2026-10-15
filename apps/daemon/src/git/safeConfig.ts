@@ -1,7 +1,7 @@
 /**
  * The config every git call the Daemon makes on its own runs with: a Workspace's
  * `.git/config` and hooks are its content, so none of the commands they name may
- * run (docs/adr/0053-automatic-git-runs-no-repository-commands.md).
+ * run (docs/adr/0056-automatic-git-runs-no-repository-commands.md).
  */
 import { readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";

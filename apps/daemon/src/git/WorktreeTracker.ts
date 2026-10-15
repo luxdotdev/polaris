@@ -8,7 +8,7 @@ import { mkdir } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { Cause, Effect, Layer, Queue, Stream } from "effect";
 import { ServiceError, type WorktreeInfo, WorktreeTracker } from "../services.ts";
-import { gitText, runGitRaw } from "./git.ts";
+import { gitText, HOOKS_OFF, runGitRaw } from "./git.ts";
 
 /** How long the registry must be quiet before it is re-read. */
 export const WATCH_DEBOUNCE_MS = 150;
@@ -97,7 +97,7 @@ const canonical = (path: string): string => {
 
 export const samePath = (a: string, b: string): boolean => canonical(a) === canonical(b);
 
-/** A new branch Worktree, or (with `detach`) a detached one at a commit, as a Review Checkout is. */
+/** A new branch Worktree, or (with `detach`) a detached one at a commit; its hooks never run. */
 export type CreateWorktreeOptions =
   | {
       readonly repoPath: string;
@@ -110,16 +110,10 @@ export type CreateWorktreeOptions =
       readonly path: string;
       /** The commit to check out with a detached HEAD; no branch is created. */
       readonly detach: string;
-      /** Extra `-c` settings for `worktree add`, e.g. `core.hooksPath=/dev/null`. */
-      readonly config?: ReadonlyArray<string>;
     };
 
 const worktreeAddArgs = async (options: CreateWorktreeOptions): Promise<Array<string>> => {
-  if ("detach" in options) {
-    const config = (options.config ?? []).flatMap((setting) => ["-c", setting]);
-
-    return [...config, "worktree", "add", "--detach", options.path, options.detach];
-  }
+  if ("detach" in options) return ["worktree", "add", "--detach", options.path, options.detach];
 
   const { repoPath, path, branch, baseRef } = options;
 
@@ -136,8 +130,8 @@ const worktreeAddArgs = async (options: CreateWorktreeOptions): Promise<Array<st
 export const createWorktree = async (options: CreateWorktreeOptions): Promise<WorktreeInfo> => {
   const { repoPath, path } = options;
   await mkdir(dirname(resolve(repoPath, path)), { recursive: true });
-  // A session's own Worktree runs the Host's hooks (post-checkout setup); a Review Checkout never does.
-  await gitText(repoPath, await worktreeAddArgs(options), {
+  // Never the repository's hooks; a session's own Worktree keeps the Host's other config (git-lfs).
+  await gitText(repoPath, [...HOOKS_OFF, ...(await worktreeAddArgs(options))], {
     config: "detach" in options ? "safe" : "host",
   });
 
