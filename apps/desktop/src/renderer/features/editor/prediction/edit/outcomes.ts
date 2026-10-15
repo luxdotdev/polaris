@@ -1,7 +1,7 @@
 /**
  * The one emitter behind the local outcome log (docs/specs/edit-prediction-v1.1.md §8,
  * `main/prediction/README.md`): finalized `PredictionOutcome` records and keystroke deltas, as
- * `PredictionLogRecord`. The Settings slice forwards them over `prediction.outcome` and
+ * `PredictionLogRecord`. `forward.ts` sends them to main over `prediction.outcome` and
  * `prediction.keystrokes`; nothing here holds source text, paths or identifiers.
  */
 import type {
