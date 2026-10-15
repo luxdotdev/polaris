@@ -1,4 +1,9 @@
 import type { PredictionPlacementOutputs } from "./predictionPlacement.ts";
+import type {
+  PredictionOutcomeOutputs,
+  PredictionNotification,
+  PredictionNotificationInput,
+} from "./predictionOutcomes.ts";
 /**
  * The typed bridge between the main process and the renderer: channel names,
  * what every request returns, what every subscription delivers, and the API
@@ -103,6 +108,8 @@ export type {
 export const CHANNELS = {
   /** renderer → main, `invoke(request, RequestEnvelope)` → `Result`. */
   request: "polaris:request",
+  predictionOutcome: "prediction.outcome",
+  predictionKeystrokes: "prediction.keystrokes",
   /** renderer → main, `send(subscribe, SubscribeEnvelope)`. */
   subscribe: "polaris:subscribe",
   /** renderer → main, `send(unsubscribe, { id })`. */
@@ -382,7 +389,8 @@ export interface RequestOutputs
     GitRequestOutputs,
     ConstellationRequestOutputs,
     ResourceRequestOutputs,
-    PredictionPlacementOutputs {
+    PredictionPlacementOutputs,
+    PredictionOutcomeOutputs {
   "constellation.stats": ConstellationStatsView;
   "settings.get": SettingsView;
   "updates.get": AppUpdateView;
@@ -534,6 +542,14 @@ export interface SubscriptionListener<A> {
 export type Route = "orchestrate" | "review" | "edit";
 
 export type AppEvent =
+  | {
+      readonly kind: "prediction-settings";
+      readonly hostKey: string;
+      readonly preferences: import("./predictionPlacement.ts").PredictionPreferences;
+      readonly restraints: ReturnType<
+        typeof import("./predictionPlacement.ts").predictionRestraints
+      >;
+    }
   /** A command from the native menu (`shared/keymap.ts`); the renderer runs it. */
   | { readonly kind: "command"; readonly id: CommandId }
   | { readonly kind: "appearance"; readonly appearance: Appearance }
@@ -583,6 +599,10 @@ export interface PolarisApi {
   /** The Client's OS from `process.platform`; read it through `clientPlatform()` (shared/platform.ts). */
   readonly platform?: string;
   readonly languages?: LanguageApi;
+  readonly notify?: <M extends PredictionNotification>(
+    method: M,
+    input: PredictionNotificationInput<M>
+  ) => void;
   readonly request: <M extends RequestMethod>(
     method: M,
     input: RequestInput<M>

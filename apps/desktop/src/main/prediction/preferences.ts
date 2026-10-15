@@ -9,7 +9,11 @@ import type { Settings } from "../settings.ts";
 export class PredictionSettings {
   constructor(
     private readonly read: () => Settings,
-    private readonly commit: (settings: Settings) => void
+    private readonly commit: (settings: Settings) => void,
+    private readonly changed: (
+      hostKey: string,
+      preferences: PredictionPreferences
+    ) => void = () => {}
   ) {}
 
   getClientEndpoints(): PredictionClientEndpoints {
@@ -24,15 +28,19 @@ export class PredictionSettings {
   }
 
   get(hostKey: string): PredictionPreferences {
-    return this.read().prediction?.[hostKey] ?? DEFAULT_PREDICTION_PREFERENCES;
+    return Schema.decodeUnknownSync(PredictionPreferences)(
+      this.read().prediction?.[hostKey] ?? DEFAULT_PREDICTION_PREFERENCES
+    );
   }
 
   set(hostKey: string, preferences: PredictionPreferences): PredictionPreferences {
-    const validated = Schema.decodeUnknownSync(PredictionPreferences)(preferences);
+    const decoded = Schema.decodeUnknownSync(PredictionPreferences)(preferences);
+    const validated = { ...decoded, disabledLanguages: [...new Set(decoded.disabledLanguages)] };
     this.commit({
       ...this.read(),
       prediction: { ...this.read().prediction, [hostKey]: validated },
     });
+    this.changed(hostKey, validated);
 
     return validated;
   }

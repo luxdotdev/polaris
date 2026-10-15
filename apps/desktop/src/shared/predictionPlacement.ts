@@ -1,5 +1,29 @@
-import { PredictionEndpoint, PredictionEndpointUrl, PredictionFormat } from "@polaris/protocol";
-import { Schema } from "effect";
+import {
+  EditPredictionFormat,
+  PredictionEndpoint,
+  PredictionEndpointUrl,
+  PredictionFormat,
+} from "@polaris/protocol";
+import { Effect, Schema } from "effect";
+
+export const PredictionAggressiveness = Schema.Literals(["conservative", "balanced", "eager"]);
+
+export type PredictionAggressiveness = typeof PredictionAggressiveness.Type;
+
+export const predictionRestraints = (aggressiveness: PredictionAggressiveness) => ({
+  pauseMs: { conservative: 300, balanced: 150, eager: 75 }[aggressiveness],
+  jumpsOffered: aggressiveness !== "conservative",
+  largeDeletionsOffered: aggressiveness !== "conservative",
+});
+
+export const PREDICTION_ACCEPT_BINDING = "editor.prediction.accept" as const;
+
+const LanguageId = Schema.String.check(Schema.isPattern(/^[a-z][a-z0-9_+-]{0,63}$/));
+
+const EditModel = Schema.String.check(
+  Schema.isMaxLength(512),
+  Schema.isPattern(/zeta[\W_]*2[._-]?1|sweep.*next[\W_]*edit/i)
+);
 
 export const PredictionPlacementChoice = Schema.Literals(["auto", "client", "host", "off"]);
 
@@ -13,17 +37,42 @@ export const ConfiguredPredictionEndpoint = Schema.Struct({
 export const PredictionPreferences = Schema.Struct({
   placement: PredictionPlacementChoice,
   model: Schema.NullOr(Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(512))),
-  format: Schema.NullOr(PredictionFormat),
+  format: Schema.NullOr(Schema.Union([PredictionFormat, EditPredictionFormat])),
   hostEndpoints: Schema.Array(ConfiguredPredictionEndpoint).check(Schema.isMaxLength(16)),
+  display: Schema.Literals(["full", "subtle"]).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed("full"))
+  ),
+  aggressiveness: PredictionAggressiveness.pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed("balanced"))
+  ),
+  acceptKey: Schema.Literal(PREDICTION_ACCEPT_BINDING).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(PREDICTION_ACCEPT_BINDING))
+  ),
+  disabledLanguages: Schema.Array(LanguageId)
+    .check(Schema.isMaxLength(256))
+    .pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+  editModel: Schema.NullOr(EditModel).pipe(Schema.withDecodingDefaultKey(Effect.succeed(null))),
 });
 
 export type PredictionPreferences = typeof PredictionPreferences.Type;
+
+export const predictionPreferenceView = (preferences: PredictionPreferences) => ({
+  ...preferences,
+  restraints: predictionRestraints(preferences.aggressiveness),
+});
+
+export type PredictionPreferenceView = ReturnType<typeof predictionPreferenceView>;
 
 export const DEFAULT_PREDICTION_PREFERENCES: PredictionPreferences = {
   placement: "auto",
   model: null,
   format: null,
   hostEndpoints: [],
+  display: "full",
+  aggressiveness: "balanced",
+  acceptKey: PREDICTION_ACCEPT_BINDING,
+  disabledLanguages: [],
+  editModel: null,
 };
 
 export const PredictionClientEndpoints = Schema.Array(ConfiguredPredictionEndpoint).check(
@@ -47,6 +96,8 @@ export interface PredictionPlacementOutputs {
   readonly "prediction.clientEndpoints.get": PredictionClientEndpoints;
   readonly "prediction.clientEndpoints.set": PredictionClientEndpoints;
   readonly "prediction.resources.get": { readonly rssBytes: number; readonly processes: number };
-  readonly "prediction.settings.get": PredictionPreferences;
-  readonly "prediction.settings.set": PredictionPreferences;
+  readonly "prediction.settings.get": PredictionPreferences &
+    Partial<Pick<PredictionPreferenceView, "restraints">>;
+  readonly "prediction.settings.set": PredictionPreferences &
+    Partial<Pick<PredictionPreferenceView, "restraints">>;
 }

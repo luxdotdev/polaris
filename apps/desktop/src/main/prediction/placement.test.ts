@@ -19,6 +19,46 @@ const report: PredictionCapability = {
   endpoints: [{ kind: "openai", url: "http://127.0.0.1:8080", models: ["mellum2-12b-a2.5b"] }],
 };
 
+test("The edit-model override beats the machine recommendation while FIM keeps its own model", async () => {
+  let settings: Settings = {};
+
+  const preferences = new PredictionSettings(
+    () => settings,
+    (next) => {
+      settings = next;
+    }
+  );
+
+  const main = new MainPredictionPlacement({
+    preferences,
+    client: async () => ({
+      ...report,
+      endpoints: [
+        {
+          kind: "openai",
+          url: "http://localhost:8080",
+          models: ["Zeta-2.1-Q4", "Sweep-Next-Edit-Q4", "mellum2-12b-a2.5b"],
+        },
+      ],
+    }),
+    host: async () => null,
+  });
+
+  const signal = new AbortController().signal;
+
+  expect((await main.choose("mac", "one", signal, "auto")).context.serving?.model).toBe(
+    "Zeta-2.1-Q4"
+  );
+  preferences.set("mac", { ...preferences.get("mac"), editModel: "Sweep-Next-Edit-Q4" });
+  expect((await main.choose("mac", "one", signal, "auto")).context.serving?.model).toBe(
+    "Sweep-Next-Edit-Q4"
+  );
+  expect((await main.choose("mac", "one", signal, "complete")).context.serving?.model).toBe(
+    "mellum2-12b-a2.5b"
+  );
+  main.release("mac", "one");
+});
+
 test("Main probes both sides, uses measured p50, and isolates Workspace failure", async () => {
   const preferences = new PredictionSettings(
     () => ({}),

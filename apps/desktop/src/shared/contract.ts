@@ -1,4 +1,5 @@
 import { PredictionPlacementInputs } from "./predictionPlacement.ts";
+import { PredictionOutcomeInputs } from "./predictionOutcomes.ts";
 /**
  * The IPC contract's inputs as Effect Schemas: the main process decodes every
  * request and subscription from a renderer with these before acting on it.
@@ -214,6 +215,7 @@ export type CachedHost = typeof CachedHost.Type;
 export const RequestInputs = {
   ...PredictionUiInputs,
   ...PredictionPlacementInputs,
+  ...PredictionOutcomeInputs,
   "settings.get": Schema.Struct({}),
   "updates.get": Schema.Struct({}),
   "updates.check": Schema.Struct({}),
