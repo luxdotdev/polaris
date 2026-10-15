@@ -28,7 +28,7 @@ import {
 import { AttachmentSettings, AttachmentUsage, StagedAmount } from "./attachments.ts";
 import { HostHarnesses } from "./availability.ts";
 import { CapabilityList } from "./capabilities.ts";
-import { PredictionRpcs } from "./prediction.ts";
+import { PredictionRpcs } from "./predictionRpcs.ts";
 import { InlinePropose } from "./inline.ts";
 import { CommitMessageRpcs } from "./commitMessage.ts";
 import { Command } from "./commands.ts";

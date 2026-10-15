@@ -3,7 +3,7 @@
  * pushes items into the window's batcher. Closing the window interrupts them all.
  */
 import { Cause, Effect, Exit, Fiber, Option, Schema, Stream } from "effect";
-import { PredictionCompletionInput } from "../../shared/predictionContract.ts";
+import { EditPredictionInput, PredictionCompletionInput } from "../../shared/predictionContract.ts";
 import type { PredictionBridge } from "../prediction/bridge.ts";
 import { CHANNELS, type BatchEntry, type IpcError } from "../../shared/api.ts";
 import type { ClientRuntime } from "../hosts.ts";
@@ -61,13 +61,18 @@ export const windowSubscriptions = ({
       return;
     }
 
-    if (kind === "prediction.complete")
-      Option.map(Schema.decodeUnknownOption(PredictionCompletionInput)(input), (value) => {
-        workspaces.set(JSON.stringify([value.hostKey, value.workspaceId]), {
-          hostKey: value.hostKey,
-          workspaceId: value.workspaceId,
-        });
-      });
+    if (kind === "prediction.complete" || kind === "prediction.edit")
+      Option.map(
+        Schema.decodeUnknownOption(
+          kind === "prediction.edit" ? EditPredictionInput : PredictionCompletionInput
+        )(input),
+        (value) => {
+          workspaces.set(JSON.stringify([value.hostKey, value.workspaceId]), {
+            hostKey: value.hostKey,
+            workspaceId: value.workspaceId,
+          });
+        }
+      );
 
     const fiber = runtime.runFork(
       feedOpener(

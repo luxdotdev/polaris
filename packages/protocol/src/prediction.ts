@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import { Rpc, RpcGroup } from "effect/rpc";
+import { Rpc } from "effect/rpc";
 import { WorkspaceId } from "./ids.ts";
 import { PredictionEndpointUrl } from "./predictionEndpoint.ts";
 
@@ -15,6 +15,7 @@ export const PREDICTION_CAPABILITIES = [
   "prediction.capability",
   "prediction.context",
   "prediction.complete",
+  "prediction.edit",
   /** `prediction.server`: what the model server behind an endpoint is, and its recovery actions. */
   "prediction.server",
 ] as const;
@@ -195,10 +196,3 @@ export const PredictionServerQuery = Rpc.make("prediction.server", {
   success: PredictionServerReport,
   error: PredictionError,
 });
-
-export const PredictionRpcs = RpcGroup.make(
-  PredictionCapabilityQuery,
-  PredictionContextQuery,
-  PredictionComplete,
-  PredictionServerQuery
-);
