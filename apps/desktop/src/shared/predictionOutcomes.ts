@@ -103,6 +103,8 @@ const OutcomeFields = Schema.Struct({
         "completion-popup",
         "snippet",
         "aggressiveness",
+        "diagnostics",
+        "diagnostics-deadline",
       ]),
     ])
   ),

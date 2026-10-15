@@ -31,8 +31,7 @@ import type {
   LanguageIdentityLookup,
 } from "./lifecycle.ts";
 import { signatureExtension } from "./signatures.ts";
-import { importSource } from "../prediction/imports/index.ts";
-import { languageImportSource } from "./imports.ts";
+import { predictionSources } from "./predictionSources.ts";
 import { languageKeys } from "./keys.ts";
 import { refactorUndoKeys } from "../refactors/undo.ts";
 import type { NavigationAction } from "../navigation/commands.ts";
@@ -234,7 +233,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
           signatureExtension(features, label),
           languageKeys((command) => this.command?.(key, command)),
           refactorUndoKeys(input.file),
-          importSource.of(languageImportSource({ features, diagnostics, read })),
+          predictionSources(entry, routed),
         ])
       ),
     });

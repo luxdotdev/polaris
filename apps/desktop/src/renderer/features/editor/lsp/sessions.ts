@@ -441,6 +441,36 @@ export class EditorLanguageSession {
     };
   }
 
+  /**
+   * Opens a verification shadow on the ordered queue: no buffer, no repaint, never in `sent`.
+   * Resolves with the acknowledgment that includes it, or null when it could not be opened.
+   */
+  openShadow(uri: string, language: LanguageId, text: string): Promise<LanguageProvider | null> {
+    let opened: LanguageProvider | null = null;
+
+    return this.enqueue(async () => {
+      if (this.capabilities === null) return;
+      await this.deliver(
+        P.LanguageDocumentNotification.cases.Open.make({
+          uri,
+          version: 1,
+          languageId: documentLanguageId(language),
+          text,
+        })
+      );
+      opened = this.refactorContext()?.provider ?? null;
+    }).then(
+      () => opened,
+      () => null
+    );
+  }
+
+  closeShadow(uri: string): Promise<void> {
+    return this.enqueue(() =>
+      this.deliver(P.LanguageDocumentNotification.cases.Close.make({ uri, version: 1 }))
+    ).catch(() => undefined);
+  }
+
   saved(uri: string, version: number, diskVersion: P.FileVersion) {
     void this.enqueue(async () => {
       const buffer = this.buffers.get(uri);

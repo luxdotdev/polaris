@@ -50,7 +50,9 @@ jump`. Format is a protocol FIM/edit format, or null for an import. Outcome is
 `accepted | dismissed-esc | replaced-by-typing | superseded | ignored`, or null
 for a never-shown suppression. Such a record needs a guard and null
 `finalToShownMs`. Guards are `revert | outside-window | unstable | recent-edit |
-selection | completion-popup | snippet | aggressiveness`, or null.
+selection | completion-popup | snippet | aggressiveness | diagnostics |
+diagnostics-deadline`, or null. `diagnostics` is the verifier's rejection;
+`diagnostics-deadline` a check that did not answer in time with a server attached.
 
 Send one finalized record per shown prediction. The renderer observes undo for
 30 seconds after acceptance and sets `undoneWithin30s` only for an undo inside

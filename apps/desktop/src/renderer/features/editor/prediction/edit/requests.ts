@@ -12,6 +12,7 @@ import { currentMode } from "../../cm/vim.ts";
 import { languageFor } from "../../model/language.ts";
 import { openPopupOrSnippet } from "../state.ts";
 import { markPrediction } from "../timing.ts";
+import { diagnosticsVerifier, verifyDeadline, verifyPrediction } from "../verify/index.ts";
 import { revertsBurst } from "./guards.ts";
 import { editAccepted, historyOf, historyThroughBurst, lastEditText } from "./history.ts";
 import { burstLines, changedLines, ImportLookups } from "./importLookups.ts";
@@ -290,11 +291,19 @@ class EditRequests {
       this.port.available();
 
     return this.port.request(input, controller.signal).then(
-      (final) => {
+      async (final) => {
+        if (!current()) return;
+        const prediction = this.candidate(final, cursor, startedAt);
+        const verdict = prediction && (await this.verify(prediction, controller.signal));
+
         if (!current()) return;
         this.flight = null;
+        const shown = prediction !== null && verdict === "allow" && this.show(prediction);
 
-        if (!this.show(final, cursor, startedAt) && kind !== "probe") this.probe(final.window);
+        if (prediction !== null && verdict !== "allow" && verdict !== "cancelled")
+          this.finalize(prediction, null, verdict);
+
+        if (!shown && kind !== "probe") this.probe(final.window);
         this.modelDone();
       },
       () => {
@@ -333,11 +342,12 @@ class EditRequests {
       ? null
       : "recent-edit";
   }
-  private show(final: EditFinal, cursor: number, startedAt: number): boolean {
+  /** The Final as a prediction to show, or null when it is invalid or a guard suppressed it. */
+  private candidate(final: EditFinal, cursor: number, startedAt: number): EditPrediction | null {
     const { doc } = this.view.state;
     const hunks = sortHunks(final.edits);
 
-    if (hunks.length === 0 || !hunksValid(doc, hunks)) return false;
+    if (hunks.length === 0 || !hunksValid(doc, hunks)) return null;
     const finalAt = performance.now();
 
     const prediction: EditPrediction = {
@@ -358,18 +368,34 @@ class EditRequests {
 
     const guard = this.guard(prediction);
 
-    if (guard !== null) {
-      this.finalize(prediction, null, guard);
+    if (guard === null) return prediction;
+    this.finalize(prediction, null, guard);
 
-      return false;
-    }
+    return null;
+  }
+  /** The language server's check of the edited text; the flight's keystroke cancel aborts it. */
+  private verify(prediction: EditPrediction, signal: AbortSignal) {
+    const { state } = this.view;
+    const input = { doc: prediction.doc, edits: prediction.hunks, cursor: prediction.anchor };
 
+    return verifyPrediction(
+      state.facet(diagnosticsVerifier),
+      input,
+      signal,
+      state.facet(verifyDeadline)
+    );
+  }
+  private show(prediction: EditPrediction): boolean {
     const shown = this.view.state.field(editPrediction);
 
     if (shown?.import !== undefined) this.finalize(shown, "superseded", null);
     const shownAt = performance.now();
     this.view.dispatch({
-      effects: setEditPrediction.of({ ...prediction, shownAt, finalToShown: shownAt - finalAt }),
+      effects: setEditPrediction.of({
+        ...prediction,
+        shownAt,
+        finalToShown: shownAt - prediction.shownAt,
+      }),
     });
     markPrediction("edit.render");
 

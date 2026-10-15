@@ -20,7 +20,7 @@ export class EditorProviderFixture {
   readonly notifications: P.LanguageDocumentNotification[] = [];
   readonly requests: P.LanguageFeatureRequest[] = [];
   readonly subscribers = new Map<string, Set<(event: P.LanguageContextEvent) => void>>();
-  readonly capabilities = P.LanguageProviderCapabilities.make({
+  capabilities = P.LanguageProviderCapabilities.make({
     positionEncoding: "utf-16",
     synchronization: "incremental",
     openClose: true,
@@ -56,6 +56,17 @@ export class EditorProviderFixture {
   /** What `languages.trust.inspect` answers; unsupported while null. */
   trustStatus: typeof P.LanguageTrustStatus.Type | null = null;
 
+  /** Answers a feature request from the open documents' text; undefined falls back to the script. */
+  respond:
+    | ((
+        request: P.LanguageFeatureRequest,
+        documents: ReadonlyMap<string, { readonly text: string }>
+      ) => typeof Schema.Json.Type | undefined)
+    | null = null;
+
+  /** Document notifications the Host refuses, as the Daemon refuses a path it cannot place. */
+  refuse: ((notification: P.LanguageDocumentNotification) => boolean) | null = null;
+
   constructor(readonly hostId: P.HostId) {}
 
   readonly api: LanguageApi = {
@@ -64,6 +75,8 @@ export class EditorProviderFixture {
         Schema.decodeUnknownSync(LanguageRequestInputs[method])(raw)
       );
 
+      if (this.refused(method, input))
+        return { ok: false, error: { code: "invalid-input", message: "Refused fixture path." } };
       let value: typeof Schema.Json.Type | undefined;
 
       if (method === "languages.settings.get") {
@@ -203,6 +216,12 @@ export class EditorProviderFixture {
     },
   };
 
+  private refused(method: string, input: typeof Schema.Json.Type) {
+    if (method !== "languages.document.sync" || this.refuse === null) return false;
+
+    return this.refuse(Schema.decodeUnknownSync(P.LanguageSyncInput)(input).notification);
+  }
+
   diagnose(uri: string) {
     for (const fixture of this.contexts.values()) {
       const document = fixture.documents.get(uri);
@@ -285,10 +304,12 @@ export class EditorProviderFixture {
 
     if (held !== null) await held;
 
+    const scripted = this.respond?.(input, fixture.documents);
+
     return P.LanguageFeatureResult.make({
       requestId: input.requestId,
       fence: input.fence,
-      result: featureResult(input.method, uri),
+      result: scripted === undefined ? featureResult(input.method, uri) : scripted,
     });
   }
 }
