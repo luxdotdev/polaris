@@ -5,14 +5,19 @@ import { join } from "node:path";
 
 const SCRIPT = join(import.meta.dir, "metadata.py");
 
-const SIGNING = {
-  MACOS_CERT_P12: "p12",
-  MACOS_CERT_PASSWORD: "password",
-  APPLE_API_KEY: "key",
-  APPLE_API_KEY_ID: "id",
-  APPLE_API_ISSUER: "issuer",
-  APPLE_TEAM_ID: "team",
-};
+const NAMES = [
+  "MACOS_CERT_P12",
+  "MACOS_CERT_PASSWORD",
+  "APPLE_API_KEY",
+  "APPLE_API_KEY_ID",
+  "APPLE_API_ISSUER",
+  "APPLE_TEAM_ID",
+];
+
+// release.yml passes `secrets.X != ''`, never the value: "true" or "false".
+const flags = (value: string) => Object.fromEntries(NAMES.map((name) => [`${name}_SET`, value]));
+
+const SIGNING = flags("true");
 
 const run = (tag: string, version: string, secrets: Record<string, string> = {}) => {
   const root = mkdtempSync(join(tmpdir(), "release-metadata-"));
@@ -71,8 +76,15 @@ describe("release tag", () => {
     });
   });
 
+  test('secrets flagged "false" are absent: a prerelease stays unsigned', () => {
+    expect(run("v0.1.0-alpha.1", "0.1.0-alpha.1", flags("false")).values.signed).toBe("false");
+  });
+
   test("partial signing secrets fail", () => {
-    const { ok, error } = run("v0.1.0-alpha.1", "0.1.0-alpha.1", { APPLE_TEAM_ID: "team" });
+    const { ok, error } = run("v0.1.0-alpha.1", "0.1.0-alpha.1", {
+      ...flags("false"),
+      APPLE_TEAM_ID_SET: "true",
+    });
 
     expect(ok).toBe(false);
     expect(error).toContain("Incomplete signing secrets");

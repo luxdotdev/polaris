@@ -40,6 +40,10 @@ The generator now draws that scene with seed 12, meadow flowers and the dawn
 cabin, with a neutral ink arrow. The black labels are legible in both Finder
 appearances. No label colour is baked into the background; Finder draws the labels.
 
+Packaging with credentials is for a local signed build; the release workflow never
+gives packaging credentials. It packages unsigned and signs the outputs with
+`tooling/release/sign.py` in separate jobs ([ADR 0057](../../../../docs/adr/0057-release-signing-runs-apart-from-the-build.md)).
+
 With the same complete credentials consumed by `release.ts`, packaging verifies
 the already signed and stapled app, builds the image without modifying it, signs
 the DMG with Developer ID and a secure timestamp, waits for `notarytool` to return
@@ -87,8 +91,8 @@ ignored. Authenticode can be introduced at this seam later. No native Windows
 Daemon is built, and a release installer bundles no Daemon files at all: WSL
 distros and remote Hosts download theirs. `--windows` requires `--reuse-daemon` and an existing verified
 manifest; it never builds, signs or rewrites Daemon files. Release versions must
-match. The macOS release job archives its final Daemon dist after signing;
-the Windows job restores that tarball and verifies the copied bytes again.
+match. The release workflow archives the final Daemon dist (after `sign` for a signed
+release); the Windows job checks the tarball's SHA-256, restores it and verifies the copied bytes again.
 Both jobs share `.github/actions/package-windows`.
 
 For test installers without a release, run the "Windows test build" workflow
