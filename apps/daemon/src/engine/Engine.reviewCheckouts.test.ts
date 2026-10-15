@@ -18,7 +18,7 @@ import {
   SessionPlacement,
   type Workspace,
 } from "@polaris/protocol";
-import { Effect, type Layer } from "effect";
+import { Effect, Layer } from "effect";
 import { CheckpointsLive } from "../git/Checkpoints.ts";
 import { gitText, resolveCommit } from "../git/git.ts";
 import { ReviewCheckoutGitLive, reviewCheckoutGitLayer } from "../git/ReviewCheckoutGit.ts";
@@ -34,7 +34,7 @@ import {
 } from "../git/review/testing.ts";
 import { commitAll, removeDir, write } from "../git/testing.ts";
 import { listWorktrees } from "../git/WorktreeTracker.ts";
-import type { ReviewCheckoutGit } from "../services.ts";
+import { CheckoutBlocked, type ReviewCheckoutGit, WorkspaceTrust } from "../services.ts";
 import { EventStore } from "../store/EventStore.ts";
 import type { ReadModel } from "../store/model.ts";
 import { Engine } from "./Engine.ts";
@@ -42,9 +42,11 @@ import {
   cid,
   completesTurns,
   engineLayer,
+  fakeRepo,
   makeFakeDriver,
   makeFakes,
   pendingReviewCheckoutGit,
+  reviewCheckoutGitWith,
   tempDir,
   waitFor,
 } from "./testing.ts";
@@ -488,4 +490,45 @@ describe("Review Checkouts on the Host", () => {
       })
     );
   }, 30_000);
+});
+
+describe("a pull request's Review fetch", () => {
+  // The repository's own ssh command and helpers run only in a trusted Workspace (git/review/fetch.ts).
+  test.each([false, true])(
+    "runs with the Workspace's own credentials only when the Host trusts it (trusted: %p)",
+    async (trusted) => {
+      const asked: Array<boolean> = [];
+
+      const git = reviewCheckoutGitWith({
+        fetchPullRequest: (options) => {
+          asked.push(options.trusted);
+
+          return Effect.fail(
+            new CheckoutBlocked({
+              blocker: ReviewCheckoutBlocker.cases.FetchFailed.make({ message: "offline" }),
+            })
+          );
+        },
+      });
+
+      const layer = engineLayer({
+        filename: join(tempDir(), "state.sqlite"),
+        fakes: makeFakes(),
+        drivers: [makeFakeDriver("claude")],
+        reviewCheckoutGit: git,
+        workspaceTrust: Layer.succeed(WorkspaceTrust)({ trusted: () => Effect.succeed(trusted) }),
+      });
+
+      await run(
+        layer,
+        Effect.gen(function* () {
+          const workspace = yield* registerWorkspace(fakeRepo());
+          yield* openPr(workspace, "abc123", "");
+          yield* inState("blocked");
+        })
+      );
+
+      expect(asked).toEqual([trusted]);
+    }
+  );
 });

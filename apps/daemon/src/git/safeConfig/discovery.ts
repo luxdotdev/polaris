@@ -1,9 +1,11 @@
 /**
- * Where git itself found a cwd's repository, and the stat of every path that
- * decided it or holds its config: a cached listing is used only while none changed.
+ * Where git itself found a cwd's repository, and a stamp of every path that
+ * decided it or holds config git reads: a cached listing is used only while none changed.
  */
-import { realpathSync, statSync } from "node:fs";
-import { dirname, join, resolve, sep } from "node:path";
+import { createHash } from "node:crypto";
+import { closeSync, fstatSync, openSync, readSync, realpathSync, statSync } from "node:fs";
+import { dirname, isAbsolute, join, resolve, sep } from "node:path";
+import { Predicate } from "effect";
 import { type Entry, REPOSITORY_SCOPES } from "./settings.ts";
 
 export interface Located {
@@ -39,17 +41,60 @@ const BELOW_TOP = [
 
 const INCLUDE = /^include(if\..+)?\.path$/;
 
-const stamp = (path: string): string => {
-  try {
-    const s = statSync(path);
+/** Past this a file isn't hashed, and the listing isn't cached. */
+const HASH_LIMIT = 1024 * 1024;
 
-    return s.isDirectory() ? `d${s.ino}` : `f${s.ino}:${s.size}:${s.mtimeMs}:${s.ctimeMs}`;
-  } catch {
-    return "-";
+/** A file's owner and a hash of its bytes; null when it is too large to hash, or grew while read. */
+const fileStamp = (path: string): string | null => {
+  const fd = openSync(path, "r");
+
+  try {
+    const s = fstatSync(fd);
+
+    if (s.size > HASH_LIMIT) return null;
+    const bytes = Buffer.alloc(s.size + 1);
+    let length = 0;
+
+    for (let n = -1; n !== 0 && length < bytes.length; length += n) {
+      n = readSync(fd, bytes, length, bytes.length - length, null);
+    }
+
+    if (length > s.size) return null;
+
+    return `f${s.uid}:${createHash("sha256").update(bytes.subarray(0, length)).digest("hex")}`;
+  } finally {
+    closeSync(fd);
   }
 };
 
-export const stampAll = (paths: ReadonlyArray<string>): string => paths.map(stamp).join("|");
+const ABSENT = new Set(["ENOENT", "ENOTDIR"]);
+
+/** A directory by its identity and owner, a file by its content, `-` when absent; null: uncacheable. */
+const stamp = (path: string): string | null => {
+  try {
+    const s = statSync(path);
+
+    return s.isDirectory() ? `d${s.ino}:${s.uid}` : fileStamp(path);
+  } catch (error) {
+    const absent = Predicate.hasProperty(error, "code") && ABSENT.has(String(error.code));
+
+    return absent ? "-" : null;
+  }
+};
+
+/** Null when any path can't be stamped: the caller doesn't cache, or lists again. */
+export const stampAll = (paths: ReadonlyArray<string>): string | null => {
+  const stamps: Array<string> = [];
+
+  for (const path of paths) {
+    const one = stamp(path);
+
+    if (one === null) return null;
+    stamps.push(one);
+  }
+
+  return stamps.join("|");
+};
 
 /** The cache key, or null when the call's options or environment move git's discovery. */
 export const cacheKey = (
@@ -87,9 +132,15 @@ const levelsBelow = (cwd: string, top: string): Array<string> => {
   return levels;
 };
 
+/** The repository's own config files: `config.worktree` whether or not `extensions.worktreeConfig` reads it. */
+export const ownFiles = (found: Located): ReadonlyArray<string> => [
+  join(found.commonDir, "config"),
+  join(found.gitDir, "config.worktree"),
+];
+
 /**
- * The paths that decided `found` and hold its config, or null when it isn't a plain
- * repository with `cwd` in its work tree (a bare one, `core.worktree`): no cache.
+ * The paths that decided `found`, or null when it isn't a plain repository
+ * with `cwd` in its work tree (a bare one, `core.worktree`): no cache.
  */
 export const discoveryPaths = (cwd: string, found: Located): ReadonlyArray<string> | null => {
   let real: string;
@@ -100,48 +151,82 @@ export const discoveryPaths = (cwd: string, found: Located): ReadonlyArray<strin
     return null;
   }
 
-  const { gitDir, commonDir, top } = found;
+  const { gitDir, top } = found;
   const dotGit = join(top, ".git");
 
-  if (!isWithin(real, top) || (stamp(dotGit).startsWith("d") && dotGit !== gitDir)) return null;
+  if (!isWithin(real, top) || (stamp(dotGit)?.startsWith("d") === true && dotGit !== gitDir)) {
+    return null;
+  }
 
   return [
     ...levelsBelow(real, top).flatMap((dir) => BELOW_TOP.map((name) => join(dir, name))),
     dotGit,
-    ...["HEAD", "objects", "refs", "commondir", "config.worktree"].map((name) =>
-      join(gitDir, name)
-    ),
-    join(commonDir, "config"),
+    ...["HEAD", "objects", "refs", "commondir"].map((name) => join(gitDir, name)),
   ];
 };
 
 /**
- * The Host's own config files `listing` came from, or null when the repository's
- * entries came from anywhere but its two config files (an include): no cache.
+ * The Host's config files git reads besides the repository's: `GIT_CONFIG_SYSTEM`
+ * and `GIT_CONFIG_GLOBAL` as `git var` prints them, whether or not each exists yet.
  */
-export const hostFiles = (
+export const hostCandidates = (system: string, global: string): ReadonlyArray<string> =>
+  [...system.split("\n"), ...global.split("\n")].filter((path) => path !== "");
+
+/** Where an include points, as git resolves it (relative to the including file); null: unknown. */
+const includeTarget = (value: string, from: string | null, home: string | undefined) => {
+  const homeKnown = home !== undefined && home !== "";
+
+  if (value.startsWith("~/")) return homeKnown ? join(home, value.slice(2)) : null;
+
+  if (value === "" || value.startsWith("~") || value.startsWith("%(")) return null;
+
+  if (isAbsolute(value)) return value;
+
+  return from === null ? null : resolve(dirname(from), value);
+};
+
+/**
+ * The files git read beyond `candidates` that a cache must also stamp: what the
+ * Host's config includes (found or not) and git's built-in config (Apple's `unknown`
+ * scope). Null when `listing` came from anywhere else, or the repository's own config
+ * includes a file: no cache.
+ */
+export const listedFiles = (
   found: Located,
-  listing: ReadonlyArray<Entry>
+  listing: ReadonlyArray<Entry>,
+  candidates: ReadonlyArray<string>,
+  home: string | undefined
 ): ReadonlyArray<string> | null => {
-  const own = new Set([join(found.commonDir, "config"), join(found.gitDir, "config.worktree")]);
+  const own = new Set(ownFiles(found));
+  const extra = new Set<string>();
 
   // git names its own config relative to the top level, where it runs.
   const file = (e: Entry) =>
     e.origin.startsWith("file:") ? resolve(found.top, e.origin.slice(5)) : null;
 
-  const ownFilesOnly = listing.every(
-    (e) => !REPOSITORY_SCOPES.has(e.scope) || (!INCLUDE.test(e.key) && own.has(file(e) ?? ""))
-  );
-
-  if (!ownFilesOnly) return null;
-
-  const files = new Set<string>();
-
   for (const e of listing) {
-    const path = REPOSITORY_SCOPES.has(e.scope) ? null : file(e);
+    if (!INCLUDE.test(e.key)) continue;
+    const target = REPOSITORY_SCOPES.has(e.scope) ? null : includeTarget(e.value, file(e), home);
 
-    if (path !== null) files.add(path);
+    if (target === null) return null;
+    extra.add(target);
   }
 
-  return [...files];
+  for (const e of listing) {
+    const path = file(e);
+
+    if (e.scope === "unknown" && path !== null) extra.add(path);
+  }
+
+  const read = new Set([...candidates, ...extra]);
+
+  const covered = listing.every((e) => {
+    const path = file(e);
+
+    if (REPOSITORY_SCOPES.has(e.scope)) return own.has(path ?? "");
+
+    return path === null ? e.origin === "command line:" : read.has(path);
+  });
+
+  return covered ? [...extra] : null;
 };
