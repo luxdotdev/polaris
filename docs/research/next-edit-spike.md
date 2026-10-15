@@ -391,7 +391,7 @@ Findings:
 - **"Nothing" is the safe failure.** On dev `im04`, `which` comes from both `bun` and a local module; the commit used the local one. The first server action picks `bun`, which is wrong. The module rule offers nothing.
 - **The module rule's one wrong import** is extra `xim12`: the file imports from `node:fs`, so the rule added `rm` there, but the commit wanted the promise `rm` from `node:fs/promises`. "Already imported from" is unsafe when a module and its `/promises` sibling export the same name; not fixed here, since the rule was frozen.
 - **Scope.** Changed lines alone miss names the burst wrote that are used elsewhere (a re-export, a moved declaration: `him05`); adding written names fixes it without a wrong import.
-- **For the Desktop App renderer:** its CodeActions payload schema (`apps/desktop/…/lsp/payloads.ts`) drops `isPreferred`, which the selector needs; it must also accept the no-op `_typescript.applyCodeActionCommand` instead of rejecting every action that carries a command.
+- **For the Desktop App renderer:** its CodeActions payload schema (`apps/desktop/…/lsp/payloads.ts`) drops `isPreferred`, which the selector needs; it must also accept the no-op `_typescript.applyCodeActionCommand` instead of rejecting every action that carries a command. *Wired (EP6, 2026-10-15):* the schema already kept `isPreferred` (added with the import path, after this study's base; all 658 recorded actions decode with it, `command` and `edit` intact); the renderer now accepts the no-op command, asks about every TypeScript name `unresolvedInBurst` picks (up to four, each on its own request lane) and selects with `selectImportFix`; other servers keep the spec's rule.
 
 ### API
 

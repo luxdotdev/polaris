@@ -68,21 +68,19 @@ export const UNRESOLVED_NAME_CODES: ReadonlySet<number> = new Set([2304, 2552, 2
 const IMPORT_TITLE = /^(?:Add|Update) import from "([^"]+)"/;
 
 // Only the fix's own tsserver `commands` run, and import fixes have none.
-const TsApplyCommand = Schema.Struct({
+const NoOpCommand = Schema.Struct({
   command: Schema.Literal("_typescript.applyCodeActionCommand"),
   arguments: Schema.Tuple([
-    Schema.Struct({
-      action: Schema.Struct({ commands: Schema.optionalKey(Schema.Array(Schema.Unknown)) }),
-    }),
+    Schema.Struct({ action: Schema.Struct({ commands: Schema.optionalKey(Schema.Tuple([])) }) }),
   ]),
 });
 
-const isTsApplyCommand = Schema.is(TsApplyCommand);
+/** typescript-language-server's command on every quick fix, when it runs nothing beyond the edit. */
+export const isNoOpCommand = Schema.is(NoOpCommand);
 
-/** typescript-language-server attaches a command to every quick fix; any other could do anything. */
+/** Any other command could do anything. */
 const harmlessCommand = (command: LspCommand | undefined) =>
-  command === undefined ||
-  (isTsApplyCommand(command) && (command.arguments[0].action.commands ?? []).length === 0);
+  command === undefined || isNoOpCommand(command);
 
 const edits = (action: LspCodeAction, uri: string): readonly LspTextEdit[] | undefined => {
   const { changes, documentChanges } = action.edit ?? {};

@@ -1,7 +1,8 @@
 import { afterEach, expect, test } from "bun:test";
 import { undo } from "@codemirror/commands";
+import { ChangeSet, Text } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
-import { type ImportCandidate, importSource } from "../imports/index.ts";
+import { type ImportBurst, type ImportCandidate, importSource } from "../imports/index.ts";
 import {
   cleanup,
   editor,
@@ -16,6 +17,7 @@ import {
   tab,
   type,
 } from "./harness.testing.ts";
+import { changedLines } from "./importLookups.ts";
 import {
   editPrediction,
   onPredictionLog,
@@ -32,7 +34,7 @@ const IMPORT = 'import { hostCanServe } from "./probe.ts";\n';
 const DOC = 'import type { A } from "./types.ts";\n\nconst ok = hostCanServe';
 
 interface Lookup {
-  readonly range: { readonly from: number; readonly to: number };
+  readonly range: ImportBurst;
   readonly signal: AbortSignal;
   readonly resolve: (candidate: ImportCandidate | null) => void;
 }
@@ -73,7 +75,9 @@ const settled = async (port: FakeEditPort = editPort()) => {
 test("after a burst settles the changed lines are asked about, and the fix shows as the server's title", async () => {
   const { view, port, fake } = await settled();
   const line = view.state.doc.lineAt(view.state.selection.main.head);
-  expect(fake.lookups.map((lookup) => lookup.range)).toEqual([{ from: line.from, to: line.to }]);
+  expect(fake.lookups.map((lookup) => lookup.range)).toEqual([
+    { from: line.from, to: line.to, names: new Set<string>() },
+  ]);
 
   port.calls[0]?.resolve(final([]));
   await flush();
@@ -153,4 +157,12 @@ test("the import obeys the guards: Tab inside 100 ms types, and Esc keeps the li
   await settle();
   expect(esc.fake.lookups).toHaveLength(1);
   expect(hint(esc.view)).toBeNull();
+});
+
+test("an acceptance's burst names what its inserted text wrote, not what it deleted", () => {
+  const doc = Text.of(["const x = 1;", "use(x);"]);
+  const changes = ChangeSet.of([{ from: 10, to: 11, insert: "tierOf(ramTier)" }], doc.length);
+  const burst = changedLines(changes.apply(doc), changes);
+  expect(burst?.names).toEqual(new Set(["tierOf", "ramTier"]));
+  expect(burst?.from).toBe(0);
 });

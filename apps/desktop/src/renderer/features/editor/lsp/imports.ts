@@ -1,13 +1,14 @@
 /**
  * The language coordinator's side of import Edit Predictions: the buffer's current diagnostics,
- * one unresolved name in the changed range, its quick fixes on their own lane, then the selection
- * rule. The answer stays fenced by the request's provider acknowledgment and buffer version
- * (ADR-0048).
+ * the burst's unresolved names, their quick fixes on their own lanes, then the selection rule.
+ * The answer stays fenced by each request's provider acknowledgment and buffer version (ADR-0048).
  */
+import { type LspDiagnostic as NameDiagnostic, unresolvedInBurst } from "@polaris/predict";
 import type * as P from "@polaris/protocol";
 import { Option, Schema } from "effect";
 import {
   type ImportAction,
+  type ImportBurst,
   type ImportCandidate,
   type ImportSource,
   isUnresolvedName,
@@ -27,6 +28,9 @@ type Action = NonNullable<typeof Payload.CodeActions.Type>[number];
 
 /** At most this many unresolved actions are resolved before selection. */
 const MAX_RESOLVED = 4;
+
+/** At most this many of a burst's unresolved names are asked about; the study saw three. */
+const MAX_NAMES = 4;
 
 export interface ImportSourceDeps {
   readonly features: LanguageFeatures;
@@ -103,6 +107,57 @@ const unresolvedIn = (
   return targets.sort((a, b) => b.to - a.to)[0] ?? null;
 };
 
+const cue = (item: Diagnostic): NameDiagnostic =>
+  item.code === null
+    ? { range: item.range, message: item.message }
+    : { range: item.range, message: item.message, code: item.code };
+
+const burstLineSet = (buffer: LanguageBuffer, burst: ImportBurst) => {
+  const lines = new Set<number>();
+
+  for (let n = buffer.doc.lineAt(burst.from).number; n <= buffer.doc.lineAt(burst.to).number; n++)
+    lines.add(n - 1);
+
+  return lines;
+};
+
+/** TypeScript's unresolved names the burst touched, on one provider, in document order. */
+const burstNames = (
+  sets: readonly ProviderDiagnostics[],
+  buffer: LanguageBuffer,
+  burst: ImportBurst
+): Target[] => {
+  const scope = { lines: burstLineSet(buffer, burst), names: burst.names };
+
+  for (const { provider, diagnostics } of sets) {
+    const cues = diagnostics.items.filter(isUnresolvedName).map((item) => ({ ...cue(item), item }));
+
+    const targets = unresolvedInBurst(cues, scope).flatMap(({ item }) => {
+      const at = span(buffer, provider, item);
+
+      return at === null ? [] : [{ provider, item, ...at }];
+    });
+
+    if (targets.length > 0) return targets.sort((a, b) => a.from - b.from).slice(0, MAX_NAMES);
+  }
+
+  return [];
+};
+
+/** The burst's TypeScript names, else (other servers) the one nearest the burst's end. */
+const targetsIn = (
+  sets: readonly ProviderDiagnostics[],
+  buffer: LanguageBuffer,
+  burst: ImportBurst
+): Target[] => {
+  const named = burstNames(sets, buffer, burst);
+
+  if (named.length > 0) return named;
+  const nearest = unresolvedIn(sets, buffer, burst);
+
+  return nearest === null ? [] : [nearest];
+};
+
 /** The diagnostic as LSP sends it: absent fields omitted rather than null. */
 type LspDiagnostic = {
   range: Diagnostic["range"];
@@ -137,7 +192,8 @@ const resolvedActions = async (
   features: LanguageFeatures,
   provider: LanguageProvider,
   actions: readonly Action[],
-  signal: AbortSignal
+  signal: AbortSignal,
+  name: number
 ): Promise<readonly ImportAction[]> => {
   const open = actions.filter((action) => action.edit === undefined && action.data !== undefined);
 
@@ -152,7 +208,7 @@ const resolvedActions = async (
         "codeAction/resolve",
         action,
         signal,
-        `codeAction/resolve-import-${i}`
+        `codeAction/resolve-import-${name}-${i}`
       );
 
       const result = answers[0]?.value.result;
@@ -162,25 +218,14 @@ const resolvedActions = async (
   );
 };
 
-const find = async (
-  deps: ImportSourceDeps,
-  range: { readonly from: number; readonly to: number },
-  signal: AbortSignal
-): Promise<ImportCandidate | null> => {
-  const sets = await settled(deps.diagnostics, signal);
-
-  if (sets === null) return null;
-
-  const buffer = deps.read();
-  const target = unresolvedIn(sets, buffer, range);
-
-  if (target === null) return null;
-
+/** One name's quick fixes from its own provider, resolved; null when that provider gave none. */
+const fixesFor = async (deps: ImportSourceDeps, target: Target, i: number, signal: AbortSignal) => {
   const answers = await deps.features.quickFixes(
     target.from,
     target.to,
     lspDiagnostic(target.item),
-    signal
+    signal,
+    `quickfix-import-${i}`
   );
 
   const answer = answers.find(
@@ -188,11 +233,36 @@ const find = async (
   );
 
   if (answer === undefined || signal.aborted) return null;
-  const actions = await resolvedActions(deps.features, answer.provider, answer.payload, signal);
-  const choice = selectImportAction(actions, { uri: buffer.uri, version: buffer.version });
+  const actions = await resolvedActions(deps.features, answer.provider, answer.payload, signal, i);
+
+  return { answer, name: { diagnostic: cue(target.item), actions } };
+};
+
+const find = async (
+  deps: ImportSourceDeps,
+  burst: ImportBurst,
+  signal: AbortSignal
+): Promise<ImportCandidate | null> => {
+  const sets = await settled(deps.diagnostics, signal);
+
+  if (sets === null) return null;
+
+  const buffer = deps.read();
+  const targets = targetsIn(sets, buffer, burst);
+  const found = await Promise.all(targets.map((target, i) => fixesFor(deps, target, i, signal)));
+  const fixes = found.filter((fix) => fix !== null);
+  const [first] = fixes;
+
+  if (first === undefined || signal.aborted) return null;
+  const document = { uri: buffer.uri, version: buffer.version, text: buffer.doc.toString() };
+
+  const choice = selectImportAction(
+    document,
+    fixes.map((fix) => fix.name)
+  );
 
   if (choice === null || signal.aborted) return null;
-  const encoding = answer.provider.capabilities.positionEncoding;
+  const encoding = first.answer.provider.capabilities.positionEncoding;
 
   try {
     const hunks = choice.inserts
@@ -208,8 +278,11 @@ const find = async (
       hunks,
       doc: buffer.doc,
       current: () =>
-        deps.features.requests.intentCurrent(answer.provider, buffer, answer.request.fence) &&
-        answer.request.requestId === answer.value.requestId,
+        fixes.every(
+          ({ answer }) =>
+            deps.features.requests.intentCurrent(answer.provider, buffer, answer.request.fence) &&
+            answer.request.requestId === answer.value.requestId
+        ),
     };
   } catch {
     return null;
@@ -217,5 +290,5 @@ const find = async (
 };
 
 export const languageImportSource = (deps: ImportSourceDeps): ImportSource => ({
-  find: (range, signal) => find(deps, range, signal).catch(() => null),
+  find: (burst, signal) => find(deps, burst, signal).catch(() => null),
 });

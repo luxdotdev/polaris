@@ -64,7 +64,7 @@ Only one source answers at a time. A next-edit model, when available, also handl
   - A deletion of more than 5 lines needs a second Tab: the first changes the hint to "Tab again to delete N lines".
   - A prediction that would recreate text the user deleted, or remove text the user just typed, in this burst is never shown (the renderer's own check, on top of the predictor's `revert`).
 - **Accepting** applies all hunks in one transaction (one undo step), annotated as accepted, then moves the cursor to `Final.cursor`.
-- **Imports (§1):** after a burst settles, or after an acceptance, if the file's server publishes an unresolved-name diagnostic in the changed range, ask for `quickfix` code actions on it. Offer one only when exactly one action, or the one `isPreferred` action, edits only this file and only inserts. Its text comes from the server ("Add import from './x'"); the edit is the server's, never the model's.
+- **Imports (§1):** after a burst settles, or after an acceptance, if the file's server publishes an unresolved-name diagnostic in the changed range, ask for `quickfix` code actions on it. Offer one only when exactly one action, or the one `isPreferred` action, edits only this file and only inserts. For TypeScript's unresolved-name codes the rule is the measured `selectImportFix` (docs/research/next-edit-spike.md, "Imports"): the burst's names, including ones it wrote that are used elsewhere, and the module the file already imports or that resolves every name; typescript-language-server's no-op apply command is accepted. Its text comes from the server ("Add import from './x'"); the edit is the server's, never the model's.
 
 ## 6. Display (Paper first; DESIGN.md "proposed" until the owner accepts)
 

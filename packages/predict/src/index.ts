@@ -26,11 +26,13 @@ export { generationBudget, provisionalLine } from "./generation.ts";
 export { reachFocuses, type ReachInput, type ReachOptions } from "./edit/reach/index.ts";
 
 export {
+  isNoOpCommand,
   selectImportFix,
   UNRESOLVED_NAME_CODES,
   unresolvedInBurst,
   type Burst,
   type ImportChoice,
   type LspCodeAction,
+  type LspDiagnostic,
   type UnresolvedName,
 } from "./edit/imports/index.ts";
