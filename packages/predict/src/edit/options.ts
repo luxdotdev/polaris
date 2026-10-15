@@ -62,3 +62,15 @@ export const editOptions: EditOptions = {
   duplicates: true,
   selfReference: true,
 };
+
+/**
+ * The guards to keep when a diagnostics verifier checks each Final before display: it replaces the
+ * over-blocking lexical guards (docs/research/next-edit-spike.md, "Diagnostics verifier").
+ */
+export const verifiedEditOptions: EditOptions = {
+  ...editOptions,
+  novelNames: false,
+  deletionEvidence: false,
+  duplicates: false,
+  selfReference: false,
+};
