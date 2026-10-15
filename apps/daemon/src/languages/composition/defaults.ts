@@ -66,6 +66,7 @@ export const DefaultLanguageHostHandlers = Layer.unwrap(
             approved: [
               "node",
               "typescript",
+              "typescript-go",
               "typescript-language-server",
               "basedpyright",
               "ruff",

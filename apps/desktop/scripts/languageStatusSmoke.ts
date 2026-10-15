@@ -126,10 +126,10 @@ const showLog = async (page: Page) => {
 
 const fileTab = (page: Page) => page.getByTestId("editor-tab").filter({ hasText: name }).click();
 
-/** The managed TypeScript server this profile's Daemon runs: Polaris's private Node with tsls. */
+/** The managed TypeScript server this profile's Daemon runs: TypeScript 7's `tsc --lsp`. */
 const serverPids = () => {
   try {
-    return execFileSync("pgrep", ["-f", `${profile}/languages/.*/lib/cli\\.mjs --stdio`], {
+    return execFileSync("pgrep", ["-f", `${profile}/languages/.*/lib/tsc --lsp --stdio`], {
       encoding: "utf8",
     })
       .trim()
@@ -346,7 +346,7 @@ try {
   assert.equal(rows, groups, "Settings lists the Host's offered Language Integrations");
   await page.getByText(/^Ready · uses each project's TypeScript/).waitFor({ timeout: 30_000 });
   await page.getByText("TypeScript and JavaScript").first().click();
-  await page.getByText("Bundled TypeScript").waitFor({ timeout: 5_000 });
+  await page.getByText("TypeScript 6 and older").waitFor({ timeout: 5_000 });
   await everyLook(page, "settings");
   console.log("Settings → Editor → Languages lists TypeScript and JavaScript");
   console.log("PASS");

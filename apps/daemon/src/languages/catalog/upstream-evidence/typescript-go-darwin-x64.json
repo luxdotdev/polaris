@@ -1,0 +1,21 @@
+{
+  "artifactId": "typescript-go-darwin-x64",
+  "artifactIntegrity": "sha256:eba158cb54050f723d5ff781438f33de5640054440bb4f2bd170cfe9bc2eb551",
+  "coverage": "complete",
+  "notices": [
+    {
+      "path": "notices/a7d00bfd54525bc694b6e32f64c7ebcf5e6b7ae3657be5cc12767bce74654a47.txt",
+      "integrity": "sha256:a7d00bfd54525bc694b6e32f64c7ebcf5e6b7ae3657be5cc12767bce74654a47"
+    },
+    {
+      "path": "notices/f5c708b59114507b8b27b48181b6883d106bbca0c1634bbee45b5e344237b66b.txt",
+      "integrity": "sha256:f5c708b59114507b8b27b48181b6883d106bbca0c1634bbee45b5e344237b66b"
+    }
+  ],
+  "evidence": [
+    {
+      "path": "runtime-typescript-go-review-records.json",
+      "integrity": "sha256:848673c7aef0b0ab5d8051b0b79c7ca86fafff38563e4229a63b09781f91740c"
+    }
+  ]
+}

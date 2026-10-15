@@ -27,20 +27,18 @@ describe("language status pill", () => {
       ["Trust", "You trust polaris", undefined],
     ]);
     expect(ids(view)).toEqual(["restart", "use-bundled", "show-log", "settings"]);
-    expect(view.actions[1]?.hint).toBe("6.0.3");
+    expect(view.actions[1]?.hint).toBe("7.0.2");
   });
 
-  test("project TypeScript 6 and bundled selection still name the managed server", () => {
+  test("project TypeScript 6 names tsserver's server, and the bundled selection TypeScript 7", () => {
     const selected = trust("trusted", "project", "6.0.3");
     const legacy = { ...selected, wouldRun: { ...selected.wouldRun, native: false } };
 
-    for (const status of [legacy, trust("trusted", "bundled")]) {
-      const view = statusView(input({ trust: status }));
+    const server = (status: typeof selected) =>
+      statusView(input({ trust: status })).facts.find((fact) => fact.label === "Server")?.value;
 
-      expect(view.facts.find((fact) => fact.label === "Server")?.value).toBe(
-        "typescript-language-server"
-      );
-    }
+    expect(server(legacy)).toBe("typescript-language-server");
+    expect(server(trust("trusted", "bundled"))).toBe("typescript-go 7.0.2");
   });
 
   test("bundled because polaris isn't trusted: hollow, and Trust leads the actions", () => {
@@ -49,7 +47,7 @@ describe("language status pill", () => {
     expect(view).toMatchObject({ kind: "bundled", mark: "hollow", pill: "TypeScript · bundled" });
     expect(view.title).toBe("TypeScript is ready, bundled");
     expect(view.why).toContain("You haven't trusted polaris, so its own TypeScript 7.0.2");
-    expect(view.facts[0]).toMatchObject({ value: "6.0.3", note: "bundled" });
+    expect(view.facts[0]).toMatchObject({ value: "7.0.2", note: "bundled" });
     expect(view.facts.at(-1)).toMatchObject({ label: "Trust", value: "Not now" });
     expect(ids(view)).toEqual(["trust", "restart", "show-log", "settings"]);
     expect(view.actions[0]?.label).toBe("Trust polaris…");

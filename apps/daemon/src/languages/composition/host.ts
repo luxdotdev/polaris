@@ -42,6 +42,7 @@ import { LanguageInstallCore, LanguageInstallGrantAuthority } from "./install.ts
 import { LanguageHostStateCore } from "./hostState.ts";
 import { languageCoreHandlers } from "./index.ts";
 import type { ManagedDelivery } from "./managedDelivery.ts";
+import { typescriptTool } from "./managedPolicy.ts";
 
 type HostOptions = Omit<HostInstallationOptions, "reserveSelection"> & {
   managed?: ManagedDelivery;
@@ -142,7 +143,9 @@ export const languageHostServices = (
                   retryable: false,
                 });
 
-              return provider.tool;
+              return provider.id === "typescript-language-server"
+                ? typescriptTool(facts)
+                : provider.tool;
             },
             requireCurrent: (request) => owners.guard(request, executionTrust).validate,
           });
@@ -195,7 +198,9 @@ export const languageHostServices = (
                         request.facts.effectiveSettings,
                         { cwd: request.facts.projectRoot, requireCurrent: guard },
                         request.signal,
-                        request.facts.providerId
+                        request.facts.providerId === "typescript-language-server"
+                          ? typescriptTool(request.facts)
+                          : request.facts.providerId
                       );
                     }
 

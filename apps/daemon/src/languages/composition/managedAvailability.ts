@@ -11,6 +11,7 @@ import { developerProvider } from "../go/launch.ts";
 /** Providers Polaris installs itself; they need no Trust and reuse verified receipts. */
 export const managedProviderIds: readonly string[] = [
   "typescript-language-server",
+  "typescript-go",
   "basedpyright",
   "ruff",
   ...webTools,

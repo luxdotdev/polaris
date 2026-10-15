@@ -11,6 +11,7 @@ import { artifactFixture, hostId, platform } from "../install/fixture.testing.ts
 import { httpsArtifactDownload } from "../install/download.ts";
 import { digest } from "../install/validation.ts";
 import { createManagedDelivery } from "./managedDelivery.ts";
+import { typescriptTool } from "./managedPolicy.ts";
 
 const settings = (automatic = true) =>
   P.LanguageEffectiveSettings.make({
@@ -48,16 +49,21 @@ async function fixture(corrupt = false, legacy = false) {
   const ledger = createSelectionLedger();
   const managed = createManagedDelivery();
 
-  const tools = ["node", "typescript", "typescript-language-server", "basedpyright", "ruff"].map(
-    (id) => ({
-      ...source.tool,
-      id,
-      artifacts: source.tool.artifacts.map((artifact) => ({
-        ...artifact,
-        url: `https://fixture.invalid/${id}`,
-      })),
-    })
-  );
+  const tools = [
+    "node",
+    "typescript",
+    "typescript-language-server",
+    "typescript-go",
+    "basedpyright",
+    "ruff",
+  ].map((id) => ({
+    ...source.tool,
+    id,
+    artifacts: source.tool.artifacts.map((artifact) => ({
+      ...artifact,
+      url: `https://fixture.invalid/${id}`,
+    })),
+  }));
 
   const options = {
     root: join(root, "private"),
@@ -201,15 +207,22 @@ test("fixture checksum mismatch never activates a private runtime or server", as
   }
 });
 
-test("launch plans select native TS 7, project tsserver/plugins, and guarded bundled override", async () => {
+test("launch plans select managed TS 7, project TS 7, and project tsserver/plugins", async () => {
   const f = await fixture();
   const project = await projectFixture();
 
   try {
     await f.managed.delivery.ensure(settings(), f.admission, new AbortController().signal);
+    await f.managed.delivery.ensure(
+      settings(),
+      f.admission,
+      new AbortController().signal,
+      "typescript-go"
+    );
     const installed = await f.host.current("typescript-language-server");
+    const go = await f.host.current("typescript-go");
 
-    if (installed === null) throw new Error("Fixture installation missing");
+    if (installed === null || go === null) throw new Error("Fixture installation missing");
     const path = await project.put("file.ts");
     await project.put(
       "tsconfig.json",
@@ -238,16 +251,26 @@ test("launch plans select native TS 7, project tsserver/plugins, and guarded bun
     expect(oldPlan.launch.initializationOptions).toMatchObject({ tsserver: { path: tsserver } });
     expect(oldPlan.launch.environment.NODE_OPTIONS).toBe("");
     expect(old.plugins.map(({ name }) => name)).toEqual(["sample-plugin"]);
-    const bundled = await f.managed.delivery.plan(await discovery.discover(input), installed);
-    expect(bundled.launch.environment.NODE_OPTIONS).toContain("plugin-guard.cjs");
+    const untrusted = await discovery.discover(input);
+    const bundled = await f.managed.delivery.plan(untrusted, go);
+    expect(bundled.launch).toMatchObject({
+      executable: join(go.directory, "lib/tsc"),
+      args: ["--lsp", "--stdio"],
+    });
+    expect(bundled.runtimeExecutable).toBeUndefined();
     const binary = "/fixture/native-tsc";
     const native = { ...old, tsserver: null, sdkVersion: "7.0.2", nativeServer: binary };
-    expect((await f.managed.delivery.plan(native, installed)).launch).toMatchObject({
+    expect((await f.managed.delivery.plan(native, go)).launch).toMatchObject({
       executable: binary,
       args: ["--lsp", "--stdio"],
       cwd: old.projectRoot,
     });
-    await rejects(f.managed.delivery.plan({ ...native, nativeServer: null }, installed), {
+    expect([old, untrusted, native].map(typescriptTool)).toEqual([
+      "typescript-language-server",
+      "typescript-go",
+      "typescript-go",
+    ]);
+    await rejects(f.managed.delivery.plan({ ...native, nativeServer: null }, go), {
       reason: "missing-prerequisite",
     });
   } finally {

@@ -55,7 +55,8 @@ writeFileSync(
 writeFileSync(join(project, "main.py"), "import json\n\n");
 
 /** Every server id the rows must never show. */
-const SERVERS = /vscode-css-language-server|typescript-language-server|basedpyright|tsserver/;
+const SERVERS =
+  /vscode-css-language-server|typescript-language-server|typescript-go|basedpyright|tsserver/;
 
 const appearance = async (page: Page, theme: string) => {
   await page.evaluate(
@@ -286,12 +287,12 @@ try {
 
   console.log("TypeScript completion, signature help and hover checked");
 
-  // Accepting tsserver's auto-import applies the resolved item: its import edit lands too.
+  // Accepting the server's auto-import applies the resolved item: its import edit lands too.
   await appearance(page, "dark");
   await typeAt(page, 1, "hostLa");
   await page
     .locator(".cm-completionInfo")
-    .filter({ hasText: "Auto import from './hosts'" })
+    .filter({ hasText: /(?:Auto|Add) import from ["']\.\/hosts/ })
     .waitFor({ timeout: 30_000 });
   await page.screenshot({ path: join(evidence, "ts-auto-import-menu-dark.png") });
   await page.keyboard.press("Enter");

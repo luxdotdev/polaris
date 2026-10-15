@@ -1,7 +1,10 @@
 # Core language composition
 
-The default Host composition now delivers pinned Node 24.18.0, TypeScript 6.0.3
-and typescript-language-server 6.0.1 on the first TypeScript discovery/acquisition.
+The default Host composition delivers TypeScript 7.0.2's native `tsc --lsp`
+(`typescript-go`, no Node) on the first TypeScript discovery/acquisition. A
+trusted project's own TypeScript 7 replaces it; a trusted project on TypeScript
+6 or older, or with tsserver plugins, gets pinned Node 24.18.0, TypeScript 6.0.3
+and typescript-language-server 6.0.1 instead (ADR-0051).
 The Client's effective `downloadLanguageToolsAutomatically` preference defaults
 to true. Turning it off permits reuse of installed tools and returns the typed
 `not-installed` failure when any pinned tool is missing. Manual install grants
@@ -9,7 +12,8 @@ and other catalog providers retain their independent admission policies.
 
 Bundled TypeScript can run without Trust; configured executables still require
 Trust. Discovery never chooses a Workspace SDK or probes project plugins on this
-path. The pinned compiler's private preload disables plugin loading, and typing
+path. TypeScript 7 loads no plugins and acquires no typings; on the tsserver
+path, the pinned compiler's private preload disables plugin loading, and typing
 acquisition is disabled. Rename still uses the existing acknowledged document,
 proposal provenance and draft acceptance authorities. See ADR-0020 for delivery
 bounds and the plugin isolation decision.
@@ -17,8 +21,10 @@ bounds and the plugin isolation decision.
 `managedDelivery.test.ts` exercises offline fixture downloads, deduplication,
 checksum refusal and preference-off behavior. The opt-in
 `bun test ./apps/daemon/src/languages/composition/managedLaunch.live.testing.ts`
-downloads the real tools into a temporary Host and proves diagnostics, hover,
-definition and rename, including refusal to execute hostile project code.
+downloads the real tools into a temporary Host and proves pull diagnostics, hover,
+definition, rename and an Edit Prediction's import quick fix on TypeScript 7,
+including refusal to execute hostile project code, then a trusted TypeScript 6
+project with a plugin on tsserver.
 After building Desktop, `node apps/desktop/scripts/managedLanguageSmoke.ts`
 exercises those features and accepts rename drafts in this repo and a fresh
 `bun init` repo using isolated Daemon and Client directories.

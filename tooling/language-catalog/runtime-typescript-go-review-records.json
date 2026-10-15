@@ -1,0 +1,52 @@
+[
+  {
+    "tool": "typescript-go",
+    "version": "7.0.2",
+    "status": "policy-clear",
+    "artifacts": [
+      {
+        "id": "typescript-go-darwin-arm64",
+        "integrity": "sha256:902e2fe1cf0799198ef902c6b8c310a450fef629a6baba41d45641ef75c04ebd",
+        "bundleIntegrity": null,
+        "packaging": null
+      },
+      {
+        "id": "typescript-go-darwin-x64",
+        "integrity": "sha256:eba158cb54050f723d5ff781438f33de5640054440bb4f2bd170cfe9bc2eb551",
+        "bundleIntegrity": null,
+        "packaging": null
+      },
+      {
+        "id": "typescript-go-linux-arm64",
+        "integrity": "sha256:c83d931ac9dd7549cde6e71246aa9d6a9812843023df3e277fe3b5dcf41dd0ea",
+        "bundleIntegrity": null,
+        "packaging": null
+      },
+      {
+        "id": "typescript-go-linux-x64",
+        "integrity": "sha256:7ecad6f67377e831856367ab062ef394f21506a611405bf8ac0ff039348637d3",
+        "bundleIntegrity": null,
+        "packaging": null
+      }
+    ],
+    "evidence": [],
+    "notices": [
+      {
+        "path": "notices/a7d00bfd54525bc694b6e32f64c7ebcf5e6b7ae3657be5cc12767bce74654a47.txt",
+        "integrity": "sha256:a7d00bfd54525bc694b6e32f64c7ebcf5e6b7ae3657be5cc12767bce74654a47"
+      },
+      {
+        "path": "notices/f5c708b59114507b8b27b48181b6883d106bbca0c1634bbee45b5e344237b66b.txt",
+        "integrity": "sha256:f5c708b59114507b8b27b48181b6883d106bbca0c1634bbee45b5e344237b66b"
+      }
+    ],
+    "missingEvidence": [],
+    "obligations": [
+      "Retain the release LICENSE and NOTICE.txt beside every installation.",
+      "Verify the pinned archive checksum.",
+      "This runtime approval does not authorize bundling in the Polaris installer."
+    ],
+    "policyScope": "typescript-go@7.0.2: pinned upstream runtime download of TypeScript 7's native compiler (@typescript/typescript-<platform>), Apache-2.0; owner decision 2026-10-15 (ADR-0051).",
+    "policyRequests": []
+  }
+]

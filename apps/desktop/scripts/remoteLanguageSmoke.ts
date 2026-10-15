@@ -386,11 +386,11 @@ try {
 
   const managed = remote("ps -eo args")
     .split("\n")
-    .find((line) => line.includes("lib/cli.mjs --stdio"));
+    .find((line) => line.includes("lib/tsc --lsp --stdio"));
 
   assert.ok(
     managed?.includes("/home/lucasdoell/.polaris/languages/"),
-    "Managed TS runs on private Host Node"
+    "Managed TS runs TypeScript 7 from the Host's languages"
   );
   measurements.managedCommand = managed ?? "";
   await features(page, "ts", "fresh-ts");

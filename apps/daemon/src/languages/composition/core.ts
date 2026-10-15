@@ -38,7 +38,7 @@ import { LanguageAcquisitionAuthority } from "./acquisitionAuthority.ts";
 import { prepareFeatureEdit, type PreparationIntent } from "./preparation.ts";
 import { configuredExecutable } from "./configuredLaunch.ts";
 import { observationAdmission } from "./observation.ts";
-import { managedWithoutTrust } from "./managedPolicy.ts";
+import { managedWithoutTrust, typescriptTool } from "./managedPolicy.ts";
 import { developerProvider } from "../go/launch.ts";
 import { trustLanguage, trustProvider } from "./trustProvider.ts";
 import {
@@ -223,7 +223,7 @@ function makeCore(
                 prerequisites: [],
               }
             : yield* providers.availability(
-                provider.tool,
+                providerId === "typescript-language-server" ? typescriptTool(found) : provider.tool,
                 "feature",
                 observed.trust.trusted,
                 {

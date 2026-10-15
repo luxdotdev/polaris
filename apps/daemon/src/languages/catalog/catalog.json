@@ -1,7 +1,105 @@
 {
   "revision": 1,
-  "releaseDate": "2026-10-02",
+  "releaseDate": "2026-10-15",
   "tools": [
+    {
+      "id": "typescript-go",
+      "disposition": "offered",
+      "version": "7.0.2",
+      "source": "https://registry.npmjs.org/typescript/7.0.2",
+      "license": "Apache-2.0",
+      "artifacts": [
+        {
+          "id": "typescript-go-darwin-arm64",
+          "format": "tar.gz",
+          "url": "https://registry.npmjs.org/@typescript/typescript-darwin-arm64/-/typescript-darwin-arm64-7.0.2.tgz",
+          "integrity": "sha256:902e2fe1cf0799198ef902c6b8c310a450fef629a6baba41d45641ef75c04ebd",
+          "platforms": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "libc": "none"
+            }
+          ],
+          "entry": "lib/tsc",
+          "bundle": null,
+          "audit": "verified",
+          "auditReason": "Runtime upstream download: Apache-2.0 LICENSE and NOTICE.txt retained (ADR-0022).",
+          "auditRoot": "sha256:8720407f1cd198abdf246fa29c611ae4b5485ec9bd50bc76e7491ce05f8a6756"
+        },
+        {
+          "id": "typescript-go-darwin-x64",
+          "format": "tar.gz",
+          "url": "https://registry.npmjs.org/@typescript/typescript-darwin-x64/-/typescript-darwin-x64-7.0.2.tgz",
+          "integrity": "sha256:eba158cb54050f723d5ff781438f33de5640054440bb4f2bd170cfe9bc2eb551",
+          "platforms": [
+            {
+              "os": "darwin",
+              "arch": "x64",
+              "libc": "none"
+            }
+          ],
+          "entry": "lib/tsc",
+          "bundle": null,
+          "audit": "verified",
+          "auditReason": "Runtime upstream download: Apache-2.0 LICENSE and NOTICE.txt retained (ADR-0022).",
+          "auditRoot": "sha256:ee85c6a3724d39c44dd77f1ceb22d56e3d1af617d1e4ac4d24c6d7a8663c6490"
+        },
+        {
+          "id": "typescript-go-linux-arm64",
+          "format": "tar.gz",
+          "url": "https://registry.npmjs.org/@typescript/typescript-linux-arm64/-/typescript-linux-arm64-7.0.2.tgz",
+          "integrity": "sha256:c83d931ac9dd7549cde6e71246aa9d6a9812843023df3e277fe3b5dcf41dd0ea",
+          "platforms": [
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "musl"
+            }
+          ],
+          "entry": "lib/tsc",
+          "bundle": null,
+          "audit": "verified",
+          "auditReason": "Runtime upstream download: Apache-2.0 LICENSE and NOTICE.txt retained (ADR-0022).",
+          "auditRoot": "sha256:9d2ed31b08ec6de9d7d8880cfbf9f60101725d4987731bee3908434ae84b585a"
+        },
+        {
+          "id": "typescript-go-linux-x64",
+          "format": "tar.gz",
+          "url": "https://registry.npmjs.org/@typescript/typescript-linux-x64/-/typescript-linux-x64-7.0.2.tgz",
+          "integrity": "sha256:7ecad6f67377e831856367ab062ef394f21506a611405bf8ac0ff039348637d3",
+          "platforms": [
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "musl"
+            }
+          ],
+          "entry": "lib/tsc",
+          "bundle": null,
+          "audit": "verified",
+          "auditReason": "Runtime upstream download: Apache-2.0 LICENSE and NOTICE.txt retained (ADR-0022).",
+          "auditRoot": "sha256:b05a7ad05d4e805948d21fa6e35c575339df00d4d2fc351402d760709a792380"
+        }
+      ],
+      "requirements": [],
+      "argv": ["--lsp", "--stdio"],
+      "environment": {},
+      "limitations": [
+        "TypeScript 7 loads no tsserver plugins; a trusted project on TypeScript 6 or older, or with plugins, runs on typescript-language-server."
+      ],
+      "distribution": "runtime-upstream"
+    },
     {
       "id": "typescript-language-server",
       "disposition": "offered",
@@ -2144,7 +2242,7 @@
       "providers": [
         {
           "id": "typescript-language-server",
-          "tool": "typescript-language-server",
+          "tool": "typescript-go",
           "role": "primary",
           "diagnostics": "primary",
           "disableFeatures": [],
@@ -2165,7 +2263,7 @@
         "configuration": "Project configuration after trust; effective paths resolved by D1"
       },
       "limitations": [
-        "Project-owned launchable tsserver/alias dependency and plugin probe roots required; no managed TypeScript runtime."
+        "TypeScript 7 (tsc --lsp) by default; a trusted project's own TypeScript 7 replaces it, and its TypeScript 6 or older, or tsserver plugins, run on typescript-language-server."
       ],
       "offered": true
     },

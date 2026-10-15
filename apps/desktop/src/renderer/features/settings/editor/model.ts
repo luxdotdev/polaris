@@ -117,11 +117,17 @@ const versionOf = (availability: Availability | undefined, pinned: string) =>
 const versionWords = (version: string) =>
   version === "present" ? "" : version.replace(/^>=\s*/, "") + " or newer";
 
-/** A required prerequisite the Host lacks, in words. */
-const missingPrerequisite = (facts: ReadonlyArray<Availability>, host: string) => {
+/** A required prerequisite the Host lacks, in words; Polaris's own tools (its Node) download. */
+const missingPrerequisite = (
+  facts: ReadonlyArray<Availability>,
+  host: string,
+  downloaded: ReadonlySet<string>
+) => {
   const fact = facts
     .flatMap((availability) => availability.prerequisites)
-    .find((p) => p.requirement.required && p.presence === "missing");
+    .find(
+      (p) => p.requirement.required && p.presence === "missing" && !downloaded.has(p.requirement.id)
+    );
 
   if (fact === undefined) return null;
   const version = versionWords(fact.requirement.version);
@@ -165,9 +171,10 @@ const stateOf = (
   syntaxIds: ReadonlyArray<P.LanguageSyntaxId>,
   facts: ReadonlyArray<Availability>,
   context: RowContext,
-  developer: ReadonlySet<string>
+  developer: ReadonlySet<string>,
+  downloaded: ReadonlySet<string>
 ) => {
-  const urgent = installState(facts) ?? missingPrerequisite(facts, context.host);
+  const urgent = installState(facts) ?? missingPrerequisite(facts, context.host, downloaded);
 
   if (urgent !== null) return urgent;
 
@@ -253,14 +260,16 @@ const factsOf = (
     );
   }
 
-  const bundled = group.some((i) => i.id === "typescript") ? tools.get("typescript") : undefined;
+  const older = group.some((i) => i.id === "typescript")
+    ? tools.get("typescript-language-server")
+    : undefined;
 
-  if (bundled !== undefined)
+  if (older !== undefined)
     facts.push({
-      label: "Bundled TypeScript",
-      value: versionOf(availability.get(bundled.id), bundled.version),
+      label: "TypeScript 6 and older",
+      value: `${older.id} ${versionOf(availability.get(older.id), older.version)}`,
       mono: true,
-      note: "for workspaces you haven't trusted",
+      note: "after Trust, on Polaris's own Node",
     });
 
   const primary = tools.get(providers[0]?.tool ?? "");
@@ -298,6 +307,10 @@ export const languageRows = (
     catalog.tools.filter((tool) => tool.distribution === "developer").map((tool) => tool.id)
   );
 
+  const downloaded = new Set(
+    catalog.tools.filter((tool) => tool.distribution !== "developer").map((tool) => tool.id)
+  );
+
   const groups = new Map<string, Integration[]>();
 
   for (const integration of catalog.integrations.filter(offered)) {
@@ -323,7 +336,7 @@ export const languageRows = (
       id: key,
       name: listed([...new Set(group.map(nameOf))].sort((a, b) => a.length - b.length)),
       monogram: MONOGRAMS.get(first.id) ?? nameOf(first).slice(0, 2).toUpperCase(),
-      state: stateOf(first.id, servers, syntaxIds, facts, context, developer),
+      state: stateOf(first.id, servers, syntaxIds, facts, context, developer, downloaded),
       syntaxIds,
       facts: factsOf(group, catalog, byTool, context.host),
     };
