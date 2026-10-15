@@ -12,7 +12,7 @@ import { polaris } from "../../bridge.ts";
 import { Group, Heading, SettingRow } from "../ui/parts.tsx";
 import { CompletionPlacement } from "./CompletionPlacement.tsx";
 import { ManagedModel } from "./ManagedModel.tsx";
-import { memoryLine, placementRow, type ModelServerMemory } from "./placementRows.ts";
+import { inSentence, memoryLine, placementRow, type ModelServerMemory } from "./placementRows.ts";
 import {
   hostConnected,
   inspectPredictionHost,
@@ -259,8 +259,8 @@ export const TabCompletion = ({ hosts }: { readonly hosts: ReadonlyArray<HostVie
           </summary>
           <div className="gap-gap mt-2 flex flex-col">
             <p className="text-caption text-text-subtle">
-              Run llama-server, LM Studio or Ollama on {machine} and point Polaris at it. A
-              next-edit model there is used before anything is downloaded.
+              Run llama-server, LM Studio or Ollama on {inSentence(machine)} and point Polaris at
+              it. A next-edit model there is used before anything is downloaded.
             </p>
             <EndpointForm key={scope} endpoints={endpoints} machine={machine} save={save} />
           </div>

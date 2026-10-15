@@ -18,6 +18,7 @@ import {
   watchManaged,
 } from "../../editor/prediction/store.ts";
 import { FooterStrip, Group, SettingRow } from "../ui/parts.tsx";
+import { inSentence } from "./placementRows.ts";
 
 const CONTROL =
   "bg-surface-sunken border-hairline rounded-control text-body text-text-default h-row min-w-0 border px-row-pad";
@@ -25,8 +26,8 @@ const CONTROL =
 const SWEEP = "sweep-next-edit-1.5b";
 
 const CHOICES: ReadonlyArray<{ readonly id: ManagedModelId; readonly label: string }> = [
-  { id: SWEEP, label: "Sweep Next-Edit 1.5B · 2.6 GB of memory · recommended" },
-  { id: "zeta-2.1", label: "Zeta 2.1 · higher quality · about 9 GB of memory" },
+  { id: SWEEP, label: "Sweep Next-Edit 1.5B · recommended · 2.6 GB" },
+  { id: "zeta-2.1", label: "Zeta 2.1 · higher quality · about 9 GB" },
 ];
 
 export interface ManagedModelProps {
@@ -189,22 +190,22 @@ export const ManagedModel = ({ hostKey, side, machine, connected }: ManagedModel
 
   const folderCaption =
     status === null
-      ? `On ${machine}`
+      ? `On ${inSentence(machine)}`
       : `${status.modelsDir}${status.freeBytes === null ? "" : ` · ${gb(status.freeBytes)} free`}`;
 
   return (
-    <Group label={`Model on ${machine}`} className="mt-1">
+    <Group label={`Model on ${inSentence(machine)}`} className="mt-1">
       <SettingRow
         htmlFor={`managed-model-${hostKey}`}
         title="Model"
-        caption="One next-edit model, downloaded from its publisher and run by Polaris on this machine. It also completes plain insertions."
+        caption="One next-edit model, downloaded from its publisher and run by Polaris on this machine. Zeta needs more memory."
       >
         <select
           id={`managed-model-${hostKey}`}
           value={preferences.managedModel ?? SWEEP}
           disabled={busy || !connected}
           onChange={(event) => chooseModel(event.target.value)}
-          className={`${CONTROL} max-w-80`}
+          className={`${CONTROL} max-w-96`}
         >
           {CHOICES.map((choice) => (
             <option key={choice.id} value={choice.id}>
