@@ -63,6 +63,7 @@ export type CommandId =
   | "editor.prediction.accept"
   | "editor.prediction.acceptWord"
   | "editor.prediction.dismiss"
+  | "editor.prediction.showLast"
   | "language.restart"
   | "language.restartAll"
   | "language.showLog"
@@ -238,6 +239,7 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
     palette: false,
     shares: "session.interrupt",
   },
+  { id: "editor.prediction.showLast", title: "Show last edit prediction", keys: [] },
   {
     id: "palette.open",
     title: "Command Palette…",
