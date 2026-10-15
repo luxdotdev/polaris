@@ -169,19 +169,18 @@ export const WorkspaceSymbols = Schema.NullOr(
   )
 );
 
-export const CodeActions = Schema.NullOr(
-  bounded(
-    Schema.Struct({
-      title: label,
-      kind: Schema.optionalKey(label),
-      disabled: Schema.optionalKey(Schema.Struct({ reason: label })),
-      edit: Schema.optionalKey(P.LanguageWorkspaceEdit),
-      command: Schema.optionalKey(Schema.Union([label, P.LanguageJsonObject])),
-      arguments: Schema.optionalKey(Schema.Array(P.LanguageJson)),
-      data: Schema.optionalKey(P.LanguageJson),
-    })
-  )
-);
+export const CodeAction = Schema.Struct({
+  title: label,
+  kind: Schema.optionalKey(label),
+  isPreferred: Schema.optionalKey(Schema.Boolean),
+  disabled: Schema.optionalKey(Schema.Struct({ reason: label })),
+  edit: Schema.optionalKey(P.LanguageWorkspaceEdit),
+  command: Schema.optionalKey(Schema.Union([label, P.LanguageJsonObject])),
+  arguments: Schema.optionalKey(Schema.Array(P.LanguageJson)),
+  data: Schema.optionalKey(P.LanguageJson),
+});
+
+export const CodeActions = Schema.NullOr(bounded(CodeAction));
 
 export const PullDiagnostic = Schema.Union([
   Schema.Struct({

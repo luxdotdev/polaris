@@ -36,6 +36,10 @@ export const ghost = StateField.define<Ghost | null>({
 export const popupOrSnippet = (state: EditorState) =>
   completionStatus(state) !== null || hasNextSnippetField(state) || hasPrevSnippetField(state);
 
+/** A completion list is showing or a snippet owns Tab; a merely pending source doesn't count. */
+export const openPopupOrSnippet = (state: EditorState) =>
+  completionStatus(state) === "active" || hasNextSnippetField(state) || hasPrevSnippetField(state);
+
 export const visibleGhost = (state: EditorState): Ghost | null => {
   const value = state.field(ghost, false);
 

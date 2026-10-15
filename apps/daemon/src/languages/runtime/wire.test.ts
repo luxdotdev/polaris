@@ -17,3 +17,11 @@ test("completion and signature docs are asked for as Markdown, resolved on selec
   expect(completion.completionItem.labelDetailsSupport).toBe(true);
   expect(signatureHelp.signatureInformation.documentationFormat).toEqual(["markdown", "plaintext"]);
 });
+
+test("code actions are asked for as literals with isPreferred, so quick fixes arrive with their edits", () => {
+  const { codeAction } = clientCapabilities.textDocument;
+
+  expect(codeAction.codeActionLiteralSupport.codeActionKind.valueSet).toContain("quickfix");
+  expect(codeAction.isPreferredSupport).toBe(true);
+  expect(codeAction.resolveSupport.properties).toContain("edit");
+});

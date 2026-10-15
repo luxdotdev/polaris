@@ -1,12 +1,18 @@
 import { polaris } from "../../bridge.ts";
 import type { AppState } from "../../../store/store.ts";
+import { predictionPreferenceView } from "../../../../shared/predictionPlacement.ts";
 import { registerEditorExtensions, type EditorFile } from "../api.ts";
-import { predictionExtension } from "./index.ts";
+import { languageFor } from "../model/language.ts";
+import { forwardPredictionLog } from "./edit/forward.ts";
+import { type EditPredictionPort, predictionExtension } from "./index.ts";
 import {
+  editAvailable,
   hostConnected,
   inspectPredictionHost,
+  loadPredictionTarget,
   preferencesOf,
   predictionStore,
+  requestEditPrediction,
   requestPrediction,
 } from "./store.ts";
 
@@ -28,50 +34,103 @@ export const installPredictions = (
     }
   };
 
-  return registerEditorExtensions((file) =>
-    predictionExtension({
-      allowed: () =>
-        predictionStore.getState().enabled &&
-        preferencesOf(file.hostKey).placement !== "off" &&
-        hostConnected(app().hosts, file.hostKey),
-      request: (input, signal, preview) =>
-        requestPrediction(polaris(), file, input, signal, preview),
-      subscribe: (refresh) => {
-        const key = JSON.stringify([file.hostKey, file.workspaceId]);
-        workspaces.set(key, (workspaces.get(key) ?? 0) + 1);
+  const allowed = (file: EditorFile) =>
+    predictionStore.getState().enabled &&
+    preferencesOf(file.hostKey).placement !== "off" &&
+    hostConnected(app().hosts, file.hostKey);
 
-        const epoch = () => {
-          const host = app().hosts.find((item) => item.key === file.hostKey);
+  const inspect = (file: EditorFile, refresh: boolean) => {
+    void inspectPredictionHost(polaris(), file.hostKey, refresh).catch(() => undefined);
+    void loadPredictionTarget(polaris(), file).catch(() => undefined);
+  };
 
-          return `${host?.status.state}:${host?.status.epoch}`;
-        };
+  const subscribe = (file: EditorFile) => (refresh: () => void) => {
+    const key = JSON.stringify([file.hostKey, file.workspaceId]);
+    workspaces.set(key, (workspaces.get(key) ?? 0) + 1);
 
-        let last = epoch();
+    const epoch = () => {
+      const host = app().hosts.find((item) => item.key === file.hostKey);
 
-        const unsubscribeHost = subscribeApp?.(() => {
-          const next = epoch();
+      return `${host?.status.state}:${host?.status.epoch}`;
+    };
 
-          if (next === last) return;
-          last = next;
-          refresh();
+    let last = epoch();
 
-          if (hostConnected(app().hosts, file.hostKey))
-            void inspectPredictionHost(polaris(), file.hostKey, true).catch(() => undefined);
-        });
+    const unsubscribeHost = subscribeApp?.(() => {
+      const next = epoch();
 
-        const unsubscribeSettings = predictionStore.subscribe((state, previous) => {
-          if (state.revision !== previous.revision) refresh();
-        });
+      if (next === last) return;
+      last = next;
+      refresh();
 
-        if (hostConnected(app().hosts, file.hostKey))
-          void inspectPredictionHost(polaris(), file.hostKey).catch(() => undefined);
+      if (hostConnected(app().hosts, file.hostKey)) inspect(file, true);
+    });
 
-        return () => {
-          unsubscribeHost?.();
-          unsubscribeSettings();
-          release(file);
-        };
+    const unsubscribeSettings = predictionStore.subscribe((state, previous) => {
+      if (state.revision !== previous.revision) refresh();
+    });
+
+    if (hostConnected(app().hosts, file.hostKey)) inspect(file, false);
+
+    return () => {
+      unsubscribeHost?.();
+      unsubscribeSettings();
+      release(file);
+    };
+  };
+
+  /** Both ports share one Host and settings subscription per view. */
+  const shared = (file: EditorFile) => {
+    const listeners = new Set<() => void>();
+    let stop: (() => void) | null = null;
+
+    return (refresh: () => void) => {
+      listeners.add(refresh);
+      stop ??= subscribe(file)(() => {
+        for (const listener of listeners) listener();
+      });
+
+      return () => {
+        listeners.delete(refresh);
+
+        if (listeners.size === 0) {
+          stop?.();
+          stop = null;
+        }
+      };
+    };
+  };
+
+  const unforward = forwardPredictionLog(() => polaris().notify);
+
+  const unregister = registerEditorExtensions((file) => {
+    const subscribeShared = shared(file);
+
+    const language = languageFor(file.path);
+
+    const edit: EditPredictionPort = {
+      available: () =>
+        allowed(file) &&
+        editAvailable(file) &&
+        !preferencesOf(file.hostKey).disabledLanguages.includes(language),
+      request: (input, signal) => requestEditPrediction(polaris(), file, input, signal),
+      settings: () => predictionPreferenceView(preferencesOf(file.hostKey)),
+      subscribe: subscribeShared,
+    };
+
+    return predictionExtension(
+      {
+        allowed: () => allowed(file),
+        request: (input, signal, preview) =>
+          requestPrediction(polaris(), file, input, signal, preview),
+        subscribe: subscribeShared,
       },
-    })
-  );
+      edit
+    );
+  });
+
+  return () => {
+    unregister();
+    unforward();
+  };
 };
