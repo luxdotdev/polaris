@@ -3,7 +3,7 @@
  * the star and a short label; hover or focus opens the card after 300ms, click or ↵ at once
  * with focus on its first action, as the Session context card does.
  */
-import { HoverCard, HoverCardContent, HoverCardTrigger, PixelPolarisIcon } from "@polaris/ui";
+import { cn, HoverCard, HoverCardContent, HoverCardTrigger, PixelPolarisIcon } from "@polaris/ui";
 import { type FocusEvent, useEffect, useId, useRef, useState } from "react";
 import { hostInSentence } from "../../../shell/hostCopy.ts";
 import { useApp, useCommands } from "../../../shell/hooks.ts";
@@ -13,7 +13,7 @@ import { inSentence } from "../../settings/editor/placementRows.ts";
 import { fileKey } from "../model/drafts.ts";
 import { useTrustStatus } from "../trust/store.ts";
 import { runCardAction } from "./card/actions.ts";
-import { CompletionCard, type Outcome } from "./card/CompletionCard.tsx";
+import { CARD_WIDTH, CompletionCard, type Outcome } from "./card/CompletionCard.tsx";
 import { useMemoryLine, useMetrics, useServerReport } from "./card/hooks.ts";
 import { gb } from "./card/managed.ts";
 import { completionCard, type CardAction, type CardActionId } from "./card/model.ts";
@@ -180,7 +180,7 @@ export const PredictionStatus = ({ hostKey, path }: PredictionStatusProps) => {
         onBlur={(event) => {
           if (!within(event) && running === null) setOpen(false);
         }}
-        className="rounded-row flex w-[360px] flex-col overflow-hidden p-0 outline-none"
+        className={cn("rounded-row flex flex-col overflow-hidden p-0 outline-none", CARD_WIDTH)}
       >
         <CompletionCard
           view={view}

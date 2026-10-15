@@ -56,6 +56,19 @@ const load = async (page: Page, scene: string) => {
   await page.waitForLoadState("domcontentloaded");
 };
 
+// The Model fact's note ("next edit · recommended") must fit the card whole (Paper EP8).
+const modelNoteFits = async (page: Page, where: string) => {
+  const clipped =
+    await page.evaluate(`[...document.querySelectorAll('[data-fact="Model"] > :last-child')]
+    .filter((note) => note.scrollWidth > note.clientWidth)
+    .map((note) => note.closest("[data-scene]")?.getAttribute("data-scene") + " (" + note.clientWidth + " of " + note.scrollWidth + "px)")`);
+
+  if (!Array.isArray(clipped)) throw new Error("screens: the Model fact check returned no list");
+
+  if (clipped.length > 0)
+    throw new Error(`screens: ${where}: the Model fact's note is cut off in ${clipped.join(", ")}`);
+};
+
 try {
   const page = await app.firstWindow();
 
@@ -68,9 +81,13 @@ try {
   for (const density of ["calm", "balanced", "compact"])
     for (const theme of ["dark", "light"]) {
       await appearance(page, theme, density);
+      await modelNoteFits(page, `${theme} ${density}`);
       const path = join(out, `states-${theme}-${density}.png`);
       await page.screenshot({ path, fullPage: true });
       console.log(`screens: ${path}`);
+      const card = join(out, `managed-serving-${theme}-${density}.png`);
+      await page.locator('[data-scene="managed-serving"]').screenshot({ path: card });
+      console.log(`screens: ${card}`);
     }
 
   await page.setViewportSize({ width: 900, height: 620 });

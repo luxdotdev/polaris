@@ -12,7 +12,8 @@ import { createNavigation } from "../../../../routes/navigation.ts";
 import { AppProvider } from "../../../../shell/hooks.ts";
 import { type AppState, type Connection, initialState } from "../../../../store/store.ts";
 import { standInBridge } from "../../../bridge.ts";
-import { CompletionCard, type CompletionCardProps } from "../card/CompletionCard.tsx";
+import { cn } from "@polaris/ui";
+import { CARD_WIDTH, CompletionCard, type CompletionCardProps } from "../card/CompletionCard.tsx";
 import { BASE, INSPECTION, SCENES, SERVED } from "../card/fixtures.ts";
 import { completionCard } from "../card/model.ts";
 import { PredictionStatus } from "../Status.tsx";
@@ -29,7 +30,12 @@ const Card = ({
   <figure className="flex flex-col gap-2" data-scene={name}>
     <figcaption className="text-caption text-text-faint font-mono">{name}</figcaption>
     {/* The hover card's surface (FLOAT_SURFACE with the popover's row radius), held open. */}
-    <div className="rounded-row border-hairline bg-surface-raised text-text-default shadow-float flex w-[360px] flex-col overflow-hidden border">
+    <div
+      className={cn(
+        "rounded-row border-hairline bg-surface-raised text-text-default shadow-float flex flex-col overflow-hidden border",
+        CARD_WIDTH
+      )}
+    >
       <CompletionCard {...props} titleId={`title-${name}`} onRun={noop} onModel={noop} />
     </div>
   </figure>

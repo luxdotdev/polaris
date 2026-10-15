@@ -140,6 +140,9 @@ const Line = ({
   </p>
 );
 
+/** The card's width (Paper EP8): wide enough that the Model fact's note, "next edit · recommended", fits. */
+export const CARD_WIDTH = "w-[400px]";
+
 export const CompletionCard = ({
   view,
   running,
