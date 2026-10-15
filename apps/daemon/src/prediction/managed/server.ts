@@ -43,6 +43,8 @@ import {
 /** The clock: `after` runs `run` once in `ms` and answers the function that cancels it. */
 export interface Timers {
   readonly after: (run: () => void, ms: number) => () => void;
+  /** Monotonic milliseconds, for how long a load took. */
+  readonly now: () => number;
 }
 
 export interface ManagedPorts {
@@ -106,6 +108,7 @@ const defaultPorts = (): ManagedPorts => ({
 
       return () => clearTimeout(handle);
     },
+    now: () => performance.now(),
   },
   free: freeBytes,
   port: pickPort,
@@ -128,6 +131,8 @@ export class ManagedServer {
   private download: AbortController | null = null;
   private verifying: Promise<void> | null = null;
   private starting: Promise<void> | null = null;
+  private loadStartedAt = 0;
+  private loadMs: number | null = null;
   private cancelIdle: (() => void) | null = null;
   private cancelRetry: (() => void) | null = null;
   private log: string[] = [];
@@ -290,6 +295,7 @@ export class ManagedServer {
       endpoint: this.port === null ? null : { kind: "openai", url: this.url() },
       phase: this.phase(),
       memoryBytes: running && this.process !== null ? await this.ports.rss(this.process.pid) : null,
+      loadMs: this.state.matches("serving") ? this.loadMs : null,
     };
   }
 
@@ -404,6 +410,10 @@ export class ManagedServer {
     this.download?.abort();
   }
 
+  isServing() {
+    return this.state.matches("serving");
+  }
+
   /** Starts the server if it isn't up, and answers once it serves; concurrent callers share it. */
   start(): Promise<void> {
     if (this.verifying !== null) return this.verifying.then(() => this.start());
@@ -459,6 +469,8 @@ export class ManagedServer {
 
     this.process = child;
     this.log = [];
+    this.loadMs = null;
+    this.loadStartedAt = this.ports.timers.now();
     void this.collectLog(child);
     const probe = new AbortController();
     let settled = false;
@@ -518,6 +530,7 @@ export class ManagedServer {
         if (await this.ports.health(this.url(), this.model.alias, probe.signal)) {
           if (this.process !== child) return;
           this.attempt = 0;
+          this.loadMs = Math.round(this.ports.timers.now() - this.loadStartedAt);
           this.move({ type: "listening" });
           this.touch();
           settle(null);

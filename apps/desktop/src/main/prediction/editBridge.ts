@@ -10,6 +10,7 @@ import { Effect, Queue, Schema, Stream, type ManagedRuntime } from "effect";
 import {
   EditPredictionFeedItem,
   type EditPredictionInput,
+  type ManagedSideInput,
   type PredictionContextSummary,
   type PredictionWorkspaceTarget,
 } from "../../shared/predictionContract.ts";
@@ -25,7 +26,7 @@ interface EditBridgePorts {
   readonly labels: (hostKey: string) => Promise<{ clientLabel: string; hostLabel: string }>;
   readonly enabled: () => { enabled: boolean };
   readonly contextSummary: (context: PredictionContext) => PredictionContextSummary;
-  readonly ensureManaged: (signal: AbortSignal) => Promise<void>;
+  readonly ensureManaged: (input: ManagedSideInput, signal: AbortSignal) => Promise<boolean>;
 }
 
 export const createEditBridge = ({
@@ -99,7 +100,7 @@ export const createEditBridge = ({
             const result = await ports.placement.run(
               input.hostKey,
               input.workspaceId,
-              async (serving, signal) => {
+              async (serving, signal, trip) => {
                 delete timings.prompt;
                 delete timings.firstToken;
                 delete timings.final;
@@ -147,11 +148,20 @@ export const createEditBridge = ({
                   })
                 );
 
+                if (serving.managed) {
+                  const launched = await ensureManaged(
+                    { side: serving.side, hostKey: input.hostKey },
+                    signal
+                  );
+
+                  if (launched) trip.exclude();
+                  trip.restart();
+                  mark("managed");
+                }
+
                 const predictorStart = performance.now() - started;
 
                 if (serving.side === "client") {
-                  if (serving.managed) await ensureManaged(signal);
-
                   await local.runPromise(
                     LocalPredictor.use((predictor) =>
                       predictor

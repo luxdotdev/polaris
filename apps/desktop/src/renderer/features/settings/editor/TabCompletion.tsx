@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Option, Schema } from "effect";
-import { Button, Input, Switch } from "@polaris/ui";
+import { Button, DisclosureChevron, Input, Switch } from "@polaris/ui";
 import type { HostView } from "../../../../shared/api.ts";
 import { clientCopy } from "../../../../shared/clientCopy.ts";
 import {
@@ -11,6 +11,7 @@ import { commandShortcut } from "../../../../shared/keymap.ts";
 import { polaris } from "../../bridge.ts";
 import { Group, Heading, SettingRow } from "../ui/parts.tsx";
 import { CompletionPlacement } from "./CompletionPlacement.tsx";
+import { ClearHistoryRow, EditPredictionRows } from "./EditPredictionRows.tsx";
 import { ManagedModel } from "./ManagedModel.tsx";
 import { inSentence, memoryLine, placementRow, type ModelServerMemory } from "./placementRows.ts";
 import {
@@ -151,6 +152,7 @@ export const TabCompletion = ({ hosts }: { readonly hosts: ReadonlyArray<HostVie
   const [scope, setScope] = useState("client");
   const [error, setError] = useState<string | null>(null);
   const [memory, setMemory] = useState<ModelServerMemory | null>(null);
+  const [ownOpen, setOwnOpen] = useState(false);
 
   const keys = hosts.map((host) => host.key).join("\u0000");
   const epochs = hosts.map((host) => host.status.epoch).join("\u0000");
@@ -182,6 +184,11 @@ export const TabCompletion = ({ hosts }: { readonly hosts: ReadonlyArray<HostVie
   const scopeHost = hosts.find((host) => host.key === scope);
   const machine = scope === "client" ? clientLabel : (scopeHost?.label ?? scope);
   const endpoints = scope === "client" ? state.clientEndpoints : preferencesOf(scope).hostEndpoints;
+
+  // A machine with an endpoint of its own shows it; an empty form stays folded.
+  useEffect(() => {
+    if (endpoints.length > 0) setOwnOpen(true);
+  }, [endpoints.length]);
 
   const save = async (value: PredictionClientEndpoints) => {
     if (scope === "client") await setClientEndpoints(polaris(), value);
@@ -222,6 +229,7 @@ export const TabCompletion = ({ hosts }: { readonly hosts: ReadonlyArray<HostVie
             onCheckedChange={(on) => void enabled(on)}
           />
         </SettingRow>
+        <EditPredictionRows hosts={hosts} onError={setError} />
       </Group>
       <div className="gap-gap flex flex-col">
         <div className="flex items-center justify-between gap-4">
@@ -253,18 +261,28 @@ export const TabCompletion = ({ hosts }: { readonly hosts: ReadonlyArray<HostVie
           machine={machine}
           connected={scope === "client" ? localConnected : hostConnected(hosts, scope)}
         />
-        <details className="gap-gap flex flex-col" open={endpoints.length > 0}>
-          <summary className="text-caption text-text-subtle cursor-default">
-            Use my own model server
-          </summary>
-          <div className="gap-gap mt-2 flex flex-col">
-            <p className="text-caption text-text-subtle">
-              Run llama-server, LM Studio or Ollama on {inSentence(machine)} and point Polaris at
-              it. A next-edit model there is used before anything is downloaded.
-            </p>
-            <EndpointForm key={scope} endpoints={endpoints} machine={machine} save={save} />
-          </div>
-        </details>
+        <Group label="Use my own model server" className="mt-1">
+          <details open={ownOpen} onToggle={(event) => setOwnOpen(event.currentTarget.open)}>
+            <summary className="px-panel flex cursor-default list-none items-center gap-4 py-[calc(var(--spacing-gap)+4px)]">
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="text-label font-regular text-text-default">
+                  Use my own model server
+                </span>
+                <span className="text-caption text-text-subtle">
+                  Run llama-server, LM Studio or Ollama on {inSentence(machine)} and point Polaris
+                  at it. A next-edit model there is used before anything is downloaded.
+                </span>
+              </span>
+              <DisclosureChevron open={ownOpen} className="text-text-subtle" />
+            </summary>
+            <div className="border-hairline px-panel gap-gap flex flex-col border-t py-[calc(var(--spacing-gap)+4px)]">
+              <EndpointForm key={scope} endpoints={endpoints} machine={machine} save={save} />
+            </div>
+          </details>
+        </Group>
+        <Group label="Edit prediction history" className="mt-1">
+          <ClearHistoryRow />
+        </Group>
       </div>
       <CompletionPlacement
         rows={hosts.map((host) =>

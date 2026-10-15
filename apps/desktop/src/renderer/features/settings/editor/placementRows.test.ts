@@ -99,6 +99,42 @@ describe("placementRow", () => {
     ).toBe("Offline");
   });
 
+  test("Polaris's own next-edit server beats the user's FIM server on the same machine", () => {
+    const managed = {
+      kind: "openai" as const,
+      url: "http://127.0.0.1:43210",
+      models: ["sweep-next-edit-1.5b-q8_0"],
+      managed: true,
+    };
+
+    const row = placementRow(
+      input({
+        inspection: inspection(
+          { machine: machine(16), endpoints: [] },
+          { machine: machine(64), endpoints: [server(MELLUM, QWEN), managed] }
+        ),
+      })
+    );
+
+    expect(row.caption).toBe("Served by Mac Studio · Sweep Next-Edit 1.5B");
+  });
+
+  test("a model Polaris has no prompt for names what it can prompt today", () => {
+    const row = placementRow(
+      input({
+        preferences: { ...DEFAULT_PREDICTION_PREFERENCES, model: "qwen3-coder-30b-a3b" },
+        inspection: inspection(
+          { machine: machine(16), endpoints: [] },
+          { machine: machine(64), endpoints: [server("qwen3-coder-30b-a3b")] }
+        ),
+      })
+    );
+
+    expect(row.caption).toBe(
+      "Polaris can't prompt qwen3-coder-30b-a3b yet · Sweep Next-Edit or Zeta 2.1 suggest edits; Mellum2 and Qwen2.5-Coder complete at the cursor"
+    );
+  });
+
   test("a chosen model no machine has is kept and flagged", () => {
     const row = placementRow(
       input({ preferences: { ...DEFAULT_PREDICTION_PREFERENCES, model: "gone-7b" } })

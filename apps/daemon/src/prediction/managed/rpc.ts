@@ -33,6 +33,7 @@ const act = (server: ManagedServer, request: ManagedServerRequest, action: Manag
 const managedQuery = ServerRpcs.toLayerHandler("prediction.managed", (request) =>
   Effect.gen(function* () {
     const server = yield* ManagedModelServer;
+    const launched = request.action === "start" && !server.isServing();
 
     if (request.action === "setup") {
       // The download runs on; the caller watches progress rather than holding the RPC open.
@@ -42,10 +43,12 @@ const managedQuery = ServerRpcs.toLayerHandler("prediction.managed", (request) =
       yield* Effect.tryPromise({ try: () => act(server, request, action), catch: asError });
     }
 
-    return yield* Effect.tryPromise({
+    const status = yield* Effect.tryPromise({
       try: () => server.status(request.modelsDir, request.model),
       catch: asError,
     });
+
+    return { ...status, launched };
   })
 );
 

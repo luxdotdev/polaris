@@ -4,6 +4,7 @@
  */
 import type { ManagedServerStatus } from "@polaris/protocol";
 import { Match, Predicate } from "effect";
+import type { Fact } from "../../status/model.ts";
 import type { ManagedInspection } from "../../../../../shared/predictionContract.ts";
 import type { PredictionPreferences } from "../../../../../shared/predictionPlacement.ts";
 
@@ -98,8 +99,8 @@ export const managedHeadline = (
       why: `Checking the download against its published checksum on ${machine}.`,
     })),
     Match.tag("Starting", () => ({
-      title: `Loading ${name}`,
-      why: `The model server on ${machine} is loading the model; completions follow in a moment.`,
+      title: `Loading ${name}…`,
+      why: `The model server on ${machine} is loading the model; completions follow once it's up.`,
     })),
     Match.tag("Backoff", (phase) => ({
       title: "The model server stopped",
@@ -119,6 +120,18 @@ export const managedHeadline = (
     Match.orElse(() => null)
   );
 };
+
+const seconds = (ms: number) =>
+  ms < 10_000 ? `${(ms / 1000).toFixed(1)} s` : `${Math.round(ms / 1000)} s`;
+
+/** How long Polaris's own server took to load, once, until it unloads; not completion latency. */
+export const loadFact = (
+  target: { readonly endpoint: { readonly url: string } },
+  view: ManagedView | null
+): ReadonlyArray<Fact> =>
+  view === null || view.status.endpoint?.url !== target.endpoint.url || view.status.loadMs === null
+    ? []
+    : [{ label: "Load time", value: seconds(view.status.loadMs), note: "not counted in latency" }];
 
 /** The server's last lines when it won't start, for the card's failure block. */
 export const managedLog = (view: ManagedView | null): string | null =>

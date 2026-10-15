@@ -232,6 +232,15 @@ export const setHostPreferences = (
   patch: Partial<PredictionPreferences>
 ) => setPredictionPreferences(api, hostKey, { ...preferencesOf(hostKey), ...patch });
 
+/** A preference every machine shares (display, aggressiveness, languages): written to each Host. */
+export const setPreferencesEverywhere = async (
+  api: PolarisApi,
+  hostKeys: ReadonlyArray<string>,
+  patch: Partial<PredictionPreferences>
+) => {
+  for (const hostKey of hostKeys) await setHostPreferences(api, hostKey, patch);
+};
+
 /** Clears the last failure and asks both sides again; the next keystroke retries completion. */
 export const checkPredictionAgain = (api: PolarisApi, hostKey: string) => {
   predictionStore.setState((state) => ({ failures: { ...state.failures, [hostKey]: "" } }));

@@ -5,6 +5,7 @@
 import type { PredictionServerAction, PredictionServerReport } from "@polaris/protocol";
 import { useEffect, useState } from "react";
 import type { PolarisApi } from "../../../../../shared/api.ts";
+import type { PredictionMetrics } from "../../../../../shared/predictionOutcomes.ts";
 import { memoryLine } from "../../../settings/editor/placementRows.ts";
 import type { CardTarget } from "./model.ts";
 
@@ -69,6 +70,26 @@ export const useServerReport = (
       if (key !== null) setReport({ key, value });
     },
   };
+};
+
+/** The outcome log's counts (spec §7), read each time the card opens; null when unavailable. */
+export const useMetrics = (api: PolarisApi, open: boolean) => {
+  const [metrics, setMetrics] = useState<PredictionMetrics | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let live = true;
+
+    void api.request("prediction.metrics", {}).then((result) => {
+      if (live) setMetrics(result.ok ? result.value : null);
+    });
+
+    return () => {
+      live = false;
+    };
+  }, [api, open]);
+
+  return metrics;
 };
 
 /** Settings' memory line for the model servers on this machine, read when the card opens. */

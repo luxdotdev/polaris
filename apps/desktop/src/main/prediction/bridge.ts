@@ -22,7 +22,7 @@ import {
   type PredictionUiInputs,
 } from "../../shared/predictionContract.ts";
 import type { IpcError } from "../../shared/api.ts";
-import type { MainPredictionPlacement } from "./placement.ts";
+import type { MainPredictionPlacement, RoundTrip } from "./placement.ts";
 import type { PredictionSettings } from "./preferences.ts";
 import { LocalPredictor } from "./localPredictor.ts";
 import { createManagedBridge } from "./managed.ts";
@@ -169,7 +169,7 @@ export const createPredictionBridge = (ports: PredictionBridgePorts) => {
         const controller = new AbortController();
         yield* Effect.addFinalizer(() => Effect.sync(() => controller.abort()));
 
-        const serve = async (target: PredictionTarget, signal: AbortSignal) => {
+        const serve = async (target: PredictionTarget, signal: AbortSignal, trip: RoundTrip) => {
           delete timings.firstToken;
           delete timings.prompt;
           delete timings.final;
@@ -223,9 +223,17 @@ export const createPredictionBridge = (ports: PredictionBridgePorts) => {
             }
           };
 
-          if (target.side === "client") {
-            if (target.managed) await managed.ensure(signal);
+          if (target.managed) {
+            const launched = await managed.ensure(
+              { side: target.side, hostKey: input.hostKey },
+              signal
+            );
 
+            if (launched) trip.exclude();
+            trip.restart();
+          }
+
+          if (target.side === "client") {
             await local.runPromise(
               LocalPredictor.use((predictor) =>
                 predictor

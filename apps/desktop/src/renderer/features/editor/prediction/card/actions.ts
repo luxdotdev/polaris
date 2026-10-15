@@ -2,6 +2,7 @@
 import type { PredictionServerReport } from "@polaris/protocol";
 import { Match } from "effect";
 import type { PolarisApi } from "../../../../../shared/api.ts";
+import { writeClipboard } from "../../../clipboard.ts";
 import {
   checkPredictionAgain,
   managedAction,
@@ -10,7 +11,7 @@ import {
   turnOnDiscoveredServer,
 } from "../store.ts";
 import { serverRequest } from "./hooks.ts";
-import type { CardAction, CompletionCardView } from "./model.ts";
+import { LLAMA_SERVER_COMMAND, type CardAction, type CompletionCardView } from "./model.ts";
 
 export interface ActionPorts {
   readonly api: PolarisApi;
@@ -61,6 +62,11 @@ export const runCardAction = (action: CardAction, ports: ActionPorts): Promise<s
       if (view.managed !== null) await managedAction(api, hostKey, view.managed.side, "cancel");
 
       return null;
+    }),
+    Match.when("copy-command", async () => {
+      if (!(await writeClipboard(LLAMA_SERVER_COMMAND))) throw new Error("Couldn't copy");
+
+      return "Copied the llama-server command.";
     }),
     Match.when("remove-model", async () => {
       if (view.managed !== null) await managedAction(api, hostKey, view.managed.side, "remove");

@@ -77,9 +77,20 @@ export const ManagedServerStatus = Schema.Struct({
   phase: ManagedServerPhase,
   /** The server process's resident memory while it runs; null otherwise. */
   memoryBytes: Schema.NullOr(Bytes),
+  /** How long the running server took to load its model; null until it serves and once it unloads. */
+  loadMs: Schema.NullOr(Bytes),
 });
 
 export type ManagedServerStatus = typeof ManagedServerStatus.Type;
+
+/** A query's answer: the status, and whether this call started the server or joined a start. */
+export const ManagedServerAnswer = Schema.Struct({
+  ...ManagedServerStatus.fields,
+  /** True when the caller waited for the model to load, so the wait isn't completion latency. */
+  launched: Schema.Boolean,
+});
+
+export type ManagedServerAnswer = typeof ManagedServerAnswer.Type;
 
 export const ManagedServerAction = Schema.Literals([
   /** Download (or resume) the build and the model into `modelsDir`. */
@@ -107,7 +118,7 @@ export type ManagedServerRequest = typeof ManagedServerRequest.Type;
 
 export const PredictionManagedQuery = Rpc.make("prediction.managed", {
   payload: ManagedServerRequest,
-  success: ManagedServerStatus,
+  success: ManagedServerAnswer,
   error: PredictionError,
 });
 

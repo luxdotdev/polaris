@@ -104,6 +104,10 @@ const servedBy = (input: PlacementRowInput, hostName: string) => {
   };
 };
 
+/** What placement can prompt today (spec §2): next-edit models first, v1's FIM pair at the cursor. */
+const PROMPTABLE =
+  "Sweep Next-Edit or Zeta 2.1 suggest edits; Mellum2 and Qwen2.5-Coder complete at the cursor";
+
 const unserved = (input: PlacementRowInput, canServe: boolean, models: ReadonlyArray<string>) => {
   if (input.preferences.placement === "host" && !canServe)
     return "This host is too small to serve · choose Auto or This machine";
@@ -117,11 +121,11 @@ const unserved = (input: PlacementRowInput, canServe: boolean, models: ReadonlyA
   if (chosen !== null && !models.includes(chosen))
     return `${chosen} isn't on a model server it can use${small}`;
 
-  // Without a known prompt format, placement only takes Mellum2 and Qwen2.5-Coder.
+  // Without a known prompt format, placement takes only the models it has a prompt for.
   if (chosen !== null && input.preferences.format === null)
-    return `Polaris can't prompt ${chosen} yet · choose Mellum2 or Qwen2.5-Coder${small}`;
+    return `Polaris can't prompt ${chosen} yet · ${PROMPTABLE}${small}`;
 
-  return `No Mellum2 or Qwen2.5-Coder model found · choose a model${small}`;
+  return `No model Polaris can prompt · ${PROMPTABLE}${small}`;
 };
 
 const captionOf = (input: PlacementRowInput, canServe: boolean, models: ReadonlyArray<string>) => {

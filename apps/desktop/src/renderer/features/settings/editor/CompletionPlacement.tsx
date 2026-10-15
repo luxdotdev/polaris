@@ -129,8 +129,9 @@ export const CompletionPlacement = ({
   <div className="gap-gap flex flex-col" data-testid="completion-placement">
     <Heading>Completion placement</Heading>
     <p className="text-caption text-text-subtle">
-      Auto uses the stronger machine and falls back to the other. Recommended is Mellum2 on machines
-      with 16 GB or more, Qwen2.5-Coder on smaller ones.
+      Auto uses the stronger machine and falls back to the other. Recommended is Sweep Next-Edit
+      everywhere, or Zeta 2.1 once you choose it; a server of your own that offers no next-edit
+      model completes at the cursor only.
     </p>
     <Group label="Completion placement" className="mt-1">
       <div
