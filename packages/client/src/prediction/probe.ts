@@ -175,6 +175,55 @@ export interface ModelServerResources {
   readonly servers: ReadonlyArray<{ readonly name: string; readonly rssBytes: number }>;
 }
 
+export interface ProcessRow {
+  readonly pid: number;
+  readonly parent: number;
+  readonly rssBytes: number;
+  readonly name: string;
+}
+
+const SERVER_NAME = /(?:^|\/)(?:llama-server|ollama|llmster|LM Studio)(?:\s|$)/;
+
+/** Folds a process listing into one entry per model server: Ollama's runners count under Ollama. */
+export const foldModelServers = (rows: ReadonlyArray<ProcessRow>): ModelServerResources => {
+  const byPid = new Map(rows.map((row) => [row.pid, row]));
+  const candidates = new Set(rows.flatMap((row) => (SERVER_NAME.test(row.name) ? [row.pid] : [])));
+
+  // The outermost server process owns the tree: a llama-server under ollama is Ollama's.
+  const rootOf = (pid: number): number | null => {
+    let root: number | null = null;
+    let current = byPid.get(pid);
+
+    for (let depth = 0; current !== undefined && depth < 64; depth++) {
+      if (candidates.has(current.pid)) root = current.pid;
+      current = byPid.get(current.parent);
+    }
+
+    return root;
+  };
+
+  const trees = new Map<number, number>();
+
+  for (const row of rows) {
+    const root = rootOf(row.pid);
+
+    if (root !== null) trees.set(root, (trees.get(root) ?? 0) + row.rssBytes);
+  }
+
+  const servers = [...trees]
+    .map(([pid, rssBytes]) => ({
+      name: (byPid.get(pid)?.name ?? "").replace(/^.*\//, "").replace(/\s.*$/, ""),
+      rssBytes,
+    }))
+    .sort((a, b) => b.rssBytes - a.rssBytes);
+
+  return {
+    rssBytes: servers.reduce((sum, server) => sum + server.rssBytes, 0),
+    processes: servers.length,
+    servers,
+  };
+};
+
 /** Includes each model-server descendant once; this sample has RSS, not physical footprint. */
 export const modelServerResources = async (): Promise<ModelServerResources> => {
   const listing = await command("ps", ["-axo", "pid=,ppid=,rss=,comm="]);
@@ -194,42 +243,5 @@ export const modelServerResources = async (): Promise<ModelServerResources> => {
       : [];
   });
 
-  const roots = rows.filter((row) =>
-    /(?:^|\/)(?:llama-server|ollama|llmster|LM Studio)(?:\s|$)/.test(row.name)
-  );
-
-  const byPid = new Map(rows.map((row) => [row.pid, row]));
-
-  // A server's tree: the root plus every descendant, each counted once under its nearest root.
-  const rootOf = (pid: number): number | null => {
-    let current = byPid.get(pid);
-
-    for (let depth = 0; current !== undefined && depth < 64; depth++) {
-      if (roots.some((root) => root.pid === current?.pid)) return current.pid;
-      current = byPid.get(current.parent);
-    }
-
-    return null;
-  };
-
-  const trees = new Map<number, number>();
-
-  for (const row of rows) {
-    const root = rootOf(row.pid);
-
-    if (root !== null) trees.set(root, (trees.get(root) ?? 0) + row.rssBytes);
-  }
-
-  const servers = roots
-    .map((root) => ({
-      name: root.name.replace(/^.*\//, "").replace(/\s.*$/, ""),
-      rssBytes: trees.get(root.pid) ?? 0,
-    }))
-    .sort((a, b) => b.rssBytes - a.rssBytes);
-
-  return {
-    rssBytes: servers.reduce((sum, server) => sum + server.rssBytes, 0),
-    processes: servers.length,
-    servers,
-  };
+  return foldModelServers(rows);
 };

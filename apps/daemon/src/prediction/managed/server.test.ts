@@ -210,7 +210,9 @@ test("setup downloads the build and the model, then the server is stopped until 
     expect(existsSync(join(dir, "sweep.gguf"))).toBe(true);
     expect(existsSync(join(dir, "llama-b11429", "llama-server"))).toBe(true);
     expect(existsSync(join(dir, asset.name))).toBe(false);
-    expect(statuses.map(phase)).toContain("Downloading");
+    const seen = statuses.map(phase);
+    expect(seen).toContain("Downloading");
+    expect(seen.lastIndexOf("Verifying")).toBeGreaterThan(seen.indexOf("Downloading"));
     expect(server.endpoint()).toEqual({
       kind: "openai",
       url: "http://127.0.0.1:43210",

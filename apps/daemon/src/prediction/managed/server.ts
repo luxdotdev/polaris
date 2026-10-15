@@ -362,7 +362,11 @@ export class ManagedServer {
       signal,
       free: this.ports.free,
       onProgress: (receivedBytes) => {
-        this.progress = { file: kind, receivedBytes, totalBytes: file.sizeBytes };
+        // Every byte in: the hash runs next, which the status shows as Verifying.
+        this.progress =
+          receivedBytes >= file.sizeBytes
+            ? null
+            : { file: kind, receivedBytes, totalBytes: file.sizeBytes };
         // One notification per percent keeps a 5 GB download from flooding the stream.
         const percent = Math.floor((receivedBytes / file.sizeBytes) * 100);
 

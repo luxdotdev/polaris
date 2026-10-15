@@ -281,6 +281,19 @@ export const managedKey = (hostKey: string, side: PredictionSide) => `${hostKey}
 
 const managedWatches = new Map<string, { count: number; stop: () => void }>();
 
+const BUSY_PHASES = new Set(["Downloading", "Verifying", "Starting", "Backoff"]);
+
+/** Leaving a busy phase changes what placement can see, so the inspection is taken again. */
+const settled = (
+  before: ManagedServerStatus | null | undefined,
+  after: ManagedServerStatus | null
+) =>
+  before !== null &&
+  before !== undefined &&
+  after !== null &&
+  BUSY_PHASES.has(before.phase._tag) &&
+  !BUSY_PHASES.has(after.phase._tag);
+
 const rememberManaged = (
   hostKey: string,
   side: PredictionSide,
@@ -315,7 +328,11 @@ export const watchManaged = (api: PolarisApi, hostKey: string, side: PredictionS
         items: (items) => {
           const last = items.at(-1);
 
-          if (last !== undefined) rememberManaged(hostKey, side, last);
+          if (last === undefined) return;
+          const before = predictionStore.getState().managed[key];
+          rememberManaged(hostKey, side, last);
+
+          if (settled(before, last)) void checkPredictionAgain(api, hostKey);
         },
         end: () => {},
       }
