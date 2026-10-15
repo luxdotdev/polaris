@@ -1,5 +1,5 @@
 ---
-status: proposed (owner asked for it, 2026-10-15; pending the owner's review of the mockups)
+status: accepted (owner, 2026-10-15)
 reverses: the v1 rule "Polaris never starts, stops or downloads a model server"
 ---
 
