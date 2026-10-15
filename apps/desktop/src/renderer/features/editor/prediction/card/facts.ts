@@ -1,6 +1,7 @@
 /** The status card's fact rows that need more than a field: placement, latency and context. */
 import { hostCanServe } from "@polaris/client/prediction/score";
 import type { PredictionServerKind } from "@polaris/protocol";
+import type { PredictionMetrics } from "../../../../../shared/predictionOutcomes.ts";
 import type { Fact } from "../../status/model.ts";
 import type { CompletionStatus } from "../store.ts";
 import type { CardInput, CardTarget } from "./model.ts";
@@ -76,6 +77,33 @@ export const latencyFact = (
       note: `p50 of ${latency.count} · last ${ms(latency.last)}`,
     },
   ];
+};
+
+const percent = (rate: number) => `${Math.round(rate * 100)}%`;
+
+/** The outcome log's counts (spec §7), neutral numbers; a ratio with nothing to divide is left out. */
+export const metricsFacts = (metrics: PredictionMetrics | null): ReadonlyArray<Fact> => {
+  if (metrics === null) return [];
+  const facts: Fact[] = [];
+
+  if (metrics.acceptanceRate !== null)
+    facts.push({
+      label: "Accepted",
+      value: percent(metrics.acceptanceRate),
+      note: `of the last ${metrics.acceptanceWindow} shown`,
+    });
+
+  if (metrics.shownPer100Keystrokes !== null)
+    facts.push({
+      label: "Shown",
+      value: metrics.shownPer100Keystrokes.toFixed(1),
+      note: "per 100 keystrokes",
+    });
+
+  if (metrics.undoneRate !== null)
+    facts.push({ label: "Undone", value: percent(metrics.undoneRate), note: "within 30 s" });
+
+  return facts;
 };
 
 const tokens = (count: number) =>

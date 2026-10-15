@@ -14,7 +14,7 @@ import { fileKey } from "../model/drafts.ts";
 import { useTrustStatus } from "../trust/store.ts";
 import { runCardAction } from "./card/actions.ts";
 import { CompletionCard, type Outcome } from "./card/CompletionCard.tsx";
-import { useMemoryLine, useServerReport } from "./card/hooks.ts";
+import { useMemoryLine, useMetrics, useServerReport } from "./card/hooks.ts";
 import { gb } from "./card/managed.ts";
 import { completionCard, type CardAction, type CardActionId } from "./card/model.ts";
 import { setHostPreferences, usePrediction, watchManaged } from "./store.ts";
@@ -80,7 +80,7 @@ export const PredictionStatus = ({ hostKey, path }: PredictionStatusProps) => {
     trusted: trust === null ? null : trust.trust.trusted,
   };
 
-  const preview = completionCard({ ...input, server: null, memory: null });
+  const preview = completionCard({ ...input, server: null, memory: null, metrics: null });
   const target = preview.target;
   const managed = preview.managed;
   const managedSide = managed?.side;
@@ -95,13 +95,14 @@ export const PredictionStatus = ({ hostKey, path }: PredictionStatusProps) => {
   const ownsTarget = managed !== null && managed.status.endpoint?.url === target?.endpoint.url;
   const server = useServerReport(api, hostKey, target, open && !ownsTarget, revision);
   const probed = useMemoryLine(api, open, target?.side === "client" && !ownsTarget, clientName);
+  const metrics = useMetrics(api, open);
 
   const memory =
     ownsTarget && managed.status.memoryBytes !== null
       ? `Polaris model server on ${target?.machine} · ${gb(managed.status.memoryBytes)} of memory, counted apart from Polaris`
       : probed;
 
-  const view = completionCard({ ...input, server: server.report, memory });
+  const view = completionCard({ ...input, server: server.report, memory, metrics });
 
   const run = (action: CardAction) => {
     setRunning({ id: action.id });

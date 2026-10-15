@@ -5,6 +5,7 @@ import {
   EMPTY,
   INSPECTION,
   managed,
+  METRICS,
   phases,
   SCENES,
   SERVED,
@@ -26,6 +27,8 @@ test("Every fixture scene reaches its own state, with Settings always last", () 
     const expected =
       {
         "serving-ollama": "serving",
+        "insertion-only": "serving",
+        "next-edit": "serving",
         "unknown-server": "ready",
         verifying: "downloading",
         "managed-ready": "ready",
@@ -54,7 +57,13 @@ test("Connection State comes before settings, and the status label keeps its thr
 test("Serving names the model, machine, placement reason, endpoint, latency and context", () => {
   const view = card({ result: SERVED });
   expect(view.kind).toBe("serving");
-  expect(view.why).toBe("Completing with Mellum2 on this Mac.");
+  expect(view.why).toBe(
+    "Mellum2 on this Mac completes at the cursor. It can't suggest edits elsewhere."
+  );
+  expect(fact(view, "Model")).toMatchObject({
+    value: "Insertion only · Mellum2",
+    note: "recommended",
+  });
   expect(fact(view, "Runs on")).toMatchObject({
     value: "This Mac",
     note: "auto · host too small",
@@ -69,6 +78,51 @@ test("Serving names the model, machine, placement reason, endpoint, latency and 
     note: "2 language-server pieces",
   });
   expect(view.memory).toContain("9.4 GB");
+});
+
+test("A next-edit model reads as one and the log's counts follow the context; ratios with nothing to divide are left out", () => {
+  const view = completionCard(SCENES.find(([name]) => name === "next-edit")![1]);
+  expect(view.why).toBe(
+    "Sweep Next-Edit 1.5B on this Mac suggests edits near the cursor and in the rest of this file."
+  );
+  expect(fact(view, "Model")?.value).toBe("Next edit · Sweep Next-Edit 1.5B");
+  expect(view.facts.map((item) => item.label)).toEqual([
+    "Model",
+    "Runs on",
+    "Endpoint",
+    "Latency",
+    "Load time",
+    "Context",
+    "Accepted",
+    "Shown",
+    "Undone",
+  ]);
+  expect(fact(view, "Accepted")).toMatchObject({ value: "34%", note: "of the last 200 shown" });
+  expect(fact(view, "Shown")).toMatchObject({ value: "4.2", note: "per 100 keystrokes" });
+  expect(fact(view, "Undone")).toMatchObject({ value: "3%", note: "within 30 s" });
+  expect(view.caption).toBeNull();
+  expect(ids(view)).not.toContain("copy-command");
+
+  const fresh = card({
+    result: SERVED,
+    metrics: { ...METRICS, acceptanceRate: null, shownPer100Keystrokes: null, undoneRate: null },
+  });
+
+  expect(fresh.facts.some((item) => ["Accepted", "Shown", "Undone"].includes(item.label))).toBe(
+    false
+  );
+});
+
+test("A model server of the user's own with no next-edit model says what next edits need and offers the llama-server command first", () => {
+  const view = card({ result: SERVED, metrics: METRICS });
+  expect(view.caption).toBe("Next edits need Zeta 2.1 or Sweep Next-Edit.");
+  expect(ids(view)[0]).toBe("copy-command");
+  expect(fact(view, "Accepted")?.value).toBe("34%");
+
+  const ready = card({ trusted: false });
+  expect(ready.kind).toBe("ready");
+  expect(ready.caption).toBe("Next edits need Zeta 2.1 or Sweep Next-Edit.");
+  expect(card({ enabled: false }).caption).toBeNull();
 });
 
 test("Before trust, context says the language server waits; a stale result shows no latency", () => {
@@ -121,14 +175,20 @@ test("Models list Recommended first; ones Polaris can't prompt are disabled with
 });
 
 test("Recovery follows the server: clear the cache, reload a model, or advise a restart", () => {
-  expect(ids(card())).toEqual(["check-again", "clear-cache", "turn-off-host", "settings"]);
+  expect(ids(card())).toEqual([
+    "copy-command",
+    "check-again",
+    "clear-cache",
+    "turn-off-host",
+    "settings",
+  ]);
 
   const ollama = card({ server: { kind: "ollama", actions: ["reload-model"], outcome: null } });
   expect(ollama.actions.find((a) => a.id === "reload-model")?.label).toBe("Reload Mellum2");
   expect(ollama.advice).toBeNull();
 
   const lmStudio = card({ server: { kind: "lm-studio", actions: [], outcome: null } });
-  expect(ids(lmStudio)).toEqual(["check-again", "turn-off-host", "settings"]);
+  expect(ids(lmStudio)).toEqual(["copy-command", "check-again", "turn-off-host", "settings"]);
   expect(lmStudio.advice).toBe("If it stops answering, restart LM Studio on this Mac.");
 
   const unknown = card({ server: { kind: "unknown", actions: [], outcome: null } });

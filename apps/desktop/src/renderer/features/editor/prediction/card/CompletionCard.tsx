@@ -32,6 +32,7 @@ const RUNNING: Partial<Record<CardActionId, (label: string) => string>> = {
   "cancel-download": () => "Cancelling…",
   "retry-setup": () => "Trying again…",
   "remove-model": () => "Removing…",
+  "copy-command": () => "Copying…",
 };
 
 const Check = ({ on }: { readonly on: boolean }) => (
@@ -200,6 +201,7 @@ export const CompletionCard = ({
       {view.models === null ? null : (
         <Models models={view.models} selected={view.selectedModel} onModel={onModel} />
       )}
+      {view.caption === null ? null : <Line>{view.caption}</Line>}
       {view.advice === null ? null : <Line>{view.advice}</Line>}
       {outcome === null ? null : (
         <Line role={outcome.failed ? "alert" : "status"} strong={outcome.failed}>

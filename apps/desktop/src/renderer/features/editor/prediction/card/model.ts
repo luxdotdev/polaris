@@ -3,6 +3,7 @@
  * headline and why, where completion runs, how fast, what context it gets, which models it
  * can use, and the actions this state allows.
  */
+import { editModelFormat } from "@polaris/client/prediction";
 import { hostCanServe, promptableModel, scorePlacement } from "@polaris/client/prediction/score";
 import type {
   ConnectionState,
@@ -12,11 +13,12 @@ import type {
 } from "@polaris/protocol";
 import { Match } from "effect";
 import type { PredictionInspection } from "../../../../../shared/predictionContract.ts";
+import type { PredictionMetrics } from "../../../../../shared/predictionOutcomes.ts";
 import type { PredictionPreferences } from "../../../../../shared/predictionPlacement.ts";
 import { inSentence, placementRow } from "../../../settings/editor/placementRows.ts";
 import type { Fact } from "../../status/model.ts";
 import { modelName, type CompletionStatus } from "../store.ts";
-import { contextFact, latencyFact, placementNote, SERVER_NAMES } from "./facts.ts";
+import { contextFact, latencyFact, metricsFacts, placementNote, SERVER_NAMES } from "./facts.ts";
 import { clientCopy } from "../../../../../shared/clientCopy.ts";
 import {
   loadFact,
@@ -62,7 +64,13 @@ export interface CardInput {
   readonly server: PredictionServerReport | null;
   /** The model servers' memory on this machine (Settings' line); null while unknown. */
   readonly memory: string | null;
+  /** The outcome log's counts (spec §7), read when the card opens; null until then. */
+  readonly metrics: PredictionMetrics | null;
 }
+
+/** The llama-server flags a next-edit model wants (spec §7): prompt reuse and n-gram speculation. */
+export const LLAMA_SERVER_COMMAND =
+  "llama-server --model /path/to/next-edit.gguf --port 8080 --spec-type ngram-simple --spec-ngram-simple-size-n 8 --spec-ngram-simple-size-m 48 --cache-reuse 256";
 
 /** Where completion runs, or would run on the next keystroke. */
 export interface CardTarget {
@@ -92,6 +100,7 @@ export type CardActionId =
   | "cancel-download"
   | "retry-setup"
   | "remove-model"
+  | "copy-command"
   | PredictionServerAction
   | "settings";
 
@@ -114,6 +123,8 @@ export interface CompletionCardView {
   readonly models: ReadonlyArray<ModelChoice> | null;
   readonly selectedModel: string | null;
   readonly target: CardTarget | null;
+  /** What next edits need, when the user's own server completes at the cursor only (EP8b). */
+  readonly caption: string | null;
   /** What the user can do when the server offers no recovery of its own. */
   readonly advice: string | null;
   readonly actions: ReadonlyArray<CardAction>;
@@ -124,6 +135,15 @@ export interface CompletionCardView {
 }
 
 const capitalized = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
+const nextEdit = (model: string) => editModelFormat(model) !== null;
+
+/** What the model does, as the card's Model fact reads it first (DESIGN.md, EP8). */
+const kindOf = (model: string) => (nextEdit(model) ? "Next edit" : "Insertion only");
+
+/** A model server of the user's own that completes at the cursor only (EP8b). */
+const insertionOnly = (target: CardTarget | null, managed: ManagedView | null) =>
+  target !== null && !nextEdit(target.model) && !ownsTarget(managed, target);
 
 const clientNameOf = (input: CardInput) =>
   inSentence(input.inspection?.clientLabel ?? clientCopy().localHost);
@@ -336,7 +356,13 @@ const headline = (
       title: "Tab completion is ready",
       why: `${served} completes from your next keystroke.`,
     })),
-    Match.orElse(() => ({ title: "Tab completion is on", why: `Completing with ${served}.` }))
+    Match.orElse(() => ({
+      title: "Tab completion is on",
+      why:
+        target !== null && nextEdit(target.model)
+          ? `${served} suggests edits near the cursor and in the rest of this file.`
+          : `${served} completes at the cursor. It can't suggest edits elsewhere.`,
+    }))
   );
 };
 
@@ -363,7 +389,7 @@ const facts = (
   return [
     {
       label: "Model",
-      value: modelName(target.model),
+      value: `${kindOf(target.model)} · ${modelName(target.model)}`,
       note: input.preferences.model === null ? "recommended" : "chosen",
     },
     {
@@ -375,6 +401,7 @@ const facts = (
     ...latencyFact(input.result, target),
     ...loadFact(target, managed),
     ...contextFact(input.result, target, input.trusted),
+    ...metricsFacts(input.metrics),
   ];
 };
 
@@ -466,12 +493,20 @@ const actionsOf = (
   if (!working(kind) || target === null) return [settings];
 
   return [
+    ...(insertionOnly(target, managed)
+      ? [{ id: "copy-command" as const, label: "Copy llama-server command" }]
+      : []),
     check,
     ...(input.server?.actions ?? []).map((id) => ({ id, label: SERVER_LABEL[id](target.model) })),
     { id: "turn-off-host", label: `Turn off for ${input.hostName}` },
     settings,
   ];
 };
+
+const captionOf = (kind: CardKind, target: CardTarget | null, managed: ManagedView | null) =>
+  working(kind) && insertionOnly(target, managed)
+    ? "Next edits need Zeta 2.1 or Sweep Next-Edit."
+    : null;
 
 const adviceOf = (kind: CardKind, input: CardInput, target: CardTarget | null) => {
   if (!working(kind) || target === null || input.server === null) return null;
@@ -517,6 +552,7 @@ export const completionCard = (input: CardInput): CompletionCardView => {
     models: shows || kind === "no-server" ? modelChoices(input) : null,
     selectedModel: input.preferences.model,
     target: shows ? target : null,
+    caption: captionOf(kind, target, managed),
     advice: adviceOf(kind, input, target),
     actions: actionsOf(kind, input, target, managed),
     managed,

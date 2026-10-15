@@ -11,6 +11,7 @@ import { commandShortcut } from "../../../../shared/keymap.ts";
 import { polaris } from "../../bridge.ts";
 import { Group, Heading, SettingRow } from "../ui/parts.tsx";
 import { CompletionPlacement } from "./CompletionPlacement.tsx";
+import { ClearHistoryRow, EditPredictionRows } from "./EditPredictionRows.tsx";
 import { ManagedModel } from "./ManagedModel.tsx";
 import { inSentence, memoryLine, placementRow, type ModelServerMemory } from "./placementRows.ts";
 import {
@@ -222,6 +223,7 @@ export const TabCompletion = ({ hosts }: { readonly hosts: ReadonlyArray<HostVie
             onCheckedChange={(on) => void enabled(on)}
           />
         </SettingRow>
+        <EditPredictionRows hosts={hosts} onError={setError} />
       </Group>
       <div className="gap-gap flex flex-col">
         <div className="flex items-center justify-between gap-4">
@@ -265,6 +267,9 @@ export const TabCompletion = ({ hosts }: { readonly hosts: ReadonlyArray<HostVie
             <EndpointForm key={scope} endpoints={endpoints} machine={machine} save={save} />
           </div>
         </details>
+        <Group label="Edit prediction history" className="mt-1">
+          <ClearHistoryRow />
+        </Group>
       </div>
       <CompletionPlacement
         rows={hosts.map((host) =>

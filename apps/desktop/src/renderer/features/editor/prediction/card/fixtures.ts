@@ -2,6 +2,7 @@
 import { ManagedServerPhase, type ManagedServerStatus } from "@polaris/protocol";
 import { Predicate } from "effect";
 import type { PredictionInspection } from "../../../../../shared/predictionContract.ts";
+import type { PredictionMetrics } from "../../../../../shared/predictionOutcomes.ts";
 import { DEFAULT_PREDICTION_PREFERENCES } from "../../../../../shared/predictionPlacement.ts";
 import type { CardInput } from "./model.ts";
 
@@ -179,11 +180,44 @@ export const BASE: CardInput = {
   trusted: true,
   server: { kind: "llama-server", actions: ["clear-cache"], outcome: null },
   memory: "On this Mac: llama-server 9.4 GB · counted apart from Polaris",
+  metrics: null,
+};
+
+/** A log with 200 shown predictions behind it (spec §8). */
+export const METRICS: PredictionMetrics = {
+  shown: 412,
+  accepted: 140,
+  acceptanceWindow: 200,
+  acceptanceRate: 0.34,
+  keystrokes: 9810,
+  shownPer100Keystrokes: 4.2,
+  undoneWithin30s: 4,
+  undoneRate: 0.03,
+  countsByKind: { insert: 300, replace: 80, delete: 20, import: 8, jump: 4 },
+};
+
+const SWEEP_SERVED = {
+  ...SERVED,
+  model: "sweep-next-edit-1.5b-q8_0",
+  endpoint: { kind: "openai" as const, url: MANAGED_URL },
 };
 
 /** One input per reachable state, in the order the preview lays them out. */
 export const SCENES: ReadonlyArray<readonly [string, CardInput]> = [
   ["serving", { ...BASE, result: SERVED }],
+  ["insertion-only", { ...BASE, result: SERVED, metrics: METRICS }],
+  [
+    "next-edit",
+    {
+      ...BASE,
+      hostName: "Mac Studio",
+      inspection: withManaged(managed(phases.Serving.make({}))),
+      result: SWEEP_SERVED,
+      server: null,
+      memory: null,
+      metrics: METRICS,
+    },
+  ],
   ["ready", { ...BASE, trusted: false }],
   ["failed", { ...BASE, result: SERVED, failure: "Completion endpoint returned HTTP 503" }],
   [
@@ -230,14 +264,7 @@ export const SCENES: ReadonlyArray<readonly [string, CardInput]> = [
           inspection,
           server: null,
           memory: null,
-          result:
-            name === "managed-serving"
-              ? {
-                  ...SERVED,
-                  model: "sweep-next-edit-1.5b-q8_0",
-                  endpoint: { kind: "openai" as const, url: MANAGED_URL },
-                }
-              : undefined,
+          result: name === "managed-serving" ? SWEEP_SERVED : undefined,
         },
       ] as const
   ),
