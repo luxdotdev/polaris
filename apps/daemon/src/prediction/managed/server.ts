@@ -49,7 +49,7 @@ export interface ManagedPorts {
   readonly fetch: Fetcher;
   readonly spawn: Spawn;
   readonly extract: (archive: string, dir: string) => Promise<void>;
-  readonly health: (url: string, signal: AbortSignal) => Promise<boolean>;
+  readonly health: (url: string, alias: string, signal: AbortSignal) => Promise<boolean>;
   readonly timers: Timers;
   readonly free: (dir: string) => Promise<number | null>;
   readonly port: () => Promise<number>;
@@ -453,15 +453,19 @@ export class ManagedServer {
       if (retry)
         this.cancelRetry = this.ports.timers.after(() => {
           this.cancelRetry = null;
-          this.move({ type: "retry" });
-          this.spawn(resolve, reject);
+          // The port may have been taken meanwhile (the usual "address in use" exit); pick anew.
+          void this.ports.port().then((port) => {
+            this.port = port;
+            this.move({ type: "retry" });
+            this.spawn(resolve, reject);
+          });
         }, backoffMs(this.attempt));
       else settle(new Error(this.failure?.message ?? "The model server failed"));
     });
 
     const poll = async () => {
       while (!probe.signal.aborted && this.process === child) {
-        if (await this.ports.health(this.url(), probe.signal)) {
+        if (await this.ports.health(this.url(), this.model.alias, probe.signal)) {
           if (this.process !== child) return;
           this.attempt = 0;
           this.move({ type: "listening" });

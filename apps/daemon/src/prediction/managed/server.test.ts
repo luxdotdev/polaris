@@ -113,7 +113,8 @@ const fakeProcesses = () => {
     return child;
   };
 
-  const health = async () => spawned.at(-1)?.healthy === true && !spawned.at(-1)?.killed;
+  const health = async (_url: string, alias: string) =>
+    alias === model.alias && spawned.at(-1)?.healthy === true && !spawned.at(-1)?.killed;
 
   return { spawn, health, spawned };
 };

@@ -4,7 +4,7 @@
  */
 import { createServer } from "node:net";
 import { join } from "node:path";
-import { Predicate } from "effect";
+import { Option, Predicate, Schema } from "effect";
 import { LLAMA_BUILD } from "./catalog.ts";
 
 export interface ManagedProcess {
@@ -64,15 +64,31 @@ export const spawnServer: Spawn = (command, args, cwd) => {
   };
 };
 
-/** llama-server answers 200 once the model is loaded and 503 while it loads. */
-export const healthy = async (url: string, signal: AbortSignal): Promise<boolean> => {
-  try {
-    const response = await fetch(`${url}/health`, {
-      signal: AbortSignal.any([signal, AbortSignal.timeout(1500)]),
-      redirect: "error",
-    });
+const ModelList = Schema.Struct({
+  data: Schema.Array(Schema.Struct({ id: Schema.String })),
+});
 
-    return response.status === 200;
+/** Up only when `/health` is 200 and `/v1/models` lists our alias: another process on the port never counts. */
+export const healthy = async (
+  url: string,
+  alias: string,
+  signal: AbortSignal
+): Promise<boolean> => {
+  const init = {
+    signal: AbortSignal.any([signal, AbortSignal.timeout(1500)]),
+    redirect: "error",
+  } as const;
+
+  try {
+    const health = await fetch(`${url}/health`, init);
+
+    if (health.status !== 200) return false;
+    const models = await fetch(`${url}/v1/models`, init);
+
+    if (models.status !== 200) return false;
+    const listed = Schema.decodeUnknownOption(ModelList)(await models.json());
+
+    return Option.isSome(listed) && listed.value.data.some((model) => model.id === alias);
   } catch {
     return false;
   }
