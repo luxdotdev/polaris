@@ -2,7 +2,7 @@
 // and applying any subset of them to the parent version.
 import { $ } from "bun";
 
-export const REPO = process.env.SPIKE_REPO ?? "/Users/lucasdoell/code/polaris";
+export const REPO = process.env.SPIKE_REPO ?? new URL("../../../../", import.meta.url).pathname;
 
 export type Hunk = { oldStart: number; oldLines: string[]; newLines: string[] };
 

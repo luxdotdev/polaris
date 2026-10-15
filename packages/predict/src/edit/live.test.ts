@@ -2,14 +2,14 @@ import { expect, test } from "bun:test";
 import { Effect, Schema, Stream } from "effect";
 import { EditPredictionFormat, type PredictionEndpoint } from "@polaris/protocol";
 import { createEditPredictor } from "./index.ts";
-import { fixtures, fixtureRequest } from "./fixtures.testing.ts";
+import { hardeningCases, hardeningRequest, hardeningRuns } from "./hardening.testing.ts";
 import { applyEdits } from "./guards.ts";
 import { editResult } from "./result.ts";
 
 const normalized = (text: string) => text.replace(/\s/g, "");
 
 test.skipIf(process.env.POLARIS_PREDICTION_LIVE !== "1")(
-  "live next-edit quality on all 30 spike cases",
+  "live next-edit quality on all 100 hardening cases",
   async () => {
     const url = process.env.POLARIS_EDIT_URL;
     const model = process.env.POLARIS_EDIT_MODEL;
@@ -28,8 +28,8 @@ test.skipIf(process.env.POLARIS_PREDICTION_LIVE !== "1")(
     const table = { exact: 0, acceptable: 0, wrong: 0, dangerous: 0, abstain: 0, unreviewed: 0 };
     const timings: number[] = [];
 
-    for (const fixture of fixtures) {
-      const input = { ...fixtureRequest(fixture, format), model, endpoint: { kind, url } };
+    for (const fixture of hardeningCases) {
+      const input = { ...hardeningRequest(fixture, format), model, endpoint: { kind, url } };
 
       const items = await Effect.runPromise(
         predictor.predict(input, { signal: AbortSignal.timeout(120000) }).pipe(Stream.runCollect)
@@ -41,16 +41,25 @@ test.skipIf(process.env.POLARIS_PREDICTION_LIVE !== "1")(
       const actual = normalized(applyEdits(input.buffer, result.edits));
       const allowed = fixture.allowed.map((patch) => normalized(applyEdits(input.buffer, patch)));
 
-      const known = fixture.outputs.find(
-        (recorded) =>
-          recorded.label !== "dangerous" &&
-          normalized(
-            applyEdits(
-              input.buffer,
-              editResult(fixtureRequest(fixture, recorded.format), recorded.output).edits
-            )
-          ) === actual
-      );
+      const known = hardeningRuns
+        .filter((run) => run.format === format)
+        .flatMap((run) =>
+          run.outputs
+            .filter((recorded) => recorded.id === fixture.id)
+            .map((recorded) => ({
+              ...recorded,
+              label: run.labels[recorded.id]?.label,
+            }))
+        )
+        .find(
+          (recorded) =>
+            normalized(
+              applyEdits(
+                input.buffer,
+                editResult(hardeningRequest(fixture, format), recorded.output).edits
+              )
+            ) === actual
+        );
 
       const label = !result.edits.length
         ? "abstain"
@@ -71,12 +80,22 @@ test.skipIf(process.env.POLARIS_PREDICTION_LIVE !== "1")(
     }
 
     timings.sort((a, b) => a - b);
-    console.table([{ format, ...table, p50Ms: timings[Math.floor(timings.length / 2)] }]);
+
+    const scores =
+      format === "zeta-2.1" ? table : { ...table, p50Ms: timings[Math.floor(timings.length / 2)] };
+
+    console.table([{ format, ...scores }]);
     console.log(
-      "Exact uses the spike's whitespace-insensitive rule. Other labels require a matching hand-reviewed output; novel outputs remain unreviewed. Endpoint rolling p50:",
-      predictor.p50({ kind, url })
+      "Exact uses the spike's whitespace-insensitive rule. Other labels require a matching hand-reviewed output; novel outputs remain unreviewed."
     );
-    expect(timings).toHaveLength(30);
+
+    if (format === "zeta-2.1")
+      console.log(
+        "Zeta fixture model is on external storage: recorded durations are diagnostic, not speed measurements."
+      );
+    else console.log("Endpoint rolling p50:", predictor.p50({ kind, url }));
+
+    expect(timings).toHaveLength(hardeningCases.length);
   },
   3_700_000
 );

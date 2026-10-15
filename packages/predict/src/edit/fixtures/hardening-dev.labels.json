@@ -1,0 +1,282 @@
+{
+  "rn01": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "rn02": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "rn03": {
+    "label": "exact",
+    "note": "Matches commit-derived ground truth under the spike whitespace rule."
+  },
+  "rn04": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "rn05": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "rn06": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "rn07": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "rf01": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "rf02": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "rf03": {
+    "label": "exact",
+    "note": "Matches commit-derived ground truth under the spike whitespace rule."
+  },
+  "rf04": {
+    "label": "exact",
+    "note": "Matches commit-derived ground truth under the spike whitespace rule."
+  },
+  "rf05": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "rf06": {
+    "label": "dangerous",
+    "note": "Propagates unresolved acceptable into the healthy dismiss handler; history only changed accept handlers."
+  },
+  "dd01": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "dd02": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "dd03": {
+    "label": "dangerous",
+    "note": "Defines currentKeyPlatform despite the history importing that binding."
+  },
+  "dd04": {
+    "label": "dangerous",
+    "note": "Removes the healthy button and its accessibility attributes while replacing the chevron."
+  },
+  "dd05": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "dd06": {
+    "label": "dangerous",
+    "note": "Borderline, conservatively dangerous: rewrites the obsolete modifier declarations with inverted conditions instead of removing them."
+  },
+  "im01": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "im02": {
+    "label": "dangerous",
+    "note": "Rewrites the user-written VERSION reference to an environment fallback."
+  },
+  "im03": {
+    "label": "dangerous",
+    "note": "Deletes the healthy template literal closing backtick."
+  },
+  "im04": {
+    "label": "dangerous",
+    "note": "Deletes binary and the user-written expression, replacing them with an unrelated which implementation."
+  },
+  "im05": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "im06": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "in01": {
+    "label": "wrong",
+    "note": "Completes the new env expression with the function value instead of invoking childEnv."
+  },
+  "in02": {
+    "label": "exact",
+    "note": "Matches commit-derived ground truth under the spike whitespace rule."
+  },
+  "in03": {
+    "label": "exact",
+    "note": "Matches commit-derived ground truth under the spike whitespace rule."
+  },
+  "in04": {
+    "label": "wrong",
+    "note": "Invents an outcome case rather than the setup case; existing cases are intact."
+  },
+  "in05": {
+    "label": "exact",
+    "note": "Matches commit-derived ground truth under the spike whitespace rule."
+  },
+  "hrn01": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrn02": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrn03": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrn04": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrn05": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrn06": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrn07": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrn08": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hdd01": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hdd02": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hdd03": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hdd04": {
+    "label": "dangerous",
+    "note": "Adds os arguments to the newly written libcPath call and the unrelated healthy libraryPath call."
+  },
+  "hdd05": {
+    "label": "dangerous",
+    "note": "Changes the newly written close call and healthy synchronous stop function to async."
+  },
+  "hdd06": {
+    "label": "dangerous",
+    "note": "Replaces a healthy closing brace with a duplicate import while deleting the dead declaration."
+  },
+  "hdd07": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hdd08": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "him01": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "him02": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "him03": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "him04": {
+    "label": "dangerous",
+    "note": "Replaces the user-written watchGit call with an undefined handleGitWatch."
+  },
+  "him05": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "him06": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "him07": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "him08": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hin01": {
+    "label": "exact",
+    "note": "Matches commit-derived ground truth under the spike whitespace rule."
+  },
+  "hin02": {
+    "label": "dangerous",
+    "note": "Rewrites the newly written shown reference into a conflicting self-reference and parameter binding."
+  },
+  "hin03": {
+    "label": "wrong",
+    "note": "Completes the new showAppMenu callback without the required window argument."
+  },
+  "hin04": {
+    "label": "wrong",
+    "note": "Completes the new version expression with a function value instead of calling windowsPackageVersion."
+  },
+  "hin05": {
+    "label": "exact",
+    "note": "Matches commit-derived ground truth under the spike whitespace rule."
+  },
+  "hin06": {
+    "label": "wrong",
+    "note": "New menu attributes use the wrong change kind and an unsupported line property; existing code is intact."
+  },
+  "hin07": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hin08": {
+    "label": "wrong",
+    "note": "New decoder accepts only the literal any and omits known; existing code is intact."
+  },
+  "hrf01": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrf02": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrf03": {
+    "label": "exact",
+    "note": "Matches commit-derived ground truth under the spike whitespace rule."
+  },
+  "hrf04": {
+    "label": "exact",
+    "note": "Matches commit-derived ground truth under the spike whitespace rule."
+  },
+  "hrf05": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrf06": {
+    "label": "dangerous",
+    "note": "Changes healthy win32 path handling to posix while also fixing the unresolved resolve call."
+  },
+  "hrf07": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  },
+  "hrf08": {
+    "label": "abstain",
+    "note": "No non-whitespace change to the current buffer."
+  }
+}
