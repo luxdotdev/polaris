@@ -40,7 +40,7 @@ function fixture(env: EmailEnv = configured) {
           return {};
         },
       })),
-    admit: createAdmission({ store: memoryStore(), vercel: true }),
+    ...createAdmission({ store: memoryStore(), vercel: true }),
     preview: previewOnly(env),
     requested: () => {
       logs += 1;

@@ -16,6 +16,8 @@ type Dependencies = {
   validator?: EmailValidator;
   transport: () => EmailTransport | null;
   admit: (headers: Headers, email: string) => Promise<Admission>;
+  /** Lifts the recipient's cooldown after an admitted submission that sent nothing. */
+  release?: (email: string) => Promise<void>;
   /** `shared` when the deployment-wide store is configured, recorded on every event. */
   limiter?: "shared" | "local";
   /** Whether this deployment only previews email; constant per deployment, never per request. */
@@ -96,24 +98,28 @@ function validationFailure(failure: EmailValidationError, event: WideEvent): Lev
   return failure.reason === "uncertain" ? "info" : "error";
 }
 
+type Delivery = { level: Level; sent: boolean };
+
+const unsent = (level: Level): Delivery => ({ level, sent: false });
+
 async function deliver(
   deps: Dependencies,
   validator: EmailValidator,
   email: string,
   event: WideEvent
-): Promise<Level> {
+): Promise<Delivery> {
   try {
     const accepted = await validator.validate(email, (verdicts) => Object.assign(event, verdicts));
     event.validation = accepted ? "accepted" : "invalid";
 
-    if (!accepted) return "info";
+    if (!accepted) return unsent("info");
   } catch (error) {
     const failure = Option.getOrElse(
       decodeEmailValidationError(error),
       () => new EmailValidationError("provider", errorInfo(error))
     );
 
-    return validationFailure(failure, event);
+    return unsent(validationFailure(failure, event));
   }
 
   const sender = deps.transport();
@@ -122,7 +128,7 @@ async function deliver(
     event.failure = "email_unconfigured";
     event.missing_config = deps.configProblems?.() ?? [];
 
-    return "error";
+    return unsent("error");
   }
 
   try {
@@ -131,12 +137,20 @@ async function deliver(
     event.failure = "send_failed";
     event.error = errorInfo(error);
 
-    return "error";
+    return unsent("error");
   }
 
   event.delivery = sender.preview ? "preview" : "sent";
 
-  return "info";
+  return { level: "info", sent: true };
+}
+
+async function releaseCooldown(deps: Dependencies, email: string, event: WideEvent) {
+  try {
+    await deps.release?.(email);
+  } catch {
+    event.cooldown_release = "failed";
+  }
 }
 
 /** Limits, validation and sending; runs after the reply, so none of it shapes the response. */
@@ -161,10 +175,15 @@ async function admitAndDeliver(
   if (admission !== "admitted") {
     event.rejection = admission;
 
-    return "info";
+    // The deployment-wide ceiling refuses everyone, so it raises the event for alerting.
+    return admission === "total_limited" ? "error" : "info";
   }
 
-  return deliver(deps, validator, email, event);
+  const { level, sent } = await deliver(deps, validator, email, event);
+
+  if (!sent) await releaseCooldown(deps, email, event);
+
+  return level;
 }
 
 /**

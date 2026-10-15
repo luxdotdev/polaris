@@ -81,7 +81,7 @@ describe("every well-formed submission looks the same from outside", () => {
       "info",
     ],
     ["source limited", limited("source_limited"), { rejection: "source_limited" }, "info"],
-    ["total limited", limited("total_limited"), { rejection: "total_limited" }, "info"],
+    ["total limited", limited("total_limited"), { rejection: "total_limited" }, "error"],
     [
       "recipient cooldown",
       limited("recipient_cooldown"),

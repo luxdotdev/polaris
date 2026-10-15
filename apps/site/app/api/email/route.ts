@@ -1,7 +1,7 @@
 import { withWideEvent } from "../../../lib/log";
 import { createEmailHandler } from "./_lib";
 import { checkEmailBot } from "./_lib/bot";
-import { createAdmission, memoryStore, readSharedStore } from "./_lib/limiter";
+import { createAdmission, memoryStore, readLimitSecret, readSharedStore } from "./_lib/limiter";
 import { sesConfigProblems } from "./_lib/ses";
 import { createTransport, previewOnly } from "./_lib/transport";
 import { createValidator } from "./_lib/validator";
@@ -10,8 +10,8 @@ export const runtime = "nodejs";
 
 const shared = readSharedStore(process.env);
 
-const admit = createAdmission({
-  ...(shared ?? { store: memoryStore() }),
+const admission = createAdmission({
+  ...(shared ?? { store: memoryStore(), secret: readLimitSecret(process.env) }),
   vercel: process.env.VERCEL === "1",
 });
 
@@ -21,7 +21,7 @@ const handler = createEmailHandler({
     validate: (email, report) => createValidator(process.env).validate(email, report),
   },
   transport: () => createTransport(process.env),
-  admit,
+  ...admission,
   limiter: shared ? "shared" : "local",
   preview: previewOnly(process.env),
   configProblems: () => sesConfigProblems(process.env),

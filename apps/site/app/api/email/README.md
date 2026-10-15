@@ -72,6 +72,7 @@ Set server-only environment variables on the production deployment:
 | `POLARIS_EMAIL_CONFIGURATION_SET` | Required dedicated SES configuration set name, e.g. `polaris-download` |
 | `AWS_ROLE_ARN` | The IAM role assumed with Vercel's OIDC token (`arn:aws:iam::<account>:role/<name>`) |
 | `KV_REST_API_URL`, `KV_REST_API_TOKEN` | The shared limit store (Upstash Redis REST URL and token); `UPSTASH_REDIS_REST_URL`/`_TOKEN` also work. Without them each instance limits only itself |
+| `POLARIS_EMAIL_LIMIT_SECRET` | Recommended: at least 32 random bytes keying the limit store's digests, so rotating the store token keeps limits and cooldowns. Without it the key is derived from the store token (or is random per instance locally) |
 | `AXIOM_TOKEN`, `AXIOM_DATASET` | Optional, shared with the update/download routes |
 
 Credentials come only from the IAM role: `@vercel/oidc-aws-credentials-provider`
@@ -118,9 +119,9 @@ this code; confirm how `EmailValidationSuppressed` affects reputation metrics be
 enabling it. Do not configure recipient-bearing event publishing for this flow.
 
 Plan conservatively for **1 request/second** for non-send SES APIs until AWS
-confirms this operation's account/Region quota. The shared limiter caps the whole
-deployment at 100 admitted submissions per 15 minutes, but it is not per-second
-pacing. A throttle is recorded as `unavailable` without validation or send retry. Confirm availability, IAM, price
+confirms this operation's account/Region quota. The shared limiter's deployment-wide
+ceiling (450 per 15 minutes, below) keeps the average under half that pace, but it is
+not per-second pacing. A throttle is recorded as `unavailable` without validation or send retry. Confirm availability, IAM, price
 ($0.01/check per the research snapshot) and quota in the actual account before
 launch. No live AWS check or delivery has been performed by these tests.
 
@@ -147,6 +148,7 @@ deployment context, `status_code`, `outcome`, `duration_ms`, and why it ended:
 `bot` (`human`/`bot`/`verified_bot`/`unavailable`), `rejection`
 (`origin_mismatch`, `content_type`, `unreadable_body`, `honeypot`,
 `invalid_syntax`, `source_limited`, `total_limited`, `recipient_cooldown`),
+`cooldown_release` (`failed` when a submission that sent nothing couldn't lift its cooldown),
 `limiter` (`shared`/`local`), `validation`
 (`accepted`/`invalid`/`uncertain`/`unavailable`), `failure`
 (`botid_unavailable`, `limiter_unavailable`, `validation_<reason>`, `email_unconfigured` with
@@ -156,8 +158,9 @@ address, its domain, an IP, headers, the body or any error message. It is sent
 to Axiom once via `after()`, after the background work has settled, and written to
 the function log with the ingest result; logging never affects sending. Background
 failures (`limiter_unavailable`, provider `unavailable`, `email_unconfigured`,
-`send_failed`) raise the event to level `error` with `outcome: "error"`, though the
-public status stays 202; alert on those, not on `status_code`.
+`send_failed`) and `total_limited`, which refuses every visitor, raise the event to
+level `error` with `outcome: "error"`, though the public status stays 202; alert on
+those, not on `status_code`.
 
 Validation accepts plain ASCII addresses with a dotted domain, caps addresses
 at 254 characters (64 for the local part), and rejects display names, empty
@@ -171,26 +174,41 @@ telemetry.
 Before any SES call, each syntax-valid submission must pass, in order (a refusal
 spends no later budget):
 
-1. **Source:** 3 per 15-minute fixed window per IP. Only on Vercel (`VERCEL=1`) is
-   the protected `x-vercel-forwarded-for` header trusted; elsewhere, or with a
-   missing/invalid header, all requests share one bucket. IPv6 spellings are canonicalized.
-2. **Deployment total:** 100 per 15-minute window across every instance.
-3. **Recipient cooldown:** one admission per mailbox per 24 hours, whichever source
-   asks. The mailbox is the address lowercased, without a `+tag`, and for Gmail without
-   dots. The cooldown is claimed before validation, so a failed send still waits it out.
+1. **Source** (the primary control): 3 per 15-minute fixed window per IP. Only on
+   Vercel (`VERCEL=1`) are forwarding headers trusted, all set by Vercel's edge:
+   `x-vercel-forwarded-for`, then `x-real-ip`, then the rightmost hop of
+   `x-forwarded-for` (the one the platform appended; earlier hops are client-supplied).
+   IPv6 sources are keyed by their /64 and IPv4-mapped IPv6 by its IPv4 address.
+   Submissions with no usable source (or off Vercel) share one `unknown` bucket of 30
+   per window, so a missing header neither limits every visitor to 3 nor escapes limits.
+2. **Deployment ceiling:** 450 per 15-minute window across every instance. It is a
+   cost and quota backstop, not the everyday limit: 450 per window is 0.5/second on
+   average, half the 1/second planned for `GetEmailAddressInsights`, and 43,200 a day,
+   under SES's 50,000-a-day starting production sending quota; at $0.01 per check it
+   caps validation spend at $4.50 per window. Real traffic is far below it. Reaching it
+   refuses everyone for the rest of the window, so each such event is level `error`
+   (`rejection: "total_limited"`) for an Axiom alert.
+3. **Recipient cooldown:** one email per mailbox per 10 minutes, whichever source
+   asks, to stop repeated mail to one inbox. The mailbox is the address lowercased,
+   without a `+tag`, and for Gmail without dots. The cooldown is claimed at admission so
+   concurrent submissions can't both send, and released when nothing was sent (invalid,
+   uncertain or unavailable validation, missing configuration, a failed send), so a
+   failure never blocks the address and only a delivered email holds it.
 
 All three live in a `LimitStore` (`increment` with expiry, `claim` if absent). With
 `KV_REST_API_URL`/`KV_REST_API_TOKEN` (or the `UPSTASH_REDIS_REST_*` pair) set to an
 `https://` Upstash Redis, the route uses it through the REST `/multi-exec` endpoint,
 so limits hold across instances and cold starts (`limiter: "shared"`). Any store error
 or unexpected reply fails closed: nothing is validated or sent (`limiter_unavailable`).
-Keys are `polaris:email:…` HMAC-SHA-256 digests under a key derived from the store
-token, never a raw address or IP, and expire with their window or cooldown.
+Keys are `polaris:email:…` HMAC-SHA-256 digests under `POLARIS_EMAIL_LIMIT_SECRET`
+(or a key derived from the store token), never a raw address or IP, and expire with
+their window or cooldown.
 
 Without that configuration the route falls back to a process-local store
 (`limiter: "local"`): the same limits, but per instance and reset on cold start,
-so it is not deployment-wide protection. It holds at most 10,000 entries and
-refuses admission when full rather than evicting live ones. Fixed windows permit a
+so it is not deployment-wide protection. It holds at most 10,000 entries; when full it
+drops expired entries, then the least recently used, so a flood of sources can't
+refuse everyone (the deployment counter, touched on every admission, stays). Fixed windows permit a
 burst across a window boundary in either mode.
 
 **Owner setup:** add an Upstash Redis database to the Vercel project (Vercel
