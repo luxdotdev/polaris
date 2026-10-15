@@ -1,12 +1,14 @@
-import { errorInfo, type WideEvent } from "../../../../lib/log";
+import { errorInfo, type Background, type Level, type WideEvent } from "../../../../lib/log";
 import type { EmailTransport } from "./transport";
 import type { BotCheck } from "./bot";
+import type { Admission } from "./limiter";
 import { Option } from "effect";
 import {
   decodeEmailValidationError,
   EmailValidationError,
   unavailableValidator,
   type EmailValidator,
+  type ValidationFailure,
 } from "./validator";
 import { readSubmission, validEmail } from "./validation";
 
@@ -14,19 +16,33 @@ type Dependencies = {
   checkBot: BotCheck;
   validator?: EmailValidator;
   transport: () => EmailTransport | null;
-  rateLimit: (headers: Headers) => number;
+  admit: (headers: Headers, email: string) => Promise<Admission>;
+  /** Lifts the recipient's cooldown after our side failed to validate or send. */
+  release?: (email: string) => Promise<void>;
+  /** `shared` when the deployment-wide store is configured, recorded on every event. */
+  limiter?: "shared" | "local";
+  /** Whether this deployment only previews email; constant per deployment, never per request. */
+  preview: boolean;
   /** Names of missing or invalid settings, recorded when the transport is unavailable. */
   configProblems?: () => readonly string[];
   requested?: () => void;
 };
 
-/** Tells the form why a 422 happened, so it can explain an address it couldn't confirm. */
-export const REASON_HEADER = "X-Polaris-Email-Reason";
+/** The one public reply to every well-formed submission, whatever happens to it. */
+export const ACKNOWLEDGEMENT =
+  "Check your inbox for the Mac download. Not there? Download it on your Mac at polaris.lux.dev.";
 
-function reply(status: number, message: string, headers?: Readonly<Record<string, string>>) {
+function reply(status: number, message: string) {
+  return Response.json({ message }, { status, headers: { "Cache-Control": "no-store" } });
+}
+
+function acknowledge(preview: boolean) {
   return Response.json(
-    { message },
-    { status, headers: { "Cache-Control": "no-store", ...headers } }
+    { message: ACKNOWLEDGEMENT },
+    {
+      status: 202,
+      headers: { "Cache-Control": "no-store", "X-Polaris-Email-Preview": preview ? "1" : "0" },
+    }
   );
 }
 
@@ -74,40 +90,52 @@ function requestGate(request: Request, event: WideEvent) {
   return null;
 }
 
-function validationFailure(failure: EmailValidationError, event: WideEvent) {
-  event.validation = failure.reason === "uncertain" ? "uncertain" : "unavailable";
+/** What each failure records as the event's `validation`; the rest are `unavailable` errors. */
+const verdictOutcomes: Partial<Record<ValidationFailure, "uncertain" | "invalid">> = {
+  uncertain: "uncertain",
+  rejected: "invalid",
+};
+
+function validationFailure(failure: EmailValidationError, event: WideEvent): Level {
+  const verdict = verdictOutcomes[failure.reason];
+  event.validation = verdict ?? "unavailable";
   event.failure = `validation_${failure.reason}`;
 
   if (failure.cause_info) event.error = failure.cause_info;
+
+  return verdict ? "info" : "error";
 }
+
+/** `retry` only when our side failed before a verdict or a send, so the cooldown is lifted. */
+type Delivery = { level: Level; retry: boolean };
+
+const held = (level: Level): Delivery => ({ level, retry: false });
+
+const retryable = (level: Level): Delivery => ({ level, retry: true });
+
+/** Failures that reached no verdict on the address; any reply judging it holds the cooldown. */
+const noVerdict = new Set<ValidationFailure>(["unconfigured", "provider"]);
 
 async function deliver(
   deps: Dependencies,
   validator: EmailValidator,
   email: string,
   event: WideEvent
-) {
+): Promise<Delivery> {
   try {
     const accepted = await validator.validate(email, (verdicts) => Object.assign(event, verdicts));
     event.validation = accepted ? "accepted" : "invalid";
 
-    if (!accepted) return reply(422, "Use another email address.");
+    if (!accepted) return held("info");
   } catch (error) {
     const failure = Option.getOrElse(
       decodeEmailValidationError(error),
       () => new EmailValidationError("provider", errorInfo(error))
     );
 
-    validationFailure(failure, event);
+    const level = validationFailure(failure, event);
 
-    if (failure.reason === "uncertain")
-      return reply(
-        422,
-        "We couldn't confirm that address. Check it, or download Polaris on your Mac at polaris.lux.dev.",
-        { [REASON_HEADER]: "unconfirmed" }
-      );
-
-    return reply(503, "The email could not be sent. Please try again later.");
+    return noVerdict.has(failure.reason) ? retryable(level) : held(level);
   }
 
   const sender = deps.transport();
@@ -116,7 +144,7 @@ async function deliver(
     event.failure = "email_unconfigured";
     event.missing_config = deps.configProblems?.() ?? [];
 
-    return reply(503, "Email is not available yet. Please try again later.");
+    return retryable("error");
   }
 
   try {
@@ -125,26 +153,64 @@ async function deliver(
     event.failure = "send_failed";
     event.error = errorInfo(error);
 
-    return reply(503, "The email could not be sent. Please try again later.");
+    return retryable("error");
   }
 
   event.delivery = sender.preview ? "preview" : "sent";
 
-  return Response.json(
-    {},
-    {
-      headers: {
-        "Cache-Control": "no-store",
-        "X-Polaris-Email-Preview": sender.preview ? "1" : "0",
-      },
-    }
-  );
+  return held("info");
 }
 
+async function releaseCooldown(deps: Dependencies, email: string, event: WideEvent) {
+  try {
+    await deps.release?.(email);
+  } catch {
+    event.cooldown_release = "failed";
+  }
+}
+
+/** Limits, validation and sending; runs after the reply, so none of it shapes the response. */
+async function admitAndDeliver(
+  deps: Dependencies,
+  validator: EmailValidator,
+  headers: Headers,
+  email: string,
+  event: WideEvent
+): Promise<Level> {
+  let admission: Admission;
+
+  try {
+    admission = await deps.admit(headers, email);
+  } catch (error) {
+    event.failure = "limiter_unavailable";
+    event.error = errorInfo(error);
+
+    return "error";
+  }
+
+  if (admission !== "admitted") {
+    event.rejection = admission;
+
+    // The deployment-wide ceiling refuses everyone, so it raises the event for alerting.
+    return admission === "total_limited" ? "error" : "info";
+  }
+
+  const { level, retry } = await deliver(deps, validator, email, event);
+
+  if (retry) await releaseCooldown(deps, email, event);
+
+  return level;
+}
+
+/**
+ * Every well-formed submission gets the same 202 before any limit, validation or send,
+ * so the response says nothing about the address; the event records what happened.
+ */
 export function createEmailHandler(deps: Dependencies) {
   const validator = deps.validator ?? unavailableValidator;
 
-  return async (request: Request, event: WideEvent = {}): Promise<Response> => {
+  return async (request: Request, event: WideEvent, background: Background): Promise<Response> => {
+    if (deps.limiter) event.limiter = deps.limiter;
     const blocked = (await botGate(deps.checkBot, request, event)) ?? requestGate(request, event);
 
     if (blocked) return blocked;
@@ -162,7 +228,7 @@ export function createEmailHandler(deps: Dependencies) {
     if (submission.website !== "") {
       event.rejection = "honeypot";
 
-      return reply(200, "Check your inbox for the Mac download.");
+      return acknowledge(deps.preview);
     }
 
     if (!validEmail(submission.email)) {
@@ -171,18 +237,11 @@ export function createEmailHandler(deps: Dependencies) {
       return reply(400, "Enter a valid email address.");
     }
 
-    const retryAfter = deps.rateLimit(request.headers);
-
-    if (retryAfter) {
-      event.rejection = "rate_limited";
-
-      return reply(429, "Too many requests. Try again in 15 minutes.", {
-        "Retry-After": String(retryAfter),
-      });
-    }
-
     deps.requested?.();
+    const headers = new Headers(request.headers);
+    const { email } = submission;
+    background(() => admitAndDeliver(deps, validator, headers, email, event));
 
-    return deliver(deps, validator, submission.email, event);
+    return acknowledge(deps.preview);
   };
 }

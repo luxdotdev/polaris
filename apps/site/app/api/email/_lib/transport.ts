@@ -20,11 +20,14 @@ export type SesFactory = (config: SESv2ClientConfig) => {
   ) => Promise<Pick<SendEmailCommandOutput, "MessageId">>;
 };
 
+/** Outside production nothing is sent; the form says so. */
+export const previewOnly = (env: EmailEnv) => env.NODE_ENV !== "production";
+
 export function createTransport(
   env: EmailEnv,
   makeClient: SesFactory = (config) => new SESv2Client(config)
 ): EmailTransport | null {
-  if (env.NODE_ENV !== "production") return { send: async () => {}, preview: true };
+  if (previewOnly(env)) return { send: async () => {}, preview: true };
 
   const config = readSesConfig(env);
 

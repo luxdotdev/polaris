@@ -1,14 +1,19 @@
 import { withWideEvent } from "../../../lib/log";
 import { createEmailHandler } from "./_lib";
 import { checkEmailBot } from "./_lib/bot";
-import { createRateLimit } from "./_lib/rate-limit";
+import { createAdmission, memoryStore, readLimitSecret, readSharedStore } from "./_lib/limiter";
 import { sesConfigProblems } from "./_lib/ses";
-import { createTransport } from "./_lib/transport";
+import { createTransport, previewOnly } from "./_lib/transport";
 import { createValidator } from "./_lib/validator";
 
 export const runtime = "nodejs";
 
-const limit = createRateLimit();
+const shared = readSharedStore(process.env);
+
+const admission = createAdmission({
+  ...(shared ?? { store: memoryStore(), secret: readLimitSecret(process.env) }),
+  vercel: process.env.VERCEL === "1",
+});
 
 const handler = createEmailHandler({
   checkBot: checkEmailBot,
@@ -16,8 +21,12 @@ const handler = createEmailHandler({
     validate: (email, report) => createValidator(process.env).validate(email, report),
   },
   transport: () => createTransport(process.env),
-  rateLimit: (headers) => limit(headers, process.env.VERCEL === "1"),
+  ...admission,
+  limiter: shared ? "shared" : "local",
+  preview: previewOnly(process.env),
   configProblems: () => sesConfigProblems(process.env),
 });
 
-export const POST = withWideEvent("/api/email", (request, event) => handler(request, event));
+export const POST = withWideEvent("/api/email", (request, event, _context, background) =>
+  handler(request, event, background)
+);

@@ -85,6 +85,47 @@ describe("withWideEvent", () => {
     expect(h.emitted[0]).toMatchObject({ level, event: { status_code: status, outcome } });
   });
 
+  test.each<[string, () => Promise<Level | void>, Level, string]>([
+    ["finishes", async () => {}, "info", "success"],
+    ["reports an error", async () => "error", "error", "error"],
+    [
+      "throws",
+      async () => {
+        throw new TypeError("private@example.com");
+      },
+      "error",
+      "error",
+    ],
+  ])("background work that %s lands on the one event", async (_, finish, level, outcome) => {
+    const h = harness();
+    let released = false;
+
+    const handler = withWideEvent(
+      "/x",
+      async (_request, event, _context, background) => {
+        background(async () => {
+          event.work = "done";
+          released = true;
+
+          return finish();
+        });
+
+        return new Response(null, { status: 202 });
+      },
+      h.options
+    );
+
+    await handler(new Request("https://polaris.lux.dev/x"), undefined);
+    expect(released).toBe(false);
+    await h.flush();
+    expect(h.emitted).toHaveLength(1);
+    expect(h.emitted[0]).toMatchObject({
+      level,
+      event: { work: "done", status_code: 202, outcome },
+    });
+    expect(JSON.stringify(h.emitted)).not.toContain("private@example.com");
+  });
+
   test("a thrown handler is recorded as a 500 with the error type but not its message", async () => {
     const h = harness();
 
