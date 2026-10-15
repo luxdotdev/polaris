@@ -163,7 +163,10 @@ export interface InstallReport {
 const fsStep = <A>(step: string, f: () => A) =>
   Effect.try({ try: f, catch: (error) => new InstallError({ step, message: String(error) }) });
 
-/** Copies `source` into place atomically; false if an identical file is already there. */
+/**
+ * Copies `source` into place atomically; false if an identical file is already there.
+ * The copy itself must hash to `sha256`, so what lands is what was checked.
+ */
 const placeFile = (source: string, target: string, sha256: string, mode: number) =>
   fsStep(`copy ${basename(target)}`, () => {
     if (source === target) return false;
@@ -172,6 +175,12 @@ const placeFile = (source: string, target: string, sha256: string, mode: number)
     mkdirSync(dirname(target), { recursive: true });
     const temp = `${target}.tmp-${process.pid}`;
     copyFileSync(source, temp);
+
+    if (sha256File(temp) !== sha256) {
+      rmSync(temp, { force: true });
+      throw new Error(`${source} does not have the SHA-256 ${sha256}`);
+    }
+
     chmodSync(temp, mode);
     renameSync(temp, target);
 
@@ -192,7 +201,7 @@ export const stageBinary = Effect.fn("stageBinary")(function* (
   options: InstallOptions
 ) {
   const path = layout(ctx, options.version).installed!;
-  const sha256 = yield* fsStep("hash binary", () => sha256File(options.source));
+  const sha256 = options.sha256 ?? (yield* fsStep("hash binary", () => sha256File(options.source)));
   let changed = yield* placeFile(options.source, path, sha256, 0o755);
 
   for (const name of SIBLING_EXECUTABLES) {
@@ -458,6 +467,8 @@ export interface InstallOptions {
   /** The compiled `polaris` binary to install (normally this process's own executable). */
   readonly source: string;
   readonly version: string;
+  /** The SHA-256 the Client verified; the installed copy must match it. */
+  readonly sha256?: string | undefined;
   /** macOS: how long to wait for a booted-out Daemon (tests shorten it). */
   readonly launchdTiming?: LaunchdTiming;
 }

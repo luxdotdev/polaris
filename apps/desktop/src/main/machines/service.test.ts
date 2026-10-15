@@ -5,7 +5,7 @@
  * play reconnects.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { HostAccess } from "@polaris/client/access";
@@ -32,6 +32,8 @@ let dist: string;
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "polaris-machines-"));
   home = join(root, "host");
+  // Like any real Host's: the install creates ~/.polaris in it, never HOME itself.
+  mkdirSync(home);
   dist = join(root, "dist");
 });
 

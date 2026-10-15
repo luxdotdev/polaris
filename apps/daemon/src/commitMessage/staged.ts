@@ -4,6 +4,7 @@
  */
 import { childEnv } from "../service/childEnv.ts";
 import { baseEnv, findRepoRoot, runGitRaw } from "../git/git.ts";
+import { safeArgs, safeConfigEnv } from "../git/safeConfig/index.ts";
 
 /** Enough for a good message; past it the stat still lists every file. */
 export const DIFF_BUDGET = 60_000;
@@ -34,9 +35,9 @@ const text = async (cwd: string, args: ReadonlyArray<string>) => {
 
 /** Reads at most `budget` bytes, then kills git: a huge diff is never read in full. */
 export const boundedDiff = async (top: string, budget: number) => {
-  const proc = Bun.spawn(["git", ...diffArgs], {
+  const proc = Bun.spawn(["git", ...safeArgs(diffArgs)], {
     cwd: top,
-    env: childEnv(baseEnv()),
+    env: childEnv({ ...baseEnv(), ...(await safeConfigEnv(top, baseEnv(), { args: diffArgs })) }),
     stdin: "ignore",
     stdout: "pipe",
     stderr: "ignore",
