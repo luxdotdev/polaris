@@ -1,4 +1,10 @@
-import type { PredictionError, PredictionRequest, PredictionStreamItem } from "@polaris/protocol";
+import type {
+  EditPredictionItem,
+  EditPredictionRequest,
+  PredictionError,
+  PredictionRequest,
+  PredictionStreamItem,
+} from "@polaris/protocol";
 import type { Stream } from "effect";
 
 /** Counts the text passed to it, including prompt markers; callers may supply a tokenizer. */
@@ -17,4 +23,13 @@ export interface Predictor {
     options?: PredictionOptions
   ) => Stream.Stream<PredictionStreamItem, PredictionError>;
   readonly p50: (endpoint: PredictionRequest["endpoint"]) => number | null;
+}
+
+/** Region-rewrite next-edit prediction (docs/specs/edit-prediction-v1.1.md §3). */
+export interface EditPredictor {
+  readonly predict: (
+    request: EditPredictionRequest,
+    options?: PredictionOptions
+  ) => Stream.Stream<EditPredictionItem, PredictionError>;
+  readonly p50: (endpoint: EditPredictionRequest["endpoint"]) => number | null;
 }

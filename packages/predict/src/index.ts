@@ -7,7 +7,9 @@ export type {
   PredictionStreamItem,
 } from "@polaris/protocol";
 
-export type { Predictor, PredictionOptions, TokenCounter } from "./types.ts";
+export type { EditPredictor, Predictor, PredictionOptions, TokenCounter } from "./types.ts";
+
+export { createEditPredictor } from "./edit/index.ts";
 
 export { countTokens, packContext } from "./budget.ts";
 
