@@ -1,5 +1,9 @@
 name: Release
 
+# Building, signing and publishing are separate jobs (docs/adr/0053): repository code and its
+# dependencies run without credentials or write access; tooling/release/sign.py from the default
+# branch is the only code that sees Apple credentials, and only `publish` can write the Release.
+# Every hand-off is an artifact whose SHA-256 the next job checks.
 on:
   push:
     tags: ["v*"]
@@ -8,18 +12,50 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
-permissions:
-  contents: write
+permissions: {}
 
 jobs:
-  release:
-    name: macOS arm64 draft
-    runs-on: macos-15
+  metadata:
+    name: Tag, versions and signing policy
+    runs-on: ubuntu-latest
+    # For the signing secrets' presence; their values never reach this job.
     environment: release
-    timeout-minutes: 90
+    timeout-minutes: 5
+    permissions:
+      contents: read
     outputs:
       version: ${{ steps.metadata.outputs.version }}
       nuget_version: ${{ steps.metadata.outputs.nuget_version }}
+      prerelease: ${{ steps.metadata.outputs.prerelease }}
+      signed: ${{ steps.metadata.outputs.signed }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Validate tag, versions and signing policy
+        id: metadata
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          MACOS_CERT_P12_SET: ${{ secrets.MACOS_CERT_P12 != '' }}
+          MACOS_CERT_PASSWORD_SET: ${{ secrets.MACOS_CERT_PASSWORD != '' }}
+          APPLE_API_KEY_SET: ${{ secrets.APPLE_API_KEY != '' }}
+          APPLE_API_KEY_ID_SET: ${{ secrets.APPLE_API_KEY_ID != '' }}
+          APPLE_API_ISSUER_SET: ${{ secrets.APPLE_API_ISSUER != '' }}
+          APPLE_TEAM_ID_SET: ${{ secrets.APPLE_TEAM_ID != '' }}
+        # Tags: vX.Y.Z (signed) or vX.Y.Z-<alpha|beta|rc>.N (a prerelease, may be unsigned).
+        run: python3 -I tooling/release/metadata.py
+
+  build:
+    name: macOS arm64 build (no credentials)
+    needs: metadata
+    runs-on: macos-15
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    outputs:
+      bundle: ${{ steps.handoff.outputs.bundle }}
+      assets: ${{ steps.handoff.outputs.assets }}
+      daemon: ${{ steps.handoff.outputs.daemon }}
     defaults:
       run:
         shell: bash
@@ -27,20 +63,6 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
-
-      - name: Validate tag, versions and signing policy
-        id: metadata
-        env:
-          RELEASE_TAG: ${{ github.ref_name }}
-          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
-          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        # Tags: vX.Y.Z (signed) or vX.Y.Z-<alpha|beta|rc>.N (a prerelease, may be unsigned).
-        run: python3 -I tooling/release/metadata.py
-
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: package.json
@@ -55,144 +77,283 @@ jobs:
         run: |
           test "$(uname -m)" = arm64
           xcrun --find SetFile
-          xcrun --find notarytool
           uv python install 3.12
       - run: bun install --frozen-lockfile
 
-      - name: Import signing credentials
-        id: signing
-        if: steps.metadata.outputs.signed == 'true'
-        env:
-          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
-          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-        run: |
-          umask 077
-          signing_dir="$RUNNER_TEMP/polaris-signing"
-          mkdir "$signing_dir"
-          security list-keychains -d user > "$signing_dir/keychains.txt"
-          printf '%s' "$MACOS_CERT_P12" | base64 --decode > "$signing_dir/certificate.p12"
-          printf '%s' "$APPLE_API_KEY" > "$signing_dir/AuthKey.p8"
-          keychain="$signing_dir/release.keychain-db"
-          keychain_password=$(openssl rand -hex 32)
-          security create-keychain -p "$keychain_password" "$keychain"
-          security set-keychain-settings -lut 21600 "$keychain"
-          security unlock-keychain -p "$keychain_password" "$keychain"
-          security import "$signing_dir/certificate.p12" -P "$MACOS_CERT_PASSWORD" \
-            -k "$keychain" -t cert -f pkcs12 -T /usr/bin/codesign -T /usr/bin/security
-          security set-key-partition-list -S apple-tool:,apple:,codesign: \
-            -s -k "$keychain_password" "$keychain" > /dev/null
-          python3 - <<'PY'
-          import os, shlex, subprocess
-          from pathlib import Path
-          directory = Path(os.environ["RUNNER_TEMP"]) / "polaris-signing"
-          original = shlex.split((directory / "keychains.txt").read_text())
-          subprocess.run(["security", "list-keychains", "-d", "user", "-s",
-                          str(directory / "release.keychain-db"), *original], check=True)
-          PY
-          rm "$signing_dir/certificate.p12"
-          printf 'keychain=%s\napi_key=%s\n' "$keychain" "$signing_dir/AuthKey.p8" >> "$GITHUB_OUTPUT"
-
-      - name: Package release app, Update ZIP and installer DMG
-        env:
-          APPLE_API_KEY: ${{ steps.signing.outputs.api_key }}
-          MACOS_KEYCHAIN: ${{ steps.signing.outputs.keychain }}
-          MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
-          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      - name: Package release app, update ZIP, installer DMG and Daemon archives (unsigned)
         run: bun run --cwd apps/desktop package --release
 
       - name: Smoke-test packaged app
         run: node apps/desktop/scripts/packageCheck.ts
 
-      - name: Archive the final Daemon bytes and manifest for Windows
-        # The manifest names every platform's Release archive; the archives themselves upload below.
-        run: tar -czf polaris-daemon-dist.tar.gz --exclude dist/release -C apps/daemon dist
+      - name: Hand off the outputs with their digests
+        id: handoff
+        env:
+          VERSION: ${{ needs.metadata.outputs.version }}
+        run: |
+          dist=apps/desktop/out/dist
+          # tar keeps the app's symlinks and modes, which artifacts drop.
+          tar -cf release-bundle.tar apps/daemon/dist "$dist/Polaris-darwin-arm64/Polaris.app"
+          # The manifest names every platform's Release archive; the archives upload as assets.
+          tar -czf polaris-daemon-dist.tar.gz --exclude dist/release -C apps/daemon dist
+          mkdir assets
+          cp "$dist/Polaris-$VERSION-arm64.dmg" "$dist/Polaris-$VERSION-arm64-mac.zip" \
+            apps/daemon/dist/release/* assets/
+          (cd assets && shasum -a 256 -- * > ../assets.sha256) && mv assets.sha256 assets/
+          {
+            echo "bundle=$(shasum -a 256 release-bundle.tar | cut -d' ' -f1)"
+            echo "daemon=$(shasum -a 256 polaris-daemon-dist.tar.gz | cut -d' ' -f1)"
+            echo "assets=$(shasum -a 256 assets/assets.sha256 | cut -d' ' -f1)"
+          } >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-bundle
+          path: release-bundle.tar
+          if-no-files-found: error
+          retention-days: 3
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: release-daemon-dist
           path: polaris-daemon-dist.tar.gz
           if-no-files-found: error
+          retention-days: 3
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-assets-macos
+          path: assets/
+          if-no-files-found: error
+          retention-days: 3
 
-      - name: Assess signed app and validate stapled tickets
-        if: steps.metadata.outputs.signed == 'true'
+  sign:
+    name: Sign and notarise the Daemon and app
+    needs: [metadata, build]
+    if: needs.metadata.outputs.signed == 'true'
+    runs-on: macos-15
+    environment: release
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    outputs:
+      bundle: ${{ steps.handoff.outputs.bundle }}
+      assets: ${{ steps.handoff.outputs.assets }}
+      daemon: ${{ steps.handoff.outputs.daemon }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      # Only the reviewed signer and entitlements, from the default branch; nothing from the tag runs.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: signer
+          persist-credentials: false
+          sparse-checkout: |
+            tooling/release/sign.py
+            apps/desktop/scripts/packaging/entitlements
+          sparse-checkout-cone-mode: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: release-bundle
+          path: handoff
+      - name: Verify and unpack the build
         env:
-          VERSION: ${{ steps.metadata.outputs.version }}
+          BUNDLE_SHA256: ${{ needs.build.outputs.bundle }}
+        run: |
+          echo "$BUNDLE_SHA256  handoff/release-bundle.tar" | shasum -a 256 -c -
+          mkdir work
+          tar -xf handoff/release-bundle.tar -C work
+      - name: Sign, notarise and staple the Daemon, the app and the update ZIP
+        env:
+          VERSION: ${{ needs.metadata.outputs.version }}
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: >-
+          python3 -I signer/tooling/release/sign.py app
+          --dist work/apps/daemon/dist
+          --app work/apps/desktop/out/dist/Polaris-darwin-arm64/Polaris.app
+          --out work/apps/desktop/out/dist
+          --entitlements signer/apps/desktop/scripts/packaging/entitlements
+          --version "$VERSION"
+      - name: Hand off the signed outputs with their digests
+        id: handoff
+        env:
+          VERSION: ${{ needs.metadata.outputs.version }}
+        run: |
+          dist=work/apps/desktop/out/dist
+          tar -cf release-bundle-signed.tar -C work apps/daemon/dist \
+            apps/desktop/out/dist/Polaris-darwin-arm64/Polaris.app
+          tar -czf polaris-daemon-dist.tar.gz --exclude dist/release -C work/apps/daemon dist
+          mkdir assets
+          cp "$dist/Polaris-$VERSION-arm64-mac.zip" work/apps/daemon/dist/release/* assets/
+          (cd assets && shasum -a 256 -- * > ../assets.sha256) && mv assets.sha256 assets/
+          {
+            echo "bundle=$(shasum -a 256 release-bundle-signed.tar | cut -d' ' -f1)"
+            echo "daemon=$(shasum -a 256 polaris-daemon-dist.tar.gz | cut -d' ' -f1)"
+            echo "assets=$(shasum -a 256 assets/assets.sha256 | cut -d' ' -f1)"
+          } >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-bundle-signed
+          path: release-bundle-signed.tar
+          if-no-files-found: error
+          retention-days: 3
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-daemon-dist-signed
+          path: polaris-daemon-dist.tar.gz
+          if-no-files-found: error
+          retention-days: 3
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-assets-macos-signed
+          path: assets/
+          if-no-files-found: error
+          retention-days: 3
+
+  dmg:
+    name: Check the signed app and build its installer DMG (no credentials)
+    needs: [metadata, sign]
+    runs-on: macos-15
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    outputs:
+      dmg: ${{ steps.handoff.outputs.dmg }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          python-version: "3.12"
+          enable-cache: false
+      - run: |
+          xcrun --find SetFile
+          uv python install 3.12
+      - run: bun install --frozen-lockfile
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: release-bundle-signed
+          path: handoff
+      - name: Verify and unpack the signed app
+        env:
+          BUNDLE_SHA256: ${{ needs.sign.outputs.bundle }}
+        run: |
+          echo "$BUNDLE_SHA256  handoff/release-bundle-signed.tar" | shasum -a 256 -c -
+          tar -xf handoff/release-bundle-signed.tar
+      - name: Assess the signed app and Daemon
+        env:
+          VERSION: ${{ needs.metadata.outputs.version }}
         run: |
           app=apps/desktop/out/dist/Polaris-darwin-arm64/Polaris.app
-          dmg="apps/desktop/out/dist/Polaris-$VERSION-arm64.dmg"
           codesign --verify --deep --strict "$app"
           spctl --assess --type execute --verbose=2 "$app"
           xcrun stapler validate "$app"
-          codesign --verify --strict "$dmg"
-          spctl --assess --type open --context context:primary-signature --verbose=2 "$dmg"
-          xcrun stapler validate "$dmg"
-
-      - name: Delete temporary signing credentials
-        if: always() && steps.metadata.outputs.signed == 'true'
-        run: |
-          signing_dir="$RUNNER_TEMP/polaris-signing"
-          trap 'rm -rf "$signing_dir"' EXIT
-          python3 - <<'PY'
-          import os, shlex, subprocess
-          from pathlib import Path
-          directory = Path(os.environ["RUNNER_TEMP"]) / "polaris-signing"
-          try:
-              saved = directory / "keychains.txt"
-              if saved.exists():
-                  subprocess.run(["security", "list-keychains", "-d", "user", "-s",
-                                  *shlex.split(saved.read_text())], check=True)
-          finally:
-              keychain = directory / "release.keychain-db"
-              if keychain.exists():
-                  subprocess.run(["security", "delete-keychain", str(keychain)], check=True)
-          PY
-
-      - name: Create draft GitHub Release with exact feed assets
+          daemon=apps/daemon/dist/darwin-arm64
+          test "$("$daemon/polaris" selftest | head -n 1)" = "polaris $VERSION darwin-arm64"
+          "$daemon/betterleaks" version
+      - name: Smoke-test the signed app
+        run: node apps/desktop/scripts/packageCheck.ts
+      - name: Build the installer DMG around the signed app
+        run: bun apps/desktop/scripts/dmg.ts
+      - name: Hand off the DMG with its digest
+        id: handoff
         env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: ${{ github.ref_name }}
-          VERSION: ${{ steps.metadata.outputs.version }}
-          PRERELEASE: ${{ steps.metadata.outputs.prerelease }}
-          SIGNED: ${{ steps.metadata.outputs.signed }}
+          VERSION: ${{ needs.metadata.outputs.version }}
         run: |
-          dmg="apps/desktop/out/dist/Polaris-$VERSION-arm64.dmg"
-          zip="apps/desktop/out/dist/Polaris-$VERSION-arm64-mac.zip"
-          test -s "$dmg"
-          test -s "$zip"
-          # Each platform's Daemon (polaris + betterleaks) and their checksums; Hosts download
-          # these through polaris.lux.dev/api/daemon/<version>/<platform> (docs/adr/0043).
-          daemons=(apps/daemon/dist/release/polaris-daemon-"$VERSION"-*.tar.gz)
-          sums="apps/daemon/dist/release/polaris-daemon-$VERSION-SHA256SUMS"
-          test "${#daemons[@]}" -eq 5
-          for asset in "${daemons[@]}" "$sums"; do test -s "$asset"; done
-          flags=(--draft --verify-tag --title "Polaris $VERSION")
-          if [[ "$PRERELEASE" == true ]]; then
-            flags+=(--prerelease --latest=false)
-          fi
-          # Curated notes (docs/releases/<tag>.md) replace GitHub's generated ones.
-          curated="docs/releases/$RELEASE_TAG.md"
-          notes="$RUNNER_TEMP/release-notes.md"
-          : > "$notes"
-          if [[ "$SIGNED" == false && ! -f "$curated" ]]; then
-            printf '%s\n\n' 'Unsigned prerelease for testing. Signing and notarisation were skipped.' >> "$notes"
-          fi
-          if [[ -f "$curated" ]]; then
-            cat "$curated" >> "$notes"
-          else
-            flags+=(--generate-notes)
-          fi
-          flags+=(--notes-file "$notes")
-          gh release create "$RELEASE_TAG" "$dmg" "$zip" "${daemons[@]}" "$sums" "${flags[@]}"
+          mv "apps/desktop/out/dist/Polaris-$VERSION-arm64.dmg" .
+          echo "dmg=$(shasum -a 256 "Polaris-$VERSION-arm64.dmg" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-dmg
+          path: Polaris-${{ needs.metadata.outputs.version }}-arm64.dmg
+          if-no-files-found: error
+          retention-days: 3
+
+  sign-dmg:
+    name: Sign and notarise the installer DMG
+    needs: [metadata, dmg]
+    runs-on: macos-15
+    environment: release
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    outputs:
+      assets: ${{ steps.handoff.outputs.assets }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: signer
+          persist-credentials: false
+          sparse-checkout: tooling/release/sign.py
+          sparse-checkout-cone-mode: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: release-dmg
+          path: assets
+      - name: Verify the DMG
+        env:
+          DMG_SHA256: ${{ needs.dmg.outputs.dmg }}
+          VERSION: ${{ needs.metadata.outputs.version }}
+        run: echo "$DMG_SHA256  assets/Polaris-$VERSION-arm64.dmg" | shasum -a 256 -c -
+      - name: Sign, notarise and staple the DMG
+        env:
+          VERSION: ${{ needs.metadata.outputs.version }}
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: python3 -I signer/tooling/release/sign.py dmg --dmg "assets/Polaris-$VERSION-arm64.dmg"
+      - name: Assess the DMG and hand it off with its digest
+        id: handoff
+        env:
+          VERSION: ${{ needs.metadata.outputs.version }}
+        run: |
+          spctl --assess --type open --context context:primary-signature --verbose=2 \
+            "assets/Polaris-$VERSION-arm64.dmg"
+          (cd assets && shasum -a 256 -- * > ../assets.sha256) && mv assets.sha256 assets/
+          echo "assets=$(shasum -a 256 assets/assets.sha256 | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-assets-dmg-signed
+          path: assets/
+          if-no-files-found: error
+          retention-days: 3
 
   windows:
     name: Windows x64 and arm64 (experimental, unsigned)
-    needs: release
+    needs: [metadata, build, sign]
+    # The Windows manifest must name the final darwin-arm64 bytes: the signed dist when signing.
+    if: >-
+      always() && needs.build.result == 'success' &&
+      (needs.sign.result == 'success' || needs.sign.result == 'skipped')
     runs-on: windows-latest
-    environment: release
     timeout-minutes: 60
+    permissions:
+      contents: read
+    outputs:
+      assets: ${{ steps.handoff.outputs.assets }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -200,15 +361,15 @@ jobs:
       # Shared with windows-test-build.yml: restore the Daemon, package, smoke-test x64.
       - uses: ./.github/actions/package-windows
         with:
-          daemon-artifact: release-daemon-dist
+          daemon-artifact: ${{ needs.sign.result == 'success' && 'release-daemon-dist-signed' || 'release-daemon-dist' }}
+          daemon-sha256: ${{ needs.sign.result == 'success' && needs.sign.outputs.daemon || needs.build.outputs.daemon }}
           release: "true"
-      - name: Upload exact Windows assets to the existing draft
+      - name: Hand off the exact Windows assets with their digests
+        id: handoff
+        shell: pwsh
         env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: ${{ github.ref_name }}
-          VERSION: ${{ needs.release.outputs.version }}
-          NUGET_VERSION: ${{ needs.release.outputs.nuget_version }}
+          VERSION: ${{ needs.metadata.outputs.version }}
+          NUGET_VERSION: ${{ needs.metadata.outputs.nuget_version }}
         run: |
           $assets = @()
           foreach ($arch in @('x64', 'arm64')) {
@@ -217,11 +378,22 @@ jobs:
             $assets += "$directory/Polaris-$arch-win-$env:NUGET_VERSION-full.nupkg"
             $assets += "$directory/Polaris-$env:VERSION-$arch-win-RELEASES"
           }
-          foreach ($asset in $assets) {
+          New-Item -ItemType Directory assets | Out-Null
+          $lines = foreach ($asset in $assets) {
             if (!(Test-Path $asset) -or (Get-Item $asset).Length -eq 0) { throw "Missing asset: $asset" }
+            Copy-Item $asset assets/
+            $name = Split-Path $asset -Leaf
+            "$((Get-FileHash $asset -Algorithm SHA256).Hash.ToLower())  $name"
           }
-          gh release upload $env:RELEASE_TAG @assets
-          if ($LASTEXITCODE -ne 0) { throw 'Windows asset upload failed' }
+          [IO.File]::WriteAllText("$PWD/assets/assets.sha256", (($lines -join "`n") + "`n"))
+          $sums = (Get-FileHash assets/assets.sha256 -Algorithm SHA256).Hash.ToLower()
+          "assets=$sums" >> $env:GITHUB_OUTPUT
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-assets-windows
+          path: assets/
+          if-no-files-found: error
+          retention-days: 3
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: windows-installers
@@ -229,3 +401,95 @@ jobs:
             apps/desktop/out/dist/squirrel-x64/*
             apps/desktop/out/dist/squirrel-arm64/*
           if-no-files-found: error
+
+  publish:
+    name: Create the draft GitHub Release with the exact assets
+    needs: [metadata, build, sign, sign-dmg, windows]
+    # A failed Windows job still drafts the macOS assets and leaves the run red.
+    if: >-
+      always() && needs.build.result == 'success' &&
+      (needs.metadata.outputs.signed != 'true' || needs.sign-dmg.result == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - if: needs.metadata.outputs.signed != 'true'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: release-assets-macos
+          path: handoff/macos
+      - if: needs.metadata.outputs.signed == 'true'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: release-assets-macos-signed
+          path: handoff/macos
+      - if: needs.metadata.outputs.signed == 'true'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: release-assets-dmg-signed
+          path: handoff/dmg
+      - if: needs.windows.result == 'success'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: release-assets-windows
+          path: handoff/windows
+      - name: Create the draft from verified assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.metadata.outputs.version }}
+          PRERELEASE: ${{ needs.metadata.outputs.prerelease }}
+          SIGNED: ${{ needs.metadata.outputs.signed }}
+          MACOS_SHA256: ${{ needs.metadata.outputs.signed == 'true' && needs.sign.outputs.assets || needs.build.outputs.assets }}
+          DMG_SHA256: ${{ needs.sign-dmg.outputs.assets }}
+          WINDOWS_SHA256: ${{ needs.windows.outputs.assets }}
+        run: |
+          set -euo pipefail
+          assets=()
+          # A hand-off's sums file must have the digest its job reported, and list every file in it.
+          take() {
+            echo "$2  handoff/$1/assets.sha256" | sha256sum --check --strict -
+            (cd "handoff/$1" && sha256sum --check --strict assets.sha256)
+            listed=$(cut -d' ' -f3 "handoff/$1/assets.sha256" | sort)
+            present=$(cd "handoff/$1" && find . -mindepth 1 -maxdepth 1 ! -name assets.sha256 | sed 's|^\./||' | sort)
+            test "$listed" = "$present"
+            while read -r name; do assets+=("handoff/$1/$name"); done <<< "$listed"
+          }
+          take macos "$MACOS_SHA256"
+          if [[ "$SIGNED" == true ]]; then take dmg "$DMG_SHA256"; fi
+          if [[ -n "$WINDOWS_SHA256" ]]; then take windows "$WINDOWS_SHA256"; fi
+          # Each platform's Daemon (polaris + betterleaks) and their checksums; Hosts download
+          # these through polaris.lux.dev/api/daemon/<version>/<platform> (docs/adr/0043).
+          test -s "handoff/macos/polaris-daemon-$VERSION-SHA256SUMS"
+          daemons=(handoff/macos/polaris-daemon-"$VERSION"-*.tar.gz)
+          test "${#daemons[@]}" -eq 5
+          test -s "handoff/macos/Polaris-$VERSION-arm64-mac.zip"
+          ls handoff/*/"Polaris-$VERSION-arm64.dmg" > /dev/null
+          flags=(--draft --verify-tag --title "Polaris $VERSION")
+          if [[ "$PRERELEASE" == true ]]; then
+            flags+=(--prerelease --latest=false)
+          fi
+          # Curated notes (docs/releases/<tag>.md at the tag) replace GitHub's generated ones.
+          notes="$RUNNER_TEMP/release-notes.md"
+          curated="$RUNNER_TEMP/curated.md"
+          : > "$notes"
+          if gh api -H "Accept: application/vnd.github.raw" \
+            "repos/$GH_REPO/contents/docs/releases/$RELEASE_TAG.md?ref=$RELEASE_TAG" \
+            > "$curated" 2> "$RUNNER_TEMP/notes-error"; then
+            cat "$curated" >> "$notes"
+          elif grep -q "HTTP 404" "$RUNNER_TEMP/notes-error"; then
+            if [[ "$SIGNED" == false ]]; then
+              printf '%s\n\n' 'Unsigned prerelease for testing. Signing and notarisation were skipped.' >> "$notes"
+            fi
+            flags+=(--generate-notes)
+          else
+            cat "$RUNNER_TEMP/notes-error" >&2
+            exit 1
+          fi
+          flags+=(--notes-file "$notes")
+          gh release create "$RELEASE_TAG" "${assets[@]}" "${flags[@]}"

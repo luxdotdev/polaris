@@ -20,6 +20,8 @@ jobs:
     # darwin builds must be re-signed with macOS codesign; the Linux targets cross-compile.
     runs-on: macos-15
     timeout-minutes: 30
+    outputs:
+      daemon: ${{ steps.archive.outputs.daemon }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -30,7 +32,10 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bunx turbo run build --filter=@polaris/daemon
       - name: Archive the Daemon dist for the Windows job
-        run: tar -czf polaris-daemon-dist.tar.gz -C apps/daemon dist
+        id: archive
+        run: |
+          tar -czf polaris-daemon-dist.tar.gz -C apps/daemon dist
+          echo "daemon=$(shasum -a 256 polaris-daemon-dist.tar.gz | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: windows-test-daemon-dist
@@ -50,6 +55,7 @@ jobs:
       - uses: ./.github/actions/package-windows
         with:
           daemon-artifact: windows-test-daemon-dist
+          daemon-sha256: ${{ needs.daemon.outputs.daemon }}
           release: "false"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:

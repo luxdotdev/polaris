@@ -7,6 +7,9 @@ inputs:
   daemon-artifact:
     description: The artifact holding polaris-daemon-dist.tar.gz (apps/daemon/dist).
     required: true
+  daemon-sha256:
+    description: The SHA-256 of polaris-daemon-dist.tar.gz that the producing job reported.
+    required: true
   release:
     description: "'true' packages a release (versions must match the tag); 'false' a dev build."
     required: false
@@ -28,7 +31,12 @@ runs:
         path: .
     - name: Restore the macOS job's Daemon artifact without rebuilding or signing
       shell: pwsh
-      run: tar -xzf polaris-daemon-dist.tar.gz -C apps/daemon
+      env:
+        EXPECTED: ${{ inputs.daemon-sha256 }}
+      run: |
+        $actual = (Get-FileHash polaris-daemon-dist.tar.gz -Algorithm SHA256).Hash.ToLower()
+        if ($actual -ne $env:EXPECTED) { throw "Daemon artifact digest $actual is not $env:EXPECTED" }
+        tar -xzf polaris-daemon-dist.tar.gz -C apps/daemon
     - name: Package both Windows architectures and Squirrel installers
       shell: pwsh
       env:
