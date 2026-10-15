@@ -1,8 +1,13 @@
 import { expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DEFAULT_PREDICTION_PREFERENCES } from "../../shared/predictionPlacement.ts";
+import {
+  DEFAULT_PREDICTION_PREFERENCES,
+  predictionRestraints,
+  type PredictionPreferences,
+} from "../../shared/predictionPlacement.ts";
+import { KEYMAP } from "../../shared/keymap.ts";
 import { readSettings, writeSettings, type Settings } from "../settings.ts";
 import { PredictionSettings } from "./preferences.ts";
 
@@ -37,6 +42,134 @@ test("Per-Host preferences survive restart and preserve unrelated settings", () 
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("A v1 file migrates each Host without losing endpoints, format, enable or appearance", () => {
+  const dir = mkdtempSync(join(tmpdir(), "polaris-prediction-v1-"));
+  const path = join(dir, "settings.json");
+
+  try {
+    writeFileSync(
+      path,
+      JSON.stringify({
+        theme: "light",
+        predictionEnabled: true,
+        predictionClientEndpoints: [{ kind: "openai", url: "http://localhost:8080" }],
+        prediction: {
+          mac: {
+            placement: "host",
+            model: "custom-fim",
+            format: "suffix",
+            hostEndpoints: [{ kind: "ollama", url: "http://localhost:11434" }],
+          },
+        },
+      })
+    );
+    let settings = readSettings(path);
+
+    const preferences = new PredictionSettings(
+      () => settings,
+      (next) => {
+        writeSettings({ path, settings: next });
+        settings = readSettings(path);
+      }
+    );
+
+    expect(preferences.get("mac")).toEqual({
+      placement: "host",
+      model: "custom-fim",
+      format: "suffix",
+      hostEndpoints: [{ kind: "ollama", url: "http://localhost:11434" }],
+      display: "full",
+      aggressiveness: "balanced",
+      acceptKey: "editor.prediction.accept",
+      disabledLanguages: [],
+      editModel: null,
+    });
+    preferences.set("mac", { ...preferences.get("mac"), display: "subtle" });
+    expect(settings).toMatchObject({
+      theme: "light",
+      predictionEnabled: true,
+      predictionClientEndpoints: [{ kind: "openai", url: "http://localhost:8080" }],
+      prediction: { mac: { display: "subtle", aggressiveness: "balanced" } },
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("Defaults resolve the Tab keymap binding and the balanced renderer policy", () => {
+  const preferences = new PredictionSettings(
+    () => ({}),
+    () => {}
+  );
+
+  const defaults = preferences.get("local");
+
+  expect(defaults).toMatchObject({
+    display: "full",
+    aggressiveness: "balanced",
+    disabledLanguages: [],
+    editModel: null,
+    acceptKey: "editor.prediction.accept",
+  });
+  expect(KEYMAP.find((binding) => binding.id === defaults.acceptKey)?.keys).toEqual(["Tab"]);
+  expect(predictionRestraints(defaults.aggressiveness)).toEqual({
+    pauseMs: 150,
+    jumpsOffered: true,
+    largeDeletionsOffered: true,
+  });
+  expect(predictionRestraints("conservative")).toEqual({
+    pauseMs: 300,
+    jumpsOffered: false,
+    largeDeletionsOffered: false,
+  });
+  expect(predictionRestraints("eager")).toEqual({
+    pauseMs: 75,
+    jumpsOffered: true,
+    largeDeletionsOffered: true,
+  });
+});
+
+test("Saved edit preferences notify after persistence, deduplicate languages and reject unknown models", () => {
+  let settings: Settings = {};
+  const events: Array<{ hostKey: string; preferences: PredictionPreferences }> = [];
+
+  const preferences = new PredictionSettings(
+    () => settings,
+    (next) => {
+      settings = next;
+    },
+    (hostKey, saved) => {
+      expect(settings.prediction?.[hostKey]).toEqual(saved);
+      events.push({ hostKey, preferences: saved });
+    }
+  );
+
+  preferences.set("local", {
+    ...preferences.get("local"),
+    display: "subtle",
+    aggressiveness: "conservative",
+    disabledLanguages: ["typescript", "typescript", "python"],
+    editModel: "org/Zeta-2.1-Q4_K_M.gguf",
+  });
+  expect(events).toEqual([
+    {
+      hostKey: "local",
+      preferences: {
+        ...DEFAULT_PREDICTION_PREFERENCES,
+        display: "subtle",
+        aggressiveness: "conservative",
+        disabledLanguages: ["typescript", "python"],
+        editModel: "org/Zeta-2.1-Q4_K_M.gguf",
+      },
+    },
+  ]);
+  expect(() =>
+    preferences.set("local", { ...preferences.get("local"), editModel: "unpromptable" })
+  ).toThrow();
+  expect(events.length).toBe(1);
+  expect(preferences.get("other").display).toBe("full");
 });
 
 test("One Client endpoint list persists independently of every Host's preferences", () => {

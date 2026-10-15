@@ -1,5 +1,7 @@
 import { createMainPredictionPlacement } from "./prediction/placement.ts";
 import { PredictionSettings } from "./prediction/preferences.ts";
+import { PredictionOutcomes, outcomeLogPath } from "./prediction/outcomes.ts";
+import { predictionRestraints } from "../shared/predictionPlacement.ts";
 import { createPredictionBridge } from "./prediction/bridge.ts";
 /**
  * The Electron main process: the Client runtime (`@polaris/client`'s
@@ -136,6 +138,8 @@ let languageIpc: ReturnType<typeof registerLanguageIpc> | null = null;
 let localHost: LocalHostApi | null = null;
 
 let ipc: { readonly dispose: () => void } | null = null;
+
+let predictionOutcomes: PredictionOutcomes | null = null;
 
 let needsYou: NeedsYouCenter | null = null;
 
@@ -355,8 +359,20 @@ const start = async () => {
 
   const predictionSettings = new PredictionSettings(
     () => settings,
-    (value) => updateSettings(() => value)
+    (value) => updateSettings(() => value),
+    (hostKey, preferences) => {
+      const event: AppEvent = {
+        kind: "prediction-settings",
+        hostKey,
+        preferences,
+        restraints: predictionRestraints(preferences.aggressiveness),
+      };
+
+      for (const win of BrowserWindow.getAllWindows()) win.webContents.send(CHANNELS.app, event);
+    }
   );
+
+  predictionOutcomes = new PredictionOutcomes(outcomeLogPath(app.getPath("userData")));
 
   const predictionPlacement = createMainPredictionPlacement(runtime, predictionSettings);
 
@@ -377,6 +393,7 @@ const start = async () => {
       showAppInFinder: () =>
         shell.showItemInFolder(revealAppPath(process.platform, app.getPath("exe"))),
       predictionSettings,
+      predictionOutcomes,
       predictionPlacement,
       predictionBridge,
       settings: () => settings,
@@ -476,7 +493,7 @@ const finishQuit = () => {
   // The dev Daemon (if this app started it) goes down with the app.
   const stopLocal = localHost === null ? undefined : Effect.runPromise(localHost.stop);
 
-  void Promise.allSettled([runtime?.dispose(), stopLocal]).then(() => {
+  void Promise.allSettled([runtime?.dispose(), stopLocal, predictionOutcomes?.close()]).then(() => {
     if (restartForUpdate && updates?.get().phase === "ready") updates.install();
     else app.quit();
   });

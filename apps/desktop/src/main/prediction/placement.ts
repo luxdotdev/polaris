@@ -113,8 +113,9 @@ export class MainPredictionPlacement {
         client,
         host,
         override: preferences.placement,
-        model: preferences.model,
-        format: preferences.format,
+        model:
+          mode === "complete" ? preferences.model : (preferences.editModel ?? preferences.model),
+        format: mode !== "complete" && preferences.editModel !== null ? null : preferences.format,
         latency: (side, endpoint) =>
           this.ports.latency?.(side, endpoint) ??
           (side === "client"

@@ -15,6 +15,7 @@ import {
   requestRunner,
 } from "./requests.ts";
 import { windowSubscriptions, type WindowSubscriptions } from "./subscriptions.ts";
+import { PredictionNotifications } from "../../shared/predictionOutcomes.ts";
 
 export interface IpcInput {
   readonly runtime: ClientRuntime;
@@ -43,6 +44,21 @@ const senderTrusted = (frame: WebFrameMain | null, trusted: IpcInput["trusted"])
 export const registerIpc = ({ runtime, context, trusted }: IpcInput) => {
   const handlers = requestHandlers(context);
   const windows = new Map<number, WindowSubscriptions>();
+
+  ipcMain.on(CHANNELS.predictionOutcome, (event, message) => {
+    if (!senderTrusted(event.senderFrame, trusted)) return;
+    Option.map(
+      Schema.decodeUnknownOption(PredictionNotifications["prediction.outcome"])(message),
+      (record) => context.predictionOutcomes?.record(record)
+    );
+  });
+  ipcMain.on(CHANNELS.predictionKeystrokes, (event, message) => {
+    if (!senderTrusted(event.senderFrame, trusted)) return;
+    Option.map(
+      Schema.decodeUnknownOption(PredictionNotifications["prediction.keystrokes"])(message),
+      (record) => context.predictionOutcomes?.keystrokes(record)
+    );
+  });
 
   const subscriptionsOf = (sender: WebContents) => {
     let subs = windows.get(sender.id);
@@ -115,6 +131,8 @@ export const registerIpc = ({ runtime, context, trusted }: IpcInput) => {
       ipcMain.removeHandler(CHANNELS.request);
       ipcMain.removeAllListeners(CHANNELS.subscribe);
       ipcMain.removeAllListeners(CHANNELS.unsubscribe);
+      ipcMain.removeAllListeners(CHANNELS.predictionOutcome);
+      ipcMain.removeAllListeners(CHANNELS.predictionKeystrokes);
     },
   };
 };

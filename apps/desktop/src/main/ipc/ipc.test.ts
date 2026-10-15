@@ -4,7 +4,7 @@
  * as `IpcError`s. The real path, end to end, is `scripts/smoke.ts`.
  */
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect, Exit, Layer, ManagedRuntime, SubscriptionRef } from "effect";
@@ -29,6 +29,9 @@ import { Machines } from "../machines/service.ts";
 import { type RequestContext, requestHandlers, requestRunner } from "./requests.ts";
 import { windowSubscriptions } from "./subscriptions.ts";
 import type { AppUpdateView } from "../../shared/appUpdates.ts";
+import { PredictionOutcomes } from "../prediction/outcomes.ts";
+import { PredictionSettings } from "../prediction/preferences.ts";
+import type { Settings } from "../settings.ts";
 
 const updateView: AppUpdateView = {
   phase: "idle",
@@ -149,6 +152,59 @@ const context: RequestContext = {
 };
 
 const handlers = requestHandlers(context);
+
+test("Prediction IPC queries and clears the same log and returns derived saved preferences", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "polaris-prediction-ipc-"));
+  const outcomes = new PredictionOutcomes(join(dir, "outcomes.jsonl"));
+  let settings: Settings = {};
+
+  const preferences = new PredictionSettings(
+    () => settings,
+    (next) => {
+      settings = next;
+    }
+  );
+
+  const predictionHandlers = requestHandlers({
+    ...context,
+    predictionOutcomes: outcomes,
+    predictionSettings: preferences,
+  });
+
+  try {
+    outcomes.keystrokes({ keystrokes: 12 });
+    const metrics = await run(requestRunner(predictionHandlers, "prediction.metrics")({}));
+    expect(Exit.isSuccess(metrics) && metrics.value).toMatchObject({ shown: 0, keystrokes: 12 });
+
+    const saved = await run(
+      requestRunner(
+        predictionHandlers,
+        "prediction.settings.set"
+      )({
+        hostKey: "local",
+        preferences: { ...preferences.get("local"), aggressiveness: "conservative" },
+      })
+    );
+
+    expect(Exit.isSuccess(saved) && saved.value).toMatchObject({
+      aggressiveness: "conservative",
+      restraints: { pauseMs: 300, jumpsOffered: false, largeDeletionsOffered: false },
+    });
+
+    const loaded = await run(
+      requestRunner(predictionHandlers, "prediction.settings.get")({ hostKey: "local" })
+    );
+
+    expect(Exit.isSuccess(loaded) && loaded.value).toEqual(Exit.isSuccess(saved) && saved.value);
+    const cleared = await run(requestRunner(predictionHandlers, "prediction.outcomes.clear")({}));
+    expect(Exit.isSuccess(cleared) && cleared.value).toBeNull();
+    const empty = await run(requestRunner(predictionHandlers, "prediction.metrics")({}));
+    expect(Exit.isSuccess(empty) && empty.value).toMatchObject({ shown: 0, keystrokes: 0 });
+  } finally {
+    await outcomes.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
 
 const run = <A, E>(effect: Effect.Effect<A, E, ClientServices>) =>
   ManagedRuntime.make(services).runPromiseExit(effect);

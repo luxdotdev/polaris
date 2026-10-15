@@ -1,6 +1,8 @@
 import { modelServerResources } from "@polaris/client/prediction/probe";
 import type { MainPredictionPlacement } from "../prediction/placement.ts";
 import type { PredictionSettings } from "../prediction/preferences.ts";
+import type { PredictionOutcomes } from "../prediction/outcomes.ts";
+import { predictionPreferenceView } from "../../shared/predictionPlacement.ts";
 /**
  * The handlers behind `window.polaris.request`: one per method, each taking the
  * decoded input and returning a structured-clone-friendly output. Blobs the
@@ -44,6 +46,7 @@ import type { PredictionBridge } from "../prediction/bridge.ts";
 export interface RequestContext {
   readonly predictionBridge?: PredictionBridge;
   readonly predictionSettings?: PredictionSettings;
+  readonly predictionOutcomes?: PredictionOutcomes;
   readonly predictionPlacement?: MainPredictionPlacement;
   readonly updates: Pick<AppUpdates, "get" | "check" | "setAutomatic">;
   readonly restartToUpdate: () => void;
@@ -119,6 +122,25 @@ const plainVersion = (v: FileVersion): FileVersionView => ({
 });
 
 export const requestHandlers = (ctx: RequestContext): Handlers => ({
+  "prediction.metrics": () =>
+    Effect.tryPromise({
+      try: () => {
+        if (!ctx.predictionOutcomes) throw new Error("Prediction history unavailable");
+
+        return ctx.predictionOutcomes.metrics();
+      },
+      catch: (): IpcError => ({ code: "Unavailable", message: "Prediction history unavailable" }),
+    }),
+  "prediction.outcomes.clear": () =>
+    Effect.tryPromise({
+      try: async () => {
+        if (!ctx.predictionOutcomes) throw new Error("Prediction history unavailable");
+        await ctx.predictionOutcomes.clear();
+
+        return null;
+      },
+      catch: (): IpcError => ({ code: "Unavailable", message: "Prediction history unavailable" }),
+    }),
   "prediction.discoveryShown": () =>
     Effect.sync(() => {
       ctx.predictionBridge?.discoveryShown();
@@ -187,7 +209,7 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
     }),
   "prediction.settings.get": ({ hostKey }) =>
     ctx.predictionSettings
-      ? Effect.sync(() => ctx.predictionSettings!.get(hostKey))
+      ? Effect.sync(() => predictionPreferenceView(ctx.predictionSettings!.get(hostKey)))
       : Effect.fail({ code: "Unavailable", message: "Prediction settings unavailable" }),
   "prediction.settings.set": ({ hostKey, preferences }) =>
     ctx.predictionSettings
@@ -195,7 +217,7 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
           const saved = ctx.predictionSettings!.set(hostKey, preferences);
           ctx.predictionPlacement?.invalidateHost(hostKey);
 
-          return saved;
+          return predictionPreferenceView(saved);
         })
       : Effect.fail({ code: "Unavailable", message: "Prediction settings unavailable" }),
   ...githubHandlers,
