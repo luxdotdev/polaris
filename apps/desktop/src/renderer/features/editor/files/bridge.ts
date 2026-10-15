@@ -4,6 +4,7 @@
  * on an older Daemon, `files.read` with a local hash, no saves, and one shared
  * `files.watch` per Workspace root.
  */
+import { EDITOR_FILE_MAX_BYTES } from "@polaris/protocol";
 import { polaris } from "../../bridge.ts";
 import type { FileVersion } from "../model/buffer.ts";
 import {
@@ -32,11 +33,11 @@ const versionOf = (text: string, modifiedAt: string): FileVersion => ({
 
 const legacyRead = async ({ hostKey, path }: FileTarget): Promise<ReadResult> => {
   const api = polaris();
+  const stat = await api.request("files.stat", { hostKey, path });
 
-  const [content, stat] = await Promise.all([
-    api.request("files.read", { hostKey, path, offset: null, length: null }),
-    api.request("files.stat", { hostKey, path }),
-  ]);
+  // An older Daemon reads whatever it is asked; the size is checked here first.
+  if (stat.ok && stat.value.size > EDITOR_FILE_MAX_BYTES) return { kind: "too-large" };
+  const content = await api.request("files.read", { hostKey, path, offset: null, length: null });
 
   if (!content.ok) {
     if (/ENOENT|no such file|not found/i.test(content.error.message)) return { kind: "missing" };
@@ -125,6 +126,8 @@ const read = async ({ hostKey, path }: FileTarget): Promise<ReadResult> => {
 
   if (!result.ok) {
     if (missing(result.error.message)) return { kind: "missing" };
+
+    if (result.error.message.startsWith("EFBIG")) return { kind: "too-large" };
     throw new Error(result.error.message);
   }
 

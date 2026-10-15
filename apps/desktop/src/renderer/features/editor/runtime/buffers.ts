@@ -388,7 +388,7 @@ const load = async (buffer: OpenBuffer) => {
     }
 
     if (result.kind !== "text") {
-      patchBuffer(buffer.key, { status: result.kind === "binary" ? result : { kind: "missing" } });
+      patchBuffer(buffer.key, { status: result });
 
       return;
     }

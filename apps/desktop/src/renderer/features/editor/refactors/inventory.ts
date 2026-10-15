@@ -116,7 +116,11 @@ const currentGroupedDocument = async (
     root: proposal.fence.context.checkout.path,
   });
 
-  if (disk.kind === "binary" || !equal(legacy, await drafts.read(hostKey, doc.canonicalPath)))
+  if (
+    disk.kind === "binary" ||
+    disk.kind === "too-large" ||
+    !equal(legacy, await drafts.read(hostKey, doc.canonicalPath))
+  )
     throw new Error("A grouped draft changed while reading inventory.");
 
   return {
@@ -157,7 +161,8 @@ const readInventoryDocument = async (
   if (groups !== undefined && !equal(draft, await projectedDraft(groups, hostKey, path, legacy)))
     throw new Error("A grouped draft changed while reading inventory.");
 
-  if (disk.kind === "binary") throw new Error("An affected document could not be read.");
+  if (disk.kind === "binary" || disk.kind === "too-large")
+    throw new Error("An affected document could not be read.");
   const version = 0;
   const draftRevision = draft?.savedAt ?? 0;
   const diskText = disk.kind === "text" ? disk.text : null;

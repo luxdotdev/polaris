@@ -39,6 +39,12 @@ export class ChangedOnDisk extends Schema.TaggedError<ChangedOnDisk>()("ChangedO
   current: Schema.NullOr(FileVersion),
 }) {}
 
+/**
+ * The largest file `files.readVersioned` reads; a larger one fails with a `FileError`
+ * whose code (and message prefix) is `EFBIG`, before the Daemon allocates anything.
+ */
+export const EDITOR_FILE_MAX_BYTES = 64 * 1024 * 1024;
+
 export const ReadVersionedFile = Rpc.make("files.readVersioned", {
   payload: { path: Schema.String },
   success: Schema.Struct({

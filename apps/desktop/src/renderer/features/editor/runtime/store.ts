@@ -19,6 +19,7 @@ export type BufferStatus =
   | { readonly kind: "loading" }
   | { readonly kind: "ready"; readonly model: BufferModel }
   | { readonly kind: "binary"; readonly size: number }
+  | { readonly kind: "too-large" }
   | { readonly kind: "missing" }
   | { readonly kind: "error"; readonly message: string };
 

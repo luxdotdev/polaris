@@ -9,6 +9,8 @@ export type ReadResult =
   | ({ readonly kind: "text" } & DiskText)
   /** Not text: the Editor says so rather than showing bytes. */
   | { readonly kind: "binary"; readonly size: number }
+  /** Over `EDITOR_FILE_MAX_BYTES`: the Daemon refuses to read it. */
+  | { readonly kind: "too-large" }
   | { readonly kind: "missing" };
 
 export type WriteResult =

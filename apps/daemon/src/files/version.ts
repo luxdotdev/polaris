@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { constants } from "node:fs";
 import { open } from "node:fs/promises";
-import { FileVersion } from "@polaris/protocol";
+import { EDITOR_FILE_MAX_BYTES, FileVersion } from "@polaris/protocol";
 import { FsFailure, resolveHostPath, toFsFailure } from "./fs.ts";
 
 export const sameVersion = (a: FileVersion | null, b: FileVersion | null): boolean =>
@@ -20,6 +20,9 @@ export const readVersioned = async (input: string) => {
         const before = await handle.stat();
 
         if (!before.isFile()) throw new FsFailure(path, "ENOTFILE", "not a regular file");
+
+        if (before.size > EDITOR_FILE_MAX_BYTES)
+          throw new FsFailure(path, "EFBIG", `EFBIG: ${before.size} bytes is too large to open`);
         const bytes = Buffer.alloc(before.size);
         let offset = 0;
 
