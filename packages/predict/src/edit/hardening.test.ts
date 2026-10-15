@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { applyEdits } from "./guards.ts";
 import { editResult } from "./result.ts";
 import { hardeningCases, hardeningRequest, hardeningRuns } from "./hardening.testing.ts";
+import { spikeEditOptions } from "./options.ts";
 
 const normalized = (text: string) => text.replace(/\s/g, "");
 
@@ -21,7 +22,12 @@ for (const run of hardeningRuns) {
     const label = run.labels[recorded.id]!;
 
     test(`${run.format} ${run.split} ${recorded.id}: ${label.label}`, () => {
-      const result = editResult(hardeningRequest(fixture, run.format), recorded.output);
+      const result = editResult(
+        hardeningRequest(fixture, run.format),
+        recorded.output,
+        0,
+        spikeEditOptions
+      );
 
       if (label.label === "dangerous") {
         expect(result.edits).toEqual([]);

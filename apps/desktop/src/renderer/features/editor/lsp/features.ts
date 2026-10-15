@@ -59,9 +59,10 @@ export class LanguageFeatures {
     method: Method,
     schema: S,
     params: (provider: LanguageProvider) => JsonObject,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    lane: string = method
   ) {
-    const answers = await this.requests.query(method, params, signal);
+    const answers = await this.requests.query(method, params, signal, lane);
 
     return answers.flatMap(({ provider, request, value }) => {
       const payload = Payload.decodePayload(schema, value.result);
@@ -194,6 +195,25 @@ export class LanguageFeatures {
       signal
     );
   }
+  /** Quick fixes for one diagnostic, on their own lane so a code action menu request survives. */
+  quickFixes(from: number, to: number, diagnostic: JsonObject, signal?: AbortSignal) {
+    const buffer = this.options.buffer();
+
+    return this.decoded(
+      "textDocument/codeAction",
+      Payload.CodeActions,
+      (provider) => ({
+        textDocument: { uri: buffer.uri },
+        range: {
+          start: positionAt(buffer.doc, from, provider.capabilities.positionEncoding),
+          end: positionAt(buffer.doc, to, provider.capabilities.positionEncoding),
+        },
+        context: { diagnostics: [diagnostic], only: ["quickfix"], triggerKind: 2 },
+      }),
+      signal,
+      "quickfix"
+    );
+  }
   rename(offset: number, newName: string, signal?: AbortSignal) {
     return this.at("textDocument/rename", offset, { newName }, signal);
   }
@@ -203,19 +223,14 @@ export class LanguageFeatures {
     provider: LanguageProvider,
     method: "completionItem/resolve" | "codeAction/resolve" | "workspaceSymbol/resolve",
     item: JsonObject,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    lane = `${method}-${provider.context.contextId}`
   ) {
     if (method === "completionItem/resolve" && !provider.capabilities.completionResolve) return [];
 
     if (method === "codeAction/resolve" && !provider.capabilities.actionResolve) return [];
 
-    return this.requests.query(
-      method,
-      () => item,
-      signal,
-      `${method}-${provider.context.contextId}`,
-      provider
-    );
+    return this.requests.query(method, () => item, signal, lane, provider);
   }
   async execute(
     provider: LanguageProvider,

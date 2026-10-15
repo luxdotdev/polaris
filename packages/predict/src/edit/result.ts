@@ -1,11 +1,18 @@
 import { EditPredictionItem, type EditPredictionRequest } from "@polaris/protocol";
 import { diffEdits } from "./diff.ts";
 import { applyEdits, guardEdits } from "./guards.ts";
+import { nearestChange } from "./nearest.ts";
 import { parseRegions } from "./parse.ts";
+import { editOptions, type EditOptions } from "./options.ts";
 import { buildEditPrompt } from "./prompt.ts";
 
-export const editResult = (request: EditPredictionRequest, output: string, elapsedMs = 0) => {
-  const built = buildEditPrompt(request);
+export const editResult = (
+  request: EditPredictionRequest,
+  output: string,
+  elapsedMs = 0,
+  options: EditOptions = editOptions
+) => {
+  const built = buildEditPrompt(request, options);
   const { regions, outside } = parseRegions(request, built.window, output, built.stop);
   const window = { from: built.window.from, to: built.window.to };
 
@@ -31,7 +38,13 @@ export const editResult = (request: EditPredictionRequest, output: string, elaps
 
   const edits = diffEdits(original, rewritten, window.from);
 
-  const guarded = guardEdits(request, built.window, edits);
+  const whole = guardEdits(request, built.window, edits, options);
+
+  const guarded =
+    options.nearestFallback && request.format === "sweep-next-edit"
+      ? nearestChange(request, built.window, edits, whole, options)
+      : whole;
+
   let cursor: number | null = null;
   let shift = 0;
 

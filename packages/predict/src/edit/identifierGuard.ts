@@ -20,23 +20,24 @@ const declarations = (source: string) =>
     ].map((match) => match[1]!)
   );
 
-const imports = (source: string) =>
-  new Set(
-    [...source.matchAll(/\bimport\s+([^;]*?)\s+from\s+["']/g)].flatMap((match) => {
-      const clause = match[1] ?? "";
+/** Local names bound by import clauses, once per binding. */
+export const importBindings = (source: string) =>
+  [...source.matchAll(/\bimport\s+([^;]*?)\s+from\s+["']/g)].flatMap((match) => {
+    const clause = (match[1] ?? "").replace(/^type\s+/, "");
 
-      return clause.split(/[,{}]/).flatMap((part) => {
-        const local =
-          part
-            .trim()
-            .replace(/^type\s+/, "")
-            .split(/\s+as\s+/)
-            .at(-1) ?? "";
+    return clause.split(/[,{}]/).flatMap((part) => {
+      const local =
+        part
+          .trim()
+          .replace(/^type\s+/, "")
+          .split(/\s+as\s+/)
+          .at(-1) ?? "";
 
-        return identifier.test(local) ? [local] : [];
-      });
-    })
-  );
+      return identifier.test(local) ? [local] : [];
+    });
+  });
+
+const imports = (source: string) => new Set(importBindings(source));
 
 const identifierSpan = (source: string, from: number, to: number) => {
   while (from > 0 && word.test(source[from - 1]!)) from--;

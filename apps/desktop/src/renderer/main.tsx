@@ -109,6 +109,9 @@ const tabCompletionPreview = location.hash.startsWith("#tab-completion/");
 // `#completion-card/<scene>`: the status bar's tab completion card on fixtures (features/editor/prediction/preview).
 const completionCardPreview = location.hash.startsWith("#completion-card/");
 
+// `#edit-prediction/<scene>`: the Editor with an Edit Prediction drawn on fixtures (features/editor/prediction/preview).
+const editPredictionPreview = location.hash.startsWith("#edit-prediction/");
+
 let setPreviewDensity: ((density: Density) => void) | null = null;
 
 const appearance = (value: Appearance) => {
@@ -192,6 +195,10 @@ if (root !== null && preview) {
 } else if (root !== null && editorInlinePreview) {
   void import("./features/editor-inline/preview/Preview.tsx").then((m) => {
     setPreviewDensity = m.mountEditorInlinePreview(root, location.hash);
+  });
+} else if (root !== null && editPredictionPreview) {
+  void import("./features/editor/prediction/preview/EditPreview.tsx").then((m) => {
+    setPreviewDensity = m.mountEditPredictionPreview(root, location.hash);
   });
 } else if (root !== null && completionCardPreview) {
   void import("./features/editor/prediction/preview/Preview.tsx").then((m) => {

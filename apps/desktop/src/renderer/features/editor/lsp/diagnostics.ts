@@ -81,6 +81,23 @@ export class LanguageDiagnosticFeed {
     }
   }
 
+  private readonly watchers = new Set<() => void>();
+
+  /** Calls `watch` after every change to the sets; returns the unsubscribe. */
+  observe(watch: () => void): () => void {
+    this.watchers.add(watch);
+
+    return () => {
+      this.watchers.delete(watch);
+    };
+  }
+
+  private publish(items: readonly ProviderDiagnostics[]) {
+    this.changed(items);
+
+    for (const watch of this.watchers) watch();
+  }
+
   private owns(provider: LanguageProvider, context: P.LanguageContextIdentity): boolean {
     return P.languageFenceSatisfied(
       { context: provider.context, requiredSequence: 0, documents: [] },
@@ -90,7 +107,7 @@ export class LanguageDiagnosticFeed {
 
   private remove(provider: LanguageProvider) {
     this.sets.delete(provider.context.contextId);
-    this.changed(this.values());
+    this.publish(this.values());
   }
 
   receive(provider: LanguageProvider, value: P.LanguageDiagnostics) {
@@ -130,7 +147,7 @@ export class LanguageDiagnosticFeed {
       if (!acknowledged(provider, buffer)) return;
       this.sets.set(provider.context.contextId, { provider, diagnostics, at: buffer.version });
     } else this.sets.set(provider.context.contextId, { provider, diagnostics });
-    this.changed(this.values());
+    this.publish(this.values());
   }
 
   values(): ProviderDiagnostics[] {
@@ -157,7 +174,7 @@ export class LanguageDiagnosticFeed {
     for (const stop of this.stops) stop();
     this.stops = [];
     this.sets.clear();
-    this.changed([]);
+    this.publish([]);
   }
   dispose() {
     this.disposed = true;

@@ -1,8 +1,8 @@
 import type { EditHistoryHunk, EditPredictionRequest } from "@polaris/protocol";
 import type { PredictionPrompt } from "../prompt.ts";
+import { historyBlocks, linesOf } from "./history.ts";
+import { editOptions, type EditOptions } from "./options.ts";
 import { editWindow, lineAt, type EditWindow } from "./window.ts";
-
-const linesOf = (text: string) => (text ? text.replace(/\r\n/g, "\n").split("\n") : []);
 
 const unified = (hunk: EditHistoryHunk) => {
   const before = linesOf(hunk.before),
@@ -56,15 +56,31 @@ const previousWindow = (request: EditPredictionRequest, window: EditWindow) => {
   return previous.slice(map(lo), map(hi)).join("\n");
 };
 
-const sweep = (request: EditPredictionRequest, window: EditWindow): PredictionPrompt => {
+/** The file's import block when the prefix starts below it. */
+const importsBefore = (lines: readonly string[], start: number) => {
+  const last = lines
+    .slice(0, start)
+    .findLastIndex((line) => /^import\b/.test(line) || /^\}\s*from\s*["']/.test(line));
+
+  return lines.slice(0, last + 1);
+};
+
+const sweep = (
+  request: EditPredictionRequest,
+  window: EditWindow,
+  options: EditOptions
+): PredictionPrompt => {
   const [lo = 0, hi = window.lines.length] = window.bounds;
+
+  const start = Math.max(0, window.focusLine - options.prefixLines);
+  const prefix = window.lines.slice(start, lo);
 
   const parts = [
     `<|file_sep|>${request.path}`,
-    window.lines.slice(Math.max(0, window.focusLine - 80), lo).join("\n"),
+    [...(options.importBlock ? importsBefore(window.lines, start) : []), ...prefix].join("\n"),
   ];
 
-  for (const hunk of request.history)
+  for (const hunk of historyBlocks(request, window.lines, options))
     parts.push(`<|file_sep|>${hunk.path}.diff`, "original:", hunk.before, "updated:", hunk.after);
   parts.push(
     `<|file_sep|>original/${request.path}`,
@@ -77,11 +93,14 @@ const sweep = (request: EditPredictionRequest, window: EditWindow): PredictionPr
   return { prompt: parts.join("\n"), stop: ["<|file_sep|>", "</s>", "<|endoftext|>"] };
 };
 
-export const buildEditPrompt = (request: EditPredictionRequest) => {
-  const window = editWindow(request);
+export const buildEditPrompt = (
+  request: EditPredictionRequest,
+  options: EditOptions = editOptions
+) => {
+  const window = editWindow(request, options);
 
   return {
     window,
-    ...(request.format === "zeta-2.1" ? zeta(request, window) : sweep(request, window)),
+    ...(request.format === "zeta-2.1" ? zeta(request, window) : sweep(request, window, options)),
   };
 };

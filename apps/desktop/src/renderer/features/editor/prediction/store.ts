@@ -11,12 +11,15 @@ import {
 import type { PredictionEndpoint } from "@polaris/protocol";
 import type { PredictionSide } from "@polaris/client/prediction";
 import {
+  EditPredictionFeedItem,
   PredictionFeedItem,
   type PredictionContextSummary,
   type PredictionEnabled,
   type PredictionInspection,
+  type PredictionWorkspaceTarget,
 } from "../../../../shared/predictionContract.ts";
 import type { EditorFile } from "../api.ts";
+import type { EditFinal, EditPredictionInput } from "./edit/index.ts";
 import type { PredictionInput, Prediction } from "./types.ts";
 
 import { markPrediction } from "./timing.ts";
@@ -44,6 +47,8 @@ export interface PredictionState {
   readonly inspections: Readonly<Record<string, PredictionInspection>>;
   readonly results: Readonly<Record<string, CompletionStatus>>;
   readonly failures: Readonly<Record<string, string>>;
+  /** What `prediction.target` answered per Workspace (`targetKey`): whether a next-edit model serves it. */
+  readonly targets: Readonly<Record<string, PredictionWorkspaceTarget>>;
 }
 
 export const predictionStore = createStore<PredictionState>(() => ({
@@ -56,6 +61,7 @@ export const predictionStore = createStore<PredictionState>(() => ({
   inspections: {},
   results: {},
   failures: {},
+  targets: {},
 }));
 
 export const usePrediction = <A>(select: (state: PredictionState) => A): A =>
@@ -64,12 +70,22 @@ export const usePrediction = <A>(select: (state: PredictionState) => A): A =>
 export const preferencesOf = (hostKey: string) =>
   predictionStore.getState().preferences[hostKey] ?? DEFAULT_PREDICTION_PREFERENCES;
 
+const MODEL_NAMES: ReadonlyArray<readonly [RegExp, string]> = [
+  [/mellum/i, "Mellum2"],
+  [/qwen2\.5/i, "Qwen2.5-Coder"],
+  [/zeta[\W_]*2[._-]?1/i, "Zeta 2.1"],
+  [/sweep.*next[\W_]*edit/i, "Sweep Next-Edit"],
+];
+
 export const modelName = (name: string) =>
-  name.toLowerCase().includes("mellum")
-    ? "Mellum2"
-    : name.toLowerCase().includes("qwen2.5")
-      ? "Qwen2.5-Coder"
-      : name;
+  MODEL_NAMES.find(([pattern]) => pattern.test(name))?.[1] ?? name;
+
+export const targetKey = (file: Pick<EditorFile, "hostKey" | "workspaceId">) =>
+  JSON.stringify([file.hostKey, file.workspaceId]);
+
+/** A next-edit model serves this Workspace, as of the last `prediction.target` answer. */
+export const editAvailable = (file: Pick<EditorFile, "hostKey" | "workspaceId">) =>
+  predictionStore.getState().targets[targetKey(file)]?.editAvailable === true;
 
 export const hostConnected = (hosts: ReadonlyArray<HostView>, hostKey: string) =>
   hosts.find((host) => host.key === hostKey)?.status.state === "connected";
@@ -132,6 +148,36 @@ export const inspectPredictionHost = (
     .finally(() => hostsLoading.delete(hostKey));
 
   hostsLoading.set(hostKey, load);
+
+  return load;
+};
+
+const targetsLoading = new Map<string, Promise<void>>();
+
+/** Asks which model serves the Workspace; the answer decides the edit or FIM path. */
+export const loadPredictionTarget = (
+  api: PolarisApi,
+  file: Pick<EditorFile, "hostKey" | "workspaceId">
+): Promise<void> => {
+  const key = targetKey(file);
+  const active = targetsLoading.get(key);
+
+  if (active) return active;
+
+  const load = api
+    .request("prediction.target", { hostKey: file.hostKey, workspaceId: file.workspaceId })
+    .then((result) => {
+      const target = valueOf(result);
+      predictionStore.setState((state) =>
+        state.targets[key]?.editAvailable === target.editAvailable &&
+        state.targets[key]?.target?.model === target.target?.model
+          ? { targets: { ...state.targets, [key]: target } }
+          : { targets: { ...state.targets, [key]: target }, revision: state.revision + 1 }
+      );
+    })
+    .finally(() => targetsLoading.delete(key));
+
+  targetsLoading.set(key, load);
 
   return load;
 };
@@ -257,6 +303,88 @@ export const requestPrediction = (
                   failures: { ...state.failures, [file.hostKey]: "" },
                 }));
                 finish({ text: result.text });
+              },
+            });
+        },
+        end: (error) => {
+          if (settled || signal.aborted) return;
+          const message = error?.message ?? "Prediction ended without a final result";
+          predictionStore.setState((state) => ({
+            failures: { ...state.failures, [file.hostKey]: message },
+          }));
+          finish(null, message);
+        },
+      }
+    );
+
+    if (settled) stop();
+  });
+
+/** One `prediction.edit` request; unsubscribing on abort cancels the HTTP request behind it. */
+export const requestEditPrediction = (
+  api: PolarisApi,
+  file: EditorFile,
+  input: EditPredictionInput,
+  signal: AbortSignal
+): Promise<EditFinal> =>
+  new Promise((resolve, reject) => {
+    let settled = false;
+    let stop = () => {};
+
+    const finish = (final: EditFinal | null, error?: string) => {
+      if (settled) return;
+      settled = true;
+      stop();
+      signal.removeEventListener("abort", abort);
+
+      if (final) resolve(final);
+      else reject(new Error(error ?? "Prediction cancelled"));
+    };
+
+    const abort = () => finish(null);
+
+    if (signal.aborted) {
+      abort();
+
+      return;
+    }
+
+    signal.addEventListener("abort", abort, { once: true });
+    markPrediction("ipc");
+    stop = api.subscribe(
+      "prediction.edit",
+      {
+        ...file,
+        ...input,
+        dispatchedAt: performance.timeOrigin + performance.now(),
+        workspaceId: WorkspaceId.make(file.workspaceId),
+        recentEdits: [],
+        budgetTokens: 2048,
+      },
+      {
+        items: (items) => {
+          if (settled || signal.aborted) return;
+
+          for (const item of items)
+            EditPredictionFeedItem.match(item, {
+              Final: (result) => {
+                markPrediction("final", result.timings);
+                predictionStore.setState((state) => ({
+                  results: {
+                    ...state.results,
+                    [file.hostKey]: {
+                      model: result.model,
+                      machine: result.machine,
+                      elapsedMs: result.elapsedMs,
+                      side: result.side,
+                      endpoint: result.endpoint,
+                      latency: result.latency,
+                      context: result.context,
+                    },
+                  },
+                  failures: { ...state.failures, [file.hostKey]: "" },
+                }));
+                finish(result);
               },
             });
         },

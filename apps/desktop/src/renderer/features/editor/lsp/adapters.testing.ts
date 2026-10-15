@@ -63,8 +63,8 @@ export const provider = (
   };
 };
 
-export const fixture = (timeoutMs = 100, maxPending = 32) => {
-  let state = EditorState.create({ doc: "a😀é\nitem" });
+export const fixture = (timeoutMs = 100, maxPending = 32, text = "a😀é\nitem") => {
+  let state = EditorState.create({ doc: text });
   let buffer: LanguageBuffer = { uri, version: 1, doc: state.doc };
   let providers = [provider("first", "utf-8"), provider("second", "utf-32")];
 
