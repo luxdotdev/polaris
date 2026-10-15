@@ -249,6 +249,10 @@ _Avoid_: Learning, suppression rule
 **Editor**:
 The view for reading and editing code, including inline chat and tab completion.
 
+**Edit Prediction**:
+One change that tab completion suggests near the cursor (an insertion, replacement, deletion, import, or a jump to the next place to edit), shown before it is applied and applied only by the user accepting it.
+_Avoid_: Next edit suggestion, NES, ghost edit, autocomplete
+
 **Command Palette**:
 The searchable list of every command in the Desktop App, opened with ⌘⇧P; a surface of its own, separate from the jump menu.
 _Avoid_: Command menu, action bar
