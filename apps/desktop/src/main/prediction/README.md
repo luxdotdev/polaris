@@ -110,13 +110,15 @@ unrelated settings and the separate global Client endpoint list.
 Replies include derived `restraints`; older preview Clients may omit it, so
 consumers can use `predictionRestraints(preferences.aggressiveness)` as well:
 
-| Aggressiveness | pauseMs | jumpsOffered | largeDeletionsOffered |
-| --- | --- | --- | --- |
-| conservative | 300 | false | false |
-| balanced | 150 | true | true |
-| eager | 75 | true | true |
+| Aggressiveness | pauseMs | jumpsOffered | jumpProbe | largeDeletionsOffered |
+| --- | --- | --- | --- | --- |
+| conservative | 300 | false | `off` | false |
+| balanced | 150 | true | `spec` | true |
+| eager | 75 | true | `reach` | true |
 
-Balanced keeps the spec's default features; Eager shortens the pause. The
+Balanced keeps the spec's default features; Eager shortens the pause and
+probes with the reach signals (`REACH_SIGNALS`), which reach more targets
+but showed more wrong and dangerous edits on held-out cases. The
 renderer still applies every safety guard, including a second Tab for large
 deletions. A successful settings write broadcasts `onAppEvent` with
 `{ kind: "prediction-settings", hostKey, preferences, restraints }` after

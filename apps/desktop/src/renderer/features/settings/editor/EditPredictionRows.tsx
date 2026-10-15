@@ -98,7 +98,7 @@ export const EditPredictionRows = ({
       </SettingRow>
       <SettingRow
         title="Aggressiveness"
-        caption="Pause length, and whether jumps and deletions over 5 lines are offered."
+        caption="Pause length, how far jumps reach, and whether deletions over 5 lines are offered."
       >
         <SegmentedControl
           variant="well"

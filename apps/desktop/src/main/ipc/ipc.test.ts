@@ -188,7 +188,12 @@ test("Prediction IPC queries and clears the same log and returns derived saved p
 
     expect(Exit.isSuccess(saved) && saved.value).toMatchObject({
       aggressiveness: "conservative",
-      restraints: { pauseMs: 300, jumpsOffered: false, largeDeletionsOffered: false },
+      restraints: {
+        pauseMs: 300,
+        jumpsOffered: false,
+        jumpProbe: "off",
+        largeDeletionsOffered: false,
+      },
     });
 
     const loaded = await run(

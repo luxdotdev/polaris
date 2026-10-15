@@ -81,7 +81,7 @@ Mock these on Paper's Editor page next to TC1–TC5b, dark and light, then build
 
 ## 7. Settings and status
 
-- Settings → Editor → Tab completion gains: Display (Full, Subtle); Aggressiveness (Conservative, Balanced, Eager: pause length, and whether jumps and deletions over 5 lines are offered); Accept key (Tab by default, remappable through the keymap); Off for a language (per-language list); the Model list includes recognised next-edit models with Recommended picking by machine (§2).
+- Settings → Editor → Tab completion gains: Display (Full, Subtle); Aggressiveness (Conservative, Balanced, Eager: pause length, how far jumps reach (none; §4's rule; the reach signals of docs/research/next-edit-spike.md), and whether deletions over 5 lines are offered); Accept key (Tab by default, remappable through the keymap); Off for a language (per-language list); the Model list includes recognised next-edit models with Recommended picking by machine (§2).
 - The status card adds: the kind of model ("Next edit · Zeta 2.1" or "Insertion only · Mellum2"); acceptance over the last 200 shown predictions; shown per 100 keystrokes; undone within 30 s. When only a FIM model is found, one caption line says next edits need Zeta 2.1 or Sweep Next-Edit, with the llama-server command a copy action away.
 
 ## 8. Outcome log (local only)
