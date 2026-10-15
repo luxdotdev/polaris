@@ -18,7 +18,7 @@
  *   re-attaches gets `Exit { code: null }` instead of NotFound, and can open
  *   a new terminal in the same `cwd`.
  */
-import { childEnv } from "../service/childEnv.ts";
+import { childEnv, repositoryEnv } from "../service/childEnv.ts";
 import { randomUUID } from "node:crypto";
 import {
   existsSync,
@@ -165,6 +165,9 @@ const pendingOutput = (): PendingOutput => ({
   timer: null,
 });
 
+/** Whose environment a terminal starts with: the user's, or the allowlist for repository code. */
+export type TerminalEnvironment = "user" | "repository";
+
 export class Terminals extends Context.Service<
   Terminals,
   {
@@ -174,6 +177,8 @@ export class Terminals extends Context.Service<
       readonly cols: number;
       readonly rows: number;
       readonly argv: ReadonlyArray<string> | null;
+      /** `repository` starts it with `repositoryEnv`; the user's environment by default. */
+      readonly environment?: TerminalEnvironment;
     }) => Effect.Effect<TerminalId, FileError>;
     /** Scrollback first, then live output; ends after `Exit`. */
     readonly attach: (id: TerminalId) => Stream.Stream<TerminalItem, NotFound>;
@@ -682,6 +687,7 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
       readonly cols: number;
       readonly rows: number;
       readonly argv: ReadonlyArray<string> | null;
+      readonly environment?: TerminalEnvironment;
     }) {
       const cwd = resolveHostPath(openOptions.cwd);
       yield* Effect.tryPromise({
@@ -712,7 +718,12 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
       const spawned = yield* Effect.try({
         try: () => {
           // Synchronous from here to findMaster: no other fd can appear in between.
-          const env = childEnv({ ...process.env, TERM: "xterm-256color", COLORTERM: "truecolor" });
+          const colors = { TERM: "xterm-256color", COLORTERM: "truecolor" };
+
+          const env =
+            openOptions.environment === "repository"
+              ? repositoryEnv(process.env, colors)
+              : childEnv({ ...process.env, ...colors });
 
           // The gate's sh would report a missing command only in the terminal: keep it a FileError.
           if (gateSpawns && Bun.which(argv[0]!, { cwd, PATH: env.PATH ?? "" }) === null) {

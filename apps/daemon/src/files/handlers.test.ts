@@ -12,6 +12,7 @@ import { AttachmentStoreLive } from "../attachments/AttachmentStore.ts";
 import { GitRpcs, GitRpcsLive } from "../git/GitRpcs.ts";
 import { makeRepo, removeDir, tempDir, write } from "../git/testing.ts";
 import { TerminalRpcs, TerminalRpcsLive } from "../terminal/TerminalRpcs.ts";
+import { EventStore } from "../store/EventStore.ts";
 import { TerminalsLive } from "../terminal/Terminals.ts";
 import { FileSearchLive } from "./FileSearch.ts";
 import { FilesRpcs, FilesRpcsLive } from "./FilesRpcs.ts";
@@ -44,6 +45,7 @@ describe("handler layers", () => {
         Layer.mergeAll(
           FileSearchLive({ useFff: false }),
           TerminalsLive,
+          EventStore.layerSqlite(":memory:"),
           AttachmentStoreLive({ root: join(home, "staging"), settingsPath: join(home, "s.json") }),
           blobs.layer
         )

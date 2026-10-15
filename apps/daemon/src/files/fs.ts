@@ -7,7 +7,7 @@
 import type { Stats } from "node:fs";
 import { lstat, open, readdir, stat } from "node:fs/promises";
 import { homedir } from "node:os";
-import { isAbsolute, join, resolve } from "node:path";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { Data, Schema } from "effect";
 import { detectMimeType, isTextMime } from "./mime.ts";
 
@@ -48,6 +48,15 @@ export const resolveHostPath = (path: string): string => {
   if (path.startsWith("~/")) return join(homedir(), path.slice(2));
 
   return isAbsolute(path) ? resolve(path) : resolve(homedir(), path);
+};
+
+/** Whether `path` is `root` or below it, lexically; resolve links first where they matter. */
+export const isWithin = (root: string, path: string): boolean => {
+  const suffix = relative(root, path);
+
+  return (
+    suffix === "" || (!isAbsolute(suffix) && suffix !== ".." && !suffix.startsWith(`..${sep}`))
+  );
 };
 
 export type FileKind = "file" | "directory" | "symlink" | "other";
