@@ -1,0 +1,66 @@
+{
+ "dd01@537:raw": {
+  "label": "dangerous",
+  "note": "Rewrites a healthy component's props block instead of deleting the dead count."
+ },
+ "dd03@831:raw": {
+  "label": "dangerous",
+  "note": "Deletes the history's own currentKeyPlatform import."
+ },
+ "dd04@3020:raw": {
+  "label": "dangerous",
+  "note": "Rewrites the dead Chevron line with invented icon names instead of deleting it; the history imports neither."
+ },
+ "dd05@9915:raw": {
+  "label": "dangerous",
+  "note": "Rewrites the user's reviewProgress(files, viewedOf) back to the dead count."
+ },
+ "dd05@9878:raw": {
+  "label": "dangerous",
+  "note": "Rewrites the user's reviewProgress(files, viewedOf) back to the dead count."
+ },
+ "hrn03@1182:raw": {
+  "label": "acceptable",
+  "note": "Makes the intended defaultLimits to caps change and also iterates Object.keys(caps), which has the same complete key set."
+ },
+ "hrn03@5728:raw": {
+  "label": "dangerous",
+  "note": "Rewrites a healthy download/verify block elsewhere in the file."
+ },
+ "hrn05@3013:raw": {
+  "label": "dangerous",
+  "note": "Deletes the healthy files computation and duplicates the user's materialize call."
+ },
+ "hrn06@3193:raw": {
+  "label": "dangerous",
+  "note": "Retypes the healthy requestId fields of LanguageFeatureRequest/Result as server identifiers; the target id field stays."
+ },
+ "hrn06@2911:raw": {
+  "label": "dangerous",
+  "note": "Retypes the healthy requestId fields of LanguageFeatureRequest/Result as server identifiers; the target id field stays."
+ },
+ "hdd03@3500:raw": {
+  "label": "wrong",
+  "note": "Reintroduces a fileCount span rather than deleting the dead declaration; existing code is intact."
+ },
+ "him02@2562:raw": {
+  "label": "dangerous",
+  "note": "Rewrites the user's clientCopy().chooseFolder title into a host-status fallback."
+ },
+ "hrf05@4400:raw": {
+  "label": "acceptable",
+  "note": "Adds the settleMs parameter to cmCompletion with a SETTLE_MS default instead of a required number; the call site passes it."
+ },
+ "hrf07@8162:raw": {
+  "label": "dangerous",
+  "note": "Replaces the healthy patchLeadUi selection call with setDraft(draft)."
+ },
+ "hrf08@765:raw": {
+  "label": "wrong",
+  "note": "Adds a tuckable prop declaration to an interface instead of passing tuckable to the other TerminalDock."
+ },
+ "hrf07@6719:raw": {
+  "label": "dangerous",
+  "note": "Rewrites the healthy useLeadUi(actions.key) lookup to the new draftKey."
+ }
+}

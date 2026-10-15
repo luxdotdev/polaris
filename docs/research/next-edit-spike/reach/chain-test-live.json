@@ -1,0 +1,608 @@
+[
+ {
+  "commit": "caa9c9e4",
+  "path": "apps/desktop/src/renderer/features/composer/model/notice.ts",
+  "policy": "spec",
+  "hunks": 3,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "caa9c9e4",
+  "path": "apps/desktop/src/renderer/features/composer/model/notice.ts",
+  "policy": "reach",
+  "hunks": 3,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "c1b5225b",
+  "path": "apps/daemon/src/reviewer/index.ts",
+  "policy": "spec",
+  "hunks": 5,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "c1b5225b",
+  "path": "apps/daemon/src/reviewer/index.ts",
+  "policy": "reach",
+  "hunks": 5,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "209b1631",
+  "path": "apps/daemon/src/git/diff.ts",
+  "policy": "spec",
+  "hunks": 2,
+  "imports": 0,
+  "reached": 1,
+  "complete": false,
+  "presses": [
+   "tab",
+   "jump:other [{\"from\":4277,\"to\":4278,\"text\":\"rul\"},{\"from\":4279,\"to\":4281,\"text\":\"sAt: null\"}]"
+  ]
+ },
+ {
+  "commit": "209b1631",
+  "path": "apps/daemon/src/git/diff.ts",
+  "policy": "reach",
+  "hunks": 2,
+  "imports": 0,
+  "reached": 1,
+  "complete": false,
+  "presses": [
+   "tab",
+   "jump:other [{\"from\":4277,\"to\":4278,\"text\":\"rul\"},{\"from\":4279,\"to\":4281,\"text\":\"sAt: null\"}]"
+  ]
+ },
+ {
+  "commit": "5f0e9206",
+  "path": "apps/desktop/scripts/smoke.ts",
+  "policy": "spec",
+  "hunks": 2,
+  "imports": 1,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "5f0e9206",
+  "path": "apps/desktop/scripts/smoke.ts",
+  "policy": "reach",
+  "hunks": 2,
+  "imports": 1,
+  "reached": 1,
+  "complete": false,
+  "presses": [
+   "jump"
+  ]
+ },
+ {
+  "commit": "43f3119e",
+  "path": "apps/desktop/src/renderer/features/constellation/preview/Preview.tsx",
+  "policy": "spec",
+  "hunks": 5,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "43f3119e",
+  "path": "apps/desktop/src/renderer/features/constellation/preview/Preview.tsx",
+  "policy": "reach",
+  "hunks": 5,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "0d9552b3",
+  "path": "apps/desktop/src/renderer/features/editor/status/LogTab.tsx",
+  "policy": "spec",
+  "hunks": 1,
+  "imports": 1,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "0d9552b3",
+  "path": "apps/desktop/src/renderer/features/editor/status/LogTab.tsx",
+  "policy": "reach",
+  "hunks": 1,
+  "imports": 1,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "b4be29d3",
+  "path": "apps/desktop/src/main/ipc/requests.ts",
+  "policy": "spec",
+  "hunks": 4,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "b4be29d3",
+  "path": "apps/desktop/src/main/ipc/requests.ts",
+  "policy": "reach",
+  "hunks": 4,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "221110a9",
+  "path": "apps/desktop/src/renderer/features/editor/status/LogView.tsx",
+  "policy": "spec",
+  "hunks": 4,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "221110a9",
+  "path": "apps/desktop/src/renderer/features/editor/status/LogView.tsx",
+  "policy": "reach",
+  "hunks": 4,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "68d25b0a",
+  "path": "apps/daemon/src/constellation/transfers/remoteWorking.ts",
+  "policy": "spec",
+  "hunks": 2,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "68d25b0a",
+  "path": "apps/daemon/src/constellation/transfers/remoteWorking.ts",
+  "policy": "reach",
+  "hunks": 2,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "b3039cfa",
+  "path": "apps/desktop/src/main/machines/service.ts",
+  "policy": "spec",
+  "hunks": 5,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "b3039cfa",
+  "path": "apps/desktop/src/main/machines/service.ts",
+  "policy": "reach",
+  "hunks": 5,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": [
+   "jump:other [{\"from\":8405,\"to\":8415,\"text\":\"\\\"\"},{\"from\":8416,\"to\":8418,\"text\":\"hecking the daemon installed on this Mac.\\\"\"},{\"from\":8437,\"to\":8437,\"text\":\"\\\"\"},{\"from\":8438,\"to\":8450,\"text\":\"opying files to this Mac.\\\"\"},{\"from\":8623,\"to\":8630,\"text\":\"\\\"Checking the daemon installed on this Mac.\\\"\"},{\"from\":8"
+  ]
+ },
+ {
+  "commit": "191875a0",
+  "path": "apps/daemon/src/constellation/composition/workers.ts",
+  "policy": "spec",
+  "hunks": 4,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "191875a0",
+  "path": "apps/daemon/src/constellation/composition/workers.ts",
+  "policy": "reach",
+  "hunks": 4,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "4d2eaefa",
+  "path": "apps/daemon/src/reviewer/prompt.ts",
+  "policy": "spec",
+  "hunks": 2,
+  "imports": 1,
+  "reached": 0,
+  "complete": false,
+  "presses": [
+   "jump:other [{\"from\":3381,\"to\":3385,\"text\":\"s\"},{\"from\":3387,\"to\":3390,\"text\":\"ll\"},{\"from\":3392,\"to\":3392,\"text\":\"?\"},{\"from\":3398,\"to\":3425,\"text\":\"\"}]"
+  ]
+ },
+ {
+  "commit": "4d2eaefa",
+  "path": "apps/daemon/src/reviewer/prompt.ts",
+  "policy": "reach",
+  "hunks": 2,
+  "imports": 1,
+  "reached": 0,
+  "complete": false,
+  "presses": [
+   "jump:other [{\"from\":3381,\"to\":3385,\"text\":\"s\"},{\"from\":3387,\"to\":3425,\"text\":\"ll\"}]"
+  ]
+ },
+ {
+  "commit": "c16bbc76",
+  "path": "packages/client/src/transport.ts",
+  "policy": "spec",
+  "hunks": 1,
+  "imports": 1,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "c16bbc76",
+  "path": "packages/client/src/transport.ts",
+  "policy": "reach",
+  "hunks": 1,
+  "imports": 1,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "5864d112",
+  "path": "apps/desktop/src/main/machines/service.ts",
+  "policy": "spec",
+  "hunks": 2,
+  "imports": 1,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "5864d112",
+  "path": "apps/desktop/src/main/machines/service.ts",
+  "policy": "reach",
+  "hunks": 2,
+  "imports": 1,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "ae0c76b0",
+  "path": "apps/desktop/src/renderer/features/session/preview/Preview.tsx",
+  "policy": "spec",
+  "hunks": 2,
+  "imports": 1,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "ae0c76b0",
+  "path": "apps/desktop/src/renderer/features/session/preview/Preview.tsx",
+  "policy": "reach",
+  "hunks": 2,
+  "imports": 1,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "67fb1b12",
+  "path": "apps/desktop/src/renderer/shell/menu/index.ts",
+  "policy": "spec",
+  "hunks": 1,
+  "imports": 1,
+  "reached": 1,
+  "complete": true,
+  "presses": [
+   "tab"
+  ]
+ },
+ {
+  "commit": "67fb1b12",
+  "path": "apps/desktop/src/renderer/shell/menu/index.ts",
+  "policy": "reach",
+  "hunks": 1,
+  "imports": 1,
+  "reached": 1,
+  "complete": true,
+  "presses": [
+   "tab"
+  ]
+ },
+ {
+  "commit": "a5a61e7c",
+  "path": "apps/desktop/src/main/machines/service.ts",
+  "policy": "spec",
+  "hunks": 3,
+  "imports": 1,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "a5a61e7c",
+  "path": "apps/desktop/src/main/machines/service.ts",
+  "policy": "reach",
+  "hunks": 3,
+  "imports": 1,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "fbd20b1e",
+  "path": "apps/daemon/src/languages/discovery/index.ts",
+  "policy": "spec",
+  "hunks": 2,
+  "imports": 1,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "fbd20b1e",
+  "path": "apps/daemon/src/languages/discovery/index.ts",
+  "policy": "reach",
+  "hunks": 2,
+  "imports": 1,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "a947a846",
+  "path": "apps/desktop/src/shared/chord.ts",
+  "policy": "spec",
+  "hunks": 3,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "a947a846",
+  "path": "apps/desktop/src/shared/chord.ts",
+  "policy": "reach",
+  "hunks": 3,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "1c51b0ba",
+  "path": "apps/desktop/src/main/machines/index.ts",
+  "policy": "spec",
+  "hunks": 5,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "1c51b0ba",
+  "path": "apps/desktop/src/main/machines/index.ts",
+  "policy": "reach",
+  "hunks": 5,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "d7d9947c",
+  "path": "apps/daemon/src/languages/composition/managedAvailability.ts",
+  "policy": "spec",
+  "hunks": 1,
+  "imports": 1,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "d7d9947c",
+  "path": "apps/daemon/src/languages/composition/managedAvailability.ts",
+  "policy": "reach",
+  "hunks": 1,
+  "imports": 1,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "9339a03a",
+  "path": "apps/desktop/src/main/index.ts",
+  "policy": "spec",
+  "hunks": 1,
+  "imports": 1,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "9339a03a",
+  "path": "apps/desktop/src/main/index.ts",
+  "policy": "reach",
+  "hunks": 1,
+  "imports": 1,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "d2f07403",
+  "path": "apps/desktop/src/main/index.ts",
+  "policy": "spec",
+  "hunks": 1,
+  "imports": 1,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "d2f07403",
+  "path": "apps/desktop/src/main/index.ts",
+  "policy": "reach",
+  "hunks": 1,
+  "imports": 1,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "b6d24df9",
+  "path": "apps/desktop/src/main/github/index.ts",
+  "policy": "spec",
+  "hunks": 3,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "b6d24df9",
+  "path": "apps/desktop/src/main/github/index.ts",
+  "policy": "reach",
+  "hunks": 3,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "26708de5",
+  "path": "apps/desktop/src/main/machines/index.ts",
+  "policy": "spec",
+  "hunks": 3,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "26708de5",
+  "path": "apps/desktop/src/main/machines/index.ts",
+  "policy": "reach",
+  "hunks": 3,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "622bd0c5",
+  "path": "apps/desktop/src/main/prediction/bridge.ts",
+  "policy": "spec",
+  "hunks": 3,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "622bd0c5",
+  "path": "apps/desktop/src/main/prediction/bridge.ts",
+  "policy": "reach",
+  "hunks": 3,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "fc1cdc1f",
+  "path": "packages/ui/gallery/sections/floating.tsx",
+  "policy": "spec",
+  "hunks": 2,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": [
+   "tab:other [{\"from\":3860,\"to\":3860,\"text\":\"…\"},{\"from\":3863,\"to\":3863,\"text\":\"need\"},{\"from\":3864,\"to\":3869,\"text\":\"Inp\"},{\"from\":3873,\"to\":3877,\"text\":\"true\"}]"
+  ]
+ },
+ {
+  "commit": "fc1cdc1f",
+  "path": "packages/ui/gallery/sections/floating.tsx",
+  "policy": "reach",
+  "hunks": 2,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": [
+   "tab:other [{\"from\":3860,\"to\":3860,\"text\":\"…\"},{\"from\":3863,\"to\":3863,\"text\":\"need\"},{\"from\":3864,\"to\":3869,\"text\":\"Inp\"},{\"from\":3873,\"to\":3877,\"text\":\"true\"}]"
+  ]
+ },
+ {
+  "commit": "9edc0e0a",
+  "path": "apps/desktop/src/renderer/routes/selection.ts",
+  "policy": "spec",
+  "hunks": 4,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "9edc0e0a",
+  "path": "apps/desktop/src/renderer/routes/selection.ts",
+  "policy": "reach",
+  "hunks": 4,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "ae7af987",
+  "path": "apps/desktop/src/renderer/features/editor/ui/EditorPane.tsx",
+  "policy": "spec",
+  "hunks": 2,
+  "imports": 1,
+  "reached": 0,
+  "complete": false,
+  "presses": [
+   "tab:other [{\"from\":7175,\"to\":7181,\"text\":\"{PANE_CLASS}\"},{\"from\":7182,\"to\":7185,\"text\":\"\"},{\"from\":7186,\"to\":7204,\"text\":\"\"},{\"from\":7205,\"to\":7207,\"text\":\"ta\"},{\"from\":7208,\"to\":7209,\"text\":\"\"},{\"from\":7211,\"to\":7212,\"text\":\"\"},{\"from\":7213,\"to\":7217,\"text\":\"\"},{\"from\":7218,\"to\":7218,\"text\":\"id=\\\"\"},{\"from\":"
+  ]
+ },
+ {
+  "commit": "ae7af987",
+  "path": "apps/desktop/src/renderer/features/editor/ui/EditorPane.tsx",
+  "policy": "reach",
+  "hunks": 2,
+  "imports": 1,
+  "reached": 0,
+  "complete": false,
+  "presses": [
+   "tab:other [{\"from\":7175,\"to\":7181,\"text\":\"{PANE_CLASS}\"},{\"from\":7182,\"to\":7185,\"text\":\"\"},{\"from\":7186,\"to\":7204,\"text\":\"\"},{\"from\":7205,\"to\":7207,\"text\":\"ta\"},{\"from\":7208,\"to\":7209,\"text\":\"\"},{\"from\":7211,\"to\":7212,\"text\":\"\"},{\"from\":7213,\"to\":7217,\"text\":\"\"},{\"from\":7218,\"to\":7218,\"text\":\"id=\\\"\"},{\"from\":"
+  ]
+ }
+]

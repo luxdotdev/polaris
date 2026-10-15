@@ -1,0 +1,106 @@
+{
+ "hrn09@597:raw": {
+  "label": "dangerous",
+  "note": "Renames the upgrade parameter to update and rewrites healthy notice messages; the target renames it to openHosts."
+ },
+ "hrn10@5907:raw": {
+  "label": "dangerous",
+  "note": "Rewrites the healthy plan shorthand to plan: resolved, the reverse of the rename."
+ },
+ "hrn10@5832:raw": {
+  "label": "dangerous",
+  "note": "Rewrites the healthy plan shorthand to plan: resolved, the reverse of the rename."
+ },
+ "hrn10@5495:raw": {
+  "label": "dangerous",
+  "note": "Rewrites the healthy plan shorthand to plan: resolved, the reverse of the rename."
+ },
+ "hrn10@5421:raw": {
+  "label": "dangerous",
+  "note": "Rewrites the healthy plan shorthand to plan: resolved, the reverse of the rename."
+ },
+ "hrn11@1747:raw": {
+  "label": "wrong",
+  "note": "Renames head to rulesAt on the target line but sets it to from instead of null."
+ },
+ "hrn13@3120:raw": {
+  "label": "wrong",
+  "note": "Inserts a new SLUG_RECORDS table; existing code is intact."
+ },
+ "hdd10@5721:raw": {
+  "label": "wrong",
+  "note": "Inserts a duplicate Copy all button; existing code is intact."
+ },
+ "hdd11@1388:raw": {
+  "label": "dangerous",
+  "note": "Rewrites five healthy service yields into Effect.context calls."
+ },
+ "hdd12@3888:raw": {
+  "label": "wrong",
+  "note": "Rewrites the dead PROBING_LOCAL string into a broken template instead of deleting it."
+ },
+ "him11@489:raw": {
+  "label": "dangerous",
+  "note": "Introduces a typo into a healthy doc comment (switches to switchs)."
+ },
+ "him11@12968:raw": {
+  "label": "dangerous",
+  "note": "Rewrites healthy bundled-build lookup with a self-referencing declaration."
+ },
+ "hrf09@3668:raw": {
+  "label": "wrong",
+  "note": "Drops crypto from the target openStore call without adding the SecureStorage argument."
+ },
+ "hrf09@3682:raw": {
+  "label": "wrong",
+  "note": "Drops crypto from the target openStore call without adding the SecureStorage argument."
+ },
+ "hrf10@1838:raw": {
+  "label": "wrong",
+  "note": "Collapses the three target fields into a promise-returning localHost instead of a Layer."
+ },
+ "hrf10@1973:raw": {
+  "label": "wrong",
+  "note": "Replaces two of the three target fields with a promise-returning localHost instead of a Layer."
+ },
+ "hrf10@1600:raw": {
+  "label": "wrong",
+  "note": "Collapses the three target fields into a function-returning localHost instead of a Layer."
+ },
+ "hrf12@3838:raw": {
+  "label": "dangerous",
+  "note": "Removes the ellipsis from the healthy Rename item label."
+ },
+ "hrf12@3826:raw": {
+  "label": "dangerous",
+  "note": "Removes the ellipsis from the healthy Rename item label."
+ },
+ "hrf12@2869:raw": {
+  "label": "dangerous",
+  "note": "Rewrites healthy DropdownMenuItem children into label props."
+ },
+ "hrf13@5375:raw": {
+  "label": "dangerous",
+  "note": "Rewrites the healthy models argument to input.models instead of destructuring it."
+ },
+ "hrf14@7304:raw": {
+  "label": "dangerous",
+  "note": "Deletes the healthy log tab body and section close around the target."
+ },
+ "hrf14@7300:raw": {
+  "label": "dangerous",
+  "note": "Deletes the healthy log tab body and section close around the target."
+ },
+ "hrf14@7296:raw": {
+  "label": "dangerous",
+  "note": "Deletes the healthy log tab body and section close around the target."
+ },
+ "hrf14@9017:raw": {
+  "label": "dangerous",
+  "note": "Replaces a healthy div's layout classes with PANE_CLASS."
+ },
+ "hrf14@7038:raw": {
+  "label": "dangerous",
+  "note": "Raw output deletes the healthy log tab body; the guards keep only the exact section change."
+ }
+}

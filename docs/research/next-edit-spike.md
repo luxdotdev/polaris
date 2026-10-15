@@ -293,3 +293,111 @@ Dev never showed this, because its dead-code and insertion cases happen to carry
   - recognise a modified move as deletion evidence;
   - restrict `novelNames` to edits away from the cursor line;
   - mine a new held-out set before keeping either change.
+
+## Reach: jumps and imports, 2026-10-15
+
+**Goal.** Most targets lie outside the window around the cursor. This section measures how far a jump probe (a second request with `focus` elsewhere in the file) and an import quick fix get Sweep to them, without showing more dangerous edits. The [protocol](next-edit-spike/reach/protocol.json) reuses the hardening split (70 dev, 30 held-out), Sweep Q8 on a private llama-server at 127.0.0.1:8093, greedy, production prompt, parser and guards. Labels follow the hardening rubric (exact / acceptable / wrong / dangerous / abstain) on the raw output; "shown" is after guards. Scripts are `reach-*.ts` and `imports-*.ts` under [`scripts`](next-edit-spike/scripts/); runs and labels are under [`reach`](next-edit-spike/reach/).
+
+**Pre- and post-merge.** The work started on the spike layout (window 10 above / 10 below, hardening guards). Midway, the hill-climbed options (10 above / 20 below, seven guards) landed on main and were merged in. Every jump and chain number below is given for both; the pre-merge runs and labels are kept in [`reach/pre-merge`](next-edit-spike/reach/pre-merge/). Import numbers don't depend on the window or guards.
+
+### Jumps
+
+`reachFocuses` ([`reach/index.ts`](../../packages/predict/src/edit/reach/index.ts)) returns candidate focus offsets, best first, never two whose windows overlap. Signals, in tier order:
+- **orphan**: a name the last edit removed that is now used once, at its declaration (dead code left behind).
+- **moved**: a line or bound name the history added that still exists elsewhere (the copy left behind).
+- **last**: names the last hunk removed entirely (§4's rule, restricted to the last hunk).
+- **callee**: the definition of a call the last hunk added an argument to.
+- **history**: names any earlier hunk removed.
+- **signature** / **kept**: shared names in a changed signature, and names the last hunk kept. Measured, not on by default.
+
+Within a tier, names used more than twice rank later, then the nearest line wins. Comments are ignored except inside backticks. §4's rule ("spec" below) is the baseline: names whose count fell in the last edit, nearest outside the window.
+
+**Offline reach.** Cases whose target lies outside the cursor window, and how many the first probe brings into its window:
+
+| Layout | Set | Outside | spec | default (`REACH_SIGNALS`) | all signals |
+|---|---|---:|---:|---:|---:|
+| Pre-merge (10/10) | Dev | 38 | 14 | 22 | 24 |
+| Pre-merge (10/10) | Held-out | 22 | 5 | 11 | 11 |
+| Post-merge (10/20) | Dev | 31 | 8 | 16 | 18 |
+| Post-merge (10/20) | Held-out | 20 | 5 | 13 | 13 |
+
+**Live, first probe only, shown after guards** (one request per case at the first focus; useful = exact + acceptable):
+
+| Layout | Set | Policy | Probed | Useful | Wrong | **Dangerous** | Abstain | Raw dangerous |
+|---|---|---|---:|---:|---:|---:|---:|---:|
+| Pre-merge | Dev | spec | 18 | 6 | 1 | **0** | 11 | 1 |
+| Pre-merge | Dev | default | 24 | 9 | 1 | **0** | 14 | 1 |
+| Pre-merge | Dev | all | 33 | 10 | 1 | **0** | 22 | 2 |
+| Pre-merge | Held-out | spec | 14 | 0 | 0 | **2** | 12 | 7 |
+| Pre-merge | Held-out | all | 21 | 1 | 4 | **3** | 13 | 6 |
+| Post-merge | Dev | spec | 11 | 1 | 0 | **0** | 10 | 2 |
+| Post-merge | Dev | default | 18 | 4 | 0 | **0** | 14 | 2 |
+| Post-merge | Dev | all | 26 | 5 | 0 | **1** | 20 | 5 |
+| Post-merge | Held-out | spec | 13 | 0 | 1 | **0** | 12 | 4 |
+| Post-merge | Held-out | default | 16 | 1 | 4 | **1** | 10 | 5 |
+
+On pre-merge held-out, default and all coincide on the first probe. Shown dangerous on held-out: pre-merge `hrn09` (renames a parameter and rewrites healthy messages; spec and all), `hdd12` (rewrites a healthy error message; spec), `hdd11` and `hrf14` (all); post-merge `hrf14` (replaces a healthy `div`'s classes with the new `PANE_CLASS`). Labels and notes: [`test.labels.json`](next-edit-spike/reach/test.labels.json), [`dev.labels.json`](next-edit-spike/reach/dev.labels.json).
+
+**More probes don't pay.** Up to three sequential probes added no useful case on pre-merge dev (10 → 10) and showed up to four more dangerous edits (`rn01`, `rn02` ×2, `hrn06`, `hdd02`); post-merge default goes 4 → 4 useful with 0 → 1 dangerous. Ship one probe.
+
+**Default signals.** Pre-merge, the policy frozen before held-out was all signals. After the merge, signature and kept added one useful case on dev (`hrf08`) and one shown dangerous (`hrf07`), which fails the keep rule, so the default dropped them. That choice was made on post-merge dev, but after the pre-merge held-out results had been seen; on those, signature and kept changed nothing at the first probe. Treat post-merge held-out as seen once already.
+
+**What limits jumps is the model, not reach.** The first probe reaches about half the out-of-window targets, but Sweep turns few of them into a shown useful edit: post-merge dev 4 of 16 reached, held-out 1 of 13. Most probes abstain; wrong held-out probes edit the target line partially (`hrn11` sets the renamed field to the wrong value, `hrf09` drops one argument without adding the other, `hrf10` invents a promise type) or edit a nearby healthy line. The larger post-merge window helps the cursor request itself, which leaves fewer and harder targets for a probe.
+
+### Chaining
+
+How many of a multi-hunk file's later hunks a user reaches by pressing Tab: after each accepted hunk, the next request uses the new cursor window ("tab") or, if that misses, the first reach probe ("jump"). The oracle accepts the true next hunk whenever it lies in the window; live accepts only an exact shown prediction. "none" is the cursor window alone; "complete" counts files where every hunk was reached.
+
+| Layout | Set | Files / later hunks | none | spec | reach (tab + jump) |
+|---|---|---|---:|---:|---:|
+| Pre-merge oracle | Dev | 57 / 148 | 32 (9) | 79 (26) | 90 (30; 52 + 38) |
+| Pre-merge oracle | Held-out | 29 / 78 | 12 (4) | 22 (7) | 32 (11; 14 + 18) |
+| Pre-merge live | Dev | 57 / 148 | | 17 (4) | 18 (5; 4 + 11) |
+| Pre-merge live | Held-out | 29 / 78 | | 2 (1) | 3 (1) |
+| Post-merge oracle | Dev | 57 / 148 | 49 (18) | 87 (32) | 89 (33; 68 + 21) |
+| Post-merge oracle | Held-out | 29 / 78 | 29 (11) | 36 (13) | 44 (18; 31 + 13) |
+| Post-merge live | Dev | 57 / 148 | | 18 (3) | 17 (3; 4 + 9) |
+| Post-merge live | Held-out | 29 / 78 | | 2 (1) | 3 (1) |
+
+Hunks reached (files complete). On held-out, reach adds 8 oracle hunks over spec post-merge (10 pre-merge); on dev, the wider window already reaches most of what reach added. The oracle shows reach could walk most multi-hunk refactors; live, Sweep breaks the chain at the first or second hunk. Live chaining is limited by prediction quality, not by where the next request looks.
+
+### Imports
+
+[`selectImportFix`](../../packages/predict/src/edit/imports/index.ts) picks one import quick fix for the burst's unresolved names (TS codes 2304, 2552, 2503, 18004), from the actions a language server returned. [`unresolvedInBurst`](../../packages/predict/src/edit/imports/index.ts) picks which diagnostics to ask about: those on a line the burst changed, or naming something the burst wrote.
+
+It only accepts an action that inserts text into this file and whose title is an import (`Add import from`, `Update import from`). typescript-language-server attaches a `_typescript.applyCodeActionCommand` to every quick fix; it is accepted only when its `commands` list is empty (Schema-parsed), so it does nothing beyond the edit. The two rules:
+- **spec** (§ spec): exactly one import action, or the one marked `isPreferred`.
+- **module** (default): the preferred one; else the candidate whose module the file already imports from; else the one module that resolves every name in the burst; else, when one candidate is a bare package specifier and the others are relative paths into another package's `src`, the package.
+
+**Method.** For each case, a temporary detached worktree at the case's commit (dependencies linked from this checkout, removed afterwards) held the post-history buffer. typescript-language-server 6.0.1 with tsserver 6.0.3, the versions Polaris manages, provided diagnostics and quick fixes. The chosen fix was applied and the server asked again, up to six rounds. "Right" means the same bindings from the same modules as the commit, placed differently; "partial" some of them.
+
+| Set | Rule / scope | Exact | Right | Partial | Wrong | Nothing |
+|---|---|---:|---:|---:|---:|---:|
+| Dev, 14 | spec / changed lines | 4 | 6 | 0 | 0 | 4 |
+| Dev, 14 | module / changed lines | 4 | 8 | 0 | 0 | 2 |
+| Dev, 14 | module / lines + written names (default) | 4 | 9 | 0 | 0 | 1 |
+| Dev, 14 | first server action | 4 | 9 | 0 | 1 | 0 |
+| Held-out, 6 | spec / changed lines | 2 | 2 | 0 | 0 | 2 |
+| Held-out, 6 | module / lines + written names (default) | 2 | 3 | 0 | 0 | 1 |
+| Held-out, 6 | first server action | 3 | 3 | 0 | 0 | 0 |
+| Extra, 16 | spec / changed lines | 4 | 8 | 0 | 0 | 4 |
+| Extra, 16 | module / lines + written names (default) | 4 | 9 | 0 | 1 | 2 |
+| Extra, 16 | first server action | 4 | 10 | 1 | 1 | 0 |
+
+The rule and scope were frozen on dev (commit `68698a76`) before held-out and the extra cases ran. The extra cases ([`imports-mine.ts`](next-edit-spike/scripts/imports-mine.ts)) are 16 more add-import commits mined by shape after the dev tuning and never looked at before this run.
+
+Findings:
+- **The spec's "exactly one action" almost never holds.** tsserver always adds a declaration stub ("Add missing function declaration") next to the import. `isPreferred` covers most cases; the module rule covers most of the rest.
+- **"Nothing" is the safe failure.** On dev `im04`, `which` comes from both `bun` and a local module; the commit used the local one. The first server action picks `bun`, which is wrong. The module rule offers nothing.
+- **The module rule's one wrong import** is extra `xim12`: the file imports from `node:fs`, so the rule added `rm` there, but the commit wanted the promise `rm` from `node:fs/promises`. "Already imported from" is unsafe when a module and its `/promises` sibling export the same name; not fixed here, since the rule was frozen.
+- **Scope.** Changed lines alone miss names the burst wrote that are used elsewhere (a re-export, a moved declaration: `him05`); adding written names fixes it without a wrong import.
+- **For the Desktop App renderer:** its CodeActions payload schema (`apps/desktop/…/lsp/payloads.ts`) drops `isPreferred`, which the selector needs; it must also accept the no-op `_typescript.applyCodeActionCommand` instead of rejecting every action that carries a command.
+
+### API
+
+- `reachFocuses({ buffer, path, cursor, window, history })`: with `window` the last request's window. Probe only the first focus, once the cursor request shows nothing.
+- `selectImportFix({ uri, text }, names, rule = "module")` with `unresolvedInBurst(diagnostics, burst)` and `UNRESOLVED_NAME_CODES`. Pure; the renderer brings the language server.
+
+Tests use fixtures only: [`reach.test.ts`](../../packages/predict/src/edit/reach/reach.test.ts) checks the first probe reaches each dev case it reaches here, and [`imports.test.ts`](../../packages/predict/src/edit/imports/imports.test.ts) checks the selection rules on recorded action shapes.
+
+**Caveats.** One reviewer's labels. Small sets: 20–31 out-of-window cases and 6 held-out import cases. The Host was busy, so no latency is reported; a probe is a second Sweep request (p50 about 550–650 ms).
