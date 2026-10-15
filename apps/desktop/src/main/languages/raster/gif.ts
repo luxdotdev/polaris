@@ -1,5 +1,5 @@
 import { type Bytes, malformed } from "./bytes.ts";
-import { type RasterMeasure, area, inside, size } from "./measure.ts";
+import { type RasterMeasure, area, inside, outputBytes, size } from "./measure.ts";
 
 const colorTable = (flags: number) => (flags & 0x80 ? 3 * 2 ** ((flags & 7) + 1) : 0);
 
@@ -20,7 +20,7 @@ export const gif = (data: Bytes): RasterMeasure => {
   const screen = size(data.u16le(6), data.u16le(8));
   let at = 13 + colorTable(data.u8(10));
   let frames = 0;
-  let decodedPixels = 0;
+  let decodedBytes = 0;
 
   for (let block = data.u8(at); block !== 0x3b; block = data.u8(at)) {
     if (block === 0x21) {
@@ -33,9 +33,9 @@ export const gif = (data: Bytes): RasterMeasure => {
 
     inside(screen, data.u16le(at + 1), data.u16le(at + 3), frame);
     frames++;
-    decodedPixels += area(frame);
+    decodedBytes += outputBytes(false) * area(frame);
     at = subBlocks(data, at + 11 + colorTable(data.u8(at + 9)));
   }
 
-  return frames > 0 ? { mimeType: "image/gif", ...screen, frames, decodedPixels } : malformed();
+  return frames > 0 ? { mimeType: "image/gif", ...screen, frames, decodedBytes } : malformed();
 };

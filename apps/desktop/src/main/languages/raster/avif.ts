@@ -1,4 +1,4 @@
-import { av1Bound } from "./av1.ts";
+import { type Picture, av1Bound } from "./av1.ts";
 import {
   type Box,
   type Location,
@@ -9,7 +9,14 @@ import {
   single,
 } from "./bmff.ts";
 import { type Bytes, malformed } from "./bytes.ts";
-import { type RasterMeasure, type RasterSize, area, sameSize, size } from "./measure.ts";
+import {
+  type RasterMeasure,
+  type RasterSize,
+  area,
+  outputBytes,
+  sameSize,
+  size,
+} from "./measure.ts";
 
 /** `iinf`: each item's id and four-character type (`infe` version 2 or 3). */
 const itemTypes = (data: Bytes, iinf: Box): ReadonlyMap<number, string> => {
@@ -140,6 +147,8 @@ const itemExtents = (data: Bytes, info: Meta, id: number): RasterSize => {
 /**
  * Every image item (`av01` tiles, alpha and `grid`s): its `ispe`, a grid's output size (which
  * must equal it) and an AV1 item's sequence header bound. Sequences (`moov`) are refused.
+ * Each item's frames cost a decoded picture, a grid one as deep as its deepest tile; the RGBA
+ * output is the canvas, twice when a `tmap` gain map is decoded beside the primary image.
  */
 export const avif = (data: Bytes): RasterMeasure => {
   const top = boxes(data, 0, data.length);
@@ -148,7 +157,7 @@ export const avif = (data: Bytes): RasterMeasure => {
   const info = meta(data, top);
   const budget = { left: data.length };
   let canvas: RasterSize = { width: 0, height: 0 };
-  let decodedPixels = 0;
+  const items: Array<{ size: RasterSize; frames: number; picture?: Picture }> = [];
 
   for (const box of info.properties)
     if (box.type === "ispe") canvas = larger(canvas, extents(data, box));
@@ -164,10 +173,20 @@ export const avif = (data: Bytes): RasterMeasure => {
         : av1Bound(content);
 
     canvas = larger(larger(canvas, declared), decoded.size);
-    decodedPixels += area(decoded.size) * decoded.frames;
+    items.push(decoded);
   }
 
-  return decodedPixels > 0
-    ? { mimeType: "image/avif", ...canvas, frames: 1, decodedPixels }
-    : malformed();
+  const pictures = items.flatMap((item) => (item.picture === undefined ? [] : [item.picture]));
+
+  if (pictures.length === 0) return malformed();
+  const deep = pictures.some((picture) => picture.deep);
+  const deepest = Math.max(...pictures.map((picture) => picture.bytes));
+  const outputs = [...info.types.values()].includes("tmap") ? 2 : 1;
+
+  const decodedBytes = items.reduce(
+    (sum, item) => sum + area(item.size) * item.frames * (item.picture?.bytes ?? deepest),
+    outputs * outputBytes(deep) * area(canvas)
+  );
+
+  return { mimeType: "image/avif", ...canvas, frames: 1, decodedBytes };
 };

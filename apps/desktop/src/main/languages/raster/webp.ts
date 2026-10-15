@@ -1,5 +1,13 @@
 import { type Bytes, malformed } from "./bytes.ts";
-import { type RasterMeasure, type RasterSize, area, inside, sameSize, size } from "./measure.ts";
+import {
+  type RasterMeasure,
+  type RasterSize,
+  area,
+  inside,
+  outputBytes,
+  sameSize,
+  size,
+} from "./measure.ts";
 
 interface Chunk {
   readonly type: string;
@@ -46,21 +54,41 @@ const bitstream = (data: Bytes, chunk: Chunk): RasterSize => {
 
 const isImage = (chunk: Chunk) => chunk.type === "VP8 " || chunk.type === "VP8L";
 
-/** The one image chunk among `found`, after an optional ALPH. */
-const image = (data: Bytes, found: ReadonlyArray<Chunk>): RasterSize => {
-  const images = found.filter(isImage);
+interface Image {
+  readonly size: RasterSize;
+  /** libwebp's buffers beside the output: a lossless stream's ARGB, an alpha plane (maybe lossless). */
+  readonly working: number;
+}
 
-  return images.length === 1 && images[0] !== undefined ? bitstream(data, images[0]) : malformed();
+/** The one image chunk among `found`, after an optional ALPH. */
+const image = (data: Bytes, found: ReadonlyArray<Chunk>): Image => {
+  const images = found.filter(isImage);
+  const only = images.length === 1 ? images[0] : undefined;
+
+  if (only === undefined) return malformed();
+  const decoded = bitstream(data, only);
+
+  const perPixel =
+    (only.type === "VP8L" ? 4 : 0) + (found.some((chunk) => chunk.type === "ALPH") ? 5 : 0);
+
+  return { size: decoded, working: perPixel * area(decoded) };
 };
 
 /** An ANMF frame: its declared rectangle must match its bitstream and fit the canvas. */
-const animationFrame = (data: Bytes, canvas: RasterSize, chunk: Chunk): RasterSize => {
+const animationFrame = (data: Bytes, canvas: RasterSize, chunk: Chunk): Image => {
   const frame = size(data.u24le(chunk.start + 6) + 1, data.u24le(chunk.start + 9) + 1);
+  const decoded = image(data, chunks(data, chunk.start + 16, chunk.end));
 
-  sameSize(frame, image(data, chunks(data, chunk.start + 16, chunk.end)));
+  sameSize(frame, decoded.size);
+  inside(canvas, 2 * data.u24le(chunk.start), 2 * data.u24le(chunk.start + 3), frame);
 
-  return inside(canvas, 2 * data.u24le(chunk.start), 2 * data.u24le(chunk.start + 3), frame);
+  return decoded;
 };
+
+/** Every frame's output, and the largest frame's working buffers (freed between frames). */
+const decodedBytes = (images: ReadonlyArray<Image>): number =>
+  images.reduce((sum, { size: frame }) => sum + outputBytes(false) * area(frame), 0) +
+  Math.max(0, ...images.map((decoded) => decoded.working));
 
 /** VP8X: a still's one image must be the canvas; an animation's every frame must fit it. */
 const extended = (data: Bytes, header: Chunk, rest: ReadonlyArray<Chunk>): RasterMeasure => {
@@ -69,19 +97,22 @@ const extended = (data: Bytes, header: Chunk, rest: ReadonlyArray<Chunk>): Raste
 
   if ((data.u8(header.start) & 0x02) === 0) {
     if (frames.length > 0) return malformed();
-    sameSize(canvas, image(data, rest));
+    const still = image(data, rest);
 
-    return { mimeType: "image/webp", ...canvas, frames: 1, decodedPixels: area(canvas) };
+    sameSize(canvas, still.size);
+
+    return { mimeType: "image/webp", ...canvas, frames: 1, decodedBytes: decodedBytes([still]) };
   }
 
   if (frames.length === 0 || rest.some(isImage)) return malformed();
+  const decoded = frames.map((chunk) => animationFrame(data, canvas, chunk));
 
-  const decodedPixels = frames.reduce(
-    (sum, chunk) => sum + area(animationFrame(data, canvas, chunk)),
-    0
-  );
-
-  return { mimeType: "image/webp", ...canvas, frames: frames.length, decodedPixels };
+  return {
+    mimeType: "image/webp",
+    ...canvas,
+    frames: frames.length,
+    decodedBytes: decodedBytes(decoded),
+  };
 };
 
 export const webp = (data: Bytes): RasterMeasure => {
@@ -90,7 +121,7 @@ export const webp = (data: Bytes): RasterMeasure => {
   if (first?.type === "VP8X" && first.end - first.start >= 10) return extended(data, first, rest);
 
   if (first === undefined || !isImage(first)) return malformed();
-  const frame = bitstream(data, first);
+  const still = image(data, [first]);
 
-  return { mimeType: "image/webp", ...frame, frames: 1, decodedPixels: area(frame) };
+  return { mimeType: "image/webp", ...still.size, frames: 1, decodedBytes: decodedBytes([still]) };
 };

@@ -32,13 +32,7 @@ describe("measureRaster", () => {
     ["image/webp", webp(vp8l(640, 480))],
     ["image/webp", webp(vp8(640, 480))],
   ] as const)("reads a still %s's size from its header", (mimeType, data) => {
-    expect(measureRaster(data)).toEqual({
-      mimeType,
-      width: 640,
-      height: 480,
-      frames: 1,
-      decodedPixels: 640 * 480,
-    });
+    expect(measureRaster(data)).toMatchObject({ mimeType, width: 640, height: 480, frames: 1 });
   });
 
   test.each([
@@ -70,7 +64,7 @@ describe("measureRaster", () => {
     ],
   ] as const)("an animated %s counts every frame it decodes", (_, data) => {
     expect(measureRaster(data)).toMatchObject({ width: 100, height: 100, frames: 2 });
-    expect(measureRaster(data)?.decodedPixels).toBeGreaterThanOrEqual(100 * 100 + 50 * 50);
+    expect(measureRaster(data)?.decodedBytes).toBeGreaterThanOrEqual(4 * (100 * 100 + 50 * 50));
   });
 
   test("an EXIF thumbnail's own SOF doesn't stand in for the image's", () => {

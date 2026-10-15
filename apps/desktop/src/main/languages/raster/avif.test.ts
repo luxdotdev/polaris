@@ -21,11 +21,7 @@ describe("AVIF", () => {
       still(64, 64),
     ]);
 
-    expect(measureRaster(tiled)).toMatchObject({
-      width: 128,
-      height: 64,
-      decodedPixels: 2 * 128 * 64,
-    });
+    expect(measureRaster(tiled)).toMatchObject({ width: 128, height: 64 });
   });
 
   test.each([

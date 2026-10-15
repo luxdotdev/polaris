@@ -22,8 +22,8 @@ export const PREVIEW_IMAGE_MAX_BYTES = 10_485_760;
 /** The most frames an animated preview image may have. */
 export const PREVIEW_IMAGE_MAX_FRAMES = 256;
 
-/** The most pixels decoded across all of an image's frames, tiles and layers. */
-export const PREVIEW_IMAGE_MAX_DECODED_PIXELS = 128_000_000;
+/** The most bytes decoding one image may take: every frame, tile and layer, and the decoder's buffers. */
+export const PREVIEW_IMAGE_MAX_DECODED_BYTES = 512 * 1024 * 1024;
 
 /** Main fetches bounded media; the renderer creates/revokes object URLs from these bytes. */
 export const LanguagePreviewMediaView = Schema.Struct({

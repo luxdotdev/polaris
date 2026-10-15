@@ -8,7 +8,7 @@ import * as P from "@polaris/protocol";
 import {
   LanguagePreviewMediaView,
   PREVIEW_IMAGE_MAX_BYTES,
-  PREVIEW_IMAGE_MAX_DECODED_PIXELS,
+  PREVIEW_IMAGE_MAX_DECODED_BYTES,
   PREVIEW_IMAGE_MAX_FRAMES,
   PREVIEW_IMAGE_MAX_PIXELS,
 } from "../../shared/languages.ts";
@@ -93,7 +93,7 @@ export const rasterView = (
   if (
     pixels > PREVIEW_IMAGE_MAX_PIXELS ||
     measure.frames > PREVIEW_IMAGE_MAX_FRAMES ||
-    measure.decodedPixels > PREVIEW_IMAGE_MAX_DECODED_PIXELS
+    measure.decodedBytes > PREVIEW_IMAGE_MAX_DECODED_BYTES
   )
     throw languageFailure("too-large");
 

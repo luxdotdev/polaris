@@ -5,12 +5,18 @@ export interface RasterSize {
   readonly height: number;
 }
 
-/** What Chromium will decode: the canvas, how many frames, and the pixels decoded across them. */
+/**
+ * What Chromium will decode: the canvas, how many frames, and the bytes decoding takes, which
+ * are every frame's, tile's and layer's output plus the decoder's own working buffers.
+ */
 export interface RasterMeasure extends RasterSize {
   readonly mimeType: "image/png" | "image/jpeg" | "image/gif" | "image/webp" | "image/avif";
   readonly frames: number;
-  readonly decodedPixels: number;
+  readonly decodedBytes: number;
 }
+
+/** Chromium decodes to 4 bytes a pixel, or to 8 (half float) from samples deeper than 8 bits. */
+export const outputBytes = (deep: boolean): number => (deep ? 8 : 4);
 
 export const size = (width: number, height: number): RasterSize =>
   width > 0 && height > 0 ? { width, height } : malformed();

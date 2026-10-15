@@ -41,19 +41,38 @@ export const fcTL = (frame: Rect) =>
 
 export const acTL = (frames: number) => pngChunk("acTL", be32(frames), be32(0));
 
-/** A PNG whose extra chunks (`acTL`, `fcTL`) sit between IHDR and IDAT. */
-export const png = (
+export interface PngHeader {
+  readonly depth?: 8 | 16;
+  readonly interlaced?: boolean;
+}
+
+/** A PNG with IHDR's bit depth and interlace method set; extra chunks sit before IDAT. */
+export const pngWith = (
+  header: PngHeader,
   width: number,
   height: number,
   ...chunks: ReadonlyArray<ReadonlyArray<number>>
 ) =>
   bytes(
     [137, 80, 78, 71, 13, 10, 26, 10],
-    pngChunk("IHDR", be32(width), be32(height), [8, 6, 0, 0, 0]),
+    pngChunk("IHDR", be32(width), be32(height), [
+      header.depth ?? 8,
+      6,
+      0,
+      0,
+      header.interlaced ? 1 : 0,
+    ]),
     ...chunks,
     pngChunk("IDAT", [0]),
     pngChunk("IEND")
   );
+
+/** An 8-bit RGBA PNG whose extra chunks (`acTL`, `fcTL`) sit between IHDR and IDAT. */
+export const png = (
+  width: number,
+  height: number,
+  ...chunks: ReadonlyArray<ReadonlyArray<number>>
+) => pngWith({}, width, height, ...chunks);
 
 const gifFrame = (frame: Rect) => [
   0x2c,
@@ -83,23 +102,39 @@ export const gif = (
     [0x3b]
   );
 
-const segment = (marker: number, payload: ReadonlyArray<number>) => [
+export const segment = (marker: number, payload: ReadonlyArray<number>) => [
   0xff,
   marker,
   ...be16(payload.length + 2),
   ...payload,
 ];
 
-export const sof = (width: number, height: number, marker = 0xc0) =>
-  segment(marker, [8, ...be16(height), ...be16(width), 1, 1, 0x11, 0]);
+/** A frame header; `sampling` holds each component's packed H and V factors. */
+export const sof = (
+  width: number,
+  height: number,
+  marker = 0xc0,
+  sampling: ReadonlyArray<number> = [0x11]
+) =>
+  segment(marker, [
+    8,
+    ...be16(height),
+    ...be16(width),
+    sampling.length,
+    ...sampling.flatMap((factors, i) => [i + 1, factors, 0]),
+  ]);
 
-/** A JPEG: SOI, the given segments (default a JFIF APP0 and one SOF), then SOS. */
+/** A scan header over the first `count` components. */
+export const sos = (count: number) =>
+  segment(0xda, [count, ...Array.from({ length: count }, (_, i) => [i + 1, 0]).flat(), 0, 63, 0]);
+
+/** A JPEG: SOI, the given segments (default a JFIF APP0 and one SOF), then SOS (one if none). */
 export const jpeg = (...segments: ReadonlyArray<ReadonlyArray<number>>) =>
   bytes(
     [0xff, 0xd8],
     segment(0xe0, [...ascii("JFIF"), 0, 1, 1, 0, 0, 1, 0, 1, 0, 0]),
     ...segments,
-    segment(0xda, [1, 1, 0, 0, 63, 0]),
+    segments.some((part) => part[1] === 0xda) ? [] : sos(1),
     [0, 0xff, 0xd9]
   );
 
@@ -172,8 +207,30 @@ const bitString = (fields: ReadonlyArray<readonly [value: number, width: number]
 
 const bitsFor = (n: number) => Math.max(1, Math.ceil(Math.log2(n)));
 
-/** An AV1 sequence header OBU and one frame OBU; `reduced` picks the still-picture header. */
-export const av1 = (width: number, height: number, reduced = true) => {
+export interface Av1Color {
+  readonly depth?: 8 | 10 | 12;
+  readonly layout?: "420" | "444" | "mono";
+}
+
+/** `color_config` for the profile that carries `color`: 4:4:4 is profile 1, 12-bit profile 2. */
+const colorConfig = (
+  profile: number,
+  color: Av1Color
+): ReadonlyArray<readonly [number, number]> => [
+  [color.depth === undefined || color.depth === 8 ? 0 : 1, 1],
+  ...(profile === 2 ? ([[color.depth === 12 ? 1 : 0, 1]] as const) : []),
+  ...(profile === 1 ? [] : ([[color.layout === "mono" ? 1 : 0, 1]] as const)),
+  [0, 1],
+  [0, 1],
+  ...(profile === 2 && color.depth === 12 ? ([[color.layout === "444" ? 0 : 1, 1]] as const) : []),
+];
+
+/**
+ * An AV1 sequence header OBU and one frame OBU; `reduced` picks the still-picture header, and
+ * `color` the bit depth and chroma layout.
+ */
+export const av1 = (width: number, height: number, reduced = true, color: Av1Color = {}) => {
+  const profile = color.depth === 12 ? 2 : color.layout === "444" ? 1 : 0;
   const w = bitsFor(width);
   const h = bitsFor(height);
 
@@ -186,13 +243,13 @@ export const av1 = (width: number, height: number, reduced = true) => {
 
   const head: ReadonlyArray<readonly [number, number]> = reduced
     ? [
-        [0, 3],
+        [profile, 3],
         [1, 1],
         [1, 1],
         [0, 5],
       ]
     : [
-        [0, 3],
+        [profile, 3],
         [0, 1],
         [0, 1],
         [0, 1],
@@ -202,13 +259,28 @@ export const av1 = (width: number, height: number, reduced = true) => {
         [0, 5],
       ];
 
-  const sequence = bitString([...head, ...size]);
+  const tools: ReadonlyArray<readonly [number, number]> = reduced
+    ? [
+        [0, 3],
+        [0, 3],
+      ]
+    : [
+        [0, 1],
+        [0, 3],
+        [0, 4],
+        [0, 1],
+        [0, 1],
+        [0, 1],
+        [0, 3],
+      ];
+
+  const sequence = bitString([...head, ...size, ...tools, ...colorConfig(profile, color)]);
 
   return [0x0a, ...leb128(sequence.length), ...sequence, 0x32, 1, 0];
 };
 
 export interface AvifItem {
-  readonly type: "av01" | "grid";
+  readonly type: "av01" | "grid" | "tmap";
   readonly ispe?: Rect;
   readonly data: ReadonlyArray<number>;
 }

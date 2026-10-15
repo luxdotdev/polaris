@@ -25,7 +25,7 @@ const sniff = (data: Bytes): ((data: Bytes) => RasterMeasure) | null => {
 };
 
 /**
- * A preview image's format, canvas, frames and decoded pixels, read from its bytes before
+ * A preview image's format, canvas, frames and decode cost in bytes, read from its bytes before
  * Chromium decodes them. Null when anything can't be read exactly, so callers fail closed.
  */
 export const measureRaster = (bytes: Uint8Array): RasterMeasure | null => {
