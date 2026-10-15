@@ -3,7 +3,7 @@ import { Schema } from "effect";
 import type { Fetcher, Level, WideEvent } from "../../../../lib/log";
 import { createEmailHandler } from "./index";
 import type { EmailTransport } from "./transport";
-import { EmailValidationError, type EmailValidator } from "./validator";
+import { createValidator, EmailValidationError, type EmailValidator } from "./validator";
 import {
   createAdmission,
   limits,
@@ -84,7 +84,7 @@ describe("deployment-wide admission", () => {
 
     for (let i = 0; i < limits.total; i++)
       verdicts.push(
-        await (i % 2 ? first : second)(from(`10.0.${i >> 8}.${i & 255}`), `ada${i}@example.com`)
+        await (i % 2 ? first : second)(from(`10.${i >> 8}.${i & 255}.1`), `ada${i}@example.com`)
       );
 
     expect(verdicts.every((verdict) => verdict === "admitted")).toBe(true);
@@ -120,6 +120,22 @@ describe("deployment-wide admission", () => {
       );
 
     expect(await second(from("192.0.2.1"), "bob@example.com")).toBe("source_limited");
+  });
+
+  test.each([
+    ["/64s inside one IPv6 /48", (i: number) => `2001:db8:1:${i.toString(16)}::1`, "2001:db8:2::1"],
+    ["addresses inside one IPv4 /24", (i: number) => `192.0.2.${i}`, "192.0.3.1"],
+  ])("rotating %s shares the network's budget", async (_, host, neighbour) => {
+    const clock = { now: 0 };
+    const admit = instance(fakeUpstash(clock).fetcher, clock);
+    const verdicts = [];
+
+    for (let i = 0; i <= limits.perNetwork; i++)
+      verdicts.push(await admit(from(host(i)), `r${i}@example.com`));
+
+    expect(verdicts.slice(0, -1).every((verdict) => verdict === "admitted")).toBe(true);
+    expect(verdicts.at(-1)).toBe("source_limited");
+    expect(await admit(from(neighbour), "next@example.com")).toBe("admitted");
   });
 
   test("rotating sources and spellings cannot mail one recipient twice in ten minutes", async () => {
@@ -276,6 +292,51 @@ describe("recipient cooldown", () => {
     expect(validations).toBe(1);
   });
 
+  const sesError = (name: string, status?: number) =>
+    Object.assign(new Error("private"), { name, $metadata: { httpStatusCode: status } });
+
+  const production = {
+    NODE_ENV: "production",
+    AWS_REGION: "us-east-1",
+    AWS_ROLE_ARN: "arn:aws:iam::123456789012:role/polaris-download-email",
+    POLARIS_EMAIL_FROM: "download@example.com",
+    POLARIS_EMAIL_CONFIGURATION_SET: "polaris-download",
+  };
+
+  test.each([
+    { name: "BadRequestException", status: 400, holds: true },
+    { name: "ValidationException", status: 400, holds: true },
+    { name: "TooManyRequestsException", status: 429, holds: false },
+    { name: "ThrottlingException", status: 400, holds: false },
+    { name: "ExpiredTokenException", status: 400, holds: false },
+    { name: "InternalFailure", status: 500, holds: false },
+    { name: "TimeoutError", status: undefined, holds: false },
+  ])(
+    "an Insights $name (HTTP $status) holds the cooldown: $holds",
+    async ({ name, status, holds }) => {
+      let calls = 0;
+
+      const validator = createValidator(production, () => ({
+        send: async () => {
+          calls += 1;
+          throw sesError(name, status);
+        },
+      }));
+
+      const submit = handlerWith(
+        memoryStore(() => 0),
+        validator,
+        failing({}).sender
+      );
+
+      await submit("ada@example.com");
+      const second = await submit("ada@example.com");
+
+      expect(calls).toBe(holds ? 1 : 2);
+      expect(second.event.rejection).toBe(holds ? "recipient_cooldown" : undefined);
+    }
+  );
+
   test("a sent email holds the cooldown", async () => {
     const f = failing({});
 
@@ -378,7 +439,7 @@ describe("process-local fallback", () => {
       const verdicts = [];
 
       for (let i = 0; i < count; i++)
-        verdicts.push(await admit(from(`10.1.${i >> 8}.${i & 255}`), `flood${i}@example.com`));
+        verdicts.push(await admit(from(`10.${i >> 8}.${i & 255}.1`), `flood${i}@example.com`));
 
       return verdicts;
     };
@@ -395,11 +456,27 @@ describe("process-local fallback", () => {
     expect(await admit(from("192.0.2.1"), "b@example.com")).toBe("source_limited");
   });
 
-  test("sources past capacity share one overflow budget", async () => {
-    const { flood } = flooded(4);
-    const verdicts = await flood(4 + limits.overflowSource + 1);
+  test("hosts past capacity share one overflow budget", async () => {
+    const { admit } = flooded(4);
+    const verdicts = [];
+
+    // One /24 holds a slot, so three hosts get their own counter before the overflow.
+    for (let i = 0; i < 3 + limits.overflowSource + 1; i++)
+      verdicts.push(await admit(from(`10.1.0.${i}`), `flood${i}@example.com`));
 
     expect(verdicts.indexOf("source_limited")).toBe(verdicts.length - 1);
+  });
+
+  test("hosts a network refuses take no slots, so a visitor keeps its own counter", async () => {
+    // Room for the attacker's /48 and its admitted /64s, plus one visitor's network and host.
+    const { admit } = flooded(1 + limits.perNetwork + 2);
+
+    for (let i = 0; i < 200; i++)
+      await admit(from(`2001:db8:1:${i.toString(16)}::1`), `r${i}@example.com`);
+
+    for (let i = 0; i < limits.perSource; i++)
+      expect(await admit(from("198.51.100.1"), `v${i}@example.com`)).toBe("admitted");
+    expect(await admit(from("198.51.100.1"), "late@example.com")).toBe("source_limited");
   });
 
   test("a flood of new sources and recipients doesn't lift a recipient's cooldown", async () => {

@@ -8,6 +8,7 @@ export const windowMs = 15 * 60 * 1000;
 /** Sizes and their reasons are in this route's README ("Admission limits"). */
 export const limits = {
   perSource: 3,
+  perNetwork: 30,
   unknownSource: 30,
   overflowSource: 10,
   total: 450,
@@ -177,8 +178,11 @@ export function normalizeRecipient(email: string): string {
   return `${local}@${domain === "googlemail.com" ? "gmail.com" : domain}`;
 }
 
-/** IPv6 hosts are keyed by their /64, the block one subscriber usually holds. */
-function ipv6Source(raw: string) {
+/** A source's own key and the wider network it belongs to; both budgets must pass. */
+export type Source = { host: string; network: string };
+
+/** IPv6 hosts are keyed by their /64, the block one subscriber usually holds, inside its /48. */
+function ipv6Source(raw: string): Source {
   const hostname = new URL(`http://[${raw}]`).hostname.slice(1, -1);
   const [head = "", tail] = hostname.split("::");
   const front = head ? head.split(":") : [];
@@ -188,31 +192,56 @@ function ipv6Source(raw: string) {
   if (groups.slice(0, 5).every((group) => group === "0") && groups[5] === "ffff") {
     const [high = 0, low = 0] = groups.slice(6).map((group) => Number.parseInt(group, 16));
 
-    return [high >> 8, high & 255, low >> 8, low & 255].join(".");
+    return ipv4Source([high >> 8, high & 255, low >> 8, low & 255].join("."));
   }
 
-  return `${groups.slice(0, 4).join(":")}::/64`;
+  return {
+    host: `${groups.slice(0, 4).join(":")}::/64`,
+    network: `${groups.slice(0, 3).join(":")}::/48`,
+  };
+}
+
+function ipv4Source(raw: string): Source {
+  return { host: raw, network: `${raw.split(".").slice(0, 3).join(".")}.0/24` };
 }
 
 function canonicalSource(value: string | null) {
   const raw = value?.split(",").at(-1)?.trim() ?? "";
   const version = isIP(raw);
 
-  if (version === 4) return raw;
+  if (version === 4) return ipv4Source(raw);
 
   return version === 6 ? ipv6Source(raw) : undefined;
 }
 
 /** Only Vercel's own header names the source; anything else a client could have written. */
-export function sourceIdentity(headers: Headers, vercel: boolean): string | undefined {
+export function sourceIdentity(headers: Headers, vercel: boolean): Source | undefined {
   return vercel ? canonicalSource(headers.get("x-vercel-forwarded-for")) : undefined;
 }
 
-const sourceBudget = (identity: string | undefined, source: Count) => {
-  if (!identity) return limits.unknownSource;
+type Counter = { key: string; overflow?: string; budget: number };
 
-  return source.overflowed ? limits.overflowSource : limits.perSource;
-};
+/** Coarsest first, so a request its network refuses never creates a per-host counter. */
+function sourceCounters(
+  sources: string,
+  identity: Source | undefined,
+  digest: (value: string) => string
+): Counter[] {
+  if (!identity) return [{ key: `${sources}:unknown`, budget: limits.unknownSource }];
+
+  return [
+    {
+      key: `${sources}:network:${digest(identity.network)}`,
+      overflow: `${sources}:network-overflow`,
+      budget: limits.perNetwork,
+    },
+    {
+      key: `${sources}:${digest(identity.host)}`,
+      overflow: `${sources}:overflow`,
+      budget: limits.perSource,
+    },
+  ];
+}
 
 type Options = {
   store: LimitStore;
@@ -222,8 +251,8 @@ type Options = {
 };
 
 /**
- * Admits a submission only within its source's window, the deployment-wide ceiling and
- * the recipient's cooldown, checked in that order so a refused one spends no later budget.
+ * Admits a submission only within its source's network and host windows, the deployment-wide
+ * ceiling and the recipient's cooldown, checked in that order so a refused one spends no later budget.
  * `release` lifts the cooldown again, only for a submission that our side failed to send.
  */
 export function createAdmission({
@@ -239,14 +268,13 @@ export function createAdmission({
 
   const admit = async (headers: Headers, email: string): Promise<Admission> => {
     const window = Math.floor(now() / windowMs);
-    const identity = sourceIdentity(headers, vercel);
     const sources = `polaris:email:source:${window}`;
 
-    const source = identity
-      ? await store.increment(`${sources}:${digest(identity)}`, windowMs, `${sources}:overflow`)
-      : await store.increment(`${sources}:unknown`, windowMs);
+    for (const counter of sourceCounters(sources, sourceIdentity(headers, vercel), digest)) {
+      const { count, overflowed } = await store.increment(counter.key, windowMs, counter.overflow);
 
-    if (source.count > sourceBudget(identity, source)) return "source_limited";
+      if (count > (overflowed ? limits.overflowSource : counter.budget)) return "source_limited";
+    }
 
     if ((await store.increment(`polaris:email:total:${window}`, windowMs)).count > limits.total)
       return "total_limited";

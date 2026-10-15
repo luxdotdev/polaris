@@ -90,13 +90,20 @@ function requestGate(request: Request, event: WideEvent) {
   return null;
 }
 
+/** What each failure records as the event's `validation`; the rest are `unavailable` errors. */
+const verdictOutcomes: Partial<Record<ValidationFailure, "uncertain" | "invalid">> = {
+  uncertain: "uncertain",
+  rejected: "invalid",
+};
+
 function validationFailure(failure: EmailValidationError, event: WideEvent): Level {
-  event.validation = failure.reason === "uncertain" ? "uncertain" : "unavailable";
+  const verdict = verdictOutcomes[failure.reason];
+  event.validation = verdict ?? "unavailable";
   event.failure = `validation_${failure.reason}`;
 
   if (failure.cause_info) event.error = failure.cause_info;
 
-  return failure.reason === "uncertain" ? "info" : "error";
+  return verdict ? "info" : "error";
 }
 
 /** `retry` only when our side failed before a verdict or a send, so the cooldown is lifted. */
@@ -106,7 +113,7 @@ const held = (level: Level): Delivery => ({ level, retry: false });
 
 const retryable = (level: Level): Delivery => ({ level, retry: true });
 
-/** Failures that reached no paid verdict; any reply from Insights holds the cooldown. */
+/** Failures that reached no verdict on the address; any reply judging it holds the cooldown. */
 const noVerdict = new Set<ValidationFailure>(["unconfigured", "provider"]);
 
 async function deliver(

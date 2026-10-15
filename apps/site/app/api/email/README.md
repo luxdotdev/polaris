@@ -51,8 +51,10 @@ link remains the fallback. Insights cannot prove ownership or guarantee delivery
 Each admitted submission makes at most one validation call, with no retries and
 a hard **5-second deadline**, including credential resolution. Deadline expiry
 aborts the SDK request and records `unavailable` even if the client has not settled; a late
-success cannot send. HTTP errors (including 400/429), network failures and timeouts
-are all `unavailable`. Provider and schema errors are replaced without a cause;
+success cannot send. A `BadRequestException` or `ValidationException` judges the
+address: it counts as `invalid` (`failure: "validation_rejected"`, level `info`). Every
+other HTTP error (throttling, credentials, 5xx), network failures and timeouts are
+`unavailable`. Provider and schema errors are replaced without a cause;
 no address, domain, response, metadata or error is logged or traced. Omitting the
 validator dependency fails closed; there is no production pass-through default.
 
@@ -174,16 +176,21 @@ telemetry.
 Before any SES call, each syntax-valid submission must pass, in order (a refusal
 spends no later budget):
 
-1. **Source** (the primary control): 3 per 15-minute fixed window per IP. Only on
-   Vercel (`VERCEL=1`), and only `x-vercel-forwarded-for` (its rightmost hop) is
-   trusted: `x-real-ip` and `x-forwarded-for` are never read, since a client can send
-   them and rotate its identity. IPv6 sources are keyed by their /64 and IPv4-mapped IPv6
-   by its IPv4 address. Submissions with no usable source (or off Vercel) share one
-   `unknown` bucket of 30 per window, so a missing header neither limits every visitor
-   to 3 nor escapes limits. The process-local fallback store never evicts a live counter
-   or cooldown: once it tracks 10,000 sources, new ones share one `overflow` bucket of 10
-   per window, and once it holds 10,000 cooldowns, new recipients are refused as
-   `recipient_cooldown` until some expire.
+1. **Source** (the primary control): 3 per 15-minute fixed window per IP, inside 30
+   per window for its network. Only on Vercel (`VERCEL=1`), and only
+   `x-vercel-forwarded-for` (its rightmost hop) is trusted: `x-real-ip` and
+   `x-forwarded-for` are never read, since a client can send them and rotate its
+   identity. An IPv4 source is its address inside its /24; an IPv6 source is its /64
+   inside its /48, so one subscriber's /48 can't rotate through 65,536 fresh budgets;
+   IPv4-mapped IPv6 is its IPv4 address. The network counter is checked first, so a
+   request it refuses never creates a per-host counter (and every attempt from the
+   network, refused by its host or not, spends the network's budget). Submissions with
+   no usable source (or off Vercel) share one `unknown` bucket of 30 per window, so a
+   missing header neither limits every visitor to 3 nor escapes limits. The
+   process-local fallback store never evicts a live counter or cooldown: once it tracks
+   10,000 networks and hosts, new ones share an `overflow` bucket of 10 per window (one
+   for networks, one for hosts), and once it holds 10,000 cooldowns, new recipients are
+   refused as `recipient_cooldown` until some expire.
 2. **Deployment ceiling:** 450 per 15-minute window across every instance. It is a
    cost and quota backstop, not the everyday limit: 450 per window is 0.5/second on
    average, half the 1/second planned for `GetEmailAddressInsights`, and 43,200 a day,
@@ -195,10 +202,12 @@ spends no later budget):
    asks, to stop repeated mail to one inbox. The mailbox is the address lowercased,
    without a `+tag`, and for Gmail without dots. The cooldown is claimed at admission so
    concurrent submissions can't both send. It is released only when our side failed
-   before any Insights verdict or send (validation unconfigured or a provider error,
-   missing email configuration, a failed send). An `invalid` or `uncertain` verdict, a
-   malformed reply or a timeout holds it, so one address can't be validated (a paid
-   call) again within the cooldown.
+   before any Insights verdict or send (validation unconfigured or a provider error:
+   throttling, credentials, a 5xx or the network; missing email configuration; a failed
+   send). An `invalid` or `uncertain` verdict, a `BadRequestException` or
+   `ValidationException` for the address (logged as `validation_rejected`), a malformed
+   reply or a timeout holds it, so one address can't be validated (a paid call) again
+   within the cooldown.
 
 All three live in a `LimitStore` (`increment` with expiry, `claim` if absent). With
 `KV_REST_API_URL`/`KV_REST_API_TOKEN` (or the `UPSTASH_REDIS_REST_*` pair) set to an

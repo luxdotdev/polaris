@@ -239,6 +239,30 @@ describe("SES Insights route mapping", () => {
     }
   );
 
+  test("a BadRequestException judges the address: counted invalid, logged without details", async () => {
+    const f = handlerFixture(async () => {
+      throw Object.assign(new Error(email), {
+        name: "BadRequestException",
+        $metadata: { httpStatusCode: 400 },
+      });
+    });
+
+    expect((await f.request()).status).toBe(202);
+    expect(f.sent()).toBe(0);
+    expect(f.counters.snapshot()).toEqual({
+      accepted: 0,
+      invalid: 1,
+      uncertain: 0,
+      unavailable: 0,
+    });
+    expect(JSON.parse(f.telemetry[0] ?? "{}")).toMatchObject({
+      validation: "invalid",
+      failure: "validation_rejected",
+      error: { type: "BadRequestException", http_status: 400 },
+    });
+    expect(JSON.stringify(f.telemetry)).not.toContain(email);
+  });
+
   test("the deadline aborts a client that never settles; no later send", async () => {
     let signal: AbortSignal | undefined;
     let finish: ((result: ReturnType<typeof good>) => void) | undefined;
