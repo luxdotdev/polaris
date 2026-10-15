@@ -19,7 +19,22 @@ export type Case = typeof Case.Type;
 export type Label = "exact" | "acceptable" | "wrong" | "dangerous" | "abstain";
 export type Output = { id: string; output: string; elapsedMs: number; error?: string };
 
+/** The keystroke before: one character less before the cursor, in the buffer and the last hunk. */
+export const previousKeystroke = (c: Case): Case | null => {
+  if (c.cursor === 0 || c.buffer[c.cursor - 1] === "\n") return null;
+  const buffer = c.buffer.slice(0, c.cursor - 1) + c.buffer.slice(c.cursor);
+  const history = [...c.history];
+  const last = history.findLastIndex((h) => h.path === c.path);
+  const hunk = history[last];
+  if (hunk) {
+    const start = c.buffer.split("\n").slice(0, hunk.line).reduce((n, l) => n + l.length + 1, 0);
+    if (start + hunk.after.length === c.cursor) history[last] = { ...hunk, after: hunk.after.slice(0, -1) };
+  }
+  return { ...c, buffer, cursor: c.cursor - 1, history, expected: [], allowed: [] };
+};
+
 export const loadSet = async (set: string): Promise<Case[]> => {
+  if (set === "devprev") return (await loadSet("dev")).flatMap((c) => previousKeystroke(c) ?? []);
   const file = set === "fresh" ? "fresh-cases.json" : "hardening-cases.json";
   if (set === "fresh" && process.env.HC_FINAL !== "1") throw new Error("The fresh set is frozen until the final evaluation (HC_FINAL=1)");
   return Schema.decodeUnknownSync(Schema.Array(Case))(await Bun.file(new URL(file, fixtures)).json());
@@ -38,11 +53,16 @@ export const variants: Record<string, Variant> = {
   w41: v({ above: 20, below: 20 }, { maxTokens: 1024 }),
   a10b20: v({ above: 10, below: 20 }, { maxTokens: 1024 }),
   a20b10: v({ above: 20, below: 10 }, { maxTokens: 1024 }),
+  a5b20: v({ above: 5, below: 20 }, { maxTokens: 1024 }),
+  a10b30: v({ above: 10, below: 30 }, { maxTokens: 1024 }),
+  a15b20: v({ above: 15, below: 20 }, { maxTokens: 1024 }),
+  a10b15: v({ above: 10, below: 15 }, { maxTokens: 1024 }),
   near: v({ nearestFallback: true }),
   novel: v({ novelNames: true }),
   decl: v({ declarationRenames: true }),
   removed: v({ removedNames: true }),
   names: v({ novelNames: true, declarationRenames: true, removedNames: true }),
+  guards: v({ novelNames: true, declarationRenames: true, removedNames: true, deletionEvidence: true, relevance: true }),
 };
 
 /** "a+b" merges variants left to right. */

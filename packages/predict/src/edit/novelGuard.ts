@@ -1,5 +1,6 @@
 import type { EditPredictionRequest, PredictedEdit } from "@polaris/protocol";
 import { applyEdits } from "./apply.ts";
+import { importBindings } from "./identifierGuard.ts";
 
 /** Names every TypeScript file may use without defining or importing them. */
 const ambient = new Set(
@@ -26,9 +27,9 @@ const code = (source: string) =>
     " "
   );
 
-const names = (source: string) => code(source).match(/[\p{L}_$][\p{L}\p{N}_$]*/gu) ?? [];
+export const names = (source: string) => code(source).match(/[\p{L}_$][\p{L}\p{N}_$]*/gu) ?? [];
 
-const counts = (values: readonly string[]) => {
+export const counts = (values: readonly string[]) => {
   const result = new Map<string, number>();
 
   for (const value of values) result.set(value, (result.get(value) ?? 0) + 1);
@@ -97,5 +98,14 @@ export const inventsNames = (request: EditPredictionRequest, after: string) => {
 
   return names(after).some(
     (name) => !known.has(name) && !ambient.has(name) && !(typing && name.startsWith(typing))
+  );
+};
+
+/** A name imported twice does not compile. */
+export const duplicatesImport = (request: EditPredictionRequest, after: string) => {
+  const before = counts(importBindings(request.buffer));
+
+  return [...counts(importBindings(after))].some(
+    ([name, count]) => count > 1 && count > (before.get(name) ?? 0)
   );
 };

@@ -1,21 +1,20 @@
 import type { EditPredictionRequest, PredictedEdit } from "@polaris/protocol";
+import { changes } from "./deletionGuard.ts";
 import { guardEdits } from "./guards.ts";
+import { names } from "./novelGuard.ts";
+import { changedWords } from "./relevanceGuard.ts";
 import type { SweepOptions } from "./options.ts";
 import { lineAt, type EditWindow } from "./window.ts";
 
-/** Hunks on adjacent lines form one change; a rewrite may hold several. */
-const changes = (buffer: string, edits: readonly PredictedEdit[]) => {
-  const groups: PredictedEdit[][] = [];
+/** The change adds or removes code names, and at least one of them is in the history. */
+const followsHistory = (request: EditPredictionRequest, change: readonly PredictedEdit[]) => {
+  const history = new Set(
+    request.history
+      .filter((hunk) => hunk.path === request.path)
+      .flatMap((hunk) => names(`${hunk.before}\n${hunk.after}`))
+  );
 
-  for (const edit of edits) {
-    const group = groups.at(-1);
-    const last = group?.at(-1);
-
-    if (group && last && lineAt(buffer, edit.from) - lineAt(buffer, last.to) <= 1) group.push(edit);
-    else groups.push([edit]);
-  }
-
-  return groups;
+  return changedWords(request.buffer, change, names).some((name) => history.has(name));
 };
 
 /** When the whole rewrite is suppressed, the change nearest the focus may still pass alone. */
@@ -40,6 +39,8 @@ export const nearestChange = (
     );
 
   const nearest = groups.toSorted((a, b) => distance(a) - distance(b))[0] ?? [];
+
+  if (!followsHistory(request, nearest)) return guarded;
   const alone = guardEdits(request, window, nearest, options);
 
   if (!alone.edits.length) return guarded;

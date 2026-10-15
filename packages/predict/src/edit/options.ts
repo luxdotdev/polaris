@@ -18,6 +18,10 @@ export interface SweepOptions {
   readonly declarationRenames: boolean;
   /** Suppress bringing back, off the cursor line, a name the history removed. */
   readonly removedNames: boolean;
+  /** Suppress whole-line deletions the history gives no reason for. */
+  readonly deletionEvidence: boolean;
+  /** Suppress changes away from the focus line that touch no word of the history. */
+  readonly relevance: boolean;
 }
 
 /** The layout of the spike and the 2026-10-15 hardening recordings. */
@@ -32,6 +36,8 @@ export const spikeSweepOptions: SweepOptions = {
   novelNames: false,
   declarationRenames: false,
   removedNames: false,
+  deletionEvidence: false,
+  relevance: false,
 };
 
 export const sweepOptions: SweepOptions = spikeSweepOptions;

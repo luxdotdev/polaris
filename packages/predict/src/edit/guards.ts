@@ -1,9 +1,16 @@
 import type { EditPredictionRequest, PredictedEdit, SuppressedReason } from "@polaris/protocol";
 import { applyEdits } from "./apply.ts";
+import { deletesUnprompted } from "./deletionGuard.ts";
+import { strays } from "./relevanceGuard.ts";
 import { changesBlankLines, unbalancesDelimiters } from "./delimiterGuard.ts";
 import { unsafeIdentifiers } from "./identifierGuard.ts";
 import { changesHistory } from "./historyGuard.ts";
-import { inventsNames, renamesDeclaration, restoresRemovedNames } from "./novelGuard.ts";
+import {
+  duplicatesImport,
+  inventsNames,
+  renamesDeclaration,
+  restoresRemovedNames,
+} from "./novelGuard.ts";
 import type { SweepOptions } from "./options.ts";
 import type { EditWindow } from "./window.ts";
 
@@ -33,28 +40,40 @@ const unstable = (request: EditPredictionRequest, edit: PredictedEdit) => {
   return shorthand !== null && newLine.trimStart().startsWith(`${shorthand[1]}:`);
 };
 
+type GuardOptions = Partial<
+  Pick<
+    SweepOptions,
+    "novelNames" | "declarationRenames" | "removedNames" | "deletionEvidence" | "relevance"
+  >
+>;
+
 export const guardEdits = (
   request: EditPredictionRequest,
   window: EditWindow,
   edits: readonly PredictedEdit[],
-  options?: Pick<SweepOptions, "novelNames" | "declarationRenames" | "removedNames">
+  options?: GuardOptions
 ) => {
   if (!edits.length) return { edits: [], suppressed: [] };
 
-  let reason: SuppressedReason | undefined;
   const after = applyEdits(request.buffer, edits);
+  const on = (flag: keyof GuardOptions) => options?.[flag] === true;
 
-  if (edits.some((edit) => edit.from < window.from || edit.to > window.to))
-    reason = "outside-window";
-  else if (changesHistory(request, after, edits)) reason = "revert";
-  else if (edits.length && request.buffer.replace(/\s/g, "") === after.replace(/\s/g, ""))
-    reason = "unstable";
-  else if (edits.some((edit) => unstable(request, edit))) reason = "unstable";
-  else if (unbalancesDelimiters(request, after, edits)) reason = "unstable";
-  else if (unsafeIdentifiers(request, after, edits)) reason = "unstable";
-  else if (options?.novelNames && inventsNames(request, after)) reason = "unstable";
-  else if (options?.declarationRenames && renamesDeclaration(request, after)) reason = "unstable";
-  else if (options?.removedNames && restoresRemovedNames(request, edits)) reason = "revert";
+  const checks: readonly (readonly [SuppressedReason, () => boolean])[] = [
+    ["outside-window", () => edits.some((edit) => edit.from < window.from || edit.to > window.to)],
+    ["revert", () => changesHistory(request, after, edits)],
+    ["unstable", () => request.buffer.replace(/\s/g, "") === after.replace(/\s/g, "")],
+    ["unstable", () => edits.some((edit) => unstable(request, edit))],
+    ["unstable", () => unbalancesDelimiters(request, after, edits)],
+    ["unstable", () => unsafeIdentifiers(request, after, edits)],
+    ["unstable", () => on("novelNames") && inventsNames(request, after)],
+    ["unstable", () => on("novelNames") && duplicatesImport(request, after)],
+    ["unstable", () => on("declarationRenames") && renamesDeclaration(request, after)],
+    ["revert", () => on("removedNames") && restoresRemovedNames(request, edits)],
+    ["unstable", () => on("deletionEvidence") && deletesUnprompted(request, edits)],
+    ["unstable", () => on("relevance") && strays(request, edits)],
+  ];
+
+  const reason = checks.find(([, check]) => check())?.[0];
 
   // Treat a region rewrite atomically: retained hunks may depend on a dropped hunk.
   return reason

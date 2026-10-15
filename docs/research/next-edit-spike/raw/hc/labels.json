@@ -71,6 +71,10 @@
   "6463e8150efe0e95": {
    "label": "dangerous",
    "note": "seed: spike sweep-next-edit"
+  },
+  "05da96c95263e948": {
+   "label": "acceptable",
+   "note": "Deletes the now-dead key constant; the dead alt line remains for the next edit."
   }
  },
  "im02": {
@@ -149,6 +153,14 @@
   "2acdbc785bdec7c8": {
    "label": "wrong",
    "note": "Invents a review case rather than the setup case; existing cases are intact."
+  },
+  "9404b02599cc39bd": {
+   "label": "wrong",
+   "note": "Invents a review case rather than the setup case; existing cases are intact."
+  },
+  "8faff325c2154de8": {
+   "label": "wrong",
+   "note": "Invents an outcome case using setupOutcome; not the setup case, existing cases intact."
   }
  },
  "in05": {
@@ -185,6 +197,10 @@
   "b40029d5f4e62167": {
    "label": "dangerous",
    "note": "Deletes the dead commands hook correctly but also drops the healthy review parameter and rewrites its condition."
+  },
+  "2d726a72513684a5": {
+   "label": "dangerous",
+   "note": "Drops the healthy review parameter that the body still uses."
   }
  },
  "him04": {
@@ -251,6 +267,14 @@
   "02a13150a567a7aa": {
    "label": "acceptable",
    "note": "seed: zeta-2.1 dev: Useful partial continuation: correct path attribute; React omits null as it omits undefined. The separate diff attribute remains to be typed."
+  },
+  "f819179e321b0b29": {
+   "label": "wrong",
+   "note": "Closes data-menu-path on change.kind and invents a data-menu-line; existing code intact."
+  },
+  "4f0af206dcb006cd": {
+   "label": "wrong",
+   "note": "Correct data-menu-path, but adds an invented data-menu-line from change.line instead of data-menu-diff."
   }
  },
  "hin08": {
@@ -273,6 +297,10 @@
   "e5162e46903bb3f2": {
    "label": "exact",
    "note": "seed: sweep-next-edit dev: Matches commit-derived ground truth under the spike whitespace rule."
+  },
+  "fc4a0518ddb3e325": {
+   "label": "acceptable",
+   "note": "Continues the user's name -> request.harness replacement in which(); same value, a correct step short of harnessBinary."
   }
  },
  "hrf06": {
@@ -441,6 +469,40 @@
   "4b10074a2e99f81f": {
    "label": "dangerous",
    "note": "Re-adds a file-count span right after the user removed the file count from that line; reverts the user's intent."
+  }
+ },
+ "him03": {
+  "7c6bd8774358a6f4": {
+   "label": "wrong",
+   "note": "Adds shownDiff to the second tree as well; plausible, not the import, existing code intact."
+  }
+ },
+ "rn02": {
+  "47e2c72cc6b1dba0": {
+   "label": "dangerous",
+   "note": "Also turns the healthy unavailable() return at line 104, which the commit keeps, into releasesPage()."
+  },
+  "e25894ea3887e984": {
+   "label": "dangerous",
+   "note": "Turns only the healthy unavailable() return at line 104, which the commit keeps, into releasesPage()."
+  }
+ },
+ "hdd07": {
+  "4a185d1161bc2e15": {
+   "label": "dangerous",
+   "note": "Passes uuid into the steer send call that itself destructures uuid; breaks healthy code instead of deleting the dead constant."
+  }
+ },
+ "hdd09": {
+  "00e0c24c0909acc9": {
+   "label": "dangerous",
+   "note": "Appends .pipe(done) to eight healthy review/session handlers."
+  }
+ },
+ "hrf09": {
+  "688c139eb66ddaa7": {
+   "label": "dangerous",
+   "note": "Duplicates the SecureStorage import the user just added."
   }
  }
 }
