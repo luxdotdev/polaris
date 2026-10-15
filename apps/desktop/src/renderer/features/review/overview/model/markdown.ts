@@ -70,13 +70,26 @@ export const prepareMarkdown = (markdown: string) =>
 export type ReviewLink =
   | { readonly kind: "finding"; readonly id: string }
   | { readonly kind: "path"; readonly path: string; readonly line: number | null }
-  | { readonly kind: "external"; readonly href: string };
+  | { readonly kind: "external"; readonly href: string }
+  | { readonly kind: "inert" };
 
+/** `decodeURIComponent` that returns null on a malformed escape instead of throwing. */
+const decodeOrNull = (value: string): string | null => {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return null;
+  }
+};
+
+/** Total over any href: Review Markdown is pull-request content, so a bad one renders inert. */
 export const linkOf = (href: string): ReviewLink => {
   if (href.startsWith("#finding=")) return { kind: "finding", id: href.slice(9) };
 
   if (href.startsWith("#path=")) {
-    const target = decodeURIComponent(href.slice(6));
+    const target = decodeOrNull(href.slice(6));
+
+    if (target === null) return { kind: "inert" };
     const match = /^(.*?):(\d+)$/.exec(target);
 
     return match === null

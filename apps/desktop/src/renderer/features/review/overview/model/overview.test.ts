@@ -226,6 +226,13 @@ describe("markdown", () => {
     expect(linkOf("#path=src%2Fa.ts%3A12")).toEqual({ kind: "path", path: "src/a.ts", line: 12 });
   });
 
+  test.each(["#path=%", "#path=%E0%A4%A", "#path=src%2"])(
+    "a malformed path link %p renders inert instead of throwing",
+    (href) => {
+      expect(linkOf(href)).toEqual({ kind: "inert" });
+    }
+  );
+
   test("resolves a path, a unique suffix, and a line", () => {
     expect(resolvePath("events.ts", PATHS)).toEqual({ path: "src/audit/events.ts", line: null });
     expect(resolvePath("src/auth/impersonation.ts:41", PATHS)).toEqual({
