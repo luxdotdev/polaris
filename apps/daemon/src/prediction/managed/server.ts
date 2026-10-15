@@ -126,6 +126,7 @@ export class ManagedServer {
   private attempt = 0;
   private process: ManagedProcess | null = null;
   private download: AbortController | null = null;
+  private verifying: Promise<void> | null = null;
   private starting: Promise<void> | null = null;
   private cancelIdle: (() => void) | null = null;
   private cancelRetry: (() => void) | null = null;
@@ -145,12 +146,14 @@ export class ManagedServer {
     if (this.asset === null || this.ports.tooSmall) this.move({ type: "unsupported" });
   }
 
-  private move(event: ManagedEvent) {
-    const next = decideManaged(this.state, event);
-    const changed = next.value !== this.state.value;
-    this.state = next;
+  private move(...events: ReadonlyArray<ManagedEvent>) {
+    for (const event of events) {
+      const next = decideManaged(this.state, event);
+      const changed = next.value !== this.state.value;
+      this.state = next;
 
-    if (changed || event.type === "setup") this.notify();
+      if (changed || event.type === "setup") this.notify();
+    }
   }
 
   private notify() {
@@ -197,25 +200,44 @@ export class ManagedServer {
     if (!this.state.matches("absent") && !this.state.matches("stopped")) return;
     this.dir = dir;
     this.model = this.resolveModel(model);
-    const present = await this.present(dir);
 
-    if (present && this.state.matches("absent")) {
-      this.move({ type: "setup" });
-      this.move({ type: "downloaded" });
-    } else if (!present && this.state.matches("stopped")) this.move({ type: "remove" });
+    if (!(await this.onDisk(dir))) {
+      if (this.state.matches("stopped")) this.move({ type: "remove" });
+
+      return;
+    }
+
+    const known = this.verified.get(this.verifiedKey(dir));
+
+    if (known === true || (known === undefined && this.state.matches("stopped"))) {
+      if (this.state.matches("absent")) this.move({ type: "setup" }, { type: "downloaded" });
+
+      return;
+    }
+
+    if (known === undefined) this.verifying ??= this.verifyExisting(dir);
   }
 
-  /** Both files present with their pinned sizes; the model's hash is checked once per run. */
-  private async present(dir: string) {
-    if (this.asset === null) return false;
+  /** A model already in the folder is hashed once per run, in the background, as Verifying. */
+  private async verifyExisting(dir: string) {
+    const key = this.verifiedKey(dir);
+    const file = this.model.file;
+    this.progress = null;
+    this.move({ type: "setup" });
 
-    if (!(await this.onDisk(dir))) return false;
+    try {
+      const ok = await isDownloaded(dir, file);
+      this.verified.set(key, ok);
 
-    if (this.verified.get(this.verifiedKey(dir)) === true) return true;
-    const ok = await isDownloaded(dir, this.model.file);
-    this.verified.set(this.verifiedKey(dir), ok);
-
-    return ok;
+      if (ok) {
+        this.move({ type: "downloaded" });
+      } else {
+        this.fail("checksum-mismatch", `${file.name} in ${dir} doesn't match its checksum`);
+        this.move({ type: "download-failed" });
+      }
+    } finally {
+      this.verifying = null;
+    }
   }
 
   private verifiedKey(dir: string) {
@@ -384,6 +406,8 @@ export class ManagedServer {
 
   /** Starts the server if it isn't up, and answers once it serves; concurrent callers share it. */
   start(): Promise<void> {
+    if (this.verifying !== null) return this.verifying.then(() => this.start());
+
     if (this.state.matches("serving")) return Promise.resolve();
 
     if (this.starting !== null) return this.starting;

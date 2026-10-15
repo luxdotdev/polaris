@@ -199,6 +199,18 @@ const failureLog = (status: ManagedServerStatus) =>
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 5));
 
+/** The status once a model found in the folder has been hashed. */
+const verified = async (server: ManagedServer, dir?: string) => {
+  let status = await server.status(dir);
+
+  while (phase(status) === "Verifying") {
+    await settle();
+    status = await server.status(dir);
+  }
+
+  return status;
+};
+
 test("setup downloads the build and the model, then the server is stopped until a request", async () => {
   const dir = scratch();
 
@@ -224,15 +236,17 @@ test("setup downloads the build and the model, then the server is stopped until 
   }
 });
 
-test("a verified model already in the chosen folder counts as downloaded", async () => {
+test("a model already in the chosen folder is verified in the background, then counts as downloaded", async () => {
   const dir = scratch();
 
   try {
     installed(dir);
-    const { server } = make(dir);
-    const status = await server.status(dir);
+    const { server, statuses } = make(dir);
+    expect(phase(await server.status(dir))).toBe("Verifying");
+    const status = await verified(server, dir);
     expect(phase(status)).toBe("Stopped");
     expect(status.endpoint?.url).toBe("http://127.0.0.1:43210");
+    expect(statuses.map(phase)).toEqual(["Verifying", "Stopped"]);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -245,10 +259,10 @@ test("a model file with the wrong bytes isn't downloaded, and one changed after 
     installed(dir);
     writeFileSync(join(dir, "sweep.gguf"), Buffer.from("x".repeat(MODEL_BYTES.length)));
     const { server, processes } = make(dir);
-    expect(phase(await server.status())).toBe("Absent");
+    expect(failureReason(await verified(server))).toBe("checksum-mismatch");
     await server.remove();
     installed(dir);
-    expect(phase(await server.status())).toBe("Stopped");
+    expect(phase(await verified(server))).toBe("Stopped");
     writeFileSync(join(dir, "sweep.gguf"), MODEL_BYTES.subarray(1));
 
     const refused = await server.start().then(
@@ -386,7 +400,7 @@ test("remove deletes the model and the build and the status is absent again", as
   try {
     installed(dir);
     const { server } = make(dir);
-    expect(phase(await server.status())).toBe("Stopped");
+    expect(phase(await verified(server))).toBe("Stopped");
     await server.remove();
     expect(phase(await server.status())).toBe("Absent");
     expect(existsSync(join(dir, "sweep.gguf"))).toBe(false);
