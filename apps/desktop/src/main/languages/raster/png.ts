@@ -45,5 +45,6 @@ export const png = (data: Bytes): RasterMeasure => {
     ...canvas,
     frames: Math.max(1, declared, controls),
     decodedBytes,
+    largestPixels: area(canvas),
   };
 };

@@ -101,7 +101,13 @@ const extended = (data: Bytes, header: Chunk, rest: ReadonlyArray<Chunk>): Raste
 
     sameSize(canvas, still.size);
 
-    return { mimeType: "image/webp", ...canvas, frames: 1, decodedBytes: decodedBytes([still]) };
+    return {
+      mimeType: "image/webp",
+      ...canvas,
+      frames: 1,
+      decodedBytes: decodedBytes([still]),
+      largestPixels: area(canvas),
+    };
   }
 
   if (frames.length === 0 || rest.some(isImage)) return malformed();
@@ -112,6 +118,7 @@ const extended = (data: Bytes, header: Chunk, rest: ReadonlyArray<Chunk>): Raste
     ...canvas,
     frames: frames.length,
     decodedBytes: decodedBytes(decoded),
+    largestPixels: area(canvas),
   };
 };
 
@@ -123,5 +130,11 @@ export const webp = (data: Bytes): RasterMeasure => {
   if (first === undefined || !isImage(first)) return malformed();
   const still = image(data, [first]);
 
-  return { mimeType: "image/webp", ...still.size, frames: 1, decodedBytes: decodedBytes([still]) };
+  return {
+    mimeType: "image/webp",
+    ...still.size,
+    frames: 1,
+    decodedBytes: decodedBytes([still]),
+    largestPixels: area(still.size),
+  };
 };

@@ -80,6 +80,19 @@ describe("JPEG decode cost", () => {
     refused(bytes([...photo(0xc2)], [...photo(0xc0)]));
   });
 
+  test("a gain map larger than the canvas cap is refused, though its bytes fit the budget", () => {
+    const small = jpeg(sof(64, 64), sos(1));
+
+    passes(bytes([...small], [...jpeg(sof(6000, 4000), sos(1))]));
+    refused(bytes([...small], [...jpeg(sof(7000, 4000), sos(1))]));
+  });
+
+  test("the view carries the decode cost, not the pixel count, for the renderer's budget", () => {
+    const view = rasterView(photo(0xc2), MAX);
+
+    expect(view.decodedBytes).toBeGreaterThan(4 * 6000 * 4000 * 2);
+  });
+
   test("a chain of embedded SOIs that would make the walk quadratic is refused, quickly", () => {
     const chain = Array.from({ length: 150_000 }, () => [0xff, 0xe1, 0, 4, 0xff, 0xd8]).flat();
 

@@ -88,10 +88,9 @@ export const rasterView = (
   const measure = measureRaster(bytes);
 
   if (measure === null) throw languageFailure("invalid-input");
-  const pixels = measure.width * measure.height;
 
   if (
-    pixels > PREVIEW_IMAGE_MAX_PIXELS ||
+    measure.largestPixels > PREVIEW_IMAGE_MAX_PIXELS ||
     measure.frames > PREVIEW_IMAGE_MAX_FRAMES ||
     measure.decodedBytes > PREVIEW_IMAGE_MAX_DECODED_BYTES
   )
@@ -100,7 +99,7 @@ export const rasterView = (
   return LanguagePreviewMediaView.make({
     mimeType: measure.mimeType,
     bytes: bytes.length,
-    pixels: measure.frames > 1 ? 2 * pixels : pixels,
+    decodedBytes: measure.decodedBytes,
     base64: Buffer.from(bytes).toString("base64"),
   });
 };

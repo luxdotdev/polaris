@@ -72,7 +72,7 @@ const api: LanguageApi = {
 
     let output:
       | LanguagePreviewPolicy
-      | { mimeType: string; bytes: number; pixels: number; base64: string };
+      | { mimeType: string; bytes: number; decodedBytes: number; base64: string };
 
     if (method === "languages.preview.policy.get") output = policy;
     else if (method === "languages.preview.policy.set") {
@@ -94,7 +94,7 @@ const api: LanguageApi = {
         mediaStats.inFlight--;
       }
 
-      output = { mimeType: "image/png", bytes: atob(png).length, pixels: 1, base64: png };
+      output = { mimeType: "image/png", bytes: atob(png).length, decodedBytes: 4, base64: png };
     }
 
     const value = Schema.decodeUnknownSync(LanguageRequestOutputs[method])(output);

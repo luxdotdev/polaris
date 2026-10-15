@@ -188,5 +188,11 @@ export const avif = (data: Bytes): RasterMeasure => {
     outputs * outputBytes(deep) * area(canvas)
   );
 
-  return { mimeType: "image/avif", ...canvas, frames: 1, decodedBytes };
+  return {
+    mimeType: "image/avif",
+    ...canvas,
+    frames: 1,
+    decodedBytes,
+    largestPixels: area(canvas),
+  };
 };

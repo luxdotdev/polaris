@@ -26,7 +26,7 @@ const policy = LanguagePreviewPolicy.make({
   maxMediaBytes: 10 * 1024 * 1024,
 });
 
-const media = { mimeType: "image/png", bytes: 3, pixels: 1, base64: "AQID" };
+const media = { mimeType: "image/png", bytes: 3, decodedBytes: 4, base64: "AQID" };
 
 test("eight concurrent tiny images progress through full response reservations", async () => {
   let inFlight = 0;

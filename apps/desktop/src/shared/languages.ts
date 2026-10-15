@@ -13,7 +13,7 @@ export const LanguageClientIdentity = Schema.Struct({
   connectionEpoch: Languages.LanguageCounter.check(Schema.isGreaterThan(0)),
 });
 
-/** The most pixels one preview image may declare (6000 × 4000 fits; ~96 MB decoded as RGBA). */
+/** The most pixels any one image a preview decodes may hold, a gain map too (6000 × 4000 fits). */
 export const PREVIEW_IMAGE_MAX_PIXELS = 24_000_000;
 
 /** The most encoded bytes one preview image may have, whatever a policy or request asks for. */
@@ -29,8 +29,10 @@ export const PREVIEW_IMAGE_MAX_DECODED_BYTES = 512 * 1024 * 1024;
 export const LanguagePreviewMediaView = Schema.Struct({
   mimeType: Schema.String.check(Schema.isPattern(/^image\/(png|jpeg|gif|webp|avif)$/)),
   bytes: Languages.LanguageCounter.check(Schema.isLessThanOrEqualTo(PREVIEW_IMAGE_MAX_BYTES)),
-  /** Pixels held decoded (an animation holds two frames), so the renderer can budget them. */
-  pixels: Languages.LanguageCounter.check(Schema.isLessThanOrEqualTo(2 * PREVIEW_IMAGE_MAX_PIXELS)),
+  /** Bytes decoding takes, as main measured them, so the renderer can budget what it holds. */
+  decodedBytes: Languages.LanguageCounter.check(
+    Schema.isLessThanOrEqualTo(PREVIEW_IMAGE_MAX_DECODED_BYTES)
+  ),
   base64: Schema.String.check(
     Schema.isMaxLength(13981016),
     Schema.isPattern(/^[A-Za-z0-9+/]*={0,2}$/)

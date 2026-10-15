@@ -37,5 +37,7 @@ export const gif = (data: Bytes): RasterMeasure => {
     at = subBlocks(data, at + 11 + colorTable(data.u8(at + 9)));
   }
 
-  return frames > 0 ? { mimeType: "image/gif", ...screen, frames, decodedBytes } : malformed();
+  return frames > 0
+    ? { mimeType: "image/gif", ...screen, frames, decodedBytes, largestPixels: area(screen) }
+    : malformed();
 };

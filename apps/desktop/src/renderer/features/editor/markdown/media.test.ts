@@ -27,7 +27,7 @@ const policy = LanguagePreviewPolicy.make({
   maxMediaBytes: 10,
 });
 
-const media = { mimeType: "image/png", bytes: 3, pixels: 1, base64: "AQID" };
+const media = { mimeType: "image/png", bytes: 3, decodedBytes: 4, base64: "AQID" };
 
 const adapter = (read: () => Promise<typeof media>): LanguageApi => ({
   request: async () => {
@@ -114,8 +114,8 @@ describe("bounded media lifecycle", () => {
     expect(revoked).toEqual(["blob:1", "blob:2"]);
     await assert.rejects(pool.acquire("a.png"), /limit/);
   });
-  test("decoded pixels are budgeted across images, not just encoded bytes", async () => {
-    const big = { ...media, pixels: 20_000_000 };
+  test("decoded bytes are budgeted across images, not just encoded bytes", async () => {
+    const big = { ...media, decodedBytes: 160 * 1024 * 1024 };
     let next = 0;
 
     const pool = new PreviewMediaPool(
@@ -174,7 +174,7 @@ describe("bounded media lifecycle", () => {
       { ...media, mimeType: "image/svg+xml" },
       { ...media, bytes: 4 },
       { ...media, bytes: 12, base64: "AQIDAQIDAQIDAQID" },
-      { ...media, pixels: 48_000_001 },
+      { ...media, decodedBytes: 512 * 1024 * 1024 + 1 },
     ]) {
       let creates = 0;
 

@@ -13,6 +13,8 @@ export interface RasterMeasure extends RasterSize {
   readonly mimeType: "image/png" | "image/jpeg" | "image/gif" | "image/webp" | "image/avif";
   readonly frames: number;
   readonly decodedBytes: number;
+  /** Pixels in the largest one image decoded: the canvas, or a gain map decoded beside it. */
+  readonly largestPixels: number;
 }
 
 /** Chromium decodes to 4 bytes a pixel, or to 8 (half float) from samples deeper than 8 bits. */

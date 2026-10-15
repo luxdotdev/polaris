@@ -89,41 +89,51 @@ interface Walk {
   left: number;
 }
 
-const measured = (read: () => number): number => {
+interface Embedded {
+  readonly bytes: number;
+  readonly pixels: number;
+}
+
+const NOTHING: Embedded = { bytes: 0, pixels: 0 };
+
+const embeddedFrame = (data: Bytes, at: number): Embedded => {
   try {
-    return read();
+    const frame = frameAt(data, at);
+
+    return { bytes: cost(frame, true), pixels: area(frame.size) };
   } catch (error) {
-    if (error instanceof Malformed) return 0;
+    if (error instanceof Malformed) return NOTHING;
     throw error;
   }
 };
 
 /**
- * One libjpeg `next_marker` from `at`: stray bytes and fill skipped. A frame's cost (0 if
+ * One libjpeg `next_marker` from `at`: stray bytes and fill skipped. A frame's cost (nothing if
  * libjpeg would fail first), or undefined and where the walk goes on.
  */
-const nextMarker = (data: Bytes, at: number): readonly [cost: number | undefined, next: number] => {
+const nextMarker = (data: Bytes, at: number): readonly [Embedded | undefined, next: number] => {
   const bytes = data.data;
   let marker = bytes.indexOf(0xff, at);
 
-  if (marker < 0) return [0, bytes.length];
+  if (marker < 0) return [NOTHING, bytes.length];
 
   while (bytes[marker] === 0xff) marker++;
   const type = bytes[marker];
 
-  if (type === undefined || type === 0xd8 || type === 0xd9 || type === 0xda) return [0, marker];
+  if (type === undefined || type === 0xd8 || type === 0xd9 || type === 0xda)
+    return [NOTHING, marker];
 
   if (type === 0x00 || standalone(type)) return [undefined, marker + 1];
 
-  if (isSof(type)) return [measured(() => cost(frameAt(data, marker - 1), true)), marker];
+  if (isSof(type)) return [embeddedFrame(data, marker - 1), marker];
 
   return data.has(marker + 1, 2)
     ? [undefined, marker + 1 + Math.max(2, data.u16(marker + 1))]
-    : [0, marker];
+    : [NOTHING, marker];
 };
 
 /** What a JPEG starting at `from`'s SOI would cost libjpeg, which skips junk between markers. */
-const embeddedAt = (data: Bytes, from: number, walk: Walk): number => {
+const embeddedAt = (data: Bytes, from: number, walk: Walk): Embedded => {
   for (let at = from + 2; ;) {
     const [found, next] = nextMarker(data, at);
 
@@ -138,15 +148,22 @@ const embeddedAt = (data: Bytes, from: number, walk: Walk): number => {
 
 /**
  * Blink decodes a gain map (MPF or GContainer) as a second JPEG, located by offsets that can
- * point anywhere; every SOI after the first is costed as one, and the dearest counts.
+ * point anywhere; every SOI after the first is costed as one, and the dearest and largest count.
  */
-const gainMap = (data: Bytes): number => {
+const gainMap = (data: Bytes): Embedded => {
   const bytes = data.data;
   const walk = { left: WALK_PER_BYTE * bytes.length };
-  let dearest = 0;
+  let dearest = NOTHING;
 
-  for (let at = bytes.indexOf(0xff, 1); at >= 0; at = bytes.indexOf(0xff, at + 1))
-    if (bytes[at + 1] === 0xd8) dearest = Math.max(dearest, embeddedAt(data, at, walk));
+  for (let at = bytes.indexOf(0xff, 1); at >= 0; at = bytes.indexOf(0xff, at + 1)) {
+    if (bytes[at + 1] !== 0xd8) continue;
+    const found = embeddedAt(data, at, walk);
+
+    dearest = {
+      bytes: Math.max(dearest.bytes, found.bytes),
+      pixels: Math.max(dearest.pixels, found.pixels),
+    };
+  }
 
   return dearest;
 };
@@ -175,11 +192,13 @@ export const jpeg = (data: Bytes): RasterMeasure => {
   if (frame === null) return malformed();
   // libjpeg buffers the whole image when the first scan leaves a component out.
   const buffered = frame.progressive || data.u8(at + 4) < frame.components.length;
+  const gain = gainMap(data);
 
   return {
     mimeType: "image/jpeg",
     ...frame.size,
     frames: 1,
-    decodedBytes: cost(frame, buffered) + gainMap(data),
+    decodedBytes: cost(frame, buffered) + gain.bytes,
+    largestPixels: Math.max(area(frame.size), gain.pixels),
   };
 };

@@ -143,11 +143,10 @@ describe("rasterView refuses what Chromium would decode larger than the header s
     expect(() => rasterView(gif(16, 16).subarray(0, 30), 1024)).toThrow("invalid-input");
   });
 
-  test("a photo-sized image passes with its pixel count; an animation holds two frames", () => {
-    expect(rasterView(jpeg(sof(6000, 4000)), 1024)).toMatchObject({
-      mimeType: "image/jpeg",
-      pixels: 24_000_000,
-    });
-    expect(rasterView(gif(100, 100, frames(3, 100, 100)), MAX).pixels).toBe(20_000);
+  test("a photo-sized image passes; an animation's view costs every frame's RGBA output", () => {
+    expect(rasterView(jpeg(sof(6000, 4000)), 1024).mimeType).toBe("image/jpeg");
+    expect(rasterView(gif(100, 100, frames(3, 100, 100)), MAX).decodedBytes).toBe(
+      3 * 4 * 100 * 100
+    );
   });
 });
