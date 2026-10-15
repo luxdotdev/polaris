@@ -161,6 +161,7 @@ Add `src/scenarios/<name>.ts` exporting a `Scenario` and list it in `src/scenari
 
 - The sampler measures the Daemon only; the `polaris bridge` processes (and ssh) are Client-side and not included.
 - Wakeups are not comparable across platforms: macOS counts idle and interrupt wakeups, Linux counts context switches.
+- The managed model server (`apps/daemon/src/prediction/managed/`) adds nothing to `idle`: its only timer is the 15-minute idle unload, armed only while a llama-server it started is running and unref'd, and its health poll runs only while the server is `Starting`. An idle Daemon with no server has neither.
 - History is seeded through the Daemon, so full sizes take a while (commit throughput is itself a metric); a much larger store (1M events) would need a direct SQLite seeder.
 - No Desktop App scenarios yet (there is no Desktop App); the sampler is ready for them.
 

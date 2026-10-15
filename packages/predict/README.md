@@ -22,7 +22,7 @@ The v1 seam is the `Predictor` interface and the protocol formats. Next-edit mod
 - `bun test packages/predict apps/daemon/src/prediction apps/desktop/src/main/prediction`
 - `POLARIS_PREDICTION_LIVE=1 bun test packages/predict/src/live.test.ts`
 
-The live harness uses an already-running Mellum2 server, default `http://127.0.0.1:8080`, model `mellum2-12b-a2.5b`. Override `POLARIS_PREDICTION_URL` / `POLARIS_PREDICTION_MODEL` as needed. It never starts or stops the server. Recorded model output in `postprocess.test.ts` comes from TABSPIKE's `llama-mellum-full.jsonl`, c02 A. The live-recorded `src/fixtures/mellum-sum.sse` also replays through the complete predictor, split at every byte. Other streaming fixtures are synthetic boundary/error cases.
+The live harness uses an already-running Mellum2 server, default `http://127.0.0.1:8080`, model `mellum2-12b-a2.5b`. Override `POLARIS_PREDICTION_URL` / `POLARIS_PREDICTION_MODEL` as needed. The harness never starts or stops the server (the product's own managed server is the Daemon's, ADR 0048). Recorded model output in `postprocess.test.ts` comes from TABSPIKE's `llama-mellum-full.jsonl`, c02 A. The live-recorded `src/fixtures/mellum-sum.sse` also replays through the complete predictor, split at every byte. Other streaming fixtures are synthetic boundary/error cases.
 
 The Daemon lazily imports its predictor for `prediction.complete`. `LocalPredictor.layer` in `apps/desktop/src/main/prediction/localPredictor.ts` exposes the same `complete` and `p50` functions. TPLACE owns placement, fallback and service composition; TCTX owns Host context assembly and Trust checks. Prediction completion has no EventStore dependency and changes no command, commit, acknowledgement or recovery semantics.
 
@@ -72,6 +72,6 @@ POLARIS_EDIT_FORMAT=zeta-2.1 \
 bun test packages/predict/src/edit/live.test.ts
 ```
 
-Use `sweep-next-edit` for Sweep; set `POLARIS_EDIT_KIND=ollama` for an Ollama endpoint. The harness skips unless opted in, runs all 30 cases, and prints the quality table and request-to-Final p50. Exact and abstain are scored mechanically; acceptable/wrong/dangerous require a matching hand-reviewed output, and novel outputs print their hunks as `unreviewed`. It never starts or stops a model server and refuses port 8080. A live run requires a separately available server; replay evidence is not live model verification.
+Use `sweep-next-edit` for Sweep; set `POLARIS_EDIT_KIND=ollama` for an Ollama endpoint. The harness skips unless opted in, runs all 30 cases, and prints the quality table and request-to-Final p50. Exact and abstain are scored mechanically; acceptable/wrong/dangerous require a matching hand-reviewed output, and novel outputs print their hunks as `unreviewed`. The harness never starts or stops a model server and refuses port 8080. A live run requires a separately available server; replay evidence is not live model verification.
 
 `bun packages/predict/src/edit/bench.ts` measures FIM prompt construction and the complete edit predictor over the recorded responses with an in-memory HTTP boundary, three rounds. It prints p50/p95, not model latency. The Daemon's existing `prediction-context` benchmark separately measures context RPC overhead against the machine baseline.
