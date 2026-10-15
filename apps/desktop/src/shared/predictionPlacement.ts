@@ -106,7 +106,11 @@ export const PredictionPlacementInputs = {
 export interface PredictionPlacementOutputs {
   readonly "prediction.clientEndpoints.get": PredictionClientEndpoints;
   readonly "prediction.clientEndpoints.set": PredictionClientEndpoints;
-  readonly "prediction.resources.get": { readonly rssBytes: number; readonly processes: number };
+  readonly "prediction.resources.get": {
+    readonly rssBytes: number;
+    readonly processes: number;
+    readonly servers: ReadonlyArray<{ readonly name: string; readonly rssBytes: number }>;
+  };
   readonly "prediction.settings.get": PredictionPreferences &
     Partial<Pick<PredictionPreferenceView, "restraints">>;
   readonly "prediction.settings.set": PredictionPreferences &

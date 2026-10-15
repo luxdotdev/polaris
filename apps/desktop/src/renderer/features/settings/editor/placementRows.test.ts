@@ -34,6 +34,7 @@ const inspection = (
   client,
   host,
   offer: false,
+  managed: { client: null, host: null },
 });
 
 const input = (patch: Partial<PlacementRowInput> = {}): PlacementRowInput => ({
@@ -110,18 +111,37 @@ describe("placementRow", () => {
 
 describe("memoryLine", () => {
   test("says no model server runs instead of 0 GB", () => {
-    expect(memoryLine({ rssBytes: 0, processes: 0 }, "This Mac")).toBe(
+    expect(memoryLine({ rssBytes: 0, processes: 0, servers: [] }, "This Mac")).toBe(
       "No model server running on this Mac"
     );
     expect(memoryLine(null, "This Mac")).toBeNull();
   });
 
-  test("reports GB, or MB under a gigabyte", () => {
-    expect(memoryLine({ rssBytes: 9.4 * GiB, processes: 1 }, "Mac Studio")).toBe(
-      "Model server on Mac Studio · 9.4 GB of memory, counted apart from Polaris"
+  test("names each server and says when one is resident with nothing loaded", () => {
+    expect(
+      memoryLine(
+        {
+          rssBytes: 9.4 * GiB + 33 * 1024 ** 2,
+          processes: 2,
+          servers: [
+            { name: "llama-server", rssBytes: 9.4 * GiB },
+            { name: "ollama", rssBytes: 33 * 1024 ** 2 },
+          ],
+        },
+        "Mac Studio"
+      )
+    ).toBe(
+      "On Mac Studio: llama-server 9.4 GB · Ollama with nothing loaded · counted apart from Polaris"
     );
-    expect(memoryLine({ rssBytes: 300 * 1024 ** 2, processes: 2 }, "This Mac")).toBe(
-      "2 model servers on this Mac · 300 MB of memory, counted apart from Polaris"
-    );
+    expect(
+      memoryLine(
+        {
+          rssBytes: 300 * 1024 ** 2,
+          processes: 1,
+          servers: [{ name: "LM Studio", rssBytes: 300 * 1024 ** 2 }],
+        },
+        "This Mac"
+      )
+    ).toBe("On this Mac: LM Studio 300 MB · counted apart from Polaris");
   });
 });

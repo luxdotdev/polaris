@@ -18,6 +18,14 @@ import type { Fact } from "../../status/model.ts";
 import { modelName, type CompletionStatus } from "../store.ts";
 import { contextFact, latencyFact, placementNote, SERVER_NAMES } from "./facts.ts";
 import { clientCopy } from "../../../../../shared/clientCopy.ts";
+import {
+  managedBusy,
+  managedHeadline,
+  managedLog,
+  managedOf,
+  managedProgress,
+  type ManagedView,
+} from "./managed.ts";
 
 export type CardKind =
   | "offline"
@@ -26,6 +34,10 @@ export type CardKind =
   | "off"
   | "off-host"
   | "finding"
+  | "setup"
+  | "downloading"
+  | "loading"
+  | "setup-failed"
   | "no-server"
   | "failed"
   | "ready"
@@ -75,6 +87,10 @@ export type CardActionId =
   | "turn-on-host"
   | "turn-off-host"
   | "check-again"
+  | "set-up"
+  | "cancel-download"
+  | "retry-setup"
+  | "remove-model"
   | PredictionServerAction
   | "settings";
 
@@ -100,6 +116,10 @@ export interface CompletionCardView {
   /** What the user can do when the server offers no recovery of its own. */
   readonly advice: string | null;
   readonly actions: ReadonlyArray<CardAction>;
+  /** The managed server the setup states describe, with its side. */
+  readonly managed: ManagedView | null;
+  /** The download's share, 0..1, while one runs. */
+  readonly progress: number | null;
 }
 
 const capitalized = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
@@ -169,8 +189,32 @@ const settingsKind = (input: CardInput): CardKind | null => {
   return input.inspection === undefined ? "finding" : null;
 };
 
-export const cardKind = (input: CardInput, target: CardTarget | null): CardKind => {
-  const early = connectionKind(input.connection) ?? settingsKind(input);
+const managedKind = (view: ManagedView | null, target: CardTarget | null): CardKind | null => {
+  if (view === null) return null;
+  const own = target !== null && target.endpoint.url === view.status.endpoint?.url;
+
+  return Match.value(view.status.phase).pipe(
+    Match.tag("Absent", () => (target === null ? ("setup" as const) : null)),
+    Match.tags({
+      Downloading: () => "downloading" as const,
+      Verifying: () => "downloading" as const,
+    }),
+    Match.tags({
+      Starting: () => (own ? ("loading" as const) : null),
+      Backoff: () => (own ? ("loading" as const) : null),
+    }),
+    Match.tag("Failed", () => (target === null || own ? ("setup-failed" as const) : null)),
+    Match.orElse(() => null)
+  );
+};
+
+export const cardKind = (
+  input: CardInput,
+  target: CardTarget | null,
+  managed: ManagedView | null = managedOf(input.inspection?.managed, input.preferences.placement)
+): CardKind => {
+  const early =
+    connectionKind(input.connection) ?? settingsKind(input) ?? managedKind(managed, target);
 
   if (early !== null) return early;
 
@@ -188,6 +232,10 @@ const LABELS: Record<CardKind, string> = {
   off: "Completions off",
   "off-host": "Completions off",
   finding: "Completions",
+  setup: "Set up tab completion",
+  downloading: "Downloading model",
+  loading: "Loading model",
+  "setup-failed": "Completions unavailable",
   "no-server": "Completions unavailable",
   failed: "Completions unavailable",
   ready: "Completions",
@@ -235,14 +283,25 @@ const unserved = (input: CardInput) => {
     : { title: "No model it can use", why: `${row.caption}.` };
 };
 
+const machineOf = (input: CardInput, side: ManagedView["side"]) =>
+  side === "client" ? clientNameOf(input) : input.hostName;
+
 const headline = (
   kind: CardKind,
   input: CardInput,
-  target: CardTarget | null
+  target: CardTarget | null,
+  managed: ManagedView | null
 ): { readonly title: string; readonly why: string } => {
   const host = input.hostName;
   const served = target === null ? "" : `${modelName(target.model)} on ${target.machine}`;
   const away = "Completion needs context from the host, so it waits until the host is back.";
+  const setup = managed === null ? null : managedHeadline(managed, machineOf(input, managed.side));
+
+  if (
+    setup !== null &&
+    (kind === "setup" || kind === "downloading" || kind === "loading" || kind === "setup-failed")
+  )
+    return setup;
 
   return Match.value(kind).pipe(
     Match.when("offline", () => ({ title: `${capitalized(host)} is offline`, why: away })),
@@ -280,14 +339,20 @@ const headline = (
   );
 };
 
-const serverName = (input: CardInput, target: CardTarget) =>
-  input.server === null || input.server.kind === "unknown"
-    ? target.endpoint.kind === "ollama"
-      ? "Ollama"
-      : "OpenAI-compatible"
-    : SERVER_NAMES[input.server.kind];
+const serverName = (input: CardInput, target: CardTarget, managed: ManagedView | null) =>
+  managed !== null && managed.status.endpoint?.url === target.endpoint.url
+    ? "Polaris · llama-server"
+    : input.server === null || input.server.kind === "unknown"
+      ? target.endpoint.kind === "ollama"
+        ? "Ollama"
+        : "OpenAI-compatible"
+      : SERVER_NAMES[input.server.kind];
 
-const facts = (input: CardInput, target: CardTarget | null): ReadonlyArray<Fact> => {
+const facts = (
+  input: CardInput,
+  target: CardTarget | null,
+  managed: ManagedView | null
+): ReadonlyArray<Fact> => {
   if (target === null) return [];
   const where = new URL(target.endpoint.url).host;
 
@@ -302,7 +367,7 @@ const facts = (input: CardInput, target: CardTarget | null): ReadonlyArray<Fact>
       value: capitalized(target.machine),
       note: placementNote(input, target),
     },
-    { label: "Endpoint", value: where, mono: true, note: serverName(input, target) },
+    { label: "Endpoint", value: where, mono: true, note: serverName(input, target, managed) },
     ...latencyFact(input.result, target),
     ...contextFact(input.result, target, input.trusted),
   ];
@@ -334,7 +399,7 @@ const modelChoices = (input: CardInput): ReadonlyArray<ModelChoice> | null => {
 
       return {
         id: model,
-        label: model,
+        label: modelName(model),
         note: enabled ? null : "can't prompt yet",
         enabled,
       };
@@ -349,13 +414,41 @@ const SERVER_LABEL: Record<PredictionServerAction, (model: string) => string> = 
 
 const working = (kind: CardKind) => kind === "serving" || kind === "ready" || kind === "failed";
 
+const setupActions = (
+  kind: CardKind,
+  managed: ManagedView | null,
+  settings: CardAction
+): ReadonlyArray<CardAction> | null => {
+  if (managed === null) return null;
+  const name = managed.status.model.name;
+
+  return Match.value(kind).pipe(
+    Match.when("setup", () => [{ id: "set-up" as const, label: `Download ${name}` }, settings]),
+    Match.when("downloading", () => [
+      { id: "cancel-download" as const, label: "Cancel download" },
+      settings,
+    ]),
+    Match.when("loading", () => [settings]),
+    Match.when("setup-failed", () => [
+      { id: "retry-setup" as const, label: "Try again" },
+      { id: "remove-model" as const, label: "Remove downloaded model" },
+      settings,
+    ]),
+    Match.orElse(() => null)
+  );
+};
+
 const actionsOf = (
   kind: CardKind,
   input: CardInput,
-  target: CardTarget | null
+  target: CardTarget | null,
+  managed: ManagedView | null
 ): ReadonlyArray<CardAction> => {
   const settings: CardAction = { id: "settings", label: "Tab completion settings" };
   const check: CardAction = { id: "check-again", label: "Check again" };
+  const setup = setupActions(kind, managed, settings);
+
+  if (setup !== null) return setup;
 
   if (kind === "offer" || kind === "off")
     return [{ id: "turn-on", label: "Turn on tab completion" }, settings];
@@ -386,25 +479,38 @@ const adviceOf = (kind: CardKind, input: CardInput, target: CardTarget | null) =
   return `If it stops answering, restart ${name} on ${target.machine}.`;
 };
 
+const progressLabel = (kind: CardKind, progress: number | null) =>
+  kind === "downloading" && progress !== null
+    ? `${LABELS[kind]} · ${Math.floor(progress * 100)}%`
+    : LABELS[kind];
+
 export const completionCard = (input: CardInput): CompletionCardView => {
   const target = cardTarget(input);
-  const kind = cardKind(input, target);
-  const { title, why } = headline(kind, input, target);
+  const managed = managedOf(input.inspection?.managed, input.preferences.placement);
+  const kind = cardKind(input, target, managed);
+  const { title, why } = headline(kind, input, target, managed);
   const shows = working(kind);
+  const progress = managedBusy(managed) ? managedProgress(managed) : null;
 
   return {
     kind,
-    label: LABELS[kind],
+    label: progressLabel(kind, progress),
     title,
     why,
     // "Error: " and "PredictionError: " are the IPC's framing, not the server's words.
-    failure: kind === "failed" ? (input.failure?.replace(/^\w*Error:\s*/, "") ?? null) : null,
-    facts: shows ? facts(input, target) : [],
+    failure: Match.value(kind).pipe(
+      Match.when("failed", () => input.failure?.replace(/^\w*Error:\s*/, "") ?? null),
+      Match.when("setup-failed", () => managedLog(managed)),
+      Match.orElse(() => null)
+    ),
+    facts: shows ? facts(input, target, managed) : [],
     memory: shows && target?.side === "client" ? input.memory : null,
     models: shows || kind === "no-server" ? modelChoices(input) : null,
     selectedModel: input.preferences.model,
     target: shows ? target : null,
     advice: adviceOf(kind, input, target),
-    actions: actionsOf(kind, input, target),
+    actions: actionsOf(kind, input, target, managed),
+    managed,
+    progress: kind === "downloading" ? progress : null,
   };
 };

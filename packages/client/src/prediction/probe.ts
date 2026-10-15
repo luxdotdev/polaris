@@ -171,6 +171,8 @@ export const modelServerPids = async (): Promise<ReadonlyArray<number>> => {
 export interface ModelServerResources {
   readonly rssBytes: number;
   readonly processes: number;
+  /** Each model server's process tree, by the executable's name, largest first. */
+  readonly servers: ReadonlyArray<{ readonly name: string; readonly rssBytes: number }>;
 }
 
 /** Includes each model-server descendant once; this sample has RSS, not physical footprint. */
@@ -192,24 +194,42 @@ export const modelServerResources = async (): Promise<ModelServerResources> => {
       : [];
   });
 
-  const selected = new Set(
-    rows
-      .filter((row) => /(?:^|\/)(?:llama-server|ollama|llmster|LM Studio)(?:\s|$)/.test(row.name))
-      .map((row) => row.pid)
+  const roots = rows.filter((row) =>
+    /(?:^|\/)(?:llama-server|ollama|llmster|LM Studio)(?:\s|$)/.test(row.name)
   );
 
-  let previous = -1;
+  const byPid = new Map(rows.map((row) => [row.pid, row]));
 
-  while (selected.size !== previous) {
-    previous = selected.size;
+  // A server's tree: the root plus every descendant, each counted once under its nearest root.
+  const rootOf = (pid: number): number | null => {
+    let current = byPid.get(pid);
 
-    for (const row of rows) if (selected.has(row.parent)) selected.add(row.pid);
+    for (let depth = 0; current !== undefined && depth < 64; depth++) {
+      if (roots.some((root) => root.pid === current?.pid)) return current.pid;
+      current = byPid.get(current.parent);
+    }
+
+    return null;
+  };
+
+  const trees = new Map<number, number>();
+
+  for (const row of rows) {
+    const root = rootOf(row.pid);
+
+    if (root !== null) trees.set(root, (trees.get(root) ?? 0) + row.rssBytes);
   }
 
+  const servers = roots
+    .map((root) => ({
+      name: root.name.replace(/^.*\//, "").replace(/\s.*$/, ""),
+      rssBytes: trees.get(root.pid) ?? 0,
+    }))
+    .sort((a, b) => b.rssBytes - a.rssBytes);
+
   return {
-    rssBytes: rows
-      .filter((row) => selected.has(row.pid))
-      .reduce((sum, row) => sum + row.rssBytes, 0),
-    processes: selected.size,
+    rssBytes: servers.reduce((sum, server) => sum + server.rssBytes, 0),
+    processes: servers.length,
+    servers,
   };
 };

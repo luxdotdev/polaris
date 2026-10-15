@@ -8,8 +8,13 @@ import {
   type PredictionClientEndpoints,
   type PredictionPreferences,
 } from "../../../../shared/predictionPlacement.ts";
-import type { PredictionEndpoint } from "@polaris/protocol";
+import type {
+  ManagedServerAction,
+  ManagedServerStatus,
+  PredictionEndpoint,
+} from "@polaris/protocol";
 import type { PredictionSide } from "@polaris/client/prediction";
+import { modelLabel } from "../../../../shared/modelNames.ts";
 import {
   PredictionFeedItem,
   type PredictionContextSummary,
@@ -44,6 +49,8 @@ export interface PredictionState {
   readonly inspections: Readonly<Record<string, PredictionInspection>>;
   readonly results: Readonly<Record<string, CompletionStatus>>;
   readonly failures: Readonly<Record<string, string>>;
+  /** The managed model server of each side, keyed by `managedKey`, while something watches it. */
+  readonly managed: Readonly<Record<string, ManagedServerStatus | null>>;
 }
 
 export const predictionStore = createStore<PredictionState>(() => ({
@@ -56,6 +63,7 @@ export const predictionStore = createStore<PredictionState>(() => ({
   inspections: {},
   results: {},
   failures: {},
+  managed: {},
 }));
 
 export const usePrediction = <A>(select: (state: PredictionState) => A): A =>
@@ -64,12 +72,7 @@ export const usePrediction = <A>(select: (state: PredictionState) => A): A =>
 export const preferencesOf = (hostKey: string) =>
   predictionStore.getState().preferences[hostKey] ?? DEFAULT_PREDICTION_PREFERENCES;
 
-export const modelName = (name: string) =>
-  name.toLowerCase().includes("mellum")
-    ? "Mellum2"
-    : name.toLowerCase().includes("qwen2.5")
-      ? "Qwen2.5-Coder"
-      : name;
+export const modelName = (name: string) => modelLabel(name);
 
 export const hostConnected = (hosts: ReadonlyArray<HostView>, hostKey: string) =>
   hosts.find((host) => host.key === hostKey)?.status.state === "connected";
@@ -273,3 +276,78 @@ export const requestPrediction = (
 
     if (settled) stop();
   });
+
+export const managedKey = (hostKey: string, side: PredictionSide) => `${hostKey}\u0000${side}`;
+
+const managedWatches = new Map<string, { count: number; stop: () => void }>();
+
+const rememberManaged = (
+  hostKey: string,
+  side: PredictionSide,
+  status: ManagedServerStatus | null
+) =>
+  predictionStore.setState((state) => ({
+    managed: { ...state.managed, [managedKey(hostKey, side)]: status },
+    inspections:
+      state.inspections[hostKey] === undefined
+        ? state.inspections
+        : {
+            ...state.inspections,
+            [hostKey]: {
+              ...state.inspections[hostKey],
+              managed: { ...state.inspections[hostKey].managed, [side]: status },
+            },
+          },
+  }));
+
+/** Follows one side's managed server while the card or Settings shows it; returns the release. */
+export const watchManaged = (api: PolarisApi, hostKey: string, side: PredictionSide) => {
+  const key = managedKey(hostKey, side);
+  const active = managedWatches.get(key);
+
+  if (active !== undefined) {
+    active.count += 1;
+  } else {
+    const stop = api.subscribe(
+      "prediction.managed.watch",
+      { hostKey, side },
+      {
+        items: (items) => {
+          const last = items.at(-1);
+
+          if (last !== undefined) rememberManaged(hostKey, side, last);
+        },
+        end: () => {},
+      }
+    );
+
+    managedWatches.set(key, { count: 1, stop });
+  }
+
+  return () => {
+    const watch = managedWatches.get(key);
+
+    if (watch === undefined) return;
+    watch.count -= 1;
+
+    if (watch.count === 0) {
+      watch.stop();
+      managedWatches.delete(key);
+    }
+  };
+};
+
+/** Runs one action on a side's managed server and keeps its reply; a download then re-probes. */
+export const managedAction = async (
+  api: PolarisApi,
+  hostKey: string,
+  side: PredictionSide,
+  action: ManagedServerAction | null
+) => {
+  const status = valueOf(await api.request("prediction.managed", { hostKey, side, action }));
+  rememberManaged(hostKey, side, status);
+
+  if (action === "remove" || action === "stop") await checkPredictionAgain(api, hostKey);
+
+  return status;
+};

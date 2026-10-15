@@ -6,6 +6,7 @@
 import { Option, Schema } from "effect";
 import { createRoot } from "react-dom/client";
 import type { HostView, PolarisApi, RequestOutput } from "../../../../../shared/api.ts";
+import { ManagedServerPhase, type ManagedServerStatus } from "@polaris/protocol";
 import type { PredictionInspection } from "../../../../../shared/predictionContract.ts";
 import {
   DEFAULT_PREDICTION_PREFERENCES,
@@ -74,7 +75,26 @@ type Answer = RequestOutput<
   | "prediction.settings.get"
   | "prediction.inspect"
   | "prediction.resources.get"
+  | "prediction.managed"
 >;
+
+/** The Client's managed server: nothing downloaded in the empty scene, Sweep downloaded otherwise. */
+const managedStatus = (empty: boolean): ManagedServerStatus => ({
+  model: {
+    id: "sweep-next-edit-1.5b",
+    name: "Sweep Next-Edit 1.5B",
+    sizeBytes: 1_537_269_856,
+    serverBytes: 11_971_406,
+    memoryBytes: 2_600_000_000,
+  },
+  modelsDir: "/Users/lucas/.polaris/models",
+  freeBytes: 211 * GiB,
+  endpoint: empty ? null : { kind: "openai", url: "http://127.0.0.1:43210" },
+  phase: empty
+    ? ManagedServerPhase.cases.Absent.make({})
+    : ManagedServerPhase.cases.Stopped.make({}),
+  memoryBytes: null,
+});
 
 const HostInput = Schema.Struct({ hostKey: Schema.optional(Schema.String) });
 
@@ -87,6 +107,7 @@ const fixtureBridge = (empty: boolean): PolarisApi => {
     client: { machine: machine(36, "Apple M3 Pro"), endpoints: clientEndpoints },
     host: empty ? null : (MACHINES.get(hostKey) ?? null),
     offer: false,
+    managed: { client: managedStatus(empty), host: null },
   });
 
   const preferences = (hostKey: string): PredictionPreferences =>
@@ -112,8 +133,17 @@ const fixtureBridge = (empty: boolean): PolarisApi => {
         case "prediction.inspect":
           value = inspection(hostKey ?? "local");
           break;
+        case "prediction.managed":
+          value = managedStatus(empty);
+          break;
         case "prediction.resources.get":
-          value = empty ? { rssBytes: 0, processes: 0 } : { rssBytes: 9.4 * GiB, processes: 1 };
+          value = empty
+            ? { rssBytes: 0, processes: 0, servers: [] }
+            : {
+                rssBytes: 9.4 * GiB,
+                processes: 1,
+                servers: [{ name: "llama-server", rssBytes: 9.4 * GiB }],
+              };
           break;
         default:
           return { ok: false, error: { code: "Unsupported", message: "preview" } };
