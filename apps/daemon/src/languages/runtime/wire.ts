@@ -136,6 +136,28 @@ export const clientCapabilities = {
     },
     // Without contentFormat, servers such as basedpyright answer plaintext and lose their fences.
     hover: { dynamicRegistration: true, contentFormat: ["markdown", "plaintext"] },
+    // Literal support makes servers answer CodeActions with edits rather than bare Commands.
+    codeAction: {
+      dynamicRegistration: true,
+      codeActionLiteralSupport: {
+        codeActionKind: {
+          valueSet: [
+            "",
+            "quickfix",
+            "refactor",
+            "refactor.extract",
+            "refactor.inline",
+            "refactor.rewrite",
+            "source",
+            "source.organizeImports",
+          ],
+        },
+      },
+      isPreferredSupport: true,
+      disabledSupport: true,
+      dataSupport: true,
+      resolveSupport: { properties: ["edit"] },
+    },
     diagnostic: { dynamicRegistration: true },
     publishDiagnostics: { versionSupport: true },
   },

@@ -38,7 +38,13 @@ export const applyEditPrediction = (view: EditorView, prediction: EditPrediction
 
   const last = prediction.hunks.at(-1);
   const fallback = last === undefined ? 0 : changes.mapPos(last.to, 1);
-  const anchor = Math.min(prediction.cursor ?? fallback, changes.newLength);
+
+  // An import leaves the cursor where it was, past the inserted lines.
+  const kept =
+    prediction.import === undefined ? null : changes.mapPos(view.state.selection.main.head, 1);
+
+  const anchor = Math.min(kept ?? prediction.cursor ?? fallback, changes.newLength);
+
   view.dispatch({
     changes,
     selection: { anchor },
@@ -75,7 +81,11 @@ export const acceptEditPrediction = (view: EditorView, now = performance.now()):
 
   if (inLeadingWhitespace(view.state) && !firstHunkOnCursorLine(view, prediction)) return false;
 
-  if (view.state.doc !== prediction.doc || !hunksValid(view.state.doc, prediction.hunks)) {
+  if (
+    view.state.doc !== prediction.doc ||
+    !hunksValid(view.state.doc, prediction.hunks) ||
+    prediction.import?.current() === false
+  ) {
     view.dispatch({ effects: setEditPrediction.of(null) });
 
     return false;

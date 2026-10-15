@@ -18,6 +18,13 @@ export interface EditFinal {
   readonly side: "client" | "host";
 }
 
+/** An import: the language server's quick fix, applied only while its edit fence holds. */
+export interface ImportFix {
+  /** The server's title, the hint's label. */
+  readonly title: string;
+  readonly current: () => boolean;
+}
+
 /** Shown; armed after the first Tab on a large deletion; jumped after the first Tab on a jump. */
 export type EditPhase = "shown" | "armed" | "jumped";
 
@@ -38,9 +45,11 @@ export interface EditPrediction {
   /** Final to shown, in ms, for the outcome log. */
   readonly finalToShown: number;
   readonly model: string;
-  readonly format: EditPredictionFormat;
+  /** Null for an import. */
+  readonly format: EditPredictionFormat | null;
   readonly side: "client" | "host";
   readonly requestToFinal: number;
+  readonly import?: ImportFix;
 }
 
 export const sortHunks = (hunks: ReadonlyArray<PredictedEdit>): ReadonlyArray<PredictedEdit> =>
@@ -104,10 +113,15 @@ export const isJump = (doc: Text, hunks: ReadonlyArray<PredictedEdit>, cursor: n
 
 /** Still waiting for the first Tab to move the cursor there. */
 export const jumpPending = (prediction: EditPrediction): boolean =>
-  prediction.phase === "shown" && isJump(prediction.doc, prediction.hunks, prediction.anchor);
+  prediction.import === undefined &&
+  prediction.phase === "shown" &&
+  isJump(prediction.doc, prediction.hunks, prediction.anchor);
 
-export const kindOf = (prediction: EditPrediction): PredictionKind =>
-  jumpPending(prediction) ? "jump" : hunkKind(prediction.hunks);
+export const kindOf = (prediction: EditPrediction): PredictionKind => {
+  if (prediction.import !== undefined) return "import";
+
+  return jumpPending(prediction) ? "jump" : hunkKind(prediction.hunks);
+};
 
 export type TabDecision = "jump" | "arm" | "apply";
 

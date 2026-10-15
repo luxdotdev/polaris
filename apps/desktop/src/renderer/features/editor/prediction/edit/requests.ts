@@ -14,6 +14,7 @@ import { openPopupOrSnippet } from "../state.ts";
 import { markPrediction } from "../timing.ts";
 import { revertsBurst } from "./guards.ts";
 import { editAccepted, historyOf, lastEditText } from "./history.ts";
+import { burstLines, changedLines, ImportLookups } from "./importLookups.ts";
 import {
   type EditFinal,
   type EditPrediction,
@@ -130,8 +131,13 @@ class EditRequests {
   private observed: Observed | null = null;
   private readonly port: EditPredictionPort;
   private readonly unsubscribe: () => void;
+  private readonly imports: ImportLookups;
   constructor(private readonly view: EditorView) {
     this.port = view.state.facet(editPort) ?? NO_PORT;
+    this.imports = new ImportLookups(view, {
+      modelBusy: () => this.flight !== null || this.timer !== null || this.modelShown(),
+      show: (prediction) => this.showImport(prediction),
+    });
     this.unsubscribe = this.port.subscribe(() => {
       this.cancel();
       this.clear("superseded");
@@ -163,6 +169,7 @@ class EditRequests {
   private cancel() {
     this.flight?.controller.abort();
     this.flight = null;
+    this.imports.cancel();
 
     if (this.timer !== null) clearTimeout(this.timer);
     this.timer = null;
@@ -186,7 +193,9 @@ class EditRequests {
     this.timer = setTimeout(() => {
       this.timer = null;
 
-      if (!this.disposed && this.allowed()) void this.request("regular", null);
+      if (this.disposed || !this.allowed()) return;
+      void this.request("regular", null);
+      this.imports.start(burstLines(this.view.state));
     }, this.port.settings().restraints.pauseMs);
   }
   update(update: ViewUpdate) {
@@ -194,7 +203,7 @@ class EditRequests {
       queueMicrotask(() => this.syncDisplay());
     const accepted = update.transactions.map((tr) => tr.annotation(editAccepted)).find(Boolean);
 
-    if (accepted !== undefined) this.onAccepted(accepted, update.startState.doc);
+    if (accepted !== undefined) this.onAccepted(accepted, update);
     else if (update.docChanged || update.selectionSet) this.onEdit(update);
     else this.onQuiet(update);
   }
@@ -227,7 +236,8 @@ class EditRequests {
 
     if (this.due && this.timer === null && this.flight === null && this.allowed()) this.schedule();
   }
-  private onAccepted(prediction: EditPrediction, before: Text) {
+  private onAccepted(prediction: EditPrediction, update: ViewUpdate) {
+    const before = update.startState.doc;
     this.cancel();
     this.settleObserved(false);
     const record = recordOf(prediction, this.language, "accepted", null);
@@ -239,7 +249,9 @@ class EditRequests {
       timer: setTimeout(() => this.settleObserved(false), UNDO_WINDOW_MS),
     };
 
-    if (this.allowed()) void this.request("chain", null);
+    if (!this.allowed()) return;
+    void this.request("chain", null);
+    this.imports.start(changedLines(update.state.doc, update.changes));
   }
   /** Emits the accepted record once: on undo inside the window, when it closes, or on disposal. */
   private settleObserved(undone: boolean) {
@@ -283,11 +295,30 @@ class EditRequests {
         this.flight = null;
 
         if (!this.show(final, cursor, startedAt) && kind !== "probe") this.probe(final.window);
+        this.modelDone();
       },
       () => {
-        if (this.flight === flight) this.flight = null;
+        if (this.flight !== flight) return;
+        this.flight = null;
+        this.modelDone();
       }
     );
+  }
+  private modelShown() {
+    const shown = this.view.state.field(editPrediction);
+
+    return shown !== null && shown.import === undefined;
+  }
+  /** No model request left and nothing shown: an import that waited may show. */
+  private modelDone() {
+    if (this.flight === null && this.view.state.field(editPrediction) === null)
+      this.imports.release();
+  }
+  private showImport(prediction: EditPrediction) {
+    if (this.disposed || !this.allowed()) return;
+    this.view.dispatch({
+      effects: setEditPrediction.of({ ...prediction, shownAt: performance.now() }),
+    });
   }
   private guard(prediction: EditPrediction): Guard | null {
     const { restraints } = this.port.settings();
@@ -333,6 +364,9 @@ class EditRequests {
       return false;
     }
 
+    const shown = this.view.state.field(editPrediction);
+
+    if (shown?.import !== undefined) this.finalize(shown, "superseded", null);
     const shownAt = performance.now();
     this.view.dispatch({
       effects: setEditPrediction.of({ ...prediction, shownAt, finalToShown: shownAt - finalAt }),
