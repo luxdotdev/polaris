@@ -22,17 +22,15 @@ const reads = (initializer: string) =>
     .replace(/[\p{L}_$][\p{L}\p{N}_$]*\s*:/gu, " ")
     .replace(/=>[\s\S]*$/, " ");
 
+const identifier = /[\p{L}_$][\p{L}\p{N}_$]*/gu;
+
 const readsItself = (line: string) => {
   const match = declaration.exec(line);
 
   if (!match) return false;
-  const initializer = reads(match[2] ?? "");
+  const read = new Set(reads(match[2] ?? "").match(identifier));
 
-  return bindings(match[1] ?? "").some((name) =>
-    new RegExp(`(?<![\\p{L}\\p{N}_$])${name.replaceAll("$", "\\$")}(?![\\p{L}\\p{N}_$])`, "u").test(
-      initializer
-    )
-  );
+  return bindings(match[1] ?? "").some((name) => read.has(name));
 };
 
 /** A new `const x = f(x)` line reads its binding before it exists. */

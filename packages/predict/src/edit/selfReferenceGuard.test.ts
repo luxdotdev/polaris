@@ -21,6 +21,10 @@ test.each([
   expect(readsOwnDeclaration(before, `${before}\n${line}`)).toBe(false);
 });
 
+test("a malformed pattern is not mistaken for a binding", () => {
+  expect(readsOwnDeclaration(before, `${before}\nconst { a(, [b } = a(b);`)).toBe(false);
+});
+
 test("an existing self-reading line is the user's, not the prediction's", () => {
   const buffer = "let count = count + 1;";
 
