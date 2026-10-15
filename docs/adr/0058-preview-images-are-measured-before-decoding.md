@@ -34,6 +34,17 @@ Sources below are Chromium `main` at `3ab520d5` (2026-10-15).
 - **One gate for every renderer decode.** Main admits Markdown media with `admitRaster`; the
   renderer runs the same check on any Host bytes it turns into an image (the session image
   viewer, attachment previews) and shows nothing when it refuses.
+- **Host image reads are bounded.** `readHostImage` asks `files.read` for at most
+  `PREVIEW_IMAGE_MAX_BYTES` and refuses on the reply's whole-file `size`, so an oversized file
+  never crosses the wire (the blob cap alone allowed 512 MiB into main and the renderer).
+- **Diagrams load no images.** Mermaid decodes a node's `img` itself (`imageSquare`:
+  `new Image()`, `decode()`), so measuring can't sit in front of it. Every Mermaid render goes
+  through `guardedDiagrams` (`session/ui/markdown/diagrams.ts`): strict security, plain-text
+  labels, no source configuration, and it refuses a diagram whose *parsed* layout nodes carry an
+  `img` or `icon` or whose sequence participants carry an icon, then refuses an SVG that would
+  load anything but a same-document fragment. A source-text check can't work: YAML escapes
+  (`"\x69mg"`) spell the key differently. The renderer CSP can't block `data:` images for
+  diagrams alone, since the app's own icons are `data:` SVG masks.
 
 ## Consequences
 
