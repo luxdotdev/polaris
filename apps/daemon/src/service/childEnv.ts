@@ -37,7 +37,7 @@ const LOCALE = /^LC_[A-Z]+$/;
 /**
  * The environment of a child that runs a repository's own code (a Review Run): an allowlist,
  * so provider keys, tokens, `SSH_AUTH_SOCK` and Polaris's own variables never reach it.
- * See docs/adr/0053-repository-code-gets-an-allowlisted-environment.md.
+ * See docs/adr/0054-repository-code-gets-an-allowlisted-environment.md.
  */
 export const repositoryEnv = (source: Env = process.env, extra: Env = {}) => {
   const env: Record<string, string> = {};

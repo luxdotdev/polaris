@@ -2,7 +2,7 @@
  * The SDK options of a read-only session (the Reviewer): `dontAsk`, no user or
  * project settings, hooks or MCP servers, no tool that writes or reaches the network,
  * and reads kept to the checkout. See docs/adr/0042-reviewer-without-the-sandbox.md
- * and docs/adr/0054-the-reviewer-reads-only-its-checkout.md.
+ * and docs/adr/0055-the-reviewer-reads-only-its-checkout.md.
  */
 import type { HookCallback, Options } from "@anthropic-ai/claude-agent-sdk";
 import { isAbsolute } from "node:path";

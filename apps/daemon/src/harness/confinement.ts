@@ -1,7 +1,7 @@
 /**
  * Where a read-only session (the Reviewer) may read: its checkout, and for a sandboxed shell
  * also the repository's git dir and the PATH's tool directories. Each Harness enforces it
- * with its own settings. See docs/adr/0054-the-reviewer-reads-only-its-checkout.md.
+ * with its own settings. See docs/adr/0055-the-reviewer-reads-only-its-checkout.md.
  */
 import { lstat, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";

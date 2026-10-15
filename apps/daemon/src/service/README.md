@@ -119,7 +119,7 @@ yield* serveUpgrades({
 
 Every child launch passes an explicit environment through `childEnv` (`service/childEnv.ts`), including Harness probes, detached servers, terminals and auxiliary commands. Bun 1.3.13's default spawn environment retains the original envelope even after deleting it from `process.env`; filtering only at adoption is insufficient. Explicit snapshots and per-session overrides are filtered as well. `POLARIS_HANDOFF` is the only execve envelope variable; `POLARIS_HOME` and ordinary child settings remain available.
 
-A child that runs a repository's own code (a terminal inside a Review Checkout, so Review Run) gets `repositoryEnv` instead: an allowlist with no provider keys, tokens, `SSH_AUTH_SOCK` or `POLARIS_*` (docs/adr/0053-repository-code-gets-an-allowlisted-environment.md).
+A child that runs a repository's own code (a terminal inside a Review Checkout, so Review Run) gets `repositoryEnv` instead: an allowlist with no provider keys, tokens, `SSH_AUTH_SOCK` or `POLARIS_*` (docs/adr/0054-repository-code-gets-an-allowlisted-environment.md).
 
 ### Hand-off contributors
 

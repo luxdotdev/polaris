@@ -1,7 +1,7 @@
 /**
  * The Reviewer's Codex thread runs under a permission profile that reads only its checkout
  * (plus what a shell needs), never the legacy `read-only` sandbox, which reads the whole disk.
- * See docs/adr/0054-the-reviewer-reads-only-its-checkout.md.
+ * See docs/adr/0055-the-reviewer-reads-only-its-checkout.md.
  */
 import { Effect } from "effect";
 import { CONFINED_GIT_ENV, type ReadConfinement, readConfinement } from "../confinement.ts";
