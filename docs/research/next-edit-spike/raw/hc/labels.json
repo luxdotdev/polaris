@@ -33,6 +33,10 @@
   "012e64b132587071": {
    "label": "dangerous",
    "note": "Renames the healthy available definition and its other uses to acceptable instead of adding the new acceptable wrapper; drops the provisional check the user's edit implies."
+  },
+  "0549c5a2f1bfe408": {
+   "label": "dangerous",
+   "note": "Renames the healthy available definition and the dismiss use to acceptable instead of adding the wrapper."
   }
  },
  "dd03": {
@@ -57,6 +61,10 @@
   "dcf3783479f5ad7c": {
    "label": "dangerous",
    "note": "Rewrites the dead Chevron line to reference an invented DisclosureChevronOpen instead of deleting it."
+  },
+  "4126726e1346d478": {
+   "label": "dangerous",
+   "note": "Rewrites the dead Chevron line to pick between two invented string literals instead of deleting it."
   }
  },
  "dd06": {
@@ -91,6 +99,10 @@
   "237ad8f5c01eaaf9": {
    "label": "dangerous",
    "note": "seed: sweep-next-edit dev: Deletes the healthy template literal closing backtick."
+  },
+  "6c2377e6a69c428a": {
+   "label": "dangerous",
+   "note": "Defines a local childEnv stub where the history's use needs the import."
   }
  },
  "im04": {
@@ -201,6 +213,14 @@
   "2d726a72513684a5": {
    "label": "dangerous",
    "note": "Drops the healthy review parameter that the body still uses."
+  },
+  "e5bcf79768065b17": {
+   "label": "wrong",
+   "note": "Only re-braces an unrelated else-if; same behaviour, not the dead-code deletion."
+  },
+  "9cfb5500cf08b9d1": {
+   "label": "dangerous",
+   "note": "Deletes the dead commands hook but also drops the review parameter and rewrites its condition."
   }
  },
  "him04": {
@@ -275,6 +295,10 @@
   "4f0af206dcb006cd": {
    "label": "wrong",
    "note": "Correct data-menu-path, but adds an invented data-menu-line from change.line instead of data-menu-diff."
+  },
+  "d8f3d718d9fb5949": {
+   "label": "wrong",
+   "note": "Closes data-menu-path on change.kind, the wrong value; existing code intact."
   }
  },
  "hin08": {
@@ -301,6 +325,10 @@
   "fc4a0518ddb3e325": {
    "label": "acceptable",
    "note": "Continues the user's name -> request.harness replacement in which(); same value, a correct step short of harnessBinary."
+  },
+  "66f57c2a382b3dc7": {
+   "label": "dangerous",
+   "note": "Leaves 'const binary =' dangling before a second const binary declaration; does not parse."
   }
  },
  "hrf06": {
@@ -391,6 +419,18 @@
   "fdd4c2003ed0bf9b": {
    "label": "wrong",
    "note": "Invents a developerProvider.includes / managedProviders branch instead of delegating to developerAvailability; existing code intact."
+  },
+  "1e169732dcb6f736": {
+   "label": "wrong",
+   "note": "Invents a developerProviders/managedProviders branch instead of delegating to developerAvailability; existing code intact."
+  },
+  "3c7645e93f61ba4f": {
+   "label": "wrong",
+   "note": "Invents a developerProviders/managedProviders branch returning Available; existing code intact."
+  },
+  "c26fcf8cbd20cb67": {
+   "label": "wrong",
+   "note": "Invents a developerProvider.includes branch instead of developerAvailability; existing code intact."
   }
  },
  "hin13": {
@@ -463,6 +503,10 @@
   "10e6c2e144499a5e": {
    "label": "wrong",
    "note": "Inlines setDraft(null) as the equivalent patchLeadUi call; harmless but not the draftAbout refactor."
+  },
+  "c36dd837ab3ed3f0": {
+   "label": "dangerous",
+   "note": "Replaces the healthy setDraft(null) with patchLeadUi keyed by the leadKey function instead of draftKey."
   }
  },
  "hdd03": {
@@ -503,6 +547,38 @@
   "688c139eb66ddaa7": {
    "label": "dangerous",
    "note": "Duplicates the SecureStorage import the user just added."
+  }
+ },
+ "hrn01": {
+  "21d8f7a3d374fe1b": {
+   "label": "dangerous",
+   "note": "Duplicates the release_version schema field."
+  },
+  "e186a19689925fcf": {
+   "label": "dangerous",
+   "note": "Deletes five healthy schema fields (version, arch, macos_version, install_id, country)."
+  }
+ },
+ "hrn12": {
+  "5a8f4168fd4fcbea": {
+   "label": "dangerous",
+   "note": "Replaces the healthy imageAfterRelaunch(again, step) call with sentWorkSurvivesRelaunch(page)."
+  }
+ },
+ "hrn09": {
+  "2d381390c050a60a": {
+   "label": "dangerous",
+   "note": "Renames the parameter to update instead of openHosts and rewrites four healthy user-facing messages."
+  }
+ },
+ "him01": {
+  "d4d562ac6293ff7c": {
+   "label": "dangerous",
+   "note": "Defines a local GitTracking interface that conflicts with the protocol type the history needs imported."
+  },
+  "000ec1ca4eb950ec": {
+   "label": "dangerous",
+   "note": "Defines a local GitTracking interface that conflicts with the protocol type the history needs imported."
   }
  }
 }

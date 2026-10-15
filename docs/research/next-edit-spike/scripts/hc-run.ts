@@ -13,7 +13,15 @@ for (const c of await loadSet(set)) {
   const start = performance.now();
   let output = "";
   try {
-    for await (const d of endpointDeltas(input, buildEditPrompt(input, variant.options), AbortSignal.timeout(120000), globalThis.fetch)) output += d;
+    const built = buildEditPrompt(input, variant.options);
+    if (variant.temperature !== undefined) {
+      // Sampling experiment only: production decoding is greedy.
+      const res = await fetch(`${input.endpoint.url}/v1/completions`, { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: input.model, prompt: built.prompt, stream: false, cache_prompt: true, temperature: variant.temperature, seed: 1, max_tokens: input.maxTokens, stop: built.stop }), signal: AbortSignal.timeout(120000) });
+      const body = (await res.json()) as { choices: { text: string; finish_reason: string }[] };
+      output = body.choices[0]!.text;
+      if (body.choices[0]!.finish_reason === "length") throw new Error("Edit prediction exhausted its output budget");
+    } else for await (const d of endpointDeltas(input, built, AbortSignal.timeout(120000), globalThis.fetch)) output += d;
     rows.push({ id: c.id, output, elapsedMs: performance.now() - start });
   } catch (error) {
     rows.push({ id: c.id, output, elapsedMs: performance.now() - start, error: String((error as Error).message ?? error) });

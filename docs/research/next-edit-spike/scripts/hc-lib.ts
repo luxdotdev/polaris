@@ -40,7 +40,7 @@ export const loadSet = async (set: string): Promise<Case[]> => {
   return Schema.decodeUnknownSync(Schema.Array(Case))(await Bun.file(new URL(file, fixtures)).json());
 };
 
-export type Variant = { options: SweepOptions; maxTokens?: number };
+export type Variant = { options: SweepOptions; maxTokens?: number; temperature?: number };
 const v = (o: Partial<SweepOptions>, extra: Omit<Variant, "options"> = {}): Variant => ({ options: { ...spikeSweepOptions, ...o }, ...extra });
 export const variants: Record<string, Variant> = {
   base: v({}),
@@ -56,13 +56,16 @@ export const variants: Record<string, Variant> = {
   a5b20: v({ above: 5, below: 20 }, { maxTokens: 1024 }),
   a10b30: v({ above: 10, below: 30 }, { maxTokens: 1024 }),
   a15b20: v({ above: 15, below: 20 }, { maxTokens: 1024 }),
+  p40: v({ prefixLines: 40 }),
+  t5: v({}, { temperature: 0.5 }),
+  p160: v({ prefixLines: 160 }),
   a10b15: v({ above: 10, below: 15 }, { maxTokens: 1024 }),
   near: v({ nearestFallback: true }),
   novel: v({ novelNames: true }),
   decl: v({ declarationRenames: true }),
   removed: v({ removedNames: true }),
   names: v({ novelNames: true, declarationRenames: true, removedNames: true }),
-  guards: v({ novelNames: true, declarationRenames: true, removedNames: true, deletionEvidence: true, relevance: true }),
+  guards: v({ novelNames: true, declarationRenames: true, removedNames: true, deletionEvidence: true, relevance: true, duplicates: true }),
 };
 
 /** "a+b" merges variants left to right. */

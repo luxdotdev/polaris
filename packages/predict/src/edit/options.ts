@@ -22,6 +22,8 @@ export interface SweepOptions {
   readonly deletionEvidence: boolean;
   /** Suppress changes away from the focus line that touch no word of the history. */
   readonly relevance: boolean;
+  /** Suppress a line repeating its neighbour and a name redeclared within two lines. */
+  readonly duplicates: boolean;
 }
 
 /** The layout of the spike and the 2026-10-15 hardening recordings. */
@@ -38,6 +40,7 @@ export const spikeSweepOptions: SweepOptions = {
   removedNames: false,
   deletionEvidence: false,
   relevance: false,
+  duplicates: false,
 };
 
 export const sweepOptions: SweepOptions = spikeSweepOptions;

@@ -1,6 +1,7 @@
 import type { EditPredictionRequest, PredictedEdit, SuppressedReason } from "@polaris/protocol";
 import { applyEdits } from "./apply.ts";
 import { deletesUnprompted } from "./deletionGuard.ts";
+import { duplicates } from "./duplicateGuard.ts";
 import { strays } from "./relevanceGuard.ts";
 import { changesBlankLines, unbalancesDelimiters } from "./delimiterGuard.ts";
 import { unsafeIdentifiers } from "./identifierGuard.ts";
@@ -43,7 +44,12 @@ const unstable = (request: EditPredictionRequest, edit: PredictedEdit) => {
 type GuardOptions = Partial<
   Pick<
     SweepOptions,
-    "novelNames" | "declarationRenames" | "removedNames" | "deletionEvidence" | "relevance"
+    | "novelNames"
+    | "declarationRenames"
+    | "removedNames"
+    | "deletionEvidence"
+    | "relevance"
+    | "duplicates"
   >
 >;
 
@@ -71,6 +77,7 @@ export const guardEdits = (
     ["revert", () => on("removedNames") && restoresRemovedNames(request, edits)],
     ["unstable", () => on("deletionEvidence") && deletesUnprompted(request, edits)],
     ["unstable", () => on("relevance") && strays(request, edits)],
+    ["unstable", () => on("duplicates") && duplicates(request.buffer, after)],
   ];
 
   const reason = checks.find(([, check]) => check())?.[0];
