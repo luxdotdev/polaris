@@ -1,0 +1,446 @@
+{
+ "rn03": {
+  "9bdcd70b8b710281": {
+   "label": "exact",
+   "note": "seed: sweep-next-edit dev: Matches commit-derived ground truth under the spike whitespace rule."
+  }
+ },
+ "rf03": {
+  "e0bad1c8dd02db1a": {
+   "label": "exact",
+   "note": "seed: sweep-next-edit dev: Matches commit-derived ground truth under the spike whitespace rule."
+  }
+ },
+ "rf04": {
+  "065358cebbb69c95": {
+   "label": "exact",
+   "note": "seed: sweep-next-edit dev: Matches commit-derived ground truth under the spike whitespace rule."
+  }
+ },
+ "rf06": {
+  "f9476f39954e9fd6": {
+   "label": "dangerous",
+   "note": "seed: sweep-next-edit dev: Propagates unresolved acceptable into the healthy dismiss handler; history only changed accept handlers."
+  },
+  "956c187eddb37a9a": {
+   "label": "wrong",
+   "note": "seed: zeta-2.1 dev: Adds a new acceptable helper that merely calls available and omits the provisional check."
+  },
+  "0d97c6a07eaad81d": {
+   "label": "dangerous",
+   "note": "seed: spike sweep-next-edit"
+  },
+  "012e64b132587071": {
+   "label": "dangerous",
+   "note": "Renames the healthy available definition and its other uses to acceptable instead of adding the new acceptable wrapper; drops the provisional check the user's edit implies."
+  }
+ },
+ "dd03": {
+  "a922cb28bd0894d3": {
+   "label": "dangerous",
+   "note": "seed: sweep-next-edit dev: Defines currentKeyPlatform despite the history importing that binding."
+  }
+ },
+ "dd04": {
+  "b724e3657917dade": {
+   "label": "dangerous",
+   "note": "seed: sweep-next-edit dev: Removes the healthy button and its accessibility attributes while replacing the chevron."
+  },
+  "7ab4938471d0ede6": {
+   "label": "exact",
+   "note": "seed: zeta-2.1 dev: Matches commit-derived ground truth under the spike whitespace rule."
+  },
+  "81ece84436efbf8d": {
+   "label": "dangerous",
+   "note": "Rewrites healthy props destructuring and the Sections call to pass an invented providers prop; leaves the dead Chevron."
+  },
+  "dcf3783479f5ad7c": {
+   "label": "dangerous",
+   "note": "Rewrites the dead Chevron line to reference an invented DisclosureChevronOpen instead of deleting it."
+  }
+ },
+ "dd06": {
+  "3285e7dbcd251272": {
+   "label": "dangerous",
+   "note": "seed: sweep-next-edit dev: Borderline, conservatively dangerous: rewrites the obsolete modifier declarations with inverted conditions instead of removing them."
+  },
+  "ecd67a1690a9057c": {
+   "label": "exact",
+   "note": "seed: spike zeta-2.1"
+  },
+  "6463e8150efe0e95": {
+   "label": "dangerous",
+   "note": "seed: spike sweep-next-edit"
+  }
+ },
+ "im02": {
+  "9cc48f529eca88e1": {
+   "label": "dangerous",
+   "note": "seed: sweep-next-edit dev: Rewrites the user-written VERSION reference to an environment fallback."
+  },
+  "2b8f51c7d45c3826": {
+   "label": "dangerous",
+   "note": "seed: spike sweep-next-edit"
+  }
+ },
+ "im03": {
+  "237ad8f5c01eaaf9": {
+   "label": "dangerous",
+   "note": "seed: sweep-next-edit dev: Deletes the healthy template literal closing backtick."
+  }
+ },
+ "im04": {
+  "b8878b8b44a63723": {
+   "label": "dangerous",
+   "note": "seed: sweep-next-edit dev: Deletes binary and the user-written expression, replacing them with an unrelated which implementation."
+  },
+  "dc0fbbe1c630ad09": {
+   "label": "wrong",
+   "note": "seed: zeta-2.1 dev: Adds an empty which implementation instead of the missing import; does not replace binary."
+  },
+  "0c5a4a7a3d1a9de5": {
+   "label": "dangerous",
+   "note": "seed: spike sweep-next-edit"
+  }
+ },
+ "in01": {
+  "3f339691028f521a": {
+   "label": "wrong",
+   "note": "seed: sweep-next-edit dev: Completes the new env expression with the function value instead of invoking childEnv."
+  },
+  "11b31b5d334265ca": {
+   "label": "dangerous",
+   "note": "seed: zeta-2.1 dev: Changes the healthy closing brace to an extra parenthesis while completing env."
+  },
+  "f577365fea5be6ba": {
+   "label": "dangerous",
+   "note": "seed: spike zeta-2.1"
+  }
+ },
+ "in02": {
+  "71a423c933ccc1ad": {
+   "label": "exact",
+   "note": "seed: sweep-next-edit dev: Matches commit-derived ground truth under the spike whitespace rule."
+  }
+ },
+ "in03": {
+  "d9eb599eae3ecad5": {
+   "label": "exact",
+   "note": "seed: sweep-next-edit dev: Matches commit-derived ground truth under the spike whitespace rule."
+  }
+ },
+ "in04": {
+  "41a2f287370276c7": {
+   "label": "wrong",
+   "note": "seed: sweep-next-edit dev: Invents an outcome case rather than the setup case; existing cases are intact."
+  },
+  "7b40861b02bbd955": {
+   "label": "wrong",
+   "note": "seed: zeta-2.1 dev: New setup case has an unfinished rank expression and omits setupOutcome."
+  },
+  "e00b07ee58cfe75f": {
+   "label": "wrong",
+   "note": "seed: spike zeta-2.1"
+  },
+  "04feaec04f64c788": {
+   "label": "wrong",
+   "note": "seed: spike sweep-next-edit"
+  },
+  "2acdbc785bdec7c8": {
+   "label": "wrong",
+   "note": "Invents a review case rather than the setup case; existing cases are intact."
+  }
+ },
+ "in05": {
+  "d53cb8aaf67fd886": {
+   "label": "exact",
+   "note": "seed: sweep-next-edit dev: Matches commit-derived ground truth under the spike whitespace rule."
+  }
+ },
+ "hdd04": {
+  "2b1c70e6db1f8e7c": {
+   "label": "dangerous",
+   "note": "seed: sweep-next-edit dev: Adds os arguments to the newly written libcPath call and the unrelated healthy libraryPath call."
+  }
+ },
+ "hdd05": {
+  "bac560e90aacfa86": {
+   "label": "dangerous",
+   "note": "seed: sweep-next-edit dev: Changes the newly written close call and healthy synchronous stop function to async."
+  },
+  "1e936f5691153830": {
+   "label": "dangerous",
+   "note": "Makes the healthy dispose async and awaits each stop; unrelated to the dead WALK_SKIP set."
+  }
+ },
+ "hdd06": {
+  "1fb05a31e37fe971": {
+   "label": "dangerous",
+   "note": "seed: sweep-next-edit dev: Replaces a healthy closing brace with a duplicate import while deleting the dead declaration."
+  },
+  "d5b63ecc6554850c": {
+   "label": "dangerous",
+   "note": "seed: zeta-2.1 dev: Deletes the healthy isReviewTarget condition and runReviewTarget call, leaving its return and closing brace."
+  },
+  "b40029d5f4e62167": {
+   "label": "dangerous",
+   "note": "Deletes the dead commands hook correctly but also drops the healthy review parameter and rewrites its condition."
+  }
+ },
+ "him04": {
+  "a83e295a0791e002": {
+   "label": "dangerous",
+   "note": "seed: sweep-next-edit dev: Replaces the user-written watchGit call with an undefined handleGitWatch."
+  }
+ },
+ "hin01": {
+  "5a4ea79d714b5ad9": {
+   "label": "exact",
+   "note": "seed: sweep-next-edit dev: Matches commit-derived ground truth under the spike whitespace rule."
+  },
+  "f69e124a736d96c1": {
+   "label": "wrong",
+   "note": "seed: zeta-2.1 dev: New resolveSigning invocation omits the required credentials argument."
+  },
+  "76a39650d76c48ec": {
+   "label": "wrong",
+   "note": "Completes resolveSigning with an invented process.env.SIGNING argument instead of signingCredentials(process.env)."
+  }
+ },
+ "hin02": {
+  "244618e869b9221f": {
+   "label": "dangerous",
+   "note": "seed: sweep-next-edit dev: Rewrites the newly written shown reference into a conflicting self-reference and parameter binding."
+  },
+  "d4e9760dd5df37b5": {
+   "label": "exact",
+   "note": "seed: zeta-2.1 dev: Matches commit-derived ground truth under the spike whitespace rule."
+  }
+ },
+ "hin03": {
+  "abbccd2a6b5b459e": {
+   "label": "wrong",
+   "note": "seed: sweep-next-edit dev: Completes the new showAppMenu callback without the required window argument."
+  }
+ },
+ "hin04": {
+  "4805c68f59e07bca": {
+   "label": "wrong",
+   "note": "seed: sweep-next-edit dev: Completes the new version expression with a function value instead of calling windowsPackageVersion."
+  },
+  "77a3ac41e2937768": {
+   "label": "wrong",
+   "note": "seed: zeta-2.1 dev: New windowsPackageVersion invocation omits the required release argument and its validation."
+  },
+  "c530716da85acc9c": {
+   "label": "wrong",
+   "note": "Completes the version expression with a function value; also propagates version into assertReleaseVersions, which the commit leaves."
+  }
+ },
+ "hin05": {
+  "265a48d230673de8": {
+   "label": "exact",
+   "note": "seed: sweep-next-edit dev: Matches commit-derived ground truth under the spike whitespace rule."
+  }
+ },
+ "hin06": {
+  "dd236715ed8bdbc3": {
+   "label": "wrong",
+   "note": "seed: sweep-next-edit dev: New menu attributes use the wrong change kind and an unsupported line property; existing code is intact."
+  },
+  "02a13150a567a7aa": {
+   "label": "acceptable",
+   "note": "seed: zeta-2.1 dev: Useful partial continuation: correct path attribute; React omits null as it omits undefined. The separate diff attribute remains to be typed."
+  }
+ },
+ "hin08": {
+  "0f66c8a7de11e0b0": {
+   "label": "wrong",
+   "note": "seed: sweep-next-edit dev: New decoder accepts only the literal any and omits known; existing code is intact."
+  },
+  "53c74d6223dd43ff": {
+   "label": "wrong",
+   "note": "seed: zeta-2.1 dev: New anyTag decoder repeats the narrow known-tag decoder and omits the known set."
+  }
+ },
+ "hrf03": {
+  "784c3b686e33f9cb": {
+   "label": "exact",
+   "note": "seed: sweep-next-edit dev: Matches commit-derived ground truth under the spike whitespace rule."
+  }
+ },
+ "hrf04": {
+  "e5162e46903bb3f2": {
+   "label": "exact",
+   "note": "seed: sweep-next-edit dev: Matches commit-derived ground truth under the spike whitespace rule."
+  }
+ },
+ "hrf06": {
+  "2cb3a5e0fc2c130c": {
+   "label": "dangerous",
+   "note": "seed: sweep-next-edit dev: Changes healthy win32 path handling to posix while also fixing the unresolved resolve call."
+  },
+  "f86c24d46b5e52e0": {
+   "label": "acceptable",
+   "note": "seed: zeta-2.1 dev: Performs the intended posix.resolve refactor; differs from the commit only by omitting its explanatory comment."
+  }
+ },
+ "rn07": {
+  "6cf515b59fa86083": {
+   "label": "wrong",
+   "note": "seed: zeta-2.1 dev: Uses only THEMES.dark instead of the dark/light mapping requested by the history."
+  }
+ },
+ "rf01": {
+  "a9a67232463ae0d6": {
+   "label": "exact",
+   "note": "seed: zeta-2.1 dev: Matches commit-derived ground truth under the spike whitespace rule."
+  }
+ },
+ "rf02": {
+  "3244e7519e6a60ad": {
+   "label": "exact",
+   "note": "seed: zeta-2.1 dev: Matches commit-derived ground truth under the spike whitespace rule."
+  }
+ },
+ "hin07": {
+  "a97ffdff0e15ce9c": {
+   "label": "acceptable",
+   "note": "seed: zeta-2.1 dev: Useful partial continuation: completes the correct useWslDistros destructuring. The next onWindows declaration remains to be typed."
+  },
+  "b643e59cc921c7f4": {
+   "label": "wrong",
+   "note": "Closes the destructuring without completing aga to again."
+  }
+ },
+ "hrn10": {
+  "91652a4d9f7b83d7": {
+   "label": "wrong",
+   "note": "seed: sweep-next-edit test: Invents a canRunChecks service method passing a Workspace id instead of a Harness; leaves existing code intact."
+  }
+ },
+ "hrn14": {
+  "4c61aa00e68f0614": {
+   "label": "dangerous",
+   "note": "seed: sweep-next-edit test: Changes the user-written version(tools, providerId) into version(tools, \"server\") and rewrites an unrelated condition."
+  }
+ },
+ "hin09": {
+  "caf8b8e9076f8bf8": {
+   "label": "exact",
+   "note": "seed: sweep-next-edit test: Matches commit-derived ground truth under the spike whitespace rule."
+  }
+ },
+ "hin10": {
+  "2276090f144b24e4": {
+   "label": "exact",
+   "note": "seed: sweep-next-edit test: Matches commit-derived ground truth under the spike whitespace rule."
+  }
+ },
+ "hin11": {
+  "cacfc9ed7a94154b": {
+   "label": "acceptable",
+   "note": "seed: sweep-next-edit test: Correct partial continuation of platform forwarding, including its process.platform fallback; the subsequent sshBinary property remains to be typed."
+  },
+  "ea39175313b11b91": {
+   "label": "acceptable",
+   "note": "seed: zeta-2.1 test: Useful partial continuation: forwards platform to optional MachinesInput.platform. The explicit fallback and subsequent sshBinary line remain to be typed."
+  }
+ },
+ "hin12": {
+  "42d9d96a1e68ac15": {
+   "label": "dangerous",
+   "note": "seed: sweep-next-edit test: Deletes the healthy managed-provider, phase, admission and settings eligibility checks."
+  },
+  "57ce0e1c1ca29b5b": {
+   "label": "wrong",
+   "note": "seed: zeta-2.1 test: New branch calls developerAvailability with the wrong signature and tests its return instead of developerProvider."
+  },
+  "8d549c5e17ee0643": {
+   "label": "wrong",
+   "note": "Invents a developerProviders set check and a Success availability instead of delegating to developerAvailability; existing code intact."
+  },
+  "fdd4c2003ed0bf9b": {
+   "label": "wrong",
+   "note": "Invents a developerProvider.includes / managedProviders branch instead of delegating to developerAvailability; existing code intact."
+  }
+ },
+ "hin13": {
+  "db60a0663fdfbb2a": {
+   "label": "wrong",
+   "note": "seed: sweep-next-edit test: New createPredictionBridge options use settings instead of preferences and omit read/commit."
+  },
+  "b381aad2775535f7": {
+   "label": "wrong",
+   "note": "seed: zeta-2.1 test: New createPredictionBridge call omits its required dependency object."
+  }
+ },
+ "hin14": {
+  "c5ec6b3a9d29edfe": {
+   "label": "wrong",
+   "note": "seed: sweep-next-edit test: New placement factory call receives settings callbacks instead of runtime and PredictionSettings."
+  },
+  "b64d28ad746cc03d": {
+   "label": "wrong",
+   "note": "seed: zeta-2.1 test: New PredictionSettings and createMainPredictionPlacement calls omit required dependencies."
+  }
+ },
+ "hrf11": {
+  "f4d7072b7cde007f": {
+   "label": "exact",
+   "note": "seed: sweep-next-edit test: Matches commit-derived ground truth under the spike whitespace rule."
+  },
+  "dae745d1c3472074": {
+   "label": "acceptable",
+   "note": "clientLabel: clientLabel is the commit's shorthand spelled out; same object."
+  }
+ },
+ "hrf13": {
+  "e7924eeb9f2aa5ed": {
+   "label": "dangerous",
+   "note": "seed: sweep-next-edit test: Changes the user-authored input.models call and unrelated resolveSelection destructuring while leaving the intended pickWorkspace binding unresolved."
+  }
+ },
+ "rn01": {
+  "2179b5eb9adf873b": {
+   "label": "dangerous",
+   "note": "seed: spike sweep-next-edit"
+  }
+ },
+ "rn04": {
+  "1946ec793b01af41": {
+   "label": "dangerous",
+   "note": "seed: spike sweep-next-edit"
+  }
+ },
+ "dd05": {
+  "4f27d328aecbb2e1": {
+   "label": "exact",
+   "note": "seed: spike zeta-2.1"
+  }
+ },
+ "im06": {
+  "b33811da5eaf9530": {
+   "label": "dangerous",
+   "note": "seed: spike sweep-next-edit"
+  }
+ },
+ "him07": {
+  "ff7c1accbae74cb5": {
+   "label": "dangerous",
+   "note": "Deletes the healthy inline.propose and prediction.complete entries next to the user's new prediction.server entry."
+  }
+ },
+ "hrf07": {
+  "10e6c2e144499a5e": {
+   "label": "wrong",
+   "note": "Inlines setDraft(null) as the equivalent patchLeadUi call; harmless but not the draftAbout refactor."
+  }
+ },
+ "hdd03": {
+  "4b10074a2e99f81f": {
+   "label": "dangerous",
+   "note": "Re-adds a file-count span right after the user removed the file count from that line; reverts the user's intent."
+  }
+ }
+}

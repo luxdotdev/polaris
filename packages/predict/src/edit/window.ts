@@ -1,4 +1,5 @@
 import { PredictionError, type EditPredictionRequest } from "@polaris/protocol";
+import { sweepOptions, type SweepOptions } from "./options.ts";
 
 export interface EditWindow {
   readonly lines: readonly string[];
@@ -13,7 +14,10 @@ export interface EditWindow {
 export const lineAt = (buffer: string, offset: number) =>
   buffer.slice(0, offset).split("\n").length - 1;
 
-export const editWindow = (request: EditPredictionRequest): EditWindow => {
+export const editWindow = (
+  request: EditPredictionRequest,
+  options: SweepOptions = sweepOptions
+): EditWindow => {
   const focus = request.focus ?? request.cursor;
 
   if (focus > request.buffer.length || request.cursor > request.buffer.length)
@@ -31,7 +35,7 @@ export const editWindow = (request: EditPredictionRequest): EditWindow => {
   const bounds =
     request.format === "zeta-2.1"
       ? [Math.max(0, k - 13), Math.min(lines.length, k + 3), Math.min(lines.length, k + 16)]
-      : [Math.max(0, k - 10), Math.min(lines.length, k + 11)];
+      : [Math.max(0, k - options.above), Math.min(lines.length, k + options.below + 1)];
 
   const unique = [...new Set(bounds)];
 

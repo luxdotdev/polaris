@@ -1,17 +1,13 @@
 import type { EditPredictionRequest, PredictedEdit, SuppressedReason } from "@polaris/protocol";
+import { applyEdits } from "./apply.ts";
 import { changesBlankLines, unbalancesDelimiters } from "./delimiterGuard.ts";
 import { unsafeIdentifiers } from "./identifierGuard.ts";
 import { changesHistory } from "./historyGuard.ts";
+import { inventsNames, renamesDeclaration, restoresRemovedNames } from "./novelGuard.ts";
+import type { SweepOptions } from "./options.ts";
 import type { EditWindow } from "./window.ts";
 
-export const applyEdits = (buffer: string, edits: readonly PredictedEdit[]) => {
-  let result = buffer;
-
-  for (const edit of edits.toReversed())
-    result = result.slice(0, edit.from) + edit.text + result.slice(edit.to);
-
-  return result;
-};
+export { applyEdits } from "./apply.ts";
 
 const unstable = (request: EditPredictionRequest, edit: PredictedEdit) => {
   const start = request.buffer.lastIndexOf("\n", edit.from - 1) + 1;
@@ -40,7 +36,8 @@ const unstable = (request: EditPredictionRequest, edit: PredictedEdit) => {
 export const guardEdits = (
   request: EditPredictionRequest,
   window: EditWindow,
-  edits: readonly PredictedEdit[]
+  edits: readonly PredictedEdit[],
+  options?: Pick<SweepOptions, "novelNames" | "declarationRenames" | "removedNames">
 ) => {
   if (!edits.length) return { edits: [], suppressed: [] };
 
@@ -55,6 +52,9 @@ export const guardEdits = (
   else if (edits.some((edit) => unstable(request, edit))) reason = "unstable";
   else if (unbalancesDelimiters(request, after, edits)) reason = "unstable";
   else if (unsafeIdentifiers(request, after, edits)) reason = "unstable";
+  else if (options?.novelNames && inventsNames(request, after)) reason = "unstable";
+  else if (options?.declarationRenames && renamesDeclaration(request, after)) reason = "unstable";
+  else if (options?.removedNames && restoresRemovedNames(request, edits)) reason = "revert";
 
   // Treat a region rewrite atomically: retained hunks may depend on a dropped hunk.
   return reason

@@ -1,8 +1,8 @@
 import type { EditHistoryHunk, EditPredictionRequest } from "@polaris/protocol";
 import type { PredictionPrompt } from "../prompt.ts";
+import { historyBlocks, linesOf } from "./history.ts";
+import { sweepOptions, type SweepOptions } from "./options.ts";
 import { editWindow, lineAt, type EditWindow } from "./window.ts";
-
-const linesOf = (text: string) => (text ? text.replace(/\r\n/g, "\n").split("\n") : []);
 
 const unified = (hunk: EditHistoryHunk) => {
   const before = linesOf(hunk.before),
@@ -56,15 +56,19 @@ const previousWindow = (request: EditPredictionRequest, window: EditWindow) => {
   return previous.slice(map(lo), map(hi)).join("\n");
 };
 
-const sweep = (request: EditPredictionRequest, window: EditWindow): PredictionPrompt => {
+const sweep = (
+  request: EditPredictionRequest,
+  window: EditWindow,
+  options: SweepOptions
+): PredictionPrompt => {
   const [lo = 0, hi = window.lines.length] = window.bounds;
 
   const parts = [
     `<|file_sep|>${request.path}`,
-    window.lines.slice(Math.max(0, window.focusLine - 80), lo).join("\n"),
+    window.lines.slice(Math.max(0, window.focusLine - options.prefixLines), lo).join("\n"),
   ];
 
-  for (const hunk of request.history)
+  for (const hunk of historyBlocks(request, window.lines, options))
     parts.push(`<|file_sep|>${hunk.path}.diff`, "original:", hunk.before, "updated:", hunk.after);
   parts.push(
     `<|file_sep|>original/${request.path}`,
@@ -77,11 +81,14 @@ const sweep = (request: EditPredictionRequest, window: EditWindow): PredictionPr
   return { prompt: parts.join("\n"), stop: ["<|file_sep|>", "</s>", "<|endoftext|>"] };
 };
 
-export const buildEditPrompt = (request: EditPredictionRequest) => {
-  const window = editWindow(request);
+export const buildEditPrompt = (
+  request: EditPredictionRequest,
+  options: SweepOptions = sweepOptions
+) => {
+  const window = editWindow(request, options);
 
   return {
     window,
-    ...(request.format === "zeta-2.1" ? zeta(request, window) : sweep(request, window)),
+    ...(request.format === "zeta-2.1" ? zeta(request, window) : sweep(request, window, options)),
   };
 };
