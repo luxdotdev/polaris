@@ -21,7 +21,11 @@ const workspaceId = P.WorkspaceId.make("workspace-a");
 
 const checkout = P.LanguageCheckout.cases.Workspace.make({ workspaceId, path: "/fixture" });
 
-const png = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0]);
+// A 1 × 1 PNG's signature and IHDR: enough for main to read its size.
+const png = new Uint8Array([
+  137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0,
+  0,
+]);
 
 const prefs = () => {
   let settings: Settings = { theme: "dark" };

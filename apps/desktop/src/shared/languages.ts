@@ -13,10 +13,15 @@ export const LanguageClientIdentity = Schema.Struct({
   connectionEpoch: Languages.LanguageCounter.check(Schema.isGreaterThan(0)),
 });
 
+/** The most pixels one preview image may declare (6000 × 4000 fits; ~96 MB decoded as RGBA). */
+export const PREVIEW_IMAGE_MAX_PIXELS = 24_000_000;
+
 /** Main fetches bounded media; the renderer creates/revokes object URLs from these bytes. */
 export const LanguagePreviewMediaView = Schema.Struct({
   mimeType: Schema.String.check(Schema.isPattern(/^image\/(png|jpeg|gif|webp|avif)$/)),
   bytes: Languages.LanguageCounter.check(Schema.isLessThanOrEqualTo(10485760)),
+  /** Width × height from the header, so the renderer can budget the decode. */
+  pixels: Languages.LanguageCounter.check(Schema.isLessThanOrEqualTo(PREVIEW_IMAGE_MAX_PIXELS)),
   base64: Schema.String.check(
     Schema.isMaxLength(13981016),
     Schema.isPattern(/^[A-Za-z0-9+/]*={0,2}$/)

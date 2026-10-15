@@ -5,7 +5,8 @@ import { isIP } from "node:net";
 import { posix } from "node:path";
 import { LanguageAccess, abortable, languageFailure } from "@polaris/client";
 import * as P from "@polaris/protocol";
-import { LanguagePreviewMediaView } from "../../shared/languages.ts";
+import { LanguagePreviewMediaView, PREVIEW_IMAGE_MAX_PIXELS } from "../../shared/languages.ts";
+import { rasterSize } from "./rasterSize.ts";
 import type { LanguagePreferences } from "./settings.ts";
 
 export const publicImageAddress = (address: string): boolean => {
@@ -95,10 +96,17 @@ export const rasterView = (
   )
     mimeType = "image/avif";
   else throw languageFailure("invalid-input");
+  const size = rasterSize(mimeType, bytes);
+
+  if (size === null) throw languageFailure("invalid-input");
+  const pixels = size.width * size.height;
+
+  if (pixels > PREVIEW_IMAGE_MAX_PIXELS) throw languageFailure("too-large");
 
   return LanguagePreviewMediaView.make({
     mimeType,
     bytes: bytes.length,
+    pixels,
     base64: data.toString("base64"),
   });
 };

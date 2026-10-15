@@ -69,7 +69,10 @@ const png =
 const api: LanguageApi = {
   request: async <M extends LanguageRequestMethod>(method: M, input: LanguageRequestInput<M>) => {
     calls.push(method);
-    let output: LanguagePreviewPolicy | { mimeType: string; bytes: number; base64: string };
+
+    let output:
+      | LanguagePreviewPolicy
+      | { mimeType: string; bytes: number; pixels: number; base64: string };
 
     if (method === "languages.preview.policy.get") output = policy;
     else if (method === "languages.preview.policy.set") {
@@ -91,7 +94,7 @@ const api: LanguageApi = {
         mediaStats.inFlight--;
       }
 
-      output = { mimeType: "image/png", bytes: atob(png).length, base64: png };
+      output = { mimeType: "image/png", bytes: atob(png).length, pixels: 1, base64: png };
     }
 
     const value = Schema.decodeUnknownSync(LanguageRequestOutputs[method])(output);
