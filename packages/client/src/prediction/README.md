@@ -2,7 +2,7 @@
 
 The Client main process owns one `PlacementController` per Workspace's Host.
 `scorePlacement` ranks usable tier models by RAM tier, then a managed server
-(one the serving Daemon runs itself, ADR 0048) over the user's own, then
+(one the serving Daemon runs itself, ADR 0049) over the user's own, then
 measured rolling p50, then the Client for ties. Explicit choices restrict candidates to that side;
 Auto falls back to the other side after endpoint failure, then Off. Pi-class
 Hosts are excluded, including an explicit Host choice. A chosen model must be

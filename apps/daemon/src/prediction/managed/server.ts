@@ -1,5 +1,5 @@
 /**
- * The managed model server (ADR 0048): one per Daemon, driven by `machine.ts`. It downloads
+ * The managed model server (ADR 0049): one per Daemon, driven by `machine.ts`. It downloads
  * the build and the model on setup, starts the server on demand, restarts it with backoff,
  * stops it after 15 idle minutes and reports every change to its watchers.
  */

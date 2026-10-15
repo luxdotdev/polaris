@@ -1,5 +1,5 @@
 /**
- * What a managed model server is made of (ADR 0048): the pinned llama.cpp build per
+ * What a managed model server is made of (ADR 0049): the pinned llama.cpp build per
  * platform and the two next-edit models, each with its publisher URL, size and SHA-256.
  */
 import type { ManagedModelFacts, ManagedModelId } from "@polaris/protocol";

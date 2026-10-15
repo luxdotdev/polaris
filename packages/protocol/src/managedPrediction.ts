@@ -1,5 +1,5 @@
 /**
- * The model server a Daemon runs itself for tab completion (ADR 0048): what it would
+ * The model server a Daemon runs itself for tab completion (ADR 0049): what it would
  * download for this machine, where it is in its lifecycle, and the actions on it.
  * Ephemeral: nothing here enters the event log.
  */

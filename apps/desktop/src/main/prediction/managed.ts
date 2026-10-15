@@ -1,5 +1,5 @@
 /**
- * The managed model server as the Desktop App sees it (ADR 0048): the Client side is this
+ * The managed model server as the Desktop App sees it (ADR 0049): the Client side is this
  * machine's local Daemon, the Host side the Workspace's Daemon. Both speak `prediction.managed`.
  */
 import type { LiveSession } from "@polaris/client";

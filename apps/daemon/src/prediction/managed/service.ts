@@ -1,5 +1,5 @@
 /**
- * The managed model server as a Daemon service (ADR 0048): one `ManagedServer` per Daemon,
+ * The managed model server as a Daemon service (ADR 0049): one `ManagedServer` per Daemon,
  * built on first use, with the default folder `~/.polaris/models`.
  */
 import { readFileSync } from "node:fs";

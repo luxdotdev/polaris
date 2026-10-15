@@ -1,5 +1,5 @@
 /**
- * The managed model server's lifecycle (ADR 0048), a pure decider: the service feeds it
+ * The managed model server's lifecycle (ADR 0049), a pure decider: the service feeds it
  * what happened and acts on the state it lands in. Mirrors `languages/runtime/lifecycle.ts`.
  */
 import { createMachine, transition, types } from "xstate";

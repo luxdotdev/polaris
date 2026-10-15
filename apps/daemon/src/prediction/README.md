@@ -54,7 +54,7 @@ aborts the predictor's HTTP signal. The request carries the whole unsaved buffer
 optional focus and frozen edit history; success streams one `EditPredictionItem.Final`.
 No model server process, download, polling or idle timer is introduced.
 
-## Managed model server (`managed/`, ADR 0048)
+## Managed model server (`managed/`, ADR 0049)
 
 The Daemon runs the tab completion model server itself when the user has no
 server of their own: `catalog.ts` pins the llama.cpp release (b11429) per

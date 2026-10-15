@@ -6,7 +6,7 @@ import { PredictionManagedLive } from "./managed/rpc.ts";
 import { ManagedServer } from "./managed/server.ts";
 import { ManagedModelServer } from "./managed/service.ts";
 
-/** A request to the managed endpoint starts its server first (ADR 0048); any other passes through. */
+/** A request to the managed endpoint starts its server first (ADR 0049); any other passes through. */
 const ensureManaged = Effect.fn("prediction.ensureManaged")(function* (
   endpoint: PredictionEndpoint
 ) {

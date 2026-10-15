@@ -1,5 +1,5 @@
 /**
- * The Host-side pieces the managed server needs (ADR 0048): spawning llama-server,
+ * The Host-side pieces the managed server needs (ADR 0049): spawning llama-server,
  * a free loopback port, its health check, resident memory and the build's extraction.
  */
 import { createServer } from "node:net";

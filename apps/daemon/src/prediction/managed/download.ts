@@ -1,5 +1,5 @@
 /**
- * A resumable, verified download into a folder (ADR 0048): bytes land in `<file>.part`,
+ * A resumable, verified download into a folder (ADR 0049): bytes land in `<file>.part`,
  * a restart continues with `Range`, the whole file is hashed before the atomic rename.
  */
 import { createHash, timingSafeEqual } from "node:crypto";

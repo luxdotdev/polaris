@@ -21,7 +21,7 @@ export const PredictionEnabled = Schema.Struct({
 
 export type PredictionEnabled = typeof PredictionEnabled.Type;
 
-/** The managed model server on each side (ADR 0048); null where the Daemon can't run one. */
+/** The managed model server on each side (ADR 0049); null where the Daemon can't run one. */
 export const ManagedInspection = Schema.Struct({
   client: Schema.NullOr(ManagedServerStatus),
   host: Schema.NullOr(ManagedServerStatus),

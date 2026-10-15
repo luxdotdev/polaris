@@ -1,5 +1,5 @@
 /**
- * `prediction.managed` and `prediction.managed.watch` (ADR 0048): the status of the model
+ * `prediction.managed` and `prediction.managed.watch` (ADR 0049): the status of the model
  * server this Daemon runs, the actions on it, and a stream of its changes while watched.
  */
 import {
@@ -23,7 +23,7 @@ const act = (server: ManagedServer, request: ManagedServerRequest, action: Manag
   Match.value(action).pipe(
     Match.when("setup", () => server.setup(request.modelsDir, request.model)),
     Match.when("cancel", () => Promise.resolve(server.cancel())),
-    // A start from a Client-side request also resets the idle clock (ADR 0048).
+    // A start from a Client-side request also resets the idle clock (ADR 0049).
     Match.when("start", () => server.start().then(() => server.touch())),
     Match.when("stop", () => Promise.resolve(server.stop())),
     Match.when("remove", () => server.remove(request.modelsDir, request.model)),

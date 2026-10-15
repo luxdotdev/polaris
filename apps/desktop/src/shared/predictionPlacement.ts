@@ -53,11 +53,11 @@ export const PredictionPreferences = Schema.Struct({
     .check(Schema.isMaxLength(256))
     .pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
   editModel: Schema.NullOr(EditModel).pipe(Schema.withDecodingDefaultKey(Effect.succeed(null))),
-  /** Where this Host's managed model lives (ADR 0048); null is the Daemon's default folder. */
+  /** Where this Host's managed model lives (ADR 0049); null is the Daemon's default folder. */
   modelsDir: Schema.NullOr(Schema.String.check(Schema.isMaxLength(4096))).pipe(
     Schema.withDecodingDefaultKey(Effect.succeed(null))
   ),
-  /** The managed model (ADR 0048): null is Sweep; "zeta-2.1" is the higher-quality opt-in. */
+  /** The managed model (ADR 0049): null is Sweep; "zeta-2.1" is the higher-quality opt-in. */
   managedModel: Schema.NullOr(ManagedModelId).pipe(
     Schema.withDecodingDefaultKey(Effect.succeed(null))
   ),
