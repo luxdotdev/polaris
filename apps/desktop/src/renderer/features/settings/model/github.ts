@@ -223,14 +223,16 @@ export const workspaceOverrides = (
     })
     .toSorted((a, b) => a.key.localeCompare(b.key));
 
-const FAILURES: Readonly<Record<SignInFailure, string>> = {
+/** Read per render: the copy names this machine. */
+const failures = (): Readonly<Record<SignInFailure, string>> => ({
   expired: "The code expired before GitHub confirmed it",
   denied: "GitHub says the sign-in was declined",
   disabled: "Device sign-in is turned off for Polaris on GitHub",
   network: "Couldn't reach GitHub",
+  certificate: `GitHub's certificate isn't trusted on ${clientCopy().machine}`,
   unavailable: "GitHub couldn't start a sign-in right now",
   keychain: clientCopy().tokenStoreBlocked,
-};
+});
 
 /** "14:32", never below zero. */
 export const countdown = (expiresAt: number, now: number) => {
@@ -242,20 +244,42 @@ export const countdown = (expiresAt: number, now: number) => {
 export interface SignInStatus {
   readonly waiting: boolean;
   readonly text: string;
+  /** What the user can check, for failures on their side of the network. */
+  readonly hint: string | null;
   /** "code expires in 14:32" while waiting. */
   readonly aside: string | null;
 }
 
+const hostName = (flow: SignInView) => flow.host ?? "github.com";
+
+/** Failures on the user's side of the network, with what they can check. */
+const HINTS: Partial<Record<SignInFailure, (host: string) => string>> = {
+  network: (host) =>
+    `Polaris uses ${clientCopy().machine}'s proxy settings. If a proxy or a security tool like Zscaler filters your network, check that it allows ${host}.`,
+  certificate: () =>
+    `A security tool like Zscaler that inspects traffic needs its root certificate installed on ${clientCopy().machine}.`,
+};
+
+const hintOf = (flow: SignInView) =>
+  flow.failure === null ? null : (HINTS[flow.failure]?.(hostName(flow)) ?? null);
+
 export const signInStatus = (flow: SignInView, now: number): SignInStatus => {
   if (flow.state === "failed") {
-    return { waiting: false, text: FAILURES[flow.failure ?? "unavailable"], aside: null };
+    return {
+      waiting: false,
+      text: failures()[flow.failure ?? "unavailable"],
+      hint: hintOf(flow),
+      aside: null,
+    };
   }
 
-  if (flow.expiresAt <= now) return { waiting: false, text: FAILURES.expired, aside: null };
+  if (flow.expiresAt <= now)
+    return { waiting: false, text: failures().expired, hint: null, aside: null };
 
   return {
     waiting: true,
     text: `Waiting for ${flow.host === undefined || flow.host === "github.com" ? "GitHub" : flow.host}`,
+    hint: null,
     aside: `code expires in ${countdown(flow.expiresAt, now)}`,
   };
 };
