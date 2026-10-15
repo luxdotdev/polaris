@@ -63,6 +63,7 @@ const fakeClock = () => {
         pending.delete(id);
       };
     },
+    now: () => now,
   };
 
   const advance = async (ms: number) => {
@@ -314,6 +315,33 @@ test("the first request starts the server lazily and idling 15 minutes unloads i
     await clock.advance(500);
     await again;
     expect(phase(await server.status())).toBe("Serving");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("the load time is reported while it serves and forgotten once it unloads", async () => {
+  const dir = scratch();
+
+  try {
+    installed(dir);
+    const { server, clock, processes } = make(dir);
+    await server.status();
+    expect(server.isServing()).toBe(false);
+    const started = server.start();
+    await settle();
+    expect((await server.status()).loadMs).toBeNull();
+    await clock.advance(1000);
+    processes.spawned[0]!.healthy = true;
+    await clock.advance(500);
+    await started;
+    expect(server.isServing()).toBe(true);
+    expect((await server.status()).loadMs).toBe(1500);
+
+    await clock.advance(IDLE_UNLOAD_MS + 1);
+    await settle();
+    expect(phase(await server.status())).toBe("Stopped");
+    expect((await server.status()).loadMs).toBeNull();
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

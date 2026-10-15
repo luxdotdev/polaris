@@ -2,6 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import type { HostConnection, LiveSession } from "@polaris/client";
 import { Effect, Exit, Layer, ManagedRuntime, Schema, Stream, SubscriptionRef } from "effect";
 import * as P from "@polaris/protocol";
+import { LatencyRecorder } from "@polaris/predict";
 import { HostDirectory, type ClientRuntime } from "../hosts.ts";
 import type { Settings } from "../settings.ts";
 import { PredictionSettings } from "./preferences.ts";
@@ -38,6 +39,8 @@ const setup = async (
     readonly hostEdit?: boolean;
     readonly enabled?: boolean;
     readonly url?: string;
+    /** The endpoint is Polaris's own server; the first start answers that it loaded the model. */
+    readonly managed?: boolean;
   } = {}
 ) => {
   let settings: Settings = { predictionEnabled: options.enabled ?? true };
@@ -53,7 +56,27 @@ const setup = async (
     kind: "openai",
     url: options.url ?? "http://127.0.0.1:8080",
     models: options.models ?? ["mellum2-12b-a2.5b"],
+    managed: options.managed === true,
   } satisfies P.PredictionCapability["endpoints"][number];
+
+  const managedActions: Array<P.ManagedServerAction | null> = [];
+
+  const managedAnswer = (action: P.ManagedServerAction | null): P.ManagedServerAnswer => ({
+    model: {
+      id: "sweep-next-edit-1.5b",
+      name: "Sweep Next-Edit 1.5B",
+      sizeBytes: 1_537_269_856,
+      serverBytes: 11_971_406,
+      memoryBytes: 2_600_000_000,
+    },
+    modelsDir: "/models",
+    freeBytes: null,
+    endpoint: { kind: "openai", url: endpoint.url },
+    phase: P.ManagedServerPhase.cases.Serving.make({}),
+    memoryBytes: null,
+    loadMs: 61_000,
+    launched: action === "start" && managedActions.filter((a) => a === "start").length === 1,
+  });
 
   const client = P.PredictionCapability.make({
     machine: {
@@ -113,6 +136,12 @@ const setup = async (
         ];
       }),
     "prediction.capability": () => Effect.succeed(host),
+    "prediction.managed": (request: P.ManagedServerRequest) =>
+      Effect.sync(() => {
+        managedActions.push(request.action);
+
+        return managedAnswer(request.action);
+      }),
     "prediction.complete": (request: P.PredictionRequest) => {
       requests.push(request);
 
@@ -124,7 +153,7 @@ const setup = async (
     capabilities: P.PREDICTION_CAPABILITIES.filter(
       (capability) => options.hostEdit !== false || capability !== "prediction.edit"
     ),
-    // SAFETY: this fixture is consumed only through its three implemented prediction RPC methods.
+    // SAFETY: this fixture is consumed only through its implemented prediction RPC methods.
     // oxlint-disable-next-line anti-slop/no-chained-type-assertions -- RPC discard/queue generics are unused by this partial fixture.
     client: methods as unknown as LiveSession["client"],
   };
@@ -146,6 +175,7 @@ const setup = async (
 
   const placement = new MainPredictionPlacement({
     preferences,
+    recorder: () => new LatencyRecorder(),
     client: async () => client,
     host: async () => host,
   });
@@ -174,10 +204,36 @@ const setup = async (
     contextInputs,
     requests,
     editRequests,
+    managedActions,
     runtime,
     settings: () => settings,
   };
 };
+
+test("a request to Polaris's own server starts it first; one that waited for the load leaves no latency sample", async () => {
+  const server = Bun.serve({
+    hostname: "127.0.0.1",
+    port: 0,
+    fetch: async () =>
+      new Response('data: {"choices":[{"text":"42"}]}\n\ndata: [DONE]\n\n', {
+        headers: { "Content-Type": "text/event-stream" },
+      }),
+  });
+
+  cleanup.push(async () => {
+    await server.stop(true);
+  });
+  const { bridge, managedActions } = await setup({ url: server.url.href, managed: true });
+  const complete = () => Effect.runPromise(Stream.runCollect(bridge.complete(input)));
+
+  const first = [...(await complete())].at(-1);
+  expect(managedActions).toEqual(["start"]);
+  expect(first).toMatchObject({ text: "42", latency: null });
+
+  const second = [...(await complete())].at(-1);
+  expect(managedActions).toEqual(["start", "start"]);
+  expect(second).toMatchObject({ latency: { count: 1 } });
+});
 
 test("IPC completion serves through the real predictor against a fake endpoint, with Host context and Final processing", async () => {
   const received: unknown[] = [];

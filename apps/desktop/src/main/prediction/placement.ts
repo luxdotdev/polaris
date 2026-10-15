@@ -19,6 +19,14 @@ export interface PredictionLatency {
   stats(endpoint: PredictionEndpoint): LatencyStats | null;
 }
 
+/** The latency sample of one request, in the serve callback's hands. */
+export interface RoundTrip {
+  /** Counts from now: what came before (a managed server's start) isn't completion latency. */
+  restart(): void;
+  /** Leaves no sample: the request waited for a model to load. */
+  exclude(): void;
+}
+
 interface PlacementPorts {
   readonly recorder?: () => PredictionLatency;
   readonly client: (hostKey: string) => Promise<CapabilityReport | null>;
@@ -68,6 +76,15 @@ export class MainPredictionPlacement {
         this.requests.get(key)?.abort();
       }
     }
+  }
+
+  private recorder(hostKey: string, side: PredictionTarget["side"]) {
+    if (side === "client") return this.clientLatency;
+    const recorder = this.hostLatencies.get(hostKey) ?? this.ports.recorder?.() ?? null;
+
+    if (recorder) this.hostLatencies.set(hostKey, recorder);
+
+    return recorder;
   }
 
   /** Round trips through placement for this Host's side: what the status card reports. */
@@ -131,7 +148,7 @@ export class MainPredictionPlacement {
   async run<A>(
     hostKey: string,
     workspaceId: string,
-    serve: (target: PredictionTarget, signal: AbortSignal) => Promise<A>,
+    serve: (target: PredictionTarget, signal: AbortSignal, trip: RoundTrip) => Promise<A>,
     signal: AbortSignal,
     mode: PlacementInput["mode"] = "complete"
   ): Promise<A> {
@@ -145,18 +162,23 @@ export class MainPredictionPlacement {
       await this.choose(hostKey, workspaceId, combined, mode);
 
       return await this.controller(hostKey, workspaceId).run(async (target) => {
-        const start = performance.now();
-        const result = await serve(target, combined);
+        let start = performance.now();
+        let sampled = true;
+
+        const trip: RoundTrip = {
+          restart: () => {
+            start = performance.now();
+          },
+          exclude: () => {
+            sampled = false;
+          },
+        };
+
+        const result = await serve(target, combined, trip);
         combined.throwIfAborted();
-        let recorder = this.clientLatency;
 
-        if (target.side === "host") {
-          recorder = this.hostLatencies.get(hostKey) ?? this.ports.recorder?.() ?? null;
-
-          if (recorder) this.hostLatencies.set(hostKey, recorder);
-        }
-
-        recorder?.record(target.endpoint, performance.now() - start);
+        if (sampled)
+          this.recorder(hostKey, target.side)?.record(target.endpoint, performance.now() - start);
 
         return result;
       }, combined);

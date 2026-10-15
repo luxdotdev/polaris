@@ -93,6 +93,7 @@ const managedStatus = (empty: boolean): ManagedServerStatus => ({
   phase: empty
     ? ManagedServerPhase.cases.Absent.make({})
     : ManagedServerPhase.cases.Stopped.make({}),
+  loadMs: null,
   memoryBytes: null,
 });
 

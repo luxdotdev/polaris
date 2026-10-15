@@ -49,9 +49,11 @@ export const createManagedBridge = ({ runtime, preferences, hostSession }: Manag
       status({ hostKey, side: "host", action: null }).catch(() => null),
     ]).then(([client, host]) => ({ client, host }));
 
-  /** Before a client-side request to the managed endpoint: up, and its idle clock reset. */
-  const ensure = (signal: AbortSignal) =>
-    runtime.runPromise(request(LOCAL_HOST_KEY, "start"), { signal }).then(() => undefined);
+  /** Before a request to a managed endpoint: up, its idle clock reset; true when it had to load. */
+  const ensure = (input: ManagedSideInput, signal: AbortSignal): Promise<boolean> =>
+    runtime
+      .runPromise(request(managedHostKey(input), "start"), { signal })
+      .then((answer) => answer?.launched === true);
 
   const watch = (
     input: ManagedSideInput

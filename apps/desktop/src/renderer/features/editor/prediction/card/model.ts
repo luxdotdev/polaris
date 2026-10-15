@@ -19,6 +19,7 @@ import { modelName, type CompletionStatus } from "../store.ts";
 import { contextFact, latencyFact, placementNote, SERVER_NAMES } from "./facts.ts";
 import { clientCopy } from "../../../../../shared/clientCopy.ts";
 import {
+  loadFact,
   managedBusy,
   managedHeadline,
   managedLog,
@@ -339,9 +340,12 @@ const headline = (
   );
 };
 
+const ownsTarget = (managed: ManagedView | null, target: CardTarget) =>
+  managed !== null && managed.status.endpoint?.url === target.endpoint.url;
+
 const serverName = (input: CardInput, target: CardTarget, managed: ManagedView | null) =>
-  managed !== null && managed.status.endpoint?.url === target.endpoint.url
-    ? "Polaris · llama-server"
+  ownsTarget(managed, target)
+    ? "Polaris"
     : input.server === null || input.server.kind === "unknown"
       ? target.endpoint.kind === "ollama"
         ? "Ollama"
@@ -369,6 +373,7 @@ const facts = (
     },
     { label: "Endpoint", value: where, mono: true, note: serverName(input, target, managed) },
     ...latencyFact(input.result, target),
+    ...loadFact(target, managed),
     ...contextFact(input.result, target, input.trusted),
   ];
 };
@@ -479,10 +484,14 @@ const adviceOf = (kind: CardKind, input: CardInput, target: CardTarget | null) =
   return `If it stops answering, restart ${name} on ${target.machine}.`;
 };
 
-const progressLabel = (kind: CardKind, progress: number | null) =>
-  kind === "downloading" && progress !== null
-    ? `${LABELS[kind]} · ${Math.floor(progress * 100)}%`
-    : LABELS[kind];
+const progressLabel = (kind: CardKind, progress: number | null, managed: ManagedView | null) => {
+  if (kind === "downloading" && progress !== null)
+    return `${LABELS[kind]} · ${Math.floor(progress * 100)}%`;
+
+  if (kind === "loading" && managed !== null) return `Loading ${managed.status.model.name}…`;
+
+  return LABELS[kind];
+};
 
 export const completionCard = (input: CardInput): CompletionCardView => {
   const target = cardTarget(input);
@@ -494,7 +503,7 @@ export const completionCard = (input: CardInput): CompletionCardView => {
 
   return {
     kind,
-    label: progressLabel(kind, progress),
+    label: progressLabel(kind, progress, managed),
     title,
     why,
     // "Error: " and "PredictionError: " are the IPC's framing, not the server's words.

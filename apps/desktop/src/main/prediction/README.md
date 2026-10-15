@@ -27,9 +27,11 @@ fixtures; they do not claim live model quality or latency. Servers of the
 user's own are never started or stopped; Polaris's own managed server
 (`managed.ts`, ADR 0049) is the local Daemon's: `prediction.managed` reports
 or drives it for either side, `prediction.managed.watch` streams its state,
-`prediction.modelsDir.choose` picks the Client's model folder, and a
-client-side request to the managed endpoint first asks the Daemon to start
-it (which also resets its idle clock).
+`prediction.modelsDir.choose` picks the Client's model folder, and a request
+to a managed endpoint on either side first asks its Daemon to start it (which
+also resets its idle clock). The answer's `launched` says the caller waited
+for the model to load: that request restarts its latency clock and leaves no
+sample, and the status's `loadMs` is the card's "Load time" fact.
 
 ## Local outcomes and metrics
 

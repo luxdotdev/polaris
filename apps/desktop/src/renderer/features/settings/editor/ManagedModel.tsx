@@ -2,7 +2,15 @@
  * Settings → Editor → Tab completion → Model (DESIGN.md, Tab completion setup): the one model
  * Polaris downloads and runs on the chosen machine, the folder it lives in, and what it's doing.
  */
-import { Button, Input } from "@polaris/ui";
+import {
+  Button,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@polaris/ui";
 import { ManagedModelId, type ManagedServerStatus } from "@polaris/protocol";
 import { Match, Option, Schema } from "effect";
 import { useEffect, useState } from "react";
@@ -20,14 +28,16 @@ import {
 import { FooterStrip, Group, SettingRow } from "../ui/parts.tsx";
 import { inSentence } from "./placementRows.ts";
 
-const CONTROL =
-  "bg-surface-sunken border-hairline rounded-control text-body text-text-default h-row min-w-0 border px-row-pad";
-
 const SWEEP = "sweep-next-edit-1.5b";
 
-const CHOICES: ReadonlyArray<{ readonly id: ManagedModelId; readonly label: string }> = [
-  { id: SWEEP, label: "Sweep Next-Edit 1.5B · recommended · 2.6 GB" },
-  { id: "zeta-2.1", label: "Zeta 2.1 · higher quality · about 9 GB" },
+/** The closed control says the pick; the open list adds what each costs in memory. */
+const CHOICES: ReadonlyArray<{
+  readonly id: ManagedModelId;
+  readonly label: string;
+  readonly memory: string;
+}> = [
+  { id: SWEEP, label: "Sweep Next-Edit 1.5B · recommended", memory: "2.6 GB of memory" },
+  { id: "zeta-2.1", label: "Zeta 2.1 · higher quality", memory: "about 9 GB of memory" },
 ];
 
 export interface ManagedModelProps {
@@ -200,19 +210,27 @@ export const ManagedModel = ({ hostKey, side, machine, connected }: ManagedModel
         title="Model"
         caption="One next-edit model, downloaded from its publisher and run by Polaris on this machine. Zeta needs more memory."
       >
-        <select
-          id={`managed-model-${hostKey}`}
+        <Select
           value={preferences.managedModel ?? SWEEP}
           disabled={busy || !connected}
-          onChange={(event) => chooseModel(event.target.value)}
-          className={`${CONTROL} max-w-96`}
+          onValueChange={chooseModel}
         >
-          {CHOICES.map((choice) => (
-            <option key={choice.id} value={choice.id}>
-              {choice.label}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger id={`managed-model-${hostKey}`} className="w-[272px]">
+            <SelectValue>
+              {CHOICES.find((choice) => choice.id === (preferences.managedModel ?? SWEEP))?.label}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {CHOICES.map((choice) => (
+              <SelectItem key={choice.id} value={choice.id} textValue={choice.label}>
+                <span className="flex min-w-0 items-baseline gap-2">
+                  <span className="truncate">{choice.label}</span>
+                  <span className="text-text-subtle shrink-0">{choice.memory}</span>
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </SettingRow>
       <SettingRow htmlFor={`models-dir-${hostKey}`} title="Model folder" caption={folderCaption}>
         <Input

@@ -197,7 +197,8 @@ test("Setup offers one download, says its size and where, and shows progress in 
 test("Loading and a crash loop are the managed server's own; a downloaded model is simply ready", () => {
   const loading = setupCard(withManaged(managed(phases.Starting.make({}))));
   expect(loading.kind).toBe("loading");
-  expect(loading.title).toBe("Loading Sweep Next-Edit 1.5B");
+  expect(loading.title).toBe("Loading Sweep Next-Edit 1.5B…");
+  expect(loading.label).toBe("Loading Sweep Next-Edit 1.5B…");
   expect(ids(loading)).toEqual(["settings"]);
 
   const backoff = setupCard(
@@ -210,7 +211,8 @@ test("Loading and a crash loop are the managed server's own; a downloaded model 
   const ready = setupCard(withManaged(managed(phases.Stopped.make({}))));
   expect(ready.kind).toBe("ready");
   expect(ready.why).toBe("Sweep Next-Edit 1.5B on this Mac completes from your next keystroke.");
-  expect(fact(ready, "Endpoint")?.note).toBe("Polaris · llama-server");
+  expect(fact(ready, "Endpoint")?.note).toBe("Polaris");
+  expect(fact(ready, "Load time")).toBeUndefined();
 });
 
 test("Each setup failure names itself, keeps the server's last lines, and offers a retry or removal", () => {

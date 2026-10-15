@@ -69,6 +69,7 @@ export const managed = (
       : { kind: "openai", url: MANAGED_URL },
   phase,
   memoryBytes: Predicate.isTagged(phase, "Serving") ? 2_480_000_000 : null,
+  loadMs: Predicate.isTagged(phase, "Serving") ? 61_000 : null,
   ...patch,
 });
 
