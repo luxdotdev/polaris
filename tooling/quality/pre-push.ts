@@ -31,7 +31,8 @@ const stepsFor = (base: string, head: string): ReadonlyArray<Step> => {
           label: "typecheck scripts",
           command: [join(ROOT, "node_modules/.bin/tsc"), "-p", "scripts"],
         },
-        { label: "test scripts", command: [process.execPath, "test", "scripts"] },
+        // A bare "scripts" is a name filter that would also match every package's scripts/.
+        { label: "test scripts", command: [process.execPath, "test", "./scripts/"] },
       ]
     : [];
 
