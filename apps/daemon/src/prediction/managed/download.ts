@@ -5,7 +5,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { mkdir, open, rename, rm, stat, statfs } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { Schema } from "effect";
 import { ManagedFailureReason } from "@polaris/protocol";
 import type { PinnedFile } from "./catalog.ts";
@@ -30,13 +30,16 @@ export interface DownloadOptions {
 export const partPath = (dir: string, file: PinnedFile) => join(dir, `${file.name}.part`);
 
 /** Free bytes on the folder's filesystem; null when it can't be read. */
+/** Free space where `dir` is or would be made: the nearest existing ancestor's filesystem. */
 export const freeBytes = async (dir: string): Promise<number | null> => {
-  try {
-    const fs = await statfs(dir);
+  for (let path = dir; ; path = dirname(path)) {
+    try {
+      const fs = await statfs(path);
 
-    return Number(fs.bavail) * Number(fs.bsize);
-  } catch {
-    return null;
+      return Number(fs.bavail) * Number(fs.bsize);
+    } catch {
+      if (dirname(path) === path) return null;
+    }
   }
 };
 

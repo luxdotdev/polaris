@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { PinnedFile } from "./catalog.ts";
-import { downloadFile, isDownloaded, ManagedSetupError, partPath } from "./download.ts";
+import { downloadFile, freeBytes, isDownloaded, ManagedSetupError, partPath } from "./download.ts";
 
 const BYTES = Buffer.from("a verified model file, two hundred bytes long".repeat(5));
 
@@ -179,4 +179,13 @@ test("cancelling stops the download and keeps the part for a resume", async () =
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("free space is read from the nearest existing ancestor of a folder not yet made", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "polaris-free-"));
+  const missing = join(dir, "models", "deeper");
+
+  expect(await freeBytes(missing)).toBe(await freeBytes(dir));
+  expect(await freeBytes(dir)).toBeGreaterThan(0);
+  expect(await freeBytes("/nonexistent-root-xyz/sub")).toBe(await freeBytes("/"));
 });
