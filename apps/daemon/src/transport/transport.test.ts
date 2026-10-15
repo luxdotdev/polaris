@@ -53,6 +53,7 @@ import { AttachmentStoreLive } from "../attachments/AttachmentStore.ts";
 import { ClientCapabilities, DeviceLabel } from "../engine/rpc.ts";
 import { GitRpcsLive } from "../git/GitRpcs.ts";
 import { BlobChannel } from "../services.ts";
+import { EventStore } from "../store/EventStore.ts";
 import { TerminalRpcsLive } from "../terminal/TerminalRpcs.ts";
 import { TerminalsLive } from "../terminal/Terminals.ts";
 import { DaemonAlreadyRunning } from "./lock.ts";
@@ -761,7 +762,9 @@ describe("transport", () => {
       Effect.gen(function* () {
         yield* startServer({
           ...serverOptions(home),
-          handlers: TerminalRpcsLive.pipe(Layer.provide(TerminalsLive)),
+          handlers: TerminalRpcsLive.pipe(
+            Layer.provide(Layer.merge(TerminalsLive, EventStore.layerSqlite(":memory:")))
+          ),
           capabilities: ["terminal", "terminal.binary"],
         });
         const conn = yield* localHost(home);

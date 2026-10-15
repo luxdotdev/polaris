@@ -295,8 +295,21 @@ describe("Claude driver", () => {
   });
 
   test("a read-only session runs Bash in the sandbox with no network and no web tools", async () => {
-    const t = await openFake({ readOnly: true }, { sandbox: () => ({ available: true }) });
+    const t = await openFake(
+      { readOnly: true, environment: { GH_TOKEN: "ghp_x", ANTHROPIC_API_KEY: "sk-ant" } },
+      { sandbox: () => ({ available: true }) }
+    );
+
     const o = t.fake.options!;
+
+    // Bash inherits Claude Code's environment: the Workspace's tokens never reach either, and
+    // Claude Code's own key is unset in the sandbox.
+    expect(o.env).not.toHaveProperty("GH_TOKEN");
+    expect(o.env).toMatchObject({ GIT_CONFIG_GLOBAL: "/dev/null" });
+    expect(o.sandbox?.credentials?.envVars).toContainEqual({
+      name: "ANTHROPIC_API_KEY",
+      mode: "deny",
+    });
 
     expect(o.sandbox).toMatchObject({
       enabled: true,
@@ -308,7 +321,16 @@ describe("Claude driver", () => {
       network: { allowedDomains: [], strictAllowlist: true },
     });
     expect(o.permissionMode).toBe("dontAsk");
-    expect(o.disallowedTools).toEqual(["Edit", "Write", "NotebookEdit", "WebFetch", "WebSearch"]);
+    expect(o.disallowedTools).toEqual([
+      "Edit",
+      "Write",
+      "NotebookEdit",
+      "WebFetch",
+      "WebSearch",
+      "Read",
+      "Glob",
+      "Grep",
+    ]);
     await t.run(t.session.sendTurn(turn(T1, "review")));
 
     for (const tool of ["Bash", "Edit", "AskUserQuestion", "Agent"]) {

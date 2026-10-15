@@ -779,7 +779,10 @@ describe("Constellation attachment", () => {
 
     const params = server.requests("thread/start")[0]?.params;
     expect(params).toHaveProperty("developerInstructions", polarisInstructions({ readOnly: true }));
-    expect(params).not.toHaveProperty("config");
+    // The only MCP server named is the user's own, turned off.
+    expect(params).toMatchObject({ config: { mcp_servers: { linear: { enabled: false } } } });
+    expect(JSON.stringify(params)).not.toContain("mcp_servers.polaris");
+    expect(JSON.stringify(params)).not.toContain('"polaris":');
   });
   test("an attachment from another session is refused before thread start", async () => {
     await Promise.resolve(

@@ -198,6 +198,9 @@ export type ThreadItem = typeof ThreadItem.Type;
 // ---------------------------------------------------------------------------
 // Responses
 
+/** `initialize`: the user agent names the app-server's codex version. */
+export const InitializeResponse = Schema.Struct({ userAgent: Schema.String });
+
 export const ThreadResponse = Schema.Struct({ thread: Schema.Struct({ id: Schema.String }) });
 
 export const TurnStartResponse = Schema.Struct({ turn: Schema.Struct({ id: Schema.String }) });
@@ -418,6 +421,8 @@ conforms<Conforms<Item<"subAgentActivity">, typeof SubAgentActivityItem>>();
 conforms<Conforms<Item<"webSearch">, typeof WebSearchItem>>();
 
 conforms<Conforms<Item<"imageView">, typeof ImageViewItem>>();
+
+conforms<Conforms<Gen.InitializeResponse, typeof InitializeResponse>>();
 
 conforms<Conforms<Gen.ThreadStartResponse, typeof ThreadResponse>>();
 

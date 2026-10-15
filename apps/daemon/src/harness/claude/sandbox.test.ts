@@ -5,7 +5,23 @@ import {
   probeClaudeSandbox,
   unsandboxedReviewerNote,
 } from "./sandbox.ts";
-import { readOnlyOptions, SANDBOXED_READ_ONLY, UNSANDBOXED_READ_ONLY } from "./readOnly.ts";
+import { readOnlyOptions } from "./readOnly.ts";
+
+const CONFINEMENT = {
+  root: "/work/review",
+  shellRoots: ["/work/repo/.git/objects", "/usr"],
+  hidden: ["/work/review/.claude-config"],
+  unwritable: ["/work/repo/.git"],
+  shellEnv: { GIT_COMMON_DIR: "/work/sanitized" },
+};
+
+const ENV = {
+  PATH: "/usr/bin",
+  HOME: "/home/u",
+  ANTHROPIC_API_KEY: "sk-ant",
+  CLAUDE_CODE_OAUTH_TOKEN: "oauth",
+  GIT_COMMON_DIR: "/work/sanitized",
+};
 
 const linux = (...installed: ReadonlyArray<string>) =>
   probeClaudeSandbox({
@@ -34,21 +50,39 @@ describe("Claude Code's sandbox on a Host", () => {
     });
   });
 
-  test("a read-only session keeps the sandbox where it can start", () => {
-    const options = readOnlyOptions(linux("bwrap", "socat"));
+  test("a sandboxed read-only session reads only through its shell, which sees only the checkout and its tools", () => {
+    const options = readOnlyOptions(linux("bwrap", "socat"), CONFINEMENT, ENV);
 
-    expect(options).toBe(SANDBOXED_READ_ONLY);
-    expect(options.sandbox).toMatchObject({ enabled: true, failIfUnavailable: true });
-    expect(options.tools).toContain("Bash");
+    expect(options.sandbox).toMatchObject({
+      enabled: true,
+      failIfUnavailable: true,
+      filesystem: {
+        // Claude Code's Linux sandbox otherwise lets a worktree's shell write its repository.
+        denyWrite: ["/", "/work/repo/.git"],
+        denyRead: ["/", "/work/review/.claude-config"],
+        allowRead: ["/work/review", "/work/repo/.git/objects", "/usr"],
+      },
+    });
+    // Claude Code passes its own environment to Bash: its provider keys are unset there.
+    expect(options.sandbox?.credentials?.envVars).toEqual([
+      { name: "ANTHROPIC_API_KEY", mode: "deny" },
+      { name: "CLAUDE_CODE_OAUTH_TOKEN", mode: "deny" },
+    ]);
+    // File tools run outside the OS sandbox, so a sandboxed Reviewer has none.
+    expect(options.tools).toEqual(["Bash", "Agent"]);
+
+    for (const tool of ["Read", "Glob", "Grep"]) expect(options.disallowedTools).toContain(tool);
   });
 
   test("without the sandbox a read-only session has no shell and nothing that writes", () => {
-    const options = readOnlyOptions(linux("bwrap"));
+    const options = readOnlyOptions(linux("bwrap"), CONFINEMENT, ENV);
 
-    expect(options).toBe(UNSANDBOXED_READ_ONLY);
     expect(options.sandbox).toEqual({ enabled: false });
     expect(options.tools).toEqual(["Read", "Glob", "Grep", "Agent"]);
-    expect(options.allowedTools).toEqual(["Read", "Glob", "Grep", "Agent"]);
+    // Reads are allowed by path only: a bare `Read` would let Claude Code read anywhere.
+    expect(options.allowedTools).toEqual(["Read(//work/review/**)", "Agent"]);
+    expect(options.additionalDirectories).toEqual([]);
+    expect(options.disallowedTools).toContain("Read(//work/review/.claude-config/**)");
 
     for (const tool of ["Bash", "Edit", "Write", "NotebookEdit", "WebFetch", "WebSearch"])
       expect(options.disallowedTools).toContain(tool);
@@ -57,7 +91,10 @@ describe("Claude Code's sandbox on a Host", () => {
       settingSources: [],
       mcpServers: {},
       strictMcpConfig: true,
-      settings: { disableAllHooks: true },
+      settings: {
+        disableAllHooks: true,
+        permissions: { blockReadsOutsideWorkingDirectories: true },
+      },
     });
   });
 

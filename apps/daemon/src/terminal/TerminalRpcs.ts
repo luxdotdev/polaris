@@ -14,6 +14,8 @@ import {
 import { Deferred, Effect, Exit, Stream } from "effect";
 import { RpcGroup } from "effect/rpc";
 import { BlobChannel, ServiceError } from "../services.ts";
+import { EventStore } from "../store/EventStore.ts";
+import { terminalEnvironment } from "./environment.ts";
 import { TerminalItem, type TerminalOutput, Terminals } from "./Terminals.ts";
 
 export class TerminalRpcs extends RpcGroup.make(
@@ -87,14 +89,23 @@ export const attachBinary = (
     })
   );
 
-/** Requires `Terminals` (from `TerminalsLive`), and `BlobChannel` per request. */
+/**
+ * Requires `Terminals` (from `TerminalsLive`) and `EventStore` (which Review Checkouts
+ * exist), and `BlobChannel` per request.
+ */
 export const TerminalRpcsLive = TerminalRpcs.toLayer(
   Effect.gen(function* () {
     const terminals = yield* Terminals;
+    const store = yield* EventStore;
 
     return TerminalRpcs.of({
       "terminal.open": (payload) =>
-        Effect.map(terminals.open(payload), (terminalId) => ({ terminalId })),
+        Effect.gen(function* () {
+          const environment = terminalEnvironment(yield* store.model, payload.cwd);
+          const terminalId = yield* terminals.open({ ...payload, environment });
+
+          return { terminalId };
+        }),
       "terminal.attach": ({ terminalId }) => terminals.attach(terminalId),
       "terminal.attachBinary": ({ terminalId }) => attachBinary(terminals, terminalId),
       "terminal.input": ({ terminalId, data }) => terminals.input(terminalId, data),

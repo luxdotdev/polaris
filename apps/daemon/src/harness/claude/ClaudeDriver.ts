@@ -76,7 +76,8 @@ import {
 import { type ClaudePlanLimits, claudePlanLimitReader } from "./planLimits.ts";
 import { usageLimitWatch } from "./usageLimit.ts";
 import { ClaudeTranslator } from "./translate.ts";
-import { readOnlyOptions } from "./readOnly.ts";
+import { readConfinement } from "../confinement.ts";
+import { readOnlyEnv, readOnlyOptions } from "./readOnly.ts";
 import { withoutShadowedWarning } from "./sdkWarnings.ts";
 import { claudeStartLog } from "./startLog.ts";
 import { logStart } from "../startLog.ts";
@@ -397,7 +398,18 @@ const openSession = Effect.fnUntraced(function* (
     Object.assign(sdkOptions, claudeConstellationOptions(attachments));
   }
 
-  if (options.readOnly === true) Object.assign(sdkOptions, readOnlyOptions(sandbox()));
+  if (options.readOnly === true) {
+    const confinement = yield* Effect.tryPromise({
+      try: () => readConfinement(options.cwd, sdkOptions.env),
+      catch: (cause) => harnessError("Could not keep the reviewer to its checkout", cause),
+    });
+
+    const env = readOnlyEnv(sdkOptions.env ?? {}, confinement);
+    Object.assign(sdkOptions, readOnlyOptions(sandbox(), confinement, env));
+    // Claude Code runs where the confinement was checked: the checkout's real path, its env.
+    sdkOptions.cwd = confinement.root;
+    sdkOptions.env = env;
+  }
 
   if (options.model !== null) sdkOptions.model = options.model;
 
