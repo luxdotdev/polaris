@@ -27,7 +27,7 @@ const platformOf = (os: string, arch: string) =>
  * kept across Daemon upgrades, so Clients can tell Hosts apart even when two
  * SSH aliases point at the same machine.
  */
-const loadHostId = (root: string) =>
+export const loadHostId = (root: string) =>
   Effect.try({
     try: () => {
       const file = join(root, "host-id");

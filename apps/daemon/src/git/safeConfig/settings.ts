@@ -1,10 +1,10 @@
 /** What an automatic git call is given: fixed settings, overrides for the repository's own, flags. */
 
 /**
- * `"safe"`: nothing a repository's config names runs. `"fetch"`: the same, but
- * the repository's own ssh command and credential helpers authenticate a Review fetch.
+ * `"safe"`: nothing a repository's config names runs. `"trusted-fetch"`: a Review fetch in a
+ * Workspace the user trusts on this Host, whose own ssh command, git proxy and credential helpers run.
  */
-export type SafeMode = "safe" | "fetch";
+export type SafeMode = "safe" | "trusted-fetch";
 
 /** Settings that run commands, turned off whatever any config says. */
 export const FIXED: ReadonlyArray<readonly [string, string]> = [
@@ -107,9 +107,25 @@ export const repositoryOverrides = (
 ): ReadonlyArray<Pair> => {
   const drivers = entries.filter((e) => REPOSITORY_SCOPES.has(e.scope)).flatMap(driverOverride);
 
-  if (mode === "fetch") return drivers;
+  if (mode === "trusted-fetch") return drivers;
 
   return [...drivers, ...sshOverride(entries), ...credentialOverride(entries)];
+};
+
+/**
+ * The environment that overrides what config can't: the first `core.gitProxy` git
+ * reads wins, so a repository's is only beaten by an empty `GIT_PROXY_COMMAND` (no proxy).
+ */
+export const repositoryEnv = (
+  entries: ReadonlyArray<Entry>,
+  mode: SafeMode,
+  base: Readonly<Record<string, string | undefined>>
+): Record<string, string> => {
+  const proxied = entries.some((e) => e.key === "core.gitproxy" && REPOSITORY_SCOPES.has(e.scope));
+
+  return mode === "safe" && proxied && base.GIT_PROXY_COMMAND === undefined
+    ? { GIT_PROXY_COMMAND: "" }
+    : {};
 };
 
 export const configEnv = (

@@ -22,7 +22,12 @@ import {
 import { Context, Effect, Layer, Option, Predicate, Semaphore, Stream } from "effect";
 import type { Fetched } from "../git/review/index.ts";
 import { lockReasonFor } from "../git/review/index.ts";
-import { CheckoutBlocked, ReviewCheckoutGit, type ServiceError } from "../services.ts";
+import {
+  CheckoutBlocked,
+  ReviewCheckoutGit,
+  type ServiceError,
+  WorkspaceTrust,
+} from "../services.ts";
 import type { LiveItem } from "../store/hub.ts";
 import type { ReadModel } from "../store/model.ts";
 import { Terminals } from "../terminal/Terminals.ts";
@@ -106,6 +111,7 @@ const followingLatestTurn = (model: ReadModel, sessionId: SessionId) =>
 const make = Effect.gen(function* () {
   const rt = yield* EngineRuntime;
   const git = yield* ReviewCheckoutGit;
+  const trust = yield* WorkspaceTrust;
   const terminals = yield* Effect.serviceOption(Terminals);
   const { store } = rt;
   const locks = new Map<ReviewCheckoutId, Semaphore.Semaphore>();
@@ -200,15 +206,18 @@ const make = Effect.gen(function* () {
 
     return ReviewSubject.match(checkout.subject, {
       PullRequest: ({ pullRequest, baseRef }) =>
-        git.fetchPullRequest({
-          repoPath: workspace.path,
-          key,
-          repo: pullRequest.repo,
-          number: pullRequest.number,
-          baseRef,
-          baseCommit: checkout.latestBase,
-          unshallow,
-        }),
+        Effect.flatMap(trust.trusted(workspace.id), (trusted) =>
+          git.fetchPullRequest({
+            repoPath: workspace.path,
+            key,
+            repo: pullRequest.repo,
+            number: pullRequest.number,
+            baseRef,
+            baseCommit: checkout.latestBase,
+            unshallow,
+            trusted,
+          })
+        ),
       SessionTurns: (subject) => pinSessionTurns(workspace, key, subject),
     });
   };
