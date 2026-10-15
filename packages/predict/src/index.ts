@@ -22,3 +22,13 @@ export { LatencyRecorder, type LatencyStats } from "./latency.ts";
 export { createPredictor } from "./predictor.ts";
 
 export { generationBudget, provisionalLine } from "./generation.ts";
+
+export { reachFocuses, type ReachInput, type ReachOptions } from "./edit/reach/index.ts";
+
+export {
+  selectImportFix,
+  UNRESOLVED_NAME_CODES,
+  type ImportChoice,
+  type LspCodeAction,
+  type UnresolvedName,
+} from "./edit/imports/index.ts";
