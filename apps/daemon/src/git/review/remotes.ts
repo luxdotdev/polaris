@@ -143,14 +143,17 @@ export const pickFetchSource = async (repoPath: string, repo: RepoRef): Promise<
 };
 
 /**
- * The ssh command git would use (`GIT_SSH_COMMAND`, else `core.sshCommand`,
- * else `ssh`) with BatchMode appended; setting `GIT_SSH_COMMAND` replaces the config.
+ * The ssh command git would use (`GIT_SSH_COMMAND`, else `core.sshCommand`, else `ssh`)
+ * with BatchMode appended; `repositoryOwn`: the repository's own `core.sshCommand` counts too.
  */
-export const batchSshCommand = async (repoPath: string): Promise<string> => {
+export const batchSshCommand = async (
+  repoPath: string,
+  repositoryOwn: boolean
+): Promise<string> => {
   const fromEnv = process.env.GIT_SSH_COMMAND?.trim() ?? "";
 
   const configured = await runGitRaw(repoPath, ["config", "--get", "core.sshCommand"], {
-    config: "fetch",
+    config: repositoryOwn ? "trusted-fetch" : "safe",
   });
 
   const own = configured.code === 0 ? decoder.decode(configured.stdout).trim() : "";

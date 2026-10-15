@@ -204,7 +204,8 @@ const step = async (
       config: "host",
       signal: stop.signal,
       env: {
-        GIT_SSH_COMMAND: await batchSshCommand(run.repo.top),
+        // Sync is git the user asked for: the repository's own ssh command, as `config: "host"` runs.
+        GIT_SSH_COMMAND: await batchSshCommand(run.repo.top, true),
         // An askpass helper could wait on a window nobody sees; empty turns it off.
         GIT_ASKPASS: "",
         SSH_ASKPASS: "",

@@ -45,7 +45,9 @@ import { TerminalsDaemonLive } from "../terminal/Terminals.ts";
 import { UsageRpcsLive } from "../usage/UsageRpcs.ts";
 import { UsageSessions } from "../usage/sessions.ts";
 import { ResourceRpcsLive } from "../resources/rpc.ts";
+import { paths } from "../paths.ts";
 import { startServer } from "./server.ts";
+import { workspaceTrustLayer } from "./workspaceTrust.ts";
 import { armShutdownGrace, deadline, exitStuck, STARTUP_DEADLINE_MS } from "./deadline.ts";
 import { lazyAcceptHandlers } from "./lazyAccept.ts";
 import { lazyLanguageHandlers } from "./lazyLanguages.ts";
@@ -85,6 +87,7 @@ const engineServices = Layer.mergeAll(Engine.layer, releaseWhenQuiet()).pipe(
       CheckpointsLive,
       WorktreeTrackerLive,
       ReviewCheckoutGitLive,
+      Layer.suspend(() => workspaceTrustLayer(paths().root)),
       AttachmentStoreLive(),
       TerminalsDaemonLive,
       ReviewerPolicyLive,

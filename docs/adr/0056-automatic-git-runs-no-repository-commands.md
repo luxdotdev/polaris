@@ -44,6 +44,10 @@ was held (then indexed, decoded and offered as a Blob) whatever its size.
 - the repository's `core.sshCommand` replaced by the Host's (or `ssh`), and when it sets any
   `credential.*helper`, an empty helper (which resets git's list) followed by the Host's own
   helpers again, in order;
+- when the repository sets `core.gitProxy` (a command git runs for `git://`), an empty
+  `GIT_PROXY_COMMAND`: git takes the first `core.gitProxy` that matches, so a command-line value
+  can't beat the repository's, and only the variable can (no proxy; the Host's own `gitProxy`
+  is then not used for that repository's automatic git);
 - `--no-ext-diff --no-textconv` after `diff`, `log` and `show`, so the patch matches the
   blobs `git.show` returns, and `--upload-pack=git-upload-pack` on `fetch` and `ls-remote`:
   a `url.<path>.insteadOf` can make any remote local, and then `remote.<name>.uploadpack` would
@@ -64,28 +68,54 @@ is plain, and only while nothing that decided it changed:
   `GIT_CONFIG_PARAMETERS`, `-C` or `--git-dir`. A bare repository, `core.worktree`, or a
   failure is never cached;
 - every repository-scope entry came from the common dir's `config` or the worktree's
-  `config.worktree` (git names its origin), and none is an `include*.path`;
-- the stat of each path is taken before the listing is read and compared on every call: the
+  `config.worktree` (git names its origin), and none is an `include*.path`; every other entry
+  came from the command line, a file `git var GIT_CONFIG_SYSTEM`/`GIT_CONFIG_GLOBAL` names, a
+  file a Host config includes (resolved as git does: `~/`, absolute, or relative to the
+  including file; anything else, such as `%(prefix)/`, is never cached), or git's built-in
+  config (Apple's `unknown` scope);
+- a stamp of each path is taken before the listing is read and compared on every call: the
   `.git`, `HEAD`, `objects`, `refs` and `commondir` of each directory from the cwd up to the
   top level (where git looked before moving on), the top's `.git`, the git dir's `HEAD`,
-  `objects`, `refs`, `commondir` and `config.worktree`, the common `config`, and the Host's
-  config files the listing came from.
+  `objects`, `refs` and `commondir`, the common `config`, `config.worktree` (read or not), and
+  every system and global file whether it exists or not. The included and built-in files are
+  stamped once the listing names them. A file's stamp is its owner and the SHA-256 of its bytes
+  (past 1 MB, no cache); a directory's is its inode and owner; a missing one is `-`. An earlier
+  version stamped size, mtime and ctime: a rewrite of the same size within one timestamp tick
+  (coarse on Linux), a Host file created after the listing (`$XDG_CONFIG_HOME/git/config`, an
+  include's target) or a file git found through an include kept a stale listing.
 
 Any difference, or anything uncertain, lists again. With the cache the git bench is at
 parity with main (status 34 → 36 ms, a checkpoint 75 → 72 ms, 5 runs); the peak RSS of the
-Daemon and its gits is ~10% higher. Between a check and the call a writer could still add a
-driver; an agent writing the repository's config can run commands anyway.
+Daemon and its gits is ~10% higher. Hashing instead of stat costs ~0.3 ms a call and two
+`git var` calls on a miss; the git bench stays at parity (`--quick --runs 3`, against main on
+the same machine: status 34.9 → 36.6 ms, a checkpoint 73 → 72 ms, a working-tree diff 111 → 99
+ms). Between a check and the call a writer could still add a driver; an agent writing the
+repository's config can run commands anyway. Git's built-in config, when absent at listing,
+isn't stamped: writing it means writing inside git's own installation.
 
 `uploadpack.packObjectsHook` is not set: git honours it only from protected (system, global,
 command-line) config, never a repository's, and setting it would turn it on.
 
-A Review fetch (`config: "fetch"`) is the same, except that the repository's own
-`core.sshCommand` and credential helpers stay: `git config core.sshCommand "ssh -i <key>"`
-is how a repository uses its deploy key, and `fetch.test.ts` keeps that working. They run only
-for `fetchPullRequest`'s `git fetch` of a pull request's head and base from the remote that
-is that pull request's repository (ssh or https), when the user opens the pull request in
-Review (the Desktop App checks it out), updates its checkout, or the Daemon resumes that
-fetch after a restart. Hooks, filters, fsmonitor and a remote's upload-pack stay off there too.
+A Review fetch in a Workspace the user trusts on this Host (`config: "trusted-fetch"`) is the
+same, except that the repository's own `core.sshCommand`, `core.gitProxy` and credential
+helpers stay: `git config core.sshCommand "ssh -i <key>"` is how a repository uses its deploy
+key, and `fetch.test.ts` keeps that working. Trust is the Host's Workspace Trust that worktree
+setup also requires (`WorkspaceTrust`, on `WorktreeSetupTrust`'s records); untrusted, or in any
+doubt, the fetch runs with the Host's ssh command and helpers only, since opening a pull
+request in Review must not run what a prepared Workspace's config names. They run only for
+`fetchPullRequest`'s `git fetch` of a pull request's head and base from the remote that is that
+pull request's repository (ssh or https), when the user opens the pull request in Review (the
+Desktop App checks it out), updates its checkout, or the Daemon resumes that fetch after a
+restart. Hooks, filters, fsmonitor and a remote's upload-pack stay off there too.
+
+Other settings in git-config(1) that name commands need nothing more here: `pager.<cmd>` and
+`core.pager` run only on a terminal (git's stdout is a pipe); `diff.<driver>.command` and
+textconv only on the porcelain diffs that get the flags; `remote.<name>.vcs` names a
+`git-remote-<vcs>` helper, which `protocol.<name>.allow` governs (`ext` is never); trace2
+targets are read only from protected config; `gc.recentObjectsHook` runs only in a gc or
+repack, which automatic git never starts (`gc.auto=0`, `maintenance.auto=false`); and the
+`*tool*`, `browser`, `trailer`, `imap.tunnel`, `alias` and `submodule.<name>.update` commands
+belong to commands the Daemon never runs automatically.
 
 Git the user asked for passes `config: "host"` and runs with the Host's config and hooks as
 before: Changes' stage, unstage, discard and commit, sync, Accept's commit and push, a

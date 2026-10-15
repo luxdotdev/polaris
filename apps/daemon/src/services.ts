@@ -120,6 +120,15 @@ export class WorktreeTracker extends Context.Service<
 >()("polaris/daemon/WorktreeTracker") {}
 
 /**
+ * Whether the user trusts a Workspace on this Host: the Trust worktree setup asks
+ * for. Any doubt is false. Implemented by `transport/workspaceTrust.ts`.
+ */
+export class WorkspaceTrust extends Context.Service<
+  WorkspaceTrust,
+  { readonly trusted: (workspaceId: WorkspaceId) => Effect.Effect<boolean> }
+>()("polaris/daemon/WorkspaceTrust") {}
+
+/**
  * The git side of Review Checkouts, with hooks off throughout. Implemented by
  * `git/review/` (`git/ReviewCheckoutGit.ts`); the engine's `ReviewCheckouts` drives it.
  */
