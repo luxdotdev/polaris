@@ -109,16 +109,24 @@ export interface FakeAnthropic {
   readonly url: string;
   /** What each scripted call returned, by its index in the script. */
   readonly outputs: Array<string>;
+  /** The tool names each tool-offering request gave the model. */
+  readonly offered: Array<ReadonlyArray<string>>;
   readonly stop: () => void;
 }
 
 /** Serves `calls`, in order, to the requests that offer tools (the session's, not a side query). */
 export const fakeAnthropic = (calls: ReadonlyArray<ToolCall>): FakeAnthropic => {
   const outputs: Array<string> = [];
+  const offered: Array<ReadonlyArray<string>> = [];
 
   const answer = (raw: string) => {
     const body = decodeBody(raw);
     const offersTools = Option.exists(body, (b) => (b.tools ?? []).length > 0);
+
+    if (offersTools)
+      offered.push(
+        Option.match(body, { onNone: () => [], onSome: (b) => (b.tools ?? []).map((t) => t.name) })
+      );
 
     const parts = Option.match(body, {
       onNone: () => [],
@@ -177,5 +185,10 @@ export const fakeAnthropic = (calls: ReadonlyArray<ToolCall>): FakeAnthropic => 
     },
   });
 
-  return { url: `http://127.0.0.1:${server.port}`, outputs, stop: () => void server.stop(true) };
+  return {
+    url: `http://127.0.0.1:${server.port}`,
+    outputs,
+    offered,
+    stop: () => void server.stop(true),
+  };
 };

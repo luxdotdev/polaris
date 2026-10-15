@@ -11,6 +11,7 @@ const CONFINEMENT = {
   root: "/work/review",
   shellRoots: ["/work/repo/.git/objects", "/usr"],
   hidden: ["/work/review/.claude-config"],
+  unwritable: ["/work/repo/.git"],
   shellEnv: { GIT_COMMON_DIR: "/work/sanitized" },
 };
 
@@ -56,7 +57,8 @@ describe("Claude Code's sandbox on a Host", () => {
       enabled: true,
       failIfUnavailable: true,
       filesystem: {
-        denyWrite: ["/"],
+        // Claude Code's Linux sandbox otherwise lets a worktree's shell write its repository.
+        denyWrite: ["/", "/work/repo/.git"],
         denyRead: ["/", "/work/review/.claude-config"],
         allowRead: ["/work/review", "/work/repo/.git/objects", "/usr"],
       },

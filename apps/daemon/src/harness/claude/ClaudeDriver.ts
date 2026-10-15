@@ -400,12 +400,14 @@ const openSession = Effect.fnUntraced(function* (
 
   if (options.readOnly === true) {
     const confinement = yield* Effect.tryPromise({
-      try: () => readConfinement(options.cwd),
+      try: () => readConfinement(options.cwd, sdkOptions.env),
       catch: (cause) => harnessError("Could not keep the reviewer to its checkout", cause),
     });
 
     const env = readOnlyEnv(sdkOptions.env ?? {}, confinement);
     Object.assign(sdkOptions, readOnlyOptions(sandbox(), confinement, env));
+    // Claude Code runs where the confinement was checked: the checkout's real path, its env.
+    sdkOptions.cwd = confinement.root;
     sdkOptions.env = env;
   }
 

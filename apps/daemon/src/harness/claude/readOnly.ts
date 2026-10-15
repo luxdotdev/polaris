@@ -4,23 +4,63 @@
  * and reads kept to the checkout. See docs/adr/0042-reviewer-without-the-sandbox.md
  * and docs/adr/0055-the-reviewer-reads-only-its-checkout.md.
  */
-import type { HookCallback, Options } from "@anthropic-ai/claude-agent-sdk";
-import { isAbsolute } from "node:path";
+import type { HookCallback, Options, PreToolUseHookInput } from "@anthropic-ai/claude-agent-sdk";
+import { realpath } from "node:fs/promises";
+import { isAbsolute, resolve } from "node:path";
 import { Option, Schema } from "effect";
+import { isWithin } from "../../files/fs.ts";
 import { repositoryEnv } from "../../service/childEnv.ts";
 import { confined, type ReadConfinement } from "../confinement.ts";
 import type { ClaudeSandbox } from "./sandbox.ts";
 
 const NEVER = ["Edit", "Write", "NotebookEdit", "WebFetch", "WebSearch"];
 
-const ToolPaths = Schema.Struct({
-  file_path: Schema.optionalKey(Schema.String),
-  path: Schema.optionalKey(Schema.String),
-  pattern: Schema.optionalKey(Schema.String),
-  glob: Schema.optionalKey(Schema.String),
+const text = Schema.String;
+
+const count = Schema.optionalKey(Schema.Number);
+
+const flag = Schema.optionalKey(Schema.Boolean);
+
+const maybe = Schema.optionalKey(Schema.String);
+
+const ReadCall = Schema.Struct({ file_path: text, offset: count, limit: count, pages: maybe });
+
+const GlobCall = Schema.Struct({ pattern: text, path: maybe });
+
+const GrepCall = Schema.Struct({
+  pattern: text,
+  path: maybe,
+  glob: maybe,
+  output_mode: maybe,
+  "-B": count,
+  "-A": count,
+  "-C": count,
+  context: count,
+  "-n": flag,
+  "-i": flag,
+  "-o": flag,
+  type: maybe,
+  head_limit: count,
+  offset: count,
+  multiline: flag,
 });
 
-const decodeToolPaths = Schema.decodeUnknownOption(ToolPaths);
+/** The sandbox confines the command; `dangerouslyDisableSandbox` is refused outright. */
+const BashCall = Schema.Struct({
+  command: text,
+  timeout: count,
+  description: maybe,
+  run_in_background: flag,
+});
+
+/** No `isolation`: a worktree or remote agent runs outside the checkout and its sandbox. */
+const AgentCall = Schema.Struct({
+  description: text,
+  prompt: text,
+  subagent_type: maybe,
+  model: maybe,
+  run_in_background: flag,
+});
 
 const GLOB_CHARACTER = /[*?[\]{}]/;
 
@@ -30,7 +70,8 @@ const EXPANDS = /^~|^file:|[$%\\\0]/i;
 const climbs = (pattern: string) => pattern.split(/[/{},]/).includes("..");
 
 /** Whether Polaris and Claude Code would read `input` as the same path. */
-const literal = (input: string) => !EXPANDS.test(input) && !climbs(input);
+const literal = (input: string | undefined) =>
+  input === undefined || (!EXPANDS.test(input) && !climbs(input));
 
 /** A glob's directory part, before its first wildcard. */
 const staticPrefix = (pattern: string) => {
@@ -43,42 +84,73 @@ const staticPrefix = (pattern: string) => {
   return isAbsolute(pattern) ? "/" : ".";
 };
 
-/** Whether a file tool's call reads only inside `root`; any other tool is refused. */
-const readsInside = async (
+type Check = (root: string, cwd: string, call: PreToolUseHookInput) => Promise<boolean>;
+
+/** A call whose input has a field its tool's schema doesn't name is refused. */
+const whenDecoded =
+  <S extends Schema.Top & Schema.Decoder<unknown>>(
+    schema: S,
+    check: (root: string, cwd: string, call: S["Type"]) => Promise<boolean>
+  ): Check =>
+  (root, cwd, call) =>
+    Option.match(
+      Schema.decodeUnknownOption(schema)(call.tool_input, { onExcessProperty: "error" }),
+      { onNone: async () => false, onSome: (decoded) => check(root, cwd, decoded) }
+    );
+
+const readCheck = whenDecoded(
+  ReadCall,
+  async (root, cwd, { file_path }) => literal(file_path) && confined(root, cwd, file_path)
+);
+
+const globCheck = whenDecoded(GlobCall, async (root, cwd, { pattern, path }) => {
+  if (!literal(pattern) || !literal(path)) return false;
+  const base = resolve(cwd, path ?? ".");
+
+  return (await confined(root, cwd, base)) && confined(root, base, staticPrefix(pattern));
+});
+
+// Grep's `pattern` is a regex, not a path.
+const grepCheck = whenDecoded(GrepCall, async (root, cwd, { path, glob }) => {
+  if (!literal(path) || !literal(glob)) return false;
+
+  return (glob === undefined || !isAbsolute(glob)) && confined(root, cwd, path ?? ".");
+});
+
+/** Bash runs in the sandbox, and Agent's subagents call the same tools through this hook. */
+const fieldsOnly = <S extends Schema.Top & Schema.Decoder<unknown>>(schema: S): Check =>
+  whenDecoded(schema, async () => true);
+
+/** Every tool the Reviewer can call, and what each may be given; any other tool is refused. */
+const CHECKS = new Map<string, Check>([
+  ["Read", readCheck],
+  ["Glob", globCheck],
+  ["Grep", grepCheck],
+  ["Bash", fieldsOnly(BashCall)],
+  ["Agent", fieldsOnly(AgentCall)],
+]);
+
+/** Whether a call stays in `root`: run from inside it, by a tool of `tools`, with an input it allows. */
+const allowed = async (
   root: string,
-  toolName: string,
-  { file_path, path, pattern, glob }: typeof ToolPaths.Type
+  tools: ReadonlyArray<string>,
+  input: PreToolUseHookInput
 ): Promise<boolean> => {
-  const base = path ?? root;
+  const check = tools.includes(input.tool_name) ? CHECKS.get(input.tool_name) : undefined;
+  const cwd = await realpath(input.cwd).catch(() => null);
 
-  // Grep's `pattern` is a regex, not a path.
-  const inputs = toolName === "Grep" ? [path, glob] : [file_path, path, pattern];
+  if (check === undefined || cwd === null || !isWithin(root, cwd)) return false;
 
-  if (!inputs.every((input) => input === undefined || literal(input))) return false;
-
-  if (toolName === "Read") return file_path !== undefined && confined(root, root, file_path);
-
-  if (!(await confined(root, root, base))) return false;
-
-  if (toolName === "Glob")
-    return pattern !== undefined && confined(root, base, staticPrefix(pattern));
-
-  if (toolName === "Grep") return glob === undefined || !isAbsolute(glob);
-
-  return false;
+  return check(root, cwd, input);
 };
 
-const FILE_TOOLS = "Read|Glob|Grep";
-
-/** Polaris's own check before Claude Code's: a file tool that would leave the checkout is denied. */
-export const checkoutHook =
-  (root: string): HookCallback =>
+/** Polaris's own check before Claude Code's, on every call: default-deny, by tool and by field. */
+export const reviewerHook =
+  (root: string, tools: ReadonlyArray<string>): HookCallback =>
   async (input) => {
     if (input.hook_event_name !== "PreToolUse") return {};
 
-    const paths = decodeToolPaths(input.tool_input);
-
-    if (Option.isSome(paths) && (await readsInside(root, input.tool_name, paths.value))) return {};
+    if (await allowed(root, tools, input)) return {};
 
     return {
       hookSpecificOutput: {
@@ -89,8 +161,14 @@ export const checkoutHook =
     };
   };
 
+/** The unsandboxed Reviewer's tools: only ones that read files, kept in by Claude Code. */
+const FILE_TOOLS = ["Read", "Glob", "Grep", "Agent"];
+
+/** The sandboxed Reviewer's: Bash, since the sandbox doesn't cover the file tools. */
+const SANDBOXED_TOOLS = ["Bash", "Agent"];
+
 /** Claude Code's own path rules: reads by path inside the checkout, never a hidden path in it. */
-const base = (confinement: ReadConfinement) =>
+const base = (confinement: ReadConfinement, tools: ReadonlyArray<string>) =>
   ({
     permissionMode: "dontAsk",
     settingSources: [],
@@ -98,8 +176,9 @@ const base = (confinement: ReadConfinement) =>
     mcpServers: {},
     strictMcpConfig: true,
     additionalDirectories: [],
+    tools: [...tools],
     allowedTools: [`Read(/${confinement.root}/**)`, "Agent"],
-    hooks: { PreToolUse: [{ matcher: FILE_TOOLS, hooks: [checkoutHook(confinement.root)] }] },
+    hooks: { PreToolUse: [{ hooks: [reviewerHook(confinement.root, tools)] }] },
   }) satisfies Partial<Options>;
 
 const hiddenReads = (confinement: ReadConfinement) =>
@@ -121,8 +200,7 @@ export const sandboxedReadOnly = (
   const keep = shellKeys(env, confinement);
 
   return {
-    ...base(confinement),
-    tools: ["Bash", "Agent"],
+    ...base(confinement, SANDBOXED_TOOLS),
     sandbox: {
       enabled: true,
       failIfUnavailable: true,
@@ -130,7 +208,8 @@ export const sandboxedReadOnly = (
       allowUnsandboxedCommands: false,
       excludedCommands: [],
       filesystem: {
-        denyWrite: ["/"],
+        // Claude Code's Linux sandbox opens a worktree's repository for writes unless denied.
+        denyWrite: ["/", ...confinement.unwritable],
         denyRead: ["/", ...confinement.hidden],
         allowRead: [confinement.root, ...confinement.shellRoots],
       },
@@ -147,15 +226,18 @@ export const sandboxedReadOnly = (
           .map((name) => ({ name, mode: "deny" as const })),
       },
     },
-    disallowedTools: [...NEVER, ...FILE_TOOLS.split("|"), ...hiddenReads(confinement)],
+    disallowedTools: [
+      ...NEVER,
+      ...FILE_TOOLS.filter((tool) => tool !== "Agent"),
+      ...hiddenReads(confinement),
+    ],
   } satisfies Partial<Options>;
 };
 
 /** Without the sandbox there is no shell at all: only tools that read, kept in by Claude Code. */
 export const unsandboxedReadOnly = (confinement: ReadConfinement) =>
   ({
-    ...base(confinement),
-    tools: ["Read", "Glob", "Grep", "Agent"],
+    ...base(confinement, FILE_TOOLS),
     sandbox: { enabled: false },
     disallowedTools: [...NEVER, "Bash", ...hiddenReads(confinement)],
   }) satisfies Partial<Options>;

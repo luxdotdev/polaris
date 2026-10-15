@@ -3,7 +3,7 @@
  * but never its `config` (remote URLs and headers can carry tokens) nor other worktrees' data.
  * Git reads a sanitized copy instead, through `GIT_COMMON_DIR`. See ADR 0055.
  */
-import { lstat, mkdir, readlink, rename, rm, symlink, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readdir, readlink, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { isWithin } from "../files/fs.ts";
 import { gitText } from "../git/git.ts";
@@ -22,6 +22,11 @@ const KEPT_KEY =
   /^(core\.(repositoryformatversion|filemode|ignorecase|precomposeunicode|symlinks|autocrlf|eol|quotepath)|extensions\.(objectformat|compatobjectformat|refstorage|preciousobjects))$/;
 
 export const SANITIZED_DIR = "polaris-common";
+
+/** What can name a remote, a header or a helper, in the common dir and the worktree's own. */
+const SECRET_SHARED = ["config", "config.worktree", "modules", "logs", "hooks", "FETCH_HEAD"];
+
+const SECRET_OWN = ["config.worktree", "logs"];
 
 export interface ConfinedGit {
   /** Readable by the shell: the shared parts git needs, and this worktree's own HEAD and index. */
@@ -106,4 +111,23 @@ export const confinedGit = async (common: string, gitDir: string): Promise<Confi
     }),
     () => null
   );
+};
+
+/**
+ * The git dirs' paths a sandbox must keep closed even when it opens the whole repository, as
+ * Claude Code's Linux sandbox does for a worktree: credentials and other worktrees.
+ */
+export const closedGitPaths = async (common: string, gitDir: string): Promise<Array<string>> => {
+  const worktrees = join(common, "worktrees");
+  const others = await readdir(worktrees).catch(() => []);
+
+  const candidates = [
+    ...SECRET_SHARED.map((name) => join(common, name)),
+    ...SECRET_OWN.map((name) => join(gitDir, name)),
+    ...others.map((name) => join(worktrees, name)).filter((path) => path !== gitDir),
+  ];
+
+  const present = await Promise.all(candidates.map(exists));
+
+  return candidates.filter((_, index) => present[index]);
 };

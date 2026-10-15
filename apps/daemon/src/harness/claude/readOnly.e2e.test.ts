@@ -118,7 +118,13 @@ const review = async (where: Layout, calls: ReadonlyArray<ToolCall>) => {
     await Bun.sleep(100);
   await Effect.runPromise(Scope.close(scope, Exit.void));
 
-  return calls.map((_, index) => fake.outputs[index] ?? "");
+  return { outputs: calls.map((_, index) => fake.outputs[index] ?? ""), offered: fake.offered };
+};
+
+/** A subagent in a worktree of its own: it would run in the repository, outside the checkout. */
+const worktreeAgent: ToolCall = {
+  name: "Agent",
+  input: { description: "probe", prompt: "probe", isolation: "worktree", run_in_background: false },
 };
 
 describe.skipIf(!enabled)("the Reviewer in Claude Code's sandbox", () => {
@@ -127,7 +133,7 @@ describe.skipIf(!enabled)("the Reviewer in Claude Code's sandbox", () => {
     async () => {
       const where = await layout();
 
-      const [env, log, config, linked, ssh, home, common, net, read] = await review(where, [
+      const { outputs, offered } = await review(where, [
         bash("printenv ANTHROPIC_API_KEY; env | grep -c ANTHROPIC_API_KEY; echo end"),
         bash("git log --format=%s -1"),
         bash("git config --list"),
@@ -137,7 +143,10 @@ describe.skipIf(!enabled)("the Reviewer in Claude Code's sandbox", () => {
         bash(`cat "${where.common}/config"`),
         bash("curl -sS -m 5 http://example.com && echo REACHED"),
         { name: "Read", input: { file_path: join(where.base, "outside/secret.txt") } },
+        worktreeAgent,
       ]);
+
+      const [env, log, config, linked, ssh, home, common, net, read, agent] = outputs;
 
       expect(env).toContain("end");
       expect(env).not.toContain(KEY);
@@ -148,6 +157,8 @@ describe.skipIf(!enabled)("the Reviewer in Claude Code's sandbox", () => {
       for (const output of [linked, ssh, home, read]) expect(output).not.toContain(MARKER);
       expect(common).not.toContain(TOKEN);
       expect(net).not.toContain("REACHED");
+      expect(agent).toContain("The reviewer only reads files inside");
+      expect(new Set(offered.flat())).toEqual(new Set(["Agent", "Bash"]));
     },
     { timeout: 300_000 }
   );

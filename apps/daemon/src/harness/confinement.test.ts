@@ -96,11 +96,58 @@ test("a Harness's config dir inside the checkout is hidden", async () => {
 
   const confinement = await readConfinement(checkout, { PATH: "", CLAUDE_CONFIG_DIR: claude });
 
-  expect(confinement.hidden).toEqual([claude]);
+  expect(confinement.hidden).toContain(claude);
 });
 
 test("a checkout that holds the home directory can't be confined", async () => {
   const failure = await readConfinement(dirname(homedir()), { PATH: "" }).then(() => null, String);
 
   expect(failure).toContain("holds your home directory");
+});
+
+test("the shell's toolchain holds programs and libraries, never a prefix's configs or databases", async () => {
+  const { checkout, common } = await reviewCheckout();
+
+  const confinement = await readConfinement(checkout, { PATH: "" });
+  const outsideGit = confinement.shellRoots.filter((root) => !isWithin(common, root));
+
+  // Homebrew keeps Postgres's data dir in var and service passwords in etc, both the user's.
+  for (const closed of [
+    "/opt/homebrew/var/postgresql@17",
+    "/opt/homebrew/etc/odbc.ini",
+    "/usr/local/var/mysql",
+    "/usr/local/etc/redis.conf",
+    "/etc/shadow",
+    "/tmp/other-session",
+    "/Library/Keychains",
+  ])
+    expect(covered(outsideGit, closed)).toBe(false);
+});
+
+test("a checkout that holds the session's own home can't be confined either", async () => {
+  const base = tempDir("polaris-confine-home-");
+  cleanup.push(base);
+  const home = join(base, "home");
+  mkdirSync(home);
+
+  const failure = await readConfinement(base, { PATH: "", HOME: home }).then(() => null, String);
+
+  expect(failure).toContain("holds your home directory");
+});
+
+test("a sandbox that opens the whole repository still finds its credentials and other worktrees closed", async () => {
+  const { repo, base, checkout, common, gitDir } = await reviewCheckout();
+  await gitText(repo, ["worktree", "add", "-q", "--detach", join(base, "other")]);
+  const other = join(common, "worktrees", "other");
+  writeFileSync(
+    join(gitDir, "config.worktree"),
+    `[remote "fork"]\n\turl = https://x:${TOKEN}@h/r\n`
+  );
+
+  const confinement = await readConfinement(checkout, { PATH: "" });
+
+  for (const secret of [join(common, "config"), join(gitDir, "config.worktree"), other])
+    expect(covered(confinement.hidden, secret)).toBe(true);
+  expect(covered(confinement.hidden, join(common, "objects"))).toBe(false);
+  expect(confinement.unwritable).toEqual([common, gitDir]);
 });

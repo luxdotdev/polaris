@@ -23,10 +23,13 @@ link, brace globs), so its hook now only ever refuses, as a second check.
 
 `harness/confinement.ts` works out, per session, what is readable: the
 checkout (canonical) and, for a shell, a fixed toolchain (`/bin`, `/sbin`,
-`/usr`, `/lib*`, `/dev`, `/nix/store`, `/opt/homebrew`, `/System`,
-`/private/var/select`, macOS's active developer directory and the Xcode
-licence plist), minus anything that is home, Polaris's state or a parent of
-either. Not the PATH: a PATH directory can be anywhere. A checkout that holds
+`/usr`'s `bin`, `sbin`, `lib*`, `libexec` and `share`, `/lib*`, `/dev`,
+`/nix/store`, `/System`, `/private/var/select`, macOS's active developer
+directory and the Xcode licence plist, and of `/usr/local` and
+`/opt/homebrew` only the program and library dirs: never their `etc` or
+`var`, where Homebrew keeps service configs and the user's own database
+files), minus anything that is home (the Daemon's or the session's),
+Polaris's state or a parent of either. Not the PATH: a PATH directory can be anywhere. A checkout that holds
 home can't be confined, and its session doesn't start. Inside what is
 readable, `hidden` names what stays closed: the git dir when the checkout is
 the repository itself (so it has no git), and the Harnesses' config dirs and
@@ -62,7 +65,20 @@ helper too. On macOS `DEVELOPER_DIR` names the developer tools, because
   for the hidden paths. The session's environment is still an allowlist (the
   shell basics, Claude Code's own `ANTHROPIC_*`/`CLAUDE_*`, proxies and
   certificates, a cloud provider's only while Claude Code uses it).
-  `additionalDirectories` is empty and there are no MCP servers.
+  `additionalDirectories` is empty and there are no MCP servers. Claude
+  Code runs in the checkout's canonical path, with the environment the
+  confinement was worked out from. Polaris's `PreToolUse` hook sees every
+  call, subagents' included, and is default-deny: only the session's tools,
+  only the fields each one documents (so no `dangerouslyDisableSandbox`, and
+  no `Agent` `isolation`, whose worktree lives in the repository and whose
+  remote agent runs in the cloud), and only from a `cwd` inside the checkout.
+- **Claude Code on Linux**: its bubblewrap sandbox (verified on 2.1.285)
+  ignores `denyWrite: ["/"]` for the working directory and, in a linked
+  worktree, binds the repository's whole git dir read-write. So the
+  repository's git dirs are also named in `denyWrite`, and its `config`,
+  `logs`, `hooks`, `modules`, `FETCH_HEAD` and other worktrees in `hidden`
+  (`closedGitPaths`). The checkout itself stays writable there: naming it in
+  `denyWrite` makes bubblewrap fail to create its mask files in it.
   `readOnly.e2e.test.ts` drives the installed `claude` through a fake Messages
   API to check all of this, the file tools with Polaris's hook removed.
 - **Codex**: the thread runs under a permission profile (`default_permissions`
@@ -88,8 +104,14 @@ helper too. On macOS `DEVELOPER_DIR` names the developer tools, because
 ## Limits
 
 Tests and lint run only with the toolchain in the fixed list: a tool in home
-(`~/.bun`, `~/.nvm`) doesn't run in the sandbox. Without a writable temp dir,
+(`~/.bun`, `~/.nvm`, `~/.local/bin`) doesn't run in the sandbox. This is an
+open product trade-off, not an oversight: opening a toolchain under home
+would open the rest of home's layout around it. Without a writable temp dir,
 macOS's `/usr/bin/git` warns on every call that it can't cache. Reads of the
 toolchain (Claude Code) or `:minimal` (Codex) stay open. Verified on macOS
-(Claude Code 2.1.300, codex-cli 0.162.1); the Linux list (`/lib*`, `/dev`)
-follows bubblewrap's layout but hasn't been run there.
+(Claude Code 2.1.300, codex-cli 0.162.1) and on a Raspberry Pi with Debian 13
+(Claude Code 2.1.285, bubblewrap 0.12.0, a Python stand-in for its socat bridges): git works; home, `/etc`, `~/.ssh`,
+`~/.config` and the repository's `config` are unreadable; other processes
+don't show in `/proc` (a PID namespace); no network. The Pi has no `rg`, and
+Claude Code doesn't put its bundled one in the shell, so a Host without `rg`
+installed has no `rg` in the Reviewer's shell.

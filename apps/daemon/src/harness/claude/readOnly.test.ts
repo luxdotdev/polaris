@@ -3,7 +3,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { removeDir, tempDir, write } from "../../git/testing.ts";
-import { checkoutHook, readOnlyEnv } from "./readOnly.ts";
+import { readOnlyEnv, reviewerHook } from "./readOnly.ts";
 
 const cleanup: Array<string> = [];
 
@@ -23,7 +23,30 @@ const layout = () => {
   symlinkSync(outside, join(root, "linked-dir"));
   mkdirSync(join(root, "empty"));
 
-  return { root, outside };
+  return { base, root, outside };
+};
+
+const FILE_TOOLS = ["Read", "Glob", "Grep", "Agent"];
+
+const signal = new AbortController().signal;
+
+/** Whether the hook lets `tool_name` run with `tool_input` from `cwd`. */
+const lets = async (
+  hook: ReturnType<typeof reviewerHook>,
+  cwd: string,
+  [tool_name, tool_input]: readonly [string, unknown, ...Array<unknown>]
+) => {
+  const input = {
+    hook_event_name: "PreToolUse" as const,
+    tool_name,
+    tool_input,
+    tool_use_id: "t",
+    session_id: "s",
+    transcript_path: "/dev/null",
+    cwd,
+  };
+
+  return Object.keys(await hook(input, "t", { signal })).length === 0;
 };
 
 describe("the Reviewer's file tools", () => {
@@ -68,24 +91,17 @@ describe("the Reviewer's file tools", () => {
       ["Read", { file_path: 42 }, false],
       ["Read", {}, false],
       ["LS", { path: root }, false],
+      ["Bash", { command: "cat /etc/hosts" }, false],
+      // A field the hook doesn't check could name a path it never saw.
+      ["Read", { file_path: join(root, "src/a.ts"), notebook_path: outside }, false],
+      ["Agent", { description: "look", prompt: "read src", subagent_type: "Explore" }, true],
+      // A worktree agent runs in the repository, outside the checkout; a remote one in the cloud.
+      ["Agent", { description: "look", prompt: "read src", isolation: "worktree" }, false],
+      ["Agent", { description: "look", prompt: "read src", isolation: "remote" }, false],
     ];
 
-    const hook = checkoutHook(root);
-    const signal = new AbortController().signal;
-
-    const allowed = async ([tool_name, tool_input]: readonly [string, unknown, boolean]) => {
-      const input = {
-        hook_event_name: "PreToolUse" as const,
-        tool_name,
-        tool_input,
-        tool_use_id: "t",
-        session_id: "s",
-        transcript_path: "/dev/null",
-        cwd: root,
-      };
-
-      return Object.keys(await hook(input, "t", { signal })).length === 0;
-    };
+    const hook = reviewerHook(root, FILE_TOOLS);
+    const allowed = (call: (typeof calls)[number]) => lets(hook, root, call);
 
     const answers = await Promise.all(calls.map(allowed));
 
@@ -110,11 +126,42 @@ describe("the Reviewer's file tools", () => {
   });
 });
 
+describe("the Reviewer's calls from elsewhere", () => {
+  test("a call made from outside the checkout is refused, even a path relative to it", async () => {
+    const { base, root } = layout();
+    const hook = reviewerHook(root, FILE_TOOLS);
+
+    for (const call of [
+      ["Glob", { pattern: "**/*" }],
+      ["Grep", { pattern: "marker" }],
+      ["Read", { file_path: "sibling.txt" }],
+    ] as const) {
+      expect(await lets(hook, root, call)).toBe(true);
+      expect(await lets(hook, base, call)).toBe(false);
+    }
+  });
+
+  test("the sandboxed shell runs only inside the sandbox", async () => {
+    const { root } = layout();
+    const hook = reviewerHook(root, ["Bash", "Agent"]);
+
+    expect(await lets(hook, root, ["Bash", { command: "git log", description: "log" }])).toBe(true);
+    expect(
+      await lets(hook, root, [
+        "Bash",
+        { command: "cat ~/.ssh/id_rsa", dangerouslyDisableSandbox: true },
+      ])
+    ).toBe(false);
+    expect(await lets(hook, root, ["Read", { file_path: join(root, "src/a.ts") }])).toBe(false);
+  });
+});
+
 describe("the Reviewer's environment", () => {
   const confinement = {
     root: "/work/review",
     shellRoots: [],
     hidden: [],
+    unwritable: [],
     shellEnv: { GIT_CONFIG_GLOBAL: "/dev/null", GIT_COMMON_DIR: "/work/sanitized" },
   };
 
