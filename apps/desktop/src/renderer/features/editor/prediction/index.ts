@@ -3,6 +3,12 @@ import { keymap, ViewPlugin, type EditorView, type ViewUpdate } from "@codemirro
 import { currentKeyPlatform } from "../../../../shared/chord.ts";
 import { currentMode } from "../cm/vim.ts";
 import {
+  acceptEditPrediction,
+  dismissEditPredictions,
+  editPredictionExtension,
+  type EditPredictionPort,
+} from "./edit/index.ts";
+import {
   acceptedPrediction,
   acceptPrediction,
   ghost,
@@ -21,7 +27,8 @@ class Requests {
   private readonly unsubscribe: () => void;
   constructor(
     private readonly view: EditorView,
-    private readonly port: PredictionPort
+    private readonly port: PredictionPort,
+    private readonly editActive: () => boolean
   ) {
     this.unsubscribe = port.subscribe(() => {
       this.cancel();
@@ -62,7 +69,8 @@ class Requests {
       !update.docChanged ||
       update.transactions.some((tr) => tr.annotation(acceptedPrediction)) ||
       !this.view.hasFocus ||
-      !this.port.allowed(this.view)
+      !this.port.allowed(this.view) ||
+      this.editActive()
     )
       return;
     const mode = currentMode(this.view);
@@ -132,39 +140,71 @@ class Requests {
   }
 }
 
-/** Each view owns a single cancellable request; no debounce or idle timer. */
-export const predictionExtension = (port: PredictionPort): Extension => {
-  const requests = ViewPlugin.define((view) => new Requests(view, port));
+const escape = (view: EditorView, requests: ViewPlugin<Requests>, edit: boolean) => {
+  const delegate = popupOrSnippet(view.state);
+  const pending = view.plugin(requests)?.dismiss() ?? false;
+  const dismissed = edit && dismissEditPredictions(view);
+
+  if (view.state.field(ghost) === null && !pending && !dismissed) return false;
+  view.dispatch({ effects: setGhost.of(null) });
+
+  return !delegate;
+};
+
+/**
+ * Each view owns a single cancellable FIM request; no debounce or idle timer. With an edit port,
+ * the Edit Prediction path takes over whenever a next-edit model is available.
+ */
+export const predictionExtension = (
+  port: PredictionPort,
+  editPort?: EditPredictionPort
+): Extension => {
+  const edit = editPort !== undefined;
+  const editActive = () => editPort?.available() ?? false;
+  const requests = ViewPlugin.define((view) => new Requests(view, port, editActive));
 
   return [
     ghost,
     ghostDecorations,
     ghostTheme,
     requests,
+    editPort === undefined ? [] : editPredictionExtension(editPort),
     Prec.highest(
       keymap.of([
-        { key: "Tab", run: (view) => port.allowed(view) && acceptPrediction(view) },
+        {
+          key: "Tab",
+          run: (view) =>
+            port.allowed(view) && ((edit && acceptEditPrediction(view)) || acceptPrediction(view)),
+        },
         {
           key: currentKeyPlatform() === "mac" ? "Alt-ArrowRight" : "Ctrl-ArrowRight",
           run: (view) => port.allowed(view) && acceptPrediction(view, true),
         },
-        {
-          key: "Escape",
-          run: (view) => {
-            const delegate = popupOrSnippet(view.state);
-            const pending = view.plugin(requests)?.dismiss() ?? false;
-
-            if (view.state.field(ghost) === null && !pending) return false;
-            view.dispatch({ effects: setGhost.of(null) });
-
-            return !delegate;
-          },
-        },
+        { key: "Escape", run: (view) => escape(view, requests, edit) },
       ])
     ),
   ];
 };
 
+export const acceptAnyPrediction = (view: EditorView, word = false): boolean =>
+  (!word && acceptEditPrediction(view)) || acceptPrediction(view, word);
+
 export { acceptPrediction, ghost, setGhost, visibleGhost } from "./state.ts";
+
+export {
+  DEFAULT_EDIT_PREDICTION_SETTINGS,
+  type EditFinal,
+  type EditPrediction,
+  type EditPredictionInput,
+  type EditPredictionPort,
+  type EditPredictionSettings,
+  editPrediction,
+  onPredictionLog,
+  type PredictionLogRecord,
+  type PredictionOutcome,
+  setEditPrediction,
+  showLastEditPrediction,
+  visibleEditPrediction,
+} from "./edit/index.ts";
 
 export type { AdditionalEdit, Prediction, PredictionInput, PredictionPort } from "./types.ts";
