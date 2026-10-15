@@ -12,6 +12,8 @@ import { existsSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { dirname, join } from "node:path";
 import { Schema } from "effect";
+import { safeConfigEnv } from "../../git/safeConfig/index.ts";
+import { repositoryEnv } from "../../service/childEnv.ts";
 import { cachedBetterleaks, hostAsset } from "./fetch.ts";
 import { maskSecret } from "./mask.ts";
 import configImport from "./polaris-secrets.toml" with { type: "text" };
@@ -91,29 +93,25 @@ export const locateBetterleaks = (): string | null => {
   return cached !== null && existsSync(cached) ? cached : null;
 };
 
-/** What the child may see of the Daemon's environment. */
-const childEnv = () => {
-  const keep = ["PATH", "HOME", "USER", "LOGNAME", "TMPDIR", "SSH_AUTH_SOCK"];
+/** The git Betterleaks runs in git mode; drivers are off through `--log-opts`. */
+const LOG_ARGS = ["log", "-p", "-U0"];
 
-  return {
-    ...Object.fromEntries(
-      keep.flatMap((name) => {
-        const value = process.env[name];
-
-        return value === undefined ? [] : [[name, value]];
-      })
-    ),
+/**
+ * What the child may see: an allowlist (no `SSH_AUTH_SOCK`, no tokens), and for its own
+ * `git log` the automatic-git config and no lazy fetch, as Betterleaks' own Host config is off.
+ */
+const scanEnv = async (cwd: string) => {
+  const base = repositoryEnv(process.env, {
     LC_ALL: "C",
-    BETTERLEAKS_CONFIG_TOML: config,
     GIT_TERMINAL_PROMPT: "0",
     GIT_OPTIONAL_LOCKS: "0",
-    // Never run a repository's hooks or fsmonitor from a scan (`git log` in git mode).
-    GIT_CONFIG_COUNT: "2",
-    GIT_CONFIG_KEY_0: "core.hooksPath",
-    GIT_CONFIG_VALUE_0: "/dev/null",
-    GIT_CONFIG_KEY_1: "core.fsmonitor",
-    GIT_CONFIG_VALUE_1: "false",
-  };
+    GIT_CONFIG_GLOBAL: "/dev/null",
+    GIT_CONFIG_NOSYSTEM: "1",
+  });
+
+  const safe = await safeConfigEnv(cwd, base, { args: LOG_ARGS });
+
+  return { ...base, ...safe, BETTERLEAKS_CONFIG_TOML: config };
 };
 
 /** Detection workers: fewer than the default (4 × cores) keeps a Pi's peak memory down. */
@@ -126,7 +124,7 @@ export type SecretSource =
 
 const sourceArgs = (source: SecretSource): ReadonlyArray<string> =>
   source.kind === "history"
-    ? ["git", ".", `--log-opts=${source.base}..${source.head}`]
+    ? ["git", ".", `--log-opts=--no-ext-diff --no-textconv ${source.base}..${source.head}`]
     : ["fs", ".", "--max-target-megabytes=10"];
 
 const relative = (path: string) => (path.startsWith("./") ? path.slice(2) : path);
@@ -151,7 +149,7 @@ export const scanSecrets = async (
     ],
     {
       cwd,
-      env: childEnv(),
+      env: await scanEnv(cwd),
       stdin: "ignore",
       stdout: "pipe",
       stderr: "pipe",

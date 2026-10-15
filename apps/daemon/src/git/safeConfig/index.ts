@@ -14,6 +14,7 @@ import {
   ownFiles,
   stampAll,
 } from "./discovery.ts";
+import { NO_LAZY_FETCH, refuseLazyFetch } from "./lazyFetch.ts";
 import {
   configEnv,
   type Entry,
@@ -33,6 +34,8 @@ export {
   safeArgs,
 } from "./settings.ts";
 
+export { GitLazyFetchUnsupported, NO_LAZY_FETCH } from "./lazyFetch.ts";
+
 export type { SafeMode } from "./settings.ts";
 
 type Env = Record<string, string | undefined>;
@@ -45,7 +48,7 @@ const decoder = new TextDecoder();
 const read = async (cwd: string, args: ReadonlyArray<string>, base: Env) => {
   const proc = Bun.spawn(["git", ...args], {
     cwd,
-    env: childEnv({ ...base, ...configEnv(FIXED, base) }),
+    env: childEnv({ ...base, ...configEnv(FIXED, base), ...NO_LAZY_FETCH }),
     stdin: "ignore",
     stdout: "pipe",
     stderr: "pipe",
@@ -167,8 +170,9 @@ const listingFor = async (cwd: string, args: ReadonlyArray<string>, base: Env) =
 };
 
 /**
- * The `GIT_CONFIG_*` environment for an automatic git call `args` in `cwd`: the
- * fixed settings, and every command the repository's own config names turned off.
+ * The environment for an automatic git call `args` in `cwd`: the fixed settings, every
+ * command the repository's own config names turned off, and no lazy fetch. Rejects with
+ * `GitLazyFetchUnsupported` for a partial clone when this git can't turn lazy fetch off.
  */
 export const safeConfigEnv = async (
   cwd: string,
@@ -178,6 +182,11 @@ export const safeConfigEnv = async (
   const listing = await listingFor(cwd, options.args ?? [], base);
   const mode = options.mode ?? "safe";
   const overrides = repositoryOverrides(listing, mode);
+  await refuseLazyFetch(listing, base);
 
-  return { ...configEnv([...FIXED, ...overrides], base), ...repositoryEnv(listing, mode, base) };
+  return {
+    ...configEnv([...FIXED, ...overrides], base),
+    ...repositoryEnv(listing, mode, base),
+    ...NO_LAZY_FETCH,
+  };
 };

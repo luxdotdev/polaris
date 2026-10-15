@@ -118,11 +118,25 @@ export const publishPullRequest = async (
  */
 export const userClone = async (
   forge: Forge,
-  options: { readonly depth?: number; readonly remoteUrl?: string } = {}
+  options: {
+    readonly depth?: number;
+    readonly remoteUrl?: string;
+    /** A partial clone's `--filter`, e.g. `blob:none`. */
+    readonly filter?: string;
+  } = {}
 ): Promise<string> => {
   const dir = join(tempDir("polaris-user-"), "app");
   const depth = options.depth === undefined ? [] : ["--depth", String(options.depth)];
-  await gitText(forge.root, ["clone", "-q", ...depth, `file://${forge.base}`, dir]);
+  const filter = options.filter === undefined ? [] : [`--filter=${options.filter}`];
+
+  if (options.filter !== undefined) {
+    await gitText(forge.base, ["config", "uploadpack.allowFilter", "true"]);
+  }
+
+  // The user's own clone: its checkout fetches a partial clone's blobs lazily.
+  await gitText(forge.root, ["clone", "-q", ...depth, ...filter, `file://${forge.base}`, dir], {
+    config: "host",
+  });
   await identity(dir);
   await gitText(dir, ["config", `url.${forge.base}.insteadOf`, BASE_URL]);
   await gitText(dir, ["config", `url.${forge.fork}.insteadOf`, FORK_URL]);
