@@ -3,8 +3,13 @@ import { diffEdits } from "./diff.ts";
 import { request } from "./fixtures.testing.ts";
 import { applyEdits, guardEdits } from "./guards.ts";
 import { buildEditPrompt } from "./prompt.ts";
-import { editResult } from "./result.ts";
+import { spikeEditOptions } from "./options.ts";
+import { editResult as resultWith } from "./result.ts";
 import { editWindow } from "./window.ts";
+
+// Parsing and revert mechanics, without the hill-climbed guards (hillclimb.test.ts covers those).
+const editResult: typeof resultWith = (request, output, elapsed) =>
+  resultWith(request, output, elapsed, spikeEditOptions);
 
 const input = { ...request, buffer: "const value = 1;", cursor: 15 };
 
@@ -39,10 +44,10 @@ test("Zeta cursor is in the resulting buffer, otherwise the last hunk supplies i
 test("focus centres whole-line windows independently of the cursor", () => {
   const buffer = Array.from({ length: 100 }, (_, i) => `line ${i}`).join("\n");
   const focused = { ...request, buffer, cursor: 0, focus: buffer.indexOf("line 50") };
-  const zeta = buildEditPrompt(focused);
+  const zeta = buildEditPrompt(focused, spikeEditOptions);
   expect(zeta.window.from).toBe(buffer.indexOf("line 37"));
   expect(zeta.window.to).toBe(buffer.indexOf("line 66"));
-  const sweep = buildEditPrompt({ ...focused, format: "sweep-next-edit" });
+  const sweep = buildEditPrompt({ ...focused, format: "sweep-next-edit" }, spikeEditOptions);
   expect(sweep.window.from).toBe(buffer.indexOf("line 40"));
   expect(sweep.window.to).toBe(buffer.indexOf("line 61"));
   expect(() => editWindow({ ...focused, focus: buffer.length + 1 })).toThrow("outside the buffer");

@@ -2,7 +2,12 @@ import { expect, test } from "bun:test";
 import type { EditPredictionRequest } from "@polaris/protocol";
 import { request } from "./fixtures.testing.ts";
 import { applyEdits } from "./guards.ts";
-import { editResult } from "./result.ts";
+import { spikeEditOptions } from "./options.ts";
+import { editResult as resultWith } from "./result.ts";
+
+// Parsing and revert mechanics, without the hill-climbed guards (hillclimb.test.ts covers those).
+const editResult: typeof resultWith = (request, output, elapsed) =>
+  resultWith(request, output, elapsed, spikeEditOptions);
 
 const input = (
   buffer: string,

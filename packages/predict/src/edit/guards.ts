@@ -2,6 +2,7 @@ import type { EditPredictionRequest, PredictedEdit, SuppressedReason } from "@po
 import { applyEdits } from "./apply.ts";
 import { deletesUnprompted } from "./deletionGuard.ts";
 import { duplicates } from "./duplicateGuard.ts";
+import { readsOwnDeclaration } from "./selfReferenceGuard.ts";
 import { strays } from "./relevanceGuard.ts";
 import { changesBlankLines, unbalancesDelimiters } from "./delimiterGuard.ts";
 import { unsafeIdentifiers } from "./identifierGuard.ts";
@@ -12,7 +13,7 @@ import {
   renamesDeclaration,
   restoresRemovedNames,
 } from "./novelGuard.ts";
-import type { SweepOptions } from "./options.ts";
+import type { EditOptions } from "./options.ts";
 import type { EditWindow } from "./window.ts";
 
 export { applyEdits } from "./apply.ts";
@@ -43,13 +44,14 @@ const unstable = (request: EditPredictionRequest, edit: PredictedEdit) => {
 
 type GuardOptions = Partial<
   Pick<
-    SweepOptions,
+    EditOptions,
     | "novelNames"
     | "declarationRenames"
     | "removedNames"
     | "deletionEvidence"
     | "relevance"
     | "duplicates"
+    | "selfReference"
   >
 >;
 
@@ -78,6 +80,7 @@ export const guardEdits = (
     ["unstable", () => on("deletionEvidence") && deletesUnprompted(request, edits)],
     ["unstable", () => on("relevance") && strays(request, edits)],
     ["unstable", () => on("duplicates") && duplicates(request.buffer, after)],
+    ["unstable", () => on("selfReference") && readsOwnDeclaration(request.buffer, after)],
   ];
 
   const reason = checks.find(([, check]) => check())?.[0];

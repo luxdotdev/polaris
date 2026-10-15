@@ -5,6 +5,7 @@ import { createEditPredictor } from "./index.ts";
 import { hardeningCases, hardeningRequest, hardeningRuns } from "./hardening.testing.ts";
 import { applyEdits } from "./guards.ts";
 import { editResult } from "./result.ts";
+import { spikeEditOptions } from "./options.ts";
 
 const normalized = (text: string) => text.replace(/\s/g, "");
 
@@ -56,7 +57,8 @@ test.skipIf(process.env.POLARIS_PREDICTION_LIVE !== "1")(
             normalized(
               applyEdits(
                 input.buffer,
-                editResult(hardeningRequest(fixture, format), recorded.output).edits
+                editResult(hardeningRequest(fixture, format), recorded.output, 0, spikeEditOptions)
+                  .edits
               )
             ) === actual
         );

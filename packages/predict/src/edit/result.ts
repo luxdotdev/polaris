@@ -3,14 +3,14 @@ import { diffEdits } from "./diff.ts";
 import { applyEdits, guardEdits } from "./guards.ts";
 import { nearestChange } from "./nearest.ts";
 import { parseRegions } from "./parse.ts";
-import { sweepOptions, type SweepOptions } from "./options.ts";
+import { editOptions, type EditOptions } from "./options.ts";
 import { buildEditPrompt } from "./prompt.ts";
 
 export const editResult = (
   request: EditPredictionRequest,
   output: string,
   elapsedMs = 0,
-  options: SweepOptions = sweepOptions
+  options: EditOptions = editOptions
 ) => {
   const built = buildEditPrompt(request, options);
   const { regions, outside } = parseRegions(request, built.window, output, built.stop);
@@ -40,9 +40,10 @@ export const editResult = (
 
   const whole = guardEdits(request, built.window, edits, options);
 
-  const guarded = options.nearestFallback
-    ? nearestChange(request, built.window, edits, whole, options)
-    : whole;
+  const guarded =
+    options.nearestFallback && request.format === "sweep-next-edit"
+      ? nearestChange(request, built.window, edits, whole, options)
+      : whole;
 
   let cursor: number | null = null;
   let shift = 0;

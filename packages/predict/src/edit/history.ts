@@ -1,5 +1,5 @@
 import type { EditHistoryHunk, EditPredictionRequest } from "@polaris/protocol";
-import type { SweepOptions } from "./options.ts";
+import type { EditOptions } from "./options.ts";
 
 export const linesOf = (text: string) => (text ? text.replace(/\r\n/g, "\n").split("\n") : []);
 
@@ -54,7 +54,7 @@ const withContext = (
 export const historyBlocks = (
   request: EditPredictionRequest,
   lines: readonly string[],
-  options: SweepOptions
+  options: EditOptions
 ) => {
   const blocks = withContext(request, lines, request.history, options.historyContext);
   const last = request.history.findLastIndex((hunk) => hunk.path === request.path);

@@ -173,6 +173,10 @@
   "8faff325c2154de8": {
    "label": "wrong",
    "note": "Invents an outcome case using setupOutcome; not the setup case, existing cases intact."
+  },
+  "1a55cc9daa24b05f": {
+   "label": "wrong",
+   "note": "Invents an outcome case; not the setup case, existing cases intact."
   }
  },
  "in05": {
@@ -241,6 +245,10 @@
   "76a39650d76c48ec": {
    "label": "wrong",
    "note": "Completes resolveSigning with an invented process.env.SIGNING argument instead of signingCredentials(process.env)."
+  },
+  "7fd88f0461a73180": {
+   "label": "wrong",
+   "note": "Passes process.env straight to resolveSigning instead of signingCredentials(process.env)."
   }
  },
  "hin02": {
@@ -257,6 +265,10 @@
   "abbccd2a6b5b459e": {
    "label": "wrong",
    "note": "seed: sweep-next-edit dev: Completes the new showAppMenu callback without the required window argument."
+  },
+  "84d3b8cf5711f52c": {
+   "label": "wrong",
+   "note": "Completes showAppMenu without the window argument and invents a showAppInFinder entry; existing code intact."
   }
  },
  "hin04": {
@@ -391,6 +403,10 @@
   "2276090f144b24e4": {
    "label": "exact",
    "note": "seed: sweep-next-edit test: Matches commit-derived ground truth under the spike whitespace rule."
+  },
+  "4b43ba5d7b4b5090": {
+   "label": "acceptable",
+   "note": "Correct partial continuation: completes the Backspace entry; the Delete entry remains to be typed."
   }
  },
  "hin11": {
@@ -535,6 +551,10 @@
   "4a185d1161bc2e15": {
    "label": "dangerous",
    "note": "Passes uuid into the steer send call that itself destructures uuid; breaks healthy code instead of deleting the dead constant."
+  },
+  "45504b3935ba4bf7": {
+   "label": "dangerous",
+   "note": "Adds an effort check to the steer path and passes uuid into the send call that destructures uuid; breaks healthy code."
   }
  },
  "hdd09": {

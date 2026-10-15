@@ -1,0 +1,34 @@
+{
+  "rn07": {
+    "6cf515b59fa86083": "wrong"
+  },
+  "in01": {
+    "3f339691028f521a": "wrong"
+  },
+  "in04": {
+    "41a2f287370276c7": "wrong"
+  },
+  "hin03": {
+    "abbccd2a6b5b459e": "wrong"
+  },
+  "hin04": {
+    "4805c68f59e07bca": "wrong"
+  },
+  "hin06": {
+    "4f0af206dcb006cd": "wrong",
+    "dd236715ed8bdbc3": "wrong"
+  },
+  "hin08": {
+    "53c74d6223dd43ff": "wrong",
+    "0f66c8a7de11e0b0": "wrong"
+  },
+  "hin11": {
+    "cacfc9ed7a94154b": "acceptable"
+  },
+  "hrf06": {
+    "f86c24d46b5e52e0": "acceptable"
+  },
+  "hrf11": {
+    "dae745d1c3472074": "acceptable"
+  }
+}

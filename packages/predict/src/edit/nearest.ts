@@ -3,7 +3,7 @@ import { changes } from "./deletionGuard.ts";
 import { guardEdits } from "./guards.ts";
 import { names } from "./novelGuard.ts";
 import { changedWords } from "./relevanceGuard.ts";
-import type { SweepOptions } from "./options.ts";
+import type { EditOptions } from "./options.ts";
 import { lineAt, type EditWindow } from "./window.ts";
 
 /** The change adds or removes code names, and at least one of them is in the history. */
@@ -23,7 +23,7 @@ export const nearestChange = (
   window: EditWindow,
   edits: readonly PredictedEdit[],
   guarded: ReturnType<typeof guardEdits>,
-  options: SweepOptions
+  options: EditOptions
 ) => {
   const groups = changes(request.buffer, edits);
 

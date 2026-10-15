@@ -7,7 +7,7 @@ import { EditPredictionRequest, PredictedEdit } from "../../../../packages/proto
 import { request as base } from "../../../../packages/predict/src/edit/fixtures.testing.ts";
 import { applyEdits } from "../../../../packages/predict/src/edit/guards.ts";
 import { editResult } from "../../../../packages/predict/src/edit/result.ts";
-import { spikeSweepOptions, type SweepOptions } from "../../../../packages/predict/src/edit/options.ts";
+import { spikeEditOptions, type EditOptions } from "../../../../packages/predict/src/edit/options.ts";
 
 export const fixtures = new URL("../../../../packages/predict/src/edit/fixtures/", import.meta.url);
 export const rawDir = new URL("../raw/hc/", import.meta.url);
@@ -40,8 +40,8 @@ export const loadSet = async (set: string): Promise<Case[]> => {
   return Schema.decodeUnknownSync(Schema.Array(Case))(await Bun.file(new URL(file, fixtures)).json());
 };
 
-export type Variant = { options: SweepOptions; maxTokens?: number; temperature?: number };
-const v = (o: Partial<SweepOptions>, extra: Omit<Variant, "options"> = {}): Variant => ({ options: { ...spikeSweepOptions, ...o }, ...extra });
+export type Variant = { options: EditOptions; maxTokens?: number; temperature?: number };
+const v = (o: Partial<EditOptions>, extra: Omit<Variant, "options"> = {}): Variant => ({ options: { ...spikeEditOptions, ...o }, ...extra });
 export const variants: Record<string, Variant> = {
   base: v({}),
   w15: v({ above: 7, below: 7 }),
@@ -57,6 +57,8 @@ export const variants: Record<string, Variant> = {
   a10b30: v({ above: 10, below: 30 }, { maxTokens: 1024 }),
   a15b20: v({ above: 15, below: 20 }, { maxTokens: 1024 }),
   p40: v({ prefixLines: 40 }),
+  imports: v({ importBlock: true }),
+  h2: v({ historyLimit: 2 }),
   t5: v({}, { temperature: 0.5 }),
   p160: v({ prefixLines: 160 }),
   a10b15: v({ above: 10, below: 15 }, { maxTokens: 1024 }),
@@ -65,7 +67,7 @@ export const variants: Record<string, Variant> = {
   decl: v({ declarationRenames: true }),
   removed: v({ removedNames: true }),
   names: v({ novelNames: true, declarationRenames: true, removedNames: true }),
-  guards: v({ novelNames: true, declarationRenames: true, removedNames: true, deletionEvidence: true, relevance: true, duplicates: true }),
+  guards: v({ novelNames: true, declarationRenames: true, removedNames: true, deletionEvidence: true, relevance: true, duplicates: true, selfReference: true }),
 };
 
 /** "a+b" merges variants left to right. */
@@ -75,7 +77,7 @@ export const variantOf = (name: string): Variant => {
     if (!found) throw new Error(`Unknown variant ${n}`);
     return found;
   });
-  const diff = (x: Variant) => Object.fromEntries(Object.entries(x.options).filter(([k, val]) => spikeSweepOptions[k as keyof SweepOptions] !== val));
+  const diff = (x: Variant) => Object.fromEntries(Object.entries(x.options).filter(([k, val]) => spikeEditOptions[k as keyof EditOptions] !== val));
   return parts.reduce((acc, x) => ({ ...acc, ...x, options: { ...acc.options, ...diff(x) } }), variants.base!);
 };
 

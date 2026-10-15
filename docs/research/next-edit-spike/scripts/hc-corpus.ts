@@ -7,7 +7,7 @@ import { buildEditPrompt } from "../../../../packages/predict/src/edit/prompt.ts
 import { parseRegions } from "../../../../packages/predict/src/edit/parse.ts";
 import { applyEdits } from "../../../../packages/predict/src/edit/guards.ts";
 import { diffEdits } from "../../../../packages/predict/src/edit/diff.ts";
-import { spikeSweepOptions } from "../../../../packages/predict/src/edit/options.ts";
+import { spikeEditOptions } from "../../../../packages/predict/src/edit/options.ts";
 import { loadLabels, loadSet, normalized, rawDir, stateHash, variantOf, type Case, type Label } from "./hc-lib.ts";
 
 export type Entry = { id: string; source: string; input: EditPredictionRequest; after: string; edits: PredictedEdit[]; label: Label | "unlabelled" };
@@ -19,7 +19,7 @@ export const corpus = async (): Promise<Entry[]> => {
   const cases = await loadSet("dev");
   const seen = new Set<string>();
   const out: Entry[] = [];
-  const add = (c: Case, source: string, format: EditPredictionRequest["format"], output: string, options = spikeSweepOptions) => {
+  const add = (c: Case, source: string, format: EditPredictionRequest["format"], output: string, options = spikeEditOptions) => {
     const input = EditPredictionRequest.make({ ...request, path: c.path, buffer: c.buffer, cursor: c.cursor, history: c.history, format });
     const built = buildEditPrompt(input, options);
     const after = applyEdits(c.buffer, parseRegions(input, built.window, output, built.stop).regions);

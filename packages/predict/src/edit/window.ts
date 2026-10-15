@@ -1,5 +1,5 @@
 import { PredictionError, type EditPredictionRequest } from "@polaris/protocol";
-import { sweepOptions, type SweepOptions } from "./options.ts";
+import { editOptions, type EditOptions } from "./options.ts";
 
 export interface EditWindow {
   readonly lines: readonly string[];
@@ -16,7 +16,7 @@ export const lineAt = (buffer: string, offset: number) =>
 
 export const editWindow = (
   request: EditPredictionRequest,
-  options: SweepOptions = sweepOptions
+  options: EditOptions = editOptions
 ): EditWindow => {
   const focus = request.focus ?? request.cursor;
 

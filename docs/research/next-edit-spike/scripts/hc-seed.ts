@@ -7,7 +7,7 @@ import { hardeningCases, hardeningRuns } from "../../../../packages/predict/src/
 import { buildEditPrompt } from "../../../../packages/predict/src/edit/prompt.ts";
 import { parseRegions } from "../../../../packages/predict/src/edit/parse.ts";
 import { applyEdits } from "../../../../packages/predict/src/edit/guards.ts";
-import { spikeSweepOptions } from "../../../../packages/predict/src/edit/options.ts";
+import { spikeEditOptions } from "../../../../packages/predict/src/edit/options.ts";
 import { labelsFile, loadLabels, stateHash, type Label } from "./hc-lib.ts";
 
 const labels = await loadLabels();
@@ -21,7 +21,7 @@ const put = (id: string, buffer: string, label: Label, note: string) => {
 };
 const after = (fixture: { path: string; buffer: string; cursor: number; history: EditPredictionRequest["history"] }, format: EditPredictionRequest["format"], output: string) => {
   const input = EditPredictionRequest.make({ ...request, path: fixture.path, buffer: fixture.buffer, cursor: fixture.cursor, history: fixture.history, format });
-  const built = buildEditPrompt(input, spikeSweepOptions);
+  const built = buildEditPrompt(input, spikeEditOptions);
   return applyEdits(input.buffer, parseRegions(input, built.window, output, built.stop).regions);
 };
 for (const run of hardeningRuns)
