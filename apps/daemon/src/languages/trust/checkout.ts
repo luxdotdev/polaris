@@ -1,5 +1,5 @@
-import { realpath } from "node:fs/promises";
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { lstat, realpath } from "node:fs/promises";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { LanguageCheckout, LanguageError } from "@polaris/protocol";
 import { Schema } from "effect";
 
@@ -66,4 +66,22 @@ export async function checkoutPath(context: CanonicalCheckout, input: string): P
   if (!within(context.root, canonical)) throw invalid("Canonical path leaves the checkout");
 
   return canonical;
+}
+
+/** An open document's path: like `checkoutPath`, but an unsaved document need not exist on disk. */
+export async function checkoutDocumentPath(
+  context: CanonicalCheckout,
+  input: string
+): Promise<string> {
+  const lexical = resolve(context.root, input);
+
+  const missing = await lstat(lexical).then(
+    () => false,
+    (error: NodeJS.ErrnoException) => error.code === "ENOENT"
+  );
+
+  if (!missing) return checkoutPath(context, lexical);
+  const parent = await checkoutPath(context, dirname(lexical));
+
+  return join(parent, basename(lexical));
 }
