@@ -20,6 +20,10 @@ import { TabCompletion } from "../TabCompletion.tsx";
 
 const GiB = 1024 ** 3;
 
+const MANAGED_URL = "http://127.0.0.1:43210";
+
+const SWEEP_ALIAS = "sweep-next-edit-1.5b-q8_0";
+
 const host = (key: string, label: string, state: HostView["status"]["state"] = "connected") => {
   const base = NEEDS_YOU_HOSTS[0];
 
@@ -55,7 +59,7 @@ const machine = (ramGiB: number, chip: string) => ({
 });
 
 const server = (...models: ReadonlyArray<string>) => [
-  { kind: "openai" as const, url: "http://127.0.0.1:8080", models },
+  { kind: "openai" as const, url: "http://127.0.0.1:8080", models, managed: false },
 ];
 
 const MACHINES = new Map<string, NonNullable<PredictionInspection["host"]>>([
@@ -89,7 +93,7 @@ const managedStatus = (empty: boolean): ManagedServerStatus => ({
   },
   modelsDir: "/Users/lucas/.polaris/models",
   freeBytes: 211 * GiB,
-  endpoint: empty ? null : { kind: "openai", url: "http://127.0.0.1:43210" },
+  endpoint: empty ? null : { kind: "openai", url: MANAGED_URL },
   phase: empty
     ? ManagedServerPhase.cases.Absent.make({})
     : ManagedServerPhase.cases.Stopped.make({}),
@@ -100,7 +104,12 @@ const managedStatus = (empty: boolean): ManagedServerStatus => ({
 const HostInput = Schema.Struct({ hostKey: Schema.optional(Schema.String) });
 
 const fixtureBridge = (empty: boolean): PolarisApi => {
-  const clientEndpoints = empty ? [] : server("mellum2-12b-a2.5b", "qwen2.5-coder-1.5b");
+  const clientEndpoints = empty
+    ? []
+    : [
+        { kind: "openai" as const, url: MANAGED_URL, models: [SWEEP_ALIAS], managed: true },
+        ...server("mellum2-12b-a2.5b", "qwen2.5-coder-1.5b"),
+      ];
 
   const inspection = (hostKey: string): PredictionInspection => ({
     clientLabel: "This Mac",
@@ -126,7 +135,9 @@ const fixtureBridge = (empty: boolean): PolarisApi => {
           value = { enabled: !empty, configured: !empty };
           break;
         case "prediction.clientEndpoints.get":
-          value = clientEndpoints.map(({ kind, url }) => ({ kind, url }));
+          value = clientEndpoints
+            .filter((endpoint) => endpoint.managed !== true)
+            .map(({ kind, url }) => ({ kind, url }));
           break;
         case "prediction.settings.get":
           value = preferences(hostKey ?? "local");
@@ -164,7 +175,7 @@ export const mountTabCompletionPreview = (root: HTMLElement, hash: string) => {
 
   if (!empty)
     predictionStore.setState({
-      results: { vm: { model: "mellum2-12b-a2.5b", machine: "This Mac", elapsedMs: 84 } },
+      results: { vm: { model: SWEEP_ALIAS, machine: "This Mac", elapsedMs: 84 } },
     });
 
   createRoot(root).render(
