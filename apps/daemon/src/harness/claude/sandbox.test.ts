@@ -7,7 +7,12 @@ import {
 } from "./sandbox.ts";
 import { readOnlyOptions } from "./readOnly.ts";
 
-const CONFINEMENT = { root: "/work/review", shellRoots: ["/work/repo/.git"], denied: ["/home/u"] };
+const CONFINEMENT = {
+  root: "/work/review",
+  shellRoots: ["/work/repo/.git/objects"],
+  denied: ["/home/u", "/work/repo/.git"],
+  gitEnv: {},
+};
 
 const linux = (...installed: ReadonlyArray<string>) =>
   probeClaudeSandbox({
@@ -44,8 +49,8 @@ describe("Claude Code's sandbox on a Host", () => {
       failIfUnavailable: true,
       filesystem: {
         denyWrite: ["/"],
-        denyRead: ["/home/u"],
-        allowRead: ["/work/review", "/work/repo/.git"],
+        denyRead: ["/home/u", "/work/repo/.git"],
+        allowRead: ["/work/review", "/work/repo/.git/objects"],
       },
     });
     expect(options.tools).toContain("Bash");

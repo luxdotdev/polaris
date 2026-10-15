@@ -147,6 +147,13 @@ export const sessionWith =
 /** What codex-cli 0.162.1's app-server answers `initialize` with. */
 export const FAKE_USER_AGENT = "polaris/0.162.1 (Mac OS 27.0.0; arm64) ghostty/1.3.1 (polaris; 0)";
 
+/** What `config/read` answers: one MCP server and one plugin the user has set up. */
+export const FAKE_EFFECTIVE_CONFIG = {
+  model: "gpt-5",
+  mcp_servers: { linear: { url: "https://mcp.linear.app/mcp", enabled: true } },
+  plugins: { "chrome@openai-bundled": { enabled: true } },
+};
+
 export const scripted =
   (rest: (request: ClientRequest, conn: FakeConnection) => void | Promise<void>): Handler =>
   (request, conn) => {
@@ -159,6 +166,8 @@ export const scripted =
         return conn.reply({ thread: { id: decodeThreadId(request.params).threadId } });
       case "thread/unsubscribe":
         return conn.reply({ status: "unsubscribed" });
+      case "config/read":
+        return conn.reply({ config: FAKE_EFFECTIVE_CONFIG });
       default:
         return rest(request, conn);
     }

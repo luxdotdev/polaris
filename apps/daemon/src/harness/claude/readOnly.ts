@@ -7,6 +7,7 @@
 import type { HookCallback, Options } from "@anthropic-ai/claude-agent-sdk";
 import { isAbsolute } from "node:path";
 import { Option, Schema } from "effect";
+import { repositoryEnv } from "../../service/childEnv.ts";
 import { confined, type ReadConfinement } from "../confinement.ts";
 import type { ClaudeSandbox } from "./sandbox.ts";
 
@@ -23,7 +24,13 @@ const decodeToolPaths = Schema.decodeUnknownOption(ToolPaths);
 
 const GLOB_CHARACTER = /[*?[\]{}]/;
 
-const climbs = (pattern: string) => pattern.split(/[\\/]/).includes("..");
+/** Claude Code expands `~`, `$HOME`, `%USERPROFILE%` and `file:` itself; `\\` and `..` can climb. */
+const EXPANDS = /^~|^file:|[$%\\\0]/i;
+
+const climbs = (pattern: string) => pattern.split(/[/{},]/).includes("..");
+
+/** Whether Polaris and Claude Code would read `input` as the same path. */
+const literal = (input: string) => !EXPANDS.test(input) && !climbs(input);
 
 /** A glob's directory part, before its first wildcard. */
 const staticPrefix = (pattern: string) => {
@@ -44,14 +51,19 @@ const readsInside = async (
 ): Promise<boolean> => {
   const base = path ?? root;
 
+  // Grep's `pattern` is a regex, not a path.
+  const inputs = toolName === "Grep" ? [path, glob] : [file_path, path, pattern];
+
+  if (!inputs.every((input) => input === undefined || literal(input))) return false;
+
   if (toolName === "Read") return file_path !== undefined && confined(root, root, file_path);
 
   if (!(await confined(root, root, base))) return false;
 
   if (toolName === "Glob")
-    return pattern !== undefined && !climbs(pattern) && confined(root, base, staticPrefix(pattern));
+    return pattern !== undefined && confined(root, base, staticPrefix(pattern));
 
-  if (toolName === "Grep") return glob === undefined || (!climbs(glob) && !isAbsolute(glob));
+  if (toolName === "Grep") return glob === undefined || !isAbsolute(glob);
 
   return false;
 };
@@ -135,3 +147,37 @@ export const readOnlyOptions = (
   confinement: ReadConfinement
 ): Partial<Options> =>
   sandbox.available ? sandboxedReadOnly(confinement) : unsandboxedReadOnly(confinement);
+
+/** What Claude Code reads to start and reach its provider; the rest of the Daemon's stays out. */
+const CLAUDE_CODE_KEY =
+  /^(ANTHROPIC_\w+|CLAUDE_\w+|DISABLE_\w+|MAX_THINKING_TOKENS|USE_BUILTIN_RIPGREP|NODE_EXTRA_CA_CERTS|SSL_CERT_(FILE|DIR)|(HTTPS?|NO|ALL)_PROXY|(https?|no|all)_proxy|XDG_(CONFIG|CACHE|DATA|STATE)_HOME|XDG_RUNTIME_DIR|APPDATA|LOCALAPPDATA)$/;
+
+/** A cloud provider's variables, kept only when Claude Code is set to use that provider. */
+const PROVIDER_KEYS: ReadonlyArray<readonly [string, RegExp]> = [
+  ["CLAUDE_CODE_USE_BEDROCK", /^AWS_\w+$/],
+  [
+    "CLAUDE_CODE_USE_VERTEX",
+    /^(GOOGLE_\w+|CLOUDSDK_\w+|GCLOUD_PROJECT|CLOUD_ML_REGION|VERTEX_REGION_\w+)$/,
+  ],
+  ["CLAUDE_CODE_USE_FOUNDRY", /^AZURE_\w+$/],
+];
+
+const isSet = (value: string | undefined) =>
+  value !== undefined && !["", "0", "false"].includes(value.toLowerCase());
+
+/**
+ * The read-only session's environment: an allowlist, since Bash inherits it, so tokens and
+ * keys of other services never reach the Reviewer. Its git gets the confinement's.
+ */
+export const readOnlyEnv = (
+  source: Readonly<Record<string, string | undefined>>,
+  confinement: ReadConfinement
+): Record<string, string> => {
+  const providers = PROVIDER_KEYS.flatMap(([flag, keys]) => (isSet(source[flag]) ? [keys] : []));
+  const kept = (key: string) => CLAUDE_CODE_KEY.test(key) || providers.some((k) => k.test(key));
+
+  return repositoryEnv(source, {
+    ...Object.fromEntries(Object.entries(source).filter(([key]) => kept(key))),
+    ...confinement.gitEnv,
+  });
+};

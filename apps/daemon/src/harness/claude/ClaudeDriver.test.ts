@@ -295,8 +295,16 @@ describe("Claude driver", () => {
   });
 
   test("a read-only session runs Bash in the sandbox with no network and no web tools", async () => {
-    const t = await openFake({ readOnly: true }, { sandbox: () => ({ available: true }) });
+    const t = await openFake(
+      { readOnly: true, environment: { GH_TOKEN: "ghp_x" } },
+      { sandbox: () => ({ available: true }) }
+    );
+
     const o = t.fake.options!;
+
+    // Bash inherits Claude Code's environment, so the Workspace's tokens never reach it.
+    expect(o.env).not.toHaveProperty("GH_TOKEN");
+    expect(o.env).toMatchObject({ GIT_CONFIG_GLOBAL: "/dev/null" });
 
     expect(o.sandbox).toMatchObject({
       enabled: true,

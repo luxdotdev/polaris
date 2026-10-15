@@ -169,6 +169,7 @@ export const openSession = (
       sandbox: policy.sandbox,
       userAgent: decodeInitialize(initialized)?.userAgent ?? "",
       cwd: options.cwd,
+      readConfig: conn.request("config/read", { cwd: options.cwd, includeLayers: false }),
     });
 
     const common: Pick<

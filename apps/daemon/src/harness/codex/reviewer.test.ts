@@ -36,10 +36,35 @@ test("a new read-only thread opens without prompts even when its permission mode
           filesystem: { "/repo": "read", ":slash_tmp": "deny", ":tmpdir": "deny" },
         },
       },
+      "shell_environment_policy.inherit": "core",
       "shell_environment_policy.set": { GIT_CONFIG_GLOBAL: "/dev/null" },
+      // The user's MCP servers and plugins run outside the sandbox.
+      mcp_servers: { linear: { enabled: false } },
+      plugins: { "chrome@openai-bundled": { enabled: false } },
+      "features.apps": false,
+      "features.hooks": false,
+      "features.memories": false,
+      "features.browser_use": false,
+      "features.computer_use": false,
+      web_search: "disabled",
     },
   });
   expect(params).not.toHaveProperty("sandbox");
+  expect(server.requests("config/read")[0]?.params).toMatchObject({ cwd: "/repo" });
+});
+
+test("a read-only thread doesn't start when Codex can't say which MCP servers it would run", async () => {
+  const silent: Handler = (request, conn) =>
+    request.method === "config/read"
+      ? conn.replyError(-32601, "unknown method")
+      : scripted(() => {})(request, conn);
+
+  const failure = await withSession(silent, () => Effect.void, { readOnly: true }).then(
+    () => null,
+    String
+  );
+
+  expect(failure).toContain("Codex didn't say which tools the reviewer would have");
 });
 
 test("a read-only thread doesn't start on a Codex too old to hold it to the checkout", async () => {
