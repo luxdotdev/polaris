@@ -1,0 +1,756 @@
+[
+ {
+  "id": "vdd01",
+  "cat": "dead-code",
+  "commit": "0b60a5d9",
+  "path": "apps/desktop/src/renderer/features/editor-links/EditorRequests.tsx",
+  "hist": [
+   0,
+   1,
+   2,
+   3,
+   4,
+   6,
+   7
+  ],
+  "target": [
+   5
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vdd02",
+  "cat": "dead-code",
+  "commit": "1ced4f43",
+  "path": "apps/desktop/src/renderer/features/editor/runtime/actions.ts",
+  "hist": [
+   0,
+   1,
+   2,
+   3
+  ],
+  "target": [
+   4
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vdd03",
+  "cat": "dead-code",
+  "commit": "89bea7af",
+  "path": "apps/desktop/src/renderer/features/session/ui/markdown/copyControls.tsx",
+  "hist": [
+   0
+  ],
+  "target": [
+   1
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vdd04",
+  "cat": "dead-code",
+  "commit": "6dc79c43",
+  "path": "apps/desktop/src/renderer/features/editor/prediction/Status.tsx",
+  "hist": [
+   1,
+   2,
+   3
+  ],
+  "target": [
+   0
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vdd05",
+  "cat": "dead-code",
+  "commit": "43dbcc75",
+  "path": "apps/daemon/src/reviewer/run.ts",
+  "hist": [
+   0,
+   1,
+   2,
+   3,
+   4,
+   6,
+   7,
+   8
+  ],
+  "target": [
+   5
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vdd06",
+  "cat": "dead-code",
+  "commit": "5f8492ec",
+  "path": "packages/ui/src/index.ts",
+  "hist": [
+   1
+  ],
+  "target": [
+   0
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vdd07",
+  "cat": "dead-code",
+  "commit": "bd2d7768",
+  "path": "apps/desktop/src/renderer/features/constellation/model/index.ts",
+  "hist": [
+   1
+  ],
+  "target": [
+   0
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vdd08",
+  "cat": "dead-code",
+  "commit": "fca1d7d2",
+  "path": "apps/desktop/src/renderer/routes/editor.ts",
+  "hist": [
+   0,
+   1,
+   2,
+   3
+  ],
+  "target": [
+   4
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vdd09",
+  "cat": "dead-code",
+  "commit": "4b04bcb8",
+  "path": "apps/daemon/src/harness/registry.ts",
+  "hist": [
+   1
+  ],
+  "target": [
+   0
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vin01",
+  "cat": "insertion",
+  "commit": "179d5f82",
+  "path": "apps/desktop/src/main/notifications/reviewPlan.ts",
+  "hist": [
+   0,
+   1,
+   2,
+   4,
+   5,
+   6
+  ],
+  "target": [
+   3
+  ],
+  "typed": 0.4,
+  "split": "fresh2"
+ },
+ {
+  "id": "vin02",
+  "cat": "insertion",
+  "commit": "a24f1922",
+  "path": "apps/daemon/src/verification/engine.invariants.testing.ts",
+  "hist": [
+   0,
+   2
+  ],
+  "target": [
+   1
+  ],
+  "typed": 0.4,
+  "split": "fresh2"
+ },
+ {
+  "id": "vin03",
+  "cat": "insertion",
+  "commit": "005277a9",
+  "path": "apps/desktop/src/main/github/queries.ts",
+  "hist": [
+   0
+  ],
+  "target": [
+   1
+  ],
+  "typed": 0.4,
+  "split": "fresh2"
+ },
+ {
+  "id": "vin04",
+  "cat": "insertion",
+  "commit": "80b7e3c0",
+  "path": "apps/daemon/src/languages/runtime/restart.ts",
+  "hist": [
+   0,
+   2
+  ],
+  "target": [
+   1
+  ],
+  "typed": 0.4,
+  "split": "fresh2"
+ },
+ {
+  "id": "vin05",
+  "cat": "insertion",
+  "commit": "cf550d0e",
+  "path": "apps/desktop/src/renderer/shell/ShortcutHelp.tsx",
+  "hist": [
+   1
+  ],
+  "target": [
+   0
+  ],
+  "typed": 0.4,
+  "split": "fresh2"
+ },
+ {
+  "id": "vin06",
+  "cat": "insertion",
+  "commit": "9e4c5f9f",
+  "path": "apps/daemon/src/verification/constellation.reference.testing.ts",
+  "hist": [
+   0,
+   1,
+   2
+  ],
+  "target": [
+   3
+  ],
+  "typed": 0.4,
+  "split": "fresh2"
+ },
+ {
+  "id": "vin07",
+  "cat": "insertion",
+  "commit": "1e9e1662",
+  "path": "packages/client/src/transport.ts",
+  "hist": [
+   1,
+   2
+  ],
+  "target": [
+   0
+  ],
+  "typed": 0.4,
+  "split": "fresh2"
+ },
+ {
+  "id": "vin08",
+  "cat": "insertion",
+  "commit": "711bfc53",
+  "path": "apps/daemon/src/files/watch.ts",
+  "hist": [
+   0,
+   1
+  ],
+  "target": [
+   2
+  ],
+  "typed": 0.4,
+  "split": "fresh2"
+ },
+ {
+  "id": "vin09",
+  "cat": "insertion",
+  "commit": "e95f3d23",
+  "path": "apps/desktop/src/shared/constellationContract.ts",
+  "hist": [
+   1
+  ],
+  "target": [
+   0
+  ],
+  "typed": 0.4,
+  "split": "fresh2"
+ },
+ {
+  "id": "vin10",
+  "cat": "insertion",
+  "commit": "293e55a5",
+  "path": "apps/daemon/src/languages/availability/index.ts",
+  "hist": [
+   1
+  ],
+  "target": [
+   0
+  ],
+  "typed": 0.4,
+  "split": "fresh2"
+ },
+ {
+  "id": "vin11",
+  "cat": "insertion",
+  "commit": "009128b5",
+  "path": "apps/desktop/src/main/machines/index.ts",
+  "hist": [
+   1
+  ],
+  "target": [
+   0
+  ],
+  "typed": 0.4,
+  "split": "fresh2"
+ },
+ {
+  "id": "vin12",
+  "cat": "insertion",
+  "commit": "60b24dce",
+  "path": "apps/desktop/src/renderer/features/constellation/model/facts.ts",
+  "hist": [
+   1
+  ],
+  "target": [
+   0
+  ],
+  "typed": 0.4,
+  "split": "fresh2"
+ },
+ {
+  "id": "vin13",
+  "cat": "insertion",
+  "commit": "d064eaa8",
+  "path": "apps/desktop/src/renderer/features/editor/ui/Tabs.tsx",
+  "hist": [
+   0
+  ],
+  "target": [
+   1
+  ],
+  "typed": 0.4,
+  "split": "fresh2"
+ },
+ {
+  "id": "vin14",
+  "cat": "insertion",
+  "commit": "f2738e36",
+  "path": "apps/desktop/src/renderer/features/session/ui/HarnessChoice.tsx",
+  "hist": [
+   0,
+   2
+  ],
+  "target": [
+   1
+  ],
+  "typed": 0.4,
+  "split": "fresh2"
+ },
+ {
+  "id": "vim01",
+  "cat": "import",
+  "commit": "f9e04766",
+  "path": "apps/daemon/src/languages/composition/managedPolicy.ts",
+  "hist": [
+   1
+  ],
+  "target": [
+   0
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vim02",
+  "cat": "import",
+  "commit": "bd2d7768",
+  "path": "apps/desktop/src/renderer/features/constellation/ui/slots.tsx",
+  "hist": [
+   1
+  ],
+  "target": [
+   0
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vim03",
+  "cat": "import",
+  "commit": "859ef0eb",
+  "path": "apps/desktop/src/renderer/features/settings/ui/EditorPage.tsx",
+  "hist": [
+   1,
+   2
+  ],
+  "target": [
+   0
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vim04",
+  "cat": "import",
+  "commit": "0f234aef",
+  "path": "apps/desktop/src/renderer/features/needs-you/ui/Publisher.tsx",
+  "hist": [
+   1,
+   2,
+   3
+  ],
+  "target": [
+   0
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vim05",
+  "cat": "import",
+  "commit": "20f300aa",
+  "path": "apps/desktop/src/renderer/features/constellation/model/digest.ts",
+  "hist": [
+   1
+  ],
+  "target": [
+   0
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vim06",
+  "cat": "import",
+  "commit": "f6b994ba",
+  "path": "packages/protocol/src/capabilities.ts",
+  "hist": [
+   1,
+   2,
+   3
+  ],
+  "target": [
+   0
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vim07",
+  "cat": "import",
+  "commit": "02af93a5",
+  "path": "packages/bench/src/scenarios/index.ts",
+  "hist": [
+   1
+  ],
+  "target": [
+   0
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vim08",
+  "cat": "import",
+  "commit": "6386bab2",
+  "path": "apps/desktop/src/renderer/features/session/output/actions.ts",
+  "hist": [
+   1
+  ],
+  "target": [
+   0
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vim09",
+  "cat": "import",
+  "commit": "9afcbd54",
+  "path": "apps/daemon/src/prediction/managed/download.ts",
+  "hist": [
+   1,
+   2
+  ],
+  "target": [
+   0
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vim10",
+  "cat": "import",
+  "commit": "b01468c0",
+  "path": "apps/daemon/src/engine/Engine.ts",
+  "hist": [
+   1
+  ],
+  "target": [
+   0
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vim11",
+  "cat": "import",
+  "commit": "975d9393",
+  "path": "apps/desktop/src/main/settings.ts",
+  "hist": [
+   1
+  ],
+  "target": [
+   0
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vim12",
+  "cat": "import",
+  "commit": "c27d3617",
+  "path": "packages/protocol/src/events.ts",
+  "hist": [
+   1,
+   2
+  ],
+  "target": [
+   0
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vim13",
+  "cat": "import",
+  "commit": "66cdabca",
+  "path": "apps/desktop/src/renderer/features/editor/formatting/index.ts",
+  "hist": [
+   1
+  ],
+  "target": [
+   0
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vim14",
+  "cat": "import",
+  "commit": "edaccdba",
+  "path": "apps/daemon/src/git/Checkpoints.ts",
+  "hist": [
+   1
+  ],
+  "target": [
+   0
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vrf01",
+  "cat": "refactor",
+  "commit": "acebe6f1",
+  "path": "apps/desktop/src/renderer/routes/navigation.ts",
+  "hist": [
+   0,
+   1,
+   2,
+   3,
+   4,
+   6
+  ],
+  "target": [
+   5
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vrf02",
+  "cat": "refactor",
+  "commit": "711bfc53",
+  "path": "apps/daemon/src/languages/runtime/lifecycle.ts",
+  "hist": [
+   0,
+   1,
+   2,
+   3,
+   4,
+   5,
+   7,
+   8
+  ],
+  "target": [
+   6
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vrf03",
+  "cat": "refactor",
+  "commit": "b8244e99",
+  "path": "apps/desktop/src/main/prediction/managed.ts",
+  "hist": [
+   0,
+   2
+  ],
+  "target": [
+   1
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vrf04",
+  "cat": "refactor",
+  "commit": "2482df7a",
+  "path": "apps/daemon/src/store/EventStore.ts",
+  "hist": [
+   0,
+   2,
+   3
+  ],
+  "target": [
+   1
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vrf05",
+  "cat": "refactor",
+  "commit": "f6b994ba",
+  "path": "packages/protocol/src/index.ts",
+  "hist": [
+   0,
+   2
+  ],
+  "target": [
+   1
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vrf06",
+  "cat": "refactor",
+  "commit": "995c2f7b",
+  "path": "apps/desktop/src/renderer/features/constellation/model/index.ts",
+  "hist": [
+   0,
+   2,
+   3,
+   4,
+   5
+  ],
+  "target": [
+   1
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vrf07",
+  "cat": "refactor",
+  "commit": "ca025a2c",
+  "path": "apps/daemon/src/transport/lazy.ts",
+  "hist": [
+   0,
+   1,
+   2,
+   4
+  ],
+  "target": [
+   3
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vrf08",
+  "cat": "refactor",
+  "commit": "d2561282",
+  "path": "apps/daemon/src/reviewer/ReviewerRpcs.ts",
+  "hist": [
+   0,
+   2
+  ],
+  "target": [
+   1
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vrf09",
+  "cat": "refactor",
+  "commit": "f005dec2",
+  "path": "apps/daemon/src/main.ts",
+  "hist": [
+   0,
+   1,
+   2,
+   3,
+   5
+  ],
+  "target": [
+   4
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vrf10",
+  "cat": "refactor",
+  "commit": "dd62d5ed",
+  "path": "apps/desktop/scripts/lib/daemon.ts",
+  "hist": [
+   0,
+   1,
+   2
+  ],
+  "target": [
+   3
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vrf11",
+  "cat": "refactor",
+  "commit": "a2dc80da",
+  "path": "apps/daemon/src/files/search/types.ts",
+  "hist": [
+   0,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8
+  ],
+  "target": [
+   1
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vrf12",
+  "cat": "refactor",
+  "commit": "ae14d18f",
+  "path": "apps/desktop/src/main/hosts.ts",
+  "hist": [
+   0,
+   1,
+   2,
+   3,
+   4,
+   5
+  ],
+  "target": [
+   6
+  ],
+  "split": "fresh2"
+ },
+ {
+  "id": "vrn01",
+  "cat": "rename",
+  "commit": "c6ca1c23",
+  "path": "apps/daemon/src/engine/runtime.ts",
+  "hist": [
+   0,
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   9
+  ],
+  "target": [
+   8
+  ],
+  "split": "fresh2"
+ }
+]
