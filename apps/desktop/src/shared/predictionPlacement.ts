@@ -52,6 +52,10 @@ export const PredictionPreferences = Schema.Struct({
     .check(Schema.isMaxLength(256))
     .pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
   editModel: Schema.NullOr(EditModel).pipe(Schema.withDecodingDefaultKey(Effect.succeed(null))),
+  /** Where this Host's managed model lives (ADR 0048); null is the Daemon's default folder. */
+  modelsDir: Schema.NullOr(Schema.String.check(Schema.isMaxLength(4096))).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(null))
+  ),
 });
 
 export type PredictionPreferences = typeof PredictionPreferences.Type;
@@ -73,6 +77,7 @@ export const DEFAULT_PREDICTION_PREFERENCES: PredictionPreferences = {
   acceptKey: PREDICTION_ACCEPT_BINDING,
   disabledLanguages: [],
   editModel: null,
+  modelsDir: null,
 };
 
 export const PredictionClientEndpoints = Schema.Array(ConfiguredPredictionEndpoint).check(

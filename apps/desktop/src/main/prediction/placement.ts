@@ -10,6 +10,7 @@ import { CapabilityProbe } from "@polaris/client/prediction/probe";
 import { Effect } from "effect";
 import type { PredictionEndpoint } from "@polaris/protocol";
 import { HostDirectory, type ClientRuntime } from "../hosts.ts";
+import { createManagedBridge } from "./managed.ts";
 import type { PredictionSettings } from "./preferences.ts";
 
 export interface PredictionLatency {
@@ -172,12 +173,20 @@ export const createMainPredictionPlacement = (
 ) => {
   const probe = new CapabilityProbe();
 
+  const hostSession = Effect.fn("prediction.placement.session")(function* (hostKey: string) {
+    const directory = yield* HostDirectory;
+    const connection = yield* directory.connection(hostKey);
+
+    return yield* connection.session;
+  });
+
+  const managed = createManagedBridge({ runtime, preferences, hostSession });
+
   return new MainPredictionPlacement({
     preferences,
     latency,
     recorder: () => new LatencyRecorder(),
-    client: () =>
-      probe.get(preferences.getClientEndpoints().map((endpoint) => ({ ...endpoint, models: [] }))),
+    client: () => managed.clientCapability(probe),
     host: (hostKey, signal, mode) =>
       runtime.runPromise(
         HostDirectory.use((directory) =>
@@ -189,6 +198,7 @@ export const createMainPredictionPlacement = (
 
             const report = yield* session.client["prediction.capability"]({
               endpoints: preferences.get(hostKey).hostEndpoints.map((endpoint) => endpoint.url),
+              modelsDir: preferences.get(hostKey).modelsDir,
             });
 
             if (mode === "complete" || session.capabilities.includes("prediction.edit"))

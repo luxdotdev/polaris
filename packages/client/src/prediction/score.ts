@@ -47,11 +47,11 @@ const targets = (
     const p50 = input.latency?.(side, endpoint) ?? null;
     const p50Ms = p50 !== null && Number.isFinite(p50) && p50 >= 0 ? p50 : null;
 
-    return [{ side, endpoint, model, format, tier, p50Ms }];
+    return [{ side, endpoint, model, format, tier, p50Ms, managed: endpoint.managed === true }];
   });
 };
 
-/** RAM tier first, then measured latency. Equal or unmeasured sides prefer the Client. */
+/** RAM tier, then a managed server, then measured latency; unmeasured ties prefer the Client. */
 export const scorePlacement = (input: PlacementInput): ReadonlyArray<PredictionTarget> => {
   if (input.override === "off") return [];
 
@@ -75,6 +75,7 @@ export const scorePlacement = (input: PlacementInput): ReadonlyArray<PredictionT
   return candidates.sort(
     (a, b) =>
       b.tier - a.tier ||
+      Number(b.managed) - Number(a.managed) ||
       (a.p50Ms !== null && b.p50Ms !== null ? a.p50Ms - b.p50Ms : 0) ||
       (a.side === b.side ? 0 : a.side === "client" ? -1 : 1)
   );

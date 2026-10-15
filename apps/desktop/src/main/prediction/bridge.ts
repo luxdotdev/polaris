@@ -25,6 +25,7 @@ import type { IpcError } from "../../shared/api.ts";
 import type { MainPredictionPlacement } from "./placement.ts";
 import type { PredictionSettings } from "./preferences.ts";
 import { LocalPredictor } from "./localPredictor.ts";
+import { createManagedBridge } from "./managed.ts";
 
 export interface PredictionBridgePorts {
   readonly localLayer?: Layer.Layer<LocalPredictor>;
@@ -90,12 +91,16 @@ export const createPredictionBridge = (ports: PredictionBridgePorts) => {
       })
     );
 
+  const managed = createManagedBridge({
+    runtime: ports.runtime,
+    preferences: ports.preferences,
+    hostSession,
+  });
+
   const inspect = async (hostKey: string): Promise<PredictionInspection> => {
-    const [names, client, host] = await Promise.all([
+    const [names, client, host, managedSides] = await Promise.all([
       labels(hostKey),
-      probe.get(
-        ports.preferences.getClientEndpoints().map((endpoint) => ({ ...endpoint, models: [] }))
-      ),
+      managed.clientCapability(probe),
       ports.runtime
         .runPromise(
           Effect.flatMap(hostSession(hostKey), (session) =>
@@ -104,20 +109,23 @@ export const createPredictionBridge = (ports: PredictionBridgePorts) => {
                   endpoints: ports.preferences
                     .get(hostKey)
                     .hostEndpoints.map((endpoint) => endpoint.url),
+                  modelsDir: ports.preferences.get(hostKey).modelsDir,
                 })
               : Effect.succeed(null)
           )
         )
         .catch(() => null),
+      managed.inspect(hostKey),
     ]);
 
+    // A managed server is Polaris's own, so finding one never triggers the discovery offer.
     const found = [...client.endpoints, ...(host?.endpoints ?? [])].some(
-      (endpoint) => endpoint.models.length > 0
+      (endpoint) => endpoint.models.length > 0 && endpoint.managed !== true
     );
 
     const offer = found && !enabled().configured && !ports.read().predictionDiscoveryShown;
 
-    return { ...names, client, host, offer };
+    return { ...names, client, host, offer, managed: managedSides };
   };
 
   const withLatency = (hostKey: string, result: Final): Final =>
@@ -215,6 +223,8 @@ export const createPredictionBridge = (ports: PredictionBridgePorts) => {
           };
 
           if (target.side === "client") {
+            if (target.managed) await managed.ensure(signal);
+
             await local.runPromise(
               LocalPredictor.use((predictor) =>
                 predictor
@@ -285,7 +295,15 @@ export const createPredictionBridge = (ports: PredictionBridgePorts) => {
       })
     );
 
-  const edits = createEditBridge({ ports, local, hostSession, labels, enabled, contextSummary });
+  const edits = createEditBridge({
+    ports,
+    local,
+    hostSession,
+    labels,
+    enabled,
+    contextSummary,
+    ensureManaged: managed.ensure,
+  });
 
   return {
     ...edits,
@@ -294,6 +312,8 @@ export const createPredictionBridge = (ports: PredictionBridgePorts) => {
     inspect,
     complete,
     server,
+    managed: managed.status,
+    watchManaged: managed.watch,
     discoveryShown: () => ports.commit({ ...ports.read(), predictionDiscoveryShown: true }),
     release: (hostKey: string, workspaceId: string) =>
       ports.placement.release(hostKey, workspaceId),

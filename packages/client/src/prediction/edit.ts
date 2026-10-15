@@ -38,6 +38,7 @@ export const editTargets = (
           format,
           tier: ram >= 16 * 1024 ** 3 ? 2 : 1,
           p50Ms: p50 !== null && Number.isFinite(p50) && p50 >= 0 ? p50 : null,
+          managed: endpoint.managed === true,
         },
       ];
     })

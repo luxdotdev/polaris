@@ -22,6 +22,8 @@ export interface PredictionTarget {
   readonly format: PredictionFormat | EditPredictionFormat;
   readonly tier: number;
   readonly p50Ms: number | null;
+  /** The endpoint is a model server the serving Daemon runs itself (ADR 0048). */
+  readonly managed: boolean;
 }
 
 export interface PlacementInput {

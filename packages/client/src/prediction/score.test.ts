@@ -56,3 +56,35 @@ test("Overrides fence placement and models must be advertised with a known forma
   ).toBe("suffix");
   expect(scorePlacement({ ...input(), model: "missing" })).toEqual([]);
 });
+
+test("a managed server beats the user's own on the same tier, even with worse latency", () => {
+  const managed = {
+    kind: "openai",
+    url: "http://127.0.0.1:43210",
+    models: ["zeta-2.1-q4_k_m"],
+    managed: true,
+  } as const;
+
+  const own = {
+    kind: "openai",
+    url: "http://127.0.0.1:8080",
+    models: ["zeta-2.1-Q4_K_M.gguf"],
+  } as const;
+
+  const client = { ...capability(), endpoints: [own, managed] };
+
+  const ranked = scorePlacement({
+    ...input(),
+    client,
+    host: null,
+    latency: (_side, endpoint) => (endpoint.url === own.url ? 20 : 80),
+  });
+
+  expect(ranked.map((target) => [target.endpoint.url, target.managed])).toEqual([
+    [managed.url, true],
+    [own.url, false],
+  ]);
+  expect(
+    scorePlacement({ ...input(), client, host: capability(64, "zeta-2.1") })[0]?.endpoint.url
+  ).toBe(managed.url);
+});

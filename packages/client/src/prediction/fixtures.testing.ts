@@ -30,4 +30,5 @@ export const target = (side: "client" | "host"): PredictionTarget => ({
   format: "mellum-spm",
   tier: 2,
   p50Ms: null,
+  managed: false,
 });

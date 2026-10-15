@@ -49,6 +49,7 @@ import {
   PredictionUiInputs,
   PredictionCompletionInput,
   EditPredictionInput,
+  ManagedSideInput,
 } from "./predictionContract.ts";
 
 /** A Host's stable key in the HostRegistry: "local", or an SSH alias. */
@@ -503,6 +504,8 @@ export const UnsubscribeEnvelope = Schema.Struct({ id: Schema.Int });
 export const SubscriptionInputs = {
   "prediction.complete": PredictionCompletionInput,
   "prediction.edit": EditPredictionInput,
+  /** The managed model server's status now and on every change (`prediction.managed.watch`). */
+  "prediction.managed.watch": ManagedSideInput,
   /** The Host list with each Host's Connection State; the whole list on every change. */
   hosts: Schema.Struct({}),
   /** The machines for Settings: each Host's settings, Connection State and install flow. */
