@@ -48,6 +48,8 @@ export interface RequestContext {
   readonly predictionSettings?: PredictionSettings;
   readonly predictionOutcomes?: PredictionOutcomes;
   readonly predictionPlacement?: MainPredictionPlacement;
+  /** A native folder picker; null when the user cancels. */
+  readonly chooseFolder?: (title: string, buttonLabel: string) => Promise<string | null>;
   readonly updates: Pick<AppUpdates, "get" | "check" | "setAutomatic">;
   readonly restartToUpdate: () => void;
   readonly showAppInFinder: () => void;
@@ -182,6 +184,23 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
         code: "PredictionUnavailable",
         message: error instanceof Error ? error.message : String(error),
       }),
+    }),
+  "prediction.managed": (input) =>
+    Effect.tryPromise({
+      try: async () => {
+        if (!ctx.predictionBridge) throw new Error("Tab completion unavailable");
+
+        return ctx.predictionBridge.managed(input);
+      },
+      catch: (error): IpcError => ({
+        code: "PredictionUnavailable",
+        message: error instanceof Error ? error.message : String(error),
+      }),
+    }),
+  "prediction.modelsDir.choose": () =>
+    Effect.tryPromise({
+      try: () => ctx.chooseFolder?.("Model folder", "Use this folder") ?? Promise.resolve(null),
+      catch: (): IpcError => ({ code: "Unavailable", message: "Folder picker unavailable" }),
     }),
   "prediction.release": ({ hostKey, workspaceId }) =>
     Effect.sync(() => {

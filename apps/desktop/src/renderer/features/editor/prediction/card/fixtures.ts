@@ -1,4 +1,6 @@
 /** Card inputs for every state, shared by the view model's tests and the `#completion-card` preview. */
+import { ManagedServerPhase, type ManagedServerStatus } from "@polaris/protocol";
+import { Predicate } from "effect";
 import type { PredictionInspection } from "../../../../../shared/predictionContract.ts";
 import { DEFAULT_PREDICTION_PREFERENCES } from "../../../../../shared/predictionPlacement.ts";
 import type { CardInput } from "./model.ts";
@@ -32,6 +34,7 @@ export const INSPECTION: PredictionInspection = {
   },
   host: { machine: machine(8, "Raspberry Pi 4 Model B Rev 1.4"), endpoints: [] },
   offer: false,
+  managed: { client: null, host: null },
 };
 
 export const EMPTY: PredictionInspection = {
@@ -39,6 +42,118 @@ export const EMPTY: PredictionInspection = {
   client: { ...INSPECTION.client, endpoints: [] },
   host: { machine: machine(8, "Raspberry Pi 4 Model B Rev 1.4"), endpoints: [] },
 };
+
+export const phases = ManagedServerPhase.cases;
+
+const SWEEP = {
+  id: "sweep-next-edit-1.5b" as const,
+  name: "Sweep Next-Edit 1.5B",
+  sizeBytes: 1_537_269_856,
+  serverBytes: 11_971_406,
+  memoryBytes: 2_600_000_000,
+};
+
+const MANAGED_URL = "http://127.0.0.1:43210";
+
+/** The Client's managed server in one phase, with Sweep as the model. */
+export const managed = (
+  phase: ManagedServerStatus["phase"],
+  patch: Partial<ManagedServerStatus> = {}
+): ManagedServerStatus => ({
+  model: SWEEP,
+  modelsDir: "/Users/lucas/.polaris/models",
+  freeBytes: 211 * GiB,
+  endpoint:
+    Predicate.isTagged(phase, "Absent") || Predicate.isTagged(phase, "Unsupported")
+      ? null
+      : { kind: "openai", url: MANAGED_URL },
+  phase,
+  memoryBytes: Predicate.isTagged(phase, "Serving") ? 2_480_000_000 : null,
+  ...patch,
+});
+
+/** No server of the user's own anywhere; the Client's Daemon can run one. */
+export const withManaged = (status: ManagedServerStatus): PredictionInspection => ({
+  ...EMPTY,
+  client: {
+    ...EMPTY.client,
+    endpoints:
+      status.endpoint === null
+        ? []
+        : [{ ...status.endpoint, models: ["sweep-next-edit-1.5b-q8_0"], managed: true }],
+  },
+  managed: { client: status, host: null },
+});
+
+export const SETUP_SCENES: ReadonlyArray<readonly [string, PredictionInspection]> = [
+  ["setup", withManaged(managed(phases.Absent.make({})))],
+  [
+    "downloading",
+    withManaged(
+      managed(
+        phases.Downloading.make({
+          file: "model",
+          receivedBytes: 640_000_000,
+          totalBytes: SWEEP.sizeBytes,
+        })
+      )
+    ),
+  ],
+  ["verifying", withManaged(managed(phases.Verifying.make({})))],
+  ["loading", withManaged(managed(phases.Starting.make({})))],
+  ["managed-ready", withManaged(managed(phases.Stopped.make({})))],
+  ["managed-serving", withManaged(managed(phases.Serving.make({})))],
+  [
+    "no-space",
+    withManaged(
+      managed(
+        phases.Failed.make({ reason: "no-space", message: "Needs 2 GB; 1.4 GB is free", log: [] }),
+        { freeBytes: 1.4 * GiB }
+      )
+    ),
+  ],
+  [
+    "download-failed",
+    withManaged(
+      managed(
+        phases.Failed.make({
+          reason: "download-failed",
+          message: "The publisher answered HTTP 503",
+          log: [],
+        })
+      )
+    ),
+  ],
+  [
+    "checksum-mismatch",
+    withManaged(
+      managed(
+        phases.Failed.make({
+          reason: "checksum-mismatch",
+          message: "sweep-next-edit-1.5b.q8_0.v2.gguf didn't match its published checksum",
+          log: [],
+        })
+      )
+    ),
+  ],
+  [
+    "server-failed",
+    withManaged(
+      managed(
+        phases.Failed.make({
+          reason: "server-failed",
+          message: "Sweep Next-Edit 1.5B exited with 1",
+          log: [
+            "ggml_metal_init: loading 'default.metallib'",
+            "llama_model_load: error loading model",
+            "error: unable to allocate Metal buffer",
+          ],
+        })
+      )
+    ),
+  ],
+  ["too-small", withManaged(managed(phases.Unsupported.make({ reason: "too-small" })))],
+];
 
 export const SERVED = {
   model: MELLUM,
@@ -62,7 +177,7 @@ export const BASE: CardInput = {
   failure: undefined,
   trusted: true,
   server: { kind: "llama-server", actions: ["clear-cache"], outcome: null },
-  memory: "Model server on this Mac · 9.4 GB of memory, counted apart from Polaris",
+  memory: "On this Mac: llama-server 9.4 GB · counted apart from Polaris",
 };
 
 /** One input per reachable state, in the order the preview lays them out. */
@@ -104,4 +219,25 @@ export const SCENES: ReadonlyArray<readonly [string, CardInput]> = [
   ["offer", { ...BASE, enabled: false, offer: true }],
   ["offline", { ...BASE, connection: "offline" }],
   ["reconnecting", { ...BASE, connection: "reconnecting" }],
+  ...SETUP_SCENES.map(
+    ([name, inspection]) =>
+      [
+        name,
+        {
+          ...BASE,
+          hostName: "Mac Studio",
+          inspection,
+          server: null,
+          memory: null,
+          result:
+            name === "managed-serving"
+              ? {
+                  ...SERVED,
+                  model: "sweep-next-edit-1.5b-q8_0",
+                  endpoint: { kind: "openai" as const, url: MANAGED_URL },
+                }
+              : undefined,
+        },
+      ] as const
+  ),
 ];

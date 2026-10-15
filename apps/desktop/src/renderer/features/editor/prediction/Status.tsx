@@ -15,8 +15,9 @@ import { useTrustStatus } from "../trust/store.ts";
 import { runCardAction } from "./card/actions.ts";
 import { CompletionCard, type Outcome } from "./card/CompletionCard.tsx";
 import { useMemoryLine, useServerReport } from "./card/hooks.ts";
+import { gb } from "./card/managed.ts";
 import { completionCard, type CardAction, type CardActionId } from "./card/model.ts";
-import { setHostPreferences, usePrediction } from "./store.ts";
+import { setHostPreferences, usePrediction, watchManaged } from "./store.ts";
 import { clientCopy } from "../../../../shared/clientCopy.ts";
 
 const message = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause));
@@ -79,9 +80,27 @@ export const PredictionStatus = ({ hostKey, path }: PredictionStatusProps) => {
     trusted: trust === null ? null : trust.trust.trusted,
   };
 
-  const target = completionCard({ ...input, server: null, memory: null }).target;
-  const server = useServerReport(api, hostKey, target, open, revision);
-  const memory = useMemoryLine(api, open, target?.side === "client", clientName);
+  const preview = completionCard({ ...input, server: null, memory: null });
+  const target = preview.target;
+  const managed = preview.managed;
+  const managedSide = managed?.side;
+
+  // The managed server pushes its phases (a download, a lazy start) while completion is on.
+  useEffect(() => {
+    if (managedSide === undefined || (!open && !state.enabled)) return;
+
+    return watchManaged(api, hostKey, managedSide);
+  }, [api, hostKey, managedSide, open, state.enabled]);
+
+  const ownsTarget = managed !== null && managed.status.endpoint?.url === target?.endpoint.url;
+  const server = useServerReport(api, hostKey, target, open && !ownsTarget, revision);
+  const probed = useMemoryLine(api, open, target?.side === "client" && !ownsTarget, clientName);
+
+  const memory =
+    ownsTarget && managed.status.memoryBytes !== null
+      ? `Polaris model server on ${target?.machine} · ${gb(managed.status.memoryBytes)} of memory, counted apart from Polaris`
+      : probed;
+
   const view = completionCard({ ...input, server: server.report, memory });
 
   const run = (action: CardAction) => {

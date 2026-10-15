@@ -25,6 +25,7 @@ interface EditBridgePorts {
   readonly labels: (hostKey: string) => Promise<{ clientLabel: string; hostLabel: string }>;
   readonly enabled: () => { enabled: boolean };
   readonly contextSummary: (context: PredictionContext) => PredictionContextSummary;
+  readonly ensureManaged: (signal: AbortSignal) => Promise<void>;
 }
 
 export const createEditBridge = ({
@@ -34,6 +35,7 @@ export const createEditBridge = ({
   labels,
   enabled,
   contextSummary,
+  ensureManaged,
 }: EditBridgePorts) => {
   const target = async (
     hostKey: string,
@@ -148,6 +150,8 @@ export const createEditBridge = ({
                 const predictorStart = performance.now() - started;
 
                 if (serving.side === "client") {
+                  if (serving.managed) await ensureManaged(signal);
+
                   await local.runPromise(
                     LocalPredictor.use((predictor) =>
                       predictor

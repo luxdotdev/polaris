@@ -11,7 +11,8 @@ import { commandShortcut } from "../../../../shared/keymap.ts";
 import { polaris } from "../../bridge.ts";
 import { Group, Heading, SettingRow } from "../ui/parts.tsx";
 import { CompletionPlacement } from "./CompletionPlacement.tsx";
-import { memoryLine, placementRow } from "./placementRows.ts";
+import { ManagedModel } from "./ManagedModel.tsx";
+import { inSentence, memoryLine, placementRow, type ModelServerMemory } from "./placementRows.ts";
 import {
   hostConnected,
   inspectPredictionHost,
@@ -25,11 +26,6 @@ import {
 
 const CONTROL =
   "bg-surface-sunken border-hairline rounded-control text-body text-text-default h-row min-w-0 border px-row-pad";
-
-interface ModelServerMemory {
-  readonly rssBytes: number;
-  readonly processes: number;
-}
 
 const EndpointForm = ({
   endpoints,
@@ -178,7 +174,10 @@ export const TabCompletion = ({ hosts }: { readonly hosts: ReadonlyArray<HostVie
     };
   }, [keys, epochs]);
 
-  const clientLabel = hosts.find((host) => host.kind === "local")?.label ?? clientCopy().localHost;
+  const local = hosts.find((host) => host.kind === "local");
+  const clientLabel = local?.label ?? clientCopy().localHost;
+  const localKey = local?.key ?? "local";
+  const localConnected = local?.status.state === "connected";
 
   const scopeHost = hosts.find((host) => host.key === scope);
   const machine = scope === "client" ? clientLabel : (scopeHost?.label ?? scope);
@@ -219,23 +218,14 @@ export const TabCompletion = ({ hosts }: { readonly hosts: ReadonlyArray<HostVie
           <Switch
             id="enable-tab-completion"
             checked={state.enabled}
-            disabled={
-              !state.loaded ||
-              (!state.enabled &&
-                state.clientEndpoints.length +
-                  Object.values(state.preferences).reduce(
-                    (count, prefs) => count + prefs.hostEndpoints.length,
-                    0
-                  ) ===
-                  0)
-            }
+            disabled={!state.loaded}
             onCheckedChange={(on) => void enabled(on)}
           />
         </SettingRow>
       </Group>
       <div className="gap-gap flex flex-col">
         <div className="flex items-center justify-between gap-4">
-          <h3 className="text-heading-sm text-text-strong font-medium">Model server</h3>
+          <h3 className="text-heading-sm text-text-strong font-medium">Model</h3>
           <select
             value={scope}
             onChange={(event) => setScope(event.target.value)}
@@ -253,10 +243,28 @@ export const TabCompletion = ({ hosts }: { readonly hosts: ReadonlyArray<HostVie
           </select>
         </div>
         <p className="text-caption text-text-subtle">
-          Run llama-server, LM Studio or Ollama on a machine you use for completion. llama-server is
-          recommended.
+          Polaris downloads one small next-edit model to the machine that serves completion and runs
+          it there. Nothing leaves that machine.
         </p>
-        <EndpointForm key={scope} endpoints={endpoints} machine={machine} save={save} />
+        <ManagedModel
+          key={scope}
+          hostKey={scope === "client" ? localKey : scope}
+          side={scope === "client" ? "client" : "host"}
+          machine={machine}
+          connected={scope === "client" ? localConnected : hostConnected(hosts, scope)}
+        />
+        <details className="gap-gap flex flex-col" open={endpoints.length > 0}>
+          <summary className="text-caption text-text-subtle cursor-default">
+            Use my own model server
+          </summary>
+          <div className="gap-gap mt-2 flex flex-col">
+            <p className="text-caption text-text-subtle">
+              Run llama-server, LM Studio or Ollama on {inSentence(machine)} and point Polaris at
+              it. A next-edit model there is used before anything is downloaded.
+            </p>
+            <EndpointForm key={scope} endpoints={endpoints} machine={machine} save={save} />
+          </div>
+        </details>
       </div>
       <CompletionPlacement
         rows={hosts.map((host) =>

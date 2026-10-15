@@ -82,6 +82,20 @@ export const defaultHandlers = (options: {
           message: "Model server checks are unavailable",
         })
       ),
+    "prediction.managed": () =>
+      Effect.fail(
+        new PredictionError({
+          reason: "unavailable",
+          message: "Managed model server is unavailable",
+        })
+      ),
+    "prediction.managed.watch": () =>
+      Stream.fail(
+        new PredictionError({
+          reason: "unavailable",
+          message: "Managed model server is unavailable",
+        })
+      ),
     "host.resources.get": () =>
       Effect.fail(new ResourceError({ message: "Host resources are unavailable" })),
     "host.resources.declare": () =>

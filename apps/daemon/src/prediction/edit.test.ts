@@ -1,8 +1,10 @@
 import { expect, test } from "bun:test";
 import { EditPredictionItem, EditPredictionRequest, PredictionEdit } from "@polaris/protocol";
-import { Effect, Stream } from "effect";
+import { Effect, Layer, Stream } from "effect";
 import { RpcGroup, RpcTest } from "effect/rpc";
-import { editPredictionHandlers } from "./index.ts";
+import { editPredictionHandlers, managedServerForTests } from "./index.ts";
+
+const managed = managedServerForTests("/nonexistent/polaris-managed-test");
 
 const request = EditPredictionRequest.make({
   context: [],
@@ -46,7 +48,7 @@ test("prediction.edit lazily streams exactly one Final over RPC without an Event
 
         return yield* Stream.runCollect(client["prediction.edit"](request));
       })
-    ).pipe(Effect.provide(layer))
+    ).pipe(Effect.provide(Layer.provide(layer, managed)))
   );
 
   expect(loads).toBe(1);
@@ -82,7 +84,7 @@ test("cancelling edit RPC consumption aborts the predictor HTTP signal", async (
 
         return yield* Stream.runCollect(client["prediction.edit"](request));
       })
-    ).pipe(Effect.provide(layer)),
+    ).pipe(Effect.provide(Layer.provide(layer, managed))),
     { signal: controller.signal }
   );
 

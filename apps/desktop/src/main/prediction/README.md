@@ -23,8 +23,13 @@ the shared predictor unchanged. The renderer still owns display and acceptance.
 
 The predictor implementation is supplied by `@polaris/predict`. Serving tests
 inject its interface and exercise the real predictor against isolated HTTP
-fixtures; they do not claim live model quality or latency. Polaris never starts
-or stops a model server.
+fixtures; they do not claim live model quality or latency. Servers of the
+user's own are never started or stopped; Polaris's own managed server
+(`managed.ts`, ADR 0049) is the local Daemon's: `prediction.managed` reports
+or drives it for either side, `prediction.managed.watch` streams its state,
+`prediction.modelsDir.choose` picks the Client's model folder, and a
+client-side request to the managed endpoint first asks the Daemon to start
+it (which also resets its idle clock).
 
 ## Local outcomes and metrics
 
@@ -95,7 +100,7 @@ placement/model/format/hostEndpoints fields and add:
 | editModel | `null` | Recommended, or an endpoint model ID recognized as Zeta 2.1 / Sweep Next-Edit |
 
 `editModel` overrides next-edit placement without replacing the v1 FIM model.
-Recommended delegates to placement's serving-machine RAM rule. The legacy
+Recommended is Sweep Next-Edit on every machine (owner, 2026-10-15). The legacy
 `format` field also accepts next-edit formats. Missing new fields in v1 files
 decode to defaults; the next settings write persists them while preserving
 unrelated settings and the separate global Client endpoint list.

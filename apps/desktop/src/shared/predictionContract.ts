@@ -8,6 +8,8 @@ import {
   PredictionEndpoint,
   PredictionServerRequest,
   PredictionStreamItem,
+  ManagedServerAction,
+  ManagedServerStatus,
   type PredictionServerReport,
 } from "@polaris/protocol";
 import { Schema } from "effect";
@@ -19,13 +21,30 @@ export const PredictionEnabled = Schema.Struct({
 
 export type PredictionEnabled = typeof PredictionEnabled.Type;
 
+/** The managed model server on each side (ADR 0049); null where the Daemon can't run one. */
+export const ManagedInspection = Schema.Struct({
+  client: Schema.NullOr(ManagedServerStatus),
+  host: Schema.NullOr(ManagedServerStatus),
+});
+
+export type ManagedInspection = typeof ManagedInspection.Type;
+
 export const PredictionInspection = Schema.Struct({
   clientLabel: Schema.String,
   hostLabel: Schema.String,
   client: PredictionCapability,
   host: Schema.NullOr(PredictionCapability),
   offer: Schema.Boolean,
+  managed: ManagedInspection,
 });
+
+/** Which Daemon's managed server: the Client's own (this machine's local Daemon) or the Host's. */
+export const ManagedSideInput = Schema.Struct({
+  hostKey: Schema.String,
+  side: Schema.Literals(["client", "host"]),
+});
+
+export type ManagedSideInput = typeof ManagedSideInput.Type;
 
 export type PredictionInspection = typeof PredictionInspection.Type;
 
@@ -123,6 +142,13 @@ export const PredictionUiInputs = {
     side: Schema.Literals(["client", "host"]),
     ...PredictionServerRequest.fields,
   }),
+  /** Status of, or an action on, the managed model server of one side; null while that Daemon can't run one. */
+  "prediction.managed": Schema.Struct({
+    ...ManagedSideInput.fields,
+    action: Schema.NullOr(ManagedServerAction),
+  }),
+  /** A folder picker for the model folder; null when the user cancels. */
+  "prediction.modelsDir.choose": Schema.Struct({}),
 } as const;
 
 export interface PredictionUiOutputs {
@@ -133,4 +159,6 @@ export interface PredictionUiOutputs {
   readonly "prediction.release": null;
   readonly "prediction.discoveryShown": null;
   readonly "prediction.server": PredictionServerReport;
+  readonly "prediction.managed": ManagedServerStatus | null;
+  readonly "prediction.modelsDir.choose": string | null;
 }

@@ -8,8 +8,13 @@ import {
   type PredictionClientEndpoints,
   type PredictionPreferences,
 } from "../../../../shared/predictionPlacement.ts";
-import type { PredictionEndpoint } from "@polaris/protocol";
+import type {
+  ManagedServerAction,
+  ManagedServerStatus,
+  PredictionEndpoint,
+} from "@polaris/protocol";
 import type { PredictionSide } from "@polaris/client/prediction";
+import { modelLabel } from "../../../../shared/modelNames.ts";
 import {
   EditPredictionFeedItem,
   PredictionFeedItem,
@@ -47,6 +52,8 @@ export interface PredictionState {
   readonly inspections: Readonly<Record<string, PredictionInspection>>;
   readonly results: Readonly<Record<string, CompletionStatus>>;
   readonly failures: Readonly<Record<string, string>>;
+  /** The managed model server of each side, keyed by `managedKey`, while something watches it. */
+  readonly managed: Readonly<Record<string, ManagedServerStatus | null>>;
   /** What `prediction.target` answered per Workspace (`targetKey`): whether a next-edit model serves it. */
   readonly targets: Readonly<Record<string, PredictionWorkspaceTarget>>;
 }
@@ -61,6 +68,7 @@ export const predictionStore = createStore<PredictionState>(() => ({
   inspections: {},
   results: {},
   failures: {},
+  managed: {},
   targets: {},
 }));
 
@@ -70,15 +78,7 @@ export const usePrediction = <A>(select: (state: PredictionState) => A): A =>
 export const preferencesOf = (hostKey: string) =>
   predictionStore.getState().preferences[hostKey] ?? DEFAULT_PREDICTION_PREFERENCES;
 
-const MODEL_NAMES: ReadonlyArray<readonly [RegExp, string]> = [
-  [/mellum/i, "Mellum2"],
-  [/qwen2\.5/i, "Qwen2.5-Coder"],
-  [/zeta[\W_]*2[._-]?1/i, "Zeta 2.1"],
-  [/sweep.*next[\W_]*edit/i, "Sweep Next-Edit"],
-];
-
-export const modelName = (name: string) =>
-  MODEL_NAMES.find(([pattern]) => pattern.test(name))?.[1] ?? name;
+export const modelName = (name: string) => modelLabel(name);
 
 export const targetKey = (file: Pick<EditorFile, "hostKey" | "workspaceId">) =>
   JSON.stringify([file.hostKey, file.workspaceId]);
@@ -319,6 +319,98 @@ export const requestPrediction = (
 
     if (settled) stop();
   });
+
+export const managedKey = (hostKey: string, side: PredictionSide) => `${hostKey}\u0000${side}`;
+
+const managedWatches = new Map<string, { count: number; stop: () => void }>();
+
+const BUSY_PHASES = new Set(["Downloading", "Verifying", "Starting", "Backoff"]);
+
+/** Leaving a busy phase changes what placement can see, so the inspection is taken again. */
+const settled = (
+  before: ManagedServerStatus | null | undefined,
+  after: ManagedServerStatus | null
+) =>
+  before !== null &&
+  before !== undefined &&
+  after !== null &&
+  BUSY_PHASES.has(before.phase._tag) &&
+  !BUSY_PHASES.has(after.phase._tag);
+
+const rememberManaged = (
+  hostKey: string,
+  side: PredictionSide,
+  status: ManagedServerStatus | null
+) =>
+  predictionStore.setState((state) => ({
+    managed: { ...state.managed, [managedKey(hostKey, side)]: status },
+    inspections:
+      state.inspections[hostKey] === undefined
+        ? state.inspections
+        : {
+            ...state.inspections,
+            [hostKey]: {
+              ...state.inspections[hostKey],
+              managed: { ...state.inspections[hostKey].managed, [side]: status },
+            },
+          },
+  }));
+
+/** Follows one side's managed server while the card or Settings shows it; returns the release. */
+export const watchManaged = (api: PolarisApi, hostKey: string, side: PredictionSide) => {
+  const key = managedKey(hostKey, side);
+  const active = managedWatches.get(key);
+
+  if (active !== undefined) {
+    active.count += 1;
+  } else {
+    const stop = api.subscribe(
+      "prediction.managed.watch",
+      { hostKey, side },
+      {
+        items: (items) => {
+          const last = items.at(-1);
+
+          if (last === undefined) return;
+          const before = predictionStore.getState().managed[key];
+          rememberManaged(hostKey, side, last);
+
+          if (settled(before, last)) void checkPredictionAgain(api, hostKey);
+        },
+        end: () => {},
+      }
+    );
+
+    managedWatches.set(key, { count: 1, stop });
+  }
+
+  return () => {
+    const watch = managedWatches.get(key);
+
+    if (watch === undefined) return;
+    watch.count -= 1;
+
+    if (watch.count === 0) {
+      watch.stop();
+      managedWatches.delete(key);
+    }
+  };
+};
+
+/** Runs one action on a side's managed server and keeps its reply; a download then re-probes. */
+export const managedAction = async (
+  api: PolarisApi,
+  hostKey: string,
+  side: PredictionSide,
+  action: ManagedServerAction | null
+) => {
+  const status = valueOf(await api.request("prediction.managed", { hostKey, side, action }));
+  rememberManaged(hostKey, side, status);
+
+  if (action === "remove" || action === "stop") await checkPredictionAgain(api, hostKey);
+
+  return status;
+};
 
 /** One `prediction.edit` request; unsubscribing on abort cancels the HTTP request behind it. */
 export const requestEditPrediction = (

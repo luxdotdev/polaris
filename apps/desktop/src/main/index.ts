@@ -232,10 +232,10 @@ const start = async () => {
     for (const win of BrowserWindow.getAllWindows()) win.webContents.send(CHANNELS.app, event);
   };
 
-  const pickFolder = async () => {
+  const chooseFolder = async (title: string, buttonLabel: string) => {
     const options: Electron.OpenDialogOptions = {
-      title: "Add a workspace",
-      buttonLabel: "Add workspace",
+      title,
+      buttonLabel,
       properties: ["openDirectory", "createDirectory"],
     };
 
@@ -247,6 +247,8 @@ const start = async () => {
 
     return picked.canceled ? null : (picked.filePaths[0] ?? null);
   };
+
+  const pickFolder = () => chooseFolder("Add a workspace", "Add workspace");
 
   const applyAppearance = () => {
     const current = appearance();
@@ -396,6 +398,7 @@ const start = async () => {
       predictionOutcomes,
       predictionPlacement,
       predictionBridge,
+      chooseFolder,
       settings: () => settings,
       cache: openSnapshotCache(app.getPath("userData")),
       prices: openPrices(app.getPath("userData")),

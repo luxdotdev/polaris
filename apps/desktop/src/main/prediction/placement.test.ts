@@ -19,7 +19,7 @@ const report: PredictionCapability = {
   endpoints: [{ kind: "openai", url: "http://127.0.0.1:8080", models: ["mellum2-12b-a2.5b"] }],
 };
 
-test("The edit-model override beats the machine recommendation while FIM keeps its own model", async () => {
+test("The edit-model override beats the Sweep default while FIM keeps its own model", async () => {
   let settings: Settings = {};
 
   const preferences = new PredictionSettings(
@@ -47,11 +47,11 @@ test("The edit-model override beats the machine recommendation while FIM keeps i
   const signal = new AbortController().signal;
 
   expect((await main.choose("mac", "one", signal, "auto")).context.serving?.model).toBe(
-    "Zeta-2.1-Q4"
-  );
-  preferences.set("mac", { ...preferences.get("mac"), editModel: "Sweep-Next-Edit-Q4" });
-  expect((await main.choose("mac", "one", signal, "auto")).context.serving?.model).toBe(
     "Sweep-Next-Edit-Q4"
+  );
+  preferences.set("mac", { ...preferences.get("mac"), editModel: "Zeta-2.1-Q4" });
+  expect((await main.choose("mac", "one", signal, "auto")).context.serving?.model).toBe(
+    "Zeta-2.1-Q4"
   );
   expect((await main.choose("mac", "one", signal, "complete")).context.serving?.model).toBe(
     "mellum2-12b-a2.5b"

@@ -24,22 +24,24 @@ const report = (ram: number, models: string[]) => ({
 });
 
 test.each([
-  [32, ["sweep-next-edit", "zeta-2.1"], "zeta-2.1"],
-  [64, ["sweep-next-edit", "zeta-2.1"], "zeta-2.1"],
-  [31.99, ["zeta-2.1", "sweep-next-edit"], "sweep-next-edit"],
+  [32, ["sweep-next-edit", "zeta-2.1"], "sweep-next-edit"],
+  [64, ["zeta-2.1", "sweep-next-edit"], "sweep-next-edit"],
   [16, ["zeta-2.1", "sweep-next-edit"], "sweep-next-edit"],
   [32, ["sweep-next-edit"], "sweep-next-edit"],
   [32, ["zeta-2.1"], "zeta-2.1"],
   [32, ["mellum2-12b-a2.5b"], "mellum2-12b-a2.5b"],
-] as const)("machine default at %s GiB for %j is %s", (ram, models, expected) => {
-  const targets = scorePlacement({
-    ...input(),
-    host: null,
-    client: report(ram, [...models]),
-  });
+] as const)(
+  "the default at %s GiB for %j is %s: Sweep whenever it is served",
+  (ram, models, expected) => {
+    const targets = scorePlacement({
+      ...input(),
+      host: null,
+      client: report(ram, [...models]),
+    });
 
-  expect(targets[0]?.model).toBe(expected);
-});
+    expect(targets[0]?.model).toBe(expected);
+  }
+);
 
 test("defaults span all endpoints on the serving machine and edit candidates precede FIM on another side", () => {
   const client = {
@@ -52,7 +54,7 @@ test("defaults span all endpoints on the serving machine and edit candidates pre
 
   expect(
     scorePlacement({ ...input(), mode: "auto", client }).map((target) => target.model)
-  ).toEqual(["zeta-2.1"]);
+  ).toEqual(["sweep-next-edit"]);
   expect(
     scorePlacement({
       ...input(),
@@ -63,7 +65,7 @@ test("defaults span all endpoints on the serving machine and edit candidates pre
   ).toBe("client");
 });
 
-test("a chosen recognised model overrides RAM and stale FIM format; Off and Pi exclusions still apply", () => {
+test("a chosen recognised model overrides the Sweep default and stale FIM format; Off and Pi exclusions still apply", () => {
   const selected = {
     ...input(),
     mode: "auto" as const,

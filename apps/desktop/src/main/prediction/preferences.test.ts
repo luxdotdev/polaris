@@ -85,6 +85,8 @@ test("A v1 file migrates each Host without losing endpoints, format, enable or a
       acceptKey: "editor.prediction.accept",
       disabledLanguages: [],
       editModel: null,
+      modelsDir: null,
+      managedModel: null,
     });
     preferences.set("mac", { ...preferences.get("mac"), display: "subtle" });
     expect(settings).toMatchObject({

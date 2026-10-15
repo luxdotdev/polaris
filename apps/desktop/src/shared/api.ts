@@ -506,6 +506,7 @@ export type TerminalItem =
 export interface SubscriptionItems extends GitHubSubscriptionItems, GitSubscriptionItems {
   "prediction.complete": PredictionFeedItem;
   "prediction.edit": EditPredictionFeedItem;
+  "prediction.managed.watch": import("@polaris/protocol").ManagedServerStatus;
   hosts: ReadonlyArray<HostView>;
   machines: ReadonlyArray<MachineView>;
   host: HostStreamItem;

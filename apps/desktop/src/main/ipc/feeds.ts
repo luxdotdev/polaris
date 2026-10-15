@@ -52,6 +52,8 @@ const openers: Openers = {
     Stream.fail({ code: "Unavailable", message: "Edit prediction unavailable" }),
   "prediction.complete": () =>
     Stream.fail({ code: "Unavailable", message: "Tab completion unavailable" }),
+  "prediction.managed.watch": () =>
+    Stream.fail({ code: "Unavailable", message: "Tab completion unavailable" }),
   ...githubOpeners,
   ...gitOpeners,
   hosts: () => Stream.unwrap(HostDirectory.useSync((dir) => SubscriptionRef.changes(dir.views))),
@@ -102,6 +104,8 @@ const predictionOpeners = (prediction?: PredictionBridge): Openers => ({
   "prediction.edit": (value) => prediction?.edit(value) ?? openers["prediction.edit"](value),
   "prediction.complete": (value) =>
     prediction?.complete(value) ?? openers["prediction.complete"](value),
+  "prediction.managed.watch": (value) =>
+    prediction?.watchManaged(value) ?? openers["prediction.managed.watch"](value),
 });
 
 /** Decodes a renderer's input for `kind` (untrusted), then opens the feed. */

@@ -6,11 +6,14 @@ import {
   PredictionServerQuery,
 } from "./prediction.ts";
 import { PredictionEdit } from "./editPrediction.ts";
+import { PredictionManagedQuery, PredictionManagedWatch } from "./managedPrediction.ts";
 
 export const PredictionRpcs = RpcGroup.make(
   PredictionCapabilityQuery,
   PredictionContextQuery,
   PredictionComplete,
   PredictionEdit,
-  PredictionServerQuery
+  PredictionServerQuery,
+  PredictionManagedQuery,
+  PredictionManagedWatch
 );

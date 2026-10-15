@@ -98,7 +98,7 @@ test("Daemon startup does not import the predictor implementation", async () => 
     [
       process.execPath,
       "-e",
-      `await import(${JSON.stringify(new URL("../transport/serve.ts", import.meta.url).pathname)}); console.log(Object.keys(require.cache).filter(path => path.includes('/packages/predict/src/') || path.endsWith('/prediction/complete.ts') || path.endsWith('/prediction/edit.ts')).length);`,
+      `await import(${JSON.stringify(new URL("../transport/serve.ts", import.meta.url).pathname)}); console.log(Object.keys(require.cache).filter(path => path.includes('/packages/predict/src/') || path.endsWith('/daemon/src/prediction/complete.ts') || path.endsWith('/daemon/src/prediction/edit.ts')).length);`,
     ],
     { stdout: "pipe", stderr: "pipe" }
   );

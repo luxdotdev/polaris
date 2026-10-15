@@ -76,7 +76,11 @@ const bridge: PolarisApi = {
     if (method === "prediction.server")
       value = { kind: "llama-server", actions: ["clear-cache"], outcome: null };
     else if (method === "prediction.resources.get")
-      value = { rssBytes: 9.4 * 1024 ** 3, processes: 1 };
+      value = {
+        rssBytes: 9.4 * 1024 ** 3,
+        processes: 1,
+        servers: [{ name: "llama-server", rssBytes: 9.4 * 1024 ** 3 }],
+      };
     else return { ok: false, error: { code: "Unsupported", message: "preview" } };
 
     // SAFETY: each handled fixture method sets its documented output.

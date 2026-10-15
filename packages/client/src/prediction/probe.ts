@@ -171,7 +171,58 @@ export const modelServerPids = async (): Promise<ReadonlyArray<number>> => {
 export interface ModelServerResources {
   readonly rssBytes: number;
   readonly processes: number;
+  /** Each model server's process tree, by the executable's name, largest first. */
+  readonly servers: ReadonlyArray<{ readonly name: string; readonly rssBytes: number }>;
 }
+
+export interface ProcessRow {
+  readonly pid: number;
+  readonly parent: number;
+  readonly rssBytes: number;
+  readonly name: string;
+}
+
+const SERVER_NAME = /(?:^|\/)(?:llama-server|ollama|llmster|LM Studio)(?:\s|$)/;
+
+/** Folds a process listing into one entry per model server: Ollama's runners count under Ollama. */
+export const foldModelServers = (rows: ReadonlyArray<ProcessRow>): ModelServerResources => {
+  const byPid = new Map(rows.map((row) => [row.pid, row]));
+  const candidates = new Set(rows.flatMap((row) => (SERVER_NAME.test(row.name) ? [row.pid] : [])));
+
+  // The outermost server process owns the tree: a llama-server under ollama is Ollama's.
+  const rootOf = (pid: number): number | null => {
+    let root: number | null = null;
+    let current = byPid.get(pid);
+
+    for (let depth = 0; current !== undefined && depth < 64; depth++) {
+      if (candidates.has(current.pid)) root = current.pid;
+      current = byPid.get(current.parent);
+    }
+
+    return root;
+  };
+
+  const trees = new Map<number, number>();
+
+  for (const row of rows) {
+    const root = rootOf(row.pid);
+
+    if (root !== null) trees.set(root, (trees.get(root) ?? 0) + row.rssBytes);
+  }
+
+  const servers = [...trees]
+    .map(([pid, rssBytes]) => ({
+      name: (byPid.get(pid)?.name ?? "").replace(/^.*\//, "").replace(/\s.*$/, ""),
+      rssBytes,
+    }))
+    .sort((a, b) => b.rssBytes - a.rssBytes);
+
+  return {
+    rssBytes: servers.reduce((sum, server) => sum + server.rssBytes, 0),
+    processes: servers.length,
+    servers,
+  };
+};
 
 /** Includes each model-server descendant once; this sample has RSS, not physical footprint. */
 export const modelServerResources = async (): Promise<ModelServerResources> => {
@@ -192,24 +243,5 @@ export const modelServerResources = async (): Promise<ModelServerResources> => {
       : [];
   });
 
-  const selected = new Set(
-    rows
-      .filter((row) => /(?:^|\/)(?:llama-server|ollama|llmster|LM Studio)(?:\s|$)/.test(row.name))
-      .map((row) => row.pid)
-  );
-
-  let previous = -1;
-
-  while (selected.size !== previous) {
-    previous = selected.size;
-
-    for (const row of rows) if (selected.has(row.parent)) selected.add(row.pid);
-  }
-
-  return {
-    rssBytes: rows
-      .filter((row) => selected.has(row.pid))
-      .reduce((sum, row) => sum + row.rssBytes, 0),
-    processes: selected.size,
-  };
+  return foldModelServers(rows);
 };

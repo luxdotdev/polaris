@@ -1,5 +1,6 @@
 import {
   EditPredictionFormat,
+  ManagedModelId,
   PredictionEndpoint,
   PredictionEndpointUrl,
   PredictionFormat,
@@ -52,6 +53,14 @@ export const PredictionPreferences = Schema.Struct({
     .check(Schema.isMaxLength(256))
     .pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
   editModel: Schema.NullOr(EditModel).pipe(Schema.withDecodingDefaultKey(Effect.succeed(null))),
+  /** Where this Host's managed model lives (ADR 0049); null is the Daemon's default folder. */
+  modelsDir: Schema.NullOr(Schema.String.check(Schema.isMaxLength(4096))).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(null))
+  ),
+  /** The managed model (ADR 0049): null is Sweep; "zeta-2.1" is the higher-quality opt-in. */
+  managedModel: Schema.NullOr(ManagedModelId).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(null))
+  ),
 });
 
 export type PredictionPreferences = typeof PredictionPreferences.Type;
@@ -73,6 +82,8 @@ export const DEFAULT_PREDICTION_PREFERENCES: PredictionPreferences = {
   acceptKey: PREDICTION_ACCEPT_BINDING,
   disabledLanguages: [],
   editModel: null,
+  modelsDir: null,
+  managedModel: null,
 };
 
 export const PredictionClientEndpoints = Schema.Array(ConfiguredPredictionEndpoint).check(
@@ -95,7 +106,11 @@ export const PredictionPlacementInputs = {
 export interface PredictionPlacementOutputs {
   readonly "prediction.clientEndpoints.get": PredictionClientEndpoints;
   readonly "prediction.clientEndpoints.set": PredictionClientEndpoints;
-  readonly "prediction.resources.get": { readonly rssBytes: number; readonly processes: number };
+  readonly "prediction.resources.get": {
+    readonly rssBytes: number;
+    readonly processes: number;
+    readonly servers: ReadonlyArray<{ readonly name: string; readonly rssBytes: number }>;
+  };
   readonly "prediction.settings.get": PredictionPreferences &
     Partial<Pick<PredictionPreferenceView, "restraints">>;
   readonly "prediction.settings.set": PredictionPreferences &

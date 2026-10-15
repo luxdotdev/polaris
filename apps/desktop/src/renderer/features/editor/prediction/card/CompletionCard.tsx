@@ -28,6 +28,10 @@ const RUNNING: Partial<Record<CardActionId, (label: string) => string>> = {
   "turn-on": () => "Turning on…",
   "turn-on-host": () => "Turning on…",
   "turn-off-host": () => "Turning off…",
+  "set-up": () => "Starting the download…",
+  "cancel-download": () => "Cancelling…",
+  "retry-setup": () => "Trying again…",
+  "remove-model": () => "Removing…",
 };
 
 const Check = ({ on }: { readonly on: boolean }) => (
@@ -70,11 +74,10 @@ const ModelRow = ({
     )}
   >
     <Check on={selected} />
-    <span className={cn("min-w-0 truncate", choice.id !== null && "font-mono")}>
-      {choice.label}
-    </span>
+    {/* The name never truncates; the note (a model's name, a reason) gives way first. */}
+    <span className="shrink-0">{choice.label}</span>
     {choice.note === null ? null : (
-      <span className={cn("ml-auto shrink-0", choice.enabled && "text-text-subtle")}>
+      <span className={cn("ml-auto min-w-0 truncate", choice.enabled && "text-text-subtle")}>
         {choice.note}
       </span>
     )}
@@ -158,6 +161,23 @@ export const CompletionCard = ({
         </h2>
         <p className="text-caption text-text-subtle wrap-anywhere">{view.why}</p>
       </div>
+      {view.progress === null ? null : (
+        <Section className="py-2.5">
+          <div
+            role="progressbar"
+            aria-label="Download"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.floor(view.progress * 100)}
+            className="bg-fill-selected h-[3px] w-full overflow-hidden rounded-full"
+          >
+            <div
+              className="bg-text-strong h-full rounded-full transition-[width] duration-300"
+              style={{ width: `${Math.max(2, Math.floor(view.progress * 100))}%` }}
+            />
+          </div>
+        </Section>
+      )}
       {view.failure === null ? null : (
         <Section>
           <pre className="text-caption text-text-default max-h-24 overflow-auto font-mono leading-[18px] wrap-anywhere whitespace-pre-wrap">

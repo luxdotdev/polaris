@@ -160,24 +160,45 @@ export const placementRow = (input: PlacementRowInput): PlacementRow => {
 
 const GiB = 1024 ** 3;
 
-/** The model servers' memory on the Client, or that none runs; null while unknown. */
-export const memoryLine = (
-  resources: { readonly rssBytes: number; readonly processes: number } | null,
-  clientName: string
-) => {
+const MiB = 1024 ** 2;
+
+const SERVER_LABELS: ReadonlyArray<readonly [RegExp, string]> = [
+  [/^llama-server/i, "llama-server"],
+  [/^ollama/i, "Ollama"],
+  [/^(?:llmster|LM)/i, "LM Studio"],
+];
+
+const sizeOf = (bytes: number) =>
+  bytes >= GiB ? `${(bytes / GiB).toFixed(1)} GB` : `${Math.max(1, Math.round(bytes / MiB))} MB`;
+
+/** Under 128 MB a server is resident without a model loaded, which is what the user asks. */
+const serverPart = (server: { readonly name: string; readonly rssBytes: number }) => {
+  const label = SERVER_LABELS.find(([pattern]) => pattern.test(server.name))?.[1] ?? server.name;
+
+  return server.rssBytes < 128 * MiB
+    ? `${label} with nothing loaded`
+    : `${label} ${sizeOf(server.rssBytes)}`;
+};
+
+export interface ModelServerMemory {
+  readonly rssBytes: number;
+  readonly processes: number;
+  readonly servers?:
+    | ReadonlyArray<{ readonly name: string; readonly rssBytes: number }>
+    | undefined;
+}
+
+/** Each model server on the Client with its memory, or that none runs; null while unknown. */
+export const memoryLine = (resources: ModelServerMemory | null, clientName: string) => {
   if (resources === null) return null;
 
   const where = inSentence(clientName);
 
   if (resources.processes === 0) return `No model server running on ${where}`;
 
-  const size =
-    resources.rssBytes >= GiB
-      ? `${(resources.rssBytes / GiB).toFixed(1)} GB`
-      : `${Math.max(1, Math.round(resources.rssBytes / 1024 ** 2))} MB`;
+  const servers = resources.servers ?? [{ name: "Model server", rssBytes: resources.rssBytes }];
 
-  const servers =
-    resources.processes === 1 ? "Model server" : `${resources.processes} model servers`;
+  const parts = servers.map(serverPart).join(" · ");
 
-  return `${servers} on ${where} · ${size} of memory, counted apart from Polaris`;
+  return `On ${where}: ${parts} · counted apart from Polaris`;
 };

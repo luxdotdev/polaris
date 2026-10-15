@@ -38,6 +38,7 @@ export const editTargets = (
           format,
           tier: ram >= 16 * 1024 ** 3 ? 2 : 1,
           p50Ms: p50 !== null && Number.isFinite(p50) && p50 >= 0 ? p50 : null,
+          managed: endpoint.managed === true,
         },
       ];
     })
@@ -45,10 +46,8 @@ export const editTargets = (
 
   if (input.model) return available;
 
-  const preferred =
-    ram >= 32 * 1024 ** 3 && available.some((target) => target.format === "zeta-2.1")
-      ? "zeta-2.1"
-      : "sweep-next-edit";
+  // Sweep on every machine (owner, 2026-10-15); Zeta only when chosen or the only one served.
+  const sweep = available.filter((target) => target.format === "sweep-next-edit");
 
-  return available.filter((target) => target.format === preferred);
+  return sweep.length > 0 ? sweep : available;
 };

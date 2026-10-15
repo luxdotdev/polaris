@@ -4,6 +4,7 @@ import { Match } from "effect";
 import type { PolarisApi } from "../../../../../shared/api.ts";
 import {
   checkPredictionAgain,
+  managedAction,
   setHostPreferences,
   setPredictionEnabled,
   turnOnDiscoveredServer,
@@ -50,6 +51,21 @@ export const runCardAction = (action: CardAction, ports: ActionPorts): Promise<s
       await checkPredictionAgain(api, hostKey);
 
       return null;
+    }),
+    Match.whenOr("set-up", "retry-setup", async () => {
+      if (view.managed !== null) await managedAction(api, hostKey, view.managed.side, "setup");
+
+      return null;
+    }),
+    Match.when("cancel-download", async () => {
+      if (view.managed !== null) await managedAction(api, hostKey, view.managed.side, "cancel");
+
+      return null;
+    }),
+    Match.when("remove-model", async () => {
+      if (view.managed !== null) await managedAction(api, hostKey, view.managed.side, "remove");
+
+      return "Removed the downloaded model.";
     }),
     Match.orElse(async (id) => {
       if (view.target === null) return null;

@@ -299,7 +299,7 @@ test("renderer edit feed decodes input and returns Client Final with history, Ho
 
   expect(await bridge.target("pi", input.workspaceId)).toMatchObject({
     editAvailable: true,
-    target: { model: "zeta-2.1", format: "zeta-2.1", side: "client" },
+    target: { model: "sweep-next-edit", format: "sweep-next-edit", side: "client" },
   });
   const { windowSubscriptions } = await import("../ipc/subscriptions.ts");
   const delivered = Promise.withResolvers<ReadonlyArray<BatchEntry>>();
@@ -325,8 +325,8 @@ test("renderer edit feed decodes input and returns Client Final with history, Ho
   expect(items[0]).toMatchObject({
     edits: [{ from: 7, to: 7, text: "local edit" }],
     cursor: 17,
-    model: "zeta-2.1",
-    format: "zeta-2.1",
+    model: "sweep-next-edit",
+    format: "sweep-next-edit",
     side: "client",
     context: { languageServer: 1 },
   });

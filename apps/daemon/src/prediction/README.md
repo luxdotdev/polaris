@@ -53,3 +53,22 @@ shared `createEditPredictor` only on first consumption. Closing the RPC stream
 aborts the predictor's HTTP signal. The request carries the whole unsaved buffer,
 optional focus and frozen edit history; success streams one `EditPredictionItem.Final`.
 No model server process, download, polling or idle timer is introduced.
+
+## Managed model server (`managed/`, ADR 0049)
+
+The Daemon runs the tab completion model server itself when the user has no
+server of their own: `catalog.ts` pins the llama.cpp release (b11429) per
+platform and the two models (Sweep Next-Edit 1.5B Q8 by default, Zeta 2.1 Q4
+opt-in) with their checksums; `download.ts` downloads resumably (`.part`,
+Range, SHA-256, atomic rename) after a free-space check; `process.ts` picks a
+free loopback port (never 8080, 1234 or 11434), spawns llama-server with the
+spec's flags and verifies `/health` and that `/v1/models` lists the alias;
+`machine.ts` is the XState decider over the phases (`Unsupported`, `Absent`,
+`Downloading`, `Verifying`, `Stopped`, `Starting`, `Serving`, `Backoff`,
+`Failed`); `server.ts` supervises it with backoff, keeps the last 40 stderr
+lines, starts lazily on the first request and unloads after 15 idle minutes;
+`rpc.ts` serves `prediction.managed` (status and the setup / cancel / start /
+stop / remove actions) and `prediction.managed.watch`. `prediction.complete`
+and `prediction.edit` start it on demand when the request names its endpoint.
+The only timer is the idle unload, armed while a server runs and unref'd; the
+health poll runs only while `Starting`.
