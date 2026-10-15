@@ -35,8 +35,8 @@ export const previousKeystroke = (c: Case): Case | null => {
 
 export const loadSet = async (set: string): Promise<Case[]> => {
   if (set === "devprev") return (await loadSet("dev")).flatMap((c) => previousKeystroke(c) ?? []);
-  const file = set === "fresh" ? "fresh-cases.json" : "hardening-cases.json";
-  if (set === "fresh" && process.env.HC_FINAL !== "1") throw new Error("The fresh set is frozen until the final evaluation (HC_FINAL=1)");
+  const file = set === "fresh" || set === "fresh2" ? `${set}-cases.json` : "hardening-cases.json";
+  if (file !== "hardening-cases.json" && process.env.HC_FINAL !== "1") throw new Error("The fresh sets are frozen until the final evaluation (HC_FINAL=1)");
   return Schema.decodeUnknownSync(Schema.Array(Case))(await Bun.file(new URL(file, fixtures)).json());
 };
 

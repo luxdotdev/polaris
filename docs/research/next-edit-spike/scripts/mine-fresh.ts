@@ -4,8 +4,14 @@ import { $ } from "bun";
 import { createHash } from "node:crypto";
 import { REPO, hunks, landing, type Hunk } from "./git.ts";
 
-const PER_CATEGORY = Number(process.argv[2] ?? 12);
-const used = new Set(((await Bun.file(new URL("./cases.json", import.meta.url)).json()) as { commit: string }[]).map((c) => c.commit.slice(0, 7)));
+// mine-fresh.ts [per category] [salt] [id prefix] [excluded manifest…]; defaults reproduce fresh-cases.json.
+const [per = "12", SALT = "hc1", PREFIX = "f", ...excluded] = process.argv.slice(2);
+const PER_CATEGORY = Number(per);
+// Size limits; the defaults are the first fresh set's.
+const MAX_LINES = Number(process.env.MINE_MAX_LINES ?? 60), MAX_HUNKS = Number(process.env.MINE_MAX_HUNKS ?? 6);
+const manifests = excluded.length ? excluded : ["cases.json"];
+const used = new Set<string>();
+for (const m of manifests) for (const c of (await Bun.file(new URL(`./${m}`, import.meta.url)).json()) as { commit: string }[]) used.add(c.commit.slice(0, 7));
 const log = await $`git -C ${REPO} log --no-merges --format=%h%x09%s --numstat`.quiet().text();
 const ids = (s: string) => s.match(/[A-Za-z_$][\w$]*/g) ?? [];
 const isImport = (l: string) => /^\s*(import\b|export\s+\{[^}]*\}\s+from|\}\s+from\s+["']|[\w$]+,?$|type\s+[\w$]+,?$)/.test(l.trim()) || l.trim() === "";
@@ -56,24 +62,24 @@ for (const line of log.split("\n")) {
   const stat = /^(\d+)\t(\d+)\t(.+\.tsx?)$/.exec(line);
   if (!stat || used.has(commit.slice(0, 7))) continue;
   const [add, del, path] = [Number(stat[1]), Number(stat[2]), stat[3]!];
-  if (add + del > 60 || add + del < 2 || path.includes("=>") || /\.test\.tsx?$|\.d\.ts$|fixtures?\//.test(path)) continue;
+  if (add + del > MAX_LINES || add + del < 2 || path.includes("=>") || /\.test\.tsx?$|\.d\.ts$|fixtures?\//.test(path)) continue;
   const hs = await hunks(commit, path).catch(() => []);
-  if (hs.length < 2 || hs.length > 6 || hs.some((h) => h.oldLines.length > 8 || h.newLines.length > 8)) continue;
+  if (hs.length < 2 || hs.length > MAX_HUNKS || hs.some((h) => h.oldLines.length > 8 || h.newLines.length > 8)) continue;
   const c = categorise(hs);
   if (!c) continue;
   const hist = hs.map((_, i) => i).filter((i) => i !== c.target);
   // Keep the target within 40 lines of the cursor (the end of the last history hunk).
   const cursorAt = landing(hs, hist, hist.at(-1)!) + hs[hist.at(-1)!]!.newLines.length;
   if (Math.abs(landing(hs, hist, c.target) - cursorAt) > 40) continue;
-  const key = createHash("sha256").update(`hc1:${commit}:${path}`).digest("hex");
+  const key = createHash("sha256").update(`${SALT}:${commit}:${path}`).digest("hex");
   (found[c.cat] ??= []).push({ cat: c.cat, commit, path, hist, target: [c.target], ...(c.typed ? { typed: c.typed } : {}), key });
 }
-const prefix: Record<string, string> = { rename: "frn", refactor: "frf", "dead-code": "fdd", import: "fim", insertion: "fin" };
+const prefix: Record<string, string> = { rename: "rn", refactor: "rf", "dead-code": "dd", import: "im", insertion: "in" };
 const out = [];
 for (const [cat, list] of Object.entries(found)) {
   const seen = new Set<string>();
   const picked = list.sort((a, b) => a.key.localeCompare(b.key)).filter((c) => !seen.has(c.commit) && seen.add(c.commit)).slice(0, PER_CATEGORY);
   process.stderr.write(`${cat}: ${list.length} candidates, ${picked.length} picked\n`);
-  picked.forEach(({ key: _, ...c }, i) => out.push({ id: `${prefix[cat]}${String(i + 1).padStart(2, "0")}`, ...c, split: "fresh" }));
+  picked.forEach(({ key: _, ...c }, i) => out.push({ id: `${PREFIX}${prefix[cat]}${String(i + 1).padStart(2, "0")}`, ...c, split: PREFIX === "f" ? "fresh" : "fresh2" }));
 }
 console.log(JSON.stringify(out, null, 1));

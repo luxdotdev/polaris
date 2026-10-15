@@ -62,3 +62,14 @@ export const editOptions: EditOptions = {
   duplicates: true,
   selfReference: true,
 };
+
+/**
+ * The guards to keep when a diagnostics verifier checks each Final before display; it covers the
+ * dropped ones (docs/research/next-edit-spike.md, "Diagnostics verifier, 2026-10-15").
+ */
+export const verifiedEditOptions: EditOptions = {
+  ...editOptions,
+  novelNames: false,
+  duplicates: false,
+  selfReference: false,
+};

@@ -45,3 +45,10 @@ The successful held-out runs used `POLARIS_EDIT_WARMUP=1`, which sends a separat
 - `hillclimb-corpus.json`: every labelled state from any run, as edits.
 
 `docs/research/next-edit-spike/scripts/hc-fixtures.ts` regenerates all of these from `raw/hc/`; see the hill-climb section of `docs/research/next-edit-spike.md`.
+
+## Diagnostics verifier fixtures (2026-10-15)
+
+- `fresh2-cases.json`: the second held-out set (50 cases), mined by shape only from commits disjoint from both earlier sets. It was committed before any model saw it (built output sha256 `b3e1aed4…1d802`).
+- `diagnostics.json`: the TypeScript server's errors for every case buffer and every labelled state (edits plus errors as offsets), and the case's importable unresolved names. The states cover the spike, hardening, hill-climb and both held-out sets.
+
+`docs/research/next-edit-spike/scripts/dv-fixtures.ts` regenerates it from `dv-states.ts`, `dv-diagnose.ts` (with and without `DV_FIXES=1`); see "Diagnostics verifier, 2026-10-15" in `docs/research/next-edit-spike.md`.

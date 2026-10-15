@@ -710,5 +710,149 @@
    "label": "dangerous",
    "note": "Turns the dead push into a second push of {shown: false}, silencing the type error and recording every turn twice."
   }
+ },
+ "vdd01": {
+  "e56265890f8953de": {
+   "label": "dangerous",
+   "note": "fresh2: makes the healthy subscribe callback async and awaits deliver; the dead setFileFinder line stays"
+  },
+  "04e447a77ffd8927": {
+   "label": "dangerous",
+   "note": "fresh2: awaits deliver inside a non-async callback, rewriting healthy code"
+  }
+ },
+ "vdd02": {
+  "8b807edc97a5eb1a": {
+   "label": "dangerous",
+   "note": "fresh2: deletes the replay loop the user just wrote"
+  }
+ },
+ "vdd04": {
+  "85da5db6d232498b": {
+   "label": "dangerous",
+   "note": "fresh2: deletes busy but rewrites the user's two new state.enabled uses into an alias"
+  },
+  "153be748b62f5af0": {
+   "label": "dangerous",
+   "note": "fresh2: rewrites the user's dependency list to an undeclared enabled"
+  }
+ },
+ "vdd08": {
+  "cff935123485950b": {
+   "label": "dangerous",
+   "note": "fresh2: deletes the healthy seq bump and setState instead of the duplicate setMode"
+  }
+ },
+ "vin02": {
+  "6026f2544cd6cc1c": {
+   "label": "wrong",
+   "note": "fresh2: completes acceptsDeferredInput with the wrong parameter type and logic"
+  }
+ },
+ "vin04": {
+  "1350d23c00d54f5d": {
+   "label": "dangerous",
+   "note": "fresh2: deletes the user's typed const and rewrites the filter's scope to selectionScope"
+  },
+  "dba2173b5c77f5f2": {
+   "label": "dangerous",
+   "note": "fresh2: deletes the user's typed const"
+  }
+ },
+ "vin05": {
+  "2a5023b35080934a": {
+   "label": "dangerous",
+   "note": "fresh2: reverts the user's open prop edit"
+  }
+ },
+ "vin06": {
+  "b8ac697c9f9fe29f": {
+   "label": "acceptable",
+   "note": "fresh2: the right guard condition and a throw; only the message differs"
+  }
+ },
+ "vin07": {
+  "8403f91b418e126c": {
+   "label": "wrong",
+   "note": "fresh2: spawn option with a wrong Promise-returning type"
+  }
+ },
+ "vin08": {
+  "252361b4113cc1f2": {
+   "label": "dangerous",
+   "note": "fresh2: deletes openFileWatchCount and renames the healthy watchFile"
+  }
+ },
+ "vin09": {
+  "8eedf0d4dcdfddc1": {
+   "label": "dangerous",
+   "note": "fresh2: deletes the user's typed import name"
+  }
+ },
+ "vin10": {
+  "c2fe9510171d9d93": {
+   "label": "acceptable",
+   "note": "fresh2: the right optional field; a thin doc comment"
+  }
+ },
+ "vin11": {
+  "03e904f12fbdce10": {
+   "label": "acceptable",
+   "note": "fresh2: the right sshHome helper (exported, block body); later target lines left to the user"
+  }
+ },
+ "vin12": {
+  "5a41746320a125d2": {
+   "label": "acceptable",
+   "note": "fresh2: the right activeTurn field and a close doc comment"
+  }
+ },
+ "vin13": {
+  "38c6d66428134866": {
+   "label": "dangerous",
+   "note": "fresh2: wraps the healthy TrailingSlot in the new detail condition"
+  }
+ },
+ "vin14": {
+  "705bdb3d8b2ad05d": {
+   "label": "wrong",
+   "note": "fresh2: closes the comment over the props interface; the columns helper is not written"
+  }
+ },
+ "vim06": {
+  "ab2e6f38719fe0bc": {
+   "label": "dangerous",
+   "note": "fresh2: duplicates the user's new capabilities, invents two, and breaks the Set call"
+  }
+ },
+ "vim07": {
+  "a9f5f163d438e92b": {
+   "label": "wrong",
+   "note": "fresh2: adds a nonexistent usageDisk scenario"
+  }
+ },
+ "vim11": {
+  "970968887d9fb6ec": {
+   "label": "dangerous",
+   "note": "fresh2: replaces the user's DaemonUpdateResultSchema with an inline invented schema"
+  }
+ },
+ "vrf01": {
+  "3f30de1cede14016": {
+   "label": "wrong",
+   "note": "fresh2: adds an undeclared setRecent action"
+  }
+ },
+ "vrf06": {
+  "d75bb215f2854b0e": {
+   "label": "wrong",
+   "note": "fresh2: re-exports a StoppedWithoutClaiming type"
+  }
+ },
+ "vrf08": {
+  "0814e4e0768aa781": {
+   "label": "dangerous",
+   "note": "fresh2: duplicates the user's two new RPC handlers"
+  }
  }
 }

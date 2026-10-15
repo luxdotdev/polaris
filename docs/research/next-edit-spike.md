@@ -401,3 +401,123 @@ Findings:
 Tests use fixtures only: [`reach.test.ts`](../../packages/predict/src/edit/reach/reach.test.ts) checks the first probe reaches each dev case it reaches here, and [`imports.test.ts`](../../packages/predict/src/edit/imports/imports.test.ts) checks the selection rules on recorded action shapes.
 
 **Caveats.** One reviewer's labels. Small sets: 20–31 out-of-window cases and 6 held-out import cases. The Host was busy, so no latency is reported; a probe is a second Sweep request (p50 about 550–650 ms).
+
+## Diagnostics verifier, 2026-10-15
+
+**Question.** Can a semantic check replace lexical guards that do not generalise? The check: before showing a prediction, apply it to the buffer, ask the language server for diagnostics, and suppress it if it adds errors. On the first held-out set, the hill-climbed guards still showed one dangerous edit (`fdd09`) and blocked 21 of 56 ground truths.
+
+**Method.**
+- Every labelled state from the recorded runs was measured offline: the spike, the hardening runs (Sweep and Zeta), the 22 hill-climb dev runs, and both runs on the first held-out set.
+  - A state is either all of an output's edits or the nearest-change fallback's group. Each case's ground truth was measured too.
+- One temporary `git worktree` was checked out at each case's commit (198 commits), with the other files as committed, and removed afterwards. Dependencies were symlinked and workspace links recreated.
+- The repo's TypeScript 7 language server (`tsc --lsp --stdio`) received the case file as an unsaved buffer. Errors were pulled for the buffer and again for each state. Both are real programs, not reconstructions.
+- "Introduced" means an error whose code and message do not occur more often in the buffer before the edit. Matching ignores position, so the user's own unfinished code and errors the edit only moves never count. Only errors count; hints such as unused names do not.
+- A second rule uses the server's `quickfix` code actions. A **stand-in** is an edit that makes an importable unresolved-name error disappear while the name's references stay, without importing it. Edits that start on the cursor's line are exempt, because the user is typing that declaration.
+- The decision function is `verifyDiagnostics` in [`diagnostics.ts`](../../packages/predict/src/edit/diagnostics.ts). The scripts are `dv-*.ts`, and the raw measurements are in [`raw/dv`](next-edit-spike/raw/dv/).
+
+**Offline separation (labelled states).**
+
+| Model | Corpus | Label | States | Add an error | Stand-in only | Suppressed |
+|---|---|---|---:|---:|---:|---:|
+| Sweep | dev corpora | exact / acceptable | 47 | 0 | 0 | **0** |
+| Sweep | dev corpora | wrong | 45 | 29 | 0 | 29 |
+| Sweep | dev corpora | dangerous | 52 | 25 | 4 | 29 |
+| Zeta | dev corpora | exact / acceptable | 22 | 0 | 0 | **0** |
+| Zeta | dev corpora | wrong | 12 | 7 | 0 | 7 |
+| Zeta | dev corpora | dangerous | 3 | 3 | 0 | 3 |
+| Sweep | second held-out | exact / acceptable | 9 | 0 | 0 | **0** |
+| Sweep | second held-out | wrong | 6 | 5 | 0 | 5 |
+| Sweep | second held-out | dangerous | 15 | 6 | 0 | 6 |
+| Ground truth | all 206 cases | – | 206 | 0 | 0 | **0** |
+
+"Dev corpora" are the spike, the hardening sets, the hill-climb dev runs and the first held-out set. The verifier never suppressed a useful state or a ground truth, including mid-refactor buffers that already had errors (for example `rn03`'s half-done rename). It catches about 60% of wrong and half of dangerous states. Every miss compiles:
+- the type-correct rewrite in `fdd09`;
+- consistent renames of healthy code (`rf06`, `hrn09`);
+- changed literals and strings (`dd04`, `rn04`);
+- `async` added to healthy code (`hdd05`);
+- deletions of healthy code (`vdd08`);
+- a literal that replaces a needed import (`im02`).
+
+Without the reference condition, the stand-in rule blocked 11 truths: renames and dead-code deletions also clear importable errors. With it, the rule blocks none.
+
+**Combining with the guards (dev only).** All 512 combinations were scored: the seven hill-climb guards × the fallback × the verifier, over the 25 recorded dev runs. When the verifier rejected a whole rewrite, the fallback group had to pass the verifier too. The ranking was dangerous shown, then useful, then wrong, then truths blocked.
+
+| Config (25 dev runs) | Useful | Wrong | Dangerous | Truths blocked (of 156) |
+|---|---:|---:|---:|---:|
+| `main` (`editOptions`) | 416 | 168 | 12 | 41 |
+| `main` + verifier | 416 | 53 | 8 | 41 |
+| Chosen on dev: verifier, without `novelNames`, `deletionEvidence`, `duplicates`, `selfReference` | 418 | 56 | 8 | 25 |
+| `verifiedEditOptions`: verifier, without `novelNames`, `duplicates`, `selfReference` | 416 | 56 | 8 | 31 |
+
+The 8 remaining dangerous states are the same in every verifier row, and `main` shows them too. The verifier adds catches for `hrf07`, a type-broken rewrite that `main` shows in four layouts.
+- Each kept guard still catches something the verifier cannot see:
+  - `declarationRenames`: consistent renames (`rf06`);
+  - `removedNames`: re-adding removed code (`hdd03`) and `fim12`'s stand-in;
+  - `relevance`: `dd04`.
+- Keeping `novelNames` saves 3 wrong states and costs 10 truths, so it was dropped.
+
+**Second held-out set (50 cases).** It was mined by shape only by [`mine-fresh.ts`](next-edit-spike/scripts/mine-fresh.ts) (salt `hc3`), from commits disjoint from both earlier sets. Its built output had sha256 `b3e1aed4…1d802` and was committed (`354c816b`) before any model saw it.
+- It holds dead-code 9, insertion 14, import 14, refactor 12 and rename 1. Renames and dead code are nearly exhausted in this history, so the size limits were raised to 150 lines and 10 hunks.
+- Sweep ran once with the `main` layout before the config was chosen, and once more afterwards. Both runs used the same prompt layout, and their outputs were byte-identical (50/50).
+- All 25 shown model states were labelled by the hardening rubric without looking at the verifier. Labels are in [`labels.json`](next-edit-spike/raw/hc/labels.json).
+
+| Config | Exact | Acceptable | Useful | Wrong | Dangerous | Truths blocked |
+|---|---:|---:|---:|---:|---:|---:|
+| Baseline `main` | 3 | 3 | 6 | 1 (`vin07`) | 0 | 18/50 |
+| Best on dev (verifier, 3 guards) | 4 | 3 | 7 | 0 | **1 (`vdd08`)** | 11/50 |
+| *Post hoc:* `main` + verifier | 3 | 3 | 6 | 0 | 0 | 18/50 |
+| *Post hoc:* `verifiedEditOptions` | 3 | 3 | 6 | 0 | 0 | 14/50 |
+
+- The dev choice did not hold. Dropping `deletionEvidence` recovered `vdd03` (exact) but showed `vdd08`, which deletes the healthy `seq += 1; editorRoute.setState(…)` instead of the duplicate `setMode`. A healthy deletion compiles, so no diagnostics check can see it.
+- The post-hoc rows were chosen after seeing this set and need a third set to confirm. Restoring `deletionEvidence` is the conservative direction: it is `main`'s guard.
+- The verifier itself behaved on this set as on dev:
+  - it removed the one wrong output;
+  - it caught 6 of 15 dangerous raw states;
+  - it suppressed no useful state and no truth.
+- Dropping `novelNames` recovers 4 insertion truths (`vin01`, `vin08`, `vin11`, `vin14`) at no cost on these outputs.
+
+**Latency.** Each measurement opened a case buffer in this checkout on a warm server, then replaced it with a predicted state three times. There were 60 files and 180 edits on a busy M2 Max (load average about 4). The full rows are in [`raw/dv`](next-edit-spike/raw/dv/).
+
+| Server | Mode | p50 | p90 | p95 | ≤ 150 ms | No answer within 10 s |
+|---|---|---:|---:|---:|---:|---:|
+| TypeScript 7 (`tsc --lsp`) | pull `textDocument/diagnostic` | 29 ms | 1014 ms | 1117 ms | 88% | 0 |
+| typescript-language-server 6.0.1 + tsserver 6.0.3 (Polaris' catalogue) | push only | 410 ms | 2404 ms | 2659 ms | 8% | 10/180 |
+
+- The TypeScript 7 times are bimodal. One edit in eight takes about 1 s whether or not it adds an error; the same file can be fast for one edit and slow for another.
+- typescript-language-server has no pull diagnostics. It publishes after a debounce, and sometimes not at all after a change, so "no push" cannot be told apart from "slow".
+- One quickfix request on a badly broken buffer (`fin06`) did not answer within 60 s.
+- For scale, the model's own p50 is about 550–650 ms.
+
+**Design note for the renderer (a later slice; not wired here).**
+- **What to verify.** Verify only a Final that is about to be shown, after the existing buffer fence passes. Never send the predicted text to the user's open document: that would flash diagnostics in the Editor and disturb other language features.
+  - Open a shadow document in the same directory (for example `.<name>.polaris-verify.ts`) on the file's provider, so that relative imports and the project match.
+  - Send the post-edit text with its own version, and accept only diagnostics for that version.
+  - Keep the user's document's current diagnostics as `before`, matched to the buffer version the request was made for.
+- **Which request.** Use `textDocument/diagnostic` when the server supports it; the Editor already handles pull reports in `lsp/pull.ts`.
+  - Otherwise, wait for the shadow document's `publishDiagnostics`. Because pushes can be skipped, open a fresh shadow URI per check rather than changing a long-lived one.
+  - For the stand-in rule, request code actions only when an unresolved-name error that the import path's `isUnresolvedName` recognises disappears without an import. Reuse the import path's cached quick fix when it has one.
+- **Timeouts and failure.** Show the prediction once verified, with a deadline of about 300 ms after the Final. If the buffer still matches, a late answer may still show it.
+  - Fail closed when a diagnostics provider is attached but slow, or when its code action times out, because `verifiedEditOptions` relies on the verifier for stand-ins (`him01`, `im03`). The measured cost of failing closed is only lost predictions: the verifier never rejected a useful one, so a timeout loses one only when the server is slow.
+  - When the language has no diagnostics provider, or the provider has failed, request with `editOptions` (today's lexical guards), which fail safe without a server.
+  - With typescript-language-server, about 70% of checks answer within 500 ms. The deadline will miss many, so prefer the TypeScript 7 server for this check once the catalogue offers it.
+- **What it adds.** On every set measured, adding the verifier to the current guards lost no useful case or truth. Wrong edits shown fell from 168 to 53 on dev, from 12 to 10 on the first held-out set (two runs), and from 1 to 0 on the second. It does not reach zero dangerous: edits that compile but are wrong need the lexical guards or a better model.
+
+**Recommendation.**
+1. Wire the verifier on top of `editOptions` first. It never cost a useful or ground-truth state, cut wrong shown edits by roughly 3× on dev, and removed `hrf07`.
+2. Then switch to `verifiedEditOptions`, which drops `novelNames`, `duplicates` and `selfReference` and keeps `deletionEvidence`. Gate that switch on a third held-out set, because it was revised after this one.
+3. Keep `deletionEvidence`, `declarationRenames`, `removedNames` and `relevance`. They catch shapes that compile.
+
+**Caveats.**
+- The labels are one reviewer's rubric judgements.
+- The second held-out set is small and skewed toward insertions and imports. It has one rename, because the miner exhausted renames in this history.
+- Diagnostics come from TypeScript only. A non-TypeScript language gets nothing until its server is measured.
+- 155 raw states were never shown under any config and stay unlabelled. They are excluded from the tables.
+- Other files are as committed, not as they were mid-edit. Cross-file breakage (for example a removed export) is not checked.
+
+**Checks.** [`diagnostics.test.ts`](../../packages/predict/src/edit/diagnostics.test.ts) replays the measured errors for all 354 labelled states and 206 truths in [`fixtures/diagnostics.json`](../../packages/predict/src/edit/fixtures/diagnostics.json). It asserts:
+- no useful state or truth is suppressed;
+- the named dangerous cases (`hrf07`, `hin12`, and the stand-ins `fim12`, `him01`, `im03`) are suppressed;
+- more than half of the wrong states are suppressed;
+- the stand-in rule depends on the server's import fixes.
+
+Removing the reference condition from the stand-in rule fails the truth test.

@@ -1,0 +1,28 @@
+model	set	label	states	introduce an error	only shadow an import	cases
+sweep	dev	acceptable	4	0	0	 | 
+sweep	dev	dangerous	42	22	3	rf06 rf06 dd03 dd04 dd04 dd06 im03 im04 hdd04 hdd06 hdd06 hdd06 hdd06 him04 hin02 hrf04 rn01 hrn01 hrn01 hrf07 hdd07 hdd07 | im03 him01 him01
+sweep	dev	exact	22	0	0	 | 
+sweep	dev	wrong	24	18	0	in01 in04 in04 in04 in04 in04 in04 hin01 hin01 hin03 hin03 hin04 hin04 hin06 hin06 hin06 hin07 him03 | 
+sweep	fresh	acceptable	4	0	0	 | 
+sweep	fresh	dangerous	3	0	1	 | fim12
+sweep	fresh	exact	10	0	0	 | 
+sweep	fresh	wrong	13	3	0	fin10 fin10 fim08 | 
+sweep	fresh2	acceptable	4	0	0	 | 
+sweep	fresh2	dangerous	15	6	0	vdd01 vdd04 vin04 vim06 vim11 vrf08 | 
+sweep	fresh2	exact	5	0	0	 | 
+sweep	fresh2	wrong	6	5	0	vin02 vin07 vim07 vrf01 vrf06 | 
+sweep	hardening-test	acceptable	3	0	0	 | 
+sweep	hardening-test	dangerous	7	3	0	hin12 hdd09 hrf09 | 
+sweep	hardening-test	exact	4	0	0	 | 
+sweep	hardening-test	wrong	8	8	0	hrn10 hin12 hin12 hin12 hin12 hin12 hin13 hin14 | 
+truth	dev	truth	70	0	0	 | 
+truth	fresh	truth	56	0	0	 | 
+truth	fresh2	truth	50	0	0	 | 
+truth	hardening-test	truth	30	0	0	 | 
+zeta	dev	acceptable	3	0	0	 | 
+zeta	dev	dangerous	3	3	0	in01 in01 hdd06 | 
+zeta	dev	exact	15	0	0	 | 
+zeta	dev	wrong	9	4	0	im04 hin01 hin03 hin04 | 
+zeta	hardening-test	acceptable	1	0	0	 | 
+zeta	hardening-test	exact	3	0	0	 | 
+zeta	hardening-test	wrong	3	3	0	hin12 hin13 hin14 | 
