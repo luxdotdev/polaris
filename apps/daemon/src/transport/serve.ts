@@ -129,6 +129,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "prediction.complete",
   "prediction.edit",
   "prediction.server",
+  "prediction.managed",
   "commit.suggest-message",
   "languages",
   "languages.trust",

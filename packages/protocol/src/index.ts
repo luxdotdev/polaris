@@ -58,4 +58,6 @@ export * from "./prediction.ts";
 
 export * from "./editPrediction.ts";
 
+export * from "./managedPrediction.ts";
+
 export * from "./predictionRpcs.ts";

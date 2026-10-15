@@ -18,6 +18,8 @@ export const PREDICTION_CAPABILITIES = [
   "prediction.edit",
   /** `prediction.server`: what the model server behind an endpoint is, and its recovery actions. */
   "prediction.server",
+  /** `prediction.managed` and `prediction.managed.watch`: the model server this Daemon runs itself. */
+  "prediction.managed",
 ] as const;
 
 export const PredictionFormat = Schema.Literals(["mellum-spm", "qwen-fim", "suffix"]);
@@ -88,6 +90,8 @@ export const PredictionCapability = Schema.Struct({
     Schema.Struct({
       ...PredictionEndpoint.fields,
       models: Schema.Array(Schema.String),
+      /** Run by this Daemon (ADR 0048); listed even while stopped, since a request starts it. */
+      managed: Schema.optional(Schema.Boolean),
     })
   ),
 });
@@ -132,6 +136,8 @@ export class PredictionError extends Schema.TaggedError<PredictionError>()("Pred
 export const PredictionCapabilityRequest = Schema.UndefinedOr(
   Schema.Struct({
     endpoints: Schema.optional(Schema.Array(PredictionEndpointUrl).check(Schema.isMaxLength(16))),
+    /** Where the managed model lives on this Host (ADR 0048); absent or null is the default. */
+    modelsDir: Schema.optional(Schema.NullOr(Schema.String.check(Schema.isMaxLength(4096)))),
   })
 );
 
@@ -168,7 +174,7 @@ export const PredictionServerKind = Schema.Literals([
 
 export type PredictionServerKind = typeof PredictionServerKind.Type;
 
-/** Recovery through the server's own API; Polaris never starts or stops its process. */
+/** Recovery through the server's own API; a user's own server is never started or stopped. */
 export const PredictionServerAction = Schema.Literals(["clear-cache", "reload-model"]);
 
 export type PredictionServerAction = typeof PredictionServerAction.Type;
