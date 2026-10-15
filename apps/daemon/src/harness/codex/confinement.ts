@@ -62,12 +62,13 @@ export const reviewerConfig = (confinement: ReadConfinement, effective: Effectiv
         ...Object.fromEntries(
           [confinement.root, ...confinement.shellRoots].map((path) => [path, "read"])
         ),
+        ...Object.fromEntries(confinement.hidden.map((path) => [path, "deny"])),
       },
     },
   },
   // Only `core` variables (PATH, HOME, USER, SHELL, TMPDIR…), so no key or token reaches a command.
   "shell_environment_policy.inherit": "core",
-  "shell_environment_policy.set": confinement.gitEnv,
+  "shell_environment_policy.set": confinement.shellEnv,
 });
 
 /** The app-server's version from `initialize`'s `userAgent` ("polaris/0.162.1 (Mac OS …)"). */
@@ -113,7 +114,11 @@ export const threadSandboxing = (options: {
     // Without the list Polaris can't turn the user's MCP servers off, so the session doesn't start.
     if (Option.isNone(effective))
       return yield* codexError("Codex didn't say which tools the reviewer would have.");
-    const confinement = yield* Effect.promise(() => readConfinement(options.cwd));
+
+    const confinement = yield* Effect.tryPromise({
+      try: () => readConfinement(options.cwd),
+      catch: (cause) => codexError("Could not keep the reviewer to its checkout", cause),
+    });
 
     return {
       mode: {},

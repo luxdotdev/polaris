@@ -11,14 +11,20 @@ import { gitText } from "../git/git.ts";
 /** What git needs from the common dir to read history; `config`, hooks and logs stay out. */
 const SHARED = ["objects", "refs", "packed-refs", "HEAD", "reftable", "shallow", "info"];
 
-/** The repository settings git needs to read it correctly; nothing that names a remote or a secret. */
+/** What git needs of the worktree's own git dir; never `config.worktree`, which can hold a remote. */
+const OWN = ["HEAD", "index"];
+
+/**
+ * The repository settings git needs to read it correctly; nothing that names a remote, a helper or
+ * another file (`extensions.worktreeConfig` would make git read the worktree's own config).
+ */
 const KEPT_KEY =
-  /^(core\.(repositoryformatversion|filemode|ignorecase|precomposeunicode|symlinks|autocrlf|eol|quotepath)|extensions\.[a-z0-9]+)$/;
+  /^(core\.(repositoryformatversion|filemode|ignorecase|precomposeunicode|symlinks|autocrlf|eol|quotepath)|extensions\.(objectformat|compatobjectformat|refstorage|preciousobjects))$/;
 
 export const SANITIZED_DIR = "polaris-common";
 
 export interface ConfinedGit {
-  /** Readable by the shell: the shared parts git needs, and this worktree's own git dir. */
+  /** Readable by the shell: the shared parts git needs, and this worktree's own HEAD and index. */
   readonly readable: ReadonlyArray<string>;
   readonly env: Readonly<Record<string, string>>;
 }
@@ -33,7 +39,10 @@ const quote = (value: string) => `"${value.replaceAll("\\", "\\\\").replaceAll('
 
 /** `git config --list -z` output, reduced to `KEPT_KEY`, as a config file. */
 export const sanitizedConfig = (listed: string): string => {
-  const sections = new Map<string, Array<string>>();
+  // Otherwise git looks for its ignore and attributes files in home, which the shell can't read.
+  const sections = new Map<string, Array<string>>([
+    ["core", ['\texcludesFile = "/dev/null"', '\tattributesFile = "/dev/null"']],
+  ]);
 
   for (const entry of listed.split("\0")) {
     const newline = entry.indexOf("\n");
@@ -91,7 +100,10 @@ export const confinedGit = async (common: string, gitDir: string): Promise<Confi
   const dir = join(gitDir, SANITIZED_DIR);
 
   return writeSanitized(common, dir).then(
-    (shared) => ({ readable: [...shared, gitDir], env: { GIT_COMMON_DIR: dir } }),
+    (shared) => ({
+      readable: [...shared, ...OWN.map((name) => join(gitDir, name)), dir],
+      env: { GIT_COMMON_DIR: dir },
+    }),
     () => null
   );
 };

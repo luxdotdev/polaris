@@ -1,11 +1,11 @@
 /**
- * Where a read-only session (the Reviewer) may read: its checkout, and for a sandboxed shell
- * also what git needs of the repository and the PATH's tool directories. Each Harness
- * enforces it with its own settings. See docs/adr/0055-the-reviewer-reads-only-its-checkout.md.
+ * Where a read-only session (the Reviewer) may read: its checkout, a fixed read-only toolchain
+ * and, in a linked worktree, what git needs; nothing else. Each Harness enforces it with its
+ * own OS sandbox. See docs/adr/0055-the-reviewer-reads-only-its-checkout.md.
  */
-import { lstat, realpath, stat } from "node:fs/promises";
+import { lstat, realpath } from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, delimiter, dirname, isAbsolute, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { isWithin } from "../files/fs.ts";
 import { gitText } from "../git/git.ts";
 import { paths } from "../paths.ts";
@@ -16,20 +16,61 @@ export interface ReadConfinement {
   readonly root: string;
   /** What a sandboxed shell may read besides `root`. */
   readonly shellRoots: ReadonlyArray<string>;
-  /** Never readable by a sandboxed shell, except through `root` and `shellRoots`. */
-  readonly denied: ReadonlyArray<string>;
-  /** Set in the shell's environment, so its git reads no config that can hold credentials. */
-  readonly gitEnv: Readonly<Record<string, string>>;
+  /** Inside `root` or `shellRoots` but never readable: a git dir in the checkout, credential files. */
+  readonly hidden: ReadonlyArray<string>;
+  /** Set in the shell's environment: git reads no config that can hold credentials. */
+  readonly shellEnv: Readonly<Record<string, string>>;
 }
 
-/** The user's git config can name credential helpers and tokens; the Reviewer's git never reads it. */
-const NO_USER_GIT_CONFIG = { GIT_CONFIG_GLOBAL: "/dev/null" } as const;
+/** The user's and the system's git config can name credential helpers; the shell's git reads neither. */
+const NO_HOST_GIT_CONFIG = { GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_NOSYSTEM: "1" } as const;
+
+/** System tool and library directories a shell needs to run git, grep and the like. */
+export const TOOLCHAIN: ReadonlyArray<string> = [
+  "/bin",
+  "/sbin",
+  "/usr",
+  "/lib",
+  "/lib32",
+  "/lib64",
+  "/libx32",
+  "/dev",
+  "/nix/store",
+  "/opt/homebrew",
+  "/System",
+  "/private/var/select",
+  // Where macOS records the Xcode licence; `/usr/bin/git` refuses to run without it.
+  "/Library/Preferences/com.apple.dt.Xcode.plist",
+];
+
+/** On macOS `/usr/bin/git` finds the developer tools through this link, which passes through `/var`. */
+const DEVELOPER_LINK = "/private/var/select/developer_dir";
+
+/** Under home: what holds credentials, hidden wherever a readable root covers it. */
+const CREDENTIALS = [
+  ".ssh",
+  ".netrc",
+  ".git-credentials",
+  ".config/git",
+  ".config/gh",
+  ".config/gcloud",
+  ".aws",
+  ".azure",
+  ".kube",
+  ".docker",
+  ".gnupg",
+  ".codex",
+  ".claude",
+  ".claude.json",
+  ".npmrc",
+  ".pypirc",
+];
 
 const canonical = (path: string) => realpath(path).catch(() => resolve(path));
 
-const isDirectory = (path: string) =>
-  stat(path).then(
-    (s) => s.isDirectory(),
+const exists = (path: string) =>
+  lstat(path).then(
+    () => true,
     () => false
   );
 
@@ -47,23 +88,44 @@ const gitDirs = (root: string) =>
     () => null
   );
 
-/** Whether either path holds the other: an allowed one may not open up a denied one. */
+/** Whether either path holds the other. */
 const overlaps = (a: string, b: string) => isWithin(a, b) || isWithin(b, a);
 
 const unique = (items: ReadonlyArray<string>) => [...new Set(items)];
 
-/** PATH entries that hold tools, never `/` or one inside or above a denied path. */
-const toolDirectories = async (pathVariable: string, denied: ReadonlyArray<string>) => {
-  const entries = pathVariable.split(delimiter).filter((entry) => isAbsolute(entry));
+/** macOS's active developer directory, named in the shell's `DEVELOPER_DIR` since `/var` is closed. */
+const developerDir = () => realpath(DEVELOPER_LINK).catch(() => null);
 
-  const dirs = await Promise.all(
-    entries.map(async (entry) => ((await isDirectory(entry)) ? canonical(entry) : null))
+/** What the developer tools read: the whole Xcode bundle when they live in one. */
+const developerRoot = (developer: string) =>
+  developer.match(/^(.+\.app)\/Contents\/Developer$/)?.[1] ?? developer;
+
+/** The toolchain directories on this Host, never home, Polaris's state, or anything above or in them. */
+const toolchain = async (closed: ReadonlyArray<string>, developer: string | null) => {
+  const present = await Promise.all(
+    TOOLCHAIN.map(async (dir) => ((await exists(dir)) ? canonical(dir) : null))
   );
 
-  return dirs.filter(
-    (dir): dir is string =>
-      dir !== null && dir !== "/" && !denied.some((path) => overlaps(dir, path))
+  return unique(
+    [...present, developer === null ? null : developerRoot(developer)].filter(
+      (dir): dir is string => dir !== null && dir !== "/" && !closed.some((p) => overlaps(dir, p))
+    )
   );
+};
+
+/** Credential paths under home and the Harnesses' own config dirs that a readable root covers. */
+const credentialsWithin = async (
+  readable: ReadonlyArray<string>,
+  home: string,
+  env: Readonly<Record<string, string | undefined>>
+) => {
+  const named = [env.CLAUDE_CONFIG_DIR, env.CODEX_HOME].filter((dir) => dir !== undefined);
+
+  const candidates = await Promise.all(
+    [...CREDENTIALS.map((name) => join(home, name)), ...named].map(canonical)
+  );
+
+  return candidates.filter((path) => readable.some((root) => isWithin(root, path)));
 };
 
 export const readConfinement = async (
@@ -71,34 +133,35 @@ export const readConfinement = async (
   env: Readonly<Record<string, string | undefined>> = process.env
 ): Promise<ReadConfinement> => {
   const root = await canonical(cwd);
+  const home = await canonical(homedir());
+  const state = await canonical(paths().root);
+
+  if (root === "/" || isWithin(root, home) || isWithin(root, state))
+    throw new Error(`The reviewer can't be kept to ${root}: it holds your home directory.`);
   const dirs = await gitDirs(root);
-  const outside = dirs !== null && !isWithin(root, dirs.common) ? dirs : null;
-  const git = outside === null ? null : await confinedGit(outside.common, outside.gitDir);
+  const inside = dirs !== null && isWithin(root, dirs.common);
+  const git = dirs === null || inside ? null : await confinedGit(dirs.common, dirs.gitDir);
+  const developer = await developerDir();
+  const tools = await toolchain([home, state], developer);
+  const shellRoots = unique([...(git?.readable ?? []), ...tools]);
+  const ownGitDirs = inside ? unique([dirs.common, dirs.gitDir]) : [];
 
-  const denied = unique([
-    await canonical(homedir()),
-    await canonical(paths().root),
-    ...(outside === null ? [] : [outside.common]),
-  ]);
-
-  const tools = await toolDirectories(env.PATH ?? "", denied);
+  const developerEnv =
+    developer !== null && tools.includes(developerRoot(developer))
+      ? [["DEVELOPER_DIR", developer] as const]
+      : [];
 
   return {
     root,
-    shellRoots: unique([...(git?.readable ?? []), ...tools]),
-    denied,
-    gitEnv: { ...NO_USER_GIT_CONFIG, ...git?.env },
+    shellRoots,
+    hidden: unique([...ownGitDirs, ...(await credentialsWithin([root, ...shellRoots], home, env))]),
+    shellEnv: { ...NO_HOST_GIT_CONFIG, ...git?.env, ...Object.fromEntries(developerEnv) },
   };
 };
 
 /** The nearest existing ancestor's real path, with the rest appended: where `path` would land. */
 const landing = async (path: string): Promise<string> => {
-  const exists = await lstat(path).then(
-    () => true,
-    () => false
-  );
-
-  if (exists) return realpath(path);
+  if (await exists(path)) return realpath(path);
   const parent = dirname(path);
 
   return parent === path ? path : join(await landing(parent), basename(path));

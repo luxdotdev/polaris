@@ -89,12 +89,12 @@ export const checkoutHook =
     };
   };
 
-/** File reads are allowed by path, never by tool name, so Claude Code refuses the rest. */
+/** Claude Code's own path rules: reads by path inside the checkout, never a hidden path in it. */
 const base = (confinement: ReadConfinement) =>
   ({
     permissionMode: "dontAsk",
     settingSources: [],
-    settings: { disableAllHooks: true },
+    settings: { disableAllHooks: true, permissions: { blockReadsOutsideWorkingDirectories: true } },
     mcpServers: {},
     strictMcpConfig: true,
     additionalDirectories: [],
@@ -102,15 +102,27 @@ const base = (confinement: ReadConfinement) =>
     hooks: { PreToolUse: [{ matcher: FILE_TOOLS, hooks: [checkoutHook(confinement.root)] }] },
   }) satisfies Partial<Options>;
 
+const hiddenReads = (confinement: ReadConfinement) =>
+  confinement.hidden.map((path) => `Read(/${path}/**)`);
+
+/** Variables the shell gets: what it needs to start, and the confined git's. */
+const shellKeys = (env: Readonly<Record<string, string>>, confinement: ReadConfinement) =>
+  new Set(Object.keys(repositoryEnv(env, confinement.shellEnv)));
+
 /**
- * Bash runs in Claude Code's sandbox with no network (an empty strict allowlist), no
- * writes, and no reads of home or Polaris's state outside the checkout. If the sandbox
- * can't start, the session fails.
+ * Only Bash, so every read goes through Claude Code's OS sandbox: nothing readable but the
+ * checkout and `shellRoots`, no writes, no network, and Claude Code's own keys unset in it.
+ * If the sandbox can't start, the session fails.
  */
-export const sandboxedReadOnly = (confinement: ReadConfinement) =>
-  ({
+export const sandboxedReadOnly = (
+  confinement: ReadConfinement,
+  env: Readonly<Record<string, string>>
+) => {
+  const keep = shellKeys(env, confinement);
+
+  return {
     ...base(confinement),
-    tools: ["Read", "Glob", "Grep", "Bash", "Agent"],
+    tools: ["Bash", "Agent"],
     sandbox: {
       enabled: true,
       failIfUnavailable: true,
@@ -119,7 +131,7 @@ export const sandboxedReadOnly = (confinement: ReadConfinement) =>
       excludedCommands: [],
       filesystem: {
         denyWrite: ["/"],
-        denyRead: [...confinement.denied],
+        denyRead: ["/", ...confinement.hidden],
         allowRead: [confinement.root, ...confinement.shellRoots],
       },
       network: {
@@ -129,24 +141,32 @@ export const sandboxedReadOnly = (confinement: ReadConfinement) =>
         allowLocalBinding: false,
         allowAllUnixSockets: false,
       },
+      credentials: {
+        envVars: Object.keys(env)
+          .filter((key) => !keep.has(key))
+          .map((name) => ({ name, mode: "deny" as const })),
+      },
     },
-    disallowedTools: NEVER,
-  }) satisfies Partial<Options>;
+    disallowedTools: [...NEVER, ...FILE_TOOLS.split("|"), ...hiddenReads(confinement)],
+  } satisfies Partial<Options>;
+};
 
-/** Without the sandbox there is no shell at all: only tools that read. */
+/** Without the sandbox there is no shell at all: only tools that read, kept in by Claude Code. */
 export const unsandboxedReadOnly = (confinement: ReadConfinement) =>
   ({
     ...base(confinement),
     tools: ["Read", "Glob", "Grep", "Agent"],
     sandbox: { enabled: false },
-    disallowedTools: [...NEVER, "Bash"],
+    disallowedTools: [...NEVER, "Bash", ...hiddenReads(confinement)],
   }) satisfies Partial<Options>;
 
+/** `env` is the session's own (`readOnlyEnv`): whatever the shell doesn't need is unset in it. */
 export const readOnlyOptions = (
   sandbox: ClaudeSandbox,
-  confinement: ReadConfinement
+  confinement: ReadConfinement,
+  env: Readonly<Record<string, string>>
 ): Partial<Options> =>
-  sandbox.available ? sandboxedReadOnly(confinement) : unsandboxedReadOnly(confinement);
+  sandbox.available ? sandboxedReadOnly(confinement, env) : unsandboxedReadOnly(confinement);
 
 /** What Claude Code reads to start and reach its provider; the rest of the Daemon's stays out. */
 const CLAUDE_CODE_KEY =
@@ -166,8 +186,8 @@ const isSet = (value: string | undefined) =>
   value !== undefined && !["", "0", "false"].includes(value.toLowerCase());
 
 /**
- * The read-only session's environment: an allowlist, since Bash inherits it, so tokens and
- * keys of other services never reach the Reviewer. Its git gets the confinement's.
+ * The read-only session's environment: an allowlist, so other services' tokens never reach
+ * Claude Code; its sandbox then unsets in Bash all but the shell's own and the confined git's.
  */
 export const readOnlyEnv = (
   source: Readonly<Record<string, string | undefined>>,
@@ -178,6 +198,6 @@ export const readOnlyEnv = (
 
   return repositoryEnv(source, {
     ...Object.fromEntries(Object.entries(source).filter(([key]) => kept(key))),
-    ...confinement.gitEnv,
+    ...confinement.shellEnv,
   });
 };

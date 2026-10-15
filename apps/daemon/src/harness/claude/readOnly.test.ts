@@ -114,8 +114,8 @@ describe("the Reviewer's environment", () => {
   const confinement = {
     root: "/work/review",
     shellRoots: [],
-    denied: [],
-    gitEnv: { GIT_CONFIG_GLOBAL: "/dev/null", GIT_COMMON_DIR: "/work/sanitized" },
+    hidden: [],
+    shellEnv: { GIT_CONFIG_GLOBAL: "/dev/null", GIT_COMMON_DIR: "/work/sanitized" },
   };
 
   const daemon = {
@@ -131,7 +131,7 @@ describe("the Reviewer's environment", () => {
     POLARIS_HOME: "/home/u/.polaris",
   };
 
-  test("Bash inherits what Claude Code needs and the confined git, not other services' keys", () => {
+  test("Claude Code gets what it needs and the confined git, not other services' keys", () => {
     expect(readOnlyEnv(daemon, confinement)).toEqual({
       PATH: "/usr/bin",
       HOME: "/home/u",

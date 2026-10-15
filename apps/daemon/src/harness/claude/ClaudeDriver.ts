@@ -399,9 +399,14 @@ const openSession = Effect.fnUntraced(function* (
   }
 
   if (options.readOnly === true) {
-    const confinement = yield* Effect.promise(() => readConfinement(options.cwd));
-    Object.assign(sdkOptions, readOnlyOptions(sandbox(), confinement));
-    sdkOptions.env = readOnlyEnv(sdkOptions.env ?? {}, confinement);
+    const confinement = yield* Effect.tryPromise({
+      try: () => readConfinement(options.cwd),
+      catch: (cause) => harnessError("Could not keep the reviewer to its checkout", cause),
+    });
+
+    const env = readOnlyEnv(sdkOptions.env ?? {}, confinement);
+    Object.assign(sdkOptions, readOnlyOptions(sandbox(), confinement, env));
+    sdkOptions.env = env;
   }
 
   if (options.model !== null) sdkOptions.model = options.model;
