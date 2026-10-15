@@ -18,7 +18,7 @@ export {
 
 export type { CheckoutRegistry, CheckoutRegistration, CanonicalCheckout } from "./checkout.ts";
 
-export { createFileTrustRepository } from "./repository.ts";
+export { createFileTrustRepository, trustDirectory } from "./repository.ts";
 
 export { ExecutionTrustService } from "./service.ts";
 

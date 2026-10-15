@@ -19,7 +19,7 @@ import { EventStore } from "../../store/EventStore.ts";
 import { HarnessRegistry } from "../../services.ts";
 import { finding, refusal } from "../decision.ts";
 import { exceedsCeiling } from "../permissionCeiling.ts";
-import { WorktreeSetupService } from "../setup/index.ts";
+import { WorktreeSetupService, type WorktreeSetupUntrusted } from "../setup/index.ts";
 import { startupSetupIntent } from "./startupSetup.ts";
 import type { WorkerPreparation } from "../transfers/prepareWorkers.ts";
 
@@ -41,6 +41,18 @@ const withinCeiling = (
           ),
         ])
       );
+
+/** No setup command runs in a Workspace the user hasn't trusted on this Host; dispatch says so. */
+const untrusted = (model: ReadModel, input: WorkerPreparation, error: WorktreeSetupUntrusted) =>
+  Effect.fail(
+    refusal(model.constellations.get(input.graph.id), [
+      finding(
+        "E-SETUP-TRUST",
+        `Worktree setup can't run: ${error.workspace} isn't trusted on this host`,
+        `Trust ${error.workspace} from the editor (⌘⇧P), or set its worktree setup to None in Settings, then dispatch again.`
+      ),
+    ])
+  );
 
 /** Provision only the Session; the committed Attempt's acquired startup hook owns its first Turn. */
 export const prepareSession = Effect.fn("Constellation.prepareSession")(function* (
@@ -160,7 +172,11 @@ export const prepareSession = Effect.fn("Constellation.prepareSession")(function
   const reusesWorktree = sameWorktree(input, existing);
 
   const startupSetup =
-    input.task.kind !== "gate" && reusesWorktree ? yield* startupSetupIntent(input) : null;
+    input.task.kind !== "gate" && reusesWorktree
+      ? yield* startupSetupIntent(input).pipe(
+          Effect.catchTag("WorktreeSetupUntrusted", (error) => untrusted(model, input, error))
+        )
+      : null;
 
   if (input.task.kind !== "gate" && !reusesWorktree) {
     const setup = yield* (yield* WorktreeSetupService)
@@ -170,18 +186,23 @@ export const prepareSession = Effect.fn("Constellation.prepareSession")(function
         input.worktree.worktree,
         input.worktreeSetup ?? null,
         input.graph.id,
-        input.task.id
+        input.task.id,
+        input.graph.workspaceId
       )
       .pipe(
-        Effect.mapError((error) =>
-          refusal(model.constellations.get(input.graph.id), [
-            finding(
-              "E-SESSION-BUSY",
-              error.reason,
-              "Wait for the selected Session’s Turn to end before setting up its worktree, then retry."
+        Effect.catchTags({
+          CommandRejected: (error) =>
+            Effect.fail(
+              refusal(model.constellations.get(input.graph.id), [
+                finding(
+                  "E-SESSION-BUSY",
+                  error.reason,
+                  "Wait for the selected Session’s Turn to end before setting up its worktree, then retry."
+                ),
+              ])
             ),
-          ])
-        )
+          WorktreeSetupUntrusted: (error) => untrusted(model, input, error),
+        })
       );
 
     if (setup?.status === "failed")

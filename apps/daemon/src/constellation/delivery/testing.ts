@@ -28,6 +28,7 @@ import {
 } from "./index.ts";
 import { WorktreeSetupService } from "../setup/index.ts";
 import { newTurn } from "./turns.ts";
+import { trustedSetup } from "../setup/trust.testing.ts";
 
 export const WORKER = SessionId.make("worker");
 
@@ -229,7 +230,10 @@ export const world = (
     afterCommit: () => Effect.void,
   });
 
-  const configured = WorktreeSetupService.layer.pipe(Layer.provideMerge(effects));
+  const configured = WorktreeSetupService.layer.pipe(
+    Layer.provide(trustedSetup),
+    Layer.provideMerge(effects)
+  );
 
   const layer = Layer.mergeAll(Constellations.layer, ConstellationDelivery.layer).pipe(
     Layer.provideMerge(

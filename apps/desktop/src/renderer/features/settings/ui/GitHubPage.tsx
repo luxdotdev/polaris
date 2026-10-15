@@ -189,7 +189,7 @@ const Body = ({
         </section>
       )}
       {view.signIn === null ? <AddRow view={view} /> : <AddGitHubAccount flow={view.signIn} />}
-      {view.signIn === null ? null : (
+      {view.signIn === null || view.signIn.userCode === null ? null : (
         <div className="text-caption text-text-subtle flex flex-col gap-1.5 px-1 leading-[18px] text-pretty">
           <p>
             GitHub asks you to grant <code className="font-mono">repo</code>, full read and write

@@ -15,14 +15,19 @@ import { makeFakeDriver } from "../../engine/testing.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { makeRepo, removeDir, tempDir } from "../../git/testing.ts";
 import { session } from "../delivery/testing.ts";
-import { CID, HOST, task, planned } from "../../engine/constellation.testing.ts";
+import { CID, HOST, WS, task, planned } from "../../engine/constellation.testing.ts";
 import { prepareSession } from "../composition/prepare.ts";
-import { setupCommand, WorktreeSetupService } from "./index.ts";
+import { setupCommand, WorktreeSetupService, WorktreeSetupTrust } from "./index.ts";
+import { trustedSetup } from "./trust.testing.ts";
 
 const SID = SessionId.make("setup-worker");
 
-const fixture = (root: string) =>
+const fixture = (
+  root: string,
+  trust: Layer.Layer<WorktreeSetupTrust, never, EventStore> = trustedSetup
+) =>
   WorktreeSetupService.layer.pipe(
+    Layer.provideMerge(trust),
     Layer.provideMerge(
       Layer.mergeAll(
         EventStore.layerSqlite(join(root, "state.sqlite")),
@@ -155,7 +160,8 @@ test("successful command retries are durable; failed setup can be repaired with 
           root,
           WorktreeSetup.cases.Command.make({ command }),
           CID,
-          task().id
+          task().id,
+          WS
         );
 
       yield* seed;
@@ -178,7 +184,8 @@ test("successful command retries are durable; failed setup can be repaired with 
             root,
             WorktreeSetup.cases.Command.make({ command }),
             CID,
-            task().id
+            task().id,
+            WS
           );
           expect(
             (yield* (yield* EventStore).model).sessions.get(SID)!.session.worktreeSetup?.status
@@ -210,7 +217,8 @@ test("canceling setup terminates its subprocess and records failed attention", a
               root,
               WorktreeSetup.cases.Command.make({ command: "echo $$ > pid; exec sleep 60" }),
               CID,
-              task().id
+              task().id,
+              WS
             )
             .pipe(Effect.forkChild);
 
@@ -240,3 +248,47 @@ test("canceling setup terminates its subprocess and records failed attention", a
     removeDir(root);
   }
 }, 10_000);
+
+test("setup children get no credentials, agent sockets or hand-off envelope from the Daemon", async () => {
+  const root = tempDir();
+
+  const injected = {
+    SSH_AUTH_SOCK: "/tmp/agent.sock",
+    ANTHROPIC_API_KEY: "sk-ant-fixture",
+    GITHUB_TOKEN: "ghp_fixture",
+    POLARIS_HANDOFF: "envelope",
+  };
+
+  const saved = Object.fromEntries(Object.keys(injected).map((key) => [key, process.env[key]]));
+  Object.assign(process.env, injected);
+
+  try {
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          yield* seed;
+
+          const run = yield* (yield* WorktreeSetupService).run(
+            SID,
+            "env:A",
+            root,
+            WorktreeSetup.cases.Command.make({ command: "env" }),
+            CID,
+            task().id,
+            WS
+          );
+
+          const names = (run?.output ?? "").split("\n").map((line) => line.split("=")[0]);
+          expect(names).toContain("PATH");
+          expect(names).toContain("HOME");
+          expect(names.filter((name) => name! in injected)).toEqual([]);
+        })
+      ).pipe(Effect.provide(fixture(root)))
+    );
+  } finally {
+    for (const [key, value] of Object.entries(saved))
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    removeDir(root);
+  }
+});

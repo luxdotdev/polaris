@@ -15,6 +15,7 @@ bun run bench desktop-idle          # memory and CPU of the built app, settled (
 node scripts/screens.ts <dir>       # screenshots against Paper 11U-0 / MX-0, from four seeded local Daemons
 node scripts/hiddenWorkspaceScreens.ts <dir> [--build]   # hiding a Workspace and showing it again (menus, toast, palette, jump menu), two seeded local Daemons
 node scripts/sessionScreens.ts --out <dir> [--frames]   # the shell with the session view on fixtures (#preview/<scene>), every theme and density
+node scripts/githubSignInErrorScreens.ts <dir>   # Add account when GitHub can't be reached and with an untrusted certificate, both themes
 node scripts/reviewWithoutGitHubScreens.ts --out <dir>   # Review signed out and with GitHub unreachable, on a real Daemon and the GitHub fake
 node scripts/leadPeekSmoke.ts --out <dir>   # Space on a Lead row (Paper 13), grouped and compact in the machine sidebar: the preview opens, the sidebar never scrolls
 node scripts/reviewNoiseScreens.ts [--build] --out <dir>   # Review with generated and test files on a real Daemon (Paper R10): folds, "Hide tests" across a relaunch, both themes

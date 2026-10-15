@@ -35,13 +35,17 @@ const encodeTable = Schema.encodeSync(PriceTableJson);
 /** The table shipped with the Client (`bun run --cwd packages/client prices` refreshes it). */
 export const bundledPrices = (): PriceTable => Schema.decodeUnknownSync(PriceTable)(snapshot);
 
-const defaultFetch = async (url: string) => {
-  const response = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+/** `fetchText` over a `fetch`, with a 30 s timeout; a non-2xx answer throws. */
+export const textFetcher =
+  (fetch: (url: string, init: RequestInit) => Promise<Response>) => async (url: string) => {
+    const response = await fetch(url, { signal: AbortSignal.timeout(30_000) });
 
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-  return response.text();
-};
+    return response.text();
+  };
+
+const defaultFetch = textFetcher((url, init) => fetch(url, init));
 
 export class PriceBook extends Context.Service<
   PriceBook,

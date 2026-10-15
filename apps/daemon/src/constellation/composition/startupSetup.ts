@@ -34,12 +34,21 @@ export const runStartupSetup = Effect.fnUntraced(function* (
       setting,
       graph.id,
       attempt.taskId,
+      graph.workspaceId,
       attempt.startupSetup.force === true
     )
     .pipe(
-      Effect.mapError(
-        (error) => new ServiceError({ service: "WorktreeSetup", message: error.reason })
-      )
+      Effect.catchTags({
+        CommandRejected: (error) =>
+          Effect.fail(new ServiceError({ service: "WorktreeSetup", message: error.reason })),
+        WorktreeSetupUntrusted: (error) =>
+          Effect.fail(
+            new ServiceError({
+              service: "WorktreeSetup",
+              message: `${error.workspace} isn't trusted on this host. Trust it, or set its worktree setup to None, then dispatch again.`,
+            })
+          ),
+      })
     );
 
   if (result?.status === "failed")
@@ -54,6 +63,7 @@ export const startupSetupIntent = Effect.fnUntraced(function* (input: WorkerPrep
   const command = yield* setupCommand(input.worktree.worktree, setting);
 
   if (command === "") return null;
+  yield* (yield* WorktreeSetupService).authorize(input.graph.workspaceId);
 
   return {
     command: setting !== null && Predicate.isTagged(setting, "Command") ? setting.command : null,

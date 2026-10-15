@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, watch } from "node:fs";
+import { chmodSync, existsSync, watch } from "node:fs";
 import { join } from "node:path";
 import { Effect, Fiber, Stream } from "effect";
 import { type WorktreeInfo, WorktreeTracker } from "../services.ts";
@@ -80,6 +80,36 @@ describe("WorktreeTracker", () => {
     await run(withTracker((t) => t.remove({ repoPath: root, path, deleteBranchIfMerged: false })));
     expect(existsSync(path)).toBe(false);
     expect(await branchExists(root, "feature")).toBe(true);
+  });
+
+  test("create never runs a husky-style post-checkout hook from the checked-out commit", async () => {
+    const markers = tempDir("polaris-marker-");
+    const marker = join(markers, "hook-ran");
+    const root = await makeRepo();
+    const outside = tempDir("polaris-wt-");
+    cleanup.push(root, outside, markers);
+    write(root, ".husky/post-checkout", `#!/bin/sh\necho ran >> ${marker}\n`);
+    chmodSync(join(root, ".husky/post-checkout"), 0o755);
+    await commitAll(root, "husky");
+    await gitText(root, ["config", "core.hooksPath", ".husky"]);
+    await gitText(root, ["branch", "existing"]);
+
+    await run(
+      withTracker((t) =>
+        Effect.all([
+          t.create({ repoPath: root, path: join(outside, "new"), branch: "new", baseRef: "main" }),
+          t.create({
+            repoPath: root,
+            path: join(outside, "existing"),
+            branch: "existing",
+            baseRef: null,
+          }),
+        ])
+      )
+    );
+
+    expect(existsSync(join(outside, "existing", ".husky/post-checkout"))).toBe(true);
+    expect(existsSync(marker)).toBe(false);
   });
 
   test("remove deletes a merged branch only when asked, and never an unmerged one", async () => {
