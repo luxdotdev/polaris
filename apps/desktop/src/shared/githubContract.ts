@@ -10,7 +10,7 @@ import type {
   GitHubAccountsView,
   PullDetailView,
   PullListView,
-  SignInView,
+  StartedSignIn,
   SubmittedReview,
 } from "./github.ts";
 import {
@@ -183,7 +183,7 @@ export const GitHubRequestInputs = {
 } as const;
 
 export interface GitHubRequestOutputs {
-  "github.signIn.start": SignInView;
+  "github.signIn.start": StartedSignIn;
   "github.signIn.cancel": null;
   "github.hosts.add": { readonly host: string };
   "github.hosts.remove": null;

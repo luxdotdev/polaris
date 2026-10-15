@@ -35,7 +35,7 @@ import {
   withWorktreePreparation,
 } from "../transfers/index.ts";
 import { HarnessRegistry } from "../../services.ts";
-import { WorktreeSetupService } from "../setup/index.ts";
+import { WorktreeSetupService, WorktreeSetupTrust } from "../setup/index.ts";
 import { prepareSession } from "./prepare.ts";
 import {
   canStartAttempt,
@@ -284,7 +284,8 @@ export const constellationHandlers = (root: string) => {
     constellationGitLayer(constellationTransferPath(root)),
     McpTokens.layer(`${root}/mcp.sqlite`),
     ConstellationLiveness.layer,
-    Layer.succeed(ConstellationTransferRoot)(root)
+    Layer.succeed(ConstellationTransferRoot)(root),
+    WorktreeSetupTrust.layer(root)
   ).pipe(Layer.provideMerge(owner));
 
   return Layer.mergeAll(ConstellationRpcHandlers, ConstellationTransferHandlers).pipe(

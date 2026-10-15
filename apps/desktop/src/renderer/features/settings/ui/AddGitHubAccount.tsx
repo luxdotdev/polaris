@@ -1,7 +1,7 @@
 /**
  * Adding a GitHub account (Paper S6): the device flow's one-time code, copy and "Open
- * github.com/login/device", and the wait. Polaris never sees a password; the code and
- * its state come on `github.accounts`.
+ * github.com/login/device", the wait, and why it failed. Polaris never sees a password;
+ * the code and its state come on `github.accounts`.
  */
 import { ArrowUpRightIcon, Button, CopyButton } from "@polaris/ui";
 import type { SignInView } from "../../../../shared/github.ts";
@@ -25,6 +25,41 @@ const WaitGlyph = () => (
 
 const hostOf = (uri: string) => uri.replace(/^https?:\/\//, "").replace(/\/$/, "");
 
+const restart = (flow: SignInView) =>
+  void polaris().request("github.signIn.start", flow.host === undefined ? {} : { host: flow.host });
+
+interface CodeProps {
+  readonly host: string;
+  readonly code: string;
+  readonly uri: string;
+  readonly waiting: boolean;
+}
+
+const Code = ({ host, code, uri, waiting }: CodeProps) => (
+  <>
+    <p className="text-body text-text-subtle pb-panel px-[calc(var(--spacing-panel)+4px)]">
+      Sign in on {host} as the account you want to add, then enter this code.
+    </p>
+    <div className="border-hairline bg-surface-sunken flex flex-wrap items-center gap-4 border-y px-[calc(var(--spacing-panel)+4px)] py-[calc(var(--spacing-panel)+2px)]">
+      <span
+        data-testid="github-user-code"
+        className="text-text-strong flex-1 font-mono text-[28px] leading-[34px] font-medium tracking-[0.06em] select-all"
+      >
+        {code}
+      </span>
+      <CopyButton variant="button" label="Copy code" text={code} />
+      <Button
+        variant="primary"
+        disabled={!waiting}
+        onClick={() => void polaris().request("shell.openExternal", { url: uri })}
+      >
+        Open {hostOf(uri)}
+        <ArrowUpRightIcon size={12} />
+      </Button>
+    </div>
+  </>
+);
+
 export const AddGitHubAccount = ({ flow }: { readonly flow: SignInView }) => {
   const now = useNow(1000);
   const status = signInStatus(flow, now);
@@ -47,48 +82,34 @@ export const AddGitHubAccount = ({ flow }: { readonly flow: SignInView }) => {
           Cancel
         </Button>
       </div>
-      <p className="text-body text-text-subtle pb-panel px-[calc(var(--spacing-panel)+4px)]">
-        Sign in on {flow.host ?? "github.com"} as the account you want to add, then enter this code.
-      </p>
-      <div className="border-hairline bg-surface-sunken flex flex-wrap items-center gap-4 border-y px-[calc(var(--spacing-panel)+4px)] py-[calc(var(--spacing-panel)+2px)]">
-        <span
-          data-testid="github-user-code"
-          className="text-text-strong flex-1 font-mono text-[28px] leading-[34px] font-medium tracking-[0.06em] select-all"
-        >
-          {flow.userCode}
-        </span>
-        <CopyButton variant="button" label="Copy code" text={flow.userCode} />
-        <Button
-          variant="primary"
-          disabled={!status.waiting}
-          onClick={() =>
-            void polaris().request("shell.openExternal", { url: flow.verificationUri })
-          }
-        >
-          Open {hostOf(flow.verificationUri)}
-          <ArrowUpRightIcon size={12} />
-        </Button>
-      </div>
+      {flow.userCode === null || flow.verificationUri === null ? null : (
+        <Code
+          host={flow.host ?? "github.com"}
+          code={flow.userCode}
+          uri={flow.verificationUri}
+          waiting={status.waiting}
+        />
+      )}
       <div
-        className="flex items-center gap-2.5 px-[calc(var(--spacing-panel)+4px)] py-[calc(var(--spacing-gap)+4px)]"
+        className="flex flex-col gap-1.5 px-[calc(var(--spacing-panel)+4px)] py-[calc(var(--spacing-gap)+4px)]"
         role="status"
       >
-        {status.waiting ? <WaitGlyph /> : null}
-        <span className="text-caption text-text-default flex-1">{status.text}</span>
-        {status.aside === null ? (
-          <Button
-            size="xs"
-            onClick={() =>
-              void polaris().request(
-                "github.signIn.start",
-                flow.host === undefined ? {} : { host: flow.host }
-              )
-            }
-          >
-            Get a new code
-          </Button>
-        ) : (
-          <span className="text-caption text-text-subtle tabular">{status.aside}</span>
+        <div className="flex items-center gap-2.5">
+          {status.waiting ? <WaitGlyph /> : null}
+          <span className="text-caption text-text-default flex-1">{status.text}</span>
+          {status.aside === null ? (
+            <Button size="xs" onClick={() => restart(flow)}>
+              {flow.userCode === null ? "Try again" : "Get a new code"}
+            </Button>
+          ) : (
+            <span className="text-caption text-text-subtle tabular">{status.aside}</span>
+          )}
+        </div>
+        {status.hint === null ? null : (
+          <p className="text-caption text-text-subtle text-pretty">{status.hint}</p>
+        )}
+        {status.waiting || !flow.detail ? null : (
+          <p className="text-caption text-text-subtle font-mono break-all">{flow.detail}</p>
         )}
       </div>
     </section>
