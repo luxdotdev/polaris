@@ -41,12 +41,24 @@ In a linked worktree the shell also reads what git needs of the common dir
 (`objects`, `refs`, `packed-refs`, `HEAD`, `reftable`, `shallow`, `info`) and
 of the worktree's own git dir (`HEAD`, `index`), never `config` or
 `config.worktree`, whose remotes and headers can carry tokens, nor other
-worktrees. Git reads a sanitized copy (`harness/confinedGit.ts`: format keys
-and `extensions.objectFormat`/`refStorage` only, never `worktreeConfig`,
-remotes, credential helpers or includes; ignore and attributes files set to
-`/dev/null`) through `GIT_COMMON_DIR`, with `GIT_CONFIG_GLOBAL=/dev/null` and
-`GIT_CONFIG_NOSYSTEM=1`, since the system config can name a credential
-helper too. On macOS `DEVELOPER_DIR` names the developer tools, because
+worktrees. Git reads a config Polaris builds from an allowlist
+(`harness/confinedGit.ts`), never a filtered copy of the repository's: a
+denylist misses the next key that runs a program. It holds
+`core.repositoryformatversion` and `extensions.objectFormat`,
+`compatObjectFormat` and `refStorage`, each only with a value git knows,
+`core.bare = false`, `core.worktree` set to the canonical checkout, and ignore
+and attributes files set to `/dev/null`; nothing else, so no remotes,
+includes, helpers, filters, hooks, `fsmonitor`, proxies or `worktreeConfig`
+(which would make git read `config.worktree`). Each session gets a fresh
+directory from `mkdtemp` under Polaris's state (`confined-git/`, mode 0700,
+refused if it is a link or others can write it), with the config written
+there under a temporary name and renamed into place, and links to the shared
+parts. It used to live in the worktree's git dir, which anything writing to
+the repository could change between Polaris writing it and git reading it.
+Git finds it through `GIT_COMMON_DIR`, with `GIT_CONFIG_GLOBAL=/dev/null`,
+`GIT_CONFIG_NOSYSTEM=1` (the system config can name a credential helper
+too) and `GIT_CONFIG_COUNT=0`. If it can't be generated, the Reviewer doesn't
+start. Directories older than a day are removed when the next one is made. On macOS `DEVELOPER_DIR` names the developer tools, because
 `/usr/bin/git` finds them through `/var`, which stays closed.
 
 - **Claude Code**: Claude Code's sandbox covers Bash, not its file tools, so a

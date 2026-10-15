@@ -66,9 +66,16 @@ type Layout = Awaited<ReturnType<typeof layout>>;
 const serve = (where: Layout, calls: ReadonlyArray<ToolCall>) => {
   const fake = fakeAnthropic(calls);
   const realHome = process.env.HOME;
+  const realState = process.env.POLARIS_HOME;
   process.env.HOME = where.home;
+  // Polaris's state, where the confined git's config is generated, under the fake home.
+  process.env.POLARIS_HOME = join(where.home, ".polaris");
+
   cleanup.push(() => {
     process.env.HOME = realHome;
+
+    if (realState === undefined) delete process.env.POLARIS_HOME;
+    else process.env.POLARIS_HOME = realState;
     fake.stop();
   });
 

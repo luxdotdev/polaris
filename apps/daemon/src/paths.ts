@@ -18,6 +18,8 @@ export const paths = () => {
     database: join(root, "state.sqlite"),
     staging: join(root, "staging"),
     logs: join(root, "logs"),
+    /** The Reviewer's generated git common dirs: a fresh one per session, only Polaris writes them. */
+    confinedGit: join(root, "confined-git"),
     /** Installed Daemon builds, one directory per version; `current` is a symlink. */
     bin: join(root, "bin"),
   };
