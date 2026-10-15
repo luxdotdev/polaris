@@ -138,16 +138,63 @@ export type DownloadBuild = (
   onBytes: (bytes: number) => void
 ) => Effect.Effect<DaemonBuild, RemoteInstallError>;
 
+/** The most the Host may download for one archive, whatever the manifest says. */
+export const MAX_HOST_ARCHIVE_BYTES = 512 * 1024 * 1024;
+
+/**
+ * Shell: `private D` succeeds only for a real directory this user owns with mode
+ * 0700 (`.` and `@` are SELinux and macOS markers, `+` an ACL, which fails).
+ */
+const PRIVATE_DIR = [
+  `private() ( set -f; [ -d "$1" ] && [ ! -L "$1" ] || exit 1; set -- $(ls -ldn "$1")`,
+  `case "$1" in drwx------|drwx------.|drwx------@) ;; *) exit 1 ;; esac`,
+  `[ "$3" = "$(id -u)" ] )`,
+].join("; ");
+
+/** The start of every script that writes into the staging directory `dir`. */
+const inStaging = (dir: string) => [
+  "set -e",
+  "umask 077",
+  PRIVATE_DIR,
+  `private "$HOME/${dir}" || { echo "$HOME/${dir} is not a private directory of this user" >&2; exit 3; }`,
+];
+
+/**
+ * Creates `~/.polaris` private to this user and `dir` inside it, fresh (mkdir
+ * fails if anything is there), so no other account can swap a verified file.
+ */
+const stage = Effect.fn("stage")(function* (alias: string, dir: string) {
+  const ssh = yield* Ssh;
+
+  const script = [
+    "set -e",
+    "umask 077",
+    PRIVATE_DIR,
+    `p="$HOME/.polaris"`,
+    `[ -e "$p" ] || mkdir -m 700 "$p"`,
+    `set -- $(ls -ldnL "$p")`,
+    `[ -d "$p" ] && [ "$3" = "$(id -u)" ] || { echo "$p is not a directory this user owns" >&2; exit 3; }`,
+    `chmod 700 "$p"`,
+    `mkdir -m 700 "$HOME/${dir}"`,
+    `private "$HOME/${dir}" || { echo "$HOME/${dir} is not a private directory of this user" >&2; exit 3; }`,
+  ].join("; ");
+
+  const result = yield* ssh.exec(alias, shScript(script));
+
+  if (result.code !== 0) return yield* failed(alias, "stage", result);
+});
+
 export interface ApplyOptions {
   readonly progress?: ((value: ApplyProgress) => void) | undefined;
   /** Without it, a build that isn't bundled can only be downloaded by the Host. */
   readonly download?: DownloadBuild | undefined;
   /** This Client's version, sent with Host downloads for the site's telemetry. */
   readonly clientVersion?: string | undefined;
+  /** How long the Host's download may take in all before falling back (default 15 minutes). */
+  readonly hostFetchTimeoutMs?: number | undefined;
 }
 
-/** Upload every file of `build` into a fresh `~/.polaris/upload-<id>/`, verifying hashes there. */
-
+/** Upload every file of `build` into the staged `~/.polaris/upload-<id>/`, verifying hashes there. */
 const upload = Effect.fn("upload")(function* (
   alias: string,
   build: DaemonBuild,
@@ -165,8 +212,7 @@ const upload = Effect.fn("upload")(function* (
     const mode = file.executable ? "755" : "644";
 
     const script = [
-      "set -e",
-      `mkdir -p "$HOME/${dir}"`,
+      ...inStaging(dir),
       `cat > ${target}.part`,
       `chmod ${mode} ${target}.part`,
       `mv ${target}.part ${target}`,
@@ -233,19 +279,33 @@ const hostFetch = Effect.fn("hostFetch")(function* (
   options: ApplyOptions
 ) {
   const ssh = yield* Ssh;
+  const step = "download on the host";
+
+  if (archive.size > MAX_HOST_ARCHIVE_BYTES) {
+    return yield* new RemoteInstallError({
+      alias,
+      step,
+      message: `${archive.name} is larger than ${MAX_HOST_ARCHIVE_BYTES} bytes`,
+    });
+  }
+
   const url = shellQuote(archiveRequestUrl(archive, "host", options.clientVersion));
   const target = `"$HOME/${dir}/${archive.name}"`;
   const names = build.files.map((file) => shellQuote(file.name)).join(" ");
+  const size = archive.size;
 
   const get =
     tool === "curl"
-      ? `curl -fsSL --proto '=https' --connect-timeout 15 --retry 2 -o ${target} ${url}`
-      : `wget -q -O ${target} ${url}`;
+      ? `curl -fsSL --proto '=https' --proto-redir '=https' --connect-timeout 15 --retry 2 --max-time 600 --max-filesize ${size} ${url}`
+      : `wget -q -T 30 -t 2 -O - ${url}`;
 
+  // head stops the stream one byte past the manifest's size, so the Host's disk never fills.
   const script = [
-    "set -e",
-    `mkdir -p "$HOME/${dir}"`,
-    get,
+    ...inStaging(dir),
+    `{ ${get} || echo "the download failed (exit $?)" >&2; } | head -c ${size + 1} > ${target}`,
+    `n=$(wc -c < ${target} | tr -d ' ')`,
+    `[ "$n" -le ${size} ] || { echo "the archive is larger than ${size} bytes" >&2; exit 3; }`,
+    `[ "$n" -eq ${size} ] || { echo "the archive is $n bytes, expected ${size}" >&2; exit 3; }`,
     `s=$( (sha256sum ${target} 2>/dev/null || shasum -a 256 ${target}) | cut -d' ' -f1)`,
     `[ "$s" = "${archive.sha256}" ] || { echo "archive SHA-256 is $s, expected ${archive.sha256}" >&2; exit 3; }`,
     `tar -xzf ${target} -C "$HOME/${dir}"`,
@@ -255,14 +315,23 @@ const hostFetch = Effect.fn("hostFetch")(function* (
     `sha256sum ${names} 2>/dev/null || shasum -a 256 ${names}`,
   ].join("; ");
 
-  options.progress?.({ stage: "downloading", via: "host", bytes: 0, total: archive.size });
-  const result = yield* ssh.exec(alias, shScript(script));
+  options.progress?.({ stage: "downloading", via: "host", bytes: 0, total: size });
+  const timeoutMs = options.hostFetchTimeoutMs ?? 15 * 60_000;
 
-  if (result.code !== 0) return yield* failed(alias, "download on the host", result);
+  const result = yield* ssh.exec(alias, shScript(script)).pipe(
+    Effect.timeoutOrElse({
+      duration: timeoutMs,
+      orElse: () =>
+        Effect.fail(
+          new RemoteInstallError({ alias, step, message: `did not finish within ${timeoutMs} ms` })
+        ),
+    })
+  );
+
+  if (result.code !== 0) return yield* failed(alias, step, result);
   const wrong = mismatch(build, result.stdout);
 
-  if (wrong !== null)
-    return yield* new RemoteInstallError({ alias, step: "download on the host", message: wrong });
+  if (wrong !== null) return yield* new RemoteInstallError({ alias, step, message: wrong });
   const total = build.files.reduce((sum, file) => sum + file.size, 0);
   options.progress?.({ stage: "switching", bytes: total, total });
 
@@ -345,6 +414,7 @@ const deliver = (
         hostFetch(alias, plan.build, plan.build.archive!, tool, dir, options).pipe(
           Effect.catchTag("RemoteInstallError", (onHost) =>
             cleanUp(alias, dir).pipe(
+              Effect.andThen(stage(alias, dir)),
               Effect.andThen(clientFetch(alias, plan.build, dir, options)),
               Effect.catchTag("RemoteInstallError", (error) =>
                 Effect.fail(
@@ -370,19 +440,21 @@ export const applyPlan = Effect.fn("applyPlan")(function* (
   const dir = `.polaris/upload-${randomBytes(6).toString("hex")}`;
 
   return yield* Effect.gen(function* () {
+    yield* stage(alias, dir);
     const uploaded = yield* deliver(alias, plan, dir, options);
+    const sha256 = shellQuote(plan.build.sha256);
 
     const run = Match.value(plan).pipe(
       Match.tagsExhaustive({
         Install: () =>
-          runPolaris(alias, "install", `${uploaded.binary} install --json`).pipe(
+          runPolaris(alias, "install", `${uploaded.binary} install --json --sha256 ${sha256}`).pipe(
             Effect.map((report) => ApplyResult.Installed({ version: plan.build.version, report }))
           ),
         Upgrade: (upgrade) =>
           runPolaris(
             alias,
             "upgrade",
-            `"$HOME/.polaris/bin/current/polaris" upgrade ${uploaded.binary} --json`
+            `"$HOME/.polaris/bin/current/polaris" upgrade ${uploaded.binary} --json --sha256 ${sha256}`
           ).pipe(
             Effect.map((report) =>
               ApplyResult.Upgraded({ from: upgrade.from, version: plan.build.version, report })
