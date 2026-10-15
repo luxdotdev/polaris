@@ -60,9 +60,14 @@ was held (then indexed, decoded and offered as a Blob) whatever its size.
   the variable from 2.44 on; with an older git (`git --version`, once per `PATH`) a partial clone's
   automatic git is refused (`GitLazyFetchUnsupported`) rather than run, and a full clone is read as
   before. So in a blobless or treeless clone an automatic read of an object not yet fetched fails:
-  an older commit's diff or blob shows as unavailable, and a Review checkout or detached worktree
-  of a commit whose blobs aren't local fails, until git the user asked for fetches them
-  (`config: "host"` git, the user's own, still fetches lazily).
+  an older commit's diff or blob shows as unavailable, and a detached worktree of a commit whose
+  blobs aren't local fails, until git the user asked for fetches them (`config: "host"` git, the
+  user's own, still fetches lazily). A Review fetch instead backfills: in a partial clone,
+  `fetchPullRequest` lists what the head's and merge base's trees lack
+  (`rev-list --objects --no-walk --missing=print`) and fetches those ids from the same source,
+  `--no-filter` with no haves (`fetch.negotiationAlgorithm=noop`, as lazy fetch does), until
+  nothing is missing. The fetch itself keeps the clone's filter: `--no-filter` there makes a
+  treeless clone's fetch fail its connectivity check. Checked on git 2.54 and 2.47.
 
 `safeConfigEnv` builds this environment, and every automatic git takes it: `runGitRaw`, the commit
 message's staged diff, the search fallback's `git grep`, the Rules' `cat-file --batch`

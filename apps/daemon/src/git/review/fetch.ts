@@ -6,7 +6,7 @@
  */
 import { ReviewCheckoutBlocker, type RepoRef } from "@polaris/protocol";
 import { CheckoutBlocked } from "../../services.ts";
-import { type GitResult, resolveCommit } from "../git.ts";
+import { type GitOptions, type GitResult, resolveCommit } from "../git.ts";
 import { checkoutGit, checkoutGitRaw, reviewRef } from "./refs.ts";
 import { batchSshCommand, type FetchSource, pickFetchSource, type Transport } from "./remotes.ts";
 
@@ -23,6 +23,9 @@ export const FETCH_FLAGS: ReadonlyArray<string> = [
   "--no-tags",
   "--refmap=",
 ];
+
+/** A partial clone that's still missing objects after this many rounds can't be reviewed. */
+const BACKFILL_ROUNDS = 4;
 
 const NO_PROMPT_CONFIG: ReadonlyArray<string> = [
   "-c",
@@ -110,25 +113,41 @@ const runFetch = async (
   fetch: PullRequestFetch,
   source: FetchSource,
   refspecs: ReadonlyArray<string>,
-  options: { readonly unshallow?: boolean; readonly deepen?: number; readonly timeoutMs: number }
-): Promise<GitResult> =>
-  checkoutGitRaw(
+  options: {
+    readonly unshallow?: boolean;
+    readonly deepen?: number;
+    /**
+     * Object ids to fetch whole (`--no-filter`), as lazy fetch does: no haves, or the
+     * server leaves out what they reach.
+     */
+    readonly objects?: ReadonlyArray<string>;
+    readonly timeoutMs: number;
+  }
+): Promise<GitResult> => {
+  const gitOptions: GitOptions = {
+    config: fetch.trusted ? "trusted-fetch" : "safe",
+    env: { GIT_SSH_COMMAND: await batchSshCommand(fetch.repoPath, fetch.trusted) },
+    timeoutMs: options.timeoutMs,
+  };
+
+  return checkoutGitRaw(
     fetch.repoPath,
     [
       ...NO_PROMPT_CONFIG,
+      ...(options.objects === undefined ? [] : ["-c", "fetch.negotiationAlgorithm=noop"]),
       "fetch",
       ...FETCH_FLAGS,
+      ...(options.objects === undefined ? [] : ["--no-filter", "--stdin"]),
       ...(options.unshallow === true ? ["--unshallow"] : []),
       ...(options.deepen === undefined ? [] : [`--deepen=${options.deepen}`]),
       source.source,
       ...refspecs,
     ],
-    {
-      config: fetch.trusted ? "trusted-fetch" : "safe",
-      env: { GIT_SSH_COMMAND: await batchSshCommand(fetch.repoPath, fetch.trusted) },
-      timeoutMs: options.timeoutMs,
-    }
+    options.objects === undefined
+      ? gitOptions
+      : { ...gitOptions, stdin: `${options.objects.join("\n")}\n` }
   );
+};
 
 /**
  * How far below the shallow boundary to deepen, step by step, looking for the
@@ -186,6 +205,51 @@ const shallowMergeBase = async (
   throw new CheckoutBlocked({ blocker: ReviewCheckoutBlocker.cases.ShallowClone.make({}) });
 };
 
+const isPartialClone = async (repoPath: string): Promise<boolean> => {
+  const pattern = "^(extensions\\.partialclone|remote\\..*\\.promisor)$";
+
+  return (await checkoutGitRaw(repoPath, ["config", "--get-regexp", pattern])).code === 0;
+};
+
+/** The objects of these commits' trees this repository lacks (a partial clone's). */
+const missingObjects = async (repoPath: string, commits: ReadonlyArray<string>) => {
+  const listed = await checkoutGit(repoPath, [
+    "rev-list",
+    "--objects",
+    "--no-walk",
+    "--missing=print",
+    ...commits,
+  ]);
+
+  return listed.split("\n").flatMap((line) => (line.startsWith("?") ? [line.slice(1)] : []));
+};
+
+/**
+ * In a partial clone, fetches the trees and blobs of `commits` it lacks, by id: automatic
+ * git never lazy-fetches, and the Review Checkout and its diffs read all of them.
+ */
+const backfill = async (
+  options: PullRequestFetch,
+  source: FetchSource,
+  commits: ReadonlyArray<string>,
+  timeoutMs: number
+) => {
+  if (!(await isPartialClone(options.repoPath))) return;
+
+  for (let round = 0; round < BACKFILL_ROUNDS; round++) {
+    const missing = await missingObjects(options.repoPath, commits);
+
+    if (missing.length === 0) return;
+    const fetched = await runFetch(options, source, [], { objects: missing, timeoutMs });
+
+    if (fetched.code !== 0) {
+      throw fetchFailed(describeFetchFailure(fetched, source.transport, { ...options, timeoutMs }));
+    }
+  }
+
+  throw fetchFailed("this partial clone is still missing objects the pull request needs");
+};
+
 const pullRefspecs = (options: PullRequestFetch): ReadonlyArray<string> => [
   `+refs/pull/${options.number}/head:${reviewRef(options.key, "head")}`,
   `+refs/heads/${options.baseRef}:${reviewRef(options.key, "base")}`,
@@ -211,15 +275,21 @@ export const fetchPullRequest = async (options: PullRequestFetch): Promise<Fetch
   }
 
   const head = await checkoutGit(repoPath, ["rev-parse", "--verify", reviewRef(key, "head")]);
-  const mergeBase = await mergeBaseOf(repoPath, reviewRef(key, "base"), head);
+  const found = await mergeBaseOf(repoPath, reviewRef(key, "base"), head);
 
-  if (mergeBase !== null) return { head, mergeBase };
+  const mergeBase =
+    found ??
+    (shallow && !options.unshallow
+      ? await shallowMergeBase(options, source, head, timeoutMs)
+      : null);
 
-  if (shallow && !options.unshallow) {
-    return { head, mergeBase: await shallowMergeBase(options, source, head, timeoutMs) };
+  if (mergeBase === null) {
+    throw fetchFailed(`pull request #${number} shares no history with ${baseRef}`);
   }
 
-  throw fetchFailed(`pull request #${number} shares no history with ${baseRef}`);
+  await backfill(options, source, [head, mergeBase], timeoutMs);
+
+  return { head, mergeBase };
 };
 
 /**

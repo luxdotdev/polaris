@@ -1,12 +1,20 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { chmodSync, existsSync, rmSync } from "node:fs";
+import { chmodSync, existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { gitText, resolveCommit, runGitRaw } from "../git.ts";
 import { commitAll, removeDir, tempDir, write } from "../testing.ts";
 import { listWorktrees } from "../WorktreeTracker.ts";
 import { fetchPullRequest } from "./fetch.ts";
 import { lockReasonFor, reviewRef } from "./refs.ts";
-import { BASE_REPO, contributor, createForge, publishPullRequest, userClone } from "./testing.ts";
+import {
+  BASE_REPO,
+  contributor,
+  createForge,
+  lines,
+  publishPullRequest,
+  pushMain,
+  userClone,
+} from "./testing.ts";
 import {
   ensureCheckout,
   inspectCheckout,
@@ -224,4 +232,35 @@ describe("Review Checkout worktree", () => {
     expect((await listWorktrees(s.user)).map((w) => w.path)).toEqual([s.user]);
     expect((await runGitRaw(s.user, ["worktree", "prune", "--dry-run", "-v"])).stderr).toBe("");
   });
+});
+
+describe("Review Checkout in a partial clone", () => {
+  test.each(["blob:none", "tree:0"])(
+    "a %s clone checks out a pull request on older history, never running the remote's upload-pack",
+    async (filter) => {
+      const forge = await createForge();
+      cleanup.push(forge.root);
+      const author = await contributor(forge, forge.mainCommits[0] ?? "main");
+      write(author, "feature.txt", "v1\n");
+      await commitAll(author, "feature v1");
+      const head = await publishPullRequest(forge, author, 7);
+      // The user's clone never fetched the PR's `app.txt`: `main` changed it since.
+      await pushMain(forge, "app.txt", "moved on\n");
+      const user = await userClone(forge, { filter });
+      const markers = tempDir("polaris-marker-");
+      cleanup.push(user, `${user}.worktrees`, markers);
+      write(markers, "pack.sh", `#!/bin/sh\ntouch "${markers}/ran"\nexec git-upload-pack "$@"\n`);
+      chmodSync(join(markers, "pack.sh"), 0o755);
+      await gitText(user, ["config", "remote.origin.uploadpack", join(markers, "pack.sh")]);
+      const path = join(`${user}.worktrees`, ".review", "pr-7");
+
+      const fetched = await fetchFor(user);
+      await ensureCheckout({ repoPath: user, path, head, lockReason: lockReasonFor("#7") });
+
+      expect(fetched.head).toBe(head);
+      expect(readFileSync(join(path, "app.txt"), "utf8")).toBe(lines(10));
+      expect(readFileSync(join(path, "feature.txt"), "utf8")).toBe("v1\n");
+      expect(existsSync(join(markers, "ran"))).toBe(false);
+    }
+  );
 });
