@@ -13,12 +13,22 @@ import {
   WorktreeSetup,
 } from "@polaris/protocol";
 import { Effect, Layer, Struct } from "effect";
-import { C, CID, HOST, draft, planned, task, report } from "../../engine/constellation.testing.ts";
+import {
+  C,
+  CID,
+  HOST,
+  WS,
+  draft,
+  planned,
+  task,
+  report,
+} from "../../engine/constellation.testing.ts";
 import { makeRepo, removeDir, tempDir } from "../../git/testing.ts";
 import { HarnessRegistry } from "../../services.ts";
 import { makeFakeDriver } from "../../engine/testing.ts";
 import { WorktreeSetupService } from "../setup/index.ts";
 import { setupFingerprint } from "../setup/inputs.ts";
+import { changeTrust } from "../setup/trust.testing.ts";
 import { send, setup, world, wait } from "../delivery/testing.ts";
 import { restartForRetry } from "../../mcp/sendback.restart.testing.ts";
 import { Constellations } from "../service.ts";
@@ -126,7 +136,8 @@ test("busy worktree reuse persists deferred setup and production restart runs it
           root,
           setting,
           CID,
-          draft().taskId
+          draft().taskId,
+          WS
         );
         yield* send(old.id, "Earlier work");
         attempt = yield* prepareSession(input, HOST).pipe(
@@ -163,6 +174,7 @@ test("busy worktree reuse persists deferred setup and production restart runs it
         );
         attempt = (yield* store.model).constellations.get(CID)!.graph.attempts.at(-1)!;
         expect(attempt.startupSetup).toEqual({ command, force: false });
+        yield* changeTrust(root, HOST, WS, "trust");
       })
     );
     await writeFile(join(root, "package.json"), "{}\n");
@@ -269,9 +281,19 @@ test("setup persists its resulting inputs once and unchanged reuse does not run 
         const service = yield* WorktreeSetupService;
         const setting = WorktreeSetup.cases.Command.make({ command: changedCommand });
         const sid = draft().sessionId;
-        const first = yield* service.run(sid, "first", root, setting, CID, draft().taskId);
+        const first = yield* service.run(sid, "first", root, setting, CID, draft().taskId, WS);
         expect(first?.fingerprint).toBe(yield* setupFingerprint(root, changedCommand));
-        const second = yield* service.run(sid, "next-attempt", root, setting, CID, draft().taskId);
+
+        const second = yield* service.run(
+          sid,
+          "next-attempt",
+          root,
+          setting,
+          CID,
+          draft().taskId,
+          WS
+        );
+
         expect(second?.id).toBe(first?.id);
         expect(yield* Effect.promise(() => readFile(join(root, "setup-count"), "utf8"))).toBe(
           "run\n"
@@ -284,6 +306,7 @@ test("setup persists its resulting inputs once and unchanged reuse does not run 
           setting,
           CID,
           draft().taskId,
+          WS,
           true
         );
 

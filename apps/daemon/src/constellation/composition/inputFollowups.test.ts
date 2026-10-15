@@ -238,6 +238,7 @@ test("stopping setup preserves an Existing Session for queued input and a new At
 
       const startup = yield* startAttempt(graph, first).pipe(
         Effect.provideService(WorktreeSetupService, {
+          authorize: () => Effect.void,
           run: () =>
             Deferred.succeed(entered, undefined).pipe(
               Effect.andThen(Deferred.await(release)),
