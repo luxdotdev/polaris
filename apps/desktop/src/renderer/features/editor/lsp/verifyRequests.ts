@@ -1,7 +1,6 @@
 /**
- * How the verifier reads a document's errors: a pull report when the server has one, else
- * tsserver's synchronous checks through typescript-language-server. Its pushes are not used: the
- * first can hold only syntax errors, and nothing marks the last (docs/research/next-edit-spike.md).
+ * How the verifier reads a document's errors: a full pull report, the only complete answer. A
+ * pushing server, typescript-language-server included, is not checked (ADR 0050).
  */
 import type { Text } from "@codemirror/state";
 import type { BufferDiagnostic } from "@polaris/predict";
@@ -30,23 +29,8 @@ export type DiagnosticsRead = (
   signal: AbortSignal
 ) => Promise<Located[]>;
 
-export const TSSERVER_REQUEST = "typescript.tsserverRequest";
-
 /** Generous: the caller's deadline decides, and an abort cancels the request on the Host. */
 const REQUEST_MS = 30_000;
-
-const TsDiagnostics = Schema.Struct({
-  success: Schema.Literal(true),
-  body: Schema.Array(
-    Schema.Struct({
-      start: Schema.Struct({ line: Schema.Int, offset: Schema.Int }),
-      end: Schema.Struct({ line: Schema.Int, offset: Schema.Int }),
-      text: Schema.String,
-      code: Schema.optionalKey(Schema.Int),
-      category: Schema.String,
-    })
-  ).check(Schema.isMaxLength(2000)),
-});
 
 let serial = 0;
 
@@ -137,14 +121,6 @@ const lspSeverity = (severity: 1 | 2 | 3 | 4 | undefined): BufferDiagnostic["sev
     Match.orElse(() => "information" as const)
   );
 
-const tsSeverity = (category: string): BufferDiagnostic["severity"] =>
-  Match.value(category).pipe(
-    Match.when("error", () => "error" as const),
-    Match.when("warning", () => "warning" as const),
-    Match.when("suggestion", () => "hint" as const),
-    Match.orElse(() => "information" as const)
-  );
-
 const pull =
   (api: LanguageApi): DiagnosticsRead =>
   async (provider, documents, uri, doc, signal) => {
@@ -170,42 +146,6 @@ const pull =
     );
   };
 
-const filePath = (uri: string) => decodeURIComponent(new URL(uri).pathname);
-
-const tsserver =
-  (api: LanguageApi): DiagnosticsRead =>
-  async (provider, documents, uri, doc, signal) => {
-    const check = async (command: string) => {
-      const result = await send(
-        api,
-        provider,
-        documents,
-        "workspace/executeCommand",
-        { command: TSSERVER_REQUEST, arguments: [command, { file: filePath(uri) }] },
-        signal
-      );
-
-      return Schema.decodeUnknownSync(TsDiagnostics)(result).body;
-    };
-
-    const sets = await Promise.all([
-      check("syntacticDiagnosticsSync"),
-      check("semanticDiagnosticsSync"),
-    ]);
-
-    return sets.flat().map((item) =>
-      located(
-        doc,
-        {
-          start: { line: item.start.line - 1, character: item.start.offset - 1 },
-          end: { line: item.end.line - 1, character: item.end.offset - 1 },
-        },
-        "utf-16",
-        { severity: tsSeverity(item.category), code: String(item.code ?? ""), message: item.text }
-      )
-    );
-  };
-
 const pulls = (provider: LanguageProvider) =>
   (provider.capabilities.diagnostics === "pull" ||
     provider.capabilities.diagnostics === "push-and-pull") &&
@@ -215,8 +155,4 @@ const pulls = (provider: LanguageProvider) =>
 export const diagnosticsReader = (
   api: LanguageApi,
   provider: LanguageProvider
-): DiagnosticsRead | null => {
-  if (pulls(provider)) return pull(api);
-
-  return provider.capabilities.executeCommands.includes(TSSERVER_REQUEST) ? tsserver(api) : null;
-};
+): DiagnosticsRead | null => (pulls(provider) ? pull(api) : null);

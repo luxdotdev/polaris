@@ -6,7 +6,6 @@ import { Option, Schema } from "effect";
 import type { PredictedEdit } from "@polaris/protocol";
 import { diagnosticsVerifier } from "../prediction/verify/index.ts";
 import { coordinatorFixture } from "./coordinator.testing.ts";
-import { TSSERVER_REQUEST } from "./verifyRequests.ts";
 
 const MODULE = 'import { a } from "./a";\nmissing();\n';
 
@@ -36,28 +35,6 @@ const pullReport = (text: string) => ({
   })),
 });
 
-const tsserverReport = (text: string, command: string) => ({
-  seq: 0,
-  type: "response",
-  command,
-  success: true,
-  body:
-    command === "semanticDiagnosticsSync"
-      ? errorsIn(text).map(({ start, end }) => ({
-          start: { line: start.line + 1, offset: start.character + 1 },
-          end: { line: end.line + 1, offset: end.character + 1 },
-          text: "Cannot find name 'missing'.",
-          code: 2304,
-          category: "error",
-        }))
-      : [],
-});
-
-const Command = Schema.Struct({
-  command: Schema.String,
-  arguments: Schema.Tuple([Schema.String, Schema.Struct({ file: Schema.String })]),
-});
-
 interface Server {
   readonly diagnostics: "push" | "pull";
   readonly extra: readonly string[];
@@ -66,10 +43,11 @@ interface Server {
 
 const PULL: Server = { diagnostics: "pull", extra: ["textDocument/diagnostic"], commands: [] };
 
+/** typescript-language-server: tsserver puts an unsaved file in an inferred project, not the file's. */
 const TSSERVER: Server = {
   diagnostics: "push",
   extra: ["workspace/executeCommand"],
-  commands: [TSSERVER_REQUEST],
+  commands: ["typescript.tsserverRequest"],
 };
 
 const PUSH_ONLY: Server = { diagnostics: "push", extra: [], commands: [] };
@@ -98,10 +76,7 @@ const setup = async (server: Server, doc = MODULE, importFix: string | null = nu
       return pullReport(documents.get(uri)?.text ?? "");
     }
 
-    if (request.method !== "workspace/executeCommand") return undefined;
-    const [command, { file }] = Schema.decodeUnknownSync(Command)(request.params).arguments;
-
-    return tsserverReport(documents.get(`file://${file}`)?.text ?? "", command);
+    return undefined;
   };
 
   const file = f.open("a.ts");
@@ -122,42 +97,37 @@ const append = (doc: Text, text: string): PredictedEdit[] => [
   { from: doc.length, to: doc.length, text },
 ];
 
-for (const [name, server] of [
-  ["pull", PULL],
-  ["tsserver", TSSERVER],
-] as const) {
-  test(`${name}: an edit that adds an error is rejected, a clean one allowed; the shadow opens and closes`, async () => {
-    const { f, file, verifier } = await setup(server);
+test("an edit that adds an error is rejected, a clean one allowed; the shadow opens and closes", async () => {
+  const { f, file, verifier } = await setup(PULL);
 
-    try {
-      const doc = file.view.state.doc;
-      expect(verifier.attached(doc)).toBe(true);
+  try {
+    const doc = file.view.state.doc;
+    expect(verifier.attached(doc)).toBe(true);
 
-      const broken = await verifier.verify(
-        check(doc, append(doc, "missing();\n")),
-        new AbortController().signal
-      );
+    const broken = await verifier.verify(
+      check(doc, append(doc, "missing();\n")),
+      new AbortController().signal
+    );
 
-      expect(broken).toMatchObject({ allow: false, shadowed: [] });
-      expect(broken?.allow === false && broken.introduced.map((error) => error.message)).toEqual([
-        "Cannot find name 'missing'.",
-      ]);
+    expect(broken).toMatchObject({ allow: false, shadowed: [] });
+    expect(broken?.allow === false && broken.introduced.map((error) => error.message)).toEqual([
+      "Cannot find name 'missing'.",
+    ]);
 
-      const clean = await verifier.verify(
-        check(doc, append(doc, "a();\n")),
-        new AbortController().signal
-      );
+    const clean = await verifier.verify(
+      check(doc, append(doc, "a();\n")),
+      new AbortController().signal
+    );
 
-      expect(clean).toEqual({ allow: true });
-      await flush(5);
-      const shadows = syncs(f).filter(([, uri]) => uri !== "file:///reuse/a.ts");
-      expect(shadows.map(([tag]) => tag)).toEqual(["Open", "Close", "Open", "Close"]);
-      expect(shadows[0]?.[1]).toMatch(/^file:\/\/\/reuse\/a\.polaris-verify-\d+\.ts$/);
-    } finally {
-      f.coordinator.dispose();
-    }
-  });
-}
+    expect(clean).toEqual({ allow: true });
+    await flush(5);
+    const shadows = syncs(f).filter(([, uri]) => uri !== "file:///reuse/a.ts");
+    expect(shadows.map(([tag]) => tag)).toEqual(["Open", "Close", "Open", "Close"]);
+    expect(shadows[0]?.[1]).toMatch(/^file:\/\/\/reuse\/a\.polaris-verify-\d+\.ts$/);
+  } finally {
+    f.coordinator.dispose();
+  }
+});
 
 test("the shadow's diagnostics never reach the Editor's feed or its painted diagnostics", async () => {
   const { f, file, verifier } = await setup(PULL);
@@ -203,9 +173,10 @@ test("a local stand-in for a name the server would import is rejected; other def
   }
 });
 
-test("only TypeScript modules with a server that answers completely are checked", async () => {
+test("only TypeScript modules on a server with pull diagnostics are checked", async () => {
   for (const [server, doc] of [
     [PUSH_ONLY, MODULE],
+    [TSSERVER, MODULE],
     [PULL, "missing();\n"],
     [PULL, "export {};\ndeclare global {\n  const x: number;\n}\n"],
   ] as const) {

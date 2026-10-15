@@ -1,0 +1,82 @@
+dd03	apps/desktop/src/renderer/features/editor/runtime/editorState.ts	139	705	allow
+dd04	apps/desktop/src/renderer/features/settings/editor/Advanced.tsx	123	274	allow
+dd05	apps/desktop/src/renderer/features/review/ui/useReviewModel.ts	319	1180	allow
+dd06	apps/desktop/src/renderer/features/review/ui/Queue.tsx	210	238	allow
+fdd09	apps/desktop/src/main/notifications/index.ts	218	1	failed
+fim08	apps/desktop/src/renderer/app/App.tsx	18	1416	allow
+fim10	apps/desktop/src/shared/gitContract.ts	46	490	allow
+fim12	apps/desktop/src/renderer/features/editor/lsp/preparationTransport.ts	35	810	allow
+fin01	apps/desktop/src/renderer/features/harness/ui/HarnessCards.tsx	191	311	allow
+fin02	apps/desktop/src/renderer/features/palette/store.ts	47	94	allow
+fin04	packages/bench/src/scenarios/idle.ts	191	5430	reject:Cannot find name 'node:path'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. | Cannot find name 'process'
+fin05	apps/daemon/src/constellation/composition/attachments.ts	55	222	allow
+fin06	apps/desktop/scripts/lib/githubFake/world.ts	224	218	reject:Cannot find name 'node:fs'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig.
+fin07	apps/daemon/src/main.ts	29	458	allow
+fin08	apps/daemon/src/git/git.ts	171	198	reject:Cannot find name 'node:fs'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. | Cannot find name 'node:path'
+fin09	apps/desktop/src/renderer/features/session/chrome.ts	40	186	allow
+fin10	apps/daemon/src/engine/testing.ts	369	1045	allow
+fin11	apps/desktop/src/renderer/features/constellation/model/facts.ts	93	477	allow
+fin12	packages/protocol/src/constellation/domain.ts	346	597	allow
+frf01	apps/desktop/src/renderer/features/session/ui/whereMenus.tsx	154	756	allow
+frf02	packages/ui/src/components/polaris/approval-card.tsx	73	701	allow
+frf05	apps/desktop/src/renderer/features/constellation/model/look.ts	238	542	allow
+frf09	apps/desktop/src/renderer/features/session/preview/Preview.tsx	456	1292	allow
+frn03	packages/bench/src/scenarios/blobs.ts	101	5497	reject:Cannot find name 'node:path'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig.
+hdd02	apps/desktop/src/renderer/features/review/ui/SubjectHeader.tsx	192	686	allow
+hdd03	apps/desktop/src/renderer/features/review/ui/SubjectHeader.tsx	188	226	allow
+hdd04	apps/daemon/src/languages/media/native.ts	96	427	reject:Cannot find module 'bun:ffi' or its corresponding type declarations. | Cannot find name 'node:fs'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'no
+hdd05	apps/daemon/src/files/search/fallback.ts	323	256	reject:Cannot find name 'node:fs'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. | Cannot find name 'node:fs/pr
+hdd06	apps/desktop/src/renderer/features/jump/run.ts	75	1397	allow
+hdd07	apps/daemon/src/harness/claude/ClaudeDriver.ts	756	920	reject:Cannot find name 'Bun'. Do you need to install type definitions for Bun? Try `npm i --save-dev @types/bun` and then add 'bun' to the types field in your tsconfig.
+hdd09	apps/desktop/src/main/ipc/requests.ts	461	5686	allow
+hdd12	apps/desktop/src/main/machines/service.ts	737	338	reject:Cannot find name 'node:fs'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. | Cannot find namespace 'NodeJ
+him01	apps/desktop/src/renderer/features/editor/explorer/data/store.ts	165	639	allow
+him02	apps/desktop/src/renderer/features/open-folder/rows.ts	129	153	allow
+him03	apps/desktop/src/renderer/features/editor/explorer/ui/Explorer.tsx	251	1147	allow
+him04	apps/daemon/src/git/GitRpcs.ts	176	574	allow
+him05	apps/daemon/src/reviewer/prompt.ts	143	205	allow
+him07	apps/daemon/src/transport/serve.ts	240	5988	allow
+him10	packages/client/src/transport.ts	213	320	reject:Cannot find name 'node:child_process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. | Cannot find name 
+hin01	apps/desktop/scripts/dmg.ts	25	429	reject:Cannot find name 'Bun'. Do you need to install type definitions for Bun? Try `npm i --save-dev @types/bun` and then add 'bun' to the types field in your tsconfig.
+hin02	apps/desktop/src/renderer/features/risk/ui/VerdictPopover.tsx	174	724	allow
+hin03	apps/desktop/src/main/index.ts	431	1254	allow
+hin04	apps/desktop/scripts/package.ts	212	468	reject:Cannot find name 'Bun'. Do you need to install type definitions for Bun? Try `npm i --save-dev @types/bun` and then add 'bun' to the types field in your tsconfig. | Cannot find name 'Bun'. Do you need
+hin06	apps/desktop/src/renderer/features/session/ui/items.tsx	221	1426	allow
+hin07	apps/desktop/src/renderer/features/machines/HostsSettingsPage.tsx	201	835	allow
+hin08	apps/daemon/src/store/eventJson.ts	41	606	allow
+hin10	apps/desktop/src/shared/chord.ts	128	164	allow
+hin11	apps/desktop/src/main/machines/index.ts	75	617	reject:Object literal may only specify known properties, and 'sshBinary' does not exist in type 'MachinesInput'.
+hin12	apps/daemon/src/languages/composition/managedAvailability.ts	87	239	allow
+hin13	apps/desktop/src/main/index.ts	462	5661	allow
+hin14	apps/desktop/src/main/index.ts	453	2614	allow
+hrf04	apps/daemon/src/inline/live.ts	32	288	reject:Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig.
+hrf06	apps/desktop/src/main/updates/identity.ts	56	174	reject:Cannot find name 'node:crypto'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. | Cannot find name 'node:f
+hrf07	apps/desktop/src/renderer/features/constellation/ui/ConstellationTab.tsx	403	820	allow
+hrf09	apps/desktop/src/main/github/index.ts	257	596	reject:Cannot find name 'node:path'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig.
+hrf10	apps/desktop/src/main/machines/index.ts	82	563	allow
+hrf11	apps/desktop/src/main/prediction/bridge.ts	247	4691	reject:Cannot find name 'node:os'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig.
+hrf12	packages/ui/gallery/sections/floating.tsx	231	805	allow
+hrf13	apps/desktop/src/renderer/routes/selection.ts	248	532	allow
+hrn01	apps/site/scripts/smoke-feed.ts	239	438	reject:Cannot find name 'node:assert/strict'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. | Cannot find name 
+hrn02	apps/daemon/src/store/EventStore.ts	583	707	reject:Cannot find name 'node:fs'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. | Cannot find name 'node:path'
+hrn03	apps/daemon/src/languages/install/index.ts	434	194	allow
+hrn09	apps/desktop/src/renderer/features/composer/model/notice.ts	43	496	allow
+hrn10	apps/daemon/src/reviewer/index.ts	256	1038	reject:Type '(request: RunRequest) => Effect.Effect<RiskSummary | null, NotFound | GitError, never>' is not assignable to type '(request: RunRequest) => Effect<RiskSummary, NotFound | GitError, never>'. Type
+hrn11	apps/daemon/src/git/diff.ts	153	216	allow
+hrn12	apps/desktop/scripts/smoke.ts	508	378	reject:Element implicitly has an 'any' type because type 'typeof globalThis' has no index signature. | Element implicitly has an 'any' type because type 'typeof globalThis' has no index signature. | Element 
+hrn13	apps/desktop/src/renderer/features/constellation/preview/Preview.tsx	266	1653	allow
+hrn14	apps/desktop/src/renderer/features/editor/status/LogTab.tsx	120	296	allow
+im02	apps/daemon/src/transport/hostInfo.ts	62	508	reject:Cannot find name 'node:crypto'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. | Cannot find name 'node:f
+im03	apps/daemon/src/files/trash.ts	81	193	reject:Cannot find name 'node:crypto'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. | Cannot find name 'node:f
+im04	apps/daemon/src/harness/registry.ts	170	589	allow
+im06	apps/daemon/src/engine/fork.ts	92	170	allow
+in01	apps/daemon/src/constellation/setup/process.ts	68	166	reject:Cannot find name 'Bun'. Do you need to install type definitions for Bun? Try `npm i --save-dev @types/bun` and then add 'bun' to the types field in your tsconfig. | Cannot find name 'process'. Do you 
+in04	apps/desktop/src/renderer/features/constellation/model/attention.ts	83	531	allow
+rf01	apps/desktop/src/main/machines/views.ts	195	585	reject:Cannot find namespace 'NodeJS'. | Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconf
+rf03	packages/ui/gallery/sections/basics.tsx	163	777	allow
+rf06	apps/desktop/src/renderer/features/editor/prediction/commands.ts	43	943	allow
+rn01	apps/desktop/src/main/updates/index.ts	229	351	allow
+rn02	apps/site/app/api/update/_lib/windows.ts	142	1266	allow
+rn03	apps/desktop/src/renderer/features/review/overview/ui/TabBar.tsx	98	661	allow
+rn04	apps/desktop/src/renderer/features/machines/updates/Controls.tsx	104	241	allow
+rn06	apps/site/app/api/email/_lib/index.ts	94	1262	allow

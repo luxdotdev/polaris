@@ -8,8 +8,8 @@ import { Facet, type Text } from "@codemirror/state";
 import type { DiagnosticsVerdict } from "@polaris/predict";
 import type { PredictedEdit } from "@polaris/protocol";
 
-/** Measured in the live Editor; see the research doc's "Wiring" section. */
-export const VERIFY_DEADLINE_MS = 1000;
+/** TypeScript 7 checks take < 250 ms or about 1 s per file (next-edit-spike.md, "Wiring"). */
+export const VERIFY_DEADLINE_MS = 600;
 
 export interface VerifyInput {
   /** The buffer the prediction was made for; the user's document must still be at it. */

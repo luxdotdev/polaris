@@ -24,11 +24,15 @@ context through the ordered session queue, read, then closed.
 - **A fresh URI per check**, never on disk. The Daemon now accepts a
   document whose file does not exist yet when its directory is inside the
   checkout (`checkoutDocumentPath`).
-- **Complete answers only.** A pull report (`textDocument/diagnostic`) when
-  the server has one (TypeScript 7), else tsserver's `syntacticDiagnosticsSync`
-  and `semanticDiagnosticsSync` through typescript-language-server's
-  `typescript.tsserverRequest`. Its pushes are not used: the first one can
-  hold only syntax errors, and nothing marks the last.
+- **Pull diagnostics only.** The check reads a full `textDocument/diagnostic`
+  report (TypeScript 7's `tsc --lsp`). typescript-language-server is not
+  checked:
+  - its pushes are ambiguous, since the first can hold only syntax errors and
+    nothing marks the last;
+  - tsserver puts a file that is not on disk in an inferred project, not the
+    tsconfig's. Its `semanticDiagnosticsSync` then reports missing `node:` and
+    `Bun` types and skips strict-mode errors. In the live measurement it
+    rejected 24 of 82 ground truths.
 - **Before is read the same way**, from the user's document at the
   prediction's version, so a partial push cannot make an old error look new.
 - **Only TypeScript and JavaScript modules.** A script's or a declaration
@@ -40,9 +44,9 @@ context through the ordered session queue, read, then closed.
   fence captured then would go stale when it closes. `LanguageRequests`
   holds a request until the context's shadow closes and then fences against
   the acknowledgment from after the close.
-- **Failure.** Past the deadline, a server that can check fails closed
-  (`diagnostics-deadline`); a server that cannot, a Host that refuses the
-  shadow, or a request error fails open to today's guards. A keystroke aborts
+- **Failure.** Past the deadline (600 ms, measured), a server that can check
+  fails closed (`diagnostics-deadline`). A server that cannot, a Host that
+  refuses the shadow, or a request error fails open to today's guards. A keystroke aborts
   the check, cancels its Host requests and closes the shadow.
 
 ## Rejected
@@ -53,3 +57,6 @@ context through the ordered session queue, read, then closed.
   repo costs hundreds of MB.
 - Waiting for typescript-language-server's pushes: measured as ambiguous
   (a first push without semantic errors), so an error could pass.
+- tsserver's synchronous checks through `typescript.tsserverRequest`: the
+  shadow is checked under the wrong compiler options (an inferred project),
+  so good edits are rejected and strict errors pass.
