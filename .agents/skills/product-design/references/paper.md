@@ -51,6 +51,20 @@ Polaris learned on top of it.
   the HTML with a small script (syntax colours from DESIGN.md) rather than
   by hand.
 
+- Mono ligatures: `font-variant-ligatures: none` is ignored; use
+  `font-feature-settings: 'liga' 0, 'calt' 0` on every code span, or `=>`,
+  `===` and `!=` render as JetBrains Mono ligatures.
+- `duplicate_nodes` reorders sibling rows in long lists (adjacent code rows
+  swap) and its `descendantIdMap` can't be trusted. After duplicating, read
+  the list with `get_children`, fix the order with `move_nodes`
+  (`parentId` + `index`, a couple of moves per call), and find nodes by
+  `find_nodes` `textValue` then `get_node_info` for the parent.
+- Duplicates land far away: place them with `update_styles` `left`/`top`.
+  Duplicating several artboards in one call overflows the tool output to a
+  file; read the new ids from it with a script.
+- `write_html` `mode: "replace"` on a row swaps just that row; use
+  `insert-children` on an artboard for an absolute overlay (cards, edge
+  markers). `rename_nodes` takes `updates: [{nodeId, name}]`.
 ## Finish
 
 Screenshot each changed artboard, fix in one batch, call
