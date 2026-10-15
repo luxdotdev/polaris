@@ -3,12 +3,15 @@
  * directory, from git's objects rather than the working tree: a Turn's
  * snapshot is a tree no checkout holds, and a Review Checkout may be dirty.
  */
-import { childEnv } from "../service/childEnv.ts";
+import { safeArgs, safeConfigEnv } from "../git/safeConfig/index.ts";
+import { repositoryEnv } from "../service/childEnv.ts";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, normalize } from "node:path";
 
 const HEADER = /^(\S+) (\S+) (\d+)$/;
+
+const CAT_FILE = ["cat-file", "--batch"];
 
 interface Blob {
   readonly path: string;
@@ -54,14 +57,16 @@ const isContained = (path: string) => {
  * object (1,000 files cost ~550 MB read from a pipe, ~5 MB from a file).
  */
 const catFile = async (cwd: string, input: string, out: string): Promise<Uint8Array> => {
-  const proc = Bun.spawn(["git", "cat-file", "--batch"], {
+  // Automatic git: the safe config, no lazy fetch, and none of the Daemon's tokens.
+  const base = repositoryEnv(process.env, {
+    GIT_TERMINAL_PROMPT: "0",
+    GIT_OPTIONAL_LOCKS: "0",
+    LC_ALL: "C",
+  });
+
+  const proc = Bun.spawn(["git", ...safeArgs(CAT_FILE)], {
     cwd,
-    env: childEnv({
-      ...process.env,
-      GIT_TERMINAL_PROMPT: "0",
-      GIT_OPTIONAL_LOCKS: "0",
-      LC_ALL: "C",
-    }),
+    env: { ...base, ...(await safeConfigEnv(cwd, base, { args: CAT_FILE })) },
     stdin: new Blob([input]),
     stdout: Bun.file(out),
     stderr: "pipe",

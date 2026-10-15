@@ -52,6 +52,25 @@ was held (then indexed, decoded and offered as a Blob) whatever its size.
   blobs `git.show` returns, and `--upload-pack=git-upload-pack` on `fetch` and `ls-remote`:
   a `url.<path>.insteadOf` can make any remote local, and then `remote.<name>.uploadpack` would
   run on this Host. Only the flag overrides it (a second config value makes git refuse).
+- `GIT_NO_LAZY_FETCH=1`: in a partial clone (`extensions.partialClone`, or a
+  `remote.<name>.promisor`), any read of a missing object (`cat-file`, `show`, `diff`, `log -p`)
+  otherwise fetches it from the promisor remote, running that remote's `uploadpack`, or an
+  `ext::` or custom transport. `--upload-pack` is only a flag of `fetch` and `ls-remote`, and a
+  `GIT_CONFIG_*` value loses to the repository's (git takes the first `uploadpack`). git reads
+  the variable from 2.44 on; with an older git (`git --version`, once per `PATH`) a partial clone's
+  automatic git is refused (`GitLazyFetchUnsupported`) rather than run, and a full clone is read as
+  before. So in a blobless or treeless clone an automatic read of an object not yet fetched fails:
+  an older commit's diff or blob shows as unavailable, and a Review checkout or detached worktree
+  of a commit whose blobs aren't local fails, until git the user asked for fetches them
+  (`config: "host"` git, the user's own, still fetches lazily).
+
+`safeConfigEnv` builds this environment, and every automatic git takes it: `runGitRaw`, the commit
+message's staged diff, the search fallback's `git grep`, the Rules' `cat-file --batch`
+(`rules/materialize.ts`), and the `git log -p` Betterleaks runs for a history scan. Betterleaks
+spawns git itself, so its log options add `--no-ext-diff --no-textconv`, and it gets an allowlisted
+environment (`repositoryEnv`: no `SSH_AUTH_SOCK`, no tokens) with `GIT_CONFIG_GLOBAL=/dev/null` and
+`GIT_CONFIG_NOSYSTEM=1`, as Betterleaks sets for its own git anyway; `cat-file` gets the same
+allowlist.
 
 The repository's config is read with `git config --list --show-scope --show-origin`, from the
 same cwd, environment and global options as the call, so it is git's own discovery
