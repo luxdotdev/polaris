@@ -87,3 +87,16 @@ test("equivalent context order cannot churn the cache prefix", () => {
     buildPrompt({ ...request, context: context.toReversed() }).prompt
   );
 });
+
+test("trimmed prefixes keep the same leading whole line across consecutive keystrokes", () => {
+  const prefix =
+    Array.from({ length: 300 }, (_, i) => `const item${i} = ${i};`).join("\n") +
+    "\nconst result = ";
+
+  const first = buildPrompt({ ...request, prefix, budgetTokens: 2048 });
+  const second = buildPrompt({ ...request, prefix: `${prefix}x`, budgetTokens: 2048 });
+  const start = first.prompt.indexOf("<fim_prefix>") + "<fim_prefix>".length;
+  expect(first.prompt.slice(start)).toMatch(/^const item\d+ = \d+;/);
+  expect(first.prompt.slice(start)).not.toStartWith("const item0 =");
+  expect(second.prompt.startsWith(first.prompt.slice(0, -"<fim_middle>".length))).toBe(true);
+});

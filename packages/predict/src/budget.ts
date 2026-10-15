@@ -53,5 +53,12 @@ export const fitText = (
     else high = size - 1;
   }
 
-  return low === 0 ? "" : (tail ? points.slice(-low) : points.slice(0, low)).join("");
+  if (!tail || low === 0) return points.slice(0, low).join("");
+
+  if (points.length < 256 && !text.includes("\n")) return points.slice(-low).join("");
+  const removed = Math.ceil((points.length - low) / 256) * 256;
+  const offset = points.slice(0, removed).join("").length;
+  const newline = text.indexOf("\n", Math.max(0, offset - 1));
+
+  return newline >= 0 ? text.slice(newline + 1) : points.slice(removed).join("");
 };

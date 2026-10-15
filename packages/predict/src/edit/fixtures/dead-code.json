@@ -1,0 +1,429 @@
+[
+  {
+    "id": "dd01",
+    "category": "dead-code",
+    "path": "apps/desktop/src/renderer/features/needs-you/ui/Inbox.tsx",
+    "buffer": "/**\n * The sidebar's \"Needs you\" view across every Host (Paper 1G2-0): a card per waiting session,\n * approvals answered inline, questions shown and answered in the conversation; then \"Also\n * waiting on you\" with one action each; answers another device gave, for a minute.\n */\nimport type { SessionId } from \"@polaris/protocol\";\nimport {\n  EmptyState,\n  NeedsYouCard,\n  PixelFailedIcon,\n  PixelHandIcon,\n  PixelSparkleIcon,\n  PixelTerminalIcon,\n  WaitingCard,\n} from \"@polaris/ui\";\nimport type { ReactNode } from \"react\";\nimport { age, plural } from \"../../../shell/copy.ts\";\nimport { useApp, useSelection, useShellActions } from \"../../../shell/hooks.ts\";\nimport { useNow } from \"../../../shell/useNow.ts\";\nimport { useInbox } from \"../hooks.ts\";\nimport { quietFact } from \"../model/quiet.ts\";\nimport type {\n  AlsoKind,\n  AlsoWaiting,\n  AnsweredElsewhere,\n  Place,\n  WaitingSession,\n} from \"../model/inbox.ts\";\nimport { approve, continueTurn, deny, takeBack } from \"../respond.ts\";\n\n/** \"Host · Workspace · age\"; without `iso`, just where. */\nexport const where = (place: Place, iso: string | null, now: number) =>\n  [place.hostLabel, place.workspace, iso === null ? null : age(iso, now)]\n    .filter((part) => part !== null)\n    .join(\" · \");\n\nconst Title = ({\n  onOpen,\n  children,\n}: {\n  readonly onOpen: () => void;\n  readonly children: string;\n}) => (\n  <button\n    type=\"button\"\n    onClick={onOpen}\n    className=\"hover:decoration-text-faint w-full cursor-default truncate text-left hover:underline hover:underline-offset-2\"\n  >\n    {children || \"Untitled session\"}\n  </button>\n);\n\nconst Waiting = ({ item, now }: { readonly item: WaitingSession; readonly now: number }) => {\n  const { selectSession } = useShellActions();\n  const selection = useSelection();\n  const { session } = item.entry;\n  const request = item.requests[0];\n  const target = { hostKey: item.hostKey, sessionId: session.id, requestId: request?.id ?? \"\" };\n  const open = () => selectSession({ hostKey: item.hostKey, sessionId: session.id });\n  const more = item.requests.length > 1 ? ` · ${item.requests.length} waiting` : \"\";\n\n  if (request === undefined) return null;\n\n  return (\n    <NeedsYouCard\n      data-testid=\"needs-you-card\"\n      data-session={session.id}\n      harness={session.harness}\n      selected={selection.pane === \"session\" && selection.sessionId === session.id}\n      title={<Title onOpen={open}>{session.title}</Title>}\n      where={`${where(item, item.since, now)}${more}`}\n      {...(request.kind === \"question\"\n        ? { question: request.title }\n        : {\n            approval: {\n              command: request.detail ?? request.title,\n              onApprove: () => void approve(target),\n              onAlwaysAllow: () => void approve(target, true),\n              onDeny: () => void deny(target),\n            },\n          })}\n    />\n  );\n};\n\nconst ALSO: Record<AlsoKind, { readonly icon: ReactNode; readonly action: string }> = {\n  failed: { icon: <PixelFailedIcon size={14} />, action: \"Retry\" },\n  \"in-terminal\": { icon: <PixelTerminalIcon size={14} />, action: \"Take back\" },\n  interrupted: { icon: <PixelHandIcon size={14} className=\"text-needs-you\" />, action: \"Continue\" },\n};\n\nconst alsoDetail = (item: AlsoWaiting): string => {\n  if (item.kind === \"failed\")\n    return `Failed · ${item.entry.session.lastError ?? \"the Turn errored\"}`;\n\n  return item.kind === \"in-terminal\" ? \"In your terminal\" : \"Interrupted when the daemon stopped\";\n};\n\nconst Also = ({ item }: { readonly item: AlsoWaiting }) => {\n  const { selectSession } = useShellActions();\n  const { session } = item.entry;\n  const id: SessionId = session.id;\n  const open = () => selectSession({ hostKey: item.hostKey, sessionId: id });\n\n  const run = () => {\n    if (item.kind === \"in-terminal\") void takeBack(item.hostKey, id);\n    else if (item.kind === \"interrupted\") void continueTurn(item.hostKey, id);\n    // Retrying a failed Turn happens in its conversation, where its prompt is.\n    else open();\n  };\n\n  return (\n    <WaitingCard\n      data-testid=\"waiting-card\"\n      kind={item.kind}\n      icon={ALSO[item.kind].icon}\n      title={<Title onOpen={open}>{session.title}</Title>}\n      detail={alsoDetail(item)}\n      action={{ label: ALSO[item.kind].action, onAction: run }}\n    />\n  );\n};\n\nconst DECISIONS: Record<AnsweredElsewhere[\"resolution\"][\"decision\"], string> = {\n  Allow: \"Approved\",\n  Deny: \"Denied\",\n  Answer: \"Answered\",\n};\n\nconst Answered = ({ item }: { readonly item: AnsweredElsewhere }) => (\n  <div\n    data-testid=\"answered-elsewhere\"\n    className=\"rounded-card border-hairline bg-surface-raised flex flex-col gap-px border px-3 py-2.5\"\n  >\n    <p className=\"text-label text-text-default truncate\">\n      {item.entry.session.title || \"Untitled session\"}\n    </p>\n    <p className=\"text-caption text-text-subtle truncate\">\n      {DECISIONS[item.resolution.decision]} on {item.resolution.resolvedBy} ·{\" \"}\n      {item.resolution.request.title}\n    </p>\n  </div>\n);\n\nconst Empty = () => {\n  const hosts = useApp((s) => s.hosts);\n  const models = useApp((s) => s.hostModels);\n\n  const active = Object.values(models).reduce(\n    (n, model) =>\n      n + [...model.sessions.values()].filter((e) => e.session.state !== \"archived\").length,\n    0\n  );\n\n  return (\n    <EmptyState\n      data-testid=\"needs-you-empty\"\n      icon={<PixelSparkleIcon size={24} className=\"text-text-strong\" />}\n      title=\"Nothing needs you\"\n      fact={quietFact({ hosts: hosts.length, models: Object.values(models) })}\n    />\n  );\n};\n\nexport const NeedsYouInbox = () => {\n  const inbox = useInbox();\n  const now = useNow(30_000);\n\n  const nothing =\n    inbox.waiting.length === 0 && inbox.also.length === 0 && inbox.answered.length === 0;\n\n  if (nothing) return <Empty />;\n\n  return (\n    <div className=\"flex flex-col gap-2 px-2 pt-2 pb-4\" data-testid=\"needs-you-inbox\">\n      {inbox.answered.map((item) => (\n        <Answered key={item.key} item={item} />\n      ))}\n      {inbox.waiting.map((item) => (\n        <Waiting key={item.key} item={item} now={now} />\n      ))}\n      {inbox.also.length === 0 ? null : (\n        <p className=\"text-caption text-text-subtle px-1.5 pt-2.5 pb-0.5\">Also waiting on you</p>\n      )}\n      {inbox.also.map((item) => (\n        <Also key={item.key} item={item} />\n      ))}\n    </div>\n  );\n};\n",
+    "cursor": 5495,
+    "history": [
+      {
+        "path": "apps/desktop/src/renderer/features/needs-you/ui/Inbox.tsx",
+        "line": 20,
+        "before": "",
+        "after": "import { quietFact } from \"../model/quiet.ts\";"
+      },
+      {
+        "path": "apps/desktop/src/renderer/features/needs-you/ui/Inbox.tsx",
+        "line": 159,
+        "before": "      fact={`${plural(active, \"session\")} on ${plural(hosts.length, \"host\")}, none waiting.`}",
+        "after": "      fact={quietFact({ hosts: hosts.length, models: Object.values(models) })}"
+      }
+    ],
+    "expected": [
+      {
+        "from": 5079,
+        "to": 5249,
+        "text": ""
+      }
+    ],
+    "allowed": [
+      [
+        {
+          "from": 5079,
+          "to": 5249,
+          "text": ""
+        }
+      ],
+      [
+        {
+          "from": 405,
+          "to": 425,
+          "text": "  PixelCheckIcon,\n"
+        },
+        {
+          "from": 5079,
+          "to": 5249,
+          "text": ""
+        }
+      ],
+      [
+        {
+          "from": 523,
+          "to": 577,
+          "text": "import { age } from \"../../../shell/copy.ts\";\n"
+        },
+        {
+          "from": 5079,
+          "to": 5249,
+          "text": ""
+        }
+      ],
+      [
+        {
+          "from": 405,
+          "to": 425,
+          "text": "  PixelCheckIcon,\n"
+        },
+        {
+          "from": 523,
+          "to": 577,
+          "text": "import { age } from \"../../../shell/copy.ts\";\n"
+        },
+        {
+          "from": 5079,
+          "to": 5249,
+          "text": ""
+        }
+      ],
+      [
+        {
+          "from": 5079,
+          "to": 5249,
+          "text": ""
+        },
+        {
+          "from": 5312,
+          "to": 5385,
+          "text": "      icon={<PixelCheckIcon size={24} className=\"text-text-strong\" />}\n"
+        }
+      ],
+      [
+        {
+          "from": 405,
+          "to": 425,
+          "text": "  PixelCheckIcon,\n"
+        },
+        {
+          "from": 5079,
+          "to": 5249,
+          "text": ""
+        },
+        {
+          "from": 5312,
+          "to": 5385,
+          "text": "      icon={<PixelCheckIcon size={24} className=\"text-text-strong\" />}\n"
+        }
+      ],
+      [
+        {
+          "from": 523,
+          "to": 577,
+          "text": "import { age } from \"../../../shell/copy.ts\";\n"
+        },
+        {
+          "from": 5079,
+          "to": 5249,
+          "text": ""
+        },
+        {
+          "from": 5312,
+          "to": 5385,
+          "text": "      icon={<PixelCheckIcon size={24} className=\"text-text-strong\" />}\n"
+        }
+      ],
+      [
+        {
+          "from": 405,
+          "to": 425,
+          "text": "  PixelCheckIcon,\n"
+        },
+        {
+          "from": 523,
+          "to": 577,
+          "text": "import { age } from \"../../../shell/copy.ts\";\n"
+        },
+        {
+          "from": 5079,
+          "to": 5249,
+          "text": ""
+        },
+        {
+          "from": 5312,
+          "to": 5385,
+          "text": "      icon={<PixelCheckIcon size={24} className=\"text-text-strong\" />}\n"
+        }
+      ]
+    ],
+    "outputs": [
+      {
+        "format": "zeta-2.1",
+        "output": "<|marker_1|><|marker_1|>",
+        "label": "abstain"
+      },
+      {
+        "format": "sweep-next-edit",
+        "output": "\n    (n, model) =>\n      n + [...model.sessions.values()].filter((e) => e.session.state !== \"archived\").length,\n    0\n  );\n\n  return (\n    <EmptyState\n      data-testid=\"needs-you-empty\"\n      icon={<PixelSparkleIcon size={24} className=\"text-text-strong\" />}\n      title=\"Nothing needs you\"\n      fact={quietFact({ hosts: hosts.length, models: Object.values(models) })}\n    />\n  );\n};\n\nexport const NeedsYouInbox = () => {\n  const inbox = useInbox();\n  const now = useNow(30_000);\n\n  const nothing =\n    inbox.waiting.length === 0 && inbox.also.length === 0 && inbox.answered.length === 0;\n",
+        "label": "abstain"
+      }
+    ]
+  },
+  {
+    "id": "dd02",
+    "category": "dead-code",
+    "path": "apps/desktop/src/renderer/features/editor/ui/CodeHost.tsx",
+    "buffer": "/**\n * Where the active file's CodeMirror view lives. Views outlive their tab\n * being hidden (vim marks, scroll, plugins), so switching tabs moves views\n * in and out of this one element rather than rebuilding them.\n */\nimport { useEffect, useRef } from \"react\";\nimport { forwardShellChords } from \"../cm/keys.ts\";\nimport { attachView, detachView } from \"../runtime/buffers.ts\";\n\nconst mac = typeof navigator !== \"undefined\" && /Mac/.test(navigator.userAgent);\n\nexport interface CodeHostProps {\n  /** The active file's key; null for none. */\n  readonly bufferKey: string | null;\n  /** Re-runs the attach once the file has loaded. */\n  readonly ready: boolean;\n  /** Take focus when the file shows (a tab click, an open from elsewhere). */\n  readonly focus: boolean;\n}\n\nexport const CodeHost = ({ bufferKey, ready, focus }: CodeHostProps) => {\n  const host = useRef<HTMLDivElement>(null);\n\n  useEffect(() => {\n    const parent = host.current;\n\n    return parent === null ? undefined : forwardShellChords(parent);\n  }, []);\n\n  useEffect(() => {\n    const parent = host.current;\n\n    if (parent === null || bufferKey === null || !ready) return undefined;\n\n    if (attachView(bufferKey, parent) && focus) {\n      parent.querySelector<HTMLElement>(\".cm-content\")?.focus({ preventScroll: true });\n    }\n\n    return () => detachView(bufferKey);\n  }, [bufferKey, ready, focus]);\n\n  return (\n    <div\n      ref={host}\n      data-testid=\"editor-code\"\n      className=\"min-h-0 flex-1 overflow-hidden [&>.cm-editor]:h-full\"\n    />\n  );\n};\n",
+    "cursor": 1012,
+    "history": [
+      {
+        "path": "apps/desktop/src/renderer/features/editor/ui/CodeHost.tsx",
+        "line": 26,
+        "before": "    return parent === null ? undefined : forwardShellChords(parent, mac);",
+        "after": "    return parent === null ? undefined : forwardShellChords(parent);"
+      }
+    ],
+    "expected": [
+      {
+        "from": 380,
+        "to": 462,
+        "text": ""
+      }
+    ],
+    "allowed": [
+      [
+        {
+          "from": 380,
+          "to": 462,
+          "text": ""
+        }
+      ]
+    ],
+    "outputs": [
+      {
+        "format": "zeta-2.1",
+        "output": "<|marker_1|><|marker_1|>",
+        "label": "abstain"
+      },
+      {
+        "format": "sweep-next-edit",
+        "output": "\n  /** Take focus when the file shows (a tab click, an open from elsewhere). */\n  readonly focus: boolean;\n}\n\nexport const CodeHost = ({ bufferKey, ready, focus }: CodeHostProps) => {\n  const host = useRef<HTMLDivElement>(null);\n\n  useEffect(() => {\n    const parent = host.current;\n\n    return parent === null ? undefined : forwardShellChords(parent);\n  }, []);\n\n  useEffect(() => {\n    const parent = host.current;\n\n    if (parent === null || bufferKey === null || !ready) return undefined;\n\n    if (attachView(bufferKey, parent) && focus) {\n      parent.querySelector<HTMLElement>(\".cm-content\")?.focus({ preventScroll: true });\n    }\n",
+        "label": "abstain"
+      }
+    ]
+  },
+  {
+    "id": "dd03",
+    "category": "dead-code",
+    "path": "apps/desktop/src/renderer/features/editor/runtime/editorState.ts",
+    "buffer": "/**\n * One file's CodeMirror state: the shared look and keys, its own line\n * endings and indentation, and compartments for what arrives later (its\n * grammar, vim mode, other features' extensions).\n */\nimport { defaultKeymap, history, historyKeymap, indentWithTab } from \"@codemirror/commands\";\nimport { bracketMatching, indentOnInput, indentUnit } from \"@codemirror/language\";\nimport { highlightSelectionMatches, search, searchKeymap } from \"@codemirror/search\";\nimport { Compartment, EditorState, type Extension } from \"@codemirror/state\";\nimport {\n  drawSelection,\n  dropCursor,\n  EditorView,\n  highlightActiveLine,\n  highlightActiveLineGutter,\n  keymap,\n  lineNumbers,\n} from \"@codemirror/view\";\nimport {\n  type EditorFile,\n  editorFile,\n  registeredCompartment,\n  registeredExtensions,\n} from \"../cm/extensions.ts\";\nimport { shellSafe } from \"../cm/keys.ts\";\nimport { reloadHighlight } from \"../cm/reload.ts\";\nimport { agentMarks } from \"../cm/agent.ts\";\nimport { currentKeyPlatform } from \"../../../../shared/chord.ts\";\nimport { editorLook } from \"../cm/theme.ts\";\nimport { inlineDiagnostics } from \"../cm/inlineDiagnostics.ts\";\nimport { detectIndent, type Indent, lineSeparatorOf } from \"../model/indent.ts\";\n\nexport const languageCompartment = new Compartment();\n\nexport const vimCompartment = new Compartment();\n\nexport const readOnlyCompartment = new Compartment();\n\n/** Which file the state holds; a rename reconfigures it. */\nexport const fileCompartment = new Compartment();\n\n/** The file's own line endings; a reload that changes them reconfigures it, so saves keep the disk's. */\nexport const lineEndingCompartment = new Compartment();\n\nexport const lineEnding = (separator: \"\\r\\n\" | \"\\n\"): Extension =>\n  separator === \"\\r\\n\" ? EditorState.lineSeparator.of(\"\\r\\n\") : [];\n\nconst mac = typeof navigator !== \"undefined\" && /Mac/.test(navigator.userAgent);\n\n/** Built once: the keys with every shell chord taken out. */\nlet keys: Extension | null = null;\n\nconst editorKeys = () => {\n  keys ??= keymap.of([\n    ...shellSafe(\n      [...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab],\n      currentKeyPlatform()\n    ),\n  ]);\n\n  return keys;\n};\n\n/** CodeMirror's own words in sentence case (rule/sentence-case). */\nconst PHRASES = EditorState.phrases.of({\n  Find: \"Find\",\n  Replace: \"Replace\",\n  next: \"Next\",\n  previous: \"Previous\",\n  all: \"All\",\n  \"match case\": \"Match case\",\n  regexp: \"Regex\",\n  \"by word\": \"Whole word\",\n  replace: \"Replace\",\n  \"replace all\": \"Replace all\",\n  close: \"Close\",\n  \"current match\": \"Current match\",\n  \"on line\": \"on line\",\n  \"Go to line\": \"Go to line\",\n  go: \"Go\",\n});\n\nexport interface StateInput {\n  readonly file: EditorFile;\n  readonly text: string;\n  readonly readOnly: boolean;\n  /** Vim's extension when the setting is on and it has loaded. */\n  readonly vim: Extension;\n  /** Called with every update while the state is in a view. */\n  readonly onUpdate: Extension;\n}\n\nexport interface FileState {\n  readonly state: EditorState;\n  readonly indent: Indent;\n}\n\nexport const createFileState = ({ file, text, readOnly, vim, onUpdate }: StateInput): FileState => {\n  const indent = detectIndent(text);\n  const separator = lineSeparatorOf(text);\n\n  const state = EditorState.create({\n    doc: text,\n    extensions: [\n      // Vim first, so its keys win over the editor's (codemirror-vim's README).\n      vimCompartment.of(vim),\n      fileCompartment.of(editorFile.of(file)),\n      lineEndingCompartment.of(lineEnding(separator)),\n      EditorState.tabSize.of(indent.width),\n      indentUnit.of(indent.tabs ? \"\\t\" : \" \".repeat(indent.width)),\n      // The agent's bar first: it overlays the git bar's place on the lines it wrote.\n      agentMarks,\n      // Before the line numbers, so a registered gutter (the git bars) sits left of them.\n      registeredCompartment.of(registeredExtensions(file)),\n      lineNumbers(),\n      highlightActiveLineGutter(),\n      inlineDiagnostics,\n      highlightActiveLine(),\n      history(),\n      drawSelection(),\n      dropCursor(),\n      indentOnInput(),\n      bracketMatching(),\n      highlightSelectionMatches(),\n      search({ top: true }),\n      editorKeys(),\n      editorLook,\n      PHRASES,\n      reloadHighlight,\n      languageCompartment.of([]),\n      readOnlyCompartment.of(readOnly ? EditorState.readOnly.of(true) : []),\n      EditorView.contentAttributes.of({ \"aria-label\": `Editing ${file.path}` }),\n      onUpdate,\n    ],\n  });\n\n  return { state, indent };\n};\n",
+    "cursor": 2146,
+    "history": [
+      {
+        "path": "apps/desktop/src/renderer/features/editor/runtime/editorState.ts",
+        "line": 27,
+        "before": "",
+        "after": "import { currentKeyPlatform } from \"../../../../shared/chord.ts\";"
+      },
+      {
+        "path": "apps/desktop/src/renderer/features/editor/runtime/editorState.ts",
+        "line": 54,
+        "before": "    ...shellSafe([...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab], mac),",
+        "after": "    ...shellSafe(\n      [...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab],\n      currentKeyPlatform()\n    ),"
+      }
+    ],
+    "expected": [
+      {
+        "from": 1788,
+        "to": 1870,
+        "text": ""
+      }
+    ],
+    "allowed": [
+      [
+        {
+          "from": 1788,
+          "to": 1870,
+          "text": ""
+        }
+      ]
+    ],
+    "outputs": [
+      {
+        "format": "zeta-2.1",
+        "output": "<|marker_1|><|marker_1|>",
+        "label": "abstain"
+      },
+      {
+        "format": "sweep-next-edit",
+        "output": "\nconst mac = typeof navigator !== \"undefined\" && /Mac/.test(navigator.userAgent);\n\n/** Built once: the keys with every shell chord taken out. */\nlet keys: Extension | null = null;\n\nconst editorKeys = () => {\n  keys ??= keymap.of([\n    ...shellSafe(\n      [...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab],\n      currentKeyPlatform()\n    ),\n  ]);\n\n  return keys;\n};\n\n/** CodeMirror's own words in sentence case (rule/sentence-case). */\nconst PHRASES = EditorState.phrases.of({\n  Find: \"Find\",\n  Replace: \"Replace\",\n  next: \"Next\",\n",
+        "label": "abstain"
+      }
+    ]
+  },
+  {
+    "id": "dd04",
+    "category": "dead-code",
+    "path": "apps/desktop/src/renderer/features/settings/editor/Advanced.tsx",
+    "buffer": "/** Advanced (Paper L4): collapsed; custom servers, executable overrides and Markdown images, per Host. */\nimport * as P from \"@polaris/protocol\";\nimport { DisclosureChevron } from \"@polaris/ui\";\nimport { useMemo, useState } from \"react\";\nimport type { LanguageApi } from \"../../../../shared/api.ts\";\nimport { CustomServers } from \"./CustomServers.tsx\";\nimport { useRecord, type Committed } from \"./hooks.ts\";\nimport { MarkdownImages, type PolicyWorkspace } from \"./MarkdownImages.tsx\";\nimport { Overrides } from \"./Overrides.tsx\";\nimport { withKey } from \"./records.ts\";\n\nexport interface AdvancedHost {\n  readonly key: string;\n  readonly id: P.HostId;\n  readonly label: string;\n}\n\nconst Heading = ({ children }: { readonly children: string }) => (\n  <h3 className=\"text-caption text-text-subtle px-0.5 font-medium\">{children}</h3>\n);\n\nconst Sections = ({\n  api,\n  host,\n  providers,\n  workspaces,\n  committed,\n  onPolicySaved,\n}: {\n  readonly api: LanguageApi;\n  readonly host: AdvancedHost;\n  readonly providers: ReadonlyArray<string>;\n  readonly workspaces: ReadonlyArray<PolicyWorkspace>;\n  readonly committed: Committed;\n  readonly onPolicySaved: (workspaceId: P.WorkspaceId) => void;\n}) => {\n  const scope = useMemo(\n    () => P.LanguageSettingsScope.cases.Host.make({ hostId: host.id }),\n    [host.id]\n  );\n\n  const { record, failed, update } = useRecord(api, host.key, scope, committed);\n  const disabled = record === null;\n\n  return (\n    <div className=\"flex flex-col gap-4\">\n      {failed && (\n        <p role=\"status\" className=\"text-caption text-text-subtle\">\n          Couldn't read or save {host.label}'s language settings. Try again.\n        </p>\n      )}\n      <Heading>{`Custom language servers on ${host.label}`}</Heading>\n      <CustomServers\n        servers={record?.settings.customServers ?? []}\n        disabled={disabled}\n        onChange={(servers) =>\n          void update(withKey(\"customServers\", servers.length > 0 ? servers : undefined))\n        }\n      />\n      <Heading>{`Executable overrides on ${host.label}`}</Heading>\n      <Overrides\n        overrides={record?.settings.executableOverrides ?? {}}\n        providers={providers}\n        disabled={disabled}\n        onChange={(overrides) =>\n          void update(\n            withKey(\n              \"executableOverrides\",\n              Object.keys(overrides).length > 0 ? overrides : undefined\n            )\n          )\n        }\n      />\n      <Heading>Markdown previews</Heading>\n      <MarkdownImages\n        api={api}\n        hostKey={host.key}\n        hostId={host.id}\n        workspaces={workspaces}\n        onSaved={onPolicySaved}\n      />\n    </div>\n  );\n};\n\nexport const Advanced = (props: {\n  readonly api: LanguageApi | undefined;\n  readonly host: AdvancedHost | null;\n  readonly providers: ReadonlyArray<string>;\n  readonly workspaces: ReadonlyArray<PolicyWorkspace>;\n  readonly committed: Committed;\n  readonly onPolicySaved: (workspaceId: P.WorkspaceId) => void;\n}) => {\n  const [open, setOpen] = useState(false);\n  const Chevron = open ? ChevronDownIcon : ChevronRightIcon;\n  const { api, host } = props;\n\n  return (\n    <section aria-label=\"Advanced\" className=\"flex flex-col gap-4\">\n      <button\n        type=\"button\"\n        aria-expanded={open}\n        onClick={() => setOpen(!open)}\n        className=\"flex cursor-default items-center gap-2 self-start px-0.5 py-1 text-left\"\n      >\n        <DisclosureChevron open={open} size={12} className=\"text-text-subtle\" />\n        <span className=\"text-body text-text-default font-medium\">Advanced</span>\n        <span className=\"text-caption text-text-faint\">\n          Custom language servers and executable overrides, per host\n        </span>\n      </button>\n      {open &&\n        (api && host ? (\n          <Sections {...props} api={api} host={host} />\n        ) : (\n          <p className=\"text-caption text-text-subtle\">\n            Pick a connected host to change its language servers.\n          </p>\n        ))}\n    </section>\n  );\n};\n",
+    "cursor": 3468,
+    "history": [
+      {
+        "path": "apps/desktop/src/renderer/features/settings/editor/Advanced.tsx",
+        "line": 2,
+        "before": "import { ChevronDownIcon, ChevronRightIcon } from \"@polaris/ui\";",
+        "after": "import { DisclosureChevron } from \"@polaris/ui\";"
+      },
+      {
+        "path": "apps/desktop/src/renderer/features/settings/editor/Advanced.tsx",
+        "line": 105,
+        "before": "        <Chevron size={12} className=\"text-text-subtle shrink-0\" />",
+        "after": "        <DisclosureChevron open={open} size={12} className=\"text-text-subtle\" />"
+      }
+    ],
+    "expected": [
+      {
+        "from": 3012,
+        "to": 3073,
+        "text": ""
+      }
+    ],
+    "allowed": [
+      [
+        {
+          "from": 3012,
+          "to": 3073,
+          "text": ""
+        }
+      ]
+    ],
+    "outputs": [
+      {
+        "format": "zeta-2.1",
+        "output": "<|marker_1|>}) => {\n  const [open, setOpen] = useState(false);\n  const { api, host } = props;\n\n  return (\n    <section aria-label=\"Advanced\" className=\"flex flex-col gap-4\">\n      <button\n        type=\"button\"\n        aria-expanded={open}\n        onClick={() => setOpen(!open)}\n        className=\"flex cursor-default items-center gap-2 self-start px-0.5 py-1 text-left\"\n      >\n        <DisclosureChevron open={open} size={12} className=\"text-text-subtle\" />\n        <span className=\"text-body text-text-default font-medium\">Advanced</span>\n        <span className=\"text-caption text-text-faint\">\n<|marker_2|>",
+        "label": "exact"
+      },
+      {
+        "format": "sweep-next-edit",
+        "output": "\n  const { api, host } = props;\n\n  return (\n    <section aria-label=\"Advanced\" className=\"flex flex-col gap-4\">\n      <button\n        type=\"button\"\n        aria-expanded={open}\n        onClick={() => setOpen(!open)}\n        className=\"flex cursor-default items-center gap-2 self-start px-0.5 py-1 text-left\"\n      >\n        <DisclosureChevron open={open} size={12} className=\"text-text-subtle\" />\n        <span className=\"text-body text-text-default font-medium\">Advanced</span>\n        <span className=\"text-caption text-text-faint\">\n          Custom language servers and executable overrides, per host\n        </span>\n      </button>\n      {open &&\n        (api && host ? (\n          <Sections {...props} api={api} host={host} />\n        ) : (\n          <p className=\"text-caption text-text-subtle\">\n",
+        "label": "abstain"
+      }
+    ]
+  },
+  {
+    "id": "dd05",
+    "category": "dead-code",
+    "path": "apps/desktop/src/renderer/features/review/ui/useReviewModel.ts",
+    "buffer": "/**\n * Everything the diff and the file list show for a ready Review: which files are viewed\n * and open, Pierre's items with their annotations, the gutter marks, the header models,\n * and the actions behind the chevrons, checkboxes and Turn dividers.\n */\nimport type { AnnotationSide, DiffLineAnnotation, FileDiffMetadata } from \"@pierre/diffs\";\nimport { useEffect, useMemo, useState } from \"react\";\nimport { useStore } from \"zustand\";\nimport type { PullFileView } from \"../../../../shared/github.ts\";\nimport { contentsLoader } from \"../data/expand.ts\";\nimport { parseOne, type ReviewDiff } from \"../data/useReviewDiff.ts\";\nimport { markLocal, markPull, pendingKey, useViewed } from \"../data/viewedStore.ts\";\nimport { reviewProgress } from \"../model/fileList.ts\";\nimport { type FindingInfo, findingsIn, lineMarks, severityByPath } from \"../model/findings.ts\";\nimport { layoutRows, type LayoutRow, type ReviewFile, rowSignature } from \"../model/layout.ts\";\nimport { itemKey, marksCss, selectionCss } from \"../model/marks.ts\";\nimport {\n  type FileViewed,\n  localViewed,\n  progressOf,\n  pullFileViewed,\n  type RemoteViewed,\n} from \"../model/viewed.ts\";\nimport { type DiffRange, revealStore, type ReviewAnnotation } from \"../surface.ts\";\nimport type { PaneItem, RowMeta } from \"./DiffPane.tsx\";\nimport { type HeaderModel, headerStore } from \"./FileHeader.tsx\";\n\ntype ReadyDiff = Extract<ReviewDiff, { readonly kind: \"ready\" }>;\n\n/** A pull request's side of Viewed: GitHub's state per path and how to set it. */\nexport interface PullViewed {\n  readonly pull: {\n    readonly repo: { readonly owner: string; readonly name: string };\n    readonly number: number;\n  };\n  readonly pullId: string;\n  readonly files: ReadonlyArray<PullFileView>;\n}\n\nexport interface ReviewModelInput {\n  readonly subjectKey: string;\n  readonly diff: ReadyDiff;\n  readonly findings: ReadonlyArray<FindingInfo>;\n  readonly annotations: ReadonlyArray<ReviewAnnotation>;\n  /** Lines the comment composer is open on: the diff tints them. */\n  readonly selection: DiffRange | null;\n  /** Null for an Agent Session (Viewed is local). */\n  readonly pullViewed: PullViewed | null;\n}\n\nconst sideOf = (side: \"new\" | \"old\"): AnnotationSide =>\n  side === \"old\" ? \"deletions\" : \"additions\";\n\nconst annotationsFor = (\n  path: string,\n  findings: ReadonlyArray<FindingInfo>,\n  slots: ReadonlyArray<ReviewAnnotation>\n): Array<DiffLineAnnotation<RowMeta>> => [\n  ...findingsIn(findings, path).map((finding) => ({\n    side: sideOf(finding.lines.side),\n    lineNumber: finding.lines.end,\n    metadata: { kind: \"finding\" as const, finding },\n  })),\n  ...slots.flatMap((annotation) =>\n    annotation.path === path\n      ? [\n          {\n            side: sideOf(annotation.side),\n            lineNumber: annotation.line,\n            metadata: { kind: \"slot\" as const, annotation },\n          },\n        ]\n      : []\n  ),\n];\n\nconst annotationSignature = (annotations: ReadonlyArray<DiffLineAnnotation<RowMeta>>) =>\n  annotations\n    .map((a) => (a.metadata.kind === \"finding\" ? a.metadata.finding.id : a.metadata.annotation.id))\n    .join(\",\");\n\n/** Each file's Viewed state: GitHub's for a pull request, this window's for a session. */\nconst useViewedStateOf = (input: ReviewModelInput): ((file: ReviewFile) => FileViewed) => {\n  const book = useViewed((s) => s.book);\n  const pending = useViewed((s) => s.pending);\n  const { pullViewed, subjectKey } = input;\n\n  return useMemo(() => {\n    if (pullViewed === null) {\n      return (file: ReviewFile) => localViewed(book, subjectKey, file.key, file.fingerprint);\n    }\n\n    const remote = new Map<string, RemoteViewed>(pullViewed.files.map((f) => [f.path, f.viewed]));\n\n    return (file: ReviewFile) =>\n      pullFileViewed(\n        remote.get(file.file.path),\n        pending.get(pendingKey(pullViewed.pullId, file.file.path))\n      );\n  }, [book, pending, pullViewed, subjectKey]);\n};\n\nconst headerOf = (\n  row: LayoutRow,\n  viewed: FileViewed,\n  severity: HeaderModel[\"severity\"]\n): HeaderModel => ({\n  path: row.file.file.path,\n  oldPath: row.file.file.oldPath,\n  status: row.file.file.status,\n  additions: row.file.file.additions,\n  deletions: row.file.file.deletions,\n  binary: row.file.file.binary,\n  collapsed: row.collapsed,\n  viewed: viewed === \"viewed\",\n  changed: viewed === \"changed\",\n  severity,\n  divider: row.divider,\n  note: null,\n});\n\nexport const useReviewModel = (input: ReviewModelInput) => {\n  const { diff, findings, annotations, subjectKey, pullViewed } = input;\n  const [toggled, setToggled] = useState<ReadonlyMap<string, boolean>>(new Map());\n  const [openedSections, setOpenedSections] = useState<ReadonlySet<string>>(new Set());\n  const [openFile, setOpenFile] = useState<string | null>(null);\n  const [opened, setOpened] = useState<ReadonlyMap<string, FileDiffMetadata>>(new Map());\n  const viewedStateOf = useViewedStateOf(input);\n\n  const viewedOf = useMemo(\n    () => (file: ReviewFile) => viewedStateOf(file) === \"viewed\",\n    [viewedStateOf]\n  );\n\n  const files = useMemo(() => diff.sections.flatMap((s) => s.files), [diff.sections]);\n  const byKey = useMemo(() => new Map(files.map((f) => [f.key, f])), [files]);\n\n  const rows = useMemo(\n    () =>\n      layoutRows({\n        sections: diff.sections,\n        scale: diff.scale,\n        viewed: viewedOf,\n        toggled,\n        openedSections,\n        openFile,\n      }),\n    [diff.sections, diff.scale, viewedOf, toggled, openedSections, openFile]\n  );\n\n  useEffect(() => {\n    const file = openFile === null ? undefined : byKey.get(openFile);\n    const bytes = file === undefined ? undefined : diff.bytes.get(file.section);\n\n    if (diff.scale !== \"list-only\" || file === undefined || bytes === undefined) return;\n\n    if (opened.has(file.key)) return;\n\n    void parseOne(bytes, file).then((parsed) => {\n      if (parsed !== undefined) setOpened((m) => new Map(m).set(file.key, parsed));\n    });\n  }, [openFile, byKey, diff.bytes, diff.scale, opened]);\n\n  const parsedAll = useMemo(\n    () => (opened.size === 0 ? diff.parsed : new Map([...diff.parsed, ...opened])),\n    [diff.parsed, opened]\n  );\n\n  const severities = useMemo(() => severityByPath(findings), [findings]);\n  const marks = useMemo(() => marksCss(lineMarks(findings, files)), [findings, files]);\n  const { selection } = input;\n\n  const tint = useMemo(\n    () =>\n      selectionCss(\n        selection === null\n          ? null\n          : {\n              items: files.flatMap((f) =>\n                f.file.path === selection.path ? [itemKey(f.index)] : []\n              ),\n              side: selection.side,\n              start: selection.start,\n              end: selection.end,\n            }\n      ),\n    [selection, files]\n  );\n\n  const css = tint === \"\" ? marks : `${marks}\\n${tint}`;\n  const itemKeys = useMemo(() => new Map(files.map((f) => [f.key, itemKey(f.index)])), [files]);\n\n  const items = useMemo(\n    () =>\n      rows.flatMap((row): ReadonlyArray<PaneItem> => {\n        const fileDiff = parsedAll.get(row.file.key);\n\n        if (fileDiff === undefined) return [];\n\n        const rowAnnotations = annotationsFor(row.file.file.path, findings, annotations);\n\n        return [\n          {\n            path: row.file.file.path,\n            item: {\n              id: row.file.key,\n              type: \"diff\",\n              fileDiff,\n              collapsed: row.collapsed,\n              annotations: rowAnnotations,\n            },\n            signature: `${rowSignature(row, viewedOf(row.file))}|${annotationSignature(rowAnnotations)}`,\n          },\n        ];\n      }),\n    [rows, parsedAll, findings, annotations, viewedOf]\n  );\n\n  useEffect(() => {\n    const models = Object.fromEntries(\n      rows.map((row) => [\n        row.file.key,\n        headerOf(row, viewedStateOf(row.file), severities.get(row.file.file.path) ?? null),\n      ])\n    );\n\n    headerStore.setState({ rows: models });\n  }, [rows, viewedStateOf, severities]);\n\n  const setViewed = (key: string, viewed: boolean) => {\n    const file = byKey.get(key);\n\n    if (file === undefined) return;\n\n    setToggled((t) => new Map([...t].filter(([k]) => k !== key)));\n\n    if (pullViewed === null) markLocal(subjectKey, file.key, viewed ? file.fingerprint : null);\n    else\n      void markPull(\n        { pull: pullViewed.pull, pullId: pullViewed.pullId, path: file.file.path },\n        viewed\n      );\n  };\n\n  useEffect(() => {\n    headerStore.setState({\n      actions: {\n        toggle: (key) => {\n          const row = rows.find((r) => r.file.key === key);\n\n          if (row !== undefined) setToggled((t) => new Map(t).set(key, row.collapsed));\n        },\n        setViewed,\n        openSections: (ids) => setOpenedSections((s) => new Set([...s, ...ids])),\n      },\n    });\n  });\n\n  const reveal = useStore(revealStore, (st) => st.request);\n  const [revealed, setRevealed] = useState<number | null>(null);\n\n  // A jump or a finding asks for a file: open it, its folded Turns, or (list-only) it alone.\n  useEffect(() => {\n    if (reveal === null || reveal.nonce === revealed) return;\n\n    const asked = files.filter((f) => f.file.path === reveal.path);\n    const [first] = asked;\n\n    if (first === undefined) return;\n\n    setRevealed(reveal.nonce);\n    setToggled((t) => new Map([...t, ...asked.map((f) => [f.key, true] as const)]));\n    setOpenedSections((o) => new Set([...o, ...asked.map((f) => f.section)]));\n\n    if (diff.scale === \"list-only\") setOpenFile(first.key);\n  }, [reveal, revealed, files, diff.scale]);\n\n  const parsedFiles = useMemo(() => {\n    const map = new Map<FileDiffMetadata, ReviewFile>();\n\n    for (const [key, parsed] of parsedAll) {\n      const file = byKey.get(key);\n\n      if (file !== undefined) map.set(parsed, file);\n    }\n\n    return map;\n  }, [parsedAll, byKey]);\n\n  const loadDiffFiles = useMemo(\n    () => contentsLoader(diff.source, (parsed) => parsedFiles.get(parsed)),\n    [diff.source, parsedFiles]\n  );\n\n  const viewedCount = files.filter(viewedOf).length;\n\n  return {\n    files,\n    rows,\n    items,\n    marksCss: css,\n    itemKeys,\n    loadDiffFiles,\n    severities,\n    viewedOf,\n    viewedStateOf,\n    progress: reviewProgress(files, viewedOf),\n    setViewed,\n    openFile,\n    /** Opens a file from the list: list-only Reviews show it alone; others expand it. */\n    open: (key: string) => {\n      setOpenFile(key);\n      setToggled((t) => new Map(t).set(key, true));\n    },\n  };\n};\n\nexport type ReviewModel = ReturnType<typeof useReviewModel>;\n",
+    "cursor": 10114,
+    "history": [
+      {
+        "path": "apps/desktop/src/renderer/features/review/ui/useReviewModel.ts",
+        "line": 12,
+        "before": "",
+        "after": "import { reviewProgress } from \"../model/fileList.ts\";"
+      },
+      {
+        "path": "apps/desktop/src/renderer/features/review/ui/useReviewModel.ts",
+        "line": 306,
+        "before": "    progress: progressOf(viewedCount, files.length),",
+        "after": "    progress: reviewProgress(files, viewedOf),"
+      }
+    ],
+    "expected": [
+      {
+        "from": 9870,
+        "to": 9924,
+        "text": ""
+      }
+    ],
+    "allowed": [
+      [
+        {
+          "from": 9870,
+          "to": 9924,
+          "text": ""
+        }
+      ],
+      [
+        {
+          "from": 1069,
+          "to": 1083,
+          "text": ""
+        },
+        {
+          "from": 9870,
+          "to": 9924,
+          "text": ""
+        }
+      ]
+    ],
+    "outputs": [
+      {
+        "format": "zeta-2.1",
+        "output": "<|marker_1|>\n  return {\n    files,\n    rows,\n    items,\n    marksCss: css,\n    itemKeys,\n    loadDiffFiles,\n    severities,\n    viewedOf,\n    viewedStateOf,\n    progress: reviewProgress(files, viewedOf),\n    setViewed,\n    openFile,\n<|marker_2|>",
+        "label": "exact"
+      },
+      {
+        "format": "sweep-next-edit",
+        "output": "\n  return {\n    files,\n    rows,\n    items,\n    marksCss: css,\n    itemKeys,\n    loadDiffFiles,\n    severities,\n    viewedOf,\n    viewedStateOf,\n    progress: reviewProgress(files, viewedOf),\n    setViewed,\n    openFile,\n    /** Opens a file from the list: list-only Reviews show it alone; others expand it. */\n    open: (key: string) => {\n      setOpenFile(key);\n      setToggled((t) => new Map(t).set(key, true));\n    },\n  };\n};\n\n",
+        "label": "abstain"
+      }
+    ]
+  },
+  {
+    "id": "dd06",
+    "category": "dead-code",
+    "path": "apps/desktop/src/renderer/features/review/ui/Queue.tsx",
+    "buffer": "/**\n * The queue on Review's left (Paper R1 1TC-0): what's waiting to be reviewed, the open\n * subject selected, and \"Review a PR by URL\" at its foot. The header goes back to the list.\n */\nimport { cn, Kbd, SEVERITY_LABELS, SeverityGlyph, Tile } from \"@polaris/ui\";\nimport { useEffect, useState } from \"react\";\nimport { reviewDigits } from \"../../../routes/review.ts\";\nimport { shortcutLabel } from \"../../../routes/topBar.ts\";\nimport { currentKeyPlatform } from \"../../../../shared/chord.ts\";\nimport { digitModifiersFor } from \"../../../../shared/keymap.ts\";\nimport type { RiskMark } from \"../model/findings.ts\";\nimport type { OpenPull } from \"../../../../shared/api.ts\";\nimport { ByUrl } from \"../../pulls/ui/ByUrl.tsx\";\nimport { PullGlyph } from \"../../pulls/ui/glyphs.tsx\";\nimport type { QueueGroup, QueueRow } from \"../model/queue.ts\";\n\nexport interface QueueProps {\n  readonly groups: ReadonlyArray<QueueGroup>;\n  readonly caption: string;\n  readonly selected: string | null;\n  readonly onOpen: (row: QueueRow) => void;\n  readonly onOpenPull: (pull: OpenPull) => void;\n  readonly onList: () => void;\n  /** The row's Risk Summary, when one ran this launch: its highest Severity and count. */\n  readonly markOf: (row: QueueRow) => RiskMark | null;\n}\n\n/** \"▲ 1\": the highest Severity's glyph and how many findings have it (DESIGN.md, Review → Queue). */\nconst Mark = ({ mark }: { readonly mark: RiskMark | null }) =>\n  mark === null ? null : (\n    <span\n      data-testid=\"review-queue-risk\"\n      className=\"text-micro tabular flex shrink-0 items-center gap-1 font-medium\"\n      style={{ color: `var(--color-severity-${mark.severity}-text)` }}\n    >\n      <SeverityGlyph severity={mark.severity} tone=\"text\" />\n      <span className=\"sr-only\">{SEVERITY_LABELS[mark.severity]}</span>\n      {mark.count}\n    </span>\n  );\n\n/** Whether Control is held: the first nine rows show their ⌃N (Ctrl+N off macOS). */\nconst useCtrlHeld = () => {\n  const [held, setHeld] = useState(false);\n\n  useEffect(() => {\n    const alt = digitModifiersFor(currentKeyPlatform())[0] === \"Alt\";\n    const key = alt ? \"Alt\" : \"Control\";\n\n    const down = (event: KeyboardEvent) => {\n      if (event.key === \"Control\") setHeld(!event.metaKey && !event.altKey && !event.shiftKey);\n    };\n\n    const up = (event: KeyboardEvent) => {\n      if (event.key === \"Control\" || !event.ctrlKey) setHeld(false);\n    };\n\n    const blur = () => setHeld(false);\n\n    window.addEventListener(\"keydown\", down);\n    window.addEventListener(\"keyup\", up);\n    window.addEventListener(\"blur\", blur);\n\n    return () => {\n      window.removeEventListener(\"keydown\", down);\n      window.removeEventListener(\"keyup\", up);\n      window.removeEventListener(\"blur\", blur);\n    };\n  }, []);\n\n  return held;\n};\n\n/** ⌃1…⌃9 open the first nine rows in the order they show. */\nconst useDigits = (rows: ReadonlyArray<QueueRow>, onOpen: (row: QueueRow) => void) => {\n  useEffect(() => {\n    const pick = (index: number) => {\n      const row = rows[index];\n\n      if (row === undefined) return false;\n      onOpen(row);\n\n      return true;\n    };\n\n    reviewDigits.pick = pick;\n\n    return () => {\n      if (reviewDigits.pick === pick) reviewDigits.pick = null;\n    };\n  }, [rows, onOpen]);\n};\n\nconst TallRow = ({ row, selected }: { readonly row: QueueRow; readonly selected: boolean }) => (\n  <>\n    {row.kind === \"pull\" ? (\n      <span\n        className={cn(\n          \"flex size-tree-row shrink-0 items-center justify-center rounded-[8px]\",\n          selected ? \"bg-fill-selected text-text-default\" : \"bg-surface-raised text-text-subtle\"\n        )}\n      >\n        <PullGlyph />\n      </span>\n    ) : (\n      <Tile hue={row.harness} size={28} />\n    )}\n    <span className=\"flex min-w-0 flex-1 flex-col gap-px text-left\">\n      <span\n        className={cn(\n          \"text-body line-clamp-1 font-medium\",\n          selected ? \"text-text-strong\" : \"text-text-default\"\n        )}\n      >\n        {row.title}\n      </span>\n      <span className={cn(\"text-caption truncate\", \"text-text-subtle\")}>{row.meta}</span>\n    </span>\n  </>\n);\n\nconst ShortRow = ({ row }: { readonly row: QueueRow }) => (\n  <>\n    <span className=\"text-text-subtle text-micro w-tree-row shrink-0 text-center font-mono\">\n      {row.kind === \"pull\" ? row.number : \"\"}\n    </span>\n    <span className=\"text-body text-text-subtle line-clamp-1 flex-1 text-left\">{row.title}</span>\n  </>\n);\n\nexport const Queue = ({\n  groups,\n  caption,\n  selected,\n  onOpen,\n  onOpenPull,\n  onList,\n  markOf,\n}: QueueProps) => {\n  const held = useCtrlHeld();\n  const order = groups.flatMap((group) => group.rows);\n\n  useDigits(order, onOpen);\n\n  return (\n    <nav\n      aria-label=\"Review queue\"\n      data-testid=\"review-queue\"\n      className=\"bg-surface-sunken border-hairline flex w-[264px] shrink-0 flex-col border-r\"\n    >\n      <button\n        type=\"button\"\n        onClick={onList}\n        aria-label=\"Pull requests\"\n        title=\"All pull requests\"\n        className=\"px-panel pt-panel flex cursor-default flex-col gap-0.5 pb-1.5 text-left\"\n      >\n        <span className=\"text-heading text-text-strong font-medium\">Review</span>\n        <span className=\"text-caption text-text-subtle\">{caption}</span>\n      </button>\n      <div className=\"pb-gap min-h-0 flex-1 overflow-y-auto\">\n        {groups.map((group) => (\n          <section key={group.id} className=\"px-gap pt-gap flex flex-col gap-0.5\">\n            <h2 className=\"text-caption text-text-subtle px-gap pt-gap flex items-center pb-1.5 font-normal\">\n              <span className=\"flex-1\">{group.label}</span>\n              <span className=\"tabular\">{group.rows.length}</span>\n            </h2>\n            {group.rows.map((row) => {\n              const isSelected = row.id === selected;\n              const digit = order.indexOf(row);\n\n              return (\n                <button\n                  type=\"button\"\n                  key={row.id}\n                  data-testid=\"review-queue-row\"\n                  data-row={row.id}\n                  aria-current={isSelected ? \"page\" : undefined}\n                  onClick={() => onOpen(row)}\n                  className={cn(\n                    \"rounded-row flex shrink-0 cursor-default items-center gap-row-x border px-gap\",\n                    group.compact ? \"h-row\" : \"min-h-session-row py-1\",\n                    isSelected\n                      ? \"bg-row-selected border-hairline\"\n                      : \"hover:bg-fill-hover border-transparent\"\n                  )}\n                >\n                  {group.compact ? (\n                    <ShortRow row={row} />\n                  ) : (\n                    <TallRow row={row} selected={isSelected} />\n                  )}\n                  {held && digit < 9 ? (\n                    <Kbd data-testid=\"review-queue-digit\">{shortcutLabel(digit)}</Kbd>\n                  ) : (\n                    <Mark mark={markOf(row)} />\n                  )}\n                </button>\n              );\n            })}\n          </section>\n        ))}\n      </div>\n      <div className=\"border-hairline px-panel flex h-10 shrink-0 items-center border-t\">\n        <ByUrl onOpen={onOpenPull} />\n      </div>\n    </nav>\n  );\n};\n",
+    "cursor": 2374,
+    "history": [
+      {
+        "path": "apps/desktop/src/renderer/features/review/ui/Queue.tsx",
+        "line": 41,
+        "before": "/** Whether the digit modifier is held (Control; Alt on Windows): the first nine rows show their chord. */",
+        "after": "/** Whether Control is held: the first nine rows show their ⌃N (Ctrl+N off macOS). */"
+      },
+      {
+        "path": "apps/desktop/src/renderer/features/review/ui/Queue.tsx",
+        "line": 50,
+        "before": "      if (event.key !== key) return;\n      setHeld(!event.metaKey && !event.shiftKey && (alt ? !event.ctrlKey : !event.altKey));",
+        "after": "      if (event.key === \"Control\") setHeld(!event.metaKey && !event.altKey && !event.shiftKey);"
+      },
+      {
+        "path": "apps/desktop/src/renderer/features/review/ui/Queue.tsx",
+        "line": 54,
+        "before": "      if (event.key === key || !(alt ? event.altKey : event.ctrlKey)) setHeld(false);",
+        "after": "      if (event.key === \"Control\" || !event.ctrlKey) setHeld(false);"
+      }
+    ],
+    "expected": [
+      {
+        "from": 2002,
+        "to": 2114,
+        "text": ""
+      }
+    ],
+    "allowed": [
+      [
+        {
+          "from": 2002,
+          "to": 2114,
+          "text": ""
+        }
+      ],
+      [
+        {
+          "from": 428,
+          "to": 560,
+          "text": ""
+        },
+        {
+          "from": 2002,
+          "to": 2114,
+          "text": ""
+        }
+      ]
+    ],
+    "outputs": [
+      {
+        "format": "zeta-2.1",
+        "output": "<|marker_1|>/** Whether Control is held: the first nine rows show their ⌃N (Ctrl+N off macOS). */\nconst useCtrlHeld = () => {\n  const [held, setHeld] = useState(false);\n\n  useEffect(() => {\n    const down = (event: KeyboardEvent) => {\n      if (event.key === \"Control\") setHeld(!event.metaKey && !event.altKey && !event.shiftKey);\n    };\n\n    const up = (event: KeyboardEvent) => {\n      if (event.key === \"Control\" || !event.ctrlKey) setHeld(false);\n    };\n\n<|marker_2|>",
+        "label": "exact"
+      },
+      {
+        "format": "sweep-next-edit",
+        "output": "\n\n  useEffect(() => {\n    const alt = digitModifiersFor(currentKeyPlatform())[0] === \"Alt\";\n    const key = alt ? \"Alt\" : \"Control\";\n\n    const down = (event: KeyboardEvent) => {\n      if (event.key === \"Control\") setHeld(!event.metaKey && !event.altKey && !event.shiftKey);\n    };\n\n    const up = (event: KeyboardEvent) => {\n      if (event.key === key || !(alt ? event.altKey : event.ctrlKey)) setHeld(false);\n    };\n\n    const blur = () => setHeld(false);\n\n    window.addEventListener(\"keydown\", down);\n    window.addEventListener(\"keyup\", up);\n    window.addEventListener(\"blur\", blur);\n\n    return () => {\n      window.removeEventListener(\"keydown\", down);\n",
+        "label": "dangerous"
+      }
+    ]
+  }
+]

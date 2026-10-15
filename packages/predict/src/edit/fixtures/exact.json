@@ -1,0 +1,20 @@
+{
+  "rn03": [{ "from": 1356, "to": 1364, "text": "previous()" }],
+  "rf01": [
+    { "from": 5866, "to": 5866, "text": "backgro" },
+    { "from": 5867, "to": 5867, "text": "ndU" }
+  ],
+  "rf03": [
+    { "from": 1533, "to": 1537, "text": "sub" },
+    { "from": 1538, "to": 1538, "text": "le" },
+    { "from": 1788, "to": 1792, "text": "sub" },
+    { "from": 1793, "to": 1793, "text": "le" }
+  ],
+  "rf04": [{ "from": 3461, "to": 3464, "text": "x" }],
+  "dd04": [{ "from": 3012, "to": 3073, "text": "" }],
+  "dd05": [{ "from": 9870, "to": 9924, "text": "" }],
+  "dd06": [{ "from": 2002, "to": 2114, "text": "" }],
+  "in02": [{ "from": 1274, "to": 1274, "text": "tionEventFields," }],
+  "in03": [{ "from": 795, "to": 795, "text": "nalNullable(Schema.String)," }],
+  "in05": [{ "from": 1526, "to": 1526, "text": "ationFeeds />" }]
+}

@@ -1,0 +1,359 @@
+[
+  {
+    "id": "rf01",
+    "category": "refactor",
+    "path": "apps/desktop/src/main/machines/views.ts",
+    "buffer": "/**\n * Pure pieces of the machines feature: the Settings rows (`MachineView`) from\n * the settings, the Host list and each Host's install flow, and when a\n * Connection State calls for a background check.\n */\nimport { type DaemonReport, backgroundUpgradeDue } from \"@polaris/client/install\";\nimport { Predicate } from \"effect\";\nimport type { HostView, InstallFlowView, MachineView, SshAliasView } from \"../../shared/api.ts\";\nimport { LOCAL_HOST_KEY } from \"../hosts.ts\";\nimport type { Settings } from \"../settings.ts\";\nimport { localHostEnabled } from \"../localDaemon.ts\";\nimport type { InstallOutcome, InstallSnapshot } from \"./installFlow.ts\";\nimport { daemonUpdateView, type UpdateFacts } from \"./updateFacts.ts\";\n\n/** A Host's install flow as `Machines` tracks it. */\nexport interface InstallRecord {\n  readonly snapshot: InstallSnapshot;\n  /** What is happening now (checking or installing), for the progress line. */\n  readonly activity: string | null;\n  /** The offered build's size, for the approval card. */\n  readonly offerSize: number | null;\n}\n\nexport const installFlowView = ({\n  snapshot,\n  activity,\n  offerSize,\n}: InstallRecord): InstallFlowView => ({\n  step: snapshot.value,\n  activity,\n  offer:\n    snapshot.context.offer === null ? null : { ...snapshot.context.offer, sizeBytes: offerSize },\n  outcome: snapshot.context.outcome,\n  problem: snapshot.context.problem,\n});\n\nexport interface MachineViewsInput {\n  readonly platform?: NodeJS.Platform | undefined;\n  readonly settings: Settings;\n  readonly hosts: ReadonlyArray<HostView>;\n  readonly installs: ReadonlyMap<string, InstallRecord>;\n  readonly aliases: ReadonlyArray<SshAliasView>;\n  readonly updates?: ReadonlyMap<string, UpdateFacts>;\n  readonly bundledVersion?: string | null;\n  readonly bundledVersions?: ReadonlyMap<string, string>;\n  readonly localManaged?: boolean;\n}\n\n/** This Mac first (even while switched off), then the remote Hosts in settings order. */\nexport const machineViews = ({\n  settings,\n  hosts,\n  installs,\n  aliases,\n  updates,\n  bundledVersion = null,\n  bundledVersions,\n  localManaged = false,\n  platform = process.platform,\n}: MachineViewsInput): ReadonlyArray<MachineView> => {\n  const status = (key: string) => hosts.find((h) => h.key === key)?.status ?? null;\n  const local = hosts.find((h) => h.key === LOCAL_HOST_KEY);\n  const localInstall = installs.get(LOCAL_HOST_KEY);\n\n  const versionFor = (key: string) =>\n    bundledVersions === undefined\n      ? bundledVersion\n      : (bundledVersions.get(\n          updates?.get(key)?.platform ??\n            hosts.find((h) => h.key === key)?.status.host?.platform ??\n            \"\"\n        ) ?? null);\n\n  const localView: MachineView = {\n    daemon: daemonUpdateView(\n      settings,\n      LOCAL_HOST_KEY,\n      local,\n      updates?.get(LOCAL_HOST_KEY),\n      versionFor(LOCAL_HOST_KEY),\n      localManaged\n    ),\n    key: LOCAL_HOST_KEY,\n    label: local?.label ?? \"This Mac\",\n    colour: null,\n    alias: null,\n    kind: \"local\",\n    target: null,\n    enabled: localHostEnabled(settings.local?.enabled, platform),\n    forwardAgent: false,\n    remoteCommand: null,\n    status: status(LOCAL_HOST_KEY),\n    install: localInstall === undefined ? null : installFlowView(localInstall),\n  };\n\n  const remotes = (settings.hosts ?? []).map((remote): MachineView => {\n    const target = aliases.find((a) => a.alias === remote.alias);\n    const install = installs.get(remote.alias);\n\n    return {\n      daemon: daemonUpdateView(\n        settings,\n        remote.alias,\n        hosts.find((h) => h.key === remote.alias),\n        updates?.get(remote.alias),\n        versionFor(remote.alias),\n        localManaged\n      ),\n      key: remote.alias,\n      label: remote.label ?? remote.alias,\n      colour: remote.colour ?? null,\n      alias: remote.alias,\n      kind: remote.kind ?? \"ssh\",\n      target: target === undefined ? null : { hostName: target.hostName, user: target.user },\n      enabled: true,\n      forwardAgent: remote.forwardAgent ?? false,\n      remoteCommand: remote.remoteCommand ?? null,\n      status: status(remote.alias),\n      install: install === undefined ? null : installFlowView(install),\n    };\n  });\n\n  return platform === \"win32\" ? remotes : [localView, ...remotes];\n};\n\n/** Reasons the install flow can fix: no Daemon installed, or one too old to talk to. */\nconst INSTALL_REASONS: ReadonlySet<string> = new Set([\n  \"polaris-not-installed\",\n  \"protocol-mismatch\",\n]);\n\n/**\n * Whether this status calls for a background check, as a key that changes\n * once per occasion (so a Needs Attention retry every 2 min doesn't probe\n * again): entering Needs Attention for a reason the install flow fixes, or a\n * new connection to a Daemon the bundled build should replace (`backgroundUpgradeDue`). Null otherwise.\n */\nexport const backgroundCheckKey = (\n  view: HostView,\n  bundledVersion: string | null\n): string | null => {\n  const { status } = view;\n\n  if (view.alias === null) return null;\n\n  if (status.state === \"needs-attention\" && status.failure !== null) {\n    return INSTALL_REASONS.has(status.failure.reason)\n      ? `${status.failure.reason}:${status.since}`\n      : null;\n  }\n\n  if (status.state === \"connected\" && status.host !== null && bundledVersion !== null) {\n    return backgroundUpgradeDue(status.host.daemonVersion, bundledVersion)\n      ? `upgrade:${status.epoch}`\n      : null;\n  }\n\n  return null;\n};\n\n/**\n * The local Host's background check: only an upgrade (`backgroundUpgradeDue`) of the\n * Daemon installed in `home`, once per connection. Null when the app runs its own.\n */\nexport const localUpgradeKey = (\n  view: HostView,\n  bundledVersion: string | null,\n  home: string | null\n): string | null => {\n  const { status } = view;\n\n  if (home === null || bundledVersion === null) return null;\n\n  if (status.state !== \"connected\" || status.host === null) return null;\n\n  return upgradeDue(status.host.daemonVersion, bundledVersion) ? `upgrade:${status.epoch}` : null;\n};\n\nconst LINGER_COMMAND = /sudo loginctl enable-linger \\S+/;\n\n/** What `polaris install|upgrade --json` reported, as the outcome's notes. */\nexport const reportOutcome = (\n  report: DaemonReport,\n  base: Pick<InstallOutcome, \"kind\" | \"version\" | \"from\">\n): InstallOutcome => {\n  const notes = Array.isArray(report.notes) ? report.notes.filter(Predicate.isString) : [];\n  const linger = notes.map((note) => LINGER_COMMAND.exec(note)?.[0]).find(Predicate.isString);\n\n  return {\n    ...base,\n    notes,\n    adminCommand: report.linger === \"needs-admin\" ? (linger ?? null) : null,\n  };\n};\n",
+    "cursor": 5476,
+    "history": [
+      {
+        "path": "apps/desktop/src/main/machines/views.ts",
+        "line": 5,
+        "before": "import { type DaemonReport, upgradeDue } from \"@polaris/client/install\";",
+        "after": "import { type DaemonReport, backgroundUpgradeDue } from \"@polaris/client/install\";"
+      },
+      {
+        "path": "apps/desktop/src/main/machines/views.ts",
+        "line": 135,
+        "before": " * new connection to a Daemon the bundled build should replace (`upgradeDue`). Null otherwise.",
+        "after": " * new connection to a Daemon the bundled build should replace (`backgroundUpgradeDue`). Null otherwise."
+      },
+      {
+        "path": "apps/desktop/src/main/machines/views.ts",
+        "line": 152,
+        "before": "    return upgradeDue(status.host.daemonVersion, bundledVersion) ? `upgrade:${status.epoch}` : null;",
+        "after": "    return backgroundUpgradeDue(status.host.daemonVersion, bundledVersion)\n      ? `upgrade:${status.epoch}`\n      : null;"
+      },
+      {
+        "path": "apps/desktop/src/main/machines/views.ts",
+        "line": 161,
+        "before": " * The local Host's background check: only an upgrade (`upgradeDue`) of the",
+        "after": " * The local Host's background check: only an upgrade (`backgroundUpgradeDue`) of the"
+      }
+    ],
+    "expected": [
+      {
+        "from": 5857,
+        "to": 5956,
+        "text": "  return backgroundUpgradeDue(status.host.daemonVersion, bundledVersion)\n    ? `upgrade:${status.epoch}`\n    : null;\n"
+      }
+    ],
+    "allowed": [
+      [
+        {
+          "from": 5857,
+          "to": 5956,
+          "text": "  return backgroundUpgradeDue(status.host.daemonVersion, bundledVersion)\n    ? `upgrade:${status.epoch}`\n    : null;\n"
+        }
+      ]
+    ],
+    "outputs": [
+      {
+        "format": "zeta-2.1",
+        "output": "<|marker_1|>      : null;\n  }\n\n  if (status.state === \"connected\" && status.host !== null && bundledVersion !== null) {\n    return backgroundUpgradeDue(status.host.daemonVersion, bundledVersion)\n      ? `upgrade:${status.epoch}`\n      : null;\n  }\n\n  return null;\n};\n\n/**\n * The local Host's background check: only an upgrade (`backgroundUpgradeDue`) of the\n * Daemon installed in `home`, once per connection. Null when the app runs its own.\n */\nexport const localUpgradeKey = (\n<|marker_2|>  view: HostView,\n  bundledVersion: string | null,\n  home: string | null\n): string | null => {\n  const { status } = view;\n\n  if (home === null || bundledVersion === null) return null;\n\n  if (status.state !== \"connected\" || status.host === null) return null;\n\n  return backgroundUpgradeDue(status.host.daemonVersion, bundledVersion) ? `upgrade:${status.epoch}` : null;\n};\n<|marker_3|>",
+        "label": "exact"
+      },
+      {
+        "format": "sweep-next-edit",
+        "output": "\n  if (status.state === \"connected\" && status.host !== null && bundledVersion !== null) {\n    return backgroundUpgradeDue(status.host.daemonVersion, bundledVersion)\n      ? `upgrade:${status.epoch}`\n      : null;\n  }\n\n  return null;\n};\n\n/**\n * The local Host's background check: only an upgrade (`backgroundUpgradeDue`) of the\n * Daemon installed in `home`, once per connection. Null when the app runs its own.\n */\nexport const localUpgradeKey = (\n  view: HostView,\n  bundledVersion: string | null,\n  home: string | null\n): string | null => {\n  const { status } = view;\n\n  if (home === null || bundledVersion === null) return null;\n",
+        "label": "abstain"
+      }
+    ]
+  },
+  {
+    "id": "rf02",
+    "category": "refactor",
+    "path": "apps/desktop/src/renderer/features/session/preview/Preview.tsx",
+    "buffer": "/**\n * The session view on fixtures, for screenshots against Paper\n * (`scripts/sessionScreens.ts`): `#preview/<scene>` renders the shell with one\n * scene selected, on a stand-in bridge and store, no Daemon involved. Its own chunk.\n */\nimport {\n  Capability,\n  HARNESS_CATALOGUE,\n  type HarnessStatus,\n  HostId,\n  PlanLimit,\n  Sequence,\n  UsageStreamItem,\n} from \"@polaris/protocol\";\nimport { createRoot } from \"react-dom/client\";\nimport { createStore } from \"zustand/vanilla\";\nimport type {\n  HostView,\n  PolarisApi,\n  RequestInput,\n  RequestMethod,\n  Result,\n  SubscriptionKind,\n} from \"../../../../shared/api.ts\";\nimport { modelFromSnapshot } from \"../../../store/hostModel.ts\";\nimport type { SessionModel } from \"../../../store/sessionModel.ts\";\nimport { App } from \"../../../app/App.tsx\";\nimport { createCommandRegistry } from \"../../../routes/commands.ts\";\nimport { createNavigation } from \"../../../routes/navigation.ts\";\nimport { type AppState, type Connection, initialState, sessionKey } from \"../../../store/store.ts\";\nimport { standInBridge } from \"../../bridge.ts\";\nimport { patchSessionUi, uiKey } from \"../state.ts\";\nimport { COMMANDS, FAST_COMMAND } from \"./commands.ts\";\nimport {\n  approval,\n  attachments,\n  failed,\n  interrupted,\n  long,\n  markdown,\n  planning,\n  question,\n  steer,\n  steerOutbox,\n  subagents,\n  workspace,\n  workspaceId,\n  worktree,\n} from \"./fixtures.ts\";\nimport { background, waitingSidebar } from \"./background.ts\";\nimport { MODELS, PATCH } from \"./fixtureData.ts\";\n\nconst HOST = \"local\";\n\nconst host: HostView = {\n  key: HOST,\n  label: \"Mac Studio\",\n  colour: null,\n  alias: null,\n  proofHarness: false,\n  status: {\n    state: \"connected\",\n    failure: null,\n    attempt: 0,\n    since: 0,\n    nextAttemptAt: null,\n    host: {\n      hostId: HostId.make(\"h-studio\"),\n      hostname: \"studio\",\n      platform: \"darwin-arm64\",\n      daemonVersion: \"0.0.0\",\n      homeDir: \"/Users/lucas\",\n      startedAt: \"2026-09-29T00:00:00.000Z\",\n    },\n    capabilities: Capability.literals,\n    epoch: 1,\n    latencyMs: null,\n    lastSeenAt: null,\n  },\n};\n\nconst SCENES = {\n  session: planning,\n  approval,\n  question,\n  interrupted,\n  failed,\n  long,\n  markdown,\n  steer,\n  attachments,\n  subagents,\n  background,\n} as const;\n\nconst SCENE_NAMES = [\n  \"session\",\n  \"approval\",\n  \"question\",\n  \"interrupted\",\n  \"failed\",\n  \"long\",\n  \"markdown\",\n  \"steer\",\n  \"attachments\",\n  \"subagents\",\n  \"background\",\n  \"new\",\n  \"setup\",\n  \"none-ready\",\n  \"usage-2\",\n  \"usage-3\",\n] as const;\n\ntype Scene = (typeof SCENE_NAMES)[number];\n\nconst harnessOf = (input: RequestInput<RequestMethod>) =>\n  \"harness\" in input && input.harness === \"codex\" ? \"codex\" : \"claude\";\n\ntype Probe = readonly [status: HarnessStatus, version: string | null];\n\n/**\n * What each scene's Host has: mostly ready; on \"setup\" a sign-in and not-installed ones;\n * on \"none-ready\" nothing ready (an outdated Claude Code, below the floor).\n */\nconst HOSTS: Readonly<Record<\"default\" | \"setup\" | \"none-ready\", Readonly<Record<string, Probe>>>> =\n  {\n    default: {\n      claude: [\"ready\", \"2.1.283\"],\n      codex: [\"ready\", \"0.157.1\"],\n      opencode: [\"ready\", \"1.18.33\"],\n      gemini: [\"outdated\", \"0.21.0\"],\n      copilot: [\"not-installed\", null],\n    },\n    setup: {\n      claude: [\"ready\", \"2.1.283\"],\n      codex: [\"needs-sign-in\", \"0.157.1\"],\n      opencode: [\"not-installed\", null],\n      gemini: [\"outdated\", \"0.21.0\"],\n      copilot: [\"not-installed\", null],\n    },\n    \"none-ready\": {\n      claude: [\"outdated\", \"2.0.9\"],\n      codex: [\"not-installed\", null],\n      opencode: [\"needs-sign-in\", \"1.18.33\"],\n      gemini: [\"not-installed\", null],\n      copilot: [\"not-installed\", null],\n    },\n  };\n\nconst hostFor = (scene: Scene) =>\n  HOSTS[scene === \"setup\" || scene === \"none-ready\" ? scene : \"default\"];\n\nconst availability = (scene: Scene) => {\n  const probes = hostFor(scene);\n\n  return {\n    harnesses: HARNESS_CATALOGUE.map((entry) => {\n      const [status, version] = probes[entry.kind] ?? [\"ready\", entry.minVersion];\n\n      return {\n        harness: entry.kind,\n        status,\n        version,\n        minVersion: entry.minVersion,\n        signInKind: status === \"ready\" && entry.kind === \"claude\" ? \"Claude Max\" : null,\n        detail: null,\n        signInArgv: status === \"not-installed\" ? null : [...entry.setup.signInCommand],\n      };\n    }),\n    checkedAt: \"2026-09-30T00:00:00.000Z\",\n  };\n};\n\nconst ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();\n\nconst later = (minutes: number) => new Date(Date.now() + minutes * 60_000).toISOString();\n\nconst LIMITS = [\n  new PlanLimit({\n    harness: \"claude\",\n    kind: \"five-hour\",\n    scope: null,\n    windowMinutes: 300,\n    usedPercent: 42,\n    status: \"ok\",\n    resetsAt: later(130),\n    observedAt: ago(1),\n    plan: \"max\",\n  }),\n  new PlanLimit({\n    harness: \"claude\",\n    kind: \"weekly\",\n    scope: null,\n    windowMinutes: 10_080,\n    usedPercent: 18,\n    status: \"ok\",\n    resetsAt: later(4 * 24 * 60),\n    observedAt: ago(1),\n    plan: \"max\",\n  }),\n];\n\nconst window_ = (\n  harness: string,\n  kind: string,\n  scope: string | null,\n  usedPercent: number,\n  status: \"ok\" | \"warning\" = \"ok\"\n) =>\n  new PlanLimit({\n    harness,\n    kind,\n    scope,\n    windowMinutes: kind === \"weekly\" ? 10_080 : 300,\n    usedPercent,\n    status,\n    resetsAt: later(kind === \"weekly\" ? 4 * 24 * 60 : 228),\n    observedAt: ago(1),\n    plan: harness === \"claude\" ? \"max\" : \"pro\",\n    // The Daemon's typical 5-hour window, on Claude's whole-plan weekly.\n    weeklyPerSession: harness === \"claude\" && kind === \"weekly\" && scope === null ? 14.6 : null,\n  });\n\n/**\n * Settings → Usage: Claude with two windows (Paper S2) or three (its model-scoped weekly), and\n * Codex. Forecasts: 5-hour in reserve, weekly in deficit (runs out), a near-limit run-out.\n */\nconst usageLimits = (scene: Scene) => [\n  window_(\"claude\", \"five-hour\", null, 16),\n  window_(\"claude\", \"weekly\", null, 62),\n  ...(scene === \"usage-3\" ? [window_(\"claude\", \"weekly\", \"Fable\", 92, \"warning\")] : []),\n  window_(\"codex\", \"five-hour\", null, 99.6, \"warning\"),\n  window_(\"codex\", \"weekly\", null, 0.4),\n];\n\nconst isUsage = (scene: Scene) => scene === \"usage-2\" || scene === \"usage-3\";\n\n/** The feeds the session view opens: availability and Plan Limits, sent once. */\nconst feed = (scene: Scene, kind: SubscriptionKind): ReadonlyArray<unknown> => {\n  if (kind === \"harness.availability\") return [availability(scene)];\n\n  if (kind === \"usage\" && isUsage(scene))\n    return usageLimits(scene).map((limit) =>\n      UsageStreamItem.cases.PlanLimitChanged.make({ limit })\n    );\n\n  return kind === \"plan-limits\" ? LIMITS : [];\n};\n\nconst answer = (\n  scene: Scene,\n  method: RequestMethod,\n  input: RequestInput<RequestMethod>\n): Result<unknown> => {\n  if (method === \"harness.availability\") return { ok: true, value: availability(scene) };\n\n  if (method === \"harness.models\") {\n    const harness = harnessOf(input);\n\n    return {\n      ok: true,\n      value: { harness, models: MODELS[harness], switchesModel: true, fetchedAt: \"\" },\n    };\n  }\n\n  if (method === \"harness.commands\") {\n    return {\n      ok: true,\n      value: {\n        harness: harnessOf(input),\n        cwd: \"\",\n        commands: harnessOf(input) === \"codex\" ? [...COMMANDS, FAST_COMMAND] : COMMANDS,\n        fetchedAt: \"\",\n      },\n    };\n  }\n\n  if (method === \"git.diff\")\n    return { ok: true, value: { bytes: new TextEncoder().encode(PATCH), files: 3 } };\n\n  if (method === \"dispatch\") return { ok: true, value: { sequence: null } };\n\n  if (method === \"usage.query\") {\n    return {\n      ok: true,\n      value: {\n        report: { buckets: [], indexedAt: null, indexing: false },\n        estimates: [],\n        pricesFetchedAt: null,\n      },\n    };\n  }\n\n  return { ok: false, error: { code: \"Unsupported\", message: \"preview\" } };\n};\n\nconst images = new Map<string, Promise<Result<unknown>>>();\n\n/** One stand-in per size, so the preview's own drawing doesn't weigh on scroll measurements. */\nconst fixtureImage = (path: string): Promise<Result<unknown>> => {\n  const key = path.includes(\"a1\") ? \"a1\" : path.includes(\"a2\") ? \"a2\" : \"other\";\n  const known = images.get(key);\n\n  if (known !== undefined) return known;\n  const made = drawImage(path);\n\n  images.set(key, made);\n\n  return made;\n};\n\n/** A stand-in for a staged image: a gradient with its name, at the path's stored size. */\nconst drawImage = async (path: string): Promise<Result<unknown>> => {\n  const [w, h] = path.includes(\"a1\") ? [1440, 900] : path.includes(\"a2\") ? [600, 800] : [800, 600];\n  const canvas = new OffscreenCanvas(w, h);\n  const g = canvas.getContext(\"2d\");\n\n  if (g !== null) {\n    const fill = g.createLinearGradient(0, 0, w, h);\n\n    fill.addColorStop(0, \"#2a3350\");\n    fill.addColorStop(1, \"#7b8bb8\");\n    g.fillStyle = fill;\n    g.fillRect(0, 0, w, h);\n    g.fillStyle = \"#f4f5f7\";\n    g.font = `${Math.round(h / 10)}px sans-serif`;\n    g.fillText(path.split(\"/\").at(-1) ?? \"\", w / 20, h / 2);\n  }\n\n  const blob = await canvas.convertToBlob({ type: \"image/png\" });\n  const bytes = new Uint8Array(await blob.arrayBuffer());\n\n  return {\n    ok: true,\n    value: { size: bytes.length, mimeType: \"image/png\", content: { kind: \"bytes\", bytes } },\n  };\n};\n\nconst bridgeFor = (scene: Scene): PolarisApi => ({\n  // SAFETY: fixture answers match RequestOutputs for the methods the session feature calls.\n  request: (method, input) =>\n    (method === \"files.read\" && \"path\" in input && input.path.endsWith(\".png\")\n      ? fixtureImage(input.path)\n      : Promise.resolve(answer(scene, method, input))) as never,\n  subscribe: (kind, _input, listener) => {\n    // SAFETY: each fixture feed's items match SubscriptionItems for its kind.\n    const items = feed(scene, kind) as never;\n    const deliver = () => listener.items(items);\n\n    if (feed(scene, kind).length > 0) queueMicrotask(deliver);\n\n    return () => undefined;\n  },\n  onAppEvent: () => () => undefined,\n});\n\nconst stateFor = (models: ReadonlyArray<SessionModel>): AppState => {\n  return {\n    ...initialState,\n    hosts: [host],\n    hostModels: {\n      [HOST]: {\n        ...modelFromSnapshot({\n          sequence: Sequence.make(90),\n          workspaces: [workspace],\n          worktrees: [worktree],\n          sessions: models.flatMap((m) =>\n            m.session === null\n              ? []\n              : [\n                  {\n                    session: m.session,\n                    pendingApprovals: m.pendingApprovals,\n                    lastTurnPreview: m.turns.at(-1)?.turn.prompt ?? null,\n                    subagents: [],\n                  },\n                ]\n          ),\n        }),\n        synchronized: true,\n      },\n    },\n    sessions: Object.fromEntries(\n      models.flatMap((m) => (m.session === null ? [] : [[sessionKey(HOST, m.session.id), m]]))\n    ),\n  };\n};\n\nconst sceneOf = (hash: string): Scene => {\n  const name = hash.replace(/^#preview\\//, \"\");\n\n  return SCENE_NAMES.find((n) => n === name) ?? \"session\";\n};\n\n/**\n * Mounts the real shell on fixtures, with the scene's session (or the new-session page)\n * selected. Returns the density setter, for View → Density to reach the fixture store.\n */\nexport const mountPreview = (root: HTMLElement, hash: string) => {\n  const scene = sceneOf(hash);\n  // Sidebar-only sessions follow the scenes, so a scene's index still finds its model.\n  const models = [...Object.values(SCENES), ...waitingSidebar].map((make) => make());\n  const store = createStore<AppState>(() => stateFor(models));\n\n  const connection: Connection = {\n    store,\n    openSession: () => () => undefined,\n    setDensity: (density) => store.setState({ density }),\n    setAppearance: ({ density, theme }) => store.setState({ density, theme }),\n  };\n\n  const navigation = createNavigation({ app: store, storage: null });\n  const isNew = scene === \"new\" || scene === \"setup\" || scene === \"none-ready\";\n  const shown = isNew ? null : models[SCENE_NAMES.indexOf(scene)];\n\n  standInBridge(bridgeFor(scene));\n\n  if (shown?.session == null) {\n    navigation.actions.selectWorkspace({ hostKey: HOST, workspaceId });\n    navigation.actions.startNewSession();\n  } else {\n    navigation.actions.selectSession({ hostKey: HOST, sessionId: shown.session.id });\n  }\n\n  if (scene === \"steer\" && shown?.session != null) {\n    const key = uiKey(HOST, shown.session.id);\n    const turnId = shown.turns.at(-1)?.turn.id ?? \"\";\n\n    patchSessionUi(key, () => ({ outbox: steerOutbox(turnId) }));\n  }\n\n  if ((scene === \"attachments\" || scene === \"background\") && shown?.session != null) {\n    const folds = { chosen: new Map(), openFrom: shown.turns[0]?.turn.id ?? null };\n\n    patchSessionUi(uiKey(HOST, shown.session.id), () => ({ folds }));\n  }\n\n  // The long scene opens every Turn, so scrolling crosses thousands of rows.\n  if (scene === \"long\" && shown?.session != null) {\n    const unfolded = new Set(shown.turns.map((t) => t.turn.id));\n\n    patchSessionUi(uiKey(HOST, shown.session.id), () => ({ unfolded }));\n  }\n\n  if (isUsage(scene)) navigation.actions.openSettings(\"usage\");\n\n  const commands = createCommandRegistry({ mac: true });\n\n  createRoot(root).render(<App value={{ connection, navigation, commands }} />);\n\n  return connection.setDensity;\n};\n",
+    "cursor": 12699,
+    "history": [
+      {
+        "path": "apps/desktop/src/renderer/features/session/preview/Preview.tsx",
+        "line": 433,
+        "before": "    const unfolded = new Set(shown.turns.map((t) => t.turn.id));",
+        "after": "    const folds = { chosen: new Map(), openFrom: shown.turns[0]?.turn.id ?? null };"
+      },
+      {
+        "path": "apps/desktop/src/renderer/features/session/preview/Preview.tsx",
+        "line": 435,
+        "before": "    patchSessionUi(uiKey(HOST, shown.session.id), () => ({ unfolded }));",
+        "after": "    patchSessionUi(uiKey(HOST, shown.session.id), () => ({ folds }));"
+      }
+    ],
+    "expected": [
+      {
+        "from": 12835,
+        "to": 12900,
+        "text": "    const folds = { chosen: new Map(), openFrom: shown.turns[0]?.turn.id ?? null };\n"
+      },
+      {
+        "from": 12901,
+        "to": 12974,
+        "text": "    patchSessionUi(uiKey(HOST, shown.session.id), () => ({ folds }));\n"
+      }
+    ],
+    "allowed": [
+      [
+        {
+          "from": 12835,
+          "to": 12900,
+          "text": "    const folds = { chosen: new Map(), openFrom: shown.turns[0]?.turn.id ?? null };\n"
+        },
+        {
+          "from": 12901,
+          "to": 12974,
+          "text": "    patchSessionUi(uiKey(HOST, shown.session.id), () => ({ folds }));\n"
+        }
+      ]
+    ],
+    "outputs": [
+      {
+        "format": "zeta-2.1",
+        "output": "<|marker_1|><|marker_1|>",
+        "label": "abstain"
+      },
+      {
+        "format": "sweep-next-edit",
+        "output": "\n  if (scene === \"steer\" && shown?.session != null) {\n    const key = uiKey(HOST, shown.session.id);\n    const turnId = shown.turns.at(-1)?.turn.id ?? \"\";\n\n    patchSessionUi(key, () => ({ outbox: steerOutbox(turnId) }));\n  }\n\n  if ((scene === \"attachments\" || scene === \"background\") && shown?.session != null) {\n    const folds = { chosen: new Map(), openFrom: shown.turns[0]?.turn.id ?? null };\n\n    patchSessionUi(uiKey(HOST, shown.session.id), () => ({ folds }));\n  }\n\n  // The long scene opens every Turn, so scrolling crosses thousands of rows.\n  if (scene === \"long\" && shown?.session != null) {\n    const unfolded = new Set(shown.turns.map((t) => t.turn.id));\n\n    patchSessionUi(uiKey(HOST, shown.session.id), () => ({ unfolded }));\n  }\n\n  if (isUsage(scene)) navigation.actions.openSettings(\"usage\");\n",
+        "label": "abstain"
+      }
+    ]
+  },
+  {
+    "id": "rf03",
+    "category": "refactor",
+    "path": "packages/ui/gallery/sections/basics.tsx",
+    "buffer": "import {\n  Badge,\n  Button,\n  IconButton,\n  Input,\n  Kbd,\n  PlusIcon,\n  SearchIcon,\n  Select,\n  SelectContent,\n  SelectItem,\n  SelectTrigger,\n  SelectValue,\n  Separator,\n  Switch,\n  Textarea,\n  ThumbDownIcon,\n  ThumbUpIcon,\n} from \"../../src\";\nimport { Section, Swatch } from \"./layout\";\n\nconst TYPE_ROLES = [\n  [\"display\", \"text-display\", \"What should happen next?\"],\n  [\"title\", \"text-title\", \"Polaris planning\"],\n  [\"heading\", \"text-heading\", \"Codex needs you\"],\n  [\"heading-sm\", \"text-heading-sm\", \"Nothing needs you\"],\n  [\"body\", \"text-body\", \"I'll build four structurally different variants from the same mock data.\"],\n  [\"label\", \"text-label\", \"Spike GPUI review screen\"],\n  [\"caption\", \"text-caption\", \"Mac Studio · ~/code/polaris · 42m\"],\n] as const;\n\nexport function TypeSection() {\n  return (\n    <Section title=\"Type\">\n      <div className=\"flex flex-col gap-2\">\n        {TYPE_ROLES.map(([role, scale, sample]) => (\n          <div key={role} className=\"flex items-baseline gap-4\">\n            <span className=\"text-caption text-text-subtle w-20 shrink-0\">{role}</span>\n            <span className={`${scale} text-text-strong`}>{sample}</span>\n          </div>\n        ))}\n        <div className=\"flex items-baseline gap-4\">\n          <span className=\"text-caption text-text-subtle w-20 shrink-0\">code</span>\n          <span className=\"text-code font-mono\">const API_TOKEN = process.env.API_TOKEN;</span>\n        </div>\n        <div className=\"flex items-baseline gap-4\">\n          <span className=\"text-caption text-text-faint w-20 shrink-0\">code-inline</span>\n          <span className=\"text-code-inline text-text-default font-mono\">spike/gpui-review</span>\n        </div>\n        <div className=\"flex items-baseline gap-4\">\n          <span className=\"text-caption text-text-faint w-20 shrink-0\">text colours</span>\n          <span className=\"text-label text-text-strong\">strong</span>\n          <span className=\"text-label text-text-default\">default</span>\n          <span className=\"text-label text-text-subtle\">subtle</span>\n          <span className=\"text-label text-text-faint\">faint</span>\n        </div>\n      </div>\n    </Section>\n  );\n}\n\nconst SURFACES = [\n  [\"surface-sunken\", \"bg-surface-sunken\"],\n  [\"bg\", \"bg-bg\"],\n  [\"surface-raised\", \"bg-surface-raised\"],\n  [\"fill-hover\", \"bg-fill-hover\"],\n  [\"fill-selected\", \"bg-fill-selected\"],\n  [\"row-selected\", \"bg-row-selected\"],\n] as const;\n\nconst SIGNALS = [\n  [\"starlight\", \"bg-starlight\"],\n  [\"needs-you\", \"bg-needs-you\"],\n  [\"failed\", \"bg-failed\"],\n  [\"claude code\", \"bg-harness-claude-code\"],\n  [\"codex\", \"bg-harness-codex\"],\n  [\"diff +\", \"bg-diff-added\"],\n  [\"diff −\", \"bg-diff-removed\"],\n  [\"git M\", \"bg-git-modified\"],\n] as const;\n\nexport function ColourSection() {\n  return (\n    <Section title=\"Surfaces and signals\">\n      <div className=\"flex flex-wrap gap-3\">\n        {SURFACES.map(([label, fill]) => (\n          <Swatch key={label} label={label}>\n            <span className={`rounded-control border-hairline block h-10 w-20 border ${fill}`} />\n          </Swatch>\n        ))}\n      </div>\n      <div className=\"flex flex-wrap gap-3\">\n        {SIGNALS.map(([label, fill]) => (\n          <Swatch key={label} label={label}>\n            <span className={`rounded-control block h-6 w-14 ${fill}`} />\n          </Swatch>\n        ))}\n      </div>\n    </Section>\n  );\n}\n\nexport function ControlsSection() {\n  return (\n    <Section title=\"Buttons, keys and fields\">\n      <div className=\"flex flex-wrap items-center gap-2\">\n        <Button variant=\"primary\">Approve</Button>\n        <Button>Open session</Button>\n        <Button variant=\"ghost\">Deny</Button>\n        <Button variant=\"danger\">Remove host</Button>\n        <Button variant=\"primary\" disabled>\n          Accept paused · 1 critical\n        </Button>\n        <Button size=\"sm\">Open in Review</Button>\n      </div>\n      <div className=\"flex flex-wrap items-center gap-2\">\n        <IconButton label=\"New session\" icon={<PlusIcon />} shortcut=\"⌘N\" />\n        <IconButton label=\"Search\" icon={<SearchIcon />} />\n        <IconButton label=\"Looks right\" icon={<ThumbUpIcon />} />\n        <IconButton label=\"Not a problem\" icon={<ThumbDownIcon />} />\n        <Separator orientation=\"vertical\" className=\"h-4\" />\n        <Kbd>K</Kbd>\n        <Kbd>⌘</Kbd>\n        <Kbd variant=\"plain\">⌃1</Kbd>\n        <Kbd variant=\"plain\">esc</Kbd>\n        <Separator orientation=\"vertical\" className=\"h-4\" />\n        <Badge>New</Badge>\n        <Badge tone=\"needs-you\">2 need you</Badge>\n        <Badge tone=\"failed\">Failed</Badge>\n        <Badge tone=\"needs-you\" size=\"count\">\n          1\n        </Badge>\n      </div>\n      <div className=\"grid grid-cols-2 gap-3\">\n        <Input placeholder=\"Jump to a session or workspace\" />\n        <Input defaultValue=\"~/code/polaris\" />\n        <Select defaultValue=\"opus\">\n          <SelectTrigger className=\"w-48\">\n            <SelectValue />\n          </SelectTrigger>\n          <SelectContent>\n            <SelectItem value=\"opus\">Opus 5</SelectItem>\n            <SelectItem value=\"sonnet\">Sonnet 5</SelectItem>\n            <SelectItem value=\"haiku\">Haiku 4.5</SelectItem>\n          </SelectContent>\n        </Select>\n        <div className=\"text-caption text-text-subtle flex items-center gap-4\">\n          <label className=\"flex items-center gap-2\">\n            <Switch defaultChecked /> Follow\n          </label>\n          <label className=\"flex items-center gap-2\">\n            <Switch /> Completions\n          </label>\n          <label className=\"flex items-center gap-2\">\n            <Switch disabled /> Disabled\n          </label>\n        </div>\n        <Textarea className=\"col-span-2\" placeholder=\"Why is this not a problem?\" />\n      </div>\n    </Section>\n  );\n}\n",
+    "cursor": 1319,
+    "history": [
+      {
+        "path": "packages/ui/gallery/sections/basics.tsx",
+        "line": 37,
+        "before": "            <span className=\"text-caption text-text-faint w-20 shrink-0\">{role}</span>",
+        "after": "            <span className=\"text-caption text-text-subtle w-20 shrink-0\">{role}</span>"
+      },
+      {
+        "path": "packages/ui/gallery/sections/basics.tsx",
+        "line": 42,
+        "before": "          <span className=\"text-caption text-text-faint w-20 shrink-0\">code</span>",
+        "after": "          <span className=\"text-caption text-text-subtle w-20 shrink-0\">code</span>"
+      }
+    ],
+    "expected": [
+      {
+        "from": 1483,
+        "to": 1573,
+        "text": "          <span className=\"text-caption text-text-subtle w-20 shrink-0\">code-inline</span>\n"
+      }
+    ],
+    "allowed": [
+      [
+        {
+          "from": 1483,
+          "to": 1573,
+          "text": "          <span className=\"text-caption text-text-subtle w-20 shrink-0\">code-inline</span>\n"
+        }
+      ],
+      [
+        {
+          "from": 1483,
+          "to": 1573,
+          "text": "          <span className=\"text-caption text-text-subtle w-20 shrink-0\">code-inline</span>\n"
+        },
+        {
+          "from": 1738,
+          "to": 1829,
+          "text": "          <span className=\"text-caption text-text-subtle w-20 shrink-0\">text colours</span>\n"
+        }
+      ],
+      [
+        {
+          "from": 1483,
+          "to": 1573,
+          "text": "          <span className=\"text-caption text-text-subtle w-20 shrink-0\">code-inline</span>\n"
+        },
+        {
+          "from": 2041,
+          "to": 2109,
+          "text": "          <span className=\"text-label text-text-subtle\">faint</span>\n"
+        }
+      ],
+      [
+        {
+          "from": 1483,
+          "to": 1573,
+          "text": "          <span className=\"text-caption text-text-subtle w-20 shrink-0\">code-inline</span>\n"
+        },
+        {
+          "from": 1738,
+          "to": 1829,
+          "text": "          <span className=\"text-caption text-text-subtle w-20 shrink-0\">text colours</span>\n"
+        },
+        {
+          "from": 2041,
+          "to": 2109,
+          "text": "          <span className=\"text-label text-text-subtle\">faint</span>\n"
+        }
+      ]
+    ],
+    "outputs": [
+      {
+        "format": "zeta-2.1",
+        "output": "<|marker_1|>] as const;\n\nexport function TypeSection() {\n  return (\n    <Section title=\"Type\">\n      <div className=\"flex flex-col gap-2\">\n        {TYPE_ROLES.map(([role, scale, sample]) => (\n          <div key={role} className=\"flex items-baseline gap-4\">\n            <span className=\"text-caption text-text-subtle w-20 shrink-0\">{role}</span>\n            <span className={`${scale} text-text-strong`}>{sample}</span>\n          </div>\n        ))}\n        <div className=\"flex items-baseline gap-4\">\n          <span className=\"text-caption text-text-subtle w-20 shrink-0\">code</span>\n          <span className=\"text-code font-mono\">const API_TOKEN = process.env.API_TOKEN;</span>\n        </div>\n        <div className=\"flex items-baseline gap-4\">\n<|marker_2|>          <span className=\"text-caption text-text-subtle w-20 shrink-0\">code-inline</span>\n          <span className=\"text-code-inline text-text-default font-mono\">spike/gpui-review</span>\n        </div>\n        <div className=\"flex items-baseline gap-4\">\n          <span className=\"text-caption text-text-subtle w-20 shrink-0\">text colours</span>\n          <span className=\"text-label text-text-strong\">strong</span>\n          <span className=\"text-label text-text-default\">default</span>\n          <span className=\"text-label text-text-subtle\">subtle</span>\n          <span className=\"text-label text-text-faint\">faint</span>\n        </div>\n      </div>\n    </Section>\n<|marker_3|>",
+        "label": "exact"
+      },
+      {
+        "format": "sweep-next-edit",
+        "output": "\n  return (\n    <Section title=\"Type\">\n      <div className=\"flex flex-col gap-2\">\n        {TYPE_ROLES.map(([role, scale, sample]) => (\n          <div key={role} className=\"flex items-baseline gap-4\">\n            <span className=\"text-caption text-text-subtle w-20 shrink-0\">{role}</span>\n            <span className={`${scale} text-text-strong`}>{sample}</span>\n          </div>\n        ))}\n        <div className=\"flex items-baseline gap-4\">\n          <span className=\"text-caption text-text-subtle w-20 shrink-0\">code</span>\n          <span className=\"text-code font-mono\">const API_TOKEN = process.env.API_TOKEN;</span>\n        </div>\n        <div className=\"flex items-baseline gap-4\">\n          <span className=\"text-caption text-text-subtle w-20 shrink-0\">code-inline</span>\n          <span className=\"text-code-inline text-text-default font-mono\">spike/gpui-review</span>\n        </div>\n        <div className=\"flex items-baseline gap-4\">\n          <span className=\"text-caption text-text-subtle w-20 shrink-0\">text colours</span>\n          <span className=\"text-label text-text-strong\">strong</span>\n          <span className=\"text-label text-text-default\">default</span>\n",
+        "label": "exact"
+      }
+    ]
+  },
+  {
+    "id": "rf04",
+    "category": "refactor",
+    "path": "apps/desktop/src/renderer/features/comments/ui/SubmitReview.tsx",
+    "buffer": "/**\n * \"Submit review\" and its popover (Paper R7 8XC-0): the summary, Comment / Approve /\n * Request changes with their consequences, what goes out with it (each pending comment and\n * the Viewed count), and the account it goes out as. GitHub's pending review is submitted.\n */\nimport { Button, cn, Popover, PopoverContent, PopoverTrigger, Textarea } from \"@polaris/ui\";\nimport { useState } from \"react\";\nimport { useStore } from \"zustand\";\nimport type { PullDetailView, ReviewEvent } from \"../../../../shared/github.ts\";\nimport {\n  emptySurface,\n  type ReviewSlotProps,\n  subjectKey as keyOf,\n  surfaceStore,\n} from \"../../review/index.ts\";\nimport { discardReview, submitReview } from \"../data/actions.ts\";\nimport { useComments } from \"../data/store.ts\";\nimport {\n  type OpenRisk,\n  pendingCaption,\n  pendingComments,\n  pendingCount,\n  SUBMIT_LABEL,\n  type SubmitChoice,\n  submitChoices,\n  submitProblem,\n} from \"../model/threads.ts\";\n\nconst ORDER = [\"critical\", \"high\", \"medium\", \"low\"] as const;\n\n/** The most severe open finding and how many share its Severity. */\nconst useOpenRisk = (subjectKey: string): OpenRisk | null => {\n  const findings = useStore(surfaceStore, (s) => (s[subjectKey] ?? emptySurface).findings);\n  const open = findings.filter((f) => f.status === \"open\");\n\n  for (const severity of ORDER) {\n    const count = open.filter((f) => f.severity === severity).length;\n\n    if (count > 0) return { severity, count };\n  }\n\n  return null;\n};\n\nconst Choice = ({\n  choice,\n  chosen,\n  onChoose,\n}: {\n  readonly choice: SubmitChoice;\n  readonly chosen: boolean;\n  readonly onChoose: () => void;\n}) => (\n  <button\n    type=\"button\"\n    role=\"radio\"\n    aria-checked={chosen}\n    disabled={choice.blocked !== null}\n    onClick={onChoose}\n    data-testid=\"submit-choice\"\n    data-event={choice.event}\n    className={cn(\n      \"rounded-control px-gap gap-row-x flex cursor-default items-start py-[7px] text-left\",\n      chosen ? \"bg-fill-selected\" : \"hover:bg-fill-hover\",\n      \"disabled:opacity-(--opacity-dimmed)\"\n    )}\n  >\n    <span\n      aria-hidden=\"true\"\n      className={cn(\n        \"mt-0.5 size-3.5 shrink-0 rounded-full border-solid\",\n        chosen ? \"border-text-strong border-[4.5px]\" : \"border-text-faint border-[1.5px]\"\n      )}\n    />\n    <span className=\"flex flex-col gap-px\">\n      <span\n        className={cn(\"text-body\", chosen ? \"text-text-strong font-medium\" : \"text-text-default\")}\n      >\n        {choice.label}\n      </span>\n      <span className=\"text-caption text-text-subtle\">{choice.blocked ?? choice.caption}</span>\n    </span>\n  </button>\n);\n\nconst GoesOut = ({ detail }: { readonly detail: PullDetailView }) => {\n  const pending = pendingComments(detail);\n  const viewed = detail.files.filter((f) => f.viewed === \"viewed\").length;\n  const left = detail.files.length - viewed;\n\n  return (\n    <div className=\"border-hairline flex flex-col gap-0.5 border-t px-1.5 py-2\">\n      <span className=\"text-caption text-text-faint px-gap pb-1.5\">Goes out with it</span>\n      {pending.map((p) => (\n        <div key={p.comment.id} className=\"px-gap gap-row-x flex h-[26px] items-center\">\n          <span className=\"text-text-subtle w-[150px] shrink-0 truncate font-mono text-[11px] leading-4\">\n            {p.place}\n          </span>\n          <span className=\"text-caption text-text-default min-w-0 flex-1 truncate\">\n            {p.comment.body}\n          </span>\n        </div>\n      ))}\n      <div className=\"px-gap gap-row-pad flex h-[26px] items-center\">\n        <span className=\"text-caption text-text-subtle w-[150px] shrink-0\">Viewed</span>\n        <span className=\"text-caption text-text-default\">\n          {viewed} of {detail.files.length} files{left > 0 ? ` · ${left} not viewed yet` : \"\"}\n        </span>\n      </div>\n    </div>\n  );\n};\n\nconst Dialog = ({\n  subjectKey,\n  detail,\n  onDone,\n}: {\n  readonly subjectKey: string;\n  readonly detail: PullDetailView;\n  readonly onDone: () => void;\n}) => {\n  const risk = useOpenRisk(subjectKey);\n  const choices = submitChoices(detail, risk);\n  const pending = pendingCount(detail);\n  const [event, setEvent] = useState<ReviewEvent>(\"comment\");\n  const [body, setBody] = useState(\"\");\n\n  const [state, setState] = useState<{ busy: boolean; error: string | null }>({\n    busy: false,\n    error: null,\n  });\n\n  const problem = submitProblem(event, body, pending);\n  const owner = detail.repo.split(\"/\")[0] ?? detail.repo;\n\n  const submit = async () => {\n    if (problem !== null || state.busy) return;\n    setState({ busy: true, error: null });\n    const done = await submitReview(subjectKey, event, body);\n\n    if (done.ok) onDone();\n    else setState({ busy: false, error: done.message });\n  };\n\n  return (\n    <div className=\"flex flex-col\" data-testid=\"submit-review\">\n      <div className=\"flex flex-col gap-0.5 px-3.5 pt-3.5 pb-2\">\n        <span className=\"text-heading-sm text-text-strong font-medium\">\n          Submit review on #{detail.number}\n        </span>\n        <span className=\"text-caption text-text-subtle\">{pendingCaption(pending)}</span>\n      </div>\n      <div className=\"px-3.5 pb-3\">\n        <Textarea\n          autoFocus\n          aria-label=\"Summary\"\n          placeholder={\n            event === \"request-changes\" ? \"Say what needs to change\" : \"Leave a summary (optional)\"\n          }\n          className=\"min-h-[72px]\"\n          value={body}\n          onChange={(e) => setBody(e.target.value)}\n          onKeyDown={(e) => {\n            if (e.key === \"Enter\" && (e.metaKey || e.ctrlKey)) void submit();\n          }}\n        />\n      </div>\n      <div role=\"radiogroup\" aria-label=\"Review\" className=\"flex flex-col gap-0.5 px-1.5 pb-2\">\n        {choices.map((c) => (\n          <Choice\n            key={c.event}\n            choice={c}\n            chosen={c.event === event}\n            onChoose={() => setEvent(c.event)}\n          />\n        ))}\n      </div>\n      <GoesOut detail={detail} />\n      {state.error !== null && (\n        <p className=\"text-caption text-failed-text px-3.5 pb-2\">{state.error}</p>\n      )}\n      <div className=\"border-hairline bg-surface-sunken gap-gap flex items-center border-t px-3.5 py-2\">\n        <span className=\"text-caption text-text-subtle min-w-0 flex-1 truncate\">\n          As {detail.viewerLogin}, for {owner}\n        </span>\n        {pending > 0 && (\n          <Button\n            size=\"xs\"\n            variant=\"ghost\"\n            disabled={state.busy}\n            onClick={() => void discardReview(subjectKey).then(onDone)}\n          >\n            Discard pending\n          </Button>\n        )}\n        <Button\n          size=\"xs\"\n          variant=\"primary\"\n          data-testid=\"submit-review-send\"\n          disabled={problem !== null || state.busy}\n          title={problem ?? undefined}\n          onClick={() => void submit()}\n        >\n          {SUBMIT_LABEL[event]} <span className=\"opacity-60\">⌘↵</span>\n        </Button>\n      </div>\n    </div>\n  );\n};\n\n/** The pull request's primary action (DESIGN.md, Review: \"Submit review\" with the pending count). */\nexport const SubmitReviewAction = (props: ReviewSlotProps) => {\n  const key = keyOf(props.subject);\n  const detail = useComments((s) => s.pulls[key]?.detail ?? null);\n  const [open, setOpen] = useState(false);\n  const pending = pendingCount(detail);\n\n  return (\n    <Popover open={open} onOpenChange={setOpen}>\n      <PopoverTrigger asChild>\n        <Button\n          variant=\"primary\"\n          disabled={detail === null || detail.state !== \"open\"}\n          data-testid=\"submit-review-open\"\n        >\n          Submit review\n          {pending > 0 && (\n            <span className=\"text-micro flex h-[18px] min-w-[18px] items-center justify-center rounded-[5px] bg-[color-mix(in_oklab,currentColor_12%,transparent)] px-[5px] font-medium\">\n              {pending}\n            </span>\n          )}\n        </Button>\n      </PopoverTrigger>\n      <PopoverContent align=\"end\" className=\"w-[400px] overflow-clip p-0\">\n        {detail !== null && (\n          <Dialog subjectKey={key} detail={detail} onDone={() => setOpen(false)} />\n        )}\n      </PopoverContent>\n    </Popover>\n  );\n};\n",
+    "cursor": 3121,
+    "history": [
+      {
+        "path": "apps/desktop/src/renderer/features/comments/ui/SubmitReview.tsx",
+        "line": 62,
+        "before": "      \"rounded-control px-gap gap-row-pad flex cursor-default items-start py-[7px] text-left\",",
+        "after": "      \"rounded-control px-gap gap-row-x flex cursor-default items-start py-[7px] text-left\","
+      },
+      {
+        "path": "apps/desktop/src/renderer/features/comments/ui/SubmitReview.tsx",
+        "line": 94,
+        "before": "        <div key={p.comment.id} className=\"px-gap gap-row-pad flex h-[26px] items-center\">",
+        "after": "        <div key={p.comment.id} className=\"px-gap gap-row-x flex h-[26px] items-center\">"
+      }
+    ],
+    "expected": [
+      {
+        "from": 3424,
+        "to": 3494,
+        "text": "      <div className=\"px-gap gap-row-x flex h-[26px] items-center\">\n"
+      }
+    ],
+    "allowed": [
+      [
+        {
+          "from": 3424,
+          "to": 3494,
+          "text": "      <div className=\"px-gap gap-row-x flex h-[26px] items-center\">\n"
+        }
+      ]
+    ],
+    "outputs": [
+      {
+        "format": "zeta-2.1",
+        "output": "<|marker_1|><|marker_1|>",
+        "label": "abstain"
+      },
+      {
+        "format": "sweep-next-edit",
+        "output": "\n\nconst GoesOut = ({ detail }: { readonly detail: PullDetailView }) => {\n  const pending = pendingComments(detail);\n  const viewed = detail.files.filter((f) => f.viewed === \"viewed\").length;\n  const left = detail.files.length - viewed;\n\n  return (\n    <div className=\"border-hairline flex flex-col gap-0.5 border-t px-1.5 py-2\">\n      <span className=\"text-caption text-text-faint px-gap pb-1.5\">Goes out with it</span>\n      {pending.map((p) => (\n        <div key={p.comment.id} className=\"px-gap gap-row-x flex h-[26px] items-center\">\n          <span className=\"text-text-subtle w-[150px] shrink-0 truncate font-mono text-[11px] leading-4\">\n            {p.place}\n          </span>\n          <span className=\"text-caption text-text-default min-w-0 flex-1 truncate\">\n            {p.comment.body}\n          </span>\n        </div>\n      ))}\n      <div className=\"px-gap gap-row-x flex h-[26px] items-center\">\n        <span className=\"text-caption text-text-subtle w-[150px] shrink-0\">Viewed</span>\n",
+        "label": "exact"
+      }
+    ]
+  },
+  {
+    "id": "rf05",
+    "category": "refactor",
+    "path": "apps/desktop/src/renderer/features/onboarding/model.ts",
+    "buffer": "/**\n * Onboarding's decisions (DESIGN.md, Onboarding): which stage the app opens\n * to, and the lines that say what was found. Pure, so it is unit-tested.\n */\nimport { harnessEntry, type HostHarnesses, type Workspace } from \"@polaris/protocol\";\nimport type { HostView, Plain } from \"../../../shared/api.ts\";\nimport type { HostModel } from \"../../store/hostModel.ts\";\nimport { olderThanTestedNote } from \"../harness/model/options.ts\";\n\n/** \"unknown\" until the settings arrive, so the welcome never flashes for a returning user. */\nexport type Welcome = \"unknown\" | \"show\" | \"seen\";\n\n/**\n * - `welcome`: O1, full-bleed, before anything else.\n * - `waiting`: no Host has said what it holds yet; the stage stays an empty scene.\n * - `setup`: O2, no Workspace on any Host.\n * - `shell`: the Orchestrator as usual.\n */\nexport type Stage = \"welcome\" | \"waiting\" | \"setup\" | \"shell\";\n\nexport interface StageInput {\n  readonly welcome: Welcome;\n  readonly hosts: ReadonlyArray<HostView>;\n  readonly models: Readonly<Record<string, HostModel>>;\n}\n\nconst shown = (model: HostModel | undefined) =>\n  model === undefined ? [] : [...model.workspaces.values()].filter((w) => !w.hidden);\n\n/** Whether a Host's Workspaces are known: synchronized, or painted from the cache. */\nconst known = (model: HostModel | undefined) =>\n  model !== undefined && (model.synchronized || model.fromCache);\n\nexport const onboardingStage = ({ welcome, hosts, models }: StageInput): Stage => {\n  if (welcome === \"show\") return \"welcome\";\n\n  if (hosts.some((h) => shown(models[h.key]).length > 0)) return \"shell\";\n\n  return hosts.some((h) => known(models[h.key])) ? \"setup\" : \"waiting\";\n};\n\n/** Whether the Orchestrator's stage is the setup (no Workspace on any Host). */\nexport const noWorkspaceAnywhere = (input: Omit<StageInput, \"welcome\">) =>\n  onboardingStage({ ...input, welcome: \"seen\" }) !== \"shell\";\n\nexport type Availability = Plain<HostHarnesses>;\n\nconst harnessName = (kind: string) => harnessEntry(kind)?.name ?? kind;\n\ntype Reported = Availability[\"harnesses\"][number];\n\nconst named = (harnesses: ReadonlyArray<Reported>) =>\n  harnesses.map((h) => {\n    const name =\n      h.version === null ? harnessName(h.harness) : `${harnessName(h.harness)} ${h.version}`;\n\n    const note = olderThanTestedNote(h.olderThanTested);\n\n    // A comma, not \"·\": the footer already separates its parts with dots.\n    return note === null ? name : `${name}, ${note}`;\n  });\n\n/**\n * Installed Harnesses with their versions: \"Claude Code 2.1.4\", in catalogue order; one older\n * than tested says so, quietly: \"Claude Code 2.1.272, older than tested (2.1.283)\".\n */\nexport const installedHarnesses = (availability: Availability | null): ReadonlyArray<string> =>\n  named((availability?.harnesses ?? []).filter((h) => h.status !== \"not-installed\"));\n\n/** The installed Harnesses' names alone: \"Claude Code\". */\nexport const installedNames = (availability: Availability | null): ReadonlyArray<string> =>\n  (availability?.harnesses ?? [])\n    .filter((h) => h.status !== \"not-installed\")\n    .map((h) => harnessName(h.harness));\n\nexport const hostsLine = (count: number) =>\n  count === 1 ? \"1 host in ~/.ssh/config\" : `${count} hosts in ~/.ssh/config`;\n\n/** O1's footer: \"Claude Code 2.1.4 · Codex 0.52.0 · 14 hosts in ~/.ssh/config\". */\nexport const foundLine = (availability: Availability | null, sshHosts: number | null): string => {\n  const parts = [...installedHarnesses(availability)];\n\n  if (sshHosts !== null && sshHosts > 0) parts.push(hostsLine(sshHosts));\n\n  return parts.length === 0 ? \"No agents yet\" : parts.join(\" · \");\n};\n\n/** \"A and B\", \"A, B, and C\"; past `max` names, \"A, B, and 3 more\" (the serial comma). */\nexport const listed = (names: ReadonlyArray<string>, max = names.length): string => {\n  const shown = names.length > max ? [...names.slice(0, max), `${names.length - max} more`] : names;\n\n  return shown.length <= 2\n    ? shown.join(\" and \")\n    : `${shown.slice(0, -1).join(\", \")}, and ${shown[shown.length - 1]}`;\n};\n\n/** O1's line on what Polaris drives: the Harnesses found here, or the catalogue's first two. */\nexport const drivesLine = (installed: ReadonlyArray<string>, catalogue: ReadonlyArray<string>) => {\n  const names = installed.length > 0 ? installed : catalogue;\n\n  return names.length > 2 ? `${names.slice(0, 2).join(\", \")} and more` : listed(names);\n};\n\n/** The Workspace already registered at a path, shown or hidden. */\nexport const workspaceAt = (model: HostModel | undefined, path: string): Workspace | undefined =>\n  model === undefined ? undefined : [...model.workspaces.values()].find((w) => w.path === path);\n",
+    "cursor": 3995,
+    "history": [
+      {
+        "path": "apps/desktop/src/renderer/features/onboarding/model.ts",
+        "line": 87,
+        "before": "/** \"Claude Code 2.1.4 and Codex 0.52.0\"; past `max` names, \"A, B and 3 more\". */",
+        "after": "/** \"A and B\", \"A, B, and C\"; past `max` names, \"A, B, and 3 more\" (the serial comma). */"
+      },
+      {
+        "path": "apps/desktop/src/renderer/features/onboarding/model.ts",
+        "line": 89,
+        "before": "  if (names.length > max) return `${names.slice(0, max).join(\", \")} and ${names.length - max} more`;",
+        "after": "  const shown = names.length > max ? [...names.slice(0, max), `${names.length - max} more`] : names;"
+      },
+      {
+        "path": "apps/desktop/src/renderer/features/onboarding/model.ts",
+        "line": 91,
+        "before": "  return names.length <= 1\n    ? (names[0] ?? \"\")\n    : `${names.slice(0, -1).join(\", \")} and ${names[names.length - 1]}`;",
+        "after": "  return shown.length <= 2\n    ? shown.join(\" and \")\n    : `${shown.slice(0, -1).join(\", \")}, and ${shown[shown.length - 1]}`;"
+      }
+    ],
+    "expected": [
+      {
+        "from": 4260,
+        "to": 4348,
+        "text": "  return names.length > 2 ? `${names.slice(0, 2).join(\", \")}, and more` : listed(names);\n"
+      }
+    ],
+    "allowed": [
+      [
+        {
+          "from": 4260,
+          "to": 4348,
+          "text": "  return names.length > 2 ? `${names.slice(0, 2).join(\", \")}, and more` : listed(names);\n"
+        }
+      ]
+    ],
+    "outputs": [
+      {
+        "format": "zeta-2.1",
+        "output": "<|marker_1|>  const parts = [...installedHarnesses(availability)];\n\n  if (sshHosts !== null && sshHosts > 0) parts.push(hostsLine(sshHosts));\n\n  return parts.length === 0 ? \"No agents yet\" : parts.join(\" · \");\n};\n\n/** \"A and B\", \"A, B, and C\"; past `max` names, \"A, B, and 3 more\" (the serial comma). */\nexport const listed = (names: ReadonlyArray<string>, max = names.length): string => {\n  const shown = names.length > max ? [...names.slice(0, max), `${names.length - max} more`] : names;\n\n  return shown.length <= 2\n    ? shown.join(\" and \")\n    : `${shown.slice(0, -1).join(\", \")}, and ${shown[shown.length - 1]}`;\n};\n\n<|marker_2|>",
+        "label": "abstain"
+      },
+      {
+        "format": "sweep-next-edit",
+        "output": "\n\n  return parts.length === 0 ? \"No agents yet\" : parts.join(\" · \");\n};\n\n/** \"A and B\", \"A, B, and C\"; past `max` names, \"A, B, and 3 more\" (the serial comma). */\nexport const listed = (names: ReadonlyArray<string>, max = names.length): string => {\n  const shown = names.length > max ? [...names.slice(0, max), `${names.length - max} more`] : names;\n\n  return shown.length <= 2\n    ? shown.join(\" and \")\n    : `${shown.slice(0, -1).join(\", \")}, and ${shown[shown.length - 1]}`;\n};\n\n/** O1's line on what Polaris drives: the Harnesses found here, or the catalogue's first two. */\nexport const drivesLine = (installed: ReadonlyArray<string>, catalogue: ReadonlyArray<string>) => {\n  const names = installed.length > 0 ? installed : catalogue;\n\n  return names.length > 2 ? `${names.slice(0, 2).join(\", \")} and more` : listed(names);\n};\n\n/** The Workspace already registered at a path, shown or hidden. */\n",
+        "label": "abstain"
+      }
+    ]
+  },
+  {
+    "id": "rf06",
+    "category": "refactor",
+    "path": "apps/desktop/src/renderer/features/editor/prediction/commands.ts",
+    "buffer": "import { useEffect } from \"react\";\nimport { useCommands } from \"../../../shell/hooks.ts\";\nimport { getActiveEditor } from \"../runtime/hooks.ts\";\nimport { acceptPrediction, setGhost, visibleGhost } from \"./index.ts\";\n\n/** Availability is read from the focused view, including popup and snippet suppression. */\nexport const usePredictionCommands = () => {\n  const registry = useCommands();\n  useEffect(() => {\n    const available = () => {\n      const view = getActiveEditor()?.view;\n\n      return view !== undefined && view.hasFocus && visibleGhost(view.state) !== null;\n    };\n\n    const accept = (word: boolean) => {\n      const view = getActiveEditor()?.view;\n\n      if (view) acceptPrediction(view, word);\n    };\n\n    const unregister = registry.register({\n      \"editor.prediction.accept\": { enabled: acceptable, run: () => accept(false) },\n      \"editor.prediction.acceptWord\": { enabled: acceptable, run: () => accept(true) },\n      \"editor.prediction.dismiss\": {\n        enabled: available,\n        run: () => {\n          const view = getActiveEditor()?.view;\n\n          if (view) view.dispatch({ effects: setGhost.of(null) });\n        },\n      },\n    });\n\n    const unprovide = registry.provide(() => ({ keys: available() ? [\"prediction.ghost\"] : [] }));\n\n    return () => {\n      unregister();\n      unprovide();\n    };\n  }, [registry]);\n};\n",
+    "cursor": 932,
+    "history": [
+      {
+        "path": "apps/desktop/src/renderer/features/editor/prediction/commands.ts",
+        "line": 22,
+        "before": "      \"editor.prediction.accept\": { enabled: available, run: () => accept(false) },\n      \"editor.prediction.acceptWord\": { enabled: available, run: () => accept(true) },",
+        "after": "      \"editor.prediction.accept\": { enabled: acceptable, run: () => accept(false) },\n      \"editor.prediction.acceptWord\": { enabled: acceptable, run: () => accept(true) },"
+      }
+    ],
+    "expected": [
+      {
+        "from": 570,
+        "to": 570,
+        "text": "    };\n\n    const acceptable = () => {\n      const view = getActiveEditor()?.view;\n\n      return available() && view !== undefined && !visibleGhost(view.state)?.provisional;\n"
+      }
+    ],
+    "allowed": [
+      [
+        {
+          "from": 570,
+          "to": 570,
+          "text": "    };\n\n    const acceptable = () => {\n      const view = getActiveEditor()?.view;\n\n      return available() && view !== undefined && !visibleGhost(view.state)?.provisional;\n"
+        }
+      ]
+    ],
+    "outputs": [
+      {
+        "format": "zeta-2.1",
+        "output": "<|marker_1|>      const view = getActiveEditor()?.view;\n\n      return view !== undefined && view.hasFocus && visibleGhost(view.state) !== null;\n    };\n\n    const acceptable = () => {\n      return available();\n    };\n\n    const accept = (word: boolean) => {\n      const view = getActiveEditor()?.view;\n\n      if (view) acceptPrediction(view, word);\n    };\n\n    const unregister = registry.register({\n      \"editor.prediction.accept\": { enabled: acceptable, run: () => accept(false) },\n      \"editor.prediction.acceptWord\": { enabled: acceptable, run: () => accept(true) },\n      \"editor.prediction.dismiss\": {\n        enabled: available,\n<|marker_2|>",
+        "label": "wrong"
+      },
+      {
+        "format": "sweep-next-edit",
+        "output": "\n    };\n\n    const accept = (word: boolean) => {\n      const view = getActiveEditor()?.view;\n\n      if (view) acceptPrediction(view, word);\n    };\n\n    const unregister = registry.register({\n      \"editor.prediction.accept\": { enabled: available, run: () => accept(false) },\n      \"editor.prediction.acceptWord\": { enabled: available, run: () => accept(true) },\n      \"editor.prediction.dismiss\": {\n        enabled: available,\n        run: () => {\n          const view = getActiveEditor()?.view;\n\n          if (view) view.dispatch({ effects: setGhost.of(null) });\n        },\n      },\n    });\n\n",
+        "label": "dangerous"
+      }
+    ]
+  }
+]
