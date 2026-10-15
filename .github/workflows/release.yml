@@ -24,7 +24,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
 
@@ -44,7 +44,7 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: package.json
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
@@ -109,7 +109,7 @@ jobs:
       - name: Archive the final Daemon bytes and manifest for Windows
         # The manifest names every platform's Release archive; the archives themselves upload below.
         run: tar -czf polaris-daemon-dist.tar.gz --exclude dist/release -C apps/daemon dist
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: release-daemon-dist
           path: polaris-daemon-dist.tar.gz
@@ -194,7 +194,7 @@ jobs:
     environment: release
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
       # Shared with windows-test-build.yml: restore the Daemon, package, smoke-test x64.
@@ -222,7 +222,7 @@ jobs:
           }
           gh release upload $env:RELEASE_TAG @assets
           if ($LASTEXITCODE -ne 0) { throw 'Windows asset upload failed' }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: windows-installers
           path: |
