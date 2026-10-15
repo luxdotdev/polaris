@@ -122,4 +122,17 @@ describe("notification actions", () => {
       { action: "open", hostKey: "local", sessionId: "a" },
     ]);
   });
+
+  test("a request is answered once, however many presses arrive", () => {
+    const where = { hostKey: "local", sessionId: "a", requestId: "r1" };
+
+    const pressed = acted((on) => {
+      on.action(0);
+      on.action(0);
+      on.action(1);
+      on.reply("Monthly");
+    });
+
+    expect(pressed).toEqual([{ action: "approve", ...where }]);
+  });
 });

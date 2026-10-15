@@ -6,6 +6,9 @@ import { Schema } from "effect";
 import { TrustRecord, trustScopeKey, type TrustRepository } from "./index.ts";
 import { readJson } from "../discovery/files.ts";
 
+/** Where a Daemon keeps its Trust records under its private directory `root`. */
+export const trustDirectory = (root: string) => join(root, "language-trust");
+
 /** One repository instance per Daemon, in its private Host state directory. No implicit home. */
 export function createFileTrustRepository(directory: string): TrustRepository {
   let tail: Promise<unknown> = Promise.resolve();

@@ -43,6 +43,7 @@ import { Constellations } from "../service.ts";
 import { constellationGitLayer } from "../transfers/index.ts";
 import { ConstellationHarness } from "./attachments.ts";
 import { constellationServices } from "./index.ts";
+import { trustedSetup } from "../setup/trust.testing.ts";
 
 test("production composition acquires a slot before first Turn, installs MCP/environment and publishes Harness liveness", async () => {
   const root = await makeRepo({
@@ -167,7 +168,11 @@ test("production composition acquires a slot before first Turn, installs MCP/env
   ).pipe(Layer.provideMerge(attachments));
 
   const engine = Engine.layer.pipe(Layer.provideMerge(seeded));
-  const layer = constellationServices.pipe(Layer.provideMerge(engine));
+
+  const layer = constellationServices.pipe(
+    Layer.provideMerge(trustedSetup),
+    Layer.provideMerge(engine)
+  );
 
   try {
     await Effect.runPromise(

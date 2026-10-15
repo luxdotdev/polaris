@@ -44,3 +44,30 @@ export const pollStep = (response: TokenResponse, interval: number, now: number)
 
   return { kind: "fail", failure: FAILURES.get(response.error ?? "") ?? "network" };
 };
+
+/** Transport errors in a row a device flow retries before failing with the reason. */
+export const MAX_MISSES = 3;
+
+/** The wait before retry `misses` (1-based): the interval doubled each time, at most 30 s. */
+export const retryDelay = (interval: number, misses: number) =>
+  Math.min(interval * 2 ** misses, 30);
+
+const CERTIFICATE = /ERR_CERT_|CERT_AUTHORITY|certificate|SELF_SIGNED|UNABLE_TO_(?:GET|VERIFY)/i;
+
+export interface RequestFailure {
+  readonly failure: SignInFailure;
+  /** The error as the network stack gave it, e.g. `net::ERR_PROXY_CONNECTION_FAILED`. */
+  readonly detail: string;
+}
+
+/** What a failed OAuth request means for the user: status 0 never reached GitHub. */
+export const requestFailure = (error: {
+  readonly status: number;
+  readonly message: string;
+}): RequestFailure => {
+  const detail = error.message.replace(/^(?:Type)?Error: /, "");
+
+  if (error.status !== 0) return { failure: "unavailable", detail };
+
+  return { failure: CERTIFICATE.test(detail) ? "certificate" : "network", detail };
+};

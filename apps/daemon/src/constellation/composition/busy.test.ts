@@ -57,6 +57,7 @@ test("same-session busy SendBack commits now, skips setup, and delivers once at 
       ).pipe(
         Effect.provideService(WorktreeSetupService, {
           run: () => Effect.die("setup must not run on a reused worktree"),
+          authorize: () => Effect.void,
         }),
         Effect.provideService(HarnessRegistry, {
           get: () => Effect.succeed(makeFakeDriver("codex").driver),

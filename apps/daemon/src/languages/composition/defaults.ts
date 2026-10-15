@@ -6,7 +6,7 @@ import { LanguageError } from "@polaris/protocol";
 import { EventStore } from "../../store/EventStore.ts";
 import { catalog } from "../catalog/index.ts";
 import { registeredCheckout } from "../registeredCheckout.ts";
-import { createFileTrustRepository } from "../trust/index.ts";
+import { createFileTrustRepository, trustDirectory } from "../trust/index.ts";
 import { HostLanguageEnvironment } from "./environment.ts";
 import { authenticatedTrustGrants } from "./trustGrant.ts";
 import { languageHostHandlers } from "./host.ts";
@@ -92,7 +92,7 @@ export const DefaultLanguageHostHandlers = Layer.unwrap(
       {
         hostId: environment.hostId,
         registry,
-        repository: createFileTrustRepository(join(root, "language-trust")),
+        repository: createFileTrustRepository(trustDirectory(root)),
         // Core checks the exact connection and registered scope before this private persistence port.
         authorizeGrant: async () => {},
       },

@@ -24,6 +24,10 @@ worktree setup on the worker Host before returning the Attempt: auto-detected
 lockfile command, disabled, or a custom shell command. It persists a separate
 setup card on the Session, so failure is visible even before a first Turn.
 A failed setup refuses dispatch and uses the Session machine's failure signal.
+Setup runs only in a Workspace the user trusts on the worker Host (the Editor's
+Trust records, read-only here): otherwise dispatch is refused with
+`E-SETUP-TRUST` before any process, and `run` rechecks just before spawning.
+Setup children get an allowlisted environment (`setup/env.ts`), no credentials.
 Successful command-ID retries reuse the completed setup receipt; a failure may
 be retried. No worker slot is acquired and Attempt working time has not begun
 during initial setup. Deferred retry setup runs in the acquired worker scope

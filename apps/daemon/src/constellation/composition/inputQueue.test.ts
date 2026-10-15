@@ -3,7 +3,7 @@ import { expect, test } from "bun:test";
 import { Command, CommandId, Attempt } from "@polaris/protocol";
 import { Effect, Exit, Fiber, Struct } from "effect";
 import { Engine } from "../../engine/Engine.ts";
-import { CID, draft } from "../../engine/constellation.testing.ts";
+import { CID, WS, draft } from "../../engine/constellation.testing.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { inputQueueWorld } from "./inputQueue.testing.ts";
 import { finish, send, setup, wait } from "../delivery/testing.ts";
@@ -124,7 +124,8 @@ for (const command of ["exit 7", "mkdir package.json"])
               command: command === "exit 7" ? "true" : "rmdir package.json",
             }),
             CID,
-            attempt.taskId
+            attempt.taskId,
+            WS
           );
           expect((yield* store.model).sessions.get(sid)!.session.worktreeSetup?.status).toBe(
             "completed"

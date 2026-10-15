@@ -3,7 +3,7 @@ import { ConstellationId, TaskId } from "./constellation/domain.ts";
 import { optionalNullable } from "./models.ts";
 import { Timestamp } from "./ids.ts";
 
-/** Commands run in a worker checkout before its first Turn; null selects Auto. */
+/** Commands run in a worker checkout before its first Turn, only with Trust; null selects Auto. */
 export const WorktreeSetup = Schema.TaggedUnion({
   Auto: {},
   Disabled: {},
