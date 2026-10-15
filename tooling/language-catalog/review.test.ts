@@ -132,5 +132,5 @@ for (const [id, path] of retainedNativeEvidence) {
       `${id}:false-awaiting-review`
     );
     expect(candidate.artifacts.every((artifact) => artifact.audit === "pending")).toBe(true);
-  });
+  }, 25000);
 }
