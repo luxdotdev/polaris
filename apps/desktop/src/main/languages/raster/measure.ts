@@ -1,0 +1,25 @@
+import { malformed } from "./bytes.ts";
+
+export interface RasterSize {
+  readonly width: number;
+  readonly height: number;
+}
+
+/** What Chromium will decode: the canvas, how many frames, and the pixels decoded across them. */
+export interface RasterMeasure extends RasterSize {
+  readonly mimeType: "image/png" | "image/jpeg" | "image/gif" | "image/webp" | "image/avif";
+  readonly frames: number;
+  readonly decodedPixels: number;
+}
+
+export const size = (width: number, height: number): RasterSize =>
+  width > 0 && height > 0 ? { width, height } : malformed();
+
+export const area = (rect: RasterSize): number => rect.width * rect.height;
+
+/** A frame at (`x`, `y`) must lie inside the canvas: decoders grow the canvas, or clip, otherwise. */
+export const inside = (canvas: RasterSize, x: number, y: number, frame: RasterSize): RasterSize =>
+  x + frame.width <= canvas.width && y + frame.height <= canvas.height ? frame : malformed();
+
+export const sameSize = (a: RasterSize, b: RasterSize): RasterSize =>
+  a.width === b.width && a.height === b.height ? a : malformed();

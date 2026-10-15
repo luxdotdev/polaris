@@ -16,12 +16,21 @@ export const LanguageClientIdentity = Schema.Struct({
 /** The most pixels one preview image may declare (6000 × 4000 fits; ~96 MB decoded as RGBA). */
 export const PREVIEW_IMAGE_MAX_PIXELS = 24_000_000;
 
+/** The most encoded bytes one preview image may have, whatever a policy or request asks for. */
+export const PREVIEW_IMAGE_MAX_BYTES = 10_485_760;
+
+/** The most frames an animated preview image may have. */
+export const PREVIEW_IMAGE_MAX_FRAMES = 256;
+
+/** The most pixels decoded across all of an image's frames, tiles and layers. */
+export const PREVIEW_IMAGE_MAX_DECODED_PIXELS = 128_000_000;
+
 /** Main fetches bounded media; the renderer creates/revokes object URLs from these bytes. */
 export const LanguagePreviewMediaView = Schema.Struct({
   mimeType: Schema.String.check(Schema.isPattern(/^image\/(png|jpeg|gif|webp|avif)$/)),
-  bytes: Languages.LanguageCounter.check(Schema.isLessThanOrEqualTo(10485760)),
-  /** Width × height from the header, so the renderer can budget the decode. */
-  pixels: Languages.LanguageCounter.check(Schema.isLessThanOrEqualTo(PREVIEW_IMAGE_MAX_PIXELS)),
+  bytes: Languages.LanguageCounter.check(Schema.isLessThanOrEqualTo(PREVIEW_IMAGE_MAX_BYTES)),
+  /** Pixels held decoded (an animation holds two frames), so the renderer can budget them. */
+  pixels: Languages.LanguageCounter.check(Schema.isLessThanOrEqualTo(2 * PREVIEW_IMAGE_MAX_PIXELS)),
   base64: Schema.String.check(
     Schema.isMaxLength(13981016),
     Schema.isPattern(/^[A-Za-z0-9+/]*={0,2}$/)

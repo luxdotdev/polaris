@@ -174,7 +174,7 @@ describe("bounded media lifecycle", () => {
       { ...media, mimeType: "image/svg+xml" },
       { ...media, bytes: 4 },
       { ...media, bytes: 12, base64: "AQIDAQIDAQIDAQID" },
-      { ...media, pixels: 24_000_001 },
+      { ...media, pixels: 48_000_001 },
     ]) {
       let creates = 0;
 
