@@ -11,9 +11,13 @@ export const PredictionAggressiveness = Schema.Literals(["conservative", "balanc
 
 export type PredictionAggressiveness = typeof PredictionAggressiveness.Type;
 
+/** Where a jump probe looks after an empty answer: nowhere, §4's rule, or the reach signals. */
+export type JumpProbe = "off" | "spec" | "reach";
+
 export const predictionRestraints = (aggressiveness: PredictionAggressiveness) => ({
   pauseMs: { conservative: 300, balanced: 150, eager: 75 }[aggressiveness],
   jumpsOffered: aggressiveness !== "conservative",
+  jumpProbe: ({ conservative: "off", balanced: "spec", eager: "reach" } as const)[aggressiveness],
   largeDeletionsOffered: aggressiveness !== "conservative",
 });
 

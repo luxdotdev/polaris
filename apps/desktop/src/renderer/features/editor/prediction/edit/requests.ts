@@ -13,7 +13,7 @@ import { languageFor } from "../../model/language.ts";
 import { openPopupOrSnippet } from "../state.ts";
 import { markPrediction } from "../timing.ts";
 import { revertsBurst } from "./guards.ts";
-import { editAccepted, historyOf, lastEditText } from "./history.ts";
+import { editAccepted, historyOf, historyThroughBurst, lastEditText } from "./history.ts";
 import { burstLines, changedLines, ImportLookups } from "./importLookups.ts";
 import {
   type EditFinal,
@@ -34,7 +34,7 @@ import {
   type PredictionOutcome,
   UNDO_WINDOW_MS,
 } from "./outcomes.ts";
-import { identifiersRemoved, probeTarget } from "./probe.ts";
+import { jumpFocus } from "./probe.ts";
 import { DEFAULT_EDIT_PREDICTION_SETTINGS, type EditPredictionSettings } from "./settings.ts";
 import {
   editDisplay,
@@ -377,17 +377,15 @@ class EditRequests {
   }
   private probe(window: EditFinal["window"]) {
     const { state } = this.view;
-    const { removed, added } = lastEditText(historyOf(state));
-    const identifiers = identifiersRemoved(removed, added);
 
-    if (identifiers.length === 0) return;
-
-    const target = probeTarget(
-      state.doc.toString(),
-      identifiers,
+    const target = jumpFocus(this.port.settings().restraints.jumpProbe, {
+      buffer: state.doc.toString(),
+      path: state.facet(editorFile)?.path ?? "",
+      cursor: state.selection.main.head,
       window,
-      state.selection.main.head
-    );
+      history: historyThroughBurst(state),
+      last: lastEditText(historyOf(state)),
+    });
 
     if (target !== null && this.allowed()) void this.request("probe", target);
   }

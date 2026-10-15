@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { undo } from "@codemirror/commands";
-import { EditorState } from "@codemirror/state";
+import { EditorState, Transaction } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { setClientPlatform } from "../../../../../shared/platform.ts";
 import { ghost, predictionExtension, type PredictionPort } from "../index.ts";
@@ -109,6 +109,38 @@ test("after an empty answer, a rename's other occurrence is probed and shown as 
   await flush();
   type(again, " ");
   expect(port.calls[3]?.signal.aborted).toBe(true);
+});
+
+const RENAMED = ["const tierOf = 1;", "", "", "", "", "", "const x = tierOf;"].join("\n");
+
+/** Renames line 1's `tierOf`; with `thenType`, a later burst makes the rename history. */
+const rename = (port: ReturnType<typeof editPort>, thenType: boolean) => {
+  const view = editor(RENAMED, port, 12);
+  view.dispatch({
+    changes: { from: 6, to: 12, insert: "ramTier" },
+    selection: { anchor: 13 },
+    annotations: Transaction.time.of(1000),
+  });
+
+  if (thenType) type(view, " ", 2000);
+
+  return view;
+};
+
+test.each([
+  ["Balanced probes the name the last edit removed", "spec", false, true],
+  ["Eager probes it too, from the live burst", "reach", false, true],
+  ["Conservative never probes", "off", false, false],
+  ["Balanced ignores a name an earlier edit removed", "spec", true, false],
+  ["Eager probes a name an earlier edit removed", "reach", true, true],
+] as const)("%s", async (_name, jumpProbe, thenType, probes) => {
+  const port = editPort({ jumpProbe });
+  const view = rename(port, thenType);
+  await settle();
+  port.calls[0]?.resolve(final([], { window: { from: 0, to: 20 } }));
+  await flush();
+  const occurrence = view.state.doc.toString().lastIndexOf("tierOf");
+  expect(port.calls.slice(1).map((call) => call.input.focus)).toEqual(probes ? [occurrence] : []);
 });
 
 test("each prediction is finalized once, and an accepted one waits to see whether it is undone", async () => {

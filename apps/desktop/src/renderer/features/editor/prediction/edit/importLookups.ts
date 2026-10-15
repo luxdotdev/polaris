@@ -5,7 +5,7 @@
  */
 import type { ChangeSet, EditorState, Text } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
-import { type ImportCandidate, importSource } from "../imports/index.ts";
+import { type ImportBurst, type ImportCandidate, importSource } from "../imports/index.ts";
 import { historyOf } from "./history.ts";
 import { type EditPrediction, predictionId } from "./model.ts";
 
@@ -15,24 +15,27 @@ export interface ImportHost {
   readonly show: (prediction: EditPrediction) => void;
 }
 
-type Range = { readonly from: number; readonly to: number };
+const NAME = /[\p{L}_$][\p{L}\p{N}_$]*/gu;
 
-/** The changes' extent in the new buffer, widened to whole lines; null when nothing changed. */
-export const changedLines = (doc: Text, changes: ChangeSet): Range | null => {
+/** The changes' extent in the new buffer, widened to whole lines, and the names they inserted. */
+export const changedLines = (doc: Text, changes: ChangeSet): ImportBurst | null => {
   let from = Number.POSITIVE_INFINITY;
   let to = -1;
-  changes.iterChangedRanges((_fromA, _toA, fromB, toB) => {
+  const names = new Set<string>();
+  changes.iterChanges((_fromA, _toA, fromB, toB, inserted) => {
     from = Math.min(from, fromB);
     to = Math.max(to, toB);
+
+    for (const name of inserted.toString().match(NAME) ?? []) names.add(name);
   });
 
   if (to < 0) return null;
 
-  return { from: doc.lineAt(from).from, to: doc.lineAt(to).to };
+  return { from: doc.lineAt(from).from, to: doc.lineAt(to).to, names };
 };
 
 /** The current burst's changed lines. */
-export const burstLines = (state: EditorState): Range | null => {
+export const burstLines = (state: EditorState): ImportBurst | null => {
   const { burst } = historyOf(state);
 
   return burst === null ? null : changedLines(state.doc, burst.changes);
@@ -75,7 +78,7 @@ export class ImportLookups {
 
     return state.doc === prediction.doc && state.selection.main.head === prediction.anchor;
   }
-  start(range: Range | null) {
+  start(range: ImportBurst | null) {
     this.cancel();
     const source = this.view.state.facet(importSource);
 

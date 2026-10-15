@@ -17,12 +17,16 @@ export interface ImportCandidate {
   readonly current: () => boolean;
 }
 
+/** The lines a burst or acceptance changed, and the names its inserted text wrote. */
+export interface ImportBurst {
+  readonly from: number;
+  readonly to: number;
+  readonly names: ReadonlySet<string>;
+}
+
 export interface ImportSource {
-  /** Waits for the buffer's diagnostics, then the fix for an unresolved name in `range`, if any. */
-  readonly find: (
-    range: { readonly from: number; readonly to: number },
-    signal: AbortSignal
-  ) => Promise<ImportCandidate | null>;
+  /** Waits for the buffer's diagnostics, then the fix for the burst's unresolved names, if any. */
+  readonly find: (burst: ImportBurst, signal: AbortSignal) => Promise<ImportCandidate | null>;
 }
 
 export const importSource = Facet.define<ImportSource, ImportSource | null>({
@@ -35,7 +39,9 @@ export {
   type ImportChoice,
   type ImportDocument,
   type ImportInsert,
+  type ImportName,
   insertOnlyEdit,
+  moduleImportRule,
   selectImportAction,
   specImportRule,
 } from "./selector.ts";

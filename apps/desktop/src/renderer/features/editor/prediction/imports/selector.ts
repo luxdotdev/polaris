@@ -3,6 +3,13 @@
  * "Imports"): a pure function of the server's actions. `selectImportAction` is the one binding the
  * Editor calls; a tuned rule replaces it there and nowhere else.
  */
+import {
+  isNoOpCommand,
+  type LspCodeAction,
+  type LspDiagnostic,
+  selectImportFix,
+  UNRESOLVED_NAME_CODES,
+} from "@polaris/predict";
 import type * as P from "@polaris/protocol";
 
 /** The fields of an LSP `CodeAction` the rule reads. */
@@ -12,13 +19,20 @@ export interface ImportAction {
   readonly isPreferred?: boolean;
   readonly disabled?: { readonly reason: string };
   readonly edit?: P.LanguageWorkspaceEdit;
-  readonly command?: unknown;
+  readonly command?: string | object;
 }
 
 /** The document the diagnostic is in, as the language server knows it. */
 export interface ImportDocument {
   readonly uri: string;
   readonly version: number;
+  readonly text: string;
+}
+
+/** One unresolved-name diagnostic and the quick fixes its server returned. */
+export interface ImportName {
+  readonly diagnostic: LspDiagnostic;
+  readonly actions: ReadonlyArray<ImportAction>;
 }
 
 export interface ImportInsert {
@@ -32,9 +46,10 @@ export interface ImportChoice {
   readonly inserts: ReadonlyArray<ImportInsert>;
 }
 
+/** `names` in document order. */
 export type ImportActionSelector = (
-  actions: ReadonlyArray<ImportAction>,
-  document: ImportDocument
+  document: ImportDocument,
+  names: ReadonlyArray<ImportName>
 ) => ImportChoice | null;
 
 type TextEdit = typeof P.LanguageTextEdit.Type;
@@ -67,7 +82,7 @@ const fromChanges = (
 
 const fromDocumentChanges = (
   changes: NonNullable<P.LanguageWorkspaceEdit["documentChanges"]>,
-  document: ImportDocument
+  document: Omit<ImportDocument, "text">
 ): ReadonlyArray<TextEdit> | null => {
   const edits: TextEdit[] = [];
 
@@ -85,14 +100,17 @@ const fromDocumentChanges = (
 const confirms = (edit: P.LanguageWorkspaceEdit) =>
   Object.values(edit.changeAnnotations ?? {}).some((note) => note.needsConfirmation === true);
 
-/** Only text insertions into this one document, with no command riding along. */
+const harmless = (command: ImportAction["command"]) =>
+  command === undefined || isNoOpCommand(command);
+
+/** Only text insertions into this one document; a command may ride along only if it does nothing. */
 export const insertOnlyEdit = (
   action: ImportAction,
-  document: ImportDocument
+  document: Omit<ImportDocument, "text">
 ): ReadonlyArray<ImportInsert> | null => {
   const { edit } = action;
 
-  if (edit === undefined || action.command !== undefined || confirms(edit)) return null;
+  if (edit === undefined || !harmless(action.command) || confirms(edit)) return null;
 
   if (edit.changes !== undefined && edit.documentChanges !== undefined) return null;
 
@@ -106,17 +124,64 @@ export const insertOnlyEdit = (
   return insertsOf(edits);
 };
 
-/** The spec's rule: the only quick fix, or the only preferred one, if it only inserts here. */
-export const specImportRule: ImportActionSelector = (actions, document) => {
-  const fixes = actions.filter(isQuickFix);
+const choiceOf = (action: ImportAction, document: ImportDocument): ImportChoice | null => {
+  const inserts = insertOnlyEdit(action, document);
+
+  return inserts === null ? null : { title: action.title, inserts };
+};
+
+/** The spec's rule on the first name: the only quick fix, or the only preferred one. */
+export const specImportRule: ImportActionSelector = (document, names) => {
+  const fixes = (names[0]?.actions ?? []).filter(isQuickFix);
   const preferred = fixes.filter((action) => action.isPreferred === true);
   const [chosen] = fixes.length === 1 ? fixes : preferred.length === 1 ? preferred : [];
 
-  if (chosen === undefined) return null;
-  const inserts = insertOnlyEdit(chosen, document);
-
-  return inserts === null ? null : { title: chosen.title, inserts };
+  return chosen === undefined ? null : choiceOf(chosen, document);
 };
 
-/** The rule the Editor uses. */
-export const selectImportAction: ImportActionSelector = specImportRule;
+/** Commands other than the no-op become `disabled`, so the rule still counts every action. */
+const lspAction = (action: ImportAction): LspCodeAction => {
+  let out: LspCodeAction = { title: action.title };
+
+  if (action.kind !== undefined) out = { ...out, kind: action.kind };
+
+  if (action.isPreferred !== undefined) out = { ...out, isPreferred: action.isPreferred };
+
+  if (action.edit !== undefined) out = { ...out, edit: action.edit };
+
+  if (action.disabled !== undefined || !harmless(action.command))
+    out = { ...out, disabled: action.disabled ?? { reason: "runs a command" } };
+
+  return out;
+};
+
+/**
+ * The measured rule for TypeScript (docs/research/next-edit-spike.md, "Imports"): the preferred
+ * import, else the module the file imports or that resolves every name, then this fence.
+ */
+export const moduleImportRule: ImportActionSelector = (document, names) => {
+  const originals = new Map<LspCodeAction, ImportAction>();
+
+  const lsp = names.map((name) => ({
+    diagnostic: name.diagnostic,
+    actions: name.actions.map((action) => {
+      const converted = lspAction(action);
+      originals.set(converted, action);
+
+      return converted;
+    }),
+  }));
+
+  const choice = selectImportFix(document, lsp);
+  const action = choice === null ? undefined : originals.get(choice.action);
+
+  return action === undefined ? null : choiceOf(action, document);
+};
+
+const typescript = (name: ImportName) => UNRESOLVED_NAME_CODES.has(Number(name.diagnostic.code));
+
+/** The rule the Editor uses: the module rule for TypeScript's codes, the spec's for others. */
+export const selectImportAction: ImportActionSelector = (document, names) =>
+  names.length > 0 && names.every(typescript)
+    ? moduleImportRule(document, names)
+    : specImportRule(document, names);

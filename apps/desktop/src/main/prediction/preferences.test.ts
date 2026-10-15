@@ -119,16 +119,19 @@ test("Defaults resolve the Tab keymap binding and the balanced renderer policy",
   expect(predictionRestraints(defaults.aggressiveness)).toEqual({
     pauseMs: 150,
     jumpsOffered: true,
+    jumpProbe: "spec",
     largeDeletionsOffered: true,
   });
   expect(predictionRestraints("conservative")).toEqual({
     pauseMs: 300,
     jumpsOffered: false,
+    jumpProbe: "off",
     largeDeletionsOffered: false,
   });
   expect(predictionRestraints("eager")).toEqual({
     pauseMs: 75,
     jumpsOffered: true,
+    jumpProbe: "reach",
     largeDeletionsOffered: true,
   });
 });

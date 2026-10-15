@@ -196,7 +196,13 @@ export class LanguageFeatures {
     );
   }
   /** Quick fixes for one diagnostic, on their own lane so a code action menu request survives. */
-  quickFixes(from: number, to: number, diagnostic: JsonObject, signal?: AbortSignal) {
+  quickFixes(
+    from: number,
+    to: number,
+    diagnostic: JsonObject,
+    signal?: AbortSignal,
+    lane = "quickfix"
+  ) {
     const buffer = this.options.buffer();
 
     return this.decoded(
@@ -211,7 +217,7 @@ export class LanguageFeatures {
         context: { diagnostics: [diagnostic], only: ["quickfix"], triggerKind: 2 },
       }),
       signal,
-      "quickfix"
+      lane
     );
   }
   rename(offset: number, newName: string, signal?: AbortSignal) {

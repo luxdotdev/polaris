@@ -94,6 +94,10 @@ export const editHistory = StateField.define<EditHistory>({
 export const historyOf = (state: EditorState): EditHistory =>
   state.field(editHistory, false) ?? EMPTY;
 
+/** The frozen history with the live burst as its last hunks, for the jump probe. */
+export const historyThroughBurst = (state: EditorState): ReadonlyArray<EditHistoryHunk> =>
+  frozenWith(historyOf(state), state.facet(editorFile)?.path ?? "", []);
+
 /** What the current burst removed and where it inserted, in the live buffer. */
 export const burstEdits = (burst: Burst) => {
   const deleted: string[] = [];

@@ -1,9 +1,21 @@
 import { expect, test } from "bun:test";
-import { type ImportAction, isUnresolvedName, specImportRule } from "./index.ts";
+import {
+  type ImportAction,
+  isUnresolvedName,
+  selectImportAction,
+  specImportRule,
+} from "./index.ts";
 
 const uri = "file:///p/score.ts";
 
-const document = { uri, version: 3 };
+const document = { uri, version: 3, text: "hostCanServe(16);\n" };
+
+const at0 = { start: { line: 0, character: 0 }, end: { line: 0, character: 12 } };
+
+/** One unresolved name and its fixes; `code` 2304 is TypeScript's, E0425 rust-analyzer's. */
+const named = (actions: ReadonlyArray<ImportAction>, code: number | string = "E0425") => [
+  { diagnostic: { range: at0, message: "Cannot find name 'hostCanServe'.", code }, actions },
+];
 
 const at = (line: number, character: number) => ({ line, character });
 
@@ -47,7 +59,7 @@ test.each<[string, ReadonlyArray<ImportAction>, string | null]>([
     "fix",
   ],
 ])("selects %s", (_name, actions, title) => {
-  expect(specImportRule(actions, document)?.title ?? null).toBe(title);
+  expect(specImportRule(document, named(actions))?.title ?? null).toBe(title);
 });
 
 test.each<[string, ImportAction]>([
@@ -91,12 +103,13 @@ test.each<[string, ImportAction]>([
     }),
   ],
 ])("offers nothing when the one fix %s", (_name, action) => {
-  expect(specImportRule([action], document)).toBeNull();
+  expect(specImportRule(document, named([action]))).toBeNull();
 });
 
 test("a fix as documentChanges for this version yields its insertion positions", () => {
   const choice = specImportRule(
-    [
+    document,
+    named([
       addImport(undefined, {
         edit: {
           documentChanges: [
@@ -104,11 +117,56 @@ test("a fix as documentChanges for this version yields its insertion positions",
           ],
         },
       }),
-    ],
-    document
+    ])
   );
 
   expect(choice?.inserts).toEqual([{ at: at(2, 0), text: "import x;\n" }]);
+});
+
+/** typescript-language-server's command on every quick fix. */
+interface TsAction {
+  readonly fixName: string;
+  readonly commands?: ReadonlyArray<{ readonly type: string }>;
+}
+
+const tsApply = (action: TsAction = { fixName: "import" }) => ({
+  title: "",
+  command: "_typescript.applyCodeActionCommand",
+  arguments: [{ action }],
+});
+
+test.each<[string, ImportAction["command"], string | null]>([
+  ["no command", undefined, 'Add import from "./probe.ts"'],
+  ["tsserver's apply command with nothing to run", tsApply(), 'Add import from "./probe.ts"'],
+  [
+    "tsserver's apply command with commands of its own",
+    tsApply({ fixName: "import", commands: [{ type: "install" }] }),
+    null,
+  ],
+  ["another command", { title: "x", command: "organize" }, null],
+])("TypeScript's only import fix with %s", (_name, command, title) => {
+  const action = addImport(undefined, command === undefined ? {} : { command });
+  expect(selectImportAction(document, named([action], 2304))?.title ?? null).toBe(title);
+});
+
+test("for TypeScript, with none preferred, the module the file already imports from wins", () => {
+  const actions = [
+    addImport('Add import from "./a.ts"'),
+    addImport('Add import from "./probe.ts"'),
+    addImport("Add missing function declaration 'hostCanServe'"),
+  ];
+
+  const text = 'import { tierOf } from "./probe.ts";\nhostCanServe(16);\n';
+  const choice = selectImportAction({ ...document, text }, named(actions, 2304));
+  expect(choice?.title).toBe('Add import from "./probe.ts"');
+  expect(selectImportAction({ ...document, text }, named(actions))).toBeNull();
+});
+
+test("for TypeScript, a preferred fix that is not an import is not offered as one", () => {
+  const spelling = addImport("Change spelling to 'hostCanSave'", { isPreferred: true });
+  expect(selectImportAction(document, named([spelling, addImport()], 2552))?.title).toBe(
+    'Add import from "./probe.ts"'
+  );
 });
 
 test.each<[string, Parameters<typeof isUnresolvedName>[0], boolean]>([

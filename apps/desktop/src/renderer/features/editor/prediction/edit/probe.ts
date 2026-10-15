@@ -1,7 +1,12 @@
 /**
- * The jump probe (docs/specs/edit-prediction-v1.1.md §4): after an edit removed an identifier,
- * find its nearest other occurrence outside the last window to ask the model about.
+ * The jump probe (docs/specs/edit-prediction-v1.1.md §4): where to ask the model next when the
+ * cursor request shows nothing. Balanced uses §4's rule; Eager the measured reach signals.
  */
+import type { EditHistoryHunk } from "@polaris/protocol";
+import { reachFocuses } from "@polaris/predict";
+import type { JumpProbe } from "../../../../../shared/predictionPlacement.ts";
+import type { LastEdit } from "./history.ts";
+
 const IDENTIFIER = /[\p{L}_$][\p{L}\p{N}_$]*/gu;
 
 const MIN_IDENTIFIER = 2;
@@ -45,3 +50,25 @@ export const probeTarget = (
 
   return best;
 };
+
+export interface ProbeInput {
+  readonly buffer: string;
+  readonly path: string;
+  readonly cursor: number;
+  /** The last request's window; the probe looks outside it. */
+  readonly window: { readonly from: number; readonly to: number };
+  /** Oldest first, ending with the live burst. */
+  readonly history: ReadonlyArray<EditHistoryHunk>;
+  readonly last: LastEdit;
+}
+
+const PROBES: Readonly<Record<JumpProbe, (input: ProbeInput) => number | null>> = {
+  off: () => null,
+  spec: ({ buffer, window, cursor, last }) =>
+    probeTarget(buffer, identifiersRemoved(last.removed, last.added), window, cursor),
+  reach: (input) => reachFocuses(input)[0] ?? null,
+};
+
+/** The one focus to probe, or null; later reach focuses showed more danger and nothing useful. */
+export const jumpFocus = (probe: JumpProbe, input: ProbeInput): number | null =>
+  PROBES[probe](input);
