@@ -1,7 +1,13 @@
-import { PredictionError, type PredictionRequest } from "@polaris/protocol";
+import {
+  PredictionError,
+  type EditPredictionRequest,
+  type PredictionRequest,
+} from "@polaris/protocol";
 import { Schema } from "effect";
 import { records } from "./records.ts";
 import type { PredictionPrompt } from "./prompt.ts";
+
+type EndpointRequest = PredictionRequest | EditPredictionRequest;
 
 interface OpenAiBody {
   model: string;
@@ -25,13 +31,17 @@ const OpenAiChunk = Schema.Struct({
   ),
 });
 
-const OllamaChunk = Schema.Struct({ response: Schema.String, done: Schema.Boolean });
+const OllamaChunk = Schema.Struct({
+  response: Schema.String,
+  done: Schema.Boolean,
+  done_reason: Schema.optional(Schema.String),
+});
 
 const decodeOpenAi = Schema.decodeUnknownSync(Schema.fromJsonString(OpenAiChunk));
 
 const decodeOllama = Schema.decodeUnknownSync(Schema.fromJsonString(OllamaChunk));
 
-export const endpointUrl = (request: PredictionRequest): string => {
+export const endpointUrl = (request: EndpointRequest): string => {
   const url = new URL(request.endpoint.url);
 
   if (
@@ -56,7 +66,7 @@ export const endpointUrl = (request: PredictionRequest): string => {
   return url.href;
 };
 
-const requestBody = (request: PredictionRequest, prompt: PredictionPrompt) => {
+const requestBody = (request: EndpointRequest, prompt: PredictionPrompt) => {
   if (request.endpoint.kind === "ollama") {
     if (request.format === "suffix")
       throw new PredictionError({
@@ -93,15 +103,16 @@ function parseChunk(data: string, ollama: boolean) {
     if (ollama) {
       const chunk = decodeOllama(data);
 
-      return { text: chunk.response, done: chunk.done };
+      return { text: chunk.response, done: chunk.done, truncated: chunk.done_reason === "length" };
     }
 
-    if (data === "[DONE]") return { text: "", done: true };
+    if (data === "[DONE]") return { text: "", done: true, truncated: false };
     const chunk = decodeOpenAi(data);
 
     return {
       text: chunk.choices[0]?.text ?? "",
       done: chunk.choices.some((choice) => choice.finish_reason != null),
+      truncated: chunk.choices.some((choice) => choice.finish_reason === "length"),
     };
   } catch {
     throw new PredictionError({
@@ -112,7 +123,7 @@ function parseChunk(data: string, ollama: boolean) {
 }
 
 export async function* endpointDeltas(
-  request: PredictionRequest,
+  request: EndpointRequest,
   prompt: PredictionPrompt,
   signal: AbortSignal,
   fetcher: PredictionFetch
@@ -140,6 +151,12 @@ export async function* endpointDeltas(
   for await (const record of records(response.body, request.endpoint.kind === "ollama", signal)) {
     signal.throwIfAborted();
     const chunk = parseChunk(record, request.endpoint.kind === "ollama");
+
+    if (chunk.truncated && "buffer" in request)
+      throw new PredictionError({
+        reason: "invalid-response",
+        message: "Edit prediction exhausted its output budget",
+      });
 
     if (chunk.text) yield chunk.text;
 

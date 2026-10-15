@@ -1,0 +1,247 @@
+[
+  {
+    "id": "in01",
+    "category": "insertion",
+    "path": "apps/daemon/src/constellation/setup/process.ts",
+    "buffer": "import { childEnv } from \"../../service/childEnv.ts\";\nimport { Effect } from \"effect\";\nimport { WorktreeSetupRun } from \"@polaris/protocol\";\n\nconst MAX_OUTPUT = 256 * 1024;\n\n/** Keep draining both pipes even after the retained transcript tail reaches its limit. */\nconst output = async (pipe: ReadableStream<Uint8Array>) => {\n  const reader = pipe.getReader();\n  const decoder = new TextDecoder();\n  let text = \"\";\n\n  while (true) {\n    const next = await reader.read();\n\n    if (next.done) break;\n    text = (text + decoder.decode(next.value, { stream: true })).slice(-MAX_OUTPUT);\n  }\n\n  return text + decoder.decode();\n};\n\nexport const executeSetup = Effect.fn(\"WorktreeSetup.execute\")(function* (run: WorktreeSetupRun) {\n  const proc = yield* Effect.acquireRelease(\n    Effect.try({\n      try: () =>\n        Bun.spawn([\"/bin/sh\", \"-c\", run.command], {\n          cwd: run.cwd,\n          env: c\n          stdin: \"ignore\",\n          stdout: \"pipe\",\n          stderr: \"pipe\",\n          detached: true,\n        }),\n      catch: (error) => new Error(String(error)),\n    }),\n    (child) =>\n      Effect.promise(async () => {\n        if (child.exitCode !== null) return;\n\n        try {\n          process.kill(-child.pid, \"SIGKILL\");\n        } catch {\n          child.kill(\"SIGKILL\");\n        }\n\n        await child.exited;\n      })\n  );\n\n  const [stdout, stderr, code] = yield* Effect.promise(() =>\n    Promise.all([output(proc.stdout), output(proc.stderr), proc.exited])\n  );\n\n  return new WorktreeSetupRun({\n    id: run.id,\n    constellationId: run.constellationId,\n    taskId: run.taskId,\n    command: run.command,\n    cwd: run.cwd,\n    startedAt: run.startedAt,\n    output: (stdout + stderr).slice(-MAX_OUTPUT),\n    exitCode: code,\n    status: code === 0 ? \"completed\" : \"failed\",\n    endedAt: new Date().toISOString(),\n  });\n});\n",
+    "cursor": 896,
+    "history": [
+      {
+        "path": "apps/daemon/src/constellation/setup/process.ts",
+        "line": 0,
+        "before": "",
+        "after": "import { childEnv } from \"../../service/childEnv.ts\";"
+      },
+      {
+        "path": "apps/daemon/src/constellation/setup/process.ts",
+        "line": 28,
+        "before": "",
+        "after": "          env: c"
+      }
+    ],
+    "expected": [
+      {
+        "from": 880,
+        "to": 897,
+        "text": "          env: childEnv(),\n"
+      }
+    ],
+    "allowed": [
+      [
+        {
+          "from": 880,
+          "to": 897,
+          "text": "          env: childEnv(),\n"
+        }
+      ]
+    ],
+    "outputs": [
+      {
+        "format": "zeta-2.1",
+        "output": "<|marker_1|>    if (next.done) break;\n    text = (text + decoder.decode(next.value, { stream: true })).slice(-MAX_OUTPUT);\n  }\n\n  return text + decoder.decode();\n});\n\nexport const executeSetup = Effect.fn(\"WorktreeSetup.execute\")(function* (run: WorktreeSetupRun) {\n  const proc = yield* Effect.acquireRelease(\n    Effect.try({\n      try: () =>\n        Bun.spawn([\"/bin/sh\", \"-c\", run.command], {\n          cwd: run.cwd,\n          env: childEnv,<|user_cursor|>\n          stdin: \"ignore\",\n          stdout: \"pipe\",\n<|marker_2|>",
+        "label": "dangerous"
+      },
+      {
+        "format": "sweep-next-edit",
+        "output": "\n\n  return text + decoder.decode();\n};\n\nexport const executeSetup = Effect.fn(\"WorktreeSetup.execute\")(function* (run: WorktreeSetupRun) {\n  const proc = yield* Effect.acquireRelease(\n    Effect.try({\n      try: () =>\n        Bun.spawn([\"/bin/sh\", \"-c\", run.command], {\n          cwd: run.cwd,\n          env: childEnv,\n          stdin: \"ignore\",\n          stdout: \"pipe\",\n          stderr: \"pipe\",\n          detached: true,\n        }),\n      catch: (error) => new Error(String(error)),\n    }),\n    (child) =>\n      Effect.promise(async () => {\n        if (child.exitCode !== null) return;\n",
+        "label": "wrong"
+      }
+    ]
+  },
+  {
+    "id": "in02",
+    "category": "insertion",
+    "path": "packages/protocol/src/events.ts",
+    "buffer": "/**\n * Persisted domain events. The Daemon's event store is the source of truth;\n * every read model a Client sees is a projection of these.\n */\nimport { Schema } from \"effect\";\nimport { constellationEventFields, resourceEventFields } from \"./constellation/events.ts\";\nimport { ConstellationId } from \"./constellation/domain.ts\";\nimport {\n  AgentSession,\n  BackgroundTask,\n  ApprovalDecision,\n  Compaction,\n  ApprovalRequest,\n  ContextUsage,\n  PermissionMode,\n  SessionState,\n  Subagent,\n  Timestamp,\n  Turn,\n  TurnItem,\n  Workspace,\n  Worktree,\n} from \"./domain.ts\";\nimport {\n  CommandId,\n  RequestId,\n  ReviewCheckoutId,\n  RiskFindingId,\n  RiskSummaryId,\n  Sequence,\n  SessionId,\n  SubagentId,\n  TurnId,\n  WorkspaceId,\n  WorktreeId,\n} from \"./ids.ts\";\nimport { WorktreeSetupRun } from \"./worktreeSetup.ts\";\nimport { notificationEventFields } from \"./notification.ts\";\nimport { addedNullable, ServiceTier, ModelId, ReasoningEffort } from \"./models.ts\";\nimport {\n  FindingResolution,\n  LayerRun,\n  PullRequestRef,\n  ReviewCheckout,\n  ReviewCost,\n  ReviewerRun,\n  RiskFinding,\n  RiskSummary,\n  SummaryLayer,\n  Walkthrough,\n  Verdict,\n} from \"./review.ts\";\n\nexport const DomainEvent = Schema.TaggedUnion({\n  ...constellationEventFields,\n  ...resourceEventFields,\n  ...notifica\n  WorkspaceRegistered: { workspace: Workspace },\n  WorkspaceUpdated: { workspace: Workspace },\n  WorkspaceRemoved: { workspaceId: WorkspaceId },\n\n  WorktreeDetected: { worktree: Worktree },\n  WorktreeRemoved: { workspaceId: WorkspaceId, worktreeId: WorktreeId },\n\n  SessionCreated: { session: AgentSession },\n  SessionStateChanged: {\n    sessionId: SessionId,\n    state: SessionState,\n    reason: Schema.NullOr(Schema.String),\n  },\n  SessionRenamed: { sessionId: SessionId, title: Schema.String },\n  SessionCursorUpdated: { sessionId: SessionId, harnessCursor: Schema.String },\n  SessionPermissionModeChanged: { sessionId: SessionId, permissionMode: PermissionMode },\n  /** `SetModel`: the Model and effort the next Turns run on. */\n  SessionModelChanged: {\n    sessionId: SessionId,\n    model: Schema.NullOr(ModelId),\n    effort: Schema.NullOr(ReasoningEffort),\n    serviceTier: Schema.optionalKey(Schema.NullOr(ServiceTier)),\n  },\n\n  /** The Harness reported how full the context window is (see `AgentSession.contextUsage`). */\n  SessionSetupChanged: { sessionId: SessionId, setup: WorktreeSetupRun },\n  SessionContextUsed: { sessionId: SessionId, usage: ContextUsage },\n  /** The Harness compacted the context window (see `AgentSession.lastCompaction`). */\n  SessionCompacted: { sessionId: SessionId, compaction: Compaction },\n  SessionBackgroundTasksChanged: { sessionId: SessionId, tasks: Schema.Array(BackgroundTask) },\n\n  TurnStarted: { turn: Turn },\n  TurnItemCompleted: {\n    sessionId: SessionId,\n    turnId: TurnId,\n    item: TurnItem,\n    /** Set when the item is a Subagent's own, not the Turn's. */\n    subagentId: addedNullable(SubagentId),\n  },\n  TurnEnded: { turn: Turn },\n\n  /** A Harness spawned a Subagent in a Turn (capability `session.subagents`). */\n  SubagentStarted: { subagent: Subagent },\n  /** It finished, failed, or the Harness went away first (`interrupted`). */\n  SubagentEnded: { subagent: Subagent },\n\n  ApprovalRequested: { request: ApprovalRequest },\n  ApprovalResolved: {\n    sessionId: SessionId,\n    requestId: RequestId,\n    decision: ApprovalDecision,\n    /** Label of the Client device that answered first. */\n    resolvedBy: Schema.String,\n  },\n  /**\n   * The request went away without a Client answering it: the Harness withdrew\n   * it (the Turn ended or was interrupted, or the terminal UI answered it), or\n   * the Daemon did (restart, crash, upgrade). Logs written before this event\n   * existed record the same thing as `ApprovalResolved` with a `Deny` decision\n   * and `resolvedBy` \"Harness\" or \"Daemon\"; both decode and project alike.\n   */\n  ApprovalWithdrawn: {\n    sessionId: SessionId,\n    requestId: RequestId,\n    withdrawnBy: Schema.Literals([\"harness\", \"daemon\"]),\n    reason: Schema.String,\n  },\n\n  CheckpointRecorded: {\n    sessionId: SessionId,\n    turnId: TurnId,\n    ref: Schema.String,\n    commit: Schema.String,\n  },\n\n  // ── Review (protocol README, \"Review\") ──\n\n  /** `AcceptTurns`: the Turns through `throughIndex` are accepted (capability `session.accept`). */\n  TurnsAccepted: {\n    sessionId: SessionId,\n    throughTurnId: TurnId,\n    throughIndex: Schema.Int,\n    revertLaterTurns: Schema.Boolean,\n    /** Label of the Client device that accepted. */\n    acceptedBy: Schema.String,\n  },\n  /** The working tree was restored to `toTurnId`'s after-checkpoint, undoing the Turns listed. */\n  TurnsReverted: {\n    sessionId: SessionId,\n    toTurnId: TurnId,\n    revertedTurnIds: Schema.Array(TurnId),\n    checkpoint: Schema.String,\n  },\n  SessionPullRequestLinked: { sessionId: SessionId, pullRequest: PullRequestRef },\n\n  /** Review Checkouts (capability `review.checkouts`): the whole checkout each time. */\n  ReviewCheckoutOpened: { checkout: ReviewCheckout },\n  ReviewCheckoutChanged: { checkout: ReviewCheckout },\n  ReviewCheckoutRemoved: { checkoutId: ReviewCheckoutId, workspaceId: WorkspaceId },\n\n  /**\n   * Risk Summaries and Verdicts: review-only, left out of the Host stream and\n   * served by `review.riskSummary` / `review.watchRiskSummary` / `review.verdicts`.\n   */\n  RiskSummaryStarted: { summary: RiskSummary },\n  RiskSummaryLayerChanged: {\n    summaryId: RiskSummaryId,\n    layer: SummaryLayer,\n    run: LayerRun,\n    /** Walkthrough metadata does not change a Rules or Agent layer. */\n    walkthrough: Schema.optionalKey(Walkthrough),\n    deltaWalkthrough: Schema.optionalKey(Walkthrough),\n  },\n  /** Adds Findings, or replaces those with the same id (a Reviewer follow-up revising one). */\n  RiskFindingsRecorded: { summaryId: RiskSummaryId, findings: Schema.Array(RiskFinding) },\n  RiskFindingResolved: {\n    summaryId: RiskSummaryId,\n    findingId: RiskFindingId,\n    resolution: FindingResolution,\n    note: Schema.NullOr(Schema.String),\n  },\n  RiskSummaryEnded: {\n    summaryId: RiskSummaryId,\n    status: Schema.Literals([\"completed\", \"failed\"]),\n    reviewer: Schema.NullOr(ReviewerRun),\n    cost: Schema.NullOr(ReviewCost),\n    note: Schema.NullOr(Schema.String),\n  },\n  VerdictRecorded: { verdict: Verdict },\n});\n\nexport type DomainEvent = typeof DomainEvent.Type;\n\n/** Which stream an event belongs to. Host-level events use `host`. */\nexport const StreamKey = Schema.TaggedUnion({\n  host: {},\n  session: { sessionId: SessionId },\n  constellation: { constellationId: ConstellationId },\n});\n\nexport type StreamKey = typeof StreamKey.Type;\n\nexport class EventEnvelope extends Schema.Class<EventEnvelope>(\"EventEnvelope\")({\n  sequence: Sequence,\n  occurredAt: Timestamp,\n  commandId: Schema.NullOr(CommandId),\n  event: DomainEvent,\n}) {}\n",
+    "cursor": 1274,
+    "history": [
+      {
+        "path": "packages/protocol/src/events.ts",
+        "line": 37,
+        "before": "",
+        "after": "import { notificationEventFields } from \"./notification.ts\";"
+      },
+      {
+        "path": "packages/protocol/src/events.ts",
+        "line": 56,
+        "before": "",
+        "after": "  ...notifica"
+      }
+    ],
+    "expected": [
+      {
+        "from": 1261,
+        "to": 1275,
+        "text": "  ...notificationEventFields,\n"
+      }
+    ],
+    "allowed": [
+      [
+        {
+          "from": 1261,
+          "to": 1275,
+          "text": "  ...notificationEventFields,\n"
+        }
+      ]
+    ],
+    "outputs": [
+      {
+        "format": "zeta-2.1",
+        "output": "<|marker_1|>  ReviewCheckout,\n  ReviewCost,\n  ReviewerRun,\n  RiskFinding,\n  RiskSummary,\n  SummaryLayer,\n  Walkthrough,\n  Verdict,\n} from \"./review.ts\";\n\nexport const DomainEvent = Schema.TaggedUnion({\n  ...constellationEventFields,\n  ...resourceEventFields,\n  ...notificationEventFields,\n  WorkspaceRegistered: { workspace: Workspace },\n  WorkspaceUpdated: { workspace: Workspace },\n<|marker_2|>",
+        "label": "exact"
+      },
+      {
+        "format": "sweep-next-edit",
+        "output": "\n  RiskFinding,\n  RiskSummary,\n  SummaryLayer,\n  Walkthrough,\n  Verdict,\n} from \"./review.ts\";\n\nexport const DomainEvent = Schema.TaggedUnion({\n  ...constellationEventFields,\n  ...resourceEventFields,\n  ...notificationEventFields,\n  WorkspaceRegistered: { workspace: Workspace },\n  WorkspaceUpdated: { workspace: Workspace },\n  WorkspaceRemoved: { workspaceId: WorkspaceId },\n\n  WorktreeDetected: { worktree: Worktree },\n  WorktreeRemoved: { workspaceId: WorkspaceId, worktreeId: WorktreeId },\n\n  SessionCreated: { session: AgentSession },\n  SessionStateChanged: {\n    sessionId: SessionId,\n",
+        "label": "exact"
+      }
+    ]
+  },
+  {
+    "id": "in03",
+    "category": "insertion",
+    "path": "packages/protocol/src/worktreeSetup.ts",
+    "buffer": "import { Schema } from \"effect\";\nimport { ConstellationId, TaskId } from \"./constellation/domain.ts\";\nimport { optionalNullable } from \"./models.ts\";\nimport { Timestamp } from \"./ids.ts\";\n\n/** Commands run in a worker checkout before its first Turn; null selects Auto. */\nexport const WorktreeSetup = Schema.TaggedUnion({\n  Auto: {},\n  Disabled: {},\n  Command: { command: Schema.NonEmptyString.check(Schema.isPattern(/\\S/)) },\n});\n\nexport type WorktreeSetup = typeof WorktreeSetup.Type;\n\n/** Setup is Host work, separate from Turns and working worker slots. */\nexport class WorktreeSetupRun extends Schema.Class<WorktreeSetupRun>(\"WorktreeSetupRun\")({\n  id: Schema.String,\n  constellationId: ConstellationId,\n  taskId: TaskId,\n  command: Schema.String,\n  cwd: Schema.String,\n  fingerprint: optio\n  status: Schema.Literals([\"running\", \"completed\", \"failed\"]),\n  output: Schema.String,\n  exitCode: Schema.NullOr(Schema.Int),\n  startedAt: Timestamp,\n  endedAt: Schema.NullOr(Timestamp),\n}) {}\n",
+    "cursor": 795,
+    "history": [
+      {
+        "path": "packages/protocol/src/worktreeSetup.ts",
+        "line": 2,
+        "before": "",
+        "after": "import { optionalNullable } from \"./models.ts\";"
+      },
+      {
+        "path": "packages/protocol/src/worktreeSetup.ts",
+        "line": 21,
+        "before": "",
+        "after": "  fingerprint: optio"
+      }
+    ],
+    "expected": [
+      {
+        "from": 775,
+        "to": 796,
+        "text": "  fingerprint: optionalNullable(Schema.String),\n"
+      }
+    ],
+    "allowed": [
+      [
+        {
+          "from": 775,
+          "to": 796,
+          "text": "  fingerprint: optionalNullable(Schema.String),\n"
+        }
+      ]
+    ],
+    "outputs": [
+      {
+        "format": "zeta-2.1",
+        "output": "<|marker_1|>  Disabled: {},\n  Command: { command: Schema.NonEmptyString.check(Schema.isPattern(/\\S/)) },\n});\n\nexport type WorktreeSetup = typeof WorktreeSetup.Type;\n\n/** Setup is Host work, separate from Turns and working worker slots. */\nexport class WorktreeSetupRun extends Schema.Class<WorktreeSetupRun>(\"WorktreeSetupRun\")({\n  id: Schema.String,\n  constellationId: ConstellationId,\n  taskId: TaskId,\n  command: Schema.String,\n  cwd: Schema.String,\n  fingerprint: optionalNullable(Schema.String),<|user_cursor|>\n  status: Schema.Literals([\"running\", \"completed\", \"failed\"]),\n  output: Schema.String,\n<|marker_2|>",
+        "label": "exact"
+      },
+      {
+        "format": "sweep-next-edit",
+        "output": "\n\nexport type WorktreeSetup = typeof WorktreeSetup.Type;\n\n/** Setup is Host work, separate from Turns and working worker slots. */\nexport class WorktreeSetupRun extends Schema.Class<WorktreeSetupRun>(\"WorktreeSetupRun\")({\n  id: Schema.String,\n  constellationId: ConstellationId,\n  taskId: TaskId,\n  command: Schema.String,\n  cwd: Schema.String,\n  fingerprint: optionalNullable(Schema.String),\n  status: Schema.Literals([\"running\", \"completed\", \"failed\"]),\n  output: Schema.String,\n  exitCode: Schema.NullOr(Schema.Int),\n  startedAt: Timestamp,\n  endedAt: Schema.NullOr(Timestamp),\n}) {}\n\n",
+        "label": "exact"
+      }
+    ]
+  },
+  {
+    "id": "in04",
+    "category": "insertion",
+    "path": "apps/desktop/src/renderer/features/constellation/model/attention.ts",
+    "buffer": "/**\n * The header's needs-you chip and \"next that needs you\" (tab): the top item in Needs you's\n * order (spec §5), then Tasks in declaration order.\n */\nimport { CONTEXT_WARN, type Facts } from \"./facts.ts\";\nimport { setupOutcome } from \"./setup.ts\";\nimport type { TaskRow } from \"./task.ts\";\n\nexport interface AttentionItem {\n  readonly taskId: string | null;\n  readonly text: string;\n  /** Lower ranks first. */\n  readonly rank: number;\n}\n\nconst itemFor = (row: TaskRow, facts: Facts): AttentionItem | null => {\n  const id = row.task.id;\n  const { attention } = row.look;\n\n  if (attention !== null) {\n    switch (attention.kind) {\n      case \"approval\":\n        return { taskId: id, text: `${id} waiting on your approval`, rank: 1 };\n      case \"question\":\n        return { taskId: id, text: `${id} asks you`, rank: 2 };\n      case \"handed\":\n        return { taskId: id, text: `${id}'s claim handed to you`, rank: 3 };\n      case \"stopped\":\n        return { taskId: id, text: `${id} stopped without claiming`, rank: 4 };\n      case \n    }\n  }\n\n  if (\n    row.attempt === null ||\n    (row.projection.state !== \"working\" && row.projection.state !== \"review\")\n  )\n    return null;\n  const worker = facts.worker(row.attempt);\n\n  if (worker.hostAway === \"offline\" || row.projection.stale)\n    return { taskId: id, text: `${id}'s host is offline`, rank: 5 };\n\n  if (row.projection.state === \"working\" && (worker.contextPercent ?? 0) >= CONTEXT_WARN)\n    return { taskId: id, text: `${id} at ${worker.contextPercent}% context`, rank: 6 };\n\n  return null;\n};\n\n/** Everything in the Constellation that needs you, most urgent first. */\nexport const attentionItems = (\n  rows: ReadonlyArray<TaskRow>,\n  facts: Facts\n): ReadonlyArray<AttentionItem> => {\n  const items = rows.flatMap((row) => {\n    const item = itemFor(row, facts);\n\n    return item === null ? [] : [item];\n  });\n\n  const lead = facts.lead.contextPercent;\n\n  const leadItem: ReadonlyArray<AttentionItem> =\n    lead !== null && lead >= CONTEXT_WARN\n      ? [{ taskId: null, text: `Lead at ${lead}% context · hand over`, rank: 7 }]\n      : [];\n\n  return [...items, ...leadItem].toSorted((a, b) => a.rank - b.rank);\n};\n\n/** The Task after `current` among those that need you, wrapping around. */\nexport const nextNeedingYou = (\n  items: ReadonlyArray<AttentionItem>,\n  current: string | null\n): string | null => {\n  const ids = items.flatMap((i) => (i.taskId === null ? [] : [i.taskId]));\n\n  if (ids.length === 0) return null;\n  const at = current === null ? -1 : ids.indexOf(current);\n\n  return ids[(at + 1) % ids.length] ?? null;\n};\n",
+    "cursor": 1034,
+    "history": [
+      {
+        "path": "apps/desktop/src/renderer/features/constellation/model/attention.ts",
+        "line": 5,
+        "before": "",
+        "after": "import { setupOutcome } from \"./setup.ts\";"
+      },
+      {
+        "path": "apps/desktop/src/renderer/features/constellation/model/attention.ts",
+        "line": 29,
+        "before": "",
+        "after": "      case "
+      }
+    ],
+    "expected": [
+      {
+        "from": 1023,
+        "to": 1035,
+        "text": "      case \"setup\":\n        return { taskId: id, text: `${id} setup failed · ${setupOutcome(attention.run)}`, rank: 4 };\n"
+      }
+    ],
+    "allowed": [
+      [
+        {
+          "from": 1023,
+          "to": 1035,
+          "text": "      case \"setup\":\n        return { taskId: id, text: `${id} setup failed · ${setupOutcome(attention.run)}`, rank: 4 };\n"
+        }
+      ]
+    ],
+    "outputs": [
+      {
+        "format": "zeta-2.1",
+        "output": "<|marker_1|>  const id = row.task.id;\n  const { attention } = row.look;\n\n  if (attention !== null) {\n    switch (attention.kind) {\n      case \"approval\":\n        return { taskId: id, text: `${id} waiting on your approval`, rank: 1 };\n      case \"question\":\n        return { taskId: id, text: `${id} asks you`, rank: 2 };\n      case \"handed\":\n        return { taskId: id, text: `${id}'s claim handed to you`, rank: 3 };\n      case \"stopped\":\n        return { taskId: id, text: `${id} stopped without claiming`, rank: 4 };\n      case \"setup\":\n        return { taskId: id, text: `${id} is setting up`, rank: <|user_cursor|> };\n    }\n  }\n<|marker_2|>",
+        "label": "wrong"
+      },
+      {
+        "format": "sweep-next-edit",
+        "output": "\n  if (attention !== null) {\n    switch (attention.kind) {\n      case \"approval\":\n        return { taskId: id, text: `${id} waiting on your approval`, rank: 1 };\n      case \"question\":\n        return { taskId: id, text: `${id} asks you`, rank: 2 };\n      case \"handed\":\n        return { taskId: id, text: `${id}'s claim handed to you`, rank: 3 };\n      case \"stopped\":\n        return { taskId: id, text: `${id} stopped without claiming`, rank: 4 };\n      case \"outcome\":\n        return {\n          taskId: id,\n          text: setupOutcome(facts, id),\n          rank: 5,\n        };\n    }\n  }\n\n  if (\n    row.attempt === null ||\n    (row.projection.state !== \"working\" && row.projection.state !== \"review\")\n  )\n    return null;\n  const worker = facts.worker(row.attempt);\n\n",
+        "label": "wrong"
+      }
+    ]
+  },
+  {
+    "id": "in05",
+    "category": "insertion",
+    "path": "apps/desktop/src/renderer/app/App.tsx",
+    "buffer": "/** The renderer root: providers around the shell. */\nimport { Toaster, TooltipProvider } from \"@polaris/ui\";\nimport { StrictMode } from \"react\";\nimport {\n  type Onboarding,\n  OnboardingProvider,\n  settledOnboarding,\n} from \"../features/onboarding/index.ts\";\nimport { type AppContextValue, AppProvider } from \"../shell/hooks.ts\";\n// Not the feature's index: it reaches slots.tsx, which must load after the shell's features.\nimport { UpgradeToasts } from \"../features/machines/UpgradeToasts.tsx\";\nimport { LinkedPullsPublisher } from \"../features/accept/index.ts\";\nimport { ConstellationFeeds } from \"../features/constellation/index.ts\";\nimport { NeedsYouPublisher } from \"../features/needs-you/index.ts\";\nimport { PullsPublisher } from \"../features/pulls/index.ts\";\n// Not the feature's index: that loads the Review view's chunk.\nimport { CheckoutPublisher } from \"../features/review/checkout/Publisher.tsx\";\nimport { Shell } from \"./Shell.tsx\";\n\nexport interface AppProps {\n  readonly value: AppContextValue;\n  /** Absent in the fixture previews: the welcome already seen, no home fallback. */\n  readonly onboarding?: Onboarding;\n}\n\nconst settled = settledOnboarding();\n\nexport const App = ({ value, onboarding = settled }: AppProps) => (\n  <StrictMode>\n    <AppProvider value={value}>\n      <OnboardingProvider value={onboarding}>\n        <TooltipProvider>\n          <Shell />\n          <NeedsYouPublisher />\n          <PullsPublisher />\n          <CheckoutPublisher />\n          <LinkedPullsPublisher />\n          <Constell\n          <UpgradeToasts />\n          <Toaster />\n        </TooltipProvider>\n      </OnboardingProvider>\n    </AppProvider>\n  </StrictMode>\n);\n",
+    "cursor": 1526,
+    "history": [
+      {
+        "path": "apps/desktop/src/renderer/app/App.tsx",
+        "line": 12,
+        "before": "",
+        "after": "import { ConstellationFeeds } from \"../features/constellation/index.ts\";"
+      },
+      {
+        "path": "apps/desktop/src/renderer/app/App.tsx",
+        "line": 37,
+        "before": "",
+        "after": "          <Constell"
+      }
+    ],
+    "expected": [
+      {
+        "from": 1507,
+        "to": 1527,
+        "text": "          <ConstellationFeeds />\n"
+      }
+    ],
+    "allowed": [
+      [
+        {
+          "from": 1507,
+          "to": 1527,
+          "text": "          <ConstellationFeeds />\n"
+        }
+      ]
+    ],
+    "outputs": [
+      {
+        "format": "zeta-2.1",
+        "output": "<|marker_1|>\nconst settled = settledOnboarding();\n\nexport const App = ({ value, onboarding = settled }: AppProps) => (\n  <StrictMode>\n    <AppProvider value={value}>\n      <OnboardingProvider value={onboarding}>\n        <TooltipProvider>\n          <Shell />\n          <NeedsYouPublisher />\n          <PullsPublisher />\n          <CheckoutPublisher />\n          <LinkedPullsPublisher />\n          <ConstellationFeeds />\n          <UpgradeToasts />\n          <Toaster />\n<|marker_2|>",
+        "label": "exact"
+      },
+      {
+        "format": "sweep-next-edit",
+        "output": "\nexport const App = ({ value, onboarding = settled }: AppProps) => (\n  <StrictMode>\n    <AppProvider value={value}>\n      <OnboardingProvider value={onboarding}>\n        <TooltipProvider>\n          <Shell />\n          <NeedsYouPublisher />\n          <PullsPublisher />\n          <CheckoutPublisher />\n          <LinkedPullsPublisher />\n          <ConstellationFeeds />\n          <UpgradeToasts />\n          <Toaster />\n        </TooltipProvider>\n      </OnboardingProvider>\n    </AppProvider>\n  </StrictMode>\n);\n\n",
+        "label": "exact"
+      }
+    ]
+  }
+]

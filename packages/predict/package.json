@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@polaris/protocol": "workspace:*",
+    "@polaris/syntax-diff": "workspace:*",
     "effect": "4.0.0-rc.118"
   }
 }

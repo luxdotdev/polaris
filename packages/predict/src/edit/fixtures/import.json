@@ -1,0 +1,260 @@
+[
+  {
+    "id": "im01",
+    "category": "import",
+    "path": "apps/desktop/src/renderer/features/editor/explorer/ui/EditMode.tsx",
+    "buffer": "/**\n * Edit mode (⌘3, the title bar's Edit; DESIGN.md Editor): the Workspace bar,\n * then the explorer and the editor pane over the status bar, for the selected\n * Workspace. Choosing another Workspace keeps Edit; tabs are per Workspace.\n */\nimport { EmptyState, PixelFolderIcon } from \"@polaris/ui\";\nimport { useEffect } from \"react\";\nimport { TopBar } from \"../../../../shell/TopBar.tsx\";\nimport { useApp, useSelection } from \"../../../../shell/hooks.ts\";\nimport { explorerKey, useExplorerState } from \"../data/store.ts\";\nimport { EditorPane, EditorStatus, registerEditorExtensions } from \"../../index.ts\";\nimport { gitGutter } from \"../gutter/gitGutter.ts\";\nimport { Explorer } from \"./Explorer.tsx\";\nimport { StatusBar } from \"./StatusBar.tsx\";\n\nconst NoWorkspace = () => (\n  <div className=\"grid flex-1 place-items-center\" data-testid=\"edit-no-workspace\">\n    <EmptyState\n      icon={<PixelFolderIcon size={24} className=\"text-text-strong\" />}\n      title=\"No workspace to edit\"\n      fact={`Choose one in the bar above, or ${commandShortcut(\"workspace.add\")} opens a folder`}\n    />\n  </div>\n);\n\nconst Workbench = ({\n  hostKey,\n  workspaceId,\n}: {\n  readonly hostKey: string;\n  readonly workspaceId: string;\n}) => {\n  const host = useApp((s) => s.hosts.find((h) => h.key === hostKey));\n  const workspace = useApp((s) => s.hostModels[hostKey]?.workspaces.get(workspaceId));\n  const explorer = useExplorerState(explorerKey(hostKey, workspaceId));\n\n  if (host === undefined || workspace === undefined) return <NoWorkspace />;\n  const root = explorer.root ?? workspace.path;\n\n  return (\n    <div className=\"flex min-h-0 flex-1 flex-col\" data-testid=\"edit-mode\">\n      <div className=\"flex min-h-0 flex-1\">\n        <Explorer host={host} workspace={workspace} />\n        <EditorPane hostKey={hostKey} workspaceId={workspaceId} root={root} />\n      </div>\n      <StatusBar\n        host={host}\n        git={explorer.git}\n        right={<EditorStatus hostKey={hostKey} workspaceId={workspaceId} />}\n      />\n    </div>\n  );\n};\n\nexport const EditMode = () => {\n  const { hostKey, workspaceId } = useSelection();\n\n  // The git gutter rides on every tab's editor while Edit is open.\n  useEffect(() => registerEditorExtensions(gitGutter), []);\n\n  return (\n    <>\n      <TopBar />\n      <main className=\"flex min-h-0 flex-1 flex-col\">\n        {hostKey === null || workspaceId === null ? (\n          <NoWorkspace />\n        ) : (\n          // Keyed so a Workspace switch starts its own explorer, never a blend of two.\n          <Workbench\n            key={`${hostKey}\\u0000${workspaceId}`}\n            hostKey={hostKey}\n            workspaceId={workspaceId}\n          />\n        )}\n      </main>\n    </>\n  );\n};\n",
+    "cursor": 1081,
+    "history": [
+      {
+        "path": "apps/desktop/src/renderer/features/editor/explorer/ui/EditMode.tsx",
+        "line": 20,
+        "before": "      fact=\"Choose one in the bar above, or ⌘O opens a folder\"",
+        "after": "      fact={`Choose one in the bar above, or ${commandShortcut(\"workspace.add\")} opens a folder`}"
+      }
+    ],
+    "expected": [
+      {
+        "from": 749,
+        "to": 749,
+        "text": "import { commandShortcut } from \"../../../../../shared/keymap.ts\";\n"
+      }
+    ],
+    "allowed": [
+      [
+        {
+          "from": 749,
+          "to": 749,
+          "text": "import { commandShortcut } from \"../../../../../shared/keymap.ts\";\n"
+        }
+      ]
+    ],
+    "outputs": [
+      {
+        "format": "zeta-2.1",
+        "output": "<|marker_1|><|marker_1|>",
+        "label": "abstain"
+      },
+      {
+        "format": "sweep-next-edit",
+        "output": "\nimport { EditorPane, EditorStatus, registerEditorExtensions } from \"../../index.ts\";\nimport { gitGutter } from \"../gutter/gitGutter.ts\";\nimport { Explorer } from \"./Explorer.tsx\";\nimport { StatusBar } from \"./StatusBar.tsx\";\n\nconst NoWorkspace = () => (\n  <div className=\"grid flex-1 place-items-center\" data-testid=\"edit-no-workspace\">\n    <EmptyState\n      icon={<PixelFolderIcon size={24} className=\"text-text-strong\" />}\n      title=\"No workspace to edit\"\n      fact={`Choose one in the bar above, or ${commandShortcut(\"workspace.add\")} opens a folder`}\n    />\n  </div>\n);\n\nconst Workbench = ({\n  hostKey,\n  workspaceId,\n}: {\n  readonly hostKey: string;\n  readonly workspaceId: string;\n",
+        "label": "abstain"
+      }
+    ]
+  },
+  {
+    "id": "im02",
+    "category": "import",
+    "path": "apps/daemon/src/transport/hostInfo.ts",
+    "buffer": "import { randomUUID } from \"node:crypto\";\nimport { mkdirSync, readFileSync, writeFileSync } from \"node:fs\";\nimport { homedir, hostname } from \"node:os\";\nimport { join } from \"node:path\";\nimport { HostId, HostInfo, Platform } from \"@polaris/protocol\";\nimport { Effect, Schema } from \"effect\";\nimport { ServiceError } from \"../services.ts\";\n\n/** The Daemon's version; `polaris version` and `hello` report it. */\nexport const DAEMON_VERSION = VERSION;\n\nconst platformOf = (os: string, arch: string) =>\n  Schema.decodeUnknownEffect(Platform)(`${os}-${arch}`).pipe(\n    Effect.mapError(\n      () =>\n        new ServiceError({\n          service: \"transport\",\n          message: `unsupported platform ${os}-${arch}`,\n        })\n    )\n  );\n\n/**\n * A stable id for this Host, created on first run under the Polaris home and\n * kept across Daemon upgrades, so Clients can tell Hosts apart even when two\n * SSH aliases point at the same machine.\n */\nconst loadHostId = (root: string) =>\n  Effect.try({\n    try: () => {\n      const file = join(root, \"host-id\");\n\n      try {\n        const existing = readFileSync(file, \"utf8\").trim();\n\n        if (existing.length > 0) return existing;\n      } catch {}\n\n      mkdirSync(root, { recursive: true, mode: 0o700 });\n      const id = randomUUID();\n      writeFileSync(file, `${id}\\n`, { mode: 0o600, flag: \"w\" });\n\n      return id;\n    },\n    catch: (cause) =>\n      new ServiceError({ service: \"transport\", message: \"cannot read host id\", cause }),\n  });\n\nexport const loadHostInfo = Effect.fnUntraced(function* (root: string) {\n  const hostId = yield* loadHostId(root);\n  const platform = yield* platformOf(process.platform, process.arch);\n\n  return new HostInfo({\n    hostId: HostId.make(hostId),\n    hostname: hostname(),\n    platform,\n    daemonVersion: DAEMON_VERSION,\n    homeDir: homedir(),\n    startedAt: new Date().toISOString(),\n  });\n});\n",
+    "cursor": 448,
+    "history": [
+      {
+        "path": "apps/daemon/src/transport/hostInfo.ts",
+        "line": 9,
+        "before": "export const DAEMON_VERSION = \"0.0.0\";",
+        "after": "export const DAEMON_VERSION = VERSION;"
+      }
+    ],
+    "expected": [
+      {
+        "from": 339,
+        "to": 339,
+        "text": "import { VERSION } from \"../service/platform.ts\";\n"
+      }
+    ],
+    "allowed": [
+      [
+        {
+          "from": 339,
+          "to": 339,
+          "text": "import { VERSION } from \"../service/platform.ts\";\n"
+        }
+      ]
+    ],
+    "outputs": [
+      {
+        "format": "zeta-2.1",
+        "output": "<|marker_1|><|marker_1|>",
+        "label": "abstain"
+      },
+      {
+        "format": "sweep-next-edit",
+        "output": "\nimport { randomUUID } from \"node:crypto\";\nimport { mkdirSync, readFileSync, writeFileSync } from \"node:fs\";\nimport { homedir, hostname } from \"node:os\";\nimport { join } from \"node:path\";\nimport { HostId, HostInfo, Platform } from \"@polaris/protocol\";\nimport { Effect, Schema } from \"effect\";\nimport { ServiceError } from \"../services.ts\";\n\n/** The Daemon's version; `polaris version` and `hello` report it. */\nexport const DAEMON_VERSION = \"0.0.0\";\n\nconst platformOf = (os: string, arch: string) =>\n  Schema.decodeUnknownEffect(Platform)(`${os}-${arch}`).pipe(\n    Effect.mapError(\n      () =>\n        new ServiceError({\n          service: \"transport\",\n          message: `unsupported platform ${os}-${arch}`,\n        })\n    )\n",
+        "label": "dangerous"
+      }
+    ]
+  },
+  {
+    "id": "im03",
+    "category": "import",
+    "path": "apps/daemon/src/files/trash.ts",
+    "buffer": "import { randomUUID } from \"node:crypto\";\nimport { lstat, mkdir, open, rename, stat, unlink } from \"node:fs/promises\";\nimport { homedir } from \"node:os\";\nimport { basename, join } from \"node:path\";\nimport { FsFailure } from \"./fs.ts\";\n\nexport const supportsTrash = process.platform === \"darwin\" || process.platform === \"linux\";\n\nconst MAC_TRASH = `ObjC.import('Foundation');\nfunction run(argv) {\n  const url = $.NSURL.fileURLWithPath(argv[0]);\n  const result = Ref(), error = Ref();\n  if (!$.NSFileManager.defaultManager.trashItemAtURLResultingItemURLError(url, result, error)) {\n    throw Error(ObjC.unwrap(error[0].localizedDescription));\n  }\n}`;\n\nconst macTrash = async (path: string): Promise<void> => {\n  const child = Bun.spawn([\"/usr/bin/osascript\", \"-l\", \"JavaScript\", \"-e\", MAC_TRASH, path], {\n    env: childEnv(),\n    stdin: \"ignore\",\n    stdout: \"ignore\",\n    stderr: \"pipe\",\n  });\n\n  const message = await new Response(child.stderr).text();\n\n  if ((await child.exited) !== 0)\n    throw new FsFailure(path, \"ETRASH\", message.trim() || \"could not move to Trash\");\n};\n\nconst localDeletionDate = () => {\n  const now = new Date();\n\n  return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 19);\n};\n\n/** Freedesktop home trash; a different filesystem requires explicit permanent-delete confirmation. */\nexport const linuxTrash = async (path: string, dataHome: string): Promise<void> => {\n  const trash = join(dataHome, \"Trash\");\n  const files = join(trash, \"files\");\n  const info = join(trash, \"info\");\n  await mkdir(files, { recursive: true, mode: 0o700 });\n  await mkdir(info, { recursive: true, mode: 0o700 });\n  const source = await lstat(path);\n\n  if (source.dev !== (await stat(files)).dev)\n    throw new FsFailure(\n      path,\n      \"ENOTSUP\",\n      \"Trash is on a different filesystem; confirm permanent deletion\"\n    );\n  const name = `${basename(path)}-${randomUUID()}`;\n  const metadata = join(info, `${name}.trashinfo`);\n  const handle = await open(metadata, \"wx\", 0o600);\n\n  try {\n    await handle.writeFile(\n      `[Trash Info]\\nPath=${encodeURI(path).replaceAll(\"#\", \"%23\").replaceAll(\"?\", \"%3F\")}\\nDeletionDate=${localDeletionDate()}\\n`\n    );\n    await handle.sync();\n  } finally {\n    await handle.close();\n  }\n\n  try {\n    await rename(path, join(files, name));\n  } catch (cause) {\n    await unlink(metadata);\n    throw cause;\n  }\n};\n\nexport const trashPath = async (path: string): Promise<void> => {\n  if (process.platform === \"darwin\") return macTrash(path);\n\n  if (process.platform === \"linux\")\n    return linuxTrash(path, process.env.XDG_DATA_HOME || join(homedir(), \".local\", \"share\"));\n  throw new FsFailure(path, \"ENOTSUP\", \"Trash is unavailable; confirm permanent deletion\");\n};\n",
+    "cursor": 823,
+    "history": [
+      {
+        "path": "apps/daemon/src/files/trash.ts",
+        "line": 19,
+        "before": "",
+        "after": "    env: childEnv(),"
+      }
+    ],
+    "expected": [
+      {
+        "from": 0,
+        "to": 0,
+        "text": "import { childEnv } from \"../service/childEnv.ts\";\n"
+      }
+    ],
+    "allowed": [
+      [
+        {
+          "from": 0,
+          "to": 0,
+          "text": "import { childEnv } from \"../service/childEnv.ts\";\n"
+        }
+      ]
+    ],
+    "outputs": [
+      {
+        "format": "zeta-2.1",
+        "output": "<|marker_1|><|marker_1|>",
+        "label": "abstain"
+      },
+      {
+        "format": "sweep-next-edit",
+        "output": "\nfunction run(argv) {\n  const url = $.NSURL.fileURLWithPath(argv[0]);\n  const result = Ref(), error = Ref();\n  if (!$.NSFileManager.defaultManager.trashItemAtURLResultingItemURLError(url, result, error)) {\n    throw Error(ObjC.unwrap(error[0].localizedDescription));\n  }\n}`;\n\nconst macTrash = async (path: string): Promise<void> => {\n  const child = Bun.spawn([\"/usr/bin/osascript\", \"-l\", \"JavaScript\", \"-e\", MAC_TRASH, path], {\n    env: childEnv(),\n    stdin: \"ignore\",\n    stdout: \"ignore\",\n    stderr: \"pipe\",\n  });\n\n  const message = await new Response(child.stderr).text();\n\n  if ((await child.exited) !== 0)\n    throw new FsFailure(path, \"ETRASH\", message.trim() || \"could not move to Trash\");\n};\n",
+        "label": "abstain"
+      }
+    ]
+  },
+  {
+    "id": "im04",
+    "category": "import",
+    "path": "apps/daemon/src/harness/registry.ts",
+    "buffer": "/**\n * The Harness drivers this Daemon runs. The Codex driver owns the Host's shared\n * `codex app-server`, and the OpenCode driver its `opencode serve`; neither\n * outlives this layer's scope.\n *\n * Each driver's module is loaded on first use (`probe`, `open`), not at start:\n * the Claude Agent SDK and the Codex protocol schemas would otherwise sit in\n * every idle Daemon's memory. `kind` and `capabilities` are known up front\n * (the engine reads them without opening anything), and Claude's terminal\n * follow-along comes from the hook receiver, which does not need the SDK.\n *\n * Under launchd / systemd a user's PATH often lacks nvm or Homebrew bins, so\n * `POLARIS_CODEX`, `POLARIS_CLAUDE`, `POLARIS_OPENCODE`, `POLARIS_GEMINI` and\n * `POLARIS_COPILOT` can point at the binaries explicitly.\n * Requires `PlanLimitReporter`, where the drivers report what their Harness exposes.\n */\nimport type { HarnessKind, KnownHarnessKind } from \"@polaris/protocol\";\nimport { Effect, Layer, Scope } from \"effect\";\nimport { HarnessRegistry, ServiceError } from \"../services.ts\";\nimport { ACP_HARNESSES } from \"./acp/harnesses.ts\";\nimport { isBenchKind } from \"./bench/kinds.ts\";\nimport { ClaudeHookReceiver } from \"./claude/hooks.ts\";\nimport { type HarnessDriver, HarnessError } from \"./HarnessDriver.ts\";\nimport { PlanLimitReporter } from \"./limits/PlanLimitReporter.ts\";\n\nconst binary = (env: string, name: string): string | null =>\n  process.env[env] || which(name) || null;\n\n/** What each driver declares; checked against the loaded drivers in registry.test.ts. */\nexport const DRIVER_CAPABILITIES = {\n  codex: { steer: true, liveCoAttach: true, switchModel: true },\n  claude: { steer: true, liveCoAttach: false, switchModel: true },\n  opencode: { steer: true, liveCoAttach: true, switchModel: true },\n  gemini: { steer: false, liveCoAttach: false, switchModel: true },\n  copilot: { steer: false, liveCoAttach: false, switchModel: true },\n  bench: { steer: true, liveCoAttach: true, switchModel: true },\n} as const satisfies Record<KnownHarnessKind | \"bench\", HarnessDriver[\"capabilities\"]>;\n\n/**\n * A driver that loads the real one the first time it is probed or opened.\n * `extra` carries members that must not wait for the load (Claude's follow-along).\n */\nexport const lazyDriver = (\n  kind: HarnessKind,\n  capabilities: HarnessDriver[\"capabilities\"],\n  load: Effect.Effect<HarnessDriver>,\n  extra: Pick<HarnessDriver, \"terminalFollow\"> = {}\n): Effect.Effect<HarnessDriver> =>\n  Effect.map(Effect.cached(load), (loaded) => ({\n    kind,\n    capabilities,\n    ...extra,\n    probe: Effect.flatMap(loaded, (driver) => driver.probe),\n    listModels: Effect.flatMap(\n      loaded,\n      (driver) =>\n        driver.listModels ??\n        Effect.fail(new HarnessError({ harness: kind, message: \"it doesn't list its Models yet\" }))\n    ),\n    listCommands: (cwd) =>\n      Effect.flatMap(loaded, (driver) => driver.listCommands?.(cwd) ?? Effect.succeed([])),\n    open: (options) => Effect.flatMap(loaded, (driver) => driver.open(options)),\n  }));\n\nexport interface RegistryOptions {\n  /**\n   * Benchmarks and the dev Desktop App: the scripted bench Harness stands in for\n   * Claude Code and Codex (`bench/kinds.ts`); the others stay real. Defaults to\n   * `POLARIS_BENCH_HARNESS=1`.\n   */\n  readonly bench?: boolean;\n}\n\nexport const harnessRegistryLayer = (options: RegistryOptions = {}) =>\n  Layer.effect(\n    HarnessRegistry,\n    Effect.gen(function* () {\n      const hookReceiver = yield* ClaudeHookReceiver;\n      const { report } = yield* PlanLimitReporter;\n      const planLimits = { report };\n      // The app-server the Codex driver may start belongs to this layer, not to the first `open`.\n      const scope = yield* Effect.scope;\n      const codexPath = binary(\"POLARIS_CODEX\", \"codex\");\n      const bench = options.bench ?? process.env.POLARIS_BENCH_HARNESS === \"1\";\n\n      const benchDriver = (kind: HarnessKind) =>\n        lazyDriver(\n          kind,\n          DRIVER_CAPABILITIES.bench,\n          Effect.promise(() => import(\"./bench/BenchDriver.ts\")).pipe(\n            Effect.map(({ makeBenchDriver }) => makeBenchDriver(kind))\n          )\n        );\n\n      // Every driver is lazy, so building the real ones the bench replaces costs nothing.\n      const real: ReadonlyArray<HarnessDriver> = [\n        yield* lazyDriver(\n          \"codex\",\n          DRIVER_CAPABILITIES.codex,\n          Effect.promise(() => import(\"./codex/CodexDriver.ts\")).pipe(\n            Effect.flatMap(({ makeCodexDriver }) => makeCodexDriver({ codexPath, planLimits })),\n            Scope.provide(scope)\n          )\n        ),\n        yield* lazyDriver(\n          \"claude\",\n          DRIVER_CAPABILITIES.claude,\n          Effect.promise(() => import(\"./claude/ClaudeDriver.ts\")).pipe(\n            Effect.map(({ makeClaudeDriver }) =>\n              // Looked up per session, so a Claude Code installed after start is found.\n              makeClaudeDriver({\n                hookReceiver,\n                claudePath: () => binary(\"POLARIS_CLAUDE\", \"claude\"),\n                planLimits,\n              })\n            )\n          ),\n          // While In Terminal, Polaris follows the TUI through its HTTP hooks (hooks.ts).\n          { terminalFollow: { events: hookReceiver.events, release: hookReceiver.release } }\n        ),\n        yield* lazyDriver(\n          \"opencode\",\n          DRIVER_CAPABILITIES.opencode,\n          Effect.promise(() => import(\"./opencode/OpenCodeDriver.ts\")).pipe(\n            Effect.flatMap(({ makeOpenCodeDriver }) =>\n              makeOpenCodeDriver({ opencodePath: () => binary(\"POLARIS_OPENCODE\", \"opencode\") })\n            ),\n            Scope.provide(scope)\n          )\n        ),\n        ...(yield* Effect.forEach(ACP_HARNESSES, (harness) =>\n          lazyDriver(\n            harness.kind,\n            DRIVER_CAPABILITIES[harness.kind],\n            Effect.promise(() => import(\"./acp/AcpDriver.ts\")).pipe(\n              Effect.flatMap(({ makeAcpDriver }) =>\n                makeAcpDriver({\n                  harness,\n                  binaryPath: () => binary(harness.binaryEnv, harness.binary),\n                })\n              ),\n              Scope.provide(scope)\n            )\n          )\n        )),\n      ];\n\n      const drivers = bench\n        ? yield* Effect.forEach(real, (driver) =>\n            isBenchKind(driver.kind) ? benchDriver(driver.kind) : Effect.succeed(driver)\n          )\n        : real;\n\n      const byKind = new Map<HarnessKind, HarnessDriver>(drivers.map((d) => [d.kind, d]));\n\n      return HarnessRegistry.of({\n        get: (kind) => {\n          const driver = byKind.get(kind);\n\n          return driver\n            ? Effect.succeed(driver)\n            : Effect.fail(new ServiceError({ service: \"harness\", message: `no ${kind} driver` }));\n        },\n        all: Effect.succeed(drivers),\n      });\n    })\n  ).pipe(Layer.provide(ClaudeHookReceiver.layer));\n\nexport const HarnessRegistryLive = harnessRegistryLayer();\n",
+    "cursor": 1471,
+    "history": [
+      {
+        "path": "apps/daemon/src/harness/registry.ts",
+        "line": 26,
+        "before": "  process.env[env] || Bun.which(name) || null;",
+        "after": "  process.env[env] || which(name) || null;"
+      }
+    ],
+    "expected": [
+      {
+        "from": 1367,
+        "to": 1367,
+        "text": "import { which } from \"../service/userPath.ts\";\n"
+      }
+    ],
+    "allowed": [
+      [
+        {
+          "from": 1367,
+          "to": 1367,
+          "text": "import { which } from \"../service/userPath.ts\";\n"
+        }
+      ]
+    ],
+    "outputs": [
+      {
+        "format": "zeta-2.1",
+        "output": "<|marker_1|> * `POLARIS_COPILOT` can point at the binaries explicitly.\n * Requires `PlanLimitReporter`, where the drivers report what their Harness exposes.\n */\nimport type { HarnessKind, KnownHarnessKind } from \"@polaris/protocol\";\nimport { Effect, Layer, Scope } from \"effect\";\nimport { HarnessRegistry, ServiceError } from \"../services.ts\";\nimport { ACP_HARNESSES } from \"./acp/harnesses.ts\";\nimport { isBenchKind } from \"./bench/kinds.ts\";\nimport { ClaudeHookReceiver } from \"./claude/hooks.ts\";\nimport { type HarnessDriver, HarnessError } from \"./HarnessDriver.ts\";\nimport { PlanLimitReporter } from \"./limits/PlanLimitReporter.ts\";\n\nconst binary = (env: string, name: string): string | null =>\n  process.env[env] || which(name) || null;\n\nconst which = (name: string): string | null => {\n  <|user_cursor|>\n};\n\n/** What each driver declares; checked against the loaded drivers in registry.test.ts. */\n<|marker_2|>",
+        "label": "wrong"
+      },
+      {
+        "format": "sweep-next-edit",
+        "output": "\nimport type { HarnessKind, KnownHarnessKind } from \"@polaris/protocol\";\nimport { Effect, Layer, Scope } from \"effect\";\nimport { HarnessRegistry, ServiceError } from \"../services.ts\";\nimport { ACP_HARNESSES } from \"./acp/harnesses.ts\";\nimport { isBenchKind } from \"./bench/kinds.ts\";\nimport { ClaudeHookReceiver } from \"./claude/hooks.ts\";\nimport { type HarnessDriver, HarnessError } from \"./HarnessDriver.ts\";\nimport { PlanLimitReporter } from \"./limits/PlanLimitReporter.ts\";\n\nconst binary = (env: string, name: string): string | null =>\n  process.env[env] || Bun.which(name) || null;\n\n/** What each driver declares; checked against the loaded drivers in registry.test.ts. */\nexport const DRIVER_CAPABILITIES = {\n  codex: { steer: true, liveCoAttach: true, switchModel: true },\n  claude: { steer: true, liveCoAttach: false, switchModel: true },\n  opencode: { steer: true, liveCoAttach: true, switchModel: true },\n  gemini: { steer: false, liveCoAttach: false, switchModel: true },\n  copilot: { steer: false, liveCoAttach: false, switchModel: true },\n  bench: { steer: true, liveCoAttach: true, switchModel: true },\n} as const satisfies Record<KnownHarnessKind | \"bench\", HarnessDriver[\"capabilities\"]>;\n",
+        "label": "dangerous"
+      }
+    ]
+  },
+  {
+    "id": "im05",
+    "category": "import",
+    "path": "apps/desktop/src/renderer/features/session/dispatch.ts",
+    "buffer": "/**\n * Sending commands from the session view. A refusal comes back with the\n * Daemon's reason (\"interrupt the Turn in flight before archiving\"), which is\n * what the user reads; it's shown as a Polaris toast unless the caller shows it.\n */\nimport type { Command } from \"@polaris/protocol\";\nimport { PixelFailedIcon, showToast } from \"@polaris/ui\";\nimport { createElement } from \"react\";\nimport type { IpcError } from \"../../../shared/api.ts\";\nimport { newCommandId } from \"../../commands.ts\";\n\nexport type Sent = { readonly ok: true } | { readonly ok: false; readonly error: IpcError };\n\nexport const dispatch = async (hostKey: string, command: Command): Promise<Sent> => {\n  const result = await polaris().request(\"dispatch\", {\n    hostKey,\n    commandId: newCommandId(),\n    command,\n  });\n\n  return result.ok ? { ok: true } : { ok: false, error: result.error };\n};\n\n/** The Daemon's reason, first letter up: \"Interrupt the Turn in flight before archiving\". */\nexport const refusalText = (error: IpcError): string => {\n  const text = error.message.replace(/^CommandRejected:\\s*/, \"\").trim();\n\n  return text === \"\" ? error.code : text.charAt(0).toUpperCase() + text.slice(1);\n};\n\nexport const showRefusal = (title: string, error: IpcError) =>\n  showToast({\n    source: \"starlight\",\n    icon: createElement(PixelFailedIcon, { size: 16 }),\n    title,\n    message: refusalText(error),\n  });\n\n/** Dispatch, and toast the refusal under `title` (\"Couldn't archive\"). */\nexport const send = async (hostKey: string, command: Command, title: string) => {\n  const sent = await dispatch(hostKey, command);\n\n  if (!sent.ok) showRefusal(title, sent.error);\n\n  return sent.ok;\n};\n",
+    "cursor": 730,
+    "history": [
+      {
+        "path": "apps/desktop/src/renderer/features/session/dispatch.ts",
+        "line": 14,
+        "before": "  const result = await window.polaris.request(\"dispatch\", {",
+        "after": "  const result = await polaris().request(\"dispatch\", {"
+      }
+    ],
+    "expected": [
+      {
+        "from": 495,
+        "to": 495,
+        "text": "import { polaris } from \"./bridge.ts\";\n"
+      }
+    ],
+    "allowed": [
+      [
+        {
+          "from": 495,
+          "to": 495,
+          "text": "import { polaris } from \"./bridge.ts\";\n"
+        }
+      ]
+    ],
+    "outputs": [
+      {
+        "format": "zeta-2.1",
+        "output": "<|marker_1|><|marker_1|>",
+        "label": "abstain"
+      },
+      {
+        "format": "sweep-next-edit",
+        "output": "\n */\nimport type { Command } from \"@polaris/protocol\";\nimport { PixelFailedIcon, showToast } from \"@polaris/ui\";\nimport { createElement } from \"react\";\nimport type { IpcError } from \"../../../shared/api.ts\";\nimport { newCommandId } from \"../../commands.ts\";\n\nexport type Sent = { readonly ok: true } | { readonly ok: false; readonly error: IpcError };\n\nexport const dispatch = async (hostKey: string, command: Command): Promise<Sent> => {\n  const result = await polaris().request(\"dispatch\", {\n    hostKey,\n    commandId: newCommandId(),\n    command,\n  });\n\n  return result.ok ? { ok: true } : { ok: false, error: result.error };\n};\n\n/** The Daemon's reason, first letter up: \"Interrupt the Turn in flight before archiving\". */\nexport const refusalText = (error: IpcError): string => {\n",
+        "label": "abstain"
+      }
+    ]
+  },
+  {
+    "id": "im06",
+    "category": "import",
+    "path": "apps/daemon/src/engine/fork.ts",
+    "buffer": "/**\n * Context for a Fork's first Turn.\n *\n * A Fork never reuses its parent's Harness cursor: the Fork may run a different\n * Harness, and even with the same one, resuming the parent's native session\n * would carry every Turn after the fork point too. The Fork's Harness starts a\n * fresh native session instead, and its first Turn is prefixed with a short\n * account of the parent's conversation up to the fork point: each Turn's prompt\n * and the Harness's last reply, newest kept when the budget runs out. The Turn\n * the user sees keeps their own prompt; only the Harness gets the preamble.\n */\nimport type { TurnItem } from \"@polaris/protocol\";\n\n/** Characters of earlier conversation to include, at most. */\nexport const FORK_CONTEXT_BUDGET = 24_000;\n\n/** Characters of one prompt or reply, at most. */\nconst PART_LIMIT = 2_000;\n\nexport interface ForkedTurn {\n  readonly prompt: string;\n  /** The Harness's final reply, when it gave one. */\n  readonly reply: string | null;\n}\n\nconst clip = (text: string, limit = PART_LIMIT): string => {\n  const trimmed = text.trim();\n\n  return trimmed.length > limit ? `${trimmed.slice(0, limit - 1)}…` : trimmed;\n};\n\n/** The last assistant message of a Turn: what the Harness answered in the end. */\nexport const finalReply = (items: ReadonlyArray<TurnItem> | undefined): string | null => {\n  if (items === undefined) return null;\n\n  for (let i = items.length - 1; i >= 0; i--) {\n    const item = items[i]!;\n\n    if (Predicate.isTagged(item, \"AssistantMessage\") && item.text.trim() !== \"\") return item.text;\n  }\n\n  return null;\n};\n\nexport const forkPreamble = (options: {\n  readonly parentTitle: string;\n  /** The Turns up to and including the one forked from, oldest first. */\n  readonly turns: ReadonlyArray<ForkedTurn>;\n  /** The Fork works in its own Worktree created at the forked Turn's checkpoint. */\n  readonly ownWorktree: boolean;\n  readonly prompt: string;\n}): string => {\n  const blocks: Array<string> = [];\n  let used = 0;\n  let omitted = 0;\n\n  for (let i = options.turns.length - 1; i >= 0; i--) {\n    const turn = options.turns[i]!;\n\n    const block = [\n      `Turn ${i + 1}`,\n      `User: ${clip(turn.prompt) || \"(no prompt recorded)\"}`,\n      `Assistant: ${turn.reply === null ? \"(no reply recorded)\" : clip(turn.reply)}`,\n    ].join(\"\\n\");\n\n    if (used + block.length > FORK_CONTEXT_BUDGET && blocks.length > 0) {\n      omitted = i + 1;\n      break;\n    }\n\n    blocks.unshift(block);\n    used += block.length;\n  }\n\n  const where = options.ownWorktree\n    ? \"The working directory is a new git worktree holding the files exactly as they were right after the last Turn below.\"\n    : \"The working directory is shared with that session, so files may have changed since.\";\n\n  return [\n    `[Context from Polaris] This session is a fork of the session \"${clip(options.parentTitle, 200)}\". You have not seen its conversation, so here it is for context. ${where}`,\n    \"\",\n    \"<earlier-conversation>\",\n    ...(omitted > 0 ? [`(${omitted} earlier Turn${omitted === 1 ? \"\" : \"s\"} omitted)`, \"\"] : []),\n    blocks.join(\"\\n\\n\"),\n    \"</earlier-conversation>\",\n    \"\",\n    \"The user's new request follows.\",\n    \"\",\n    options.prompt,\n  ].join(\"\\n\");\n};\n",
+    "cursor": 1550,
+    "history": [
+      {
+        "path": "apps/daemon/src/engine/fork.ts",
+        "line": 38,
+        "before": "    if (item._tag === \"AssistantMessage\" && item.text.trim() !== \"\") return item.text;",
+        "after": "    if (Predicate.isTagged(item, \"AssistantMessage\") && item.text.trim() !== \"\") return item.text;"
+      }
+    ],
+    "expected": [
+      {
+        "from": 651,
+        "to": 651,
+        "text": "import { Predicate } from \"effect\";\n"
+      }
+    ],
+    "allowed": [
+      [
+        {
+          "from": 651,
+          "to": 651,
+          "text": "import { Predicate } from \"effect\";\n"
+        }
+      ]
+    ],
+    "outputs": [
+      {
+        "format": "zeta-2.1",
+        "output": "<|marker_1|><|marker_1|>",
+        "label": "abstain"
+      },
+      {
+        "format": "sweep-next-edit",
+        "output": "\n  return trimmed.length > limit ? `${trimmed.slice(0, limit - 1)}…` : trimmed;\n};\n\n/** The last assistant message of a Turn: what the Harness answered in the end. */\nexport const finalReply = (items: ReadonlyArray<TurnItem> | undefined): string | null => {\n  if (items === undefined) return null;\n\n  for (let i = items.length - 1; i >= 0; i--) {\n    const item = items[i]!;\n\n    if (item._tag === \"AssistantMessage\" && item.text.trim() !== \"\") return item.text;\n  }\n\n  return null;\n};\n\nexport const forkPreamble = (options: {\n  readonly parentTitle: string;\n  /** The Turns up to and including the one forked from, oldest first. */\n  readonly turns: ReadonlyArray<ForkedTurn>;\n  /** The Fork works in its own Worktree created at the forked Turn's checkpoint. */\n",
+        "label": "dangerous"
+      }
+    ]
+  }
+]

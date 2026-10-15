@@ -1,0 +1,369 @@
+[
+  {
+    "id": "rn01",
+    "category": "rename",
+    "path": "apps/desktop/src/main/updates/index.ts",
+    "buffer": "import type { AutoUpdater } from \"electron\";\nimport type { AppUpdateView } from \"../../shared/appUpdates.ts\";\nimport { updateFeed } from \"./platform.ts\";\n\nexport const UPDATE_BASE_URL = \"https://polaris.lux.dev\";\n\nexport const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;\n\ntype UpdateHeaders = {\n  \"X-Polaris-macOS-Version\"?: string;\n  \"X-Polaris-Windows-Version\"?: string;\n  \"X-Polaris-Install-ID\"?: string;\n};\n\nexport interface UpdateInput {\n  readonly native: Pick<\n    AutoUpdater,\n    \"on\" | \"removeListener\" | \"setFeedURL\" | \"checkForUpdates\" | \"quitAndInstall\"\n  >;\n  readonly version: string;\n  readonly installId: string;\n  readonly osVersion: string;\n  readonly platform?: string;\n  readonly firstRun?: boolean;\n  readonly fetch?: (url: string, init: RequestInit) => Promise<Response>;\n  readonly arch: string;\n  readonly supported: boolean;\n  readonly blocked: boolean;\n  readonly automatic: boolean;\n  readonly lastCheckedAt: number | null;\n  readonly save: (change: {\n    automaticAppUpdates?: boolean;\n    appUpdateLastCheckedAt?: number;\n  }) => void;\n  readonly publish: (view: AppUpdateView) => void;\n  readonly now?: () => number;\n  readonly schedule?: (run: () => void, delay: number) => () => void;\n}\n\nconst scheduleCheck = (run: () => void, delay: number) => {\n  const timer = setTimeout(run, delay);\n  timer.unref();\n\n  return () => clearTimeout(timer);\n};\n\nconst CORE = String.raw`(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)`;\n\nconst PRERELEASE = String.raw`(?:alpha|beta|rc)`;\n\nconst assetVersion = new RegExp(\n  String.raw`\\/Polaris-(${CORE}(?:-${PRERELEASE}\\.(?:0|[1-9]\\d*))?)(?:-arm64-mac\\.zip|-(?:x64|arm64)-win-Setup\\.exe)$`\n);\n\nconst nugetVersion = new RegExp(String.raw`^(${CORE})(?:-(${PRERELEASE})(0|[1-9]\\d*))?$`);\n\n/** A Squirrel NuGet version (`1.2.3-alpha1`) as the release's semver (`1.2.3-alpha.1`). */\nexport const versionFromNuget = (name: string): string | null => {\n  const match = nugetVersion.exec(name);\n\n  if (!match) return null;\n\n  return match[2] === undefined ? match[1]! : `${match[1]}-${match[2]}.${match[3]}`;\n};\n\n/** The asset name is authoritative; a Release title can be arbitrary prose. */\nexport const versionFromAsset = (url: string): string | null => {\n  const asset = assetVersion.exec(url)?.[1];\n\n  if (asset !== undefined) return asset;\n  const nupkg = /\\/Polaris-(?:x64|arm64)-win-([^/]+)-full\\.nupkg$/.exec(url)?.[1];\n\n  return nupkg === undefined ? null : versionFromNuget(nupkg);\n};\n\nexport const createAppUpdates = (input: UpdateInput) => {\n  const platform = input.platform ?? \"darwin\";\n  const now = input.now ?? Date.now;\n  const schedule = input.schedule ?? scheduleCheck;\n  let cancelTimer: (() => void) | null = null;\n  let disposed = false;\n\n  let view: AppUpdateView = {\n    phase: input.supported && input.blocked ? \"blocked\" : \"idle\",\n    version: input.version,\n    availableVersion: null,\n    automatic: input.automatic,\n    lastCheckedAt: input.lastCheckedAt,\n    installId: input.installId,\n    osVersion: input.osVersion,\n    platform,\n    arch: input.arch,\n    supported: input.supported,\n  };\n\n  const change = (patch: Partial<AppUpdateView>) => {\n    if (disposed) return;\n    view = { ...view, ...patch };\n    input.publish(view);\n  };\n\n  const check = (): AppUpdateView => {\n    if (disposed || !view.supported || input.blocked) return view;\n\n    if ([\"checking\", \"downloading\", \"ready\"].includes(view.phase)) return view;\n\n    const headers: UpdateHeaders =\n      platform === \"win32\"\n        ? { \"X-Polaris-Windows-Version\": view.macOSVersion }\n        : { \"X-Polaris-macOS-Version\": view.macOSVersion };\n\n    if (view.automatic) headers[\"X-Polaris-Install-ID\"] = view.installId;\n\n    change({ phase: \"checking\", availableVersion: null });\n\n    const url = updateFeed(UPDATE_BASE_URL, platform, input.arch, view.version);\n\n    const nativeCheck = () => {\n      if (disposed) return;\n      input.native.setFeedURL({\n        url,\n        headers,\n      });\n      input.native.checkForUpdates();\n    };\n\n    try {\n      if (platform === \"win32\") {\n        // Squirrel ignores custom headers; the preflight carries the consent-controlled telemetry.\n        void (input.fetch ?? fetch)(`${url}/RELEASES`, {\n          headers,\n          cache: \"no-store\",\n          signal: AbortSignal.timeout(5_000),\n        })\n          .then((response) => {\n            if (disposed) return;\n\n            if (response.status === 204) finish(\"current\");\n            else if (response.ok) nativeCheck();\n            else finish(\"failed\");\n          })\n          .catch(() => finish(\"failed\"));\n      } else nativeCheck();\n    } catch {\n      finish(\"failed\");\n    }\n\n    return view;\n  };\n\n  const arm = () => {\n    cancelTimer?.();\n    cancelTimer = null;\n\n    if (disposed || !view.supported || input.blocked || !view.automatic || view.phase === \"ready\")\n      return;\n    cancelTimer = schedule(() => {\n      cancelTimer = null;\n      check();\n      arm();\n    }, CHECK_INTERVAL_MS);\n  };\n\n  const finish = (\n    phase: \"current\" | \"failed\" | \"ready\",\n    availableVersion: string | null = null\n  ) => {\n    if (disposed) return;\n    const lastCheckedAt = now();\n    input.save({ appUpdateLastCheckedAt: lastCheckedAt });\n    change({ phase, availableVersion, lastCheckedAt });\n    arm();\n  };\n\n  const checking = () => change({ phase: \"checking\" });\n  const available = () => change({ phase: \"downloading\" });\n  const current = () => finish(\"current\");\n  const failed = () => finish(\"failed\");\n\n  const downloaded = (\n    _event: Electron.Event,\n    _notes: string,\n    name: string,\n    _date: Date,\n    url: string\n  ) =>\n    finish(\n      \"ready\",\n      (platform === \"win32\" ? versionFromNuget(name) : null) ?? versionFromAsset(url)\n    );\n\n  input.native.on(\"checking-for-update\", checking);\n  input.native.on(\"update-available\", available);\n  input.native.on(\"update-not-available\", current);\n  input.native.on(\"error\", failed);\n  input.native.on(\"update-downloaded\", downloaded);\n\n  return {\n    get: () => view,\n    check,\n    start: () => {\n      if (view.automatic && !input.firstRun) check();\n      arm();\n    },\n    setAutomatic: (automatic: boolean) => {\n      input.save({ automaticAppUpdates: automatic });\n      change({ automatic });\n      // A request already sent cannot be recalled; future manual checks omit the identity.\n      arm();\n\n      return view;\n    },\n    install: () => {\n      if (view.phase === \"ready\") input.native.quitAndInstall();\n    },\n    dispose: () => {\n      disposed = true;\n      cancelTimer?.();\n      input.native.removeListener(\"checking-for-update\", checking);\n      input.native.removeListener(\"update-available\", available);\n      input.native.removeListener(\"update-not-available\", current);\n      input.native.removeListener(\"error\", failed);\n      input.native.removeListener(\"update-downloaded\", downloaded);\n    },\n  };\n};\n\nexport type AppUpdates = ReturnType<typeof createAppUpdates>;\n",
+    "cursor": 3003,
+    "history": [
+      {
+        "path": "apps/desktop/src/main/updates/index.ts",
+        "line": 21,
+        "before": "  readonly macOSVersion: string;",
+        "after": "  readonly osVersion: string;"
+      },
+      {
+        "path": "apps/desktop/src/main/updates/index.ts",
+        "line": 89,
+        "before": "    macOSVersion: input.macOSVersion,",
+        "after": "    osVersion: input.osVersion,"
+      }
+    ],
+    "expected": [
+      {
+        "from": 3473,
+        "to": 3594,
+        "text": "        ? { \"X-Polaris-Windows-Version\": view.osVersion }\n        : { \"X-Polaris-macOS-Version\": view.osVersion };\n"
+      }
+    ],
+    "allowed": [
+      [
+        {
+          "from": 3473,
+          "to": 3594,
+          "text": "        ? { \"X-Polaris-Windows-Version\": view.osVersion }\n        : { \"X-Polaris-macOS-Version\": view.osVersion };\n"
+        }
+      ]
+    ],
+    "outputs": [
+      {
+        "format": "zeta-2.1",
+        "output": "<|marker_1|><|marker_1|>",
+        "label": "abstain"
+      },
+      {
+        "format": "sweep-next-edit",
+        "output": "\n  let cancelTimer: (() => void) | null = null;\n  let disposed = false;\n\n  let view: AppUpdateView = {\n    phase: input.supported && input.blocked ? \"blocked\" : \"idle\",\n    version: input.version,\n    availableVersion: null,\n    automatic: input.automatic,\n    lastCheckedAt: input.lastCheckedAt,\n    installId: input.installId,\n    osVersion: input.osVersion,\n    platform: input.platform,\n    arch: input.arch,\n    supported: input.supported,\n  };\n\n  const change = (patch: Partial<AppUpdateView>) => {\n    if (disposed) return;\n    view = { ...view, ...patch };\n    input.publish(view);\n  };\n",
+        "label": "dangerous"
+      }
+    ]
+  },
+  {
+    "id": "rn02",
+    "category": "rename",
+    "path": "apps/site/app/api/update/_lib/windows.ts",
+    "buffer": "import { errorInfo, withWideEvent } from \"../../../../lib/log\";\nimport {\n  latestRelease,\n  releaseAssetNamed,\n  releasesPage,\n  windowsAssetName,\n  type PublishedRelease,\n  type WindowsArch,\n} from \"./releases.ts\";\nimport { compareVersions, parseVersion } from \"./version.ts\";\nimport { requestFields } from \"./telemetry.ts\";\n\nconst headers = { \"Cache-Control\": \"no-store\" };\n\nconst unavailable = () =>\n  Response.json(\n    { error: \"The latest release is unavailable. Try again shortly.\" },\n    {\n      status: 503,\n      headers: { ...headers, \"Retry-After\": \"60\" },\n    }\n  );\n\n/** Preserve Squirrel's hash and byte length; only a validated full-package URL reaches the Client. */\nexport const windowsReleases = (\n  release: PublishedRelease,\n  arch: WindowsArch,\n  body: string\n): string => {\n  const name = windowsAssetName(release.version.text, arch, \"nupkg\");\n  const line = /^([a-fA-F0-9]{40}) ([A-Za-z0-9._-]+) ([1-9]\\d*)$/.exec(body.trim());\n\n  if (line === null || line[2] !== name) throw new Error(\"Invalid Squirrel RELEASES\");\n\n  return `${line[1]} ${releaseAssetNamed(release, name)} ${line[3]}\\n`;\n};\n\nexport const windowsDownloadArch = (request: Request): WindowsArch | null => {\n  const explicit = new URL(request.url).searchParams.get(\"arch\");\n\n  if (explicit !== null) return explicit === \"x64\" || explicit === \"arm64\" ? explicit : null;\n  const hint = request.headers.get(\"sec-ch-ua-arch\");\n\n  if (hint === '\"arm\"' || hint === '\"arm64\"') return \"arm64\";\n\n  return /\\b(?:ARM64|aarch64)\\b/i.test(request.headers.get(\"user-agent\") ?? \"\") ? \"arm64\" : \"x64\";\n};\n\ninterface Dependencies {\n  readonly latest: () => Promise<PublishedRelease | null>;\n  readonly fetch?: (url: string, init: RequestInit) => Promise<Response>;\n  readonly log?: NonNullable<Parameters<typeof withWideEvent>[2]>;\n}\n\nexport const createWindowsRoutes = (deps: Dependencies) => ({\n  releases: (arch: WindowsArch) =>\n    withWideEvent<{ params: Promise<{ version: string }> }>(\n      `/api/update/win32-${arch}/[version]/RELEASES`,\n      async (request, event, context) => {\n        const { version } = await context.params;\n        Object.assign(\n          event,\n          requestFields(request, \"update_check\", version, { platform: \"win32\", arch })\n        );\n        const caller = parseVersion(version);\n\n        if (!caller)\n          return Response.json(\n            { error: \"Use a valid semantic version.\" },\n            { status: 400, headers }\n          );\n\n        try {\n          const release = await deps.latest();\n          event.release_version = release?.tag_name ?? null;\n\n          if (!release || compareVersions(caller, release.version) >= 0) {\n            event.update = \"current\";\n\n            return new Response(null, { status: 204, headers });\n          }\n\n          const url = releaseAssetNamed(\n            release,\n            windowsAssetName(release.version.text, arch, \"releases\")\n          );\n\n          const response = await (deps.fetch ?? fetch)(url, {\n            cache: \"no-store\",\n            signal: AbortSignal.timeout(5_000),\n          });\n\n          if (!response.ok) throw new Error(\"Squirrel manifest unavailable\");\n          const body = windowsReleases(release, arch, await response.text());\n          event.update = \"available\";\n\n          return new Response(body, {\n            headers: { ...headers, \"Content-Type\": \"text/plain; charset=utf-8\" },\n          });\n        } catch (error) {\n          event.failure = \"release_unavailable\";\n          event.error = errorInfo(error);\n\n          return unavailable();\n        }\n      },\n      deps.log\n    ),\n  download: withWideEvent<unknown>(\n    \"/download/windows\",\n    async (request, event) => {\n      const arch = windowsDownloadArch(request);\n\n      if (arch === null)\n        return Response.json({ error: \"Use arch=x64 or arch=arm64.\" }, { status: 400, headers });\n      Object.assign(event, requestFields(request, \"download\", null, { platform: \"win32\", arch }));\n\n      try {\n        const release = await deps.latest();\n        event.release_version = release?.tag_name ?? null;\n\n        if (!release) return releasesPage();\n\n        const url = releaseAssetNamed(\n          release,\n          windowsAssetName(release.version.text, arch, \"setup\")\n        );\n\n        return new Response(null, { status: 307, headers: { ...headers, Location: url } });\n      } catch (error) {\n        event.failure = \"release_unavailable\";\n        event.error = errorInfo(error);\n\n        return unavailable();\n      }\n    },\n    deps.log\n  ),\n});\n\nexport const windowsRoutes = createWindowsRoutes({ latest: latestRelease });\n",
+    "cursor": 4119,
+    "history": [
+      {
+        "path": "apps/site/app/api/update/_lib/windows.ts",
+        "line": 4,
+        "before": "",
+        "after": "  releasesPage,"
+      },
+      {
+        "path": "apps/site/app/api/update/_lib/windows.ts",
+        "line": 121,
+        "before": "        if (!release) return unavailable();",
+        "after": "        if (!release) return releasesPage();"
+      }
+    ],
+    "expected": [
+      {
+        "from": 4459,
+        "to": 4489,
+        "text": "        return releasesPage();\n"
+      }
+    ],
+    "allowed": [
+      [
+        {
+          "from": 4459,
+          "to": 4489,
+          "text": "        return releasesPage();\n"
+        }
+      ]
+    ],
+    "outputs": [
+      {
+        "format": "zeta-2.1",
+        "output": "<|marker_1|><|marker_1|>",
+        "label": "abstain"
+      },
+      {
+        "format": "sweep-next-edit",
+        "output": "\n      const arch = windowsDownloadArch(request);\n\n      if (arch === null)\n        return Response.json({ error: \"Use arch=x64 or arch=arm64.\" }, { status: 400, headers });\n      Object.assign(event, requestFields(request, \"download\", null, { platform: \"win32\", arch }));\n\n      try {\n        const release = await deps.latest();\n        event.release_version = release?.tag_name ?? null;\n\n        if (!release) return releasesPage();\n\n        const url = releaseAssetNamed(\n          release,\n          windowsAssetName(release.version.text, arch, \"setup\")\n        );\n\n        return new Response(null, { status: 307, headers: { ...headers, Location: url } });\n      } catch (error) {\n        event.failure = \"release_unavailable\";\n        event.error = errorInfo(error);\n",
+        "label": "abstain"
+      }
+    ]
+  },
+  {
+    "id": "rn03",
+    "category": "rename",
+    "path": "apps/desktop/src/renderer/features/review/overview/ui/TabBar.tsx",
+    "buffer": "/**\n * The tabs over Review's centre pane (Paper R9 AMW-0): each label with its figure, the\n * chosen one on `fill-selected`, and the jump to Changes trailing. ⌘⇧[ / ⌘⇧] cycle them.\n */\nimport { cn, Kbd, Tooltip, TooltipContent, TooltipTrigger } from \"@polaris/ui\";\nimport { type TabId, TAB_LABELS } from \"../model/tabs.ts\";\nimport { commandShortcut } from \"../../../../../shared/keymap.ts\";\n\nexport interface TabBarProps {\n  readonly tabs: ReadonlyArray<TabId>;\n  readonly current: TabId;\n  readonly figures: Readonly<Partial<Record<TabId, string>>>;\n  /** What a tab's tooltip says beyond its label (\"9 files, 0 viewed\"). */\n  readonly hints: Readonly<Partial<Record<TabId, string>>>;\n  /** A tab whose content changed since the last review (\"updated\", \"3 new\"). */\n  readonly news: Readonly<Partial<Record<TabId, string>>>;\n  readonly onPick: (tab: TabId) => void;\n  /** \"Review changes\", \"Review 2 new commits\"; null hides the jump (on Changes). */\n  readonly jumpLabel: string | null;\n}\n\nconst next = () => commandShortcut(\"review.nextTab\");\n\nconst previous = () => commandShortcut(\"review.previousTab\");\n\nconst keyTo = (tabs: ReadonlyArray<TabId>, current: TabId, tab: TabId) => {\n  const from = tabs.indexOf(current);\n  const to = tabs.indexOf(tab);\n\n  if ((from + 1) % tabs.length === to) return next();\n\n  return (to + 1) % tabs.length === from ? PREVIOUS : null;\n};\n\nexport const TabBar = ({ tabs, current, figures, hints, news, onPick, jumpLabel }: TabBarProps) => (\n  <div\n    role=\"tablist\"\n    aria-label=\"Review\"\n    data-testid=\"review-tabs\"\n    className=\"border-hairline px-panel flex h-10 shrink-0 items-center gap-1 border-b\"\n  >\n    {tabs.map((tab) => {\n      const key = keyTo(tabs, current, tab);\n      const hint = [TAB_LABELS[tab], hints[tab]].filter((p) => p !== undefined).join(\" · \");\n\n      return (\n        <Tooltip key={tab}>\n          <TooltipTrigger asChild>\n            <button\n              type=\"button\"\n              role=\"tab\"\n              id={`review-tab-${tab}`}\n              aria-selected={tab === current}\n              aria-controls={`review-panel-${tab}`}\n              data-testid={`review-tab-${tab}`}\n              onClick={() => onPick(tab)}\n              className={cn(\n                \"rounded-control h-tree-row px-row-x flex shrink-0 cursor-default items-center gap-1.5\",\n                tab === current ? \"bg-fill-selected\" : \"hover:bg-fill-hover\"\n              )}\n            >\n              <span\n                className={cn(\n                  \"text-body font-medium\",\n                  tab === current ? \"text-text-strong\" : \"text-text-subtle\"\n                )}\n              >\n                {TAB_LABELS[tab]}\n              </span>\n              {figures[tab] !== undefined && (\n                <span className=\"text-caption text-text-subtle tabular\">{figures[tab]}</span>\n              )}\n              {news[tab] !== undefined && (\n                <span className=\"text-caption text-text-default\">{news[tab]}</span>\n              )}\n            </button>\n          </TooltipTrigger>\n          <TooltipContent side=\"bottom\" className=\"flex items-center gap-2\">\n            {hint}\n            {key !== null && <Kbd>{key}</Kbd>}\n          </TooltipContent>\n        </Tooltip>\n      );\n    })}\n    <span className=\"flex-1\" />\n    {jumpLabel !== null && (\n      <button\n        type=\"button\"\n        data-testid=\"review-jump-changes\"\n        onClick={() => onPick(\"changes\")}\n        className=\"rounded-control h-tree-row pr-row-x bg-fill-selected text-body text-text-strong hover:bg-fill-selected/70 gap-gap flex shrink-0 cursor-default items-center pl-3 font-medium\"\n      >\n        {jumpLabel} →{current === \"overview\" && <Kbd>{NEXT}</Kbd>}\n      </button>\n    )}\n  </div>\n);\n",
+    "cursor": 1311,
+    "history": [
+      {
+        "path": "apps/desktop/src/renderer/features/review/overview/ui/TabBar.tsx",
+        "line": 6,
+        "before": "",
+        "after": "import { commandShortcut } from \"../../../../../shared/keymap.ts\";"
+      },
+      {
+        "path": "apps/desktop/src/renderer/features/review/overview/ui/TabBar.tsx",
+        "line": 21,
+        "before": "const NEXT = \"⇧⌘]\";",
+        "after": "const next = () => commandShortcut(\"review.nextTab\");"
+      },
+      {
+        "path": "apps/desktop/src/renderer/features/review/overview/ui/TabBar.tsx",
+        "line": 23,
+        "before": "const PREVIOUS = \"⇧⌘[\";",
+        "after": "const previous = () => commandShortcut(\"review.previousTab\");"
+      },
+      {
+        "path": "apps/desktop/src/renderer/features/review/overview/ui/TabBar.tsx",
+        "line": 29,
+        "before": "  if ((from + 1) % tabs.length === to) return NEXT;",
+        "after": "  if ((from + 1) % tabs.length === to) return next();"
+      }
+    ],
+    "expected": [
+      {
+        "from": 1313,
+        "to": 1373,
+        "text": "  return (to + 1) % tabs.length === from ? previous() : null;\n"
+      }
+    ],
+    "allowed": [
+      [
+        {
+          "from": 1313,
+          "to": 1373,
+          "text": "  return (to + 1) % tabs.length === from ? previous() : null;\n"
+        }
+      ],
+      [
+        {
+          "from": 1313,
+          "to": 1373,
+          "text": "  return (to + 1) % tabs.length === from ? previous() : null;\n"
+        },
+        {
+          "from": 3637,
+          "to": 3704,
+          "text": "        {jumpLabel} →{current === \"overview\" && <Kbd>{next()}</Kbd>}\n"
+        }
+      ]
+    ],
+    "outputs": [
+      {
+        "format": "zeta-2.1",
+        "output": "<|marker_1|>  readonly onPick: (tab: TabId) => void;\n  /** \"Review changes\", \"Review 2 new commits\"; null hides the jump (on Changes). */\n  readonly jumpLabel: string | null;\n}\n\nconst next = () => commandShortcut(\"review.nextTab\");\n\nconst previous = () => commandShortcut(\"review.previousTab\");\n\nconst keyTo = (tabs: ReadonlyArray<TabId>, current: TabId, tab: TabId) => {\n  const from = tabs.indexOf(current);\n  const to = tabs.indexOf(tab);\n\n  if ((from + 1) % tabs.length === to) return next();\n\n  return (to + 1) % tabs.length === from ? previous() : null;\n<|marker_2|>",
+        "label": "exact"
+      },
+      {
+        "format": "sweep-next-edit",
+        "output": "\n}\n\nconst next = () => commandShortcut(\"review.nextTab\");\n\nconst previous = () => commandShortcut(\"review.previousTab\");\n\nconst keyTo = (tabs: ReadonlyArray<TabId>, current: TabId, tab: TabId) => {\n  const from = tabs.indexOf(current);\n  const to = tabs.indexOf(tab);\n\n  if ((from + 1) % tabs.length === to) return next();\n\n  return (to + 1) % tabs.length === from ? previous() : null;\n};\n\nexport const TabBar = ({ tabs, current, figures, hints, news, onPick, jumpLabel }: TabBarProps) => (\n  <div\n    role=\"tablist\"\n    aria-label=\"Review\"\n    data-testid=\"review-tabs\"\n    className=\"border-hairline px-panel flex h-10 shrink-0 items-center gap-1 border-b\"\n",
+        "label": "exact"
+      }
+    ]
+  },
+  {
+    "id": "rn04",
+    "category": "rename",
+    "path": "apps/desktop/src/renderer/features/machines/updates/Controls.tsx",
+    "buffer": "/**\n * \"Keep daemons up to date\": the app-wide switch in the hosts table's sunken\n * foot, and each Host's override, in its row's menu and its opened settings.\n */\nimport {\n  DropdownMenuLabel,\n  DropdownMenuRadioGroup,\n  DropdownMenuRadioItem,\n  DropdownMenuSeparator,\n  Select,\n  SelectContent,\n  SelectItem,\n  SelectTrigger,\n  SelectValue,\n  Switch,\n} from \"@polaris/ui\";\nimport { useId } from \"react\";\nimport type { DaemonUpdateView } from \"./contract.ts\";\nimport { defaultChoiceLabel, type OverrideChoice, overrideChoice, overrideValue } from \"./model.ts\";\n\nconst CHOICES = (daemon: DaemonUpdateView) =>\n  [\n    { value: \"default\", label: defaultChoiceLabel(daemon) },\n    { value: \"on\", label: \"Always keep up to date\" },\n    { value: \"off\", label: \"Only when I ask\" },\n  ] as const;\n\nconst isChoice = (value: string): value is OverrideChoice =>\n  value === \"default\" || value === \"on\" || value === \"off\";\n\nexport interface OverrideProps {\n  readonly daemon: DaemonUpdateView;\n  readonly onChange: (enabled: boolean | null) => void;\n}\n\n/** The row menu's section: a radio group under its label. */\nexport const OverrideMenuItems = ({ daemon, onChange }: OverrideProps) => (\n  <>\n    <DropdownMenuSeparator />\n    <DropdownMenuLabel>Daemon upgrades</DropdownMenuLabel>\n    <DropdownMenuRadioGroup\n      value={overrideChoice(daemon)}\n      onValueChange={(value) => {\n        if (isChoice(value)) onChange(overrideValue(value));\n      }}\n    >\n      {CHOICES(daemon).map((choice) => (\n        <DropdownMenuRadioItem key={choice.value} value={choice.value}>\n          {choice.label}\n        </DropdownMenuRadioItem>\n      ))}\n    </DropdownMenuRadioGroup>\n  </>\n);\n\n/** The same choice as a select, in the opened row's settings. */\nexport const OverrideSelect = ({ daemon, onChange }: OverrideProps) => (\n  <Select\n    value={overrideChoice(daemon)}\n    onValueChange={(value) => {\n      if (isChoice(value)) onChange(overrideValue(value));\n    }}\n  >\n    <SelectTrigger aria-label=\"Daemon updates\" className=\"text-label h-7 w-[260px]\">\n      <SelectValue />\n    </SelectTrigger>\n    <SelectContent>\n      {CHOICES(daemon).map((choice) => (\n        <SelectItem key={choice.value} value={choice.value}>\n          {choice.label}\n        </SelectItem>\n      ))}\n    </SelectContent>\n  </Select>\n);\n\nexport interface KeepUpToDateProps {\n  readonly checked: boolean;\n  readonly onChange: (enabled: boolean) => void;\n}\n\n/** The table's foot (DESIGN.md, Settings: a sunken strip holds secondary defaults). */\nexport const KeepUpToDate = ({ checked, onChange }: KeepUpToDateProps) => {\n  const id = useId();\n\n  return (\n    <div\n      data-testid=\"keep-daemons-up-to-date\"\n      className=\"border-hairline bg-surface-sunken px-panel flex items-center gap-4 border-t py-[calc(var(--spacing-gap)+2px)]\"\n    >\n      <div className=\"flex min-w-0 flex-1 flex-col gap-0.5\">\n        <label htmlFor={id} className=\"text-label text-text-default\">\n          Keep daemons up to date\n        </label>\n        <span className=\"text-caption text-text-subtle\">\n          Upgrades a host's daemon when it connects, with working agent sessions kept. Never\n          installs on a host you haven't approved.\n        </span>\n      </div>\n      <Switch id={id} checked={checked} onCheckedChange={onChange} />\n    </div>\n  );\n};\n",
+    "cursor": 1273,
+    "history": [
+      {
+        "path": "apps/desktop/src/renderer/features/machines/updates/Controls.tsx",
+        "line": 39,
+        "before": "    <DropdownMenuLabel>Daemon updates</DropdownMenuLabel>",
+        "after": "    <DropdownMenuLabel>Daemon upgrades</DropdownMenuLabel>"
+      }
+    ],
+    "expected": [
+      {
+        "from": 1956,
+        "to": 2041,
+        "text": "    <SelectTrigger aria-label=\"Daemon upgrades\" className=\"text-label h-7 w-[260px]\">\n"
+      }
+    ],
+    "allowed": [
+      [
+        {
+          "from": 1956,
+          "to": 2041,
+          "text": "    <SelectTrigger aria-label=\"Daemon upgrades\" className=\"text-label h-7 w-[260px]\">\n"
+        }
+      ]
+    ],
+    "outputs": [
+      {
+        "format": "zeta-2.1",
+        "output": "<|marker_1|><|marker_1|>",
+        "label": "abstain"
+      },
+      {
+        "format": "sweep-next-edit",
+        "output": "\n\nexport interface OverrideProps {\n  readonly daemon: DaemonUpdateView;\n  readonly onChange: (enabled: boolean | null) => void;\n}\n\n/** The row menu's section: a radio group under its label. */\nexport const OverrideMenuItems = ({ daemon, onChange }: OverrideProps) => (\n  <>\n    <DropdownMenuSeparator />\n    <DropdownMenuLabel>Daemon updates</DropdownMenuLabel>\n    <DropdownMenuRadioGroup\n      value={overrideChoice(daemon)}\n      onValueChange={(value) => {\n        if (isChoice(value)) onChange(overrideValue(value));\n      }}\n    >\n      {CHOICES(daemon).map((choice) => (\n        <DropdownMenuRadioItem key={choice.value} value={choice.value}>\n          {choice.label}\n        </DropdownMenuRadioItem>\n",
+        "label": "dangerous"
+      }
+    ]
+  },
+  {
+    "id": "rn05",
+    "category": "rename",
+    "path": "packages/client/src/resume.ts",
+    "buffer": "/**\n * A resumable, cached, multicast view of one Daemon stream (`subscribeHost`\n * or `subscribeSession`).\n *\n * One upstream subscription serves every local subscriber. After a reconnect\n * it resubscribes with `afterSequence` = the last sequence seen and drops any\n * event at or below it, so a replay overlap never duplicates. A subscriber the\n * Daemon drops for falling behind has its stream ended (never skipped), so the\n * feed needs no gap check to stay gapless; `gapless` is only for a stream\n * whose sequences truly have no gaps. The host stream is not one: it leaves\n * out session-only events.\n *\n * Reopens that make no progress back off (`REOPEN_BACKOFF_MS`, doubling up to\n * `MAX_REOPEN_BACKOFF_MS`), so a stream that keeps asking to be reopened at the\n * same point can never loop hot against the Daemon.\n *\n * The feed keeps the last Snapshot and the events after it. A new subscriber\n * first gets that cache (the Desktop App paints from it at once), then live\n * items; if the feed was idle, the upstream restarts from the cached sequence\n * and revalidates. A Snapshot may arrive at any point (e.g. after the cache\n * overflowed and the feed asked for a fresh one), and replaces all prior state.\n */\nimport {\n  HostStreamItem,\n  type NotFound,\n  Sequence,\n  type SessionId,\n  SessionStreamItem,\n} from \"@polaris/protocol\";\nimport {\n  Effect,\n  Exit,\n  Fiber,\n  Predicate,\n  PubSub,\n  Result,\n  type Scope,\n  Semaphore,\n  Stream,\n} from \"effect\";\nimport type { RpcClientError } from \"effect/rpc/RpcClientError\";\nimport type { DaemonClient } from \"./rpc.ts\";\n\nexport type SequenceMark =\n  | { readonly kind: \"snapshot\"; readonly sequence: number }\n  | { readonly kind: \"event\"; readonly sequence: number }\n  | { readonly kind: \"synchronized\"; readonly sequence: number }\n  | { readonly kind: \"ephemeral\" };\n\n/** Where a feed gets connections from: the HostConnection. */\nexport interface LiveSource<C> {\n  /** Waits for a live connection whose epoch is at least `minEpoch`. */\n  readonly next: (\n    minEpoch: number\n  ) => Effect.Effect<{ readonly epoch: number; readonly client: C }>;\n}\n\nexport interface FeedOptions<C, A, E> {\n  readonly source: LiveSource<C>;\n  readonly open: (client: C, afterSequence: number | null) => Stream.Stream<A, E>;\n  readonly mark: (item: A) => SequenceMark;\n  /** Errors that mean \"the connection went away\": resubscribe after reconnecting. */\n  readonly isDisconnect: (error: E) => boolean;\n  /**\n   * Sequences on this stream have no gaps, so a gap means something was missed\n   * and the feed reopens. False for both Daemon streams: the host stream leaves\n   * out session-only events, and a session stream is a subset of the log.\n   */\n  readonly gapless: boolean;\n  /** Cached events after the Snapshot before the feed asks for a fresh Snapshot. */\n  readonly maxCachedEvents?: number;\n  /** Pause before reopening a stream the Daemon ended normally. */\n  readonly reopenDelayMs?: number;\n}\n\nexport interface Feed<A, E> {\n  /** Cached items first, then live ones, across reconnects. Fails only with non-connection errors. */\n  readonly stream: Stream.Stream<A, E>;\n  readonly lastSequence: () => number | null;\n  readonly subscribers: () => number;\n}\n\n/** What subscribers receive: an item, or the failure that ended the feed. */\ntype Message<A, E> = Exit.Exit<A, E>;\n\nclass Reopen {\n  readonly _tag = \"Reopen\";\n  constructor(readonly fresh: boolean) {}\n}\n\n/** The first pause before a reopen that made no progress, doubled each time up to the max. */\nexport const REOPEN_BACKOFF_MS = 25;\n\nexport const MAX_REOPEN_BACKOFF_MS = 5_000;\n\n/** How long to wait before the `stalled`-th reopen in a row that made no progress. */\nexport const reopenBackoff = (stalled: number): number =>\n  stalled <= 0 ? 0 : Math.min(MAX_REOPEN_BACKOFF_MS, REOPEN_BACKOFF_MS * 2 ** (stalled - 1));\n\nexport const openFeed = Effect.fnUntraced(function* <C, A, E>(\n  options: FeedOptions<C, A, E>\n): Effect.fn.Return<Feed<A, E>, never, Scope.Scope> {\n  const scope = yield* Effect.scope;\n  const pubsub = yield* PubSub.unbounded<Message<A, E>>();\n  const lock = Semaphore.makeUnsafe(1);\n  const maxCached = options.maxCachedEvents ?? 10_000;\n\n  let lastSequence: number | null = null;\n  let snapshot: A | null = null;\n  let events: Array<A> = [];\n  let synchronized: A | null = null;\n  let failure: { readonly error: E } | null = null;\n  let refCount = 0;\n  let upstream: Fiber.Fiber<void> | null = null;\n\n  const publish = (message: Message<A, E>) => PubSub.publish(pubsub, message);\n\n  const handle = (item: A): Effect.Effect<void, Reopen> =>\n    lock.withPermit(\n      Effect.suspend(() => {\n        const mark = options.mark(item);\n\n        switch (mark.kind) {\n          case \"snapshot\":\n            lastSequence = mark.sequence;\n            snapshot = item;\n            events = [];\n            synchronized = null;\n            break;\n          case \"event\": {\n            if (lastSequence !== null && mark.sequence <= lastSequence) return Effect.void;\n\n            if (options.gapless && lastSequence !== null && mark.sequence !== lastSequence + 1)\n              return Effect.fail(new Reopen(false));\n            lastSequence = mark.sequence;\n\n            if (snapshot !== null) {\n              events.push(item);\n\n              if (events.length > maxCached) {\n                snapshot = null;\n                events = [];\n                synchronized = null;\n\n                return Effect.andThen(publish(Exit.succeed(item)), Effect.fail(new Reopen(true)));\n              }\n            }\n\n            break;\n          }\n\n          case \"synchronized\":\n            synchronized = item;\n            break;\n          case \"ephemeral\":\n            break;\n        }\n\n        return Effect.asVoid(publish(Exit.succeed(item)));\n      })\n    );\n\n  const run = Effect.gen(function* () {\n    let minEpoch = 0;\n    let fresh = false;\n    /** Reopens in a row that saw no new event: each waits longer. */\n    let stalled = 0;\n\n    while (true) {\n      const live = yield* options.source.next(minEpoch);\n      const after: number | null = fresh ? null : lastSequence;\n      const before = lastSequence;\n      fresh = false;\n\n      const result: Result.Result<void, E | Reopen> = yield* options\n        .open(live.client, after)\n        .pipe(Stream.runForEach(handle), Effect.result);\n\n      if (Result.isSuccess(result)) {\n        minEpoch = live.epoch;\n        yield* Effect.sleep(options.reopenDelayMs ?? 1000);\n        continue;\n      }\n\n      const error: E | Reopen = result.failure;\n\n      if (error instanceof Reopen) {\n        minEpoch = live.epoch;\n        fresh = error.fresh;\n        stalled = lastSequence !== before ? 0 : stalled + 1;\n\n        if (stalled > 0) yield* Effect.sleep(reopenBackoff(stalled));\n        continue;\n      }\n\n      if (options.isDisconnect(error)) {\n        minEpoch = live.epoch + 1;\n        continue;\n      }\n\n      yield* lock.withPermit(\n        Effect.suspend(() => {\n          failure = { error };\n\n          return publish(Exit.fail(error));\n        })\n      );\n\n      return;\n    }\n  });\n\n  const retain = Effect.suspend(() => {\n    refCount++;\n\n    if (upstream === null) {\n      if (failure !== null) {\n        failure = null;\n        lastSequence = null;\n        snapshot = null;\n        events = [];\n        synchronized = null;\n      }\n\n      return Effect.map(Effect.forkIn(run, scope), (fiber) => {\n        upstream = fiber;\n        fiber.addObserver(() => {\n          if (upstream === fiber) upstream = null;\n        });\n      });\n    }\n\n    return Effect.void;\n  });\n\n  const release = Effect.suspend(() => {\n    refCount--;\n\n    if (refCount === 0 && upstream !== null) {\n      const fiber = upstream;\n      upstream = null;\n\n      return Fiber.interrupt(fiber);\n    }\n\n    return Effect.void;\n  });\n\n  const stream: Stream.Stream<A, E> = Stream.unwrap(\n    Effect.gen(function* () {\n      const { subscription, replay, failed } = yield* lock.withPermit(\n        Effect.gen(function* () {\n          const subscription = yield* PubSub.subscribe(pubsub);\n          const replay: Array<A> = [];\n\n          if (snapshot !== null) replay.push(snapshot, ...events);\n\n          if (synchronized !== null) replay.push(synchronized);\n\n          return { subscription, replay, failed: upstream === null ? null : failure };\n        })\n      );\n\n      yield* Effect.acquireRelease(retain, () => release);\n\n      const live = Stream.fromSubscription(subscription).pipe(\n        Stream.mapEffect((message) => message)\n      );\n\n      if (failed !== null) return Stream.fail(failed.error);\n\n      return Stream.concat(Stream.fromIterable(replay), live);\n    })\n  );\n\n  return {\n    stream,\n    lastSequence: () => lastSequence,\n    subscribers: () => refCount,\n  };\n});\n\nconst isDisconnect = Predicate.isTagged(\"RpcClientError\");\n\nconst afterSequenceOf = (sequence: number | null) =>\n  sequence === null ? null : Sequence.make(sequence);\n\nconst markHost = HostStreamItem.match<SequenceMark>({\n  Snapshot: (item) => ({ kind: \"snapshot\", sequence: item.sequence }),\n  Event: (item) => ({ kind: \"event\", sequence: item.envelope.sequence }),\n  Synchronized: (item) => ({ kind: \"synchronized\", sequence: item.sequence }),\n});\n\nconst markSession = SessionStreamItem.match<SequenceMark>({\n  Snapshot: (item) => ({ kind: \"snapshot\", sequence: item.sequence }),\n  Event: (item) => ({ kind: \"event\", sequence: item.envelope.sequence }),\n  Synchronized: (item) => ({ kind: \"synchronized\", sequence: item.sequence }),\n  Delta: () => ({ kind: \"ephemeral\" }),\n  ItemProgress: () => ({ kind: \"ephemeral\" }),\n});\n\n/** A Daemon's host stream as a Feed. */\nexport const openHostFeed = (source: LiveSource<DaemonClient>) =>\n  openFeed<DaemonClient, HostStreamItem, RpcClientError>({\n    source,\n    open: (client, afterSequence) =>\n      client.subscribeHost({ afterSequence: afterSequenceOf(afterSequence) }),\n    mark: markHost,\n    isDisconnect,\n    // The host stream leaves out session-only events (TurnItemCompleted, CheckpointRecorded),\n    // so its sequences have gaps; the sequence dedupe keeps the feed exact (ENG-209 finding 1).\n    gapless: false,\n  });\n\n/** A Daemon's stream of one Agent Session as a Feed. */\nexport const openSessionFeed = (\n  source: LiveSource<DaemonClient>,\n  sessionId: SessionId,\n  turnLimit: number | null\n) =>\n  makeFeed<DaemonClient, SessionStreamItem, NotFound | RpcClientError>({\n    source,\n    open: (client, afterSequence) =>\n      client.subscribeSession({\n        sessionId,\n        afterSequence: afterSequenceOf(afterSequence),\n        turnLimit,\n      }),\n    mark: markSession,\n    isDisconnect,\n    gapless: false,\n  });\n",
+    "cursor": 9734,
+    "history": [
+      {
+        "path": "packages/client/src/resume.ts",
+        "line": 99,
+        "before": "export const makeFeed = Effect.fnUntraced(function* <C, A, E>(",
+        "after": "export const openFeed = Effect.fnUntraced(function* <C, A, E>("
+      },
+      {
+        "path": "packages/client/src/resume.ts",
+        "line": 303,
+        "before": "  makeFeed<DaemonClient, HostStreamItem, RpcClientError>({",
+        "after": "  openFeed<DaemonClient, HostStreamItem, RpcClientError>({"
+      }
+    ],
+    "expected": [
+      {
+        "from": 10302,
+        "to": 10375,
+        "text": "  openFeed<DaemonClient, SessionStreamItem, NotFound | RpcClientError>({\n"
+      }
+    ],
+    "allowed": [
+      [
+        {
+          "from": 10302,
+          "to": 10375,
+          "text": "  openFeed<DaemonClient, SessionStreamItem, NotFound | RpcClientError>({\n"
+        }
+      ],
+      [
+        {
+          "from": 10302,
+          "to": 10375,
+          "text": "  openFeed<DaemonClient, SessionStreamItem, NotFound | RpcClientError>({\n"
+        },
+        {
+          "from": 10626,
+          "to": 10626,
+          "text": "\nexport const makeFeed = openFeed;\n"
+        }
+      ]
+    ],
+    "outputs": [
+      {
+        "format": "zeta-2.1",
+        "output": "<|marker_1|><|marker_1|>",
+        "label": "abstain"
+      },
+      {
+        "format": "sweep-next-edit",
+        "output": "\nconst markSession = SessionStreamItem.match<SequenceMark>({\n  Snapshot: (item) => ({ kind: \"snapshot\", sequence: item.sequence }),\n  Event: (item) => ({ kind: \"event\", sequence: item.envelope.sequence }),\n  Synchronized: (item) => ({ kind: \"synchronized\", sequence: item.sequence }),\n  Delta: () => ({ kind: \"ephemeral\" }),\n  ItemProgress: () => ({ kind: \"ephemeral\" }),\n});\n\n/** A Daemon's host stream as a Feed. */\nexport const openHostFeed = (source: LiveSource<DaemonClient>) =>\n  openFeed<DaemonClient, HostStreamItem, RpcClientError>({\n    source,\n    open: (client, afterSequence) =>\n      client.subscribeHost({ afterSequence: afterSequenceOf(afterSequence) }),\n    mark: markHost,\n    isDisconnect,\n    // The host stream leaves out session-only events (TurnItemCompleted, CheckpointRecorded),\n    // so its sequences have gaps; the sequence dedupe keeps the feed exact (ENG-209 finding 1).\n    gapless: false,\n  });\n\n",
+        "label": "abstain"
+      }
+    ]
+  },
+  {
+    "id": "rn06",
+    "category": "rename",
+    "path": "apps/site/app/api/email/_lib/index.ts",
+    "buffer": "import type { EmailTransport } from \"./transport\";\nimport type { BotCheck } from \"./bot\";\nimport { unavailableValidator, type EmailValidator } from \"./validator\";\nimport { readSubmission, validEmail } from \"./validation\";\n\ntype Dependencies = {\n  checkBot: BotCheck;\n  validator?: EmailValidator;\n  transport: () => EmailTransport | null;\n  rateLimit: (headers: Headers) => number;\n  requested: () => void;\n};\n\nfunction reply(status: number, message: string, headers?: Readonly<Record<string, string>>) {\n  return Response.json(\n    { message },\n    { status, headers: { \"Cache-Control\": \"no-store\", ...headers } }\n  );\n}\n\nexport function createEmailHandler({\n  checkBot,\n  validator = passThroughValidator,\n  transport,\n  rateLimit,\n  requested,\n}: Dependencies) {\n  return async (request: Request): Promise<Response> => {\n    try {\n      const verification = await checkBot(request);\n\n      if (verification.isBot || verification.isVerifiedBot)\n        return reply(403, \"This request was blocked. Please try again from your browser.\");\n    } catch {\n      return reply(503, \"Email is unavailable. Please try again later.\");\n    }\n\n    const origin = request.headers.get(\"origin\");\n    const publicUrl = new URL(request.url);\n    const host = request.headers.get(\"host\");\n\n    // Next can normalize the internal URL to localhost in development; Host is the browser's authority.\n    if (host) publicUrl.host = host;\n\n    if (origin && origin !== publicUrl.origin)\n      return reply(403, \"Send this form from the Polaris site.\");\n\n    if (request.headers.get(\"content-type\")?.split(\";\")[0]?.trim() !== \"application/json\") {\n      return reply(415, \"Send the email form as JSON.\");\n    }\n\n    let submission;\n\n    try {\n      submission = await readSubmission(request);\n    } catch {\n      return reply(400, \"Enter a valid email address.\");\n    }\n\n    if (submission.website !== \"\") return reply(200, \"Check your inbox for the Mac download.\");\n\n    if (!validEmail(submission.email)) return reply(400, \"Enter a valid email address.\");\n\n    const retryAfter = rateLimit(request.headers);\n\n    if (retryAfter)\n      return reply(429, \"Too many requests. Try again in 15 minutes.\", {\n        \"Retry-After\": String(retryAfter),\n      });\n    requested();\n\n    try {\n      if (!(await validator.validate(submission.email)))\n        return reply(422, \"Use another email address.\");\n      const sender = transport();\n\n      if (!sender) return reply(503, \"Email is not available yet. Please try again later.\");\n      await sender.send(submission.email);\n\n      return Response.json(\n        {},\n        {\n          headers: {\n            \"Cache-Control\": \"no-store\",\n            \"X-Polaris-Email-Preview\": sender.preview ? \"1\" : \"0\",\n          },\n        }\n      );\n    } catch {\n      return reply(503, \"The email could not be sent. Please try again later.\");\n    }\n  };\n}\n",
+    "cursor": 162,
+    "history": [
+      {
+        "path": "apps/site/app/api/email/_lib/index.ts",
+        "line": 2,
+        "before": "import { passThroughValidator, type EmailValidator } from \"./validator\";",
+        "after": "import { unavailableValidator, type EmailValidator } from \"./validator\";"
+      }
+    ],
+    "expected": [
+      {
+        "from": 672,
+        "to": 708,
+        "text": "  validator = unavailableValidator,\n"
+      }
+    ],
+    "allowed": [
+      [
+        {
+          "from": 672,
+          "to": 708,
+          "text": "  validator = unavailableValidator,\n"
+        }
+      ]
+    ],
+    "outputs": [
+      {
+        "format": "zeta-2.1",
+        "output": "<|marker_1|><|marker_1|>",
+        "label": "abstain"
+      },
+      {
+        "format": "sweep-next-edit",
+        "output": "\nimport type { EmailTransport } from \"./transport\";\nimport type { BotCheck } from \"./bot\";\nimport { unavailableValidator, type EmailValidator } from \"./validator\";\nimport { readSubmission, validEmail } from \"./validation\";\n\ntype Dependencies = {\n  checkBot: BotCheck;\n  validator?: EmailValidator;\n  transport: () => EmailTransport | null;\n  rateLimit: (headers: Headers) => number;\n  requested: () => void;\n};\n\n",
+        "label": "abstain"
+      }
+    ]
+  },
+  {
+    "id": "rn07",
+    "category": "rename",
+    "path": "apps/desktop/src/renderer/features/review/data/pierre.tsx",
+    "buffer": "/**\n * Pierre Diffs' setup for Review: our syntax theme, and the worker pool every diff\n * highlights in (ENG-218: without it a 5,000-file Review drops one frame in five). The\n * pool lives while a Review subject is open and is torn down when the view unmounts.\n */\nimport { registerCustomTheme } from \"@pierre/diffs\";\nimport { WorkerPoolContextProvider } from \"@pierre/diffs/react\";\nimport PierreWorker from \"@pierre/diffs/worker/worker.js?worker\";\nimport type { ReactNode } from \"react\";\nimport { moonlitTheme, THEMES } from \"../model/theme.ts\";\n\nregisterCustomTheme(THEMES.dark, () => Promise.resolve(moonlitTheme(\"dark\")));\n\nregisterCustomTheme(THEMES.light, () => Promise.resolve(moonlitTheme(\"light\")));\n\n/** Four workers: the spike measured 50 MB more for 4 than 1, and fewer dropped frames. */\nexport const POOL_SIZE = 4;\n\n/** Lines longer than this are left unhighlighted and get no word diff. */\nexport const MAX_LINE_LENGTH = 1000;\n\nconst poolOptions = { workerFactory: () => new PierreWorker(), poolSize: POOL_SIZE };\n\nconst highlighterOptions = {\n  theme: THEME_NAME,\n  lineDiffType: \"word-alt\" as const,\n  tokenizeMaxLineLength: MAX_LINE_LENGTH,\n  maxLineDiffLength: MAX_LINE_LENGTH,\n};\n\nexport const DiffWorkers = ({ children }: { readonly children: ReactNode }) => (\n  <WorkerPoolContextProvider poolOptions={poolOptions} highlighterOptions={highlighterOptions}>\n    {children}\n  </WorkerPoolContextProvider>\n);\n",
+    "cursor": 709,
+    "history": [
+      {
+        "path": "apps/desktop/src/renderer/features/review/data/pierre.tsx",
+        "line": 9,
+        "before": "import { moonlitTheme, THEME_NAME } from \"../model/theme.ts\";",
+        "after": "import { moonlitTheme, THEMES } from \"../model/theme.ts\";"
+      },
+      {
+        "path": "apps/desktop/src/renderer/features/review/data/pierre.tsx",
+        "line": 11,
+        "before": "registerCustomTheme(THEME_NAME, () => Promise.resolve(moonlitTheme()));",
+        "after": "registerCustomTheme(THEMES.dark, () => Promise.resolve(moonlitTheme(\"dark\")));\n\nregisterCustomTheme(THEMES.light, () => Promise.resolve(moonlitTheme(\"light\")));"
+      }
+    ],
+    "expected": [
+      {
+        "from": 1060,
+        "to": 1081,
+        "text": "  theme: THEMES,\n"
+      }
+    ],
+    "allowed": [
+      [
+        {
+          "from": 1060,
+          "to": 1081,
+          "text": "  theme: THEMES,\n"
+        }
+      ]
+    ],
+    "outputs": [
+      {
+        "format": "zeta-2.1",
+        "output": "<|marker_2|>export const POOL_SIZE = 4;\n\n/** Lines longer than this are left unhighlighted and get no word diff. */\nexport const MAX_LINE_LENGTH = 1000;\n\nconst poolOptions = { workerFactory: () => new PierreWorker(), poolSize: POOL_SIZE };\n\nconst highlighterOptions = {\n  theme: THEMES.dark,\n  lineDiffType: \"word-alt\" as const,\n  tokenizeMaxLineLength: MAX_LINE_LENGTH,\n  maxLineDiffLength: MAX_LINE_LENGTH,\n};\n<|marker_3|>",
+        "label": "wrong"
+      },
+      {
+        "format": "sweep-next-edit",
+        "output": "\n * pool lives while a Review subject is open and is torn down when the view unmounts.\n */\nimport { registerCustomTheme } from \"@pierre/diffs\";\nimport { WorkerPoolContextProvider } from \"@pierre/diffs/react\";\nimport PierreWorker from \"@pierre/diffs/worker/worker.js?worker\";\nimport type { ReactNode } from \"react\";\nimport { moonlitTheme, THEMES } from \"../model/theme.ts\";\n\nregisterCustomTheme(THEMES.dark, () => Promise.resolve(moonlitTheme(\"dark\")));\nregisterCustomTheme(THEMES.light, () => Promise.resolve(moonlitTheme(\"light\")));\n\n/** Four workers: the spike measured 50 MB more for 4 than 1, and fewer dropped frames. */\nexport const POOL_SIZE = 4;\n\n/** Lines longer than this are left unhighlighted and get no word diff. */\nexport const MAX_LINE_LENGTH = 1000;\n\nconst poolOptions = { workerFactory: () => new PierreWorker(), poolSize: POOL_SIZE };\n\nconst highlighterOptions = {\n",
+        "label": "abstain"
+      }
+    ]
+  }
+]
