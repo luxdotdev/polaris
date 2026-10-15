@@ -34,6 +34,7 @@ const setup = async () => {
   const fetch = () =>
     fetchPullRequest({
       repoPath: user,
+      trusted: false,
       key: "7",
       repo: BASE_REPO,
       number: 7,

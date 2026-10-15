@@ -29,6 +29,7 @@ import {
   Checkpoints,
   HarnessRegistry,
   ReviewCheckoutGit,
+  WorkspaceTrust,
   type WorktreeInfo,
   WorktreeTracker,
 } from "../services.ts";
@@ -227,8 +228,14 @@ export const makeFakes = (): Fakes => ({
   attachments: new Map(),
 });
 
+/** No Workspace is trusted; Review fetch tests over real Trust records use `workspaceTrustLayer`. */
+export const untrustedWorkspaces = Layer.succeed(WorkspaceTrust)({
+  trusted: () => Effect.succeed(false),
+});
+
 export const fakeServices = (fakes: Fakes, drivers: ReadonlyArray<FakeDriver>) =>
   Layer.mergeAll(
+    untrustedWorkspaces,
     Layer.succeed(Checkpoints)({
       capture: ({ sessionId, turnId, label }) =>
         Effect.sync(() => {
@@ -296,7 +303,7 @@ export const fakeServices = (fakes: Fakes, drivers: ReadonlyArray<FakeDriver>) =
  * Review Checkout git that never finishes a fetch or removal, so a test sees
  * the states the commands leave; tests of the git side provide `ReviewCheckoutGitLive`.
  */
-export const pendingReviewCheckoutGit = Layer.succeed(ReviewCheckoutGit)({
+const pendingSteps: ReviewCheckoutGit["Service"] = {
   fetchPullRequest: () => Effect.never,
   pinCommits: () => Effect.never,
   ensure: () => Effect.void,
@@ -305,7 +312,13 @@ export const pendingReviewCheckoutGit = Layer.succeed(ReviewCheckoutGit)({
   remove: () => Effect.never,
   markReviewed: () => Effect.void,
   interdiff: () => Effect.die(new Error("no interdiff in the pending fake")),
-});
+};
+
+export const pendingReviewCheckoutGit = Layer.succeed(ReviewCheckoutGit)(pendingSteps);
+
+/** `pendingReviewCheckoutGit` with some of its steps replaced. */
+export const reviewCheckoutGitWith = (steps: Partial<ReviewCheckoutGit["Service"]>) =>
+  Layer.succeed(ReviewCheckoutGit)({ ...pendingSteps, ...steps });
 
 /** Engine + EventStore over `filename`, with fakes for everything else. */
 export const engineLayer = (options: {
@@ -323,6 +336,8 @@ export const engineLayer = (options: {
   readonly wrapStore?: (store: EventStore["Service"]) => EventStore["Service"];
   /** Default: `pendingReviewCheckoutGit`. */
   readonly reviewCheckoutGit?: Layer.Layer<ReviewCheckoutGit>;
+  /** Default: `untrustedWorkspaces`. */
+  readonly workspaceTrust?: Layer.Layer<WorkspaceTrust>;
   /** Default: the fake, which writes no refs; `CheckpointsLive` snapshots real repositories. */
   readonly checkpoints?: Layer.Layer<Checkpoints>;
   readonly resumeAtResetGrace?: Duration.Input;
@@ -351,6 +366,7 @@ export const engineLayer = (options: {
 
   return Engine.layer.pipe(
     Layer.provideMerge(store),
+    Layer.provide(options.workspaceTrust ?? Layer.empty),
     Layer.provide(options.checkpoints ?? Layer.empty),
     Layer.provide(
       options.checkpoints === undefined
