@@ -5,6 +5,7 @@ import { fixtures, fixtureRequest } from "./fixtures.testing.ts";
 import { applyEdits } from "./guards.ts";
 import { editResult } from "./result.ts";
 import goldens from "./fixtures/exact.json";
+import { spikeEditOptions } from "./options.ts";
 
 const exact = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Array(PredictedEdit)))(
   goldens
@@ -15,7 +16,13 @@ const normalized = (text: string) => text.replace(/\s/g, "");
 for (const fixture of fixtures) {
   for (const recorded of fixture.outputs) {
     test(`${recorded.format} ${fixture.id}: recorded ${recorded.label}`, () => {
-      const result = editResult(fixtureRequest(fixture, recorded.format), recorded.output);
+      const result = editResult(
+        fixtureRequest(fixture, recorded.format),
+        recorded.output,
+        0,
+        spikeEditOptions
+      );
+
       const actual = applyEdits(fixture.buffer, result.edits);
 
       if (recorded.label === "exact") {

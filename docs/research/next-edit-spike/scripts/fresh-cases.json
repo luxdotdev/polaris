@@ -1,0 +1,783 @@
+[
+ {
+  "id": "fin01",
+  "cat": "insertion",
+  "commit": "71190119",
+  "path": "apps/desktop/src/renderer/features/harness/ui/HarnessCards.tsx",
+  "hist": [
+   0
+  ],
+  "target": [
+   1
+  ],
+  "typed": 0.4,
+  "split": "fresh"
+ },
+ {
+  "id": "fin02",
+  "cat": "insertion",
+  "commit": "f82bf6d7",
+  "path": "apps/desktop/src/renderer/features/palette/store.ts",
+  "hist": [
+   1
+  ],
+  "target": [
+   0
+  ],
+  "typed": 0.4,
+  "split": "fresh"
+ },
+ {
+  "id": "fin03",
+  "cat": "insertion",
+  "commit": "2564e53c",
+  "path": "apps/desktop/src/renderer/routes/selection.ts",
+  "hist": [
+   0,
+   2
+  ],
+  "target": [
+   1
+  ],
+  "typed": 0.4,
+  "split": "fresh"
+ },
+ {
+  "id": "fin04",
+  "cat": "insertion",
+  "commit": "10eb024a",
+  "path": "packages/bench/src/scenarios/idle.ts",
+  "hist": [
+   1
+  ],
+  "target": [
+   0
+  ],
+  "typed": 0.4,
+  "split": "fresh"
+ },
+ {
+  "id": "fin05",
+  "cat": "insertion",
+  "commit": "6b2b7ade",
+  "path": "apps/daemon/src/constellation/composition/attachments.ts",
+  "hist": [
+   0,
+   1,
+   3,
+   4
+  ],
+  "target": [
+   2
+  ],
+  "typed": 0.4,
+  "split": "fresh"
+ },
+ {
+  "id": "fin06",
+  "cat": "insertion",
+  "commit": "c79a720d",
+  "path": "apps/desktop/scripts/lib/githubFake/world.ts",
+  "hist": [
+   1,
+   2
+  ],
+  "target": [
+   0
+  ],
+  "typed": 0.4,
+  "split": "fresh"
+ },
+ {
+  "id": "fin07",
+  "cat": "insertion",
+  "commit": "2452b238",
+  "path": "apps/daemon/src/main.ts",
+  "hist": [
+   0,
+   2
+  ],
+  "target": [
+   1
+  ],
+  "typed": 0.4,
+  "split": "fresh"
+ },
+ {
+  "id": "fin08",
+  "cat": "insertion",
+  "commit": "7f9e64c5",
+  "path": "apps/daemon/src/git/git.ts",
+  "hist": [
+   1,
+   2
+  ],
+  "target": [
+   0
+  ],
+  "typed": 0.4,
+  "split": "fresh"
+ },
+ {
+  "id": "fin09",
+  "cat": "insertion",
+  "commit": "b676719b",
+  "path": "apps/desktop/src/renderer/features/session/chrome.ts",
+  "hist": [
+   1
+  ],
+  "target": [
+   0
+  ],
+  "typed": 0.4,
+  "split": "fresh"
+ },
+ {
+  "id": "fin10",
+  "cat": "insertion",
+  "commit": "bcafafac",
+  "path": "apps/daemon/src/engine/testing.ts",
+  "hist": [
+   1
+  ],
+  "target": [
+   0
+  ],
+  "typed": 0.4,
+  "split": "fresh"
+ },
+ {
+  "id": "fin11",
+  "cat": "insertion",
+  "commit": "94da172f",
+  "path": "apps/desktop/src/renderer/features/constellation/model/facts.ts",
+  "hist": [
+   1
+  ],
+  "target": [
+   0
+  ],
+  "typed": 0.4,
+  "split": "fresh"
+ },
+ {
+  "id": "fin12",
+  "cat": "insertion",
+  "commit": "d4c0e827",
+  "path": "packages/protocol/src/constellation/domain.ts",
+  "hist": [
+   1
+  ],
+  "target": [
+   0
+  ],
+  "typed": 0.4,
+  "split": "fresh"
+ },
+ {
+  "id": "frf01",
+  "cat": "refactor",
+  "commit": "ee523074",
+  "path": "apps/desktop/src/renderer/features/session/ui/whereMenus.tsx",
+  "hist": [
+   0
+  ],
+  "target": [
+   1
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "frf02",
+  "cat": "refactor",
+  "commit": "f4db1240",
+  "path": "packages/ui/src/components/polaris/approval-card.tsx",
+  "hist": [
+   0
+  ],
+  "target": [
+   1
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "frf03",
+  "cat": "refactor",
+  "commit": "e9f924a9",
+  "path": "apps/desktop/src/renderer/features/constellation/preview/large.ts",
+  "hist": [
+   0
+  ],
+  "target": [
+   1
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "frf04",
+  "cat": "refactor",
+  "commit": "9b19654b",
+  "path": "apps/desktop/src/main/machines/views.ts",
+  "hist": [
+   0
+  ],
+  "target": [
+   1
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "frf05",
+  "cat": "refactor",
+  "commit": "63b81702",
+  "path": "apps/desktop/src/renderer/features/constellation/model/look.ts",
+  "hist": [
+   0
+  ],
+  "target": [
+   1
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "frf06",
+  "cat": "refactor",
+  "commit": "02d61a20",
+  "path": "apps/desktop/src/renderer/features/editor/index.ts",
+  "hist": [
+   0,
+   2,
+   3
+  ],
+  "target": [
+   1
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "frf07",
+  "cat": "refactor",
+  "commit": "24157199",
+  "path": "apps/daemon/src/harness/HarnessDriver.ts",
+  "hist": [
+   0,
+   2
+  ],
+  "target": [
+   1
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "frf08",
+  "cat": "refactor",
+  "commit": "d5a1b6b0",
+  "path": "apps/desktop/src/main/settings.ts",
+  "hist": [
+   0,
+   2
+  ],
+  "target": [
+   1
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "frf09",
+  "cat": "refactor",
+  "commit": "545e2f13",
+  "path": "apps/desktop/src/renderer/features/session/preview/Preview.tsx",
+  "hist": [
+   0,
+   2
+  ],
+  "target": [
+   1
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "frf10",
+  "cat": "refactor",
+  "commit": "42e56f76",
+  "path": "apps/daemon/src/harness/claude/payloads.ts",
+  "hist": [
+   0
+  ],
+  "target": [
+   1
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "frf11",
+  "cat": "refactor",
+  "commit": "d94a7ac7",
+  "path": "apps/desktop/src/main/github/views.ts",
+  "hist": [
+   0,
+   1
+  ],
+  "target": [
+   2
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "frf12",
+  "cat": "refactor",
+  "commit": "176845bb",
+  "path": "apps/daemon/src/files/testing.ts",
+  "hist": [
+   0,
+   1
+  ],
+  "target": [
+   2
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "fim01",
+  "cat": "import",
+  "commit": "ebfb7553",
+  "path": "apps/desktop/src/renderer/features/review/ui/FindingRow.tsx",
+  "hist": [
+   1,
+   2
+  ],
+  "target": [
+   0
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "fim02",
+  "cat": "import",
+  "commit": "4e856ae2",
+  "path": "apps/daemon/src/constellation/handover/header.ts",
+  "hist": [
+   1,
+   2
+  ],
+  "target": [
+   0
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "fim03",
+  "cat": "import",
+  "commit": "befff252",
+  "path": "apps/desktop/src/renderer/shell/Columns.tsx",
+  "hist": [
+   1,
+   2
+  ],
+  "target": [
+   0
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "fim04",
+  "cat": "import",
+  "commit": "3efdd184",
+  "path": "apps/desktop/src/main/ipc/feeds.ts",
+  "hist": [
+   1
+  ],
+  "target": [
+   0
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "fim05",
+  "cat": "import",
+  "commit": "376c1d1f",
+  "path": "apps/daemon/src/languages/composition/index.ts",
+  "hist": [
+   1
+  ],
+  "target": [
+   0
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "fim06",
+  "cat": "import",
+  "commit": "b6f37737",
+  "path": "apps/daemon/src/harness/registry.ts",
+  "hist": [
+   1
+  ],
+  "target": [
+   0
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "fim07",
+  "cat": "import",
+  "commit": "dba1c407",
+  "path": "packages/bench/src/scenarios/index.ts",
+  "hist": [
+   1
+  ],
+  "target": [
+   0
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "fim08",
+  "cat": "import",
+  "commit": "b2032466",
+  "path": "apps/desktop/src/renderer/app/App.tsx",
+  "hist": [
+   1
+  ],
+  "target": [
+   0
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "fim09",
+  "cat": "import",
+  "commit": "f1be4945",
+  "path": "packages/bench/src/scenarios/index.ts",
+  "hist": [
+   1
+  ],
+  "target": [
+   0
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "fim10",
+  "cat": "import",
+  "commit": "b2a342cd",
+  "path": "apps/desktop/src/shared/gitContract.ts",
+  "hist": [
+   1,
+   2
+  ],
+  "target": [
+   0
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "fim11",
+  "cat": "import",
+  "commit": "83028330",
+  "path": "apps/desktop/src/renderer/app/Shell.tsx",
+  "hist": [
+   1,
+   2
+  ],
+  "target": [
+   0
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "fim12",
+  "cat": "import",
+  "commit": "1a8a1e22",
+  "path": "apps/desktop/src/renderer/features/editor/lsp/preparationTransport.ts",
+  "hist": [
+   1,
+   2
+  ],
+  "target": [
+   0
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "fdd01",
+  "cat": "dead-code",
+  "commit": "16192cb4",
+  "path": "apps/daemon/src/store/EventStore.ts",
+  "hist": [
+   0,
+   1,
+   2
+  ],
+  "target": [
+   3
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "fdd02",
+  "cat": "dead-code",
+  "commit": "2299c384",
+  "path": "apps/daemon/src/files/FileSearch.ts",
+  "hist": [
+   0,
+   1,
+   2,
+   3
+  ],
+  "target": [
+   4
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "fdd03",
+  "cat": "dead-code",
+  "commit": "12568692",
+  "path": "packages/bench/src/proc.ts",
+  "hist": [
+   0
+  ],
+  "target": [
+   1
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "fdd04",
+  "cat": "dead-code",
+  "commit": "a25d14fa",
+  "path": "apps/desktop/src/renderer/features/constellation/ui/handover.tsx",
+  "hist": [
+   1
+  ],
+  "target": [
+   0
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "fdd05",
+  "cat": "dead-code",
+  "commit": "2b6a2ccd",
+  "path": "apps/desktop/src/renderer/features/editor-links/EditorRequests.tsx",
+  "hist": [
+   0,
+   1
+  ],
+  "target": [
+   2
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "fdd06",
+  "cat": "dead-code",
+  "commit": "9d51c61a",
+  "path": "apps/desktop/src/renderer/features/constellation/ui/menu.tsx",
+  "hist": [
+   0,
+   1,
+   2
+  ],
+  "target": [
+   3
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "fdd07",
+  "cat": "dead-code",
+  "commit": "93f3a462",
+  "path": "apps/daemon/src/harness/limits/claude.ts",
+  "hist": [
+   1
+  ],
+  "target": [
+   0
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "fdd08",
+  "cat": "dead-code",
+  "commit": "4463220b",
+  "path": "apps/daemon/src/accept/turns.ts",
+  "hist": [
+   0,
+   1
+  ],
+  "target": [
+   2
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "fdd09",
+  "cat": "dead-code",
+  "commit": "69d07236",
+  "path": "apps/desktop/src/main/notifications/index.ts",
+  "hist": [
+   0,
+   1,
+   3,
+   4
+  ],
+  "target": [
+   2
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "fdd10",
+  "cat": "dead-code",
+  "commit": "887644c5",
+  "path": "apps/desktop/src/renderer/features/session/preview/Preview.tsx",
+  "hist": [
+   1
+  ],
+  "target": [
+   0
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "fdd11",
+  "cat": "dead-code",
+  "commit": "3c906769",
+  "path": "apps/desktop/src/renderer/routes/commands.ts",
+  "hist": [
+   0
+  ],
+  "target": [
+   1
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "fdd12",
+  "cat": "dead-code",
+  "commit": "896a9071",
+  "path": "packages/client/src/rpc.ts",
+  "hist": [
+   0,
+   2
+  ],
+  "target": [
+   1
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "frn01",
+  "cat": "rename",
+  "commit": "e60391ba",
+  "path": "apps/desktop/src/renderer/features/harness/ui/Availability.tsx",
+  "hist": [
+   0
+  ],
+  "target": [
+   1
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "frn02",
+  "cat": "rename",
+  "commit": "ebfb7553",
+  "path": "apps/desktop/src/renderer/features/risk/ui/AskReviewer.tsx",
+  "hist": [
+   0
+  ],
+  "target": [
+   1
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "frn03",
+  "cat": "rename",
+  "commit": "653c7b7e",
+  "path": "packages/bench/src/scenarios/blobs.ts",
+  "hist": [
+   0,
+   1,
+   3,
+   4
+  ],
+  "target": [
+   2
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "frn04",
+  "cat": "rename",
+  "commit": "11064901",
+  "path": "apps/desktop/src/renderer/features/review/ui/FileList.tsx",
+  "hist": [
+   0,
+   1,
+   3,
+   4
+  ],
+  "target": [
+   2
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "frn05",
+  "cat": "rename",
+  "commit": "f2cf3694",
+  "path": "apps/daemon/src/transport/bridge.ts",
+  "hist": [
+   0
+  ],
+  "target": [
+   1
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "frn06",
+  "cat": "rename",
+  "commit": "f861472e",
+  "path": "apps/desktop/scripts/renamePreviewSmoke.ts",
+  "hist": [
+   0
+  ],
+  "target": [
+   1
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "frn07",
+  "cat": "rename",
+  "commit": "265bbad0",
+  "path": "apps/desktop/src/preload/index.ts",
+  "hist": [
+   0,
+   1,
+   2
+  ],
+  "target": [
+   3
+  ],
+  "split": "fresh"
+ },
+ {
+  "id": "frn08",
+  "cat": "rename",
+  "commit": "496a7462",
+  "path": "apps/desktop/src/renderer/features/review/overview/ui/TabBar.tsx",
+  "hist": [
+   0
+  ],
+  "target": [
+   1
+  ],
+  "split": "fresh"
+ }
+]

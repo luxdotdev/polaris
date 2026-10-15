@@ -1,0 +1,1250 @@
+[
+  {
+    "id": "rn03",
+    "format": "sweep-next-edit",
+    "label": "exact",
+    "edits": [{ "from": 1356, "to": 1364, "text": "previous()" }]
+  },
+  {
+    "id": "rf03",
+    "format": "sweep-next-edit",
+    "label": "exact",
+    "edits": [
+      { "from": 1533, "to": 1537, "text": "sub" },
+      { "from": 1538, "to": 1538, "text": "le" },
+      { "from": 1788, "to": 1792, "text": "sub" },
+      { "from": 1793, "to": 1793, "text": "le" }
+    ]
+  },
+  {
+    "id": "rf04",
+    "format": "sweep-next-edit",
+    "label": "exact",
+    "edits": [{ "from": 3461, "to": 3464, "text": "x" }]
+  },
+  {
+    "id": "rf06",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [{ "from": 988, "to": 992, "text": "ccept" }]
+  },
+  {
+    "id": "dd03",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      { "from": 1795, "to": 1797, "text": "" },
+      { "from": 1798, "to": 1798, "text": "urrentKeyPlatform" },
+      { "from": 1801, "to": 1801, "text": "() => {\n  if (" },
+      { "from": 1833, "to": 1833, "text": ")" },
+      { "from": 1834, "to": 1836, "text": "{\n" },
+      { "from": 1837, "to": 1837, "text": "   return " },
+      { "from": 1868, "to": 1868, "text": " ? \"mac\" : \"win\";\n  }\n  return \"win\";\n}" }
+    ]
+  },
+  {
+    "id": "dd04",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      { "from": 3191, "to": 3192, "text": "Disclos" },
+      { "from": 3193, "to": 3195, "text": "reChevr" },
+      { "from": 3206, "to": 3208, "text": "o" },
+      { "from": 3210, "to": 3210, "text": "n" },
+      { "from": 3211, "to": 3216, "text": "{" },
+      { "from": 3217, "to": 3217, "text": "pe" },
+      { "from": 3218, "to": 3219, "text": "}" },
+      { "from": 3228, "to": 3230, "text": "s" },
+      { "from": 3231, "to": 3233, "text": "z" },
+      { "from": 3234, "to": 3236, "text": "={12}\n        cl" },
+      { "from": 3237, "to": 3239, "text": "ssNam" },
+      { "from": 3240, "to": 3241, "text": "" },
+      { "from": 3242, "to": 3245, "text": "\"t" },
+      { "from": 3246, "to": 3248, "text": "xt-text-subtle\"" },
+      { "from": 3294, "to": 3466, "text": "" },
+      { "from": 3475, "to": 3477, "text": "" },
+      { "from": 3557, "to": 3559, "text": "" },
+      { "from": 3615, "to": 3617, "text": "" },
+      { "from": 3682, "to": 3684, "text": "" },
+      { "from": 3689, "to": 3705, "text": "" }
+    ]
+  },
+  {
+    "id": "dd06",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      { "from": 2012, "to": 2014, "text": "c" },
+      { "from": 2015, "to": 2015, "text": "rl" },
+      { "from": 2066, "to": 2068, "text": "Con" },
+      { "from": 2069, "to": 2069, "text": "rol" },
+      { "from": 2088, "to": 2090, "text": "c" },
+      { "from": 2091, "to": 2091, "text": "rl" },
+      { "from": 2095, "to": 2103, "text": "" },
+      { "from": 2110, "to": 2110, "text": "\" : \"Alt" }
+    ]
+  },
+  {
+    "id": "im02",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      { "from": 440, "to": 440, "text": "process.env." },
+      { "from": 447, "to": 447, "text": " || \"0.0.0\"" }
+    ]
+  },
+  {
+    "id": "im03",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [{ "from": 646, "to": 647, "text": "" }]
+  },
+  {
+    "id": "im04",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      { "from": 1374, "to": 1375, "text": "wh" },
+      { "from": 1376, "to": 1380, "text": "ch" },
+      { "from": 1384, "to": 1385, "text": "" },
+      { "from": 1386, "to": 1398, "text": "" },
+      { "from": 1428, "to": 1428, "text": " {" },
+      { "from": 1431, "to": 1431, "text": "const " },
+      { "from": 1432, "to": 1432, "text": "ath = p" },
+      { "from": 1442, "to": 1447, "text": ".PATH" },
+      { "from": 1451, "to": 1452, "text": "\"\";\n  const pat" },
+      { "from": 1453, "to": 1453, "text": "s = path.spl" },
+      { "from": 1454, "to": 1454, "text": "t(\":\");\n  for (" },
+      { "from": 1455, "to": 1455, "text": "onst pat" },
+      { "from": 1456, "to": 1457, "text": " of paths) {\n    co" },
+      { "from": 1458, "to": 1458, "text": "st execut" },
+      { "from": 1459, "to": 1459, "text": "ble = `${path}/${na" },
+      { "from": 1461, "to": 1461, "text": "}`;\n    if (Bun.which(executable" },
+      { "from": 1462, "to": 1462, "text": ")" },
+      { "from": 1463, "to": 1465, "text": "return" },
+      { "from": 1466, "to": 1466, "text": "executable;\n  }\n  retur" },
+      { "from": 1467, "to": 1467, "text": " n" },
+      { "from": 1470, "to": 1470, "text": ";\n}" }
+    ]
+  },
+  {
+    "id": "in01",
+    "format": "sweep-next-edit",
+    "label": "wrong",
+    "edits": [{ "from": 896, "to": 896, "text": "hildEnv," }]
+  },
+  {
+    "id": "in02",
+    "format": "sweep-next-edit",
+    "label": "exact",
+    "edits": [{ "from": 1274, "to": 1274, "text": "tionEventFields," }]
+  },
+  {
+    "id": "in03",
+    "format": "sweep-next-edit",
+    "label": "exact",
+    "edits": [{ "from": 795, "to": 795, "text": "nalNullable(Schema.String)," }]
+  },
+  {
+    "id": "in04",
+    "format": "sweep-next-edit",
+    "label": "wrong",
+    "edits": [
+      {
+        "from": 1034,
+        "to": 1034,
+        "text": "\"outcome\":\n        return { taskId: id, text: `${id} has an outcome`, rank: 5 };"
+      }
+    ]
+  },
+  {
+    "id": "in05",
+    "format": "sweep-next-edit",
+    "label": "exact",
+    "edits": [{ "from": 1526, "to": 1526, "text": "ationFeeds />" }]
+  },
+  {
+    "id": "hdd04",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      { "from": 800, "to": 800, "text": "os" },
+      { "from": 928, "to": 928, "text": "os" }
+    ]
+  },
+  {
+    "id": "hdd05",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      { "from": 9439, "to": 9439, "text": "async " },
+      { "from": 9484, "to": 9484, "text": "await " }
+    ]
+  },
+  {
+    "id": "hdd06",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      { "from": 1306, "to": 1306, "text": "import { useApp " },
+      { "from": 1307, "to": 1307, "text": " from \"../../shell/hooks.ts\"" },
+      { "from": 1381, "to": 1415, "text": "" }
+    ]
+  },
+  {
+    "id": "him04",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      { "from": 5387, "to": 5404, "text": "" },
+      { "from": 5405, "to": 5405, "text": "andle" },
+      { "from": 5408, "to": 5409, "text": "Wat" },
+      { "from": 5410, "to": 5413, "text": "h" }
+    ]
+  },
+  {
+    "id": "hin01",
+    "format": "sweep-next-edit",
+    "label": "exact",
+    "edits": [{ "from": 584, "to": 584, "text": "ning(signingCredentials(process.env));\n" }]
+  },
+  {
+    "id": "hin02",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      { "from": 4056, "to": 4057, "text": ",\n  onOpenChange," },
+      { "from": 4382, "to": 4384, "text": "" },
+      { "from": 4385, "to": 4386, "text": "pe" }
+    ]
+  },
+  {
+    "id": "hin03",
+    "format": "sweep-next-edit",
+    "label": "wrong",
+    "edits": [{ "from": 11463, "to": 11463, "text": "enu: () => popupAppMenu()," }]
+  },
+  {
+    "id": "hin04",
+    "format": "sweep-next-edit",
+    "label": "wrong",
+    "edits": [{ "from": 2273, "to": 2273, "text": "ackageVersion : pkg.version;" }]
+  },
+  {
+    "id": "hin05",
+    "format": "sweep-next-edit",
+    "label": "exact",
+    "edits": [{ "from": 1652, "to": 1652, "text": " null) return testBase;\n" }]
+  },
+  {
+    "id": "hin06",
+    "format": "sweep-next-edit",
+    "label": "wrong",
+    "edits": [
+      {
+        "from": 2542,
+        "to": 2542,
+        "text": " === \"add\" ? change.path : undefined}\n        data-menu-line={change.kind === \"add\" ? undefined : change.line}"
+      }
+    ]
+  },
+  {
+    "id": "hin08",
+    "format": "sweep-next-edit",
+    "label": "wrong",
+    "edits": [
+      {
+        "from": 394,
+        "to": 394,
+        "text": "ownSync(Schema.Struct({ _tag: Schema.Literals([\"any\"]) }));\n"
+      }
+    ]
+  },
+  {
+    "id": "hrf03",
+    "format": "sweep-next-edit",
+    "label": "exact",
+    "edits": [{ "from": 2398, "to": 2403, "text": "deadline" }]
+  },
+  {
+    "id": "hrf04",
+    "format": "sweep-next-edit",
+    "label": "exact",
+    "edits": [
+      { "from": 658, "to": 658, "text": "bi" },
+      { "from": 660, "to": 662, "text": "ry" },
+      { "from": 665, "to": 673, "text": "" },
+      { "from": 680, "to": 728, "text": "B" },
+      { "from": 733, "to": 743, "text": "(" },
+      { "from": 744, "to": 746, "text": "" },
+      { "from": 747, "to": 756, "text": "" },
+      { "from": 769, "to": 834, "text": "" }
+    ]
+  },
+  {
+    "id": "hrf06",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      { "from": 1383, "to": 1384, "text": "pos" },
+      { "from": 1385, "to": 1388, "text": "x" },
+      { "from": 1424, "to": 1425, "text": "pos" },
+      { "from": 1426, "to": 1429, "text": "x" },
+      { "from": 1491, "to": 1491, "text": "posix." }
+    ]
+  },
+  {
+    "id": "rn07",
+    "format": "zeta-2.1",
+    "label": "wrong",
+    "edits": [{ "from": 1074, "to": 1079, "text": "S.dark" }]
+  },
+  {
+    "id": "rf01",
+    "format": "zeta-2.1",
+    "label": "exact",
+    "edits": [
+      { "from": 5866, "to": 5866, "text": "backgro" },
+      { "from": 5867, "to": 5867, "text": "ndU" }
+    ]
+  },
+  {
+    "id": "rf02",
+    "format": "zeta-2.1",
+    "label": "exact",
+    "edits": [
+      { "from": 12845, "to": 12847, "text": "" },
+      { "from": 12851, "to": 12853, "text": "s" },
+      { "from": 12856, "to": 12856, "text": "{ chose" },
+      { "from": 12857, "to": 12857, "text": ": n" },
+      { "from": 12860, "to": 12863, "text": "Map" },
+      { "from": 12864, "to": 12864, "text": "), openFrom: " },
+      { "from": 12875, "to": 12875, "text": "[0]?" },
+      { "from": 12876, "to": 12881, "text": "" },
+      { "from": 12882, "to": 12890, "text": "" },
+      { "from": 12896, "to": 12898, "text": " ?? null }" },
+      { "from": 12960, "to": 12962, "text": "" },
+      { "from": 12966, "to": 12968, "text": "s" },
+      { "from": 13183, "to": 13184, "text": "" }
+    ]
+  },
+  {
+    "id": "rf06",
+    "format": "zeta-2.1",
+    "label": "wrong",
+    "edits": [
+      {
+        "from": 578,
+        "to": 578,
+        "text": "    const acceptable = () => {\n      return available();\n    };\n\n"
+      }
+    ]
+  },
+  {
+    "id": "dd04",
+    "format": "zeta-2.1",
+    "label": "exact",
+    "edits": [{ "from": 3012, "to": 3073, "text": "" }]
+  },
+  {
+    "id": "im04",
+    "format": "zeta-2.1",
+    "label": "wrong",
+    "edits": [
+      {
+        "from": 1473,
+        "to": 1473,
+        "text": "const which = (name: string): string | null => {\n  \n};\n\n"
+      }
+    ]
+  },
+  {
+    "id": "in01",
+    "format": "zeta-2.1",
+    "label": "dangerous",
+    "edits": [
+      { "from": 623, "to": 623, "text": ")" },
+      { "from": 896, "to": 896, "text": "hildEnv(run.cwd)," }
+    ]
+  },
+  {
+    "id": "in04",
+    "format": "zeta-2.1",
+    "label": "wrong",
+    "edits": [
+      {
+        "from": 1034,
+        "to": 1034,
+        "text": "\"setup\":\n        return { taskId: id, text: `${id} needs setup`, rank:  };"
+      }
+    ]
+  },
+  {
+    "id": "hdd06",
+    "format": "zeta-2.1",
+    "label": "dangerous",
+    "edits": [
+      { "from": 1381, "to": 1415, "text": "" },
+      { "from": 1591, "to": 1666, "text": "" }
+    ]
+  },
+  {
+    "id": "hin01",
+    "format": "zeta-2.1",
+    "label": "wrong",
+    "edits": [{ "from": 584, "to": 584, "text": "ning();" }]
+  },
+  {
+    "id": "hin02",
+    "format": "zeta-2.1",
+    "label": "exact",
+    "edits": [{ "from": 4057, "to": 4057, "text": " shown,\n  onOpenChange," }]
+  },
+  {
+    "id": "hin04",
+    "format": "zeta-2.1",
+    "label": "wrong",
+    "edits": [{ "from": 2273, "to": 2273, "text": "ackageVersion(pkg.version) : pkg.version;" }]
+  },
+  {
+    "id": "hin06",
+    "format": "zeta-2.1",
+    "label": "acceptable",
+    "edits": [{ "from": 2542, "to": 2542, "text": " === \"delete\" ? null : change.path}" }]
+  },
+  {
+    "id": "hin07",
+    "format": "zeta-2.1",
+    "label": "acceptable",
+    "edits": [{ "from": 4196, "to": 4196, "text": "in } = useWslDistros();\n  " }]
+  },
+  {
+    "id": "hin08",
+    "format": "zeta-2.1",
+    "label": "wrong",
+    "edits": [
+      {
+        "from": 394,
+        "to": 394,
+        "text": "ownSync(Schema.Struct({ _tag: Schema.Literals(kinds) }));"
+      }
+    ]
+  },
+  {
+    "id": "hrf06",
+    "format": "zeta-2.1",
+    "label": "acceptable",
+    "edits": [{ "from": 1491, "to": 1491, "text": "posix." }]
+  },
+  {
+    "id": "hrn10",
+    "format": "sweep-next-edit",
+    "label": "wrong",
+    "edits": [
+      {
+        "from": 8230,
+        "to": 8230,
+        "text": "      canRunChecks: (workspaceId) => canRunChecks(workspaceId),\n"
+      }
+    ]
+  },
+  {
+    "id": "hrn14",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      { "from": 3157, "to": 3158, "text": "\"se" },
+      { "from": 3159, "to": 3160, "text": "" },
+      { "from": 3161, "to": 3163, "text": "" },
+      { "from": 3165, "to": 3167, "text": "\"" },
+      { "from": 3253, "to": 3268, "text": "" },
+      { "from": 3297, "to": 3297, "text": "!== providerId " },
+      { "from": 3299, "to": 3299, "text": "\n   " }
+    ]
+  },
+  {
+    "id": "hin09",
+    "format": "sweep-next-edit",
+    "label": "exact",
+    "edits": [
+      { "from": 6550, "to": 6550, "text": "tom === undefined && executable === undefined;" }
+    ]
+  },
+  {
+    "id": "hin10",
+    "format": "sweep-next-edit",
+    "label": "exact",
+    "edits": [
+      { "from": 859, "to": 859, "text": "\", \"Backspace\"],\n  [\"Delete\", \"Delete\"]," }
+    ]
+  },
+  {
+    "id": "hin11",
+    "format": "sweep-next-edit",
+    "label": "acceptable",
+    "edits": [{ "from": 2343, "to": 2343, "text": "atform ?? process.platform," }]
+  },
+  {
+    "id": "hin12",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      { "from": 1348, "to": 1368, "text": "r" },
+      { "from": 1376, "to": 1377, "text": "" },
+      { "from": 1378, "to": 1380, "text": "include" },
+      { "from": 1392, "to": 1393, "text": "" },
+      { "from": 1394, "to": 1424, "text": "" },
+      { "from": 1431, "to": 1441, "text": "Prov" },
+      { "from": 1442, "to": 1444, "text": "" },
+      { "from": 1445, "to": 1453, "text": "ers.h" },
+      { "from": 1454, "to": 1457, "text": "" },
+      { "from": 1458, "to": 1460, "text": "(t" },
+      { "from": 1461, "to": 1469, "text": "olI" },
+      { "from": 1470, "to": 1509, "text": "" },
+      { "from": 1510, "to": 1510, "text": ") {" }
+    ]
+  },
+  {
+    "id": "hin13",
+    "format": "sweep-next-edit",
+    "label": "wrong",
+    "edits": [
+      {
+        "from": 11208,
+        "to": 11208,
+        "text": "ge = createPredictionBridge({\n    runtime,\n    settings: predictionSettings,\n    placement: predictionPlacement,\n  });\n"
+      }
+    ]
+  },
+  {
+    "id": "hin14",
+    "format": "sweep-next-edit",
+    "label": "wrong",
+    "edits": [
+      {
+        "from": 10930,
+        "to": 10930,
+        "text": "ings = new PredictionSettings(\n    () => settings,\n    (value) => updateSettings(() => value)\n  );\n  const predictionPlacement = createMainPredictionPlacement(\n    () => settings,\n    (value) => updateSettings(() => value)\n  );"
+      }
+    ]
+  },
+  {
+    "id": "hrf11",
+    "format": "sweep-next-edit",
+    "label": "exact",
+    "edits": [{ "from": 2441, "to": 2453, "text": "" }]
+  },
+  {
+    "id": "hrf13",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      { "from": 6853, "to": 6853, "text": ", models" },
+      { "from": 7223, "to": 7229, "text": "" }
+    ]
+  },
+  {
+    "id": "hin11",
+    "format": "zeta-2.1",
+    "label": "acceptable",
+    "edits": [{ "from": 2343, "to": 2343, "text": "atform," }]
+  },
+  {
+    "id": "hin12",
+    "format": "zeta-2.1",
+    "label": "wrong",
+    "edits": [
+      {
+        "from": 1348,
+        "to": 1348,
+        "text": "rAvailability(toolId, phase, trusted, admission, settings) === undefined) {\n    return installation.inspect(\n      toolId,\n      phase,\n      trusted || (managedProviders.has(toolId) && managed !== undefined),\n      admission\n    );\n  }\n  "
+      }
+    ]
+  },
+  {
+    "id": "hin13",
+    "format": "zeta-2.1",
+    "label": "wrong",
+    "edits": [{ "from": 11208, "to": 11208, "text": "ge = createPredictionBridge();" }]
+  },
+  {
+    "id": "hin14",
+    "format": "zeta-2.1",
+    "label": "wrong",
+    "edits": [
+      {
+        "from": 10930,
+        "to": 10930,
+        "text": "ings = new PredictionSettings();\n  const predictionPlacement = createMainPredictionPlacement();"
+      }
+    ]
+  },
+  {
+    "id": "rn01",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [{ "from": 3016, "to": 3016, "text": ": input.platform" }]
+  },
+  {
+    "id": "rf06",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      { "from": 806, "to": 811, "text": "v" },
+      { "from": 812, "to": 812, "text": "ila" },
+      { "from": 895, "to": 900, "text": "vail" }
+    ]
+  },
+  {
+    "id": "dd06",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      { "from": 2330, "to": 2339, "text": "key" },
+      { "from": 2344, "to": 2344, "text": "(alt ? " },
+      { "from": 2350, "to": 2350, "text": "altKey : event." },
+      { "from": 2357, "to": 2357, "text": ")" }
+    ]
+  },
+  {
+    "id": "im02",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [{ "from": 440, "to": 447, "text": "\"0.0.0\"" }]
+  },
+  {
+    "id": "im04",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [{ "from": 1451, "to": 1451, "text": "Bun." }]
+  },
+  {
+    "id": "in04",
+    "format": "sweep-next-edit",
+    "label": "wrong",
+    "edits": [
+      {
+        "from": 1034,
+        "to": 1034,
+        "text": "\"outcome\":\n        return {\n          taskId: id,\n          text: setupOutcome(facts, id),\n          rank: 5,\n        };"
+      }
+    ]
+  },
+  {
+    "id": "hdd06",
+    "format": "sweep-next-edit",
+    "label": "exact",
+    "edits": [{ "from": 1381, "to": 1415, "text": "" }]
+  },
+  {
+    "id": "hrf07",
+    "format": "sweep-next-edit",
+    "label": "wrong",
+    "edits": [
+      { "from": 13470, "to": 13472, "text": "pa" },
+      { "from": 13473, "to": 13474, "text": "chLeadUi(d" },
+      { "from": 13478, "to": 13478, "text": "Key, " },
+      { "from": 13479, "to": 13479, "text": ") => ({ draft: " },
+      { "from": 13483, "to": 13483, "text": " })" }
+    ]
+  },
+  {
+    "id": "dd04",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      { "from": 3092, "to": 3092, "text": ", providers" },
+      { "from": 3801, "to": 3801, "text": "providers={providers} " }
+    ]
+  },
+  {
+    "id": "hdd05",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      { "from": 9600, "to": 9600, "text": "async " },
+      { "from": 9642, "to": 9642, "text": " await" }
+    ]
+  },
+  {
+    "id": "hdd06",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      { "from": 1381, "to": 1415, "text": "" },
+      { "from": 1567, "to": 1584, "text": "" },
+      { "from": 1816, "to": 1816, "text": "target.kind === \"session\" && " }
+    ]
+  },
+  {
+    "id": "hin01",
+    "format": "sweep-next-edit",
+    "label": "wrong",
+    "edits": [{ "from": 584, "to": 584, "text": "ning(process.env.SIGNING);" }]
+  },
+  {
+    "id": "hin04",
+    "format": "sweep-next-edit",
+    "label": "wrong",
+    "edits": [
+      { "from": 2273, "to": 2273, "text": "ackageVersion : pkg.version;" },
+      { "from": 2481, "to": 2485, "text": "" }
+    ]
+  },
+  {
+    "id": "hin07",
+    "format": "sweep-next-edit",
+    "label": "wrong",
+    "edits": [{ "from": 4196, "to": 4196, "text": " } = useWslDistros();" }]
+  },
+  {
+    "id": "hin12",
+    "format": "sweep-next-edit",
+    "label": "wrong",
+    "edits": [
+      {
+        "from": 1348,
+        "to": 1348,
+        "text": "rProviders.has(toolId) || developerProvider.has(toolId)) {\n    return Effect.succeed(\n      LanguageAvailability.Success({\n        trusted,\n        available: true,\n      })\n    );\n  }"
+      }
+    ]
+  },
+  {
+    "id": "rf03",
+    "format": "sweep-next-edit",
+    "label": "exact",
+    "edits": [
+      { "from": 1533, "to": 1537, "text": "sub" },
+      { "from": 1538, "to": 1538, "text": "le" }
+    ]
+  },
+  {
+    "id": "dd06",
+    "format": "sweep-next-edit",
+    "label": "acceptable",
+    "edits": [{ "from": 2072, "to": 2114, "text": "" }]
+  },
+  {
+    "id": "hdd03",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      {
+        "from": 4154,
+        "to": 4154,
+        "text": "              <span className=\"text-text-subtle truncate\">· {fileCount ?? 0} files</span>\n"
+      }
+    ]
+  },
+  {
+    "id": "him03",
+    "format": "sweep-next-edit",
+    "label": "wrong",
+    "edits": [{ "from": 8351, "to": 8351, "text": "            shownDiff={shownDiff}\n" }]
+  },
+  {
+    "id": "hin12",
+    "format": "sweep-next-edit",
+    "label": "wrong",
+    "edits": [
+      {
+        "from": 1348,
+        "to": 1348,
+        "text": "rProviders.has(toolId) || managedProviders.has(toolId)) {\n    return LanguageAvailability.Available;\n  }"
+      }
+    ]
+  },
+  {
+    "id": "hrf04",
+    "format": "sweep-next-edit",
+    "label": "acceptable",
+    "edits": [
+      { "from": 830, "to": 831, "text": "request.h" },
+      { "from": 832, "to": 833, "text": "rn" },
+      { "from": 834, "to": 834, "text": "ss" }
+    ]
+  },
+  {
+    "id": "rn02",
+    "format": "sweep-next-edit",
+    "label": "exact",
+    "edits": [
+      { "from": 4474, "to": 4480, "text": "re" },
+      { "from": 4481, "to": 4481, "text": "e" },
+      { "from": 4482, "to": 4484, "text": "sesPag" }
+    ]
+  },
+  {
+    "id": "rf06",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      { "from": 419, "to": 423, "text": "ccept" },
+      { "from": 988, "to": 992, "text": "ccept" },
+      { "from": 1219, "to": 1223, "text": "ccept" }
+    ]
+  },
+  {
+    "id": "dd04",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      { "from": 3037, "to": 3037, "text": "Disclosure" },
+      { "from": 3044, "to": 3052, "text": "" },
+      { "from": 3055, "to": 3055, "text": "Disclosure" },
+      { "from": 3062, "to": 3070, "text": "Ope" }
+    ]
+  },
+  {
+    "id": "dd06",
+    "format": "sweep-next-edit",
+    "label": "exact",
+    "edits": [{ "from": 2002, "to": 2114, "text": "" }]
+  },
+  {
+    "id": "in04",
+    "format": "sweep-next-edit",
+    "label": "wrong",
+    "edits": [
+      {
+        "from": 1034,
+        "to": 1034,
+        "text": "\"review\":\n        return { taskId: id, text: `${id} is being review`, rank: 5 };"
+      }
+    ]
+  },
+  {
+    "id": "hrn03",
+    "format": "sweep-next-edit",
+    "label": "exact",
+    "edits": [
+      { "from": 1659, "to": 1662, "text": "c" },
+      { "from": 1663, "to": 1671, "text": "p" }
+    ]
+  },
+  {
+    "id": "hrn08",
+    "format": "sweep-next-edit",
+    "label": "exact",
+    "edits": [
+      { "from": 1598, "to": 1598, "text": "Lead" },
+      { "from": 1604, "to": 1607, "text": "" }
+    ]
+  },
+  {
+    "id": "hin12",
+    "format": "sweep-next-edit",
+    "label": "wrong",
+    "edits": [
+      {
+        "from": 1348,
+        "to": 1348,
+        "text": "rProvider.includes(toolId) || managedProviders.has(toolId)) {\n    return installation.inspect(\n      toolId,\n      phase,\n      trusted || (managedProviders.has(toolId) && managed !== undefined),\n      admission\n    );\n  }"
+      }
+    ]
+  },
+  {
+    "id": "hrf08",
+    "format": "sweep-next-edit",
+    "label": "exact",
+    "edits": [{ "from": 3478, "to": 3478, "text": " tuckable" }]
+  },
+  {
+    "id": "hrf11",
+    "format": "sweep-next-edit",
+    "label": "acceptable",
+    "edits": [
+      { "from": 2443, "to": 2447, "text": "clie" },
+      { "from": 2448, "to": 2448, "text": "tL" },
+      { "from": 2449, "to": 2450, "text": "b" },
+      { "from": 2451, "to": 2453, "text": "l" }
+    ]
+  },
+  {
+    "id": "hrn01",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [{ "from": 1055, "to": 1236, "text": "" }]
+  },
+  {
+    "id": "hin06",
+    "format": "sweep-next-edit",
+    "label": "wrong",
+    "edits": [
+      { "from": 2542, "to": 2542, "text": "}\n        data-menu-line={change.line ?? undefined}" }
+    ]
+  },
+  {
+    "id": "rn01",
+    "format": "sweep-next-edit",
+    "label": "exact",
+    "edits": [
+      { "from": 3519, "to": 3524, "text": "os" },
+      { "from": 3578, "to": 3583, "text": "os" }
+    ]
+  },
+  {
+    "id": "rn02",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      { "from": 3536, "to": 3542, "text": "re" },
+      { "from": 3543, "to": 3543, "text": "e" },
+      { "from": 3544, "to": 3546, "text": "sesPag" },
+      { "from": 4474, "to": 4480, "text": "re" },
+      { "from": 4481, "to": 4481, "text": "e" },
+      { "from": 4482, "to": 4484, "text": "sesPag" }
+    ]
+  },
+  {
+    "id": "rn05",
+    "format": "sweep-next-edit",
+    "label": "exact",
+    "edits": [
+      { "from": 10304, "to": 10307, "text": "op" },
+      { "from": 10308, "to": 10308, "text": "n" }
+    ]
+  },
+  {
+    "id": "rn06",
+    "format": "sweep-next-edit",
+    "label": "exact",
+    "edits": [
+      { "from": 686, "to": 694, "text": "" },
+      { "from": 695, "to": 697, "text": "navailable" }
+    ]
+  },
+  {
+    "id": "in04",
+    "format": "sweep-next-edit",
+    "label": "wrong",
+    "edits": [
+      {
+        "from": 1034,
+        "to": 1034,
+        "text": "\"review\":\n        return { taskId: id, text: `${id} needs review`, rank: 5 };"
+      }
+    ]
+  },
+  {
+    "id": "hrn09",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      { "from": 599, "to": 602, "text": "" },
+      { "from": 603, "to": 603, "text": "at" },
+      { "from": 757, "to": 760, "text": "" },
+      { "from": 761, "to": 761, "text": "at" },
+      { "from": 878, "to": 881, "text": "" },
+      { "from": 882, "to": 882, "text": "at" },
+      { "from": 1160, "to": 1163, "text": "" },
+      { "from": 1164, "to": 1164, "text": "at" }
+    ]
+  },
+  {
+    "id": "hrn14",
+    "format": "sweep-next-edit",
+    "label": "exact",
+    "edits": [
+      { "from": 3897, "to": 3897, "text": "ser" },
+      { "from": 3900, "to": 3904, "text": "" },
+      { "from": 3946, "to": 3946, "text": "ser" },
+      { "from": 3949, "to": 3953, "text": "" }
+    ]
+  },
+  {
+    "id": "hdd07",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [{ "from": 19699, "to": 19699, "text": ", uuid" }]
+  },
+  {
+    "id": "hdd09",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      { "from": 16674, "to": 16674, "text": ".pipe(done)" },
+      { "from": 16790, "to": 16790, "text": ".pipe(done)" },
+      { "from": 16910, "to": 16910, "text": ".pipe(done)" },
+      { "from": 17051, "to": 17051, "text": ".pipe(done)" },
+      { "from": 17325, "to": 17325, "text": ".pipe(done)" },
+      { "from": 17449, "to": 17449, "text": ".pipe(done)" },
+      { "from": 17579, "to": 17579, "text": ".pipe(done)" },
+      { "from": 17705, "to": 17705, "text": ".pipe(done)" }
+    ]
+  },
+  {
+    "id": "hrf09",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      {
+        "from": 1551,
+        "to": 1551,
+        "text": "import { SecureStorage } from \"../secure/index.ts\";\n"
+      }
+    ]
+  },
+  {
+    "id": "hin06",
+    "format": "sweep-next-edit",
+    "label": "wrong",
+    "edits": [
+      {
+        "from": 2542,
+        "to": 2542,
+        "text": " === \"delete\" ? null : change.path}\n        data-menu-line={change.kind === \"delete\" ? null : change.line}"
+      }
+    ]
+  },
+  {
+    "id": "rn02",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      { "from": 3536, "to": 3542, "text": "re" },
+      { "from": 3543, "to": 3543, "text": "e" },
+      { "from": 3544, "to": 3546, "text": "sesPag" }
+    ]
+  },
+  {
+    "id": "rf06",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      { "from": 419, "to": 423, "text": "ccept" },
+      { "from": 988, "to": 992, "text": "ccept" }
+    ]
+  },
+  {
+    "id": "im03",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      {
+        "from": 650,
+        "to": 650,
+        "text": "const childEnv = () => ({\n  PATH: process.env.PATH,\n  HOME: homedir(),\n});\n\n"
+      }
+    ]
+  },
+  {
+    "id": "in04",
+    "format": "sweep-next-edit",
+    "label": "wrong",
+    "edits": [
+      {
+        "from": 1034,
+        "to": 1034,
+        "text": "\"outcome\":\n        return {\n          taskId: id,\n          text: `${id} has a ${setupOutcome(attention.outcome)}`,\n          rank: 5,\n        };"
+      }
+    ]
+  },
+  {
+    "id": "him01",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      {
+        "from": 1203,
+        "to": 1203,
+        "text": "export interface GitTracking {\n  /** The upstream branch. */\n  readonly upstream: string;\n  /** The branch to push to. */\n  readonly push: string;\n}\n\n"
+      }
+    ]
+  },
+  {
+    "id": "hrn01",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      {
+        "from": 1306,
+        "to": 1306,
+        "text": "      release_version: Schema.optional(Schema.NullOr(Schema.String)),\n"
+      }
+    ]
+  },
+  {
+    "id": "hrn12",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      { "from": 13492, "to": 13496, "text": "s" },
+      { "from": 13497, "to": 13499, "text": "n" },
+      { "from": 13500, "to": 13501, "text": "Wo" },
+      { "from": 13502, "to": 13502, "text": "kSurvives" },
+      { "from": 13511, "to": 13511, "text": "p" },
+      { "from": 13513, "to": 13520, "text": "" },
+      { "from": 13521, "to": 13522, "text": "" }
+    ]
+  },
+  {
+    "id": "hdd06",
+    "format": "sweep-next-edit",
+    "label": "wrong",
+    "edits": [
+      { "from": 1965, "to": 1965, "text": "{\n      " },
+      { "from": 2001, "to": 2001, "text": " }" }
+    ]
+  },
+  {
+    "id": "hin12",
+    "format": "sweep-next-edit",
+    "label": "wrong",
+    "edits": [
+      {
+        "from": 1348,
+        "to": 1348,
+        "text": "rProvider.includes(toolId)) {\n    return installation.inspect(\n      toolId,\n      phase,\n      trusted || (managedProviders.has(toolId) && managed !== undefined),\n      admission\n    );\n  }"
+      }
+    ]
+  },
+  {
+    "id": "hrf04",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      { "from": 742, "to": 745, "text": "" },
+      { "from": 746, "to": 746, "text": "onst binary = harn" },
+      { "from": 749, "to": 751, "text": "Bi" },
+      { "from": 752, "to": 754, "text": "a" },
+      { "from": 755, "to": 755, "text": "y(r" },
+      { "from": 769, "to": 834, "text": "" }
+    ]
+  },
+  {
+    "id": "rn04",
+    "format": "sweep-next-edit",
+    "label": "exact",
+    "edits": [
+      { "from": 1996, "to": 1997, "text": "gr" },
+      { "from": 1998, "to": 1999, "text": "d" }
+    ]
+  },
+  {
+    "id": "hin06",
+    "format": "sweep-next-edit",
+    "label": "wrong",
+    "edits": [{ "from": 2542, "to": 2542, "text": "}" }]
+  },
+  {
+    "id": "hin12",
+    "format": "sweep-next-edit",
+    "label": "wrong",
+    "edits": [
+      {
+        "from": 1348,
+        "to": 1348,
+        "text": "rProviders.has(toolId) || managedProviders.has(toolId)) {\n    return installation.inspect(\n      toolId,\n      phase,\n      trusted || (managedProviders.has(toolId) && managed !== undefined),\n      admission\n    );\n  }"
+      }
+    ]
+  },
+  {
+    "id": "dd04",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      { "from": 3037, "to": 3037, "text": "\"Disclosure" },
+      { "from": 3044, "to": 3047, "text": "Ope" },
+      { "from": 3048, "to": 3052, "text": "\"" },
+      { "from": 3055, "to": 3055, "text": "\"Disclosure" },
+      { "from": 3062, "to": 3069, "text": "Cl" },
+      { "from": 3070, "to": 3071, "text": "sed\"" }
+    ]
+  },
+  {
+    "id": "hdd06",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      { "from": 1381, "to": 1415, "text": "" },
+      { "from": 1567, "to": 1584, "text": "" },
+      { "from": 1816, "to": 1816, "text": "topBa" },
+      { "from": 1817, "to": 1817, "text": " === \"s" },
+      { "from": 1818, "to": 1819, "text": "ss" },
+      { "from": 1820, "to": 1820, "text": "ons\" && targ" },
+      { "from": 1821, "to": 1822, "text": "t.hostKey !== null" }
+    ]
+  },
+  {
+    "id": "him01",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      {
+        "from": 1203,
+        "to": 1203,
+        "text": "export interface GitTracking {\n  /** The upstream branch. */\n  readonly upstream: string;\n  /** The path to the remote. */\n  readonly remote: string;\n}\n\n"
+      }
+    ]
+  },
+  {
+    "id": "hrf07",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      { "from": 13470, "to": 13472, "text": "pa" },
+      { "from": 13473, "to": 13474, "text": "chLeadUi(leadKey, () => ({ d" },
+      { "from": 13478, "to": 13479, "text": ": " },
+      { "from": 13483, "to": 13483, "text": " })" }
+    ]
+  },
+  {
+    "id": "hdd07",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      {
+        "from": 19644,
+        "to": 19644,
+        "text": "if (input && input.effort !== null && !isEffortLevel(input.effort))\n      return yield* unknownEffort(input.effort);\n    "
+      },
+      { "from": 19699, "to": 19699, "text": ", uuid" }
+    ]
+  },
+  {
+    "id": "rn04",
+    "format": "sweep-next-edit",
+    "label": "dangerous",
+    "edits": [
+      { "from": 1247, "to": 1250, "text": "" },
+      { "from": 1251, "to": 1251, "text": "at" }
+    ]
+  },
+  {
+    "id": "in04",
+    "format": "sweep-next-edit",
+    "label": "wrong",
+    "edits": [
+      {
+        "from": 1034,
+        "to": 1034,
+        "text": "\"outcome\":\n        return { taskId: id, text: `${id} has a ${setupOutcome(row.projection.outcome)}`, rank: 5 };"
+      }
+    ]
+  },
+  {
+    "id": "hin01",
+    "format": "sweep-next-edit",
+    "label": "wrong",
+    "edits": [{ "from": 584, "to": 584, "text": "ning(process.env);" }]
+  },
+  {
+    "id": "hin03",
+    "format": "sweep-next-edit",
+    "label": "wrong",
+    "edits": [
+      {
+        "from": 11463,
+        "to": 11463,
+        "text": "enu: () => showAppMenu(),\n      showAppInFinder: () =>\n        shell.showItemInFolder(appRevealPath(clientPlatform(), app.getPath(\"exe\"))),"
+      }
+    ]
+  },
+  {
+    "id": "hin10",
+    "format": "sweep-next-edit",
+    "label": "acceptable",
+    "edits": [{ "from": 859, "to": 859, "text": "\", \"Backspace\"]," }]
+  }
+]

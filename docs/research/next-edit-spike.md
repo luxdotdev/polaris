@@ -195,3 +195,101 @@ No exact or acceptable response was suppressed on either split or model. Dangero
 Zeta's per-request durations are retained only in its raw fixtures. **They include external-drive behavior and are not speed measurements; no Zeta model latency is included in a latency table.** Ordinary tests use fixtures only; the live acquisition and 100-case harness remain opt-in.
 
 **Verification.** Affected-package typecheck passed; the predictor suite passed 322 tests with two opt-in live tests skipped and zero failures. The 200 new model-response replays plus four coverage checks all passed. Root format/lint and license checks passed (680 production dependencies plus eight platform builds, zero license violations).
+
+## Hill-climbing Sweep, 2026-10-15
+
+**Goal and protocol.** Raise useful (exact + acceptable) Sweep Next-Edit 1.5B Q8 predictions without showing a dangerous edit after guards; abstaining is fine. Before any experiment, a fresh held-out set of 56 cases was mined by edit shape only ([`mine-fresh.ts`](next-edit-spike/scripts/mine-fresh.ts)) and frozen as [`fresh-cases.json`](../../packages/predict/src/edit/fixtures/fresh-cases.json), sha256 `c5ecc7d6…f5bc9b`. It holds rename 8, refactor 12, dead-code 12, import 12 and insertion 12, from commits disjoint from the other 100 cases, with each target within 40 lines of the cursor. The harness refuses to load that set without `HC_FINAL=1`. Every experiment ran live on the 100 hardening cases (dev for this work). Each shown state that was new got a rubric label in [`labels.json`](next-edit-spike/raw/hc/labels.json). A change was kept only if useful rose (or wrong fell), dangerous-after-guards stayed 0, and no useful case was lost. At the end, the fresh set ran once with the baseline and once with the final config.
+
+**Setup.** A private llama-server on 127.0.0.1:8091 used the Q8 blob with greedy decoding. Its outputs were deterministic: a rerun of the baseline reproduced the hardening recordings byte for byte. The Host was busy (load 9–14 on the M2 Max), so p50 is the server-plus-pipeline time per request, noisy, and recorded but not optimised. Runs, labels and per-run review files are in [`raw/hc`](next-edit-spike/raw/hc/); the scripts are `hc-run.ts`, `hc-score.ts`, `hc-label.ts`, `hc-table.ts`, `hc-stability.ts` and `hc-fixtures.ts`.
+
+### Experiment log (dev, 100 cases)
+
+"Spike guards" are the guards shipped by the hardening work. "+ new" adds the nearest-change fallback and the seven guards below. Lost means useful in the baseline, not useful here.
+
+| Id | Change | Guards | Useful | Wrong | Dangerous | Abstain | p50 ms | Lost | Verdict |
+|---|---|---|---:|---:|---:|---:|---:|---|---|
+| E0 | Spike layout: 10/10 window, 80-line prefix, history `.diff` without context | spike | 14 | 6 | 0 | 80 | 758 | – | baseline |
+| E1 | + nearest-change fallback | spike | 16 | 6 | 0 | 78 | 758 | – | **kept** |
+| E2 | Model-card history (1 context line, no last `.diff`) | spike | 14 | 6 | 0 | 80 | 609 | hin01 hrf04 hrf11 | rejected |
+| E3 | 1 context line around each history hunk | spike | 14 | 7 | 3 | 76 | 525 | hin01 | rejected |
+| E4 | No `.diff` block for the last hunk | spike | 14 | 7 | 0 | 79 | 365 | hin01 hrf11 | rejected |
+| E5 | 15-line window (7/7) | + new | 17 | 7 | 0 | 76 | 350 | rf04 | rejected |
+| E6 | 25-line window (12/12) | + new | 17 | 7 | 0 | 76 | 485 | – | superseded by E10 |
+| E7 | 31-line window (15/15) | + new | 19 | 7 | 0 | 74 | 513 | hrf04 | rejected |
+| E8 | 41-line window (20/20) | + new | 20 | 7 | 1 | 71 | 647 | hin11 hrf04 | rejected |
+| E9 | 20 above / 10 below | + new | 17 | 6 | 1 | 76 | 494 | hin11 hrf04 | rejected |
+| **E10** | **10 above / 20 below** | + new | **20** | 7 | **0** | 73 | 552 | – | **kept** |
+| E11 | 5 above / 20 below | + new | 18 | 8 | 1 | 73 | 507 | hdd06 hrf04 | rejected |
+| E12 | 15 above / 20 below | + new | 21 | 7 | 1 | 71 | 602 | hdd06 hrf04 | rejected |
+| E13 | 10 above / 30 below | + new | 20 | 8 | 0 | 72 | 614 | – | rejected (no gain) |
+| E14 | 10 above / 15 below | + new | 17 | 8 | 0 | 75 | 482 | – | rejected |
+| E15 | E10 + 40-line prefix | + new | 21 | 6 | 1 (hrf07) | 72 | 605 | – | rejected |
+| E16 | E10 + 160-line prefix | + new | 19 | 8 | 1 | 72 | 789 | rn02 | rejected |
+| E17 | E10 + 1 context line | + new | 19 | 8 | 1 | 71 | 701 | hdd06 hin01 | rejected |
+| E18 | E10 + model-card history | + new | 16 | 8 | 0 | 76 | 317 | hdd06 hin01 rn01 rn06 | rejected |
+| E19 | E10 + the file's import block before the prefix | + new | 20 | 7 | 1 | 72 | 627 | – | rejected |
+| E20 | E10 + only the last 2 history hunks | + new | 20 | 7 | 0 | 73 | 278 | – | rejected (tie) |
+| E21 | E10 + abstain unless a T=0.5 sample agrees | + new | 20→19 | 7→6 | 0 | – | ×2 cost | hin01 | rejected |
+| E22 | E10 + abstain unless the previous keystroke's prediction agrees (93 states) | + new | 20→15 | 7→5 | 0 | – | ×2 cost | hrf11 hrf06 rn01 rn05 hin01 | rejected |
+
+Rows E5–E20 are scored with all new guards, as kept by the guard experiments below. Without them, the same raw outputs show 1–8 dangerous edits (E8: 8, E12: 5, E6: 2); E10 shows none either way. E21 and E22 were scored offline from a second live run. E20 equals E10 on every measure except speed, so the keep-rule rejects it; it is the cheapest lever if latency matters later.
+
+**Guard experiments.** Each candidate was scored on every labelled state any run produced (126 states) and on the 100 dev ground-truth patches:
+
+| Guard (`EditOptions` flag) | Suppresses | Kept? |
+|---|---|---|
+| `novelNames` | an edit using a code identifier that the buffer, history and path never mention (keywords, globals and completions of the typed word excepted), or a duplicate import | kept: catches 7 dangerous and 4 wrong, 0 useful; blocks 3/100 dev truths (`im01`, `hin06`, `hrf09`) |
+| `declarationRenames` | renaming an existing declaration other than the one being typed (`rf06`, `hrn09`) | kept |
+| `removedNames` | re-adding, away from the cursor line, a name the history removed | kept |
+| `deletionEvidence` | a pure whole-line deletion with no evidence in the history (a removed name, a moved line, a newly imported name) | kept: 0 dev truth cost |
+| `relevance` | a change group more than one line from the focus touching no word of the history | kept: 0 dev truth cost |
+| `duplicates` | a new line repeating its neighbour, or a name redeclared within two lines | kept |
+| `selfReference` | a new `const x = f(x)` (`hdd07`'s `const { uuid } = send(…, uuid)`, `rateLimit(…)`) | kept: 0 truth cost |
+| re-adds anywhere, drops untouched names, swaps, redeclare within 10 lines | – | rejected: cost exact outputs or 27 truths |
+
+The nearest-change fallback applies to Sweep only. If the guards suppress the whole rewrite, it shows the change group nearest the focus, provided that group shares a name with the history and passes every guard by itself. The guards also apply to Zeta: on its 100 recorded hardening outputs they suppress one more wrong output and nothing else.
+
+### Final config
+
+`editOptions` in [`options.ts`](../../packages/predict/src/edit/options.ts) is now the default: Sweep window 10 above and 20 below the focus line, 80-line prefix, history `.diff` blocks without context including the last hunk, at most 32 hunks, the nearest-change fallback, and all seven guards on. The old layout stays available as `spikeEditOptions`, and the earlier hardening and replay recordings pin it. The Desktop App already requests 2048 output tokens, so the 31-line window fits.
+
+[`hillclimb.test.ts`](../../packages/predict/src/edit/hillclimb.test.ts) replays the frozen runs ([fixtures](../../packages/predict/src/edit/fixtures/)). On dev, every shown state is reviewed, nothing dangerous is shown, no useful case of the spike layout is lost, and useful rises. Turning off the fallback, or any one guard, fails a test, because each guard alone suppresses at least one labelled dangerous state.
+
+### Baseline vs final on the fresh held-out set (56 cases, one run each)
+
+| Config | Exact | Acceptable | **Useful** | Wrong | **Dangerous** | Abstain | p50 ms |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Baseline (spike layout and guards) | 6 | 3 | **9** | 9 | **2** (`frf01`, `fim12`) | 36 | 558 |
+| Final (`editOptions`) | 6 | 2 | **8** | 6 | **1** (`fdd09`) | 41 | 640 |
+
+The dev gain did not carry over. On the held-out set, useful fell by one (lost `fin06` and `fdd08`, gained `frf04`), wrong fell from 9 to 6, and dangerous fell from 2 to 1 but did not reach 0.
+
+The breakdown below rescores the recorded outputs after the fact; none of it was used to choose the config.
+- **Window alone.** Final outputs with the spike guards score 9 useful, 8 wrong, 2 dangerous.
+- **Guards alone.** Baseline outputs with the new guards and fallback score 8 useful, 6 wrong, 1 dangerous.
+- So on held-out data, the window was roughly neutral, and the guards traded one exact for three wrong and one dangerous.
+- **`fdd08`** is a correct deletion that `deletionEvidence` suppressed. The history re-wrote the deleted check in a different form, which the guard's "moved line" evidence does not recognise. [`hillclimb.test.ts`](../../packages/predict/src/edit/hillclimb.test.ts) records it as a `test.todo`.
+- **`fdd09`** is the dangerous edit that got through. Instead of deleting a dead `turnsPlanned.push(key)`, Sweep rewrote it to push `{ key, shown: false }`. That silences the type error and records every turn twice. No guard covers "makes broken code compile wrongly".
+- **`fin06`** in the final run added the right interface but also a stray unfinished comment line.
+
+**Held-out truth audit.** Applied to the 56 fresh ground-truth patches, the new guards block 21, against 6 for the spike guards. On dev the figures were 20 and 17.
+- `novelNames` blocks 8: six of the 12 insertion truths introduce a name the context never mentions, plus two refactors.
+- `deletionEvidence` blocks 7 of the 12 correct dead-code deletions.
+- `relevance` blocks 2.
+
+Dev never showed this, because its dead-code and insertion cases happen to carry the evidence the guards ask for. Sweep rarely produces those truths today, so the measured cost on its outputs is one exact. Still, these two guards are tuned to the dev set and over-restrict. A better model would hit them more often.
+
+**Runtime cost.** `bench.ts` measured the replay pipeline with in-memory HTTP and no model, three rounds each on a busy Host:
+- p50 went from 0.33 / 0.19 / 0.19 ms with the spike options to 0.88 / 0.60 / 0.53 ms with the final ones.
+- p95 went from 1.9 / 0.93 / 0.84 ms to 5.1 / 2.6 / 2.5 ms.
+- The model's own p50 is about 550–650 ms.
+
+**Caveats.**
+- Labels are one reviewer's rubric judgements (the hardening rubric). Recurring calls: a local stub that shadows a needed import, and an unprompted rewrite of healthy code, are labelled dangerous.
+- Fifty-six held-out cases is small: the useful difference of one case is noise. The direction of wrong and dangerous agrees with dev.
+- Most targets still need a jump that a 31-line window cannot reach. Abstention stays above 70% on both sets.
+- Wider windows expose new dangerous shapes, and the guards answer each one lexically. The held-out set shows this does not generalise cleanly.
+- Next steps that the protocol forbade here, because they would tune on the held-out set:
+  - recognise a modified move as deletion evidence;
+  - restrict `novelNames` to edits away from the cursor line;
+  - mine a new held-out set before keeping either change.
