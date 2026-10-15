@@ -1,5 +1,9 @@
 import { serverSettings } from "./serverSettings.ts";
-import { predictionDocument, rememberPredictionDiagnostics } from "./prediction.ts";
+import {
+  forgetPredictionDiagnostics,
+  predictionDocument,
+  rememberPredictionDiagnostics,
+} from "./prediction.ts";
 import { ServerLogs } from "./logs.ts";
 import { bindFormat } from "./format.ts";
 import { bindResourceReceipt, bindServerResponse, bindRecoveryReceipt } from "./resourceReceipt.ts";
@@ -31,8 +35,8 @@ import {
   LanguageDeadline,
 } from "@polaris/protocol";
 import type { LanguageJson } from "@polaris/protocol";
-import { Schema } from "effect";
-import { checkoutKey, checkoutPath, trustScope, trustScopeKey } from "../trust/index.ts";
+import { Predicate, Schema } from "effect";
+import { checkoutDocumentPath, checkoutKey, trustScope, trustScopeKey } from "../trust/index.ts";
 import { failure } from "../transport/framing.ts";
 import { bounded } from "../transport/deadline.ts";
 import { notificationMessage, clientCapabilities, drainStderr } from "./wire.ts";
@@ -497,7 +501,7 @@ export function createLanguageBroker(options: BrokerOptions) {
       owned(clientId, valid.context);
       processes.touch(entry);
       const canonical = await trusted(entry);
-      await checkoutPath(canonical, fileURLToPath(valid.notification.uri));
+      await checkoutDocumentPath(canonical, fileURLToPath(valid.notification.uri));
       owned(clientId, valid.context);
 
       const document = entry.documents.apply(
@@ -507,6 +511,9 @@ export function createLanguageBroker(options: BrokerOptions) {
       );
 
       acknowledgments.synchronized(entry, valid.notification);
+
+      if (Predicate.isTagged(valid.notification, "Close"))
+        forgetPredictionDiagnostics(entry, valid.notification.uri);
 
       for (const [key, operation] of entry.operations) {
         try {
@@ -599,7 +606,7 @@ export function createLanguageBroker(options: BrokerOptions) {
         if (!fence.documents.some(({ uri }) => uri === documentParams.textDocument?.uri))
           throw failure("stale-document", "Request document missing from fence");
         const canonical = await trusted(entry);
-        await checkoutPath(canonical, fileURLToPath(documentParams.textDocument.uri));
+        await checkoutDocumentPath(canonical, fileURLToPath(documentParams.textDocument.uri));
       }
 
       owned(clientId, fence.context);

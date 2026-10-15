@@ -521,3 +521,56 @@ The 8 remaining dangerous states are the same in every verifier row, and `main` 
 - the stand-in rule depends on the server's import fixes.
 
 Removing the reference condition from the stand-in rule fails the truth test.
+
+## Diagnostics verifier wiring, 2026-10-15
+
+**Question.** The verifier is wired into the Editor on top of `editOptions` ([ADR 0050](../adr/0050-predictions-are-verified-on-a-shadow-document.md)). How long may a Final wait for its check, and what does the second document cost?
+
+**Method.** [`dv-wired.ts`](next-edit-spike/scripts/dv-wired.ts) runs the Editor's own verifier against the real path:
+- the renderer's `EditorLanguageSession`, `LanguageFeatures` and `languageDiagnosticsVerifier`;
+- a real in-process Daemon (broker, trust, contexts, fences);
+- a real server on this checkout at HEAD.
+
+It uses the 82 recorded cases whose file still exists, and up to three model states each (179 checks), or their ground truths (82). For each check:
+1. Open the file with the case's buffer and wait for the provider.
+2. Type its last character, wait 100 ms, then wait 750 ms (the pause plus the model's time).
+3. Verify the Final, timing from the call to the verdict. This covers before and after, the shadow's open, and the stand-in's code actions.
+
+The machine was an M2 Max, load average 0.7–2.5, with each run alone. The rows are in [`raw/dv`](next-edit-spike/raw/dv/), as `wired-*.tsv`: case, path, lines, ms, verdict.
+
+**typescript-language-server cannot check a shadow.** tsserver puts a file that is not on disk in an inferred project, even when the tsconfig's `include` matches it (`projectInfo` answers `/dev/null/inferredProject*`). The shadow is therefore checked with default options:
+- no `types`, so every `node:` import, `process` and `Bun` is an error;
+- no `strict`, so implicit `any` and similar errors pass.
+
+In the wired run it rejected **24 of 82 ground truths** (29%), each outside the renderer, with errors such as "Cannot find name 'node:fs'". The renderer passed only because the inferred defaults happen to suit it. Comparing against a second shadow of the user's text would hide the false rejections, but not new uses of `Bun` or `process`, or strict errors. The tsserver route was removed, so the verifier now checks only on a server with pull diagnostics.
+
+TypeScript 7 (`tsc --lsp`) puts the same shadow in the tsconfig's project. Strict errors appear and `node:` and `Bun` resolve. It rejected 1 of 82 ground truths, `hin11`. That truth uses a property added in another file in its own commit, and other files are at HEAD here; offline, at its own commit, it passes.
+
+**Latency, open to verdict.**
+
+| Server | States | Checks | p50 | p90 | Over 300 ms | Over 600 ms | Over 1 s | Over 2 s |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| TypeScript 7 | model | 179 | 96 ms | 968 ms | 10.1% | 10.1% | 8.9% | 0% |
+| TypeScript 7 | truth | 82 | 97 ms | 221 ms | 8.5% | 8.5% | 6.1% | 0% |
+| typescript-language-server (unsound, for reference) | model | 179 | 235 ms | 2253 ms | 44.7% | 27.4% | 16.8% | 10.1% |
+
+- TypeScript 7 is bimodal **by file**: a check takes under 250 ms or between 968 and 1142 ms. The slow files are the same on every check, and every check in them is slow: `main/index.ts`, `main/ipc/requests.ts`, `main/prediction/bridge.ts`, the Daemon's `transport/serve.ts`, and two bench scenarios. No checks fall between 250 and 968 ms.
+- With tsls, the first check in a file pays for loading its project (72% over 300 ms), and later checks are mostly fast (21%).
+
+**Deadline: 600 ms** (`VERIFY_DEADLINE_MS`). On this machine it suppresses as many checks as 300 ms (10.1%), with twice the headroom for the fast mode on a slower Host. 1 s falls in the middle of the slow mode: it rescues 1.2% of checks, but whether a slow file gets predictions would change from run to run. Showing those files' predictions takes about 1.2 s, which roughly doubles the wait after the model; that is left to the owner.
+
+**Cost of the second document**, from the sampler over the whole run against the same run without checks:
+
+| Server | Peak RSS, no checks | Peak RSS, with checks | Extra CPU per check |
+|---|---:|---:|---:|
+| TypeScript 7 | 1604 MB | 1803 MB | about 0.7–0.8 s |
+| tsserver 6.0.3 (through tsls) | 3018 MB | 3550 MB | about 1.1 s |
+
+The program is rebuilt when a shadow opens and again when it closes. On TypeScript 7 most of that work runs after the verdict, across its threads. At one check per shown Final, that is real load on a Raspberry Pi 4, and it is not yet measured there.
+
+**What this means.**
+- With Polaris' default TypeScript (the bundled typescript-language-server), the verifier never attaches, and predictions go through `editOptions` as before. It attaches when the project's own TypeScript 7 is used (`useProjectTypeScript`, which launches `tsc --lsp`).
+- Getting it for everyone is an owner decision:
+  - offer `tsc --lsp` as the default TypeScript server; or
+  - run a second TypeScript 7 server for verification only, about 1.6 GB on this repo.
+- With TypeScript 7, the deadline suppresses every Final in the slow files and none elsewhere: about 10% of checks in this corpus.

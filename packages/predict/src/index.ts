@@ -36,3 +36,11 @@ export {
   type LspDiagnostic,
   type UnresolvedName,
 } from "./edit/imports/index.ts";
+
+export {
+  type BufferDiagnostic,
+  type DiagnosticsCheck,
+  type DiagnosticsVerdict,
+  shadowedImports,
+  verifyDiagnostics,
+} from "./edit/diagnostics.ts";

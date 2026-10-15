@@ -28,6 +28,11 @@ export function rememberPredictionDiagnostics(entry: Entry, event: LanguageConte
   while (files.size > 32) files.delete(files.keys().next().value!);
 }
 
+/** A closed document's diagnostics no longer describe an open buffer. */
+export function forgetPredictionDiagnostics(entry: Entry, uri: string) {
+  diagnostics.get(entry)?.delete(uri);
+}
+
 /** Passive lookup: never acquires, synchronizes, or starts an Editor's server. */
 export function predictionDocument(
   entries: Iterable<Entry>,

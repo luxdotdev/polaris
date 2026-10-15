@@ -8,7 +8,13 @@ import type { HostId } from "@polaris/protocol";
 import { Match, Schema } from "effect";
 import { canonicalCheckout, type CheckoutRegistry, type CanonicalCheckout } from "./checkout.ts";
 
-export { canonicalCheckout, checkoutPath, checkoutKey, within } from "./checkout.ts";
+export {
+  canonicalCheckout,
+  checkoutDocumentPath,
+  checkoutPath,
+  checkoutKey,
+  within,
+} from "./checkout.ts";
 
 export type { CheckoutRegistry, CheckoutRegistration, CanonicalCheckout } from "./checkout.ts";
 

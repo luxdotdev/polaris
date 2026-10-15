@@ -1,6 +1,7 @@
 import * as P from "@polaris/protocol";
 import { Schema } from "effect";
 import { captureEditIntentFence } from "./editFence.ts";
+import { shadowClosed } from "./shadows.ts";
 import type {
   LanguageAdapterOptions,
   LanguageBuffer,
@@ -175,14 +176,32 @@ export class LanguageRequests {
     }
   }
 
+  /** The provider as acknowledged once the context's verification shadow has closed. */
+  private async unshadowed(provider: LanguageProvider, closing: Promise<void>) {
+    for (let open: Promise<void> | null = closing; open !== null;) {
+      await open;
+      open = shadowClosed(provider.context.contextId);
+    }
+
+    return (
+      this.options
+        .providers()
+        .find((entry) => entry.context.contextId === provider.context.contextId) ?? null
+    );
+  }
+
   private async one(
-    provider: LanguageProvider,
+    current: LanguageProvider,
     buffer: LanguageBuffer,
     method: Method,
     params: Params,
     signal: AbortSignal
   ): Promise<ProviderResult | null> {
-    if (signal.aborted) return null;
+    // Dispatch stays synchronous unless a shadow is open (shadows.ts).
+    const closing = shadowClosed(current.context.contextId);
+    const provider = closing === null ? current : await this.unshadowed(current, closing);
+
+    if (provider === null || signal.aborted) return null;
     const requestId = `${this.requestPrefix}-${++this.serial}`;
     let fence: P.LanguageRequestFence;
 

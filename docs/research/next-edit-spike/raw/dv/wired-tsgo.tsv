@@ -1,0 +1,179 @@
+dd03	apps/desktop/src/renderer/features/editor/runtime/editorState.ts	139	97	reject:Import declaration conflicts with local declaration of 'currentKeyPlatform'. | Argument of type '"mac" | "win"' is not assignable to parameter of type 'KeyPlatform'. Type '"win"' is not assignable to 
+dd03	apps/desktop/src/renderer/features/editor/runtime/editorState.ts	139	80	reject:Import declaration conflicts with local declaration of 'currentKeyPlatform'. | Argument of type '"default" | "mac"' is not assignable to parameter of type 'KeyPlatform'. Type '"default"' is not assign
+dd04	apps/desktop/src/renderer/features/settings/editor/Advanced.tsx	123	116	reject:Type '{ open: boolean; size: number; className: string; onClick: () => void; }' is not assignable to type 'IntrinsicAttributes & DisclosureChevronProps'. Property 'onClick' does not exist on type 'Int
+dd04	apps/desktop/src/renderer/features/settings/editor/Advanced.tsx	123	105	allow
+dd04	apps/desktop/src/renderer/features/settings/editor/Advanced.tsx	123	108	allow
+dd05	apps/desktop/src/renderer/features/review/ui/useReviewModel.ts	319	195	reject:Argument of type 'number' is not assignable to parameter of type '(file: ReviewFile) => boolean'.
+dd06	apps/desktop/src/renderer/features/review/ui/Queue.tsx	210	98	reject:This comparison appears to be unintentional because the types '"Alt" | "Ctrl" | undefined' and '"Control"' have no overlap.
+dd06	apps/desktop/src/renderer/features/review/ui/Queue.tsx	210	98	allow
+dd06	apps/desktop/src/renderer/features/review/ui/Queue.tsx	210	101	allow
+fdd09	apps/desktop/src/main/notifications/index.ts	218	1	failed
+fim08	apps/desktop/src/renderer/app/App.tsx	18	94	reject:Cannot find module './NeedsYouPublisher.tsx' or its corresponding type declarations.
+fim10	apps/desktop/src/shared/gitContract.ts	46	57	allow
+fim12	apps/desktop/src/renderer/features/editor/lsp/preparationTransport.ts	35	147	allow
+fin01	apps/desktop/src/renderer/features/harness/ui/HarnessCards.tsx	191	105	allow
+fin01	apps/desktop/src/renderer/features/harness/ui/HarnessCards.tsx	191	100	allow
+fin01	apps/desktop/src/renderer/features/harness/ui/HarnessCards.tsx	191	109	allow
+fin02	apps/desktop/src/renderer/features/palette/store.ts	47	97	allow
+fin02	apps/desktop/src/renderer/features/palette/store.ts	47	93	allow
+fin04	packages/bench/src/scenarios/idle.ts	191	968	reject:Property 'constellations' does not exist on type 'Number'. | Identifier expected. 'yield' is a reserved word in strict mode. Modules are automatically in strict mode. | Cannot find name 'yield'. | The
+fin04	packages/bench/src/scenarios/idle.ts	191	1008	reject:Property 'constellations' does not exist on type 'ScenarioContext'.
+fin05	apps/daemon/src/constellation/composition/attachments.ts	55	64	allow
+fin06	apps/desktop/scripts/lib/githubFake/world.ts	224	64	allow
+fin06	apps/desktop/scripts/lib/githubFake/world.ts	224	49	allow
+fin07	apps/daemon/src/main.ts	29	68	allow
+fin08	apps/daemon/src/git/git.ts	171	66	allow
+fin09	apps/desktop/src/renderer/features/session/chrome.ts	40	90	allow
+fin09	apps/desktop/src/renderer/features/session/chrome.ts	40	114	reject:Cannot find name 'PolarisCardArgs'.
+fin09	apps/desktop/src/renderer/features/session/chrome.ts	40	91	allow
+fin10	apps/daemon/src/engine/testing.ts	369	170	reject:Property 'checkpoints' does not exist on type '{ readonly filename: string; readonly fakes: Fakes; readonly drivers: readonly FakeDriver[]; readonly idleTimeout?: Input; readonly checkpointPolicy?: Ch
+fin10	apps/daemon/src/engine/testing.ts	369	150	reject:Cannot find name 'Git'. | Property 'checkpoints' does not exist on type '{ readonly filename: string; readonly fakes: Fakes; readonly drivers: readonly FakeDriver[]; readonly idleTimeout?: Input; read
+fin11	apps/desktop/src/renderer/features/constellation/model/facts.ts	93	114	allow
+fin11	apps/desktop/src/renderer/features/constellation/model/facts.ts	93	90	allow
+fin12	packages/protocol/src/constellation/domain.ts	346	78	allow
+frf01	apps/desktop/src/renderer/features/session/ui/whereMenus.tsx	154	149	allow
+frf01	apps/desktop/src/renderer/features/session/ui/whereMenus.tsx	154	114	reject:Cannot find name 'host'. | Cannot find name 'host'. | Cannot find name 'host'. | Cannot find name 'host'. | Cannot find name 'host'. | Cannot find name 'workspaces'. Did you mean 'WorkspaceId'?
+frf01	apps/desktop/src/renderer/features/session/ui/whereMenus.tsx	154	109	reject:JSX element 'span' has no corresponding closing tag. | Unexpected token. Did you mean `{'}'}` or `&rbrace;`? | Cannot find name 'host'. | Cannot find name 'host'. | Cannot find name 'host'. | Cannot f
+frf02	packages/ui/src/components/polaris/approval-card.tsx	73	54	allow
+frf02	packages/ui/src/components/polaris/approval-card.tsx	73	71	allow
+frf05	apps/desktop/src/renderer/features/constellation/model/look.ts	238	139	reject:Object literal may only specify known properties, and 'blocked' does not exist in type 'Readonly<Record<"approval" | "handed" | "question" | "setup" | "stopped", string>>'.
+frf09	apps/desktop/src/renderer/features/session/preview/Preview.tsx	456	219	allow
+frn03	packages/bench/src/scenarios/blobs.ts	101	985	allow
+hdd02	apps/desktop/src/renderer/features/review/ui/SubjectHeader.tsx	192	111	reject:Identifier expected.
+hdd03	apps/desktop/src/renderer/features/review/ui/SubjectHeader.tsx	188	102	allow
+hdd03	apps/desktop/src/renderer/features/review/ui/SubjectHeader.tsx	188	94	allow
+hdd03	apps/desktop/src/renderer/features/review/ui/SubjectHeader.tsx	188	98	allow
+hdd04	apps/daemon/src/languages/media/native.ts	96	61	reject:Expected 0 arguments, but got 1. | Cannot find name 'os'. | Expected 0 arguments, but got 1.
+hdd04	apps/daemon/src/languages/media/native.ts	96	52	reject:Expected 0 arguments, but got 1.
+hdd04	apps/daemon/src/languages/media/native.ts	96	61	allow
+hdd05	apps/daemon/src/files/search/fallback.ts	323	60	allow
+hdd05	apps/daemon/src/files/search/fallback.ts	323	58	reject:'await' expressions are only allowed within async functions and at the top levels of modules.
+hdd05	apps/daemon/src/files/search/fallback.ts	323	59	allow
+hdd06	apps/desktop/src/renderer/features/jump/run.ts	75	115	reject:'}' expected.
+hdd06	apps/desktop/src/renderer/features/jump/run.ts	75	107	reject:Declaration or statement expected. | Cannot find name 'target'. | Cannot find name 'target'. | Cannot find name 'review'. | Cannot find name 'target'. | Cannot find name 'target'. | Cannot find name '
+hdd06	apps/desktop/src/renderer/features/jump/run.ts	75	99	reject:Cannot find name 'review'. | Cannot find name 'review'.
+hdd07	apps/daemon/src/harness/claude/ClaudeDriver.ts	756	99	allow
+hdd07	apps/daemon/src/harness/claude/ClaudeDriver.ts	756	96	reject:'uuid' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer. | Block-scoped variable 'uuid' used before its declaration.
+hdd07	apps/daemon/src/harness/claude/ClaudeDriver.ts	756	94	reject:Cannot find name 'text'. | 'uuid' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer. | Block-scoped variable 'uuid' u
+hdd09	apps/desktop/src/main/ipc/requests.ts	461	1098	reject:Type 'Effect<null, IpcError, HostDirectory>' is not assignable to type 'Effect<readonly Verdict[], IpcError, ClientServices>' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to th
+hdd09	apps/desktop/src/main/ipc/requests.ts	461	1046	reject:Type 'Effect<null, IpcError, HostDirectory>' is not assignable to type 'Effect<Plain<AcceptPushed>, IpcError, ClientServices>' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to t
+hdd09	apps/desktop/src/main/ipc/requests.ts	461	1142	reject:',' expected. | Property assignment expected. | ')' expected. | ';' expected. | ';' expected. | ';' expected. | ';' expected. | ';' expected. | ';' expected. | ';' expected. | ';' expected. | ';' expe
+hdd12	apps/desktop/src/main/machines/service.ts	737	91	allow
+him01	apps/desktop/src/renderer/features/editor/explorer/data/store.ts	165	96	allow
+him01	apps/desktop/src/renderer/features/editor/explorer/data/store.ts	165	114	allow
+him02	apps/desktop/src/renderer/features/open-folder/rows.ts	129	79	reject:Property 'chooseFolder' does not exist on type 'HostInfo'.
+him03	apps/desktop/src/renderer/features/editor/explorer/ui/Explorer.tsx	251	169	reject:Type '{ rows: readonly ChangeRow[]; active: any; git: "loading" | "none" | "ready"; onOpen: (path: string, pin: boolean) => void; onOpenChanges: ((path: string, pin: boolean) => any) | null; shownDiff
+him03	apps/desktop/src/renderer/features/editor/explorer/ui/Explorer.tsx	251	133	allow
+him03	apps/desktop/src/renderer/features/editor/explorer/ui/Explorer.tsx	251	148	reject:Property 'shownDiff' is missing in type '{ place: Place; git: GitFacts; agents: AgentMarks; tabs: TabsView; hostLabel: string; onOpen: (path: string, pin: boolean) => void; onOpenChanges: ((path: Stag
+him04	apps/daemon/src/git/GitRpcs.ts	176	111	reject:Cannot find name 'handleGitWatch'.
+him04	apps/daemon/src/git/GitRpcs.ts	176	78	reject:Type '(args_0: { readonly cwd: string; }) => Effect<unknown, GitError | NotFound, never>' is not assignable to type 'ToHandlerFn<Rpc<"git.watch", Struct<{ cwd: String; }>, Stream<Null, typeof GitError
+him04	apps/daemon/src/git/GitRpcs.ts	176	77	reject:Duplicate identifier 'GitRpcs'. | Block-scoped variable 'GitRpcs' used before its declaration. | Cannot find name 'handleGitWatch'. | Duplicate identifier 'GitRpcs'. | Cannot find name 'Layer'.
+him05	apps/daemon/src/reviewer/prompt.ts	143	59	allow
+him07	apps/daemon/src/transport/serve.ts	240	1046	reject:Cannot find name 'PredictionServerLive'. Did you mean 'PredictionRpcsLive'?
+him07	apps/daemon/src/transport/serve.ts	240	1027	allow
+him07	apps/daemon/src/transport/serve.ts	240	1053	allow
+him10	packages/client/src/transport.ts	213	50	allow
+him10	packages/client/src/transport.ts	213	49	reject:Type '"daemon-not-installed"' is not assignable to type '"auth-failed" | "command-missing" | "connection-failed" | "connection-lost" | "daemon-not-running" | "host-key-changed" | "host-key-unknown" | 
+hin01	apps/desktop/scripts/dmg.ts	25	42	reject:Expected 1-3 arguments, but got 0.
+hin01	apps/desktop/scripts/dmg.ts	25	41	reject:Argument of type 'string | null | undefined' is not assignable to parameter of type 'Signing | null'. Type 'undefined' is not assignable to type 'Signing | null'.
+hin01	apps/desktop/scripts/dmg.ts	25	38	reject:Argument of type 'string | null | undefined' is not assignable to parameter of type 'Signing | null'. Type 'undefined' is not assignable to type 'Signing | null'.
+hin02	apps/desktop/src/renderer/features/risk/ui/VerdictPopover.tsx	174	121	reject:Duplicate identifier 'open'. | Duplicate identifier 'open'. | Type '{ open: boolean | undefined; onOpenChange: (open: boolean) => void; children: Element[]; }' is not assignable to type 'PopoverProps'
+hin02	apps/desktop/src/renderer/features/risk/ui/VerdictPopover.tsx	174	127	reject:Duplicate identifier 'open'. | Duplicate identifier 'open'. | Type '{ open: boolean | undefined; onOpenChange: (open: boolean) => void; children: Element[]; }' is not assignable to type 'PopoverProps'
+hin02	apps/desktop/src/renderer/features/risk/ui/VerdictPopover.tsx	174	111	reject:Duplicate identifier 'open'. | Duplicate identifier 'open'.
+hin03	apps/desktop/src/main/index.ts	431	202	reject:Expected 1 arguments, but got 0.
+hin03	apps/desktop/src/main/index.ts	431	195	reject:Cannot find name 'showAppMenu'. | An object literal cannot have multiple properties with the same name.
+hin04	apps/desktop/scripts/package.ts	212	39	reject:Type 'string | ((version: string, release: boolean) => string)' is not assignable to type 'string'. Type '(version: string, release: boolean) => string' is not assignable to type 'string'. | Argument 
+hin04	apps/desktop/scripts/package.ts	212	38	reject:Expected 2 arguments, but got 1.
+hin04	apps/desktop/scripts/package.ts	212	45	reject:Argument of type 'string | ((version: string, release: boolean) => string)' is not assignable to parameter of type 'string'. Type '(version: string, release: boolean) => string' is not assignable to t
+hin06	apps/desktop/src/renderer/features/session/ui/items.tsx	221	114	reject:Property 'line' does not exist on type '{ readonly path: string; readonly kind: FileChangeKind; }'.
+hin06	apps/desktop/src/renderer/features/session/ui/items.tsx	221	124	allow
+hin06	apps/desktop/src/renderer/features/session/ui/items.tsx	221	108	reject:Argument of type 'Base & { readonly kind: "files"; readonly changes: readonly { readonly path: string; readonly kind: FileChangeKind; }[]; readonly status: ItemStatus; }' is not assignable to paramete
+hin07	apps/desktop/src/renderer/features/machines/HostsSettingsPage.tsx	201	226	allow
+hin07	apps/desktop/src/renderer/features/machines/HostsSettingsPage.tsx	201	213	reject:Property 'aga' does not exist on type 'WslDistrosHook'.
+hin08	apps/daemon/src/store/eventJson.ts	41	135	allow
+hin08	apps/daemon/src/store/eventJson.ts	41	122	allow
+hin08	apps/daemon/src/store/eventJson.ts	41	125	allow
+hin10	apps/desktop/src/shared/chord.ts	128	42	allow
+hin11	apps/desktop/src/main/machines/index.ts	75	82	allow
+hin11	apps/desktop/src/main/machines/index.ts	75	82	allow
+hin11	apps/desktop/src/main/machines/index.ts	75	90	allow
+hin12	apps/daemon/src/languages/composition/managedAvailability.ts	87	108	reject:'}' expected. | Property 'includes' does not exist on type '(providerId: string) => boolean'.
+hin12	apps/daemon/src/languages/composition/managedAvailability.ts	87	70	reject:Argument of type 'string' is not assignable to parameter of type 'Pick<{ inspect: (toolId: string, phase: "feature" | "install", trusted: boolean, admission?: ObservationAdmission | undefined, inspect
+hin12	apps/daemon/src/languages/composition/managedAvailability.ts	87	70	reject:Declaration or statement expected. | Declaration or statement expected. | Cannot find name 'developerProviders'. Did you mean 'developerProvider'? | Expected 3-5 arguments, but got 2. | Property 'Avai
+hin13	apps/desktop/src/main/index.ts	462	1092	reject:Object literal may only specify known properties, and 'settings' does not exist in type 'PredictionBridgePorts'.
+hin13	apps/desktop/src/main/index.ts	462	1084	reject:Expected 1 arguments, but got 0.
+hin13	apps/desktop/src/main/index.ts	462	1040	reject:Expected 1 arguments, but got 2. | No value exists in scope for the shorthand property 'predictionPlacement'. Either declare one or provide an initializer.
+hin14	apps/desktop/src/main/index.ts	453	1056	reject:Argument of type '() => { readonly predictionEnabled?: boolean; readonly predictionConfigured?: boolean; readonly predictionDiscoveryShown?: boolean; readonly predictionClientEndpoints?: readonly { re
+hin14	apps/desktop/src/main/index.ts	453	1063	reject:Expected 2-3 arguments, but got 0. | Expected 2-3 arguments, but got 0.
+hin14	apps/desktop/src/main/index.ts	453	1083	reject:Argument of type 'PredictionSettings' is not assignable to parameter of type 'ClientRuntime'. Type 'PredictionSettings' is missing the following properties from type 'ManagedRuntime<ClientServices, ne
+hrf04	apps/daemon/src/inline/live.ts	32	67	allow
+hrf04	apps/daemon/src/inline/live.ts	32	55	allow
+hrf04	apps/daemon/src/inline/live.ts	32	88	allow
+hrf06	apps/desktop/src/main/updates/identity.ts	56	42	allow
+hrf06	apps/desktop/src/main/updates/identity.ts	56	39	allow
+hrf06	apps/desktop/src/main/updates/identity.ts	56	38	allow
+hrf07	apps/desktop/src/renderer/features/constellation/ui/ConstellationTab.tsx	403	180	allow
+hrf07	apps/desktop/src/renderer/features/constellation/ui/ConstellationTab.tsx	403	155	reject:Argument of type '(hostKey: string, leadSessionId: string) => string' is not assignable to parameter of type 'string'.
+hrf09	apps/desktop/src/main/github/index.ts	257	111	reject:Duplicate identifier 'SecureStorage'. | Duplicate identifier 'SecureStorage'.
+hrf10	apps/desktop/src/main/machines/index.ts	82	78	reject:Argument of type '() => string | null' is not assignable to parameter of type 'Layer<never, any, any>'.
+hrf10	apps/desktop/src/main/machines/index.ts	82	79	reject:',' expected. | ',' expected. | ')' expected. | Object literal may only specify known properties, and 'Layer' does not exist in type 'HostAccessOptions'.
+hrf11	apps/desktop/src/main/prediction/bridge.ts	247	1033	allow
+hrf11	apps/desktop/src/main/prediction/bridge.ts	247	1007	allow
+hrf11	apps/desktop/src/main/prediction/bridge.ts	247	1001	allow
+hrf12	packages/ui/gallery/sections/floating.tsx	231	93	allow
+hrf12	packages/ui/gallery/sections/floating.tsx	231	92	allow
+hrf12	packages/ui/gallery/sections/floating.tsx	231	82	allow
+hrf13	apps/desktop/src/renderer/routes/selection.ts	248	146	allow
+hrf13	apps/desktop/src/renderer/routes/selection.ts	248	111	reject:Cannot find name 'models'.
+hrn01	apps/site/scripts/smoke-feed.ts	239	66	reject:An object literal cannot have multiple properties with the same name. | An object literal cannot have multiple properties with the same name. | An object literal cannot have multiple properties with t
+hrn01	apps/site/scripts/smoke-feed.ts	239	36	reject:An object literal cannot have multiple properties with the same name. | An object literal cannot have multiple properties with the same name. | An object literal cannot have multiple properties with t
+hrn01	apps/site/scripts/smoke-feed.ts	239	50	reject:Property 'status' does not exist on type '{ readonly _time: string; readonly request_id: string; readonly method: "GET"; readonly route: string; readonly service: "polaris-site"; readonly commit: stri
+hrn02	apps/daemon/src/store/EventStore.ts	583	141	reject:Type '(sql: SqlClient.SqlClient) => ReviewReads' is not assignable to type 'ReviewReads'.
+hrn03	apps/daemon/src/languages/install/index.ts	434	71	allow
+hrn09	apps/desktop/src/renderer/features/composer/model/notice.ts	43	87	allow
+hrn09	apps/desktop/src/renderer/features/composer/model/notice.ts	43	92	allow
+hrn10	apps/daemon/src/reviewer/index.ts	256	162	reject:Parameter 'workspaceId' implicitly has an 'any' type.
+hrn10	apps/daemon/src/reviewer/index.ts	256	153	reject:Parameter 'harness' implicitly has an 'any' type.
+hrn10	apps/daemon/src/reviewer/index.ts	256	161	reject:Parameter 'sessionId' implicitly has an 'any' type.
+hrn11	apps/daemon/src/git/diff.ts	153	66	reject:Property 'rulesAt' does not exist on type '{ readonly _tag: "Range"; readonly base: string; readonly head: string; }'.
+hrn11	apps/daemon/src/git/diff.ts	153	65	reject:No value exists in scope for the shorthand property 'rulesAt'. Either declare one or provide an initializer.
+hrn12	apps/desktop/scripts/smoke.ts	508	57	allow
+hrn13	apps/desktop/src/renderer/features/constellation/preview/Preview.tsx	266	192	reject:An object literal cannot have multiple properties with the same name.
+hrn13	apps/desktop/src/renderer/features/constellation/preview/Preview.tsx	266	213	reject:Object literal may only specify known properties, and '"slugs-focus"' does not exist in type 'Readonly<Record<"completed" | "empty" | "focus" | "handed" | "handover" | "large" | "lead" | "menu" | "pau
+hrn13	apps/desktop/src/renderer/features/constellation/preview/Preview.tsx	266	178	reject:Object literal may only specify known properties, and '"slugs-focus"' does not exist in type 'Readonly<Record<"completed" | "empty" | "focus" | "handed" | "handover" | "large" | "lead" | "menu" | "pau
+hrn14	apps/desktop/src/renderer/features/editor/status/LogTab.tsx	120	128	allow
+hrn14	apps/desktop/src/renderer/features/editor/status/LogTab.tsx	120	121	allow
+hrn14	apps/desktop/src/renderer/features/editor/status/LogTab.tsx	120	120	allow
+im02	apps/daemon/src/transport/hostInfo.ts	62	67	allow
+im02	apps/daemon/src/transport/hostInfo.ts	62	58	allow
+im03	apps/daemon/src/files/trash.ts	81	65	reject:',' expected. | ',' expected. | ',' expected. | Declaration or statement expected. | ';' expected. | ';' expected. | Declaration or statement expected. | ']' expected. | Declaration or statement expec
+im03	apps/daemon/src/files/trash.ts	81	59	reject:',' expected. | ',' expected. | ',' expected. | Declaration or statement expected. | ';' expected. | ';' expected. | Declaration or statement expected. | ']' expected. | Declaration or statement expec
+im03	apps/daemon/src/files/trash.ts	81	62	allow
+im04	apps/daemon/src/harness/registry.ts	170	69	reject:Cannot find name 'binary'. | Cannot find name 'binary'. | Cannot find name 'binary'. | Cannot find name 'binary'.
+im04	apps/daemon/src/harness/registry.ts	170	69	reject:A function whose declared type is neither 'undefined', 'void', nor 'any' must return a value.
+im04	apps/daemon/src/harness/registry.ts	170	65	allow
+im06	apps/daemon/src/engine/fork.ts	92	58	allow
+in01	apps/daemon/src/constellation/setup/process.ts	68	62	reject:Type '(source?: Readonly<Record<string, string | undefined>>) => { readonly [x: string]: string | undefined; }' is not assignable to type 'Record<string, string | undefined>'. Index signature for type
+in01	apps/daemon/src/constellation/setup/process.ts	68	61	reject:Argument of type 'string' is not assignable to parameter of type 'Readonly<Record<string, string | undefined>>'.
+in01	apps/daemon/src/constellation/setup/process.ts	68	61	reject:Type '(source?: Readonly<Record<string, string | undefined>>) => { readonly [x: string]: string | undefined; }' is not assignable to type 'Record<string, string | undefined>'. Index signature for type
+in04	apps/desktop/src/renderer/features/constellation/model/attention.ts	83	115	reject:Type '"outcome"' is not comparable to type '"approval" | "handed" | "question" | "setup" | "stopped"'.
+in04	apps/desktop/src/renderer/features/constellation/model/attention.ts	83	103	allow
+in04	apps/desktop/src/renderer/features/constellation/model/attention.ts	83	109	allow
+rf01	apps/desktop/src/main/machines/views.ts	195	75	allow
+rf01	apps/desktop/src/main/machines/views.ts	195	57	allow
+rf01	apps/desktop/src/main/machines/views.ts	195	49	allow
+rf03	packages/ui/gallery/sections/basics.tsx	163	60	allow
+rf06	apps/desktop/src/renderer/features/editor/prediction/commands.ts	43	97	reject:Cannot find name 'acceptable'.
+rf06	apps/desktop/src/renderer/features/editor/prediction/commands.ts	43	82	allow
+rf06	apps/desktop/src/renderer/features/editor/prediction/commands.ts	43	92	allow
+rn01	apps/desktop/src/main/updates/index.ts	229	43	reject:Type '{ phase: "blocked" | "idle"; version: string; availableVersion: null; automatic: boolean; lastCheckedAt: number | null; installId: string; osVersion: string; platform: string | undefined; arch: 
+rn01	apps/desktop/src/main/updates/index.ts	229	41	allow
+rn01	apps/desktop/src/main/updates/index.ts	229	29	allow
+rn02	apps/site/app/api/update/_lib/windows.ts	142	41	allow
+rn02	apps/site/app/api/update/_lib/windows.ts	142	43	allow
+rn02	apps/site/app/api/update/_lib/windows.ts	142	45	allow
+rn03	apps/desktop/src/renderer/features/review/overview/ui/TabBar.tsx	98	107	reject:Property or signature expected. | Duplicate identifier 'commandShortcut'. | Duplicate identifier 'commandShortcut'.
+rn04	apps/desktop/src/renderer/features/machines/updates/Controls.tsx	104	127	allow
+rn04	apps/desktop/src/renderer/features/machines/updates/Controls.tsx	104	124	allow
+rn04	apps/desktop/src/renderer/features/machines/updates/Controls.tsx	104	103	allow
+rn06	apps/site/app/api/email/_lib/index.ts	94	49	reject:Expression expected. | Declaration or statement expected. | Unexpected keyword or identifier. | Declaration or statement expected. | Parameter 'request' implicitly has an 'any' type. | 'rateLimit' imp
