@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { chmodSync, existsSync, readdirSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { Effect } from "effect";
 import { makeFakeBlobChannel } from "../files/testing.ts";
@@ -8,8 +8,9 @@ import { handleGitDiff, handleGitStatus } from "./GitRpcs.ts";
 import { GitOutputTooLarge, gitText, runGitRaw } from "./git.ts";
 import { pinCommits } from "./review/fetch.ts";
 import { reviewRef } from "./review/refs.ts";
-import { repositoryDrivers } from "./safeConfig.ts";
+import { parseListing, repositoryOverrides } from "./safeConfig/index.ts";
 import { showFile } from "./show.ts";
+import { snapshotWorkingTree } from "./snapshot.ts";
 import { commitAll, makeRepo, removeDir, tempDir, write } from "./testing.ts";
 
 const cleanup: Array<string> = [];
@@ -117,36 +118,231 @@ describe("automatic git in a Workspace's repository", () => {
   });
 });
 
-describe("repositoryDrivers", () => {
-  test("turns off the local and worktree drivers, keeps the user's own and git-lfs's", () => {
-    const listing = [
-      "global",
-      "filter.lfs.clean\ngit-lfs clean -- %f",
-      "global",
-      "filter.mine.clean\nmy-clean",
-      "local",
-      "filter.lfs.process\ngit-lfs filter-process",
-      "local",
-      "filter.evil.smudge\nrm -rf ~",
-      "worktree",
-      "merge.evil.driver\nsh evil.sh",
-      "local",
-      "core.bare\nfalse",
-      "",
-    ].join("\0");
+describe("where git reads its config from", () => {
+  test("a Workspace folder git doesn't take as a repository still gets its parent's drivers turned off", async () => {
+    const markers = dir(tempDir("polaris-markers-"));
+    const root = dir(await makeRepo({ "a.txt": "a\n", ".gitattributes": "*.txt filter=late\n" }));
+    // An empty `.git` isn't a repository: git reads `root`'s config from here.
+    mkdirSync(join(root, "pkg/.git"), { recursive: true });
+    const pkg = join(root, "pkg");
+    await gitText(pkg, ["status", "--porcelain"]);
 
-    expect(repositoryDrivers(listing)).toEqual({
-      overrides: [
-        ["filter.evil.smudge", ""],
-        ["merge.evil.driver", ""],
-      ],
-      cacheable: true,
-    });
+    await gitText(root, ["config", "filter.late.clean", script(markers, "late")]);
+    write(root, "a.txt", "b\n");
+    await gitText(pkg, ["status", "--porcelain"]);
+
+    expect(ran(markers)).toEqual([]);
   });
 
-  test("a repository whose config includes another file is read every time", () => {
-    expect(repositoryDrivers("local\0include.path\n../x.cfg\0").cacheable).toBe(false);
-    expect(repositoryDrivers("local\0includeif.onbranch:main.path\nx\0").cacheable).toBe(false);
+  test("a repository that appears inside the Workspace's is read from then on", async () => {
+    const markers = dir(tempDir("polaris-markers-"));
+    const root = dir(await makeRepo({ "a.txt": "a\n" }));
+    write(root, "pkg/b.txt", "b\n");
+    const pkg = join(root, "pkg");
+    await gitText(pkg, ["status", "--porcelain"]);
+
+    await gitText(pkg, ["init", "-q"]);
+    write(pkg, ".gitattributes", "*.txt filter=inner\n");
+    await gitText(pkg, ["add", "-A"]);
+    await gitText(pkg, ["config", "filter.inner.clean", script(markers, "clean")]);
+    write(pkg, "b.txt", "c\n");
+    await gitText(pkg, ["status", "--porcelain"]);
+
+    expect(ran(markers)).toEqual([]);
+  });
+
+  test("a driver added to a file the repository's config includes is turned off too", async () => {
+    const markers = dir(tempDir("polaris-markers-"));
+    const root = dir(await makeRepo({ "a.txt": "a\n", ".gitattributes": "*.txt filter=late\n" }));
+    write(root, ".git/extra.cfg", "");
+    await gitText(root, ["config", "include.path", "extra.cfg"]);
+    await gitText(root, ["status", "--porcelain"]);
+
+    write(root, ".git/extra.cfg", `[filter "late"]\n\tclean = ${script(markers, "late")}\n`);
+    write(root, "a.txt", "b\n");
+    await gitText(root, ["status", "--porcelain"]);
+
+    expect(ran(markers)).toEqual([]);
+  });
+
+  test("a `-C` in the arguments reads that repository's drivers, not the cwd's", async () => {
+    const markers = dir(tempDir("polaris-markers-"));
+    const elsewhere = dir(tempDir("polaris-cwd-"));
+    const root = dir(await makeRepo({ "a.txt": "a\n", ".gitattributes": "*.txt filter=evil\n" }));
+    await gitText(root, ["config", "filter.evil.clean", script(markers, "clean")]);
+    write(root, "a.txt", "b\n");
+
+    await gitText(elsewhere, ["-C", root, "status", "--porcelain"]);
+
+    expect(ran(markers)).toEqual([]);
+  });
+});
+
+/** A Workspace whose submodule arrived with its own config naming a filter and an fsmonitor. */
+const withSubmodule = async () => {
+  const markers = dir(tempDir("polaris-markers-"));
+  const source = dir(await makeRepo({ "s.txt": "s\n", ".gitattributes": "*.txt filter=inner\n" }));
+  const root = dir(await makeRepo({ "a.txt": "a\n" }));
+
+  await gitText(
+    root,
+    ["-c", "protocol.file.allow=always", "submodule", "add", "-q", source, "sub"],
+    {
+      config: "host",
+    }
+  );
+
+  await commitAll(root, "submodule");
+  const sub = join(root, "sub");
+
+  for (const [key, value] of [
+    ["user.name", "Test"],
+    ["user.email", "test@example.com"],
+    ["commit.gpgsign", "false"],
+  ]) {
+    await gitText(sub, ["config", key ?? "", value ?? ""]);
+  }
+
+  await gitText(sub, ["config", "filter.inner.clean", script(markers, "clean")]);
+  await gitText(sub, ["config", "core.fsmonitor", script(markers, "fsmonitor")]);
+  write(sub, "s.txt", "t\n");
+
+  return { root, markers };
+};
+
+describe("automatic git never goes into a submodule", () => {
+  test("the explorer's status, a working-tree diff and a checkpoint snapshot run none of its commands", async () => {
+    const { root, markers } = await withSubmodule();
+    const blobs = makeFakeBlobChannel();
+
+    await Effect.runPromise(handleGitStatus({ cwd: root }));
+    await Effect.runPromise(
+      handleGitDiff({ cwd: root, spec: DiffSpec.cases.WorkingTree.make({ base: null }) }).pipe(
+        Effect.provide(blobs.layer)
+      )
+    );
+    const snapshot = await snapshotWorkingTree(root);
+
+    expect(ran(markers)).toEqual([]);
+    expect(await gitText(root, ["ls-tree", "--name-only", snapshot?.tree ?? ""])).toBe(
+      ".gitmodules\na.txt\nsub"
+    );
+
+    // The control: git as the Host has it runs the submodule's filter.
+    await runGitRaw(root, ["status", "--porcelain"], { config: "host" });
+    expect(ran(markers)).toEqual(["clean", "fsmonitor"]);
+  });
+
+  test("a submodule moved to another commit still shows as changed", async () => {
+    const { root } = await withSubmodule();
+    await gitText(join(root, "sub"), ["commit", "-qam", "moved"]);
+
+    const status = await Effect.runPromise(handleGitStatus({ cwd: root }));
+
+    expect(status.entries.map((e) => `${e.worktree} ${e.path}`)).toEqual(["M sub"]);
+  });
+});
+
+/** A config file of the Host's own (the user's global config), for `GIT_CONFIG_GLOBAL`. */
+const hostConfig = (lines: string) => {
+  const home = dir(tempDir("polaris-home-"));
+  write(home, "gitconfig", lines);
+
+  return { GIT_CONFIG_GLOBAL: join(home, "gitconfig") };
+};
+
+/** The value git uses: the last one set. */
+const effective = (
+  root: string,
+  key: string,
+  options: { readonly env: Record<string, string>; readonly config?: "fetch" }
+) => gitText(root, ["config", "--get", key], options);
+
+describe("network settings on automatic git", () => {
+  test("the repository's credential helper and ssh command give way to the Host's", async () => {
+    const root = dir(await makeRepo({ "a.txt": "a\n" }));
+    await gitText(root, ["config", "credential.https://github.com.helper", "!evil-helper"]);
+    await gitText(root, ["config", "core.sshCommand", "evil-ssh"]);
+
+    const env = hostConfig(
+      "[credential]\n\thelper = host-helper\n[core]\n\tsshCommand = host-ssh\n"
+    );
+
+    const helpers = (
+      await gitText(root, ["config", "--get-regexp", "^credential\\..*helper$"], { env })
+    ).split("\n");
+
+    const inUse = helpers.slice(helpers.lastIndexOf("credential.helper "));
+
+    expect(inUse).toContain("credential.helper host-helper");
+    expect(inUse.join("\n")).not.toContain("evil");
+    expect(await effective(root, "core.sshCommand", { env })).toBe("host-ssh");
+
+    // A Review fetch keeps them: per-repository deploy keys and helpers authenticate it.
+    expect(await effective(root, "core.sshCommand", { env, config: "fetch" })).toBe("evil-ssh");
+  });
+
+  test("a fetch from a local remote never runs the upload-pack the repository's config names", async () => {
+    const markers = dir(tempDir("polaris-markers-"));
+    const upstream = dir(await makeRepo({ "a.txt": "a\n" }));
+    const root = dir(await makeRepo({ "b.txt": "b\n" }));
+    await gitText(root, ["remote", "add", "origin", upstream]);
+    await gitText(root, [
+      "config",
+      "remote.origin.uploadpack",
+      `${script(markers, "upload")}; git-upload-pack`,
+    ]);
+
+    await gitText(root, ["fetch", "-q", "origin", "main:refs/polaris/test/safe"]);
+    await gitText(root, ["fetch", "-q", "origin", "main:refs/polaris/test/main"], {
+      config: "fetch",
+    });
+
+    expect(ran(markers)).toEqual([]);
+    expect(await gitText(root, ["rev-parse", "refs/polaris/test/main"])).toBe(
+      await gitText(upstream, ["rev-parse", "HEAD"])
+    );
+  });
+});
+
+describe("repositoryOverrides", () => {
+  test("turns off the repository's drivers, keeps the user's own and git-lfs's", () => {
+    const entries = parseListing(
+      [
+        "global",
+        "file:x",
+        "filter.lfs.clean\ngit-lfs clean -- %f",
+        "global",
+        "file:x",
+        "filter.mine.clean\nmy-clean",
+        "local",
+        "file:x",
+        "filter.lfs.process\ngit-lfs filter-process",
+        "local",
+        "file:x",
+        "filter.evil.smudge\nrm -rf ~",
+        "worktree",
+        "file:x",
+        "merge.evil.driver\nsh evil.sh",
+        "local",
+        "file:x",
+        "core.bare\nfalse",
+        "",
+      ].join("\0")
+    );
+
+    expect(repositoryOverrides(entries, "safe")).toEqual([
+      ["filter.evil.smudge", ""],
+      ["merge.evil.driver", ""],
+    ]);
+  });
+
+  test("without a repository credential helper or ssh command, the Host's stand as they are", () => {
+    const entries = parseListing(
+      "global\0file:g\0credential.helper\nosxkeychain\0global\0file:g\0core.sshcommand\nssh -i k\0"
+    );
+
+    expect(repositoryOverrides(entries, "safe")).toEqual([]);
   });
 });
 

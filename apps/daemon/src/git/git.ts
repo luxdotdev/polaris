@@ -1,6 +1,6 @@
 /**
  * The one way the Daemon runs git: the Host's own `git` CLI and credentials, no JS
- * git. Calls run with `safeConfig.ts`'s settings unless they're git the user asked for.
+ * git. Calls run with `safeConfig/`'s settings unless they're git the user asked for.
  */
 import { childEnv } from "../service/childEnv.ts";
 import { existsSync } from "node:fs";
@@ -8,7 +8,7 @@ import { dirname, join, resolve } from "node:path";
 import { Effect } from "effect";
 import { ServiceError } from "../services.ts";
 import { megabytes, readBounded, readHead } from "./output.ts";
-import { safeConfigEnv, withoutDiffDrivers } from "./safeConfig.ts";
+import { safeArgs, safeConfigEnv } from "./safeConfig/index.ts";
 
 export interface GitResult {
   readonly code: number;
@@ -28,9 +28,10 @@ export interface GitOptions {
   readonly signal?: AbortSignal;
   /**
    * `"host"` is git the user asked for (commit, sync, Accept, stage): the Host's
-   * config and hooks as they are. The default turns off everything that runs a command.
+   * config and hooks as they are. The default turns off everything that runs a command;
+   * `"fetch"` (a Review fetch) keeps the repository's own ssh command and credential helpers.
    */
-  readonly config?: "safe" | "host";
+  readonly config?: "safe" | "fetch" | "host";
   /** Stop git once stdout passes this; it then fails with `GitOutputTooLarge`. */
   readonly maxOutputBytes?: number;
 }
@@ -81,7 +82,8 @@ export const runGitRaw = async (
 ): Promise<GitResult> => {
   const host = options.config === "host";
   const base = { ...baseEnv(), ...options.env };
-  const safe = host ? {} : await safeConfigEnv(cwd, base);
+  const mode = options.config === "fetch" ? "fetch" : "safe";
+  const safe = host ? {} : await safeConfigEnv(cwd, base, { args, mode });
 
   const spawnOptions: Bun.SpawnOptions.OptionsObject<"ignore" | Blob, "pipe", "pipe"> = {
     cwd,
@@ -99,7 +101,7 @@ export const runGitRaw = async (
   // Its own process group, so an abort also stops what git started (ssh, a credential helper).
   if (options.signal !== undefined) spawnOptions.detached = true;
 
-  const proc = Bun.spawn(["git", ...(host ? args : withoutDiffDrivers(args))], spawnOptions);
+  const proc = Bun.spawn(["git", ...(host ? args : safeArgs(args))], spawnOptions);
   const stop = () => killGroup(proc.pid);
 
   const overflow = () => {

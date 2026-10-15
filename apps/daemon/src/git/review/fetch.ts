@@ -118,7 +118,11 @@ const runFetch = async (
       source.source,
       ...refspecs,
     ],
-    { env: { GIT_SSH_COMMAND: await batchSshCommand(repoPath) }, timeoutMs: options.timeoutMs }
+    {
+      config: "fetch",
+      env: { GIT_SSH_COMMAND: await batchSshCommand(repoPath) },
+      timeoutMs: options.timeoutMs,
+    }
   );
 
 /**

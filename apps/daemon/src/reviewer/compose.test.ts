@@ -18,6 +18,7 @@ const repo = async () => {
   await gitText(dir, ["init", "-q", "-b", "main"]);
   await gitText(dir, ["config", "user.email", "t@example.com"]);
   await gitText(dir, ["config", "user.name", "T"]);
+  await gitText(dir, ["config", "commit.gpgsign", "false"]);
   write(dir, "a.txt", "a0\n");
   write(dir, "gone.txt", "bye\n");
 

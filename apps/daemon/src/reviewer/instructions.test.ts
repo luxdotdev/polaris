@@ -46,6 +46,7 @@ describe("review instructions", () => {
     await gitText(repo, ["init", "-q", "-b", "main"]);
     await gitText(repo, ["config", "user.email", "t@example.com"]);
     await gitText(repo, ["config", "user.name", "T"]);
+    await gitText(repo, ["config", "commit.gpgsign", "false"]);
     await gitText(repo, ["remote", "add", "origin", "git@github.com:Acme/App.git"]);
     write(repo, ".polaris/review.md", "---\nignore: [vendor/**]\n---\nCommitted rules.\n");
     const head = await commitAll(repo, "instructions");

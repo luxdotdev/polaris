@@ -10,7 +10,7 @@ import { readdir } from "node:fs/promises";
 import { availableParallelism } from "node:os";
 import { join, relative } from "node:path";
 import { baseEnv, findRepoRoot, runGit } from "../../git/git.ts";
-import { safeConfigEnv } from "../../git/safeConfig.ts";
+import { safeConfigEnv } from "../../git/safeConfig/index.ts";
 import type { FileChange, GrepHit, GrepQuery, PathHit, SearchBackend } from "./types.ts";
 import { WALK_SKIP, watchRoot } from "./watch.ts";
 
