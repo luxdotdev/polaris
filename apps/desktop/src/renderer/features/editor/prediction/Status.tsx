@@ -84,14 +84,13 @@ export const PredictionStatus = ({ hostKey, path }: PredictionStatusProps) => {
   const target = preview.target;
   const managed = preview.managed;
   const managedSide = managed?.side;
-  const busy = preview.kind === "downloading" || preview.kind === "loading";
 
-  // The managed server's changes are followed while the card is open or a download or load runs.
+  // The managed server pushes its phases (a download, a lazy start) while completion is on.
   useEffect(() => {
-    if (managedSide === undefined || (!open && !busy)) return;
+    if (managedSide === undefined || (!open && !state.enabled)) return;
 
     return watchManaged(api, hostKey, managedSide);
-  }, [api, hostKey, managedSide, open, busy]);
+  }, [api, hostKey, managedSide, open, state.enabled]);
 
   const ownsTarget = managed !== null && managed.status.endpoint?.url === target?.endpoint.url;
   const server = useServerReport(api, hostKey, target, open && !ownsTarget, revision);
