@@ -1,0 +1,48 @@
+{
+  "mode": "adopt",
+  "model": "sweep-next-edit-1.5b",
+  "dir": "/Users/lucasdoell/polaris-perf-models",
+  "idleMs": 5000,
+  "results": [
+    {
+      "run": 1,
+      "residentBefore": 1,
+      "load": [
+        3.88,
+        5.56,
+        4.64
+      ],
+      "verifyS": 0.952978166
+    },
+    {
+      "run": 2,
+      "residentBefore": 0,
+      "load": [
+        3.88,
+        5.56,
+        4.64
+      ],
+      "verifyS": 0.9846526659999999
+    },
+    {
+      "run": 3,
+      "residentBefore": 0,
+      "load": [
+        3.88,
+        5.56,
+        4.64
+      ],
+      "verifyS": 0.9975273750000001
+    },
+    {
+      "run": 4,
+      "residentBefore": 0,
+      "load": [
+        3.88,
+        5.56,
+        4.64
+      ],
+      "verifyS": 0.9815627080000003
+    }
+  ]
+}

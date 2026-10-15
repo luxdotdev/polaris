@@ -1,0 +1,158 @@
+{
+  "mode": "starts",
+  "model": "sweep-next-edit-1.5b",
+  "dir": "/Users/lucasdoell/polaris-perf-models",
+  "idleMs": 5000,
+  "results": [
+    {
+      "kind": "cold",
+      "residentBefore": 0,
+      "load": [
+        4.53,
+        5.66,
+        4.68
+      ],
+      "startMs": 6688.410207999999,
+      "healthMs": 6437.702625,
+      "productLoadMs": 6684,
+      "productMemoryBytes": 1864908800,
+      "firstRequestMs": 238.9547079999993,
+      "secondRequestMs": 98.64241700000002,
+      "memWarm": {
+        "rssBytes": 1866842112,
+        "footprintBytes": 311427072
+      },
+      "memIdle": {
+        "rssBytes": 1866399744,
+        "footprintBytes": 307232768
+      },
+      "unloadedAfterMs": 11689.638458,
+      "exited": true
+    },
+    {
+      "kind": "warm",
+      "residentBefore": 1,
+      "load": [
+        5.26,
+        5.79,
+        4.74
+      ],
+      "startMs": 504.5154160000002,
+      "healthMs": 300.3730830000004,
+      "productLoadMs": 503,
+      "productMemoryBytes": 1883422720,
+      "firstRequestMs": 115.23754200000076,
+      "secondRequestMs": 104.34729200000038,
+      "memWarm": {
+        "rssBytes": 1885290496,
+        "footprintBytes": 306184192
+      },
+      "memIdle": {
+        "rssBytes": 1885208576,
+        "footprintBytes": 301989888
+      },
+      "unloadedAfterMs": 5505.328290999998,
+      "exited": true
+    },
+    {
+      "kind": "cold",
+      "residentBefore": 0,
+      "load": [
+        5.75,
+        5.88,
+        4.78
+      ],
+      "startMs": 1005.315416999998,
+      "healthMs": 1023.6196249999994,
+      "productLoadMs": 1003,
+      "productMemoryBytes": 1860780032,
+      "firstRequestMs": 117.81279200000063,
+      "secondRequestMs": 105.54191699999865,
+      "memWarm": {
+        "rssBytes": 1862041600,
+        "footprintBytes": 306184192
+      },
+      "memIdle": {
+        "rssBytes": 1861894144,
+        "footprintBytes": 303038464
+      },
+      "unloadedAfterMs": 6006.421041999998,
+      "exited": true
+    },
+    {
+      "kind": "warm",
+      "residentBefore": 1,
+      "load": [
+        6.25,
+        5.98,
+        4.82
+      ],
+      "startMs": 505.0695420000011,
+      "healthMs": 276.01887499999793,
+      "productLoadMs": 503,
+      "productMemoryBytes": 1881161728,
+      "firstRequestMs": 119.86820899999657,
+      "secondRequestMs": 104.04045799999949,
+      "memWarm": {
+        "rssBytes": 1883340800,
+        "footprintBytes": 304087040
+      },
+      "memIdle": {
+        "rssBytes": 1883209728,
+        "footprintBytes": 299892736
+      },
+      "unloadedAfterMs": 5507.3010829999985,
+      "exited": true
+    },
+    {
+      "kind": "cold",
+      "residentBefore": 0,
+      "load": [
+        5.6,
+        5.85,
+        4.79
+      ],
+      "startMs": 1506.4080410000024,
+      "healthMs": 1052.2345829999977,
+      "productLoadMs": 1503,
+      "productMemoryBytes": 1862189056,
+      "firstRequestMs": 123.75850000000355,
+      "secondRequestMs": 104.05774999999994,
+      "memWarm": {
+        "rssBytes": 1863565312,
+        "footprintBytes": 308281344
+      },
+      "memIdle": {
+        "rssBytes": 1863368704,
+        "footprintBytes": 304087040
+      },
+      "unloadedAfterMs": 6507.771832999999,
+      "exited": true
+    },
+    {
+      "kind": "warm",
+      "residentBefore": 1,
+      "load": [
+        5.23,
+        5.76,
+        4.77
+      ],
+      "startMs": 504.93133300000045,
+      "healthMs": 275.97170899999765,
+      "productLoadMs": 504,
+      "productMemoryBytes": 1879261184,
+      "firstRequestMs": 117.20395800000551,
+      "secondRequestMs": 103.0045420000024,
+      "memWarm": {
+        "rssBytes": 1881964544,
+        "footprintBytes": 303038464
+      },
+      "memIdle": {
+        "rssBytes": 1881866240,
+        "footprintBytes": 298844160
+      },
+      "unloadedAfterMs": 5507.214291999997,
+      "exited": true
+    }
+  ]
+}

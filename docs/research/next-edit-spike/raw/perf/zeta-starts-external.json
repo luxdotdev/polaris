@@ -1,0 +1,158 @@
+{
+  "mode": "starts",
+  "model": "zeta-2.1",
+  "dir": "/Users/lucasdoell/polaris-perf-models/zeta-ext",
+  "idleMs": 8000,
+  "results": [
+    {
+      "kind": "cold",
+      "residentBefore": 0,
+      "load": [
+        8.28,
+        11.81,
+        9.21
+      ],
+      "startMs": 48048.115583999985,
+      "healthMs": 47722.973333,
+      "productLoadMs": 48042,
+      "productMemoryBytes": 6189744128,
+      "firstRequestMs": 554.9689580000122,
+      "secondRequestMs": 312.71724999998696,
+      "memWarm": {
+        "rssBytes": 6193577984,
+        "footprintBytes": 1154482176
+      },
+      "memIdle": {
+        "rssBytes": 6173491200,
+        "footprintBytes": 1155530752
+      },
+      "unloadedAfterMs": 56049.588334,
+      "exited": true
+    },
+    {
+      "kind": "warm",
+      "residentBefore": 0.9987658907716414,
+      "load": [
+        5.89,
+        10.7,
+        8.99
+      ],
+      "startMs": 1506.304833000002,
+      "healthMs": 1160.1253340000112,
+      "productLoadMs": 1504,
+      "productMemoryBytes": 6286180352,
+      "firstRequestMs": 383.93808300001547,
+      "secondRequestMs": 304.09820800001035,
+      "memWarm": {
+        "rssBytes": 6290866176,
+        "footprintBytes": 1154482176
+      },
+      "memIdle": {
+        "rssBytes": 6290276352,
+        "footprintBytes": 1150287872
+      },
+      "unloadedAfterMs": 9508.658624999982,
+      "exited": true
+    },
+    {
+      "kind": "cold",
+      "residentBefore": 0,
+      "load": [
+        5.37,
+        10.43,
+        8.91
+      ],
+      "startMs": 33050.160166999995,
+      "healthMs": 32665.393541999976,
+      "productLoadMs": 33047,
+      "productMemoryBytes": 6191677440,
+      "firstRequestMs": 381.2318749999977,
+      "secondRequestMs": 304.2507500000065,
+      "memWarm": {
+        "rssBytes": 6194167808,
+        "footprintBytes": 1150287872
+      },
+      "memIdle": {
+        "rssBytes": 6177062912,
+        "footprintBytes": 1162870784
+      },
+      "unloadedAfterMs": 41051.39558400001,
+      "exited": true
+    },
+    {
+      "kind": "warm",
+      "residentBefore": 0.9987658907716414,
+      "load": [
+        5.74,
+        9.8,
+        8.75
+      ],
+      "startMs": 1506.9042079999927,
+      "healthMs": 1048.5505420000118,
+      "productLoadMs": 1505,
+      "productMemoryBytes": 6287179776,
+      "firstRequestMs": 388.83358400000725,
+      "secondRequestMs": 309.8782089999877,
+      "memWarm": {
+        "rssBytes": 6291652608,
+        "footprintBytes": 1153433600
+      },
+      "memIdle": {
+        "rssBytes": 6291079168,
+        "footprintBytes": 1149239296
+      },
+      "unloadedAfterMs": 9508.251499999984,
+      "exited": true
+    },
+    {
+      "kind": "cold",
+      "residentBefore": 0,
+      "load": [
+        5.18,
+        9.48,
+        8.65
+      ],
+      "startMs": 91616.103916,
+      "healthMs": 91263.391917,
+      "productLoadMs": 91613,
+      "productMemoryBytes": 6061522944,
+      "firstRequestMs": 381.4610410000314,
+      "secondRequestMs": 304.05704200000037,
+      "memWarm": {
+        "rssBytes": 6068682752,
+        "footprintBytes": 1177550848
+      },
+      "memIdle": {
+        "rssBytes": 6068715520,
+        "footprintBytes": 1173356544
+      },
+      "unloadedAfterMs": 99617.92129100004,
+      "exited": true
+    },
+    {
+      "kind": "warm",
+      "residentBefore": 0.9987658907716414,
+      "load": [
+        3.59,
+        7.77,
+        8.08
+      ],
+      "startMs": 1507.9176250000019,
+      "healthMs": 1092.9697499999893,
+      "productLoadMs": 1505,
+      "productMemoryBytes": 6288064512,
+      "firstRequestMs": 383.09708300000057,
+      "secondRequestMs": 303.69337499997346,
+      "memWarm": {
+        "rssBytes": 6292553728,
+        "footprintBytes": 1155530752
+      },
+      "memIdle": {
+        "rssBytes": 6290374656,
+        "footprintBytes": 1151336448
+      },
+      "unloadedAfterMs": 9510.05041700002,
+      "exited": true
+    }
+  ]
+}

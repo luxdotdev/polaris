@@ -574,3 +574,92 @@ The program is rebuilt when a shadow opens and again when it closes. On TypeScri
   - offer `tsc --lsp` as the default TypeScript server; or
   - run a second TypeScript 7 server for verification only, about 1.6 GB on this repo.
 - With TypeScript 7, the deadline suppresses every Final in the slow files and none elsewhere: about 10% of checks in this corpus.
+
+## Performance on the internal SSD, 2026-10-15
+
+**Question.** How long the managed path takes on this Mac with the model on the internal SSD (download, verify, load, completion), and what it costs in memory and idle CPU. These are the numbers for the release notes and the budgets. Earlier timings were taken from the external drive on a busy machine and are not speed benchmarks.
+
+**Setup.** M2 Max (12 cores, 32 GB), macOS 27.0, internal SSD, llama.cpp b11429 as pinned. Model folders were under `~/polaris-perf-models` and are deleted. Raw data is in [`raw/perf`](next-edit-spike/raw/perf/), and every row records the 1-minute load average.
+- [`perf-setup.ts`](next-edit-spike/scripts/perf-setup.ts) drives the Daemon's own `ManagedServer` with its real ports: download from the publisher, extract, SHA-256, spawn, health check, `ps` RSS.
+  - Only the idle unload is shortened, through the `timers` port (`IDLE_UNLOAD_MS` → 5 s). Product defaults are unchanged.
+  - "Product load" is the `loadMs` the status card shows as Load time. "Ready" is the harness's own 25 ms `/health` poll.
+  - Cold starts first evict the model and build from the page cache with `msync(MS_INVALIDATE)` ([`perf-pagecache.ts`](next-edit-spike/scripts/perf-pagecache.ts); `mincore` confirms 0% resident). This needs no sudo `purge`.
+- [`perf-latency.ts`](next-edit-spike/scripts/perf-latency.ts) runs the production `createEditPredictor` with 2048 output tokens, as the Desktop App asks. It uses `editOptions` against the managed server, over the 100 dev and 56 fresh cases.
+  - "File" is the first request in a file; its prompt is not cached.
+  - "Keystroke" is the same state requested right after the keystroke before it, which is how typing reaches the server.
+  - [`perf-table.ts`](next-edit-spike/scripts/perf-table.ts) prints the tables.
+- **Contention.** Other agents (Paper, TS7 lint runs) kept the load at 3–49 during the latency runs; no window stayed below 3. The latency rows are therefore contended. Load barely moves them, because inference runs on the GPU:
+  - Sweep at load < 4: "file" p50 672 ms, "keystroke" 345 ms (76 cases);
+  - at load ≥ 8: 685 ms and 332 ms (171 cases).
+  - The setup runs ran at load 3.0–10. Each row carries its load.
+
+### Setup, Sweep Next-Edit 1.5B (3 runs each unless noted)
+
+| Step | Runs | Result |
+|---|---|---|
+| Download, build (12 MB) | 0.58 / 0.43 / 0.31 s | |
+| Download, model (1.54 GB) from Hugging Face | 31.5 / 35.2 / 32.6 s | **47 MB/s** median (48.7 / 43.7 / 47.1); network-bound |
+| Verify after download (SHA-256 of the part file, cached) | 1.08 / 0.94 / 0.93 s | |
+| Whole setup (click to Downloaded) | 33.2 / 36.6 / 33.9 s | |
+| Verify an existing file on adoption (cold cache) | 0.98 / 1.00 / 0.98 s | ~1.5 GB/s, CPU-bound on the hash (cached: 0.95 s) |
+| **Cold load** (model evicted), ready / product Load time | 10 starts: ready 1.02–1.63 s, **median 1.3 s**; Load time 1.0–2.0 s, **median 1.5 s** | |
+| … of which reading the model | ~1.0 s | llama-server log: `load_model` 0.10 s → threadpool 1.07 s → listening 1.18 s |
+| … first start of a freshly extracted build | ready 1.44 / 1.47 / 1.59 s | +0.3–0.4 s over an evicted model with a known binary |
+| Cold-load outliers | 2 of 12: ready 6.4 s and 7.1 s | Not reproduced with 60 s gaps or new folders; the log was not captured for those two. Cause unknown |
+| **Warm load** (after the idle unload, page cache warm) | 6 starts: ready 0.28–0.31 s, **median 0.29 s**; Load time **0.50 s** every time | |
+| First completion after a load (14-token prompt, 16 tokens) | 115–159 ms, 239 ms after the slowest load | second request ~100 ms |
+| Idle unload | 12 of 12 exited | the server process was gone within 0.5 s of the timer |
+
+**The card's Load time overstates by up to 0.5 s.** `ManagedServer` polls health every 500 ms (`HEALTH_INTERVAL_MS`), so a 0.29 s warm load reports 0.50 s, and cold loads round up to the next half second. The first keystroke after the unload also waits that extra time.
+
+### Completion latency (contended, 3 runs × 156 cases, no Final lost)
+
+The spec sets no numeric latency targets (§1: "measured and reported, not enforced"), so the shares below use 300 ms, 500 ms and 1 s.
+
+| Model | Request | Final p50 / p90 / p95 | First token p50 / p90 / p95 | ≤ 300 ms | ≤ 500 ms | ≤ 1 s |
+|---|---|---:|---:|---:|---:|---:|
+| Sweep 1.5B Q8 | first in a file | 692 / 1023 / 1198 ms | 420 / 558 / 619 ms | 1% | 13% | 89% |
+| Sweep 1.5B Q8 | **next keystroke** | **343 / 572 / 689 ms** | 26 / 189 / 212 ms | 36% | 83% | 98% |
+| Zeta 2.1 Q4 | first in a file | 2162 / 3166 / 3527 ms | 1679 / 2271 / 2476 ms | 0% | 0% | 2% |
+| Zeta 2.1 Q4 | next keystroke | 384 / 1521 / 1745 ms | 84 / 217 / 312 ms | 14% | 57% | 66% |
+
+Per-run tables: [`sweep-latency.table.md`](next-edit-spike/raw/perf/sweep-latency.table.md), [`zeta-latency.table.md`](next-edit-spike/raw/perf/zeta-latency.table.md). Run-to-run p50 spread is under 10%.
+- **Where Sweep's time goes.** In a file it has just met, 60% of the time to Final is the uncached prompt: first token at 420 ms. On the next keystroke the first token comes at 26 ms, and generation (~180 tokens for the whole window) is the 343 ms.
+  - The spike measured 256 ms warm on its smaller layout. `editOptions` uses a 31-line window and an 80-line prefix.
+  - An earlier pass with 512 output tokens ([`sweep-latency-512tok-contended.jsonl`](next-edit-spike/raw/perf/sweep-latency-512tok-contended.jsonl)) lost 3 of 156 Finals per run to the output budget. At 2048, none were lost.
+- **Zeta is bimodal on keystrokes.** Its no-edit marker answers in a few hundred ms, while a full rewrite takes 1.5 s. Its prompt runs at about a quarter of Sweep's speed.
+- **Editor-side overhead.**
+  - Parse, diff and all seven guards ([`bench.ts`](../../packages/predict/src/edit/bench.ts), 3 × 3 rounds): p50 0.52–1.14 ms, p95 2.1–5.6 ms per Final ([raw](next-edit-spike/raw/perf/postprocess-bench.jsonl)). That is 0.3% of the model's time.
+  - The diagnostics verifier doesn't attach on main's default TypeScript (typescript-language-server). With `tsc --lsp` (not the default yet; `lang/ts7-default`), it adds the latency measured in the verifier wiring section above: p50 96 ms, p90 968 ms, capped at 600 ms.
+
+### Memory and idle
+
+| | Sweep 1.5B Q8 | Zeta 2.1 Q4 |
+|---|---:|---:|
+| Server RSS, warm and after 60 s idle (what the card's memory line reports) | 1.86–1.89 GB | 6.06–6.29 GB |
+| Server physical footprint (`footprint`; the mmapped weights are file-backed, so they're excluded) | ~300 MB | ~1.15 GB |
+| Catalog `memoryBytes` (Settings' "of memory" figure) | 2.6 GB | 8.7 GB |
+
+- **Settings' memory figures are conservative.** The served context is 8192 tokens, `-np 1`. Measured RSS is 72% of the stated figure for each model. Settings warns before a download, so the figures can stay as they are.
+- **`idle` bench** ([raw](next-edit-spike/raw/perf/bench-idle.json)), 3 runs against `mac14-13-apple-m2-max-12c.json`, with 3.8 cores busy elsewhere:
+  - with no Client: CPU 0.180%, wakeups 8.7/s, RSS 132 MiB;
+  - with a Client: 0.182%, 11.1/s.
+  - No regression, so the baseline is unchanged.
+  - This Daemon has tab completion off and no managed server: nothing is armed, and the managed server adds no timer.
+- **After the unload**, the harness process (the Daemon's `ManagedServer` with no server) exited on its own once the runs finished, so no ref'd timer or poll was left behind. The idle unload is the only timer, and it is unref'd.
+- **Not measured here.**
+  - The Desktop App end to end ([`perf-live.ts`](next-edit-spike/scripts/perf-live.ts) is ready; copy it into `apps/desktop/scripts/` to run). Other agents kept the internal disk at 13–21 GB free, and the build plus a download needs another 3.2 GB.
+  - The app's memory delta. The Edit Prediction pipeline is the ~1 ms post-processing above, so the delta should be small.
+  - Daemon RSS while serving. The server is a separate child process, counted above.
+- **Zeta measured from the external drive.** The 5.1 GB copy was deleted after the internal disk fell to 15 GB free. Zeta's warm load (ready 1.05–1.16 s; Load time 1.5 s), latency and memory were measured with the file on the external drive, all after it was resident in the page cache, so the drive doesn't affect them.
+  - Its cold loads from that drive (33–92 s) are not benchmarks.
+  - Estimate from Sweep's read rate: a cold Zeta load from the internal SSD would take about 4 s, and its hash about 3.4 s. Neither was measured.
+
+### Slowest steps, worth optimising later
+
+1. **Download, ~33 s for Sweep** at ~47 MB/s from one Hugging Face stream. Parallel range requests might help on a fast link; resume already exists.
+2. **First request in a file, p50 692 ms**, mostly uncached prompt (first token 420 ms). Prefilling the prompt cache when a file gains focus or after the pause, with a `max_tokens: 0` request, would bring it near the keystroke figure.
+3. **Generation of the whole window on every keystroke**, 343 ms p50 for Sweep and the 1.5 s Zeta mode. Stopping once the output has rejoined the original text past the cursor's region would end most generations early.
+4. **The 500 ms health poll** adds 0.2–0.5 s to every load and to the Load time the card shows. A 50–100 ms poll only while `Starting` costs nothing at idle.
+5. **Occasional 6–7 s cold loads** (2 of 12, cause unknown). Next time, capture llama-server's log on every start.
+6. **Verify after download** costs 1 s for Sweep and about 3.4 s for Zeta. Hashing while the bytes stream in would remove the Verifying step for fresh downloads; a resumed part still needs the full hash.

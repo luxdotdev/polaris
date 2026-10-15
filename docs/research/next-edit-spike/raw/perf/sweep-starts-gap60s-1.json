@@ -1,0 +1,58 @@
+{
+  "mode": "starts",
+  "model": "sweep-next-edit-1.5b",
+  "dir": "/Users/lucasdoell/polaris-perf-models/pa",
+  "idleMs": 5000,
+  "results": [
+    {
+      "kind": "cold",
+      "residentBefore": 0,
+      "load": [
+        3.25,
+        5.08,
+        4.82
+      ],
+      "startMs": 1511.2320420000003,
+      "healthMs": 1194.784541,
+      "productLoadMs": 1505,
+      "productMemoryBytes": 1859387392,
+      "firstRequestMs": 160.00975000000017,
+      "secondRequestMs": 109.27704100000028,
+      "memWarm": {
+        "rssBytes": 1861091328,
+        "footprintBytes": 305135616
+      },
+      "memIdle": {
+        "rssBytes": 1860763648,
+        "footprintBytes": 301989888
+      },
+      "unloadedAfterMs": 6512.695917,
+      "exited": true
+    },
+    {
+      "kind": "warm",
+      "residentBefore": 1,
+      "load": [
+        3.28,
+        5.02,
+        4.8
+      ],
+      "startMs": 503.8199170000007,
+      "healthMs": 299.9654999999984,
+      "productLoadMs": 503,
+      "productMemoryBytes": 1880571904,
+      "firstRequestMs": 122.83629199999996,
+      "secondRequestMs": 106.3533750000006,
+      "memWarm": {
+        "rssBytes": 1882963968,
+        "footprintBytes": 303038464
+      },
+      "memIdle": {
+        "rssBytes": 1882849280,
+        "footprintBytes": 299892736
+      },
+      "unloadedAfterMs": 5505.2225419999995,
+      "exited": true
+    }
+  ]
+}

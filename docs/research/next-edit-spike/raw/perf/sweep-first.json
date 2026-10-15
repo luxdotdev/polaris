@@ -1,0 +1,86 @@
+{
+  "mode": "first",
+  "model": "sweep-next-edit-1.5b",
+  "dir": "/Users/lucasdoell/polaris-perf-models",
+  "idleMs": 5000,
+  "results": [
+    {
+      "run": 1,
+      "kind": "cold",
+      "residentBefore": 0,
+      "load": [
+        10.06,
+        6.87,
+        5.2
+      ],
+      "startMs": 2011.898041,
+      "healthMs": 1593.8156250000002,
+      "productLoadMs": 2008,
+      "productMemoryBytes": 1855750144,
+      "firstRequestMs": 127.15695800000003,
+      "secondRequestMs": 101.9547090000001,
+      "memWarm": {
+        "rssBytes": 1857945600,
+        "footprintBytes": 303038464
+      },
+      "memIdle": {
+        "rssBytes": 1857683456,
+        "footprintBytes": 298844160
+      },
+      "unloadedAfterMs": 7013.878958000001,
+      "exited": true
+    },
+    {
+      "run": 2,
+      "kind": "cold",
+      "residentBefore": 0,
+      "load": [
+        8.88,
+        6.73,
+        5.17
+      ],
+      "startMs": 1507.8697499999998,
+      "healthMs": 1470.3590000000004,
+      "productLoadMs": 1505,
+      "productMemoryBytes": 1856421888,
+      "firstRequestMs": 124.28683400000045,
+      "secondRequestMs": 99.52237500000047,
+      "memWarm": {
+        "rssBytes": 1857912832,
+        "footprintBytes": 301989888
+      },
+      "memIdle": {
+        "rssBytes": 1857798144,
+        "footprintBytes": 298844160
+      },
+      "unloadedAfterMs": 6508.9659999999985,
+      "exited": true
+    },
+    {
+      "run": 3,
+      "kind": "cold",
+      "residentBefore": 0,
+      "load": [
+        7.83,
+        6.57,
+        5.13
+      ],
+      "startMs": 1508.3247910000027,
+      "healthMs": 1444.3747500000027,
+      "productLoadMs": 1506,
+      "productMemoryBytes": 1854881792,
+      "firstRequestMs": 125.64095799999996,
+      "secondRequestMs": 100.33962500000052,
+      "memWarm": {
+        "rssBytes": 1856667648,
+        "footprintBytes": 300941312
+      },
+      "memIdle": {
+        "rssBytes": 1856454656,
+        "footprintBytes": 297795584
+      },
+      "unloadedAfterMs": 6509.382208000003,
+      "exited": true
+    }
+  ]
+}
