@@ -1,0 +1,65 @@
+{
+  "mode": "download",
+  "model": "sweep-next-edit-1.5b",
+  "dir": "/Users/lucasdoell/polaris-perf-models",
+  "idleMs": 5000,
+  "results": [
+    {
+      "run": 1,
+      "load": [
+        2.99,
+        6.33,
+        4.76
+      ],
+      "loadAfter": [
+        3.05,
+        6.04,
+        4.71
+      ],
+      "phase": "Stopped",
+      "totalS": 33.199864209,
+      "serverBuildS": 0.5799579589999999,
+      "modelDownloadS": 31.540528249999998,
+      "modelMBps": 48.739508857147946,
+      "verifyS": 1.079796833000004
+    },
+    {
+      "run": 2,
+      "load": [
+        3.05,
+        6.04,
+        4.71
+      ],
+      "loadAfter": [
+        3.1,
+        5.67,
+        4.63
+      ],
+      "phase": "Stopped",
+      "totalS": 36.579374542000004,
+      "serverBuildS": 0.43268983299999675,
+      "modelDownloadS": 35.208735917,
+      "modelMBps": 43.66160317779977,
+      "verifyS": 0.9381597080000065
+    },
+    {
+      "run": 3,
+      "load": [
+        3.1,
+        5.67,
+        4.63
+      ],
+      "loadAfter": [
+        3.67,
+        5.57,
+        4.63
+      ],
+      "phase": "Stopped",
+      "totalS": 33.852202292,
+      "serverBuildS": 0.31291412500001026,
+      "modelDownloadS": 32.608959416999994,
+      "modelMBps": 47.14256092448558,
+      "verifyS": 0.9305371660000091
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+# load { 7.19 7.90 8.10 }
+{"round":1,"fimPrompt":{"p50Ms":0.15141599999998334,"p95Ms":0.22504200000000196},"replayPipeline":{"p50Ms":0.9526670000000195,"p95Ms":5.316750000000013},"boundary":"in-memory HTTP; no model server"}
+{"round":2,"fimPrompt":{"p50Ms":0.15987499999999955,"p95Ms":0.2124170000000163},"replayPipeline":{"p50Ms":0.6133750000000191,"p95Ms":2.0866250000000264},"boundary":"in-memory HTTP; no model server"}
+{"round":3,"fimPrompt":{"p50Ms":0.1539589999999862,"p95Ms":0.18516599999998107},"replayPipeline":{"p50Ms":0.5223750000000109,"p95Ms":2.3908330000000433},"boundary":"in-memory HTTP; no model server"}
+{"round":1,"fimPrompt":{"p50Ms":0.1520840000000021,"p95Ms":0.22458300000000975},"replayPipeline":{"p50Ms":0.9766250000000127,"p95Ms":4.799166000000014},"boundary":"in-memory HTTP; no model server"}
+{"round":2,"fimPrompt":{"p50Ms":0.1604170000000522,"p95Ms":0.3338330000000269},"replayPipeline":{"p50Ms":0.6154999999999973,"p95Ms":2.1011660000000347},"boundary":"in-memory HTTP; no model server"}
+{"round":3,"fimPrompt":{"p50Ms":0.14962500000001455,"p95Ms":0.17925000000002456},"replayPipeline":{"p50Ms":0.5243340000000671,"p95Ms":2.8279159999999592},"boundary":"in-memory HTTP; no model server"}
+{"round":1,"fimPrompt":{"p50Ms":0.15037499999999682,"p95Ms":0.22670800000000213},"replayPipeline":{"p50Ms":1.140874999999994,"p95Ms":5.613207999999986},"boundary":"in-memory HTTP; no model server"}
+{"round":2,"fimPrompt":{"p50Ms":0.15899999999999181,"p95Ms":0.2012910000000261},"replayPipeline":{"p50Ms":0.5289999999999964,"p95Ms":2.426666999999952},"boundary":"in-memory HTTP; no model server"}
+{"round":3,"fimPrompt":{"p50Ms":0.15191600000002836,"p95Ms":0.186458000000016},"replayPipeline":{"p50Ms":0.5243750000000773,"p95Ms":2.8956249999999955},"boundary":"in-memory HTTP; no model server"}
