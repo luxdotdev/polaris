@@ -166,6 +166,7 @@ const commitGroup = async (
   if (tree === headTree) return null;
 
   const committed = await runGitRaw(root, ["commit", "-q", "--cleanup=strip", "-F", "-"], {
+    config: "host",
     env,
     stdin: group.message,
   });

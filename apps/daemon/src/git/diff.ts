@@ -4,7 +4,15 @@
  */
 import { GitDiff } from "@polaris/protocol";
 import { checkpointRef } from "./Checkpoints.ts";
-import { emptyTree, findRepoRoot, resolveCommit, resolveHead, runGit } from "./git.ts";
+import {
+  emptyTree,
+  findRepoRoot,
+  GitOutputTooLarge,
+  resolveCommit,
+  resolveHead,
+  runGit,
+} from "./git.ts";
+import { megabytes } from "./output.ts";
 import { snapshotWorkingTree } from "./snapshot.ts";
 
 /** What `git.diff` compares: the protocol's tagged union, with its `cases` constructors. */
@@ -48,8 +56,29 @@ export interface DiffResult {
 
 const DIFF_FLAGS = ["diff", "--no-color", "--no-ext-diff", "-M"] as const;
 
+/** The largest diff `git.diff` reads; past it git is stopped and the diff reads as too large. */
+export const MAX_DIFF_BYTES = 64 * 1024 * 1024;
+
+const DIFF_TIMEOUT_MS = 120_000;
+
+/** Rethrows a diff that passed its limit with the words the Desktop App shows. */
+export const diffTooLarge = (cause: unknown): never => {
+  if (cause instanceof GitOutputTooLarge) {
+    throw new GitOutputTooLarge(
+      cause.args,
+      cause.limit,
+      `This diff is larger than ${megabytes(cause.limit)}, too large to show`
+    );
+  }
+
+  throw cause;
+};
+
 const diffTrees = async (root: string, from: string, to: string): Promise<DiffResult> => {
-  const { stdout } = await runGit(root, [...DIFF_FLAGS, from, to, "--"]);
+  const { stdout } = await runGit(root, [...DIFF_FLAGS, from, to, "--"], {
+    maxOutputBytes: MAX_DIFF_BYTES,
+    timeoutMs: DIFF_TIMEOUT_MS,
+  }).catch(diffTooLarge);
 
   return { bytes: stdout, files: countFiles(stdout), root, rulesAt: null };
 };

@@ -6,7 +6,7 @@
  * index, HEAD and branch are never written. No code was copied.
  */
 import { existsSync } from "node:fs";
-import { copyFile, mkdir, mkdtemp, rm, stat, utimes } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile, rm, stat, utimes } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { gitText, mayBeInWorkTree, resolveHead, runGitRaw } from "./git.ts";
@@ -117,9 +117,41 @@ const copyUserIndex = async (userIndex: string, to: string): Promise<void> => {
   await utimes(to, atimeMs / 1000, Math.floor(mtimeMs) / 1000);
 };
 
+/** An entry's mode as the index stores it (32-bit big-endian 0o160000), and a split index's extension. */
+const GITLINK_MODE = Buffer.from([0, 0, 0xe0, 0]);
+
+const SPLIT_INDEX = Buffer.from("link");
+
+/** False only when no entry can be a gitlink; a match elsewhere in the bytes just costs a listing. */
+const mayHoldGitlinks = async (index: string) => {
+  const bytes = await readFile(index).catch(() => null);
+
+  return bytes === null || bytes.includes(GITLINK_MODE) || bytes.includes(SPLIT_INDEX);
+};
+
+/** The index's submodules (gitlinks), as `add -A` excludes: it would run git inside each one. */
+const gitlinkExclusions = async (root: string, env: { readonly GIT_INDEX_FILE: string }) => {
+  if (!(await mayHoldGitlinks(env.GIT_INDEX_FILE))) return [];
+  const listed = await runGitRaw(root, ["ls-files", "-s", "-z"], { env });
+
+  if (listed.code !== 0) return [];
+
+  return decoder
+    .decode(listed.stdout)
+    .split("\0")
+    .filter((entry) => entry.startsWith("160000 "))
+    .map((entry) => `:(exclude,literal)${entry.slice(entry.indexOf("\t") + 1)}`);
+};
+
 const addAndWriteTree = async (root: string, index: string, config: ReadonlyArray<string>) => {
   const env = { GIT_INDEX_FILE: index };
-  await gitText(root, [...config, "add", "-A"], { env });
+  const excluded = await gitlinkExclusions(root, env);
+
+  // A submodule's recorded commit stays as the index has it.
+  await gitText(root, [...config, "add", "-A", "--pathspec-from-file=-", "--pathspec-file-nul"], {
+    env,
+    stdin: [".", ...excluded].join("\0"),
+  });
 
   return gitText(root, [...config, "write-tree"], { env });
 };

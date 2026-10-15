@@ -4,6 +4,7 @@
  * Finding's lines are "in the diff".
  */
 import type { LineRange } from "@polaris/protocol";
+import { diffTooLarge, MAX_DIFF_BYTES } from "../git/diff.ts";
 import { checkoutGit } from "../git/review/refs.ts";
 
 export interface Hunk {
@@ -119,7 +120,9 @@ export const parseDiff = (patch: string): ChangeDiff => {
 /** The diff of `base..head` in a checkout, renames detected, three lines of context. */
 export const readDiff = async (cwd: string, base: string, head: string): Promise<ChangeDiff> =>
   parseDiff(
-    await checkoutGit(cwd, ["diff", "--no-color", "--no-ext-diff", "-M", "-U3", base, head])
+    await checkoutGit(cwd, ["diff", "--no-color", "--no-ext-diff", "-M", "-U3", base, head], {
+      maxOutputBytes: MAX_DIFF_BYTES,
+    }).catch(diffTooLarge)
   );
 
 /** True when `lines` overlap a hunk of `path` on their side. */

@@ -148,8 +148,13 @@ export const pickFetchSource = async (repoPath: string, repo: RepoRef): Promise<
  */
 export const batchSshCommand = async (repoPath: string): Promise<string> => {
   const fromEnv = process.env.GIT_SSH_COMMAND?.trim() ?? "";
-  const configured = await runGitRaw(repoPath, ["config", "--get", "core.sshCommand"]);
+
+  const configured = await runGitRaw(repoPath, ["config", "--get", "core.sshCommand"], {
+    config: "fetch",
+  });
+
   const own = configured.code === 0 ? decoder.decode(configured.stdout).trim() : "";
+
   const base = fromEnv !== "" ? fromEnv : own === "" ? "ssh" : own;
 
   return `${base} -o BatchMode=yes -o ConnectTimeout=15`;

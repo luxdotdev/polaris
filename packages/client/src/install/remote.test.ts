@@ -11,6 +11,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   readlinkSync,
   rmSync,
@@ -52,6 +53,8 @@ const localSsh = (
     corruptUploads?: boolean;
     unreachable?: boolean;
     env?: Record<string, string>;
+    /** The Host's umask; every script must stay private under a permissive one. */
+    umask?: string;
   } = {}
 ) =>
   Layer.succeed(
@@ -74,7 +77,7 @@ const localSsh = (
           const bytes =
             stdin && options.corruptUploads ? Buffer.concat([stdin, Buffer.from("!")]) : stdin;
 
-          const proc = Bun.spawnSync(["sh", "-c", command], {
+          const proc = Bun.spawnSync(["sh", "-c", `umask ${options.umask ?? "022"}; ${command}`], {
             env: { PATH: process.env.PATH, HOME: host, ...options.env },
             stdin: bytes ?? "ignore",
           });
@@ -93,6 +96,7 @@ const fakePolaris = (version: string) => `#!/bin/sh
 case "$1" in
   version) echo "polaris ${version} ${platform}" ;;
   install)
+    ls -ldn "$(dirname "$0")" > "$HOME/staging.log"
     dir="$HOME/.polaris/bin/${version}"; mkdir -p "$dir"
     cp "$0" "$dir/polaris"; cp "$(dirname "$0")/libnative.so" "$(dirname "$0")/betterleaks" "$dir/"
     ln -sfn "${version}" "$HOME/.polaris/bin/current"
@@ -262,6 +266,60 @@ describe("ensureDaemon", () => {
     expect(error.message).toContain("SHA-256 on the Host");
   });
 
+  test("stages privately under a permissive umask and makes ~/.polaris private", async () => {
+    const builds = writeDist("1.0.0");
+    mkdirSync(join(host, ".polaris"), { mode: 0o777 });
+    chmodSync(join(host, ".polaris"), 0o777);
+
+    await Effect.runPromise(
+      ensureDaemon("h", builds, {
+        trigger: "user",
+        approvedSha256: new Set([builds[0]!.sha256]),
+      }).pipe(Effect.provide(localSsh({ umask: "000" })))
+    );
+
+    expect(current()).toBe("1.0.0");
+    expect(statSync(join(host, ".polaris")).mode & 0o777).toBe(0o700);
+    // `ls -ldn` of the staging directory, taken by the uploaded `polaris install`.
+    expect(readFileSync(join(host, "staging.log"), "utf8")).toMatch(/^drwx------[.@]? /);
+  });
+
+  test("refuses to write into a staging directory another account could change", async () => {
+    const builds = writeDist("1.0.0");
+
+    const opened = Layer.effect(
+      Ssh,
+      Effect.gen(function* () {
+        const ssh = yield* Ssh;
+
+        return Ssh.of({
+          exec: (alias, command, options) =>
+            ssh.exec(alias, command, options).pipe(
+              Effect.tap(() =>
+                Effect.sync(() => {
+                  if (!command.includes("mkdir -m 700")) return;
+
+                  for (const name of readdirSync(join(host, ".polaris")))
+                    chmodSync(join(host, ".polaris", name), 0o777);
+                })
+              )
+            ),
+        });
+      })
+    ).pipe(Layer.provide(localSsh()));
+
+    const error = await Effect.runPromise(
+      applyPlan("h", InstallPlan.Install({ build: builds[0]!, delivery: Delivery.Upload() })).pipe(
+        Effect.flip,
+        Effect.provide(opened)
+      )
+    );
+
+    expect(error).toMatchObject({ step: "upload polaris" });
+    expect(error.message).toContain("is not a private directory of this user");
+    expect(existsSync(join(host, ".polaris/bin"))).toBe(false);
+  });
+
   test("passes ssh failures through, classified", async () => {
     const error = await Effect.runPromise(
       ensureDaemon("h", writeDist("1.0.0"), { trigger: "user", approvedSha256: new Set() }).pipe(
@@ -275,7 +333,7 @@ describe("ensureDaemon", () => {
 });
 
 /** A release dist: the manifest lists this platform, but only the archive holds its files. */
-const writeRelease = (version: string, options: { corrupt?: boolean } = {}) => {
+const writeRelease = (version: string, options: { served?: (archive: Buffer) => Buffer } = {}) => {
   const binary = fakePolaris(version);
   const native = `native library ${version}`;
   const scanner = `#!/bin/sh\necho betterleaks ${version}\n`;
@@ -286,7 +344,7 @@ const writeRelease = (version: string, options: { corrupt?: boolean } = {}) => {
     { name: "betterleaks", mode: 0o755, bytes: Buffer.from(scanner) },
   ]);
 
-  const served = options.corrupt ? Buffer.concat([archive, Buffer.from("!")]) : archive;
+  const served = options.served?.(Buffer.from(archive)) ?? archive;
   const archivePath = join(dist, "served.tar.gz");
   writeFileSync(archivePath, served);
   writeFileSync(
@@ -319,8 +377,11 @@ const writeRelease = (version: string, options: { corrupt?: boolean } = {}) => {
   return { builds: loadBuilds(dist), archive, archivePath };
 };
 
-/** A `curl` that serves `FAKE_ARCHIVE` (or fails with 22, like a 404) and records its URL. */
-const fakeCurl = (fail: boolean) => {
+/**
+ * A `curl` that writes `FAKE_ARCHIVE` to stdout or `-o` (or fails with 22, like a 404) and
+ * records its URL; `trailing` bytes of zeros follow, then it notes it finished.
+ */
+const fakeCurl = (fail: boolean, trailing = 0) => {
   const bin = join(dist, "bin");
   mkdirSync(bin, { recursive: true });
   writeFileSync(
@@ -329,14 +390,23 @@ const fakeCurl = (fail: boolean) => {
 for a; do last="$a"; done
 echo "$last" >> "$FAKE_LOG"
 ${fail ? "exit 22" : ""}
-while [ $# -gt 0 ]; do [ "$1" = "-o" ] && out="$2"; shift; done
-cp "$FAKE_ARCHIVE" "$out"
+while [ $# -gt 0 ]; do [ "$1" = "-o" ] && exec > "$2"; shift; done
+cat "$FAKE_ARCHIVE" && ${trailing > 0 ? `head -c ${trailing} /dev/zero && ` : ""}echo done > "$FAKE_LOG.done"
 `
   );
   chmodSync(join(bin, "curl"), 0o755);
 
   return { PATH: `${bin}:${process.env.PATH}`, FAKE_LOG: join(dist, "curl.log") };
 };
+
+/** Applies a Host download of `builds` with no fallback, so its own error comes through. */
+const hostFetchOnly = (builds: ReadonlyArray<DaemonBuild>, env: Record<string, string>) =>
+  Effect.runPromise(
+    applyPlan(
+      "h",
+      InstallPlan.Install({ build: builds[0]!, delivery: Delivery.HostFetch({ tool: "curl" }) })
+    ).pipe(Effect.flip, Effect.provide(localSsh({ env })))
+  );
 
 const fetchFrom = (bytes: Uint8Array, status = 200) => {
   const urls: string[] = [];
@@ -378,7 +448,14 @@ describe("release builds that aren't bundled", () => {
   });
 
   test("a corrupted Host download falls back to downloading here and uploading", async () => {
-    const { builds, archive, archivePath } = writeRelease("2.0.0", { corrupt: true });
+    const { builds, archive, archivePath } = writeRelease("2.0.0", {
+      served: (bytes) => {
+        bytes[bytes.length - 1]! ^= 0xff;
+
+        return bytes;
+      },
+    });
+
     const env = { ...fakeCurl(false), FAKE_ARCHIVE: archivePath };
     const { urls, fetcher } = fetchFrom(archive);
     const progress: ApplyProgress[] = [];
@@ -409,6 +486,61 @@ describe("release builds that aren't bundled", () => {
         .stdout.toString()
         .trim()
     ).toBe("bin");
+  });
+
+  test("the Host stops a download one byte past the manifest's size", async () => {
+    const { builds, archivePath } = writeRelease("2.0.0");
+    const env = { ...fakeCurl(false, 16 * 1024 * 1024), FAKE_ARCHIVE: archivePath };
+
+    const error = await hostFetchOnly(builds, env);
+
+    expect(error.message).toContain(`larger than ${builds[0]!.archive!.size} bytes`);
+    // The stream was cut off rather than written out in full.
+    expect(existsSync(`${env.FAKE_LOG}.done`)).toBe(false);
+    expect(readdirSync(join(host, ".polaris"))).toEqual([]);
+  });
+
+  test("the Host refuses a download shorter than the manifest's size", async () => {
+    const { builds, archivePath } = writeRelease("2.0.0", {
+      served: (bytes) => bytes.subarray(0, bytes.length - 1),
+    });
+
+    const error = await hostFetchOnly(builds, { ...fakeCurl(false), FAKE_ARCHIVE: archivePath });
+
+    expect(error.message).toContain(
+      `the archive is ${builds[0]!.archive!.size - 1} bytes, expected ${builds[0]!.archive!.size}`
+    );
+  });
+
+  test("a Host download that never finishes times out and falls back", async () => {
+    const { builds, archive } = writeRelease("2.0.0");
+    const { fetcher } = fetchFrom(archive);
+
+    const hanging = Layer.effect(
+      Ssh,
+      Effect.gen(function* () {
+        const ssh = yield* Ssh;
+
+        return Ssh.of({
+          exec: (alias, command, options) =>
+            command.includes(".tar.gz") ? Effect.never : ssh.exec(alias, command, options),
+        });
+      })
+    ).pipe(Layer.provide(localSsh()));
+
+    const result = await Effect.runPromise(
+      applyPlan(
+        "h",
+        InstallPlan.Install({ build: builds[0]!, delivery: Delivery.HostFetch({ tool: "curl" }) }),
+        {
+          hostFetchTimeoutMs: 50,
+          download: downloadBuild({ cacheDir: join(dist, "cache"), fetch: fetcher }),
+        }
+      ).pipe(Effect.provide(hanging))
+    );
+
+    expect(Predicate.isTagged(result, "Installed")).toBe(true);
+    expect(current()).toBe("2.0.0");
   });
 
   test("an unpublished version (404 on the Host) without a download fails with both reasons", async () => {

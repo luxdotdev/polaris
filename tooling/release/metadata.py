@@ -1,6 +1,7 @@
 """Validate a release tag, the package versions and the signing policy for release.yml.
 
-Reads RELEASE_TAG and the six signing secrets from the environment, checks
+Reads RELEASE_TAG and, for each of the six signing secrets, <NAME>_SET ("true" or
+"false", never the secret itself) from the environment, checks
 apps/desktop and apps/daemon (under --root, default the working directory) carry
 the tag's version, and appends version, nuget_version, prerelease and signed to
 $GITHUB_OUTPUT. Runs before dependencies are installed, so it uses only the stdlib.
@@ -36,7 +37,7 @@ def metadata(tag: str, root: Path, env: dict) -> dict:
         if actual != version:
             raise SystemExit(f"Tag/version mismatch: {package} is {actual}, tag is {version}")
 
-    present = [name for name in SIGNING_SECRETS if env.get(name, "").strip()]
+    present = [name for name in SIGNING_SECRETS if env.get(f"{name}_SET") == "true"]
     if present and len(present) != len(SIGNING_SECRETS):
         missing = ", ".join(name for name in SIGNING_SECRETS if name not in present)
         raise SystemExit("Incomplete signing secrets: missing " + missing)

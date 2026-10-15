@@ -59,7 +59,7 @@ Release packaging also emits `out/dist/Polaris-<version>-arm64.dmg`, with the da
 
 ## Release procedure
 
-[Release](../../.github/workflows/release.yml) runs on pushed `v*` tags, on the macOS 15 arm64 runner in the GitHub `release` environment. It accepts `v<major>.<minor>.<patch>` and the prereleases `v<major>.<minor>.<patch>-alpha.N`, `-beta.N` and `-rc.N` (`tooling/release/metadata.py`, tested by `metadata.test.ts`). Before installing dependencies, it checks that both the Desktop App and Daemon package versions exactly equal the tag without `v`.
+[Release](../../.github/workflows/release.yml) runs on pushed `v*` tags as separate jobs ([ADR 0057](../../docs/adr/0057-release-signing-runs-apart-from-the-build.md)): `build` packages everything unsigned on the macOS 15 arm64 runner with no secrets and a read-only token; for a signed release, `sign` and `sign-dmg` (in the GitHub `release` environment) run only `tooling/release/sign.py` from the default branch, which checks each hand-off's digest itself and unpacks it as hostile input into a directory it creates (`tooling/release/test_sign.py`), and `dmg` builds the installer around the signed app between them; `windows` packages unsigned; `publish` alone can write, and drafts the Release from the hand-offs whose digests match. It accepts `v<major>.<minor>.<patch>` and the prereleases `v<major>.<minor>.<patch>-alpha.N`, `-beta.N` and `-rc.N` (`tooling/release/metadata.py`, tested by `metadata.test.ts`). Before installing dependencies, it checks that both the Desktop App and Daemon package versions exactly equal the tag without `v`.
 
 Configure these secrets in the `release` environment (ENG-253):
 
@@ -67,13 +67,13 @@ Configure these secrets in the `release` environment (ENG-253):
 |---|---|
 | `MACOS_CERT_P12` | Base64-encoded exported Developer ID Application `.p12` certificate, including its private key. |
 | `MACOS_CERT_PASSWORD` | Password used to export that certificate. |
-| `APPLE_API_KEY` | Contents of the App Store Connect Team Key `.p8` file. The workflow writes a private temporary file and passes its path to packaging. |
+| `APPLE_API_KEY` | Contents of the App Store Connect Team Key `.p8` file. The signer writes a private temporary file for `notarytool`. |
 | `APPLE_API_KEY_ID` | Team Key ID. |
 | `APPLE_API_ISSUER` | Team Key issuer ID. |
 | `APPLE_TEAM_ID` | Developer team ID. |
 | `MACOS_SIGNING_IDENTITY` | Optional exact Developer ID Application certificate name or SHA-1 hash when identity selection needs it. Set only with all six required secrets. |
 
-All six required secrets enable signing and notarisation for either tag kind. Partial credentials fail. A prerelease tag may build unsigned when no signing secrets are configured; a stable tag fails without them. The workflow generates a temporary keychain password, imports and unlocks the certificate, and always deletes the keychain, certificate and API key files after use, restoring the runner's keychain search list. Configure environment protection and tag restrictions in GitHub before the first release.
+All six required secrets enable signing and notarisation for either tag kind. Partial credentials fail. A prerelease tag may build unsigned when no signing secrets are configured; a stable tag fails without them. The signer generates a temporary keychain password, imports and unlocks the certificate, and always deletes the keychain, certificate and API key files before it exits, restoring the runner's keychain search list; `python3 -I tooling/release/sign.py --ad-hoc app --handoff release-bundle.tar --sha256 … --out signed …` is a credential-free local dry run. Configure environment protection (required reviewers), tag restrictions and default-branch protection in GitHub before the first signed release: the signer is only as reviewed as the default branch.
 
 1. **Bump PR.** Update `apps/desktop/package.json` and `apps/daemon/package.json` to the same version in a normal PR, run the repository checks, and merge it. Use an `-alpha.N`, `-beta.N` or `-rc.N` version for a prerelease; they sort alpha < beta < rc < the release. The workflow makes no version commits.
 2. **Tag.** Tag the merged commit, for example `git tag -a v0.1.0-rc.1 <merged-commit> -m 'Polaris 0.1.0-rc.1'`, then `git push origin v0.1.0-rc.1`. Resolve any `release` environment approval requested by GitHub.
