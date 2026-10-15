@@ -32,7 +32,7 @@ const option = (args: ReadonlyArray<string>, name: string): string | undefined =
 const output = <Report>(json: boolean, value: Report, human: ReadonlyArray<string>) =>
   Effect.sync(() => console.log(json ? JSON.stringify(value) : human.join("\n")));
 
-/** `polaris install [--binary <path>] [--json]` */
+/** `polaris install [--binary <path>] [--sha256 <hex>] [--json]` */
 const installCommand = Effect.fn("installCommand")(function* (args: ReadonlyArray<string>) {
   const source = option(args, "--binary") ?? (isCompiled() ? process.execPath : undefined);
 
@@ -47,6 +47,7 @@ const installCommand = Effect.fn("installCommand")(function* (args: ReadonlyArra
   const report = yield* install(defaultInstallContext(paths().root), {
     source,
     version: info.version,
+    sha256: option(args, "--sha256"),
   });
 
   yield* output(flag(args, "--json"), { ok: true, action: "install", ...report }, [
@@ -75,19 +76,29 @@ const uninstallCommand = Effect.fn("uninstallCommand")(function* (args: Readonly
 });
 
 /**
- * `polaris upgrade <path> [--json]`: install `<path>` as a new version, then
+ * `polaris upgrade <path> [--sha256 <hex>] [--json]`: install `<path>` as a new version, then
  * hand the running Daemon over to it in place (same PID, Harnesses kept).
  * With no Daemon running, it just (re)starts the service on the new version.
  */
 const upgradeCommand = Effect.fn("upgradeCommand")(function* (args: ReadonlyArray<string>) {
-  const source = args.find((arg) => !arg.startsWith("--"));
+  const shaAt = args.indexOf("--sha256");
+
+  const source = args.find(
+    (arg, index) => !arg.startsWith("--") && (shaAt < 0 || index !== shaAt + 1)
+  );
 
   if (source === undefined)
     return yield* new UsageError({ message: "usage: polaris upgrade <path>" });
   const json = flag(args, "--json");
   const ctx = defaultInstallContext(paths().root);
   const info = yield* validateBinary(source);
-  const staged = yield* stageBinary(ctx, { source, version: info.version });
+
+  const staged = yield* stageBinary(ctx, {
+    source,
+    version: info.version,
+    sha256: option(args, "--sha256"),
+  });
+
   yield* pointCurrentAt(ctx, info.version);
   const pid = runningDaemonPid();
 

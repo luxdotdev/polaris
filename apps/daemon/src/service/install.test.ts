@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
   existsSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   readlinkSync,
   rmSync,
@@ -126,6 +127,30 @@ describe("install on macOS", () => {
       "launchctl print gui/501/dev.lux.polaris",
       "launchctl kickstart gui/501/dev.lux.polaris",
     ]);
+  });
+
+  test("refuses a binary that differs from the SHA-256 the Client verified", async () => {
+    const runner = fakeRunner(notLoaded);
+
+    const error = await Effect.runPromise(
+      install(ctx("darwin"), { source, version: "1.2.3", sha256: "0".repeat(64) }).pipe(
+        Effect.flip,
+        Effect.provide(runner.layer)
+      )
+    );
+
+    const { versionDir } = layout(ctx("darwin"), "1.2.3");
+    expect(error.message).toContain(`does not have the SHA-256 ${"0".repeat(64)}`);
+    expect(existsSync(versionDir!) ? readdirSync(versionDir!) : []).toEqual([]);
+    expect(runner.calls.some((call) => call.includes("bootstrap"))).toBe(false);
+
+    const report = await Effect.runPromise(
+      install(ctx("darwin"), { source, version: "1.2.3", sha256: sha256File(source) }).pipe(
+        Effect.provide(fakeRunner(notLoaded).layer)
+      )
+    );
+
+    expect(report.binaryChanged).toBe(true);
   });
 
   test("installs Betterleaks from beside the binary as an executable", async () => {
