@@ -19,7 +19,7 @@
   "complete": true,
   "presses": [
    "jump",
-   "jump"
+   "tab"
   ]
  },
  {
@@ -32,7 +32,7 @@
   "complete": true,
   "presses": [
    "jump",
-   "jump"
+   "tab"
   ]
  },
  {
@@ -158,11 +158,12 @@
   "policy": "spec",
   "hunks": 3,
   "imports": 0,
-  "reached": 2,
-  "complete": false,
+  "reached": 3,
+  "complete": true,
   "presses": [
    "jump",
-   "jump"
+   "tab",
+   "tab"
   ]
  },
  {
@@ -171,11 +172,12 @@
   "policy": "reach",
   "hunks": 3,
   "imports": 0,
-  "reached": 2,
-  "complete": false,
+  "reached": 3,
+  "complete": true,
   "presses": [
    "jump",
-   "jump"
+   "tab",
+   "tab"
   ]
  },
  {
@@ -184,9 +186,11 @@
   "policy": "none",
   "hunks": 1,
   "imports": 0,
-  "reached": 0,
-  "complete": false,
-  "presses": []
+  "reached": 1,
+  "complete": true,
+  "presses": [
+   "tab"
+  ]
  },
  {
   "commit": "950d9973",
@@ -197,7 +201,7 @@
   "reached": 1,
   "complete": true,
   "presses": [
-   "jump"
+   "tab"
   ]
  },
  {
@@ -209,7 +213,7 @@
   "reached": 1,
   "complete": true,
   "presses": [
-   "jump"
+   "tab"
   ]
  },
  {
@@ -218,9 +222,10 @@
   "policy": "none",
   "hunks": 2,
   "imports": 0,
-  "reached": 1,
-  "complete": false,
+  "reached": 2,
+  "complete": true,
   "presses": [
+   "tab",
    "tab"
   ]
  },
@@ -234,7 +239,7 @@
   "complete": true,
   "presses": [
    "tab",
-   "jump"
+   "tab"
   ]
  },
  {
@@ -247,7 +252,7 @@
   "complete": true,
   "presses": [
    "tab",
-   "jump"
+   "tab"
   ]
  },
  {
@@ -270,9 +275,9 @@
   "complete": true,
   "presses": [
    "jump",
-   "jump",
    "tab",
-   "jump"
+   "tab",
+   "tab"
   ]
  },
  {
@@ -285,9 +290,9 @@
   "complete": true,
   "presses": [
    "jump",
-   "jump",
    "tab",
-   "jump"
+   "tab",
+   "tab"
   ]
  },
  {
@@ -539,9 +544,11 @@
   "policy": "none",
   "hunks": 1,
   "imports": 0,
-  "reached": 0,
-  "complete": false,
-  "presses": []
+  "reached": 1,
+  "complete": true,
+  "presses": [
+   "tab"
+  ]
  },
  {
   "commit": "e538a480",
@@ -552,7 +559,7 @@
   "reached": 1,
   "complete": true,
   "presses": [
-   "jump"
+   "tab"
   ]
  },
  {
@@ -564,7 +571,7 @@
   "reached": 1,
   "complete": true,
   "presses": [
-   "jump"
+   "tab"
   ]
  },
  {
@@ -914,37 +921,40 @@
   "policy": "none",
   "hunks": 5,
   "imports": 0,
-  "reached": 0,
+  "reached": 2,
   "complete": false,
-  "presses": []
- },
- {
-  "commit": "700975f6",
-  "path": "apps/desktop/src/renderer/features/constellation/preview/large.ts",
-  "policy": "spec",
-  "hunks": 5,
-  "imports": 0,
-  "reached": 5,
-  "complete": true,
   "presses": [
-   "jump",
-   "jump",
-   "jump",
-   "jump",
+   "tab",
    "tab"
   ]
  },
  {
   "commit": "700975f6",
   "path": "apps/desktop/src/renderer/features/constellation/preview/large.ts",
-  "policy": "reach",
+  "policy": "spec",
   "hunks": 5,
   "imports": 0,
   "reached": 5,
   "complete": true,
   "presses": [
+   "tab",
+   "tab",
    "jump",
    "jump",
+   "tab"
+  ]
+ },
+ {
+  "commit": "700975f6",
+  "path": "apps/desktop/src/renderer/features/constellation/preview/large.ts",
+  "policy": "reach",
+  "hunks": 5,
+  "imports": 0,
+  "reached": 5,
+  "complete": true,
+  "presses": [
+   "tab",
+   "tab",
    "jump",
    "jump",
    "tab"
@@ -1062,9 +1072,11 @@
   "policy": "none",
   "hunks": 3,
   "imports": 0,
-  "reached": 1,
-  "complete": false,
+  "reached": 3,
+  "complete": true,
   "presses": [
+   "tab",
+   "tab",
    "tab"
   ]
  },
@@ -1074,9 +1086,11 @@
   "policy": "spec",
   "hunks": 3,
   "imports": 0,
-  "reached": 1,
-  "complete": false,
+  "reached": 3,
+  "complete": true,
   "presses": [
+   "tab",
+   "tab",
    "tab"
   ]
  },
@@ -1090,7 +1104,7 @@
   "complete": true,
   "presses": [
    "tab",
-   "jump",
+   "tab",
    "tab"
   ]
  },
@@ -1100,9 +1114,14 @@
   "policy": "none",
   "hunks": 4,
   "imports": 1,
-  "reached": 0,
-  "complete": false,
-  "presses": []
+  "reached": 4,
+  "complete": true,
+  "presses": [
+   "tab",
+   "tab",
+   "tab",
+   "tab"
+  ]
  },
  {
   "commit": "23067350",
@@ -1113,7 +1132,7 @@
   "reached": 4,
   "complete": true,
   "presses": [
-   "jump",
+   "tab",
    "tab",
    "tab",
    "tab"
@@ -1128,7 +1147,7 @@
   "reached": 4,
   "complete": true,
   "presses": [
-   "jump",
+   "tab",
    "tab",
    "tab",
    "tab"
@@ -1140,9 +1159,11 @@
   "policy": "none",
   "hunks": 4,
   "imports": 1,
-  "reached": 0,
+  "reached": 1,
   "complete": false,
-  "presses": []
+  "presses": [
+   "tab"
+  ]
  },
  {
   "commit": "9dce0890",
@@ -1153,7 +1174,7 @@
   "reached": 1,
   "complete": false,
   "presses": [
-   "jump"
+   "tab"
   ]
  },
  {
@@ -1162,11 +1183,9 @@
   "policy": "reach",
   "hunks": 4,
   "imports": 1,
-  "reached": 3,
+  "reached": 1,
   "complete": false,
   "presses": [
-   "jump",
-   "jump",
    "tab"
   ]
  },
@@ -1443,9 +1462,11 @@
   "policy": "none",
   "hunks": 1,
   "imports": 1,
-  "reached": 0,
-  "complete": false,
-  "presses": []
+  "reached": 1,
+  "complete": true,
+  "presses": [
+   "tab"
+  ]
  },
  {
   "commit": "1bf0bf5e",
@@ -1453,9 +1474,11 @@
   "policy": "spec",
   "hunks": 1,
   "imports": 1,
-  "reached": 0,
-  "complete": false,
-  "presses": []
+  "reached": 1,
+  "complete": true,
+  "presses": [
+   "tab"
+  ]
  },
  {
   "commit": "1bf0bf5e",
@@ -1463,9 +1486,11 @@
   "policy": "reach",
   "hunks": 1,
   "imports": 1,
-  "reached": 0,
-  "complete": false,
-  "presses": []
+  "reached": 1,
+  "complete": true,
+  "presses": [
+   "tab"
+  ]
  },
  {
   "commit": "8843f7bf",
@@ -1598,11 +1623,9 @@
   "policy": "reach",
   "hunks": 4,
   "imports": 0,
-  "reached": 1,
+  "reached": 0,
   "complete": false,
-  "presses": [
-   "jump"
-  ]
+  "presses": []
  },
  {
   "commit": "708b1d17",
@@ -1702,74 +1725,78 @@
   "policy": "reach",
   "hunks": 4,
   "imports": 1,
-  "reached": 1,
+  "reached": 0,
   "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "86ddbb63",
+  "path": "apps/daemon/src/store/eventJson.ts",
+  "policy": "none",
+  "hunks": 2,
+  "imports": 0,
+  "reached": 2,
+  "complete": true,
   "presses": [
-   "jump"
+   "tab",
+   "tab"
   ]
  },
  {
   "commit": "86ddbb63",
   "path": "apps/daemon/src/store/eventJson.ts",
-  "policy": "none",
+  "policy": "spec",
   "hunks": 2,
   "imports": 0,
-  "reached": 0,
-  "complete": false,
-  "presses": []
+  "reached": 2,
+  "complete": true,
+  "presses": [
+   "tab",
+   "tab"
+  ]
  },
  {
   "commit": "86ddbb63",
   "path": "apps/daemon/src/store/eventJson.ts",
-  "policy": "spec",
-  "hunks": 2,
-  "imports": 0,
-  "reached": 0,
-  "complete": false,
-  "presses": []
- },
- {
-  "commit": "86ddbb63",
-  "path": "apps/daemon/src/store/eventJson.ts",
-  "policy": "reach",
-  "hunks": 2,
-  "imports": 0,
-  "reached": 0,
-  "complete": false,
-  "presses": []
- },
- {
-  "commit": "49f31482",
-  "path": "apps/desktop/src/renderer/features/editor/navigation/contribute.ts",
-  "policy": "none",
-  "hunks": 2,
-  "imports": 0,
-  "reached": 0,
-  "complete": false,
-  "presses": []
- },
- {
-  "commit": "49f31482",
-  "path": "apps/desktop/src/renderer/features/editor/navigation/contribute.ts",
-  "policy": "spec",
-  "hunks": 2,
-  "imports": 0,
-  "reached": 0,
-  "complete": false,
-  "presses": []
- },
- {
-  "commit": "49f31482",
-  "path": "apps/desktop/src/renderer/features/editor/navigation/contribute.ts",
   "policy": "reach",
   "hunks": 2,
   "imports": 0,
   "reached": 2,
   "complete": true,
   "presses": [
-   "jump",
+   "tab",
    "tab"
   ]
+ },
+ {
+  "commit": "49f31482",
+  "path": "apps/desktop/src/renderer/features/editor/navigation/contribute.ts",
+  "policy": "none",
+  "hunks": 2,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "49f31482",
+  "path": "apps/desktop/src/renderer/features/editor/navigation/contribute.ts",
+  "policy": "spec",
+  "hunks": 2,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "49f31482",
+  "path": "apps/desktop/src/renderer/features/editor/navigation/contribute.ts",
+  "policy": "reach",
+  "hunks": 2,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": []
  },
  {
   "commit": "d2110636",
@@ -1777,9 +1804,11 @@
   "policy": "none",
   "hunks": 1,
   "imports": 0,
-  "reached": 0,
-  "complete": false,
-  "presses": []
+  "reached": 1,
+  "complete": true,
+  "presses": [
+   "tab"
+  ]
  },
  {
   "commit": "d2110636",
@@ -1787,9 +1816,11 @@
   "policy": "spec",
   "hunks": 1,
   "imports": 0,
-  "reached": 0,
-  "complete": false,
-  "presses": []
+  "reached": 1,
+  "complete": true,
+  "presses": [
+   "tab"
+  ]
  },
  {
   "commit": "d2110636",
@@ -1797,9 +1828,11 @@
   "policy": "reach",
   "hunks": 1,
   "imports": 0,
-  "reached": 0,
-  "complete": false,
-  "presses": []
+  "reached": 1,
+  "complete": true,
+  "presses": [
+   "tab"
+  ]
  },
  {
   "commit": "d86e9ba9",
@@ -1978,9 +2011,11 @@
   "policy": "none",
   "hunks": 1,
   "imports": 0,
-  "reached": 0,
-  "complete": false,
-  "presses": []
+  "reached": 1,
+  "complete": true,
+  "presses": [
+   "tab"
+  ]
  },
  {
   "commit": "41a310a2",
@@ -1988,9 +2023,11 @@
   "policy": "spec",
   "hunks": 1,
   "imports": 0,
-  "reached": 0,
-  "complete": false,
-  "presses": []
+  "reached": 1,
+  "complete": true,
+  "presses": [
+   "tab"
+  ]
  },
  {
   "commit": "41a310a2",
@@ -2001,7 +2038,7 @@
   "reached": 1,
   "complete": true,
   "presses": [
-   "jump"
+   "tab"
   ]
  }
 ]

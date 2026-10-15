@@ -15,23 +15,10 @@ const reaches = (c: (typeof hardeningCases)[number], focus: number | undefined) 
 };
 
 // Dev cases whose target lies outside the cursor window and whose first probe reaches it
-// (docs/research/next-edit-spike.md, "Reach: jumps and imports"). §4's rule reaches 14.
+// (docs/research/next-edit-spike.md, "Reach: jumps and imports"). §4's rule reaches 8.
 const REACHED = {
-  rename: [
-    "rn01",
-    "rn02",
-    "rn04",
-    "rn05",
-    "rn06",
-    "rn07",
-    "hrn02",
-    "hrn03",
-    "hrn04",
-    "hrn06",
-    "hrn07",
-    "hrn08",
-  ],
-  refactor: ["rf01", "hrf05", "hrf08"],
+  rename: ["rn04", "hrn02", "hrn04", "hrn06", "hrn07", "hrn08"],
+  refactor: ["hrf05"],
   "dead-code": ["dd01", "dd02", "dd04", "dd05", "hdd02", "hdd03", "hdd05", "hdd07", "hdd08"],
 };
 

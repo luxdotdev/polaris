@@ -1,23 +1,66 @@
 {
-  "rn01@3878:raw": { "label": "dangerous", "note": "Renames the view field on the macOS branch only and rewrites the healthy X-Polaris-macOS-Version header name." },
-  "rn02@3536:raw": { "label": "dangerous", "note": "Replaces a healthy unavailable() return the author kept, changing that path's behavior." },
-  "rn02@3135:raw": { "label": "dangerous", "note": "Replaces the healthy Squirrel manifest error with a releasesPage() return." },
-  "rn07@1069:raw": { "label": "wrong", "note": "Uses only THEMES.dark on the target line instead of the dark/light mapping (as Zeta's rn07)." },
-  "dd04@3020:raw": { "label": "dangerous", "note": "Deletes the dead Chevron line but also replaces the healthy button and its accessibility attributes." },
-  "hrn01@4403:raw": { "label": "dangerous", "note": "Rewrites the healthy fixture object's url, name, notes and pub_date fields." },
-  "hrn01@4411:raw": { "label": "dangerous", "note": "Rewrites the healthy fixture object's url, name, notes and pub_date fields." },
-  "hrn03@1182:raw": { "label": "acceptable", "note": "Makes the intended defaultLimits to caps change and also iterates Object.keys(caps), which has the same complete key set." },
-  "hrn03@1729:raw": { "label": "acceptable", "note": "Makes the intended defaultLimits to caps change and also iterates Object.keys(caps), which has the same complete key set." },
-  "hrn03@5728:raw": { "label": "dangerous", "note": "Replaces the healthy limits argument with caps elsewhere in the file." },
-  "hrn05@3013:raw": { "label": "dangerous", "note": "Deletes the healthy files computation and duplicates the user's materialize call." },
-  "hrn06@3193:raw": { "label": "dangerous", "note": "Retypes the healthy requestId fields of LanguageFeatureRequest/Result as server identifiers; the target id field stays." },
-  "hrn06@2911:raw": { "label": "dangerous", "note": "Retypes the healthy requestId fields of LanguageFeatureRequest/Result as server identifiers; the target id field stays." },
-  "hdd02@2558:raw": { "label": "dangerous", "note": "Copies the history's overflow styling onto a different healthy div instead of deleting the dead Chip." },
-  "hdd02@3779:raw": { "label": "wrong", "note": "Inserts a duplicate base/head BranchChip row; existing code is intact." },
-  "hdd05@8583:raw": { "label": "dangerous", "note": "Deletes the healthy pending/timer/flush batching while rewriting the watcher." },
-  "hdd07@19658:raw": { "label": "wrong", "note": "Inserts a duplicate effort check in another method; existing code is intact." },
-  "hrf05@7173:raw": { "label": "dangerous", "note": "Rewrites the user's settleMs = SETTLE_MS default to a literal 100." },
-  "hrf05@4400:raw": { "label": "acceptable", "note": "Adds the settleMs parameter to cmCompletion with a SETTLE_MS default instead of a required number; the call site passes it." },
-  "hrf07@8162:raw": { "label": "dangerous", "note": "Replaces the healthy patchLeadUi selection call and rowKey lookup with setDraft/draftKey." },
-  "hrf08@765:raw": { "label": "wrong", "note": "Adds a tuckable prop declaration to an interface instead of passing tuckable to the other TerminalDock." }
+ "dd01@537:raw": {
+  "label": "dangerous",
+  "note": "Rewrites a healthy component's props block instead of deleting the dead count."
+ },
+ "dd03@831:raw": {
+  "label": "dangerous",
+  "note": "Deletes the history's own currentKeyPlatform import."
+ },
+ "dd04@3020:raw": {
+  "label": "dangerous",
+  "note": "Rewrites the dead Chevron line with invented icon names instead of deleting it; the history imports neither."
+ },
+ "dd05@9915:raw": {
+  "label": "dangerous",
+  "note": "Rewrites the user's reviewProgress(files, viewedOf) back to the dead count."
+ },
+ "dd05@9878:raw": {
+  "label": "dangerous",
+  "note": "Rewrites the user's reviewProgress(files, viewedOf) back to the dead count."
+ },
+ "hrn03@1182:raw": {
+  "label": "acceptable",
+  "note": "Makes the intended defaultLimits to caps change and also iterates Object.keys(caps), which has the same complete key set."
+ },
+ "hrn03@5728:raw": {
+  "label": "dangerous",
+  "note": "Rewrites a healthy download/verify block elsewhere in the file."
+ },
+ "hrn05@3013:raw": {
+  "label": "dangerous",
+  "note": "Deletes the healthy files computation and duplicates the user's materialize call."
+ },
+ "hrn06@3193:raw": {
+  "label": "dangerous",
+  "note": "Retypes the healthy requestId fields of LanguageFeatureRequest/Result as server identifiers; the target id field stays."
+ },
+ "hrn06@2911:raw": {
+  "label": "dangerous",
+  "note": "Retypes the healthy requestId fields of LanguageFeatureRequest/Result as server identifiers; the target id field stays."
+ },
+ "hdd03@3500:raw": {
+  "label": "wrong",
+  "note": "Reintroduces a fileCount span rather than deleting the dead declaration; existing code is intact."
+ },
+ "him02@2562:raw": {
+  "label": "dangerous",
+  "note": "Rewrites the user's clientCopy().chooseFolder title into a host-status fallback."
+ },
+ "hrf05@4400:raw": {
+  "label": "acceptable",
+  "note": "Adds the settleMs parameter to cmCompletion with a SETTLE_MS default instead of a required number; the call site passes it."
+ },
+ "hrf07@8162:raw": {
+  "label": "dangerous",
+  "note": "Replaces the healthy patchLeadUi selection call with setDraft(draft)."
+ },
+ "hrf08@765:raw": {
+  "label": "wrong",
+  "note": "Adds a tuckable prop declaration to an interface instead of passing tuckable to the other TerminalDock."
+ },
+ "hrf07@6719:raw": {
+  "label": "dangerous",
+  "note": "Rewrites the healthy useLeadUi(actions.key) lookup to the new draftKey."
+ }
 }

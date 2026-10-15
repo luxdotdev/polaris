@@ -5,9 +5,13 @@
   "policy": "none",
   "hunks": 3,
   "imports": 0,
-  "reached": 0,
-  "complete": false,
-  "presses": []
+  "reached": 3,
+  "complete": true,
+  "presses": [
+   "tab",
+   "tab",
+   "tab"
+  ]
  },
  {
   "commit": "caa9c9e4",
@@ -18,7 +22,7 @@
   "reached": 3,
   "complete": true,
   "presses": [
-   "jump",
+   "tab",
    "tab",
    "tab"
   ]
@@ -29,9 +33,13 @@
   "policy": "reach",
   "hunks": 3,
   "imports": 0,
-  "reached": 0,
-  "complete": false,
-  "presses": []
+  "reached": 3,
+  "complete": true,
+  "presses": [
+   "tab",
+   "tab",
+   "tab"
+  ]
  },
  {
   "commit": "c1b5225b",
@@ -39,9 +47,11 @@
   "policy": "none",
   "hunks": 5,
   "imports": 0,
-  "reached": 0,
+  "reached": 1,
   "complete": false,
-  "presses": []
+  "presses": [
+   "tab"
+  ]
  },
  {
   "commit": "c1b5225b",
@@ -49,9 +59,11 @@
   "policy": "spec",
   "hunks": 5,
   "imports": 0,
-  "reached": 0,
+  "reached": 1,
   "complete": false,
-  "presses": []
+  "presses": [
+   "tab"
+  ]
  },
  {
   "commit": "c1b5225b",
@@ -62,7 +74,7 @@
   "reached": 1,
   "complete": false,
   "presses": [
-   "jump"
+   "tab"
   ]
  },
  {
@@ -176,9 +188,11 @@
   "policy": "none",
   "hunks": 1,
   "imports": 1,
-  "reached": 0,
-  "complete": false,
-  "presses": []
+  "reached": 1,
+  "complete": true,
+  "presses": [
+   "tab"
+  ]
  },
  {
   "commit": "0d9552b3",
@@ -189,7 +203,7 @@
   "reached": 1,
   "complete": true,
   "presses": [
-   "jump"
+   "tab"
   ]
  },
  {
@@ -198,9 +212,11 @@
   "policy": "reach",
   "hunks": 1,
   "imports": 1,
-  "reached": 0,
-  "complete": false,
-  "presses": []
+  "reached": 1,
+  "complete": true,
+  "presses": [
+   "tab"
+  ]
  },
  {
   "commit": "b4be29d3",
@@ -208,9 +224,11 @@
   "policy": "none",
   "hunks": 4,
   "imports": 0,
-  "reached": 0,
+  "reached": 1,
   "complete": false,
-  "presses": []
+  "presses": [
+   "tab"
+  ]
  },
  {
   "commit": "b4be29d3",
@@ -221,7 +239,7 @@
   "reached": 1,
   "complete": false,
   "presses": [
-   "jump"
+   "tab"
   ]
  },
  {
@@ -230,9 +248,10 @@
   "policy": "reach",
   "hunks": 4,
   "imports": 0,
-  "reached": 1,
+  "reached": 2,
   "complete": false,
   "presses": [
+   "tab",
    "jump"
   ]
  },
@@ -405,9 +424,12 @@
   "policy": "spec",
   "hunks": 2,
   "imports": 1,
-  "reached": 0,
-  "complete": false,
-  "presses": []
+  "reached": 2,
+  "complete": true,
+  "presses": [
+   "jump",
+   "tab"
+  ]
  },
  {
   "commit": "4d2eaefa",
@@ -428,9 +450,11 @@
   "policy": "none",
   "hunks": 1,
   "imports": 1,
-  "reached": 0,
-  "complete": false,
-  "presses": []
+  "reached": 1,
+  "complete": true,
+  "presses": [
+   "tab"
+  ]
  },
  {
   "commit": "c16bbc76",
@@ -438,9 +462,11 @@
   "policy": "spec",
   "hunks": 1,
   "imports": 1,
-  "reached": 0,
-  "complete": false,
-  "presses": []
+  "reached": 1,
+  "complete": true,
+  "presses": [
+   "tab"
+  ]
  },
  {
   "commit": "c16bbc76",
@@ -451,7 +477,7 @@
   "reached": 1,
   "complete": true,
   "presses": [
-   "jump"
+   "tab"
   ]
  },
  {
@@ -586,93 +612,121 @@
   "policy": "none",
   "hunks": 2,
   "imports": 1,
-  "reached": 0,
-  "complete": false,
-  "presses": []
- },
- {
-  "commit": "fbd20b1e",
-  "path": "apps/daemon/src/languages/discovery/index.ts",
-  "policy": "spec",
-  "hunks": 2,
-  "imports": 1,
-  "reached": 0,
-  "complete": false,
-  "presses": []
- },
- {
-  "commit": "fbd20b1e",
-  "path": "apps/daemon/src/languages/discovery/index.ts",
-  "policy": "reach",
-  "hunks": 2,
-  "imports": 1,
-  "reached": 0,
-  "complete": false,
-  "presses": []
- },
- {
-  "commit": "a947a846",
-  "path": "apps/desktop/src/shared/chord.ts",
-  "policy": "none",
-  "hunks": 3,
-  "imports": 0,
-  "reached": 0,
-  "complete": false,
-  "presses": []
- },
- {
-  "commit": "a947a846",
-  "path": "apps/desktop/src/shared/chord.ts",
-  "policy": "spec",
-  "hunks": 3,
-  "imports": 0,
-  "reached": 0,
-  "complete": false,
-  "presses": []
- },
- {
-  "commit": "a947a846",
-  "path": "apps/desktop/src/shared/chord.ts",
-  "policy": "reach",
-  "hunks": 3,
-  "imports": 0,
-  "reached": 0,
-  "complete": false,
-  "presses": []
- },
- {
-  "commit": "1c51b0ba",
-  "path": "apps/desktop/src/main/machines/index.ts",
-  "policy": "none",
-  "hunks": 5,
-  "imports": 0,
-  "reached": 0,
-  "complete": false,
-  "presses": []
- },
- {
-  "commit": "1c51b0ba",
-  "path": "apps/desktop/src/main/machines/index.ts",
-  "policy": "spec",
-  "hunks": 5,
-  "imports": 0,
-  "reached": 0,
-  "complete": false,
-  "presses": []
- },
- {
-  "commit": "1c51b0ba",
-  "path": "apps/desktop/src/main/machines/index.ts",
-  "policy": "reach",
-  "hunks": 5,
-  "imports": 0,
-  "reached": 4,
-  "complete": false,
+  "reached": 2,
+  "complete": true,
   "presses": [
-   "jump",
-   "jump",
    "tab",
-   "jump"
+   "tab"
+  ]
+ },
+ {
+  "commit": "fbd20b1e",
+  "path": "apps/daemon/src/languages/discovery/index.ts",
+  "policy": "spec",
+  "hunks": 2,
+  "imports": 1,
+  "reached": 2,
+  "complete": true,
+  "presses": [
+   "tab",
+   "tab"
+  ]
+ },
+ {
+  "commit": "fbd20b1e",
+  "path": "apps/daemon/src/languages/discovery/index.ts",
+  "policy": "reach",
+  "hunks": 2,
+  "imports": 1,
+  "reached": 2,
+  "complete": true,
+  "presses": [
+   "tab",
+   "tab"
+  ]
+ },
+ {
+  "commit": "a947a846",
+  "path": "apps/desktop/src/shared/chord.ts",
+  "policy": "none",
+  "hunks": 3,
+  "imports": 0,
+  "reached": 1,
+  "complete": false,
+  "presses": [
+   "tab"
+  ]
+ },
+ {
+  "commit": "a947a846",
+  "path": "apps/desktop/src/shared/chord.ts",
+  "policy": "spec",
+  "hunks": 3,
+  "imports": 0,
+  "reached": 1,
+  "complete": false,
+  "presses": [
+   "tab"
+  ]
+ },
+ {
+  "commit": "a947a846",
+  "path": "apps/desktop/src/shared/chord.ts",
+  "policy": "reach",
+  "hunks": 3,
+  "imports": 0,
+  "reached": 1,
+  "complete": false,
+  "presses": [
+   "tab"
+  ]
+ },
+ {
+  "commit": "1c51b0ba",
+  "path": "apps/desktop/src/main/machines/index.ts",
+  "policy": "none",
+  "hunks": 5,
+  "imports": 0,
+  "reached": 5,
+  "complete": true,
+  "presses": [
+   "tab",
+   "tab",
+   "tab",
+   "tab",
+   "tab"
+  ]
+ },
+ {
+  "commit": "1c51b0ba",
+  "path": "apps/desktop/src/main/machines/index.ts",
+  "policy": "spec",
+  "hunks": 5,
+  "imports": 0,
+  "reached": 5,
+  "complete": true,
+  "presses": [
+   "tab",
+   "tab",
+   "tab",
+   "tab",
+   "tab"
+  ]
+ },
+ {
+  "commit": "1c51b0ba",
+  "path": "apps/desktop/src/main/machines/index.ts",
+  "policy": "reach",
+  "hunks": 5,
+  "imports": 0,
+  "reached": 5,
+  "complete": true,
+  "presses": [
+   "tab",
+   "tab",
+   "tab",
+   "tab",
+   "tab"
   ]
  },
  {
@@ -681,9 +735,11 @@
   "policy": "none",
   "hunks": 1,
   "imports": 1,
-  "reached": 0,
-  "complete": false,
-  "presses": []
+  "reached": 1,
+  "complete": true,
+  "presses": [
+   "tab"
+  ]
  },
  {
   "commit": "d7d9947c",
@@ -691,9 +747,11 @@
   "policy": "spec",
   "hunks": 1,
   "imports": 1,
-  "reached": 0,
-  "complete": false,
-  "presses": []
+  "reached": 1,
+  "complete": true,
+  "presses": [
+   "tab"
+  ]
  },
  {
   "commit": "d7d9947c",
@@ -701,9 +759,11 @@
   "policy": "reach",
   "hunks": 1,
   "imports": 1,
-  "reached": 0,
-  "complete": false,
-  "presses": []
+  "reached": 1,
+  "complete": true,
+  "presses": [
+   "tab"
+  ]
  },
  {
   "commit": "9339a03a",
@@ -834,53 +894,55 @@
   "path": "apps/desktop/src/main/machines/index.ts",
   "policy": "reach",
   "hunks": 3,
+  "imports": 0,
+  "reached": 3,
+  "complete": true,
+  "presses": [
+   "jump",
+   "jump",
+   "tab"
+  ]
+ },
+ {
+  "commit": "622bd0c5",
+  "path": "apps/desktop/src/main/prediction/bridge.ts",
+  "policy": "none",
+  "hunks": 3,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "622bd0c5",
+  "path": "apps/desktop/src/main/prediction/bridge.ts",
+  "policy": "spec",
+  "hunks": 3,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "622bd0c5",
+  "path": "apps/desktop/src/main/prediction/bridge.ts",
+  "policy": "reach",
+  "hunks": 3,
+  "imports": 0,
+  "reached": 0,
+  "complete": false,
+  "presses": []
+ },
+ {
+  "commit": "fc1cdc1f",
+  "path": "packages/ui/gallery/sections/floating.tsx",
+  "policy": "none",
+  "hunks": 2,
   "imports": 0,
   "reached": 2,
-  "complete": false,
+  "complete": true,
   "presses": [
-   "jump",
-   "jump"
-  ]
- },
- {
-  "commit": "622bd0c5",
-  "path": "apps/desktop/src/main/prediction/bridge.ts",
-  "policy": "none",
-  "hunks": 3,
-  "imports": 0,
-  "reached": 0,
-  "complete": false,
-  "presses": []
- },
- {
-  "commit": "622bd0c5",
-  "path": "apps/desktop/src/main/prediction/bridge.ts",
-  "policy": "spec",
-  "hunks": 3,
-  "imports": 0,
-  "reached": 0,
-  "complete": false,
-  "presses": []
- },
- {
-  "commit": "622bd0c5",
-  "path": "apps/desktop/src/main/prediction/bridge.ts",
-  "policy": "reach",
-  "hunks": 3,
-  "imports": 0,
-  "reached": 0,
-  "complete": false,
-  "presses": []
- },
- {
-  "commit": "fc1cdc1f",
-  "path": "packages/ui/gallery/sections/floating.tsx",
-  "policy": "none",
-  "hunks": 2,
-  "imports": 0,
-  "reached": 1,
-  "complete": false,
-  "presses": [
+   "tab",
    "tab"
   ]
  },
@@ -890,9 +952,10 @@
   "policy": "spec",
   "hunks": 2,
   "imports": 0,
-  "reached": 1,
-  "complete": false,
+  "reached": 2,
+  "complete": true,
   "presses": [
+   "tab",
    "tab"
   ]
  },
@@ -902,9 +965,10 @@
   "policy": "reach",
   "hunks": 2,
   "imports": 0,
-  "reached": 1,
-  "complete": false,
+  "reached": 2,
+  "complete": true,
   "presses": [
+   "tab",
    "tab"
   ]
  },

@@ -175,9 +175,7 @@
   "imports": 0,
   "reached": 0,
   "complete": false,
-  "presses": [
-   "jump:other [{\"from\":1403,\"to\":1406,\"text\":\"Tra\"},{\"from\":1407,\"to\":1408,\"text\":\"sfer\"},{\"from\":1412,\"to\":1412,\"text\":\"ag\"}]"
-  ]
+  "presses": []
  },
  {
   "commit": "68d25b0a",
@@ -187,9 +185,7 @@
   "imports": 0,
   "reached": 0,
   "complete": false,
-  "presses": [
-   "jump:other [{\"from\":1404,\"to\":1404,\"text\":\"ffect.context<import(\\\"../../store/E\"},{\"from\":1413,\"to\":1413,\"text\":\"\\\").EventStore>()\"},{\"from\":1446,\"to\":1446,\"text\":\"Effect.context<\"},{\"from\":1459,\"to\":1459,\"text\":\">()\"},{\"from\":1489,\"to\":1489,\"text\":\"Effect.context<\"},{\"from\":1498,\"to\":1498,\"text\":\">()\"},{\"from"
-  ]
+  "presses": []
  },
  {
   "commit": "b3039cfa",
@@ -241,7 +237,9 @@
   "imports": 1,
   "reached": 0,
   "complete": false,
-  "presses": []
+  "presses": [
+   "jump:other [{\"from\":3381,\"to\":3385,\"text\":\"s\"},{\"from\":3387,\"to\":3390,\"text\":\"ll\"},{\"from\":3392,\"to\":3392,\"text\":\"?\"},{\"from\":3398,\"to\":3425,\"text\":\"\"}]"
+  ]
  },
  {
   "commit": "4d2eaefa",
@@ -252,7 +250,7 @@
   "reached": 0,
   "complete": false,
   "presses": [
-   "jump:other [{\"from\":3381,\"to\":3385,\"text\":\"s\"},{\"from\":3387,\"to\":3390,\"text\":\"ll\"}]"
+   "jump:other [{\"from\":3381,\"to\":3385,\"text\":\"s\"},{\"from\":3387,\"to\":3425,\"text\":\"ll\"}]"
   ]
  },
  {
@@ -303,9 +301,7 @@
   "imports": 1,
   "reached": 0,
   "complete": false,
-  "presses": [
-   "tab:other [{\"from\":2786,\"to\":2786,\"text\":\"  \\\"no-workspace\\\",\\n\"}]"
-  ]
+  "presses": []
  },
  {
   "commit": "ae0c76b0",
@@ -315,9 +311,7 @@
   "imports": 1,
   "reached": 0,
   "complete": false,
-  "presses": [
-   "tab:other [{\"from\":2786,\"to\":2786,\"text\":\"  \\\"no-workspace\\\",\\n\"}]"
-  ]
+  "presses": []
  },
  {
   "commit": "67fb1b12",
@@ -351,9 +345,7 @@
   "imports": 1,
   "reached": 0,
   "complete": false,
-  "presses": [
-   "tab:other [{\"from\":187,\"to\":188,\"text\":\"\"}]"
-  ]
+  "presses": []
  },
  {
   "commit": "a5a61e7c",
@@ -363,9 +355,7 @@
   "imports": 1,
   "reached": 0,
   "complete": false,
-  "presses": [
-   "tab:other [{\"from\":187,\"to\":188,\"text\":\"\"}]"
-  ]
+  "presses": []
  },
  {
   "commit": "fbd20b1e",
@@ -475,9 +465,7 @@
   "imports": 1,
   "reached": 0,
   "complete": false,
-  "presses": [
-   "tab:other [{\"from\":10980,\"to\":10980,\"text\":\"  const prediction = createMainPrediction(runtime, predictionSettings, predictionPlacement);\\n\\n\"}]"
-  ]
+  "presses": []
  },
  {
   "commit": "d2f07403",
@@ -487,9 +475,7 @@
   "imports": 1,
   "reached": 0,
   "complete": false,
-  "presses": [
-   "tab:other [{\"from\":10980,\"to\":10980,\"text\":\"  const prediction = createMainPrediction(runtime, predictionSettings, predictionPlacement);\\n\\n\"}]"
-  ]
+  "presses": []
  },
  {
   "commit": "b6d24df9",
@@ -519,9 +505,7 @@
   "imports": 0,
   "reached": 0,
   "complete": false,
-  "presses": [
-   "jump:other [{\"from\":1748,\"to\":1752,\"text\":\"H\"},{\"from\":1753,\"to\":1754,\"text\":\"st\"},{\"from\":1775,\"to\":1800,\"text\":\"\"},{\"from\":1802,\"to\":1812,\"text\":\"\"},{\"from\":1814,\"to\":1825,\"text\":\">\"}]"
-  ]
+  "presses": []
  },
  {
   "commit": "26708de5",
@@ -531,9 +515,7 @@
   "imports": 0,
   "reached": 0,
   "complete": false,
-  "presses": [
-   "jump:other [{\"from\":1748,\"to\":1752,\"text\":\"H\"},{\"from\":1753,\"to\":1754,\"text\":\"st\"},{\"from\":1775,\"to\":1800,\"text\":\"\"},{\"from\":1802,\"to\":1812,\"text\":\"\"},{\"from\":1814,\"to\":1825,\"text\":\">\"}]"
-  ]
+  "presses": []
  },
  {
   "commit": "622bd0c5",
@@ -564,7 +546,7 @@
   "reached": 0,
   "complete": false,
   "presses": [
-   "tab:other [{\"from\":3794,\"to\":3814,\"text\":\"{ kind: \\\"separator\\\" }\"},{\"from\":3911,\"to\":3931,\"text\":\"{ kind: \\\"separator\\\" }\"}]"
+   "tab:other [{\"from\":3860,\"to\":3860,\"text\":\"…\"},{\"from\":3863,\"to\":3863,\"text\":\"need\"},{\"from\":3864,\"to\":3869,\"text\":\"Inp\"},{\"from\":3873,\"to\":3877,\"text\":\"true\"}]"
   ]
  },
  {
@@ -576,7 +558,7 @@
   "reached": 0,
   "complete": false,
   "presses": [
-   "tab:other [{\"from\":3794,\"to\":3814,\"text\":\"{ kind: \\\"separator\\\" }\"},{\"from\":3911,\"to\":3931,\"text\":\"{ kind: \\\"separator\\\" }\"}]"
+   "tab:other [{\"from\":3860,\"to\":3860,\"text\":\"…\"},{\"from\":3863,\"to\":3863,\"text\":\"need\"},{\"from\":3864,\"to\":3869,\"text\":\"Inp\"},{\"from\":3873,\"to\":3877,\"text\":\"true\"}]"
   ]
  },
  {

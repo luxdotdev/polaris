@@ -1,4 +1,5 @@
 import type { EditHistoryHunk } from "@polaris/protocol";
+import { editOptions } from "../options.ts";
 import { buffer, lineOf, type ReachSignal, sources, TIERS } from "./sources.ts";
 
 export type { ReachSignal } from "./sources.ts";
@@ -15,8 +16,9 @@ export interface ReachInput {
 
 export interface ReachOptions {
   readonly signals?: readonly ReachSignal[];
-  /** Lines a probe's window spans on each side of its focus (Sweep: 10). */
-  readonly radius?: number;
+  /** Lines a probe's window spans above and below its focus; defaults to Sweep's. */
+  readonly above?: number;
+  readonly below?: number;
   /** Uses above which a name ranks after rarer ones in its tier. */
   readonly common?: number;
 }
@@ -24,14 +26,13 @@ export interface ReachOptions {
 const nameAt = (text: string, offset: number) =>
   /^[$\w]*/.exec(text.slice(offset, offset + 200))?.[0] ?? "";
 
+/** The default: each raised useful first probes on dev with none dangerous (2026-10-15). */
 export const REACH_SIGNALS: readonly ReachSignal[] = [
   "orphan",
   "moved",
   "last",
   "callee",
   "history",
-  "signature",
-  "kept",
 ];
 
 interface Candidate {
@@ -50,7 +51,8 @@ export const reachFocuses = (input: ReachInput, options: ReachOptions = {}): num
   const { cursor, window } = input;
 
   if (!Number.isInteger(cursor) || cursor < 0 || cursor > input.buffer.length) return [];
-  const radius = options.radius ?? 10;
+  const above = options.above ?? editOptions.above;
+  const below = options.below ?? editOptions.below;
   const b = buffer(input.buffer);
   const hunks = input.history.filter((hunk) => hunk.path === input.path);
   const cursorLine = lineOf(b, cursor);
@@ -76,7 +78,7 @@ export const reachFocuses = (input: ReachInput, options: ReachOptions = {}): num
   const chosen: Candidate[] = [];
 
   for (const c of candidates)
-    if (chosen.every((p) => Math.abs(p.line - c.line) > radius)) chosen.push(c);
+    if (chosen.every((p) => c.line < p.line - above || c.line > p.line + below)) chosen.push(c);
 
   return chosen.map((c) => c.offset);
 };

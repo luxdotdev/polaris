@@ -21,8 +21,9 @@ export const variants: Record<string, readonly ReachSignal[] | "spec"> = {
   "last+history": ["last", "history"],
   "orphan+last+history": ["orphan", "last", "history"],
   "+moved": ["orphan", "moved", "last", "history"],
-  "+callee": ["orphan", "moved", "last", "callee", "history"],
+  "+callee": ["orphan", "moved", "last", "callee", "history"], // the default
   "+signature": ["orphan", "moved", "last", "callee", "history", "signature"],
+  "+kept": ["orphan", "moved", "last", "callee", "history", "kept"],
   all: ["orphan", "moved", "last", "callee", "history", "signature", "kept"],
 };
 

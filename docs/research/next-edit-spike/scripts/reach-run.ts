@@ -12,7 +12,7 @@ if (process.env.POLARIS_PREDICTION_LIVE !== "1" || !["dev", "test"].includes(spl
   throw new Error("Set POLARIS_PREDICTION_LIVE=1 and pass dev or test");
 const url = process.env.POLARIS_EDIT_URL ?? "http://127.0.0.1:8093";
 const dest = new URL(`../reach/${split}.outputs.json`, import.meta.url);
-const rows: { id: string; focus: number; output: string; elapsedMs: number }[] =
+const rows: { id: string; focus: number; output: string; elapsedMs: number; error?: string }[] =
   (await Bun.file(dest).exists()) ? await Bun.file(dest).json() : [];
 const have = new Set(rows.map((r) => `${r.id}@${r.focus}`));
 const names = only ? only.split(",") : Object.keys(variants);
@@ -27,9 +27,15 @@ for (const c of hardeningCases.filter((c) => c.split === split)) {
       model: "sweep-next-edit", maxTokens: 512 });
     const start = performance.now();
     let output = "";
-    for await (const delta of endpointDeltas(request, buildEditPrompt(request), AbortSignal.timeout(120000), globalThis.fetch))
-      output += delta;
-    rows.push({ id: c.id, focus, output, elapsedMs: performance.now() - start });
+    let error: string | undefined;
+    try {
+      for await (const delta of endpointDeltas(request, buildEditPrompt(request), AbortSignal.timeout(120000), globalThis.fetch))
+        output += delta;
+    } catch (cause) {
+      // The predictor fails the request, so the Editor shows nothing: scored as abstain.
+      error = String((cause as { reason?: string }).reason ?? cause);
+    }
+    rows.push({ id: c.id, focus, output, elapsedMs: performance.now() - start, ...(error ? { error } : {}) });
     have.add(`${c.id}@${focus}`);
     await Bun.write(dest, JSON.stringify(rows) + "\n");
     process.stderr.write(`${c.id}@${focus} `);

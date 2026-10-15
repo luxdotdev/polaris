@@ -12,10 +12,23 @@ const split = process.argv[2];
 if (!["dev", "test"].includes(split ?? "")) throw new Error("Pass dev or test");
 const mode = process.argv[3] ?? "table";
 const dir = new URL("../reach/", import.meta.url);
-const outputs: { id: string; focus: number; output: string; elapsedMs: number }[] =
+const outputs: { id: string; focus: number; output: string; elapsedMs: number; error?: string }[] =
   await Bun.file(new URL(`${split}.outputs.json`, dir)).json();
 const labelsFile = Bun.file(new URL(`${split}.labels.json`, dir));
 const labels: Record<string, { label: string; note: string }> = (await labelsFile.exists()) ? await labelsFile.json() : {};
+// Pre-merge labels carry over only where the raw output is byte-identical.
+const pre = new URL("pre-merge/", dir);
+if (await Bun.file(new URL(`${split}.labels.json`, pre)).exists()) {
+  const preOutputs: { id: string; focus: number; output: string }[] = await Bun.file(new URL(`${split}.outputs.json`, pre)).json();
+  const preLabels: Record<string, { label: string; note: string }> = await Bun.file(new URL(`${split}.labels.json`, pre)).json();
+  for (const o of outputs) {
+    const same = preOutputs.find((p) => p.id === o.id && p.focus === o.focus && p.output === o.output);
+    for (const suffix of [":raw", ""]) {
+      const key = `${o.id}@${o.focus}${suffix}`;
+      if (same && preLabels[key] && !labels[key]) labels[key] = preLabels[key]!;
+    }
+  }
+}
 const norm = (s: string) => s.replace(/\s/g, "");
 
 type Case = (typeof hardeningCases)[number];
@@ -23,6 +36,7 @@ const judge = (c: Case, focus: number) => {
   const key = `${c.id}@${focus}`;
   const recorded = outputs.find((o) => o.id === c.id && o.focus === focus);
   if (!recorded) return { key, label: "missing", raw: "missing" };
+  if (recorded.error) return { key, label: "abstain", raw: "abstain", request: EditPredictionRequest.make({ ...hardeningRequest(c, "sweep-next-edit"), focus }) };
   const request = EditPredictionRequest.make({ ...hardeningRequest(c, "sweep-next-edit"), focus });
   const prompt = buildEditPrompt(request);
   const rawAfter = applyEdits(c.buffer, parseRegions(request, prompt.window, recorded.output, prompt.stop).regions);

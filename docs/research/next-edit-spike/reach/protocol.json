@@ -3,10 +3,17 @@
   "split": "Reuse the frozen hardening split: 70 dev and 30 held-out, no commit crosses splits",
   "source": "packages/predict/src/edit/fixtures/hardening-cases.json",
   "baseline": "Identifiers whose occurrence count decreased in the last edit, nearest outside the cursor window; one probe",
-  "experiments": ["last edit", "all frozen history", "changed text including string words", "shared identifiers in changed signatures"],
+  "experiments": [
+    "last edit",
+    "all frozen history",
+    "changed text including string words",
+    "shared identifiers in changed signatures"
+  ],
   "budget": "Measure first focus (shipping policy); report up to three sequential candidates separately, no parallel requests",
   "labels": "exact / acceptable / wrong / dangerous / abstain; production guards on; review all other outputs",
   "chaining": "Oracle accepts true next hunk; measure Final.cursor window or first probe reaching the following hunk, plus live useful chains separately",
   "imports": "All 20 frozen add-import cases, including 14 additionally mined hardening cases; actual commit checkout with post-history buffer, real TypeScript language service",
-  "heldOut": "Run once after freezing reach policy and import selector; no tuning on held-out outputs"
+  "heldOut": "Run once after freezing reach policy and import selector; no tuning on held-out outputs",
+  "merge": "Main's hill-climbed options (window 10/20, seven guards) merged mid-run; jump and chain runs repeated post-merge, pre-merge runs kept in pre-merge/",
+  "defaultSignals": "orphan, moved, last, callee, history; signature and kept dropped post-merge on dev (added hrf08 exact and hrf07 dangerous)"
 }
