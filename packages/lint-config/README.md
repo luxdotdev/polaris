@@ -19,6 +19,18 @@ All at `error`. Type-aware rules run through `oxlint-tsgolint`, which uses the T
 - **`polaris/no-long-comment`**: at most two lines of prose per comment.
 - **`polaris/await-expect-promise`**: an `expect(…).rejects` / `.resolves` statement must be awaited. bun types the matcher as `void`, so write `await Promise.resolve(expect(p).rejects.toThrow(…))`; unawaited, the assertions after it run before the promise settles.
 - **anti-slop**: every generic rule, the native companion `oxc/no-accumulating-spread`, and every Effect rule.
+- **security**: the guards from the October 2026 security audit (see below and `docs/security/README.md`).
+
+## security (`plugins/security/`)
+
+Four rules, each scoped by repo path, with its sanctioned call sites in `allowlist.mjs` (one comment per entry says where the bytes, config or environment come from). Test files, `testing` helpers, `.fixture` and `.bench` files are exempt. Adding an allowlist entry is a security decision: get it reviewed.
+
+- `security/git-spawn` (`apps/daemon/src/`): git is started only through `git/git.ts`. It reports `Bun.spawn`/`spawnSync`, `child_process` spawns and execs, and Bun's `$` whose command is git (a literal, a path ending in `/git`, a const holding one, or `which("git")`), plus `which("git")` itself. An entry marked `safe` must also call `safeConfigEnv`, or the file is reported.
+- `security/git-config-mode` (`apps/daemon/src/`): `config: "host"` or `"trusted-fetch"` (also inside a conditional or `as const`) only in git the user asked for (ADR 0056).
+- `security/image-decode` (the renderer, `shared/`, `@polaris/ui`): `new Image`, `new ImageDecoder`, `createImageBitmap`, `URL.createObjectURL`, a no-argument `.decode()`, `createElement("img")` and value imports of `mermaid` / `@streamdown/mermaid` only where the bytes were admitted (`admitRaster`) or Mermaid is wrapped in `guardedDiagrams`. JSX `<img src>` isn't checked; its URL comes from one of these.
+- `security/repository-env` (the modules that start a repository's code: worktree setup, the Reviewer's confinement and env, the Rules layer's git and Betterleaks): `process.env` only as an argument to `repositoryEnv`, `setupEnv` or `readOnlyEnv` (or a parameter default, or one variable read); no `childEnv` (the Daemon's whole env); every spawn passes `env`.
+
+The Desktop App's `no-restricted-globals` rule on `fetch` in `src/main/` (`apps/desktop/.oxlintrc.json`) is the fifth guard: Main's internet goes through `internetFetch` (ADR 0053). `tooling/security/` tests it, and that every external GitHub Action is pinned to a commit SHA.
 
 ## The ratchet
 
@@ -78,7 +90,7 @@ The generic rules that matter most day to day:
 
 ## Fixtures
 
-`bun run test` (or `bun test` in this package) runs `plugins/fixtures.test.ts`, which lints each plugin's `test/fixtures/` with its `test/fixtures.oxlintrc.json`: the clean fixtures must be silent, `long-comment.ts` must report exactly four groups, and `complex.ts` exactly one function. To eyeball one by hand:
+`bun run test` (or `bun test` in this package) runs `plugins/fixtures.test.ts`, which lints each plugin's `test/fixtures/` with its `test/fixtures.oxlintrc.json`: the clean fixtures must be silent, `long-comment.ts` must report exactly four groups, and `complex.ts` exactly one function. The security fixtures plant each violation once (one report per line) beside allowlisted and exempt files that must stay silent; their config passes its own `scope` and `allow`. To eyeball one by hand:
 
 ```sh
 cd packages/lint-config/plugins/polaris/test && ../../../../../node_modules/.bin/oxlint -c fixtures.oxlintrc.json fixtures

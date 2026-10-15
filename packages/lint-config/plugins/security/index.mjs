@@ -1,0 +1,381 @@
+// oxlint JS plugin: the security invariants, each with an allowlist (`allowlist.mjs`).
+// See packages/lint-config/README.md and docs/security/README.md.
+import { fileURLToPath } from "node:url";
+import { relative, sep } from "node:path";
+import { GIT_CONFIG_MODE, GIT_SPAWN, IMAGE_DECODE, REPOSITORY_ENV } from "./allowlist.mjs";
+
+const ROOT = fileURLToPath(new URL("../../../../", import.meta.url));
+
+/** Options replace `allowlist.mjs`'s scope and allowlist; only the fixtures pass them. */
+const OPTIONS = [
+  {
+    type: "object",
+    properties: {
+      scope: { type: "array", items: { type: "string" } },
+      allow: { type: "object", additionalProperties: { type: "string" } },
+      builders: { type: "array", items: { type: "string" } },
+    },
+    additionalProperties: false,
+  },
+];
+
+/** Tests, test helpers, fixtures and benches set up their own repositories and images. */
+const EXEMPT = [
+  /\.(test|testing|fixture|bench)\.[cm]?[jt]sx?$/,
+  /(^|\/)testing(\.[cm]?[jt]sx?$|\/)/,
+];
+
+const repoPath = (filename) => relative(ROOT, filename).split(sep).join("/");
+
+/** The rule's scope and allowlist: its options (the fixtures pass their own), else `allowlist.mjs`. */
+const settings = (context, defaults) => ({ ...defaults, ...context.options[0] });
+
+/** Whether the rule checks this file, and the allowlist entry it has, if any. */
+const placement = (context, defaults) => {
+  const config = settings(context, defaults);
+  const path = repoPath(context.filename);
+  const checked = config.scope.some((prefix) => path.startsWith(prefix));
+
+  return {
+    config,
+    checked: checked && !EXEMPT.some((pattern) => pattern.test(path)),
+    entry: config.allow[path] ?? null,
+  };
+};
+
+const SPAWNERS = new Set(["spawn", "spawnSync", "execFile", "execFileSync"]);
+
+/** `exec` only as an imported function: `regex.exec(…)` is no spawn. */
+const SHELL_SPAWNERS = new Set(["exec", "execSync"]);
+
+/** The spawning function a call names, or null. */
+const spawner = (call) => {
+  const name = calleeName(call.callee);
+
+  if (SPAWNERS.has(name)) return name;
+
+  return call.callee.type === "Identifier" && SHELL_SPAWNERS.has(name) ? name : null;
+};
+
+/** The called function's own name: `spawn` for `Bun.spawn(…)`, `spawn(…)` and `cp.spawn(…)`. */
+const calleeName = (callee) => {
+  if (callee.type === "Identifier") return callee.name;
+
+  if (
+    callee.type === "MemberExpression" &&
+    !callee.computed &&
+    callee.property.type === "Identifier"
+  )
+    return callee.property.name;
+
+  return null;
+};
+
+const QUOTED = /^["']/;
+
+const stringOf = (node) => {
+  if (node?.type === "Literal" && QUOTED.test(node.raw ?? "")) return String(node.value);
+
+  if (node?.type === "TemplateLiteral") return node.quasis[0]?.value.cooked ?? null;
+
+  return null;
+};
+
+const GIT_COMMAND = /^(?:\S*\/)?git(?:\s|$)/;
+
+const isWhichGit = (node) =>
+  node?.type === "CallExpression" &&
+  calleeName(node.callee) === "which" &&
+  stringOf(node.arguments[0]) === "git";
+
+/** Whether an expression names git: `"git"`, `"/usr/bin/git status"`, `which("git")`, a const of one. */
+const namesGit = (node, consts) => {
+  if (node === undefined || node === null) return false;
+
+  const text = stringOf(node);
+
+  if (text !== null) return GIT_COMMAND.test(text);
+
+  switch (node.type) {
+    case "Identifier":
+      return consts.has(node.name);
+    case "LogicalExpression":
+      return namesGit(node.left, consts) || namesGit(node.right, consts);
+    case "ConditionalExpression":
+      return namesGit(node.consequent, consts) || namesGit(node.alternate, consts);
+    case "AwaitExpression":
+    case "TSAsExpression":
+    case "TSNonNullExpression":
+      return namesGit(node.expression ?? node.argument, consts);
+    default:
+      return isWhichGit(node);
+  }
+};
+
+/** Whether a spawn's first argument runs git: a command string, an argv array, or `{ cmd }`. */
+const runsGit = (argument, consts) => {
+  if (argument?.type === "ArrayExpression") return namesGit(argument.elements[0], consts);
+
+  if (argument?.type === "ObjectExpression") {
+    const cmd = argument.properties.find((p) => p.type === "Property" && keyName(p) === "cmd");
+
+    return cmd?.value.type === "ArrayExpression" && namesGit(cmd.value.elements[0], consts);
+  }
+
+  return namesGit(argument, consts);
+};
+
+const keyName = (property) => {
+  if (property.key.type === "Identifier") return property.key.name;
+
+  return stringOf(property.key);
+};
+
+const GIT_SPAWN_MESSAGE =
+  "The Daemon runs git through apps/daemon/src/git/git.ts (runGit, gitText, git): the safe config " +
+  "and bounded output. A new direct spawn needs an entry in plugins/security/allowlist.mjs.";
+
+const SAFE_PATH_MESSAGE =
+  "This file is allowlisted to run git on the safe path, so its git must get safeConfigEnv's " +
+  "settings; it no longer calls safeConfigEnv.";
+
+const gitSpawn = {
+  meta: {
+    type: "problem",
+    schema: OPTIONS,
+    docs: { description: "Git is started only through git.ts, or an allowlisted safe-path user." },
+  },
+  create(context) {
+    const { checked, entry } = placement(context, GIT_SPAWN);
+
+    if (!checked) return {};
+
+    const consts = new Set();
+    const candidates = [];
+    let callsSafeConfig = false;
+
+    return {
+      VariableDeclarator(node) {
+        if (node.id.type === "Identifier" && namesGit(node.init, consts)) consts.add(node.id.name);
+      },
+      CallExpression(node) {
+        const name = calleeName(node.callee);
+
+        if (name === "safeConfigEnv") callsSafeConfig = true;
+
+        if (isWhichGit(node) || (spawner(node) !== null && node.arguments.length > 0))
+          candidates.push(node);
+      },
+      TaggedTemplateExpression(node) {
+        if (node.tag.type === "Identifier" && node.tag.name === "$") candidates.push(node);
+      },
+      "Program:exit"(program) {
+        if (entry === "safe" && !callsSafeConfig)
+          context.report({ node: program, message: SAFE_PATH_MESSAGE });
+
+        if (entry !== null) return;
+
+        for (const node of candidates) {
+          const git =
+            node.type === "TaggedTemplateExpression"
+              ? GIT_COMMAND.test(node.quasi.quasis[0]?.value.cooked.trim() ?? "")
+              : isWhichGit(node) || runsGit(node.arguments[0], consts);
+
+          if (git) context.report({ node, message: GIT_SPAWN_MESSAGE });
+        }
+      },
+    };
+  },
+};
+
+const HOST_MODES = new Set(["host", "trusted-fetch"]);
+
+/** Whether an expression can evaluate to a literal `"host"` or `"trusted-fetch"`. */
+const hostMode = (node) => {
+  const text = stringOf(node);
+
+  if (text !== null) return HOST_MODES.has(text);
+
+  switch (node?.type) {
+    case "ConditionalExpression":
+      return hostMode(node.consequent) || hostMode(node.alternate);
+    case "LogicalExpression":
+      return hostMode(node.left) || hostMode(node.right);
+    case "TSAsExpression":
+    case "TSSatisfiesExpression":
+      return hostMode(node.expression);
+    default:
+      return false;
+  }
+};
+
+const gitConfigMode = {
+  meta: {
+    type: "problem",
+    schema: OPTIONS,
+    docs: { description: 'Only allowlisted git the user asked for passes `config: "host"`.' },
+  },
+  create(context) {
+    const { checked, entry } = placement(context, GIT_CONFIG_MODE);
+
+    if (!checked || entry !== null) return {};
+
+    return {
+      Property(node) {
+        if (keyName(node) === "config" && hostMode(node.value))
+          context.report({
+            node,
+            message:
+              'config: "host" / "trusted-fetch" runs the repository\'s own commands (ADR 0056). ' +
+              "Only git the user asked for passes it; add the call site to allowlist.mjs with why.",
+          });
+      },
+    };
+  },
+};
+
+const MERMAID = /^(?:mermaid(?:\/.*)?|@streamdown\/mermaid)$/;
+
+const IMAGE_MESSAGE =
+  "Host or Workspace image bytes reach a decoder only after admitRaster " +
+  "(renderer/features/host-images, main/languages/media.ts). Use readHostImage, or add this " +
+  "file to allowlist.mjs saying where its bytes come from.";
+
+const MERMAID_MESSAGE =
+  "Mermaid renders only through guardedDiagrams (session/ui/markdown/diagrams.ts), via usePlugins.";
+
+const isTypeOnly = (node) =>
+  node.importKind === "type" ||
+  (node.specifiers.length > 0 && node.specifiers.every((s) => s.importKind === "type"));
+
+const isUrlCreate = (callee) =>
+  callee.type === "MemberExpression" &&
+  callee.object.type === "Identifier" &&
+  callee.object.name === "URL" &&
+  calleeName(callee) === "createObjectURL";
+
+/** Why a call hands bytes to a decoder, or null. */
+const decodeCall = (node) => {
+  const name = calleeName(node.callee);
+
+  if (name === "createImageBitmap") return "createImageBitmap";
+
+  if (isUrlCreate(node.callee)) return "URL.createObjectURL";
+
+  if (name === "decode" && node.callee.type === "MemberExpression" && node.arguments.length === 0)
+    return "an image's decode()";
+
+  if (name === "createElement" && stringOf(node.arguments[0])?.toLowerCase() === "img")
+    return 'createElement("img")';
+
+  return null;
+};
+
+const imageDecode = {
+  meta: {
+    type: "problem",
+    schema: OPTIONS,
+    docs: {
+      description: "Image bytes reach a decoder only through admitRaster; Mermaid only guarded.",
+    },
+  },
+  create(context) {
+    const { checked, entry } = placement(context, IMAGE_DECODE);
+
+    if (!checked || entry !== null) return {};
+
+    const report = (node, what) => context.report({ node, message: `${what}: ${IMAGE_MESSAGE}` });
+
+    return {
+      NewExpression(node) {
+        if (
+          node.callee.type === "Identifier" &&
+          ["Image", "ImageDecoder"].includes(node.callee.name)
+        )
+          report(node, `new ${node.callee.name}()`);
+      },
+      CallExpression(node) {
+        const what = decodeCall(node);
+
+        if (what !== null) report(node, what);
+      },
+      ImportDeclaration(node) {
+        if (MERMAID.test(node.source.value) && !isTypeOnly(node))
+          context.report({ node, message: MERMAID_MESSAGE });
+      },
+      ImportExpression(node) {
+        if (MERMAID.test(stringOf(node.source) ?? ""))
+          context.report({ node, message: MERMAID_MESSAGE });
+      },
+    };
+  },
+};
+
+const isProcessEnv = (node) =>
+  node?.type === "MemberExpression" &&
+  !node.computed &&
+  node.object.type === "Identifier" &&
+  node.object.name === "process" &&
+  node.property.type === "Identifier" &&
+  node.property.name === "env";
+
+/** `process.env` that names one variable (`process.env.X`) or is a parameter's default. */
+const readsOneOrDefaults = (node) =>
+  (node.parent?.type === "MemberExpression" && node.parent.object === node) ||
+  (node.parent?.type === "AssignmentPattern" && node.parent.right === node);
+
+const ENV_MESSAGE =
+  "A child that runs a repository's code gets an allowlisted environment, never the Daemon's: " +
+  "pass process.env only to one of the builders in allowlist.mjs (repositoryEnv, setupEnv, readOnlyEnv).";
+
+const SPAWN_ENV_MESSAGE =
+  "This spawn would inherit the Daemon's environment: give it `env:` from an allowlisted builder.";
+
+const repositoryEnv = {
+  meta: {
+    type: "problem",
+    schema: OPTIONS,
+    docs: { description: "Children that run repository code get only an allowlisted env." },
+  },
+  create(context) {
+    const { config, checked } = placement(context, REPOSITORY_ENV);
+
+    if (!checked) return {};
+
+    const builders = new Set(config.builders);
+
+    const isBuilderArgument = (node) =>
+      node.parent?.type === "CallExpression" &&
+      node.parent.arguments.includes(node) &&
+      builders.has(calleeName(node.parent.callee));
+
+    return {
+      MemberExpression(node) {
+        if (isProcessEnv(node) && !readsOneOrDefaults(node) && !isBuilderArgument(node))
+          context.report({ node, message: ENV_MESSAGE });
+      },
+      CallExpression(node) {
+        const name = calleeName(node.callee);
+
+        if (name === "childEnv") context.report({ node, message: ENV_MESSAGE });
+
+        if (spawner(node) === null || node.arguments.length === 0) return;
+
+        const options = node.arguments.find((a) => a.type === "ObjectExpression");
+        const env = options?.properties.find((p) => p.type === "Property" && keyName(p) === "env");
+
+        if (env === undefined) context.report({ node, message: SPAWN_ENV_MESSAGE });
+      },
+    };
+  },
+};
+
+export default {
+  meta: { name: "security" },
+  rules: {
+    "git-spawn": gitSpawn,
+    "git-config-mode": gitConfigMode,
+    "image-decode": imageDecode,
+    "repository-env": repositoryEnv,
+  },
+};

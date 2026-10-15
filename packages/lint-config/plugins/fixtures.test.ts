@@ -5,7 +5,15 @@ import { Schema } from "effect";
 const OXLINT = join(import.meta.dir, "../../../node_modules/.bin/oxlint");
 
 const Report = Schema.Struct({
-  diagnostics: Schema.Array(Schema.Struct({ code: Schema.String, filename: Schema.String })),
+  diagnostics: Schema.Array(
+    Schema.Struct({
+      code: Schema.String,
+      filename: Schema.String,
+      labels: Schema.optional(
+        Schema.Array(Schema.Struct({ span: Schema.Struct({ line: Schema.Number }) }))
+      ),
+    })
+  ),
 });
 
 /** Spawning oxlint with its JS plugins takes several seconds on a cold CI runner. */
@@ -24,6 +32,38 @@ function lintFixtures(plugin: string) {
 
   return report.diagnostics;
 }
+
+/** Each security rule's reports as `file:line`, sorted. */
+const securityReports = (rule: string) =>
+  lintFixtures("security")
+    .filter((d) => d.code === `security(${rule})`)
+    .map((d) => `${d.filename.replace("fixtures/", "")}:${d.labels?.[0]?.span.line ?? 0}`)
+    .sort();
+
+const lines = (file: string, numbers: ReadonlyArray<number>) =>
+  numbers.map((line) => `${file}:${line}`);
+
+describe("security plugin: each guard reports what was planted, and nothing allowlisted or exempt", () => {
+  test.each([
+    [
+      "git-spawn",
+      [
+        ...lines("daemon/spawns.ts", [6, 9, 10, 11, 12, 13, 14, 15, 16]),
+        // An allowlisted safe-path user that stopped calling safeConfigEnv.
+        "daemon/unsafe-stream.ts:2",
+      ],
+    ],
+    ["git-config-mode", lines("daemon/host-config.ts", [6, 7, 8])],
+    ["image-decode", lines("renderer/decodes.tsx", [2, 7, 8, 9, 10, 11, 12, 13])],
+    ["repository-env", lines("setup/run.ts", [8, 9, 10, 11])],
+  ])(
+    "security/%s",
+    (rule, expected) => {
+      expect(securityReports(rule)).toEqual([...expected].sort());
+    },
+    SPAWN_TIMEOUT_MS
+  );
+});
 
 describe("custom oxlint plugins", () => {
   test(

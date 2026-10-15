@@ -1,0 +1,40 @@
+{
+  "jsPlugins": [{ "name": "security", "specifier": "../index.mjs" }],
+  "rules": {
+    "security/git-spawn": [
+      "error",
+      {
+        "scope": ["packages/lint-config/plugins/security/test/fixtures/daemon/"],
+        "allow": {
+          "packages/lint-config/plugins/security/test/fixtures/daemon/git/git.ts": "gate",
+          "packages/lint-config/plugins/security/test/fixtures/daemon/safe-stream.ts": "safe",
+          "packages/lint-config/plugins/security/test/fixtures/daemon/unsafe-stream.ts": "safe"
+        }
+      }
+    ],
+    "security/git-config-mode": [
+      "error",
+      {
+        "scope": ["packages/lint-config/plugins/security/test/fixtures/daemon/"],
+        "allow": { "packages/lint-config/plugins/security/test/fixtures/daemon/git/git.ts": "host" }
+      }
+    ],
+    "security/image-decode": [
+      "error",
+      {
+        "scope": ["packages/lint-config/plugins/security/test/fixtures/renderer/"],
+        "allow": {
+          "packages/lint-config/plugins/security/test/fixtures/renderer/gate.ts": "admitted"
+        }
+      }
+    ],
+    "security/repository-env": [
+      "error",
+      {
+        "scope": ["packages/lint-config/plugins/security/test/fixtures/setup/"],
+        "builders": ["setupEnv"],
+        "allow": {}
+      }
+    ]
+  }
+}
