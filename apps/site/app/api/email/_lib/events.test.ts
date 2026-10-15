@@ -1,31 +1,46 @@
 import { describe, expect, test } from "bun:test";
-import type { WideEvent } from "../../../../lib/log";
+import type { Level, WideEvent } from "../../../../lib/log";
 import { createEmailHandler } from "./index";
+import type { Admission } from "./limiter";
 import { EmailValidationError, type EmailValidator } from "./validator";
 
 const email = "private-recipient@example.com";
 
 type Deps = Partial<Parameters<typeof createEmailHandler>[0]>;
 
-function submit(deps: Deps = {}) {
+async function submit(deps: Deps = {}) {
+  const tasks: Array<() => Promise<Level | void>> = [];
+
   const handler = createEmailHandler({
     checkBot: async () => ({ isBot: false, isVerifiedBot: false }),
     validator: { validate: async () => true },
     transport: () => ({ preview: false, send: async () => {} }),
-    rateLimit: () => 0,
+    admit: async () => "admitted",
+    preview: false,
     ...deps,
   });
 
   const event: WideEvent = {};
 
-  return handler(
+  const response = await handler(
     new Request("https://polaris.lux.dev/api/email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, website: "" }),
     }),
-    event
-  ).then((response) => ({ status: response.status, event }));
+    event,
+    (task) => tasks.push(task)
+  );
+
+  const reply = {
+    status: response.status,
+    headers: [...response.headers.entries()],
+    body: await response.text(),
+  };
+
+  const levels = await Promise.all(tasks.map((task) => task()));
+
+  return { reply, event, levels };
 }
 
 const throwing = (error: Error): EmailValidator => ({
@@ -34,18 +49,10 @@ const throwing = (error: Error): EmailValidator => ({
   },
 });
 
-describe("email wide event", () => {
-  test.each<[string, Deps, number, WideEvent]>([
-    [
-      "BotID failure",
-      {
-        checkBot: async () => {
-          throw new Error(email);
-        },
-      },
-      503,
-      { bot: "unavailable", failure: "botid_unavailable", error: { type: "Error" } },
-    ],
+const limited = (admission: Admission): Deps => ({ admit: async () => admission });
+
+describe("every well-formed submission looks the same from outside", () => {
+  test.each<[string, Deps, WideEvent, Level]>([
     [
       "validator provider error",
       {
@@ -53,31 +60,49 @@ describe("email wide event", () => {
           new EmailValidationError("provider", { type: "InvalidIdentityToken", http_status: 400 })
         ),
       },
-      503,
       {
         bot: "human",
         validation: "unavailable",
         failure: "validation_provider",
         error: { type: "InvalidIdentityToken", http_status: 400 },
       },
+      "error",
     ],
     [
       "uncertain verdict",
       { validator: throwing(new EmailValidationError("uncertain")) },
-      422,
       { validation: "uncertain", failure: "validation_uncertain" },
+      "info",
     ],
     [
       "invalid recipient",
       { validator: { validate: async () => false } },
-      422,
       { validation: "invalid" },
+      "info",
+    ],
+    ["source limited", limited("source_limited"), { rejection: "source_limited" }, "info"],
+    ["total limited", limited("total_limited"), { rejection: "total_limited" }, "error"],
+    [
+      "recipient cooldown",
+      limited("recipient_cooldown"),
+      { rejection: "recipient_cooldown" },
+      "info",
+    ],
+    [
+      "limiter unavailable",
+      {
+        admit: async () => {
+          throw new TypeError(email);
+        },
+      },
+      { failure: "limiter_unavailable", error: { type: "TypeError" } },
+      "error",
     ],
     [
       "missing configuration",
       { transport: () => null, configProblems: () => ["AWS_ROLE_ARN"] },
-      503,
       { validation: "accepted", failure: "email_unconfigured", missing_config: ["AWS_ROLE_ARN"] },
+      "error",
     ],
     [
       "SES send failure",
@@ -92,15 +117,80 @@ describe("email wide event", () => {
           },
         }),
       },
-      503,
       { failure: "send_failed", error: { type: "MessageRejected", http_status: 400 } },
+      "error",
     ],
-    ["delivered", {}, 200, { bot: "human", validation: "accepted", delivery: "sent" }],
-  ])("%s records why, never the address", async (_, deps, status, fields) => {
-    const result = await submit(deps);
+  ])(
+    "%s replies as a delivery does and records why, never the address",
+    async (_, deps, fields, level) => {
+      const delivered = await submit();
+      const result = await submit(deps);
 
-    expect(result.status).toBe(status);
-    expect(result.event).toMatchObject(fields);
+      expect(delivered.event).toMatchObject({
+        bot: "human",
+        validation: "accepted",
+        delivery: "sent",
+      });
+      expect(result.reply).toEqual(delivered.reply);
+      expect(result.reply.status).toBe(202);
+      expect(result.event).toMatchObject(fields);
+      expect(result.levels).toEqual([level]);
+      expect(JSON.stringify(result.event)).not.toContain("private-recipient");
+    }
+  );
+
+  test("the reply goes out before validation or sending has settled", async () => {
+    let release = () => {};
+
+    const tasks: Array<() => Promise<Level | void>> = [];
+
+    const handler = createEmailHandler({
+      checkBot: async () => ({ isBot: false, isVerifiedBot: false }),
+      admit: async () => "admitted",
+      preview: false,
+      validator: {
+        validate: () =>
+          new Promise((resolve) => {
+            release = () => resolve(true);
+          }),
+      },
+      transport: () => ({ preview: false, send: async () => {} }),
+    });
+
+    const event: WideEvent = {};
+
+    const response = await handler(
+      new Request("https://polaris.lux.dev/api/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, website: "" }),
+      }),
+      event,
+      (task) => tasks.push(task)
+    );
+
+    expect(response.status).toBe(202);
+    const settled = Promise.all(tasks.map((task) => task()));
+    await Promise.resolve();
+    expect(event.delivery).toBeUndefined();
+    release();
+    await settled;
+    expect(event.delivery).toBe("sent");
+  });
+
+  test("BotID failure records why, never the address", async () => {
+    const result = await submit({
+      checkBot: async () => {
+        throw new Error(email);
+      },
+    });
+
+    expect(result.reply.status).toBe(503);
+    expect(result.event).toMatchObject({
+      bot: "unavailable",
+      failure: "botid_unavailable",
+      error: { type: "Error" },
+    });
     expect(JSON.stringify(result.event)).not.toContain("private-recipient");
   });
 });
