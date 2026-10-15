@@ -91,8 +91,8 @@ describe("Review Checkout worktree", () => {
     await moveCheckout({ path: s.path, head: await nextVersion(s), discardChanges: false });
     expect(existsSync(s.marker)).toBe(false);
 
-    // The control: without hooks off, the PR's own hook runs in the checkout.
-    await gitText(s.path, ["checkout", "-q", "--detach", s.v1]);
+    // The control: with the Host's config as it is, the PR's own hook runs in the checkout.
+    await gitText(s.path, ["checkout", "-q", "--detach", s.v1], { config: "host" });
     expect(existsSync(s.marker)).toBe(true);
   });
 

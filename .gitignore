@@ -7,3 +7,6 @@ dist/
 .claude/worktrees/
 .env*
 .dagr/
+
+# Python bytecode from the release signer tests
+__pycache__/

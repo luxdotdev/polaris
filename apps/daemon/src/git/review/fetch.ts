@@ -6,7 +6,7 @@
  */
 import { ReviewCheckoutBlocker, type RepoRef } from "@polaris/protocol";
 import { CheckoutBlocked } from "../../services.ts";
-import { type GitResult, resolveCommit, runGitRaw } from "../git.ts";
+import { type GitResult, resolveCommit } from "../git.ts";
 import { checkoutGit, checkoutGitRaw, reviewRef } from "./refs.ts";
 import { batchSshCommand, type FetchSource, pickFetchSource, type Transport } from "./remotes.ts";
 
@@ -118,7 +118,11 @@ const runFetch = async (
       source.source,
       ...refspecs,
     ],
-    { env: { GIT_SSH_COMMAND: await batchSshCommand(repoPath) }, timeoutMs: options.timeoutMs }
+    {
+      config: "fetch",
+      env: { GIT_SSH_COMMAND: await batchSshCommand(repoPath) },
+      timeoutMs: options.timeoutMs,
+    }
   );
 
 /**
@@ -230,7 +234,7 @@ export const pinCommits = async (options: {
     throw fetchFailed("the session's checkpoints are no longer in the repository");
   }
 
-  await runGitRaw(options.repoPath, ["update-ref", "--stdin"], {
+  await checkoutGitRaw(options.repoPath, ["update-ref", "--stdin"], {
     stdin: `update ${reviewRef(options.key, "head")} ${head}\nupdate ${reviewRef(options.key, "base")} ${base}\n`,
   }).then((result) => {
     if (result.code !== 0) throw fetchFailed(`could not pin the checkpoints: ${result.stderr}`);

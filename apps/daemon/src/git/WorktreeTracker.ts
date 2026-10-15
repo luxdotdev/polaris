@@ -130,7 +130,10 @@ const worktreeAddArgs = async (options: CreateWorktreeOptions): Promise<Array<st
 export const createWorktree = async (options: CreateWorktreeOptions): Promise<WorktreeInfo> => {
   const { repoPath, path } = options;
   await mkdir(dirname(resolve(repoPath, path)), { recursive: true });
-  await gitText(repoPath, [...HOOKS_OFF, ...(await worktreeAddArgs(options))]);
+  // Never the repository's hooks; a session's own Worktree keeps the Host's other config (git-lfs).
+  await gitText(repoPath, [...HOOKS_OFF, ...(await worktreeAddArgs(options))], {
+    config: "detach" in options ? "safe" : "host",
+  });
 
   const created = (await listWorktrees(repoPath)).find((w) =>
     samePath(w.path, resolve(repoPath, path))

@@ -7,6 +7,9 @@ inputs:
   daemon-artifact:
     description: The artifact holding polaris-daemon-dist.tar.gz (apps/daemon/dist).
     required: true
+  daemon-sha256:
+    description: The SHA-256 of polaris-daemon-dist.tar.gz that the producing job reported.
+    required: true
   release:
     description: "'true' packages a release (versions must match the tag); 'false' a dev build."
     required: false
@@ -17,18 +20,23 @@ runs:
     - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
       with:
         bun-version-file: package.json
-    - uses: actions/setup-node@v4
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
       with:
         node-version: 24
     - shell: pwsh
       run: bun install --frozen-lockfile
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
       with:
         name: ${{ inputs.daemon-artifact }}
         path: .
     - name: Restore the macOS job's Daemon artifact without rebuilding or signing
       shell: pwsh
-      run: tar -xzf polaris-daemon-dist.tar.gz -C apps/daemon
+      env:
+        EXPECTED: ${{ inputs.daemon-sha256 }}
+      run: |
+        $actual = (Get-FileHash polaris-daemon-dist.tar.gz -Algorithm SHA256).Hash.ToLower()
+        if ($actual -ne $env:EXPECTED) { throw "Daemon artifact digest $actual is not $env:EXPECTED" }
+        tar -xzf polaris-daemon-dist.tar.gz -C apps/daemon
     - name: Package both Windows architectures and Squirrel installers
       shell: pwsh
       env:

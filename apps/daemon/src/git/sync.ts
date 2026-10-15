@@ -201,6 +201,7 @@ const step = async (
 
   try {
     const result = await runGitRaw(run.repo.top, [...NO_PROMPT_CONFIG, ...args], {
+      config: "host",
       signal: stop.signal,
       env: {
         GIT_SSH_COMMAND: await batchSshCommand(run.repo.top),
