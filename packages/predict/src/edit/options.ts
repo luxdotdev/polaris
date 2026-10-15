@@ -64,13 +64,12 @@ export const editOptions: EditOptions = {
 };
 
 /**
- * The guards to keep when a diagnostics verifier checks each Final before display: it replaces the
- * over-blocking lexical guards (docs/research/next-edit-spike.md, "Diagnostics verifier").
+ * The guards to keep when a diagnostics verifier checks each Final before display; it covers the
+ * dropped ones (docs/research/next-edit-spike.md, "Diagnostics verifier, 2026-10-15").
  */
 export const verifiedEditOptions: EditOptions = {
   ...editOptions,
   novelNames: false,
-  deletionEvidence: false,
   duplicates: false,
   selfReference: false,
 };

@@ -89,7 +89,7 @@ for (const [set, file, tags] of [["fresh", "fresh", ["base", "final"]], ["fresh2
   for (const tag of tags) {
     const f = Bun.file(new URL(`${tag}.${file}.json`, rawDir));
     if (!(await f.exists())) continue;
-    for (const o of (await f.json()) as Output[]) if (!o.error) record(cases.find((c) => c.id === o.id)!, set, `${set}-${tag}`, "sweep-next-edit", o.output, variantOf(runs[tag] ?? tag).options);
+    for (const o of (await f.json()) as Output[]) if (!o.error) record(cases.find((c) => c.id === o.id)!, set, `${set}-${tag}`, "sweep-next-edit", o.output, variantOf(set === "fresh2" ? "a10b20" : runs[tag] ?? tag).options);
   }
 }
 for (const c of dev) entry(c, c.split);

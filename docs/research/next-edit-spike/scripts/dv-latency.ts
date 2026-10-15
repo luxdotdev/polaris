@@ -16,25 +16,34 @@ const t0 = performance.now();
 await lsp.initialize(here, server === "tsgo" ? {} : { tsserver: { path: process.env.DV_TSSERVER } });
 const init = performance.now() - t0;
 const diagnose = async (uri: string, text: string, open: boolean) => {
-  const wait = server === "tsgo" ? null : lsp.nextPush(uri, 60_000);
+  const wait = server === "tsgo" ? null : lsp.nextPush(uri, 10_000);
   if (open) lsp.open(uri, text);
   else lsp.change(uri, text);
   const start = performance.now();
-  await (wait ?? lsp.pull(uri));
+  try {
+    await (wait ?? lsp.pull(uri));
+  } catch {
+    missed++;
+    return Number.POSITIVE_INFINITY;
+  }
   return performance.now() - start;
 };
+let missed = 0;
 const first: number[] = [], warm: number[] = [];
 for (const c of sample) {
   const uri = `file://${here}/${c.path}`;
   const state = c.states.find((s) => !s.truth)!;
   first.push(await diagnose(uri, c.buffer, true));
+  const times: number[] = [];
   for (let i = 0; i < 3; i++) {
-    warm.push(await diagnose(uri, state.after, false));
+    times.push(await diagnose(uri, state.after, false));
     await diagnose(uri, c.buffer, false);
   }
+  warm.push(...times);
+  if (process.env.DV_DETAIL) console.error(`${c.id}\t${c.path}\t${c.buffer.split("\n").length}\t${times.map(Math.round).join(" ")}`);
   lsp.close(uri);
   process.stderr.write(".");
 }
 await lsp.stop();
 const q = (xs: number[], p: number) => Math.round(xs.toSorted((a, b) => a - b)[Math.min(xs.length - 1, Math.floor(xs.length * p))]! * 10) / 10;
-console.log(JSON.stringify({ server, files: sample.length, initMs: Math.round(init), firstOpen: { p50: q(first, 0.5), p95: q(first, 0.95), max: q(first, 1) }, warmEdit: { n: warm.length, p50: q(warm, 0.5), p95: q(warm, 0.95), max: q(warm, 1) } }));
+console.log(JSON.stringify({ server, files: sample.length, initMs: Math.round(init), firstOpen: { p50: q(first, 0.5), p95: q(first, 0.95), max: q(first, 1) }, missed, warmEdit: { n: warm.length, p50: q(warm, 0.5), p95: q(warm, 0.95), max: q(warm, 1) } }));

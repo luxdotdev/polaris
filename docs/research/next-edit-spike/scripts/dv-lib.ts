@@ -13,5 +13,9 @@ export const rawEdits = (input: EditPredictionRequest, output: string, options: 
   if (outside) return [];
   const { from, to } = built.window;
   const rewritten = applyEdits(input.buffer.slice(from, to), regions.map((r) => ({ from: r.from - from, to: r.to - from, text: r.text })));
-  return diffEdits(input.buffer.slice(from, to), rewritten, from);
+  try {
+    return diffEdits(input.buffer.slice(from, to), rewritten, from);
+  } catch {
+    return []; // "too complex": production reports a PredictionError, so nothing is shown
+  }
 };
