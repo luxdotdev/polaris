@@ -4,7 +4,7 @@
  * file, switches to Edit, and leaves an open request the editor pane takes with
  * `useEditorOpenRequest()`. Each request has its own `seq`, so the same place can be asked again.
  */
-import type { Workspace, WorkspaceId, Worktree } from "@polaris/protocol";
+import type { ReviewCheckout, Workspace, WorkspaceId, Worktree } from "@polaris/protocol";
 import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
 import type { AppState } from "../store/store.ts";
@@ -97,6 +97,7 @@ export const spelledAs = (root: string, path: string): string => {
 export interface HostPlaces {
   readonly workspaces: ReadonlyMap<string, Workspace>;
   readonly worktrees: ReadonlyMap<string, Worktree>;
+  readonly reviewCheckouts?: ReadonlyMap<string, ReviewCheckout>;
 }
 
 // The main Worktree is the Workspace's own folder, often spelled as its realpath; the Workspace's spelling wins.
@@ -105,10 +106,14 @@ const rootsOf = (places: HostPlaces) => [
   ...[...places.worktrees.values()].flatMap((w) =>
     w.isMain ? [] : [{ id: w.workspaceId, root: w.path }]
   ),
+  ...[...(places.reviewCheckouts?.values() ?? [])].map((c) => ({
+    id: c.workspaceId,
+    root: c.path,
+  })),
 ];
 
 /**
- * The Workspace whose folder, or one of whose Worktrees, holds `path` most closely, and the
+ * The Workspace whose folder, or one of whose Worktrees or Review Checkouts, holds `path` most closely, and the
  * path spelled as that folder spells it (so tabs, breadcrumbs and the tree agree).
  */
 export const placeFor = (
@@ -139,7 +144,10 @@ export const workspaceFor = (places: HostPlaces, path: string): WorkspaceId | nu
 const positive = (n: number | null | undefined) =>
   n === null || n === undefined || !Number.isFinite(n) || n < 1 ? null : Math.floor(n);
 
-/** The request for `location`, or null when no Workspace on its Host holds the file. */
+/**
+ * The request for `location`, or null when no Workspace on its Host holds the file. Paths
+ * come from agent output and pull requests, so a given `workspaceId` only narrows the search.
+ */
 export const editorRequest = (
   app: Pick<AppState, "hostModels">,
   location: EditorLocation
@@ -150,15 +158,12 @@ export const editorRequest = (
   const place =
     model === undefined ? null : placeFor(model, resolved, location.workspaceId ?? null);
 
-  const workspaceId = location.workspaceId ?? place?.id ?? null;
-  const path = place?.path ?? resolved;
-
-  if (workspaceId === null || !path.startsWith("/")) return null;
+  if (place === null || !place.path.startsWith("/")) return null;
 
   return {
     hostKey: location.hostKey,
-    workspaceId,
-    path,
+    workspaceId: place.id,
+    path: place.path,
     line: positive(location.line),
     column: positive(location.column),
     folder: location.folder ?? false,
