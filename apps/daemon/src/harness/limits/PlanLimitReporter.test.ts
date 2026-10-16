@@ -64,7 +64,9 @@ describe("PlanLimitReporter", () => {
           reporter.report([limit(), limit({ kind: "weekly", windowMinutes: 10080 })]);
           reporter.report([limit({ observedAt: at(1) })]);
           reporter.report([limit({ usedPercent: 11, observedAt: at(2) })]);
-          yield* Effect.sleep("20 millis");
+
+          // Until the third arrives: a repeat sent on would arrive before it, a fixed sleep can end first.
+          while (sent.length < 3) yield* Effect.sleep("1 millis");
         }).pipe(Effect.provide(PlanLimitReporter.layer.pipe(Layer.provide(sink))))
       )
     );
