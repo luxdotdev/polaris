@@ -34,7 +34,7 @@ const release = Schema.decodeUnknownSync(Workflow)(
   Bun.YAML.parse(readFileSync(join(GITHUB, "workflows/release.yml"), "utf8"))
 );
 
-/** A secret's value, as opposed to the `secrets.X != ''` presence check. */
+/** A secret's value, as opposed to a `secrets.X != ''` presence check. */
 const SECRET_VALUE = /secrets\.\w+\b(?!\s*!=)/;
 
 const holdsSecrets = (job: typeof Job.Type) =>
@@ -90,6 +90,12 @@ describe("release authority", () => {
         expect(step.run ?? "").not.toMatch(/\b(bunx?|node|npx?|uvx?|pip3?|pnpm|yarn|make)\b/);
       }
     }
+  });
+
+  test("only the signing jobs enter the release environment, so a release asks for two approvals", () => {
+    const gated = Object.entries(release.jobs).filter(([, job]) => job.environment !== undefined);
+
+    expect(gated.map(([name]) => name)).toEqual(["sign", "sign-dmg"]);
   });
 
   test("jobs with Apple credentials touch hand-offs only through the signer", () => {

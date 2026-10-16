@@ -25,7 +25,7 @@ job output, so no later upload under the same name can stand in for it:
 
 | Job | Runs | Secrets | Token |
 |---|---|---|---|
-| `metadata` | `tooling/release/metadata.py` | whether each is set (`secrets.X != ''`), never a value | read |
+| `metadata` | `tooling/release/metadata.py` | none | read |
 | `build` | the tag's code: install, package unsigned, smoke-test | none | read |
 | `sign` | `tooling/release/sign.py app` from the default branch | Apple | read |
 | `dmg` | the tag's code: check the signed app, build the DMG around it | none | read |
@@ -33,8 +33,9 @@ job output, so no later upload under the same name can stand in for it:
 | `windows` | the tag's code: package unsigned | none | read |
 | `publish` | `gh` only: verify hand-offs, draft the Release | none | write |
 
-`sign` and `dmg` run only for a signed release; a prerelease without credentials goes
-`build` → `windows` → `publish`, as before.
+Every release is signed, prereleases too: there is no unsigned path, and `sign` fails
+without its secrets. Only `sign` and `sign-dmg` use the `release` environment, so a
+release asks its reviewer twice.
 
 The signer uses only the Python standard library and Apple's tools (`security`,
 `codesign`, `notarytool`, `stapler`, `ditto`, `hdiutil`), and executes nothing from
@@ -77,5 +78,5 @@ handles one with shell tools instead of the signer.
   and required reviewers on the `release` environment are owner settings.
 - `package.ts` keeps its own signing path for local signed builds; the workflow no
   longer uses it.
-- Three more macOS jobs for a signed release, each re-downloading the app.
+- Three more macOS jobs per release, each re-downloading the app.
 - The workflow still only drafts the Release; a maintainer publishes it.

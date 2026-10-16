@@ -17,10 +17,8 @@ permissions: {}
 
 jobs:
   metadata:
-    name: Tag, versions and signing policy
+    name: Tag and versions
     runs-on: ubuntu-latest
-    # For the signing secrets' presence; their values never reach this job.
-    environment: release
     timeout-minutes: 5
     permissions:
       contents: read
@@ -28,22 +26,15 @@ jobs:
       version: ${{ steps.metadata.outputs.version }}
       nuget_version: ${{ steps.metadata.outputs.nuget_version }}
       prerelease: ${{ steps.metadata.outputs.prerelease }}
-      signed: ${{ steps.metadata.outputs.signed }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
-      - name: Validate tag, versions and signing policy
+      - name: Validate tag and versions
         id: metadata
         env:
           RELEASE_TAG: ${{ github.ref_name }}
-          MACOS_CERT_P12_SET: ${{ secrets.MACOS_CERT_P12 != '' }}
-          MACOS_CERT_PASSWORD_SET: ${{ secrets.MACOS_CERT_PASSWORD != '' }}
-          APPLE_API_KEY_SET: ${{ secrets.APPLE_API_KEY != '' }}
-          APPLE_API_KEY_ID_SET: ${{ secrets.APPLE_API_KEY_ID != '' }}
-          APPLE_API_ISSUER_SET: ${{ secrets.APPLE_API_ISSUER != '' }}
-          APPLE_TEAM_ID_SET: ${{ secrets.APPLE_TEAM_ID != '' }}
-        # Tags: vX.Y.Z (signed) or vX.Y.Z-<alpha|beta|rc>.N (a prerelease, may be unsigned).
+        # Tags: vX.Y.Z or vX.Y.Z-<alpha|beta|rc>.N (a prerelease); every release is signed.
         run: python3 -I tooling/release/metadata.py
 
   build:
@@ -56,8 +47,6 @@ jobs:
     outputs:
       bundle: ${{ steps.handoff.outputs.bundle }}
       bundle-id: ${{ steps.bundle.outputs.artifact-id }}
-      assets: ${{ steps.handoff.outputs.assets }}
-      daemon: ${{ steps.handoff.outputs.daemon }}
     defaults:
       run:
         shell: bash
@@ -88,26 +77,13 @@ jobs:
       - name: Smoke-test packaged app
         run: node apps/desktop/scripts/packageCheck.ts
 
-      - name: Hand off the outputs with their digests
+      - name: Hand off the unsigned app and Daemon with its digest
         id: handoff
-        env:
-          VERSION: ${{ needs.metadata.outputs.version }}
         run: |
-          dist=apps/desktop/out/dist
           # tar keeps the app's symlinks and modes, which artifacts drop; no AppleDouble files.
           COPYFILE_DISABLE=1 tar --no-mac-metadata -cf release-bundle.tar \
-            apps/daemon/dist "$dist/Polaris-darwin-arm64/Polaris.app"
-          # The manifest names every platform's Release archive; the archives upload as assets.
-          tar -czf polaris-daemon-dist.tar.gz --exclude dist/release -C apps/daemon dist
-          mkdir assets
-          cp "$dist/Polaris-$VERSION-arm64.dmg" "$dist/Polaris-$VERSION-arm64-mac.zip" \
-            apps/daemon/dist/release/* assets/
-          (cd assets && shasum -a 256 -- * > ../assets.sha256) && mv assets.sha256 assets/
-          {
-            echo "bundle=$(shasum -a 256 release-bundle.tar | cut -d' ' -f1)"
-            echo "daemon=$(shasum -a 256 polaris-daemon-dist.tar.gz | cut -d' ' -f1)"
-            echo "assets=$(shasum -a 256 assets/assets.sha256 | cut -d' ' -f1)"
-          } >> "$GITHUB_OUTPUT"
+            apps/daemon/dist apps/desktop/out/dist/Polaris-darwin-arm64/Polaris.app
+          echo "bundle=$(shasum -a 256 release-bundle.tar | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         id: bundle
         with:
@@ -115,23 +91,10 @@ jobs:
           path: release-bundle.tar
           if-no-files-found: error
           retention-days: 3
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: release-daemon-dist
-          path: polaris-daemon-dist.tar.gz
-          if-no-files-found: error
-          retention-days: 3
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: release-assets-macos
-          path: assets/
-          if-no-files-found: error
-          retention-days: 3
 
   sign:
     name: Sign and notarise the Daemon and app
     needs: [metadata, build]
-    if: needs.metadata.outputs.signed == 'true'
     runs-on: macos-15
     environment: release
     timeout-minutes: 60
@@ -338,10 +301,7 @@ jobs:
   windows:
     name: Windows x64 and arm64 (experimental, unsigned)
     needs: [metadata, build, sign]
-    # The Windows manifest must name the final darwin-arm64 bytes: the signed dist when signing.
-    if: >-
-      always() && needs.build.result == 'success' &&
-      (needs.sign.result == 'success' || needs.sign.result == 'skipped')
+    # The Windows manifest must name the final darwin-arm64 bytes: the signed dist.
     runs-on: windows-latest
     timeout-minutes: 60
     permissions:
@@ -355,8 +315,8 @@ jobs:
       # Shared with windows-test-build.yml: restore the Daemon, package, smoke-test x64.
       - uses: ./.github/actions/package-windows
         with:
-          daemon-artifact: ${{ needs.sign.result == 'success' && 'release-daemon-dist-signed' || 'release-daemon-dist' }}
-          daemon-sha256: ${{ needs.sign.result == 'success' && needs.sign.outputs.daemon || needs.build.outputs.daemon }}
+          daemon-artifact: release-daemon-dist-signed
+          daemon-sha256: ${{ needs.sign.outputs.daemon }}
           release: "true"
       - name: Hand off the exact Windows assets with their digests
         id: handoff
@@ -398,11 +358,9 @@ jobs:
 
   publish:
     name: Create the draft GitHub Release with the exact assets
-    needs: [metadata, build, sign, sign-dmg, windows]
+    needs: [metadata, sign, sign-dmg, windows]
     # A failed Windows job still drafts the macOS assets and leaves the run red.
-    if: >-
-      always() && needs.build.result == 'success' &&
-      (needs.metadata.outputs.signed != 'true' || needs.sign-dmg.result == 'success')
+    if: always() && needs.sign.result == 'success' && needs.sign-dmg.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -411,18 +369,11 @@ jobs:
       run:
         shell: bash
     steps:
-      - if: needs.metadata.outputs.signed != 'true'
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
-        with:
-          name: release-assets-macos
-          path: handoff/macos
-      - if: needs.metadata.outputs.signed == 'true'
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: release-assets-macos-signed
           path: handoff/macos
-      - if: needs.metadata.outputs.signed == 'true'
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: release-assets-dmg-signed
           path: handoff/dmg
@@ -438,8 +389,7 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
           VERSION: ${{ needs.metadata.outputs.version }}
           PRERELEASE: ${{ needs.metadata.outputs.prerelease }}
-          SIGNED: ${{ needs.metadata.outputs.signed }}
-          MACOS_SHA256: ${{ needs.metadata.outputs.signed == 'true' && needs.sign.outputs.assets || needs.build.outputs.assets }}
+          MACOS_SHA256: ${{ needs.sign.outputs.assets }}
           DMG_SHA256: ${{ needs.sign-dmg.outputs.assets }}
           WINDOWS_SHA256: ${{ needs.windows.outputs.assets }}
         run: |
@@ -455,7 +405,7 @@ jobs:
             while read -r name; do assets+=("handoff/$1/$name"); done <<< "$listed"
           }
           take macos "$MACOS_SHA256"
-          if [[ "$SIGNED" == true ]]; then take dmg "$DMG_SHA256"; fi
+          take dmg "$DMG_SHA256"
           if [[ -n "$WINDOWS_SHA256" ]]; then take windows "$WINDOWS_SHA256"; fi
           # Each platform's Daemon (polaris + betterleaks) and their checksums; Hosts download
           # these through polaris.lux.dev/api/daemon/<version>/<platform> (docs/adr/0043).
@@ -477,9 +427,6 @@ jobs:
             > "$curated" 2> "$RUNNER_TEMP/notes-error"; then
             cat "$curated" >> "$notes"
           elif grep -q "HTTP 404" "$RUNNER_TEMP/notes-error"; then
-            if [[ "$SIGNED" == false ]]; then
-              printf '%s\n\n' 'Unsigned prerelease for testing. Signing and notarisation were skipped.' >> "$notes"
-            fi
             flags+=(--generate-notes)
           else
             cat "$RUNNER_TEMP/notes-error" >&2
