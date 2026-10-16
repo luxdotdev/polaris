@@ -17,7 +17,7 @@ env:
 
 jobs:
   check:
-    # The tests run in `test` below (Windows runs its Client tests here); the spec package's in `spec`.
+    # The tests run in `test` below; Windows runs its Client tests here.
     name: Lint, typecheck, licences (${{ matrix.os }})
     strategy:
       fail-fast: false
@@ -35,12 +35,19 @@ jobs:
         with:
           node-version: 24
       - run: bun install --frozen-lockfile
-      # Concurrent steps with separate logs; the group fails if either step fails.
+      # oxfmt format check, then oxlint through the ratchet (tooling/lint/baseline.json):
+      # fails on new or increased violations. See packages/lint-config/README.md.
+      # Concurrent steps with separate logs; the group fails if either step fails. Not on the
+      # 3-core, 7 GB macOS runner: there the two took 7.4 min at once against 3 min in turn.
       - parallel:
-          # oxfmt format check, then oxlint through the ratchet (tooling/lint/baseline.json):
-          # fails on new or increased violations. See packages/lint-config/README.md.
           - run: bun run lint
+            if: runner.os != 'macOS'
           - run: bun run typecheck
+            if: runner.os != 'macOS'
+      - run: bun run lint
+        if: runner.os == 'macOS'
+      - run: bun run typecheck
+        if: runner.os == 'macOS'
       - name: Windows Client tests
         if: runner.os == 'Windows'
         # Native Daemon, SSH shell fixtures, launchd, PTYs and Mac packaging argv are POSIX-only.
@@ -82,9 +89,15 @@ jobs:
             run: bunx turbo run test --filter=@polaris/daemon -- --shard=2/3 --parallel=2
           - name: Daemon 3/3
             run: bunx turbo run test --filter=@polaris/daemon -- --shard=3/3 --parallel=2
-          # The spec package's Quint replays run once, in `spec`.
           - name: other packages
             run: bunx turbo run test --filter=!@polaris/daemon --filter=!@polaris/spec
+        include:
+          # Once, on Linux: they replay runtime traces through the spec, with no
+          # platform-specific code under test.
+          - os: ubuntu-latest
+            part:
+              name: spec replays
+              run: bunx turbo run test --filter=@polaris/spec
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -119,11 +132,6 @@ jobs:
         run: bun packages/spec/scripts/fetch-evaluator.ts
         env:
           GITHUB_TOKEN: ${{ github.token }}
-      # Linux only: they replay runtime traces through the spec; no platform-specific code is under test.
-      - name: Spec replay tests (Constellation, languages)
-        id: replays
-        background: true
-        run: bunx turbo run test --filter=@polaris/spec
       - name: Quint typecheck, scenario tests, simulation (fixed seed)
         run: bun run spec
       - name: Trace validation (Engine runs replayed through the spec)
@@ -131,8 +139,6 @@ jobs:
           (cd apps/daemon && POLARIS_TRACE_DIR="$RUNNER_TEMP/traces" POLARIS_PBT_RUNS=30 \
             bun test src/verification/engine.model.test.ts)
           (cd packages/spec && bun scripts/replay.ts "$RUNNER_TEMP/traces")
-      - name: Wait for the spec replay tests
-        wait: replays
       - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
         with:
           distribution: temurin
