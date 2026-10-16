@@ -173,6 +173,25 @@ const signature = (path: string) => {
   return `${result.stderr.toString()}${result.stdout.toString()}`;
 };
 
+const spawnChecked = (cmd: string[]) => {
+  const result = Bun.spawnSync(cmd);
+
+  if (result.exitCode !== 0) throw new Error(`${cmd[1]} failed: ${result.stderr.toString()}`);
+};
+
+/**
+ * A compressed (UDZO) image like the release's, made without mounting a volume: attaching one
+ * on a shared macOS runner took most of a minute, and the signer never looks inside the image.
+ */
+const compressedImage = (root: string, dmg: string) => {
+  const content = join(root, "content");
+  mkdirSync(content);
+  writeFileSync(join(content, "README"), "installer image\n");
+  const hybrid = join(root, "hybrid.dmg");
+  spawnChecked(["hdiutil", "makehybrid", "-quiet", "-hfs", "-o", hybrid, content]);
+  spawnChecked(["hdiutil", "convert", "-quiet", hybrid, "-format", "UDZO", "-o", dmg]);
+};
+
 const verifies = (...args: string[]) =>
   Bun.spawnSync(["codesign", "--verify", "--strict", ...args]).exitCode === 0;
 
@@ -299,11 +318,9 @@ describe.skipIf(process.platform !== "darwin")("the release signer", () => {
   });
 
   test("signs a copy of the installer image", () => {
-    const source = releaseDist();
-    const app = releaseApp(source);
     const root = scratch();
     const dmg = join(root, `Polaris-${VERSION}-arm64.dmg`);
-    Bun.spawnSync(["hdiutil", "create", "-quiet", "-srcfolder", app, "-format", "UDZO", dmg]);
+    compressedImage(root, dmg);
     const out = join(root, "signed");
 
     expect(signer("dmg", "--dmg", dmg, "--sha256", hash(readFileSync(dmg)), "--out", out).ok).toBe(
