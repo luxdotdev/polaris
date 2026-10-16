@@ -7,65 +7,25 @@
  * merges that with its own PATH and a few well-known user bin directories.
  */
 import { childEnv } from "./childEnv.ts";
+import {
+  loginShellArgv,
+  mergePaths,
+  parseMarkedPath,
+  type UserPathInput,
+  wellKnownDirs,
+} from "@polaris/client/userPath";
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
 
-const START = "__POLARIS_PATH__";
-
-const END = "__POLARIS_END__";
-
-/** Printed by the shell; markers, because interactive rc files may print too. */
-const SCRIPT = `printf '\\n${START}%s${END}\\n' "$PATH"`;
-
-/** The PATH between the markers, or null. */
-export const parseMarkedPath = (stdout: string): string | null => {
-  const start = stdout.lastIndexOf(START);
-  const end = stdout.indexOf(END, start);
-
-  if (start === -1 || end === -1) return null;
-  const path = stdout.slice(start + START.length, end).trim();
-
-  return path === "" ? null : path;
-};
-
-/** Every directory once, in first-seen order; empty entries dropped. */
-export const mergePaths = (...paths: ReadonlyArray<string | null | undefined>): string => {
-  const seen = new Set<string>();
-
-  for (const path of paths) {
-    for (const dir of (path ?? "").split(":")) {
-      if (dir !== "") seen.add(dir);
-    }
-  }
-
-  return [...seen].join(":");
-};
-
-/** Where per-user installers put binaries; added only when they exist. */
-export const wellKnownDirs = (home: string): ReadonlyArray<string> =>
-  [
-    join(home, ".local", "bin"),
-    join(home, ".bun", "bin"),
-    join(home, ".npm-global", "bin"),
-    join(home, ".cargo", "bin"),
-    "/opt/homebrew/bin",
-    "/usr/local/bin",
-  ].filter((dir) => existsSync(dir));
-
-export interface UserPathInput {
-  readonly env: Record<string, string | undefined>;
-  readonly timeoutMs?: number;
-}
+export { mergePaths, parseMarkedPath } from "@polaris/client/userPath";
 
 /** The user's interactive login shell's PATH; null when there is no shell or it misbehaves. */
 export const loginShellPath = ({ env, timeoutMs = 3000 }: UserPathInput): string | null => {
-  const shell = env.SHELL;
+  const argv = loginShellArgv(env);
 
-  if (shell === undefined || shell === "" || !existsSync(shell)) return null;
+  if (argv === null) return null;
 
-  const result = spawnSync(shell, ["-i", "-l", "-c", SCRIPT], {
+  const result = spawnSync(argv[0], argv[1], {
     env: childEnv({ ...env, TERM: "dumb" }),
     stdio: ["ignore", "pipe", "ignore"],
     timeout: timeoutMs,

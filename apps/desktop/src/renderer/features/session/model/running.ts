@@ -42,7 +42,13 @@ export const runningCommands = (
   return all.filter((r, i) => all.findIndex((o) => o.id === r.id) === i);
 };
 
-/** "running bun test" for one (its first line), "2 commands running" for more; null for none. */
+/** How much of a command the Working strip shows before an ellipsis. */
+export const COMMAND_CHARS = 40;
+
+const clip = (line: string) =>
+  line.length > COMMAND_CHARS ? `${line.slice(0, COMMAND_CHARS - 1).trimEnd()}…` : line;
+
+/** "running bun test" for one (its first line, clipped), "2 commands running" for more; null for none. */
 export const runningPhrase = (running: ReadonlyArray<Running>): string | null => {
   const [only] = running;
 
@@ -51,5 +57,5 @@ export const runningPhrase = (running: ReadonlyArray<Running>): string | null =>
   if (running.length > 1) return `${running.length} commands running`;
   const line = only.command.trim().split("\n", 1)[0] ?? "";
 
-  return line === "" ? "1 command running" : `running ${line}`;
+  return line === "" ? "1 command running" : `running ${clip(line)}`;
 };

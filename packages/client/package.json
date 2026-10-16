@@ -16,6 +16,7 @@
     "./prediction/score": "./src/prediction/score.ts",
     "./prediction/server": "./src/prediction/server.ts",
     "./usage": "./src/usage/index.ts",
+    "./userPath": "./src/userPath.ts",
     "./wsl": "./src/wsl/index.ts",
     "./wsl/testing": "./src/wsl/fakeWsl.testing.ts"
   },
