@@ -107,6 +107,16 @@ is plain, and only while nothing that decided it changed:
   version stamped size, mtime and ctime: a rewrite of the same size within one timestamp tick
   (coarse on Linux), a Host file created after the listing (`$XDG_CONFIG_HOME/git/config`, an
   include's target) or a file git found through an include kept a stale listing.
+  A `HEAD` is stamped by what discovery checks of it (`validate_headref`): owner and valid
+  (`ref: refs/…` or an object id) or, otherwise, its bytes. Stamping its bytes listed again
+  after every branch switch and every commit on a detached HEAD (a Constellation's or
+  Accept's new branch, a Review checkout), though neither moves discovery or config. Only
+  an `includeIf.onbranch:` in the listing makes the branch matter, and then the git dir's
+  `HEAD` is stamped by its bytes as well.
+- the Daemon's own inert `-c` values (`core.splitIndex=false`, `index.skipHash=true`,
+  `core.hooksPath=/dev/null`, `core.quotePath=true`) are left out of the listing and its key:
+  each adds only a command-line entry no override reads, so a checkpoint's `-c` calls share
+  the listing of plain ones instead of keeping a second copy that misses in step with it.
 
 Any difference, or anything uncertain, lists again. With the cache the git bench is at
 parity with main (status 34 → 36 ms, a checkpoint 75 → 72 ms, 5 runs); the peak RSS of the

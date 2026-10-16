@@ -1,6 +1,6 @@
 /** Test helpers: throwaway git repositories. Not used at runtime. */
 import { tempDirectory, suiteTempDirectory } from "../verification/tempDirectories.testing.ts";
-import { mkdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { gitText } from "./git.ts";
@@ -25,9 +25,11 @@ export const write = (root: string, path: string, content: string): void => {
 export const makeRepo = async (files: Record<string, string> = { "README.md": "hello\n" }) => {
   const root = tempDir("polaris-repo-");
   await gitText(root, ["init", "-q", "-b", "main"]);
-  await gitText(root, ["config", "user.name", "Test"]);
-  await gitText(root, ["config", "user.email", "test@example.com"]);
-  await gitText(root, ["config", "commit.gpgsign", "false"]);
+  // One write, not three `git config` calls: each changes the config, so the next call lists it again.
+  appendFileSync(
+    join(root, ".git/config"),
+    "[user]\n\tname = Test\n\temail = test@example.com\n[commit]\n\tgpgsign = false\n"
+  );
 
   for (const [path, content] of Object.entries(files)) write(root, path, content);
 
