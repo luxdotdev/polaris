@@ -8,7 +8,7 @@
     "memoryGiB": 32,
     "os": "macOS 27.0 (Darwin 27.0.0)",
     "arch": "arm64",
-    "bun": "1.3.13",
+    "bun": "1.4.3",
     "gitSha": "83a04cb47a0d",
     "gitDirty": false,
     "daemon": "source",
@@ -71,30 +71,30 @@
           "max": 206.73099999999977
         },
         "rss_settled_mib": {
-          "value": 122.40625,
+          "value": 89.578125,
           "unit": "MiB",
           "kind": "memory",
           "better": "lower",
           "runs": [
-            123.546875,
-            122.40625,
-            122.03125
+            89.953125,
+            89.578125,
+            88.9375
           ],
-          "min": 122.03125,
-          "max": 123.546875
+          "min": 88.9375,
+          "max": 89.953125
         },
         "footprint_settled_mib": {
-          "value": 75.57904052734375,
+          "value": 50.000709533691406,
           "unit": "MiB",
           "kind": "memory",
           "better": "lower",
           "runs": [
-            75.61031341552734,
-            74.70401763916016,
-            75.57904052734375
+            50.000709533691406,
+            49.985130310058594,
+            50.032005310058594
           ],
-          "min": 74.70401763916016,
-          "max": 75.61031341552734
+          "min": 49.985130310058594,
+          "max": 50.032005310058594
         },
         "startup_modules": {
           "value": 537,
@@ -194,33 +194,33 @@
           "max": 0.4521771160998179
         },
         "client_rss_mib": {
-          "value": 131.046875,
+          "value": 94.453125,
           "unit": "MiB",
           "kind": "memory",
           "better": "lower",
           "runs": [
-            132.09375,
-            131.046875,
-            129.6875
+            94.765625,
+            67.140625,
+            94.453125
           ],
-          "min": 129.6875,
-          "max": 132.09375
+          "min": 67.140625,
+          "max": 94.765625
         },
         "client_footprint_mib": {
-          "value": 73.18841552734375,
+          "value": 52.844482421875,
           "unit": "MiB",
           "kind": "memory",
           "better": "lower",
           "runs": [
-            73.18841552734375,
-            74.29788208007812,
-            71.00093841552734
+            52.766380310058594,
+            54.563255310058594,
+            52.844482421875
           ],
-          "min": 71.00093841552734,
-          "max": 74.29788208007812
+          "min": 52.766380310058594,
+          "max": 54.563255310058594
         },
         "client_wakeups_per_s": {
-          "value": 11.299768747219316,
+          "value": 8.233042100995261,
           "unit": "/s",
           "kind": "count",
           "better": "lower",
@@ -229,57 +229,57 @@
             "absolute": 5
           },
           "runs": [
-            11.1331358285349,
-            11.366275224650831,
-            11.299768747219316
+            8.266296876080261,
+            8.199601214581493,
+            8.233042100995261
           ],
-          "min": 11.1331358285349,
-          "max": 11.366275224650831
+          "min": 8.199601214581493,
+          "max": 8.266296876080261
         },
         "bare_bun_cpu_avg_pct": {
-          "value": 0.04273090450795447,
+          "value": 0.02247362272115063,
           "unit": "%",
           "kind": "cpu",
           "better": "lower",
           "info": true,
           "runs": [
-            0.04273090450795447,
-            0.04252678901976957,
-            0.04653541997035623
+            0.02247362272115063,
+            0.026940799771897783,
+            0.020456120150174957
           ],
-          "min": 0.04252678901976957,
-          "max": 0.04653541997035623
+          "min": 0.020456120150174957,
+          "max": 0.026940799771897783
         },
         "bare_bun_rss_mib": {
-          "value": 21.796875,
+          "value": 10.171875,
           "unit": "MiB",
           "kind": "memory",
           "better": "lower",
           "info": true,
           "runs": [
-            21.734375,
-            21.796875,
-            21.8125
+            10.171875,
+            10.1875,
+            10.171875
           ],
-          "min": 21.734375,
-          "max": 21.8125
+          "min": 10.171875,
+          "max": 10.1875
         },
         "bare_bun_wakeups_per_s": {
-          "value": 10.19962961167025,
+          "value": 0.9333033017174615,
           "unit": "/s",
           "kind": "count",
           "better": "lower",
           "info": true,
           "runs": [
-            10.199685467199407,
-            10.19962961167025,
-            10.066396985207064
+            0.9666313228556408,
+            0.9333033017174615,
+            0.9332577083503671
           ],
-          "min": 10.066396985207064,
-          "max": 10.199685467199407
+          "min": 0.9332577083503671,
+          "max": 0.9666313228556408
         },
         "noclient_cpu_avg_pct": {
-          "value": 0.16529863615042995,
+          "value": 0.0292257138076815,
           "unit": "%",
           "kind": "cpu",
           "better": "lower",
@@ -288,41 +288,41 @@
             "absolute": 0.5
           },
           "runs": [
-            0.16529863615042995,
-            0.1640754652097146,
-            0.16752605053710243
+            0.030640080055135858,
+            0.016189671226888483,
+            0.0292257138076815
           ],
-          "min": 0.1640754652097146,
-          "max": 0.16752605053710243
+          "min": 0.016189671226888483,
+          "max": 0.030640080055135858
         },
         "noclient_rss_mib": {
-          "value": 131.078125,
+          "value": 68.328125,
           "unit": "MiB",
           "kind": "memory",
           "better": "lower",
           "runs": [
-            132.125,
-            131.078125,
-            73.453125
+            65.8125,
+            68.34375,
+            68.328125
           ],
-          "min": 73.453125,
-          "max": 132.125
+          "min": 65.8125,
+          "max": 68.34375
         },
         "noclient_footprint_mib": {
-          "value": 74.32913208007812,
+          "value": 54.000755310058594,
           "unit": "MiB",
           "kind": "memory",
           "better": "lower",
           "runs": [
-            73.20404052734375,
-            74.32913208007812,
-            77.92281341552734
+            54.000755310058594,
+            55.047630310058594,
+            53.735107421875
           ],
-          "min": 73.20404052734375,
-          "max": 77.92281341552734
+          "min": 53.735107421875,
+          "max": 55.047630310058594
         },
         "noclient_wakeups_per_s": {
-          "value": 8.766445460026222,
+          "value": 0.7666161700939587,
           "unit": "/s",
           "kind": "count",
           "better": "lower",
@@ -331,12 +331,12 @@
             "absolute": 5
           },
           "runs": [
-            8.766469116622853,
-            8.766372433018956,
-            8.766445460026222
+            0.7999803326968484,
+            0.5666454371253707,
+            0.7666161700939587
           ],
-          "min": 8.766372433018956,
-          "max": 8.766469116622853
+          "min": 0.5666454371253707,
+          "max": 0.7999803326968484
         },
         "processes": {
           "value": 1,
@@ -352,7 +352,7 @@
           "max": 1
         },
         "noclient_cpu_over_bare_pct": {
-          "value": 0.12154867618994504,
+          "value": 0.008166457333985227,
           "unit": "%",
           "kind": "cpu",
           "better": "lower",
@@ -361,12 +361,12 @@
             "absolute": 0.3
           },
           "runs": [
-            0.12256773164247547,
-            0.12154867618994504,
-            0.1209906305667462
+            0.008166457333985227,
+            -0.0107511285450093,
+            0.008769593657506541
           ],
-          "min": 0.1209906305667462,
-          "max": 0.12256773164247547
+          "min": -0.0107511285450093,
+          "max": 0.008769593657506541
         }
       },
       "notes": [
@@ -464,17 +464,17 @@
     "sessions": {
       "metrics": {
         "rss_before_mib": {
-          "value": 123.453125,
+          "value": 89.59375,
           "unit": "MiB",
           "kind": "memory",
           "better": "lower",
           "runs": [
-            123.453125,
-            122.53125,
-            124.0625
+            89.59375,
+            88.890625,
+            90.328125
           ],
-          "min": 122.53125,
-          "max": 124.0625
+          "min": 88.890625,
+          "max": 90.328125
         },
         "m10.dispatch_ack_p50_ms": {
           "value": 14.930541000008816,
@@ -608,7 +608,7 @@
           "max": 30.1926493290752
         },
         "m10.rss_peak_mib": {
-          "value": 189.15625,
+          "value": 142.921875,
           "unit": "MiB",
           "kind": "memory",
           "better": "lower",
@@ -617,15 +617,15 @@
             "absolute": 10
           },
           "runs": [
-            184.953125,
-            189.15625,
-            190.296875
+            145.21875,
+            142.921875,
+            142.265625
           ],
-          "min": 184.953125,
-          "max": 190.296875
+          "min": 142.265625,
+          "max": 145.21875
         },
         "m10.footprint_peak_mib": {
-          "value": 119.76665496826172,
+          "value": 77.75084686279297,
           "unit": "MiB",
           "kind": "memory",
           "better": "lower",
@@ -634,12 +634,12 @@
             "absolute": 10
           },
           "runs": [
-            119.11040496826172,
-            123.12593841552734,
-            119.76665496826172
+            77.75084686279297,
+            76.81330108642578,
+            90.71957397460938
           ],
-          "min": 119.11040496826172,
-          "max": 123.12593841552734
+          "min": 76.81330108642578,
+          "max": 90.71957397460938
         },
         "m10.wall_s": {
           "value": 7991.252124999999,
@@ -787,7 +787,7 @@
           "max": 91.7401513725094
         },
         "m50.rss_peak_mib": {
-          "value": 271.625,
+          "value": 205.3125,
           "unit": "MiB",
           "kind": "memory",
           "better": "lower",
@@ -796,15 +796,15 @@
             "absolute": 10
           },
           "runs": [
-            271.625,
-            270.75,
-            288.03125
+            221.296875,
+            205.3125,
+            183.6875
           ],
-          "min": 270.75,
-          "max": 288.03125
+          "min": 183.6875,
+          "max": 221.296875
         },
         "m50.footprint_peak_mib": {
-          "value": 175.8292007446289,
+          "value": 121.95397186279297,
           "unit": "MiB",
           "kind": "memory",
           "better": "lower",
@@ -813,12 +813,12 @@
             "absolute": 10
           },
           "runs": [
-            175.8292007446289,
-            172.37600708007812,
-            188.7198715209961
+            104.73526763916016,
+            152.93834686279297,
+            121.95397186279297
           ],
-          "min": 172.37600708007812,
-          "max": 188.7198715209961
+          "min": 104.73526763916016,
+          "max": 152.93834686279297
         },
         "m50.wall_s": {
           "value": 8069.504084000015,
@@ -966,7 +966,7 @@
           "max": 74.95868647227107
         },
         "m50c4.rss_peak_mib": {
-          "value": 310.3125,
+          "value": 243.875,
           "unit": "MiB",
           "kind": "memory",
           "better": "lower",
@@ -975,15 +975,15 @@
             "absolute": 10
           },
           "runs": [
-            310.3125,
-            302.375,
-            322.1875
+            254.921875,
+            230.421875,
+            243.875
           ],
-          "min": 302.375,
-          "max": 322.1875
+          "min": 230.421875,
+          "max": 254.921875
         },
         "m50c4.footprint_peak_mib": {
-          "value": 193.6417236328125,
+          "value": 140.34461975097656,
           "unit": "MiB",
           "kind": "memory",
           "better": "lower",
@@ -992,12 +992,12 @@
             "absolute": 10
           },
           "runs": [
-            193.6417236328125,
-            188.40727996826172,
-            198.4073944091797
+            108.34464263916016,
+            164.76649475097656,
+            140.34461975097656
           ],
-          "min": 188.40727996826172,
-          "max": 198.4073944091797
+          "min": 108.34464263916016,
+          "max": 164.76649475097656
         },
         "m50c4.wall_s": {
           "value": 8208.566500000015,
@@ -1068,7 +1068,7 @@
           "max": 113.27118118826223
         },
         "burst.rss_peak_mib": {
-          "value": 371.671875,
+          "value": 308.5625,
           "unit": "MiB",
           "kind": "memory",
           "better": "lower",
@@ -1077,15 +1077,15 @@
             "absolute": 10
           },
           "runs": [
-            367.90625,
-            371.671875,
-            379.015625
+            322.03125,
+            302.078125,
+            308.5625
           ],
-          "min": 367.90625,
-          "max": 379.015625
+          "min": 302.078125,
+          "max": 322.03125
         },
         "rss_after_mib": {
-          "value": 370.703125,
+          "value": 300.328125,
           "unit": "MiB",
           "kind": "memory",
           "better": "lower",
@@ -1094,12 +1094,12 @@
             "absolute": 10
           },
           "runs": [
-            367.96875,
-            371.734375,
-            370.703125
+            322.015625,
+            300.328125,
+            298.765625
           ],
-          "min": 367.96875,
-          "max": 371.734375
+          "min": 298.765625,
+          "max": 322.015625
         },
         "rss_growth_mib": {
           "value": 246.640625,
@@ -1154,7 +1154,7 @@
         }
       },
       "notes": [
-        "phases: m10 (10 sessions \u00d7 3 Turns, 1 Client(s)), m50 (50 sessions \u00d7 3 Turns, 1 Client(s)), m50c4 (50 sessions \u00d7 3 Turns, 4 Client(s)), then burst and repeat (m50 again)"
+        "phases: m10 (10 sessions × 3 Turns, 1 Client(s)), m50 (50 sessions × 3 Turns, 1 Client(s)), m50c4 (50 sessions × 3 Turns, 4 Client(s)), then burst and repeat (m50 again)"
       ],
       "durationMs": 121962.11074999999
     },
@@ -1188,7 +1188,7 @@
           "max": 5316.7330288639005
         },
         "seed_rss_peak_mib": {
-          "value": 291.296875,
+          "value": 252.78125,
           "unit": "MiB",
           "kind": "memory",
           "better": "lower",
@@ -1197,15 +1197,15 @@
             "absolute": 10
           },
           "runs": [
-            293.515625,
-            286.109375,
-            291.296875
+            252.78125,
+            245.078125,
+            259.5625
           ],
-          "min": 286.109375,
-          "max": 293.515625
+          "min": 245.078125,
+          "max": 259.5625
         },
         "seed_footprint_peak_mib": {
-          "value": 177.75102996826172,
+          "value": 163.84464263916016,
           "unit": "MiB",
           "kind": "memory",
           "better": "lower",
@@ -1214,12 +1214,12 @@
             "absolute": 10
           },
           "runs": [
-            182.34477996826172,
-            176.4073715209961,
-            177.75102996826172
+            152.84466552734375,
+            172.36019897460938,
+            163.84464263916016
           ],
-          "min": 176.4073715209961,
-          "max": 182.34477996826172
+          "min": 152.84466552734375,
+          "max": 172.36019897460938
         },
         "restart_hello_ms": {
           "value": 274.5140000000247,
@@ -1235,30 +1235,30 @@
           "max": 277.4632499999716
         },
         "loaded_rss_mib": {
-          "value": 149.296875,
+          "value": 111.640625,
           "unit": "MiB",
           "kind": "memory",
           "better": "lower",
           "runs": [
-            149.359375,
-            148.4375,
-            149.296875
+            111.5,
+            112.078125,
+            111.640625
           ],
-          "min": 148.4375,
-          "max": 149.359375
+          "min": 111.5,
+          "max": 112.078125
         },
         "loaded_footprint_mib": {
-          "value": 79.04783630371094,
+          "value": 54.75077819824219,
           "unit": "MiB",
           "kind": "memory",
           "better": "lower",
           "runs": [
-            79.62591552734375,
-            78.57906341552734,
-            79.04783630371094
+            54.985130310058594,
+            54.031982421875,
+            54.75077819824219
           ],
-          "min": 78.57906341552734,
-          "max": 79.62591552734375
+          "min": 54.031982421875,
+          "max": 54.985130310058594
         },
         "host_snapshot_ms": {
           "value": 8.847999999998137,
@@ -1380,7 +1380,7 @@
           "max": 2503
         },
         "rss_after_snapshots_mib": {
-          "value": 185.4375,
+          "value": 155.671875,
           "unit": "MiB",
           "kind": "memory",
           "better": "lower",
@@ -1389,15 +1389,15 @@
             "absolute": 10
           },
           "runs": [
-            185.4375,
-            185.25,
-            193.40625
+            152.046875,
+            155.671875,
+            156.859375
           ],
-          "min": 185.25,
-          "max": 193.40625
+          "min": 152.046875,
+          "max": 156.859375
         },
         "footprint_after_snapshots_mib": {
-          "value": 86.04788208007812,
+          "value": 72.04767608642578,
           "unit": "MiB",
           "kind": "memory",
           "better": "lower",
@@ -1406,16 +1406,16 @@
             "absolute": 10
           },
           "runs": [
-            88.82910919189453,
-            85.43848419189453,
-            86.04788208007812
+            72.04767608642578,
+            76.31330108642578,
+            69.06332397460938
           ],
-          "min": 85.43848419189453,
-          "max": 88.82910919189453
+          "min": 69.06332397460938,
+          "max": 76.31330108642578
         }
       },
       "notes": [
-        "20 sessions \u00d7 50 Turns \u00d7 96 items (300 B each), seeded through the Daemon over the socket",
+        "20 sessions × 50 Turns × 96 items (300 B each), seeded through the Daemon over the socket",
         "host resume replays the last 10k sequences (the Host stream skips Turn items); session resume replays half of one session"
       ],
       "durationMs": 68101.47329200001
@@ -1802,7 +1802,7 @@
       "notes": [
         "fff: first search returned 50 paths; grep hits 300 (limit 200 per query)",
         "fallback: first search returned 50 paths; grep hits 300 (limit 200 per query)",
-        "50000 files (~1.5 KB each) committed to git; 6 path queries and 3 greps \u00d7 5"
+        "50000 files (~1.5 KB each) committed to git; 6 path queries and 3 greps × 5"
       ],
       "durationMs": 98467.94908300001
     },
@@ -2092,7 +2092,7 @@
         }
       },
       "notes": [
-        "50000 files; 5 Turns each rewriting 20 files; before-checkpoint timed on Turns 2\u20135",
+        "50000 files; 5 Turns each rewriting 20 files; before-checkpoint timed on Turns 2–5",
         "Turn diff: 20 file(s), 39980 bytes; status: 1 entries; working-tree diff: 20 file(s)",
         "status with ignored: 2 entries over 5000 ignored files"
       ],
@@ -2896,32 +2896,32 @@
         }
       },
       "notes": [
-        "budgets: frame p95 \u2264 1.5 display intervals, \u2264 2% dropped, the app < 1 GB with the Review open",
+        "budgets: frame p95 ≤ 1.5 display intervals, ≤ 2% dropped, the app < 1 GB with the Review open",
         "app_scrolled_mib: after 600 frames at 240 px, a GC forced (Pierre keeps pages it touched)",
         "run 1: review-bench full: scrolled 1077 MiB before a GC, 944 after; main heap 55 MiB",
-        "run 1: review-bench full: 2000 files (4.9 MiB patch), first file 1331 ms, parsed 1335 ms; frames p50/p95/p99/max 5.6/6.8/11.5/16.3 ms (interval 5.6), dropped 1.5%; app 513 idle \u2192 728 open \u2192 944 MiB scrolled (Browser 221, GPU:GPU 96, Utility:network.mojom.NetworkService 42, Tab 585); daemon 131 \u2192 peak 190 MiB while diffing",
+        "run 1: review-bench full: 2000 files (4.9 MiB patch), first file 1331 ms, parsed 1335 ms; frames p50/p95/p99/max 5.6/6.8/11.5/16.3 ms (interval 5.6), dropped 1.5%; app 513 idle → 728 open → 944 MiB scrolled (Browser 221, GPU:GPU 96, Utility:network.mojom.NetworkService 42, Tab 585); daemon 131 → peak 190 MiB while diffing",
         "run 1: review-bench collapsed: scrolled 1237 MiB before a GC, 1181 after; main heap 48 MiB",
-        "run 1: review-bench collapsed: 5000 files (3.0 MiB patch), first file 822 ms, parsed 828 ms; frames p50/p95/p99/max 5.6/6.3/6.9/12.2 ms (interval 5.6), dropped 0.2%; app 508 idle \u2192 787 open \u2192 1181 MiB scrolled (Browser 241, GPU:GPU 92, Utility:network.mojom.NetworkService 48, Tab 801); daemon 173 \u2192 peak 188 MiB while diffing",
+        "run 1: review-bench collapsed: 5000 files (3.0 MiB patch), first file 822 ms, parsed 828 ms; frames p50/p95/p99/max 5.6/6.3/6.9/12.2 ms (interval 5.6), dropped 0.2%; app 508 idle → 787 open → 1181 MiB scrolled (Browser 241, GPU:GPU 92, Utility:network.mojom.NetworkService 48, Tab 801); daemon 173 → peak 188 MiB while diffing",
         "run 1: review-bench list-only: scrolled 786 MiB before a GC, 778 after; main heap 23 MiB",
         "run 2: review-bench list-only: scrolled 786 MiB before a GC, 778 after; main heap 23 MiB",
-        "run 1: review-bench list-only: 12000 files (7.2 MiB patch), first file 834 ms, parsed 836 ms; frames p50/p95/p99/max 5.6/6.2/6.7/7.0 ms (interval 5.6), dropped 0.0%; app 509 idle \u2192 661 open \u2192 778 MiB scrolled (Browser 264, GPU:GPU 90, Utility:network.mojom.NetworkService 48, Tab 377); daemon 188 \u2192 peak 213 MiB while diffing",
+        "run 1: review-bench list-only: 12000 files (7.2 MiB patch), first file 834 ms, parsed 836 ms; frames p50/p95/p99/max 5.6/6.2/6.7/7.0 ms (interval 5.6), dropped 0.0%; app 509 idle → 661 open → 778 MiB scrolled (Browser 264, GPU:GPU 90, Utility:network.mojom.NetworkService 48, Tab 377); daemon 188 → peak 213 MiB while diffing",
         "run 1: review-bench huge: scrolled 1011 MiB before a GC, 983 after; main heap 20 MiB",
-        "run 1: review-bench huge: 1 files (2.2 MiB patch), first file 820 ms, parsed 825 ms; frames p50/p95/p99/max 5.6/6.4/6.9/11.4 ms (interval 5.5), dropped 0.2%; app 510 idle \u2192 764 open \u2192 983 MiB scrolled (Browser 226, GPU:GPU 99, Utility:network.mojom.NetworkService 48, Tab 611); daemon 213 \u2192 peak 213 MiB while diffing",
+        "run 1: review-bench huge: 1 files (2.2 MiB patch), first file 820 ms, parsed 825 ms; frames p50/p95/p99/max 5.6/6.4/6.9/11.4 ms (interval 5.5), dropped 0.2%; app 510 idle → 764 open → 983 MiB scrolled (Browser 226, GPU:GPU 99, Utility:network.mojom.NetworkService 48, Tab 611); daemon 213 → peak 213 MiB while diffing",
         "run 2: review-bench full: scrolled 1108 MiB before a GC, 978 after; main heap 55 MiB",
-        "run 2: review-bench full: 2000 files (4.9 MiB patch), first file 1324 ms, parsed 1328 ms; frames p50/p95/p99/max 5.6/6.8/11.2/12.2 ms (interval 5.6), dropped 1.0%; app 508 idle \u2192 722 open \u2192 978 MiB scrolled (Browser 247, GPU:GPU 99, Utility:network.mojom.NetworkService 48, Tab 584); daemon 139 \u2192 peak 197 MiB while diffing",
+        "run 2: review-bench full: 2000 files (4.9 MiB patch), first file 1324 ms, parsed 1328 ms; frames p50/p95/p99/max 5.6/6.8/11.2/12.2 ms (interval 5.6), dropped 1.0%; app 508 idle → 722 open → 978 MiB scrolled (Browser 247, GPU:GPU 99, Utility:network.mojom.NetworkService 48, Tab 584); daemon 139 → peak 197 MiB while diffing",
         "run 2: review-bench collapsed: scrolled 1231 MiB before a GC, 1176 after; main heap 48 MiB",
-        "run 2: review-bench collapsed: 5000 files (3.0 MiB patch), first file 822 ms, parsed 828 ms; frames p50/p95/p99/max 5.6/6.3/6.9/11.6 ms (interval 5.6), dropped 0.2%; app 509 idle \u2192 784 open \u2192 1176 MiB scrolled (Browser 241, GPU:GPU 92, Utility:network.mojom.NetworkService 48, Tab 795); daemon 196 \u2192 peak 216 MiB while diffing",
-        "run 2: review-bench list-only: 12000 files (7.2 MiB patch), first file 829 ms, parsed 831 ms; frames p50/p95/p99/max 5.6/6.0/6.9/7.0 ms (interval 5.6), dropped 0.0%; app 509 idle \u2192 662 open \u2192 778 MiB scrolled (Browser 264, GPU:GPU 90, Utility:network.mojom.NetworkService 48, Tab 377); daemon 216 \u2192 peak 241 MiB while diffing",
+        "run 2: review-bench collapsed: 5000 files (3.0 MiB patch), first file 822 ms, parsed 828 ms; frames p50/p95/p99/max 5.6/6.3/6.9/11.6 ms (interval 5.6), dropped 0.2%; app 509 idle → 784 open → 1176 MiB scrolled (Browser 241, GPU:GPU 92, Utility:network.mojom.NetworkService 48, Tab 795); daemon 196 → peak 216 MiB while diffing",
+        "run 2: review-bench list-only: 12000 files (7.2 MiB patch), first file 829 ms, parsed 831 ms; frames p50/p95/p99/max 5.6/6.0/6.9/7.0 ms (interval 5.6), dropped 0.0%; app 509 idle → 662 open → 778 MiB scrolled (Browser 264, GPU:GPU 90, Utility:network.mojom.NetworkService 48, Tab 377); daemon 216 → peak 241 MiB while diffing",
         "run 2: review-bench huge: scrolled 1007 MiB before a GC, 986 after; main heap 20 MiB",
-        "run 2: review-bench huge: 1 files (2.2 MiB patch), first file 826 ms, parsed 829 ms; frames p50/p95/p99/max 5.6/6.3/6.8/12.7 ms (interval 5.6), dropped 0.2%; app 509 idle \u2192 762 open \u2192 986 MiB scrolled (Browser 226, GPU:GPU 98, Utility:network.mojom.NetworkService 48, Tab 614); daemon 241 \u2192 peak 241 MiB while diffing",
+        "run 2: review-bench huge: 1 files (2.2 MiB patch), first file 826 ms, parsed 829 ms; frames p50/p95/p99/max 5.6/6.3/6.8/12.7 ms (interval 5.6), dropped 0.2%; app 509 idle → 762 open → 986 MiB scrolled (Browser 226, GPU:GPU 98, Utility:network.mojom.NetworkService 48, Tab 614); daemon 241 → peak 241 MiB while diffing",
         "run 3: review-bench full: scrolled 1079 MiB before a GC, 964 after; main heap 55 MiB",
-        "run 3: review-bench full: 2000 files (4.9 MiB patch), first file 1335 ms, parsed 1338 ms; frames p50/p95/p99/max 5.6/6.7/11.2/16.4 ms (interval 5.5), dropped 1.8%; app 509 idle \u2192 721 open \u2192 964 MiB scrolled (Browser 248, GPU:GPU 100, Utility:network.mojom.NetworkService 48, Tab 569); daemon 142 \u2192 peak 200 MiB while diffing",
+        "run 3: review-bench full: 2000 files (4.9 MiB patch), first file 1335 ms, parsed 1338 ms; frames p50/p95/p99/max 5.6/6.7/11.2/16.4 ms (interval 5.5), dropped 1.8%; app 509 idle → 721 open → 964 MiB scrolled (Browser 248, GPU:GPU 100, Utility:network.mojom.NetworkService 48, Tab 569); daemon 142 → peak 200 MiB while diffing",
         "run 3: review-bench collapsed: scrolled 1236 MiB before a GC, 1181 after; main heap 48 MiB",
-        "run 3: review-bench collapsed: 5000 files (3.0 MiB patch), first file 820 ms, parsed 827 ms; frames p50/p95/p99/max 5.6/6.1/6.8/11.3 ms (interval 5.5), dropped 0.3%; app 508 idle \u2192 789 open \u2192 1181 MiB scrolled (Browser 241, GPU:GPU 92, Utility:network.mojom.NetworkService 48, Tab 800); daemon 199 \u2192 peak 214 MiB while diffing",
+        "run 3: review-bench collapsed: 5000 files (3.0 MiB patch), first file 820 ms, parsed 827 ms; frames p50/p95/p99/max 5.6/6.1/6.8/11.3 ms (interval 5.5), dropped 0.3%; app 508 idle → 789 open → 1181 MiB scrolled (Browser 241, GPU:GPU 92, Utility:network.mojom.NetworkService 48, Tab 800); daemon 199 → peak 214 MiB while diffing",
         "run 3: review-bench list-only: scrolled 785 MiB before a GC, 778 after; main heap 23 MiB",
-        "run 3: review-bench list-only: 12000 files (7.2 MiB patch), first file 822 ms, parsed 827 ms; frames p50/p95/p99/max 5.6/6.5/6.9/7.0 ms (interval 5.5), dropped 0.0%; app 509 idle \u2192 661 open \u2192 778 MiB scrolled (Browser 264, GPU:GPU 90, Utility:network.mojom.NetworkService 48, Tab 377); daemon 214 \u2192 peak 233 MiB while diffing",
+        "run 3: review-bench list-only: 12000 files (7.2 MiB patch), first file 822 ms, parsed 827 ms; frames p50/p95/p99/max 5.6/6.5/6.9/7.0 ms (interval 5.5), dropped 0.0%; app 509 idle → 661 open → 778 MiB scrolled (Browser 264, GPU:GPU 90, Utility:network.mojom.NetworkService 48, Tab 377); daemon 214 → peak 233 MiB while diffing",
         "run 3: review-bench huge: scrolled 1006 MiB before a GC, 989 after; main heap 20 MiB",
-        "run 3: review-bench huge: 1 files (2.2 MiB patch), first file 821 ms, parsed 823 ms; frames p50/p95/p99/max 5.6/6.3/6.8/6.9 ms (interval 5.6), dropped 0.0%; app 509 idle \u2192 762 open \u2192 989 MiB scrolled (Browser 227, GPU:GPU 98, Utility:network.mojom.NetworkService 48, Tab 617); daemon 233 \u2192 peak 233 MiB while diffing",
+        "run 3: review-bench huge: 1 files (2.2 MiB patch), first file 821 ms, parsed 823 ms; frames p50/p95/p99/max 5.6/6.3/6.8/6.9 ms (interval 5.6), dropped 0.0%; app 509 idle → 762 open → 989 MiB scrolled (Browser 227, GPU:GPU 98, Utility:network.mojom.NetworkService 48, Tab 617); daemon 233 → peak 233 MiB while diffing",
         "carried from the 14e1072c baseline: review fails on main at 3587a4b7 (no .review-diff)"
       ],
       "durationMs": 164458.073417
