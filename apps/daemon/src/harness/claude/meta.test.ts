@@ -46,7 +46,11 @@ const openWithTurn = async (resumeCursor: string | null = null) => {
     fake,
     events,
     uuid,
-    settle: () => Bun.sleep(5),
+    /** Until `ready`, then 5 ms more for anything that should not follow (a fixed sleep alone loses on a busy runner). */
+    settle: async (ready: () => boolean) => {
+      while (!ready()) await Bun.sleep(1);
+      await Bun.sleep(5);
+    },
     of: <T extends HarnessEvent["_tag"]>(tag: T) => events.filter(HarnessEvent.$is(tag)),
     close: () => Effect.runPromise(Scope.close(scope, Exit.void)),
   };
@@ -68,7 +72,7 @@ describe("Claude thinking", () => {
     await Bun.sleep(20);
     t.fake.emit(block("content_block_stop", 0));
     t.fake.emit(assistant("m1", [{ type: "thinking", thinking: "Hmm, yes." }]));
-    await t.settle();
+    await t.settle(() => t.of("ItemCompleted").length > 0);
 
     const [live] = t.of("ItemUpdated");
     expect(live?.item).toMatchObject({ id: "m1:0", text: "", endedAt: null });
@@ -89,7 +93,7 @@ describe("Claude thinking", () => {
     t.fake.emit(block("content_block_stop", 0));
     t.fake.emit(assistant("m1", [{ type: "thinking", thinking: "" }]));
     t.fake.emit(assistant("m2", [{ type: "thinking", thinking: "Unstreamed." }]));
-    await t.settle();
+    await t.settle(() => t.of("ItemCompleted").length > 1);
 
     const done = t.of("ItemCompleted").map((e) => e.item);
     expect(done[0]).toMatchObject({ id: "m1:0", text: "" });
@@ -112,7 +116,7 @@ describe("Claude plan details", () => {
     t.fake.emit(
       assistant("m1", [{ type: "tool_use", id: "tu1", name: "TodoWrite", input: { todos } }])
     );
-    await t.settle();
+    await t.settle(() => t.of("ItemUpdated").length > 0);
 
     expect(t.of("ItemUpdated")[0]?.item).toMatchObject({
       steps: [
@@ -133,14 +137,14 @@ describe("Claude context usage", () => {
     const t = await openWithTurn();
     t.fake.emit(assistant("m1", [{ type: "text", text: "Hi" }], usage));
     t.fake.emit(assistant("m1", [{ type: "text", text: "again" }], usage));
-    await t.settle();
+    await t.settle(() => t.of("ContextUsed").length > 0);
     // A repeat of the same count (one message's blocks) reports once; the window isn't known yet.
     expect(t.of("ContextUsed")).toEqual([
       HarnessEvent.ContextUsed({ usedTokens: 30_100, windowTokens: null }),
     ]);
 
     t.fake.emit(result([t.uuid], { modelUsage: { "claude-x": { contextWindow: 200_000 } } }));
-    await t.settle();
+    await t.settle(() => t.of("ContextUsed").length > 2);
 
     expect(t.fake.contextCalls).toBe(1);
     expect(t.of("ContextUsed").slice(1)).toEqual([
@@ -172,11 +176,11 @@ describe("Claude context usage", () => {
 
   test("a compaction reports what is left; a resumed session asks at once", async () => {
     const t = await openWithTurn("claude-session-1");
-    await t.settle();
+    await t.settle(() => t.fake.contextCalls > 0);
     expect(t.fake.contextCalls).toBe(1);
 
     t.fake.emit(compactBoundary(180_000, 20_000));
-    await t.settle();
+    await t.settle(() => t.of("ContextUsed").at(-1)?.usedTokens === 20_000);
 
     expect(t.of("ContextUsed").at(-1)).toEqual(
       HarnessEvent.ContextUsed({

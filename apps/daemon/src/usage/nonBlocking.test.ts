@@ -138,6 +138,8 @@ test("a session keeps streaming while the first index pass runs over large logs"
   const host = fixtureHost();
   hosts.push(host);
   const expectedOutput = largeLogs(host);
+  // Writing the logs left ~220 MB of strings, and a parallel worker its earlier files' heaps: not the pass's to collect.
+  Bun.gc(true);
   const codex = makeFakeDriver("codex");
 
   const engine = engineLayer({
@@ -258,7 +260,16 @@ test("a session keeps streaming while the first index pass runs over large logs"
   // Never held up for long: 30–70 ms here, up to 105 ms on a shared CI runner; 260–490 ms without the
   // pass's yields and write slices (docs/adr/0009, Testing).
   expect(result.during.length).toBeGreaterThan(20);
-  expect(worstBusyGap(result.during)).toBeLessThan(150);
+
+  const wall = gaps(result.during, "wallMs");
+  const cpu = gaps(result.during, "cpuMs");
+
+  const longest = wall
+    .map((ms, i) => ({ wall: Math.round(ms), cpu: Math.round(cpu[i] ?? 0) }))
+    .toSorted((a, b) => Math.min(b.wall, b.cpu) - Math.min(a.wall, a.cpu))
+    .slice(0, 3);
+
+  expect(worstBusyGap(result.during), JSON.stringify(longest)).toBeLessThan(150);
 
   // And the pass finished with every response indexed.
   expect(result.final.indexing).toBe(false);

@@ -181,11 +181,21 @@ test("cancelling stops the download and keeps the part for a resume", async () =
   }
 });
 
+/** How far free space may move between two reads while other processes write. */
+const DISK_CHURN_BYTES = 256 * 1024 * 1024;
+
 test("free space is read from the nearest existing ancestor of a folder not yet made", async () => {
   const dir = mkdtempSync(join(tmpdir(), "polaris-free-"));
   const missing = join(dir, "models", "deeper");
 
-  expect(await freeBytes(missing)).toBe(await freeBytes(dir));
-  expect(await freeBytes(dir)).toBeGreaterThan(0);
-  expect(await freeBytes("/nonexistent-root-xyz/sub")).toBe(await freeBytes("/"));
+  // Other processes (parallel test workers) write to the disk between two reads.
+  const near = async (path: string, ancestor: string) => {
+    const [read, expected] = [await freeBytes(path), await freeBytes(ancestor)];
+
+    expect(read).toBeGreaterThan(0);
+    expect(Math.abs((read ?? 0) - (expected ?? 0))).toBeLessThan(DISK_CHURN_BYTES);
+  };
+
+  await near(missing, dir);
+  await near("/nonexistent-root-xyz/sub", "/");
 });
