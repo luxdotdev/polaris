@@ -7,7 +7,9 @@
  * If no Daemon is listening and the Host uses Polaris' fallback supervisor
  * (`~/.polaris/bin/polaris-supervise`: Linux without systemd --user), the
  * bridge starts the supervisor, waits up to 5 s for the socket and tries
- * once more; nothing else may have started it since a reboot. Otherwise it
+ * once more; nothing else may have started it since a reboot. With a systemd
+ * --user unit it waits the same 5 s without starting anything: a WSL distro
+ * boots for the bridge, and systemd starts the Daemon a moment later. Otherwise it
  * prints a reason on stderr and exits with BRIDGE_EXIT_NO_DAEMON, which the
  * Client maps to Needs Attention.
  *
@@ -18,9 +20,11 @@
 import { childEnv } from "../service/childEnv.ts";
 import { renameSync, statSync, symlinkSync, unlinkSync } from "node:fs";
 import { connect, type Socket } from "node:net";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { BRIDGE_EXIT_NO_DAEMON } from "@polaris/protocol/bridge";
 import { paths } from "../paths.ts";
+import { SYSTEMD_UNIT } from "../service/templates.ts";
 
 /** The stable agent socket path on this Host (a symlink to the latest forwarded agent). */
 export const agentSocketPath = (): string => join(paths().root, "agent.sock");
@@ -99,9 +103,18 @@ export interface BridgeOptions {
    * bridge starts it and tries once more. Null turns that off.
    */
   readonly supervisor?: string | null;
-  /** How long to wait for the Daemon after starting the supervisor. */
+  /**
+   * The systemd `--user` unit (`~/.config/systemd/user/polaris.service`). When no
+   * Daemon answers and it exists, systemd may still be starting it (a WSL distro
+   * that just booted for this bridge), so the bridge waits for the socket. Null turns that off.
+   */
+  readonly systemdUnit?: string | null;
+  /** How long to wait for the Daemon after starting the supervisor, or for systemd's. */
   readonly waitMs?: number;
 }
+
+const defaultSystemdUnit = () =>
+  join(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "systemd", "user", SYSTEMD_UNIT);
 
 const spawnSupervisor = (script: string) => {
   // Without arguments the script detaches itself (setsid, else nohup) and returns at once.
@@ -135,15 +148,8 @@ const isFile = (path: string) => {
   }
 };
 
-/**
- * On a Host that relies on the fallback supervisor (nothing may have started
- * it since a reboot), start it and wait up to `waitMs` for the Daemon's
- * socket. False when there is no supervisor or the Daemon did not come up.
- */
-const startDaemonViaSupervisor = async (
-  socketPath: string,
-  options: BridgeOptions
-): Promise<boolean> => {
+/** Starts the fallback supervisor if this Host has one; false when it has none or it failed. */
+const startSupervisor = (options: BridgeOptions): boolean => {
   const script =
     options.supervisor === undefined ? join(paths().bin, "polaris-supervise") : options.supervisor;
 
@@ -151,9 +157,25 @@ const startDaemonViaSupervisor = async (
 
   try {
     spawnSupervisor(script);
+
+    return true;
   } catch {
     return false;
   }
+};
+
+/**
+ * On a Host that relies on the fallback supervisor (nothing may have started
+ * it since a reboot), start it; under systemd, systemd starts it. Then wait up
+ * to `waitMs` for the socket. False when neither applies or no Daemon came up.
+ */
+const startDaemonViaSupervisor = async (
+  socketPath: string,
+  options: BridgeOptions
+): Promise<boolean> => {
+  const unit = options.systemdUnit === undefined ? defaultSystemdUnit() : options.systemdUnit;
+
+  if (!startSupervisor(options) && (unit === null || !isFile(unit))) return false;
 
   const deadline = Date.now() + (options.waitMs ?? SUPERVISOR_START_WAIT_MS);
 

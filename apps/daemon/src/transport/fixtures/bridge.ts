@@ -3,8 +3,13 @@
  * bridge.test.ts. Runs as its own process: under `bun test`, a failed
  * `node:net` connect to a Unix socket fails the test even when handled.
  *
- *   POLARIS_HOME=<dir> bun bridge.ts <waitMs>
+ *   POLARIS_HOME=<dir> bun bridge.ts <waitMs> [systemd unit path]
  */
 import { runBridge } from "../bridge.ts";
 
-process.exit(await runBridge({ waitMs: Number(process.argv[2] ?? 5000) }));
+process.exit(
+  await runBridge({
+    waitMs: Number(process.argv[2] ?? 5000),
+    systemdUnit: process.argv[3] ?? null,
+  })
+);
