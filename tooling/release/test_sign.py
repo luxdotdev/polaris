@@ -14,6 +14,7 @@ import tarfile
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import sign
 
@@ -186,3 +187,23 @@ class Manifest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Staple(unittest.TestCase):
+    def result(self, code: int, out: str = ""):
+        return mock.Mock(returncode=code, stdout=out, stderr="")
+
+    def test_retries_until_the_ticket_can_be_stapled(self) -> None:
+        tries = [self.result(65, "Could not validate ticket"), self.result(65), self.result(0)]
+        waits: list = []
+        with mock.patch.object(sign.subprocess, "run", side_effect=tries), \
+                mock.patch.object(sign, "run") as validate:
+            sign.staple(Path("Polaris.app"), wait=waits.append)
+        self.assertEqual(waits, [20, 40])
+        validate.assert_called_once_with(["xcrun", "stapler", "validate", Path("Polaris.app")])
+
+    def test_names_stapler_s_own_reason_when_it_never_staples(self) -> None:
+        failing = [self.result(65, "Processing: x\nCould not validate ticket for x")] * sign.STAPLE_TRIES
+        with mock.patch.object(sign.subprocess, "run", side_effect=failing), \
+                self.assertRaisesRegex(SystemExit, "Could not validate ticket for x"):
+            sign.staple(Path("Polaris.app"), wait=lambda _: None)

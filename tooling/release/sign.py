@@ -45,6 +45,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -315,8 +316,26 @@ def notarize(signer: Signer, path: Path, submission: Path) -> None:
             f"{path.name} notarisation {result.get('status')}: submission {result.get('id')} "
             "(xcrun notarytool log <id> has Apple's reasons)"
         )
-    run(["xcrun", "stapler", "staple", path])
-    run(["xcrun", "stapler", "validate", path])
+    staple(path)
+
+
+STAPLE_TRIES = 6
+
+
+def staple(path: Path, wait=time.sleep) -> None:
+    """Staples the accepted ticket, retrying while Apple's CDN catches up with the acceptance."""
+    reason = ""
+    for attempt in range(STAPLE_TRIES):
+        if attempt:
+            wait(20 * attempt)
+        # stapler reports its errors on stdout, and its arguments hold no secret.
+        result = subprocess.run(["xcrun", "stapler", "staple", str(path)], capture_output=True, text=True)
+        if result.returncode == 0:
+            run(["xcrun", "stapler", "validate", path])
+            return
+        lines = (result.stdout + result.stderr).strip().splitlines()
+        reason = lines[-1] if lines else "no output"
+    raise SystemExit(f"xcrun stapler could not staple {path.name}: {reason}")
 
 
 def tar_header(name: str, mode: int, size: int) -> bytes:
