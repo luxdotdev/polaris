@@ -48,7 +48,16 @@ Polaris never writes `known_hosts` (`StrictHostKeyChecking=yes`, `UpdateHostKeys
 
 ## WSL
 
-On Windows, `target: { _tag: "Wsl", distro }` reaches the Linux Daemon inside a WSL 2 distro: `wsl.exe --distribution <distro> --exec /bin/sh -c 'exec ~/.polaris/bin/current/polaris bridge'` over the same `spawnTransport`, with `WSL_UTF8=1`. `wsl.exe`'s own failures become Needs Attention: `wsl-missing` (no `wsl.exe`, or the stub saying WSL is not installed) and `wsl-distro-missing` (the distro was unregistered); the rest is classified as for ssh. `discoverDistros` parses `wsl.exe --list --verbose` (UTF-16LE unless WSL honours `WSL_UTF8`). The Client's bridge process is what keeps the distro running; nothing here has run on real WSL yet (docs/adr/0036-wsl-hosts.md).
+On Windows, `target: { _tag: "Wsl", distro }` reaches the Linux Daemon inside a WSL 2 distro: `wsl.exe --distribution <distro> --exec /bin/sh -c 'exec ~/.polaris/bin/current/polaris bridge'` over the same `spawnTransport`, with `WSL_UTF8=1`. `wsl.exe`'s own failures become Needs Attention: `wsl-missing` (no `wsl.exe`, or the stub saying WSL is not installed) and `wsl-distro-missing` (the distro was unregistered); the rest is classified as for ssh. wsl.exe prints those failures on **stdout** and exits -1 (255 under Bun, 4294967295 under Node), so the transport keeps the start of stdout when it isn't a frame stream (`isFrameStart`) and the classifiers read it on wsl.exe's own exit codes only. `discoverDistros` parses `wsl.exe --list --verbose` (UTF-16LE unless WSL honours `WSL_UTF8`). The Client's bridge process is what keeps the distro running (docs/adr/0036-wsl-hosts.md).
+
+### Checking on real WSL
+
+Verified on WSL 2.7.11 / Windows 11 (October 2026; results in ADR 0036). To repeat it, from a Mac or Linux checkout:
+
+1. `bun scripts/build-daemon.ts linux-x64`, then copy `apps/daemon/dist/` to the Windows machine.
+2. Bundle a small script that imports this package (`bun build <script>.ts --target=node`) and copy it over; run it with `node` (the Desktop App's runtime) and again with `bun`. It should call `discoverDistros()`, `ensureDaemon(distro, loadBuilds(dist), …)` through `HostAccess.layer().channel(HostTarget.Wsl({ distro }))` (first without approval: `ApprovalNeeded`; then with the SHA-256: `Installed`), then `makeHostConnection` with `HostTarget.Wsl` and a `files.write` / `files.read` round trip of a blob holding every byte value, CR LF, a BOM and ^Z, comparing SHA-256s.
+3. For idle shutdown and the cold start, `wsl --import` a throwaway distro (an `ubuntu-base` rootfs), watch `wsl -l -v` once a second while a connection is held and after it ends; repeat with `systemd=true` in its `/etc/wsl.conf`. A missing distro: `wsl --unregister` it and connect again (`wsl-distro-missing`).
+4. Drive commands through Node's `child_process` (as the Client does), not PowerShell 5.1: PowerShell mangles quotes and backslashes in arguments to native programs.
 
 ## Connection State
 
