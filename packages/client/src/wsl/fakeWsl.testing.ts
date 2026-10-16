@@ -66,7 +66,8 @@ if (args[0] === "--distribution" || args[0] === "-d") {
 }
 const found = config.distros.find((d) => d.name === distro);
 if (found === undefined) {
-  say(2, "There is no distribution with the supplied name.\\r\\nError code: Wsl/Service/WSL_E_DISTRO_NOT_FOUND\\r\\n");
+  // Real wsl.exe (2.7) writes its own errors to stdout and exits -1 (255, or 4294967295 under Node).
+  say(1, "There is no distribution with the supplied name.\\r\\nError code: Wsl/Service/WSL_E_DISTRO_NOT_FOUND\\r\\n");
   process.exit(255);
 }
 if (rest[0] !== "--exec" && rest[0] !== "-e") process.exit(0);

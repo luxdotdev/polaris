@@ -6,7 +6,13 @@
  * exit status and stderr into a ConnectFailure the Connection State uses.
  */
 import { connect, type Socket } from "node:net";
-import { type ByteTransport, readEvents, writeEvents } from "@polaris/protocol";
+import {
+  type ByteTransport,
+  FrameKind,
+  MAX_FRAME_BYTES,
+  readEvents,
+  writeEvents,
+} from "@polaris/protocol";
 import { Deferred, Effect, Exit, Option, type Scope } from "effect";
 import { ConnectFailure, classifyExit, type NeedsAttentionReason } from "./failures.ts";
 import { localDaemonFailure } from "./localDaemon.ts";
@@ -22,19 +28,34 @@ export type Connector = Effect.Effect<ClientTransport, ConnectFailure, Scope.Sco
 
 const STDERR_LIMIT = 16 * 1024;
 
+const STDOUT_HEAD_LIMIT = 4 * 1024;
+
 const decoder = new TextDecoder();
+
+/** True when `head` can open a frame stream: a length within the limit, then a known kind. */
+export const isFrameStart = (head: Uint8Array): boolean => {
+  if (head.byteLength < 5) return false;
+  const length = new DataView(head.buffer, head.byteOffset, 5).getUint32(0);
+  const kind = head[4];
+
+  return (
+    length >= 1 && length <= MAX_FRAME_BYTES && (kind === FrameKind.Json || kind === FrameKind.Blob)
+  );
+};
 
 export interface SpawnOptions {
   readonly env?: Record<string, string | undefined>;
   /** Grace period after stdin closes before the process is killed. */
   readonly killAfterMs?: number;
-  /** Decodes stderr chunks; UTF-8 by default (wsl.exe mixes in UTF-16LE). */
+  /** Decodes stderr chunks and stdout's text; UTF-8 by default (wsl.exe mixes in UTF-16LE). */
   readonly stderrDecoder?: () => (chunk: Uint8Array) => string;
   /** Classifies the exit; `classifyExit` (ssh's messages) by default. */
   readonly classify?: (exit: {
     readonly code: number | null;
     readonly signal: string | null;
     readonly stderr: string;
+    /** The start of stdout when it was text, not the wire (wsl.exe prints its errors there). */
+    readonly stdout: string;
   }) => ConnectFailure;
   /** The reason when the command itself can't be spawned, from the Host's kind (`ssh-missing`). */
   readonly spawnFailureReason?: NeedsAttentionReason;
@@ -62,9 +83,19 @@ export const spawnTransport = (
     const decode = options.stderrDecoder?.() ?? ((chunk: Uint8Array) => decoder.decode(chunk));
     const classify = options.classify ?? classifyExit;
     let stderr = "";
+    const stdoutHead: Array<Uint8Array> = [];
+    let stdoutHeadBytes = 0;
     let spawnError: NodeJS.ErrnoException | null = null;
     // Set from the child's `error` event; read through a call so TypeScript doesn't narrow it.
     const startError = () => spawnError;
+
+    const stdoutText = (): string => {
+      const head = Buffer.concat(stdoutHead);
+
+      return head.byteLength === 0 || isFrameStart(head)
+        ? ""
+        : (options.stderrDecoder?.() ?? ((chunk: Uint8Array) => decoder.decode(chunk)))(head);
+    };
 
     const { child, incoming } = yield* Effect.acquireRelease(
       Effect.sync(() => {
@@ -87,6 +118,11 @@ export const spawnTransport = (
           stderr = (stderr + decode(chunk)).slice(-STDERR_LIMIT);
         });
         child.stdin?.on("error", () => {});
+        child.stdout?.on("data", (chunk: Uint8Array) => {
+          if (stdoutHeadBytes >= STDOUT_HEAD_LIMIT) return;
+          stdoutHead.push(chunk.subarray(0, STDOUT_HEAD_LIMIT - stdoutHeadBytes));
+          stdoutHeadBytes += chunk.byteLength;
+        });
 
         // Attach the reader now, before any output can arrive.
         const incoming = child.stdout === null ? null : readEvents(child.stdout);
@@ -149,6 +185,7 @@ export const spawnTransport = (
               code: Option.isSome(exit) ? exit.value.code : null,
               signal: Option.isSome(exit) ? exit.value.signal : null,
               stderr,
+              stdout: stdoutText(),
             });
       })
     );
