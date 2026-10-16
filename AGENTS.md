@@ -70,6 +70,15 @@ Repo-wide formatting commits are listed in `.git-blame-ignore-revs`, GitHub's bl
 
 Never bypass a hook with `--no-verify`. If one is broken, fix it or say so.
 
+## Linear
+
+All work is tracked in Linear: the luxdev workspace (`linear.app/luxdev`), the Engineering team (`ENG`), the Polaris project.
+
+- **An issue before the work.** For every new request (a feature, a bug, a CI fix, a follow-up), create an `ENG` issue in the Polaris project before you start, or reuse the one that already covers it. Put it on the release it targets in the "Polaris" release pipeline (e.g. Polaris 0.2.0), and keep its status current: In Progress when you start, Done when it lands on main.
+- **The issue ID in every commit.** Each commit subject names its issue, e.g. `fix(daemon): a cancel reaches queued requests (ENG-123)`, and so does each merge message. `.github/workflows/linear-release.yml` scans the commits pushed to main for these IDs and attaches the issues to the release in progress; a commit without one is invisible to the release.
+- **Agents and branches.** A brief for an agent names its issue and asks for the ID in every commit. Linear's own branch name (`lucas/eng-123-…`) also links the issue, but don't rely on it alone.
+- **Follow-ups go in Linear**, not only in a report or a comment: open an issue for anything deferred, linked to the one it came from.
+
 ## Performance
 
 Performance is a product requirement: the Daemon must stay light on a Raspberry Pi 4 and a small Linux VM as well as a Mac, and the Desktop App has budgets (< 1 GB total in a heavy session, ≥ 120 Hz, Workspace switch < 100 ms). See `packages/bench/README.md`.
