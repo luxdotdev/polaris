@@ -24,7 +24,9 @@ describe("procReader", () => {
       expect(Math.abs(measuredNs - selfNs)).toBeLessThan(50e6);
     }
 
-    const rss = process.memoryUsage().rss;
+    // Bun 1.4 reports phys_footprint as memoryUsage().rss on macOS; ps reports resident size.
+    const ps = Bun.spawnSync(["ps", "-o", "rss=", "-p", String(process.pid)]);
+    const rss = Number(ps.stdout.toString().trim()) * 1024;
     expect(after!.rssBytes).toBeGreaterThan(rss * 0.5);
     expect(after!.rssBytes).toBeLessThan(rss * 2);
     expect(x).toBeGreaterThan(0);
