@@ -69,6 +69,8 @@ describe("Claude thinking", () => {
     t.fake.emit(
       block("content_block_delta", 0, { delta: { type: "thinking_delta", thinking: "Hmm" } })
     );
+    // The start is stamped when the driver reads it, not when it's emitted: wait for it.
+    await t.settle(() => t.of("ItemUpdated").length > 0);
     await Bun.sleep(20);
     t.fake.emit(block("content_block_stop", 0));
     t.fake.emit(assistant("m1", [{ type: "thinking", thinking: "Hmm, yes." }]));
