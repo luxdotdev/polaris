@@ -25,11 +25,11 @@ The Usage index reads the Harness logs on the Daemon's own thread, in the backgr
 
 ## Testing
 
-`apps/daemon/src/usage/nonBlocking.test.ts` streams a delta every 10 ms through a first pass over ~220 MB and bounds the longest the session waited between deltas because the Daemon was busy. That wait is measured as the lesser of the wall-clock gap and this process's CPU time in the gap:
+`apps/daemon/src/usage/nonBlocking.test.ts` streams a delta every 10 ms through a first pass over ~220 MB and bounds the longest the session waited between deltas because the Daemon was busy. That wait is measured as the lesser of the wall-clock gap and the CPU time of the Daemon's thread in the gap (`clock_gettime(CLOCK_THREAD_CPUTIME_ID)` through `bun:ffi`):
 
-- A stall on the Daemon's thread is long in both: 260–490 ms with the pass's yields and write slices removed, loaded or not.
+- A stall on the Daemon's thread is long in both: 260–490 ms with the pass's yields and write slices removed, loaded or not (300–350 ms measured with the thread's CPU time, quiet and beside 48 busy loops).
 - A loaded machine pausing the process is long in wall time only. On GitHub's 2-core runner the wall-clock gap reached 127 ms (run 36808352850), and locally, with 48 busy loops on 12 cores, 250–340 ms; the CPU time in those gaps stayed at 45–70 ms.
-- The process's other threads (GC, I/O) add CPU time without holding anything up, so the CPU time alone runs higher than the wall-clock gap on a quiet machine (55–60 ms against 33–41).
+- The process's other threads (GC, I/O, and under `bun test --parallel` whatever the worker's earlier test files left running) add CPU time without holding anything up. The test first measured the whole process's CPU time, which ran higher than the wall-clock gap on a quiet machine (55–60 ms against 33–41) and reached 200–380 ms in loaded parallel runs whose wall-clock gaps were 200–380 ms too, failing the real code. The thread's own CPU time leaves them out: 94 ms at most in the same parallel runs.
 
 The bound is 150 ms: a shared 2-core CI runner reached 105 ms on the real code, while a stall without the yields measured 255–314 ms. The test used to bound how late each delta arrived, which also missed a stall that began while no delta was in flight (one run in three, with the yields removed); a gap between arrivals catches those.
 
