@@ -9,7 +9,7 @@
  * With `--parallel=N` or `--isolate`, bun's reporter interleaves the files and never says
  * when one ends, so the watchdog adds a preload (`progress.ts`) that marks each file's start and end.
  */
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { PROGRESS_MARKER } from "./marker.ts";
@@ -22,6 +22,8 @@ interface Progress {
   readonly lastTest: ReadonlyMap<string, string>;
   /** Files started and not ended, from the markers; serial runs have none. */
   readonly running: ReadonlySet<string>;
+  /** The files that ended last, the latest last. */
+  readonly ended: ReadonlyArray<string>;
   readonly started: boolean;
 }
 
@@ -29,6 +31,7 @@ const initialProgress: Progress = {
   current: null,
   lastTest: new Map(),
   running: new Set(),
+  ended: [],
   started: false,
 };
 
@@ -39,16 +42,19 @@ const TEST_LINE = /^\((?:pass|fail|skip|todo)\) /;
 
 const MARKER_LINE = /^(start|end) (.+)$/;
 
+/** A stall between files names the last few that ended: one of them left its worker busy. */
+const ENDED_KEPT = 4;
+
 const observeMarker = (progress: Progress, marker: string): Progress => {
   const [, kind, file] = MARKER_LINE.exec(marker) ?? [];
 
   if (!file) return progress;
   const running = new Set(progress.running);
 
-  if (kind === "start") running.add(file);
-  else running.delete(file);
+  if (kind === "start") return { ...progress, running: running.add(file), started: true };
+  running.delete(file);
 
-  return { ...progress, running, started: true };
+  return { ...progress, running, ended: [...progress.ended, file].slice(-ENDED_KEPT) };
 };
 
 const observe = (progress: Progress, line: string): Progress => {
@@ -81,6 +87,9 @@ const stallReport = (progress: Progress, seconds: number, isolated: boolean): st
   const files = isolated ? [...progress.running] : [progress.current].filter((f) => f !== null);
   const [only] = files;
 
+  if (!only && isolated && progress.ended.length > 0)
+    return `${head} no running test file, after: ${progress.ended.join(", ")}`;
+
   if (!only) {
     const where = progress.started
       ? "a test file that has not reported yet"
@@ -107,6 +116,29 @@ const hidden = (line: string) =>
 
 const ISOLATING = /^--(?:parallel|isolate)(?:=|$)/;
 
+/** Every process below `root`, from `ps` (POSIX). */
+const descendants = (root: number): ReadonlyArray<number> => {
+  const listing = spawnSync("ps", ["-A", "-o", "pid=,ppid="], { encoding: "utf8" }).stdout ?? "";
+  const children = new Map<number, Array<number>>();
+
+  for (const line of listing.split("\n")) {
+    const [pid, ppid] = line.trim().split(/\s+/).map(Number);
+
+    if (pid && ppid) children.set(ppid, [...(children.get(ppid) ?? []), pid]);
+  }
+
+  const found: Array<number> = [];
+
+  for (let queue = [root]; queue.length > 0;) {
+    const next = queue.flatMap((pid) => children.get(pid) ?? []);
+
+    found.push(...next);
+    queue = next;
+  }
+
+  return found;
+};
+
 const run = async (args: ReadonlyArray<string>): Promise<number> => {
   const stallSeconds = Number(process.env.POLARIS_TEST_STALL_S ?? 300);
   const isolated = args.some((arg) => ISOLATING.test(arg));
@@ -123,11 +155,19 @@ const run = async (args: ReadonlyArray<string>): Promise<number> => {
   });
 
   const killGroup = (signal: NodeJS.Signals) => {
-    try {
-      if (process.platform === "win32" || !child.pid) child.kill(signal);
-      else process.kill(-child.pid, signal);
-    } catch {
-      // The group is already gone.
+    if (process.platform === "win32" || !child.pid) {
+      child.kill(signal);
+
+      return;
+    }
+
+    // Parallel workers each lead a process group of their own, outliving bun's.
+    for (const pid of [child.pid, ...descendants(child.pid)]) {
+      try {
+        process.kill(-pid, signal);
+      } catch {
+        // Not a group leader, or already gone.
+      }
     }
   };
 

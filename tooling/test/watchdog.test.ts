@@ -1,9 +1,26 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const WATCHDOG = join(import.meta.dir, "watchdog.ts");
+
+const alive = (pid: number) => {
+  try {
+    process.kill(pid, 0);
+
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/** Whether `pid` exits within 2 s: a killed process lingers until it is reaped. */
+const gone = async (pid: number) => {
+  for (let tries = 0; tries < 40 && alive(pid); tries++) await Bun.sleep(50);
+
+  return !alive(pid);
+};
 
 const suite = (files: Record<string, string>) => {
   const dir = mkdtempSync(join(tmpdir(), "watchdog-"));
@@ -70,10 +87,10 @@ describe("the test watchdog", () => {
     ["locally", false],
     ["under GitHub Actions", true],
   ])(
-    "in a parallel run %s, a hung file is named and files that finished meanwhile are not",
+    "in a parallel run %s, a hung file is named, files that finished meanwhile are not, and its worker is killed",
     async (_, githubActions) => {
       const dir = suite({
-        "hangs.test.ts": `import { test } from "bun:test";\ntest("first", () => {});\ntest("hangs", () => new Promise(() => {}), 60_000);\n`,
+        "hangs.test.ts": `import { test } from "bun:test";\nimport { writeFileSync } from "node:fs";\ntest("first", () => writeFileSync("worker.pid", String(process.pid)));\ntest("hangs", () => new Promise(() => {}), 60_000);\n`,
         "slow.test.ts": `import { test } from "bun:test";\nfor (const n of [1, 2, 3]) test(\`slow \${n}\`, () => Bun.sleep(300));\n`,
       });
 
@@ -85,6 +102,7 @@ describe("the test watchdog", () => {
       expect(output).toContain("(pass) slow 3");
       expect(output).not.toContain("slow.test.ts\n  last result");
       expect(output).not.toContain("polaris-test");
+      expect(await gone(Number(readFileSync(join(dir, "worker.pid"), "utf8")))).toBe(true);
     },
     20_000
   );
