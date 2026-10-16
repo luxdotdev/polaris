@@ -179,7 +179,8 @@ export async function fixture(
   }
 
   async function ready(clientId: string, context: LanguageContextIdentity) {
-    for (let i = 0; i < 200; i++) {
+    // A wall-clock bound: spawning the fake server can take seconds on a loaded runner.
+    for (const deadline = Date.now() + 10_000; Date.now() < deadline;) {
       const snapshot = broker.snapshot(clientId, context);
 
       if (Predicate.isTagged(snapshot.runtime, "Ready")) return snapshot;
