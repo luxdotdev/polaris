@@ -17,7 +17,8 @@ env:
 
 jobs:
   check:
-    name: Lint, typecheck, test, licences (${{ matrix.os }})
+    # The tests run in `test` below; Windows runs its Client tests here.
+    name: Lint, typecheck, licences (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
@@ -36,17 +37,17 @@ jobs:
       - run: bun install --frozen-lockfile
       # oxfmt format check, then oxlint through the ratchet (tooling/lint/baseline.json):
       # fails on new or increased violations. See packages/lint-config/README.md.
+      # Concurrent steps with separate logs; the group fails if either step fails. Not on the
+      # 3-core, 7 GB macOS runner: there the two took 7.4 min at once against 3 min in turn.
+      - parallel:
+          - run: bun run lint
+            if: runner.os != 'macOS'
+          - run: bun run typecheck
+            if: runner.os != 'macOS'
       - run: bun run lint
+        if: runner.os == 'macOS'
       - run: bun run typecheck
-      # Quint fetches its evaluator on first use through GitHub's unauthenticated API, which
-      # shared runners exhaust; fetch it once, authenticated (the spec replay tests run Quint).
-      - name: Fetch the Quint evaluator
-        if: runner.os != 'Windows'
-        run: bun packages/spec/scripts/fetch-evaluator.ts
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-      - run: bun run test
-        if: runner.os != 'Windows'
+        if: runner.os == 'macOS'
       - name: Windows Client tests
         if: runner.os == 'Windows'
         # Native Daemon, SSH shell fixtures, launchd, PTYs and Mac packaging argv are POSIX-only.
@@ -73,9 +74,52 @@ jobs:
         run: bunx tsc -p scripts
       - run: bun run licenses:check
 
+  test:
+    name: Test ${{ matrix.part.name }} (${{ matrix.os }})
+    # The Daemon's files split into shards, each run in parallel worker processes;
+    # the other packages in one job. Wall time is the slowest of these.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-15]
+        part:
+          - name: Daemon 1/3
+            run: bunx turbo run test --filter=@polaris/daemon -- --shard=1/3 --parallel=2
+          - name: Daemon 2/3
+            run: bunx turbo run test --filter=@polaris/daemon -- --shard=2/3 --parallel=2
+          - name: Daemon 3/3
+            run: bunx turbo run test --filter=@polaris/daemon -- --shard=3/3 --parallel=2
+          - name: other packages
+            run: bunx turbo run test --filter=!@polaris/daemon --filter=!@polaris/spec
+        include:
+          # Once, on Linux: they replay runtime traces through the spec, with no
+          # platform-specific code under test.
+          - os: ubuntu-latest
+            part:
+              name: spec replays
+              run: bunx turbo run test --filter=@polaris/spec
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+      - run: bun install --frozen-lockfile
+      # Quint fetches its evaluator on first use through GitHub's unauthenticated API, which
+      # shared runners exhaust; fetch it once, authenticated (tests replay traces through Quint).
+      - name: Fetch the Quint evaluator
+        run: bun packages/spec/scripts/fetch-evaluator.ts
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Test
+        run: ${{ matrix.part.run }}
+
   spec:
-    name: Spec (Quint), trace validation, Apalache
-    # packages/spec/README.md. The model-based tests themselves run in `check`.
+    name: Spec (Quint)
+    # packages/spec/README.md. The model-based tests themselves run in `test`.
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -90,6 +134,22 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
       - name: Quint typecheck, scenario tests, simulation (fixed seed)
         run: bun run spec
+
+  spec-traces:
+    name: Spec trace validation, Apalache
+    # Apart from `spec`, whose Quint runs take 3-5 minutes on their own.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - run: bun install --frozen-lockfile
+      - name: Fetch the Quint evaluator
+        run: bun packages/spec/scripts/fetch-evaluator.ts
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
       - name: Trace validation (Engine runs replayed through the spec)
         run: |
           (cd apps/daemon && POLARIS_TRACE_DIR="$RUNNER_TEMP/traces" POLARIS_PBT_RUNS=30 \

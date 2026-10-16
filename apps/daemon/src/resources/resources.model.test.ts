@@ -27,133 +27,140 @@ const waitForRequest = async (
   throw new Error("request was not queued or granted");
 };
 
-test("real FIFO broker matches an independent queue through randomized requests, releases, capacity edits and restarts", async () => {
-  const identity = await processIdentity(process.pid);
-  expect(identity).not.toBeNull();
-  const originalHome = process.env.POLARIS_HOME;
+/** A hang guard for fixed, seeded work: 3 s alone, 9 s beside 48 busy loops, past 30 s in a loaded parallel run (`ps` per waiter). */
+const MODEL_RUN_MS = 120_000;
 
-  const operation = fc.record({
-    kind: fc.constantFrom("take", "release", "resize", "cancel", "restart"),
-    pick: fc.nat(100),
-    capacity: fc.integer({ min: 1, max: 3 }),
-  });
+test(
+  "real FIFO broker matches an independent queue through randomized requests, releases, capacity edits and restarts",
+  async () => {
+    const identity = await processIdentity(process.pid);
+    expect(identity).not.toBeNull();
+    const originalHome = process.env.POLARIS_HOME;
 
-  try {
-    await fc.assert(
-      fc.asyncProperty(
-        fc.array(operation, { minLength: 10, maxLength: 35 }),
-        async (operations) => {
-          const home = mkdtempSync("/tmp/polaris-resource-model-");
-          process.env.POLARIS_HOME = home;
+    const operation = fc.record({
+      kind: fc.constantFrom("take", "release", "resize", "cancel", "restart"),
+      pick: fc.nat(100),
+      capacity: fc.integer({ min: 1, max: 3 }),
+    });
 
-          const layer = HostResources.layer.pipe(
-            Layer.provideMerge(EventStore.layerSqlite(join(home, "state.sqlite")))
-          );
+    try {
+      await fc.assert(
+        fc.asyncProperty(
+          fc.array(operation, { minLength: 10, maxLength: 35 }),
+          async (operations) => {
+            const home = mkdtempSync("/tmp/polaris-resource-model-");
+            process.env.POLARIS_HOME = home;
 
-          let runtime = ManagedRuntime.make(layer);
-          let resources = await runtime.runPromise(HostResources);
-          const pending: ReturnType<typeof runtime.runFork>[] = [];
-          let capacity = 1;
-          const held: string[] = [];
-          const waiting: string[] = [];
-
-          const promote = () => {
-            while (waiting.length > 0 && held.length < capacity) held.push(waiting.shift()!);
-          };
-
-          const releasePicked = async (items: string[], pick: number, commandId: CommandId) => {
-            const leaseId = items[pick % items.length];
-
-            if (leaseId === undefined) return;
-            items.splice(items.indexOf(leaseId), 1);
-            promote();
-            await runtime.runPromise(resources.release(commandId, leaseId));
-          };
-
-          try {
-            await runtime.runPromise(
-              resources.declare(CommandId.make("initial"), "bench", capacity)
+            const layer = HostResources.layer.pipe(
+              Layer.provideMerge(EventStore.layerSqlite(join(home, "state.sqlite")))
             );
 
-            for (const [n, op] of operations.entries()) {
-              const commandId = CommandId.make(`command-${n}`);
+            let runtime = ManagedRuntime.make(layer);
+            let resources = await runtime.runPromise(HostResources);
+            const pending: ReturnType<typeof runtime.runFork>[] = [];
+            let capacity = 1;
+            const held: string[] = [];
+            const waiting: string[] = [];
 
-              switch (op.kind) {
-                case "take": {
-                  const requestId = `request-${n}`;
-                  waiting.push(requestId);
-                  promote();
-                  pending.push(
-                    runtime.runFork(
-                      resources.acquire({
-                        requestId,
-                        name: "bench",
-                        processId: process.pid,
-                        processIdentity: identity!,
-                        command: [],
-                        sessionId: null,
-                      })
-                    )
-                  );
+            const promote = () => {
+              while (waiting.length > 0 && held.length < capacity) held.push(waiting.shift()!);
+            };
 
-                  await waitForRequest(() => runtime.runPromise(resources.get), requestId);
+            const releasePicked = async (items: string[], pick: number, commandId: CommandId) => {
+              const leaseId = items[pick % items.length];
 
-                  break;
-                }
+              if (leaseId === undefined) return;
+              items.splice(items.indexOf(leaseId), 1);
+              promote();
+              await runtime.runPromise(resources.release(commandId, leaseId));
+            };
 
-                case "release": {
-                  await releasePicked(held, op.pick, commandId);
-                  break;
-                }
+            try {
+              await runtime.runPromise(
+                resources.declare(CommandId.make("initial"), "bench", capacity)
+              );
 
-                case "cancel": {
-                  await releasePicked(waiting, op.pick, commandId);
-                  break;
-                }
+              for (const [n, op] of operations.entries()) {
+                const commandId = CommandId.make(`command-${n}`);
 
-                case "resize": {
-                  if (op.capacity < held.length) {
-                    const result = await runtime.runPromiseExit(
-                      resources.declare(commandId, "bench", op.capacity)
+                switch (op.kind) {
+                  case "take": {
+                    const requestId = `request-${n}`;
+                    waiting.push(requestId);
+                    promote();
+                    pending.push(
+                      runtime.runFork(
+                        resources.acquire({
+                          requestId,
+                          name: "bench",
+                          processId: process.pid,
+                          processIdentity: identity!,
+                          command: [],
+                          sessionId: null,
+                        })
+                      )
                     );
 
-                    expect(Exit.isFailure(result)).toBe(true);
-                  } else {
-                    capacity = op.capacity;
-                    promote();
-                    await runtime.runPromise(resources.declare(commandId, "bench", capacity));
+                    await waitForRequest(() => runtime.runPromise(resources.get), requestId);
+
+                    break;
                   }
 
-                  break;
+                  case "release": {
+                    await releasePicked(held, op.pick, commandId);
+                    break;
+                  }
+
+                  case "cancel": {
+                    await releasePicked(waiting, op.pick, commandId);
+                    break;
+                  }
+
+                  case "resize": {
+                    if (op.capacity < held.length) {
+                      const result = await runtime.runPromiseExit(
+                        resources.declare(commandId, "bench", op.capacity)
+                      );
+
+                      expect(Exit.isFailure(result)).toBe(true);
+                    } else {
+                      capacity = op.capacity;
+                      promote();
+                      await runtime.runPromise(resources.declare(commandId, "bench", capacity));
+                    }
+
+                    break;
+                  }
+
+                  case "restart": {
+                    await runtime.dispose();
+                    pending.length = 0;
+                    runtime = ManagedRuntime.make(layer);
+                    resources = await runtime.runPromise(HostResources);
+                    break;
+                  }
                 }
 
-                case "restart": {
-                  await runtime.dispose();
-                  pending.length = 0;
-                  runtime = ManagedRuntime.make(layer);
-                  resources = await runtime.runPromise(HostResources);
-                  break;
-                }
+                const snapshot = await runtime.runPromise(resources.get);
+                expect(snapshot.resourceLeases.map((lease) => lease.id)).toEqual(held);
+                expect(snapshot.waiting.map((waiter) => waiter.requestId)).toEqual(waiting);
+                expect(snapshot.resourceLeases.length).toBeLessThanOrEqual(capacity);
               }
 
-              const snapshot = await runtime.runPromise(resources.get);
-              expect(snapshot.resourceLeases.map((lease) => lease.id)).toEqual(held);
-              expect(snapshot.waiting.map((waiter) => waiter.requestId)).toEqual(waiting);
-              expect(snapshot.resourceLeases.length).toBeLessThanOrEqual(capacity);
+              await runtime.runPromise(recordResourceTrace);
+            } finally {
+              for (const fiber of pending) await runtime.runPromise(Fiber.interrupt(fiber));
+              await runtime.dispose();
+              rmSync(home, { recursive: true, force: true });
             }
-
-            await runtime.runPromise(recordResourceTrace);
-          } finally {
-            for (const fiber of pending) await runtime.runPromise(Fiber.interrupt(fiber));
-            await runtime.dispose();
-            rmSync(home, { recursive: true, force: true });
           }
-        }
-      ),
-      { numRuns: Number(process.env.POLARIS_PBT_RUNS ?? 20), seed: 0x244 }
-    );
-  } finally {
-    if (originalHome === undefined) delete process.env.POLARIS_HOME;
-    else process.env.POLARIS_HOME = originalHome;
-  }
-}, 30_000);
+        ),
+        { numRuns: Number(process.env.POLARIS_PBT_RUNS ?? 20), seed: 0x244 }
+      );
+    } finally {
+      if (originalHome === undefined) delete process.env.POLARIS_HOME;
+      else process.env.POLARIS_HOME = originalHome;
+    }
+  },
+  MODEL_RUN_MS
+);

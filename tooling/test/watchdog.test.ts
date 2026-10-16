@@ -1,9 +1,26 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const WATCHDOG = join(import.meta.dir, "watchdog.ts");
+
+const alive = (pid: number) => {
+  try {
+    process.kill(pid, 0);
+
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/** Whether `pid` exits within 2 s: a killed process lingers until it is reaped. */
+const gone = async (pid: number) => {
+  for (let tries = 0; tries < 40 && alive(pid); tries++) await Bun.sleep(50);
+
+  return !alive(pid);
+};
 
 const suite = (files: Record<string, string>) => {
   const dir = mkdtempSync(join(tmpdir(), "watchdog-"));
@@ -13,13 +30,22 @@ const suite = (files: Record<string, string>) => {
   return dir;
 };
 
-const watch = async (dir: string, stallSeconds = 1, githubActions = false) => {
-  const proc = Bun.spawn(["bun", WATCHDOG], {
+const watch = async (
+  dir: string,
+  stallSeconds = 1,
+  githubActions = false,
+  args: ReadonlyArray<string> = []
+) => {
+  const proc = Bun.spawn(["bun", WATCHDOG, ...args], {
     cwd: dir,
     env: {
       ...process.env,
       POLARIS_TEST_STALL_S: String(stallSeconds),
       GITHUB_ACTIONS: githubActions ? "true" : "",
+      CLAUDECODE: "",
+      AI_AGENT: "",
+      CLAUDE_CODE_ENTRYPOINT: "",
+      CURSOR_AGENT: "",
     },
     stdout: "pipe",
     stderr: "pipe",
@@ -53,6 +79,30 @@ describe("the test watchdog", () => {
       expect(code).toBe(1);
       expect(output).toContain("bun test stalled: no output for 1s, in b.test.ts");
       expect(output).toContain("last result: (pass) first");
+    },
+    20_000
+  );
+
+  test.each([
+    ["locally", false],
+    ["under GitHub Actions", true],
+  ])(
+    "in a parallel run %s, a hung file is named, files that finished meanwhile are not, and its worker is killed",
+    async (_, githubActions) => {
+      const dir = suite({
+        "hangs.test.ts": `import { test } from "bun:test";\nimport { writeFileSync } from "node:fs";\ntest("first", () => writeFileSync("worker.pid", String(process.pid)));\ntest("hangs", () => new Promise(() => {}), 60_000);\n`,
+        "slow.test.ts": `import { test } from "bun:test";\nfor (const n of [1, 2, 3]) test(\`slow \${n}\`, () => Bun.sleep(300));\n`,
+      });
+
+      const { code, output } = await watch(dir, 2, githubActions, ["--parallel=2"]);
+
+      expect(code).toBe(1);
+      expect(output).toContain("bun test stalled: no output for 2s, in hangs.test.ts");
+      expect(output).toContain("last result: (pass) first");
+      expect(output).toContain("(pass) slow 3");
+      expect(output).not.toContain("slow.test.ts\n  last result");
+      expect(output).not.toContain("polaris-test");
+      expect(await gone(Number(readFileSync(join(dir, "worker.pid"), "utf8")))).toBe(true);
     },
     20_000
   );

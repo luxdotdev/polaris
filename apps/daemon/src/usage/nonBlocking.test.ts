@@ -5,6 +5,7 @@
  * waiting for the whole pass.
  */
 import { afterEach, expect, test } from "bun:test";
+import { dlopen, FFIType, ptr } from "bun:ffi";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -48,14 +49,27 @@ afterEach(() => {
 
 const isUsageChanged = Schema.is(UsageStreamItem.cases.UsageChanged);
 
-/** This process's CPU time so far, in ms: it advances only while the process runs. */
-const cpuMs = () => {
-  const { user, system } = process.cpuUsage();
+/** libc's clock_gettime, for this thread's own CPU time (POSIX: the Daemon's tests don't run on Windows). */
+const libc = dlopen(process.platform === "darwin" ? "libSystem.B.dylib" : "libc.so.6", {
+  clock_gettime: { args: [FFIType.i32, FFIType.ptr], returns: FFIType.i32 },
+});
 
-  return (user + system) / 1000;
+const CLOCK_THREAD_CPUTIME_ID = process.platform === "darwin" ? 16 : 3;
+
+const timespec = new BigInt64Array(2);
+
+/**
+ * The CPU time of the thread running the Daemon's code, in ms. Unlike the process's, it
+ * leaves out the other threads (GC, I/O, a worker's earlier test files) and stops while the thread is paused.
+ */
+const threadCpuMs = () => {
+  libc.symbols.clock_gettime(CLOCK_THREAD_CPUTIME_ID, ptr(timespec));
+  const [seconds = 0n, nanoseconds = 0n] = timespec;
+
+  return Number(seconds) * 1000 + Number(nanoseconds) / 1e6;
 };
 
-/** When a delta arrived, in wall time and in this process's CPU time. */
+/** When a delta arrived, in wall time and in the CPU time of this thread. */
 interface Arrival {
   readonly wallMs: number;
   readonly cpuMs: number;
@@ -65,11 +79,9 @@ const gaps = (arrivals: ReadonlyArray<Arrival>, key: keyof Arrival) =>
   arrivals.slice(1).map((arrival, i) => arrival[key] - arrivals[i]![key]);
 
 /**
- * The longest the session waited between deltas because this process was busy.
- * A stall on the Daemon's thread is long in wall time and in CPU time. A loaded
- * machine pausing the process is long in wall time only, and the process's other
- * threads (GC, I/O) add CPU time without delaying anything, so each gap counts
- * as the lesser of the two.
+ * The longest the session waited between deltas because this thread was busy. A
+ * stall is long in wall time and in the thread's CPU time; a loaded machine pausing
+ * the thread is long in wall time only, so each gap counts as the lesser of the two.
  */
 const worstBusyGap = (arrivals: ReadonlyArray<Arrival>) => {
   const cpu = gaps(arrivals, "cpuMs");
@@ -126,6 +138,8 @@ test("a session keeps streaming while the first index pass runs over large logs"
   const host = fixtureHost();
   hosts.push(host);
   const expectedOutput = largeLogs(host);
+  // Writing the logs left ~220 MB of strings, and a parallel worker its earlier files' heaps: not the pass's to collect.
+  Bun.gc(true);
   const codex = makeFakeDriver("codex");
 
   const engine = engineLayer({
@@ -181,7 +195,7 @@ test("a session keeps streaming while the first index pass runs over large logs"
           (item: SessionStreamItem) =>
             Effect.sync(() => {
               if (Predicate.isTagged(item, "Delta"))
-                arrivals.push({ wallMs: performance.now(), cpuMs: cpuMs() });
+                arrivals.push({ wallMs: performance.now(), cpuMs: threadCpuMs() });
             })
         ).pipe(Effect.forkChild);
 
@@ -246,7 +260,16 @@ test("a session keeps streaming while the first index pass runs over large logs"
   // Never held up for long: 30–70 ms here, up to 105 ms on a shared CI runner; 260–490 ms without the
   // pass's yields and write slices (docs/adr/0009, Testing).
   expect(result.during.length).toBeGreaterThan(20);
-  expect(worstBusyGap(result.during)).toBeLessThan(150);
+
+  const wall = gaps(result.during, "wallMs");
+  const cpu = gaps(result.during, "cpuMs");
+
+  const longest = wall
+    .map((ms, i) => ({ wall: Math.round(ms), cpu: Math.round(cpu[i] ?? 0) }))
+    .toSorted((a, b) => Math.min(b.wall, b.cpu) - Math.min(a.wall, a.cpu))
+    .slice(0, 3);
+
+  expect(worstBusyGap(result.during), JSON.stringify(longest)).toBeLessThan(150);
 
   // And the pass finished with every response indexed.
   expect(result.final.indexing).toBe(false);

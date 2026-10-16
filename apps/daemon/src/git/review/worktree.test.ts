@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { chmodSync, existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { gitText, resolveCommit, runGitRaw } from "../git.ts";
@@ -22,6 +22,9 @@ import {
   moveCheckout,
   removeCheckout,
 } from "./worktree.ts";
+
+// Each test runs tens of real gits: past bun's 5 s default on a loaded runner (as commit.test.ts).
+setDefaultTimeout(15_000);
 
 const cleanup: Array<string> = [];
 
