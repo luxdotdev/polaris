@@ -1,5 +1,5 @@
 import { rejects } from "node:assert/strict";
-import { test, expect } from "bun:test";
+import { test, expect, jest } from "bun:test";
 import { mkdtemp, realpath, rm, readdir, writeFile, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -112,30 +112,37 @@ test("immutable Host construction and simultaneous first encounters/manual reque
 
 test("a preflight timeout is typed and retryable, releases demand, and a fresh inspection succeeds", async () => {
   let slow = true;
+  const observing = Promise.withResolvers<void>();
 
   const f = await hostFixture({
     preflightTimeoutMs: 20,
     observe: async (_tool, _phase, _trusted, signal) => {
-      if (slow)
+      if (slow) {
+        observing.resolve();
         await new Promise<void>((resolve) =>
           signal.addEventListener("abort", () => resolve(), { once: true })
         );
+      }
 
       return { connected: true, probes: [] };
     },
   });
 
+  // Fake timers: the deadline passes only when advanced, so a loaded runner can't expire the retry.
+  jest.useFakeTimers();
+
   try {
     const host = await f.registry.get(f.options);
-    await rejects(host.inspect("fake-tool", "install", true), {
-      reason: "timeout",
-      retryable: true,
-    });
+    const timedOut = host.inspect("fake-tool", "install", true);
+    await observing.promise;
+    jest.advanceTimersByTime(20);
+    await rejects(timedOut, { reason: "timeout", retryable: true });
     expect(host.stats()).toMatchObject({ requests: 0 });
     slow = false;
     expect((await host.inspect("fake-tool", "install", true)).preflight._tag).toBe("Eligible");
     expect(host.stats()).toMatchObject({ requests: 0, observations: 0 });
   } finally {
+    jest.useRealTimers();
     await f.close();
   }
 });
