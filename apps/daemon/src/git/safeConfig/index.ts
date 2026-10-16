@@ -104,7 +104,7 @@ interface Cached {
 }
 
 const stampsOf = ([before, named]: readonly [Stamped, Stamped]) =>
-  `${stampAll(before)}#${stampAll(named)}`;
+  JSON.stringify([stampAll(before), stampAll(named)]);
 
 const cache = new Map<string, Cached>();
 
@@ -163,7 +163,11 @@ const listAndCache = async (
   if (JSON.stringify(again) !== JSON.stringify(found) || extraStamps === null) return listing;
 
   if (cache.size >= CACHE_SIZE) cache.delete(cache.keys().next().value ?? "");
-  cache.set(key, { stamped: [before, named], stamps: `${stamps}#${extraStamps}`, listing });
+  cache.set(key, {
+    stamped: [before, named],
+    stamps: JSON.stringify([stamps, extraStamps]),
+    listing,
+  });
 
   return listing;
 };

@@ -103,7 +103,8 @@ const stamp = (path: string, head = false): string | null => {
     // git takes a symlinked HEAD by where it points (`validate_headref`), never by what it holds.
     const link = head ? lstatSync(path) : null;
 
-    if (link?.isSymbolicLink()) return `l${link.uid}:${readlinkSync(path)}`;
+    if (link?.isSymbolicLink())
+      return `l${link.uid}:${createHash("sha256").update(readlinkSync(path)).digest("hex")}`;
     const s = statSync(path);
 
     if (s.isDirectory()) return `d${s.ino}:${s.uid}`;
@@ -138,7 +139,7 @@ export const stampAll = ({ paths, heads }: Stamped): string | null => {
     stamps.push(one);
   }
 
-  return stamps.join("|");
+  return JSON.stringify(stamps);
 };
 
 /** The cache key, or null when the call's options or environment move git's discovery. */

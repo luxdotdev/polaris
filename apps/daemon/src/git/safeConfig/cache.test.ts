@@ -141,4 +141,24 @@ describe("the cached config listing", () => {
 
     expect(existsSync(`${clean}.ran`)).toBe(false);
   });
+
+  test("tells two HEAD links apart when one target ends where the next begins", async () => {
+    const root = dir(await makeRepo({ "a.txt": "a\n" }));
+    const pkg = join(root, "pkg");
+    const uid = process.getuid?.() ?? 0;
+
+    // Joined plainly, `x|l<uid>:refs/y` + absent reads the same as `x` + `refs/y|-`.
+    for (const sub of ["objects", "refs", ".git/objects", ".git/refs"])
+      mkdirSync(join(pkg, sub), { recursive: true });
+    symlinkSync(`x|l${uid}:refs/y`, join(pkg, ".git", "HEAD"));
+    expect(await gitText(pkg, ["rev-parse", "--show-toplevel"])).toBe(root);
+    const listings = countListings();
+
+    rmSync(join(pkg, ".git", "HEAD"));
+    symlinkSync("x", join(pkg, ".git", "HEAD"));
+    symlinkSync("refs/y|-", join(pkg, "HEAD"));
+    await gitText(pkg, ["rev-parse", "--git-dir"]);
+
+    expect(listings()).toBeGreaterThan(0);
+  });
 });
