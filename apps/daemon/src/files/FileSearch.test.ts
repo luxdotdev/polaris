@@ -66,6 +66,20 @@ const waitFor = async (predicate: () => boolean, what: string) => {
   throw new Error(`timed out waiting for ${what}`);
 };
 
+/**
+ * Writes a new probe file every 25 ms until the watch reports one, so the watch is armed.
+ * Each probe is a new path: fff debounces a path for 50 ms, so rewriting one file this fast never reports.
+ */
+const armWatch = async (root: string, seen: ReadonlyArray<FileChange>, failure: string) => {
+  const deadline = Date.now() + ARM_DEADLINE_MS;
+
+  for (let i = 0; !seen.some((c) => c.path.includes(`${root}/src/probe-`)); i++) {
+    if (Date.now() > deadline) throw new Error(failure);
+    write(root, `src/probe-${i}.ts`, `${i}\n`);
+    await Bun.sleep(25);
+  }
+};
+
 for (const useFff of [true, false]) {
   const backend = useFff ? "fff" : "fallback";
 
@@ -223,15 +237,7 @@ for (const useFff of [true, false]) {
 
             // Let the watcher arm: fff scans, then waits up to 5 s for its watcher before falling back.
             yield* search.searchPaths(root, "x", 1);
-            yield* Effect.promise(async () => {
-              const deadline = Date.now() + ARM_DEADLINE_MS;
-
-              for (let i = 0; !seen.some((c) => c.path.endsWith("probe.ts")); i++) {
-                if (Date.now() > deadline) throw new Error("the watcher never armed");
-                write(root, "src/probe.ts", `${i}\n`);
-                await Bun.sleep(25);
-              }
-            });
+            yield* Effect.promise(() => armWatch(root, seen, "the watcher never armed"));
             yield* Effect.promise(async () => {
               write(root, "src/new.ts", "new\n");
               await waitFor(() => has("src/new.ts", "created"), "created");
@@ -432,14 +438,7 @@ test("a watch whose fff watcher never arms reports changes through fs.watch", as
 
         yield* search.searchPaths(root, "x", 1);
         yield* Effect.promise(async () => {
-          const deadline = Date.now() + ARM_DEADLINE_MS;
-
-          for (let i = 0; !seen.some((c) => c.path.endsWith("probe.ts")); i++) {
-            if (Date.now() > deadline) throw new Error("the watch never reported a change");
-            write(root, "src/probe.ts", `${i}\n`);
-            await Bun.sleep(25);
-          }
-
+          await armWatch(root, seen, "the watch never reported a change");
           write(root, "src/new.ts", "new\n");
           await waitFor(
             () => seen.some((c) => c.path === join(root, "src/new.ts") && c.kind === "created"),
