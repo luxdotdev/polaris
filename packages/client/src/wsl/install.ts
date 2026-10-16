@@ -10,6 +10,7 @@ import {
   DISTRO_MISSING_PATTERN,
   WSL_MISSING_PATTERN,
   wslExecArgv,
+  wslMessageText,
   type WslOptions,
 } from "./command.ts";
 import { stripUtf16Nuls, wslEnv } from "./output.ts";
@@ -24,13 +25,14 @@ export const wslResult = (
   result: SshResult
 ): Effect.Effect<SshResult, SshError> => {
   const stderr = stripUtf16Nuls(result.stderr);
-  const message = stderr.trim().split(/\r?\n/)[0] ?? "";
+  const text = wslMessageText({ code: result.code, stderr, stdout: result.stdout });
+  const message = text.split(/\r?\n/)[0] ?? "";
 
-  if (result.code !== 0 && DISTRO_MISSING_PATTERN.test(stderr)) {
+  if (result.code !== 0 && DISTRO_MISSING_PATTERN.test(text)) {
     return Effect.fail(new SshError({ alias: distro, failure: "unreachable", message }));
   }
 
-  if (result.code !== 0 && WSL_MISSING_PATTERN.test(stderr)) {
+  if (result.code !== 0 && WSL_MISSING_PATTERN.test(text)) {
     return Effect.fail(new SshError({ alias: distro, failure: "spawn", message }));
   }
 

@@ -29,7 +29,11 @@ over ssh.
 ## Output encoding
 
 `wsl.exe` writes its own messages (the distro list, "no distribution with the
-supplied name") as UTF-16LE; a Linux program's stdio is relayed as raw bytes.
+supplied name") as UTF-16LE, on **stdout** with exit status -1; a Linux
+program's stdio is relayed as raw bytes. So the bridge transport keeps the
+start of stdout when it does not open a frame stream, and the classifiers read
+it, but only on wsl.exe's own exit codes (-1, seen as 255 or 4294967295), so a
+Linux command's own output never reads as a WSL failure.
 `WSL_UTF8=1` makes WSL ≥ 0.64 write UTF-8, and older WSL ignores it, so every
 read also sniffs: an even number of bytes with a NUL in most odd positions is
 UTF-16LE. stderr is decoded chunk by chunk because both encodings can share
@@ -45,7 +49,10 @@ Client's own bridge process is a session, so a distro Host stays up while the
 Desktop App is connected to it; when the app quits, the distro and the Daemon
 stop with it, and running Agent Sessions end as on a Host that rebooted. The
 next connection brings the Daemon back: under systemd with linger at boot, or
-through `polaris bridge` starting the fallback supervisor on demand.
+through `polaris bridge` starting the fallback supervisor on demand. That
+connection boots the distro, so the bridge runs before systemd has started the
+Daemon (about 300 ms on WSL 2.7); with the systemd unit installed, the bridge
+waits up to 5 s for the socket rather than reporting "no Daemon".
 
 ## Discovery and paths
 
@@ -58,12 +65,39 @@ Windows.
 
 ## Verification
 
-Only the fake `wsl.exe` (`@polaris/client/wsl/testing`) has run any of this:
-it answers `--list --verbose` in UTF-16LE or UTF-8 and runs `--exec` argv
-locally with HOME at a fake distro. Real WSL behaviour (argv quoting through
-`--exec`, binary-safe stdin, the exact stub messages, idle shutdown timing) is
-unverified until the physical Windows machine is available; the checklist is in
-`.dagr/reports/wwsl.md`.
+Tests run against the fake `wsl.exe` (`@polaris/client/wsl/testing`): it
+answers `--list --verbose` in UTF-16LE or UTF-8, prints a missing distro's
+message on stdout as real WSL does, and runs `--exec` argv locally with HOME at
+a fake distro.
+
+Verified on real WSL 2.7.11 (Windows 11 Pro x64, Ubuntu 26.04 with systemd,
+plus a throwaway `ubuntu-base` 24.04 distro with and without systemd), driving
+this package's own code from Node 24 and Bun 1.3.13 on Windows (steps in
+`packages/client/README.md`, "Checking on real WSL"):
+
+- `--list --verbose` is UTF-16LE without a BOM by default and UTF-8 under
+  `WSL_UTF8=1`; docker-desktop distros are hidden, a WSL 1 distro reads as
+  version 1, states parse.
+- argv through `--exec /bin/sh -c`: quotes, backslashes (trailing too),
+  `%PATH%`, `!^&|<>`, `$()`, tabs, newlines, an empty argument and non-ASCII
+  all reach `sh` unchanged.
+- stdin and stdout are binary-safe: a 156 MB upload matched its SHA-256 in the
+  distro, and a 4 MiB blob of every byte value, CR LF, a BOM and ^Z round-tripped
+  through `files.write` / `files.read` over the bridge.
+- First install needs approval (`trusted: false`). Upload installed under
+  systemd (linger enabled), HostFetch (curl, the published alpha.6 archive)
+  under the fallback supervisor, and Upgrade (execve hand-off) under both.
+- A stopped distro boots on connect (about 0.9 s to Connected under the fallback
+  supervisor, 1.2 s under systemd). The bridge holds it up; it stops 13 to 15 s
+  after the last `wsl.exe` session ends, with a systemd service and linger too.
+- A missing or unregistered distro is `wsl-distro-missing` for the bridge and
+  an `unreachable` `SshError` for install commands (before the stdout handling
+  above, both read it as an ordinary failure).
+
+Still unverified: the stub `wsl.exe` on a Windows without WSL (its message and
+which stream it uses), "no installed distributions", localized Windows, and
+`\\wsl.localhost` paths, which an OpenSSH session cannot open (only a desktop
+logon can). The Desktop App's screens have not run against real WSL yet.
 
 Sources: microsoft/WSL discussions #8659 and #9245, issue #10138 (idle
 shutdown, `instanceIdleTimeout`); microsoft/vscode#276253 and podman#26527

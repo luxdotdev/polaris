@@ -6,7 +6,8 @@ import { type SpawnOptions as NodeSpawnOptions, spawn } from "node:child_process
 import { Effect } from "effect";
 import { connectorFor, HostTarget } from "./HostConnection.ts";
 import { nodeChildProcess } from "./process/index.ts";
-import { spawnTransport } from "./transport.ts";
+import { encodeJsonFrame } from "@polaris/protocol";
+import { isFrameStart, spawnTransport } from "./transport.ts";
 
 const identity = { name: "test", version: "0.0.0", deviceLabel: "test", capabilities: [] };
 
@@ -55,5 +56,15 @@ describe("spawnTransport", () => {
       )
     );
     expect(seen.map((options) => options.windowsHide)).toEqual([true]);
+  });
+});
+
+describe("isFrameStart", () => {
+  test("a Daemon's first frame is the wire; wsl.exe's message, in either encoding, is text", () => {
+    const message = "There is no distribution with the supplied name.\r\n";
+
+    expect(isFrameStart(encodeJsonFrame('{"_tag":"Response"}'))).toBe(true);
+    expect(isFrameStart(Buffer.from(message, "utf8"))).toBe(false);
+    expect(isFrameStart(Buffer.from(message, "utf16le"))).toBe(false);
   });
 });

@@ -2,7 +2,7 @@
  * The WSL distros on this Windows machine, from `wsl.exe --list --verbose`.
  * Parsed by columns from the right (state, version), so a localized header or
  * state word still yields the name; the first line is always the header.
- * UNVERIFIED on real WSL: only the fake `wsl.exe` (fakeWsl.testing.ts) ran it.
+ * Verified against WSL 2.7 in English; localized output only through the fake.
  */
 import { Data, Effect, Schema } from "effect";
 import { type ChildProcessApi, childProcesses } from "../process/index.ts";

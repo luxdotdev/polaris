@@ -80,6 +80,28 @@ describe("classifyWslExit", () => {
     expect(stub.reason).toBe("wsl-missing");
   });
 
+  test("wsl.exe's own message arrives on stdout with exit -1, as real WSL 2.7 writes it", () => {
+    const message =
+      "There is no distribution with the supplied name.\r\nError code: Wsl/Service/WSL_E_DISTRO_NOT_FOUND\r\n";
+
+    for (const code of [255, 4294967295]) {
+      const missing = classifyWslExit({ code, signal: null, stderr: "", stdout: message });
+      expect(missing.reason).toBe("wsl-distro-missing");
+      expect(missing.detail).toBe("There is no distribution with the supplied name.");
+    }
+  });
+
+  test("a Linux command's stdout is not mistaken for wsl.exe's message", () => {
+    const own = classifyWslExit({
+      code: 3,
+      signal: null,
+      stderr: "",
+      stdout: "systemctl is not installed",
+    });
+
+    expect(own.reason).toBe("connection-lost");
+  });
+
   test("NUL-interleaved stderr (UTF-16LE read as UTF-8) still classifies", () => {
     const text = "There is no distribution with the supplied name.";
 

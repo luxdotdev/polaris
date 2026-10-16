@@ -59,8 +59,10 @@ const starts = (home: string) => {
   return existsSync(log) ? readFileSync(log, "utf8").split("\n").filter(Boolean).length : 0;
 };
 
-const bridge = async (home: string, input: string, waitMs: number) => {
-  const child = Bun.spawn([process.execPath, BRIDGE, String(waitMs)], {
+const bridge = async (home: string, input: string, waitMs: number, systemdUnit?: string) => {
+  const unit = systemdUnit === undefined ? [] : [systemdUnit];
+
+  const child = Bun.spawn([process.execPath, BRIDGE, String(waitMs), ...unit], {
     env: { ...process.env, POLARIS_HOME: home },
     stdin: "pipe",
     stdout: "pipe",
@@ -103,10 +105,32 @@ describe("polaris bridge without a Daemon", () => {
     expect(Date.now() - at).toBeGreaterThanOrEqual(300);
   });
 
-  test("exits 69 at once on a Host without the fallback supervisor", async () => {
+  test("exits 69 at once on a Host without the fallback supervisor or a systemd unit", async () => {
     const home = makeHome(null);
-    const result = await bridge(home, "hello\n", 5000);
+    const at = Date.now();
+    const result = await bridge(home, "hello\n", 5000, join(home, "polaris.service"));
     expect(result.code).toBe(BRIDGE_EXIT_NO_DAEMON);
     expect(result.stderr).toContain("no Daemon is running");
+    expect(Date.now() - at).toBeLessThan(4000);
+  });
+
+  test("under systemd, waits for the Daemon systemd is still starting (a WSL distro's boot)", async () => {
+    const home = makeHome(null);
+    const unit = join(home, "polaris.service");
+    writeFileSync(unit, "[Service]\n");
+
+    const late = setTimeout(() => {
+      const daemon = Bun.spawn([process.execPath, ECHO], {
+        env: { ...process.env, POLARIS_HOME: home },
+        stdio: ["ignore", "ignore", "ignore"],
+      });
+
+      writeFileSync(join(home, "echo.pid"), String(daemon.pid));
+    }, 300);
+
+    const result = await bridge(home, "hello\n", 5000, unit).finally(() => clearTimeout(late));
+    expect(result.stderr).toBe("");
+    expect(result.code).toBe(0);
+    expect(result.stdout).toBe("hello\n");
   });
 });

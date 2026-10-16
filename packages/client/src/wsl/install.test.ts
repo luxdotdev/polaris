@@ -64,13 +64,25 @@ describe("wslInstallLayer", () => {
   });
 
   test("an unknown distro is an SshError the flow shows as unreachable", async () => {
-    const exit = await Effect.runPromiseExit(
-      Ssh.use((ssh) => ssh.exec("Fedora", "true")).pipe(Effect.provide(wslInstallLayer(fake())))
+    const error = await Effect.runPromise(
+      Ssh.use((ssh) => ssh.exec("Fedora", "true")).pipe(
+        Effect.flip,
+        Effect.provide(wslInstallLayer(fake()))
+      )
     );
 
-    expect(Exit.isFailure(exit)).toBe(true);
-    const error = Exit.isFailure(exit) ? exit.cause : null;
-    expect(String(error)).toContain("no distribution with the supplied name");
+    expect(error.failure).toBe("unreachable");
+    expect(error.message).toBe("There is no distribution with the supplied name.");
+  });
+
+  test("a command's own output naming WSL's messages is still the command's result", async () => {
+    const result = await Effect.runPromise(
+      Ssh.use((ssh) => ssh.exec("Ubuntu", "echo 'systemctl is not installed'; exit 3")).pipe(
+        Effect.provide(wslInstallLayer(fake()))
+      )
+    );
+
+    expect(result.code).toBe(3);
   });
 
   test("a WSL that isn't installed is a spawn failure", async () => {
