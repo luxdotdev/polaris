@@ -250,7 +250,12 @@ jobs:
           app=apps/desktop/out/dist/Polaris-darwin-arm64/Polaris.app
           codesign --verify --deep --strict "$app"
           spctl --assess --type execute --verbose=2 "$app"
-          xcrun stapler validate "$app"
+          # stapler asks Apple's CloudKit, which drops connections now and then: retry, then fail.
+          for try in 1 2 3 4 5; do
+            if xcrun stapler validate "$app"; then break; fi
+            if [ "$try" -eq 5 ]; then exit 1; fi
+            sleep $((15 * try))
+          done
           daemon=apps/daemon/dist/darwin-arm64
           test "$("$daemon/polaris" selftest | head -n 1)" = "polaris $VERSION darwin-arm64"
           "$daemon/betterleaks" version
