@@ -18,11 +18,24 @@ import { shQuote, supervisorScript, supervisorStartLine } from "./templates.ts";
 
 let root: string;
 
+/** The pid a stand-in wrote to `file`, once the whole line is there: an empty read would be pid 0. */
+const readPid = (file: string): number | null => {
+  try {
+    const text = readFileSync(file, "utf8");
+
+    return /^[1-9]\d*\n$/.test(text) ? Number(text) : null;
+  } catch {
+    return null;
+  }
+};
+
 afterEach(() => {
   // Stop anything a test left running.
   for (const file of ["supervisor.pid", "daemon.pid"]) {
     try {
-      process.kill(Number(readFileSync(join(root, file), "utf8")), "SIGKILL");
+      const pid = readPid(join(root, file));
+
+      if (pid !== null) process.kill(pid, "SIGKILL");
     } catch {}
   }
 
@@ -84,18 +97,13 @@ esac
   );
   chmodSync(script, 0o755);
 
+  // Only whole lines: a start being written is not one yet.
   const starts = () =>
     existsSync(join(root, "starts"))
-      ? readFileSync(join(root, "starts"), "utf8").trim().split("\n").map(Number)
+      ? readFileSync(join(root, "starts"), "utf8").split("\n").slice(0, -1).map(Number)
       : [];
 
-  const supervisorPid = () => {
-    try {
-      return Number(readFileSync(join(root, "supervisor.pid"), "utf8"));
-    } catch {
-      return null;
-    }
-  };
+  const supervisorPid = () => readPid(join(root, "supervisor.pid"));
 
   const launch = () => Bun.spawnSync([script]).exitCode;
 
@@ -132,9 +140,9 @@ describe("fallback supervisor", () => {
   test("gives up when another Daemon already holds the lock (exit 75)", async () => {
     const sup = setup("busy");
     sup.launch();
-    await waitFor(() => sup.starts().length === 1 && existsSync(join(root, "parent.pid")));
+    await waitFor(() => readPid(join(root, "parent.pid")) !== null);
     // Once the supervisor that ran it has exited, nothing is left to restart it.
-    const supervisor = Number(readFileSync(join(root, "parent.pid"), "utf8"));
+    const supervisor = readPid(join(root, "parent.pid"))!;
     await waitFor(() => !alive(supervisor));
     expect(existsSync(join(root, "supervisor.pid"))).toBe(false);
     expect(sup.starts()).toHaveLength(1);
