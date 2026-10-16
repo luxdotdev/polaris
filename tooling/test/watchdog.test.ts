@@ -13,13 +13,22 @@ const suite = (files: Record<string, string>) => {
   return dir;
 };
 
-const watch = async (dir: string, stallSeconds = 1, githubActions = false) => {
-  const proc = Bun.spawn(["bun", WATCHDOG], {
+const watch = async (
+  dir: string,
+  stallSeconds = 1,
+  githubActions = false,
+  args: ReadonlyArray<string> = []
+) => {
+  const proc = Bun.spawn(["bun", WATCHDOG, ...args], {
     cwd: dir,
     env: {
       ...process.env,
       POLARIS_TEST_STALL_S: String(stallSeconds),
       GITHUB_ACTIONS: githubActions ? "true" : "",
+      CLAUDECODE: "",
+      AI_AGENT: "",
+      CLAUDE_CODE_ENTRYPOINT: "",
+      CURSOR_AGENT: "",
     },
     stdout: "pipe",
     stderr: "pipe",
@@ -53,6 +62,29 @@ describe("the test watchdog", () => {
       expect(code).toBe(1);
       expect(output).toContain("bun test stalled: no output for 1s, in b.test.ts");
       expect(output).toContain("last result: (pass) first");
+    },
+    20_000
+  );
+
+  test.each([
+    ["locally", false],
+    ["under GitHub Actions", true],
+  ])(
+    "in a parallel run %s, a hung file is named and files that finished meanwhile are not",
+    async (_, githubActions) => {
+      const dir = suite({
+        "hangs.test.ts": `import { test } from "bun:test";\ntest("first", () => {});\ntest("hangs", () => new Promise(() => {}), 60_000);\n`,
+        "slow.test.ts": `import { test } from "bun:test";\nfor (const n of [1, 2, 3]) test(\`slow \${n}\`, () => Bun.sleep(300));\n`,
+      });
+
+      const { code, output } = await watch(dir, 2, githubActions, ["--parallel=2"]);
+
+      expect(code).toBe(1);
+      expect(output).toContain("bun test stalled: no output for 2s, in hangs.test.ts");
+      expect(output).toContain("last result: (pass) first");
+      expect(output).toContain("(pass) slow 3");
+      expect(output).not.toContain("slow.test.ts\n  last result");
+      expect(output).not.toContain("polaris-test");
     },
     20_000
   );
