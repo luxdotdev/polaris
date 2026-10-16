@@ -75,6 +75,7 @@ jobs:
         run: bun run --cwd apps/desktop package --release
 
       - name: Smoke-test packaged app
+        timeout-minutes: 5
         run: node apps/desktop/scripts/packageCheck.ts
 
       - name: Hand off the unsigned app and Daemon with its digest
@@ -223,6 +224,7 @@ jobs:
           test "$("$daemon/polaris" selftest | head -n 1)" = "polaris $VERSION darwin-arm64"
           "$daemon/betterleaks" version
       - name: Smoke-test the signed app
+        timeout-minutes: 5
         run: node apps/desktop/scripts/packageCheck.ts
       - name: Build the installer DMG around the signed app
         run: bun apps/desktop/scripts/dmg.ts
