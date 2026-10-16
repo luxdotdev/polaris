@@ -46,9 +46,14 @@ try {
   if (!(Test-Path (Join-Path $installRoot 'Update.exe'))) { throw 'Squirrel install root is missing Update.exe' }
   Write-Output "WINDOW OPEN: Windows $Arch; process $($window.Id); $($window.MainWindowTitle)"
 } finally {
-  Get-Process -Name Polaris -ErrorAction SilentlyContinue |
-    Where-Object { $_.Path -and $_.Path.StartsWith("$installRoot\", [System.StringComparison]::OrdinalIgnoreCase) } |
-    Stop-Process -Force
+  $running = @(Get-Process -Name Polaris -ErrorAction SilentlyContinue |
+    Where-Object { $_.Path -and $_.Path.StartsWith("$installRoot\", [System.StringComparison]::OrdinalIgnoreCase) })
+  $running | Stop-Process -Force
+  # Stop-Process returns before the processes exit, and they hold user data open until then.
+  $running | Wait-Process -Timeout 30 -ErrorAction SilentlyContinue
   $env:POLARIS_DESKTOP_USER_DATA = $previousUserData
-  Remove-Item $userData -Recurse -Force
+  for ($try = 1; ; $try++) {
+    try { Remove-Item $userData -Recurse -Force -ErrorAction Stop; break }
+    catch { if ($try -ge 10) { throw }; Start-Sleep -Milliseconds 500 }
+  }
 }
