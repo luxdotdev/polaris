@@ -197,6 +197,9 @@ const dispatch = (command: Command) =>
     engine.dispatch({ commandId: cid(), command, deviceLabel: "MacBook" })
   );
 
+/** A Turn or a checkout here runs real git (a Turn's checkpoints, ~25 calls on first contact). */
+const GIT_WORK_MS = 15_000;
+
 const checkoutId = ReviewCheckoutId.make("rc-7");
 
 const subject = ReviewSubject.cases.PullRequest.make({
@@ -233,7 +236,7 @@ const openReview = (user: string, head: string) =>
         base: "",
       })
     );
-    yield* waitFor((m) => m.reviewCheckouts.get(checkoutId)?.state === "ready", 15_000);
+    yield* waitFor((m) => m.reviewCheckouts.get(checkoutId)?.state === "ready", GIT_WORK_MS);
 
     return workspace;
   });
@@ -655,7 +658,7 @@ describe("the session's change, exactly", () => {
           const record = m.sessions.get(sessionId);
 
           return record?.session.state === "idle" && record.turns.at(-1)?.status === "completed";
-        });
+        }, GIT_WORK_MS);
 
         yield* dispatch(
           Command.cases.StartSession.make({
@@ -677,7 +680,7 @@ describe("the session's change, exactly", () => {
         yield* dispatch(
           Command.cases.SendTurn.make({ sessionId, prompt: "write b.txt", attachments: [] })
         );
-        yield* waitFor((m) => (m.sessions.get(sessionId)?.turns.length ?? 0) === 2);
+        yield* waitFor((m) => (m.sessions.get(sessionId)?.turns.length ?? 0) === 2, GIT_WORK_MS);
         yield* idle;
 
         const summary = yield* reviewer.run({
@@ -783,7 +786,7 @@ describe("rules after every Turn", () => {
         expect(rulesOnly.layers.agent).toMatchObject({ status: "skipped", note: RULES_AFTER_TURN });
 
         // A Turn that changes nothing gets none.
-        yield* waitFor((m) => m.sessions.get(sessionId)?.session.state === "idle");
+        yield* waitFor((m) => m.sessions.get(sessionId)?.session.state === "idle", GIT_WORK_MS);
 
         const quiet = yield* nextSummary(
           dispatch(
