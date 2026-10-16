@@ -3,7 +3,15 @@
  * changed (a branch switch, an inert `-c`), read again when something did.
  */
 import { afterEach, describe, expect, test } from "bun:test";
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { gitText } from "../git.ts";
 import { makeRepo, removeDir, tempDir, write } from "../testing.ts";
@@ -104,6 +112,33 @@ describe("the cached config listing", () => {
     await gitText(pkg, ["add", "-A"]);
 
     expect(await gitText(pkg, ["rev-parse", "--show-toplevel"])).toBe(pkg);
+    expect(existsSync(`${clean}.ran`)).toBe(false);
+  });
+
+  test("is read again when a symlinked HEAD comes to point into refs/", async () => {
+    const markers = dir(tempDir("polaris-markers-"));
+    const root = dir(await makeRepo({ "a.txt": "a\n" }));
+    const pkg = join(root, "pkg");
+    const head = join(pkg, ".git", "HEAD");
+
+    // The same bytes behind both links: only where HEAD points tells git it's a repository.
+    for (const sub of ["objects", "refs/heads"])
+      mkdirSync(join(pkg, ".git", sub), { recursive: true });
+    write(pkg, ".git/decoy", "ref: refs/heads/main\n");
+    write(pkg, ".git/refs/heads/main", "ref: refs/heads/main\n");
+    symlinkSync("decoy", head);
+    write(pkg, "b.txt", "b\n");
+    await gitText(pkg, ["status", "--porcelain"]);
+
+    const clean = join(markers, "clean");
+    write(markers, "clean", `#!/bin/sh\ntouch "${clean}.ran"\ncat\n`);
+    chmodSync(clean, 0o755);
+    write(pkg, ".git/config", `[filter "inner"]\n\tclean = ${clean}\n`);
+    write(pkg, ".gitattributes", "*.txt filter=inner\n");
+    rmSync(head);
+    symlinkSync("refs/heads/main", head);
+    await gitText(pkg, ["add", "-A"]).catch(() => "");
+
     expect(existsSync(`${clean}.ran`)).toBe(false);
   });
 });

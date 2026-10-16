@@ -3,7 +3,16 @@
  * decided it or holds config git reads: a cached listing is used only while none changed.
  */
 import { createHash } from "node:crypto";
-import { closeSync, fstatSync, openSync, readSync, realpathSync, statSync } from "node:fs";
+import {
+  closeSync,
+  fstatSync,
+  lstatSync,
+  openSync,
+  readlinkSync,
+  readSync,
+  realpathSync,
+  statSync,
+} from "node:fs";
 import { dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { Predicate } from "effect";
 import { type Entry, REPOSITORY_SCOPES } from "./settings.ts";
@@ -91,6 +100,10 @@ const ABSENT = new Set(["ENOENT", "ENOTDIR"]);
 /** A directory by its identity and owner, a file by its content, `-` when absent; null: uncacheable. */
 const stamp = (path: string, head = false): string | null => {
   try {
+    // git takes a symlinked HEAD by where it points (`validate_headref`), never by what it holds.
+    const link = head ? lstatSync(path) : null;
+
+    if (link?.isSymbolicLink()) return `l${link.uid}:${readlinkSync(path)}`;
     const s = statSync(path);
 
     if (s.isDirectory()) return `d${s.ino}:${s.uid}`;
