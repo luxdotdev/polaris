@@ -17,6 +17,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { userPathAsync } from "@polaris/client/userPath";
 import {
   app,
   autoUpdater,
@@ -89,6 +90,14 @@ if (process.platform === "win32") app.setAppUserModelId(windowsAppId(process.arc
 
 const env = process.env;
 
+// Launched from the Dock, the PATH is bare: adopt the terminal's, so `ssh` is the user's own.
+const userPathReady =
+  process.platform === "win32"
+    ? Promise.resolve()
+    : userPathAsync({ env }).then((path) => {
+        env.PATH = path;
+      });
+
 const devUrl = env.ELECTRON_RENDERER_URL ?? null;
 
 const dev = devUrl !== null || env.POLARIS_DESKTOP_DEV === "1";
@@ -157,6 +166,7 @@ const trusted = (url: string) => isTrustedUrl(url, devUrl);
 
 const start = async () => {
   showIcon({ repoRoot });
+  await userPathReady;
   const file = settingsPath(app.getPath("userData"));
   let settings: Settings = readSettings(file);
 
