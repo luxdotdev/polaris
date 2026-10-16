@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { Effect, Fiber } from "effect";
+import { tmpdir } from "node:os";
+import { Effect, Fiber, Logger } from "effect";
 import { captureCheckpoint, checkpointRef } from "./Checkpoints.ts";
 import { gitText } from "./git.ts";
 import {
@@ -328,13 +329,34 @@ describe("pruneCheckpoints in a real repository", () => {
 
     const reports = await Effect.runPromise(
       sweepCheckpoints([
-        { repoPath: join(root, "does-not-exist"), sessions: [] },
+        { repoPath: join(root, "does-not-exist"), sessions: [archived("gone", 40 * DAY)] },
         { repoPath: root, sessions: [{ sessionId: "old", archivedAt: Date.now() - 40 * DAY }] },
       ])
     );
 
     expect(reports.map((r) => r.repoPath)).toEqual([root]);
     expect(await listCheckpointRefs(root)).toHaveLength(0);
+  });
+
+  // A missing repository makes any git the sweep runs fail, and say so.
+  test.each([
+    ["only live sessions", false, [{ sessionId: "live", archivedAt: null }], {}],
+    ["no sessions", false, [], {}],
+    ["an Archived session", true, [archived("old", 40 * DAY)], {}],
+    ["orphans to prune", true, [], { pruneOrphans: true }],
+  ] as const)("with %s the sweep runs git: %p", async (_, runsGit, sessions, options) => {
+    const logs: Array<string> = [];
+    const logger = Logger.make((entry) => logs.push(Logger.formatSimple.log(entry)));
+
+    const reports = await Effect.runPromise(
+      sweepCheckpoints([{ repoPath: join(tmpdir(), "polaris-no-such-repo"), sessions }], {
+        ...options,
+        now: NOW,
+      }).pipe(Effect.provide(Logger.layer([logger])))
+    );
+
+    expect(reports).toEqual([]);
+    expect(logs.some((line) => line.includes("checkpoint prune of"))).toBe(runsGit);
   });
 
   test("the periodic sweeper runs at once and then on its interval", async () => {

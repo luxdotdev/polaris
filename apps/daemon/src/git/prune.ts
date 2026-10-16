@@ -408,8 +408,16 @@ export interface SweepTarget {
 }
 
 /**
+ * Whether the policy could delete anything in `target`: only an Archived session's
+ * refs ever go, and an orphan's only with `pruneOrphans`.
+ */
+const mayPrune = (target: SweepTarget, options: PruneOptions = {}): boolean =>
+  options.pruneOrphans === true || target.sessions.some((s) => s.archivedAt !== null);
+
+/**
  * Prune every target once. A failing repository (moved, deleted, locked) is
- * logged and skipped; it never stops the others.
+ * logged and skipped; it never stops the others. A target with nothing the
+ * policy could delete runs no git: the sweep at every Daemon start stays free.
  */
 export const sweepCheckpoints = Effect.fn("Checkpoints.sweep")(function* (
   targets: ReadonlyArray<SweepTarget>,
@@ -417,7 +425,7 @@ export const sweepCheckpoints = Effect.fn("Checkpoints.sweep")(function* (
 ) {
   const reports: Array<PruneReport> = [];
 
-  for (const target of targets) {
+  for (const target of targets.filter((t) => mayPrune(t, options))) {
     const report = yield* pruneCheckpointsEffect(target.repoPath, target.sessions, options).pipe(
       Effect.tapError((error) =>
         Effect.logWarning(`checkpoint prune of ${target.repoPath} failed: ${error.message}`)
