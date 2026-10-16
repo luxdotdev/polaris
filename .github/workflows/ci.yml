@@ -118,7 +118,7 @@ jobs:
         run: ${{ matrix.part.run }}
 
   spec:
-    name: Spec (Quint), trace validation, Apalache
+    name: Spec (Quint)
     # packages/spec/README.md. The model-based tests themselves run in `test`.
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -134,6 +134,22 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
       - name: Quint typecheck, scenario tests, simulation (fixed seed)
         run: bun run spec
+
+  spec-traces:
+    name: Spec trace validation, Apalache
+    # Apart from `spec`, whose Quint runs take 3-5 minutes on their own.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - run: bun install --frozen-lockfile
+      - name: Fetch the Quint evaluator
+        run: bun packages/spec/scripts/fetch-evaluator.ts
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
       - name: Trace validation (Engine runs replayed through the spec)
         run: |
           (cd apps/daemon && POLARIS_TRACE_DIR="$RUNNER_TEMP/traces" POLARIS_PBT_RUNS=30 \
