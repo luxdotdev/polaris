@@ -76,5 +76,6 @@ describe("the Reviewer under a bare systemd PATH", () => {
 
     process.env.PATH = "/usr/bin:/bin";
     expect(reviewerShell("claude", onLinux)).toBe("none");
-  });
+    // It starts real stub processes, which take seconds to launch on a loaded macOS runner.
+  }, 15_000);
 });
