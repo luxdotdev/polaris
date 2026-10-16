@@ -380,7 +380,8 @@ test("actual descriptors close after successful delivery, faults and interrupted
     });
   }
 
-  expect(count()).toBe(before);
+  // /dev/fd is the whole process: other tests' descriptors may close meanwhile, never open.
+  expect(count()).toBeLessThanOrEqual(before);
 });
 
 test("Blob offer defect releases admission and descriptors", async () => {
