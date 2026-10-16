@@ -55,8 +55,9 @@ const info = (socketPath: string): Promise<Info> =>
         error(_socket, error) {
           reject(error);
         },
-        connectError(_socket, error) {
-          reject(error);
+        connectError(_socket, error: NodeJS.ErrnoException) {
+          // Bun reports a connection accepted then closed before `open` as ECONNREFUSED; a refusal is ENOENT.
+          reject(error.code === "ECONNREFUSED" ? new Error("closed before answering") : error);
         },
       },
     }).catch(reject);
