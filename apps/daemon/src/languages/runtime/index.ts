@@ -50,6 +50,7 @@ import { bindServerPreparation } from "./serverPreparation.ts";
 import { FeatureEvidence, createFeatureVerifier } from "./featureEvidence.ts";
 import { contextKey, sameIdentity, initialization } from "./keys.ts";
 import { spawnLanguageProcess } from "./process.ts";
+import { createRequestCancellations } from "./requestCancellation.ts";
 import { snapshot } from "./snapshot.ts";
 
 export { LanguageBroker } from "./service.ts";
@@ -80,6 +81,7 @@ export function createLanguageBroker(options: BrokerOptions) {
   let documentBytes = 0;
   const processes = processAdmission(options, entries, move, shutdown);
   const featureEvidence = new FeatureEvidence();
+  const cancellations = createRequestCancellations();
 
   const documents = (context: LanguageContextIdentity) =>
     new Documents(context, (delta) => {
@@ -554,77 +556,74 @@ export function createLanguageBroker(options: BrokerOptions) {
     inputMethod: string,
     payload: typeof LanguageJsonObject.Type,
     inputDeadline: number,
-    signal?: AbortSignal
+    inputSignal?: AbortSignal
   ): Promise<typeof LanguageJson.Type> {
     const fence = Schema.decodeUnknownSync(LanguageRequestFence)(inputFence);
     const method = Schema.decodeUnknownSync(LanguageMethod)(inputMethod);
     const params = Schema.decodeUnknownSync(LanguageJsonObject)(payload);
     const deadline = Schema.decodeUnknownSync(LanguageDeadline)(inputDeadline);
 
-    if (signal?.aborted) throw failure("cancelled", "Language request cancelled");
+    if (inputSignal?.aborted) throw failure("cancelled", "Language request cancelled");
     const entry = owned(clientId, fence.context);
-
-    const operation = await enqueue(entry, async () => {
-      if (signal?.aborted) throw failure("cancelled", "Language request cancelled");
-      owned(clientId, fence.context);
-      processes.touch(entry);
-      await trusted(entry);
-      entry.documents.fence(fence);
-      const connection = entry.connection;
-
-      if (
-        !entry.lifecycle.matches("ready") ||
-        connection === undefined ||
-        entry.capabilities === undefined
-      )
-        throw failure("not-ready", "Language server is not ready");
-
-      if (!entry.capabilities.methods.includes(method))
-        throw failure("unsupported-capability", "Server does not support this method");
-
-      if (entry.operations.has(requestId))
-        throw failure("conflict", "Request identifier already pending");
-
-      if (method === "workspace/executeCommand") {
-        const command = Schema.decodeUnknownSync(Schema.Struct({ command: Schema.String }))(
-          params
-        ).command;
-
-        if (!entry.capabilities.executeCommands.includes(command))
-          throw failure("unsupported-capability", "Server command not offered");
-      }
-
-      const left = deadline - Date.now();
-
-      if (left <= 0) throw failure("timeout", "Language request deadline expired");
-
-      const documentParams = Schema.decodeUnknownSync(
-        Schema.Struct({ textDocument: Schema.optionalKey(Schema.Struct({ uri: Schema.String })) })
-      )(params);
-
-      if (documentParams.textDocument !== undefined) {
-        if (!fence.documents.some(({ uri }) => uri === documentParams.textDocument?.uri))
-          throw failure("stale-document", "Request document missing from fence");
-        const canonical = await trusted(entry);
-        await checkoutDocumentPath(canonical, fileURLToPath(documentParams.textDocument.uri));
-      }
-
-      owned(clientId, fence.context);
-      entry.documents.fence(fence);
-
-      if (signal?.aborted) throw failure("cancelled", "Language request cancelled");
-      const pending = connection.request(method, params, left);
-      entry.operations.set(requestId, { id: pending.id, fence });
-
-      return { ...pending, cancel: () => connection.cancel(pending.id) };
-    });
-
-    const abort = operation.cancel;
-    signal?.addEventListener("abort", abort, { once: true });
-
-    if (signal?.aborted) abort();
+    const { signal, attach, release } = cancellations.track(entry, requestId, inputSignal);
 
     try {
+      const operation = await enqueue(entry, async () => {
+        if (signal.aborted) throw failure("cancelled", "Language request cancelled");
+        owned(clientId, fence.context);
+        processes.touch(entry);
+        await trusted(entry);
+        entry.documents.fence(fence);
+        const connection = entry.connection;
+
+        if (
+          !entry.lifecycle.matches("ready") ||
+          connection === undefined ||
+          entry.capabilities === undefined
+        )
+          throw failure("not-ready", "Language server is not ready");
+
+        if (!entry.capabilities.methods.includes(method))
+          throw failure("unsupported-capability", "Server does not support this method");
+
+        if (entry.operations.has(requestId))
+          throw failure("conflict", "Request identifier already pending");
+
+        if (method === "workspace/executeCommand") {
+          const command = Schema.decodeUnknownSync(Schema.Struct({ command: Schema.String }))(
+            params
+          ).command;
+
+          if (!entry.capabilities.executeCommands.includes(command))
+            throw failure("unsupported-capability", "Server command not offered");
+        }
+
+        const left = deadline - Date.now();
+
+        if (left <= 0) throw failure("timeout", "Language request deadline expired");
+
+        const documentParams = Schema.decodeUnknownSync(
+          Schema.Struct({ textDocument: Schema.optionalKey(Schema.Struct({ uri: Schema.String })) })
+        )(params);
+
+        if (documentParams.textDocument !== undefined) {
+          if (!fence.documents.some(({ uri }) => uri === documentParams.textDocument?.uri))
+            throw failure("stale-document", "Request document missing from fence");
+          const canonical = await trusted(entry);
+          await checkoutDocumentPath(canonical, fileURLToPath(documentParams.textDocument.uri));
+        }
+
+        owned(clientId, fence.context);
+        entry.documents.fence(fence);
+
+        if (signal.aborted) throw failure("cancelled", "Language request cancelled");
+        const pending = connection.request(method, params, left);
+        entry.operations.set(requestId, { id: pending.id, fence });
+
+        return { ...pending, cancel: () => connection.cancel(pending.id) };
+      });
+
+      attach(operation.cancel);
       const result = await operation.result;
       owned(clientId, fence.context);
       await trusted(entry);
@@ -651,7 +650,7 @@ export function createLanguageBroker(options: BrokerOptions) {
 
       return result;
     } finally {
-      signal?.removeEventListener("abort", abort);
+      release();
 
       if (entry.operations.get(requestId)?.fence === fence) entry.operations.delete(requestId);
     }
@@ -688,6 +687,7 @@ export function createLanguageBroker(options: BrokerOptions) {
   function cancel(clientId: string, context: LanguageContextIdentity, requestId: string) {
     const entry = owned(clientId, context);
     const pending = entry.operations.get(requestId);
+    cancellations.cancel(entry, requestId);
 
     if (pending !== undefined) {
       entry.connection?.cancel(pending.id);

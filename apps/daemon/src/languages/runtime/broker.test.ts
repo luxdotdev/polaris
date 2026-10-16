@@ -100,13 +100,39 @@ test("two Clients share installed executable but never draft content or context 
   }
 });
 
+/** A fixture whose server stdin is watched: `sent(marker)` resolves once a frame containing it is written. */
+async function watchedFixture() {
+  const watchers: Array<{ marker: string; resolve: () => void }> = [];
+
+  const f = await fixture("ordinary", 10, undefined, undefined, (port) => ({
+    ...port,
+    write: async (bytes) => {
+      const text = new TextDecoder().decode(bytes);
+
+      for (const watcher of watchers) if (text.includes(watcher.marker)) watcher.resolve();
+      await port.write(bytes);
+    },
+  }));
+
+  // Only frames written after the call count.
+  const sent = (marker: string) => {
+    const written = Promise.withResolvers<void>();
+    watchers.push({ marker, resolve: written.resolve });
+
+    return written.promise;
+  };
+
+  return { ...f, sent };
+}
+
 test("typing invalidates in-flight results; explicit cancel and stale queue cuts reject", async () => {
-  const f = await fixture();
+  const f = await watchedFixture();
 
   try {
     const { context } = await f.acquire();
     await f.open("one", context);
     await f.ready("one", context);
+    const slowSent = f.sent("textDocument/hover");
     const pending = f.broker.request("one", hover(context, f.uri, "slow", 1, 1, true));
 
     const rejected = pending.then(
@@ -114,7 +140,7 @@ test("typing invalidates in-flight results; explicit cancel and stale queue cuts
       (error: LanguageError) => Schema.decodeUnknownSync(LanguageError)(error).reason
     );
 
-    await Bun.sleep(5);
+    await slowSent;
     await f.broker.sync(
       "one",
       LanguageSyncInput.make({
@@ -130,6 +156,7 @@ test("typing invalidates in-flight results; explicit cancel and stale queue cuts
     );
     expect(await rejected).toBe("cancelled");
     await rejects(f.broker.request("one", hover(context, f.uri)), "stale-document");
+    const cancelSent = f.sent("textDocument/hover");
     const cancellation = f.broker.request("one", hover(context, f.uri, "cancel", 2, 2, true));
 
     const cancelled = cancellation.then(
@@ -137,7 +164,7 @@ test("typing invalidates in-flight results; explicit cancel and stale queue cuts
       (error: LanguageError) => Schema.decodeUnknownSync(LanguageError)(error).reason
     );
 
-    await Bun.sleep(5);
+    await cancelSent;
     f.broker.cancel("one", context, "cancel");
     expect(await cancelled).toBe("cancelled");
     const controller = new AbortController();
@@ -147,6 +174,24 @@ test("typing invalidates in-flight results; explicit cancel and stale queue cuts
       "cancelled"
     );
     await rejects(f.broker.request("one", hover(context, f.uri, "future", 2, 3)), "stale-document");
+  } finally {
+    await f.dispose();
+  }
+});
+
+test("an explicit cancel reaches a request still waiting to be sent to the server", async () => {
+  const f = await watchedFixture();
+
+  try {
+    const { context } = await f.acquire();
+    await f.open("one", context);
+    await f.ready("one", context);
+    let sent = false;
+    void f.sent("textDocument/hover").then(() => (sent = true));
+    const queued = f.broker.request("one", hover(context, f.uri, "queued", 1, 1, true));
+    f.broker.cancel("one", context, "queued");
+    await rejects(queued, "cancelled");
+    expect(sent).toBe(false);
   } finally {
     await f.dispose();
   }
