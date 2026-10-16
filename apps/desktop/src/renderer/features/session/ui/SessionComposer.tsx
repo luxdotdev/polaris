@@ -216,6 +216,9 @@ export const SessionComposer = (props: SessionComposerProps) => {
 
     if (command === null) return;
 
+    // A steer carries text only: a draft with attachments waits for the next Turn instead.
+    if (mode.kind === "steer" && ui.attachments.length > 0) return queue();
+
     if (mode.kind === "steer") {
       props.outbox.steer(text);
       patchSessionUi(uiKey, () => ({ draft: "" }));

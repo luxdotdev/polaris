@@ -101,10 +101,12 @@ export function WorkingStrip({
     >
       <DitherField hue={harness} bloom={status} />
       <Dither hue={harness} size={14} moving className="relative" />
-      <span className="text-caption relative font-medium text-(--harness-text)">
+      <span className="text-caption relative shrink-0 font-medium whitespace-nowrap text-(--harness-text)">
         {children ?? `${harnessHue(harness).name} is working`}
       </span>
-      <span className="text-caption text-text-subtle tabular relative">· {elapsed}</span>
+      <span className="text-caption text-text-subtle tabular relative shrink-0 whitespace-nowrap">
+        · {elapsed}
+      </span>
       {detail === undefined || detail === null ? null : (
         <span
           className="text-caption text-text-subtle tabular relative min-w-0 truncate"

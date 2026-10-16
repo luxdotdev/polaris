@@ -83,3 +83,12 @@ test("one command names itself by its first line; more are counted; none says no
     ])
   ).toBe("2 commands running");
 });
+
+test("a long command is clipped to 40 characters, so the strip's verb and time keep their room", () => {
+  expect(
+    runningPhrase([
+      { id: "a", command: "bun test packages/client/src/userPath.test.ts apps/daemon/src/service" },
+    ])
+  ).toBe("running bun test packages/client/src/userPath.t…");
+  expect(runningPhrase([{ id: "a", command: "x".repeat(40) }])).toBe(`running ${"x".repeat(40)}`);
+});
