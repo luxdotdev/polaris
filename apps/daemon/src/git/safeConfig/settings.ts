@@ -159,6 +159,32 @@ export const globalOptions = (args: ReadonlyArray<string>): ReadonlyArray<string
   return args.slice(0, i);
 };
 
+/** The Daemon's own `-c` values that name no command, include or file, and move no discovery. */
+const INERT_VALUES = new Set([
+  "core.splitIndex=false",
+  "index.skipHash=true",
+  "core.hooksPath=/dev/null",
+  "core.quotePath=true",
+]);
+
+/**
+ * The global options to list a call's config with: an inert `-c` only adds a command-line
+ * entry no override reads, so `-c core.splitIndex=false status` shares `status`'s listing.
+ */
+export const listingOptions = (options: ReadonlyArray<string>): ReadonlyArray<string> => {
+  const kept: Array<string> = [];
+
+  for (let i = 0; i < options.length;) {
+    const width = WITH_VALUE.has(options[i] ?? "") ? 2 : 1;
+    const inert = options[i] === "-c" && INERT_VALUES.has(options[i + 1] ?? "");
+
+    if (!inert) kept.push(...options.slice(i, i + width));
+    i += width;
+  }
+
+  return kept;
+};
+
 /** Commands that diff: an external diff or textconv driver would otherwise run. */
 const DIFFING = new Set(["diff", "log", "show"]);
 

@@ -29,23 +29,23 @@ const DISCOVERY_ENV = [
 /** What a directory needs to be a repository to git (`is_git_directory`), or to hold one. */
 const BELOW_TOP = [
   ".git",
-  ".git/HEAD",
   ".git/objects",
   ".git/refs",
   ".git/commondir",
-  "HEAD",
   "objects",
   "refs",
   "commondir",
 ];
+
+const HEADS_BELOW_TOP = [".git/HEAD", "HEAD"];
 
 const INCLUDE = /^include(if\..+)?\.path$/;
 
 /** Past this a file isn't hashed, and the listing isn't cached. */
 const HASH_LIMIT = 1024 * 1024;
 
-/** A file's owner and a hash of its bytes; null when it is too large to hash, or grew while read. */
-const fileStamp = (path: string): string | null => {
+/** A file's owner and bytes; null when it is too large to hash, or grew while read. */
+const readSmall = (path: string): { readonly uid: number; readonly bytes: Buffer } | null => {
   const fd = openSync(path, "r");
 
   try {
@@ -59,22 +59,43 @@ const fileStamp = (path: string): string | null => {
       n = readSync(fd, bytes, length, bytes.length - length, null);
     }
 
-    if (length > s.size) return null;
-
-    return `f${s.uid}:${createHash("sha256").update(bytes.subarray(0, length)).digest("hex")}`;
+    return length > s.size ? null : { uid: s.uid, bytes: bytes.subarray(0, length) };
   } finally {
     closeSync(fd);
   }
 };
 
+/** A file's owner and a hash of its bytes. */
+const fileStamp = (path: string): string | null => {
+  const file = readSmall(path);
+
+  if (file === null) return null;
+
+  return `f${file.uid}:${createHash("sha256").update(file.bytes).digest("hex")}`;
+};
+
+/** A HEAD git takes (`validate_headref`), whichever branch or commit it names. */
+const VALID_HEAD = /^(?:ref: refs\/[^\0\n]*|[0-9a-f]{40}|[0-9a-f]{64})\n?$/;
+
+/** Discovery only asks whether a HEAD is valid: a checkout, or a commit on a detached HEAD, keeps it. */
+const headStamp = (path: string): string | null => {
+  const file = readSmall(path);
+
+  if (file === null) return null;
+
+  return VALID_HEAD.test(file.bytes.toString("latin1")) ? `h${file.uid}` : fileStamp(path);
+};
+
 const ABSENT = new Set(["ENOENT", "ENOTDIR"]);
 
 /** A directory by its identity and owner, a file by its content, `-` when absent; null: uncacheable. */
-const stamp = (path: string): string | null => {
+const stamp = (path: string, head = false): string | null => {
   try {
     const s = statSync(path);
 
-    return s.isDirectory() ? `d${s.ino}:${s.uid}` : fileStamp(path);
+    if (s.isDirectory()) return `d${s.ino}:${s.uid}`;
+
+    return head ? headStamp(path) : fileStamp(path);
   } catch (error) {
     const absent = Predicate.hasProperty(error, "code") && ABSENT.has(String(error.code));
 
@@ -82,12 +103,23 @@ const stamp = (path: string): string | null => {
   }
 };
 
+/** The paths a cached listing depends on: `heads` only as far as git's discovery reads them. */
+export interface Stamped {
+  readonly paths: ReadonlyArray<string>;
+  readonly heads: ReadonlyArray<string>;
+}
+
 /** Null when any path can't be stamped: the caller doesn't cache, or lists again. */
-export const stampAll = (paths: ReadonlyArray<string>): string | null => {
+export const stampAll = ({ paths, heads }: Stamped): string | null => {
   const stamps: Array<string> = [];
 
-  for (const path of paths) {
-    const one = stamp(path);
+  const all = [
+    ...paths.map((path) => [path, false] as const),
+    ...heads.map((path) => [path, true] as const),
+  ];
+
+  for (const [path, head] of all) {
+    const one = stamp(path, head);
 
     if (one === null) return null;
     stamps.push(one);
@@ -142,7 +174,7 @@ export const ownFiles = (found: Located): ReadonlyArray<string> => [
  * The paths that decided `found`, or null when it isn't a plain repository
  * with `cwd` in its work tree (a bare one, `core.worktree`): no cache.
  */
-export const discoveryPaths = (cwd: string, found: Located): ReadonlyArray<string> | null => {
+export const discoveryPaths = (cwd: string, found: Located): Stamped | null => {
   let real: string;
 
   try {
@@ -158,11 +190,19 @@ export const discoveryPaths = (cwd: string, found: Located): ReadonlyArray<strin
     return null;
   }
 
-  return [
-    ...levelsBelow(real, top).flatMap((dir) => BELOW_TOP.map((name) => join(dir, name))),
-    dotGit,
-    ...["HEAD", "objects", "refs", "commondir"].map((name) => join(gitDir, name)),
-  ];
+  const levels = levelsBelow(real, top);
+
+  return {
+    paths: [
+      ...levels.flatMap((dir) => BELOW_TOP.map((name) => join(dir, name))),
+      dotGit,
+      ...["objects", "refs", "commondir"].map((name) => join(gitDir, name)),
+    ],
+    heads: [
+      ...levels.flatMap((dir) => HEADS_BELOW_TOP.map((name) => join(dir, name))),
+      join(gitDir, "HEAD"),
+    ],
+  };
 };
 
 /**
@@ -187,8 +227,8 @@ const includeTarget = (value: string, from: string | null, home: string | undefi
 
 /**
  * The files git read beyond `candidates` that a cache must also stamp: what the
- * Host's config includes (found or not) and git's built-in config (Apple's `unknown`
- * scope). Null when `listing` came from anywhere else, or the repository's own config
+ * Host's config includes (found or not), git's built-in config (Apple's `unknown`
+ * scope), and HEAD when an include depends on its branch. Null when `listing` came from anywhere else, or the repository's own config
  * includes a file: no cache.
  */
 export const listedFiles = (
@@ -228,5 +268,10 @@ export const listedFiles = (
     return path === null ? e.origin === "command line:" : read.has(path);
   });
 
-  return covered ? [...extra] : null;
+  if (!covered) return null;
+
+  // Which branch HEAD names decides whether git reads an `onbranch:` include: stamped exactly.
+  const onBranch = listing.some((e) => e.key.startsWith("includeif.onbranch:"));
+
+  return onBranch ? [...extra, join(found.gitDir, "HEAD")] : [...extra];
 };

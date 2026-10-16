@@ -12,6 +12,7 @@ import {
   listedFiles,
   type Located,
   ownFiles,
+  type Stamped,
   stampAll,
 } from "./discovery.ts";
 import { NO_LAZY_FETCH, refuseLazyFetch } from "./lazyFetch.ts";
@@ -20,6 +21,7 @@ import {
   type Entry,
   FIXED,
   globalOptions,
+  listingOptions,
   parseListing,
   repositoryEnv,
   repositoryOverrides,
@@ -95,10 +97,14 @@ const locate = async (cwd: string, options: ReadonlyArray<string>, base: Env) =>
 };
 
 interface Cached {
-  readonly paths: ReadonlyArray<string>;
+  /** Stamped before the listing, then what the listing named. */
+  readonly stamped: readonly [Stamped, Stamped];
   readonly stamps: string;
   readonly listing: ReadonlyArray<Entry>;
 }
+
+const stampsOf = ([before, named]: readonly [Stamped, Stamped]) =>
+  `${stampAll(before)}#${stampAll(named)}`;
 
 const cache = new Map<string, Cached>();
 
@@ -138,32 +144,38 @@ const listAndCache = async (
   }
 
   const candidates = hostCandidates(system, global);
-  const paths = [...discovery, ...ownFiles(found), ...candidates];
-  const stamps = stampAll(paths);
+
+  const before: Stamped = {
+    paths: [...discovery.paths, ...ownFiles(found), ...candidates],
+    heads: discovery.heads,
+  };
+
+  const stamps = stampAll(before);
   const listing = await listConfig(cwd, options, base);
 
   const extra = stamps === null ? null : listedFiles(found, listing, candidates, base.HOME);
 
   if (extra === null) return listing;
   const again = await locate(cwd, options, base);
-  const extraStamps = stampAll(extra);
+  const named: Stamped = { paths: extra, heads: [] };
+  const extraStamps = stampAll(named);
 
   if (JSON.stringify(again) !== JSON.stringify(found) || extraStamps === null) return listing;
 
   if (cache.size >= CACHE_SIZE) cache.delete(cache.keys().next().value ?? "");
-  cache.set(key, { paths: [...paths, ...extra], stamps: `${stamps}|${extraStamps}`, listing });
+  cache.set(key, { stamped: [before, named], stamps: `${stamps}#${extraStamps}`, listing });
 
   return listing;
 };
 
 const listingFor = async (cwd: string, args: ReadonlyArray<string>, base: Env) => {
-  const options = globalOptions(args);
+  const options = listingOptions(globalOptions(args));
   const key = cacheKey(cwd, options, base);
 
   if (key === null) return listConfig(cwd, options, base);
   const cached = cache.get(key);
 
-  if (cached !== undefined && stampAll(cached.paths) === cached.stamps) return cached.listing;
+  if (cached !== undefined && stampsOf(cached.stamped) === cached.stamps) return cached.listing;
   cache.delete(key);
 
   return listAndCache(cwd, options, base, key);
