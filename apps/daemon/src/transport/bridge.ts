@@ -30,6 +30,7 @@ import { join } from "node:path";
 import { BRIDGE_EXIT_NO_DAEMON, BRIDGE_EXIT_UNTRUSTED_DAEMON } from "@polaris/protocol/bridge";
 import { paths } from "../paths.ts";
 import { SYSTEMD_UNIT } from "../service/templates.ts";
+import { realProfileDirectory } from "../service/windowsProfile.ts";
 import { windowsTaskName } from "../service/windowsTask.ts";
 
 /** The stable agent socket path on this Host (a symlink to the latest forwarded agent). */
@@ -173,7 +174,7 @@ const startSupervisor = (options: BridgeOptions): boolean => {
 /** Windows: runs this home's scheduled task; false when it isn't installed or won't run. */
 const runWindowsTask = (): boolean => {
   if (process.platform !== "win32") return false;
-  const name = windowsTaskName(userInfo().username, paths().root, homedir());
+  const name = windowsTaskName(userInfo().username, paths().root, realProfileDirectory());
 
   try {
     const run = Bun.spawnSync(["schtasks", "/Run", "/TN", name], {

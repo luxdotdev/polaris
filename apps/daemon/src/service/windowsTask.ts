@@ -9,24 +9,79 @@ import { win32 } from "node:path";
 /** `polaris serve` exits with this after a stop it was asked for: its supervisor must not restart it. */
 export const SERVE_EXIT_STOPPED = 76;
 
+/** A Windows path compared as Windows does: case, separators and a trailing slash don't matter. */
+const canonicalPath = (path: string) =>
+  win32
+    .resolve(path)
+    .replace(/[\\/]+$/, "")
+    .toLowerCase();
+
+export const sameWindowsPath = (a: string, b: string): boolean =>
+  canonicalPath(a) === canonicalPath(b);
+
 /**
  * The task's name: one per user and per Polaris home, since task names are
- * machine-wide. The default home gets the plain name; another home a hash of it.
+ * machine-wide. `<real profile>\.polaris` gets the plain name, any other home a
+ * hash of it. `realProfile` comes from the token (`windowsProfile.ts`), never from
+ * `USERPROFILE`, so a redirected home can't compute the real install's name.
  */
-export const windowsTaskName = (user: string, polarisHome: string, userHome: string): string => {
+export const windowsTaskName = (
+  user: string,
+  polarisHome: string,
+  realProfile: string | null
+): string => {
   const safe = user.replace(/[^A-Za-z0-9._-]/g, "_");
 
-  const normalize = (path: string) =>
-    win32
-      .resolve(path)
-      .replace(/[\\/]+$/, "")
-      .toLowerCase();
-
-  if (normalize(polarisHome) === normalize(win32.join(userHome, ".polaris")))
+  if (realProfile !== null && sameWindowsPath(polarisHome, win32.join(realProfile, ".polaris")))
     return `dev.lux.polaris.${safe}`;
-  const digest = createHash("sha256").update(normalize(polarisHome)).digest("hex").slice(0, 8);
+  const digest = createHash("sha256").update(canonicalPath(polarisHome)).digest("hex").slice(0, 8);
 
   return `dev.lux.polaris.${safe}.${digest}`;
+};
+
+const unescapeXml = (text: string) =>
+  text
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&quot;", '"')
+    .replaceAll("&apos;", "'")
+    .replaceAll("&amp;", "&");
+
+/** The Polaris home a registered task runs: its action's working directory, from `schtasks /Query /XML`. */
+export const taskWorkingDirectory = (xml: string): string | null => {
+  const found = /<WorkingDirectory>([^<]*)<\/WorkingDirectory>/.exec(xml);
+
+  return found === null ? null : unescapeXml(found[1]!.trim());
+};
+
+/** The task already registered under this home's name. */
+export interface ExistingTask {
+  /** Its working directory, the Polaris home it runs; null for a task that isn't Polaris'. */
+  readonly home: string | null;
+  /** That home still has `bin\current\polaris.exe`, so the task's loop would run a Daemon. */
+  readonly homeInstalled: boolean;
+}
+
+/**
+ * Whose task the name holds. `ours`: it runs this home. `abandoned`: another home with
+ * nothing installed, whose loop would exit at once. `taken-over`: another live home,
+ * replaced because `--replace-task` said so. `conflict`: another live home; install refuses.
+ */
+export type TaskClaim = "absent" | "ours" | "abandoned" | "taken-over" | "conflict";
+
+/** Pure: may an install for `home` (re)register the task `existing` describes? */
+export const claimTask = (
+  existing: ExistingTask | null,
+  home: string,
+  replace: boolean
+): TaskClaim => {
+  if (existing === null) return "absent";
+
+  if (existing.home !== null && sameWindowsPath(existing.home, home)) return "ours";
+
+  if (existing.home !== null && !existing.homeInstalled) return "abandoned";
+
+  return replace ? "taken-over" : "conflict";
 };
 
 /**
