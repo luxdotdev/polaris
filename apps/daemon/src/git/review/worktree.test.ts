@@ -49,7 +49,7 @@ const setup = async () => {
   const v1 = await publishPullRequest(forge, author, 7);
   const user = await userClone(forge);
   cleanup.push(user, `${user}.worktrees`);
-  await gitText(user, ["config", "core.hooksPath", ".husky"]);
+  await gitText(user, ["config", "core.hooksPath", ".husky"], { config: "host" });
   await fetchFor(user);
   const path = join(`${user}.worktrees`, ".review", "pr-7");
 
