@@ -122,8 +122,8 @@ describe("HostAccess", () => {
       probeHost(channel.alias).pipe(Effect.provide(Layer.mergeAll(channel.ssh)), Effect.flip)
     );
 
-    // The scripted answer isn't a probe, so the flow reports it against the distro.
+    // The scripted answer isn't a probe (POSIX or Windows), so the flow reports it against the distro.
     expect(probe).toMatchObject({ alias: "Ubuntu" });
-    expect(t.ran.map((r) => r.target)).toEqual(["Wsl"]);
+    expect(new Set(t.ran.map((r) => r.target))).toEqual(new Set(["Wsl"]));
   });
 });

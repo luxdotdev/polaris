@@ -19,7 +19,7 @@ import { join } from "node:path";
 import { Effect } from "effect";
 import { unpackArchive } from "./archive.ts";
 import { archiveRequestUrl, type DaemonBuild } from "./builds.ts";
-import { type DownloadBuild, RemoteInstallError } from "./remote.ts";
+import { type DownloadBuild, RemoteInstallError } from "./apply.ts";
 
 export interface DownloadOptions {
   /** The cache root, e.g. the Desktop App's `<userData>/daemon-builds`. */

@@ -6,6 +6,7 @@
  */
 import { BRIDGE_EXIT_NO_DAEMON } from "@polaris/protocol";
 import { Schema } from "effect";
+import { stripClixml } from "./install/windows/powershell.ts";
 
 export const NeedsAttentionReason = Schema.Literals([
   /** The Host's key differs from known_hosts: possible MITM, or the machine was rebuilt. */
@@ -26,6 +27,11 @@ export const NeedsAttentionReason = Schema.Literals([
   "polaris-not-installed",
   /** `polaris bridge` ran but no Daemon is listening on the Host. */
   "daemon-not-running",
+  /**
+   * A Windows Host's Daemon pipe is owned by another account, which took the name
+   * first; `polaris bridge` refused it and sent nothing.
+   */
+  "daemon-untrusted",
   /** The Daemon speaks another protocol version: the upgrade flow is needed. */
   "protocol-mismatch",
 ]);
@@ -82,8 +88,14 @@ export const classifyExit = (exit: {
   readonly signal: string | null;
   readonly stderr: string;
 }): ConnectFailure => {
-  const { code, stderr } = exit;
+  const { code } = exit;
+  // A Windows Host's PowerShell may write its errors as CLIXML.
+  const stderr = stripClixml(exit.stderr);
   const has = (pattern: RegExp) => pattern.test(stderr);
+
+  // The phrase, not just BRIDGE_EXIT_UNTRUSTED_DAEMON: a custom remote command may exit 77.
+  if (has(/another account holds the Daemon's pipe name/))
+    return needs("daemon-untrusted", lastLine(stderr, /pipe name/));
 
   if (code === BRIDGE_EXIT_NO_DAEMON || has(/no Daemon is running/))
     return needs("daemon-not-running", lastLine(stderr, /no Daemon/));

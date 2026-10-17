@@ -13,6 +13,7 @@ import {
   type Platform,
   platformFromUname,
 } from "./builds.ts";
+import type { WindowsShell } from "./windows/powershell.ts";
 
 /** What `probeHost` found on the Host. */
 export interface HostProbe {
@@ -26,6 +27,10 @@ export interface HostProbe {
   readonly installed: { readonly version: string; readonly platform: string } | null;
   /** What the Host can download and check a Release archive with; absent means nothing. */
   readonly tools?: HostTools;
+  /** Windows only: the DefaultShell sshd runs commands through, which decides how stdin reaches them. */
+  readonly windowsShell?: WindowsShell;
+  /** Windows only: a DefaultShell we don't drive (its process name); the Host plans as Unsupported. */
+  readonly unsupportedShell?: string;
 }
 
 export type FetchTool = "curl" | "wget";
@@ -104,8 +109,18 @@ export type InstallPlan = Data.TaggedEnum<{
     readonly sha256: string;
     readonly reason: "first-install" | "background";
   };
-  Install: { readonly build: DaemonBuild; readonly delivery: Delivery };
-  Upgrade: { readonly from: string; readonly build: DaemonBuild; readonly delivery: Delivery };
+  /** `windowsShell`: a Windows Host's DefaultShell, which its install commands are written for. */
+  Install: {
+    readonly build: DaemonBuild;
+    readonly delivery: Delivery;
+    readonly windowsShell?: WindowsShell;
+  };
+  Upgrade: {
+    readonly from: string;
+    readonly build: DaemonBuild;
+    readonly delivery: Delivery;
+    readonly windowsShell?: WindowsShell;
+  };
 }>;
 
 export const InstallPlan = Data.taggedEnum<InstallPlan>();
@@ -115,14 +130,15 @@ const planUpgrade = (
   installed: string,
   build: DaemonBuild,
   delivery: Delivery,
-  options: PlanOptions
+  options: PlanOptions,
+  shell: { readonly windowsShell?: WindowsShell }
 ): InstallPlan => {
   // Upgrades need no new approval. A dev build replaces any other version (`upgradeDue`),
   // but a background check never installs an older dev build over a newer one.
   const due = options.trigger === "background" ? backgroundUpgradeDue : upgradeDue;
 
   if (due(installed, build.version))
-    return InstallPlan.Upgrade({ from: installed, build, delivery });
+    return InstallPlan.Upgrade({ from: installed, build, delivery, ...shell });
 
   if (compareVersions(installed, build.version) > 0)
     return InstallPlan.InstalledNewer({ installed, bundled: build.version });
@@ -138,11 +154,21 @@ export const planInstall = (
   const platform = platformFromUname(probe.os, probe.arch, probe.libc);
 
   if (platform === null) return InstallPlan.Unsupported({ os: probe.os, arch: probe.arch });
+
+  if (platform === "windows-x64" && probe.windowsShell === undefined) {
+    return InstallPlan.Unsupported({
+      os: `windows (sshd's DefaultShell is ${probe.unsupportedShell || "unknown"})`,
+      arch: probe.arch,
+    });
+  }
+
   const build = builds.find((candidate) => candidate.platform === platform);
 
   const delivery = build === undefined ? null : deliveryFor(build, probe);
 
   if (build === undefined || delivery === null) return InstallPlan.MissingBuild({ platform });
+
+  const shell = probe.windowsShell === undefined ? {} : { windowsShell: probe.windowsShell };
 
   if (probe.libc === "musl" && (probe.missingLibraries?.length ?? 0) > 0) {
     return InstallPlan.MissingLibraries({
@@ -153,16 +179,16 @@ export const planInstall = (
   }
 
   if (probe.installed !== null && probe.installed.platform === platform)
-    return planUpgrade(probe.installed.version, build, delivery, options);
+    return planUpgrade(probe.installed.version, build, delivery, options, shell);
 
   const needsApproval = (reason: "first-install" | "background") =>
     InstallPlan.NeedsApproval({ platform, version: build.version, sha256: build.sha256, reason });
 
-  if (options.trusted === true) return InstallPlan.Install({ build, delivery });
+  if (options.trusted === true) return InstallPlan.Install({ build, delivery, ...shell });
 
   if (options.trigger === "background") return needsApproval("background");
 
   if (!options.approvedSha256.has(build.sha256)) return needsApproval("first-install");
 
-  return InstallPlan.Install({ build, delivery });
+  return InstallPlan.Install({ build, delivery, ...shell });
 };
