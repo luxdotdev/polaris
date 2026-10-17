@@ -17,10 +17,18 @@ export const cacheDaemonBuild = <A, E, R>(build: Effect.Effect<A, E, R>) =>
 
 type ConstellationBase = Layer.Services<ReturnType<typeof constellationHandlers>>;
 
-/** Handler implementations own Daemon resources; each invocation retains its request Scope and BlobChannel. */
-export const lazyRpcLayer = <R extends Rpc.Any & { readonly successSchema: Schema.Constraint }>(
+/**
+ * Handler implementations own Daemon resources; each invocation retains its request Scope and
+ * BlobChannel. A failed build fails each request with `failure`, which must be in its error schema.
+ */
+export const lazyRpcLayer = <
+  R extends Rpc.Any & { readonly successSchema: Schema.Constraint },
+  E = never,
+  F = E,
+>(
   group: RpcGroup.RpcGroup<R>,
-  load: Effect.Effect<Context.Context<Rpc.ToHandler<R>>>
+  load: Effect.Effect<Context.Context<Rpc.ToHandler<R>>, E>,
+  failure?: (tag: string, error: E) => F
 ) =>
   Layer.effectContext(
     Effect.sync(() => {
@@ -31,7 +39,9 @@ export const lazyRpcLayer = <R extends Rpc.Any & { readonly successSchema: Schem
           payload: Parameters<Rpc.Handler<R["_tag"]>["handler"]>[0],
           options: Parameters<Rpc.Handler<R["_tag"]>["handler"]>[1]
         ) {
-          const loaded = yield* load;
+          const loaded = yield* failure === undefined
+            ? load
+            : Effect.mapError(load, (error) => failure(rpc._tag, error));
 
           const handler = Context.getUnsafe(
             loaded,

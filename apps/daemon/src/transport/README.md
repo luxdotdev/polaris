@@ -6,6 +6,7 @@ The Daemon's only listener, the RPC server on it, and `polaris bridge`. Decision
 |---|---|
 | `server.ts` | `startServer`: lock, socket, `RpcServer` for `ServerRpcs`, one Wire per connection. Handler layers are composed here. |
 | `rpcs.ts` | `ServerRpcs` = `DaemonRpcs` + the server-only `ConnectionBlobs` middleware. |
+| `defects.ts` | Logs a request's defect with its cause; the server fails only that request (ADR 0064). |
 | `handlers.ts` | `hello` (HostInfo, capabilities; annotates the connection with the device label and the Client's capabilities) and placeholders for every other RPC. |
 | `socket.ts` | Stale-socket probe, private socket directory, `Bun.listen` bound atomically, upgrade adoption. |
 | `windowsPipe/` | Windows: the user-only, local-only named pipe the Daemon listens on, created through `bun:ffi` (`security.ts` is its descriptor and flags as data; ADR 0059). |
@@ -19,6 +20,8 @@ The Daemon's only listener, the RPC server on it, and `polaris bridge`. Decision
 The framing and blob channel live in `packages/protocol/src/wire.ts` (shared with the Client): each RPC message is one JSON frame serialized with `RpcSerialization.json`; blobs are kind-1 frames. The writer drains queued JSON before each blob chunk and round-robins between blobs, so a large read never holds up a stream by more than one 256 KiB chunk. Limits (per connection): 512 MiB per blob, 1 GiB buffered, 60 s without progress fails a `take`, unclaimed blobs expire after 5 minutes; stream-sourced outgoing blobs buffer at most 4 chunks.
 
 A handler takes an incoming blob whole (`BlobChannel.take`) or as a stream of chunks as they arrive (`BlobChannel.takeStream`, backed by `Wire.takeBlobStream`), which never holds the whole blob: `attachments.stage` writes uploads to disk that way. A streamed take can opt out of the idle timeout (long-lived blobs such as `terminal.attachBinary`'s output); a consumer that stops early makes the Wire drop the rest of that blob as it arrives. The frame decoder queues socket reads rather than merging them, so a blob chunk is copied at most once on its way in.
+
+**A defect fails only its request.** The RpcServer runs with `disableFatalDefects`: a handler that dies answers that request with an `Exit` whose cause is the `Die`, and the connection's other requests and streams carry on. The `ConnectionBlobs` middleware logs every defect at error level with the RPC's tag and the whole cause. Expected failures stay typed: a lazy build that fails answers each request with the typed error `lazyRpcLayer`'s `failure` gives it (ADR 0064).
 
 ## Mounting handler layers
 
