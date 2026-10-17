@@ -15,6 +15,8 @@ import {
   platformFromUname,
   probeHost,
   shScript,
+  startCommand,
+  type WindowsShell,
 } from "@polaris/client/install";
 import { Effect, Match, Option, Predicate, Schema } from "effect";
 import type { ChildProcessApi } from "@polaris/client/process";
@@ -54,6 +56,8 @@ export interface Planned {
   readonly plan: InstallPlan;
   /** The size of the build the plan would install, for the approval card. */
   readonly size: number | null;
+  /** A Windows SSH Host's DefaultShell, which its connection must speak; null elsewhere. */
+  readonly windowsShell: WindowsShell | null;
 }
 
 const sizeOf = (build: DaemonBuild | undefined) =>
@@ -87,6 +91,7 @@ export const planFor = Effect.fn("planFor")(function* (channel: HostChannel, inp
     installedVersion: probe.installed?.version ?? null,
     bundledVersion: build?.version ?? null,
     size: sizeOf(build),
+    windowsShell: probe.windowsShell ?? null,
   } satisfies Planned;
 });
 
@@ -106,6 +111,7 @@ const planThisPc = Effect.fn("planThisPc")(function* (home: string, input: PlanI
     installedVersion: installed,
     bundledVersion: build?.version ?? null,
     size: sizeOf(build),
+    windowsShell: null,
   } satisfies Planned;
 });
 
@@ -140,17 +146,23 @@ export class StartFailed extends Schema.TaggedError<StartFailed>()("StartFailed"
 
 const decodeReport = Schema.decodeUnknownOption(Schema.fromJsonString(Schema.JsonObject));
 
-/** `polaris install --json` with the installed build: idempotent, it (re)starts the service. */
+/**
+ * `polaris install --json` with the installed build: idempotent, it (re)starts the service.
+ * A Windows SSH Host (`windowsShell`) gets the PowerShell line, valid in either DefaultShell.
+ */
 export const startDaemon = Effect.fn("startDaemon")(function* (
   channel: HostChannel,
-  local: LocalOptions = {}
+  local: LocalOptions = {},
+  windowsShell: WindowsShell | null = null
 ) {
   const home = windowsHome(channel, local.platform);
 
   if (home !== null) return yield* startWindowsLocal(home, local.processes);
 
   const result = yield* channel.exec(
-    shScript('"$HOME/.polaris/bin/current/polaris" install --json')
+    windowsShell === null
+      ? shScript('"$HOME/.polaris/bin/current/polaris" install --json')
+      : startCommand()
   );
 
   const report = Option.getOrNull(decodeReport(result.stdout.trim().split("\n").at(-1) ?? ""));

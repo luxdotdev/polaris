@@ -106,7 +106,7 @@ export const machineViews = ({
     const target = aliases.find((a) => a.alias === remote.alias);
     const install = installs.get(remote.alias);
 
-    return {
+    const view: MachineView = {
       daemon: daemonUpdateView(
         settings,
         remote.alias,
@@ -127,6 +127,10 @@ export const machineViews = ({
       status: status(remote.alias),
       install: install === undefined ? null : installFlowView(install),
     };
+
+    return remote.windowsShell === undefined
+      ? view
+      : { ...view, windowsShell: remote.windowsShell };
   });
 
   return localSupported ? [localView, ...remotes] : remotes;

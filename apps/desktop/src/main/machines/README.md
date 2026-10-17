@@ -68,6 +68,10 @@ before authentication begins (verified on Windows 11 ARM64). Both bridge and ins
 that connect-time refusal as unreachable, so the Connection State keeps retrying. The distinct
 `Permission denied (publickey,…)` authentication response still requires attention.
 
+## Windows SSH Hosts
+
+When a check's probe finds a Windows Host (`@polaris/client/install`'s Windows probe), `Machines` keeps its DefaultShell on the Host's setting (`windowsShell`), so its `HostTarget.Ssh` connects through the PowerShell relay and Start daemon runs `startCommand()`, never `sh`. Such a Host has no remote command: Settings · Hosts says why instead of offering the POSIX default.
+
 ## This PC
 
 On Windows x64 the local Host is "This PC", served by the native Windows Daemon on its user-only pipe ([ADR 0059](../../../../../docs/adr/0059-the-windows-daemon-listens-on-a-user-only-pipe.md)). Before writing to the pipe the Client checks that its owner is this account (`@polaris/client`'s `windowsPipe/`, [ADR 0062](../../../../../docs/adr/0062-the-desktop-app-checks-the-local-pipes-owner.md)); another owner is the Connection State reason `daemon-untrusted`. `windowsLocal.ts` installs, upgrades and starts it with no shell: the bundled `polaris.exe install --json --sha256`, the installed `bin\current\polaris.exe upgrade <bundled>`, and Start daemon re-running the installed `install`, each a hidden child with `POLARIS_HOME`. The local `HostAccess` there refuses `exec`. An upgrade restarts the Daemon, so its terminals end; the renderer says so once from `HostInfo.previousStop`. Windows on Arm has no Daemon build and keeps `LocalHost.unsupported`.
