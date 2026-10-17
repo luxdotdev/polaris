@@ -373,7 +373,26 @@ const task = (): ReadonlyArray<MachineView> => [
   ),
   {
     ...heldTask(
-      machine("pc", "Gaming PC", "lucas-desktop", connected("windows-x64", "0.4.1", 6), daemon()),
+      machine(
+        "pc",
+        "Gaming PC",
+        "lucas-desktop",
+        connected("windows-x64", "0.4.1", 6),
+        daemon({
+          lastUpdate: {
+            at: 0,
+            result: "failed",
+            from: "0.4.1",
+            version: null,
+            problem: {
+              kind: "task-conflict",
+              message: "the scheduled task dev.lux.polaris.lucas is not a Polaris task",
+              command: null,
+              sshFailure: null,
+            },
+          },
+        })
+      ),
       null
     ),
     windowsShell: "powershell",
