@@ -291,12 +291,16 @@ export const watchWorktrees = (
         if (watchers.has(path) || !existsSync(path)) return;
 
         try {
-          const watcher = open(path, deep, schedule);
-          watcher.on("error", () => {
+          const release = () => {
             watcher.close();
             watchers.delete(path);
             schedule();
-          });
+          };
+
+          // Bun's recursive watch on Windows reports its own deleted root every 2 ms, forever,
+          // which would keep the debounce from ever firing.
+          const watcher = open(path, deep, () => (existsSync(path) ? schedule() : release()));
+          watcher.on("error", release);
           watchers.set(path, watcher);
         } catch {
           // The directory vanished between the check and the watch; the poll covers it.

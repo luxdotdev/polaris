@@ -170,8 +170,11 @@ const run = (shell: "powershell" | "cmd", line: string, home: string, stdin = ""
       ? ["cmd.exe", "/d", "/c", line]
       : ["powershell.exe", "-NoLogo", "-NoProfile", "-c", line];
 
+  // sshd starts a fresh logon: PowerShell 7's PSModulePath (a pwsh CI step) breaks 5.1's Get-Acl.
+  const { PSModulePath: _inherited, ...env } = process.env;
+
   const proc = Bun.spawnSync(argv, {
-    env: { ...process.env, USERPROFILE: home },
+    env: { ...env, USERPROFILE: home },
     stdin: Buffer.from(stdin),
   });
 
@@ -199,7 +202,6 @@ describe.skipIf(!onWindows)("on Windows (powershell.exe and cmd.exe as sshd runs
         encodeLines(bytes)
       );
 
-      if (uploaded.stdout.trim() !== sha256) console.log("UPLOAD-DEBUG", JSON.stringify(uploaded));
       expect(uploaded.stdout.trim()).toBe(sha256);
       expect(readFileSync(join(home, ".polaris", "upload-test", "polaris.exe"))).toEqual(
         Buffer.from(bytes)

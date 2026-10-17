@@ -414,7 +414,8 @@ test("symlink watches follow target changes and retargeting", async () => {
 
         const wait = (count: number) =>
           Effect.promise(async () => {
-            for (let i = 0; i < 100 && hashes.length < count; i++) await Bun.sleep(10);
+            // 5 s: a loaded Windows runner reports a retargeted link after more than 1 s.
+            for (let i = 0; i < 500 && hashes.length < count; i++) await Bun.sleep(10);
             expect(hashes.length).toBeGreaterThanOrEqual(count);
           });
 
@@ -433,7 +434,7 @@ test("symlink watches follow target changes and retargeting", async () => {
   );
   expect(hashes.at(-1)).toBe((await readVersioned(second)).version.hash);
   expect(openFileWatchCount()).toBe(0);
-});
+}, 25_000);
 
 posixTest("no mkfifo on Windows, whose named pipes aren't in the file system")(
   "named pipes fail promptly as non-files",

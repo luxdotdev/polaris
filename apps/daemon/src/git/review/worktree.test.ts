@@ -251,6 +251,8 @@ describe("Review Checkout in a partial clone", () => {
       // The user's clone never fetched the PR's `app.txt`: `main` changed it since.
       await pushMain(forge, "app.txt", "moved on\n");
       const user = await userClone(forge, { filter });
+      // The runner's global autocrlf would check the Review Checkout out with CRLF.
+      await gitText(user, ["config", "core.autocrlf", "false"]);
       const markers = tempDir("polaris-marker-");
       cleanup.push(user, `${user}.worktrees`, markers);
       write(
