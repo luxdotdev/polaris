@@ -20,6 +20,7 @@ import {
   configEnv,
   type Entry,
   FIXED,
+  HOST_SETTINGS,
   globalOptions,
   listingOptions,
   parseListing,
@@ -30,6 +31,8 @@ import {
 
 export {
   globalOptions,
+  hostConfigEnv,
+  hostSettings,
   NO_HOOKS_PATH,
   noHooksPath,
   parseListing,
@@ -52,7 +55,7 @@ const decoder = new TextDecoder();
 const read = async (cwd: string, args: ReadonlyArray<string>, base: Env) => {
   const proc = Bun.spawn(["git", ...args], {
     cwd,
-    env: childEnv({ ...base, ...configEnv(FIXED, base), ...NO_LAZY_FETCH }),
+    env: childEnv({ ...base, ...configEnv([...FIXED, ...HOST_SETTINGS], base), ...NO_LAZY_FETCH }),
     stdin: "ignore",
     stdout: "pipe",
     stderr: "pipe",
@@ -203,7 +206,7 @@ export const safeConfigEnv = async (
   await refuseLazyFetch(listing, base);
 
   return {
-    ...configEnv([...FIXED, ...overrides], base),
+    ...configEnv([...FIXED, ...HOST_SETTINGS, ...overrides], base),
     ...repositoryEnv(listing, mode, base),
     ...NO_LAZY_FETCH,
   };
