@@ -7,7 +7,7 @@
 import type { Stats } from "node:fs";
 import { lstat, open, readdir, stat } from "node:fs/promises";
 import { homedir } from "node:os";
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { Data, Schema } from "effect";
 import { detectMimeType, isTextMime } from "./mime.ts";
 
@@ -93,7 +93,7 @@ export const statPath = async (input: string): Promise<Entry> => {
   try {
     const stats = await lstat(path);
 
-    return toEntry(path, path.split("/").pop() || path, stats);
+    return toEntry(path, basename(path) || path, stats);
   } catch (cause) {
     throw toFsFailure(path, cause);
   }
