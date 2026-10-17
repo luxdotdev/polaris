@@ -5,6 +5,7 @@ import { HarnessError } from "../harness/HarnessDriver.ts";
 import type { InlineBackend } from "./backend.ts";
 import type { StructuredJob } from "./structured.ts";
 import { decodePatch, harnessPrompt, instructions, patchJsonSchema } from "./patch.ts";
+import { stopChild } from "../platform/processes.ts";
 
 const Event = Schema.Struct({
   type: Schema.String,
@@ -76,7 +77,7 @@ export const claudeStructured = Effect.fn("harness.claude.structured")(function*
     }),
     (child) =>
       Effect.promise(async () => {
-        child.kill();
+        stopChild(child);
         await child.exited;
       })
   );

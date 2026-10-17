@@ -5,7 +5,7 @@
  */
 import { lstat, realpath } from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, join, parse, resolve } from "node:path";
 import { isWithin } from "../files/fs.ts";
 import { gitText } from "../git/git.ts";
 import { paths } from "../paths.ts";
@@ -160,7 +160,7 @@ export const readConfinement = async (
   const homes = unique(await Promise.all([homedir(), env.HOME ?? homedir()].map(canonical)));
   const state = await canonical(paths().root);
 
-  if (root === "/" || [...homes, state].some((closed) => isWithin(root, closed)))
+  if (root === parse(root).root || [...homes, state].some((closed) => isWithin(root, closed)))
     throw new Error(`The reviewer can't be kept to ${root}: it holds your home directory.`);
   const dirs = await gitDirs(root);
   const inside = dirs !== null && isWithin(root, dirs.common);

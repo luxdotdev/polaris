@@ -9,6 +9,7 @@ import { appendFileSync } from "node:fs";
 import { Deferred, Effect, Option, Predicate, Schema, type Scope } from "effect";
 import { HarnessError } from "../HarnessDriver.ts";
 import * as P from "./protocol.ts";
+import { stopChild } from "../../platform/processes.ts";
 
 /** What a session receives from the agent. */
 export interface SessionRoute {
@@ -164,7 +165,7 @@ export const spawnAgent = (
         Effect.sync(() => {
           stopping = true;
           void child.stdin.end();
-          child.kill();
+          stopChild(child);
         })
     );
 
