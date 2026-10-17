@@ -71,6 +71,23 @@ describe("claim refusals in the user's words", () => {
       });
   });
 
+  test("a merge Accept couldn't make says why and keeps Approve", () => {
+    const word = (code: string) => claimRefusal(refused(code, "x", "y"), place);
+
+    expect(word("E-MERGE-CONFLICT")).toEqual({
+      message:
+        "polaris/c1/b1-quint-properties at 3f9c2e1 conflicts with polaris/c1/lead; nothing was merged. Send B1 back with merge conflict, or approve and let the lead merge.",
+      offerApprove: true,
+    });
+    expect(word("E-LEAD-DIRTY")).toEqual({
+      message:
+        "The lead's checkout has uncommitted changes, so 3f9c2e1 wasn't merged. Accept again once it's clear, or approve and let the lead merge.",
+      offerApprove: true,
+    });
+    expect(word("E-LEAD-DETACHED").message).toContain("checkout isn't on a branch");
+    expect(word("E-LEAD-MERGING").message).toContain("in the middle of a merge");
+  });
+
   test("a worded finding wins over an unknown one listed first", () => {
     const error = {
       message: "",

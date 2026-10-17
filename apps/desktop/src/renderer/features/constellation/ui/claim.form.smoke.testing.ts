@@ -30,29 +30,30 @@ try {
     const errors: string[] = [];
 
     page.on("pageerror", (e) => errors.push(e.message));
-    await page.locator("#merged-head").waitFor();
+    await page.getByTestId("claim-accept").waitFor();
+    const accept = page.getByRole("button", { name: "Accept B1", exact: true });
 
-    for (const [head, bump] of [
-      ["edited-head", false],
-      ["edited-head", true],
-    ] as const) {
-      await page.getByRole("checkbox").click();
-      assert.equal(await page.getByRole("checkbox").getAttribute("aria-checked"), "false");
-      await page.getByRole("button", { name: "Accept B1", exact: true }).click();
-      await page.getByTestId("claim-refused").waitFor();
-      await page.locator("#merged-head").fill("user input for old claim");
-      await page.evaluate(`window.replaceClaim(${JSON.stringify(head)}, ${bump})`);
-      await page.waitForFunction(
-        (head) => document.querySelector<HTMLInputElement>("#merged-head")?.value === head,
-        head
-      );
-      assert.equal(await page.getByRole("checkbox").getAttribute("aria-checked"), "true");
-      assert.equal(await page.getByTestId("claim-refused").count(), 0);
-    }
+    await page.getByRole("checkbox").click();
+    await accept.click();
+    await page.getByTestId("claim-refused").waitFor();
+
+    // A revision bump that leaves the Claim alone keeps what the user chose.
+    await page.evaluate(`window.replaceClaim(null, true)`);
+    assert.equal(await page.getByRole("checkbox").getAttribute("aria-checked"), "false");
+    assert.equal(await page.getByTestId("claim-refused").count(), 1);
+
+    // An amendment holds Accept until the user reviews the new head.
+    await page.evaluate(`window.replaceClaim("edited-head", true)`);
+    await page.getByText("amended its claim").waitFor();
+    assert.equal(await accept.isDisabled(), true);
+    await page.getByRole("button", { name: /^Review / }).click();
+    assert.equal(await accept.isDisabled(), false);
+    assert.equal(await page.getByRole("checkbox").getAttribute("aria-checked"), "true");
+    assert.equal(await page.getByTestId("claim-refused").count(), 0);
 
     assert.deepEqual(errors, []);
     console.log(
-      "Mounted Accept form: head change and revision change reset head, receipts and refusal copy."
+      "Mounted Accept form: a revision bump keeps choices; an amendment holds Accept until reviewed."
     );
   } finally {
     await app.close();

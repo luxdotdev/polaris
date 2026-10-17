@@ -66,4 +66,6 @@ test("a fresh Claim clears previous user approval and handoff in the Desktop eve
   expect(attempt.handedUpReason).toBeNull();
   expect(attempt.nudgedAt).toBeNull();
   expect(attempt.state).toBe("review");
+  expect(attempt.claimRevision).toBe(old.revision + 1);
+  expect(attempt.previousClaimHead).toBe(old.claim!.head);
 });

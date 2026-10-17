@@ -18,7 +18,14 @@ import { useApp } from "../../../shell/hooks.ts";
 import { AcceptAction } from "../../accept/ui/AcceptAction.tsx";
 import { useWorkerAttempt, type WorkerAttempt } from "../../sessions/source.ts";
 import { type ReviewSlotProps, subjectKey } from "../surface.ts";
-import { acceptAndMerge, approveClaim, sendToWorker, type WorkerTarget } from "./actions.ts";
+import { useLeadBranch } from "../../constellation/hooks.ts";
+import {
+  acceptClaim,
+  approveClaim,
+  type SeenClaim,
+  sendToWorker,
+  type WorkerTarget,
+} from "./actions.ts";
 import { workerActionKind } from "./model.ts";
 
 const Chevron = () => (
@@ -51,7 +58,7 @@ const Item = ({
   </DropdownMenuItem>
 );
 
-/** The Lead's Host key and checkout, from the Constellation's `hostId`. */
+/** The Lead's Host key and branch, from the Constellation's `hostId`. */
 const useLeadPlace = (worker: WorkerAttempt) => {
   const { constellation } = worker.view;
 
@@ -59,11 +66,7 @@ const useLeadPlace = (worker: WorkerAttempt) => {
     (s) => s.hosts.find((h) => h.status.host?.hostId === constellation.hostId)?.key ?? null
   );
 
-  const lead = useApp((s) =>
-    hostKey === null ? undefined : s.hostModels[hostKey]?.sessions.get(constellation.leadSessionId)
-  );
-
-  return { hostKey, lead };
+  return { hostKey, leadBranch: useLeadBranch(hostKey, constellation.leadSessionId) };
 };
 
 const attemptNumber = (worker: WorkerAttempt) =>
@@ -81,11 +84,15 @@ const ClaimActions = ({
   readonly subject: SessionSubject;
   readonly worker: WorkerAttempt;
 }) => {
-  const { hostKey, lead } = useLeadPlace(worker);
+  const { hostKey, leadBranch } = useLeadPlace(worker);
   const [busy, setBusy] = useState(false);
   const { attempt } = worker;
   const id = attempt.taskId;
-  const head = attempt.claim?.head.slice(0, 7) ?? "the claimed head";
+  const live: SeenClaim = { head: attempt.claim?.head ?? "", revision: attempt.revision };
+  // The Claim as the user read it here; an amendment waits until they review it.
+  const [seen, setSeen] = useState(live);
+  const amended = live.head !== seen.head;
+  const head = seen.head.slice(0, 7) || "the claimed head";
 
   if (hostKey === null) return null;
 
@@ -116,70 +123,75 @@ const ClaimActions = ({
       () => toast(`Sent back to ${id}`, "Your feedback goes as its next turn; the lead is told")
     );
 
-  const merge = () => {
-    if (lead === undefined) return;
+  const merge = () =>
     void run(
-      () =>
-        acceptAndMerge(target, {
-          workspaceId: lead.session.workspaceId,
-          cwd: lead.session.cwd,
-          leadSessionId: lead.session.id,
-          onApprove: approve,
-        }),
+      () => acceptClaim(target, seen, { leadBranch, onApprove: approve }),
       () => toast(`Merged and accepted ${id}`, "The lead is told")
     );
-  };
 
   return (
-    <div
-      data-testid="worker-review-action"
-      className={cn(
-        "rounded-control text-label bg-text-strong text-bg flex h-[30px] items-center overflow-clip",
-        busy && "opacity-60"
-      )}
-    >
-      <button
-        type="button"
-        data-testid="worker-approve-primary"
-        disabled={busy || approved}
-        title={approved ? "You approved it; the lead merges and accepts it" : undefined}
-        onClick={approve}
-        className="flex h-[30px] cursor-default items-center px-3 font-medium"
-      >
-        {approved ? "Approved" : "Approve"}
-      </button>
-      <span aria-hidden="true" className="h-4 w-px shrink-0 bg-current opacity-20" />
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          disabled={busy}
-          aria-label="More review options"
-          className="w-tree-row flex h-[30px] shrink-0 items-center justify-center"
+    <>
+      {amended ? (
+        <button
+          type="button"
+          data-testid="worker-claim-amended"
+          onClick={() => setSeen(live)}
+          className="rounded-control text-label text-needs-you-text border-hairline flex h-[30px] cursor-default items-center border px-3"
         >
-          <Chevron />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-[320px]">
-          <Item
-            testId="worker-approve"
-            title={approved ? "Approved" : "Approve"}
-            disabled={approved}
-            detail="Records your verdict; the lead merges and accepts"
-            onSelect={approve}
-          />
-          <Item
-            testId="worker-send"
-            title={`Send to @${id}`}
-            detail="Your feedback as a send-back; the lead is told"
-            onSelect={send}
-          />
-          <Item
-            testId="worker-merge"
-            title="Accept and merge myself"
-            detail={`Merges ${head} here and accepts the claim with your receipts`}
-            onSelect={merge}
-          />
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+          Claim amended · review {live.head.slice(0, 7)}
+        </button>
+      ) : null}
+      <div
+        data-testid="worker-review-action"
+        className={cn(
+          "rounded-control text-label bg-text-strong text-bg flex h-[30px] items-center overflow-clip",
+          busy && "opacity-60"
+        )}
+      >
+        <button
+          type="button"
+          data-testid="worker-approve-primary"
+          disabled={busy || approved || amended}
+          title={approved ? "You approved it; the lead merges and accepts it" : undefined}
+          onClick={approve}
+          className="flex h-[30px] cursor-default items-center px-3 font-medium"
+        >
+          {approved ? "Approved" : "Approve"}
+        </button>
+        <span aria-hidden="true" className="h-4 w-px shrink-0 bg-current opacity-20" />
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            disabled={busy}
+            aria-label="More review options"
+            className="w-tree-row flex h-[30px] shrink-0 items-center justify-center"
+          >
+            <Chevron />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-[320px]">
+            <Item
+              testId="worker-approve"
+              title={approved ? "Approved" : "Approve"}
+              disabled={approved || amended}
+              detail="Records your verdict; the lead merges and accepts"
+              onSelect={approve}
+            />
+            <Item
+              testId="worker-send"
+              title={`Send to @${id}`}
+              detail="Your feedback as a send-back; the lead is told"
+              onSelect={send}
+            />
+            <Item
+              testId="worker-merge"
+              title="Accept and merge myself"
+              disabled={amended}
+              detail={`Merges ${head} into ${leadBranch ?? "the lead's branch"} and accepts the claim with its receipts`}
+              onSelect={merge}
+            />
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </>
   );
 };
 
@@ -203,7 +215,9 @@ const WorkerPrimary = ({
       >
         Attempt {attemptNumber(worker)}
       </span>
-      {kind === "review" ? <ClaimActions subject={subject} worker={worker} /> : null}
+      {kind === "review" ? (
+        <ClaimActions key={worker.attempt.id} subject={subject} worker={worker} />
+      ) : null}
       {word === null ? null : (
         <span className="rounded-control text-label bg-fill-selected text-text-subtle flex h-[30px] items-center px-3">
           {word}

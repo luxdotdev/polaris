@@ -37,6 +37,12 @@ describe("worker header", () => {
     ).toBe("worker of L · claim at 3f9c2e1 approved by you · the lead merges");
   });
 
+  test("an amended Claim says which head it replaced", () => {
+    expect(workerCaption({ ...b1, previousClaimHead: "a83489c0ff" }, "L")).toBe(
+      "worker of L · claim in review at 3f9c2e1 · amended from a83489c"
+    );
+  });
+
   test("a working worker waiting for a slot says on which Host", () => {
     expect(workerCaption({ ...b1, state: "working" }, "L", "devbox")).toBe(
       "worker of L · waiting for a slot on devbox"
