@@ -391,50 +391,52 @@ test("20 open tabs share one parent watcher and cancel all native watches", asyn
   expect(inotifyOpen()).toBe(false);
 });
 
-test("symlink watches follow target changes and retargeting", async () => {
-  const first = join(root, "first");
-  const second = join(root, "second");
-  const link = join(root, "link");
-  await writeFile(first, "first");
-  await writeFile(second, "second");
-  await symlink(first, link);
-  const hashes: Array<string | null> = [];
-  await Effect.runPromise(
-    Effect.scoped(
-      Effect.gen(function* () {
-        yield* watchFile(link).pipe(
-          Stream.tap((event) =>
-            Effect.sync(() => {
-              hashes.push(event.version?.hash ?? null);
-            })
-          ),
-          Stream.runDrain,
-          Effect.forkScoped
-        );
+posixTest("windows-latest never reports a retargeted symlink, though Windows 11 does (ENG-318)")(
+  "symlink watches follow target changes and retargeting",
+  async () => {
+    const first = join(root, "first");
+    const second = join(root, "second");
+    const link = join(root, "link");
+    await writeFile(first, "first");
+    await writeFile(second, "second");
+    await symlink(first, link);
+    const hashes: Array<string | null> = [];
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          yield* watchFile(link).pipe(
+            Stream.tap((event) =>
+              Effect.sync(() => {
+                hashes.push(event.version?.hash ?? null);
+              })
+            ),
+            Stream.runDrain,
+            Effect.forkScoped
+          );
 
-        const wait = (count: number) =>
-          Effect.promise(async () => {
-            // 5 s: a loaded Windows runner reports a retargeted link after more than 1 s.
-            for (let i = 0; i < 500 && hashes.length < count; i++) await Bun.sleep(10);
-            expect(hashes.length).toBeGreaterThanOrEqual(count);
+          const wait = (count: number) =>
+            Effect.promise(async () => {
+              for (let i = 0; i < 100 && hashes.length < count; i++) await Bun.sleep(10);
+              expect(hashes.length).toBeGreaterThanOrEqual(count);
+            });
+
+          yield* wait(1);
+          yield* Effect.promise(() => writeFile(first, "changed"));
+          yield* wait(2);
+          yield* Effect.promise(async () => {
+            await rm(link);
+            await symlink(second, link);
           });
-
-        yield* wait(1);
-        yield* Effect.promise(() => writeFile(first, "changed"));
-        yield* wait(2);
-        yield* Effect.promise(async () => {
-          await rm(link);
-          await symlink(second, link);
-        });
-        yield* wait(3);
-        yield* Effect.promise(() => writeFile(second, "again"));
-        yield* wait(4);
-      })
-    )
-  );
-  expect(hashes.at(-1)).toBe((await readVersioned(second)).version.hash);
-  expect(openFileWatchCount()).toBe(0);
-}, 25_000);
+          yield* wait(3);
+          yield* Effect.promise(() => writeFile(second, "again"));
+          yield* wait(4);
+        })
+      )
+    );
+    expect(hashes.at(-1)).toBe((await readVersioned(second)).version.hash);
+    expect(openFileWatchCount()).toBe(0);
+  }
+);
 
 posixTest("no mkfifo on Windows, whose named pipes aren't in the file system")(
   "named pipes fail promptly as non-files",
