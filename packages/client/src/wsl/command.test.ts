@@ -7,6 +7,7 @@ import {
   wslShellArgv,
   wslWindowsPath,
 } from "./command.ts";
+import { FAKE_WSL_MESSAGES } from "./fakeWsl.testing.ts";
 
 describe("wsl.exe argv", () => {
   test("the bridge runs the installed Daemon through sh, so ~ expands in the distro", () => {
@@ -89,6 +90,18 @@ describe("classifyWslExit", () => {
       expect(missing.reason).toBe("wsl-distro-missing");
       expect(missing.detail).toBe("There is no distribution with the supplied name.");
     }
+  });
+
+  test("a localized missing distro classifies by WSL's error code", () => {
+    const missing = classifyWslExit({
+      code: 255,
+      signal: null,
+      stderr: "",
+      stdout: FAKE_WSL_MESSAGES.de.notFound,
+    });
+
+    expect(missing.reason).toBe("wsl-distro-missing");
+    expect(missing.detail).toBe("Es ist keine Distribution mit dem angegebenen Namen vorhanden.");
   });
 
   test("a Linux command's stdout is not mistaken for wsl.exe's message", () => {

@@ -10,7 +10,8 @@ import {
   WslDiscovery,
   WslDistro,
 } from "./distros.ts";
-import { writeFakeWsl } from "./fakeWsl.testing.ts";
+import { FAKE_WSL_MESSAGES, writeFakeWsl } from "./fakeWsl.testing.ts";
+import { scriptedChildProcess, type SpawnRequest } from "../process/index.ts";
 
 const LIST = [
   "  NAME                   STATE           VERSION",
@@ -63,7 +64,7 @@ describe("discoveryOf", () => {
     );
   });
 
-  test("the stub's message is NotInstalled, no distros is NoDistros", () => {
+  test("the stub's message is NotInstalled", () => {
     const stub = utf16(
       "Windows Subsystem for Linux is not installed. You can install by running 'wsl.exe --install'.\r\n"
     );
@@ -71,9 +72,40 @@ describe("discoveryOf", () => {
     expect(discoveryOf({ code: 1, stdout: none, stderr: stub, spawnError: null })._tag).toBe(
       "NotInstalled"
     );
-    const empty = utf16("Windows Subsystem for Linux has no installed distributions.\r\n");
-    expect(discoveryOf({ code: 1, stdout: empty, stderr: none, spawnError: null })._tag).toBe(
-      "NoDistros"
+  });
+
+  test.each(["en", "de"] as const)(
+    "no distros (%s) is NoDistros by the empty --list --quiet, not by its words",
+    (language) => {
+      const verbose = {
+        code: 255,
+        stdout: utf16(FAKE_WSL_MESSAGES[language].noDistros),
+        stderr: none,
+        spawnError: null,
+      };
+
+      const quiet = { code: 0, stdout: none, stderr: none, spawnError: null };
+
+      expect(discoveryOf(verbose, quiet)).toEqual(WslDiscovery.NoDistros());
+    }
+  );
+
+  test("a failed --list --verbose whose --list --quiet still names distros is Failed", () => {
+    const verbose = { code: 255, stdout: utf16("Zugriff verweigert\r\n"), stderr: none };
+    const quiet = { code: 0, stdout: utf16("Ubuntu\r\n"), stderr: none, spawnError: null };
+
+    expect(discoveryOf({ ...verbose, spawnError: null }, quiet)).toEqual(
+      WslDiscovery.Failed({ detail: "Zugriff verweigert" })
+    );
+  });
+
+  test("WSL's error code reads as NotInstalled in any language", () => {
+    const message = utf16(
+      "Diese Anwendung erfordert die Windows-Subsystem für Linux optionale Komponente.\r\nFehlercode: Wsl/WSL_E_WSL_OPTIONAL_COMPONENT_REQUIRED\r\n"
+    );
+
+    expect(discoveryOf({ code: 255, stdout: message, stderr: none, spawnError: null })._tag).toBe(
+      "NotInstalled"
     );
   });
 
@@ -147,5 +179,68 @@ describe("discoverDistros", () => {
     );
 
     expect(missing._tag).toBe("NotInstalled");
+  });
+
+  test.each(["en", "de"] as const)("a WSL with no distro (%s) is NoDistros", async (language) => {
+    const fake = writeFakeWsl(dir, { distros: [], language });
+
+    expect(await Effect.runPromise(discoverDistros({ ...fake, platform: "win32" }))).toEqual(
+      WslDiscovery.NoDistros()
+    );
+  });
+
+  test("Windows' wsl.exe waiting on its install prompt is NotInstalled once it times out", async () => {
+    const fake = writeFakeWsl(dir, { distros: [], installed: false, prompts: true });
+
+    const found = await Effect.runPromise(
+      discoverDistros({ ...fake, platform: "win32", timeoutMs: 1_000 })
+    );
+
+    expect(found._tag).toBe("NotInstalled");
+  });
+});
+
+describe("discoverDistros asks the registry for WSL's service first", () => {
+  const LISTED = Buffer.from("  NAME  STATE  VERSION\r\n* Ubuntu  Running  2\r\n", "utf16le");
+
+  const discover = (reg: (key: string) => { code?: number; spawnError?: string }) => {
+    const spawned: Array<SpawnRequest> = [];
+
+    const processes = scriptedChildProcess((request) => {
+      spawned.push(request);
+
+      if (request.file !== "reg.exe") return { exit: { code: 0, stdout: new Uint8Array(LISTED) } };
+      const answer = reg(request.args[1] ?? "");
+
+      return answer.spawnError === undefined
+        ? { exit: { code: answer.code ?? 0 } }
+        : { spawnError: answer.spawnError };
+    });
+
+    return Effect.runPromise(discoverDistros({ platform: "win32", processes })).then((found) => ({
+      found,
+      ranWsl: spawned.some((request) => request.file === "wsl.exe"),
+    }));
+  };
+
+  test("no WSLService or LxssManager is NotInstalled, without running wsl.exe", async () => {
+    const { found, ranWsl } = await discover(() => ({ code: 1 }));
+
+    expect(found._tag).toBe("NotInstalled");
+    expect(ranWsl).toBe(false);
+  });
+
+  test.each([
+    ["WSLService", (key: string) => ({ code: key.endsWith("WSLService") ? 0 : 1 })],
+    ["LxssManager", (key: string) => ({ code: key.endsWith("LxssManager") ? 0 : 1 })],
+    ["no reg.exe", () => ({ spawnError: "ENOENT" })],
+  ])("%s lets wsl.exe answer", async (_, reg) => {
+    const { found } = await discover(reg);
+
+    expect(found).toEqual(
+      WslDiscovery.Distros({
+        distros: [new WslDistro({ name: "Ubuntu", version: 2, state: "running", isDefault: true })],
+      })
+    );
   });
 });

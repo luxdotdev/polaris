@@ -79,18 +79,20 @@ export const RemoteSettings = ({ machine }: { readonly machine: MachineView }) =
         onSave={(label) => void call("machines.update", { hostKey: machine.key, label })}
       />
     </Field>
-    <Field
-      label="Forward ssh-agent"
-      caption="Agents on this host can use your keys, for git over SSH. Off unless you need it."
-    >
-      <Switch
-        aria-label="Forward ssh-agent"
-        checked={machine.forwardAgent}
-        onCheckedChange={(forwardAgent) =>
-          void call("machines.update", { hostKey: machine.key, forwardAgent })
-        }
-      />
-    </Field>
+    {machine.kind === "wsl" ? null : (
+      <Field
+        label="Forward ssh-agent"
+        caption="Agents on this host can use your keys, for git over SSH. Off unless you need it."
+      >
+        <Switch
+          aria-label="Forward ssh-agent"
+          checked={machine.forwardAgent}
+          onCheckedChange={(forwardAgent) =>
+            void call("machines.update", { hostKey: machine.key, forwardAgent })
+          }
+        />
+      </Field>
+    )}
     {machine.windowsShell === undefined ? (
       <RemoteCommand machine={machine} />
     ) : (
@@ -105,10 +107,18 @@ export const RemoteSettings = ({ machine }: { readonly machine: MachineView }) =
 export const WINDOWS_REMOTE_COMMAND =
   "Windows hosts always connect through PowerShell to the installed daemon.";
 
+/** A WSL Host's remote command runs through wsl.exe, not ssh. */
+export const WSL_REMOTE_COMMAND =
+  "What wsl.exe runs in the distro. Empty for the installed daemon.";
+
 const RemoteCommand = ({ machine }: { readonly machine: MachineView }) => (
   <Field
     label="Remote command"
-    caption="What ssh runs on the host. Empty for the installed daemon."
+    caption={
+      machine.kind === "wsl"
+        ? WSL_REMOTE_COMMAND
+        : "What ssh runs on the host. Empty for the installed daemon."
+    }
   >
     <TextSetting
       label="Remote command"
