@@ -388,3 +388,56 @@ describe("delivery", () => {
     );
   });
 });
+
+describe("a Windows Host", () => {
+  const windowsX64 = build("windows-x64");
+  const approved = { trigger: "user", approvedSha256: new Set([windowsX64.sha256]) } as const;
+
+  const windows = (probe: Partial<HostProbe> = {}): HostProbe => ({
+    os: "windows",
+    arch: "AMD64",
+    installed: null,
+    tools: { fetch: null, tar: false, sha256: true },
+    windowsShell: "powershell",
+    ...probe,
+  });
+
+  test("maps the Windows probe's AMD64 to windows-x64, and nothing else yet", () => {
+    expect(platformFromUname("windows", "AMD64")).toBe("windows-x64");
+    expect(platformFromUname("windows", "ARM64")).toBeNull();
+    expect(platformFromUname("MINGW64_NT-10.0-26200", "x86_64")).toBeNull();
+  });
+
+  test("installs and upgrades with the commands written for its DefaultShell", () => {
+    expect(planInstall(windows({ windowsShell: "cmd" }), [windowsX64], approved)).toEqual(
+      InstallPlan.Install({ build: windowsX64, delivery: Delivery.Upload(), windowsShell: "cmd" })
+    );
+
+    expect(
+      planInstall(
+        windows({ installed: { version: "1.1.0", platform: "windows-x64" } }),
+        [windowsX64],
+        approved
+      )
+    ).toEqual(
+      InstallPlan.Upgrade({
+        from: "1.1.0",
+        build: windowsX64,
+        delivery: Delivery.Upload(),
+        windowsShell: "powershell",
+      })
+    );
+  });
+
+  test("is unsupported under a DefaultShell we don't drive, naming it", () => {
+    const { windowsShell: _, ...bash } = windows({ unsupportedShell: "bash" });
+
+    expect(planInstall(bash, [windowsX64], approved)).toEqual(
+      InstallPlan.Unsupported({ os: "windows (sshd's DefaultShell is bash)", arch: "AMD64" })
+    );
+  });
+
+  test("downloads a release build here, since the Host has no downloader of its own", () => {
+    expect(deliveryFor(published("windows-x64"), windows())).toEqual(Delivery.ClientFetch());
+  });
+});

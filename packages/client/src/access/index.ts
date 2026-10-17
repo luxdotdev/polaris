@@ -6,7 +6,7 @@
  */
 import { Context, Effect, Layer, Schema } from "effect";
 import { HostTarget } from "../HostConnection.ts";
-import { Ssh, SshError, type SshResult } from "../install/Ssh.ts";
+import { type ExecStdin, Ssh, SshError, type SshResult } from "../install/Ssh.ts";
 import { resolveSshBinary, type SshOptions } from "../ssh.ts";
 import { wslShellArgv } from "../wsl/command.ts";
 import { wslInstallLayer, type WslInstallOptions } from "../wsl/install.ts";
@@ -33,11 +33,8 @@ export class HostActionUnsupported extends Schema.TaggedError<HostActionUnsuppor
   }
 ) {}
 
-export interface ExecOptions {
-  /** Streams this local file to the command's stdin. */
-  readonly stdinFile?: string;
-  readonly onStdinBytes?: (bytes: number) => void;
-}
+/** Streams `stdinFile` to the command's stdin (as base64 lines with `stdinLines`). */
+export type ExecOptions = ExecStdin;
 
 export type HostKind = "local" | "ssh" | "wsl";
 
@@ -53,8 +50,8 @@ export interface HostChannel {
   /** A first install needs no approval: only this machine's own installed Daemon (ADR 0041). */
   readonly trusted: boolean;
   /**
-   * Runs a POSIX `sh` command line there; fails only when the channel itself does. A Windows
-   * Client's local channel has no shell: its Daemon is run directly (`polaris.exe install`).
+   * Runs a command line there (`sh` on POSIX, the DefaultShell on a Windows SSH Host); fails only
+   * when the channel itself does. A Windows Client's local channel has none: its Daemon runs directly.
    */
   readonly exec: (command: string, options?: ExecOptions) => Effect.Effect<SshResult, SshError>;
   /** The `Ssh` service bound to this Host, for the install flow (`probeHost`, `applyPlan`) with `alias`. */

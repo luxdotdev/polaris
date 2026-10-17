@@ -120,7 +120,7 @@ const connectionCard = (machine: MachineView): CardModel | null => {
       return card(
         failure.reason,
         `Another account holds the daemon's pipe on ${label}`,
-        "Polaris won't talk to a daemon it can't prove is yours. Restart this PC to free the pipe, then retry.",
+        `Polaris won't talk to a daemon it can't prove is yours. Restart ${label} to free the pipe, then retry.`,
         detail,
         RETRY
       );

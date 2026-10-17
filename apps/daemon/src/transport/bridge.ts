@@ -14,16 +14,20 @@
  * prints a reason on stderr and exits with BRIDGE_EXIT_NO_DAEMON, which the
  * Client maps to Needs Attention.
  *
+ * On Windows the Daemon's pipe counts only when this user owns it, checked on the
+ * handle the bytes then use (ADR 0059): any other owner means another account took
+ * the name first, and the bridge exits with BRIDGE_EXIT_UNTRUSTED_DAEMON having sent nothing.
+ *
  * With agent forwarding on for the Host, ssh sets SSH_AUTH_SOCK for this
  * process; the bridge repoints `~/.polaris/agent.sock` at it, so the Daemon and
  * its Harnesses can use one stable path that survives reconnects.
  */
 import { childEnv } from "../service/childEnv.ts";
 import { renameSync, statSync, symlinkSync, unlinkSync } from "node:fs";
-import { connect, type Socket } from "node:net";
+import { connect } from "node:net";
 import { homedir, userInfo } from "node:os";
 import { join } from "node:path";
-import { BRIDGE_EXIT_NO_DAEMON } from "@polaris/protocol/bridge";
+import { BRIDGE_EXIT_NO_DAEMON, BRIDGE_EXIT_UNTRUSTED_DAEMON } from "@polaris/protocol/bridge";
 import { paths } from "../paths.ts";
 import { SYSTEMD_UNIT } from "../service/templates.ts";
 import { windowsTaskName } from "../service/windowsTask.ts";
@@ -208,6 +212,50 @@ const startDaemonViaSupervisor = async (
   }
 };
 
+/** A connection to the Daemon: a Unix socket, or on Windows the adopted pipe handle. */
+interface DaemonStream extends Source, Sink {
+  on(event: "data", listener: (chunk: Uint8Array) => void): void;
+  on(event: "error", listener: (error: Error) => void): void;
+  once(event: "drain" | "close", listener: () => void): void;
+  end(): void;
+}
+
+type Opened =
+  | { readonly kind: "connected"; readonly stream: DaemonStream }
+  | { readonly kind: "absent"; readonly detail: string }
+  | { readonly kind: "untrusted"; readonly message: string };
+
+const openSocket = (socketPath: string): Promise<Opened> =>
+  new Promise((resolve) => {
+    const socket = connect(socketPath);
+
+    const refused = (error: NodeJS.ErrnoException) => {
+      socket.destroy();
+      resolve({ kind: "absent", detail: error.code ?? error.message });
+    };
+
+    socket.once("error", refused);
+    socket.once("connect", () => {
+      socket.off("error", refused);
+      resolve({ kind: "connected", stream: socket });
+    });
+  });
+
+/** Windows: the pipe only counts when this user owns it, checked on the handle then used. */
+const openPipe = async (pipeName: string): Promise<Opened> => {
+  const { connectOwnPipe, untrustedMessage } = await import("./windowsPipe/client.ts");
+  const pipe = await connectOwnPipe(pipeName);
+
+  if (pipe.kind === "connected") return pipe;
+
+  if (pipe.kind === "absent") return { kind: "absent", detail: `Win32 error ${pipe.code}` };
+
+  return { kind: "untrusted", message: untrustedMessage(pipeName, pipe) };
+};
+
+const openDaemon = (socketPath: string): Promise<Opened> =>
+  process.platform === "win32" ? openPipe(socketPath) : openSocket(socketPath);
+
 export const runBridge = (options: BridgeOptions = {}): Promise<number> =>
   new Promise((resolve) => {
     const socketPath = options.socketPath ?? paths().socket;
@@ -216,11 +264,11 @@ export const runBridge = (options: BridgeOptions = {}): Promise<number> =>
     const stdout = process.stdout;
     let settled = false;
     let retried = false;
-    // Bytes the Client sent before the socket connected (across a retry, too).
+    // Bytes the Client sent before the Daemon connected (across a retry, too).
     let early: Array<Uint8Array> | null = [];
     let stdinEnded = false;
-    let socket: Socket | null = null;
-    let toSocket: ((chunk: Uint8Array) => void) | null = null;
+    let daemon: DaemonStream | null = null;
+    let toDaemon: ((chunk: Uint8Array) => void) | null = null;
 
     const finish = (code: number) => {
       if (settled) return;
@@ -232,66 +280,82 @@ export const runBridge = (options: BridgeOptions = {}): Promise<number> =>
     };
 
     stdin.on("data", (chunk: Uint8Array) => {
-      if (toSocket === null) early?.push(chunk);
-      else toSocket(chunk);
+      if (toDaemon === null) early?.push(chunk);
+      else toDaemon(chunk);
     });
     stdin.once("end", () => {
       stdinEnded = true;
 
-      if (toSocket !== null) socket?.end();
+      if (toDaemon !== null) daemon?.end();
     });
 
-    const attempt = () => {
-      const current = connect(socketPath);
-      socket = current;
-      let connected = false;
+    const attach = (stream: DaemonStream) => {
+      daemon = stream;
+      const forward = pipe(stdin, stream);
+      toDaemon = forward;
+      const buffered = early ?? [];
+      early = null;
 
-      current.once("connect", () => {
-        connected = true;
-        const forward = pipe(stdin, current);
-        toSocket = forward;
-        const buffered = early ?? [];
-        early = null;
+      for (const chunk of buffered) forward(chunk);
 
-        for (const chunk of buffered) forward(chunk);
-
-        if (stdinEnded) current.end();
-      });
-
-      current.on("data", pipe(current, stdout));
+      if (stdinEnded) stream.end();
+      stream.on("data", pipe(stream, stdout));
 
       let failed = false;
-      current.on("error", (error: NodeJS.ErrnoException) => {
+      stream.on("error", (error: Error) => {
         if (failed) return;
         failed = true;
-
-        if (connected) {
-          process.stderr.write(
-            `polaris bridge: connection to the Daemon failed: ${error.message}\n`
-          );
-          finish(1);
-
-          return;
-        }
-
-        const noDaemon = () => {
-          process.stderr.write(
-            `polaris bridge: no Daemon is running on this Host (nothing listening on ${socketPath}: ${error.code ?? error.message})\n`
-          );
-          finish(BRIDGE_EXIT_NO_DAEMON);
-        };
-
-        if (retried) return noDaemon();
-        retried = true;
-        void startDaemonViaSupervisor(socketPath, options).then((up) =>
-          up ? attempt() : noDaemon()
-        );
+        process.stderr.write(`polaris bridge: connection to the Daemon failed: ${error.message}\n`);
+        finish(1);
       });
-
-      current.once("close", () => {
-        if (connected) finish(0);
-      });
+      stream.once("close", () => finish(0));
     };
 
-    attempt();
+    const noDaemon = (detail: string) => {
+      process.stderr.write(
+        `polaris bridge: no Daemon is running on this Host (nothing listening on ${socketPath}: ${detail})\n`
+      );
+      finish(BRIDGE_EXIT_NO_DAEMON);
+    };
+
+    const attempt = async (): Promise<void> => {
+      const opened = await openDaemon(socketPath);
+
+      if (opened.kind === "connected") return attach(opened.stream);
+
+      if (opened.kind === "untrusted") {
+        process.stderr.write(`polaris bridge: ${opened.message}\n`);
+
+        return finish(BRIDGE_EXIT_UNTRUSTED_DAEMON);
+      }
+
+      if (retried) return noDaemon(opened.detail);
+      retried = true;
+      const up = await startDaemonViaSupervisor(socketPath, options);
+
+      return up ? attempt() : noDaemon(opened.detail);
+    };
+
+    attempt().catch((error: Error) => {
+      process.stderr.write(`polaris bridge: ${String(error)}\n`);
+      finish(1);
+    });
   });
+
+/**
+ * `polaris bridge [--relay <pid>]`. On Windows, `--relay` names the PowerShell process that
+ * feeds stdin (`@polaris/client/install`'s relay): it would wait for the Client's next line
+ * and hold the SSH channel open, so the bridge ends it with its own exit status.
+ */
+export const runBridgeCommand = async (args: ReadonlyArray<string>): Promise<number> => {
+  const code = await runBridge();
+  const at = args.indexOf("--relay");
+  const relay = at >= 0 ? Number(args[at + 1]) : Number.NaN;
+
+  if (process.platform === "win32" && Number.isSafeInteger(relay) && relay > 0) {
+    const { terminateProcess } = await import("./windowsPipe/win32.ts");
+    terminateProcess(relay, code);
+  }
+
+  return code;
+};

@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
+  CLIENT_OPEN_FLAGS,
+  grantsImpersonation,
   PIPE_MODE,
   pipeOpenMode,
   pipeSecurityDescriptor,
@@ -32,5 +34,19 @@ describe("the pipe's flags", () => {
 
     expect(pipeOpenMode(true) & FIRST_PIPE_INSTANCE).toBe(FIRST_PIPE_INSTANCE);
     expect(pipeOpenMode(false) & FIRST_PIPE_INSTANCE).toBe(0);
+  });
+});
+
+describe("a Client's open flags", () => {
+  test("a pipe server may identify the Client but never impersonate it", () => {
+    expect(grantsImpersonation(CLIENT_OPEN_FLAGS)).toBe(false);
+  });
+
+  test.each([
+    ["overlapped only (Windows defaults to impersonation)", 0x4000_0000],
+    ["SQOS at the impersonation level", 0x4000_0000 | 0x0010_0000 | 0x0002_0000],
+    ["SQOS at the delegation level", 0x4000_0000 | 0x0010_0000 | 0x0003_0000],
+  ])("%s grants impersonation", (_, flags) => {
+    expect(grantsImpersonation(flags)).toBe(true);
   });
 });

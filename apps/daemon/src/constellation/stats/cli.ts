@@ -1,8 +1,9 @@
-import { connectRpc, socketTransport } from "@polaris/client";
+import { connectRpc } from "@polaris/client";
 import { bundledPrices, summarizeUsage } from "@polaris/client/usage";
 import { ConstellationId, ConstellationStats, type StatsUsage } from "@polaris/protocol";
 import { Effect, Schema } from "effect";
 import { paths } from "../../paths.ts";
+import { localDaemonTransport } from "../../transport/localDaemon.ts";
 
 /** The CLI is a Client: only it estimates cost; the Daemon never fetches prices. */
 export const pricedStats = (stats: ConstellationStats) => {
@@ -50,7 +51,7 @@ export const runConstellationStats = async (args: ReadonlyArray<string>): Promis
     const stats = await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
-          const transport = yield* socketTransport(
+          const transport = yield* localDaemonTransport(
             process.env.POLARIS_HOST_SOCKET ?? paths().socket
           );
 

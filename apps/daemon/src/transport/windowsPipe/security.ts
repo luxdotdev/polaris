@@ -21,6 +21,23 @@ const PIPE_REJECT_REMOTE_CLIENTS = 0x8;
 export const pipeOpenMode = (first: boolean): number =>
   PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED | (first ? FILE_FLAG_FIRST_PIPE_INSTANCE : 0);
 
+const SECURITY_SQOS_PRESENT = 0x0010_0000;
+
+const SECURITY_IDENTIFICATION = 0x0001_0000;
+
+const SECURITY_LEVEL_MASK = 0x0003_0000;
+
+/**
+ * `CreateFileW` flags for a Client's end: overlapped, and a server may only identify
+ * the Client, never act as it, so a squatter that answers first gains nothing usable.
+ */
+export const CLIENT_OPEN_FLAGS =
+  FILE_FLAG_OVERLAPPED | SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION;
+
+/** Whether open flags let the server impersonate the Client (Windows' default without SQOS). */
+export const grantsImpersonation = (flags: number): boolean =>
+  (flags & SECURITY_SQOS_PRESENT) === 0 || (flags & SECURITY_LEVEL_MASK) > SECURITY_IDENTIFICATION;
+
 /** A byte stream that never accepts a client from another machine (through SMB). */
 export const PIPE_MODE =
   PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS;

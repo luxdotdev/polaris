@@ -77,3 +77,5 @@ squatter that wins the race before the Daemon starts could impersonate it to a C
 Daemon refuses to start in that case, but the Desktop App and `polaris bridge` don't yet compare
 the pipe's owner with the user (a follow-up for S4 and S5, which needs a non-`bun:ffi` path in
 Electron). Windows has no `execve` or `SIGUSR2`, so live upgrades are off there for now.
+
+`polaris bridge` and the Daemon's own CLIs now make that check on the handle they use (ADR 0063).
