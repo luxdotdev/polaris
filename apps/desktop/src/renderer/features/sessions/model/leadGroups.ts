@@ -3,12 +3,12 @@
  * session row with its workers nested under it, needs-you first, accepted ones folded into
  * one line; worker sessions leave the plain list. Pure, so it is tested.
  */
-import type { Attempt, SessionId, TaskId } from "@polaris/protocol";
+import { type Attempt, type SessionId, type TaskId, workerPhase } from "@polaris/protocol";
 import { Match } from "effect";
 import { needsYou } from "../../../routes/topBar.ts";
 import type { HostView } from "../../../../shared/api.ts";
 import type { HostModel, SessionEntry } from "../../../store/hostModel.ts";
-import { slotWaitOf } from "../../../store/hostResources.ts";
+import { slotHeldOf, slotWaitOf } from "../../../store/hostResources.ts";
 import type { Plain } from "../../../store/plain.ts";
 import {
   currentSetup,
@@ -35,7 +35,11 @@ export type WorkerState =
   | "lost"
   | "accepted"
   | "setting-up"
-  | "setup-failed";
+  | "setup-failed"
+  /** No first Turn yet (ENG-264): "starting" until it has held its slot past the grace period… */
+  | "starting"
+  /** …then "stalled": it holds a slot with nothing running, and needs you to start it. */
+  | "stalled";
 
 /** A parent Task a worker nests under in the sidebar. */
 export interface ParentRef {
@@ -62,6 +66,8 @@ export interface WorkerRow {
   readonly fetched: boolean;
   /** Since when it has waited for a worker slot on its Host; null when it isn't. */
   readonly slotSince: string | null;
+  /** Since when it has held its slot there; null when it doesn't. */
+  readonly slotHeldSince: string | null;
 }
 
 /**
@@ -106,6 +112,8 @@ export type WorkerLookup = (attempt: Plain<Attempt>) => {
   readonly entry: SessionEntry | undefined;
   /** Since when the Attempt has waited for a slot on that Host (its `__workers` queue). */
   readonly slotSince: string | null;
+  /** Since when it has held a slot there (its `__workers` lease). */
+  readonly slotHeldSince?: string | null;
 } | null;
 
 /** Builds a WorkerLookup over every Host this Client knows. */
@@ -128,6 +136,7 @@ export const lookupIn = (
           hostKey,
           entry: model?.sessions.get(attempt.sessionId),
           slotSince: model === undefined ? null : slotWaitOf(model.resources, attempt),
+          slotHeldSince: model === undefined ? null : slotHeldOf(model.resources, attempt),
         };
   };
 };
@@ -138,6 +147,7 @@ const ATTENTION: ReadonlySet<WorkerState> = new Set([
   "unclaimed",
   "stale",
   "handed-up",
+  "stalled",
 ]);
 
 const RANK: Readonly<Record<WorkerState, number>> = {
@@ -146,7 +156,9 @@ const RANK: Readonly<Record<WorkerState, number>> = {
   stale: 0,
   "handed-up": 0,
   "setup-failed": 0,
+  stalled: 0,
   review: 1,
+  starting: 2,
   "setting-up": 2,
   working: 2,
   blocked: 2,
@@ -163,13 +175,16 @@ const workingState = (
   attempt: Plain<Attempt>,
   entry: SessionEntry | null,
   stale: boolean,
-  slotSince: string | null
+  slotSince: string | null,
+  startup: "starting" | "stalled" | null
 ): WorkerState => {
   if (entry !== null && needsYou(entry)) return "needs-you";
 
   if (stale) return "stale";
 
   if (slotSince !== null) return "waiting-slot";
+
+  if (startup !== null) return startup;
 
   return stoppedWithoutClaiming(attempt, entry?.session ?? null) ? "unclaimed" : "working";
 };
@@ -185,10 +200,11 @@ export const workerState = (
   attempt: Plain<Attempt>,
   entry: SessionEntry | null,
   stale: boolean,
-  slotSince: string | null = null
+  slotSince: string | null = null,
+  startup: "starting" | "stalled" | null = null
 ): WorkerState =>
   Match.value(attempt.state).pipe(
-    Match.when("working", () => workingState(attempt, entry, stale, slotSince)),
+    Match.when("working", () => workingState(attempt, entry, stale, slotSince, startup)),
     Match.when("blocked", (): WorkerState =>
       entry !== null && needsYou(entry) ? "needs-you" : "blocked"
     ),
@@ -210,11 +226,37 @@ const placeOf = (byId: ReadonlyMap<string, TaskData>, task: TaskData) => ({
     .map((t) => ({ id: t.id, title: t.title })),
 });
 
+/** A working Attempt with no first Turn yet, from the Daemon's liveness and its slot (ENG-264). */
+const startupOf = (
+  attempt: Plain<Attempt>,
+  liveness: ConstellationView["projections"][number]["liveness"] | undefined,
+  found: ReturnType<WorkerLookup>,
+  now: number
+) => {
+  const held = found?.slotHeldSince ?? null;
+
+  const phase = workerPhase({
+    setup: null,
+    slot: held === null ? null : { kind: "held", since: held },
+    firstTurn: liveness?.firstTurn ?? null,
+    turnInFlight: liveness?.activeTurn ?? null,
+    startedAt: attempt.startedAt,
+    now,
+  });
+
+  return phase.kind === "starting" || phase.kind === "stalled" ? phase.kind : null;
+};
+
 /** One row per Task a worker has tried (its latest Attempt); Gates are the Lead's own. */
-export const workerRows = (view: ConstellationView, lookup: WorkerLookup): Array<WorkerRow> => {
+export const workerRows = (
+  view: ConstellationView,
+  lookup: WorkerLookup,
+  now: number = Date.now()
+): Array<WorkerRow> => {
   const { constellation, projections } = view;
   const stale = new Set(projections.filter((p) => p.stale).map((p) => p.taskId));
   const unfetched = new Set(projections.filter((p) => !p.branchFetched).map((p) => p.taskId));
+  const liveness = new Map(projections.map((p) => [p.taskId, p.liveness]));
   const order = new Map(constellation.tasks.map((t, i) => [t.id, i]));
   const byId = new Map<string, TaskData>(constellation.tasks.map((t) => [t.id, t]));
 
@@ -236,10 +278,17 @@ export const workerRows = (view: ConstellationView, lookup: WorkerLookup): Array
         sessionId: attempt.sessionId,
         hostKey: found?.hostKey ?? null,
         entry,
-        state: workerState(attempt, entry, stale.has(task.id), found?.slotSince ?? null),
+        state: workerState(
+          attempt,
+          entry,
+          stale.has(task.id),
+          found?.slotSince ?? null,
+          startupOf(attempt, liveness.get(task.id), found, now)
+        ),
         attempt,
         fetched: !unfetched.has(task.id),
         slotSince: found?.slotSince ?? null,
+        slotHeldSince: found?.slotHeldSince ?? null,
       },
     ];
   });

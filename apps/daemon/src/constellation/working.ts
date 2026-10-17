@@ -1,4 +1,10 @@
-import type { Attempt, AttemptId, SessionId, DomainEvent } from "@polaris/protocol";
+import {
+  type Attempt,
+  type AttemptId,
+  CommandId,
+  type SessionId,
+  type DomainEvent,
+} from "@polaris/protocol";
 import { Cause, Deferred, Effect, Exit, Layer, Predicate, Scope, Stream } from "effect";
 import {
   cancelWorkerAdmissionWait,
@@ -299,6 +305,28 @@ export const workingAttemptsLayer = <E>(hooks: WorkingAttemptHooks<E>) =>
               if (attempt.state === "working" || attempt.state === "blocked")
                 yield* start(attempt, true);
           }
+        }),
+        restartStartup: Effect.fnUntraced(function* (attemptId: AttemptId) {
+          const attempt = [...(yield* store.model).constellations.values()]
+            .filter((r) => r.graph.state !== "completed" && r.graph.state !== "archived")
+            .flatMap((r) => r.graph.attempts)
+            .find((a) => a.id === attemptId);
+
+          if (attempt?.state !== "working" || hooks.ownsAttempt?.(attempt) === false) return false;
+
+          for (const receipt of ["start", "startup-failed"])
+            if (
+              yield* store
+                .hasCommandReceipt(CommandId.make(`${attemptId}:${receipt}`))
+                .pipe(Effect.orDie)
+            )
+              return false;
+
+          // The same path a Daemon restart takes: a fresh slot, then the brief exactly once.
+          yield* close(attemptId);
+          yield* start(attempt, true);
+
+          return true;
         }),
         afterCommit: Effect.fnUntraced(function* (binding, command, envelopes) {
           yield* hooks.runtime.afterCommit(binding, command, envelopes);

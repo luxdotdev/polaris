@@ -5,7 +5,7 @@
 import { Predicate } from "effect";
 import type { HostView } from "../../../shared/api.ts";
 import { type AppState, sessionKey } from "../../store/store.ts";
-import { slotWaitOf } from "../../store/hostResources.ts";
+import { slotHeldOf, slotWaitOf } from "../../store/hostResources.ts";
 import type { TurnView } from "../../store/sessionModel.ts";
 import {
   type Activity,
@@ -63,6 +63,7 @@ const observedOver = (derived: WorkerFacts, observed: ProjectionData["liveness"]
     queued: observed.queuedInput,
     quietSince: observed.lastOutputAt === null ? null : iso(observed.lastOutputAt),
     activeTurn: observed.activeTurn ?? derived.activeTurn,
+    firstTurn: observed.firstTurn ?? derived.firstTurn,
   };
 };
 
@@ -101,6 +102,9 @@ export const workerFactsFrom = (
       slotSince === null
         ? activityOf(lastTurn)
         : { kind: "slot", host: remoteHost, since: slotSince },
+    slotHeldSince: hostModel === undefined ? null : slotHeldOf(hostModel.resources, attempt),
+    // An open feed that shows the brief's Turn knows it started; otherwise only the Daemon does.
+    firstTurn: open?.turns.some((t) => t.turn.id === `${attempt.id}:start`) === true ? true : null,
     contextPercent: usage === null ? null : percent(usage.usedTokens, usage.windowTokens),
     approvalSince: entry?.pendingApprovals[0]?.openedAt ?? null,
     stoppedWithoutClaiming: stoppedWithoutClaiming(attempt, session),

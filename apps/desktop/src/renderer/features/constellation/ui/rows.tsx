@@ -176,6 +176,8 @@ export interface RowHandlers {
   readonly onApprove: (row: TaskRow) => void;
   /** Dispatches a Task whose worktree setup failed again, on the same worker Session. */
   readonly onRetrySetup: (row: TaskRow) => void;
+  /** Restarts a stalled worker's startup on its Host: a fresh slot, then its brief once. */
+  readonly onStartWorker: (row: TaskRow) => void;
   readonly onProposal: (proposalId: string, accept: boolean) => void;
   readonly onHandover: (revision: number) => void;
   /** The row's ⋯ menu, rendered by the tab. */
@@ -203,6 +205,45 @@ const Blocks = ({ ids }: { readonly ids: ReadonlyArray<string> }) =>
       blocks <span className="text-code-inline font-mono">{ids.join(", ")}</span>
     </span>
   );
+
+/** The buttons on a row's second line: Retry a failed setup, Start a stalled worker, decide a Claim. */
+const RowActions = ({ row, on }: { readonly row: TaskRow; readonly on: RowHandlers }) => (
+  <>
+    {row.setup?.failed === true ? (
+      <span className="flex shrink-0 gap-1.5 pr-9">
+        <Button size="xs" onClick={() => on.onRetrySetup(row)}>
+          Retry
+        </Button>
+        <Button size="xs" variant="ghost" onClick={() => on.onFocus(row)}>
+          Open the log
+        </Button>
+      </span>
+    ) : null}
+    {row.look.attention?.kind === "stalled" ? (
+      <span className="flex shrink-0 gap-1.5 pr-9">
+        <Button size="xs" onClick={() => on.onStartWorker(row)}>
+          Start
+        </Button>
+      </span>
+    ) : null}
+    {row.promoted ? (
+      <span className="flex shrink-0 gap-1.5 pr-9">
+        {row.look.attention?.kind === "handed" ? (
+          <Button size="xs" onClick={() => on.onApprove(row)}>
+            Approve
+          </Button>
+        ) : (
+          <Button size="xs" onClick={() => on.onReview(row, "accept")}>
+            Accept…
+          </Button>
+        )}
+        <Button size="xs" variant="ghost" onClick={() => on.onReview(row, "send-back")}>
+          Send back…
+        </Button>
+      </span>
+    ) : null}
+  </>
+);
 
 const TaskView = ({
   row,
@@ -249,32 +290,7 @@ const TaskView = ({
             )}
             <Blocks ids={row.blocks} />
           </div>
-          {row.setup?.failed === true ? (
-            <span className="flex shrink-0 gap-1.5 pr-9">
-              <Button size="xs" onClick={() => on.onRetrySetup(row)}>
-                Retry
-              </Button>
-              <Button size="xs" variant="ghost" onClick={() => on.onFocus(row)}>
-                Open the log
-              </Button>
-            </span>
-          ) : null}
-          {row.promoted ? (
-            <span className="flex shrink-0 gap-1.5 pr-9">
-              {row.look.attention?.kind === "handed" ? (
-                <Button size="xs" onClick={() => on.onApprove(row)}>
-                  Approve
-                </Button>
-              ) : (
-                <Button size="xs" onClick={() => on.onReview(row, "accept")}>
-                  Accept…
-                </Button>
-              )}
-              <Button size="xs" variant="ghost" onClick={() => on.onReview(row, "send-back")}>
-                Send back…
-              </Button>
-            </span>
-          ) : null}
+          <RowActions row={row} on={on} />
         </div>
       )}
       {row.overlap === null ? null : (

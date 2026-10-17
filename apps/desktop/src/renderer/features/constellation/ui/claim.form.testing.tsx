@@ -18,6 +18,7 @@ installConstellationClient({
   answer: refuse,
   message: refuse,
   setState: refuse,
+  startWorker: refuse,
 });
 
 const record = c1Record({ attempts: handedUpAttempts() });

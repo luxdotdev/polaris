@@ -62,6 +62,46 @@ describe("workerRows", () => {
     expect(b4?.fetched).toBe(false);
   });
 
+  test("ENG-264: a worker with no first Turn reads starting, then stalled on a held slot", () => {
+    const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+
+    const view = {
+      ...C1,
+      projections: C1.projections.map((p) =>
+        p.taskId === "B2"
+          ? {
+              ...p,
+              liveness: {
+                current: null,
+                lastOutputAt: null,
+                contextPercent: null,
+                queuedInput: 0,
+                activeTurn: false,
+                firstTurn: false,
+              },
+            }
+          : p
+      ),
+    };
+
+    const holding =
+      (since: string): typeof lookup =>
+      (attempt) => {
+        const found = lookup(attempt);
+
+        return found === null || attempt.taskId !== "B2"
+          ? found
+          : { ...found, slotHeldSince: since };
+      };
+
+    const b2 = (since: string) =>
+      workerRows(view, holding(since)).find((r) => r.taskId === "B2")?.state;
+
+    expect(b2(ago(0.1))).toBe("starting");
+    expect(b2(ago(12))).toBe("stalled");
+    expect(workerRows(view, lookup).find((r) => r.taskId === "B2")?.state).toBe("starting");
+  });
+
   test("a pending approval outranks the Attempt's state", () => {
     expect(workerRows(C2, lookup).map((r) => [`${r.taskId}`, r.state])).toEqual([
       ["L2", "needs-you"],

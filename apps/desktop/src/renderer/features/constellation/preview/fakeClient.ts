@@ -226,5 +226,6 @@ export const fakeClient = (
     },
     message: async () => ok("Sent; the lead sees it in its next digest"),
     setState: async () => ok("State changed"),
+    startWorker: async () => ok("Starting"),
   };
 };

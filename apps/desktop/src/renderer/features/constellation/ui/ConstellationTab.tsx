@@ -122,6 +122,17 @@ const useTabActions = (
     );
   };
 
+  const startWorker = (row: TaskRow) => {
+    const worker = row.attempt === null ? null : hostKeyOf(hosts, row.attempt.hostId);
+
+    if (worker === null || row.attempt === null) return;
+    void constellationCommands.startWorker(
+      worker,
+      { constellationId: c.id, attemptId: row.attempt.id },
+      `Couldn't start ${row.task.id}`
+    );
+  };
+
   const toggle = (group: string, open: boolean) =>
     patchLeadUi(key, (ui) => ({ folds: new Map(ui.folds).set(group, open) }));
 
@@ -130,7 +141,7 @@ const useTabActions = (
     commands.run("session.focusComposer");
   };
 
-  return { key, menu, answer, retry, toggle, focus, messageLead };
+  return { key, menu, answer, retry, startWorker, toggle, focus, messageLead };
 };
 
 type Actions = ReturnType<typeof useTabActions>;
@@ -268,6 +279,7 @@ export const ConstellationTab = (props: ConstellationTabProps) => {
     onReview: actions.menu.onReview,
     onApprove: actions.menu.onApprove,
     onRetrySetup: actions.retry,
+    onStartWorker: actions.startWorker,
     onProposal: actions.answer,
     onHandover: (revision) =>
       patchLeadUi(actions.key, () => ({ focus: { kind: "handover", revision } })),

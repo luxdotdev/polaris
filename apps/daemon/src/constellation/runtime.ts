@@ -1,4 +1,5 @@
 import type {
+  AttemptId,
   CommandId,
   ConstellationCommand,
   ConstellationRejected,
@@ -24,6 +25,11 @@ export interface ConstellationRuntimeService {
   ) => Effect.Effect<ConstellationPreparation, ConstellationRejected>;
   /** Reacquire folded working assignments after Session recovery, without sending a first Turn. */
   readonly resumeWorking: () => Effect.Effect<void>;
+  /**
+   * Restart a working Attempt's startup when it has no first Turn: reacquire its slot and send
+   * the brief once. False when this Host doesn't run it or it already started.
+   */
+  readonly restartStartup?: (attemptId: AttemptId) => Effect.Effect<boolean>;
   readonly afterCommit: (
     binding: ConstellationBinding,
     command: ConstellationCommand,

@@ -7,6 +7,8 @@ import { Predicate } from "effect";
 import { idRanges, span } from "./copy.ts";
 import { neutralFailure } from "./failure.ts";
 import type { Facts, WorkerFacts } from "./facts.ts";
+import type { WorkerPhase } from "@polaris/protocol";
+import { phaseOf } from "./phase.ts";
 import { currentSetup, type SetupRun } from "./setup.ts";
 import type { AttemptData, ConstellationData, ProjectionData, TaskData } from "./types.ts";
 
@@ -33,7 +35,9 @@ export type Attention =
   | { readonly kind: "handed" }
   | { readonly kind: "stopped" }
   /** Worktree setup failed before the Attempt could start (it ranks with "stopped"). */
-  | { readonly kind: "setup"; readonly run: SetupRun };
+  | { readonly kind: "setup"; readonly run: SetupRun }
+  /** It holds a worker slot with no first Turn and nothing running (ENG-264): start it. */
+  | { readonly kind: "stalled"; readonly since: string };
 
 /** The buckets groups count and filters use. */
 export type Bucket = "needs-you" | "review" | "working" | "blocked" | "done" | "waiting" | "ended";
@@ -99,7 +103,8 @@ const attentionOf = (
   c: ConstellationData,
   projection: ProjectionData,
   attempt: AttemptData | null,
-  worker: WorkerFacts
+  worker: WorkerFacts,
+  phase: WorkerPhase | null
 ): Attention | null => {
   if (
     attempt === null ||
@@ -121,9 +126,11 @@ const attentionOf = (
   )
     return { kind: "handed" };
 
-  return worker.stoppedWithoutClaiming && projection.state === "working"
-    ? { kind: "stopped" }
-    : null;
+  if (projection.state !== "working") return null;
+
+  if (worker.stoppedWithoutClaiming) return { kind: "stopped" };
+
+  return phase?.kind === "stalled" ? { kind: "stalled", since: phase.since } : null;
 };
 
 const ATTENTION_WORD: Readonly<Record<Attention["kind"], string>> = {
@@ -132,7 +139,14 @@ const ATTENTION_WORD: Readonly<Record<Attention["kind"], string>> = {
   handed: "handed to you",
   stopped: "needs you",
   setup: "setup failed",
+  stalled: "stalled",
 };
+
+/** "stalled · 12m" counts from when it took the slot; the others need no age. */
+const attentionWord = (attention: Attention, now: number) =>
+  attention.kind === "stalled"
+    ? `${ATTENTION_WORD.stalled} · ${span(attention.since, now)}`
+    : ATTENTION_WORD[attention.kind];
 
 const STATE_WORD: Readonly<Record<TaskState, string>> = {
   waiting: "waiting",
@@ -198,6 +212,35 @@ const setupLook = (run: SetupRun, failed: boolean): TaskLook =>
         bucket: "working",
       };
 
+const waitingLook = (word: string, bucket: Bucket): TaskLook => ({
+  glyph: "waiting",
+  idTone: "neutral",
+  word,
+  wordTone: "neutral",
+  evidence: null,
+  attention: null,
+  bucket,
+});
+
+/** A working Attempt not running a Turn: queued for a slot, starting, or waiting (F9). */
+const quietLook = (
+  attempt: AttemptData,
+  worker: WorkerFacts,
+  phase: WorkerPhase | null,
+  now: number
+): TaskLook | null => {
+  if (worker.activity?.kind === "slot")
+    return waitingLook(`waiting · ${span(worker.activity.since, now)}`, "working");
+
+  // No first Turn yet: on its way to work, not waiting on anyone (ENG-264).
+  if (phase?.kind === "starting")
+    return waitingLook(`starting · ${span(phase.since, now)}`, "working");
+
+  return worker.activeTurn === false
+    ? waitingLook(`waiting · ${span(worker.quietSince ?? attempt.startedAt, now)}`, "waiting")
+    : null;
+};
+
 export const taskLook = (
   c: ConstellationData,
   task: TaskData,
@@ -209,7 +252,13 @@ export const taskLook = (
 
   if (setup !== null) return setupLook(setup.run, setup.failed);
   const worker = attempt === null ? null : facts.worker(attempt);
-  const attention = worker === null ? null : attentionOf(c, projection, attempt, worker);
+
+  const phase =
+    attempt === null || worker === null || projection.state !== "working"
+      ? null
+      : phaseOf(attempt, worker, facts.setup(task.id), facts.now);
+
+  const attention = worker === null ? null : attentionOf(c, projection, attempt, worker, phase);
   const isGate = task.kind === "gate";
   const glyph = glyphFor(projection, { needsYou: attention !== null, isGate });
 
@@ -217,36 +266,19 @@ export const taskLook = (
     return {
       glyph,
       idTone: "needs-you",
-      word: ATTENTION_WORD[attention.kind],
+      word: attentionWord(attention, facts.now),
       wordTone: "needs-you",
       evidence: null,
       attention,
       bucket: "needs-you",
     };
-  const slot = worker?.activity?.kind === "slot" ? worker.activity : null;
 
-  if (slot !== null && projection.state === "working")
-    return {
-      glyph: "waiting",
-      idTone: "neutral",
-      word: `waiting · ${span(slot.since, facts.now)}`,
-      wordTone: "neutral",
-      evidence: null,
-      attention: null,
-      bucket: "working",
-    };
+  const quiet =
+    projection.state === "working" && attempt !== null && worker !== null
+      ? quietLook(attempt, worker, phase, facts.now)
+      : null;
 
-  // A working Attempt with no Turn in flight is waiting, never "working" (F9).
-  if (projection.state === "working" && attempt !== null && worker?.activeTurn === false)
-    return {
-      glyph: "waiting",
-      idTone: "neutral",
-      word: `waiting · ${span(worker.quietSince ?? attempt.startedAt, facts.now)}`,
-      wordTone: "neutral",
-      evidence: null,
-      attention: null,
-      bucket: "waiting",
-    };
+  if (quiet !== null) return quiet;
 
   if (projection.state === "failed" && neutralFailure(attempt?.failureKind))
     return {

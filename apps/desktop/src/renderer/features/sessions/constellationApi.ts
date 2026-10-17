@@ -17,7 +17,9 @@ export type ConstellationPayload<M extends ConstellationMethod> = Omit<
 >;
 
 const withId = <M extends ConstellationMethod>(method: M, payload: ConstellationPayload<M>) =>
-  method === "constellation.status" ? payload : { ...payload, commandId: newCommandId() };
+  method === "constellation.status" || method === "constellation.worker.start"
+    ? payload
+    : { ...payload, commandId: newCommandId() };
 
 export const newCommandId = () => CommandId.make(crypto.randomUUID());
 
