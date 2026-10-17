@@ -15,6 +15,7 @@ export const PLATFORMS = [
   "linux-arm64",
   "linux-x64-musl",
   "linux-arm64-musl",
+  "windows-x64",
 ] as const;
 
 export type Platform = (typeof PLATFORMS)[number];

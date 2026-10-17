@@ -9,8 +9,10 @@ import { Context, Layer } from "effect";
 import { detectPlatform, libcPathOf, type PlatformFacts, runtimePlatformOf } from "./detect.ts";
 
 export {
+  buildOsOf,
   detectPlatform,
   GLIBC_LOADERS,
+  isEmbeddedPath,
   type Libc,
   libcPathOf,
   muslLoader,

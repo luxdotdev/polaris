@@ -42,6 +42,7 @@
     "@ast-grep/napi-linux-arm64-gnu": "0.45.3",
     "@ast-grep/napi-linux-arm64-musl": "0.45.3",
     "@ast-grep/napi-linux-x64-gnu": "0.45.3",
-    "@ast-grep/napi-linux-x64-musl": "0.45.3"
+    "@ast-grep/napi-linux-x64-musl": "0.45.3",
+    "@ast-grep/napi-win32-x64-msvc": "0.45.3"
   }
 }

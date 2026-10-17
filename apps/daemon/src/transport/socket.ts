@@ -1,11 +1,13 @@
 /**
  * The Daemon's only listener: a Unix socket at `paths().socket`, mode 0600 in
- * a 0700 directory. Remote Clients reach it through `polaris bridge` over SSH.
+ * a 0700 directory, or on Windows a named pipe only this user can open
+ * (`windowsPipe/`, ADR 0059). Remote Clients reach it through `polaris bridge` over SSH.
  */
 import { chmodSync, existsSync, lstatSync, mkdirSync, unlinkSync } from "node:fs";
 import { connect } from "node:net";
 import { dirname } from "node:path";
 import type { ByteTransport } from "@polaris/protocol";
+import { isPipePath } from "@polaris/protocol/endpoint";
 import { Effect, Queue, type Scope, Stream } from "effect";
 import {
   type AdoptedListener,
@@ -16,6 +18,7 @@ import {
 } from "../service/upgrade.ts";
 import { type BunSocketStream, socketHandlers } from "./bunSocket.ts";
 import { DaemonAlreadyRunning, LockError } from "./lock.ts";
+import { listenPipe, PipeUnavailable, probePipe } from "./windowsPipe/index.ts";
 
 /** True when something accepts connections on `path`. */
 export const probeSocket = (path: string, timeoutMs = 1000): Effect.Effect<boolean> =>
@@ -41,6 +44,7 @@ export const probeSocket = (path: string, timeoutMs = 1000): Effect.Effect<boole
 export const prepareSocketPath = Effect.fnUntraced(function* (
   path: string
 ): Effect.fn.Return<void, DaemonAlreadyRunning | LockError> {
+  if (isPipePath(path)) return yield* preparePipe(path);
   const dir = dirname(path);
   yield* Effect.try({
     try: () => {
@@ -63,6 +67,54 @@ export const prepareSocketPath = Effect.fnUntraced(function* (
   });
 });
 
+/** A pipe needs no file: refuse only when this user's Daemon or another account holds the name. */
+const preparePipe = Effect.fnUntraced(function* (
+  path: string
+): Effect.fn.Return<void, DaemonAlreadyRunning | LockError> {
+  const probe = yield* Effect.try({
+    try: () => probePipe(path),
+    catch: (cause) => new LockError({ path, message: `cannot probe the pipe: ${String(cause)}` }),
+  });
+
+  if (probe === "ours") return yield* new DaemonAlreadyRunning({ pid: null, path });
+
+  if (probe === "foreign")
+    return yield* new LockError({
+      path,
+      message: "another account holds this pipe name; not listening",
+    });
+});
+
+/** Windows: no socket file and no upgrade hand-off (an upgrade stops and restarts the Daemon). */
+const listenOnPipe = Effect.fnUntraced(function* (
+  path: string
+): Effect.fn.Return<Listener, LockError, Scope.Scope> {
+  const connections = yield* Queue.unbounded<ByteTransport>();
+
+  const handlers = socketHandlers((transport) => {
+    Queue.offerUnsafe(connections, transport);
+  });
+
+  yield* Effect.acquireRelease(
+    Effect.try({
+      try: () => listenPipe(path, handlers),
+      catch: (cause) =>
+        new LockError({
+          path,
+          message:
+            cause instanceof PipeUnavailable ? cause.message : `cannot listen: ${String(cause)}`,
+        }),
+    }),
+    (server) => Effect.sync(() => server.stop())
+  );
+
+  return {
+    connections: Stream.fromQueue(connections),
+    fd: () => null,
+    adopt: () => Effect.succeed(0),
+  };
+});
+
 export interface Listener {
   /** A transport per accepted connection. */
   readonly connections: Stream.Stream<ByteTransport>;
@@ -80,6 +132,7 @@ export interface Listener {
 export const listen = Effect.fnUntraced(function* (
   path: string
 ): Effect.fn.Return<Listener, LockError, Scope.Scope> {
+  if (isPipePath(path)) return yield* listenOnPipe(path);
   const connections = yield* Queue.unbounded<ByteTransport>();
 
   const handlers = socketHandlers((transport) => {

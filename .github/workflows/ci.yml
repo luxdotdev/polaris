@@ -211,6 +211,23 @@ jobs:
           expected=$(jq -r '.platforms["${{ matrix.platform }}"].sha256' dist/manifest.json)
           echo "$expected  dist/${{ matrix.platform }}/polaris" | sha256sum -c -
 
+  smoke-windows:
+    name: Smoke-test windows-x64
+    needs: build-daemon
+    runs-on: windows-latest
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: polaris-daemon
+          path: dist
+      - name: Run polaris selftest (embedded fff and ast-grep load) and check the manifest hash
+        shell: bash
+        run: |
+          dist/windows-x64/polaris.exe version | tr -d '\r' | grep -x "polaris .* windows-x64"
+          dist/windows-x64/polaris.exe selftest
+          expected=$(jq -r '.platforms["windows-x64"].sha256' dist/manifest.json)
+          echo "$expected  dist/windows-x64/polaris.exe" | sha256sum -c -
+
   bench:
     name: Daemon benchmarks (quick; memory gated)
     # Runs the real Daemon (from source) through every scenario at --quick sizes and posts the

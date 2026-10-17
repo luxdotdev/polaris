@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Schema } from "effect";
-import { HostInfo, Platform } from "./domain.ts";
+import { HostInfo, LEGACY_PLATFORMS } from "./domain.ts";
 import { HostId, Timestamp } from "./ids.ts";
 
 const base = {
@@ -12,11 +12,11 @@ const base = {
   startedAt: "2026-10-13T00:00:00Z",
 };
 
-/** `HostInfo` as Clients before `libc` declared it. */
+/** `HostInfo` as Clients before 0.2.0 declared it: no `libc`, and three platforms. */
 const OlderHostInfo = Schema.Struct({
   hostId: HostId,
   hostname: Schema.String,
-  platform: Platform,
+  platform: Schema.Literals(LEGACY_PLATFORMS),
   daemonVersion: Schema.String,
   homeDir: Schema.String,
   startedAt: Timestamp,
@@ -46,5 +46,21 @@ describe("HostInfo.libc on the wire", () => {
 
   test("an unknown libc is refused", () => {
     expect(() => Schema.decodeUnknownSync(HostInfo)({ ...base, libc: "bionic" })).toThrow();
+  });
+});
+
+describe("HostInfo.platform on the wire", () => {
+  test("this Client decodes a Host on a platform newer than itself", () => {
+    const info = Schema.decodeUnknownSync(HostInfo)({ ...base, platform: "windows-arm64" });
+
+    expect(info.platform).toBe("windows-arm64");
+  });
+
+  test("an older Client refuses windows-x64, so hello must not send it one", () => {
+    const encoded = Schema.encodeSync(HostInfo)(
+      Schema.decodeUnknownSync(HostInfo)({ ...base, platform: "windows-x64" })
+    );
+
+    expect(() => Schema.decodeUnknownSync(OlderHostInfo)(encoded)).toThrow();
   });
 });

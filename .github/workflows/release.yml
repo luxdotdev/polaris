@@ -413,7 +413,8 @@ jobs:
           # these through polaris.lux.dev/api/daemon/<version>/<platform> (docs/adr/0043).
           test -s "handoff/macos/polaris-daemon-$VERSION-SHA256SUMS"
           daemons=(handoff/macos/polaris-daemon-"$VERSION"-*.tar.gz)
-          test "${#daemons[@]}" -eq 5
+          test "${#daemons[@]}" -eq 6
+          test -s "handoff/macos/polaris-daemon-$VERSION-windows-x64.tar.gz"
           test -s "handoff/macos/Polaris-$VERSION-arm64-mac.zip"
           ls handoff/*/"Polaris-$VERSION-arm64.dmg" > /dev/null
           flags=(--draft --verify-tag --title "Polaris $VERSION")

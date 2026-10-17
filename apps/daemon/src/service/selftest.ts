@@ -17,6 +17,15 @@ export interface SelfTestResult {
   readonly lines: ReadonlyArray<string>;
 }
 
+/** Windows can't delete the grammar libraries ast-grep still has loaded; the OS temp dir keeps them. */
+const removeScratch = (scratch: string) => {
+  try {
+    rmSync(scratch, { recursive: true, force: true });
+  } catch (error) {
+    if (process.platform !== "win32") throw error;
+  }
+};
+
 export const selfTest = async (): Promise<SelfTestResult> => {
   const scratch = mkdtempSync(join(tmpdir(), "polaris-selftest-"));
   const previousHome = process.env.POLARIS_HOME;
@@ -65,6 +74,7 @@ export const selfTest = async (): Promise<SelfTestResult> => {
   } finally {
     if (previousHome === undefined) delete process.env.POLARIS_HOME;
     else process.env.POLARIS_HOME = previousHome;
-    rmSync(scratch, { recursive: true, force: true });
+
+    removeScratch(scratch);
   }
 };

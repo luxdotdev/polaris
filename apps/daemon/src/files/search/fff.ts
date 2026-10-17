@@ -21,6 +21,7 @@ import { createHash } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { paths } from "../../paths.ts";
+import { isEmbeddedPath } from "../../platform/index.ts";
 import { openFallbackBackend } from "./fallback.ts";
 import type { WorkerReply, WorkerRequest, WorkerValue, WorkerWatchEvent } from "./fffWorker.ts";
 import type { FileChange, GrepHit, PathHit, SearchBackend } from "./types.ts";
@@ -85,7 +86,7 @@ export const fffWatchTesting = { disableWatch: false, armMs: ARM_MS };
 const workerUrl = (): string => {
   const beside = new URL("./fffWorker.ts", import.meta.url);
 
-  return beside.pathname.startsWith("/$bunfs/")
+  return isEmbeddedPath(beside.pathname)
     ? new URL("./files/search/fffWorker.js", import.meta.url).href
     : beside.href;
 };

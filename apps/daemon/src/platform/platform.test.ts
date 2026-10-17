@@ -7,6 +7,7 @@ import { loadHostInfo } from "../transport/hostInfo.ts";
 import {
   detectPlatform,
   HostPlatform,
+  isEmbeddedPath,
   languagePlatformOf,
   libcPathOf,
   runtimePlatformOf,
@@ -91,8 +92,43 @@ describe("HostPlatform", () => {
 
       expect(mac.platform).toBe("darwin-arm64");
       expect("libc" in mac).toBe(false);
+
+      const windows = await Effect.runPromise(
+        loadHostInfo(root).pipe(
+          Effect.provide(HostPlatform.test({ os: "win32", arch: "x64", libc: "unknown" }))
+        )
+      );
+
+      expect(windows.platform).toBe("windows-x64");
+      expect("libc" in windows).toBe(false);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  });
+});
+
+describe("Windows", () => {
+  test("a Windows Host's build id is windows-x64, the name its archive ships under", () => {
+    const facts = detectPlatform({
+      os: "win32",
+      arch: "x64",
+      compiledLibc: undefined,
+      exists: () => false,
+    });
+
+    expect(runtimePlatformOf(facts)).toBe("windows-x64");
+    expect(languagePlatformOf(facts)).toBeNull();
+    expect(wireLibcOf(facts)).toBeUndefined();
+  });
+
+  test.each([
+    ["/$bunfs/root/fffWorker.ts", true],
+    ["B:\\~BUN\\root\\fffWorker.ts", true],
+    ["/B:/%7EBUN/root/fffWorker.ts", true],
+    ["/b:/~BUN/root/grammar.so", true],
+    ["C:\\Users\\lucas\\polaris\\fffWorker.ts", false],
+    ["/home/pi/polaris/src/fffWorker.ts", false],
+  ])("%s is inside a compiled binary: %p", (path, expected) => {
+    expect(isEmbeddedPath(path)).toBe(expected);
   });
 });

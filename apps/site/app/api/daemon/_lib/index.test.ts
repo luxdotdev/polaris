@@ -52,6 +52,7 @@ test.each([
   ["0.1.0-alpha.3", "linux-x64"],
   ["1.2.3", "darwin-arm64"],
   ["1.2.3-rc.1", "linux-arm64-musl"],
+  ["0.2.0", "windows-x64"],
 ])(
   "%s %s redirects to the exact Release asset, prereleases included",
   async (version, platform) => {
@@ -132,7 +133,7 @@ test("a failing tracker never changes the response or the wide event", async () 
 
 test.each([
   ["not-a-version", "linux-x64", 400],
-  ["1.0.0", "windows-x64", 404],
+  ["1.0.0", "windows-arm64", 404],
   ["0.1.0-dev.812.abc1234", "linux-x64", 404],
   ["1.0.0+local", "linux-x64", 404],
 ])(

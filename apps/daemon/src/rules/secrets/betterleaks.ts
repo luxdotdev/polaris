@@ -13,6 +13,7 @@ import { availableParallelism } from "node:os";
 import { dirname, join } from "node:path";
 import { Schema } from "effect";
 import { safeConfigEnv } from "../../git/safeConfig/index.ts";
+import { isEmbeddedPath } from "../../platform/index.ts";
 import { repositoryEnv } from "../../service/childEnv.ts";
 import { cachedBetterleaks, hostAsset } from "./fetch.ts";
 import { maskSecret } from "./mask.ts";
@@ -81,7 +82,7 @@ export const locateBetterleaks = (): string | null => {
 
   if (override !== undefined && override !== "") return existsSync(override) ? override : null;
 
-  if (import.meta.path.startsWith("/$bunfs/")) {
+  if (isEmbeddedPath(import.meta.path)) {
     const beside = join(dirname(process.execPath), "betterleaks");
 
     return existsSync(beside) ? beside : null;

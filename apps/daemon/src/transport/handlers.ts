@@ -17,7 +17,6 @@ import {
   GitError,
   type HostInfo,
   NotFound,
-  PROTOCOL_VERSION,
   Sequence,
   Unsupported,
   ResourceError,
@@ -27,6 +26,7 @@ import { ClientCapabilities, DeviceLabel } from "../engine/rpc.ts";
 import { BlobChannel } from "../services.ts";
 import { ServerRpcs } from "./rpcs.ts";
 import { languageDefaults } from "./languageDefaults.ts";
+import { helloHost } from "./hostInfo.ts";
 import { bindLanguageIdentity } from "./languageIdentity.ts";
 
 const constellationUnavailable = () =>
@@ -294,8 +294,7 @@ export const defaultHandlers = (options: {
           client.annotate(ClientCapabilities, capabilities);
 
           const response = {
-            host: options.hostInfo,
-            protocolVersion: PROTOCOL_VERSION,
+            ...helloHost(options.hostInfo, capabilities),
             capabilities: options.capabilities,
           };
 

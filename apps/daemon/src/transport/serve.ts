@@ -50,7 +50,7 @@ import { startServer } from "./server.ts";
 import { workspaceTrustLayer } from "./workspaceTrust.ts";
 import { armShutdownGrace, deadline, exitStuck, STARTUP_DEADLINE_MS } from "./deadline.ts";
 import { lazyAcceptHandlers } from "./lazyAccept.ts";
-import { lazyLanguageHandlers } from "./lazyLanguages.ts";
+import { languagesAvailable, lazyLanguageHandlers } from "./lazyLanguages.ts";
 import { lazyReviewer } from "./lazyReviewer.ts";
 import { lazyUsage } from "./lazyUsage.ts";
 
@@ -125,15 +125,9 @@ export const daemonHandlers = Layer.mergeAll(
   TerminalRpcsLive.pipe(Layer.provide(TerminalsDaemonLive))
 ).pipe(Layer.provide(daemonServices));
 
-export const daemonCapabilities: ReadonlyArray<Capability> = [
-  "prediction.capability",
+/** What the lazy language handlers serve: unavailable where no language artifact runs. */
+const LANGUAGE_CAPABILITIES: ReadonlyArray<Capability> = [
   "prediction.context",
-  "inline.propose",
-  "prediction.complete",
-  "prediction.edit",
-  "prediction.server",
-  "prediction.managed",
-  "commit.suggest-message",
   "languages",
   "languages.trust",
   "languages.format",
@@ -143,6 +137,17 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "languages.edits",
   "languages.resources",
   "languages.resources.tree-v2",
+];
+
+export const daemonCapabilities: ReadonlyArray<Capability> = [
+  "prediction.capability",
+  ...(languagesAvailable() ? LANGUAGE_CAPABILITIES : []),
+  "inline.propose",
+  "prediction.complete",
+  "prediction.edit",
+  "prediction.server",
+  "prediction.managed",
+  "commit.suggest-message",
   "constellation",
   "constellation.defaults",
   ...HARNESS_CATALOGUE.map((harness) => harness.capability),
@@ -221,7 +226,8 @@ export const serveProgram = Effect.scoped(
     const server = yield* startServer({
       handlers: daemonHandlers,
       capabilities: daemonCapabilities,
-      upgrades: true,
+      // Windows has no execve or SIGUSR2: an upgrade there stops and restarts the Daemon (S3).
+      upgrades: process.platform !== "win32",
       onPhase: startup.phase,
     });
 

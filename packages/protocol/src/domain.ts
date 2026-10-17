@@ -52,9 +52,27 @@ export const ConnectionState = Schema.Literals([
 
 export type ConnectionState = typeof ConnectionState.Type;
 
-export const Platform = Schema.Literals(["darwin-arm64", "linux-x64", "linux-arm64"]);
+/** The platforms a Daemon runs on, as `HostInfo.platform` names them (no libc suffix). */
+export const Platform = Schema.Literals([
+  "darwin-arm64",
+  "linux-x64",
+  "linux-arm64",
+  "windows-x64",
+]);
 
 export type Platform = typeof Platform.Type;
+
+/**
+ * The platforms every Client decodes. Clients before 0.2.0 reject any other
+ * `HostInfo.platform`, so `hello` only names another to a Client announcing `host.any-platform`.
+ */
+export const LEGACY_PLATFORMS = ["darwin-arm64", "linux-x64", "linux-arm64"] as const;
+
+/**
+ * `HostInfo.platform` on the wire: any name, so this Client keeps working with
+ * a Host on a platform newer than itself. Compare against `Platform`'s literals.
+ */
+export const HostPlatformName = Schema.String;
 
 /** A Linux Host's C library; `HostInfo.platform` leaves it out. */
 export const HostLibc = Schema.Literals(["glibc", "musl"]);
@@ -64,7 +82,7 @@ export type HostLibc = typeof HostLibc.Type;
 export class HostInfo extends Schema.Class<HostInfo>("HostInfo")({
   hostId: HostId,
   hostname: Schema.String,
-  platform: Platform,
+  platform: HostPlatformName,
   /** Linux only; absent from Daemons before 0.1.0-alpha.4 and on macOS. */
   libc: Schema.optionalKey(HostLibc),
   daemonVersion: Schema.String,

@@ -12,7 +12,7 @@ holds this URL template and every archive's SHA-256, which the Client checks.
   or unpublished version) is GitHub's 404, and the Client falls back or reports it.
 - **400** for a malformed version.
 - **404** for a platform outside `darwin-arm64`, `linux-x64`, `linux-arm64`,
-  `linux-x64-musl`, `linux-arm64-musl`, and for dev versions (`-dev.`, `+build`),
+  `linux-x64-musl`, `linux-arm64-musl`, `windows-x64`, and for dev versions (`-dev.`, `+build`),
   which have no Release.
 
 Bytes never pass through Vercel. R2 can replace GitHub behind this URL later.
