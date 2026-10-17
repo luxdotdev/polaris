@@ -1,11 +1,13 @@
 /**
  * Accept's merge: the claimed head goes into the Lead's checkout before the Accept is decided,
- * with automatic git's safe config (no repository hooks, filters or merge drivers).
+ * with automatic git's safe config (no repository hooks, filters or merge drivers), signed
+ * with the Host's own settings when `commit.gpgSign` asks (docs/adr/0068).
  */
 import { type Attempt, type Constellation, ConstellationTransferError } from "@polaris/protocol";
 import { Effect } from "effect";
-import { gitText, HOOKS_OFF, resolveCommit, runGitRaw } from "../git/git.ts";
+import { type GitResult, gitText, HOOKS_OFF, resolveCommit, runGitRaw } from "../git/git.ts";
 import { constellationRef, mergedInto } from "../git/constellationBundles.ts";
+import { commitSigning, signingOptions } from "../git/signing.ts";
 import { gitStatus } from "../git/status.ts";
 
 const refused = (code: string, message: string, fix: string) =>
@@ -17,6 +19,9 @@ const failed = (cause: unknown) =>
     message: cause instanceof Error ? cause.message : String(cause),
     retryable: true,
   });
+
+const signFix = (place: string, branch: string, head: string) =>
+  `Merge ${place} into ${branch} and sign it yourself, then accept with mergedHead ${head}.`;
 
 const git = <A>(f: () => Promise<A>) => Effect.tryPromise({ try: f, catch: failed });
 
@@ -125,26 +130,74 @@ export const mergeClaim = Effect.fnUntraced(function* (
   if (branch instanceof ConstellationTransferError) return yield* branch;
 
   const message = `Merge ${attempt.branch} (${attempt.taskId})`;
+  const fastForward = yield* git(() => mergedInto(leadPath, "HEAD", head));
+  const signing = fastForward ? null : yield* git(() => commitSigning(leadPath));
+
+  if (signing?.kind === "refuse")
+    return yield* refused(
+      "E-MERGE-SIGN",
+      `The merge of ${place} into ${branch} must be signed, and Polaris signs only with your own git config's settings: ${signing.reason}; nothing was merged`,
+      signFix(place, branch, head)
+    );
+
+  // `--gpg-sign` keeps the commit signed even if commit.gpgSign changes meanwhile.
+  const sign = signing === null ? [] : ["--gpg-sign"];
 
   const result = yield* git(() =>
-    runGitRaw(leadPath, [...HOOKS_OFF, "merge", "--ff", "--no-edit", "-m", message, head])
+    runGitRaw(leadPath, [
+      ...HOOKS_OFF,
+      ...signingOptions(signing),
+      "merge",
+      "--ff",
+      ...sign,
+      "--no-edit",
+      "-m",
+      message,
+      head,
+    ])
   );
 
   if (result.code !== 0) {
     const conflicts = yield* git(() => abandon(leadPath));
 
-    return yield* conflicts.length > 0
-      ? refused(
-          "E-MERGE-CONFLICT",
-          `Merging ${place} into ${branch} conflicts in ${conflicts.slice(0, 5).join(", ")}; nothing was merged`,
-          `Send it back with mergeConflictBase ${branch} so the worker merges ${branch} first, or merge it into ${branch} yourself, then accept with mergedHead ${head}.`
-        )
-      : refused(
-          "E-GIT",
-          `git merge of ${place} into ${branch} failed: ${result.stderr.trim()}`,
-          `Merge ${place} into ${branch} yourself, then accept with mergedHead ${head}.`
-        );
+    return yield* mergeFailure(
+      { place, branch, head, conflicts, signed: signing !== null },
+      result
+    );
   }
 
   return { merged: true, leadHead: yield* git(() => gitText(leadPath, ["rev-parse", "HEAD"])) };
 });
+
+interface Failed {
+  readonly place: string;
+  readonly branch: string;
+  readonly head: string;
+  readonly conflicts: ReadonlyArray<string>;
+  readonly signed: boolean;
+}
+
+/** Why the merge failed, once it's undone: a conflict, signing, or git's own words. */
+const mergeFailure = ({ place, branch, head, conflicts, signed }: Failed, result: GitResult) => {
+  const stderr = result.stderr.trim();
+
+  if (conflicts.length > 0)
+    return refused(
+      "E-MERGE-CONFLICT",
+      `Merging ${place} into ${branch} conflicts in ${conflicts.slice(0, 5).join(", ")}; nothing was merged`,
+      `Send it back with mergeConflictBase ${branch} so the worker merges ${branch} first, or merge it into ${branch} yourself, then accept with mergedHead ${head}.`
+    );
+
+  if (signed && stderr.includes("failed to write commit object"))
+    return refused(
+      "E-MERGE-SIGN",
+      `git could not sign the merge of ${place} into ${branch}; nothing was merged: ${stderr}`,
+      signFix(place, branch, head)
+    );
+
+  return refused(
+    "E-GIT",
+    `git merge of ${place} into ${branch} failed: ${stderr}`,
+    `Merge ${place} into ${branch} yourself, then accept with mergedHead ${head}.`
+  );
+};

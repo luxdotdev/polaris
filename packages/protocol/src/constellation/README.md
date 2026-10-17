@@ -44,8 +44,9 @@ Desktop App authorization is checked by the Daemon, not asserted in a payload.
   (`mergedHead`) and receipts; before deciding, the owner merges that head into the Lead's
   current branch (safe git config, no repository hooks) unless it already contains it, and
   refuses with the exact fix on a conflict (`E-MERGE-CONFLICT`, merge aborted), a dirty,
-  detached or mid-merge Lead checkout (`E-LEAD-DIRTY`, `E-LEAD-DETACHED`, `E-LEAD-MERGING`)
-  or an unfetched head (`E-GIT`). The decider checks the head against the Claim and resolves
+  detached or mid-merge Lead checkout (`E-LEAD-DIRTY`, `E-LEAD-DETACHED`, `E-LEAD-MERGING`),
+  a merge commit `commit.gpgSign` asks to sign that can't be signed with the Host's own
+  signing settings or whose signing failed (`E-MERGE-SIGN`, ADR 0068), or an unfetched head (`E-GIT`). The decider checks the head against the Claim and resolves
   every verified reference. SendBack
   chooses same/existing or new session; `mergeConflictBase` selects that cause.
   The rejected Attempt retains `rejectionReason` and `rejectedBy` (`user` or

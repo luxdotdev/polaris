@@ -154,7 +154,8 @@ belong to commands the Daemon never runs automatically.
 Git the user asked for passes `config: "host"` and runs with the Host's config and hooks as
 before: Changes' stage, unstage, discard and commit, sync, Accept's commit and push, a
 session's own Worktree creation (with hooks off, as every Polaris-made worktree is), and a
-Constellation's push to origin (git-lfs's pre-push).
+Constellation's push to origin (git-lfs's pre-push). Accept's merge of a Claim stays automatic
+git, signed only with the Host's own signing settings when `commit.gpgSign` asks (ADR 0068).
 
 Every call's stdout is read under a byte limit (256 MB by default) and git is killed past
 it with `GitOutputTooLarge`. `git.diff` and the Reviewer's diff stop at 64 MB, and
