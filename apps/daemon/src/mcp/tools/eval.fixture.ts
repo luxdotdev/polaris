@@ -18,6 +18,7 @@ import {
   TaskId,
   ToolCallReference,
   TurnId,
+  type TurnItem,
   Workspace,
   WorkspaceId,
 } from "@polaris/protocol";
@@ -261,7 +262,7 @@ export const runBenchTurn = Effect.fnUntraced(function* (
   });
 
   const turnId = TurnId.make(crypto.randomUUID());
-  const seen: string[] = [];
+  const seen: TurnItem[] = [];
   yield* session.sendTurn({ turnId, prompt, attachments: [], model: null, effort: null });
   yield* session.events.pipe(
     Stream.takeUntil(HarnessEvent.$is("TurnEnded")),
@@ -276,7 +277,7 @@ export const runBenchTurn = Effect.fnUntraced(function* (
             at: AT,
           }),
         ItemCompleted: (event) => {
-          seen.push(event.item.id);
+          seen.push(event.item);
 
           return store.commit({
             commandId: null,
@@ -316,6 +317,7 @@ export const runBenchTurn = Effect.fnUntraced(function* (
     )
   );
   expect(seen).toHaveLength(5);
+  const command = seen.find((item) => Predicate.isTagged(item, "CommandExecution"))!;
 
   return CheckReceipt.cases.Verified.make({
     label: "bench scripted command",
@@ -323,7 +325,7 @@ export const runBenchTurn = Effect.fnUntraced(function* (
       hostId: HOST,
       sessionId: attachment.sessionId,
       turnId,
-      itemId: seen[2]!,
+      itemId: command.id,
     }),
   });
 });
