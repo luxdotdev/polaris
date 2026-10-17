@@ -57,8 +57,25 @@ waits up to 5 s for the socket rather than reporting "no Daemon".
 ## Discovery and paths
 
 `wsl.exe --list --verbose` lists distros; rows are parsed from the right (version,
-state) so localized headers and state words still yield the name. WSL 1
-distros are listed but refused (Bun needs a real kernel). Docker Desktop's
+state) so localized headers and state words still yield the name (WSL 2.7
+prints them in English anyway: `WslClient.cpp` hard-codes them). WSL 1
+distros are listed but refused (Bun needs a real kernel).
+
+wsl.exe's messages are translated, so discovery never decides on their words
+alone (microsoft/WSL@ce886386, `WslClient.cpp` and `wslutil.cpp`):
+
+- No distro: `--list --verbose` exits -1 with a localized message and no error
+  code, and that message names `wsl.exe --install` in every language. So after
+  a failed `--list --verbose`, `--list --quiet` is asked: it exits 0 and prints
+  nothing when there is no distro.
+- Other failures end in "Error code: Wsl/…/WSL_E_…", whose label is translated
+  but whose code is not; the codes for a missing optional component or Virtual
+  Machine Platform read as not installed.
+- Without WSL, Windows' own `wsl.exe` (System32, build 26100) asks "Press any
+  key to install Windows Subsystem for Linux" and waits up to 60 s (strings in
+  its `wsl.exe.mui`). Discovery first asks the registry for WSL's service
+  (`WSLService` from the Store or MSI, `LxssManager` inbox) by `reg.exe query`'s
+  exit status, and runs no `wsl.exe` when neither exists. Docker Desktop's
 helper distros are hidden. Workspaces live in the distro's own file system;
 `\\wsl.localhost\<distro>\…` is only for showing or revealing a path from
 Windows.
@@ -94,11 +111,22 @@ this package's own code from Node 24 and Bun 1.3.13 on Windows (steps in
   an `unreachable` `SshError` for install commands (before the stdout handling
   above, both read it as an ordinary failure).
 
-Still unverified: the stub `wsl.exe` on a Windows without WSL (its message and
-which stream it uses), "no installed distributions", localized Windows, and
-`\\wsl.localhost` paths, which an OpenSSH session cannot open (only a desktop
-logon can). The Desktop App's screens have not run against real WSL yet.
+The Desktop App (packaged win32-x64, ENG-307) ran in the user's desktop session
+through a one-shot interactive scheduled task, driven by Playwright, against a
+throwaway `ubuntu-base` 24.04 distro: "Add a host" listed it beside Ubuntu (the
+docker-desktop distros hidden), the footer named `\\wsl.localhost\<distro>`,
+approval and Upload installed the Daemon under the fallback supervisor, and the
+row reached Connected. Revealing a file through `shell.revealInFinder` opened
+`\\wsl.localhost\<distro>\…` in Explorer with the file selected. A WSL Host has
+no native folder picker: its folders are browsed through its Daemon.
 
-Sources: microsoft/WSL discussions #8659 and #9245, issue #10138 (idle
+Still unverified: the stub `wsl.exe` on a Windows without WSL (its prompt is
+read from its resources; which stream it uses and what its timeout does are
+not), `--list --verbose` with no distro and localized output (both from
+WSL's source and translations, tested through the fake), and whether every
+WSL install registers `WSLService` or `LxssManager`.
+
+Sources: microsoft/WSL@ce886386 (`src/windows/common/WslClient.cpp`,
+`wslutil.cpp`, `localization/strings/*/Resources.resw`), microsoft/WSL discussions #8659 and #9245, issue #10138 (idle
 shutdown, `instanceIdleTimeout`); microsoft/vscode#276253 and podman#26527
 (`WSL_UTF8`, UTF-16LE output); learn.microsoft.com/windows/wsl/wsl-config.
