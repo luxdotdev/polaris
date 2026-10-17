@@ -44,6 +44,8 @@ export {
 
 export { GitLazyFetchUnsupported, NO_LAZY_FETCH } from "./lazyFetch.ts";
 
+export { hostSigning, type Signing } from "./signing.ts";
+
 export type { SafeMode } from "./settings.ts";
 
 type Env = Record<string, string | undefined>;
@@ -218,6 +220,9 @@ const listingFor = async (cwd: string, args: ReadonlyArray<string>, base: Env) =
 
   return listAndCache(cwd, options, base, key);
 };
+
+/** The config a plain git call in `cwd` reads, as git lists it with each entry's scope. */
+export const configListing = (cwd: string, base: Env) => listingFor(cwd, [], base);
 
 /**
  * The environment for an automatic git call `args` in `cwd`: the fixed settings, every
