@@ -3,11 +3,20 @@
  * Task Scheduler task (`windowsTask.ts`), and stop and start the Daemon through
  * its control pipe (`windowsControl.ts`). Windows has no hand-off, so a new
  * binary means stop the old Daemon, then start the task on `current` (ADR 0060).
+ * A task that runs another Polaris home is never replaced or deleted unasked.
  */
-import { Effect } from "effect";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { Effect, Match } from "effect";
 import { CommandRunner } from "./CommandRunner.ts";
-import { InstallError } from "./errors.ts";
+import { InstallError, TaskConflictError } from "./errors.ts";
 import type { ControlAnswer, ControlReply, ControlRequest } from "./windowsControl.ts";
+import {
+  claimTask,
+  type ExistingTask,
+  type TaskClaim,
+  taskWorkingDirectory,
+} from "./windowsTask.ts";
 
 export interface WindowsTaskFacts {
   /** `schtasks /Query` found the task. */
@@ -112,8 +121,11 @@ const schtasks = Effect.fnUntraced(function* (...args: Array<string>) {
   return yield* runner.run(["schtasks", ...args]);
 });
 
-export const isTaskRegistered = Effect.fnUntraced(function* (name: string) {
-  return (yield* schtasks("/Query", "/TN", name)).code === 0;
+/** The registered task's definition (`schtasks` prints it as UTF-8), or null when there is none. */
+export const queryTaskXml = Effect.fnUntraced(function* (name: string) {
+  const result = yield* schtasks("/Query", "/TN", name, "/XML");
+
+  return result.code === 0 ? result.stdout : null;
 });
 
 export const registerTask = Effect.fnUntraced(function* (name: string, xmlFile: string) {
@@ -155,4 +167,94 @@ export const startTask = Effect.fnUntraced(function* (name: string, home: string
 
 export const deleteTask = Effect.fnUntraced(function* (name: string) {
   return (yield* schtasks("/Delete", "/F", "/TN", name)).code === 0;
+});
+
+/** The task registered under `name`: the home it runs, and whether that home is still installed. */
+export const inspectTask = Effect.fnUntraced(function* (name: string) {
+  const xml = yield* queryTaskXml(name);
+
+  if (xml === null) return null;
+  const home = taskWorkingDirectory(xml);
+  const homeInstalled = home !== null && existsSync(join(home, "bin", "current", "polaris.exe"));
+
+  return { home, homeInstalled } satisfies ExistingTask;
+});
+
+/** One home's task: its name, the home, and the definition file `schtasks /XML` reads. */
+export interface WindowsTaskTarget {
+  readonly task: string;
+  readonly home: string;
+  readonly definition: string;
+}
+
+const claimNote = (claim: TaskClaim, otherHome: string | null): ReadonlyArray<string> =>
+  Match.value(claim).pipe(
+    Match.when("abandoned", () => [
+      `The task ran ${otherHome}, which has nothing installed; it runs this home now.`,
+    ]),
+    Match.when("taken-over", () => [
+      `The task ran ${otherHome ?? "something else"}; it runs this home now, as --replace-task asked.`,
+    ]),
+    Match.orElse(() => [])
+  );
+
+/**
+ * Windows: register the task (never over another live home's, unless `replace`), stop
+ * a Daemon running another binary (Windows has no hand-off; its terminals end), then
+ * run the task until `version` answers.
+ */
+export const activateWindowsTask = Effect.fnUntraced(function* (
+  target: WindowsTaskTarget,
+  changed: { readonly binary: boolean; readonly serviceFile: boolean },
+  version: string,
+  replace: boolean
+) {
+  const existing = yield* inspectTask(target.task);
+  const claim = claimTask(existing, target.home, replace);
+  const otherHome = existing?.home ?? null;
+
+  if (claim === "conflict")
+    return yield* new TaskConflictError({ task: target.task, home: target.home, otherHome });
+
+  // The other home's loop must end first: one instance at a time, so it would block ours.
+  if (claim === "taken-over" && otherHome !== null) yield* stopDaemon(otherHome, "restart");
+
+  const plan = planWindowsTask({
+    registered: claim === "ours",
+    changed,
+    running: yield* runningDaemon(target.home),
+    version,
+  });
+
+  if (plan.register) yield* registerTask(target.task, target.definition);
+
+  if (plan.stop !== null) yield* stopDaemon(target.home, plan.stop);
+
+  if (plan.start) yield* startTask(target.task, target.home, version);
+
+  const stopped =
+    plan.stop === null
+      ? []
+      : ["The previous Daemon was stopped: its terminals ended, and Agent Sessions resume."];
+
+  return {
+    domain: `task-scheduler ${target.task}`,
+    restarted: plan.stop !== null,
+    linger: "not-applicable" as const,
+    notes: [...claimNote(claim, otherHome), ...stopped],
+  };
+});
+
+/**
+ * Windows: stop this home's Daemon (its exit ends the task's loop) and delete the task,
+ * only if it runs this home. Returns whether a Daemon stopped and the task left alone.
+ */
+export const removeWindowsTask = Effect.fnUntraced(function* (target: WindowsTaskTarget) {
+  const stopped = yield* stopDaemon(target.home, "uninstall");
+  const existing = yield* inspectTask(target.task);
+  const ours = claimTask(existing, target.home, false) === "ours";
+
+  if (ours) yield* deleteTask(target.task);
+
+  return { stopped: stopped !== null, keptTask: existing !== null && !ours ? target.task : null };
 });

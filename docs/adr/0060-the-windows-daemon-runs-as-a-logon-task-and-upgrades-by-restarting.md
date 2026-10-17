@@ -39,8 +39,8 @@ NETWORK SID) and from a medium-integrity process in the signed-in session:
 
 - **A per-user logon task.** `polaris install` writes the definition (`service/windowsTask.ts`)
   to `~/.polaris/polaris-task.xml` (UTF-16, as `schtasks` reads it) and registers it with
-  `schtasks /Create /XML` under `dev.lux.polaris.<user>` (another `POLARIS_HOME` adds a hash
-  of it, since task names are machine-wide). `schtasks` over `Register-ScheduledTask`: the XML
+  `schtasks /Create /XML` under `dev.lux.polaris.<user>` (any home but the real profile's
+  adds a hash of it, since task names are machine-wide; see Consequences, ENG-322). `schtasks` over `Register-ScheduledTask`: the XML
   sets every option in one pure, tested text, and `schtasks.exe` is always there, without
   PowerShell's startup. Its settings: a logon trigger for the user's SID, interactive token,
   least privilege, no time limit, runs and keeps running on battery, no idle conditions, one
@@ -91,6 +91,30 @@ NETWORK SID) and from a medium-integrity process in the signed-in session:
   `polaris bridge`, which runs the task (`schtasks /Run`) when no Daemon answers.
 - An upgrade ends every running terminal and stops in-process Harnesses; the in-place upgrade
   that keeps them is ENG-295. `polaris install` and `upgrade` have no rollback on Windows yet.
+- **The task name follows the real profile, and a task is replaced only by its own home**
+  (ENG-322). Task names are machine-wide, and the plain name first went to whichever home
+  equalled `homedir()\.polaris`; `homedir()` reads `USERPROFILE`, so a test, a dev Daemon or
+  the Desktop App's dev mode with a redirected profile computed the real install's name, and
+  `schtasks /Create /F` re-pointed the real task at its own home. Now:
+  - The plain name `dev.lux.polaris.<user>` belongs to `<real profile>\.polaris`, the profile
+    from the process token (`GetUserProfileDirectoryW`, `service/windowsProfile.ts`), which
+    ignores `USERPROFILE` and `HOME` (measured on Windows 11 with `USERPROFILE` redirected).
+    Every other home, and every home when the lookup fails, gets `.<8 hex of its path>`.
+  - The task's working directory is its home, so `install` reads it back
+    (`schtasks /Query /XML`, which prints UTF-8, measured with a non-ASCII path) and decides
+    with `claimTask`: a task running this home is ours and is replaced; one whose home has no
+    `bin\current\polaris.exe` left is abandoned (its loop would exit at once) and is replaced
+    with a note; one running another installed home, or that isn't Polaris', is refused:
+    `TaskConflictError`, exit 3, `{"ok":false,"error":"TaskConflictError","task",…,"otherHome",…}`
+    with `--json`. `--replace-task` takes it over, stopping that home's Daemon first (one
+    instance at a time, so its loop would block ours).
+  - `uninstall` deletes the task only when it runs its home, and otherwise reports `keptTask`.
+  - Migration: a 0.2.0-dev install in the real profile already has the plain name, and its
+    task runs that home, so the next install finds it ours and replaces it as before; old
+    hashed names don't change either. A real task an earlier redirected home took over is a
+    conflict for the real install until `--replace-task` (or until that home is uninstalled).
+    A Host still upgraded by a pre-ENG-322 binary runs its old install code once, which has
+    the old naming.
 - Evidence: `apps/daemon/scripts/e2e-windows-service.ts` drives install, kill, upgrade and
   uninstall on a real Host with a real Client connected throughout. The logon trigger itself
   needs a sign-out and sign-in, done by hand.

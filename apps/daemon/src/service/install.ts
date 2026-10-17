@@ -25,7 +25,7 @@ import { defaultStateFile, stopAppServer } from "../harness/codex/AppServer.ts";
 import { currentUserSid } from "../transport/windowsPipe/win32.ts";
 import { CommandRunner } from "./CommandRunner.ts";
 import { binaryNameFor, currentLinkFor, pointCurrent, readCurrent } from "./current.ts";
-import { InstallError } from "./errors.ts";
+import { InstallError, TaskConflictError } from "./errors.ts";
 import { activateLaunchd, type LaunchdTiming, unloadEverywhere } from "./launchd.ts";
 import {
   LAUNCHD_LABEL,
@@ -38,17 +38,14 @@ import {
   systemdUnit,
 } from "./templates.ts";
 import {
-  deleteTask,
-  isTaskRegistered,
-  planWindowsTask,
-  registerTask,
-  runningDaemon,
-  startTask,
-  stopDaemon,
+  activateWindowsTask,
+  removeWindowsTask,
+  type WindowsTaskTarget,
 } from "./windowsService.ts";
+import { realProfileDirectory } from "./windowsProfile.ts";
 import { taskXml, taskXmlBytes, windowsTaskName } from "./windowsTask.ts";
 
-export { InstallError };
+export { InstallError, TaskConflictError };
 
 export type ServiceOs = "darwin" | "linux" | "win32";
 
@@ -99,7 +96,7 @@ export const defaultInstallContext = (polarisHome: string): InstallContext => {
   if (os !== "win32") return context;
 
   const windows: WindowsServiceContext = {
-    task: windowsTaskName(info.username, polarisHome, homedir()),
+    task: windowsTaskName(info.username, polarisHome, realProfileDirectory()),
     userSid: currentUserSid(),
     systemRoot: process.env.SystemRoot ?? "C:\\Windows",
   };
@@ -515,50 +512,11 @@ const activateSystemd = Effect.fnUntraced(function* (
   return { domain: "systemd --user", restarted: restart, linger, notes };
 });
 
-/**
- * Windows: register the task, stop a Daemon running another binary (Windows has
- * no hand-off; its terminals end), then run the task until `version` answers.
- */
-const activateWindows = Effect.fnUntraced(function* (
-  ctx: InstallContext,
-  changed: { readonly binary: boolean; readonly serviceFile: boolean },
-  version: string
-) {
-  const windows = windowsOf(ctx);
-
-  const plan = planWindowsTask({
-    registered: yield* isTaskRegistered(windows.task),
-    changed,
-    running: yield* runningDaemon(ctx.polarisHome),
-    version,
-  });
-
-  if (plan.register) yield* registerTask(windows.task, layout(ctx).serviceFile);
-
-  if (plan.stop !== null) yield* stopDaemon(ctx.polarisHome, plan.stop);
-
-  if (plan.start) yield* startTask(windows.task, ctx.polarisHome, version);
-
-  const notes =
-    plan.stop === null
-      ? []
-      : ["The previous Daemon was stopped: its terminals ended, and Agent Sessions resume."];
-
-  return {
-    domain: `task-scheduler ${windows.task}`,
-    restarted: plan.stop !== null,
-    linger: "not-applicable" as const,
-    notes,
-  };
-});
-
-/** Windows: stop the Daemon (its exit ends the task's loop) and delete the task. */
-const removeWindows = Effect.fnUntraced(function* (ctx: InstallContext) {
-  const windows = windowsOf(ctx);
-  const stopped = yield* stopDaemon(ctx.polarisHome, "uninstall");
-  yield* deleteTask(windows.task);
-
-  return stopped !== null;
+/** Windows: this home's task, as `windowsService.ts` drives it. */
+const windowsTarget = (ctx: InstallContext): WindowsTaskTarget => ({
+  task: windowsOf(ctx).task,
+  home: ctx.polarisHome,
+  definition: layout(ctx).serviceFile,
 });
 
 /**
@@ -589,6 +547,8 @@ export interface InstallOptions {
   readonly sha256?: string | undefined;
   /** macOS: how long to wait for a booted-out Daemon (tests shorten it). */
   readonly launchdTiming?: LaunchdTiming;
+  /** Windows: take over this home's task even when it runs another installed home. */
+  readonly replaceTask?: boolean;
 }
 
 /** What `current` and the service file were before an install, to roll back to. */
@@ -629,7 +589,7 @@ const restorePrevious = (ctx: InstallContext, previous: PreviousInstall) =>
 export const install = Effect.fn("install")(function* (
   ctx: InstallContext,
   options: InstallOptions
-): Effect.fn.Return<InstallReport, InstallError, CommandRunner> {
+): Effect.fn.Return<InstallReport, InstallError | TaskConflictError, CommandRunner> {
   const paths = layout(ctx, options.version);
   yield* fsStep("create directories", () =>
     mkdirSync(paths.logs, { recursive: true, mode: 0o700 })
@@ -659,7 +619,14 @@ export const install = Effect.fn("install")(function* (
         options.launchdTiming
       ).pipe(Effect.map((done) => ({ ...done, linger: "not-applicable" as const })))
     ),
-    Match.when("win32", () => activateWindows(ctx, changed, options.version)),
+    Match.when("win32", () =>
+      activateWindowsTask(
+        windowsTarget(ctx),
+        changed,
+        options.version,
+        options.replaceTask === true
+      )
+    ),
     Match.orElse(() =>
       fallback ? activateFallback(ctx, changed, plan, linux!) : activateSystemd(ctx, changed)
     )
@@ -697,6 +664,8 @@ export interface UninstallReport {
   readonly supervisorStopped: boolean;
   readonly binariesRemoved: boolean;
   readonly purged: boolean;
+  /** Windows: this home's task name, left registered because it runs another Polaris home. */
+  readonly keptTask: string | null;
 }
 
 /**
@@ -710,11 +679,14 @@ export const uninstall = Effect.fn("uninstall")(function* (
 ): Effect.fn.Return<UninstallReport, InstallError, CommandRunner> {
   const paths = layout(ctx);
   let supervisorStopped = false;
+  let keptTask: string | null = null;
 
   if (ctx.os === "darwin") {
     yield* unloadEverywhere({ uid: ctx.uid, label: ctx.launchdLabel });
   } else if (ctx.os === "win32") {
-    supervisorStopped = yield* removeWindows(ctx);
+    const removed = yield* removeWindowsTask(windowsTarget(ctx));
+    supervisorStopped = removed.stopped;
+    keptTask = removed.keptTask;
   } else {
     yield* run(["systemctl", "--user", "disable", "--now", SYSTEMD_UNIT]);
     supervisorStopped = yield* removeFallback(ctx);
@@ -751,5 +723,6 @@ export const uninstall = Effect.fn("uninstall")(function* (
     supervisorStopped,
     binariesRemoved,
     purged: options.purge,
+    keptTask,
   };
 });

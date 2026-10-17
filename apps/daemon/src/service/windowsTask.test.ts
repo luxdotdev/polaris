@@ -2,7 +2,14 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { supervisorLoop, taskXml, taskXmlBytes, windowsTaskName } from "./windowsTask.ts";
+import {
+  claimTask,
+  supervisorLoop,
+  taskWorkingDirectory,
+  taskXml,
+  taskXmlBytes,
+  windowsTaskName,
+} from "./windowsTask.ts";
 
 const unescapeXml = (text: string) =>
   text
@@ -24,29 +31,81 @@ const spec = (polarisHome: string) => ({
 });
 
 describe("windowsTaskName", () => {
-  const userHome = "C:\\Users\\lucas";
+  const profile = "C:\\Users\\lucas";
 
-  test("the default home gets the plain name, however its path is spelled", () => {
-    expect(windowsTaskName("lucas", "C:\\Users\\lucas\\.polaris", userHome)).toBe(
-      windowsTaskName("lucas", "c:\\users\\LUCAS\\.polaris\\", userHome)
+  test("the real profile's home gets the plain name, however its path is spelled", () => {
+    expect(windowsTaskName("lucas", "C:\\Users\\lucas\\.polaris", profile)).toBe(
+      windowsTaskName("lucas", "c:\\users\\LUCAS\\.polaris\\", profile)
     );
-    expect(windowsTaskName("lucas", "C:\\Users\\lucas\\.polaris", userHome)).toBe(
+    expect(windowsTaskName("lucas", "C:\\Users\\lucas\\.polaris", profile)).toBe(
       "dev.lux.polaris.lucas"
     );
   });
 
-  test("another POLARIS_HOME gets its own task, so a test install leaves the real one alone", () => {
-    const real = windowsTaskName("lucas", "C:\\Users\\lucas\\.polaris", userHome);
-    const other = windowsTaskName("lucas", "C:\\Users\\lucas\\polaris-s3\\home", userHome);
+  test.each([
+    ["another POLARIS_HOME", "C:\\Users\\lucas\\polaris-s3\\home", profile],
+    // USERPROFILE redirected to a dev home: its default .polaris is still not the real profile's.
+    ["a redirected home's .polaris", "C:\\Users\\lucas\\dev\\.polaris", profile],
+    ["any home when the real profile is unknown", "C:\\Users\\lucas\\.polaris", null],
+  ])("%s gets its own hashed task, leaving the real one alone", (_, home, realProfile) => {
+    const real = windowsTaskName("lucas", "C:\\Users\\lucas\\.polaris", profile);
+    const other = windowsTaskName("lucas", home, realProfile);
 
+    expect(other).toMatch(/^dev\.lux\.polaris\.lucas\.[0-9a-f]{8}$/);
     expect(other).not.toBe(real);
-    expect(other.startsWith(`${real}.`)).toBe(true);
+  });
+
+  test("two homes get two names, one home one name whatever the profile", () => {
+    const a = windowsTaskName("lucas", "C:\\work\\a", profile);
+
+    expect(windowsTaskName("lucas", "C:\\work\\b", profile)).not.toBe(a);
+    expect(windowsTaskName("lucas", "c:\\WORK\\a\\", null)).toBe(a);
   });
 
   test("characters a task name can't hold are replaced", () => {
     expect(windowsTaskName("dom\\ann:x", "C:\\h\\.polaris", "C:\\h")).toBe(
       "dev.lux.polaris.dom_ann_x"
     );
+  });
+});
+
+describe("taskWorkingDirectory", () => {
+  test("reads the home back from a registered definition, XML escapes undone", () => {
+    const home = 'C:\\Users\\R&D <x> "q"\\.polaris';
+
+    expect(taskWorkingDirectory(taskXml(spec(home)))).toBe(home);
+  });
+
+  test("a task with no working directory isn't Polaris'", () => {
+    expect(
+      taskWorkingDirectory("<Task><Actions><Exec><Command>x</Command></Exec></Actions></Task>")
+    ).toBeNull();
+  });
+});
+
+describe("claimTask", () => {
+  const home = "C:\\Users\\lucas\\.polaris";
+  const dev = "C:\\Users\\lucas\\dev\\.polaris";
+
+  test("a task that runs this home is ours, also as a 0.2.0-dev install spelled it", () => {
+    expect(
+      claimTask({ home: "c:\\users\\Lucas\\.polaris\\", homeInstalled: true }, home, false)
+    ).toBe("ours");
+  });
+
+  test("a task that runs another installed home is refused unless --replace-task", () => {
+    const existing = { home: dev, homeInstalled: true };
+
+    expect(claimTask(existing, home, false)).toBe("conflict");
+    expect(claimTask(existing, home, true)).toBe("taken-over");
+  });
+
+  test("a task left by a home with nothing installed may be replaced", () => {
+    expect(claimTask({ home: dev, homeInstalled: false }, home, false)).toBe("abandoned");
+  });
+
+  test("a task under the name that isn't Polaris' is refused unless --replace-task", () => {
+    expect(claimTask({ home: null, homeInstalled: false }, home, false)).toBe("conflict");
   });
 });
 
