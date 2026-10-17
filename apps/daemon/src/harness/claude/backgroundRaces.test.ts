@@ -15,6 +15,19 @@ const gate = () => {
   return { promise, release: () => release() };
 };
 
+/** Events reach the test through a forked consumer: poll for them rather than sleep a fixed time. */
+const until = async (predicate: () => boolean, label: string) => {
+  for (let i = 0; i < 500; i++) {
+    if (predicate()) return;
+    await Bun.sleep(2);
+  }
+
+  throw new Error(`timed out waiting for ${label}`);
+};
+
+const ended = (events: ReadonlyArray<HarnessEvent>) =>
+  events.filter(HarnessEvent.$is("TurnEnded")).length;
+
 test.each(["controls", "attachments"])(
   "a parent run during user input preparation (%s) cannot close or replace that Turn",
   async (preparation) => {
@@ -90,6 +103,16 @@ test.each(["controls", "attachments"])(
       fake.emit(assistant("native", [{ type: "text", text: "Background report." }]));
       fake.emit({ ...result([]), origin: { kind: "task-notification" } });
       await fake.waitProcessed();
+
+      await until(
+        () =>
+          events.some(
+            (event) =>
+              HarnessEvent.$is("ItemCompleted")(event) &&
+              TurnItem.guards.AssistantMessage(event.item)
+          ),
+        "the background report"
+      );
       await Bun.sleep(5);
       expect(events.filter(HarnessEvent.$is("TurnStarted"))).toMatchObject([{ turnId }]);
       expect(events.filter(HarnessEvent.$is("TurnEnded"))).toHaveLength(0);
@@ -104,7 +127,7 @@ test.each(["controls", "attachments"])(
       const input = await fake.nextInput(0);
       fake.emit(result([input.uuid!]));
       await fake.waitProcessed();
-      await Bun.sleep(5);
+      await until(() => ended(events) >= 1, "the Turn's end");
       expect(events.filter(HarnessEvent.$is("TurnStarted"))).toHaveLength(1);
       expect(events.filter(HarnessEvent.$is("TurnEnded"))).toMatchObject([
         { turnId, status: "completed" },
@@ -197,7 +220,7 @@ test.each(["validation", "attachments"])(
       fake.emit(assistant("native", [{ type: "text", text: "Native run works too." }]));
       fake.emit({ ...result([]), origin: { kind: "task-notification" } });
       await fake.waitProcessed();
-      await Bun.sleep(5);
+      await until(() => ended(events) >= 3, "three Turn ends");
       expect(events.filter(HarnessEvent.$is("TurnStarted"))).toHaveLength(3);
       expect(events.filter(HarnessEvent.$is("TurnEnded"))).toMatchObject([
         { turnId: failedId, status: "failed" },
@@ -287,7 +310,7 @@ test.each(["steerTurn", "sendTurn"])(
     try {
       fake.emit(assistant("native", [{ type: "text", text: "A background continuation." }]));
       await fake.waitProcessed();
-      await Bun.sleep(5);
+      await until(() => events.some(HarnessEvent.$is("TurnStarted")), "the autonomous Turn");
       const started = events.find(HarnessEvent.$is("TurnStarted"));
 
       if (started === undefined) throw new Error("No autonomous Turn");
@@ -322,7 +345,7 @@ test.each(["steerTurn", "sendTurn"])(
       expect(events.filter(HarnessEvent.$is("TurnEnded"))).toHaveLength(0);
       release.release();
       expect(await sending).toMatchObject({ message: "Could not read the attachment shot.png" });
-      await Bun.sleep(5);
+      await until(() => ended(events) >= 1, "the native Turn's end");
       expect(events.filter(HarnessEvent.$is("TurnEnded"))).toMatchObject([
         {
           turnId: started.turnId,
@@ -346,7 +369,7 @@ test.each(["steerTurn", "sendTurn"])(
       fake.emit(assistant("after-native", [{ type: "text", text: "Another continuation." }]));
       fake.emit({ ...result([]), origin: { kind: "task-notification" } });
       await fake.waitProcessed();
-      await Bun.sleep(5);
+      await until(() => ended(events) >= 3, "three Turn ends");
       expect(events.filter(HarnessEvent.$is("TurnEnded"))).toMatchObject([
         { turnId: started.turnId, status: "failed" },
         { turnId: nextId, status: "completed" },
@@ -450,7 +473,7 @@ test.each(["steerTurn", "sendTurn"])(
       const next = await fake.nextInput(1);
       fake.emit(result([original.uuid!, next.uuid!]));
       await fake.waitProcessed();
-      await Bun.sleep(5);
+      await until(() => ended(events) >= 1, "the Turn's end");
       expect(events.filter(HarnessEvent.$is("TurnEnded"))).toMatchObject([
         { turnId, status: "completed" },
       ]);
