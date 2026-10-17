@@ -391,6 +391,8 @@ export const RequestInputs = {
   "machines.approve": onHost({ sha256: Schema.String }),
   /** "Not now". */
   "machines.dismiss": onHost({}),
+  /** "Take over sign-in task", confirmed: reruns the held Windows install with `--replace-task`. */
+  "machines.takeOverTask": onHost({}),
   /** Restart the installed Daemon's service (`polaris install` with the current build). */
   "machines.startDaemon": onHost({}),
   /** Switch the local Host on or off on this machine. */

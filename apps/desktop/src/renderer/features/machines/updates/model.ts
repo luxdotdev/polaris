@@ -131,6 +131,14 @@ export const updateFailure = (
         detail: null,
         actions: [],
       };
+    case "task-conflict":
+      return {
+        reason: "task-conflict",
+        title: `Another Polaris home holds the sign-in task on ${label}`,
+        body: `${kept} Retry to see which home holds it and take the task over.`,
+        detail,
+        actions: [RETRY],
+      };
     case "missing-build":
       return {
         reason: "missing-build",

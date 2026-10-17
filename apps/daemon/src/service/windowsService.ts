@@ -8,12 +8,14 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { Effect, Match } from "effect";
+import { encodePowershell, powershellQuote } from "../platform/processes.ts";
 import { CommandRunner } from "./CommandRunner.ts";
 import { InstallError, TaskConflictError } from "./errors.ts";
 import type { ControlAnswer, ControlReply, ControlRequest } from "./windowsControl.ts";
 import {
   claimTask,
   type ExistingTask,
+  stopsOtherHome,
   type TaskClaim,
   taskWorkingDirectory,
 } from "./windowsTask.ts";
@@ -169,6 +171,31 @@ export const deleteTask = Effect.fnUntraced(function* (name: string) {
   return (yield* schtasks("/Delete", "/F", "/TN", name)).code === 0;
 });
 
+/** Task Scheduler's `TASK_STATE_RUNNING`: an instance of the task is running now. */
+const TASK_STATE_RUNNING = 4;
+
+/**
+ * Whether an instance of the task `name` runs now, from Task Scheduler's COM API (a number,
+ * where `schtasks /Query` prints a localized word); null when it couldn't say.
+ */
+export const taskRunning = Effect.fnUntraced(function* (name: string) {
+  const runner = yield* CommandRunner;
+  const script = `$s = New-Object -ComObject Schedule.Service; $s.Connect(); [int]$s.GetFolder('\\').GetTask(${powershellQuote(name)}).State`;
+
+  const result = yield* runner.run([
+    "powershell.exe",
+    "-NoLogo",
+    "-NoProfile",
+    "-NonInteractive",
+    "-EncodedCommand",
+    encodePowershell(script),
+  ]);
+
+  const state = /^\s*(\d+)\s*$/.exec(result.stdout)?.[1];
+
+  return result.code !== 0 || state === undefined ? null : Number(state) === TASK_STATE_RUNNING;
+});
+
 /** The task registered under `name`: the home it runs, and whether that home is still installed. */
 export const inspectTask = Effect.fnUntraced(function* (name: string) {
   const xml = yield* queryTaskXml(name);
@@ -187,13 +214,20 @@ export interface WindowsTaskTarget {
   readonly definition: string;
 }
 
-const claimNote = (claim: TaskClaim, otherHome: string | null): ReadonlyArray<string> =>
+const claimNote = (
+  claim: TaskClaim,
+  otherHome: string | null,
+  stoppedOther: boolean
+): ReadonlyArray<string> =>
   Match.value(claim).pipe(
     Match.when("abandoned", () => [
       `The task ran ${otherHome}, which has nothing installed; it runs this home now.`,
     ]),
     Match.when("taken-over", () => [
       `The task ran ${otherHome ?? "something else"}; it runs this home now, as --replace-task asked.`,
+      stoppedOther
+        ? `The Daemon the task ran for ${otherHome} was stopped.`
+        : "The task wasn't running, so no other Daemon was stopped.",
     ]),
     Match.orElse(() => [])
   );
@@ -217,7 +251,10 @@ export const activateWindowsTask = Effect.fnUntraced(function* (
     return yield* new TaskConflictError({ task: target.task, home: target.home, otherHome });
 
   // The other home's loop must end first: one instance at a time, so it would block ours.
-  if (claim === "taken-over" && otherHome !== null) yield* stopDaemon(otherHome, "restart");
+  const stopOther =
+    claim === "taken-over" && stopsOtherHome(claim, otherHome, yield* taskRunning(target.task));
+
+  if (stopOther && otherHome !== null) yield* stopDaemon(otherHome, "restart");
 
   const plan = planWindowsTask({
     registered: claim === "ours",
@@ -241,7 +278,7 @@ export const activateWindowsTask = Effect.fnUntraced(function* (
     domain: `task-scheduler ${target.task}`,
     restarted: plan.stop !== null,
     linger: "not-applicable" as const,
-    notes: [...claimNote(claim, otherHome), ...stopped],
+    notes: [...claimNote(claim, otherHome, stopOther), ...stopped],
   };
 });
 

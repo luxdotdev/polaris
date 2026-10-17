@@ -19,6 +19,7 @@ import {
   type ApplyProgress,
   failed,
   RemoteInstallError,
+  type TaskConflict,
   runPolaris,
 } from "./apply.ts";
 import {
@@ -465,7 +466,7 @@ export const ensureDaemon = Effect.fn("ensureDaemon")(function* (
   builds: ReadonlyArray<DaemonBuild>,
   options: PlanOptions,
   apply: ApplyOptions = {}
-): Effect.fn.Return<EnsureResult, RemoteInstallError | SshError, Ssh> {
+): Effect.fn.Return<EnsureResult, RemoteInstallError | TaskConflict | SshError, Ssh> {
   const probe = yield* probeHost(alias);
   const plan = planInstall(probe, builds, options);
 

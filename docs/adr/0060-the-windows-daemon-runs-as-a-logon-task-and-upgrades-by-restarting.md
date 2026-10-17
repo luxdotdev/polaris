@@ -107,7 +107,14 @@ NETWORK SID) and from a medium-integrity process in the signed-in session:
     with a note; one running another installed home, or that isn't Polaris', is refused:
     `TaskConflictError`, exit 3, `{"ok":false,"error":"TaskConflictError","task",…,"otherHome",…}`
     with `--json`. `--replace-task` takes it over, stopping that home's Daemon first (one
-    instance at a time, so its loop would block ours).
+    instance at a time, so its loop would block ours). Since ENG-325 only while the task is
+    running: install reads its state from Task Scheduler's COM API (`TASK_STATE_RUNNING`, 4;
+    `schtasks /Query` prints the state as a localized word), and a Daemon of that home started
+    another way (its own task, by hand) is left running. A running task's loop owns the
+    Daemon on that home's control pipe, because a second `serve` there exits 75 and ends its
+    loop. When the state can't be read, it stops the Daemon as before. The Desktop App and
+    the SSH installer never pass `--replace-task` on their own: the user confirms a take-over
+    that says what stops.
   - `uninstall` deletes the task only when it runs its home, and otherwise reports `keptTask`.
   - Migration: a 0.2.0-dev install in the real profile already has the plain name, and its
     task runs that home, so the next install finds it ours and replaces it as before; old

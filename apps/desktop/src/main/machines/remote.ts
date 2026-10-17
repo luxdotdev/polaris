@@ -124,7 +124,8 @@ export const applyWork = (
 ) => {
   const home = windowsHome(channel, local.platform);
 
-  if (home !== null) return applyWindowsLocal(home, work, local.processes);
+  if (home !== null)
+    return applyWindowsLocal(home, work, local.processes, options.replaceTask === true);
 
   return Effect.map(
     applyPlan(channel.alias, work, options).pipe(Effect.provide(channel.ssh)),

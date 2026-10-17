@@ -85,6 +85,16 @@ export const claimTask = (
 };
 
 /**
+ * On a take-over, whether to stop the other home's Daemon first: only while the task itself
+ * runs, since its loop would block ours (`running` null: Task Scheduler couldn't say).
+ */
+export const stopsOtherHome = (
+  claim: TaskClaim,
+  otherHome: string | null,
+  running: boolean | null
+): boolean => claim === "taken-over" && otherHome !== null && running !== false;
+
+/**
  * The supervisor loop the task runs, relative to the Polaris home (its working
  * directory), so no user path passes through cmd's parser. It runs `current`
  * afresh each time, restarts after a second, and ends on exit 75 (another

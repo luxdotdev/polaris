@@ -18,7 +18,9 @@ export type CardAction =
   | "start-daemon"
   | "copy-detail"
   | "approve"
-  | "dismiss";
+  | "dismiss"
+  /** Asks, in place, before taking over a sign-in task another Polaris home holds. */
+  | "take-over";
 
 export interface CardButton {
   readonly label: string;
@@ -193,7 +195,55 @@ const sizeLabel = (bytes: number | null) => {
 
 type Problem = NonNullable<NonNullable<MachineView["install"]>["problem"]>;
 
+type TaskConflict = NonNullable<Problem["conflict"]>;
+
+/** A Windows sign-in task another Polaris home (or another program) holds: who, and the way out. */
+const taskConflictCard = (label: string, { task, otherHome }: TaskConflict): CardModel =>
+  card(
+    "task-conflict",
+    otherHome === null
+      ? `Another program's task has the daemon's name on ${label}`
+      : `Another Polaris home holds the sign-in task on ${label}`,
+    otherHome === null
+      ? "Task Scheduler already has a task by that name, and it isn't Polaris'. It was left alone, so this daemon can't start at sign-in."
+      : "That task starts the daemon in the other home when you sign in to Windows. It was left alone, so this daemon can't start there.",
+    otherHome === null ? task : `${task}\nruns ${otherHome}`,
+    { label: "Take over sign-in task", action: "take-over" },
+    { label: "Check again", action: "check" }
+  );
+
+/** What the in-place confirmation says before a take-over: the consequence, plainly. */
+export interface TakeOverConfirmation {
+  readonly title: string;
+  readonly body: string;
+  readonly confirm: string;
+}
+
+export const takeOverConfirmation = (machine: MachineView): TakeOverConfirmation | null => {
+  const conflict = machine.install?.problem?.conflict;
+
+  if (machine.install?.step !== "blocked" || conflict === undefined) return null;
+  const { otherHome, task } = conflict;
+  const confirm = "Take over sign-in task";
+
+  if (otherHome === null)
+    return {
+      title: `Replace ${task} on ${machine.label}`,
+      body: "Task Scheduler's task stops running what it runs now and starts this daemon at sign-in instead.",
+      confirm,
+    };
+
+  return {
+    title: `Take the sign-in task over from ${otherHome}`,
+    body: `If that home's daemon is running under the task, it stops now: its terminals end, and its agent sessions resume when it next starts. From then on the task starts this daemon at sign-in; ${otherHome} stays installed but no longer starts on its own.`,
+    confirm,
+  };
+};
+
 const problemCard = (label: string, problem: Problem): CardModel => {
+  if (problem.kind === "task-conflict" && problem.conflict !== undefined)
+    return taskConflictCard(label, problem.conflict);
+
   if (problem.kind === "host-setup") {
     return card(
       "host-setup",

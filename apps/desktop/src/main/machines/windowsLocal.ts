@@ -13,6 +13,8 @@ import {
   Delivery,
   InstallPlan,
   type InstallTrigger,
+  type TaskConflict,
+  taskConflictOf,
   upgradeDue,
 } from "@polaris/client/install";
 import { type ChildProcessApi, childProcesses } from "@polaris/client/process";
@@ -103,8 +105,14 @@ export const planWindowsLocal = (
 const decodeReport = Schema.decodeUnknownOption(Schema.fromJsonString(Schema.JsonObject));
 
 /** The JSON line `polaris.exe … --json` printed last, or why it failed. */
-const reportOf = (ran: Ran, step: string) => {
+const reportOf = (
+  ran: Ran,
+  step: string
+): Effect.Effect<Schema.JsonObject, WindowsLocalFailed | TaskConflict> => {
   const report = Option.getOrNull(decodeReport(ran.stdout.trim().split(/\r?\n/).at(-1) ?? ""));
+  const conflict = taskConflictOf(report, { alias: "local", step });
+
+  if (conflict !== null) return Effect.fail(conflict);
 
   if (ran.code === 0 && report?.ok === true) return Effect.succeed(report);
 
@@ -115,21 +123,26 @@ const reportOf = (ran: Ran, step: string) => {
   return Effect.fail(new WindowsLocalFailed({ step, message }));
 };
 
-/** Installs the bundled build, or upgrades the installed Daemon to it; both restart the task. */
+/**
+ * Installs the bundled build, or upgrades the installed Daemon to it; both restart the task.
+ * `replaceTask` takes over a sign-in task another Polaris home holds (`TaskConflict`).
+ */
 export const applyWindowsLocal = (
   home: string,
   work: InstallWork,
-  processes: ChildProcessApi = childProcesses
-): Effect.Effect<InstallOutcome, WindowsLocalFailed> => {
+  processes: ChildProcessApi = childProcesses,
+  replaceTask = false
+): Effect.Effect<InstallOutcome, WindowsLocalFailed | TaskConflict> => {
   const bundled = work.build.files[0]?.path ?? "";
   const sha = work.build.sha256;
+  const takeOver = replaceTask ? ["--replace-task"] : [];
 
   return Match.value(work).pipe(
     Match.tagsExhaustive({
       Install: () =>
         run(processes, {
           file: bundled,
-          args: ["install", "--json", "--sha256", sha],
+          args: ["install", "--json", "--sha256", sha, ...takeOver],
           step: "install",
           home,
         }).pipe(
@@ -141,7 +154,7 @@ export const applyWindowsLocal = (
       Upgrade: ({ from }) =>
         run(processes, {
           file: installedPaths(home, "win32").binary,
-          args: ["upgrade", bundled, "--json", "--sha256", sha],
+          args: ["upgrade", bundled, "--json", "--sha256", sha, ...takeOver],
           step: "upgrade",
           home,
         }).pipe(
@@ -158,7 +171,7 @@ export const applyWindowsLocal = (
 export const startWindowsLocal = (
   home: string,
   processes: ChildProcessApi = childProcesses
-): Effect.Effect<void, WindowsLocalFailed> =>
+): Effect.Effect<void, WindowsLocalFailed | TaskConflict> =>
   run(processes, {
     file: installedPaths(home, "win32").binary,
     args: ["install", "--json"],

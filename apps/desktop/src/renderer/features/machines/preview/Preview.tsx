@@ -2,7 +2,8 @@
  * Settings → Hosts on fixtures, for screenshots and the smoke: `#hosts/all`,
  * `#hosts/current`, `#hosts/failures`, `#hosts/live`, where Update walks a
  * fake host through checking, copying and switching, and `#hosts/wsl`, a
- * Windows PC with WSL Hosts and distros to add. Nothing is installed.
+ * Windows PC with WSL Hosts and distros to add, and `#hosts/task`, Windows installs held by
+ * a sign-in task another Polaris home holds. Nothing is installed.
  */
 import { Option, Schema } from "effect";
 import { createRoot } from "react-dom/client";

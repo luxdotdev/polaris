@@ -245,9 +245,17 @@ export interface InstallFlowView {
     readonly adminCommand: string | null;
   } | null;
   readonly problem: {
-    readonly kind: "unsupported" | "missing-build" | "host-setup" | "ssh" | "failed";
+    readonly kind:
+      | "unsupported"
+      | "missing-build"
+      | "host-setup"
+      | "ssh"
+      | "failed"
+      | "task-conflict";
     readonly message: string;
     readonly command: string | null;
+    /** `task-conflict`: the Windows sign-in task, and the Polaris home it runs (null: not Polaris'). */
+    readonly conflict?: { readonly task: string; readonly otherHome: string | null };
   } | null;
 }
 
@@ -481,6 +489,7 @@ export interface RequestOutputs
   "machines.setDaemonUpdateOverride": null;
   "machines.approve": null;
   "machines.dismiss": null;
+  "machines.takeOverTask": null;
   "machines.startDaemon": null;
   "machines.setLocalEnabled": null;
   "machines.openSsh": null;

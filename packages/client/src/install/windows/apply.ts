@@ -108,6 +108,7 @@ export const applyWindowsPlan = Effect.fn("applyWindowsPlan")(function* (
   const dir = `upload-${randomBytes(6).toString("hex")}`;
   const binary = plan.build.files[0]!.name;
   const sha256 = plan.build.sha256;
+  const replaceTask = options.replaceTask === true;
 
   return yield* Effect.gen(function* () {
     const build = yield* localBuild(alias, plan.build, options);
@@ -117,11 +118,11 @@ export const applyWindowsPlan = Effect.fn("applyWindowsPlan")(function* (
     return yield* Match.value(plan).pipe(
       Match.tagsExhaustive({
         Install: () =>
-          runPolaris(alias, "install", installCommand(dir, binary, sha256)).pipe(
+          runPolaris(alias, "install", installCommand(dir, binary, sha256, replaceTask)).pipe(
             Effect.map((report) => ApplyResult.Installed({ version: plan.build.version, report }))
           ),
         Upgrade: (upgrade) =>
-          runPolaris(alias, "upgrade", upgradeCommand(dir, binary, sha256)).pipe(
+          runPolaris(alias, "upgrade", upgradeCommand(dir, binary, sha256, replaceTask)).pipe(
             Effect.map((report) =>
               ApplyResult.Upgraded({ from: upgrade.from, version: plan.build.version, report })
             )

@@ -468,6 +468,7 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
   "machines.approve": ({ hostKey, sha256 }) =>
     machines((m) => m.approve(hostKey, sha256)).pipe(done),
   "machines.dismiss": ({ hostKey }) => machines((m) => m.dismiss(hostKey)).pipe(done),
+  "machines.takeOverTask": ({ hostKey }) => machines((m) => m.takeOverTask(hostKey)).pipe(done),
   "machines.startDaemon": ({ hostKey }) => machines((m) => m.startDaemon(hostKey)).pipe(done),
   "machines.setLocalEnabled": ({ enabled }) =>
     machines((m) => m.setLocalEnabled(enabled)).pipe(done),

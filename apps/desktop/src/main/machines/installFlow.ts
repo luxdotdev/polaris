@@ -11,6 +11,9 @@
  *   outcome says the upgrade happened.
  * - "Not now" parks the Host until the user checks again; background checks
  *   leave it parked.
+ * - A Windows install that found its sign-in task held by another Polaris
+ *   home keeps its work, so only the user's take-over reruns it, with
+ *   `--replace-task`; nothing takes over on its own.
  */
 import type { InstallPlan, InstallTrigger } from "@polaris/client/install";
 import { Match } from "effect";
@@ -36,12 +39,28 @@ export interface InstallOutcome {
   readonly adminCommand: string | null;
 }
 
+/** Windows: the sign-in task `task` runs the Polaris home `otherHome` (null: not Polaris'). */
+export interface TaskConflictView {
+  readonly task: string;
+  readonly otherHome: string | null;
+}
+
 export interface InstallProblem {
-  /** `ssh`: ssh itself failed (host key, auth, unreachable); the Connection State says why. */
-  readonly kind: "unsupported" | "missing-build" | "host-setup" | "ssh" | "failed";
+  /**
+   * `ssh`: ssh itself failed (host key, auth, unreachable); the Connection State says why.
+   * `task-conflict`: another Polaris home holds the Windows sign-in task (`conflict`).
+   */
+  readonly kind:
+    | "unsupported"
+    | "missing-build"
+    | "host-setup"
+    | "ssh"
+    | "failed"
+    | "task-conflict";
   readonly message: string;
   /** What an administrator must run on the Host (host setup, linger). */
   readonly command: string | null;
+  readonly conflict?: TaskConflictView;
 }
 
 export interface InstallContext {
@@ -62,6 +81,8 @@ export type InstallEvent =
     }
   | { readonly type: "approve" }
   | { readonly type: "dismiss" }
+  /** The user confirmed taking over the sign-in task another Polaris home holds. */
+  | { readonly type: "takeOver" }
   | { readonly type: "applied"; readonly outcome: InstallOutcome }
   | { readonly type: "failed"; readonly problem: InstallProblem };
 
@@ -97,6 +118,27 @@ const blocked = (problem: InstallProblem) => ({
   target: "blocked" as const,
   context: { ...cleared, problem },
 });
+
+/** A failed install; one stopped by a held sign-in task keeps its work for a take-over. */
+const failedWork = ({
+  context,
+  event,
+}: {
+  context: InstallContext;
+  event: { readonly problem: InstallProblem };
+}) =>
+  event.problem.kind === "task-conflict"
+    ? {
+        target: "blocked" as const,
+        context: { ...cleared, work: context.work, problem: event.problem },
+      }
+    : blocked(event.problem);
+
+/** Reruns the held install, only from a task conflict that kept its work. */
+const takeOver = ({ context }: { context: InstallContext }) =>
+  context.problem?.kind === "task-conflict" && context.work !== null
+    ? { target: "installing" as const, context: { ...cleared, work: context.work } }
+    : undefined;
 
 const ready = (outcome: InstallOutcome) => ({
   target: "ready" as const,
@@ -159,6 +201,7 @@ export const installMachine = setup({
       planned: types<Omit<Planned, "type">>(),
       approve: types<Record<never, never>>(),
       dismiss: types<Record<never, never>>(),
+      takeOver: types<Record<never, never>>(),
       applied: types<{ readonly outcome: InstallOutcome }>(),
       failed: types<{ readonly problem: InstallProblem }>(),
     },
@@ -187,11 +230,11 @@ export const installMachine = setup({
     installing: {
       on: {
         applied: ({ event }) => ready(event.outcome),
-        failed: ({ event }) => blocked(event.problem),
+        failed: failedWork,
       },
     },
     ready: { on: { check: check(false) } },
-    blocked: { on: { check: check(false) } },
+    blocked: { on: { check: check(false), takeOver } },
   },
 });
 

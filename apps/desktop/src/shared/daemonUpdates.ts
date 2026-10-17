@@ -7,7 +7,14 @@ export const DaemonUpdateResultSchema = Schema.Struct({
   version: Schema.NullOr(Schema.String),
   problem: Schema.NullOr(
     Schema.Struct({
-      kind: Schema.Literals(["unsupported", "missing-build", "host-setup", "ssh", "failed"]),
+      kind: Schema.Literals([
+        "unsupported",
+        "missing-build",
+        "host-setup",
+        "ssh",
+        "failed",
+        "task-conflict",
+      ]),
       message: Schema.String,
       command: Schema.NullOr(Schema.String),
       sshFailure: Schema.NullOr(

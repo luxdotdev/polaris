@@ -13,6 +13,8 @@ import {
   type DownloadBuild,
   InstallPlan,
   type InstallTrigger,
+  SshError,
+  TaskConflict,
   type WindowsShell,
 } from "@polaris/client/install";
 import type { ChildProcessApi } from "@polaris/client/process";
@@ -37,7 +39,13 @@ import type { RemoteHostSetting, Settings } from "../settings.ts";
 import type { Approvals } from "./approvals.ts";
 import type { DaemonBuilds } from "./builds.ts";
 import { deliveryActivity } from "./delivery.ts";
-import { type InstallEvent, initialInstall, stepInstall } from "./installFlow.ts";
+import {
+  type InstallEvent,
+  type InstallProblem,
+  type InstallWork,
+  initialInstall,
+  stepInstall,
+} from "./installFlow.ts";
 import { channelActivity, unmanagedLocal, unsupportedMessage } from "./channels.ts";
 import { applyWork, failureMessage, planFor, startDaemon } from "./remote.ts";
 import { backgroundCheckKey, type InstallRecord, localUpgradeKey, machineViews } from "./views.ts";
@@ -136,6 +144,8 @@ export class Machines extends Context.Service<
     ) => Effect.Effect<void, MachineError>;
     readonly approve: (key: string, sha256: string) => Effect.Effect<void, MachineError>;
     readonly dismiss: (key: string) => Effect.Effect<void, MachineError>;
+    /** The user confirmed: rerun the install a held sign-in task stopped, with `--replace-task`. */
+    readonly takeOverTask: (key: string) => Effect.Effect<void, MachineError>;
     readonly startDaemon: (key: string) => Effect.Effect<void, MachineError>;
     readonly setLocalEnabled: (enabled: boolean) => Effect.Effect<void, MachineError>;
     readonly openSsh: (key: string) => Effect.Effect<void, MachineError>;
@@ -345,6 +355,90 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
       }
     });
 
+  /** Records a failed check or install: the flow's problem, and the update's last result. */
+  const failInstall = (
+    key: string,
+    problem: InstallProblem,
+    sshFailure: SshError["failure"] | null = null
+  ) =>
+    step(key, { type: "failed", problem }).pipe(
+      Effect.andThen(
+        finishUpdate(key, {
+          at: Date.now(),
+          result: "failed",
+          from: updates.get(key)?.installedVersion ?? null,
+          version: updates.get(key)?.bundledVersion ?? bundled,
+          problem: {
+            kind: problem.kind,
+            message: problem.message,
+            command: problem.command,
+            sshFailure,
+          },
+        })
+      )
+    );
+
+  /** Any failure of a check or install, as the flow's problem. */
+  const recover =
+    (key: string) =>
+    <A, E extends Failure, R>(effect: Effect.Effect<A, E, R>) =>
+      effect.pipe(
+        Effect.catch((error) => {
+          if (error instanceof SshError)
+            return failInstall(
+              key,
+              { kind: "ssh", message: failureMessage(error), command: null },
+              error.failure
+            );
+
+          if (error instanceof TaskConflict) {
+            const conflict = { task: error.task, otherHome: error.otherHome };
+
+            return failInstall(key, {
+              kind: "task-conflict",
+              message: error.message,
+              command: null,
+              conflict,
+            });
+          }
+
+          return failInstall(key, {
+            kind: "failed",
+            message: failureMessage(error),
+            command: null,
+          });
+        }),
+        Effect.asVoid
+      );
+
+  /** Installs or upgrades as `work` says, then records the outcome and reconnects. */
+  const applyStep = (key: string, to: HostChannel, work: InstallWork, replaceTask: boolean) =>
+    Effect.gen(function* () {
+      const outcome = yield* applyWork(
+        to,
+        work,
+        {
+          progress: progress(key),
+          download: input.download,
+          clientVersion: input.clientVersion,
+          replaceTask,
+        },
+        { platform: input.platform, processes: input.processes }
+      );
+
+      yield* localListening(to.home);
+
+      yield* step(key, { type: "applied", outcome });
+      yield* finishUpdate(key, {
+        at: Date.now(),
+        result: "updated",
+        from: outcome.from,
+        version: outcome.version,
+        problem: null,
+      });
+      yield* retryConnection(key);
+    });
+
   /** The flow after `check` moved to checking: plan, then maybe install. */
   const checkBody = (key: string, to: HostChannel, trigger: InstallTrigger, updateOnly = false) =>
     Effect.gen(function* () {
@@ -389,16 +483,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
           ? `${copy.localHost} has no daemon Polaris installed yet. Use Install first.`
           : "No daemon is installed. Use Install daemon first.";
 
-        yield* step(key, { type: "failed", problem: { kind: "failed", message, command: null } });
-        yield* finishUpdate(key, {
-          at: Date.now(),
-          result: "failed",
-          from: installedVersion,
-          version: bundledVersion,
-          problem: { kind: "failed", message, command: null, sshFailure: null },
-        });
-
-        return;
+        return yield* failInstall(key, { kind: "failed", message, command: null });
       }
 
       yield* setRecord(key, { offerSize: size });
@@ -419,69 +504,8 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
         return;
       }
 
-      const outcome = yield* applyWork(
-        to,
-        pending,
-        { progress: progress(key), download: input.download, clientVersion: input.clientVersion },
-        { platform: input.platform, processes: input.processes }
-      );
-
-      yield* localListening(to.home);
-
-      yield* step(key, { type: "applied", outcome });
-      yield* finishUpdate(key, {
-        at: Date.now(),
-        result: "updated",
-        from: outcome.from,
-        version: outcome.version,
-        problem: null,
-      });
-      yield* retryConnection(key);
-    }).pipe(
-      Effect.catchTag("SshError", (error) =>
-        step(key, {
-          type: "failed",
-          problem: { kind: "ssh", message: failureMessage(error), command: null },
-        }).pipe(
-          Effect.andThen(
-            finishUpdate(key, {
-              at: Date.now(),
-              result: "failed",
-              from: updates.get(key)?.installedVersion ?? null,
-              version: updates.get(key)?.bundledVersion ?? bundled,
-              problem: {
-                kind: "ssh",
-                message: failureMessage(error),
-                command: null,
-                sshFailure: error.failure,
-              },
-            })
-          )
-        )
-      ),
-      Effect.catch((error) =>
-        step(key, {
-          type: "failed",
-          problem: { kind: "failed", message: failureMessage(error), command: null },
-        }).pipe(
-          Effect.andThen(
-            finishUpdate(key, {
-              at: Date.now(),
-              result: "failed",
-              from: updates.get(key)?.installedVersion ?? null,
-              version: bundled,
-              problem: {
-                kind: "failed",
-                message: failureMessage(error),
-                command: null,
-                sshFailure: null,
-              },
-            })
-          )
-        )
-      ),
-      Effect.asVoid
-    );
+      yield* applyStep(key, to, pending, false);
+    }).pipe(recover(key));
 
   const runCheck = (key: string, to: HostChannel, trigger: InstallTrigger, updateOnly = false) =>
     Effect.gen(function* () {
@@ -644,6 +668,17 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
       }
     });
 
+  const takeOverTask = (key: string) =>
+    Effect.gen(function* () {
+      const to = yield* channelFor(key);
+      const next = yield* step(key, { type: "takeOver" }, "Taking over the sign-in task");
+      const held = next.value === "installing" ? next.context.work : null;
+
+      if (held === null) return yield* fail("Nothing is waiting on the sign-in task; check again.");
+      yield* updateFacts(key, { progress: { stage: "checking", bytes: 0, total: 0 } });
+      yield* launch(key, applyStep(key, to, held, true).pipe(recover(key)));
+    });
+
   /** Start daemon: `polaris install` with the installed build; on this Mac with none, install it. */
   const restart = (key: string) =>
     Effect.gen(function* () {
@@ -745,6 +780,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
     setDaemonUpdateOverride,
     approve,
     dismiss: (key) => Effect.asVoid(step(key, { type: "dismiss" })),
+    takeOverTask,
     startDaemon: restart,
     setLocalEnabled,
     wslDistros:
