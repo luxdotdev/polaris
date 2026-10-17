@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect, Layer } from "effect";
@@ -180,6 +180,7 @@ describe.skipIf(!windows)("a redirected home and the real install's task (Window
 
   test("install refuses the task and uninstall keeps it; both leave it running the real home", async () => {
     const real = installedHome();
+    mkdirSync(join(real, "logs"));
     const redirected = mkdtempSync(join(tmpdir(), "polaris-redirected-"));
     const name = `dev.lux.polaris.eng322-test-${process.pid}`;
     const { currentUserSid } = await import("../transport/windowsPipe/win32.ts");
@@ -225,11 +226,13 @@ describe.skipIf(!windows)("a redirected home and the real install's task (Window
 
       expect(refused).toBeInstanceOf(TaskConflictError);
       expect(runsHome()).toBe(real);
-      expect(await run(taskRunning(name))).toBe(false);
       const removed = await run(removeWindowsTask(target));
       expect(removed.keptTask).toBe(name);
       expect(runsHome()).toBe(real);
+      // Had either started the task, its loop's redirect would have created this log.
+      expect(existsSync(join(real, "logs", "daemon.out.log"))).toBe(false);
     } finally {
+      Bun.spawnSync(["schtasks", "/End", "/TN", name]);
       Bun.spawnSync(["schtasks", "/Delete", "/F", "/TN", name]);
       rmSync(real, { recursive: true, force: true });
       rmSync(redirected, { recursive: true, force: true });
