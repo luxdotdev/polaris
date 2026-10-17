@@ -9,6 +9,7 @@ import {
   activateWindowsTask,
   planWindowsTask,
   removeWindowsTask,
+  taskRunning,
   type WindowsTaskFacts,
 } from "./windowsService.ts";
 import { taskWorkingDirectory, taskXml, taskXmlBytes } from "./windowsTask.ts";
@@ -89,6 +90,24 @@ const schtasksWith = (home: string) => {
 
   return { calls, layer };
 };
+
+describe("taskRunning", () => {
+  const answering = (stdout: string, code = 0) =>
+    Layer.succeed(
+      CommandRunner,
+      CommandRunner.of({ run: () => Effect.succeed({ code, stdout, stderr: "" }) })
+    );
+
+  test("reads Task Scheduler's state number, and says nothing when it gets none", async () => {
+    const state = (stdout: string, code = 0) =>
+      Effect.runPromise(taskRunning("t").pipe(Effect.provide(answering(stdout, code))));
+
+    expect(await state("4\r\n")).toBe(true);
+    expect(await state("3\r\n")).toBe(false);
+    expect(await state("", 1)).toBeNull();
+    expect(await state("Running\r\n")).toBeNull();
+  });
+});
 
 describe("activateWindowsTask", () => {
   test("a task that runs another installed home is left alone, and the error says whose it is", async () => {
@@ -206,6 +225,7 @@ describe.skipIf(!windows)("a redirected home and the real install's task (Window
 
       expect(refused).toBeInstanceOf(TaskConflictError);
       expect(runsHome()).toBe(real);
+      expect(await run(taskRunning(name))).toBe(false);
       const removed = await run(removeWindowsTask(target));
       expect(removed.keptTask).toBe(name);
       expect(runsHome()).toBe(real);

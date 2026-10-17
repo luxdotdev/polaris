@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   claimTask,
+  stopsOtherHome,
   supervisorLoop,
   taskWorkingDirectory,
   taskXml,
@@ -106,6 +107,25 @@ describe("claimTask", () => {
 
   test("a task under the name that isn't Polaris' is refused unless --replace-task", () => {
     expect(claimTask({ home: null, homeInstalled: false }, home, false)).toBe("conflict");
+  });
+});
+
+describe("stopsOtherHome", () => {
+  const dev = "C:\\Users\\lucas\\dev\\.polaris";
+
+  test("a take-over stops the other home's Daemon only while the task runs it", () => {
+    expect(stopsOtherHome("taken-over", dev, true)).toBe(true);
+    expect(stopsOtherHome("taken-over", dev, false)).toBe(false);
+  });
+
+  test("when Task Scheduler can't say, it stops it, as before ENG-325", () => {
+    expect(stopsOtherHome("taken-over", dev, null)).toBe(true);
+  });
+
+  test("nothing else stops another home's Daemon", () => {
+    for (const claim of ["absent", "ours", "abandoned", "conflict"] as const)
+      expect(stopsOtherHome(claim, dev, true)).toBe(false);
+    expect(stopsOtherHome("taken-over", null, true)).toBe(false);
   });
 });
 
