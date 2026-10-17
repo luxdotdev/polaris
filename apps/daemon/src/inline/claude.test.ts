@@ -11,8 +11,10 @@ import { npmFake } from "../harness/testing/shellFake.ts";
 
 const roots: Array<string> = [];
 
+// Windows holds the fake's node.exe for a moment after the stream ends.
 afterEach(() => {
-  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+  for (const root of roots.splice(0))
+    rmSync(root, { recursive: true, force: true, maxRetries: 20, retryDelay: 50 });
 });
 
 /** A claude installed by npm: on Windows its `.cmd` shim, which can't be handed JSON. */
