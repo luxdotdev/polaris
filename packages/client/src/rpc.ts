@@ -7,7 +7,8 @@
  * routed back to the RpcClient that sent them, a lost connection fails every
  * in-flight request with an RpcClientError, and a ping loop detects a dead
  * peer. Unlike it, there is no built-in retry: a Wire is one connection, and
- * HostConnection owns reconnecting.
+ * HostConnection owns reconnecting. A connection-level `Defect` (sent by
+ * Daemons before ADR 0064 when a handler died) also counts as a lost connection.
  *
  * Pings run only while a request is waiting for its reply. Streams (host and
  * session subscriptions, watches) don't count: a Client that is only
@@ -28,10 +29,24 @@ import {
   type Wire,
   type WireOptions,
 } from "@polaris/protocol";
-import { Data, Deferred, Effect, Exit, Latch, Predicate, type Scope, type Stream } from "effect";
+import {
+  Data,
+  Deferred,
+  Effect,
+  Exit,
+  Latch,
+  Predicate,
+  Schema,
+  type Scope,
+  type Stream,
+} from "effect";
 import { RpcClient, type RpcGroup, RpcSchema, RpcSerialization } from "effect/rpc";
 import { RpcClientDefect, RpcClientError } from "effect/rpc/RpcClientError";
-import { constPing, type FromServerEncoded } from "effect/rpc/RpcMessage";
+import {
+  constPing,
+  type FromServerEncoded,
+  type ResponseDefectEncoded,
+} from "effect/rpc/RpcMessage";
 import type { ClientTransport } from "./transport.ts";
 
 export type DaemonClient = RpcClient.RpcClient<RpcGroup.Rpcs<typeof DaemonRpcs>, RpcClientError>;
@@ -80,6 +95,21 @@ const isPong = Predicate.isTagged("Pong");
 
 const isExit = Predicate.isTagged("Exit");
 
+const isDefect = Predicate.isTagged("Defect");
+
+/**
+ * A connection-level `Defect` from a Daemon older than ADR 0064: it dropped every request
+ * on the connection, so the Client fails the connection and reconnects.
+ */
+export class DaemonDefect extends Schema.TaggedError<DaemonDefect>()("DaemonDefect", {
+  defect: Schema.Defect(),
+}) {}
+
+/** True when the connection was lost to an older Daemon's connection-level `Defect`. */
+export const isDaemonDefect = (error: RpcClientError): boolean =>
+  Predicate.isTagged(error.reason, "RpcClientDefect") &&
+  Predicate.isTagged(error.reason.cause, "DaemonDefect");
+
 const lostError = (message: string, cause?: unknown) =>
   new RpcClientError({ reason: new RpcClientDefect({ message, cause }) });
 
@@ -89,6 +119,7 @@ export const connectRpc = Effect.fnUntraced(function* (
 ): Effect.fn.Return<RpcConnection, never, Scope.Scope> {
   const serialization = RpcSerialization.json;
   const parser = serialization.makeUnsafe();
+  const decodeDefect = Schema.decodeUnknownSync(serialization.codecFor(Schema.Defect()));
   const lost = yield* Deferred.make<never, RpcClientError>();
   const pingInterval = options.pingIntervalMs ?? 15_000;
   let lastHeard = Date.now();
@@ -116,6 +147,35 @@ export const connectRpc = Effect.fnUntraced(function* (
       const broadcast = (response: FromServerEncoded) =>
         Effect.forEach(clientIds, (clientId) => writeResponse(clientId, response), {
           discard: true,
+        });
+
+      const fail = (error: RpcClientError) =>
+        Effect.suspend(() => {
+          if (currentError !== undefined) return Effect.void;
+          currentError = error;
+          requestClient.clear();
+          awaiting.clear();
+          pinging.closeUnsafe();
+
+          // Fail in-flight requests first: completing `lost` lets the owner close
+          // this scope, which would interrupt us before the broadcast.
+          return Effect.andThen(
+            broadcast(ClientProtocolError({ error })),
+            Deferred.fail(lost, error)
+          ).pipe(Effect.uninterruptible);
+        });
+
+      const failOnDefect = (response: ResponseDefectEncoded) =>
+        Effect.suspend(() => {
+          if (currentError !== undefined) return Effect.void;
+
+          const defect = decodeDefect(response.defect);
+          const message = `the Daemon dropped every request on this connection after a defect (${String(defect)})`;
+
+          return Effect.andThen(
+            Effect.logWarning(`${message}; reconnecting`),
+            fail(lostError(message, new DaemonDefect({ defect })))
+          );
         });
 
       const onJson = (text: string) =>
@@ -146,6 +206,8 @@ export const connectRpc = Effect.fnUntraced(function* (
                 return Effect.sync(() => waiters.forEach((resume) => resume()));
               }
 
+              if (isDefect(response)) return failOnDefect(response);
+
               if ("requestId" in response) {
                 const clientId = requestClient.get(response.requestId);
 
@@ -166,19 +228,6 @@ export const connectRpc = Effect.fnUntraced(function* (
         });
 
       wire = yield* makeWire(transport, onJson, { ...options.wire, blobIdPrefix: "c" });
-
-      const fail = (error: RpcClientError) =>
-        Effect.suspend(() => {
-          if (currentError !== undefined) return Effect.void;
-          currentError = error;
-
-          // Fail in-flight requests first: completing `lost` lets the owner close
-          // this scope, which would interrupt us before the broadcast.
-          return Effect.andThen(
-            broadcast(ClientProtocolError({ error })),
-            Deferred.fail(lost, error)
-          ).pipe(Effect.uninterruptible);
-        });
 
       yield* wire.closed.pipe(
         Effect.exit,

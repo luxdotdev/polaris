@@ -48,6 +48,7 @@ import {
   type ClientBlobs,
   connectRpc,
   type DaemonClient,
+  isDaemonDefect,
   type RpcConnectionOptions,
 } from "./rpc.ts";
 import type { WindowsShell } from "./install/windows/powershell.ts";
@@ -437,7 +438,20 @@ export const makeHostConnection = Effect.fnUntraced(function* (
           Effect.forkScoped
         );
 
-        return yield* connection.lost.pipe(Effect.catch(() => Effect.flip(transport.diagnose)));
+        // An older Daemon's defect left the transport open: its diagnosis would wait for an exit.
+        return yield* connection.lost.pipe(
+          Effect.catch((error) =>
+            isDaemonDefect(error)
+              ? Effect.fail(
+                  new ConnectFailure({
+                    kind: "transient",
+                    reason: "connection-lost",
+                    detail: error.reason.message,
+                  })
+                )
+              : Effect.flip(transport.diagnose)
+          )
+        );
       })
     );
 
