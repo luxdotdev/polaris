@@ -106,18 +106,15 @@ export const toTransport = (stream: BunSocketStream): ByteTransport => ({
   close: Effect.sync(() => stream.end()),
 });
 
-/**
- * Socket handlers that turn every opened connection into a ByteTransport. The
- * transport's reader is attached in `open`, before any data can arrive.
- */
-export const socketHandlers = (
-  onConnection: (transport: ByteTransport) => void
+/** Socket handlers that hand every opened connection to `onOpen` as a `BunSocketStream`. */
+export const streamHandlers = (
+  onOpen: (stream: BunSocketStream) => void
 ): SocketHandler<BunSocketStream | undefined> => ({
   binaryType: "uint8array",
   open(socket) {
     const stream = new BunSocketStream(socket);
     socket.data = stream;
-    onConnection(toTransport(stream));
+    onOpen(stream);
   },
   data(socket, data) {
     socket.data?.emit("data", data);
@@ -135,3 +132,12 @@ export const socketHandlers = (
     socket.data?.emit("error", error);
   },
 });
+
+/**
+ * Socket handlers that turn every opened connection into a ByteTransport. The
+ * transport's reader is attached in `open`, before any data can arrive.
+ */
+export const socketHandlers = (
+  onConnection: (transport: ByteTransport) => void
+): SocketHandler<BunSocketStream | undefined> =>
+  streamHandlers((stream) => onConnection(toTransport(stream)));
