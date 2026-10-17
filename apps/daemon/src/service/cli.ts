@@ -3,9 +3,10 @@
  * Each prints a human summary, or with `--json` a single JSON line on stdout
  * that the Client parses (see packages/client/src/install).
  */
-import { Effect, Schema } from "effect";
+import { Effect, Match, Predicate, Schema } from "effect";
 import { paths } from "../paths.ts";
 import { CommandRunner } from "./CommandRunner.ts";
+import { EXIT_TASK_CONFLICT, type TaskConflictError } from "./errors.ts";
 import {
   defaultInstallContext,
   type InstallError,
@@ -32,7 +33,7 @@ const option = (args: ReadonlyArray<string>, name: string): string | undefined =
 const output = <Report>(json: boolean, value: Report, human: ReadonlyArray<string>) =>
   Effect.sync(() => console.log(json ? JSON.stringify(value) : human.join("\n")));
 
-/** `polaris install [--binary <path>] [--sha256 <hex>] [--json]` */
+/** `polaris install [--binary <path>] [--sha256 <hex>] [--replace-task] [--json]` */
 const installCommand = Effect.fn("installCommand")(function* (args: ReadonlyArray<string>) {
   const source = option(args, "--binary") ?? (isCompiled() ? process.execPath : undefined);
 
@@ -48,6 +49,7 @@ const installCommand = Effect.fn("installCommand")(function* (args: ReadonlyArra
     source,
     version: info.version,
     sha256: option(args, "--sha256"),
+    replaceTask: flag(args, "--replace-task"),
   });
 
   yield* output(flag(args, "--json"), { ok: true, action: "install", ...report }, [
@@ -72,11 +74,14 @@ const uninstallCommand = Effect.fn("uninstallCommand")(function* (args: Readonly
     report.purged
       ? `Removed the Polaris service and ${paths().root}`
       : "Removed the Polaris service and binaries; state kept",
+    ...(report.keptTask === null
+      ? []
+      : [`  kept the scheduled task ${report.keptTask}: it runs another Polaris home`]),
   ]);
 });
 
 /**
- * `polaris upgrade <path> [--sha256 <hex>] [--json]`: install `<path>` as a new version, then
+ * `polaris upgrade <path> [--sha256 <hex>] [--replace-task] [--json]`: install `<path>` as a new version, then
  * hand the running Daemon over to it in place (same PID, Harnesses kept).
  * With no Daemon running, it just (re)starts the service on the new version.
  */
@@ -103,7 +108,11 @@ const upgradeCommand = Effect.fn("upgradeCommand")(function* (args: ReadonlyArra
 
   // Windows has no hand-off: install stops the running Daemon and the task starts the new one.
   if (ctx.os === "win32") {
-    const report = yield* install(ctx, { source: staged.path, version: info.version });
+    const report = yield* install(ctx, {
+      source: staged.path,
+      version: info.version,
+      replaceTask: flag(args, "--replace-task"),
+    });
 
     return yield* output(json, { ok: true, action: "restarted", ...report }, [
       report.restarted
@@ -136,7 +145,11 @@ const commands = {
   string,
   (
     args: ReadonlyArray<string>
-  ) => Effect.Effect<void, UsageError | InstallError | UpgradeError, CommandRunner>
+  ) => Effect.Effect<
+    void,
+    UsageError | InstallError | TaskConflictError | UpgradeError,
+    CommandRunner
+  >
 >;
 
 type ServiceCommand = keyof typeof commands;
@@ -157,12 +170,20 @@ export const runServiceCommand = (
           const message = "step" in error ? `${error.step}: ${error.message}` : error.message;
 
           if (flag(args, "--json")) {
-            console.log(JSON.stringify({ ok: false, error: error._tag, message }));
+            const conflict = Predicate.isTagged(error, "TaskConflictError")
+              ? { task: error.task, otherHome: error.otherHome }
+              : {};
+
+            console.log(JSON.stringify({ ok: false, error: error._tag, message, ...conflict }));
           } else {
             console.error(`polaris ${command}: ${message}`);
           }
 
-          return error instanceof UsageError ? 2 : 1;
+          return Match.value(error).pipe(
+            Match.tag("UsageError", () => 2),
+            Match.tag("TaskConflictError", () => EXIT_TASK_CONFLICT),
+            Match.orElse(() => 1)
+          );
         })
       ),
       Effect.provide(CommandRunner.layer)

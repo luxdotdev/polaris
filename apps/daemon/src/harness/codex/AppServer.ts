@@ -31,13 +31,15 @@ import { ThreadLoadedListResponse } from "./protocol.ts";
 import { codexError, connectUnix, connectWebSocket, type RpcConnection } from "./RpcConnection.ts";
 import { commandLineOf, encodePowershell, powershellQuote } from "../../platform/processes.ts";
 import { which } from "../../service/userPath.ts";
+import { ownerOf, thisUserSid, writePrivateFile } from "../../platform/windowsNative.ts";
 import {
   ownsListen,
+  stopOwnedWindowsServers,
   stopWindowsServer,
   type WindowsLaunched,
   windowsLaunch,
 } from "./windowsServer.ts";
-import { tokenFileOf } from "./windowsToken.ts";
+import { isTrustedOwner, tokenFileOf } from "./windowsToken.ts";
 
 const windows = process.platform === "win32";
 
@@ -95,6 +97,9 @@ export { tokenFileOf };
 const decodeState = Schema.decodeUnknownOption(Schema.fromJsonString(AppServerState));
 
 export const readAppServerState = (stateFile: string): AppServerState | null => {
+  // On Windows its pids and URL decide where the token goes: only a file the user owns counts.
+  if (windows && !isTrustedOwner(ownerOf(stateFile), thisUserSid())) return null;
+
   try {
     const state = decodeState(readFileSync(stateFile, "utf8"));
 
@@ -106,6 +111,8 @@ export const readAppServerState = (stateFile: string): AppServerState | null => 
 
 const writeState = (stateFile: string, state: AppServerState) => {
   mkdirSync(dirname(stateFile), { recursive: true });
+
+  if (windows) return writePrivateFile(stateFile, `${JSON.stringify(state)}\n`);
   const temporary = `${stateFile}.${process.pid}.tmp`;
   writeFileSync(temporary, `${JSON.stringify(state)}\n`, { mode: 0o600 });
   renameSync(temporary, stateFile);
@@ -154,14 +161,14 @@ export const connectAppServer = (
 
   return Effect.suspend(() => {
     const state = readAppServerState(stateFile);
-    const { listen, listenerPid } = state ?? {};
+    const { listen, listenerPid, listenerCreated } = state ?? {};
     let token: string | null = null;
 
     if (listen === undefined || listenerPid === undefined)
       return Effect.fail(codexError(`No Codex app-server is recorded in ${stateFile}`));
 
     // Before the token goes out: whatever holds the port now must be the server we started.
-    if (!ownsListen(listen, listenerPid))
+    if (!ownsListen(listen, listenerPid, listenerCreated))
       return Effect.fail(codexError(`${listen} is not the recorded Codex app-server`));
 
     try {
@@ -320,11 +327,12 @@ export const stopAppServer = (options: {
     const socketPath = options.socketPath ?? state?.socketPath;
     let stopped: number | null = null;
 
-    const ours = state !== null && isOurAppServer(state.pid, endpointOf(state, options.stateFile));
+    const isOurs = (pid: number) =>
+      state !== null && isOurAppServer(pid, endpointOf(state, options.stateFile));
 
     if (windows && state !== null) {
-      stopped = yield* Effect.promise(() => stopWindowsServer(state, ours));
-    } else if (ours) {
+      stopped = yield* Effect.promise(() => stopWindowsServer(state, isOurs));
+    } else if (state !== null && isOurs(state.pid)) {
       stopped = state.pid;
       yield* Effect.sync(() => process.kill(state.pid, "SIGTERM"));
       const exited = yield* waitFor(() => !isAlive(state.pid), 5_000);
@@ -358,7 +366,9 @@ export const acquireAppServer = (
     // Windows: the server is this Daemon's child (see windowsServer.ts) and ends with it.
     if (windows)
       yield* Effect.addFinalizer(() =>
-        stopAppServer({ stateFile, socketPath: options.socketPath }).pipe(Effect.asVoid)
+        stopAppServer({ stateFile, socketPath: options.socketPath }).pipe(
+          Effect.andThen(Effect.promise(stopOwnedWindowsServers))
+        )
       );
 
     const logKeepingServer = (state: AppServerState, reason: string) =>

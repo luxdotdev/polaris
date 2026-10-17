@@ -23,22 +23,25 @@ type Implemented = typeof implemented extends { readonly requests: ReadonlyMap<s
   ? R
   : never;
 
-/**
- * Where no language artifact runs (Windows until 0.3.0, ENG-296), each RPC fails
- * cleanly. Building the real graph there dies, and effect/rpc ends a connection on a defect.
- */
+/** The typed error a language RPC fails with when its services are not there. */
+const unavailable = (tag: string, error: LanguageError) =>
+  tag === PredictionContextQuery._tag
+    ? new PredictionError({ reason: "unavailable", message: error.message })
+    : error;
+
+/** Where no language artifact runs (Windows until 0.3.0, ENG-296), each RPC fails cleanly. */
 const unavailableLanguageHandlers = Layer.succeedContext(
   Context.makeUnsafe<Rpc.ToHandler<Implemented>>(
     new Map(
       [...implemented.requests.values()].map((rpc) => {
-        const error =
-          rpc._tag === PredictionContextQuery._tag
-            ? new PredictionError({ reason: "unavailable", message: UNAVAILABLE })
-            : new LanguageError({
-                reason: "unsupported-platform",
-                message: UNAVAILABLE,
-                retryable: false,
-              });
+        const error = unavailable(
+          rpc._tag,
+          new LanguageError({
+            reason: "unsupported-platform",
+            message: UNAVAILABLE,
+            retryable: false,
+          })
+        );
 
         return [
           rpc.key,
@@ -77,10 +80,14 @@ export const lazyLanguageHandlers = Layer.fromBuild((memoMap, scope) =>
           ),
           memoMap,
           scope
-        ).pipe(Effect.provide(context), Effect.orDie);
+        ).pipe(Effect.provide(context));
       })
     );
 
-    return yield* Layer.buildWithMemoMap(lazyRpcLayer(implemented, load), memoMap, scope);
+    return yield* Layer.buildWithMemoMap(
+      lazyRpcLayer(implemented, load, unavailable),
+      memoMap,
+      scope
+    );
   })
 );

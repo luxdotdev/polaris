@@ -39,6 +39,14 @@ SIGHUP; the shared Codex app-server on a Unix socket. Measured on Windows 11 wit
   whose parent died can name a newer process with the same pid as its parent.
 - Loopback is reachable by every local process and account. A port picked in advance can be
   taken before codex binds it, and the Daemon would then hand that squatter the token.
+- Bun spawns through libuv, which puts each child in a job with `KILL_ON_JOB_CLOSE` and
+  `SILENT_BREAKAWAY_OK`: the child dies with the Daemon, but what the child starts is in no
+  job at all. That is why a killed Daemon's shim cmd.exe ended and its codex.exe didn't.
+  A process created suspended (`CreateProcessW` with `CREATE_SUSPENDED`), assigned to a job
+  of our own that allows no breakaway and then resumed, has every descendant in that job,
+  libuv's nested jobs included (measured on Windows 11 with codex 0.163.0's npm shim).
+- An elevated process creates files owned by Administrators unless the security descriptor
+  it passes names an owner; the user's own SID is always allowed as that owner.
 - Git resolves a relative `core.hooksPath` against the working tree. `NUL` is relative: with
   a `NUL\pre-commit` planted in the checkout (`\\?\` paths allow the name), Git for Windows
   2.39 found it and tried to spawn it. `/dev/null` is read as `%(prefix)/dev/null`, a path
@@ -55,7 +63,8 @@ SIGHUP; the shared Codex app-server on a Unix socket. Measured on Windows 11 wit
 - **taskkill, not a Job Object.** A Job Object would also catch orphans, but needs
   `CreateJobObject`/`AssignProcessToJobObject` through `bun:ffi` and a handle kept per child,
   and a child spawned before it's assigned escapes anyway. Every tree we end has a live root
-  (we kill before closing the console), so taskkill covers it with no native code.
+  (we kill before closing the console), so taskkill covers it with no native code. The
+  Codex app-server is the exception (below): it must not outlive a Daemon killed outright.
 - **Terminals** pass three stdio entries on Windows, skip the PTY fd scan (there is no fd to
   hand across an upgrade, and upgrades are off there), open PowerShell 7, else Windows
   PowerShell, else cmd (`terminal/shell.ts`), and on close run taskkill on the shell before
@@ -63,30 +72,51 @@ SIGHUP; the shared Codex app-server on a Unix socket. Measured on Windows 11 wit
 - **The shared Codex app-server on Windows listens on `ws://127.0.0.1:0`**
   (`harness/codex/windowsServer.ts`), with a capability token: 32 random bytes, fresh for
   every server, in `~/.polaris/codex-app-server/token` (`windowsToken.ts`). The directory
-  is made private first: an ACL of the user's SID alone (`icacls /inheritance:r /grant:r
-  *SID:(OI)(CI)F`, the SID from `whoami /user`, so a `POLARIS_HOME` under `C:\` inherits
-  nothing). The token is then written to a random name with `wx` and renamed into place, so
-  nobody can open it between its creation and its ACL, or plant it beforehand.
-- **The port is the listener of the started tree.** The pid Bun spawned and its creation time
-  are taken at spawn, while Bun holds a handle to it. The port is the loopback listener
-  (`netstat -ano`) whose process walks up to that root (CIM `Win32_Process`). A parent link
-  counts only if the parent was created no later than the child, and the root must match the
-  recorded creation time (`platform/windowsTree.ts`), so a reused pid breaks the chain. More
-  than one such listener fails the launch. That listener's pid and creation time are recorded
-  as `listenerPid`/`listenerCreated` with the URL as `listen`, and before every connection
-  `connectAppServer` checks that the port's listener is still `listenerPid`: no token,
-  prompt or code goes to anything else on that port.
-- **A tree walk, not a Job Object**, for the same reasons as taskkill: a job needs `bun:ffi`
-  and a handle per child, and the shim's cmd.exe runs node before it could be assigned, so
-  the listener could be born outside it. The walk needs nothing native and fails closed.
-- **The server lives as long as the Daemon** on Windows. It is a normal child with
-  `windowsHide`, its output appended to the log, never `detached` (see Context). The
-  Daemon's scope stops it when the Daemon exits, root and listener, and a Daemon that starts
-  stops a recorded server whose listener is still the same process before starting its own.
-  Codex keeps threads on disk, so after an upgrade they are resumed on the new server. The co-attached TUI runs through
+  and the token are created with an explicit security descriptor, `O:<user>D:P(A;OICI;FA;;;<user>)`
+  (`CreateDirectoryW`/`CreateFileW` through `bun:ffi`, `platform/windowsNative.ts`; the SID
+  from the process token), so they are the user's from the moment they exist, elevated or
+  not, and a `POLARIS_HOME` under `C:\` passes nothing down. The token is written to a
+  random name (`CREATE_NEW`) and renamed into place. An existing directory is kept only when
+  its owner is the user, Administrators or SYSTEM (an owner only an administrator can set,
+  and an administrator can read the token anyway), and then its DACL is reset to the user's
+  alone. Any other owner keeps `WRITE_DAC` and could swap the token: such a directory is
+  removed and recreated when it holds only token files, else the launch is refused.
+- **The state file is private too.** `codex-app-server.json` decides where the token goes
+  (`listen`, `listenerPid`, `listenerCreated`), so on Windows it is written the same way as
+  the token, and read only when its owner is one the directory would be kept for: a file
+  someone else put in its place is ignored.
+- **The server runs in a Job Object of its own.** It is started with `CreateProcessW`
+  (`spawnInJob`): suspended, windowless (`CREATE_NO_WINDOW`, `SW_HIDE`), inheriting only
+  `NUL` and the log (`PROC_THREAD_ATTRIBUTE_HANDLE_LIST`), assigned to a new job with
+  `KILL_ON_JOB_CLOSE` and no breakaway, then resumed. A `.cmd` shim runs as `cmd.exe /d /s
+  /v:off /c "…"` with every argument quoted; an argument with `%` or `"` is refused rather
+  than expanded. Only the Daemon holds the job's handle, so the Daemon exiting in any way,
+  killed outright included, ends the shim, node, codex.exe and whatever codex started. The
+  Daemon also holds the root's process handle, so its pid can't be reused while it runs.
+- **The port is the listener inside the job.** The launch polls the TCP listener table
+  (`GetExtendedTcpTable`, `TCP_TABLE_OWNER_PID_LISTENER`) and the job's process list: the
+  server's port is the 127.0.0.1 listener whose pid is in the job, and more than one fails
+  the launch. That pid and its creation time (`GetProcessTimes`) are recorded as
+  `listenerPid`/`listenerCreated`, with the URL as `listen`. Before every connection
+  `connectAppServer` checks that the port has one listener, that it is `listenerPid`, and
+  that `listenerPid` still has the recorded creation time: a process that took the pid, the
+  port or both is sent no token, prompt or code. The check is two in-process calls (about
+  0.3 ms); nothing is spawned.
+- **The server lives as long as the Daemon** on Windows, never `detached` (see Context). The
+  Daemon's scope ends it by terminating its job. A Daemon that starts and finds a recorded
+  server it didn't start (one from before the job, or a home shared another way) ends it
+  only while it is still that server: the root, and the listener, each only when its command
+  line names `app-server` and this home's token file, and the listener only while it is the
+  recorded process. Codex keeps threads on disk, so after an upgrade they are resumed on the
+  new server. The co-attached TUI runs through
   `powershell -EncodedCommand`, which reads the token into `POLARIS_CODEX_TOKEN` for
   `--remote-auth-token-env`, so the token is never in an argv. macOS and Linux keep the Unix
   socket.
+- **A job for this server only, not for the Daemon.** Assigning the Daemon itself to a
+  kill-on-close job would also tie every terminal command and Harness to its lifetime and
+  change how all of them end; that is a separate decision. The process-tree walk S2 used
+  (CIM `Win32_Process` parent links checked by creation time) is gone: membership in the
+  job is exact, and needs no PowerShell.
 - **git's hooks path on Windows is the running executable** (`process.execPath`): absolute,
   always present, and a file, so `<it>\pre-commit` can't exist. POSIX keeps `/dev/null`.
 
@@ -97,10 +127,15 @@ SIGHUP; the shared Codex app-server on a Unix socket. Measured on Windows 11 wit
 - A child that daemonizes away from its parent before we kill it escapes taskkill.
 - Any process running as the user can read the token file and use the Codex server; that is
   the same set that could read Codex's own credentials under the user's profile.
-- The listener check costs one `netstat` per connection (tens of ms) and the launch a
-  process-table query per poll once a listener appears; both are Windows only.
-- A Daemon killed outright leaves codex.exe running (measured: the shim's cmd.exe ends, its
-  listener doesn't). The next Daemon on that `POLARIS_HOME` stops it; until one starts it
-  keeps its port.
-- A process that got both the dead server's pid and its port before the next connection
-  would pass the check and be sent the token.
+- The Codex server is started through native code (`bun:ffi`): kernel32, advapi32 and
+  iphlpapi calls whose struct layouts are written out for x64 (`windowsNative.ts`). An
+  arm64 Windows build would need them checked.
+- If the job can't be made or assigned (a parent job that forbids nesting), the launch
+  fails instead of starting a server that could outlive the Daemon.
+- Codex's own children die with the server. A command it was running when the Daemon
+  exited does not survive the Daemon.
+- The listener check still has a gap between the check and the WebSocket connect: a server
+  that dies in it hands its port to whoever binds next. The job makes that death rare.
+- A recorded server from a Daemon before ENG-317 (no job) is still found and ended by the
+  next Daemon, as before; its `listenerCreated` was rounded to microseconds by CIM, so only
+  its root is recognized.

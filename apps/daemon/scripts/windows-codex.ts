@@ -6,9 +6,11 @@
  * Starts it as a Daemon would (`acquireAppServer`), starts a thread on it (no
  * Turn, nothing billed), then has the running Daemon on <POLARIS_HOME> list
  * Codex's Models and open the co-attached TUI in a terminal. Last it stops the
- * server and checks nothing of it is left running.
+ * server and checks nothing of it is left running, and that a Daemon killed
+ * outright leaves no codex either.
  */
-import { writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { connectRpc, socketTransport } from "@polaris/client";
 import { localEndpoint } from "@polaris/protocol/endpoint";
@@ -16,7 +18,7 @@ import { Effect, Option, Predicate, Result, Schema, Stream } from "effect";
 import {
   acquireAppServer,
   type AppServer,
-  type AppServerState,
+  AppServerState,
   connectAppServer,
   defaultStateFile,
   readAppServerState,
@@ -25,7 +27,8 @@ import {
   tokenFileOf,
 } from "../src/harness/codex/AppServer.ts";
 import { attachTerminal } from "../../../packages/client/src/terminal.ts";
-import { listenerOn } from "../src/harness/codex/windowsServer.ts";
+import { listenerOn, ownsListen } from "../src/harness/codex/windowsServer.ts";
+import { loopbackListeners, writePrivateFile } from "../src/platform/windowsNative.ts";
 import { system32 } from "../src/platform/processes.ts";
 
 const [home, codexPath, cwd] = process.argv.slice(2);
@@ -112,7 +115,13 @@ const showListener = (state: AppServerState | null) => {
   console.log(Bun.spawnSync([system32("icacls.exe"), tokenFileOf(stateFile)]).stdout.toString());
 };
 
-/** Something else on the recorded port: the Daemon refuses it before the token goes out. */
+/** Records `state` as a Daemon would: a private file of the user's. */
+const record = (state: AppServerState) => writePrivateFile(stateFile, JSON.stringify(state));
+
+/**
+ * Something else on the recorded port: the Daemon refuses it before the token goes out,
+ * whether it is another pid, or has the recorded pid but not the recorded creation time.
+ */
 const squatterGetsNothing = (state: AppServerState) =>
   Effect.gen(function* () {
     let received = 0;
@@ -123,21 +132,82 @@ const squatterGetsNothing = (state: AppServerState) =>
       socket: { data: (_socket, data) => void (received += data.length) },
     });
 
-    writeFileSync(
-      stateFile,
-      JSON.stringify({ ...state, listen: `ws://127.0.0.1:${squatter.port}` })
-    );
-    const result = yield* Effect.result(Effect.scoped(connectAppServer(socketPath, stateFile)));
-    yield* Effect.sleep("500 millis");
-    squatter.stop(true);
-    writeFileSync(stateFile, JSON.stringify(state));
+    const listen = `ws://127.0.0.1:${squatter.port}`;
 
-    check(
-      "a squatter on the recorded port is refused and sent nothing",
-      Result.isFailure(result) && received === 0,
-      `${Result.isFailure(result) ? result.failure.message : "connected"}; ${received} bytes`
-    );
+    const cases = [
+      ["another process on the recorded port", { ...state, listen }],
+      ["a process that took the pid and the port", { ...state, listen, listenerPid: process.pid }],
+    ] as const;
+
+    for (const [what, squatted] of cases) {
+      record(squatted);
+      const result = yield* Effect.result(Effect.scoped(connectAppServer(socketPath, stateFile)));
+      yield* Effect.sleep("500 millis");
+
+      check(
+        `${what} is refused and sent nothing`,
+        Result.isFailure(result) && received === 0,
+        `${Result.isFailure(result) ? result.failure.message : "connected"}; ${received} bytes`
+      );
+    }
+
+    squatter.stop(true);
+    record(state);
   });
+
+/** The per-connect check reads the TCP table in-process: no netstat, well under a millisecond. */
+const timeCheck = (state: AppServerState) => {
+  if (state.listen === undefined || state.listenerPid === undefined) return;
+  const started = performance.now();
+
+  for (let round = 0; round < 100; round++)
+    ownsListen(state.listen, state.listenerPid, state.listenerCreated);
+  const each = (performance.now() - started) / 100;
+
+  check("the listener check is in-process and fast", each < 5, `${each.toFixed(3)} ms each`);
+};
+
+const decodeState = Schema.decodeUnknownSync(Schema.fromJsonString(AppServerState));
+
+/** A Daemon killed outright (TerminateProcess, no finalizer) takes its codex with it. */
+const hardKill = async () => {
+  const dir = mkdtempSync(join(tmpdir(), "pcx-"));
+  const script = join(dir, "daemon.ts");
+  const appServer = join(import.meta.dir, "../src/harness/codex/AppServer.ts");
+
+  await Bun.write(
+    script,
+    `import { Effect } from ${JSON.stringify(Bun.resolveSync("effect", import.meta.dir))};
+import { acquireAppServer, readAppServerState } from ${JSON.stringify(appServer)};
+const socketPath = ${JSON.stringify(join(dir, "codex.sock"))};
+await Effect.runPromise(Effect.scoped(Effect.gen(function* () {
+  const server = yield* acquireAppServer({ codexPath: ${JSON.stringify(codexPath)}, socketPath, spawn: true });
+  yield* Effect.scoped(server.connect);
+  console.log(JSON.stringify(readAppServerState(server.stateFile)));
+  yield* Effect.never;
+})));`
+  );
+  const daemon = Bun.spawn([process.execPath, script], { stdout: "pipe", stderr: "inherit" });
+  const { value } = await daemon.stdout.getReader().read();
+  const state = decodeState(new TextDecoder().decode(value).trim());
+  const port = Number(new URL(state.listen ?? "ws://127.0.0.1:0").port);
+
+  const before = [state.pid, state.listenerPid].filter(
+    (pid) => pid !== undefined && isRunning(pid)
+  );
+
+  daemon.kill("SIGKILL");
+  await Bun.sleep(1500);
+  const left = [state.pid, state.listenerPid].filter((pid) => pid !== undefined && isRunning(pid));
+  const holder = loopbackListeners().find((listener) => listener.port === port);
+
+  check(
+    "a Daemon killed outright leaves no codex and frees its port",
+    before.length === 2 && left.length === 0 && holder === undefined,
+    `running before: ${before.join(",")}; left: ${left.join(",") || "none"}; port ${port} ${holder === undefined ? "free" : `held by ${holder.pid}`}`
+  );
+  rmSync(dir, { recursive: true, force: true });
+};
 
 /** The first connection: a thread started on the server, closed before the rest. */
 const startThread = (server: AppServer) =>
@@ -178,6 +248,8 @@ const program = Effect.gen(function* () {
 
       if (state !== null) yield* squatterGetsNothing(state);
 
+      if (state !== null) timeCheck(state);
+
       return state;
     })
   );
@@ -195,6 +267,8 @@ const program = Effect.gen(function* () {
     stopped !== null && left.length === 0,
     `left: ${left.join(",") || "none"}`
   );
+
+  yield* Effect.promise(hardKill);
 });
 
 await Effect.runPromise(program).catch((error) => {
