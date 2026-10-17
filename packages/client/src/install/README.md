@@ -18,6 +18,8 @@ const result = yield* ensureDaemon(alias, builds, { trigger: "user", approvedSha
 | `builds.ts` | `loadBuilds(distDir)` reads `manifest.json`: each build says whether its files are `bundled` and, for a release, its `archive` (name, SHA-256, size, URL from `DAEMON_DOWNLOAD_URL`). Also `GLIBC_LOADERS`, `platformFromUname` and `compareVersions` (semver precedence: `0.1.0-alpha.1` < `-alpha.2` < `-beta.1` < `-rc.1` < `0.1.0`; a dev build of a version sorts just before it). |
 | `plan.ts` | `planInstall(probe, builds, options)` and `deliveryFor(build, probe)`, pure functions; every branch is unit-tested. |
 | `remote.ts` | `probeHost`, `applyPlan`, `ensureDaemon`. |
+| `apply.ts` | What both installers share: `RemoteInstallError`, `ApplyOptions`/`ApplyResult`, `runPolaris` and the Daemon's JSON report. |
+| `windows/` | A Windows Host over SSH ([ADR 0063](../../../../docs/adr/0063-windows-ssh-hosts.md)): the PowerShell probe (`probe.ts`), `-EncodedCommand` and base64-line stdin (`powershell.ts`), the staging, upload, install, upgrade and bridge-relay scripts (`scripts.ts`), and `applyWindowsPlan` (`apply.ts`). |
 | `archive.ts` | The Release archive format: `packArchive` (deterministic gzipped ustar of plain files, used by packaging) and `unpackArchive` (refuses paths, links and directories). |
 | `download.ts` | `downloadBuild({ cacheDir, clientVersion, fetch })`: the Client-side download into `<cacheDir>/<version>/<platform>/`, checked against the manifest; other versions are removed. |
 
@@ -25,7 +27,7 @@ const result = yield* ensureDaemon(alias, builds, { trigger: "user", approvedSha
 
 1. **Probe** (one round trip): `uname -s`, `uname -m`, the C library on Linux, the download tools, and `~/.polaris/bin/current/polaris version`. glibc wins: a Host with any of `GLIBC_LOADERS` is glibc even with musl's loader installed beside it, as the Daemon itself decides. Only otherwise is it `libc=musl` (when `/lib/ld-musl-*` exists or `ldd --version` says musl), plus a `missing=<lib>` line for each of `libstdc++.so.6` and `libgcc_s.so.1` not found in `/usr/lib` or `/lib`. Tools: `fetch=curl|wget` (curl preferred), `tar=1`, `sha256=1` (`sha256sum` or `shasum`).
 2. **Plan**:
-   - `Unsupported` / `MissingBuild`: the Host is not a platform we ship, or its build is not bundled. A musl Host maps to `linux-x64-musl` / `linux-arm64-musl`, never to a glibc build (it would not run). `windows-x64` is a build the Daemon ships, but nothing maps a Host to it yet (the Windows probe and installer come later).
+   - `Unsupported` / `MissingBuild`: the Host is not a platform we ship, or its build is not bundled. A musl Host maps to `linux-x64-musl` / `linux-arm64-musl`, never to a glibc build (it would not run). A Windows Host maps to `windows-x64` when its DefaultShell is PowerShell, pwsh or cmd; another DefaultShell is `Unsupported` and named.
    - `MissingLibraries` (`EnsureResult` `HostSetupNeeded`, shown as Needs Attention): a musl Host without `libstdc++` / `libgcc`, which Bun's musl runtime links dynamically. Installing them needs root, so the plan carries the exact `command` (`apk add libstdc++ libgcc`) for an administrator; then retry. Verified on Alpine 3.24 arm64: without them the binary fails to load (`Error loading shared library libstdc++.so.6`); with them `polaris selftest` prints `fff: ok`.
    - `UpToDate`, or `InstalledNewer`: the Host is ahead of this Client. A release never downgrades it; capability negotiation decides.
    - `NeedsApproval`: no Daemon yet. It carries the **platform, version and SHA-256** for the one-time approval, shown inline on the Host as Needs Attention. A **background reconnect never installs**, even for an approved SHA (`reason: "background"`).
@@ -43,9 +45,19 @@ const result = yield* ensureDaemon(alias, builds, { trigger: "user", approvedSha
 
    `applyPlan` accepts `ApplyOptions`: `progress` reports `downloading` (`via: "host"` with no byte count, or `via: "client"` with real bytes), uploading byte counts across all files, then switching after all hashes match. Progress is throttled to 10 updates/s and has no idle timer. The upload directory is removed after a failed upload as well as after a completed install/upgrade. The JSON line the Daemon prints is returned in `applied.report`. Show its `notes` to the user; in particular `supervisor: "fallback"` means the Linux Host has no systemd user bus and the Daemon runs under Polaris' own supervisor, which only returns after a reboot if `autostart` includes `cron`.
 
+## A Windows Host
+
+When the POSIX probe fails, or its `uname` is Git for Windows' (MINGW, MSYS, Cygwin), `probeHost` runs the Windows probe, a `powershell -EncodedCommand` valid in any DefaultShell, and the probe carries `windowsShell`. Every step then speaks PowerShell, never `sh`: Windows PowerShell reads the SSH channel's stdin itself, so a child process never gets binary stdin intact. Anything sent on stdin goes as base64 lines (`stdinLines`, 48 KiB a line) into a scriptblock that decodes each one. The plan carries `windowsShell` and `applyPlan` hands it to `applyWindowsPlan`:
+
+1. Stage `%USERPROFILE%\.polaris\upload-<random>`, created with a DACL for the user only (refused if it exists or is a reparse point).
+2. Upload each file (`CreateNew` to `.part`, then rename) and compare its `Get-FileHash` with the manifest. `HostFetch` isn't implemented: a build that isn't bundled is fetched by the Client.
+3. Run `polaris.exe install --sha256 … --json` or `…\bin\current\polaris.exe upgrade … --json`, then remove the staging directory.
+
+The connection runs `bridgeCommand(shell)` instead of `polaris bridge`: a PowerShell relay that decodes lines into `polaris.exe bridge --relay <pid>`, whose stdout is the channel's raw. Set `HostTarget.Ssh({ alias, windowsShell })` from the probe; any configured remote command is ignored. Stderr goes through `stripClixml` before a failure is classified.
+
 ## Tests
 
-`plan.test.ts` covers the pure decisions. `remote.test.ts` runs the whole flow against a fake `Ssh` that executes each remote command in a local `sh` with `HOME` set to a temporary "Host", so the real probe, upload and SHA-check scripts run. A shell stand-in plays `polaris install/upgrade`. It covers approval gating, install, idempotence, upgrade, a corrupted upload, and ssh failure classification. For release builds a fake `curl` on the "Host"'s PATH serves a packed archive: the Host-side download, a corrupted one falling back to a fake-fetch Client download and upload, a 404 without a fallback, a tampered Client download, the cache, and dev builds never downloading. The probe's libc decision runs against a fake filesystem root (glibc with musl's loader present stays glibc). `archive.test.ts` checks the format against the system `tar`. No test reaches the network.
+`plan.test.ts` covers the pure decisions. `remote.test.ts` runs the whole flow against a fake `Ssh` that executes each remote command in a local `sh` with `HOME` set to a temporary "Host", so the real probe, upload and SHA-check scripts run. A shell stand-in plays `polaris install/upgrade`. It covers approval gating, install, idempotence, upgrade, a corrupted upload, and ssh failure classification. For release builds a fake `curl` on the "Host"'s PATH serves a packed archive: the Host-side download, a corrupted one falling back to a fake-fetch Client download and upload, a 404 without a fallback, a tampered Client download, the cache, and dev builds never downloading. The probe's libc decision runs against a fake filesystem root (glibc with musl's loader present stays glibc). `archive.test.ts` checks the format against the system `tar`. `windows/windows.test.ts` checks the Windows commands' limits and parsing everywhere, and on Windows runs them as sshd would under `powershell.exe` and `cmd.exe`; `windows/remote.test.ts` covers the probe's fallback and base64 stdin. `apps/daemon/scripts/e2e-windows-ssh.ts` is the end-to-end run against a real Windows Host. No test reaches the network.
 
 ## Known gaps / TODO
 
@@ -53,3 +65,4 @@ const result = yield* ensureDaemon(alias, builds, { trigger: "user", approvedSha
 - Uploads are not resumable; a dropped connection re-uploads from the start.
 - musl `linux-x64-musl` is built but was only exercised under x64 emulation, where Bun crashes for lack of AVX (as its glibc build would); a real x64 Alpine Host is untested. Bun's `*-baseline` targets would cover CPUs without AVX.
 - CI does not build or selftest the musl binaries yet.
+- Windows: no Host-side download, no `windows-arm64`, and cmd/pwsh as DefaultShell were tested only by running the commands as sshd does.

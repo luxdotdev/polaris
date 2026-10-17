@@ -205,16 +205,22 @@ export const remoteCommandArgv = (line: string | undefined): ReadonlyArray<strin
   return argv.length === 0 ? null : argv;
 };
 
+/** An ssh Host's target; a Windows one also names the DefaultShell its relay speaks. */
+const sshTarget = (remote: RemoteHostSetting) => {
+  const ssh = { alias: remote.alias, forwardAgent: remote.forwardAgent ?? false };
+
+  return remote.windowsShell === undefined
+    ? HostTarget.Ssh(ssh)
+    : HostTarget.Ssh({ ...ssh, windowsShell: remote.windowsShell });
+};
+
 export const remoteEntry = (remote: RemoteHostSetting): HostEntry => ({
   key: remote.alias,
   label: remote.label ?? remote.alias,
   colour: remote.colour ?? null,
   alias: remote.alias,
   proofHarness: false,
-  target:
-    remote.kind === "wsl"
-      ? HostTarget.Wsl({ distro: remote.alias })
-      : HostTarget.Ssh({ alias: remote.alias, forwardAgent: remote.forwardAgent ?? false }),
+  target: remote.kind === "wsl" ? HostTarget.Wsl({ distro: remote.alias }) : sshTarget(remote),
   remoteCommand: remoteCommandArgv(remote.remoteCommand),
   simulatedLatencyMs: null,
 });

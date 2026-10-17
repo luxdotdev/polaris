@@ -43,6 +43,7 @@
     "@pierre/diffs": "1.5.1",
     "@polaris/bench": "workspace:*",
     "@polaris/client": "workspace:*",
+    "@polaris/predict": "workspace:*",
     "@polaris/protocol": "workspace:*",
     "@polaris/syntax-diff": "workspace:*",
     "@polaris/ui": "workspace:*",
@@ -56,14 +57,14 @@
     "@xterm/xterm": "6.0.0",
     "effect": "4.0.0-rc.118",
     "katex": "0.16.47",
+    "koffi": "3.3.1",
     "lexical": "0.52.0",
     "mermaid": "11.17.2",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "streamdown": "2.7.0",
     "xstate": "6.0.0-alpha.61",
-    "zustand": "5.0.15",
-    "@polaris/predict": "workspace:*"
+    "zustand": "5.0.15"
   },
   "devDependencies": {
     "@babel/core": "8.0.6",

@@ -1,9 +1,8 @@
 name: Package Windows installers
 description: >-
   Restores a Daemon dist archived by a macOS job, packages the Desktop App for Windows x64 and
-  arm64 with Squirrel installers (unsigned), and smoke-tests the x64 install and a local Daemon
-  over its pipe. Shared by the release and the Windows test-build workflows; run it after
-  actions/checkout on windows-latest.
+  arm64 with Squirrel installers (unsigned), and smoke-tests the x64 install. Shared by the
+  release and the Windows test-build workflows; run it after actions/checkout on windows-latest.
 inputs:
   daemon-artifact:
     description: The artifact holding polaris-daemon-dist.tar.gz (apps/daemon/dist).
@@ -47,11 +46,9 @@ runs:
         if ($env:RELEASE -eq 'true') { $flags += '--release' }
         bun run --cwd apps/desktop package @flags
         if ($LASTEXITCODE -ne 0) { throw 'Windows packaging failed' }
-    # The pipe check serves the package's own Daemon, or the restored dist build if it has none.
-    - name: Install the x64 app, verify a native window opens, and reach a local Daemon over its pipe
+    - name: Install the x64 app, check it carries this PC's Daemon, verify a window opens, and reach that Daemon over its pipe
       shell: pwsh
       run: |
         $installers = @(Get-ChildItem 'apps/desktop/out/dist/squirrel-x64' -Filter '*-x64-win-Setup.exe')
         if ($installers.Count -ne 1) { throw "Expected one x64 installer, found $($installers.Count)" }
-        ./apps/desktop/scripts/packaging/windows-smoke.ps1 -Installer $installers[0].FullName -Arch x64 `
-          -Daemon apps/daemon/dist/windows-x64/polaris.exe
+        ./apps/desktop/scripts/packaging/windows-smoke.ps1 -Installer $installers[0].FullName -Arch x64

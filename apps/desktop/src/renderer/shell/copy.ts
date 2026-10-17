@@ -3,6 +3,7 @@ import type { ConnectionState, SessionState } from "@polaris/protocol";
 import { capacityReset } from "../features/constellation/model/failure.ts";
 import { waitingOn, waitingPhrase } from "../features/session/model/background.ts";
 import type { SessionEntry } from "../store/hostModel.ts";
+import { tildePath } from "../../shared/hostPath.ts";
 
 export { activityOf } from "./activity.ts";
 
@@ -82,10 +83,7 @@ export const age = (iso: string, now: number): string => {
   return `${Math.floor(ms / (24 * 60 * MINUTE))}d`;
 };
 
-/** A path under the Host's home as `~/…`. */
-export const homePath = (path: string, home: string | null): string =>
-  home !== null && home !== "" && (path === home || path.startsWith(`${home}/`))
-    ? `~${path.slice(home.length)}`
-    : path;
+/** A path under the Host's home as `~/…`, with the Host's own separator. */
+export const homePath = (path: string, home: string | null): string => tildePath(path, home);
 
 export const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;

@@ -50,6 +50,8 @@ import {
   type DaemonClient,
   type RpcConnectionOptions,
 } from "./rpc.ts";
+import type { WindowsShell } from "./install/windows/powershell.ts";
+import { bridgeCommand } from "./install/windows/scripts.ts";
 import { defaultControlDir, ensureControlDir, type SshOptions, sshArgv } from "./ssh.ts";
 import { type Connector, socketTransport, spawnTransport } from "./transport.ts";
 import { type WslConnectorOptions, wslConnector } from "./wsl/transport.ts";
@@ -64,6 +66,11 @@ export type HostTarget = Data.TaggedEnum<{
     readonly alias: string;
     /** Per-Host toggle; off by default. */
     readonly forwardAgent?: boolean;
+    /**
+     * A Windows Host: the DefaultShell its sshd runs commands through, as the install probe
+     * found it. The Client then connects through the relay (`bridgeCommand`), in base64 lines.
+     */
+    readonly windowsShell?: WindowsShell;
   };
   /** A WSL 2 distro on this Windows machine (experimental; `wsl/`). */
   Wsl: { readonly distro: string };
@@ -218,14 +225,22 @@ export const connectorFor = (options: HostConnectionOptions): Connector => {
         const controlDir = options.ssh?.controlDir ?? defaultControlDir();
         ensureControlDir(controlDir, options.ssh?.platform);
 
+        const windows = target.windowsShell;
+
+        const ssh: SshOptions = {
+          ...options.ssh,
+          controlDir,
+          forwardAgent: target.forwardAgent ?? false,
+        };
+
         return spawnTransport(
-          sshArgv(target.alias, {
-            ...options.ssh,
-            controlDir,
-            forwardAgent: target.forwardAgent ?? false,
-          }),
+          // A Windows Host's relay replaces any configured remote command.
+          sshArgv(
+            target.alias,
+            windows === undefined ? ssh : { ...ssh, remoteCommand: [bridgeCommand(windows)] }
+          ),
           // A configured sshBinary is still ssh, whatever its name.
-          { spawnFailureReason: "ssh-missing" }
+          { spawnFailureReason: "ssh-missing", stdinLines: windows !== undefined }
         );
       }),
     Wsl: (target) => {

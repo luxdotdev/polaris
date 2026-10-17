@@ -2,6 +2,7 @@
  * The words of the empty states (DESIGN.md, Empty states), from counts. Pure,
  * so the copy is tested; glossary words lowercase (rule/glossary-lowercase).
  */
+import { separatorOf, tildePath } from "../../../shared/hostPath.ts";
 
 export const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
@@ -69,19 +70,17 @@ export const readyLine = (ready: ReadonlyArray<ReadyHarness>, host: string): str
 
 /** A workspace path for a one-line caption: `~/…` under home, else its last folders kept whole. */
 export const captionPath = (path: string, home: string | null, max = 48): string => {
-  const shown =
-    home !== null && home !== "" && (path === home || path.startsWith(`${home}/`))
-      ? `~${path.slice(home.length)}`
-      : path;
+  const shown = tildePath(path, home);
 
   if (shown.length <= max) return shown;
 
-  const parts = shown.split("/");
+  const sep = separatorOf(path);
+  const parts = sep === "\\" ? shown.split(/[\\/]/) : shown.split("/");
   let tail = parts[parts.length - 1] ?? shown;
 
   for (let i = parts.length - 2; i > 0 && tail.length + (parts[i]?.length ?? 0) + 3 <= max; i--) {
-    tail = `${parts[i]}/${tail}`;
+    tail = `${parts[i]}${sep}${tail}`;
   }
 
-  return `…/${tail}`;
+  return `…${sep}${tail}`;
 };

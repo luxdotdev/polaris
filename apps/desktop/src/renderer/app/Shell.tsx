@@ -6,6 +6,7 @@ import { EditorRequests } from "../features/editor-links/index.ts";
 import { LazyInline } from "../features/editor-inline/index.ts";
 import { useOnboardingState, Welcome } from "../features/onboarding/index.ts";
 import { EditMode } from "../features/editor/explorer/index.ts";
+import { Arcade } from "../features/arcade/index.ts";
 import { CommandPalette } from "../features/palette/index.ts";
 import { preloadReview } from "../features/review/index.ts";
 import { SettingsPage } from "../features/settings/index.ts";
@@ -106,6 +107,7 @@ export const Shell = () => {
       <Body />
       <slots.JumpMenu open={jumpOpen} onOpenChange={setJumpOpen} />
       <CommandPalette />
+      <Arcade />
       <slots.OpenFolder />
       <ShortcutHelp />
       <FileFinder />

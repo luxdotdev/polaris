@@ -34,6 +34,8 @@ export const RemoteHostSetting = Schema.Struct({
   forwardAgent: Schema.optionalKey(Schema.Boolean),
   /** The remote command as one shell line; absent for `~/.polaris/bin/current/polaris bridge`. */
   remoteCommand: Schema.optionalKey(Schema.String),
+  /** A Windows Host's DefaultShell, as its install probe found it; absent on POSIX Hosts. */
+  windowsShell: Schema.optionalKey(Schema.Literals(["powershell", "cmd"])),
 });
 
 export type RemoteHostSetting = typeof RemoteHostSetting.Type;

@@ -57,6 +57,9 @@ export const platformFromUname = (
   if (system === "linux" && (machine === "aarch64" || machine === "arm64"))
     return musl ? "linux-arm64-musl" : "linux-arm64";
 
+  // The Windows probe's `os=windows` and PROCESSOR_ARCHITECTURE (`AMD64`); no arm64 build yet.
+  if (system === "windows" && (machine === "amd64" || machine === "x86_64")) return "windows-x64";
+
   return null;
 };
 

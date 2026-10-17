@@ -6,6 +6,7 @@
  * exit status and stderr into a ConnectFailure the Connection State uses.
  */
 import { connect, type Socket } from "node:net";
+import { Transform } from "node:stream";
 import {
   type ByteTransport,
   FrameKind,
@@ -15,8 +16,10 @@ import {
 } from "@polaris/protocol";
 import { Deferred, Effect, Exit, Option, type Scope } from "effect";
 import { ConnectFailure, classifyExit, type NeedsAttentionReason } from "./failures.ts";
+import { encodeLines } from "./install/windows/powershell.ts";
 import { localDaemonFailure } from "./localDaemon.ts";
 import { type ChildProcessApi, childProcesses, spawnFailed } from "./process/index.ts";
+import { connectOwnedPipe, isPipePath } from "./windowsPipe/index.ts";
 
 export interface ClientTransport extends ByteTransport {
   /** Why the transport closed or failed; waits briefly for the process to exit. */
@@ -61,7 +64,26 @@ export interface SpawnOptions {
   readonly spawnFailureReason?: NeedsAttentionReason;
   /** Starts the process (`ChildProcess`); tests script or record it. */
   readonly processes?: ChildProcessApi;
+  /**
+   * Writes to stdin as base64 lines: a Windows Host's relay (`install/windows/`) reads them,
+   * since its PowerShell reads stdin as text. What comes back is untouched.
+   */
+  readonly stdinLines?: boolean;
 }
+
+/** Every write as base64 lines, into `stdin`. */
+const linesInto = (stdin: NodeJS.WritableStream) => {
+  const lines = new Transform({
+    transform(chunk: Uint8Array, _encoding, done) {
+      done(null, encodeLines(chunk));
+    },
+  });
+
+  lines.on("error", () => {});
+  lines.pipe(stdin);
+
+  return lines;
+};
 
 /** Runs `argv` and speaks the wire over its stdin/stdout. */
 export const spawnTransport = (
@@ -143,7 +165,8 @@ export const spawnTransport = (
         })
     );
 
-    const stdin = child.stdin;
+    const stdin =
+      child.stdin !== null && options.stdinLines === true ? linesInto(child.stdin) : child.stdin;
 
     if (stdin === null || incoming === null) {
       return yield* new ConnectFailure({
@@ -200,39 +223,57 @@ export const spawnTransport = (
     } satisfies ClientTransport;
   });
 
+type Opened = { readonly socket: Socket; readonly incoming: ByteTransport["incoming"] };
+
+const connectSocket = (path: string, installedHome?: string) =>
+  Effect.callback<Opened, ConnectFailure>((resume) => {
+    const socket = connect(path);
+
+    const onError = (error: NodeJS.ErrnoException) =>
+      resume(
+        Effect.fail(
+          error.code === "ENOENT" || error.code === "ECONNREFUSED"
+            ? localDaemonFailure(path, installedHome)
+            : new ConnectFailure({
+                kind: "transient",
+                reason: "connection-failed",
+                detail: `${path}: ${error.code ?? error.message}`,
+              })
+        )
+      );
+
+    socket.once("error", onError);
+    socket.once("connect", () => {
+      socket.off("error", onError);
+      socket.on("error", () => {});
+      resume(Effect.succeed({ socket, incoming: readEvents(socket) }));
+    });
+  });
+
 /**
- * Connects straight to a Daemon's Unix socket (the local Host). With
+ * Whether the pipe's owner is checked before the first byte: on Windows under Node (the
+ * Desktop App). Bun can't adopt a handle as a socket, so its tools connect as before (ADR 0062).
+ */
+export const checksPipeOwner = (path: string, platform: string = process.platform): boolean =>
+  platform === "win32" && isPipePath(path) && process.versions.bun === undefined;
+
+const openLocal = (path: string, installedHome?: string): Effect.Effect<Opened, ConnectFailure> =>
+  checksPipeOwner(path)
+    ? Effect.map(connectOwnedPipe(path, installedHome), (socket) => {
+        socket.on("error", () => {});
+
+        return { socket, incoming: readEvents(socket) };
+      })
+    : connectSocket(path, installedHome);
+
+/**
+ * Connects straight to a Daemon's Unix socket or Windows pipe (the local Host). With
  * `installedHome`, a refusal says whether a Daemon is installed there and what its log says.
  */
 export const socketTransport = (path: string, installedHome?: string): Connector =>
   Effect.gen(function* () {
     const { socket, incoming } = yield* Effect.acquireRelease(
-      Effect.callback<
-        { readonly socket: Socket; readonly incoming: ByteTransport["incoming"] },
-        ConnectFailure
-      >((resume) => {
-        const socket = connect(path);
-
-        const onError = (error: NodeJS.ErrnoException) =>
-          resume(
-            Effect.fail(
-              error.code === "ENOENT" || error.code === "ECONNREFUSED"
-                ? localDaemonFailure(path, installedHome)
-                : new ConnectFailure({
-                    kind: "transient",
-                    reason: "connection-failed",
-                    detail: `${path}: ${error.code ?? error.message}`,
-                  })
-            )
-          );
-
-        socket.once("error", onError);
-        socket.once("connect", () => {
-          socket.off("error", onError);
-          socket.on("error", () => {});
-          resume(Effect.succeed({ socket, incoming: readEvents(socket) }));
-        });
-      }),
+      openLocal(path, installedHome),
       ({ socket }) => Effect.sync(() => socket.destroy())
     );
 

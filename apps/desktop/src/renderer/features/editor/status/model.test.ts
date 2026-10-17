@@ -199,6 +199,15 @@ describe("language status pill", () => {
 
     expect(local).toMatchObject({ kind: "syntax", mark: "none", pill: "TypeScript" });
 
+    // A connected Windows Host isn't waiting to connect: its tools don't exist yet.
+    const windows = statusView(
+      input({ file: file({ phase: "local" }), runtimes: [], windowsHost: true })
+    );
+
+    expect(windows.why).toBe(
+      "Language tools aren't available on Windows hosts yet. Highlighting works."
+    );
+
     const none = statusView(
       input({ language: "Go", file: file({ providers: [], contexts: {} }), runtimes: [] })
     );

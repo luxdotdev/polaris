@@ -87,9 +87,13 @@ cross-builds without those tools. Regenerate `Polaris.ico` with
 64, 128, 256) are the existing natively drawn Linux PNGs, without resampling.
 
 Windows always returns `unsigned` at `resolveSigning`; Apple credentials are
-ignored. Authenticode can be introduced at this seam later. No native Windows
-Daemon is built, and a release installer bundles no Daemon files at all: WSL
-distros and remote Hosts download theirs. `--windows` requires `--reuse-daemon` and an existing verified
+ignored. Authenticode can be introduced at this seam later. The x64 app bundles the
+`windows-x64` Daemon for This PC (a release carries only that build; arm64 has no
+local Host and bundles none), plus koffi for the local pipe's owner check:
+its JavaScript in the asar and `resources/koffi/win32_x64/koffi.node`
+(`koffi.ts`, [ADR 0062](../../../../docs/adr/0062-the-desktop-app-checks-the-local-pipes-owner.md)).
+Packaging x64 from a Mac needs koffi's win32-x64 build installed
+(`bun install --os win32 --cpu x64`). WSL distros and remote Hosts download their Daemons. `--windows` requires `--reuse-daemon` and an existing verified
 manifest; it never builds, signs or rewrites Daemon files. Release versions must
 match. The release workflow archives the final Daemon dist (after `sign` for a signed
 release); the Windows job checks the tarball's SHA-256, restores it and verifies the copied bytes again.

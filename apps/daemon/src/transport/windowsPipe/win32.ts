@@ -4,7 +4,14 @@
  * the thread pool, and reading a pipe's owner. Loaded on first use, Windows only.
  */
 import { dlopen, JSCallback, ptr, read } from "bun:ffi";
-import { BUFFER_BYTES, MAX_INSTANCES, PIPE_MODE, pipeOpenMode, WIN32_ERROR } from "./security.ts";
+import {
+  BUFFER_BYTES,
+  CLIENT_OPEN_FLAGS,
+  MAX_INSTANCES,
+  PIPE_MODE,
+  pipeOpenMode,
+  WIN32_ERROR,
+} from "./security.ts";
 
 /** A Win32 `HANDLE`, as Bun's FFI passes a `u64`. */
 export type Handle = bigint;
@@ -34,6 +41,8 @@ const open = () => ({
     UnregisterWaitEx: { args: ["u64", "u64"], returns: "i32" },
     GetOverlappedResult: { args: ["u64", "ptr", "ptr", "i32"], returns: "i32" },
     LocalFree: { args: ["u64"], returns: "u64" },
+    OpenProcess: { args: ["u32", "i32", "u32"], returns: "u64" },
+    TerminateProcess: { args: ["u64", "u32"], returns: "i32" },
   }),
   advapi32: dlopen("advapi32.dll", {
     OpenProcessToken: { args: ["u64", "u32", "ptr"], returns: "i32" },
@@ -265,8 +274,6 @@ const GENERIC_WRITE = 0x4000_0000;
 
 const OPEN_EXISTING = 3;
 
-const FILE_FLAG_OVERLAPPED = 0x4000_0000;
-
 /** A client end of a pipe, or the Win32 error that refused it. */
 export type Opened = { readonly handle: Handle } | { readonly refused: number };
 
@@ -283,7 +290,7 @@ export const openClient = (
       0,
       null,
       OPEN_EXISTING,
-      FILE_FLAG_OVERLAPPED,
+      CLIENT_OPEN_FLAGS,
       0n
     );
 
@@ -366,6 +373,21 @@ export const securityOf = (handle: Handle): string | null => {
     return sddl;
   } finally {
     k32().LocalFree(descriptor[0]!);
+  }
+};
+
+const PROCESS_TERMINATE = 0x1;
+
+/** Ends process `pid` with exit `code`; false when it can't be opened or ended. */
+export const terminateProcess = (pid: number, code: number): boolean => {
+  const handle = k32().OpenProcess(PROCESS_TERMINATE, 0, pid);
+
+  if (handle === 0n) return false;
+
+  try {
+    return k32().TerminateProcess(handle, code) !== 0;
+  } finally {
+    k32().CloseHandle(handle);
   }
 };
 

@@ -1,7 +1,8 @@
 /**
  * The install flow's side effects on a Host, over its `HostChannel` (ssh, wsl.exe or a
- * local shell): probe and plan, then install or upgrade the bundled build, and restart
- * an installed Daemon's service. `Machines` decides when; these do it.
+ * local shell; on a Windows Client this PC runs `polaris.exe` directly, `windowsLocal.ts`):
+ * probe and plan, then install or upgrade the bundled build, and restart an installed
+ * Daemon's service. `Machines` decides when; these do it.
  */
 import type { HostChannel } from "@polaris/client/access";
 import {
@@ -14,11 +15,21 @@ import {
   platformFromUname,
   probeHost,
   shScript,
+  startCommand,
+  type WindowsShell,
 } from "@polaris/client/install";
 import { Effect, Match, Option, Predicate, Schema } from "effect";
+import type { ChildProcessApi } from "@polaris/client/process";
 import type { DaemonBuilds } from "./builds.ts";
 import type { InstallOutcome, InstallWork } from "./installFlow.ts";
 import { reportOutcome } from "./views.ts";
+import {
+  applyWindowsLocal,
+  installedVersion,
+  planWindowsLocal,
+  startWindowsLocal,
+  WINDOWS_PLATFORM,
+} from "./windowsLocal.ts";
 
 export interface PlanInput {
   readonly trigger: InstallTrigger;
@@ -26,7 +37,17 @@ export interface PlanInput {
   readonly builds: DaemonBuilds;
   /** Runs before a dev build from source starts. */
   readonly onBuild: Effect.Effect<void>;
+  /** The Client's platform: on Windows the local Host has no shell (`windowsLocal.ts`). */
+  readonly platform?: NodeJS.Platform | undefined;
+  /** Runs this PC's `polaris.exe` there; tests script it. */
+  readonly processes?: ChildProcessApi | undefined;
 }
+
+export type LocalOptions = Pick<PlanInput, "platform" | "processes">;
+
+/** This PC's own Daemon on a Windows Client, run directly rather than through a shell. */
+const windowsHome = (channel: HostChannel, platform: NodeJS.Platform | undefined) =>
+  channel.kind === "local" && (platform ?? process.platform) === "win32" ? channel.home : null;
 
 export interface Planned {
   readonly platform: string | null;
@@ -35,6 +56,8 @@ export interface Planned {
   readonly plan: InstallPlan;
   /** The size of the build the plan would install, for the approval card. */
   readonly size: number | null;
+  /** A Windows SSH Host's DefaultShell, which its connection must speak; null elsewhere. */
+  readonly windowsShell: WindowsShell | null;
 }
 
 const sizeOf = (build: DaemonBuild | undefined) =>
@@ -42,6 +65,9 @@ const sizeOf = (build: DaemonBuild | undefined) =>
 
 /** Probe the Host, find (or in dev, build) its platform's build, and plan. */
 export const planFor = Effect.fn("planFor")(function* (channel: HostChannel, input: PlanInput) {
+  const home = windowsHome(channel, input.platform);
+
+  if (home !== null) return yield* planThisPc(home, input);
   const probe = yield* probeHost(channel.alias).pipe(Effect.provide(channel.ssh));
   const platform = platformFromUname(probe.os, probe.arch, probe.libc);
 
@@ -65,12 +91,42 @@ export const planFor = Effect.fn("planFor")(function* (channel: HostChannel, inp
     installedVersion: probe.installed?.version ?? null,
     bundledVersion: build?.version ?? null,
     size: sizeOf(build),
+    windowsShell: probe.windowsShell ?? null,
+  } satisfies Planned;
+});
+
+const planThisPc = Effect.fn("planThisPc")(function* (home: string, input: PlanInput) {
+  const installed = yield* installedVersion(home, input.processes);
+
+  const builds = yield* input.builds.forPlatform(WINDOWS_PLATFORM, {
+    build: input.trigger === "user",
+    onBuild: input.onBuild,
+  });
+
+  const build = builds.find((b) => b.platform === WINDOWS_PLATFORM);
+
+  return {
+    platform: WINDOWS_PLATFORM,
+    plan: planWindowsLocal(installed, builds, input.trigger),
+    installedVersion: installed,
+    bundledVersion: build?.version ?? null,
+    size: sizeOf(build),
+    windowsShell: null,
   } satisfies Planned;
 });
 
 /** Get the build onto the Host (upload, or a download there or here), check it, and run `polaris install|upgrade`. */
-export const applyWork = (channel: HostChannel, work: InstallWork, options: ApplyOptions = {}) =>
-  Effect.map(
+export const applyWork = (
+  channel: HostChannel,
+  work: InstallWork,
+  options: ApplyOptions = {},
+  local: LocalOptions = {}
+) => {
+  const home = windowsHome(channel, local.platform);
+
+  if (home !== null) return applyWindowsLocal(home, work, local.processes);
+
+  return Effect.map(
     applyPlan(channel.alias, work, options).pipe(Effect.provide(channel.ssh)),
     (applied): InstallOutcome =>
       Match.value(applied).pipe(
@@ -82,6 +138,7 @@ export const applyWork = (channel: HostChannel, work: InstallWork, options: Appl
         })
       )
   );
+};
 
 export class StartFailed extends Schema.TaggedError<StartFailed>()("StartFailed", {
   message: Schema.String,
@@ -89,10 +146,23 @@ export class StartFailed extends Schema.TaggedError<StartFailed>()("StartFailed"
 
 const decodeReport = Schema.decodeUnknownOption(Schema.fromJsonString(Schema.JsonObject));
 
-/** `polaris install --json` with the installed build: idempotent, it (re)starts the service. */
-export const startDaemon = Effect.fn("startDaemon")(function* (channel: HostChannel) {
+/**
+ * `polaris install --json` with the installed build: idempotent, it (re)starts the service.
+ * A Windows SSH Host (`windowsShell`) gets the PowerShell line, valid in either DefaultShell.
+ */
+export const startDaemon = Effect.fn("startDaemon")(function* (
+  channel: HostChannel,
+  local: LocalOptions = {},
+  windowsShell: WindowsShell | null = null
+) {
+  const home = windowsHome(channel, local.platform);
+
+  if (home !== null) return yield* startWindowsLocal(home, local.processes);
+
   const result = yield* channel.exec(
-    shScript('"$HOME/.polaris/bin/current/polaris" install --json')
+    windowsShell === null
+      ? shScript('"$HOME/.polaris/bin/current/polaris" install --json')
+      : startCommand()
   );
 
   const report = Option.getOrNull(decodeReport(result.stdout.trim().split("\n").at(-1) ?? ""));

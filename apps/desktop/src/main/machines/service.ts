@@ -13,7 +13,9 @@ import {
   type DownloadBuild,
   InstallPlan,
   type InstallTrigger,
+  type WindowsShell,
 } from "@polaris/client/install";
+import type { ChildProcessApi } from "@polaris/client/process";
 import { WslDiscovery } from "@polaris/client/wsl";
 import {
   Context,
@@ -66,6 +68,8 @@ export interface MachinesInput {
   readonly openTerminal: (argv: ReadonlyArray<string>) => Promise<void>;
   /** The WSL distros on this machine (Windows), for "Add a host". */
   readonly discoverWsl?: Effect.Effect<WslDiscovery>;
+  /** Runs this PC's `polaris.exe` on a Windows Client; tests script it. */
+  readonly processes?: ChildProcessApi | undefined;
 }
 
 export interface AddMachine {
@@ -350,13 +354,17 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
         size,
         installedVersion,
         bundledVersion,
+        windowsShell,
       } = yield* planFor(to, {
         trigger,
         approved: to.trusted ? new Set<string>() : input.approvals.approved(key),
         builds: input.builds,
         onBuild: setRecord(key, { activity: "Building the daemon for this host from source" }),
+        platform: input.platform,
+        processes: input.processes,
       });
 
+      yield* rememberWindowsShell(key, windowsShell);
       bundledBuilds = yield* input.builds
         .forPlatform(null, { build: false, onBuild: Effect.void })
         .pipe(Effect.orElseSucceed(() => []));
@@ -411,11 +419,12 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
         return;
       }
 
-      const outcome = yield* applyWork(to, pending, {
-        progress: progress(key),
-        download: input.download,
-        clientVersion: input.clientVersion,
-      });
+      const outcome = yield* applyWork(
+        to,
+        pending,
+        { progress: progress(key), download: input.download, clientVersion: input.clientVersion },
+        { platform: input.platform, processes: input.processes }
+      );
 
       yield* localListening(to.home);
 
@@ -570,9 +579,8 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
       return machine.alias;
     });
 
-  const update = (key: string, patch: MachinePatch) =>
+  const replaceRemote = (key: string, next: RemoteHostSetting) =>
     Effect.gen(function* () {
-      const next = patched(yield* requireRemote(key), patch);
       input.settings.update((s) => ({
         ...s,
         hosts: (s.hosts ?? []).map((h) => (h.alias === key ? next : h)),
@@ -580,6 +588,20 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
       yield* dir.add(remoteEntry(next));
       yield* publish;
     });
+
+  const update = (key: string, patch: MachinePatch) =>
+    Effect.flatMap(requireRemote(key), (remote) => replaceRemote(key, patched(remote, patch)));
+
+  /** Keeps the probe's Windows DefaultShell on the Host, so its connection speaks PowerShell. */
+  function rememberWindowsShell(key: string, shell: WindowsShell | null) {
+    const remote = remoteSetting(key);
+
+    if (remote === undefined || (remote.windowsShell ?? null) === shell) return Effect.void;
+
+    const { windowsShell: _previous, ...rest } = remote;
+
+    return replaceRemote(key, shell === null ? rest : { ...rest, windowsShell: shell });
+  }
 
   const remove = (key: string) =>
     Effect.gen(function* () {
@@ -627,11 +649,18 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
     Effect.gen(function* () {
       const to = yield* channelFor(key);
 
-      if (to.home !== null && !existsSync(installedPaths(to.home).binary)) {
+      if (
+        to.home !== null &&
+        !existsSync(installedPaths(to.home, input.platform ?? process.platform).binary)
+      ) {
         return yield* runCheck(key, to, "user");
       }
 
-      yield* startDaemon(to).pipe(Effect.mapError(asMachineError));
+      const shell = remoteSetting(key)?.windowsShell ?? null;
+
+      yield* startDaemon(to, { platform: input.platform, processes: input.processes }, shell).pipe(
+        Effect.mapError(asMachineError)
+      );
       yield* localListening(to.home).pipe(Effect.ensuring(retryConnection(key)));
     });
 

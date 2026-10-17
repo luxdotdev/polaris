@@ -12,7 +12,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import { connect } from "node:net";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { localDaemonFailure } from "@polaris/client";
+import { isPipePath, localDaemonFailure } from "@polaris/client";
 import { childProcesses, type Spawned, stopChild } from "@polaris/client/process";
 import { localEndpoint } from "@polaris/protocol/endpoint";
 
@@ -55,7 +55,8 @@ const external = (
 /** Whether something accepts connections on the socket within `timeoutMs`. */
 export const socketLive = (socketPath: string, timeoutMs = 500): Promise<boolean> =>
   new Promise((resolve) => {
-    if (!existsSync(socketPath)) {
+    // Stat on a Windows pipe opens it, taking an instance; connecting below answers either way.
+    if (!isPipePath(socketPath) && !existsSync(socketPath)) {
       resolve(false);
 
       return;
@@ -142,7 +143,7 @@ export const awaitInstalledDaemon = async (
   );
 };
 
-/** Never called on Windows: `LocalHost.unsupported` serves that Client. */
+/** The given socket, the system Daemon (`~/.polaris`, on Windows its pipe), or in dev the app's own. */
 export const resolveLocalDaemon = async (options: LocalDaemonOptions): Promise<LocalDaemon> => {
   const { env } = options;
   const explicit = env.POLARIS_DESKTOP_LOCAL_SOCKET;

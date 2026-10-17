@@ -3,6 +3,7 @@
  * click in the explorer) is replaced by the next preview; editing it or
  * opening it again pins it.
  */
+import { pathSegments, separatorOf } from "../../../../shared/hostPath.ts";
 
 export interface Tab {
   /** The file's absolute path on the Host. */
@@ -128,7 +129,11 @@ export const cycleTab = (set: TabSet, delta: 1 | -1): TabSet => {
 
 /** `path` after `from` moved to `to`: the file itself, or anything under a moved folder. */
 export const movedPath = (path: string, from: string, to: string): string =>
-  path === from ? to : path.startsWith(`${from}/`) ? to + path.slice(from.length) : path;
+  path === from
+    ? to
+    : path.startsWith(`${from}${separatorOf(from)}`)
+      ? to + path.slice(from.length)
+      : path;
 
 /** A renamed or moved file, or folder, keeps its tabs. */
 export const renameTab = (set: TabSet, from: string, to: string): TabSet => ({
@@ -139,7 +144,7 @@ export const renameTab = (set: TabSet, from: string, to: string): TabSet => ({
 
 /** Labels for tabs that share a file name: the shortest distinct parent suffix ("hosts/index.ts"). */
 export const tabLabels = (paths: ReadonlyArray<string>): ReadonlyArray<string> => {
-  const parts = paths.map((p) => p.split("/").filter((s) => s.length > 0));
+  const parts = paths.map((p) => pathSegments(p));
 
   return parts.map((mine, i) => {
     let depth = 1;
@@ -149,6 +154,6 @@ export const tabLabels = (paths: ReadonlyArray<string>): ReadonlyArray<string> =
 
     while (depth < mine.length && clash(depth)) depth++;
 
-    return mine.slice(-depth).join("/");
+    return mine.slice(-depth).join(separatorOf(paths[i] ?? ""));
   });
 };

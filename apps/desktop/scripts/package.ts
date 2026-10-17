@@ -36,6 +36,7 @@ import {
 } from "./packaging/archives.ts";
 import { run } from "./packaging/command.ts";
 import { installerDmg } from "./packaging/dmg.ts";
+import { stageKoffi } from "./packaging/koffi.ts";
 import { packageTargets, targetOptions } from "./packaging/targets.ts";
 import { installerWindows, windowsPackageVersion } from "./packaging/windows.ts";
 
@@ -169,6 +170,11 @@ writeFileSync(
 
 cpSync(join(ICONS, "linux/512x512.png"), join(resources, "icon.png"));
 
+// Windows x64 checks the local pipe's owner through koffi (ADR 0062); Arm has no local Host.
+const koffiResource = targets.some((t) => t.platform === "win32" && t.arch === "x64")
+  ? stageKoffi(REPO_ROOT, app, resources)
+  : null;
+
 const electronVersion = pkg.devDependencies.electron;
 
 if (electronVersion === undefined) throw new Error("electron is not a devDependency");
@@ -189,7 +195,13 @@ for (const target of targets) {
     appCopyright: "© 2026 lux.dev LLC",
     appVersion: version,
     electronVersion,
-    extraResource: [daemon, join(resources, "icon.png")],
+    extraResource: [
+      daemon,
+      join(resources, "icon.png"),
+      ...(target.platform === "win32" && target.arch === "x64" && koffiResource !== null
+        ? [koffiResource]
+        : []),
+    ],
     darwinDarkModeSupport: true,
     asar: true,
     prune: false,

@@ -5,6 +5,7 @@
  */
 import type { RiskFinding, RiskSummary, Severity } from "@polaris/protocol";
 import type { Plain } from "../../../store/plain.ts";
+import { SECRETS_OFF_ON_WINDOWS } from "../../../shell/hostPlatform.ts";
 
 export type Summary = Plain<RiskSummary>;
 
@@ -157,13 +158,20 @@ export const rerunLabel = (summary: Summary | null) => {
 };
 
 /** Why a layer didn't finish, and the summary's note (a Plan Limit, "Rules only…"), deduplicated. */
-export const notesOf = (summary: Summary): ReadonlyArray<string> => {
-  const notes = [summary.note, summary.layers.rules.note, summary.layers.agent.note].filter(
-    (note): note is string => note !== null && note.trim() !== ""
+export const notesOf = (summary: Summary, windowsHost = false): ReadonlyArray<string> => {
+  const notes = [summary.note, summary.layers.rules.note, summary.layers.agent.note].flatMap(
+    (note) => {
+      if (note === null || note.trim() === "") return [];
+
+      return [windowsHost ? note.replace(UNSCANNED, SECRETS_OFF_ON_WINDOWS) : note];
+    }
   );
 
   return [...new Set(notes)];
 };
+
+/** The rules layer's "Secrets were not checked: <why>", one of its ". "-joined notes. */
+const UNSCANNED = /Secrets were not checked: [^.]*/;
 
 /** "182k tokens", "1.2M tokens". */
 const tokens = (n: number) => {

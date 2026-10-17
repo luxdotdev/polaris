@@ -8,7 +8,12 @@
 export type TabStatus =
   | { readonly kind: "opening" }
   | { readonly kind: "live" }
-  | { readonly kind: "exited"; readonly code: number | null }
+  | {
+      readonly kind: "exited";
+      readonly code: number | null;
+      /** The Daemon no longer knows the terminal: it ended with a Daemon that stopped. */
+      readonly lost?: true;
+    }
   | { readonly kind: "failed"; readonly message: string };
 
 export interface TerminalTab {

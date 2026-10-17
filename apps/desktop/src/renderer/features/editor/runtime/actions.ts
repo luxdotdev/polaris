@@ -46,6 +46,8 @@ export { openFile, type OpenFileRequest };
 import type { EditorFile } from "../cm/extensions.ts";
 import { languageFor } from "../model/language.ts";
 import { showOpenFailure } from "../ui/toasts.ts";
+import { dirname, join } from "../explorer/model/paths.ts";
+import { isWindowsPath } from "../../../../shared/hostPath.ts";
 
 /** Each Workspace's root as its pane last said, for relative paths and tree watches. */
 const roots = new Map<string, string>();
@@ -54,9 +56,9 @@ export const setWorkspaceRoot = (hostKey: string, workspaceId: string, root: str
   roots.set(workspaceKey(hostKey, workspaceId), root);
 
 const resolve = (root: string | undefined, path: string) =>
-  path.startsWith("/") || root === undefined
+  path.startsWith("/") || isWindowsPath(path) || root === undefined
     ? path
-    : `${root.replace(/\/$/, "")}/${path.replace(/^\.\//, "")}`;
+    : join(root, path.replace(/^\.\//, ""));
 
 const setTabs = (key: string, update: (set: TabSet) => TabSet) =>
   editorStore.setState((s) => {
@@ -215,7 +217,7 @@ export const loadTab = (hostKey: string, workspaceId: string, path: string) => {
 
   ensureBuffer({
     file: { hostKey, workspaceId, path },
-    root: roots.get(ws) ?? path.slice(0, path.lastIndexOf("/")),
+    root: roots.get(ws) ?? dirname(path),
     line: null,
     column: null,
     onEdit: pinOnEdit,
@@ -239,7 +241,7 @@ const openFileNow = (request: OpenFileRequest) => {
 
   ensureBuffer({
     file: { hostKey, workspaceId, path },
-    root: root ?? path.slice(0, path.lastIndexOf("/")),
+    root: root ?? dirname(path),
     line: request.line ?? null,
     column: request.column ?? null,
     onEdit: pinOnEdit,

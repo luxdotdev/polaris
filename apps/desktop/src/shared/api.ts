@@ -269,6 +269,8 @@ export interface MachineView {
   readonly forwardAgent: boolean;
   /** The remote command override as one shell line; null for the default. */
   readonly remoteCommand: string | null;
+  /** A Windows SSH Host's DefaultShell, once its probe found it: it ignores `remoteCommand`. */
+  readonly windowsShell?: "powershell" | "cmd";
   /** Null while the local Host is switched off. */
   readonly status: ConnectionStatusView | null;
   /** Null for the local Host (Polaris never installs on this Mac from here). */

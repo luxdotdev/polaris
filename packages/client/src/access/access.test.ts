@@ -1,6 +1,6 @@
 /**
  * `HostAccess`'s contract against its test Layer: one channel per `HostTarget`, a local
- * channel only for an installed local Host and never on Windows. Nothing spawns, so this
+ * channel only for an installed local Host (shell-less on Windows). Nothing spawns, so this
  * runs on the Windows CI leg too.
  */
 import { describe, expect, test } from "bun:test";
@@ -96,15 +96,26 @@ describe("HostAccess", () => {
     expect(t.ran).toEqual([]);
   });
 
-  test("a Windows Client never gets a local channel, installed home or not", async () => {
-    const t = scripted("win32");
+  test("a Windows Client's installed Daemon is trusted, but its machine runs no shell", async () => {
+    const target = HostTarget.Local({
+      socketPath: "\\\\.\\pipe\\polaris-abc",
+      installedHome: "C:\\Users\\me",
+    });
 
-    const error = await t.refused(
-      HostTarget.Local({ socketPath: "C:\\h\\daemon.sock", installedHome: "C:\\h" })
+    const scriptedChannel = await scripted("win32").channel(target);
+
+    expect(scriptedChannel).toMatchObject({ kind: "local", home: "C:\\Users\\me", trusted: true });
+
+    const real = await Effect.runPromise(
+      HostAccess.use((access) => access.channel(target)).pipe(
+        Effect.provide(HostAccess.layer({ platform: "win32" }))
+      )
     );
 
-    expect(error.reason).toBe("local-unsupported");
-    expect(t.ran).toEqual([]);
+    const refused = await Effect.runPromise(Effect.flip(real.exec("true")));
+
+    expect(refused).toBeInstanceOf(SshError);
+    expect(refused.failure).toBe("spawn");
   });
 
   test("a channel's own failure is the SshError it reported", async () => {
@@ -122,8 +133,8 @@ describe("HostAccess", () => {
       probeHost(channel.alias).pipe(Effect.provide(Layer.mergeAll(channel.ssh)), Effect.flip)
     );
 
-    // The scripted answer isn't a probe, so the flow reports it against the distro.
+    // The scripted answer isn't a probe (POSIX or Windows), so the flow reports it against the distro.
     expect(probe).toMatchObject({ alias: "Ubuntu" });
-    expect(t.ran.map((r) => r.target)).toEqual(["Wsl"]);
+    expect(new Set(t.ran.map((r) => r.target))).toEqual(new Set(["Wsl"]));
   });
 });

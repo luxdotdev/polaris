@@ -57,6 +57,7 @@ export const MANUAL_REASONS: ReadonlySet<ConnectFailure["reason"]> = new Set([
   "command-missing",
   "wsl-missing",
   "wsl-distro-missing",
+  "daemon-untrusted",
 ]);
 
 export interface ConnectionContext {

@@ -52,14 +52,24 @@ describe("groups", () => {
     ]);
   });
 
-  test("search-only commands never list on an empty query, but a search finds them", () => {
-    const empty = flatten(paletteGroups({ query: "", commands: COMMANDS, recent: [] }));
+  test("search-only commands never list on an empty query, but their full name finds them", () => {
+    const found = (query: string) =>
+      flatten(paletteGroups({ query, commands: COMMANDS, recent: [] })).some(
+        (c) => c.id === "fun.stars"
+      );
 
-    expect(empty.some((c) => c.id === "fun.stars")).toBe(false);
-    expect(flatten(paletteGroups({ query: "stars", commands: COMMANDS, recent: [] }))[0]?.id).toBe(
-      "fun.stars"
-    );
+    expect(found("")).toBe(false);
+    expect(found("  Count   the STARS ")).toBe(true);
   });
+
+  test.each(["stars", "count the", "count the star", "cnt the stars"])(
+    "a search-only command stays hidden for a partial name: %p",
+    (query) => {
+      const shown = flatten(paletteGroups({ query, commands: COMMANDS, recent: [] }));
+
+      expect(shown.some((c) => c.id === "fun.stars")).toBe(false);
+    }
+  );
 
   test("a recent search-only command doesn't surface in Recent", () => {
     const groups = paletteGroups({ query: "", commands: COMMANDS, recent: ["fun.stars"] });

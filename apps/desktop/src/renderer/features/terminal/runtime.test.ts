@@ -266,7 +266,7 @@ describe("reattaching", () => {
     expect(feedsOf("t-ended")).toHaveLength(1);
   });
 
-  test("a feed whose terminal is gone marks it exited, without a code", () => {
+  test("a feed whose terminal is gone marks it exited and lost, without a code", () => {
     const exits: Array<TabStatus> = [];
     const off = onTerminalStatus("t-missing", (status) => exits.push(status));
 
@@ -274,7 +274,7 @@ describe("reattaching", () => {
     latestFeed("t-missing").listener.end?.({ code: "NotFound", message: "No such terminal." });
     off();
 
-    expect(exits).toEqual([{ kind: "exited", code: null }]);
+    expect(exits).toEqual([{ kind: "exited", code: null, lost: true }]);
   });
 });
 

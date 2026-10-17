@@ -76,6 +76,7 @@ describe("attention cards", () => {
     ["host-key-changed", null, "copy-detail"],
     ["auth-failed", "retry", "open-ssh"],
     ["daemon-not-running", "start-daemon", "retry"],
+    ["daemon-untrusted", "retry", null],
     ["protocol-mismatch", "check", null],
     ["polaris-not-installed", "check", null],
     ["ssh-config-error", "retry", null],
@@ -149,6 +150,23 @@ describe("attention cards", () => {
       title: "Polaris on this Mac is older than the daemon on Raspberry Pi 4",
       fix: { action: "retry" },
     });
+  });
+
+  test("upgrading a Windows daemon says its terminals end; elsewhere it hands off", () => {
+    const older = attention("protocol-mismatch", "v", "daemon");
+
+    expect(attentionCard(older)?.body).toBe(
+      "The upgrade hands off in place; working agent sessions keep going."
+    );
+
+    const restarts =
+      "The upgrade restarts the daemon: agent sessions recover, but its terminals end.";
+
+    // This PC before any hello: the local Host of a Windows Client is the Windows daemon.
+    setClientPlatform("win32");
+    expect(attentionCard({ ...older, kind: "local" })?.body).toBe(restarts);
+    // A WSL distro on the same PC runs the Linux daemon, which hands off.
+    expect(attentionCard({ ...older, kind: "wsl" })?.body).not.toBe(restarts);
   });
 
   test("the install flow's card wins over the connection's while it runs", () => {

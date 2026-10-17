@@ -93,8 +93,15 @@ const Tab = ({
   </div>
 );
 
-const Ended = ({ tab, onReopen }: { readonly tab: TerminalTab; readonly onReopen: () => void }) => {
-  const line = endedLine(tab.status);
+interface EndedProps {
+  readonly hostKey: string;
+  readonly tab: TerminalTab;
+  readonly onReopen: () => void;
+}
+
+const Ended = ({ hostKey, tab, onReopen }: EndedProps) => {
+  const stop = useApp((s) => s.hosts.find((h) => h.key === hostKey)?.status.host?.previousStop);
+  const line = endedLine(tab.status, stop);
 
   if (line === null) return null;
 
@@ -211,7 +218,9 @@ const OpenDrawer = ({ place, drawer, home, where, onHide, dock }: OpenDrawerProp
           <TerminalSurface hostKey={place.hostKey} terminalId={tab.terminalId} autoFocus />
         </SurfaceMenu>
       )}
-      {tab === undefined ? null : <Ended tab={tab} onReopen={() => void reopenTab(place, tab)} />}
+      {tab === undefined ? null : (
+        <Ended hostKey={place.hostKey} tab={tab} onReopen={() => void reopenTab(place, tab)} />
+      )}
     </section>
   );
 };
