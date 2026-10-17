@@ -30,7 +30,6 @@ import {
   writeSync,
 } from "node:fs";
 import { stat } from "node:fs/promises";
-import { userInfo } from "node:os";
 import { dirname, join } from "node:path";
 import { FileError, NotFound, TerminalAttach, TerminalId } from "@polaris/protocol";
 import { Context, Effect, Layer, Option, Predicate, Queue, Schema, Stream } from "effect";
@@ -38,6 +37,8 @@ import { resolveHostPath, toFsFailure } from "../files/fs.ts";
 import { paths } from "../paths.ts";
 import * as libc from "../service/libc.ts";
 import { registerHandoffContributor, takeHandoff } from "../service/upgrade.ts";
+import { killTree, killTreeSync } from "../platform/processes.ts";
+import { defaultShellArgv } from "./shell.ts";
 
 /** Scrollback kept per terminal for replay to late attachers. */
 export const SCROLLBACK_BYTES = 256 * 1024;
@@ -190,45 +191,6 @@ export class Terminals extends Context.Service<
   }
 >()("polaris/daemon/terminal/Terminals") {}
 
-/** Where `loginShell` looks, in order; the readers may throw. */
-export interface ShellSources {
-  readonly userShell: () => string | null | undefined;
-  readonly passwd: () => string;
-  readonly uid: number | undefined;
-  readonly envShell: string | undefined;
-}
-
-const hostShellSources = (): ShellSources => ({
-  userShell: () => userInfo().shell,
-  passwd: () => readFileSync("/etc/passwd", "utf8"),
-  uid: process.getuid?.(),
-  envShell: process.env.SHELL,
-});
-
-/** The Host user's login shell: the passwd entry first (launchd/systemd may not set SHELL). */
-export const loginShell = (sources: ShellSources = hostShellSources()): string => {
-  try {
-    // Bun reports "unknown" for fields it could not read (seen in Alpine and Debian containers).
-    const shell = sources.userShell();
-
-    if (shell?.startsWith("/")) return shell;
-  } catch {
-    // No passwd entry (some containers).
-  }
-
-  try {
-    const entry = sources
-      .passwd()
-      .split("\n")
-      .map((line) => line.split(":"))
-      .find((fields) => fields[2] === String(sources.uid));
-
-    if (entry?.[6]?.startsWith("/")) return entry[6];
-  } catch {}
-
-  return sources.envShell || "/bin/sh";
-};
-
 /**
  * On macOS the command waits on fd 3 until `Bun.spawn` has returned, so it
  * can't exit before Bun watches it: see ADR 0052 (a deadlock otherwise).
@@ -236,6 +198,18 @@ export const loginShell = (sources: ShellSources = hostShellSources()): string =
 const SPAWN_GATE = ["/bin/sh", "-c", 'read -r _ <&3; exec 3<&-; exec "$0" "$@"'];
 
 const gateSpawns = process.platform === "darwin";
+
+/**
+ * Windows: ConPTY takes no fd past stdio, PTY fds can't be handed across an
+ * upgrade (there are none), and closing the console leaves the shell's children running.
+ */
+const windows = process.platform === "win32";
+
+/** A terminal's stdio: fd 3 is the macOS gate; Windows refuses any fd past 2 with a terminal. */
+const spawnStdio = (): ["ignore", "ignore", "ignore", ...Array<"ignore" | "pipe">] =>
+  windows
+    ? ["ignore", "ignore", "ignore"]
+    : ["ignore", "ignore", "ignore", gateSpawns ? "pipe" : "ignore"];
 
 /** Lets a gated command run; it may already be gone (EPIPE). */
 const openGate = (fd: number | null | undefined) => {
@@ -547,12 +521,16 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
       persist();
     };
 
-    const kill = (live: Live) => {
-      if (live.exit === null) {
-        try {
-          process.kill(live.info.pid, "SIGHUP");
-        } catch {
-          // Already gone.
+    /** SIGHUP, as closing a terminal window does; on Windows the whole tree, unless `ended` already. */
+    const kill = (live: Live, ended = false) => {
+      if (live.exit === null && !ended) {
+        if (windows) killTreeSync(live.info.pid);
+        else {
+          try {
+            process.kill(live.info.pid, "SIGHUP");
+          } catch {
+            // Already gone.
+          }
         }
       }
 
@@ -708,7 +686,7 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
       const argv =
         openOptions.argv !== null && openOptions.argv.length > 0
           ? [...openOptions.argv]
-          : [loginShell(), "-l"];
+          : defaultShellArgv();
 
       const id = TerminalId.make(`term_${randomUUID()}`);
       const cols = clampSize(openOptions.cols, 80);
@@ -730,12 +708,12 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
             throw Object.assign(new Error(`no such command: ${argv[0]}`), { code: "ENOENT" });
           }
 
-          const before = handoffFile === null ? null : openFdsOrNull();
+          const before = handoffFile === null || windows ? null : openFdsOrNull();
 
           const proc = Bun.spawn(gateSpawns ? [...SPAWN_GATE, ...argv] : argv, {
             cwd,
             env,
-            stdio: ["ignore", "ignore", "ignore", gateSpawns ? "pipe" : "ignore"],
+            stdio: spawnStdio(),
             terminal: {
               cols,
               rows,
@@ -843,14 +821,20 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
           })
         ),
       close: (id) =>
-        Effect.flatMap(lookup(id), (live) =>
-          Effect.sync(() => {
-            terminals.delete(id);
-            kill(live);
+        Effect.flatMap(lookup(id), (live) => {
+          const end = () => {
+            kill(live, windows);
             finish(live, null, live.endedBy ?? "exit");
             persist();
-          })
-        ),
+          };
+
+          terminals.delete(id);
+
+          // taskkill finds the children through the shell, so it runs before the console closes.
+          return windows && live.exit === null
+            ? Effect.promise(() => killTree(live.info.pid)).pipe(Effect.andThen(Effect.sync(end)))
+            : Effect.sync(end);
+        }),
       list: Effect.sync(() =>
         [...terminals.values()].map((live) => ({
           ...live.info,

@@ -4,16 +4,16 @@ import { Effect, Exit, Fiber, Layer, ManagedRuntime, Stream } from "effect";
 import { cpus } from "node:os";
 import { join } from "node:path";
 import { removeDir, tempDir } from "../git/testing.ts";
-import {
-  loginShell,
-  Scrollback,
-  type ShellSources,
-  TerminalItem,
-  Terminals,
-  TerminalsLive,
-} from "./Terminals.ts";
+import { loginShell, type ShellSources, windowsShell } from "./shell.ts";
+import { Scrollback, TerminalItem, Terminals, TerminalsLive } from "./Terminals.ts";
 
 const RUN_TIMEOUT_MS = 3000;
+
+/** These run `/bin/sh` and `stty`; Windows has its own below. */
+const posix = test.skipIf(process.platform === "win32");
+
+/** ConPTY and taskkill exist only on Windows. */
+const windowsOnly = test.skipIf(process.platform !== "win32");
 
 const fastExits = join(import.meta.dir, "fixtures", "fast-exits.ts");
 
@@ -103,7 +103,7 @@ describe("Scrollback", () => {
 });
 
 describe("Terminals", () => {
-  test("echo round-trip, resize, and Exit with the process's code", async () => {
+  posix("echo round-trip, resize, and Exit with the process's code", async () => {
     const { dir, run, attach } = setup();
     const id = await run((t) => t.open({ cwd: dir, cols: 80, rows: 24, argv: ["/bin/sh"] }));
     const a = attach(id);
@@ -123,7 +123,7 @@ describe("Terminals", () => {
     expect(list.find((i) => i.id === id)?.exit).toEqual({ code: 3 });
   });
 
-  test("late attachers get the scrollback replayed; many can attach at once", async () => {
+  posix("late attachers get the scrollback replayed; many can attach at once", async () => {
     const { dir, run, attach } = setup();
     const id = await run((t) => t.open({ cwd: dir, cols: 80, rows: 24, argv: ["/bin/sh"] }));
     const first = attach(id);
@@ -143,7 +143,7 @@ describe("Terminals", () => {
     await second.stop();
   });
 
-  test("attaching after exit replays the output and the Exit", async () => {
+  posix("attaching after exit replays the output and the Exit", async () => {
     const { dir, run, attach } = setup();
 
     const id = await run((t) =>
@@ -164,7 +164,7 @@ describe("Terminals", () => {
     await a.waitFor("<exit 0>");
   });
 
-  test("close ends attachers and forgets the terminal", async () => {
+  posix("close ends attachers and forgets the terminal", async () => {
     const { dir, run, attach } = setup();
     const id = await run((t) => t.open({ cwd: dir, cols: 80, rows: 24, argv: ["/bin/cat"] }));
     const a = attach(id);
@@ -216,7 +216,7 @@ describe("Terminals", () => {
     40_000
   );
 
-  test("the default is the user's login shell", () => {
+  posix("the default is the user's login shell", () => {
     expect(loginShell().startsWith("/")).toBe(true);
   });
 
@@ -255,4 +255,74 @@ describe("Terminals", () => {
   ])("the login shell comes from %s", (_, sources, expected) => {
     expect(loginShell(sources)).toBe(expected);
   });
+
+  const onPath =
+    (...names: ReadonlyArray<string>) =>
+    (name: string) =>
+      names.includes(name) ? `C:\\bin\\${name}.exe` : null;
+
+  test.each<[string, (name: string) => string | null, string | undefined, Array<string>]>([
+    [
+      "PowerShell 7 first",
+      onPath("pwsh", "powershell", "cmd"),
+      "C:\\cmd.exe",
+      ["C:\\bin\\pwsh.exe", "-NoLogo"],
+    ],
+    [
+      "Windows PowerShell without pwsh",
+      onPath("powershell", "cmd"),
+      "C:\\cmd.exe",
+      ["C:\\bin\\powershell.exe", "-NoLogo"],
+    ],
+    ["ComSpec without either", onPath("cmd"), "C:\\Windows\\cmd.exe", ["C:\\Windows\\cmd.exe"]],
+    ["cmd on PATH without ComSpec", onPath("cmd"), undefined, ["C:\\bin\\cmd.exe"]],
+  ])("the Windows shell is %s", (_, find, comSpec, expected) => {
+    expect(windowsShell({ find, comSpec })).toEqual(expected);
+  });
+
+  const isRunning = (pid: number) => {
+    try {
+      process.kill(pid, 0);
+
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  windowsOnly(
+    "the default shell echoes, resizes, and closing it ends its whole tree",
+    async () => {
+      const { dir, run, attach } = setup();
+      const id = await run((t) => t.open({ cwd: dir, cols: 80, rows: 24, argv: null }));
+      const a = attach(id);
+      await run((t) => t.input(id, encode("echo round-$(40+2)-trip\r")));
+      await a.waitFor("round-42-trip", 15_000);
+
+      await run((t) => t.resize(id, 132, 41));
+      await run((t) =>
+        t.input(
+          id,
+          encode(
+            'echo "size=$($Host.UI.RawUI.WindowSize.Width)x$($Host.UI.RawUI.WindowSize.Height)"\r'
+          )
+        )
+      );
+      await a.waitFor("size=132x41");
+
+      const ping =
+        "$p = Start-Process ping -ArgumentList '-n','600','127.0.0.1' -NoNewWindow -PassThru";
+
+      await run((t) => t.input(id, encode(`${ping}; echo "child=$($p.Id)"\r`)));
+      await a.waitFor(/child=\d+/);
+      const child = Number(/child=(\d+)/.exec(a.text())![1]);
+      const shell = (await run((t) => t.list)).find((info) => info.id === id)!.pid;
+      expect([isRunning(shell), isRunning(child)]).toEqual([true, true]);
+
+      await run((t) => t.close(id));
+      await a.waitFor("<exit null>");
+      expect([isRunning(shell), isRunning(child)]).toEqual([false, false]);
+    },
+    30_000
+  );
 });
