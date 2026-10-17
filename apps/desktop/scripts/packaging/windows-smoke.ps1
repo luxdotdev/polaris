@@ -1,7 +1,7 @@
 param(
   [Parameter(Mandatory = $true)][string]$Installer,
   [ValidateSet('x64', 'arm64')][string]$Arch = 'x64',
-  # The Daemon to serve and reach over its pipe when the package carries none (until ENG-302).
+  # The Daemon to serve and reach over its pipe when the package carries none for -Arch.
   [string]$Daemon
 )
 
@@ -48,10 +48,9 @@ try {
   if (!(Test-Path (Join-Path $installRoot 'Update.exe'))) { throw 'Squirrel install root is missing Update.exe' }
   Write-Output "WINDOW OPEN: Windows $Arch; process $($window.Id); $($window.MainWindowTitle)"
 
-  # The package's own Daemon once it carries one (ENG-302), else -Daemon.
-  $bundled = Get-ChildItem (Join-Path (Split-Path $application) 'resources') -Recurse -Filter 'polaris.exe' -ErrorAction SilentlyContinue |
-    Select-Object -First 1
-  $local = if ($bundled) { $bundled.FullName } else { $Daemon }
+  # The Daemon the package carries for this architecture, else -Daemon.
+  $bundled = Join-Path (Split-Path $application) "resources\daemon\windows-$Arch\polaris.exe"
+  $local = if (Test-Path $bundled) { $bundled } else { $Daemon }
   if ($local) {
     & (Join-Path $PSScriptRoot '..\..\..\daemon\scripts\windows-pipe-smoke.ps1') -Daemon $local
   } else {

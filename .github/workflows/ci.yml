@@ -131,6 +131,15 @@ jobs:
         run: bun packages/spec/scripts/fetch-evaluator.ts
         env:
           GITHUB_TOKEN: ${{ github.token }}
+      # The runner's TEMP is the 8.3 short form (C:\Users\RUNNER~1\...), which git reports
+      # long; RUNNER_TEMP is long. The runner is elevated, which pipe.test.ts checks it sees.
+      - name: Long temp path, elevation expected (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          "TEMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
+          "TMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
+          "POLARIS_EXPECT_ELEVATED=1" >> $env:GITHUB_ENV
       - name: Test
         run: ${{ matrix.part.run }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -260,6 +269,27 @@ jobs:
       - name: Serve the built Daemon and reach it over its pipe
         shell: pwsh
         run: ./apps/daemon/scripts/windows-pipe-smoke.ps1 -Daemon dist/windows-x64/polaris.exe
+
+  service-windows:
+    name: Windows service end to end
+    # apps/daemon/scripts/e2e-windows-service.ts on the runner: two Daemon builds; install A as
+    # the logon task, a real Client over the pipe, kill (the task restarts it), upgrade to B,
+    # uninstall. Its throwaway POLARIS_HOME keeps the task apart from any real one.
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: ./.github/actions/bun-install
+      - name: Install, restart, upgrade and uninstall with a Client connected
+        shell: pwsh
+        run: |
+          # Two dev builds differ in version (their build time) only from a dirty tree.
+          New-Item -ItemType File e2e-windows-dirty | Out-Null
+          bun apps/daemon/scripts/e2e-windows-service.ts --local --dir "$env:RUNNER_TEMP\polaris-e2e"
+          if ($LASTEXITCODE -ne 0) { throw "The service end to end failed: $LASTEXITCODE" }
 
   bench:
     name: Daemon benchmarks (quick; memory gated)

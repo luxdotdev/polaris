@@ -133,3 +133,12 @@ It refuses to overwrite an existing installation, stops only that installation's
 processes, and removes only its temporary settings. It leaves the installation
 and shortcuts in place. The release job runs it for x64 on `windows-latest`;
 arm64 installation/launch still requires the owner's Windows arm64 VM.
+
+It then reaches a local Daemon over its named pipe with
+`apps/daemon/scripts/windows-pipe-smoke.ps1`: the Daemon serves a throwaway
+Polaris home and the real Client says hello, runs `git.status` and a Terminal.
+That Daemon is the installed app's `resources\daemon\windows-<arch>\polaris.exe`
+(the x64 package carries one), else `-Daemon <polaris.exe>`, which CI passes as the
+restored `apps/daemon/dist/windows-x64/polaris.exe`. With neither, the script warns
+that the pipe went unchecked. The Desktop App itself does not yet connect to it
+(the local Host is off in the smoke settings until ENG-302).

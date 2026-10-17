@@ -1,8 +1,9 @@
 name: Package Windows installers
 description: >-
   Restores a Daemon dist archived by a macOS job, packages the Desktop App for Windows x64 and
-  arm64 with Squirrel installers (unsigned), and smoke-tests the x64 install. Shared by the
-  release and the Windows test-build workflows; run it after actions/checkout on windows-latest.
+  arm64 with Squirrel installers (unsigned), and smoke-tests the x64 install and a local Daemon
+  over its pipe. Shared by the release and the Windows test-build workflows; run it after
+  actions/checkout on windows-latest.
 inputs:
   daemon-artifact:
     description: The artifact holding polaris-daemon-dist.tar.gz (apps/daemon/dist).
@@ -46,7 +47,7 @@ runs:
         if ($env:RELEASE -eq 'true') { $flags += '--release' }
         bun run --cwd apps/desktop package @flags
         if ($LASTEXITCODE -ne 0) { throw 'Windows packaging failed' }
-    # Until the package carries its own Daemon (ENG-302), the pipe check serves the restored dist build.
+    # The pipe check serves the package's own Daemon, or the restored dist build if it has none.
     - name: Install the x64 app, verify a native window opens, and reach a local Daemon over its pipe
       shell: pwsh
       run: |
