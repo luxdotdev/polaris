@@ -144,5 +144,18 @@ Polaris home and the real Client says hello, runs `git.status` and a Terminal.
 That Daemon is the installed app's `resources\daemon\windows-<arch>\polaris.exe`
 (the x64 package carries one), else `-Daemon <polaris.exe>`, which CI passes as the
 restored `apps/daemon/dist/windows-x64/polaris.exe`. With neither, the script warns
-that the pipe went unchecked. The Desktop App itself does not yet connect to it
-(the local Host is off in the smoke settings until ENG-302).
+that the pipe went unchecked.
+
+Last, the Desktop App connects to This PC itself (`windows-connect.ps1`, ENG-331). With the
+first window closed, `windowsConnect.ts` launches the installed `app-*\Polaris.exe` under
+Playwright with the local Host on and `POLARIS_DESKTOP_LOCAL_SOCKET` / `POLARIS_DESKTOP_LOCAL_HOME`
+naming a throwaway home's pipe, the same test hooks `packageCheck.ts` uses, so the build adds no
+smoke-only code. Nothing is installed there, so the app installs its own
+`resources\daemon\windows-x64\polaris.exe` into that home (a sign-in task, ADR 0060) and the
+check waits on the `machines` feed for This PC's Connection State to be `connected`
+(`APP CONNECTED: …`), then that one new task is `dev.lux.polaris.<user>.<hash>`. Teardown always
+runs the package's `polaris.exe uninstall --purge` with that `POLARIS_HOME` and fails unless the
+sign-in tasks are as before (the profile's own `dev.lux.polaris.<user>` unchanged), no Daemon runs
+from the home, and the home is gone (`TORN DOWN: …`). The arm64 package carries no Daemon, so it
+warns that the connection went unchecked. `windows-connect.ps1` also runs alone against an
+installed app (`-Application`, `-Daemon`, and `-Scratch <dir>` for the throwaway home's parent).

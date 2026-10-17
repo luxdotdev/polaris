@@ -16,6 +16,14 @@ New-Item -ItemType Directory $userData | Out-Null
 $previousUserData = $env:POLARIS_DESKTOP_USER_DATA
 $env:POLARIS_DESKTOP_USER_DATA = $userData
 
+function Stop-InstalledPolaris {
+  $running = @(Get-Process -Name Polaris -ErrorAction SilentlyContinue |
+    Where-Object { $_.Path -and $_.Path.StartsWith("$installRoot\", [System.StringComparison]::OrdinalIgnoreCase) })
+  $running | Stop-Process -Force
+  # Stop-Process returns before the processes exit, and they hold user data open until then.
+  $running | Wait-Process -Timeout 30 -ErrorAction SilentlyContinue
+}
+
 try {
   $setup = Start-Process -FilePath (Resolve-Path $Installer) -ArgumentList '--silent' -PassThru
   if (!$setup.WaitForExit(120000)) { throw 'Installer timed out' }
@@ -63,12 +71,16 @@ try {
   } else {
     Write-Warning 'No Daemon in the package and no -Daemon: the pipe was not checked'
   }
+
+  Stop-InstalledPolaris
+  $env:POLARIS_DESKTOP_USER_DATA = $previousUserData
+  if (Test-Path $bundled) {
+    & (Join-Path $PSScriptRoot 'windows-connect.ps1') -Application $application -Daemon $bundled
+  } else {
+    Write-Warning "No Daemon in the $Arch package: the app's connection to This PC was not checked"
+  }
 } finally {
-  $running = @(Get-Process -Name Polaris -ErrorAction SilentlyContinue |
-    Where-Object { $_.Path -and $_.Path.StartsWith("$installRoot\", [System.StringComparison]::OrdinalIgnoreCase) })
-  $running | Stop-Process -Force
-  # Stop-Process returns before the processes exit, and they hold user data open until then.
-  $running | Wait-Process -Timeout 30 -ErrorAction SilentlyContinue
+  Stop-InstalledPolaris
   $env:POLARIS_DESKTOP_USER_DATA = $previousUserData
   for ($try = 1; ; $try++) {
     try { Remove-Item $userData -Recurse -Force -ErrorAction Stop; break }
