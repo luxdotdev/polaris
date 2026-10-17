@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { MachineView } from "../../../shared/api.ts";
-import { RemoteSettings, WINDOWS_REMOTE_COMMAND } from "./HostDetails.tsx";
+import { RemoteSettings, WINDOWS_REMOTE_COMMAND, WSL_REMOTE_COMMAND } from "./HostDetails.tsx";
 
 const machine = (patch: Partial<MachineView> = {}): MachineView => ({
   daemon: null,
@@ -34,5 +34,16 @@ describe("a Host's remote command", () => {
 
     expect(html).not.toContain('aria-label="Remote command"');
     expect(html).toContain(WINDOWS_REMOTE_COMMAND);
+  });
+
+  test("a WSL Host offers no ssh-agent forwarding and says wsl.exe runs the command", () => {
+    const html = renderToStaticMarkup(
+      <RemoteSettings machine={machine({ kind: "wsl", alias: "Ubuntu" })} />
+    );
+
+    expect(html).not.toContain("Forward ssh-agent");
+    expect(html).not.toContain("What ssh runs");
+    expect(html).toContain(WSL_REMOTE_COMMAND);
+    expect(html).toContain('aria-label="Remote command"');
   });
 });
