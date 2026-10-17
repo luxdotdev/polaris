@@ -217,3 +217,67 @@ test("cancelled first lazy RPC cannot poison the Daemon service graph", async ()
   );
   expect(closed).toBe(1);
 });
+
+class BuildFailed extends Schema.TaggedError<BuildFailed>()("BuildFailed", {
+  rpc: Schema.String,
+}) {}
+
+test("a failed lazy build fails each request and stream with its typed error, not a defect", async () => {
+  const exits = await Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const daemon = yield* Effect.scope;
+        const memo = yield* Layer.makeMemoMap;
+
+        const load = yield* cacheDaemonBuild(
+          Effect.andThen(
+            Effect.fail("the graph did not build"),
+            rpcs.toHandlers({
+              "test.read": () => Effect.succeed("ready"),
+              "test.watch": () => Stream.succeed("ready"),
+            })
+          )
+        );
+
+        const handlers = yield* Layer.buildWithMemoMap(
+          lazyRpcLayer(rpcs, load, (tag) => new BuildFailed({ rpc: tag })),
+          memo,
+          daemon
+        );
+
+        const options = {
+          requestId: RequestId(1),
+          headers: Headers.empty,
+          client: new Rpc.ServerClient(1),
+        };
+
+        const read = yield* Effect.exit(
+          Effect.scoped(
+            Effect.gen(function* () {
+              return yield* (yield* rpcs.accessHandler("test.read"))(undefined, options);
+            })
+          ).pipe(Effect.provide(handlers))
+        );
+
+        const watch = yield* Effect.exit(
+          Effect.scoped(
+            Effect.gen(function* () {
+              const result = (yield* rpcs.accessHandler("test.watch"))(undefined, options);
+
+              return yield* (
+                Effect.isEffect(result) ? Stream.fromQueue(yield* result) : result
+              ).pipe(Stream.runCollect);
+            })
+          ).pipe(Effect.provide(handlers))
+        );
+
+        return { read, watch };
+      })
+    ).pipe(Effect.provideService(BlobChannel, blobs("daemon")))
+  );
+
+  expect<unknown>(exits).toEqual({
+    read: Exit.fail(new BuildFailed({ rpc: "test.read" })),
+    watch: Exit.fail(new BuildFailed({ rpc: "test.watch" })),
+  });
+});
