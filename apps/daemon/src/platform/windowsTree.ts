@@ -74,7 +74,8 @@ export const processTable = (): ReadonlyMap<number, ProcessRow> => {
       "-Command",
       'Get-CimInstance Win32_Process | ForEach-Object { "$($_.ProcessId) $($_.ParentProcessId) $($_.CreationDate.ToFileTimeUtc())" }',
     ],
-    { env: childEnv(), stdin: "ignore", stderr: "ignore", windowsHide: true }
+    // A stalled WMI would otherwise block the event loop for good; past this it reads as empty.
+    { env: childEnv(), stdin: "ignore", stderr: "ignore", windowsHide: true, timeout: 30_000 }
   );
 
   return parseProcessTable(result.exitCode === 0 ? result.stdout.toString() : "");

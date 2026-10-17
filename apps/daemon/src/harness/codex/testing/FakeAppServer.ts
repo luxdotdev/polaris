@@ -54,6 +54,14 @@ interface ServerMessage {
 const decodeMessage = Schema.decodeUnknownSync(Schema.fromJsonString(RpcMessage));
 
 /** Windows: a loopback port, recorded in the state file with this process as its listener. */
+/**
+ * The recorded root: like the real server's `.cmd` shim it has exited, and only the listener,
+ * this process, is alive. A live root would send stopAppServer to read its command line.
+ */
+let exitedRoot: number | undefined;
+
+const rootPid = () => (exitedRoot ??= Bun.spawnSync([process.execPath, "-e", ""]).pid);
+
 const serveOnLoopback = (
   socketPath: string,
   upgrade: (req: Request, srv: Bun.Server<undefined>) => Response | undefined,
@@ -78,7 +86,7 @@ const serveOnLoopback = (
   writeFileSync(
     stateFile,
     JSON.stringify({
-      pid: process.pid,
+      pid: rootPid(),
       version: null,
       codexPath: "fake-codex",
       socketPath,

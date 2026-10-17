@@ -199,6 +199,7 @@ describe.skipIf(!onWindows)("on Windows (powershell.exe and cmd.exe as sshd runs
         encodeLines(bytes)
       );
 
+      if (uploaded.stdout.trim() !== sha256) console.log("UPLOAD-DEBUG", JSON.stringify(uploaded));
       expect(uploaded.stdout.trim()).toBe(sha256);
       expect(readFileSync(join(home, ".polaris", "upload-test", "polaris.exe"))).toEqual(
         Buffer.from(bytes)

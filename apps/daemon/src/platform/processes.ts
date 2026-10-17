@@ -138,6 +138,8 @@ export const commandLineOf = (pid: number): string | null => {
     stdin: "ignore",
     stdout: "pipe",
     stderr: "ignore",
+    // A stalled WMI query (Windows) reads as gone instead of blocking the event loop.
+    timeout: 30_000,
   });
 
   const text = result.stdout.toString().trim();

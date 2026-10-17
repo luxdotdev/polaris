@@ -98,7 +98,11 @@ export const stopWindowsServer = async (
   if (rootIsOurs) await killTree(state.pid, "SIGKILL");
 
   const { listenerPid, listenerCreated } = state;
-  const listener = listenerPid === undefined ? null : identityOf(listenerPid);
+
+  // Without a recorded creation time no listener can be proven ours: skip reading the table.
+  const listener =
+    listenerPid === undefined || listenerCreated === undefined ? null : identityOf(listenerPid);
+
   const same = listener !== null && String(listener.created) === listenerCreated;
 
   if (same) await killTree(listener.pid, "SIGKILL");

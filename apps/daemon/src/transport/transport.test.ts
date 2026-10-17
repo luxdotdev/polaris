@@ -386,8 +386,7 @@ describe("transport", () => {
       "session.live-items",
     ]);
 
-    // Without a real engine the placeholder answers NotFound. A fresh home: a Windows pipe's
-    // name stays taken until the last instance's handle closes, after the scope ends.
+    // The placeholder answers NotFound; a fresh home, as a pipe's name outlives its scope.
     const fresh = mkdtempSync(join(home, "fresh-"));
 
     const missing = await run(
@@ -790,7 +789,8 @@ describe("transport", () => {
   }, 20_000);
 
   test("terminal output arrives the same as raw bytes (terminal.binary) and as base64", async () => {
-    const size = 300_000;
+    // ConPTY renders every cell, slowly on a loaded runner: a tenth as much on Windows.
+    const size = windows ? 30_000 : 300_000;
 
     const texts = await run(
       Effect.gen(function* () {

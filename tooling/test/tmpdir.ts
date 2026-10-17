@@ -20,5 +20,13 @@ if (process.platform === "win32") {
 
 process.env.POLARIS_HOME ??= join(root, "polaris-home");
 
-// A preload's afterAll runs once, after every test file.
-afterAll(() => rmSync(root, { recursive: true, force: true }));
+// A preload's afterAll runs once, after every test file. Windows may still hold a file
+// (EBUSY, EPERM): retry, then leave it, as a CI runner is discarded anyway.
+afterAll(() => {
+  try {
+    rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  } catch (cause) {
+    if (process.platform !== "win32") throw cause;
+    console.warn(`left the test run's temp root ${root}: ${String(cause)}`);
+  }
+});
