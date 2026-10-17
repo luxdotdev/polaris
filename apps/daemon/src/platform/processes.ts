@@ -111,20 +111,7 @@ export const stopChild = (
   else child.kill(signal);
 };
 
-/** The argv that prints `pid`'s command line: `ps`, or on Windows its CIM record. */
-export const commandLineArgv = (pid: number, os: string = process.platform): Array<string> =>
-  os === "win32"
-    ? [
-        "powershell.exe",
-        "-NoLogo",
-        "-NoProfile",
-        "-NonInteractive",
-        "-Command",
-        `(Get-CimInstance Win32_Process -Filter 'ProcessId=${Math.trunc(pid)}').CommandLine`,
-      ]
-    : ["ps", "-o", "command=", "-p", String(pid)];
-
-/** `pid`'s command line, or null when it's gone: `/proc` on Linux, the process itself on Windows. */
+/** `pid`'s command line, or null when it's gone: `/proc` on Linux, the process itself on Windows, else `ps`. */
 export const commandLineOf = (pid: number): string | null => {
   if (process.platform === "linux") {
     try {
@@ -134,15 +121,14 @@ export const commandLineOf = (pid: number): string | null => {
     }
   }
 
-  // Not the CIM query: it stalls for seconds on CI runners.
   if (process.platform === "win32") return processCommandLine(pid);
 
-  const result = Bun.spawnSync(commandLineArgv(pid), {
+  const result = Bun.spawnSync(["ps", "-o", "command=", "-p", String(pid)], {
     env: childEnv(),
     stdin: "ignore",
     stdout: "pipe",
     stderr: "ignore",
-    // A stalled WMI query (Windows) reads as gone instead of blocking the event loop.
+    // A stalled `ps` reads as gone instead of blocking the event loop.
     timeout: 10_000,
   });
 

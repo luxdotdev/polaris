@@ -7,6 +7,7 @@ import {
   shellCommand,
   taskkillArgv,
 } from "./processes.ts";
+import { childProcesses } from "./windowsNative.ts";
 
 const isRunning = (pid: number) => {
   try {
@@ -106,7 +107,7 @@ describe("killTree", () => {
     await killTree(proc.pid, "SIGKILL");
     await proc.exited;
     expect(await waitUntil(() => !isRunning(grandchild))).toBe(true);
-  }, 60_000);
+  });
 });
 
 const firstLinePid = async (stdout: ReadableStream<Uint8Array>) => {
@@ -125,24 +126,17 @@ const firstLinePid = async (stdout: ReadableStream<Uint8Array>) => {
   return Number(text.trim());
 };
 
-/** The pid of `parent`'s child, from Windows' process table. */
+/** The pid of `parent`'s `PING.EXE`, from a kernel process snapshot (a CIM query stalls on CI). */
 const windowsChild = async (parent: number): Promise<number> => {
-  // Each query starts PowerShell and CIM, seconds apiece on a busy CI runner.
-  const deadline = Date.now() + 45_000;
+  let ping: number | undefined;
 
-  while (Date.now() < deadline) {
-    const query = Bun.spawnSync([
-      "powershell.exe",
-      "-NoProfile",
-      "-Command",
-      `(Get-CimInstance Win32_Process -Filter 'ParentProcessId=${parent}' | Where-Object Name -eq 'PING.EXE').ProcessId`,
-    ]);
+  const appeared = await waitUntil(() => {
+    ping = childProcesses(parent).find((p) => p.exe.toUpperCase() === "PING.EXE")?.pid;
 
-    const pid = Number(query.stdout.toString().trim());
+    return ping !== undefined;
+  });
 
-    if (pid > 0) return pid;
-    await Bun.sleep(100);
-  }
+  if (!appeared || ping === undefined) throw new Error(`no child of ${parent} appeared`);
 
-  throw new Error(`no child of ${parent} appeared`);
+  return ping;
 };

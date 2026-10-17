@@ -51,6 +51,9 @@ const open = () => ({
     CreateFileW: { args: ["ptr", "u32", "u32", "ptr", "u32", "u32", "u64"], returns: "u64" },
     WriteFile: { args: ["u64", "ptr", "u32", "ptr", "ptr"], returns: "i32" },
     CreateDirectoryW: { args: ["ptr", "ptr"], returns: "i32" },
+    CreateToolhelp32Snapshot: { args: ["u32", "u32"], returns: "u64" },
+    Process32FirstW: { args: ["u64", "ptr"], returns: "i32" },
+    Process32NextW: { args: ["u64", "ptr"], returns: "i32" },
   }),
   advapi32: dlopen("advapi32.dll", {
     ConvertStringSecurityDescriptorToSecurityDescriptorW: {
@@ -195,6 +198,40 @@ export const processCommandLine = (pid: number): string | null => {
     return Buffer.from(buffer.buffer, offset, length).toString("utf16le");
   } finally {
     k32().CloseHandle(handle);
+  }
+};
+
+const TH32CS_SNAPPROCESS = 2;
+
+/** `PROCESSENTRY32W` on x64: pid at 8, parent pid at 32, `szExeFile[260]` at 44. */
+const PROCESS_ENTRY_SIZE = 568;
+
+/** The running processes `parent` started, with their executable names, from one kernel snapshot. */
+export const childProcesses = (
+  parent: number
+): ReadonlyArray<{ readonly pid: number; readonly exe: string }> => {
+  const snapshot = k32().CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+
+  if (snapshot === INVALID_HANDLE) throw failed("CreateToolhelp32Snapshot");
+
+  try {
+    const entry = new Uint8Array(PROCESS_ENTRY_SIZE);
+    const view = new DataView(entry.buffer);
+    view.setUint32(0, PROCESS_ENTRY_SIZE, true);
+    const children: Array<{ pid: number; exe: string }> = [];
+
+    for (let ok = k32().Process32FirstW(snapshot, ptr(entry)); ok;) {
+      if (view.getUint32(32, true) === parent) {
+        const name = Buffer.from(entry.buffer, 44, 520).toString("utf16le");
+        children.push({ pid: view.getUint32(8, true), exe: name.slice(0, name.indexOf("\0")) });
+      }
+
+      ok = k32().Process32NextW(snapshot, ptr(entry));
+    }
+
+    return children;
+  } finally {
+    k32().CloseHandle(snapshot);
   }
 };
 
