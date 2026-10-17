@@ -11,6 +11,7 @@ import { HostTarget, makeHostConnection } from "@polaris/client";
 import { writeFakeWsl } from "@polaris/client/wsl/testing";
 import { Effect, Option, Stream } from "effect";
 import { startServer } from "./server.ts";
+import { shortTemp } from "../platform/testing.ts";
 
 const BRIDGE = join(import.meta.dir, "fixtures", "bridge.ts");
 
@@ -27,7 +28,7 @@ const identity = { name: "polaris-test", version: "0.0.0", deviceLabel: "WSL", c
 /** A distro home whose installed `polaris` bridges to the Daemon at `<home>/.polaris/daemon.sock`. */
 const distroHome = (withPolaris: boolean) => {
   // Short path: Unix socket paths are limited to ~104 bytes on macOS.
-  const home = mkdtempSync("/tmp/pwsl-");
+  const home = mkdtempSync(shortTemp("pwsl-"));
   homes.push(home);
   const polaris = join(home, ".polaris");
   mkdirSync(join(polaris, "bin", "current"), { recursive: true });

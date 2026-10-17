@@ -12,6 +12,7 @@ import { httpsArtifactDownload } from "../install/download.ts";
 import { digest } from "../install/validation.ts";
 import { createManagedDelivery } from "./managedDelivery.ts";
 import { typescriptTool } from "./managedPolicy.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 const settings = (automatic = true) =>
   P.LanguageEffectiveSettings.make({
@@ -24,7 +25,7 @@ const settings = (automatic = true) =>
   });
 
 async function fixture(corrupt = false, legacy = false) {
-  const root = await realpath(await mkdtemp("/tmp/slice-1-delivery-"));
+  const root = await realpath(await mkdtemp(shortTemp("slice-1-delivery-")));
   const source = artifactFixture();
   const downloads = new Map<string, number>();
 

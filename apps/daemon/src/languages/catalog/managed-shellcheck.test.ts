@@ -5,6 +5,7 @@ import { HostId } from "@polaris/protocol";
 import { catalog, preflight } from "./index.ts";
 import { createInstaller } from "../install/index.ts";
 import { availability } from "../availability/index.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 test("bundled ShellCheck stays audit blocked on all four targets before approval or download", async () => {
   const tool = catalog.tools.find((entry) => entry.id === "shellcheck");
@@ -41,7 +42,7 @@ test("bundled ShellCheck stays audit blocked on all four targets before approval
 
     expect(Predicate.isTagged(fact.preflight, "Blocked")).toBe(true);
 
-    const root = await realpath(await mkdtemp("/tmp/m31-managed-shellcheck-"));
+    const root = await realpath(await mkdtemp(shortTemp("m31-managed-shellcheck-")));
 
     let approvals = 0;
 

@@ -16,10 +16,11 @@ import { LEAD_TOOL_NAMES } from "../testing.ts";
 import { revokeMcpBindings } from "../revoke.ts";
 import { DomainEvent } from "@polaris/protocol";
 import { CID, HOST, LEAD, WS, seed, runtime, repo } from "./eval.fixture.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 for (const kind of ["codex", "claude"] as const) {
   test(`${kind} plain session follows the preamble to start a Constellation, then uses the same Lead tools`, async () => {
-    const root = mkdtempSync("/tmp/polaris-g2-probe-");
+    const root = mkdtempSync(shortTemp("polaris-g2-probe-"));
 
     const base = Layer.mergeAll(
       EventStore.layerSqlite(join(root, "store.sqlite")),

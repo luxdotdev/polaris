@@ -13,9 +13,10 @@ import { LanguageAcquisitionAuthority } from "./acquisitionAuthority.ts";
 import { HostProposalEvidence } from "../preparation/provenance.ts";
 import { ProposalProvenance } from "../preparation/provenanceService.ts";
 import { prepareServerEdit } from "./serverPreparation.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 test("server preparation reads canonical closed snapshots and rejects replaced independent ownership", async () => {
-  const root = await realpath(await mkdtemp("/tmp/m31-server-preparation-"));
+  const root = await realpath(await mkdtemp(shortTemp("m31-server-preparation-")));
 
   try {
     const path = join(root, "file.ts");

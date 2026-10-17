@@ -59,6 +59,7 @@ import { TerminalsLive } from "../terminal/Terminals.ts";
 import { DaemonAlreadyRunning } from "./lock.ts";
 import { ServerRpcs } from "./rpcs.ts";
 import { startServer } from "./server.ts";
+import { shortTemp } from "../platform/testing.ts";
 
 const MAIN = join(import.meta.dir, "..", "main.ts");
 
@@ -66,7 +67,7 @@ let home: string;
 
 beforeEach(() => {
   // Short path: Unix socket paths are limited to ~104 bytes on macOS.
-  home = mkdtempSync("/tmp/plt-");
+  home = mkdtempSync(shortTemp("plt-"));
 });
 
 afterEach(() => {

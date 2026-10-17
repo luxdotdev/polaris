@@ -27,6 +27,7 @@ import {
   type MediaInput,
 } from "./index.ts";
 import type { MediaPhase } from "./files.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 const png = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=",
@@ -50,7 +51,7 @@ let blobs: ReturnType<typeof makeFakeBlobChannel>;
 let authority: PreviewMediaAuthority["Service"];
 
 beforeEach(async () => {
-  temporary = await mkdtemp("/tmp/m31-h1-");
+  temporary = await mkdtemp(shortTemp("m31-h1-"));
   root = await realpath(temporary);
   await mkdir(join(root, "docs"));
   await writeFile(join(root, "docs/a.md"), "![image](a.png)");

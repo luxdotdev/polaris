@@ -8,6 +8,7 @@ import type { ConstellationCommands } from "./tools.ts";
 import { FriendlyReview } from "./tools/inputs.ts";
 import { McpTokens } from "./tokens.ts";
 import { mcpHttp } from "./http.ts";
+import { shortTemp } from "../platform/testing.ts";
 
 interface ToolInput {
   claim?: Claim;
@@ -30,7 +31,7 @@ export const callSendbackTool = async (
   name: string,
   input: ToolInput
 ) => {
-  const tokenRoot = mkdtempSync("/tmp/polaris-sendback-mcp-");
+  const tokenRoot = mkdtempSync(shortTemp("polaris-sendback-mcp-"));
 
   try {
     return await Effect.runPromise(

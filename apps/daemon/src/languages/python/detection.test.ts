@@ -8,9 +8,10 @@ import { createPythonEnvironment, interpreterEntry } from "./environment.ts";
 import { createProjectDiscovery } from "../discovery/index.ts";
 import { LanguageCheckout, HostId } from "@polaris/protocol";
 import { effectiveSettings } from "../discovery/configuration.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 async function fixture() {
-  const root = await realpath(await mkdtemp("/tmp/polaris-python-detection-"));
+  const root = await realpath(await mkdtemp(shortTemp("polaris-python-detection-")));
   const executable = join(root, "host-python");
   await writeFile(executable, "#!/bin/sh\nexit 99\n");
   await chmod(executable, 0o755);

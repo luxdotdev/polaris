@@ -36,9 +36,10 @@ import {
 import { FriendlyReview, FriendlyAnswer } from "./inputs.ts";
 import { makeBenchDriver } from "../../harness/bench/BenchDriver.ts";
 import type { Attempt } from "@polaris/protocol";
+import { shortTemp } from "../../platform/testing.ts";
 
 test("Lead dispatches three bench workers, sends a Claim back, and accepts the dependent Gate", async () => {
-  const root = mkdtempSync("/tmp/polaris-c1-t-eval-");
+  const root = mkdtempSync(shortTemp("polaris-c1-t-eval-"));
   const starts: Attempt[] = [];
   const counter = toolCounter();
 

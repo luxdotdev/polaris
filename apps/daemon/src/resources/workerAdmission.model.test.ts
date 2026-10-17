@@ -6,6 +6,7 @@ import fc from "fast-check";
 import { EventStore } from "../store/EventStore.ts";
 import { HostResources } from "./index.ts";
 import { registerWorkerAdmission } from "./workerAdmission.ts";
+import { shortTemp } from "../platform/testing.ts";
 
 const eventually = async (ready: () => Promise<boolean>) => {
   for (let i = 0; i < 200; i++) {
@@ -30,7 +31,7 @@ test("blocked admission matches an independent FIFO through randomized waits, wa
           { minLength: 15, maxLength: 40 }
         ),
         async (ops) => {
-          const root = mkdtempSync("/tmp/worker-admission-model-");
+          const root = mkdtempSync(shortTemp("worker-admission-model-"));
           process.env.POLARIS_HOME = root;
 
           const runtime = ManagedRuntime.make(

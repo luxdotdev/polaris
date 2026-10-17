@@ -9,6 +9,7 @@ import { connectRpc, socketTransport } from "@polaris/client";
 import { EventStore } from "../../store/EventStore.ts";
 import { startServer } from "../../transport/server.ts";
 import { lazyLanguageHandlers } from "../../transport/lazyLanguages.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 const slice4 = "e935a0b2df579672004ee9c6bef4dfcd8374e3f7";
 
@@ -128,7 +129,7 @@ for (const legacy of ["slice4", "owner-copy"])
       Effect.scoped(
         Effect.gen(function* () {
           const root = yield* Effect.acquireRelease(
-            Effect.promise(async () => realpath(await mkdtemp("/tmp/polaris-upgrade-"))),
+            Effect.promise(async () => realpath(await mkdtemp(shortTemp("polaris-upgrade-")))),
             (path) => Effect.promise(() => rm(path, { recursive: true, force: true }))
           );
 

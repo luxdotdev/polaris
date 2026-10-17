@@ -5,6 +5,7 @@ import { SessionId, TurnId } from "@polaris/protocol";
 import { Effect, Schema } from "effect";
 import { makeCodexDriver } from "./CodexDriver.ts";
 import { startFakeAppServer } from "./testing/FakeAppServer.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 const cleanup: Array<() => void> = [];
 
@@ -22,7 +23,7 @@ const readParams = Schema.decodeUnknownSync(Params);
 
 describe("an older Codex app-server", () => {
   test("refusing newer fields gets the request again without them; the Turn runs", async () => {
-    const dir = mkdtempSync("/tmp/pcc-");
+    const dir = mkdtempSync(shortTemp("pcc-"));
     cleanup.push(() => rmSync(dir, { recursive: true, force: true }));
     const socketPath = join(dir, "s.sock");
 

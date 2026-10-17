@@ -56,6 +56,7 @@ import { ConstellationRelay } from "../../../../../packages/client/src/constella
 import { HostRegistry } from "../../../../../packages/client/src/HostRegistry.ts";
 import { HostConnector, HostTarget } from "../../../../../packages/client/src/HostConnection.ts";
 import { type ConstellationRuntimeService } from "../runtime.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 interface RelayTraceBatch {
   hostId: string;
@@ -65,7 +66,10 @@ interface RelayTraceBatch {
 
 const id = (name: string) => CommandId.make(name);
 
-const roots = () => ({ owner: mkdtempSync("/tmp/c1wo-"), worker: mkdtempSync("/tmp/c1ww-") });
+const roots = () => ({
+  owner: mkdtempSync(shortTemp("c1wo-")),
+  worker: mkdtempSync(shortTemp("c1ww-")),
+});
 
 const seed = Effect.fnUntraced(function* (
   owner: Effect.Success<ReturnType<typeof fakeHost>>,

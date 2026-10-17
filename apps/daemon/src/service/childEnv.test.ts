@@ -3,10 +3,11 @@ import { spawnSync } from "node:child_process";
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { makeFakeCodex } from "../harness/codex/testing/fakeCodex.ts";
+import { shortTemp } from "../platform/testing.ts";
 
 for (const phase of ["before", "after"])
   test(`${phase} adoption, hand-off stays out of command, Codex and terminal children`, () => {
-    const home = mkdtempSync("/tmp/phc-");
+    const home = mkdtempSync(shortTemp("phc-"));
 
     try {
       const codex = makeFakeCodex(home);

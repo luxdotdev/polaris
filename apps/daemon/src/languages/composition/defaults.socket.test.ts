@@ -7,6 +7,7 @@ import { Effect, Layer, Predicate, Redacted, Stream } from "effect";
 import { EventStore } from "../../store/EventStore.ts";
 import { startServer } from "../../transport/server.ts";
 import { DefaultLanguageHostHandlers } from "./defaults.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 const hello = (languageProof?: Redacted.Redacted<unknown>) => {
   const input = {
@@ -24,7 +25,7 @@ test("mounted Host core uses transport Host identity and refuses unapproved mana
     Effect.scoped(
       Effect.gen(function* () {
         const root = yield* Effect.acquireRelease(
-          Effect.promise(async () => realpath(await mkdtemp("/tmp/m31-core-mount-"))),
+          Effect.promise(async () => realpath(await mkdtemp(shortTemp("m31-core-mount-")))),
           (path) => Effect.promise(() => rm(path, { recursive: true, force: true }))
         );
 

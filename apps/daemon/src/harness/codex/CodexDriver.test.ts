@@ -8,6 +8,7 @@ import { polarisInstructions } from "../../constellation/skills/preamble.ts";
 import { makeCodexDriver, probeCodex } from "./CodexDriver.ts";
 import { type ClientAnswer, type Handler, readFixture, replay } from "./testing/FakeAppServer.ts";
 import { cleanup, ofTag, scripted, sessionWith, THREAD, turn } from "./testing/session.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 const decodeTurnInput = Schema.decodeUnknownSync(
   Schema.Struct({ input: Schema.Array(Schema.Struct({ text: Schema.optional(Schema.String) })) })
@@ -675,7 +676,7 @@ describe("Codex driver against a fake app-server", () => {
 
 describe("probe", () => {
   test("only runs `codex --version`", async () => {
-    const dir = mkdtempSync("/tmp/pcx-");
+    const dir = mkdtempSync(shortTemp("pcx-"));
     cleanup.push(() => rmSync(dir, { recursive: true, force: true }));
     const fake = join(dir, "codex");
     const log = join(dir, "argv");

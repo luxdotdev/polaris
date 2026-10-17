@@ -6,6 +6,7 @@ import { Effect, Schema } from "effect";
 import { makeCodexDriver } from "./CodexDriver.ts";
 import { listCodexModels } from "./models.ts";
 import { type ClientRequest, type Handler, startFakeAppServer } from "./testing/FakeAppServer.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 const cleanup: Array<() => void> = [];
 
@@ -15,7 +16,7 @@ afterEach(() => {
 
 /** Socket paths must stay under ~104 bytes, so tests use /tmp directly. */
 const tempDir = () => {
-  const dir = mkdtempSync("/tmp/pcm-");
+  const dir = mkdtempSync(shortTemp("pcm-"));
   cleanup.push(() => rmSync(dir, { recursive: true, force: true }));
 
   return dir;

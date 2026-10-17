@@ -18,6 +18,7 @@ import { connectRpc, socketTransport } from "@polaris/client";
 import { EventStore } from "../../store/EventStore.ts";
 import { startServer } from "../../transport/server.ts";
 import { lazyLanguageHandlers } from "../../transport/lazyLanguages.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 /**
  * Opt-in: run with HOME set to POLARIS_LIVE_HOME, a Host home holding `.local/bin/php` (Bun reads
@@ -73,7 +74,7 @@ test.skipIf(home === "" || goplsBuild === "" || fixer === "")(
       Effect.scoped(
         Effect.gen(function* () {
           const root = yield* Effect.acquireRelease(
-            Effect.promise(async () => realpath(await mkdtemp("/tmp/polaris-go-php-live-"))),
+            Effect.promise(async () => realpath(await mkdtemp(shortTemp("polaris-go-php-live-")))),
             (directory) => Effect.promise(() => rm(directory, { recursive: true, force: true }))
           );
 

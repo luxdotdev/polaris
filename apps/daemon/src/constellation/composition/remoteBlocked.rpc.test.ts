@@ -39,6 +39,7 @@ import { fakeHost, connectFake } from "../transfers/fakeHost.testing.ts";
 import { transferError } from "../worktrees.ts";
 import { validateRemoteDelivery } from "./remoteDelivery.ts";
 import { recordRemoteBlockTrace } from "./remoteBlocked.trace.testing.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 const X = TaskId.make("X");
 
@@ -90,7 +91,7 @@ const acceptFeed = Effect.fnUntraced(function* () {
 });
 
 test("real delivery RPC queues a blocked Session while another Session proceeds on the same Host", async () => {
-  const root = mkdtempSync("/tmp/block-cycles-rpc-");
+  const root = mkdtempSync(shortTemp("block-cycles-rpc-"));
 
   try {
     await Effect.runPromise(

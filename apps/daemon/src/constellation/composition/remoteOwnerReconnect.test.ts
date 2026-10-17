@@ -22,6 +22,7 @@ import {
   startOwnerDelivery,
   type TestHost,
 } from "./remoteOwnerReconnect.testing.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 const startClient = Effect.fnUntraced(function* (roots: { owner: string; worker: string }) {
   const services = yield* Layer.build(HostRegistry.layer.pipe(Layer.provide(HostConnector.layer)));
@@ -97,8 +98,8 @@ const recordTrace = Effect.fnUntraced(function* (owner: TestHost, worker: TestHo
 for (const failure of ["owner-reconnect", "assignment", "persistent"] as const) {
   test(`${failure}: remote relay resumes or waits after bounded retries`, async () => {
     const roots = {
-      owner: mkdtempSync("/tmp/block-cycles-owner-"),
-      worker: mkdtempSync("/tmp/block-cycles-worker-"),
+      owner: mkdtempSync(shortTemp("block-cycles-owner-")),
+      worker: mkdtempSync(shortTemp("block-cycles-worker-")),
     };
 
     try {

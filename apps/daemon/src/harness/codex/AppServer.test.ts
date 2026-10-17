@@ -13,6 +13,7 @@ import {
   tokenFileOf,
 } from "./AppServer.ts";
 import { makeFakeCodex } from "./testing/fakeCodex.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 const dirs: Array<string> = [];
 
@@ -30,7 +31,7 @@ afterEach(() => {
 
 const setup = (version = "1.0.0") => {
   // Short: Unix socket paths are capped near 104 bytes.
-  const dir = mkdtempSync("/tmp/pas-");
+  const dir = mkdtempSync(shortTemp("pas-"));
   dirs.push(dir);
   const codex = makeFakeCodex(dir, version);
   const socketPath = join(dir, "c.sock");

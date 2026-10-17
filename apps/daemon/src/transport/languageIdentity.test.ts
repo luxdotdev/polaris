@@ -18,6 +18,7 @@ import {
   replayIdentity,
   IdentityTrace,
 } from "../../../../packages/spec/scripts/language-replay/identity.ts";
+import { shortTemp } from "../platform/testing.ts";
 
 const first = Redacted.make("a".repeat(64));
 
@@ -37,7 +38,7 @@ const hello = (languageProof?: Redacted.Redacted<unknown>) => {
 };
 
 const temporary = Effect.acquireRelease(
-  Effect.sync(() => mkdtempSync("/tmp/pl-a0-socket-")),
+  Effect.sync(() => mkdtempSync(shortTemp("pl-a0-socket-"))),
   (root) => Effect.sync(() => rmSync(root, { recursive: true, force: true }))
 );
 

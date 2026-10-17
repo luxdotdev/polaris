@@ -6,6 +6,7 @@ import { detectDialect, dialectHint } from "./detection.ts";
 import { managedSqlShellSettings } from "./settings.ts";
 import { shellFormatting } from "./shellFormatting.ts";
 import { createSqlSelection, sqlScope } from "./selection.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 const roots: string[] = [];
 
@@ -14,7 +15,7 @@ afterEach(async () => {
 });
 
 async function fixture() {
-  const root = await realpath(await mkdtemp("/tmp/polaris-sql-dialect-"));
+  const root = await realpath(await mkdtemp(shortTemp("polaris-sql-dialect-")));
   roots.push(root);
   const path = join(root, "query.sql");
   await writeFile(path, "select 1;");

@@ -7,8 +7,9 @@ import { Effect, Match, Stream } from "effect";
 import { BlobChannel } from "../../services.ts";
 import { readRange, ReadContent } from "../../files/fs.ts";
 import { createHostPreviewMedia, PreviewMediaAuthority } from "./index.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
-const temporary = await mkdtemp("/tmp/m31-h1-measure-");
+const temporary = await mkdtemp(shortTemp("m31-h1-measure-"));
 
 const root = await realpath(temporary);
 

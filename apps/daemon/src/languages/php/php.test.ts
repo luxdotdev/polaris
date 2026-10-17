@@ -12,6 +12,7 @@ import type { InstalledVersion } from "../install/types.ts";
 import { decodeUpstream } from "../install/upstream.ts";
 import { phpactorLaunch, phpactorOptions } from "./launch.ts";
 import { workspaceTools } from "./projectTools.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 const phpactor = catalog.tools.find((tool) => tool.id === "phpactor")!;
 
@@ -79,7 +80,7 @@ test("the PHAR installs as one non-executable file beside its notices", async ()
 });
 
 async function project() {
-  const root = await realpath(await mkdtemp("/tmp/polaris-php-"));
+  const root = await realpath(await mkdtemp(shortTemp("polaris-php-")));
   await mkdir(join(root, "vendor/bin"), { recursive: true });
   await mkdir(join(root, "bin"));
   await writeFile(join(root, ".phpactor.json"), '{"composer.enable": true}');

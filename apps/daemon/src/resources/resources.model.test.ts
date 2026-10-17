@@ -8,6 +8,7 @@ import { EventStore } from "../store/EventStore.ts";
 import { HostResources } from "./index.ts";
 import { recordResourceTrace } from "./trace.testing.ts";
 import { processIdentity } from "./process.ts";
+import { shortTemp } from "../platform/testing.ts";
 
 const waitForRequest = async (
   snapshot: () => Promise<HostResourcesSnapshot>,
@@ -48,7 +49,7 @@ test(
         fc.asyncProperty(
           fc.array(operation, { minLength: 10, maxLength: 35 }),
           async (operations) => {
-            const home = mkdtempSync("/tmp/polaris-resource-model-");
+            const home = mkdtempSync(shortTemp("polaris-resource-model-"));
             process.env.POLARIS_HOME = home;
 
             const layer = HostResources.layer.pipe(

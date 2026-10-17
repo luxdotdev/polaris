@@ -6,9 +6,10 @@ import { Effect, Schema } from "effect";
 import { EventStore } from "../../store/EventStore.ts";
 import { CID } from "../../engine/constellation.testing.ts";
 import { seedStats } from "./store.testing.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 test("the real CLI reads Stats over RPC from an isolated Daemon and emits decodable JSON", async () => {
-  const home = mkdtempSync("/tmp/polaris-stats-cli-");
+  const home = mkdtempSync(shortTemp("polaris-stats-cli-"));
   const main = resolve(import.meta.dir, "../../main.ts");
 
   const env = {

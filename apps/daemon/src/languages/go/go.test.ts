@@ -13,13 +13,14 @@ import { createHostPrerequisiteProbe } from "../install/hostStateProbes.ts";
 import { createSelectionLedger } from "../install/selection-ledger.ts";
 import type { LaunchAdmissionRequest } from "../runtime/launchAdmission.ts";
 import { developerLaunchAdapters, developerProvider } from "./launch.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 const gopls = catalog.tools.find((tool) => tool.id === "gopls")!;
 
 const sentinel = (marker: string) => `#!/bin/sh\necho ran > ${JSON.stringify(marker)}\n`;
 
 async function host() {
-  const home = await realpath(await mkdtemp("/tmp/polaris-go-"));
+  const home = await realpath(await mkdtemp(shortTemp("polaris-go-")));
   const bin = join(home, "go/bin");
   await mkdir(bin, { recursive: true });
   const probes = createHostPrerequisiteProbe({ home, directories: [bin] });

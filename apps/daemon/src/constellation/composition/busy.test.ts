@@ -26,6 +26,7 @@ import { prepareSession } from "./prepare.ts";
 import { startAttempt, startPendingAttempt } from "./workers.ts";
 
 import { sendBack } from "./sendback.testing.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 test("same-session busy SendBack commits now, skips setup, and delivers once at the boundary", async () => {
   const w = sendbackWorld(":memory:", false);
@@ -94,7 +95,7 @@ test("same-session busy SendBack commits now, skips setup, and delivers once at 
 
 for (const retry of [false, true])
   test(`production Daemon restart delivers pending ${retry ? "SendBack" : "Initial"} over an interrupted prior Turn`, async () => {
-    const root = mkdtempSync("/tmp/polaris-busy-restart-");
+    const root = mkdtempSync(shortTemp("polaris-busy-restart-"));
 
     try {
       const w = sendbackWorld(join(root, "state.sqlite"), false);

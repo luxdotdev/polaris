@@ -7,6 +7,7 @@ import { Tool } from "../catalog/model.ts";
 import { createHostPrerequisiteProbe } from "./hostStateProbes.ts";
 import { createHostToolStates } from "./hostState.ts";
 import { artifactFixture, hostId, platform } from "./fixture.testing.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 for (const [id, executable] of [
   ["shellcheck", "shellcheck"],
@@ -17,7 +18,7 @@ for (const [id, executable] of [
   ["php", "php"],
 ] as const)
   test(`explicit recheck replaces cached ${id} absence and republishes to the existing watch`, async () => {
-    const home = await realpath(await mkdtemp("/tmp/prerequisite-recheck-"));
+    const home = await realpath(await mkdtemp(shortTemp("prerequisite-recheck-")));
     const directory = join(home, "bin");
     await mkdir(directory);
 

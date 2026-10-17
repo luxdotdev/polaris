@@ -7,6 +7,7 @@ import { Effect, Layer, Redacted } from "effect";
 import { EventStore } from "../store/EventStore.ts";
 import { startServer } from "../transport/server.ts";
 import { lazyLanguageHandlers } from "../transport/lazyLanguages.ts";
+import { shortTemp } from "../platform/testing.ts";
 
 const hello = (proof = false) => {
   const input = {
@@ -33,7 +34,7 @@ test("lazy prediction RPC requires authenticated connection and registered paths
     Effect.scoped(
       Effect.gen(function* () {
         const root = yield* Effect.acquireRelease(
-          Effect.promise(async () => realpath(await mkdtemp("/tmp/predict-rpc-"))),
+          Effect.promise(async () => realpath(await mkdtemp(shortTemp("predict-rpc-")))),
           (path) => Effect.promise(() => rm(path, { recursive: true, force: true }))
         );
 

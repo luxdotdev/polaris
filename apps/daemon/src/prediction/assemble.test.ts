@@ -11,6 +11,7 @@ import { countTokens } from "@polaris/predict";
 import { ContextAssembler } from "./assemble.ts";
 import { readSource } from "./files.ts";
 import { budgetContext } from "./budget.ts";
+import { shortTemp } from "../platform/testing.ts";
 
 const roots: string[] = [];
 
@@ -19,7 +20,7 @@ afterEach(async () => {
 });
 
 async function fixture() {
-  const root = await realpath(await mkdtemp("/tmp/prediction-"));
+  const root = await realpath(await mkdtemp(shortTemp("prediction-")));
   roots.push(root);
   await writeFile(
     join(root, "dep.ts"),

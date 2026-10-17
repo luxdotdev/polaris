@@ -9,6 +9,7 @@ import { connectRpc, socketTransport } from "@polaris/client";
 import { EventStore } from "../../store/EventStore.ts";
 import { startServer } from "../../transport/server.ts";
 import { lazyLanguageHandlers } from "../../transport/lazyLanguages.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 const requiredPath = (key: string) => {
   const value = process.env[key];
@@ -38,7 +39,7 @@ test("actual default Host routes fence TS completion, live logs across a crash a
     Effect.scoped(
       Effect.gen(function* () {
         const root = yield* Effect.acquireRelease(
-          Effect.promise(async () => realpath(await mkdtemp("/tmp/m31-live-ts-"))),
+          Effect.promise(async () => realpath(await mkdtemp(shortTemp("m31-live-ts-")))),
           (r) => Effect.promise(() => rm(r, { recursive: true, force: true }))
         );
 

@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 import { connectRpc, type DaemonClient, socketTransport } from "@polaris/client";
 import { CommandId } from "@polaris/protocol";
 import { Effect } from "effect";
+import { shortTemp } from "../platform/testing.ts";
 
 const main = resolve(import.meta.dir, "../main.ts");
 
@@ -18,7 +19,7 @@ const eventually = async (predicate: () => Promise<boolean>) => {
 };
 
 test("CLI child leases survive wrapper SIGKILL and Daemon restart, cancel dead waiters and release killed children", async () => {
-  const home = mkdtempSync("/tmp/polaris-lease-cli-");
+  const home = mkdtempSync(shortTemp("polaris-lease-cli-"));
 
   // Poison the parent context with a valid handoff referencing an unavailable descriptor.
   const inheritedEnv = {

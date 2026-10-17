@@ -9,6 +9,7 @@ import { EventStore } from "../../store/EventStore.ts";
 import { startServer } from "../../transport/server.ts";
 import { lazyLanguageHandlers } from "../../transport/lazyLanguages.ts";
 import { selectImportFix } from "@polaris/predict";
+import { shortTemp } from "../../platform/testing.ts";
 
 const Range = Schema.Struct({
   start: Schema.Struct({ line: Schema.Number, character: Schema.Number }),
@@ -140,7 +141,7 @@ test("default Host downloads pinned tools without Trust and serves hover, diagno
     Effect.scoped(
       Effect.gen(function* () {
         const root = yield* Effect.acquireRelease(
-          Effect.promise(async () => realpath(await mkdtemp("/tmp/m31-live-ts-"))),
+          Effect.promise(async () => realpath(await mkdtemp(shortTemp("m31-live-ts-")))),
           (r) => Effect.promise(() => rm(r, { recursive: true, force: true }))
         );
 

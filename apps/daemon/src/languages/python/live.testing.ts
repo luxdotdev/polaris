@@ -8,6 +8,7 @@ import { connectRpc, socketTransport } from "@polaris/client";
 import { EventStore } from "../../store/EventStore.ts";
 import { startServer } from "../../transport/server.ts";
 import { lazyLanguageHandlers } from "../../transport/lazyLanguages.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 const caps: P.Capability[] = [
   "languages",
@@ -23,7 +24,7 @@ test("Python providers run without Trust, preserve drafts on selection, and neve
     Effect.scoped(
       Effect.gen(function* () {
         const root = yield* Effect.acquireRelease(
-          Effect.promise(async () => realpath(await mkdtemp("/tmp/polaris-python-live-"))),
+          Effect.promise(async () => realpath(await mkdtemp(shortTemp("polaris-python-live-")))),
           (path) => Effect.promise(() => rm(path, { recursive: true, force: true }))
         );
 

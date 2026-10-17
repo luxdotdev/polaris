@@ -42,6 +42,7 @@ import {
   relayOutboxPacket,
 } from "../../../../packages/client/src/constellation/transfer.ts";
 import { trustedSetup } from "../constellation/setup/trust.testing.ts";
+import { shortTemp } from "../platform/testing.ts";
 
 interface WorkerBridge {
   hooks?: RemoteWorkerHooks;
@@ -131,8 +132,8 @@ const commitAttempt = (host: Host, attempt: Attempt) =>
   });
 
 test("remote MCP SendBack feedback survives outbox relay and worker restart before delivery; resume ignores evicted first Turn", async () => {
-  const ownerRoot = mkdtempSync("/tmp/sendback-owner-");
-  const workerRoot = mkdtempSync("/tmp/sendback-remote-");
+  const ownerRoot = mkdtempSync(shortTemp("sendback-owner-"));
+  const workerRoot = mkdtempSync(shortTemp("sendback-remote-"));
   const repo = await makeRepo();
   const reason = 'Keep "both tests".\n\nRemote Unicode λ feedback stays verbatim.  ';
   let pending: RemoteWorkerAssignment | undefined;

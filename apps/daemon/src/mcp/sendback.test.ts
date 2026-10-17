@@ -14,6 +14,7 @@ import { callSendbackTool as call } from "./sendback.tools.testing.ts";
 import { sendbackWorld } from "./sendback.testing.ts";
 import { recordSendbackTrace } from "./sendback.trace.testing.ts";
 import { restartForRetry } from "./sendback.restart.testing.ts";
+import { shortTemp } from "../platform/testing.ts";
 
 const reason =
   '  Fix the missing cleanup.\n\nKeep `$(literal)` and Unicode λ and "quoted" feedback verbatim.\n' +
@@ -44,7 +45,7 @@ for (const fresh of [false, true])
   for (const merge of [false, true]) {
     for (const restart of [false, true]) {
       test(`MCP SendBack delivers verbatim feedback: fresh=${fresh}, merge=${merge}, restart=${restart}`, async () => {
-        const root = mkdtempSync("/tmp/polaris-sendback-");
+        const root = mkdtempSync(shortTemp("polaris-sendback-"));
         const file = join(root, "state.sqlite");
         const w = sendbackWorld(file, !restart);
         let saved: { graph: Constellation; previous: Attempt; attempt: Attempt };
@@ -143,7 +144,7 @@ for (const fresh of [false, true])
   }
 
 test("Initial Attempt committed before shutdown receives its first Turn on restart", async () => {
-  const root = mkdtempSync("/tmp/polaris-initial-start-");
+  const root = mkdtempSync(shortTemp("polaris-initial-start-"));
 
   try {
     const w = sendbackWorld(join(root, "state.sqlite"), false);
@@ -166,7 +167,7 @@ test("Initial Attempt committed before shutdown receives its first Turn on resta
 }, 20000);
 
 test("retry restart recovers after its first Turn falls out of the recent 32 Turns", async () => {
-  const root = mkdtempSync("/tmp/polaris-long-retry-");
+  const root = mkdtempSync(shortTemp("polaris-long-retry-"));
   const file = join(root, "state.sqlite");
 
   try {

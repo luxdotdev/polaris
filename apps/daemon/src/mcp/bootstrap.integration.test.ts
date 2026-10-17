@@ -13,9 +13,10 @@ import {
   SessionStreamItem,
 } from "@polaris/protocol";
 import { Effect, Fiber, Option, Stream } from "effect";
+import { shortTemp } from "../platform/testing.ts";
 
 test("a real idle Daemon lazily binds plain Codex and Claude Sessions and starts their Constellations", async () => {
-  const home = mkdtempSync("/tmp/polaris-bootstrap-");
+  const home = mkdtempSync(shortTemp("polaris-bootstrap-"));
 
   const daemon = Bun.spawn(
     [process.execPath, resolve(import.meta.dir, "../main.ts"), "serve", "--foreground"],

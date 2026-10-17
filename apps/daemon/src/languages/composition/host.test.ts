@@ -15,10 +15,11 @@ import { LanguageBroker } from "../runtime/index.ts";
 import type { createSelectionLedger } from "../install/selection-ledger.ts";
 import { HostLanguageInstallation } from "../availability/service.ts";
 import { HostLanguageResources, languageHostServices } from "./host.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 for (const retainLease of [false, true]) {
   test(`Host scope closes broker before installation resources, retained lease=${retainLease}`, async () => {
-    const root = await realpath(await mkdtemp("/tmp/m31-j1-host-scope-"));
+    const root = await realpath(await mkdtemp(shortTemp("m31-j1-host-scope-")));
 
     const source = artifactFixture();
 

@@ -5,13 +5,14 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { connect } from "node:net";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
+import { shortTemp } from "../platform/testing.ts";
 
 const fixture = join(import.meta.dir, "fixtures/handoff-start.ts");
 
 test.skipIf(process.platform !== "linux")(
   "accepts Linux startup flags on inherited sockets",
   () => {
-    const home = mkdtempSync("/tmp/phf-");
+    const home = mkdtempSync(shortTemp("phf-"));
 
     try {
       const result = spawnSync(
@@ -33,7 +34,7 @@ test.skipIf(process.platform !== "linux")(
 );
 
 test("the full source Daemon cold-starts under an inherited invalid listener", async () => {
-  const home = mkdtempSync("/tmp/phm-");
+  const home = mkdtempSync(shortTemp("phm-"));
 
   const daemon = spawn(
     process.execPath,
@@ -121,7 +122,7 @@ for (const mode of [
   "file-child",
 ]) {
   test(`ignores a ${mode} hand-off without closing unrelated descriptors`, () => {
-    const home = mkdtempSync("/tmp/phs-");
+    const home = mkdtempSync(shortTemp("phs-"));
 
     try {
       const result = spawnSync(process.execPath, [fixture, mode], {

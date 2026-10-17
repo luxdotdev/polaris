@@ -8,13 +8,14 @@ import { connectRpc, socketTransport } from "@polaris/client";
 import { EventStore } from "../../store/EventStore.ts";
 import { startServer } from "../../transport/server.ts";
 import { lazyLanguageHandlers } from "../../transport/lazyLanguages.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 test("real managed SQL and Shell through authenticated RPC, dialect CAS and draft-preserving replacement", async () => {
   await Effect.runPromise(
     Effect.scoped(
       Effect.gen(function* () {
         const root = yield* Effect.acquireRelease(
-          Effect.promise(async () => realpath(await mkdtemp("/tmp/polaris-sql-shell-live-"))),
+          Effect.promise(async () => realpath(await mkdtemp(shortTemp("polaris-sql-shell-live-")))),
           (directory) => Effect.promise(() => rm(directory, { recursive: true, force: true }))
         );
 

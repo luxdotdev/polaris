@@ -28,6 +28,7 @@ import {
   sha256File,
   uninstall,
 } from "./install.ts";
+import { shortTemp } from "../platform/testing.ts";
 
 /** The fake user crontab: null when the user has none. */
 interface CronTable {
@@ -386,7 +387,7 @@ describe("uninstall", () => {
 
   test("stops the shared Codex app-server, which otherwise outlives the Daemon", async () => {
     // Short paths: the socket must fit the Unix socket path limit.
-    root = mkdtempSync("/tmp/pun-");
+    root = mkdtempSync(shortTemp("pun-"));
     const home = join(root, ".polaris");
     const socketPath = join(home, "codex.sock");
     const codex = makeFakeCodex(root);

@@ -7,9 +7,10 @@ import { revokeMcpBindings } from "./revoke.ts";
 import { Effect } from "effect";
 import { McpTokens } from "./tokens.ts";
 import { leadBinding, workerBinding } from "./testing.ts";
+import { shortTemp } from "../platform/testing.ts";
 
 test("only token hashes persist; restart keeps credentials and revocation", async () => {
-  const root = mkdtempSync("/tmp/polaris-mcp-");
+  const root = mkdtempSync(shortTemp("polaris-mcp-"));
   const path = join(root, "tokens.sqlite");
 
   const plainBinding = McpBinding.cases.Plain.make({
@@ -65,7 +66,7 @@ test("only token hashes persist; restart keeps credentials and revocation", asyn
 });
 
 test("committed lifecycle events revoke only matching bindings and replay safely", async () => {
-  const root = mkdtempSync("/tmp/polaris-mcp-events-");
+  const root = mkdtempSync(shortTemp("polaris-mcp-events-"));
 
   try {
     await Effect.runPromise(
