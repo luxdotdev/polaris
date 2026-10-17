@@ -140,7 +140,12 @@ asserted; the decider assigns the acceptance's evidence tier.
 
 Questions are persisted in `NotificationQueued` items (including Claim questions).
 Their answers use `OperatorMessageSent.questionId` and a QuestionAnswered digest
-item; resolution is journaled with `OperatorMessageResolved`. Notification IDs
+item; resolution is journaled with `OperatorMessageResolved`. The graph's
+additive `openQuestions` (absent decodes empty) folds the same events into the
+questions still waiting: unanswered, on an Attempt that is working, blocked or in
+review (`liveQuestions`). A digest empties `pendingNotifications`, never
+`openQuestions`, so Clients show questions from `openQuestions`. Answering a closed
+question is refused with `E-QUESTION-CLOSED`. Notification IDs
 are retained through restart/handover; `LeadNotified.items` lists the IDs consumed
 by the one recorded digest Turn. The delivery journal must be atomic with that
 Turn, not just an in-memory acknowledgement. `LeadNotified.steered` (additive,

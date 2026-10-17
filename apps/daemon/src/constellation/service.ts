@@ -37,8 +37,7 @@ export const canRead = (binding: ConstellationBinding, record: ConstellationReco
 const nextAction = (record: ConstellationRecord) => {
   if (record.graph.attempts.some((a) => a.state === "review")) return "Review the pending claims.";
 
-  if ([...record.questions.values()].some((q) => q.answer === null))
-    return "Answer the open questions.";
+  if (record.graph.openQuestions.length > 0) return "Answer the open questions.";
 
   return "Dispatch ready tasks or update the graph.";
 };

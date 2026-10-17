@@ -27,6 +27,7 @@ import {
   WorkspaceId,
 } from "@polaris/protocol";
 import { merged, startedRecord } from "../model/fold.ts";
+import { questionsIn } from "../model/questions.ts";
 import type { ConstellationRecord, ProjectionData } from "../model/index.ts";
 
 export const STUDIO = HostId.make("h-studio");
@@ -429,6 +430,8 @@ export const constellationOf = (patch: Partial<Constellation> = {}) =>
     createdAt: ago(240),
     updatedAt: ago(1),
     ...patch,
+    openQuestions:
+      patch.openQuestions ?? questionsIn(patch.pendingNotifications ?? [pendingQuestion]),
   });
 
 /** B4's branch hasn't come back from devbox: the Daemon's projection says so. */

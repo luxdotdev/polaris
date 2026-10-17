@@ -154,6 +154,13 @@ export class ConstellationQuestion extends Schema.Class<ConstellationQuestion>(
   blocking: Schema.Boolean,
 }) {}
 
+/** A worker's question waiting on its answer; it closes when answered or its Attempt settles. */
+export class OpenQuestion extends Schema.Class<OpenQuestion>("ConstellationOpenQuestion")({
+  attemptId: AttemptId,
+  question: ConstellationQuestion,
+  askedAt: Timestamp,
+}) {}
+
 export class AreaException extends Schema.Class<AreaException>("AreaException")({
   path: Schema.NonEmptyString,
   reason: Schema.NonEmptyString,
@@ -275,9 +282,20 @@ export class Constellation extends Schema.Class<Constellation>("Constellation")(
   tasks: Schema.Array(Task),
   attempts: Schema.Array(Attempt),
   pendingNotifications: Schema.Array(ConstellationNotification),
+  /** Kept apart from the Lead's delivery queue, which each digest empties. */
+  openQuestions: optionalArray(OpenQuestion),
   createdAt: Timestamp,
   updatedAt: Timestamp,
 }) {}
+
+const LIVE_ATTEMPT: ReadonlySet<string> = new Set(["working", "blocked", "review"]);
+
+/** The open questions whose Attempt is still live: a question closes when its Attempt settles. */
+export const liveQuestions = <Q extends { readonly attemptId: string }>(
+  questions: ReadonlyArray<Q>,
+  attempts: ReadonlyArray<{ readonly id: string; readonly state: string }>
+): ReadonlyArray<Q> =>
+  questions.filter((q) => attempts.some((a) => a.id === q.attemptId && LIVE_ATTEMPT.has(a.state)));
 
 export class TaskProjection extends Schema.Class<TaskProjection>("ConstellationTaskProjection")({
   taskId: TaskId,

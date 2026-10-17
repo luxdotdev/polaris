@@ -58,6 +58,7 @@ export const graphData = (graph: Constellation) => ({
   tasks: graph.tasks,
   attempts: graph.attempts,
   pendingNotifications: graph.pendingNotifications,
+  openQuestions: graph.openQuestions,
   createdAt: graph.createdAt,
   updatedAt: graph.updatedAt,
 });

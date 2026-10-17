@@ -29,9 +29,7 @@ export const handoverHeader = (
       a.state === "review" ? [`${a.taskId} · ${a.id}: ${JSON.stringify(a.claim)}`] : []
     ),
     "Open questions:",
-    ...[...record.questions.values()].flatMap((q) =>
-      q.answer === null ? [`${q.attemptId}: ${JSON.stringify(q.question)}`] : []
-    ),
+    ...record.graph.openQuestions.map((q) => `${q.attemptId}: ${JSON.stringify(q.question)}`),
     "Queued digest items (still queued):",
     ...record.graph.pendingNotifications.map((n) => `${n.id}: ${notificationLine(record, n)}`),
     "Every message in transit:",

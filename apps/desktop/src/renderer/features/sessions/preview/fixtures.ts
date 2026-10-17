@@ -20,6 +20,7 @@ import {
   ContextUsage,
   HostId,
   NotificationItem,
+  OpenQuestion,
   RequestId,
   Sequence,
   SessionId,
@@ -225,6 +226,8 @@ export const B1_QUESTION = new ConstellationQuestion({
   blocking: true,
 });
 
+const B1_ASKED = { attemptId: AttemptId.make("c1-B1-1"), question: B1_QUESTION };
+
 const B1_CLAIM = new Claim({
   branch: "polaris/c1/b1",
   head: "3f9c2e1",
@@ -400,13 +403,11 @@ export const C1: ConstellationView = {
     pendingNotifications: [
       new ConstellationNotification({
         id: "n-b1-q",
-        item: NotificationItem.cases.Question.make({
-          attemptId: AttemptId.make("c1-B1-1"),
-          question: B1_QUESTION,
-        }),
+        item: NotificationItem.cases.Question.make(B1_ASKED),
         queuedAt: ago(3),
       }),
     ],
+    openQuestions: [new OpenQuestion({ ...B1_ASKED, askedAt: ago(3) })],
     createdAt: ago(120),
     updatedAt: ago(1),
   }),

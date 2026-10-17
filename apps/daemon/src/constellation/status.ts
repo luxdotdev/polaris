@@ -191,11 +191,10 @@ export const statusOutline = (
 
   if (graph.tasks.length === 0) lines.push("No tasks yet.");
 
-  for (const { attemptId, question, answer } of record.questions.values())
-    if (answer === null)
-      lines.push(
-        `Question ${question.id} · ${attemptId} · to ${question.to}${question.blocking ? " · blocking" : ""}: ${question.text}`
-      );
+  for (const { attemptId, question } of graph.openQuestions)
+    lines.push(
+      `Question ${question.id} · ${attemptId} · to ${question.to}${question.blocking ? " · blocking" : ""}: ${question.text}`
+    );
 
   for (const [id, proposal] of record.proposals) {
     lines.push(`Proposal ${id} · ${proposal.task.id} · by ${proposal.by}: ${proposal.task.title}`);

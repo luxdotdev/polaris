@@ -10,6 +10,8 @@ import {
   type ConstellationQuestion,
   PendingOperatorMessage,
   type DomainEvent,
+  liveQuestions,
+  OpenQuestion,
   type TaskDefinition,
   type SessionId,
   type TaskId,
@@ -99,8 +101,12 @@ const handoverOf = (
     inFlight: record.graph.attempts.flatMap((a) =>
       a.state === "working" || a.state === "blocked" || a.state === "review" ? [a.id] : []
     ),
-    questions: record.graph.pendingNotifications.filter((n) =>
-      Predicate.isTagged(n.item, "Question")
+    questions: [...record.notifications.values()].filter(
+      ({ item }) =>
+        Predicate.isTagged(item, "Question") &&
+        record.graph.openQuestions.some(
+          (q) => q.attemptId === item.attemptId && q.question.id === item.question.id
+        )
     ),
     undelivered: [...record.messages.values()].map((m) => pendingMessage(record, m)),
   });
@@ -391,6 +397,13 @@ export const foldConstellation = (
 
       if (Predicate.isTagged(e.notification.item, "Question")) {
         const { attemptId, question } = e.notification.item;
+        graph = new Constellation({
+          ...graphData(graph),
+          openQuestions: [
+            ...graph.openQuestions,
+            new OpenQuestion({ attemptId, question, askedAt: e.notification.queuedAt }),
+          ],
+        });
         next = {
           ...next,
           questions: new Map([
@@ -448,8 +461,15 @@ export const foldConstellation = (
       };
 
       if (e.questionId !== null && Predicate.isTagged(e.target, "Worker")) {
-        const key = questionKey(e.target.attemptId, e.questionId);
+        const { attemptId } = e.target;
+        const key = questionKey(attemptId, e.questionId);
         const question = next.questions.get(key);
+        graph = new Constellation({
+          ...graphData(graph),
+          openQuestions: graph.openQuestions.filter(
+            (q) => q.attemptId !== attemptId || q.question.id !== e.questionId
+          ),
+        });
 
         if (question !== undefined)
           next = {
@@ -489,6 +509,11 @@ export const foldConstellation = (
       graph = new Constellation({ ...graphData(graph), attempts: patchAttempt(next, e, {}) });
     },
   });
+
+  const open = liveQuestions(graph.openQuestions, graph.attempts);
+
+  if (open.length !== graph.openQuestions.length)
+    graph = new Constellation({ ...graphData(graph), openQuestions: open });
 
   return { ...next, graph };
 };
