@@ -75,7 +75,9 @@ try {
   Stop-InstalledPolaris
   $env:POLARIS_DESKTOP_USER_DATA = $previousUserData
   if (Test-Path $bundled) {
-    & (Join-Path $PSScriptRoot 'windows-connect.ps1') -Application $application -Daemon $bundled
+    # NEGATIVE CHECK (ENG-331, never merged): the app has no Daemon to install, so it must not connect.
+    Move-Item $bundled "$bundled.broken"
+    & (Join-Path $PSScriptRoot 'windows-connect.ps1') -Application $application -Daemon "$bundled.broken" -TimeoutSeconds 90
   } else {
     Write-Warning "No Daemon in the $Arch package: the app's connection to This PC was not checked"
   }
