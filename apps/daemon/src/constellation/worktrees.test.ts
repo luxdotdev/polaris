@@ -100,11 +100,14 @@ test(
           );
 
           expect((yield* trees.probeClaim(review)).head).toBe(head);
-          expect(
-            yield* trees.verifyMerged(graph(review), review, root, head).pipe(Effect.flip)
-          ).toHaveProperty("code", "E-GIT");
-          yield* Effect.promise(() => gitText(root, ["merge", "--ff-only", prepared.branch]));
-          yield* trees.verifyMerged(graph(review), review, root, head);
+          expect(yield* trees.mergeClaim(graph(review), review, root, head)).toEqual({
+            merged: true,
+            leadHead: head,
+          });
+          expect(yield* trees.mergeClaim(graph(review), review, root, head)).toEqual({
+            merged: false,
+            leadHead: head,
+          });
 
           const sentBack = yield* trees.prepare(
             WorktreeRequest.make(Struct.assign(request, { key: "sendback:A" }))

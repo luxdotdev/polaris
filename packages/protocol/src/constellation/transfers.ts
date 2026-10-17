@@ -18,7 +18,13 @@ import { ConstellationRejected, ConstellationResult } from "./rpc.ts";
 
 export class ConstellationTransferError extends Schema.TaggedError<ConstellationTransferError>()(
   "ConstellationTransferError",
-  { code: Schema.String, message: Schema.String, retryable: Schema.Boolean }
+  {
+    code: Schema.String,
+    message: Schema.String,
+    retryable: Schema.Boolean,
+    /** The exact next step, when the failure has one (a merge Accept could not make safely). */
+    fix: optionalNullable(Schema.String),
+  }
 ) {}
 
 export class WorktreeRequest extends Schema.Class<WorktreeRequest>("ConstellationWorktreeRequest")({

@@ -12,12 +12,15 @@ import { Match, Option, Predicate, Schema } from "effect";
 import type { GraphCommand } from "../engine/constellation.inputs.ts";
 import { questionKey } from "../store/constellation.ts";
 import { attemptData } from "./data.ts";
-import { GraphDecision } from "./decision.ts";
+import { finding, GraphDecision } from "./decision.ts";
 import { effectiveDeps, isParent } from "./parents.ts";
 import { accepted, activeAttempt, latestAttempt, projectTask } from "./projections.ts";
 
+/** What the Attempt checks need: the folded record and somewhere to put findings. */
+type Checks = Pick<GraphDecision, "record" | "reject">;
+
 export const currentAttempt = (
-  d: GraphDecision,
+  d: Checks,
   id: Attempt["id"],
   revision?: number,
   stateCode = "E-SETTLED"
@@ -68,6 +71,8 @@ const validateDraft = (d: GraphDecision, draft: Attempt) => {
     draft.state !== "working" ||
     draft.revision !== 0 ||
     draft.claim !== null ||
+    draft.claimRevision !== null ||
+    draft.previousClaimHead !== null ||
     draft.endedAt !== null ||
     draft.mergedHead !== null ||
     draft.evidence !== null ||
@@ -305,8 +310,73 @@ const reviewMetadata = (
   return false;
 };
 
+/** A review at the Claim's revision or later saw that Claim; later bumps leave it alone. */
+const seesClaim = (attempt: Attempt, revision: number) =>
+  revision === attempt.revision ||
+  (attempt.state === "review" &&
+    attempt.claimRevision !== null &&
+    revision >= attempt.claimRevision &&
+    revision <= attempt.revision);
+
+/** The Attempt a review acts on, when it is current and the reviewer saw its latest Claim. */
+export const reviewedAttempt = (d: Checks, command: GraphCommand<"Review">) => {
+  const attempt = currentAttempt(d, command.attemptId);
+
+  if (attempt === undefined || seesClaim(attempt, command.revision)) return attempt;
+
+  if (attempt.claimRevision !== null && command.revision < attempt.claimRevision)
+    d.reject(
+      "E-REVISION",
+      `Attempt ${attempt.id}'s Claim changed at revision ${attempt.claimRevision}; it now claims ${attempt.claim?.head}`,
+      `Review the Claim at ${attempt.claim?.head}, then retry with revision ${attempt.revision}.`
+    );
+  else
+    d.reject(
+      "E-REVISION",
+      `Attempt ${attempt.id} is at revision ${attempt.revision}`,
+      "Read status and retry with the current Attempt revision."
+    );
+
+  return undefined;
+};
+
+/** Whether an Accept would be decided on its Attempt and head: checked before the Daemon merges. */
+export const acceptFindings = (
+  record: GraphDecision["record"],
+  command: GraphCommand<"Review">
+) => {
+  const findings: Array<ReturnType<typeof finding>> = [];
+
+  const checks: Checks = {
+    record,
+    reject: (code, message, fix) => void findings.push(finding(code, message, fix)),
+  };
+
+  const attempt = reviewedAttempt(checks, command);
+
+  if (attempt !== undefined && Predicate.isTagged(command.action, "Accept"))
+    acceptable(checks, attempt, command.action.mergedHead);
+
+  return findings;
+};
+
+const acceptable = (d: Checks, attempt: Attempt, mergedHead: string) => {
+  if (attempt.state !== "review" || attempt.claim === null)
+    d.reject(
+      "E-REVIEW",
+      `Attempt ${attempt.id} has no Claim to review`,
+      "Wait for a Claim or stop the Attempt."
+    );
+  else if (mergedHead !== attempt.claim.head)
+    d.reject(
+      "E-MERGED-HEAD",
+      `Merged head ${mergedHead} differs from claimed head ${attempt.claim.head}`,
+      `Accept with mergedHead ${attempt.claim.head}, the claimed head; the Daemon merges it.`
+    );
+};
+
 export const review = (d: GraphDecision, command: GraphCommand<"Review">) => {
-  const attempt = currentAttempt(d, command.attemptId, command.revision);
+  const attempt = reviewedAttempt(d, command);
 
   if (attempt === undefined) return;
 
@@ -345,12 +415,7 @@ export const review = (d: GraphDecision, command: GraphCommand<"Review">) => {
   if (reviewMetadata(d, command, attempt)) return;
 
   if (Predicate.isTagged(command.action, "Accept")) {
-    if (command.action.mergedHead !== attempt.claim?.head)
-      d.reject(
-        "E-MERGED-HEAD",
-        `Merged head ${command.action.mergedHead} differs from claimed head ${attempt.claim?.head}`,
-        "Merge the claimed head and accept that exact head."
-      );
+    acceptable(d, attempt, command.action.mergedHead);
     const receipts = [...(attempt.claim?.receipts ?? []), ...command.action.receipts];
     const tier = evidence(d, receipts);
 

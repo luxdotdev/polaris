@@ -54,7 +54,7 @@ test("a user's approval tells the Lead once to merge and accept", () => {
   expect(pending.filter((n) => Predicate.isTagged(n.item, "Approved"))).toHaveLength(1);
   expect(digestDelay(approved)).not.toBeNull();
   expect(digestPrompt(approved)).toContain(
-    `${attempt.taskId}: approved by the user. Merge ${attempt.branch} at ${attempt.claim?.head} into your branch, then accept it.`
+    `${attempt.taskId}: approved by the user. Accept it with mergedHead ${attempt.claim?.head}; Polaris merges ${attempt.branch} into your branch.`
   );
 
   const again = apply(approved, review(approved, ReviewAction.cases.Approve.make({})), ctx());
@@ -72,9 +72,18 @@ test("user approval and Lead hand-up remain review metadata with revision and ro
   const approved = apply(record, approve, ctx());
   expect(approved.graph.attempts[0]?.state).toBe("review");
   expect(approved.graph.attempts[0]?.approvedByUserAt).toBe(ctx().now);
-  expect(decideConstellation(approved, approve, ctx()).rejection?.findings[0]?.code).toBe(
-    "E-REVISION"
-  );
+  // The approval left the Claim alone: approving it again as seen is a no-op, not stale.
+  expect(decideConstellation(approved, approve, ctx())).toMatchObject({
+    rejection: null,
+    events: [],
+  });
+  expect(
+    decideConstellation(
+      approved,
+      C.Review.make({ ...approve, revision: approve.revision - 1 }),
+      ctx()
+    ).rejection?.findings[0]?.code
+  ).toBe("E-REVISION");
   const handUp = review(approved, ReviewAction.cases.HandUp.make({ reason: "Choose the design" }));
   expect(decideConstellation(approved, handUp, ctx()).events).toEqual([]);
   const handed = apply(approved, handUp, ctx({ binding: { kind: "session", sessionId: LEAD } }));

@@ -36,10 +36,17 @@ Desktop App authorization is checked by the Daemon, not asserted in a payload.
   empty means every ready Task, using `defaultWorker` and graph defaults.
   `New` carries Host, optional Harness/Model/effort, base and optional existing
   worktree/branch; `Existing` names an idle session. Gates use the Lead's session.
-- `constellation.review`: Attempt ID, current **Attempt revision**, and Accept,
+- `constellation.review`: Attempt ID, the **Attempt revision** the reviewer saw, and Accept,
   SendBack, Stop, Approve or HandUp. Approve is user-only and HandUp is Lead-only;
-  both record metadata while keeping Review. Accept supplies merged head and receipts; the decider checks
-  it against the claimed head and resolves every verified reference. SendBack
+  both record metadata while keeping Review. A review of a Claim in review stays current
+  from the Claim's `claimRevision` up to the Attempt's revision: progress, approval and
+  hand-up don't make it stale, an amended Claim does. Accept supplies the claimed head
+  (`mergedHead`) and receipts; before deciding, the owner merges that head into the Lead's
+  current branch (safe git config, no repository hooks) unless it already contains it, and
+  refuses with the exact fix on a conflict (`E-MERGE-CONFLICT`, merge aborted), a dirty,
+  detached or mid-merge Lead checkout (`E-LEAD-DIRTY`, `E-LEAD-DETACHED`, `E-LEAD-MERGING`)
+  or an unfetched head (`E-GIT`). The decider checks the head against the Claim and resolves
+  every verified reference. SendBack
   chooses same/existing or new session; `mergeConflictBase` selects that cause.
   The rejected Attempt retains `rejectionReason` (nullable, additive); its old
   Claim stays alongside it in snapshots and status. The retry's first Turn
@@ -155,7 +162,11 @@ implementation; a `Settled` digest item repeats the kind. A lost settle has none
 `ClaimApproved`, `ClaimHandedUp` and `AttemptNudged` preserve approval, hand-up
 and once-only nudge facts. They advance Attempt and graph revisions without
 changing state. The first `ClaimApproved` also queues an `Approved` digest item,
-so the Lead learns it should merge and accept. A nudge marker commits atomically with its Session-machine Turn.
+so the Lead learns it should accept (which merges the Claim).
+
+`AttemptClaimed` sets `Attempt.claimRevision` to its `attemptRevision`; one that amends
+a Claim in review (a changed head on the same Attempt) also sets `previousClaimHead`
+(both additive, nullable). A nudge marker commits atomically with its Session-machine Turn.
 
 `AttemptRecoveryContinued` journals the automatic Continue with cause `recover`,
 its Turn and durable interruption ID. It does not create a second active Attempt.

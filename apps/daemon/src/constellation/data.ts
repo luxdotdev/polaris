@@ -31,6 +31,8 @@ export const attemptData = (attempt: Attempt) => ({
   receipts: attempt.receipts,
   evidence: attempt.evidence,
   claimedAt: attempt.claimedAt,
+  claimRevision: attempt.claimRevision,
+  previousClaimHead: attempt.previousClaimHead,
   approvedByUserAt: attempt.approvedByUserAt,
   handedUpAt: attempt.handedUpAt,
   handedUpReason: attempt.handedUpReason,

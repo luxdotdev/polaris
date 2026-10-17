@@ -40,7 +40,7 @@ export const notificationLine = (record: ConstellationRecord, n: ConstellationNo
       if (attempt?.approvedByUserAt == null || attempt.claim === null)
         return `${worker(i.attemptId)}: approved by the user, then claimed again; review the new claim.`;
 
-      return `${worker(i.attemptId)}: approved by the user. Merge ${attempt.branch} at ${attempt.claim.head} into your branch, then accept it.`;
+      return `${worker(i.attemptId)}: approved by the user. Accept it with mergedHead ${attempt.claim.head}; Polaris merges ${attempt.branch} into your branch.`;
     }),
     Match.tag(
       "Question",

@@ -24,6 +24,8 @@ export interface RefAttempt {
   state: AttemptState;
   revision: number;
   head: string | null;
+  /** The Attempt revision the current Claim made; a review from then on saw it. */
+  claimRevision: number | null;
   evidence: string | null;
   approved: string | null;
   handedUp: string | null;
@@ -73,6 +75,7 @@ const refAttempt = (attempt: import("@polaris/protocol").Attempt): RefAttempt =>
   state: attempt.state,
   revision: attempt.revision,
   head: attempt.claim?.head ?? null,
+  claimRevision: attempt.claimRevision,
   evidence: attempt.evidence,
   approved: attempt.approvedByUserAt,
   handedUp: attempt.handedUpAt,
@@ -145,6 +148,7 @@ export const foldReference = (ref: Reference, events: ReadonlyArray<DomainEvent>
         patch(ref, e, {
           state: "review",
           head: e.claim.head,
+          claimRevision: e.attemptRevision,
           approved: null,
           handedUp: null,
           nudged: null,
