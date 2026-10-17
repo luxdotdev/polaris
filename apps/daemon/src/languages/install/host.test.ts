@@ -1,5 +1,5 @@
 import { rejects } from "node:assert/strict";
-import { test, expect, jest } from "bun:test";
+import { expect, jest } from "bun:test";
 import { mkdtemp, realpath, rm, readdir, writeFile, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -18,6 +18,11 @@ import {
   LanguageContextIdentity,
   LanguageInstallation,
 } from "@polaris/protocol";
+import { posixTest } from "../../platform/testing.ts";
+
+const test = posixTest(
+  "language storage is checked private by POSIX owner and mode bits; Windows needs ACL checks (ENG-314)"
+);
 
 async function hostFixture(overrides: Partial<HostInstallationOptions> = {}) {
   const parent = await realpath(await mkdtemp(join(tmpdir(), "m31-i1-host-")));
@@ -405,7 +410,9 @@ test("approval revoked during the barrier cannot activate and failed lease relea
         await handle.result;
         expect(host.stats().recovery).toEqual(["fake-tool"]);
         expect(host.stats().cleanupFailures).toHaveLength(1);
-        await rejects(host.inspect("fake-tool", "feature", true), { reason: "recovery-required" });
+        await rejects(host.inspect("fake-tool", "feature", true), {
+          reason: "recovery-required",
+        });
       }
     } finally {
       await f.close();

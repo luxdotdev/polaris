@@ -10,9 +10,11 @@ export interface Launch {
   initializationOptions?: typeof LanguageJsonObject.Type;
 }
 
+const RESOLVED = process.platform === "win32" ? /^[A-Za-z]:[\\/]/ : /^\//;
+
 /** Private launch values never enter logs or public launch facts. No shell interpolation. */
 export function spawnLanguageProcess(launch: Launch): ProcessPort {
-  if (!launch.executable.startsWith("/"))
+  if (!RESOLVED.test(launch.executable))
     throw failure("missing-prerequisite", "Expected resolved Host executable");
 
   const child = Bun.spawn([launch.executable, ...launch.args], {

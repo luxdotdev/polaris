@@ -1,11 +1,15 @@
-import { expect, test } from "bun:test";
+import { expect } from "bun:test";
 import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { Predicate } from "effect";
 import { HostId } from "@polaris/protocol";
 import { catalog, preflight } from "./index.ts";
 import { createInstaller } from "../install/index.ts";
 import { availability } from "../availability/index.ts";
-import { shortTemp } from "../../platform/testing.ts";
+import { posixTest, shortTemp } from "../../platform/testing.ts";
+
+const test = posixTest(
+  "language storage is checked private by POSIX owner and mode bits; Windows needs ACL checks (ENG-314)"
+);
 
 test("bundled ShellCheck stays audit blocked on all four targets before approval or download", async () => {
   const tool = catalog.tools.find((entry) => entry.id === "shellcheck");

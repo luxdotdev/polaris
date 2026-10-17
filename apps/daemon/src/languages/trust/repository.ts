@@ -47,7 +47,8 @@ export function createFileTrustRepository(directory: string): TrustRepository {
       const parent = await open(directory, "r");
 
       try {
-        await parent.sync();
+        // Windows refuses fsync on a directory handle (EPERM); NTFS journals the rename itself.
+        if (process.platform !== "win32") await parent.sync();
       } finally {
         await parent.close();
       }

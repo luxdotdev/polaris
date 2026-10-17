@@ -1,10 +1,14 @@
-import { test } from "bun:test";
 import { rejects } from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { chmod, link, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { verifyStoredFile } from "./fileVerification.ts";
+import { posixTest } from "../../platform/testing.ts";
+
+const test = posixTest(
+  "language storage is checked private by POSIX owner, mode and link counts; Windows needs ACL checks (ENG-314)"
+);
 
 const integrity = (bytes: Uint8Array, sha512 = false) =>
   sha512

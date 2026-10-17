@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect } from "bun:test";
 import { rejects } from "node:assert/strict";
 import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -12,7 +12,11 @@ import { httpsArtifactDownload } from "../install/download.ts";
 import { digest } from "../install/validation.ts";
 import { createManagedDelivery } from "./managedDelivery.ts";
 import { typescriptTool } from "./managedPolicy.ts";
-import { shortTemp } from "../../platform/testing.ts";
+import { posixTest, shortTemp } from "../../platform/testing.ts";
+
+const privateInstallTest = posixTest(
+  "language installations require a POSIX-mode private, owned directory (ENG-314)"
+);
 
 const settings = (automatic = true) =>
   P.LanguageEffectiveSettings.make({
@@ -128,206 +132,227 @@ async function fixture(corrupt = false, legacy = false) {
   };
 }
 
-test("local artifact server installs once per Host/tool/version across concurrent opens and reuse", async () => {
-  const f = await fixture();
+privateInstallTest(
+  "local artifact server installs once per Host/tool/version across concurrent opens and reuse",
+  async () => {
+    const f = await fixture();
 
-  try {
-    await Promise.all(
-      Array.from({ length: 3 }, () =>
-        f.managed.delivery.ensure(settings(), f.admission, new AbortController().signal)
-      )
-    );
-    await f.managed.delivery.ensure(settings(false), f.admission, new AbortController().signal);
+    try {
+      await Promise.all(
+        Array.from({ length: 3 }, () =>
+          f.managed.delivery.ensure(settings(), f.admission, new AbortController().signal)
+        )
+      );
+      await f.managed.delivery.ensure(settings(false), f.admission, new AbortController().signal);
 
-    for (const id of ["node", "typescript", "typescript-language-server"]) {
-      expect(f.downloads.get(`/${id}`)).toBe(1);
-      expect((await f.host.current(id))?.version).toBe("1.0.0");
+      for (const id of ["node", "typescript", "typescript-language-server"]) {
+        expect(f.downloads.get(`/${id}`)).toBe(1);
+        expect((await f.host.current(id))?.version).toBe("1.0.0");
+      }
+    } finally {
+      await f.close();
     }
-  } finally {
-    await f.close();
   }
-});
+);
 
-test("auto-download off reports not-installed without contacting the fixture server", async () => {
-  const f = await fixture();
+privateInstallTest(
+  "auto-download off reports not-installed without contacting the fixture server",
+  async () => {
+    const f = await fixture();
 
-  try {
-    await rejects(
-      f.managed.delivery.ensure(settings(false), f.admission, new AbortController().signal),
-      { reason: "not-installed" }
-    );
-    expect(f.downloads.size).toBe(0);
-    expect(await f.host.current("node")).toBeNull();
-  } finally {
-    await f.close();
+    try {
+      await rejects(
+        f.managed.delivery.ensure(settings(false), f.admission, new AbortController().signal),
+        { reason: "not-installed" }
+      );
+      expect(f.downloads.size).toBe(0);
+      expect(await f.host.current("node")).toBeNull();
+    } finally {
+      await f.close();
+    }
   }
-});
+);
 
-test("Python delivery verifies only basedpyright, Ruff and private Node and reuses their receipts", async () => {
-  const f = await fixture();
+privateInstallTest(
+  "Python delivery verifies only basedpyright, Ruff and private Node and reuses their receipts",
+  async () => {
+    const f = await fixture();
 
-  try {
-    for (const provider of ["basedpyright", "ruff"])
+    try {
+      for (const provider of ["basedpyright", "ruff"])
+        await f.managed.delivery.ensure(
+          settings(),
+          f.admission,
+          new AbortController().signal,
+          provider
+        );
+      expect([...f.downloads.keys()].sort()).toEqual(["/basedpyright", "/node", "/ruff"]);
+      expect(f.host.stats().verification.fullVerifications).toBe(3);
+
+      for (const provider of ["basedpyright", "ruff"])
+        await f.managed.delivery.ensure(
+          settings(false),
+          f.admission,
+          new AbortController().signal,
+          provider
+        );
+      expect(f.host.stats().verification.fullVerifications).toBe(3);
+      expect(f.host.stats().verification.memoryReuses).toBeGreaterThan(0);
+      expect(await f.host.current("typescript")).toBeNull();
+      expect(await f.host.current("typescript-language-server")).toBeNull();
+    } finally {
+      await f.close();
+    }
+  }
+);
+
+privateInstallTest(
+  "fixture checksum mismatch never activates a private runtime or server",
+  async () => {
+    const f = await fixture(true);
+
+    try {
+      await rejects(
+        f.managed.delivery.ensure(settings(), f.admission, new AbortController().signal),
+        { reason: "audit-required" }
+      );
+      expect(await f.host.current("node")).toBeNull();
+      expect(await f.host.current("typescript-language-server")).toBeNull();
+    } finally {
+      await f.close();
+    }
+  }
+);
+
+privateInstallTest(
+  "launch plans select managed TS 7, project TS 7, and project tsserver/plugins",
+  async () => {
+    const f = await fixture();
+    const project = await projectFixture();
+
+    try {
+      await f.managed.delivery.ensure(settings(), f.admission, new AbortController().signal);
       await f.managed.delivery.ensure(
         settings(),
         f.admission,
         new AbortController().signal,
-        provider
+        "typescript-go"
       );
-    expect([...f.downloads.keys()].sort()).toEqual(["/basedpyright", "/node", "/ruff"]);
-    expect(f.host.stats().verification.fullVerifications).toBe(3);
+      const installed = await f.host.current("typescript-language-server");
+      const go = await f.host.current("typescript-go");
 
-    for (const provider of ["basedpyright", "ruff"])
-      await f.managed.delivery.ensure(
-        settings(false),
-        f.admission,
-        new AbortController().signal,
-        provider
+      if (installed === null || go === null) throw new Error("Fixture installation missing");
+      const path = await project.put("file.ts");
+      await project.put(
+        "tsconfig.json",
+        '{"compilerOptions":{"plugins":[{"name":"sample-plugin"}]}}'
       );
-    expect(f.host.stats().verification.fullVerifications).toBe(3);
-    expect(f.host.stats().verification.memoryReuses).toBeGreaterThan(0);
-    expect(await f.host.current("typescript")).toBeNull();
-    expect(await f.host.current("typescript-language-server")).toBeNull();
-  } finally {
-    await f.close();
+      await project.put(
+        "node_modules/typescript/package.json",
+        '{"name":"typescript","version":"6.0.3"}'
+      );
+      const tsserver = await project.put("node_modules/typescript/lib/tsserver.js", "fixture");
+
+      const discovery = createProjectDiscovery({
+        registry: project.registry,
+        bundledTypeScript: true,
+      });
+
+      const input = {
+        checkout: project.checkout,
+        path,
+        providerId: "typescript-language-server",
+        settings: project.settings,
+      };
+
+      const old = await discovery.discover({ ...input, useProjectTypeScript: true });
+      const oldPlan = await f.managed.delivery.plan(old, installed);
+      expect(oldPlan.launch.initializationOptions).toMatchObject({ tsserver: { path: tsserver } });
+      expect(oldPlan.launch.environment.NODE_OPTIONS).toBe("");
+      expect(old.plugins.map(({ name }) => name)).toEqual(["sample-plugin"]);
+      const untrusted = await discovery.discover(input);
+      const bundled = await f.managed.delivery.plan(untrusted, go);
+      expect(bundled.launch).toMatchObject({
+        executable: join(go.directory, "lib/tsc"),
+        args: ["--lsp", "--stdio"],
+      });
+      expect(bundled.runtimeExecutable).toBeUndefined();
+      const binary = "/fixture/native-tsc";
+      const native = { ...old, tsserver: null, sdkVersion: "7.0.2", nativeServer: binary };
+      expect((await f.managed.delivery.plan(native, go)).launch).toMatchObject({
+        executable: binary,
+        args: ["--lsp", "--stdio"],
+        cwd: old.projectRoot,
+      });
+      expect([old, untrusted, native].map(typescriptTool)).toEqual([
+        "typescript-language-server",
+        "typescript-go",
+        "typescript-go",
+      ]);
+      await rejects(f.managed.delivery.plan({ ...native, nativeServer: null }, go), {
+        reason: "missing-prerequisite",
+      });
+    } finally {
+      await f.close();
+      await project.cleanup();
+    }
   }
-});
-
-test("fixture checksum mismatch never activates a private runtime or server", async () => {
-  const f = await fixture(true);
-
-  try {
-    await rejects(
-      f.managed.delivery.ensure(settings(), f.admission, new AbortController().signal),
-      { reason: "audit-required" }
-    );
-    expect(await f.host.current("node")).toBeNull();
-    expect(await f.host.current("typescript-language-server")).toBeNull();
-  } finally {
-    await f.close();
-  }
-});
-
-test("launch plans select managed TS 7, project TS 7, and project tsserver/plugins", async () => {
-  const f = await fixture();
-  const project = await projectFixture();
-
-  try {
-    await f.managed.delivery.ensure(settings(), f.admission, new AbortController().signal);
-    await f.managed.delivery.ensure(
-      settings(),
-      f.admission,
-      new AbortController().signal,
-      "typescript-go"
-    );
-    const installed = await f.host.current("typescript-language-server");
-    const go = await f.host.current("typescript-go");
-
-    if (installed === null || go === null) throw new Error("Fixture installation missing");
-    const path = await project.put("file.ts");
-    await project.put(
-      "tsconfig.json",
-      '{"compilerOptions":{"plugins":[{"name":"sample-plugin"}]}}'
-    );
-    await project.put(
-      "node_modules/typescript/package.json",
-      '{"name":"typescript","version":"6.0.3"}'
-    );
-    const tsserver = await project.put("node_modules/typescript/lib/tsserver.js", "fixture");
-
-    const discovery = createProjectDiscovery({
-      registry: project.registry,
-      bundledTypeScript: true,
-    });
-
-    const input = {
-      checkout: project.checkout,
-      path,
-      providerId: "typescript-language-server",
-      settings: project.settings,
-    };
-
-    const old = await discovery.discover({ ...input, useProjectTypeScript: true });
-    const oldPlan = await f.managed.delivery.plan(old, installed);
-    expect(oldPlan.launch.initializationOptions).toMatchObject({ tsserver: { path: tsserver } });
-    expect(oldPlan.launch.environment.NODE_OPTIONS).toBe("");
-    expect(old.plugins.map(({ name }) => name)).toEqual(["sample-plugin"]);
-    const untrusted = await discovery.discover(input);
-    const bundled = await f.managed.delivery.plan(untrusted, go);
-    expect(bundled.launch).toMatchObject({
-      executable: join(go.directory, "lib/tsc"),
-      args: ["--lsp", "--stdio"],
-    });
-    expect(bundled.runtimeExecutable).toBeUndefined();
-    const binary = "/fixture/native-tsc";
-    const native = { ...old, tsserver: null, sdkVersion: "7.0.2", nativeServer: binary };
-    expect((await f.managed.delivery.plan(native, go)).launch).toMatchObject({
-      executable: binary,
-      args: ["--lsp", "--stdio"],
-      cwd: old.projectRoot,
-    });
-    expect([old, untrusted, native].map(typescriptTool)).toEqual([
-      "typescript-language-server",
-      "typescript-go",
-      "typescript-go",
-    ]);
-    await rejects(f.managed.delivery.plan({ ...native, nativeServer: null }, go), {
-      reason: "missing-prerequisite",
-    });
-  } finally {
-    await f.close();
-    await project.cleanup();
-  }
-});
+);
 
 for (const automatic of [true, false])
-  test(`an older same-version catalog binding with automatic downloads ${automatic}`, async () => {
+  privateInstallTest(
+    `an older same-version catalog binding with automatic downloads ${automatic}`,
+    async () => {
+      const f = await fixture(false, true);
+      const previous = await f.host.current("node");
+
+      try {
+        const upgrade = f.managed.delivery.ensure(
+          settings(automatic),
+          f.admission,
+          new AbortController().signal
+        );
+
+        if (!automatic) {
+          await rejects(upgrade, { reason: "not-installed" });
+          expect((await f.host.current("node"))?.identity).toBe(previous?.identity);
+        } else {
+          await upgrade;
+          expect((await f.host.current("node"))?.identity).not.toBe(previous?.identity);
+          await f.managed.delivery.ensure(settings(), f.admission, new AbortController().signal);
+        }
+
+        for (const id of ["node", "typescript", "typescript-language-server"])
+          expect(f.downloads.get(`/${id}`)).toBe(automatic ? 2 : 1);
+      } finally {
+        await f.close();
+      }
+    }
+  );
+
+privateInstallTest(
+  "automatic catalog replacement still respects an active launch lease",
+  async () => {
     const f = await fixture(false, true);
     const previous = await f.host.current("node");
 
+    if (previous === null) throw new Error("Missing legacy Node");
+
+    const lease = await f.ledger.reserveLaunch(
+      "node",
+      previous.identity,
+      new AbortController().signal
+    );
+
     try {
-      const upgrade = f.managed.delivery.ensure(
-        settings(automatic),
-        f.admission,
-        new AbortController().signal
+      await rejects(
+        f.managed.delivery.ensure(settings(), f.admission, new AbortController().signal),
+        { reason: "conflict" }
       );
-
-      if (!automatic) {
-        await rejects(upgrade, { reason: "not-installed" });
-        expect((await f.host.current("node"))?.identity).toBe(previous?.identity);
-      } else {
-        await upgrade;
-        expect((await f.host.current("node"))?.identity).not.toBe(previous?.identity);
-        await f.managed.delivery.ensure(settings(), f.admission, new AbortController().signal);
-      }
-
-      for (const id of ["node", "typescript", "typescript-language-server"])
-        expect(f.downloads.get(`/${id}`)).toBe(automatic ? 2 : 1);
+      expect((await f.host.current("node"))?.identity).toBe(previous.identity);
     } finally {
+      await lease.release();
       await f.close();
     }
-  });
-
-test("automatic catalog replacement still respects an active launch lease", async () => {
-  const f = await fixture(false, true);
-  const previous = await f.host.current("node");
-
-  if (previous === null) throw new Error("Missing legacy Node");
-
-  const lease = await f.ledger.reserveLaunch(
-    "node",
-    previous.identity,
-    new AbortController().signal
-  );
-
-  try {
-    await rejects(
-      f.managed.delivery.ensure(settings(), f.admission, new AbortController().signal),
-      { reason: "conflict" }
-    );
-    expect((await f.host.current("node"))?.identity).toBe(previous.identity);
-  } finally {
-    await lease.release();
-    await f.close();
   }
-});
+);

@@ -12,6 +12,11 @@ import { LanguageTool } from "@polaris/protocol";
 import { createHostInstallations } from "./host.ts";
 import { hostId, platform } from "./fixture.testing.ts";
 import { HostLanguageInstallation } from "../availability/service.ts";
+import { posixTest } from "../../platform/testing.ts";
+
+const privateStorage = posixTest(
+  "language storage is checked private by POSIX owner and mode bits; Windows needs ACL checks (ENG-314)"
+);
 
 const requirement = {
   id: "fake",
@@ -321,62 +326,65 @@ test("last cancellation aborts the probe but observation disposal retains underl
   }
 });
 
-test("Effect inspection forwards captured admission and interruption to the owned Host observation", async () => {
-  const f = await fixture();
-  const registry = createHostInstallations();
-  const started = latch();
-  const cleanup = latch();
-  let observationSignal: AbortSignal | undefined;
-  let observationCwd: string | undefined;
+privateStorage(
+  "Effect inspection forwards captured admission and interruption to the owned Host observation",
+  async () => {
+    const f = await fixture();
+    const registry = createHostInstallations();
+    const started = latch();
+    const cleanup = latch();
+    let observationSignal: AbortSignal | undefined;
+    let observationCwd: string | undefined;
 
-  const host = await registry.get({
-    root: join(f.root, "private"),
-    hostId,
-    platform,
-    tools: [tool],
-    adapters: { download: async function* () {}, decode: async () => artifactFixture().payload },
-    observe: async (_tool, _phase, _trusted, signal, admission) => {
-      observationSignal = signal;
-      observationCwd = admission?.cwd;
-      started.resolve();
-      await cleanup.promise;
+    const host = await registry.get({
+      root: join(f.root, "private"),
+      hostId,
+      platform,
+      tools: [tool],
+      adapters: { download: async function* () {}, decode: async () => artifactFixture().payload },
+      observe: async (_tool, _phase, _trusted, signal, admission) => {
+        observationSignal = signal;
+        observationCwd = admission?.cwd;
+        started.resolve();
+        await cleanup.promise;
 
-      return { connected: true, probes: [] };
-    },
-  });
-
-  const cancel = new AbortController();
-  const admission = { cwd: f.root, requireCurrent: async () => {} };
-
-  const result = Effect.runPromise(
-    Effect.gen(function* () {
-      const service = yield* HostLanguageInstallation;
-
-      return yield* service.inspect(tool.id, "feature", true, admission);
-    }).pipe(Effect.provide(HostLanguageInstallation.layer(host))),
-    { signal: cancel.signal }
-  ).catch((cause: unknown) => cause);
-
-  try {
-    await started.promise;
-    cancel.abort();
-    await result;
-    expect(observationSignal?.aborted).toBe(true);
-    expect(observationCwd).toBe(f.root);
-    let disposed = false;
-
-    const disposal = registry.dispose().then(() => {
-      disposed = true;
+        return { connected: true, probes: [] };
+      },
     });
 
-    await Promise.resolve();
-    expect(disposed).toBe(false);
-    cleanup.resolve();
-    await disposal;
-    expect(disposed).toBe(true);
-  } finally {
-    cleanup.resolve();
-    await registry.dispose();
-    await f.close();
+    const cancel = new AbortController();
+    const admission = { cwd: f.root, requireCurrent: async () => {} };
+
+    const result = Effect.runPromise(
+      Effect.gen(function* () {
+        const service = yield* HostLanguageInstallation;
+
+        return yield* service.inspect(tool.id, "feature", true, admission);
+      }).pipe(Effect.provide(HostLanguageInstallation.layer(host))),
+      { signal: cancel.signal }
+    ).catch((cause: unknown) => cause);
+
+    try {
+      await started.promise;
+      cancel.abort();
+      await result;
+      expect(observationSignal?.aborted).toBe(true);
+      expect(observationCwd).toBe(f.root);
+      let disposed = false;
+
+      const disposal = registry.dispose().then(() => {
+        disposed = true;
+      });
+
+      await Promise.resolve();
+      expect(disposed).toBe(false);
+      cleanup.resolve();
+      await disposal;
+      expect(disposed).toBe(true);
+    } finally {
+      cleanup.resolve();
+      await registry.dispose();
+      await f.close();
+    }
   }
-});
+);

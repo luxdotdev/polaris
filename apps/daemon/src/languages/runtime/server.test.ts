@@ -17,6 +17,11 @@ import { memoryPort } from "../transport/fixture.testing.ts";
 import { ServerBridge, type ServerHooks } from "./server.ts";
 import { Documents } from "./documents.ts";
 import { negotiate } from "./capabilities.ts";
+import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+
+/** A drive-rooted path on Windows, where a file URI needs one; as written on POSIX. */
+const project = resolve("/private/tmp/project");
 
 function fixture(
   preparation: Partial<Pick<ServerHooks, "prepareEdit" | "treeEdits" | "log">> = {}
@@ -30,16 +35,16 @@ function fixture(
     contextId: "context",
     checkout: LanguageCheckout.cases.Workspace.make({
       workspaceId: WorkspaceId.make("workspace"),
-      path: "/private/tmp/project",
+      path: project,
     }),
-    projectRoot: "/private/tmp/project",
+    projectRoot: project,
     providerId: "fake",
     configurationFingerprint: "a".repeat(64),
     generation: 1,
   });
 
   const documents = new Documents(context);
-  const uri = "file:///private/tmp/project/file.ts";
+  const uri = pathToFileURL(join(project, "file.ts")).href;
   documents.apply(
     1,
     LanguageDocumentNotification.cases.Open.make({
@@ -140,8 +145,8 @@ test("prepared server edits cannot weaken the delivered document fence", async (
 });
 
 test("negotiated tree server delivery retains snapshots and fences its delayed response", async () => {
-  const uri = "file:///private/tmp/project/new.ts";
-  const resourceSnapshots = [{ uri, canonicalPath: "/private/tmp/project/new.ts", tree: null }];
+  const uri = pathToFileURL(join(project, "new.ts")).href;
+  const resourceSnapshots = [{ uri, canonicalPath: join(project, "new.ts"), tree: null }];
 
   const f = fixture({
     treeEdits: () => true,

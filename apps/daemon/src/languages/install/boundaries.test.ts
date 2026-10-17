@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect } from "bun:test";
 import { rejects } from "node:assert/strict";
 import { symlink, mkdir, writeFile, readFile, readdir, stat, chmod } from "node:fs/promises";
 import { join, dirname } from "node:path";
@@ -10,6 +10,11 @@ import { artifactFixture, fixture, hostId, platform } from "./fixture.testing.ts
 import { packagedFiles, packagedRoot } from "../catalog/packaging.ts";
 import { digest } from "./validation.ts";
 import type { ArtifactPayload, ExactArtifact } from "./types.ts";
+import { posixTest } from "../../platform/testing.ts";
+
+const test = posixTest(
+  "language storage is checked private by POSIX owner and mode bits; Windows needs ACL checks (ENG-314)"
+);
 
 function packagedFixture() {
   const f = artifactFixture();

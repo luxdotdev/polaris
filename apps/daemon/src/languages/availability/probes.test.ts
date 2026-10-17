@@ -6,6 +6,11 @@ import { join } from "node:path";
 import { runtimeProbeAdapter } from "./probes.ts";
 import { runHostVersion } from "./version-process.ts";
 import { failure } from "../install/validation.ts";
+import { posixTest } from "../../platform/testing.ts";
+
+const posixTools = posixTest(
+  "the synthetic probe is a POSIX sh child in its own process group (ENG-296)"
+);
 
 const requirement = {
   id: "fake",
@@ -85,36 +90,39 @@ test("unknown version output and missing configured executable remain distinct",
   expect(missing[0]).toEqual({ id: "fake", executable: null, version: null });
 });
 
-test("Host version runner bounds synthetic child output and cleans its POSIX process group", async () => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "m31-i1-probe-")));
+posixTools(
+  "Host version runner bounds synthetic child output and cleans its POSIX process group",
+  async () => {
+    const root = await realpath(await mkdtemp(join(tmpdir(), "m31-i1-probe-")));
 
-  try {
-    const script = join(root, "synthetic.ts");
-    await writeFile(script, 'process.stdout.write("synthetic-v1");');
-    expect(
-      await runHostVersion(
-        { executable: process.execPath, argv: [script], cwd: root },
-        new AbortController().signal
-      )
-    ).toEqual({ exitCode: 0, stdout: "synthetic-v1", stderr: "" });
-    await writeFile(script, 'process.stdout.write("x".repeat(8192));');
-    await rejects(
-      runHostVersion(
-        { executable: process.execPath, argv: [script], cwd: root },
-        new AbortController().signal
-      ),
-      { reason: "too-large" }
-    );
-    const abort = new AbortController();
-    abort.abort();
-    await rejects(
-      runHostVersion({ executable: process.execPath, argv: [script], cwd: root }, abort.signal),
-      { reason: "cancelled" }
-    );
-  } finally {
-    await rm(root, { recursive: true, force: true });
+    try {
+      const script = join(root, "synthetic.ts");
+      await writeFile(script, 'process.stdout.write("synthetic-v1");');
+      expect(
+        await runHostVersion(
+          { executable: process.execPath, argv: [script], cwd: root },
+          new AbortController().signal
+        )
+      ).toEqual({ exitCode: 0, stdout: "synthetic-v1", stderr: "" });
+      await writeFile(script, 'process.stdout.write("x".repeat(8192));');
+      await rejects(
+        runHostVersion(
+          { executable: process.execPath, argv: [script], cwd: root },
+          new AbortController().signal
+        ),
+        { reason: "too-large" }
+      );
+      const abort = new AbortController();
+      abort.abort();
+      await rejects(
+        runHostVersion({ executable: process.execPath, argv: [script], cwd: root }, abort.signal),
+        { reason: "cancelled" }
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   }
-});
+);
 
 test("probe disposal awaits the resource-bearing runner instead of abandoning cancelled cleanup", async () => {
   let finish = () => {};

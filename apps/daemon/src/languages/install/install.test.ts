@@ -1,4 +1,4 @@
-import { test, expect } from "bun:test";
+import { expect } from "bun:test";
 import { rejects } from "node:assert/strict";
 import { readFile, writeFile, mkdir, rm, symlink } from "node:fs/promises";
 import { join, dirname } from "node:path";
@@ -7,6 +7,11 @@ import { LanguageInstallProgress } from "@polaris/protocol";
 import { createInstaller } from "./index.ts";
 import { artifactFixture, fixture, hostId, platform } from "./fixture.testing.ts";
 import type { ArtifactPayload, Progress } from "./types.ts";
+import { posixTest } from "../../platform/testing.ts";
+
+const test = posixTest(
+  "language storage is checked private by POSIX owner and mode bits; Windows needs ACL checks (ENG-314)"
+);
 
 async function rejected(promise: Promise<unknown>, reason: string) {
   await rejects(promise, (cause: unknown) =>

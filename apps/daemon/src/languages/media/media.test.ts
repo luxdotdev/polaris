@@ -27,7 +27,11 @@ import {
   type MediaInput,
 } from "./index.ts";
 import type { MediaPhase } from "./files.ts";
-import { shortTemp } from "../../platform/testing.ts";
+import { posixTest, shortTemp } from "../../platform/testing.ts";
+
+const posixMedia = posixTest(
+  "Host media reads need descriptor-relative NOFOLLOW opens, /dev/fd and FIFOs (ENG-296)"
+);
 
 const png = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=",
@@ -109,7 +113,7 @@ async function rejected(value: MediaInput, reason: LanguageError["reason"] = "in
   expect(blobs.blobs.size).toBe(count);
 }
 
-test("actual raster bytes use the request BlobChannel without execution trust", async () => {
+posixMedia("actual raster bytes use the request BlobChannel without execution trust", async () => {
   const result = await run();
 
   if (result instanceof LanguageError) throw result;
@@ -152,24 +156,27 @@ test("registered checkout identity and path cannot be supplied by the requester"
   await rejected({ ...input, checkout: worktree });
 });
 
-test("registered Worktrees and Review Checkouts work with independent Workspace membership", async () => {
-  for (const registered of [
-    LanguageCheckout.cases.Worktree.make({
-      workspaceId: checkout.workspaceId,
-      worktreeId: WorktreeId.make("tree"),
-      path: root,
-    }),
-    LanguageCheckout.cases.ReviewCheckout.make({
-      workspaceId: checkout.workspaceId,
-      reviewCheckoutId: ReviewCheckoutId.make("review"),
-      path: root,
-    }),
-  ]) {
-    checkout = registered;
-    const result = await run({ ...input, checkout });
-    expect(result).not.toBeInstanceOf(LanguageError);
+posixMedia(
+  "registered Worktrees and Review Checkouts work with independent Workspace membership",
+  async () => {
+    for (const registered of [
+      LanguageCheckout.cases.Worktree.make({
+        workspaceId: checkout.workspaceId,
+        worktreeId: WorktreeId.make("tree"),
+        path: root,
+      }),
+      LanguageCheckout.cases.ReviewCheckout.make({
+        workspaceId: checkout.workspaceId,
+        reviewCheckoutId: ReviewCheckoutId.make("review"),
+        path: root,
+      }),
+    ]) {
+      checkout = registered;
+      const result = await run({ ...input, checkout });
+      expect(result).not.toBeInstanceOf(LanguageError);
+    }
   }
-});
+);
 
 test("lexical traversal, absolute paths, URLs and foreign documents are rejected", async () => {
   for (const relativePath of [
@@ -184,7 +191,7 @@ test("lexical traversal, absolute paths, URLs and foreign documents are rejected
   await rejected({ ...input, documentPath: "/etc/passwd" });
 });
 
-test("contained parent navigation and contained symlinks remain usable", async () => {
+posixMedia("contained parent navigation and contained symlinks remain usable", async () => {
   await writeFile(join(root, "a.png"), png);
   await symlink(join(root, "a.png"), join(root, "docs/link.png"));
 
@@ -200,14 +207,14 @@ test("canonical document and raster symlinks cannot leave checkout", async () =>
   await rejected({ ...input, relativePath: "out.png" });
 });
 
-test("active SVG/HTML and deceptive raster extensions never authorize content", async () => {
+posixMedia("active SVG/HTML and deceptive raster extensions never authorize content", async () => {
   for (const bytes of ["<svg onload='alert(1)'/>", "<html><script>1</script>", "not a png", ""]) {
     await writeFile(join(root, "docs/a.png"), bytes);
     await rejected(input);
   }
 });
 
-test("supported raster signatures and AVIF brands are bounded data", async () => {
+posixMedia("supported raster signatures and AVIF brands are bounded data", async () => {
   const avif = Buffer.alloc(24);
   avif.writeUInt32BE(24);
   avif.write("ftyp", 4);
@@ -230,7 +237,7 @@ test("supported raster signatures and AVIF brands are bounded data", async () =>
   await rejected(input);
 });
 
-test("caller limits and protocol ceiling reject oversize before offer", async () => {
+posixMedia("caller limits and protocol ceiling reject oversize before offer", async () => {
   await rejected({ ...input, maxBytes: png.length - 1 }, "too-large");
   await rejected({ ...input, maxBytes: 10485761 });
   await rejected({ ...input, maxBytes: 0 });
@@ -238,24 +245,28 @@ test("caller limits and protocol ceiling reject oversize before offer", async ()
   await rejected(input, "too-large");
 });
 
-test("directory and missing media faults leave no Blob", async () => {
+posixMedia("directory and missing media faults leave no Blob", async () => {
   await rejected({ ...input, relativePath: "." });
   await rejected({ ...input, relativePath: "missing.png" });
   await rejected({ ...input, documentPath: join(root, "docs") });
 });
 
 for (const phase of ["resolved", "opened", "read"] as const) {
-  test(`replacement at ${phase} cannot deliver raced bytes`, async () => {
-    const result = await run(input, async (current) => {
-      if (current !== phase) return;
-      await rename(join(root, "docs/a.png"), join(root, "docs/old.png"));
-      await symlink("/etc/passwd", join(root, "docs/a.png"));
-    });
+  // Windows catches a replacement at resolved; the later phases need descriptor-relative reads.
+  (phase === "resolved" ? test : posixMedia)(
+    `replacement at ${phase} cannot deliver raced bytes`,
+    async () => {
+      const result = await run(input, async (current) => {
+        if (current !== phase) return;
+        await rename(join(root, "docs/a.png"), join(root, "docs/old.png"));
+        await symlink("/etc/passwd", join(root, "docs/a.png"));
+      });
 
-    expect(result).toBeInstanceOf(LanguageError);
-    expect(blobs.blobs.size).toBe(0);
-    expect(await readFile(join(root, "docs/old.png"))).toEqual(png);
-  });
+      expect(result).toBeInstanceOf(LanguageError);
+      expect(blobs.blobs.size).toBe(0);
+      expect(await readFile(join(root, "docs/old.png"))).toEqual(png);
+    }
+  );
 }
 
 test("directory ancestor substitution is rejected by descriptor-relative NOFOLLOW", async () => {
@@ -282,27 +293,30 @@ test("document replacement and media mutation after read invalidate delivery", a
   }
 });
 
-test("membership revocation after filesystem waits and immediately before offer fails closed", async () => {
-  expect(
-    await run(input, async (phase) => {
-      if (phase === "read") allowed = false;
-    })
-  ).toMatchObject({ reason: "not-owner" });
-  allowed = true;
-  calls = 0;
-  const original = authority.authorize;
-  authority = PreviewMediaAuthority.of({
-    authorize: async (checkout, signal) => {
-      if (calls === 2) allowed = false;
+posixMedia(
+  "membership revocation after filesystem waits and immediately before offer fails closed",
+  async () => {
+    expect(
+      await run(input, async (phase) => {
+        if (phase === "read") allowed = false;
+      })
+    ).toMatchObject({ reason: "not-owner" });
+    allowed = true;
+    calls = 0;
+    const original = authority.authorize;
+    authority = PreviewMediaAuthority.of({
+      authorize: async (checkout, signal) => {
+        if (calls === 2) allowed = false;
 
-      return original(checkout, signal);
-    },
-  });
-  expect(await run()).toMatchObject({ reason: "not-owner" });
-  expect(blobs.blobs.size).toBe(0);
-});
+        return original(checkout, signal);
+      },
+    });
+    expect(await run()).toMatchObject({ reason: "not-owner" });
+    expect(blobs.blobs.size).toBe(0);
+  }
+);
 
-test("two authenticated request BlobChannels cannot exchange media tokens", async () => {
+posixMedia("two authenticated request BlobChannels cannot exchange media tokens", async () => {
   const service = createHostPreviewMedia();
   const first = blobs;
   const result = await request(service);
@@ -314,78 +328,87 @@ test("two authenticated request BlobChannels cannot exchange media tokens", asyn
   expect(blobs.blobs.size).toBe(0);
 });
 
-test("interruption retains admission until actual filesystem cleanup and never offers late", async () => {
-  let enter!: () => void;
-  let release!: () => void;
+posixMedia(
+  "interruption retains admission until actual filesystem cleanup and never offers late",
+  async () => {
+    let enter!: () => void;
+    let release!: () => void;
 
-  const entered = new Promise<void>((resolve) => {
-    enter = resolve;
-  });
-
-  const held = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-
-  const service = createHostPreviewMedia({
-    maxConcurrent: 1,
-    phase: async (phase) => {
-      if (phase === "opened") {
-        enter();
-        await held;
-      }
-    },
-  });
-
-  const controller = new AbortController();
-
-  const operation = Effect.runPromiseExit(
-    service
-      .read(input)
-      .pipe(Effect.provideService(PreviewMediaAuthority, authority), Effect.provide(blobs.layer)),
-    { signal: controller.signal }
-  );
-
-  await entered;
-  controller.abort();
-  expect(await request(service)).toMatchObject({ reason: "queue-full" });
-  release();
-  await operation;
-  expect(blobs.blobs.size).toBe(0);
-  expect(await request(service)).not.toBeInstanceOf(LanguageError);
-});
-
-test("filesystem mutation during final authority wait is caught before Blob offer", async () => {
-  const original = authority.authorize;
-  authority = PreviewMediaAuthority.of({
-    authorize: async (checkout, signal) => {
-      const result = await original(checkout, signal);
-
-      if (calls === 3) await writeFile(join(root, "docs/a.png"), "replaced during authorization");
-
-      return result;
-    },
-  });
-  expect(await run()).toMatchObject({ reason: "conflict" });
-  expect(blobs.blobs.size).toBe(0);
-});
-
-test("actual descriptors close after successful delivery, faults and interrupted reads", async () => {
-  const { readdirSync } = await import("node:fs");
-  const count = () => readdirSync("/dev/fd").length;
-  const before = count();
-
-  for (let index = 0; index < 12; index++) {
-    await run();
-    await run(input, async (phase) => {
-      if (phase === "opened") throw new Error("fixture read fault");
+    const entered = new Promise<void>((resolve) => {
+      enter = resolve;
     });
+
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+
+    const service = createHostPreviewMedia({
+      maxConcurrent: 1,
+      phase: async (phase) => {
+        if (phase === "opened") {
+          enter();
+          await held;
+        }
+      },
+    });
+
+    const controller = new AbortController();
+
+    const operation = Effect.runPromiseExit(
+      service
+        .read(input)
+        .pipe(Effect.provideService(PreviewMediaAuthority, authority), Effect.provide(blobs.layer)),
+      { signal: controller.signal }
+    );
+
+    await entered;
+    controller.abort();
+    expect(await request(service)).toMatchObject({ reason: "queue-full" });
+    release();
+    await operation;
+    expect(blobs.blobs.size).toBe(0);
+    expect(await request(service)).not.toBeInstanceOf(LanguageError);
   }
+);
 
-  // /dev/fd is the whole process: other tests' descriptors may close meanwhile, never open.
-  expect(count()).toBeLessThanOrEqual(before);
-});
+posixMedia(
+  "filesystem mutation during final authority wait is caught before Blob offer",
+  async () => {
+    const original = authority.authorize;
+    authority = PreviewMediaAuthority.of({
+      authorize: async (checkout, signal) => {
+        const result = await original(checkout, signal);
 
-test("Blob offer defect releases admission and descriptors", async () => {
+        if (calls === 3) await writeFile(join(root, "docs/a.png"), "replaced during authorization");
+
+        return result;
+      },
+    });
+    expect(await run()).toMatchObject({ reason: "conflict" });
+    expect(blobs.blobs.size).toBe(0);
+  }
+);
+
+posixMedia(
+  "actual descriptors close after successful delivery, faults and interrupted reads",
+  async () => {
+    const { readdirSync } = await import("node:fs");
+    const count = () => readdirSync("/dev/fd").length;
+    const before = count();
+
+    for (let index = 0; index < 12; index++) {
+      await run();
+      await run(input, async (phase) => {
+        if (phase === "opened") throw new Error("fixture read fault");
+      });
+    }
+
+    // /dev/fd is the whole process: other tests' descriptors may close meanwhile, never open.
+    expect(count()).toBeLessThanOrEqual(before);
+  }
+);
+
+posixMedia("Blob offer defect releases admission and descriptors", async () => {
   const { readdirSync } = await import("node:fs");
   const before = readdirSync("/dev/fd").length;
   const service = createHostPreviewMedia({ maxConcurrent: 1 });
@@ -412,38 +435,41 @@ test("Blob offer defect releases admission and descriptors", async () => {
   expect(await request(service)).not.toBeInstanceOf(LanguageError);
 });
 
-test("default admission accepts four requests and bounds the fifth until settlement", async () => {
-  let release!: () => void;
-  let entered!: () => void;
-  let opened = 0;
+posixMedia(
+  "default admission accepts four requests and bounds the fifth until settlement",
+  async () => {
+    let release!: () => void;
+    let entered!: () => void;
+    let opened = 0;
 
-  const held = new Promise<void>((resolve) => {
-    release = resolve;
-  });
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
 
-  const ready = new Promise<void>((resolve) => {
-    entered = resolve;
-  });
+    const ready = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
 
-  const service = createHostPreviewMedia({
-    phase: async (phase) => {
-      if (phase !== "opened") return;
+    const service = createHostPreviewMedia({
+      phase: async (phase) => {
+        if (phase !== "opened") return;
 
-      if (++opened === 4) entered();
-      await held;
-    },
-  });
+        if (++opened === 4) entered();
+        await held;
+      },
+    });
 
-  const operations = Array.from({ length: 4 }, () => request(service));
-  await ready;
-  expect(await request(service)).toMatchObject({ reason: "queue-full" });
-  release();
-  const results = await Promise.all(operations);
-  expect(results.every((result) => !(result instanceof LanguageError))).toBe(true);
-  expect(blobs.blobs.size).toBe(4);
-});
+    const operations = Array.from({ length: 4 }, () => request(service));
+    await ready;
+    expect(await request(service)).toMatchObject({ reason: "queue-full" });
+    release();
+    const results = await Promise.all(operations);
+    expect(results.every((result) => !(result instanceof LanguageError))).toBe(true);
+    expect(blobs.blobs.size).toBe(4);
+  }
+);
 
-test("pre-cancelled request offers no Blob and leaves admission reusable", async () => {
+posixMedia("pre-cancelled request offers no Blob and leaves admission reusable", async () => {
   const controller = new AbortController();
   controller.abort();
   await Effect.runPromiseExit(
@@ -457,17 +483,20 @@ test("pre-cancelled request offers no Blob and leaves admission reusable", async
   expect(await run()).not.toBeInstanceOf(LanguageError);
 });
 
-test("FIFO media is rejected without blocking and cleanup allows another request", async () => {
-  const process = Bun.spawnSync(["mkfifo", join(root, "docs/fifo.png")], {
-    stdout: "pipe",
-    stderr: "pipe",
-  });
+posixMedia(
+  "FIFO media is rejected without blocking and cleanup allows another request",
+  async () => {
+    const process = Bun.spawnSync(["mkfifo", join(root, "docs/fifo.png")], {
+      stdout: "pipe",
+      stderr: "pipe",
+    });
 
-  expect(process.exitCode).toBe(0);
-  const service = createHostPreviewMedia({ maxConcurrent: 1 });
-  expect(await request(service, { ...input, relativePath: "fifo.png" })).toMatchObject({
-    reason: "invalid-input",
-  });
-  expect(blobs.blobs.size).toBe(0);
-  expect(await request(service)).not.toBeInstanceOf(LanguageError);
-});
+    expect(process.exitCode).toBe(0);
+    const service = createHostPreviewMedia({ maxConcurrent: 1 });
+    expect(await request(service, { ...input, relativePath: "fifo.png" })).toMatchObject({
+      reason: "invalid-input",
+    });
+    expect(blobs.blobs.size).toBe(0);
+    expect(await request(service)).not.toBeInstanceOf(LanguageError);
+  }
+);

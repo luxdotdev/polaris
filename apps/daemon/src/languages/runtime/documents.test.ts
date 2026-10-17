@@ -7,6 +7,11 @@ import {
   WorkspaceId,
 } from "@polaris/protocol";
 import { Documents, positionOffset } from "./documents.ts";
+import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+
+/** A drive-rooted path on Windows, where a file URI needs one; as written on POSIX. */
+const project = resolve("/private/tmp/project");
 
 const context = LanguageContextIdentity.make({
   hostId: HostId.make("host"),
@@ -14,15 +19,15 @@ const context = LanguageContextIdentity.make({
   contextId: "context",
   checkout: LanguageCheckout.cases.Workspace.make({
     workspaceId: WorkspaceId.make("workspace"),
-    path: "/private/tmp/project",
+    path: project,
   }),
-  projectRoot: "/private/tmp/project",
+  projectRoot: project,
   providerId: "fake",
   configurationFingerprint: "a".repeat(64),
   generation: 1,
 });
 
-const uri = "file:///private/tmp/project/file.ts";
+const uri = pathToFileURL(join(project, "file.ts")).href;
 
 test("Unicode scalar boundaries and CRLF positions use negotiated encoding", () => {
   const text = "a😀é\r\nz";
@@ -85,7 +90,7 @@ test("incremental changes, duplicate/gap/previous versions and invalid URI do no
     docs.apply(
       3,
       LanguageDocumentNotification.cases.Open.make({
-        uri: "file:///private/tmp/sibling/file.ts",
+        uri: pathToFileURL(resolve("/private/tmp/sibling/file.ts")).href,
         languageId: "typescript",
         version: 1,
         text: "bad",

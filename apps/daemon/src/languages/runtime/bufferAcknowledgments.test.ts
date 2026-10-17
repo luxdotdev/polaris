@@ -5,6 +5,11 @@ import {
   type BufferAcknowledgmentAuthority,
 } from "./bufferAcknowledgments.ts";
 import { Documents } from "./documents.ts";
+import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+
+/** A drive-rooted path on Windows, where a file URI needs one; as written on POSIX. */
+const project = resolve("/private/tmp/project");
 
 const context = P.LanguageContextIdentity.make({
   hostId: P.HostId.make("host"),
@@ -12,15 +17,15 @@ const context = P.LanguageContextIdentity.make({
   contextId: "context",
   checkout: P.LanguageCheckout.cases.Workspace.make({
     workspaceId: P.WorkspaceId.make("workspace"),
-    path: "/private/tmp/project",
+    path: project,
   }),
-  projectRoot: "/private/tmp/project",
+  projectRoot: project,
   providerId: "fake",
   configurationFingerprint: "a".repeat(64),
   generation: 1,
 });
 
-const uri = "file:///private/tmp/project/file.ts";
+const uri = pathToFileURL(join(project, "file.ts")).href;
 
 const text = "private unsaved text";
 
@@ -200,7 +205,7 @@ test("entry/byte budgets refuse growth and close releases reserved bytes", () =>
   const f = fixture({ entries: 1, bytes: 100 });
   f.open();
   f.store.record(f.fence(), f.buffer);
-  const other = "file:///private/tmp/project/other.ts";
+  const other = pathToFileURL(join(project, "other.ts")).href;
   f.open(other);
   refused(() => f.store.record(f.fence(other), { ...f.buffer, uri: other }));
   expect(f.store.read(f.fence(), uri)).toEqual(f.buffer);

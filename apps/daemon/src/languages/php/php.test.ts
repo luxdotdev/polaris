@@ -150,7 +150,10 @@ test("the launch runs the PHAR on the Host's PHP with Phpactor's own trust store
       const plan = await phpactorLaunch(facts, installed, phpactor.requirements, probes);
       expect(plan.launch.executable).toBe(php);
       expect(plan.runtimeExecutable).toBe(php);
-      expect(plan.launch.args).toEqual(["/managed/phpactor/phpactor.phar", "language-server"]);
+      expect(plan.launch.args).toEqual([
+        join(installed.directory, "phpactor.phar"),
+        "language-server",
+      ]);
       expect(plan.launch.environment).toEqual(
         workspaceTrusted
           ? { PHPACTOR_UNCONDITIONAL_TRUST: "1" }

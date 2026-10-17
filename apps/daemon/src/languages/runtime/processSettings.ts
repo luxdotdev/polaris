@@ -86,12 +86,16 @@ export async function createProcessSettings(
           await rename(temporary, path);
           current = next;
           await apply(current.maxProcesses ?? automaticLimit);
-          const parent = await open(directory, "r");
 
-          try {
-            await parent.sync();
-          } finally {
-            await parent.close();
+          // Windows opens no directory for fsync (EPERM); NTFS journals the rename itself.
+          if (process.platform !== "win32") {
+            const parent = await open(directory, "r");
+
+            try {
+              await parent.sync();
+            } finally {
+              await parent.close();
+            }
           }
 
           return snapshot();

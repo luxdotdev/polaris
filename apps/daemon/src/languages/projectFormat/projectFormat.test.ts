@@ -20,6 +20,11 @@ import {
   type PrivateNode,
 } from "./index.ts";
 import { nativePackages } from "./launch.ts";
+import { posixTest } from "../../platform/testing.ts";
+
+const posixTools = posixTest(
+  "the fake formatters and private Node are POSIX sh scripts and bin/ names; Windows resolves .cmd/.exe (ENG-296)"
+);
 
 type Fixture = Awaited<ReturnType<typeof fixture>>;
 
@@ -191,7 +196,7 @@ describe("Rust and Lua", () => {
       expect(await detectProjectFormatter(f.root, ts)).toMatchObject({ tool: "prettier" });
     }));
 
-  test("StyLua gets the buffer on stdin with the file's path", () =>
+  posixTools("StyLua gets the buffer on stdin with the file's path", () =>
     withFixture(async (f) => {
       await f.put(".stylua.toml", "");
       await fakeBinary(f, "node_modules/.bin/stylua");
@@ -207,7 +212,8 @@ describe("Rust and Lua", () => {
       expect(await Bun.file(join(f.root, "args.txt")).text()).toBe(
         `${f.root}\n--stdin-filepath\n${join(f.root, "a.lua")}\n-\n`
       );
-    }));
+    })
+  );
 });
 
 describe("ignore matcher", () => {
@@ -234,7 +240,7 @@ describe("formatting", () => {
       shimNode
     );
 
-  test("runs the checkout's binary on the buffer text from the config's directory", () =>
+  posixTools("runs the checkout's binary on the buffer text from the config's directory", () =>
     withFixture(async (f) => {
       await f.put("packages/web/.prettierrc", "{}");
       await fakeBinary(f, "node_modules/.bin/prettier");
@@ -246,18 +252,20 @@ describe("formatting", () => {
       expect(await Bun.file(join(f.root, "args.txt")).text()).toBe(
         `${join(f.root, "packages/web")}\n--stdin-filepath\n${file}\n`
       );
-    }));
+    })
+  );
 
-  test("a file that doesn't exist yet formats by its directory", () =>
+  posixTools("a file that doesn't exist yet formats by its directory", () =>
     withFixture(async (f) => {
       await f.put(".prettierrc", "{}");
       await fakeBinary(f, "node_modules/.bin/prettier");
       await f.put("src/existing.ts");
 
       expect(await format(f, join(f.root, "src/new.ts"), "x")).toEqual(formatted("X"));
-    }));
+    })
+  );
 
-  test("ignored, missing and failing formatters never change text", () =>
+  posixTools("ignored, missing and failing formatters never change text", () =>
     withFixture(async (f) => {
       await f.put(".prettierrc", "{}");
       await f.put(".prettierignore", "generated/\n");
@@ -271,9 +279,10 @@ describe("formatting", () => {
 
       await fakeBinary(f, "node_modules/.bin/prettier", "echo 'SyntaxError: nope' >&2; exit 2");
       expect(await format(f, file, "x")).toEqual(failed("formatter-failed", "SyntaxError: nope"));
-    }));
+    })
+  );
 
-  test("a slow formatter times out", () =>
+  posixTools("a slow formatter times out", () =>
     withFixture(async (f) => {
       await f.put(".prettierrc", "{}");
       await fakeBinary(f, "node_modules/.bin/prettier", "sleep 5");
@@ -288,7 +297,8 @@ describe("formatting", () => {
       );
 
       expect(outcome).toEqual(failed("timeout", "prettier timed out"));
-    }));
+    })
+  );
 
   test("with no formatter the outcome says so", () =>
     withFixture(async (f) => {
@@ -299,7 +309,7 @@ describe("formatting", () => {
 });
 
 describe("Trust", () => {
-  test("the formatter runs only inside a trusted checkout", () =>
+  posixTools("the formatter runs only inside a trusted checkout", () =>
     withFixture(async (f) => {
       await f.put(".prettierrc", "{}");
       await fakeBinary(f, "node_modules/.bin/prettier");
@@ -327,7 +337,8 @@ describe("Trust", () => {
 
       await createExecutionTrust(options).set(f.checkout, true, 0);
       expect(await Effect.runPromise(run)).toEqual(formatted("X"));
-    }));
+    })
+  );
 });
 
 describe("this repository", () => {
@@ -335,7 +346,7 @@ describe("this repository", () => {
 
   const realNode = Bun.which("node");
 
-  test.skipIf(realNode === null)(
+  (realNode === null ? test.skip : posixTools)(
     "formats with its own oxfmt and config on the private Node, with an empty PATH",
     async () => {
       const checkout = LanguageCheckout.cases.Workspace.make({
@@ -416,7 +427,7 @@ describe("runtime", () => {
       node
     );
 
-  test("a Node entry point runs on the private Node, with an empty PATH", () =>
+  posixTools("a Node entry point runs on the private Node, with an empty PATH", () =>
     withFixture(async (f) => {
       await f.put(".prettierrc", "{}");
       const node = await privateNode(f);
@@ -427,9 +438,10 @@ describe("runtime", () => {
       expect(await Bun.file(join(f.temporary, "node-args.txt")).text()).toBe(
         `${node}\n${entry}\n--stdin-filepath\n${file}\n`
       );
-    }));
+    })
+  );
 
-  test("a shell shim's `node` is the private Node, never the one on the Daemon's PATH", () =>
+  posixTools("a shell shim's `node` is the private Node, never the one on the Daemon's PATH", () =>
     withFixture(async (f) => {
       await f.put(".prettierrc", "{}");
       const node = await privateNode(f);
@@ -442,7 +454,8 @@ describe("runtime", () => {
 
       for (const path of ["", join(f.temporary, "user/bin")])
         expect(await withPath(path, () => run(f, async () => node, file))).toEqual(formatted("X"));
-    }));
+    })
+  );
 
   test("without the private Node, a Node tool doesn't run", () =>
     withFixture(async (f) => {
@@ -455,7 +468,7 @@ describe("runtime", () => {
       );
     }));
 
-  test("a native platform binary runs directly, without any Node", () =>
+  posixTools("a native platform binary runs directly, without any Node", () =>
     withFixture(async (f) => {
       await f.put("biome.json", "{}");
       const [name] = nativePackages("biome");
@@ -468,7 +481,8 @@ describe("runtime", () => {
       expect(await withPath("", () => run(f, async () => null, file))).toEqual(
         formatted("X", "biome")
       );
-    }));
+    })
+  );
 
   test("the child's PATH puts the private Node first", () => {
     expect(formatterPath("/p/node/bin/node", "/usr/bin:/bin")).toBe("/p/node/bin:/usr/bin:/bin");

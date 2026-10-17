@@ -11,7 +11,11 @@ import { countTokens } from "@polaris/predict";
 import { ContextAssembler } from "./assemble.ts";
 import { readSource } from "./files.ts";
 import { budgetContext } from "./budget.ts";
-import { shortTemp } from "../platform/testing.ts";
+import { posixTest, shortTemp } from "../platform/testing.ts";
+
+const pinnedReadTest = posixTest(
+  "imported sources are read descriptor-relative through POSIX openat (languages/media/native.ts) (ENG-296)"
+);
 
 const roots: string[] = [];
 
@@ -39,55 +43,77 @@ async function fixture() {
   return { root, request, path: join(root, "file.ts"), signal: new AbortController().signal };
 }
 
-test("untrusted context uses bounded outlines, reflects imported edits, and freezes history until a pause", async () => {
-  const f = await fixture();
-  const assembler = new ContextAssembler();
+pinnedReadTest(
+  "untrusted context uses bounded outlines, reflects imported edits, and freezes history until a pause",
+  async () => {
+    const f = await fixture();
+    const assembler = new ContextAssembler();
 
-  const owner = LanguageConnectionIdentity.make({
-    hostId: HostId.make("host"),
-    clientId: "client",
-  });
+    const owner = LanguageConnectionIdentity.make({
+      hostId: HostId.make("host"),
+      clientId: "client",
+    });
 
-  const first = await assembler.assemble(
-    owner,
-    f.root,
-    f.path,
-    f.request,
-    undefined,
-    f.signal,
-    1000
-  );
+    const first = await assembler.assemble(
+      owner,
+      f.root,
+      f.path,
+      f.request,
+      undefined,
+      f.signal,
+      1000
+    );
 
-  expect(first.map((piece) => piece.kind)).toEqual(["importOutline", "editHunk"]);
-  expect(first[0]?.text).not.toContain("hidden");
+    expect(first.map((piece) => piece.kind)).toEqual(["importOutline", "editHunk"]);
+    expect(first[0]?.text).not.toContain("hidden");
 
-  const changed = {
-    ...f.request,
-    recentEdits: [{ path: "file.ts", from: 1, to: 1, text: "second edit" }],
-  };
+    const changed = {
+      ...f.request,
+      recentEdits: [{ path: "file.ts", from: 1, to: 1, text: "second edit" }],
+    };
 
-  const burst = await assembler.assemble(owner, f.root, f.path, changed, undefined, f.signal, 1100);
-  expect(burst).toEqual(first);
-  const pause = await assembler.assemble(owner, f.root, f.path, changed, undefined, f.signal, 1700);
-  expect(pause.at(-1)?.text).toContain("second edit");
-  await writeFile(
-    join(f.root, "dep.ts"),
-    "export function replacement(value: string): boolean { return true; }"
-  );
+    const burst = await assembler.assemble(
+      owner,
+      f.root,
+      f.path,
+      changed,
+      undefined,
+      f.signal,
+      1100
+    );
 
-  const edited = await assembler.assemble(
-    owner,
-    f.root,
-    f.path,
-    changed,
-    undefined,
-    f.signal,
-    1800
-  );
+    expect(burst).toEqual(first);
 
-  expect(edited[0]?.text).toContain("replacement");
-  expect(edited[0]?.text).not.toContain("function value");
-});
+    const pause = await assembler.assemble(
+      owner,
+      f.root,
+      f.path,
+      changed,
+      undefined,
+      f.signal,
+      1700
+    );
+
+    expect(pause.at(-1)?.text).toContain("second edit");
+    await writeFile(
+      join(f.root, "dep.ts"),
+      "export function replacement(value: string): boolean { return true; }"
+    );
+
+    const edited = await assembler.assemble(
+      owner,
+      f.root,
+      f.path,
+      changed,
+      undefined,
+      f.signal,
+      1800
+    );
+
+    expect(edited[0]?.text).toContain("replacement");
+    expect(edited[0]?.text).not.toContain("function value");
+  }
+);
 
 test("file reads refuse symlink escape, large files and cancellation", async () => {
   const f = await fixture();
