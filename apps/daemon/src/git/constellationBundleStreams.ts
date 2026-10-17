@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect, Stream } from "effect";
 import { BlobChannel, ServiceError } from "../services.ts";
-import { gitText, resolveCommit } from "./git.ts";
+import { gitText, HOOKS_OFF, resolveCommit } from "./git.ts";
 import { gitOperation, transferError } from "../constellation/worktrees.ts";
 
 const temporary = () => gitOperation(() => mkdtemp(join(tmpdir(), "polaris-bundle-")));
@@ -85,8 +85,7 @@ export const takeBundle = Effect.fnUntraced(function* (options: {
         )
           throw new Error("The bundle does not advertise the expected commit");
         await gitText(options.repoPath, [
-          "-c",
-          "core.hooksPath=/dev/null",
+          ...HOOKS_OFF,
           "fetch",
           "--no-tags",
           "--no-write-fetch-head",

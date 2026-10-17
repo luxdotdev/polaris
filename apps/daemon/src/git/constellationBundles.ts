@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
-import { gitText, runGit, runGitRaw, resolveCommit } from "./git.ts";
+import { gitText, HOOKS_OFF, runGit, runGitRaw, resolveCommit } from "./git.ts";
 
 export const constellationRef = (constellationId: string, attemptId: string | null) =>
   `refs/polaris/constellations/${createHash("sha256").update(constellationId).digest("hex")}/${attemptId === null ? "base" : createHash("sha256").update(attemptId).digest("hex")}`;
@@ -52,8 +52,7 @@ export const importBundle = async (options: {
     if (advertised !== `${options.head} ${options.ref}`)
       throw new Error("The bundle does not advertise the expected commit and ref");
     await gitText(options.repoPath, [
-      "-c",
-      "core.hooksPath=/dev/null",
+      ...HOOKS_OFF,
       "fetch",
       "--no-tags",
       "--no-write-fetch-head",
@@ -101,8 +100,7 @@ export const fetchOrigin = async (
     await runGit(
       repoPath,
       [
-        "-c",
-        "core.hooksPath=/dev/null",
+        ...HOOKS_OFF,
         "fetch",
         "--no-tags",
         "--no-write-fetch-head",
@@ -116,11 +114,11 @@ export const fetchOrigin = async (
 
     if ((await resolveCommit(repoPath, temporaryRef)) !== head)
       throw new Error("Origin's branch does not match the Claim head");
-    await gitText(repoPath, ["-c", "core.hooksPath=/dev/null", "update-ref", targetRef, head]);
+    await gitText(repoPath, [...HOOKS_OFF, "update-ref", targetRef, head]);
 
     return { head };
   } finally {
-    await gitText(repoPath, ["-c", "core.hooksPath=/dev/null", "update-ref", "-d", temporaryRef]);
+    await gitText(repoPath, [...HOOKS_OFF, "update-ref", "-d", temporaryRef]);
   }
 };
 

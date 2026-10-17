@@ -6,9 +6,12 @@
  */
 export type SafeMode = "safe" | "trusted-fetch";
 
+/** A hooks directory that holds nothing; Git for Windows warns on `/dev/null` and takes `NUL`. */
+export const NO_HOOKS_PATH = process.platform === "win32" ? "NUL" : "/dev/null";
+
 /** Settings that run commands, turned off whatever any config says. */
 export const FIXED: ReadonlyArray<readonly [string, string]> = [
-  ["core.hooksPath", "/dev/null"],
+  ["core.hooksPath", NO_HOOKS_PATH],
   ["core.fsmonitor", "false"],
   ["log.showSignature", "false"],
   ["protocol.ext.allow", "never"],
@@ -163,7 +166,7 @@ export const globalOptions = (args: ReadonlyArray<string>): ReadonlyArray<string
 const INERT_VALUES = new Set([
   "core.splitIndex=false",
   "index.skipHash=true",
-  "core.hooksPath=/dev/null",
+  `core.hooksPath=${NO_HOOKS_PATH}`,
   "core.quotePath=true",
 ]);
 
