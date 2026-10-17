@@ -192,9 +192,12 @@ export const statusOutline = (
 
   if (graph.tasks.length === 0) lines.push("No tasks yet.");
 
+  // A worker writes the question: keep it on its own line of the Lead's status.
+  const oneLine = (text: string) => text.replace(/\s+/g, " ").trim();
+
   for (const { attemptId, question } of graph.openQuestions)
     lines.push(
-      `Question ${question.id} · ${attemptId} · to ${question.to}${question.blocking ? " · blocking" : ""}: ${question.text}`
+      `Question ${oneLine(question.id)} · ${attemptId} · to ${question.to}${question.blocking ? " · blocking" : ""}: ${oneLine(question.text)}`
     );
 
   for (const [id, proposal] of record.proposals) {

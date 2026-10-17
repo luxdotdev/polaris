@@ -65,7 +65,7 @@ export const notificationLine = (record: ConstellationRecord, n: ConstellationNo
     Match.tag(
       "Question",
       (i) =>
-        `${worker(i.attemptId)} asks ${i.question.to} (questionId ${i.question.id}${i.question.blocking ? ", blocking" : ""}): ${line(i.question.text)}`
+        `${worker(i.attemptId)} asks ${i.question.to} (questionId ${line(i.question.id)}${i.question.blocking ? ", blocking" : ""}): ${line(i.question.text)}`
     ),
     Match.tag("Proposal", (i) => {
       const task = record.proposals.get(i.proposalId)?.task;
@@ -89,7 +89,7 @@ export const notificationLine = (record: ConstellationRecord, n: ConstellationNo
     }),
     Match.tag(
       "QuestionAnswered",
-      (i) => `${worker(i.attemptId)} received an answer to ${i.questionId}: ${line(i.text)}`
+      (i) => `${worker(i.attemptId)} received an answer to ${line(i.questionId)}: ${line(i.text)}`
     ),
     Match.exhaustive
   );
