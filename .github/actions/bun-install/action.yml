@@ -1,0 +1,16 @@
+name: Install dependencies (cached)
+description: >-
+  `bun install --frozen-lockfile` with Bun's package cache restored from and saved to the
+  Actions cache, keyed on the OS, architecture and bun.lock. Run it after oven-sh/setup-bun.
+runs:
+  using: composite
+  steps:
+    - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: ${{ runner.temp }}/bun-install-cache
+        key: bun-install-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
+        restore-keys: bun-install-${{ runner.os }}-${{ runner.arch }}-
+    - shell: bash
+      env:
+        BUN_INSTALL_CACHE_DIR: ${{ runner.temp }}/bun-install-cache
+      run: bun install --frozen-lockfile

@@ -46,9 +46,11 @@ runs:
         if ($env:RELEASE -eq 'true') { $flags += '--release' }
         bun run --cwd apps/desktop package @flags
         if ($LASTEXITCODE -ne 0) { throw 'Windows packaging failed' }
-    - name: Install the x64 app and verify a native window opens (remote-only Client)
+    # Until the package carries its own Daemon (ENG-302), the pipe check serves the restored dist build.
+    - name: Install the x64 app, verify a native window opens, and reach a local Daemon over its pipe
       shell: pwsh
       run: |
         $installers = @(Get-ChildItem 'apps/desktop/out/dist/squirrel-x64' -Filter '*-x64-win-Setup.exe')
         if ($installers.Count -ne 1) { throw "Expected one x64 installer, found $($installers.Count)" }
-        ./apps/desktop/scripts/packaging/windows-smoke.ps1 -Installer $installers[0].FullName -Arch x64
+        ./apps/desktop/scripts/packaging/windows-smoke.ps1 -Installer $installers[0].FullName -Arch x64 `
+          -Daemon apps/daemon/dist/windows-x64/polaris.exe
