@@ -84,6 +84,11 @@ describe("claim refusals in the user's words", () => {
         "The lead's checkout has uncommitted changes, so 3f9c2e1 wasn't merged. Accept again once it's clear, or approve and let the lead merge.",
       offerApprove: true,
     });
+    expect(word("E-MERGE-SIGN")).toEqual({
+      message:
+        "The merge of polaris/c1/b1-quint-properties at 3f9c2e1 into polaris/c1/lead couldn't be signed, so nothing was merged. Merge and sign it yourself, then accept, or approve and let the lead merge.",
+      offerApprove: true,
+    });
     expect(word("E-LEAD-DETACHED").message).toContain("checkout isn't on a branch");
     expect(word("E-LEAD-MERGING").message).toContain("in the middle of a merge");
   });

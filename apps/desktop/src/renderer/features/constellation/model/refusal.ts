@@ -55,6 +55,13 @@ const WORDS = new Map<string, Word>([
       offerApprove: true,
     }),
   ],
+  [
+    "E-MERGE-SIGN",
+    (p) => ({
+      message: `The merge of ${p.branch} at ${shortSha(p.head)} into ${lead(p)} couldn't be signed, so nothing was merged. Merge and sign it yourself, then accept, or approve and let the lead merge.`,
+      offerApprove: true,
+    }),
+  ],
   ["E-LEAD-DIRTY", checkout("has uncommitted changes")],
   ["E-LEAD-DETACHED", checkout("isn't on a branch")],
   ["E-LEAD-MERGING", checkout("is in the middle of a merge")],
