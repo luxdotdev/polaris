@@ -386,7 +386,7 @@ const task = (): ReadonlyArray<MachineView> => [
             version: null,
             problem: {
               kind: "task-conflict",
-              message: "the scheduled task dev.lux.polaris.lucas is not a Polaris task",
+              message: "the scheduled task dev.lux.polaris.lucas is not your Polaris task",
               command: null,
               sshFailure: null,
             },

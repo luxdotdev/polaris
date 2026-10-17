@@ -6,8 +6,8 @@ export class InstallError extends Schema.TaggedError<InstallError>()("InstallErr
 }) {}
 
 /**
- * Windows: the task this home's install would register already runs another
- * Polaris home, which is still installed. `polaris install` exits 3 with it.
+ * Windows: the name this home's task would take holds another task: another installed
+ * Polaris home's, another account's, or not Polaris'. `polaris install` exits 3 with it.
  */
 export class TaskConflictError extends Schema.TaggedError<TaskConflictError>()(
   "TaskConflictError",
@@ -15,13 +15,15 @@ export class TaskConflictError extends Schema.TaggedError<TaskConflictError>()(
     task: Schema.String,
     /** The home this install is for. */
     home: Schema.String,
-    /** The home the existing task runs, or null when it isn't a Polaris task. */
+    /** The home the existing task runs, or null when it isn't this user's Polaris task (or can't be read). */
     otherHome: Schema.NullOr(Schema.String),
   }
 ) {
   override get message(): string {
     const owner =
-      this.otherHome === null ? "is not a Polaris task" : `runs the Polaris home ${this.otherHome}`;
+      this.otherHome === null
+        ? "is not your Polaris task"
+        : `runs the Polaris home ${this.otherHome}`;
 
     return `the scheduled task ${this.task} ${owner}, not ${this.home}; left it alone. Pass --replace-task to take it over.`;
   }

@@ -14,10 +14,14 @@ import { InstallError, TaskConflictError } from "./errors.ts";
 import type { ControlAnswer, ControlReply, ControlRequest } from "./windowsControl.ts";
 import {
   claimTask,
+  describeTask,
   type ExistingTask,
+  isOwnClaim,
+  readTask,
   stopsOtherHome,
+  taskAction,
   type TaskClaim,
-  taskWorkingDirectory,
+  UNREADABLE_TASK,
 } from "./windowsTask.ts";
 
 export interface WindowsTaskFacts {
@@ -174,45 +178,78 @@ export const deleteTask = Effect.fnUntraced(function* (name: string) {
 /** Task Scheduler's `TASK_STATE_RUNNING`: an instance of the task is running now. */
 const TASK_STATE_RUNNING = 4;
 
-/**
- * Whether an instance of the task `name` runs now, from Task Scheduler's COM API (a number,
- * where `schtasks /Query` prints a localized word); null when it couldn't say.
- */
-export const taskRunning = Effect.fnUntraced(function* (name: string) {
-  const runner = yield* CommandRunner;
-  const script = `$s = New-Object -ComObject Schedule.Service; $s.Connect(); [int]$s.GetFolder('\\').GetTask(${powershellQuote(name)}).State`;
+/** How long a Task Scheduler query may take: PowerShell can stall (CI runners); past this it can't say. */
+const TASK_SCHEDULER_QUERY_MS = 5000;
 
-  const result = yield* runner.run([
-    "powershell.exe",
-    "-NoLogo",
-    "-NoProfile",
-    "-NonInteractive",
-    "-EncodedCommand",
-    encodePowershell(script),
-  ]);
+/** A script on Task Scheduler's COM API: numbers and HRESULTs, where `schtasks` prints localized words. */
+const taskSchedulerScript = Effect.fnUntraced(function* (body: string) {
+  const runner = yield* CommandRunner;
+  const script = `$s = New-Object -ComObject Schedule.Service; $s.Connect(); ${body}`;
+
+  return yield* runner.run(
+    ["powershell.exe", "-NoLogo", "-NoProfile", "-NonInteractive", "-EncodedCommand"].concat(
+      encodePowershell(script)
+    ),
+    { timeoutMs: TASK_SCHEDULER_QUERY_MS }
+  );
+});
+
+/** Whether an instance of the task `name` runs now; null when Task Scheduler couldn't say. */
+export const taskRunning = Effect.fnUntraced(function* (name: string) {
+  const result = yield* taskSchedulerScript(
+    `[int]$s.GetFolder('\\').GetTask(${powershellQuote(name)}).State`
+  );
 
   const state = /^\s*(\d+)\s*$/.exec(result.stdout)?.[1];
 
   return result.code !== 0 || state === undefined ? null : Number(state) === TASK_STATE_RUNNING;
 });
 
-/** The task registered under `name`: the home it runs, and whether that home is still installed. */
-export const inspectTask = Effect.fnUntraced(function* (name: string) {
-  const xml = yield* queryTaskXml(name);
+/** `E_ACCESSDENIED`: a task has the name, but this user may not read it. */
+const ACCESS_DENIED = "80070005";
 
-  if (xml === null) return null;
-  const home = taskWorkingDirectory(xml);
-  const homeInstalled = home !== null && existsSync(join(home, "bin", "current", "polaris.exe"));
+/**
+ * Why `schtasks /Query` found no task: `unreadable` when Task Scheduler denies this user a
+ * task under the name (another account's), else `absent`, also when it can't say.
+ */
+export const missingTaskReason = Effect.fnUntraced(function* (name: string) {
+  const result = yield* taskSchedulerScript(
+    `try { $null = $s.GetFolder('\\').GetTask(${powershellQuote(name)}); 'readable' } catch { '{0:X8}' -f $_.Exception.HResult }`
+  );
 
-  return { home, homeInstalled } satisfies ExistingTask;
+  return result.stdout.trim().toUpperCase() === ACCESS_DENIED
+    ? ("unreadable" as const)
+    : ("absent" as const);
 });
 
-/** One home's task: its name, the home, and the definition file `schtasks /XML` reads. */
+/** One home's task: its name, the home, the definition file `schtasks /XML` reads, and its principal. */
 export interface WindowsTaskTarget {
   readonly task: string;
   readonly home: string;
   readonly definition: string;
+  /** This user's SID, from the process token: the principal `taskXml` registers. */
+  readonly userSid: string;
+  /** `%SystemRoot%`, where the action's conhost.exe and cmd.exe live. */
+  readonly systemRoot: string;
 }
+
+/**
+ * The task registered under the target's name: whose and what it runs. Its working
+ * directory is touched only when it is this user's Polaris task on a local drive.
+ */
+export const inspectTask = Effect.fnUntraced(function* (target: WindowsTaskTarget) {
+  const xml = yield* queryTaskXml(target.task);
+
+  if (xml === null)
+    return (yield* missingTaskReason(target.task)) === "absent" ? null : UNREADABLE_TASK;
+
+  const seen = describeTask(readTask(xml), target.userSid, taskAction(target.systemRoot));
+
+  const homeInstalled =
+    seen.home !== null && existsSync(join(seen.home, "bin", "current", "polaris.exe"));
+
+  return { ...seen, homeInstalled } satisfies ExistingTask;
+});
 
 const claimNote = (
   claim: TaskClaim,
@@ -220,6 +257,7 @@ const claimNote = (
   stoppedOther: boolean
 ): ReadonlyArray<string> =>
   Match.value(claim).pipe(
+    Match.when("stale", () => ["The task had an older definition; it was registered again."]),
     Match.when("abandoned", () => [
       `The task ran ${otherHome}, which has nothing installed; it runs this home now.`,
     ]),
@@ -243,7 +281,7 @@ export const activateWindowsTask = Effect.fnUntraced(function* (
   version: string,
   replace: boolean
 ) {
-  const existing = yield* inspectTask(target.task);
+  const existing = yield* inspectTask(target);
   const claim = claimTask(existing, target.home, replace);
   const otherHome = existing?.home ?? null;
 
@@ -284,12 +322,12 @@ export const activateWindowsTask = Effect.fnUntraced(function* (
 
 /**
  * Windows: stop this home's Daemon (its exit ends the task's loop) and delete the task,
- * only if it runs this home. Returns whether a Daemon stopped and the task left alone.
+ * only if it is this user's task for this home. Returns whether a Daemon stopped and the task left alone.
  */
 export const removeWindowsTask = Effect.fnUntraced(function* (target: WindowsTaskTarget) {
   const stopped = yield* stopDaemon(target.home, "uninstall");
-  const existing = yield* inspectTask(target.task);
-  const ours = claimTask(existing, target.home, false) === "ours";
+  const existing = yield* inspectTask(target);
+  const ours = isOwnClaim(claimTask(existing, target.home, false));
 
   if (ours) yield* deleteTask(target.task);
 

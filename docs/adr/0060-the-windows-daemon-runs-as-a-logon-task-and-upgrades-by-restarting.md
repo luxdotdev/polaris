@@ -116,6 +116,30 @@ NETWORK SID) and from a medium-integrity process in the signed-in session:
     the SSH installer never pass `--replace-task` on their own: the user confirms a take-over
     that says what stops.
   - `uninstall` deletes the task only when it runs its home, and otherwise reports `keptTask`.
+  - A working directory alone doesn't make a task ours (ENG-333): task names are machine-wide,
+    so another account could register our name, running as itself with our home as its
+    working directory, and install would keep it and never register ours (a denial of
+    service; its pipe fails the Clients' owner check). `describeTask` gives a registered
+    task a home only when its principal's UserId is this user's SID from the token (Task
+    Scheduler gives back the SID install registered, measured on Windows 11), it has exactly
+    one action, that action is Polaris' and the working directory is a local drive path
+    (`C:\…`; UNC, `\\?\` and `\\.\` paths and streams are refused before any file call, so a
+    planted task can't make install touch an SMB share). The action is `current` when command
+    and arguments equal what `taskXml` writes (case aside), `older` when it is still a
+    supervisor loop (`conhost.exe` or `cmd.exe` running `bin\current\polaris.exe serve`)
+    from another definition: claim `stale`, this user's own task, registered again and its
+    Daemon restarted, so an upgrade from a pre-release keeps working; every action has been
+    `current` since ENG-301, so this only matters once the loop changes. Anything else is a
+    conflict with `otherHome: null` (or `taken-over` with `--replace-task`, which then stops
+    no Daemon). A task the user may not read (another account's, its descriptor not granting
+    us) makes `schtasks /Query` fail as a missing one does, with a localized message, so on
+    a failed query install asks Task Scheduler's COM API: `E_ACCESSDENIED` is a conflict
+    with `otherHome: null`; anything else, a stall included, reads as no task and
+    `schtasks /Create /F` then reports whatever stops it. Not measured: lucas-desktop has
+    no second account, and Task Scheduler won't let an administrator register a task it
+    can't read (`E_ACCESSDENIED` on `SetSecurityDescriptor`).
+  - PowerShell can stall on CI runners (a WMI query hit its 30 s bound), so the COM queries
+    (`taskRunning`, the missing task's reason) give up after 5 s and read as "can't say".
   - Migration: a 0.2.0-dev install in the real profile already has the plain name, and its
     task runs that home, so the next install finds it ours and replaces it as before; old
     hashed names don't change either. A real task an earlier redirected home took over is a

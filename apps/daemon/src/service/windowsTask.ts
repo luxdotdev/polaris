@@ -47,27 +47,117 @@ const unescapeXml = (text: string) =>
     .replaceAll("&apos;", "'")
     .replaceAll("&amp;", "&");
 
-/** The Polaris home a registered task runs: its action's working directory, from `schtasks /Query /XML`. */
-export const taskWorkingDirectory = (xml: string): string | null => {
-  const found = /<WorkingDirectory>([^<]*)<\/WorkingDirectory>/.exec(xml);
+const elementText = (xml: string, name: string): string | null => {
+  const found = new RegExp(`<${name}>([^<]*)</${name}>`).exec(xml);
 
   return found === null ? null : unescapeXml(found[1]!.trim());
 };
 
+/** The Polaris home a registered task runs: its action's working directory, from `schtasks /Query /XML`. */
+export const taskWorkingDirectory = (xml: string): string | null =>
+  elementText(xml, "WorkingDirectory");
+
+/**
+ * A local absolute drive path such as `C:\Users\lucas\.polaris`: no UNC share, no `\\?\`
+ * or `\\.\` device path, no stream. A task's home must be one before any file call touches it.
+ * Off Windows (tests on another OS) an absolute POSIX path stands in for one.
+ */
+export const isLocalDrivePath = (path: string, os: string = process.platform): boolean =>
+  os === "win32"
+    ? /^[A-Za-z]:[\\/]/.test(path) && !path.slice(2).includes(":")
+    : path.startsWith("/");
+
+/** The one program a task runs. */
+export interface TaskAction {
+  readonly command: string;
+  readonly arguments: string;
+}
+
+/** What a definition says: its principal's UserId, and its action when it has exactly one. */
+export interface RegisteredTask {
+  /** Task Scheduler gives back the SID install registered, e.g. `S-1-5-21-…-1001`. */
+  readonly principal: string | null;
+  readonly action: TaskAction | null;
+  /** That action's working directory. */
+  readonly workingDirectory: string | null;
+}
+
+/** Pure: reads a definition as `schtasks /Query /XML` prints it. */
+export const readTask = (xml: string): RegisteredTask => {
+  const principal = /<Principal\b[^>]*>([\s\S]*?)<\/Principal>/.exec(xml)?.[1] ?? "";
+  const actions = /<Actions\b[^>]*>([\s\S]*?)<\/Actions>/.exec(xml)?.[1] ?? "";
+  const single = actions.match(/<(Exec|ComHandler|SendEmail|ShowMessage)\b/g)?.length === 1;
+  const command = single ? elementText(actions, "Command") : null;
+
+  return {
+    principal: elementText(principal, "UserId"),
+    action:
+      command === null ? null : { command, arguments: elementText(actions, "Arguments") ?? "" },
+    workingDirectory: command === null ? null : elementText(actions, "WorkingDirectory"),
+  };
+};
+
+/**
+ * `current`: the action `taskXml` writes now. `older`: a Polaris supervisor loop that
+ * another definition wrote (a pre-release's), so it is registered again. `other`: not Polaris'.
+ */
+export type ActionKind = "current" | "older" | "other";
+
+const POLARIS_LOOP = /\bbin\\current\\polaris\.exe serve\b/i;
+
+export const actionKind = (found: TaskAction | null, expected: TaskAction): ActionKind => {
+  if (found === null) return "other";
+
+  const sameArguments = found.arguments.toLowerCase() === expected.arguments.toLowerCase();
+
+  if (sameWindowsPath(found.command, expected.command) && sameArguments) return "current";
+  const program = win32.basename(found.command).toLowerCase();
+  const loopHost = program === "conhost.exe" || program === "cmd.exe";
+
+  return loopHost && POLARIS_LOOP.test(found.arguments) ? "older" : "other";
+};
+
 /** The task already registered under this home's name. */
 export interface ExistingTask {
-  /** Its working directory, the Polaris home it runs; null for a task that isn't Polaris'. */
+  /** Its action against the one this install writes; `other` too when it runs as another account. */
+  readonly action: ActionKind;
+  /**
+   * The Polaris home it runs: its working directory, but only for this user's Polaris
+   * task and a local drive path; null otherwise.
+   */
   readonly home: string | null;
   /** That home still has `bin\current\polaris.exe`, so the task's loop would run a Daemon. */
   readonly homeInstalled: boolean;
 }
 
+/** A task under the name that Task Scheduler won't show this user, as another account's. */
+export const UNREADABLE_TASK: ExistingTask = { action: "other", home: null, homeInstalled: false };
+
 /**
- * Whose task the name holds. `ours`: it runs this home. `abandoned`: another home with
- * nothing installed, whose loop would exit at once. `taken-over`: another live home,
- * replaced because `--replace-task` said so. `conflict`: another live home; install refuses.
+ * Pure: a registered task as this user's install sees it. A task that runs as another
+ * account or runs something else has no home, whatever its working directory says.
  */
-export type TaskClaim = "absent" | "ours" | "abandoned" | "taken-over" | "conflict";
+export const describeTask = (
+  task: RegisteredTask,
+  userSid: string,
+  expected: TaskAction,
+  os: string = process.platform
+): Omit<ExistingTask, "homeInstalled"> => {
+  const asThisUser = task.principal?.toUpperCase() === userSid.toUpperCase();
+  const action = asThisUser ? actionKind(task.action, expected) : "other";
+  const directory = task.workingDirectory;
+  const local = directory !== null && isLocalDrivePath(directory, os);
+
+  return { action, home: action !== "other" && local ? directory : null };
+};
+
+/**
+ * Whose task the name holds. `ours`: this user's, for this home, as install writes it.
+ * `stale`: the same from an older definition, registered again. `abandoned`: this user's
+ * for another home with nothing installed, whose loop would exit at once. Anything else is
+ * a `conflict` and install refuses, or `taken-over` when `--replace-task` said so.
+ */
+export type TaskClaim = "absent" | "ours" | "stale" | "abandoned" | "taken-over" | "conflict";
 
 /** Pure: may an install for `home` (re)register the task `existing` describes? */
 export const claimTask = (
@@ -77,12 +167,16 @@ export const claimTask = (
 ): TaskClaim => {
   if (existing === null) return "absent";
 
-  if (existing.home !== null && sameWindowsPath(existing.home, home)) return "ours";
+  if (existing.home !== null && sameWindowsPath(existing.home, home))
+    return existing.action === "current" ? "ours" : "stale";
 
   if (existing.home !== null && !existing.homeInstalled) return "abandoned";
 
   return replace ? "taken-over" : "conflict";
 };
+
+/** This user's own task for this home, current or stale: install replaces it, uninstall deletes it. */
+export const isOwnClaim = (claim: TaskClaim): boolean => claim === "ours" || claim === "stale";
 
 /**
  * On a take-over, whether to stop the other home's Daemon first: only while the task itself
@@ -118,6 +212,16 @@ export interface TaskSpec {
   readonly systemRoot: string;
 }
 
+/** A headless conhost runs the loop, so no console window opens. */
+export const taskAction = (systemRoot: string): TaskAction => {
+  const system32 = win32.join(systemRoot, "System32");
+
+  return {
+    command: win32.join(system32, "conhost.exe"),
+    arguments: `--headless ${win32.join(system32, "cmd.exe")} ${supervisorLoop()}`,
+  };
+};
+
 const escapeXml = (text: string) =>
   text
     .replaceAll("&", "&amp;")
@@ -132,9 +236,7 @@ const escapeXml = (text: string) =>
  * limit, on battery too, and never twice at once.
  */
 export const taskXml = (spec: TaskSpec): string => {
-  const system32 = win32.join(spec.systemRoot, "System32");
-  const cmd = win32.join(system32, "cmd.exe");
-  const args = `--headless ${cmd} ${supervisorLoop()}`;
+  const action = taskAction(spec.systemRoot);
 
   return `<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
@@ -175,8 +277,8 @@ export const taskXml = (spec: TaskSpec): string => {
   </Settings>
   <Actions Context="Author">
     <Exec>
-      <Command>${escapeXml(win32.join(system32, "conhost.exe"))}</Command>
-      <Arguments>${escapeXml(args)}</Arguments>
+      <Command>${escapeXml(action.command)}</Command>
+      <Arguments>${escapeXml(action.arguments)}</Arguments>
       <WorkingDirectory>${escapeXml(spec.polarisHome)}</WorkingDirectory>
     </Exec>
   </Actions>
