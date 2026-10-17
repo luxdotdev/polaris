@@ -3,6 +3,7 @@ import { Effect } from "effect";
 import { HarnessError, type OpenOptions } from "../HarnessDriver.ts";
 import type { QueryFn } from "./ClaudeDriver.ts";
 import { Inbox } from "./inbox.ts";
+import { claudeExecutable } from "./executable.ts";
 
 const failure = (message: string, cause?: unknown) =>
   new HarnessError(
@@ -49,7 +50,7 @@ export const validateClaudePermissionMode = Effect.fn("Claude.validatePermission
 
   const options: Options = {
     cwd: requested.cwd,
-    pathToClaudeCodeExecutable: path,
+    ...claudeExecutable(path),
     persistSession: false,
     mcpServers: {},
     strictMcpConfig: true,

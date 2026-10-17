@@ -89,6 +89,7 @@ import {
   validateRequestedAuto,
   validateClaudePermissionMode,
 } from "./autoMode.ts";
+import { claudeExecutable } from "./executable.ts";
 
 export type QueryFn = (params: {
   prompt: string | AsyncIterable<SDKUserMessage>;
@@ -362,7 +363,7 @@ const openSession = Effect.fnUntraced(function* (
 
   const sdkOptions: Options = {
     cwd: options.cwd,
-    pathToClaudeCodeExecutable: claudePath,
+    ...claudeExecutable(claudePath),
     permissionMode: toClaudePermissionMode(options.permissionMode),
     // Only makes `bypassPermissions` selectable later (full-access); it does not enable it.
     allowDangerouslySkipPermissions: true,
