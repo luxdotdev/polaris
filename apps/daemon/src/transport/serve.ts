@@ -9,7 +9,7 @@ import { PredictionServerLive } from "../prediction/server.ts";
 import * as BunRuntime from "@effect/platform-bun/BunRuntime";
 import { supportsTrash } from "../files/trash.ts";
 import { type Capability, HARNESS_CATALOGUE } from "@polaris/protocol";
-import { Effect, Layer } from "effect";
+import { Deferred, Effect, Layer } from "effect";
 import { AttachmentRpcsLive } from "../attachments/AttachmentRpcs.ts";
 import { AttachmentStoreLive } from "../attachments/AttachmentStore.ts";
 import { ConstellationLiveness } from "../constellation/liveness.ts";
@@ -48,7 +48,16 @@ import { ResourceRpcsLive } from "../resources/rpc.ts";
 import { paths } from "../paths.ts";
 import { startServer } from "./server.ts";
 import { workspaceTrustLayer } from "./workspaceTrust.ts";
-import { armShutdownGrace, deadline, exitStuck, STARTUP_DEADLINE_MS } from "./deadline.ts";
+import {
+  armShutdownDeadline,
+  armShutdownGrace,
+  deadline,
+  exitStuck,
+  STARTUP_DEADLINE_MS,
+} from "./deadline.ts";
+import { writeStopRecord } from "../service/daemonStop.ts";
+import { VERSION } from "../service/platform.ts";
+import { SERVE_EXIT_STOPPED } from "../service/windowsTask.ts";
 import { lazyAcceptHandlers } from "./lazyAccept.ts";
 import { languagesAvailable, lazyLanguageHandlers } from "./lazyLanguages.ts";
 import { lazyReviewer } from "./lazyReviewer.ts";
@@ -204,6 +213,28 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "host.resources",
 ];
 
+/**
+ * Resolves with the reason when this Daemon is asked to stop on its Windows
+ * control pipe (`service/windowsControl.ts`); elsewhere a stop is a signal, so never.
+ */
+const stopRequests = Effect.gen(function* () {
+  const stop = yield* Deferred.make<string>();
+
+  if (process.platform !== "win32") return Deferred.await(stop);
+  const { serveControl } = yield* Effect.promise(() => import("../service/windowsControl.ts"));
+
+  yield* Effect.acquireRelease(
+    Effect.sync(() =>
+      serveControl(paths().root, VERSION, (reason) => {
+        Deferred.doneUnsafe(stop, Effect.succeed(reason));
+      })
+    ),
+    (control) => Effect.sync(() => control.stop())
+  );
+
+  return Deferred.await(stop);
+});
+
 export const serveProgram = Effect.scoped(
   Effect.gen(function* () {
     const startup = yield* Effect.acquireRelease(
@@ -226,7 +257,7 @@ export const serveProgram = Effect.scoped(
     const server = yield* startServer({
       handlers: daemonHandlers,
       capabilities: daemonCapabilities,
-      // Windows has no execve or SIGUSR2: an upgrade there stops and restarts the Daemon (S3).
+      // Windows has no execve or SIGUSR2: an upgrade there stops and restarts the Daemon (ADR 0060).
       upgrades: process.platform !== "win32",
       onPhase: startup.phase,
     });
@@ -240,9 +271,17 @@ export const serveProgram = Effect.scoped(
 
     yield* Effect.logInfo(`polaris Daemon listening on ${server.socketPath}`);
 
-    return yield* Effect.never;
+    const reason = yield* yield* stopRequests;
+    yield* Effect.sync(() => {
+      armShutdownDeadline();
+
+      if (reason !== "uninstall") writeStopRecord(paths().root, reason, VERSION);
+    });
+    yield* Effect.logInfo(`polaris Daemon stopping on request (${reason})`);
   })
 ).pipe(
+  // A requested stop ends the scope gracefully; then nothing may keep the process alive.
+  Effect.andThen(() => Effect.sync(() => process.exit(SERVE_EXIT_STOPPED))),
   Effect.catchTag("DaemonAlreadyRunning", (error) =>
     Effect.sync(() => {
       process.stderr.write(`polaris serve: ${error.message}\n`);

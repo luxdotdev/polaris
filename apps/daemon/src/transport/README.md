@@ -11,7 +11,7 @@ The Daemon's only listener, the RPC server on it, and `polaris bridge`. Decision
 | `windowsPipe/` | Windows: the user-only, local-only named pipe the Daemon listens on, created through `bun:ffi` (`security.ts` is its descriptor and flags as data; ADR 0059). |
 | `bunSocket.ts` | Bun sockets (listened or adopted by fd) as ByteTransports, with partial-write handling. |
 | `lock.ts` | Single-instance lock. |
-| `hostInfo.ts` | `HostInfo`, with a stable `hostId` in `~/.polaris/host-id`; `helloHost` answers an older Client of a Windows Host with a newer protocol version (ADR 0059). |
+| `hostInfo.ts` | `HostInfo`, with a stable `hostId` in `~/.polaris/host-id` and `previousStop` when the last Daemon was stopped for an upgrade (ADR 0060); `helloHost` answers an older Client of a Windows Host with a newer protocol version (ADR 0059). |
 | `bridge.ts` | `polaris bridge`: stdio ⇄ socket, byte for byte. |
 | `serve.ts` | `polaris serve`: `startServer` with `upgrades: true` until SIGINT / SIGTERM. |
 
@@ -44,7 +44,7 @@ and add their capabilities with `startServer({ capabilities: [...] })` (the tran
 - `~/.polaris/daemon.lock` is created with `O_EXCL` and holds the pid. A lock whose pid is dead is stale and is taken over; a lock with no pid yet is honoured for 2 s (another Daemon mid-start). The lock naming this very process but not held by it was inherited across an execve upgrade and is kept.
 - Then the socket is probed: if something answers, another Daemon is running (exit 75 from `polaris serve`); a dead socket file is removed. The directory is made 0700, the socket is created under umask 0177 (0600).
 - `startServer({ upgrades: true })` (what `serve` does) wires in `service/upgrade.ts`: `adoptListener` on startup (then the probe is skipped: the old listener still accepts), `bindAtomically` for every bind, `adopt` drains connections queued on the inherited listener through `connectFd`, and `serveUpgrades` gets the listener fd.
-- On Windows the endpoint is `\\.\pipe\polaris-<hash of the home>` (`@polaris/protocol/endpoint`). The probe opens it: a pipe this user owns is a running Daemon, one another account owns is refused with a `LockError`. Upgrades are off (no execve, no SIGUSR2). See ADR 0059.
+- On Windows the endpoint is `\\.\pipe\polaris-<hash of the home>` (`@polaris/protocol/endpoint`). The probe opens it: a pipe this user owns is a running Daemon, one another account owns is refused with a `LockError`. There is no execve or SIGUSR2: an upgrade stops the Daemon over its control pipe and the scheduled task starts the new one (ADR 0060). See ADR 0059.
 - `daemon.lock` vs `daemon.pid`: the lock is the single-instance guard; `daemon.pid` (written by `serveUpgrades`) is the upgrade signal target. Only the lock holder writes the pid file, so both always name the same process; both survive the execve (same pid) and are removed on a clean exit. Merging them (pointing `upgradeFiles().pid` at `paths().lock`) would be a one-line change in `service/upgrade.ts` if we want one file.
 
 ## Bridge

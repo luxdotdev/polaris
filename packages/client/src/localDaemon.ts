@@ -7,9 +7,18 @@ import { closeSync, existsSync, openSync, readSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { ConnectFailure } from "./failures.ts";
 
-/** Where `polaris install` puts the Daemon and its launchd logs under `home`. */
-export const installedPaths = (home: string) => ({
-  binary: join(home, ".polaris", "bin", "current", "polaris"),
+/**
+ * Where `polaris install` puts the Daemon and its service's logs under `home`.
+ * On Windows `current` is a directory junction and the binary `polaris.exe`.
+ */
+export const installedPaths = (home: string, platform: string = process.platform) => ({
+  binary: join(
+    home,
+    ".polaris",
+    "bin",
+    "current",
+    platform === "win32" ? "polaris.exe" : "polaris"
+  ),
   errorLog: join(home, ".polaris", "logs", "daemon.err.log"),
   outputLog: join(home, ".polaris", "logs", "daemon.out.log"),
 });

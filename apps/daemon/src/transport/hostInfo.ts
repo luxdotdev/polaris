@@ -4,6 +4,7 @@ import { homedir, hostname } from "node:os";
 import { join } from "node:path";
 import {
   type Capability,
+  type DaemonStop,
   HostId,
   HostInfo,
   LEGACY_PLATFORMS,
@@ -55,7 +56,11 @@ export const loadHostId = (root: string) =>
       new ServiceError({ service: "transport", message: "cannot read host id", cause }),
   });
 
-export const loadHostInfo = Effect.fnUntraced(function* (root: string) {
+/** `previousStop`: the record the server took for this Daemon (`service/daemonStop.ts`). */
+export const loadHostInfo = Effect.fnUntraced(function* (
+  root: string,
+  previousStop: DaemonStop | null = null
+) {
   const hostId = yield* loadHostId(root);
   const facts = yield* HostPlatform;
   const platform = yield* platformOf(facts.os, facts.arch);
@@ -70,7 +75,9 @@ export const loadHostInfo = Effect.fnUntraced(function* (root: string) {
     startedAt: new Date().toISOString(),
   };
 
-  return libc === undefined ? new HostInfo(fields) : new HostInfo({ ...fields, libc });
+  const withLibc = libc === undefined ? fields : { ...fields, libc };
+
+  return new HostInfo(previousStop === null ? withLibc : { ...withLibc, previousStop });
 });
 
 const isLegacyPlatform = (platform: string) => LEGACY_PLATFORMS.some((known) => known === platform);

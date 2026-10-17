@@ -34,6 +34,7 @@ import { RpcSerialization, RpcServer, type Rpc } from "effect/rpc";
 import { type FromClientEncoded, ResponseDefectEncoded } from "effect/rpc/RpcMessage";
 import { paths } from "../paths.ts";
 import { CommandRunner } from "../service/CommandRunner.ts";
+import { takeStopRecord } from "../service/daemonStop.ts";
 import { adoptListener, serveUpgrades } from "../service/upgrade.ts";
 import { BlobChannel, ServiceError } from "../services.ts";
 import { ClientCapabilities } from "../engine/rpc.ts";
@@ -146,7 +147,8 @@ export const startServer = <ROut = never, E = never, RIn = never>(
 
     // The inherited socket still accepts (queued in the old listener), so don't probe it.
     if (adopted === null) yield* prepareSocketPath(socketPath);
-    const hostInfo = yield* loadHostInfo(options.root ?? defaults.root);
+    const root = options.root ?? defaults.root;
+    const hostInfo = yield* loadHostInfo(root, takeStopRecord(root));
     const capabilities = [...new Set([...TRANSPORT_CAPABILITIES, ...(options.capabilities ?? [])])];
 
     const serialization = RpcSerialization.json;

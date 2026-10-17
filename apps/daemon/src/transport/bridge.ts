@@ -9,7 +9,8 @@
  * bridge starts the supervisor, waits up to 5 s for the socket and tries
  * once more; nothing else may have started it since a reboot. With a systemd
  * --user unit it waits the same 5 s without starting anything: a WSL distro
- * boots for the bridge, and systemd starts the Daemon a moment later. Otherwise it
+ * boots for the bridge, and systemd starts the Daemon a moment later. On Windows
+ * it runs the user's scheduled task (`schtasks /Run`) and waits the same. Otherwise it
  * prints a reason on stderr and exits with BRIDGE_EXIT_NO_DAEMON, which the
  * Client maps to Needs Attention.
  *
@@ -20,11 +21,12 @@
 import { childEnv } from "../service/childEnv.ts";
 import { renameSync, statSync, symlinkSync, unlinkSync } from "node:fs";
 import { connect, type Socket } from "node:net";
-import { homedir } from "node:os";
+import { homedir, userInfo } from "node:os";
 import { join } from "node:path";
 import { BRIDGE_EXIT_NO_DAEMON } from "@polaris/protocol/bridge";
 import { paths } from "../paths.ts";
 import { SYSTEMD_UNIT } from "../service/templates.ts";
+import { windowsTaskName } from "../service/windowsTask.ts";
 
 /** The stable agent socket path on this Host (a symlink to the latest forwarded agent). */
 export const agentSocketPath = (): string => join(paths().root, "agent.sock");
@@ -164,6 +166,24 @@ const startSupervisor = (options: BridgeOptions): boolean => {
   }
 };
 
+/** Windows: runs this home's scheduled task; false when it isn't installed or won't run. */
+const runWindowsTask = (): boolean => {
+  if (process.platform !== "win32") return false;
+  const name = windowsTaskName(userInfo().username, paths().root, homedir());
+
+  try {
+    const run = Bun.spawnSync(["schtasks", "/Run", "/TN", name], {
+      env: childEnv(),
+      stdout: "ignore",
+      stderr: "ignore",
+    });
+
+    return run.exitCode === 0;
+  } catch {
+    return false;
+  }
+};
+
 /**
  * On a Host that relies on the fallback supervisor (nothing may have started
  * it since a reboot), start it; under systemd, systemd starts it. Then wait up
@@ -175,7 +195,8 @@ const startDaemonViaSupervisor = async (
 ): Promise<boolean> => {
   const unit = options.systemdUnit === undefined ? defaultSystemdUnit() : options.systemdUnit;
 
-  if (!startSupervisor(options) && (unit === null || !isFile(unit))) return false;
+  if (!startSupervisor(options) && !runWindowsTask() && (unit === null || !isFile(unit)))
+    return false;
 
   const deadline = Date.now() + (options.waitMs ?? SUPERVISOR_START_WAIT_MS);
 
