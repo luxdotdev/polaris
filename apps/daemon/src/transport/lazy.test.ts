@@ -199,8 +199,12 @@ test("cancelled first lazy RPC cannot poison the Daemon service graph", async ()
 
         const first = yield* Effect.forkScoped(read);
         yield* Effect.promise(() => started);
-        const cancelling = yield* Effect.forkScoped(Fiber.interrupt(first));
-        yield* Effect.sleep(5);
+
+        // Started now, so the interrupt is requested before the build is released.
+        const cancelling = yield* Effect.forkScoped(Fiber.interrupt(first), {
+          startImmediately: true,
+        });
+
         release();
         yield* Fiber.join(cancelling);
         expect(Exit.isFailure(yield* Fiber.await(first))).toBe(true);
