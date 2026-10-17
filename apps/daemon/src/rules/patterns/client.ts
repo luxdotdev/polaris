@@ -4,6 +4,7 @@
  * binary itself.
  */
 import { childEnv } from "../../service/childEnv.ts";
+import { isEmbeddedPath } from "../../platform/index.ts";
 import { fileURLToPath } from "node:url";
 import { Schema } from "effect";
 import { ScanReply, type ScanRequest } from "./child.ts";
@@ -12,7 +13,7 @@ import { ScanReply, type ScanRequest } from "./child.ts";
 export const SCAN_TIMEOUT_MS = 120_000;
 
 const childCommand = (): ReadonlyArray<string> =>
-  import.meta.path.startsWith("/$bunfs/")
+  isEmbeddedPath(import.meta.path)
     ? [process.execPath, "rules-scan"]
     : [process.execPath, fileURLToPath(new URL("../../main.ts", import.meta.url)), "rules-scan"];
 

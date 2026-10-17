@@ -13,6 +13,11 @@ export const Capability = Schema.Literals([
   "constellation",
   "constellation.defaults",
   "host.resources",
+  /**
+   * The Client decodes any `HostInfo.platform` (`windows-x64` and later ones). A Daemon on
+   * another platform answers a Client without it with a newer protocol version instead.
+   */
+  "host.any-platform",
   /** `harness.<kind>`: the Daemon has that Harness's driver (one per catalogue entry). */
   ...HARNESS_CATALOGUE.map((harness) => harness.capability),
   /** `harness.models`: each Harness's Models on this Host. */

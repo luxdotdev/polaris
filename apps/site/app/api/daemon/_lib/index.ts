@@ -11,6 +11,7 @@ export const DAEMON_PLATFORMS = [
   "linux-arm64",
   "linux-x64-musl",
   "linux-arm64-musl",
+  "windows-x64",
 ] as const;
 
 export type DaemonPlatform = (typeof DAEMON_PLATFORMS)[number];

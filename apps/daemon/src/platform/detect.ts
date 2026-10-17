@@ -57,9 +57,12 @@ export const detectPlatform = ({
   return { os, arch, libc: exists(muslLoader(arch)) ? "musl" : "unknown" };
 };
 
+/** The os part of a build id: Node's `win32` ships as `windows`. */
+export const buildOsOf = (os: string): string => (os === "win32" ? "windows" : os);
+
 /** The build id `polaris version` prints and `upgrade` checks: `<os>-<arch>`, `-musl` on musl. */
 export const runtimePlatformOf = (facts: PlatformFacts): string =>
-  `${facts.os}-${facts.arch}${facts.libc === "musl" ? "-musl" : ""}`;
+  `${buildOsOf(facts.os)}-${facts.arch}${facts.libc === "musl" ? "-musl" : ""}`;
 
 /** The library `bun:ffi` binds libc calls from: libSystem, musl's loader, or glibc's `libc.so.6`. */
 export const libcPathOf = (facts: PlatformFacts): string => {
@@ -67,3 +70,10 @@ export const libcPathOf = (facts: PlatformFacts): string => {
 
   return facts.libc === "musl" ? muslLoader(facts.arch) : "libc.so.6";
 };
+
+/**
+ * Whether `path` is inside a compiled binary's embedded filesystem: `/$bunfs/…` on
+ * macOS and Linux, `B:\~BUN\…` on Windows (`/B:/%7EBUN/…` as a URL pathname).
+ */
+export const isEmbeddedPath = (path: string): boolean =>
+  path.startsWith("/$bunfs/") || /^\/?[A-Za-z]:[\\/](~|%7E)BUN[\\/]/i.test(path);

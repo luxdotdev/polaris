@@ -14,6 +14,7 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { localDaemonFailure } from "@polaris/client";
 import { childProcesses, type Spawned, stopChild } from "@polaris/client/process";
+import { localEndpoint } from "@polaris/protocol/endpoint";
 
 export interface LocalDaemon {
   readonly socketPath: string;
@@ -35,7 +36,7 @@ export interface LocalDaemonOptions {
   readonly env: NodeJS.ProcessEnv;
 }
 
-export const systemSocket = () => join(homedir(), ".polaris", "daemon.sock");
+export const systemSocket = () => localEndpoint(join(homedir(), ".polaris"));
 
 /** The dev Daemon's own `POLARIS_HOME`, kept apart from the real `~/.polaris`. */
 export const devHome = () => join(tmpdir(), "polaris-desktop-dev");
@@ -94,7 +95,7 @@ export const startDevDaemon = async ({
   env,
 }: LocalDaemonOptions): Promise<LocalDaemon> => {
   const home = devHome();
-  const socketPath = join(home, "daemon.sock");
+  const socketPath = localEndpoint(home);
 
   mkdirSync(home, { recursive: true });
 

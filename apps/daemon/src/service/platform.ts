@@ -8,7 +8,7 @@
  * musl builds (Alpine). A binary only runs on its own libc, so the running
  * process's libc is the build's (`../platform/`).
  */
-import { runtimePlatform } from "../platform/index.ts";
+import { isEmbeddedPath, runtimePlatform } from "../platform/index.ts";
 import pkg from "../../package.json" with { type: "json" };
 
 /** The platforms the Daemon ships for (ENG-181). */
@@ -18,6 +18,7 @@ export const PLATFORMS = [
   "linux-arm64",
   "linux-x64-musl",
   "linux-arm64-musl",
+  "windows-x64",
 ] as const;
 
 export type Platform = (typeof PLATFORMS)[number];
@@ -29,6 +30,7 @@ export const BUN_TARGETS: Record<Platform, string> = {
   "linux-arm64": "bun-linux-arm64",
   "linux-x64-musl": "bun-linux-x64-musl",
   "linux-arm64-musl": "bun-linux-arm64-musl",
+  "windows-x64": "bun-windows-x64",
 };
 
 /**
@@ -67,5 +69,4 @@ export const parseVersionLine = (output: string): VersionInfo | null => {
  * Whether this process is a `bun build --compile` binary (its entry module
  * lives in Bun's embedded filesystem) rather than `bun src/main.ts`.
  */
-export const isCompiled = (): boolean =>
-  Bun.main.startsWith("/$bunfs/") || Bun.main.includes("~BUN");
+export const isCompiled = (): boolean => isEmbeddedPath(Bun.main) || Bun.main.includes("~BUN");

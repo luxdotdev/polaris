@@ -14,7 +14,7 @@ import { existsSync, mkdirSync, renameSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import type * as Napi from "@ast-grep/napi";
 import { paths } from "../../paths.ts";
-import { isMusl } from "../../platform/index.ts";
+import { isEmbeddedPath, isMusl } from "../../platform/index.ts";
 import type { PackLanguage } from "./pack.ts";
 
 export type AstGrep = typeof Napi;
@@ -22,25 +22,37 @@ export type AstGrep = typeof Napi;
 type LangRegistration = Parameters<AstGrep["registerDynamicLanguage"]>[0][string];
 
 /* oxlint-disable typescript/no-require-imports -- Bun loads and embeds an N-API addon only through require */
+/** Linux's addon for this libc; `process.env.POLARIS_LIBC` is replaced at build time, so the bundler keeps one. */
+const requireLinuxAddon = (): AstGrep => {
+  const musl =
+    process.env.POLARIS_LIBC === "musl" || (process.env.POLARIS_LIBC !== "gnu" && isMusl());
+
+  let addon: unknown;
+
+  if (process.arch === "x64") {
+    addon = musl
+      ? require("@ast-grep/napi-linux-x64-musl/ast-grep-napi.linux-x64-musl.node")
+      : require("@ast-grep/napi-linux-x64-gnu/ast-grep-napi.linux-x64-gnu.node");
+  } else {
+    addon = musl
+      ? require("@ast-grep/napi-linux-arm64-musl/ast-grep-napi.linux-arm64-musl.node")
+      : require("@ast-grep/napi-linux-arm64-gnu/ast-grep-napi.linux-arm64-gnu.node");
+  }
+
+  // SAFETY: each branch loads an @ast-grep/napi 0.45.3 build, whose exports are that package's types.
+  return addon as AstGrep;
+};
+
 /** The platform's addon (`import` can't load one in Bun). */
 const requireAddon = (): AstGrep => {
   let addon: unknown;
 
   if (process.platform === "darwin" && process.arch === "arm64") {
     addon = require("@ast-grep/napi-darwin-arm64/ast-grep-napi.darwin-arm64.node");
-  } else if (process.platform === "linux" && process.arch === "x64") {
-    // `process.env.POLARIS_LIBC` is replaced at build time, so the bundler keeps one addon.
-    if (process.env.POLARIS_LIBC === "musl" || (process.env.POLARIS_LIBC !== "gnu" && isMusl())) {
-      addon = require("@ast-grep/napi-linux-x64-musl/ast-grep-napi.linux-x64-musl.node");
-    } else {
-      addon = require("@ast-grep/napi-linux-x64-gnu/ast-grep-napi.linux-x64-gnu.node");
-    }
-  } else if (process.platform === "linux" && process.arch === "arm64") {
-    if (process.env.POLARIS_LIBC === "musl" || (process.env.POLARIS_LIBC !== "gnu" && isMusl())) {
-      addon = require("@ast-grep/napi-linux-arm64-musl/ast-grep-napi.linux-arm64-musl.node");
-    } else {
-      addon = require("@ast-grep/napi-linux-arm64-gnu/ast-grep-napi.linux-arm64-gnu.node");
-    }
+  } else if (process.platform === "linux" && (process.arch === "x64" || process.arch === "arm64")) {
+    addon = requireLinuxAddon();
+  } else if (process.platform === "win32" && process.arch === "x64") {
+    addon = require("@ast-grep/napi-win32-x64-msvc/ast-grep-napi.win32-x64-msvc.node");
   } else {
     addon = require("@ast-grep/napi");
   }
@@ -134,6 +146,31 @@ const grammarFiles = async (): Promise<GrammarFiles | null> => {
     };
   }
 
+  if (process.platform === "win32" && process.arch === "x64") {
+    return {
+      python: await fileImport(
+        import("@ast-grep/lang-python/prebuilds/prebuild-Windows-X64/parser.so", {
+          with: { type: "file" },
+        })
+      ),
+      go: await fileImport(
+        import("@ast-grep/lang-go/prebuilds/prebuild-Windows-X64/parser.so", {
+          with: { type: "file" },
+        })
+      ),
+      rust: await fileImport(
+        import("@ast-grep/lang-rust/prebuilds/prebuild-Windows-X64/parser.so", {
+          with: { type: "file" },
+        })
+      ),
+      bash: await fileImport(
+        import("@ast-grep/lang-bash/prebuilds/prebuild-Windows-X64/parser.so", {
+          with: { type: "file" },
+        })
+      ),
+    };
+  }
+
   return null;
 };
 
@@ -150,7 +187,7 @@ const REGISTRATION = {
  * `~/.polaris/lib/grammars/` named by its embedded name (which carries a content hash).
  */
 const onDisk = async (path: string, language: string): Promise<string> => {
-  if (!path.startsWith("/$bunfs/")) return path;
+  if (!isEmbeddedPath(path)) return path;
   const dir = join(paths().root, "lib", "grammars");
   const target = join(dir, `${language}-${basename(path)}`);
 

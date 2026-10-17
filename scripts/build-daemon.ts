@@ -2,8 +2,8 @@
 /**
  * Build the `polaris` Daemon for every platform it ships on (ENG-181):
  *
- *   apps/daemon/dist/<platform>/polaris       bun build --compile, one self-contained file
- *   apps/daemon/dist/<platform>/betterleaks   the pinned secrets scanner, checksum-verified
+ *   apps/daemon/dist/<platform>/polaris       bun build --compile, one self-contained file (`polaris.exe` on Windows)
+ *   apps/daemon/dist/<platform>/betterleaks   the pinned secrets scanner, checksum-verified (none on Windows yet)
  *   apps/daemon/dist/manifest.json            version, commit and SHA-256 per platform
  *
  * fff's native library (`@ff-labs/fff-bun`, MIT) is embedded by the compile
@@ -18,7 +18,7 @@
  * downloaded at its pinned version (`apps/daemon/src/rules/secrets/pin.ts`),
  * checked against its SHA-256, and listed in the manifest as an executable.
  *
- *   bun scripts/build-daemon.ts [--release] [darwin-arm64|linux-x64|linux-arm64|linux-x64-musl|linux-arm64-musl ...]
+ *   bun scripts/build-daemon.ts [--release] [darwin-arm64|linux-x64|linux-arm64|linux-x64-musl|linux-arm64-musl|windows-x64 ...]
  *
  * Without `--release` it is a dev build: its version names the commit
  * (`buildVersion.ts`), so a Client upgrades a Host from one dev build to the next.
@@ -54,16 +54,44 @@ const GNU = ['FFF_LIBC="gnu"', 'process.env.POLARIS_LIBC="gnu"'];
 const MUSL = ['FFF_LIBC="musl"', 'process.env.POLARIS_LIBC="musl"'];
 
 const PLATFORMS = {
-  "darwin-arm64": { target: "bun-darwin-arm64", fffBin: "darwin-arm64", define: [] },
-  "linux-x64": { target: "bun-linux-x64", fffBin: "linux-x64-gnu", define: GNU },
-  "linux-arm64": { target: "bun-linux-arm64", fffBin: "linux-arm64-gnu", define: GNU },
+  "darwin-arm64": {
+    target: "bun-darwin-arm64",
+    fffBin: "darwin-arm64",
+    astGrep: "darwin-arm64",
+    define: [],
+  },
+  "linux-x64": {
+    target: "bun-linux-x64",
+    fffBin: "linux-x64-gnu",
+    astGrep: "linux-x64-gnu",
+    define: GNU,
+  },
+  "linux-arm64": {
+    target: "bun-linux-arm64",
+    fffBin: "linux-arm64-gnu",
+    astGrep: "linux-arm64-gnu",
+    define: GNU,
+  },
   // musl (Alpine). Bun's musl runtime links libstdc++ and libgcc dynamically,
   // so the Host needs `apk add libstdc++ libgcc`; the Client's probe checks.
-  "linux-x64-musl": { target: "bun-linux-x64-musl", fffBin: "linux-x64-musl", define: MUSL },
+  "linux-x64-musl": {
+    target: "bun-linux-x64-musl",
+    fffBin: "linux-x64-musl",
+    astGrep: "linux-x64-musl",
+    define: MUSL,
+  },
   "linux-arm64-musl": {
     target: "bun-linux-arm64-musl",
     fffBin: "linux-arm64-musl",
+    astGrep: "linux-arm64-musl",
     define: MUSL,
+  },
+  // No Betterleaks pin for Windows until ENG-296: the Daemon reports secret scanning unavailable.
+  "windows-x64": {
+    target: "bun-windows-x64",
+    fffBin: "win32-x64",
+    astGrep: "win32-x64-msvc",
+    define: [],
   },
 } as const;
 
@@ -153,7 +181,7 @@ const fffBinInstalled = (platform: Platform): boolean => {
 
 /** ast-grep's addon for `platform`: `@ast-grep/napi-<fffBin>`, an optional dependency of the Daemon. */
 const astGrepInstalled = (platform: Platform): boolean =>
-  findPackage(daemonDir, `@ast-grep/napi-${PLATFORMS[platform].fffBin}`) !== null;
+  findPackage(daemonDir, `@ast-grep/napi-${PLATFORMS[platform].astGrep}`) !== null;
 
 const targetPackagesInstalled = (platform: Platform) =>
   fffBinInstalled(platform) && astGrepInstalled(platform);
@@ -186,7 +214,13 @@ const onMusl = (() => {
   }
 })();
 
-const hostPlatform = `${process.platform}-${process.arch}${onMusl ? "-musl" : ""}`;
+const hostOs = process.platform === "win32" ? "windows" : process.platform;
+
+const hostPlatform = `${hostOs}-${process.arch}${onMusl ? "-musl" : ""}`;
+
+/** The Daemon's file name: Windows runs only `.exe` files. */
+const binaryName = (platform: Platform) =>
+  platform.startsWith("windows") ? "polaris.exe" : "polaris";
 
 /**
  * Bun appends the bundle after linking, which leaves the linker's ad-hoc
@@ -202,12 +236,25 @@ const signAdHoc = async (binary: string) => {
   await run(["codesign", "--verify", "--strict", binary]);
 };
 
+/** Betterleaks beside the binary; null for a platform without a pinned release (Windows, ENG-296). */
+const bundleBetterleaks = async (platform: Platform, outDir: string): Promise<string | null> => {
+  const asset = betterleaksAsset(platform);
+
+  if (asset === null) return null;
+  const betterleaks = join(outDir, "betterleaks");
+  copyFileSync(await fetchBetterleaks(asset), betterleaks);
+  chmodSync(betterleaks, 0o755);
+
+  return betterleaks;
+};
+
 const build = async (platform: Platform, version: string): Promise<PlatformBuild> => {
   const { target, define } = PLATFORMS[platform];
   const outDir = join(distDir, platform);
   rmSync(outDir, { recursive: true, force: true });
   mkdirSync(outDir, { recursive: true });
-  const binary = join(outDir, "polaris");
+  const name = binaryName(platform);
+  const binary = join(outDir, name);
   await run([
     process.execPath,
     "build",
@@ -226,9 +273,7 @@ const build = async (platform: Platform, version: string): Promise<PlatformBuild
   ]);
 
   if (platform.startsWith("darwin")) await signAdHoc(binary);
-  const betterleaks = join(outDir, "betterleaks");
-  copyFileSync(await fetchBetterleaks(betterleaksAsset(platform)!), betterleaks);
-  chmodSync(betterleaks, 0o755);
+  const betterleaks = await bundleBetterleaks(platform, outDir);
 
   if (platform === hostPlatform) {
     // `selftest` also proves the embedded fff library loads and searches.
@@ -242,18 +287,25 @@ const build = async (platform: Platform, version: string): Promise<PlatformBuild
     console.log(output.replaceAll(/^/gm, "  "));
   }
 
+  const daemon = { sha256: sha256(binary), size: statSync(binary).size };
+
+  const files =
+    betterleaks === null
+      ? { [name]: daemon }
+      : {
+          [name]: daemon,
+          betterleaks: {
+            sha256: sha256(betterleaks),
+            size: statSync(betterleaks).size,
+            executable: true,
+          },
+        };
+
   return {
     target,
-    binary: "polaris",
+    binary: name,
     sha256: sha256(binary),
-    files: {
-      polaris: { sha256: sha256(binary), size: statSync(binary).size },
-      betterleaks: {
-        sha256: sha256(betterleaks),
-        size: statSync(betterleaks).size,
-        executable: true,
-      },
-    },
+    files,
   };
 };
 

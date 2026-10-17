@@ -25,7 +25,9 @@ apps/daemon/dist/<platform>/polaris       bun build --compile --target=bun-<plat
 apps/daemon/dist/<platform>/betterleaks   the Rules' secrets scanner, pinned and checksum-verified (`executable` in the manifest)
 ```
 
-for `darwin-arm64`, `linux-x64` and `linux-arm64` (glibc), and `linux-x64-musl` and `linux-arm64-musl` (musl, for Alpine). The build runs `polaris selftest` on the host platform's binary. CI runs it on each glibc Linux binary on native runners (not yet on the musl ones).
+for `darwin-arm64`, `linux-x64` and `linux-arm64` (glibc), `linux-x64-musl` and `linux-arm64-musl` (musl, for Alpine), and `windows-x64` (the binary is `polaris.exe`). The build runs `polaris selftest` on the host platform's binary. CI runs it on each glibc Linux binary on native runners (not yet on the musl ones), and on the Windows binary (`smoke-windows`).
+
+**Windows (0.2.0, x64 only).** The build ships fff (`win32-x64`) and ast-grep (`win32-x64-msvc`, grammars from `prebuild-Windows-X64`) and no Betterleaks (none pinned until ENG-296); `selftest` prints `rules: ok (ast-grep, no betterleaks for windows-x64)`. The home is `%USERPROFILE%\.polaris` (`POLARIS_HOME` overrides it) and the Daemon listens on a user-only named pipe (ADR 0059). Language servers, terminals, Harnesses and live upgrades are unavailable there for now: Language RPCs fail with `unsupported-platform` and aren't announced, and `serve` runs without upgrades. In a compiled Windows binary the embedded files live under `B:\~BUN\root\` (`isEmbeddedPath`).
 
 On Linux the platform names the libc: a musl process reports `linux-<arch>-musl` (`runtimePlatform()`, from `src/platform/`: the compiled `POLARIS_LIBC` define, or from source glibc's loader first, then musl's), which is what `polaris version` prints and `polaris upgrade` checks. Bun's musl runtime links `libstdc++.so.6` and `libgcc_s.so.1` dynamically, so an Alpine Host needs `apk add libstdc++ libgcc` (root); the Client's probe checks for them. `HostInfo.platform` (protocol) still says `linux-x64` / `linux-arm64`; `HostInfo.libc` (optional, absent from older Daemons) says `glibc` or `musl`.
 

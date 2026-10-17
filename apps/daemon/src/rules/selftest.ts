@@ -8,7 +8,8 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { scanRequest } from "./patterns/child.ts";
 import { locateBetterleaks, scanSecrets } from "./secrets/betterleaks.ts";
-import { BETTERLEAKS_VERSION } from "./secrets/pin.ts";
+import { BETTERLEAKS_VERSION, betterleaksAsset } from "./secrets/pin.ts";
+import { runtimePlatform } from "../platform/index.ts";
 
 const patternsWork = async (dir: string): Promise<string | null> => {
   writeFileSync(join(dir, "a.ts"), "eval(input);\n");
@@ -42,6 +43,8 @@ const secretsWork = async (dir: string): Promise<string | null> => {
 };
 
 export const rulesSelfTest = async (scratch: string): Promise<{ ok: boolean; line: string }> => {
+  // Windows ships without Betterleaks until ENG-296: secret scanning reports unavailable there.
+  const shipsBetterleaks = betterleaksAsset(runtimePlatform()) !== null;
   const patterns = join(scratch, "rules-patterns");
   const secrets = join(scratch, "rules-secrets");
   mkdirSync(patterns, { recursive: true });
@@ -50,11 +53,17 @@ export const rulesSelfTest = async (scratch: string): Promise<{ ok: boolean; lin
   const problems = (
     await Promise.all([
       patternsWork(patterns).catch((error: Error) => `ast-grep: ${error.message}`),
-      secretsWork(secrets).catch((error: Error) => `betterleaks: ${error.message}`),
+      shipsBetterleaks
+        ? secretsWork(secrets).catch((error: Error) => `betterleaks: ${error.message}`)
+        : null,
     ])
   ).filter((problem) => problem !== null);
 
+  const secretsPart = shipsBetterleaks
+    ? `betterleaks ${BETTERLEAKS_VERSION}`
+    : `no betterleaks for ${runtimePlatform()}`;
+
   return problems.length === 0
-    ? { ok: true, line: `rules: ok (ast-grep, betterleaks ${BETTERLEAKS_VERSION})` }
+    ? { ok: true, line: `rules: ok (ast-grep, ${secretsPart})` }
     : { ok: false, line: `rules: ${problems.join("; ")}` };
 };

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { Schema } from "effect";
+import { PLATFORMS } from "../../packages/client/src/install/builds.ts";
 
 const GITHUB = join(import.meta.dir, "../../.github");
 
@@ -112,4 +113,22 @@ describe("release authority", () => {
       }
     }
   });
+});
+
+describe("release assets", () => {
+  const publish = Object.values(release.jobs)
+    .flatMap((job) => job.steps)
+    .map((step) => step.run ?? "")
+    .find((run) => run.includes("gh release create"));
+
+  test("the Release carries one Daemon archive per platform the Client installs", () => {
+    expect(publish).toContain(`test "\${#daemons[@]}" -eq ${PLATFORMS.length}`);
+  });
+
+  test.each(PLATFORMS.filter((platform) => platform.startsWith("windows")))(
+    "the Release refuses to publish without the %s Daemon",
+    (platform) => {
+      expect(publish).toContain(`polaris-daemon-$VERSION-${platform}.tar.gz`);
+    }
+  );
 });
