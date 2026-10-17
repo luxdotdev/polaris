@@ -8,7 +8,7 @@ import { dirname, join, resolve } from "node:path";
 import { Effect } from "effect";
 import { ServiceError } from "../services.ts";
 import { megabytes, readBounded, readHead } from "./output.ts";
-import { NO_HOOKS_PATH, safeArgs, safeConfigEnv } from "./safeConfig/index.ts";
+import { hostConfigEnv, NO_HOOKS_PATH, safeArgs, safeConfigEnv } from "./safeConfig/index.ts";
 import { killTree, ownProcessGroup } from "../platform/processes.ts";
 
 export interface GitResult {
@@ -79,7 +79,7 @@ export const runGitRaw = async (
   const host = options.config === "host";
   const base = { ...baseEnv(), ...options.env };
   const mode = options.config === "trusted-fetch" ? "trusted-fetch" : "safe";
-  const safe = host ? {} : await safeConfigEnv(cwd, base, { args, mode });
+  const safe = host ? hostConfigEnv(base) : await safeConfigEnv(cwd, base, { args, mode });
 
   const spawnOptions: Bun.SpawnOptions.OptionsObject<"ignore" | Blob, "pipe", "pipe"> = {
     cwd,

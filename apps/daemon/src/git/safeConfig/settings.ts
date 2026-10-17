@@ -46,6 +46,16 @@ export const FIXED: ReadonlyArray<readonly [string, string]> = [
   ["status.submoduleSummary", "false"],
 ];
 
+/**
+ * Settings every git call gets on `os`, the Host's own included. Windows: a checkpoint ref or a
+ * pack under a Workspace passes MAX_PATH (260), which Git for Windows only crosses with `core.longPaths`.
+ */
+export function hostSettings(os: string): ReadonlyArray<readonly [string, string]> {
+  return os === "win32" ? [["core.longPaths", "true"]] : [];
+}
+
+export const HOST_SETTINGS = hostSettings(process.platform);
+
 /** Drivers a repository's own config can name; an empty command turns each one off. */
 const DRIVER = /^(filter\..+\.(clean|smudge|process)|merge\..+\.driver)$/;
 
@@ -159,6 +169,11 @@ export const configEnv = (
     ),
   };
 };
+
+/** The environment for git the user asked for (`config: "host"`): only `HOST_SETTINGS`. */
+export const hostConfigEnv = (
+  base: Readonly<Record<string, string | undefined>>
+): Record<string, string> => (HOST_SETTINGS.length === 0 ? {} : configEnv(HOST_SETTINGS, base));
 
 const WITH_VALUE = new Set(["-c", "-C", "--git-dir", "--work-tree", "--namespace"]);
 

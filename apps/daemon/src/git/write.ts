@@ -4,6 +4,7 @@
  */
 import { childEnv } from "../service/childEnv.ts";
 import { runGit, gitText } from "./git.ts";
+import { hostConfigEnv } from "./safeConfig/index.ts";
 
 /** Paths go through stdin, NUL-separated and literal: no argv limit, no pathspec magic. */
 const pathspecArgs = ["--pathspec-from-file=-", "--pathspec-file-nul"];
@@ -73,6 +74,7 @@ export const commit = async (
     cwd: top,
     env: childEnv({
       ...process.env,
+      ...hostConfigEnv(process.env),
       GIT_TERMINAL_PROMPT: "0",
       // No editor to wait on: the message is the Client's.
       GIT_EDITOR: "true",

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir } from "node:fs/promises";
+import { mkdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { ConstellationTransferRpcs, type Constellation, type AttemptId } from "@polaris/protocol";
 import { Context, Effect, Stream } from "effect";
@@ -24,6 +24,27 @@ export class ConstellationTransferRoot extends Context.Reference<string>(
 ) {}
 
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
+
+/**
+ * The worker Host's repository for an owner's Workspace. One 128-bit component: git on Windows
+ * refuses a worktree's git dir past 220 characters. A repository at the older two-hash path stays.
+ */
+export const workerRepoPath = async (
+  root: string,
+  graph: { readonly hostId: string; readonly workspaceId: string }
+) => {
+  const repos = join(root, "constellation", "repos");
+  const legacy = join(repos, hash(graph.hostId), hash(graph.workspaceId));
+
+  const prepared = await stat(legacy).then(
+    () => true,
+    () => false
+  );
+
+  if (prepared) return legacy;
+
+  return join(repos, hash(JSON.stringify([graph.hostId, graph.workspaceId])).slice(0, 32));
+};
 
 const publishedBranch = (graph: Constellation, attemptId: AttemptId | null, head: string) =>
   `${graph.settings.branchPrefix ?? "polaris"}/${hash(graph.id)}/${attemptId === null ? `base-${head}` : hash(attemptId)}`;
@@ -281,17 +302,12 @@ export const ConstellationTransferHandlers = ConstellationTransferRpcs.toLayer(
 
             if (supplied !== null) return { repoPath: supplied };
 
-            const repoPath = join(
-              root,
-              "constellation",
-              "repos",
-              hash(request.graph.hostId),
-              hash(request.graph.workspaceId)
-            );
+            const repoPath = yield* gitOperation(async () => {
+              const path = await workerRepoPath(root, request.graph);
+              await mkdir(path, { recursive: true });
+              await gitText(path, ["init", "--initial-branch=main"]);
 
-            yield* gitOperation(async () => {
-              await mkdir(repoPath, { recursive: true });
-              await gitText(repoPath, ["init", "--initial-branch=main"]);
+              return path;
             });
 
             return { repoPath };
