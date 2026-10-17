@@ -64,6 +64,9 @@ const open = () => ({
     ConvertSidToStringSidW: { args: ["u64", "ptr"], returns: "i32" },
     SetFileSecurityW: { args: ["ptr", "u32", "u64"], returns: "i32" },
   }),
+  ntdll: dlopen("ntdll.dll", {
+    NtQueryInformationProcess: { args: ["u64", "u32", "ptr", "u32", "ptr"], returns: "u32" },
+  }),
   iphlpapi: dlopen("iphlpapi.dll", {
     GetExtendedTcpTable: { args: ["ptr", "ptr", "i32", "u32", "u32", "u32"], returns: "u32" },
   }),
@@ -76,6 +79,8 @@ const k32 = () => (lib ??= open()).kernel32.symbols;
 const adv = () => (lib ??= open()).advapi32.symbols;
 
 const ip = () => (lib ??= open()).iphlpapi.symbols;
+
+const nt = () => (lib ??= open()).ntdll.symbols;
 
 const wide = (value: string): Buffer => Buffer.from(`${value}\0`, "utf16le");
 
@@ -147,6 +152,47 @@ export const processCreated = (pid: number): bigint | null => {
     const times = timesOf(handle);
 
     return times === null || times.exited !== 0n ? null : times.created;
+  } finally {
+    k32().CloseHandle(handle);
+  }
+};
+
+const PROCESS_COMMAND_LINE_INFORMATION = 60;
+
+const STATUS_INFO_LENGTH_MISMATCH = 0xc000_0004;
+
+/** `handle`'s command line: a `UNICODE_STRING` whose characters follow it in `buffer`. */
+const queryCommandLine = (handle: Handle, buffer: Uint8Array, size: Uint32Array): number =>
+  nt().NtQueryInformationProcess(
+    handle,
+    PROCESS_COMMAND_LINE_INFORMATION,
+    ptr(buffer),
+    buffer.byteLength,
+    ptr(size)
+  );
+
+/** The command line `pid` was started with, or null if it is gone or not ours to ask. */
+export const processCommandLine = (pid: number): string | null => {
+  const handle = k32().OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+
+  if (handle === 0n) return null;
+
+  try {
+    const size = new Uint32Array(1);
+    let buffer = new Uint8Array(4096);
+    let status = queryCommandLine(handle, buffer, size);
+
+    if (status === STATUS_INFO_LENGTH_MISMATCH) {
+      buffer = new Uint8Array(size[0]!);
+      status = queryCommandLine(handle, buffer, size);
+    }
+
+    if (status !== 0) return null;
+    const view = new DataView(buffer.buffer);
+    const length = view.getUint16(0, true);
+    const offset = Number(view.getBigUint64(8, true) - BigInt(ptr(buffer)));
+
+    return Buffer.from(buffer.buffer, offset, length).toString("utf16le");
   } finally {
     k32().CloseHandle(handle);
   }

@@ -6,6 +6,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { childEnv } from "../service/childEnv.ts";
+import { processCommandLine } from "./windowsNative.ts";
 
 type Env = Readonly<Record<string, string | undefined>>;
 
@@ -123,7 +124,7 @@ export const commandLineArgv = (pid: number, os: string = process.platform): Arr
       ]
     : ["ps", "-o", "command=", "-p", String(pid)];
 
-/** `pid`'s command line, or null when it's gone. Linux reads `/proc`; Windows takes ~300 ms. */
+/** `pid`'s command line, or null when it's gone: `/proc` on Linux, the process itself on Windows. */
 export const commandLineOf = (pid: number): string | null => {
   if (process.platform === "linux") {
     try {
@@ -132,6 +133,9 @@ export const commandLineOf = (pid: number): string | null => {
       return null;
     }
   }
+
+  // Not the CIM query: it stalls for seconds on CI runners.
+  if (process.platform === "win32") return processCommandLine(pid);
 
   const result = Bun.spawnSync(commandLineArgv(pid), {
     env: childEnv(),

@@ -10,6 +10,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import type { ServerWebSocket } from "bun";
 import { Schema } from "effect";
+import { processCreated } from "../../../platform/windowsNative.ts";
 import { defaultStateFile, tokenFileOf } from "../AppServer.ts";
 import { type RpcId, RpcMessage, type RpcPayload } from "../protocol.ts";
 
@@ -53,7 +54,6 @@ interface ServerMessage {
 
 const decodeMessage = Schema.decodeUnknownSync(Schema.fromJsonString(RpcMessage));
 
-/** Windows: a loopback port, recorded in the state file with this process as its listener. */
 /**
  * The recorded root: like the real server's `.cmd` shim it has exited, and only the listener,
  * this process, is alive. A live root would send stopAppServer to read its command line.
@@ -62,6 +62,7 @@ let exitedRoot: number | undefined;
 
 const rootPid = () => (exitedRoot ??= Bun.spawnSync([process.execPath, "-e", ""]).pid);
 
+/** Windows: a loopback port, recorded in the state file with this process as its listener. */
 const serveOnLoopback = (
   socketPath: string,
   upgrade: (req: Request, srv: Bun.Server<undefined>) => Response | undefined,
@@ -94,6 +95,7 @@ const serveOnLoopback = (
       sanitizedEnv: true,
       listen: `ws://127.0.0.1:${server.port}`,
       listenerPid: process.pid,
+      listenerCreated: String(processCreated(process.pid)),
     })
   );
 
