@@ -163,6 +163,9 @@ export const confinedGit = async (
   worktree: string
 ): Promise<ConfinedGit | null> => {
   if (gitDir === common || !isWithin(common, gitDir)) return null;
+
+  // Windows has no sandbox for a shell to run git in (the Reviewer only reads), nor POSIX modes.
+  if (process.platform === "win32") return null;
   const { dir, shared } = await generate(common, worktree);
 
   return {

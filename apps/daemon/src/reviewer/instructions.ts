@@ -4,7 +4,7 @@
  * Host, appended after it. Optional front-matter lists paths to ignore.
  */
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, isAbsolute, join } from "node:path";
 import { Option, Schema } from "effect";
 import { checkoutGitRaw } from "../git/review/refs.ts";
 import { listRemotes, parseRemoteUrl } from "../git/review/remotes.ts";
@@ -69,14 +69,14 @@ const committedAt = async (cwd: string, head: string | null): Promise<string | n
  * remote for a Workspace path; the directory's name when it has none.
  */
 export const privateInstructionsName = async (repo: string): Promise<string> => {
-  if (!repo.startsWith("/")) return repo;
+  if (!isAbsolute(repo)) return repo;
   const remotes = await listRemotes(repo);
   const remote = remotes.find((r) => r.name === "origin") ?? remotes[0];
   const url = remote === undefined ? null : parseRemoteUrl(remote.url);
 
   if (url !== null) return `${url.host}/${url.owner}/${url.name}`.toLowerCase();
 
-  return `local/${repo.split("/").findLast((part) => part !== "") ?? "repo"}`;
+  return `local/${basename(repo) || "repo"}`;
 };
 
 export const privateInstructionsPath = (name: string): string =>

@@ -1,14 +1,19 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { chmodSync, existsSync, mkdirSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { chmodSync, existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { dirname, isAbsolute, join, posix, win32 } from "node:path";
 import { Effect } from "effect";
 import { makeFakeBlobChannel } from "../files/testing.ts";
 import { DiffSpec } from "./diff.ts";
 import { handleGitDiff, handleGitStatus } from "./GitRpcs.ts";
-import { GitOutputTooLarge, gitText, runGitRaw } from "./git.ts";
+import { GitOutputTooLarge, gitText, HOOKS_OFF, runGitRaw } from "./git.ts";
 import { pinCommits } from "./review/fetch.ts";
 import { reviewRef } from "./review/refs.ts";
-import { parseListing, repositoryOverrides } from "./safeConfig/index.ts";
+import {
+  NO_HOOKS_PATH,
+  noHooksPath,
+  parseListing,
+  repositoryOverrides,
+} from "./safeConfig/index.ts";
 import { showFile } from "./show.ts";
 import { snapshotWorkingTree } from "./snapshot.ts";
 import { commitAll, makeRepo, removeDir, tempDir, write } from "./testing.ts";
@@ -115,6 +120,43 @@ describe("automatic git in a Workspace's repository", () => {
 
     expect(await gitText(root, ["rev-parse", reviewRef("session-s1", "head")])).toBe(head);
     expect(existsSync(join(root, "hook.ran"))).toBe(false);
+  });
+});
+
+describe("the hooks path Polaris pins", () => {
+  test.each([
+    ["darwin", "/usr/local/bin/polaris"],
+    ["linux", "/home/u/.polaris/bin/current/polaris"],
+    ["win32", "C:\\Users\\u\\.polaris\\bin\\0.2.0\\polaris.exe"],
+  ])("on %s it is absolute, so git never resolves it in the working tree", (os, execPath) => {
+    const isAbsolute = os === "win32" ? win32.isAbsolute : posix.isAbsolute;
+
+    expect(isAbsolute(noHooksPath(os, execPath))).toBe(true);
+  });
+
+  test("here it names something that exists and is no directory, so it holds no hook", () => {
+    expect(isAbsolute(NO_HOOKS_PATH)).toBe(true);
+    expect(statSync(NO_HOOKS_PATH).isDirectory()).toBe(false);
+  });
+
+  test("a commit runs neither the repository's hooks nor one planted where the path would resolve", async () => {
+    const root = dir(await makeRepo({ "a.txt": "a\n" }));
+    const marker = join(root, "hook.ran").replaceAll("\\", "/");
+    const hook = `#!/bin/sh\necho "$0" >> "${marker}"\n`;
+    // The value read relative to the working tree, as git would read a relative one.
+    const planted = join(root, NO_HOOKS_PATH.replace(/^[A-Za-z]:/, ""), "pre-commit");
+    const longPath = (path: string) => (process.platform === "win32" ? `\\\\?\\${path}` : path);
+
+    for (const path of [join(root, ".git", "hooks", "pre-commit"), planted]) {
+      mkdirSync(longPath(dirname(path)), { recursive: true });
+      writeFileSync(longPath(path), hook);
+      chmodSync(longPath(path), 0o755);
+    }
+
+    await gitText(root, [...HOOKS_OFF, "commit", "-q", "--allow-empty", "-m", "no hooks"]);
+
+    expect(await gitText(root, ["log", "-1", "--format=%s"])).toBe("no hooks");
+    expect(existsSync(marker)).toBe(false);
   });
 });
 

@@ -33,7 +33,7 @@ import {
   type TurnInput,
 } from "../HarnessDriver.ts";
 import { ItemClock } from "../itemClock.ts";
-import type { AppServer } from "./AppServer.ts";
+import { type AppServer, remoteTuiArgv } from "./AppServer.ts";
 import {
   type CodexPlanLimits,
   onRateLimitsUpdated,
@@ -807,13 +807,9 @@ export const openSession = (
           // Applied with the next `turn/start`, whose overrides persist on the thread.
           permissionMode = mode;
         }),
-      terminalCommand: Effect.succeed([
-        config.codexPath,
-        "resume",
-        threadId,
-        "--remote",
-        `unix://${config.appServer.socketPath}`,
-      ]),
+      terminalCommand: Effect.sync(() =>
+        remoteTuiArgv(config.appServer, config.codexPath, threadId)
+      ),
     };
 
     return session;

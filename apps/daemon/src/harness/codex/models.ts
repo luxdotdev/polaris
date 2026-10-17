@@ -10,7 +10,8 @@ import { Model } from "@polaris/protocol";
 import { Effect, Option, Schema } from "effect";
 import type { HarnessError } from "../HarnessDriver.ts";
 import * as P from "./protocol.ts";
-import { codexError, connectStdio, connectUnix, type RpcConnection } from "./RpcConnection.ts";
+import { connectAppServer } from "./AppServer.ts";
+import { codexError, connectStdio, type RpcConnection } from "./RpcConnection.ts";
 
 const decodePage = Schema.decodeUnknownOption(P.ModelListResponse);
 
@@ -68,7 +69,7 @@ export const askAppServer = <A>(
 
   return Effect.scoped(
     Effect.gen(function* () {
-      const conn = yield* connectUnix(config.socketPath).pipe(
+      const conn = yield* connectAppServer(config.socketPath).pipe(
         Effect.catch(() => connectStdio(codexPath))
       );
 

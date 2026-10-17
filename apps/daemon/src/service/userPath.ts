@@ -16,8 +16,9 @@ import {
 } from "@polaris/client/userPath";
 import { spawnSync } from "node:child_process";
 import { homedir } from "node:os";
+import { delimiter } from "node:path";
 
-export { mergePaths, parseMarkedPath } from "@polaris/client/userPath";
+export { mergePaths, mergePathsWith, parseMarkedPath } from "@polaris/client/userPath";
 
 /** The user's interactive login shell's PATH; null when there is no shell or it misbehaves. */
 export const loginShellPath = ({ env, timeoutMs = 3000 }: UserPathInput): string | null => {
@@ -48,7 +49,7 @@ export const userPath = (input: UserPathInput): string => {
   return mergePaths(
     loginShellPath(input),
     env.PATH,
-    wellKnownDirs(env.HOME ?? homedir()).join(":")
+    wellKnownDirs(env.HOME ?? homedir()).join(delimiter)
   );
 };
 

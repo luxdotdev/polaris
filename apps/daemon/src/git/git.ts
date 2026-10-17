@@ -8,7 +8,8 @@ import { dirname, join, resolve } from "node:path";
 import { Effect } from "effect";
 import { ServiceError } from "../services.ts";
 import { megabytes, readBounded, readHead } from "./output.ts";
-import { safeArgs, safeConfigEnv } from "./safeConfig/index.ts";
+import { NO_HOOKS_PATH, safeArgs, safeConfigEnv } from "./safeConfig/index.ts";
+import { killTree, ownProcessGroup } from "../platform/processes.ts";
 
 export interface GitResult {
   readonly code: number;
@@ -64,16 +65,11 @@ export const baseEnv = () => ({
   LC_ALL: "C",
 });
 
-const killGroup = (pid: number) => {
-  try {
-    process.kill(-pid, "SIGTERM");
-  } catch {
-    // Already gone.
-  }
-};
+/** git and what it started; on Windows a forced kill, which can leave git's lock files behind. */
+const killGroup = (pid: number) => void killTree(pid, "SIGTERM");
 
 /** A repository's own hooks never run in a checkout Polaris makes (a relative husky `core.hooksPath`). */
-export const HOOKS_OFF: ReadonlyArray<string> = ["-c", "core.hooksPath=/dev/null"];
+export const HOOKS_OFF: ReadonlyArray<string> = ["-c", `core.hooksPath=${NO_HOOKS_PATH}`];
 
 export const runGitRaw = async (
   cwd: string,
@@ -99,15 +95,18 @@ export const runGitRaw = async (
   }
 
   // Its own process group, so an abort also stops what git started (ssh, a credential helper).
-  if (options.signal !== undefined) spawnOptions.detached = true;
+  const group = options.signal !== undefined;
+
+  if (group && ownProcessGroup()) spawnOptions.detached = true;
 
   const proc = Bun.spawn(["git", ...(host ? args : safeArgs(args))], spawnOptions);
   const stop = () => killGroup(proc.pid);
 
   const overflow = () => {
-    proc.kill("SIGKILL");
+    if (group) killGroup(proc.pid);
 
-    if (spawnOptions.detached === true) killGroup(proc.pid);
+    // taskkill needs git alive to find its children, and ends git with them.
+    if (!group || ownProcessGroup()) proc.kill("SIGKILL");
   };
 
   options.signal?.addEventListener("abort", stop, { once: true });

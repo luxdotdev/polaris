@@ -6,7 +6,7 @@
  */
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import { type ChildProcessApi, childProcesses } from "./process/node.ts";
 
 const START = "__POLARIS_PATH__";
@@ -38,18 +38,25 @@ export const parseMarkedPath = (stdout: string): string | null => {
   return path === "" ? null : path;
 };
 
-/** Every directory once, in first-seen order; empty entries dropped. */
-export const mergePaths = (...paths: ReadonlyArray<string | null | undefined>): string => {
+/** Every directory once, in first-seen order; empty entries dropped. Lists split on `separator`. */
+export const mergePathsWith = (
+  separator: string,
+  ...paths: ReadonlyArray<string | null | undefined>
+): string => {
   const seen = new Set<string>();
 
   for (const path of paths) {
-    for (const dir of (path ?? "").split(":")) {
+    for (const dir of (path ?? "").split(separator)) {
       if (dir !== "") seen.add(dir);
     }
   }
 
-  return [...seen].join(":");
+  return [...seen].join(separator);
 };
+
+/** `mergePathsWith` this platform's PATH separator: `;` on Windows, where `:` follows a drive letter. */
+export const mergePaths = (...paths: ReadonlyArray<string | null | undefined>): string =>
+  mergePathsWith(delimiter, ...paths);
 
 /** Where per-user installers put binaries; added only when they exist. */
 export const wellKnownDirs = (home: string): ReadonlyArray<string> =>
@@ -121,6 +128,6 @@ export const userPathAsync = async (input: UserPathInput): Promise<string> => {
   return mergePaths(
     await loginShellPathAsync(input),
     env.PATH,
-    wellKnownDirs(env.HOME ?? homedir()).join(":")
+    wellKnownDirs(env.HOME ?? homedir()).join(delimiter)
   );
 };

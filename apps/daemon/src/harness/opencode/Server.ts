@@ -13,6 +13,7 @@ import { dirname, join } from "node:path";
 import { Duration, Effect, Option, Schema, type Scope, Semaphore } from "effect";
 import { paths } from "../../paths.ts";
 import { HarnessError } from "../HarnessDriver.ts";
+import { commandLineOf, killTree, stopChild } from "../../platform/processes.ts";
 
 export const opencodeError = (message: string, cause?: unknown) =>
   new HarnessError({ harness: "opencode", message, cause });
@@ -50,14 +51,7 @@ const decodeState = Schema.decodeUnknownOption(ServerState);
 
 const encodeState = Schema.encodeSync(ServerState);
 
-const commandLine = (pid: number): string => {
-  const ps = Bun.spawnSync(["ps", "-o", "command=", "-p", String(pid)], {
-    env: childEnv(),
-    stderr: "ignore",
-  });
-
-  return ps.exitCode === 0 ? ps.stdout.toString() : "";
-};
+const commandLine = (pid: number): string => commandLineOf(pid) ?? "";
 
 /** Stops a server a previous Daemon recorded, if that pid is still an `opencode serve`. */
 const stopStale = (stateFile: string) => {
@@ -69,10 +63,13 @@ const stopStale = (stateFile: string) => {
   const command = commandLine(state.pid);
 
   if (command.includes("opencode") && command.includes("serve")) {
-    try {
-      process.kill(state.pid, "SIGTERM");
-    } catch {
-      // Already gone.
+    if (process.platform === "win32") void killTree(state.pid);
+    else {
+      try {
+        process.kill(state.pid, "SIGTERM");
+      } catch {
+        // Already gone.
+      }
     }
   }
 };
@@ -109,7 +106,7 @@ interface Running {
 
 const stopProcess = (proc: Running["proc"]) =>
   Effect.promise(async () => {
-    proc.kill("SIGTERM");
+    stopChild(proc, "SIGTERM");
 
     const exited = await Promise.race([
       proc.exited.then(() => true),

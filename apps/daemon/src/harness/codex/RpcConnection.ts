@@ -11,6 +11,7 @@ import { appendFileSync } from "node:fs";
 import { type Cause, Data, Deferred, Effect, Option, Queue, Schema, type Scope } from "effect";
 import { HarnessError } from "../HarnessDriver.ts";
 import { type Outgoing, type RpcId, RpcMessage, type RpcPayload } from "./protocol.ts";
+import { stopChild } from "../../platform/processes.ts";
 
 /** A server notification or server→client request; `params` is undefined when the server sent none. */
 export type Incoming = Data.TaggedEnum<{
@@ -183,16 +184,26 @@ const makeConnection = (
 export const connectUnix = (
   socketPath: string
 ): Effect.Effect<RpcConnection, HarnessError, Scope.Scope> =>
+  connectWebSocket(`ws+unix://${socketPath}`, socketPath);
+
+/** A WebSocket app-server at `url`; `where` names it in errors, `token` is its capability token. */
+export const connectWebSocket = (
+  url: string,
+  where: string,
+  token?: string
+): Effect.Effect<RpcConnection, HarnessError, Scope.Scope> =>
   makeConnection(({ onMessage, onClose }) =>
     Effect.callback<Wire, HarnessError>((resume) => {
-      const ws = new WebSocket(`ws+unix://${socketPath}`);
+      const ws =
+        token === undefined
+          ? new WebSocket(url)
+          : new WebSocket(url, { headers: { Authorization: `Bearer ${token}` } });
+
       ws.onopen = () =>
         resume(Effect.succeed({ send: (raw) => ws.send(raw), close: () => ws.close() }));
       ws.onerror = (event) => {
         const message = (event instanceof ErrorEvent && event.message) || "WebSocket error";
-        resume(
-          Effect.fail(codexError(`Cannot reach Codex app-server at ${socketPath}: ${message}`))
-        );
+        resume(Effect.fail(codexError(`Cannot reach Codex app-server at ${where}: ${message}`)));
         onClose(message);
       };
 
@@ -248,7 +259,7 @@ export const connectStdio = (
           },
           close: () => {
             void proc.stdin.end();
-            proc.kill();
+            stopChild(proc);
           },
         };
       },

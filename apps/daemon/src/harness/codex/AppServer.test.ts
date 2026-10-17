@@ -1,13 +1,16 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { Effect } from "effect";
 import {
   isOurAppServer,
   launchArgv,
   acquireAppServer,
   readAppServerState,
+  remoteTuiArgv,
   stopAppServer,
+  tokenFileOf,
 } from "./AppServer.ts";
 import { makeFakeCodex } from "./testing/fakeCodex.ts";
 
@@ -205,5 +208,49 @@ describe("the shared app-server outlives the Daemon", () => {
       "--listen",
       "unix:///home/u/.polaris/codex.sock",
     ]);
+  });
+});
+
+describe("remoteTuiArgv", () => {
+  const recorded = () => {
+    const dir = mkdtempSync(join(tmpdir(), "pas-tui-"));
+    dirs.push(dir);
+    const stateFile = join(dir, "codex-app-server.json");
+    const state = { pid: 1, version: null, codexPath: "x", socketPath: "s", startedAt: 0 };
+    writeFileSync(stateFile, JSON.stringify({ ...state, listen: "ws://127.0.0.1:4100" }));
+    mkdirSync(dirname(tokenFileOf(stateFile)), { recursive: true });
+    writeFileSync(tokenFileOf(stateFile), "secret-token");
+
+    return { socketPath: join(dir, "codex.sock"), stateFile };
+  };
+
+  test("a Unix Host attaches the TUI to the socket", () => {
+    const server = recorded();
+
+    expect(remoteTuiArgv(server, "/bin/codex", "thr", "linux")).toEqual([
+      "/bin/codex",
+      "resume",
+      "thr",
+      "--remote",
+      `unix://${server.socketPath}`,
+    ]);
+  });
+
+  test("Windows reads the token into the TUI's environment, never its argv", () => {
+    const server = recorded();
+    const argv = remoteTuiArgv(server, "C:\\it's\\codex.cmd", "thr", "win32");
+    const script = Buffer.from(argv.at(-1)!, "base64").toString("utf16le");
+
+    expect(argv.slice(0, -1)).toEqual([
+      "powershell.exe",
+      "-NoLogo",
+      "-NoProfile",
+      "-EncodedCommand",
+    ]);
+    expect(argv.join(" ")).not.toContain("secret-token");
+    expect(script).toContain(`-LiteralPath '${tokenFileOf(server.stateFile)}'`);
+    expect(script).toContain(
+      "& 'C:\\it''s\\codex.cmd' resume 'thr' --remote 'ws://127.0.0.1:4100' --remote-auth-token-env POLARIS_CODEX_TOKEN"
+    );
   });
 });

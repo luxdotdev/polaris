@@ -6,9 +6,23 @@
  */
 export type SafeMode = "safe" | "trusted-fetch";
 
+/**
+ * Windows: `NUL` is relative (a checkout's `NUL\pre-commit` is found) and `/dev/null` maps into
+ * Git's install, so the running executable stands in: absolute, always present, never a directory.
+ */
+export function noHooksPath(os: string, execPath: string): string {
+  return os === "win32" ? execPath : "/dev/null";
+}
+
+/**
+ * A hooks "directory" that is a file, so it can hold no hook. Absolute on purpose: git resolves a
+ * relative one against the working tree. Windows has no `/dev/null` (see `noHooksPath`).
+ */
+export const NO_HOOKS_PATH = noHooksPath(process.platform, process.execPath);
+
 /** Settings that run commands, turned off whatever any config says. */
 export const FIXED: ReadonlyArray<readonly [string, string]> = [
-  ["core.hooksPath", "/dev/null"],
+  ["core.hooksPath", NO_HOOKS_PATH],
   ["core.fsmonitor", "false"],
   ["log.showSignature", "false"],
   ["protocol.ext.allow", "never"],
@@ -163,7 +177,7 @@ export const globalOptions = (args: ReadonlyArray<string>): ReadonlyArray<string
 const INERT_VALUES = new Set([
   "core.splitIndex=false",
   "index.skipHash=true",
-  "core.hooksPath=/dev/null",
+  `core.hooksPath=${NO_HOOKS_PATH}`,
   "core.quotePath=true",
 ]);
 

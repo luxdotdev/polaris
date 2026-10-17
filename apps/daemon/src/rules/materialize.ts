@@ -7,7 +7,7 @@ import { safeArgs, safeConfigEnv } from "../git/safeConfig/index.ts";
 import { repositoryEnv } from "../service/childEnv.ts";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, normalize } from "node:path";
+import { dirname, isAbsolute, join, normalize } from "node:path";
 
 const HEADER = /^(\S+) (\S+) (\d+)$/;
 
@@ -48,7 +48,7 @@ export const parseBatch = (
 const isContained = (path: string) => {
   const clean = normalize(path);
 
-  return !clean.startsWith("..") && !clean.startsWith("/") && !path.includes("\n");
+  return !clean.startsWith("..") && !isAbsolute(clean) && !path.includes("\n");
 };
 
 /**

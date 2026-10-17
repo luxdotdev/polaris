@@ -14,6 +14,11 @@
 // Every command loads only what it needs: `bridge` runs once per remote Client for as
 // long as it stays connected, and `serve` should not carry the install code.
 
+import { normalizeWindowsEnv } from "./platform/processes.ts";
+
+// Windows names it `Path`: a copy of process.env (`{ ...process.env }`) would have no PATH.
+normalizeWindowsEnv();
+
 const [command, ...args] = process.argv.slice(2);
 
 switch (command) {
@@ -82,5 +87,3 @@ switch (command) {
     process.exit(command === undefined ? 0 : 2);
   }
 }
-
-export {};

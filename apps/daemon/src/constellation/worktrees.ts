@@ -9,7 +9,7 @@ import {
   WorktreeRequest,
 } from "@polaris/protocol";
 import { Context, Effect, Layer, Schema, Semaphore } from "effect";
-import { gitText, resolveCommit } from "../git/git.ts";
+import { gitText, HOOKS_OFF, resolveCommit } from "../git/git.ts";
 import { gitStatus } from "../git/status.ts";
 import { listWorktrees, samePath } from "../git/WorktreeTracker.ts";
 import { constellationRef, mergedInto } from "../git/constellationBundles.ts";
@@ -108,8 +108,7 @@ const ensure = async (prepared: PreparedWorktree) => {
 
   const existing = await resolveCommit(prepared.repoPath, `refs/heads/${prepared.branch}`);
   await gitText(prepared.repoPath, [
-    "-c",
-    "core.hooksPath=/dev/null",
+    ...HOOKS_OFF,
     "worktree",
     "add",
     ...(existing === null
@@ -301,8 +300,7 @@ export class ConstellationWorktrees extends Context.Service<
                   }
 
                   await gitText(prepared.repoPath, [
-                    "-c",
-                    "core.hooksPath=/dev/null",
+                    ...HOOKS_OFF,
                     "worktree",
                     "remove",
                     prepared.worktree,
