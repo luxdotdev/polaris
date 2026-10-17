@@ -1,10 +1,11 @@
 # Serves a windows-x64 Daemon on a throwaway Polaris home and drives it over its named pipe
-# with the real Client (windows-smoke.ts: hello, Harness availability, git.status, a Terminal):
+# with the real Client under Node, as the Desktop App connects (windows-smoke.ts: the pipe's
+# owner, hello, Harness availability, git.status, a Terminal):
 #
 #   ./apps/daemon/scripts/windows-pipe-smoke.ps1 -Daemon <polaris.exe> [-Repo <git repo>]
 #
 # Without -Repo it makes a one-commit repository in the throwaway home. Run it from a
-# checkout with dependencies installed; Bun and git must be on PATH.
+# checkout with dependencies installed; Bun, Node and git must be on PATH.
 param(
   [Parameter(Mandatory = $true)][string]$Daemon,
   [string]$Repo
@@ -28,7 +29,13 @@ if (!$Repo) {
 $serve = Start-Process -FilePath $daemonPath -ArgumentList @('serve', '--home', "`"$polarisHome`"") `
   -PassThru -NoNewWindow -RedirectStandardOutput $out -RedirectStandardError $err
 try {
-  & bun (Join-Path $PSScriptRoot 'windows-smoke.ts') $polarisHome $Repo
+  # Node connects as the Desktop App does, refusing a pipe this account doesn't own (ADR 0062);
+  # bundled like the app's main process, with koffi resolved from the Client's dependencies.
+  $bundle = Join-Path $polarisHome 'windows-smoke.mjs'
+  & bun build (Join-Path $PSScriptRoot 'windows-smoke.ts') --target=node --external koffi --outfile $bundle | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw 'Could not bundle the smoke Client' }
+  $env:NODE_PATH = Join-Path $PSScriptRoot '..\..\..\packages\client\node_modules'
+  & node $bundle $polarisHome $Repo
   $smoke = $LASTEXITCODE
   if ($serve.HasExited) { throw "The Daemon exited during the smoke test: $($serve.ExitCode)" }
   if ($smoke -ne 0) { throw "The pipe smoke test failed: $smoke" }
