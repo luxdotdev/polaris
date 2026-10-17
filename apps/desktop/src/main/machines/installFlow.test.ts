@@ -41,6 +41,69 @@ const plan = (
   approved: ReadonlyArray<string>
 ) => planInstall(probe(installed), [build], { trigger, approvedSha256: new Set(approved) });
 
+describe("a sign-in task another Polaris home holds", () => {
+  const conflict = {
+    kind: "task-conflict" as const,
+    message: "the scheduled task dev.lux.polaris.lucas runs another home",
+    command: null,
+    conflict: { task: "dev.lux.polaris.lucas", otherHome: "C:\\dev\\.polaris" },
+  };
+
+  const held = () =>
+    run(
+      { type: "check", trigger: "user" },
+      { type: "planned", plan: plan("0.1.0", "user", []) },
+      { type: "failed", problem: conflict }
+    );
+
+  test("blocks with the work kept; only a take-over reruns it", () => {
+    const blocked = held();
+
+    expect(blocked.value).toBe("blocked");
+    expect(blocked.context.work?._tag).toBe("Upgrade");
+    const again = stepInstall(blocked, { type: "takeOver" });
+    expect(again.value).toBe("installing");
+    expect(again.context.work).toBe(blocked.context.work);
+  });
+
+  test("another failure keeps no work, so there is nothing to take over", () => {
+    const failed = run(
+      { type: "check", trigger: "user" },
+      { type: "planned", plan: plan("0.1.0", "user", []) },
+      { type: "failed", problem: { kind: "failed", message: "boom", command: null } }
+    );
+
+    expect(failed.context.work).toBeNull();
+    expect(stepInstall(failed, { type: "takeOver" })).toBe(failed);
+  });
+
+  test("from any other state a take-over changes nothing, even with work in hand", () => {
+    const work = held().context.work;
+
+    // SAFETY: the machine's config keys are exactly its state values.
+    const states = Object.keys(installMachine.config.states) as ReadonlyArray<
+      InstallSnapshot["value"]
+    >;
+
+    for (const value of states) {
+      const from: InstallSnapshot = {
+        ...initialInstall(),
+        value,
+        context: { ...initialInstall().context, work },
+      };
+
+      expect(stepInstall(from, { type: "takeOver" })).toBe(from);
+    }
+  });
+
+  test("a check drops the held work: the take-over is for that install only", () => {
+    const rechecked = stepInstall(held(), { type: "check", trigger: "background" });
+
+    expect(rechecked.value).toBe("checking");
+    expect(stepInstall(rechecked, { type: "takeOver" })).toBe(rechecked);
+  });
+});
+
 describe("install flow", () => {
   test("first install: ask, approve, re-check, install", () => {
     const asked = run(

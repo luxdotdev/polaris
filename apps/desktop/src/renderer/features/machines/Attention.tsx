@@ -10,7 +10,14 @@ import type { MachineView } from "../../../shared/api.ts";
 import { slots } from "../../app/slots.tsx";
 import { useApp } from "../../shell/hooks.ts";
 import { call } from "./hooks.tsx";
-import { type CardAction, type CardButton, attentionCard, offerFacts } from "./model.ts";
+import {
+  type CardAction,
+  type CardButton,
+  type CardModel,
+  attentionCard,
+  offerFacts,
+  takeOverConfirmation,
+} from "./model.ts";
 import { modKey, shortcutLabel } from "../../../shared/chord.ts";
 import { FIELD_CHORDS } from "../../../shared/keymap.ts";
 import { clientCopy } from "../../../shared/clientCopy.ts";
@@ -41,6 +48,9 @@ const runAction = (machine: MachineView, action: CardAction, context: ActionCont
         : call("machines.approve", { hostKey, sha256: machine.install.offer.sha256 });
     case "dismiss":
       return call("machines.dismiss", { hostKey });
+    case "take-over":
+      // Asks first, in place (`TaskConflictCard`); only its confirm sends the request.
+      return null;
   }
 };
 
@@ -127,6 +137,96 @@ const ActionButton = ({
     </Button>
   );
 
+/** The card's sentence, evidence and buttons, as every reason shows them. */
+const ReasonCard = ({
+  model,
+  onAction,
+}: {
+  readonly model: CardModel;
+  readonly onAction: (button: CardButton) => void;
+}) => {
+  // The client reports steps, not bytes: work in progress is the dither, never a guessed bar.
+  const busy = model.reason === "checking" || model.reason === "installing";
+  const { fix, secondary } = model;
+
+  return (
+    <>
+      <p className="text-body text-text-default flex items-center gap-2">
+        {busy ? <Dither hue="starlight" size={12} /> : null}
+        <span>
+          {model.title}. {model.body}
+        </span>
+      </p>
+      {model.detail === null ? null : <Well>{model.detail}</Well>}
+      {fix === null && secondary === null ? null : (
+        <div className="gap-gap flex items-center">
+          {fix === null ? null : (
+            <ActionButton
+              button={fix}
+              ghost={false}
+              detail={model.detail}
+              onAction={() => onAction(fix)}
+            />
+          )}
+          {secondary === null ? null : (
+            <ActionButton
+              button={secondary}
+              ghost={fix !== null}
+              detail={model.detail}
+              onAction={() => onAction(secondary)}
+            />
+          )}
+        </div>
+      )}
+    </>
+  );
+};
+
+/**
+ * A sign-in task another Polaris home holds: which home, then "Take over sign-in task",
+ * which asks in place with the consequence before anything runs (DESIGN.md, Hosts (S4)).
+ */
+export const TaskConflictCard = ({
+  machine,
+  model,
+}: {
+  readonly machine: MachineView;
+  readonly model: CardModel;
+}) => {
+  const [asking, setAsking] = useState(false);
+  const confirmation = asking ? takeOverConfirmation(machine) : null;
+  const hostKey = machine.key;
+
+  const onAction = (button: CardButton) =>
+    button.action === "take-over"
+      ? setAsking(true)
+      : void runAction(machine, button.action, { openSsh: () => undefined });
+
+  if (confirmation === null) return <ReasonCard model={model} onAction={onAction} />;
+
+  return (
+    <div className="gap-row-x flex flex-col" data-testid="take-over-confirmation">
+      <p className="text-body text-text-default">
+        {confirmation.title}. {confirmation.body}
+      </p>
+      <div className="gap-gap flex items-center">
+        <Button variant="ghost" autoFocus onClick={() => setAsking(false)}>
+          Cancel
+        </Button>
+        <Button
+          variant="danger"
+          onClick={() => {
+            setAsking(false);
+            void call("machines.takeOverTask", { hostKey });
+          }}
+        >
+          {confirmation.confirm}
+        </Button>
+      </div>
+    </div>
+  );
+};
+
 /**
  * The row's reason, flat; and `ssh <alias>` in a terminal on this Mac's local
  * Host under it (to trust a host key), macOS Terminal only while that is off.
@@ -146,10 +246,7 @@ export const Attention = ({ machine }: { readonly machine: MachineView }) => {
       localUp ? setSsh(true) : void call("machines.openSsh", { hostKey: machine.key }),
   };
 
-  const run = (button: CardButton) => () => void runAction(machine, button.action, context);
-  // The client reports steps, not bytes: work in progress is the dither, never a guessed bar.
-
-  const busy = model.reason === "checking" || model.reason === "installing";
+  const run = (button: CardButton) => void runAction(machine, button.action, context);
 
   return (
     <div
@@ -157,32 +254,10 @@ export const Attention = ({ machine }: { readonly machine: MachineView }) => {
       data-testid="attention-card"
       data-reason={model.reason}
     >
-      <p className="text-body text-text-default flex items-center gap-2">
-        {busy ? <Dither hue="starlight" size={12} /> : null}
-        <span>
-          {model.title}. {model.body}
-        </span>
-      </p>
-      {model.detail === null ? null : <Well>{model.detail}</Well>}
-      {model.fix === null && model.secondary === null ? null : (
-        <div className="gap-gap flex items-center">
-          {model.fix === null ? null : (
-            <ActionButton
-              button={model.fix}
-              ghost={false}
-              detail={model.detail}
-              onAction={run(model.fix)}
-            />
-          )}
-          {model.secondary === null ? null : (
-            <ActionButton
-              button={model.secondary}
-              ghost={model.fix !== null}
-              detail={model.detail}
-              onAction={run(model.secondary)}
-            />
-          )}
-        </div>
+      {model.reason === "task-conflict" ? (
+        <TaskConflictCard machine={machine} model={model} />
+      ) : (
+        <ReasonCard model={model} onAction={run} />
       )}
       {ssh && machine.alias !== null ? (
         <slots.HarnessTerminal

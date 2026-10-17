@@ -96,9 +96,9 @@ const machine = (
   daemon: update,
 });
 
-export type Scene = "all" | "current" | "failures" | "live" | "wsl";
+export type Scene = "all" | "current" | "failures" | "live" | "wsl" | "task";
 
-export const SCENES: ReadonlyArray<Scene> = ["all", "current", "failures", "live", "wsl"];
+export const SCENES: ReadonlyArray<Scene> = ["all", "current", "failures", "live", "wsl", "task"];
 
 const thisMac = (update: DaemonUpdateView) =>
   machine(
@@ -342,6 +342,44 @@ const wsl = (): ReadonlyArray<MachineView> => [
   ),
 ];
 
+/** An install stopped on a sign-in task another Polaris home (or another program) holds. */
+const heldTask = (view: MachineView, otherHome: string | null): MachineView => ({
+  ...view,
+  install: {
+    step: "blocked",
+    activity: null,
+    offer: null,
+    outcome: null,
+    problem: {
+      kind: "task-conflict",
+      message: "the scheduled task dev.lux.polaris.lucas runs another Polaris home",
+      command: null,
+      conflict: { task: "dev.lux.polaris.lucas", otherHome },
+    },
+  },
+});
+
+/** Windows: this PC's first install and a Windows SSH Host's upgrade, both held (ENG-325). */
+const task = (): ReadonlyArray<MachineView> => [
+  heldTask(
+    machine(
+      "local",
+      "This PC",
+      null,
+      attention("polaris-not-installed", "polaris.exe: not found"),
+      daemon({ installedVersion: null, updateAvailable: false })
+    ),
+    "C:\\Users\\lucas\\polaris-dev\\.polaris"
+  ),
+  {
+    ...heldTask(
+      machine("pc", "Gaming PC", "lucas-desktop", connected("windows-x64", "0.4.1", 6), daemon()),
+      null
+    ),
+    windowsShell: "powershell",
+  },
+];
+
 /** What "Add a host" is offered on the `wsl` scene; the other scenes are Macs (no WSL). */
 export const WSL_DISTROS: WslDistrosView = {
   status: "distros",
@@ -369,6 +407,8 @@ export const machinesFor = (scene: Scene, now: number): ReadonlyArray<MachineVie
   switch (scene) {
     case "wsl":
       return wsl();
+    case "task":
+      return task();
     case "current":
       return current();
     case "failures":

@@ -10,6 +10,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { HostAccess } from "@polaris/client/access";
 import { Ssh, SshError } from "@polaris/client/install";
+import {
+  type ChildProcessApi,
+  type SpawnRequest,
+  scriptedChildProcess,
+} from "@polaris/client/process";
 import { HostId, HostInfo } from "@polaris/protocol";
 import { Effect, Layer, ManagedRuntime, Option, Schema, Stream, SubscriptionRef } from "effect";
 import type { ConnectionStatusView, HostView, MachineView } from "../../shared/api.ts";
@@ -59,7 +64,9 @@ const setup = (
   initial: Settings = {},
   probeOutput?: () => string,
   clientPlatform?: NodeJS.Platform,
-  localListening: (home: string) => Promise<void> = () => Promise.resolve()
+  localListening: (home: string) => Promise<void> = () => Promise.resolve(),
+  /** A Windows x64 Client's `polaris.exe`, scripted; without it Windows is Windows on Arm. */
+  processes?: ChildProcessApi
 ) => {
   let settings: Settings = initial;
   const commands: Array<string> = [];
@@ -94,11 +101,12 @@ const setup = (
     }),
     aliases: () => [{ alias: "studio", hostName: "studio.lan", user: null }],
     openTerminal: () => Promise.resolve(),
+    processes,
   });
 
   // This Mac's Daemon: installed in `localHome`, or with none the app's own dev Daemon; none on Windows on Arm.
   const localHost =
-    clientPlatform === "win32"
+    clientPlatform === "win32" && processes === undefined
       ? LocalHost.unsupported()
       : LocalHost.test({ daemon: testDaemon(localHome), listening: localListening });
 
@@ -556,6 +564,85 @@ describe("Machines", () => {
     expect(settings().hosts).toEqual([]);
     expect(openApprovals(join(root, "approvals.json")).approved("studio").size).toBe(0);
     await runtime.dispose();
+  });
+});
+
+describe("this PC's own Daemon on Windows", () => {
+  const OTHER_HOME = "C:\\Users\\lucas\\dev\\.polaris";
+
+  /** `polaris.exe install`: refused while another home holds the task, unless `--replace-task`. */
+  const heldTask = () => {
+    const spawned: Array<SpawnRequest> = [];
+
+    const processes = scriptedChildProcess((request) => {
+      spawned.push(request);
+
+      const report = request.args.includes("--replace-task")
+        ? { ok: true, action: "installed", notes: [] }
+        : {
+            ok: false,
+            error: "TaskConflictError",
+            message: "the scheduled task dev.lux.polaris.lucas runs another home",
+            task: "dev.lux.polaris.lucas",
+            otherHome: OTHER_HOME,
+          };
+
+      return { exit: { code: report.ok ? 0 : 3, stdout: `${JSON.stringify(report)}\r\n` } };
+    });
+
+    return { spawned, processes };
+  };
+
+  test("a sign-in task another home holds stops the install and says whose it is; nothing reruns on its own", async () => {
+    writeDist(dist, { version: "0.2.0", platform: "windows-x64" });
+    const { spawned, processes } = heldTask();
+    const s = setup(false, home, {}, undefined, "win32", undefined, processes);
+
+    try {
+      await s.call((m) => m.check("local"));
+
+      const row = await s.local(
+        (v) => v.install?.step === "blocked" && v.daemon?.lastUpdate?.result === "failed"
+      );
+
+      expect(row?.install?.problem).toMatchObject({
+        kind: "task-conflict",
+        conflict: { task: "dev.lux.polaris.lucas", otherHome: OTHER_HOME },
+      });
+      expect(row?.daemon?.lastUpdate?.problem?.kind).toBe("task-conflict");
+      expect(spawned.map((r) => r.args.includes("--replace-task"))).toEqual([false]);
+    } finally {
+      await s.runtime.dispose();
+    }
+  });
+
+  test("taking over reruns the same install with --replace-task, once", async () => {
+    writeDist(dist, { version: "0.2.0", platform: "windows-x64" });
+    const { spawned, processes } = heldTask();
+    const s = setup(false, home, {}, undefined, "win32", undefined, processes);
+
+    try {
+      await s.call((m) => m.check("local"));
+      await s.local((v) => v.install?.step === "blocked");
+      await s.call((m) => m.takeOverTask("local"));
+      const done = await s.local((v) => v.install?.outcome?.kind === "installed");
+
+      expect(done?.install?.outcome?.version).toBe("0.2.0");
+      expect(spawned.map((r) => r.args.slice(0, 2))).toEqual([
+        ["install", "--json"],
+        ["install", "--json"],
+      ]);
+      expect(spawned.map((r) => r.args.includes("--replace-task"))).toEqual([false, true]);
+      // Nothing is held any more: a second take-over has nothing to rerun.
+
+      const again = await s.runtime.runPromise(
+        Machines.use((m) => m.takeOverTask("local")).pipe(Effect.flip)
+      );
+
+      expect(again.message).toBe("Nothing is waiting on the sign-in task; check again.");
+    } finally {
+      await s.runtime.dispose();
+    }
   });
 });
 

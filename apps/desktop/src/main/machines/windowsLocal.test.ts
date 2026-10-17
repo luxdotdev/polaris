@@ -7,7 +7,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { installedPaths } from "@polaris/client";
-import type { DaemonBuild } from "@polaris/client/install";
+import { type DaemonBuild, TaskConflict } from "@polaris/client/install";
 import { type SpawnRequest, scriptedChildProcess } from "@polaris/client/process";
 import { Effect, Predicate } from "effect";
 import {
@@ -124,6 +124,49 @@ describe("this PC's polaris.exe", () => {
     expect(t.spawned[0]?.file).toBe(installedPaths(home, "win32").binary);
     expect(t.spawned[0]?.args.slice(0, 2)).toEqual(["upgrade", build("1.2.0").files[0]!.path]);
   });
+
+  const CONFLICT = JSON.stringify({
+    ok: false,
+    error: "TaskConflictError",
+    message: "the scheduled task dev.lux.polaris.lucas runs the Polaris home C:\\dev\\.polaris",
+    task: "dev.lux.polaris.lucas",
+    otherHome: "C:\\dev\\.polaris",
+  });
+
+  test.each(["Install", "Upgrade"] as const)(
+    "%s: a sign-in task another home holds is a TaskConflict naming it, not a failure",
+    async (kind) => {
+      const t = recording(CONFLICT, 3);
+      const plan = planWindowsLocal(kind === "Install" ? null : "1.1.0", [build("1.2.0")], "user");
+
+      if (!Predicate.isTagged(plan, kind)) throw new Error(plan._tag);
+
+      const error = await Effect.runPromise(
+        Effect.flip(applyWindowsLocal(home, plan, t.processes))
+      );
+
+      expect(error).toBeInstanceOf(TaskConflict);
+      expect(error).toMatchObject({
+        task: "dev.lux.polaris.lucas",
+        otherHome: "C:\\dev\\.polaris",
+      });
+    }
+  );
+
+  test.each(["Install", "Upgrade"] as const)(
+    "%s: a take-over runs the same command with --replace-task",
+    async (kind) => {
+      const t = recording('{"ok":true,"notes":[]}');
+      const plan = planWindowsLocal(kind === "Install" ? null : "1.1.0", [build("1.2.0")], "user");
+
+      if (!Predicate.isTagged(plan, kind)) throw new Error(plan._tag);
+      await Effect.runPromise(applyWindowsLocal(home, plan, t.processes));
+      await Effect.runPromise(applyWindowsLocal(home, plan, t.processes, true));
+
+      expect(t.spawned[1]?.args).toEqual([...(t.spawned[0]?.args ?? []), "--replace-task"]);
+      expect(t.spawned[1]?.file).toBe(t.spawned[0]?.file);
+    }
+  );
 
   test("a failed command fails with the message its JSON gave", async () => {
     const t = recording('{"ok":false,"message":"did not start: sign in to Windows"}', 1);

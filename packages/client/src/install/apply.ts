@@ -16,6 +16,41 @@ export class RemoteInstallError extends Schema.TaggedError<RemoteInstallError>()
   }
 ) {}
 
+/**
+ * Windows: the sign-in task this install would register runs another Polaris home
+ * (`otherHome`, null when the task isn't Polaris'). `polaris install|upgrade` changed
+ * nothing; the same command with `--replace-task` (`ApplyOptions.replaceTask`) takes it over.
+ */
+export class TaskConflict extends Schema.TaggedError<TaskConflict>()("TaskConflict", {
+  alias: Schema.String,
+  step: Schema.String,
+  task: Schema.String,
+  otherHome: Schema.NullOr(Schema.String),
+  message: Schema.String,
+}) {}
+
+/** What `polaris install|upgrade --json` prints for a `TaskConflictError` (exit 3). */
+const TaskConflictReport = Schema.Struct({
+  ok: Schema.Literal(false),
+  error: Schema.Literal("TaskConflictError"),
+  message: Schema.String,
+  task: Schema.String,
+  otherHome: Schema.NullOr(Schema.String),
+});
+
+const decodeConflict = Schema.decodeUnknownOption(TaskConflictReport);
+
+/** The report as a `TaskConflict`, when that is what it says; null for anything else. */
+export const taskConflictOf = (
+  report: Schema.JsonObject | null,
+  where: { readonly alias: string; readonly step: string }
+): TaskConflict | null =>
+  Option.match(decodeConflict(report), {
+    onNone: () => null,
+    onSome: ({ task, otherHome, message }) =>
+      new TaskConflict({ ...where, task, otherHome, message }),
+  });
+
 export const failed = (
   alias: string,
   step: string,
@@ -49,6 +84,8 @@ export interface ApplyOptions {
   readonly clientVersion?: string | undefined;
   /** How long the Host's download may take in all before falling back (default 15 minutes). */
   readonly hostFetchTimeoutMs?: number | undefined;
+  /** Windows: take over a sign-in task another Polaris home holds (`--replace-task`). */
+  readonly replaceTask?: boolean | undefined;
 }
 
 /** The JSON line `polaris install|upgrade --json` prints; its fields vary by action and version. */
@@ -70,6 +107,10 @@ export const runPolaris = Effect.fn("runPolaris")(function* (
   const line = result.stdout.trim().split("\n").at(-1) ?? "";
 
   const report: DaemonReport | null = Option.getOrNull(decodeReport(line));
+
+  const conflict = taskConflictOf(report, { alias, step });
+
+  if (conflict !== null) return yield* conflict;
 
   if (result.code !== 0 || report === null || report.ok !== true) {
     const message = Predicate.isString(report?.message) ? report.message : null;

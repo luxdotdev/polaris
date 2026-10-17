@@ -90,23 +90,44 @@ export const uploadCommand = (dir: string, file: BuildFile, shell: WindowsShell)
 const runExe = (exe: string, args: ReadonlyArray<string>) =>
   `$exe = ${exe}; & $exe ${args.join(" ")}; exit $LASTEXITCODE`;
 
-/** `<dir>\polaris.exe install --json --sha256 <sha>`: the first install. */
-export const installCommand = (dir: string, binary: string, sha256: string): string =>
+/** `--replace-task` when the user took over the sign-in task another home holds. */
+const takeOver = (replaceTask: boolean) => (replaceTask ? ["--replace-task"] : []);
+
+/** `<dir>\polaris.exe install --json --sha256 <sha> [--replace-task]`: the first install. */
+export const installCommand = (
+  dir: string,
+  binary: string,
+  sha256: string,
+  replaceTask = false
+): string =>
   encodedCommand(
     runExe(`(Join-Path ${stagingPath(dir)} ${psQuote(checkedName(binary))})`, [
       "install",
       "--json",
       "--sha256",
       psQuote(sha256),
+      ...takeOver(replaceTask),
     ])
   );
 
-/** The installed Daemon's `upgrade <dir>\polaris.exe --json --sha256 <sha>`. */
-export const upgradeCommand = (dir: string, binary: string, sha256: string): string =>
+/** The installed Daemon's `upgrade <dir>\polaris.exe --json --sha256 <sha> [--replace-task]`. */
+export const upgradeCommand = (
+  dir: string,
+  binary: string,
+  sha256: string,
+  replaceTask = false
+): string =>
   encodedCommand(
     [
       `$new = Join-Path ${stagingPath(dir)} ${psQuote(checkedName(binary))}`,
-      runExe(currentExe, ["upgrade", "$new", "--json", "--sha256", psQuote(sha256)]),
+      runExe(currentExe, [
+        "upgrade",
+        "$new",
+        "--json",
+        "--sha256",
+        psQuote(sha256),
+        ...takeOver(replaceTask),
+      ]),
     ].join("; ")
   );
 
