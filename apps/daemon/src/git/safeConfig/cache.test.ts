@@ -2,33 +2,24 @@
  * The cached config listing on real repositories: kept while nothing git reads for it
  * changed (a branch switch, an inert `-c`), read again when something did.
  */
-import { afterEach, describe, expect, test } from "bun:test";
-import {
-  chmodSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
-} from "node:fs";
-import { delimiter, join, resolve } from "node:path";
+import { afterEach, describe, expect, type Mock, spyOn, test } from "bun:test";
+import { chmodSync, existsSync, mkdirSync, rmSync, symlinkSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { posixTest } from "../../platform/testing.ts";
-import { gitText } from "../git.ts";
+import { gitText, HOOKS_OFF } from "../git.ts";
 import { makeRepo, removeDir, tempDir, write } from "../testing.ts";
 
 /** Git for Windows reads config values and runs drivers through sh: no backslashes. */
 const forward = (path: string) => path.replaceAll("\\", "/");
 
-/** Windows runs git.exe, never the sh shim `countListings` puts first on PATH. */
-const countingTest = posixTest("the PATH git shim that counts listings is a sh script (ENG-318)");
+const linkTest = posixTest("its HEAD link targets hold `|`, which no Windows path may");
 
 const cleanup: Array<string> = [];
 
-const PATH = process.env.PATH;
+const spies: Array<Mock<typeof Bun.spawn>> = [];
 
 afterEach(() => {
-  process.env.PATH = PATH;
+  for (const spy of spies.splice(0)) spy.mockRestore();
 
   for (const dir of cleanup.splice(0)) removeDir(dir);
 });
@@ -39,24 +30,23 @@ const dir = (made: string) => {
   return made;
 };
 
-/** Puts a `git` first on PATH that logs each call's arguments; answers how many listed config. */
-const countListings = () => {
-  const bin = dir(tempDir("polaris-git-log-"));
-  const log = join(bin, "calls");
-  const real = Bun.which("git") ?? "git";
-  writeFileSync(log, "");
-  write(bin, "git", `#!/bin/sh\nprintf '%s\\n' "$*" >> "${log}"\nexec "${real}" "$@"\n`);
-  chmodSync(join(bin, "git"), 0o755);
-  process.env.PATH = `${bin}${delimiter}${PATH ?? ""}`;
+/** Watches every git the Daemon starts from here; answers how many ran with all of `words`. */
+const countGits = (...words: Array<string>) => {
+  const spawn = spyOn(Bun, "spawn");
+  spies.push(spawn);
 
   return () =>
-    readFileSync(log, "utf8")
-      .split("\n")
-      .filter((line) => line.includes("config --list")).length;
+    spawn.mock.calls.filter(([command]) => {
+      const argv = Array.isArray(command) ? command : [];
+
+      return argv[0] === "git" && words.every((word) => argv.includes(word));
+    }).length;
 };
 
+const countListings = () => countGits("config", "--list");
+
 describe("the cached config listing", () => {
-  countingTest("survives a branch switch and a commit on a detached HEAD", async () => {
+  test("survives a branch switch and a commit on a detached HEAD", async () => {
     const root = dir(await makeRepo({ "a.txt": "a\n" }));
     await gitText(root, ["status", "--porcelain"]);
     const listings = countListings();
@@ -71,15 +61,28 @@ describe("the cached config listing", () => {
     expect(listings()).toBe(0);
   });
 
-  countingTest("is shared by a call with the Daemon's inert `-c` settings", async () => {
+  test("is shared by a call with the Daemon's inert `-c` settings", async () => {
     const root = dir(await makeRepo({ "a.txt": "a\n" }));
     await gitText(root, ["status", "--porcelain"]);
     const listings = countListings();
 
     await gitText(root, ["-c", "core.splitIndex=false", "-c", "index.skipHash=true", "status"]);
-    await gitText(root, ["-c", "core.hooksPath=/dev/null", "status", "--porcelain"]);
+    await gitText(root, [...HOOKS_OFF, "status", "--porcelain"]);
 
     expect(listings()).toBe(0);
+  });
+
+  test("of a new repository is read, but where the Host's config lives is asked once", async () => {
+    const first = dir(await makeRepo({ "a.txt": "a\n" }));
+    await gitText(first, ["status", "--porcelain"]);
+    const listings = countListings();
+    const asked = countGits("var");
+
+    const second = dir(await makeRepo({ "b.txt": "b\n" }));
+    await gitText(second, ["status", "--porcelain"]);
+
+    expect(listings()).toBeGreaterThan(0);
+    expect(asked()).toBe(0);
   });
 
   test("is read again when the branch decides a Host include", async () => {
@@ -153,26 +156,23 @@ describe("the cached config listing", () => {
     expect(existsSync(`${clean}.ran`)).toBe(false);
   });
 
-  countingTest(
-    "tells two HEAD links apart when one target ends where the next begins",
-    async () => {
-      const root = dir(await makeRepo({ "a.txt": "a\n" }));
-      const pkg = join(root, "pkg");
-      const uid = process.getuid?.() ?? 0;
+  linkTest("tells two HEAD links apart when one target ends where the next begins", async () => {
+    const root = dir(await makeRepo({ "a.txt": "a\n" }));
+    const pkg = join(root, "pkg");
+    const uid = process.getuid?.() ?? 0;
 
-      // Joined plainly, `x|l<uid>:refs/y` + absent reads the same as `x` + `refs/y|-`.
-      for (const sub of ["objects", "refs", ".git/objects", ".git/refs"])
-        mkdirSync(join(pkg, sub), { recursive: true });
-      symlinkSync(`x|l${uid}:refs/y`, join(pkg, ".git", "HEAD"));
-      expect(await gitText(pkg, ["rev-parse", "--show-toplevel"])).toBe(root);
-      const listings = countListings();
+    // Joined plainly, `x|l<uid>:refs/y` + absent reads the same as `x` + `refs/y|-`.
+    for (const sub of ["objects", "refs", ".git/objects", ".git/refs"])
+      mkdirSync(join(pkg, sub), { recursive: true });
+    symlinkSync(`x|l${uid}:refs/y`, join(pkg, ".git", "HEAD"));
+    expect(await gitText(pkg, ["rev-parse", "--show-toplevel"])).toBe(root);
+    const listings = countListings();
 
-      rmSync(join(pkg, ".git", "HEAD"));
-      symlinkSync("x", join(pkg, ".git", "HEAD"));
-      symlinkSync("refs/y|-", join(pkg, "HEAD"));
-      await gitText(pkg, ["rev-parse", "--git-dir"]);
+    rmSync(join(pkg, ".git", "HEAD"));
+    symlinkSync("x", join(pkg, ".git", "HEAD"));
+    symlinkSync("refs/y|-", join(pkg, "HEAD"));
+    await gitText(pkg, ["rev-parse", "--git-dir"]);
 
-      expect(listings()).toBeGreaterThan(0);
-    }
-  );
+    expect(listings()).toBeGreaterThan(0);
+  });
 });
