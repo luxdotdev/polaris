@@ -13,6 +13,11 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BRIDGE_EXIT_NO_DAEMON } from "@polaris/protocol";
+import { posixTest } from "../platform/testing.ts";
+
+const supervisorTest = posixTest(
+  "the fallback supervisor is a /bin/sh script; Windows has the logon task (ADR 0060)"
+);
 
 const BRIDGE = join(import.meta.dir, "fixtures", "bridge.ts");
 
@@ -82,7 +87,7 @@ const bridge = async (home: string, input: string, waitMs: number, systemdUnit?:
 };
 
 describe("polaris bridge without a Daemon", () => {
-  test("starts the fallback supervisor, waits for the socket and connects", async () => {
+  supervisorTest("starts the fallback supervisor, waits for the socket and connects", async () => {
     const home = makeHome(
       (dir) =>
         `POLARIS_HOME=${q(dir)} nohup ${q(process.execPath)} ${q(ECHO)} >/dev/null 2>&1 &\necho $! > ${q(join(dir, "echo.pid"))}`
@@ -95,7 +100,7 @@ describe("polaris bridge without a Daemon", () => {
     expect(starts(home)).toBe(1);
   });
 
-  test("exits 69 when the supervisor does not bring a Daemon up in time", async () => {
+  supervisorTest("exits 69 when the supervisor does not bring a Daemon up in time", async () => {
     const home = makeHome(() => "exit 0");
     const at = Date.now();
     const result = await bridge(home, "hello\n", 300);

@@ -83,7 +83,7 @@ for (const crashBeforeMarker of [false, true])
             attempt.sessionId,
             "manual-repair",
             root,
-            WorktreeSetup.cases.Command.make({ command: "true" }),
+            WorktreeSetup.cases.Command.make({ command: "exit 0" }),
             CID,
             attempt.taskId,
             WS

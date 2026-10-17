@@ -2,8 +2,9 @@ import { afterAll, afterEach } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { Effect } from "effect";
 
+// Windows can hold a closed file for seconds; rm retries EBUSY and EPERM for about 3 s.
 export const removeTempDirectory = (directory: string): void => {
-  rmSync(directory, { recursive: true, force: true });
+  rmSync(directory, { recursive: true, force: true, maxRetries: 30, retryDelay: 100 });
 };
 
 export const tempDirectory = (prefix: string): string => {

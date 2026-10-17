@@ -13,6 +13,11 @@ import { prepareSession } from "../composition/prepare.ts";
 import { ConstellationOwner } from "../runtime.ts";
 import { WorktreeSetupService, WorktreeSetupTrust } from "./index.ts";
 import { changeTrust } from "./trust.testing.ts";
+import { posixTest } from "../../platform/testing.ts";
+
+const shellSetupTest = posixTest(
+  "setup commands here are POSIX shell lines; Windows runs setup under cmd.exe (ENG-318)"
+);
 
 const cleanup: Array<string> = [];
 
@@ -57,9 +62,10 @@ const dispatch = (repo: string, key: string, worktreeSetup: WorktreeSetup | null
     HOST
   );
 
+// `echo ran > ran` creates the file under both /bin/sh and cmd.exe, where setup runs on Windows.
 const setups = [
   ["a lockfile-detected install", null],
-  ["a custom command", WorktreeSetup.cases.Command.make({ command: "touch ran" })],
+  ["a custom command", WorktreeSetup.cases.Command.make({ command: "echo ran > ran" })],
 ] as const;
 
 test.each(setups)(
@@ -87,7 +93,7 @@ test.each(setups)(
           yield* dispatch(
             repo,
             "trusted:A",
-            WorktreeSetup.cases.Command.make({ command: "touch ran" })
+            WorktreeSetup.cases.Command.make({ command: "echo ran > ran" })
           );
           expect(existsSync(join(repo, "ran"))).toBe(true);
         })
@@ -97,28 +103,32 @@ test.each(setups)(
   20_000
 );
 
-test("revoking trust stops setup at the spawn boundary, even for a forced retry", async () => {
-  const repo = await makeRepo();
-  const state = tempDir("polaris-state-");
-  cleanup.push(repo, state);
-  const setting = WorktreeSetup.cases.Command.make({ command: "echo run >> count" });
+shellSetupTest(
+  "revoking trust stops setup at the spawn boundary, even for a forced retry",
+  async () => {
+    const repo = await makeRepo();
+    const state = tempDir("polaris-state-");
+    cleanup.push(repo, state);
+    const setting = WorktreeSetup.cases.Command.make({ command: "echo run >> count" });
 
-  await Effect.runPromise(
-    Effect.scoped(
-      Effect.gen(function* () {
-        yield* dispatch(repo, "seed:A", WorktreeSetup.cases.Disabled.make({}));
-        yield* changeTrust(state, HOST, WS, "trust");
-        const attempt = yield* dispatch(repo, "first:A", setting);
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          yield* dispatch(repo, "seed:A", WorktreeSetup.cases.Disabled.make({}));
+          yield* changeTrust(state, HOST, WS, "trust");
+          const attempt = yield* dispatch(repo, "first:A", setting);
 
-        yield* changeTrust(state, HOST, WS, "revoke");
+          yield* changeTrust(state, HOST, WS, "revoke");
 
-        const refused = yield* (yield* WorktreeSetupService)
-          .run(attempt.sessionId, "merge-conflict", repo, setting, CID, task().id, WS, true)
-          .pipe(Effect.flip);
+          const refused = yield* (yield* WorktreeSetupService)
+            .run(attempt.sessionId, "merge-conflict", repo, setting, CID, task().id, WS, true)
+            .pipe(Effect.flip);
 
-        expect(refused._tag).toBe("WorktreeSetupUntrusted");
-        expect(yield* Effect.promise(() => readFile(join(repo, "count"), "utf8"))).toBe("run\n");
-      })
-    ).pipe(Effect.provide(fixture(state)))
-  );
-}, 20_000);
+          expect(refused._tag).toBe("WorktreeSetupUntrusted");
+          expect(yield* Effect.promise(() => readFile(join(repo, "count"), "utf8"))).toBe("run\n");
+        })
+      ).pipe(Effect.provide(fixture(state)))
+    );
+  },
+  20_000
+);

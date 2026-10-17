@@ -4,7 +4,7 @@
  * still reachable, clients keep being served through the switch, and a new
  * connection afterwards talks to the new version.
  */
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, expect, test } from "bun:test";
 import { chmodSync, existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -14,6 +14,9 @@ import { CommandRunner } from "./CommandRunner.ts";
 import { clearCloseOnExec, closeFd, isCloseOnExec, socketPair } from "./libc.ts";
 import { runtimePlatform } from "./platform.ts";
 import { HANDOFF_ENV, prepareHandoff, requestUpgrade, runningDaemonPid } from "./upgrade.ts";
+import { posixDescribe } from "../platform/testing.ts";
+
+const execveOnly = posixDescribe("execve and libc, which Windows upgrades don't use (ADR 0060)");
 
 const fixture = join(import.meta.dir, "fixtures", "handoff-daemon.ts");
 
@@ -103,7 +106,7 @@ afterEach(async () => {
   rmSync(home, { recursive: true, force: true });
 });
 
-describe("libc", () => {
+execveOnly("libc", () => {
   test("clears close-on-exec and builds an env for the new image", async () => {
     const [a, b] = socketPair();
 
@@ -192,7 +195,7 @@ exec ${launch.map((arg) => `"${arg}"`).join(" ")} --as 2.0.0
   expect(answered).toContain("2.0.0");
 };
 
-describe("execve hand-off", () => {
+execveOnly("execve hand-off", () => {
   test("keeps the PID, the Harness child and the listener across an upgrade", async () => {
     await handoffScenario([process.execPath, fixture]);
   }, 30_000);

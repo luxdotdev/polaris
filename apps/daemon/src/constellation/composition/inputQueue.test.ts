@@ -121,7 +121,7 @@ for (const command of ["exit 7", "mkdir package.json"])
             "manual-repair",
             root,
             WorktreeSetup.cases.Command.make({
-              command: command === "exit 7" ? "true" : "rmdir package.json",
+              command: command === "exit 7" ? "exit 0" : "rmdir package.json",
             }),
             CID,
             attempt.taskId,

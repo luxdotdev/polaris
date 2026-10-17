@@ -15,6 +15,11 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { shQuote, supervisorScript, supervisorStartLine } from "./templates.ts";
+import { posixTest } from "../platform/testing.ts";
+
+const shTest = posixTest(
+  "the fallback supervisor is a /bin/sh script; Windows has the logon task (ADR 0060)"
+);
 
 let root: string;
 
@@ -30,6 +35,9 @@ const readPid = (file: string): number | null => {
 };
 
 afterEach(() => {
+  // Only the supervisor runs make a root; on Windows they skip.
+  if (root === undefined) return;
+
   // Stop anything a test left running.
   for (const file of ["supervisor.pid", "daemon.pid"]) {
     try {
@@ -111,42 +119,54 @@ esac
 };
 
 describe("fallback supervisor", () => {
-  test("detaches, runs the Daemon, and restarts it after a crash", async () => {
-    const sup = setup("crash,up");
-    expect(sup.launch()).toBe(0); // returns at once
-    await waitFor(() => sup.starts().length >= 2);
-    const [, daemon] = sup.starts();
-    expect(alive(daemon!)).toBe(true);
-    // A second launch (cron, profile, reinstall) is a no-op: still one Daemon.
-    expect(sup.launch()).toBe(0);
-    await Bun.sleep(300);
-    expect(sup.starts()).toHaveLength(2);
-    expect(readFileSync(join(root, "logs", "supervisor.log"), "utf8")).toContain(
-      "polaris serve exited 1"
-    );
-  }, 20_000);
+  shTest(
+    "detaches, runs the Daemon, and restarts it after a crash",
+    async () => {
+      const sup = setup("crash,up");
+      expect(sup.launch()).toBe(0); // returns at once
+      await waitFor(() => sup.starts().length >= 2);
+      const [, daemon] = sup.starts();
+      expect(alive(daemon!)).toBe(true);
+      // A second launch (cron, profile, reinstall) is a no-op: still one Daemon.
+      expect(sup.launch()).toBe(0);
+      await Bun.sleep(300);
+      expect(sup.starts()).toHaveLength(2);
+      expect(readFileSync(join(root, "logs", "supervisor.log"), "utf8")).toContain(
+        "polaris serve exited 1"
+      );
+    },
+    20_000
+  );
 
-  test("SIGTERM stops the supervisor and its Daemon", async () => {
-    const sup = setup("up");
-    sup.launch();
-    await waitFor(() => sup.starts().length === 1 && sup.supervisorPid() !== null);
-    const supervisor = sup.supervisorPid()!;
-    const daemon = sup.starts()[0]!;
-    process.kill(supervisor, "SIGTERM");
-    await waitFor(() => !alive(supervisor) && !alive(daemon));
-    expect(existsSync(join(root, "supervisor.pid"))).toBe(false);
-  }, 20_000);
+  shTest(
+    "SIGTERM stops the supervisor and its Daemon",
+    async () => {
+      const sup = setup("up");
+      sup.launch();
+      await waitFor(() => sup.starts().length === 1 && sup.supervisorPid() !== null);
+      const supervisor = sup.supervisorPid()!;
+      const daemon = sup.starts()[0]!;
+      process.kill(supervisor, "SIGTERM");
+      await waitFor(() => !alive(supervisor) && !alive(daemon));
+      expect(existsSync(join(root, "supervisor.pid"))).toBe(false);
+    },
+    20_000
+  );
 
-  test("gives up when another Daemon already holds the lock (exit 75)", async () => {
-    const sup = setup("busy");
-    sup.launch();
-    await waitFor(() => readPid(join(root, "parent.pid")) !== null);
-    // Once the supervisor that ran it has exited, nothing is left to restart it.
-    const supervisor = readPid(join(root, "parent.pid"))!;
-    await waitFor(() => !alive(supervisor));
-    expect(existsSync(join(root, "supervisor.pid"))).toBe(false);
-    expect(sup.starts()).toHaveLength(1);
-  }, 20_000);
+  shTest(
+    "gives up when another Daemon already holds the lock (exit 75)",
+    async () => {
+      const sup = setup("busy");
+      sup.launch();
+      await waitFor(() => readPid(join(root, "parent.pid")) !== null);
+      // Once the supervisor that ran it has exited, nothing is left to restart it.
+      const supervisor = readPid(join(root, "parent.pid"))!;
+      await waitFor(() => !alive(supervisor));
+      expect(existsSync(join(root, "supervisor.pid"))).toBe(false);
+      expect(sup.starts()).toHaveLength(1);
+    },
+    20_000
+  );
 
   test("start lines for cron and login profiles", () => {
     expect(supervisorStartLine("/home/a b/.polaris/bin/polaris-supervise", "cron")).toBe(

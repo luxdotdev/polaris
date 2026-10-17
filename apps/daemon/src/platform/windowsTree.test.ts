@@ -3,6 +3,9 @@ import { identityOf, isInTree, parseProcessTable, processTable } from "./windows
 
 const windowsOnly = test.skipIf(process.platform !== "win32");
 
+/** Each Win32_Process query starts PowerShell and CIM: seconds apiece on a busy CI runner. */
+const CIM_TIMEOUT_MS = 60_000;
+
 /** `pid parent created` rows; the root (100) was started at tick 1000. */
 const table = parseProcessTable(
   [
@@ -43,10 +46,14 @@ describe("the Windows process tree", () => {
     expect(isInTree(rows, { pid: 5, created: 134062918011234566n }, 6)).toBe(false);
   });
 
-  windowsOnly("this process is in its parent's tree, as Windows reports it now", () => {
-    const parent = identityOf(process.ppid);
+  windowsOnly(
+    "this process is in its parent's tree, as Windows reports it now",
+    () => {
+      const parent = identityOf(process.ppid);
 
-    expect(parent).not.toBeNull();
-    expect(isInTree(processTable(), parent!, process.pid)).toBe(true);
-  });
+      expect(parent).not.toBeNull();
+      expect(isInTree(processTable(), parent!, process.pid)).toBe(true);
+    },
+    CIM_TIMEOUT_MS
+  );
 });

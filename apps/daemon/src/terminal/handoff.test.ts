@@ -4,7 +4,7 @@
  *   resize and the exit code;
  * - a crash ends terminals cleanly: the next Daemon reports them ended.
  */
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect } from "bun:test";
 import { chmodSync, existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -13,6 +13,7 @@ import { Effect, Schema } from "effect";
 import { CommandRunner } from "../service/CommandRunner.ts";
 import { runtimePlatform } from "../service/platform.ts";
 import { requestUpgrade, runningDaemonPid } from "../service/upgrade.ts";
+import { posixTest } from "../platform/testing.ts";
 
 const fixture = join(import.meta.dir, "fixtures", "terminal-daemon.ts");
 
@@ -135,63 +136,71 @@ const start = async (version: string) => {
 };
 
 describe("terminals across Daemon restarts", () => {
-  test("an execve upgrade keeps the shell, its scrollback, input, resize and exit code", async () => {
-    await start("1.0.0");
-    const id = await call({ op: "open", cwd: home }, Schema.String);
-    await call({ op: "input", id, text: "X=kept; echo ready-$$\n" }, Ok);
-    const before = await readUntil(id, /ready-\d+/);
-    const shellPid = before.match(/ready-(\d+)/)![1];
+  posixTest("execve, which Windows upgrades don't use (ADR 0060)")(
+    "an execve upgrade keeps the shell, its scrollback, input, resize and exit code",
+    async () => {
+      await start("1.0.0");
+      const id = await call({ op: "open", cwd: home }, Schema.String);
+      await call({ op: "input", id, text: "X=kept; echo ready-$$\n" }, Ok);
+      const before = await readUntil(id, /ready-\d+/);
+      const shellPid = before.match(/ready-(\d+)/)![1];
 
-    const next = join(home, "polaris-2.0.0");
-    writeFileSync(
-      next,
-      `#!/bin/sh
+      const next = join(home, "polaris-2.0.0");
+      writeFileSync(
+        next,
+        `#!/bin/sh
 if [ "$1" = version ]; then echo "polaris 2.0.0 ${platform}"; exit 0; fi
 exec "${process.execPath}" "${fixture}" --as 2.0.0
 `
-    );
-    chmodSync(next, 0o755);
+      );
+      chmodSync(next, 0o755);
 
-    const status = await Effect.runPromise(
-      requestUpgrade({ pid: daemon!.pid, binary: next, version: "2.0.0" }).pipe(
-        Effect.provide(CommandRunner.layer)
-      )
-    );
+      const status = await Effect.runPromise(
+        requestUpgrade({ pid: daemon!.pid, binary: next, version: "2.0.0" }).pipe(
+          Effect.provide(CommandRunner.layer)
+        )
+      );
 
-    expect(status).toMatchObject({ state: "done", pid: daemon!.pid });
-    expect(await call({ op: "info" }, Info)).toMatchObject({ version: "2.0.0", adopted: true });
+      expect(status).toMatchObject({ state: "done", pid: daemon!.pid });
+      expect(await call({ op: "info" }, Info)).toMatchObject({ version: "2.0.0", adopted: true });
 
-    // Same terminal id, scrollback replayed, same shell with its variables.
-    expect(await call({ op: "read", id }, Schema.String)).toContain(`ready-${shellPid}`);
-    await call({ op: "input", id, text: "echo $X-after-$$\n" }, Ok);
-    await readUntil(id, `kept-after-${shellPid}`);
+      // Same terminal id, scrollback replayed, same shell with its variables.
+      expect(await call({ op: "read", id }, Schema.String)).toContain(`ready-${shellPid}`);
+      await call({ op: "input", id, text: "echo $X-after-$$\n" }, Ok);
+      await readUntil(id, `kept-after-${shellPid}`);
 
-    await call({ op: "resize", id, cols: 100, rows: 40 }, Ok);
-    await Bun.sleep(200); // the adopted PTY resizes through stty
-    await call({ op: "input", id, text: "stty size\n" }, Ok);
-    await readUntil(id, "40 100");
+      await call({ op: "resize", id, cols: 100, rows: 40 }, Ok);
+      await Bun.sleep(200); // the adopted PTY resizes through stty
+      await call({ op: "input", id, text: "stty size\n" }, Ok);
+      await readUntil(id, "40 100");
 
-    await call({ op: "input", id, text: "exit 3\n" }, Ok);
-    await readUntil(id, "<exit 3>");
-    const list = await call({ op: "list" }, Listed);
-    expect(list.find((t) => t.id === id)).toMatchObject({ exit: { code: 3 }, endedBy: "exit" });
-  }, 30_000);
+      await call({ op: "input", id, text: "exit 3\n" }, Ok);
+      await readUntil(id, "<exit 3>");
+      const list = await call({ op: "list" }, Listed);
+      expect(list.find((t) => t.id === id)).toMatchObject({ exit: { code: 3 }, endedBy: "exit" });
+    },
+    30_000
+  );
 
-  test("a crash ends terminals; the next Daemon reports them ended in their cwd", async () => {
-    await start("1.0.0");
-    const id = await call({ op: "open", cwd: home }, Schema.String);
-    await call({ op: "input", id, text: "echo alive\n" }, Ok);
-    await readUntil(id, "alive");
-    daemon!.kill("SIGKILL");
-    await daemon!.exited;
+  posixTest("the fixture Daemon serves a Unix socket path and a POSIX shell (ENG-318)")(
+    "a crash ends terminals; the next Daemon reports them ended in their cwd",
+    async () => {
+      await start("1.0.0");
+      const id = await call({ op: "open", cwd: home }, Schema.String);
+      await call({ op: "input", id, text: "echo alive\n" }, Ok);
+      await readUntil(id, "alive");
+      daemon!.kill("SIGKILL");
+      await daemon!.exited;
 
-    await start("1.0.0");
-    expect(await call({ op: "read", id }, Schema.String)).toBe("<exit null>");
-    const list = await call({ op: "list" }, Listed);
-    expect(list.find((t) => t.id === id)).toMatchObject({
-      cwd: home,
-      exit: { code: null },
-      endedBy: "daemon-restart",
-    });
-  }, 30_000);
+      await start("1.0.0");
+      expect(await call({ op: "read", id }, Schema.String)).toBe("<exit null>");
+      const list = await call({ op: "list" }, Listed);
+      expect(list.find((t) => t.id === id)).toMatchObject({
+        cwd: home,
+        exit: { code: null },
+        endedBy: "daemon-restart",
+      });
+    },
+    30_000
+  );
 });

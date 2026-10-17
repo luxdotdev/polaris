@@ -32,6 +32,7 @@ import {
 import { Clock, Effect, Option, Queue, SubscriptionRef } from "effect";
 import { TestClock } from "effect/testing";
 import { startServer } from "./server.ts";
+import { localEndpoint } from "@polaris/protocol/endpoint";
 import { shortTemp } from "../platform/testing.ts";
 
 /** How the next attempt ends: it connects (none) or fails with the failure. */
@@ -41,7 +42,8 @@ const identity = {
   name: "polaris-test",
   version: "0.0.0",
   deviceLabel: "Model",
-  capabilities: [],
+  // A windows-x64 Host answers a Client without it with a newer protocol (ADR 0059).
+  capabilities: ["host.any-platform" as const],
 };
 
 const replay = (steps: ReadonlyArray<ConnectionStep>) =>
@@ -51,7 +53,7 @@ const replay = (steps: ReadonlyArray<ConnectionStep>) =>
     yield* Effect.addFinalizer(() =>
       Effect.sync(() => rmSync(home, { recursive: true, force: true }))
     );
-    const socketPath = join(home, "daemon.sock");
+    const socketPath = localEndpoint(home);
     yield* startServer({ socketPath, lockPath: join(home, "daemon.lock"), root: home });
 
     const outcomes = yield* Queue.unbounded<Outcome>();

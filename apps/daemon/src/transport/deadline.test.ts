@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { join } from "node:path";
 import { deadline, SERVE_EXIT_STUCK } from "./deadline.ts";
+import { posixTest } from "../platform/testing.ts";
 
 const fixture = join(import.meta.dir, "fixtures/stuck-serve.ts");
 
@@ -50,7 +51,9 @@ test("a startup parked in an uninterruptible region exits non-zero and says wher
   expect(stderr).toContain("recovering Constellations");
 });
 
-test("SIGTERM ends the process even when the graceful stop never finishes", async () => {
+posixTest(
+  "a signal there terminates at once; the logon task stops the Daemon over its control pipe (ADR 0060)"
+)("SIGTERM ends the process even when the graceful stop never finishes", async () => {
   const { code, stderr } = await run("shutdown", true);
 
   expect(code).toBe(SERVE_EXIT_STUCK);

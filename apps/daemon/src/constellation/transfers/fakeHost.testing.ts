@@ -60,7 +60,8 @@ export const testIdentity = {
   name: "constellation-relay-test",
   version: "0.0.0",
   deviceLabel: "Test Client",
-  capabilities: ["blobs", "constellation"],
+  // A Windows Host answers a Client without host.any-platform as an older protocol (ADR 0059).
+  capabilities: ["blobs", "constellation", "host.any-platform"],
 } satisfies import("../../../../../packages/client/src/HostConnection.ts").ClientIdentity;
 
 export const fakeHost = Effect.fnUntraced(function* (

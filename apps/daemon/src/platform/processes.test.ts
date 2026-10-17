@@ -106,7 +106,7 @@ describe("killTree", () => {
     await killTree(proc.pid, "SIGKILL");
     await proc.exited;
     expect(await waitUntil(() => !isRunning(grandchild))).toBe(true);
-  });
+  }, 60_000);
 });
 
 const firstLinePid = async (stdout: ReadableStream<Uint8Array>) => {
@@ -127,7 +127,8 @@ const firstLinePid = async (stdout: ReadableStream<Uint8Array>) => {
 
 /** The pid of `parent`'s child, from Windows' process table. */
 const windowsChild = async (parent: number): Promise<number> => {
-  const deadline = Date.now() + 10_000;
+  // Each query starts PowerShell and CIM, seconds apiece on a busy CI runner.
+  const deadline = Date.now() + 45_000;
 
   while (Date.now() < deadline) {
     const query = Bun.spawnSync([
