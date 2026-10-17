@@ -4,6 +4,8 @@ import { failureKindLabel } from "../failureKind.ts";
 
 interface ReviewFeedback {
   feedback?: string;
+  /** Set when the user, not the Lead, sent the Claim back. */
+  feedbackFrom?: "user";
   rejectedClaim?: Claim;
 }
 
@@ -18,6 +20,8 @@ const linkedFeedback = (graph: Constellation, cause: LinkedCause): ReviewFeedbac
   const fields: ReviewFeedback = {};
 
   if (previous.claim != null) fields.rejectedClaim = previous.claim;
+
+  if (previous.state === "rejected" && previous.rejectedBy === "user") fields.feedbackFrom = "user";
 
   const settled = previous.settleReason === null ? "" : `: ${line(previous.settleReason)}`;
 

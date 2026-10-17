@@ -9,10 +9,28 @@ import {
   TaskId,
   Turn,
   ConstellationNotification,
+  ConstellationQuestion,
   NotificationItem,
+  ReviewAction,
+  SessionId,
+  WorkerPlacement,
 } from "@polaris/protocol";
-import { Struct } from "effect";
-import { A, claimed, dispatched, draft, report } from "../engine/constellation.testing.ts";
+import { Predicate, Struct } from "effect";
+import {
+  A,
+  C,
+  CID,
+  LEAD,
+  apply,
+  claimed,
+  ctx,
+  dispatched,
+  draft,
+  report,
+} from "../engine/constellation.testing.ts";
+import { reviewFeedback } from "./composition/feedback.ts";
+import { assignment } from "../harness/constellation/testing.ts";
+import { workerBrief } from "../harness/constellation/worker.ts";
 import { stampKey } from "../store/constellation.ts";
 import { graphResult } from "./service.ts";
 import { notificationLine } from "./delivery/format.ts";
@@ -120,9 +138,7 @@ test("status separates a working Attempt from a Turn in flight and names a faile
 
   const sessions = (turns: ReadonlyArray<Turn>) => new Map([[attempt.sessionId, withTurns(turns)]]);
 
-  expect(statusOutline(record, sessions([]))).toContain(
-    "No Turn yet · the brief has not been delivered."
-  );
+  expect(statusOutline(record, sessions([]))).toContain("  Worker: no Turn yet\n");
 
   const ended = Turn.make(
     Struct.assign(newTurn(worker, "Build", attempt.startedAt), {
@@ -132,11 +148,11 @@ test("status separates a working Attempt from a Turn in flight and names a faile
   );
 
   expect(statusOutline(record, sessions([ended]))).toContain(
-    "No active Turn · last Turn completed at 2026-10-01T01:00:00.000Z; the worker is waiting, not working."
+    "  Worker: idle, last Turn completed at 2026-10-01T01:00:00.000Z\n"
   );
-  expect(
-    statusOutline(record, sessions([newTurn(worker, "Build", attempt.startedAt)]))
-  ).not.toContain("No active Turn");
+  expect(statusOutline(record, sessions([newTurn(worker, "Build", attempt.startedAt)]))).toContain(
+    "  Worker: Turn running\n"
+  );
 
   const failed = Constellation.make(
     Struct.assign(record.graph, {
@@ -190,4 +206,69 @@ test("status since a revision lists only later graph events, one line each, then
   expect(text).not.toContain("Constellation running.");
   expect(text).toContain("In review: A");
   expect(statusSince(record, events, 99)).toContain("Nothing changed.");
+});
+
+test("a send-back names the user when the user sent it, in status, the Lead update and the next brief", () => {
+  const reason = "Use the existing release script.\nKeep the DMG name.";
+
+  const cases = [
+    [{ kind: "user" as const }, " by the user", "Review feedback from the user:"],
+    [{ kind: "session" as const, sessionId: LEAD }, "", "Review feedback:"],
+  ] as const;
+
+  for (const [binding, by, heading] of cases) {
+    const record = claimed();
+    const attempt = record.graph.attempts[0]!;
+    const retry = draft(A, "a2", SessionId.make("worker-2"));
+
+    const sent = apply(
+      record,
+      C.Review.make({
+        constellationId: CID,
+        attemptId: attempt.id,
+        revision: attempt.revision,
+        action: ReviewAction.cases.SendBack.make({
+          reason,
+          worker: WorkerPlacement.cases.Existing.make({ sessionId: retry.sessionId }),
+        }),
+      }),
+      ctx({ binding, attempts: [retry] })
+    );
+
+    const settled = sent.graph.pendingNotifications.find(
+      (n) => Predicate.isTagged(n.item, "Settled") && n.item.state === "rejected"
+    )!;
+
+    expect(statusOutline(sent)).toContain(`  Sent back attempt a1${by} · Claim head`);
+    expect(notificationLine(sent, settled)).toBe(
+      `A: sent back${by}: Use the existing release script. Keep the DMG name.`
+    );
+    const retried = sent.graph.attempts.at(-1)!;
+
+    expect(
+      workerBrief({ ...assignment(), attempt: retried, ...reviewFeedback(sent.graph, retried) })
+    ).toContain(`\n\n${heading}\n${reason}\n\n`);
+  }
+});
+
+test("a Lead update quotes a worker question with the id answer needs", () => {
+  const record = claimed();
+
+  const n = ConstellationNotification.make({
+    id: "q",
+    queuedAt: record.graph.updatedAt,
+    item: NotificationItem.cases.Question.make({
+      attemptId: record.graph.attempts[0]!.id,
+      question: new ConstellationQuestion({
+        id: "q-dmg",
+        to: "lead",
+        text: "Sign with the team identity?",
+        blocking: true,
+      }),
+    }),
+  });
+
+  expect(notificationLine(record, n)).toBe(
+    "A asks lead (questionId q-dmg, blocking): Sign with the team identity?"
+  );
 });

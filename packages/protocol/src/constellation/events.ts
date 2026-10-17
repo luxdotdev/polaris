@@ -100,7 +100,12 @@ export const constellationEventFields = {
     receipts: Schema.Array(Schema.suspend(() => CheckReceipt)),
     evidence: EvidenceTier,
   },
-  AttemptRejected: { ...attempt, reason: Schema.String },
+  /** `by` is null on events written before it was recorded. */
+  AttemptRejected: {
+    ...attempt,
+    reason: Schema.String,
+    by: optionalNullable(Schema.Literals(["user", "lead"])),
+  },
   AttemptSettled: {
     ...attempt,
     outcome: Schema.Literals(["lost", "failed"]),

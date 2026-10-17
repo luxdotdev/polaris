@@ -1,4 +1,9 @@
-import type { ConstellationEvent, ConstellationNotification, StallAudit } from "@polaris/protocol";
+import type {
+  Attempt,
+  ConstellationEvent,
+  ConstellationNotification,
+  StallAudit,
+} from "@polaris/protocol";
 import { Match, Predicate } from "effect";
 import type { ConstellationRecord } from "../../store/constellation.ts";
 import { capacityBlocked, failureKindLabel } from "../failureKind.ts";
@@ -7,12 +12,25 @@ import { proposalDetails } from "../status.ts";
 
 const line = (text: string) => text.replace(/\s+/g, " ").trim();
 
+const REASON_LIMIT = 240;
+
+/** Who sent it back and why; the next Attempt's brief carries the reason in full. */
+const sentBackLine = (task: string, attempt: Attempt | undefined) => {
+  const by = attempt?.rejectedBy === "user" ? " by the user" : "";
+  const reason = line(attempt?.rejectionReason ?? "");
+
+  if (reason === "") return `${task}: sent back${by}.`;
+
+  return `${task}: sent back${by}: ${reason.length > REASON_LIMIT ? `${reason.slice(0, REASON_LIMIT)}…` : reason}`;
+};
+
 const settledLine = (
   record: ConstellationRecord,
   task: string,
   i: Extract<ConstellationNotification["item"], { _tag: "Settled" }>
 ) => {
-  const reason = line(record.graph.attempts.find((a) => a.id === i.attemptId)?.settleReason ?? "");
+  const attempt = record.graph.attempts.find((a) => a.id === i.attemptId);
+  const reason = line(attempt?.settleReason ?? "");
 
   if (i.state === "failed" && i.failureKind === "capacity")
     return `${task}: ${capacityBlocked(i.resetsAt)}: ${reason}. Polaris will not redispatch it; dispatch it again after the reset or on another Model.`;
@@ -20,7 +38,9 @@ const settledLine = (
   if (i.state === "failed" && i.failureKind !== null)
     return `${task}: failed (${failureKindLabel(i.failureKind)}): ${reason}`.trim();
 
-  return `${task}: ${i.state === "rejected" ? "sent back" : i.state}.`;
+  if (i.state === "rejected") return sentBackLine(task, attempt);
+
+  return `${task}: ${i.state}.`;
 };
 
 export const notificationLine = (record: ConstellationRecord, n: ConstellationNotification) => {
@@ -44,7 +64,8 @@ export const notificationLine = (record: ConstellationRecord, n: ConstellationNo
     }),
     Match.tag(
       "Question",
-      (i) => `${worker(i.attemptId)} asks ${i.question.to}: ${line(i.question.text)}`
+      (i) =>
+        `${worker(i.attemptId)} asks ${i.question.to} (questionId ${i.question.id}${i.question.blocking ? ", blocking" : ""}): ${line(i.question.text)}`
     ),
     Match.tag("Proposal", (i) => {
       const task = record.proposals.get(i.proposalId)?.task;

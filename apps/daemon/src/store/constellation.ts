@@ -356,6 +356,7 @@ export const foldConstellation = (
         attempts: patchAttempt(next, e, {
           state: "rejected",
           rejectionReason: e.reason,
+          rejectedBy: e.by ?? null,
           endedAt: at,
         }),
       });

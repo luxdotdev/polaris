@@ -87,7 +87,7 @@ test("same-session busy SendBack commits now, skips setup, and delivers once at 
       yield* Fiber.join(startup);
       yield* startPendingAttempt(current, attempt);
       expect(w.turns).toHaveLength(1);
-      expect(w.turns[0]!.prompt).toContain("Review feedback:\nFinish the cleanup");
+      expect(w.turns[0]!.prompt).toContain("Review feedback from the user:\nFinish the cleanup");
       yield* recordSendbackTrace("busy-boundary");
     })
   );
