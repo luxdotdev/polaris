@@ -7,6 +7,11 @@ import { LanguageCheckout, LanguageTreeEditProposal } from "@polaris/protocol";
 import { Schema } from "effect";
 import { makeProposalPreparation } from "./index.ts";
 import { HostDelivery, type PreparationPort } from "./contracts.ts";
+import { posixTest } from "../../platform/testing.ts";
+
+const fileIdentity = posixTest(
+  "Windows bug: NTFS file IDs exceed a safe integer, which LanguageResourceIdentity.inode rejects (ENG-296)"
+);
 
 const edit = [
   { range: { start: { line: 0, character: 1 }, end: { line: 0, character: 3 } }, newText: "λ" },
@@ -105,39 +110,44 @@ const rejected = async (result: Promise<unknown>, message: string) => {
   expect(error).toContain(message);
 };
 
-test("Host-issued text proposal reads canonical version/text and preserves UTF16/CRLF", () =>
-  fixture(async (f) => {
-    const { proposal, documents } = await f.read();
-    expect(proposal.snapshots[0]?.diskText).toBe("a😀b\r\n");
-    expect(proposal.snapshots[0]?.diskVersion?.size).toBe(8);
-    expect(proposal.snapshots[0]?.buffer).toBeNull();
-    expect(proposal.proposalId).not.toBe("delivered");
-    expect(proposal.expiresAt).toBeGreaterThan(Date.now());
-    expect(documents).toEqual([]);
-  }));
+fileIdentity(
+  "Host-issued text proposal reads canonical version/text and preserves UTF16/CRLF",
+  () =>
+    fixture(async (f) => {
+      const { proposal, documents } = await f.read();
+      expect(proposal.snapshots[0]?.diskText).toBe("a😀b\r\n");
+      expect(proposal.snapshots[0]?.diskVersion?.size).toBe(8);
+      expect(proposal.snapshots[0]?.buffer).toBeNull();
+      expect(proposal.proposalId).not.toBe("delivered");
+      expect(proposal.expiresAt).toBeGreaterThan(Date.now());
+      expect(documents).toEqual([]);
+    })
+);
 
 test("opaque delivery lookup refuses fabricated renderer reference", () =>
   fixture(async (f) => {
     await rejected(makeProposalPreparation(f.port).read("forged"), "Unknown Host delivery");
   }));
 
-test("late independent authority replacement and filesystem change refuse proposal", () =>
+fileIdentity("late independent authority replacement and filesystem change refuse proposal", () =>
   fixture(async (f) => {
     f.observe(async (count) => {
       if (count === 3) f.replaceAuthority();
     });
     await rejected(f.read(), "Stale authenticated authority");
-  }));
+  })
+);
 
-test("file replacement between initial snapshot and final read refuses newer work", () =>
+fileIdentity("file replacement between initial snapshot and final read refuses newer work", () =>
   fixture(async (f) => {
     f.observe(async (count) => {
       if (count === 3) await writeFile(join(f.root, "a"), "newer Agent work");
     });
     await rejected(f.read(), "Resource changed");
-  }));
+  })
+);
 
-test("outside checkout and unsafe link targets are refused", () =>
+fileIdentity("outside checkout and unsafe link targets are refused", () =>
   fixture(async (f) => {
     f.set({
       ...f.get(),
@@ -147,47 +157,51 @@ test("outside checkout and unsafe link targets are refused", () =>
     await symlink(join(f.root, "a"), join(f.root, "alias"));
     f.set({ ...f.get(), edit: { changes: { [pathToFileURL(join(f.root, "alias")).href]: edit } } });
     await rejected(f.read(), "link");
-  }));
+  })
+);
 
-test("ordered create rename delete owns complete source and overwritten trees plus absence", () =>
-  fixture(async (f) => {
-    await mkdir(join(f.root, "source"));
-    await writeFile(join(f.root, "source", "child"), "source");
-    await mkdir(join(f.root, "target"));
-    await writeFile(join(f.root, "target", "child"), "overwritten");
-    const uri = (name: string) => pathToFileURL(join(f.root, name)).href;
+fileIdentity(
+  "ordered create rename delete owns complete source and overwritten trees plus absence",
+  () =>
+    fixture(async (f) => {
+      await mkdir(join(f.root, "source"));
+      await writeFile(join(f.root, "source", "child"), "source");
+      await mkdir(join(f.root, "target"));
+      await writeFile(join(f.root, "target", "child"), "overwritten");
+      const uri = (name: string) => pathToFileURL(join(f.root, name)).href;
 
-    const changes = [
-      { kind: "create" as const, uri: uri("created") },
-      {
-        kind: "rename" as const,
-        oldUri: uri("source"),
-        newUri: uri("target"),
-        options: { overwrite: true },
-      },
-      { kind: "delete" as const, uri: uri("created") },
-    ];
+      const changes = [
+        { kind: "create" as const, uri: uri("created") },
+        {
+          kind: "rename" as const,
+          oldUri: uri("source"),
+          newUri: uri("target"),
+          options: { overwrite: true },
+        },
+        { kind: "delete" as const, uri: uri("created") },
+      ];
 
-    f.set({ ...f.get(), edit: { documentChanges: changes } });
-    const { proposal } = await f.read();
-    expect(proposal.edit.documentChanges).toEqual(changes);
-    expect("format" in proposal && proposal.format).toBe(2);
+      f.set({ ...f.get(), edit: { documentChanges: changes } });
+      const { proposal } = await f.read();
+      expect(proposal.edit.documentChanges).toEqual(changes);
+      expect("format" in proposal && proposal.format).toBe(2);
 
-    const treeProposal = Schema.decodeUnknownSync(LanguageTreeEditProposal)(proposal);
-    expect(
-      treeProposal.resourceSnapshots.find((snapshot) => snapshot.uri === uri("created"))?.tree
-    ).toBeNull();
-    expect(
-      treeProposal.resourceSnapshots.find((snapshot) => snapshot.uri === uri("source"))?.tree
-        ?.entries.length
-    ).toBe(2);
-    expect(
-      treeProposal.resourceSnapshots.find((snapshot) => snapshot.uri === uri("target"))?.tree
-        ?.entries.length
-    ).toBe(2);
-  }));
+      const treeProposal = Schema.decodeUnknownSync(LanguageTreeEditProposal)(proposal);
+      expect(
+        treeProposal.resourceSnapshots.find((snapshot) => snapshot.uri === uri("created"))?.tree
+      ).toBeNull();
+      expect(
+        treeProposal.resourceSnapshots.find((snapshot) => snapshot.uri === uri("source"))?.tree
+          ?.entries.length
+      ).toBe(2);
+      expect(
+        treeProposal.resourceSnapshots.find((snapshot) => snapshot.uri === uri("target"))?.tree
+          ?.entries.length
+      ).toBe(2);
+    })
+);
 
-test("occupied absence and partial unsupported inventory fail closed", () =>
+fileIdentity("occupied absence and partial unsupported inventory fail closed", () =>
   fixture(async (f) => {
     const uri = pathToFileURL(join(f.root, "created")).href;
     f.set({ ...f.get(), edit: { documentChanges: [{ kind: "create", uri }] } });
@@ -205,9 +219,10 @@ test("occupied absence and partial unsupported inventory fail closed", () =>
       },
     });
     await rejected(f.read(), "unsupported link");
-  }));
+  })
+);
 
-test("versioned edits require exact Host fence and surrogate/overlap limits", () =>
+fileIdentity("versioned edits require exact Host fence and surrogate/overlap limits", () =>
   fixture(async (f) => {
     f.set({
       ...f.get(),
@@ -230,9 +245,10 @@ test("versioned edits require exact Host fence and surrogate/overlap limits", ()
     await rejected(f.read(), "splits encoded character");
     f.set({ ...f.get(), edit: { changes: { [f.uri]: [...edit, ...edit] } } });
     await rejected(f.read(), "overlap");
-  }));
+  })
+);
 
-test("oversize text and cancelled preparation produce no proposal", () =>
+fileIdentity("oversize text and cancelled preparation produce no proposal", () =>
   fixture(async (f) => {
     await writeFile(join(f.root, "a"), "x".repeat(1048577));
     await rejected(f.read(), "bounded regular file");
@@ -242,9 +258,10 @@ test("oversize text and cancelled preparation produce no proposal", () =>
       makeProposalPreparation(f.port).read("delivered", controller.signal),
       "cancelled"
     );
-  }));
+  })
+);
 
-test("acknowledged Host mirror requires independent Client draft revision proof", () =>
+fileIdentity("acknowledged Host mirror requires independent Client draft revision proof", () =>
   fixture(async (f) => {
     const base = f.get();
     f.set({ ...base, fence: { ...base.fence, documents: [{ uri: f.uri, version: 9 }] } });
@@ -286,25 +303,29 @@ test("acknowledged Host mirror requires independent Client draft revision proof"
       makeProposalPreparation(wrongUri).read("delivered"),
       "differs from Host document"
     );
-  }));
+  })
+);
 
-test("late acknowledgment revision change refuses issuance rather than refreshing accepted snapshots", () =>
-  fixture(async (f) => {
-    const base = f.get();
-    f.set({ ...base, fence: { ...base.fence, documents: [{ uri: f.uri, version: 9 }] } });
-    let revision = 27;
+fileIdentity(
+  "late acknowledgment revision change refuses issuance rather than refreshing accepted snapshots",
+  () =>
+    fixture(async (f) => {
+      const base = f.get();
+      f.set({ ...base, fence: { ...base.fence, documents: [{ uri: f.uri, version: 9 }] } });
+      let revision = 27;
 
-    const port: PreparationPort = {
-      ...f.port,
-      document: () => Promise.resolve({ version: 9, text: "a😀b\r\n" }),
-      acknowledgedBuffer: () =>
-        Promise.resolve({ uri: f.uri, version: 9, text: "a😀b\r\n", draftRevision: revision++ }),
-    };
+      const port: PreparationPort = {
+        ...f.port,
+        document: () => Promise.resolve({ version: 9, text: "a😀b\r\n" }),
+        acknowledgedBuffer: () =>
+          Promise.resolve({ uri: f.uri, version: 9, text: "a😀b\r\n", draftRevision: revision++ }),
+      };
 
-    await rejected(makeProposalPreparation(port).read("delivered"), "acknowledgment changed");
-  }));
+      await rejected(makeProposalPreparation(port).read("delivered"), "acknowledgment changed");
+    })
+);
 
-test("absent text after ordered create stays null in Host initial snapshot", () =>
+fileIdentity("absent text after ordered create stays null in Host initial snapshot", () =>
   fixture(async (f) => {
     const uri = pathToFileURL(join(f.root, "new")).href;
 
@@ -325,7 +346,8 @@ test("absent text after ordered create stays null in Host initial snapshot", () 
     expect(proposal.snapshots[0]?.diskText).toBeNull();
     expect(proposal.snapshots[0]?.diskVersion).toBeNull();
     expect(proposal.edit.documentChanges).toEqual(changes);
-  }));
+  })
+);
 
 test("Host provenance replacement and resource path overflow are refused", () =>
   fixture(async (f) => {
@@ -346,24 +368,26 @@ test("Host provenance replacement and resource path overflow are refused", () =>
     await rejected(f.read(), "Resource path budget");
   }));
 
-test("invalid UTF8 and binary disk bytes cannot become text snapshots", () =>
+fileIdentity("invalid UTF8 and binary disk bytes cannot become text snapshots", () =>
   fixture(async (f) => {
     await writeFile(join(f.root, "a"), Buffer.from([0xff, 0x61]));
     await rejected(f.read(), "ERR_ENCODING_INVALID_ENCODED_DATA");
     await writeFile(join(f.root, "a"), Buffer.from([0x61, 0]));
     await rejected(f.read(), "Binary text");
-  }));
+  })
+);
 
-test("proposal aggregate encoded size fails rather than truncating closed texts", () =>
+fileIdentity("proposal aggregate encoded size fails rather than truncating closed texts", () =>
   fixture(async (f) => {
     await writeFile(join(f.root, "a"), "x".repeat(600000));
     await writeFile(join(f.root, "b"), "x".repeat(600000));
     const b = pathToFileURL(join(f.root, "b")).href;
     f.set({ ...f.get(), edit: { changes: { [f.uri]: [], [b]: [] } } });
     await rejected(f.read(), "encoded budget");
-  }));
+  })
+);
 
-test("closed snapshot refuses a mirror appearing during filesystem waits", () =>
+fileIdentity("closed snapshot refuses a mirror appearing during filesystem waits", () =>
   fixture(async (f) => {
     let reads = 0;
 
@@ -373,4 +397,5 @@ test("closed snapshot refuses a mirror appearing during filesystem waits", () =>
     };
 
     await rejected(makeProposalPreparation(port).read("delivered"), "differs from captured fence");
-  }));
+  })
+);

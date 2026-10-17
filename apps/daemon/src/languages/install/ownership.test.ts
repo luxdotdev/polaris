@@ -1,4 +1,4 @@
-import { test, expect } from "bun:test";
+import { expect } from "bun:test";
 import { rejects, throws } from "node:assert/strict";
 import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -9,6 +9,11 @@ import { artifactFixture, hostId, platform } from "./fixture.testing.ts";
 import { failure } from "./validation.ts";
 import { LanguageError } from "@polaris/protocol";
 import { Schema } from "effect";
+import { posixTest } from "../../platform/testing.ts";
+
+const test = posixTest(
+  "language storage is checked private by POSIX owner and mode bits; Windows needs ACL checks (ENG-314)"
+);
 
 function latch() {
   let resolve = () => {};

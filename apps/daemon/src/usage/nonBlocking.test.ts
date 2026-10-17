@@ -49,22 +49,40 @@ afterEach(() => {
 
 const isUsageChanged = Schema.is(UsageStreamItem.cases.UsageChanged);
 
-/** libc's clock_gettime, for this thread's own CPU time (POSIX: the Daemon's tests don't run on Windows). */
-const libc = dlopen(process.platform === "darwin" ? "libSystem.B.dylib" : "libc.so.6", {
-  clock_gettime: { args: [FFIType.i32, FFIType.ptr], returns: FFIType.i32 },
-});
+/** This thread's own CPU time: clock_gettime on POSIX, GetThreadTimes (kernel plus user) on Windows. */
+const clock =
+  process.platform === "win32"
+    ? dlopen("kernel32.dll", {
+        GetCurrentThread: { args: [], returns: FFIType.u64 },
+        GetThreadTimes: {
+          args: [FFIType.u64, FFIType.ptr, FFIType.ptr, FFIType.ptr, FFIType.ptr],
+          returns: FFIType.i32,
+        },
+      })
+    : dlopen(process.platform === "darwin" ? "libSystem.B.dylib" : "libc.so.6", {
+        clock_gettime: { args: [FFIType.i32, FFIType.ptr], returns: FFIType.i32 },
+      });
 
 const CLOCK_THREAD_CPUTIME_ID = process.platform === "darwin" ? 16 : 3;
 
-const timespec = new BigInt64Array(2);
+const times = new BigInt64Array(4);
 
 /**
  * The CPU time of the thread running the Daemon's code, in ms. Unlike the process's, it
  * leaves out the other threads (GC, I/O, a worker's earlier test files) and stops while the thread is paused.
  */
 const threadCpuMs = () => {
-  libc.symbols.clock_gettime(CLOCK_THREAD_CPUTIME_ID, ptr(timespec));
-  const [seconds = 0n, nanoseconds = 0n] = timespec;
+  if ("GetThreadTimes" in clock.symbols) {
+    const k32 = clock.symbols;
+    const at = (i: number) => ptr(times, i * 8);
+    k32.GetThreadTimes(k32.GetCurrentThread(), at(0), at(1), at(2), at(3));
+
+    // Kernel plus user time, as FILETIMEs: 100 ns ticks.
+    return Number(times[2]! + times[3]!) / 1e4;
+  }
+
+  clock.symbols.clock_gettime(CLOCK_THREAD_CPUTIME_ID, ptr(times));
+  const [seconds = 0n, nanoseconds = 0n] = times;
 
   return Number(seconds) * 1000 + Number(nanoseconds) / 1e6;
 };

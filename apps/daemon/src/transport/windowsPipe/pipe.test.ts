@@ -50,6 +50,9 @@ afterEach(() => {
   for (const server of servers.splice(0)) server.stop();
 });
 
+/** SDDL writes the built-in Administrator (RID 500, as GitHub's runners sign in) as `LA`. */
+const sddlAlias = (sid: string) => (/^S-1-5-21-[\d-]+-500$/.test(sid) ? "LA" : sid);
+
 const isElevated = () => {
   if (process.platform !== "win32") return false;
   const pipe = freshName();
@@ -91,7 +94,7 @@ describe.skipIf(process.platform !== "win32")(
       if ("refused" in opened) throw new Error(`cannot open: ${opened.refused}`);
 
       try {
-        const sid = currentUserSid();
+        const sid = sddlAlias(currentUserSid());
         expect(securityOf(opened.handle)).toBe(`O:${sid}D:P(A;;FA;;;${sid})`);
       } finally {
         closeHandle(opened.handle);
@@ -127,6 +130,14 @@ describe.skipIf(process.platform !== "win32")(
       listen(name);
       expect(probePipe(name)).toBe("ours");
     });
+
+    // CI says which it expects, so the elevated case can't skip there, nor run, by accident.
+    test.if(process.env.POLARIS_EXPECT_ELEVATED !== undefined)(
+      "the session's elevation is what CI expects (POLARIS_EXPECT_ELEVATED)",
+      () => {
+        expect(isElevated()).toBe(process.env.POLARIS_EXPECT_ELEVATED === "1");
+      }
+    );
 
     test.skipIf(!isElevated())(
       "the probe calls a pipe another owner created foreign (needs an elevated session)",

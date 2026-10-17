@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { connectRpc, socketTransport } from "@polaris/client";
+import { localEndpoint } from "@polaris/protocol/endpoint";
 import {
   Command,
   CommandId,
@@ -13,9 +14,10 @@ import {
   SessionStreamItem,
 } from "@polaris/protocol";
 import { Effect, Fiber, Option, Stream } from "effect";
+import { shortTemp } from "../platform/testing.ts";
 
 test("a real idle Daemon lazily binds plain Codex and Claude Sessions and starts their Constellations", async () => {
-  const home = mkdtempSync("/tmp/polaris-bootstrap-");
+  const home = mkdtempSync(shortTemp("polaris-bootstrap-"));
 
   const daemon = Bun.spawn(
     [process.execPath, resolve(import.meta.dir, "../main.ts"), "serve", "--foreground"],
@@ -23,7 +25,7 @@ test("a real idle Daemon lazily binds plain Codex and Claude Sessions and starts
       env: {
         ...process.env,
         POLARIS_HOME: home,
-        POLARIS_HOST_SOCKET: join(home, "daemon.sock"),
+        POLARIS_HOST_SOCKET: localEndpoint(home),
         POLARIS_SESSION_ID: undefined,
         POLARIS_BINARY: undefined,
         POLARIS_BENCH_HARNESS: "1",
@@ -50,7 +52,7 @@ test("a real idle Daemon lazily binds plain Codex and Claude Sessions and starts
     await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
-          const transport = yield* socketTransport(join(home, "daemon.sock"));
+          const transport = yield* socketTransport(localEndpoint(home));
           const { client } = yield* connectRpc(transport);
 
           yield* client.hello({

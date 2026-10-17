@@ -13,10 +13,11 @@ import { ConstellationDelivery } from "./index.ts";
 import { deliverLocalInput } from "./local.ts";
 import { pendingInputs } from "./messages.ts";
 import { send, setup, STANDALONE, wait, WORKER, world } from "./testing.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 for (const mode of ["acquire", "start", "resume"] as const)
   test(`${mode} failure rejects later Lead input without stalling another Session`, async () => {
-    const root = mkdtempSync("/tmp/blocked-startup-failure-");
+    const root = mkdtempSync(shortTemp("blocked-startup-failure-"));
     const previous = process.env.POLARIS_HOME;
     process.env.POLARIS_HOME = root;
     const failures: string[] = [];

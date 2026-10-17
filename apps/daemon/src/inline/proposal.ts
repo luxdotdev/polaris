@@ -1,4 +1,4 @@
-import { isAbsolute, relative, resolve } from "node:path";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 import { realpath } from "node:fs/promises";
 import { InlineError, InlineStreamItem, type InlineRequest } from "@polaris/protocol";
 import { Effect, Queue, Stream } from "effect";
@@ -44,7 +44,8 @@ export const propose = (request: InlineRequest, cwd: string, backend: InlineBack
 const contained = (cwd: string, path: string) => {
   const child = relative(cwd, path);
 
-  return child !== ".." && !child.startsWith("../") && !isAbsolute(child);
+  // On Windows `relative` separates with a backslash.
+  return child !== ".." && !child.startsWith(`..${sep}`) && !isAbsolute(child);
 };
 
 const requestContext = Effect.fn("inline.requestContext")(function* (request: InlineRequest) {

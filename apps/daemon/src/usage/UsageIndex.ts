@@ -96,13 +96,19 @@ export const makeUsageIndex = Effect.fnUntraced(function* (options: UsageIndexOp
   let used = false;
 
   // Opened on first use: an idle Daemon never touches the index.
+  let openDb: ReturnType<typeof openUsageDb> | null = null;
+
   const opened = yield* Effect.cached(
     Effect.sync(() => {
       const db = openUsageDb(dbPath);
+      openDb = db;
 
       return { db, writer: writerOver(db), history: limitHistory(db) };
     })
   );
+
+  // Added before the passes' finalizers, so it runs after them; Windows can't delete an open file.
+  yield* Effect.addFinalizer(() => Effect.sync(() => openDb?.close()));
 
   const indexedAt = Effect.map(opened, ({ writer }) => writer.meta("indexedAt"));
 

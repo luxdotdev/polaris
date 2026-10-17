@@ -1,6 +1,7 @@
 import { join, resolve } from "node:path";
 import { writeFileSync } from "node:fs";
 import { connectRpc, socketTransport } from "@polaris/client";
+import { localEndpoint } from "@polaris/protocol/endpoint";
 import { DomainEvent, SessionStreamItem, type Attempt } from "@polaris/protocol";
 import { Effect, Option, Stream } from "effect";
 import { HOST } from "../engine/constellation.testing.ts";
@@ -17,7 +18,7 @@ export const restartForRetry = async (
 
   writeFileSync(join(root, "host-id"), `${HOST}\n`);
 
-  const socket = join(root, "daemon.sock");
+  const socket = localEndpoint(root);
 
   const daemon = Bun.spawn(
     [process.execPath, resolve(import.meta.dir, "../main.ts"), "serve", "--foreground"],

@@ -65,6 +65,11 @@ const checkoutAt = (path: string) =>
 
 const Attached = TerminalAttach.successSchema.success;
 
+const windows = process.platform === "win32";
+
+/** Prints the environment; `cmd /c set` on Windows. */
+const PRINT_ENV = windows ? ["cmd.exe", "/d", "/c", "set"] : ["/usr/bin/env"];
+
 /** Opens `env` in each cwd after recording a Review Checkout at `checkout`; answers each output. */
 const envIn = (checkout: string, cwds: ReadonlyArray<string>) =>
   Effect.runPromise(
@@ -86,7 +91,7 @@ const envIn = (checkout: string, cwds: ReadonlyArray<string>) =>
               cwd,
               cols: 200,
               rows: 50,
-              argv: ["/usr/bin/env"],
+              argv: PRINT_ENV,
             });
 
             const items = yield* client["terminal.attach"]({ terminalId }).pipe(
@@ -124,7 +129,7 @@ describe("terminal.open", () => {
     cleanup.push(root);
     const checkout = join(root, "pr-7");
     mkdirSync(join(checkout, "src"), { recursive: true });
-    symlinkSync(checkout, join(root, "linked"));
+    symlinkSync(checkout, join(root, "linked"), "junction");
     const elsewhere = join(root, "workspace");
     mkdirSync(elsewhere);
 
@@ -138,9 +143,14 @@ describe("terminal.open", () => {
 
     for (const output of [inside!, nested!, linked!]) {
       for (const value of Object.values(AMBIENT)) expect(output).not.toContain(value);
-      expect(output).toContain(`PATH=${process.env.PATH}`);
-      expect(output).toContain(`HOME=${process.env.HOME}`);
-      expect(output).toContain("TERM=xterm-256color");
+
+      // ConPTY wraps a long PATH at the terminal's width, so Windows checks a short base key.
+      if (windows) expect(output).toContain(`SystemRoot=${process.env.SystemRoot}`);
+      else {
+        expect(output).toContain(`PATH=${process.env.PATH}`);
+        expect(output).toContain(`HOME=${process.env.HOME}`);
+        expect(output).toContain("TERM=xterm-256color");
+      }
     }
 
     for (const value of Object.values(AMBIENT)) expect(outside).toContain(value);

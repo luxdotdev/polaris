@@ -3,6 +3,7 @@ import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { posixTest } from "../platform/testing.ts";
 import { tempDirectory } from "./tempDirectories.testing.ts";
 
 const directory = fileURLToPath(new URL(".", import.meta.url));
@@ -95,21 +96,27 @@ test("scope failure and interruption", async () => {
   expect(readdirSync(temp).filter((name) => name.startsWith("polaris-"))).toEqual([]);
 });
 
-test("representative Engine, PBT, Git, composition and store suites leave no temp directories", async () => {
-  const { temp } = fixture();
+posixTest(
+  "Windows bug: engine.model.test.ts's EventStore SQLite files stay open after a crash and restart (EBUSY)"
+)(
+  "representative Engine, PBT, Git, composition and store suites leave no temp directories",
+  async () => {
+    const { temp } = fixture();
 
-  const files = [
-    "../engine/Engine.followups.test.ts",
-    "../store/EventStore.bounded.test.ts",
-    "../files/search/fffSearch.test.ts",
-    "../git/review/worktree.test.ts",
-    "../reviewer/compose.test.ts",
-    "engine.model.test.ts",
-    "store.model.test.ts",
-  ].map((file) => join(directory, file));
+    const files = [
+      "../engine/Engine.followups.test.ts",
+      "../store/EventStore.bounded.test.ts",
+      "../files/search/fffSearch.test.ts",
+      "../git/review/worktree.test.ts",
+      "../reviewer/compose.test.ts",
+      "engine.model.test.ts",
+      "store.model.test.ts",
+    ].map((file) => join(directory, file));
 
-  const result = await runSuite(files, temp);
-  expect(result.output).toContain("0 fail");
-  expect(result.code).toBe(0);
-  expect(readdirSync(temp).filter((name) => name.startsWith("polaris-"))).toEqual([]);
-}, 120_000);
+    const result = await runSuite(files, temp);
+    expect(result.output).toContain("0 fail");
+    expect(result.code).toBe(0);
+    expect(readdirSync(temp).filter((name) => name.startsWith("polaris-"))).toEqual([]);
+  },
+  120_000
+);

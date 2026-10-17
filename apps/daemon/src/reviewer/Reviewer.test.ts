@@ -224,7 +224,12 @@ const scenario = async () => {
 const openReview = (user: string, head: string) =>
   Effect.gen(function* () {
     yield* dispatch(Command.cases.RegisterWorkspace.make({ path: user, name: null }));
-    const model = yield* waitFor((m) => [...m.workspaces.values()].some((w) => w.path === user));
+
+    const model = yield* waitFor(
+      (m) => [...m.workspaces.values()].some((w) => w.path === user),
+      GIT_WORK_MS
+    );
+
     // SAFETY: waitFor returned once a Workspace at `user` was registered.
     const workspace = [...model.workspaces.values()].find((w) => w.path === user) as Workspace;
     yield* dispatch(
@@ -337,7 +342,10 @@ describe("the Reviewer", () => {
         expect(events.some((e) => DomainEvent.guards.ApprovalRequested(e.event))).toBe(false);
 
         // The checkout records what was reviewed; a second run answers the cached summary.
-        yield* waitFor((m) => m.reviewCheckouts.get(checkoutId)?.reviewedHead === s.v1);
+        yield* waitFor(
+          (m) => m.reviewCheckouts.get(checkoutId)?.reviewedHead === s.v1,
+          GIT_WORK_MS
+        );
 
         const again = yield* reviewer.run({
           workspaceId: workspace.id,
@@ -386,7 +394,7 @@ describe("the Reviewer", () => {
       });
 
       const done = yield* summaryWhen(first.id, ended);
-      yield* waitFor((m) => m.reviewCheckouts.get(checkoutId)?.reviewedHead === s.v1);
+      yield* waitFor((m) => m.reviewCheckouts.get(checkoutId)?.reviewedHead === s.v1, GIT_WORK_MS);
       const store = yield* EventStore;
 
       const next = yield* Effect.scoped(
@@ -643,8 +651,9 @@ describe("the session's change, exactly", () => {
         const reviewer = yield* Reviewer;
         yield* dispatch(Command.cases.RegisterWorkspace.make({ path: s.user, name: null }));
 
-        const registered = yield* waitFor((m) =>
-          [...m.workspaces.values()].some((w) => w.path === s.user)
+        const registered = yield* waitFor(
+          (m) => [...m.workspaces.values()].some((w) => w.path === s.user),
+          GIT_WORK_MS
         );
         // SAFETY: waitFor returned once a Workspace at `s.user` was registered.
 
@@ -731,8 +740,9 @@ describe("rules after every Turn", () => {
         const reviewer = yield* Reviewer;
         yield* dispatch(Command.cases.RegisterWorkspace.make({ path: s.user, name: null }));
 
-        const registered = yield* waitFor((m) =>
-          [...m.workspaces.values()].some((w) => w.path === s.user)
+        const registered = yield* waitFor(
+          (m) => [...m.workspaces.values()].some((w) => w.path === s.user),
+          GIT_WORK_MS
         );
         // SAFETY: waitFor returned once a Workspace at `s.user` was registered.
 
@@ -742,7 +752,7 @@ describe("rules after every Turn", () => {
 
         const sessionId = SessionId.make("ses-user");
 
-        const nextSummary = (send: Effect.Effect<unknown, unknown, Engine>) =>
+        const nextSummary = (send: Effect.Effect<unknown, unknown, Engine>, within = 3_000) =>
           Effect.scoped(
             Effect.gen(function* () {
               const live = yield* store.subscribe({
@@ -752,7 +762,7 @@ describe("rules after every Turn", () => {
               });
 
               yield* send;
-              const item = yield* Stream.runHead(live).pipe(Effect.timeoutOption("3 seconds"));
+              const item = yield* Stream.runHead(live).pipe(Effect.timeoutOption(within));
               const value = Option.flatten(item);
 
               return Option.isSome(value) &&
@@ -776,7 +786,8 @@ describe("rules after every Turn", () => {
               prompt: "write a.txt please",
               attachments: [],
             })
-          )
+          ),
+          GIT_WORK_MS
         );
 
         expect(first !== null && Predicate.isTagged(first.subject, "SessionTurns")).toBe(true);

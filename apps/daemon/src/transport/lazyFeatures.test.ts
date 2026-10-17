@@ -1,6 +1,8 @@
 import { afterAll, expect, test } from "bun:test";
 import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { connectRpc, socketTransport } from "@polaris/client";
+import { localEndpoint } from "@polaris/protocol/endpoint";
 import {
   Command,
   CommandId,
@@ -36,8 +38,8 @@ test("Daemon startup does not import the Reviewer, the Usage index or the accept
     [
       process.execPath,
       "-e",
-      `await import(${JSON.stringify(new URL("./serve.ts", import.meta.url).pathname)});
-     console.log(JSON.stringify(Object.keys(require.cache).filter(path => /\\/apps\\/daemon\\/src\\/(reviewer|usage|accept)\\//.test(path))));`,
+      `await import(${JSON.stringify(fileURLToPath(new URL("./serve.ts", import.meta.url)))});
+     console.log(JSON.stringify(Object.keys(require.cache).map(path => path.replaceAll("\\\\", "/")).filter(path => /\\/apps\\/daemon\\/src\\/(reviewer|usage|accept)\\//.test(path))));`,
     ],
     { stdout: "pipe", stderr: "pipe" }
   );
@@ -63,7 +65,7 @@ test("Daemon startup does not import the Reviewer, the Usage index or the accept
 /** The production Daemon on the scripted Harness, listening on a socket in a fresh home. */
 const startDaemon = async (home = tempDir("polaris-lazy-home-")) => {
   dirs.push(home);
-  const socket = join(home, "daemon.sock");
+  const socket = localEndpoint(home);
 
   const daemon = Bun.spawn(
     [process.execPath, resolve(import.meta.dir, "../main.ts"), "serve", "--foreground"],

@@ -6,9 +6,11 @@ import { Effect, Schema } from "effect";
 import { EventStore } from "../../store/EventStore.ts";
 import { CID } from "../../engine/constellation.testing.ts";
 import { seedStats } from "./store.testing.ts";
+import { localEndpoint } from "@polaris/protocol/endpoint";
+import { shortTemp } from "../../platform/testing.ts";
 
 test("the real CLI reads Stats over RPC from an isolated Daemon and emits decodable JSON", async () => {
-  const home = mkdtempSync("/tmp/polaris-stats-cli-");
+  const home = mkdtempSync(shortTemp("polaris-stats-cli-"));
   const main = resolve(import.meta.dir, "../../main.ts");
 
   const env = {
@@ -17,7 +19,7 @@ test("the real CLI reads Stats over RPC from an isolated Daemon and emits decoda
     CODEX_HOME: join(home, "codex"),
     CLAUDE_CONFIG_DIR: join(home, "claude"),
     POLARIS_HOME: home,
-    POLARIS_HOST_SOCKET: join(home, "daemon.sock"),
+    POLARIS_HOST_SOCKET: localEndpoint(home),
     POLARIS_BENCH_HARNESS: "1",
     POLARIS_SESSION_ID: undefined,
     POLARIS_BINARY: undefined,
@@ -29,13 +31,23 @@ test("the real CLI reads Stats over RPC from an isolated Daemon and emits decoda
 
   const daemon = Bun.spawn([process.execPath, main, "serve", "--foreground"], {
     env,
-    stdout: "ignore",
+    stdout: "pipe",
     stderr: "ignore",
   });
 
   try {
-    for (let i = 0; i < 200 && !existsSync(join(home, "daemon.sock")); i++) await Bun.sleep(20);
-    expect(existsSync(join(home, "daemon.sock"))).toBe(true);
+    // A Windows pipe has no file to wait for, and opening one to look takes a connection.
+    const reader = daemon.stdout.getReader();
+    let logs = "";
+
+    while (!logs.includes("Daemon listening on")) {
+      const chunk = await reader.read();
+
+      if (chunk.done) throw new Error(`Daemon stopped: ${logs}`);
+      logs += new TextDecoder().decode(chunk.value);
+    }
+
+    reader.releaseLock();
 
     const child = Bun.spawn([process.execPath, main, "constellation", "stats", "c1", "--json"], {
       env,

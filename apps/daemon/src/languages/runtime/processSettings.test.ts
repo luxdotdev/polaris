@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { HostId, LanguageProcessLimit } from "@polaris/protocol";
 import { Schema } from "effect";
 import { createProcessSettings } from "./processSettings.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 const hostId = HostId.make("budget-host");
 
@@ -14,7 +15,7 @@ const resources = {
 };
 
 test("Host override persists revision CAS, races one winner, and null restores automatic", async () => {
-  const root = await realpath(await mkdtemp("/tmp/polaris-process-settings-"));
+  const root = await realpath(await mkdtemp(shortTemp("polaris-process-settings-")));
 
   try {
     const settings = await createProcessSettings(hostId, root, resources);
@@ -43,7 +44,7 @@ test("Host override persists revision CAS, races one winner, and null restores a
 });
 
 test("lost mutation authority leaves Host configuration unchanged; corrupt persisted limits fail closed", async () => {
-  const root = await realpath(await mkdtemp("/tmp/polaris-process-settings-"));
+  const root = await realpath(await mkdtemp(shortTemp("polaris-process-settings-")));
 
   try {
     const settings = await createProcessSettings(hostId, root, resources);
@@ -73,7 +74,7 @@ test("lost mutation authority leaves Host configuration unchanged; corrupt persi
 });
 
 test("persisted revisions and applied capacity share one serialized lane", async () => {
-  const root = await realpath(await mkdtemp("/tmp/polaris-process-settings-"));
+  const root = await realpath(await mkdtemp(shortTemp("polaris-process-settings-")));
   const gate = Promise.withResolvers<void>();
 
   try {

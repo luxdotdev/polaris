@@ -4,6 +4,7 @@ import { mkdirSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { removeDir, tempDir, write } from "../../git/testing.ts";
 import { readOnlyEnv, reviewerHook } from "./readOnly.ts";
+import { posixTest } from "../../platform/testing.ts";
 
 const cleanup: Array<string> = [];
 
@@ -49,99 +50,109 @@ const lets = async (
   return Object.keys(await hook(input, "t", { signal })).length === 0;
 };
 
+const reviewerSandbox = posixTest(
+  "the Reviewer's file hook judges POSIX paths; on Windows the Reviewer's sandbox isn't built (ENG-296)"
+);
+
 describe("the Reviewer's file tools", () => {
-  test("the hook lets file tools read and search inside the checkout, and nothing outside it", async () => {
-    const { root, outside } = layout();
+  reviewerSandbox(
+    "the hook lets file tools read and search inside the checkout, and nothing outside it",
+    async () => {
+      const { root, outside } = layout();
 
-    const calls: ReadonlyArray<readonly [string, unknown, boolean]> = [
-      ["Read", { file_path: join(root, "src/a.ts") }, true],
-      ["Read", { file_path: "src/a.ts" }, true],
-      ["Read", { file_path: join(root, "src/new.ts") }, true],
-      ["Read", { file_path: join(outside, "secret.txt") }, false],
-      ["Read", { file_path: join(root, "../outside/secret.txt") }, false],
-      ["Read", { file_path: join(root, "linked.txt") }, false],
-      ["Read", { file_path: join(root, "linked-dir/secret.txt") }, false],
-      ["Read", { file_path: "/etc/hosts" }, false],
-      // Claude Code expands these itself, so they must never pass as paths inside the root.
-      ["Read", { file_path: "~/.ssh/id_rsa" }, false],
-      ["Read", { file_path: "$HOME/.ssh/id_rsa" }, false],
-      ["Read", { file_path: "%USERPROFILE%/.ssh/id_rsa" }, false],
-      ["Read", { file_path: `file://${outside}/secret.txt` }, false],
-      ["Read", { file_path: "..\\outside\\secret.txt" }, false],
-      // The OS follows the link before `..`; a lexical resolve would land inside.
-      ["Read", { file_path: `${root}/linked-dir/../sibling.txt` }, false],
-      ["Glob", { pattern: "**/*.ts" }, true],
-      ["Glob", { pattern: "src/*.ts", path: root }, true],
-      ["Glob", { pattern: `${root}/src/**` }, true],
-      ["Glob", { pattern: `${outside}/**` }, false],
-      ["Glob", { pattern: "../outside/*" }, false],
-      ["Glob", { pattern: "{..,src}/*" }, false],
-      ["Glob", { pattern: "*", path: "~" }, false],
-      ["Glob", { pattern: "*", path: outside }, false],
-      ["Glob", { pattern: "*", path: join(root, "linked-dir") }, false],
-      ["Grep", { pattern: "marker" }, true],
-      ["Grep", { pattern: "^export .*;$" }, true],
-      ["Grep", { pattern: "marker", path: "~/.ssh" }, false],
-      ["Grep", { pattern: "marker", glob: "{..,src}/*" }, false],
-      ["Grep", { pattern: "marker", path: join(root, "src"), glob: "*.ts" }, true],
-      ["Grep", { pattern: "marker", path: outside }, false],
-      ["Grep", { pattern: "marker", path: join(root, "linked.txt") }, false],
-      ["Grep", { pattern: "marker", glob: "../outside/*" }, false],
-      ["Grep", { pattern: "marker", glob: `${outside}/*` }, false],
-      ["Read", { file_path: 42 }, false],
-      ["Read", {}, false],
-      ["LS", { path: root }, false],
-      ["Bash", { command: "cat /etc/hosts" }, false],
-      // A field the hook doesn't check could name a path it never saw.
-      ["Read", { file_path: join(root, "src/a.ts"), notebook_path: outside }, false],
-      ["Agent", { description: "look", prompt: "read src", subagent_type: "Explore" }, true],
-      // A worktree agent runs in the repository, outside the checkout; a remote one in the cloud.
-      ["Agent", { description: "look", prompt: "read src", isolation: "worktree" }, false],
-      ["Agent", { description: "look", prompt: "read src", isolation: "remote" }, false],
-    ];
+      const calls: ReadonlyArray<readonly [string, unknown, boolean]> = [
+        ["Read", { file_path: join(root, "src/a.ts") }, true],
+        ["Read", { file_path: "src/a.ts" }, true],
+        ["Read", { file_path: join(root, "src/new.ts") }, true],
+        ["Read", { file_path: join(outside, "secret.txt") }, false],
+        ["Read", { file_path: join(root, "../outside/secret.txt") }, false],
+        ["Read", { file_path: join(root, "linked.txt") }, false],
+        ["Read", { file_path: join(root, "linked-dir/secret.txt") }, false],
+        ["Read", { file_path: "/etc/hosts" }, false],
+        // Claude Code expands these itself, so they must never pass as paths inside the root.
+        ["Read", { file_path: "~/.ssh/id_rsa" }, false],
+        ["Read", { file_path: "$HOME/.ssh/id_rsa" }, false],
+        ["Read", { file_path: "%USERPROFILE%/.ssh/id_rsa" }, false],
+        ["Read", { file_path: `file://${outside}/secret.txt` }, false],
+        ["Read", { file_path: "..\\outside\\secret.txt" }, false],
+        // The OS follows the link before `..`; a lexical resolve would land inside.
+        ["Read", { file_path: `${root}/linked-dir/../sibling.txt` }, false],
+        ["Glob", { pattern: "**/*.ts" }, true],
+        ["Glob", { pattern: "src/*.ts", path: root }, true],
+        ["Glob", { pattern: `${root}/src/**` }, true],
+        ["Glob", { pattern: `${outside}/**` }, false],
+        ["Glob", { pattern: "../outside/*" }, false],
+        ["Glob", { pattern: "{..,src}/*" }, false],
+        ["Glob", { pattern: "*", path: "~" }, false],
+        ["Glob", { pattern: "*", path: outside }, false],
+        ["Glob", { pattern: "*", path: join(root, "linked-dir") }, false],
+        ["Grep", { pattern: "marker" }, true],
+        ["Grep", { pattern: "^export .*;$" }, true],
+        ["Grep", { pattern: "marker", path: "~/.ssh" }, false],
+        ["Grep", { pattern: "marker", glob: "{..,src}/*" }, false],
+        ["Grep", { pattern: "marker", path: join(root, "src"), glob: "*.ts" }, true],
+        ["Grep", { pattern: "marker", path: outside }, false],
+        ["Grep", { pattern: "marker", path: join(root, "linked.txt") }, false],
+        ["Grep", { pattern: "marker", glob: "../outside/*" }, false],
+        ["Grep", { pattern: "marker", glob: `${outside}/*` }, false],
+        ["Read", { file_path: 42 }, false],
+        ["Read", {}, false],
+        ["LS", { path: root }, false],
+        ["Bash", { command: "cat /etc/hosts" }, false],
+        // A field the hook doesn't check could name a path it never saw.
+        ["Read", { file_path: join(root, "src/a.ts"), notebook_path: outside }, false],
+        ["Agent", { description: "look", prompt: "read src", subagent_type: "Explore" }, true],
+        // A worktree agent runs in the repository, outside the checkout; a remote one in the cloud.
+        ["Agent", { description: "look", prompt: "read src", isolation: "worktree" }, false],
+        ["Agent", { description: "look", prompt: "read src", isolation: "remote" }, false],
+      ];
 
-    const hook = reviewerHook(root, FILE_TOOLS);
-    const allowed = (call: (typeof calls)[number]) => lets(hook, root, call);
+      const hook = reviewerHook(root, FILE_TOOLS);
+      const allowed = (call: (typeof calls)[number]) => lets(hook, root, call);
 
-    const answers = await Promise.all(calls.map(allowed));
+      const answers = await Promise.all(calls.map(allowed));
 
-    expect(answers).toEqual(calls.map(([, , expected]) => expected));
-    expect(
-      await hook(
-        {
-          hook_event_name: "PreToolUse",
-          tool_name: "Read",
-          tool_input: { file_path: join(outside, "secret.txt") },
-          tool_use_id: "t",
-          session_id: "s",
-          transcript_path: "/dev/null",
-          cwd: root,
-        },
-        "t",
-        { signal }
-      )
-    ).toMatchObject({
-      hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny" },
-    });
-  });
+      expect(answers).toEqual(calls.map(([, , expected]) => expected));
+      expect(
+        await hook(
+          {
+            hook_event_name: "PreToolUse",
+            tool_name: "Read",
+            tool_input: { file_path: join(outside, "secret.txt") },
+            tool_use_id: "t",
+            session_id: "s",
+            transcript_path: "/dev/null",
+            cwd: root,
+          },
+          "t",
+          { signal }
+        )
+      ).toMatchObject({
+        hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny" },
+      });
+    }
+  );
 });
 
 describe("the Reviewer's calls from elsewhere", () => {
-  test("a call made from outside the checkout is refused, even a path relative to it", async () => {
-    const { base, root } = layout();
-    const hook = reviewerHook(root, FILE_TOOLS);
+  reviewerSandbox(
+    "a call made from outside the checkout is refused, even a path relative to it",
+    async () => {
+      const { base, root } = layout();
+      const hook = reviewerHook(root, FILE_TOOLS);
 
-    for (const call of [
-      ["Glob", { pattern: "**/*" }],
-      ["Grep", { pattern: "marker" }],
-      ["Read", { file_path: "sibling.txt" }],
-    ] as const) {
-      expect(await lets(hook, root, call)).toBe(true);
-      expect(await lets(hook, base, call)).toBe(false);
+      for (const call of [
+        ["Glob", { pattern: "**/*" }],
+        ["Grep", { pattern: "marker" }],
+        ["Read", { file_path: "sibling.txt" }],
+      ] as const) {
+        expect(await lets(hook, root, call)).toBe(true);
+        expect(await lets(hook, base, call)).toBe(false);
+      }
     }
-  });
+  );
 
-  test("the sandboxed shell runs only inside the sandbox", async () => {
+  reviewerSandbox("the sandboxed shell runs only inside the sandbox", async () => {
     const { root } = layout();
     const hook = reviewerHook(root, ["Bash", "Agent"]);
 

@@ -11,11 +11,12 @@ import { McpTokens } from "./tokens.ts";
 import { WORKER_TOOL_NAMES, fakeCommands, workerBinding } from "./testing.ts";
 import { attachConstellation } from "../harness/constellation/attachment.ts";
 import { claudeConstellationOptions } from "../harness/claude/constellation.ts";
+import { shortTemp } from "../platform/testing.ts";
 
 const withServer = async (
   body: (origin: string, token: string, tokens: McpTokens["Service"]) => Promise<void>
 ) => {
-  const root = mkdtempSync("/tmp/polaris-mcp-http-");
+  const root = mkdtempSync(shortTemp("polaris-mcp-http-"));
 
   try {
     await Effect.runPromise(
@@ -104,7 +105,7 @@ test("HTTP refuses idle streams, invalid Origin, bad tokens and malformed JSON",
   }));
 
 test("Claude's in-process server exposes valid schemas and bound handlers; revoke on handover or settle", async () => {
-  const root = mkdtempSync("/tmp/polaris-mcp-claude-");
+  const root = mkdtempSync(shortTemp("polaris-mcp-claude-"));
 
   try {
     await Effect.runPromise(

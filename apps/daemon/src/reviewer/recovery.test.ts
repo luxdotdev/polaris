@@ -18,6 +18,7 @@ import { Effect, Layer } from "effect";
 import { EventStore } from "../store/EventStore.ts";
 import { recoverReviewer, RESTART_NOTE } from "./recovery.ts";
 import { ReviewerSessions } from "./sessions.ts";
+import { shortTemp } from "../platform/testing.ts";
 
 const dirs: Array<string> = [];
 
@@ -55,7 +56,7 @@ const summary = (id: string, status: "running" | "completed", sessionId: Session
   });
 
 test("a restarted Reviewer fails abandoned summaries, keeps completed layers, and restores durable session identities", async () => {
-  const dir = mkdtempSync("/tmp/rvfix-recovery-");
+  const dir = mkdtempSync(shortTemp("rvfix-recovery-"));
   dirs.push(dir);
   const filename = join(dir, "state.sqlite");
   const done = summary("done", "completed", SessionId.make("old-reviewer"));

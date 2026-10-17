@@ -3,6 +3,11 @@ import { Schema } from "effect";
 import { LanguageAvailability } from "@polaris/protocol";
 import { availability } from "./index.ts";
 import { artifactFixture, fixture, hostId, platform } from "../install/fixture.testing.ts";
+import { posixTest } from "../../platform/testing.ts";
+
+const privateStorage = posixTest(
+  "language storage is checked private by POSIX owner and mode bits; Windows needs ACL checks (ENG-314)"
+);
 
 const input = () =>
   ({
@@ -70,46 +75,51 @@ test("availability defaults deny and reports offline/unsupported/missing/incompa
   expect(Schema.is(LanguageAvailability)(unknown)).toBe(true);
 });
 
-test("project prerequisites block features rather than installation; failed update keeps retained-version facts", async () => {
-  const f = await fixture();
+privateStorage(
+  "project prerequisites block features rather than installation; failed update keeps retained-version facts",
+  async () => {
+    const f = await fixture();
 
-  try {
-    const installed = await f.installer.install(f.request).result;
+    try {
+      const installed = await f.installer.install(f.request).result;
 
-    const tool = {
-      ...artifactFixture("2.0.0").tool,
-      requirements: [
+      const tool = {
+        ...artifactFixture("2.0.0").tool,
+        requirements: [
+          {
+            id: "go",
+            executable: "go",
+            scope: "project",
+            version: ">=1.20.0",
+            required: true,
+            detail: "Developer supplied compiler",
+          },
+        ],
+      };
+
+      expect(availability({ ...input(), tool, installed, approved: true }).preflight).toMatchObject(
         {
-          id: "go",
-          executable: "go",
-          scope: "project",
-          version: ">=1.20.0",
-          required: true,
-          detail: "Developer supplied compiler",
-        },
-      ],
-    };
+          artifactId: "fake",
+        }
+      );
+      const facts = availability({ ...input(), tool, installed, phase: "feature", approved: true });
+      expect(facts.preflight).toMatchObject({ reason: "missing-prerequisite" });
+      expect(facts.updateCandidate).toBe("2.0.0");
+      const progress = f.installer.progress("fake-tool")!;
 
-    expect(availability({ ...input(), tool, installed, approved: true }).preflight).toMatchObject({
-      artifactId: "fake",
-    });
-    const facts = availability({ ...input(), tool, installed, phase: "feature", approved: true });
-    expect(facts.preflight).toMatchObject({ reason: "missing-prerequisite" });
-    expect(facts.updateCandidate).toBe("2.0.0");
-    const progress = f.installer.progress("fake-tool")!;
+      const failed = availability({
+        ...input(),
+        tool,
+        installed,
+        progress: { ...progress, phase: "failed", version: "2.0.0", message: "offline" },
+      });
 
-    const failed = availability({
-      ...input(),
-      tool,
-      installed,
-      progress: { ...progress, phase: "failed", version: "2.0.0", message: "offline" },
-    });
-
-    expect(failed.installation).toMatchObject({
-      retainedVersion: "1.0.0",
-      version: "2.0.0",
-    });
-  } finally {
-    await f.close();
+      expect(failed.installation).toMatchObject({
+        retainedVersion: "1.0.0",
+        version: "2.0.0",
+      });
+    } finally {
+      await f.close();
+    }
   }
-});
+);

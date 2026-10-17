@@ -22,6 +22,7 @@ import { ConstellationRuntime } from "../runtime.ts";
 import { workingAttemptsLayer } from "../working.ts";
 import { ConstellationDelivery } from "./index.ts";
 import { finish, send, setup, signal, STANDALONE, wait, WORKER, world } from "./testing.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 const resourceCounts = (store: EventStore["Service"]) =>
   Effect.map(store.model, (model) => ({
@@ -104,7 +105,7 @@ const leadMessage = () =>
   );
 
 const fixture = async (body: (root: string) => Promise<void>) => {
-  const root = mkdtempSync("/tmp/blocked-slots-test-");
+  const root = mkdtempSync(shortTemp("blocked-slots-test-"));
   const previous = process.env.POLARIS_HOME;
   process.env.POLARIS_HOME = root;
 

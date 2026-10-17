@@ -1,13 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import {
-  chmodSync,
-  mkdirSync,
-  mkdtempSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { HARNESS_CATALOGUE, type KnownHarnessKind } from "@polaris/protocol";
@@ -19,6 +11,7 @@ import {
   type ProbeEnv,
   probeHarness,
 } from "./probe.ts";
+import { shellFake } from "../testing/shellFake.ts";
 
 const dirs: Array<string> = [];
 
@@ -30,6 +23,8 @@ interface FakeHost {
   readonly env: ProbeEnv;
   readonly home: string;
   readonly bin: string;
+  /** The path a fake binary named `name` runs by (`name.cmd` on Windows). */
+  readonly exe: (name: string) => string;
   /** Every invocation of a fake binary, one argv per line. */
   readonly calls: () => ReadonlyArray<string>;
 }
@@ -48,6 +43,7 @@ const fakeHost = (): FakeHost => {
     env: { HOME: home, PATH: bin, POLARIS_TEST_CALLS: log },
     home,
     bin,
+    exe: (name) => join(bin, process.platform === "win32" ? `${name}.cmd` : name),
     calls: () => readFileSync(log, "utf8").split("\n").filter(Boolean),
   };
 };
@@ -58,19 +54,15 @@ const fakeBinary = (
   name: string,
   script: { version: string; status: string }
 ): void => {
-  const path = join(host.bin, name);
-
-  writeFileSync(
-    path,
-    `#!/bin/sh
-echo "$*" >> "$POLARIS_TEST_CALLS"
+  shellFake(
+    host.bin,
+    name,
+    `echo "$*" >> "$POLARIS_TEST_CALLS"
 if [ "$1" = "--version" ]; then
 ${script.version}
 fi
-${script.status}
-`
+${script.status}`
   );
-  chmodSync(path, 0o755);
 };
 
 const entry = (kind: KnownHarnessKind) => {
@@ -124,7 +116,7 @@ describe("probeHarness", () => {
       version: "2.1.290",
       minVersion: entry("claude").minVersion,
       detail: null,
-      signInArgv: [join(host.bin, "claude"), "auth", "login"],
+      signInArgv: [host.exe("claude"), "auth", "login"],
     });
     expect(JSON.stringify(result)).not.toContain("example.com");
     expect(host.calls()).toEqual(["--version", "auth status --json"]);
@@ -137,7 +129,7 @@ describe("probeHarness", () => {
 
     expect(await probe("claude", host.env)).toMatchObject({
       status: "needs-sign-in",
-      signInArgv: [join(host.bin, "claude"), "auth", "login"],
+      signInArgv: [host.exe("claude"), "auth", "login"],
     });
   });
 
@@ -251,7 +243,7 @@ describe("probeHarness", () => {
       const result = await probe("codex", host.env);
 
       expect(result.status).toBe(expected);
-      expect(result.signInArgv).toEqual([join(host.bin, "codex"), "login"]);
+      expect(result.signInArgv).toEqual([host.exe("codex"), "login"]);
       expect(JSON.stringify(result)).not.toContain("sk-");
     }
   });
@@ -273,7 +265,7 @@ describe("probeHarness", () => {
     mkdirSync(join(host.home, ".codex"));
     fakeBinary(host, "codex", { version: "echo 'codex-cli 0.158.0'; exit 0", status: "exit 0" });
 
-    const env = { ...host.env, PATH: "", POLARIS_CODEX: join(host.bin, "codex") };
+    const env = { ...host.env, PATH: "", POLARIS_CODEX: host.exe("codex") };
     expect(await probe("codex", env)).toMatchObject({ status: "ready" });
     expect(await probe("codex", { ...env, POLARIS_CODEX: join(host.bin, "nope") })).toMatchObject({
       status: "not-installed",
@@ -291,7 +283,7 @@ describe("probeHarness", () => {
       status: "ready",
       version: "1.18.33",
       minVersion: entry("opencode").minVersion,
-      signInArgv: [join(host.bin, "opencode"), "auth", "login"],
+      signInArgv: [host.exe("opencode"), "auth", "login"],
     });
     expect(host.calls()).toEqual([
       "--version",
@@ -320,7 +312,7 @@ describe("probeHarness", () => {
     expect(await probe("copilot", host.env)).toMatchObject({
       status: "needs-sign-in",
       version: "1.0.89",
-      signInArgv: [join(host.bin, "copilot"), "login"],
+      signInArgv: [host.exe("copilot"), "login"],
     });
 
     mkdirSync(join(host.home, ".copilot"));
@@ -343,7 +335,7 @@ describe("probeHarness", () => {
     expect(await probe("gemini", host.env)).toMatchObject({
       status: "needs-sign-in",
       version: "0.61.0",
-      signInArgv: [join(host.bin, "gemini")],
+      signInArgv: [host.exe("gemini")],
     });
     expect(readdirSync(host.home)).toEqual([]);
     const [, scratch] = host.calls();

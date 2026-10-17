@@ -91,7 +91,7 @@ Install then asks the Daemon over its **control pipe** (`<pipe>-control`, user-o
 
 The task runs only while the user is signed in: with nobody signed in, install fails saying so. `polaris bridge` runs the task when no Daemon answers. `polaris uninstall` stops the Daemon (`uninstall`), deletes the task, moves its own running binary to the temp directory (a running executable can be renamed, not deleted) and removes `bin`. Over SSH a Client stages, uploads and runs these from PowerShell, and the bridge runs behind a PowerShell relay (`bridge --relay <pid>`, ADR 0063).
 
-The end-to-end check runs on a real Host from a Mac: `bun apps/daemon/scripts/e2e-windows-service.ts --host <alias> --dir <C:\scratch> --bun <C:\…\bun.exe>` (Bun 1.4.3 or later) builds two versions and drives install, a killed Daemon, an upgrade and uninstall with a Client connected throughout. `windowsTask.test.ts` and `windowsControl.test.ts` have Windows-only tests (a real `schtasks` registration, the control pipe).
+The end-to-end check runs on a real Host from a Mac: `bun apps/daemon/scripts/e2e-windows-service.ts --host <alias> --dir <C:\scratch> --bun <C:\…\bun.exe>` (Bun 1.4.3 or later) builds two versions and drives install, a killed Daemon, an upgrade and uninstall with a Client connected throughout; with `--local` in place of `--host` it runs on the Windows machine it is on, as CI's "Windows service end to end" job does. `windowsTask.test.ts` and `windowsControl.test.ts` have Windows-only tests (a real `schtasks` registration, the control pipe).
 
 ## Upgrade: the execve hand-off (`polaris upgrade <path>`)
 

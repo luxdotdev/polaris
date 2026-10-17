@@ -3,6 +3,7 @@ import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { type GitSyncAction, GitSyncItem } from "@polaris/protocol";
 import { Effect, Stream } from "effect";
+import { posixTest } from "../platform/testing.ts";
 import { handleGitStatus, handleGitSync } from "./GitRpcs.ts";
 import { gitText } from "./git.ts";
 import { commitAll, makeRepo, removeDir, tempDir, write } from "./testing.ts";
@@ -252,11 +253,13 @@ describe("git.sync never prompts", () => {
   const fakeSsh = (script: string) => {
     const bin = tempDir("polaris-ssh-");
     cleanup.push(bin);
-    const path = join(bin, "fake-ssh");
-    writeFileSync(path, `#!/bin/sh\necho "$@" > ${join(bin, "args")}\n${script}\n`);
+    // Forward slashes: Git for Windows reads config values and runs commands through sh.
+    const path = join(bin, "fake-ssh").replaceAll("\\", "/");
+    const args = join(bin, "args").replaceAll("\\", "/");
+    writeFileSync(path, `#!/bin/sh\necho "$@" > ${args}\n${script}\n`);
     chmodSync(path, 0o755);
 
-    return { path, args: join(bin, "args") };
+    return { path, args };
   };
 
   test.each([
@@ -292,31 +295,35 @@ describe("git.sync never prompts", () => {
     }
   }, 15_000);
 
-  test("closing the stream stops git midway: no Done, and the remote is untouched", async () => {
-    const { mine, bare } = await setup();
-    const pidFile = join(tempDir("polaris-pid-"), "pid");
-    const ssh = fakeSsh(`echo $$ > ${pidFile}; sleep 30`);
-    await gitText(mine, ["remote", "set-url", "origin", "git@example.invalid:acme/app.git"]);
-    await gitText(mine, ["config", "core.sshCommand", ssh.path]);
-    write(mine, "c.txt", "c\n");
-    await commitAll(mine, "mine");
-    const remoteHead = await gitText(bare, ["rev-parse", "main"]);
-    const started = Date.now();
+  posixTest("the fake ssh's $$ is an MSYS pid, not one Windows can probe (ENG-318)")(
+    "closing the stream stops git midway: no Done, and the remote is untouched",
+    async () => {
+      const { mine, bare } = await setup();
+      const pidFile = join(tempDir("polaris-pid-"), "pid");
+      const ssh = fakeSsh(`echo $$ > ${pidFile}; sleep 30`);
+      await gitText(mine, ["remote", "set-url", "origin", "git@example.invalid:acme/app.git"]);
+      await gitText(mine, ["config", "core.sshCommand", ssh.path]);
+      write(mine, "c.txt", "c\n");
+      await commitAll(mine, "mine");
+      const remoteHead = await gitText(bare, ["rev-parse", "main"]);
+      const started = Date.now();
 
-    const items = await Effect.runPromise(
-      Stream.runCollect(
-        handleGitSync({ cwd: mine, action: "push" }).pipe(
-          Stream.tap(() => Effect.promise(() => waitFor(() => existsSync(pidFile)))),
-          Stream.take(1)
+      const items = await Effect.runPromise(
+        Stream.runCollect(
+          handleGitSync({ cwd: mine, action: "push" }).pipe(
+            Stream.tap(() => Effect.promise(() => waitFor(() => existsSync(pidFile)))),
+            Stream.take(1)
+          )
         )
-      )
-    );
+      );
 
-    expect([...items].map((i) => i._tag)).toEqual(["Step"]);
-    await waitFor(() => !alive(Number(readFileSync(pidFile, "utf8"))));
-    expect(Date.now() - started).toBeLessThan(10_000);
-    expect(await gitText(bare, ["rev-parse", "main"])).toBe(remoteHead);
-  }, 15_000);
+      expect([...items].map((i) => i._tag)).toEqual(["Step"]);
+      await waitFor(() => !alive(Number(readFileSync(pidFile, "utf8"))));
+      expect(Date.now() - started).toBeLessThan(10_000);
+      expect(await gitText(bare, ["rev-parse", "main"])).toBe(remoteHead);
+    },
+    15_000
+  );
 });
 
 const alive = (pid: number) => {

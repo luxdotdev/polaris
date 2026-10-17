@@ -2,6 +2,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test
 import { readdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { gitText } from "../git/git.ts";
+import { posixDescribe } from "../platform/testing.ts";
 import { commitAll, makeRepo, removeDir, write } from "../git/testing.ts";
 import { runRules } from "./run.ts";
 import { fetchBetterleaks, hostAsset } from "./secrets/fetch.ts";
@@ -29,13 +30,19 @@ const repo = async (files: Record<string, string>) => {
 
 const head = (root: string) => gitText(root, ["rev-parse", "HEAD"]);
 
+const secretsDescribe = posixDescribe(
+  "no Betterleaks build for Windows: secret scanning (ENG-296)"
+);
+
 beforeAll(async () => {
-  await fetchBetterleaks(hostAsset()!);
+  const asset = hostAsset();
+
+  if (asset !== null) await fetchBetterleaks(asset);
 }, 120_000);
 
 afterAll(() => repos.forEach(removeDir));
 
-describe("runRules on a pull request (history)", () => {
+secretsDescribe("runRules on a pull request (history)", () => {
   test("reports all eight secret formats as Critical and every pattern fixture, on added lines only", async () => {
     const root = await repo({ "legacy.ts": "eval(old);\nexport const a = 1;\n" });
     const base = await head(root);
@@ -87,7 +94,7 @@ describe("runRules on a pull request (history)", () => {
   });
 });
 
-describe("runRules on Agent Session Turns (snapshot)", () => {
+secretsDescribe("runRules on Agent Session Turns (snapshot)", () => {
   test("scans trees, not just commits, and keeps only added lines", async () => {
     const root = await repo({ "app.ts": "debugger;\nexport const x = 1;\n" });
     const before = await gitText(root, ["rev-parse", "HEAD^{tree}"]);

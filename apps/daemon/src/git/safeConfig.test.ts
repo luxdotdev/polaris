@@ -30,13 +30,16 @@ const dir = (made: string) => {
   return made;
 };
 
+/** Git for Windows runs these through sh, which reads a backslash as an escape. */
+const shellPath = (path: string) => path.replaceAll("\\", "/");
+
 /** A script that leaves `<name>.ran` in `markers` and passes its stdin through. */
 const script = (markers: string, name: string) => {
   const path = join(markers, name);
-  write(markers, name, `#!/bin/sh\ntouch "${markers}/${name}.ran"\ncat\n`);
+  write(markers, name, `#!/bin/sh\ntouch "${shellPath(markers)}/${name}.ran"\ncat\n`);
   chmodSync(path, 0o755);
 
-  return path;
+  return shellPath(path);
 };
 
 const ran = (markers: string) =>
@@ -292,10 +295,13 @@ describe("automatic git never goes into a submodule", () => {
       ".gitmodules\na.txt\nsub"
     );
 
-    // The control: git as the Host has it runs the submodule's filter.
+    // The control: git as the Host has it runs the submodule's commands. Git for Windows
+    // trusts the submodule's index stat there and skips the filter, but still runs the fsmonitor.
     await runGitRaw(root, ["status", "--porcelain"], { config: "host" });
-    expect(ran(markers)).toEqual(["clean", "fsmonitor"]);
-  });
+    expect(ran(markers)).toEqual(
+      process.platform === "win32" ? ["fsmonitor"] : ["clean", "fsmonitor"]
+    );
+  }, 30_000);
 
   test("a submodule moved to another commit still shows as changed", async () => {
     const { root } = await withSubmodule();

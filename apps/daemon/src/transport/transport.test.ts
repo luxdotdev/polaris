@@ -59,6 +59,10 @@ import { TerminalsLive } from "../terminal/Terminals.ts";
 import { DaemonAlreadyRunning } from "./lock.ts";
 import { ServerRpcs } from "./rpcs.ts";
 import { startServer } from "./server.ts";
+import { localEndpoint } from "@polaris/protocol/endpoint";
+import { posixTest, shortTemp } from "../platform/testing.ts";
+
+const windows = process.platform === "win32";
 
 const MAIN = join(import.meta.dir, "..", "main.ts");
 
@@ -66,14 +70,29 @@ let home: string;
 
 beforeEach(() => {
   // Short path: Unix socket paths are limited to ~104 bytes on macOS.
-  home = mkdtempSync("/tmp/plt-");
+  home = mkdtempSync(shortTemp("plt-"));
 });
 
 afterEach(() => {
   rmSync(home, { recursive: true, force: true });
 });
 
-const socketOf = (dir: string) => join(dir, "daemon.sock");
+// On Windows the Daemon listens on a named pipe derived from its home (ADR 0059).
+const socketOf = (dir: string) => localEndpoint(dir);
+
+/** Prints `size` a's, a newline and "done" after a moment, in the platform's shell. */
+const printAs = (size: number) =>
+  windows
+    ? ["powershell", "-nop", "-c", `sleep -m 300; [Console]::Out.Write('a' * ${size}); ''; 'done'`]
+    : ["sh", "-c", `sleep 0.3; head -c ${size} /dev/zero | tr '\\0' a; echo; echo done`];
+
+const noStaleFile = posixTest("a pipe leaves no file; pipe.test.ts covers a name another holds");
+
+const conPty = posixTest("a ConPTY print never ends within 20 s on windows-latest (ENG-318)");
+
+const signalStop = posixTest(
+  "SIGTERM there terminates at once; the logon task stops the Daemon over its control pipe (ADR 0060)"
+);
 
 const serverOptions = (dir: string) => ({
   socketPath: socketOf(dir),
@@ -201,7 +220,8 @@ const identity = {
   name: "polaris-test",
   version: "0.0.0",
   deviceLabel: "Test MacBook",
-  capabilities: ["blobs" as const, "files.read" as const],
+  // A windows-x64 Host answers a Client without host.any-platform with a newer protocol (ADR 0059).
+  capabilities: ["blobs" as const, "files.read" as const, "host.any-platform" as const],
 };
 
 const fastPolicy = {
@@ -277,23 +297,29 @@ describe("transport", () => {
           .subscribeHost({ afterSequence: null })
           .pipe(Stream.take(2), Stream.runCollect);
 
-        const modes = {
-          socket: statSync(socketOf(home)).mode & 0o777,
-          dir: statSync(home).mode & 0o777,
-        };
+        const modes = windows
+          ? null
+          : {
+              socket: statSync(socketOf(home)).mode & 0o777,
+              dir: statSync(home).mode & 0o777,
+            };
 
         return { server, session, status, rejected, hostItems, modes };
       })
     );
 
     expect(result.session.host.hostId).toBe(result.server.hostInfo.hostId);
-    expect<string>(result.session.host.platform).toBe(`${process.platform}-${process.arch}`);
+    expect<string>(result.session.host.platform).toBe(
+      `${windows ? "windows" : process.platform}-${process.arch}`
+    );
     expect(result.session.capabilities).toEqual(["blobs"]);
     expect(result.status.state).toBe("connected");
     // The placeholder dispatch rejects; the device label only shows with the test handlers.
     expect(result.rejected._tag).toBe("CommandRejected");
     expect(result.hostItems.map((i) => i._tag)).toEqual(["Snapshot", "Synchronized"]);
-    expect(result.modes).toEqual({ socket: 0o600, dir: 0o700 });
+
+    // A pipe has no mode bits: pipe.test.ts checks its owner-only DACL.
+    if (!windows) expect(result.modes).toEqual({ socket: 0o600, dir: 0o700 });
     // The socket is removed when the Daemon stops.
     expect(existsSync(socketOf(home))).toBe(false);
   });
@@ -353,13 +379,20 @@ describe("transport", () => {
       })
     );
 
-    expect(result?.argv).toEqual(["blobs", "files.read", "session.live-items"]);
+    expect(result?.argv).toEqual([
+      "blobs",
+      "files.read",
+      "host.any-platform",
+      "session.live-items",
+    ]);
 
-    // Without a real engine the placeholder answers NotFound.
+    // The placeholder answers NotFound; a fresh home, as a pipe's name outlives its scope.
+    const fresh = mkdtempSync(join(home, "fresh-"));
+
     const missing = await run(
       Effect.gen(function* () {
-        yield* startServer(serverOptions(home));
-        const conn = yield* localHost(home);
+        yield* startServer(serverOptions(fresh));
+        const conn = yield* localHost(fresh);
         const session = yield* conn.awaitSession;
 
         return yield* Effect.flip(
@@ -604,7 +637,7 @@ describe("transport", () => {
     expect(result.child.stderr).toContain("already running");
   }, 15_000);
 
-  test("takes over a stale socket left by a killed Daemon", async () => {
+  noStaleFile("takes over a stale socket left by a killed Daemon", async () => {
     const path = socketOf(home);
 
     const child = spawn("bun", [
@@ -755,92 +788,98 @@ describe("transport", () => {
     expect(sha(new Uint8Array(await Bun.file(staged.hostPath).arrayBuffer()))).toBe(sha(payload));
   }, 20_000);
 
-  test("terminal output arrives the same as raw bytes (terminal.binary) and as base64", async () => {
-    const size = 300_000;
+  conPty(
+    "terminal output is the same as raw bytes (terminal.binary) and base64",
+    async () => {
+      const size = 300_000;
 
-    const texts = await run(
-      Effect.gen(function* () {
-        yield* startServer({
-          ...serverOptions(home),
-          handlers: TerminalRpcsLive.pipe(
-            Layer.provide(Layer.merge(TerminalsLive, EventStore.layerSqlite(":memory:")))
-          ),
-          capabilities: ["terminal", "terminal.binary"],
-        });
-        const conn = yield* localHost(home);
-        const session = yield* conn.awaitSession;
+      const texts = await run(
+        Effect.gen(function* () {
+          yield* startServer({
+            ...serverOptions(home),
+            handlers: TerminalRpcsLive.pipe(
+              Layer.provide(Layer.merge(TerminalsLive, EventStore.layerSqlite(":memory:")))
+            ),
+            capabilities: ["terminal", "terminal.binary"],
+          });
+          const conn = yield* localHost(home);
+          const session = yield* conn.awaitSession;
 
-        const read = (capabilities: ReadonlyArray<Capability>) =>
-          Effect.gen(function* () {
-            const { terminalId } = yield* session.client["terminal.open"]({
-              cwd: home,
-              cols: 80,
-              rows: 24,
-              argv: [
-                "sh",
-                "-c",
-                `sleep 0.3; head -c ${size} /dev/zero | tr '\\0' a; echo; echo done`,
-              ],
+          const read = (capabilities: ReadonlyArray<Capability>) =>
+            Effect.gen(function* () {
+              const { terminalId } = yield* session.client["terminal.open"]({
+                cwd: home,
+                cols: 80,
+                rows: 24,
+                argv: printAs(size),
+              });
+
+              let text = "";
+              const decoder = new TextDecoder();
+              let exit: number | null | undefined;
+              yield* attachTerminal({ ...session, capabilities }, terminalId).pipe(
+                Stream.runForEach((item) =>
+                  Effect.sync(() =>
+                    TerminalOutput.$match(item, {
+                      Output: (output) => {
+                        text += decoder.decode(output.data, { stream: true });
+                      },
+                      Exit: (ended) => {
+                        exit = ended.code;
+                      },
+                    })
+                  )
+                )
+              );
+
+              return { text, exit };
             });
 
-            let text = "";
-            const decoder = new TextDecoder();
-            let exit: number | null | undefined;
-            yield* attachTerminal({ ...session, capabilities }, terminalId).pipe(
-              Stream.runForEach((item) =>
-                Effect.sync(() =>
-                  TerminalOutput.$match(item, {
-                    Output: (output) => {
-                      text += decoder.decode(output.data, { stream: true });
-                    },
-                    Exit: (ended) => {
-                      exit = ended.code;
-                    },
-                  })
-                )
-              )
-            );
-
-            return { text, exit };
-          });
-
-        return [yield* read(["terminal.binary"]), yield* read([])];
-      })
-    );
-
-    for (const { text, exit } of texts) {
-      expect(exit).toBe(0);
-      expect(text.split("a").length - 1).toBe(size);
-      expect(text).toContain("done");
-    }
-  }, 20_000);
-
-  test("polaris serve as a process: pid file, bridge, clean shutdown", async () => {
-    const env = { ...process.env, POLARIS_HOME: home };
-    const daemon = spawn("bun", [MAIN, "serve"], { env, stdio: "ignore" });
-
-    try {
-      for (let i = 0; i < 100 && !existsSync(join(home, "daemon.pid")); i++) await Bun.sleep(50);
-
-      const host = await run(
-        Effect.gen(function* () {
-          const conn = yield* bridgeHost(home);
-
-          return (yield* conn.awaitSession).host;
+          return [yield* read(["terminal.binary"]), yield* read([])];
         })
       );
 
-      expect(host.daemonVersion.length).toBeGreaterThan(0);
-      expect(Number((await Bun.file(join(home, "daemon.pid")).text()).trim())).toBe(daemon.pid!);
-      expect(Number((await Bun.file(join(home, "daemon.lock")).text()).trim())).toBe(daemon.pid!);
-    } finally {
-      daemon.kill("SIGTERM");
-      await new Promise((resolve) => daemon.once("exit", resolve));
-    }
+      for (const { text, exit } of texts) {
+        expect(exit).toBe(0);
+        const count = text.split("a").length - 1;
 
-    for (const file of ["daemon.sock", "daemon.lock", "daemon.pid"])
-      expect(existsSync(join(home, file))).toBe(false);
-  }, 20_000);
+        expect(count).toBe(size);
+        expect(text).toContain("done");
+      }
+    },
+    20_000
+  );
+
+  signalStop(
+    "polaris serve as a process: pid file, bridge, clean shutdown",
+    async () => {
+      const env = { ...process.env, POLARIS_HOME: home };
+      const daemon = spawn("bun", [MAIN, "serve"], { env, stdio: "ignore" });
+
+      try {
+        for (let i = 0; i < 100 && !existsSync(join(home, "daemon.pid")); i++) await Bun.sleep(50);
+
+        const host = await run(
+          Effect.gen(function* () {
+            const conn = yield* bridgeHost(home);
+
+            return (yield* conn.awaitSession).host;
+          })
+        );
+
+        expect(host.daemonVersion.length).toBeGreaterThan(0);
+        expect(Number((await Bun.file(join(home, "daemon.pid")).text()).trim())).toBe(daemon.pid!);
+        expect(Number((await Bun.file(join(home, "daemon.lock")).text()).trim())).toBe(daemon.pid!);
+      } finally {
+        daemon.kill("SIGTERM");
+        await new Promise((resolve) => daemon.once("exit", resolve));
+      }
+
+      for (const file of ["daemon.sock", "daemon.lock", "daemon.pid"])
+        expect(existsSync(join(home, file))).toBe(false);
+    },
+    20_000
+  );
 });
 
 const runProcess = (argv: Array<string>, env: Record<string, string>) =>

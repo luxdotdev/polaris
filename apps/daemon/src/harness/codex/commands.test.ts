@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { Effect } from "effect";
 import { CODEX_BUILTINS, listCodexCommands, readPrompts, toPrompt } from "./commands.ts";
 import { startFakeAppServer } from "./testing/FakeAppServer.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 const cleanup: Array<() => void> = [];
 
@@ -13,7 +14,7 @@ afterEach(() => {
 
 /** Socket paths must stay under ~104 bytes, so tests use /tmp directly. */
 const tempDir = () => {
-  const dir = mkdtempSync("/tmp/pcc-");
+  const dir = mkdtempSync(shortTemp("pcc-"));
   cleanup.push(() => rmSync(dir, { recursive: true, force: true }));
 
   return dir;

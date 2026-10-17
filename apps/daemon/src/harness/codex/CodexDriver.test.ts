@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { ApprovalDecision, RequestId, SessionId, TurnId, TurnItem } from "@polaris/protocol";
 import { Effect, Schema } from "effect";
@@ -8,6 +8,8 @@ import { polarisInstructions } from "../../constellation/skills/preamble.ts";
 import { makeCodexDriver, probeCodex } from "./CodexDriver.ts";
 import { type ClientAnswer, type Handler, readFixture, replay } from "./testing/FakeAppServer.ts";
 import { cleanup, ofTag, scripted, sessionWith, THREAD, turn } from "./testing/session.ts";
+import { shortTemp } from "../../platform/testing.ts";
+import { shellFake, shPath } from "../testing/shellFake.ts";
 
 const decodeTurnInput = Schema.decodeUnknownSync(
   Schema.Struct({ input: Schema.Array(Schema.Struct({ text: Schema.optional(Schema.String) })) })
@@ -421,13 +423,18 @@ describe("Codex driver against a fake app-server", () => {
           expect(busy.message).toContain("already in progress");
           yield* session.steer("also run lint");
           yield* waitFor("TurnEnded");
-          expect(yield* session.terminalCommand).toEqual([
-            "/opt/codex/bin/codex",
-            "resume",
-            THREAD,
-            "--remote",
-            expect.stringMatching(/^unix:\/\/\/tmp\/pcx-.*\/s\.sock$/),
-          ]);
+          // On Windows the TUI reads the server's token in PowerShell (AppServer.test.ts).
+          expect(yield* session.terminalCommand).toEqual(
+            process.platform === "win32"
+              ? ["powershell.exe", "-NoLogo", "-NoProfile", "-EncodedCommand", expect.any(String)]
+              : [
+                  "/opt/codex/bin/codex",
+                  "resume",
+                  THREAD,
+                  "--remote",
+                  expect.stringMatching(/^unix:\/\/\/tmp\/pcx-.*\/s\.sock$/),
+                ]
+          );
         }),
       { resumeCursor: THREAD, permissionMode: "auto", serviceTier: "priority" }
     );
@@ -675,12 +682,10 @@ describe("Codex driver against a fake app-server", () => {
 
 describe("probe", () => {
   test("only runs `codex --version`", async () => {
-    const dir = mkdtempSync("/tmp/pcx-");
+    const dir = mkdtempSync(shortTemp("pcx-"));
     cleanup.push(() => rmSync(dir, { recursive: true, force: true }));
-    const fake = join(dir, "codex");
     const log = join(dir, "argv");
-    writeFileSync(fake, `#!/bin/sh\necho "$@" >> "${log}"\necho "codex-cli 9.8.7"\n`);
-    chmodSync(fake, 0o755);
+    const fake = shellFake(dir, "codex", `echo "$@" >> "${shPath(log)}"\necho "codex-cli 9.8.7"`);
     const probe = await Effect.runPromise(probeCodex(fake));
     expect(probe).toEqual({ available: true, version: "9.8.7", detail: fake });
     expect((await Bun.file(log).text()).trim()).toBe("--version");

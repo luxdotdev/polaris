@@ -39,6 +39,11 @@ import { startAttempt } from "./workers.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { recordSendbackTrace } from "../../mcp/sendback.trace.testing.ts";
 import { prepareSession } from "./prepare.ts";
+import { posixTest } from "../../platform/testing.ts";
+
+const shellSetupTest = posixTest(
+  "setup commands here are POSIX shell lines; Windows runs setup under cmd.exe (ENG-318)"
+);
 
 const command = "echo run >> setup-count";
 
@@ -93,109 +98,113 @@ test("fingerprints cover command and root/nested manifests and ecosystem lockfil
   }
 });
 
-test("busy worktree reuse persists deferred setup and production restart runs it before the brief", async () => {
-  const root = await makeRepo({ ".gitignore": "*.sqlite*\nsetup-count\n" });
+shellSetupTest(
+  "busy worktree reuse persists deferred setup and production restart runs it before the brief",
+  async () => {
+    const root = await makeRepo({ ".gitignore": "*.sqlite*\nsetup-count\n" });
 
-  try {
-    const file = join(root, "state.sqlite");
-    const input = inputAt(root);
-    let attempt = draft();
-    let prepared = Attempt.make(Struct.assign(draft(), { worktree: root }));
+    try {
+      const file = join(root, "state.sqlite");
+      const input = inputAt(root);
+      let attempt = draft();
+      let prepared = Attempt.make(Struct.assign(draft(), { worktree: root }));
 
-    const runtime = Layer.succeed(ConstellationRuntime)({
-      prepare: () =>
-        Effect.succeed({
-          attempts: [prepared],
-          newLeadSessionId: null,
-          recordedChecks: [],
-          claimProbe: { dirtyPaths: [], branch: draft().branch, head: "head" },
-        }),
-      resumeWorking: () => Effect.void,
-      afterCommit: () => Effect.void,
-    });
+      const runtime = Layer.succeed(ConstellationRuntime)({
+        prepare: () =>
+          Effect.succeed({
+            attempts: [prepared],
+            newLeadSessionId: null,
+            recordedChecks: [],
+            claimProbe: { dirtyPaths: [], branch: draft().branch, head: "head" },
+          }),
+        resumeWorking: () => Effect.void,
+        afterCommit: () => Effect.void,
+      });
 
-    const w = world(file, { runtime });
-    await w.run(
-      Effect.gen(function* () {
-        yield* setup();
-        const store = yield* EventStore;
-        const old = (yield* store.model).sessions.get(draft().sessionId)!.session;
-        // The provisioned Session uses this worktree, while the preceding Turn is still working.
-        yield* store.commit({
-          commandId: null,
-          decide: () =>
-            Effect.succeed([
-              DomainEvent.cases.SessionCreated.make({
-                session: AgentSession.make(Struct.assign(old, { cwd: root })),
+      const w = world(file, { runtime });
+      await w.run(
+        Effect.gen(function* () {
+          yield* setup();
+          const store = yield* EventStore;
+          const old = (yield* store.model).sessions.get(draft().sessionId)!.session;
+          // The provisioned Session uses this worktree, while the preceding Turn is still working.
+          yield* store.commit({
+            commandId: null,
+            decide: () =>
+              Effect.succeed([
+                DomainEvent.cases.SessionCreated.make({
+                  session: AgentSession.make(Struct.assign(old, { cwd: root })),
+                }),
+              ]),
+          });
+          yield* (yield* WorktreeSetupService).run(
+            old.id,
+            "initial",
+            root,
+            setting,
+            CID,
+            draft().taskId,
+            WS
+          );
+          yield* send(old.id, "Earlier work");
+          attempt = yield* prepareSession(input, HOST).pipe(
+            Effect.provideService(HarnessRegistry, {
+              get: () => Effect.succeed(makeFakeDriver("codex").driver),
+              all: Effect.succeed([]),
+            })
+          );
+          expect(attempt.startupSetup).toEqual({ command, force: false });
+          expect((yield* store.model).sessions.get(old.id)!.session.worktreeSetup?.status).toBe(
+            "completed"
+          );
+          prepared = attempt;
+          const graphs = yield* Constellations;
+          const initial = (yield* store.model).constellations.get(CID)!.graph.attempts[0]!;
+          yield* graphs.command(
+            { kind: "session", sessionId: initial.sessionId },
+            CommandId.make("claim"),
+            C.WorkerClaim.make({ constellationId: CID, attemptId: initial.id, claim: report() })
+          );
+          const review = (yield* store.model).constellations.get(CID)!.graph.attempts[0]!;
+          yield* graphs.command(
+            { kind: "user" },
+            CommandId.make("sendback"),
+            C.Review.make({
+              constellationId: CID,
+              attemptId: initial.id,
+              revision: review.revision,
+              action: ReviewAction.cases.SendBack.make({
+                reason: "Refresh setup",
+                worker: input.placement,
               }),
-            ]),
-        });
-        yield* (yield* WorktreeSetupService).run(
-          old.id,
-          "initial",
-          root,
-          setting,
-          CID,
-          draft().taskId,
-          WS
-        );
-        yield* send(old.id, "Earlier work");
-        attempt = yield* prepareSession(input, HOST).pipe(
-          Effect.provideService(HarnessRegistry, {
-            get: () => Effect.succeed(makeFakeDriver("codex").driver),
-            all: Effect.succeed([]),
-          })
-        );
-        expect(attempt.startupSetup).toEqual({ command, force: false });
-        expect((yield* store.model).sessions.get(old.id)!.session.worktreeSetup?.status).toBe(
-          "completed"
-        );
-        prepared = attempt;
-        const graphs = yield* Constellations;
-        const initial = (yield* store.model).constellations.get(CID)!.graph.attempts[0]!;
-        yield* graphs.command(
-          { kind: "session", sessionId: initial.sessionId },
-          CommandId.make("claim"),
-          C.WorkerClaim.make({ constellationId: CID, attemptId: initial.id, claim: report() })
-        );
-        const review = (yield* store.model).constellations.get(CID)!.graph.attempts[0]!;
-        yield* graphs.command(
-          { kind: "user" },
-          CommandId.make("sendback"),
-          C.Review.make({
-            constellationId: CID,
-            attemptId: initial.id,
-            revision: review.revision,
-            action: ReviewAction.cases.SendBack.make({
-              reason: "Refresh setup",
-              worker: input.placement,
-            }),
-          })
-        );
-        attempt = (yield* store.model).constellations.get(CID)!.graph.attempts.at(-1)!;
-        expect(attempt.startupSetup).toEqual({ command, force: false });
-        yield* changeTrust(root, HOST, WS, "trust");
-      })
-    );
-    await writeFile(join(root, "package.json"), "{}\n");
-    const turn = await restartForRetry(root, attempt, undefined, true);
-    expect(turn.id).toEqual(TurnId.make(`${attempt.id}:start`));
-    expect(await readFile(join(root, "setup-count"), "utf8")).toBe("run\nrun\n");
-    await world(file).run(
-      Effect.gen(function* () {
-        const store = yield* EventStore;
-        const record = (yield* store.model).sessions.get(attempt.sessionId)!;
-        expect(record.session.worktreeSetup?.status).toBe("completed");
-        expect(record.session.worktreeSetup?.fingerprint).toBe(
-          yield* setupFingerprint(root, command)
-        );
-        yield* recordSendbackTrace("deferred-setup-restart");
-      })
-    );
-  } finally {
-    removeDir(root);
-  }
-}, 20000);
+            })
+          );
+          attempt = (yield* store.model).constellations.get(CID)!.graph.attempts.at(-1)!;
+          expect(attempt.startupSetup).toEqual({ command, force: false });
+          yield* changeTrust(root, HOST, WS, "trust");
+        })
+      );
+      await writeFile(join(root, "package.json"), "{}\n");
+      const turn = await restartForRetry(root, attempt, undefined, true);
+      expect(turn.id).toEqual(TurnId.make(`${attempt.id}:start`));
+      expect(await readFile(join(root, "setup-count"), "utf8")).toBe("run\nrun\n");
+      await world(file).run(
+        Effect.gen(function* () {
+          const store = yield* EventStore;
+          const record = (yield* store.model).sessions.get(attempt.sessionId)!;
+          expect(record.session.worktreeSetup?.status).toBe("completed");
+          expect(record.session.worktreeSetup?.fingerprint).toBe(
+            yield* setupFingerprint(root, command)
+          );
+          yield* recordSendbackTrace("deferred-setup-restart");
+        })
+      );
+    } finally {
+      removeDir(root);
+    }
+  },
+  20000
+);
 
 test("failed deferred setup releases the acquired worker slot and creates no startup receipt or brief", async () => {
   const root = tempDir();
@@ -270,53 +279,56 @@ test("failed deferred setup releases the acquired worker slot and creates no sta
   }
 });
 
-test("setup persists its resulting inputs once and unchanged reuse does not run again", async () => {
-  const root = await makeRepo({ ".gitignore": "setup-count\n" });
-  const changedCommand = "echo changed > yarn.lock; echo run >> setup-count";
+shellSetupTest(
+  "setup persists its resulting inputs once and unchanged reuse does not run again",
+  async () => {
+    const root = await makeRepo({ ".gitignore": "setup-count\n" });
+    const changedCommand = "echo changed > yarn.lock; echo run >> setup-count";
 
-  try {
-    await world().run(
-      Effect.gen(function* () {
-        yield* setup();
-        const service = yield* WorktreeSetupService;
-        const setting = WorktreeSetup.cases.Command.make({ command: changedCommand });
-        const sid = draft().sessionId;
-        const first = yield* service.run(sid, "first", root, setting, CID, draft().taskId, WS);
-        expect(first?.fingerprint).toBe(yield* setupFingerprint(root, changedCommand));
+    try {
+      await world().run(
+        Effect.gen(function* () {
+          yield* setup();
+          const service = yield* WorktreeSetupService;
+          const setting = WorktreeSetup.cases.Command.make({ command: changedCommand });
+          const sid = draft().sessionId;
+          const first = yield* service.run(sid, "first", root, setting, CID, draft().taskId, WS);
+          expect(first?.fingerprint).toBe(yield* setupFingerprint(root, changedCommand));
 
-        const second = yield* service.run(
-          sid,
-          "next-attempt",
-          root,
-          setting,
-          CID,
-          draft().taskId,
-          WS
-        );
+          const second = yield* service.run(
+            sid,
+            "next-attempt",
+            root,
+            setting,
+            CID,
+            draft().taskId,
+            WS
+          );
 
-        expect(second?.id).toBe(first?.id);
-        expect(yield* Effect.promise(() => readFile(join(root, "setup-count"), "utf8"))).toBe(
-          "run\n"
-        );
+          expect(second?.id).toBe(first?.id);
+          expect(yield* Effect.promise(() => readFile(join(root, "setup-count"), "utf8"))).toBe(
+            "run\n"
+          );
 
-        const forced = yield* service.run(
-          sid,
-          "merge-conflict",
-          root,
-          setting,
-          CID,
-          draft().taskId,
-          WS,
-          true
-        );
+          const forced = yield* service.run(
+            sid,
+            "merge-conflict",
+            root,
+            setting,
+            CID,
+            draft().taskId,
+            WS,
+            true
+          );
 
-        expect(forced?.id).not.toBe(first?.id);
-        expect(yield* Effect.promise(() => readFile(join(root, "setup-count"), "utf8"))).toBe(
-          "run\nrun\n"
-        );
-      })
-    );
-  } finally {
-    removeDir(root);
+          expect(forced?.id).not.toBe(first?.id);
+          expect(yield* Effect.promise(() => readFile(join(root, "setup-count"), "utf8"))).toBe(
+            "run\nrun\n"
+          );
+        })
+      );
+    } finally {
+      removeDir(root);
+    }
   }
-});
+);

@@ -22,7 +22,7 @@
       ]
     },
     "typecheck": { "dependsOn": ["^typecheck"] },
-    "test": { "dependsOn": ["^build"], "env": ["POLARIS_PBT_*"] },
+    "test": { "dependsOn": ["^build"], "env": ["POLARIS_PBT_*", "POLARIS_EXPECT_ELEVATED"] },
     "dev": { "cache": false, "persistent": true },
     "bench": {
       "cache": false,

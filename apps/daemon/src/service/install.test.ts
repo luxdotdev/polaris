@@ -28,6 +28,10 @@ import {
   sha256File,
   uninstall,
 } from "./install.ts";
+import { posixTest, shortTemp } from "../platform/testing.ts";
+
+// The macOS layout needs an exec bit and a symlink swapped by rename; Windows has its own layout.
+const macLayoutTest = posixTest("POSIX modes and a symlink replaced by rename (ADR 0060)");
 
 /** The fake user crontab: null when the user has none. */
 interface CronTable {
@@ -153,7 +157,7 @@ describe("install on macOS", () => {
     expect(report.binaryChanged).toBe(true);
   });
 
-  test("installs Betterleaks from beside the binary as an executable", async () => {
+  macLayoutTest("installs Betterleaks from beside the binary as an executable", async () => {
     const sibling = join(root, "betterleaks");
     writeFileSync(sibling, "#!/bin/sh\necho betterleaks\n", { mode: 0o644 });
 
@@ -177,7 +181,7 @@ describe("install on macOS", () => {
     expect(readFileSync(installed, "utf8")).toContain("betterleaks 2");
   });
 
-  test("a new version restarts the loaded service in place", async () => {
+  macLayoutTest("a new version restarts the loaded service in place", async () => {
     const first = fakeRunner(notLoaded);
     await Effect.runPromise(
       install(ctx("darwin"), { source, version: "1.2.3" }).pipe(Effect.provide(first.layer))
@@ -384,34 +388,38 @@ describe("uninstall", () => {
     expect(existsSync(join(root, ".polaris"))).toBe(false);
   });
 
-  test("stops the shared Codex app-server, which otherwise outlives the Daemon", async () => {
-    // Short paths: the socket must fit the Unix socket path limit.
-    root = mkdtempSync("/tmp/pun-");
-    const home = join(root, ".polaris");
-    const socketPath = join(home, "codex.sock");
-    const codex = makeFakeCodex(root);
-    await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const server = yield* acquireAppServer({
-            codexPath: codex.path,
-            socketPath,
-            spawn: true,
-            systemdRun: null,
-          });
+  posixTest("the fake Codex is a /bin/sh script (ENG-318)")(
+    "stops the shared Codex app-server, which otherwise outlives the Daemon",
+    async () => {
+      // Short paths: the socket must fit the Unix socket path limit.
+      root = mkdtempSync(shortTemp("pun-"));
+      const home = join(root, ".polaris");
+      const socketPath = join(home, "codex.sock");
+      const codex = makeFakeCodex(root);
+      await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const server = yield* acquireAppServer({
+              codexPath: codex.path,
+              socketPath,
+              spawn: true,
+              systemdRun: null,
+            });
 
-          yield* server.connect;
-        })
-      )
-    );
-    const pid = readAppServerState(defaultStateFile(socketPath))!.pid;
-    expect(isOurAppServer(pid, socketPath)).toBe(true);
+            yield* server.connect;
+          })
+        )
+      );
+      const pid = readAppServerState(defaultStateFile(socketPath))!.pid;
+      expect(isOurAppServer(pid, socketPath)).toBe(true);
 
-    const report = await Effect.runPromise(
-      uninstall(ctx("darwin"), { purge: false }).pipe(Effect.provide(fakeRunner(notLoaded).layer))
-    );
+      const report = await Effect.runPromise(
+        uninstall(ctx("darwin"), { purge: false }).pipe(Effect.provide(fakeRunner(notLoaded).layer))
+      );
 
-    expect(report.codexAppServerStopped).toBe(pid);
-    expect(isOurAppServer(pid, socketPath)).toBe(false);
-  }, 20_000);
+      expect(report.codexAppServerStopped).toBe(pid);
+      expect(isOurAppServer(pid, socketPath)).toBe(false);
+    },
+    20_000
+  );
 });

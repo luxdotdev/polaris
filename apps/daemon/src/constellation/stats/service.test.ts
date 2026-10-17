@@ -9,9 +9,10 @@ import { UsageIndex } from "../../usage/index.ts";
 import { ConstellationStatsService } from "./index.ts";
 import { statsFixture } from "./stats.testing.ts";
 import { seedStats } from "./store.testing.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 test("views reuse history, refresh Usage independently, enforce authority, and write no events or subscriptions", async () => {
-  const home = mkdtempSync("/tmp/polaris-stats-service-");
+  const home = mkdtempSync(shortTemp("polaris-stats-service-"));
   const fixture = statsFixture();
   let responses = fixture.responses;
   let graphReads = 0;
@@ -183,7 +184,7 @@ test("SQL event-type filtering preserves sequence cuts and empty selection reads
 });
 
 test("a fresh Stats service after restart reconstructs the open owner stale interval", async () => {
-  const home = mkdtempSync("/tmp/polaris-stats-stale-restart-");
+  const home = mkdtempSync(shortTemp("polaris-stats-stale-restart-"));
 
   const layer = ConstellationStatsService.layer.pipe(
     Layer.provideMerge(EventStore.layerSqlite(join(home, "state.sqlite"))),

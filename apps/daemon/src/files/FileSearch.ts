@@ -5,7 +5,7 @@
  * library loads, else the fallback backend.
  */
 import { realpath, stat } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { join, relative, sep } from "node:path";
 import { FileError } from "@polaris/protocol";
 import { Context, Effect, Layer, Queue, type Scope, Stream } from "effect";
 import { resolveHostPath, toFsFailure } from "./fs.ts";
@@ -167,7 +167,7 @@ export const makeFileSearch = (options: FileSearchOptions) =>
       watchIndexedFile: (path, changed) =>
         Effect.gen(function* () {
           const match = [...indexes.entries()]
-            .filter(([root]) => path.startsWith(root + "/"))
+            .filter(([root]) => path.startsWith(root + sep))
             .sort(([a], [b]) => b.length - a.length)[0];
 
           if (!match) return;

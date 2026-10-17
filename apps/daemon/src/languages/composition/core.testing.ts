@@ -20,6 +20,7 @@ import {
   LanguageConnectionLifetime,
   languageBrokerLayer,
 } from "./ports.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 export const hostId = P.HostId.make("core-host");
 
@@ -29,7 +30,7 @@ export const fixture = (
 ) =>
   Effect.gen(function* () {
     const root = yield* Effect.acquireRelease(
-      Effect.promise(async () => realpath(await mkdtemp("/tmp/m31-h1-core-"))),
+      Effect.promise(async () => realpath(await mkdtemp(shortTemp("m31-h1-core-")))),
       (path) => Effect.promise(() => rm(path, { recursive: true, force: true }))
     );
 

@@ -6,9 +6,10 @@ import { HostStreamItem, Sequence } from "@polaris/protocol";
 import { Cause, Deferred, Effect, Exit, Fiber, Layer, Logger, Stream } from "effect";
 import { ServerRpcs } from "./rpcs.ts";
 import { startServer } from "./server.ts";
+import { shortTemp } from "../platform/testing.ts";
 
 const temporary = Effect.acquireRelease(
-  Effect.sync(() => mkdtempSync("/tmp/pl-die-")),
+  Effect.sync(() => mkdtempSync(shortTemp("pl-die-"))),
   (path) => Effect.sync(() => rmSync(path, { recursive: true, force: true }))
 );
 

@@ -13,13 +13,18 @@ import { createHostPrerequisiteProbe } from "../install/hostStateProbes.ts";
 import { createSelectionLedger } from "../install/selection-ledger.ts";
 import type { LaunchAdmissionRequest } from "../runtime/launchAdmission.ts";
 import { developerLaunchAdapters, developerProvider } from "./launch.ts";
+import { posixTest, shortTemp } from "../../platform/testing.ts";
+
+const posixTools = posixTest(
+  "the fake gopls is a POSIX sh script; Windows looks for gopls.exe (ENG-296)"
+);
 
 const gopls = catalog.tools.find((tool) => tool.id === "gopls")!;
 
 const sentinel = (marker: string) => `#!/bin/sh\necho ran > ${JSON.stringify(marker)}\n`;
 
 async function host() {
-  const home = await realpath(await mkdtemp("/tmp/polaris-go-"));
+  const home = await realpath(await mkdtemp(shortTemp("polaris-go-")));
   const bin = join(home, "go/bin");
   await mkdir(bin, { recursive: true });
   const probes = createHostPrerequisiteProbe({ home, directories: [bin] });
@@ -128,54 +133,57 @@ test("gopls always needs Trust: it is never a managed provider", () => {
   expect(managedWithoutTrust(facts)).toBe(false);
 });
 
-test("the launch runs the found gopls with the Go toolchain first on PATH, and refuses a changed binary", async () => {
-  const fixture = await host();
+posixTools(
+  "the launch runs the found gopls with the Go toolchain first on PATH, and refuses a changed binary",
+  async () => {
+    const fixture = await host();
 
-  try {
-    const go = await fixture.install("go");
-    const server = await fixture.install("gopls");
-    const adapters = developerLaunchAdapters(createSelectionLedger(), fixture.probes);
+    try {
+      const go = await fixture.install("go");
+      const server = await fixture.install("gopls");
+      const adapters = developerLaunchAdapters(createSelectionLedger(), fixture.probes);
 
-    // SAFETY: the adapter reads only the provider and project root from discovery.
-    const facts = { providerId: "gopls", projectRoot: fixture.home } as DiscoveryFacts;
+      // SAFETY: the adapter reads only the provider and project root from discovery.
+      const facts = { providerId: "gopls", projectRoot: fixture.home } as DiscoveryFacts;
 
-    const request: LaunchAdmissionRequest = {
-      context: P.LanguageContextIdentity.make({
-        hostId,
-        clientId: "c",
-        contextId: "x",
-        checkout: P.LanguageCheckout.cases.Workspace.make({
-          workspaceId: P.WorkspaceId.make("w"),
-          path: fixture.home,
+      const request: LaunchAdmissionRequest = {
+        context: P.LanguageContextIdentity.make({
+          hostId,
+          clientId: "c",
+          contextId: "x",
+          checkout: P.LanguageCheckout.cases.Workspace.make({
+            workspaceId: P.WorkspaceId.make("w"),
+            path: fixture.home,
+          }),
+          projectRoot: fixture.home,
+          providerId: "gopls",
+          configurationFingerprint: "a".repeat(64),
+          generation: 1,
         }),
-        projectRoot: fixture.home,
-        providerId: "gopls",
-        configurationFingerprint: "a".repeat(64),
-        generation: 1,
-      }),
-      facts,
-      signal: new AbortController().signal,
-      isCurrent: () => true,
-    };
+        facts,
+        signal: new AbortController().signal,
+        isCurrent: () => true,
+      };
 
-    const lease = await adapters.reserveLaunch(request);
-    const launch = await adapters.resolveLaunch(request.facts, lease, request);
-    expect(launch.executable).toBe(server);
-    expect(launch.args).toEqual([]);
-    expect(launch.cwd).toBe(fixture.home);
-    expect(launch.environment.PATH?.split(":")[0]).toBe(join(go, ".."));
+      const lease = await adapters.reserveLaunch(request);
+      const launch = await adapters.resolveLaunch(request.facts, lease, request);
+      expect(launch.executable).toBe(server);
+      expect(launch.args).toEqual([]);
+      expect(launch.cwd).toBe(fixture.home);
+      expect(launch.environment.PATH?.split(":")[0]).toBe(join(go, ".."));
 
-    await writeFile(server, sentinel(join(fixture.home, "replaced")) + "# changed\n");
+      await writeFile(server, sentinel(join(fixture.home, "replaced")) + "# changed\n");
 
-    const changed = await lease.validate(new AbortController().signal).then(
-      () => null,
-      (cause: unknown) => cause
-    );
+      const changed = await lease.validate(new AbortController().signal).then(
+        () => null,
+        (cause: unknown) => cause
+      );
 
-    expect(changed).toMatchObject({ reason: "conflict" });
-    await lease.release();
-    expect(await fixture.ran()).toBe(false);
-  } finally {
-    await rm(fixture.home, { recursive: true, force: true });
+      expect(changed).toMatchObject({ reason: "conflict" });
+      await lease.release();
+      expect(await fixture.ran()).toBe(false);
+    } finally {
+      await rm(fixture.home, { recursive: true, force: true });
+    }
   }
-});
+);

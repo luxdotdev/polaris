@@ -2,10 +2,16 @@
  * A scriptable stand-in for `codex app-server --listen unix://…`, for tests.
  * It speaks the same transport (WebSocket over a Unix socket, one JSON-RPC
  * message per text frame), so the driver under test runs its real connection
- * code.
+ * code. On Windows it listens as the Windows server does: on a loopback port,
+ * recorded in the state file beside the socket path, behind a capability token.
  */
+import { randomUUID } from "node:crypto";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import type { ServerWebSocket } from "bun";
 import { Schema } from "effect";
+import { processCreated } from "../../../platform/windowsNative.ts";
+import { defaultStateFile, tokenFileOf } from "../AppServer.ts";
 import { type RpcId, RpcMessage, type RpcPayload } from "../protocol.ts";
 
 /** The client's answer to a server→client request: its `result`, or `{ error }` (as received). */
@@ -48,6 +54,54 @@ interface ServerMessage {
 
 const decodeMessage = Schema.decodeUnknownSync(Schema.fromJsonString(RpcMessage));
 
+/**
+ * The recorded root: like the real server's `.cmd` shim it has exited, and only the listener,
+ * this process, is alive. A live root would send stopAppServer to read its command line.
+ */
+let exitedRoot: number | undefined;
+
+const rootPid = () => (exitedRoot ??= Bun.spawnSync([process.execPath, "-e", ""]).pid);
+
+/** Windows: a loopback port, recorded in the state file with this process as its listener. */
+const serveOnLoopback = (
+  socketPath: string,
+  upgrade: (req: Request, srv: Bun.Server<undefined>) => Response | undefined,
+  websocket: Bun.WebSocketHandler<undefined>
+) => {
+  const stateFile = defaultStateFile(socketPath);
+  const token = randomUUID();
+  const tokenFile = tokenFileOf(stateFile);
+  mkdirSync(dirname(tokenFile), { recursive: true });
+  writeFileSync(tokenFile, token);
+
+  const server = Bun.serve({
+    hostname: "127.0.0.1",
+    port: 0,
+    fetch: (req, srv) =>
+      req.headers.get("authorization") === `Bearer ${token}`
+        ? upgrade(req, srv)
+        : new Response("unauthorized", { status: 401 }),
+    websocket,
+  });
+
+  writeFileSync(
+    stateFile,
+    JSON.stringify({
+      pid: rootPid(),
+      version: null,
+      codexPath: "fake-codex",
+      socketPath,
+      startedAt: Date.now(),
+      sanitizedEnv: true,
+      listen: `ws://127.0.0.1:${server.port}`,
+      listenerPid: process.pid,
+      listenerCreated: String(processCreated(process.pid)),
+    })
+  );
+
+  return server;
+};
+
 export const startFakeAppServer = (socketPath: string, handler: Handler): FakeAppServer => {
   const received: Array<RpcMessage> = [];
   let nextServerId = 1000;
@@ -87,16 +141,19 @@ export const startFakeAppServer = (socketPath: string, handler: Handler): FakeAp
     await handler({ id, method, params }, connectionFor(ws, { id, method, params }));
   };
 
-  const server = Bun.serve({
-    unix: socketPath,
-    fetch: (req, srv) =>
-      srv.upgrade(req) ? undefined : new Response("upgrade required", { status: 426 }),
-    websocket: {
-      message: (ws, data) => {
-        void onMessage(ws, data);
-      },
+  const websocket = {
+    message: (ws: ServerWebSocket<undefined>, data: string | Buffer) => {
+      void onMessage(ws, data);
     },
-  });
+  };
+
+  const upgrade = (req: Request, srv: Bun.Server<undefined>) =>
+    srv.upgrade(req) ? undefined : new Response("upgrade required", { status: 426 });
+
+  const server =
+    process.platform === "win32"
+      ? serveOnLoopback(socketPath, upgrade, websocket)
+      : Bun.serve({ unix: socketPath, fetch: upgrade, websocket });
 
   return {
     received,

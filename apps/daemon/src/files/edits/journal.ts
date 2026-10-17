@@ -35,6 +35,8 @@ export const fingerprint = <A>(value: A) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
 
 export const syncDirectory = async (path: string) => {
+  // Windows opens no directory for fsync (EPERM); NTFS journals the rename itself.
+  if (process.platform === "win32") return;
   const handle = await open(path, "r");
 
   try {

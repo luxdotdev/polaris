@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { GitCommitItem } from "@polaris/protocol";
 import { Effect, Stream } from "effect";
 import { handleGitCommit, handleGitDiscard, handleGitStage, handleGitUnstage } from "./GitRpcs.ts";
+import { posixTest } from "../platform/testing.ts";
 import { gitText } from "./git.ts";
 import { makeRepo, removeDir, write } from "./testing.ts";
 
@@ -67,13 +68,16 @@ describe("git.stage / git.unstage", () => {
     expect(await status(root)).toBe("?? first.txt");
   });
 
-  test("paths are literal: a glob stages only the file of that name", async () => {
-    const root = await repo({ "a.txt": "a\n" });
-    write(root, "*.txt", "star\n");
-    write(root, "a.txt", "changed\n");
-    await run(handleGitStage({ cwd: root, paths: ["*.txt"] }));
-    expect(await status(root)).toBe("A  *.txt\n M a.txt");
-  });
+  posixTest("a Windows file name can't hold `*`")(
+    "paths are literal: a glob stages only the file of that name",
+    async () => {
+      const root = await repo({ "a.txt": "a\n" });
+      write(root, "*.txt", "star\n");
+      write(root, "a.txt", "changed\n");
+      await run(handleGitStage({ cwd: root, paths: ["*.txt"] }));
+      expect(await status(root)).toBe("A  *.txt\n M a.txt");
+    }
+  );
 });
 
 describe("git.discard", () => {

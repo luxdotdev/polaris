@@ -1,4 +1,4 @@
-import { watch as fsWatch } from "node:fs";
+import { existsSync, watch as fsWatch } from "node:fs";
 import { opendir } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { findRepoRoot, runGit } from "../../git/git.ts";
@@ -34,7 +34,10 @@ const openWatch: OpenWatch = (path, recursive, changed) => {
   return () => watcher.close();
 };
 
-/** FSEvents on macOS; bounded tree watches elsewhere, with non-git roots only on explicit demand. */
+/**
+ * One native tree watch on macOS and Windows; bounded tree watches elsewhere, with non-git
+ * roots only on explicit demand.
+ */
 export const watchRoot = async (
   root: string,
   changed: Changed,
@@ -44,7 +47,9 @@ export const watchRoot = async (
     readonly includeNonGit?: boolean;
   } = {}
 ): Promise<() => void> => {
-  const recursive = (options.platform ?? process.platform) === "darwin";
+  // On Windows a watch per directory spawns a git check-ignore each and keeps it from deletion.
+  const platform = options.platform ?? process.platform;
+  const recursive = ["darwin", "win32"].includes(platform);
   const open = options.open ?? openWatch;
   const watchers = new Map<string, () => void>();
   let stopped = false;
@@ -126,6 +131,15 @@ export const watchRoot = async (
 
   const arm = (directory: string) => {
     const close = open(directory, recursive, (event, path) => {
+      // Bun's tree watch on Windows reports its own deleted root every 2 ms, forever.
+      if (platform === "win32" && !existsSync(directory)) {
+        close();
+        watchers.delete(directory);
+        changed("rename", directory);
+
+        return;
+      }
+
       if (
         relative(root, path)
           .split(/[\\/]/)
@@ -144,7 +158,7 @@ export const watchRoot = async (
     if (recursive) arm(root);
     else inRepo = (await findRepoRoot(root)) !== null;
 
-    // FSEvents already covers the tree; a scan would arm a second recursive watch per directory.
+    // The native tree watch already covers it; a scan would arm a second one per directory.
     if (!recursive && (inRepo || options.includeNonGit)) {
       scanning = scan(root);
       await scanning;

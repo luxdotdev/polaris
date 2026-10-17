@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { join } from "node:path";
 import { BlobId } from "@polaris/protocol";
 import { Effect, Fiber, Exit, Layer, Scope, Schema, Stream } from "effect";
 import { Headers } from "effect/http";
@@ -13,8 +14,9 @@ test("Daemon startup does not import the language runtime, catalog, installer or
     [
       process.execPath,
       "-e",
-      `await import(${JSON.stringify(new URL("./serve.ts", import.meta.url).pathname)});
-     console.log(JSON.stringify(Object.keys(require.cache).filter(path => path.includes("/apps/daemon/src/languages/"))));`,
+      // Windows keys require.cache by backslashed paths; compare them with forward slashes.
+      `await import(${JSON.stringify(join(import.meta.dir, "serve.ts"))});
+     console.log(JSON.stringify(Object.keys(require.cache).map(path => path.replaceAll("\\\\", "/")).filter(path => path.includes("/apps/daemon/src/languages/"))));`,
     ],
     { stdout: "pipe", stderr: "pipe" }
   );

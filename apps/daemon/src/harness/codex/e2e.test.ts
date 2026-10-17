@@ -13,6 +13,7 @@ import { Effect, Stream } from "effect";
 import { HarnessEvent } from "../HarnessDriver.ts";
 import { defaultStateFile, stopAppServer } from "./AppServer.ts";
 import { makeCodexDriver } from "./CodexDriver.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 const enabled = process.env.POLARIS_E2E_CODEX === "1";
 
@@ -21,7 +22,7 @@ test.skipIf(!enabled)(
   async () => {
     const repo = mkdtempSync(join(tmpdir(), "polaris-codex-e2e-"));
     // Short, so it fits the Unix socket path limit.
-    const socketDir = mkdtempSync("/tmp/pcx-");
+    const socketDir = mkdtempSync(shortTemp("pcx-"));
     await Bun.$`git init -q && git commit -q --allow-empty -m init`.cwd(repo);
 
     try {

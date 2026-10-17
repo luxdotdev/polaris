@@ -6,9 +6,10 @@ import * as P from "@polaris/protocol";
 import { Effect, Layer, Queue, Schema } from "effect";
 import { ServerRpcs } from "./rpcs.ts";
 import { startServer } from "./server.ts";
+import { shortTemp } from "../platform/testing.ts";
 
 const temporary = Effect.acquireRelease(
-  Effect.sync(() => mkdtempSync("/tmp/pl-lang-")),
+  Effect.sync(() => mkdtempSync(shortTemp("pl-lang-"))),
   (path) => Effect.sync(() => rmSync(path, { recursive: true, force: true }))
 );
 

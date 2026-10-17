@@ -9,6 +9,7 @@ import {
   HostStateTrace,
   replayHostState,
 } from "../../../../packages/spec/scripts/host-state/index.ts";
+import { posixTest } from "../platform/testing.ts";
 
 type Phase = "NotDownloaded" | "Downloading" | "Installed" | "Failed";
 
@@ -137,60 +138,70 @@ test("Host snapshot model agrees with 2000 installer/feed steps, closes and coal
   }
 });
 
-test("observed real installer feed replays against Quint without durable history", async () => {
-  const { fixture } = await import("../languages/install/fixture.testing.ts");
-  const f = await fixture();
-  const lifetime = new AbortController();
+posixTest(
+  "the installer requires a private, owned directory, which it checks by POSIX mode (ENG-314)"
+)(
+  "observed real installer feed replays against Quint without durable history",
+  async () => {
+    const { fixture } = await import("../languages/install/fixture.testing.ts");
+    const f = await fixture();
+    const lifetime = new AbortController();
 
-  const tools = [
-    Schema.decodeUnknownSync(Tool)(f.source.tool),
-    Schema.decodeUnknownSync(Tool)({ ...f.source.tool, id: "unused-tool" }),
-  ];
+    const tools = [
+      Schema.decodeUnknownSync(Tool)(f.source.tool),
+      Schema.decodeUnknownSync(Tool)({ ...f.source.tool, id: "unused-tool" }),
+    ];
 
-  const states = createHostToolStates({
-    hostId,
-    platform,
-    tools,
-    installer: f.installer,
-    lifetime: lifetime.signal,
-  });
-
-  const steps: (typeof HostStateStep.Type)[] = [HostStateStep.cases.Subscribe.make({})];
-
-  const consume = async (watch: AsyncIterableIterator<LanguageHostState>) => {
-    const observed = Schema.decodeUnknownSync(LanguageHostState)((await watch.next()).value);
-
-    steps.push(
-      HostStateStep.cases.Consume.make({ phases: observed.tools.map((tool) => tool.state._tag) })
-    );
-  };
-
-  try {
-    const watch = await states.watch({ toolIds: [], refresh: true }, new AbortController().signal);
-    await consume(watch);
-
-    const stop = f.installer.subscribe((update) => {
-      const phase = projectedPhase(update.phase);
-
-      steps.push(HostStateStep.cases.SetState.make({ tool: 0, phase }));
+    const states = createHostToolStates({
+      hostId,
+      platform,
+      tools,
+      installer: f.installer,
+      lifetime: lifetime.signal,
     });
 
-    const job = f.installer.install(f.request);
-    await job.result;
-    await consume(watch);
-    await watch.return?.();
-    stop();
-    steps.push(HostStateStep.cases.Close.make({}));
-    const trace = HostStateTrace.make({ version: 1, source: "host-installer-feed", steps });
-    const receipt = await replayHostState(trace);
+    const steps: (typeof HostStateStep.Type)[] = [HostStateStep.cases.Subscribe.make({})];
 
-    expect(receipt.steps).toBe(steps.length);
-    expect(states.stats().subscribers).toBe(0);
+    const consume = async (watch: AsyncIterableIterator<LanguageHostState>) => {
+      const observed = Schema.decodeUnknownSync(LanguageHostState)((await watch.next()).value);
 
-    if (process.env.POLARIS_HOST_STATE_TRACE !== undefined)
-      await Bun.write(process.env.POLARIS_HOST_STATE_TRACE, JSON.stringify(trace, null, 2));
-  } finally {
-    lifetime.abort();
-    await f.close();
-  }
-}, 30000);
+      steps.push(
+        HostStateStep.cases.Consume.make({ phases: observed.tools.map((tool) => tool.state._tag) })
+      );
+    };
+
+    try {
+      const watch = await states.watch(
+        { toolIds: [], refresh: true },
+        new AbortController().signal
+      );
+
+      await consume(watch);
+
+      const stop = f.installer.subscribe((update) => {
+        const phase = projectedPhase(update.phase);
+
+        steps.push(HostStateStep.cases.SetState.make({ tool: 0, phase }));
+      });
+
+      const job = f.installer.install(f.request);
+      await job.result;
+      await consume(watch);
+      await watch.return?.();
+      stop();
+      steps.push(HostStateStep.cases.Close.make({}));
+      const trace = HostStateTrace.make({ version: 1, source: "host-installer-feed", steps });
+      const receipt = await replayHostState(trace);
+
+      expect(receipt.steps).toBe(steps.length);
+      expect(states.stats().subscribers).toBe(0);
+
+      if (process.env.POLARIS_HOST_STATE_TRACE !== undefined)
+        await Bun.write(process.env.POLARIS_HOST_STATE_TRACE, JSON.stringify(trace, null, 2));
+    } finally {
+      lifetime.abort();
+      await f.close();
+    }
+  },
+  30000
+);

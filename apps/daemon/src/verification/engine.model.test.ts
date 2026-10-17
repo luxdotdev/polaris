@@ -38,7 +38,7 @@
  * The same properties are specified in `packages/spec/polaris.qnt`.
  */
 import { HarnessEvent } from "../harness/HarnessDriver.ts";
-import { describe, expect, test } from "bun:test";
+import { describe, expect } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -64,6 +64,7 @@ import {
 } from "./engine.reference.testing.ts";
 import { type HarnessWhat, reached, viewOfFeed, World } from "./engine.world.testing.ts";
 import { eventually, isPrefix, pbtRuns, pbtSeed, pbtTimeout, sleep } from "./pbt.ts";
+import { posixTest } from "../platform/testing.ts";
 
 const TRACE_DIR = process.env.POLARIS_TRACE_DIR;
 
@@ -552,7 +553,9 @@ const feedsBehind = async (world: World) => {
 };
 
 describe("Engine, model-based", () => {
-  test(
+  posixTest(
+    "Windows bug: the EventStore's SQLite files stay open after a crash and restart, so the world can't remove them (EBUSY)"
+  )(
     "commands, approvals, restarts and Client feeds match the reference model",
     async () => {
       await fc.assert(

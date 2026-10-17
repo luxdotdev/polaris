@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect } from "bun:test";
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { connectRpc, socketTransport } from "@polaris/client";
@@ -7,6 +7,11 @@ import { Effect, Layer, Redacted } from "effect";
 import { EventStore } from "../store/EventStore.ts";
 import { startServer } from "../transport/server.ts";
 import { lazyLanguageHandlers } from "../transport/lazyLanguages.ts";
+import { posixTest, shortTemp } from "../platform/testing.ts";
+
+const languageHostTest = posixTest(
+  "Windows Hosts have no LanguagePlatform, so language services report unsupported-platform (ENG-296)"
+);
 
 const hello = (proof = false) => {
   const input = {
@@ -28,115 +33,118 @@ function expectPredictionUnloaded() {
   ).toEqual([]);
 }
 
-test("lazy prediction RPC requires authenticated connection and registered paths, works before Trust without LSP", async () => {
-  await Effect.runPromise(
-    Effect.scoped(
-      Effect.gen(function* () {
-        const root = yield* Effect.acquireRelease(
-          Effect.promise(async () => realpath(await mkdtemp("/tmp/predict-rpc-"))),
-          (path) => Effect.promise(() => rm(path, { recursive: true, force: true }))
-        );
+languageHostTest(
+  "lazy prediction RPC requires authenticated connection and registered paths, works before Trust without LSP",
+  async () => {
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const root = yield* Effect.acquireRelease(
+            Effect.promise(async () => realpath(await mkdtemp(shortTemp("predict-rpc-")))),
+            (path) => Effect.promise(() => rm(path, { recursive: true, force: true }))
+          );
 
-        const workspacePath = join(root, "workspace");
-        yield* Effect.promise(async () => {
-          await mkdir(workspacePath);
-          await writeFile(
-            join(workspacePath, "file.ts"),
-            'import { answer } from "./dep";\nanswer('
-          );
-          await writeFile(
-            join(workspacePath, "dep.ts"),
-            "export function answer(input: number): string { return 'private body'; }"
-          );
-          await writeFile(join(root, "outside.ts"), "export const forbidden = 42;");
-          await symlink(join(root, "outside.ts"), join(workspacePath, "escape.ts"));
-        });
-        const store = yield* EventStore;
-        const workspaceId = WorkspaceId.make("prediction-workspace");
-        yield* store.commit({
-          commandId: null,
-          decide: () =>
-            Effect.succeed([
-              DomainEvent.cases.WorkspaceRegistered.make({
-                workspace: new Workspace({
-                  id: workspaceId,
-                  path: workspacePath,
-                  name: "Prediction fixture",
-                  isGitRepo: false,
-                  worktreeRoot: join(root, "trees"),
-                  hidden: false,
-                  registeredAt: new Date().toISOString(),
+          const workspacePath = join(root, "workspace");
+          yield* Effect.promise(async () => {
+            await mkdir(workspacePath);
+            await writeFile(
+              join(workspacePath, "file.ts"),
+              'import { answer } from "./dep";\nanswer('
+            );
+            await writeFile(
+              join(workspacePath, "dep.ts"),
+              "export function answer(input: number): string { return 'private body'; }"
+            );
+            await writeFile(join(root, "outside.ts"), "export const forbidden = 42;");
+            await symlink(join(root, "outside.ts"), join(workspacePath, "escape.ts"));
+          });
+          const store = yield* EventStore;
+          const workspaceId = WorkspaceId.make("prediction-workspace");
+          yield* store.commit({
+            commandId: null,
+            decide: () =>
+              Effect.succeed([
+                DomainEvent.cases.WorkspaceRegistered.make({
+                  workspace: new Workspace({
+                    id: workspaceId,
+                    path: workspacePath,
+                    name: "Prediction fixture",
+                    isGitRepo: false,
+                    worktreeRoot: join(root, "trees"),
+                    hidden: false,
+                    registeredAt: new Date().toISOString(),
+                  }),
                 }),
-              }),
-            ]),
-        });
+              ]),
+          });
 
-        const server = yield* startServer({
-          root,
-          socketPath: join(root, "d.sock"),
-          lockPath: join(root, "d.lock"),
-          capabilities: ["prediction.context"],
-          handlers: lazyLanguageHandlers.pipe(Layer.provide(Layer.succeed(EventStore)(store))),
-        });
+          const server = yield* startServer({
+            root,
+            socketPath: join(root, "d.sock"),
+            lockPath: join(root, "d.lock"),
+            capabilities: ["prediction.context"],
+            handlers: lazyLanguageHandlers.pipe(Layer.provide(Layer.succeed(EventStore)(store))),
+          });
 
-        const input = {
-          workspaceId,
-          path: "file.ts",
-          buffer: 'import { answer } from "./dep";\nanswer(',
-          cursor: 37,
-          recentEdits: [],
-          budgetTokens: 2048,
-        };
+          const input = {
+            workspaceId,
+            path: "file.ts",
+            buffer: 'import { answer } from "./dep";\nanswer(',
+            cursor: 37,
+            recentEdits: [],
+            budgetTokens: 2048,
+          };
 
-        const owned = yield* connectRpc(yield* socketTransport(server.socketPath));
-        yield* owned.client.hello(hello(true));
-        expectPredictionUnloaded();
-        yield* owned.client["languages.host.processBudget.get"]({});
-        expectPredictionUnloaded();
+          const owned = yield* connectRpc(yield* socketTransport(server.socketPath));
+          yield* owned.client.hello(hello(true));
+          expectPredictionUnloaded();
+          yield* owned.client["languages.host.processBudget.get"]({});
+          expectPredictionUnloaded();
 
-        const absent = yield* connectRpc(yield* socketTransport(server.socketPath));
-        yield* absent.client.hello(hello());
-        expect(yield* Effect.flip(absent.client["prediction.context"](input))).toBeInstanceOf(
-          PredictionError
-        );
-        const pieces = yield* owned.client["prediction.context"](input);
-        expect(pieces.map((piece) => piece.kind)).toEqual(["importOutline"]);
-        expect(pieces[0]?.text).toContain("answer(input: number): string;");
-        expect(pieces[0]?.text).not.toContain("private body");
+          const absent = yield* connectRpc(yield* socketTransport(server.socketPath));
+          yield* absent.client.hello(hello());
+          expect(yield* Effect.flip(absent.client["prediction.context"](input))).toBeInstanceOf(
+            PredictionError
+          );
+          const pieces = yield* owned.client["prediction.context"](input);
+          expect(pieces.map((piece) => piece.kind)).toEqual(["importOutline"]);
+          expect(pieces[0]?.text).toContain("answer(input: number): string;");
+          expect(pieces[0]?.text).not.toContain("private body");
 
-        if (process.env.POLARIS_TCTX_LAZY_PROBE === "1")
+          if (process.env.POLARIS_TCTX_LAZY_PROBE === "1")
+            expect(
+              Object.keys(require.cache).some((path) => path.includes("/prediction/outline.ts"))
+            ).toBe(true);
+
+          for (const path of ["../outside.ts", "escape.ts"]) {
+            expect(
+              yield* Effect.flip(owned.client["prediction.context"]({ ...input, path }))
+            ).toBeInstanceOf(PredictionError);
+          }
+
           expect(
-            Object.keys(require.cache).some((path) => path.includes("/prediction/outline.ts"))
-          ).toBe(true);
-
-        for (const path of ["../outside.ts", "escape.ts"]) {
-          expect(
-            yield* Effect.flip(owned.client["prediction.context"]({ ...input, path }))
+            yield* Effect.flip(
+              owned.client["prediction.context"]({
+                ...input,
+                workspaceId: WorkspaceId.make("unregistered"),
+              })
+            )
           ).toBeInstanceOf(PredictionError);
-        }
+          expect(
+            yield* Effect.flip(
+              owned.client["prediction.context"]({ ...input, cursor: input.buffer.length + 1 })
+            )
+          ).toBeInstanceOf(PredictionError);
 
-        expect(
-          yield* Effect.flip(
-            owned.client["prediction.context"]({
-              ...input,
-              workspaceId: WorkspaceId.make("unregistered"),
-            })
-          )
-        ).toBeInstanceOf(PredictionError);
-        expect(
-          yield* Effect.flip(
-            owned.client["prediction.context"]({ ...input, cursor: input.buffer.length + 1 })
-          )
-        ).toBeInstanceOf(PredictionError);
+          const changed = yield* owned.client["prediction.context"]({
+            ...input,
+            buffer: 'import { hidden } from "./escape";',
+            cursor: 0,
+          });
 
-        const changed = yield* owned.client["prediction.context"]({
-          ...input,
-          buffer: 'import { hidden } from "./escape";',
-          cursor: 0,
-        });
-
-        expect(changed).toEqual([]);
-      })
-    ).pipe(Effect.provide(EventStore.layerSqlite(":memory:")))
-  );
-});
+          expect(changed).toEqual([]);
+        })
+      ).pipe(Effect.provide(EventStore.layerSqlite(":memory:")))
+    );
+  }
+);

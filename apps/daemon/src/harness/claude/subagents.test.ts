@@ -47,9 +47,15 @@ const openWithTurn = async () => {
   );
   const uuid = (await fake.nextInput(0)).uuid!;
 
+  // Until the events stop arriving for 20 ms: a loaded CI runner delivers them late.
   const settle = async () => {
     await fake.waitProcessed();
-    await Bun.sleep(5);
+
+    for (let quiet = 0, seen = -1, waited = 0; quiet < 4 && waited < 1000; waited += 5) {
+      quiet = events.length === seen ? quiet + 1 : 0;
+      seen = events.length;
+      await Bun.sleep(5);
+    }
   };
 
   /** What the driver emitted, as `tag subagent? detail`, without the Turn's start. */

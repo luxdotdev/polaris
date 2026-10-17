@@ -22,6 +22,7 @@ import {
   startFakeAppServer,
 } from "./FakeAppServer.ts";
 import { unstamped } from "../../itemClock.testing.ts";
+import { shortTemp } from "../../../platform/testing.ts";
 
 export const THREAD = "thr_1";
 
@@ -36,9 +37,9 @@ const decodeThreadId = Schema.decodeUnknownSync(Schema.Struct({ threadId: Schema
 
 export const cleanup: Array<() => void> = [];
 
-/** Socket paths must stay under ~104 bytes, so tests use /tmp directly. */
+/** Socket paths must stay under ~104 bytes, so tests use a short temp root. */
 const socketPath = () => {
-  const dir = mkdtempSync("/tmp/pcx-");
+  const dir = mkdtempSync(shortTemp("pcx-"));
   cleanup.push(() => rmSync(dir, { recursive: true, force: true }));
 
   return join(dir, "s.sock");

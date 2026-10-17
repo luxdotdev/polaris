@@ -3,14 +3,20 @@
  *
  *   bun apps/daemon/scripts/windows-smoke.ts <POLARIS_HOME> <git repo> [codex|claude]
  *
+ * Under Node (`node apps/daemon/scripts/windows-smoke.ts …`) it connects as the Desktop App
+ * does, checking the pipe's owner first (ADR 0062); Bun connects without that check.
+ *
  * Asks `harness.availability`, `git.status` in the repo, then opens the default
  * shell and checks it echoes, resizes, and that closing it ends its process tree.
  * With a Harness, also lists its Models (Codex: through the shared app-server).
+ * A Daemon still starting is waited for, up to 60 s, so CI can start one and run this at once.
  */
+import { setTimeout as sleep } from "node:timers/promises";
 import { connectRpc, socketTransport } from "@polaris/client";
+import { checksPipeOwner } from "../../../packages/client/src/transport.ts";
 import { attachTerminal } from "../../../packages/client/src/terminal.ts";
 import { localEndpoint } from "@polaris/protocol/endpoint";
-import { Effect, Predicate, Stream } from "effect";
+import { Effect, Predicate, Schedule, Stream } from "effect";
 
 const [home, repo, harness] = process.argv.slice(2);
 
@@ -40,7 +46,14 @@ const check = (what: string, ok: boolean, detail = "") => {
 const program = Effect.gen(function* () {
   const pipe = localEndpoint(home);
   console.log(`pipe ${pipe}`);
-  const connection = yield* connectRpc(yield* socketTransport(pipe));
+
+  if (process.versions.bun === undefined)
+    check("the Client checks the pipe's owner, as the Desktop App does", checksPipeOwner(pipe));
+
+  const connection = yield* Effect.gen(function* () {
+    return yield* connectRpc(yield* socketTransport(pipe));
+  }).pipe(Effect.retry({ schedule: Schedule.spaced(250), times: 240 }));
+
   const { client } = connection;
 
   const hello = yield* client.hello({
@@ -90,7 +103,7 @@ const program = Effect.gen(function* () {
     Effect.promise(async () => {
       const deadline = Date.now() + ms;
 
-      while (!pattern.test(text) && Date.now() < deadline) await Bun.sleep(50);
+      while (!pattern.test(text) && Date.now() < deadline) await sleep(50);
 
       return pattern.exec(text);
     });

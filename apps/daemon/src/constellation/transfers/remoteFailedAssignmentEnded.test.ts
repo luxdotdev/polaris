@@ -28,11 +28,12 @@ import { DomainEvent } from "@polaris/protocol";
 import { RemoteWorkers } from "./assignments.ts";
 import { TransferStorage } from "./storage.ts";
 import { remoteWorkingAttemptsLayer } from "./remoteWorking.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 for (const mode of ["acquire", "start", "resume"] as const)
   for (const ending of ["settle", "archive"] as const)
     test(`remote ${mode} failure fence ends after ${ending}, allowing ordinary Session input`, async () => {
-      const root = mkdtempSync("/tmp/remote-startup-failure-");
+      const root = mkdtempSync(shortTemp("remote-startup-failure-"));
       let held = 0;
       let failures = 0;
 

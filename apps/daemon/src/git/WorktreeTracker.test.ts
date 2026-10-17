@@ -88,7 +88,8 @@ describe("WorktreeTracker", () => {
     const root = await makeRepo();
     const outside = tempDir("polaris-wt-");
     cleanup.push(root, outside, markers);
-    write(root, ".husky/post-checkout", `#!/bin/sh\necho ran >> ${marker}\n`);
+    // Forward slashes: Git for Windows runs hooks through sh.
+    write(root, ".husky/post-checkout", `#!/bin/sh\necho ran >> ${marker.replaceAll("\\", "/")}\n`);
     chmodSync(join(root, ".husky/post-checkout"), 0o755);
     await commitAll(root, "husky");
     await gitText(root, ["config", "core.hooksPath", ".husky"]);
@@ -178,6 +179,53 @@ describe("WorktreeTracker", () => {
       await waitFor((list) => list.some((w) => w.branch === "moved"));
       expect(opened.some((o) => o.path.endsWith(join("worktrees", "external")))).toBe(true);
       expect(opened.every((o) => !o.recursive)).toBe(true);
+    } finally {
+      await Effect.runPromise(Fiber.interrupt(fiber));
+    }
+  });
+
+  test("a watch that reports its own deleted directory without end still lets the list settle", async () => {
+    const root = await makeRepo();
+    const outside = tempDir("polaris-wt-");
+    cleanup.push(root, outside);
+    const external = join(outside, "external");
+    const seen: Array<ReadonlyArray<WorktreeInfo>> = [];
+
+    const waitFor = async (predicate: (list: ReadonlyArray<WorktreeInfo>) => boolean) => {
+      const deadline = Date.now() + 5000;
+
+      while (Date.now() < deadline) {
+        if (seen.some(predicate)) return;
+        await Bun.sleep(25);
+      }
+
+      throw new Error(`timed out; saw ${JSON.stringify(seen)}`);
+    };
+
+    const fiber = Effect.runFork(
+      watchWorktrees(root, {
+        platform: "darwin",
+        // As Bun's recursive watch does on Windows once `worktrees/` is gone: no error, no end.
+        open: (path, recursive, changed) => {
+          const watcher = watch(path, { recursive }, changed);
+          const emit = watcher.emit.bind(watcher);
+          watcher.emit = (event: string | symbol, ...args: Array<unknown>) =>
+            event !== "error" && emit(event, ...args);
+          const spin = setInterval(() => existsSync(path) || changed(), 2);
+          watcher.on("close", () => clearInterval(spin));
+
+          return watcher;
+        },
+      }).pipe(Stream.runForEach((list) => Effect.sync(() => seen.push(list))))
+    );
+
+    try {
+      await waitFor((list) => list.length === 1);
+      await gitText(root, ["worktree", "add", "-q", "-b", "ext", external]);
+      await waitFor((list) => list.some((w) => w.branch === "ext"));
+      await gitText(root, ["worktree", "remove", external]);
+      const count = seen.length;
+      await waitFor((list) => seen.indexOf(list) >= count && list.length === 1);
     } finally {
       await Effect.runPromise(Fiber.interrupt(fiber));
     }

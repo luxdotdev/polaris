@@ -1,10 +1,15 @@
-import { expect, test } from "bun:test";
+import { expect } from "bun:test";
 import { rejects } from "node:assert/strict";
 import { chmod, readFile, rm, symlink, utimes, writeFile, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fixture, hostId, platform } from "./fixture.testing.ts";
 import { createVersionStorage } from "./storage.ts";
 import { defaultLimits } from "./types.ts";
+import { posixTest } from "../../platform/testing.ts";
+
+const test = posixTest(
+  "language storage is checked private by POSIX owner and mode bits; Windows needs ACL checks (ENG-314)"
+);
 
 test("successful verification is reused across opens and Daemon restarts, without descriptor aliasing", async () => {
   const f = await fixture();

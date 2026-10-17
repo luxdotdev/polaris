@@ -155,8 +155,11 @@ const run = async (args: ReadonlyArray<string>): Promise<number> => {
   });
 
   const killGroup = (signal: NodeJS.Signals) => {
-    if (process.platform === "win32" || !child.pid) {
-      child.kill(signal);
+    if (!child.pid) return;
+
+    // Windows has no process groups: taskkill ends bun and the parallel workers below it.
+    if (process.platform === "win32") {
+      spawnSync("taskkill", ["/pid", String(child.pid), "/t", "/f"], { stdio: "ignore" });
 
       return;
     }

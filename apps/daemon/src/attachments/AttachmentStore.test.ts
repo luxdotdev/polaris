@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { AttachmentId, SessionId, WorkspaceId } from "@polaris/protocol";
 import { Effect, Layer, Stream } from "effect";
 import { makeFakeBlobChannel } from "../files/testing.ts";
@@ -70,9 +70,12 @@ describe("AttachmentStore", () => {
     expect(attachment.name).toBe("../../etc/pass wd?.png");
     expect(attachment.size).toBe(9);
     expect(attachment.hostPath.startsWith(join(staging, "session-1", attachment.id))).toBe(true);
-    expect(attachment.hostPath.endsWith("/pass wd_.png")).toBe(true);
+    expect(attachment.hostPath.endsWith(`${sep}pass wd_.png`)).toBe(true);
     expect(readFileSync(attachment.hostPath, "utf8")).toBe("png bytes");
-    expect(statSync(attachment.hostPath).mode & 0o777).toBe(0o600);
+
+    // Windows keeps no POSIX mode; its ACL privacy is ENG-314.
+    if (process.platform !== "win32")
+      expect(statSync(attachment.hostPath).mode & 0o777).toBe(0o600);
 
     const got = await run(
       Effect.gen(function* () {

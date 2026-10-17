@@ -107,9 +107,9 @@ describe("harness.spinnerVerbs", () => {
 
   test("the files, in Claude Code's order", () => {
     expect(settingsFiles("/h", "/p")).toEqual([
-      "/h/.claude/settings.json",
-      "/p/.claude/settings.json",
-      "/p/.claude/settings.local.json",
+      join("/h", ".claude", "settings.json"),
+      join("/p", ".claude", "settings.json"),
+      join("/p", ".claude", "settings.local.json"),
     ]);
   });
 });

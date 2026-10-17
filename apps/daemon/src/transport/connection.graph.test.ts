@@ -32,6 +32,8 @@ import {
 import { Clock, Effect, Option, Queue, SubscriptionRef } from "effect";
 import { TestClock } from "effect/testing";
 import { startServer } from "./server.ts";
+import { localEndpoint } from "@polaris/protocol/endpoint";
+import { shortTemp } from "../platform/testing.ts";
 
 /** How the next attempt ends: it connects (none) or fails with the failure. */
 type Outcome = Option.Option<ConnectFailure>;
@@ -40,17 +42,18 @@ const identity = {
   name: "polaris-test",
   version: "0.0.0",
   deviceLabel: "Model",
-  capabilities: [],
+  // A windows-x64 Host answers a Client without it with a newer protocol (ADR 0059).
+  capabilities: ["host.any-platform" as const],
 };
 
 const replay = (steps: ReadonlyArray<ConnectionStep>) =>
   Effect.gen(function* () {
     // Short path: Unix socket paths are limited to ~104 bytes on macOS.
-    const home = mkdtempSync("/tmp/plc-");
+    const home = mkdtempSync(shortTemp("plc-"));
     yield* Effect.addFinalizer(() =>
       Effect.sync(() => rmSync(home, { recursive: true, force: true }))
     );
-    const socketPath = join(home, "daemon.sock");
+    const socketPath = localEndpoint(home);
     yield* startServer({ socketPath, lockPath: join(home, "daemon.lock"), root: home });
 
     const outcomes = yield* Queue.unbounded<Outcome>();

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { HARNESS_CATALOGUE } from "@polaris/protocol";
@@ -7,6 +7,7 @@ import { Deferred, Effect, Fiber, type Scope, Stream } from "effect";
 import { RpcTest } from "effect/rpc";
 import { Availability } from "./Availability.ts";
 import { AvailabilityRpcs, AvailabilityRpcsLive } from "./AvailabilityRpcs.ts";
+import { shellFake, shPath } from "../testing/shellFake.ts";
 
 const dirs: Array<string> = [];
 
@@ -26,15 +27,13 @@ const fakeHost = () => {
   const signedIn = join(root, "signed-in");
   const slow = join(root, "slow");
 
-  writeFileSync(
-    join(bin, "codex"),
-    `#!/bin/sh
-if [ "$1" = "--version" ]; then [ -e "${slow}" ] && /bin/sleep 0.5; echo x >> "${counter}"; echo 'codex-cli 0.158.0'; exit 0; fi
-if [ -e "${signedIn}" ]; then exit 0; fi
-echo 'Not logged in' >&2; exit 1
-`
+  shellFake(
+    bin,
+    "codex",
+    `if [ "$1" = "--version" ]; then [ -e "${shPath(slow)}" ] && /bin/sleep 0.5; echo x >> "${shPath(counter)}"; echo 'codex-cli 0.158.0'; exit 0; fi
+if [ -e "${shPath(signedIn)}" ]; then exit 0; fi
+echo 'Not logged in' >&2; exit 1`
   );
-  chmodSync(join(bin, "codex"), 0o755);
 
   return {
     env: { HOME: home, PATH: bin },
@@ -141,8 +140,7 @@ describe("harness.availability", () => {
 
   test("the bench Daemon reports Claude Code and Codex ready; the others are probed", async () => {
     const host = fakeHost();
-    writeFileSync(join(host.env.PATH, "gemini"), "#!/bin/sh\necho 0.61.0\n");
-    chmodSync(join(host.env.PATH, "gemini"), 0o755);
+    shellFake(host.env.PATH, "gemini", "echo 0.61.0");
 
     const report = await Effect.runPromise(
       Effect.flatMap(Availability, (availability) => availability.get(false)).pipe(

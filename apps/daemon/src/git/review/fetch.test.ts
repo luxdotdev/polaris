@@ -23,6 +23,9 @@ import {
 // Each test runs tens of real gits: past bun's 5 s default on a loaded runner (as commit.test.ts).
 setDefaultTimeout(15_000);
 
+/** The deepening test runs about 41 s on a Windows desktop, where every git spawn is slow. */
+const DEEPEN_MS = process.platform === "win32" ? 120_000 : 30_000;
+
 const cleanup: Array<string> = [];
 
 afterEach(() => {
@@ -196,7 +199,8 @@ describe("fetchPullRequest", () => {
 
   /** A fake ssh that logs its arguments to `<bin>/<name>.args` and fails authentication. */
   const fakeSsh = (bin: string, name: string) => {
-    const log = join(bin, `${name}.args`);
+    // Forward slashes: Git for Windows reads config values and runs commands through sh.
+    const log = join(bin, `${name}.args`).replaceAll("\\", "/");
     write(
       bin,
       name,
@@ -204,7 +208,7 @@ describe("fetchPullRequest", () => {
     );
     chmodSync(join(bin, name), 0o755);
 
-    return { command: join(bin, name), log };
+    return { command: join(bin, name).replaceAll("\\", "/"), log };
   };
 
   /** A clone with an ssh remote whose own config names an ssh command; the Host's names another. */
@@ -276,28 +280,32 @@ describe("fetchPullRequest", () => {
   });
 
   // The Desktop sends GitHub's baseRefOid: the base branch's tip, not the merge base (Q-check B2).
-  test("a shallow clone opened with the base branch's tip deepens to the merge base and stays shallow", async () => {
-    const forge = await createForge();
-    cleanup.push(forge.root);
+  test(
+    "a shallow clone opened with the base branch's tip deepens to the merge base and stays shallow",
+    async () => {
+      const forge = await createForge();
+      cleanup.push(forge.root);
 
-    const branchPoint = await pushMainCommits(forge, "old", 40);
-    const author = await contributor(forge, branchPoint);
-    write(author, "feature.txt", "feature\n");
-    await commitAll(author, "feature");
-    const head = await publishPullRequest(forge, author, 7);
+      const branchPoint = await pushMainCommits(forge, "old", 40);
+      const author = await contributor(forge, branchPoint);
+      write(author, "feature.txt", "feature\n");
+      await commitAll(author, "feature");
+      const head = await publishPullRequest(forge, author, 7);
 
-    const tip = await pushMainCommits(forge, "new", 15);
-    const user = await userClone(forge, { depth: 1 });
-    cleanup.push(user);
+      const tip = await pushMainCommits(forge, "new", 15);
+      const user = await userClone(forge, { depth: 1 });
+      cleanup.push(user);
 
-    const fetched = await fetchPullRequest(pr(user, { baseCommit: tip }));
+      const fetched = await fetchPullRequest(pr(user, { baseCommit: tip }));
 
-    expect(fetched).toEqual({ head, mergeBase: branchPoint });
-    expect(await gitText(user, ["rev-parse", "--is-shallow-repository"])).toBe("true");
-    expect(Number(await gitText(user, ["rev-list", "--count", "main"]))).toBeLessThan(
-      forge.mainCommits.length
-    );
-  }, 30_000);
+      expect(fetched).toEqual({ head, mergeBase: branchPoint });
+      expect(await gitText(user, ["rev-parse", "--is-shallow-repository"])).toBe("true");
+      expect(Number(await gitText(user, ["rev-list", "--count", "main"]))).toBeLessThan(
+        forge.mainCommits.length
+      );
+    },
+    DEEPEN_MS
+  );
 
   test("past the deepening budget it is a shallow clone, for the user to decide", async () => {
     const { forge } = await setup();

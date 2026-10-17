@@ -200,7 +200,7 @@ describe("Host resource leases", () => {
   test("FIFO, capacity, canceled waiter, hold warning and Release without killing", async () => {
     const { runtime } = setup();
     // The first holder is a real child, so Release can be seen not to kill it.
-    const holder = Bun.spawn(["sleep", "30"]);
+    const holder = Bun.spawn([process.execPath, "-e", "setTimeout(() => {}, 30_000)"]);
 
     try {
       const resources = await runtime.runPromise(HostResources);

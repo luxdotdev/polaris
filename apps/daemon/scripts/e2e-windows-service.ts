@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * End to end on a real Windows Host over SSH (ADR 0060): builds two windows-x64
+ * End to end on a real Windows Host (ADR 0060): builds two windows-x64
  * Daemons with different versions, then on the Host installs A as a scheduled
  * task, connects a real Client over the pipe, kills the Daemon (the task's loop
  * restarts it), upgrades to B (stop and restart; the Client reconnects and the
@@ -9,10 +9,12 @@
  *   bun apps/daemon/scripts/e2e-windows-service.ts --host <ssh alias> --dir <C:\scratch dir> \
  *     --bun <C:\path\to\bun.exe> [--a <polaris.exe> --b <polaris.exe>]
  *
+ * With `--local` in place of `--host` it runs on this Windows machine (CI), with this Bun.
+ *
  * Run it with Bun 1.4.3 or later (the build embeds the running Bun's Windows runtime).
  * It uses a throwaway POLARIS_HOME under --dir, so the task it creates is not the real one.
  */
-import { copyFileSync, mkdtempSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -32,11 +34,13 @@ const required = (name: string): string => {
   return value;
 };
 
-const host = required("--host");
+const onHere = process.argv.includes("--local");
+
+const host = onHere ? null : required("--host");
 
 const dir = required("--dir");
 
-const bun = required("--bun");
+const bun = onHere ? process.execPath : required("--bun");
 
 const run = (argv: ReadonlyArray<string>, cwd = root) => {
   const proc = Bun.spawnSync([...argv], { cwd, stdout: "inherit", stderr: "inherit" });
@@ -70,8 +74,6 @@ const bundled = await Bun.build({
 
 if (!bundled.success) throw new Error(bundled.logs.map(String).join("\n"));
 
-const remote = (path: string) => `${host}:${dir.replaceAll("\\", "/")}/${path}`;
-
 const uploads: ReadonlyArray<readonly [string, string]> = [
   [a, "polaris-a.exe"],
   [b, "polaris-b.exe"],
@@ -79,12 +81,21 @@ const uploads: ReadonlyArray<readonly [string, string]> = [
   [join(import.meta.dir, "e2e-windows-service", "steps.ps1"), "steps.ps1"],
 ];
 
-run(["ssh", host, `New-Item -ItemType Directory -Force '${dir}' | Out-Null`]);
+const powershell = ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass"];
 
-for (const [from, to] of uploads) run(["scp", "-q", from, remote(to)]);
+if (host === null) {
+  mkdirSync(dir, { recursive: true });
 
-run([
-  "ssh",
-  host,
-  `powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File '${dir}\\steps.ps1' -Dir '${dir}' -Bun '${bun}'`,
-]);
+  for (const [from, to] of uploads) copyFileSync(from, join(dir, to));
+
+  run([...powershell, "-File", join(dir, "steps.ps1"), "-Dir", dir, "-Bun", bun]);
+} else {
+  const steps = `${powershell.join(" ")} -File '${dir}\\steps.ps1' -Dir '${dir}' -Bun '${bun}'`;
+  const remote = (path: string) => `${host}:${dir.replaceAll("\\", "/")}/${path}`;
+
+  run(["ssh", host, `New-Item -ItemType Directory -Force '${dir}' | Out-Null`]);
+
+  for (const [from, to] of uploads) run(["scp", "-q", from, remote(to)]);
+
+  run(["ssh", host, steps]);
+}

@@ -5,6 +5,11 @@ import { join } from "node:path";
 import { catalog } from "../catalog/index.ts";
 import { luaLaunch } from "./launch.ts";
 import { luaPlugin, luaServerSettings } from "./settings.ts";
+import { posixTest } from "../../platform/testing.ts";
+
+const posixModes = posixTest(
+  "the state directory's privacy is POSIX mode 0700; Windows needs ACL checks (ENG-314)"
+);
 
 const withDirectory = async (body: (root: string) => Promise<void>) => {
   const root = await realpath(await mkdtemp(join(tmpdir(), "polaris-lua-")));
@@ -50,22 +55,25 @@ describe("lua-language-server", () => {
       expect(await luaPlugin(root, root)).toBe(join(root, ".luarc.json"));
     }));
 
-  test("the Trust split: the Client trusts the plugin only after Trust; state stays outside the install", () =>
-    withDirectory(async (root) => {
-      const installed = { identity: "lua", directory: join(root, "tools/lua/v1") };
+  posixModes(
+    "the Trust split: the Client trusts the plugin only after Trust; state stays outside the install",
+    () =>
+      withDirectory(async (root) => {
+        const installed = { identity: "lua", directory: join(root, "tools/lua/v1") };
 
-      const before = await luaLaunch(facts(root, false), installed);
-      const after = await luaLaunch(facts(root, true), installed);
+        const before = await luaLaunch(facts(root, false), installed);
+        const after = await luaLaunch(facts(root, true), installed);
 
-      expect(before.launch.initializationOptions).toEqual({ trustByClient: false });
-      expect(after.launch.initializationOptions).toEqual({ trustByClient: true });
-      expect(before.launch.executable).toBe(join(installed.directory, "bin/lua-language-server"));
-      expect(before.launch.args).toEqual([
-        `--logpath=${join(root, "tools/state/log")}`,
-        `--metapath=${join(root, "tools/state/meta")}`,
-      ]);
-      expect((await stat(join(root, "tools/state/log"))).mode & 0o777).toBe(0o700);
-    }));
+        expect(before.launch.initializationOptions).toEqual({ trustByClient: false });
+        expect(after.launch.initializationOptions).toEqual({ trustByClient: true });
+        expect(before.launch.executable).toBe(join(installed.directory, "bin/lua-language-server"));
+        expect(before.launch.args).toEqual([
+          `--logpath=${join(root, "tools/state/log")}`,
+          `--metapath=${join(root, "tools/state/meta")}`,
+        ]);
+        expect((await stat(join(root, "tools/state/log"))).mode & 0o777).toBe(0o700);
+      })
+  );
 
   test("telemetry off and no third-party library prompts", () => {
     expect(luaServerSettings().Lua).toMatchObject({

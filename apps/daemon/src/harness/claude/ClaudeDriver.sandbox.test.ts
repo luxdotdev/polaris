@@ -10,6 +10,7 @@ import { type ClaudeDriverOptions, makeClaudeDriver } from "./ClaudeDriver.ts";
 import { FakeClaude, result } from "./fakeClaude.ts";
 import { unstamped } from "../itemClock.testing.ts";
 import type { ClaudeSandbox } from "./sandbox.ts";
+import { posixTest } from "../../platform/testing.ts";
 
 const NO_SOCAT: ClaudeSandbox = { available: false, missing: [{ binary: "socat", pkg: "socat" }] };
 
@@ -113,23 +114,28 @@ describe("Claude driver without the sandbox", () => {
 });
 
 describe("Claude driver in a read-only session", () => {
-  test("a read-only session's confinement is checked against the env and path Claude Code gets", async () => {
-    const base = realpathSync(mkdtempSync(join(tmpdir(), "polaris-driver-ro-")));
-    const checkout = join(base, "checkout");
-    const config = join(checkout, ".claude-config");
-    mkdirSync(config, { recursive: true });
-    symlinkSync(checkout, join(base, "link"));
+  posixTest(
+    "a read-only session's confinement (the Reviewer's sandbox) isn't built for Windows (ENG-296)"
+  )(
+    "a read-only session's confinement is checked against the env and path Claude Code gets",
+    async () => {
+      const base = realpathSync(mkdtempSync(join(tmpdir(), "polaris-driver-ro-")));
+      const checkout = join(base, "checkout");
+      const config = join(checkout, ".claude-config");
+      mkdirSync(config, { recursive: true });
+      symlinkSync(checkout, join(base, "link"));
 
-    const t = await open(
-      { readOnly: true, cwd: join(base, "link"), environment: { CLAUDE_CONFIG_DIR: config } },
-      { sandbox: () => ({ available: true }) }
-    );
+      const t = await open(
+        { readOnly: true, cwd: join(base, "link"), environment: { CLAUDE_CONFIG_DIR: config } },
+        { sandbox: () => ({ available: true }) }
+      );
 
-    const o = t.fake.options!;
-    expect(o.cwd).toBe(checkout);
-    expect(o.env).toMatchObject({ CLAUDE_CONFIG_DIR: config });
-    expect(o.sandbox?.filesystem?.denyRead).toContain(config);
-    await t.close();
-    rmSync(base, { recursive: true, force: true });
-  });
+      const o = t.fake.options!;
+      expect(o.cwd).toBe(checkout);
+      expect(o.env).toMatchObject({ CLAUDE_CONFIG_DIR: config });
+      expect(o.sandbox?.filesystem?.denyRead).toContain(config);
+      await t.close();
+      rmSync(base, { recursive: true, force: true });
+    }
+  );
 });

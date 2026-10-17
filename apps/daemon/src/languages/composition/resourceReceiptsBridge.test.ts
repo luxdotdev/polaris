@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect } from "bun:test";
 import * as P from "@polaris/protocol";
 import { Schema } from "effect";
 import { ServerBridge } from "../runtime/server.ts";
@@ -6,6 +6,11 @@ import { Documents } from "../runtime/documents.ts";
 import { OrderedConnection } from "../transport/index.ts";
 import { memoryPort } from "../transport/fixture.testing.ts";
 import { fixture } from "../../files/edits/trees/testing.ts";
+import { posixTest } from "../../platform/testing.ts";
+
+const treeEditTest = posixTest(
+  "Windows bug: NTFS file IDs exceed a safe integer for LanguageResourceIdentity.inode (ENG-296)"
+);
 
 const setup = async () => {
   const f = await fixture();
@@ -91,26 +96,29 @@ const setup = async () => {
   };
 };
 
-test("private receipt response resolves exact challenge without writing to provider", async () => {
-  const f = await setup();
+treeEditTest(
+  "private receipt response resolves exact challenge without writing to provider",
+  async () => {
+    const f = await setup();
 
-  try {
-    const pending = f.bridge.challengeReceipt(f.challenge, new AbortController().signal);
-    const event = await f.next();
-    expect(Schema.is(P.LanguageServerRequestPayload.cases.ResourceReceipt)(event.payload)).toBe(
-      true
-    );
-    await f.bridge.respond(f.response(event.request.request.id));
-    expect((await pending).operationId).toBe("operation");
-    expect(f.port.messages).toHaveLength(0);
-    expect(() => f.bridge.respond(f.response(event.request.request.id))).toThrow();
-  } finally {
-    await f.cleanup();
+    try {
+      const pending = f.bridge.challengeReceipt(f.challenge, new AbortController().signal);
+      const event = await f.next();
+      expect(Schema.is(P.LanguageServerRequestPayload.cases.ResourceReceipt)(event.payload)).toBe(
+        true
+      );
+      await f.bridge.respond(f.response(event.request.request.id));
+      expect((await pending).operationId).toBe("operation");
+      expect(f.port.messages).toHaveLength(0);
+      expect(() => f.bridge.respond(f.response(event.request.request.id))).toThrow();
+    } finally {
+      await f.cleanup();
+    }
   }
-});
+);
 
 for (const fault of ["nonce", "operation", "generation"] as const)
-  test(`receipt response rejects wrong ${fault}`, async () => {
+  treeEditTest(`receipt response rejects wrong ${fault}`, async () => {
     const f = await setup();
 
     try {
@@ -141,7 +149,7 @@ for (const fault of ["nonce", "operation", "generation"] as const)
   });
 
 for (const fault of ["cancel", "close", "timeout"] as const)
-  test(`receipt challenge cleans pending ownership on ${fault}`, async () => {
+  treeEditTest(`receipt challenge cleans pending ownership on ${fault}`, async () => {
     const f = await setup();
 
     try {

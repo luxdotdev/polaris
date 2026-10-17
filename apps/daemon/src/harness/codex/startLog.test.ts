@@ -5,6 +5,7 @@ import { SessionId } from "@polaris/protocol";
 import { Effect, Logger } from "effect";
 import { makeCodexDriver } from "./CodexDriver.ts";
 import { startFakeAppServer } from "./testing/FakeAppServer.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 const cleanup: Array<() => void> = [];
 
@@ -14,7 +15,7 @@ afterEach(() => {
 
 describe("opening a Codex session", () => {
   test("logs the app-server it connects to and the thread it is ready on", async () => {
-    const dir = mkdtempSync("/tmp/pcl-");
+    const dir = mkdtempSync(shortTemp("pcl-"));
     cleanup.push(() => rmSync(dir, { recursive: true, force: true }));
     const socketPath = join(dir, "s.sock");
 

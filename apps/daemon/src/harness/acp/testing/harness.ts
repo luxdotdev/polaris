@@ -30,20 +30,37 @@ export interface FakeBinary {
   readonly remove: () => void;
 }
 
+/** Windows runs no shell script: the fake is a `.cmd` that sets the scenario and runs Bun. */
+const windowsBinary = (dir: string) => join(dir, "copilot.cmd");
+
 export const fakeBinary = (scenario: Scenario): FakeBinary => {
   const dir = mkdtempSync(join(tmpdir(), "polaris-acp-"));
   const scenarioPath = join(dir, "scenario.json");
   const log = join(dir, "received.jsonl");
-  const binary = join(dir, "copilot");
   const agent = join(import.meta.dir, "fakeAgent.ts");
 
   writeFileSync(scenarioPath, JSON.stringify(scenario));
   writeFileSync(log, "");
-  writeFileSync(
-    binary,
-    `#!/bin/sh\nFAKE_ACP_SCENARIO='${scenarioPath}' FAKE_ACP_LOG='${log}' exec '${process.execPath}' '${agent}' "$@"\n`
-  );
-  chmodSync(binary, 0o755);
+  const binary = process.platform === "win32" ? windowsBinary(dir) : join(dir, "copilot");
+
+  if (process.platform === "win32")
+    writeFileSync(
+      binary,
+      [
+        "@echo off",
+        `set "FAKE_ACP_SCENARIO=${scenarioPath}"`,
+        `set "FAKE_ACP_LOG=${log}"`,
+        `"${process.execPath}" "${agent}" %*`,
+        "",
+      ].join("\r\n")
+    );
+  else {
+    writeFileSync(
+      binary,
+      `#!/bin/sh\nFAKE_ACP_SCENARIO='${scenarioPath}' FAKE_ACP_LOG='${log}' exec '${process.execPath}' '${agent}' "$@"\n`
+    );
+    chmodSync(binary, 0o755);
+  }
 
   const received = () =>
     readFileSync(log, "utf8")

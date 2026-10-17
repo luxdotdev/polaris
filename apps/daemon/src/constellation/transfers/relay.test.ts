@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect } from "bun:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -56,6 +56,9 @@ import { ConstellationRelay } from "../../../../../packages/client/src/constella
 import { HostRegistry } from "../../../../../packages/client/src/HostRegistry.ts";
 import { HostConnector, HostTarget } from "../../../../../packages/client/src/HostConnection.ts";
 import { type ConstellationRuntimeService } from "../runtime.ts";
+import { posixTest, shortTemp } from "../../platform/testing.ts";
+
+const test = posixTest("Windows bug: index-pack fails bundle imports, Filename too long (ENG-318)");
 
 interface RelayTraceBatch {
   hostId: string;
@@ -65,7 +68,10 @@ interface RelayTraceBatch {
 
 const id = (name: string) => CommandId.make(name);
 
-const roots = () => ({ owner: mkdtempSync("/tmp/c1wo-"), worker: mkdtempSync("/tmp/c1ww-") });
+const roots = () => ({
+  owner: mkdtempSync(shortTemp("c1wo-")),
+  worker: mkdtempSync(shortTemp("c1ww-")),
+});
 
 const seed = Effect.fnUntraced(function* (
   owner: Effect.Success<ReturnType<typeof fakeHost>>,
@@ -366,7 +372,11 @@ test("worker outbox survives app loss after owner commit and retry after owner s
           yield* worker.outbox.enqueue(
             { kind: "session", sessionId: attempt.sessionId },
             id("progress"),
-            C.WorkerProgress.make({ constellationId: CID, attemptId: attempt.id, note: "durable" })
+            C.WorkerProgress.make({
+              constellationId: CID,
+              attemptId: attempt.id,
+              note: "durable",
+            })
           );
           packet = (yield* worker.storage.packets)[0]!;
           yield* owner.outbox.apply(packet);

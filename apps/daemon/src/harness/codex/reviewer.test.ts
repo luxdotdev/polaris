@@ -5,6 +5,7 @@ import { makeCodexDriver } from "./CodexDriver.ts";
 import { PROFILE_MIN_VERSION, REVIEWER_PROFILE } from "./confinement.ts";
 import type { Handler } from "./testing/FakeAppServer.ts";
 import { cleanup, ofTag, scripted, sessionWith, THREAD, turn } from "./testing/session.ts";
+import { posixTest } from "../../platform/testing.ts";
 
 afterEach(() => {
   for (const fn of cleanup.splice(0)) fn();
@@ -14,44 +15,49 @@ const withSession = sessionWith(makeCodexDriver);
 
 const children = ["standards_review", "spec_review"];
 
-test("a new read-only thread opens without prompts even when its permission mode is full-access", async () => {
-  const { server } = await withSession(
-    scripted(() => {}),
-    () => Effect.void,
-    {
-      readOnly: true,
-      permissionMode: "full-access",
-    }
-  );
+posixTest(
+  "the Reviewer's Codex permission profile resolves /repo to a drive and adds :minimal there; its Windows form is unverified (ENG-296)"
+)(
+  "a new read-only thread opens without prompts even when its permission mode is full-access",
+  async () => {
+    const { server } = await withSession(
+      scripted(() => {}),
+      () => Effect.void,
+      {
+        readOnly: true,
+        permissionMode: "full-access",
+      }
+    );
 
-  const params = server.requests("thread/start")[0]?.params;
+    const params = server.requests("thread/start")[0]?.params;
 
-  // The legacy `read-only` sandbox reads the whole disk; the profile reads only the checkout.
-  expect(params).toMatchObject({
-    approvalPolicy: "never",
-    config: {
-      default_permissions: REVIEWER_PROFILE,
-      permissions: {
-        [REVIEWER_PROFILE]: {
-          filesystem: { "/repo": "read", ":slash_tmp": "deny", ":tmpdir": "deny" },
+    // The legacy `read-only` sandbox reads the whole disk; the profile reads only the checkout.
+    expect(params).toMatchObject({
+      approvalPolicy: "never",
+      config: {
+        default_permissions: REVIEWER_PROFILE,
+        permissions: {
+          [REVIEWER_PROFILE]: {
+            filesystem: { "/repo": "read", ":slash_tmp": "deny", ":tmpdir": "deny" },
+          },
         },
+        "shell_environment_policy.inherit": "core",
+        "shell_environment_policy.set": { GIT_CONFIG_GLOBAL: "/dev/null" },
+        // The user's MCP servers and plugins run outside the sandbox.
+        mcp_servers: { linear: { enabled: false } },
+        plugins: { "chrome@openai-bundled": { enabled: false } },
+        "features.apps": false,
+        "features.hooks": false,
+        "features.memories": false,
+        "features.browser_use": false,
+        "features.computer_use": false,
+        web_search: "disabled",
       },
-      "shell_environment_policy.inherit": "core",
-      "shell_environment_policy.set": { GIT_CONFIG_GLOBAL: "/dev/null" },
-      // The user's MCP servers and plugins run outside the sandbox.
-      mcp_servers: { linear: { enabled: false } },
-      plugins: { "chrome@openai-bundled": { enabled: false } },
-      "features.apps": false,
-      "features.hooks": false,
-      "features.memories": false,
-      "features.browser_use": false,
-      "features.computer_use": false,
-      web_search: "disabled",
-    },
-  });
-  expect(params).not.toHaveProperty("sandbox");
-  expect(server.requests("config/read")[0]?.params).toMatchObject({ cwd: "/repo" });
-});
+    });
+    expect(params).not.toHaveProperty("sandbox");
+    expect(server.requests("config/read")[0]?.params).toMatchObject({ cwd: "/repo" });
+  }
+);
 
 test("a read-only thread doesn't start when Codex can't say which MCP servers it would run", async () => {
   const silent: Handler = (request, conn) =>

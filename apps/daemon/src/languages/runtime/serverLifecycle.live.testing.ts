@@ -7,6 +7,7 @@ import * as P from "@polaris/protocol";
 import { createProjectDiscovery } from "../discovery/index.ts";
 import { createLanguageBroker } from "./index.ts";
 import { spawnLanguageProcess } from "./process.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 const required = (key: string) => {
   const path = process.env[key];
@@ -26,7 +27,7 @@ async function until(check: () => boolean | Promise<boolean>) {
 }
 
 test("real TS6 kills exhaust budget; manual recovery, config diagnostics and idle stop retain drafts", async () => {
-  const root = await realpath(await mkdtemp("/tmp/polaris-lifecycle-live-"));
+  const root = await realpath(await mkdtemp(shortTemp("polaris-lifecycle-live-")));
 
   const checkout = P.LanguageCheckout.cases.Workspace.make({
     workspaceId: P.WorkspaceId.make("live"),

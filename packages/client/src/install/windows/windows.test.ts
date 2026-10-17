@@ -170,8 +170,11 @@ const run = (shell: "powershell" | "cmd", line: string, home: string, stdin = ""
       ? ["cmd.exe", "/d", "/c", line]
       : ["powershell.exe", "-NoLogo", "-NoProfile", "-c", line];
 
+  // sshd starts a fresh logon: PowerShell 7's PSModulePath (a pwsh CI step) breaks 5.1's Get-Acl.
+  const { PSModulePath: _inherited, ...env } = process.env;
+
   const proc = Bun.spawnSync(argv, {
-    env: { ...process.env, USERPROFILE: home },
+    env: { ...env, USERPROFILE: home },
     stdin: Buffer.from(stdin),
   });
 

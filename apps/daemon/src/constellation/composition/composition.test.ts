@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect } from "bun:test";
 import { join } from "node:path";
 import {
   CommandId,
@@ -44,6 +44,11 @@ import { constellationGitLayer } from "../transfers/index.ts";
 import { ConstellationHarness } from "./attachments.ts";
 import { constellationServices } from "./index.ts";
 import { trustedSetup } from "../setup/trust.testing.ts";
+import { posixTest } from "../../platform/testing.ts";
+
+const test = posixTest(
+  "setup commands here are POSIX shell lines; Windows runs setup under cmd.exe (ENG-318)"
+);
 
 test("production composition acquires a slot before first Turn, installs MCP/environment and publishes Harness liveness", async () => {
   const root = await makeRepo({

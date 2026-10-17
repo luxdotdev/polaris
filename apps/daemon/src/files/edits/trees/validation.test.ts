@@ -1,11 +1,17 @@
 import { Match } from "effect";
-import { expect, test } from "bun:test";
+import { expect } from "bun:test";
 import { lstat, mkdir, readFile, rename, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fixture, expectFailure } from "./testing.ts";
 import { snapshotTree, budget } from "./snapshot.ts";
 import { fingerprint } from "../journal.ts";
 import { identity, loadJournal } from "./journal.ts";
+import { posixTest } from "../../../platform/testing.ts";
+
+/** Tree edits identify entries by inode and check the journal's mode; Windows offers neither. */
+const test = posixTest(
+  "Windows bug: NTFS file IDs exceed a safe integer for LanguageResourceIdentity.inode (ENG-296), and the journal privacy check reads POSIX modes (ENG-314)"
+);
 
 for (const recursive of [false, true])
   test(`nonempty deletion recursive=${recursive}`, async () => {

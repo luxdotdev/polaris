@@ -12,9 +12,16 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
+import { delimiter, join, resolve } from "node:path";
+import { posixTest } from "../../platform/testing.ts";
 import { gitText } from "../git.ts";
 import { makeRepo, removeDir, tempDir, write } from "../testing.ts";
+
+/** Git for Windows reads config values and runs drivers through sh: no backslashes. */
+const forward = (path: string) => path.replaceAll("\\", "/");
+
+/** Windows runs git.exe, never the sh shim `countListings` puts first on PATH. */
+const countingTest = posixTest("the PATH git shim that counts listings is a sh script (ENG-318)");
 
 const cleanup: Array<string> = [];
 
@@ -40,7 +47,7 @@ const countListings = () => {
   writeFileSync(log, "");
   write(bin, "git", `#!/bin/sh\nprintf '%s\\n' "$*" >> "${log}"\nexec "${real}" "$@"\n`);
   chmodSync(join(bin, "git"), 0o755);
-  process.env.PATH = `${bin}:${PATH ?? ""}`;
+  process.env.PATH = `${bin}${delimiter}${PATH ?? ""}`;
 
   return () =>
     readFileSync(log, "utf8")
@@ -49,7 +56,7 @@ const countListings = () => {
 };
 
 describe("the cached config listing", () => {
-  test("survives a branch switch and a commit on a detached HEAD", async () => {
+  countingTest("survives a branch switch and a commit on a detached HEAD", async () => {
     const root = dir(await makeRepo({ "a.txt": "a\n" }));
     await gitText(root, ["status", "--porcelain"]);
     const listings = countListings();
@@ -64,7 +71,7 @@ describe("the cached config listing", () => {
     expect(listings()).toBe(0);
   });
 
-  test("is shared by a call with the Daemon's inert `-c` settings", async () => {
+  countingTest("is shared by a call with the Daemon's inert `-c` settings", async () => {
     const root = dir(await makeRepo({ "a.txt": "a\n" }));
     await gitText(root, ["status", "--porcelain"]);
     const listings = countListings();
@@ -80,7 +87,11 @@ describe("the cached config listing", () => {
     await gitText(root, ["config", "core.sshCommand", "evil-ssh"]);
     const home = dir(tempDir("polaris-home-"));
     write(home, "feature", "[core]\n\tsshCommand = feature-ssh\n");
-    write(home, "gitconfig", `[includeIf "onbranch:feature"]\n\tpath = ${join(home, "feature")}\n`);
+    write(
+      home,
+      "gitconfig",
+      `[includeIf "onbranch:feature"]\n\tpath = ${forward(join(home, "feature"))}\n`
+    );
     const env = { GIT_CONFIG_GLOBAL: join(home, "gitconfig") };
     const ssh = () => gitText(root, ["config", "--get", "core.sshCommand"], { env });
     expect(await ssh()).toBe("ssh");
@@ -103,7 +114,7 @@ describe("the cached config listing", () => {
     write(pkg, "b.txt", "b\n");
     await gitText(pkg, ["status", "--porcelain"]);
 
-    const clean = join(markers, "clean");
+    const clean = forward(join(markers, "clean"));
     write(markers, "clean", `#!/bin/sh\ntouch "${clean}.ran"\ncat\n`);
     chmodSync(clean, 0o755);
     write(pkg, ".git/config", `[filter "inner"]\n\tclean = ${clean}\n`);
@@ -111,7 +122,7 @@ describe("the cached config listing", () => {
     write(pkg, ".git/HEAD", "ref: refs/heads/main\n");
     await gitText(pkg, ["add", "-A"]);
 
-    expect(await gitText(pkg, ["rev-parse", "--show-toplevel"])).toBe(pkg);
+    expect(resolve(await gitText(pkg, ["rev-parse", "--show-toplevel"]))).toBe(pkg);
     expect(existsSync(`${clean}.ran`)).toBe(false);
   });
 
@@ -130,7 +141,7 @@ describe("the cached config listing", () => {
     write(pkg, "b.txt", "b\n");
     await gitText(pkg, ["status", "--porcelain"]);
 
-    const clean = join(markers, "clean");
+    const clean = forward(join(markers, "clean"));
     write(markers, "clean", `#!/bin/sh\ntouch "${clean}.ran"\ncat\n`);
     chmodSync(clean, 0o755);
     write(pkg, ".git/config", `[filter "inner"]\n\tclean = ${clean}\n`);
@@ -142,23 +153,26 @@ describe("the cached config listing", () => {
     expect(existsSync(`${clean}.ran`)).toBe(false);
   });
 
-  test("tells two HEAD links apart when one target ends where the next begins", async () => {
-    const root = dir(await makeRepo({ "a.txt": "a\n" }));
-    const pkg = join(root, "pkg");
-    const uid = process.getuid?.() ?? 0;
+  countingTest(
+    "tells two HEAD links apart when one target ends where the next begins",
+    async () => {
+      const root = dir(await makeRepo({ "a.txt": "a\n" }));
+      const pkg = join(root, "pkg");
+      const uid = process.getuid?.() ?? 0;
 
-    // Joined plainly, `x|l<uid>:refs/y` + absent reads the same as `x` + `refs/y|-`.
-    for (const sub of ["objects", "refs", ".git/objects", ".git/refs"])
-      mkdirSync(join(pkg, sub), { recursive: true });
-    symlinkSync(`x|l${uid}:refs/y`, join(pkg, ".git", "HEAD"));
-    expect(await gitText(pkg, ["rev-parse", "--show-toplevel"])).toBe(root);
-    const listings = countListings();
+      // Joined plainly, `x|l<uid>:refs/y` + absent reads the same as `x` + `refs/y|-`.
+      for (const sub of ["objects", "refs", ".git/objects", ".git/refs"])
+        mkdirSync(join(pkg, sub), { recursive: true });
+      symlinkSync(`x|l${uid}:refs/y`, join(pkg, ".git", "HEAD"));
+      expect(await gitText(pkg, ["rev-parse", "--show-toplevel"])).toBe(root);
+      const listings = countListings();
 
-    rmSync(join(pkg, ".git", "HEAD"));
-    symlinkSync("x", join(pkg, ".git", "HEAD"));
-    symlinkSync("refs/y|-", join(pkg, "HEAD"));
-    await gitText(pkg, ["rev-parse", "--git-dir"]);
+      rmSync(join(pkg, ".git", "HEAD"));
+      symlinkSync("x", join(pkg, ".git", "HEAD"));
+      symlinkSync("refs/y|-", join(pkg, "HEAD"));
+      await gitText(pkg, ["rev-parse", "--git-dir"]);
 
-    expect(listings()).toBeGreaterThan(0);
-  });
+      expect(listings()).toBeGreaterThan(0);
+    }
+  );
 });

@@ -10,106 +10,114 @@ import { createHostToolStates } from "./hostState.ts";
 import { createHostPrerequisiteProbe } from "./hostStateProbes.ts";
 import { createHostInstallations } from "./host.ts";
 import { fixture, artifactFixture, hostId, platform } from "./fixture.testing.ts";
+import { posixTest } from "../../platform/testing.ts";
+
+const privateStorage = posixTest(
+  "language storage is checked private by POSIX owner and mode bits; Windows needs ACL checks (ENG-314)"
+);
 
 const input = { toolIds: ["fake-tool"], refresh: false };
 
 const signal = () => new AbortController().signal;
 
-test("Host state observes the sole installer, coalesces progress and survives service restart", async () => {
-  let release = () => {};
+privateStorage(
+  "Host state observes the sole installer, coalesces progress and survives service restart",
+  async () => {
+    let release = () => {};
 
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-
-  const f = await fixture({
-    download: async function* () {
-      await gate;
-      yield artifactFixture().bytes;
-    },
-  });
-
-  const lifetime = new AbortController();
-
-  const states = createHostToolStates({
-    hostId,
-    platform,
-    tools: [Schema.decodeUnknownSync(Tool)(f.source.tool)],
-    installer: f.installer,
-    lifetime: lifetime.signal,
-  });
-
-  try {
-    expect(
-      Predicate.isTagged((await states.read(input, signal())).tools[0]!.state, "NotDownloaded")
-    ).toBe(true);
-    expect(f.counts().downloads).toBe(0);
-    const watched = await states.watch(input, signal());
-    expect(
-      Predicate.isTagged(
-        Schema.decodeUnknownSync(LanguageHostState)((await watched.next()).value).tools[0]!.state,
-        "NotDownloaded"
-      )
-    ).toBe(true);
-
-    const install = f.installer.install({
-      tool: f.source.tool,
-      connected: true,
-      probes: [],
-      intent: "encounter",
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
     });
 
-    await Bun.sleep(10);
+    const f = await fixture({
+      download: async function* () {
+        await gate;
+        yield artifactFixture().bytes;
+      },
+    });
 
-    const downloading = Schema.decodeUnknownSync(LanguageHostState)((await watched.next()).value)
-      .tools[0]!.state;
+    const lifetime = new AbortController();
 
-    expect(Predicate.isTagged(downloading, "Downloading")).toBe(true);
-    release();
-    await install.result;
-    const installed = Schema.decodeUnknownSync(LanguageHostState)((await watched.next()).value);
-
-    expect(Predicate.isTagged(installed.tools[0]!.state, "Installed")).toBe(true);
-    expect(Schema.is(LanguageHostState)(installed)).toBe(true);
-    expect(f.counts().decodes).toBe(1);
-    await watched.return?.();
-    expect(states.stats().subscribers).toBe(0);
-    expect(f.installer.stats().listeners).toBe(0);
-
-    const registry = createHostInstallations();
-
-    const recovered = await registry.get({
+    const states = createHostToolStates({
       hostId,
       platform,
-      root: join(f.parent, "private"),
-      tools: [f.source.tool],
-      adapters: {
-        download: () => {
-          throw new Error("Read must never download");
-        },
-        decode: async () => f.source.payload,
-      },
-      observe: async () => {
-        throw new Error("Read must never use execution observation");
-      },
+      tools: [Schema.decodeUnknownSync(Tool)(f.source.tool)],
+      installer: f.installer,
+      lifetime: lifetime.signal,
     });
 
     try {
-      const row = (await recovered.hostState.read(input, signal())).tools[0]!;
+      expect(
+        Predicate.isTagged((await states.read(input, signal())).tools[0]!.state, "NotDownloaded")
+      ).toBe(true);
+      expect(f.counts().downloads).toBe(0);
+      const watched = await states.watch(input, signal());
+      expect(
+        Predicate.isTagged(
+          Schema.decodeUnknownSync(LanguageHostState)((await watched.next()).value).tools[0]!.state,
+          "NotDownloaded"
+        )
+      ).toBe(true);
 
-      expect(row.state).toMatchObject({ version: "1.0.0" });
-      expect(Predicate.isTagged(row.state, "Installed")).toBe(true);
+      const install = f.installer.install({
+        tool: f.source.tool,
+        connected: true,
+        probes: [],
+        intent: "encounter",
+      });
+
+      await Bun.sleep(10);
+
+      const downloading = Schema.decodeUnknownSync(LanguageHostState)((await watched.next()).value)
+        .tools[0]!.state;
+
+      expect(Predicate.isTagged(downloading, "Downloading")).toBe(true);
+      release();
+      await install.result;
+      const installed = Schema.decodeUnknownSync(LanguageHostState)((await watched.next()).value);
+
+      expect(Predicate.isTagged(installed.tools[0]!.state, "Installed")).toBe(true);
+      expect(Schema.is(LanguageHostState)(installed)).toBe(true);
+      expect(f.counts().decodes).toBe(1);
+      await watched.return?.();
+      expect(states.stats().subscribers).toBe(0);
+      expect(f.installer.stats().listeners).toBe(0);
+
+      const registry = createHostInstallations();
+
+      const recovered = await registry.get({
+        hostId,
+        platform,
+        root: join(f.parent, "private"),
+        tools: [f.source.tool],
+        adapters: {
+          download: () => {
+            throw new Error("Read must never download");
+          },
+          decode: async () => f.source.payload,
+        },
+        observe: async () => {
+          throw new Error("Read must never use execution observation");
+        },
+      });
+
+      try {
+        const row = (await recovered.hostState.read(input, signal())).tools[0]!;
+
+        expect(row.state).toMatchObject({ version: "1.0.0" });
+        expect(Predicate.isTagged(row.state, "Installed")).toBe(true);
+      } finally {
+        await registry.dispose();
+      }
     } finally {
-      await registry.dispose();
+      release();
+      lifetime.abort();
+      await f.close();
     }
-  } finally {
-    release();
-    lifetime.abort();
-    await f.close();
   }
-});
+);
 
-test("failed and cancelled jobs remain visible without downloading again", async () => {
+privateStorage("failed and cancelled jobs remain visible without downloading again", async () => {
   for (const cancelled of [false, true]) {
     const f = await fixture({
       download: (_exact, incoming) =>
@@ -160,37 +168,40 @@ test("failed and cancelled jobs remain visible without downloading again", async
   }
 });
 
-test("watchers and reads are bounded; abort releases a pending next and demand probes", async () => {
-  const f = await fixture();
-  const lifetime = new AbortController();
+privateStorage(
+  "watchers and reads are bounded; abort releases a pending next and demand probes",
+  async () => {
+    const f = await fixture();
+    const lifetime = new AbortController();
 
-  const states = createHostToolStates({
-    hostId,
-    platform,
-    tools: [Schema.decodeUnknownSync(Tool)(f.source.tool)],
-    installer: f.installer,
-    lifetime: lifetime.signal,
-  });
+    const states = createHostToolStates({
+      hostId,
+      platform,
+      tools: [Schema.decodeUnknownSync(Tool)(f.source.tool)],
+      installer: f.installer,
+      lifetime: lifetime.signal,
+    });
 
-  try {
-    const watches = [];
+    try {
+      const watches = [];
 
-    for (let i = 0; i < 16; i++) watches.push(await states.watch(input, signal()));
+      for (let i = 0; i < 16; i++) watches.push(await states.watch(input, signal()));
 
-    await rejects(states.watch(input, signal()), { reason: "queue-full" });
-    const pending = watches[0]!;
-    await pending.next();
-    const waiting = pending.next();
-    lifetime.abort();
-    expect((await waiting).done).toBe(true);
-    expect(states.stats().subscribers).toBe(0);
-    expect(f.installer.stats().listeners).toBe(0);
-    await rejects(states.read(input, signal()), { reason: "cancelled" });
-  } finally {
-    lifetime.abort();
-    await f.close();
+      await rejects(states.watch(input, signal()), { reason: "queue-full" });
+      const pending = watches[0]!;
+      await pending.next();
+      const waiting = pending.next();
+      lifetime.abort();
+      expect((await waiting).done).toBe(true);
+      expect(states.stats().subscribers).toBe(0);
+      expect(f.installer.stats().listeners).toBe(0);
+      await rejects(states.read(input, signal()), { reason: "cancelled" });
+    } finally {
+      lifetime.abort();
+      await f.close();
+    }
   }
-});
+);
 
 test("Host probes inspect standard Python and Rust locations, never execute their files", async () => {
   const home = await realpath(await mkdtemp(join(tmpdir(), "host-presence-")));

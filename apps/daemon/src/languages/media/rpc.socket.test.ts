@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect } from "bun:test";
 import { mkdtempSync, mkdirSync, realpathSync, rmSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { connectRpc, socketTransport } from "@polaris/client";
@@ -9,6 +9,11 @@ import { BlobChannel } from "../../services.ts";
 import { startServer } from "../../transport/server.ts";
 import { HostPreviewMedia, createHostPreviewMedia } from "./index.ts";
 import { PreviewMediaRpc } from "./rpc.ts";
+import { posixTest, shortTemp } from "../../platform/testing.ts";
+
+const test = posixTest(
+  "Host media reads need descriptor-relative NOFOLLOW opens and POSIX paths (ENG-296)"
+);
 
 const proof = Redacted.make("c".repeat(64));
 
@@ -32,7 +37,7 @@ const hello = (languageProof?: Redacted.Redacted<unknown>) => {
 
 const fixture = Effect.gen(function* () {
   const root = yield* Effect.acquireRelease(
-    Effect.sync(() => realpathSync(mkdtempSync("/tmp/pl-h1-rpc-"))),
+    Effect.sync(() => realpathSync(mkdtempSync(shortTemp("pl-h1-rpc-")))),
     (path) =>
       Effect.sync(() => {
         rmSync(path, { recursive: true, force: true });

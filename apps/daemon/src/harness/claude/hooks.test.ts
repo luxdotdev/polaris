@@ -263,7 +263,8 @@ describe("ClaudeHookReceiver", () => {
         receiver.prepare({ sessionId, cursor: "cs-1" })
       );
 
-      expect((await stat(settingsPath)).mode & 0o777).toBe(0o600);
+      // Windows has no mode bits; the file's ACL is ENG-314's.
+      if (process.platform !== "win32") expect((await stat(settingsPath)).mode & 0o777).toBe(0o600);
       const settings = Schema.decodeUnknownSync(SettingsFile)(await readFile(settingsPath, "utf8"));
       const hook = settings.hooks.Stop[0].hooks[0];
       expect(hook.url).toBe(`http://127.0.0.1:${receiver.port}/hooks/session-1`);
@@ -342,7 +343,7 @@ describe("ClaudeHookReceiver", () => {
       }
 
       expect(argv.slice(0, 4)).toEqual(["claude", "--resume", "cs-2", "--settings"]);
-      expect(argv[4]).toEndWith("/hooks/session-2.json");
+      expect(argv[4]).toEndWith(join("hooks", "session-2.json"));
       await Effect.runPromise(Scope.close(scope, Exit.void));
     });
   });

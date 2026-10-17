@@ -13,6 +13,7 @@ import {
   tokenFileOf,
 } from "./AppServer.ts";
 import { makeFakeCodex } from "./testing/fakeCodex.ts";
+import { posixTest, shortTemp } from "../../platform/testing.ts";
 
 const dirs: Array<string> = [];
 
@@ -30,7 +31,7 @@ afterEach(() => {
 
 const setup = (version = "1.0.0") => {
   // Short: Unix socket paths are capped near 104 bytes.
-  const dir = mkdtempSync("/tmp/pas-");
+  const dir = mkdtempSync(shortTemp("pas-"));
   dirs.push(dir);
   const codex = makeFakeCodex(dir, version);
   const socketPath = join(dir, "c.sock");
@@ -68,104 +69,144 @@ const parentOf = (pid: number) =>
       .trim()
   );
 
+/**
+ * On Windows the server is the Daemon's hidden child on a loopback port, not a detached
+ * server on a socket (ADR 0061); windowsServer.test.ts covers that one.
+ */
+const detachedServer = posixTest(
+  "the Windows Codex server is the Daemon's child on a loopback port, not detached on a socket (ENG-318)"
+);
+
 describe("the shared app-server outlives the Daemon", () => {
-  test("an idle legacy server is replaced with a sanitized server", async () => {
-    const { socketPath, stateFile, options } = setup();
-    await connectOnce(options);
-    const old = recordedPid(stateFile);
-    const state = readAppServerState(stateFile);
-    writeFileSync(stateFile, JSON.stringify({ ...state, sanitizedEnv: undefined }));
-    await connectOnce(options);
-    expect(recordedPid(stateFile)).not.toBe(old);
-    expect(isOurAppServer(old, socketPath)).toBe(false);
-    expect(readAppServerState(stateFile)?.sanitizedEnv).toBe(true);
-  }, 30_000);
+  detachedServer(
+    "an idle legacy server is replaced with a sanitized server",
+    async () => {
+      const { socketPath, stateFile, options } = setup();
+      await connectOnce(options);
+      const old = recordedPid(stateFile);
+      const state = readAppServerState(stateFile);
+      writeFileSync(stateFile, JSON.stringify({ ...state, sanitizedEnv: undefined }));
+      await connectOnce(options);
+      expect(recordedPid(stateFile)).not.toBe(old);
+      expect(isOurAppServer(old, socketPath)).toBe(false);
+      expect(readAppServerState(stateFile)?.sanitizedEnv).toBe(true);
+    },
+    30_000
+  );
 
-  test("a live legacy server is reused, then replaced once idle", async () => {
-    const { codex, socketPath, stateFile, options } = setup();
-    codex.setLoaded(["thread-live"]);
-    await connectOnce(options);
-    const old = recordedPid(stateFile);
-    const state = readAppServerState(stateFile);
-    writeFileSync(stateFile, JSON.stringify({ ...state, sanitizedEnv: undefined }));
-    await connectOnce(options);
-    expect(recordedPid(stateFile)).toBe(old);
-    expect(isOurAppServer(old, socketPath)).toBe(true);
-    expect(readAppServerState(stateFile)?.sanitizedEnv).toBeUndefined();
-    codex.setLoaded([]);
-    await connectOnce(options);
-    expect(recordedPid(stateFile)).not.toBe(old);
-    expect(readAppServerState(stateFile)?.sanitizedEnv).toBe(true);
-  }, 30_000);
+  detachedServer(
+    "a live legacy server is reused, then replaced once idle",
+    async () => {
+      const { codex, socketPath, stateFile, options } = setup();
+      codex.setLoaded(["thread-live"]);
+      await connectOnce(options);
+      const old = recordedPid(stateFile);
+      const state = readAppServerState(stateFile);
+      writeFileSync(stateFile, JSON.stringify({ ...state, sanitizedEnv: undefined }));
+      await connectOnce(options);
+      expect(recordedPid(stateFile)).toBe(old);
+      expect(isOurAppServer(old, socketPath)).toBe(true);
+      expect(readAppServerState(stateFile)?.sanitizedEnv).toBeUndefined();
+      codex.setLoaded([]);
+      await connectOnce(options);
+      expect(recordedPid(stateFile)).not.toBe(old);
+      expect(readAppServerState(stateFile)?.sanitizedEnv).toBe(true);
+    },
+    30_000
+  );
 
-  test("it is started detached, recorded, and not killed when the scope closes", async () => {
-    const { socketPath, stateFile, options } = setup();
-    await connectOnce(options);
-    const state = readAppServerState(stateFile);
-    expect(state).toMatchObject({ version: "1.0.0", socketPath });
-    const pid = recordedPid(stateFile);
-    // Still running after the "Daemon" is gone, and not our child.
-    expect(isOurAppServer(pid, socketPath)).toBe(true);
-    expect(parentOf(pid)).not.toBe(process.pid);
-  }, 20_000);
+  detachedServer(
+    "it is started detached, recorded, and not killed when the scope closes",
+    async () => {
+      const { socketPath, stateFile, options } = setup();
+      await connectOnce(options);
+      const state = readAppServerState(stateFile);
+      expect(state).toMatchObject({ version: "1.0.0", socketPath });
+      const pid = recordedPid(stateFile);
+      // Still running after the "Daemon" is gone, and not our child.
+      expect(isOurAppServer(pid, socketPath)).toBe(true);
+      expect(parentOf(pid)).not.toBe(process.pid);
+    },
+    20_000
+  );
 
-  test("the next Daemon adopts it through the socket instead of starting another", async () => {
-    const { stateFile, options } = setup();
-    await connectOnce(options);
-    const first = recordedPid(stateFile);
-    await connectOnce(options);
-    expect(recordedPid(stateFile)).toBe(first);
-  }, 20_000);
+  detachedServer(
+    "the next Daemon adopts it through the socket instead of starting another",
+    async () => {
+      const { stateFile, options } = setup();
+      await connectOnce(options);
+      const first = recordedPid(stateFile);
+      await connectOnce(options);
+      expect(recordedPid(stateFile)).toBe(first);
+    },
+    20_000
+  );
 
-  test("after a codex upgrade an idle server is replaced", async () => {
-    const { codex, socketPath, stateFile, options } = setup("1.0.0");
-    await connectOnce(options);
-    const old = recordedPid(stateFile);
-    codex.setVersion("1.1.0");
-    await connectOnce(options);
-    const fresh = recordedPid(stateFile);
-    expect(fresh).not.toBe(old);
-    expect(readAppServerState(stateFile)?.version).toBe("1.1.0");
-    expect(isOurAppServer(old, socketPath)).toBe(false);
-  }, 30_000);
+  detachedServer(
+    "after a codex upgrade an idle server is replaced",
+    async () => {
+      const { codex, socketPath, stateFile, options } = setup("1.0.0");
+      await connectOnce(options);
+      const old = recordedPid(stateFile);
+      codex.setVersion("1.1.0");
+      await connectOnce(options);
+      const fresh = recordedPid(stateFile);
+      expect(fresh).not.toBe(old);
+      expect(readAppServerState(stateFile)?.version).toBe("1.1.0");
+      expect(isOurAppServer(old, socketPath)).toBe(false);
+    },
+    30_000
+  );
 
-  test("after a codex upgrade a server with a loaded thread is kept", async () => {
-    const { codex, stateFile, options } = setup("1.0.0");
-    codex.setLoaded(["thread-live"]);
-    await connectOnce(options);
-    const old = recordedPid(stateFile);
-    codex.setVersion("1.1.0");
-    await connectOnce(options);
-    expect(recordedPid(stateFile)).toBe(old);
-    expect(readAppServerState(stateFile)?.version).toBe("1.0.0");
-  }, 30_000);
+  detachedServer(
+    "after a codex upgrade a server with a loaded thread is kept",
+    async () => {
+      const { codex, stateFile, options } = setup("1.0.0");
+      codex.setLoaded(["thread-live"]);
+      await connectOnce(options);
+      const old = recordedPid(stateFile);
+      codex.setVersion("1.1.0");
+      await connectOnce(options);
+      expect(recordedPid(stateFile)).toBe(old);
+      expect(readAppServerState(stateFile)?.version).toBe("1.0.0");
+    },
+    30_000
+  );
 
-  test("a dead server with a stale state file and socket is replaced", async () => {
-    const { socketPath, stateFile, options } = setup();
-    await connectOnce(options);
-    const old = recordedPid(stateFile);
-    process.kill(old, "SIGKILL");
+  detachedServer(
+    "a dead server with a stale state file and socket is replaced",
+    async () => {
+      const { socketPath, stateFile, options } = setup();
+      await connectOnce(options);
+      const old = recordedPid(stateFile);
+      process.kill(old, "SIGKILL");
 
-    while (isOurAppServer(old, socketPath)) await Bun.sleep(20);
-    await connectOnce(options);
-    expect(recordedPid(stateFile)).not.toBe(old);
-  }, 30_000);
+      while (isOurAppServer(old, socketPath)) await Bun.sleep(20);
+      await connectOnce(options);
+      expect(recordedPid(stateFile)).not.toBe(old);
+    },
+    30_000
+  );
 
-  test("stopAppServer (uninstall) stops it and cleans up", async () => {
-    const { socketPath, stateFile, options } = setup();
-    await connectOnce(options);
-    const pid = recordedPid(stateFile);
-    const { stopped } = await Effect.runPromise(stopAppServer({ stateFile }));
-    expect(stopped).toBe(pid);
-    expect(isOurAppServer(pid, socketPath)).toBe(false);
-    expect(existsSync(stateFile)).toBe(false);
-    expect(existsSync(socketPath)).toBe(false);
-  }, 20_000);
+  detachedServer(
+    "stopAppServer (uninstall) stops it and cleans up",
+    async () => {
+      const { socketPath, stateFile, options } = setup();
+      await connectOnce(options);
+      const pid = recordedPid(stateFile);
+      const { stopped } = await Effect.runPromise(stopAppServer({ stateFile }));
+      expect(stopped).toBe(pid);
+      expect(isOurAppServer(pid, socketPath)).toBe(false);
+      expect(existsSync(stateFile)).toBe(false);
+      expect(existsSync(socketPath)).toBe(false);
+    },
+    20_000
+  );
 
   test("stopAppServer leaves an unrelated process alone when the pid was reused", async () => {
     const { dir, socketPath } = setup();
     const stateFile = join(dir, "state.json");
-    const unrelated = Bun.spawn(["sleep", "30"]);
+    const unrelated = Bun.spawn([process.execPath, "-e", "setTimeout(() => {}, 30_000)"]);
     pids.push(unrelated.pid);
     await Bun.write(
       stateFile,

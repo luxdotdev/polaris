@@ -5,6 +5,11 @@ import { join } from "node:path";
 import { LanguageEffectiveSettings } from "@polaris/protocol";
 import { createProjectDiscovery } from "./index.ts";
 import { fixture } from "./fixture.ts";
+import { posixTest } from "../../platform/testing.ts";
+
+const posixVenv = posixTest(
+  "the fixtures' virtual environments are POSIX bin/python; Windows venvs have Scripts\\python.exe (ENG-296)"
+);
 
 for (const executable of ["bin/python3", ".local/share/uv/python/cpython-3.13.5/bin/python3"])
   test(`refresh discovers newly installed Host Python at ${executable} without executing it`, async () => {
@@ -39,133 +44,136 @@ for (const executable of ["bin/python3", ".local/share/uv/python/cpython-3.13.5/
     }
   });
 
-test("Sightline topology: alias SDK, JSONC inherited plugins, nested roots, Prisma and Go", async () => {
-  const f = await fixture();
+posixVenv(
+  "Sightline topology: alias SDK, JSONC inherited plugins, nested roots, Prisma and Go",
+  async () => {
+    const f = await fixture();
 
-  try {
-    await f.put("package.json", "{}");
-    await f.put(
-      "apps/web/package.json",
-      '{"dependencies":{"typescript":"npm:@typescript/typescript6@6.0.1"}}'
-    );
-    await f.put(
-      "base.json",
-      '{"compilerOptions":{"plugins":[{"name":"next"},{"name":"@effect/language-service"},{"name":"workflow"}]}}'
-    );
-    await f.put(
-      "apps/web/tsconfig.json",
-      '{// comment\n"extends":"../../base.json", "compilerOptions": {"strict":true,},}'
-    );
-    const path = await f.put("apps/web/app/page.tsx");
-    await f.put(
-      "node_modules/.pnpm/alias/node_modules/@typescript/typescript6/package.json",
-      '{"name":"@typescript/typescript6","version":"6.0.1"}'
-    );
-    await f.put(
-      "node_modules/.pnpm/alias/node_modules/typescript/package.json",
-      '{"name":"typescript","version":"6.0.3"}'
-    );
+    try {
+      await f.put("package.json", "{}");
+      await f.put(
+        "apps/web/package.json",
+        '{"dependencies":{"typescript":"npm:@typescript/typescript6@6.0.1"}}'
+      );
+      await f.put(
+        "base.json",
+        '{"compilerOptions":{"plugins":[{"name":"next"},{"name":"@effect/language-service"},{"name":"workflow"}]}}'
+      );
+      await f.put(
+        "apps/web/tsconfig.json",
+        '{// comment\n"extends":"../../base.json", "compilerOptions": {"strict":true,},}'
+      );
+      const path = await f.put("apps/web/app/page.tsx");
+      await f.put(
+        "node_modules/.pnpm/alias/node_modules/@typescript/typescript6/package.json",
+        '{"name":"@typescript/typescript6","version":"6.0.1"}'
+      );
+      await f.put(
+        "node_modules/.pnpm/alias/node_modules/typescript/package.json",
+        '{"name":"typescript","version":"6.0.3"}'
+      );
 
-    const server = await f.put(
-      "node_modules/.pnpm/alias/node_modules/typescript/lib/tsserver.js",
-      'throw new Error("Must never execute")'
-    );
+      const server = await f.put(
+        "node_modules/.pnpm/alias/node_modules/typescript/lib/tsserver.js",
+        'throw new Error("Must never execute")'
+      );
 
-    await mkdir(join(f.root, "apps/web/node_modules"), { recursive: true });
-    await symlink(
-      join(f.root, "node_modules/.pnpm/alias/node_modules/@typescript/typescript6"),
-      join(f.root, "apps/web/node_modules/typescript")
-    );
+      await mkdir(join(f.root, "apps/web/node_modules"), { recursive: true });
+      await symlink(
+        join(f.root, "node_modules/.pnpm/alias/node_modules/@typescript/typescript6"),
+        join(f.root, "apps/web/node_modules/typescript")
+      );
 
-    for (const name of ["next", "@effect/language-service", "workflow"]) {
-      await f.put(`apps/web/node_modules/${name}/package.json`, JSON.stringify({ name }));
-      await f.put(`apps/web/node_modules/${name}/index.js`, 'throw new Error("Plugin executed")');
+      for (const name of ["next", "@effect/language-service", "workflow"]) {
+        await f.put(`apps/web/node_modules/${name}/package.json`, JSON.stringify({ name }));
+        await f.put(`apps/web/node_modules/${name}/index.js`, 'throw new Error("Plugin executed")');
+      }
+
+      const discovery = createProjectDiscovery({ registry: f.registry });
+
+      const ts = await discovery.discover({
+        checkout: f.checkout,
+        path,
+        providerId: "typescript",
+        settings: f.settings,
+      });
+
+      expect(ts.projectRoot).toBe(join(f.root, "apps/web"));
+      expect(ts.tsserver).toBe(server);
+      expect(ts.sdkVersion).toBe("6.0.3");
+      expect(ts.plugins.map(({ name }) => name)).toEqual([
+        "next",
+        "@effect/language-service",
+        "workflow",
+      ]);
+      expect(ts.plugins.every(({ packagePath }) => packagePath !== null)).toBe(true);
+      expect(ts.pluginProbeRoots).toEqual([join(f.root, "apps/web")]);
+
+      await f.put("services/api/pyproject.toml");
+      await f.put("services/api/.venv/bin/python");
+      const nestedPython = await f.put("services/api/jobs/.venv/bin/python");
+      const pyFile = await f.put("services/api/jobs/main.py");
+
+      const py = await discovery.discover({
+        checkout: f.checkout,
+        path: pyFile,
+        providerId: "pyright",
+        settings: f.settings,
+      });
+
+      expect(py.projectRoot).toBe(join(f.root, "services/api"));
+      expect(py.interpreter).toBe(nestedPython);
+
+      await f.put("Cargo.toml", '[workspace]\nmembers=["native"]');
+      await f.put("native/Cargo.toml", '[package]\nname="nested"');
+      const rustFile = await f.put("native/src/lib.rs");
+      expect(
+        (
+          await discovery.discover({
+            checkout: f.checkout,
+            path: rustFile,
+            providerId: "rust-analyzer",
+            settings: f.settings,
+          })
+        ).projectRoot
+      ).toBe(join(f.root, "native"));
+
+      await f.put(
+        "apps/web/prisma.config.ts",
+        'throw new Error("Executable Prisma configuration loaded")'
+      );
+      const schema = await f.put("apps/web/prisma/schema.prisma");
+
+      const prisma = await discovery.discover({
+        checkout: f.checkout,
+        path: schema,
+        providerId: "prisma",
+        settings: f.settings,
+      });
+
+      expect(prisma.prisma).toEqual({
+        config: join(f.root, "apps/web/prisma.config.ts"),
+        schema,
+        configurationDeferred: true,
+      });
+      await f.put("go.work", "go 1.26\nuse ./go/service");
+      await f.put("go/service/go.mod", "module fixture");
+      const go = await f.put("go/service/main.go");
+
+      const facts = await discovery.discover({
+        checkout: f.checkout,
+        path: go,
+        providerId: "gopls",
+        settings: f.settings,
+      });
+
+      expect(facts.projectRoot).toBe(join(f.root, "go/service"));
+      expect(facts.build.workspace).toBe(join(f.root, "go.work"));
+    } finally {
+      await f.cleanup();
     }
-
-    const discovery = createProjectDiscovery({ registry: f.registry });
-
-    const ts = await discovery.discover({
-      checkout: f.checkout,
-      path,
-      providerId: "typescript",
-      settings: f.settings,
-    });
-
-    expect(ts.projectRoot).toBe(join(f.root, "apps/web"));
-    expect(ts.tsserver).toBe(server);
-    expect(ts.sdkVersion).toBe("6.0.3");
-    expect(ts.plugins.map(({ name }) => name)).toEqual([
-      "next",
-      "@effect/language-service",
-      "workflow",
-    ]);
-    expect(ts.plugins.every(({ packagePath }) => packagePath !== null)).toBe(true);
-    expect(ts.pluginProbeRoots).toEqual([join(f.root, "apps/web")]);
-
-    await f.put("services/api/pyproject.toml");
-    await f.put("services/api/.venv/bin/python");
-    const nestedPython = await f.put("services/api/jobs/.venv/bin/python");
-    const pyFile = await f.put("services/api/jobs/main.py");
-
-    const py = await discovery.discover({
-      checkout: f.checkout,
-      path: pyFile,
-      providerId: "pyright",
-      settings: f.settings,
-    });
-
-    expect(py.projectRoot).toBe(join(f.root, "services/api"));
-    expect(py.interpreter).toBe(nestedPython);
-
-    await f.put("Cargo.toml", '[workspace]\nmembers=["native"]');
-    await f.put("native/Cargo.toml", '[package]\nname="nested"');
-    const rustFile = await f.put("native/src/lib.rs");
-    expect(
-      (
-        await discovery.discover({
-          checkout: f.checkout,
-          path: rustFile,
-          providerId: "rust-analyzer",
-          settings: f.settings,
-        })
-      ).projectRoot
-    ).toBe(join(f.root, "native"));
-
-    await f.put(
-      "apps/web/prisma.config.ts",
-      'throw new Error("Executable Prisma configuration loaded")'
-    );
-    const schema = await f.put("apps/web/prisma/schema.prisma");
-
-    const prisma = await discovery.discover({
-      checkout: f.checkout,
-      path: schema,
-      providerId: "prisma",
-      settings: f.settings,
-    });
-
-    expect(prisma.prisma).toEqual({
-      config: join(f.root, "apps/web/prisma.config.ts"),
-      schema,
-      configurationDeferred: true,
-    });
-    await f.put("go.work", "go 1.26\nuse ./go/service");
-    await f.put("go/service/go.mod", "module fixture");
-    const go = await f.put("go/service/main.go");
-
-    const facts = await discovery.discover({
-      checkout: f.checkout,
-      path: go,
-      providerId: "gopls",
-      settings: f.settings,
-    });
-
-    expect(facts.projectRoot).toBe(join(f.root, "go/service"));
-    expect(facts.build.workspace).toBe(join(f.root, "go.work"));
-  } finally {
-    await f.cleanup();
   }
-});
+);
 
 test("bounded cache, explicit refresh, detached result mutation and invalidation", async () => {
   const f = await fixture();
@@ -330,7 +338,7 @@ test("untrusted discovery identifies executable configs without importing them",
   }
 });
 
-test("ordinary virtual environment runtime symlinks preserve environment path", async () => {
+posixVenv("ordinary virtual environment runtime symlinks preserve environment path", async () => {
   const f = await fixture();
 
   try {
@@ -450,25 +458,28 @@ test("representative catalog and custom providers use their own root rules", asy
   }
 });
 
-test("Python JSON config overrides TOML; inherited venv paths retain their config location", async () => {
-  const f = await fixture();
+posixVenv(
+  "Python JSON config overrides TOML; inherited venv paths retain their config location",
+  async () => {
+    const f = await fixture();
 
-  try {
-    await f.put("python/pyproject.toml", '[tool.pyright]\nvenvPath="envs"\nvenv="toml"');
-    const toml = await f.put("python/envs/toml/bin/python");
-    const json = await f.put("python/envs/json/bin/python");
-    const path = await f.put("python/src/main.py");
-    const discovery = createProjectDiscovery({ registry: f.registry });
-    const input = { checkout: f.checkout, path, providerId: "pyright", settings: f.settings };
-    expect((await discovery.discover(input)).interpreter).toBe(toml);
-    await f.put("python/pyrightconfig.json", '{"venvPath":"envs","venv":"json"}');
-    expect((await discovery.discover({ ...input, refresh: true })).interpreter).toBe(json);
-    await f.put("python/src/pyrightconfig.json", '{"extends":"../pyrightconfig.json"}');
-    expect((await discovery.discover({ ...input, refresh: true })).interpreter).toBe(json);
-  } finally {
-    await f.cleanup();
+    try {
+      await f.put("python/pyproject.toml", '[tool.pyright]\nvenvPath="envs"\nvenv="toml"');
+      const toml = await f.put("python/envs/toml/bin/python");
+      const json = await f.put("python/envs/json/bin/python");
+      const path = await f.put("python/src/main.py");
+      const discovery = createProjectDiscovery({ registry: f.registry });
+      const input = { checkout: f.checkout, path, providerId: "pyright", settings: f.settings };
+      expect((await discovery.discover(input)).interpreter).toBe(toml);
+      await f.put("python/pyrightconfig.json", '{"venvPath":"envs","venv":"json"}');
+      expect((await discovery.discover({ ...input, refresh: true })).interpreter).toBe(json);
+      await f.put("python/src/pyrightconfig.json", '{"extends":"../pyrightconfig.json"}');
+      expect((await discovery.discover({ ...input, refresh: true })).interpreter).toBe(json);
+    } finally {
+      await f.cleanup();
+    }
   }
-});
+);
 
 test("automatic SDK cannot borrow a sibling checkout; explicit SDK skips automatic probe", async () => {
   const f = await fixture();

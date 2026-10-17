@@ -11,6 +11,11 @@ import { LanguageTrustGrantAuthority, LanguageConnectionLifetime } from "./ports
 
 import { fixture, hostId, run } from "./core.testing.ts";
 import { PrivateNodeRuntime } from "./privateNode.ts";
+import { posixTest } from "../../platform/testing.ts";
+
+const projectBinTest = posixTest(
+  "project formatters run node_modules/.bin/<tool> as a POSIX executable; npm leaves .cmd shims on Windows (ENG-296)"
+);
 
 test("Core observation admission keeps nested canonical projects distinct and retires after trust changes", async () => {
   await run(
@@ -237,82 +242,87 @@ test("trust grants default-deny, use real CAS and invalidate broker generations 
   );
 });
 
-test("the project's formatter is discovered without Trust and runs only once trusted", async () => {
-  await run(
-    Effect.gen(function* () {
-      const f = yield* fixture();
-      const bin = join(f.root, "node_modules", ".bin");
-      const record = join(f.root, "ran");
+projectBinTest(
+  "the project's formatter is discovered without Trust and runs only once trusted",
+  async () => {
+    await run(
+      Effect.gen(function* () {
+        const f = yield* fixture();
+        const bin = join(f.root, "node_modules", ".bin");
+        const record = join(f.root, "ran");
 
-      yield* Effect.promise(async () => {
-        await writeFile(join(f.root, ".prettierrc"), "{}");
-        await mkdir(bin, { recursive: true });
-        await writeFile(join(bin, "prettier"), `#!/bin/sh\ntouch "${record}"\ntr a-z A-Z\n`, {
-          mode: 0o755,
+        yield* Effect.promise(async () => {
+          await writeFile(join(f.root, ".prettierrc"), "{}");
+          await mkdir(bin, { recursive: true });
+          await writeFile(join(bin, "prettier"), `#!/bin/sh\ntouch "${record}"\ntr a-z A-Z\n`, {
+            mode: 0o755,
+          });
         });
-      });
 
-      const discovery = yield* f.run(
-        f.core.discover({
+        const discovery = yield* f.run(
+          f.core.discover({
+            checkout: f.checkout,
+            path: f.input.path,
+            documentLanguageId: "typescript",
+            settings: f.settings,
+          })
+        );
+
+        expect(discovery.projectFormatter).toMatchObject({
+          tool: "prettier",
+          installed: true,
+          ignored: false,
+        });
+
+        const request = P.LanguageProjectFormatInput.make({
           checkout: f.checkout,
           path: f.input.path,
-          documentLanguageId: "typescript",
-          settings: f.settings,
-        })
-      );
-
-      expect(discovery.projectFormatter).toMatchObject({
-        tool: "prettier",
-        installed: true,
-        ignored: false,
-      });
-
-      const request = P.LanguageProjectFormatInput.make({
-        checkout: f.checkout,
-        path: f.input.path,
-        requestId: "format-1",
-        version: 3,
-        text: "unsaved",
-        deadline: Date.now() + 5000,
-      });
-
-      const refused = yield* Effect.flip(f.run(f.core.formatProject(request)));
-      expect(refused.reason).toBe("awaiting-trust");
-      expect(yield* Effect.promise(() => Bun.file(record).exists())).toBe(false);
-
-      const scope = P.LanguageTrustScope.cases.Workspace.make({
-        hostId,
-        workspaceId: f.checkout.workspaceId,
-      });
-
-      yield* f.run(
-        f.core
-          .trustSet(scope, true, 0)
-          .pipe(
-            Effect.provideService(
-              LanguageTrustGrantAuthority,
-              LanguageTrustGrantAuthority.of({ authorize: () => Effect.void })
-            )
-          )
-      );
-
-      const privateNode = PrivateNodeRuntime.of({ node: async () => "/private/node/bin/node" });
-
-      expect(
-        yield* f.run(
-          f.core.formatProject(request).pipe(Effect.provideService(PrivateNodeRuntime, privateNode))
-        )
-      ).toEqual(
-        P.LanguageProjectFormatOutcome.cases.Formatted.make({
           requestId: "format-1",
           version: 3,
-          tool: "prettier",
-          text: "UNSAVED",
-        })
-      );
-    })
-  );
-});
+          text: "unsaved",
+          deadline: Date.now() + 5000,
+        });
+
+        const refused = yield* Effect.flip(f.run(f.core.formatProject(request)));
+        expect(refused.reason).toBe("awaiting-trust");
+        expect(yield* Effect.promise(() => Bun.file(record).exists())).toBe(false);
+
+        const scope = P.LanguageTrustScope.cases.Workspace.make({
+          hostId,
+          workspaceId: f.checkout.workspaceId,
+        });
+
+        yield* f.run(
+          f.core
+            .trustSet(scope, true, 0)
+            .pipe(
+              Effect.provideService(
+                LanguageTrustGrantAuthority,
+                LanguageTrustGrantAuthority.of({ authorize: () => Effect.void })
+              )
+            )
+        );
+
+        const privateNode = PrivateNodeRuntime.of({ node: async () => "/private/node/bin/node" });
+
+        expect(
+          yield* f.run(
+            f.core
+              .formatProject(request)
+              .pipe(Effect.provideService(PrivateNodeRuntime, privateNode))
+          )
+        ).toEqual(
+          P.LanguageProjectFormatOutcome.cases.Formatted.make({
+            requestId: "format-1",
+            version: 3,
+            tool: "prettier",
+            text: "UNSAVED",
+          })
+        );
+      })
+    );
+  }
+);
 
 test("context feed, configure and server-response paths delegate through current owned broker", async () => {
   await run(

@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect } from "bun:test";
 import { mkdtemp, realpath, rm, access } from "node:fs/promises";
 import { join } from "node:path";
 import { connectRpc, socketTransport } from "@polaris/client";
@@ -7,6 +7,11 @@ import { Effect, Layer, Predicate, Redacted, Stream } from "effect";
 import { EventStore } from "../../store/EventStore.ts";
 import { startServer } from "../../transport/server.ts";
 import { DefaultLanguageHostHandlers } from "./defaults.ts";
+import { posixTest, shortTemp } from "../../platform/testing.ts";
+
+const languageHostTest = posixTest(
+  "Windows Hosts have no LanguagePlatform, so language services report unsupported-platform (ENG-296)"
+);
 
 const hello = (languageProof?: Redacted.Redacted<unknown>) => {
   const input = {
@@ -19,187 +24,190 @@ const hello = (languageProof?: Redacted.Redacted<unknown>) => {
   return languageProof === undefined ? input : { ...input, languageProof };
 };
 
-test("mounted Host core uses transport Host identity and refuses unapproved managed ShellCheck", async () => {
-  await Effect.runPromise(
-    Effect.scoped(
-      Effect.gen(function* () {
-        const root = yield* Effect.acquireRelease(
-          Effect.promise(async () => realpath(await mkdtemp("/tmp/m31-core-mount-"))),
-          (path) => Effect.promise(() => rm(path, { recursive: true, force: true }))
-        );
+languageHostTest(
+  "mounted Host core uses transport Host identity and refuses unapproved managed ShellCheck",
+  async () => {
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const root = yield* Effect.acquireRelease(
+            Effect.promise(async () => realpath(await mkdtemp(shortTemp("m31-core-mount-")))),
+            (path) => Effect.promise(() => rm(path, { recursive: true, force: true }))
+          );
 
-        const store = yield* EventStore;
+          const store = yield* EventStore;
 
-        const server = yield* startServer({
-          root,
-          socketPath: join(root, "d.sock"),
-          lockPath: join(root, "d.lock"),
-          handlers: DefaultLanguageHostHandlers.pipe(
-            Layer.provide(Layer.succeed(EventStore)(store))
-          ),
-        });
+          const server = yield* startServer({
+            root,
+            socketPath: join(root, "d.sock"),
+            lockPath: join(root, "d.lock"),
+            handlers: DefaultLanguageHostHandlers.pipe(
+              Layer.provide(Layer.succeed(EventStore)(store))
+            ),
+          });
 
-        const absent = yield* connectRpc(yield* socketTransport(server.socketPath));
+          const absent = yield* connectRpc(yield* socketTransport(server.socketPath));
 
-        yield* absent.client.hello(hello());
+          yield* absent.client.hello(hello());
 
-        const denied = yield* Effect.flip(absent.client["languages.catalog"]({}));
+          const denied = yield* Effect.flip(absent.client["languages.catalog"]({}));
 
-        expect(denied).toBeInstanceOf(LanguageError);
+          expect(denied).toBeInstanceOf(LanguageError);
 
-        expect(denied.reason).toBe("not-owner");
+          expect(denied.reason).toBe("not-owner");
 
-        const budgetDenied = yield* Effect.flip(
-          absent.client["languages.host.processBudget.get"]({})
-        );
+          const budgetDenied = yield* Effect.flip(
+            absent.client["languages.host.processBudget.get"]({})
+          );
 
-        expect(budgetDenied.reason).toBe("not-owner");
+          expect(budgetDenied.reason).toBe("not-owner");
 
-        const owned = yield* connectRpc(yield* socketTransport(server.socketPath));
+          const owned = yield* connectRpc(yield* socketTransport(server.socketPath));
 
-        const reply = yield* owned.client.hello(hello(Redacted.make("e".repeat(64))));
+          const reply = yield* owned.client.hello(hello(Redacted.make("e".repeat(64))));
 
-        const catalog = yield* owned.client["languages.catalog"]({});
+          const catalog = yield* owned.client["languages.catalog"]({});
 
-        const hostState = yield* owned.client["languages.host.state"]({
-          toolIds: [],
-          refresh: true,
-        });
+          const hostState = yield* owned.client["languages.host.state"]({
+            toolIds: [],
+            refresh: true,
+          });
 
-        expect(hostState.hostId).toBe(reply.host.hostId);
-        expect(hostState.tools).toHaveLength(catalog.tools.length);
-        const budget = yield* owned.client["languages.host.processBudget.get"]({});
-        expect(budget.hostId).toBe(reply.host.hostId);
-        expect(budget.maxProcesses).toBeNull();
+          expect(hostState.hostId).toBe(reply.host.hostId);
+          expect(hostState.tools).toHaveLength(catalog.tools.length);
+          const budget = yield* owned.client["languages.host.processBudget.get"]({});
+          expect(budget.hostId).toBe(reply.host.hostId);
+          expect(budget.maxProcesses).toBeNull();
 
-        const selected = yield* owned.client["languages.host.processBudget.set"]({
-          expectedRevision: budget.revision,
-          maxProcesses: 12,
-        });
-
-        expect(selected.effectiveLimit).toBe(12);
-
-        const raced = yield* Effect.flip(
-          owned.client["languages.host.processBudget.set"]({
+          const selected = yield* owned.client["languages.host.processBudget.set"]({
             expectedRevision: budget.revision,
-            maxProcesses: 16,
-          })
-        );
+            maxProcesses: 12,
+          });
 
-        expect(raced.reason).toBe("conflict");
+          expect(selected.effectiveLimit).toBe(12);
 
-        const state = hostState.tools.find(
-          (tool) => tool.toolId === "typescript-language-server"
-        )?.state;
+          const raced = yield* Effect.flip(
+            owned.client["languages.host.processBudget.set"]({
+              expectedRevision: budget.revision,
+              maxProcesses: 16,
+            })
+          );
 
-        expect(state !== undefined && Predicate.isTagged(state, "NotDownloaded")).toBe(true);
-        expect(
-          catalog.integrations
-            .filter((integration) => integration.offered)
-            .map((integration) => integration.id)
-        ).toEqual([
-          "typescript",
-          "json",
-          "html",
-          "css",
-          "python",
-          "bash",
-          "php",
-          "go",
-          "rust",
-          "lua",
-          "sql",
-          "prisma",
-          "yaml",
-          "actions",
-          "svelte",
-        ]);
+          expect(raced.reason).toBe("conflict");
 
-        const feed = yield* Stream.runCollect(
-          owned.client["languages.host.state.watch"]({
-            toolIds: ["typescript-language-server"],
-            refresh: false,
-          }).pipe(Stream.take(1))
-        );
+          const state = hostState.tools.find(
+            (tool) => tool.toolId === "typescript-language-server"
+          )?.state;
 
-        expect(feed[0]?.tools.map((tool) => tool.toolId)).toEqual(["typescript-language-server"]);
+          expect(state !== undefined && Predicate.isTagged(state, "NotDownloaded")).toBe(true);
+          expect(
+            catalog.integrations
+              .filter((integration) => integration.offered)
+              .map((integration) => integration.id)
+          ).toEqual([
+            "typescript",
+            "json",
+            "html",
+            "css",
+            "python",
+            "bash",
+            "php",
+            "go",
+            "rust",
+            "lua",
+            "sql",
+            "prisma",
+            "yaml",
+            "actions",
+            "svelte",
+          ]);
 
-        const shellcheck = catalog.tools.find((tool) => tool.id === "shellcheck");
+          const feed = yield* Stream.runCollect(
+            owned.client["languages.host.state.watch"]({
+              toolIds: ["typescript-language-server"],
+              refresh: false,
+            }).pipe(Stream.take(1))
+          );
 
-        expect(shellcheck?.disposition).toBe("offered");
+          expect(feed[0]?.tools.map((tool) => tool.toolId)).toEqual(["typescript-language-server"]);
 
-        expect(shellcheck?.artifacts).toHaveLength(4);
+          const shellcheck = catalog.tools.find((tool) => tool.id === "shellcheck");
 
-        const facts = yield* owned.client["languages.availability"]({
-          toolIds: ["shellcheck"],
-          checkout: null,
-          phase: "install",
-          refresh: true,
-        });
+          expect(shellcheck?.disposition).toBe("offered");
 
-        expect(facts).toHaveLength(1);
+          expect(shellcheck?.artifacts).toHaveLength(4);
 
-        expect(facts[0]?.hostId).toBe(reply.host.hostId);
-
-        const fact = facts[0];
-
-        if (fact === undefined || !Predicate.isTagged(fact.preflight, "Blocked"))
-          throw new Error("Pending artifact was not blocked");
-
-        expect(Predicate.isTagged(fact.installation, "NotInstalled")).toBe(true);
-        expect(fact.preflight.reason).toBe("audit-required");
-
-        const unobserved = yield* Effect.flip(
-          owned.client["languages.availability"]({
-            toolIds: ["typescript-language-server"],
+          const facts = yield* owned.client["languages.availability"]({
+            toolIds: ["shellcheck"],
             checkout: null,
             phase: "install",
             refresh: true,
-          })
-        );
+          });
 
-        expect(unobserved.reason).toBe("not-ready");
-        expect(unobserved.message).toBe(
-          "Prerequisite observation is unavailable without current request authority"
-        );
+          expect(facts).toHaveLength(1);
 
-        const installDenied = yield* Effect.flip(
-          owned.client["languages.install"]({
-            toolId: "shellcheck",
-            version: "0.11.0",
-            intent: "manual",
-          })
-        );
+          expect(facts[0]?.hostId).toBe(reply.host.hostId);
 
-        expect(installDenied.reason).toBe("unsupported-capability");
-        expect(installDenied.message).toBe("Independent installation permission is unavailable");
+          const fact = facts[0];
 
-        const foreignCancel = yield* Effect.flip(
-          owned.client["languages.install.cancel"]({ jobId: "foreign-job" })
-        );
+          if (fact === undefined || !Predicate.isTagged(fact.preflight, "Blocked"))
+            throw new Error("Pending artifact was not blocked");
 
-        expect(foreignCancel.reason).toBe("not-owner");
+          expect(Predicate.isTagged(fact.installation, "NotInstalled")).toBe(true);
+          expect(fact.preflight.reason).toBe("audit-required");
 
-        const rollbackDenied = yield* Effect.flip(
-          owned.client["languages.install"]({
-            toolId: "shellcheck",
-            version: "0.11.0",
-            intent: "rollback",
-          })
-        );
+          const unobserved = yield* Effect.flip(
+            owned.client["languages.availability"]({
+              toolIds: ["typescript-language-server"],
+              checkout: null,
+              phase: "install",
+              refresh: true,
+            })
+          );
 
-        expect(rollbackDenied.reason).toBe("unsupported-capability");
+          expect(unobserved.reason).toBe("not-ready");
+          expect(unobserved.message).toBe(
+            "Prerequisite observation is unavailable without current request authority"
+          );
 
-        const foreignWatch = yield* Effect.flip(
-          Stream.runCollect(owned.client["languages.install.watch"]({ jobId: "foreign-job" }))
-        );
+          const installDenied = yield* Effect.flip(
+            owned.client["languages.install"]({
+              toolId: "shellcheck",
+              version: "0.11.0",
+              intent: "manual",
+            })
+          );
 
-        expect(foreignWatch.reason).toBe("not-owner");
+          expect(installDenied.reason).toBe("unsupported-capability");
+          expect(installDenied.message).toBe("Independent installation permission is unavailable");
 
-        yield* Effect.promise(() => access(join(root, "languages")));
+          const foreignCancel = yield* Effect.flip(
+            owned.client["languages.install.cancel"]({ jobId: "foreign-job" })
+          );
 
-        expect(reply.capabilities).not.toContain("languages");
-      })
-    ).pipe(Effect.provide(EventStore.layerSqlite(":memory:")))
-  );
-});
+          expect(foreignCancel.reason).toBe("not-owner");
+
+          const rollbackDenied = yield* Effect.flip(
+            owned.client["languages.install"]({
+              toolId: "shellcheck",
+              version: "0.11.0",
+              intent: "rollback",
+            })
+          );
+
+          expect(rollbackDenied.reason).toBe("unsupported-capability");
+
+          const foreignWatch = yield* Effect.flip(
+            Stream.runCollect(owned.client["languages.install.watch"]({ jobId: "foreign-job" }))
+          );
+
+          expect(foreignWatch.reason).toBe("not-owner");
+
+          yield* Effect.promise(() => access(join(root, "languages")));
+
+          expect(reply.capabilities).not.toContain("languages");
+        })
+      ).pipe(Effect.provide(EventStore.layerSqlite(":memory:")))
+    );
+  }
+);

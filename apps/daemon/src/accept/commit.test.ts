@@ -3,7 +3,7 @@
  * are faked by capturing checkpoints around edits, as the engine does.
  */
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, readFileSync } from "node:fs";
+import { chmodSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { TurnId } from "@polaris/protocol";
 import { captureCheckpoint } from "../git/Checkpoints.ts";
@@ -127,7 +127,7 @@ describe("commitTurns", () => {
     async () => {
       const root = await repo();
       write(root, ".git/hooks/pre-commit", "#!/bin/sh\necho no >&2\nexit 1\n");
-      Bun.spawnSync(["chmod", "+x", join(root, ".git/hooks/pre-commit")]);
+      chmodSync(join(root, ".git/hooks/pre-commit"), 0o755);
       const t0 = await turn(root, 0, () => write(root, "a.txt", "two\n"));
 
       const failure = await commitTurns({

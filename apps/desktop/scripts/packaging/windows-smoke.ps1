@@ -1,6 +1,8 @@
 param(
   [Parameter(Mandatory = $true)][string]$Installer,
-  [ValidateSet('x64', 'arm64')][string]$Arch = 'x64'
+  [ValidateSet('x64', 'arm64')][string]$Arch = 'x64',
+  # The Daemon to serve and reach over its pipe when the package carries none for -Arch.
+  [string]$Daemon
 )
 
 $ErrorActionPreference = 'Stop'
@@ -52,6 +54,15 @@ try {
   if (!$window) { throw 'Installed Polaris did not open a window' }
   if (!(Test-Path (Join-Path $installRoot 'Update.exe'))) { throw 'Squirrel install root is missing Update.exe' }
   Write-Output "WINDOW OPEN: Windows $Arch; process $($window.Id); $($window.MainWindowTitle)"
+
+  # The Daemon the package carries for this architecture, else -Daemon.
+  $bundled = Join-Path (Split-Path $application) "resources\daemon\windows-$Arch\polaris.exe"
+  $local = if (Test-Path $bundled) { $bundled } else { $Daemon }
+  if ($local) {
+    & (Join-Path $PSScriptRoot '..\..\..\daemon\scripts\windows-pipe-smoke.ps1') -Daemon $local
+  } else {
+    Write-Warning 'No Daemon in the package and no -Daemon: the pipe was not checked'
+  }
 } finally {
   $running = @(Get-Process -Name Polaris -ErrorAction SilentlyContinue |
     Where-Object { $_.Path -and $_.Path.StartsWith("$installRoot\", [System.StringComparison]::OrdinalIgnoreCase) })

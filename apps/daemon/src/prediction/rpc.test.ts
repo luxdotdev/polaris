@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { PredictionComplete, PredictionRequest } from "@polaris/protocol";
 import { Effect, Stream } from "effect";
 import { RpcGroup, RpcTest } from "effect/rpc";
+import { fileURLToPath } from "node:url";
 import { PredictionRpcsLive } from "./index.ts";
 
 const request = (url: string) =>
@@ -98,7 +99,7 @@ test("Daemon startup does not import the predictor implementation", async () => 
     [
       process.execPath,
       "-e",
-      `await import(${JSON.stringify(new URL("../transport/serve.ts", import.meta.url).pathname)}); console.log(Object.keys(require.cache).filter(path => path.includes('/packages/predict/src/') || path.endsWith('/daemon/src/prediction/complete.ts') || path.endsWith('/daemon/src/prediction/edit.ts')).length);`,
+      `await import(${JSON.stringify(fileURLToPath(new URL("../transport/serve.ts", import.meta.url)))}); console.log(Object.keys(require.cache).map(path => path.replaceAll("\\\\", "/")).filter(path => path.includes('/packages/predict/src/') || path.endsWith('/daemon/src/prediction/complete.ts') || path.endsWith('/daemon/src/prediction/edit.ts')).length);`,
     ],
     { stdout: "pipe", stderr: "pipe" }
   );

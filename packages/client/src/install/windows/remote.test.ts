@@ -92,37 +92,41 @@ const dir = mkdtempSync(join(tmpdir(), "polaris-lines-"));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
 describe("stdin as base64 lines", () => {
-  test("delivers a file larger than one line, byte for byte", async () => {
-    const bytes = new Uint8Array(200_000).map((_, i) => (i * 13 + 5) % 256);
-    const file = join(dir, "payload.bin");
-    writeFileSync(file, bytes);
+  // Ssh.local stands in for the SSH Host through /bin/sh, which Windows lacks (ENG-318).
+  test.skipIf(process.platform === "win32")(
+    "delivers a file larger than one line, byte for byte",
+    async () => {
+      const bytes = new Uint8Array(200_000).map((_, i) => (i * 13 + 5) % 256);
+      const file = join(dir, "payload.bin");
+      writeFileSync(file, bytes);
 
-    const decode = join(dir, "decode.ts");
-    writeFileSync(
-      decode,
-      [
-        'import { createHash } from "node:crypto";',
-        "const text = await Bun.stdin.text();",
-        'const lines = text.split("\\n").filter((line) => line.length > 0);',
-        'const bytes = Buffer.concat(lines.map((line) => Buffer.from(line, "base64")));',
-        'console.log(lines.length, createHash("sha256").update(bytes).digest("hex"));',
-      ].join("\n")
-    );
+      const decode = join(dir, "decode.ts");
+      writeFileSync(
+        decode,
+        [
+          'import { createHash } from "node:crypto";',
+          "const text = await Bun.stdin.text();",
+          'const lines = text.split("\\n").filter((line) => line.length > 0);',
+          'const bytes = Buffer.concat(lines.map((line) => Buffer.from(line, "base64")));',
+          'console.log(lines.length, createHash("sha256").update(bytes).digest("hex"));',
+        ].join("\n")
+      );
 
-    const result = await Effect.runPromise(
-      Ssh.use((ssh) =>
-        ssh.exec("local", `${shellQuote(process.execPath)} ${shellQuote(decode)}`, {
-          stdinFile: file,
-          stdinLines: true,
-        })
-      ).pipe(Effect.provide(Ssh.local(dir)))
-    );
+      const result = await Effect.runPromise(
+        Ssh.use((ssh) =>
+          ssh.exec("local", `${shellQuote(process.execPath)} ${shellQuote(decode)}`, {
+            stdinFile: file,
+            stdinLines: true,
+          })
+        ).pipe(Effect.provide(Ssh.local(dir)))
+      );
 
-    const [lines, sha256] = result.stdout.trim().split(" ");
+      const [lines, sha256] = result.stdout.trim().split(" ");
 
-    expect(Number(lines)).toBeGreaterThan(1);
-    expect(sha256).toBe(createHash("sha256").update(bytes).digest("hex"));
-  });
+      expect(Number(lines)).toBeGreaterThan(1);
+      expect(sha256).toBe(createHash("sha256").update(bytes).digest("hex"));
+    }
+  );
 });
 
 const SHA = "cd".repeat(32);

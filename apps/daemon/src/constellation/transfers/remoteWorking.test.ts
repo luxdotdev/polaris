@@ -58,6 +58,7 @@ import { applyWorkerDelivery, ConstellationSessionEffects } from "../delivery/in
 import { validateRemoteDelivery } from "../composition/remoteDelivery.ts";
 import { finish, wait, session } from "../delivery/testing.ts";
 import { remoteWorkingAttemptsLayer } from "./remoteWorking.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 const graph = () =>
   new Constellation({
@@ -87,7 +88,7 @@ const graph = () =>
   });
 
 test("a new remote Attempt starts its brief in an Existing Session with historical Turns, behind a scoped slot", async () => {
-  const root = mkdtempSync("/tmp/c1wslots-");
+  const root = mkdtempSync(shortTemp("c1wslots-"));
 
   try {
     await Effect.runPromise(
@@ -412,7 +413,7 @@ test("a new remote Attempt starts its brief in an Existing Session with historic
 });
 
 test("Host restart restores persisted blocked assignments without starting a first Turn", async () => {
-  const root = mkdtempSync("/tmp/blocked-assignment-");
+  const root = mkdtempSync(shortTemp("blocked-assignment-"));
   const file = `${root}/transfers.sqlite`;
 
   const assignment = new RemoteWorkerAssignment({
@@ -521,7 +522,7 @@ test("remote assignment indexing and version subscriptions isolate Sessions and 
 
 for (const outcome of ["resume", "Stop", "SendBack"] as const)
   test(`remote restart waits for registration; queued unblock ${outcome} keeps correct receipt`, async () => {
-    const root = mkdtempSync("/tmp/remote-blocked-admission-");
+    const root = mkdtempSync(shortTemp("remote-blocked-admission-"));
 
     const assignment = RemoteWorkerAssignment.make({
       graph: Constellation.make(

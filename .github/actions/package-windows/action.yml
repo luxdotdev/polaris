@@ -46,7 +46,7 @@ runs:
         if ($env:RELEASE -eq 'true') { $flags += '--release' }
         bun run --cwd apps/desktop package @flags
         if ($LASTEXITCODE -ne 0) { throw 'Windows packaging failed' }
-    - name: Install the x64 app, check it carries this PC's Daemon, and verify a window opens
+    - name: Install the x64 app, check it carries this PC's Daemon, verify a window opens, and reach that Daemon over its pipe
       shell: pwsh
       run: |
         $installers = @(Get-ChildItem 'apps/desktop/out/dist/squirrel-x64' -Filter '*-x64-win-Setup.exe')

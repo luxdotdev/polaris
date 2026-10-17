@@ -12,6 +12,7 @@ import type { InstalledVersion } from "../install/types.ts";
 import { decodeUpstream } from "../install/upstream.ts";
 import { phpactorLaunch, phpactorOptions } from "./launch.ts";
 import { workspaceTools } from "./projectTools.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 const phpactor = catalog.tools.find((tool) => tool.id === "phpactor")!;
 
@@ -79,7 +80,7 @@ test("the PHAR installs as one non-executable file beside its notices", async ()
 });
 
 async function project() {
-  const root = await realpath(await mkdtemp("/tmp/polaris-php-"));
+  const root = await realpath(await mkdtemp(shortTemp("polaris-php-")));
   await mkdir(join(root, "vendor/bin"), { recursive: true });
   await mkdir(join(root, "bin"));
   await writeFile(join(root, ".phpactor.json"), '{"composer.enable": true}');
@@ -149,7 +150,10 @@ test("the launch runs the PHAR on the Host's PHP with Phpactor's own trust store
       const plan = await phpactorLaunch(facts, installed, phpactor.requirements, probes);
       expect(plan.launch.executable).toBe(php);
       expect(plan.runtimeExecutable).toBe(php);
-      expect(plan.launch.args).toEqual(["/managed/phpactor/phpactor.phar", "language-server"]);
+      expect(plan.launch.args).toEqual([
+        join(installed.directory, "phpactor.phar"),
+        "language-server",
+      ]);
       expect(plan.launch.environment).toEqual(
         workspaceTrusted
           ? { PHPACTOR_UNCONDITIONAL_TRUST: "1" }

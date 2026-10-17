@@ -7,39 +7,45 @@ import { gitText, runGitRaw } from "./git.ts";
 import { listCheckpointRefs, planCheckpointPrune } from "./prune.ts";
 import { inspectCheckout } from "./review/worktree.ts";
 import { makeRepo, removeDir, write } from "./testing.ts";
+import { posixTest } from "../platform/testing.ts";
 
-test("real Worker identities capture both checkpoints, support Turn diff and retain active checkpoints", async () => {
-  const root = await makeRepo();
-  const sessionId = SessionId.make("dispatch-1790915668002-1:T4:worker");
-  const turnId = TurnId.make("dispatch-1790915668002-1:T4:attempt:start");
+posixTest(
+  "Windows bug: a Worker identity's checkpoint ref passes MAX_PATH without core.longPaths (ENG-318)"
+)(
+  "real Worker identities capture both checkpoints, support Turn diff and retain active checkpoints",
+  async () => {
+    const root = await makeRepo();
+    const sessionId = SessionId.make("dispatch-1790915668002-1:T4:worker");
+    const turnId = TurnId.make("dispatch-1790915668002-1:T4:attempt:start");
 
-  try {
-    await captureCheckpoint({ cwd: root, sessionId, turnId, label: "before" });
-    write(root, "agent.txt", "agent edit\n");
-    await captureCheckpoint({ cwd: root, sessionId, turnId, label: "after" });
-    const diff = await computeDiff(root, DiffSpec.cases.Turn.make({ sessionId, turnId }));
-    expect(diff.files).toBe(1);
-    expect(new TextDecoder().decode(diff.bytes)).toContain("+agent edit");
-    const refs = await listCheckpointRefs(root);
-    expect(refs).toHaveLength(2);
-    expect(refs.map((ref) => [ref.sessionId, ref.turnId])).toEqual([
-      [sessionId, turnId],
-      [sessionId, turnId],
-    ]);
+    try {
+      await captureCheckpoint({ cwd: root, sessionId, turnId, label: "before" });
+      write(root, "agent.txt", "agent edit\n");
+      await captureCheckpoint({ cwd: root, sessionId, turnId, label: "after" });
+      const diff = await computeDiff(root, DiffSpec.cases.Turn.make({ sessionId, turnId }));
+      expect(diff.files).toBe(1);
+      expect(new TextDecoder().decode(diff.bytes)).toContain("+agent edit");
+      const refs = await listCheckpointRefs(root);
+      expect(refs).toHaveLength(2);
+      expect(refs.map((ref) => [ref.sessionId, ref.turnId])).toEqual([
+        [sessionId, turnId],
+        [sessionId, turnId],
+      ]);
 
-    const plan = planCheckpointPrune({
-      refs,
-      sessions: [{ sessionId, archivedAt: null }],
-      now: Date.now(),
-      pruneOrphans: true,
-    });
+      const plan = planCheckpointPrune({
+        refs,
+        sessions: [{ sessionId, archivedAt: null }],
+        now: Date.now(),
+        pruneOrphans: true,
+      });
 
-    expect(plan.delete).toEqual([]);
-    expect(plan.keep).toHaveLength(2);
-  } finally {
-    removeDir(root);
+      expect(plan.delete).toEqual([]);
+      expect(plan.keep).toHaveLength(2);
+    } finally {
+      removeDir(root);
+    }
   }
-});
+);
 
 test("unsafe IDs round-trip and produce valid Git refs without collisions or oversized components", async () => {
   const root = await makeRepo();

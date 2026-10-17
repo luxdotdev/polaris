@@ -5,6 +5,7 @@ import { connectRpc, socketTransport } from "@polaris/client";
 import { Effect } from "effect";
 import { PredictionCapabilityLive } from "./capability.ts";
 import { startServer } from "../transport/server.ts";
+import { shortTemp } from "../platform/testing.ts";
 
 test("Capability RPC discovers configured endpoints, isolates bad responses and negotiates support", async () => {
   let calls = 0;
@@ -21,7 +22,7 @@ test("Capability RPC discovers configured endpoints, isolates bad responses and 
     },
   });
 
-  const root = mkdtempSync("/tmp/pl-predict-cap-");
+  const root = mkdtempSync(shortTemp("pl-predict-cap-"));
 
   try {
     const results = await Effect.runPromise(

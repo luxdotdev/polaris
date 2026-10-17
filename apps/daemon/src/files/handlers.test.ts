@@ -85,7 +85,10 @@ describe("handler layers", () => {
             cwd: repo,
             cols: 80,
             rows: 24,
-            argv: ["/bin/sh", "-c", "echo from-terminal"],
+            argv:
+              process.platform === "win32"
+                ? ["cmd.exe", "/d", "/c", "echo from-terminal"]
+                : ["/bin/sh", "-c", "echo from-terminal"],
           });
 
           const output = yield* client["terminal.attach"]({ terminalId }).pipe(

@@ -7,6 +7,7 @@ import { HarnessEvent } from "../HarnessDriver.ts";
 import { makeCodexDriver } from "./CodexDriver.ts";
 import { agentName, CodexSubagents } from "./subagents.ts";
 import { readFixture, replay, startFakeAppServer } from "./testing/FakeAppServer.ts";
+import { shortTemp } from "../../platform/testing.ts";
 
 const cleanup: Array<() => void> = [];
 
@@ -22,7 +23,7 @@ describe("Codex Subagents", () => {
   test("a recorded Turn that spawns one agent: its thread's items are the Subagent's", async () => {
     // Recorded from codex-cli 0.158.0 (multi-agent v2), paths and account notifications scrubbed.
     const frames = await readFixture(join(import.meta.dir, "fixtures/subagent-turn.jsonl"));
-    const dir = mkdtempSync("/tmp/pcs-");
+    const dir = mkdtempSync(shortTemp("pcs-"));
     cleanup.push(() => rmSync(dir, { recursive: true, force: true }));
     const server = startFakeAppServer(join(dir, "s.sock"), replay(frames));
     cleanup.push(server.stop);

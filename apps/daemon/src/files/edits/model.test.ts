@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect } from "bun:test";
 import { join } from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 import {
@@ -10,6 +10,9 @@ import { InjectedCrash } from "./index.ts";
 import { identity, loadJournal } from "./journal.ts";
 import { currentVersion, sameVersion } from "../version.ts";
 import type { Fault } from "./moves.ts";
+import { posixTest } from "../../platform/testing.ts";
+
+const test = posixTest("Quint's Rust evaluator ships no Windows build");
 
 const phases = {
   pending: "Pending",

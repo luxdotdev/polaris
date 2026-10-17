@@ -18,6 +18,7 @@ import { makeOpenCodeDriver, probeOpenCode } from "./OpenCodeDriver.ts";
 import { openSession } from "./OpenCodeSession.ts";
 import { events as eventsFor, readFixture } from "./testing/events.ts";
 import { FAKE_SESSION_ID, type FakeServer, makeFakeServer } from "./testing/FakeServer.ts";
+import { shellFake, shPath } from "../testing/shellFake.ts";
 
 type EventOf<T extends HarnessEvent["_tag"]> = Extract<HarnessEvent, { readonly _tag: T }>;
 
@@ -609,9 +610,12 @@ describe("OpenCode Models and probe", () => {
   test("probe runs --version only, with throwaway XDG directories", async () => {
     const dir = mkdtempSync(join(tmpdir(), "polaris-opencode-probe-test-"));
     cleanup.push(() => rmSync(dir, { recursive: true, force: true }));
-    const bin = join(dir, "opencode");
-    await Bun.write(bin, `#!/bin/sh\necho "$@|$XDG_DATA_HOME" >> "${dir}/calls"\necho 1.18.33\n`);
-    await Bun.$`chmod +x ${bin}`;
+
+    const bin = shellFake(
+      dir,
+      "opencode",
+      `echo "$@|$XDG_DATA_HOME" >> "${shPath(dir)}/calls"\necho 1.18.33`
+    );
 
     const probe = await Effect.runPromise(probeOpenCode(bin));
 
