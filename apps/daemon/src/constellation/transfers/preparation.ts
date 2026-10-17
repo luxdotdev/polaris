@@ -2,6 +2,7 @@ import { Predicate, Effect } from "effect";
 import type { ConstellationPreparation, ConstellationRuntimeService } from "../runtime.ts";
 import { ConstellationOwner } from "../runtime.ts";
 import { ConstellationWorktrees, transferError } from "../worktrees.ts";
+import { acceptFindings } from "../attempts.ts";
 import { finding, refusal } from "../decision.ts";
 import { RelayFacts } from "./outbox.ts";
 import { TransferStorage, decodeReceipt } from "./storage.ts";
@@ -51,7 +52,11 @@ export const withWorktreePreparation = Effect.fnUntraced(function* (
 
       const mapError = (e: import("@polaris/protocol").ConstellationTransferError) =>
         refusal(record, [
-          finding(e.code, e.message, "Fetch the branch, check the working tree, and retry."),
+          finding(
+            e.code,
+            e.message,
+            e.fix ?? "Fetch the branch, check the working tree, and retry."
+          ),
         ]);
 
       if (Predicate.isTagged(command, "WorkerClaim")) {
@@ -77,6 +82,10 @@ export const withWorktreePreparation = Effect.fnUntraced(function* (
       }
 
       if (Predicate.isTagged(command, "Review") && Predicate.isTagged(command.action, "Accept")) {
+        // Merge only a head the decider would accept: a stale or amended review merges nothing.
+        const findings = acceptFindings(record, command);
+
+        if (findings.length > 0) return yield* refusal(record, findings);
         checks.push(
           ...(yield* acceptedChecks(
             record,
@@ -110,7 +119,7 @@ const acceptedChecks = Effect.fnUntraced(function* (
 
   if (leadPath === undefined)
     return yield* transferError("E-LEAD", "The Lead checkout is unavailable");
-  yield* worktrees.verifyMerged(record.graph, attempt, leadPath, head);
+  yield* worktrees.mergeClaim(record.graph, attempt, leadPath, head);
   const checks: Array<import("../../engine/constellation.inputs.ts").RecordedCheck> = [];
 
   for (const stored of yield* storage.receipts) {

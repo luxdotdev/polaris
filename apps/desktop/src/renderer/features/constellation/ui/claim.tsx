@@ -1,7 +1,7 @@
 /**
  * The Claim card (DESIGN.md, The Claim card) at the end of a worker's transcript, and its
  * review form when the Constellation is paused or the Lead handed the Claim up (C3):
- * Approve (the Lead merges and accepts), Accept (already merged) or Send back.
+ * Approve (the Lead merges and accepts), Accept (merges the claimed head, then accepts) or Send back.
  */
 import { type AttemptState, ReviewAction, WorkerPlacement } from "@polaris/protocol";
 import { Button, cn, Input, PixelHandIcon, SegmentedControl, Textarea } from "@polaris/ui";
@@ -13,7 +13,6 @@ import {
   type ClaimPlace,
   type ConstellationRecord,
   type Facts,
-  headMatches,
   type ReceiptView,
   receiptView,
   type RefusalCopy,
@@ -304,11 +303,19 @@ const Accept = ({
   onMode,
   facts,
 }: FormProps & { readonly facts: Facts }) => {
-  const [head, setHead] = useState(claim.head);
+  // The Claim as the user last read it: Accept takes that head; an amendment waits to be read.
+  const look = () => ({ head: claim.head, revision: attempt.revision });
+  const [seen, setSeen] = useState(look);
   const [refused, setRefused] = useState<RefusalCopy | null>(null);
   const [kept, setKept] = useState<ReadonlySet<number>>(new Set(claim.receipts.map((_, n) => n)));
   const views = claim.receipts.map((r) => receiptView(r, facts));
-  const matches = headMatches(claim.head, head);
+  const amended = claim.head !== seen.head;
+
+  const read = () => {
+    setSeen(look());
+    setRefused(null);
+    setKept(new Set(claim.receipts.map((_, n) => n)));
+  };
 
   const accept = () =>
     void reviewClaim(
@@ -316,37 +323,33 @@ const Accept = ({
       {
         constellationId: record.constellation.id,
         attemptId: attempt.id,
-        revision: attempt.revision,
+        revision: seen.revision,
         action: ReviewAction.cases.Accept.make({
-          mergedHead: head.trim(),
+          mergedHead: seen.head,
           receipts: claim.receipts.filter((_, n) => kept.has(n)),
         }),
       },
-      place
+      { ...place, head: seen.head }
     ).then((copy) => (copy === null ? onClose() : setRefused(copy)));
 
   return (
-    <div className="flex flex-col gap-2 px-3.5 pb-3.5">
-      <label className="text-caption text-text-subtle" htmlFor="merged-head">
-        Merged head
-      </label>
-      <Input
-        id="merged-head"
-        autoFocus
-        value={head}
-        onChange={(e) => setHead(e.target.value)}
-        className="font-mono"
-      />
-      {matches ? null : (
-        <p className="text-caption text-failed-text">
-          It must match the claimed head, {shortSha(claim.head)}.
+    <div className="flex flex-col gap-2 px-3.5 pb-3.5" data-testid="claim-accept">
+      {amended ? (
+        <div role="alert" className="flex items-center gap-3">
+          <p className="text-body text-needs-you-text min-w-0 flex-1">
+            {task.id} amended its claim to <Mono>{shortSha(claim.head)}</Mono> since you opened it.
+          </p>
+          <Button size="xs" variant="secondary" onClick={read}>
+            Review {shortSha(claim.head)}
+          </Button>
+        </div>
+      ) : (
+        <p className="text-body text-text-default">
+          Merges <Mono>{place.branch}</Mono> at <Mono>{shortSha(seen.head)}</Mono> into{" "}
+          {place.leadBranch === null ? "the lead's branch" : <Mono>{place.leadBranch}</Mono>} and
+          accepts it.
         </p>
       )}
-      {matches && refused === null ? (
-        <p className="text-caption text-text-subtle">
-          Merge {place.branch} into {place.leadBranch ?? "the lead's branch"} first.
-        </p>
-      ) : null}
       <p className="text-caption text-text-subtle pt-1">Receipts</p>
       {views.map((r, n) => (
         <Choice
@@ -365,7 +368,7 @@ const Accept = ({
       ))}
       {refused === null ? null : <Refused copy={refused} onApprove={() => onMode("approve")} />}
       <div className="flex items-center gap-2 pt-1">
-        <Button variant="primary" disabled={!matches} onClick={accept}>
+        <Button variant="primary" disabled={amended} onClick={accept}>
           Accept {task.id}
         </Button>
         <Button variant="ghost" onClick={onClose}>
@@ -422,6 +425,9 @@ const ClaimHead = ({
       <span className="text-label text-text-strong">Claim</span>
       <span className={cn("text-body", accepted ? "text-accepted-text" : "text-text-subtle")}>
         {STATE_WORD[attempt.state]}
+        {attempt.state === "review" && attempt.previousClaimHead != null
+          ? ` · amended from ${shortSha(attempt.previousClaimHead)}`
+          : null}
       </span>
       <span className="flex-1" />
       <span className="text-code-inline text-text-subtle font-mono">
@@ -485,13 +491,7 @@ export const ReviewArea = ({
       />
     </div>
     {mode === "approve" ? <Approve {...form} /> : null}
-    {mode === "accept" ? (
-      <Accept
-        key={`${form.attempt.id}:${form.attempt.revision}:${form.claim.head}`}
-        {...form}
-        facts={facts}
-      />
-    ) : null}
+    {mode === "accept" ? <Accept key={form.attempt.id} {...form} facts={facts} /> : null}
     {mode === "send-back" ? <SendBack {...form} /> : null}
   </>
 );

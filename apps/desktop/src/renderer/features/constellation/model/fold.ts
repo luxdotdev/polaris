@@ -243,10 +243,12 @@ const stepFor = (event: Event, at: string): Step =>
       AttemptNudged: ({ attemptId, attemptRevision, at: nudgedAt }) =>
         patchAttempt(attemptId, attemptRevision, () => ({ nudgedAt })),
       AttemptClaimed: ({ attemptId, attemptRevision, claim }) =>
-        patchAttempt(attemptId, attemptRevision, () => ({
+        patchAttempt(attemptId, attemptRevision, (a) => ({
           state: "review",
           claim,
           claimedAt: at,
+          claimRevision: attemptRevision,
+          previousClaimHead: a.state === "review" ? (a.claim?.head ?? null) : null,
           approvedByUserAt: null,
           handedUpAt: null,
           handedUpReason: null,

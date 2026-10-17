@@ -1,0 +1,150 @@
+/**
+ * Accept's merge: the claimed head goes into the Lead's checkout before the Accept is decided,
+ * with automatic git's safe config (no repository hooks, filters or merge drivers).
+ */
+import { type Attempt, type Constellation, ConstellationTransferError } from "@polaris/protocol";
+import { Effect } from "effect";
+import { gitText, HOOKS_OFF, resolveCommit, runGitRaw } from "../git/git.ts";
+import { constellationRef, mergedInto } from "../git/constellationBundles.ts";
+import { gitStatus } from "../git/status.ts";
+
+const refused = (code: string, message: string, fix: string) =>
+  new ConstellationTransferError({ code, message, retryable: false, fix });
+
+const failed = (cause: unknown) =>
+  new ConstellationTransferError({
+    code: "E-GIT",
+    message: cause instanceof Error ? cause.message : String(cause),
+    retryable: true,
+  });
+
+const git = <A>(f: () => Promise<A>) => Effect.tryPromise({ try: f, catch: failed });
+
+export interface MergeOutcome {
+  /** False when the Lead's branch already contained the claimed head. */
+  readonly merged: boolean;
+  readonly leadHead: string;
+}
+
+const fetched = Effect.fnUntraced(function* (
+  graph: Constellation,
+  attempt: Attempt,
+  leadPath: string,
+  head: string
+) {
+  const local = yield* git(() => resolveCommit(leadPath, head));
+
+  const remoteRef =
+    attempt.hostId === graph.hostId
+      ? head
+      : yield* git(() => resolveCommit(leadPath, constellationRef(graph.id, attempt.id)));
+
+  if (local !== head || remoteRef !== head)
+    return yield* Effect.fail(
+      new ConstellationTransferError({
+        code: "E-GIT",
+        message: `The claimed head ${head} has not been fetched into the Lead's repository`,
+        retryable: true,
+        fix: "Fetch the worker's branch from its Host, then accept again.",
+      })
+    );
+});
+
+/** Why the Lead's checkout can't take a merge now, with the step that clears it; null when it can. */
+const leadBlocker = async (leadPath: string, place: string) => {
+  const status = await gitStatus(leadPath);
+
+  if (status.branch === null || status.head === null)
+    return refused(
+      "E-LEAD-DETACHED",
+      `The Lead's checkout at ${leadPath} is not on a branch`,
+      `Check out the Lead's branch, then accept again; Polaris merges ${place} there.`
+    );
+
+  if ((await resolveCommit(leadPath, "MERGE_HEAD")) !== null)
+    return refused(
+      "E-LEAD-MERGING",
+      `The Lead's checkout already has a merge in progress on ${status.branch}`,
+      `Finish or abort that merge, then accept again.`
+    );
+
+  const tracked = status.entries.filter((e) => e.index !== "?" && e.index !== "!");
+
+  if (tracked.length > 0)
+    return refused(
+      "E-LEAD-DIRTY",
+      `The Lead's checkout has uncommitted changes on ${status.branch}: ${tracked
+        .slice(0, 5)
+        .map((e) => e.path)
+        .join(", ")}${tracked.length > 5 ? ` and ${tracked.length - 5} more` : ""}`,
+      `Commit or stash them, then accept again; Polaris merges ${place} into ${status.branch}.`
+    );
+
+  return status.branch;
+};
+
+/** Paths a failed merge left conflicted, then the merge undone so the Lead's tree is as it was. */
+const abandon = async (leadPath: string) => {
+  const conflicts = (
+    await gitText(leadPath, [...HOOKS_OFF, "diff", "--name-only", "--diff-filter=U"])
+  )
+    .split("\n")
+    .filter((p) => p !== "");
+
+  if ((await resolveCommit(leadPath, "MERGE_HEAD")) !== null)
+    await gitText(leadPath, [...HOOKS_OFF, "merge", "--abort"]);
+
+  return conflicts;
+};
+
+/**
+ * Merges the claimed head into the Lead's current branch unless it already contains it.
+ * Refuses, leaving the checkout as it was, on a dirty or detached Lead tree or a conflict.
+ */
+export const mergeClaim = Effect.fnUntraced(function* (
+  graph: Constellation,
+  attempt: Attempt,
+  leadPath: string,
+  head: string
+): Effect.fn.Return<MergeOutcome, ConstellationTransferError> {
+  if (attempt.claim === null || head !== attempt.claim.head)
+    return yield* refused(
+      "E-MERGED-HEAD",
+      `${head} is not the claimed head ${attempt.claim?.head ?? "(no Claim)"}`,
+      `Accept with mergedHead ${attempt.claim?.head ?? "of the current Claim"}.`
+    );
+
+  yield* fetched(graph, attempt, leadPath, head);
+
+  if (yield* git(() => mergedInto(leadPath, head, "HEAD")))
+    return { merged: false, leadHead: yield* git(() => gitText(leadPath, ["rev-parse", "HEAD"])) };
+
+  const place = `${attempt.branch} at ${head}`;
+  const branch = yield* git(() => leadBlocker(leadPath, place));
+
+  if (branch instanceof ConstellationTransferError) return yield* branch;
+
+  const message = `Merge ${attempt.branch} (${attempt.taskId})`;
+
+  const result = yield* git(() =>
+    runGitRaw(leadPath, [...HOOKS_OFF, "merge", "--ff", "--no-edit", "-m", message, head])
+  );
+
+  if (result.code !== 0) {
+    const conflicts = yield* git(() => abandon(leadPath));
+
+    return yield* conflicts.length > 0
+      ? refused(
+          "E-MERGE-CONFLICT",
+          `Merging ${place} into ${branch} conflicts in ${conflicts.slice(0, 5).join(", ")}; nothing was merged`,
+          `Send it back with mergeConflictBase ${branch} so the worker merges ${branch} first, or merge it into ${branch} yourself, then accept with mergedHead ${head}.`
+        )
+      : refused(
+          "E-GIT",
+          `git merge of ${place} into ${branch} failed: ${result.stderr.trim()}`,
+          `Merge ${place} into ${branch} yourself, then accept with mergedHead ${head}.`
+        );
+  }
+
+  return { merged: true, leadHead: yield* git(() => gitText(leadPath, ["rev-parse", "HEAD"])) };
+});

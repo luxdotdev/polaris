@@ -86,7 +86,7 @@ export const leadTools = (
   ),
   define(
     "review",
-    "Accept the exact merged Claim head with receipts, send back with a reason and worker placement, stop, or hand a Claim to the user. Requires the Attempt revision from status; only the user grants approval.",
+    "Accept the exact claimed head (Polaris merges it into your branch, refusing on conflicts or a dirty checkout) with receipts, send back with a reason and worker placement, stop, or hand a Claim to the user. Requires the Attempt revision from status; only the user grants approval.",
     Schema.Struct({
       task: Schema.NonEmptyString,
       revision: C.Review.fields.revision,

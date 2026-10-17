@@ -1,31 +1,20 @@
 import "../../../test/dom.testing.ts";
-import {
-  ConstellationId,
-  MessageTarget,
-  ReviewAction,
-  TerminalId,
-  WorkerPlacement,
-} from "@polaris/protocol";
+import { ConstellationId, MessageTarget, ReviewAction, WorkerPlacement } from "@polaris/protocol";
 import { Toaster } from "@polaris/ui";
-import { act, cleanup, render, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { Data } from "effect";
-import type { TerminalItem } from "../../../../shared/api.ts";
 import { type FakeBridge, installFakeBridge } from "../../../test/bridge.testing.ts";
 import { standInBridge } from "../../bridge.ts";
 import { batchOf, commentsStore, setBatch } from "../../comments/data/store.ts";
 import { emptyBatch } from "../../comments/model/feedback.ts";
-import { attempt, b1Claim, LEAD } from "../../constellation/preview/graph.ts";
+import { attempt, b1Claim } from "../../constellation/preview/graph.ts";
 import {
-  acceptAndMerge,
+  acceptClaim,
   approveClaim,
-  type MergePlace,
   sendToWorker,
   steerWorker,
   type WorkerTarget,
 } from "./actions.ts";
-
-const Items = Data.taggedEnum<TerminalItem>();
 
 /** The toasts, as the user reads them. */
 const page = () => within(document.body);
@@ -148,106 +137,38 @@ describe("sending feedback to the worker", () => {
 });
 
 describe("accept and merge myself", () => {
-  const terminalId = TerminalId.make("term-1");
+  const seen = { head: b1Claim.head, revision: target.attempt.revision };
 
-  const placeWith = (onApprove: () => void): MergePlace => ({
-    workspaceId: "w1",
-    cwd: "/code/polaris",
-    leadSessionId: LEAD,
-    onApprove,
-  });
+  test("accepts the claimed head the user read, at its revision; the Lead's Host merges it", async () => {
+    const later = { ...target, attempt: { ...target.attempt, revision: seen.revision + 2 } };
 
-  /** Starts the merge, waits for its terminal, and ends it with `code`. */
-  const mergeEnding = async (code: number, place: MergePlace) => {
-    const merged = acceptAndMerge(target, place);
-
-    await waitFor(() => expect(bridge.feeds("terminal")).toHaveLength(1));
-    act(() => bridge.feeds("terminal")[0]?.listener.items([Items.Exit({ code })]));
-
-    return merged;
-  };
-
-  beforeEach(() => {
-    bridge.answerOk("terminal.open", { terminalId });
-    bridge.answerOk("git.status", {
-      branch: "polaris/const-v1",
-      head: "merged-head",
-      ahead: 0,
-      behind: 0,
-      entries: [],
-    });
-  });
-
-  test("merges the claimed head in the Lead's checkout, then accepts with the merged head", async () => {
-    expect(
-      await mergeEnding(
-        0,
-        placeWith(() => undefined)
-      )
-    ).toBe(true);
-
-    expect(bridge.sent("terminal.open")[0]).toMatchObject({
-      hostKey: "lead",
-      cwd: "/code/polaris",
-      argv: ["git", "merge", "--no-edit", b1Claim.head],
-    });
-    expect(bridge.sent("git.status")).toEqual([{ hostKey: "lead", cwd: "/code/polaris" }]);
-    expect(bridge.sent("constellation.review")[0]?.action).toEqual(
-      ReviewAction.cases.Accept.make({ mergedHead: "merged-head", receipts: b1Claim.receipts })
+    expect(await acceptClaim(later, seen, { leadBranch: "main", onApprove: () => undefined })).toBe(
+      true
     );
+
+    expect(bridge.sent("constellation.review")[0]).toMatchObject({
+      attemptId: target.attempt.id,
+      revision: seen.revision,
+    });
+    expect(bridge.sent("constellation.review")[0]?.action).toEqual(
+      ReviewAction.cases.Accept.make({ mergedHead: b1Claim.head, receipts: b1Claim.receipts })
+    );
+    expect(bridge.sent("terminal.open")).toEqual([]);
   });
 
-  test("a failed merge accepts nothing and offers Approve instead", async () => {
+  test("a merge the Lead's Host refused is worded and offers Approve", async () => {
     const onApprove = mock(() => undefined);
+    bridge.refuse("constellation.review", refusal("E-MERGE-CONFLICT"));
 
-    expect(await mergeEnding(1, placeWith(onApprove))).toBe(false);
-    expect(bridge.sent("constellation.review")).toEqual([]);
-    expect(await page().findByText("Couldn't merge B1")).not.toBeNull();
+    expect(await acceptClaim(target, seen, { leadBranch: "polaris/const-v1", onApprove })).toBe(
+      false
+    );
+    expect(await page().findByText("Couldn't accept B1")).not.toBeNull();
+    expect(page().getByText(/conflicts with polaris\/const-v1; nothing was merged/)).not.toBeNull();
+    expect(page().queryByText(/Agent-facing fix/)).toBeNull();
 
     act(() => page().getByRole("button", { name: "Approve" }).click());
 
     expect(onApprove).toHaveBeenCalledTimes(1);
-  });
-
-  test("a checkout with no head after the merge accepts nothing", async () => {
-    bridge.answerOk("git.status", { branch: null, head: null, ahead: 0, behind: 0, entries: [] });
-
-    expect(
-      await mergeEnding(
-        0,
-        placeWith(() => undefined)
-      )
-    ).toBe(false);
-    expect(bridge.sent("constellation.review")).toEqual([]);
-    expect(
-      await page().findByText("Merged, but the lead's checkout has no head to accept with.")
-    ).not.toBeNull();
-  });
-
-  test("a refused accept names the Lead's branch and offers Approve", async () => {
-    bridge.refuse("constellation.review", refusal("E-GIT"));
-
-    expect(
-      await mergeEnding(
-        0,
-        placeWith(() => undefined)
-      )
-    ).toBe(false);
-    expect(await page().findByText("Couldn't accept B1")).not.toBeNull();
-    expect(page().getByText(/into polaris\/const-v1 first/)).not.toBeNull();
-    expect(page().getByRole("button", { name: "Approve" })).not.toBeNull();
-  });
-
-  test("a terminal that won't open merges nothing", async () => {
-    bridge.refuse("terminal.open", { code: "NotConnected", message: "lead is offline" });
-
-    expect(
-      await acceptAndMerge(
-        target,
-        placeWith(() => undefined)
-      )
-    ).toBe(false);
-    expect(bridge.sent("git.status")).toEqual([]);
-    expect(bridge.sent("constellation.review")).toEqual([]);
   });
 });

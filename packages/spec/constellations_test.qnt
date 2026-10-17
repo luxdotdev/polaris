@@ -310,6 +310,17 @@ module constellations_test {
       and view.approvals == [] and view.handups == [] and safety)
     .then(accept(0, 4, 42)).expect(view.attempts[0].status == "review" and safety)
     .then(accept(0, 5, 43)).expect(view.attempts[0].status == "accepted" and safety)
+  // A bump that leaves the Claim alone (approval) keeps a review from the Claim's revision current.
+  run acceptToleratesBumpsThatKeepTheClaimTest = claimed.then(approve(0, 2))
+    .expect(view.attempts[0].revision == 3 and view.attempts[0].claimRev == 2 and safety)
+    .then(accept(0, 1, 42)).expect(view.attempts[0].status == "review" and safety)
+    .then(accept(0, 2, 42)).expect(view.attempts[0].status == "accepted" and acceptanceMatchesClaim and safety)
+  // An amendment moves the Claim's revision: a review of the earlier Claim no longer applies.
+  run acceptOfAnAmendedClaimNeedsItsRevisionTest = claimed.then(approve(0, 2))
+    .then(claim(0, 3, 43, false, true)).expect(view.attempts[0].claimRev == 4 and safety)
+    .then(accept(0, 2, 43)).then(accept(0, 3, 43)).expect(view.attempts[0].status == "review" and safety)
+    .then(reject(0, 3)).expect(view.attempts[0].status == "review" and safety)
+    .then(accept(0, 4, 43)).expect(view.attempts[0].status == "accepted" and view.attempts[0].sha == 43 and safety)
   run unchangedReviewClaimRefusedTest = claimed.then(claim(0, 2, 42, false, true))
     .expect(view.attempts[0].revision == 2 and safety)
   run firstTurnWaitsForWorkingAfterUnblockTest = working.then(block(0, Set(), 1))

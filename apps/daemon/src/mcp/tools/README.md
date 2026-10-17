@@ -19,7 +19,7 @@ Use short Task ids in plan, dispatch, review and messages. Review and Lead messa
 }
 ```
 
-`review` also exposes Accept, Stop and HandUp. Accept requires the exact claimed mergedHead and receipts. HandUp requests the user's Claim review; Approve is deliberately absent from the Lead schema. E keeps questions addressed to the user and approval authority with the user.
+`review` also exposes Accept, Stop and HandUp. Accept requires the exact claimed mergedHead and receipts, and merges that head into the Lead's branch unless it is already there. HandUp requests the user's Claim review; Approve is deliberately absent from the Lead schema. E keeps questions addressed to the user and approval authority with the user.
 
 ```json
 {

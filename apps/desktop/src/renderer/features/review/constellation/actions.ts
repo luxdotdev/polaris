@@ -1,14 +1,13 @@
 /**
  * What Review's worker action does (spec §7): Approve tells the Lead the user's verdict (the
  * Lead merges and accepts); Send to @worker sends the feedback back as a send-back; Accept
- * and merge myself merges the claimed head in the Lead's checkout, then accepts with it.
+ * and merge myself accepts the claimed head the user read, which the Lead's Host merges.
  */
 import {
   type Attempt,
   type ConstellationId,
   MessageTarget,
   ReviewAction,
-  type SessionId,
   WorkerPlacement,
 } from "@polaris/protocol";
 import { PixelFailedIcon, showToast } from "@polaris/ui";
@@ -16,16 +15,12 @@ import { createElement } from "react";
 import type { Plain } from "../../../store/plain.ts";
 import { batchOf, setBatch } from "../../comments/data/store.ts";
 import { emptyBatch } from "../../comments/model/feedback.ts";
-import { polaris } from "../../bridge.ts";
-import { showRefusal } from "../../session/dispatch.ts";
 import {
   claimRefusal,
   type ClaimPlace,
   type RefusalCopy,
 } from "../../constellation/model/index.ts";
 import { constellationRequest, sendConstellation } from "../../sessions/constellationApi.ts";
-import { runInTerminal } from "../../terminal/actions.ts";
-import { followExit } from "../checkout/exit.ts";
 import { sendBackReason } from "./model.ts";
 
 export interface WorkerTarget {
@@ -123,81 +118,37 @@ export const steerWorker = async (target: WorkerTarget, subjectKey: string) => {
   return sent;
 };
 
-export interface MergePlace {
-  readonly workspaceId: string;
-  /** The Lead's checkout: where its branch is. */
-  readonly cwd: string;
-  readonly leadSessionId: SessionId;
+/** The Claim as the user read it in Review: Accept takes exactly this head. */
+export interface SeenClaim {
+  readonly head: string;
+  readonly revision: number;
+}
+
+export interface AcceptPlace {
+  /** The Lead's branch, when its checkout is known; the refusal names it. */
+  readonly leadBranch: string | null;
   /** Runs when the user takes Approve from a refusal instead. */
   readonly onApprove: () => void;
 }
 
-const exitOf = (hostKey: string, terminalId: string) =>
-  new Promise<number | null>((resolve) => {
-    followExit(hostKey, terminalId, resolve);
-  });
-
-/** Merges the claimed head in the Lead's checkout (in a terminal tab), then accepts with it. */
-export const acceptAndMerge = async (target: WorkerTarget, place: MergePlace) => {
+/** Accepts the head the user read; the Lead's Host merges it into the Lead's branch first. */
+export const acceptClaim = async (target: WorkerTarget, seen: SeenClaim, place: AcceptPlace) => {
   const { attempt } = target;
   const claim = attempt.claim;
 
   if (claim == null) return false;
 
-  const terminalId = await runInTerminal(
-    { hostKey: target.leadHostKey, workspaceId: place.workspaceId },
-    {
-      key: `constellation-merge:${attempt.id}`,
-      title: `Merge ${attempt.taskId}`,
-      cwd: place.cwd,
-      argv: ["git", "merge", "--no-edit", claim.head],
-      sessionId: place.leadSessionId,
-    }
-  );
-
-  if (terminalId === null) return false;
-  const code = await exitOf(target.leadHostKey, terminalId);
-
-  if (code !== 0) {
-    toastRefusal(
-      `Couldn't merge ${attempt.taskId}`,
-      {
-        message: "git merge stopped; its terminal tab says why. Nothing was accepted.",
-        offerApprove: true,
-      },
-      place.onApprove
-    );
-
-    return false;
-  }
-
-  const status = await polaris().request("git.status", {
-    hostKey: target.leadHostKey,
-    cwd: place.cwd,
-  });
-
-  const head = status.ok ? status.value.head : null;
-
-  if (head === null) {
-    showRefusal(`Couldn't accept ${attempt.taskId}`, {
-      code: "NoHead",
-      message: "Merged, but the lead's checkout has no head to accept with.",
-    });
-
-    return false;
-  }
-
   const accepted = await constellationRequest(target.leadHostKey, "constellation.review", {
     constellationId: target.constellationId,
     attemptId: attempt.id,
-    revision: attempt.revision,
-    action: ReviewAction.cases.Accept.make({ mergedHead: head, receipts: claim.receipts }),
+    revision: seen.revision,
+    action: ReviewAction.cases.Accept.make({ mergedHead: seen.head, receipts: claim.receipts }),
   });
 
   if (!accepted.ok)
     toastRefusal(
       `Couldn't accept ${attempt.taskId}`,
-      claimRefusal(accepted.error, placeOf(attempt, status.ok ? status.value.branch : null)),
+      claimRefusal(accepted.error, { ...placeOf(attempt, place.leadBranch), head: seen.head }),
       place.onApprove
     );
 

@@ -71,6 +71,9 @@ test("a changed review head supersedes its Claim and clears approval/handoff; st
   expect(revised.approvedByUserAt).toBeNull();
   expect(revised.handedUpAt).toBeNull();
   expect(revised.handedUpReason).toBeNull();
+  expect(revised.claimRevision).toBe(revised.revision);
+  expect(revised.previousClaimHead).toBe("head");
+  expect(old.previousClaimHead).toBeNull();
 
   const accept = (revision: number, head: string) =>
     decideConstellation(

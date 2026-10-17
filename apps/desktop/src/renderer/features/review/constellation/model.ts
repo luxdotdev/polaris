@@ -10,13 +10,19 @@ import { type DraftBatch, draftPlace } from "../../comments/model/feedback.ts";
 const at = (head: string | undefined) => (head === undefined ? "" : ` at ${head}`);
 
 /** A Claim in review: approved by the user, handed up to them, or the Lead's to decide. */
-const reviewWords = (attempt: Plain<Attempt>, head: string | undefined) => {
+const reviewState = (attempt: Plain<Attempt>, head: string | undefined) => {
   if (attempt.approvedByUserAt != null) return `claim${at(head)} approved by you · the lead merges`;
 
   if (attempt.handedUpAt != null) return `claim${at(head)} handed to you`;
 
   return `claim in review${at(head)}`;
 };
+
+/** An amended Claim (a new head on the same Attempt) says which head it replaced. */
+const reviewWords = (attempt: Plain<Attempt>, head: string | undefined) =>
+  attempt.previousClaimHead == null
+    ? reviewState(attempt, head)
+    : `${reviewState(attempt, head)} · amended from ${attempt.previousClaimHead.slice(0, 7)}`;
 
 /** "worker of Constellations v1 lead · claim in review at 3f9c2e1". */
 /** `slotHost`: the Host the working Attempt waits on for a worker slot, if it does. */

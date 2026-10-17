@@ -12,7 +12,8 @@ import { Context, Effect, Layer, Schema, Semaphore } from "effect";
 import { gitText, HOOKS_OFF, resolveCommit } from "../git/git.ts";
 import { gitStatus } from "../git/status.ts";
 import { listWorktrees, samePath } from "../git/WorktreeTracker.ts";
-import { constellationRef, mergedInto } from "../git/constellationBundles.ts";
+import { mergedInto } from "../git/constellationBundles.ts";
+import { mergeClaim, type MergeOutcome } from "./merge.ts";
 import { TransferStorage, decodePlacement, encodePlacement } from "./transfers/storage.ts";
 
 const requestJson = Schema.encodeSync(Schema.fromJsonString(WorktreeRequest));
@@ -139,12 +140,13 @@ export class ConstellationWorktrees extends Context.Service<
       { dirtyPaths: ReadonlyArray<string>; branch: string; head: string },
       ConstellationTransferError
     >;
-    readonly verifyMerged: (
+    /** Accept's merge of the claimed head into the Lead's branch (`merge.ts`), one at a time. */
+    readonly mergeClaim: (
       graph: Constellation,
       attempt: Attempt,
       leadPath: string,
       mergedHead: string
-    ) => Effect.Effect<void, ConstellationTransferError>;
+    ) => Effect.Effect<MergeOutcome, ConstellationTransferError>;
     readonly cleanup: (
       graph: Constellation,
       leadPath: string,
@@ -261,23 +263,8 @@ export class ConstellationWorktrees extends Context.Service<
               head: status.head,
             };
           }),
-        verifyMerged: (graph, attempt, leadPath, mergedHead) =>
-          gitOperation(async () => {
-            if (attempt.claim === null || mergedHead !== attempt.claim.head)
-              throw new Error("The merged head does not match the claimed head");
-
-            if ((await resolveCommit(leadPath, mergedHead)) !== mergedHead)
-              throw new Error("The claimed commit has not been fetched locally");
-
-            if (
-              attempt.hostId !== graph.hostId &&
-              (await resolveCommit(leadPath, constellationRef(graph.id, attempt.id))) !== mergedHead
-            )
-              throw new Error("The claimed branch has not been fetched for this Attempt");
-
-            if (!(await mergedInto(leadPath, mergedHead, "HEAD")))
-              throw new Error("The claimed head has not been merged into the Lead's branch");
-          }),
+        mergeClaim: (graph, attempt, leadPath, mergedHead) =>
+          serial.withPermits(1)(mergeClaim(graph, attempt, leadPath, mergedHead)),
         cleanup: (graph, leadPath, candidates, busySessions, mergedRef = "HEAD") =>
           serial.withPermits(1)(
             Effect.gen(function* () {

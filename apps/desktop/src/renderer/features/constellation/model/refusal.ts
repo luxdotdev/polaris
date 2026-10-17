@@ -29,7 +29,17 @@ type Word = (place: ClaimPlace) => RefusalCopy;
 
 /** The way to merge, named the same everywhere a merge is missing. */
 export const mergeFirst = (place: ClaimPlace) =>
-  `Merge ${place.branch} at ${shortSha(place.head)} into ${place.leadBranch ?? "the lead's branch"} first, or approve and let the lead merge.`;
+  `Merge ${place.branch} at ${shortSha(place.head)} into ${lead(place)} first, or approve and let the lead merge.`;
+
+const lead = (place: ClaimPlace) => place.leadBranch ?? "the lead's branch";
+
+/** Accept merges for the user; when the lead's checkout can't take it, Approve still can. */
+const checkout =
+  (state: string): Word =>
+  (p) => ({
+    message: `The lead's checkout ${state}, so ${shortSha(p.head)} wasn't merged. Accept again once it's clear, or approve and let the lead merge.`,
+    offerApprove: true,
+  });
 
 const notInReview: Word = (p) => ({
   message: `${p.taskId}'s claim is no longer in review.`,
@@ -38,6 +48,16 @@ const notInReview: Word = (p) => ({
 
 const WORDS = new Map<string, Word>([
   ["E-GIT", (p) => ({ message: mergeFirst(p), offerApprove: true })],
+  [
+    "E-MERGE-CONFLICT",
+    (p) => ({
+      message: `${p.branch} at ${shortSha(p.head)} conflicts with ${lead(p)}; nothing was merged. Send ${p.taskId} back with merge conflict, or approve and let the lead merge.`,
+      offerApprove: true,
+    }),
+  ],
+  ["E-LEAD-DIRTY", checkout("has uncommitted changes")],
+  ["E-LEAD-DETACHED", checkout("isn't on a branch")],
+  ["E-LEAD-MERGING", checkout("is in the middle of a merge")],
   [
     "E-MERGED-HEAD",
     (p) => ({

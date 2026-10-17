@@ -6,7 +6,7 @@ module constellations {
   const CAPACITY: int
 
   type Task = { declared: bool, deps: Set[int], parent: int, gate: bool, canceled: bool, revision: int }
-  type Attempt = { task: int, session: int, status: str, ref: int, revision: int, sha: int, rejectionReason: str, mergeBase: str }
+  type Attempt = { task: int, session: int, status: str, ref: int, revision: int, claimRev: int, sha: int, rejectionReason: str, mergeBase: str }
   type Delivery = { id: int, lead: int }
   type Recovery = { attempt: int, interruption: int }
   type EventKind =
@@ -83,6 +83,10 @@ module constellations {
       ...v.attempts[a], status: status, sha: sha, revision: v.attempts[a].revision + 1,
     }),
   }
+  // The revision a Claim made: a review from then on saw it, whatever bumped the Attempt since.
+  pure def claimedAt(v: View, a: int): View = {
+    ...v, attempts: v.attempts.replaceAt(a, { ...v.attempts[a], claimRev: v.attempts[a].revision }),
+  }
   pure def apply(v: View, e: EventKind): View = match e {
     | TaskDeclared(p) => { ...v, tasks: v.tasks.set(p.task, {
         declared: true, deps: p.deps, parent: p.parent, gate: p.gate, canceled: false, revision: 1,
@@ -94,10 +98,10 @@ module constellations {
         ...v.tasks.get(t), canceled: true, revision: v.tasks.get(t).revision + 1,
       }), blocks: v.blocks.keys().mapBy(a => v.blocks.get(a).exclude(Set(t))) }
     | AttemptStarted(p) => { ...v, attempts: v.attempts.append({
-        task: p.task, session: p.session, ref: p.ref, status: "working", revision: 1, sha: -1, rejectionReason: "", mergeBase: p.mergeBase,
+        task: p.task, session: p.session, ref: p.ref, status: "working", revision: 1, claimRev: -1, sha: -1, rejectionReason: "", mergeBase: p.mergeBase,
       }) }
     | AttemptProgressed(a) => change(v, a, v.attempts[a].status, v.attempts[a].sha)
-    | AttemptClaimed(p) => { ...change(v, p.attempt, "review", p.sha),
+    | AttemptClaimed(p) => { ...claimedAt(change(v, p.attempt, "review", p.sha), p.attempt),
         approvals: v.approvals.select(a => a != p.attempt),
         handups: v.handups.select(a => a != p.attempt), nudges: v.nudges.select(a => a != p.attempt) }
     | ClaimApproved(a) => { ...change(v, a, v.attempts[a].status, v.attempts[a].sha), approvals: v.approvals.append(a) }
@@ -228,6 +232,10 @@ module constellations {
   }
   pure def current(v: View, a: int, rev: int): bool = v.attempts.indices().contains(a)
     and latest(v, v.attempts[a].task) == a and active(v.attempts[a]) and v.attempts[a].revision == rev
+  pure def reviewable(v: View, a: int, rev: int): bool = v.attempts.indices().contains(a)
+    and latest(v, v.attempts[a].task) == a and active(v.attempts[a])
+    and (v.attempts[a].revision == rev
+      or v.attempts[a].status == "review" and v.attempts[a].claimRev <= rev and rev <= v.attempts[a].revision)
   pure def promote(v: View): List[EventKind] = TASKS.fold([], (acc, t) =>
     if (v.tasks.get(t).gate and ready(v, t) and not(has(v.promotions, t))) acc.append(GatePromoted(t)) else acc)
   // A promoted Gate nobody carries: the audit names it to the Lead once per stalled state.
@@ -299,13 +307,16 @@ module constellations {
     finish(view, a, AttemptClaimed({ attempt: a, sha: sha, disposed: disposed })) else [])
   action claim(a: int, rev: int, sha: int, dirty: bool, onBranch: bool): bool = claimAs(a, rev, sha, dirty, onBranch, false)
   action accept(a: int, rev: int, sha: int): bool = commit(OWNER,
-    if (current(view, a, rev) and view.attempts[a].status == "review" and view.attempts[a].sha == sha)
+    if (reviewable(view, a, rev) and view.attempts[a].status == "review" and view.attempts[a].sha == sha)
     [AttemptAccepted({ attempt: a, sha: sha })].concat(promote(apply(view, AttemptAccepted({ attempt: a, sha: sha })))) else [])
   action rejectWithReason(a: int, rev: int, reason: str): bool = commit(OWNER,
-    if (current(view, a, rev) and Set("review", "blocked").contains(view.attempts[a].status)) [AttemptRejected({ attempt: a, reason: reason })] else [])
+    if (reviewable(view, a, rev) and Set("review", "blocked").contains(view.attempts[a].status)) [AttemptRejected({ attempt: a, reason: reason })] else [])
   action reject(a: int, rev: int): bool = rejectWithReason(a, rev, "fix")
+  action approve(a: int, rev: int): bool = commit(OWNER,
+    if (reviewable(view, a, rev) and view.attempts[a].status == "review" and not(has(view.approvals, a)))
+    [ClaimApproved(a), NotificationQueued({ id: 50000 + rev * 100 + a, kind: "approved" })] else [])
   action stop(a: int, rev: int): bool = commit(OWNER,
-    if (current(view, a, rev)) finish(view, a, AttemptSettled({ attempt: a, outcome: "lost", stale: offline.contains(view.attempts[a].session), commanded: true, kind: "" })) else [])
+    if (reviewable(view, a, rev)) finish(view, a, AttemptSettled({ attempt: a, outcome: "lost", stale: offline.contains(view.attempts[a].session), commanded: true, kind: "" })) else [])
   action harnessFailAs(a: int, kind: str): bool = commit(OWNER,
     if (view.attempts.indices().contains(a) and active(view.attempts[a]) and not(offline.contains(view.attempts[a].session)))
     finish(view, a, AttemptSettled({ attempt: a, outcome: "failed", stale: false, commanded: false, kind: kind })) else [])
@@ -386,6 +397,7 @@ module constellations {
     nondet id = IDS.oneOf()
     nondet a = view.attempts.indices().union(Set(-1)).oneOf()
     val rev = if (view.attempts.indices().contains(a)) view.attempts[a].revision else 1
+    val claimRev = if (view.attempts.indices().contains(a)) view.attempts[a].claimRev else 1
     nondet dep = TASKS.oneOf()
     any {
       plan([Add({ task: t, deps: Set(), parent: -1, gate: t == 2 })]),
@@ -393,7 +405,8 @@ module constellations {
       plan([Cancel({ task: t, revision: rev })]),
       start(t, s, latest(view, t)), progress(a, rev), claim(a, rev, 42, false, true), claimAs(a, rev, 42, false, true, true),
       block(a, Set(dep), rev), block(a, Set(), rev), unblock(a, rev, "Accepted", true), unblock(a, rev, "Lead", true),
-      claim(a, rev, 42, true, true), accept(a, rev, 42), accept(a, rev, 43), reject(a, rev), startFirstTurn(a), stop(a, rev), harnessFail(a),
+      claim(a, rev, 42, true, true), accept(a, rev, 42), accept(a, rev, 43),
+      accept(a, claimRev, 42), approve(a, rev), reject(a, rev), startFirstTurn(a), stop(a, rev), harnessFail(a),
       ask(a, id), deliver, deliverSteered, audit, harnessFailAs(a, "capacity"), handover(s), requestHandover(id), cancelHandover, finishHandover(id, s), setState("running"), setState("paused"),
       all { TASKS.forall(task => accepted(view, task)), setState("completed") },
       setState("archived"), interrupt(a), recoverPending, restart,

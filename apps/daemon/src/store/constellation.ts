@@ -152,6 +152,13 @@ const patchAttempt = (
       );
 };
 
+/** The head an in-review Claim had when this Claim amends it. */
+const amendedHead = (record: ConstellationRecord, id: AttemptId) => {
+  const current = record.graph.attempts.find((a) => a.id === id);
+
+  return current?.state === "review" ? (current.claim?.head ?? null) : null;
+};
+
 const started = (graph: Constellation): ConstellationRecord => ({
   graph,
   promoted: new Set(),
@@ -275,6 +282,8 @@ export const foldConstellation = (
           state: "review",
           claim: e.claim,
           claimedAt: at,
+          claimRevision: e.attemptRevision,
+          previousClaimHead: amendedHead(next, e.attemptId),
           approvedByUserAt: null,
           handedUpAt: null,
           handedUpReason: null,

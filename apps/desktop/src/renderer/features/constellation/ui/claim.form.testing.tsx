@@ -39,16 +39,19 @@ const initial = merged(row.attempt, {
 const Fixture = () => {
   const [attempt, setAttempt] = useState(initial);
   Object.assign(window, {
-    replaceClaim: (head: string, bump: boolean) =>
+    replaceClaim: (head: string | null, bump: boolean) =>
       setAttempt((a) =>
         merged(a, {
           revision: a.revision + (bump ? 1 : 0),
-          claim: Struct.assign(a.claim!, {
-            head,
-            receipts: [
-              CheckReceipt.cases.Reported.make({ label: "New receipt", text: "reported" }),
-            ],
-          }),
+          claim:
+            head === null
+              ? a.claim
+              : Struct.assign(a.claim!, {
+                  head,
+                  receipts: [
+                    CheckReceipt.cases.Reported.make({ label: "New receipt", text: "reported" }),
+                  ],
+                }),
         })
       ),
   });

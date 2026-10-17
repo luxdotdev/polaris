@@ -204,6 +204,13 @@ export class Attempt extends Schema.Class<Attempt>("ConstellationAttempt")({
   evidence: optionalNullable(EvidenceTier),
   /** When the worker claimed (AttemptClaimed); null before. */
   claimedAt: Schema.NullOr(Timestamp),
+  /**
+   * The Attempt revision its current Claim made (AttemptClaimed). A review sent at this
+   * revision or later saw this Claim; bumps that leave the Claim alone don't make it stale.
+   */
+  claimRevision: optionalNullable(Revision),
+  /** The head this Claim amended while in review (a re-claim on the same Attempt); null otherwise. */
+  previousClaimHead: optionalNullable(Schema.String),
   /** The user's verdict (ClaimApproved); the Lead still merges and accepts. */
   approvedByUserAt: Schema.NullOr(Timestamp),
   /** The Lead handed the Claim up to the user (ClaimHandedUp), and why. */

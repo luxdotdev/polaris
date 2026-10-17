@@ -205,6 +205,29 @@ const claimStep = (ref: Reference, taskId: TaskId, index: number): Step => {
   };
 };
 
+/** Accept as of the latest revision, the Claim's own revision, or just before the Claim. */
+const acceptStep = (
+  ref: Reference,
+  attempt: ReturnType<typeof latest>,
+  index: number,
+  mutable: boolean
+): Step => {
+  const seen = index % 3;
+  const claimRevision = attempt?.claimRevision ?? attempt?.revision ?? 0;
+  const revisions = [attempt?.revision ?? 0, claimRevision, Math.max(0, claimRevision - 1)];
+
+  return {
+    command: C.Review.make({
+      constellationId: CID,
+      attemptId: AttemptId.make(attempt?.id ?? "missing"),
+      revision: revisions[seen]!,
+      action: ReviewAction.cases.Accept.make({ mergedHead: attempt?.head ?? "head", receipts: [] }),
+    }),
+    context: ctx(),
+    allowed: mutable && attempt?.state === "review" && seen !== 2,
+  };
+};
+
 const step = (ref: Reference, op: number, index: number): Step => {
   const taskId = choices[op % 3]!;
   const attempt = latest(ref, taskId);
@@ -226,19 +249,7 @@ const step = (ref: Reference, op: number, index: number): Step => {
 
   if (action === 2) return claimStep(ref, taskId, index);
 
-  if (action === 3)
-    return {
-      command: C.Review.make({
-        ...base,
-        revision: attempt?.revision ?? 0,
-        action: ReviewAction.cases.Accept.make({
-          mergedHead: attempt?.head ?? "head",
-          receipts: [],
-        }),
-      }),
-      context: ctx(),
-      allowed: mutable && attempt?.state === "review",
-    };
+  if (action === 3) return acceptStep(ref, attempt, index, mutable);
 
   if (action === 4)
     return {
