@@ -26,8 +26,16 @@ SIGHUP; the shared Codex app-server on a Unix socket. Measured on Windows 11 wit
 - `codex app-server --listen unix://…` exits with "socket directory is not private to the
   current user" in any directory, even one whose ACL grants only the user; and Bun's
   WebSocket can't reach a Unix socket by a Windows path (`ws+unix://C:\…` is an invalid URL).
-  `--listen ws://127.0.0.1:<port> --ws-auth capability-token --ws-token-file <file>` works:
-  a client without `Authorization: Bearer <token>` gets no upgrade.
+  `--listen ws://127.0.0.1:0 --ws-auth capability-token --ws-token-file <file>` works:
+  codex binds a free port itself, and a client without `Authorization: Bearer <token>` gets
+  no upgrade. A detached child's stdout and stderr are lost on Windows (even through cmd's own
+  `>>` redirect), so the "listening on" line codex prints can't be read back.
+- Loopback is reachable by every local process and account. A port picked in advance can be
+  taken before codex binds it, and the Daemon would then hand that squatter the token.
+- Git resolves a relative `core.hooksPath` against the working tree. `NUL` is relative: with
+  a `NUL\pre-commit` planted in the checkout (`\\?\` paths allow the name), Git for Windows
+  2.39 found it and tried to spawn it. `/dev/null` is read as `%(prefix)/dev/null`, a path
+  inside Git's install.
 
 ## Decision
 
@@ -45,23 +53,32 @@ SIGHUP; the shared Codex app-server on a Unix socket. Measured on Windows 11 wit
   hand across an upgrade, and upgrades are off there), open PowerShell 7, else Windows
   PowerShell, else cmd (`terminal/shell.ts`), and on close run taskkill on the shell before
   closing the console.
-- **The shared Codex app-server on Windows listens on `ws://127.0.0.1:<free port>`** with a
-  capability token: 32 random bytes in `~/.polaris/codex-app-server.token`, fresh for every
-  server. The URL is recorded as `listen` in `codex-app-server.json`; a Daemon connects to
-  what that file names (`connectAppServer`). It starts detached with its output appended to
-  the log, and is stopped with taskkill (its pid may be a shim's cmd.exe). The co-attached
-  TUI runs through `powershell -EncodedCommand`, which reads the token into
-  `POLARIS_CODEX_TOKEN` for `--remote-auth-token-env`, so the token is never in an argv.
-  macOS and Linux keep the Unix socket.
-- **git on Windows** gets `core.hooksPath=NUL`: Git for Windows warns on every call given
-  `/dev/null` there.
+- **The shared Codex app-server on Windows listens on `ws://127.0.0.1:0`**
+  (`harness/codex/windowsServer.ts`), with a capability token: 32 random bytes in
+  `~/.polaris/codex-app-server.token`, fresh for every server. The file is created empty, given
+  an ACL of the user's SID alone (`icacls /inheritance:r`, so a `POLARIS_HOME` under `C:\`
+  inherits nothing), and only then written. The port is the loopback listener that a process
+  of the started tree holds (`netstat -ano` and the process table); that listener's pid is
+  recorded as `listenerPid` with the URL as `listen`. Before every connection
+  `connectAppServer` checks that the port's listener is still `listenerPid`, so no token,
+  prompt or code goes to anything else on that port. The server is stopped with taskkill
+  (its pid may be a shim's cmd.exe). The co-attached TUI runs through
+  `powershell -EncodedCommand`, which reads the token into `POLARIS_CODEX_TOKEN` for
+  `--remote-auth-token-env`, so the token is never in an argv. macOS and Linux keep the Unix
+  socket.
+- **git's hooks path on Windows is the running executable** (`process.execPath`): absolute,
+  always present, and a file, so `<it>\pre-commit` can't exist. POSIX keeps `/dev/null`.
 
 ## Consequences
 
 - git aborted on Windows is killed outright: it can't remove its lock files as SIGTERM lets
   it, so an abort can leave an `index.lock`.
 - A child that daemonizes away from its parent before we kill it escapes taskkill.
-- Any local process that can read the token file can use the Codex server; that is the same
-  set that could read Codex's own credentials under the user's profile.
+- Any process running as the user can read the token file and use the Codex server; that is
+  the same set that could read Codex's own credentials under the user's profile.
+- The listener check costs one `netstat` per connection (tens of ms) and the launch one
+  process-table query; both are Windows only. Codex's startup output is not in the log.
+- A process that got both the dead server's pid and its port before the next connection
+  would pass the check and be sent the token.
 - Under Task Scheduler (S3) a task's processes may share a job that ending the task kills;
   whether the Codex server then outlives the Daemon there is untested.

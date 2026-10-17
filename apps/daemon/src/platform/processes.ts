@@ -39,11 +39,26 @@ export const normalizeWindowsEnv = (os: string = process.platform, env = process
  */
 export const ownProcessGroup = (os: string = process.platform): boolean => os !== "win32";
 
+/** True while `pid` exists and this user may signal it; `kill(pid, 0)` works on Windows too. */
+export const isRunning = (pid: number): boolean => {
+  try {
+    process.kill(pid, 0);
+
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 const systemRoot = (env: Env) => envValue(env, "SystemRoot") ?? "C:\\Windows";
+
+/** A Windows tool by its full path, so a planted `netstat.exe` on PATH is never the one run. */
+export const system32 = (exe: string, env: Env = process.env): string =>
+  join(systemRoot(env), "System32", exe);
 
 /** `taskkill` by its full path, so a PATH entry can't stand in for it. */
 export const taskkillArgv = (pid: number, env: Env = process.env): Array<string> => [
-  join(systemRoot(env), "System32", "taskkill.exe"),
+  system32("taskkill.exe", env),
   "/T",
   "/F",
   "/PID",

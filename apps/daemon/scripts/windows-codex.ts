@@ -8,18 +8,24 @@
  * Codex's Models and open the co-attached TUI in a terminal. Last it stops the
  * server and checks nothing of it is left running.
  */
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { connectRpc, socketTransport } from "@polaris/client";
 import { localEndpoint } from "@polaris/protocol/endpoint";
-import { Effect, Option, Predicate, Schema, Stream } from "effect";
+import { Effect, Option, Predicate, Result, Schema, Stream } from "effect";
 import {
   acquireAppServer,
+  type AppServerState,
+  connectAppServer,
   defaultStateFile,
   readAppServerState,
   remoteTuiArgv,
   stopAppServer,
+  tokenFileOf,
 } from "../src/harness/codex/AppServer.ts";
 import { attachTerminal } from "../../../packages/client/src/terminal.ts";
+import { listenerOn } from "../src/harness/codex/windowsServer.ts";
+import { system32 } from "../src/platform/processes.ts";
 
 const [home, codexPath, cwd] = process.argv.slice(2);
 
@@ -92,6 +98,46 @@ const throughDaemon = (argv: Array<string>) =>
     yield* client["terminal.close"]({ terminalId });
   });
 
+/** The port codex bound, who holds it, and who may read the token. */
+const showListener = (state: AppServerState | null) => {
+  const port = state?.listen === undefined ? null : Number(new URL(state.listen).port);
+  const holder = port === null ? null : listenerOn(port);
+
+  check(
+    "codex bound a port itself and holds it",
+    port !== null && holder !== null && holder === state?.listenerPid,
+    `${state?.listen} held by pid ${holder}, recorded ${state?.listenerPid}`
+  );
+  console.log(Bun.spawnSync([system32("icacls.exe"), tokenFileOf(stateFile)]).stdout.toString());
+};
+
+/** Something else on the recorded port: the Daemon refuses it before the token goes out. */
+const squatterGetsNothing = (state: AppServerState) =>
+  Effect.gen(function* () {
+    let received = 0;
+
+    const squatter = Bun.listen({
+      hostname: "127.0.0.1",
+      port: 0,
+      socket: { data: (_socket, data) => void (received += data.length) },
+    });
+
+    writeFileSync(
+      stateFile,
+      JSON.stringify({ ...state, listen: `ws://127.0.0.1:${squatter.port}` })
+    );
+    const result = yield* Effect.result(Effect.scoped(connectAppServer(socketPath, stateFile)));
+    yield* Effect.sleep("500 millis");
+    squatter.stop(true);
+    writeFileSync(stateFile, JSON.stringify(state));
+
+    check(
+      "a squatter on the recorded port is refused and sent nothing",
+      Result.isFailure(result) && received === 0,
+      `${Result.isFailure(result) ? result.failure.message : "connected"}; ${received} bytes`
+    );
+  });
+
 const program = Effect.gen(function* () {
   const threadId = yield* Effect.scoped(
     Effect.gen(function* () {
@@ -119,7 +165,10 @@ const program = Effect.gen(function* () {
 
   const state = readAppServerState(stateFile);
   check("it outlives the connection that started it", state !== null && isRunning(state.pid));
+  showListener(state);
   yield* Effect.scoped(throughDaemon(threadId.argv));
+
+  if (state !== null) yield* squatterGetsNothing(state);
 
   const { stopped } = yield* stopAppServer({ stateFile, socketPath });
   yield* Effect.sleep("1 second");

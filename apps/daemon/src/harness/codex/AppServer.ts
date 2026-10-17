@@ -23,17 +23,7 @@
  * `polaris uninstall` stops it (`stopAppServer`).
  */
 import { childEnv } from "../../service/childEnv.ts";
-import { randomBytes } from "node:crypto";
-import {
-  closeSync,
-  existsSync,
-  mkdirSync,
-  openSync,
-  readFileSync,
-  renameSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { Effect, Option, Schema, type Scope, Semaphore } from "effect";
 import type { HarnessError } from "../HarnessDriver.ts";
@@ -41,6 +31,7 @@ import { ThreadLoadedListResponse } from "./protocol.ts";
 import { codexError, connectUnix, connectWebSocket, type RpcConnection } from "./RpcConnection.ts";
 import { commandLineOf, killTree } from "../../platform/processes.ts";
 import { which } from "../../service/userPath.ts";
+import { ownsListen, windowsLaunch } from "./windowsServer.ts";
 
 const windows = process.platform === "win32";
 
@@ -79,6 +70,8 @@ export const AppServerState = Schema.Struct({
   sanitizedEnv: Schema.optional(Schema.Boolean),
   /** Windows: the loopback URL it listens on instead of the socket (see `windowsLaunch`). */
   listen: Schema.optional(Schema.String),
+  /** Windows: the pid that owns that port, checked before anything is sent to it. */
+  listenerPid: Schema.optional(Schema.Int),
 });
 
 export type AppServerState = typeof AppServerState.Type;
@@ -139,8 +132,9 @@ export const isOurAppServer = (pid: number, endpoint: string): boolean => {
   return (command?.includes("app-server") && command.includes(endpoint)) === true;
 };
 
-/** What a recorded server listens on: its socket, or its loopback URL on Windows. */
-const endpointOf = (state: AppServerState) => state.listen ?? state.socketPath;
+/** What names a recorded server in its command line: its socket, or on Windows its token file. */
+const endpointOf = (state: AppServerState, stateFile: string) =>
+  state.listen === undefined ? state.socketPath : tokenFileOf(stateFile);
 
 /**
  * Connects to the shared server: over its Unix socket, or on Windows to the URL
@@ -153,15 +147,23 @@ export const connectAppServer = (
   if (!windows) return connectUnix(socketPath);
 
   return Effect.suspend(() => {
-    const listen = readAppServerState(stateFile)?.listen;
+    const state = readAppServerState(stateFile);
+    const { listen, listenerPid } = state ?? {};
     let token: string | null = null;
+
+    if (listen === undefined || listenerPid === undefined)
+      return Effect.fail(codexError(`No Codex app-server is recorded in ${stateFile}`));
+
+    // Before the token goes out: whatever holds the port now must be the server we started.
+    if (!ownsListen(listen, listenerPid))
+      return Effect.fail(codexError(`${listen} is not the recorded Codex app-server`));
 
     try {
       token = readFileSync(tokenFileOf(stateFile), "utf8").trim();
     } catch {}
 
-    return listen === undefined || token === null
-      ? Effect.fail(codexError(`No Codex app-server is recorded in ${stateFile}`))
+    return token === null
+      ? Effect.fail(codexError(`No Codex app-server token beside ${stateFile}`))
       : connectWebSocket(listen, listen, token);
   });
 };
@@ -231,10 +233,11 @@ export const launchArgv = (options: {
   return ["/bin/sh", "-c", '"$@" </dev/null >>"$0" 2>&1 & echo $!', options.logFile, ...command];
 };
 
-/** A server just started: its pid, and on Windows the URL it listens on. */
+/** A server just started: its pid, and on Windows the URL it listens on and who holds it. */
 interface Launched {
   readonly pid: number;
   readonly listen: string | null;
+  readonly listenerPid: number | null;
 }
 
 /** Runs `launchArgv`'s shell and returns the pid it printed. */
@@ -253,66 +256,7 @@ const posixLaunch = async (argv: Array<string>): Promise<Launched> => {
 
   if (!Number.isInteger(pid) || pid <= 0) throw new Error(`no pid from launcher: ${out}`);
 
-  return { pid, listen: null };
-};
-
-/**
- * Windows: Codex refuses a Unix socket in any directory there ("not private to
- * the current user"), so the server listens on loopback and lets in only a
- * client that presents the token in `tokenFile`.
- */
-export const windowsServerArgv = (options: {
-  readonly codexPath: string;
-  readonly listen: string;
-  readonly tokenFile: string;
-}): Array<string> => [
-  options.codexPath,
-  "app-server",
-  "--listen",
-  options.listen,
-  "--ws-auth",
-  "capability-token",
-  "--ws-token-file",
-  options.tokenFile,
-];
-
-/** A loopback port nothing listens on right now. */
-const freePort = (): number => {
-  const probe = Bun.listen({ hostname: "127.0.0.1", port: 0, socket: { data() {} } });
-  const { port } = probe;
-  probe.stop(true);
-
-  return port;
-};
-
-/**
- * Starts the Windows server detached, its output appended to `logFile`. A fresh
- * token each time, so a client of a replaced server can't reach the new one.
- */
-const windowsLaunch = (options: {
-  readonly codexPath: string;
-  readonly tokenFile: string;
-  readonly logFile: string;
-}): Launched => {
-  const listen = `ws://127.0.0.1:${freePort()}`;
-  writeFileSync(options.tokenFile, randomBytes(32).toString("hex"), { mode: 0o600 });
-  const log = openSync(options.logFile, "a");
-
-  try {
-    const proc = Bun.spawn(windowsServerArgv({ ...options, listen }), {
-      env: childEnv(),
-      stdin: "ignore",
-      stdout: log,
-      stderr: log,
-      detached: true,
-    });
-
-    proc.unref();
-
-    return { pid: proc.pid, listen };
-  } finally {
-    closeSync(log);
-  }
+  return { pid, listen: null, listenerPid: null };
 };
 
 const decodeLoadedList = Schema.decodeUnknownOption(ThreadLoadedListResponse);
@@ -364,7 +308,7 @@ export const stopAppServer = (options: {
     const socketPath = options.socketPath ?? state?.socketPath;
     let stopped: number | null = null;
 
-    if (state !== null && isOurAppServer(state.pid, endpointOf(state))) {
+    if (state !== null && isOurAppServer(state.pid, endpointOf(state, options.stateFile))) {
       stopped = state.pid;
 
       // On Windows the pid may be a `.cmd` shim's cmd.exe, with node and codex.exe below it.
@@ -425,7 +369,7 @@ export const acquireAppServer = (
       // A recorded server that is alive but not answering is hung: replace it.
       const previous = readAppServerState(stateFile);
 
-      if (previous !== null && isOurAppServer(previous.pid, endpointOf(previous))) {
+      if (previous !== null && isOurAppServer(previous.pid, endpointOf(previous, stateFile))) {
         yield* stopAppServer({ stateFile, socketPath: options.socketPath });
       }
 
@@ -435,12 +379,12 @@ export const acquireAppServer = (
       if (existsSync(options.socketPath)) rmSync(options.socketPath, { force: true });
       const version = yield* versionOf(codexPath);
 
-      const { pid, listen } = yield* Effect.tryPromise({
-        try: () =>
+      const timeoutMs = options.startTimeoutMs ?? 15_000;
+
+      const { pid, listen, listenerPid } = yield* Effect.tryPromise({
+        try: (): Promise<Launched> =>
           windows
-            ? Promise.resolve(
-                windowsLaunch({ codexPath, tokenFile: tokenFileOf(stateFile), logFile })
-              )
+            ? windowsLaunch({ codexPath, tokenFile: tokenFileOf(stateFile), logFile, timeoutMs })
             : posixLaunch(
                 launchArgv({ codexPath, socketPath: options.socketPath, logFile, systemdRun })
               ),
@@ -457,10 +401,13 @@ export const acquireAppServer = (
       } satisfies AppServerState;
 
       yield* Effect.sync(() =>
-        writeState(stateFile, listen === null ? started : { ...started, listen })
+        writeState(
+          stateFile,
+          listen === null || listenerPid === null ? started : { ...started, listen, listenerPid }
+        )
       );
 
-      const deadline = Date.now() + (options.startTimeoutMs ?? 15_000);
+      const deadline = Date.now() + timeoutMs;
 
       while (Date.now() < deadline) {
         if (!isAlive(pid))
