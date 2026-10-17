@@ -31,6 +31,13 @@ try {
     Where-Object { Test-Path $_ } |
     Select-Object -First 1
   if (!$application) { throw 'Installer did not create Polaris.exe' }
+  if ($Arch -eq 'x64') {
+    # This PC's Daemon and the pipe owner check's native module (ADR 0062).
+    $resources = Join-Path (Split-Path $application) 'resources'
+    foreach ($file in @('daemon\windows-x64\polaris.exe', 'daemon\manifest.json', 'koffi\win32_x64\koffi.node')) {
+      if (!(Test-Path (Join-Path $resources $file))) { throw "The x64 app is missing resources\$file" }
+    }
+  }
   Start-Process -FilePath (Join-Path $installRoot 'Polaris.exe') | Out-Null
 
   $deadline = (Get-Date).AddSeconds(60)

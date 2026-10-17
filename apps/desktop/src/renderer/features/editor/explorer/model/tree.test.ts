@@ -2,7 +2,16 @@ import { describe, expect, test } from "bun:test";
 import { noAgents } from "./agents.ts";
 import { changeRows } from "./changes.ts";
 import { gitMarks, noMarks, statusOf } from "./git.ts";
-import { foldersBetween, resolve, validName } from "./paths.ts";
+import {
+  basename,
+  dirname,
+  foldersBetween,
+  isUnder,
+  join,
+  relative,
+  resolve,
+  validName,
+} from "./paths.ts";
 import {
   type Entry,
   expandTo,
@@ -180,6 +189,26 @@ describe("paths", () => {
     expect(validName("../x")).toBeNull();
     expect(validName("/x")).toBeNull();
     expect(validName("a//b")).toBeNull();
+  });
+});
+
+describe("paths on a Windows Host", () => {
+  test("resolve and foldersBetween keep the drive and its backslashes", () => {
+    expect(resolve("C:\\w\\src", "../a/./b.ts")).toBe("C:\\w\\a\\b.ts");
+    expect(resolve("C:\\w", "..\\..\\..\\x")).toBe("C:\\x");
+    expect(resolve("C:\\w", "D:\\abs\\x")).toBe("D:\\abs\\x");
+    expect(foldersBetween("C:\\w", "C:\\w\\a\\b\\c.ts")).toEqual(["C:\\w\\a", "C:\\w\\a\\b"]);
+  });
+
+  test("a git path joins as a listed path, and relative paths read as git spells them", () => {
+    const root = "C:\\w";
+    const listed = "C:\\w\\src\\a.ts";
+
+    expect(join(root, "src/a.ts")).toBe(listed);
+    expect(isUnder(listed, root)).toBe(true);
+    expect(relative(listed, root)).toBe("src/a.ts");
+    expect(dirname("C:\\w")).toBe("C:\\");
+    expect(basename(listed)).toBe("a.ts");
   });
 });
 

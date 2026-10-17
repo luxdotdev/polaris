@@ -96,7 +96,7 @@ const setup = (
     openTerminal: () => Promise.resolve(),
   });
 
-  // This Mac's Daemon: installed in `localHome`, or with none the app's own dev Daemon.
+  // This Mac's Daemon: installed in `localHome`, or with none the app's own dev Daemon; none on Windows on Arm.
   const localHost =
     clientPlatform === "win32"
       ? LocalHost.unsupported()
@@ -232,7 +232,7 @@ const info = (daemonVersion: string, reportedPlatform = platform) =>
   });
 
 describe("Machines", () => {
-  test("Windows rejects local enable, checks and upgrades before touching a local Daemon", async () => {
+  test("Windows on Arm rejects local enable, checks and upgrades before touching a local Daemon", async () => {
     const s = setup(false, home, { local: { enabled: true } }, undefined, "win32");
 
     try {
@@ -243,7 +243,7 @@ describe("Machines", () => {
         (m: Machines["Service"]) => m.setDaemonUpdateOverride("local", true),
       ]) {
         const error = await s.runtime.runPromise(Machines.use(use).pipe(Effect.flip));
-        expect(error.message).toBe("A local Windows Daemon is not supported.");
+        expect(error.message).toBe("Polaris has no daemon for Windows on Arm yet.");
       }
 
       const views = await s.runtime.runPromise(Machines.use((m) => SubscriptionRef.get(m.views)));

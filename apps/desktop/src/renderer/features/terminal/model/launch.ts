@@ -1,6 +1,8 @@
 /**
  * What a terminal runs, and what the drawer says about how it ended. Pure.
  */
+import { DAEMON_STOP_UPGRADE, type DaemonStop } from "@polaris/protocol";
+import { pathBaseName } from "../../../../shared/hostPath.ts";
 import type { TabStatus } from "./tabs.ts";
 
 export interface Launch {
@@ -19,12 +21,22 @@ export const argvOf = (launch: Launch): ReadonlyArray<string> => {
   return pairs.length === 0 ? launch.argv : ["env", ...pairs, "--", ...launch.argv];
 };
 
-/** The line under an ended terminal. */
-export const endedLine = (status: TabStatus): string | null => {
+const UNKNOWN_END = "This terminal ended. The daemon restarted or the process was stopped";
+
+/** Why a lost terminal ended, when the Host's Daemon says it replaced one that stopped. */
+const lostLine = (stop: DaemonStop | undefined) => {
+  if (stop === undefined) return UNKNOWN_END;
+
+  return stop.reason === DAEMON_STOP_UPGRADE
+    ? `This terminal ended when the daemon was upgraded from ${stop.fromVersion}`
+    : "This terminal ended when the daemon restarted";
+};
+
+/** The line under an ended terminal; `stop` is the Host's `HostInfo.previousStop`. */
+export const endedLine = (status: TabStatus, stop?: DaemonStop): string | null => {
   switch (status.kind) {
     case "exited":
-      if (status.code === null)
-        return "This terminal ended. The daemon restarted or the process was stopped";
+      if (status.code === null) return status.lost === true ? lostLine(stop) : UNKNOWN_END;
 
       return status.code === 0 ? "Process exited" : `Process exited with code ${status.code}`;
     case "failed":
@@ -36,8 +48,4 @@ export const endedLine = (status: TabStatus): string | null => {
 };
 
 /** The last path segment, for a tab's title ("~/code/polaris" → "polaris"). */
-export const baseName = (path: string) => {
-  const parts = path.split("/").filter((p) => p !== "");
-
-  return parts.at(-1) ?? path;
-};
+export const baseName = (path: string) => pathBaseName(path);

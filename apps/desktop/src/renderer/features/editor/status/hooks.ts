@@ -1,6 +1,7 @@
 /** The open file's language status, read from the status, Trust and app stores. */
 import { useEffect, useMemo } from "react";
 import { hostInSentence } from "../../../shell/hostCopy.ts";
+import { isWindowsHost } from "../../../shell/hostPlatform.ts";
 import { useApp } from "../../../shell/hooks.ts";
 import { polaris } from "../../bridge.ts";
 import { fileKey } from "../model/drafts.ts";
@@ -73,6 +74,7 @@ export const useLanguageStatus = (
       python,
       sql,
       lastLogLine: log?.lines.at(-1)?.text ?? null,
+      windowsHost: host?.status.state === "connected" && isWindowsHost(host),
     });
 
     return { ...view, file };

@@ -98,7 +98,7 @@ Follow-ups: Linux AppImage/deb (today `--linux` makes an unpacked `Polaris-linux
 | `src/main/hosts.ts` | `HostDirectory`: the Hosts on the HostRegistry (added and removed at runtime), and their `HostView`s (Connection States) for the renderers. |
 | `src/main/machines/` | `Machines`: remote Hosts by `~/.ssh/config` alias, each one's install flow (probe, one-time approval, install, upgrade), approvals, the Daemon builds, the local Host switch; the `machines` feed (its README). |
 | `src/main/ipc/` | `requests.ts` (one handler per method; blobs taken here and sent as bytes), `feeds.ts` (host, session, terminal, files.watch, hosts, machines), `subscriptions.ts` (per window), `batcher.ts` (one IPC message per 4 ms window per window). |
-| `src/main/local/` | `LocalHost`: whether this Client has a local Host, its name, and which Daemon serves it (the system socket, the dev Daemon, a given socket); `unsupported` on Windows. |
+| `src/main/local/` | `LocalHost`: whether this Client has a local Host, its name, and which Daemon serves it (the system socket or Windows pipe, the dev Daemon, a given socket); `unsupported` on Windows on Arm. |
 | `src/main/protocol.ts`, `window.ts`, `menu.ts` | `app://polaris` with a strict CSP, the `hiddenInset` window, the native menu (Settings… ⌘,, ⌘1–3, appearance, density). |
 | `src/main/snapshotCache.ts` | The last synchronized Host snapshots, painted at launch and then revalidated (ENG-175). |
 | `src/main/notifications/`, `src/main/tray/` | Needs You outside the window: native notifications (`plan.ts` decides, tested), the menu bar star with the count and a menu of waiting sessions, the Dock badge. Fed by the renderer's `needsYou.publish`. |

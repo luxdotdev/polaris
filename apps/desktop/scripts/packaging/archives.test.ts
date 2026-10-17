@@ -83,14 +83,22 @@ describe("staging the app's Daemon", () => {
     expect(builds.every((b) => b.archive !== null)).toBe(true);
   });
 
-  test("a release Windows app bundles no Daemon files, only the manifest", () => {
+  test("a release Windows x64 app bundles this PC's Daemon; Windows on Arm none", () => {
     const dist = daemonDist(VERSION);
     writeDaemonArchives(dist);
-    const dest = stage(dist, bundledPlatforms({ platform: "win32", arch: "x64" }, true));
+    const x64 = stage(dist, bundledPlatforms({ platform: "win32", arch: "x64" }, true));
 
-    expect(readdirSync(dest)).toEqual(["manifest.json"]);
-    verifyDaemonManifest(dest, VERSION);
-    expect(loadBuilds(dest).some((b) => b.bundled)).toBe(false);
+    expect(readdirSync(x64).sort()).toEqual(["manifest.json", "windows-x64"]);
+    verifyDaemonManifest(x64, VERSION);
+    expect(
+      loadBuilds(x64)
+        .filter((b) => b.bundled)
+        .map((b) => b.platform)
+    ).toEqual(["windows-x64"]);
+
+    const arm = stage(dist, bundledPlatforms({ platform: "win32", arch: "arm64" }, true));
+    expect(readdirSync(arm)).toEqual(["manifest.json"]);
+    expect(loadBuilds(arm).some((b) => b.bundled)).toBe(false);
   });
 
   test("dev builds bundle every platform and keep the manifest as built", () => {

@@ -28,8 +28,8 @@ export const NeedsAttentionReason = Schema.Literals([
   /** `polaris bridge` ran but no Daemon is listening on the Host. */
   "daemon-not-running",
   /**
-   * A Windows Host's Daemon pipe is owned by another account, which took the name
-   * first; `polaris bridge` refused it and sent nothing.
+   * A Windows Host's Daemon pipe is owned by another account, which took the name first;
+   * `polaris bridge`, or this Client on its own pipe (ADR 0062), refused it and sent nothing.
    */
   "daemon-untrusted",
   /** The Daemon speaks another protocol version: the upgrade flow is needed. */

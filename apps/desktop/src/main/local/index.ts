@@ -33,7 +33,7 @@ export class LocalHostFailed extends Schema.TaggedError<LocalHostFailed>()("Loca
 }) {}
 
 export interface LocalHostApi {
-  /** Whether this Client can have a local Host at all; false on Windows. */
+  /** Whether this Client can have a local Host at all; false on Windows on Arm. */
   readonly supported: boolean;
   /** The local Host's name: `clientCopy().localHost` ("This Mac") unless overridden. */
   readonly label: string;
@@ -75,13 +75,13 @@ const once = (find: () => Promise<LocalDaemon>, initial: LocalDaemon | null = nu
   };
 };
 
-export interface PosixOptions extends LocalDaemonOptions {
+export interface NativeOptions extends LocalDaemonOptions {
   /** Overrides the name (`POLARIS_DESKTOP_LOCAL_LABEL`). */
   readonly label?: string | undefined;
   readonly platform?: NodeJS.Platform;
 }
 
-const posix = (options: PosixOptions): LocalHostApi => {
+const native = (options: NativeOptions): LocalHostApi => {
   const found = once(() => resolveLocalDaemon(options));
   const label = options.label ?? "";
 
@@ -136,19 +136,26 @@ const scripted = (options: TestOptions): LocalHostApi => ({
 export class LocalHost extends Context.Service<LocalHost, LocalHostApi>()(
   "polaris/desktop/LocalHost"
 ) {
-  /** macOS and Linux: the system socket, a dev Daemon, or a given one (`daemon.ts`). */
-  static readonly posix = (options: PosixOptions) =>
-    Layer.succeed(LocalHost, LocalHost.of(posix(options)));
+  /**
+   * The system Daemon (socket, or on Windows its pipe), a dev Daemon, or a given one
+   * (`daemon.ts`): macOS, Linux and Windows x64.
+   */
+  static readonly native = (options: NativeOptions) =>
+    Layer.succeed(LocalHost, LocalHost.of(native(options)));
 
-  /** No local Host (Windows): nothing resolves, starts, installs or upgrades here. */
+  /** No local Host (Windows on Arm, no Daemon build): nothing resolves, installs or upgrades. */
   static readonly unsupported = (platform: NodeJS.Platform = "win32") =>
     Layer.succeed(LocalHost, LocalHost.of(refusing(platform)));
 
-  /** The Layer for this Client's platform. */
-  static readonly forPlatform = (platform: NodeJS.Platform, options: PosixOptions) =>
-    platform === "win32"
+  /** The Layer for this Client's platform; Windows has a Daemon only for x64 (ADR 0059). */
+  static readonly forPlatform = (
+    platform: NodeJS.Platform,
+    options: NativeOptions,
+    arch: string = process.arch
+  ) =>
+    platform === "win32" && arch !== "x64"
       ? LocalHost.unsupported(platform)
-      : LocalHost.posix({ ...options, platform });
+      : LocalHost.native({ ...options, platform });
 
   /** A fixed Daemon, or none, for tests on any OS. */
   static readonly test = (options: TestOptions = {}) =>

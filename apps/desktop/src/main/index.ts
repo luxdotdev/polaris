@@ -144,7 +144,7 @@ let languageRuntime: ReturnType<typeof createMainLanguageApi> | null = null;
 
 let languageIpc: ReturnType<typeof registerLanguageIpc> | null = null;
 
-/** Picked once for this platform: none on Windows (`LocalHost.unsupported`). */
+/** Picked once for this platform: none on Windows on Arm (`LocalHost.unsupported`). */
 let localHost: LocalHostApi | null = null;
 
 let ipc: { readonly dispose: () => void } | null = null;

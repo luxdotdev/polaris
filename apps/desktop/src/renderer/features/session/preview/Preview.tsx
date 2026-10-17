@@ -11,6 +11,8 @@ import {
   PlanLimit,
   Sequence,
   UsageStreamItem,
+  Workspace,
+  Worktree,
 } from "@polaris/protocol";
 import { createRoot } from "react-dom/client";
 import { createStore } from "zustand/vanilla";
@@ -85,6 +87,51 @@ const host: HostView = {
   },
 };
 
+/** "This PC": the native Windows Daemon, just upgraded (ENG-302). No language tools yet. */
+const windowsHost = (): HostView => ({
+  ...host,
+  label: "This PC",
+  status: {
+    ...host.status,
+    host: {
+      hostId: HostId.make("h-desktop"),
+      startedAt: new Date(Date.now() - 3 * 60_000).toISOString(),
+      hostname: "lucas-desktop",
+      platform: "windows-x64",
+      daemonVersion: "0.2.1",
+      homeDir: "C:\\Users\\lucas",
+      previousStop: {
+        reason: "upgrade",
+        fromVersion: "0.2.0",
+        at: new Date(Date.now() - 3 * 60_000).toISOString(),
+      },
+    },
+    capabilities: Capability.literals.filter((c) => !c.startsWith("languages")),
+  },
+});
+
+const WINDOWS_REPO = "C:\\Users\\lucas\\code\\polaris";
+
+const windowsWorkspace = new Workspace({
+  id: workspace.id,
+  path: WINDOWS_REPO,
+  name: workspace.name,
+  isGitRepo: true,
+  worktreeRoot: `${WINDOWS_REPO}.worktrees`,
+  hidden: false,
+  registeredAt: workspace.registeredAt,
+});
+
+const windowsWorktree = new Worktree({
+  id: worktree.id,
+  workspaceId: worktree.workspaceId,
+  path: WINDOWS_REPO,
+  branch: worktree.branch,
+  head: worktree.head,
+  createdBySessionId: null,
+  isMain: true,
+});
+
 const SCENES = {
   session: planning,
   items: itemsScene,
@@ -123,6 +170,7 @@ const SCENE_NAMES = [
   "usage-2",
   "usage-3",
   "no-host",
+  "windows",
 ] as const;
 
 type Scene = (typeof SCENE_NAMES)[number];
@@ -392,16 +440,16 @@ const bridgeFor = (scene: Scene): PolarisApi => ({
   onAppEvent: () => () => undefined,
 });
 
-const stateFor = (models: ReadonlyArray<SessionModel>): AppState => {
+const stateFor = (models: ReadonlyArray<SessionModel>, windows = false): AppState => {
   return {
     ...initialState,
-    hosts: [host],
+    hosts: [windows ? windowsHost() : host],
     hostModels: {
       [HOST]: {
         ...modelFromSnapshot({
           sequence: Sequence.make(90),
-          workspaces: [workspace],
-          worktrees: [worktree],
+          workspaces: [windows ? windowsWorkspace : workspace],
+          worktrees: [windows ? windowsWorktree : worktree],
           sessions: models.flatMap((m) =>
             m.session === null
               ? []
@@ -430,6 +478,13 @@ const sceneOf = (hash: string): Scene => {
   return SCENE_NAMES.find((n) => n === name) ?? "session";
 };
 
+/** `windows` shows the default session, on "This PC". */
+const modelScene = (scene: Scene): Scene => (scene === "windows" ? "session" : scene);
+
+const previewPlatform = (scene: Scene) => {
+  if (scene === "windows") setClientPlatform("win32");
+};
+
 /**
  * Mounts the real shell on fixtures, with the scene's session (or the new-session page)
  * selected. Returns the density setter, for View → Density to reach the fixture store.
@@ -443,7 +498,7 @@ export const mountPreview = (root: HTMLElement, hash: string) => {
   const noHost = scene === "no-host";
 
   const store = createStore<AppState>(() =>
-    noHost ? { ...initialState, hostsListed: true } : stateFor(models)
+    noHost ? { ...initialState, hostsListed: true } : stateFor(models, scene === "windows")
   );
 
   const connection: Connection = {
@@ -455,9 +510,10 @@ export const mountPreview = (root: HTMLElement, hash: string) => {
 
   const navigation = createNavigation({ app: store, storage: null });
   const isNew = scene === "new" || scene === "setup" || scene === "none-ready";
-  const shown = isNew ? null : models[SCENE_NAMES.indexOf(scene)];
+  const shown = isNew ? null : models[SCENE_NAMES.indexOf(modelScene(scene))];
 
   standInBridge(bridgeFor(scene));
+  previewPlatform(scene);
 
   if (noHost) setClientPlatform("win32");
   else if (shown?.session == null) {

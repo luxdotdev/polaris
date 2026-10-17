@@ -102,8 +102,8 @@ export const bundledPlatforms = (target: PackageTarget, release: boolean): Platf
 
   if (target.platform === "linux") return [target.arch === "arm64" ? "linux-arm64" : "linux-x64"];
 
-  // Windows runs no local Daemon; WSL distros download theirs like any Host.
-  return [];
+  // This PC runs the x64 Daemon; Windows on Arm has none yet. WSL distros download theirs.
+  return target.arch === "x64" ? ["windows-x64"] : [];
 };
 
 /**

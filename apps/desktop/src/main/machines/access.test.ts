@@ -8,6 +8,8 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { installedPaths } from "@polaris/client";
 import { HostAccess } from "@polaris/client/access";
+import { startCommand, WINDOWS_PROBE_COMMAND } from "@polaris/client/install";
+import { type SpawnRequest, scriptedChildProcess } from "@polaris/client/process";
 import { Effect, Layer, ManagedRuntime, SubscriptionRef } from "effect";
 import type { HostView } from "../../shared/api.ts";
 import { HostDirectory, type HostEntry } from "../hosts.ts";
@@ -25,30 +27,53 @@ afterEach(() => rmSync(home, { recursive: true, force: true }));
 
 const STARTED = '{"ok":true,"action":"install","version":"1.0.0","notes":[]}';
 
+/** What the Windows probe prints on a PC whose DefaultShell is Windows PowerShell. */
+const WINDOWS_PROBE = "os=windows\narch=x64\nshell=powershell\ninstalled=\n";
+
 const setup = (localHome: string | null, platform: NodeJS.Platform = "darwin") => {
   const ran: Array<{ readonly target: string; readonly command: string }> = [];
   const terminals: Array<ReadonlyArray<string>> = [];
   const retried: Array<string> = [];
   const listened: Array<string> = [];
   const entries = new Map<string, HostEntry>();
-  let settings: Settings = { hosts: [{ alias: "studio" }, { alias: "Ubuntu", kind: "wsl" }] };
+
+  let settings: Settings = {
+    hosts: [
+      { alias: "studio" },
+      { alias: "Ubuntu", kind: "wsl" },
+      { alias: "gaming-pc", windowsShell: "powershell" },
+      { alias: "new-pc" },
+    ],
+  };
 
   const access = HostAccess.test(
     (target, command) => {
       ran.push({ target: target._tag, command });
+
+      if (command === WINDOWS_PROBE_COMMAND)
+        return Effect.succeed({ code: 0, stdout: WINDOWS_PROBE, stderr: "" });
+
+      // A Windows sshd's shell fails the POSIX probe.
+      if (command.includes("uname"))
+        return Effect.succeed({ code: 1, stdout: "", stderr: "'sh' is not recognized" });
 
       return Effect.succeed({ code: 0, stdout: STARTED, stderr: "" });
     },
     { platform }
   );
 
-  const localHost =
-    platform === "win32"
-      ? LocalHost.unsupported(platform)
-      : LocalHost.test({
-          daemon: testDaemon(localHome),
-          listening: (h) => Promise.resolve(void listened.push(h)),
-        });
+  const localHost = LocalHost.test({
+    daemon: testDaemon(localHome),
+    listening: (h) => Promise.resolve(void listened.push(h)),
+  });
+
+  const spawned: Array<SpawnRequest> = [];
+
+  const processes = scriptedChildProcess((request) => {
+    spawned.push(request);
+
+    return { exit: { code: 0, stdout: STARTED } };
+  });
 
   const directory = Layer.effect(
     HostDirectory,
@@ -72,6 +97,7 @@ const setup = (localHome: string | null, platform: NodeJS.Platform = "darwin") =
     builds: { source: "none", forPlatform: () => Effect.succeed([]) },
     aliases: () => [],
     openTerminal: (argv) => Promise.resolve(void terminals.push(argv)),
+    processes,
   });
 
   const runtime = ManagedRuntime.make(
@@ -85,11 +111,22 @@ const setup = (localHome: string | null, platform: NodeJS.Platform = "darwin") =
     use: (m: Machines["Service"]) => Effect.Effect<A, E>
   ) => runtime.runPromise(Machines.use((m) => Effect.flip(use(m))));
 
-  return { runtime, call, refused, ran, terminals, retried, listened };
+  return {
+    runtime,
+    call,
+    refused,
+    ran,
+    terminals,
+    retried,
+    listened,
+    spawned,
+    entries,
+    settings: () => settings,
+  };
 };
 
-const install = (at: string) => {
-  const binary = installedPaths(at).binary;
+const install = (at: string, platform: NodeJS.Platform = "darwin") => {
+  const binary = installedPaths(at, platform).binary;
   mkdirSync(dirname(binary), { recursive: true });
   writeFileSync(binary, "");
 };
@@ -140,13 +177,38 @@ describe("Machines acts on each Host through its HostAccess channel", () => {
     await t.runtime.dispose();
   });
 
-  test("a Windows Client has no local Host to act on, even with a home", async () => {
-    install(home);
+  test("Start daemon on this PC runs its polaris.exe directly, never a shell", async () => {
+    install(home, "win32");
     const t = setup(home, "win32");
-    const error = await t.refused((m) => m.startDaemon("local"));
 
-    expect(error.message).toBe("A local Windows Daemon is not supported.");
+    await t.call((m) => m.startDaemon("local"));
     expect(t.ran).toEqual([]);
+    expect(t.spawned.map((s) => [s.file, ...s.args])).toEqual([
+      [installedPaths(home, "win32").binary, "install", "--json"],
+    ]);
+    expect(t.listened).toEqual([home]);
+    await t.runtime.dispose();
+  });
+
+  test("Start daemon on a Windows ssh Host runs the PowerShell start, never sh", async () => {
+    const t = setup(null);
+
+    await t.call((m) => m.startDaemon("gaming-pc"));
+    expect(t.ran).toEqual([{ target: "Ssh", command: startCommand() }]);
+    await t.runtime.dispose();
+  });
+
+  test("a check that finds a Windows Host keeps its shell, and its connection speaks it", async () => {
+    const t = setup(null);
+
+    await t.call((m) => m.check("new-pc"));
+
+    // The check runs in the background; wait for its probe to land.
+    for (let i = 0; i < 100 && t.entries.get("new-pc") === undefined; i++) await Bun.sleep(10);
+
+    expect(t.ran.map((r) => r.command)).toContain(WINDOWS_PROBE_COMMAND);
+    expect(t.settings().hosts?.find((h) => h.alias === "new-pc")?.windowsShell).toBe("powershell");
+    expect(t.entries.get("new-pc")?.target).toMatchObject({ windowsShell: "powershell" });
     await t.runtime.dispose();
   });
 

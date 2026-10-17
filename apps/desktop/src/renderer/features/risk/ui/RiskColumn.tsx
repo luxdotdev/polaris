@@ -19,7 +19,8 @@ import {
 import { Match } from "effect";
 import { type ReactNode, useEffect, useState } from "react";
 import { useStore } from "zustand";
-import { useShellActions } from "../../../shell/hooks.ts";
+import { useApp, useShellActions } from "../../../shell/hooks.ts";
+import { isWindowsHost } from "../../../shell/hostPlatform.ts";
 import { CommentsSection, CommentsSync, FeedbackCard } from "../../comments/index.ts";
 import { modelLabel, useHarnessModels } from "../../harness/index.ts";
 import {
@@ -191,6 +192,7 @@ const Findings = ({
   readonly after?: ReactNode;
 }) => {
   const selected = useStore(surfaceStore, (s) => (s[subjectKey] ?? emptySurface).selectedFinding);
+  const windowsHost = useApp((s) => isWindowsHost(s.hosts.find((h) => h.key === hostKey)));
   const groups = groupFindings(summary.findings);
 
   const item = (finding: Finding) => (
@@ -224,7 +226,7 @@ const Findings = ({
         <Group label="Resolved" findings={groups.resolved} render={item} />
       </div>
       <div className="px-panel flex flex-col gap-1 pt-2">
-        {notesOf(summary).map((note) => (
+        {notesOf(summary, windowsHost).map((note) => (
           <p key={note} className="text-caption text-text-subtle" data-testid="risk-note">
             {note}
           </p>

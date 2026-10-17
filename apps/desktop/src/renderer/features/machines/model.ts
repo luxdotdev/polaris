@@ -8,6 +8,7 @@ import type { MachineView } from "../../../shared/api.ts";
 import { mismatchWords } from "../../shell/hostCopy.ts";
 import { hostWhere } from "./wsl.ts";
 import { clientCopy } from "../../../shared/clientCopy.ts";
+import { isWindows } from "../../../shared/platform.ts";
 
 /** What a card's buttons do; the view binds each to a request. */
 export type CardAction =
@@ -48,6 +49,23 @@ const card = (
 const RETRY: CardButton = { label: "Retry", action: "retry" };
 
 const COPY: CardButton = { label: "Copy command", action: "copy-detail" };
+
+/** Where Install puts the local Host's daemon, and when it starts. */
+const localInstallCopy = () =>
+  isWindows()
+    ? "Install puts the daemon this app carries in %USERPROFILE%\\.polaris and starts it when you sign in to Windows."
+    : "Install puts the daemon this app carries in ~/.polaris and starts it at login.";
+
+/** A Windows daemon, named by its hello or, before one, by being this Windows PC's own. */
+const windowsDaemon = (machine: MachineView) =>
+  machine.status?.host?.platform.startsWith("windows") === true ||
+  (machine.kind === "local" && isWindows());
+
+/** What upgrading costs: Windows restarts the daemon (ADR 0060), elsewhere it hands off. */
+const upgradeCopy = (machine: MachineView) =>
+  windowsDaemon(machine)
+    ? "The upgrade restarts the daemon: agent sessions recover, but its terminals end."
+    : "The upgrade hands off in place; working agent sessions keep going.";
 
 const orNull = (text: string | undefined) => (text === undefined || text === "" ? null : text);
 
@@ -98,6 +116,14 @@ const connectionCard = (machine: MachineView): CardModel | null => {
         { label: "Start daemon", action: "start-daemon" },
         RETRY
       );
+    case "daemon-untrusted":
+      return card(
+        failure.reason,
+        `Another account holds the daemon's pipe on ${label}`,
+        `Polaris won't talk to a daemon it can't prove is yours. Restart ${label} to free the pipe, then retry.`,
+        detail,
+        RETRY
+      );
     case "protocol-mismatch":
       return failure.older === "client"
         ? card(
@@ -107,19 +133,16 @@ const connectionCard = (machine: MachineView): CardModel | null => {
             detail,
             RETRY
           )
-        : card(
-            failure.reason,
-            mismatchWords(label, failure.older),
-            "The upgrade hands off in place; working agent sessions keep going.",
-            detail,
-            { label: "Upgrade", action: "check" }
-          );
+        : card(failure.reason, mismatchWords(label, failure.older), upgradeCopy(machine), detail, {
+            label: "Upgrade",
+            action: "check",
+          });
     case "polaris-not-installed":
       return card(
         failure.reason,
         `Polaris isn't installed on ${label}`,
         machine.kind === "local"
-          ? "Install puts the daemon this app carries in ~/.polaris and starts it at login."
+          ? localInstallCopy()
           : "The daemon runs there once you approve the install.",
         detail,
         { label: "Install", action: "check" }

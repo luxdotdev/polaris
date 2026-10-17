@@ -69,7 +69,7 @@ const TextSetting = ({
   );
 };
 
-const RemoteSettings = ({ machine }: { readonly machine: MachineView }) => (
+export const RemoteSettings = ({ machine }: { readonly machine: MachineView }) => (
   <>
     <Field label="Name" caption="How this host appears across Polaris.">
       <TextSetting
@@ -91,24 +91,38 @@ const RemoteSettings = ({ machine }: { readonly machine: MachineView }) => (
         }
       />
     </Field>
-    <Field
-      label="Remote command"
-      caption="What ssh runs on the host. Empty for the installed daemon."
-    >
-      <TextSetting
-        label="Remote command"
-        value={machine.remoteCommand ?? ""}
-        placeholder={DEFAULT_REMOTE_COMMAND}
-        mono
-        onSave={(line) =>
-          void call("machines.update", {
-            hostKey: machine.key,
-            remoteCommand: line === "" ? null : line,
-          })
-        }
-      />
-    </Field>
+    {machine.windowsShell === undefined ? (
+      <RemoteCommand machine={machine} />
+    ) : (
+      <Field label="Remote command" caption={WINDOWS_REMOTE_COMMAND}>
+        {null}
+      </Field>
+    )}
   </>
+);
+
+/** Why a Windows Host has no remote command to set: its connection is always the relay. */
+export const WINDOWS_REMOTE_COMMAND =
+  "Windows hosts always connect through PowerShell to the installed daemon.";
+
+const RemoteCommand = ({ machine }: { readonly machine: MachineView }) => (
+  <Field
+    label="Remote command"
+    caption="What ssh runs on the host. Empty for the installed daemon."
+  >
+    <TextSetting
+      label="Remote command"
+      value={machine.remoteCommand ?? ""}
+      placeholder={DEFAULT_REMOTE_COMMAND}
+      mono
+      onSave={(line) =>
+        void call("machines.update", {
+          hostKey: machine.key,
+          remoteCommand: line === "" ? null : line,
+        })
+      }
+    />
+  </Field>
 );
 
 export interface HostDetailsProps {

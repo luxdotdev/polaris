@@ -28,3 +28,5 @@ export * from "./constellation/index.ts";
 export * from "./files.ts";
 
 export * from "./languages/index.ts";
+
+export { isPipePath } from "./windowsPipe/trust.ts";
