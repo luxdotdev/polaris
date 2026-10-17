@@ -99,4 +99,66 @@ setInterval(() => {}, 1000);`
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  // JSC tiers up early, so a buffer only a dead local held is really unreachable (ADR 0066).
+  const eagerJit = {
+    BUN_JSC_thresholdForJITAfterWarmUp: "5",
+    BUN_JSC_thresholdForJITSoon: "5",
+    BUN_JSC_thresholdForOptimizeAfterWarmUp: "10",
+    BUN_JSC_thresholdForOptimizeSoon: "10",
+    BUN_JSC_thresholdForFTLOptimizeAfterWarmUp: "20",
+    BUN_JSC_thresholdForFTLOptimizeSoon: "20",
+    BUN_JSC_useConcurrentJIT: "0",
+  };
+
+  windowsOnly(
+    "a job's child starts while collections run as its environment is read, JIT-compiled",
+    async () => {
+      const dir = mkdtempSync(join(tmpdir(), "pjob-"));
+      const script = join(dir, "stress.ts");
+      const native = join(import.meta.dir, "windowsNative.ts");
+      const cmd = system32("cmd.exe");
+
+      // Reading the environment collects, then refills the heap with same-sized garbage.
+      await Bun.write(
+        script,
+        `import { spawnInJob } from ${JSON.stringify(native)};
+let held = [];
+const env = { ...process.env };
+Object.defineProperty(env, "POLARIS_GC_PROBE", { enumerable: true, get: () => {
+  Bun.gc(true);
+  held = [];
+  for (const bytes of [16, 24, 112, ${(cmd.length + 1) * 2}, ${(cmd.length + 40) * 2}])
+    for (let i = 0; i < 500; i++) held.push(Buffer.alloc(bytes, 0x41));
+  return "1";
+} });
+const failures = {};
+for (let i = 0; i < 400; i++) {
+  try {
+    const job = spawnInJob({ argv: [${JSON.stringify(cmd)}, "/d", "/c", "exit 0"], env, logFile: ${JSON.stringify(join(dir, "log"))} });
+    await job.stop();
+  } catch (error) {
+    failures[error.message] = (failures[error.message] ?? 0) + 1;
+  }
+}
+console.log(JSON.stringify(failures));`
+      );
+
+      try {
+        const child = Bun.spawn([process.execPath, script], {
+          env: { ...process.env, ...eagerJit },
+          stdout: "pipe",
+          stderr: "inherit",
+        });
+
+        const output = await new Response(child.stdout).text();
+
+        expect(await child.exited).toBe(0);
+        expect(JSON.parse(output)).toEqual({});
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+    60_000
+  );
 });

@@ -110,20 +110,13 @@ const ERROR_INSUFFICIENT_BUFFER = 122;
 /** The 127.0.0.1 TCP listeners and their pids, from one `GetExtendedTcpTable` call. */
 export const loopbackListeners = (): ReadonlyArray<Listener> => {
   const size = new Uint32Array(1);
-  let code = ip().GetExtendedTcpTable(null, ptr(size), 0, AF_INET, TCP_TABLE_OWNER_PID_LISTENER, 0);
+  let code = ip().GetExtendedTcpTable(null, size, 0, AF_INET, TCP_TABLE_OWNER_PID_LISTENER, 0);
 
   // The table can grow between the sizing call and the read: retry with the new size.
   for (let attempt = 0; attempt < 4 && code === ERROR_INSUFFICIENT_BUFFER; attempt++) {
     const table = new Uint8Array(size[0]! + 1024);
     size[0] = table.byteLength;
-    code = ip().GetExtendedTcpTable(
-      ptr(table),
-      ptr(size),
-      0,
-      AF_INET,
-      TCP_TABLE_OWNER_PID_LISTENER,
-      0
-    );
+    code = ip().GetExtendedTcpTable(table, size, 0, AF_INET, TCP_TABLE_OWNER_PID_LISTENER, 0);
 
     if (code === 0) return parseTcpListeners(new DataView(table.buffer));
   }
@@ -139,8 +132,7 @@ const PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
 const timesOf = (handle: Handle): { created: bigint; exited: bigint } | null => {
   const [created, exited, kernel, user] = [0, 1, 2, 3].map(() => new BigUint64Array(1));
 
-  if (!k32().GetProcessTimes(handle, ptr(created!), ptr(exited!), ptr(kernel!), ptr(user!)))
-    return null;
+  if (!k32().GetProcessTimes(handle, created!, exited!, kernel!, user!)) return null;
 
   return { created: created![0]!, exited: exited![0]! };
 };
@@ -169,9 +161,9 @@ const queryCommandLine = (handle: Handle, buffer: Uint8Array, size: Uint32Array)
   nt().NtQueryInformationProcess(
     handle,
     PROCESS_COMMAND_LINE_INFORMATION,
-    ptr(buffer),
+    buffer,
     buffer.byteLength,
-    ptr(size)
+    size
   );
 
 /** The command line `pid` was started with, or null if it is gone or not ours to ask. */
@@ -220,13 +212,13 @@ export const childProcesses = (
     view.setUint32(0, PROCESS_ENTRY_SIZE, true);
     const children: Array<{ pid: number; exe: string }> = [];
 
-    for (let ok = k32().Process32FirstW(snapshot, ptr(entry)); ok;) {
+    for (let ok = k32().Process32FirstW(snapshot, entry); ok;) {
       if (view.getUint32(32, true) === parent) {
         const name = Buffer.from(entry.buffer, 44, 520).toString("utf16le");
         children.push({ pid: view.getUint32(8, true), exe: name.slice(0, name.indexOf("\0")) });
       }
 
-      ok = k32().Process32NextW(snapshot, ptr(entry));
+      ok = k32().Process32NextW(snapshot, entry);
     }
 
     return children;
@@ -245,12 +237,7 @@ const withAttributes = <A>(
 
   if (
     sddl !== null &&
-    !adv().ConvertStringSecurityDescriptorToSecurityDescriptorW(
-      ptr(wide(sddl)),
-      1,
-      ptr(descriptor),
-      null
-    )
+    !adv().ConvertStringSecurityDescriptorToSecurityDescriptorW(wide(sddl), 1, descriptor, null)
   )
     throw failed("ConvertStringSecurityDescriptorToSecurityDescriptorW");
 
@@ -281,14 +268,14 @@ export const ownerOf = (path: string): string | null => {
 
   if (
     adv().GetNamedSecurityInfoW(
-      ptr(wide(path)),
+      wide(path),
       SE_FILE_OBJECT,
       SI,
-      ptr(owner),
+      owner,
       null,
       null,
       null,
-      ptr(descriptor)
+      descriptor
     ) !== 0
   )
     return null;
@@ -296,7 +283,7 @@ export const ownerOf = (path: string): string | null => {
   try {
     const text = new BigUint64Array(1);
 
-    if (!adv().ConvertSidToStringSidW(owner[0]!, ptr(text))) return null;
+    if (!adv().ConvertSidToStringSidW(owner[0]!, text)) return null;
     const sid = readWide(text[0]!);
     k32().LocalFree(text[0]!);
 
@@ -317,7 +304,7 @@ export const setPrivateDacl = (path: string, kind: "directory" | "file"): boolea
     false,
     (attributes) =>
       adv().SetFileSecurityW(
-        ptr(wide(path)),
+        wide(path),
         DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
         attributes[1]!
       ) !== 0
@@ -328,7 +315,7 @@ const ERROR_ALREADY_EXISTS = 183;
 /** Creates `path` owned by the user and open to them alone; false if it already exists. */
 export const createPrivateDirectory = (path: string): boolean =>
   withAttributes(privateSddl(thisUserSid(), "directory"), false, (attributes) => {
-    if (k32().CreateDirectoryW(ptr(wide(path)), ptr(attributes))) return true;
+    if (k32().CreateDirectoryW(wide(path), attributes)) return true;
 
     if (k32().GetLastError() === ERROR_ALREADY_EXISTS) return false;
     throw failed("CreateDirectoryW");
@@ -350,10 +337,10 @@ const FILE_ATTRIBUTE_NORMAL = 0x80;
 const createPrivateFile = (path: string, data: string) =>
   withAttributes(privateSddl(thisUserSid(), "file"), false, (attributes) => {
     const handle = k32().CreateFileW(
-      ptr(wide(path)),
+      wide(path),
       GENERIC_WRITE,
       0,
-      ptr(attributes),
+      attributes,
       CREATE_NEW,
       FILE_ATTRIBUTE_NORMAL,
       0n
@@ -365,10 +352,7 @@ const createPrivateFile = (path: string, data: string) =>
       const bytes = Buffer.from(data, "utf8");
       const written = new Uint32Array(1);
 
-      if (
-        bytes.length > 0 &&
-        !k32().WriteFile(handle, ptr(bytes), bytes.length, ptr(written), null)
-      )
+      if (bytes.length > 0 && !k32().WriteFile(handle, bytes, bytes.length, written, null))
         throw failed("WriteFile");
     } finally {
       k32().CloseHandle(handle);
@@ -422,7 +406,7 @@ const createKillOnCloseJob = (): Handle => {
     !k32().SetInformationJobObject(
       job,
       JobObjectExtendedLimitInformation,
-      ptr(limits),
+      limits,
       limits.byteLength
     )
   ) {
@@ -438,13 +422,7 @@ const jobPids = (job: Handle): ReadonlyArray<number> => {
   const list = new Uint8Array(8 + 8 * 1024);
 
   if (
-    !k32().QueryInformationJobObject(
-      job,
-      JobObjectBasicProcessIdList,
-      ptr(list),
-      list.byteLength,
-      null
-    )
+    !k32().QueryInformationJobObject(job, JobObjectBasicProcessIdList, list, list.byteLength, null)
   )
     return [];
 
@@ -459,7 +437,7 @@ const activeProcesses = (job: Handle): number => {
     !k32().QueryInformationJobObject(
       job,
       JobObjectBasicAccountingInformation,
-      ptr(info),
+      info,
       info.byteLength,
       null
     )
@@ -477,10 +455,10 @@ const inheritableFile = (path: string, mode: "read" | "append"): Handle =>
     const share = 0x1 | 0x2 | 0x4;
 
     const handle = k32().CreateFileW(
-      ptr(wide(path)),
+      wide(path),
       access,
       share,
-      ptr(attributes),
+      attributes,
       mode === "read" ? OPEN_EXISTING : OPEN_ALWAYS,
       FILE_ATTRIBUTE_NORMAL,
       0n
@@ -493,28 +471,35 @@ const inheritableFile = (path: string, mode: "read" | "append"): Handle =>
 
 const PROC_THREAD_ATTRIBUTE_HANDLE_LIST = 0x2_0002;
 
-/** A `PROC_THREAD_ATTRIBUTE_LIST` that lets the child inherit `handles` and nothing else. */
-const handleList = (handles: BigUint64Array): Uint8Array => {
+/**
+ * A `PROC_THREAD_ATTRIBUTE_LIST` that lets the child inherit `handles` and nothing else.
+ * The list keeps a pointer to the handle values, so they live in its tail (ADR 0066).
+ */
+const handleList = (handles: ReadonlyArray<Handle>): Uint8Array => {
   const size = new BigUint64Array(1);
-  k32().InitializeProcThreadAttributeList(null, 1, 0, ptr(size));
-  const list = new Uint8Array(Number(size[0]!));
+  k32().InitializeProcThreadAttributeList(null, 1, 0, size);
+  const listBytes = Math.ceil(Number(size[0]!) / 8) * 8;
+  // Over its own ArrayBuffer, so its storage never moves while Windows holds its address.
+  const list = new Uint8Array(new ArrayBuffer(listBytes + 8 * handles.length));
+  const values = new BigUint64Array(list.buffer, listBytes, handles.length);
+  values.set(handles);
 
-  if (!k32().InitializeProcThreadAttributeList(ptr(list), 1, 0, ptr(size)))
+  if (!k32().InitializeProcThreadAttributeList(list, 1, 0, size))
     throw failed("InitializeProcThreadAttributeList");
 
   if (
     !k32().UpdateProcThreadAttribute(
-      ptr(list),
+      list,
       0,
       BigInt(PROC_THREAD_ATTRIBUTE_HANDLE_LIST),
-      ptr(handles),
-      BigInt(handles.byteLength),
+      ptr(list, listBytes),
+      BigInt(values.byteLength),
       null,
       null
     )
   ) {
     const error = failed("UpdateProcThreadAttribute");
-    k32().DeleteProcThreadAttributeList(ptr(list));
+    k32().DeleteProcThreadAttributeList(list);
     throw error;
   }
 
@@ -565,8 +550,7 @@ const createSuspended = (
   const log = inheritableFile(logFile, "append");
 
   try {
-    const handles = new BigUint64Array([stdin, log]);
-    const attributes = handleList(handles);
+    const attributes = handleList([stdin, log]);
     const info = new BigUint64Array(3);
 
     try {
@@ -577,28 +561,26 @@ const createSuspended = (
         CREATE_NO_WINDOW;
 
       const startup = startupInfo(stdin, log, attributes);
-      // ptr() doesn't keep a buffer alive: building the next one could collect an inline one.
-      const app = wide(application);
-      const line = wide(commandLine);
-      const block = environmentBlock(env);
 
+      // Typed arrays, not ptr(): an argument stays alive until the call (ADR 0066).
       if (
         !k32().CreateProcessW(
-          ptr(app),
-          ptr(line),
+          wide(application),
+          wide(commandLine),
           null,
           null,
           1,
           flags,
-          ptr(block),
+          environmentBlock(env),
           null,
-          ptr(startup),
-          ptr(info)
+          startup,
+          info
         )
       )
         throw failed("CreateProcessW");
     } finally {
-      k32().DeleteProcThreadAttributeList(ptr(attributes));
+      // Also what holds `attributes`, whose address `startup` carries, through the call.
+      k32().DeleteProcThreadAttributeList(attributes);
     }
 
     return { process: info[0]!, thread: info[1]!, pid: Number(info[2]! & 0xffff_ffffn) };
