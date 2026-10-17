@@ -28,6 +28,8 @@ export const NeedsAttentionReason = Schema.Literals([
   "daemon-not-running",
   /** The Daemon speaks another protocol version: the upgrade flow is needed. */
   "protocol-mismatch",
+  /** The local Windows pipe belongs to another account: the Client never writes to it. */
+  "daemon-untrusted",
 ]);
 
 export type NeedsAttentionReason = typeof NeedsAttentionReason.Type;

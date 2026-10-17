@@ -36,6 +36,7 @@ const ATTENTION = new Map<string, (label: string) => string>(
     "command-missing": (l: string) => `The Polaris command is missing on ${l}.`,
     "polaris-not-installed": (l: string) => `Polaris isn't installed on ${l}.`,
     "daemon-not-running": (l: string) => `The daemon on ${l} isn't running.`,
+    "daemon-untrusted": (l: string) => `Another account holds the daemon's pipe on ${l}.`,
     "wsl-missing": (): string => "WSL didn't start on this PC.",
     "wsl-distro-missing": (l: string) => `WSL no longer lists the distro for ${l}.`,
   })

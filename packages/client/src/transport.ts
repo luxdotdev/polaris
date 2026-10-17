@@ -17,6 +17,7 @@ import { Deferred, Effect, Exit, Option, type Scope } from "effect";
 import { ConnectFailure, classifyExit, type NeedsAttentionReason } from "./failures.ts";
 import { localDaemonFailure } from "./localDaemon.ts";
 import { type ChildProcessApi, childProcesses, spawnFailed } from "./process/index.ts";
+import { connectOwnedPipe, isPipePath } from "./windowsPipe/index.ts";
 
 export interface ClientTransport extends ByteTransport {
   /** Why the transport closed or failed; waits briefly for the process to exit. */
@@ -200,39 +201,57 @@ export const spawnTransport = (
     } satisfies ClientTransport;
   });
 
+type Opened = { readonly socket: Socket; readonly incoming: ByteTransport["incoming"] };
+
+const connectSocket = (path: string, installedHome?: string) =>
+  Effect.callback<Opened, ConnectFailure>((resume) => {
+    const socket = connect(path);
+
+    const onError = (error: NodeJS.ErrnoException) =>
+      resume(
+        Effect.fail(
+          error.code === "ENOENT" || error.code === "ECONNREFUSED"
+            ? localDaemonFailure(path, installedHome)
+            : new ConnectFailure({
+                kind: "transient",
+                reason: "connection-failed",
+                detail: `${path}: ${error.code ?? error.message}`,
+              })
+        )
+      );
+
+    socket.once("error", onError);
+    socket.once("connect", () => {
+      socket.off("error", onError);
+      socket.on("error", () => {});
+      resume(Effect.succeed({ socket, incoming: readEvents(socket) }));
+    });
+  });
+
 /**
- * Connects straight to a Daemon's Unix socket (the local Host). With
+ * Whether the pipe's owner is checked before the first byte: on Windows under Node (the
+ * Desktop App). Bun can't adopt a handle as a socket, so its tools connect as before (ADR 0062).
+ */
+export const checksPipeOwner = (path: string, platform: string = process.platform): boolean =>
+  platform === "win32" && isPipePath(path) && process.versions.bun === undefined;
+
+const openLocal = (path: string, installedHome?: string): Effect.Effect<Opened, ConnectFailure> =>
+  checksPipeOwner(path)
+    ? Effect.map(connectOwnedPipe(path, installedHome), (socket) => {
+        socket.on("error", () => {});
+
+        return { socket, incoming: readEvents(socket) };
+      })
+    : connectSocket(path, installedHome);
+
+/**
+ * Connects straight to a Daemon's Unix socket or Windows pipe (the local Host). With
  * `installedHome`, a refusal says whether a Daemon is installed there and what its log says.
  */
 export const socketTransport = (path: string, installedHome?: string): Connector =>
   Effect.gen(function* () {
     const { socket, incoming } = yield* Effect.acquireRelease(
-      Effect.callback<
-        { readonly socket: Socket; readonly incoming: ByteTransport["incoming"] },
-        ConnectFailure
-      >((resume) => {
-        const socket = connect(path);
-
-        const onError = (error: NodeJS.ErrnoException) =>
-          resume(
-            Effect.fail(
-              error.code === "ENOENT" || error.code === "ECONNREFUSED"
-                ? localDaemonFailure(path, installedHome)
-                : new ConnectFailure({
-                    kind: "transient",
-                    reason: "connection-failed",
-                    detail: `${path}: ${error.code ?? error.message}`,
-                  })
-            )
-          );
-
-        socket.once("error", onError);
-        socket.once("connect", () => {
-          socket.off("error", onError);
-          socket.on("error", () => {});
-          resume(Effect.succeed({ socket, incoming: readEvents(socket) }));
-        });
-      }),
+      openLocal(path, installedHome),
       ({ socket }) => Effect.sync(() => socket.destroy())
     );
 
