@@ -114,6 +114,23 @@ describe("launch", () => {
     expect(endedLine({ kind: "exited", code: null })).toMatch(/daemon restarted/);
   });
 
+  test("a terminal lost with an upgraded Daemon says so, and a signal doesn't blame it", () => {
+    const stop = { reason: "upgrade", fromVersion: "0.2.0", at: "2026-10-16T12:00:00.000Z" };
+    const lost = { kind: "exited", code: null, lost: true } as const;
+
+    expect(endedLine(lost, stop)).toBe(
+      "This terminal ended when the daemon was upgraded from 0.2.0"
+    );
+    expect(endedLine(lost, { ...stop, reason: "restart" })).toBe(
+      "This terminal ended when the daemon restarted"
+    );
+    expect(endedLine({ kind: "exited", code: null }, stop)).toMatch(/or the process was stopped/);
+  });
+
+  test("a Windows Host's folder titles its tab", () => {
+    expect(baseName("C:\\Users\\lucas\\code\\polaris")).toBe("polaris");
+  });
+
   test("tab titles take the last path segment", () => {
     expect(baseName("/home/me/code/polaris/")).toBe("polaris");
     expect(baseName("/")).toBe("/");

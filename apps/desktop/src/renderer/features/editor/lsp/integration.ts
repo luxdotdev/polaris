@@ -30,6 +30,7 @@ import type {
   EditorLanguagePort,
   LanguageIdentityLookup,
 } from "./lifecycle.ts";
+import { noToolingFact } from "../../../shell/hostPlatform.ts";
 import { signatureExtension } from "./signatures.ts";
 import { predictionSources } from "./predictionSources.ts";
 import { languageKeys } from "./keys.ts";
@@ -343,7 +344,7 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
 
       languagePatch(key, {
         status: "unavailable",
-        fact: "Language tooling is unavailable on this Host. Local syntax remains available.",
+        fact: noToolingFact(environment.host),
         providers: [],
         rows: [],
         busy: false,

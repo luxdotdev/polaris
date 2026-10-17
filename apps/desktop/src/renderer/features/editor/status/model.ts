@@ -10,6 +10,7 @@ import { decisionOf } from "../trust/model.ts";
 import type { ContextRuntime, Discovered, FileLanguage, HostTools, Runtime } from "./store.ts";
 import { interpreterFact, type Interpreters } from "../python/model.ts";
 import { dialectFact, type DialectState } from "../sql/model.ts";
+import { LANGUAGES_OFF_ON_WINDOWS } from "../../../shell/hostPlatform.ts";
 
 export type PillKind =
   | "syntax"
@@ -97,6 +98,8 @@ export interface StatusInput {
   /** A SQL file's dialect, once the Host has said. */
   readonly sql?: DialectState | null;
   readonly lastLogLine?: string | null;
+  /** A connected Windows Host, where no language tools run yet (ENG-296). */
+  readonly windowsHost?: boolean;
 }
 
 const TS = "typescript-language-server";
@@ -687,7 +690,9 @@ export const statusView = (input: StatusInput): StatusView => {
   if (file === null || file.phase === "local")
     return syntax(
       input,
-      `Highlighting works. Language tools run on ${input.hostInSentence} once it's connected.`
+      input.windowsHost === true
+        ? LANGUAGES_OFF_ON_WINDOWS
+        : `Highlighting works. Language tools run on ${input.hostInSentence} once it's connected.`
     );
 
   if (file.phase === "checking") return settingUp(input, null, "checking");

@@ -65,7 +65,14 @@ const SHOT_SCENES = new Map([
   ["polaris-worker", "polaris"],
   ["polaris-raw", "polaris"],
   ["polaris-notify", "polaris"],
+  ["windows-hover", "windows"],
 ]);
+
+/** "This PC" just upgraded: the top bar's Host label hovered, showing the stop's note. */
+const hoverUpgradedHost = async (page: Page) => {
+  await page.locator('[data-host="local"]').first().hover();
+  await page.getByTestId("upgrade-note").waitFor();
+};
 
 /** Paper 14's open rows: the Lead's calls, the worker's, and one call's raw input and reply. */
 const POLARIS_OPEN = new Map([
@@ -205,6 +212,8 @@ const open = async (page: Page, scene: string) => {
     await openPolaris(page, scene);
   } else if (TRANSCRIPT_SHOTS.has(scene)) {
     await openTranscriptShot(page, scene);
+  } else if (scene === "windows-hover") {
+    await hoverUpgradedHost(page);
   } else if (scene === "viewer") {
     await page.locator('[data-testid="sent-image"][data-state="ready"]').first().click();
     await page.getByTestId("attachment-viewer").locator("img").waitFor();

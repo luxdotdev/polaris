@@ -173,6 +173,23 @@ describe("labels", () => {
     expect(notes).toEqual(["Rules only: no Reviewer is available"]);
   });
 
+  test("on a Windows Host the missing secrets scanner reads as not yet, not as a failure", () => {
+    const rules = {
+      status: "completed" as const,
+      note: "Secrets were not checked: Betterleaks is not installed beside the Daemon. Code patterns skipped 2 files",
+    };
+
+    const unscanned = summary({
+      note: null,
+      layers: { rules, agent: { status: "completed", note: null } },
+    });
+
+    expect(notesOf(unscanned, true)).toEqual([
+      "Secrets aren't scanned on Windows hosts yet. Code patterns skipped 2 files",
+    ]);
+    expect(notesOf(unscanned)).toEqual([rules.note]);
+  });
+
   test("the cost line", () => {
     const names = { harness: "Codex", model: "GPT-6.1-Sol · high" };
 

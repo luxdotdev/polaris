@@ -113,7 +113,8 @@ const attach = (inst: Instance) => {
 
         if (error === null) return;
 
-        if (error.code === "NotFound") applyStatus(inst.terminalId, { kind: "exited", code: null });
+        if (error.code === "NotFound")
+          applyStatus(inst.terminalId, { kind: "exited", code: null, lost: true });
         else inst.dropped = true;
       },
     }
