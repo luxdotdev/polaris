@@ -6,6 +6,13 @@
 import type { Workspace } from "@polaris/protocol";
 import type { FileEntry } from "@polaris/protocol";
 import type { HostView, Plain } from "../../../shared/api.ts";
+import {
+  isWindowsPath,
+  joinPath,
+  lastSeparator,
+  tildePath,
+  trimSeparators,
+} from "../../../shared/hostPath.ts";
 
 /** The typed path, split: the folder it browses and the name being typed in it. */
 export interface Browse {
@@ -13,62 +20,79 @@ export interface Browse {
   readonly dir: string;
   /** The same folder as the Daemon wants it; null while the Host's home is unknown. */
   readonly absolute: string | null;
-  /** What follows the last "/": filters the folders listed. */
+  /** What follows the last separator: filters the folders listed. */
   readonly filter: string;
 }
 
 /** Where the field starts: the Host's home. */
 export const START = "~/";
 
-const trimSlash = (path: string) => (path.length > 1 ? path.replace(/\/+$/, "") : path);
+const trimSlash = (path: string) => (path.length > 1 ? trimSeparators(path) : path);
 
-/** `~/x` → `<home>/x`; a path that isn't under `~` or `/` is taken from the home. */
+/** A Windows Host: its home is `C:\Users\…`, so "\" separates what the user types too. */
+const windowsHome = (homeDir: string | null) => homeDir !== null && isWindowsPath(homeDir);
+
+/** Typed as absolute: "/…", or on a Windows Host a drive or share (`C:\`, `\\nas\x`). */
+const typedAbsolute = (path: string) => path.startsWith("/") || isWindowsPath(path);
+
+/** `~/x` → `<home>/x`; a path that isn't under `~` or a root is taken from the home. */
 export const expand = (path: string, homeDir: string | null): string | null => {
-  if (path.startsWith("/")) return trimSlash(path);
+  if (typedAbsolute(path)) return trimSlash(path);
 
   if (homeDir === null) return null;
 
   if (path === "~" || path === "") return homeDir;
 
-  const rest = path.startsWith("~/") ? path.slice(2) : path;
+  const rest = /^~[\\/]/.test(path) ? path.slice(2) : path;
 
-  return trimSlash(`${trimSlash(homeDir)}/${rest}`);
+  return trimSlash(joinPath(homeDir, rest));
 };
 
 /** An absolute path as the user reads it: under the home it starts with `~`. */
-export const tilde = (path: string, homeDir: string | null): string => {
-  if (homeDir === null || homeDir === "/") return path;
+export const tilde = (path: string, homeDir: string | null): string => tildePath(path, homeDir);
 
-  const home = trimSlash(homeDir);
+const lastTyped = (text: string, homeDir: string | null) =>
+  windowsHome(homeDir)
+    ? Math.max(text.lastIndexOf("/"), text.lastIndexOf("\\"))
+    : text.lastIndexOf("/");
 
-  if (path === home) return "~";
+/** The folder before the cut; a bare drive ("C:") is its root ("C:\"). */
+const dirOf = (text: string, cut: number) => {
+  if (cut === -1) return "~";
 
-  return path.startsWith(`${home}/`) ? `~${path.slice(home.length)}` : path;
+  if (cut === 0) return "/";
+  const head = text.slice(0, cut);
+
+  return /^[A-Za-z]:$/.test(head) ? `${head}\\` : head;
 };
 
 export const browseOf = (typed: string, homeDir: string | null): Browse => {
   const text = typed.trim() === "" ? START : typed.trim();
-  const cut = text.lastIndexOf("/");
-  const dir = cut === -1 ? "~" : cut === 0 ? "/" : text.slice(0, cut);
+  const cut = lastTyped(text, homeDir);
+  const dir = dirOf(text, cut);
   const filter = cut === -1 ? text : text.slice(cut + 1);
 
   return { dir, absolute: expand(dir, homeDir), filter };
 };
 
-/** The field's text once the user steps into a folder: its path, with a trailing "/". */
+/** The field's text once the user steps into a folder: its path, with a trailing separator. */
 export const enter = (path: string, homeDir: string | null): string => {
   const shown = tilde(path, homeDir);
+  const sep = windowsHome(homeDir) || isWindowsPath(path) ? "\\" : "/";
 
-  return shown.endsWith("/") ? shown : `${shown}/`;
+  return shown.endsWith(sep) ? shown : `${shown}${sep}`;
 };
+
+/** A root has no parent: "/", "C:\". */
+const isRoot = (path: string) => path === "/" || /^[A-Za-z]:\\?$/.test(path);
 
 /** The field's text one folder up: "~/code/polaris/" → "~/code/". */
 export const up = (typed: string, homeDir: string | null): string => {
   const { dir, absolute } = browseOf(typed, homeDir);
 
-  if (absolute === null || absolute === "/") return typed;
+  if (absolute === null || isRoot(absolute)) return typed;
 
-  const parent = absolute.slice(0, absolute.lastIndexOf("/")) || "/";
+  const parent = trimSlash(absolute.slice(0, lastSeparator(absolute) + 1)) || "/";
 
   return dir.startsWith("~") || dir === "" ? enter(parent, homeDir) : enter(parent, null);
 };

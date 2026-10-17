@@ -119,3 +119,24 @@ test("list errors say what happened", () => {
   expect(listError("ENOTDIR: not a directory", "~/a.md")).toBe("~/a.md isn't a folder");
   expect(listError("boom", "/y")).toBe("Couldn't list /y");
 });
+
+describe("browsing a Windows Host", () => {
+  const WIN = "C:\\Users\\lucas";
+
+  test("either slash browses, and ~ is the Windows home", () => {
+    expect(browseOf("~\\code\\pol", WIN)).toEqual({
+      dir: "~\\code",
+      absolute: "C:\\Users\\lucas\\code",
+      filter: "pol",
+    });
+    expect(browseOf("~/code/", WIN).absolute).toBe("C:\\Users\\lucas\\code");
+    expect(browseOf("D:\\src", WIN)).toEqual({ dir: "D:\\", absolute: "D:\\", filter: "src" });
+  });
+
+  test("stepping in and up stays in the Host's spelling", () => {
+    expect(enter("C:\\Users\\lucas\\code", WIN)).toBe("~\\code\\");
+    expect(up("~\\code\\polaris\\", WIN)).toBe("~\\code\\");
+    expect(up("~\\", WIN)).toBe("C:\\Users\\");
+    expect(up("C:\\", WIN)).toBe("C:\\");
+  });
+});

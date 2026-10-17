@@ -1,16 +1,17 @@
 /** Paths as the editor shows them: from the Workspace's root, else from `~`, else the whole path. */
+import { pathSegments, pathWithin } from "../../../../shared/hostPath.ts";
 
 /** macOS spells /var, /tmp and /etc both ways; a realpath under one is the same file. */
 const PRIVATE = /^\/private(?=\/(?:var|tmp|etc)\/)/;
 
 const under = (path: string, dir: string) => {
-  const base = dir.endsWith("/") ? dir : `${dir}/`;
   const plain = (p: string) => p.replace(PRIVATE, "");
+  const rest = pathWithin(plain(path), plain(dir));
 
-  return plain(path).startsWith(plain(base)) ? plain(path).slice(plain(base).length) : null;
+  return rest === "" ? null : rest;
 };
 
-const segments = (path: string) => path.split("/").filter((s) => s.length > 0);
+const segments = (path: string) => [...pathSegments(path)];
 
 /**
  * Inside the root: its relative segments. Elsewhere (a Worktree, a checkout's other
