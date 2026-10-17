@@ -577,16 +577,20 @@ const createSuspended = (
         CREATE_NO_WINDOW;
 
       const startup = startupInfo(stdin, log, attributes);
+      // ptr() doesn't keep a buffer alive: building the next one could collect an inline one.
+      const app = wide(application);
+      const line = wide(commandLine);
+      const block = environmentBlock(env);
 
       if (
         !k32().CreateProcessW(
-          ptr(wide(application)),
-          ptr(wide(commandLine)),
+          ptr(app),
+          ptr(line),
           null,
           null,
           1,
           flags,
-          ptr(environmentBlock(env)),
+          ptr(block),
           null,
           ptr(startup),
           ptr(info)
