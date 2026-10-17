@@ -21,6 +21,14 @@ const waitUntil = async (done: () => boolean, ms = 5000) => {
   return done();
 };
 
+const logged = (file: string) => {
+  try {
+    return readFileSync(file, "utf8");
+  } catch {
+    return "";
+  }
+};
+
 describe("Windows natives", () => {
   windowsOnly("the listener table names this process on a port it binds", () => {
     const server = Bun.listen({ hostname: "127.0.0.1", port: 0, socket: { data() {} } });
@@ -46,13 +54,13 @@ describe("Windows natives", () => {
 
       try {
         expect(await waitUntil(() => job.pids().length >= 2)).toBe(true);
+        // Its stdout reaches the log, appended; ping's first line can trail the spawn.
+        expect(await waitUntil(() => logged(join(dir, "log")).includes("127.0.0.1"))).toBe(true);
         const pids = job.pids();
 
         expect(pids).toContain(job.pid);
         await job.stop();
         expect(pids.filter(isRunning)).toEqual([]);
-        // Its stdout reached the log, appended.
-        expect(readFileSync(join(dir, "log"), "utf8")).toContain("127.0.0.1");
       } finally {
         await job.stop();
         rmSync(dir, { recursive: true, force: true });
