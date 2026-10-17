@@ -3,10 +3,10 @@
  * colour of its id and state word, and whether it needs you.
  */
 import type { TaskState } from "@polaris/protocol";
-import { Predicate } from "effect";
 import { idRanges, span } from "./copy.ts";
 import { neutralFailure } from "./failure.ts";
 import type { Facts, WorkerFacts } from "./facts.ts";
+import { userQuestions } from "./questions.ts";
 import { currentSetup, type SetupRun } from "./setup.ts";
 import type { AttemptData, ConstellationData, ProjectionData, TaskData } from "./types.ts";
 
@@ -83,16 +83,7 @@ export const glyphFor = (
 export const userQuestion = (c: ConstellationData, attemptId: string | null) => {
   if (attemptId === null) return null;
 
-  for (const n of c.pendingNotifications ?? []) {
-    if (
-      Predicate.isTagged(n.item, "Question") &&
-      n.item.attemptId === attemptId &&
-      n.item.question.to === "user"
-    )
-      return n.item.question.text;
-  }
-
-  return null;
+  return userQuestions(c).find((q) => q.attemptId === attemptId)?.question.text ?? null;
 };
 
 const attentionOf = (

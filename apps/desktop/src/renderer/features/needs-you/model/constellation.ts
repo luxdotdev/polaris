@@ -3,7 +3,6 @@
  * you; Paper C5): grouped under each Lead, in the decided priority order. Pure, so it is tested.
  */
 import type { ApprovalRequest, ConstellationQuestion, TaskId } from "@polaris/protocol";
-import { Predicate } from "effect";
 import type { HostView } from "../../../../shared/api.ts";
 import type { HostModel, SessionEntry } from "../../../store/hostModel.ts";
 import type { Plain } from "../../../store/plain.ts";
@@ -17,6 +16,7 @@ import {
 } from "../../sessions/model/leadGroups.ts";
 import type { ConstellationView, SetupFact } from "../../sessions/source.ts";
 import { needsYou } from "../../../routes/topBar.ts";
+import { userQuestions } from "../../constellation/model/questions.ts";
 import { type Inbox, inboxKey } from "./inbox.ts";
 
 /** The decided order (spec §5), plus a paused Constellation's Claims, which only then reach here. */
@@ -139,24 +139,20 @@ const questionItems = (
   rows: ReadonlyArray<WorkerRow>,
   groupKey: string
 ): Array<ConstellationItem> =>
-  view.constellation.pendingNotifications.flatMap((n): Array<ConstellationItem> => {
-    const { item } = n;
-
-    if (!Predicate.isTagged(item, "Question") || item.question.to !== "user") return [];
-    const { attemptId, question } = item;
+  userQuestions(view.constellation).map(({ attemptId, question, askedAt }): ConstellationItem => {
     const row = rows.find((r) => r.attempt.id === attemptId);
 
     const shown: ConstellationItem = {
-      key: `${groupKey}\u0000q\u0000${question.id}`,
+      key: `${groupKey}\u0000q\u0000${attemptId}\u0000${question.id}`,
       kind: "question",
       hostKey: row?.hostKey ?? null,
       entry: row?.entry ?? null,
       taskId: row?.taskId ?? null,
-      since: n.queuedAt,
+      since: askedAt,
       question,
     };
 
-    return [row === undefined ? shown : { ...shown, worker: row }];
+    return row === undefined ? shown : { ...shown, worker: row };
   });
 
 const leadItems = (

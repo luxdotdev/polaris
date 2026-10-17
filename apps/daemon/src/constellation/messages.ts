@@ -112,6 +112,20 @@ export const answer = (d: GraphDecision, command: GraphCommand<"Answer">) => {
     return;
   }
 
+  if (
+    !d.record.graph.openQuestions.some(
+      (q) => q.attemptId === attemptId && q.question.id === questionId
+    )
+  ) {
+    d.reject(
+      "E-QUESTION-CLOSED",
+      `Question ${questionId} closed when Attempt ${attemptId} settled`,
+      "Message the Task's current worker if the answer still matters."
+    );
+
+    return;
+  }
+
   if (question.question.to === "user" && d.ctx.binding.kind !== "user") {
     d.reject(
       "E-AUTHORITY",

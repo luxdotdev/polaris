@@ -8,9 +8,11 @@ import {
   type ConstellationStreamItem,
   type DomainEvent,
   type HostStreamItem,
+  liveQuestions,
 } from "@polaris/protocol";
 import { Match, Predicate } from "effect";
 import { deriveProjections } from "./project.ts";
+import { openQuestionsOf } from "./questions.ts";
 import type {
   AttemptData,
   AttemptId,
@@ -102,13 +104,19 @@ const withoutProposal =
   (proposalId: string): Step =>
   (r) => ({ ...r, proposals: r.proposals.filter((p) => p.proposalId !== proposalId) });
 
-const answered = (questionId: string): Step =>
-  graph((c) => ({
+/** Question ids are the Attempt's own, so an answer names both. */
+const answered = (attemptId: string, questionId: string): Step => {
+  const other = (q: { readonly attemptId: string; readonly question: { readonly id: string } }) =>
+    q.attemptId !== attemptId || q.question.id !== questionId;
+
+  return graph((c) => ({
     ...c,
     pendingNotifications: c.pendingNotifications.filter(
-      (n) => !Predicate.isTagged(n.item, "Question") || n.item.question.id !== questionId
+      (n) => !Predicate.isTagged(n.item, "Question") || other(n.item)
     ),
+    openQuestions: (c.openQuestions ?? []).filter(other),
   }));
+};
 
 const compose =
   (...steps: ReadonlyArray<Step>): Step =>
@@ -130,8 +138,12 @@ const handoverOf = (
   inFlight: r.constellation.attempts.flatMap((a) =>
     a.state === "working" || a.state === "blocked" || a.state === "review" ? [a.id] : []
   ),
-  questions: r.constellation.pendingNotifications.filter((n) =>
-    Predicate.isTagged(n.item, "Question")
+  questions: [...r.notifications.values()].filter(
+    ({ item }) =>
+      Predicate.isTagged(item, "Question") &&
+      openQuestionsOf(r.constellation).some(
+        (q) => q.attemptId === item.attemptId && q.question.id === item.question.id
+      )
   ),
   undelivered: r.messages,
 });
@@ -264,6 +276,16 @@ const stepFor = (event: Event, at: string): Step =>
           graph((c) => ({
             ...c,
             pendingNotifications: [...c.pendingNotifications, notification],
+            openQuestions: Predicate.isTagged(notification.item, "Question")
+              ? [
+                  ...(c.openQuestions ?? []),
+                  {
+                    attemptId: notification.item.attemptId,
+                    question: notification.item.question,
+                    askedAt: notification.queuedAt,
+                  },
+                ]
+              : c.openQuestions,
           })),
           (r) => ({
             ...r,
@@ -301,7 +323,9 @@ const stepFor = (event: Event, at: string): Step =>
             ...r,
             messages: [...r.messages, { id, authority, target, text, at }],
           }),
-          questionId == null ? (r: ConstellationRecord) => r : answered(questionId)
+          questionId == null || !Predicate.isTagged(target, "Worker")
+            ? (r: ConstellationRecord) => r
+            : answered(target.attemptId, questionId)
         ),
       OperatorMessageResolved:
         ({ id }) =>
@@ -327,11 +351,13 @@ export const applyEvent = (
 
   if (record === undefined) return undefined;
   const next = stepFor(event, at)(record);
+  const c = next.constellation;
+  const open = liveQuestions(c.openQuestions ?? [], c.attempts);
 
   return {
     ...next,
     sequence,
-    constellation: { ...next.constellation, revision: event.revision, updatedAt: at },
+    constellation: { ...c, openQuestions: open, revision: event.revision, updatedAt: at },
   };
 };
 
