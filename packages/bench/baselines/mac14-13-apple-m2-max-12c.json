@@ -464,17 +464,17 @@
     "sessions": {
       "metrics": {
         "rss_before_mib": {
-          "value": 89.59375,
+          "value": 104.984375,
           "unit": "MiB",
           "kind": "memory",
           "better": "lower",
           "runs": [
-            89.59375,
-            88.890625,
-            90.328125
+            104.625,
+            106.9375,
+            104.984375
           ],
-          "min": 88.890625,
-          "max": 90.328125
+          "min": 104.625,
+          "max": 106.9375
         },
         "m10.dispatch_ack_p50_ms": {
           "value": 14.930541000008816,
@@ -1102,7 +1102,7 @@
           "max": 322.015625
         },
         "rss_growth_mib": {
-          "value": 246.640625,
+          "value": 217.515625,
           "unit": "MiB",
           "kind": "memory",
           "better": "lower",
@@ -1111,12 +1111,12 @@
             "absolute": 10
           },
           "runs": [
-            244.515625,
-            249.203125,
-            246.640625
+            217.515625,
+            223.4375,
+            201.265625
           ],
-          "min": 244.515625,
-          "max": 249.203125
+          "min": 201.265625,
+          "max": 223.4375
         },
         "rss_growth_repeat_mib": {
           "value": -4.9375,
@@ -1136,7 +1136,7 @@
           "max": 2.03125
         },
         "footprint_growth_mib": {
-          "value": 46.21897888183594,
+          "value": 42.890830993652344,
           "unit": "MiB",
           "kind": "memory",
           "better": "lower",
@@ -1145,16 +1145,16 @@
             "absolute": 10
           },
           "runs": [
-            46.21897888183594,
-            42.57826232910156,
-            50.81275177001953
+            40.828285217285156,
+            42.890830993652344,
+            75.78145599365234
           ],
-          "min": 42.57826232910156,
-          "max": 50.81275177001953
+          "min": 40.828285217285156,
+          "max": 75.78145599365234
         }
       },
       "notes": [
-        "phases: m10 (10 sessions × 3 Turns, 1 Client(s)), m50 (50 sessions × 3 Turns, 1 Client(s)), m50c4 (50 sessions × 3 Turns, 4 Client(s)), then burst and repeat (m50 again)"
+        "phases: m10 (10 sessions \u00d7 3 Turns, 1 Client(s)), m50 (50 sessions \u00d7 3 Turns, 1 Client(s)), m50c4 (50 sessions \u00d7 3 Turns, 4 Client(s)), then burst and repeat (m50 again)"
       ],
       "durationMs": 121962.11074999999
     },
@@ -1415,7 +1415,7 @@
         }
       },
       "notes": [
-        "20 sessions × 50 Turns × 96 items (300 B each), seeded through the Daemon over the socket",
+        "20 sessions \u00d7 50 Turns \u00d7 96 items (300 B each), seeded through the Daemon over the socket",
         "host resume replays the last 10k sequences (the Host stream skips Turn items); session resume replays half of one session"
       ],
       "durationMs": 68101.47329200001
@@ -1802,7 +1802,7 @@
       "notes": [
         "fff: first search returned 50 paths; grep hits 300 (limit 200 per query)",
         "fallback: first search returned 50 paths; grep hits 300 (limit 200 per query)",
-        "50000 files (~1.5 KB each) committed to git; 6 path queries and 3 greps × 5"
+        "50000 files (~1.5 KB each) committed to git; 6 path queries and 3 greps \u00d7 5"
       ],
       "durationMs": 98467.94908300001
     },
@@ -2092,7 +2092,7 @@
         }
       },
       "notes": [
-        "50000 files; 5 Turns each rewriting 20 files; before-checkpoint timed on Turns 2–5",
+        "50000 files; 5 Turns each rewriting 20 files; before-checkpoint timed on Turns 2\u20135",
         "Turn diff: 20 file(s), 39980 bytes; status: 1 entries; working-tree diff: 20 file(s)",
         "status with ignored: 2 entries over 5000 ignored files"
       ],
@@ -2896,32 +2896,32 @@
         }
       },
       "notes": [
-        "budgets: frame p95 ≤ 1.5 display intervals, ≤ 2% dropped, the app < 1 GB with the Review open",
+        "budgets: frame p95 \u2264 1.5 display intervals, \u2264 2% dropped, the app < 1 GB with the Review open",
         "app_scrolled_mib: after 600 frames at 240 px, a GC forced (Pierre keeps pages it touched)",
         "run 1: review-bench full: scrolled 1077 MiB before a GC, 944 after; main heap 55 MiB",
-        "run 1: review-bench full: 2000 files (4.9 MiB patch), first file 1331 ms, parsed 1335 ms; frames p50/p95/p99/max 5.6/6.8/11.5/16.3 ms (interval 5.6), dropped 1.5%; app 513 idle → 728 open → 944 MiB scrolled (Browser 221, GPU:GPU 96, Utility:network.mojom.NetworkService 42, Tab 585); daemon 131 → peak 190 MiB while diffing",
+        "run 1: review-bench full: 2000 files (4.9 MiB patch), first file 1331 ms, parsed 1335 ms; frames p50/p95/p99/max 5.6/6.8/11.5/16.3 ms (interval 5.6), dropped 1.5%; app 513 idle \u2192 728 open \u2192 944 MiB scrolled (Browser 221, GPU:GPU 96, Utility:network.mojom.NetworkService 42, Tab 585); daemon 131 \u2192 peak 190 MiB while diffing",
         "run 1: review-bench collapsed: scrolled 1237 MiB before a GC, 1181 after; main heap 48 MiB",
-        "run 1: review-bench collapsed: 5000 files (3.0 MiB patch), first file 822 ms, parsed 828 ms; frames p50/p95/p99/max 5.6/6.3/6.9/12.2 ms (interval 5.6), dropped 0.2%; app 508 idle → 787 open → 1181 MiB scrolled (Browser 241, GPU:GPU 92, Utility:network.mojom.NetworkService 48, Tab 801); daemon 173 → peak 188 MiB while diffing",
+        "run 1: review-bench collapsed: 5000 files (3.0 MiB patch), first file 822 ms, parsed 828 ms; frames p50/p95/p99/max 5.6/6.3/6.9/12.2 ms (interval 5.6), dropped 0.2%; app 508 idle \u2192 787 open \u2192 1181 MiB scrolled (Browser 241, GPU:GPU 92, Utility:network.mojom.NetworkService 48, Tab 801); daemon 173 \u2192 peak 188 MiB while diffing",
         "run 1: review-bench list-only: scrolled 786 MiB before a GC, 778 after; main heap 23 MiB",
         "run 2: review-bench list-only: scrolled 786 MiB before a GC, 778 after; main heap 23 MiB",
-        "run 1: review-bench list-only: 12000 files (7.2 MiB patch), first file 834 ms, parsed 836 ms; frames p50/p95/p99/max 5.6/6.2/6.7/7.0 ms (interval 5.6), dropped 0.0%; app 509 idle → 661 open → 778 MiB scrolled (Browser 264, GPU:GPU 90, Utility:network.mojom.NetworkService 48, Tab 377); daemon 188 → peak 213 MiB while diffing",
+        "run 1: review-bench list-only: 12000 files (7.2 MiB patch), first file 834 ms, parsed 836 ms; frames p50/p95/p99/max 5.6/6.2/6.7/7.0 ms (interval 5.6), dropped 0.0%; app 509 idle \u2192 661 open \u2192 778 MiB scrolled (Browser 264, GPU:GPU 90, Utility:network.mojom.NetworkService 48, Tab 377); daemon 188 \u2192 peak 213 MiB while diffing",
         "run 1: review-bench huge: scrolled 1011 MiB before a GC, 983 after; main heap 20 MiB",
-        "run 1: review-bench huge: 1 files (2.2 MiB patch), first file 820 ms, parsed 825 ms; frames p50/p95/p99/max 5.6/6.4/6.9/11.4 ms (interval 5.5), dropped 0.2%; app 510 idle → 764 open → 983 MiB scrolled (Browser 226, GPU:GPU 99, Utility:network.mojom.NetworkService 48, Tab 611); daemon 213 → peak 213 MiB while diffing",
+        "run 1: review-bench huge: 1 files (2.2 MiB patch), first file 820 ms, parsed 825 ms; frames p50/p95/p99/max 5.6/6.4/6.9/11.4 ms (interval 5.5), dropped 0.2%; app 510 idle \u2192 764 open \u2192 983 MiB scrolled (Browser 226, GPU:GPU 99, Utility:network.mojom.NetworkService 48, Tab 611); daemon 213 \u2192 peak 213 MiB while diffing",
         "run 2: review-bench full: scrolled 1108 MiB before a GC, 978 after; main heap 55 MiB",
-        "run 2: review-bench full: 2000 files (4.9 MiB patch), first file 1324 ms, parsed 1328 ms; frames p50/p95/p99/max 5.6/6.8/11.2/12.2 ms (interval 5.6), dropped 1.0%; app 508 idle → 722 open → 978 MiB scrolled (Browser 247, GPU:GPU 99, Utility:network.mojom.NetworkService 48, Tab 584); daemon 139 → peak 197 MiB while diffing",
+        "run 2: review-bench full: 2000 files (4.9 MiB patch), first file 1324 ms, parsed 1328 ms; frames p50/p95/p99/max 5.6/6.8/11.2/12.2 ms (interval 5.6), dropped 1.0%; app 508 idle \u2192 722 open \u2192 978 MiB scrolled (Browser 247, GPU:GPU 99, Utility:network.mojom.NetworkService 48, Tab 584); daemon 139 \u2192 peak 197 MiB while diffing",
         "run 2: review-bench collapsed: scrolled 1231 MiB before a GC, 1176 after; main heap 48 MiB",
-        "run 2: review-bench collapsed: 5000 files (3.0 MiB patch), first file 822 ms, parsed 828 ms; frames p50/p95/p99/max 5.6/6.3/6.9/11.6 ms (interval 5.6), dropped 0.2%; app 509 idle → 784 open → 1176 MiB scrolled (Browser 241, GPU:GPU 92, Utility:network.mojom.NetworkService 48, Tab 795); daemon 196 → peak 216 MiB while diffing",
-        "run 2: review-bench list-only: 12000 files (7.2 MiB patch), first file 829 ms, parsed 831 ms; frames p50/p95/p99/max 5.6/6.0/6.9/7.0 ms (interval 5.6), dropped 0.0%; app 509 idle → 662 open → 778 MiB scrolled (Browser 264, GPU:GPU 90, Utility:network.mojom.NetworkService 48, Tab 377); daemon 216 → peak 241 MiB while diffing",
+        "run 2: review-bench collapsed: 5000 files (3.0 MiB patch), first file 822 ms, parsed 828 ms; frames p50/p95/p99/max 5.6/6.3/6.9/11.6 ms (interval 5.6), dropped 0.2%; app 509 idle \u2192 784 open \u2192 1176 MiB scrolled (Browser 241, GPU:GPU 92, Utility:network.mojom.NetworkService 48, Tab 795); daemon 196 \u2192 peak 216 MiB while diffing",
+        "run 2: review-bench list-only: 12000 files (7.2 MiB patch), first file 829 ms, parsed 831 ms; frames p50/p95/p99/max 5.6/6.0/6.9/7.0 ms (interval 5.6), dropped 0.0%; app 509 idle \u2192 662 open \u2192 778 MiB scrolled (Browser 264, GPU:GPU 90, Utility:network.mojom.NetworkService 48, Tab 377); daemon 216 \u2192 peak 241 MiB while diffing",
         "run 2: review-bench huge: scrolled 1007 MiB before a GC, 986 after; main heap 20 MiB",
-        "run 2: review-bench huge: 1 files (2.2 MiB patch), first file 826 ms, parsed 829 ms; frames p50/p95/p99/max 5.6/6.3/6.8/12.7 ms (interval 5.6), dropped 0.2%; app 509 idle → 762 open → 986 MiB scrolled (Browser 226, GPU:GPU 98, Utility:network.mojom.NetworkService 48, Tab 614); daemon 241 → peak 241 MiB while diffing",
+        "run 2: review-bench huge: 1 files (2.2 MiB patch), first file 826 ms, parsed 829 ms; frames p50/p95/p99/max 5.6/6.3/6.8/12.7 ms (interval 5.6), dropped 0.2%; app 509 idle \u2192 762 open \u2192 986 MiB scrolled (Browser 226, GPU:GPU 98, Utility:network.mojom.NetworkService 48, Tab 614); daemon 241 \u2192 peak 241 MiB while diffing",
         "run 3: review-bench full: scrolled 1079 MiB before a GC, 964 after; main heap 55 MiB",
-        "run 3: review-bench full: 2000 files (4.9 MiB patch), first file 1335 ms, parsed 1338 ms; frames p50/p95/p99/max 5.6/6.7/11.2/16.4 ms (interval 5.5), dropped 1.8%; app 509 idle → 721 open → 964 MiB scrolled (Browser 248, GPU:GPU 100, Utility:network.mojom.NetworkService 48, Tab 569); daemon 142 → peak 200 MiB while diffing",
+        "run 3: review-bench full: 2000 files (4.9 MiB patch), first file 1335 ms, parsed 1338 ms; frames p50/p95/p99/max 5.6/6.7/11.2/16.4 ms (interval 5.5), dropped 1.8%; app 509 idle \u2192 721 open \u2192 964 MiB scrolled (Browser 248, GPU:GPU 100, Utility:network.mojom.NetworkService 48, Tab 569); daemon 142 \u2192 peak 200 MiB while diffing",
         "run 3: review-bench collapsed: scrolled 1236 MiB before a GC, 1181 after; main heap 48 MiB",
-        "run 3: review-bench collapsed: 5000 files (3.0 MiB patch), first file 820 ms, parsed 827 ms; frames p50/p95/p99/max 5.6/6.1/6.8/11.3 ms (interval 5.5), dropped 0.3%; app 508 idle → 789 open → 1181 MiB scrolled (Browser 241, GPU:GPU 92, Utility:network.mojom.NetworkService 48, Tab 800); daemon 199 → peak 214 MiB while diffing",
+        "run 3: review-bench collapsed: 5000 files (3.0 MiB patch), first file 820 ms, parsed 827 ms; frames p50/p95/p99/max 5.6/6.1/6.8/11.3 ms (interval 5.5), dropped 0.3%; app 508 idle \u2192 789 open \u2192 1181 MiB scrolled (Browser 241, GPU:GPU 92, Utility:network.mojom.NetworkService 48, Tab 800); daemon 199 \u2192 peak 214 MiB while diffing",
         "run 3: review-bench list-only: scrolled 785 MiB before a GC, 778 after; main heap 23 MiB",
-        "run 3: review-bench list-only: 12000 files (7.2 MiB patch), first file 822 ms, parsed 827 ms; frames p50/p95/p99/max 5.6/6.5/6.9/7.0 ms (interval 5.5), dropped 0.0%; app 509 idle → 661 open → 778 MiB scrolled (Browser 264, GPU:GPU 90, Utility:network.mojom.NetworkService 48, Tab 377); daemon 214 → peak 233 MiB while diffing",
+        "run 3: review-bench list-only: 12000 files (7.2 MiB patch), first file 822 ms, parsed 827 ms; frames p50/p95/p99/max 5.6/6.5/6.9/7.0 ms (interval 5.5), dropped 0.0%; app 509 idle \u2192 661 open \u2192 778 MiB scrolled (Browser 264, GPU:GPU 90, Utility:network.mojom.NetworkService 48, Tab 377); daemon 214 \u2192 peak 233 MiB while diffing",
         "run 3: review-bench huge: scrolled 1006 MiB before a GC, 989 after; main heap 20 MiB",
-        "run 3: review-bench huge: 1 files (2.2 MiB patch), first file 821 ms, parsed 823 ms; frames p50/p95/p99/max 5.6/6.3/6.8/6.9 ms (interval 5.6), dropped 0.0%; app 509 idle → 762 open → 989 MiB scrolled (Browser 227, GPU:GPU 98, Utility:network.mojom.NetworkService 48, Tab 617); daemon 233 → peak 233 MiB while diffing",
+        "run 3: review-bench huge: 1 files (2.2 MiB patch), first file 821 ms, parsed 823 ms; frames p50/p95/p99/max 5.6/6.3/6.8/6.9 ms (interval 5.6), dropped 0.0%; app 509 idle \u2192 762 open \u2192 989 MiB scrolled (Browser 227, GPU:GPU 98, Utility:network.mojom.NetworkService 48, Tab 617); daemon 233 \u2192 peak 233 MiB while diffing",
         "carried from the 14e1072c baseline: review fails on main at 3587a4b7 (no .review-diff)"
       ],
       "durationMs": 164458.073417
