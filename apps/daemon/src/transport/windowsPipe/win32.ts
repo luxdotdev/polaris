@@ -4,7 +4,14 @@
  * the thread pool, and reading a pipe's owner. Loaded on first use, Windows only.
  */
 import { dlopen, JSCallback, ptr, read } from "bun:ffi";
-import { BUFFER_BYTES, MAX_INSTANCES, PIPE_MODE, pipeOpenMode, WIN32_ERROR } from "./security.ts";
+import {
+  BUFFER_BYTES,
+  CLIENT_OPEN_FLAGS,
+  MAX_INSTANCES,
+  PIPE_MODE,
+  pipeOpenMode,
+  WIN32_ERROR,
+} from "./security.ts";
 
 /** A Win32 `HANDLE`, as Bun's FFI passes a `u64`. */
 export type Handle = bigint;
@@ -267,8 +274,6 @@ const GENERIC_WRITE = 0x4000_0000;
 
 const OPEN_EXISTING = 3;
 
-const FILE_FLAG_OVERLAPPED = 0x4000_0000;
-
 /** A client end of a pipe, or the Win32 error that refused it. */
 export type Opened = { readonly handle: Handle } | { readonly refused: number };
 
@@ -285,7 +290,7 @@ export const openClient = (
       0,
       null,
       OPEN_EXISTING,
-      FILE_FLAG_OVERLAPPED,
+      CLIENT_OPEN_FLAGS,
       0n
     );
 
