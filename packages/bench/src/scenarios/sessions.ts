@@ -260,7 +260,15 @@ export const sessions: Scenario = {
       mkdirSync(join(repo, "src"), { recursive: true });
       const primary = yield* connect(daemon, ctx.transport, "bench-0");
       const workspaceId = yield* registerWorkspace(primary, repo, "sessions");
-      yield* settle(1000);
+      // A warm-up Turn, so `before` is taken after the Daemon's quiet release, as `after` is.
+      yield* runPhase(ctx, daemon, sampler, primary, workspaceId, {
+        name: "warmup",
+        sessions: 1,
+        clients: 1,
+        turns: 1,
+        script: realistic(ctx.quick),
+      });
+      yield* settle(3000);
       const before = sampler.sample();
 
       const metrics: Record<string, Metric> = {};
