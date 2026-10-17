@@ -31,8 +31,10 @@ Windows 11 with Bun 1.4.3 and Claude Code 2.1.302 installed by npm 9:
   run as before, so Bun's refusal still guards it; no argument ever goes through cmd.exe.
 - **Every Claude spawn uses it**: print mode (`inline/claude.ts`) prepends the target to its
   argv; the Agent SDK's callers pass `claudeExecutable(path)`, the target `claude.exe`, or a
-  `cli.js` with `executable: "node"` (the SDK then runs the `node` on PATH, as the shim
-  would when none is beside it).
+  `cli.js` with `executable: "node"` and a `spawnClaudeCodeProcess` that starts the shim's
+  `node` by its absolute path. A bare `node` would be looked up in the Workspace first on
+  Windows, where a repository could plant one; a shim whose `node` isn't absolute keeps
+  the `.cmd` and fails rather than run it.
 - **The other Harnesses keep their shims.** Codex, OpenCode, Gemini and Copilot are given
   only plain arguments (`app-server`, `serve --port 0`, `--acp`, `--version`), which Bun
   passes to a `.cmd`; the Windows Codex app-server's cmd.exe line refuses `%` and `"`
