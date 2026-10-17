@@ -16,6 +16,7 @@ import { polarisHome } from "../../paths.ts";
 import { HarnessError } from "../HarnessDriver.ts";
 import type { QueryFn } from "./ClaudeDriver.ts";
 import { Inbox } from "./inbox.ts";
+import { claudeExecutable } from "./executable.ts";
 
 const EFFORT_LEVELS: ReadonlyArray<EffortLevel> = ["low", "medium", "high", "xhigh", "max"];
 
@@ -57,7 +58,7 @@ export const listClaudeModels = (driver: {
 
     const options: Options = {
       cwd,
-      pathToClaudeCodeExecutable: claudePath,
+      ...claudeExecutable(claudePath),
       persistSession: false,
       mcpServers: {},
       strictMcpConfig: true,

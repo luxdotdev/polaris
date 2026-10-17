@@ -15,6 +15,7 @@ import { Effect, Option, Schema } from "effect";
 import { HarnessError } from "../HarnessDriver.ts";
 import type { QueryFn } from "./ClaudeDriver.ts";
 import { Inbox } from "./inbox.ts";
+import { claudeExecutable } from "./executable.ts";
 
 type Builtin =
   | { readonly run: "text" }
@@ -264,7 +265,7 @@ export const listClaudeCommands =
 
       const options: Options = {
         cwd,
-        pathToClaudeCodeExecutable: claudePath,
+        ...claudeExecutable(claudePath),
         persistSession: false,
         mcpServers: {},
         strictMcpConfig: true,

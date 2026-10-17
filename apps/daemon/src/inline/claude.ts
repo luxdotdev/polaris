@@ -6,6 +6,7 @@ import type { InlineBackend } from "./backend.ts";
 import type { StructuredJob } from "./structured.ts";
 import { decodePatch, harnessPrompt, instructions, patchJsonSchema } from "./patch.ts";
 import { stopChild } from "../platform/processes.ts";
+import { launchArgv } from "../platform/cmdShim.ts";
 
 const Event = Schema.Struct({
   type: Schema.String,
@@ -66,7 +67,7 @@ export const claudeStructured = Effect.fn("harness.claude.structured")(function*
   const proc = yield* Effect.acquireRelease(
     Effect.try({
       try: () =>
-        Bun.spawn([binary, ...claudeArgs(job)], {
+        Bun.spawn(launchArgv(binary, claudeArgs(job)), {
           cwd,
           env: childEnv(),
           stdin: "pipe",
