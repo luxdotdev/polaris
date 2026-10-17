@@ -1,6 +1,7 @@
 """Stage verified private inputs and execute only an explicitly released bounded fixture."""
 import argparse
 import hashlib
+import importlib.util
 import io
 import json
 import os
@@ -8,12 +9,23 @@ import pathlib
 import subprocess
 import sys
 import tarfile
-from importlib.machinery import SourceFileLoader
 
 sys.dont_write_bytecode = True
 
 source = pathlib.Path(__file__).resolve().parent
-bounded = SourceFileLoader('bounded', str(source / 'bounded-build.py')).load_module()
+
+
+def load(name, path):
+    if name in sys.modules:
+        return sys.modules[name]
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+bounded = load('bounded', source / 'bounded-build.py')
 COMMIT = '88d9e12ae178fab0fb5cc050a94da85685d449ea'
 LOCK = '6497b191fc31008c70214d1360893919a519095ec1b90c9ffaa667e7476d46a6'
 
