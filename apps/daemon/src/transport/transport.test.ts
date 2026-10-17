@@ -86,9 +86,9 @@ const printAs = (size: number) =>
     ? ["powershell", "-nop", "-c", `sleep -m 300; [Console]::Out.Write('a' * ${size}); ''; 'done'`]
     : ["sh", "-c", `sleep 0.3; head -c ${size} /dev/zero | tr '\\0' a; echo; echo done`];
 
-const noStaleFile = posixTest(
-  "a pipe leaves no file behind; pipe.test.ts covers a name another process holds"
-);
+const noStaleFile = posixTest("a pipe leaves no file; pipe.test.ts covers a name another holds");
+
+const conPty = posixTest("a ConPTY print never ends within 20 s on windows-latest (ENG-318)");
 
 const signalStop = posixTest(
   "SIGTERM there terminates at once; the logon task stops the Daemon over its control pipe (ADR 0060)"
@@ -788,66 +788,67 @@ describe("transport", () => {
     expect(sha(new Uint8Array(await Bun.file(staged.hostPath).arrayBuffer()))).toBe(sha(payload));
   }, 20_000);
 
-  test("terminal output arrives the same as raw bytes (terminal.binary) and as base64", async () => {
-    // ConPTY renders every cell, slowly on a loaded runner: a tenth as much on Windows.
-    const size = windows ? 30_000 : 300_000;
+  conPty(
+    "terminal output is the same as raw bytes (terminal.binary) and base64",
+    async () => {
+      const size = 300_000;
 
-    const texts = await run(
-      Effect.gen(function* () {
-        yield* startServer({
-          ...serverOptions(home),
-          handlers: TerminalRpcsLive.pipe(
-            Layer.provide(Layer.merge(TerminalsLive, EventStore.layerSqlite(":memory:")))
-          ),
-          capabilities: ["terminal", "terminal.binary"],
-        });
-        const conn = yield* localHost(home);
-        const session = yield* conn.awaitSession;
+      const texts = await run(
+        Effect.gen(function* () {
+          yield* startServer({
+            ...serverOptions(home),
+            handlers: TerminalRpcsLive.pipe(
+              Layer.provide(Layer.merge(TerminalsLive, EventStore.layerSqlite(":memory:")))
+            ),
+            capabilities: ["terminal", "terminal.binary"],
+          });
+          const conn = yield* localHost(home);
+          const session = yield* conn.awaitSession;
 
-        const read = (capabilities: ReadonlyArray<Capability>) =>
-          Effect.gen(function* () {
-            const { terminalId } = yield* session.client["terminal.open"]({
-              cwd: home,
-              cols: 80,
-              rows: 24,
-              argv: printAs(size),
+          const read = (capabilities: ReadonlyArray<Capability>) =>
+            Effect.gen(function* () {
+              const { terminalId } = yield* session.client["terminal.open"]({
+                cwd: home,
+                cols: 80,
+                rows: 24,
+                argv: printAs(size),
+              });
+
+              let text = "";
+              const decoder = new TextDecoder();
+              let exit: number | null | undefined;
+              yield* attachTerminal({ ...session, capabilities }, terminalId).pipe(
+                Stream.runForEach((item) =>
+                  Effect.sync(() =>
+                    TerminalOutput.$match(item, {
+                      Output: (output) => {
+                        text += decoder.decode(output.data, { stream: true });
+                      },
+                      Exit: (ended) => {
+                        exit = ended.code;
+                      },
+                    })
+                  )
+                )
+              );
+
+              return { text, exit };
             });
 
-            let text = "";
-            const decoder = new TextDecoder();
-            let exit: number | null | undefined;
-            yield* attachTerminal({ ...session, capabilities }, terminalId).pipe(
-              Stream.runForEach((item) =>
-                Effect.sync(() =>
-                  TerminalOutput.$match(item, {
-                    Output: (output) => {
-                      text += decoder.decode(output.data, { stream: true });
-                    },
-                    Exit: (ended) => {
-                      exit = ended.code;
-                    },
-                  })
-                )
-              )
-            );
+          return [yield* read(["terminal.binary"]), yield* read([])];
+        })
+      );
 
-            return { text, exit };
-          });
+      for (const { text, exit } of texts) {
+        expect(exit).toBe(0);
+        const count = text.split("a").length - 1;
 
-        return [yield* read(["terminal.binary"]), yield* read([])];
-      })
-    );
-
-    for (const { text, exit } of texts) {
-      expect(exit).toBe(0);
-      const count = text.split("a").length - 1;
-
-      // ConPTY repaints part of its screen as the output scrolls, so some cells arrive twice.
-      if (windows) expect(count).toBeGreaterThanOrEqual(size);
-      else expect(count).toBe(size);
-      expect(text).toContain("done");
-    }
-  }, 20_000);
+        expect(count).toBe(size);
+        expect(text).toContain("done");
+      }
+    },
+    20_000
+  );
 
   signalStop(
     "polaris serve as a process: pid file, bridge, clean shutdown",

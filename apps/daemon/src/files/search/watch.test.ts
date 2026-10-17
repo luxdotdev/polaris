@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { watch } from "node:fs";
+import { existsSync, watch } from "node:fs";
 import { join } from "node:path";
 import { makeRepo, removeDir, tempDir, write } from "../../git/testing.ts";
 import { posixTest } from "../../platform/testing.ts";
@@ -34,6 +34,33 @@ const recorder = () => {
 
   return { opened, open };
 };
+
+test("on Windows a tree watch whose root is deleted closes instead of reporting it forever", async () => {
+  const root = tempDir("polaris-gone-watch-");
+  let reports = 0;
+  let closed = false;
+
+  // As Bun's recursive watch does on Windows once its root is gone.
+  const open: NonNullable<NonNullable<Parameters<typeof watchRoot>[2]>["open"]> = (
+    path,
+    _recursive,
+    changed
+  ) => {
+    const spin = setInterval(() => existsSync(path) || changed("rename", path), 2);
+
+    return () => {
+      closed = true;
+      clearInterval(spin);
+    };
+  };
+
+  stops.push(await watchRoot(root, () => reports++, { platform: "win32", open }));
+  removeDir(root);
+  await Bun.sleep(100);
+
+  expect(closed).toBe(true);
+  expect(reports).toBe(1);
+});
 
 test("a large non-git Workspace never registers a native tree watch on Linux", async () => {
   const root = tempDir("polaris-home-watch-");

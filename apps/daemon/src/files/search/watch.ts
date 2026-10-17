@@ -1,4 +1,4 @@
-import { watch as fsWatch } from "node:fs";
+import { existsSync, watch as fsWatch } from "node:fs";
 import { opendir } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { findRepoRoot, runGit } from "../../git/git.ts";
@@ -48,7 +48,8 @@ export const watchRoot = async (
   } = {}
 ): Promise<() => void> => {
   // On Windows a watch per directory spawns a git check-ignore each and keeps it from deletion.
-  const recursive = ["darwin", "win32"].includes(options.platform ?? process.platform);
+  const platform = options.platform ?? process.platform;
+  const recursive = ["darwin", "win32"].includes(platform);
   const open = options.open ?? openWatch;
   const watchers = new Map<string, () => void>();
   let stopped = false;
@@ -130,6 +131,15 @@ export const watchRoot = async (
 
   const arm = (directory: string) => {
     const close = open(directory, recursive, (event, path) => {
+      // Bun's tree watch on Windows reports its own deleted root every 2 ms, forever.
+      if (platform === "win32" && !existsSync(directory)) {
+        close();
+        watchers.delete(directory);
+        changed("rename", directory);
+
+        return;
+      }
+
       if (
         relative(root, path)
           .split(/[\\/]/)
