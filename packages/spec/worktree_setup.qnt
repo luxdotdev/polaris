@@ -11,7 +11,8 @@ module worktree_setup {
     | Start(id) => if (v.setup != "running" and v.state != "archived" and
         (not(v.attempt) or v.deferred and v.pending and v.boundary and not(v.turn))) { ...v, setup: "running", id: id } else v
     | Finish(p) => if (v.setup == "running" and v.id == p.id) finish(v, p.ok) else v
-    | Recover => if (v.setup == "running") finish(v, false) else v
+    // A restart fails initial setup; a pending Attempt's deferred setup is interrupted and reruns.
+    | Recover => if (v.setup == "running") { ...finish(v, false), setup: if (v.deferred and v.pending) "interrupted" else "failed" } else v
     | Dispatch => if (not(v.attempt) and Set("none", "completed").contains(v.setup) and v.state == "dormant") { ...v, attempt: true } else v
     | RetryAttempt => if (not(v.attempt) and Set("none", "completed").contains(v.setup) and v.state == "dormant")
         { ...v, attempt: true, deferred: true, pending: true, boundary: false } else v
@@ -34,6 +35,7 @@ module worktree_setup {
     view.setup == "running" implies (not(view.turn) and (if (view.deferred) view.boundary else not(view.attempt) and not(view.slot))),
     view.setup == "failed" implies (Set("failed", "archived").contains(view.state) and not(view.slot)),
     view.inputs > 0 implies view.turn,
+    view.setup == "interrupted" implies (view.deferred and view.pending and not(view.turn)),
   }
 }
 
@@ -44,6 +46,8 @@ module worktree_setup_test {
   run staleCompletionDoesNotOverwriteOrReopenTest = init.then(publish(Start(0))).then(publish(Recover)).then(publish(Start(1))).then(publish(Finish({ id: 0, ok: true }))).expect(view.setup == "running" and safety).then(publish(Archive)).then(publish(Finish({ id: 1, ok: false }))).expect(view.state == "archived" and safety)
   run deferredSetupWaitsForBoundaryAndPrecedesBriefAndInputsTest = init.then(publish(RetryAttempt)).then(publish(Acquire)).then(publish(Start(0))).then(publish(Input)).expect(view.pending and view.setup == "none" and view.inputs == 0 and safety).then(publish(Boundary)).then(publish(Start(1))).then(publish(FirstTurn)).expect(not(view.turn) and safety).then(publish(Finish({ id: 1, ok: true }))).then(publish(FirstTurn)).then(publish(Input)).expect(view.turn and view.inputs == 1 and safety)
   run deferredRestartFailureReleasesSlotBeforeRepairTest = init.then(publish(RetryAttempt)).then(publish(Acquire)).then(publish(Boundary)).then(publish(Start(0))).then(publish(Recover)).expect(view.pending and not(view.slot) and safety).then(publish(Start(1))).then(publish(Finish({ id: 1, ok: true }))).then(publish(Acquire)).then(publish(FirstTurn)).expect(view.turn and safety)
+  run deferredInterruptedSetupRerunsUnderNewSlotTest = init.then(publish(RetryAttempt)).then(publish(Acquire)).then(publish(Boundary)).then(publish(Start(0))).then(publish(Recover)).expect(view.setup == "interrupted" and not(view.slot) and safety).then(publish(Acquire)).then(publish(FirstTurn)).expect(view.slot and not(view.turn) and safety).then(publish(Start(1))).then(publish(Finish({ id: 1, ok: true }))).then(publish(FirstTurn)).expect(view.turn and view.setup == "completed" and safety)
+  run initialSetupRestartStaysFailedTest = init.then(publish(Start(0))).then(publish(Recover)).then(publish(Dispatch)).then(publish(Acquire)).expect(view.setup == "failed" and not(view.attempt) and not(view.slot) and safety)
 }
 
 /** Steer addresses the old Turn; only new Turns queue behind startup, in arrival order. */

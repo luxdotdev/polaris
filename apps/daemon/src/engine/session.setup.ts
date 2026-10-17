@@ -38,6 +38,14 @@ export const setupChanged = (
   ];
 };
 
+const INTERRUPTED = "Setup interrupted by Daemon";
+
+/** A setup card that recovery failed because the Daemon stopped mid-run, not because setup failed. */
+export const setupInterrupted = (setup: WorktreeSetupRun | null | undefined) =>
+  setup?.status === "failed" &&
+  setup.exitCode === null &&
+  setup.output.split("\n").at(-1)?.startsWith(`${INTERRUPTED} `) === true;
+
 /** Recovery leaves an unfinished setup as an actionable card, without inventing a Turn. */
 export const interruptedSetup = (
   record: SessionRecord,
@@ -57,7 +65,7 @@ export const interruptedSetup = (
       command: setup.command,
       cwd: setup.cwd,
       status: "failed",
-      output: `${setup.output}\nSetup interrupted by Daemon ${cause}. Dispatch again to retry.`,
+      output: `${setup.output}\n${INTERRUPTED} ${cause}. Dispatch again to retry.`,
       exitCode: null,
       startedAt: setup.startedAt,
       endedAt: at,

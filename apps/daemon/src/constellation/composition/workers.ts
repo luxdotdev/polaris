@@ -25,6 +25,7 @@ import { mergeFirst, reviewFeedback } from "./feedback.ts";
 import { StartupAbandoned } from "./startupAbandoned.ts";
 import { ConstellationHarness } from "./attachments.ts";
 import { sessionRestartNote } from "../restartNote.ts";
+import { setupInterrupted } from "../../engine/session.setup.ts";
 
 export const canStartAttempt = (graph: Constellation, attempt: Attempt) =>
   graph.state !== "completed" &&
@@ -69,6 +70,31 @@ const requireEndpoint = Effect.fnUntraced(function* (attempt: Attempt) {
   return yield* error;
 });
 
+const startupSetup = (graph: Constellation, attempt: Attempt) =>
+  runStartupSetup(graph, attempt).pipe(
+    Effect.tapError((error) => recordStartupFailure(attempt, error))
+  );
+
+/**
+ * A restart that stopped this Attempt's deferred setup failed its Session: rerun it now, before
+ * readiness. Returns the setup still due at the boundary (none once it reran).
+ */
+const rerunInterruptedSetup = Effect.fnUntraced(function* (graph: Constellation, attempt: Attempt) {
+  const current = (yield* (yield* EventStore).model).sessions.get(attempt.sessionId)?.session;
+
+  if (
+    attempt.startupSetup === null ||
+    current?.state !== "failed" ||
+    !setupInterrupted(current.worktreeSetup) ||
+    current.worktreeSetup?.id.startsWith(`${attempt.id}:setup:`) !== true
+  )
+    return startupSetup(graph, attempt);
+
+  yield* startupSetup(graph, attempt);
+
+  return Effect.void;
+});
+
 const start = Effect.fn("Constellation.startAttempt")(function* (
   graph: Constellation,
   attempt: Attempt,
@@ -96,6 +122,8 @@ const start = Effect.fn("Constellation.startAttempt")(function* (
   if (!startupAllowed(graph, attempt, yield* store.model) || !(yield* guard(yield* store.model)))
     return;
 
+  const setupAtBoundary = yield* rerunInterruptedSetup(graph, attempt);
+
   if (!(yield* waitForDeliveryReady(attempt.sessionId, true))) {
     if ((yield* store.model).sessions.get(attempt.sessionId)?.session.state === "failed") {
       const error = new ServiceError({
@@ -121,9 +149,7 @@ const start = Effect.fn("Constellation.startAttempt")(function* (
   if (!startupAllowed(graph, attempt, boundary) || !(yield* guard(boundary))) return;
 
   yield* requireEndpoint(attempt);
-  yield* runStartupSetup(graph, attempt).pipe(
-    Effect.tapError((error) => recordStartupFailure(attempt, error))
-  );
+  yield* setupAtBoundary;
   // Reopen at the boundary so Existing and Gate Sessions retain their Lead attachment and gain Worker tools.
   yield* effects.retire(attempt.sessionId);
   const model = yield* store.model;
