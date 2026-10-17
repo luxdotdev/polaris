@@ -8,7 +8,7 @@ import {
   NotificationItem,
   type TaskId,
 } from "@polaris/protocol";
-import { Match, Option, Predicate, Schema } from "effect";
+import { Match, Option, Predicate } from "effect";
 import type { GraphCommand } from "../engine/constellation.inputs.ts";
 import { questionKey } from "../store/constellation.ts";
 import { attemptData } from "./data.ts";
@@ -201,15 +201,10 @@ export const dispatch = (d: GraphDecision, command: GraphCommand<"Dispatch">) =>
   }
 };
 
-const CheckedOutput = Schema.Struct({
-  command: Schema.NonEmptyString,
-  exitCode: Schema.Int,
-  output: Schema.String,
-});
-
-const decodeOutput = Schema.decodeUnknownOption(CheckedOutput);
-
-/** Resolve every verified receipt against Daemon-recorded output; a forged reference rejects acceptance. */
+/**
+ * Resolve every verified receipt against a command execution the Harness recorded; a forged
+ * reference rejects acceptance. A `ToolCall` never verifies: its output is the tool's own (ENG-344).
+ */
 export const evidence = (d: GraphDecision, receipts: ReadonlyArray<CheckReceipt>) => {
   let verified = false;
 
@@ -230,15 +225,13 @@ export const evidence = (d: GraphDecision, receipts: ReadonlyArray<CheckReceipt>
           item.status === "completed" &&
           item.command !== "" &&
           item.exitCode !== null
-            ? Option.some({ command: item.command, exitCode: item.exitCode, output: item.output })
-            : Predicate.isTagged(item, "ToolCall") && item.status === "completed"
-              ? decodeOutput(item.output)
-              : Option.none();
+            ? Option.some({ command: item.command, exitCode: item.exitCode })
+            : Option.none();
 
         if (Option.isNone(command))
           d.reject(
             "E-RECEIPT-UNKNOWN",
-            `Receipt ${ref.itemId} is not a recorded completed command with output and exit code`,
+            `Receipt ${ref.itemId} is not a command execution the Harness recorded as completed with an exit code`,
             "Reference a Daemon-recorded command item, or use a reported receipt."
           );
         else if (command.value.exitCode !== 0)
