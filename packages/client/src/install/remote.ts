@@ -1,7 +1,8 @@
 /**
  * Install and upgrade the Daemon on a Host over SSH:
  *
- *   probeHost      uname, libc, download tools and `polaris version`, one round trip
+ *   probeHost      uname, libc, download tools and `polaris version`, one round trip; a
+ *                  Windows Host (no `sh`, or Git's MINGW one) takes a second, in PowerShell
  *   planInstall    (plan.ts) install / upgrade / nothing / needs approval, and the delivery
  *   applyPlan      get the build onto the Host (upload it, or let the Host download the
  *                  Release archive, falling back to downloading here and uploading),
@@ -11,7 +12,15 @@
  * Nothing needs sudo.
  */
 import { randomBytes } from "node:crypto";
-import { Data, Effect, Match, Option, Predicate, Schema } from "effect";
+import { Data, Effect, Match } from "effect";
+import {
+  type ApplyOptions,
+  ApplyResult,
+  type ApplyProgress,
+  failed,
+  RemoteInstallError,
+  runPolaris,
+} from "./apply.ts";
 import {
   archiveRequestUrl,
   type DaemonArchive,
@@ -27,15 +36,22 @@ import {
   planInstall,
 } from "./plan.ts";
 import { Ssh, type SshError, shellQuote, shScript } from "./Ssh.ts";
+import {
+  applyWindowsPlan,
+  isWindowsUname,
+  parseWindowsProbe,
+  stripClixml,
+  WINDOWS_PROBE_COMMAND,
+} from "./windows/index.ts";
 
-export class RemoteInstallError extends Schema.TaggedError<RemoteInstallError>()(
-  "RemoteInstallError",
-  {
-    alias: Schema.String,
-    step: Schema.String,
-    message: Schema.String,
-  }
-) {}
+export {
+  type ApplyOptions,
+  ApplyResult,
+  type ApplyProgress,
+  type DaemonReport,
+  type DownloadBuild,
+  RemoteInstallError,
+} from "./apply.ts";
 
 /**
  * The probe. `root` prefixes the loader paths, so tests can play a Host's
@@ -97,46 +113,34 @@ export const parseProbe = (stdout: string): HostProbe | null => {
   return { ...probe, libc: "musl", missingLibraries: missing };
 };
 
+/** The Windows probe, after the POSIX one found no usable `sh`; null when it isn't Windows either. */
+const probeWindows = Effect.fn("probeWindows")(function* (alias: string) {
+  const ssh = yield* Ssh;
+  const result = yield* ssh.exec(alias, WINDOWS_PROBE_COMMAND);
+
+  return result.code === 0 ? parseWindowsProbe(result.stdout) : null;
+});
+
 export const probeHost = Effect.fn("probeHost")(function* (alias: string) {
   const ssh = yield* Ssh;
   const result = yield* ssh.exec(alias, shScript(PROBE_SCRIPT));
   const probe = result.code === 0 ? parseProbe(result.stdout) : null;
 
-  if (probe === null) {
-    return yield* new RemoteInstallError({
-      alias,
-      step: "probe",
-      message: `unexpected answer (exit ${result.code}): ${(result.stderr || result.stdout).trim()}`,
-    });
-  }
+  if (probe !== null && !isWindowsUname(probe.os)) return probe;
 
-  return probe;
-});
+  // Only a failed or MINGW probe gets here; how a Windows shell fails varies too much to tell.
+  const windows = yield* probeWindows(alias);
 
-const failed = (
-  alias: string,
-  step: string,
-  result: { code: number; stderr: string; stdout: string }
-) =>
-  new RemoteInstallError({
+  if (windows !== null) return windows;
+
+  if (probe !== null) return probe;
+
+  return yield* new RemoteInstallError({
     alias,
-    step,
-    message: `exit ${result.code}: ${(result.stderr || result.stdout).trim()}`,
+    step: "probe",
+    message: `unexpected answer (exit ${result.code}): ${(stripClixml(result.stderr) || result.stdout).trim()}`,
   });
-
-export interface ApplyProgress {
-  readonly stage: "downloading" | "uploading" | "switching";
-  /** While downloading: on the Host itself, or on this machine before uploading. */
-  readonly via?: "host" | "client";
-  readonly bytes: number;
-  readonly total: number;
-}
-
-/** Downloads a build that isn't bundled into this machine's cache, verified (`download.ts`). */
-export type DownloadBuild = (
-  build: DaemonBuild,
-  onBytes: (bytes: number) => void
-) => Effect.Effect<DaemonBuild, RemoteInstallError>;
+});
 
 /** The most the Host may download for one archive, whatever the manifest says. */
 export const MAX_HOST_ARCHIVE_BYTES = 512 * 1024 * 1024;
@@ -183,16 +187,6 @@ const stage = Effect.fn("stage")(function* (alias: string, dir: string) {
 
   if (result.code !== 0) return yield* failed(alias, "stage", result);
 });
-
-export interface ApplyOptions {
-  readonly progress?: ((value: ApplyProgress) => void) | undefined;
-  /** Without it, a build that isn't bundled can only be downloaded by the Host. */
-  readonly download?: DownloadBuild | undefined;
-  /** This Client's version, sent with Host downloads for the site's telemetry. */
-  readonly clientVersion?: string | undefined;
-  /** How long the Host's download may take in all before falling back (default 15 minutes). */
-  readonly hostFetchTimeoutMs?: number | undefined;
-}
 
 /** Upload every file of `build` into the staged `~/.polaris/upload-<id>/`, verifying hashes there. */
 const upload = Effect.fn("upload")(function* (
@@ -364,41 +358,6 @@ const cleanUp = (alias: string, dir: string) =>
     yield* ssh.exec(alias, shScript(`rm -rf "$HOME/${dir}"`));
   }).pipe(Effect.ignore);
 
-/** The JSON line `polaris install|upgrade --json` prints; its fields vary by action and version. */
-export type DaemonReport = Schema.JsonObject;
-
-const decodeReport = Schema.decodeUnknownOption(Schema.fromJsonString(Schema.JsonObject));
-
-/** Run `polaris install|upgrade --json` and parse the JSON line it prints last. */
-const runPolaris = Effect.fn("runPolaris")(function* (
-  alias: string,
-  step: string,
-  command: string
-) {
-  const ssh = yield* Ssh;
-  const result = yield* ssh.exec(alias, shScript(command));
-  const line = result.stdout.trim().split("\n").at(-1) ?? "";
-
-  const report: DaemonReport | null = Option.getOrNull(decodeReport(line));
-
-  if (result.code !== 0 || report === null || report.ok !== true) {
-    const message = Predicate.isString(report?.message) ? report.message : null;
-
-    return yield* message
-      ? new RemoteInstallError({ alias, step, message })
-      : failed(alias, step, result);
-  }
-
-  return report;
-});
-
-export type ApplyResult = Data.TaggedEnum<{
-  Installed: { readonly version: string; readonly report: DaemonReport };
-  Upgraded: { readonly from: string; readonly version: string; readonly report: DaemonReport };
-}>;
-
-export const ApplyResult = Data.taggedEnum<ApplyResult>();
-
 /** Gets the build's files into `dir` on the Host by the plan's delivery, falling back as it says. */
 const deliver = (
   alias: string,
@@ -431,8 +390,8 @@ const deliver = (
     })
   );
 
-/** Carry out an `Install` or `Upgrade` plan. */
-export const applyPlan = Effect.fn("applyPlan")(function* (
+/** Carry out an `Install` or `Upgrade` plan on a POSIX Host. */
+const applyPosixPlan = Effect.fn("applyPosixPlan")(function* (
   alias: string,
   plan: Extract<InstallPlan, { _tag: "Install" | "Upgrade" }>,
   options: ApplyOptions = {}
@@ -447,14 +406,20 @@ export const applyPlan = Effect.fn("applyPlan")(function* (
     const run = Match.value(plan).pipe(
       Match.tagsExhaustive({
         Install: () =>
-          runPolaris(alias, "install", `${uploaded.binary} install --json --sha256 ${sha256}`).pipe(
+          runPolaris(
+            alias,
+            "install",
+            shScript(`${uploaded.binary} install --json --sha256 ${sha256}`)
+          ).pipe(
             Effect.map((report) => ApplyResult.Installed({ version: plan.build.version, report }))
           ),
         Upgrade: (upgrade) =>
           runPolaris(
             alias,
             "upgrade",
-            `"$HOME/.polaris/bin/current/polaris" upgrade ${uploaded.binary} --json --sha256 ${sha256}`
+            shScript(
+              `"$HOME/.polaris/bin/current/polaris" upgrade ${uploaded.binary} --json --sha256 ${sha256}`
+            )
           ).pipe(
             Effect.map((report) =>
               ApplyResult.Upgraded({ from: upgrade.from, version: plan.build.version, report })
@@ -466,6 +431,16 @@ export const applyPlan = Effect.fn("applyPlan")(function* (
     return yield* run;
   }).pipe(Effect.ensuring(cleanUp(alias, dir)));
 });
+
+/** Carry out an `Install` or `Upgrade` plan: PowerShell on a Windows Host, else `sh`. */
+export const applyPlan = (
+  alias: string,
+  plan: Extract<InstallPlan, { _tag: "Install" | "Upgrade" }>,
+  options: ApplyOptions = {}
+) =>
+  plan.windowsShell === undefined
+    ? applyPosixPlan(alias, plan, options)
+    : applyWindowsPlan(alias, plan, plan.windowsShell, options);
 
 export type EnsureResult = Data.TaggedEnum<{
   Ready: { readonly plan: InstallPlan; readonly applied: ApplyResult | null };

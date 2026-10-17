@@ -34,6 +34,8 @@ const open = () => ({
     UnregisterWaitEx: { args: ["u64", "u64"], returns: "i32" },
     GetOverlappedResult: { args: ["u64", "ptr", "ptr", "i32"], returns: "i32" },
     LocalFree: { args: ["u64"], returns: "u64" },
+    OpenProcess: { args: ["u32", "i32", "u32"], returns: "u64" },
+    TerminateProcess: { args: ["u64", "u32"], returns: "i32" },
   }),
   advapi32: dlopen("advapi32.dll", {
     OpenProcessToken: { args: ["u64", "u32", "ptr"], returns: "i32" },
@@ -366,6 +368,21 @@ export const securityOf = (handle: Handle): string | null => {
     return sddl;
   } finally {
     k32().LocalFree(descriptor[0]!);
+  }
+};
+
+const PROCESS_TERMINATE = 0x1;
+
+/** Ends process `pid` with exit `code`; false when it can't be opened or ended. */
+export const terminateProcess = (pid: number, code: number): boolean => {
+  const handle = k32().OpenProcess(PROCESS_TERMINATE, 0, pid);
+
+  if (handle === 0n) return false;
+
+  try {
+    return k32().TerminateProcess(handle, code) !== 0;
+  } finally {
+    k32().CloseHandle(handle);
   }
 };
 

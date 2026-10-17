@@ -3,10 +3,11 @@ import { constants } from "node:os";
 import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
 import type { Writable } from "node:stream";
-import { connectRpc, socketTransport } from "@polaris/client";
+import { connectRpc } from "@polaris/client";
 import { CommandId, SessionId } from "@polaris/protocol";
 import { Effect, Predicate, Schedule } from "effect";
 import { paths } from "../paths.ts";
+import { localDaemonTransport } from "../transport/localDaemon.ts";
 import { processIdentity } from "./process.ts";
 
 export const runLease = async (args: ReadonlyArray<string>): Promise<number> => {
@@ -62,7 +63,7 @@ export const runLease = async (args: ReadonlyArray<string>): Promise<number> => 
     await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
-          const transport = yield* socketTransport(
+          const transport = yield* localDaemonTransport(
             process.env.POLARIS_HOST_SOCKET ?? paths().socket
           );
 

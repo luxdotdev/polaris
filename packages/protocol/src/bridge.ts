@@ -11,3 +11,9 @@
  * failure and show the Host as Needs Attention.
  */
 export const BRIDGE_EXIT_NO_DAEMON = 69;
+
+/**
+ * Exit status of `polaris bridge` when the Daemon's Windows pipe is owned by another
+ * account (EX_NOPERM): something else took the name, so the bridge sent nothing to it.
+ */
+export const BRIDGE_EXIT_UNTRUSTED_DAEMON = 77;

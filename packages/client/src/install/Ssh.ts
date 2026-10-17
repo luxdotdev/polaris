@@ -4,9 +4,11 @@
  * changed-host-key prompt into a failure that surfaces as Needs Attention.
  */
 import { createReadStream } from "node:fs";
+import { Transform } from "node:stream";
 import { Context, Effect, Layer, Schema } from "effect";
 import { type ChildProcessApi, childProcesses, spawnFailed } from "../process/index.ts";
 import { resolveSshBinary, type SshOptions } from "../ssh.ts";
+import { LINE_BYTES } from "./windows/powershell.ts";
 
 export interface SshResult {
   readonly code: number;
@@ -68,11 +70,21 @@ export interface Spawned {
   readonly env?: NodeJS.ProcessEnv;
   readonly stdinFile?: string | undefined;
   readonly onStdinBytes?: ((bytes: number) => void) | undefined;
+  /** Sends `stdinFile` as base64 lines, for a Windows Host (`windows/powershell.ts`). */
+  readonly stdinLines?: boolean | undefined;
   /** ssh's own exit code; a local shell has none, so every exit is the command's. */
   readonly transportFailure: number | null;
   /** Starts the process (`ChildProcess`); tests script or record it. */
   readonly processes?: ChildProcessApi;
 }
+
+/** Each chunk (at most `LINE_BYTES`) as one base64 line. */
+const base64Lines = () =>
+  new Transform({
+    transform(chunk: Buffer, _encoding, done) {
+      done(null, `${chunk.toString("base64")}\n`);
+    },
+  });
 
 export const runCommand = ({
   alias,
@@ -81,6 +93,7 @@ export const runCommand = ({
   env,
   stdinFile,
   onStdinBytes,
+  stdinLines,
   transportFailure,
   processes = childProcesses,
 }: Spawned) =>
@@ -106,7 +119,7 @@ export const runCommand = ({
     if (stdinFile && child.stdin) {
       // The command exiting early (EPIPE) is reported through its exit code below.
       child.stdin.on("error", () => {});
-      input = createReadStream(stdinFile);
+      input = createReadStream(stdinFile, stdinLines ? { highWaterMark: LINE_BYTES } : {});
       let bytes = 0;
       input.on("data", (chunk) => {
         bytes += chunk.length;
@@ -116,7 +129,9 @@ export const runCommand = ({
         child.kill();
         resume(Effect.fail(new SshError({ alias, failure: "spawn", message: error.message })));
       });
-      input.pipe(child.stdin);
+
+      if (stdinLines) input.pipe(base64Lines()).pipe(child.stdin);
+      else input.pipe(child.stdin);
     }
 
     child.on("error", (error: NodeJS.ErrnoException) =>
@@ -146,6 +161,13 @@ export const runCommand = ({
     });
   });
 
+export interface ExecStdin {
+  readonly stdinFile?: string;
+  readonly onStdinBytes?: (bytes: number) => void;
+  /** Send `stdinFile` as base64 lines: a Windows Host's PowerShell reads stdin as text. */
+  readonly stdinLines?: boolean;
+}
+
 export class Ssh extends Context.Service<
   Ssh,
   {
@@ -157,7 +179,7 @@ export class Ssh extends Context.Service<
     readonly exec: (
       alias: string,
       command: string,
-      options?: { readonly stdinFile?: string; readonly onStdinBytes?: (bytes: number) => void }
+      options?: ExecStdin
     ) => Effect.Effect<SshResult, SshError>;
   }
 >()("polaris/client/install/Ssh") {
@@ -191,6 +213,7 @@ export class Ssh extends Context.Service<
                 ],
                 stdinFile: options?.stdinFile,
                 onStdinBytes: options?.onStdinBytes,
+                stdinLines: options?.stdinLines,
                 transportFailure: 255,
               }),
       })
@@ -215,6 +238,7 @@ export class Ssh extends Context.Service<
             env: { ...process.env, HOME: home },
             stdinFile: options?.stdinFile,
             onStdinBytes: options?.onStdinBytes,
+            stdinLines: options?.stdinLines,
             transportFailure: null,
           }),
       })

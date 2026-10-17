@@ -6,6 +6,7 @@
  * exit status and stderr into a ConnectFailure the Connection State uses.
  */
 import { connect, type Socket } from "node:net";
+import { Transform } from "node:stream";
 import {
   type ByteTransport,
   FrameKind,
@@ -15,6 +16,7 @@ import {
 } from "@polaris/protocol";
 import { Deferred, Effect, Exit, Option, type Scope } from "effect";
 import { ConnectFailure, classifyExit, type NeedsAttentionReason } from "./failures.ts";
+import { encodeLines } from "./install/windows/powershell.ts";
 import { localDaemonFailure } from "./localDaemon.ts";
 import { type ChildProcessApi, childProcesses, spawnFailed } from "./process/index.ts";
 
@@ -61,7 +63,26 @@ export interface SpawnOptions {
   readonly spawnFailureReason?: NeedsAttentionReason;
   /** Starts the process (`ChildProcess`); tests script or record it. */
   readonly processes?: ChildProcessApi;
+  /**
+   * Writes to stdin as base64 lines: a Windows Host's relay (`install/windows/`) reads them,
+   * since its PowerShell reads stdin as text. What comes back is untouched.
+   */
+  readonly stdinLines?: boolean;
 }
+
+/** Every write as base64 lines, into `stdin`. */
+const linesInto = (stdin: NodeJS.WritableStream) => {
+  const lines = new Transform({
+    transform(chunk: Uint8Array, _encoding, done) {
+      done(null, encodeLines(chunk));
+    },
+  });
+
+  lines.on("error", () => {});
+  lines.pipe(stdin);
+
+  return lines;
+};
 
 /** Runs `argv` and speaks the wire over its stdin/stdout. */
 export const spawnTransport = (
@@ -143,7 +164,8 @@ export const spawnTransport = (
         })
     );
 
-    const stdin = child.stdin;
+    const stdin =
+      child.stdin !== null && options.stdinLines === true ? linesInto(child.stdin) : child.stdin;
 
     if (stdin === null || incoming === null) {
       return yield* new ConnectFailure({

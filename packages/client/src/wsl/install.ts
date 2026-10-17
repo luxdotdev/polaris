@@ -55,6 +55,7 @@ export const wslInstallLayer = (options: WslInstallOptions = {}): Layer.Layer<Ss
           env: wslEnv(options.env),
           stdinFile: execOptions?.stdinFile,
           onStdinBytes: execOptions?.onStdinBytes,
+          stdinLines: execOptions?.stdinLines,
           transportFailure: null,
         }).pipe(Effect.flatMap((result) => wslResult(distro, result)));
       },
