@@ -7,12 +7,13 @@ import { CommandRunner } from "./CommandRunner.ts";
 import { TaskConflictError } from "./errors.ts";
 import {
   activateWindowsTask,
+  missingTaskReason,
   planWindowsTask,
   removeWindowsTask,
   taskRunning,
   type WindowsTaskFacts,
 } from "./windowsService.ts";
-import { taskWorkingDirectory, taskXml, taskXmlBytes } from "./windowsTask.ts";
+import { readTask, taskWorkingDirectory, taskXml, taskXmlBytes } from "./windowsTask.ts";
 
 const facts = (overrides: Partial<WindowsTaskFacts>): WindowsTaskFacts => ({
   registered: true,
@@ -71,10 +72,36 @@ const installedHome = () => {
   return home;
 };
 
-/** `schtasks` with one task registered, which runs `home`; records every call. */
-const schtasksWith = (home: string) => {
+const USER_SID = "S-1-5-21-1";
+
+/** A target for `home` as this user (`USER_SID`), with Windows in `C:\Windows`. */
+const targetFor = (home: string, task = "dev.lux.polaris.lucas") => ({
+  task,
+  home,
+  definition: "polaris-task.xml",
+  userSid: USER_SID,
+  systemRoot: "C:\\Windows",
+});
+
+/**
+ * `schtasks` with one task registered, which runs `home`, or with none it lets this user read
+ * (`xml` null; Task Scheduler's COM then answers `hresult`). Records every call.
+ */
+const schtasksWith = (
+  home: string,
+  xml: string | null = taskXml({ userSid: USER_SID, polarisHome: home, systemRoot: "C:\\Windows" }),
+  hresult = "80070002"
+) => {
   const calls: Array<string> = [];
-  const xml = taskXml({ userSid: "S-1-5-21-1", polarisHome: home, systemRoot: "C:\\Windows" });
+
+  const answer = (argv: ReadonlyArray<string>) => {
+    if (argv[0] === "powershell.exe") return { code: 0, stdout: `${hresult}\r\n`, stderr: "" };
+
+    if (argv[1] === "/Query" && xml === null)
+      return { code: 1, stdout: "", stderr: "ERROR: The system cannot find the file specified." };
+
+    return { code: 0, stdout: argv[1] === "/Query" ? (xml ?? "") : "", stderr: "" };
+  };
 
   const layer = Layer.succeed(
     CommandRunner,
@@ -83,13 +110,15 @@ const schtasksWith = (home: string) => {
         Effect.sync(() => {
           calls.push(argv.join(" "));
 
-          return { code: 0, stdout: argv[1] === "/Query" ? xml : "", stderr: "" };
+          return answer(argv);
         }),
     })
   );
 
   return { calls, layer };
 };
+
+const changesTask = (call: string) => / \/(Create|Run|Delete) /.test(call);
 
 describe("taskRunning", () => {
   const answering = (stdout: string, code = 0) =>
@@ -113,12 +142,7 @@ describe("activateWindowsTask", () => {
   test("a task that runs another installed home is left alone, and the error says whose it is", async () => {
     const real = installedHome();
     const { calls, layer } = schtasksWith(real);
-
-    const target = {
-      task: "dev.lux.polaris.lucas",
-      home: join(tmpdir(), "redirected", ".polaris"),
-      definition: "polaris-task.xml",
-    };
+    const target = targetFor(join(tmpdir(), "redirected", ".polaris"));
 
     try {
       const error = await Effect.runPromise(
@@ -131,10 +155,43 @@ describe("activateWindowsTask", () => {
       expect(error).toBeInstanceOf(TaskConflictError);
       expect(error.message).toContain(`runs the Polaris home ${real}`);
       expect(error.message).toContain("--replace-task");
-      expect(calls.filter((call) => / \/(Create|Run|Delete) /.test(call))).toEqual([]);
+      expect(calls.filter(changesTask)).toEqual([]);
     } finally {
       rmSync(real, { recursive: true, force: true });
     }
+  });
+
+  test("a task under the name this user may not read is a conflict, with no home to name", async () => {
+    const home = join(tmpdir(), "unreadable", ".polaris");
+    const { calls, layer } = schtasksWith(home, null, "80070005");
+
+    const error = await Effect.runPromise(
+      activateWindowsTask(
+        targetFor(home),
+        { binary: true, serviceFile: true },
+        "0.2.0",
+        false
+      ).pipe(Effect.flip, Effect.provide(layer))
+    );
+
+    expect(error).toEqual(
+      new TaskConflictError({ task: "dev.lux.polaris.lucas", home, otherHome: null })
+    );
+    expect(calls.filter(changesTask)).toEqual([]);
+  });
+});
+
+describe("missingTaskReason", () => {
+  test("only Task Scheduler's access denied means another account holds the name", async () => {
+    const reason = (hresult: string) =>
+      Effect.runPromise(
+        missingTaskReason("t").pipe(Effect.provide(schtasksWith("/h", null, hresult).layer))
+      );
+
+    expect(await reason("80070005")).toBe("unreadable");
+    expect(await reason("80070002")).toBe("absent");
+    // PowerShell stalled or failed: install goes on, and schtasks /Create says if it can't.
+    expect(await reason("")).toBe("absent");
   });
 });
 
@@ -216,7 +273,14 @@ describe.skipIf(!windows)("a redirected home and the real install's task (Window
       ]);
 
       expect(created.exitCode).toBe(0);
-      const target = { task: name, home: redirected, definition: definition(redirected) };
+
+      const target = {
+        task: name,
+        home: redirected,
+        definition: definition(redirected),
+        userSid: currentUserSid(),
+        systemRoot: process.env.SystemRoot ?? "C:\\Windows",
+      };
 
       const refused = await run(
         activateWindowsTask(target, { binary: true, serviceFile: true }, "0.2.0", false).pipe(
@@ -239,3 +303,58 @@ describe.skipIf(!windows)("a redirected home and the real install's task (Window
     }
   });
 });
+
+const SOMETHING_ELSE =
+  "<Command>C:\\Windows\\System32\\cmd.exe</Command><Arguments>/c exit 0</Arguments>";
+
+// The task runs this home and as this user, but not the action install writes: it isn't ours.
+describe.skipIf(!windows)(
+  "a task under this home's name that runs something else (Windows only)",
+  () => {
+    test("install refuses it and uninstall keeps it, both leaving its action as it was", async () => {
+      const home = installedHome();
+      const name = `dev.lux.polaris.eng333-test-${process.pid}`;
+      const { currentUserSid } = await import("../transport/windowsPipe/win32.ts");
+      const systemRoot = process.env.SystemRoot ?? "C:\\Windows";
+      const xml = taskXml({ userSid: currentUserSid(), polarisHome: home, systemRoot });
+      const definition = join(home, "polaris-task.xml");
+      const planted = join(home, "planted.xml");
+
+      writeFileSync(definition, taskXmlBytes(xml));
+      writeFileSync(
+        planted,
+        taskXmlBytes(xml.replace(/<Command>[\s\S]*<\/Arguments>/, SOMETHING_ELSE))
+      );
+
+      const command = () =>
+        readTask(Bun.spawnSync(["schtasks", "/Query", "/TN", name, "/XML"]).stdout.toString())
+          .action;
+
+      const run = <A, E>(effect: Effect.Effect<A, E, CommandRunner>) =>
+        Effect.runPromise(effect.pipe(Effect.provide(CommandRunner.layer)));
+
+      const target = { task: name, home, definition, userSid: currentUserSid(), systemRoot };
+
+      try {
+        const created = Bun.spawnSync(["schtasks", "/Create", "/F", "/TN", name, "/XML", planted]);
+        expect(created.exitCode).toBe(0);
+        const before = command();
+        expect(before?.arguments).toBe("/c exit 0");
+
+        const refused = await run(
+          activateWindowsTask(target, { binary: true, serviceFile: true }, "0.2.0", false).pipe(
+            Effect.flip
+          )
+        );
+
+        expect(refused).toEqual(new TaskConflictError({ task: name, home, otherHome: null }));
+        expect(command()).toEqual(before);
+        expect((await run(removeWindowsTask(target))).keptTask).toBe(name);
+        expect(command()).toEqual(before);
+      } finally {
+        Bun.spawnSync(["schtasks", "/Delete", "/F", "/TN", name]);
+        rmSync(home, { recursive: true, force: true });
+      }
+    });
+  }
+);

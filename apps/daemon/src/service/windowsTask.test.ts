@@ -4,7 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   claimTask,
+  describeTask,
+  isLocalDrivePath,
+  isOwnClaim,
+  readTask,
   stopsOtherHome,
+  taskAction,
   supervisorLoop,
   taskWorkingDirectory,
   taskXml,
@@ -90,23 +95,108 @@ describe("claimTask", () => {
 
   test("a task that runs this home is ours, also as a 0.2.0-dev install spelled it", () => {
     expect(
-      claimTask({ home: "c:\\users\\Lucas\\.polaris\\", homeInstalled: true }, home, false)
+      claimTask(
+        { action: "current", home: "c:\\users\\Lucas\\.polaris\\", homeInstalled: true },
+        home,
+        false
+      )
     ).toBe("ours");
   });
 
   test("a task that runs another installed home is refused unless --replace-task", () => {
-    const existing = { home: dev, homeInstalled: true };
+    const existing = { action: "current" as const, home: dev, homeInstalled: true };
 
     expect(claimTask(existing, home, false)).toBe("conflict");
     expect(claimTask(existing, home, true)).toBe("taken-over");
   });
 
   test("a task left by a home with nothing installed may be replaced", () => {
-    expect(claimTask({ home: dev, homeInstalled: false }, home, false)).toBe("abandoned");
+    expect(claimTask({ action: "current", home: dev, homeInstalled: false }, home, false)).toBe(
+      "abandoned"
+    );
   });
 
   test("a task under the name that isn't Polaris' is refused unless --replace-task", () => {
-    expect(claimTask({ home: null, homeInstalled: false }, home, false)).toBe("conflict");
+    expect(claimTask({ action: "other", home: null, homeInstalled: false }, home, false)).toBe(
+      "conflict"
+    );
+  });
+});
+
+/** How install reads a registered definition, then whether it may take it. */
+describe("whose a registered task is", () => {
+  const sid = "S-1-5-21-1-2-3-1001";
+  const home = "C:\\Users\\lucas\\.polaris";
+  const expected = taskAction("C:\\WINDOWS");
+
+  const claimOf = (xml: string, replace = false) => {
+    const seen = describeTask(readTask(xml), sid, expected, "win32");
+
+    return { ...seen, claim: claimTask({ ...seen, homeInstalled: true }, home, replace) };
+  };
+
+  const ours = taskXml(spec(home));
+
+  const withAction = (command: string, args: string, directory = home) =>
+    ours
+      .replace(/<Command>[^<]*<\/Command>/, `<Command>${command}</Command>`)
+      .replace(/<Arguments>[^<]*<\/Arguments>/, `<Arguments>${args}</Arguments>`)
+      .replace(/<WorkingDirectory>[^<]*</, `<WorkingDirectory>${directory}<`);
+
+  test("the definition install writes is ours, the principal's SID in any case", () => {
+    expect(claimOf(ours).claim).toBe("ours");
+    expect(claimOf(ours.replaceAll(sid, sid.toLowerCase())).claim).toBe("ours");
+  });
+
+  test("another account's task for this home is a conflict with no home, even with --replace-task's stop", () => {
+    const theirs = claimOf(ours.replaceAll(sid, "S-1-5-21-1-2-3-1002"));
+
+    expect(theirs).toEqual({ action: "other", home: null, claim: "conflict" });
+    const replaced = claimOf(ours.replaceAll(sid, "S-1-5-21-1-2-3-1002"), true);
+    expect(stopsOtherHome(replaced.claim, replaced.home, true)).toBe(false);
+  });
+
+  test("this user's task for this home with another action is a conflict, not ours", () => {
+    expect(claimOf(withAction("C:\\Tools\\other.exe", "--watch")).claim).toBe("conflict");
+    expect(claimOf(withAction("C:\\WINDOWS\\System32\\cmd.exe", "/c exit 0")).claim).toBe(
+      "conflict"
+    );
+  });
+
+  test("a second action makes it not the definition install writes", () => {
+    const twice = ours.replace("</Exec>", "</Exec><Exec><Command>C:\\x.exe</Command></Exec>");
+
+    expect(claimOf(twice)).toMatchObject({ action: "other", home: null, claim: "conflict" });
+  });
+
+  test("this user's Polaris loop from an older definition is stale: ours, registered again", () => {
+    const older = withAction(
+      "C:\\Windows\\System32\\conhost.exe",
+      '--headless C:\\Windows\\System32\\cmd.exe /d /c "for /l %i in (0,0,1) do @(bin\\current\\polaris.exe serve --home . &amp; timeout /t 2 &gt;nul)"'
+    );
+
+    expect(claimOf(older)).toMatchObject({ action: "older", claim: "stale" });
+    expect(isOwnClaim(claimOf(older).claim)).toBe(true);
+  });
+
+  test.each([
+    ["a UNC share", "\\\\fileserver\\share\\.polaris"],
+    ["a \\\\?\\ path", "\\\\?\\C:\\Users\\lucas\\.polaris"],
+    ["a device path", "\\\\.\\pipe\\polaris"],
+    ["a drive-relative path", "C:polaris"],
+    ["an alternate data stream", "C:\\Users\\lucas\\.polaris:hidden"],
+  ])("a working directory on %s is no home, so nothing reads it", (_, directory) => {
+    expect(isLocalDrivePath(directory, "win32")).toBe(false);
+    expect(claimOf(withAction(expected.command, expected.arguments, directory))).toEqual({
+      action: "current",
+      home: null,
+      claim: "conflict",
+    });
+  });
+
+  test("local drive paths are homes, with either separator", () => {
+    expect(isLocalDrivePath("C:\\Users\\lucas\\.polaris", "win32")).toBe(true);
+    expect(isLocalDrivePath("d:/polaris", "win32")).toBe(true);
   });
 });
 

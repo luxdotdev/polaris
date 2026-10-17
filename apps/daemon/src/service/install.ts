@@ -517,6 +517,8 @@ const windowsTarget = (ctx: InstallContext): WindowsTaskTarget => ({
   task: windowsOf(ctx).task,
   home: ctx.polarisHome,
   definition: layout(ctx).serviceFile,
+  userSid: windowsOf(ctx).userSid,
+  systemRoot: windowsOf(ctx).systemRoot,
 });
 
 /**
