@@ -1,6 +1,7 @@
 import "./styles.css";
 import { createRoot } from "react-dom/client";
 import { App } from "./app/App.tsx";
+import { arcadeCommands } from "./features/arcade/index.ts";
 import { onNeedsYouEvent } from "./features/needs-you/index.ts";
 import { bannerEntry, recordBanner } from "./features/session/index.ts";
 import { applyAppearance } from "./appearance.ts";
@@ -59,6 +60,8 @@ commands.register(
 commands.provide(shellContext({ connection, navigation }));
 
 commands.contribute(workspaceCommands({ app: connection.store.getState, navigation, send }));
+
+commands.contribute(arcadeCommands());
 
 commands.provide(() => {
   const version = updatesStore.getState().view?.availableVersion;
