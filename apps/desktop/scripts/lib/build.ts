@@ -18,7 +18,8 @@ const check = (result: Bun.BuildOutput, what: string) => {
 export const buildMain = async (options: { readonly minify?: boolean } = {}) => {
   const common = {
     target: "node" as const,
-    external: ["electron"],
+    // koffi loads its native module at runtime; packaging stages it (ADR 0062).
+    external: ["electron", "koffi"],
     minify: options.minify ?? false,
     sourcemap: "linked" as const,
   };

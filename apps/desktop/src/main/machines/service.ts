@@ -14,6 +14,7 @@ import {
   InstallPlan,
   type InstallTrigger,
 } from "@polaris/client/install";
+import type { ChildProcessApi } from "@polaris/client/process";
 import { WslDiscovery } from "@polaris/client/wsl";
 import {
   Context,
@@ -66,6 +67,8 @@ export interface MachinesInput {
   readonly openTerminal: (argv: ReadonlyArray<string>) => Promise<void>;
   /** The WSL distros on this machine (Windows), for "Add a host". */
   readonly discoverWsl?: Effect.Effect<WslDiscovery>;
+  /** Runs this PC's `polaris.exe` on a Windows Client; tests script it. */
+  readonly processes?: ChildProcessApi | undefined;
 }
 
 export interface AddMachine {
@@ -355,6 +358,8 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
         approved: to.trusted ? new Set<string>() : input.approvals.approved(key),
         builds: input.builds,
         onBuild: setRecord(key, { activity: "Building the daemon for this host from source" }),
+        platform: input.platform,
+        processes: input.processes,
       });
 
       bundledBuilds = yield* input.builds
@@ -411,11 +416,12 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
         return;
       }
 
-      const outcome = yield* applyWork(to, pending, {
-        progress: progress(key),
-        download: input.download,
-        clientVersion: input.clientVersion,
-      });
+      const outcome = yield* applyWork(
+        to,
+        pending,
+        { progress: progress(key), download: input.download, clientVersion: input.clientVersion },
+        { platform: input.platform, processes: input.processes }
+      );
 
       yield* localListening(to.home);
 
@@ -627,11 +633,16 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
     Effect.gen(function* () {
       const to = yield* channelFor(key);
 
-      if (to.home !== null && !existsSync(installedPaths(to.home).binary)) {
+      if (
+        to.home !== null &&
+        !existsSync(installedPaths(to.home, input.platform ?? process.platform).binary)
+      ) {
         return yield* runCheck(key, to, "user");
       }
 
-      yield* startDaemon(to).pipe(Effect.mapError(asMachineError));
+      yield* startDaemon(to, { platform: input.platform, processes: input.processes }).pipe(
+        Effect.mapError(asMachineError)
+      );
       yield* localListening(to.home).pipe(Effect.ensuring(retryConnection(key)));
     });
 

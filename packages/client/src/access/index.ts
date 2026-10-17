@@ -6,7 +6,7 @@
  */
 import { Context, Effect, Layer, Schema } from "effect";
 import { HostTarget } from "../HostConnection.ts";
-import { Ssh, type SshError, type SshResult } from "../install/Ssh.ts";
+import { Ssh, SshError, type SshResult } from "../install/Ssh.ts";
 import { resolveSshBinary, type SshOptions } from "../ssh.ts";
 import { wslShellArgv } from "../wsl/command.ts";
 import { wslInstallLayer, type WslInstallOptions } from "../wsl/install.ts";
@@ -15,7 +15,7 @@ import { wslInstallLayer, type WslInstallOptions } from "../wsl/install.ts";
 export const ActionUnsupportedReason = Schema.Literals([
   /** The local Host is the app's own dev Daemon or a given socket, not one Polaris installed. */
   "unmanaged-local",
-  /** This Client can't have a local Host at all (Windows). */
+  /** This Client can't have a local Host at all (Windows on Arm, which has no Daemon build). */
   "local-unsupported",
   /** No interactive shell hand-off for this kind of Host. */
   "no-terminal",
@@ -52,7 +52,10 @@ export interface HostChannel {
   readonly home: string | null;
   /** A first install needs no approval: only this machine's own installed Daemon (ADR 0041). */
   readonly trusted: boolean;
-  /** Runs a POSIX `sh` command line there; fails only when the channel itself does. */
+  /**
+   * Runs a POSIX `sh` command line there; fails only when the channel itself does. A Windows
+   * Client's local channel has no shell: its Daemon is run directly (`polaris.exe install`).
+   */
   readonly exec: (command: string, options?: ExecOptions) => Effect.Effect<SshResult, SshError>;
   /** The `Ssh` service bound to this Host, for the install flow (`probeHost`, `applyPlan`) with `alias`. */
   readonly ssh: Layer.Layer<Ssh>;
@@ -97,7 +100,7 @@ const channelOf = (
     Ssh.use((ssh) => ssh.exec(fields.alias, command, options)).pipe(Effect.provide(layer)),
 });
 
-/** Channels over the given runners; a Windows Client never gets a local one. */
+/** Channels over the given runners; on Windows the local one runs no shell (`noLocalShell`). */
 export const makeHostAccess = (
   runners: HostRunners,
   options: Pick<HostAccessOptions, "platform" | "ssh"> = {}
@@ -106,12 +109,6 @@ export const makeHostAccess = (
   const sshOptions = { ...options.ssh, platform };
 
   const local = (target: { readonly installedHome?: string }) => {
-    if (platform === "win32") {
-      return Effect.fail(
-        unsupported("local", "exec", "local-unsupported", "this Client has no local Host")
-      );
-    }
-
     const home = target.installedHome;
 
     if (home === undefined) {
@@ -185,6 +182,21 @@ export type ScriptedExec = (
   options: ExecOptions | undefined
 ) => Effect.Effect<SshResult, SshError>;
 
+/** A Windows Client's own machine: no `/bin/sh` to run a command line in. */
+export const noLocalShell = Layer.succeed(
+  Ssh,
+  Ssh.of({
+    exec: (alias) =>
+      Effect.fail(
+        new SshError({
+          alias,
+          failure: "spawn",
+          message: "this PC runs its daemon directly, with no shell for commands",
+        })
+      ),
+  })
+);
+
 const scriptedRunner = (script: ScriptedExec, target: (alias: string) => HostTarget) =>
   Layer.succeed(
     Ssh,
@@ -200,7 +212,8 @@ export class HostAccess extends Context.Service<HostAccess, HostAccessApi>()(
       {
         ssh: Ssh.withOptions({ ...options.ssh, platform: options.platform }),
         wsl: wslInstallLayer(options.wsl),
-        local: (home) => Ssh.local(home),
+        local: (home) =>
+          (options.platform ?? process.platform) === "win32" ? noLocalShell : Ssh.local(home),
       },
       options
     );

@@ -9,7 +9,7 @@ export interface ClientCopy {
   readonly machine: string;
   /** The local Host's own name, as a label: "This Mac", "This PC". */
   readonly localHost: string;
-  /** Why this Client has no local Host (Windows: no native Daemon). */
+  /** Why this Client has no local Host (Windows on Arm: no Daemon build). */
   readonly localHostUnsupported: string;
   /** Picking a folder in the OS's own dialog. */
   readonly chooseFolder: string;
@@ -50,7 +50,7 @@ const MAC: ClientCopy = {
 const WINDOWS: ClientCopy = {
   machine: "this PC",
   localHost: "This PC",
-  localHostUnsupported: "A local Windows Daemon is not supported.",
+  localHostUnsupported: "Polaris has no daemon for Windows on Arm yet.",
   chooseFolder: "Choose in Explorer…",
   relaunch: "Open Polaris from the Start menu",
   tokenStoreBlockedTitle: "Polaris can’t encrypt tokens from this session",

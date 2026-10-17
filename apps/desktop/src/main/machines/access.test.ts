@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { installedPaths } from "@polaris/client";
 import { HostAccess } from "@polaris/client/access";
+import { type SpawnRequest, scriptedChildProcess } from "@polaris/client/process";
 import { Effect, Layer, ManagedRuntime, SubscriptionRef } from "effect";
 import type { HostView } from "../../shared/api.ts";
 import { HostDirectory, type HostEntry } from "../hosts.ts";
@@ -42,13 +43,18 @@ const setup = (localHome: string | null, platform: NodeJS.Platform = "darwin") =
     { platform }
   );
 
-  const localHost =
-    platform === "win32"
-      ? LocalHost.unsupported(platform)
-      : LocalHost.test({
-          daemon: testDaemon(localHome),
-          listening: (h) => Promise.resolve(void listened.push(h)),
-        });
+  const localHost = LocalHost.test({
+    daemon: testDaemon(localHome),
+    listening: (h) => Promise.resolve(void listened.push(h)),
+  });
+
+  const spawned: Array<SpawnRequest> = [];
+
+  const processes = scriptedChildProcess((request) => {
+    spawned.push(request);
+
+    return { exit: { code: 0, stdout: STARTED } };
+  });
 
   const directory = Layer.effect(
     HostDirectory,
@@ -72,6 +78,7 @@ const setup = (localHome: string | null, platform: NodeJS.Platform = "darwin") =
     builds: { source: "none", forPlatform: () => Effect.succeed([]) },
     aliases: () => [],
     openTerminal: (argv) => Promise.resolve(void terminals.push(argv)),
+    processes,
   });
 
   const runtime = ManagedRuntime.make(
@@ -85,11 +92,11 @@ const setup = (localHome: string | null, platform: NodeJS.Platform = "darwin") =
     use: (m: Machines["Service"]) => Effect.Effect<A, E>
   ) => runtime.runPromise(Machines.use((m) => Effect.flip(use(m))));
 
-  return { runtime, call, refused, ran, terminals, retried, listened };
+  return { runtime, call, refused, ran, terminals, retried, listened, spawned };
 };
 
-const install = (at: string) => {
-  const binary = installedPaths(at).binary;
+const install = (at: string, platform: NodeJS.Platform = "darwin") => {
+  const binary = installedPaths(at, platform).binary;
   mkdirSync(dirname(binary), { recursive: true });
   writeFileSync(binary, "");
 };
@@ -140,13 +147,16 @@ describe("Machines acts on each Host through its HostAccess channel", () => {
     await t.runtime.dispose();
   });
 
-  test("a Windows Client has no local Host to act on, even with a home", async () => {
-    install(home);
+  test("Start daemon on this PC runs its polaris.exe directly, never a shell", async () => {
+    install(home, "win32");
     const t = setup(home, "win32");
-    const error = await t.refused((m) => m.startDaemon("local"));
 
-    expect(error.message).toBe("A local Windows Daemon is not supported.");
+    await t.call((m) => m.startDaemon("local"));
     expect(t.ran).toEqual([]);
+    expect(t.spawned.map((s) => [s.file, ...s.args])).toEqual([
+      [installedPaths(home, "win32").binary, "install", "--json"],
+    ]);
+    expect(t.listened).toEqual([home]);
     await t.runtime.dispose();
   });
 
