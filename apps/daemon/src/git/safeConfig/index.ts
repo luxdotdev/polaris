@@ -11,6 +11,7 @@ import {
   hostCandidates,
   listedFiles,
   type Located,
+  nativePath,
   ownFiles,
   type Stamped,
   stampAll,
@@ -98,7 +99,11 @@ const locate = async (cwd: string, options: ReadonlyArray<string>, base: Env) =>
 
   if (found.code !== 0 || !gitDir || !commonDir || !top) return null;
 
-  return { gitDir, commonDir, top } satisfies Located;
+  return {
+    gitDir: nativePath(gitDir),
+    commonDir: nativePath(commonDir),
+    top: nativePath(top),
+  } satisfies Located;
 };
 
 interface Cached {
@@ -116,17 +121,41 @@ const cache = new Map<string, Cached>();
 const CACHE_SIZE = 64;
 
 /** The files `git var <name>` says git reads, "" for none; null when this git can't say. */
-const filesGitReads = async (
-  cwd: string,
-  options: ReadonlyArray<string>,
-  name: string,
-  base: Env
-) => {
+const askGitVar = async (cwd: string, options: ReadonlyArray<string>, name: string, base: Env) => {
   const out = await read(cwd, [...options, "var", name], base);
 
   if (out.code === 0) return out.stdout;
 
   return out.code === 1 && out.stderr === "" ? "" : null;
+};
+
+/** Which git runs, and the environment it finds its system and global config by. */
+const HOST_CONFIG_ENV =
+  /^(GIT_.*|PATH|HOME|XDG_CONFIG_HOME|USERPROFILE|HOMEDRIVE|HOMEPATH|PROGRAMDATA)$/i;
+
+const hostFiles = new Map<string, Promise<string | null>>();
+
+/** `askGitVar`, once per git, options and environment: the answer names files, not their content. */
+const filesGitReads = (cwd: string, options: ReadonlyArray<string>, name: string, base: Env) => {
+  const env = Object.entries(base)
+    .filter(([key]) => HOST_CONFIG_ENV.test(key))
+    .sort(([a], [b]) => a.localeCompare(b));
+
+  const key = JSON.stringify([name, options, env]);
+  const known = hostFiles.get(key);
+
+  if (known !== undefined) return known;
+  const asked = askGitVar(cwd, options, name, base);
+
+  if (hostFiles.size >= CACHE_SIZE) hostFiles.delete(hostFiles.keys().next().value ?? "");
+  hostFiles.set(key, asked);
+  // A failed read is asked again next time.
+  void asked.then(
+    (files) => files === null && hostFiles.delete(key),
+    () => hostFiles.delete(key)
+  );
+
+  return asked;
 };
 
 /** Every config file git can read here, stamped before the listing so a change made meanwhile shows next time. */

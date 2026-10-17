@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { beforeAll, describe, expect, test } from "bun:test";
 import {
   ApprovalDecision,
   Attachment,
@@ -746,6 +746,9 @@ describe("probe", () => {
 });
 
 describe("Constellation instructions", () => {
+  // The driver loads its MCP tools (zod's many files) lazily: 17 s cold on a loaded Windows runner.
+  beforeAll(() => import("./constellation.ts"), 60_000);
+
   test("unattached fresh and resumed sessions receive common context without MCP tools", async () => {
     for (const resumeCursor of [null, "claude-existing"]) {
       const h = await openFake({ resumeCursor });

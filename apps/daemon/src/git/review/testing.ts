@@ -26,10 +26,16 @@ export interface Forge {
   readonly mainCommits: Array<string>;
 }
 
+/**
+ * The fixture's own setup, as a person runs git: each automatic call after a config
+ * change lists the config again, five gits apiece on Windows.
+ */
+const HOST = { config: "host" } as const;
+
 const identity = async (repo: string) => {
-  await gitText(repo, ["config", "user.name", "Test"]);
-  await gitText(repo, ["config", "user.email", "test@example.com"]);
-  await gitText(repo, ["config", "commit.gpgsign", "false"]);
+  await gitText(repo, ["config", "user.name", "Test"], HOST);
+  await gitText(repo, ["config", "user.email", "test@example.com"], HOST);
+  await gitText(repo, ["config", "commit.gpgsign", "false"], HOST);
 };
 
 /** A base repository with three commits on `main`, and an empty fork. */
@@ -37,17 +43,17 @@ export const createForge = async (): Promise<Forge> => {
   const root = tempDir("polaris-forge-");
   const base = join(root, "base.git");
   const fork = join(root, "fork.git");
-  await gitText(root, ["init", "-q", "--bare", "-b", "main", base]);
-  await gitText(root, ["init", "-q", "--bare", "-b", "main", fork]);
+  await gitText(root, ["init", "-q", "--bare", "-b", "main", base], HOST);
+  await gitText(root, ["init", "-q", "--bare", "-b", "main", fork], HOST);
   // GitHub serves any reachable commit by id; a shallow clone fetches its base commit that way.
-  await gitText(base, ["config", "uploadpack.allowAnySHA1InWant", "true"]);
+  await gitText(base, ["config", "uploadpack.allowAnySHA1InWant", "true"], HOST);
 
   const upstream = join(root, "upstream");
-  await gitText(root, ["init", "-q", "-b", "main", upstream]);
+  await gitText(root, ["init", "-q", "-b", "main", upstream], HOST);
   await identity(upstream);
+  await gitText(upstream, ["remote", "add", "origin", base], HOST);
   write(upstream, "app.txt", lines(10));
   await commitAll(upstream, "initial");
-  await gitText(upstream, ["remote", "add", "origin", base]);
   const mainCommits = [await gitText(upstream, ["rev-parse", "HEAD"])];
 
   for (const n of [1, 2]) {
@@ -130,17 +136,19 @@ export const userClone = async (
   const filter = options.filter === undefined ? [] : [`--filter=${options.filter}`];
 
   if (options.filter !== undefined) {
-    await gitText(forge.base, ["config", "uploadpack.allowFilter", "true"]);
+    await gitText(forge.base, ["config", "uploadpack.allowFilter", "true"], HOST);
   }
 
   // The user's own clone: its checkout fetches a partial clone's blobs lazily.
-  await gitText(forge.root, ["clone", "-q", ...depth, ...filter, `file://${forge.base}`, dir], {
-    config: "host",
-  });
+  await gitText(
+    forge.root,
+    ["clone", "-q", ...depth, ...filter, `file://${forge.base}`, dir],
+    HOST
+  );
   await identity(dir);
-  await gitText(dir, ["config", `url.${forge.base}.insteadOf`, BASE_URL]);
-  await gitText(dir, ["config", `url.${forge.fork}.insteadOf`, FORK_URL]);
-  await gitText(dir, ["remote", "set-url", "origin", options.remoteUrl ?? BASE_URL]);
+  await gitText(dir, ["config", `url.${forge.base}.insteadOf`, BASE_URL], HOST);
+  await gitText(dir, ["config", `url.${forge.fork}.insteadOf`, FORK_URL], HOST);
+  await gitText(dir, ["remote", "set-url", "origin", options.remoteUrl ?? BASE_URL], HOST);
 
   return dir;
 };

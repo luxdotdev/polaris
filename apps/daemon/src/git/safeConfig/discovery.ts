@@ -167,6 +167,10 @@ export const cacheKey = (
   return JSON.stringify([cwd, options, env]);
 };
 
+/** Git for Windows prints `C:/forward/slashes`; stamps and comparisons need native paths. */
+export const nativePath = (path: string): string =>
+  process.platform === "win32" ? resolve(path) : path;
+
 const isWithin = (dir: string, top: string) => dir === top || dir.startsWith(top + sep);
 
 /** Every directory from `cwd` up to (not including) `top`: where git looked first and moved on. */
@@ -224,7 +228,9 @@ export const discoveryPaths = (cwd: string, found: Located): Stamped | null => {
  * and `GIT_CONFIG_GLOBAL` as `git var` prints them, whether or not each exists yet.
  */
 export const hostCandidates = (system: string, global: string): ReadonlyArray<string> =>
-  [...system.split("\n"), ...global.split("\n")].filter((path) => path !== "");
+  [...system.split("\n"), ...global.split("\n")].flatMap((path) =>
+    path === "" ? [] : [nativePath(path)]
+  );
 
 /** Where an include points, as git resolves it (relative to the including file); null: unknown. */
 const includeTarget = (value: string, from: string | null, home: string | undefined) => {
