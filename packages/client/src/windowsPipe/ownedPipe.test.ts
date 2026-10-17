@@ -13,6 +13,7 @@ import {
   type PipeHandle,
   type PipeOpened,
 } from "./index.ts";
+import { CLIENT_OPEN_FLAGS, grantsImpersonation } from "./trust.ts";
 
 const USER = "S-1-5-21-1-2-3-1001";
 
@@ -46,6 +47,13 @@ const refusal = (windows: ReturnType<typeof fakeWindows>, home?: string) =>
   Effect.runPromise(Effect.flip(connectOwnedPipe(PIPE, home, windows.api)));
 
 describe("the owner check, as data", () => {
+  test("the Client opens the pipe for identification only, never impersonation", () => {
+    expect(grantsImpersonation(CLIENT_OPEN_FLAGS)).toBe(false);
+    // Without SQOS Windows grants impersonation; delegation (0x30000) grants it too.
+    expect(grantsImpersonation(0x4000_0000)).toBe(true);
+    expect(grantsImpersonation(0x4000_0000 | 0x0010_0000 | 0x0003_0000)).toBe(true);
+  });
+
   test("names only Windows pipes, in either prefix", () => {
     expect(
       [PIPE, "\\\\?\\pipe\\x", "/h/.polaris/daemon.sock", "C:\\pipe\\x"].map(isPipePath)

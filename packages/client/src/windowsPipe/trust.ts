@@ -6,6 +6,25 @@
 import { ConnectFailure } from "../failures.ts";
 import { localDaemonFailure } from "../localDaemon.ts";
 
+const FILE_FLAG_OVERLAPPED = 0x4000_0000;
+
+const SECURITY_SQOS_PRESENT = 0x0010_0000;
+
+const SECURITY_IDENTIFICATION = 0x0001_0000;
+
+const SECURITY_LEVEL_MASK = 0x0003_0000;
+
+/**
+ * `CreateFileW` flags for this Client's end of the pipe: overlapped, and a server that answers
+ * before the owner check may identify the Client, never impersonate it (as the Daemon's own).
+ */
+export const CLIENT_OPEN_FLAGS =
+  FILE_FLAG_OVERLAPPED | SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION;
+
+/** Whether open flags let the server impersonate the Client (Windows' default without SQOS). */
+export const grantsImpersonation = (flags: number): boolean =>
+  (flags & SECURITY_SQOS_PRESENT) === 0 || (flags & SECURITY_LEVEL_MASK) > SECURITY_IDENTIFICATION;
+
 /** The Win32 errors `CreateFileW` on a pipe client end branches on. */
 export const PIPE_ERROR = {
   FILE_NOT_FOUND: 2,

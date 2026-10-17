@@ -6,6 +6,7 @@
  */
 import { createRequire } from "node:module";
 import type * as Koffi from "koffi";
+import { CLIENT_OPEN_FLAGS } from "./trust.ts";
 
 /** A koffi `HANDLE`: opaque to everything but these calls. */
 export interface PipeHandle {
@@ -30,11 +31,6 @@ export interface PipeApi {
 const GENERIC_READ_WRITE = 0xc000_0000;
 
 const OPEN_EXISTING = 3;
-
-const FILE_FLAG_OVERLAPPED = 0x4000_0000;
-
-/** The server may identify this Client but never impersonate it, should it be someone else's. */
-const SECURITY_SQOS_IDENTIFICATION = 0x0010_0000 | 0x0001_0000;
 
 const SE_KERNEL_OBJECT = 6;
 
@@ -136,7 +132,7 @@ export const loadPipeApi = (): PipeApi => {
         0,
         null,
         OPEN_EXISTING,
-        FILE_FLAG_OVERLAPPED | SECURITY_SQOS_IDENTIFICATION,
+        CLIENT_OPEN_FLAGS,
         null
       );
 
