@@ -3,7 +3,7 @@
  * creating instances with our own security descriptor, waiting for a client on
  * the thread pool, and reading a pipe's owner. Loaded on first use, Windows only.
  */
-import { dlopen, JSCallback, ptr, read } from "bun:ffi";
+import { dlopen, JSCallback, read } from "bun:ffi";
 import {
   BUFFER_BYTES,
   CLIENT_OPEN_FLAGS,
@@ -105,19 +105,19 @@ const TOKEN_USER = 1;
 export const currentUserSid = (): string => {
   const token = new BigUint64Array(1);
 
-  if (!adv().OpenProcessToken(k32().GetCurrentProcess(), TOKEN_QUERY, ptr(token)))
+  if (!adv().OpenProcessToken(k32().GetCurrentProcess(), TOKEN_QUERY, token))
     throw new Win32Error("OpenProcessToken", lastError());
 
   try {
     const info = new BigUint64Array(64);
     const length = new Uint32Array(1);
 
-    if (!adv().GetTokenInformation(token[0]!, TOKEN_USER, ptr(info), info.byteLength, ptr(length)))
+    if (!adv().GetTokenInformation(token[0]!, TOKEN_USER, info, info.byteLength, length))
       throw new Win32Error("GetTokenInformation", lastError());
     const text = new BigUint64Array(1);
 
     // TOKEN_USER starts with SID_AND_ATTRIBUTES, whose first field is the SID pointer.
-    if (!adv().ConvertSidToStringSidW(info[0]!, ptr(text)))
+    if (!adv().ConvertSidToStringSidW(info[0]!, text))
       throw new Win32Error("ConvertSidToStringSidW", lastError());
     const sid = readWide(text[0]!);
     k32().LocalFree(text[0]!);
@@ -132,14 +132,7 @@ export const currentUserSid = (): string => {
 export const securityAttributes = (sddl: string): BigUint64Array => {
   const descriptor = new BigUint64Array(1);
 
-  if (
-    !adv().ConvertStringSecurityDescriptorToSecurityDescriptorW(
-      ptr(wide(sddl)),
-      1,
-      ptr(descriptor),
-      null
-    )
-  )
+  if (!adv().ConvertStringSecurityDescriptorToSecurityDescriptorW(wide(sddl), 1, descriptor, null))
     throw new Win32Error("ConvertStringSecurityDescriptorToSecurityDescriptorW", lastError());
   // { DWORD nLength; LPVOID lpSecurityDescriptor; BOOL bInheritHandle } is 24 bytes on x64.
   const attributes = new BigUint64Array(3);
@@ -156,14 +149,14 @@ export const createInstance = (
   attributes: BigUint64Array
 ): Handle => {
   const handle = k32().CreateNamedPipeW(
-    ptr(wide(name)),
+    wide(name),
     pipeOpenMode(first),
     PIPE_MODE,
     MAX_INSTANCES,
     BUFFER_BYTES,
     BUFFER_BYTES,
     0,
-    ptr(attributes)
+    attributes
   );
 
   if (handle === INVALID_HANDLE) throw new Win32Error("CreateNamedPipeW", lastError());
@@ -185,7 +178,8 @@ export const overlapped = (): Overlapped => {
   const event = k32().CreateEventW(null, 1, 0, null);
 
   if (event === 0n) throw new Win32Error("CreateEventW", lastError());
-  const buffer = new BigUint64Array(4);
+  // Over its own ArrayBuffer, so its storage never moves while Windows holds its address.
+  const buffer = new BigUint64Array(new ArrayBuffer(32));
   buffer[3] = event;
 
   return { buffer, event };
@@ -196,7 +190,7 @@ export const connectInstance = (
   handle: Handle,
   pending: BigUint64Array
 ): "connected" | "pending" | "gone" => {
-  if (k32().ConnectNamedPipe(handle, ptr(pending))) return "connected";
+  if (k32().ConnectNamedPipe(handle, pending)) return "connected";
   const code = lastError();
 
   if (code === WIN32_ERROR.PIPE_CONNECTED) return "connected";
@@ -209,10 +203,15 @@ export const connectInstance = (
 
 /** Whether the overlapped `ConnectNamedPipe` that signalled succeeded. */
 export const connectSucceeded = (handle: Handle, pending: BigUint64Array): boolean =>
-  k32().GetOverlappedResult(handle, ptr(pending), ptr(new Uint32Array(1)), 0) !== 0;
+  k32().GetOverlappedResult(handle, pending, new Uint32Array(1), 0) !== 0;
 
+/**
+ * Cancels the pending `ConnectNamedPipe` on `handle`, then waits for it to complete:
+ * until it has, the kernel may still write `pending` (ADR 0066).
+ */
 export const cancelIo = (handle: Handle, pending: BigUint64Array): void => {
-  k32().CancelIoEx(handle, ptr(pending));
+  k32().CancelIoEx(handle, pending);
+  k32().GetOverlappedResult(handle, pending, new Uint32Array(1), 1);
 };
 
 const WT_EXECUTEONLYONCE = 0x8;
@@ -232,17 +231,18 @@ export const waitFor = (event: Handle, signalled: () => void): Wait => {
   const handle = new BigUint64Array(1);
   let done = false;
 
-  const release = (blocking: boolean) => {
+  // Blocking: the wait thread may still be leaving the callback's thunk, which close() frees.
+  const release = () => {
     if (done) return;
     done = true;
-    k32().UnregisterWaitEx(handle[0]!, blocking ? INVALID_HANDLE : 0n);
+    k32().UnregisterWaitEx(handle[0]!, INVALID_HANDLE);
     callback.close();
   };
 
   const callback = new JSCallback(
     () => {
       if (done) return;
-      release(false);
+      release();
       signalled();
     },
     { args: ["ptr", "bool"], returns: "void", threadsafe: true }
@@ -252,20 +252,13 @@ export const waitFor = (event: Handle, signalled: () => void): Wait => {
   const pointer = callback.ptr as NonNullable<typeof callback.ptr>;
 
   if (
-    !k32().RegisterWaitForSingleObject(
-      ptr(handle),
-      event,
-      pointer,
-      null,
-      INFINITE,
-      WT_EXECUTEONLYONCE
-    )
+    !k32().RegisterWaitForSingleObject(handle, event, pointer, null, INFINITE, WT_EXECUTEONLYONCE)
   ) {
     callback.close();
     throw new Win32Error("RegisterWaitForSingleObject", lastError());
   }
 
-  return { cancel: () => release(true) };
+  return { cancel: release };
 };
 
 const GENERIC_READ = 0x8000_0000;
@@ -285,7 +278,7 @@ export const openClient = (
 ): Opened => {
   for (let attempt = 0; attempt < 2; attempt++) {
     const handle = k32().CreateFileW(
-      ptr(wide(name)),
+      wide(name),
       access === "read" ? GENERIC_READ : GENERIC_READ | GENERIC_WRITE,
       0,
       null,
@@ -298,7 +291,7 @@ export const openClient = (
     const code = lastError();
 
     if (code !== WIN32_ERROR.PIPE_BUSY || attempt > 0) return { refused: code };
-    k32().WaitNamedPipeW(ptr(wide(name)), waitMs);
+    k32().WaitNamedPipeW(wide(name), waitMs);
   }
 
   return { refused: WIN32_ERROR.PIPE_BUSY };
@@ -315,23 +308,14 @@ export const ownerSidOf = (handle: Handle): string | null => {
   const SI = OWNER_SECURITY_INFORMATION;
 
   if (
-    adv().GetSecurityInfo(
-      handle,
-      SE_KERNEL_OBJECT,
-      SI,
-      ptr(owner),
-      null,
-      null,
-      null,
-      ptr(descriptor)
-    ) !== 0
+    adv().GetSecurityInfo(handle, SE_KERNEL_OBJECT, SI, owner, null, null, null, descriptor) !== 0
   )
     return null;
 
   try {
     const text = new BigUint64Array(1);
 
-    if (!adv().ConvertSidToStringSidW(owner[0]!, ptr(text))) return null;
+    if (!adv().ConvertSidToStringSidW(owner[0]!, text)) return null;
     const sid = readWide(text[0]!);
     k32().LocalFree(text[0]!);
 
@@ -348,23 +332,14 @@ export const securityOf = (handle: Handle): string | null => {
   const descriptor = new BigUint64Array(1);
   const SI = OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION;
 
-  if (
-    adv().GetSecurityInfo(handle, SE_KERNEL_OBJECT, SI, null, null, null, null, ptr(descriptor)) !==
-    0
-  )
+  if (adv().GetSecurityInfo(handle, SE_KERNEL_OBJECT, SI, null, null, null, null, descriptor) !== 0)
     return null;
 
   try {
     const text = new BigUint64Array(1);
 
     if (
-      !adv().ConvertSecurityDescriptorToStringSecurityDescriptorW(
-        descriptor[0]!,
-        1,
-        SI,
-        ptr(text),
-        null
-      )
+      !adv().ConvertSecurityDescriptorToStringSecurityDescriptorW(descriptor[0]!, 1, SI, text, null)
     )
       return null;
     const sddl = readWide(text[0]!);
