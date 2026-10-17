@@ -2,7 +2,7 @@
  * The Command Palette's sections (DESIGN.md, Command Palette; Paper L5): with no
  * query, Recent, then the focused file's commands, the Workspace's and the app's;
  * with a query, the same groups ranked, the best-matching group first.
- * Search-only commands (easter eggs) appear only for a query.
+ * Search-only commands (easter eggs) appear only once the query names them in full.
  */
 import type { CommandGroup } from "../../../../shared/keymap.ts";
 import type { PaletteCommand } from "../../../routes/commands.ts";
@@ -27,6 +27,15 @@ export interface GroupsInput {
 }
 
 const nonEmpty = (groups: ReadonlyArray<PaletteGroup>) => groups.filter((g) => g.items.length > 0);
+
+const normalized = (text: string) => text.trim().toLowerCase().replace(/\s+/g, " ");
+
+/** A search-only command's full name was typed: its title or a keyword, ignoring case and spacing. */
+const named = (query: string, command: PaletteCommand) => {
+  const typed = normalized(query);
+
+  return [command.title, ...command.keywords].some((name) => normalized(name) === typed);
+};
 
 const emptyQuery = ({ commands, recent }: GroupsInput): ReadonlyArray<PaletteGroup> => {
   const listed = commands.filter((c) => !c.searchOnly);
@@ -66,7 +75,7 @@ export const paletteGroups = (input: GroupsInput): ReadonlyArray<PaletteGroup> =
     key,
     items: rank({
       query,
-      items: commands.filter((c) => c.group === key),
+      items: commands.filter((c) => c.group === key && (!c.searchOnly || named(query, c))),
       recency,
       limit: Number.POSITIVE_INFINITY,
     }),
