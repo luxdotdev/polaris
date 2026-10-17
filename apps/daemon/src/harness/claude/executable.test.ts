@@ -60,8 +60,11 @@ test("npm's cli.js runs under the shim's own node, never a bare one", async () =
     signal: new AbortController().signal,
   });
 
+  const exited = new Promise((resolve) => child?.on("exit", resolve));
   const out = await new Response(child?.stdout).text();
 
+  // Windows can't remove the copied node while it still runs.
+  await exited;
   expect(JSON.parse(out)).toEqual([realpathSync(node), "--print"]);
   rmSync(seen, { recursive: true, force: true });
 });
