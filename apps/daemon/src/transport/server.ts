@@ -38,6 +38,7 @@ import { takeStopRecord } from "../service/daemonStop.ts";
 import { adoptListener, serveUpgrades } from "../service/upgrade.ts";
 import { BlobChannel, ServiceError } from "../services.ts";
 import { ClientCapabilities } from "../engine/rpc.ts";
+import { logDefects } from "./defects.ts";
 import { defaultHandlers } from "./handlers.ts";
 import { loadHostInfo } from "./hostInfo.ts";
 import { acquireLock, type DaemonAlreadyRunning, LockError } from "./lock.ts";
@@ -202,7 +203,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       });
     });
 
-    const blobsMiddleware = ConnectionBlobs.of((effect, { client }) => {
+    const connectionMiddleware = ConnectionBlobs.of((effect, { client }) => {
       const connection = connections.get(client.id);
 
       if (connection === undefined || connection.closing) {
@@ -242,6 +243,10 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       );
     });
 
+    const blobsMiddleware = ConnectionBlobs.of((effect, options) =>
+      logDefects(options.rpc._tag, connectionMiddleware(effect, options))
+    );
+
     yield* phase("starting the Daemon's services (event store, Engine, Constellations)");
 
     const handlers = yield* Layer.build(
@@ -267,7 +272,11 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       )
     );
 
-    yield* RpcServer.make(ServerRpcs, { spanPrefix: "polaris.rpc" }).pipe(
+    // A defect fails only its own request (ADR 0064).
+    yield* RpcServer.make(ServerRpcs, {
+      spanPrefix: "polaris.rpc",
+      disableFatalDefects: true,
+    }).pipe(
       Effect.provideService(RpcServer.Protocol, protocol),
       Effect.provideService(ConnectionBlobs, blobsMiddleware),
       Effect.provideContext(handlers),
