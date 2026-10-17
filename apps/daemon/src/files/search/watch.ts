@@ -34,7 +34,10 @@ const openWatch: OpenWatch = (path, recursive, changed) => {
   return () => watcher.close();
 };
 
-/** FSEvents on macOS; bounded tree watches elsewhere, with non-git roots only on explicit demand. */
+/**
+ * One native tree watch on macOS and Windows; bounded tree watches elsewhere, with non-git
+ * roots only on explicit demand.
+ */
 export const watchRoot = async (
   root: string,
   changed: Changed,
@@ -44,7 +47,8 @@ export const watchRoot = async (
     readonly includeNonGit?: boolean;
   } = {}
 ): Promise<() => void> => {
-  const recursive = (options.platform ?? process.platform) === "darwin";
+  // On Windows a watch per directory spawns a git check-ignore each and keeps it from deletion.
+  const recursive = ["darwin", "win32"].includes(options.platform ?? process.platform);
   const open = options.open ?? openWatch;
   const watchers = new Map<string, () => void>();
   let stopped = false;
@@ -144,7 +148,7 @@ export const watchRoot = async (
     if (recursive) arm(root);
     else inRepo = (await findRepoRoot(root)) !== null;
 
-    // FSEvents already covers the tree; a scan would arm a second recursive watch per directory.
+    // The native tree watch already covers it; a scan would arm a second one per directory.
     if (!recursive && (inRepo || options.includeNonGit)) {
       scanning = scan(root);
       await scanning;

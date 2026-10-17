@@ -2,6 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { watch } from "node:fs";
 import { join } from "node:path";
 import { makeRepo, removeDir, tempDir, write } from "../../git/testing.ts";
+import { posixTest } from "../../platform/testing.ts";
 import { WATCH_MAX_DIRECTORIES, watchRoot } from "./watch.ts";
 
 const roots: Array<string> = [];
@@ -48,16 +49,22 @@ test("a large non-git Workspace never registers a native tree watch on Linux", a
   expect(opened).toEqual([]);
 });
 
-test("git watches are capped and never ask the runtime to recurse", async () => {
-  const root = await makeRepo();
-  roots.push(root);
+posixTest(
+  "Linux's bounded watch spawns a git check-ignore per directory, ~45 s for this tree on Windows"
+)(
+  "git watches are capped and never ask the runtime to recurse",
+  async () => {
+    const root = await makeRepo();
+    roots.push(root);
 
-  for (let i = 0; i < WATCH_MAX_DIRECTORIES + 10; i++) write(root, `src/${i}/a.ts`, "");
-  const { opened, open } = recorder();
-  stops.push(await watchRoot(root, () => undefined, { platform: "linux", open }));
-  expect(opened).toHaveLength(WATCH_MAX_DIRECTORIES);
-  expect(opened.every((entry) => !entry.recursive)).toBe(true);
-}, 20_000);
+    for (let i = 0; i < WATCH_MAX_DIRECTORIES + 10; i++) write(root, `src/${i}/a.ts`, "");
+    const { opened, open } = recorder();
+    stops.push(await watchRoot(root, () => undefined, { platform: "linux", open }));
+    expect(opened).toHaveLength(WATCH_MAX_DIRECTORIES);
+    expect(opened.every((entry) => !entry.recursive)).toBe(true);
+  },
+  20_000
+);
 
 test("a huge flat git directory is not handed to Bun's native enumerator", async () => {
   const root = await makeRepo();

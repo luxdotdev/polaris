@@ -35,6 +35,8 @@ describe("the diff index", () => {
     await gitText(root, ["rm", "-q", "gone.ts"]);
     await gitText(root, ["mv", "old name.ts", "new name.ts"]);
     chmodSync(join(root, "tool.sh"), 0o755);
+    // Git for Windows has no file mode to read (core.fileMode off): set the index's.
+    await gitText(root, ["update-index", "--chmod=+x", "tool.sh"]);
     const head = await commitAll(root, "change");
 
     const diff = await computeDiff(root, DiffSpec.cases.Range.make({ base, head }));

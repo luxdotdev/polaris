@@ -88,7 +88,8 @@ describe("WorktreeTracker", () => {
     const root = await makeRepo();
     const outside = tempDir("polaris-wt-");
     cleanup.push(root, outside, markers);
-    write(root, ".husky/post-checkout", `#!/bin/sh\necho ran >> ${marker}\n`);
+    // Forward slashes: Git for Windows runs hooks through sh.
+    write(root, ".husky/post-checkout", `#!/bin/sh\necho ran >> ${marker.replaceAll("\\", "/")}\n`);
     chmodSync(join(root, ".husky/post-checkout"), 0o755);
     await commitAll(root, "husky");
     await gitText(root, ["config", "core.hooksPath", ".husky"]);

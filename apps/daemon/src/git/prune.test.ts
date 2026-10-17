@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { Effect, Fiber, Logger } from "effect";
 import { captureCheckpoint, checkpointRef } from "./Checkpoints.ts";
@@ -254,7 +254,7 @@ describe("pruneCheckpoints in a real repository", () => {
 
   test("an unmerged Worktree branch protects old checkpoints; merging it releases them", async () => {
     const root = await repo();
-    const wt = join(root, "..", `${root.split("/").at(-1)}-wt`);
+    const wt = join(dirname(root), `${basename(root)}-wt`);
     cleanup.push(wt);
     await gitText(root, ["worktree", "add", "-q", "-b", "polaris/s1", wt]);
     await capture(wt, "s1", 2);

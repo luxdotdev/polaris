@@ -212,7 +212,10 @@ export const findRepoRoot = async (cwd: string): Promise<string | null> => {
   if (result === null || result.code !== 0) return null;
   const root = decoder.decode(result.stdout).trim();
 
-  return root === "" ? null : root;
+  if (root === "") return null;
+
+  // Git for Windows prints C:/forward/slashes; the Daemon's paths are native.
+  return process.platform === "win32" ? resolve(root) : root;
 };
 
 /** The HEAD commit, or null on an unborn branch. */

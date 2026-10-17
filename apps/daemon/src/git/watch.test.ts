@@ -23,19 +23,19 @@ const watching = async (cwd: string) => {
   cleanup.push(stop);
   await Bun.sleep(150);
   count = 0;
+  // Changes since the last `next`: on Windows they arrive while the git call is still running.
+  let seen = 0;
 
   return {
     count: () => count,
-    /** Resolves true once a change arrives, false after `ms` without one. */
+    /** Resolves true once a change has arrived, false after `ms` without one. */
     next: async (ms = 3000) => {
-      const before = count;
+      for (let waited = 0; waited < ms && count === seen; waited += 20) await Bun.sleep(20);
 
-      for (let waited = 0; waited < ms; waited += 20) {
-        if (count > before) return true;
-        await Bun.sleep(20);
-      }
+      const arrived = count > seen;
+      seen = count;
 
-      return count > before;
+      return arrived;
     },
   };
 };

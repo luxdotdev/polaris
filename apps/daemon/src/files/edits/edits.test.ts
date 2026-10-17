@@ -309,7 +309,8 @@ for (const point of ["prepared", "intent", "mutation", "receipt"] as const) {
         stderr: "pipe",
       });
 
-      expect(await child.exited).toBe(137);
+      // Windows has no signals: Bun terminates the worker with exit code 1 for a SIGKILL.
+      expect(await child.exited).toBe(process.platform === "win32" ? 1 : 137);
       const known = (await f.coordinator().get(f.owner, "operation"))!;
       expect(known.receiptDurable).toBe(true);
       expect(

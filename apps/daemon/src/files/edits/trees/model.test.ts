@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect } from "bun:test";
 import { lstat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
@@ -9,6 +9,12 @@ import { fixture } from "./testing.ts";
 import { InjectedCrash } from "./index.ts";
 import { identity, loadJournal } from "./journal.ts";
 import { resourceIdentity, sameIdentity, sameTree, snapshotTree } from "./snapshot.ts";
+import { posixTest } from "../../../platform/testing.ts";
+
+/** Tree edits identify entries by inode and check the journal's mode; Windows offers neither. */
+const test = posixTest(
+  "Windows bug: NTFS file IDs exceed a safe integer for LanguageResourceIdentity.inode (ENG-296), and the journal privacy check reads POSIX modes (ENG-314)"
+);
 
 /** Two Quint replays per test, ~3 s alone: past bun's 5 s default beside other test files. */
 const QUINT_REPLAY_MS = 30_000;

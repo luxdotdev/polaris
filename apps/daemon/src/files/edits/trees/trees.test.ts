@@ -1,7 +1,13 @@
-import { expect, test } from "bun:test";
+import { expect } from "bun:test";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { posixTest } from "../../../platform/testing.ts";
 import { fixture } from "./testing.ts";
+
+/** Tree edits identify entries by inode and check the journal's mode; Windows offers neither. */
+const test = posixTest(
+  "Windows bug: NTFS file IDs exceed a safe integer for LanguageResourceIdentity.inode (ENG-296), and the journal privacy check reads POSIX modes (ENG-314)"
+);
 
 test("ordered directory overwrite, rename and recursive deletion recover all trees", async () => {
   const f = await fixture();

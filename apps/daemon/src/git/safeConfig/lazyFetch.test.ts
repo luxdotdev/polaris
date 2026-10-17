@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { chmodSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { posixTest } from "../../platform/testing.ts";
 import { baseEnv, gitText, runGitRaw } from "../git.ts";
 import { makeRepo, removeDir, tempDir, write } from "../testing.ts";
 import { GitLazyFetchUnsupported, safeConfigEnv } from "./index.ts";
@@ -35,8 +36,9 @@ const blobless = async () => {
 
 /** A script that leaves `ran` in `markers`, then does what `then` says. */
 const marker = (markers: string, then: string) => {
-  const path = join(markers, "marker.sh");
-  write(markers, "marker.sh", `#!/bin/sh\ntouch "${markers}/ran"\n${then}\n`);
+  // Forward slashes: Git for Windows reads config values and runs commands through sh.
+  const path = join(markers, "marker.sh").replaceAll("\\", "/");
+  write(markers, "marker.sh", `#!/bin/sh\ntouch "${markers.replaceAll("\\", "/")}/ran"\n${then}\n`);
   chmodSync(path, 0o755);
 
   return path;
@@ -65,19 +67,22 @@ describe("automatic git in a partial clone", () => {
     expect(existsSync(join(markers, "ran"))).toBe(true);
   });
 
-  test("a git too old to turn lazy fetch off refuses a partial clone, and reads a full one", async () => {
-    const { clone } = await blobless();
-    const full = dir(await makeRepo({ "a.txt": "a\n" }));
-    const bin = dir(tempDir("polaris-old-git-"));
-    const real = Bun.which("git") ?? "git";
-    const old = `if [ "$1" = "--version" ]; then echo "git version 2.43.0"; exit 0; fi\nexec "${real}" "$@"`;
-    write(bin, "git", `#!/bin/sh\n${old}\n`);
-    chmodSync(join(bin, "git"), 0o755);
-    const env = { ...baseEnv(), PATH: `${bin}:${process.env.PATH ?? ""}` };
+  posixTest("the PATH git shim that reports an old version is a sh script (ENG-318)")(
+    "a git too old to turn lazy fetch off refuses a partial clone, and reads a full one",
+    async () => {
+      const { clone } = await blobless();
+      const full = dir(await makeRepo({ "a.txt": "a\n" }));
+      const bin = dir(tempDir("polaris-old-git-"));
+      const real = Bun.which("git") ?? "git";
+      const old = `if [ "$1" = "--version" ]; then echo "git version 2.43.0"; exit 0; fi\nexec "${real}" "$@"`;
+      write(bin, "git", `#!/bin/sh\n${old}\n`);
+      chmodSync(join(bin, "git"), 0o755);
+      const env = { ...baseEnv(), PATH: `${bin}:${process.env.PATH ?? ""}` };
 
-    await Promise.resolve(
-      expect(safeConfigEnv(clone, env)).rejects.toBeInstanceOf(GitLazyFetchUnsupported)
-    );
-    expect((await safeConfigEnv(full, env)).GIT_NO_LAZY_FETCH).toBe("1");
-  });
+      await Promise.resolve(
+        expect(safeConfigEnv(clone, env)).rejects.toBeInstanceOf(GitLazyFetchUnsupported)
+      );
+      expect((await safeConfigEnv(full, env)).GIT_NO_LAZY_FETCH).toBe("1");
+    }
+  );
 });

@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { rmSync, symlinkSync } from "node:fs";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { FileError } from "@polaris/protocol";
 import { Effect, Fiber, Stream } from "effect";
 import { makeRepo, removeDir, tempDir, suiteTempDir, write } from "../git/testing.ts";
@@ -73,7 +73,7 @@ const waitFor = async (predicate: () => boolean, what: string) => {
 const armWatch = async (root: string, seen: ReadonlyArray<FileChange>, failure: string) => {
   const deadline = Date.now() + ARM_DEADLINE_MS;
 
-  for (let i = 0; !seen.some((c) => c.path.includes(`${root}/src/probe-`)); i++) {
+  for (let i = 0; !seen.some((c) => c.path.includes(join(root, "src", "probe-"))); i++) {
     if (Date.now() > deadline) throw new Error(failure);
     write(root, `src/probe-${i}.ts`, `${i}\n`);
     await Bun.sleep(25);
@@ -203,7 +203,7 @@ for (const useFff of [true, false]) {
       const [sensitive, insensitive, regex, limited] = results;
 
       const where = (hits: typeof sensitive) =>
-        hits.map((h) => h.path.slice(root.length + 1)).sort();
+        hits.map((h) => h.path.slice(root.length + 1).replaceAll(sep, "/")).sort();
 
       expect(where(sensitive)).toEqual(["src/harness/HarnessDriver.ts", "src/services.ts"]);
       expect(where(insensitive)).toEqual([

@@ -196,7 +196,8 @@ describe("fetchPullRequest", () => {
 
   /** A fake ssh that logs its arguments to `<bin>/<name>.args` and fails authentication. */
   const fakeSsh = (bin: string, name: string) => {
-    const log = join(bin, `${name}.args`);
+    // Forward slashes: Git for Windows reads config values and runs commands through sh.
+    const log = join(bin, `${name}.args`).replaceAll("\\", "/");
     write(
       bin,
       name,
@@ -204,7 +205,7 @@ describe("fetchPullRequest", () => {
     );
     chmodSync(join(bin, name), 0o755);
 
-    return { command: join(bin, name), log };
+    return { command: join(bin, name).replaceAll("\\", "/"), log };
   };
 
   /** A clone with an ssh remote whose own config names an ssh command; the Host's names another. */

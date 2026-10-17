@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import { SessionId, TurnId } from "@polaris/protocol";
 import { Effect, Layer } from "effect";
@@ -41,7 +41,8 @@ describe("mayBeInWorkTree", () => {
     cleanup.push(worktree);
     await gitText(root, ["worktree", "add", "-q", "-b", "side", worktree]);
     expect(mayBeInWorkTree(worktree)).toBe(true);
-    expect(await findRepoRoot(worktree)).toBe(worktree);
+    // git prints the long name of an 8.3 one (C:\\Users\\RUNNER~1) on Windows.
+    expect(await findRepoRoot(worktree)).toBe(realpathSync.native(worktree));
     const outside = tempDir();
     cleanup.push(outside);
     expect(mayBeInWorkTree(outside)).toBe(false);

@@ -40,7 +40,8 @@ const setup = async () => {
   cleanup.push(markers);
   const marker = join(markers, "hook-ran");
   const author = await contributor(forge, "main");
-  write(author, ".husky/post-checkout", `#!/bin/sh\necho ran >> ${marker}\n`);
+  // Forward slashes: Git for Windows runs hooks through sh.
+  write(author, ".husky/post-checkout", `#!/bin/sh\necho ran >> ${marker.replaceAll("\\", "/")}\n`);
   chmodSync(join(author, ".husky/post-checkout"), 0o755);
   write(author, ".gitignore", "node_modules/\n");
   write(author, "feature.txt", "v1\n");
@@ -252,9 +253,17 @@ describe("Review Checkout in a partial clone", () => {
       const user = await userClone(forge, { filter });
       const markers = tempDir("polaris-marker-");
       cleanup.push(user, `${user}.worktrees`, markers);
-      write(markers, "pack.sh", `#!/bin/sh\ntouch "${markers}/ran"\nexec git-upload-pack "$@"\n`);
+      write(
+        markers,
+        "pack.sh",
+        `#!/bin/sh\ntouch "${markers.replaceAll("\\", "/")}/ran"\nexec git-upload-pack "$@"\n`
+      );
       chmodSync(join(markers, "pack.sh"), 0o755);
-      await gitText(user, ["config", "remote.origin.uploadpack", join(markers, "pack.sh")]);
+      await gitText(user, [
+        "config",
+        "remote.origin.uploadpack",
+        join(markers, "pack.sh").replaceAll("\\", "/"),
+      ]);
       const path = join(`${user}.worktrees`, ".review", "pr-7");
 
       const fetched = await fetchFor(user);

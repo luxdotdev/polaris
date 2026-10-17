@@ -17,6 +17,7 @@ import { join } from "node:path";
 import { ChangedOnDisk, EDITOR_FILE_MAX_BYTES, FileContent, FileError } from "@polaris/protocol";
 import { Effect, Exit, Stream } from "effect";
 import { RpcTest } from "effect/rpc";
+import { posixTest } from "../platform/testing.ts";
 import { EditorFileRpcs } from "@polaris/protocol";
 import { EditorFilesRpcsLive } from "./EditorFilesRpcs.ts";
 import { makeFakeBlobChannel } from "./testing.ts";
@@ -91,7 +92,10 @@ describe("versioned writes", () => {
     const text = "\uFEFFconst greeting = 'héllo';\r\n\r\n";
     const version = await writeVersioned(path, bytes(text), expected);
     expect(await readFile(path, "utf8")).toBe(text);
-    expect((await lstat(path)).mode & 0o777).toBe(0o751);
+
+    // Windows keeps no POSIX mode bits to carry over.
+    if (process.platform !== "win32") expect((await lstat(path)).mode & 0o777).toBe(0o751);
+
     expect(version).toEqual((await readVersioned(path)).version);
     expect(version.size).toBe(bytes(text).length);
   });
@@ -210,19 +214,22 @@ test("explorer mutations never clobber a destination and deletion is explicit", 
   expect(await readdir(root)).toEqual([]);
 });
 
-test("Freedesktop trash preserves symlinks and writes recovery metadata", async () => {
-  const path = join(root, "a #?.ts");
-  await symlink(join(root, "missing"), path);
-  const data = join(root, "data");
-  await linuxTrash(path, data);
-  const names = await readdir(join(data, "Trash", "files"));
-  expect(names).toHaveLength(1);
-  expect((await lstat(join(data, "Trash", "files", names[0]!))).isSymbolicLink()).toBe(true);
-  const metadata = await readFile(join(data, "Trash", "info", names[0]! + ".trashinfo"), "utf8");
-  expect(metadata).toContain(
-    "Path=" + encodeURI(path).replaceAll("#", "%23").replaceAll("?", "%3F")
-  );
-});
+posixTest("no Freedesktop trash on Windows, whose file names can't hold `?`")(
+  "Freedesktop trash preserves symlinks and writes recovery metadata",
+  async () => {
+    const path = join(root, "a #?.ts");
+    await symlink(join(root, "missing"), path);
+    const data = join(root, "data");
+    await linuxTrash(path, data);
+    const names = await readdir(join(data, "Trash", "files"));
+    expect(names).toHaveLength(1);
+    expect((await lstat(join(data, "Trash", "files", names[0]!))).isSymbolicLink()).toBe(true);
+    const metadata = await readFile(join(data, "Trash", "info", names[0]! + ".trashinfo"), "utf8");
+    expect(metadata).toContain(
+      "Path=" + encodeURI(path).replaceAll("#", "%23").replaceAll("?", "%3F")
+    );
+  }
+);
 
 test("open file watches survive consecutive atomic saves and release their parents", async () => {
   const path = join(root, "file");
@@ -428,18 +435,21 @@ test("symlink watches follow target changes and retargeting", async () => {
   expect(openFileWatchCount()).toBe(0);
 });
 
-test("named pipes fail promptly as non-files", async () => {
-  const path = join(root, "pipe");
-  const child = Bun.spawn(["mkfifo", path], { stdout: "ignore", stderr: "ignore" });
-  expect(await child.exited).toBe(0);
+posixTest("no mkfifo on Windows, whose named pipes aren't in the file system")(
+  "named pipes fail promptly as non-files",
+  async () => {
+    const path = join(root, "pipe");
+    const child = Bun.spawn(["mkfifo", path], { stdout: "ignore", stderr: "ignore" });
+    expect(await child.exited).toBe(0);
 
-  const outcome = await readVersioned(path).then(
-    () => null,
-    (cause: unknown) => cause
-  );
+    const outcome = await readVersioned(path).then(
+      () => null,
+      (cause: unknown) => cause
+    );
 
-  expect(outcome).toMatchObject({ code: "ENOTFILE" });
-});
+    expect(outcome).toMatchObject({ code: "ENOTFILE" });
+  }
+);
 
 test("atomic saves work for long file names", async () => {
   const path = join(root, "x".repeat(240));

@@ -84,12 +84,21 @@ export const parseWorktreeList = (output: string): Array<WorktreeInfo> => {
   return worktrees;
 };
 
-export const listWorktrees = async (repoPath: string): Promise<Array<WorktreeInfo>> =>
-  parseWorktreeList(await gitText(repoPath, ["worktree", "list", "--porcelain", "-z"]));
+export const listWorktrees = async (repoPath: string): Promise<Array<WorktreeInfo>> => {
+  const listed = parseWorktreeList(
+    await gitText(repoPath, ["worktree", "list", "--porcelain", "-z"])
+  );
+
+  // Git for Windows prints C:/forward/slashes; the Daemon's paths are native.
+  return process.platform === "win32"
+    ? listed.map((w) => Object.assign({}, w, { path: resolve(w.path) }))
+    : listed;
+};
 
 const canonical = (path: string): string => {
   try {
-    return realpathSync(path);
+    // The native call also expands Windows 8.3 names (RUNNER~1), which git never prints.
+    return realpathSync.native(path);
   } catch {
     return resolve(path);
   }
@@ -221,8 +230,8 @@ const worktreeDirs = (worktreesDir: string): Array<string> => {
  * Emits the list at once, then again whenever it changes. Watches the common
  * git dir (for `worktrees/` appearing and the main HEAD) and `worktrees/`
  * (per-worktree HEAD, locks, removal), debounced, plus a slow poll. `worktrees/` is one
- * FSEvents watch on macOS; elsewhere it and each worktree's directory get a shallow
- * watch, never a native recursive one (`files/search/watch.ts`'s policy).
+ * native tree watch on macOS and Windows; elsewhere it and each worktree's directory get a
+ * shallow watch, never a native recursive one (`files/search/watch.ts`'s policy).
  */
 export const watchWorktrees = (
   repoPath: string,
@@ -238,7 +247,8 @@ export const watchWorktrees = (
       let again = false;
       let closed = false;
       const watchers = new Map<string, FSWatcher>();
-      const recursive = (options.platform ?? process.platform) === "darwin";
+      // On Windows a watch on each worktree's directory would keep git from removing it.
+      const recursive = ["darwin", "win32"].includes(options.platform ?? process.platform);
       const open = options.open ?? openWatch;
 
       const refresh = async () => {
