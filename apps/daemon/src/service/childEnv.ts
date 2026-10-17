@@ -22,15 +22,38 @@ const REPOSITORY_KEYS: ReadonlySet<string> = new Set([
   "TMP",
   "TERM",
   "COLORTERM",
-  // Windows needs these to start a process at all.
-  "SystemRoot",
-  "SYSTEMROOT",
-  "ComSpec",
-  "COMSPEC",
-  "PATHEXT",
-  "WINDIR",
-  "USERPROFILE",
 ]);
+
+/** What Windows programs need to start and find the user's folders (lowercase: its names keep any case). */
+const WINDOWS_KEYS: ReadonlySet<string> = new Set(
+  [
+    "SystemRoot",
+    "SystemDrive",
+    "windir",
+    "ComSpec",
+    "PATHEXT",
+    "OS",
+    "USERPROFILE",
+    "USERNAME",
+    "HOMEDRIVE",
+    "HOMEPATH",
+    "APPDATA",
+    "LOCALAPPDATA",
+    "ProgramData",
+    "ProgramFiles",
+    "ProgramFiles(x86)",
+    "ProgramW6432",
+    "CommonProgramFiles",
+    "CommonProgramFiles(x86)",
+    "CommonProgramW6432",
+    "NUMBER_OF_PROCESSORS",
+    "PROCESSOR_ARCHITECTURE",
+  ].map((key) => key.toLowerCase())
+);
+
+/** On Windows, a variable a program needs to run at all; none grants access. */
+export const isWindowsBaseKey = (key: string, os: string = process.platform): boolean =>
+  os === "win32" && WINDOWS_KEYS.has(key.toLowerCase());
 
 const LOCALE = /^LC_[A-Z]+$/;
 
@@ -43,7 +66,11 @@ export const repositoryEnv = (source: Env = process.env, extra: Env = {}) => {
   const env: Record<string, string> = {};
 
   for (const [key, value] of Object.entries(source))
-    if (value !== undefined && (REPOSITORY_KEYS.has(key) || LOCALE.test(key))) env[key] = value;
+    if (
+      value !== undefined &&
+      (REPOSITORY_KEYS.has(key) || LOCALE.test(key) || isWindowsBaseKey(key))
+    )
+      env[key] = value;
 
   for (const [key, value] of Object.entries(extra)) if (value !== undefined) env[key] = value;
 

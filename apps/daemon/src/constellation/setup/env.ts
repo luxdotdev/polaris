@@ -1,3 +1,5 @@
+import { isWindowsBaseKey } from "../../service/childEnv.ts";
+
 /** What a package manager needs to find tools, caches and the network; no tokens or agent sockets. */
 const ALLOWED = new Set([
   "PATH",
@@ -39,6 +41,8 @@ export const setupEnv = (source: Readonly<Record<string, string | undefined>> = 
     Object.entries(source).filter(
       (entry): entry is [string, string] =>
         entry[1] !== undefined &&
-        (ALLOWED.has(entry[0]) || ALLOWED_PREFIXES.some((prefix) => entry[0].startsWith(prefix)))
+        (ALLOWED.has(entry[0]) ||
+          isWindowsBaseKey(entry[0]) ||
+          ALLOWED_PREFIXES.some((prefix) => entry[0].startsWith(prefix)))
     )
   );

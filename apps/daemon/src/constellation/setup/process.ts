@@ -1,6 +1,7 @@
 import { setupEnv } from "./env.ts";
 import { Effect } from "effect";
 import { WorktreeSetupRun } from "@polaris/protocol";
+import { killTree, ownProcessGroup, shellCommand } from "../../platform/processes.ts";
 
 const MAX_OUTPUT = 256 * 1024;
 
@@ -23,27 +24,26 @@ const output = async (pipe: ReadableStream<Uint8Array>) => {
 export const executeSetup = Effect.fn("WorktreeSetup.execute")(function* (run: WorktreeSetupRun) {
   const proc = yield* Effect.acquireRelease(
     Effect.try({
-      try: () =>
-        Bun.spawn(["/bin/sh", "-c", run.command], {
+      try: () => {
+        const shell = shellCommand(run.command);
+
+        return Bun.spawn(shell.argv, {
           cwd: run.cwd,
           env: setupEnv(),
           stdin: "ignore",
           stdout: "pipe",
           stderr: "pipe",
-          detached: true,
-        }),
+          detached: ownProcessGroup(),
+          windowsVerbatimArguments: shell.windowsVerbatimArguments,
+        });
+      },
       catch: (error) => new Error(String(error)),
     }),
     (child) =>
       Effect.promise(async () => {
         if (child.exitCode !== null) return;
-
-        try {
-          process.kill(-child.pid, "SIGKILL");
-        } catch {
-          child.kill("SIGKILL");
-        }
-
+        await killTree(child.pid, "SIGKILL");
+        child.kill("SIGKILL");
         await child.exited;
       })
   );
