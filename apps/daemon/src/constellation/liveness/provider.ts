@@ -1,6 +1,7 @@
 import {
   type Attempt,
   type AttemptId,
+  CommandId,
   type ConstellationId,
   type SessionId,
   ConstellationStreamItem,
@@ -27,7 +28,23 @@ export const livenessProvider = Effect.gen(function* () {
   const queued = new Map<AttemptId, number>();
   const subscribers = new Map<ConstellationId, Set<Queue.Queue<Update, Cause.Done>>>();
 
-  const wire = (attemptId: AttemptId, activeTurn: boolean) => {
+  const started = new Set<AttemptId>();
+
+  /** The brief's Turn in the fold, else its receipt (the fold keeps recent Turns); once true, cached. */
+  const firstTurn = Effect.fnUntraced(function* (model: ReadModel, attempt: Attempt) {
+    if (started.has(attempt.id)) return true;
+    const id = `${attempt.id}:start`;
+
+    const seen =
+      model.sessions.get(attempt.sessionId)?.turns.some((t) => t.id === id) === true ||
+      (yield* store.hasCommandReceipt(CommandId.make(id)).pipe(Effect.orDie));
+
+    if (seen) started.add(attempt.id);
+
+    return seen;
+  });
+
+  const wire = (attemptId: AttemptId, activeTurn: boolean, first: boolean) => {
     const projected = projectLiveness(
       facts.get(attemptId) ?? emptyLiveness(),
       Date.now(),
@@ -51,6 +68,7 @@ export const livenessProvider = Effect.gen(function* () {
       contextPercent: projected.contextPercent,
       queuedInput: projected.queuedInput,
       activeTurn,
+      firstTurn: first,
     });
   };
 
@@ -84,7 +102,7 @@ export const livenessProvider = Effect.gen(function* () {
 
     const item = ConstellationStreamItem.cases.LivenessChanged.make({
       attemptId: attempt.id,
-      liveness: wire(attempt.id, turnInFlight(model, attempt)),
+      liveness: wire(attempt.id, turnInFlight(model, attempt), yield* firstTurn(model, attempt)),
     });
 
     for (const queue of subscribers.get(record.graph.id) ?? []) Queue.offerUnsafe(queue, item);
@@ -122,7 +140,10 @@ export const livenessProvider = Effect.gen(function* () {
           );
         }
 
-        result.set(attempt.id, wire(attempt.id, turnInFlight(model, attempt)));
+        result.set(
+          attempt.id,
+          wire(attempt.id, turnInFlight(model, attempt), yield* firstTurn(model, attempt))
+        );
       }
 
       return result;

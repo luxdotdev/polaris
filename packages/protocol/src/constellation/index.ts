@@ -14,4 +14,6 @@ export * from "./stats.ts";
 
 export * from "./transfers.ts";
 
+export * from "./workerPhase.ts";
+
 export { ConstellationHostRpcs } from "./rpcs.ts";

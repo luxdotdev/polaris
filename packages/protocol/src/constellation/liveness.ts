@@ -25,4 +25,6 @@ export class WorkerLiveness extends Schema.Class<WorkerLiveness>("ConstellationW
    * A working Attempt without one is waiting, never "working".
    */
   activeTurn: Schema.optionalKey(Schema.Boolean),
+  /** Whether this Attempt's first Turn (its brief) has started; absent from an older Daemon. */
+  firstTurn: Schema.optionalKey(Schema.Boolean),
 }) {}

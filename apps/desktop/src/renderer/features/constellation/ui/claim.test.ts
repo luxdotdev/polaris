@@ -106,6 +106,7 @@ describe("Approve from the tab", () => {
       answer: refuse,
       message: refuse,
       setState: refuse,
+      startWorker: refuse,
     });
   };
 

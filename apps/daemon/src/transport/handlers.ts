@@ -278,6 +278,7 @@ export const defaultHandlers = (options: {
     "constellation.worker.progress": () => Effect.fail(constellationUnavailable()),
     "constellation.worker.propose": () => Effect.fail(constellationUnavailable()),
     "constellation.worker.message": () => Effect.fail(constellationUnavailable()),
+    "constellation.worker.start": () => Effect.fail(constellationUnavailable()),
     "constellation.subscribe": () => Stream.fail(constellationUnavailable()),
     // Record which device this connection is (for ApprovalResolved.resolvedBy) and
     // what it understands (e.g. whether to send it ItemProgress).

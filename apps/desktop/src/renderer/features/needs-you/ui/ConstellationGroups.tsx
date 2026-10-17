@@ -316,6 +316,45 @@ const SetupFailed = ({ group, item, now }: ItemProps) => {
   );
 };
 
+/** A worker holding its slot with no first Turn (ENG-264): Start sends its brief, once. */
+const Stalled = ({ group, item, now }: ItemProps) => {
+  const open = useOpen(group, item);
+  const attempt = item.worker?.attempt;
+
+  const start = () => {
+    if (item.hostKey === null || attempt === undefined) return;
+    void sendConstellation(
+      item.hostKey,
+      "constellation.worker.start",
+      { constellationId: group.view.constellation.id, attemptId: attempt.id },
+      `Couldn't start ${who(item)}`
+    );
+  };
+
+  return (
+    <Card
+      kind={item.kind}
+      harness={item.entry?.session.harness ?? "codex"}
+      title={`${who(item)} stalled`}
+      since={item.since}
+      now={now}
+    >
+      <Body>
+        It holds a worker slot but its first turn never started, so other workers wait. Start sends
+        its brief once.
+      </Body>
+      <Actions>
+        <Button size="xs" onClick={start}>
+          Start
+        </Button>
+        <Button variant="ghost" size="xs" onClick={open}>
+          Open {who(item)}
+        </Button>
+      </Actions>
+    </Card>
+  );
+};
+
 const Stale = ({ group, item, now }: ItemProps) => {
   const open = useOpen(group, item);
 
@@ -464,6 +503,7 @@ const Item = (props: ItemProps) =>
     Match.when("unclaimed", () => <Unclaimed {...props} />),
     Match.when("setup", () => <SetupFailed {...props} />),
     Match.when("stale", () => <Stale {...props} />),
+    Match.when("stalled", () => <Stalled {...props} />),
     Match.when("worker-context", () => <WorkerContext {...props} />),
     Match.when("lead-context", () => <LeadContext {...props} />),
     Match.exhaustive

@@ -8,6 +8,7 @@ import {
   type ConstellationMessage,
   type ConstellationReview,
   type ConstellationSetState,
+  type ConstellationWorkerStart,
   CommandId,
 } from "@polaris/protocol";
 import { PixelFailedIcon, showToast } from "@polaris/ui";
@@ -46,7 +47,11 @@ export interface ConstellationClient {
   readonly answer: (hostKey: string, input: AnswerInput & WithId) => Promise<Outcome>;
   readonly message: (hostKey: string, input: MessageInput & WithId) => Promise<Outcome>;
   readonly setState: (hostKey: string, input: SetStateInput & WithId) => Promise<Outcome>;
+  /** Sent to the worker's Host, where its startup runs. */
+  readonly startWorker: (hostKey: string, input: StartWorkerInput) => Promise<Outcome>;
 }
+
+export type StartWorkerInput = Rpc.Payload<typeof ConstellationWorkerStart>;
 
 interface WithId {
   readonly commandId: CommandId;
@@ -57,7 +62,8 @@ type Method =
   | "constellation.dispatch"
   | "constellation.answer"
   | "constellation.message"
-  | "constellation.set_state";
+  | "constellation.set_state"
+  | "constellation.worker.start";
 
 /** A refusal's message already lists each finding as "<message>. <fix>" (the IPC's contract). */
 const viaIpc =
@@ -77,6 +83,7 @@ const IPC: ConstellationClient = {
   answer: viaIpc("constellation.answer"),
   message: viaIpc("constellation.message"),
   setState: viaIpc("constellation.set_state"),
+  startWorker: viaIpc("constellation.worker.start"),
 };
 
 let installed: ConstellationClient = IPC;
@@ -117,4 +124,6 @@ export const constellationCommands = {
     run(title, (commandId) => installed.message(hostKey, { ...input, commandId })),
   setState: (hostKey: string, input: SetStateInput, title: string) =>
     run(title, (commandId) => installed.setState(hostKey, { ...input, commandId })),
+  startWorker: (hostKey: string, input: StartWorkerInput, title: string) =>
+    run(title, () => installed.startWorker(hostKey, input)),
 };

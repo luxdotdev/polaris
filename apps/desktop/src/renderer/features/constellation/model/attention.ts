@@ -29,6 +29,8 @@ const itemFor = (row: TaskRow, facts: Facts): AttentionItem | null => {
         return { taskId: id, text: `${id} stopped without reporting back`, rank: 4 };
       case "setup":
         return { taskId: id, text: `${id} setup failed · ${setupOutcome(attention.run)}`, rank: 4 };
+      case "stalled":
+        return { taskId: id, text: `${id} stalled · holds a slot, no turn yet`, rank: 4 };
     }
   }
 

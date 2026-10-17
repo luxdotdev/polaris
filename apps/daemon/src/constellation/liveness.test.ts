@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  CommandId,
   ConstellationStreamItem,
   ConstellationSettings,
   PlanOperation,
@@ -232,5 +233,26 @@ test("a producer captured before lazy activation uses the activated per-Daemon l
         }).pipe(Effect.provide(context));
       })
     )
+  );
+});
+
+test("liveness says whether the Attempt's first Turn has started, from its startup receipt", async () => {
+  await Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const record = yield* seed;
+        const store = yield* EventStore;
+        const feed = yield* ConstellationLiveness;
+        expect((yield* feed.read(record)).get(draft().id)).toMatchObject({
+          activeTurn: false,
+          firstTurn: false,
+        });
+        yield* store.commit({
+          commandId: CommandId.make(`${draft().id}:start`),
+          decide: () => Effect.succeed([]),
+        });
+        expect((yield* feed.read(record)).get(draft().id)?.firstTurn).toBe(true);
+      })
+    ).pipe(Effect.provide(layer))
   );
 });

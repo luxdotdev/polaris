@@ -44,6 +44,7 @@ const ALL = [
   "setup-focus",
   "slugs",
   "tree",
+  "startup",
 ];
 
 const scenes = flag("--scenes")?.split(",") ?? ALL;
@@ -59,7 +60,7 @@ const daemon = await startDaemon({ home, benchHarness: true });
 
 const app = await electron.launch({
   executablePath: electronBinary(),
-  args: [APP_DIR],
+  args: [APP_DIR, "--use-mock-keychain"],
   env: {
     ...process.env,
     POLARIS_DESKTOP_LOCAL_SOCKET: daemon.socketPath,

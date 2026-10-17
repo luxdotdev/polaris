@@ -40,6 +40,24 @@ export const slotWaitOf = (
   return null;
 };
 
+/** Since when a worker's Attempt has held a slot on this Host; null when it doesn't. */
+export const slotHeldOf = (
+  state: HostResources,
+  attempt: { readonly id: string; readonly sessionId: string }
+): string | null => {
+  for (const lease of state.leases.values()) {
+    if (lease.resource !== WORKER_SLOTS) continue;
+
+    if (
+      lease.attemptId === attempt.id ||
+      (lease.attemptId == null && lease.sessionId === attempt.sessionId)
+    )
+      return lease.acquiredAt;
+  }
+
+  return null;
+};
+
 export const resourcesFromSnapshot = (
   resources: ReadonlyArray<HostResource> = [],
   leases: ReadonlyArray<ResourceLease> = []

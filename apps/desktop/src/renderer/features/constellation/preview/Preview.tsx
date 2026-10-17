@@ -30,6 +30,7 @@ import {
   WORKSPACE,
 } from "./graph.ts";
 import { FAILURE_SIGNALS, failuresRecord } from "./failures.ts";
+import { STARTUP_SIGNALS, withStartupSetups } from "./startup.ts";
 import { largeRecord } from "./large.ts";
 import { b8Model, setupRecord, setupSessions } from "./setup.ts";
 import { statsFixture } from "./stats.ts";
@@ -105,6 +106,7 @@ const SCENES = [
   "digests",
   "failures",
   "steered",
+  "startup",
 ] as const;
 
 type Scene = (typeof SCENES)[number];
@@ -195,6 +197,7 @@ const UI: Readonly<Record<Scene, Partial<LeadUi>>> = {
   digests: {},
   failures: {},
   steered: {},
+  startup: { selected: "task:B2" },
   menu: { selected: "task:B1", menu: "task:B1" },
   focus: { focus: { kind: "task", taskId: "B1" }, selected: "task:B1" },
   handed: { focus: { kind: "task", taskId: "B1" }, selected: "task:B1" },
@@ -227,7 +230,13 @@ const LEADS = new Map<Scene, () => SessionModel>([
 ]);
 
 const stateFor = (record: ConstellationRecord, scene: Scene): AppState => {
-  const sessions = [leadSession, previousLead, ...workerSessions, ...setupSessions];
+  const sessions = [
+    leadSession,
+    previousLead,
+    ...(scene === "startup" ? workerSessions.map(withStartupSetups) : workerSessions),
+    ...setupSessions,
+  ];
+
   const lead = (LEADS.get(scene) ?? leadModel)();
   const open: ReadonlyArray<SessionModel> = [lead, b1Model(), b8Model()];
 
@@ -300,6 +309,7 @@ const setPreviewSignals = (scene: Scene) => {
       ],
       // Later entries win: the failures scene's B2 has no Turn in flight.
       ...(scene === "failures" ? FAILURE_SIGNALS : []),
+      ...(scene === "startup" ? STARTUP_SIGNALS : []),
     ]),
     receipts: new Map([
       ["i-spec", { command: "bun run spec", exitCode: 0 }],

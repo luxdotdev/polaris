@@ -26,6 +26,7 @@ export const PRIORITY = [
   "lead",
   "claim",
   "unclaimed",
+  "stalled",
   "setup",
   "stale",
   "worker-context",
@@ -119,6 +120,14 @@ const workerItems = (row: WorkerRow, groupKey: string): Array<ConstellationItem>
 
   if (row.state === "stale")
     items.push({ ...base, key: `${key}\u0000stale`, kind: "stale", since: updated });
+
+  if (row.state === "stalled")
+    items.push({
+      ...base,
+      key: `${key}\u0000stalled`,
+      kind: "stalled",
+      since: row.slotHeldSince ?? row.attempt.startedAt,
+    });
 
   const context = contextShare(row.entry);
 

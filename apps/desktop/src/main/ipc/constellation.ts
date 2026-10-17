@@ -45,6 +45,11 @@ export const constellationHandlers = {
     live(hostKey, (s) => s.client["constellation.set_state"](payload)),
   "constellation.status": ({ hostKey, ...payload }: RequestInput<"constellation.status">) =>
     live(hostKey, (s) => s.client["constellation.status"](payload)),
+  "constellation.worker.start": ({
+    hostKey,
+    ...payload
+  }: RequestInput<"constellation.worker.start">) =>
+    live(hostKey, (s) => s.client["constellation.worker.start"](payload)),
   "constellation.defaults.get": ({ hostKey }: RequestInput<"constellation.defaults.get">) =>
     live(hostKey, (s) => s.client["constellation.defaults.get"]({})),
   "constellation.defaults.set": ({

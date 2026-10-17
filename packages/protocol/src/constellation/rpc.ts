@@ -119,6 +119,15 @@ export const ConstellationWorkerMessage = Rpc.make("constellation.worker.message
 });
 
 /**
+ * The user starts a working Attempt's first Turn again when it has none (a stalled worker): the
+ * worker's Host reacquires its slot and sends the brief once. Sent to the Host running the worker.
+ */
+export const ConstellationWorkerStart = Rpc.make("constellation.worker.start", {
+  ...mutation,
+  payload: { constellationId: ConstellationId, attemptId: AttemptId },
+});
+
+/**
  * Both roles use the same read-only outline; json requests include the folded graph.
  * `since` (a graph revision) returns what changed after it instead of the whole outline.
  */
@@ -209,5 +218,6 @@ export class ConstellationRpcs extends RpcGroup.make(
   ConstellationWorkerProgress,
   ConstellationWorkerPropose,
   ConstellationWorkerMessage,
+  ConstellationWorkerStart,
   SubscribeConstellation
 ) {}

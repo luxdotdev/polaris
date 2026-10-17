@@ -28,6 +28,8 @@ const SHOWN: Readonly<Record<WorkerState, Shown>> = {
   accepted: { glyph: "accepted", word: "done", tone: "accepted" },
   "setting-up": { glyph: "waiting", word: "setting up", tone: "subtle" },
   "setup-failed": { glyph: "needs-you", word: "setup failed", tone: "needs-you" },
+  starting: { glyph: "waiting", word: "starting", tone: "subtle" },
+  stalled: { glyph: "needs-you", word: "stalled", tone: "needs-you" },
 };
 
 /** A usage limit, connection or harness failure isn't the worker's: "Usage limit · resets 14:00", neutral. */

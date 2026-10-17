@@ -12,6 +12,7 @@ import {
   ConstellationReview,
   ConstellationSetState,
   ConstellationStatus,
+  ConstellationWorkerStart,
   GetConstellationStats,
 } from "@polaris/protocol";
 import { Schema } from "effect";
@@ -29,6 +30,8 @@ export const ConstellationRequestInputs = {
   "constellation.message": onHost(ConstellationMessage.payloadSchema.fields),
   "constellation.set_state": onHost(ConstellationSetState.payloadSchema.fields),
   "constellation.status": onHost(ConstellationStatus.payloadSchema.fields),
+  /** Sent to the worker's Host, not the Lead's: that is where its startup runs. */
+  "constellation.worker.start": onHost(ConstellationWorkerStart.payloadSchema.fields),
 } as const;
 
 export type ConstellationMethod = keyof typeof ConstellationRequestInputs;

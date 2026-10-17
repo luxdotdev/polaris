@@ -40,6 +40,10 @@ export interface WorkerFacts {
   readonly stoppedWithoutClaiming: boolean;
   /** Whether the worker's session has a Turn in flight; null when no Daemon has said. */
   readonly activeTurn: boolean | null;
+  /** Whether the Attempt's first Turn (its brief) has started; null when no Daemon has said. */
+  readonly firstTurn: boolean | null;
+  /** Since when the worker has held its Host's worker slot (`__workers` lease), if it does. */
+  readonly slotHeldSince: string | null;
   /** Subagents still working in the worker's session (rail nodes under its Attempt). */
   readonly subagents: ReadonlyArray<SubagentFact>;
 }
@@ -64,6 +68,8 @@ export const NO_FACTS: WorkerFacts = {
   approvalSince: null,
   stoppedWithoutClaiming: false,
   activeTurn: null,
+  firstTurn: null,
+  slotHeldSince: null,
   subagents: [],
 };
 
