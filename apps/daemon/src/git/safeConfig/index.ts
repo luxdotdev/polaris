@@ -31,6 +31,7 @@ import {
 export {
   globalOptions,
   NO_HOOKS_PATH,
+  noHooksPath,
   parseListing,
   repositoryEnv,
   repositoryOverrides,

@@ -6,8 +6,19 @@
  */
 export type SafeMode = "safe" | "trusted-fetch";
 
-/** A hooks directory that holds nothing; Git for Windows warns on `/dev/null` and takes `NUL`. */
-export const NO_HOOKS_PATH = process.platform === "win32" ? "NUL" : "/dev/null";
+/**
+ * Windows: `NUL` is relative (a checkout's `NUL\pre-commit` is found) and `/dev/null` maps into
+ * Git's install, so the running executable stands in: absolute, always present, never a directory.
+ */
+export function noHooksPath(os: string, execPath: string): string {
+  return os === "win32" ? execPath : "/dev/null";
+}
+
+/**
+ * A hooks "directory" that is a file, so it can hold no hook. Absolute on purpose: git resolves a
+ * relative one against the working tree. Windows has no `/dev/null` (see `noHooksPath`).
+ */
+export const NO_HOOKS_PATH = noHooksPath(process.platform, process.execPath);
 
 /** Settings that run commands, turned off whatever any config says. */
 export const FIXED: ReadonlyArray<readonly [string, string]> = [
