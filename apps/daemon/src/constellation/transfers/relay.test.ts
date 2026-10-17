@@ -1,4 +1,4 @@
-import { expect } from "bun:test";
+import { expect, test } from "bun:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -56,9 +56,7 @@ import { ConstellationRelay } from "../../../../../packages/client/src/constella
 import { HostRegistry } from "../../../../../packages/client/src/HostRegistry.ts";
 import { HostConnector, HostTarget } from "../../../../../packages/client/src/HostConnection.ts";
 import { type ConstellationRuntimeService } from "../runtime.ts";
-import { posixTest, shortTemp } from "../../platform/testing.ts";
-
-const test = posixTest("Windows bug: index-pack fails bundle imports, Filename too long (ENG-318)");
+import { shortTemp } from "../../platform/testing.ts";
 
 interface RelayTraceBatch {
   hostId: string;
