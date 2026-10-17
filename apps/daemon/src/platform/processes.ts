@@ -1,7 +1,7 @@
 /**
  * Processes the same way on every Host. POSIX has process groups and signals;
  * Windows has neither, so a tree is ended with `taskkill /T /F` and a shell
- * command runs under `cmd.exe`. See docs/adr/0060-windows-process-trees.md.
+ * command runs under `cmd.exe`. See docs/adr/0061-windows-process-trees.md.
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -173,3 +173,10 @@ export const shellCommand = (
         windowsVerbatimArguments: true,
       }
     : { argv: ["/bin/sh", "-c", command], windowsVerbatimArguments: false };
+
+/** A PowerShell single-quoted literal: nothing in it expands. */
+export const powershellQuote = (value: string): string => `'${value.replaceAll("'", "''")}'`;
+
+/** A script as `-EncodedCommand` takes it (UTF-16LE, base64), so no shell parses it on the way. */
+export const encodePowershell = (script: string): string =>
+  Buffer.from(script, "utf16le").toString("base64");

@@ -15,6 +15,7 @@ import { localEndpoint } from "@polaris/protocol/endpoint";
 import { Effect, Option, Predicate, Result, Schema, Stream } from "effect";
 import {
   acquireAppServer,
+  type AppServer,
   type AppServerState,
   connectAppServer,
   defaultStateFile,
@@ -138,10 +139,10 @@ const squatterGetsNothing = (state: AppServerState) =>
     );
   });
 
-const program = Effect.gen(function* () {
-  const threadId = yield* Effect.scoped(
+/** The first connection: a thread started on the server, closed before the rest. */
+const startThread = (server: AppServer) =>
+  Effect.scoped(
     Effect.gen(function* () {
-      const server = yield* acquireAppServer({ codexPath, socketPath, spawn: true });
       const conn = yield* server.connect;
 
       yield* conn.request("initialize", {
@@ -159,20 +160,41 @@ const program = Effect.gen(function* () {
 
       check("a thread starts on it", id !== "", id);
 
-      return { id, argv: remoteTuiArgv(server, codexPath, id) };
+      return remoteTuiArgv(server, codexPath, id);
     })
   );
 
-  const state = readAppServerState(stateFile);
-  check("it outlives the connection that started it", state !== null && isRunning(state.pid));
-  showListener(state);
-  yield* Effect.scoped(throughDaemon(threadId.argv));
+/** Everything runs while the server is held, as a Daemon holds it for its lifetime. */
+const program = Effect.gen(function* () {
+  const stopped = yield* Effect.scoped(
+    Effect.gen(function* () {
+      const server = yield* acquireAppServer({ codexPath, socketPath, spawn: true });
+      const argv = yield* startThread(server);
+      const state = readAppServerState(stateFile);
 
-  if (state !== null) yield* squatterGetsNothing(state);
+      check("it outlives the connection that started it", state !== null && isRunning(state.pid));
+      showListener(state);
+      yield* Effect.scoped(throughDaemon(argv));
 
-  const { stopped } = yield* stopAppServer({ stateFile, socketPath });
+      if (state !== null) yield* squatterGetsNothing(state);
+
+      return state;
+    })
+  );
+
+  // On Windows letting go of it stops it, its listener too; elsewhere stop it as uninstall does.
+  if (process.platform !== "win32") yield* stopAppServer({ stateFile, socketPath });
   yield* Effect.sleep("1 second");
-  check("stopping it ends it", stopped !== null && !isRunning(stopped), `pid ${stopped}`);
+
+  const left = [stopped?.pid, stopped?.listenerPid].filter(
+    (pid) => pid !== undefined && isRunning(pid)
+  );
+
+  check(
+    "letting it go ends it, listener included",
+    stopped !== null && left.length === 0,
+    `left: ${left.join(",") || "none"}`
+  );
 });
 
 await Effect.runPromise(program).catch((error) => {

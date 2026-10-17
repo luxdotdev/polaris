@@ -3,12 +3,19 @@
  * private to the current user"), so it listens on loopback: on a port it binds
  * itself (`:0`), behind a capability token in a user-only file. The port is the
  * listener a process of the started tree holds, and before anything is sent to it
- * that listener must still be the recorded one. See docs/adr/0060-windows-process-trees.md.
+ * that listener must still be the recorded one. See docs/adr/0061-windows-process-trees.md.
  */
-import { randomBytes } from "node:crypto";
-import { closeSync, openSync, rmSync, writeFileSync } from "node:fs";
+import { closeSync, openSync } from "node:fs";
 import { childEnv } from "../../service/childEnv.ts";
 import { isRunning, killTree, system32 } from "../../platform/processes.ts";
+import {
+  identityOf,
+  isInTree,
+  type ProcessIdentity,
+  type ProcessRow,
+  processTable,
+} from "../../platform/windowsTree.ts";
+import { writeToken } from "./windowsToken.ts";
 
 export interface Listener {
   readonly port: number;
@@ -34,47 +41,20 @@ export const parseListeners = (netstat: string): ReadonlyArray<Listener> => {
   return listeners;
 };
 
-/** True if `pid` is `root` or below it, in `pid parent` rows from the process table. */
-export const isInTree = (table: string, root: number, pid: number): boolean => {
-  const parentOf = new Map<number, number>();
+const loopbackListeners = () => {
+  const result = Bun.spawnSync([system32("NETSTAT.EXE"), "-ano", "-p", "TCP"], {
+    env: childEnv(),
+    stdin: "ignore",
+    stderr: "ignore",
+    windowsHide: true,
+  });
 
-  for (const line of table.split(/\r?\n/)) {
-    const [child, parent] = line.trim().split(/\s+/).map(Number);
-
-    if (child !== undefined && parent !== undefined && child > 0) parentOf.set(child, parent);
-  }
-
-  // Bounded: a reused pid can make the parent links loop.
-  for (let at: number | undefined = pid, hops = 0; at !== undefined && hops < 64; hops++) {
-    if (at === root) return true;
-    at = parentOf.get(at);
-  }
-
-  return false;
+  return parseListeners(result.exitCode === 0 ? result.stdout.toString() : "");
 };
-
-/** Runs a System32 tool and returns its stdout, or null if it failed. */
-const run = (argv: Array<string>): string | null => {
-  const result = Bun.spawnSync(argv, { env: childEnv(), stdin: "ignore", stderr: "ignore" });
-
-  return result.exitCode === 0 ? result.stdout.toString() : null;
-};
-
-const loopbackListeners = () =>
-  parseListeners(run([system32("NETSTAT.EXE"), "-ano", "-p", "TCP"]) ?? "");
 
 /** The pid listening on the loopback `port` right now, or null if nothing is. */
 export const listenerOn = (port: number): number | null =>
   loopbackListeners().find((listener) => listener.port === port)?.pid ?? null;
-
-const processTable = () =>
-  run([
-    system32("WindowsPowerShell\\v1.0\\powershell.exe"),
-    "-NoProfile",
-    "-NonInteractive",
-    "-Command",
-    'Get-CimInstance Win32_Process | ForEach-Object { "$($_.ProcessId) $($_.ParentProcessId)" }',
-  ]) ?? "";
 
 /** True while the recorded listener is alive and still the one on `listen`'s port. */
 export const ownsListen = (listen: string, listenerPid: number): boolean => {
@@ -83,50 +63,52 @@ export const ownsListen = (listen: string, listenerPid: number): boolean => {
   return isRunning(listenerPid) && listenerOn(port) === listenerPid;
 };
 
-export const windowsServerArgv = (options: {
-  readonly codexPath: string;
-  readonly tokenFile: string;
-}): Array<string> => [
-  options.codexPath,
+/** What codex is started with: a port it binds itself, and only a holder of the token let in. */
+export const serverArgs = (tokenFile: string): Array<string> => [
   "app-server",
   "--listen",
   "ws://127.0.0.1:0",
   "--ws-auth",
   "capability-token",
   "--ws-token-file",
-  options.tokenFile,
+  tokenFile,
 ];
-
-/** This user's SID from `whoami /user /fo csv /nh`: `"host\user","S-1-5-21-…"`. */
-export const parseSid = (whoami: string): string | null =>
-  /"(S-1-[0-9-]+)"/.exec(whoami)?.[1] ?? null;
-
-/** Who may read the token: this user only, nothing inherited from a shared POLARIS_HOME. */
-const restrictToUser = (file: string) => {
-  const sid = parseSid(run([system32("whoami.exe"), "/user", "/fo", "csv", "/nh"]) ?? "");
-  const argv = [system32("icacls.exe"), file, "/inheritance:r", "/grant:r", `*${sid}:F`];
-
-  if (sid === null || run(argv) === null) throw new Error(`could not make ${file} private`);
-};
-
-/** A fresh token, so a client of a replaced server can't reach the new one; private before it is written. */
-export const writeToken = (tokenFile: string): void => {
-  rmSync(tokenFile, { force: true });
-  writeFileSync(tokenFile, "", { mode: 0o600 });
-  restrictToUser(tokenFile);
-  writeFileSync(tokenFile, randomBytes(32).toString("hex"));
-};
 
 export interface WindowsLaunched {
   readonly pid: number;
   readonly listen: string;
-  /** The process that owns the port (codex.exe, below the `.cmd` shim's cmd.exe and node). */
+  /** The process that owns the port: codex.exe, below the shim's cmd.exe and node. */
   readonly listenerPid: number;
+  /** Its creation time (a FILETIME), so a later process given its pid is never taken for it. */
+  readonly listenerCreated: string;
 }
 
 /**
- * Starts the server detached and waits until it is bound. A detached child's output is
- * lost on Windows, so `logFile` only gets what codex writes there itself.
+ * Ends a recorded server: the shim's tree when `rootIsOurs`, and its listener while that
+ * is still the same process. Ending the shim can leave node and codex.exe behind.
+ */
+export const stopWindowsServer = async (
+  state: {
+    readonly pid: number;
+    readonly listenerPid?: number | undefined;
+    readonly listenerCreated?: string | undefined;
+  },
+  rootIsOurs: boolean
+): Promise<number | null> => {
+  if (rootIsOurs) await killTree(state.pid, "SIGKILL");
+
+  const { listenerPid, listenerCreated } = state;
+  const listener = listenerPid === undefined ? null : identityOf(listenerPid);
+  const same = listener !== null && String(listener.created) === listenerCreated;
+
+  if (same) await killTree(listener.pid, "SIGKILL");
+
+  return rootIsOurs || same ? state.pid : null;
+};
+
+/**
+ * Starts the server as the Daemon's own child, its output appended to `logFile`, and waits
+ * until it is bound. Not detached: see "lives as long as the Daemon" in the ADR.
  */
 export const windowsLaunch = async (options: {
   readonly codexPath: string;
@@ -136,39 +118,42 @@ export const windowsLaunch = async (options: {
 }): Promise<WindowsLaunched> => {
   writeToken(options.tokenFile);
   const log = openSync(options.logFile, "a");
-  let pid: number;
+  let root: ProcessIdentity | null;
 
   try {
-    const proc = Bun.spawn(windowsServerArgv(options), {
+    const proc = Bun.spawn([options.codexPath, ...serverArgs(options.tokenFile)], {
       env: childEnv(),
       stdin: "ignore",
       stdout: log,
       stderr: log,
-      detached: true,
+      windowsHide: true,
     });
 
+    // Taken while Bun holds a handle to it, so the pid still names this process.
+    root = identityOf(proc.pid);
     proc.unref();
-    pid = proc.pid;
+
+    if (root === null) throw new Error("codex app-server exited at start");
   } finally {
     closeSync(log);
   }
 
   try {
-    return await bound(pid, Date.now() + options.timeoutMs);
+    return await bound(root, Date.now() + options.timeoutMs);
   } catch (error) {
-    await killTree(pid, "SIGKILL");
+    await killTree(root.pid, "SIGKILL");
     throw error;
   }
 };
 
-/** Waits for the listener a process of `pid`'s tree holds; other listeners are not ours. */
-const bound = async (pid: number, deadline: number): Promise<WindowsLaunched> => {
+/** Waits for the listener a process of `root`'s tree holds; other listeners are not ours. */
+const bound = async (root: ProcessIdentity, deadline: number): Promise<WindowsLaunched> => {
   const notOurs = new Set<number>();
 
-  while (Date.now() < deadline && isRunning(pid)) {
+  while (Date.now() < deadline && isRunning(root.pid)) {
     const fresh = loopbackListeners().filter((listener) => !notOurs.has(listener.pid));
-    const table = fresh.length === 0 ? "" : processTable();
-    const ours = fresh.filter((listener) => isInTree(table, pid, listener.pid));
+    const table = fresh.length === 0 ? new Map<number, ProcessRow>() : processTable();
+    const ours = fresh.filter((listener) => isInTree(table, root, listener.pid));
 
     for (const listener of fresh) if (!ours.includes(listener)) notOurs.add(listener.pid);
 
@@ -177,7 +162,12 @@ const bound = async (pid: number, deadline: number): Promise<WindowsLaunched> =>
     const [listener] = ours;
 
     if (listener !== undefined)
-      return { pid, listen: `ws://127.0.0.1:${listener.port}`, listenerPid: listener.pid };
+      return {
+        pid: root.pid,
+        listen: `ws://127.0.0.1:${listener.port}`,
+        listenerPid: listener.pid,
+        listenerCreated: String(table.get(listener.pid)?.created ?? 0n),
+      };
 
     await Bun.sleep(100);
   }

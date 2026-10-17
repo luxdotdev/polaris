@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { Effect } from "effect";
 import {
   isOurAppServer,
@@ -218,6 +218,7 @@ describe("remoteTuiArgv", () => {
     const stateFile = join(dir, "codex-app-server.json");
     const state = { pid: 1, version: null, codexPath: "x", socketPath: "s", startedAt: 0 };
     writeFileSync(stateFile, JSON.stringify({ ...state, listen: "ws://127.0.0.1:4100" }));
+    mkdirSync(dirname(tokenFileOf(stateFile)), { recursive: true });
     writeFileSync(tokenFileOf(stateFile), "secret-token");
 
     return { socketPath: join(dir, "codex.sock"), stateFile };

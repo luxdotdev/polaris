@@ -29,9 +29,15 @@ import { Effect, Option, Schema, type Scope, Semaphore } from "effect";
 import type { HarnessError } from "../HarnessDriver.ts";
 import { ThreadLoadedListResponse } from "./protocol.ts";
 import { codexError, connectUnix, connectWebSocket, type RpcConnection } from "./RpcConnection.ts";
-import { commandLineOf, killTree } from "../../platform/processes.ts";
+import { commandLineOf, encodePowershell, powershellQuote } from "../../platform/processes.ts";
 import { which } from "../../service/userPath.ts";
-import { ownsListen, windowsLaunch } from "./windowsServer.ts";
+import {
+  ownsListen,
+  stopWindowsServer,
+  type WindowsLaunched,
+  windowsLaunch,
+} from "./windowsServer.ts";
+import { tokenFileOf } from "./windowsToken.ts";
 
 const windows = process.platform === "win32";
 
@@ -72,6 +78,8 @@ export const AppServerState = Schema.Struct({
   listen: Schema.optional(Schema.String),
   /** Windows: the pid that owns that port, checked before anything is sent to it. */
   listenerPid: Schema.optional(Schema.Int),
+  /** Windows: that process's creation time, so a later one given its pid is not taken for it. */
+  listenerCreated: Schema.optional(Schema.String),
 });
 
 export type AppServerState = typeof AppServerState.Type;
@@ -82,9 +90,7 @@ export const defaultStateFile = (socketPath: string) =>
 export const defaultLogFile = (socketPath: string) =>
   join(dirname(socketPath), "logs", "codex-app-server.log");
 
-/** Windows: the capability token a client presents, beside the state file. */
-export const tokenFileOf = (stateFile: string) =>
-  join(dirname(stateFile), "codex-app-server.token");
+export { tokenFileOf };
 
 const decodeState = Schema.decodeUnknownOption(Schema.fromJsonString(AppServerState));
 
@@ -233,11 +239,17 @@ export const launchArgv = (options: {
   return ["/bin/sh", "-c", '"$@" </dev/null >>"$0" 2>&1 & echo $!', options.logFile, ...command];
 };
 
+/** What the state file records of a Windows server beyond the POSIX fields. */
+const windowsFields = ({ listen, listenerPid, listenerCreated }: WindowsLaunched) => ({
+  listen,
+  listenerPid,
+  listenerCreated,
+});
+
 /** A server just started: its pid, and on Windows the URL it listens on and who holds it. */
 interface Launched {
   readonly pid: number;
-  readonly listen: string | null;
-  readonly listenerPid: number | null;
+  readonly windows: WindowsLaunched | null;
 }
 
 /** Runs `launchArgv`'s shell and returns the pid it printed. */
@@ -256,7 +268,7 @@ const posixLaunch = async (argv: Array<string>): Promise<Launched> => {
 
   if (!Number.isInteger(pid) || pid <= 0) throw new Error(`no pid from launcher: ${out}`);
 
-  return { pid, listen: null, listenerPid: null };
+  return { pid, windows: null };
 };
 
 const decodeLoadedList = Schema.decodeUnknownOption(ThreadLoadedListResponse);
@@ -308,12 +320,13 @@ export const stopAppServer = (options: {
     const socketPath = options.socketPath ?? state?.socketPath;
     let stopped: number | null = null;
 
-    if (state !== null && isOurAppServer(state.pid, endpointOf(state, options.stateFile))) {
-      stopped = state.pid;
+    const ours = state !== null && isOurAppServer(state.pid, endpointOf(state, options.stateFile));
 
-      // On Windows the pid may be a `.cmd` shim's cmd.exe, with node and codex.exe below it.
-      if (windows) yield* Effect.promise(() => killTree(state.pid));
-      else yield* Effect.sync(() => process.kill(state.pid, "SIGTERM"));
+    if (windows && state !== null) {
+      stopped = yield* Effect.promise(() => stopWindowsServer(state, ours));
+    } else if (ours) {
+      stopped = state.pid;
+      yield* Effect.sync(() => process.kill(state.pid, "SIGTERM"));
       const exited = yield* waitFor(() => !isAlive(state.pid), 5_000);
 
       if (!exited) yield* Effect.sync(() => process.kill(state.pid, "SIGKILL"));
@@ -342,6 +355,12 @@ export const acquireAppServer = (
     let connections = 0;
     let loggedLegacyEnv = false;
 
+    // Windows: the server is this Daemon's child (see windowsServer.ts) and ends with it.
+    if (windows)
+      yield* Effect.addFinalizer(() =>
+        stopAppServer({ stateFile, socketPath: options.socketPath }).pipe(Effect.asVoid)
+      );
+
     const logKeepingServer = (state: AppServerState, reason: string) =>
       Effect.sync(() => {
         if (state.sanitizedEnv !== true && loggedLegacyEnv) return;
@@ -369,7 +388,11 @@ export const acquireAppServer = (
       // A recorded server that is alive but not answering is hung: replace it.
       const previous = readAppServerState(stateFile);
 
-      if (previous !== null && isOurAppServer(previous.pid, endpointOf(previous, stateFile))) {
+      // On Windows a crashed Daemon's server may be orphaned: stopAppServer finds its listener.
+      if (
+        previous !== null &&
+        (windows || isOurAppServer(previous.pid, endpointOf(previous, stateFile)))
+      ) {
         yield* stopAppServer({ stateFile, socketPath: options.socketPath });
       }
 
@@ -381,10 +404,15 @@ export const acquireAppServer = (
 
       const timeoutMs = options.startTimeoutMs ?? 15_000;
 
-      const { pid, listen, listenerPid } = yield* Effect.tryPromise({
+      const { pid, windows: bound } = yield* Effect.tryPromise({
         try: (): Promise<Launched> =>
           windows
-            ? windowsLaunch({ codexPath, tokenFile: tokenFileOf(stateFile), logFile, timeoutMs })
+            ? windowsLaunch({
+                codexPath,
+                tokenFile: tokenFileOf(stateFile),
+                logFile,
+                timeoutMs,
+              }).then((launched) => ({ pid: launched.pid, windows: launched }))
             : posixLaunch(
                 launchArgv({ codexPath, socketPath: options.socketPath, logFile, systemdRun })
               ),
@@ -401,10 +429,7 @@ export const acquireAppServer = (
       } satisfies AppServerState;
 
       yield* Effect.sync(() =>
-        writeState(
-          stateFile,
-          listen === null || listenerPid === null ? started : { ...started, listen, listenerPid }
-        )
+        writeState(stateFile, bound === null ? started : { ...started, ...windowsFields(bound) })
       );
 
       const deadline = Date.now() + timeoutMs;
@@ -470,8 +495,6 @@ export const acquireAppServer = (
     return { socketPath: options.socketPath, stateFile, connect } satisfies AppServer;
   });
 
-const powershellQuote = (value: string) => `'${value.replaceAll("'", "''")}'`;
-
 /**
  * The argv of a `codex` TUI on the shared server's `threadId`. On Windows it
  * reads the token into its own environment, so the token never sits in an argv.
@@ -493,11 +516,5 @@ export const remoteTuiArgv = (
     "exit $LASTEXITCODE",
   ].join("; ");
 
-  return [
-    "powershell.exe",
-    "-NoLogo",
-    "-NoProfile",
-    "-EncodedCommand",
-    Buffer.from(script, "utf16le").toString("base64"),
-  ];
+  return ["powershell.exe", "-NoLogo", "-NoProfile", "-EncodedCommand", encodePowershell(script)];
 };

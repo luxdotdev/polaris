@@ -28,8 +28,15 @@ SIGHUP; the shared Codex app-server on a Unix socket. Measured on Windows 11 wit
   WebSocket can't reach a Unix socket by a Windows path (`ws+unix://C:\…` is an invalid URL).
   `--listen ws://127.0.0.1:0 --ws-auth capability-token --ws-token-file <file>` works:
   codex binds a free port itself, and a client without `Authorization: Bearer <token>` gets
-  no upgrade. A detached child's stdout and stderr are lost on Windows (even through cmd's own
-  `>>` redirect), so the "listening on" line codex prints can't be read back.
+  no upgrade.
+- A `detached` child is worse on Windows in every way we tried. Its stdout and stderr are lost
+  (even through cmd's own `>>`). Started from a windowless process (S3's Daemon runs under a
+  hidden `conhost --headless`), the shim's node opens a visible Windows Terminal window.
+  `Start-Process -WindowStyle Hidden` run from a detached PowerShell never starts its child,
+  and `conhost --headless <cmd>` spawned by Bun exits at once without running it. A child
+  spawned normally with `windowsHide` opens no window, and its output reaches a log file.
+- A pid is reused, and `ParentProcessId` is a number that outlives the parent: a process
+  whose parent died can name a newer process with the same pid as its parent.
 - Loopback is reachable by every local process and account. A port picked in advance can be
   taken before codex binds it, and the Daemon would then hand that squatter the token.
 - Git resolves a relative `core.hooksPath` against the working tree. `NUL` is relative: with
@@ -54,15 +61,29 @@ SIGHUP; the shared Codex app-server on a Unix socket. Measured on Windows 11 wit
   PowerShell, else cmd (`terminal/shell.ts`), and on close run taskkill on the shell before
   closing the console.
 - **The shared Codex app-server on Windows listens on `ws://127.0.0.1:0`**
-  (`harness/codex/windowsServer.ts`), with a capability token: 32 random bytes in
-  `~/.polaris/codex-app-server.token`, fresh for every server. The file is created empty, given
-  an ACL of the user's SID alone (`icacls /inheritance:r`, so a `POLARIS_HOME` under `C:\`
-  inherits nothing), and only then written. The port is the loopback listener that a process
-  of the started tree holds (`netstat -ano` and the process table); that listener's pid is
-  recorded as `listenerPid` with the URL as `listen`. Before every connection
-  `connectAppServer` checks that the port's listener is still `listenerPid`, so no token,
-  prompt or code goes to anything else on that port. The server is stopped with taskkill
-  (its pid may be a shim's cmd.exe). The co-attached TUI runs through
+  (`harness/codex/windowsServer.ts`), with a capability token: 32 random bytes, fresh for
+  every server, in `~/.polaris/codex-app-server/token` (`windowsToken.ts`). The directory
+  is made private first: an ACL of the user's SID alone (`icacls /inheritance:r /grant:r
+  *SID:(OI)(CI)F`, the SID from `whoami /user`, so a `POLARIS_HOME` under `C:\` inherits
+  nothing). The token is then written to a random name with `wx` and renamed into place, so
+  nobody can open it between its creation and its ACL, or plant it beforehand.
+- **The port is the listener of the started tree.** The pid Bun spawned and its creation time
+  are taken at spawn, while Bun holds a handle to it. The port is the loopback listener
+  (`netstat -ano`) whose process walks up to that root (CIM `Win32_Process`). A parent link
+  counts only if the parent was created no later than the child, and the root must match the
+  recorded creation time (`platform/windowsTree.ts`), so a reused pid breaks the chain. More
+  than one such listener fails the launch. That listener's pid and creation time are recorded
+  as `listenerPid`/`listenerCreated` with the URL as `listen`, and before every connection
+  `connectAppServer` checks that the port's listener is still `listenerPid`: no token,
+  prompt or code goes to anything else on that port.
+- **A tree walk, not a Job Object**, for the same reasons as taskkill: a job needs `bun:ffi`
+  and a handle per child, and the shim's cmd.exe runs node before it could be assigned, so
+  the listener could be born outside it. The walk needs nothing native and fails closed.
+- **The server lives as long as the Daemon** on Windows. It is a normal child with
+  `windowsHide`, its output appended to the log, never `detached` (see Context). The
+  Daemon's scope stops it when the Daemon exits, root and listener, and a Daemon that starts
+  stops a recorded server whose listener is still the same process before starting its own.
+  Codex keeps threads on disk, so after an upgrade they are resumed on the new server. The co-attached TUI runs through
   `powershell -EncodedCommand`, which reads the token into `POLARIS_CODEX_TOKEN` for
   `--remote-auth-token-env`, so the token is never in an argv. macOS and Linux keep the Unix
   socket.
@@ -76,9 +97,10 @@ SIGHUP; the shared Codex app-server on a Unix socket. Measured on Windows 11 wit
 - A child that daemonizes away from its parent before we kill it escapes taskkill.
 - Any process running as the user can read the token file and use the Codex server; that is
   the same set that could read Codex's own credentials under the user's profile.
-- The listener check costs one `netstat` per connection (tens of ms) and the launch one
-  process-table query; both are Windows only. Codex's startup output is not in the log.
+- The listener check costs one `netstat` per connection (tens of ms) and the launch a
+  process-table query per poll once a listener appears; both are Windows only.
+- A Daemon killed outright leaves codex.exe running (measured: the shim's cmd.exe ends, its
+  listener doesn't). The next Daemon on that `POLARIS_HOME` stops it; until one starts it
+  keeps its port.
 - A process that got both the dead server's pid and its port before the next connection
   would pass the check and be sent the token.
-- Under Task Scheduler (S3) a task's processes may share a job that ending the task kills;
-  whether the Codex server then outlives the Daemon there is untested.
