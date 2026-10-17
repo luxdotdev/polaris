@@ -56,15 +56,18 @@ export const exitStuck =
     process.exit(SERVE_EXIT_STUCK);
   };
 
+let shutdownArmed = false;
+
+/** Starts the shutdown grace once; a stop asked for on the Windows control pipe arms it too. */
+export const armShutdownDeadline = (ms = SHUTDOWN_GRACE_MS): void => {
+  if (shutdownArmed) return;
+  shutdownArmed = true;
+  deadline("shutting down", { ms, onExpire: exitStuck("shutdown") });
+};
+
 /** Arms the shutdown grace on the first SIGTERM / SIGINT; Effect's runtime still runs the graceful stop. */
 export const armShutdownGrace = (ms = SHUTDOWN_GRACE_MS): void => {
-  let armed = false;
-
-  const arm = () => {
-    if (armed) return;
-    armed = true;
-    deadline("shutting down", { ms, onExpire: exitStuck("shutdown") });
-  };
+  const arm = () => armShutdownDeadline(ms);
 
   process.on("SIGTERM", arm);
   process.on("SIGINT", arm);

@@ -100,6 +100,18 @@ const upgradeCommand = Effect.fn("upgradeCommand")(function* (args: ReadonlyArra
   });
 
   yield* pointCurrentAt(ctx, info.version);
+
+  // Windows has no hand-off: install stops the running Daemon and the task starts the new one.
+  if (ctx.os === "win32") {
+    const report = yield* install(ctx, { source: staged.path, version: info.version });
+
+    return yield* output(json, { ok: true, action: "restarted", ...report }, [
+      report.restarted
+        ? `Stopped the Daemon and started polaris ${info.version}; its terminals ended`
+        : `Started polaris ${info.version} (${report.serviceDomain})`,
+    ]);
+  }
+
   const pid = runningDaemonPid();
 
   if (pid === null) {
