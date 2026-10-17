@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, ci/eng-305-windows-ci]
   pull_request:
 
 concurrency:
