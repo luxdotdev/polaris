@@ -11,13 +11,26 @@ import time
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
-from importlib.machinery import SourceFileLoader
+import importlib.util
 
 sys.dont_write_bytecode = True
+if sys.version_info < (3, 11):
+    sys.exit('bounded_build_test.py needs Python 3.11 or newer (hashlib.file_digest); this is ' + sys.version.split()[0])
+
+
+def load(name, path):
+    if name in sys.modules:
+        return sys.modules[name]
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
 
 source = pathlib.Path(__file__).resolve().parent
-bounded = SourceFileLoader('bounded', str(source / 'bounded-build.py')).load_module()
-stage = SourceFileLoader('stage', str(source / 'stage-rust-analyzer-build.py')).load_module()
+bounded = load('bounded', source / 'bounded-build.py')
+stage = load('stage', source / 'stage-rust-analyzer-build.py')
 
 
 class BoundedBuildTests(unittest.TestCase):
