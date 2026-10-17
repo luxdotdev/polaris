@@ -7,6 +7,11 @@ Everything that gets a `polaris` binary onto a Host, keeps it running as a user 
 | `platform.ts` | `VERSION`: the version `scripts/build-daemon.ts` compiled in (`process.env.POLARIS_BUILD_VERSION`, replaced by a constant), else `apps/daemon/package.json`'s when run from source; a dev build is `<version>-dev.<commit count>.<sha>` (with `.dirty<seconds>` from an uncommitted tree), a `--release` build the package version as it is; the three shipped platforms, `polaris version` output and its parser. |
 | `templates.ts` | Pure launchd plist and systemd `--user` unit renderers. |
 | `install.ts` | `install` / `uninstall` / `stageBinary` / `pointCurrentAt`. |
+| `current.ts` | `bin/current`: a relative symlink, or on Windows a directory junction; `readCurrent`, `pointCurrent`. |
+| `windowsTask.ts` | Windows: the scheduled task's name, its supervisor loop and its XML (pure). |
+| `windowsService.ts` | Windows: `planWindowsTask` (pure), registering and running the task, stopping the Daemon. |
+| `windowsControl.ts` | Windows: the Daemon's control pipe (`status`, `stop`) and the client that asks it. |
+| `daemonStop.ts` | Why the last Daemon stopped on request, for `HostInfo.previousStop`. |
 | `launchd.ts` | The macOS service step: `planLaunchd` (pure), `classifyBootstrap`, `activateLaunchd` with its rollback, `unloadEverywhere`. |
 | `errors.ts` | `InstallError`. |
 | `CommandRunner.ts` | Service for running `launchctl`, `systemctl`, `loginctl` and `<binary> version`; tests replace it. |
@@ -27,7 +32,7 @@ apps/daemon/dist/<platform>/betterleaks   the Rules' secrets scanner, pinned and
 
 for `darwin-arm64`, `linux-x64` and `linux-arm64` (glibc), `linux-x64-musl` and `linux-arm64-musl` (musl, for Alpine), and `windows-x64` (the binary is `polaris.exe`). The build runs `polaris selftest` on the host platform's binary. CI runs it on each glibc Linux binary on native runners (not yet on the musl ones), and on the Windows binary (`smoke-windows`).
 
-**Windows (0.2.0, x64 only).** The build ships fff (`win32-x64`) and ast-grep (`win32-x64-msvc`, grammars from `prebuild-Windows-X64`) and no Betterleaks (none pinned until ENG-296); `selftest` prints `rules: ok (ast-grep, no betterleaks for windows-x64)`. The home is `%USERPROFILE%\.polaris` (`POLARIS_HOME` overrides it) and the Daemon listens on a user-only named pipe (ADR 0059). Language servers, terminals, Harnesses and live upgrades are unavailable there for now: Language RPCs fail with `unsupported-platform` and aren't announced, and `serve` runs without upgrades. In a compiled Windows binary the embedded files live under `B:\~BUN\root\` (`isEmbeddedPath`).
+**Windows (0.2.0, x64 only).** The build ships fff (`win32-x64`) and ast-grep (`win32-x64-msvc`, grammars from `prebuild-Windows-X64`) and no Betterleaks (none pinned until ENG-296); `selftest` prints `rules: ok (ast-grep, no betterleaks for windows-x64)`. The home is `%USERPROFILE%\.polaris` (`POLARIS_HOME` overrides it) and the Daemon listens on a user-only named pipe (ADR 0059). Language servers, terminals, Harnesses and live upgrades are unavailable there for now: Language RPCs fail with `unsupported-platform` and aren't announced, and an upgrade stops the Daemon and starts the new one (**Windows** below). In a compiled Windows binary the embedded files live under `B:\~BUN\root\` (`isEmbeddedPath`).
 
 On Linux the platform names the libc: a musl process reports `linux-<arch>-musl` (`runtimePlatform()`, from `src/platform/`: the compiled `POLARIS_LIBC` define, or from source glibc's loader first, then musl's), which is what `polaris version` prints and `polaris upgrade` checks. Bun's musl runtime links `libstdc++.so.6` and `libgcc_s.so.1` dynamically, so an Alpine Host needs `apk add libstdc++ libgcc` (root); the Client's probe checks for them. `HostInfo.platform` (protocol) still says `linux-x64` / `linux-arm64`; `HostInfo.libc` (optional, absent from older Daemons) says `glibc` or `musl`.
 
@@ -75,7 +80,19 @@ Tests: `launchd.test.ts` (the planner, the classifier, and activation against a 
 
 A real install on your machine is only done by hand: `POLARIS_MANUAL_INSTALL=1 bun scripts/manual-install.ts [--uninstall]`.
 
+### Windows: a logon task (ADR 0060)
+
+No administrator, ever. `polaris install` copies `polaris.exe` to `%USERPROFILE%\.polaris\bin\<version>\`, points the **junction** `bin\current` at it (a symlink needs a privilege; `current.ts`), writes the task definition to `~/.polaris/polaris-task.xml` and registers it with `schtasks /Create /XML` as `dev.lux.polaris.<user>` (another `POLARIS_HOME` adds a hash, so a test install leaves the real task alone). The task starts at the user's logon, unelevated, with no time or battery limits, and runs `conhost --headless cmd /c <loop>`: the headless console means no window opens, and the loop (`supervisorLoop`) runs `bin\current\polaris.exe serve --home .` in the Polaris home with its output in `logs\daemon.{out,err}.log`, restarting it a second after it exits. It ends on exit 75 (another Daemon), 76 (`SERVE_EXIT_STOPPED`, stopped on request) or when `bin\current\polaris.exe` is gone. Task Scheduler's own restart can't do this: conhost always exits 0.
+
+Install then asks the Daemon over its **control pipe** (`<pipe>-control`, user-only and local-only like the main one; `windowsControl.ts`). `planWindowsTask` decides: a Daemon of another version, a new binary or a new task definition is stopped (it exits 76, so the old loop ends) and the task is run with `schtasks /Run` until the new version answers; the same binary and definition change nothing. The report says `supervisor: "task-scheduler"` and `serviceDomain: "task-scheduler <task>"`.
+
+The task runs only while the user is signed in: with nobody signed in, install fails saying so. `polaris bridge` runs the task when no Daemon answers. `polaris uninstall` stops the Daemon (`uninstall`), deletes the task, moves its own running binary to the temp directory (a running executable can be renamed, not deleted) and removes `bin`.
+
+The end-to-end check runs on a real Host from a Mac: `bun apps/daemon/scripts/e2e-windows-service.ts --host <alias> --dir <C:\scratch> --bun <C:\…\bun.exe>` (Bun 1.4.3 or later) builds two versions and drives install, a killed Daemon, an upgrade and uninstall with a Client connected throughout. `windowsTask.test.ts` and `windowsControl.test.ts` have Windows-only tests (a real `schtasks` registration, the control pipe).
+
 ## Upgrade: the execve hand-off (`polaris upgrade <path>`)
+
+On Windows there is no hand-off: `polaris upgrade` stages the binary, repoints `current` and runs the Windows install above, which stops the Daemon and starts the new one (`action: "restarted"`). Running terminals end; Agent Sessions recover from the event log as after a restart. The new Daemon reports `HostInfo.previousStop` (`reason: "upgrade"`, the old version), from the `daemon-stop.json` the old one wrote, so a Client can say why its terminals ended.
 
 The Client uploads the new build and runs `~/.polaris/bin/current/polaris upgrade <uploaded path>` over SSH. That command:
 

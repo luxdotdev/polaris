@@ -64,3 +64,24 @@ describe("HostInfo.platform on the wire", () => {
     expect(() => Schema.decodeUnknownSync(OlderHostInfo)(encoded)).toThrow();
   });
 });
+
+describe("HostInfo.previousStop on the wire", () => {
+  const stop = { reason: "upgrade", fromVersion: "0.2.0-dev.1", at: "2026-10-16T00:00:00Z" };
+
+  test("an older Client decodes a HostInfo that says the last Daemon stopped for an upgrade", () => {
+    const encoded = Schema.encodeSync(HostInfo)(
+      Schema.decodeUnknownSync(HostInfo)({ ...base, previousStop: stop })
+    );
+
+    expect(Schema.decodeUnknownSync(OlderHostInfo)(encoded).daemonVersion).toBe("0.1.0");
+  });
+
+  test("this Client decodes a stop reason newer than itself", () => {
+    const info = Schema.decodeUnknownSync(HostInfo)({
+      ...base,
+      previousStop: { ...stop, reason: "maintenance" },
+    });
+
+    expect(info.previousStop?.reason).toBe("maintenance");
+  });
+});

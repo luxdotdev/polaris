@@ -2,7 +2,7 @@
 /**
  * `polaris` — the Daemon binary. One per user per Host.
  *
- *   polaris serve [--foreground]   run the Daemon (normally started by launchd / systemd --user)
+ *   polaris serve [--home <dir>]   run the Daemon (normally started by launchd / systemd --user / Task Scheduler)
  *   polaris bridge                 pipe stdio to the local Daemon socket; what `ssh <host> polaris bridge` runs
  *   polaris install                install this binary and the user service
  *   polaris uninstall [--purge]    remove the user service and binaries (state kept unless --purge)
@@ -35,6 +35,14 @@ switch (command) {
   }
 
   case "serve": {
+    const home = args.indexOf("--home");
+
+    // The Windows task passes its Polaris home this way: Task Scheduler sets no environment.
+    if (home >= 0 && args[home + 1] !== undefined) {
+      const { resolve } = await import("node:path");
+      process.env.POLARIS_HOME = resolve(args[home + 1]!);
+    }
+
     const { runServe } = await import("./transport/serve.ts");
     runServe();
     break;

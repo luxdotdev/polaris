@@ -2,7 +2,8 @@
  * `polaris install` / `polaris uninstall`: lay the binary out under
  * `~/.polaris/bin/<version>/polaris`, point `~/.polaris/bin/current` at it,
  * and register a user service (launchd LaunchAgent on macOS, systemd
- * `--user` unit on Linux). No sudo, ever. Every step is idempotent: running
+ * `--user` unit on Linux, a scheduled task on Windows). No sudo or
+ * administrator, ever. Every step is idempotent: running
  * install twice with the same binary changes nothing and restarts nothing.
  */
 import { createHash } from "node:crypto";
@@ -11,18 +12,19 @@ import {
   copyFileSync,
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
-  readlinkSync,
   renameSync,
   rmSync,
-  symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { homedir, userInfo } from "node:os";
-import { basename, dirname, join } from "node:path";
-import { Effect } from "effect";
+import { homedir, tmpdir, userInfo } from "node:os";
+import { basename, dirname, join, relative } from "node:path";
+import { Effect, Match } from "effect";
 import { defaultStateFile, stopAppServer } from "../harness/codex/AppServer.ts";
+import { currentUserSid } from "../transport/windowsPipe/win32.ts";
 import { CommandRunner } from "./CommandRunner.ts";
+import { binaryNameFor, currentLinkFor, pointCurrent, readCurrent } from "./current.ts";
 import { InstallError } from "./errors.ts";
 import { activateLaunchd, type LaunchdTiming, unloadEverywhere } from "./launchd.ts";
 import {
@@ -35,10 +37,29 @@ import {
   supervisorStartLine,
   systemdUnit,
 } from "./templates.ts";
+import {
+  deleteTask,
+  isTaskRegistered,
+  planWindowsTask,
+  registerTask,
+  runningDaemon,
+  startTask,
+  stopDaemon,
+} from "./windowsService.ts";
+import { taskXml, taskXmlBytes, windowsTaskName } from "./windowsTask.ts";
 
 export { InstallError };
 
-export type ServiceOs = "darwin" | "linux";
+export type ServiceOs = "darwin" | "linux" | "win32";
+
+/** Windows only: who the task runs as and where Windows lives. */
+export interface WindowsServiceContext {
+  /** The Task Scheduler task's name (`windowsTaskName`); tests use their own. */
+  readonly task: string;
+  readonly userSid: string;
+  /** `%SystemRoot%`. */
+  readonly systemRoot: string;
+}
 
 export interface InstallContext {
   readonly os: ServiceOs;
@@ -54,13 +75,18 @@ export interface InstallContext {
   readonly path: string;
   /** The LaunchAgent's label (`dev.lux.polaris`); tests use their own. */
   readonly launchdLabel: string;
+  readonly windows?: WindowsServiceContext;
 }
+
+const serviceOs = (platform: string): ServiceOs =>
+  platform === "darwin" || platform === "win32" ? platform : "linux";
 
 export const defaultInstallContext = (polarisHome: string): InstallContext => {
   const info = userInfo();
+  const os = serviceOs(process.platform);
 
-  return {
-    os: process.platform === "darwin" ? "darwin" : "linux",
+  const context: InstallContext = {
+    os,
     polarisHome,
     userHome: homedir(),
     xdgConfigHome: process.env.XDG_CONFIG_HOME ?? null,
@@ -69,24 +95,48 @@ export const defaultInstallContext = (polarisHome: string): InstallContext => {
     path: process.env.PATH ?? "/usr/local/bin:/usr/bin:/bin",
     launchdLabel: LAUNCHD_LABEL,
   };
+
+  if (os !== "win32") return context;
+
+  const windows: WindowsServiceContext = {
+    task: windowsTaskName(info.username, polarisHome, homedir()),
+    userSid: currentUserSid(),
+    systemRoot: process.env.SystemRoot ?? "C:\\Windows",
+  };
+
+  return { ...context, windows };
+};
+
+const windowsOf = (ctx: InstallContext): WindowsServiceContext => {
+  if (ctx.windows === undefined) throw new Error("a Windows install needs InstallContext.windows");
+
+  return ctx.windows;
+};
+
+const serviceFileOf = (ctx: InstallContext) => {
+  if (ctx.os === "darwin")
+    return join(ctx.userHome, "Library", "LaunchAgents", `${ctx.launchdLabel}.plist`);
+
+  // The task's definition lives in Task Scheduler; this copy is what install compares.
+  if (ctx.os === "win32") return join(ctx.polarisHome, "polaris-task.xml");
+
+  return join(ctx.xdgConfigHome ?? join(ctx.userHome, ".config"), "systemd", "user", SYSTEMD_UNIT);
 };
 
 export const layout = (ctx: InstallContext, version?: string) => {
   const bin = join(ctx.polarisHome, "bin");
+  const binary = binaryNameFor(ctx.os);
 
   return {
     bin,
     current: join(bin, "current"),
-    launcher: join(bin, "current", "polaris"),
+    launcher: join(bin, "current", binary),
     versionDir: version === undefined ? null : join(bin, version),
-    installed: version === undefined ? null : join(bin, version, "polaris"),
+    installed: version === undefined ? null : join(bin, version, binary),
     logs: join(ctx.polarisHome, "logs"),
     /** The fallback supervisor on Linux Hosts without systemd --user. */
     supervisor: join(bin, "polaris-supervise"),
-    serviceFile:
-      ctx.os === "darwin"
-        ? join(ctx.userHome, "Library", "LaunchAgents", `${ctx.launchdLabel}.plist`)
-        : join(ctx.xdgConfigHome ?? join(ctx.userHome, ".config"), "systemd", "user", SYSTEMD_UNIT),
+    serviceFile: serviceFileOf(ctx),
   };
 };
 
@@ -102,18 +152,29 @@ export const serviceSpec = (ctx: InstallContext): ServiceSpec => {
   };
 };
 
-export const renderServiceFile = (ctx: InstallContext): string =>
-  ctx.os === "darwin"
-    ? launchdPlist(serviceSpec(ctx), ctx.launchdLabel)
-    : systemdUnit(serviceSpec(ctx));
+export const renderServiceFile = (ctx: InstallContext): string => {
+  if (ctx.os === "darwin") return launchdPlist(serviceSpec(ctx), ctx.launchdLabel);
+
+  if (ctx.os === "win32") {
+    const windows = windowsOf(ctx);
+
+    return taskXml({
+      userSid: windows.userSid,
+      polarisHome: ctx.polarisHome,
+      systemRoot: windows.systemRoot,
+    });
+  }
+
+  return systemdUnit(serviceSpec(ctx));
+};
 
 export const sha256File = (path: string): string =>
   createHash("sha256").update(readFileSync(path)).digest("hex");
 
 export type LingerStatus = "enabled" | "already-enabled" | "needs-admin" | "not-applicable";
 
-/** What keeps the Daemon running: launchd, systemd --user, or Polaris' own fallback supervisor. */
-export type Supervisor = "launchd" | "systemd" | "fallback";
+/** What keeps the Daemon running: launchd, systemd --user, Polaris' own fallback supervisor, or a Windows scheduled task. */
+export type Supervisor = "launchd" | "systemd" | "fallback" | "task-scheduler";
 
 /** How the fallback supervisor comes back after a reboot or logout. */
 export type Autostart = "cron" | "profile";
@@ -216,28 +277,19 @@ export const stageBinary = Effect.fn("stageBinary")(function* (
   return { path, sha256, changed };
 });
 
-/** Points `current` at `version` with an atomic rename; false if it already did. */
+/** Points `current` at `version` (`current.ts`); false if it already did. */
 export const pointCurrentAt = (ctx: InstallContext, version: string) =>
-  fsStep("link current", () => {
-    const { current } = layout(ctx);
+  fsStep("link current", () => pointCurrent(layout(ctx).bin, version, currentLinkFor(ctx.os)));
 
-    try {
-      if (readlinkSync(current) === version) return false;
-    } catch {}
+/** The bytes a service file is written as: `schtasks /XML` reads UTF-16. */
+const serviceFileBytes = (ctx: InstallContext, content: string): Uint8Array =>
+  ctx.os === "win32" ? taskXmlBytes(content) : Buffer.from(content, "utf8");
 
-    const temp = `${current}.tmp-${process.pid}`;
-    rmSync(temp, { force: true });
-    symlinkSync(version, temp);
-    renameSync(temp, current);
-
-    return true;
-  });
-
-const writeIfChanged = (path: string, content: string, mode = 0o644) =>
+const writeIfChanged = (path: string, bytes: Uint8Array, mode = 0o644) =>
   fsStep("write service file", () => {
-    if (existsSync(path) && readFileSync(path, "utf8") === content) return false;
+    if (existsSync(path) && readFileSync(path).equals(bytes)) return false;
     mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, content, { mode });
+    writeFileSync(path, bytes, { mode });
     chmodSync(path, mode);
 
     return true;
@@ -463,6 +515,72 @@ const activateSystemd = Effect.fnUntraced(function* (
   return { domain: "systemd --user", restarted: restart, linger, notes };
 });
 
+/**
+ * Windows: register the task, stop a Daemon running another binary (Windows has
+ * no hand-off; its terminals end), then run the task until `version` answers.
+ */
+const activateWindows = Effect.fnUntraced(function* (
+  ctx: InstallContext,
+  changed: { readonly binary: boolean; readonly serviceFile: boolean },
+  version: string
+) {
+  const windows = windowsOf(ctx);
+
+  const plan = planWindowsTask({
+    registered: yield* isTaskRegistered(windows.task),
+    changed,
+    running: yield* runningDaemon(ctx.polarisHome),
+    version,
+  });
+
+  if (plan.register) yield* registerTask(windows.task, layout(ctx).serviceFile);
+
+  if (plan.stop !== null) yield* stopDaemon(ctx.polarisHome, plan.stop);
+
+  if (plan.start) yield* startTask(windows.task, ctx.polarisHome, version);
+
+  const notes =
+    plan.stop === null
+      ? []
+      : ["The previous Daemon was stopped: its terminals ended, and Agent Sessions resume."];
+
+  return {
+    domain: `task-scheduler ${windows.task}`,
+    restarted: plan.stop !== null,
+    linger: "not-applicable" as const,
+    notes,
+  };
+});
+
+/** Windows: stop the Daemon (its exit ends the task's loop) and delete the task. */
+const removeWindows = Effect.fnUntraced(function* (ctx: InstallContext) {
+  const windows = windowsOf(ctx);
+  const stopped = yield* stopDaemon(ctx.polarisHome, "uninstall");
+  yield* deleteTask(windows.task);
+
+  return stopped !== null;
+});
+
+/**
+ * A running executable can't be deleted on Windows, but it can be renamed: move
+ * this process's own binary out of `bin` (into the temp directory) so `bin` can go.
+ */
+const moveSelfOutOf = (bin: string) => {
+  const inside = relative(bin, process.execPath);
+
+  if (process.platform !== "win32" || inside.startsWith("..") || inside === process.execPath)
+    return;
+
+  // Earlier uninstalls' copies, whose processes have exited by now.
+  for (const name of readdirSync(tmpdir())) {
+    if (name.startsWith(UNINSTALLED_PREFIX)) rmSync(join(tmpdir(), name), { force: true });
+  }
+
+  renameSync(process.execPath, join(tmpdir(), `${UNINSTALLED_PREFIX}${process.pid}.exe`));
+};
+
+const UNINSTALLED_PREFIX = "polaris-uninstalled-";
+
 export interface InstallOptions {
   /** The compiled `polaris` binary to install (normally this process's own executable). */
   readonly source: string;
@@ -476,23 +594,15 @@ export interface InstallOptions {
 /** What `current` and the service file were before an install, to roll back to. */
 interface PreviousInstall {
   readonly current: string | null;
-  readonly serviceFile: string | null;
+  readonly serviceFile: Uint8Array | null;
 }
 
 const readPrevious = (ctx: InstallContext) =>
   fsStep("read previous install", (): PreviousInstall => {
     const paths = layout(ctx);
-    let current: string | null = null;
+    const serviceFile = existsSync(paths.serviceFile) ? readFileSync(paths.serviceFile) : null;
 
-    try {
-      current = readlinkSync(paths.current);
-    } catch {}
-
-    const serviceFile = existsSync(paths.serviceFile)
-      ? readFileSync(paths.serviceFile, "utf8")
-      : null;
-
-    return { current, serviceFile };
+    return { current: readCurrent(paths.bin), serviceFile };
   });
 
 /** Puts `previous` back; true if anything changed. */
@@ -535,28 +645,33 @@ export const install = Effect.fn("install")(function* (
   const serviceFile = fallback ? paths.supervisor : paths.serviceFile;
 
   const serviceFileChanged = fallback
-    ? yield* writeIfChanged(serviceFile, supervisorScript(serviceSpec(ctx)), 0o755)
-    : yield* writeIfChanged(serviceFile, renderServiceFile(ctx));
+    ? yield* writeIfChanged(serviceFile, Buffer.from(supervisorScript(serviceSpec(ctx))), 0o755)
+    : yield* writeIfChanged(serviceFile, serviceFileBytes(ctx, renderServiceFile(ctx)));
 
   const changed = { binary: binaryChanged || currentChanged, serviceFile: serviceFileChanged };
 
-  const activation =
-    ctx.os === "darwin"
-      ? {
-          ...(yield* activateLaunchd(
-            { uid: ctx.uid, label: ctx.launchdLabel, serviceFile: paths.serviceFile },
-            changed,
-            restorePrevious(ctx, previous),
-            options.launchdTiming
-          )),
-          linger: "not-applicable" as const,
-        }
-      : fallback
-        ? yield* activateFallback(ctx, changed, plan, linux!)
-        : yield* activateSystemd(ctx, changed);
+  const activation = Match.value(ctx.os).pipe(
+    Match.when("darwin", () =>
+      activateLaunchd(
+        { uid: ctx.uid, label: ctx.launchdLabel, serviceFile: paths.serviceFile },
+        changed,
+        restorePrevious(ctx, previous),
+        options.launchdTiming
+      ).pipe(Effect.map((done) => ({ ...done, linger: "not-applicable" as const })))
+    ),
+    Match.when("win32", () => activateWindows(ctx, changed, options.version)),
+    Match.orElse(() =>
+      fallback ? activateFallback(ctx, changed, plan, linux!) : activateSystemd(ctx, changed)
+    )
+  );
 
-  const supervisor: Supervisor =
-    ctx.os === "darwin" ? "launchd" : fallback ? "fallback" : "systemd";
+  const done = yield* activation;
+
+  const supervisor: Supervisor = Match.value(ctx.os).pipe(
+    Match.when("darwin", (): Supervisor => "launchd"),
+    Match.when("win32", (): Supervisor => "task-scheduler"),
+    Match.orElse((): Supervisor => (fallback ? "fallback" : "systemd"))
+  );
 
   return {
     version: options.version,
@@ -565,12 +680,12 @@ export const install = Effect.fn("install")(function* (
     binaryChanged: changed.binary,
     serviceFile,
     serviceFileChanged,
-    serviceDomain: activation.domain,
-    restarted: activation.restarted,
-    linger: activation.linger,
+    serviceDomain: done.domain,
+    restarted: done.restarted,
+    linger: done.linger,
     supervisor,
     autostart: fallback ? plan.autostart : [],
-    notes: activation.notes,
+    notes: done.notes,
   };
 });
 
@@ -578,7 +693,7 @@ export interface UninstallReport {
   readonly serviceFileRemoved: boolean;
   /** PID of the shared Codex app-server that was stopped, if one was running. */
   readonly codexAppServerStopped: number | null;
-  /** Linux: the fallback supervisor (and its Daemon) was running and was stopped. */
+  /** Linux: the fallback supervisor (and its Daemon) was running and was stopped; Windows: the task's Daemon. */
   readonly supervisorStopped: boolean;
   readonly binariesRemoved: boolean;
   readonly purged: boolean;
@@ -598,6 +713,8 @@ export const uninstall = Effect.fn("uninstall")(function* (
 
   if (ctx.os === "darwin") {
     yield* unloadEverywhere({ uid: ctx.uid, label: ctx.launchdLabel });
+  } else if (ctx.os === "win32") {
+    supervisorStopped = yield* removeWindows(ctx);
   } else {
     yield* run(["systemctl", "--user", "disable", "--now", SYSTEMD_UNIT]);
     supervisorStopped = yield* removeFallback(ctx);
@@ -622,6 +739,7 @@ export const uninstall = Effect.fn("uninstall")(function* (
 
   const binariesRemoved = yield* fsStep("remove binaries", () => {
     const existed = existsSync(paths.bin);
+    moveSelfOutOf(paths.bin);
     rmSync(options.purge ? ctx.polarisHome : paths.bin, { recursive: true, force: true });
 
     return existed;

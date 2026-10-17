@@ -79,6 +79,23 @@ export const HostLibc = Schema.Literals(["glibc", "musl"]);
 
 export type HostLibc = typeof HostLibc.Type;
 
+/** `DaemonStop.reason` for an upgrade that stopped the Daemon and started the new version. */
+export const DAEMON_STOP_UPGRADE = "upgrade";
+
+/**
+ * Why the previous Daemon stopped, when it stopped on purpose and this one replaced it.
+ * Its running terminals ended; Agent Sessions recovered from the event log as after a
+ * restart. Only Windows upgrades this way for now (ADR 0060).
+ */
+export class DaemonStop extends Schema.Class<DaemonStop>("DaemonStop")({
+  /** `upgrade` today; any string on the wire, so a later reason doesn't break this Client. */
+  reason: Schema.String,
+  /** The version that stopped. */
+  fromVersion: Schema.String,
+  /** When the stop was requested. */
+  at: Timestamp,
+}) {}
+
 export class HostInfo extends Schema.Class<HostInfo>("HostInfo")({
   hostId: HostId,
   hostname: Schema.String,
@@ -88,6 +105,8 @@ export class HostInfo extends Schema.Class<HostInfo>("HostInfo")({
   daemonVersion: Schema.String,
   homeDir: Schema.String,
   startedAt: Timestamp,
+  /** Set when this Daemon replaced one that was stopped for an upgrade; absent otherwise and from older Daemons. */
+  previousStop: Schema.optionalKey(DaemonStop),
 }) {}
 
 export class Workspace extends Schema.Class<Workspace>("Workspace")({
