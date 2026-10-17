@@ -50,6 +50,10 @@ jobs:
         if: runner.os == 'macOS'
       - name: Windows Client tests
         if: runner.os == 'Windows'
+        # The runner's TEMP is an 8.3 short path; a Host profile never is.
+        env:
+          TEMP: ${{ runner.temp }}
+          TMP: ${{ runner.temp }}
         # Native Daemon, SSH shell fixtures, launchd, PTYs and Mac packaging argv are POSIX-only.
         # Windows ships a remote-only Client; retain their complete suites on Linux and macOS.
         run: >-
@@ -291,7 +295,9 @@ jobs:
       - name: Install, restart, upgrade and uninstall with a Client connected
         shell: pwsh
         run: |
-          # Two dev builds differ in version (their build time) only from a dirty tree.
+          # The build bundles every platform's native packages (build-daemon.ts installs only
+          # the target's when it is missing); two dev builds differ in version only when dirty.
+          bun install --frozen-lockfile --os=* --cpu=*
           New-Item -ItemType File e2e-windows-dirty | Out-Null
           bun apps/daemon/scripts/e2e-windows-service.ts --local --dir "$env:RUNNER_TEMP\polaris-e2e"
           if ($LASTEXITCODE -ne 0) { throw "The service end to end failed: $LASTEXITCODE" }
