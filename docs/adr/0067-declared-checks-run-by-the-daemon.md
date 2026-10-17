@@ -1,5 +1,5 @@
 ---
-status: proposed (needs the owner's choice of sandbox, ENG-274)
+status: accepted (B; built in Polaris 0.3.0, ENG-274)
 fixes: Codex workers can't run socket or port-binding checks, and no Claim receipt is ever Verified (ENG-274)
 ---
 
@@ -86,6 +86,11 @@ format.
 Not an option: `codex sandbox` with `network_access=true`. It allows loopback but also the
 internet, and `workspace-write` reads the whole disk, so worker code could read `~/.ssh` and send
 it out.
+
+## Decision
+
+B, decided by the owner on 2026-10-17. Checks that need the internet stay Reported, and Windows
+refuses for now. It is built in Polaris 0.3.0; until then every check receipt stays Reported.
 
 ## Common to A and B
 
