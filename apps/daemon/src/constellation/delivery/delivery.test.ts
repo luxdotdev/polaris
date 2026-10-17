@@ -86,7 +86,7 @@ test("a blocking Lead question takes 5s; user questions and worker approvals nev
       expect(w.turns).toHaveLength(0);
       yield* TestClock.adjust(1);
       yield* wait(() => Effect.succeed(w.turns.length === 1));
-      expect(w.turns[0]!.prompt).toContain("A asks lead: Which base?");
+      expect(w.turns[0]!.prompt).toContain("A asks lead (questionId q, blocking): Which base?");
     })
   );
 });

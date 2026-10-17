@@ -41,7 +41,8 @@ Desktop App authorization is checked by the Daemon, not asserted in a payload.
   both record metadata while keeping Review. Accept supplies merged head and receipts; the decider checks
   it against the claimed head and resolves every verified reference. SendBack
   chooses same/existing or new session; `mergeConflictBase` selects that cause.
-  The rejected Attempt retains `rejectionReason` (nullable, additive); its old
+  The rejected Attempt retains `rejectionReason` and `rejectedBy` (`user` or
+  `lead`; both nullable, additive, from `AttemptRejected.reason`/`by`); its old
   Claim stays alongside it in snapshots and status. The retry's first Turn
   carries the verbatim reason and rejected Claim; a MergeConflict names the
   base to merge first. Startup delivers any committed Attempt without its durable

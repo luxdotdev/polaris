@@ -202,8 +202,10 @@ export class Attempt extends Schema.Class<Attempt>("ConstellationAttempt")({
   /** The Lead handed the Claim up to the user (ClaimHandedUp), and why. */
   handedUpAt: Schema.NullOr(Timestamp),
   handedUpReason: Schema.NullOr(Schema.String),
-  /** The Lead's verbatim SendBack feedback, retained beside the rejected Claim. */
+  /** The verbatim SendBack feedback (the Lead's or the user's), retained beside the rejected Claim. */
   rejectionReason: optionalNullable(Schema.String),
+  /** Who sent the Claim back; null before this was recorded. */
+  rejectedBy: optionalNullable(Schema.Literals(["user", "lead"])),
   /** The one automatic nudge after a silent end (AttemptNudged). */
   nudgedAt: Schema.NullOr(Timestamp),
   /** Why a lost or failed Attempt settled (AttemptSettled.reason); null while active. */

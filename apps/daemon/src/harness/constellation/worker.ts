@@ -67,6 +67,7 @@ export interface WorkerAssignment {
   readonly selection: WorkerSelection;
   readonly permissionMode: PermissionMode;
   readonly feedback?: string;
+  readonly feedbackFrom?: "user";
   readonly rejectedClaim?: Claim;
 }
 
@@ -94,7 +95,7 @@ export const workerBrief = (assignment: WorkerAssignment): string => {
       : `${Predicate.isTagged(attempt.cause, "SentBack") || Predicate.isTagged(attempt.cause, "MergeConflict") ? "Sent-back Claim" : "Previous Attempt's Claim"}:\n${JSON.stringify(assignment.rejectedClaim)}`,
     assignment.feedback === undefined
       ? ""
-      : `${Predicate.isTagged(attempt.cause, "SentBack") || Predicate.isTagged(attempt.cause, "MergeConflict") ? "Review feedback" : "Previous Attempt"}:\n${assignment.feedback}`,
+      : `${Predicate.isTagged(attempt.cause, "SentBack") || Predicate.isTagged(attempt.cause, "MergeConflict") ? `Review feedback${assignment.feedbackFrom === "user" ? " from the user" : ""}` : "Previous Attempt"}:\n${assignment.feedback}`,
     assignment.rejectedClaim === undefined
       ? ""
       : "A head that was sent back cannot be claimed again as corrected: commit the fix, or add a decision naming that head and why it stands.",

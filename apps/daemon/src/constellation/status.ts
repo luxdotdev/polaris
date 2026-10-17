@@ -11,6 +11,7 @@ import { graphEvent, type ConstellationRecord } from "../store/constellation.ts"
 import { capacityBlocked, failureKindLabel } from "./failureKind.ts";
 import { childTasks, isParent } from "./parents.ts";
 import { activeAttempt, latestAttempt, projectTask } from "./projections.ts";
+import { type HostSlots, slotLine, workerFacts, workerLine } from "./slots.ts";
 
 export const proposalDetails = (task: TaskDefinition): ReadonlyArray<string> => [
   `  Kind: ${task.kind} · parent: ${task.parent ?? "none"} · group: ${task.group ?? "none"}`,
@@ -44,7 +45,12 @@ export const areaWarnings = (record: ConstellationRecord): ReadonlyArray<string>
   return warnings;
 };
 
-const reviewLines = (attempt: Attempt, session?: SessionRecord): ReadonlyArray<string> => {
+const reviewLines = (
+  record: ConstellationRecord,
+  attempt: Attempt,
+  session?: SessionRecord,
+  host?: HostSlots
+): ReadonlyArray<string> => {
   const lines: Array<string> = [];
 
   if (attempt.approvedByUserAt !== null) lines.push("  Approved by the user · awaiting merge.");
@@ -63,7 +69,9 @@ const reviewLines = (attempt: Attempt, session?: SessionRecord): ReadonlyArray<s
   )
     lines.push("  Stopped without claiming · nudged once.");
   else if (attempt.state === "working" && session !== undefined)
-    lines.push(...turnLines(attempt, session));
+    lines.push(
+      `  ${workerLine(workerFacts(record.graph.id, attempt, session, host), host?.now ?? 0)}`
+    );
 
   if (attempt.state === "blocked")
     lines.push(
@@ -71,18 +79,6 @@ const reviewLines = (attempt: Attempt, session?: SessionRecord): ReadonlyArray<s
     );
 
   return lines;
-};
-
-/** "working" is the Attempt's state; whether a Turn is in flight is a separate fact. */
-const turnLines = (attempt: Attempt, session: SessionRecord): ReadonlyArray<string> => {
-  if (session.turns.some((t) => t.status === "working")) return [];
-  const last = session.turns.findLast((t) => t.startedAt >= attempt.startedAt);
-
-  if (last === undefined) return ["  No Turn yet · the brief has not been delivered."];
-
-  return [
-    `  No active Turn · last Turn ${last.status}${last.endedAt === null ? "" : ` at ${last.endedAt}`}; the worker is waiting, not working.`,
-  ];
 };
 
 const failureLines = (attempt: Attempt): ReadonlyArray<string> =>
@@ -105,7 +101,7 @@ const rejectionLines = (record: ConstellationRecord, task: Task): ReadonlyArray<
 
   if (previous !== undefined) {
     lines.push(
-      `  Sent back attempt ${previous.id}${previous.claim === null ? "" : ` · Claim ${previous.claim.head}`}`
+      `  Sent back attempt ${previous.id}${previous.rejectedBy === "user" ? " by the user" : ""}${previous.claim === null ? "" : ` · Claim ${previous.claim.head}`}`
     );
 
     if (previous.rejectionReason !== null) {
@@ -122,7 +118,8 @@ const rejectionLines = (record: ConstellationRecord, task: Task): ReadonlyArray<
 const taskLines = (
   record: ConstellationRecord,
   task: Task,
-  sessions?: ReadonlyMap<Attempt["sessionId"], SessionRecord>
+  sessions?: ReadonlyMap<Attempt["sessionId"], SessionRecord>,
+  host?: HostSlots
 ): ReadonlyArray<string> => {
   const graph = record.graph;
   const lines: Array<string> = [];
@@ -137,7 +134,7 @@ const taskLines = (
       `  ${attempt.id} · attempt revision ${attempt.revision} · ${attempt.sessionId} · ${attempt.branch}${projection.stale ? " · host offline" : ""}`
     );
 
-    lines.push(...reviewLines(attempt, sessions?.get(attempt.sessionId)));
+    lines.push(...reviewLines(record, attempt, sessions?.get(attempt.sessionId), host));
     lines.push(...failureLines(attempt));
 
     if (attempt.claim !== null && attempt.state === "review")
@@ -153,14 +150,17 @@ const taskLines = (
 
 const treeLines = (
   record: ConstellationRecord,
-  sessions?: ReadonlyMap<Attempt["sessionId"], SessionRecord>
+  sessions?: ReadonlyMap<Attempt["sessionId"], SessionRecord>,
+  host?: HostSlots
 ): ReadonlyArray<string> => {
   const lines: Array<string> = [];
   const roots = record.graph.tasks.filter((task) => task.parent === null);
   const groups = [...new Set(roots.map((task) => task.group))];
 
   const append = (task: Task, depth: number) => {
-    lines.push(...taskLines(record, task, sessions).map((line) => `${"  ".repeat(depth)}${line}`));
+    lines.push(
+      ...taskLines(record, task, sessions, host).map((line) => `${"  ".repeat(depth)}${line}`)
+    );
 
     for (const child of childTasks(record.graph.tasks, task.id)) append(child, depth + 1);
   };
@@ -178,7 +178,8 @@ const treeLines = (
 /** A stable, readable outline, computed only when requested. */
 export const statusOutline = (
   record: ConstellationRecord,
-  sessions?: ReadonlyMap<Attempt["sessionId"], SessionRecord>
+  sessions?: ReadonlyMap<Attempt["sessionId"], SessionRecord>,
+  host?: HostSlots
 ): string => {
   const { graph } = record;
 
@@ -187,7 +188,7 @@ export const statusOutline = (
     `Lead: ${graph.leadSessionId}`,
   ];
 
-  lines.push(...treeLines(record, sessions));
+  lines.push(...treeLines(record, sessions, host));
 
   if (graph.tasks.length === 0) lines.push("No tasks yet.");
 
@@ -216,6 +217,9 @@ export const statusOutline = (
     .map((task) => task.id);
 
   lines.push(`Ready: ${ready.length > 0 ? ready.join(", ") : "none"}`);
+  const slots = host === undefined ? null : slotLine(host, graph.id);
+
+  if (slots !== null) lines.push(slots);
   lines.push(`Lead updates queued: ${graph.pendingNotifications.length}`);
 
   if (
@@ -261,7 +265,8 @@ const eventLine = (record: ConstellationRecord, e: ConstellationEvent): string |
     AttemptStale: (x) => `${task(x.attemptId)}: Host offline.`,
     AttemptFresh: (x) => `${task(x.attemptId)}: Host back.`,
     AttemptAccepted: (x) => `${task(x.attemptId)}: accepted at ${x.mergedHead} (${x.evidence}).`,
-    AttemptRejected: (x) => `${task(x.attemptId)}: sent back · ${first(x.reason)}.`,
+    AttemptRejected: (x) =>
+      `${task(x.attemptId)}: sent back${x.by === "user" ? " by the user" : ""} · ${first(x.reason)}.`,
     AttemptSettled: (x) =>
       `${task(x.attemptId)}: ${x.outcome}${x.failureKind === null ? "" : ` · ${failureKindLabel(x.failureKind)}`} · ${first(x.reason)}.`,
     GatePromoted: (x) => `Gate ${x.taskId} is ready: every dependency accepted.`,
@@ -287,7 +292,8 @@ export const statusSince = (
   record: ConstellationRecord,
   events: ReadonlyArray<EventEnvelope>,
   since: number,
-  sessions?: ReadonlyMap<Attempt["sessionId"], SessionRecord>
+  sessions?: ReadonlyMap<Attempt["sessionId"], SessionRecord>,
+  host?: HostSlots
 ): string => {
   const { graph } = record;
 
@@ -323,6 +329,7 @@ export const statusSince = (
     ...(sessions === undefined || stalled.length === 0
       ? []
       : [`Working with no active Turn: ${stalled.map((a) => a.taskId).join(", ")}`]),
+    ...(host === undefined ? [] : [slotLine(host, graph.id)].filter((line) => line !== null)),
     `Lead updates queued: ${graph.pendingNotifications.length}`,
   ].join("\n");
 };

@@ -371,7 +371,11 @@ export const review = (d: GraphDecision, command: GraphCommand<"Review">) => {
   if (!Predicate.isTagged(command.action, "SendBack")) return;
 
   d.emit(
-    ConstellationEvent.cases.AttemptRejected.make({ ...fields(), reason: command.action.reason })
+    ConstellationEvent.cases.AttemptRejected.make({
+      ...fields(),
+      reason: command.action.reason,
+      by: d.ctx.binding.kind === "user" ? "user" : "lead",
+    })
   );
 
   const cause =

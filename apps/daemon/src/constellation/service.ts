@@ -26,6 +26,8 @@ import { ConstellationBranchStatus } from "./transfers/branches.ts";
 import { ConstellationLiveness } from "./liveness.ts";
 import { activeAttempt, projectTasks, enrichProjections } from "./projections.ts";
 import { ConstellationOwner, ConstellationRuntime } from "./runtime.ts";
+import { emptyResources } from "../resources/model.ts";
+import { type HostSlots } from "./slots.ts";
 import { statusOutline, statusSince } from "./status.ts";
 import { subscribeConstellation } from "./streams.ts";
 
@@ -48,10 +50,11 @@ export const graphResult = (
   sequence: Sequence | null,
   json: boolean,
   projections: ReadonlyArray<TaskProjection> = projectTasks(record),
-  sessions?: ReadModel["sessions"]
+  sessions?: ReadModel["sessions"],
+  host?: HostSlots
 ) =>
   new ConstellationResult({
-    summary: statusOutline(record, sessions),
+    summary: statusOutline(record, sessions, host),
     next: nextAction(record),
     revision: record.graph.revision,
     sequence,
@@ -127,6 +130,14 @@ const make = Effect.gen(function* () {
     const model = yield* store.model;
     const record = yield* authorize(model, id, binding);
 
+    const host: HostSlots = {
+      hostId,
+      resources: model.hostResources ?? emptyResources(),
+      constellations: model.constellations,
+      sessions: model.sessions,
+      now: Date.now(),
+    };
+
     const result = graphResult(
       record,
       null,
@@ -134,7 +145,8 @@ const make = Effect.gen(function* () {
       enrichProjections(record, yield* liveness.read(record), {
         fetchedAttempts: yield* branches.read(record.graph),
       }),
-      model.sessions
+      model.sessions,
+      host
     );
 
     if (since === undefined) return result;
@@ -149,7 +161,7 @@ const make = Effect.gen(function* () {
       );
 
     return new ConstellationResult({
-      summary: statusSince(record, events, since, model.sessions),
+      summary: statusSince(record, events, since, model.sessions, host),
       next: result.next,
       revision: result.revision,
       sequence: result.sequence,
