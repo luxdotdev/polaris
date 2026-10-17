@@ -71,6 +71,7 @@ export async function createInstaller(options: InstallerOptions) {
   const limits = validateLimits({ ...caps, ...options.limits }, caps);
   const storage = await createVersionStorage(options.root, limits, { hostId, platform });
   const jobs = new Map<string, Job>();
+  const launches = new Map<string, number>();
   const latest = new Map<string, Progress>();
   const listeners = new Set<(progress: Progress) => void>();
   let disposed = false;
@@ -363,10 +364,21 @@ export async function createInstaller(options: InstallerOptions) {
 
     const handle = attach(job);
     jobs.set(exact.tool.id, job);
+    launches.set(exact.tool.id, (launches.get(exact.tool.id) ?? 0) + 1);
     job.done = Promise.resolve().then(() => run(job, request.intent));
     emit(job, "queued");
 
     return handle;
+  }
+
+  async function recoveryFacts(toolId: string) {
+    const launched = launches.get(toolId);
+
+    if (jobs.has(toolId)) return [];
+    const facts = await storage.recoveryFacts(toolId);
+
+    // A job launched during the scan owns the lock and stage the scan may have found.
+    return jobs.has(toolId) || launches.get(toolId) !== launched ? [] : facts;
   }
 
   return {
@@ -385,8 +397,7 @@ export async function createInstaller(options: InstallerOptions) {
           ? cause
           : failure("install-failed", "Private installations could not be verified", true);
       }),
-    recoveryFacts: (toolId: string) =>
-      jobs.has(toolId) ? Promise.resolve([]) : storage.recoveryFacts(toolId),
+    recoveryFacts,
     progress: (toolId: string) => {
       const value = latest.get(toolId);
 
