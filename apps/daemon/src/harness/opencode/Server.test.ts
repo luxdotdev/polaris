@@ -1,25 +1,18 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import {
-  chmodSync,
-  existsSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect, Exit, Schema, Scope } from "effect";
 import { acquireServer, type OpenCodeServer } from "./Server.ts";
+import { bunFake } from "../testing/shellFake.ts";
+import { posixTest } from "../../platform/testing.ts";
 
 const decodeState = Schema.decodeUnknownSync(
   Schema.fromJsonString(Schema.Struct({ pid: Schema.Int, url: Schema.String }))
 );
 
 /** A fake `opencode`: `serve` answers `/global/health` behind basic auth, like the real one. */
-const FAKE_OPENCODE = `#!/usr/bin/env bun
-if (process.env.FAKE_OPENCODE_FAIL) {
+const FAKE_OPENCODE = `if (process.env.FAKE_OPENCODE_FAIL) {
   console.error("boom");
   process.exit(1);
 }
@@ -43,9 +36,7 @@ afterEach(() => {
 
 const setup = () => {
   const dir = mkdtempSync(join(tmpdir(), "polaris-opencode-server-"));
-  const bin = join(dir, "opencode");
-  writeFileSync(bin, FAKE_OPENCODE);
-  chmodSync(bin, 0o755);
+  const bin = bunFake(dir, "opencode", FAKE_OPENCODE);
   cleanup.push(() => rmSync(dir, { recursive: true, force: true }));
 
   return { dir, bin, stateFile: join(dir, "state", "opencode-server.json") };
@@ -106,7 +97,10 @@ describe("the OpenCode server", () => {
     const auth = { authorization: `Basic ${btoa(`opencode:${first.handle.password}`)}` };
     expect((await fetch(`${first.handle.url}/global/health`, { headers: auth })).status).toBe(200);
     expect(readFileSync(server.passwordFile, "utf8")).toBe(first.handle.password);
-    expect(statSync(server.passwordFile).mode & 0o777).toBe(0o600);
+
+    // Windows has no mode bits; the file's ACL is ENG-314's.
+    if (process.platform !== "win32")
+      expect(statSync(server.passwordFile).mode & 0o777).toBe(0o600);
 
     await first.release();
     expect(await Effect.runPromise(server.running)).toBe(true);
@@ -134,7 +128,11 @@ describe("the OpenCode server", () => {
     expect(existsSync(stateFile)).toBe(false);
   });
 
-  test("a server left by a crashed Daemon is stopped on the next start", async () => {
+  // The stale server's exit handler lives on in this process (a crashed Daemon's doesn't), and on
+  // Windows taskkill ends it after the new server has written the state file it then removes.
+  posixTest(
+    "the stale server's exit handler, alive in-process, forgets the new server's files (ENG-318)"
+  )("a server left by a crashed Daemon is stopped on the next start", async () => {
     const { dir, bin, stateFile } = setup();
     const stale = await serverIn(dir, bin);
     await lease(stale.server);

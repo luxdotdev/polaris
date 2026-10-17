@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { Model, SessionId, TurnId } from "@polaris/protocol";
 import { Effect, Schema } from "effect";
@@ -7,6 +7,7 @@ import { makeCodexDriver } from "./CodexDriver.ts";
 import { listCodexModels } from "./models.ts";
 import { type ClientRequest, type Handler, startFakeAppServer } from "./testing/FakeAppServer.ts";
 import { shortTemp } from "../../platform/testing.ts";
+import { bunFake } from "../testing/shellFake.ts";
 
 const cleanup: Array<() => void> = [];
 
@@ -14,7 +15,7 @@ afterEach(() => {
   for (const fn of cleanup.splice(0)) fn();
 });
 
-/** Socket paths must stay under ~104 bytes, so tests use /tmp directly. */
+/** Socket paths must stay under ~104 bytes, so tests use a short temp root. */
 const tempDir = () => {
   const dir = mkdtempSync(shortTemp("pcm-"));
   cleanup.push(() => rmSync(dir, { recursive: true, force: true }));
@@ -96,14 +97,13 @@ describe("Codex Models", () => {
 
   test("with no app-server running, a private one on stdio answers and exits", async () => {
     const dir = tempDir();
-    const codexPath = join(dir, "codex");
     const pidFile = join(dir, "pid");
 
     // A stand-in `codex app-server` speaking JSON lines on stdio.
-    writeFileSync(
-      codexPath,
-      `#!/usr/bin/env bun
-require("node:fs").writeFileSync(${JSON.stringify(pidFile)}, String(process.pid));
+    const codexPath = bunFake(
+      dir,
+      "codex",
+      `require("node:fs").writeFileSync(${JSON.stringify(pidFile)}, String(process.pid));
 const pages = ${JSON.stringify(PAGES)};
 let buffer = "";
 for await (const chunk of Bun.stdin.stream()) {
@@ -121,7 +121,6 @@ for await (const chunk of Bun.stdin.stream()) {
 }
 `
     );
-    chmodSync(codexPath, 0o755);
 
     const models = await Effect.runPromise(
       listCodexModels({ codexPath, socketPath: join(dir, "none.sock"), clientVersion: "1" })

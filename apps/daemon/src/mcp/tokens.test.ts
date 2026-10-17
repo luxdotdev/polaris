@@ -39,7 +39,9 @@ test("only token hashes persist; restart keeps credentials and revocation", asyn
     expect(disk.includes(Buffer.from(issued.worker))).toBe(false);
     expect(disk.includes(Buffer.from(issued.lead))).toBe(false);
     expect(disk.includes(Buffer.from(issued.plain))).toBe(false);
-    expect(statSync(path).mode & 0o777).toBe(0o600);
+
+    // Windows has no mode bits; the file's ACL is ENG-314's.
+    if (process.platform !== "win32") expect(statSync(path).mode & 0o777).toBe(0o600);
     await Effect.runPromise(
       Effect.gen(function* () {
         const tokens = yield* McpTokens;

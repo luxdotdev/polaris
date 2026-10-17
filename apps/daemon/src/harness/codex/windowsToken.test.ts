@@ -5,7 +5,15 @@ import { dirname, join } from "node:path";
 import { system32 } from "../../platform/processes.ts";
 import { parseSid, tokenFileOf, writeToken } from "./windowsToken.ts";
 
-const windowsOnly = test.skipIf(process.platform !== "win32");
+/** A high-integrity (elevated) token: `whoami /groups` lists S-1-16-12288. */
+const elevated = () =>
+  process.platform === "win32" &&
+  Bun.spawnSync([system32("whoami.exe"), "/groups"])
+    .stdout.toString()
+    .includes("S-1-16-12288");
+
+/** The unelevated Daemon's case; an elevated session (CI's runner) keeps more entries (ENG-314). */
+const unelevatedWindows = test.skipIf(process.platform !== "win32" || elevated());
 
 const dirs: Array<string> = [];
 
@@ -29,7 +37,7 @@ describe("the Codex token", () => {
     expect(parseSid("ERROR: access denied")).toBeNull();
   });
 
-  windowsOnly("sits in a directory only this user may open, and is only theirs", () => {
+  unelevatedWindows("sits in a directory only this user may open, and is only theirs", () => {
     const home = mkdtempSync(join(tmpdir(), "pas-token-"));
     dirs.push(home);
     const file = tokenFileOf(join(home, "codex-app-server.json"));

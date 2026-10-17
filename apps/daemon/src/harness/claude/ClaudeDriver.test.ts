@@ -7,6 +7,7 @@ import {
   TurnId,
   TurnItem,
 } from "@polaris/protocol";
+import { join } from "node:path";
 import { Effect, Exit, Scope, Stream } from "effect";
 import { HarnessEvent, type OpenOptions } from "../HarnessDriver.ts";
 import { polarisInstructions } from "../../constellation/skills/preamble.ts";
@@ -123,7 +124,7 @@ describe("Claude driver", () => {
     expect(o.model).toBe("haiku");
     expect(o.includePartialMessages).toBe(true);
     expect(o.resume).toBeUndefined();
-    expect(o.additionalDirectories).toEqual(["/tmp/polaris-staging/session-1"]);
+    expect(o.additionalDirectories).toEqual([join("/tmp/polaris-staging", "session-1")]);
     await t.close();
   });
 

@@ -3,7 +3,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Deferred, Effect, Fiber, Result, Stream } from "effect";
-import { connectUnix } from "../harness/codex/RpcConnection.ts";
+// connectAppServer is connectUnix on POSIX; on Windows it reaches the fake on its loopback port.
+import { connectAppServer } from "../harness/codex/AppServer.ts";
 import { startFakeAppServer, type Handler } from "../harness/codex/testing/FakeAppServer.ts";
 import { codexInline } from "./codex.ts";
 import { propose } from "./proposal.ts";
@@ -72,7 +73,7 @@ test("Codex starts ephemeral read-only work, disables external tools and validat
   });
 
   const items = await Effect.runPromise(
-    propose(request(), "/repo", codexInline("fake", connectUnix(path))).pipe(Stream.runCollect)
+    propose(request(), "/repo", codexInline("fake", connectAppServer(path))).pipe(Stream.runCollect)
   );
 
   expect(items).toHaveLength(2);
@@ -110,7 +111,7 @@ test("cancelling a Codex proposal interrupts its ephemeral Turn", async () => {
         });
 
         const fiber = yield* Effect.forkScoped(
-          propose(request(), "/repo", codexInline("fake", connectUnix(path))).pipe(
+          propose(request(), "/repo", codexInline("fake", connectAppServer(path))).pipe(
             Stream.tap(() => Deferred.succeed(started, undefined)),
             Stream.runDrain
           )
@@ -133,7 +134,7 @@ test("Codex refuses a thread whose effective sandbox is not read-only", async ()
   const { path, server } = fake(() => {}, false);
 
   const result = await Effect.runPromise(
-    propose(request(), "/repo", codexInline("fake", connectUnix(path))).pipe(
+    propose(request(), "/repo", codexInline("fake", connectAppServer(path))).pipe(
       Stream.runCollect,
       Effect.result
     )
@@ -159,7 +160,7 @@ test("Codex schema rejection never emits a final proposal", async () => {
   });
 
   const result = await Effect.runPromise(
-    propose(request(), "/repo", codexInline("fake", connectUnix(path))).pipe(
+    propose(request(), "/repo", codexInline("fake", connectAppServer(path))).pipe(
       Stream.runCollect,
       Effect.result
     )
