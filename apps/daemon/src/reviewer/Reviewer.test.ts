@@ -49,7 +49,7 @@ import {
   publishPullRequest,
   userClone,
 } from "../git/review/testing.ts";
-import { commitAll, removeDir, write } from "../git/testing.ts";
+import { commitAll, removeDirSettled, write } from "../git/testing.ts";
 import { Availability } from "../harness/availability/index.ts";
 import { benchReviewReply, isReviewerPrompt } from "../harness/bench/review.ts";
 import { HarnessEvent, type TurnInput } from "../harness/HarnessDriver.ts";
@@ -70,8 +70,8 @@ type Env = Engine | EventStore | Reviewer;
 
 const cleanup: Array<string> = [];
 
-afterEach(() => {
-  for (const dir of cleanup.splice(0)) removeDir(dir);
+afterEach(async () => {
+  for (const dir of cleanup.splice(0)) await removeDirSettled(dir);
 });
 
 /** The Reviewer's Turn: two approvals (one allowed, one not), then the bench reply. */
