@@ -1,5 +1,5 @@
 import { chmod, mkdir, symlink } from "node:fs/promises";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import {
   LanguageCheckout,
@@ -485,7 +485,8 @@ describe("runtime", () => {
   );
 
   test("the child's PATH puts the private Node first", () => {
-    expect(formatterPath("/p/node/bin/node", "/usr/bin:/bin")).toBe("/p/node/bin:/usr/bin:/bin");
+    // Joined with the Host's delimiter: Windows' is `;`.
+    expect(formatterPath("/p/node/bin/node", "/usr/bin")).toBe(`/p/node/bin${delimiter}/usr/bin`);
     expect(formatterPath("/p/node/bin/node", "")).toBe("/p/node/bin");
     expect(formatterPath(null, "/usr/bin")).toBe("/usr/bin");
   });
