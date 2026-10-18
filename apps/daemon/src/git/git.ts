@@ -10,7 +10,7 @@ import { megabytes, readBounded, readHead } from "./output.ts";
 import { gitExecutable } from "./executable.ts";
 import { hostConfigEnv, NO_HOOKS_PATH, safeArgs, safeConfigEnv } from "./safeConfig/index.ts";
 import { killTree, ownProcessGroup } from "../platform/processes.ts";
-import { groupFor, interruptibleGit, startSignal, stopOnAbort } from "./interrupt.ts";
+import { groupFor, interruptibleGit, pipesOf, startSignal, stopOnAbort } from "./interrupt.ts";
 
 export interface GitResult {
   readonly code: number;
@@ -116,11 +116,13 @@ export const runGitRaw = async (
 
   const limit = options.maxOutputBytes ?? MAX_OUTPUT_BYTES;
 
-  const [stdout, stderr, code] = await Promise.all([
+  const reads = Promise.all([
     readBounded(proc.stdout, limit, overflow),
     readHead(proc.stderr, MAX_STDERR_BYTES),
-    proc.exited,
   ]);
+
+  const [stdout, stderr] = await pipesOf(reads, proc.exited, signal, [new Uint8Array(), ""]);
+  const code = await proc.exited;
 
   if (stdout === null) throw new GitOutputTooLarge(args, limit);
 

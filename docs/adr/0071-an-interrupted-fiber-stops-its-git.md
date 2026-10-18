@@ -49,5 +49,7 @@ sync leaves staged reversals.
 ## Consequences
 
 On Windows a write killed past its deadline can leave a lock file, since `taskkill /F` skips
-git's cleanup (ENG-363). An interrupted Rules run now waits for its scanners to settle too,
+git's cleanup (ENG-363). `taskkill /T` also misses an MSYS grandchild (a signer's `sleep`),
+which keeps git's pipes open; a killed git's pipes are read for only 1 s after it exits, but
+the grandchild runs on (ENG-367). An interrupted Rules run now waits for its scanners to settle too,
 for up to 5 s.

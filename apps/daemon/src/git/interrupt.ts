@@ -93,6 +93,27 @@ export const stopOnAbort = (child: Child, signal: AbortSignal | undefined): void
   });
 };
 
+/** How long a killed git's pipes are read after it exits. */
+const PIPE_GRACE_MS = 1_000;
+
+/**
+ * `reads` of a git's pipes; once `signal` has aborted and git exited, `killed` after a moment:
+ * a grandchild that outlived the kill (an MSYS `sleep` on Windows) can hold them open.
+ */
+export const pipesOf = async <A>(
+  reads: Promise<A>,
+  exited: Promise<number>,
+  signal: AbortSignal | undefined,
+  killed: A
+): Promise<A> => {
+  if (signal === undefined) return reads;
+  await exited;
+
+  if (!signal.aborted) return reads;
+
+  return Promise.race([reads, Bun.sleep(PIPE_GRACE_MS).then(() => killed)]);
+};
+
 const settled = (done: Promise<unknown>, ms: number) =>
   new Promise<void>((resolve) => {
     const timer = setTimeout(resolve, ms);
