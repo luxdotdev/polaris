@@ -507,7 +507,7 @@ const createSession =
 
 const resourceProjection =
   (event: DomainEvent): Reducer =>
-  ({ model }) => {
+  ({ model, at }) => {
     const current = model.hostResources ?? emptyResources();
 
     const hostResources = foldResources(
@@ -516,7 +516,7 @@ const resourceProjection =
         leases: new Map(current.leases),
         waiting: new Map(current.waiting),
       },
-      [event]
+      [{ event, occurredAt: at }]
     );
 
     return { ...model, hostResources };

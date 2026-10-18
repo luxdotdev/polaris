@@ -1,80 +1,85 @@
-import type { Attempt, ConstellationId, HostId, ResourceLease, SessionId } from "@polaris/protocol";
-import { WORKERS_RESOURCE, type ResourcesModel } from "../resources/model.ts";
+import {
+  type Attempt,
+  type AttemptId,
+  type ConstellationId,
+  type HostId,
+  type ResourceLease,
+  type SessionId,
+  type WorkerLiveness,
+  type WorkerPhase,
+  type WorkerPhaseInput,
+  workerPhase,
+} from "@polaris/protocol";
+import { RECENT_TURNS, type SessionRecord } from "../store/model.ts";
+import { WORKERS_RESOURCE, type LeaseWaiter, type ResourcesModel } from "../resources/model.ts";
 import type { ConstellationRecord } from "../store/constellation.ts";
-import type { SessionRecord } from "../store/model.ts";
 
-/** The Host facts a Lead needs to tell a stuck worker from a queued one; all folded state. */
-export interface HostSlots {
+/** One Host's `__workers` fold and the time it is read at; all folded state. */
+export interface SlotSource {
   readonly hostId: HostId;
   readonly resources: ResourcesModel;
-  readonly constellations: ReadonlyMap<ConstellationId, ConstellationRecord>;
-  readonly sessions: ReadonlyMap<SessionId, SessionRecord>;
   readonly now: number;
+  /** The Daemon's liveness per Attempt (the Desktop App's `firstTurn`); else the Session fold. */
+  readonly liveness?: ReadonlyMap<AttemptId, WorkerLiveness>;
 }
 
-export type WorkerSlot =
-  | { readonly kind: "holding"; readonly since: string }
-  | { readonly kind: "waiting"; readonly position: number; readonly of: number }
-  | { readonly kind: "none" }
-  | { readonly kind: "remote" };
-
-export type WorkerTurn =
-  | { readonly kind: "running" }
-  | { readonly kind: "none" }
-  | { readonly kind: "ended"; readonly status: string; readonly endedAt: string | null };
-
-export interface WorkerFacts {
-  readonly setup: "running" | "completed" | "failed" | null;
-  readonly slot: WorkerSlot;
-  readonly turn: WorkerTurn;
+/** The Host facts a Lead needs to tell a stuck worker from a queued one. */
+export interface HostSlots extends SlotSource {
+  readonly constellations: ReadonlyMap<ConstellationId, ConstellationRecord>;
+  readonly sessions: ReadonlyMap<SessionId, SessionRecord>;
 }
 
 const workerLeases = (resources: ResourcesModel): ReadonlyArray<ResourceLease> =>
   [...resources.leases.values()].filter((lease) => lease.resource === WORKERS_RESOURCE);
 
-const workerWaiters = (resources: ResourcesModel) =>
+const workerWaiters = (resources: ResourcesModel): ReadonlyArray<LeaseWaiter> =>
   [...resources.waiting.values()].filter((waiter) => waiter.resource === WORKERS_RESOURCE);
 
-const slotOf = (attempt: Attempt, host: HostSlots | undefined): WorkerSlot => {
-  if (host === undefined || attempt.hostId !== host.hostId) return { kind: "remote" };
+/** The request is this Attempt's: by its id, or by its Session when the request names none. */
+const isFor =
+  (attempt: Attempt) =>
+  (r: { readonly attemptId?: AttemptId | null; readonly sessionId?: SessionId | null }) =>
+    r.attemptId === attempt.id || (r.attemptId == null && r.sessionId === attempt.sessionId);
 
-  const lease = workerLeases(host.resources).find(
-    (l) => l.attemptId === attempt.id || l.sessionId === attempt.sessionId
-  );
+/** The brief's Turn is in the fold, or a full window of later Turns pushed it out. */
+export const briefStarted = (session: SessionRecord, attempt: Attempt): boolean =>
+  session.turns.some((t) => t.id === `${attempt.id}:start`) ||
+  (session.turns.length >= RECENT_TURNS && session.turns[0]!.startedAt >= attempt.startedAt);
 
-  if (lease !== undefined) return { kind: "holding", since: lease.acquiredAt };
-  const waiters = workerWaiters(host.resources);
-  const index = waiters.findIndex((w) => w.sessionId === attempt.sessionId);
+/** This Attempt's `__workers` lease or queue entry on the Host whose fold this is. */
+export const slotOf = (
+  attempt: Attempt,
+  host: SlotSource | undefined
+): WorkerPhaseInput["slot"] => {
+  if (host === undefined || attempt.hostId !== host.hostId) return null;
+  const lease = workerLeases(host.resources).find(isFor(attempt));
 
-  return index === -1
-    ? { kind: "none" }
-    : { kind: "waiting", position: index + 1, of: waiters.length };
+  if (lease !== undefined) return { kind: "held", since: lease.acquiredAt };
+  const waiter = workerWaiters(host.resources).find(isFor(attempt));
+
+  return waiter === undefined ? null : { kind: "queued", since: waiter.queuedAt };
 };
 
-const turnOf = (attempt: Attempt, session: SessionRecord): WorkerTurn => {
-  if (session.turns.some((t) => t.status === "working")) return { kind: "running" };
-  const last = session.turns.findLast((t) => t.startedAt >= attempt.startedAt);
-
-  return last === undefined
-    ? { kind: "none" }
-    : { kind: "ended", status: last.status, endedAt: last.endedAt };
-};
-
-/** Setup, slot and Turn for one working Attempt, read from the Session and Host folds. */
-export const workerFacts = (
+/** A working Attempt's phase through the shared `workerPhase`, as the Desktop App reads it. */
+export const phaseOf = (
   constellationId: ConstellationId,
   attempt: Attempt,
   session: SessionRecord,
-  host?: HostSlots
-): WorkerFacts => {
+  host?: SlotSource
+): WorkerPhase => {
   const run = session.session.worktreeSetup;
 
-  const setup =
-    run != null && run.constellationId === constellationId && run.taskId === attempt.taskId
-      ? run.status
-      : null;
-
-  return { setup, slot: slotOf(attempt, host), turn: turnOf(attempt, session) };
+  return workerPhase({
+    setup:
+      run != null && run.constellationId === constellationId && run.taskId === attempt.taskId
+        ? { status: run.status, startedAt: run.startedAt, endedAt: run.endedAt }
+        : null,
+    slot: slotOf(attempt, host),
+    firstTurn: host?.liveness?.get(attempt.id)?.firstTurn ?? briefStarted(session, attempt),
+    turnInFlight: session.turns.some((t) => t.status === "working"),
+    startedAt: attempt.startedAt,
+    now: host?.now ?? Date.now(),
+  });
 };
 
 /** "40s", "12m", "1h05m": enough to spot an idle holder, short enough for every status. */
@@ -89,38 +94,75 @@ export const age = (since: string, now: number): string => {
   return `${Math.floor(minutes / 60)}h${String(minutes % 60).padStart(2, "0")}m`;
 };
 
-const turnText = (turn: WorkerTurn): string => {
-  switch (turn.kind) {
-    case "running":
+/** The phase in a few words; an age only when the Host's clock was read. */
+export const phaseText = (phase: WorkerPhase, now: number | null): string => {
+  const aged = (text: string, since: string) =>
+    now === null ? text : `${text} ${age(since, now)}`;
+
+  switch (phase.kind) {
+    case "setup-running":
+      return aged("setting up", phase.since);
+    case "setup-failed":
+      return "setup failed";
+    case "waiting-for-slot":
+      return aged("waiting for a slot", phase.since);
+    case "starting":
+      return aged("starting", phase.since);
+    case "stalled":
+      return aged("stalled", phase.since);
+    case "working":
       return "Turn running";
-    case "none":
-      return "no Turn yet";
-    case "ended":
-      return `idle, last Turn ${turn.status}${turn.endedAt === null ? "" : ` at ${turn.endedAt}`}`;
+    case "idle":
+      return "idle";
+    case "unknown":
+      return "unknown";
   }
 };
 
-const slotText = (slot: WorkerSlot, now: number): string | null => {
-  switch (slot.kind) {
-    case "holding":
-      return `slot held ${age(slot.since, now)}`;
-    case "waiting":
-      return `waiting for a slot (${slot.position} of ${slot.of})`;
-    case "none":
-      return "no slot";
-    case "remote":
-      return null;
-  }
+const queuePlace = (attempt: Attempt, host: SlotSource | undefined) => {
+  const waiters = host === undefined ? [] : workerWaiters(host.resources);
+  const index = waiters.findIndex(isFor(attempt));
+
+  return index === -1 ? "" : ` (${index + 1} of ${waiters.length})`;
 };
 
-export const workerLine = (facts: WorkerFacts, now: number): string =>
-  [
-    `Worker: ${turnText(facts.turn)}`,
-    facts.setup === null ? null : `setup ${facts.setup === "completed" ? "done" : facts.setup}`,
-    slotText(facts.slot, now),
-  ]
-    .filter((part) => part !== null)
-    .join(" · ");
+const lastTurn = (attempt: Attempt, session: SessionRecord) => {
+  const last = session.turns.findLast((t) => t.startedAt >= attempt.startedAt);
+
+  return last === undefined
+    ? ""
+    : ` · last Turn ${last.status}${last.endedAt === null ? "" : ` at ${last.endedAt}`}`;
+};
+
+const heldFor = (attempt: Attempt, host: SlotSource | undefined) => {
+  const slot = slotOf(attempt, host);
+
+  return slot?.kind === "held" && host !== undefined
+    ? ` · slot held ${age(slot.since, host.now)}`
+    : "";
+};
+
+/** `Worker: <phase>` plus what tells it apart: queue place, last Turn, how long a slot is held. */
+export const workerLine = (
+  constellationId: ConstellationId,
+  attempt: Attempt,
+  session: SessionRecord,
+  host?: SlotSource
+): string => {
+  const phase = phaseOf(constellationId, attempt, session, host);
+  const head = `Worker: ${phaseText(phase, host?.now ?? null)}`;
+
+  switch (phase.kind) {
+    case "waiting-for-slot":
+      return `${head}${queuePlace(attempt, host)}`;
+    case "stalled":
+      return `${head} · holds a slot, no Turn yet`;
+    case "idle":
+      return `${head}${lastTurn(attempt, session)}${heldFor(attempt, host)}`;
+    default:
+      return head;
+  }
+};
 
 interface Owner {
   readonly record: ConstellationRecord;
@@ -161,13 +203,25 @@ const ownerName = (
   return owner.attempt.endedAt == null ? name : `${name} (${owner.attempt.state})`;
 };
 
-const turnRunning = (host: HostSlots, sessionId: SessionId | null | undefined) =>
-  sessionId != null &&
-  host.sessions.get(sessionId)?.turns.some((t) => t.status === "working") === true;
+/** A holder's state in one word: the working Attempt's phase, else whether a Turn runs. */
+const holderState = (host: HostSlots, owner: Owner | undefined, sessionId: SessionId | null) => {
+  const session = sessionId === null ? undefined : host.sessions.get(sessionId);
+
+  if (session?.turns.some((t) => t.status === "working") === true) return "running";
+
+  if (owner?.attempt.state === "working" && session !== undefined) {
+    const phase = phaseOf(owner.record.graph.id, owner.attempt, session, host);
+
+    if (phase.kind === "stalled" || phase.kind === "starting" || phase.kind === "idle")
+      return phase.kind;
+  }
+
+  return "no Turn";
+};
 
 /**
  * One line for the Host's worker slots: each holder (this Constellation's by Task id, others as
- * name/Task), how long it has held, whether a Turn runs, then the FIFO waiters.
+ * name/Task), how long it has held and its state, then the FIFO waiters and how long each waited.
  */
 export const slotLine = (host: HostSlots, current: ConstellationId): string | null => {
   const leases = workerLeases(host.resources);
@@ -176,13 +230,15 @@ export const slotLine = (host: HostSlots, current: ConstellationId): string | nu
   if (leases.length === 0 && waiters.length === 0) return null;
   const cap = host.resources.resources.get(WORKERS_RESOURCE)?.capacity;
 
-  const held = leases.map(
-    (lease) =>
-      `${ownerName(ownerOf(host, lease.attemptId, lease.sessionId), current, lease.sessionId)} ${age(lease.acquiredAt, host.now)} ${turnRunning(host, lease.sessionId) ? "running" : "no Turn"}`
-  );
+  const held = leases.map((lease) => {
+    const owner = ownerOf(host, lease.attemptId, lease.sessionId);
 
-  const queued = waiters.map((w) =>
-    ownerName(ownerOf(host, w.attemptId, w.sessionId), current, w.sessionId)
+    return `${ownerName(owner, current, lease.sessionId)} ${age(lease.acquiredAt, host.now)} ${holderState(host, owner, lease.sessionId ?? null)}`;
+  });
+
+  const queued = waiters.map(
+    (w) =>
+      `${ownerName(ownerOf(host, w.attemptId, w.sessionId), current, w.sessionId)} ${age(w.queuedAt, host.now)}`
   );
 
   return [

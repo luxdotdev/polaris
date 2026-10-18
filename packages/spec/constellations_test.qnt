@@ -245,6 +245,18 @@ module constellations_test {
     .then(audit).expect(view.deliveries.length() == 2 and view.audited == Set(2) and safety)
     .then(start(2, 0, -1)).expect(stalledGates(view) == Set() and safety)
 
+  run slotStallNamedOnceAcrossRestartTest = working
+    .expect(stalledSlots(view) == Set(0))
+    .then(auditSlot(0)).expect(view.slotAudited == Set(0) and view.deliveries == [] and safety)
+    .then(restart).then(auditSlot(0)).expect(log.length() == 6 and slotAuditOncePerStall and safety)
+    .then(startFirstTurn(0)).expect(stalledSlots(view) == Set() and safety)
+  run detectsRepeatedSlotAuditTest = working.then(auditSlot(0))
+    .then(commit(OWNER, [LeadNotified({ ids: Set(), lead: 0, steered: false, audit: Set(), slots: Set(0) })]))
+    .expect(not(slotAuditOncePerStall))
+  run detectsSlotAuditAfterFirstTurnTest = working.then(startFirstTurn(0))
+    .then(commit(OWNER, [LeadNotified({ ids: Set(), lead: 0, steered: false, audit: Set(), slots: Set(0) })]))
+    .expect(not(slotAuditOncePerStall))
+
   run failedSettleCarriesItsKindTest = working
     .then(harnessFailAs(0, "capacity"))
     .expect(view.attempts[0].status == "failed" and failureKindValid and safety)
@@ -415,13 +427,13 @@ module constellations_property_test {
     .then(commit(OWNER, [AttemptStarted({ task: 1, session: 1, ref: -1, mergeBase: "" })]))
     .expect(not(oneActiveAttemptPerSession))
   run detectsRepeatedNotificationTest = claimed.then(deliver)
-    .then(commit(OWNER, [LeadNotified({ ids: Set(10), lead: 0, steered: false, audit: Set() })]))
+    .then(commit(OWNER, [LeadNotified({ ids: Set(10), lead: 0, steered: false, audit: Set(), slots: Set() })]))
     .expect(not(exactlyOnceDelivery))
   run detectsEmptyDeliveryTest = claimed.then(deliver)
-    .then(commit(OWNER, [LeadNotified({ ids: Set(), lead: 0, steered: true, audit: Set() })]))
+    .then(commit(OWNER, [LeadNotified({ ids: Set(), lead: 0, steered: true, audit: Set(), slots: Set() })]))
     .expect(not(auditNamesStalledGates))
   run detectsAuditWithoutStalledGateTest = claimed
-    .then(commit(OWNER, [LeadNotified({ ids: Set(10), lead: 0, steered: false, audit: Set(2) })]))
+    .then(commit(OWNER, [LeadNotified({ ids: Set(10), lead: 0, steered: false, audit: Set(2), slots: Set() })]))
     .expect(not(auditNamesStalledGates))
   run detectsFailedSettleWithoutKindTest = working
     .then(commit(OWNER, [AttemptSettled({ attempt: 0, outcome: "failed", stale: false, commanded: false, kind: "" }), NotificationQueued({ id: 10, kind: "settle" })]))
@@ -444,7 +456,7 @@ module constellations_property_test {
     .then(commit(OWNER, [AttemptSettled({ attempt: 0, outcome: "lost", stale: true, commanded: false, kind: "" }), NotificationQueued({ id: 10, kind: "settle" })]))
     .expect(not(staleNeverSettlesWithoutCommand))
   run detectsOldLeadDeliveryTest = claimed.then(handover(3))
-    .then(commit(OWNER, [LeadNotified({ ids: Set(10), lead: 0, steered: false, audit: Set() })]))
+    .then(commit(OWNER, [LeadNotified({ ids: Set(10), lead: 0, steered: false, audit: Set(), slots: Set() })]))
     .expect(not(noOldLeadDelivery))
   run detectsCapacityViolationTest = init.then(request(0)).then(request(1)).then(request(2))
     .then(commit(OWNER, [ResourceLeased(0), ResourceLeased(1), ResourceLeased(2)]))

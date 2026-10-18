@@ -162,6 +162,7 @@ Add `src/scenarios/<name>.ts` exporting a `Scenario` and list it in `src/scenari
 - The sampler measures the Daemon only; the `polaris bridge` processes (and ssh) are Client-side and not included.
 - Wakeups are not comparable across platforms: macOS counts idle and interrupt wakeups, Linux counts context switches.
 - The managed model server (`apps/daemon/src/prediction/managed/`) adds nothing to `idle`: its only timer is the 15-minute idle unload, armed only while a llama-server it started is running and unref'd, and its health poll runs only while the server is `Starting`. An idle Daemon with no server has neither.
+- The Lead's slot-stall wake (`apps/daemon/src/constellation/stall.ts`, `nextSlotStall`) adds nothing to `idle`: it is one timer per Constellation, armed only while a local worker holds a `__workers` slot with no first Turn, for when `workerPhase` would read it stalled, and cleared once the Turn starts or the Lead has heard. A Daemon with no working Constellation never arms it (A/B on the Mac Studio, 3 runs each: `noclient_cpu_over_bare_pct` 0.269 before and after, wakeups 8.83 vs 8.80/s).
 - History is seeded through the Daemon, so full sizes take a while (commit throughput is itself a metric); a much larger store (1M events) would need a direct SQLite seeder.
 - No Desktop App scenarios yet (there is no Desktop App); the sampler is ready for them.
 

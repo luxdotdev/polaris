@@ -1,5 +1,6 @@
 import { NotificationItem, type ConstellationId, type TurnId } from "@polaris/protocol";
-import { Effect, Predicate } from "effect";
+import { Clock, Effect, Predicate } from "effect";
+import { emptyResources } from "../../resources/model.ts";
 import { withWorkerAdmission } from "../../resources/workerAdmission.ts";
 import { decideSession } from "../../engine/session.ts";
 import { serialInput, startupReceipted } from "./boundary.ts";
@@ -120,6 +121,8 @@ const digest = Effect.fn("Constellation.deliverDigest")(function* (id: Constella
   const owner = yield* ConstellationOwner;
   const leadSessionId = (yield* store.model).constellations.get(id)?.graph.leadSessionId;
   const canSteer = leadSessionId === undefined ? false : yield* effects.canSteer(leadSessionId);
+  // The runner's clock, so a slot stall reads the same here as when its wake was armed.
+  const clock = yield* Clock.currentTimeMillis;
 
   const result = yield* store.commit({
     commandId: null,
@@ -135,7 +138,12 @@ const digest = Effect.fn("Constellation.deliverDigest")(function* (id: Constella
         )
           return [];
         const record = model.sessions.get(graph.graph.leadSessionId);
-        const audit = dueAudit(graph, model.sessions);
+
+        const audit = dueAudit(graph, model.sessions, {
+          hostId: owner,
+          resources: model.hostResources ?? emptyResources(),
+          now: clock,
+        });
 
         if (
           record === undefined ||

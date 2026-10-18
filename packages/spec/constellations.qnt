@@ -35,7 +35,7 @@ module constellations {
     | WorkerInputDelivered({ id: int, session: int })
     | ConstellationStateChanged(str)
     | NotificationQueued({ id: int, kind: str })
-    | LeadNotified({ ids: Set[int], lead: int, steered: bool, audit: Set[int] })
+    | LeadNotified({ ids: Set[int], lead: int, steered: bool, audit: Set[int], slots: Set[int] })
     | OutboxApplied(int)
     | AttemptRecoveryContinued(Recovery)
     | ResourceDeclared(int)
@@ -51,6 +51,7 @@ module constellations {
     approvals: List[int], handups: List[int], nudges: List[int], firstTurns: List[int], earlyInputs: Set[int],
     blocks: int -> Set[int],
     promotions: List[int], notes: int -> str, deliveries: List[Delivery], steers: int, audited: Set[int],
+    slotAudited: Set[int],
     proofs: Set[{ attempt: int, interruption: int }],
     applied: List[int], recoveries: List[Recovery], waiters: List[int],
     holders: Set[int], requests: List[int], grants: List[int], capacity: int, canceled: Set[int],
@@ -67,7 +68,7 @@ module constellations {
     approvals: [], handups: [], nudges: [], firstTurns: [], earlyInputs: Set(),
     blocks: Map(),
     proofs: Set(),
-    promotions: [], notes: Map(), deliveries: [], steers: 0, audited: Set(), applied: [], recoveries: [],
+    promotions: [], notes: Map(), deliveries: [], steers: 0, audited: Set(), slotAudited: Set(), applied: [], recoveries: [],
     waiters: [], holders: Set(), requests: [], grants: [], capacity: CAPACITY, canceled: Set(),
   }
 // The event log is durable; projections and pending notification IDs are always re-folded.
@@ -132,7 +133,8 @@ module constellations {
     | ConstellationStateChanged(s) => { ...v, state: s }
     | NotificationQueued(p) => { ...v, notes: v.notes.put(p.id, p.kind) }
     | LeadNotified(p) => { ...v, deliveries: p.ids.fold(v.deliveries, (acc, id) => acc.append({ id: id, lead: p.lead })),
-        steers: v.steers + (if (p.steered) 1 else 0), audited: v.audited.union(p.audit) }
+        steers: v.steers + (if (p.steered) 1 else 0), audited: v.audited.union(p.audit),
+        slotAudited: v.slotAudited.union(p.slots) }
     | OutboxApplied(id) => { ...v, applied: v.applied.append(id) }
     | AttemptRecoveryContinued(p) => { ...v, recoveries: v.recoveries.append(p) }
     | ResourceDeclared(capacity) => { ...v, capacity: capacity }
@@ -242,6 +244,11 @@ module constellations {
   pure def stalledGates(v: View): Set[int] = TASKS.filter(t =>
     v.tasks.get(t).gate and not(v.tasks.get(t).canceled) and has(v.promotions, t) and not(accepted(v, t))
     and (latest(v, t) < 0 or not(active(v.attempts[latest(v, t)]))))
+  // Working Attempts with no first Turn. Holding a slot past the grace period is the Host's
+  // (`workerPhase`), so the model lets any of them stall.
+  pure def stalledSlots(v: View): Set[int] = v.attempts.indices().filter(a =>
+    v.attempts[a].status == "working" and latest(v, v.attempts[a].task) == a
+    and not(v.stale.contains(a)) and not(has(v.firstTurns, a)))
   pure def finish(v: View, a: int, event: EventKind): List[EventKind] = {
     val updated = apply(v, event)
     val events = [event, NotificationQueued({ id: 10 + 2 * a + (if (v.attempts[a].status == "review") 1 else 0), kind: "settle" })]
@@ -326,13 +333,17 @@ module constellations {
     [NotificationQueued({ id: id, kind: "question" })] else [])
   // Whether the Lead's Turn is live belongs to the Session machine; here a steer is a free choice.
   action deliverAs(steered: bool): bool = commit(OWNER,
-    if (view.state == "running" and pending.size() > 0) [LeadNotified({ ids: pending, lead: view.lead, steered: steered, audit: Set() })] else [])
+    if (view.state == "running" and pending.size() > 0) [LeadNotified({ ids: pending, lead: view.lead, steered: steered, audit: Set(), slots: Set() })] else [])
   action deliver = deliverAs(false)
   action deliverSteered = deliverAs(true)
   // A stall audit rides the digest; alone it needs a stalled Gate the Lead has not been told about.
   action audit = commit(OWNER,
     if (view.state == "running" and stalledGates(view).exclude(view.audited) != Set())
-      [LeadNotified({ ids: pending, lead: view.lead, steered: false, audit: stalledGates(view).exclude(view.audited) })] else [])
+      [LeadNotified({ ids: pending, lead: view.lead, steered: false, audit: stalledGates(view).exclude(view.audited), slots: Set() })] else [])
+  // A slot stall rides a digest too, once per Attempt: its stall ends only with a first Turn or its end.
+  action auditSlot(a: int): bool = commit(OWNER,
+    if (view.state == "running" and stalledSlots(view).exclude(view.slotAudited).contains(a))
+      [LeadNotified({ ids: pending, lead: view.lead, steered: false, audit: Set(), slots: Set(a) })] else [])
   action requestHandover(id: int): bool = commit(OWNER,
     if (Set("planning", "running", "paused").contains(view.state))
       [LeadHandoverRequested({ id: id, from: view.lead })] else [])
@@ -407,7 +418,7 @@ module constellations {
       block(a, Set(dep), rev), block(a, Set(), rev), unblock(a, rev, "Accepted", true), unblock(a, rev, "Lead", true),
       claim(a, rev, 42, true, true), accept(a, rev, 42), accept(a, rev, 43),
       accept(a, claimRev, 42), approve(a, rev), reject(a, rev), startFirstTurn(a), stop(a, rev), harnessFail(a),
-      ask(a, id), deliver, deliverSteered, audit, harnessFailAs(a, "capacity"), handover(s), requestHandover(id), cancelHandover, finishHandover(id, s), setState("running"), setState("paused"),
+      ask(a, id), deliver, deliverSteered, audit, auditSlot(a), harnessFailAs(a, "capacity"), handover(s), requestHandover(id), cancelHandover, finishHandover(id, s), setState("running"), setState("paused"),
       all { TASKS.forall(task => accepted(view, task)), setState("completed") },
       setState("archived"), interrupt(a), recoverPending, restart,
       availability(false, true, Set(s)), availability(true, false, Set()), availability(true, true, Set()),
@@ -488,7 +499,13 @@ module constellations {
   })
   // A delivery says something: pending items, or an audit naming Gates that were stalled when it committed.
   val auditNamesStalledGates = log.indices().forall(i => match log[i].kind {
-    | LeadNotified(p) => (p.ids != Set() or p.audit != Set()) and p.audit.subseteq(stalledGates(foldEvents(log.slice(0, i))))
+    | LeadNotified(p) => (p.ids != Set() or p.audit != Set() or p.slots != Set()) and p.audit.subseteq(stalledGates(foldEvents(log.slice(0, i))))
+    | _ => true
+  })
+  // A slot stall named to the Lead was one when it committed, and no earlier audit named it.
+  val slotAuditOncePerStall = log.indices().forall(i => match log[i].kind {
+    | LeadNotified(p) => { val before = foldEvents(log.slice(0, i));
+        p.slots.subseteq(stalledSlots(before)) and p.slots.intersect(before.slotAudited) == Set() }
     | _ => true
   })
   val staleNeverSettlesWithoutCommand = log.indices().forall(i => match log[i].kind {
@@ -556,7 +573,7 @@ module constellations {
     oneLead, firstTurnValid, claimsValid, firstTurnAtMostOnce, oneActiveAttemptPerSession, exactlyOnceDelivery, settledAttemptImmutable,
     outboxAppliedExactlyOnce, onlyOwnerCommits, recoveryAtMostOnce, recoveryHasEligibleProof, settlementOutcomesValid, staleNeverSettlesWithoutCommand,
     noOldLeadDelivery, handoverRequestOrdered, inputDeliveredAtMostOnce, blockTransitionsValid, lifecycleValid, reviewMetadataValid, resourceCapacity, resourceRemovalSafe, fifoGrantOrder, acceptanceMatchesClaim,
-    failureKindValid, auditNamesStalledGates,
+    failureKindValid, auditNamesStalledGates, slotAuditOncePerStall,
   }
   val witnessClaim = view.attempts.indices().exists(i => view.attempts[i].status == "review")
   val witnessAccepted = view.attempts.indices().exists(i => view.attempts[i].status == "accepted")
@@ -565,6 +582,7 @@ module constellations {
   val witnessDelivery = view.deliveries.length() > 0
   val witnessSteeredDelivery = view.steers > 0
   val witnessAudit = view.audited != Set()
+  val witnessSlotAudit = view.slotAudited != Set()
   val witnessRelay = view.applied.length() > 0
   val witnessRecovery = view.recoveries.length() > 0
   val witnessLease = view.grants.length() > 0

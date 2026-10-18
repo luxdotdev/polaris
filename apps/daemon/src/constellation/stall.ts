@@ -1,5 +1,12 @@
-import { StallAudit, type Attempt, type TaskId } from "@polaris/protocol";
+import {
+  STALL_AFTER_MS,
+  StallAudit,
+  type Attempt,
+  type AttemptId,
+  type TaskId,
+} from "@polaris/protocol";
 import { Predicate } from "effect";
+import { phaseOf, slotOf, type SlotSource } from "./slots.ts";
 import type { ConstellationRecord } from "../store/constellation.ts";
 import type { SessionRecord } from "../store/model.ts";
 import { pendingInputs } from "./delivery/messages.ts";
@@ -78,17 +85,69 @@ const silentLead = (record: ConstellationRecord, sessions: Sessions, gates: numb
   return gates > 0 || ready || graph.attempts.some((a) => a.state === "review");
 };
 
+/** This Host's working Attempts, each with its worker phase from the folds. */
+const localPhases = (record: ConstellationRecord, sessions: Sessions, host: SlotSource) =>
+  record.graph.attempts.flatMap((a) => {
+    const session = sessions.get(a.sessionId);
+
+    return a.state !== "working" ||
+      a.hostId !== host.hostId ||
+      session === undefined ||
+      record.stale.has(a.id) ||
+      latestAttempt(record.graph, a.taskId)?.id !== a.id
+      ? []
+      : [{ attempt: a, phase: phaseOf(record.graph.id, a, session, host) }];
+  });
+
+/** Slot holders with no first Turn past the grace period that no audit has named yet. */
+const newSlotStalls = (
+  record: ConstellationRecord,
+  sessions: Sessions,
+  host: SlotSource | undefined
+): ReadonlyArray<AttemptId> =>
+  host === undefined
+    ? []
+    : localPhases(record, sessions, host)
+        .filter((w) => w.phase.kind === "stalled" && !record.slotStalls.has(w.attempt.id))
+        .map((w) => w.attempt.id);
+
+/**
+ * When the next slot holder still starting becomes stalled, so the Lead hears it without a
+ * Turn end to wake it; null while no local worker holds a slot with no first Turn.
+ */
+export const nextSlotStall = (
+  record: ConstellationRecord,
+  sessions: Sessions,
+  host: SlotSource
+): number | null => {
+  const due = localPhases(record, sessions, host).flatMap(({ attempt, phase }) =>
+    phase.kind === "starting" &&
+    !phase.afterTurn &&
+    !record.slotStalls.has(attempt.id) &&
+    slotOf(attempt, host)?.kind === "held"
+      ? [Date.parse(phase.since) + STALL_AFTER_MS]
+      : []
+  );
+
+  return due.length === 0 ? null : Math.min(...due);
+};
+
 /**
  * Demand-driven: computed from the fold and the Session records at a trigger point, never
- * on a timer. Returns null when nothing has stalled.
+ * on a timer of its own. Returns null when nothing has stalled.
  */
-export const stallAudit = (record: ConstellationRecord, sessions: Sessions): StallAudit | null => {
+export const stallAudit = (
+  record: ConstellationRecord,
+  sessions: Sessions,
+  host?: SlotSource
+): StallAudit | null => {
   if (record.graph.state !== "running") return null;
   const working = silentWorkers(record, sessions);
   const gates = stalledGates(record);
   const lead = silentLead(record, sessions, gates.length);
+  const slots = newSlotStalls(record, sessions, host);
 
-  if (working.length === 0 && gates.length === 0 && !lead) return null;
+  if (working.length === 0 && gates.length === 0 && !lead && slots.length === 0) return null;
 
   return new StallAudit({
     key: JSON.stringify([
@@ -100,18 +159,45 @@ export const stallAudit = (record: ConstellationRecord, sessions: Sessions): Sta
     working,
     gates,
     lead,
+    slots,
   });
 };
 
-/** The same stalled state is noted to the Lead once; a changed state is a new audit. */
-export const dueAudit = (record: ConstellationRecord, sessions: Sessions): StallAudit | null => {
-  const audit = stallAudit(record, sessions);
+/** Due when its stalled state changed (`key`) or it names a slot stall no audit has named. */
+export const auditIsNew = (record: ConstellationRecord, audit: StallAudit): boolean =>
+  audit.key !== record.lastAudit ||
+  (audit.slots ?? []).some((attemptId) => !record.slotStalls.has(attemptId));
 
-  return audit === null || audit.key === record.lastAudit ? null : audit;
+/** The same stalled state is noted to the Lead once; a changed state is a new audit. */
+export const dueAudit = (
+  record: ConstellationRecord,
+  sessions: Sessions,
+  host?: SlotSource
+): StallAudit | null => {
+  const audit = stallAudit(record, sessions, host);
+
+  return audit === null || !auditIsNew(record, audit) ? null : audit;
 };
 
-export const auditLines = (audit: StallAudit): ReadonlyArray<string> => {
+export const auditLines = (
+  audit: StallAudit,
+  record?: ConstellationRecord
+): ReadonlyArray<string> => {
   const lines: Array<string> = [];
+
+  const slots = (audit.slots ?? []).map(
+    (id) => record?.graph.attempts.find((a) => a.id === id)?.taskId ?? id
+  );
+
+  if (slots.length === 1)
+    lines.push(
+      `Stalled: ${slots[0]} holds a worker slot with no Turn yet. The user can press Start on it in the Desktop App, or stop the Attempt to free the slot.`
+    );
+
+  if (slots.length > 1)
+    lines.push(
+      `Stalled: ${slots.join(", ")} hold worker slots with no Turn yet. The user can press Start on each in the Desktop App, or stop the Attempts to free the slots.`
+    );
 
   if (audit.working.length > 0)
     lines.push(

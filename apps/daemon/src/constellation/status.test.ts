@@ -138,21 +138,20 @@ test("status separates a working Attempt from a Turn in flight and names a faile
 
   const sessions = (turns: ReadonlyArray<Turn>) => new Map([[attempt.sessionId, withTurns(turns)]]);
 
-  expect(statusOutline(record, sessions([]))).toContain("  Worker: no Turn yet\n");
+  expect(statusOutline(record, sessions([]))).toContain("  Worker: starting\n");
+  const brief = newTurn(worker, "Build", attempt.startedAt, `${attempt.id}:start`);
 
   const ended = Turn.make(
-    Struct.assign(newTurn(worker, "Build", attempt.startedAt), {
+    Struct.assign(brief, {
       status: "completed" as const,
       endedAt: "2026-10-01T01:00:00.000Z",
     })
   );
 
   expect(statusOutline(record, sessions([ended]))).toContain(
-    "  Worker: idle, last Turn completed at 2026-10-01T01:00:00.000Z\n"
+    "  Worker: idle · last Turn completed at 2026-10-01T01:00:00.000Z\n"
   );
-  expect(statusOutline(record, sessions([newTurn(worker, "Build", attempt.startedAt)]))).toContain(
-    "  Worker: Turn running\n"
-  );
+  expect(statusOutline(record, sessions([brief]))).toContain("  Worker: Turn running\n");
 
   const failed = Constellation.make(
     Struct.assign(record.graph, {
