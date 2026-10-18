@@ -66,6 +66,10 @@ Only while process holders or waiters exist, a one-second monitor checks process
 There is no idle monitor timer, per-session polling, or worker-slot timer. Release
 on normal exit is immediate; an unobserved exit is reclaimed at the next check.
 The identity probe uses `ps` and is covered on macOS here; Linux is unverified.
+Each `ps` run has 5 s, three times: Bun under load can lose a child's exit (ENG-356),
+so a run that never answers is killed and asked again. If none answers, the identity
+is unknown and nothing is decided on it: the waiter stays queued, the holder keeps its
+lease, and the next check asks again. An unknown identity never counts as an exit.
 
 ## Verification
 
