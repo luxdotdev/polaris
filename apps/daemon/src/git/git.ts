@@ -8,6 +8,7 @@ import { dirname, join, resolve } from "node:path";
 import { Effect } from "effect";
 import { ServiceError } from "../services.ts";
 import { megabytes, readBounded, readHead } from "./output.ts";
+import { gitExecutable } from "./executable.ts";
 import { hostConfigEnv, NO_HOOKS_PATH, safeArgs, safeConfigEnv } from "./safeConfig/index.ts";
 import { killTree, ownProcessGroup } from "../platform/processes.ts";
 
@@ -99,7 +100,7 @@ export const runGitRaw = async (
 
   if (group && ownProcessGroup()) spawnOptions.detached = true;
 
-  const proc = Bun.spawn(["git", ...(host ? args : safeArgs(args))], spawnOptions);
+  const proc = Bun.spawn([gitExecutable(base), ...(host ? args : safeArgs(args))], spawnOptions);
   const stop = () => killGroup(proc.pid);
 
   const overflow = () => {

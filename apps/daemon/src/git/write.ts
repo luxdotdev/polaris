@@ -4,6 +4,7 @@
  */
 import { childEnv } from "../service/childEnv.ts";
 import { runGit, gitText } from "./git.ts";
+import { gitExecutable } from "./executable.ts";
 import { hostConfigEnv } from "./safeConfig/index.ts";
 
 /** Paths go through stdin, NUL-separated and literal: no argv limit, no pathspec magic. */
@@ -70,7 +71,7 @@ export const commit = async (
 ): Promise<void> => {
   const top = await toplevel(cwd);
 
-  const proc = Bun.spawn(["git", "commit", "--cleanup=strip", "-F", "-"], {
+  const proc = Bun.spawn([gitExecutable(), "commit", "--cleanup=strip", "-F", "-"], {
     cwd: top,
     env: childEnv({
       ...process.env,

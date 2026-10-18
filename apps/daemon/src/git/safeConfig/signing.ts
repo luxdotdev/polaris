@@ -2,7 +2,8 @@
  * How an automatic git commit is signed: only the Host's own (system or global) config names
  * the key, format and program (docs/adr/0068-accepts-merge-signs-with-the-hosts-own-settings.md).
  */
-import { isAbsolute } from "node:path";
+import { homedir } from "node:os";
+import { isAbsolute, join } from "node:path";
 import { type Entry, type Pair, REPOSITORY_SCOPES } from "./settings.ts";
 
 /** Config git reads before a repository's own: system, global, and Apple's built-in (`unknown`). */
@@ -40,9 +41,24 @@ const hostValue = (entries: ReadonlyArray<Entry>, keys: ReadonlyArray<string>) =
 /** A program named with a separator runs from the cwd, the repository; older gits don't expand `~`. */
 const relativePath = (program: string) => /[/\\]/.test(program) && !isAbsolute(program);
 
-/** An ssh key file relative to the repository: the repository would choose the key. */
-const relativeKey = (format: Format, key: string | undefined) =>
-  format === "ssh" && key !== undefined && !/^(key::|ssh-|~)/.test(key) && !isAbsolute(key);
+const LITERAL_KEY = /^(key::|ssh-)/;
+
+const HOME_KEY = /^~[/\\]/;
+
+/**
+ * The ssh key file as Polaris passes it: `~/` expanded against the user's home, as git might not.
+ * Null for any other `~` form or a relative path, which git could resolve in the repository.
+ */
+const sshKeyPath = (key: string, home: string) => {
+  if (LITERAL_KEY.test(key)) return key;
+
+  if (HOME_KEY.test(key)) return join(home, key.slice(2));
+
+  return key.startsWith("~") || !isAbsolute(key) ? null : key;
+};
+
+/** git's home for `~/`: `HOME` when set (Git for Windows sets it too), else the account's. */
+const gitHome = () => process.env.HOME || homedir();
 
 interface Settings {
   readonly format: Format;
@@ -78,7 +94,7 @@ const settingsPairs = ({ format, program, key, keyCommand }: Settings): Readonly
  * The settings that sign a commit from `entries` (git's own listing), to set after the safe
  * config's: refused when the repository's config would sign differently or name what runs.
  */
-export const hostSigning = (entries: ReadonlyArray<Entry>): Signing => {
+export const hostSigning = (entries: ReadonlyArray<Entry>, home: string = gitHome()): Signing => {
   const format = hostValue(entries, ["gpg.format"]) ?? "openpgp";
 
   if (!isFormat(format))
@@ -101,8 +117,13 @@ export const hostSigning = (entries: ReadonlyArray<Entry>): Signing => {
   if (relativePath(settings.program) || relativePath(command))
     return { kind: "refuse", reason: "your git config names a signing program by a relative path" };
 
-  if (relativeKey(format, settings.key))
+  if (format !== "ssh" || settings.key === undefined)
+    return { kind: "sign", pairs: settingsPairs(settings) };
+
+  const key = sshKeyPath(settings.key, home);
+
+  if (key === null)
     return { kind: "refuse", reason: "your git config names a signing key by a relative path" };
 
-  return { kind: "sign", pairs: settingsPairs(settings) };
+  return { kind: "sign", pairs: settingsPairs({ ...settings, key }) };
 };

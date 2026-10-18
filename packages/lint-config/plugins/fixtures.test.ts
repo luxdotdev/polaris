@@ -48,9 +48,11 @@ describe("security plugin: each guard reports what was planted, and nothing allo
     [
       "git-spawn",
       [
-        ...lines("daemon/spawns.ts", [6, 9, 10, 11, 12, 13, 14, 15, 16]),
+        ...lines("daemon/spawns.ts", [6, 10, 11, 12, 13, 14, 15, 16, 17, 18]),
         // An allowlisted safe-path user that stopped calling safeConfigEnv.
         "daemon/unsafe-stream.ts:2",
+        // The gate starting a bare `git`.
+        ...lines("daemon/git/git.ts", [12, 13]),
       ],
     ],
     ["git-config-mode", lines("daemon/host-config.ts", [6, 7, 8])],

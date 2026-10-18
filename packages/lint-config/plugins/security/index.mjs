@@ -88,7 +88,11 @@ const isWhichGit = (node) =>
   calleeName(node.callee) === "which" &&
   stringOf(node.arguments[0]) === "git";
 
-/** Whether an expression names git: `"git"`, `"/usr/bin/git status"`, `which("git")`, a const of one. */
+/** `gitExecutable(…)`: git's absolute path, which a spawn outside git.ts must not start either. */
+const isGitExecutable = (node) =>
+  node?.type === "CallExpression" && calleeName(node.callee) === "gitExecutable";
+
+/** Whether an expression names git: `"git"`, `"/usr/bin/git status"`, `which("git")`, `gitExecutable()`, a const of one. */
 const namesGit = (node, consts) => {
   if (node === undefined || node === null) return false;
 
@@ -108,7 +112,7 @@ const namesGit = (node, consts) => {
     case "TSNonNullExpression":
       return namesGit(node.expression ?? node.argument, consts);
     default:
-      return isWhichGit(node);
+      return isWhichGit(node) || isGitExecutable(node);
   }
 };
 
@@ -125,6 +129,16 @@ const runsGit = (argument, consts) => {
   return namesGit(argument, consts);
 };
 
+/** An argv (or `{ cmd }`) that starts a bare `git`, which Windows looks up in the cwd first. */
+const bareGit = (argument) => {
+  const argv =
+    argument?.type === "ObjectExpression"
+      ? argument.properties.find((p) => p.type === "Property" && keyName(p) === "cmd")?.value
+      : argument;
+
+  return argv?.type === "ArrayExpression" && stringOf(argv.elements[0]) === "git";
+};
+
 const keyName = (property) => {
   if (property.key.type === "Identifier") return property.key.name;
 
@@ -138,6 +152,10 @@ const GIT_SPAWN_MESSAGE =
 const SAFE_PATH_MESSAGE =
   "This file is allowlisted to run git on the safe path, so its git must get safeConfigEnv's " +
   "settings; it no longer calls safeConfigEnv.";
+
+const BARE_GIT_MESSAGE =
+  "Start git as gitExecutable(), its absolute path: on Windows a bare `git` runs a git.exe in " +
+  "the cwd, the repository, before PATH (docs/adr/0069-git-runs-by-its-absolute-path.md).";
 
 const gitSpawn = {
   meta: {
@@ -173,7 +191,17 @@ const gitSpawn = {
         if (entry === "safe" && !callsSafeConfig)
           context.report({ node: program, message: SAFE_PATH_MESSAGE });
 
-        if (entry !== null) return;
+        if (entry !== null) {
+          for (const node of candidates)
+            if (
+              node.type === "CallExpression" &&
+              spawner(node) !== null &&
+              bareGit(node.arguments[0])
+            )
+              context.report({ node, message: BARE_GIT_MESSAGE });
+
+          return;
+        }
 
         for (const node of candidates) {
           const git =
