@@ -31,6 +31,10 @@ Worker acquisition records `ResourceLeaseQueued` and `ResourceLeased` on
 `__workers`, with lease ID equal to request ID and the working Attempt ID when
 available. Scope close records release or cancellation before granting the next
 waiter. These facts let Stats derive slot waits from the existing Host stream.
+The fold keeps each waiter's `queuedAt` (its `ResourceLeaseQueued` envelope's
+`occurredAt`, live and on reload) so the Lead's `status` shows how long it has
+queued. It is read-only: FIFO order and grants never consult it, so the C1-P
+resource model is unchanged.
 Settings snapshots hide these internal leases and retain `workerCap` counts.
 Resetting the cap declares its automatic capacity without removing held slots.
 Startup releases all recovered worker holders and cancels worker waiters before

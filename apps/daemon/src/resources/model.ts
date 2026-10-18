@@ -10,7 +10,16 @@ export const WORKERS_RESOURCE = "__workers";
 
 export const DEFAULT_HOLD_LIMIT_MS = 30 * 60 * 1000;
 
-export type LeaseWaiter = typeof ResourceEvent.cases.ResourceLeaseQueued.Type;
+/** A queued request and when its envelope committed it. */
+export type LeaseWaiter = typeof ResourceEvent.cases.ResourceLeaseQueued.Type & {
+  readonly queuedAt: string;
+};
+
+/** A Host resource event with its envelope's `occurredAt`. */
+export interface TimedEvent {
+  readonly event: DomainEvent;
+  readonly occurredAt: string;
+}
 
 export interface ResourcesModel {
   readonly resources: Map<string, HostResource>;
@@ -27,8 +36,8 @@ export const emptyResources = (): ResourcesModel => ({
 const resourceEvent = Schema.decodeUnknownOption(ResourceEvent);
 
 /** Fold only Host resource events; unrelated events never change this projection. */
-export const foldResources = (model: ResourcesModel, events: ReadonlyArray<DomainEvent>) => {
-  for (const event of events) {
+export const foldResources = (model: ResourcesModel, events: ReadonlyArray<TimedEvent>) => {
+  for (const { event, occurredAt } of events) {
     const decoded = resourceEvent(event);
 
     if (Option.isNone(decoded)) continue;
@@ -40,7 +49,7 @@ export const foldResources = (model: ResourcesModel, events: ReadonlyArray<Domai
         model.resources.delete(resource);
       },
       ResourceLeaseQueued: (waiter) => {
-        model.waiting.set(waiter.requestId, waiter);
+        model.waiting.set(waiter.requestId, { ...waiter, queuedAt: occurredAt });
       },
       ResourceLeaseCanceled: ({ requestId }) => {
         model.waiting.delete(requestId);

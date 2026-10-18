@@ -5,6 +5,7 @@ import {
   ConstellationId,
   Constellation,
   DomainEvent,
+  HostId,
   HostResource,
   ResourceLease,
   SessionId,
@@ -40,7 +41,9 @@ const W_X = SessionId.make("worker-x");
 
 const X2 = TaskId.make("X2");
 
-const minutes = (n: number) => new Date(Date.parse(AT) + n * 60_000).toISOString();
+const at = (ms: number) => new Date(Date.parse(AT) + ms).toISOString();
+
+const minutes = (n: number) => at(n * 60_000);
 
 const setupRun = (taskId: TaskId, status: WorktreeSetupRun["status"]) =>
   new WorktreeSetupRun({
@@ -68,8 +71,40 @@ const sessionRecord = (
   subagents: new Map(),
 });
 
+const leased = (id: string, sessionId: SessionId, acquiredAt: string) => ({
+  occurredAt: acquiredAt,
+  event: DomainEvent.cases.ResourceLeased.make({
+    lease: new ResourceLease({
+      id,
+      hostId: HOST,
+      resource: WORKERS_RESOURCE,
+      sessionId,
+      command: [],
+      processId: 0,
+      acquiredAt,
+    }),
+  }),
+});
+
+const queued = (requestId: string, sessionId: SessionId, occurredAt: string) => ({
+  occurredAt,
+  event: DomainEvent.cases.ResourceLeaseQueued.make({
+    hostId: HOST,
+    resource: WORKERS_RESOURCE,
+    requestId,
+    sessionId,
+  }),
+});
+
 /** Build has A and B on this Host; "Release flow" holds a slot with X2 from another Constellation. */
-const world = (patch: { readonly aSetup?: WorktreeSetupRun; readonly aTurns?: Turn[] } = {}) => {
+const world = (
+  patch: {
+    readonly aSetup?: WorktreeSetupRun;
+    readonly aTurns?: Turn[];
+    readonly aHeldAt?: string;
+    readonly now?: string;
+  } = {}
+) => {
   const build = dispatched(
     dispatched(planned([task(A), task(B)]), draft(A, "a1", W_A)),
     draft(B, "b1", W_B)
@@ -83,36 +118,18 @@ const world = (patch: { readonly aSetup?: WorktreeSetupRun; readonly aTurns?: Tu
     graph: Constellation.make(Struct.assign(other.graph, { id: otherId, name: "Release flow" })),
   };
 
-  const lease = (id: string, sessionId: SessionId, at: string) =>
-    DomainEvent.cases.ResourceLeased.make({
-      lease: new ResourceLease({
-        id,
-        hostId: HOST,
-        resource: WORKERS_RESOURCE,
-        sessionId,
-        command: [],
-        processId: 0,
-        acquiredAt: at,
-      }),
-    });
-
-  const queue = (requestId: string, sessionId: SessionId) =>
-    DomainEvent.cases.ResourceLeaseQueued.make({
-      hostId: HOST,
-      resource: WORKERS_RESOURCE,
-      requestId,
-      sessionId,
-    });
-
   const resources = foldResources(emptyResources(), [
-    DomainEvent.cases.ResourceDeclared.make({
-      resource: new HostResource({ hostId: HOST, name: WORKERS_RESOURCE, capacity: 2 }),
-    }),
-    queue("x", W_X),
-    lease("x", W_X, AT),
-    queue("a", W_A),
-    lease("a", W_A, minutes(28)),
-    queue("b", W_B),
+    {
+      occurredAt: AT,
+      event: DomainEvent.cases.ResourceDeclared.make({
+        resource: new HostResource({ hostId: HOST, name: WORKERS_RESOURCE, capacity: 2 }),
+      }),
+    },
+    queued("x", W_X, AT),
+    leased("x", W_X, AT),
+    queued("a", W_A, minutes(2)),
+    leased("a", W_A, patch.aHeldAt ?? minutes(28)),
+    queued("b", W_B, minutes(30)),
   ]);
 
   const sessions = new Map([
@@ -129,38 +146,52 @@ const world = (patch: { readonly aSetup?: WorktreeSetupRun; readonly aTurns?: Tu
       [otherId, release],
     ]),
     sessions,
-    now: Date.parse(minutes(40)),
+    now: Date.parse(patch.now ?? minutes(40)),
   };
 
   return { build, sessions, host };
 };
 
-test("status tells a slot holder with no Turn from a queued worker and names every Host holder", () => {
+test("status reads a slot holder with no Turn as stalled, as the Desktop App does, and a waiter's age", () => {
   const { build, sessions, host } = world();
   const text = statusOutline(build, sessions, host);
 
-  expect(text).toContain("  Worker: no Turn yet · setup done · slot held 12m");
-  expect(text).toContain("  Worker: no Turn yet · setup done · waiting for a slot (1 of 1)");
+  expect(text).toContain("  Worker: stalled 12m · holds a slot, no Turn yet");
+  expect(text).toContain("  Worker: waiting for a slot 10m (1 of 1)");
   expect(text).toContain(
-    "Host slots: 2/2 held · Release flow/X2 40m no Turn · A 12m no Turn · waiting: B"
+    "Host slots: 2/2 held · Release flow/X2 40m stalled · A 12m stalled · waiting: B 10m"
   );
   expect(statusSince(build, [], build.graph.revision, sessions, host)).toContain(
-    "Host slots: 2/2 held · Release flow/X2 40m no Turn · A 12m no Turn · waiting: B"
+    "Not working: A (stalled 12m), B (waiting for a slot 10m)"
   );
 });
 
-test("status shows setup still running, then a running Turn on a held slot", () => {
+test("a slot holder reads starting for the grace period and stalled from the minute on", () => {
+  const held = minutes(28);
+  const early = world({ aHeldAt: held, now: at(28 * 60_000 + 59_000) });
+  const late = world({ aHeldAt: held, now: at(28 * 60_000 + 60_000) });
+
+  expect(statusOutline(early.build, early.sessions, early.host)).toContain(
+    "  Worker: starting 59s\n"
+  );
+  expect(statusOutline(late.build, late.sessions, late.host)).toContain(
+    "  Worker: stalled 1m · holds a slot, no Turn yet"
+  );
+});
+
+test("status shows setup still running, then the brief's Turn running on a held slot", () => {
   const running = world({ aSetup: setupRun(A, "running") });
 
   expect(statusOutline(running.build, running.sessions, running.host)).toContain(
-    "  Worker: no Turn yet · setup running · slot held 12m"
+    "  Worker: setting up 40m\n"
   );
 
   const worker = session(W_A);
-  const working = world({ aTurns: [newTurn(worker, "Build A", minutes(30))] });
+  const brief = newTurn(worker, "Build A", minutes(30), "a1:start");
+  const working = world({ aTurns: [brief] });
   const text = statusOutline(working.build, working.sessions, working.host);
 
-  expect(text).toContain("  Worker: Turn running · setup done · slot held 12m");
+  expect(text).toContain("  Worker: Turn running\n");
   expect(text).toContain("A 12m running");
 });
 
@@ -189,12 +220,12 @@ test("a slot still held for an ended Attempt names the holder with its outcome",
   expect(statusOutline(build, sessions, stale)).toContain("Release flow/X2 (lost) 40m no Turn");
 });
 
-test("a Host with no worker slots in use adds no slot line", () => {
+test("a worker on another Host reads no slot from this Host's fold", () => {
   const { build, sessions, host } = world();
-  const idle: HostSlots = { ...host, resources: emptyResources() };
+  const remote: HostSlots = { ...host, hostId: HostId.make("other-host") };
 
-  expect(statusOutline(build, sessions, idle)).not.toContain("Host slots");
-  expect(statusOutline(build, sessions, idle)).toContain(
-    "  Worker: no Turn yet · setup done · no slot"
+  expect(statusOutline(build, sessions, remote)).toContain("  Worker: starting 39m\n");
+  expect(statusOutline(build, sessions, { ...host, resources: emptyResources() })).not.toContain(
+    "Host slots"
   );
 });

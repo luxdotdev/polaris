@@ -402,7 +402,7 @@ export const loadModel = (sql: SqlClient.SqlClient) =>
       sequence: max?.sequence ?? 0,
       hostResources: foldResources(
         emptyResources(),
-        resourceRows.map((row) => decodeEventRow(row).event)
+        resourceRows.map((row) => decodeEventRow(row))
       ),
       workspaces: byId(workspaces.map((row) => WorkspaceJson.decode(row.data))),
       worktrees: byId(worktrees.map((row) => WorktreeJson.decode(row.data))),

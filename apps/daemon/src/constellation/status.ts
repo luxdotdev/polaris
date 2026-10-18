@@ -11,7 +11,7 @@ import { graphEvent, type ConstellationRecord } from "../store/constellation.ts"
 import { capacityBlocked, failureKindLabel } from "./failureKind.ts";
 import { childTasks, isParent } from "./parents.ts";
 import { activeAttempt, latestAttempt, projectTask } from "./projections.ts";
-import { type HostSlots, slotLine, workerFacts, workerLine } from "./slots.ts";
+import { type HostSlots, phaseOf, phaseText, slotLine, workerLine } from "./slots.ts";
 
 export const proposalDetails = (task: TaskDefinition): ReadonlyArray<string> => [
   `  Kind: ${task.kind} · parent: ${task.parent ?? "none"} · group: ${task.group ?? "none"}`,
@@ -69,9 +69,7 @@ const reviewLines = (
   )
     lines.push("  Stopped without claiming · nudged once.");
   else if (attempt.state === "working" && session !== undefined)
-    lines.push(
-      `  ${workerLine(workerFacts(record.graph.id, attempt, session, host), host?.now ?? 0)}`
-    );
+    lines.push(`  ${workerLine(record.graph.id, attempt, session, host)}`);
 
   if (attempt.state === "blocked")
     lines.push(
@@ -312,11 +310,15 @@ export const statusSince = (
     .filter((task) => !isParent(graph, task.id) && projectTask(record, task).state === "ready")
     .map((task) => task.id);
 
-  const stalled = graph.attempts.filter(
-    (a) =>
-      a.state === "working" &&
-      !sessions?.get(a.sessionId)?.turns.some((t) => t.status === "working")
-  );
+  // The same phase the Desktop App shows: stalled, idle, starting, waiting for a slot.
+  const notWorking = graph.attempts.flatMap((a) => {
+    const session = sessions?.get(a.sessionId);
+
+    if (a.state !== "working" || session === undefined) return [];
+    const phase = phaseOf(graph.id, a, session, host);
+
+    return phase.kind === "working" ? [] : [`${a.taskId} (${phaseText(phase, host?.now ?? null)})`];
+  });
 
   return [
     `${graph.name} · ${graph.state} · revision ${graph.revision} · changes since revision ${since}: ${changes.length}`,
@@ -328,9 +330,7 @@ export const statusSince = (
         .join(", ") || "none"
     }`,
     `Ready: ${ready.length > 0 ? ready.join(", ") : "none"}`,
-    ...(sessions === undefined || stalled.length === 0
-      ? []
-      : [`Working with no active Turn: ${stalled.map((a) => a.taskId).join(", ")}`]),
+    ...(notWorking.length === 0 ? [] : [`Not working: ${notWorking.join(", ")}`]),
     ...(host === undefined ? [] : [slotLine(host, graph.id)].filter((line) => line !== null)),
     `Lead updates queued: ${graph.pendingNotifications.length}`,
   ].join("\n");

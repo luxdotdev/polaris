@@ -128,6 +128,7 @@ const make = Effect.gen(function* () {
   ) {
     const model = yield* store.model;
     const record = yield* authorize(model, id, binding);
+    const observed = yield* liveness.read(record);
 
     const host: HostSlots = {
       hostId,
@@ -135,13 +136,14 @@ const make = Effect.gen(function* () {
       constellations: model.constellations,
       sessions: model.sessions,
       now: Date.now(),
+      liveness: observed,
     };
 
     const result = graphResult(
       record,
       null,
       json,
-      enrichProjections(record, yield* liveness.read(record), {
+      enrichProjections(record, observed, {
         fetchedAttempts: yield* branches.read(record.graph),
       }),
       model.sessions,
