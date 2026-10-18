@@ -2,6 +2,7 @@ import { existsSync, watch as fsWatch } from "node:fs";
 import { opendir } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { findRepoRoot, runGit } from "../../git/git.ts";
+import { nativeWatchesLive } from "../fsevents.ts";
 import { inotifyAvailable, watchDirectory } from "../inotify.ts";
 
 export const WALK_SKIP = new Set([".git", "node_modules", ".hg", ".svn"]);
@@ -163,6 +164,9 @@ export const watchRoot = async (
       scanning = scan(root);
       await scanning;
     }
+
+    // Callers read the tree next, so what changes after this must already be reported.
+    await nativeWatchesLive();
 
     return stop;
   } catch (cause) {

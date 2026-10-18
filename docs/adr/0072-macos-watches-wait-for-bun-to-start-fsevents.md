@@ -1,0 +1,68 @@
+---
+status: accepted
+fixes: on macOS a change made just after a watch was armed was never reported (ENG-368)
+---
+
+# macOS watches wait for Bun to start its FSEvents stream
+
+## Context
+
+`watchRoot` (`apps/daemon/src/files/search/watch.ts`) backs the fallback search watch, the
+usage index and the language configuration watch. Its callers read the tree right after it
+resolves and rely on every later change being reported.
+
+On macOS, Bun 1.3.13's `fs.watch` (`src/bun.js/node/fs_events.zig`) keeps **one**
+FSEvents stream for the whole process. `registerWatcher` only queues `_schedule` to a
+CoreFoundation thread and returns. `_schedule` then stops the old stream and creates a new
+one over every watched path with `kFSEventStreamEventIdSinceNow`. A change made between
+`fs.watch` returning and that stream starting is never delivered, not even late.
+(`unregisterWatcher` doesn't rebuild the stream; only opening a watch does.)
+
+Measured on a Mac Studio (macOS 27, Bun 1.3.13), creating a file as soon as `watchRoot`
+resolved:
+
+| Condition | Never reported |
+|---|---|
+| idle, previous watch closed long before | 0 / 15 |
+| idle, previous watch closed just before | about 1 in 10 |
+| another watched directory just had 1000 writes | 10 / 30 |
+| `watch.test.ts` dotfiles test, 24 busy loops, 8 parallel `bun test` runs | 19 / 200 runs |
+
+Each event was dropped, not delayed: a lost one was still missing after 8 s. CPU load alone
+barely widens the window. Busy file systems do, since the CF thread waits on `fseventsd`.
+
+## Decision
+
+On macOS, `watchRoot` resolves only after `nativeWatchesLive()`
+(`apps/daemon/src/files/fsevents.ts`) has proven the stream live. The probe makes a fresh
+directory under the temp directory, opens `fs.watch` on it and writes files into it (at 2 ms,
+then doubling to 100 ms) until one is reported. That watch was registered after the caller's,
+so the stream that reports it covers both. Then it closes the watch and removes the
+directory. It gives up after 5 s and lets the caller go on, as before.
+
+- The probe's registration nearly always joins the caller's pending `_schedule`, so it adds
+  no extra stream rebuild.
+- Callers arriving while a probe runs share the next probe, which starts after it; a probe
+  that registered before a caller's watch proves nothing for it.
+- Cost: about 10 ms per arm (p50), up to about 50 ms with a busy file system. Timers exist
+  only while a watch is being armed; an idle Daemon wakes for nothing.
+- Elsewhere it resolves at once: Linux uses inotify (ADR 0047), whose watch is added
+  synchronously.
+
+`watchFile` (open file tabs) is unchanged: its first read takes longer than the stream needs
+to start, and no test could show a write after that read being lost.
+
+The regression test (`watch.test.ts`, macOS only) arms 20 watches, each beside a watched
+directory that just had 1000 writes. Without the probe every run loses 4 to 9 of them.
+
+## Rejected
+
+- A longer wait in the test: the change is lost, so no wait finds it.
+- A fixed sleep after arming: how long the stream takes to start isn't bounded.
+- Our own FSEvents stream through `bun:ffi`: FSEvents calls back on its own thread, and the
+  paths it hands over are freed before a thread-safe `JSCallback` runs.
+
+## Not fixed here
+
+Every `fs.watch` opened anywhere in the Daemon rebuilds the shared stream, so watches that
+are already live can lose changes during the rebuild too. That is ENG-370.
