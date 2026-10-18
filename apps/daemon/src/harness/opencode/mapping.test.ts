@@ -190,7 +190,7 @@ describe("tool parts", () => {
     });
   });
 
-  test("other tools are tool calls with their input and output", () => {
+  test("other tools are tool calls with their input, output and kind", () => {
     const grep = part("grep", {
       status: "completed",
       input: { pattern: "x" },
@@ -202,8 +202,27 @@ describe("tool parts", () => {
       TurnItem.cases.ToolCall.make({
         id: "prt_1",
         name: "grep",
+        kind: "search",
         input: { pattern: "x" },
         output: "found",
+        status: "completed",
+      })
+    );
+  });
+
+  test("a tool OpenCode doesn't build in, such as an MCP server's, is other", () => {
+    const item = toolItem(
+      part("paper_write_html", { status: "completed", input: {}, output: "ok", metadata: {} }),
+      "/repo"
+    );
+
+    expect(item).toEqual(
+      TurnItem.cases.ToolCall.make({
+        id: "prt_1",
+        name: "paper_write_html",
+        kind: "other",
+        input: {},
+        output: "ok",
         status: "completed",
       })
     );

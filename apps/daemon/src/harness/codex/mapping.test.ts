@@ -144,7 +144,7 @@ describe("thread items", () => {
     );
   });
 
-  test("MCP tool calls become ToolCalls", () => {
+  test("MCP tool calls become ToolCalls naming their server and tool", () => {
     expect(
       item({
         type: "mcpToolCall",
@@ -160,6 +160,8 @@ describe("thread items", () => {
       TurnItem.cases.ToolCall.make({
         id: "t",
         name: "linear.get_issue",
+        kind: "mcp",
+        mcp: { server: "linear", tool: "get_issue" },
         input: { id: "ENG-1" },
         output: { title: "x" },
         status: "completed",

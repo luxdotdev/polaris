@@ -22,6 +22,7 @@ import type {
 import { SubagentId, type TurnId, TurnItem } from "@polaris/protocol";
 import { Option, Predicate } from "effect";
 import { ClaudeBackgroundTasks } from "./backgroundTasks.ts";
+import { toolIdentity } from "./toolIdentity.ts";
 import { type ContextBreakdown, HarnessEvent } from "../HarnessDriver.ts";
 import {
   type AssistantBlock,
@@ -188,6 +189,7 @@ export const toolItem = (call: ToolCall): TurnItem => {
   return TurnItem.cases.ToolCall.make({
     id: call.id,
     name: call.name,
+    ...toolIdentity(call.name),
     input: call.input,
     output: call.status === "running" ? null : (call.structured ?? call.resultText),
     status: call.status,

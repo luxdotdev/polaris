@@ -96,6 +96,14 @@ A git worktree of a Workspace, tracked by Polaris wherever it lives on disk (whe
 One message from the user plus everything the Harness does in response; the unit that gets a checkpoint, a diff, and a Review.
 _Avoid_: Step, exchange
 
+**Tool Call**:
+One use of a tool by an Agent Session within a Turn: a built-in tool, an MCP server's tool, or a Skill being loaded.
+_Avoid_: Activity, step, action
+
+**Tool Run**:
+Consecutive finished Tool Calls in a Turn, shown as one summary line that expands to each call.
+_Avoid_: Run (alone, which reads as an Agent Session), group, batch
+
 **Fork**:
 A new Agent Session started from a checkpoint of another, linked to its parent; the way to switch Harness or retry differently.
 

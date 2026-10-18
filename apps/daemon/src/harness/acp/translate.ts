@@ -4,7 +4,7 @@
  * until something else happens in the Turn (a tool call, the other kind of
  * text, a new message id) or the Turn ends; then it is completed once.
  */
-import { type TurnId, TurnItem } from "@polaris/protocol";
+import { type ToolKind, type TurnId, TurnItem } from "@polaris/protocol";
 import { HarnessEvent } from "../HarnessDriver.ts";
 import * as P from "./protocol.ts";
 
@@ -69,6 +69,13 @@ const fileChanges = (fields: P.ToolCallFields) => {
   );
 };
 
+/** ACP's kinds that a Tool Run counts; commands and edits become their own items first. */
+const TOOL_KINDS = new Map<P.ToolKind, ToolKind>([
+  ["read", "read"],
+  ["search", "search"],
+  ["fetch", "fetch"],
+]);
+
 /** A tool call as the `TurnItem` it reads best as. */
 export const toolCallItem = (state: ToolCallState, cwd: string): TurnItem => {
   const { fields } = state;
@@ -96,6 +103,8 @@ export const toolCallItem = (state: ToolCallState, cwd: string): TurnItem => {
   return TurnItem.cases.ToolCall.make({
     id: fields.toolCallId,
     name: fields.name || fields.title || fields.kind || "tool",
+    kind: (fields.kind && TOOL_KINDS.get(fields.kind)) ?? "other",
+    title: fields.title || null,
     input: fields.rawInput ?? null,
     output: fields.rawOutput ?? (text === "" ? null : text),
     status,

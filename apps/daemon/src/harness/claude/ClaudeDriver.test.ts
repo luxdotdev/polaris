@@ -239,6 +239,7 @@ describe("Claude driver", () => {
         item: TurnItem.cases.ToolCall.make({
           id: "tu4",
           name: "Grep",
+          kind: "search",
           input: {},
           output: null,
           status: "running",
@@ -249,6 +250,7 @@ describe("Claude driver", () => {
         item: TurnItem.cases.ToolCall.make({
           id: "tu4",
           name: "Grep",
+          kind: "search",
           input: {},
           output: "no matches",
           status: "failed",

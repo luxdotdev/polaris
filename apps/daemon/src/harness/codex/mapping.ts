@@ -177,6 +177,8 @@ const itemMappers = new Map<string, ItemMapper>([
         ? ToolCall.make({
             id: item.id,
             name: `${item.server}.${item.tool}`,
+            kind: "mcp",
+            mcp: { server: item.server, tool: item.tool },
             input: item.arguments,
             output: item.error ?? item.result,
             status: itemStatus(item.status),
@@ -190,6 +192,7 @@ const itemMappers = new Map<string, ItemMapper>([
         ? ToolCall.make({
             id: item.id,
             name: item.tool,
+            kind: "other",
             input: item.arguments,
             output: item.contentItems,
             status: itemStatus(item.status),
@@ -203,6 +206,7 @@ const itemMappers = new Map<string, ItemMapper>([
         ? ToolCall.make({
             id: item.id,
             name: `agent.${item.tool}`,
+            kind: "other",
             input: { prompt: item.prompt },
             output: null,
             status: collabStatus(item.status),
@@ -217,6 +221,7 @@ const itemMappers = new Map<string, ItemMapper>([
         ? ToolCall.make({
             id: item.id,
             name: "agent.spawn",
+            kind: "other",
             input: { agent: item.agentPath },
             output: null,
             status: "completed",
@@ -230,6 +235,7 @@ const itemMappers = new Map<string, ItemMapper>([
         ? ToolCall.make({
             id: item.id,
             name: "web_search",
+            kind: "web-search",
             input: { query: item.query },
             output: null,
             status: "completed",
@@ -243,6 +249,7 @@ const itemMappers = new Map<string, ItemMapper>([
         ? ToolCall.make({
             id: item.id,
             name: "view_image",
+            kind: "read",
             input: { path: item.path },
             output: null,
             status: "completed",
