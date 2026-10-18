@@ -2,6 +2,7 @@ import type { Options } from "@anthropic-ai/claude-agent-sdk";
 import { spawn } from "node:child_process";
 import { win32 } from "node:path";
 import { type Launch, launchOf } from "../../platform/cmdShim.ts";
+import { executableOf } from "../../platform/executable.ts";
 
 type Executable = Pick<
   Options,
@@ -21,7 +22,8 @@ const isNode = (program: string) => /^node(\.exe)?$/i.test(win32.basename(progra
 const spawnWith =
   (program: string): NonNullable<Options["spawnClaudeCodeProcess"]> =>
   ({ args, cwd, env, signal }) => {
-    const child = spawn(program, args, { cwd, env, signal, stdio: "pipe", windowsHide: true });
+    const options = { cwd, env, signal, stdio: "pipe", windowsHide: true } as const;
+    const child = spawn(executableOf(program), args, options);
     child.stderr.resume();
 
     return child;

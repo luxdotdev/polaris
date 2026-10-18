@@ -4,8 +4,9 @@
  * command runs under `cmd.exe`. See docs/adr/0061-windows-process-trees.md.
  */
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, win32 } from "node:path";
 import { childEnv } from "../service/childEnv.ts";
+import { executableOf } from "./executable.ts";
 import { processCommandLine } from "./windowsNative.ts";
 
 type Env = Readonly<Record<string, string | undefined>>;
@@ -123,7 +124,7 @@ export const commandLineOf = (pid: number): string | null => {
 
   if (process.platform === "win32") return processCommandLine(pid);
 
-  const result = Bun.spawnSync(["ps", "-o", "command=", "-p", String(pid)], {
+  const result = Bun.spawnSync([executableOf("ps"), "-o", "command=", "-p", String(pid)], {
     env: childEnv(),
     stdin: "ignore",
     stdout: "pipe",
@@ -144,6 +145,13 @@ export interface ShellCommand {
   readonly windowsVerbatimArguments: boolean;
 }
 
+/** cmd.exe by its absolute path: `ComSpec`, else System32's; a bare `ComSpec` is looked up on PATH. */
+const comSpecOf = (env: Env): string => {
+  const comSpec = envValue(env, "ComSpec") ?? join(systemRoot(env), "System32", "cmd.exe");
+
+  return win32.isAbsolute(comSpec) ? comSpec : executableOf(comSpec, env);
+};
+
 /**
  * `command` as `/bin/sh -c` runs it, or on Windows as `cmd.exe /d /s /c "…"`
  * (what npm runs scripts with): no AutoRun, and the outer quotes stripped.
@@ -155,13 +163,7 @@ export const shellCommand = (
 ): ShellCommand =>
   os === "win32"
     ? {
-        argv: [
-          envValue(env, "ComSpec") ?? join(systemRoot(env), "System32", "cmd.exe"),
-          "/d",
-          "/s",
-          "/c",
-          `"${command}"`,
-        ],
+        argv: [comSpecOf(env), "/d", "/s", "/c", `"${command}"`],
         windowsVerbatimArguments: true,
       }
     : { argv: ["/bin/sh", "-c", command], windowsVerbatimArguments: false };

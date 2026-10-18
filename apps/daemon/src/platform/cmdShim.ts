@@ -6,6 +6,7 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import { win32 } from "node:path";
+import { executableOf, findExecutable } from "./executable.ts";
 
 /** A program and the arguments that go before the caller's own. */
 export interface Launch {
@@ -29,7 +30,7 @@ const liveIo: ShimIo = {
     }
   },
   exists: existsSync,
-  which: (name) => Bun.which(name, { PATH: process.env.PATH ?? "" }),
+  which: (name) => findExecutable(name),
 };
 
 /** The command line's tail that runs the program: after its last `&` or `||` outside quotes. */
@@ -108,5 +109,5 @@ export const launchOf = (
 export const launchArgv = (binary: string, args: ReadonlyArray<string>): Array<string> => {
   const launch = launchOf(binary);
 
-  return [launch.program, ...launch.args, ...args];
+  return [executableOf(launch.program), ...launch.args, ...args];
 };

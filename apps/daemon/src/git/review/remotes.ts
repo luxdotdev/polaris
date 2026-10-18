@@ -5,6 +5,7 @@
  * that host use. And the ssh command that can never prompt.
  */
 import { childEnv } from "../../service/childEnv.ts";
+import { executableOf } from "../../platform/executable.ts";
 import type { RepoRef } from "@polaris/protocol";
 import { runGitRaw } from "../git.ts";
 
@@ -73,7 +74,7 @@ const decoder = new TextDecoder();
 /** The real hostname of an ssh host alias (`ssh -G`), or the alias itself. */
 export const resolveSshHost = async (alias: string): Promise<string> => {
   try {
-    const proc = Bun.spawn(["ssh", "-G", alias], {
+    const proc = Bun.spawn([executableOf("ssh"), "-G", alias], {
       env: childEnv(),
       stdin: "ignore",
       stdout: "pipe",

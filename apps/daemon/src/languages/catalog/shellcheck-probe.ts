@@ -1,4 +1,5 @@
 import { versionSatisfies } from "./selection";
+import { executableOf } from "../../platform/executable.ts";
 
 const bounded = async <T>(promise: Promise<T>, milliseconds: number): Promise<T | null> => {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -52,7 +53,7 @@ export const probeShellCheckVersion = async (
   executable: string,
   cwd: string
 ): Promise<string | null> => {
-  const child = Bun.spawn([executable, "--version"], {
+  const child = Bun.spawn([executableOf(executable), "--version"], {
     cwd,
     env: { LANG: "C", LC_ALL: "C" },
     detached: true,

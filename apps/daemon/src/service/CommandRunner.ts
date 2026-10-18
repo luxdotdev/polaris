@@ -1,5 +1,6 @@
 import { childEnv } from "./childEnv.ts";
 import { Context, Effect, Layer } from "effect";
+import { executableOf } from "../platform/executable.ts";
 
 export interface CommandResult {
   readonly code: number;
@@ -27,7 +28,7 @@ export class CommandRunner extends Context.Service<
       run: (argv, options) =>
         Effect.promise(async () => {
           try {
-            const proc = Bun.spawn([...argv], {
+            const proc = Bun.spawn([executableOf(argv[0] ?? ""), ...argv.slice(1)], {
               env: childEnv(),
               stdin: options?.stdin === undefined ? "ignore" : new Blob([options.stdin]),
               stdout: "pipe",

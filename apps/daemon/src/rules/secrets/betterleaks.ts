@@ -13,6 +13,7 @@ import { availableParallelism } from "node:os";
 import { dirname, join } from "node:path";
 import { Schema } from "effect";
 import { safeConfigEnv } from "../../git/safeConfig/index.ts";
+import { executableOf, findExecutable } from "../../platform/executable.ts";
 import { isEmbeddedPath } from "../../platform/index.ts";
 import { repositoryEnv } from "../../service/childEnv.ts";
 import { cachedBetterleaks, hostAsset } from "./fetch.ts";
@@ -80,7 +81,11 @@ export interface SecretScan {
 export const locateBetterleaks = (): string | null => {
   const override = process.env.POLARIS_BETTERLEAKS;
 
-  if (override !== undefined && override !== "") return existsSync(override) ? override : null;
+  if (override !== undefined && override !== "") {
+    const path = findExecutable(override);
+
+    return path !== null && existsSync(path) ? path : null;
+  }
 
   if (isEmbeddedPath(import.meta.path)) {
     const beside = join(dirname(process.execPath), "betterleaks");
@@ -139,7 +144,7 @@ export const scanSecrets = async (
 ): Promise<SecretScan> => {
   const proc = Bun.spawn(
     [
-      binary,
+      executableOf(binary),
       ...sourceArgs(source),
       "--output=-",
       "--no-banner",

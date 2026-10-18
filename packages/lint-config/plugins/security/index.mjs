@@ -2,7 +2,13 @@
 // See packages/lint-config/README.md and docs/security/README.md.
 import { fileURLToPath } from "node:url";
 import { relative, sep } from "node:path";
-import { GIT_CONFIG_MODE, GIT_SPAWN, IMAGE_DECODE, REPOSITORY_ENV } from "./allowlist.mjs";
+import {
+  GIT_CONFIG_MODE,
+  GIT_SPAWN,
+  IMAGE_DECODE,
+  REPOSITORY_ENV,
+  SPAWN_PATH,
+} from "./allowlist.mjs";
 
 const ROOT = fileURLToPath(new URL("../../../../", import.meta.url));
 
@@ -216,6 +222,140 @@ const gitSpawn = {
   },
 };
 
+/** Calls that return an absolute program (`platform/executable.ts`), or a whole argv starting with one. */
+const RESOLVERS = new Set(["executableOf", "gitExecutable", "launchArgv"]);
+
+const ABSOLUTE = /^(?:\/|[A-Za-z]:[\\/])/;
+
+const unwrap = (node) =>
+  node?.type === "TSAsExpression" || node?.type === "TSNonNullExpression"
+    ? unwrap(node.expression)
+    : node;
+
+const isResolverCall = (node) =>
+  node?.type === "CallExpression" && RESOLVERS.has(calleeName(node.callee));
+
+const isExecPath = (node) =>
+  node?.type === "MemberExpression" &&
+  node.object.type === "Identifier" &&
+  node.object.name === "process" &&
+  calleeName(node) === "execPath";
+
+/** How a spawn names its program and options: Bun's argv (or `{ cmd }`), or node's `file, args`. */
+const spawnParts = (call) => {
+  const [first, second, third] = call.arguments;
+
+  if (first?.type === "ArrayExpression")
+    return { argv: first, program: unwrap(first.elements[0]), options: second ?? null };
+
+  if (first?.type === "ObjectExpression") {
+    const cmd = first.properties.find((p) => p.type === "Property" && keyName(p) === "cmd");
+
+    return {
+      argv: cmd?.value ?? null,
+      program: cmd?.value.type === "ArrayExpression" ? unwrap(cmd.value.elements[0]) : null,
+      options: first,
+    };
+  }
+
+  // `Bun.spawn(argv, options)` with an argv built elsewhere: its program is unknown here.
+  if (call.callee.type === "MemberExpression" && calleeName(call.callee.object) === "Bun")
+    return { argv: first, program: null, options: second ?? null };
+
+  const options = [second, third].find((a) => a?.type === "ObjectExpression") ?? null;
+
+  return { argv: null, program: unwrap(first), options };
+};
+
+/** Whether the spawn may start in a cwd it names: a `cwd` option, or options it can't see into. */
+const mayHaveCwd = (options) => {
+  if (options === null || options === undefined) return false;
+
+  if (options.type !== "ObjectExpression") return options.type === "Identifier";
+
+  return options.properties.some(
+    (p) => p.type === "SpreadElement" || (p.type === "Property" && keyName(p) === "cwd")
+  );
+};
+
+/** A program's text: a literal, or a const holding one. */
+const programText = (program, consts) =>
+  program?.type === "Identifier" ? (consts.get(program.name) ?? null) : stringOf(program);
+
+/** A program the spawn starts by its absolute path: a resolver's, an absolute literal, Bun's own. */
+const resolvedProgram = (parts, consts) => {
+  if (isResolverCall(unwrap(parts.argv))) return true;
+
+  const text = programText(parts.program, consts);
+
+  if (text !== null) return ABSOLUTE.test(text);
+
+  return isResolverCall(parts.program) || isExecPath(parts.program);
+};
+
+/** A literal program with no directory: `"ssh"`, `"git"`, `"powershell.exe"`. */
+const bareLiteral = (parts, consts) => {
+  const text = programText(parts.program, consts);
+
+  return text !== null && !/[\\/]/.test(text);
+};
+
+const isBunWhich = (node) =>
+  node.callee.type === "MemberExpression" &&
+  calleeName(node.callee) === "which" &&
+  calleeName(node.callee.object) === "Bun";
+
+const BARE_PROGRAM_MESSAGE =
+  "Start this program by its absolute path, executableOf(name): on Windows a bare name runs a " +
+  "program in the cwd before PATH (docs/adr/0070-programs-run-by-their-absolute-path.md).";
+
+const CWD_PROGRAM_MESSAGE =
+  "This spawn starts in a cwd (a repository, maybe) with a program this rule can't see is " +
+  "absolute: pass executableOf(program), or add the file to allowlist.mjs saying where it is resolved.";
+
+const WHICH_MESSAGE =
+  "Find programs with findExecutable/executableOf (platform/executable.ts): Bun.which returns a " +
+  "relative path for a `.` PATH entry, which a spawn then resolves against its own cwd.";
+
+const spawnPath = {
+  meta: {
+    type: "problem",
+    schema: OPTIONS,
+    docs: { description: "The Daemon starts programs by their absolute path, never a bare name." },
+  },
+  create(context) {
+    const { checked, entry } = placement(context, SPAWN_PATH);
+
+    if (!checked) return {};
+
+    const consts = new Map();
+    const spawns = [];
+
+    return {
+      VariableDeclarator(node) {
+        const text = stringOf(node.init);
+
+        if (node.id.type === "Identifier" && text !== null) consts.set(node.id.name, text);
+      },
+      CallExpression(node) {
+        if (isBunWhich(node) && entry !== "resolver")
+          context.report({ node, message: WHICH_MESSAGE });
+
+        if (spawner(node) !== null && node.arguments.length > 0) spawns.push(node);
+      },
+      "Program:exit"() {
+        for (const node of spawns) {
+          const parts = spawnParts(node);
+
+          if (bareLiteral(parts, consts)) context.report({ node, message: BARE_PROGRAM_MESSAGE });
+          else if (entry === null && mayHaveCwd(parts.options) && !resolvedProgram(parts, consts))
+            context.report({ node, message: CWD_PROGRAM_MESSAGE });
+        }
+      },
+    };
+  },
+};
+
 const HOST_MODES = new Set(["host", "trusted-fetch"]);
 
 /** Whether an expression can evaluate to a literal `"host"` or `"trusted-fetch"`. */
@@ -405,5 +545,6 @@ export default {
     "git-config-mode": gitConfigMode,
     "image-decode": imageDecode,
     "repository-env": repositoryEnv,
+    "spawn-path": spawnPath,
   },
 };

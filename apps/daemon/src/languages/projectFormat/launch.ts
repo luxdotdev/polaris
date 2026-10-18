@@ -1,5 +1,5 @@
 import { open, realpath, stat } from "node:fs/promises";
-import { dirname, extname, join } from "node:path";
+import { delimiter, dirname, extname, join } from "node:path";
 import type { LanguageProjectFormatterTool } from "@polaris/protocol";
 import { currentLanguagePlatform } from "../composition/environment.ts";
 import { ancestors, formatterBinary, hostFormatterBinary } from "./detect.ts";
@@ -120,4 +120,4 @@ export async function formatterLaunch(
 
 /** The child's PATH: the private Node's directory first, then the Daemon's own. */
 export const formatterPath = (node: string | null, path = process.env.PATH ?? "") =>
-  node === null ? path : [dirname(node), ...(path === "" ? [] : [path])].join(":");
+  node === null ? path : [dirname(node), ...(path === "" ? [] : [path])].join(delimiter);

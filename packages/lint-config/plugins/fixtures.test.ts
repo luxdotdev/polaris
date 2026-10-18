@@ -58,6 +58,14 @@ describe("security plugin: each guard reports what was planted, and nothing allo
     ["git-config-mode", lines("daemon/host-config.ts", [6, 7, 8])],
     ["image-decode", lines("renderer/decodes.tsx", [2, 7, 8, 9, 10, 11, 12, 13])],
     ["repository-env", lines("setup/run.ts", [8, 9, 10, 11])],
+    [
+      "spawn-path",
+      [
+        ...lines("programs/spawns.ts", [12, 13, 14, 15, 16, 17, 18, 19, 20, 21]),
+        // Allowlisted "resolved": a bare literal and Bun.which still report.
+        ...lines("programs/resolved.ts", [6, 7]),
+      ],
+    ],
   ])(
     "security/%s",
     (rule, expected) => {

@@ -37,8 +37,9 @@ import { resolveHostPath, toFsFailure } from "../files/fs.ts";
 import { paths } from "../paths.ts";
 import * as libc from "../service/libc.ts";
 import { registerHandoffContributor, takeHandoff } from "../service/upgrade.ts";
+import { executableOf } from "../platform/executable.ts";
 import { killTree, killTreeSync } from "../platform/processes.ts";
-import { defaultShellArgv } from "./shell.ts";
+import { defaultShellArgv, programIn } from "./shell.ts";
 
 /** Scrollback kept per terminal for replay to late attachers. */
 export const SCROLLBACK_BYTES = 256 * 1024;
@@ -371,12 +372,15 @@ const adoptPty = (options: {
     resize: (cols, rows) => {
       if (closed || options.slave === null) return;
       const flag = process.platform === "darwin" ? "-f" : "-F";
-      Bun.spawn(["stty", flag, options.slave, "cols", String(cols), "rows", String(rows)], {
-        env: childEnv(),
-        stdin: "ignore",
-        stdout: "ignore",
-        stderr: "ignore",
-      });
+      Bun.spawn(
+        [executableOf("stty"), flag, options.slave, "cols", String(cols), "rows", String(rows)],
+        {
+          env: childEnv(),
+          stdin: "ignore",
+          stdout: "ignore",
+          stderr: "ignore",
+        }
+      );
     },
     close: () => {
       if (closed) return;
@@ -703,14 +707,15 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
               ? repositoryEnv(process.env, colors)
               : childEnv({ ...process.env, ...colors });
 
-          // The gate's sh would report a missing command only in the terminal: keep it a FileError.
-          if (gateSpawns && Bun.which(argv[0]!, { cwd, PATH: env.PATH ?? "" }) === null) {
-            throw Object.assign(new Error(`no such command: ${argv[0]}`), { code: "ENOENT" });
-          }
+          // By its absolute path; the gate's sh would report a missing one only in the terminal.
+          const program = programIn(cwd, argv[0]!, env);
 
+          if (program === null)
+            throw Object.assign(new Error(`no such command: ${argv[0]}`), { code: "ENOENT" });
+          const command = [program, ...argv.slice(1)];
           const before = handoffFile === null || windows ? null : openFdsOrNull();
 
-          const proc = Bun.spawn(gateSpawns ? [...SPAWN_GATE, ...argv] : argv, {
+          const proc = Bun.spawn(gateSpawns ? [...SPAWN_GATE, ...command] : command, {
             cwd,
             env,
             stdio: spawnStdio(),

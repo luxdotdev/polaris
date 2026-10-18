@@ -9,6 +9,7 @@
 import type { Socket, SocketHandler } from "bun";
 import { Effect } from "effect";
 import { paths } from "../../paths.ts";
+import { executableOf } from "../../platform/executable.ts";
 import { CommandRunner } from "../CommandRunner.ts";
 import { closeFd, socketPair } from "../libc.ts";
 import {
@@ -62,7 +63,7 @@ const program = Effect.gen(function* () {
     childPid = handoff.children[HARNESS]!;
   } else {
     const [ours, theirs] = socketPair();
-    const child = Bun.spawn(["cat"], { stdio: [theirs, theirs, "inherit"] });
+    const child = Bun.spawn([executableOf("cat")], { stdio: [theirs, theirs, "inherit"] });
     closeFd(theirs);
     harnessFd = ours;
     childPid = child.pid;

@@ -1,5 +1,6 @@
 import { childEnv } from "../service/childEnv.ts";
 import { execFile } from "node:child_process";
+import { findExecutable } from "../platform/executable.ts";
 import { processCreated } from "../platform/windowsNative.ts";
 
 /** A PID plus its start time distinguishes a recovered child from a reused PID. */
@@ -11,9 +12,13 @@ export const processIdentity = (pid: number): Promise<string | null> => {
     return Promise.resolve(started === null ? null : `filetime ${started}`);
   }
 
+  const ps = findExecutable("ps");
+
+  if (ps === null) return Promise.resolve(null);
+
   return new Promise((resolve) => {
     execFile(
-      "ps",
+      ps,
       ["-o", "stat=", "-o", "lstart=", "-p", String(pid)],
       { env: childEnv() },
       (error, stdout) => {

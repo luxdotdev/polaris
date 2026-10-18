@@ -6,6 +6,7 @@ import { createServer } from "node:net";
 import { join } from "node:path";
 import { Option, Predicate, Schema } from "effect";
 import { LLAMA_BUILD } from "./catalog.ts";
+import { executableOf } from "../../platform/executable.ts";
 
 export interface ManagedProcess {
   readonly pid: number;
@@ -35,7 +36,7 @@ export const pickPort = (): Promise<number> =>
   });
 
 export const spawnServer: Spawn = (command, args, cwd) => {
-  const child = Bun.spawn([command, ...args], {
+  const child = Bun.spawn([executableOf(command), ...args], {
     cwd,
     env: {
       ...process.env,
@@ -96,7 +97,8 @@ export const healthy = async (
 
 export const residentBytes = async (pid: number): Promise<number | null> => {
   try {
-    const child = Bun.spawn(["ps", "-o", "rss=", "-p", String(pid)], { stdout: "pipe" });
+    const ps = executableOf("ps");
+    const child = Bun.spawn([ps, "-o", "rss=", "-p", String(pid)], { stdout: "pipe" });
     const text = (await new Response(child.stdout).text()).trim();
     await child.exited;
     const kib = Number(text);
@@ -113,7 +115,7 @@ export const serverBinary = (dir: string) => join(buildDir(dir), "llama-server")
 
 /** The Host's own tar; the archive was hashed against its pin before this runs. */
 export const extractBuild = async (archive: string, dir: string): Promise<void> => {
-  const child = Bun.spawn(["tar", "-xzf", archive, "-C", dir], {
+  const child = Bun.spawn([executableOf("tar"), "-xzf", archive, "-C", dir], {
     stderr: "pipe",
     stdout: "ignore",
   });

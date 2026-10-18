@@ -14,6 +14,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
+import { findExecutable } from "../../platform/executable.ts";
 
 /** The component schemas the driver receives or validates. */
 const ROOTS = [
@@ -194,7 +195,7 @@ const fetchDoc = async (opencode: string): Promise<OpenApi> => {
   }
 };
 
-const opencode = flag("--opencode") ?? Bun.which("opencode");
+const opencode = flag("--opencode") ?? findExecutable("opencode");
 
 if (!opencode) throw new Error("opencode not found on PATH; pass --opencode /path/to/opencode");
 
