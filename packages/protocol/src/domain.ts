@@ -376,6 +376,27 @@ export class Subagent extends Schema.Class<Subagent>("Subagent")({
  */
 const startedAt = optionalNullable(Timestamp);
 
+/**
+ * What a Tool Call does, as its driver classifies it; `mcp` exactly when it carries an
+ * `McpTool`. Commands and edits are their own items, never a `ToolCall`.
+ */
+export const ToolKind = Schema.Literals([
+  "read",
+  "search",
+  "fetch",
+  "web-search",
+  "skill",
+  "mcp",
+  "other",
+]);
+
+export type ToolKind = typeof ToolKind.Type;
+
+/** An MCP server's tool, by the names the server and its tool go by in the Harness. */
+export const McpTool = Schema.Struct({ server: Schema.String, tool: Schema.String });
+
+export type McpTool = typeof McpTool.Type;
+
 /** One normalized piece of Harness output within a Turn. `raw` keeps the native frame. */
 export const TurnItem = Schema.TaggedUnion({
   AssistantMessage: { id: Schema.String, text: Schema.String, startedAt },
@@ -412,6 +433,11 @@ export const TurnItem = Schema.TaggedUnion({
     id: Schema.String,
     startedAt,
     name: Schema.String,
+    /** Null on older items and drivers that don't classify. */
+    kind: optionalNullable(ToolKind),
+    mcp: optionalNullable(McpTool),
+    /** A human title the Harness gave the call (ACP's `title`), when it gives one. */
+    title: optionalNullable(Schema.String),
     input: Schema.Unknown,
     output: Schema.NullOr(Schema.Unknown),
     status: Schema.Literals(["running", "completed", "failed", "declined"]),

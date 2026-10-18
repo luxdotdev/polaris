@@ -9,6 +9,7 @@ import {
   Model,
   type ModelId,
   type PermissionMode,
+  type ToolKind,
   TurnItem,
 } from "@polaris/protocol";
 import { Match } from "effect";
@@ -175,6 +176,17 @@ const fileChanges = (part: P.ToolPart) => {
 
 const FILE_TOOLS = new Set(["edit", "write", "multiedit", "patch", "apply_patch"]);
 
+/** OpenCode's built-in tools that a Tool Run counts; its MCP names don't split, so `other`. */
+const TOOL_KINDS = new Map<string, ToolKind>([
+  ["read", "read"],
+  ["list", "read"],
+  ["grep", "search"],
+  ["glob", "search"],
+  ["webfetch", "fetch"],
+  ["websearch", "web-search"],
+  ["skill", "skill"],
+]);
+
 const commandItem = (part: P.ToolPart, cwd: string, status: ItemStatus): TurnItem => {
   const { state } = part;
   const input = decodeBashInput(state.input) ?? {};
@@ -211,6 +223,7 @@ export const toolItem = (part: P.ToolPart, cwd: string): TurnItem | null => {
   return TurnItem.cases.ToolCall.make({
     id: part.id,
     name: part.tool,
+    kind: TOOL_KINDS.get(part.tool) ?? "other",
     input: state.input,
     output: Match.value(state).pipe(
       Match.when({ status: "completed" }, (s) => s.output),

@@ -177,6 +177,7 @@ const itemFor = (kind: number, seed: ItemSeed): TurnItem => {
       return TurnItem.cases.ToolCall.make({
         id,
         name: "read_file",
+        kind: "read",
         input: { path: "src/index.ts" },
         output: { lines: 120 },
         status: "completed",
