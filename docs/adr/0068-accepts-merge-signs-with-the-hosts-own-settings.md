@@ -30,7 +30,9 @@ How git picks what signs (checked on git 2.54):
   git 2.54 expands `~/` in `gpg.program`; older gits may not.
 - On Windows, Git for Windows resolves a bare name with its own `PATH` lookup, the one that
   already starts ssh and git-lfs for automatic git, and `isAbsolute` takes `C:\…` and `C:/…`
-  programs. Not yet checked on a Windows Host (ENG-353).
+  programs. Checked on Windows 11 (ENG-353, Git for Windows 2.39 and 2.56): a signer planted
+  in the repository root never runs, `C:/…` and quoted `C:\…` programs sign, Windows OpenSSH's
+  `ssh-keygen` signs; the Daemon's own bare `git` did run a planted `git.exe` (ADR 0069).
 
 ## Decision
 
@@ -49,7 +51,9 @@ built-in `unknown` scope), passed as `-c` options after the safe config
   before git runs, when the repository's own config (or a file it includes) sets any of those
   keys to a value other than the one Polaris would use, when the program or key command is a
   relative path (git would run a file in the repository, `~/` included as older gits don't
-  expand it), when an ssh key is a relative path, or when `gpg.format` is unknown.
+  expand it), when an ssh key is a relative path or any `~` form but `~/`, or when `gpg.format`
+  is unknown. An ssh key's `~/` is expanded against `HOME` (else the account's home) and passed
+  as an absolute path, as older gits don't expand it either.
 - Refused the same way when git ran the signer and it failed. The merge is aborted
   (`MERGE_HEAD` is left by a failed signing), so the Lead's tree is as it was.
 

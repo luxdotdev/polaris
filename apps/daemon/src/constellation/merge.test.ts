@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { appendFileSync, chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { delimiter, join, sep } from "node:path";
 import { Attempt, Constellation, ConstellationSettings } from "@polaris/protocol";
 import { Effect, Struct } from "effect";
 import { gitText } from "../git/git.ts";
+import { plant, plantedNames, recorded } from "../git/planted.testing.ts";
 import { commitAll, makeRepo, tempDir, write } from "../git/testing.ts";
 import { AT, CID, HOST, LEAD, WS, draft, report } from "../engine/constellation.testing.ts";
 import { mergeClaim } from "./merge.ts";
@@ -124,7 +125,12 @@ test(
 );
 
 describe("Accept's merge with commit.gpgSign", () => {
-  const saved = { global: process.env.GIT_CONFIG_GLOBAL, system: process.env.GIT_CONFIG_NOSYSTEM };
+  const saved = {
+    global: process.env.GIT_CONFIG_GLOBAL,
+    system: process.env.GIT_CONFIG_NOSYSTEM,
+    path: process.env.PATH,
+  };
+
   let markers = "";
 
   beforeEach(() => {
@@ -138,6 +144,7 @@ describe("Accept's merge with commit.gpgSign", () => {
     for (const [key, value] of [
       ["GIT_CONFIG_GLOBAL", saved.global],
       ["GIT_CONFIG_NOSYSTEM", saved.system],
+      ["PATH", saved.path],
     ] as const) {
       if (value === undefined) delete process.env[key];
       else process.env[key] = value;
@@ -185,10 +192,16 @@ describe("Accept's merge with commit.gpgSign", () => {
     expect(existsSync(join(root, ".git/MERGE_HEAD"))).toBe(false);
   };
 
-  test(
-    "signs the merge commit with the program and key from the user's own git config",
-    async () => {
-      hostConfig(`[gpg]\n\tprogram = ${signer("host", true)}\n[user]\n\tsigningkey = HOSTKEY`);
+  test.each([
+    ["with forward slashes", (path: string) => path],
+    // Quoted with escaped backslashes, as `git config gpg.program C:\\…` writes it on Windows.
+    ["natively quoted", (path: string) => JSON.stringify(path.replaceAll("/", sep))],
+  ])(
+    "signs the merge commit with the program (named %s) and key from the user's own git config",
+    async (_, written) => {
+      hostConfig(
+        `[gpg]\n\tprogram = ${written(signer("host", true))}\n[user]\n\tsigningkey = HOSTKEY`
+      );
       const { s, before } = await diverged(true);
 
       const result = await merge(s);
@@ -262,6 +275,73 @@ describe("Accept's merge with commit.gpgSign", () => {
       expect(result).toMatchObject({ error: { code: "E-MERGE-SIGN" } });
       expect("error" in result && result.error.fix).toContain("and sign it yourself, then accept");
       expect(ran("host")).not.toBeNull();
+      await untouched(s.root, before);
+    },
+    GIT_WORK_MS
+  );
+
+  /** A bare-named program the user installed, in a directory put first on PATH. */
+  const onPath = (program: string) => {
+    const dir = join(markers, "bin");
+    const path = plant(dir, process.platform === "win32" ? `${program}.exe` : program);
+    process.env.PATH = `${dir}${delimiter}${saved.path ?? ""}`;
+
+    return path;
+  };
+
+  /** Every name Windows or git could find `programs` by, planted in the Lead's checkout root. */
+  const plantAll = (root: string, programs: ReadonlyArray<string>) => {
+    const names = programs.flatMap(plantedNames);
+    appendFileSync(join(root, ".git/info/exclude"), `${[...names, "*.ran"].join("\n")}\n`);
+
+    return names.map((name) => plant(root, name));
+  };
+
+  test.each([
+    ["a bare gpg.program", "[gpg]\n\tprogram = polaris-test-gpg", ["polaris-test-gpg", "gpg"]],
+    [
+      "a bare gpg.ssh.defaultKeyCommand",
+      '[gpg]\n\tformat = ssh\n[gpg "ssh"]\n\tdefaultKeyCommand = polaris-test-gpg -L',
+      ["polaris-test-gpg", "ssh-keygen", "ssh-add"],
+    ],
+  ])(
+    "finds %s on PATH, never a program planted in the Lead's checkout",
+    async (_, config, programs) => {
+      const host = onPath("polaris-test-gpg");
+      hostConfig(config);
+      const { s, before } = await diverged(true);
+      const planted = plantAll(s.root, programs);
+
+      const result = await merge(s);
+
+      expect(result).toMatchObject({ error: { code: "E-MERGE-SIGN" } });
+      expect(recorded(host)).not.toBeNull();
+      expect(planted.filter((p) => recorded(p) !== null)).toEqual([]);
+      await untouched(s.root, before);
+    },
+    GIT_WORK_MS * 2
+  );
+
+  test.each([
+    ["~otheruser/key, which git may not expand", "~otheruser/key"],
+    ["a key file planted in the repository", "planted_key"],
+  ])(
+    "refuses an ssh signing key named by %s and never runs the signer",
+    async (_, key) => {
+      hostConfig(
+        `[gpg]\n\tformat = ssh\n[gpg "ssh"]\n\tprogram = ${signer("host", true)}\n[user]\n\tsigningkey = ${key}`
+      );
+      const { s, before } = await diverged(true);
+      write(s.root, "planted_key", "not a key\n");
+      appendFileSync(join(s.root, ".git/info/exclude"), "planted_key\n");
+
+      const result = await merge(s);
+
+      expect(result).toMatchObject({ error: { code: "E-MERGE-SIGN" } });
+      expect("error" in result && result.error.message).toContain(
+        "names a signing key by a relative path"
+      );
+      expect(ran("host")).toBeNull();
       await untouched(s.root, before);
     },
     GIT_WORK_MS
