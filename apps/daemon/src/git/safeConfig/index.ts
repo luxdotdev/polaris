@@ -5,6 +5,7 @@
  */
 import { childEnv } from "../../service/childEnv.ts";
 import { readBounded } from "../output.ts";
+import { gitExecutable } from "../executable.ts";
 import {
   cacheKey,
   discoveryPaths,
@@ -56,7 +57,7 @@ const decoder = new TextDecoder();
 
 /** git with only the fixed settings: these reads run nothing a config names. */
 const read = async (cwd: string, args: ReadonlyArray<string>, base: Env) => {
-  const proc = Bun.spawn(["git", ...args], {
+  const proc = Bun.spawn([gitExecutable(base), ...args], {
     cwd,
     env: childEnv({ ...base, ...configEnv([...FIXED, ...HOST_SETTINGS], base), ...NO_LAZY_FETCH }),
     stdin: "ignore",

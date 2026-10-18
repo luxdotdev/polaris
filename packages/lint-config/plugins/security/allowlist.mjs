@@ -8,6 +8,8 @@ export const GIT_SPAWN = {
   allow: {
     // The one way: safe config unless `config: "host"`, bounded output.
     "apps/daemon/src/git/git.ts": "gate",
+    // Finds git's absolute path on PATH, which every spawn above passes (never a bare `git`).
+    "apps/daemon/src/git/executable.ts": "gate",
     // Lists the config the safe settings are computed from, with only the fixed settings.
     "apps/daemon/src/git/safeConfig/index.ts": "gate",
     // `git --version`, to know whether GIT_NO_LAZY_FETCH is honoured.

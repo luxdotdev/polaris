@@ -6,6 +6,7 @@ import { afterEach, describe, expect, type Mock, spyOn, test } from "bun:test";
 import { chmodSync, existsSync, mkdirSync, rmSync, symlinkSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { posixTest } from "../../platform/testing.ts";
+import { gitExecutable } from "../executable.ts";
 import { gitText, HOOKS_OFF } from "../git.ts";
 import { makeRepo, removeDir, tempDir, write } from "../testing.ts";
 
@@ -39,7 +40,7 @@ const countGits = (...words: Array<string>) => {
     spawn.mock.calls.filter(([command]) => {
       const argv = Array.isArray(command) ? command : [];
 
-      return argv[0] === "git" && words.every((word) => argv.includes(word));
+      return argv[0] === gitExecutable() && words.every((word) => argv.includes(word));
     }).length;
 };
 

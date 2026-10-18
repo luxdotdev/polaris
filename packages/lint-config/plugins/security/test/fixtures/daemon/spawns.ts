@@ -4,6 +4,7 @@ import { $ } from "bun";
 
 const GIT = "git";
 const found = Bun.which("git");
+declare const gitExecutable: () => string;
 
 export const planted = async (cwd: string) => {
   Bun.spawn(["git", "status"], { cwd });
@@ -14,6 +15,7 @@ export const planted = async (cwd: string) => {
   execSync("git config --list");
   Bun.spawn([found ?? "git", "diff"], { cwd });
   await $`git status`;
+  Bun.spawn([gitExecutable(), "status"], { cwd });
 };
 
 // Not git, or not a spawn: no report.

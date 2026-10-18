@@ -3,6 +3,7 @@
  * what that remote's config names (`uploadpack`, `ext::`). Automatic git never lazy-fetches.
  */
 import { childEnv } from "../../service/childEnv.ts";
+import { gitExecutable, pathOf } from "../executable.ts";
 import type { Entry } from "./settings.ts";
 
 type Env = Readonly<Record<string, string | undefined>>;
@@ -47,9 +48,7 @@ export const honoursNoLazyFetch = (version: string | null): boolean => {
 const versions = new Map<string, Promise<string | null>>();
 
 const readVersion = async (base: Env): Promise<string | null> => {
-  const binary = Bun.which("git", { PATH: base.PATH ?? "" }) ?? "git";
-
-  const proc = Bun.spawn([binary, "--version"], {
+  const proc = Bun.spawn([gitExecutable(base), "--version"], {
     env: childEnv(base),
     stdin: "ignore",
     stdout: "pipe",
@@ -62,7 +61,7 @@ const readVersion = async (base: Env): Promise<string | null> => {
 };
 
 const gitVersion = (base: Env) => {
-  const key = base.PATH ?? "";
+  const key = pathOf(base);
   const known = versions.get(key);
 
   if (known !== undefined) return known;
