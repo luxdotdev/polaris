@@ -4,6 +4,8 @@
  */
 import { readFileSync } from "node:fs";
 import { userInfo } from "node:os";
+import { resolve } from "node:path";
+import { findExecutable, hasDirectory } from "../platform/executable.ts";
 import { envValue } from "../platform/processes.ts";
 import { which } from "../service/userPath.ts";
 
@@ -71,3 +73,13 @@ export const defaultShellArgv = (): Array<string> =>
   process.platform === "win32"
     ? windowsShell({ find: which, comSpec: envValue(process.env, "ComSpec") })
     : [loginShell(), "-l"];
+
+/**
+ * argv[0] as a terminal in `cwd` starts it: a bare name off the child's PATH, never `cwd`
+ * (Windows looks there first: ADR 0070); a relative path in `cwd`, as a shell would.
+ */
+export const programIn = (
+  cwd: string,
+  program: string,
+  env: Readonly<Record<string, string | undefined>>
+): string | null => (hasDirectory(program) ? resolve(cwd, program) : findExecutable(program, env));

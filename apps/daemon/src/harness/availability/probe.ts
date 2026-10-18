@@ -4,6 +4,7 @@
  * credentials (ADR 0001) and never imports a driver here (ENG-196).
  */
 import { childEnv } from "../../service/childEnv.ts";
+import { executableOf, findExecutable } from "../../platform/executable.ts";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
@@ -54,7 +55,7 @@ const firstLine = (text: string): string | null => text.trim().split("\n")[0]?.t
 export const runProbe = (argv: ReadonlyArray<string>, env: ProbeEnv): Effect.Effect<RunResult> =>
   Effect.promise(async (): Promise<RunResult> => {
     try {
-      const proc = Bun.spawn([...argv], {
+      const proc = Bun.spawn([executableOf(argv[0] ?? "", env), ...argv.slice(1)], {
         cwd: home(env),
         env: childEnv(env),
         stdin: "ignore",
@@ -231,9 +232,13 @@ export const harnessBinary = (kind: KnownHarnessKind, env: ProbeEnv): string | n
   const prober = PROBERS[kind];
   const override = env[prober.binaryEnv];
 
-  if (override) return existsSync(override) ? override : null;
+  if (override) {
+    const path = findExecutable(override, env);
 
-  return Bun.which(prober.binary, { PATH: env.PATH ?? "" });
+    return path !== null && existsSync(path) ? path : null;
+  }
+
+  return findExecutable(prober.binary, env);
 };
 
 /** `<binary> --version`, with `scratchHomeEnv` on a fresh empty directory removed afterwards. */

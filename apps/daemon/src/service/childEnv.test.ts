@@ -1,4 +1,5 @@
-import { expect } from "bun:test";
+import { expect, test } from "bun:test";
+import { repositoryEnv } from "./childEnv.ts";
 import { spawnSync } from "node:child_process";
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -53,3 +54,16 @@ for (const phase of ["before", "after"])
     },
     30_000
   );
+
+test("a repository's child keeps PATH under the Daemon's casing, with only its absolute entries", () => {
+  // A shell reads an empty or relative entry as its cwd, the repository.
+  const [source, expected] =
+    process.platform === "win32"
+      ? [
+          { Path: "C:\\Tools\\cmd;;.;bin;C:\\Windows", GITHUB_TOKEN: "t" },
+          { Path: "C:\\Tools\\cmd;C:\\Windows", NoDefaultCurrentDirectoryInExePath: "1" },
+        ]
+      : [{ PATH: "/usr/bin::.:bin:/bin", GITHUB_TOKEN: "t" }, { PATH: "/usr/bin:/bin" }];
+
+  expect(repositoryEnv(source)).toEqual(expected);
+});

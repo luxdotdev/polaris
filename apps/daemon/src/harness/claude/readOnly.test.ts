@@ -190,7 +190,12 @@ describe("the Reviewer's environment", () => {
   };
 
   test("Claude Code gets what it needs and the confined git, not other services' keys", () => {
-    expect(readOnlyEnv(daemon, confinement)).toEqual({
+    const { NoDefaultCurrentDirectoryInExePath: noCwdLookup, ...env } = readOnlyEnv(
+      daemon,
+      confinement
+    );
+
+    expect(env).toEqual({
       PATH: "/usr/bin",
       HOME: "/home/u",
       HTTPS_PROXY: "http://proxy:3128",
@@ -199,6 +204,8 @@ describe("the Reviewer's environment", () => {
       GIT_CONFIG_GLOBAL: "/dev/null",
       GIT_COMMON_DIR: "/work/sanitized",
     });
+    // On Windows cmd.exe never runs a program from its cwd, the checkout (ADR 0070).
+    expect(noCwdLookup).toBe(process.platform === "win32" ? "1" : undefined);
   });
 
   test("a cloud provider's credentials stay only while Claude Code uses that provider", () => {

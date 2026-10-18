@@ -27,6 +27,19 @@ export const GIT_SPAWN = {
   },
 };
 
+/** `security/spawn-path`: spawns in a cwd whose program is resolved where the rule can't see. */
+export const SPAWN_PATH = {
+  scope: ["apps/daemon/src/"],
+  allow: {
+    // The resolver itself: the one place that calls Bun.which.
+    "apps/daemon/src/platform/executable.ts": "resolver",
+    // argv[0] goes through programIn (a bare name off PATH) before the macOS gate's /bin/sh.
+    "apps/daemon/src/terminal/Terminals.ts": "resolved",
+    // shellCommand's argv[0] is /bin/sh, or ComSpec through executableOf.
+    "apps/daemon/src/constellation/setup/process.ts": "resolved",
+  },
+};
+
 /** `security/git-config-mode`: who may pass `config: "host"` or `"trusted-fetch"` to git.ts. */
 export const GIT_CONFIG_MODE = {
   scope: ["apps/daemon/src/"],

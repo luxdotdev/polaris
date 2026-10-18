@@ -1,16 +1,18 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { HARNESS_CATALOGUE, type KnownHarnessKind } from "@polaris/protocol";
 import { Effect } from "effect";
 import {
   claudeSignInKind,
   codexSignInKind,
+  harnessBinary,
   parseVersion,
   type ProbeEnv,
   probeHarness,
 } from "./probe.ts";
+import { hostProgram } from "../../git/planted.testing.ts";
 import { shellFake } from "../testing/shellFake.ts";
 
 const dirs: Array<string> = [];
@@ -405,4 +407,24 @@ describe("sign-in kind", () => {
     expect(codexSignInKind("Logged in using an API key - sk-proj-***abcd\n")).toBe("API key");
     expect(codexSignInKind("")).toBeNull();
   });
+});
+
+test("a Harness is found by its absolute path: a `.` PATH entry and a relative override are the Daemon's cwd's", () => {
+  const daemonCwd = mkdtempSync(join(tmpdir(), "polaris-harness-cwd-"));
+  dirs.push(daemonCwd);
+  const program = basename(hostProgram(daemonCwd, "claude", "x"));
+  const home = process.cwd();
+  process.chdir(daemonCwd);
+
+  try {
+    // A relative result would start the Workspace's own `claude` once spawned there.
+    const expected = join(process.cwd(), program);
+
+    expect([
+      harnessBinary("claude", { PATH: "." }),
+      harnessBinary("claude", { PATH: "", POLARIS_CLAUDE: `./${program}` }),
+    ]).toEqual([expected, expected]);
+  } finally {
+    process.chdir(home);
+  }
 });

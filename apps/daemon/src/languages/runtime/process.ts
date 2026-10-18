@@ -1,5 +1,6 @@
 import type { ProcessPort } from "../transport/index.ts";
 import { failure } from "../transport/framing.ts";
+import { executableOf } from "../../platform/executable.ts";
 import type { LanguageJsonObject } from "@polaris/protocol";
 
 export interface Launch {
@@ -17,7 +18,7 @@ export function spawnLanguageProcess(launch: Launch): ProcessPort {
   if (!RESOLVED.test(launch.executable))
     throw failure("missing-prerequisite", "Expected resolved Host executable");
 
-  const child = Bun.spawn([launch.executable, ...launch.args], {
+  const child = Bun.spawn([executableOf(launch.executable), ...launch.args], {
     cwd: launch.cwd,
     env: {
       ...process.env,

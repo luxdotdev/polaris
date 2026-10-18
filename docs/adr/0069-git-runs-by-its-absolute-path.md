@@ -36,4 +36,4 @@ worktree or a Review checkout. Measured on Windows 11 with Bun 1.4.3 (ENG-353, l
 - **Signing programs stay bare names** handed to git (ADR 0068): git's own lookup is the safe
   one, so resolving them ourselves would change nothing a repository controls.
 
-Other programs the Daemon starts by bare name with a repository as cwd are tracked in ENG-355.
+Every other program the Daemon starts follows the same rule: ADR 0070 (ENG-355).

@@ -29,6 +29,7 @@ import { homedir, userInfo } from "node:os";
 import { join } from "node:path";
 import { BRIDGE_EXIT_NO_DAEMON, BRIDGE_EXIT_UNTRUSTED_DAEMON } from "@polaris/protocol/bridge";
 import { paths } from "../paths.ts";
+import { system32 } from "../platform/processes.ts";
 import { SYSTEMD_UNIT } from "../service/templates.ts";
 import { realProfileDirectory } from "../service/windowsProfile.ts";
 import { windowsTaskName } from "../service/windowsTask.ts";
@@ -177,7 +178,7 @@ const runWindowsTask = (): boolean => {
   const name = windowsTaskName(userInfo().username, paths().root, realProfileDirectory());
 
   try {
-    const run = Bun.spawnSync(["schtasks", "/Run", "/TN", name], {
+    const run = Bun.spawnSync([system32("schtasks.exe"), "/Run", "/TN", name], {
       env: childEnv(),
       stdout: "ignore",
       stderr: "ignore",

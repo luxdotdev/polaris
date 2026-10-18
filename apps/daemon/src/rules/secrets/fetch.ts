@@ -5,6 +5,7 @@
  * run time on a Host: Hosts get the file with the Daemon.
  */
 import { childEnv } from "../../service/childEnv.ts";
+import { executableOf } from "../../platform/executable.ts";
 import { createHash } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -36,7 +37,7 @@ export const hostAsset = (): BetterleaksAsset | null =>
 const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 
 const extract = async (archive: string, outDir: string) => {
-  const proc = Bun.spawn(["tar", "-xzf", archive, "-C", outDir, "betterleaks"], {
+  const proc = Bun.spawn([executableOf("tar"), "-xzf", archive, "-C", outDir, "betterleaks"], {
     env: childEnv(),
     stdout: "ignore",
     stderr: "pipe",

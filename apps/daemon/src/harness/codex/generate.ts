@@ -15,6 +15,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
+import { findExecutable } from "../../platform/executable.ts";
 
 /** The protocol types the driver sends, receives or validates, relative to the generate-ts root. */
 const ROOTS = [
@@ -71,7 +72,7 @@ const args = process.argv.slice(2);
 
 const codexFlag = args.indexOf("--codex");
 
-const codex = codexFlag >= 0 ? args[codexFlag + 1] : Bun.which("codex");
+const codex = codexFlag >= 0 ? args[codexFlag + 1] : findExecutable("codex");
 
 if (!codex) throw new Error("codex not found on PATH; pass --codex /path/to/codex");
 

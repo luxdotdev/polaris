@@ -1,6 +1,7 @@
 import { childEnv } from "../service/childEnv.ts";
 import { execFile } from "node:child_process";
 import { Schema } from "effect";
+import { findExecutable } from "../platform/executable.ts";
 import { processCreated } from "../platform/windowsNative.ts";
 
 /** `ps` never answered: whether the process lives is unknown, so nothing may be decided on it. */
@@ -18,9 +19,13 @@ export interface PsRun {
 const runPs = (pid: number): PsRun => {
   let kill = () => {};
 
+  const ps = findExecutable("ps");
+
+  if (ps === null) return { output: Promise.resolve(null), kill };
+
   const output = new Promise<string | null>((resolve) => {
     const child = execFile(
-      "ps",
+      ps,
       ["-o", "stat=", "-o", "lstart=", "-p", String(pid)],
       { env: childEnv() },
       (error, stdout) => resolve(error === null ? stdout : null)

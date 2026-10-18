@@ -28,6 +28,16 @@
         }
       }
     ],
+    "security/spawn-path": [
+      "error",
+      {
+        "scope": ["packages/lint-config/plugins/security/test/fixtures/programs/"],
+        "allow": {
+          "packages/lint-config/plugins/security/test/fixtures/programs/executable.ts": "resolver",
+          "packages/lint-config/plugins/security/test/fixtures/programs/resolved.ts": "resolved"
+        }
+      }
+    ],
     "security/repository-env": [
       "error",
       {

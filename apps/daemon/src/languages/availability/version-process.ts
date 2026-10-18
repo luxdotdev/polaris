@@ -2,6 +2,7 @@ import { isAbsolute } from "node:path";
 import { Schema } from "effect";
 import type { VersionCommand, VersionOutput } from "./probes.ts";
 import { abortable, checkAbort, failure } from "../install/validation.ts";
+import { executableOf } from "../../platform/executable.ts";
 
 type ProbeReader = {
   read: () => Promise<
@@ -83,7 +84,7 @@ export async function runHostVersion(
   )
     throw failure("invalid-input", "Invalid Host version probe command");
 
-  const child = Bun.spawn([command.executable, ...command.argv], {
+  const child = Bun.spawn([executableOf(command.executable), ...command.argv], {
     cwd: command.cwd,
     env: { LANG: "C", LC_ALL: "C" },
     detached: true,

@@ -70,6 +70,36 @@ export const plantedNames = (program: string): ReadonlyArray<string> =>
     ? [`${program}.exe`, `${program}.com`, `${program}.bat`, `${program}.cmd`, program]
     : [program];
 
+/** Plants every name a bare `program` may be found by in `dir`; returns their paths. */
+export const plantAll = (dir: string, program: string): ReadonlyArray<string> =>
+  plantedNames(program).map((name) => plant(dir, name));
+
+/** The Host's own `program` in `dir` (put it on PATH): prints `text` and succeeds. Its path. */
+export const hostProgram = (dir: string, program: string, text: string): string => {
+  mkdirSync(dir, { recursive: true });
+
+  if (process.platform === "win32") {
+    const path = join(dir, `${program}.cmd`);
+    writeFileSync(path, `@echo ${text}\r\n`);
+
+    return path;
+  }
+
+  const path = join(dir, program);
+  writeFileSync(path, `#!/bin/sh\necho ${text}\n`);
+  chmodSync(path, 0o755);
+
+  return path;
+};
+
+/** Planted programs that ran: each one's path, and what it recorded. */
+export const ranOf = (paths: ReadonlyArray<string>): ReadonlyArray<string> =>
+  paths.flatMap((path) => {
+    const ran = recorded(path);
+
+    return ran === null ? [] : [`${path}: ${ran}`];
+  });
+
 /** What a planted program recorded, or null when it never ran. */
 export const recorded = (path: string): string | null =>
   existsSync(`${path}.ran`) ? readFileSync(`${path}.ran`, "utf8") : null;

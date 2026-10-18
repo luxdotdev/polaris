@@ -2,7 +2,8 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { FileError, NotFound, TerminalId } from "@polaris/protocol";
 import { Effect, Exit, Fiber, Layer, ManagedRuntime, Stream } from "effect";
 import { cpus } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
+import { hostProgram, plantAll, ranOf } from "../git/planted.testing.ts";
 import { removeDir, tempDir } from "../git/testing.ts";
 import { loginShell, type ShellSources, windowsShell } from "./shell.ts";
 import { Scrollback, TerminalItem, Terminals, TerminalsLive } from "./Terminals.ts";
@@ -122,6 +123,29 @@ describe("Terminals", () => {
     const list = await run((t) => t.list);
     expect(list.find((i) => i.id === id)?.exit).toEqual({ code: 3 });
   });
+
+  test("a bare command is the Host's on PATH, never one planted in the terminal's cwd", async () => {
+    const { dir, run, attach } = setup();
+    const bin = tempDir("polaris-term-bin-");
+    cleanup.push(bin);
+    const planted = plantAll(dir, "zzpolaris");
+    hostProgram(bin, "zzpolaris", "host-program");
+    // Windows keeps `Path`; POSIX would look in the cwd through the `.` and empty entries.
+    const key = Object.keys(process.env).find((k) => k.toLowerCase() === "path") ?? "PATH";
+    const saved = process.env[key];
+    process.env[key] = [".", "", bin, saved ?? ""].join(delimiter);
+
+    try {
+      const id = await run((t) => t.open({ cwd: dir, cols: 80, rows: 24, argv: ["zzpolaris"] }));
+      const a = attach(id);
+      await a.waitFor("host-program", 15_000);
+      await a.waitFor("<exit 0>", 15_000);
+    } finally {
+      process.env[key] = saved;
+    }
+
+    expect(ranOf(planted)).toEqual([]);
+  }, 30_000);
 
   posix("late attachers get the scrollback replayed; many can attach at once", async () => {
     const { dir, run, attach } = setup();

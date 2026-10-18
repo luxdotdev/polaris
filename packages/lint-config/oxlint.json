@@ -70,6 +70,7 @@
     "security/git-config-mode": "error",
     "security/image-decode": "error",
     "security/repository-env": "error",
+    "security/spawn-path": "error",
     "sonarjs/cognitive-complexity": ["error", 15],
     "max-lines": ["error", { "max": 750, "skipBlankLines": true, "skipComments": false }],
 

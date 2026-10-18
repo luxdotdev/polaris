@@ -1,5 +1,6 @@
 import type { LanguageProjectFormatterTool } from "@polaris/protocol";
 import { formatterPath } from "./launch.ts";
+import { executableOf } from "../../platform/executable.ts";
 
 /** Each tool reads the buffer on stdin and resolves its own config and ignores from `file`. */
 const ARGUMENTS: Record<LanguageProjectFormatterTool, (file: string) => string[]> = {
@@ -40,20 +41,23 @@ const firstLine = (stderr: string) =>
     ?.slice(0, 300) ?? "";
 
 const spawn = (run: FormatterRun) =>
-  Bun.spawn([...run.argv, ...ARGUMENTS[run.tool](run.file)], {
-    cwd: run.cwd,
-    env: {
-      ...process.env,
-      PATH: formatterPath(run.node),
-      POLARIS_HANDOFF: undefined,
-      POLARIS_HOST_SOCKET: undefined,
-      POLARIS_SESSION_ID: undefined,
-    },
-    stdin: new Blob([run.text]),
-    stdout: "pipe",
-    stderr: "pipe",
-    detached: true,
-  });
+  Bun.spawn(
+    [executableOf(run.argv[0] ?? ""), ...run.argv.slice(1), ...ARGUMENTS[run.tool](run.file)],
+    {
+      cwd: run.cwd,
+      env: {
+        ...process.env,
+        PATH: formatterPath(run.node),
+        POLARIS_HANDOFF: undefined,
+        POLARIS_HOST_SOCKET: undefined,
+        POLARIS_SESSION_ID: undefined,
+      },
+      stdin: new Blob([run.text]),
+      stdout: "pipe",
+      stderr: "pipe",
+      detached: true,
+    }
+  );
 
 /** No shell; the process group is killed on timeout or cancellation. */
 export async function runProjectFormatter(

@@ -7,6 +7,7 @@
  * merges that with its own PATH and a few well-known user bin directories.
  */
 import { childEnv } from "./childEnv.ts";
+import { findExecutable } from "../platform/executable.ts";
 import {
   loginShellArgv,
   mergePaths,
@@ -24,9 +25,11 @@ export { mergePaths, mergePathsWith, parseMarkedPath } from "@polaris/client/use
 export const loginShellPath = ({ env, timeoutMs = 3000 }: UserPathInput): string | null => {
   const argv = loginShellArgv(env);
 
-  if (argv === null) return null;
+  const shell = argv === null ? null : findExecutable(argv[0]);
 
-  const result = spawnSync(argv[0], argv[1], {
+  if (argv === null || shell === null) return null;
+
+  const result = spawnSync(shell, argv[1], {
     env: childEnv({ ...env, TERM: "dumb" }),
     stdio: ["ignore", "pipe", "ignore"],
     timeout: timeoutMs,
@@ -54,8 +57,7 @@ export const userPath = (input: UserPathInput): string => {
 };
 
 /**
- * `Bun.which` on the PATH this process has now. A bare `Bun.which(name)` reads
+ * `name`'s absolute path on the PATH this process has now. A bare `Bun.which(name)` reads
  * the PATH the process started with and misses what `runServe` merged in.
  */
-export const which = (name: string): string | null =>
-  Bun.which(name, { PATH: process.env.PATH ?? "" });
+export const which = (name: string): string | null => findExecutable(name);

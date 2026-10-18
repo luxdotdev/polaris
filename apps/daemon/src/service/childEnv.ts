@@ -1,3 +1,5 @@
+import { posix, win32 } from "node:path";
+
 type Env = Readonly<Record<string, string | undefined>>;
 
 /** Explicit environment for children; Bun's default retains the original hand-off envelope. */
@@ -27,6 +29,8 @@ const REPOSITORY_KEYS: ReadonlySet<string> = new Set([
 /** What Windows programs need to start and find the user's folders (lowercase: its names keep any case). */
 const WINDOWS_KEYS: ReadonlySet<string> = new Set(
   [
+    // Windows' own casing is `Path`: REPOSITORY_KEYS' `PATH` alone dropped it.
+    "PATH",
     "SystemRoot",
     "SystemDrive",
     "windir",
@@ -57,6 +61,36 @@ export const isWindowsBaseKey = (key: string, os: string = process.platform): bo
 
 const LOCALE = /^LC_[A-Z]+$/;
 
+const isPathKey = (key: string, os: string) =>
+  os === "win32" ? key.toLowerCase() === "path" : key === "PATH";
+
+/** `PATH`'s absolute entries: a shell reads an empty or relative one as the cwd, a repository. */
+export const absolutePath = (path: string, os: string = process.platform): string => {
+  const [delimiter, absolute] = os === "win32" ? [";", win32.isAbsolute] : [":", posix.isAbsolute];
+
+  return path
+    .split(delimiter)
+    .filter((entry) => absolute(entry.trim().replace(/^"(.*)"$/, "$1")))
+    .join(delimiter);
+};
+
+/**
+ * What a child in a repository gets on top: only `PATH`'s absolute entries, and on Windows
+ * `NoDefaultCurrentDirectoryInExePath`, so cmd.exe never runs a bare name from its cwd first.
+ * Bun.spawn itself ignores that variable (ADR 0070).
+ */
+export const repositoryChild = (
+  env: Record<string, string>,
+  os: string = process.platform
+): Record<string, string> => {
+  const child: Record<string, string> = {};
+
+  for (const [key, value] of Object.entries(env))
+    child[key] = isPathKey(key, os) ? absolutePath(value, os) : value;
+
+  return os === "win32" ? { ...child, NoDefaultCurrentDirectoryInExePath: "1" } : child;
+};
+
 /**
  * The environment of a child that runs a repository's own code (a Review Run): an allowlist,
  * so provider keys, tokens, `SSH_AUTH_SOCK` and Polaris's own variables never reach it.
@@ -74,5 +108,5 @@ export const repositoryEnv = (source: Env = process.env, extra: Env = {}) => {
 
   for (const [key, value] of Object.entries(extra)) if (value !== undefined) env[key] = value;
 
-  return env;
+  return repositoryChild(env);
 };
