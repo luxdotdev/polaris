@@ -22,6 +22,7 @@ import {
 } from "@polaris/protocol";
 import { changeWalkthrough, initialWalkthrough, walkthroughChoice } from "./walkthrough.ts";
 import { Cause, Effect, Option, Result, Schema } from "effect";
+import { interruptibleGitPromise } from "../git/interrupt.ts";
 import { checkoutGitRaw } from "../git/review/refs.ts";
 import { recordRulesLayer } from "../rules/index.ts";
 import { EventStore } from "../store/EventStore.ts";
@@ -77,7 +78,7 @@ const decoder = new TextDecoder();
 export const linesAt =
   (cwd: string, base: string, head: string): ReadLines =>
   (path, side) =>
-    Effect.promise(async () => {
+    interruptibleGitPromise(async () => {
       const result = await checkoutGitRaw(cwd, ["show", `${side === "new" ? head : base}:${path}`]);
 
       return result.code === 0 ? decoder.decode(result.stdout).split("\n") : null;
@@ -85,7 +86,7 @@ export const linesAt =
 
 /** True when `base` and `head` hold the same files (a Turn that changed nothing). */
 const sameTree = (range: ReviewRange) =>
-  Effect.promise(async () => {
+  interruptibleGitPromise(async () => {
     const result = await checkoutGitRaw(range.cwd, ["diff", "--quiet", range.base, range.head]);
 
     return result.code === 0;
@@ -269,13 +270,13 @@ interface AgentResult {
 
 const askReviewer = Effect.fn("askReviewer")(function* (input: AgentInput) {
   const { range, choice, summary } = input;
-  const diff = yield* Effect.promise(() => readDiff(range.cwd, range.base, range.head));
+  const diff = yield* interruptibleGitPromise(() => readDiff(range.cwd, range.base, range.head));
 
-  const instructions = yield* Effect.promise(() =>
+  const instructions = yield* interruptibleGitPromise(() =>
     readInstructions({ cwd: range.cwd, head: range.head, repo: range.key.repo })
   );
 
-  const generated = yield* Effect.promise(() =>
+  const generated = yield* interruptibleGitPromise(() =>
     generatedPaths({
       root: range.cwd,
       at: range.rulesAt,
@@ -370,7 +371,7 @@ const runAgentLayer = (input: AgentInput) =>
 
     const converted = yield* toRiskFindings(
       result.output.findings,
-      yield* Effect.promise(() => readDiff(range.cwd, range.base, range.head)),
+      yield* interruptibleGitPromise(() => readDiff(range.cwd, range.base, range.head)),
       linesAt(range.cwd, range.base, range.head)
     );
 
@@ -472,7 +473,7 @@ export const runLayers = (
 const planningDiff = (range: ReviewRange, plan: ReviewerPlan, walkthroughRuns: boolean) =>
   !walkthroughRuns && (runningChoice(plan) === null || plan.askAboveLines === null)
     ? Effect.succeed<ChangeDiff>({ files: [] })
-    : Effect.promise(() => readDiff(range.cwd, range.base, range.head));
+    : interruptibleGitPromise(() => readDiff(range.cwd, range.base, range.head));
 
 export const startRun = (
   request: RunRequest,

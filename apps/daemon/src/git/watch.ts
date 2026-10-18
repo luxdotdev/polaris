@@ -9,6 +9,7 @@ import { GitError } from "@polaris/protocol";
 import { Effect, Queue, Stream } from "effect";
 import { subscribeDirectoryChanges } from "../files/watch.ts";
 import { gitText } from "./git.ts";
+import { interruptibleGit } from "./interrupt.ts";
 
 /** Git dir entries whose change moves `git status`; `*.lock` files are git mid-write. */
 const STATE = new Set([
@@ -92,7 +93,7 @@ export const watchGitState = (dirs: GitDirs, changed: () => void): (() => void) 
 /** `git.watch` for `cwd`; fails when `cwd` isn't in a git checkout. */
 export const watchGit = (cwd: string) =>
   Stream.unwrap(
-    Effect.tryPromise({
+    interruptibleGit({
       try: () => gitDirsOf(cwd),
       catch: (cause) =>
         new GitError({ cwd, message: cause instanceof Error ? cause.message : String(cause) }),

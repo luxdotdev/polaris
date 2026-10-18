@@ -5,6 +5,7 @@
  */
 import { safeArgs, safeConfigEnv } from "../git/safeConfig/index.ts";
 import { gitExecutable } from "../git/executable.ts";
+import { groupFor, startSignal, stopOnAbort } from "../git/interrupt.ts";
 import { repositoryEnv } from "../service/childEnv.ts";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -65,7 +66,10 @@ const catFile = async (cwd: string, input: string, out: string): Promise<Uint8Ar
     LC_ALL: "C",
   });
 
+  const signal = startSignal(CAT_FILE);
+
   const proc = Bun.spawn([gitExecutable(base), ...safeArgs(CAT_FILE)], {
+    ...groupFor(signal),
     cwd,
     env: { ...base, ...(await safeConfigEnv(cwd, base, { args: CAT_FILE })) },
     stdin: new Blob([input]),
@@ -73,6 +77,7 @@ const catFile = async (cwd: string, input: string, out: string): Promise<Uint8Ar
     stderr: "pipe",
   });
 
+  stopOnAbort(proc, signal);
   const [stderr, code] = await Promise.all([new Response(proc.stderr).text(), proc.exited]);
 
   if (code !== 0) throw new Error(`git cat-file --batch exited ${code}: ${stderr.trim()}`);

@@ -10,6 +10,7 @@ import { Checkpoints, ServiceError } from "../services.ts";
 import { GitCommandError, gitText, runGitRaw } from "./git.ts";
 import { snapshotWorkingTree } from "./snapshot.ts";
 import { checkpointRef } from "./checkpointRefs.ts";
+import { finishingGit } from "./interrupt.ts";
 
 export { checkpointRef } from "./checkpointRefs.ts";
 
@@ -97,7 +98,8 @@ export const CheckpointsLive = Layer.succeed(
   Checkpoints,
   Checkpoints.of({
     capture: Effect.fn("Checkpoints.capture")(function* (options) {
-      return yield* Effect.tryPromise({
+      // It writes a ref: an interrupt lets it finish.
+      return yield* finishingGit({
         try: () => captureCheckpoint(options),
         catch: (cause) =>
           new ServiceError({

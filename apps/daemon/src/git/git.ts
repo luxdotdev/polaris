@@ -5,12 +5,12 @@
 import { childEnv } from "../service/childEnv.ts";
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { Effect } from "effect";
 import { ServiceError } from "../services.ts";
 import { megabytes, readBounded, readHead } from "./output.ts";
 import { gitExecutable } from "./executable.ts";
 import { hostConfigEnv, NO_HOOKS_PATH, safeArgs, safeConfigEnv } from "./safeConfig/index.ts";
 import { killTree, ownProcessGroup } from "../platform/processes.ts";
+import { groupFor, interruptibleGit, pipesOf, startSignal, stopOnAbort } from "./interrupt.ts";
 
 export interface GitResult {
   readonly code: number;
@@ -26,7 +26,10 @@ export interface GitOptions {
   readonly okCodes?: ReadonlyArray<number>;
   /** Kill git (SIGKILL) after this long; it then fails with exit code 137 or similar. */
   readonly timeoutMs?: number;
-  /** Aborting sends SIGTERM to git's process group: git removes its lock files, ssh stops too. */
+  /**
+   * Aborting sends SIGTERM to git's process group (git removes its lock files, ssh stops
+   * too), then SIGKILL. Work under `interruptibleGit`/`finishingGit` is aborted on interrupt.
+   */
   readonly signal?: AbortSignal;
   /**
    * `"host"` is git the user asked for (commit, sync, Accept, stage): the Host's
@@ -95,33 +98,31 @@ export const runGitRaw = async (
     spawnOptions.killSignal = "SIGKILL";
   }
 
-  // Its own process group, so an abort also stops what git started (ssh, a credential helper).
-  const group = options.signal !== undefined;
+  const signal = startSignal(args, options.signal);
 
-  if (group && ownProcessGroup()) spawnOptions.detached = true;
-
-  const proc = Bun.spawn([gitExecutable(base), ...(host ? args : safeArgs(args))], spawnOptions);
-  const stop = () => killGroup(proc.pid);
+  const proc = Bun.spawn([gitExecutable(base), ...(host ? args : safeArgs(args))], {
+    ...spawnOptions,
+    ...groupFor(signal),
+  });
 
   const overflow = () => {
-    if (group) killGroup(proc.pid);
+    if (signal !== undefined) killGroup(proc.pid);
 
     // taskkill needs git alive to find its children, and ends git with them.
-    if (!group || ownProcessGroup()) proc.kill("SIGKILL");
+    if (signal === undefined || ownProcessGroup()) proc.kill("SIGKILL");
   };
 
-  options.signal?.addEventListener("abort", stop, { once: true });
-
-  if (options.signal?.aborted === true) stop();
-  void proc.exited.then(() => options.signal?.removeEventListener("abort", stop));
+  stopOnAbort(proc, signal);
 
   const limit = options.maxOutputBytes ?? MAX_OUTPUT_BYTES;
 
-  const [stdout, stderr, code] = await Promise.all([
+  const reads = Promise.all([
     readBounded(proc.stdout, limit, overflow),
     readHead(proc.stderr, MAX_STDERR_BYTES),
-    proc.exited,
   ]);
+
+  const [stdout, stderr] = await pipesOf(reads, proc.exited, signal, [new Uint8Array(), ""]);
+  const code = await proc.exited;
 
   if (stdout === null) throw new GitOutputTooLarge(args, limit);
 
@@ -162,28 +163,19 @@ export const gitText = async (
   options: GitOptions = {}
 ): Promise<string> => decoder.decode((await runGit(cwd, args, options)).stdout).replace(/\n$/, "");
 
-/** `git` as an Effect, failing with `ServiceError` (service "git"). */
-export const git = (cwd: string, args: ReadonlyArray<string>, options: GitOptions = {}) =>
-  Effect.tryPromise({
-    try: () => runGit(cwd, args, options),
-    catch: (cause) =>
-      new ServiceError({
-        service: "git",
-        message: cause instanceof Error ? cause.message : String(cause),
-        cause,
-      }),
+const gitFailure = (cause: unknown) =>
+  new ServiceError({
+    service: "git",
+    message: cause instanceof Error ? cause.message : String(cause),
+    cause,
   });
 
+/** Read-only `git` as an Effect, failing with `ServiceError`; an interrupt kills it. */
+export const git = (cwd: string, args: ReadonlyArray<string>, options: GitOptions = {}) =>
+  interruptibleGit({ try: () => runGit(cwd, args, options), catch: gitFailure });
+
 export const gitTextEffect = (cwd: string, args: ReadonlyArray<string>, options: GitOptions = {}) =>
-  Effect.tryPromise({
-    try: () => gitText(cwd, args, options),
-    catch: (cause) =>
-      new ServiceError({
-        service: "git",
-        message: cause instanceof Error ? cause.message : String(cause),
-        cause,
-      }),
-  });
+  interruptibleGit({ try: () => gitText(cwd, args, options), catch: gitFailure });
 
 /**
  * Whether `cwd` could be inside a git work tree: some directory from `cwd` up

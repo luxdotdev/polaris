@@ -36,7 +36,14 @@ import {
 import { type CommitGroup, CommitRefused, commitTurns } from "./commit.ts";
 import { draftAccept, templateDraft } from "./draft.ts";
 import { pushBranch } from "./push.ts";
-import { type AcceptContext, checkpointed, loadAccept, sessionRoot, tryGit } from "./turns.ts";
+import {
+  type AcceptContext,
+  checkpointed,
+  loadAccept,
+  readGit,
+  sessionRoot,
+  tryGit,
+} from "./turns.ts";
 
 export class AcceptRpcs extends RpcGroup.make(
   GetAcceptPlan,
@@ -58,7 +65,7 @@ const plan = (ctx: AcceptContext) =>
     const { root, range } = ctx;
     const turns = yield* checkpointed(root, range);
 
-    return yield* tryGit(root, async () => {
+    return yield* readGit(root, async () => {
       const branch = await currentBranch(root);
       const remote = await pushRemote(root, branch);
       const stats = await Promise.all(turns.map((t) => diffStat(root, t.before, t.after)));
@@ -113,7 +120,7 @@ const refusal = (ctx: AcceptContext): string | null => {
 const targetBranch = (ctx: AcceptContext, requested: AcceptBranch) =>
   Effect.gen(function* () {
     const { root } = ctx;
-    const current = yield* tryGit(root, () => currentBranch(root));
+    const current = yield* readGit(root, () => currentBranch(root));
 
     // A Worktree session always commits to its Worktree's branch.
     const create =
@@ -127,11 +134,11 @@ const targetBranch = (ctx: AcceptContext, requested: AcceptBranch) =>
         : { branch: current, create: null };
     }
 
-    if (!(yield* tryGit(root, () => validBranchName(root, create)))) {
+    if (!(yield* readGit(root, () => validBranchName(root, create)))) {
       return yield* refuse(`"${create}" isn't a valid branch name`);
     }
 
-    if (yield* tryGit(root, () => branchExists(root, create))) {
+    if (yield* readGit(root, () => branchExists(root, create))) {
       return yield* refuse(`a branch named ${create} already exists`);
     }
 
@@ -197,7 +204,7 @@ const draft = (ctx: AcceptContext) =>
       .readTurnItems({ turnIds: ctx.range.map((t) => t.id), upTo: model.sequence })
       .pipe(Effect.orElseSucceed(() => new Map<TurnId, ReadonlyArray<TurnItem>>()));
 
-    const stat = yield* tryGit(ctx.root, () =>
+    const stat = yield* readGit(ctx.root, () =>
       gitText(ctx.root, ["diff", "--stat=100", first.before, last.after, "--"])
     );
 

@@ -18,6 +18,7 @@ import {
   type WorkspaceId,
 } from "@polaris/protocol";
 import { Effect, Predicate } from "effect";
+import { interruptibleGit } from "../git/interrupt.ts";
 import { checkoutGit } from "../git/review/refs.ts";
 import { ReviewCheckoutGit } from "../services.ts";
 import { EventStore } from "../store/EventStore.ts";
@@ -54,7 +55,7 @@ const gitError = (cwd: string) => (cause: { readonly message: string }) =>
   new GitError({ cwd, message: cause.message });
 
 const commitOf = (cwd: string, ref: string) =>
-  Effect.tryPromise({
+  interruptibleGit({
     try: () => checkoutGit(cwd, ["rev-parse", "--verify", `${ref}^{commit}`]),
     catch: (cause) => new GitError({ cwd, message: String(cause) }),
   });
@@ -185,7 +186,7 @@ const sessionRange = Effect.fn("sessionRange")(function* (
   }
 
   // The Turns' own changes, not first-before..last-after: commits between Turns stay out.
-  const change = yield* Effect.tryPromise({
+  const change = yield* interruptibleGit({
     try: () => composeTurns(cwd, commits),
     catch: (cause) => new GitError({ cwd, message: String(cause) }),
   });

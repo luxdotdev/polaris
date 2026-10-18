@@ -6,6 +6,7 @@
 import { readFile } from "node:fs/promises";
 import { basename, isAbsolute, join } from "node:path";
 import { Option, Schema } from "effect";
+import { uninterrupted } from "../git/interrupt.ts";
 import { checkoutGitRaw } from "../git/review/refs.ts";
 import { listRemotes, parseRemoteUrl } from "../git/review/remotes.ts";
 import { polarisHome } from "../paths.ts";
@@ -93,7 +94,8 @@ const cachedName = (repo: string): Promise<string> => {
   if (known !== undefined) return known;
 
   if (names.size >= KEPT_NAMES) names.clear();
-  const name = privateInstructionsName(repo);
+  // Shared by every caller: one caller's interrupt mustn't kill its git for the rest.
+  const name = uninterrupted(() => privateInstructionsName(repo));
   names.set(repo, name);
 
   return name;

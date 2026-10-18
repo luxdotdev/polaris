@@ -12,6 +12,7 @@ import {
 } from "@polaris/protocol";
 import { Effect } from "effect";
 import { findRepoRoot, GitCommandError, resolveCommit } from "../git/git.ts";
+import { finishingGit, interruptibleGit, interruptibleGitPromise } from "../git/interrupt.ts";
 import type { EventStore } from "../store/EventStore.ts";
 import type { SessionRecord } from "../store/model.ts";
 import { type CheckpointedTurn, CommitRefused, committedTurnIds } from "./commit.ts";
@@ -42,8 +43,13 @@ export const acceptFailure = (root: string) => (cause: unknown) => {
   return new GitError({ cwd: root, message });
 };
 
+/** Git that writes (commits, branches, pushes): an interrupt lets it finish first. */
 export const tryGit = <A>(root: string, run: () => Promise<A>) =>
-  Effect.tryPromise({ try: run, catch: acceptFailure(root) });
+  finishingGit({ try: run, catch: acceptFailure(root) });
+
+/** Git that only reads: an interrupt kills it. */
+export const readGit = <A>(root: string, run: () => Promise<A>) =>
+  interruptibleGit({ try: run, catch: acceptFailure(root) });
 
 /** The repository the session works in. */
 export const sessionRoot = Effect.fn("accept.root")(function* (store: Store, sessionId: SessionId) {
@@ -51,7 +57,7 @@ export const sessionRoot = Effect.fn("accept.root")(function* (store: Store, ses
   const record = model.sessions.get(sessionId);
 
   if (record === undefined) return yield* new NotFound({ what: "session", id: sessionId });
-  const root = yield* Effect.promise(() => findRepoRoot(record.session.cwd));
+  const root = yield* interruptibleGitPromise(() => findRepoRoot(record.session.cwd));
 
   return root === null
     ? yield* new AcceptRefused({ reason: `${record.session.cwd} is not in a git repository` })
@@ -82,7 +88,7 @@ export const loadAccept = Effect.fn("accept.load")(function* (
 
   const root = yield* sessionRoot(store, sessionId);
 
-  const committed = yield* tryGit(root, () => committedTurnIds(root, sessionId));
+  const committed = yield* readGit(root, () => committedTurnIds(root, sessionId));
 
   const lastCommitted = Math.max(
     -1,
@@ -101,7 +107,7 @@ export const loadAccept = Effect.fn("accept.load")(function* (
 
 /** Each Turn's checkpoint commits; refused when one has none (a Turn in flight, or no git then). */
 export const checkpointed = (root: string, turns: ReadonlyArray<Turn>) =>
-  tryGit(root, async () => {
+  readGit(root, async () => {
     const out: Array<CheckpointedTurn> = [];
 
     for (const turn of turns) {
