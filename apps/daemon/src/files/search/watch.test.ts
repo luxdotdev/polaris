@@ -161,7 +161,7 @@ test("bounded git watches report dotfiles and discover dotted directories", asyn
   });
 });
 
-// Bun on macOS restarts its one FSEvents stream after `fs.watch` returns (ADR 0072).
+// Bun on macOS restarts its one FSEvents stream after a watch opens or closes (ADR 0072).
 test.skipIf(process.platform !== "darwin")(
   "a file created as soon as a watch is armed beside a busy one is reported",
   async () => {

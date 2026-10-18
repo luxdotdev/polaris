@@ -16,7 +16,10 @@ FSEvents stream for the whole process. `registerWatcher` only queues `_schedule`
 CoreFoundation thread and returns. `_schedule` then stops the old stream and creates a new
 one over every watched path with `kFSEventStreamEventIdSinceNow`. A change made between
 `fs.watch` returning and that stream starting is never delivered, not even late.
-(`unregisterWatcher` doesn't rebuild the stream; only opening a watch does.)
+
+Bun 1.4.3, which the Daemon ships, rewrote this in Rust (`src/runtime/node/fs_events.rs` at
+`c6da4a4`) and changed one thing: `unregister_watcher` now queues the same rebuild, so
+**closing** a watch also stops and restarts the stream. 1.3.13 only rebuilt on open.
 
 Measured on a Mac Studio (macOS 27, Bun 1.3.13), creating a file as soon as `watchRoot`
 resolved:
@@ -35,17 +38,23 @@ barely widens the window. Busy file systems do, since the CF thread waits on `fs
 
 On macOS, `watchRoot` resolves only after `nativeWatchesLive()`
 (`apps/daemon/src/files/fsevents.ts`) has proven the stream live. The probe makes a fresh
-directory under the temp directory, opens `fs.watch` on it and writes files into it (at 2 ms,
-then doubling to 100 ms) until one is reported. That watch was registered after the caller's,
-so the stream that reports it covers both. Then it closes the watch and removes the
-directory. It gives up after 5 s and lets the caller go on, as before.
+directory under the temp directory, opens `fs.watch` on it and writes a file there (at 2 ms,
+then doubling to 100 ms) until a write is reported. That watch was registered after the
+caller's, and no older stream covers its new directory, so the stream that reports it covers
+both. It gives up after 5 s and lets the caller go on, as before.
 
-- The probe's registration nearly always joins the caller's pending `_schedule`, so it adds
-  no extra stream rebuild.
+The probe leaves its watch open. The next probe closes it, then removes its directory, and
+only then opens its own, so the rebuild that close queues is covered by the new probe too.
+The last probe's watch is removed at exit.
+
+- On Bun 1.4.3 a probe that closed its watch when done (the first version of this fix)
+  rebuilt the stream just as `watchRoot` resolved, so the change the caller made next was
+  lost: the regression test failed 39 of 40 runs under load.
 - Callers arriving while a probe runs share the next probe, which starts after it; a probe
   that registered before a caller's watch proves nothing for it.
-- Cost: about 10 ms per arm (p50), up to about 50 ms with a busy file system. Timers exist
-  only while a watch is being armed; an idle Daemon wakes for nothing.
+- Cost: one extra watched directory per Daemon, and about 10 ms per arm (p50), up to about
+  50 ms with a busy file system. Timers exist only while a watch is being armed; an idle
+  Daemon wakes for nothing.
 - Elsewhere it resolves at once: Linux uses inotify (ADR 0047), whose watch is added
   synchronously.
 
@@ -53,16 +62,20 @@ directory. It gives up after 5 s and lets the caller go on, as before.
 to start, and no test could show a write after that read being lost.
 
 The regression test (`watch.test.ts`, macOS only) arms 20 watches, each beside a watched
-directory that just had 1000 writes. Without the probe every run loses 4 to 9 of them.
+directory that just had 1000 writes. Without the probe every run loses 2 to 9 of them.
 
 ## Rejected
 
 - A longer wait in the test: the change is lost, so no wait finds it.
 - A fixed sleep after arming: how long the stream takes to start isn't bounded.
+- One probe watch kept open for good, written to by every probe: it can be answered by the
+  stream from before the caller's watch. With Bun 1.3.13 the regression test failed 9 of 40
+  runs under load.
 - Our own FSEvents stream through `bun:ffi`: FSEvents calls back on its own thread, and the
   paths it hands over are freed before a thread-safe `JSCallback` runs.
 
 ## Not fixed here
 
-Every `fs.watch` opened anywhere in the Daemon rebuilds the shared stream, so watches that
-are already live can lose changes during the rebuild too. That is ENG-370.
+Every `fs.watch` opened, and on Bun 1.4.3 every one closed, anywhere in the Daemon rebuilds
+the shared stream, so watches that are already live can lose changes during the rebuild
+too. That is ENG-370.
