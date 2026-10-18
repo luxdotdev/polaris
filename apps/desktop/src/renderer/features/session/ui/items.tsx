@@ -3,35 +3,19 @@
  * prose, a folded "Thought" disclosure, commands with their output tail, file
  * changes by git letter, tool calls, the step checklist and errors.
  */
-import {
-  CheckIcon,
-  cn,
-  CopyButton,
-  Dither,
-  GitStatusLetter,
-  type Harness,
-  PixelFailedIcon,
-} from "@polaris/ui";
-// The glyph alone: the Constellation feature's index imports the session feature.
-import { ConstellationMark } from "../../constellation/ui/glyphs.tsx";
-import { useState } from "react";
-import { FileLink, OpenInEditorButton } from "../../editor-links/index.ts";
+import { cn, CopyButton, GitStatusLetter, PixelFailedIcon } from "@polaris/ui";
+import { OpenInEditorButton } from "../../editor-links/index.ts";
 import { type FileChangeKind, type ItemView } from "../model/items.ts";
-import { toolVerb } from "../model/runs.ts";
 import { Command } from "./command.tsx";
-import { ImageViewer } from "./ImageViewer.tsx";
+import { type Hue, WELL } from "./marks.tsx";
 import { Markdown } from "./markdown/index.tsx";
 import { Plan } from "./plan.tsx";
 import { PolarisTool } from "./polarisTool/index.tsx";
 import { Reasoning } from "./reasoning.tsx";
 import { softWrap } from "./softWrap.tsx";
+import { Tool } from "./tool.tsx";
 
-export type Hue = Harness | null;
-
-export const WELL = "rounded-row border-hairline bg-surface-raised/50 border";
-
-export const LiveMark = ({ hue }: { readonly hue: Hue }) =>
-  hue === null ? null : <Dither hue={hue} size={12} moving />;
+export { type Hue, LiveMark, WELL } from "./marks.tsx";
 
 /** Its Markdown copies from a quiet icon at its top right, shown on hover or focus. */
 const Message = ({ text, live }: { readonly text: string; readonly live: boolean }) => (
@@ -98,81 +82,6 @@ const Files = ({
         )}
       </div>
     ))}
-  </div>
-);
-
-type ToolView = Extract<ItemView, { kind: "tool" }>;
-
-const ToolMark = ({ item, hue }: { item: ToolView; hue: Hue }) => {
-  if (item.status === "running") return <LiveMark hue={hue} />;
-
-  if (item.status === "completed" && item.polaris)
-    return <ConstellationMark size={12} className="text-text-subtle" />;
-
-  return item.status === "completed" ? (
-    <CheckIcon size={12} className="text-text-faint" />
-  ) : (
-    <PixelFailedIcon size={12} className="text-failed" />
-  );
-};
-
-/** A tool's subject: an image opens in the viewer, another file in the editor, else plain text. */
-const Subject = ({ item }: { readonly item: ToolView }) => {
-  const [viewing, setViewing] = useState(false);
-  const text = "text-code-inline text-text-subtle font-mono";
-
-  if (item.file === null)
-    return (
-      <span className={cn(text, "truncate")} title={item.full}>
-        {item.summary}
-      </span>
-    );
-
-  if (!item.file.image)
-    return (
-      <FileLink path={item.file.path} line={item.file.line} className={text}>
-        {item.summary}
-      </FileLink>
-    );
-
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setViewing(true)}
-        title="View image"
-        data-testid="image-link"
-        className={cn(
-          text,
-          "hover:text-text-strong min-w-0 cursor-pointer truncate text-left underline-offset-2 hover:underline focus-visible:underline"
-        )}
-      >
-        {item.summary}
-      </button>
-      {viewing ? <ImageViewer path={item.file.path} onClose={() => setViewing(false)} /> : null}
-    </>
-  );
-};
-
-/** A tool that names a text file: its menu opens or reveals that file. */
-const textFile = (item: ToolView) => (item.file === null || item.file.image ? null : item.file);
-
-const Tool = ({ item, hue }: { item: ToolView; hue: Hue }) => (
-  <div
-    className="flex h-6 min-w-0 items-center gap-2"
-    data-testid="tool-call"
-    data-status={item.status}
-    data-menu-path={textFile(item)?.path}
-    data-menu-line={textFile(item)?.line ?? undefined}
-  >
-    <ToolMark item={item} hue={hue} />
-    <span className="text-caption text-text-subtle shrink-0 font-medium">
-      {toolVerb(item.name, item.status === "running")}
-    </span>
-    <Subject item={item} />
-    {item.status === "declined" ? (
-      <span className="text-caption text-text-subtle shrink-0">declined</span>
-    ) : null}
   </div>
 );
 

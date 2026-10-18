@@ -169,7 +169,7 @@ export const PolarisTool = ({
         <div className="rounded-row border-hairline bg-surface-sunken mt-1 ml-5 flex min-w-0 flex-col gap-1.5 border px-3 py-2.5">
           {view.refusal === null ? null : <RefusalBody refusal={view.refusal} />}
           {view.well === null || raw ? null : <WellBody well={view.well} from={from} />}
-          {raw ? <RawBody view={view} /> : null}
+          {raw ? <RawBody raw={view.raw} /> : null}
           <Foot view={view} raw={raw} onRaw={() => setRaw(!raw)} />
         </div>
       ) : null}

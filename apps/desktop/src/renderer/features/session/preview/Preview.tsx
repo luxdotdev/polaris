@@ -52,6 +52,7 @@ import {
   worktree,
 } from "./fixtures.ts";
 import { items as itemsScene } from "./itemsScene.ts";
+import { tools as toolsScene } from "./toolsScene.ts";
 import { polarisTools, PREVIEW_NOTICE } from "./polarisScene.ts";
 import { background, waitingSidebar } from "./background.ts";
 import { MODELS, PATCH } from "./fixtureData.ts";
@@ -135,6 +136,7 @@ const windowsWorktree = new Worktree({
 const SCENES = {
   session: planning,
   items: itemsScene,
+  tools: toolsScene,
   approval,
   question,
   interrupted,
@@ -152,6 +154,7 @@ const SCENES = {
 const SCENE_NAMES = [
   "session",
   "items",
+  "tools",
   "approval",
   "question",
   "interrupted",
