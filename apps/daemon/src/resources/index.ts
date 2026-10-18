@@ -9,7 +9,7 @@ import {
   ResourceError,
   type SessionId,
 } from "@polaris/protocol";
-import { Deferred, Effect, Latch, Layer, Predicate, Semaphore, Stream } from "effect";
+import { Deferred, Effect, Latch, Layer, Option, Predicate, Semaphore, Stream } from "effect";
 import { paths } from "../paths.ts";
 import { EventStore } from "../store/EventStore.ts";
 import { loadHostInfo } from "../transport/hostInfo.ts";
@@ -22,11 +22,23 @@ import {
   WORKERS_RESOURCE,
 } from "./model.ts";
 import { canGrantResource } from "./decide.ts";
-import { processIdentity } from "./process.ts";
+import { processIdentity, ProcessIdentityUnknown } from "./process.ts";
 
 import { HostResources } from "./service.ts";
 
 export { HostResources, type AcquireLease } from "./service.ts";
+
+/** None while `ps` can't answer: nothing is granted, released or canceled on an unknown process. */
+const identityOf = (pid: number) =>
+  Effect.tryPromise({
+    try: () => processIdentity(pid),
+    catch: () => new ProcessIdentityUnknown({ pid }),
+  }).pipe(
+    Effect.map(Option.some),
+    Effect.catchTag("ProcessIdentityUnknown", (error) =>
+      Effect.as(Effect.logWarning(`ps gave no answer for process ${error.pid}`), Option.none())
+    )
+  );
 
 export const resourcesLayer = Layer.effect(
   HostResources,
@@ -185,7 +197,11 @@ export const resourcesLayer = Layer.effect(
         return true;
       }
 
-      const identity = yield* Effect.promise(() => processIdentity(waiter.processId!));
+      const known = yield* identityOf(waiter.processId);
+
+      // Unknown: the waiter stays queued and the next check asks again.
+      if (Option.isNone(known)) return false;
+      const identity = known.value;
 
       if (identity !== waiter.processIdentity) {
         yield* write(null, [releaseEvent(waiter.requestId, waiter.resource, "process exited")]);
@@ -263,38 +279,43 @@ export const resourcesLayer = Layer.effect(
       return snapshot();
     });
 
+    const checkLease = Effect.fn("HostResources.checkLease")(function* (lease: ResourceLease) {
+      const known = yield* identityOf(lease.processId);
+
+      if (Option.isNone(known)) return;
+
+      if (known.value === null || known.value !== lease.processIdentity) {
+        warned.delete(lease.id);
+        yield* write(null, [releaseEvent(lease.id, lease.resource, "process exited")]);
+
+        return;
+      }
+
+      if (snapshot().overdueLeaseIds.includes(lease.id) && !warned.has(lease.id)) {
+        warned.add(lease.id);
+        yield* Effect.logWarning(
+          `Lease ${lease.resource} held past its limit; Release is available`,
+          { leaseId: lease.id }
+        );
+      }
+    });
+
+    const checkWaiter = Effect.fn("HostResources.checkWaiter")(function* (waiter: LeaseWaiter) {
+      const known =
+        waiter.processId === undefined ? Option.some(null) : yield* identityOf(waiter.processId);
+
+      if (Option.isNone(known)) return;
+
+      if (known.value === null || known.value !== waiter.processIdentity)
+        yield* release(null, waiter.requestId);
+    });
+
     const check = Effect.fn("HostResources.check")(function* () {
-      for (const lease of model.leases.values()) {
-        if (lease.resource === WORKERS_RESOURCE) continue;
-        const identity = yield* Effect.promise(() => processIdentity(lease.processId));
+      for (const lease of model.leases.values())
+        if (lease.resource !== WORKERS_RESOURCE) yield* checkLease(lease);
 
-        if (identity === null || identity !== lease.processIdentity) {
-          warned.delete(lease.id);
-          yield* write(null, [releaseEvent(lease.id, lease.resource, "process exited")]);
-          continue;
-        }
-
-        if (snapshot().overdueLeaseIds.includes(lease.id) && !warned.has(lease.id)) {
-          warned.add(lease.id);
-          yield* Effect.logWarning(
-            `Lease ${lease.resource} held past its limit; Release is available`,
-            { leaseId: lease.id }
-          );
-        }
-      }
-
-      for (const waiter of model.waiting.values()) {
-        if (waiter.resource === WORKERS_RESOURCE) continue;
-
-        const identity =
-          waiter.processId === undefined
-            ? null
-            : yield* Effect.promise(() => processIdentity(waiter.processId!));
-
-        if (identity === null || identity !== waiter.processIdentity) {
-          yield* release(null, waiter.requestId);
-        }
-      }
+      for (const waiter of model.waiting.values())
+        if (waiter.resource !== WORKERS_RESOURCE) yield* checkWaiter(waiter);
 
       yield* pump();
     });

@@ -70,6 +70,12 @@ import {
 
 export { type EphemeralItem, LiveItem } from "./hub.ts";
 
+// Bun 1.3's `db.query` cache drops statements past 20 unfinalized, so `close()` keeps the
+// database open and locked until they're collected; collect them once it closes (ENG-356).
+const releaseDroppedStatements = Layer.effectDiscard(
+  Effect.addFinalizer(() => Effect.sync(() => Bun.gc(true)))
+);
+
 export interface StoreSettings {
   /**
    * Items buffered per live subscriber. A subscriber that falls this far behind
@@ -372,7 +378,7 @@ export class EventStore extends Context.Service<
   static readonly layerSqlite = (filename: string) =>
     EventStore.layer.pipe(
       Layer.provide(MigrationsLayer),
-      Layer.provide(SqliteClient.layer({ filename })),
+      Layer.provide(SqliteClient.layer({ filename }).pipe(Layer.provide(releaseDroppedStatements))),
       Layer.orDie
     );
 

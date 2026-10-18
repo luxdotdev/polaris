@@ -4,7 +4,7 @@
  */
 import { afterEach } from "bun:test";
 import { mkdirSync, mkdtempSync } from "node:fs";
-import { removeDir } from "../git/testing.ts";
+import { removeDirSettled } from "../git/testing.ts";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -391,7 +391,7 @@ export const engineLayer = (options: {
 export const tempDir = (): string => {
   const directory = mkdtempSync(join(tmpdir(), "polaris-engine-"));
   // Register in the calling test's context; module-level hooks only cover the importing file.
-  afterEach(() => removeDir(directory));
+  afterEach(() => removeDirSettled(directory));
 
   return directory;
 };

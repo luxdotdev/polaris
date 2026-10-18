@@ -14,7 +14,20 @@ import { gitText } from "./git.ts";
 
 const BUSY = new Set(["EBUSY", "EPERM", "ENOTEMPTY"]);
 
-/** Retries for 2 s on Windows, which keeps a directory busy until a closed watch lets go. */
+const ATTEMPTS = 20;
+
+/** Whether a failed removal may succeed later: Windows keeps a directory busy while it's in use. */
+const retryable = (cause: unknown, attempt: number) => {
+  // SAFETY: rmSync throws only Node system errors, which carry a string `code`.
+  const code = (cause as NodeJS.ErrnoException).code ?? "";
+
+  return process.platform === "win32" && BUSY.has(code) && attempt < ATTEMPTS;
+};
+
+/**
+ * Retries for 2 s on Windows, which keeps a directory busy until a closed watch lets go.
+ * It blocks the event loop meanwhile; after a Daemon test use `removeDirSettled`.
+ */
 export const removeDir = (path: string): void => {
   for (let attempt = 1; ; attempt++) {
     try {
@@ -22,11 +35,25 @@ export const removeDir = (path: string): void => {
 
       return;
     } catch (cause) {
-      // SAFETY: rmSync throws only Node system errors, which carry a string `code`.
-      const code = (cause as NodeJS.ErrnoException).code ?? "";
-
-      if (process.platform !== "win32" || !BUSY.has(code) || attempt >= 20) throw cause;
+      if (!retryable(cause, attempt)) throw cause;
       Bun.sleepSync(100);
+    }
+  }
+};
+
+/**
+ * `removeDir` that lets the event loop run between attempts, so a child the test's Daemon
+ * started (git still being fed its stdin) can finish and let go of the directory (ENG-356).
+ */
+export const removeDirSettled = async (path: string): Promise<void> => {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      rmSync(path, { recursive: true, force: true });
+
+      return;
+    } catch (cause) {
+      if (!retryable(cause, attempt)) throw cause;
+      await Bun.sleep(100);
     }
   }
 };
@@ -35,7 +62,7 @@ export const removeDir = (path: string): void => {
 export const tempDir = (prefix = "polaris-test-"): string => {
   const directory = realpathSync.native(mkdtempSync(join(tmpdir(), prefix)));
   // Register in the calling test's context; module-level hooks only cover the importing file.
-  afterEach(() => removeDir(directory));
+  afterEach(() => removeDirSettled(directory));
 
   return directory;
 };
@@ -43,8 +70,8 @@ export const tempDir = (prefix = "polaris-test-"): string => {
 /** Declare before beforeAll; the returned factory keeps shared roots until the suite ends. */
 export const suiteTempDir = (prefix = "polaris-test-"): (() => string) => {
   const directories: Array<string> = [];
-  afterAll(() => {
-    for (const directory of directories.splice(0)) removeDir(directory);
+  afterAll(async () => {
+    for (const directory of directories.splice(0)) await removeDirSettled(directory);
   });
 
   return () => {
