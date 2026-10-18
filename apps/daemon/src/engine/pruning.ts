@@ -14,6 +14,7 @@ import {
   runCheckpointSweeper,
   type SweepTarget,
 } from "../git/prune.ts";
+import { finishingGit } from "../git/interrupt.ts";
 import type { ServiceError } from "../services.ts";
 import type { ReadModel, SessionRecord } from "../store/model.ts";
 import { EngineRuntime } from "./runtime.ts";
@@ -121,7 +122,7 @@ const make = (rt: EngineRuntime["Service"]): CheckpointPruning["Service"] => {
 
   /** An archived session commits nothing more: its committed-Turn marks go (`accept/`). */
   const dropCommitted = (repoPath: string, sessionId: SessionId) =>
-    Effect.tryPromise({
+    finishingGit({
       try: () => dropCommittedRefs(repoPath, sessionId),
       catch: describeError,
     }).pipe(
@@ -148,7 +149,7 @@ const make = (rt: EngineRuntime["Service"]): CheckpointPruning["Service"] => {
     Effect.forEach(
       sessionIds,
       (sessionId) =>
-        Effect.tryPromise({
+        finishingGit({
           try: () => dropSessionCheckpoints(workspace.path, sessionId),
           catch: describeError,
         }).pipe(

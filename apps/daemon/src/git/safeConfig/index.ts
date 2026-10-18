@@ -6,6 +6,7 @@
 import { childEnv } from "../../service/childEnv.ts";
 import { readBounded } from "../output.ts";
 import { gitExecutable } from "../executable.ts";
+import { groupFor, startSignal, stopOnAbort, uninterrupted } from "../interrupt.ts";
 import {
   cacheKey,
   discoveryPaths,
@@ -57,13 +58,18 @@ const decoder = new TextDecoder();
 
 /** git with only the fixed settings: these reads run nothing a config names. */
 const read = async (cwd: string, args: ReadonlyArray<string>, base: Env) => {
+  const signal = startSignal(args);
+
   const proc = Bun.spawn([gitExecutable(base), ...args], {
+    ...groupFor(signal),
     cwd,
     env: childEnv({ ...base, ...configEnv([...FIXED, ...HOST_SETTINGS], base), ...NO_LAZY_FETCH }),
     stdin: "ignore",
     stdout: "pipe",
     stderr: "pipe",
   });
+
+  stopOnAbort(proc, signal);
 
   const [stdout, stderr, code] = await Promise.all([
     readBounded(proc.stdout, LISTING_LIMIT, () => proc.kill("SIGKILL")),
@@ -148,7 +154,8 @@ const filesGitReads = (cwd: string, options: ReadonlyArray<string>, name: string
   const known = hostFiles.get(key);
 
   if (known !== undefined) return known;
-  const asked = askGitVar(cwd, options, name, base);
+  // Shared by every caller: one caller's interrupt mustn't kill it for the rest.
+  const asked = uninterrupted(() => askGitVar(cwd, options, name, base));
 
   if (hostFiles.size >= CACHE_SIZE) hostFiles.delete(hostFiles.keys().next().value ?? "");
   hostFiles.set(key, asked);

@@ -1,9 +1,10 @@
 /** `ReviewCheckoutGit` on the Host's git (`review/`). */
 import { existsSync } from "node:fs";
 import { basename, dirname } from "node:path";
-import { Effect, Layer } from "effect";
+import { Layer } from "effect";
 import { CheckoutBlocked, ReviewCheckoutGit, ServiceError } from "../services.ts";
 import { gitText } from "./git.ts";
+import { finishingGit, interruptibleGit } from "./interrupt.ts";
 import {
   ensureCheckout,
   fetchPullRequest,
@@ -22,10 +23,14 @@ const toServiceError = (cause: unknown) =>
     cause,
   });
 
-const attempt = <A>(f: () => Promise<A>) => Effect.tryPromise({ try: f, catch: toServiceError });
+/** Reads: an interrupt kills their git. */
+const read = <A>(f: () => Promise<A>) => interruptibleGit({ try: f, catch: toServiceError });
+
+/** Writes refs or a checkout: an interrupt lets their git finish first (`interrupt.ts`). */
+const attempt = <A>(f: () => Promise<A>) => finishingGit({ try: f, catch: toServiceError });
 
 const attemptBlocking = <A>(f: () => Promise<A>) =>
-  Effect.tryPromise({
+  finishingGit({
     try: f,
     catch: (cause) => (cause instanceof CheckoutBlocked ? cause : toServiceError(cause)),
   });
@@ -54,7 +59,7 @@ export const reviewCheckoutGitLayer = (
         ),
       pinCommits: (options) => attemptBlocking(() => pinCommits(options)),
       ensure: (options) => attempt(() => ensureCheckout(options)),
-      inspect: (path, head) => attempt(() => inspectCheckout(path, head)),
+      inspect: (path, head) => read(() => inspectCheckout(path, head)),
       move: (options) => attempt(() => moveCheckout(options)),
       remove: ({ repoPath, path, key }) =>
         attempt(async () => {

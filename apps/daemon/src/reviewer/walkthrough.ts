@@ -11,6 +11,7 @@ import {
   Walkthrough,
 } from "@polaris/protocol";
 import { Cause, Clock, Effect, Result } from "effect";
+import { interruptibleGitPromise } from "../git/interrupt.ts";
 import { Engine } from "../engine/Engine.ts";
 import { EventStore } from "../store/EventStore.ts";
 import { reviewerCost } from "./cost.ts";
@@ -198,14 +199,17 @@ const runOne = (
     yield* save(current);
 
     const work = Effect.gen(function* () {
-      const diff = yield* Effect.promise(() => readDiff(range.cwd, range.base, range.head));
+      const diff = yield* interruptibleGitPromise(() =>
+        readDiff(range.cwd, range.base, range.head)
+      );
+
       yield* save(changeWalkthrough(current, { filesTotal: diff.files.length }));
 
-      const instructions = yield* Effect.promise(() =>
+      const instructions = yield* interruptibleGitPromise(() =>
         readInstructions({ cwd: range.cwd, head: range.head, repo: range.key.repo })
       );
 
-      const generated = yield* Effect.promise(() =>
+      const generated = yield* interruptibleGitPromise(() =>
         generatedPaths({
           root: range.cwd,
           at: range.rulesAt,

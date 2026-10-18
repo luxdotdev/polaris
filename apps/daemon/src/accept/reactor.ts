@@ -7,6 +7,7 @@
 import { type Command, DomainEvent, type Turn } from "@polaris/protocol";
 import { Effect } from "effect";
 import { findRepoRoot, resolveCommit } from "../git/git.ts";
+import { finishingGit, interruptibleGit } from "../git/interrupt.ts";
 import { ServiceError } from "../services.ts";
 import type { EventStore } from "../store/EventStore.ts";
 import { changedPaths, type LaterTurn, revertLaterTurns } from "./revert.ts";
@@ -64,7 +65,7 @@ const planRevert = (store: Store, command: AcceptTurns) =>
 
     const checkpoint = through.checkpointAfter;
 
-    const files = yield* Effect.tryPromise({
+    const files = yield* interruptibleGit({
       try: async (): Promise<RevertFiles | null> => {
         const root = await findRepoRoot(record.session.cwd);
         const target = root === null ? null : await commitOf(root, checkpoint);
@@ -94,7 +95,7 @@ const refusalFor = (store: Store, command: AcceptTurns, plan: RevertPlan) =>
     if (files === null) return null;
     const model = yield* store.model;
 
-    return yield* Effect.tryPromise({
+    return yield* interruptibleGit({
       try: async () =>
         conflictReason(
           await revertConflicts({
@@ -131,7 +132,8 @@ export const revertAfterAccept = (store: Store, command: AcceptTurns) =>
     const { files } = plan;
 
     if (files !== null) {
-      yield* Effect.tryPromise({
+      // It writes the work tree: an interrupt lets it finish rather than leave it half reverted.
+      yield* finishingGit({
         try: () => revertLaterTurns(files.root, files.target, files.commits),
         catch: failed,
       });

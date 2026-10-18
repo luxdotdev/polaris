@@ -29,6 +29,7 @@
 import { Duration, Effect, Option, Schedule } from "effect";
 import { ServiceError } from "../services.ts";
 import { gitText, runGitRaw } from "./git.ts";
+import { finishingGit } from "./interrupt.ts";
 import {
   CHECKPOINT_REF_PREFIX,
   ENCODED_CHECKPOINT_REF_PREFIX,
@@ -359,7 +360,8 @@ export const pruneCheckpointsEffect = Effect.fn("Checkpoints.prune")(function* (
   sessions: ReadonlyArray<CheckpointSession>,
   options: PruneOptions = {}
 ) {
-  return yield* Effect.tryPromise({
+  // Ref deletions: an interrupt lets the transaction finish.
+  return yield* finishingGit({
     try: () => pruneCheckpoints(repoPath, sessions, options),
     catch: toServiceError,
   });
@@ -377,7 +379,7 @@ export const onSessionArchived = Effect.fn("Checkpoints.onSessionArchived")(func
   session: CheckpointSession,
   options: PruneOptions = {}
 ) {
-  return yield* Effect.tryPromise({
+  return yield* finishingGit({
     try: async () => {
       const refs = (await listCheckpointRefs(repoPath)).filter(
         (r) => r.sessionId === session.sessionId

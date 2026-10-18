@@ -9,6 +9,7 @@ import { dirname, join, resolve } from "node:path";
 import { Cause, Effect, Layer, Queue, Stream } from "effect";
 import { ServiceError, type WorktreeInfo, WorktreeTracker } from "../services.ts";
 import { gitText, HOOKS_OFF, runGitRaw } from "./git.ts";
+import { finishingGit, interruptibleGit, underSignal } from "./interrupt.ts";
 
 /** How long the registry must be quiet before it is re-read. */
 export const WATCH_DEBOUNCE_MS = 150;
@@ -204,7 +205,10 @@ const toServiceError = (cause: unknown) =>
     cause,
   });
 
-const attempt = <A>(f: () => Promise<A>) => Effect.tryPromise({ try: f, catch: toServiceError });
+const read = <A>(f: () => Promise<A>) => interruptibleGit({ try: f, catch: toServiceError });
+
+/** `worktree add`/`remove` write the repository: an interrupt lets them finish first. */
+const attempt = <A>(f: () => Promise<A>) => finishingGit({ try: f, catch: toServiceError });
 
 export interface WatchWorktreesOptions {
   readonly platform?: NodeJS.Platform;
@@ -239,13 +243,14 @@ export const watchWorktrees = (
 ): Stream.Stream<ReadonlyArray<WorktreeInfo>, ServiceError> =>
   Stream.callback<ReadonlyArray<WorktreeInfo>, ServiceError>((queue) =>
     Effect.gen(function* () {
-      const common = yield* attempt(() => commonDir(repoPath));
+      const common = yield* read(() => commonDir(repoPath));
       const worktreesDir = join(common, "worktrees");
       let last = "";
       let timer: ReturnType<typeof setTimeout> | undefined;
       let running = false;
       let again = false;
       let closed = false;
+      const listing = new AbortController();
       const watchers = new Map<string, FSWatcher>();
       // On Windows a watch on each worktree's directory would keep git from removing it.
       const recursive = ["darwin", "win32"].includes(options.platform ?? process.platform);
@@ -283,7 +288,7 @@ export const watchWorktrees = (
         clearTimeout(timer);
         timer = setTimeout(() => {
           armWorktreesDir();
-          void refresh();
+          void underSignal(listing.signal, refresh);
         }, WATCH_DEBOUNCE_MS);
       };
 
@@ -327,6 +332,7 @@ export const watchWorktrees = (
       yield* Effect.addFinalizer(() =>
         Effect.sync(() => {
           closed = true;
+          listing.abort();
           clearTimeout(timer);
           clearInterval(poll);
 
@@ -334,14 +340,14 @@ export const watchWorktrees = (
           watchers.clear();
         })
       );
-      yield* attempt(refresh);
+      yield* read(refresh);
     })
   );
 
 export const WorktreeTrackerLive = Layer.succeed(
   WorktreeTracker,
   WorktreeTracker.of({
-    list: (repoPath) => attempt(() => listWorktrees(repoPath)),
+    list: (repoPath) => read(() => listWorktrees(repoPath)),
     watch: (repoPath) => watchWorktrees(repoPath),
     create: (options) => attempt(() => createWorktree(options)),
     remove: (options) => attempt(() => removeWorktree(options)).pipe(Effect.asVoid),

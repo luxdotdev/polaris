@@ -11,6 +11,7 @@ import {
   type HarnessStatus,
 } from "@polaris/protocol";
 import { Effect, Match, Queue, Stream } from "effect";
+import { interruptibleGitPromise } from "../git/interrupt.ts";
 import { Availability } from "../harness/availability/Availability.ts";
 import type { MessageBackend } from "./backend.ts";
 import { commitPrompt, instructions, messageJsonSchema, tidy } from "./prompt.ts";
@@ -53,7 +54,7 @@ const draft = Effect.fn("commitMessage.draft")(function* (
   progress: (text: string) => Effect.Effect<void>
 ) {
   const started = performance.now();
-  const staged = yield* Effect.promise(() => readStaged(request.cwd, budget));
+  const staged = yield* interruptibleGitPromise(() => readStaged(request.cwd, budget));
 
   if (staged === "not-a-repository")
     return yield* fail("not-a-repository", "This folder isn't in a git repository");

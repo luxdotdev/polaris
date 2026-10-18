@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { appendFileSync, chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { delimiter, join, sep } from "node:path";
 import { Attempt, Constellation, ConstellationSettings } from "@polaris/protocol";
-import { Effect, Struct } from "effect";
+import { Effect, Fiber, Struct } from "effect";
 import { gitText } from "../git/git.ts";
 import { plant, plantedNames, recorded } from "../git/planted.testing.ts";
 import { commitAll, makeRepo, tempDir, write } from "../git/testing.ts";
@@ -276,6 +276,49 @@ describe("Accept's merge with commit.gpgSign", () => {
       expect("error" in result && result.error.fix).toContain("and sign it yourself, then accept");
       expect(ran("host")).not.toBeNull();
       await untouched(s.root, before);
+    },
+    GIT_WORK_MS
+  );
+
+  /** A signer that takes `seconds`, forked; resolves once it has started. */
+  const slowMerge = async (seconds: number) => {
+    const path = join(markers, "slow.sh");
+    const fast = readFileSync(signer("slow", true).replaceAll("/", sep), "utf8");
+    writeFileSync(path, fast.replace("cat >/dev/null\n", `cat >/dev/null\nsleep ${seconds}\n`));
+    chmodSync(path, 0o755);
+    hostConfig(`[gpg]\n\tprogram = ${slash(path)}`);
+    const { s, before } = await diverged(true);
+    const fiber = Effect.runFork(mergeClaim(s.graph, s.attempt, s.root, s.head));
+
+    for (let waited = 0; ran("slow") === null && waited < GIT_WORK_MS; waited += 20)
+      await Bun.sleep(20);
+    expect(ran("slow")).not.toBeNull();
+
+    return { s, before, interrupt: () => Effect.runPromise(Fiber.interrupt(fiber)) };
+  };
+
+  test(
+    "an interrupted merge that finishes in time goes in whole before the interrupt ends",
+    async () => {
+      const { s, before, interrupt } = await slowMerge(1);
+
+      await interrupt();
+
+      expect(await gitText(s.root, ["rev-parse", "HEAD^1", "HEAD^2"])).toBe(`${before}\n${s.head}`);
+      expect(await gitText(s.root, ["status", "--porcelain"])).toBe("");
+    },
+    GIT_WORK_MS
+  );
+
+  test(
+    "an interrupted merge killed past its deadline leaves the Lead's tree as it was",
+    async () => {
+      const { s, before, interrupt } = await slowMerge(60);
+
+      await interrupt();
+
+      await untouched(s.root, before);
+      expect(existsSync(join(s.root, "work.txt"))).toBe(false);
     },
     GIT_WORK_MS
   );

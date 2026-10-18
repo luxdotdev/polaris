@@ -26,6 +26,7 @@ import { ReadContent, toContent } from "../files/fs.ts";
 import { generatedPaths } from "../reviewer/generated.ts";
 import { computeDiff, DiffNotFound, type DiffResult } from "./diff.ts";
 import { indexDiff } from "./diffIndex.ts";
+import { finishingGit, interruptibleGit, interruptibleGitPromise } from "./interrupt.ts";
 import { showFile } from "./show.ts";
 import { gitStatus, type Status } from "./status.ts";
 import { publishRemoteAt, runSync, type SyncEvent } from "./sync.ts";
@@ -51,12 +52,12 @@ export const handleGitStatus = Effect.fn("git.status")(function* ({
   cwd,
   ignored,
 }: typeof GitStatus.payloadSchema.Type) {
-  const status = yield* Effect.tryPromise({
+  const status = yield* interruptibleGit({
     try: () => gitStatus(cwd, { ignored: ignored === true }),
     catch: gitError(cwd),
   });
 
-  const tracking = yield* Effect.promise(() => trackingOf(cwd, status));
+  const tracking = yield* interruptibleGitPromise(() => trackingOf(cwd, status));
 
   return {
     branch: status.branch,
@@ -114,12 +115,12 @@ export const handleGitDiff = Effect.fn("git.diff")(function* ({
   cwd,
   spec,
 }: typeof GitDiff.payloadSchema.Type) {
-  const diff = yield* Effect.tryPromise({
+  const diff = yield* interruptibleGit({
     try: () => computeDiff(cwd, spec),
     catch: notFoundOr(cwd),
   });
 
-  const fileIndex = yield* Effect.promise(() => indexWithGenerated(diff));
+  const fileIndex = yield* interruptibleGitPromise(() => indexWithGenerated(diff));
   const blobs = yield* BlobChannel;
   const blobId = yield* blobs.offer(diff.bytes);
 
@@ -131,7 +132,7 @@ export const handleGitShow = Effect.fn("git.show")(function* ({
   revision,
   path,
 }: typeof GitShow.payloadSchema.Type) {
-  const file = yield* Effect.tryPromise({
+  const file = yield* interruptibleGit({
     try: () => showFile(cwd, revision, path),
     catch: notFoundOr(cwd),
   });
@@ -151,7 +152,8 @@ export const handleGitShow = Effect.fn("git.show")(function* ({
 const pathsWith =
   (name: string, write: (cwd: string, paths: ReadonlyArray<string>) => Promise<void>) =>
   ({ cwd, paths }: typeof GitStage.payloadSchema.Type) =>
-    Effect.tryPromise({ try: () => write(cwd, paths), catch: gitError(cwd) }).pipe(
+    // Index and work tree writes: an interrupt lets them finish.
+    finishingGit({ try: () => write(cwd, paths), catch: gitError(cwd) }).pipe(
       Effect.withSpan(name)
     );
 

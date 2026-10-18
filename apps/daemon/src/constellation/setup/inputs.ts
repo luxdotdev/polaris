@@ -4,6 +4,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Effect } from "effect";
 import { gitText } from "../../git/git.ts";
+import { interruptibleGit } from "../../git/interrupt.ts";
 import { ServiceError } from "../../services.ts";
 
 const FILES = [
@@ -26,28 +27,33 @@ const FILES = [
 
 /** Git lists workspace manifests without traversing installed dependencies. */
 const inputNames = (cwd: string) =>
-  Effect.tryPromise(async () => {
-    const requirements = (await readdir(cwd)).filter((name) => /^requirements.*\.txt$/.test(name));
+  interruptibleGit({
+    catch: (cause) => cause,
+    try: async () => {
+      const requirements = (await readdir(cwd)).filter((name) =>
+        /^requirements.*\.txt$/.test(name)
+      );
 
-    const nested = existsSync(join(cwd, ".git"))
-      ? (
-          await gitText(cwd, [
-            "ls-files",
-            "-z",
-            "--cached",
-            "--others",
-            "--exclude-standard",
-            "--",
-            ...FILES.map((name) => `**/${name}`),
-            "requirements*.txt",
-            "**/requirements*.txt",
-          ])
-        )
-          .split("\0")
-          .filter((name) => name !== "")
-      : [];
+      const nested = existsSync(join(cwd, ".git"))
+        ? (
+            await gitText(cwd, [
+              "ls-files",
+              "-z",
+              "--cached",
+              "--others",
+              "--exclude-standard",
+              "--",
+              ...FILES.map((name) => `**/${name}`),
+              "requirements*.txt",
+              "**/requirements*.txt",
+            ])
+          )
+            .split("\0")
+            .filter((name) => name !== "")
+        : [];
 
-    return [...new Set([...FILES, ...requirements, ...nested])].sort();
+      return [...new Set([...FILES, ...requirements, ...nested])].sort();
+    },
   }).pipe(
     Effect.mapError(
       () =>

@@ -10,6 +10,7 @@ import { rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { GitCommandError, gitText, resolveHead, runGit, runGitRaw } from "../git/git.ts";
+import { uninterrupted } from "../git/interrupt.ts";
 
 export const COMMITTED_PREFIX = "refs/polaris/committed/";
 
@@ -221,13 +222,15 @@ export const commitTurns = async (options: CommitOptions): Promise<ReadonlyArray
     return commits;
   } catch (error) {
     if (options.createBranch !== null && previous !== null && commits.length === 0) {
-      await abandonBranch(root, options.createBranch, previous);
+      const branch = options.createBranch;
+      // Cleanup runs even once an interrupt has killed the commit (`git/interrupt.ts`).
+      await uninterrupted(() => abandonBranch(root, branch, previous));
     }
 
     throw error;
   } finally {
     rmSync(index, { force: true });
-    await syncIndex(root, [...touched]);
+    await uninterrupted(() => syncIndex(root, [...touched]));
   }
 };
 

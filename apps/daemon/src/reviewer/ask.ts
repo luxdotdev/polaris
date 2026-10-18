@@ -15,6 +15,7 @@ import {
   type TurnId,
 } from "@polaris/protocol";
 import { Deferred, Duration, Effect, Option, Result } from "effect";
+import { interruptibleGitPromise } from "../git/interrupt.ts";
 import { EventStore } from "../store/EventStore.ts";
 import { readDiff } from "./diff.ts";
 import {
@@ -52,7 +53,7 @@ export const followUpEvents = Effect.fn("followUpEvents")(function* (
   change: ReviewedChange
 ) {
   const { cwd, base, head } = change;
-  const diff = yield* Effect.promise(() => readDiff(cwd, base, head));
+  const diff = yield* interruptibleGitPromise(() => readDiff(cwd, base, head));
   const readLines = linesAt(cwd, base, head);
   const added = yield* toRiskFindings(output.findings, diff, readLines);
   const revised: Array<RiskFinding> = [];

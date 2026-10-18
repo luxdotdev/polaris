@@ -6,6 +6,12 @@
 import { type Attempt, type Constellation, ConstellationTransferError } from "@polaris/protocol";
 import { Effect } from "effect";
 import { type GitResult, gitText, HOOKS_OFF, resolveCommit, runGitRaw } from "../git/git.ts";
+import {
+  finishingGit,
+  interruptibleGit,
+  interruptSignal,
+  uninterrupted,
+} from "../git/interrupt.ts";
 import { constellationRef, mergedInto } from "../git/constellationBundles.ts";
 import { commitSigning, signingOptions } from "../git/signing.ts";
 import { gitStatus } from "../git/status.ts";
@@ -23,7 +29,8 @@ const failed = (cause: unknown) =>
 const signFix = (place: string, branch: string, head: string) =>
   `Merge ${place} into ${branch} and sign it yourself, then accept with mergedHead ${head}.`;
 
-const git = <A>(f: () => Promise<A>) => Effect.tryPromise({ try: f, catch: failed });
+/** Reads of the Lead's checkout: an interrupt kills their git. */
+const git = <A>(f: () => Promise<A>) => interruptibleGit({ try: f, catch: failed });
 
 export interface MergeOutcome {
   /** False when the Lead's branch already contained the claimed head. */
@@ -102,6 +109,41 @@ const abandon = async (leadPath: string) => {
   return conflicts;
 };
 
+interface Merged {
+  readonly result: GitResult;
+  /** Null when the merge went in; else the paths it left conflicted, now undone. */
+  readonly conflicts: ReadonlyArray<string> | null;
+}
+
+/**
+ * The merge, undone when it fails, so the Lead's checkout is merged or as it was. An
+ * interrupt lets it finish (`finishingGit`); one killed past the deadline is undone too.
+ */
+const mergeOrRestore = async (
+  leadPath: string,
+  before: string,
+  args: ReadonlyArray<string>
+): Promise<Merged> => {
+  const result = await runGitRaw(leadPath, args);
+  const killed = interruptSignal()?.aborted === true;
+
+  return uninterrupted(async () => {
+    if (result.code === 0) return { result, conflicts: null };
+
+    // Killed after git moved the branch: the merge went in.
+    if (killed && (await resolveCommit(leadPath, "HEAD")) !== before)
+      return { result: { ...result, code: 0 }, conflicts: null };
+
+    const conflicts = await abandon(leadPath);
+
+    // Killed before it committed: the index and work tree may hold half of it.
+    if (killed && (await resolveCommit(leadPath, "MERGE_HEAD")) === null)
+      await gitText(leadPath, [...HOOKS_OFF, "reset", "-q", "--merge", before]);
+
+    return { result, conflicts };
+  });
+};
+
 /**
  * Merges the claimed head into the Lead's current branch unless it already contains it.
  * Refuses, leaving the checkout as it was, on a dirty or detached Lead tree or a conflict.
@@ -143,23 +185,25 @@ export const mergeClaim = Effect.fnUntraced(function* (
   // `--gpg-sign` keeps the commit signed even if commit.gpgSign changes meanwhile.
   const sign = signing === null ? [] : ["--gpg-sign"];
 
-  const result = yield* git(() =>
-    runGitRaw(leadPath, [
-      ...HOOKS_OFF,
-      ...signingOptions(signing),
-      "merge",
-      "--ff",
-      ...sign,
-      "--no-edit",
-      "-m",
-      message,
-      head,
-    ])
-  );
+  const before = yield* git(() => gitText(leadPath, ["rev-parse", "HEAD"]));
 
-  if (result.code !== 0) {
-    const conflicts = yield* git(() => abandon(leadPath));
+  const { result, conflicts } = yield* finishingGit({
+    try: () =>
+      mergeOrRestore(leadPath, before, [
+        ...HOOKS_OFF,
+        ...signingOptions(signing),
+        "merge",
+        "--ff",
+        ...sign,
+        "--no-edit",
+        "-m",
+        message,
+        head,
+      ]),
+    catch: failed,
+  });
 
+  if (conflicts !== null) {
     return yield* mergeFailure(
       { place, branch, head, conflicts, signed: signing !== null },
       result

@@ -10,6 +10,7 @@ import {
 } from "@polaris/protocol";
 import { Context, Effect, Layer, Schema, Semaphore } from "effect";
 import { gitText, HOOKS_OFF, resolveCommit } from "../git/git.ts";
+import { finishingGit } from "../git/interrupt.ts";
 import { gitStatus } from "../git/status.ts";
 import { listWorktrees, samePath } from "../git/WorktreeTracker.ts";
 import { mergedInto } from "../git/constellationBundles.ts";
@@ -21,8 +22,9 @@ const requestJson = Schema.encodeSync(Schema.fromJsonString(WorktreeRequest));
 export const transferError = (code: string, message: string, retryable = false) =>
   new ConstellationTransferError({ code, message, retryable });
 
+/** Mostly writes (worktrees, refs, bundles): an interrupt lets git finish first. */
 export const gitOperation = <A>(f: () => Promise<A>) =>
-  Effect.tryPromise({
+  finishingGit({
     try: f,
     catch: (cause) =>
       transferError("E-GIT", cause instanceof Error ? cause.message : String(cause), true),

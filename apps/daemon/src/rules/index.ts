@@ -4,6 +4,7 @@
  */
 import { DomainEvent, LayerRun, type RiskSummaryId } from "@polaris/protocol";
 import { Effect, Layer } from "effect";
+import { interruptibleGit } from "../git/interrupt.ts";
 import { Rules, ServiceError } from "../services.ts";
 import { EventStore } from "../store/EventStore.ts";
 import type { RulesRequest } from "./run.ts";
@@ -16,7 +17,8 @@ export const RulesLive = Layer.succeed(
   Rules,
   Rules.of({
     run: Effect.fn("Rules.run")(function* (request) {
-      return yield* Effect.tryPromise({
+      // Its git (cat-file, diff) and scanners stop on interrupt, and are waited for.
+      return yield* interruptibleGit({
         try: async (signal) => {
           const { runRules } = await import("./run.ts");
 

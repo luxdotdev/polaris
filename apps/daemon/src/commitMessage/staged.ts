@@ -6,6 +6,7 @@ import { childEnv } from "../service/childEnv.ts";
 import { baseEnv, findRepoRoot, runGitRaw } from "../git/git.ts";
 import { safeArgs, safeConfigEnv } from "../git/safeConfig/index.ts";
 import { gitExecutable } from "../git/executable.ts";
+import { groupFor, startSignal, stopOnAbort } from "../git/interrupt.ts";
 
 /** Enough for a good message; past it the stat still lists every file. */
 export const DIFF_BUDGET = 60_000;
@@ -36,7 +37,10 @@ const text = async (cwd: string, args: ReadonlyArray<string>) => {
 
 /** Reads at most `budget` bytes, then kills git: a huge diff is never read in full. */
 export const boundedDiff = async (top: string, budget: number) => {
+  const signal = startSignal(diffArgs);
+
   const proc = Bun.spawn([gitExecutable(), ...safeArgs(diffArgs)], {
+    ...groupFor(signal),
     cwd: top,
     env: childEnv({ ...baseEnv(), ...(await safeConfigEnv(top, baseEnv(), { args: diffArgs })) }),
     stdin: "ignore",
@@ -44,6 +48,7 @@ export const boundedDiff = async (top: string, budget: number) => {
     stderr: "ignore",
   });
 
+  stopOnAbort(proc, signal);
   const chunks: Array<Uint8Array> = [];
   let kept = 0;
   let truncated = false;
