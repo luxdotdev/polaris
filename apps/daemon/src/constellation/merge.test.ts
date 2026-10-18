@@ -10,6 +10,9 @@ import { mergeClaim } from "./merge.ts";
 
 const GIT_WORK_MS = 15_000;
 
+/** A path as git config takes it unquoted: backslashes would be read as escapes. */
+const slash = (path: string) => path.replaceAll("\\", "/");
+
 /** A Lead repository on main and a worker branch `polaris/A` with one commit touching `path`. */
 const setup = async (path = "work.txt", content = "worker\n") => {
   const root = await makeRepo({ "README.md": "hello\n", "shared.txt": "base\n" });
@@ -156,7 +159,7 @@ describe("Accept's merge with commit.gpgSign", () => {
     );
     chmodSync(path, 0o755);
 
-    return path;
+    return slash(path);
   };
 
   const ran = (name: string) =>
@@ -207,7 +210,7 @@ describe("Accept's merge with commit.gpgSign", () => {
       const made = Bun.spawnSync(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", key]);
       expect(made.exitCode).toBe(0);
       hostConfig(
-        `[commit]\n\tgpgsign = true\n[gpg]\n\tformat = ssh\n[user]\n\tsigningkey = ${key}`
+        `[commit]\n\tgpgsign = true\n[gpg]\n\tformat = ssh\n[user]\n\tsigningkey = ${slash(key)}`
       );
       const { s } = await diverged(false);
 
