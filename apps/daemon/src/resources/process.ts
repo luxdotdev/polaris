@@ -1,5 +1,4 @@
 import { childEnv } from "../service/childEnv.ts";
-import { execFile } from "node:child_process";
 import { Schema } from "effect";
 import { findExecutable } from "../platform/executable.ts";
 import { processCreated } from "../platform/windowsNative.ts";
@@ -17,29 +16,35 @@ export interface PsRun {
 }
 
 const runPs = (pid: number): PsRun => {
-  let kill = () => {};
-
   const ps = findExecutable("ps");
 
-  if (ps === null) return { output: Promise.resolve(null), kill };
+  if (ps === null) return { output: Promise.resolve(null), kill: () => {} };
 
-  const output = new Promise<string | null>((resolve) => {
-    const child = execFile(
-      ps,
-      ["-o", "stat=", "-o", "lstart=", "-p", String(pid)],
-      { env: childEnv() },
-      (error, stdout) => resolve(error === null ? stdout : null)
-    );
+  let child: Bun.Subprocess<"ignore", "pipe", "ignore">;
 
-    kill = () => child.kill("SIGKILL");
-  });
+  // Bun.spawn, not execFile: under load execFile loses ps's exit (ENG-357).
+  try {
+    child = Bun.spawn([ps, "-o", "stat=", "-o", "lstart=", "-p", String(pid)], {
+      env: childEnv(),
+      stdin: "ignore",
+      stdout: "pipe",
+      stderr: "ignore",
+    });
+  } catch {
+    return { output: Promise.resolve(null), kill: () => {} };
+  }
 
-  return { output, kill };
+  const output = Promise.all([new Response(child.stdout).text(), child.exited]).then(
+    ([stdout, code]) => (code === 0 ? stdout : null),
+    () => null
+  );
+
+  return { output, kill: () => child.kill("SIGKILL") };
 };
 
 export interface PsOptions {
   readonly run?: (pid: number) => PsRun;
-  /** How long one run may take; Bun under load can lose a child's exit (ENG-356). */
+  /** How long one run may take; Bun under load can lose a child's exit (ENG-356, ENG-357). */
   readonly attemptMs?: number;
   readonly attempts?: number;
 }

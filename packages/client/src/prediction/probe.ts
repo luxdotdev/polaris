@@ -1,5 +1,5 @@
 import { PredictionEndpointUrl } from "@polaris/protocol";
-import { execFile } from "node:child_process";
+import { execFile, type ExecFileOptions } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { cpus, loadavg, totalmem } from "node:os";
 import { Option, Schema } from "effect";
@@ -17,14 +17,49 @@ export const DEFAULT_ENDPOINTS: ReadonlyArray<ReachableEndpoint> = [
   { kind: "ollama", url: "http://127.0.0.1:11434", models: [] },
 ];
 
-const command = (file: string, args: string[]): Promise<string> =>
+/** Starts a child the way `execFile` does; injectable so a test can drop its exit. */
+export type ExecFile = (
+  file: string,
+  args: string[],
+  options: ExecFileOptions,
+  callback: (error: Error | null, stdout: string) => void
+) => { kill: (signal: NodeJS.Signals) => boolean };
+
+const nodeExecFile: ExecFile = (file, args, options, callback) =>
+  execFile(file, args, { ...options, encoding: "utf8" }, (error, stdout) =>
+    callback(error, stdout)
+  );
+
+export interface CommandOptions {
+  readonly run?: ExecFile;
+  readonly deadlineMs?: number;
+}
+
+/**
+ * A command's trimmed stdout, or "" when it fails. Bun can lose a child's exit (ENG-357),
+ * so past `deadlineMs` the child is killed and "" returned, even if its callback never runs.
+ */
+export const command = (
+  file: string,
+  args: string[],
+  { run = nodeExecFile, deadlineMs = 2000 }: CommandOptions = {}
+): Promise<string> =>
   new Promise((resolve) => {
-    execFile(
+    // execFile never calls back synchronously, so `deadline` is set by the time it does.
+    const child = run(
       file,
       args,
       { timeout: 1000, maxBuffer: 1048576, windowsHide: true },
-      (error, stdout) => resolve(error ? "" : stdout.trim())
+      (error, stdout) => {
+        clearTimeout(deadline);
+        resolve(error ? "" : stdout.trim());
+      }
     );
+
+    const deadline = setTimeout(() => {
+      child.kill("SIGKILL");
+      resolve("");
+    }, deadlineMs);
   });
 
 const linuxGpu = () => {
