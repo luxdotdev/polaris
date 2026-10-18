@@ -74,6 +74,11 @@ export class StallAudit extends Schema.Class<StallAudit>("ConstellationStallAudi
   gates: Schema.Array(TaskId),
   /** The Lead has no active Turn while Claims, ready Tasks or Gates wait on it. */
   lead: Schema.Boolean,
+  /**
+   * Working Attempts newly stalled: holding a worker slot with no first Turn past the grace
+   * period (`workerPhase`). Each is named once; absent from an older Daemon.
+   */
+  slots: Schema.optionalKey(Schema.Array(AttemptId)),
 }) {}
 
 export const Area = Schema.Array(Schema.NonEmptyString);

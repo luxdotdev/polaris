@@ -46,6 +46,8 @@ export interface Reference {
   promoted: Set<string>;
   pending: Set<string>;
   delivered: Set<string>;
+  /** Attempts an audit named as stalled slot holders; each is named once. */
+  slotStalls: Set<string>;
 }
 
 export const emptyReference = (): Reference => ({
@@ -57,6 +59,7 @@ export const emptyReference = (): Reference => ({
   promoted: new Set(),
   pending: new Set(),
   delivered: new Set(),
+  slotStalls: new Set(),
 });
 
 const refTask = (task: import("@polaris/protocol").Task): RefTask => ({
@@ -199,6 +202,11 @@ export const foldReference = (ref: Reference, events: ReadonlyArray<DomainEvent>
         if (e.leadSessionId !== ref.lead) throw new Error("reference: old lead delivery");
 
         if (e.items.length === 0 && e.audit === null) throw new Error("reference: empty delivery");
+
+        for (const id of e.audit?.slots ?? []) {
+          if (ref.slotStalls.has(id)) throw new Error("reference: slot stall named twice");
+          ref.slotStalls.add(id);
+        }
 
         for (const id of e.items) {
           if (!ref.pending.delete(id)) throw new Error("reference: duplicate delivery");

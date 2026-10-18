@@ -7,7 +7,8 @@ import type {
 import { Match, Predicate } from "effect";
 import type { ConstellationRecord } from "../../store/constellation.ts";
 import { capacityBlocked, failureKindLabel } from "../failureKind.ts";
-import { auditLines, dueAudit } from "../stall.ts";
+import type { SlotSource } from "../slots.ts";
+import { auditLines, dueAudit, nextSlotStall } from "../stall.ts";
 import { proposalDetails } from "../status.ts";
 
 const line = (text: string) => text.replace(/\s+/g, " ").trim();
@@ -110,13 +111,22 @@ export const digestDelay = (
   sessions?: ReadonlyMap<
     ConstellationRecord["graph"]["leadSessionId"],
     import("../../store/model.ts").SessionRecord
-  >
+  >,
+  host?: SlotSource
 ): number | null => {
   const pending = record.graph.pendingNotifications;
 
   // A stall audit is Lead-worthy on its own and shares the Claim window; no extra timer.
-  if (!pending.some(wakesLead) && (sessions === undefined || dueAudit(record, sessions) === null))
-    return null;
+  if (
+    !pending.some(wakesLead) &&
+    (sessions === undefined || dueAudit(record, sessions, host) === null)
+  ) {
+    // A local slot holder with no first Turn wakes the runner once, when it would read stalled.
+    const at =
+      sessions === undefined || host === undefined ? null : nextSlotStall(record, sessions, host);
+
+    return at === null || host === undefined ? null : Math.max(0, at - host.now);
+  }
 
   const blocking = pending.some(
     (n) =>
@@ -137,7 +147,7 @@ const digestBody = (
 ) => [
   `Polaris · ${record.graph.name} · revision ${record.graph.revision}`,
   ...items.map((n) => notificationLine(record, n)),
-  ...(audit === null ? [] : auditLines(audit)),
+  ...(audit === null ? [] : auditLines(audit, record)),
   "Next: review Claims, answer open questions, then dispatch ready Tasks. Use status for details.",
 ];
 

@@ -161,6 +161,8 @@ default false) marks a digest steered into the Lead's working Turn `turnId`
 instead of a new Turn; `LeadNotified.audit` (additive, nullable `StallAudit`)
 carries a stall audit (silent working Attempts, promoted Gates with no Attempt,
 a silent Lead) and may be the digest's only content, once per audit `key`.
+Its additive `slots` names working Attempts that hold a worker slot with no first
+Turn past `workerPhase`'s grace period; each Attempt is named once, whatever the key.
 `AttemptSettled.failureKind` and `Attempt.failureKind` / `Attempt.settleReason`
 (additive, nullable) classify a failed settle as capacity, transport, harness or
 implementation; a `Settled` digest item repeats the kind. A lost settle has none.

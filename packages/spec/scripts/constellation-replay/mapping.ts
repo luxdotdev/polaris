@@ -268,7 +268,7 @@ export const mapGraphEvent = (
           throw new Error("LeadNotified repeats a notification ID");
 
         return record(
-          `LeadNotified({ ids: Set(${items.map((id) => g.notifications.id(id)).join(", ")}), lead: ${g.sessions.id(leadSessionId)}, steered: ${steered}, audit: Set(${(audit?.gates ?? []).map((id) => g.tasks.id(id)).join(", ")}) })`
+          `LeadNotified({ ids: Set(${items.map((id) => g.notifications.id(id)).join(", ")}), lead: ${g.sessions.id(leadSessionId)}, steered: ${steered}, audit: Set(${(audit?.gates ?? []).map((id) => g.tasks.id(id)).join(", ")}), slots: Set(${(audit?.slots ?? []).map((id) => g.attemptId(id)).join(", ")}) })`
         );
       },
       AttemptRecoveryContinued: ({ attemptId, interruptionId }) =>

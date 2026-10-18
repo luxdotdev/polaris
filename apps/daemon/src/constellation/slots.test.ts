@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
   AgentSession,
   Attempt,
+  AttemptId,
   ConstellationId,
   Constellation,
   DomainEvent,
@@ -9,7 +10,9 @@ import {
   HostResource,
   ResourceLease,
   SessionId,
+  StallAudit,
   TaskId,
+  TurnId,
   WorktreeSetupRun,
   type Turn,
 } from "@polaris/protocol";
@@ -20,11 +23,16 @@ import {
   B,
   CID,
   HOST,
+  LEAD,
+  ctx,
   dispatched,
   draft,
+  foldDecision,
   planned,
   task,
 } from "../engine/constellation.testing.ts";
+import { decideConstellationJournal } from "./journal.ts";
+import { auditLines, dueAudit } from "./stall.ts";
 import { WORKERS_RESOURCE, emptyResources, foldResources } from "../resources/model.ts";
 import type { ConstellationRecord } from "../store/constellation.ts";
 import type { SessionRecord } from "../store/model.ts";
@@ -228,4 +236,48 @@ test("a worker on another Host reads no slot from this Host's fold", () => {
   expect(statusOutline(build, sessions, { ...host, resources: emptyResources() })).not.toContain(
     "Host slots"
   );
+});
+
+test("a stall audit names a slot holder with no Turn once, whatever later changes its key", () => {
+  const { build, sessions, host } = world();
+  const audit = dueAudit(build, sessions, host);
+
+  expect(audit?.slots).toEqual([AttemptId.make("a1")]);
+  expect(auditLines(audit!, build)).toContain(
+    "Stalled: A holds a worker slot with no Turn yet. The user can press Start on it in the Desktop App, or stop the Attempt to free the slot."
+  );
+
+  const deliver = (record: ConstellationRecord, a: StallAudit, id: string) =>
+    decideConstellationJournal(
+      record,
+      {
+        type: "notified",
+        leadSessionId: LEAD,
+        items: [],
+        turnId: TurnId.make(id),
+        turnEvents: [
+          DomainEvent.cases.TurnStarted.make({ turn: newTurn(session(LEAD), "Digest", AT, id) }),
+        ],
+        audit: a,
+      },
+      ctx()
+    );
+
+  const delivered = deliver(build, audit!, "digest");
+  expect(delivered.rejection).toBeNull();
+  const noted = foldDecision(build, delivered.events);
+
+  expect(dueAudit(noted, sessions, host)).toBeNull();
+
+  const changed = new StallAudit({
+    key: "changed",
+    working: [],
+    gates: [],
+    lead: true,
+    slots: [AttemptId.make("a1")],
+  });
+
+  expect(deliver(noted, changed, "again").rejection?.findings.map((f) => f.code)).toEqual([
+    "E-DELIVERY-AUDIT",
+  ]);
 });

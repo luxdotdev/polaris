@@ -67,6 +67,8 @@ export interface ConstellationRecord {
   readonly steeredDigests: ReadonlySet<TurnId>;
   /** The key of the last stall audit the Lead received; the same stalled state is noted once. */
   readonly lastAudit: string | null;
+  /** Attempts a stall audit named as holding a slot with no first Turn; each is named once. */
+  readonly slotStalls: ReadonlySet<AttemptId>;
   readonly handovers: ReadonlyArray<ConstellationHandover>;
 }
 
@@ -182,6 +184,7 @@ const started = (graph: Constellation): ConstellationRecord => ({
   digests: [],
   steeredDigests: new Set(),
   lastAudit: null,
+  slotStalls: new Set(),
   handovers: [],
 });
 
@@ -435,6 +438,10 @@ export const foldConstellation = (
           ? new Set([...next.steeredDigests, e.turnId])
           : next.steeredDigests,
         lastAudit: e.audit?.key ?? next.lastAudit,
+        slotStalls:
+          (e.audit?.slots ?? []).length === 0
+            ? next.slotStalls
+            : new Set([...next.slotStalls, ...(e.audit?.slots ?? [])]),
         digests: [
           ...next.digests,
           new ConstellationDigest({

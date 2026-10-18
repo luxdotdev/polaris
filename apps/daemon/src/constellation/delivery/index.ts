@@ -12,6 +12,7 @@ import {
   Semaphore,
   Stream,
 } from "effect";
+import { emptyResources } from "../../resources/model.ts";
 import { hasWorkerAdmission } from "../../resources/workerAdmission.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { UsageIndex } from "../../usage/index.ts";
@@ -198,7 +199,14 @@ const make = Effect.gen(function* () {
 
     yield* refreshHandover(id).pipe(Effect.provide(dependencies));
     yield* sendInputs(id).pipe(Effect.provide(dependencies));
-    const delay = digestDelay(record, (yield* store.model).sessions);
+    const model = yield* store.model;
+    const now = yield* Clock.currentTimeMillis;
+
+    const delay = digestDelay(record, model.sessions, {
+      hostId: owner,
+      resources: model.hostResources ?? emptyResources(),
+      now,
+    });
 
     if (delay === null || record.graph.state !== "running" || record.handoverRequest !== null) {
       yield* cancelTimer(id);
@@ -206,7 +214,6 @@ const make = Effect.gen(function* () {
       return;
     }
 
-    const now = yield* Clock.currentTimeMillis;
     const existing = timers.get(id);
 
     // A delivered window ends; what arrives next coalesces afresh instead of riding the old timer.
@@ -278,6 +285,8 @@ const make = Effect.gen(function* () {
             Predicate.isTagged(i, "Event") &&
             (graphEvent(i.envelope.event) !== null ||
               Predicate.isTagged(i.envelope.event, "SessionStateChanged") ||
+              // A worker slot granted with no Turn arms the stall wake (`nextSlotStall`).
+              Predicate.isTagged(i.envelope.event, "ResourceLeased") ||
               Predicate.isTagged(i.envelope.event, "TurnEnded")),
         });
 

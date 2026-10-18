@@ -15,6 +15,7 @@ import type { ConstellationRecord } from "../store/constellation.ts";
 import { connectionObserved, inputDelivered, handoverCompleted } from "./journal.delivery.ts";
 import { currentAttempt } from "./attempts.ts";
 import { GraphDecision, refusal } from "./decision.ts";
+import { auditIsNew } from "./stall.ts";
 
 /** Trusted Daemon inputs; these are never accepted from an RPC payload. */
 export type ConstellationJournalInput =
@@ -97,7 +98,14 @@ const notified = (
       "Deliver each pending notification once."
     );
 
-  if (input.items.length === 0 && (audit === null || audit.key === d.record.lastAudit))
+  if ((audit?.slots ?? []).some((attemptId) => d.record.slotStalls.has(attemptId)))
+    d.reject(
+      "E-DELIVERY-AUDIT",
+      "The stall audit names a slot stall the Lead already heard",
+      "Name each stalled slot holder once."
+    );
+
+  if (input.items.length === 0 && (audit === null || !auditIsNew(d.record, audit)))
     d.reject(
       "E-DELIVERY-EMPTY",
       "Delivery carries no pending items and no new stall audit",

@@ -389,6 +389,7 @@ simulateWitnessed(
     "witnessDelivery",
     "witnessSteeredDelivery",
     "witnessAudit",
+    "witnessSlotAudit",
     "witnessRelay",
     "witnessRecovery",
     "witnessLease",
