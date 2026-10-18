@@ -3,8 +3,8 @@
  * so helpers that `mkdtempSync(tmpdir())` without cleanup can't fill /tmp.
  * Code that falls back to the real Polaris home (`~/.polaris`) gets one inside it too.
  */
-import { afterAll } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { afterAll, beforeAll } from "bun:test";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -19,6 +19,11 @@ if (process.platform === "win32") {
 }
 
 process.env.POLARIS_HOME ??= join(root, "polaris-home");
+
+// `--rerun-each` runs the hooks again but not this module: each rerun recreates the root.
+beforeAll(() => {
+  mkdirSync(root, { recursive: true });
+});
 
 // A preload's afterAll runs once, after every test file. Windows may still hold a file
 // (EBUSY, EPERM): retry, then leave it, as a CI runner is discarded anyway.
