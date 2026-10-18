@@ -178,24 +178,29 @@ export const RefusalBody = ({ refusal }: { readonly refusal: Refusal }) => (
   </>
 );
 
-export const RawBody = ({ view }: { readonly view: PolarisToolView }) => {
-  const text = [view.raw.name, view.raw.input, view.raw.output]
-    .filter((t) => t !== "")
-    .join("\n\n");
+/** A call as the Harness sent it: its real name, input and result, copyable. */
+export const RawBody = ({
+  raw,
+  testId = "polaris-tool-raw",
+}: {
+  readonly raw: PolarisToolView["raw"];
+  readonly testId?: string;
+}) => {
+  const text = [raw.name, raw.input, raw.output].filter((t) => t !== "").join("\n\n");
 
   return (
-    <div className="flex min-w-0 flex-col gap-2" data-testid="polaris-tool-raw">
+    <div className="flex min-w-0 flex-col gap-2" data-testid={testId}>
       <div className="flex items-center gap-2">
-        <span className="text-code-inline text-text-subtle font-mono">{view.raw.name}</span>
+        <span className="text-code-inline text-text-subtle font-mono">{raw.name}</span>
         <span className="flex-1" />
         <CopyButton variant="icon" label="Copy the raw call" text={text} />
       </div>
       <pre className="text-code-inline text-text-default overflow-x-auto font-mono whitespace-pre">
-        {view.raw.input}
+        {raw.input}
       </pre>
-      {view.raw.output === "" ? null : (
+      {raw.output === "" ? null : (
         <pre className="text-code-inline text-text-subtle overflow-x-auto font-mono whitespace-pre-wrap">
-          {view.raw.output}
+          {raw.output}
         </pre>
       )}
     </div>

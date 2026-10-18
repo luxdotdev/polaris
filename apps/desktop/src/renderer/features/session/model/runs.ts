@@ -1,15 +1,24 @@
 /**
- * Tool runs, as Claude Code and ChatDCA show them: consecutive successful
- * reads, searches, fetches, edits and commands fold into one line ("Read 3
- * files, searched for 2 patterns, ran 4 commands") that expands to each call.
- * Anything running, failed or declined, and every other kind, keeps its row.
+ * Tool Runs, as Claude Code and ChatDCA show them: consecutive successful Skills, reads,
+ * searches, fetches, edits, commands and MCP calls fold into one line ("Loaded grilling, read
+ * 3 files, ran 4 commands, called Paper 4 times") that expands to each call; thinking between
+ * them folds in. Anything running, failed or declined, and every other kind, keeps its row.
  */
 import type { ItemView } from "./items.ts";
 import type { SubagentCard } from "./subagents.ts";
 
-export type RunKind = "read" | "search" | "fetch" | "web-search" | "edit" | "shell";
+export type RunKind =
+  | "skill"
+  | "read"
+  | "search"
+  | "fetch"
+  | "web-search"
+  | "edit"
+  | "shell"
+  | "mcp"
+  | "plumbing";
 
-/** Claude Code's and Codex's names for the tools that join runs (compared lowercase). */
+/** Older items' tools that join runs, by Claude Code's and Codex's names (compared lowercase). */
 const TOOL_KINDS = new Map<string, RunKind>([
   ["read", "read"],
   ["notebookread", "read"],
@@ -22,13 +31,26 @@ const TOOL_KINDS = new Map<string, RunKind>([
   ["web_search", "web-search"],
 ]);
 
+type ToolItem = Extract<ItemView, { kind: "tool" }>;
+
+const toolRunKind = (item: ToolItem): RunKind | null => {
+  // Polaris's own tools have purpose-built rows.
+  if (item.view !== null || item.polaris) return null;
+
+  if (item.plumbing) return "plumbing";
+
+  if (item.toolKind === null) return TOOL_KINDS.get(item.name.toLowerCase()) ?? null;
+
+  return item.toolKind === "other" ? null : item.toolKind;
+};
+
 /** What a call does in a run, or null when it keeps its own row. */
 export const runKind = (item: ItemView): RunKind | null => {
   if (item.live) return null;
 
   switch (item.kind) {
     case "tool":
-      return item.status === "completed" ? (TOOL_KINDS.get(item.name.toLowerCase()) ?? null) : null;
+      return item.status === "completed" ? toolRunKind(item) : null;
     case "command":
       return item.status === "completed" && (item.exitCode ?? 0) === 0 ? "shell" : null;
     case "files":
@@ -42,7 +64,9 @@ const count = (n: number, singular: string, plural = `${singular}s`) =>
   `${n} ${n === 1 ? singular : plural}`;
 
 /** Fixed phrase order whatever the call order; edits count distinct files. */
-const PHRASES: ReadonlyArray<readonly [RunKind, (n: number) => string]> = [
+const PHRASES: ReadonlyArray<
+  readonly [Exclude<RunKind, "skill" | "mcp" | "plumbing">, (n: number) => string]
+> = [
   ["read", (n) => `read ${count(n, "file")}`],
   ["search", (n) => `searched for ${count(n, "pattern")}`],
   ["fetch", (n) => `fetched ${count(n, "page")}`],
@@ -54,7 +78,35 @@ const PHRASES: ReadonlyArray<readonly [RunKind, (n: number) => string]> = [
 const editedFiles = (items: ReadonlyArray<ItemView>) =>
   new Set(items.flatMap((i) => (i.kind === "files" ? i.changes.map((c) => c.path) : []))).size;
 
-/** "Read 2 files, searched for 1 pattern, ran 3 commands". */
+/** "loaded grilling and domain-modeling"; from three on, "loaded 3 skills". */
+const skillPhrase = (items: ReadonlyArray<ItemView>): ReadonlyArray<string> => {
+  const names = new Set(
+    items.flatMap((i) =>
+      i.kind === "tool" && runKind(i) === "skill" ? [i.skill ?? i.summary] : []
+    )
+  );
+
+  if (names.size === 0) return [];
+
+  return names.size <= 2
+    ? [`loaded ${[...names].join(" and ")}`]
+    : [`loaded ${count(names.size, "skill")}`];
+};
+
+/** "called Paper 4 times", one per server, in the order the run first called it. */
+const mcpPhrases = (items: ReadonlyArray<ItemView>): ReadonlyArray<string> => {
+  const calls = new Map<string, number>();
+
+  for (const item of items)
+    if (item.kind === "tool" && item.mcp !== null && runKind(item) === "mcp")
+      calls.set(item.mcp.server, (calls.get(item.mcp.server) ?? 0) + 1);
+
+  return [...calls].map(([server, n]) =>
+    n === 1 ? `called ${server} once` : `called ${server} ${n} times`
+  );
+};
+
+/** "Loaded grilling, read 2 files, ran 3 commands, called Paper 4 times". */
 export const runSummary = (items: ReadonlyArray<ItemView>): string => {
   const counts = new Map<RunKind, number>();
 
@@ -66,11 +118,14 @@ export const runSummary = (items: ReadonlyArray<ItemView>): string => {
 
   if (counts.has("edit")) counts.set("edit", editedFiles(items));
 
-  const text = PHRASES.flatMap(([kind, phrase]) => {
+  const builtIn = PHRASES.flatMap(([kind, phrase]) => {
     const n = counts.get(kind) ?? 0;
 
     return n > 0 ? [phrase(n)] : [];
-  }).join(", ");
+  });
+
+  const text =
+    [...skillPhrase(items), ...builtIn, ...mcpPhrases(items)].join(", ") || "loaded tools";
 
   return text.charAt(0).toUpperCase() + text.slice(1);
 };
@@ -87,32 +142,43 @@ export type Entry =
   /** A Subagent, where the Turn spawned it. */
   | { readonly kind: "subagent"; readonly card: SubagentCard };
 
-/** Items in order, consecutive run calls folded; a lone call keeps its own row. */
+/** Finished thinking: it folds into a run when calls come on both sides of it. */
+const between = (item: ItemView) => item.kind === "reasoning" && !item.live;
+
+/**
+ * Items in order, consecutive run calls folded with the thinking between them; a lone call
+ * keeps its own row, as does thinking before or after a run.
+ */
 export const groupItems = (items: ReadonlyArray<ItemView>): ReadonlyArray<Entry> => {
   const entries: Array<Entry> = [];
   let pending: Array<ItemView> = [];
+  let held: Array<ItemView> = [];
+
+  const emit = (list: ReadonlyArray<ItemView>) => {
+    for (const item of list) entries.push({ kind: "item", item });
+  };
 
   const flush = () => {
-    if (pending.length === 1 && pending[0] !== undefined)
-      entries.push({ kind: "item", item: pending[0] });
-    else if (pending.length > 1 && pending[0] !== undefined)
-      entries.push({
-        kind: "run",
-        id: pending[0].id,
-        items: pending,
-        summary: runSummary(pending),
-      });
+    const first = pending[0];
+    const calls = pending.filter((item) => runKind(item) !== null).length;
+
+    if (first !== undefined && calls > 1)
+      entries.push({ kind: "run", id: first.id, items: pending, summary: runSummary(pending) });
+    else emit(pending);
+    emit(held);
     pending = [];
+    held = [];
   };
 
   for (const item of items) {
     if (runKind(item) !== null) {
-      pending.push(item);
-      continue;
+      pending.push(...held, item);
+      held = [];
+    } else if (between(item) && pending.length > 0) held.push(item);
+    else {
+      flush();
+      entries.push({ kind: "item", item });
     }
-
-    flush();
-    entries.push({ kind: "item", item });
   }
 
   flush();
@@ -172,4 +238,18 @@ export const toolVerb = (name: string, running: boolean): string => {
   const verbs = VERBS.get(name.toLowerCase());
 
   return verbs === undefined ? name : verbs[running ? 0 : 1];
+};
+
+/** A tool row's verb from what the call is: "Called Paper", "Loaded", else `toolVerb`. */
+export const toolLabel = (item: ToolItem): string => {
+  const running = item.status === "running";
+
+  if (item.mcp !== null && !item.polaris)
+    return `${running ? "Calling" : "Called"} ${item.mcp.server}`;
+
+  if (item.toolKind === "skill") return running ? "Loading" : "Loaded";
+
+  if (item.plumbing) return running ? "Loading tools" : "Loaded tools";
+
+  return toolVerb(item.name, running);
 };

@@ -2,11 +2,22 @@
  * Turn items as the conversation shows them: one shape for a completed
  * `TurnItem` and for an item still streaming (its `ItemProgress` and deltas).
  */
-import type { TurnItem } from "@polaris/protocol";
+import type { ToolKind, TurnItem } from "@polaris/protocol";
 import { Match, Predicate } from "effect";
 import type { LiveItem } from "../../../store/sessionModel.ts";
 import { type PolarisToolView, polarisToolView } from "./polarisTools/index.ts";
 import { polarisTool } from "./runs.ts";
+import {
+  isPlumbing,
+  kindOf,
+  type McpName,
+  mcpName,
+  mcpSubject,
+  skillName,
+  type ToolResult,
+  toolResult,
+  toolSearchSubject,
+} from "./toolCalls/index.ts";
 
 export type ItemStatus = "running" | "completed" | "failed" | "declined";
 
@@ -60,6 +71,19 @@ export type ItemView =
       readonly polaris: boolean;
       /** A Polaris tool's own row (`polarisTools`); null for any other tool. */
       readonly view: PolarisToolView | null;
+      /** What it does, as its driver classified it; null on older items it can't be told for. */
+      readonly toolKind: ToolKind | null;
+      /** The MCP server and tool, in words; null for any other tool. */
+      readonly mcp: McpName | null;
+      /** The Skill it loads, for a Skill call. */
+      readonly skill: string | null;
+      /** Loads other tools (ToolSearch): shown in an open run, never a phrase. */
+      readonly plumbing: boolean;
+      /** What it returned, in a line; null while running or when it returned nothing. */
+      readonly result: ToolResult | null;
+      /** As the Harness sent them, for Show raw. */
+      readonly input: ToolInput;
+      readonly output: unknown;
       readonly status: ItemStatus;
     })
   | (Base & {
@@ -171,11 +195,52 @@ export const toolFile = (input: ToolInput): ToolFile | null => {
   };
 };
 
-const toolCallSummary = (name: string, input: ToolInput, max = SUMMARY_MAX) => {
-  // The handback's input is the report, shown under its Subagent card; never as JSON.
-  if (name === HANDBACK) return "";
+type ToolCallItem = Extract<TurnItem, { readonly _tag: "ToolCall" }>;
 
-  return polarisTool(name) === null ? toolSummary(input, max) : polarisSummary(input);
+/** A call's subject: a Harness title, an MCP call's arguments, a Skill's name, or its input. */
+const toolCallSummary = (item: ToolCallItem, max = SUMMARY_MAX) => {
+  // The handback's input is the report, shown under its Subagent card; never as JSON.
+  if (item.name === HANDBACK) return "";
+
+  if (polarisTool(item.name) !== null) return polarisSummary(item.input);
+
+  const mcp = mcpName(item.mcp, item.name);
+
+  // An MCP row's verb names the server ("Called Paper"); its subject leads with the tool.
+  if (mcp !== null)
+    return [mcp.tool, item.title ?? mcpSubject(item.input)].filter((t) => t !== "").join(" · ");
+
+  if (item.title !== null) return clipTo(max)(item.title);
+
+  if (isPlumbing(item.name)) return toolSearchSubject(item.input);
+
+  if (item.kind === "skill") return skillName(item.input) ?? toolSummary(item.input, max);
+
+  return toolSummary(item.input, max);
+};
+
+const toolView = (i: ToolCallItem, live: boolean): ItemView => {
+  const mcp = mcpName(i.mcp, i.name);
+
+  return {
+    kind: "tool",
+    id: i.id,
+    live,
+    name: i.name,
+    summary: toolCallSummary(i),
+    full: mcp === null ? toolCallSummary(i, FULL_MAX) : toolSummary(i.input, FULL_MAX),
+    file: toolFile(i.input),
+    polaris: polarisTool(i.name) !== null,
+    view: polarisToolView(i),
+    toolKind: kindOf(i.kind, mcp),
+    mcp,
+    skill: i.kind === "skill" ? skillName(i.input) : null,
+    plumbing: isPlumbing(i.name),
+    result: i.status === "running" ? null : toolResult(i.output),
+    input: i.input,
+    output: i.output,
+    status: i.status,
+  };
 };
 
 const fromItem = (item: TurnItem, live: boolean): ItemView =>
@@ -207,18 +272,7 @@ const fromItem = (item: TurnItem, live: boolean): ItemView =>
         changes: i.changes,
         status: i.status,
       }),
-      ToolCall: (i): ItemView => ({
-        kind: "tool",
-        id: i.id,
-        live,
-        name: i.name,
-        summary: toolCallSummary(i.name, i.input),
-        full: toolCallSummary(i.name, i.input, FULL_MAX),
-        file: toolFile(i.input),
-        polaris: polarisTool(i.name) !== null,
-        view: polarisToolView(i),
-        status: i.status,
-      }),
+      ToolCall: (i): ItemView => toolView(i, live),
       Plan: (i): ItemView => ({
         kind: "plan",
         id: i.id,
