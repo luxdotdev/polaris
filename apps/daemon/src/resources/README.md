@@ -53,7 +53,10 @@ they take `/tmp/polaris-bench-lock` and `/tmp/polaris-smoke-lock`, respectively.
 shell waits on a private descriptor until its FIFO request is granted, then execs
 the command in the same PID. Arguments are passed as an argv array. Standard input,
 output and error are inherited. The wrapper forwards SIGINT/SIGTERM and preserves
-the exit code.
+the exit code. The shell is started with `Bun.spawn`, and the wrapper also checks every
+two seconds whether the command's process is gone (`lostExit.ts`): if Bun never reports
+the exit (ENG-357), the wrapper exits with 1 instead of waiting forever. The check runs
+in the wrapper, never in the Daemon.
 
 The persisted PID and process start time identify the child independently of the
 wrapper. A wrapper SIGKILL before grant closes the gate; after grant, the command
@@ -66,8 +69,9 @@ Only while process holders or waiters exist, a one-second monitor checks process
 There is no idle monitor timer, per-session polling, or worker-slot timer. Release
 on normal exit is immediate; an unobserved exit is reclaimed at the next check.
 The identity probe uses `ps` and is covered on macOS here; Linux is unverified.
-Each `ps` run has 5 s, three times: Bun under load can lose a child's exit (ENG-356),
-so a run that never answers is killed and asked again. If none answers, the identity
+`ps` runs through `Bun.spawn`: under load, `node:child_process`'s `execFile` lost its exit
+(ENG-356, ENG-357; measured in `docs/research/bun-child-process-lost-exit.md`). Each run
+still has 5 s, three times, so a run that never answers is killed and asked again. If none answers, the identity
 is unknown and nothing is decided on it: the waiter stays queued, the holder keeps its
 lease, and the next check asks again. An unknown identity never counts as an exit.
 

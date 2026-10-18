@@ -1,6 +1,12 @@
 import { foldModelServers } from "./probe.ts";
 import { expect, test } from "bun:test";
-import { CapabilityProbe, DEFAULT_ENDPOINTS, probeEndpoint } from "./probe.ts";
+import {
+  CapabilityProbe,
+  command,
+  DEFAULT_ENDPOINTS,
+  type ExecFile,
+  probeEndpoint,
+} from "./probe.ts";
 import { capability } from "./fixtures.testing.ts";
 
 const fetcher = (
@@ -82,4 +88,14 @@ test("model servers are folded into one entry per outermost server, Ollama's run
   ]);
   expect(folded.processes).toBe(2);
   expect(folded.rssBytes).toBe(1983 * MiB);
+});
+
+test("a command whose exit is never reported is killed and reads as empty", async () => {
+  const killed: string[] = [];
+
+  // The callback never runs, as when Bun loses the child's exit (ENG-357).
+  const lost: ExecFile = () => ({ kill: (signal) => killed.push(signal) > 0 });
+
+  expect(await command("/bin/ps", [], { run: lost, deadlineMs: 20 })).toBe("");
+  expect(killed).toEqual(["SIGKILL"]);
 });

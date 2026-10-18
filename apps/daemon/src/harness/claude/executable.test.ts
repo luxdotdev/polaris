@@ -2,7 +2,9 @@ import { expect, test } from "bun:test";
 import { copyFileSync, linkSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { claudeExecutable } from "./executable.ts";
+import { ChildProcess, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { PassThrough } from "node:stream";
+import { claudeExecutable, type Start, spawnWith } from "./executable.ts";
 
 const SHIM = "C:\\npm\\claude.cmd";
 
@@ -68,3 +70,40 @@ test("npm's cli.js runs under the shim's own node, never a bare one", async () =
   expect(JSON.parse(out)).toEqual([realpathSync(node), "--print"]);
   rmSync(seen, { recursive: true, force: true });
 });
+
+test("a child gone without the exit Bun lost still exits for the SDK (ENG-357)", async () => {
+  const finished = Bun.spawn([process.execPath, "-e", ""]);
+  await finished.exited;
+
+  // A child node never reports exiting: its stdout closes, its PID is gone, `exit` never comes.
+  const silent: Start = () => {
+    const stdout = new PassThrough();
+
+    const child = Object.defineProperties(new ChildProcess(), {
+      pid: { value: finished.pid },
+      stdin: { value: new PassThrough() },
+      stdout: { value: stdout },
+      stderr: { value: new PassThrough() },
+    });
+
+    queueMicrotask(() => stdout.end());
+
+    // SAFETY: the properties defined above give the child its three pipes.
+    return child as ChildProcessWithoutNullStreams;
+  };
+
+  const child = spawnWith(
+    process.execPath,
+    silent
+  )({
+    command: "node",
+    args: [],
+    env: {},
+    signal: new AbortController().signal,
+  });
+
+  const exited = new Promise((resolve) => child.once("exit", (code) => resolve(code)));
+  child.stdout.resume();
+
+  expect(await exited).toBeNull();
+}, 10_000);

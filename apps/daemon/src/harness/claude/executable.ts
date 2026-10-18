@@ -1,13 +1,25 @@
 import type { Options } from "@anthropic-ai/claude-agent-sdk";
-import { spawn } from "node:child_process";
+import {
+  type ChildProcessWithoutNullStreams,
+  spawn,
+  type SpawnOptionsWithoutStdio,
+} from "node:child_process";
 import { win32 } from "node:path";
 import { type Launch, launchOf } from "../../platform/cmdShim.ts";
 import { executableOf } from "../../platform/executable.ts";
+import { guardExit } from "../../resources/lostExit.ts";
 
 type Executable = Pick<
   Options,
   "pathToClaudeCodeExecutable" | "executable" | "spawnClaudeCodeProcess"
 >;
+
+/** How the SDK's child is started; a test passes one whose exit never comes. */
+export type Start = (
+  file: string,
+  args: ReadonlyArray<string>,
+  options: SpawnOptionsWithoutStdio
+) => ChildProcessWithoutNullStreams;
 
 /** What the Agent SDK reads as a script it runs with `executable`, not a native binary. */
 const SCRIPT = /\.(js|mjs)$/i;
@@ -17,16 +29,17 @@ const isNode = (program: string) => /^node(\.exe)?$/i.test(win32.basename(progra
 /**
  * Starts the SDK's `node <script>` with the shim's own `node` by absolute path: a bare
  * `node` would resolve from the Workspace first on Windows, where a repo could plant one.
- * The SDK reads stderr only from its own spawns, so this one drains it.
+ * The SDK reads stderr only from its own spawns, so this one drains it. The SDK awaits the
+ * child's exit, which Bun can lose (ENG-357), so a child gone after its stdout closed exits.
  */
-const spawnWith =
-  (program: string): NonNullable<Options["spawnClaudeCodeProcess"]> =>
+export const spawnWith =
+  (program: string, start: Start = spawn): NonNullable<Options["spawnClaudeCodeProcess"]> =>
   ({ args, cwd, env, signal }) => {
     const options = { cwd, env, signal, stdio: "pipe", windowsHide: true } as const;
-    const child = spawn(executableOf(program), args, options);
+    const child = start(executableOf(program), args, options);
     child.stderr.resume();
 
-    return child;
+    return guardExit(child);
   };
 
 /**
