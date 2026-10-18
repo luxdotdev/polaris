@@ -127,13 +127,16 @@ test("bounded git watches report nested changes and discover new directories", a
   });
 
   stops.push(stop);
-  await Bun.sleep(300);
   write(root, "src/a.ts", "changed");
   await waitFor(() => seen.includes(join(root, "src/a.ts")));
   write(root, "src/new/nested/a.ts", "new");
   await waitFor(() => opened.some((entry) => entry.path === join(root, "src/new/nested")));
-  write(root, "src/new/nested/a.ts", "changed");
-  await waitFor(() => seen.includes(join(root, "src/new/nested/a.ts")));
+  // A discovered directory's watch isn't probed (only Linux discovers, and inotify has no gap).
+  await waitFor(() => {
+    write(root, "src/new/nested/a.ts", `changed ${seen.length}`);
+
+    return seen.includes(join(root, "src/new/nested/a.ts"));
+  });
   stop();
   const count = opened.length;
   write(root, "src/after/a.ts", "");
@@ -157,6 +160,32 @@ test("bounded git watches report dotfiles and discover dotted directories", asyn
     return seen.includes(join(root, ".github/workflows/ci.yml"));
   });
 });
+
+// Bun on macOS restarts its one FSEvents stream after `fs.watch` returns (ADR 0072).
+test.skipIf(process.platform !== "darwin")(
+  "a file created as soon as a watch is armed beside a busy one is reported",
+  async () => {
+    const busy = tempDir("polaris-busy-watch-");
+    roots.push(busy);
+    stops.push(await watchRoot(busy, () => undefined));
+    const missed: Array<number> = [];
+
+    // Without the probe about a third of these creations are never reported.
+    for (let i = 0; i < 20; i++) {
+      for (let k = 0; k < 1000; k++) write(busy, `${k}.ts`, String(i));
+      const root = tempDir("polaris-armed-watch-");
+      roots.push(root);
+      const seen: Array<string> = [];
+      const stop = await watchRoot(root, (_event, path) => seen.push(path));
+      write(root, "created.ts", "");
+      await waitFor(() => seen.includes(join(root, "created.ts"))).catch(() => missed.push(i));
+      stop();
+    }
+
+    expect(missed).toEqual([]);
+  },
+  60_000
+);
 
 test("macOS keeps its single native recursive FSEvents watch", async () => {
   const root = tempDir("polaris-mac-watch-");
