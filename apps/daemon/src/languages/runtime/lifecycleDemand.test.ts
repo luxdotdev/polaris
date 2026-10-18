@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { writeFileSync } from "node:fs";
 import { writeFile, mkdir, rename } from "node:fs/promises";
 import { join } from "node:path";
 import {
@@ -170,8 +171,9 @@ test("config bursts and atomic TypeScript replacement restart all Clients and re
     await mkdir(join(f.root, "nested"));
     await Bun.sleep(30);
 
+    // Without yielding: a debounce firing between two awaited writes reads a middle state (ENG-343).
     for (let i = 0; i < 5; i++)
-      await writeFile(
+      writeFileSync(
         join(f.root, "nested/tsconfig.json"),
         JSON.stringify({ compilerOptions: { strict: i % 2 === 0 } })
       );
