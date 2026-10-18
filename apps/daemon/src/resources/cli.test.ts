@@ -103,7 +103,8 @@ posixTest("Windows bug: polaris lease gates its command through /bin/sh and fd 3
           "--",
           process.execPath,
           "-e",
-          'require("node:fs").writeFileSync(process.argv[1], String(process.pid)); setInterval(() => {}, 1000)',
+          // Renamed into place, so the marker never exists empty.
+          'const fs = require("node:fs"), to = process.argv[1]; fs.writeFileSync(to + ".tmp", String(process.pid)); fs.renameSync(to + ".tmp", to); setInterval(() => {}, 1000)',
           marker,
         ],
         { env, stdout: "ignore", stderr: "ignore" }

@@ -8,6 +8,7 @@ import { instructions, patchJsonSchema } from "./patch.ts";
 import { propose } from "./proposal.ts";
 import { request } from "./testing.ts";
 import { npmFake } from "../harness/testing/shellFake.ts";
+import { isRunning } from "../platform/processes.ts";
 
 const roots: Array<string> = [];
 
@@ -75,7 +76,9 @@ console.log(JSON.stringify({type:'result',subtype:'success',is_error:false,struc
 
 test("cancelling Claude kills the print process", async () => {
   const { root, binary } = fake(`
-await Bun.write('started', String(process.pid));
+// Renamed into place: until a write lands, a reader finds the file empty, and pid 0 is alive.
+await Bun.write('started.tmp', String(process.pid));
+require('node:fs').renameSync('started.tmp', 'started');
 setInterval(() => {}, 1000);
 `);
 
@@ -92,7 +95,7 @@ setInterval(() => {}, 1000);
         const pid = Number(yield* Effect.promise(() => Bun.file(join(root, "started")).text()));
         yield* Fiber.interrupt(fiber);
 
-        expect(() => process.kill(pid, 0)).toThrow();
+        expect(isRunning(pid)).toBe(false);
       })
     )
   );
