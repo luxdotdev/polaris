@@ -1,5 +1,6 @@
 import { tempDirectory } from "../verification/tempDirectories.testing.ts";
 import { describe, expect, test } from "bun:test";
+import { Database } from "bun:sqlite";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -106,6 +107,23 @@ const seed = (store: EventStore["Service"]) =>
   });
 
 describe("EventStore", () => {
+  test("a closed store lets go of its database: another connection can take it exclusively", async () => {
+    const file = join(tempDirectory(join(tmpdir(), "polaris-store-")), "state.sqlite");
+    await run(
+      file,
+      Effect.flatMap(EventStore, (store) => seed(store))
+    );
+
+    // Leaving WAL needs every other connection gone; a lingering one is SQLITE_BUSY.
+    const other = new Database(file);
+
+    try {
+      expect(other.query("PRAGMA journal_mode = DELETE").get()).toEqual({ journal_mode: "delete" });
+    } finally {
+      other.close();
+    }
+  });
+
   test("events, projections and receipt commit together and reload from disk", async () => {
     const file = join(tempDirectory(join(tmpdir(), "polaris-store-")), "state.sqlite");
     await run(
