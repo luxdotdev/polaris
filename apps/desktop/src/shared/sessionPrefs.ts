@@ -12,6 +12,8 @@ export const DEFAULT_SESSION_PREFS: SessionPrefs = {
   openOutputOnEdit: true,
   notifyNeedsYou: true,
   notifyTurnEnded: false,
+  notifyLongTurnsOnly: false,
+  longTurnMinutes: 5,
   notifyReviewRequests: true,
   deleteMergedBranch: false,
   spinnerVerbs: null,

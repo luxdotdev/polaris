@@ -473,6 +473,11 @@ const start = async () => {
     notify: () => env.POLARIS_DESKTOP_HIDDEN !== "1" && sessionPrefsOf(settings).notifyNeedsYou,
     notifyTurns: () =>
       env.POLARIS_DESKTOP_HIDDEN !== "1" && sessionPrefsOf(settings).notifyTurnEnded,
+    turnMinutes: () => {
+      const prefs = sessionPrefsOf(settings);
+
+      return prefs.notifyLongTurnsOnly ? prefs.longTurnMinutes : null;
+    },
     notifyAgents: () => env.POLARIS_DESKTOP_HIDDEN !== "1",
   });
 

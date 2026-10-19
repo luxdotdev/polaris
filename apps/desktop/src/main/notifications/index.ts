@@ -39,6 +39,8 @@ export interface NeedsYouCenterInput {
   readonly notify: () => boolean;
   /** The same for Turn-ended banners, which are off by default; never shown without it. */
   readonly notifyTurns?: () => boolean;
+  /** Only Turns longer than this many minutes notify; null for every Turn. */
+  readonly turnMinutes?: () => number | null;
   /** For agents' own notifications (MCP `notify`): off only when hidden; see `agentBannersOn`. */
   readonly notifyAgents?: () => boolean;
 }
@@ -84,6 +86,7 @@ export const createNeedsYouCenter = ({
   send,
   notify,
   notifyTurns = () => false,
+  turnMinutes = () => null,
   notifyAgents = () => true,
 }: NeedsYouCenterInput): NeedsYouCenter => {
   let state = emptyNotificationState;
@@ -212,7 +215,15 @@ export const createNeedsYouCenter = ({
     summary = next;
     const windowFocused = window()?.isFocused() ?? false;
     const plan = planNotifications({ state, summary, windowFocused });
-    const turns = planTurnNotifications({ state: turnState, summary, windowFocused });
+    const minutes = turnMinutes();
+
+    const turns = planTurnNotifications({
+      state: turnState,
+      summary,
+      windowFocused,
+      minDurationMs: minutes === null ? null : minutes * 60_000,
+    });
+
     const agents = planAgentNotifications({ state: agentState, summary, windowFocused });
 
     state = plan.state;

@@ -15,9 +15,11 @@ import type {
   HostStreamItem,
   ReviewCheckout,
   SessionNotification,
+  TurnTrigger,
   Workspace,
   Worktree,
 } from "@polaris/protocol";
+import type { UserTurn } from "../../shared/needsYou.ts";
 import { Match } from "effect";
 import { applyResourceEvent, type HostResources, resourcesFromSnapshot } from "./hostResources.ts";
 import type { SessionData } from "./plain.ts";
@@ -42,6 +44,8 @@ export interface SessionEntry {
   readonly lastTurnPreview: string | null;
   /** The latest Turn's id, seen live; snapshots don't carry it. */
   readonly lastTurnId?: string | null;
+  /** The latest Turn the user prompted (no `trigger`), seen live; snapshots don't carry it. */
+  readonly userTurn?: UserTurn | undefined;
   /** The latest notification an agent sent from this session (`notify`), seen live. */
   readonly lastNotification?: SessionNotification;
   /** Subagents still working in this session. */
@@ -139,11 +143,17 @@ const onTurn = (turn: {
   readonly sessionId: string;
   readonly index: number;
   readonly prompt: string;
+  readonly startedAt: string;
+  readonly trigger?: TurnTrigger | null;
 }) =>
   onSession(turn.sessionId, (entry) => ({
     ...entry,
     lastTurnPreview: turn.prompt.slice(0, 140),
     lastTurnId: turn.id,
+    userTurn:
+      turn.trigger == null
+        ? { id: turn.id, startedAt: turn.startedAt, prompt: turn.prompt.slice(0, 140) }
+        : entry.userTurn,
     session: { ...entry.session, turnCount: Math.max(entry.session.turnCount, turn.index + 1) },
   }));
 

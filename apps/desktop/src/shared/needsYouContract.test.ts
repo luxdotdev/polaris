@@ -3,7 +3,7 @@ import { Schema } from "effect";
 import { RequestInputs } from "./contract.ts";
 import type { NeedsYouSummary } from "./needsYou.ts";
 
-test("a Needs You summary crosses IPC whole: turns' digest marks and agent notifications", () => {
+test("a Needs You summary crosses IPC whole: turns' digest marks, user Turns and background tasks, and agent notifications", () => {
   const summary: NeedsYouSummary = {
     count: 0,
     sessions: [],
@@ -18,6 +18,9 @@ test("a Needs You summary crosses IPC whole: turns' digest marks and agent notif
         state: "idle",
         prompt: null,
         digestStarted: true,
+        backgroundTasks: 1,
+        userTurn: { id: "t1", startedAt: "2026-10-19T09:00:00Z", prompt: "fix the login form" },
+        updatedAt: "2026-10-19T09:07:00Z",
       },
     ],
     notifications: [

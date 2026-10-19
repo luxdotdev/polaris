@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { SessionNotification, TurnId } from "@polaris/protocol";
+import { BackgroundTask, SessionNotification, TurnId } from "@polaris/protocol";
 import { C1, HOSTS, MODELS } from "../../sessions/preview/fixtures.ts";
 import { host, hostModel, sessionWith } from "./inbox.testing.ts";
 import { notificationsOf, turnsOf } from "./summary.ts";
@@ -34,6 +34,36 @@ describe("turnsOf", () => {
     expect(turns.map((t) => [t.hostLabel, t.sessionId, t.state, t.harness])).toEqual([
       ["Mac Studio", "w", "working", "Claude Code"],
       ["Linux VM", "i", "idle", "Codex"],
+    ]);
+  });
+
+  test("carries the user's Turn and the background tasks an Idle session waits on", () => {
+    const tasks = [
+      new BackgroundTask({ id: "b1", kind: "command", description: "bun test --watch" }),
+      new BackgroundTask({ id: "b2", kind: "subagent", description: "Explore" }),
+    ];
+
+    const userTurn = { id: "t1", startedAt: "2026-10-19T09:00:00Z", prompt: "fix the login form" };
+
+    const model = hostModel([
+      { session: sessionWith("i", { state: "idle", backgroundTasks: tasks }) },
+      { session: sessionWith("w", { state: "working", backgroundTasks: tasks }) },
+    ]);
+
+    const entry = model.sessions.get("i");
+
+    if (entry === undefined) throw new Error("seeded");
+    const sessions = new Map([...model.sessions, ["i", { ...entry, userTurn }]]);
+
+    const turns = turnsOf({
+      hosts: [host("local", "Mac Studio")],
+      models: { local: { ...model, sessions } },
+      views: {},
+    });
+
+    expect(turns.map((t) => [t.sessionId, t.backgroundTasks, t.userTurn, t.prompt])).toEqual([
+      ["i", 2, userTurn, "fix the login form"],
+      ["w", 0, null, null],
     ]);
   });
 

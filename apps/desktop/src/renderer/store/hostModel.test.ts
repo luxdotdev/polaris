@@ -6,6 +6,9 @@ import {
   ReviewCheckoutId,
   ReviewSubject,
   SessionSummary,
+  Turn,
+  TurnId,
+  TurnTrigger,
   Worktree,
   WorktreeId,
   WorkspaceId,
@@ -148,6 +151,44 @@ describe("host model", () => {
 
     expect(resolved.sessions.get(sessionId)?.pendingApprovals).toEqual([]);
     expect(resolved.sessions.get(sessionId)?.session.lastError).toBe("boom");
+  });
+
+  test("a Turn the Harness started keeps the user's Turn: its id, start and prompt", () => {
+    const continued = new Turn({
+      sessionId: turn.sessionId,
+      attachments: [],
+      model: null,
+      effort: null,
+      status: "working",
+      checkpointBefore: null,
+      checkpointAfter: null,
+      endedAt: null,
+      id: TurnId.make("t-continued"),
+      index: 1,
+      prompt: "[Background task continuation]",
+      trigger: TurnTrigger.cases.BackgroundTasksReported.make({
+        tasks: [{ id: "bg1", kind: "command" }],
+      }),
+      startedAt: "2026-10-19T09:30:00.000Z",
+    });
+
+    const model = applyHostItems(
+      emptyHostModel,
+      cloned([
+        snapshot,
+        event(4, E.TurnStarted.make({ turn })),
+        event(5, E.TurnStarted.make({ turn: continued })),
+      ])
+    );
+
+    const entry = model.sessions.get(sessionId);
+
+    expect(entry?.lastTurnId).toBe("t-continued");
+    expect(entry?.userTurn).toEqual({
+      id: turn.id,
+      startedAt: turn.startedAt,
+      prompt: "count to three",
+    });
   });
 
   test("an event at or below the model's sequence is ignored", () => {
