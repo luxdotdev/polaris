@@ -21,7 +21,7 @@ export const highlightLanguage = (path: string): string | null => {
 };
 
 /** FNV-1a over the text: a cache key for this exact content. */
-const contentKey = (text: string) => {
+export const contentKey = (text: string) => {
   let hash = 0x811c9dc5;
 
   for (let i = 0; i < text.length; i++) hash = Math.imul(hash ^ text.charCodeAt(i), 0x01000193);
@@ -43,7 +43,7 @@ const highlightedLines = async (pool: HighlightPool, file: FileContents & { cach
 /** Lines per slice: about 4 ms on an M-series Mac, so a frame gets through between slices. */
 const SLICE = 500;
 
-const nextFrame = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+export const nextFrame = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
 /** The highlighted lines as tokens, a slice at a time on this (the UI) thread. */
 const inSlices = async (text: string, lines: ReadonlyArray<HastNode>) => {
@@ -67,24 +67,38 @@ const inSlices = async (text: string, lines: ReadonlyArray<HastNode>) => {
 /** A render-options change (the theme) drops a highlight in flight: then it's asked again. */
 const ATTEMPTS = 3;
 
+/** `text`'s lines highlighted in the pool, one HAST row per line; null when it can't be. */
+export const highlightLines = async (
+  pool: HighlightPool,
+  path: string,
+  text: string
+): Promise<ReadonlyArray<HastNode> | null> => {
+  if (!pool.isWorkingPool()) return null;
+
+  // A pool still starting answers a prime with nothing; wait for it as its own renders do.
+  if (!pool.isInitialized()) await pool.initialize();
+
+  // The language is in the key: the same text in two languages is two highlights.
+  const language = highlightLanguage(path) ?? "text";
+  const cacheKey = `polaris-diff-tokens:${language}:${contentKey(text)}`;
+  const file = { name: path, contents: text, cacheKey };
+
+  for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
+    const lines: ReadonlyArray<HastNode> | undefined = await highlightedLines(pool, file);
+
+    if (lines !== undefined) return lines;
+  }
+
+  return null;
+};
+
 /** `text`'s tokens by highlighting it in the pool; null when it can't be highlighted. */
 export const highlightTokens = async (
   pool: HighlightPool,
   path: string,
   text: string
 ): Promise<ReadonlyArray<SyntaxToken> | null> => {
-  if (!pool.isWorkingPool()) return null;
+  const lines = await highlightLines(pool, path, text);
 
-  // A pool still starting answers a prime with nothing; wait for it as its own renders do.
-  if (!pool.isInitialized()) await pool.initialize();
-
-  const file = { name: path, contents: text, cacheKey: `polaris-diff-tokens:${contentKey(text)}` };
-
-  for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
-    const lines: ReadonlyArray<HastNode> | undefined = await highlightedLines(pool, file);
-
-    if (lines !== undefined) return await inSlices(text, lines);
-  }
-
-  return null;
+  return lines === null ? null : await inSlices(text, lines);
 };
