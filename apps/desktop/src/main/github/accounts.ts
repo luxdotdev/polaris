@@ -133,6 +133,15 @@ export const openAccounts = Effect.fn("openAccounts")(function* (input: Accounts
       }));
     }).pipe(Effect.ignore);
 
+  /** Back in without the device flow: its stored refresh token still worked. */
+  const signedIn = (accountId: number) =>
+    change((current) => ({
+      ...current,
+      accounts: current.accounts.map((a) =>
+        a.id === accountId ? { ...a, signedOut: false, signedOutAt: null } : a
+      ),
+    }));
+
   /** Stores a new account (or signs an existing one back in) with its first tokens. */
   const welcome = (
     host: HostAccess,
@@ -373,6 +382,7 @@ export const openAccounts = Effect.fn("openAccounts")(function* (input: Accounts
     accessOf,
     hostAccess,
     signedOut,
+    signedIn,
     startSignIn,
     cancelSignIn,
     remove: (accountId: number, credentials: Credentials) => removeAll([accountId], credentials),

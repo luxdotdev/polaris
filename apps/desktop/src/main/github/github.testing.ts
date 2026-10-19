@@ -35,6 +35,8 @@ export interface HarnessOptions {
 
 export interface Network {
   down: Error | null;
+  /** While set, every request gets this answer instead, as a captive portal or a failing proxy gives. */
+  answer: (() => Response) | null;
 }
 
 export const harness = (options: HarnessOptions = {}) => {
@@ -53,13 +55,15 @@ export const harness = (options: HarnessOptions = {}) => {
   });
 
   /** While set, every request rejects with it before reaching a fake, as a dropped network does. */
-  const network: Network = { down: null };
+  const network: Network = { down: null, answer: null };
 
   const layer = GitHub.layer({
     dir,
     // github.com's fake at github.test, GHE's at its own host with GHES paths.
     fetch: (url, init) => {
       if (network.down !== null) return Promise.reject(network.down);
+
+      if (network.answer !== null) return Promise.resolve(network.answer());
 
       return new URL(url).host === GHE_HOST ? ghe.fetch(url, init) : fake.fetch(url, init);
     },

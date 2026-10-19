@@ -34,6 +34,8 @@ export interface PollerInput {
   readonly checkoutStates: SubscriptionRef.SubscriptionRef<ReadonlyArray<CheckoutStateView>>;
   readonly intervals: Intervals;
   readonly refreshDetails?: Effect.Effect<void>;
+  /** Runs before each poll: signed-out accounts whose refresh token still works come back. */
+  readonly revive?: Effect.Effect<void>;
 }
 
 export const accessView = (
@@ -154,7 +156,7 @@ export const newPoller = Effect.fn("newPoller")(function* (input: PollerInput) {
 
   const cycle = (force: boolean) =>
     Effect.andThen(
-      Effect.andThen(pollList(force), pollCheckouts),
+      Effect.andThen(Effect.andThen(input.revive ?? Effect.void, pollList(force)), pollCheckouts),
       input.refreshDetails ?? Effect.void
     ).pipe(Effect.catchCause((cause) => Effect.logWarning("github: poll failed", cause)));
 
