@@ -243,6 +243,19 @@ export class BackgroundTask extends Schema.Class<BackgroundTask>("BackgroundTask
   description: Schema.String,
 }) {}
 
+/**
+ * The user Turn a session is on (capability `session.user-turns`): its latest Turn without a
+ * `trigger`, or its first Turn when the Harness started that one. `number` is the session's
+ * user-Turn count, as `Turn.userTurnNumber` numbers them.
+ */
+export const CurrentUserTurn = Schema.Struct({
+  turnId: TurnId,
+  number: Schema.Int,
+  startedAt: Timestamp,
+});
+
+export type CurrentUserTurn = typeof CurrentUserTurn.Type;
+
 /** Who started a session for the user: a Reviewer or a walkthrough (capability `session.pin`). */
 export const SessionOrigin = Schema.Literals(["reviewer", "walkthrough"]);
 
@@ -271,6 +284,10 @@ export class AgentSession extends Schema.Class<AgentSession>("AgentSession")({
   /** Opaque Harness-native resume handle (Claude session id, Codex thread id). */
   harnessCursor: Schema.NullOr(Schema.String),
   turnCount: Schema.Int,
+  /** Null before the first Turn, and from Daemons without `session.user-turns`. */
+  currentUserTurn: optionalNullable(CurrentUserTurn),
+  /** The latest ended Turn's `replyPreview` (capability `session.user-turns`). */
+  lastReplyPreview: optionalNullable(Schema.String),
   /** Null until the Harness reports it; some Harnesses never do. */
   contextUsage: addedNullable(ContextUsage),
   /** The Harness's latest compaction, when it reported one (capability `session.compaction`). */
@@ -325,6 +342,16 @@ export class Turn extends Schema.Class<Turn>("Turn")({
   index: Schema.Int,
   prompt: Schema.String,
   trigger: optionalNullable(TurnTrigger),
+  /**
+   * One-based number of the user Turn it belongs to (capability `session.user-turns`): a Turn
+   * with a `trigger` keeps the number of the Turn before it, and a session's first Turn is 1.
+   */
+  userTurnNumber: optionalNullable(Schema.Int),
+  /**
+   * Its last reply as plain text, cut to about 200 characters (capability `session.user-turns`);
+   * null without reply text. Set while the Turn works, final on `TurnEnded`.
+   */
+  replyPreview: optionalNullable(Schema.String),
   attachments: Schema.Array(Attachment),
   /** The Model and effort the Turn ran on, as the session had them; null for the defaults. */
   model: addedNullable(ModelId),

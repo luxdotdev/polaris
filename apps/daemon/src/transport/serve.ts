@@ -180,6 +180,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "session.notify",
   "session.pin",
   "session.limited",
+  "session.user-turns",
   "files.read",
   "files.versioned",
   "files.write",

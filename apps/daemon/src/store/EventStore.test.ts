@@ -18,6 +18,7 @@ import {
 } from "@polaris/protocol";
 import { Effect, Exit, Fiber, Predicate, Stream } from "effect";
 import { CommitResult, EventStore } from "./EventStore.ts";
+import { patchTurn } from "./model.ts";
 
 const run = <A, E>(filename: string, program: Effect.Effect<A, E, EventStore>) =>
   Effect.runPromise(program.pipe(Effect.provide(EventStore.layerSqlite(filename))));
@@ -148,7 +149,10 @@ describe("EventStore", () => {
         expect(record.session.title).toBe("Renamed");
         // The seed carried a command id, so the rename counts as the user's.
         expect(record.titleLocked).toBe(true);
-        expect(record.turns).toEqual([turn]);
+        // The fold numbers the Turn and keeps its reply's preview, and both survive the reload.
+        expect(record.turns).toEqual([
+          patchTurn(turn, { userTurnNumber: 1, replyPreview: "hello" }),
+        ]);
         const items = yield* store.readTurnItems({ turnIds: [tId], upTo: 5 });
         expect(items.get(tId)).toEqual([
           TurnItem.cases.AssistantMessage.make({ id: "m1", text: "hello" }),

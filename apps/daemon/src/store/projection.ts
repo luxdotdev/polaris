@@ -18,6 +18,7 @@ import {
   type SessionId,
   Subagent,
   Turn,
+  type TurnId,
   TurnItem,
   Workspace,
   Worktree,
@@ -27,6 +28,7 @@ import type { SqlClient, SqlError } from "effect/sql";
 import { emptyResources, foldResources } from "../resources/model.ts";
 import { constellationOf } from "./constellation.ts";
 import { project } from "./model.ts";
+import { replyText } from "./userTurns.ts";
 import { storeError } from "./errors.ts";
 import { projectReviewEvent } from "./review.ts";
 import { json } from "./json.ts";
@@ -146,7 +148,14 @@ const setWorkspace = ({ sql }: Projecting, workspace: Workspace) =>
     data: WorkspaceJson.encode(workspace),
   })}`;
 
-const turnRow = (turn: Turn) => sessionRow(turn.sessionId, ({ sql }) => upsertTurn(sql, turn));
+const turnIn = (model: ReadModel, sessionId: SessionId, turnId: TurnId) =>
+  model.sessions.get(sessionId)?.turns.find((t) => t.id === turnId);
+
+/** The Turn as the fold keeps it, with its derived user-Turn number and reply preview. */
+const turnRow = (turn: Turn) =>
+  sessionRow(turn.sessionId, ({ sql, after }) =>
+    upsertTurn(sql, turnIn(after, turn.sessionId, turn.id) ?? turn)
+  );
 
 const withdrawnRequest = (event: {
   readonly sessionId: SessionId;
@@ -264,24 +273,24 @@ const projectionOf: (event: DomainEvent) => Projection = DomainEvent.match<Proje
   TurnEnded: ({ turn }) => turnRow(turn),
   CheckpointRecorded: (event) =>
     sessionRow(event.sessionId, ({ sql, after }) =>
-      upsertTurn(
-        sql,
-        after.sessions.get(event.sessionId)?.turns.find((t) => t.id === event.turnId)
-      )
+      upsertTurn(sql, turnIn(after, event.sessionId, event.turnId))
     ),
   TurnItemCompleted: (event) =>
-    sessionRow(
-      event.sessionId,
-      ({ sql, envelope }) =>
-        sql`INSERT INTO turn_items ${sql.insert({
-          sequence: envelope.sequence,
-          session_id: event.sessionId,
-          turn_id: event.turnId,
-          item_id: event.item.id,
-          subagent_id: event.subagentId,
-          data: TurnItemJson.encode(event.item),
-        })}`
-    ),
+    sessionRow(event.sessionId, ({ sql, envelope, after }) => {
+      const item = sql`INSERT INTO turn_items ${sql.insert({
+        sequence: envelope.sequence,
+        session_id: event.sessionId,
+        turn_id: event.turnId,
+        item_id: event.item.id,
+        subagent_id: event.subagentId,
+        data: TurnItemJson.encode(event.item),
+      })}`;
+
+      // A reply sets its Turn's preview (`recordReply` in model.ts).
+      return replyText(event) === null
+        ? item
+        : Effect.all([item, upsertTurn(sql, turnIn(after, event.sessionId, event.turnId))]);
+    }),
   ApprovalRequested: ({ request }) =>
     sessionRow(
       request.sessionId,

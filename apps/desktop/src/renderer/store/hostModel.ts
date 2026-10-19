@@ -4,6 +4,7 @@
  * Daemon folds its log (`apps/daemon/src/store/model.ts`). A Snapshot resets it.
  */
 import type {
+  CurrentUserTurn,
   HostResource,
   ResourceEvent,
   ResourceLease,
@@ -15,7 +16,7 @@ import type {
   HostStreamItem,
   ReviewCheckout,
   SessionNotification,
-  TurnTrigger,
+  Turn,
   Workspace,
   Worktree,
 } from "@polaris/protocol";
@@ -138,14 +139,20 @@ const onSession =
   (model, at) =>
     updateSession({ model, sessionId, at, change });
 
-const onTurn = (turn: {
-  readonly id: string;
-  readonly sessionId: string;
-  readonly index: number;
-  readonly prompt: string;
-  readonly startedAt: string;
-  readonly trigger?: TurnTrigger | null;
-}) =>
+type TurnFacts = Pick<Turn, "id" | "sessionId" | "index" | "prompt" | "startedAt"> &
+  Partial<Pick<Turn, "trigger" | "userTurnNumber" | "replyPreview">>;
+
+/** The Daemon's user Turn (`session.user-turns`): a Turn with a higher number opens the next one. */
+const currentUserTurn = (session: SessionData, turn: TurnFacts): CurrentUserTurn | null => {
+  const number = turn.userTurnNumber ?? null;
+  const current = session.currentUserTurn ?? null;
+
+  return number !== null && number > (current?.number ?? 0)
+    ? { turnId: turn.id, number, startedAt: turn.startedAt }
+    : current;
+};
+
+const onTurn = (turn: TurnFacts, ended: boolean) =>
   onSession(turn.sessionId, (entry) => ({
     ...entry,
     lastTurnPreview: turn.prompt.slice(0, 140),
@@ -154,7 +161,14 @@ const onTurn = (turn: {
       turn.trigger == null
         ? { id: turn.id, startedAt: turn.startedAt, prompt: turn.prompt.slice(0, 140) }
         : entry.userTurn,
-    session: { ...entry.session, turnCount: Math.max(entry.session.turnCount, turn.index + 1) },
+    session: {
+      ...entry.session,
+      turnCount: Math.max(entry.session.turnCount, turn.index + 1),
+      currentUserTurn: currentUserTurn(entry.session, turn),
+      lastReplyPreview: ended
+        ? (turn.replyPreview ?? null)
+        : (entry.session.lastReplyPreview ?? null),
+    },
   }));
 
 const removeWorkspace =
@@ -291,8 +305,8 @@ const fold = (event: DomainEvent): Fold =>
         onSession(sessionId, patch({ lastCompaction: compaction })),
       SessionNotified: ({ sessionId, notification }) =>
         onSession(sessionId, (entry) => ({ ...entry, lastNotification: notification })),
-      TurnStarted: ({ turn }) => onTurn(turn),
-      TurnEnded: ({ turn }) => onTurn(turn),
+      TurnStarted: ({ turn }) => onTurn(turn, false),
+      TurnEnded: ({ turn }) => onTurn(turn, true),
       TurnItemCompleted: () => unchanged,
       SubagentStarted: () => unchanged,
       SubagentEnded: () => unchanged,

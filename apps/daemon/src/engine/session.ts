@@ -14,13 +14,7 @@ import { modelChanged } from "./session.model.ts";
 import { DomainEvent, type RequestId, type SessionState, type Turn } from "@polaris/protocol";
 import { Predicate, Result } from "effect";
 import { createMachine, isUnhandled, transition, types } from "xstate";
-import {
-  foldSession,
-  lastTurn,
-  patchTurn,
-  type SessionRecord,
-  workingTurn,
-} from "../store/model.ts";
+import { lastTurn, patchTurn, type SessionRecord, workingTurn } from "../store/model.ts";
 import {
   eventSchemas,
   normalizedInput,
@@ -32,7 +26,13 @@ import {
 import { interruptedSetup, setupChanged } from "./session.setup.ts";
 import { acceptTurns, lastIsAccepted } from "./session.accept.ts";
 import { endBackgroundWork, subagentEnded, subagentStarted } from "./session.subagents.ts";
-import { endTurn, RECOVERY_REASON, stateChanged, withdrawPending } from "./session.events.ts";
+import {
+  endTurn,
+  foldEach,
+  RECOVERY_REASON,
+  stateChanged,
+  withdrawPending,
+} from "./session.events.ts";
 
 export type { SessionEffect, SessionInput } from "./session.inputs.ts";
 
@@ -87,8 +87,10 @@ const settle = (
 
   if (all.length === 0) return HANDLED;
 
-  for (const event of all) enq.emit({ type: "domain", event });
-  const next = foldSession(sessionId, record ?? undefined, all, "")!;
+  const folded = foldEach(sessionId, record ?? undefined, all);
+
+  for (const event of folded.events) enq.emit({ type: "domain", event });
+  const next = folded.record!;
   const moved = enter !== undefined || next.session.state !== record?.session.state;
 
   const context = { record: next };

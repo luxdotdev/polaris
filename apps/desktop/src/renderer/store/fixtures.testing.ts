@@ -59,6 +59,8 @@ const turnFields = {
   index: 0,
   prompt: "count to three",
   trigger: null,
+  userTurnNumber: null,
+  replyPreview: null,
   attachments: [],
   status: "working",
   checkpointBefore: null,

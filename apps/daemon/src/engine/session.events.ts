@@ -6,7 +6,7 @@ import {
   type Turn,
   type TurnId,
 } from "@polaris/protocol";
-import { patchTurn, type SessionRecord } from "../store/model.ts";
+import { foldSession, patchTurn, type SessionRecord } from "../store/model.ts";
 
 export const stateChanged = (
   sessionId: SessionId,
@@ -51,3 +51,40 @@ export const RECOVERY_REASON = {
   restart: "The Daemon restarted",
   upgrade: "The Daemon is upgrading",
 } as const;
+
+/** The event with its Turn as `record` folded it: with its user-Turn number and reply preview. */
+const asFolded = (event: DomainEvent, record: SessionRecord | undefined): DomainEvent => {
+  const folded = (turn: Turn) => record?.turns.find((t) => t.id === turn.id) ?? turn;
+
+  return DomainEvent.matchOrElse(
+    event,
+    {
+      TurnStarted: ({ turn }) => DomainEvent.cases.TurnStarted.make({ turn: folded(turn) }),
+      TurnEnded: ({ turn }) => DomainEvent.cases.TurnEnded.make({ turn: folded(turn) }),
+    },
+    () => event
+  );
+};
+
+/** Events as the Session machine emits them, and the record they fold to. */
+export interface FoldedEvents {
+  readonly events: ReadonlyArray<DomainEvent>;
+  readonly record: SessionRecord | undefined;
+}
+
+/** Fold `events` into `record` one by one; each Turn event carries what the fold derived for it. */
+export const foldEach = (
+  sessionId: SessionId,
+  record: SessionRecord | undefined,
+  events: ReadonlyArray<DomainEvent>
+): FoldedEvents => {
+  let next = record;
+
+  const stamped = events.map((event) => {
+    next = foldSession(sessionId, next, [event], "");
+
+    return asFolded(event, next);
+  });
+
+  return { events: stamped, record: next };
+};
