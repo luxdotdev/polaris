@@ -11,6 +11,8 @@ import { type DiffFile, parseUnifiedDiff } from "./model/diff.ts";
 import { polaris } from "../bridge.ts";
 import type { TurnView } from "../../store/sessionModel.ts";
 import type { TurnSpan } from "./model/turnGroups.ts";
+import type { HostView } from "../../../shared/api.ts";
+import { hasCapability, useHost } from "./hooks.ts";
 
 export type DiffState =
   | { readonly kind: "loading" }
@@ -38,6 +40,16 @@ export const spanSpec = (sessionId: SessionId, span: TurnSpan): GitDiffSpec =>
   span.first === span.last
     ? Specs.Turn({ sessionId, turnId: span.first })
     : Specs.Turns({ sessionId, firstTurnId: span.first, lastTurnId: span.last });
+
+/** A span of several Turns needs `git.diff-turns`; older Daemons answer it with an error. */
+export const spanDiffable = (span: TurnSpan, host: HostView | undefined) =>
+  span.first === span.last || hasCapability(host, "git.diff-turns");
+
+const UNSUPPORTED: DiffState = {
+  kind: "error",
+  code: "Unsupported",
+  message: "Update the daemon on this host to see this turn's changes",
+};
 
 const load = async (
   hostKey: string,
@@ -69,6 +81,8 @@ export const useTurnDiff = (
 ): DiffState => {
   const first = span?.first ?? null;
   const last = span?.last ?? null;
+  const host = useHost(hostKey);
+  const unsupported = span !== null && !spanDiffable(span, host);
 
   const key =
     first === null || last === null
@@ -79,7 +93,7 @@ export const useTurnDiff = (
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    if (first === null || last === null) return undefined;
+    if (first === null || last === null || unsupported) return undefined;
     let live = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -100,7 +114,9 @@ export const useTurnDiff = (
       live = false;
       clearTimeout(timer);
     };
-  }, [hostKey, cwd, sessionId, first, last, key, revision, attempt]);
+  }, [hostKey, cwd, sessionId, first, last, key, revision, attempt, unsupported]);
+
+  if (unsupported) return UNSUPPORTED;
 
   if (state?.key === key) return state.value;
 
