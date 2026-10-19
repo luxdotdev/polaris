@@ -37,6 +37,9 @@ export interface Network {
   down: Error | null;
   /** While set, every request gets this answer instead, as a captive portal or a failing proxy gives. */
   answer: (() => Response) | null;
+  /** While set, requests wait for it before going out; `held` counts those waiting. */
+  hold: Promise<void> | null;
+  held: number;
 }
 
 export const harness = (options: HarnessOptions = {}) => {
@@ -55,17 +58,33 @@ export const harness = (options: HarnessOptions = {}) => {
   });
 
   /** While set, every request rejects with it before reaching a fake, as a dropped network does. */
-  const network: Network = { down: null, answer: null };
+  const network: Network = { down: null, answer: null, hold: null, held: 0 };
+
+  // github.com's fake at github.test, GHE's at its own host with GHES paths.
+  const send = (url: string, init?: RequestInit): Promise<Response> => {
+    if (network.down !== null) return Promise.reject(network.down);
+
+    if (network.answer !== null) return Promise.resolve(network.answer());
+
+    return new URL(url).host === GHE_HOST ? ghe.fetch(url, init) : fake.fetch(url, init);
+  };
 
   const layer = GitHub.layer({
     dir,
-    // github.com's fake at github.test, GHE's at its own host with GHES paths.
     fetch: (url, init) => {
-      if (network.down !== null) return Promise.reject(network.down);
+      if (network.hold !== null) {
+        const hold = network.hold;
 
-      if (network.answer !== null) return Promise.resolve(network.answer());
+        network.held += 1;
 
-      return new URL(url).host === GHE_HOST ? ghe.fetch(url, init) : fake.fetch(url, init);
+        return hold.then(() => {
+          network.held -= 1;
+
+          return send(url, init);
+        });
+      }
+
+      return send(url, init);
     },
     endpoints: { web: "https://github.test", api: "https://api.github.test" },
     now: () => now,

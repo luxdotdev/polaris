@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { Effect, Exit } from "effect";
+import { Effect, Exit, Fiber } from "effect";
 import { harness, type Network, signIn, until } from "./github.testing.ts";
 import { GitHub } from "./index.ts";
 
@@ -118,5 +118,45 @@ describe("a signed-out account whose refresh token still works", () => {
 
     expect(existsSync(h.tokenPath(1001))).toBe(false);
     expect(tried).toBe(0);
+  });
+
+  test("removed while its refresh is in flight, keeps no tokens", async () => {
+    const first = open();
+
+    await first.run(signIn(first, "mona"));
+
+    const path = join(first.dir, "accounts.json");
+
+    writeFileSync(
+      path,
+      readFileSync(path, "utf8").replace('"signedOut": false', '"signedOut": true')
+    );
+
+    const second = open({ dir: first.dir, sharedFake: first.fake });
+    const before = refreshes(first);
+    const { promise: hold, resolve: release } = Promise.withResolvers<void>();
+
+    second.network.hold = hold;
+
+    await second.run(
+      Effect.gen(function* () {
+        const gh = yield* GitHub;
+
+        while (second.network.held === 0) yield* Effect.promise(() => Bun.sleep(1));
+
+        const removal = yield* Effect.forkChild(gh.removeAccount(1001));
+
+        yield* Effect.promise(() => Bun.sleep(20));
+        second.network.hold = null;
+        release();
+        yield* Fiber.join(removal);
+
+        // Lets an unlocked refresh finish its write before the scope closes.
+        while (refreshes(first) === before) yield* Effect.promise(() => Bun.sleep(1));
+        yield* Effect.promise(() => Bun.sleep(50));
+      })
+    );
+
+    expect(existsSync(second.tokenPath(1001))).toBe(false);
   });
 });
