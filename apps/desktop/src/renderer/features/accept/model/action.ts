@@ -3,24 +3,56 @@
  * "Accept split button"), and what accepting will end in: a pull request, a push, or a
  * commit only. Pure.
  */
+import type { TurnId } from "@polaris/protocol";
 import type { AcceptBranchChoice } from "../../../../shared/acceptBranch.ts";
+import { turnRange } from "../../review/data/source.ts";
 import type { RepoRef } from "../../../../shared/github.ts";
 
+/** A Turn as the UI numbers it (`ReviewTurn`): the user's Turn and those the Harness started. */
 export interface PendingTurn {
-  readonly id: string;
-  readonly index: number;
+  readonly id: TurnId;
+  readonly number: number;
+  /** The Daemon's Turns in it after the last accept, in order, never empty. */
+  readonly turns: ReadonlyArray<{ readonly id: TurnId; readonly status: string }>;
 }
 
-/** "turn 24", "turns 22–24" (1-based, as the Turn picker counts). */
-export const turnsLabel = (turns: ReadonlyArray<PendingTurn>): string => {
-  const first = turns[0];
-  const last = turns.at(-1);
+/** "turn 24", "turns 22–24", as the Turn picker numbers them. */
+export const turnsLabel = turnRange;
 
-  if (first === undefined || last === undefined) return "turns";
+/**
+ * The Turn `AcceptTurns` takes to accept through `turn` (owner, 2026-10-19): its last, so the
+ * Turns the Harness started after the user's are accepted with it.
+ */
+export const throughTurnId = (turn: PendingTurn): TurnId => turn.turns.at(-1)?.id ?? turn.id;
 
-  return first.index === last.index
-    ? `turn ${first.index + 1}`
-    : `turns ${first.index + 1}–${last.index + 1}`;
+/** Accept waits while the session works or a pending Turn's last continuation still runs. */
+export const acceptWaits = (
+  state: string | undefined,
+  pending: ReadonlyArray<PendingTurn>
+): boolean =>
+  state === "working" || pending.some((turn) => turn.turns.some((t) => t.status === "working"));
+
+/** What accepting through a Turn takes. */
+export interface AcceptChoice {
+  /** The Daemon Turn `AcceptTurns` names. */
+  readonly turnId: TurnId;
+  /** The pending Turns up to it. */
+  readonly turns: ReadonlyArray<PendingTurn>;
+  /** Pending Turns after it. */
+  readonly later: number;
+}
+
+export const acceptThrough = (
+  pending: ReadonlyArray<PendingTurn>,
+  through: PendingTurn
+): AcceptChoice => {
+  const at = pending.findIndex((t) => t.id === through.id);
+
+  return {
+    turnId: throughTurnId(through),
+    turns: pending.slice(0, at + 1),
+    later: pending.length - at - 1,
+  };
 };
 
 export type HeaderAction =

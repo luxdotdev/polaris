@@ -12,7 +12,7 @@ export interface AgentEdit {
   readonly harness: HarnessKind;
   readonly turnId: string;
   /** 1-based, as "turn 24". */
-  readonly turnIndex: number;
+  readonly turnNumber: number;
   /** ISO; "elapsed" counts from it. */
   readonly turnStartedAt: string;
   /** ISO, the newest change to this file; null before the first. */
@@ -35,7 +35,7 @@ export const elapsed = (ms: number): string => {
 
 /** "Polaris planning · turn 24 · 1m 12s". */
 export const stripCaption = (edit: AgentEdit, now: number): string =>
-  `${edit.title} · turn ${edit.turnIndex} · ${elapsed(now - Date.parse(edit.turnStartedAt))}`;
+  `${edit.title} · turn ${edit.turnNumber} · ${elapsed(now - Date.parse(edit.turnStartedAt))}`;
 
 /** "Claude Code is editing this file". */
 export const stripTitle = (harnessName: string) => `${harnessName} is editing this file`;

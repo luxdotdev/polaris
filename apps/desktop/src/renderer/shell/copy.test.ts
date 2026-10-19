@@ -82,6 +82,23 @@ describe("session row line", () => {
     ).toBe("Waiting on 2 subagents");
     expect(sessionLine(waiting)).toBe("Idle · turn 1");
   });
+
+  test("Idle numbers user Turns: a Harness-started Turn doesn't add one", () => {
+    const idle = (turnCount: number, number: number | null) =>
+      sessionLine({
+        ...base,
+        session: {
+          ...base.session,
+          state: "idle" as const,
+          turnCount,
+          currentUserTurn:
+            number === null ? null : { turnId: turn.id, number, startedAt: turn.startedAt },
+        },
+      });
+
+    expect(idle(5, 3)).toBe("Idle · turn 3");
+    expect(idle(5, null)).toBe("Idle · turn 5");
+  });
 });
 
 const failing = (

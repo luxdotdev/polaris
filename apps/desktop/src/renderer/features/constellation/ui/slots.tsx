@@ -92,7 +92,7 @@ const LeadIntent = ({
           facts={facts}
           folded={folded}
           onToggle={canFold ? onToggle : null}
-          fold={view === undefined ? null : digestFold(view)}
+          fold={view === undefined ? null : digestFold(turns, view)}
         />
       );
     },

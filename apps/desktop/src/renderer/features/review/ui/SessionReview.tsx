@@ -6,9 +6,16 @@ import { harnessHue } from "@polaris/ui";
 import { useState } from "react";
 import type { SessionSubject } from "../../../routes/review.ts";
 import { useApp, useShellActions } from "../../../shell/hooks.ts";
-import { useSession } from "../../session/hooks.ts";
-import { pendingTurns, sessionSource, type TurnInfo, type TurnPick } from "../data/source.ts";
+import { hasCapability, useSession } from "../../session/hooks.ts";
+import {
+  pendingTurns,
+  reviewTurns,
+  sessionSource,
+  turnRange,
+  type TurnPick,
+} from "../data/source.ts";
 import { useReviewDiff } from "../data/useReviewDiff.ts";
+import { promptTurns } from "../overview/model/prompts.ts";
 import { reviewSlots, subjectKey } from "../surface.ts";
 import { ReviewBody } from "./ReviewBody.tsx";
 import { SessionHeader } from "./SubjectHeader.tsx";
@@ -23,21 +30,14 @@ export const SessionReview = ({ subject }: { readonly subject: SessionSubject })
   const workspaces = useApp((s) => s.hostModels[hostKey]?.workspaces);
   const [pick, setPick] = useState<TurnPick>(ALL);
   const { session } = model;
-  const turns: ReadonlyArray<TurnInfo> = model.turns.map((t) => t.turn);
-  const source = session === null ? null : sessionSource(hostKey, session, turns, pick);
+  const turns = reviewTurns(model.turns);
+  const spans = hasCapability(host, "git.diff-turns");
+  const source = session === null ? null : sessionSource(hostKey, session, turns, pick, spans);
   const diff = useReviewDiff(source);
   const pending = pendingTurns(turns, session?.acceptedThroughIndex ?? null);
   const slotProps = { subject, checkout: null };
   const actions = useShellActions();
-  const first = pending[0];
-  const last = pending.at(-1);
-
-  const turnsScope =
-    first === undefined || last === undefined
-      ? ""
-      : first === last
-        ? `turn ${first.index + 1}`
-        : `turns ${first.index + 1}–${last.index + 1}`;
+  const turnsScope = pending.length === 0 ? "" : turnRange(pending);
 
   const { CheckoutChip, PrimaryAction } = reviewSlots.current;
 
@@ -88,6 +88,7 @@ export const SessionReview = ({ subject }: { readonly subject: SessionSubject })
               ? ""
               : `${harnessHue(session.harness).name} on ${host?.label ?? hostKey}`,
           scope: turnsScope,
+          turns: promptTurns(turns),
           onOpenSession: () => actions.selectSession({ hostKey, sessionId }),
         }}
         placeholder={

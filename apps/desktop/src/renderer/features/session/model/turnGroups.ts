@@ -31,8 +31,9 @@ export const harnessStarted = (turn: Turn): boolean => turn.trigger !== null;
 const cache = new WeakMap<ReadonlyArray<TurnView>, ReadonlyArray<TurnGroup>>();
 
 /**
- * The Turns, grouped; the same array for the same `views`. Turns not loaded yet (before the
- * first one listed) count as one Turn each, so numbers are exact once the history is listed.
+ * The Turns, grouped; the same array for the same `views`. A group takes its opening Turn's
+ * `userTurnNumber`, exact before older pages load; from older Daemons, Turns not loaded yet
+ * count as one Turn each, so numbers are exact once the history is listed.
  */
 export const groupTurns = (views: ReadonlyArray<TurnView>): ReadonlyArray<TurnGroup> => {
   const hit = cache.get(views);
@@ -45,7 +46,11 @@ export const groupTurns = (views: ReadonlyArray<TurnView>): ReadonlyArray<TurnGr
     const open = groups.at(-1);
 
     if (open !== undefined && harnessStarted(view.turn)) open.views.push(view);
-    else groups.push({ id: view.turn.id, number: base + groups.length + 1, views: [view] });
+    else {
+      const number = view.turn.userTurnNumber ?? base + groups.length + 1;
+
+      groups.push({ id: view.turn.id, number, views: [view] });
+    }
   }
 
   cache.set(views, groups);

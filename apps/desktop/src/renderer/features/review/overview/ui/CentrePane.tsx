@@ -35,10 +35,13 @@ import { Conversation } from "./Conversation.tsx";
 import { PullOverview, type PullOverviewProps, SessionOverview } from "./OverviewTab.tsx";
 import { TabBar } from "./TabBar.tsx";
 import type { WalkthroughActions } from "./Walkthrough.tsx";
+import type { PromptTurn } from "../model/prompts.ts";
 
 export interface SessionInfo {
   readonly where: string;
   readonly scope: string;
+  /** Each Daemon Turn's number as the UI shows it, by index, for the prompts. */
+  readonly turns: ReadonlyMap<number, PromptTurn>;
   readonly onOpenSession: () => void;
 }
 

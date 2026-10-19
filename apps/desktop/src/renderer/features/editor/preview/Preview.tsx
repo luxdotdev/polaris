@@ -90,7 +90,7 @@ const E3_EDIT = {
   title: "Polaris planning",
   harness: "claude",
   turnId: "turn_24",
-  turnIndex: 24,
+  turnNumber: 24,
   turnStartedAt: new Date(Date.now() - 72_000).toISOString(),
   lastChangeAt: new Date().toISOString(),
   live: true,

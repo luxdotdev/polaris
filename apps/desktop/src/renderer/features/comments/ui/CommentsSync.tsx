@@ -67,13 +67,11 @@ const SessionSync = ({
   const model = useSession(hostKey, sessionId);
 
   useEffect(() => {
-    const turns = model.turns.map((t) => t.turn);
-
     setSessionComments(subjectKey, {
       hostKey,
       sessionId,
-      nextTurn: nextTurnNumber(turns),
-      sent: sentComments(turns),
+      nextTurn: nextTurnNumber(model.turns),
+      sent: sentComments(model.turns),
     });
   }, [subjectKey, hostKey, sessionId, model.turns]);
 

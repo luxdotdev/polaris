@@ -243,21 +243,28 @@ const Footer = ({
 export interface AcceptPanelProps {
   readonly state: AcceptPanelState;
   readonly harness: string;
-  readonly turns: ReadonlyArray<{ readonly id: string; readonly index: number }>;
+  readonly turns: ReadonlyArray<{ readonly number: number }>;
+  /** Turns after the one accepted through, as the UI numbers them (the plan counts the Daemon's). */
+  readonly later: number;
   readonly newBranchName: string;
 }
+
+const laterLabel = (later: number) =>
+  `Undo the ${later === 1 ? "later turn" : `${later} later turns`}`;
 
 const PlanBody = ({
   state,
   plan,
   fields,
   harness,
+  later,
   newBranchName,
 }: {
   readonly state: AcceptPanelState;
   readonly plan: Plain<AcceptPlan>;
   readonly fields: Fields | null;
   readonly harness: string;
+  readonly later: number;
   readonly newBranchName: string;
 }) => (
   <>
@@ -299,7 +306,7 @@ const PlanBody = ({
         <Check
           checked={state.revertLater}
           onChange={state.setRevertLater}
-          label={`Undo the ${plan.laterTurns === 1 ? "later turn" : `${plan.laterTurns} later turns`}`}
+          label={laterLabel(later > 0 ? later : plan.laterTurns)}
           caption="Restores the files they changed to this turn's checkpoint"
         />
       )}
@@ -346,7 +353,7 @@ const Done = ({ state }: { readonly state: AcceptPanelState }) => {
   );
 };
 
-export const AcceptPanel = ({ state, harness, turns, newBranchName }: AcceptPanelProps) => {
+export const AcceptPanel = ({ state, harness, turns, later, newBranchName }: AcceptPanelProps) => {
   const { plan, run } = state;
 
   const counts =
@@ -394,6 +401,7 @@ export const AcceptPanel = ({ state, harness, turns, newBranchName }: AcceptPane
             plan={plan.value}
             fields={state.fields}
             harness={harness}
+            later={later}
             newBranchName={newBranchName}
           />
         )

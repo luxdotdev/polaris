@@ -7,6 +7,8 @@ import type { GitDiffSpec, ReviewCheckout, SessionId, TurnId } from "@polaris/pr
 import { Data, Predicate } from "effect";
 import type { OpenPull } from "../../../../shared/api.ts";
 import type { HostModel } from "../../../store/hostModel.ts";
+import type { TurnView } from "../../../store/sessionModel.ts";
+import { groupTurns, harnessStarted, openingView } from "../../session/model/turnGroups.ts";
 import type { SectionDivider } from "../model/layout.ts";
 
 export interface SourceSection {
@@ -121,51 +123,138 @@ export interface TurnInfo {
   readonly status: string;
 }
 
+/** A Turn as the UI numbers it (`turnGroups.ts`): the user's Turn and those the Harness started. */
+export interface ReviewTurn {
+  /** Its opening Turn's id. */
+  readonly id: TurnId;
+  readonly number: number;
+  /** The user's prompt; null when the Harness opened it. */
+  readonly prompt: string | null;
+  /** Its Turns in order, never empty; since the last accept, only those after it. */
+  readonly turns: ReadonlyArray<TurnInfo>;
+}
+
+/** The session's Turns as Review shows them, one per user message. */
+export const reviewTurns = (views: ReadonlyArray<TurnView>): ReadonlyArray<ReviewTurn> =>
+  groupTurns(views).map((group) => {
+    const opening = openingView(group).turn;
+
+    return {
+      id: group.id,
+      number: group.number,
+      prompt: harnessStarted(opening) ? null : opening.prompt,
+      turns: group.views.map((v) => v.turn),
+    };
+  });
+
 /** Which Turns to show: one, or every Turn since the last accept. */
 export type TurnPick =
   | { readonly kind: "all" }
   | { readonly kind: "turn"; readonly turnId: TurnId };
 
+/** Turns with work after the last accept, each cut to its Turns after it. */
+export const unacceptedTurns = (
+  turns: ReadonlyArray<ReviewTurn>,
+  acceptedThroughIndex: number | null
+): ReadonlyArray<ReviewTurn> =>
+  turns.flatMap((turn) => {
+    const after = turn.turns.filter((t) => t.index > (acceptedThroughIndex ?? -1));
+
+    return after.length === 0 ? [] : [{ ...turn, turns: after }];
+  });
+
 /** Turns since the last accept; every Turn when all were accepted. */
 export const pendingTurns = (
-  turns: ReadonlyArray<TurnInfo>,
+  turns: ReadonlyArray<ReviewTurn>,
   acceptedThroughIndex: number | null
-): ReadonlyArray<TurnInfo> => {
-  const pending = turns.filter((t) => t.index > (acceptedThroughIndex ?? -1));
+): ReadonlyArray<ReviewTurn> => {
+  const pending = unacceptedTurns(turns, acceptedThroughIndex);
 
   return pending.length > 0 ? pending : turns;
 };
 
-const quoteOf = (prompt: string) => {
-  const line = prompt.trim().split("\n")[0] ?? "";
+/** "turn 24", "turns 22–24", by the numbers the UI shows. */
+export const turnRange = (turns: ReadonlyArray<{ readonly number: number }>): string => {
+  const first = turns[0];
+  const last = turns.at(-1);
+
+  if (first === undefined || last === undefined) return "turns";
+
+  return first.number === last.number
+    ? `turn ${first.number}`
+    : `turns ${first.number}–${last.number}`;
+};
+
+/** The header's Turn picker shows at most this many single Turns before "All". */
+const PICKER_TURNS = 4;
+
+/** The Turn picker's options: the latest pending Turns by number, then all of them. */
+export const pickerOptions = (
+  pending: ReadonlyArray<ReviewTurn>
+): ReadonlyArray<{ readonly value: string; readonly label: string }> => [
+  ...pending.slice(-PICKER_TURNS).map((t) => ({ value: t.id, label: `${t.number}` })),
+  { value: "all", label: `All ${pending.length} turns` },
+];
+
+const quoteOf = (prompt: string | null) => {
+  const line = prompt?.trim().split("\n")[0] ?? "";
 
   return line === "" ? null : line.length > 90 ? `${line.slice(0, 89)}…` : line;
 };
 
+interface SourceSession {
+  readonly id: SessionId;
+  readonly cwd: string;
+  readonly harness: string;
+  readonly acceptedThroughIndex?: number | null;
+}
+
+/** A run of a Turn's Turns as one section: the first one's checkpoint to the last one's. */
+const runSection = (
+  session: SourceSession,
+  turn: ReviewTurn,
+  run: ReadonlyArray<TurnInfo>
+): SourceSection => {
+  // SAFETY: a ReviewTurn, and every run cut from it, has at least one Turn.
+  const first = run[0] as TurnInfo;
+  // SAFETY: as above.
+  const last = run.at(-1) as TurnInfo;
+
+  return {
+    id: first.id,
+    divider: { turn: turn.number, harness: session.harness, quote: quoteOf(turn.prompt) },
+    spec:
+      first === last
+        ? Specs.Turn({ sessionId: session.id, turnId: first.id })
+        : Specs.Turns({ sessionId: session.id, firstTurnId: first.id, lastTurnId: last.id }),
+    base: first.checkpointBefore,
+    next: last.checkpointAfter,
+  };
+};
+
+/**
+ * One section per Turn, newest first (Paper R2); the layout folds the older ones. Without
+ * `git.diff-turns` (`spans` false), a Turn the Harness continued is a section per Turn it ran.
+ */
 export const sessionSource = (
   hostKey: string,
-  session: {
-    readonly id: SessionId;
-    readonly cwd: string;
-    readonly harness: string;
-    readonly acceptedThroughIndex?: number | null;
-  },
-  turns: ReadonlyArray<TurnInfo>,
-  pick: TurnPick
+  session: SourceSession,
+  turns: ReadonlyArray<ReviewTurn>,
+  pick: TurnPick,
+  spans = true
 ): DiffSource => {
   const shown =
     pick.kind === "turn"
       ? turns.filter((t) => t.id === pick.turnId)
       : pendingTurns(turns, session.acceptedThroughIndex ?? null);
 
-  // Newest first (Paper R2); the layout folds the older ones.
-  const sections = shown.toReversed().map((turn): SourceSection => ({
-    id: turn.id,
-    divider: { turn: turn.index + 1, harness: session.harness, quote: quoteOf(turn.prompt) },
-    spec: Specs.Turn({ sessionId: session.id, turnId: turn.id }),
-    base: turn.checkpointBefore,
-    next: turn.checkpointAfter,
-  }));
+  const sections = shown
+    .toReversed()
+    .flatMap((turn) =>
+      spans
+        ? [runSection(session, turn, turn.turns)]
+        : turn.turns.toReversed().map((t) => runSection(session, turn, [t]))
+    );
 
   return {
     hostKey,
@@ -174,7 +263,7 @@ export const sessionSource = (
     key: [
       hostKey,
       session.id,
-      ...shown.map((t) => `${t.id}:${t.status}:${t.checkpointAfter ?? ""}`),
+      ...shown.flatMap((s) => s.turns).map((t) => `${t.id}:${t.status}:${t.checkpointAfter ?? ""}`),
     ].join("\u0000"),
   };
 };
