@@ -19,11 +19,10 @@ import {
   PixelSparkleIcon,
 } from "@polaris/ui";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { type ReactNode, useMemo, useRef, useState } from "react";
+import { lazy, type ReactNode, Suspense, useMemo, useRef, useState } from "react";
 import { type DiffRow, diffRows, ROW_HEIGHT } from "../diffRows.ts";
 import { type DiffSyntax, lineSyntax } from "../diffSyntax.ts";
 import { useSession } from "../hooks.ts";
-import { DiffWorkers } from "../../diffs/index.ts";
 import { useDiffSyntax } from "../useDiffSyntax.ts";
 import { LineCode } from "./LineCode.tsx";
 import { turnOpening } from "../model/conversation.ts";
@@ -211,11 +210,18 @@ const DiffList = ({ files, folded, onFold }: DiffListProps) => {
   );
 };
 
+// Lazy, as Review and the editor's diff tab are: the pool's `?worker` import only loads under Vite.
+const DiffWorkers = lazy(() =>
+  import("../../diffs/workers.tsx").then((m) => ({ default: m.DiffWorkers }))
+);
+
 /** A Turn's files as the Changes tab draws them, highlighted in the diffs' worker pool. */
 export const TurnChanges = (props: DiffListProps) => (
-  <DiffWorkers poolSize={OUTPUT_POOL_SIZE}>
-    <DiffList {...props} />
-  </DiffWorkers>
+  <Suspense fallback={<DiffList {...props} />}>
+    <DiffWorkers poolSize={OUTPUT_POOL_SIZE}>
+      <DiffList {...props} />
+    </DiffWorkers>
+  </Suspense>
 );
 
 /** One entry per shown Turn; its diff covers the Turns the Harness started in it. */
