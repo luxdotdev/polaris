@@ -6,12 +6,14 @@ import type {
   NeedsYouSession,
   NeedsYouSummary,
   NeedsYouTurn,
+  ReviewTarget,
 } from "../../../../shared/needsYou.ts";
-import type { HostModel } from "../../../store/hostModel.ts";
+import type { HostModel, SessionEntry } from "../../../store/hostModel.ts";
 import { digestStarted, type Digest } from "../../constellation/model/index.ts";
 import { waitingOn } from "../../session/model/background.ts";
 import type { ConstellationView } from "../../sessions/source.ts";
 import type { Inbox } from "./inbox.ts";
+import { type HeldSummary, type PullRow, reviewOf } from "./review.ts";
 
 export interface SummaryInput {
   readonly inbox: Inbox;
@@ -21,6 +23,8 @@ export interface SummaryInput {
   readonly turns?: ReadonlyArray<NeedsYouTurn>;
   /** Each session's latest agent notification (`notificationsOf`); none when left out. */
   readonly notifications?: ReadonlyArray<NeedsYouNotification>;
+  /** The Review the window shows, if any. */
+  readonly reviewing?: ReviewTarget | null;
 }
 
 /** A graph as its own stream delivered it; `digests` names the Lead Turns Polaris started. */
@@ -32,7 +36,22 @@ export interface TurnsInput {
   readonly hosts: ReadonlyArray<HostView>;
   readonly models: Readonly<Record<string, HostModel>>;
   readonly views: Readonly<Record<string, ReadonlyArray<TurnsView>>>;
+  /** The pull request list's rows, for the title a Review notification names; none when left out. */
+  readonly pulls?: ReadonlyArray<PullRow>;
+  /** The Risk Summaries the renderer holds, for a Reviewer's findings; none when left out. */
+  readonly summaries?: ReadonlyArray<HeldSummary>;
 }
+
+/** The Daemon's current user Turn (`session.user-turns`), else the latest seen live. */
+const userTurnOf = (entry: SessionEntry) => {
+  const current = entry.session.currentUserTurn ?? null;
+
+  if (current !== null) return { id: current.turnId, startedAt: current.startedAt };
+
+  return entry.userTurn === undefined
+    ? null
+    : { id: entry.userTurn.id, startedAt: entry.userTurn.startedAt };
+};
 
 /** Constellation workers' sessions: their Lead reports on them, so their Turns aren't news. */
 const workerSessions = (views: TurnsInput["views"]) =>
@@ -58,35 +77,55 @@ const leadDigests = (views: TurnsInput["views"]) =>
   );
 
 /** Every Working or Idle session outside a Constellation's workers, for Turn-ended notifications. */
-export const turnsOf = ({ hosts, models, views }: TurnsInput): Array<NeedsYouTurn> => {
+export const turnsOf = ({
+  hosts,
+  models,
+  views,
+  pulls = [],
+  summaries = [],
+}: TurnsInput): Array<NeedsYouTurn> => {
   const workers = workerSessions(views);
   const digests = leadDigests(views);
 
-  return hosts.flatMap((host) =>
-    [...(models[host.key]?.sessions.values() ?? [])].flatMap((entry): Array<NeedsYouTurn> => {
+  return hosts.flatMap((host) => {
+    const model = models[host.key];
+
+    if (model === undefined) return [];
+
+    return [...model.sessions.values()].flatMap((entry): Array<NeedsYouTurn> => {
       const { id, state, title, harness } = entry.session;
 
       if ((state !== "working" && state !== "idle") || workers.has(id)) return [];
       const lead = digests.get(`${host.key}\u0000${id}`);
       const turnId = entry.lastTurnId ?? null;
+      const userTurn = userTurnOf(entry);
 
-      return [
-        {
-          hostKey: host.key,
-          hostLabel: host.label,
-          sessionId: id,
-          title,
-          harness: harnessHue(harness).name,
-          state,
-          prompt: entry.userTurn?.prompt ?? entry.lastTurnPreview,
-          digestStarted: lead !== undefined && turnId !== null && digestStarted(lead, turnId),
-          backgroundTasks: waitingOn(entry.session).length,
-          userTurn: entry.userTurn ?? null,
-          updatedAt: entry.session.updatedAt,
-        },
-      ];
-    })
-  );
+      const turn: NeedsYouTurn = {
+        hostKey: host.key,
+        hostLabel: host.label,
+        sessionId: id,
+        title,
+        harness: harnessHue(harness).name,
+        state,
+        reply: entry.session.lastReplyPreview ?? null,
+        digestStarted: lead !== undefined && turnId !== null && digestStarted(lead, turnId),
+        backgroundTasks: waitingOn(entry.session).length,
+        userTurn,
+        updatedAt: entry.session.updatedAt,
+      };
+
+      const review = reviewOf({
+        hostKey: host.key,
+        model,
+        session: entry.session,
+        userTurn,
+        pulls,
+        summaries,
+      });
+
+      return [review === undefined ? turn : { ...turn, review }];
+    });
+  });
 };
 
 /** Every session's latest agent notification (MCP `notify`), for main to show once each. */
@@ -117,6 +156,7 @@ export const toSummary = ({
   focused,
   turns = [],
   notifications = [],
+  reviewing = null,
 }: SummaryInput): NeedsYouSummary => {
   const waiting = inbox.waiting.map((w): NeedsYouSession => ({
     hostKey: w.hostKey,
@@ -152,5 +192,6 @@ export const toSummary = ({
     focused,
     turns,
     notifications,
+    reviewing,
   };
 };

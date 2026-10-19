@@ -8,6 +8,7 @@ import type { SessionId } from "@polaris/protocol";
 import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
 import type { OpenPull } from "../../shared/api.ts";
+import type { ReviewTarget } from "../../shared/needsYou.ts";
 import type { ShellActions } from "./navigation.ts";
 
 export interface PullSubject {
@@ -60,6 +61,18 @@ export const reviewDigits: ReviewDigits = { pick: null };
 
 /** Back to the pull request list. */
 export const closeReviewSubject = () => reviewRoute.setState({ subject: null });
+
+/** A Review or Walkthrough notification: the pull request or Agent Session it ran for. */
+export const onOpenReviewEvent = (target: ReviewTarget, actions: Pick<ShellActions, "setMode">) => {
+  if (target.kind === "pull") {
+    openPull(actions, { repo: target.repo, number: target.number, pullId: target.pullId });
+
+    return;
+  }
+
+  // SAFETY: the main process echoes session ids the renderer published.
+  openSessionReview(actions, target.hostKey, target.sessionId as SessionId);
+};
 
 /** A review-request notification: its pull request, or the list for a burst. */
 export const onOpenPullEvent = (pull: OpenPull | null, actions: Pick<ShellActions, "setMode">) => {

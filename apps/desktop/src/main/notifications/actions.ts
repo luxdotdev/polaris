@@ -3,8 +3,18 @@
  * Notification and the smoke test's probe both call these, so the probe drives the real path.
  * A request is answered once: Windows can deliver one button press twice.
  */
-import type { NeedsYouAction } from "../../shared/needsYou.ts";
+import type { AppEvent } from "../../shared/api.ts";
+import type { NeedsYouAction, NeedsYouTurn } from "../../shared/needsYou.ts";
 import type { NotificationContent } from "./plan.ts";
+
+/** A Turn-ended banner's click: the Review a Reviewer's or walkthrough's run is for, else the session. */
+export const turnClick = (turn: NeedsYouTurn): AppEvent => {
+  const target = turn.review?.target ?? null;
+
+  return target === null
+    ? { kind: "needs-you", action: "open", hostKey: turn.hostKey, sessionId: turn.sessionId }
+    : { kind: "open-review", target };
+};
 
 export interface NotificationHandlers {
   readonly click: () => void;

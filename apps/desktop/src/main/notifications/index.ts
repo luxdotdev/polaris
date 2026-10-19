@@ -15,6 +15,7 @@ import {
   NOTIFICATION_BUTTONS,
   type NotificationHandlers,
   notificationHandlers,
+  turnClick,
 } from "./actions.ts";
 import { showBadge } from "./badge.ts";
 import { focusWindow } from "./focus.ts";
@@ -159,7 +160,6 @@ export const createNeedsYouCenter = ({
     turnsPlanned.push({ key: content.key, shown });
 
     if (!shown) return;
-    const { hostKey, sessionId } = content.turn;
 
     const notification = new Notification({
       title: content.title,
@@ -167,13 +167,47 @@ export const createNeedsYouCenter = ({
       body: content.body,
     });
 
-    notification.on("click", () => open(hostKey, sessionId));
+    notification.on("click", () => {
+      focus();
+      send(turnClick(content.turn));
+    });
     notification.on("close", () => {
       if (live.get(content.key) === notification) live.delete(content.key);
     });
     live.set(content.key, notification);
     notification.show();
   };
+
+  let recheck: ReturnType<typeof setTimeout> | null = null;
+
+  /** Plans Turn-ended banners; a settle still waiting out `SETTLE_MS` plans again when it can count. */
+  const planTurns = (windowFocused: boolean) => {
+    const minutes = turnMinutes();
+
+    const turns = planTurnNotifications({
+      state: turnState,
+      summary,
+      windowFocused,
+      minDurationMs: minutes === null ? null : minutes * 60_000,
+      now: Date.now(),
+    });
+
+    turnState = turns.state;
+
+    if (recheck !== null) clearTimeout(recheck);
+    recheck = turns.recheckInMs === null ? null : setTimeout(replanTurns, turns.recheckInMs);
+
+    return turns;
+  };
+
+  function replanTurns() {
+    recheck = null;
+    const turns = planTurns(window()?.isFocused() ?? false);
+
+    for (const key of turns.close) close(key);
+
+    for (const content of turns.show) showTurn(content);
+  }
 
   /** The Desktop App's record of each agent banner, for the `notify` row (`agent-banner`). */
   const record = (n: NeedsYouNotification, banner: "shown" | "here" | "off") =>
@@ -215,19 +249,10 @@ export const createNeedsYouCenter = ({
     summary = next;
     const windowFocused = window()?.isFocused() ?? false;
     const plan = planNotifications({ state, summary, windowFocused });
-    const minutes = turnMinutes();
-
-    const turns = planTurnNotifications({
-      state: turnState,
-      summary,
-      windowFocused,
-      minDurationMs: minutes === null ? null : minutes * 60_000,
-    });
-
+    const turns = planTurns(windowFocused);
     const agents = planAgentNotifications({ state: agentState, summary, windowFocused });
 
     state = plan.state;
-    turnState = turns.state;
     agentState = agents.state;
 
     for (const key of [...plan.close, ...turns.close]) close(key);
@@ -283,6 +308,8 @@ export const createNeedsYouCenter = ({
   return {
     publish,
     dispose: () => {
+      if (recheck !== null) clearTimeout(recheck);
+
       for (const key of live.keys()) close(key);
       tray.destroy();
       nativeTheme.off("updated", rebadge);
