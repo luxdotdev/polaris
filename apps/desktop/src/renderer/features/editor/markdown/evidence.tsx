@@ -1,6 +1,7 @@
 import "../../../styles.css";
 import { createRoot } from "react-dom/client";
 import { useState } from "react";
+import { TooltipProvider } from "@polaris/ui";
 import { HostId, WorkspaceId, LanguageCheckout, LanguagePreviewPolicy } from "@polaris/protocol";
 import type { LanguageApi } from "../../../../shared/api.ts";
 import {
@@ -197,4 +198,10 @@ Object.assign(window, {
 
 const root = window.document.getElementById("root");
 
-if (root !== null) createRoot(root).render(<Fixture />);
+if (root !== null) {
+  createRoot(root).render(
+    <TooltipProvider>
+      <Fixture />
+    </TooltipProvider>
+  );
+}

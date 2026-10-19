@@ -5,10 +5,13 @@ export const PreviewImage = ({
   source,
   alt,
   pool,
+  shown,
 }: {
   readonly source: string;
   readonly alt: string;
   readonly pool: PreviewMediaPool | null;
+  /** For an external image: counts it as shown until it unmounts. */
+  readonly shown?: (() => () => void) | undefined;
 }) => {
   const [image, setImage] = useState<{
     source: string;
@@ -17,6 +20,7 @@ export const PreviewImage = ({
   } | null>(null);
 
   const [failed, setFailed] = useState(false);
+  useEffect(() => shown?.(), [shown]);
   useEffect(() => {
     setFailed(false);
 

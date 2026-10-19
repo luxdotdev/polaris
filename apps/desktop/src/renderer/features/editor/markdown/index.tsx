@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { Schema } from "effect";
 import { LanguagePreviewPolicy } from "@polaris/protocol";
 import type { LanguageApi } from "../../../../shared/api.ts";
@@ -20,6 +20,14 @@ const Preview = ({ api, hostLabel, ...props }: MarkdownPreviewProps) => {
   const [pool, setPool] = useState<PreviewMediaPool | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [externals, setExternals] = useState(0);
+
+  const externalImage = useCallback(() => {
+    setExternals((count) => count + 1);
+
+    return () => setExternals((count) => count - 1);
+  }, []);
+
   const [document] = useState(() => props.document);
   useEffect(() => {
     let stopped = false;
@@ -92,18 +100,18 @@ const Preview = ({ api, hostLabel, ...props }: MarkdownPreviewProps) => {
   return (
     <section className="markdown-preview" aria-label={`Markdown preview on ${hostLabel}`}>
       <div className="preview-policy">
-        {policy?.externalImages === "ask" && (
+        {externals > 0 && policy?.externalImages === "ask" && (
           <button type="button" disabled={saving} onClick={() => void allow()}>
             Load external images
           </button>
         )}
-        {policy?.externalImages === "deny" && <span>External images blocked</span>}
+        {externals > 0 && policy?.externalImages === "deny" && <span>External images blocked</span>}
         {notice && <span role="status">{notice}</span>}
         {api === undefined && <span>Images unavailable on {hostLabel}</span>}
       </div>
       <PreviewBoundary source={props.source}>
         <Suspense fallback={<p className="preview-source">{props.source}</p>}>
-          <Rendered {...props} document={document} pool={pool} />
+          <Rendered {...props} document={document} pool={pool} externalImage={externalImage} />
         </Suspense>
       </PreviewBoundary>
     </section>

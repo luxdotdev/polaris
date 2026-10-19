@@ -5,6 +5,11 @@
   color: var(--color-text-default);
   font-size: var(--text-body);
   overflow-wrap: anywhere;
+  /* Tailwind's max-w-prose in the body font, centred; the caption-sized bar shares it. */
+  display: grid;
+  grid-template-columns: minmax(0, 65ch);
+  justify-content: center;
+  align-content: start;
 }
 .preview-policy {
   display: flex;
@@ -14,6 +19,9 @@
   color: var(--color-text-subtle);
   font-size: var(--text-caption);
   margin-bottom: var(--spacing-gap);
+}
+.preview-policy:empty {
+  display: none;
 }
 .preview-policy button {
   border: 1px solid var(--color-hairline);
