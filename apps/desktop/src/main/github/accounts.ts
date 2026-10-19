@@ -3,7 +3,17 @@
  * adding one through its host's device flow, removing and ordering them, the hosts
  * themselves, and the owner and Workspace routing. Tokens never leave the main process.
  */
-import { Clock, Effect, Fiber, Option, Ref, Result, Scope, SubscriptionRef } from "effect";
+import {
+  Clock,
+  Effect,
+  Fiber,
+  Option,
+  Ref,
+  Result,
+  Scope,
+  Semaphore,
+  SubscriptionRef,
+} from "effect";
 import {
   GITHUB_HOST,
   GITHUB_SCOPES,
@@ -74,14 +84,19 @@ export const openAccounts = Effect.fn("openAccounts")(function* (input: Accounts
     );
   });
 
-  const change = (update: (current: AccountsFile) => AccountsFile) =>
-    Effect.gen(function* () {
-      const next = update(yield* Ref.get(file));
+  const writing = yield* Semaphore.make(1);
 
-      yield* Ref.set(file, next);
-      yield* store.writeAccounts(next);
-      yield* publish;
-    });
+  /** One at a time: writes share `accounts.json.part`. */
+  const change = (update: (current: AccountsFile) => AccountsFile) =>
+    writing.withPermit(
+      Effect.gen(function* () {
+        const next = update(yield* Ref.get(file));
+
+        yield* Ref.set(file, next);
+        yield* store.writeAccounts(next);
+        yield* publish;
+      })
+    );
 
   const access = (record: HostRecord): HostAccess => ({
     host: record.host,

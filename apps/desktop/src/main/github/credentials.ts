@@ -62,8 +62,12 @@ export const newCredentials = ({ store, transport, signedOut, accessOf }: Creden
       Effect.sync(() => cache.set(accountId, pair))
     );
 
-  const forget = (accountId: number) =>
+  const drop = (accountId: number) =>
     Effect.tap(store.removeTokens(accountId), () => Effect.sync(() => cache.delete(accountId)));
+
+  /** Waits out a refresh in flight, so its new pair can't outlive the removal. */
+  const forget = (accountId: number) =>
+    Effect.flatMap(lockOf(accountId), (lock) => lock.withPermit(drop(accountId)));
 
   const current = (accountId: number) =>
     Effect.gen(function* () {
@@ -81,7 +85,7 @@ export const newCredentials = ({ store, transport, signedOut, accessOf }: Creden
 
   /** GitHub refused the pair: drop it, so nothing tries it again, and sign the account out. */
   const refused = (accountId: number, message: string) =>
-    Effect.andThen(forget(accountId), authError(accountId, message));
+    Effect.andThen(drop(accountId), authError(accountId, message));
 
   /** One refresh call. A failure that isn't GitHub's refusal is a `GitHubRequestError`. */
   const exchange = (accountId: number, refreshToken: string) =>
@@ -166,24 +170,22 @@ export const newCredentials = ({ store, transport, signedOut, accessOf }: Creden
    */
   const revive = (accountId: number) =>
     Effect.gen(function* () {
-      const stored = yield* store.readTokens(accountId);
-      const now = yield* Clock.currentTimeMillis;
-
-      if (Option.isNone(stored)) return false;
-
-      const { refreshToken, refreshExpiresAt } = stored.value;
-
-      if (refreshToken === null || (refreshExpiresAt !== null && refreshExpiresAt <= now)) {
-        return false;
-      }
-
       const lock = yield* lockOf(accountId);
 
       return yield* lock.withPermit(
         Effect.gen(function* () {
-          const next = yield* exchange(accountId, refreshToken);
+          const stored = yield* store.readTokens(accountId);
+          const now = yield* Clock.currentTimeMillis;
 
-          yield* put(accountId, next);
+          if (Option.isNone(stored)) return false;
+
+          const { refreshToken, refreshExpiresAt } = stored.value;
+
+          if (refreshToken === null || (refreshExpiresAt !== null && refreshExpiresAt <= now)) {
+            return false;
+          }
+
+          yield* put(accountId, yield* exchange(accountId, refreshToken));
 
           return true;
         })
