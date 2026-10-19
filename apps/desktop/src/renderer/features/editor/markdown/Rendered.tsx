@@ -18,9 +18,18 @@ export interface RenderedProps {
   readonly pool: PreviewMediaPool | null;
   readonly openDocument: (document: PreviewDocument, fragment: string) => Promise<void>;
   readonly openExternal: (url: string) => Promise<void>;
+  /** Called as each external image mounts; the returned function, as it unmounts. */
+  readonly externalImage?: (() => () => void) | undefined;
 }
 
-const Rendered = ({ source, document, pool, openDocument, openExternal }: RenderedProps) => {
+const Rendered = ({
+  source,
+  document,
+  pool,
+  openDocument,
+  openExternal,
+  externalImage,
+}: RenderedProps) => {
   const root = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const needs = needsOf(source);
@@ -58,10 +67,20 @@ const Rendered = ({ source, document, pool, openDocument, openExternal }: Render
 
   const imageComponent = useMemo<NonNullable<Components["img"]>>(
     () =>
-      ({ src, alt }) => (
-        <PreviewImage source={Predicate.isString(src) ? src : ""} alt={alt ?? ""} pool={pool} />
-      ),
-    [pool]
+      ({ src, alt }) => {
+        const source = Predicate.isString(src) ? src : "";
+        const external = previewTarget(source, document).kind === "external";
+
+        return (
+          <PreviewImage
+            source={source}
+            alt={alt ?? ""}
+            pool={pool}
+            shown={external ? externalImage : undefined}
+          />
+        );
+      },
+    [pool, document, externalImage]
   );
 
   const components: Components = useMemo(
