@@ -62,6 +62,11 @@ export const Capability = Schema.Literals([
   "session.pin",
   /** The Limited Session State, `SetResumeAtReset` and `SessionResumeAtResetChanged`. */
   "session.limited",
+  /**
+   * `Turn.userTurnNumber` and `replyPreview`, and `AgentSession.currentUserTurn` and
+   * `lastReplyPreview`: without it they are null, and a Client numbers and times Turns itself.
+   */
+  "session.user-turns",
   "files.read",
   "files.versioned",
   "files.write",

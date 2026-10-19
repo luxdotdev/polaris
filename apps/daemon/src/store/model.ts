@@ -33,6 +33,8 @@ import {
 import { emptyResources, foldResources, type ResourcesModel } from "../resources/model.ts";
 
 import { foldConstellation, graphEvent, type ConstellationRecord } from "./constellation.ts";
+import { replyPreview } from "./replyPreview.ts";
+import { replyText, userTurnAfter } from "./userTurns.ts";
 
 export interface SessionRecord {
   readonly session: AgentSession;
@@ -361,6 +363,8 @@ export const patchSession = (session: AgentSession, patch: SessionPatch): AgentS
     forkedFromTurnId: session.forkedFromTurnId,
     harnessCursor: session.harnessCursor,
     turnCount: session.turnCount,
+    currentUserTurn: session.currentUserTurn,
+    lastReplyPreview: session.lastReplyPreview,
     contextUsage: session.contextUsage,
     lastCompaction: session.lastCompaction,
     backgroundTasks: session.backgroundTasks,
@@ -387,6 +391,8 @@ export const patchTurn = (turn: Turn, patch: TurnPatch): Turn =>
     index: turn.index,
     prompt: turn.prompt,
     trigger: turn.trigger,
+    userTurnNumber: turn.userTurnNumber,
+    replyPreview: turn.replyPreview,
     attachments: turn.attachments,
     model: turn.model,
     effort: turn.effort,
@@ -522,14 +528,54 @@ const resourceProjection =
     return { ...model, hostResources };
   };
 
+/** A Turn's start or end; its user-Turn number and reply preview come from the fold, not the event. */
 const recordTurn =
+  (started: boolean) =>
   ({ turn }: { readonly turn: Turn }): Reducer =>
   (fold) =>
-    updateSession(fold, turn.sessionId, (r) => ({
-      // Turn indexes are dense from 0, so the count is one past the highest seen.
-      session: { turnCount: Math.max(r.session.turnCount, turn.index + 1) },
-      turns: upsertTurn(r.turns, turn),
-    }));
+    updateSession(fold, turn.sessionId, (r) => {
+      const known = r.turns.find((t) => t.id === turn.id);
+
+      const opened =
+        started && known === undefined
+          ? userTurnAfter(r.session.currentUserTurn, {
+              id: turn.id,
+              startedAt: turn.startedAt,
+              harnessStarted: turn.trigger !== null,
+            })
+          : null;
+
+      const kept = patchTurn(turn, {
+        userTurnNumber: known?.userTurnNumber ?? opened?.number ?? turn.userTurnNumber,
+        replyPreview: known?.replyPreview ?? turn.replyPreview,
+      });
+
+      return {
+        session: {
+          // Turn indexes are dense from 0, so the count is one past the highest seen.
+          turnCount: Math.max(r.session.turnCount, turn.index + 1),
+          currentUserTurn: opened ?? r.session.currentUserTurn,
+          lastReplyPreview: started ? r.session.lastReplyPreview : kept.replyPreview,
+        },
+        turns: upsertTurn(r.turns, kept),
+      };
+    });
+
+/** The working Turn's own reply sets its preview; `updatedAt` stays, as the Host stream omits it. */
+const recordReply =
+  (event: Extract<DomainEvent, { readonly _tag: "TurnItemCompleted" }>): Reducer =>
+  ({ model }) => {
+    const text = replyText(event);
+    const record = text === null ? undefined : model.sessions.get(event.sessionId);
+    const turn = record?.turns.find((t) => t.id === event.turnId && t.status === "working");
+    const preview = text === null || turn === undefined ? null : replyPreview(text);
+
+    if (record === undefined || turn === undefined || preview === null) return model;
+
+    const turns = upsertTurn(record.turns, patchTurn(turn, { replyPreview: preview }));
+
+    return { ...model, sessions: withMap(model.sessions, event.sessionId, { ...record, turns }) };
+  };
 
 const recordCheckpoint =
   (event: {
@@ -673,12 +719,9 @@ const apply: (event: DomainEvent) => Reducer = DomainEvent.match<Reducer>({
     () =>
     ({ model }) =>
       model,
-  TurnStarted: recordTurn,
-  TurnEnded: recordTurn,
-  TurnItemCompleted:
-    () =>
-    ({ model }) =>
-      model,
+  TurnStarted: recordTurn(true),
+  TurnEnded: recordTurn(false),
+  TurnItemCompleted: recordReply,
   CheckpointRecorded: recordCheckpoint,
   ApprovalRequested:
     ({ request }) =>

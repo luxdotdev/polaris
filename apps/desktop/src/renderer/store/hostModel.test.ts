@@ -21,6 +21,7 @@ import {
   session,
   sessionId,
   turn,
+  turnWith,
   workspace,
 } from "./fixtures.testing.ts";
 import { cachedModel, toCached } from "./store.ts";
@@ -188,6 +189,49 @@ describe("host model", () => {
       id: turn.id,
       startedAt: turn.startedAt,
       prompt: "count to three",
+    });
+  });
+
+  test("the Daemon's user Turn and reply preview reach the session (`session.user-turns`)", () => {
+    const opened = { userTurnNumber: 1 };
+
+    const continued = {
+      id: TurnId.make("t-continued"),
+      index: 1,
+      trigger: TurnTrigger.cases.BackgroundTasksReported.make({ tasks: [] }),
+      userTurnNumber: 1,
+      startedAt: "2026-10-19T09:30:00.000Z",
+    };
+
+    const next = turnWith({
+      id: TurnId.make("t-next"),
+      index: 2,
+      userTurnNumber: 2,
+      startedAt: "2026-10-19T09:40:00.000Z",
+    });
+
+    const sessionAfter = (...events: ReadonlyArray<DomainEvent>) =>
+      applyHostItems(
+        emptyHostModel,
+        cloned([snapshot, ...events.map((e, i) => event(4 + i, e))])
+      ).sessions.get(sessionId)?.session;
+
+    const throughContinuation = [
+      E.TurnStarted.make({ turn: turnWith(opened) }),
+      E.TurnEnded.make({ turn: turnWith({ ...opened, status: "completed", replyPreview: "A" }) }),
+      E.TurnStarted.make({ turn: turnWith(continued) }),
+      E.TurnEnded.make({
+        turn: turnWith({ ...continued, status: "completed", replyPreview: "B" }),
+      }),
+    ];
+
+    expect(sessionAfter(...throughContinuation)).toMatchObject({
+      currentUserTurn: { turnId: turn.id, number: 1, startedAt: turn.startedAt },
+      lastReplyPreview: "B",
+    });
+    expect(sessionAfter(...throughContinuation, E.TurnStarted.make({ turn: next }))).toMatchObject({
+      currentUserTurn: { turnId: next.id, number: 2, startedAt: next.startedAt },
+      lastReplyPreview: "B",
     });
   });
 
