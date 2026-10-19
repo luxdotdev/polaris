@@ -38,6 +38,20 @@ export interface NeedsYouTurn {
   readonly prompt: string | null;
   /** Polaris started the latest Turn for a Constellation digest: not the user's Turn. */
   readonly digestStarted?: boolean;
+  /** Live background tasks: an Idle session with any is waiting on them, not done. */
+  readonly backgroundTasks: number;
+  /** The latest Turn with a user prompt (not one the Harness started); null when not seen live. */
+  readonly userTurn: UserTurn | null;
+  /** When the session last changed, on its Host's clock: when it went Idle, at that summary. */
+  readonly updatedAt: string;
+}
+
+/** A Turn the user prompted: Turns the Harness starts afterwards continue it. */
+export interface UserTurn {
+  readonly id: string;
+  readonly startedAt: string;
+  /** Its prompt, shortened. */
+  readonly prompt: string;
 }
 
 /** The latest notification an agent sent from a session (MCP `notify`). */

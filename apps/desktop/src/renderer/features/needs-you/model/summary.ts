@@ -9,6 +9,7 @@ import type {
 } from "../../../../shared/needsYou.ts";
 import type { HostModel } from "../../../store/hostModel.ts";
 import { digestStarted, type Digest } from "../../constellation/model/index.ts";
+import { waitingOn } from "../../session/model/background.ts";
 import type { ConstellationView } from "../../sessions/source.ts";
 import type { Inbox } from "./inbox.ts";
 
@@ -77,8 +78,11 @@ export const turnsOf = ({ hosts, models, views }: TurnsInput): Array<NeedsYouTur
           title,
           harness: harnessHue(harness).name,
           state,
-          prompt: entry.lastTurnPreview,
+          prompt: entry.userTurn?.prompt ?? entry.lastTurnPreview,
           digestStarted: lead !== undefined && turnId !== null && digestStarted(lead, turnId),
+          backgroundTasks: waitingOn(entry.session).length,
+          userTurn: entry.userTurn ?? null,
+          updatedAt: entry.session.updatedAt,
         },
       ];
     })

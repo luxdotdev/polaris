@@ -1,6 +1,6 @@
 /**
  * Settings → Sessions (DESIGN.md, Settings): where new sessions work, what a new worktree's
- * branch is called, Output on a Turn's first edit, Needs You notifications, the Working
+ * branch is called, Output on a Turn's first edit, Needs You and Turn notifications, the Working
  * strip's verbs, where accepted work is committed, and Archive.
  * Each Harness's Model, effort and permissions stay in Settings → Harnesses.
  */
@@ -14,6 +14,7 @@ import { setSessionPrefs, useSettings } from "../store.ts";
 import { Column, Group, PageHeader, SettingRow } from "./parts.tsx";
 import { AcceptBranch } from "./AcceptBranch.tsx";
 import { WorktreeSetupSettings } from "./WorktreeSetup.tsx";
+import { TurnNotifications } from "./TurnNotifications.tsx";
 import { WorkingVerbs } from "./WorkingVerbs.tsx";
 
 /** Saved on blur or ↵ when git would take it; otherwise the field says why and keeps the old one. */
@@ -97,17 +98,7 @@ export const SessionsPage = () => {
             onCheckedChange={(on) => setSessionPrefs({ notifyNeedsYou: on })}
           />
         </SettingRow>
-        <SettingRow
-          title="Notify when a turn finishes"
-          caption={`A ${clientCopy().os} notification when a session goes idle, unless Polaris shows it. Not for constellation workers.`}
-          htmlFor="notify-turn-ended"
-        >
-          <Switch
-            id="notify-turn-ended"
-            checked={prefs.notifyTurnEnded}
-            onCheckedChange={(on) => setSessionPrefs({ notifyTurnEnded: on })}
-          />
-        </SettingRow>
+        <TurnNotifications />
         <SettingRow
           title="Notify when your review is requested"
           caption={`A ${clientCopy().os} notification per new request on GitHub. Reviews in needs you still lists them.`}

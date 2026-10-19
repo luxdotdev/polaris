@@ -135,6 +135,9 @@ export const ConstellationDefaults = Schema.Struct({ backend: RoleDefault, ui: R
 
 export type ConstellationDefaults = typeof ConstellationDefaults.Type;
 
+/** Whole minutes, 1 to 999: the field's range in Settings → Sessions. */
+export const LongTurnMinutes = Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 999 }));
+
 /** Settings → Sessions: how every new Agent Session starts and what happens around it. */
 export const SessionPrefs = Schema.Struct({
   /** Start on a new Worktree rather than in the Workspace directory. */
@@ -147,6 +150,10 @@ export const SessionPrefs = Schema.Struct({
   notifyNeedsYou: Schema.Boolean,
   /** Native notifications when a session's Turn ends and it goes Idle (off by default). */
   notifyTurnEnded: Schema.Boolean,
+  /** With `notifyTurnEnded`: only Turns longer than `longTurnMinutes` notify (off by default). */
+  notifyLongTurnsOnly: Schema.Boolean,
+  /** How long a Turn runs before it counts as long, in minutes (5 by default). */
+  longTurnMinutes: LongTurnMinutes,
   /** Native notifications when someone requests your review on GitHub (ENG-229). */
   notifyReviewRequests: Schema.Boolean,
   /** Archive deletes a session's branch once it is merged; unmerged branches always stay. */
@@ -177,6 +184,8 @@ export const SessionPrefsPatch = Schema.Struct({
   openOutputOnEdit: Schema.optionalKey(Schema.Boolean),
   notifyNeedsYou: Schema.optionalKey(Schema.Boolean),
   notifyTurnEnded: Schema.optionalKey(Schema.Boolean),
+  notifyLongTurnsOnly: Schema.optionalKey(Schema.Boolean),
+  longTurnMinutes: Schema.optionalKey(LongTurnMinutes),
   notifyReviewRequests: Schema.optionalKey(Schema.Boolean),
   deleteMergedBranch: Schema.optionalKey(Schema.Boolean),
   spinnerVerbs: Schema.optionalKey(Schema.NullOr(Schema.Array(Schema.String))),
@@ -455,6 +464,11 @@ export const RequestInputs = {
           state: Schema.Literals(["working", "idle"]),
           prompt: Schema.NullOr(Schema.String),
           digestStarted: Schema.optionalKey(Schema.Boolean),
+          backgroundTasks: Schema.Int,
+          userTurn: Schema.NullOr(
+            Schema.Struct({ id: Schema.String, startedAt: Schema.String, prompt: Schema.String })
+          ),
+          updatedAt: Schema.String,
         })
       )
     ),
