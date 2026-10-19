@@ -1,7 +1,8 @@
 /**
- * Output for one Agent Session (artboard 5's Changes tab): the chosen Turn's
- * diff (a shown Turn, every Turn the Harness started in it included) as file cards, virtualized by line. A lightweight unified renderer:
- * no syntax or word highlights, which come with Pierre Diffs in Review (M2).
+ * Output for one Agent Session (artboard 5's Changes tab): the chosen Turn's diff (every
+ * Turn the Harness started in it included) as file cards, virtualized by line. A light
+ * unified renderer: code coloured by the syntax tokens from Pierre's worker pool
+ * (useDiffSyntax.ts), drawn plain until ready; no word highlights, which stay in Review.
  */
 import {
   Button,
@@ -18,9 +19,13 @@ import {
   PixelSparkleIcon,
 } from "@polaris/ui";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { type ReactNode, useRef, useState } from "react";
+import { type ReactNode, useMemo, useRef, useState } from "react";
 import { type DiffRow, diffRows, ROW_HEIGHT } from "../diffRows.ts";
+import { type DiffSyntax, lineSyntax } from "../diffSyntax.ts";
 import { useSession } from "../hooks.ts";
+import { DiffWorkers } from "../../diffs/index.ts";
+import { useDiffSyntax } from "../useDiffSyntax.ts";
+import { LineCode } from "./LineCode.tsx";
 import { turnOpening } from "../model/conversation.ts";
 import {
   groupOf,
@@ -29,7 +34,7 @@ import {
   openingView,
   type TurnGroup,
 } from "../model/turnGroups.ts";
-import { firstChangedLine, totals } from "../model/diff.ts";
+import { type DiffFile, firstChangedLine, totals } from "../model/diff.ts";
 import { plural } from "../model/format.ts";
 import { showTurnDiff, uiKey, useSessionUi } from "../state.ts";
 import { type DiffState, spanRevision, useTurnDiff } from "../turnDiff.ts";
@@ -45,6 +50,9 @@ const LINE_FILL = { add: "bg-diff-added-bg", remove: "bg-diff-removed-bg", conte
 
 const SIGN = { add: "+", remove: "−", context: "" } as const;
 
+/** Output highlights one Turn's hunks: the editor's diff tabs' pool size, shared if one runs. */
+const OUTPUT_POOL_SIZE = 2;
+
 const Counts = ({ added, removed }: { readonly added: number; readonly removed: number }) => (
   <>
     <span className="text-code-inline text-diff-added-text tabular font-mono">+{added}</span>
@@ -52,7 +60,14 @@ const Counts = ({ added, removed }: { readonly added: number; readonly removed: 
   </>
 );
 
-const RowView = ({ row, onFold }: { row: DiffRow; onFold: (path: string) => void }) => {
+interface RowViewProps {
+  readonly row: DiffRow;
+  readonly path: string;
+  readonly syntax: DiffSyntax;
+  readonly onFold: (path: string) => void;
+}
+
+const RowView = ({ row, path, syntax, onFold }: RowViewProps) => {
   switch (row.kind) {
     case "file":
       return (
@@ -124,7 +139,7 @@ const RowView = ({ row, onFold }: { row: DiffRow; onFold: (path: string) => void
           >
             {SIGN[row.line.kind]}
           </span>
-          <span className="text-text-default flex-1 truncate whitespace-pre">{row.line.text}</span>
+          <LineCode text={row.line.text} runs={lineSyntax(syntax, path, row.line)} />
         </div>
       );
     case "note":
@@ -140,14 +155,28 @@ const RowView = ({ row, onFold }: { row: DiffRow; onFold: (path: string) => void
   }
 };
 
-const DiffList = ({
-  rows,
-  onFold,
-}: {
-  rows: ReadonlyArray<DiffRow>;
-  onFold: (p: string) => void;
-}) => {
+/** Each row's file path: a line row's colours are looked up by it. */
+const rowPaths = (rows: ReadonlyArray<DiffRow>) => {
+  let path = "";
+
+  return rows.map((row) => {
+    if (row.kind === "file") path = row.file.path;
+
+    return path;
+  });
+};
+
+interface DiffListProps {
+  readonly files: ReadonlyArray<DiffFile>;
+  readonly folded: ReadonlySet<string>;
+  readonly onFold: (path: string) => void;
+}
+
+const DiffList = ({ files, folded, onFold }: DiffListProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const rows = useMemo(() => diffRows(files, folded), [files, folded]);
+  const paths = useMemo(() => rowPaths(rows), [rows]);
+  const syntax = useDiffSyntax(files);
 
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -173,7 +202,7 @@ const DiffList = ({
               data-index={item.index}
               className="absolute top-0 left-0 w-full"
             >
-              <RowView row={row} onFold={onFold} />
+              <RowView row={row} path={paths[item.index] ?? ""} syntax={syntax} onFold={onFold} />
             </div>
           );
         })}
@@ -181,6 +210,13 @@ const DiffList = ({
     </div>
   );
 };
+
+/** A Turn's files as the Changes tab draws them, highlighted in the diffs' worker pool. */
+export const TurnChanges = (props: DiffListProps) => (
+  <DiffWorkers poolSize={OUTPUT_POOL_SIZE}>
+    <DiffList {...props} />
+  </DiffWorkers>
+);
 
 /** One entry per shown Turn; its diff covers the Turns the Harness started in it. */
 const TurnMenu = ({
@@ -258,7 +294,7 @@ const Body = ({
       return state.files.length === 0 ? (
         <Empty title="This turn changed no files" />
       ) : (
-        <DiffList rows={diffRows(state.files, folded)} onFold={onFold} />
+        <TurnChanges files={state.files} folded={folded} onFold={onFold} />
       );
   }
 };

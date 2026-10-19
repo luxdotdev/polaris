@@ -18,7 +18,13 @@ const KINDS = new Map<string, TokenKind>([
 const GROUP = /var\(--color-syntax-([a-z]+)\)/;
 
 /** A HAST property's value, as hast types it. */
-type PropertyValue = string | number | boolean | null | undefined | ReadonlyArray<string | number>;
+export type PropertyValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | ReadonlyArray<string | number>;
 
 /** The bits of a HAST node this reads: an element's style and children, a text's value. */
 export interface HastNode {
@@ -28,8 +34,12 @@ export interface HastNode {
   readonly children?: ReadonlyArray<HastNode>;
 }
 
+/** The theme's scope group a span's style names ("keyword" for `--color-syntax-keyword`). */
+export const syntaxGroupOf = (style: PropertyValue): string | undefined =>
+  GROUP.exec(String(style ?? ""))?.[1];
+
 const kindOf = (style: PropertyValue): TokenKind => {
-  const group = GROUP.exec(String(style ?? ""))?.[1];
+  const group = syntaxGroupOf(style);
 
   return (group === undefined ? undefined : KINDS.get(group)) ?? "other";
 };

@@ -1,7 +1,7 @@
 /**
  * A unified diff (as `git.diff` returns it) parsed into files, hunks and
- * lines for Output's Changes view. Only what the lightweight renderer needs:
- * no word-level highlights and no syntax, which wait for Pierre Diffs in Review.
+ * lines for Output's Changes view. Only what the lightweight renderer needs: no
+ * word-level highlights; syntax colours come from diffSyntax.ts.
  */
 
 export type LineKind = "context" | "add" | "remove";
