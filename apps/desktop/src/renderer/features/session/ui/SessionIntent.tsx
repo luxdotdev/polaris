@@ -21,6 +21,7 @@ import { send } from "../dispatch.ts";
 import { useHost, useSession, hasCapability } from "../hooks.ts";
 import { waitingOn } from "../model/background.ts";
 import { conversationRows } from "../model/conversation.ts";
+import { turnNumber } from "../model/turnGroups.ts";
 import { tildePath } from "../model/format.ts";
 import {
   composerMode,
@@ -116,7 +117,7 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
     setForking({
       sessionId,
       turnId: lastDone.id,
-      turnNumber: lastDone.index + 1,
+      turnNumber: turnNumber(model.turns, lastDone.id) ?? lastDone.index + 1,
       harness: forkHarness,
       model: session.model,
       effort: session.effort,
@@ -194,7 +195,7 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
             hostKey={hostKey}
             session={session}
             harness={harness}
-            turnNumber={lastTurn === null ? null : lastTurn.index + 1}
+            turnNumber={lastTurn === null ? null : turnNumber(model.turns, lastTurn.id)}
             canFork={canFork}
             onFork={() => void startFork()}
           />

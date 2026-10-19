@@ -4,7 +4,8 @@
  * and the agent's replies. Commands, tool calls and their output stay out (owner, 2026-10-11).
  */
 import type { TurnView } from "../../../store/sessionModel.ts";
-import { type Row, turnRows } from "./conversation.ts";
+import { groupRows, type Row } from "./conversation.ts";
+import { groupTurns } from "./turnGroups.ts";
 
 /** One occurrence: the row it is in, and which occurrence in that row's text. */
 export interface Hit {
@@ -50,14 +51,17 @@ export const findInTranscript = (
 ): ReadonlyArray<Hit> => {
   if (query.trim() === "") return [];
   const hits: Array<Hit> = [];
-  const last = turns.length - 1;
+  const groups = groupTurns(turns);
+  const last = groups.length - 1;
+  const lastTurnId = turns.at(-1)?.turn.id ?? null;
 
-  turns.forEach((view, n) => {
-    for (const row of turnRows(view, true, n === last)) {
+  // A hit names its shown Turn, so stepping to one in a Harness-started Turn opens the whole Turn.
+  groups.forEach((group, n) => {
+    for (const row of groupRows(group, true, n === last, lastTurnId)) {
       const count = occurrences(rowText(row), query, options);
 
       for (let occurrence = 0; occurrence < count; occurrence++)
-        hits.push({ turnId: view.turn.id, rowKey: row.key, occurrence });
+        hits.push({ turnId: group.id, rowKey: row.key, occurrence });
     }
   });
 

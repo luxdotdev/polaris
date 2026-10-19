@@ -4,15 +4,16 @@ import { approval, turnWith } from "../../../store/fixtures.testing.ts";
 import type { LiveItem, SubagentView, TurnView } from "../../../store/sessionModel.ts";
 import {
   conversationRows,
+  groupRows,
   latestTurnOpen,
   noFolds,
   summarize,
-  turnRows,
   turnStartRow,
   turnTime,
 } from "./conversation.ts";
 import { completedItemView, liveItemView, outputTail, toolSummary } from "./items.ts";
 import { queuedOutgoing } from "./outbox.ts";
+import type { TurnGroup } from "./turnGroups.ts";
 
 const I = TurnItem.cases;
 
@@ -27,6 +28,12 @@ const view = (
   live,
   subagents: [],
 });
+
+/** A user Turn shown on its own, as `groupTurns` makes it when no Harness-started Turn follows. */
+const solo = (v: TurnView): TurnGroup => ({ id: v.turn.id, number: v.turn.index + 1, views: [v] });
+
+const turnRows = (v: TurnView, expanded: boolean, isLast: boolean) =>
+  groupRows(solo(v), expanded, isLast, isLast ? v.turn.id : null);
 
 const message = (id: string, text: string) => I.AssistantMessage.make({ id, text });
 
@@ -231,7 +238,7 @@ describe("conversation rows", () => {
   });
 
   test("a summary falls back to the prompt", () => {
-    expect(summarize(view(2, [])).summary).toBe("prompt 2");
+    expect(summarize(solo(view(2, []))).summary).toBe("prompt 2");
   });
 
   test("live items follow completed ones", () => {
@@ -247,9 +254,13 @@ describe("conversation rows", () => {
 
   test("rows are cached per Turn view and fold state", () => {
     const v = view(0, [message("m0", "x")]);
+    const open = turnRows(v, true, false);
 
-    expect(turnRows(v, true, false)).toBe(turnRows(v, true, false));
-    expect(turnRows(v, false, false)).not.toBe(turnRows(v, true, false));
+    expect(turnRows(v, true, false).every((row, n) => row === open[n])).toBe(true);
+    const [summary] = turnRows(v, false, false);
+
+    expect(turnRows(v, false, false)[0] === summary).toBe(true);
+    expect(summary?.kind).toBe("summary");
   });
 
   test("approvals follow the Turn that asked", () => {
