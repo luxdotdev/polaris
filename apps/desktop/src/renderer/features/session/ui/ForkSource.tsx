@@ -9,6 +9,7 @@ import { emptyHostModel, sessionsOf } from "../../../store/hostModel.ts";
 import type { SessionData } from "../../../store/plain.ts";
 import { useApp } from "../../../shell/hooks.ts";
 import { useSession } from "../hooks.ts";
+import { groupTurns } from "../model/turnGroups.ts";
 
 export interface ForkSourceValue {
   readonly session: SessionData;
@@ -33,8 +34,17 @@ const TurnSelect = ({
   readonly onChange: (value: ForkSourceValue | null) => void;
 }) => {
   const model = useSession(hostKey, sessionId);
-  const done = model.turns.filter((t) => t.turn.status !== "working").toReversed();
-  const first = done[0]?.turn.id ?? null;
+
+  // One entry per shown Turn: it forks after the last of its Turns that finished.
+  const done = groupTurns(model.turns)
+    .flatMap((group) => {
+      const last = group.views.findLast((v) => v.turn.status !== "working");
+
+      return last === undefined ? [] : [{ number: group.number, turnId: last.turn.id }];
+    })
+    .toReversed();
+
+  const first = done[0]?.turnId ?? null;
   const { session } = model;
 
   // Default to the latest finished Turn once the feed has it.
@@ -50,9 +60,9 @@ const TurnSelect = ({
       defaultValue={first ?? ""}
       key={first ?? "none"}
       onValueChange={(turnId) => {
-        const turn = done.find((t) => t.turn.id === turnId)?.turn;
+        const turn = done.find((t) => t.turnId === turnId);
 
-        if (turn !== undefined) onChange({ session, turnId: turn.id });
+        if (turn !== undefined) onChange({ session, turnId: turn.turnId });
       }}
     >
       <SelectTrigger className="w-40" aria-label="Turn">
@@ -60,8 +70,8 @@ const TurnSelect = ({
       </SelectTrigger>
       <SelectContent>
         {done.map((t) => (
-          <SelectItem key={t.turn.id} value={t.turn.id}>
-            Turn {t.turn.index + 1}
+          <SelectItem key={t.turnId} value={t.turnId}>
+            Turn {t.number}
           </SelectItem>
         ))}
       </SelectContent>

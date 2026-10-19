@@ -1,10 +1,12 @@
 /**
- * The Turn rail (DESIGN.md, Turn rail; Paper 8, 8b): one tick per Turn down the
+ * The Turn rail (DESIGN.md, Turn rail; Paper 8, 8b): one tick per shown Turn (a user Turn
+ * with the Turns the Harness started after it, `turnGroups.ts`) down the
  * conversation's right edge from three Turns on. Ticks near the pointer lengthen
  * in an arc; the Turns in view are darker. Pure, so the arc and the hit test are tested.
  */
 import type { TurnView } from "../../../store/sessionModel.ts";
 import { type Row, summarize, turnOpening } from "./conversation.ts";
+import { groupTurns, openingView } from "./turnGroups.ts";
 
 /** The rail shows from this many Turns. */
 export const RAIL_MIN_TURNS = 3;
@@ -31,10 +33,10 @@ export interface RailTurn {
 }
 
 export const railTurns = (turns: ReadonlyArray<TurnView>): ReadonlyArray<RailTurn> =>
-  turns.map((view) => {
-    const { turnId, number, files, startedAt } = summarize(view);
+  groupTurns(turns).map((group) => {
+    const { turnId, number, files, startedAt } = summarize(group);
 
-    return { turnId, number, startedAt, opening: turnOpening(view.turn), files };
+    return { turnId, number, startedAt, opening: turnOpening(openingView(group).turn), files };
   });
 
 /** How many ticks fit in `height`, and their pitch: past that, each tick stands for a band of Turns. */

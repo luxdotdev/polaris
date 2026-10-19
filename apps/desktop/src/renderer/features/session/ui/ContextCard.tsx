@@ -36,6 +36,7 @@ import {
 import type { Details } from "../model/contextDetails.ts";
 import { queuedOutgoing } from "../model/outbox.ts";
 import { formatTokens } from "../model/meta.ts";
+import { turnNumber } from "../model/turnGroups.ts";
 import { patchSessionUi, uiKey } from "../state.ts";
 
 export interface ContextReadoutProps {
@@ -280,7 +281,7 @@ const Compacted = ({
   const compaction = session.lastCompaction;
 
   if (compaction === null) return null;
-  const index = turns.find((t) => t.turn.id === compaction.turnId)?.turn.index ?? null;
+  const number = turnNumber(turns, compaction.turnId);
   const when = age(compaction.at, now);
 
   return (
@@ -290,7 +291,7 @@ const Compacted = ({
     >
       <CompactGlyph />
       <span className="text-caption text-text-default min-w-0 truncate">
-        {compactionLine(compaction, index === null ? null : index + 1)}
+        {compactionLine(compaction, number)}
       </span>
       <span className="flex-1" />
       <span className="text-caption text-text-subtle shrink-0">

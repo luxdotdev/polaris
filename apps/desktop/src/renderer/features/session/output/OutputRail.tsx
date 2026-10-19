@@ -118,7 +118,7 @@ export const OutputRail = ({ hostKey, sessionId }: SessionViewProps) => {
     hostKey,
     cwd ?? "",
     sessionId,
-    edits ? null : turnId,
+    edits || turnId === null ? null : { first: turnId, last: turnId },
     latest === null ? "" : diffRevision(latest, tick)
   );
 

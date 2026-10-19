@@ -1,9 +1,8 @@
 /**
  * Output for one Agent Session (artboard 5's Changes tab): the chosen Turn's
- * diff as file cards, virtualized by line. A lightweight unified renderer:
+ * diff (a shown Turn, every Turn the Harness started in it included) as file cards, virtualized by line. A lightweight unified renderer:
  * no syntax or word highlights, which come with Pierre Diffs in Review (M2).
  */
-import type { TurnId } from "@polaris/protocol";
 import {
   Button,
   ChevronDownIcon,
@@ -20,14 +19,20 @@ import {
 } from "@polaris/ui";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { type ReactNode, useRef, useState } from "react";
-import type { TurnView } from "../../../store/sessionModel.ts";
 import { type DiffRow, diffRows, ROW_HEIGHT } from "../diffRows.ts";
 import { useSession } from "../hooks.ts";
 import { turnOpening } from "../model/conversation.ts";
+import {
+  groupOf,
+  groupSpan,
+  groupTurns,
+  openingView,
+  type TurnGroup,
+} from "../model/turnGroups.ts";
 import { firstChangedLine, totals } from "../model/diff.ts";
 import { plural } from "../model/format.ts";
 import { showTurnDiff, uiKey, useSessionUi } from "../state.ts";
-import { type DiffState, diffRevision, useTurnDiff } from "../turnDiff.ts";
+import { type DiffState, spanRevision, useTurnDiff } from "../turnDiff.ts";
 import { hideOutput } from "../output/actions.ts";
 import { showHint } from "../output/OutputRail.tsx";
 import { useFilesTick } from "../output/watch.ts";
@@ -177,29 +182,30 @@ const DiffList = ({
   );
 };
 
+/** One entry per shown Turn; its diff covers the Turns the Harness started in it. */
 const TurnMenu = ({
-  turns,
+  groups,
   current,
   onPick,
 }: {
-  readonly turns: ReadonlyArray<TurnView>;
-  readonly current: TurnView;
+  readonly groups: ReadonlyArray<TurnGroup>;
+  readonly current: TurnGroup;
   readonly onPick: (turnId: string) => void;
 }) => (
   <DropdownMenu>
     <DropdownMenuTrigger asChild>
       <Button variant="ghost" size="sm" data-testid="diff-turn">
-        Turn {current.turn.index + 1}
+        Turn {current.number}
         <ChevronDownIcon size={10} />
       </Button>
     </DropdownMenuTrigger>
     <DropdownMenuContent align="end">
-      <DropdownMenuRadioGroup value={current.turn.id} onValueChange={onPick}>
-        {turns.toReversed().map((t) => (
-          <DropdownMenuRadioItem key={t.turn.id} value={t.turn.id}>
-            <span className="tabular">Turn {t.turn.index + 1}</span>
+      <DropdownMenuRadioGroup value={current.id} onValueChange={onPick}>
+        {groups.toReversed().map((g) => (
+          <DropdownMenuRadioItem key={g.id} value={g.id}>
+            <span className="tabular">Turn {g.number}</span>
             <span className="text-caption text-text-subtle max-w-56 truncate pl-3">
-              {turnOpening(t.turn)}
+              {turnOpening(openingView(g).turn)}
             </span>
           </DropdownMenuRadioItem>
         ))}
@@ -268,10 +274,8 @@ export const SessionOutput = ({ hostKey, sessionId, tabs }: SessionOutputProps) 
   const ui = useSessionUi(key);
   const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
 
-  const current =
-    model.turns.find((t) => t.turn.id === ui.diffTurnId) ?? model.turns.at(-1) ?? null;
-
-  const turnId: TurnId | null = current?.turn.id ?? null;
+  const groups = groupTurns(model.turns);
+  const current = groupOf(groups, ui.diffTurnId) ?? groups.at(-1) ?? null;
 
   const session = model.session;
   const cwd = session?.cwd ?? null;
@@ -281,8 +285,8 @@ export const SessionOutput = ({ hostKey, sessionId, tabs }: SessionOutputProps) 
     hostKey,
     cwd ?? "",
     sessionId,
-    turnId,
-    current === null ? "" : diffRevision(current, files)
+    current === null ? null : groupSpan(current),
+    current === null ? "" : spanRevision(current.views, files)
   );
 
   const sum = state.kind === "ready" ? totals(state.files) : null;
@@ -312,11 +316,7 @@ export const SessionOutput = ({ hostKey, sessionId, tabs }: SessionOutputProps) 
           )}
           <span className="flex-1" />
           {current === null ? null : (
-            <TurnMenu
-              turns={model.turns}
-              current={current}
-              onPick={(id) => showTurnDiff(key, id)}
-            />
+            <TurnMenu groups={groups} current={current} onPick={(id) => showTurnDiff(key, id)} />
           )}
           {sum === null ? null : (
             <>

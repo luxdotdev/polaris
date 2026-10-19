@@ -1,14 +1,16 @@
 /**
- * Fetching a Turn's diff (`git.diff` with the Turn spec) and parsing it, with
+ * Fetching a Turn's diff (`git.diff` with the Turn spec, or Turns for a shown Turn the
+ * Harness continued, `model/turnGroups.ts`) and parsing it, with
  * a cache so reopening a session paints its last diff at once. A Turn still
  * in flight diffs against the working tree, so it's fetched again as it goes.
  */
-import type { GitDiffSpec, SessionId, TurnId } from "@polaris/protocol";
+import type { GitDiffSpec, SessionId } from "@polaris/protocol";
 import { Data, Predicate } from "effect";
 import { useEffect, useState } from "react";
 import { type DiffFile, parseUnifiedDiff } from "./model/diff.ts";
 import { polaris } from "../bridge.ts";
 import type { TurnView } from "../../store/sessionModel.ts";
+import type { TurnSpan } from "./model/turnGroups.ts";
 
 export type DiffState =
   | { readonly kind: "loading" }
@@ -31,16 +33,22 @@ const cache = new Map<string, DiffState>();
 
 const Specs = Data.taggedEnum<GitDiffSpec>();
 
+/** One Turn's spec, or the run from the span's first Turn's checkpoint to its last's. */
+export const spanSpec = (sessionId: SessionId, span: TurnSpan): GitDiffSpec =>
+  span.first === span.last
+    ? Specs.Turn({ sessionId, turnId: span.first })
+    : Specs.Turns({ sessionId, firstTurnId: span.first, lastTurnId: span.last });
+
 const load = async (
   hostKey: string,
   cwd: string,
   sessionId: SessionId,
-  turnId: TurnId
+  span: TurnSpan
 ): Promise<DiffState> => {
   const result = await polaris().request("git.diff", {
     hostKey,
     cwd,
-    spec: Specs.Turn({ sessionId, turnId }),
+    spec: spanSpec(sessionId, span),
   });
 
   if (!result.ok) return { kind: "error", ...result.error };
@@ -51,24 +59,31 @@ const load = async (
   return { kind: "ready", files: parseUnifiedDiff(new TextDecoder().decode(bytes)) };
 };
 
-/** The Turn's diff; `revision` changes when it may have (the Turn's status, its file changes). */
+/** The span's diff; `revision` changes when it may have (the Turns' status, their file changes). */
 export const useTurnDiff = (
   hostKey: string,
   cwd: string,
   sessionId: SessionId,
-  turnId: TurnId | null,
+  span: TurnSpan | null,
   revision: string
 ): DiffState => {
-  const key = turnId === null ? "" : `${hostKey}\u0000${sessionId}\u0000${turnId}`;
+  const first = span?.first ?? null;
+  const last = span?.last ?? null;
+
+  const key =
+    first === null || last === null
+      ? ""
+      : `${hostKey}\u0000${sessionId}\u0000${first}\u0000${last}`;
+
   const [state, setState] = useState<{ key: string; value: DiffState } | null>(null);
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    if (turnId === null) return undefined;
+    if (first === null || last === null) return undefined;
     let live = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
 
-    void load(hostKey, cwd, sessionId, turnId).then((value) => {
+    void load(hostKey, cwd, sessionId, { first, last }).then((value) => {
       if (!live) return;
 
       if (retryable(value) && attempt < RETRIES) {
@@ -85,7 +100,7 @@ export const useTurnDiff = (
       live = false;
       clearTimeout(timer);
     };
-  }, [hostKey, cwd, sessionId, turnId, key, revision, attempt]);
+  }, [hostKey, cwd, sessionId, first, last, key, revision, attempt]);
 
   if (state?.key === key) return state.value;
 
@@ -107,3 +122,7 @@ export const diffRevision = (view: TurnView, files: number) => {
 
   return `${view.turn.status}:${view.turn.checkpointAfter ?? ""}:${edits}:${live}`;
 };
+
+/** A shown Turn's `diffRevision`: any of its Turns' may change what the span's diff shows. */
+export const spanRevision = (views: ReadonlyArray<TurnView>, files: number) =>
+  views.map((view) => diffRevision(view, files)).join("|");

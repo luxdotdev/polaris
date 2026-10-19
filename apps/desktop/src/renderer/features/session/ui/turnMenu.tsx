@@ -1,6 +1,7 @@
 /**
  * The transcript's right-click menus (Paper M2): on an agent row, what was clicked (a link,
- * a file, a command) and then Copy (the selection), Copy message and Copy turn output; on
+ * a file, a command) and then Copy (the selection), Copy message and Copy turn output (every
+ * reply across the shown Turn, those of Turns the Harness started in it too); on
  * a prompt, Copy, Copy prompt and Fold turn. Each copy answers in a short toast.
  */
 import {
@@ -14,21 +15,23 @@ import {
   tidyEntries,
   useCopyWrite,
 } from "@polaris/ui";
-import { Predicate } from "effect";
 import { type ReactElement, useState } from "react";
 import { resolvePath } from "../../../routes/editor.ts";
 import { useApp, useShellActions } from "../../../shell/hooks.ts";
 import { copyWithToast } from "../../../shell/menu/index.ts";
-import type { TurnView } from "../../../store/sessionModel.ts";
 import { sessionKey } from "../../../store/store.ts";
 import { polaris } from "../../bridge.ts";
 import { revealInExplorer } from "../../editor/explorer/index.ts";
 import { type EditorPlace, useEditorPlace, useOpenInEditor } from "../../editor-links/index.ts";
-import { completedItemView, type ItemView, turnOutput } from "../model/items.ts";
+import { completedItemView, type ItemView } from "../model/items.ts";
+import {
+  copyableOutput,
+  groupOf,
+  groupTurns,
+  shownItems,
+  type TurnGroup,
+} from "../model/turnGroups.ts";
 import { subjectAt, type Subject } from "./menuSubject.ts";
-
-const replies = (view: TurnView) =>
-  view.items.filter((item) => Predicate.isTagged(item, "AssistantMessage")).length;
 
 /** The text selected now, when the selection sits inside `root`. */
 const selectionIn = (root: Element): string => {
@@ -47,8 +50,8 @@ const copy = (write: CopyWrite, label: string, text: string, what: string): Menu
 });
 
 /** A command the row ran, by its item id, from the Turn's finished items. */
-const commandOf = (view: TurnView | undefined, id: string) => {
-  const found = view?.items.find((item) => item.id === id);
+const commandOf = (group: TurnGroup | undefined, id: string) => {
+  const found = group === undefined ? undefined : shownItems(group).find((item) => item.id === id);
   const shown: ItemView | undefined = found === undefined ? undefined : completedItemView(found);
 
   return shown?.kind === "command" ? shown : null;
@@ -123,6 +126,7 @@ const useRevealInTree = (place: EditorPlace | null) => {
 export interface TurnMenuProps {
   readonly hostKey: string;
   readonly sessionId: string;
+  /** The shown Turn (`turnGroups.ts`). */
   readonly turnId: string;
   /** The row's own Markdown, when the row is a finished reply. */
   readonly message: string | null;
@@ -156,18 +160,17 @@ export const TurnMenu = ({
   const [selected, setSelected] = useState("");
   const [subject, setSubject] = useState<Subject>(NOTHING);
 
-  const view = useApp((s) =>
-    s.sessions[sessionKey(hostKey, sessionId)]?.turns.find((t) => t.turn.id === turnId)
-  );
+  // `groupTurns` returns the same groups for the same Turns, so the selection is stable.
+  const group = useApp((s) => {
+    const turns = s.sessions[sessionKey(hostKey, sessionId)]?.turns;
 
-  // One reply's output is its message: the menu offers it once.
-  const output =
-    live || view === undefined || replies(view) === 0 || (message !== null && replies(view) < 2)
-      ? null
-      : view;
+    return turns === undefined ? undefined : groupOf(groupTurns(turns), turnId);
+  });
+
+  const output = group === undefined ? null : copyableOutput(group, message, live);
 
   const entriesFor = (at: Subject, selection: string): ReadonlyArray<MenuEntryInput> => {
-    const command = at.command === null || live ? null : commandOf(view, at.command);
+    const command = at.command === null || live ? null : commandOf(group, at.command);
 
     return [
       ...linkEntries(at, write),
@@ -179,13 +182,7 @@ export const TurnMenu = ({
       MENU_SEPARATOR_ENTRY,
       selection !== "" && copy(write, "Copy", selection, "selection"),
       message !== null && copy(write, "Copy message", message, "message"),
-      output !== null &&
-        copy(
-          write,
-          "Copy turn output",
-          turnOutput(output.items.map(completedItemView)),
-          "turn output"
-        ),
+      output !== null && copy(write, "Copy turn output", output, "turn output"),
     ];
   };
 

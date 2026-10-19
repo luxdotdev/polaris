@@ -42,7 +42,7 @@ import type { SessionChrome } from "../chrome.ts";
 export interface RowContext {
   readonly harness: Harness | null;
   readonly state: SessionState;
-  /** The Turn in flight, whose avatar shimmers; null between Turns. */
+  /** The Daemon's Turn in flight, whose avatar shimmers; null between Turns. */
   readonly liveTurnId: string | null;
   readonly where: string;
   /** Opens or folds a Turn; it stays so as newer Turns arrive. */
@@ -68,7 +68,7 @@ export interface RowContext {
 
 const AVATAR = "w-6 shrink-0";
 
-/** A folded Turn's +/− from its diff (cached, so reopening a session paints them at once). */
+/** A folded Turn's +/− from its diff, every Turn in it (cached, so reopening a session paints them at once). */
 const SummaryCounts = ({
   row,
   ctx,
@@ -80,8 +80,8 @@ const SummaryCounts = ({
     ctx.diff.hostKey,
     ctx.diff.cwd,
     ctx.diff.sessionId,
-    row.turnId,
-    row.status
+    { first: row.turnId, last: row.lastTurnId },
+    `${row.status}:${row.lastTurnId}`
   );
 
   if (state.kind !== "ready" || state.files.length === 0)
@@ -172,7 +172,10 @@ const Prompt = ({ row, ctx }: { row: Extract<Row, { kind: "prompt" }>; ctx: RowC
   </PromptMenu>
 );
 
-/** A Turn the Harness started: what woke it, its Model and time, and the fold control. */
+/**
+ * A Turn the Harness started: what woke it, its Model and time. Inside a user's Turn it is a
+ * quiet line between items; opening a Turn of its own it carries the fold control too.
+ */
 const TriggerRow = ({ row, ctx }: { row: Extract<Row, { kind: "trigger" }>; ctx: RowContext }) => {
   const time = turnTime(row.startedAt, new Date());
   const label = ctx.modelLabel(row.model, row.effort);
@@ -182,7 +185,7 @@ const TriggerRow = ({ row, ctx }: { row: Extract<Row, { kind: "trigger" }>; ctx:
       <div className="min-w-0 flex-1">
         <Trigger text={row.text} model={[label, time].filter((p) => p !== "").join(" · ")} />
       </div>
-      <FoldButton row={row} ctx={ctx} />
+      {row.opensTurn ? <FoldButton row={row} ctx={ctx} /> : null}
     </div>
   );
 };
@@ -216,7 +219,7 @@ const Agent = ({ row, ctx }: { row: Extract<Row, { kind: "item" }>; ctx: RowCont
     sessionId={ctx.diff.sessionId}
     turnId={row.turnId}
     message={finishedMessage(row)}
-    live={row.turnId === ctx.liveTurnId}
+    live={row.latest && ctx.liveTurnId !== null}
     onOpenDiff={() => ctx.onOpenDiff(row.turnId)}
   >
     <div
@@ -230,7 +233,7 @@ const Agent = ({ row, ctx }: { row: Extract<Row, { kind: "item" }>; ctx: RowCont
           <HarnessMark
             harness={ctx.harness}
             size={24}
-            {...(row.turnId === ctx.liveTurnId ? { state: "working" as const } : {})}
+            {...(row.partId === ctx.liveTurnId ? { state: "working" as const } : {})}
           />
         ) : null}
       </div>
@@ -406,7 +409,7 @@ export const ConversationRow = ({ row, ctx }: { row: Row; ctx: RowContext }) => 
     case "item":
       return row.entry.kind === "item" && row.entry.item.kind === "user" ? (
         (ctx.chrome.steerCard?.({
-          turnId: row.turnId,
+          turnId: row.partId,
           itemId: row.entry.item.id,
           text: row.entry.item.text,
         }) ?? (
