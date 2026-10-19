@@ -118,6 +118,19 @@ const make = Effect.fn("GitHub.make")(function* (input: GitHubInput) {
   });
 
   const client = newClient(transport, credentials, accounts);
+
+  const revive = Effect.flatMap(accounts.file, (f) =>
+    Effect.forEach(
+      f.accounts.filter((a) => a.signedOut),
+      (a) =>
+        credentials.revive(a.id).pipe(
+          Effect.flatMap((back) => (back ? accounts.signedIn(a.id) : Effect.void)),
+          Effect.ignore
+        ),
+      { discard: true }
+    )
+  );
+
   const routing = newRouting({ client, accounts });
   const reviews = newReviews({ client, routing, gapMs: input.mutationGapMs ?? MUTATION_GAP_MS });
   const overview = newOverviewActions(reviews, join(input.dir, "published-descriptions.json"));
@@ -140,6 +153,7 @@ const make = Effect.fn("GitHub.make")(function* (input: GitHubInput) {
     checkoutStates,
     intervals: input.intervals ?? DEFAULT_INTERVALS,
     refreshDetails: Effect.andThen(reviews.refreshDetails, publishDetails).pipe(Effect.ignore),
+    revive,
   });
 
   let remotes: ReadonlyArray<WorkspaceRemotes> = [];

@@ -1,6 +1,6 @@
 /**
  * Calls as an account: takes its token, and after a 401 refreshes once and
- * retries. A second 401, or a failed refresh, signs the account out.
+ * retries. A refresh GitHub refuses signs the account out.
  */
 import { Effect, type Schema } from "effect";
 import type { Credentials } from "./credentials.ts";

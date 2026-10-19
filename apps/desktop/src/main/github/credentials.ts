@@ -1,11 +1,13 @@
 /**
  * Access tokens per account, refreshed ahead of expiry and after a 401. GitHub
  * rotates both tokens on each refresh and voids the old pair, so refreshes are
- * serialized per account and the new pair is written before it is used.
+ * serialized per account and the new pair is written before it is used. Only
+ * GitHub's own refusal signs an account out: a refresh that can't reach GitHub
+ * (offline, a captive portal, a 5xx) fails as a request error and leaves the pair.
  */
 import { Clock, Effect, Option, Semaphore } from "effect";
 import type { HostAccess } from "./accounts.ts";
-import { GitHubAuthError, GitHubStorageError } from "./errors.ts";
+import { GitHubAuthError, GitHubRequestError, GitHubStorageError } from "./errors.ts";
 import type { Store, TokenPair } from "./store.ts";
 import type { Transport } from "./transport.ts";
 import { TokenResponse } from "./wire.ts";
@@ -55,6 +57,14 @@ export const newCredentials = ({ store, transport, signedOut, accessOf }: Creden
   const authError = (accountId: number, message: string) =>
     Effect.andThen(signedOut(accountId), Effect.fail(new GitHubAuthError({ accountId, message })));
 
+  const put = (accountId: number, pair: TokenPair) =>
+    Effect.tap(store.writeTokens(accountId, pair), () =>
+      Effect.sync(() => cache.set(accountId, pair))
+    );
+
+  const forget = (accountId: number) =>
+    Effect.tap(store.removeTokens(accountId), () => Effect.sync(() => cache.delete(accountId)));
+
   const current = (accountId: number) =>
     Effect.gen(function* () {
       const cached = cache.get(accountId);
@@ -69,25 +79,40 @@ export const newCredentials = ({ store, transport, signedOut, accessOf }: Creden
       return stored.value;
     });
 
+  /** GitHub refused the pair: drop it, so nothing tries it again, and sign the account out. */
+  const refused = (accountId: number, message: string) =>
+    Effect.andThen(forget(accountId), authError(accountId, message));
+
+  /** One refresh call. A failure that isn't GitHub's refusal is a `GitHubRequestError`. */
+  const exchange = (accountId: number, refreshToken: string) =>
+    Effect.gen(function* () {
+      const host = yield* accessOf(accountId);
+
+      const response = yield* transport.oauth(
+        host.endpoints,
+        "/login/oauth/access_token",
+        TokenResponse,
+        { client_id: host.clientId, grant_type: "refresh_token", refresh_token: refreshToken }
+      );
+
+      const next = tokenPairFrom(response, yield* Clock.currentTimeMillis);
+
+      if (next !== null) return next;
+
+      if (response.error !== undefined) {
+        return yield* refused(accountId, response.error_description ?? response.error);
+      }
+
+      return yield* Effect.fail(
+        new GitHubRequestError({ status: 0, message: "GitHub's token answer had no token" })
+      );
+    });
+
   const refresh = (accountId: number, pair: TokenPair) =>
     Effect.gen(function* () {
       if (pair.refreshToken === null) return yield* authError(accountId, "the token expired");
 
-      const host = yield* accessOf(accountId);
-
-      const response = yield* transport
-        .oauth(host.endpoints, "/login/oauth/access_token", TokenResponse, {
-          client_id: host.clientId,
-          grant_type: "refresh_token",
-          refresh_token: pair.refreshToken,
-        })
-        .pipe(Effect.catchTag("GitHubRequestError", () => Effect.succeed<TokenResponse>({})));
-
-      const next = tokenPairFrom(response, yield* Clock.currentTimeMillis);
-
-      if (next === null) {
-        return yield* authError(accountId, response.error_description ?? "the refresh failed");
-      }
+      const next = yield* exchange(accountId, pair.refreshToken);
 
       yield* store.writeTokens(accountId, next);
       cache.set(accountId, next);
@@ -135,17 +160,39 @@ export const newCredentials = ({ store, transport, signedOut, accessOf }: Creden
       );
     });
 
-  const put = (accountId: number, pair: TokenPair) =>
-    Effect.tap(store.writeTokens(accountId, pair), () =>
-      Effect.sync(() => cache.set(accountId, pair))
-    );
+  /**
+   * Signs a signed-out account back in when its stored refresh token still works:
+   * true when it did. Unreachable GitHub leaves it for the next try.
+   */
+  const revive = (accountId: number) =>
+    Effect.gen(function* () {
+      const stored = yield* store.readTokens(accountId);
+      const now = yield* Clock.currentTimeMillis;
 
-  const forget = (accountId: number) =>
-    Effect.tap(store.removeTokens(accountId), () => Effect.sync(() => cache.delete(accountId)));
+      if (Option.isNone(stored)) return false;
 
-  return { token, renew, put, forget };
+      const { refreshToken, refreshExpiresAt } = stored.value;
+
+      if (refreshToken === null || (refreshExpiresAt !== null && refreshExpiresAt <= now)) {
+        return false;
+      }
+
+      const lock = yield* lockOf(accountId);
+
+      return yield* lock.withPermit(
+        Effect.gen(function* () {
+          const next = yield* exchange(accountId, refreshToken);
+
+          yield* put(accountId, next);
+
+          return true;
+        })
+      );
+    });
+
+  return { token, renew, put, forget, revive };
 };
 
 export type Credentials = ReturnType<typeof newCredentials>;
 
-export type CredentialsError = GitHubAuthError | GitHubStorageError;
+export type CredentialsError = GitHubAuthError | GitHubRequestError | GitHubStorageError;
