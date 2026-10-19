@@ -221,6 +221,17 @@ export const CachedHost = Schema.Struct({
 
 export type CachedHost = typeof CachedHost.Type;
 
+/** A Review a notification opens (`ReviewTarget` in `needsYou.ts`). */
+const ReviewTargetInput = Schema.Union([
+  Schema.Struct({
+    kind: Schema.Literal("pull"),
+    repo: Schema.Struct({ owner: Schema.String, name: Schema.String }),
+    number: Schema.Int,
+    pullId: Schema.NullOr(Schema.String),
+  }),
+  Schema.Struct({ kind: Schema.Literal("session"), hostKey: HostKey, sessionId: Schema.String }),
+]);
+
 /** Every request a renderer can make, keyed by method. Outputs are in `api.ts`. */
 export const RequestInputs = {
   ...PredictionUiInputs,
@@ -462,13 +473,19 @@ export const RequestInputs = {
           title: Schema.String,
           harness: Schema.String,
           state: Schema.Literals(["working", "idle"]),
-          prompt: Schema.NullOr(Schema.String),
+          reply: Schema.NullOr(Schema.String),
           digestStarted: Schema.optionalKey(Schema.Boolean),
           backgroundTasks: Schema.Int,
-          userTurn: Schema.NullOr(
-            Schema.Struct({ id: Schema.String, startedAt: Schema.String, prompt: Schema.String })
-          ),
+          userTurn: Schema.NullOr(Schema.Struct({ id: Schema.String, startedAt: Schema.String })),
           updatedAt: Schema.String,
+          review: Schema.optionalKey(
+            Schema.Struct({
+              kind: Schema.Literals(["reviewer", "walkthrough"]),
+              change: Schema.String,
+              target: Schema.NullOr(ReviewTargetInput),
+              findings: Schema.NullOr(Schema.Struct({ open: Schema.Int, critical: Schema.Int })),
+            })
+          ),
         })
       )
     ),
@@ -485,6 +502,7 @@ export const RequestInputs = {
         })
       )
     ),
+    reviewing: Schema.optionalKey(Schema.NullOr(ReviewTargetInput)),
   }),
   /** Dev only: a fresh temporary directory on the dev Daemon's Host for the proof session. */
   "dev.proofWorkspace": Schema.Struct({}),

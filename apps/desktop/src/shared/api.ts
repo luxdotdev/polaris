@@ -68,7 +68,7 @@ import type { ConstellationDefaultsMethod, ConstellationMethod } from "./constel
 import type { ResourceMethod } from "./resourcesContract.ts";
 import type { GitHubRequestOutputs, GitHubSubscriptionItems } from "./githubContract.ts";
 import type { GitRequestOutputs, GitSubscriptionItems } from "./gitContract.ts";
-import type { NeedsYouAction } from "./needsYou.ts";
+import type { NeedsYouAction, ReviewTarget } from "./needsYou.ts";
 import type {
   CachedHost,
   CodeFont,
@@ -584,6 +584,8 @@ export type AppEvent =
     }
   /** A review-request notification: open its pull request in Review, or the list (null). */
   | { readonly kind: "open-pull"; readonly pull: OpenPull | null }
+  /** A Review or Walkthrough notification: open the Review it ran for. */
+  | { readonly kind: "open-review"; readonly target: ReviewTarget }
   /** The quit prompt's "Save and quit": the Editor saves every file, then answers `editor.savedAll`. */
   | { readonly kind: "editor-save-all" };
 

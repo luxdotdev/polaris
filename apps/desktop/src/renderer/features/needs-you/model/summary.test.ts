@@ -61,9 +61,39 @@ describe("turnsOf", () => {
       views: {},
     });
 
-    expect(turns.map((t) => [t.sessionId, t.backgroundTasks, t.userTurn, t.prompt])).toEqual([
-      ["i", 2, userTurn, "fix the login form"],
-      ["w", 0, null, null],
+    expect(turns.map((t) => [t.sessionId, t.backgroundTasks, t.userTurn])).toEqual([
+      ["i", 2, { id: "t1", startedAt: "2026-10-19T09:00:00Z" }],
+      ["w", 0, null],
+    ]);
+  });
+
+  test("after a snapshot: the Daemon's user Turn, from the user's message, and its reply", () => {
+    const currentUserTurn = {
+      turnId: TurnId.make("t7"),
+      number: 7,
+      startedAt: "2026-10-19T09:00:00.000Z",
+    };
+
+    const model = hostModel([
+      {
+        session: sessionWith("i", {
+          state: "working",
+          currentUserTurn,
+          lastReplyPreview: "Moved the retry into the client.",
+          updatedAt: "2026-10-19T09:12:00.000Z",
+        }),
+      },
+    ]);
+
+    const [turn] = turnsOf({
+      hosts: [host("local", "Mac Studio")],
+      models: { local: model },
+      views: {},
+    });
+
+    expect([turn?.userTurn, turn?.reply]).toEqual([
+      { id: "t7", startedAt: "2026-10-19T09:00:00.000Z" },
+      "Moved the retry into the client.",
     ]);
   });
 
