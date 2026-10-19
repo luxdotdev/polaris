@@ -3,13 +3,26 @@ import {
   ReviewCheckout,
   ReviewCheckoutId,
   SessionId,
+  type Turn,
   TurnId,
+  TurnTrigger,
   WorkspaceId,
 } from "@polaris/protocol";
-import { Data } from "effect";
+import { Data, Predicate } from "effect";
 import type { GitDiffSpec, ReviewSubject } from "@polaris/protocol";
+import { turnWith } from "../../../store/fixtures.testing.ts";
 import { emptyHostModel, type HostModel } from "../../../store/hostModel.ts";
-import { checkoutsOf, pendingTurns, pullSource, sessionSource, type TurnInfo } from "./source.ts";
+import type { TurnView } from "../../../store/sessionModel.ts";
+import {
+  checkoutsOf,
+  type DiffSource,
+  pendingTurns,
+  pickerOptions,
+  pullSource,
+  reviewTurns,
+  sessionSource,
+  turnRange,
+} from "./source.ts";
 
 const Subjects = Data.taggedEnum<ReviewSubject>();
 
@@ -105,16 +118,24 @@ describe("pullSource", () => {
 });
 
 describe("sessionSource", () => {
-  const turn = (index: number): TurnInfo => ({
-    id: TurnId.make(`t${index}`),
-    index,
-    prompt: index === 3 ? "" : `Do step ${index}\nwith details`,
-    checkpointBefore: `b${index}`,
-    checkpointAfter: index === 3 ? null : `a${index}`,
-    status: index === 3 ? "working" : "completed",
+  const continued = TurnTrigger.cases.BackgroundTasksReported.make({ tasks: [] });
+
+  const view = (index: number, patch: Partial<Turn> = {}): TurnView => ({
+    turn: turnWith({
+      id: TurnId.make(`t${index}`),
+      index,
+      prompt: index === 3 ? "" : `Do step ${index}\nwith details`,
+      checkpointBefore: `b${index}`,
+      checkpointAfter: index === 3 ? null : `a${index}`,
+      status: index === 3 ? "working" : "completed",
+      ...patch,
+    }),
+    items: [],
+    live: new Map(),
+    subagents: [],
   });
 
-  const turns = [0, 1, 2, 3].map(turn);
+  const turns = reviewTurns([0, 1, 2, 3].map((i) => view(i)));
 
   const session = {
     id: SessionId.make("s1"),
@@ -123,12 +144,15 @@ describe("sessionSource", () => {
     acceptedThroughIndex: 1,
   };
 
+  const rows = (source: DiffSource) =>
+    source.sections.map((s) => [s.id, s.divider?.turn, s.divider?.quote, s.base, s.next]);
+
   test("shows the Turns since the last accept, newest first, one section each", () => {
     const source = sessionSource("h", session, turns, { kind: "all" });
 
-    expect(source.sections.map((s) => [s.id, s.divider?.turn, s.divider?.quote, s.next])).toEqual([
-      ["t3", 4, null, null],
-      ["t2", 3, "Do step 2", "a2"],
+    expect(rows(source)).toEqual([
+      ["t3", 4, null, "b3", null],
+      ["t2", 3, "Do step 2", "b2", "a2"],
     ]);
     expect(source.sections[1]?.spec).toEqual(
       Specs.Turn({ sessionId: session.id, turnId: TurnId.make("t2") })
@@ -144,11 +168,64 @@ describe("sessionSource", () => {
 
   test("the key follows a Turn's status and checkpoint", () => {
     const before = sessionSource("h", session, turns, { kind: "all" }).key;
-
-    const done = turns.map((t) =>
-      t.index === 3 ? { ...t, status: "completed", checkpointAfter: "a3" } : t
-    );
+    const done = reviewTurns([0, 1, 2, 3].map((i) => view(i, { checkpointAfter: `a${i}` })));
 
     expect(sessionSource("h", session, done, { kind: "all" }).key).not.toBe(before);
+  });
+
+  describe("a Turn the Harness continued", () => {
+    // t0 user, t1 Harness-started, t2 user, t3 Harness-started (still working).
+    const merged = reviewTurns([
+      view(0, { userTurnNumber: 1 }),
+      view(1, { userTurnNumber: 1, trigger: continued }),
+      view(2, { userTurnNumber: 2 }),
+      view(3, { userTurnNumber: 2, trigger: continued }),
+    ]);
+
+    const fresh = { ...session, acceptedThroughIndex: null };
+
+    test("is one section and one divider, from its first Turn's checkpoint to its last's", () => {
+      const source = sessionSource("h", fresh, merged, { kind: "all" });
+
+      expect(rows(source)).toEqual([
+        ["t2", 2, "Do step 2", "b2", null],
+        ["t0", 1, "Do step 0", "b0", "a1"],
+      ]);
+      expect(source.sections[1]?.spec).toEqual(
+        Specs.Turns({
+          sessionId: session.id,
+          firstTurnId: TurnId.make("t0"),
+          lastTurnId: TurnId.make("t1"),
+        })
+      );
+    });
+
+    test("the picker offers one entry per Turn", () => {
+      expect(pickerOptions(pendingTurns(merged, null))).toEqual([
+        { value: "t0", label: "1" },
+        { value: "t2", label: "2" },
+        { value: "all", label: "All 2 turns" },
+      ]);
+      expect(turnRange(merged)).toBe("turns 1–2");
+    });
+
+    test("accepted partway, it shows only what came after, under its own number", () => {
+      const partway = { ...session, acceptedThroughIndex: 0 };
+      const source = sessionSource("h", partway, merged, { kind: "all" });
+
+      expect(rows(source).at(-1)).toEqual(["t1", 1, "Do step 0", "b1", "a1"]);
+    });
+
+    test("without git.diff-turns, each Turn it ran is a section under the same number", () => {
+      const source = sessionSource("h", fresh, merged, { kind: "all" }, false);
+
+      expect(source.sections.map((s) => [s.id, s.divider?.turn])).toEqual([
+        ["t3", 2],
+        ["t2", 2],
+        ["t1", 1],
+        ["t0", 1],
+      ]);
+      expect(source.sections.every((s) => Predicate.isTagged(s.spec, "Turn"))).toBe(true);
+    });
   });
 });

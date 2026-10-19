@@ -3,8 +3,10 @@
  * "Send to session" sends one Turn (the optional message, then each comment quoted), the
  * batch clears, and the comments stay on the diff as "sent with turn N".
  */
-import type { FeedbackBatch, FeedbackComment, Turn } from "@polaris/protocol";
+import type { FeedbackBatch, FeedbackComment } from "@polaris/protocol";
 import type { Plain } from "../../../store/plain.ts";
+import type { TurnView } from "../../../store/sessionModel.ts";
+import { groupTurns } from "../../session/model/turnGroups.ts";
 
 export type Draft = Plain<FeedbackComment>;
 
@@ -37,20 +39,20 @@ export const toFeedback = (batch: DraftBatch): Plain<FeedbackBatch> | null => {
 /** A comment already sent, and the Turn it went with. */
 export interface SentComment {
   readonly comment: Draft;
-  /** "turn 25": the Turn's 1-based number. */
+  /** "turn 25": the Turn's number as the UI shows it (`turnGroups.ts`). */
   readonly turnNumber: number;
 }
 
-type TurnLike = Pick<Plain<Turn>, "index" | "feedback">;
-
-export const sentComments = (turns: ReadonlyArray<TurnLike>): ReadonlyArray<SentComment> =>
-  turns.flatMap((turn) =>
-    (turn.feedback?.comments ?? []).map((comment) => ({ comment, turnNumber: turn.index + 1 }))
+export const sentComments = (views: ReadonlyArray<TurnView>): ReadonlyArray<SentComment> =>
+  groupTurns(views).flatMap((group) =>
+    group.views.flatMap(({ turn }) =>
+      (turn.feedback?.comments ?? []).map((comment) => ({ comment, turnNumber: group.number }))
+    )
   );
 
-/** The number the next Turn will have ("Feedback for turn 25"). */
-export const nextTurnNumber = (turns: ReadonlyArray<TurnLike>) =>
-  turns.reduce((n, t) => Math.max(n, t.index + 1), 0) + 1;
+/** The number the next Turn will have ("Feedback for turn 25"): one past the latest shown. */
+export const nextTurnNumber = (views: ReadonlyArray<TurnView>) =>
+  (groupTurns(views).at(-1)?.number ?? 0) + 1;
 
 const lineLabel = (lines: Draft["lines"]) =>
   lines.start === lines.end ? `${lines.start}` : `${lines.start}–${lines.end}`;

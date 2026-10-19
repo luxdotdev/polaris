@@ -1,6 +1,7 @@
 /** A Lead's digest Turn folded to one line: its number and what the Lead said back. */
 import { Predicate } from "effect";
 import type { TurnView } from "../../../store/sessionModel.ts";
+import { turnNumber } from "../../session/model/turnGroups.ts";
 import type { Digest } from "./types.ts";
 
 export interface DigestFold {
@@ -10,11 +11,13 @@ export interface DigestFold {
   readonly reply: string | null;
 }
 
-export const digestFold = (view: TurnView): DigestFold => {
+/** `view` folded, numbered among the Lead's listed `views` as the conversation numbers it. */
+export const digestFold = (views: ReadonlyArray<TurnView>, view: TurnView): DigestFold => {
   const last = view.items.findLast((item) => Predicate.isTagged(item, "AssistantMessage"));
   const line = last?.text.trimStart().split("\n", 1)[0]?.trim() ?? "";
+  const number = turnNumber(views, view.turn.id) ?? view.turn.userTurnNumber ?? view.turn.index + 1;
 
-  return { number: view.turn.index + 1, reply: line === "" ? null : line };
+  return { number, reply: line === "" ? null : line };
 };
 
 /**

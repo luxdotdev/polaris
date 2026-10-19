@@ -10,6 +10,7 @@ import type { PullDetailView } from "../../../../../shared/github.ts";
 import { type Staleness, stalenessOf } from "../model/botSummary.ts";
 import { ago, count } from "../model/copy.ts";
 import { publishedBody, publishOffer } from "../model/publish.ts";
+import type { PromptTurn } from "../model/prompts.ts";
 import { commentCount } from "../model/tabs.ts";
 import { authorOf, newSince } from "../model/timeline.ts";
 import type { PullOverviewView, TimelineItemView, WalkthroughView } from "../model/types.ts";
@@ -301,6 +302,7 @@ export interface SessionOverviewProps extends Common {
   readonly where: string;
   /** "turns 22–24". */
   readonly scope: string;
+  readonly turns: ReadonlyMap<number, PromptTurn>;
   readonly onOpenSession: () => void;
 }
 
@@ -312,6 +314,7 @@ export const SessionOverview = (props: SessionOverviewProps) => {
       {walkthroughs.prompts.length > 0 && (
         <Prompts
           prompts={walkthroughs.prompts}
+          turns={props.turns}
           where={props.where}
           onOpenSession={props.onOpenSession}
         />

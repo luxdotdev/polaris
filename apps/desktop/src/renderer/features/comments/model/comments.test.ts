@@ -1,4 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { type Turn, TurnId, TurnTrigger } from "@polaris/protocol";
+import { turnWith } from "../../../store/fixtures.testing.ts";
+import type { TurnView } from "../../../store/sessionModel.ts";
 import { anchorLabel, placeLabel, sessionPlace, suggestionBlock } from "./composer.ts";
 import type { PullDetailView, ReviewThreadView } from "../../../../shared/github.ts";
 import {
@@ -157,15 +160,44 @@ describe("Agent Session feedback", () => {
     expect(toFeedback({ message: "", comments: [draft("a")] })?.message).toBeNull();
   });
 
+  const view = (turn: Turn): TurnView => ({ turn, items: [], live: new Map(), subagents: [] });
+
+  const continued = TurnTrigger.cases.BackgroundTasksReported.make({ tasks: [] });
+
   test("sent comments carry their Turn's number", () => {
     const turns = [
-      { index: 0, feedback: null },
-      { index: 1, feedback: { message: null, comments: [draft("a")] } },
+      view(turnWith({ id: TurnId.make("t0"), index: 0 })),
+      view(
+        turnWith({
+          id: TurnId.make("t1"),
+          index: 1,
+          feedback: { message: null, comments: [draft("a")] },
+        })
+      ),
     ];
 
     expect(sentComments(turns)).toEqual([{ comment: draft("a"), turnNumber: 2 }]);
     expect(nextTurnNumber(turns)).toBe(3);
     expect(nextTurnNumber([])).toBe(1);
+  });
+
+  test("a Turn the Harness started doesn't count: numbers are the user's Turns", () => {
+    const turns = [
+      view(turnWith({ id: TurnId.make("t40"), index: 40, userTurnNumber: 12 })),
+      view(turnWith({ id: TurnId.make("t41"), index: 41, userTurnNumber: 12, trigger: continued })),
+      view(
+        turnWith({
+          id: TurnId.make("t42"),
+          index: 42,
+          userTurnNumber: 13,
+          feedback: { message: null, comments: [draft("a")] },
+        })
+      ),
+      view(turnWith({ id: TurnId.make("t43"), index: 43, userTurnNumber: 13, trigger: continued })),
+    ];
+
+    expect(sentComments(turns)).toEqual([{ comment: draft("a"), turnNumber: 13 }]);
+    expect(nextTurnNumber(turns)).toBe(14);
   });
 });
 

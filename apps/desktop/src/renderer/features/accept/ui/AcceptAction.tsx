@@ -27,7 +27,16 @@ import { branchFromPrompt } from "../../session/model/newSession.ts";
 import { useSettings } from "../../settings/store.ts";
 import { surfaceStore, subjectKey, type ReviewSlotProps } from "../../review/surface.ts";
 import { sendPullComments } from "../data/pullComments.ts";
-import { type HeaderAction, headerAction, type PendingTurn, turnsLabel } from "../model/action.ts";
+import { reviewTurns, unacceptedTurns } from "../../review/data/source.ts";
+import {
+  type AcceptChoice,
+  acceptThrough,
+  acceptWaits,
+  type HeaderAction,
+  headerAction,
+  type PendingTurn,
+  turnsLabel,
+} from "../model/action.ts";
 import { pullUrl } from "../model/linked.ts";
 import { AcceptPanel } from "./AcceptPanel.tsx";
 import { useAcceptPanel } from "./useAcceptPanel.ts";
@@ -53,10 +62,12 @@ const PanelBody = ({
   subject,
   through,
   turns,
+  later,
 }: {
   readonly subject: SessionSubject;
   readonly through: TurnId;
   readonly turns: ReadonlyArray<PendingTurn>;
+  readonly later: number;
 }) => {
   const { session } = useSession(subject.hostKey, subject.sessionId);
   const prefix = useSettings((s) => s.sessions.branchPrefix);
@@ -78,6 +89,7 @@ const PanelBody = ({
       state={state}
       harness={session === null ? "The agent" : harnessHue(session.harness).name}
       turns={turns}
+      later={later}
       newBranchName={branchFromPrompt(title, subject.sessionId, prefix)}
     />
   );
@@ -95,14 +107,10 @@ const SessionAccept = ({ subject }: { readonly subject: SessionSubject }) => {
   const [open, setOpen] = useState(false);
 
   /** The Turn accepted through, and the Turns it takes, as they were when the popover opened. */
-  const [chosen, setChosen] = useState<{
-    readonly through: TurnId;
-    readonly turns: ReadonlyArray<PendingTurn>;
-  } | null>(null);
+  const [chosen, setChosen] = useState<AcceptChoice | null>(null);
 
   const { session } = model;
-  const accepted = session?.acceptedThroughIndex ?? -1;
-  const pending = model.turns.map((t) => t.turn).filter((t) => t.index > accepted);
+  const pending = unacceptedTurns(reviewTurns(model.turns), session?.acceptedThroughIndex ?? null);
 
   const critical = (findings ?? []).filter(
     (f) => f.severity === "critical" && f.status === "open"
@@ -113,7 +121,7 @@ const SessionAccept = ({ subject }: { readonly subject: SessionSubject }) => {
   const action = headerAction({
     pending,
     critical,
-    working: session?.state === "working" || pending.some((t) => t.status === "working"),
+    working: acceptWaits(session?.state, pending),
     pullNumber: pull?.number ?? null,
   });
 
@@ -126,11 +134,10 @@ const SessionAccept = ({ subject }: { readonly subject: SessionSubject }) => {
 
   const last = pending.at(-1);
 
-  const openFor = (turnId: TurnId | undefined) => {
-    if (turnId === undefined) return;
-    const index = pending.find((t) => t.id === turnId)?.index ?? 0;
+  const openFor = (turn: PendingTurn | undefined) => {
+    if (turn === undefined) return;
 
-    setChosen({ through: turnId, turns: pending.filter((t) => t.index <= index) });
+    setChosen(acceptThrough(pending, turn));
     setOpen(true);
   };
 
@@ -169,7 +176,7 @@ const SessionAccept = ({ subject }: { readonly subject: SessionSubject }) => {
             onClick={() =>
               action.kind === "linked" && pullRef !== null
                 ? window.open(pullUrl(pullRef), "_blank", "noopener")
-                : openFor(last?.id)
+                : openFor(last)
             }
             className="flex h-[30px] items-center px-3 font-medium disabled:cursor-default"
           >
@@ -185,14 +192,14 @@ const SessionAccept = ({ subject }: { readonly subject: SessionSubject }) => {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               {action.kind === "paused" && (
-                <DropdownMenuItem onSelect={() => openFor(last?.id)}>
+                <DropdownMenuItem onSelect={() => openFor(last)}>
                   Accept anyway, despite {action.critical} critical
                 </DropdownMenuItem>
               )}
               {pending.length > 1 &&
                 pending.slice(0, -1).map((t) => (
-                  <DropdownMenuItem key={t.id} onSelect={() => openFor(t.id)}>
-                    Accept through turn {t.index + 1}
+                  <DropdownMenuItem key={t.id} onSelect={() => openFor(t)}>
+                    Accept through turn {t.number}
                   </DropdownMenuItem>
                 ))}
               {pullRef !== null && (
@@ -217,7 +224,12 @@ const SessionAccept = ({ subject }: { readonly subject: SessionSubject }) => {
       </PopoverAnchor>
       <PopoverContent align="end" className="w-[400px] overflow-clip p-0">
         {open && chosen !== null && (
-          <PanelBody subject={subject} through={chosen.through} turns={chosen.turns} />
+          <PanelBody
+            subject={subject}
+            through={chosen.turnId}
+            turns={chosen.turns}
+            later={chosen.later}
+          />
         )}
       </PopoverContent>
     </Popover>

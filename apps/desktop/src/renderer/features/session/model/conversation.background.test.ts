@@ -236,6 +236,33 @@ describe("older pages", () => {
   });
 });
 
+describe("numbers from the Daemon (session.user-turns)", () => {
+  const numbered = (view: TurnView, userTurnNumber: number): TurnView => ({
+    ...view,
+    turn: turnWith({
+      id: view.turn.id,
+      index: view.turn.index,
+      trigger: view.turn.trigger ?? null,
+      userTurnNumber,
+    }),
+  });
+
+  test("a page deep in a long session is numbered exactly before older pages load", () => {
+    // 40 Turns before this page, many Harness-started: by count they would be 41 and 42.
+    const listed = [
+      numbered(prompted(40), 12),
+      numbered(continuation(41), 12),
+      numbered(prompted(42), 13),
+    ];
+
+    expect(groupTurns(listed).map((g) => `${g.id} #${g.number} ×${g.views.length}`)).toEqual([
+      "t40 #12 ×2",
+      "t42 #13 ×1",
+    ]);
+    expect(turnNumber(listed, "t41")).toBe(12);
+  });
+});
+
 test("background tasks an Idle session waits on close the list, before outgoing rows", () => {
   const tasks = [new BackgroundTask({ id: "x", kind: "command", description: "bun run bench" })];
   const rows = conversationRows({ turns: [prompted(0)], approvals: [], waiting: tasks });

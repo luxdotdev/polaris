@@ -8,6 +8,7 @@ import { Predicate } from "effect";
 import type { SessionEntry } from "../../../../store/hostModel.ts";
 import type { SessionModel, TurnView } from "../../../../store/sessionModel.ts";
 import type { AgentEdit } from "../../model/agent.ts";
+import { turnNumber } from "../../../session/model/turnGroups.ts";
 import { isUnder, resolve } from "./paths.ts";
 
 /** Who is changing a file now, for the editor's Working strip (E3): the editor's own type. */
@@ -79,7 +80,12 @@ export interface AgentInput {
 }
 
 /** The paths a Working session's current Turn is changing, those still in progress marked live. */
-const editsOf = (session: SessionEntry["session"], turn: TurnView, root: string) => {
+const editsOf = (
+  session: SessionEntry["session"],
+  turn: TurnView,
+  root: string,
+  number: number
+) => {
   const live = new Set(
     pathsOf(
       [...turn.live.values()].flatMap((item) => fileChanges(item.item)),
@@ -95,7 +101,7 @@ const editsOf = (session: SessionEntry["session"], turn: TurnView, root: string)
       title: session.title,
       harness: session.harness,
       turnId: turn.turn.id,
-      turnIndex: turn.turn.index + 1,
+      turnNumber: number,
       turnStartedAt: turn.turn.startedAt,
       lastChangeAt: null,
       live: live.has(path),
@@ -108,12 +114,15 @@ export const agentMarks = ({ root, sessions, feed }: AgentInput): AgentMarks => 
   const blocked = new Set<string>();
 
   for (const { session, pendingApprovals } of sessions) {
-    const turn = feed(session.id)?.turns.at(-1);
+    const turns = feed(session.id)?.turns ?? [];
+    const turn = turns.at(-1);
 
     if (turn === undefined || turn.turn.status !== "working") continue;
 
     if (session.state === "working") {
-      for (const [path, edit] of editsOf(session, turn, root)) edits.set(path, edit);
+      const number = turnNumber(turns, turn.turn.id) ?? turn.turn.index + 1;
+
+      for (const [path, edit] of editsOf(session, turn, root, number)) edits.set(path, edit);
     } else if (pendingApprovals.length > 0) {
       for (const path of blockedPaths(turn, session.cwd, root)) blocked.add(path);
     }

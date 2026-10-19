@@ -8,7 +8,7 @@ import { cn, harnessHue, Tile } from "@polaris/ui";
 import type { ReactNode } from "react";
 import { type PullDetailView, pullStatus, repoOfRow } from "../../../../shared/github.ts";
 import { BranchChip, StackChip, StatusPill } from "../../pulls/ui/StackParts.tsx";
-import type { TurnInfo, TurnPick } from "../data/source.ts";
+import { pickerOptions, type ReviewTurn, type TurnPick } from "../data/source.ts";
 import { PullMenu } from "./pullMenu.tsx";
 
 /** A pull request's header tops its two lines (R1); an Agent Session's centres on its tile (R2). */
@@ -133,14 +133,11 @@ export interface SessionHeaderProps {
   readonly title: string;
   readonly harness: string;
   readonly caption: string;
-  readonly pending: ReadonlyArray<TurnInfo>;
+  readonly pending: ReadonlyArray<ReviewTurn>;
   readonly pick: TurnPick;
   readonly onPick: (pick: TurnPick) => void;
   readonly actions: ReactNode;
 }
-
-/** The Turn picker shows at most this many single Turns before "All". */
-const PICKER_TURNS = 4;
 
 export const SessionHeader = ({
   title,
@@ -151,12 +148,7 @@ export const SessionHeader = ({
   onPick,
   actions,
 }: SessionHeaderProps) => {
-  const turns = pending.slice(-PICKER_TURNS);
-
-  const options: ReadonlyArray<TurnOption> = [
-    ...turns.map((t) => ({ value: t.id, label: `${t.index + 1}` })),
-    { value: "all", label: `All ${pending.length} turns` },
-  ];
+  const options: ReadonlyArray<TurnOption> = pickerOptions(pending);
 
   return (
     <Shell centred>

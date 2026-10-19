@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { AgentSession, SessionId, TurnItem } from "@polaris/protocol";
+import { AgentSession, SessionId, TurnId, TurnItem, TurnTrigger } from "@polaris/protocol";
 import { approval, session, turnWith } from "../../../../store/fixtures.testing.ts";
 import type { SessionEntry } from "../../../../store/hostModel.ts";
 import { emptySessionModel, type SessionModel } from "../../../../store/sessionModel.ts";
@@ -88,7 +88,7 @@ describe("agentMarks", () => {
     expect(marks.edits.get("/tmp/proof/c.ts")).toMatchObject({
       sessionId: session.id,
       harness: "codex",
-      turnIndex: 1,
+      turnNumber: 1,
       live: true,
     });
     expect(marks.edits.get("/tmp/proof/src/a.ts")?.live).toBe(false);
@@ -133,5 +133,40 @@ describe("agentMarks", () => {
     });
 
     expect([...before.blocked]).toEqual(["/tmp/proof/done.ts"]);
+  });
+
+  test("a Turn the Harness started carries the number of the user's Turn it continues", () => {
+    const user = turnWith({
+      id: TurnId.make("u"),
+      index: 4,
+      userTurnNumber: 3,
+      status: "completed",
+    });
+
+    const continued = turnWith({
+      id: TurnId.make("c"),
+      index: 5,
+      userTurnNumber: 3,
+      trigger: TurnTrigger.cases.BackgroundTasksReported.make({ tasks: [] }),
+      status: "working",
+    });
+
+    const view = (turn: typeof user, items: ReadonlyArray<TurnItem>) => ({
+      turn,
+      items,
+      live: new Map(),
+      subagents: [],
+    });
+
+    const marks = agentMarks({
+      root: ROOT,
+      sessions: [entry({ state: "working" })],
+      feed: () => ({
+        ...emptySessionModel,
+        turns: [view(user, []), view(continued, [change("1", "a.ts", "completed")])],
+      }),
+    });
+
+    expect(marks.edits.get("/tmp/proof/a.ts")?.turnNumber).toBe(3);
   });
 });

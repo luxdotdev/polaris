@@ -1,19 +1,27 @@
 import { describe, expect, test } from "bun:test";
 import { AcceptBranch, SessionId, TurnId } from "@polaris/protocol";
 import type { PullDetailView, ReviewThreadView } from "../../../../shared/github.ts";
-import { acceptEnd, headerAction, turnsLabel } from "./action.ts";
+import { acceptEnd, acceptThrough, acceptWaits, headerAction, turnsLabel } from "./action.ts";
 import { type AcceptPorts, type AcceptRequest, runAccept, stepsOf } from "./flow.ts";
 import { pullFeedback, unsentThreads } from "./pullComments.ts";
 import { toArchive } from "./linked.ts";
 
-const turn = (index: number) => ({ id: `t${index}`, index });
+const turn = (
+  number: number,
+  ids: ReadonlyArray<string> = [`t${number}`],
+  status = "completed"
+) => ({
+  id: TurnId.make(ids[0] ?? ""),
+  number,
+  turns: ids.map((id) => ({ id: TurnId.make(id), status })),
+});
 
 describe("the header action", () => {
   test("names the Turns, pauses on a Critical finding, waits for a working Turn", () => {
-    const pending = [turn(21), turn(22), turn(23)];
+    const pending = [turn(22), turn(23), turn(24)];
     const base = { pending, critical: 0, working: false, pullNumber: null };
 
-    expect(turnsLabel([turn(23)])).toBe("turn 24");
+    expect(turnsLabel([turn(24)])).toBe("turn 24");
     expect(headerAction(base)).toEqual({ kind: "accept", label: "Accept turns 22–24" });
     expect(headerAction({ ...base, critical: 1 })).toEqual({
       kind: "paused",
@@ -31,6 +39,30 @@ describe("the header action", () => {
       kind: "linked",
       label: "Pull request #12",
     });
+  });
+});
+
+describe("accept through a Turn (owner, 2026-10-19)", () => {
+  // Turn 3 is the user's t5 and the Harness's t6 and t7; turn 4 is t8, its continuation t9 runs.
+  const pending = [turn(3, ["t5", "t6", "t7"]), turn(4, ["t8", "t9"], "working")];
+
+  test("takes the last Turn the Harness ran in it, with the Turns before it", () => {
+    const [third, fourth] = pending;
+
+    if (third === undefined || fourth === undefined) throw new Error("two Turns");
+
+    expect(acceptThrough(pending, third)).toEqual({
+      turnId: TurnId.make("t7"),
+      turns: [third],
+      later: 1,
+    });
+    expect(acceptThrough(pending, fourth).turnId).toBe(TurnId.make("t9"));
+  });
+
+  test("waits while a Turn's last continuation still runs, though the session is Idle", () => {
+    expect(acceptWaits("idle", pending)).toBe(true);
+    expect(acceptWaits("idle", pending.slice(0, 1))).toBe(false);
+    expect(acceptWaits("working", pending.slice(0, 1))).toBe(true);
   });
 });
 

@@ -30,13 +30,17 @@ export const sessionStateLabel: Readonly<Record<SessionState, string>> = {
 export const usageLimitLine = (resetsAt: string | null | undefined) =>
   `Usage limit · ${capacityReset(resetsAt)}`;
 
-const turnLabel = (entry: SessionEntry) => `turn ${entry.session.turnCount}`;
+/** The Turn number as the UI shows it: the user-Turn count, or every Turn from older Daemons. */
+export const shownTurnCount = (entry: SessionEntry): number =>
+  entry.session.currentUserTurn?.number ?? entry.session.turnCount;
+
+const turnLabel = (entry: SessionEntry) => `turn ${shownTurnCount(entry)}`;
 
 const STATE_LINES: Readonly<Record<SessionState, (entry: SessionEntry) => string>> = {
   starting: () => "Starting…",
   working: (e) => `Working · ${turnLabel(e)}`,
   "needs-you": () => "Needs you",
-  idle: (e) => (e.session.turnCount === 0 ? "Idle" : `Idle · ${turnLabel(e)}`),
+  idle: (e) => (shownTurnCount(e) === 0 ? "Idle" : `Idle · ${turnLabel(e)}`),
   "in-terminal": () => "In terminal",
   dormant: () => "Dormant · resumes on reply",
   failed: (e) => e.session.lastError ?? "Failed",

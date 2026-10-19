@@ -1,23 +1,38 @@
 import { describe, expect, test } from "bun:test";
 import { TurnItem } from "@polaris/protocol";
+import { turnWith } from "../../../store/fixtures.testing.ts";
 import { leadModel } from "../preview/sessions.ts";
 import { digestFold, digestStarted, STEERED_DIGEST_OPENING, steeredDigest } from "./digest.ts";
 
 describe("digestFold", () => {
-  const [earlier, digest] = leadModel().turns;
+  const { turns } = leadModel();
+  const [earlier, digest] = turns;
 
   test("a folded digest Turn keeps its number and the Lead's reply", () => {
     if (digest === undefined) throw new Error("fixture has two Turns");
-    const fold = digestFold(digest);
+    const fold = digestFold(turns, digest);
 
     expect(fold.number).toBe(14);
     expect(fold.reply).toStartWith("B1's trace check fails on the handover log");
   });
 
+  test("its number is the conversation's: the Daemon's user-Turn number", () => {
+    if (earlier === undefined || digest === undefined) throw new Error("fixture has two Turns");
+
+    const numbered = (view: typeof digest, userTurnNumber: number) => ({
+      ...view,
+      turn: turnWith({ id: view.turn.id, index: view.turn.index, userTurnNumber }),
+    });
+
+    const listed = [numbered(earlier, 6), numbered(digest, 7)];
+
+    expect(digestFold(listed, listed[1] ?? digest).number).toBe(7);
+  });
+
   test("before the Lead replies there is no reply line", () => {
     if (earlier === undefined) throw new Error("fixture has two Turns");
 
-    expect(digestFold({ ...earlier, items: [] }).reply).toBeNull();
+    expect(digestFold(turns, { ...earlier, items: [] }).reply).toBeNull();
   });
 });
 
