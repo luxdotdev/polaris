@@ -3,13 +3,18 @@ import { useMemo } from "react";
 import type { HostView } from "../../../shared/api.ts";
 import { clientCopy } from "../../../shared/clientCopy.ts";
 import { useApp } from "../../shell/hooks.ts";
+import { joinPath } from "../../../shared/hostPath.ts";
 import { browseOf, folderRows, listError, START, tilde } from "./model.ts";
 import { readRecent } from "./recent.ts";
 import { type Listing, useListing } from "./useListing.ts";
 
-/** What a row does: open a folder as a Workspace, step into one, or ask the OS folder picker (the local Host). */
+/**
+ * What a row does: open a folder as a Workspace, step into one, create one and open it, or
+ * ask the OS folder picker (the local Host).
+ */
 export type Target =
   | { readonly kind: "open"; readonly path: string }
+  | { readonly kind: "create"; readonly path: string }
   | { readonly kind: "folder"; readonly path: string }
   | { readonly kind: "finder" };
 
@@ -34,7 +39,16 @@ interface RowsInput {
   readonly recent: ReadonlyArray<string>;
 }
 
-const listedGroup = ({ host, typed, listing, workspaces }: RowsInput): Group | null => {
+/** A name typed that nothing in the folder has yet, on a Host that can make folders. */
+const canCreate = ({ host, listing }: RowsInput, name: string) =>
+  name !== "." &&
+  name !== ".." &&
+  host.status.capabilities.includes("files.manage") &&
+  listing.kind === "listed" &&
+  !listing.entries.some((e) => e.name === name);
+
+const listedGroup = (input: RowsInput): Group | null => {
+  const { host, typed, listing, workspaces } = input;
   const homeDir = host.status.host?.homeDir ?? null;
   const { absolute, filter } = browseOf(typed, homeDir);
 
@@ -59,7 +73,21 @@ const listedGroup = ({ host, typed, listing, workspaces }: RowsInput): Group | n
     meta: row.workspace === null ? undefined : "workspace",
   }));
 
-  return { heading: here, rows: filter === "" ? [open, ...folders] : folders };
+  const path = joinPath(absolute, filter);
+
+  const create: ReadonlyArray<Row> = canCreate(input, filter)
+    ? [
+        {
+          id: `create\u0000${path}`,
+          title: `Create ${tilde(path, homeDir)}`,
+          target: { kind: "create", path },
+          testId: "folder-create",
+          meta: "new folder",
+        },
+      ]
+    : [];
+
+  return { heading: here, rows: filter === "" ? [open, ...folders] : [...folders, ...create] };
 };
 
 /** Pure: the groups for one state of the dialog. */

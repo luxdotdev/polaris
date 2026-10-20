@@ -100,6 +100,33 @@ describe("buildGroups", () => {
     }
   });
 
+  test("a new name offers to create the folder where the Host can make one", () => {
+    const studio = withHome("studio");
+
+    const managing = {
+      ...studio,
+      status: {
+        ...studio.status,
+        capabilities: [...studio.status.capabilities, "files.manage" as const],
+      },
+    };
+
+    const groups = (host: HostView, typed: string) =>
+      buildGroups({ host, typed, listing: listed, workspaces: [], recent: [] });
+
+    expect(titles(groups(managing, "~/co"))).toEqual([["~", "code", "Create ~/co"]]);
+    expect(groups(managing, "~/co")[0]?.rows.at(-1)?.target).toEqual({
+      kind: "create",
+      path: `${HOME}/co`,
+    });
+    // Taken already (a folder or a file), a dot name, nothing typed, or a Host without files.manage.
+    expect(titles(groups(managing, "~/code"))).toEqual([["~", "code"]]);
+    expect(titles(groups(managing, "~/notes.md"))).toEqual([["~"]]);
+    expect(titles(groups(managing, "~/.."))).toEqual([["~"]]);
+    expect(titles(groups(managing, "~/"))).toEqual([["~", "Open ~", "code"]]);
+    expect(titles(groups(studio, "~/co"))).toEqual([["~", "code"]]);
+  });
+
   test("nothing listed yet, or a failure: no folder rows", () => {
     const input = { host: withHome("studio"), typed: "~/nope/", workspaces: [], recent: [] };
 

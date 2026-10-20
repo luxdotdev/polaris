@@ -37,11 +37,29 @@ export const useOpenFolder = (host: HostView) => {
     else selectWorkspace({ hostKey: host.key, workspaceId: shown.workspaceId });
   };
 
+  /** Makes the folder on the Host (its parent is the folder listed), then opens it. */
+  const create = async (at: string) => {
+    setBusy(true);
+    setError(null);
+
+    const made = await window.polaris.request("files.create", {
+      hostKey: host.key,
+      path: at,
+      kind: "directory",
+    });
+
+    setBusy(false);
+
+    if (!made.ok) return setError(made.error.message);
+
+    await path(at);
+  };
+
   const finder = async () => {
     const picked = await window.polaris.request("dialog.pickFolder", {});
 
     if (picked.ok && picked.value.path !== null) await path(picked.value.path);
   };
 
-  return { open: { path, finder }, busy, error };
+  return { open: { path, create, finder }, busy, error };
 };
