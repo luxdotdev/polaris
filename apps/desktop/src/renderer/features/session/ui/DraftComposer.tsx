@@ -4,7 +4,7 @@
  * become attachment chips, and `/` lists the Harness's Skills and Slash Commands.
  */
 import type { PolarisAction } from "@polaris/protocol";
-import { Composer, type Harness } from "@polaris/ui";
+import { Composer, type Harness, harnessHue } from "@polaris/ui";
 import { type ReactNode, useState } from "react";
 import {
   AttachmentDrop,
@@ -81,7 +81,31 @@ export interface DraftComposerProps {
   readonly commands?: ComposerCommands;
   /** What the user sent in this session, oldest first, for ↑/↓. */
   readonly history?: ReadonlyArray<string>;
+  /** Shell mode (a `!` draft): where the command runs, and whether it waits for this Turn. */
+  readonly shell?: { readonly where: string; readonly queued: boolean } | undefined;
 }
+
+/** Shell mode's cue in the composer's tool row: what `!` does and where it runs. */
+const ShellCue = ({
+  harness,
+  where,
+  queued,
+}: {
+  readonly harness: Harness;
+  readonly where: string;
+  readonly queued: boolean;
+}) => (
+  <span
+    className="text-caption text-text-subtle min-w-0 truncate"
+    title={`Runs in your login shell; ${harnessHue(harness).name} reads the output and replies`}
+    data-testid="shell-cue"
+  >
+    <span className="text-text-default font-mono">!</span> Shell command ·{" "}
+    {queued ? "runs after this turn, in " : "runs in "}
+    <span className="font-mono">{where}</span>
+    {queued ? null : " · esc to leave"}
+  </span>
+);
 
 export const DraftComposer = ({
   harness,
@@ -108,6 +132,7 @@ export const DraftComposer = ({
   className,
   commands = NO_COMMANDS,
   history,
+  shell,
 }: DraftComposerProps) => {
   // The menu draws in this box, above the card (which clips what it holds).
   const [menuSlot, setMenuSlot] = useState<HTMLDivElement | null>(null);
@@ -135,7 +160,16 @@ export const DraftComposer = ({
             picker={picker}
             working={working}
             branch={branch}
-            tools={tools}
+            tools={
+              shell === undefined ? (
+                tools
+              ) : (
+                <>
+                  {tools}
+                  <ShellCue harness={harness} where={shell.where} queued={shell.queued} />
+                </>
+              )
+            }
             prominentSend={prominentSend}
             sendDisabled={!canSubmit}
             onSend={onSubmit}
@@ -168,6 +202,7 @@ export const DraftComposer = ({
                   onFocus={commands.want}
                   menuSlot={menuSlot}
                   history={history}
+                  mono={shell !== undefined}
                 />
               </ComposerMenu>
             }

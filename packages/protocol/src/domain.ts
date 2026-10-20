@@ -360,6 +360,11 @@ export class Turn extends Schema.Class<Turn>("Turn")({
   status: TurnStatus,
   /** Set when the Turn was sent from Review feedback (`SendFeedback`); `prompt` is its rendering. */
   feedback: optionalNullable(FeedbackBatch),
+  /**
+   * Set when the Turn is the user's shell command (`RunShellCommand`, capability
+   * `session.shell-command`); `prompt` reads `! <command>`.
+   */
+  shellCommand: optionalNullable(Schema.String),
   /** `refs/polaris/checkpoints/<session>/<turn>` taken before and after the Turn. */
   checkpointBefore: Schema.NullOr(Schema.String),
   checkpointAfter: Schema.NullOr(Schema.String),
@@ -449,6 +454,8 @@ export const TurnItem = Schema.TaggedUnion({
     status: Schema.Literals(["running", "completed", "failed", "declined"]),
     /** Set when it moved to the background: the background task it keeps running as. */
     backgroundTaskId: optionalNullable(Schema.String),
+    /** `user`: the user's shell command, which the Daemon ran (`RunShellCommand`); null for the Harness's. */
+    origin: optionalNullable(Schema.Literals(["user"])),
   },
   FileChange: {
     id: Schema.String,

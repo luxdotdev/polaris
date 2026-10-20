@@ -227,6 +227,8 @@ export interface ModelsState {
   readonly switchesModel: boolean;
   /** The Harness can move a running command into the background (`BackgroundCommand`). */
   readonly backgroundsCommands: boolean;
+  /** The Harness takes the user's shell commands (`RunShellCommand`); false from older Daemons. */
+  readonly runsShellCommands: boolean;
   readonly error: string | null;
   readonly loading: boolean;
 }
@@ -235,6 +237,7 @@ const NO_MODELS: ModelsState = {
   models: [],
   switchesModel: false,
   backgroundsCommands: false,
+  runsShellCommands: false,
   error: null,
   loading: true,
 };

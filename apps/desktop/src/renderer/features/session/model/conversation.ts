@@ -19,6 +19,7 @@ import type {
 import { Predicate } from "effect";
 import type { TurnView } from "../../../store/sessionModel.ts";
 import { triggerPhrase } from "./background.ts";
+import type { ShellView } from "./items.ts";
 import type { Outgoing } from "./outbox.ts";
 import type { Entry } from "./runs.ts";
 import { groupTurns, lastView, openingView, shownItems, type TurnGroup } from "./turnGroups.ts";
@@ -84,6 +85,8 @@ export type Row =
       readonly effort: string | null;
       /** When the Turn started (ISO). */
       readonly startedAt: string;
+      /** The user's shell command (`!`) with its output, in place of the prompt's text. */
+      readonly shell?: ShellView | null;
     }
   /** A Turn the Harness started itself: what woke it, in place of a prompt. */
   | {

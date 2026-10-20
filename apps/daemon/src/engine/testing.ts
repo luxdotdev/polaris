@@ -75,6 +75,8 @@ export const makeFakeDriver = (
     readonly switchModel?: boolean;
     /** Offer `backgroundCommand` (default true). */
     readonly backgroundCommand?: boolean;
+    /** Reads the user's shell commands (`RunShellCommand`), like Claude. */
+    readonly shellCommand?: boolean;
     /** Events emitted in reply to each Turn; default is none (the test drives it). */
     readonly onTurn?: (
       input: TurnInput,
@@ -119,6 +121,7 @@ export const makeFakeDriver = (
       switchModel: options.switchModel ?? true,
       stopBackground: true,
       backgroundCommand: options.backgroundCommand ?? true,
+      shellCommand: options.shellCommand ?? false,
     },
     probe: Effect.succeed({ available: true, version: "fake", detail: null }),
     open: (openOptions) =>

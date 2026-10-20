@@ -52,6 +52,9 @@ const probePath = (path: string) => {
   }
 };
 
+/** Commands that start a Turn: they wait at the session's boundary and need worker admission. */
+const TURN_COMMANDS = ["SendTurn", "Continue", "Retry", "SendFeedback", "RunShellCommand"] as const;
+
 const sessionOfCommand = (command: Command) => ("sessionId" in command ? command.sessionId : null);
 
 const make = Effect.gen(function* () {
@@ -94,8 +97,8 @@ const make = Effect.gen(function* () {
   /** What the session's Harness driver declares, for the commands that depend on it. */
   const driverCan = (
     command: Command,
-    tag: "Steer" | "SetModel" | "StopBackgroundTasks" | "BackgroundCommand",
-    can: "steer" | "switchModel" | "stopBackground" | "backgroundCommand"
+    tag: "Steer" | "SetModel" | "StopBackgroundTasks" | "BackgroundCommand" | "RunShellCommand",
+    can: "steer" | "switchModel" | "stopBackground" | "backgroundCommand" | "shellCommand"
   ) =>
     Effect.gen(function* () {
       if (!Predicate.isTagged(command, tag)) return false;
@@ -162,6 +165,7 @@ const make = Effect.gen(function* () {
       canStopBackground: yield* driverCan(command, "StopBackgroundTasks", "stopBackground"),
       canBackgroundCommand: yield* driverCan(command, "BackgroundCommand", "backgroundCommand"),
       runningCommands: runningCommands(command),
+      canRunShellCommand: yield* driverCan(command, "RunShellCommand", "shellCommand"),
       namedTurn: yield* namedTurn(command),
       judgedSummary: yield* judgedSummary(command),
     };
@@ -206,7 +210,7 @@ const make = Effect.gen(function* () {
   const dispatch: Dispatch = (input) => {
     const command = input.command;
 
-    const committed = Command.isAnyOf(["SendTurn", "Continue", "Retry", "SendFeedback"])(command)
+    const committed = Command.isAnyOf(TURN_COMMANDS)(command)
       ? withSessionInput(
           store,
           command.sessionId,
@@ -223,8 +227,7 @@ const make = Effect.gen(function* () {
         )
       : commitCommand(input);
 
-    if (!Command.isAnyOf(["SendTurn", "Continue", "Retry", "SendFeedback"])(command))
-      return committed;
+    if (!Command.isAnyOf(TURN_COMMANDS)(command)) return committed;
 
     return withWorkerAdmission(store, command.sessionId, committed).pipe(
       Effect.flatMap((result) =>

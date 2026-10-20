@@ -187,6 +187,19 @@ export interface TurnInput {
   readonly model: ModelId | null;
   readonly effort: ReasoningEffort | null;
   readonly serviceTier?: "default" | "priority" | null;
+  /** The user's shell command the Daemon ran for this Turn (`shellCommand` drivers); it stands for `prompt`. */
+  readonly shellCommand?: ShellCommandRun;
+}
+
+/** A shell command the user ran (`RunShellCommand`), as the Harness should read it. */
+export interface ShellCommandRun {
+  readonly command: string;
+  readonly stdout: string;
+  readonly stderr: string;
+  /** Null when it was stopped (a timeout) or never started. */
+  readonly exitCode: number | null;
+  /** Why it didn't run to its end ("timed out after 10 minutes"); null when it exited. */
+  readonly failure: string | null;
 }
 
 export interface HarnessSession {
@@ -236,6 +249,8 @@ export interface HarnessDriver {
     readonly stopBackground?: boolean;
     /** The Harness can move a running command into the background (`BackgroundCommand`). */
     readonly backgroundCommand?: boolean;
+    /** The Harness reads the user's shell commands (`RunShellCommand`, `TurnInput.shellCommand`). */
+    readonly shellCommand?: boolean;
   };
   /**
    * For Harnesses that hand off sequentially (`liveCoAttach: false`): what the

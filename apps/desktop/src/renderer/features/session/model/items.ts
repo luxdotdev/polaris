@@ -330,6 +330,13 @@ export const liveItemView = (id: string, live: LiveItem): ItemView => {
   return { kind: "message", id, live: true, text: live.text };
 };
 
+/** A command as the conversation shows it; the user's shell command is one too. */
+export type ShellView = Extract<ItemView, { kind: "command" }>;
+
+/** The user's shell command (`RunShellCommand`), which the Daemon ran: never an agent row. */
+export const isUserShell = (item: TurnItem | null | undefined): boolean =>
+  item != null && Predicate.isTagged(item, "CommandExecution") && item.origin === "user";
+
 export interface OutputTail {
   readonly text: string;
   /** Lines left out before `text`. */

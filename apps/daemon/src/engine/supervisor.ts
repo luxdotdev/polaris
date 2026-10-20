@@ -36,6 +36,8 @@ import { finalReply, forkPreamble } from "./fork.ts";
 import { EngineRuntime, type EventSource, type LiveHarness, type Progress } from "./runtime.ts";
 import { deferredUserTurns, refuseUserTurn } from "./supervisor.turns.ts";
 import { HarnessTurnAliases } from "./supervisor.aliases.ts";
+import { ShellCommands } from "./shellCommands.ts";
+import { shellTurns } from "./supervisor.shell.ts";
 import { DEFAULT_HARNESS_START_TIMEOUT, timedStart } from "./supervisor.start.ts";
 import { shortHostName } from "../service/hostName.ts";
 
@@ -47,6 +49,8 @@ export interface TurnToRun {
   readonly prompt: string;
   readonly attachments: ReadonlyArray<Attachment>;
   readonly steerExisting?: boolean;
+  /** The user's shell command the Turn runs before the Harness reads it (`RunShellCommand`). */
+  readonly shellCommand?: string | null;
 }
 
 const make = (
@@ -54,7 +58,8 @@ const make = (
   policy: Option.Option<ApprovalPolicy["Service"]>,
   attachments: ConstellationHarnessService,
   liveness: ConstellationLivenessService,
-  usage: Option.Option<UsageIndex["Service"]>
+  usage: Option.Option<UsageIndex["Service"]>,
+  shell: ShellCommands["Service"]
 ): Supervisor["Service"] => {
   const { store, live, progress } = rt;
 
@@ -488,6 +493,12 @@ const make = (
             serviceTier: turn.serviceTier,
           };
 
+          if (input.shellCommand != null) {
+            yield* shellTurn.start({ sessionId, command: input.shellCommand, turnInput });
+
+            return true;
+          }
+
           if (input.steerExisting === true)
             return yield* (entry.session.steerTurn?.(turnInput) ?? Effect.succeed(false)).pipe(
               Effect.tapError(() =>
@@ -510,6 +521,16 @@ const make = (
         )
       );
     });
+
+  const shellTurn = shellTurns(rt, shell, (sessionId, turnId) =>
+    Effect.flatMap(rt.now, (at) =>
+      onTurnEnded(
+        sessionId,
+        HarnessEvent.TurnEnded({ turnId, status: "interrupted", error: null }),
+        at
+      )
+    )
+  );
 
   const enqueue = deferredUserTurns(rt, deliverTurn);
 
@@ -586,7 +607,8 @@ export class Supervisor extends Context.Service<
         yield* Effect.serviceOption(ApprovalPolicy),
         yield* ConstellationHarness,
         yield* ConstellationLiveness,
-        yield* Effect.serviceOption(UsageIndex)
+        yield* Effect.serviceOption(UsageIndex),
+        yield* ShellCommands
       );
     })
   );

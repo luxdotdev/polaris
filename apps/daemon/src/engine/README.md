@@ -10,6 +10,7 @@ The orchestration engine: `decider.ts` validates Client commands, the `Engine` s
 |---|---|
 | `runtime.ts` | `EngineRuntime`: the shared state (running Harnesses, terminal followers, live item progress, idle timers, per-session locks) and primitives: `serially`, `recordFor`, `signal` / `signalWith` (one machine input, committed, then its effects), `failSession`, `capture`, `stopHarness`, `findTurn`. |
 | `supervisor.ts` | `Supervisor`: opens Harnesses, hands them Turns (`runTurn`, with a Fork's preamble), and maps `HarnessEvent`s to domain events and machine inputs. An approval first goes to the optional `ApprovalPolicy` (`services.ts`; the Reviewer's read-only sessions, `../reviewer/`), which may answer it on the live Harness so it never reaches Needs You or the log. |
+| `shellCommands.ts`, `shellRun.ts`, `supervisor.shell.ts` | `ShellCommands`: a `RunShellCommand` Turn's command, run in the session's directory in the user's login shell (`Bun.spawn`, no PTY; 10 minutes, 30,000 characters a stream), recorded as the user's `CommandExecution` (`origin: "user"`), then handed to the Harness as `TurnInput.shellCommand`. |
 | `terminal.ts` | `TerminalHandoff`: `OpenInTerminal` / `ReturnFromTerminal`, and following Claude's TUI while In Terminal. |
 | `worktrees.ts` | `Worktrees`: detection on register, creation for `NewWorktree` and Forks, removal on Archive, restore on Unarchive. |
 | `pruning.ts` | `CheckpointPruning`: the policy on Archive, a removed Workspace's checkpoints, and the sweeper's targets. |
@@ -153,6 +154,10 @@ Deliberate, and only in races the old code let through: Archived now ignores wha
 ### Accepting Turns
 
 `AcceptTurns` (ENG-224) accepts a contiguous prefix of a session's Turns, through the one it names, and records `TurnsAccepted`; `AgentSession.acceptedThroughIndex` is its fold. It changes no Session State (`session.accept.ts`). `SendFeedback` is `turn.send` with the feedback batch rendered by `feedbackPrompt` as its prompt, and the batch kept on the Turn. With `revertLaterTurns`, the reactor (`../accept/reactor.ts`) restores every file a later Turn changed to the accepted Turn's after-checkpoint, deletes the ones only later Turns created, and records `TurnsReverted`. Committing and pushing accepted work are RPCs in `../accept/`.
+
+### Shell commands
+
+`RunShellCommand` (ENG-388, capability `session.shell-command`) is `turn.send` too: its Turn's prompt reads `! <command>` and `Turn.shellCommand` keeps the command. Only a Harness whose driver declares `shellCommand` takes one (Claude Code; `HarnessModels.runsShellCommands` tells Clients), and never with a Turn in flight. After `harness.opened` the supervisor runs the command outside the session's lock, so Interrupt kills its process group and ends the Turn Interrupted without the Harness, and a Steer waits until the output is delivered. The Claude driver sends it as Claude Code's own bash mode does (`<bash-input>`, `<bash-stdout>`, `<bash-stderr>`, `client_composed`) and the agent replies. A restart interrupts the Turn as any other (ADR 0004); the command is never run again.
 
 ## The Review Checkout machine
 

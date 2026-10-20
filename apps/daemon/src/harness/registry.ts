@@ -36,6 +36,7 @@ export const DRIVER_CAPABILITIES = {
     switchModel: true,
     stopBackground: true,
     backgroundCommand: true,
+    shellCommand: true,
   },
   opencode: { steer: true, liveCoAttach: true, switchModel: true },
   gemini: { steer: false, liveCoAttach: false, switchModel: true },

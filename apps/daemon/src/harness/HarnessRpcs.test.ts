@@ -45,6 +45,16 @@ describe("harness.models", () => {
     ]);
   });
 
+  test("says whether the Harness reads the user's shell commands, as its driver declares", async () => {
+    const claude = { ...makeBenchDriver("claude"), capabilities: DRIVER_CAPABILITIES.claude };
+    const handler = handlerFor([claude, makeBenchDriver("codex")]);
+
+    const listed = (harness: string) =>
+      Effect.runPromise(handler({ harness, refresh: false })).then((r) => r.runsShellCommands);
+
+    expect([await listed("claude"), await listed("codex")]).toEqual([true, false]);
+  });
+
   test("a Harness outside the catalogue, or without a driver here, is NotFound", async () => {
     for (const harness of ["opencode", "claude"]) {
       expect(await failure(harness, [makeBenchDriver("codex")])).toBeInstanceOf(NotFound);

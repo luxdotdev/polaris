@@ -5,10 +5,10 @@
  */
 import type { TurnId, TurnItem } from "@polaris/protocol";
 import { Predicate } from "effect";
-import { entriesInStartOrder, type TurnView } from "../../../store/sessionModel.ts";
+import { entriesInStartOrder, type TurnEntry, type TurnView } from "../../../store/sessionModel.ts";
 import { triggerPhrase } from "./background.ts";
 import type { Row } from "./conversation.ts";
-import { completedItemView, liveItemView } from "./items.ts";
+import { completedItemView, isUserShell, liveItemView, type ShellView } from "./items.ts";
 import { type Entry, groupItems } from "./runs.ts";
 import { subagentCard } from "./subagents.ts";
 
@@ -28,6 +28,36 @@ export interface Part {
 
 type ToolCallItem = Extract<TurnItem, { readonly _tag: "ToolCall" }>;
 
+const itemOf = (entry: TurnEntry) => (entry.kind === "completed" ? entry.item : entry.live.item);
+
+const entryView = (entry: TurnEntry) =>
+  entry.kind === "completed" ? completedItemView(entry.item) : liveItemView(entry.id, entry.live);
+
+/**
+ * A shell Turn's command with its output, shown as the user's: its item once the Daemon
+ * reports it, else the command as sent (running, or never run if the Turn ended first).
+ */
+const shellOf = (view: TurnView): ShellView | null => {
+  const command = view.turn.shellCommand ?? null;
+
+  if (command === null) return null;
+  const entry = entriesInStartOrder(view).find((e) => isUserShell(itemOf(e)));
+  const shown = entry === undefined ? null : entryView(entry);
+
+  if (shown?.kind === "command") return shown;
+  const running = view.turn.status === "working";
+
+  return {
+    kind: "command",
+    id: `shell:${view.turn.id}`,
+    live: running,
+    command,
+    output: "",
+    exitCode: null,
+    status: running ? "running" : "failed",
+  };
+};
+
 /** The Turn's items with each Subagent in place of the call that spawned it (else at the end). */
 const turnEntries = (view: TurnView): ReadonlyArray<Entry> => {
   const byParent = new Map(
@@ -43,9 +73,9 @@ const turnEntries = (view: TurnView): ReadonlyArray<Entry> => {
   );
 
   // In the order the model started them (H2), so a running command stays where it began.
-  const items = entriesInStartOrder(view).map((entry) =>
-    entry.kind === "completed" ? completedItemView(entry.item) : liveItemView(entry.id, entry.live)
-  );
+  const items = entriesInStartOrder(view)
+    .filter((entry) => !isUserShell(itemOf(entry)))
+    .map(entryView);
 
   const entries = groupItems(items).map((entry): Entry => {
     const sub = entry.kind === "item" ? byParent.get(entry.item.id) : undefined;
@@ -128,8 +158,10 @@ const endingRow = (view: TurnView, part: Part): ReadonlyArray<Row> => {
   ];
 };
 
-const openingRow = ({ turn }: TurnView, part: Part): Row =>
-  turn.trigger === null
+const openingRow = (view: TurnView, part: Part): Row => {
+  const { turn } = view;
+
+  return turn.trigger === null
     ? {
         kind: "prompt",
         key: `${turn.id}:prompt`,
@@ -140,6 +172,7 @@ const openingRow = ({ turn }: TurnView, part: Part): Row =>
         model: turn.model,
         effort: turn.effort,
         startedAt: turn.startedAt,
+        shell: shellOf(view),
       }
     : {
         kind: "trigger",
@@ -153,6 +186,7 @@ const openingRow = ({ turn }: TurnView, part: Part): Row =>
         effort: turn.effort,
         startedAt: turn.startedAt,
       };
+};
 
 interface Cached {
   readonly part: string;

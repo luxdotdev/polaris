@@ -67,6 +67,11 @@ export const Command = Schema.TaggedUnion({
     prompt: Schema.String,
     attachments: Schema.Array(AttachmentId),
   },
+  /**
+   * Run `command` in the session's directory as a new Turn (capability `session.shell-command`,
+   * where the Harness `runsShellCommands`): the Daemon runs it, then the agent reads its output.
+   */
+  RunShellCommand: { sessionId: SessionId, command: Schema.String },
   /** Add guidance to the Turn in flight without interrupting it, where the Harness supports it. */
   Steer: { sessionId: SessionId, text: Schema.String },
   Interrupt: { sessionId: SessionId },

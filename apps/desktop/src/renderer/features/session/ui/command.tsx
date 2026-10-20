@@ -21,6 +21,9 @@ type CommandView = Extract<ItemView, { kind: "command" }>;
 
 const TAIL_LINES = 8;
 
+/** The user's own command: the prompt bubble's fill. */
+const OWN = "rounded-card bg-fill-selected";
+
 const exitLabel = (item: CommandView): string => {
   if (item.status === "declined") return "declined";
 
@@ -117,12 +120,14 @@ const Line = ({
   failed,
   open,
   canFold,
+  sigil,
 }: {
   readonly item: CommandView;
   readonly hue: Hue;
   readonly failed: boolean;
   readonly open: boolean;
   readonly canFold: boolean;
+  readonly sigil: string;
 }) => (
   <>
     <StatusMark item={item} failed={failed} hue={hue} />
@@ -133,7 +138,7 @@ const Line = ({
       )}
       data-testid="command-text"
     >
-      {item.command === "" ? "Running a command" : `$ ${item.command}`}
+      {item.command === "" ? "Running a command" : `${sigil} ${item.command}`}
     </span>
     {item.output !== "" && canFold && !open ? (
       <span className="text-caption text-text-subtle tabular">
@@ -152,15 +157,34 @@ const Chevron = ({ open }: { readonly open: boolean }) =>
     <ChevronRightIcon size={10} className="text-text-faint shrink-0" />
   );
 
-export const Command = ({ item, hue }: { readonly item: CommandView; readonly hue: Hue }) => {
+/** `own`: the user's shell command (`!`), in their lane on the prompt's fill, not an agent's well. */
+export const Command = ({
+  item,
+  hue,
+  own = false,
+}: {
+  readonly item: CommandView;
+  readonly hue: Hue;
+  readonly own?: boolean;
+}) => {
   const { running, failed, hasOutput, open, toggle, hover } = useFold(item);
   // Always, so a long command can be read whole even with no output.
   const canFold = !running;
-  const line = <Line item={item} hue={hue} failed={failed} open={open} canFold={canFold} />;
+
+  const line = (
+    <Line
+      item={item}
+      hue={hue}
+      failed={failed}
+      open={open}
+      canFold={canFold}
+      sigil={own ? "!" : "$"}
+    />
+  );
 
   return (
     <div
-      className={cn(WELL, "group/command flex flex-col overflow-clip")}
+      className={cn(own ? OWN : WELL, "group/command flex flex-col overflow-clip")}
       data-testid="command"
       data-menu-command={item.id}
       data-folded={canFold && !open ? "" : undefined}

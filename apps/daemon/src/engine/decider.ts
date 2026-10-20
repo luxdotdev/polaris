@@ -28,7 +28,13 @@ import {
   WorktreeId,
 } from "@polaris/protocol";
 import { Effect, Result } from "effect";
-import { lastTurn, type ReadModel, type SessionRecord } from "../store/model.ts";
+import {
+  lastTurn,
+  patchTurn,
+  type ReadModel,
+  type SessionRecord,
+  workingTurn,
+} from "../store/model.ts";
 import { userTurn } from "./session.turns.ts";
 import { reviewDeciders } from "./review.ts";
 import { decideSession, type SessionInput } from "./session.ts";
@@ -56,6 +62,8 @@ export interface DecideContext {
   /** For BackgroundCommand: whether the Harness can, and the ids of the commands running now. */
   readonly canBackgroundCommand: boolean;
   readonly runningCommands: ReadonlyArray<string>;
+  /** For RunShellCommand: whether the session's Harness reads the user's shell commands. */
+  readonly canRunShellCommand?: boolean;
   /**
    * The Turn the command names, looked up in memory or SQL (null if unknown):
    * ForkSession's `fromTurnId`, AcceptTurns' `throughTurnId`.
@@ -409,16 +417,39 @@ const setResumeAtReset = (d: Deciding, command: CommandOf<"SetResumeAtReset">): 
     );
   });
 
-/** A new Turn with the last Turn's prompt and attachments; the machine checks that it Failed. */
+/** A new Turn with the last Turn's prompt and attachments (or its shell command); the machine checks that it Failed. */
 const retry = (d: Deciding, command: CommandOf<"Retry">): Decision =>
   d.withSession(command.sessionId, (record) => {
     const last = lastTurn(record);
 
     if (last === undefined) return d.reject("there is no Failed Turn to retry");
 
-    const turn = d.newTurn(record.session, last.prompt, last.attachments);
+    const turn = patchTurn(d.newTurn(record.session, last.prompt, last.attachments), {
+      shellCommand: last.shellCommand,
+    });
 
     return d.lifecycle(record, { type: "turn.retry", turn });
+  });
+
+/**
+ * The user's shell command, as a new Turn whose prompt reads `! <command>`: accepted where
+ * `SendTurn` starts a Turn, never into a Turn in flight (not even the Harness's own).
+ */
+const runShellCommand = (d: Deciding, command: CommandOf<"RunShellCommand">): Decision =>
+  d.withSession(command.sessionId, (record) => {
+    const shell = command.command.trim();
+
+    if (d.ctx.canRunShellCommand !== true)
+      return d.reject(`${record.session.harness} can't run shell commands`);
+
+    if (shell === "") return d.reject("the command is empty");
+
+    if (workingTurn(record) !== undefined)
+      return d.reject("the session is working; wait for the Turn to end");
+
+    const turn = patchTurn(d.newTurn(record.session, `! ${shell}`, []), { shellCommand: shell });
+
+    return d.lifecycle(record, { type: "turn.send", turn });
   });
 
 /** A lifecycle command of an existing session: the machine input it stands for. */
@@ -457,6 +488,7 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
       d.withSession(c.sessionId, (record) =>
         d.lifecycle(record, { type: "turn.send", turn: d.newTurn(record.session, c.prompt) })
       ),
+    RunShellCommand: (c) => runShellCommand(d, c),
     Continue: (c) => onSession(d, c.sessionId, { type: "turn.continue" }),
     Retry: (c) => retry(d, c),
     Steer: (c) => onSession(d, c.sessionId, { type: "turn.steer", canSteer: ctx.canSteer }),
