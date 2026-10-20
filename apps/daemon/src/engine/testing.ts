@@ -6,7 +6,7 @@ import { afterEach } from "bun:test";
 import { mkdirSync, mkdtempSync } from "node:fs";
 import { removeDirSettled } from "../git/testing.ts";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
   type ApprovalDecision,
   Attachment,
@@ -343,6 +343,10 @@ export const engineLayer = (options: {
   readonly checkpoints?: Layer.Layer<Checkpoints>;
   readonly resumeAtResetGrace?: Duration.Input;
   readonly harnessStartTimeout?: Duration.Input;
+  /** The auto-archive sweep is off unless a test sets this. */
+  readonly autoArchiveSweepInterval?: Duration.Input;
+  /** Default: `auto-archive-settings.json` next to `filename`. */
+  readonly autoArchiveSettingsPath?: string;
 }) => {
   const baseStore = EventStore.layerSqlite(options.filename).pipe(
     Layer.provide(
@@ -363,6 +367,10 @@ export const engineLayer = (options: {
     checkpointSweepInterval: options.checkpointSweepInterval ?? null,
     resumeAtResetGrace: options.resumeAtResetGrace ?? Duration.zero,
     harnessStartTimeout: options.harnessStartTimeout ?? DEFAULT_HARNESS_START_TIMEOUT,
+    autoArchiveSweepInterval: options.autoArchiveSweepInterval ?? null,
+    autoArchiveSettingsPath:
+      options.autoArchiveSettingsPath ??
+      join(dirname(options.filename), "auto-archive-settings.json"),
   };
 
   return Engine.layer.pipe(

@@ -5,3 +5,7 @@ export class NotFound extends Schema.TaggedError<NotFound>()("NotFound", {
   what: Schema.String,
   id: Schema.String,
 }) {}
+
+export class Unsupported extends Schema.TaggedError<Unsupported>()("Unsupported", {
+  capability: Schema.String,
+}) {}

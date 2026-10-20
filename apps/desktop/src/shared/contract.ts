@@ -10,6 +10,7 @@ import {
   AcceptBranch,
   addedNullable,
   AttachmentSettings,
+  AutoArchiveSettings,
   Command,
   CommandId,
   CommitGranularity,
@@ -333,6 +334,9 @@ export const RequestInputs = {
   /** Attachment cleanup (Settings → Attachments): the Host's policy and what it has staged. */
   "attachments.settings": onHost({}),
   "attachments.setSettings": onHost({ settings: AttachmentSettings }),
+  /** When the Host archives Dormant sessions (Settings → Sessions). */
+  "sessions.autoArchive": onHost({}),
+  "sessions.setAutoArchive": onHost({ settings: AutoArchiveSettings }),
   /** Deletes staged attachments now: one Workspace's, or all of them (null). */
   "attachments.clear": onHost({ workspaceId: Schema.NullOr(WorkspaceId) }),
   /** Start a Risk Summary (Rules, then the Reviewer), or answer the cached one. */

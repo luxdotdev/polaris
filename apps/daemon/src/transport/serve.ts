@@ -208,6 +208,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "session.accept-latest",
   "attachments.stage",
   "attachments.settings",
+  "sessions.auto-archive",
   "terminal",
   "terminal.binary",
   "usage",

@@ -412,6 +412,10 @@ export const defaultHandlers = (options: {
         return yield* fileError(name, "attachments");
       }),
 
+    "sessions.autoArchive": () =>
+      Effect.fail(new Unsupported({ capability: "sessions.auto-archive" })),
+    "sessions.setAutoArchive": () =>
+      Effect.fail(new Unsupported({ capability: "sessions.auto-archive" })),
     "attachments.settings": () =>
       Effect.fail(new Unsupported({ capability: "attachments.settings" })),
     "attachments.setSettings": () =>

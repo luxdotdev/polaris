@@ -13,6 +13,7 @@ import { sectionInfo } from "../model/sections.ts";
 import { setSessionPrefs, useSettings } from "../store.ts";
 import { Column, Group, PageHeader, SettingRow } from "./parts.tsx";
 import { AcceptBranch } from "./AcceptBranch.tsx";
+import { AutoArchiveSettings } from "./AutoArchive.tsx";
 import { WorktreeSetupSettings } from "./WorktreeSetup.tsx";
 import { TurnNotifications } from "./TurnNotifications.tsx";
 import { WorkingVerbs } from "./WorkingVerbs.tsx";
@@ -115,6 +116,7 @@ export const SessionsPage = () => {
       <WorkingVerbs />
       <AcceptBranch />
       <Group label="Archive">
+        <AutoArchiveSettings />
         <SettingRow
           title="Delete merged branches on archive"
           caption="Archive removes a session's worktree. Unmerged branches are never deleted."

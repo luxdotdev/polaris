@@ -108,6 +108,8 @@ export const Capability = Schema.Literals([
   "attachments.stage",
   /** `attachments.settings`, `attachments.setSettings`, `attachments.clear`: cleanup in Settings. */
   "attachments.settings",
+  /** `sessions.autoArchive` and `sessions.setAutoArchive`: archiving Dormant sessions in Settings. */
+  "sessions.auto-archive",
   "terminal",
   /** `terminal.attachBinary`: terminal output as raw bytes on the blob channel, not base64 JSON. */
   "terminal.binary",

@@ -2,6 +2,8 @@ export * from "./accept.ts";
 
 export * from "./attachments.ts";
 
+export * from "./autoArchive.ts";
+
 export * from "./availability.ts";
 
 export * from "./bridge.ts";

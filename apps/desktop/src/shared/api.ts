@@ -18,6 +18,7 @@ import type {
   AskFinding,
   Attachment,
   AttachmentSettings,
+  AutoArchiveSettings,
   AttachmentUsage,
   StagedAmount,
   Capability,
@@ -466,6 +467,8 @@ export interface RequestOutputs
   };
   "attachments.setSettings": null;
   "attachments.clear": Plain<StagedAmount>;
+  "sessions.autoArchive": Plain<AutoArchiveSettings>;
+  "sessions.setAutoArchive": null;
   "review.runRiskSummary": Rpc.Success<typeof RunRiskSummary>;
   "review.runWalkthrough": Rpc.Success<typeof RunWalkthrough>;
   "review.stopWalkthrough": null;
