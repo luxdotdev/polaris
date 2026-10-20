@@ -51,6 +51,8 @@ const Browser = ({ host, hosts, onHost, onHighlight }: BrowserProps) => {
   const run = (target: Target, direct: boolean) => {
     if (target.kind === "finder") return void open.finder();
 
+    if (target.kind === "create") return void open.create(target.path);
+
     if (target.kind === "folder" && !direct) return setTyped(enter(target.path, homeDir));
 
     void open.path(target.path);
