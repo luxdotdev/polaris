@@ -9,6 +9,7 @@ import {
   GitDiff,
   GitDiscard,
   GitError,
+  GitInit,
   GitShow,
   GitStage,
   GitStatus,
@@ -31,9 +32,17 @@ import { showFile } from "./show.ts";
 import { gitStatus, type Status } from "./status.ts";
 import { publishRemoteAt, runSync, type SyncEvent } from "./sync.ts";
 import { watchGit } from "./watch.ts";
-import { commit, type CommitEvent, discardPaths, stagePaths, unstagePaths } from "./write.ts";
+import {
+  commit,
+  type CommitEvent,
+  discardPaths,
+  initRepository,
+  stagePaths,
+  unstagePaths,
+} from "./write.ts";
 
 export class GitRpcs extends RpcGroup.make(
+  GitInit,
   GitStatus,
   GitDiff,
   GitShow,
@@ -157,6 +166,11 @@ const pathsWith =
       Effect.withSpan(name)
     );
 
+export const handleGitInit = ({ path }: typeof GitInit.payloadSchema.Type) =>
+  finishingGit({ try: () => initRepository(path), catch: gitError(path) }).pipe(
+    Effect.withSpan("git.init")
+  );
+
 export const handleGitStage = pathsWith("git.stage", stagePaths);
 
 export const handleGitUnstage = pathsWith("git.unstage", unstagePaths);
@@ -216,6 +230,7 @@ export const GitRpcsLive = GitRpcs.toLayer({
   "git.status": handleGitStatus,
   "git.diff": handleGitDiff,
   "git.show": handleGitShow,
+  "git.init": handleGitInit,
   "git.stage": handleGitStage,
   "git.unstage": handleGitUnstage,
   "git.discard": handleGitDiscard,

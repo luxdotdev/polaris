@@ -1,5 +1,6 @@
 /** Opening a folder from the dialog: it becomes a Workspace on its Host, which is then selected. */
-import { useMemo, useState } from "react";
+import { PixelAlertIcon, showToast } from "@polaris/ui";
+import { createElement, useMemo, useState } from "react";
 import type { HostView } from "../../../shared/api.ts";
 import { barHosts } from "../../routes/topBar.ts";
 import { useApp, useConnection, useNav, useShellActions } from "../../shell/hooks.ts";
@@ -37,7 +38,7 @@ export const useOpenFolder = (host: HostView) => {
     else selectWorkspace({ hostKey: host.key, workspaceId: shown.workspaceId });
   };
 
-  /** Makes the folder on the Host (its parent is the folder listed), then opens it. */
+  /** Makes the folder on the Host (its parent is the folder listed), a repository where it can, then opens it. */
   const create = async (at: string) => {
     setBusy(true);
     setError(null);
@@ -48,9 +49,25 @@ export const useOpenFolder = (host: HostView) => {
       kind: "directory",
     });
 
+    const repo =
+      made.ok && host.status.capabilities.includes("git.init")
+        ? await window.polaris.request("git.init", { hostKey: host.key, path: at })
+        : null;
+
     setBusy(false);
 
     if (!made.ok) return setError(made.error.message);
+
+    if (repo !== null && !repo.ok)
+      return setError(`git init failed in ${at}: ${repo.error.message}`);
+
+    if (repo?.value.head === null)
+      showToast({
+        source: "starlight",
+        icon: createElement(PixelAlertIcon, { size: 16 }),
+        title: "No first commit yet",
+        message: `${repo.value.note ?? "git refused it"}. New worktrees need one.`,
+      });
 
     await path(at);
   };

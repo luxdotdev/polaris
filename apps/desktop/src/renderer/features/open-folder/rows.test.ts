@@ -125,6 +125,17 @@ describe("buildGroups", () => {
     expect(titles(groups(managing, "~/.."))).toEqual([["~"]]);
     expect(titles(groups(managing, "~/"))).toEqual([["~", "Open ~", "code"]]);
     expect(titles(groups(studio, "~/co"))).toEqual([["~", "code"]]);
+    expect(groups(managing, "~/co")[0]?.rows.at(-1)?.meta).toBe("new folder");
+
+    const initializing = {
+      ...managing,
+      status: {
+        ...managing.status,
+        capabilities: [...managing.status.capabilities, "git.init" as const],
+      },
+    };
+
+    expect(groups(initializing, "~/co")[0]?.rows.at(-1)?.meta).toBe("new repository");
   });
 
   test("nothing listed yet, or a failure: no folder rows", () => {

@@ -374,6 +374,7 @@ export const defaultHandlers = (options: {
     "git.stage": ({ cwd }) => Effect.fail(new GitError({ cwd, message: notYet("git") })),
     "git.unstage": ({ cwd }) => Effect.fail(new GitError({ cwd, message: notYet("git") })),
     "git.discard": ({ cwd }) => Effect.fail(new GitError({ cwd, message: notYet("git") })),
+    "git.init": ({ path }) => Effect.fail(new GitError({ cwd: path, message: notYet("git") })),
     "git.commit": ({ cwd }) => Stream.fail(new GitError({ cwd, message: notYet("git") })),
     "git.watch": ({ cwd }) => Stream.fail(new GitError({ cwd, message: notYet("git") })),
     "git.sync": ({ cwd }) => Stream.fail(new GitError({ cwd, message: notYet("git") })),
