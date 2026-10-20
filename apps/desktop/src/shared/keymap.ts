@@ -21,6 +21,7 @@ export type CommandId =
   | "session.previous"
   | "session.focusComposer"
   | "session.interrupt"
+  | "session.background"
   | "approval.approve"
   | "approval.deny"
   | "session.archive"
@@ -445,6 +446,7 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
     menu: "Session",
     palette: WORKSPACE({ keywords: ["interrupt", "cancel"] }),
   },
+  { id: "session.background", title: "Run in background", keys: ["Ctrl+B"], menu: "Session" },
   {
     id: "approval.approve",
     title: "Approve",

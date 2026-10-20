@@ -342,7 +342,13 @@ const answer = (
 
     return {
       ok: true,
-      value: { harness, models: MODELS[harness], switchesModel: true, fetchedAt: "" },
+      value: {
+        harness,
+        models: MODELS[harness],
+        switchesModel: true,
+        backgroundsCommands: true,
+        fetchedAt: "",
+      },
     };
   }
 

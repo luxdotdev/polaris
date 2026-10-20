@@ -53,6 +53,8 @@ export type ItemView =
       readonly output: string;
       readonly exitCode: number | null;
       readonly status: ItemStatus;
+      /** It moved to the background, where it keeps running as a background task. */
+      readonly inBackground?: boolean;
     })
   | (Base & {
       readonly kind: "files";
@@ -264,6 +266,7 @@ const fromItem = (item: TurnItem, live: boolean): ItemView =>
         output: i.output,
         exitCode: i.exitCode,
         status: i.status,
+        inBackground: Predicate.isString(i.backgroundTaskId),
       }),
       FileChange: (i): ItemView => ({
         kind: "files",

@@ -6,7 +6,9 @@
  */
 import type { SessionId } from "@polaris/protocol";
 import { Commands, Decisions } from "../commands.ts";
-import { send } from "../features/session/dispatch.ts";
+import { harnessBackgroundsCommands } from "../features/harness/index.ts";
+import { runInBackground, send } from "../features/session/dispatch.ts";
+import { foregroundCommands } from "../features/session/model/running.ts";
 import { toggleOutput } from "../features/session/index.ts";
 import { archiveCommand, interruptCommand } from "../features/session/model/intent.ts";
 import type { ContextKey, ContextValue } from "../../shared/keymap.ts";
@@ -139,6 +141,22 @@ export const shellCommands = ({
     );
   };
 
+  /** Ctrl-B, as in Claude Code: only while the session's Turn waits on a command it can move. */
+  const backgroundable = () => {
+    const s = selected();
+
+    if (s === null) return null;
+    const { id, harness } = s.entry.session;
+    const host = app().hosts.find((h) => h.key === s.hostKey);
+    const turn = app().sessions[sessionKey(s.hostKey, id)]?.turns.at(-1);
+
+    return host?.status.capabilities.includes("session.background-command") === true &&
+      harnessBackgroundsCommands(s.hostKey, harness) &&
+      foregroundCommands(turn).length > 0
+      ? { hostKey: s.hostKey, sessionId: id }
+      : null;
+  };
+
   const hasApproval = () => (selected()?.entry.pendingApprovals.length ?? 0) > 0;
 
   return {
@@ -179,6 +197,14 @@ export const shellCommands = ({
         if (s !== null && command !== null) void send(s.hostKey, command, "Couldn't stop");
       },
       enabled: () => interrupt() !== null,
+    },
+    "session.background": {
+      run: () => {
+        const target = backgroundable();
+
+        if (target !== null) void runInBackground(target.hostKey, target.sessionId, null);
+      },
+      enabled: () => backgroundable() !== null,
     },
     "approval.approve": { run: answer(true), enabled: hasApproval },
     "approval.deny": { run: answer(false), enabled: hasApproval },

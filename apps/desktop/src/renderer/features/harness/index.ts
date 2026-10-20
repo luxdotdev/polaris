@@ -7,6 +7,7 @@ export {
   refreshAvailability,
   useAvailability,
   useAvailabilityReports,
+  harnessBackgroundsCommands,
   useHarnessModels,
   useHarnessRunning,
   useRunningHarnesses,

@@ -26,14 +26,19 @@ const inFlight = (live: ReadonlyMap<string, LiveItem>): ReadonlyArray<Running> =
       : []
   );
 
+/** The commands the Turn is waiting on (its own and its Subagents'): what Ctrl-B moves. */
+export const foregroundCommands = (turn: LiveTurn | undefined): ReadonlyArray<Running> =>
+  turn === undefined
+    ? []
+    : [...inFlight(turn.live), ...turn.subagents.flatMap((s) => inFlight(s.live))];
+
 /** The commands running now, in flight first; one both in flight and in the background is listed once. */
 export const runningCommands = (
   turn: LiveTurn | undefined,
   backgroundTasks: ReadonlyArray<BackgroundTask>
 ): ReadonlyArray<Running> => {
   const all = [
-    ...(turn === undefined ? [] : inFlight(turn.live)),
-    ...(turn?.subagents ?? []).flatMap((s) => inFlight(s.live)),
+    ...foregroundCommands(turn),
     ...backgroundTasks.flatMap((t) =>
       t.kind === "command" ? [{ id: t.id, command: t.description }] : []
     ),
