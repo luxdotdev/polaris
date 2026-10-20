@@ -200,6 +200,11 @@ export interface HarnessSession {
   readonly interrupt: Effect.Effect<void, HarnessError>;
   /** Stop these background tasks (ids from `BackgroundTasksChanged`); needs `stopBackground`. */
   readonly stopBackground?: (taskIds: ReadonlyArray<string>) => Effect.Effect<void, HarnessError>;
+  /**
+   * Move the running command `itemId` (every one when null) into the background; false
+   * when none matched. Needs `backgroundCommand`.
+   */
+  readonly backgroundCommand?: (itemId: string | null) => Effect.Effect<boolean, HarnessError>;
   readonly respond: (
     requestId: RequestId,
     decision: ApprovalDecision
@@ -229,6 +234,8 @@ export interface HarnessDriver {
     readonly switchModel: boolean;
     /** The Harness can stop its background tasks (`StopBackgroundTasks`). */
     readonly stopBackground?: boolean;
+    /** The Harness can move a running command into the background (`BackgroundCommand`). */
+    readonly backgroundCommand?: boolean;
   };
   /**
    * For Harnesses that hand off sequentially (`liveCoAttach: false`): what the

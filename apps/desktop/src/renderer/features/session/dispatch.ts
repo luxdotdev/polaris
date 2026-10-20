@@ -3,11 +3,11 @@
  * Daemon's reason ("interrupt the Turn in flight before archiving"), which is
  * what the user reads; it's shown as a Polaris toast unless the caller shows it.
  */
-import type { Command } from "@polaris/protocol";
+import type { Command, SessionId } from "@polaris/protocol";
 import { PixelFailedIcon, showToast } from "@polaris/ui";
 import { createElement } from "react";
 import type { IpcError } from "../../../shared/api.ts";
-import { newCommandId } from "../../commands.ts";
+import { Commands, newCommandId } from "../../commands.ts";
 import { polaris } from "../bridge.ts";
 
 export type Sent = { readonly ok: true } | { readonly ok: false; readonly error: IpcError };
@@ -45,3 +45,7 @@ export const send = async (hostKey: string, command: Command, title: string) => 
 
   return sent.ok;
 };
+
+/** Move a running command (every one when `itemId` is null) into the background, as Ctrl-B does. */
+export const runInBackground = (hostKey: string, sessionId: SessionId, itemId: string | null) =>
+  send(hostKey, Commands.BackgroundCommand({ sessionId, itemId }), "Couldn't run in background");

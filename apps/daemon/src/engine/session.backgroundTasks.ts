@@ -1,7 +1,7 @@
 import { DomainEvent, type BackgroundTask } from "@polaris/protocol";
 import { endBackgroundWork } from "./session.subagents.ts";
 import type { Emitted, SessionInput } from "./session.inputs.ts";
-import type { SessionRecord } from "../store/model.ts";
+import { type SessionRecord, workingTurn } from "../store/model.ts";
 
 export const waitingOnBackgroundWork = (record: SessionRecord): boolean =>
   record.subagents.size > 0 || record.session.backgroundTasks.length > 0;
@@ -19,6 +19,22 @@ export const backgroundStopRefusal = (
   const unknown = input.taskIds?.find((id) => !live.has(id));
 
   return unknown === undefined ? null : `there is no background task ${unknown}`;
+};
+
+/** Why `BackgroundCommand` is refused, or null: the Turn in flight must be running that command. */
+export const commandBackgroundRefusal = (
+  record: SessionRecord,
+  input: Extract<SessionInput, { type: "command.background" }>
+): string | null => {
+  if (!input.canBackground)
+    return `${record.session.harness} cannot run a command in the background`;
+
+  if (workingTurn(record) === undefined || record.session.state === "in-terminal")
+    return "there is no Turn in flight";
+
+  if (input.itemId === null) return input.running.length === 0 ? "no command is running" : null;
+
+  return input.running.includes(input.itemId) ? null : `command ${input.itemId} is not running`;
 };
 
 export const backgroundTasksChanged = (

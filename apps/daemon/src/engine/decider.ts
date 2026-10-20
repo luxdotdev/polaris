@@ -53,6 +53,9 @@ export interface DecideContext {
   readonly canSwitchModel: boolean;
   /** For StopBackgroundTasks: whether the session's Harness can stop its background tasks. */
   readonly canStopBackground: boolean;
+  /** For BackgroundCommand: whether the Harness can, and the ids of the commands running now. */
+  readonly canBackgroundCommand: boolean;
+  readonly runningCommands: ReadonlyArray<string>;
   /**
    * The Turn the command names, looked up in memory or SQL (null if unknown):
    * ForkSession's `fromTurnId`, AcceptTurns' `throughTurnId`.
@@ -463,6 +466,13 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
         type: "background.stop",
         taskIds: c.taskIds,
         canStop: ctx.canStopBackground,
+      }),
+    BackgroundCommand: (c) =>
+      onSession(d, c.sessionId, {
+        type: "command.background",
+        itemId: c.itemId,
+        canBackground: ctx.canBackgroundCommand,
+        running: ctx.runningCommands,
       }),
     RespondToApproval: (c) =>
       onSession(d, c.sessionId, {

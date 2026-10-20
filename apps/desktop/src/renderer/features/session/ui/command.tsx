@@ -14,6 +14,7 @@ import {
 } from "../model/collapse.ts";
 import { plural } from "../model/format.ts";
 import { type ItemView, outputTail } from "../model/items.ts";
+import { BackgroundAction } from "./backgroundAction.tsx";
 import { type Hue, LiveMark, WELL } from "./items.tsx";
 
 type CommandView = Extract<ItemView, { kind: "command" }>;
@@ -24,6 +25,8 @@ const exitLabel = (item: CommandView): string => {
   if (item.status === "declined") return "declined";
 
   if (item.live || item.status === "running") return "running";
+
+  if (item.inBackground === true) return "in the background";
 
   return item.exitCode === null ? item.status : `exit ${item.exitCode}`;
 };
@@ -157,7 +160,7 @@ export const Command = ({ item, hue }: { readonly item: CommandView; readonly hu
 
   return (
     <div
-      className={cn(WELL, "flex flex-col overflow-clip")}
+      className={cn(WELL, "group/command flex flex-col overflow-clip")}
       data-testid="command"
       data-menu-command={item.id}
       data-folded={canFold && !open ? "" : undefined}
@@ -174,7 +177,10 @@ export const Command = ({ item, hue }: { readonly item: CommandView; readonly hu
           {line}
         </button>
       ) : (
-        <div className="min-h-row gap-row-x flex items-center px-3">{line}</div>
+        <div className="min-h-row gap-row-x flex items-center px-3">
+          {line}
+          <BackgroundAction itemId={item.id} />
+        </div>
       )}
       {hasOutput && open ? <Output output={item.output} /> : null}
       {!hasOutput && open ? (

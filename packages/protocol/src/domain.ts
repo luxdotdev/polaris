@@ -447,6 +447,8 @@ export const TurnItem = Schema.TaggedUnion({
     output: Schema.String,
     exitCode: Schema.NullOr(Schema.Int),
     status: Schema.Literals(["running", "completed", "failed", "declined"]),
+    /** Set when it moved to the background: the background task it keeps running as. */
+    backgroundTaskId: optionalNullable(Schema.String),
   },
   FileChange: {
     id: Schema.String,

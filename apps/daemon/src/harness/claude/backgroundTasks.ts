@@ -1,11 +1,31 @@
-import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+import type { Query, SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import { BackgroundTask, type BackgroundTaskRef } from "@polaris/protocol";
-import { HarnessEvent } from "../HarnessDriver.ts";
+import { Effect } from "effect";
+import { HarnessError, HarnessEvent } from "../HarnessDriver.ts";
 
 type TaskMessage = Extract<
   SDKMessage,
-  { subtype: "task_started" | "task_notification" | "background_tasks_changed" }
+  { subtype: "task_started" | "task_updated" | "task_notification" | "background_tasks_changed" }
 >;
+
+const failed = (message: string) => (cause: unknown) =>
+  new HarnessError({ harness: "claude", message, cause });
+
+/** `StopBackgroundTasks` and `BackgroundCommand` on a live query. */
+export const backgroundControls = (q: Pick<Query, "stopTask" | "backgroundTasks">) => ({
+  /** Claude Code reports each stopped task with a `stopped` task notification. */
+  stopBackground: (taskIds: ReadonlyArray<string>) =>
+    Effect.tryPromise({
+      try: () => Promise.all(taskIds.map((id) => q.stopTask(id))),
+      catch: failed("Could not stop Claude's background task"),
+    }).pipe(Effect.asVoid, Effect.withSpan("ClaudeSession.stopBackground")),
+  /** Ctrl-B in Claude Code's TUI: a command's id is its `tool_use` id; null moves every one. */
+  backgroundCommand: (itemId: string | null) =>
+    Effect.tryPromise({
+      try: () => q.backgroundTasks(itemId ?? undefined),
+      catch: failed("Could not move the command to the background"),
+    }).pipe(Effect.withSpan("ClaudeSession.backgroundCommand")),
+});
 
 const NO_REPORTS: ReadonlyArray<BackgroundTaskRef> = [];
 
@@ -14,6 +34,8 @@ export class ClaudeBackgroundTasks {
   private live: ReadonlyArray<BackgroundTask> = [];
   private readonly known = new Map<string, BackgroundTaskRef>();
   private readonly reports = new Map<string, BackgroundTaskRef>();
+  /** Without the level signal: foreground tasks, which `task_updated` may move to the background. */
+  private readonly foreground = new Map<string, BackgroundTask>();
   private levelSeen = false;
 
   takeReports(): ReadonlyArray<BackgroundTaskRef> {
@@ -30,6 +52,8 @@ export class ClaudeBackgroundTasks {
         return this.onLevel(message);
       case "task_started":
         return this.onStarted(message);
+      case "task_updated":
+        return this.onUpdated(message);
       case "task_notification":
         return this.onNotification(message);
     }
@@ -39,6 +63,7 @@ export class ClaudeBackgroundTasks {
     message: Extract<TaskMessage, { subtype: "background_tasks_changed" }>
   ): HarnessEvent[] {
     this.levelSeen = true;
+    this.foreground.clear();
 
     const tasks = message.tasks
       .filter((t) => t.ambient !== true)
@@ -67,13 +92,7 @@ export class ClaudeBackgroundTasks {
   }
 
   private onStarted(message: Extract<TaskMessage, { subtype: "task_started" }>): HarnessEvent[] {
-    if (
-      this.levelSeen ||
-      message.is_backgrounded !== true ||
-      message.ambient === true ||
-      message.skip_transcript === true
-    )
-      return [];
+    if (this.levelSeen || message.ambient === true || message.skip_transcript === true) return [];
 
     const task = new BackgroundTask({
       id: message.task_id,
@@ -84,6 +103,26 @@ export class ClaudeBackgroundTasks {
       description: message.description,
     });
 
+    if (message.is_backgrounded !== true) {
+      this.foreground.set(task.id, task);
+
+      return [];
+    }
+
+    return this.backgrounded(task);
+  }
+
+  /** A foreground task moved to the background (Ctrl-B, `BackgroundCommand`). */
+  private onUpdated(message: Extract<TaskMessage, { subtype: "task_updated" }>): HarnessEvent[] {
+    const task = this.foreground.get(message.task_id);
+
+    if (this.levelSeen || task === undefined || message.patch.is_backgrounded !== true) return [];
+    this.foreground.delete(task.id);
+
+    return this.backgrounded(task);
+  }
+
+  private backgrounded(task: BackgroundTask): HarnessEvent[] {
     this.remember(task);
 
     return this.live.some((t) => t.id === task.id) ? [] : this.replace([...this.live, task]);
@@ -92,6 +131,8 @@ export class ClaudeBackgroundTasks {
   private onNotification(
     message: Extract<TaskMessage, { subtype: "task_notification" }>
   ): HarnessEvent[] {
+    this.foreground.delete(message.task_id);
+
     if (message.ambient === true || message.skip_transcript === true) {
       this.known.delete(message.task_id);
 

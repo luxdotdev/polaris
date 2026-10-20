@@ -91,3 +91,34 @@ test("empty reports share storage and removed membership is pruned before later 
   tasks.onMessage(notification("gone"));
   expect(tasks.takeReports()).toEqual([]);
 });
+
+test("without the level, a foreground command moved to the background joins the tasks", () => {
+  const tasks = new ClaudeBackgroundTasks();
+  const frame = { uuid: crypto.randomUUID(), session_id: "s" };
+
+  const started = tasks.onMessage({
+    type: "system",
+    subtype: "task_started",
+    task_id: "b1",
+    tool_use_id: "tu1",
+    task_type: "local_bash",
+    is_backgrounded: false,
+    description: "bun dev",
+    ...frame,
+  });
+
+  const moved = (task_id: string) =>
+    tasks.onMessage({
+      type: "system",
+      subtype: "task_updated",
+      task_id,
+      patch: { is_backgrounded: true },
+      ...frame,
+    });
+
+  expect(started).toEqual([]);
+  expect(moved("b9")).toEqual([]);
+  expect(moved("b1")).toMatchObject([
+    { tasks: [{ id: "b1", kind: "command", description: "bun dev" }] },
+  ]);
+});

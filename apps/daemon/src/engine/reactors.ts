@@ -154,6 +154,21 @@ const make = Effect.gen(function* () {
       yield* entry.session.stopBackground(ids);
     });
 
+  /** Claude Code ends the command's tool call at once, and reports it as a background task. */
+  const backgroundCommand = (sessionId: SessionId, itemId: string | null) =>
+    Effect.gen(function* () {
+      const session = live.get(sessionId)?.session;
+
+      if (session?.backgroundCommand === undefined) return;
+      const moved = yield* session.backgroundCommand(itemId);
+
+      if (!moved) yield* Effect.logWarning(`${sessionId}: ${itemId} was no longer running`);
+    }).pipe(
+      Effect.catchTag("HarnessError", (error) =>
+        Effect.logWarning(`couldn't run in the background: ${error.message}`)
+      )
+    );
+
   const respond = (
     sessionId: SessionId,
     requestId: ApprovalRequest["id"],
@@ -237,6 +252,7 @@ const make = Effect.gen(function* () {
         ),
       Interrupt: (command) => interrupt(command.sessionId),
       StopBackgroundTasks: (command) => stopBackground(command.sessionId, command.taskIds),
+      BackgroundCommand: (command) => backgroundCommand(command.sessionId, command.itemId),
       RespondToApproval: (command) =>
         respond(command.sessionId, command.requestId, command.decision),
       SetPermissionMode: (command) =>

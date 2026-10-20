@@ -156,6 +156,7 @@ const commandItem = (call: ToolCall): TurnItem => {
     // Claude Code reports a non-zero exit only as an error result, without the code.
     exitCode: null,
     status: call.status,
+    backgroundTaskId: result.backgroundTaskId,
   });
 };
 
@@ -380,6 +381,8 @@ export class ClaudeTranslator {
 
     if (message.subtype === "background_tasks_changed")
       return this.backgroundTasks.onMessage(message);
+
+    if (message.subtype === "task_updated") return this.backgroundTasks.onMessage(message);
 
     if (message.subtype === "task_started")
       return [...this.backgroundTasks.onMessage(message), ...this.onTaskStarted(message)];

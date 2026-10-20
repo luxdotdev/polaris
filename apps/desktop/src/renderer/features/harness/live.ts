@@ -225,13 +225,28 @@ export interface ModelsState {
   readonly models: ReadonlyArray<ModelData>;
   /** The Harness can change an Agent Session's Model between Turns (`SetModel`). */
   readonly switchesModel: boolean;
+  /** The Harness can move a running command into the background (`BackgroundCommand`). */
+  readonly backgroundsCommands: boolean;
   readonly error: string | null;
   readonly loading: boolean;
 }
 
-const NO_MODELS: ModelsState = { models: [], switchesModel: false, error: null, loading: true };
+const NO_MODELS: ModelsState = {
+  models: [],
+  switchesModel: false,
+  backgroundsCommands: false,
+  error: null,
+  loading: true,
+};
 
 const modelCache = new Map<string, Promise<ModelsState>>();
+
+/** What each listing answered, for code that can't wait on it (a shortcut's `enabled`). */
+const answered = new Map<string, ModelsState>();
+
+/** Whether the Harness on this Host said it can move a running command into the background. */
+export const harnessBackgroundsCommands = (hostKey: string, harness: HarnessKind): boolean =>
+  answered.get(`${hostKey}\u0000${harness}`)?.backgroundsCommands === true;
 
 const fetchModels = (hostKey: string, harness: HarnessKind, refresh: boolean) => {
   const key = `${hostKey}\u0000${harness}`;
@@ -248,7 +263,9 @@ const fetchModels = (hostKey: string, harness: HarnessKind, refresh: boolean) =>
     );
 
   // A failure is asked again the next time a picker opens.
-  void request.then((state) => (state.error === null ? undefined : modelCache.delete(key)));
+  void request.then((state) =>
+    state.error === null ? void answered.set(key, state) : modelCache.delete(key)
+  );
   modelCache.set(key, request);
 
   return request;

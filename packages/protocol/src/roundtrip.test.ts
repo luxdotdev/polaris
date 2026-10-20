@@ -336,6 +336,7 @@ const cases: ReadonlyArray<Case> = [
         }),
       ],
       switchesModel: true,
+      backgroundsCommands: false,
       fetchedAt: at,
     })
   ),

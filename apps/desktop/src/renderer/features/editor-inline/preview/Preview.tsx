@@ -141,7 +141,13 @@ const bridge: PolarisApi = {
       // SAFETY: the value is harness.models' output shape, which the method narrows to.
       return Promise.resolve({
         ok: true,
-        value: { harness, models: MODELS[harness], switchesModel: true, fetchedAt: "" },
+        value: {
+          harness,
+          models: MODELS[harness],
+          switchesModel: true,
+          backgroundsCommands: true,
+          fetchedAt: "",
+        },
       } as never);
     }
 
