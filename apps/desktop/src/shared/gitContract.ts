@@ -6,6 +6,7 @@ import {
   CommitMessageRequest,
   type CommitMessageStreamItem,
   type GitCommitItem,
+  type GitInit,
   type GitStatus,
   GitSyncAction,
   type GitSyncItem,
@@ -25,6 +26,8 @@ export const GitRequestInputs = {
     cwd: Schema.String,
     ignored: Schema.optional(Schema.Boolean),
   }),
+  /** Capability `git.init`: Open folder's new folder becomes a repository with a first commit. */
+  "git.init": Schema.Struct({ hostKey: HostKey, path: Schema.String }),
   /** Capability `git.write`, like the two below. */
   "git.stage": Schema.Struct(Paths),
   "git.unstage": Schema.Struct(Paths),
@@ -34,6 +37,7 @@ export const GitRequestInputs = {
 
 export interface GitRequestOutputs {
   "git.status": Rpc.Success<typeof GitStatus>;
+  "git.init": Rpc.Success<typeof GitInit>;
   "git.stage": null;
   "git.unstage": null;
   "git.discard": null;

@@ -140,7 +140,22 @@ export const GitSync = Rpc.make("git.sync", {
   stream: true,
 });
 
+/**
+ * Makes `path` a git repository with the Host's own git config, then an empty first commit so
+ * Worktrees can branch from it (capability `git.init`). `head` is null, with git's words in
+ * `note`, when git refused that commit (no identity set, say); the repository stays.
+ */
+export const GitInit = Rpc.make("git.init", {
+  payload: { path: Schema.String },
+  success: Schema.Struct({
+    head: Schema.NullOr(Schema.String),
+    note: Schema.NullOr(Schema.String),
+  }),
+  error: GitError,
+});
+
 export class GitWriteRpcs extends RpcGroup.make(
+  GitInit,
   GitStage,
   GitUnstage,
   GitDiscard,

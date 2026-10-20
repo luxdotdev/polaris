@@ -3,7 +3,7 @@
  * own git, config and hooks (`config: "host"`). Paths are relative to the top level.
  */
 import { childEnv } from "../service/childEnv.ts";
-import { runGit, gitText } from "./git.ts";
+import { gitText, HOOKS_OFF, runGit, runGitRaw } from "./git.ts";
 import { gitExecutable } from "./executable.ts";
 import { hostConfigEnv } from "./safeConfig/index.ts";
 
@@ -15,6 +15,29 @@ const pathOptions = (paths: ReadonlyArray<string>) => ({
   env: { GIT_LITERAL_PATHSPECS: "1" },
   config: "host" as const,
 });
+
+/** Why git wouldn't commit, in words: a missing identity named as such, else git's last line. */
+const commitRefusal = (stderr: string, code: number) => {
+  if (/tell me who you are|no (email|name) was given/i.test(stderr))
+    return "git has no user.name and user.email set to commit with";
+
+  return stderr.trim().split("\n").at(-1) || `git commit exited ${code}`;
+};
+
+/** `git init`, then an empty first commit (hooks off, the Host's identity and signing). */
+export const initRepository = async (path: string) => {
+  await runGit(path, ["init", "-q"], { config: "host" });
+
+  const made = await runGitRaw(
+    path,
+    [...HOOKS_OFF, "commit", "--allow-empty", "-q", "-m", "Initial commit"],
+    { config: "host", timeoutMs: 30_000, env: { GIT_TERMINAL_PROMPT: "0" } }
+  );
+
+  if (made.code !== 0) return { head: null, note: commitRefusal(made.stderr, made.code) };
+
+  return { head: await gitText(path, ["rev-parse", "HEAD"]), note: null };
+};
 
 export const toplevel = (cwd: string) => gitText(cwd, ["rev-parse", "--show-toplevel"]);
 

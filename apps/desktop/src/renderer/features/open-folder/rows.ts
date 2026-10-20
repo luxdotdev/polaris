@@ -82,7 +82,7 @@ const listedGroup = (input: RowsInput): Group | null => {
           title: `Create ${tilde(path, homeDir)}`,
           target: { kind: "create", path },
           testId: "folder-create",
-          meta: "new folder",
+          meta: host.status.capabilities.includes("git.init") ? "new repository" : "new folder",
         },
       ]
     : [];

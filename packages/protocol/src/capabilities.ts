@@ -101,6 +101,8 @@ export const Capability = Schema.Literals([
   "git.show",
   /** `git.stage`, `git.unstage`, `git.discard` and `git.commit`: the Explorer's Changes tab. */
   "git.write",
+  /** `git.init`: a new folder from Open folder becomes a repository with a first commit. */
+  "git.init",
   /** `git.watch`: a signal when the index, HEAD or refs move, so Clients refetch `git.status`. */
   "git.watch",
   /** `git.sync` (fetch, pull, push, publish) and `git.status`'s `tracking`. */

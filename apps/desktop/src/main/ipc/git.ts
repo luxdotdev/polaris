@@ -23,6 +23,7 @@ type GitHandlers = { readonly [M in keyof typeof GitRequestInputs]: Handler<M> }
 export const gitHandlers: GitHandlers = {
   "git.status": ({ hostKey, ...payload }) =>
     onLive(hostKey, (s) => s.client["git.status"](payload)),
+  "git.init": ({ hostKey, ...payload }) => onLive(hostKey, (s) => s.client["git.init"](payload)),
   "git.stage": ({ hostKey, ...payload }) =>
     onLive(hostKey, (s) => s.client["git.stage"](payload)).pipe(done),
   "git.unstage": ({ hostKey, ...payload }) =>
