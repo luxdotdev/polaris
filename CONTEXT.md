@@ -142,7 +142,7 @@ The state of an Agent Session whose Harness stopped a Turn at a usage limit; the
 _Avoid_: Rate limited, throttled, out of credits, or Failed for a usage limit
 
 **Archived**:
-The state of an Agent Session the user has put away after reviewing or merging its work; there is no "Done".
+The state of an Agent Session the user has put away after reviewing or merging its work, or that Polaris put away after it sat Dormant with no activity for the Host's auto-archive period; there is no "Done".
 _Avoid_: Closed, deleted
 
 ### Constellations

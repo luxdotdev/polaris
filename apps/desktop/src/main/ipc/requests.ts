@@ -429,6 +429,10 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
     onLive(hostKey, (s) => s.client["attachments.setSettings"]({ settings })).pipe(done),
   "attachments.clear": ({ hostKey, workspaceId }) =>
     onLive(hostKey, (s) => s.client["attachments.clear"]({ workspaceId })),
+  "sessions.autoArchive": ({ hostKey }) =>
+    onLive(hostKey, (s) => s.client["sessions.autoArchive"]({})),
+  "sessions.setAutoArchive": ({ hostKey, settings }) =>
+    onLive(hostKey, (s) => s.client["sessions.setAutoArchive"]({ settings })).pipe(done),
   "review.runRiskSummary": ({ hostKey, ...payload }) =>
     onLive(hostKey, (s) => s.client["review.runRiskSummary"](payload)),
   "review.runWalkthrough": ({ hostKey, ...payload }) =>

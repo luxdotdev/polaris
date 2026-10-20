@@ -26,6 +26,7 @@ import {
   CommitGranularity,
 } from "./accept.ts";
 import { AttachmentSettings, AttachmentUsage, StagedAmount } from "./attachments.ts";
+import { AutoArchiveRpcs } from "./autoArchive.ts";
 import { HostHarnesses } from "./availability.ts";
 import { CapabilityList } from "./capabilities.ts";
 import { PredictionRpcs } from "./predictionRpcs.ts";
@@ -73,11 +74,11 @@ import {
 } from "./review.ts";
 import { HarnessCommands } from "./slashCommands.ts";
 import { UsageReport, UsageStreamItem } from "./usage.ts";
-import { NotFound } from "./errors.ts";
+import { NotFound, Unsupported } from "./errors.ts";
 import { SessionTurnRpcs, TurnDetail } from "./turns.ts";
 import { GitError, GitTracking, GitWatchRpcs, GitWriteRpcs } from "./git.ts";
 
-export { NotFound } from "./errors.ts";
+export { NotFound, Unsupported } from "./errors.ts";
 
 export { ReadTurns, SessionTurnRpcs, SubagentDetail, TurnDetail, TurnPage } from "./turns.ts";
 
@@ -86,10 +87,6 @@ export { ReadTurns, SessionTurnRpcs, SubagentDetail, TurnDetail, TurnPage } from
 export class CommandRejected extends Schema.TaggedError<CommandRejected>()("CommandRejected", {
   commandId: CommandId,
   reason: Schema.String,
-}) {}
-
-export class Unsupported extends Schema.TaggedError<Unsupported>()("Unsupported", {
-  capability: Schema.String,
 }) {}
 
 /** The Harness can't answer on this Host: not installed, not signed in, or it failed. */
@@ -826,4 +823,5 @@ export class DaemonRpcs extends RpcGroup.make(
   .merge(LanguageRpcs)
   .merge(PredictionRpcs)
   .merge(SessionTurnRpcs)
+  .merge(AutoArchiveRpcs)
   .merge(GitWriteRpcs, GitWatchRpcs, CommitMessageRpcs) {}

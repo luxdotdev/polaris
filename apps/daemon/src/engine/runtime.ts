@@ -54,6 +54,10 @@ export interface EngineSettings {
   readonly checkpointSweepInterval?: Duration.Input | null;
   /** How long after a usage limit's reset Resume at reset continues (30 seconds when unset). */
   readonly resumeAtResetGrace?: Duration.Input;
+  /** Where the auto-archive settings live (`auto-archive-settings.json` in the Polaris home when unset). */
+  readonly autoArchiveSettingsPath?: string;
+  /** How often the auto-archive sweep runs (hourly when unset); null turns it off. */
+  readonly autoArchiveSweepInterval?: Duration.Input | null;
 }
 
 export const EngineConfig = Context.Reference<EngineSettings>(

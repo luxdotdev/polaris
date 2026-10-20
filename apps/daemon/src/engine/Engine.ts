@@ -13,10 +13,12 @@
  * This module wires the parts (see README.md): `runtime.ts` (shared state and
  * `signal`), `supervisor.ts` (Harnesses), `terminal.ts` (hand-off),
  * `worktrees.ts`, `pruning.ts` (checkpoints), `reviewCheckouts.ts`, `reactors.ts`,
- * `dispatch.ts`, `streams.ts` and `recovery.ts`.
+ * `dispatch.ts`, `streams.ts`, `recovery.ts`, `limitResume.ts` and `autoArchive.ts`.
  */
 import {
+  type AutoArchiveSettings,
   type CommandRejected,
+  type FileError,
   GitError,
   type HostStreamItem,
   NotFound,
@@ -32,6 +34,7 @@ import {
 import { Context, Effect, Layer, Option, type Stream } from "effect";
 import type { ServiceError } from "../services.ts";
 import { registerHandoffContributor } from "../service/upgrade.ts";
+import { AutoArchive } from "./autoArchive.ts";
 import { Dispatcher, type DispatchInput } from "./dispatch.ts";
 import { LimitResume } from "./limitResume.ts";
 import { CheckpointPruning } from "./pruning.ts";
@@ -86,6 +89,11 @@ export class Engine extends Context.Service<
      * app-server, which outlives the Daemon, so they are left alone.
      */
     readonly prepareForUpgrade: Effect.Effect<void>;
+    /** When this Host archives Dormant sessions (`autoArchive.ts`). */
+    readonly autoArchiveSettings: Effect.Effect<AutoArchiveSettings>;
+    readonly setAutoArchiveSettings: (
+      settings: AutoArchiveSettings
+    ) => Effect.Effect<void, FileError>;
     /** A Review Checkout as it is on disk now: what would block an update or removal. */
     readonly checkoutStatus: (
       checkoutId: ReviewCheckoutId
@@ -117,7 +125,7 @@ const EngineParts = Layer.mergeAll(Dispatcher.layer, Streams.layer).pipe(
   ),
   Layer.provideMerge(Supervisor.layer),
   Layer.provideMerge(EngineRuntime.layer),
-  (parts) => LimitResume.layer.pipe(Layer.provideMerge(parts))
+  (parts) => Layer.mergeAll(LimitResume.layer, AutoArchive.layer).pipe(Layer.provideMerge(parts))
 );
 
 const make = Effect.gen(function* () {
@@ -127,6 +135,7 @@ const make = Effect.gen(function* () {
   const streams = yield* Streams;
   const pruning = yield* CheckpointPruning;
   const checkouts = yield* ReviewCheckouts;
+  const autoArchive = yield* AutoArchive;
   const prepareForUpgrade = prepareSessionsForUpgrade(runtime);
 
   const recoveredTurns = yield* recoverOnStart(runtime);
@@ -143,6 +152,7 @@ const make = Effect.gen(function* () {
 
   yield* pruning.startSweeper;
   yield* (yield* LimitResume).start;
+  yield* autoArchive.start;
 
   yield* Effect.addFinalizer(() =>
     Effect.forEach([...runtime.live.keys()], (id) => runtime.stopHarness(id), { discard: true })
@@ -191,6 +201,8 @@ const make = Effect.gen(function* () {
     terminalCommand: (sessionId) =>
       Effect.sync(() => runtime.terminalLaunch.get(sessionId) ?? null),
     prepareForUpgrade,
+    autoArchiveSettings: autoArchive.settings,
+    setAutoArchiveSettings: autoArchive.setSettings,
     checkoutReviewed: checkouts.reviewed,
     checkoutStatus: (checkoutId) =>
       checkouts.status(checkoutId).pipe(

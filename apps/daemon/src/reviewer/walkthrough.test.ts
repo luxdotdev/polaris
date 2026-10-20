@@ -244,6 +244,8 @@ describe("walkthrough persistence and controls", () => {
       hasSession: () => Effect.succeed(true),
       terminalCommand: () => Effect.succeed(null),
       prepareForUpgrade: Effect.void,
+      autoArchiveSettings: Effect.die("unused"),
+      setAutoArchiveSettings: () => Effect.die("unused"),
       checkoutStatus: () => Effect.die("unused"),
       checkoutReviewed: () => Effect.void,
     });

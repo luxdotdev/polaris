@@ -1,6 +1,6 @@
 /**
  * Handlers for the engine's RPCs: `dispatch`, `subscribeHost`,
- * `subscribeSession`, `session.turns`, `session.terminalCommand` and `review.checkoutStatus`. The transport mounts
+ * `subscribeSession`, `session.turns`, `session.terminalCommand`, `review.checkoutStatus` and the auto-archive settings. The transport mounts
  * `EngineRpcHandlers` next to the other modules' handlers when it builds the
  * `DaemonRpcs` server:
  *
@@ -136,7 +136,27 @@ const CheckoutStatusHandler = DaemonRpcs.toLayerHandler(
   })
 );
 
+const AutoArchiveHandler = DaemonRpcs.toLayerHandler(
+  "sessions.autoArchive",
+  Effect.gen(function* () {
+    const engine = yield* Engine;
+
+    return () => engine.autoArchiveSettings;
+  })
+);
+
+const SetAutoArchiveHandler = DaemonRpcs.toLayerHandler(
+  "sessions.setAutoArchive",
+  Effect.gen(function* () {
+    const engine = yield* Engine;
+
+    return ({ settings }) => engine.setAutoArchiveSettings(settings);
+  })
+);
+
 export const EngineRpcHandlers = Layer.mergeAll(
+  AutoArchiveHandler,
+  SetAutoArchiveHandler,
   DispatchHandler,
   SubscribeHostHandler,
   SubscribeSessionHandler,
