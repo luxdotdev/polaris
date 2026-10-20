@@ -73,6 +73,8 @@ export const IMAGE_DECODE = {
     "apps/desktop/src/renderer/features/attachments/ui/SentAttachments.tsx": "admitted",
     // readHostImage's admitted blob as an object URL.
     "apps/desktop/src/renderer/features/session/ui/ImageViewer.tsx": "admitted",
+    // The transcript image pool: object URLs for readHostImage's admitted blobs only.
+    "apps/desktop/src/renderer/features/host-images/pool.ts": "admitted",
     // The preview pool: object URLs for media views Main admitted (media.ts, admitRaster).
     "apps/desktop/src/renderer/features/editor/markdown/media.ts": "admitted",
     // Loads Mermaid only to wrap it in guardedDiagrams (diagrams.ts).
