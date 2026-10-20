@@ -85,26 +85,12 @@ export interface DraftComposerProps {
   readonly shell?: { readonly where: string; readonly queued: boolean } | undefined;
 }
 
-/** Shell mode's cue in the composer's tool row: what `!` does and where it runs. */
-const ShellCue = ({
-  harness,
-  where,
-  queued,
-}: {
-  readonly harness: Harness;
-  readonly where: string;
-  readonly queued: boolean;
-}) => (
-  <span
-    className="text-caption text-text-subtle min-w-0 truncate"
-    title={`Runs in your login shell; ${harnessHue(harness).name} reads the output and replies`}
-    data-testid="shell-cue"
-  >
-    <span className="text-text-default font-mono">!</span> Shell command ·{" "}
+/** Shell mode's strip line: where the command runs, and whether it waits for this Turn. */
+const shellWhere = (where: string, queued: boolean) => (
+  <>
     {queued ? "runs after this turn, in " : "runs in "}
     <span className="font-mono">{where}</span>
-    {queued ? null : " · esc to leave"}
-  </span>
+  </>
 );
 
 export const DraftComposer = ({
@@ -160,15 +146,14 @@ export const DraftComposer = ({
             picker={picker}
             working={working}
             branch={branch}
-            tools={
-              shell === undefined ? (
-                tools
-              ) : (
-                <>
-                  {tools}
-                  <ShellCue harness={harness} where={shell.where} queued={shell.queued} />
-                </>
-              )
+            tools={tools}
+            shell={
+              shell === undefined
+                ? undefined
+                : {
+                    where: shellWhere(shell.where, shell.queued),
+                    title: `Runs in your login shell; ${harnessHue(harness).name} reads the output and replies`,
+                  }
             }
             prominentSend={prominentSend}
             sendDisabled={!canSubmit}

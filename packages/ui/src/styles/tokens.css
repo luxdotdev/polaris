@@ -37,6 +37,10 @@
   --color-needs-you-text: light-dark(#856300, #f2c84b);
   --color-failed-text: light-dark(#bf3228, #f37b72);
 
+  /* Shell mode: a `!` draft in the composer, Claude Code's bash-mode magenta. */
+  --color-shell: light-dark(#c2307f, #fd5db1);
+  --color-shell-text: light-dark(#a3236a, #fd5db1);
+
   /* Severity: always a labelled badge with its shape. */
   --color-severity-critical: #e5484d;
   --color-severity-high: light-dark(#c85a12, #f2894a);

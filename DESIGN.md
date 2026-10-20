@@ -41,6 +41,10 @@ colors:
   # Glyphs, washes, dither and line fills keep the base hues above. See rule/signal-text-variants.
   needs-you-text-dark: "#F2C84B"
   needs-you-text-light: "#856300"
+  shell-dark: "#FD5DB1"
+  shell-light: "#C2307F"
+  shell-text-dark: "#FD5DB1"
+  shell-text-light: "#A3236A"
   failed-text-dark: "#F37B72"
   failed-text-light: "#BF3228"
   # Constellation: accepted work (done Tasks, passed checks). Only inside the Constellation tab, its sidebar group and Claims.
@@ -738,7 +742,7 @@ The composer is a plain-text editor (Lexical) where the Harness's **Skills** and
 
 Claude Code's bash mode, in the session composer. Built, not drawn in Paper.
 
-- **Entering.** A `!` typed at the start of the draft turns the composer into shell mode where the Host has `session.shell-command` and the session's Harness runs shell commands (`HarnessModels.runsShellCommands`; Claude Code only, never by Harness name in the renderer). The text turns mono and the tools row gains one `caption` line in `text-subtle`: "! Shell command · runs in `~/code/polaris` · esc to leave", the `!` in `text-default` mono and the directory in mono, with the tooltip "Runs in your login shell; Claude Code reads the output and replies". Elsewhere a `!` is just text.
+- **Entering.** A `!` typed at the start of the draft turns the composer into shell mode where the Host has `session.shell-command` and the session's Harness runs shell commands (`HarnessModels.runsShellCommands`; Claude Code only, never by Harness name in the renderer). The text turns mono, and a Shell mode strip takes the Working strip's place (owner, 2026-10-20): the same 34px band and dither field in `shell` magenta (Claude Code's bash-mode pink; the composer's edge tints `shell` too), a still dither glyph (rule/only-working-moves), "Shell mode" in `shell-text`, then "· runs in `~/code/polaris`" in `text-subtle` with the directory in mono, and "esc to leave" at the right. Its tooltip reads "Runs in your login shell; Claude Code reads the output and replies". Queued behind a Working Turn it reads "· runs after this turn, in `~/code/polaris`" and keeps the Turn's Stop in place of "esc to leave". `shell` is used nowhere else. Elsewhere a `!` is just text.
 - **Leaving.** esc drops the `!` and keeps the rest of the draft; deleting the `!` (Backspace on `!` alone) leaves it the same way. While a Turn works, esc stops the Turn as before.
 - **Running.** ↵ runs the command in the session's directory, in the user's login shell, as a Turn of its own: its prompt is the command, and the agent replies once it has read the output. Staged attachments stay in the composer for the next prompt. `!` alone runs nothing. ↑ brings a sent command back in shell mode.
 - **While a Turn works.** A shell command never steers: ↵ (and ⌘↵) queue it as a follow-up, and the cue reads "! Shell command · runs after this turn, in `~/code/polaris`". It waits, shows and can be cancelled like any queued follow-up, and runs when the Turn ends.

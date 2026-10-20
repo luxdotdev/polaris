@@ -12,7 +12,7 @@ export type Harness = HarnessKind;
  */
 export type IdentityHue = string;
 
-/** A tint: an identity hue, "needs-you", or (on tiles) "neutral" for no hue. */
+/** A tint: an identity hue, "needs-you", "shell" (shell mode), or (on tiles) "neutral" for no hue. */
 export type TintHue = string;
 
 /** Everything the UI shows about a Harness, from the catalogue (`harnessHue`). */
@@ -50,13 +50,16 @@ export function harnessHue(kind: HarnessKind): HarnessIdentity {
   };
 }
 
-const SIGNAL_VARS: Record<"starlight" | "needs-you", string> = {
+type Signal = "starlight" | "needs-you" | "shell";
+
+const SIGNAL_VARS: Record<Signal, string> = {
   starlight: "var(--color-starlight)",
   "needs-you": "var(--color-needs-you)",
+  shell: "var(--color-shell)",
 };
 
-function signal(hue: TintHue): hue is "starlight" | "needs-you" {
-  return hue === "starlight" || hue === "needs-you";
+function signal(hue: TintHue): hue is Signal {
+  return hue === "starlight" || hue === "needs-you" || hue === "shell";
 }
 
 /** Resolves a tint to the hue a surface shows: an unknown Harness becomes neutral. */
@@ -86,9 +89,10 @@ export function harnessTextVar(harness: Harness): string {
     : `var(--color-harness-${slug}-text, var(--color-harness-${slug}))`;
 }
 
-const SIGNAL_WASHES: Record<"starlight" | "needs-you", string> = {
+const SIGNAL_WASHES: Record<Signal, string> = {
   starlight: "var(--wash-starlight)",
   "needs-you": "var(--wash-needs-you)",
+  shell: "none",
 };
 
 /** The watercolour wash image for a hue, switched per theme in assets.css; none if missing. */

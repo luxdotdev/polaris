@@ -132,6 +132,51 @@ export function WorkingStrip({
   );
 }
 
+export interface ShellStripProps {
+  /** Where the command runs, and when ("runs in ~/code/x"). */
+  readonly where: ReactNode;
+  /** The Turn in flight's Stop: a queued command keeps it within reach. */
+  readonly onStop?: (() => void) | undefined;
+  /** Hover text on the line. */
+  readonly title?: string | undefined;
+}
+
+/** Shell mode's strip, in the Working strip's place: the `shell` magenta, its dither held still. */
+export function ShellStrip({ where, onStop, title }: ShellStripProps) {
+  return (
+    <div
+      data-slot="shell-strip"
+      data-testid="shell-strip"
+      title={title}
+      className="relative flex h-[34px] shrink-0 items-center gap-2 overflow-clip pr-2.5 pl-3"
+    >
+      <DitherField hue="shell" bloom="shell" />
+      <Dither hue="shell" size={14} className="relative" />
+      <span className="text-caption text-shell-text relative shrink-0 font-medium whitespace-nowrap">
+        Shell mode
+      </span>
+      <span className="text-caption text-text-subtle relative min-w-0 truncate">· {where}</span>
+      <span className="flex-1" />
+      {onStop === undefined ? (
+        <span className="text-caption text-text-subtle relative shrink-0 whitespace-nowrap">
+          <Kbd variant="plain">esc</Kbd> to leave
+        </span>
+      ) : (
+        <Button
+          variant="secondary"
+          size="sm"
+          className="relative h-[22px] gap-1.5 px-2"
+          onClick={onStop}
+        >
+          <span className="bg-text-default size-[7px] rounded-[1px]" />
+          Stop
+          <Kbd variant="plain">esc</Kbd>
+        </Button>
+      )}
+    </div>
+  );
+}
+
 export interface ComposerProps extends Omit<TextareaProps, "bare"> {
   readonly harness: Harness;
   readonly model: string;
@@ -146,6 +191,8 @@ export interface ComposerProps extends Omit<TextareaProps, "bare"> {
         readonly detail?: ReactNode;
       }
     | undefined;
+  /** Shell mode (a `!` draft): its strip replaces the Working strip and the edge turns `shell`. */
+  readonly shell?: Omit<ShellStripProps, "onStop"> | undefined;
   /** The branch or worktree the Turn runs on, in mono. */
   readonly branch?: string | undefined;
   readonly onSend?: () => void;
@@ -168,6 +215,7 @@ export function Composer({
   harness,
   model,
   working,
+  shell,
   branch,
   onSend,
   onAddSource,
@@ -184,9 +232,11 @@ export function Composer({
   const vars: CssVars = {
     "--harness": hueVar(harness),
     "--harness-text": harnessTextVar(harness),
+    "--edge": shell === undefined ? "var(--harness)" : "var(--color-shell)",
   };
 
   const isWorking = working !== undefined;
+  const tinted = isWorking || shell !== undefined;
 
   return (
     <div
@@ -195,14 +245,17 @@ export function Composer({
       data-dither-hover={isWorking ? "" : undefined}
       className={cn(
         "flex flex-col overflow-clip rounded-card border bg-surface-raised",
-        isWorking
-          ? "border-[color-mix(in_oklab,var(--harness)_28%,transparent)] shadow-[0_0_0_3px_color-mix(in_oklab,var(--harness)_6%,transparent)]"
+        tinted
+          ? "border-[color-mix(in_oklab,var(--edge)_28%,transparent)] shadow-[0_0_0_3px_color-mix(in_oklab,var(--edge)_6%,transparent)]"
           : "border-hairline",
         className
       )}
       style={vars}
     >
-      {working === undefined ? null : (
+      {shell === undefined ? null : (
+        <ShellStrip where={shell.where} title={shell.title} onStop={working?.onStop} />
+      )}
+      {working === undefined || shell !== undefined ? null : (
         <WorkingStrip
           harness={harness}
           elapsed={working.elapsed}
