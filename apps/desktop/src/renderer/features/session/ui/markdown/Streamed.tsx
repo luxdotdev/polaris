@@ -1,13 +1,22 @@
 /**
  * An assistant message as Markdown (Streamdown): incomplete syntax mid-stream
  * renders as it will end, code in the code font with a copy action, Mermaid
- * and KaTeX once their plugins load, links open in the browser.
+ * and KaTeX once their plugins load, links open in the browser, images naming a path load from
+ * the session's Host.
  */
 import "./markdown.css";
-import { type Components, type ControlsConfig, defaultRehypePlugins, Streamdown } from "streamdown";
+import {
+  type Components,
+  type ControlsConfig,
+  defaultComponents,
+  defaultRehypePlugins,
+  Streamdown,
+} from "streamdown";
 import { FileLink } from "../../../editor-links/index.ts";
 import { COPY_CODE, COPY_TABLE } from "./copyControls.tsx";
 import { editorLinkOf, rehypeFileLinks } from "./fileLinks.ts";
+import { HostImage } from "./HostImage.tsx";
+import { hostImageOf, rehypeFileImages, rehypeHostImages } from "./hostImages.ts";
 import { needsOf } from "./needs.ts";
 import { rehypeSoftBreaks } from "./softBreaks.ts";
 import { usePlugins } from "./plugins.ts";
@@ -20,12 +29,32 @@ const CONTROLS: ControlsConfig = {
   mermaid: { copy: false, download: false, fullscreen: false, panZoom: false },
 };
 
-// After sanitizing, so the `<wbr>` and the editor links they add stay.
-const REHYPE = [...Object.values(defaultRehypePlugins), rehypeFileLinks, rehypeSoftBreaks];
+const { raw, sanitize, harden } = defaultRehypePlugins;
+
+// Host images are marked between sanitizing and hardening; `<wbr>` and editor links come after both.
+const REHYPE = [
+  raw,
+  rehypeFileImages,
+  sanitize,
+  rehypeHostImages,
+  harden,
+  rehypeFileLinks,
+  rehypeSoftBreaks,
+].filter((plugin) => plugin !== undefined);
 
 const COMPONENTS: Components = {
   ...COPY_CODE,
   ...COPY_TABLE,
+  // A path reads from the session's Host; a URL is Streamdown's own image, as it always was.
+  img: (props) => {
+    const path = hostImageOf(props.node?.properties);
+
+    return path === null ? (
+      <defaultComponents.img {...props} />
+    ) : (
+      <HostImage path={path} alt={props.alt ?? ""} />
+    );
+  },
   // `path:line` (rehypeFileLinks) opens in the editor; other links in the user's browser (https only).
   a: ({ href, children, node }) => {
     const target = editorLinkOf(node?.properties);

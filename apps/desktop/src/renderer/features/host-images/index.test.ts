@@ -42,7 +42,10 @@ describe("a Host image is measured before the renderer decodes it", () => {
   test("one Blink would sniff as a format the measure doesn't read fails", async () => {
     hostWith(icoSniffed);
 
-    expect(await readHostImage("local", "/tmp/shot.avif")).toEqual({ kind: "failed" });
+    expect(await readHostImage("local", "/tmp/shot.avif")).toEqual({
+      kind: "failed",
+      reason: "not-image",
+    });
   });
 
   test("one within bounds is typed as its bytes sniff, whatever its name says", async () => {
