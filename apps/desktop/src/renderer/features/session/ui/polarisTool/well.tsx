@@ -1,4 +1,5 @@
 /** What a Polaris tool row opens to: the call's well, a refusal's fix, the raw call. */
+import { JsonText } from "../json.tsx";
 import { CheckIcon, cn, CopyButton, harnessHue, PixelFailedIcon } from "@polaris/ui";
 import type {
   CheckMark,
@@ -196,11 +197,11 @@ export const RawBody = ({
         <CopyButton variant="icon" label="Copy the raw call" text={text} />
       </div>
       <pre className="text-code-inline text-text-default overflow-x-auto font-mono whitespace-pre">
-        {raw.input}
+        <JsonText text={raw.input} />
       </pre>
       {raw.output === "" ? null : (
         <pre className="text-code-inline text-text-subtle overflow-x-auto font-mono whitespace-pre-wrap">
-          {raw.output}
+          <JsonText text={raw.output} />
         </pre>
       )}
     </div>

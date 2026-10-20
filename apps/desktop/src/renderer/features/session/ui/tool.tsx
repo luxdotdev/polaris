@@ -3,6 +3,7 @@
  * "Loaded", "Read") and subject on one line. It opens to what the call returned (a line, a
  * link, its images) and, behind Show raw, the call as the Harness sent it.
  */
+import { JsonText, looksLikeJson } from "./json.tsx";
 import {
   Button,
   CheckIcon,
@@ -95,8 +96,13 @@ const Result = ({ item }: { readonly item: ToolView }) => {
   return (
     <>
       {result.text === null ? null : (
-        <p className="text-caption text-text-default wrap-anywhere whitespace-pre-wrap">
-          {result.text}
+        <p
+          className={cn(
+            "text-text-default wrap-anywhere whitespace-pre-wrap",
+            looksLikeJson(result.text) ? "text-code-inline font-mono" : "text-caption"
+          )}
+        >
+          <JsonText text={result.text} />
         </p>
       )}
       {result.link === null ? null : (
