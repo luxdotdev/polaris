@@ -244,7 +244,6 @@ const Agent = ({ row, ctx }: { row: Extract<Row, { kind: "item" }>; ctx: RowCont
             ctx={{
               hue: ctx.harness,
               onOpenDiff: () => ctx.onOpenDiff(row.turnId),
-              latest: row.latest,
             }}
           />
         </SessionTargetContext.Provider>

@@ -90,25 +90,15 @@ const StatusMark = ({ item, failed, hue }: { item: CommandView; failed: boolean;
 };
 
 /** Whether the command is open, and its toggle: `model/collapse.ts`, with the user's choice. */
-const useFold = (item: CommandView, latest: boolean) => {
+const useFold = (item: CommandView) => {
   const running = item.live || item.status === "running";
   const failed = item.status === "failed" || (item.exitCode !== null && item.exitCode !== 0);
   const hasOutput = item.output !== "";
   const { settled, hover } = useSettled(!running);
   const [choice, setChoice] = useState(() => collapseChoice(item.id));
 
-  // Finished in the latest Turn: kept open as if chosen, so a newer Turn never folds it.
-  useEffect(() => {
-    if (latest && !running && hasOutput && choice === null) {
-      chooseCollapse(item.id, true);
-      setChoice(true);
-    }
-  }, [latest, running, hasOutput, item.id, choice]);
-
   // Without output there's nothing to show unless asked: only the whole command.
-  const open = hasOutput
-    ? outputOpen({ running, failed, settled, choice, latest })
-    : (choice ?? false);
+  const open = hasOutput ? outputOpen({ running, failed, settled, choice }) : (choice ?? false);
 
   const toggle = () => {
     chooseCollapse(item.id, !open);
@@ -159,16 +149,8 @@ const Chevron = ({ open }: { readonly open: boolean }) =>
     <ChevronRightIcon size={10} className="text-text-faint shrink-0" />
   );
 
-export const Command = ({
-  item,
-  hue,
-  latest = false,
-}: {
-  readonly item: CommandView;
-  readonly hue: Hue;
-  readonly latest?: boolean;
-}) => {
-  const { running, failed, hasOutput, open, toggle, hover } = useFold(item, latest);
+export const Command = ({ item, hue }: { readonly item: CommandView; readonly hue: Hue }) => {
+  const { running, failed, hasOutput, open, toggle, hover } = useFold(item);
   // Always, so a long command can be read whole even with no output.
   const canFold = !running;
   const line = <Line item={item} hue={hue} failed={failed} open={open} canFold={canFold} />;

@@ -98,12 +98,10 @@ export interface ItemProps {
   readonly item: ItemView;
   readonly hue: Hue;
   readonly onOpenDiff: () => void;
-  /** Its Turn is the latest: a command stays open until the user folds it. */
-  readonly latest?: boolean;
 }
 
 /** One item, by kind. */
-export const Item = ({ item, hue, onOpenDiff, latest = false }: ItemProps) => {
+export const Item = ({ item, hue, onOpenDiff }: ItemProps) => {
   switch (item.kind) {
     case "message":
       return <Message text={item.text} live={item.live} />;
@@ -113,7 +111,7 @@ export const Item = ({ item, hue, onOpenDiff, latest = false }: ItemProps) => {
     case "reasoning":
       return <Reasoning item={item} hue={hue} />;
     case "command":
-      return <Command item={item} hue={hue} latest={latest} />;
+      return <Command item={item} hue={hue} />;
     case "files":
       return <Files item={item} onOpenDiff={onOpenDiff} />;
     case "tool":

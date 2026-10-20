@@ -15,8 +15,8 @@ import { type Hue, Item, LiveMark, WELL } from "./items.tsx";
 import { Markdown } from "./markdown/index.tsx";
 
 /** Open or closed, remembered per row across the virtualized list's unmounts. */
-const useOpen = (key: string, latest: boolean) => {
-  const [open, setOpen] = useState(() => initialOpen(key, latest));
+const useOpen = (key: string) => {
+  const [open, setOpen] = useState(() => initialOpen(key));
 
   const toggle = () => {
     chooseCollapse(key, !open);
@@ -36,12 +36,10 @@ const Chevron = ({ open }: { readonly open: boolean }) =>
 interface Context {
   readonly hue: Hue;
   readonly onOpenDiff: () => void;
-  /** The row's Turn is the session's latest: its tool runs open, its commands stay open. */
-  readonly latest?: boolean;
 }
 
 const Run = ({ entry, ctx }: { entry: Extract<Entry, { kind: "run" }>; ctx: Context }) => {
-  const [open, toggle] = useOpen(`run:${entry.id}`, ctx.latest === true);
+  const [open, toggle] = useOpen(`run:${entry.id}`);
 
   return (
     <div className="flex flex-col" data-testid="tool-run">
@@ -58,13 +56,7 @@ const Run = ({ entry, ctx }: { entry: Extract<Entry, { kind: "run" }>; ctx: Cont
       {open ? (
         <div className="border-hairline mt-1 ml-1.5 flex flex-col gap-1.5 border-l pl-3.5">
           {entry.items.map((item) => (
-            <Item
-              key={item.id}
-              item={item}
-              hue={ctx.hue}
-              onOpenDiff={ctx.onOpenDiff}
-              latest={ctx.latest === true}
-            />
+            <Item key={item.id} item={item} hue={ctx.hue} onOpenDiff={ctx.onOpenDiff} />
           ))}
         </div>
       ) : null}
@@ -102,8 +94,7 @@ const Elapsed = ({ card }: { card: SubagentCard }) => {
 };
 
 const Subagent = ({ card, ctx }: { card: SubagentCard; ctx: Context }) => {
-  // A Subagent's transcript stays closed even in the latest Turn: its card says what it does.
-  const [open, toggle] = useOpen(`subagent:${card.id}`, false);
+  const [open, toggle] = useOpen(`subagent:${card.id}`);
   const { subagent } = card;
 
   return (
@@ -180,14 +171,7 @@ const entryId = (entry: Entry) => {
 export const EntryView = ({ entry, ctx }: { readonly entry: Entry; readonly ctx: Context }) => {
   switch (entry.kind) {
     case "item":
-      return (
-        <Item
-          item={entry.item}
-          hue={ctx.hue}
-          onOpenDiff={ctx.onOpenDiff}
-          latest={ctx.latest === true}
-        />
-      );
+      return <Item item={entry.item} hue={ctx.hue} onOpenDiff={ctx.onOpenDiff} />;
     case "run":
       return <Run entry={entry} ctx={ctx} />;
     case "subagent":
