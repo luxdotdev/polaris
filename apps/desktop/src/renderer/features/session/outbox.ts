@@ -39,7 +39,12 @@ export interface OutboxInput {
 
 export interface OutboxActions {
   readonly steer: (text: string) => void;
-  readonly queue: (text: string, attachments: ReadonlyArray<StagedAttachment>) => void;
+  /** `shell`: a shell command (`!…`), run as the next Turn. */
+  readonly queue: (
+    text: string,
+    attachments: ReadonlyArray<StagedAttachment>,
+    shell?: boolean
+  ) => void;
   readonly retry: (id: string) => void;
   /** Back into the draft (cancelling a queued follow-up, or editing a failed one). */
   readonly edit: (id: string) => void;
@@ -55,6 +60,7 @@ const deliver = (hostKey: string, uiKey: string, entry: Outbound, sessionId: Ses
       : queuedCommand(sessionId, {
           text: entry.text,
           attachments: entry.attachments.map((a) => a.id),
+          shell: entry.shell === true,
         });
 
   if (command === null) return dropOutgoing(uiKey, entry.id);
@@ -146,7 +152,7 @@ export const useOutbox = (input: OutboxInput): OutboxActions => {
 
   return {
     steer,
-    queue: (text, attachments) => add(queuedOutgoing(text, attachments)),
+    queue: (text, attachments, shell) => add(queuedOutgoing(text, attachments, shell)),
     retry,
     edit,
   };

@@ -24,6 +24,7 @@ import type { ReadModel } from "../store/model.ts";
 import { CONTINUE_PROMPT } from "./decider.ts";
 import { CheckpointPruning } from "./pruning.ts";
 import { ReviewCheckouts } from "./reviewCheckouts.ts";
+import { ShellCommands } from "./shellCommands.ts";
 import { EngineRuntime } from "./runtime.ts";
 import { Supervisor } from "./supervisor.ts";
 import { TerminalHandoff } from "./terminal.ts";
@@ -56,6 +57,7 @@ const make = Effect.gen(function* () {
   const worktrees = yield* Worktrees;
   const pruning = yield* CheckpointPruning;
   const checkouts = yield* ReviewCheckouts;
+  const shell = yield* ShellCommands;
   const { live } = rt;
 
   const runStartedTurn = (sessionId: SessionId, envelopes: ReadonlyArray<EventEnvelope>) => {
@@ -68,6 +70,7 @@ const make = Effect.gen(function* () {
           turnId: turn.id,
           prompt: turn.prompt,
           attachments: turn.attachments,
+          shellCommand: turn.shellCommand,
         });
   };
 
@@ -136,6 +139,8 @@ const make = Effect.gen(function* () {
 
   const interrupt = (sessionId: SessionId) =>
     Effect.gen(function* () {
+      // A shell command still running (or not yet read) is the Turn's to stop.
+      if (yield* shell.interrupt(sessionId)) return;
       const entry = live.get(sessionId);
 
       if (entry !== undefined) return yield* entry.session.interrupt;
@@ -231,9 +236,12 @@ const make = Effect.gen(function* () {
       },
       Continue: (command) => continueTurn(command.sessionId, committed),
       Retry: (command) => runStartedTurn(command.sessionId, committed.result.envelopes),
+      RunShellCommand: (command) => runStartedTurn(command.sessionId, committed.result.envelopes),
       Steer: (command) =>
-        Effect.suspend(
-          () => live.get(command.sessionId)?.session.steer(command.text) ?? Effect.void
+        Effect.flatMap(shell.holdSteer(command.sessionId, command.text), (held) =>
+          held
+            ? Effect.void
+            : (live.get(command.sessionId)?.session.steer(command.text) ?? Effect.void)
         ),
       Interrupt: (command) => interrupt(command.sessionId),
       StopBackgroundTasks: (command) => stopBackground(command.sessionId, command.taskIds),

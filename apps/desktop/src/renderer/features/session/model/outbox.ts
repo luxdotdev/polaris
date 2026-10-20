@@ -41,6 +41,8 @@ export interface Outgoing<A extends OutboxAttachment = OutboxAttachment> {
   readonly status: OutboxStatus;
   /** Why it failed, as the user reads it. */
   readonly error: string | null;
+  /** A follow-up shell command (`!…`): it runs as its own Turn. */
+  readonly shell?: boolean;
 }
 
 /** Said when a steer's Turn ended without the Harness reporting it. */
@@ -84,7 +86,8 @@ export const steerOutgoing = <A extends OutboxAttachment>(
 /** A follow-up queued for after the Turn in flight. */
 export const queuedOutgoing = <A extends OutboxAttachment>(
   text: string,
-  attachments: ReadonlyArray<A>
+  attachments: ReadonlyArray<A>,
+  shell = false
 ): Outgoing<A> => ({
   id: outgoingId(),
   kind: "queued",
@@ -94,6 +97,7 @@ export const queuedOutgoing = <A extends OutboxAttachment>(
   baseline: 0,
   status: "waiting",
   error: null,
+  shell,
 });
 
 type Settled<A extends OutboxAttachment> = Outgoing<A> | null;

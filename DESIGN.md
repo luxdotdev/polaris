@@ -734,6 +734,17 @@ The composer is a plain-text editor (Lexical) where the Harness's **Skills** and
 | OpenCode | its server's `/command` | none | every listed command (`session/command`) | none |
 | ACP (Gemini, Copilot) | the agent's `available_commands_update` | every listed command | none | none |
 
+### Shell commands in the composer (ENG-388)
+
+Claude Code's bash mode, in the session composer. Built, not drawn in Paper.
+
+- **Entering.** A `!` typed at the start of the draft turns the composer into shell mode where the Host has `session.shell-command` and the session's Harness runs shell commands (`HarnessModels.runsShellCommands`; Claude Code only, never by Harness name in the renderer). The text turns mono and the tools row gains one `caption` line in `text-subtle`: "! Shell command · runs in `~/code/polaris` · esc to leave", the `!` in `text-default` mono and the directory in mono, with the tooltip "Runs in your login shell; Claude Code reads the output and replies". Elsewhere a `!` is just text.
+- **Leaving.** esc drops the `!` and keeps the rest of the draft; deleting the `!` (Backspace on `!` alone) leaves it the same way. While a Turn works, esc stops the Turn as before.
+- **Running.** ↵ runs the command in the session's directory, in the user's login shell, as a Turn of its own: its prompt is the command, and the agent replies once it has read the output. Staged attachments stay in the composer for the next prompt. `!` alone runs nothing. ↑ brings a sent command back in shell mode.
+- **While a Turn works.** A shell command never steers: ↵ (and ⌘↵) queue it as a follow-up, and the cue reads "! Shell command · runs after this turn, in `~/code/polaris`". It waits, shows and can be cancelled like any queued follow-up, and runs when the Turn ends.
+- **In the conversation.** The command sits in the user's lane where the prompt bubble would, as a command row on the prompt's fill (`fill-selected`, `card` radius) reading "! git status", with its output under it, and it folds like the agent's commands (open while running, open when failed). The agent's reply follows as usual. Never the raw `<bash-…>` tags.
+- **When it doesn't run cleanly.** A non-zero exit shows its exit code with the output, and the agent still replies. One that can't start, or runs past 10 minutes, fails with the reason in its output. Stop kills the command and ends the Turn Interrupted; the agent doesn't reply. A steer sent while the command runs waits and reaches the agent after the output.
+
 ### Attachments in the conversation
 
 What a message carried sits above its bubble, right-aligned like it, in the order attached: images as thumbnails in `row`-radius sunken boxes with a hairline (one image fits 240×180, several fit 112×112 each, wrapping), then other files as source chips (name in mono, size). Each thumbnail's box is reserved from the size the Host recorded when it was staged, so nothing moves when the image arrives; an image staged before sizes were recorded takes a square and is cropped to it. While a thumbnail loads, the composer's own small thumbnail stands in, faded and softened; one the Host can no longer read says "No preview". A click opens the image in a dialog (an opaque `surface-raised` card: the name in mono, its pixel size and file size in `caption`, the image on `surface-sunken`); esc closes it. The caption under the bubble is only the Model and effort ("Opus 5 · high"); file names never go there. Pending steers and follow-ups show their attachments the same way.

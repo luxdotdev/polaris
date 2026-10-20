@@ -67,6 +67,8 @@ export const Capability = Schema.Literals([
    * `lastReplyPreview`: without it they are null, and a Client numbers and times Turns itself.
    */
   "session.user-turns",
+  /** `RunShellCommand`, `Turn.shellCommand`, `CommandExecution.origin` and `HarnessModels.runsShellCommands`. */
+  "session.shell-command",
   "files.read",
   "files.versioned",
   "files.write",

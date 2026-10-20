@@ -31,6 +31,7 @@ import type { OutboxActions } from "../outbox.ts";
 import type { Entry } from "../model/runs.ts";
 import { Trigger, Waiting } from "./background.tsx";
 import { SetupCard } from "./SetupCard.tsx";
+import { Command } from "./command.tsx";
 import { EntryView } from "./entries.tsx";
 import { OutgoingMessage, Steered } from "./outgoing.tsx";
 import { softWrap } from "./softWrap.tsx";
@@ -155,7 +156,11 @@ const Prompt = ({ row, ctx }: { row: Extract<Row, { kind: "prompt" }>; ctx: RowC
   <PromptMenu text={row.text} onFold={() => ctx.onSetTurnOpen(row.turnId, false)}>
     <div className="group/turn flex flex-col items-end gap-1.5" data-testid="prompt">
       <SentAttachments hostKey={ctx.diff.hostKey} attachments={row.attachments} />
-      {row.text === "" ? null : (
+      {row.shell != null ? (
+        <div className="w-full max-w-[560px]" data-testid="shell-prompt">
+          <Command item={row.shell} hue={ctx.harness} own />
+        </div>
+      ) : row.text === "" ? null : (
         <p className="rounded-card bg-fill-selected text-body text-text-strong py-row-x max-w-[340px] px-3.5 break-words whitespace-pre-wrap">
           {softWrap(row.text)}
         </p>

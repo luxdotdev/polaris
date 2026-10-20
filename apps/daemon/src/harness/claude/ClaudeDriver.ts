@@ -62,6 +62,8 @@ import { ClaudeHookReceiver } from "./hooks.ts";
 import { decodeModelUsage } from "./payloads.ts";
 import { Inbox } from "./inbox.ts";
 import { buildUserMessage } from "./input.ts";
+import { shellCommandMessage } from "./shellInput.ts";
+import { CLAUDE_CAPABILITIES } from "./capabilities.ts";
 import { listClaudeCommands } from "./commands.ts";
 import { isEffortLevel, listClaudeModels } from "./models.ts";
 import {
@@ -587,6 +589,9 @@ const openSession = Effect.fnUntraced(function* (
   ) {
     turn?.pending.add(uuid);
 
+    if (input?.shellCommand !== undefined)
+      return { uuid, message: shellCommandMessage(uuid, input.shellCommand) };
+
     const message = yield* buildUserMessage({
       uuid,
       prompt,
@@ -861,7 +866,7 @@ export const makeClaudeDriver = (options: ClaudeDriverOptions = {}): HarnessDriv
 
   const claude: HarnessDriver = {
     kind: "claude",
-    capabilities: { steer: true, liveCoAttach: false, switchModel: true, stopBackground: true },
+    capabilities: CLAUDE_CAPABILITIES,
     probe,
     listModels: listClaudeModels(driver),
     listCommands: listClaudeCommands(driver),

@@ -4,7 +4,7 @@
  * the Harness can't switch).
  */
 import { fastToggle } from "../../harness/model/fast.ts";
-import type { SessionId } from "@polaris/protocol";
+import type { Command, SessionId } from "@polaris/protocol";
 import { useMemo, useState } from "react";
 import { type Harness, harnessHue } from "@polaris/ui";
 import { Commands, newSessionId } from "../../../commands.ts";
@@ -36,10 +36,11 @@ import {
 } from "../model/intent.ts";
 import { patchSessionUi, useSessionUi } from "../state.ts";
 import type { OutboxActions } from "../outbox.ts";
-import { promptFor, sentMessages } from "../../composer/index.ts";
+import { promptFor, sentMessages, shellDraft } from "../../composer/index.ts";
 import { RotatingVerb, useWorkingVerbs } from "../verbs/index.ts";
 import { type ComposerCommands, DraftComposer } from "./DraftComposer.tsx";
 import { useComposerCommands } from "./useComposerCommands.ts";
+import { type ShellMode, useShellMode } from "./useShellMode.ts";
 import { polarisAuthored, type SessionChrome, useSessionChrome } from "../chrome.ts";
 
 export interface SessionComposerProps {
@@ -130,7 +131,8 @@ const sentHistory = (turns: SessionModel["turns"], chrome: SessionChrome) =>
   sentMessages(
     turns.map(({ turn, items }) => ({
       id: turn.id,
-      prompt: turn.prompt,
+      // A shell command comes back in shell mode.
+      prompt: turn.shellCommand == null ? turn.prompt : shellDraft(turn.shellCommand),
       notTyped: (turn.trigger ?? null) !== null || (turn.feedback ?? null) !== null,
       items,
     })),
@@ -143,6 +145,21 @@ const SEND_FAILURES: Readonly<Record<ComposerMode["kind"], string>> = {
   queue: "Couldn't queue",
   answer: "Couldn't answer",
   blocked: "Couldn't send",
+};
+
+/** Whether ↵ does something: a command to send, a follow-up to queue, a shell command to run. */
+const canSubmit = (input: {
+  readonly chrome: SessionChrome;
+  readonly shell: ShellMode;
+  readonly command: Command | null;
+  readonly mode: ComposerMode;
+  readonly draft: string;
+}) => {
+  if (input.chrome.composer !== undefined) return input.draft.trim() !== "";
+
+  if (input.shell.active) return input.shell.ready;
+
+  return input.command !== null || (input.mode.kind === "queue" && input.draft.trim() !== "");
 };
 
 export const SessionComposer = (props: SessionComposerProps) => {
@@ -184,13 +201,25 @@ export const SessionComposer = (props: SessionComposerProps) => {
     openModels: () => setPickerOpen(true),
     toggleFast: fastToggle(fastAvailable, change.blocked, session, change.onModel),
   });
-  // What the Turn sends: a Codex custom prompt goes expanded (`promptFor`).
 
+  const shownCwd = tildePath(session.cwd, host?.status.host?.homeDir ?? null);
+
+  const shell = useShellMode({
+    hostKey,
+    uiKey,
+    sessionId: session.id,
+    harness: session.harness,
+    mode,
+    draft: ui.draft,
+    where: shownCwd,
+    outbox: props.outbox,
+    elsewhere: chrome.composer !== undefined,
+  });
+
+  // What the Turn sends: a Codex custom prompt goes expanded (`promptFor`).
   const text = promptFor(ui.draft, commands.options);
   const draft = { text, attachments: ui.attachments.map((a) => a.id) };
   const command = submitCommand(mode, session.id, draft);
-
-  const shownCwd = tildePath(session.cwd, host?.status.host?.homeDir ?? null);
 
   const { upload, uploads } = useUploads(
     {
@@ -203,6 +232,8 @@ export const SessionComposer = (props: SessionComposerProps) => {
   );
 
   const queue = () => {
+    if (shell.active) return shell.submit();
+
     if (!canQueue(mode) || (ui.draft.trim() === "" && ui.attachments.length === 0)) return;
 
     props.outbox.queue(text, ui.attachments);
@@ -211,6 +242,8 @@ export const SessionComposer = (props: SessionComposerProps) => {
 
   const submit = () => {
     if (chrome.composer !== undefined) return submitElsewhere(chrome.composer.onSubmit);
+
+    if (shell.active) return shell.submit();
 
     if (mode.kind === "queue") return queue();
 
@@ -278,11 +311,7 @@ export const SessionComposer = (props: SessionComposerProps) => {
       onChange={(text) => patchSessionUi(uiKey, () => ({ draft: text }))}
       onSubmit={submit}
       onQueue={canQueue(mode) ? queue : undefined}
-      canSubmit={
-        chrome.composer === undefined
-          ? command !== null || (mode.kind === "queue" && ui.draft.trim() !== "")
-          : ui.draft.trim() !== ""
-      }
+      canSubmit={canSubmit({ chrome, shell, command, mode, draft: ui.draft })}
       placeholder={chrome.composer?.placeholder ?? placeholderFor(mode)}
       working={
         isWorking && session.state === "working"
@@ -296,7 +325,8 @@ export const SessionComposer = (props: SessionComposerProps) => {
             }
           : undefined
       }
-      onEscape={isWorking ? stop : undefined}
+      onEscape={isWorking ? stop : shell.escape}
+      shell={shell.cue}
       attachments={ui.attachments}
       uploads={uploads}
       copyTo={shownCwd}

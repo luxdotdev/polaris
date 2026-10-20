@@ -45,6 +45,7 @@ const fetchModels = (harness: HarnessKind) =>
       harness,
       models: [...models],
       switchesModel: driver.capabilities.switchModel,
+      runsShellCommands: driver.capabilities.shellCommand === true,
       fetchedAt: new Date(yield* Clock.currentTimeMillis).toISOString(),
     });
   });

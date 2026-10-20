@@ -166,3 +166,22 @@ describe("composer commands", () => {
     expect(renameCommand(sessionId, "  ")).toBeNull();
   });
 });
+
+describe("shell commands", () => {
+  const shell = (text: string) => ({ text, attachments: [AttachmentId.make("a1")], shell: true });
+
+  test("between Turns `!cmd` runs the command, trimmed, without the staged attachments", () => {
+    const command = Commands.RunShellCommand({ sessionId, command: "git status" });
+
+    expect(submitCommand({ kind: "send" }, sessionId, shell("! git status "))).toEqual(command);
+    expect(queuedCommand(sessionId, shell("!git status"))).toEqual(command);
+  });
+
+  test("`!` alone runs nothing", () => {
+    expect(submitCommand({ kind: "send" }, sessionId, shell("!  "))).toBeNull();
+  });
+
+  test("mid-Turn a shell command never steers the agent", () => {
+    expect(submitCommand({ kind: "steer" }, sessionId, shell("!ls"))).toBeNull();
+  });
+});

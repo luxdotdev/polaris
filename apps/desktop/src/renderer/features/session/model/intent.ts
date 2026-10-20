@@ -17,6 +17,7 @@ import type {
 import { Commands, Decisions } from "../../../commands.ts";
 import { shortcutLabel } from "../../../../shared/chord.ts";
 import { FIELD_CHORDS } from "../../../../shared/keymap.ts";
+import { shellCommandOf } from "../../composer/index.ts";
 
 export type ComposerMode =
   /** A new Turn: `SendTurn`. */
@@ -90,7 +91,16 @@ export const canQueue = (mode: ComposerMode) => mode.kind === "steer" || mode.ki
 export interface Draft {
   readonly text: string;
   readonly attachments: ReadonlyArray<AttachmentId>;
+  /** A shell command (`!…`, shell mode): it runs as its own Turn, between Turns only. */
+  readonly shell?: boolean;
 }
+
+/** A shell draft's command, or null for `!` alone; attachments stay in the composer. */
+const shellCommand = (sessionId: SessionId, draft: Draft): Command | null => {
+  const command = shellCommandOf(draft.text);
+
+  return command === null ? null : Commands.RunShellCommand({ sessionId, command });
+};
 
 /** The command a submitted draft becomes, or null when there is nothing to send. */
 export const submitCommand = (
@@ -101,6 +111,9 @@ export const submitCommand = (
   const text = draft.text.trim();
 
   if (mode.kind === "blocked" || mode.kind === "queue") return null;
+
+  // Mid-Turn a shell command can't steer: the composer queues it for after the Turn.
+  if (draft.shell === true) return mode.kind === "send" ? shellCommand(sessionId, draft) : null;
 
   if (mode.kind === "steer") return text === "" ? null : Commands.Steer({ sessionId, text });
 
@@ -121,6 +134,7 @@ export const submitCommand = (
 
 /** A queued follow-up, sent as the next Turn once the one in flight ends. */
 export const queuedCommand = (sessionId: SessionId, draft: Draft): Command | null => {
+  if (draft.shell === true) return shellCommand(sessionId, draft);
   const prompt = draft.text.trim();
 
   if (prompt === "" && draft.attachments.length === 0) return null;

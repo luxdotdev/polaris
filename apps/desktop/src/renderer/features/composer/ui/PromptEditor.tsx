@@ -51,6 +51,8 @@ export interface PromptEditorProps {
   readonly onPicked: (option: CommandOption) => void;
   /** What the user sent here, oldest first, for ↑/↓ (`sentMessages`). */
   readonly history?: ReadonlyArray<string> | undefined;
+  /** Shell mode: the draft is a command, set in mono. */
+  readonly mono?: boolean | undefined;
 }
 
 const NO_HISTORY: ReadonlyArray<string> = [];
@@ -255,7 +257,11 @@ export default function PromptEditor(props: PromptEditorProps) {
         data-testid="composer-input"
         data-slot="prompt"
         onFocus={props.onFocus}
-        className="text-body text-text-default composer-prompt max-h-60 min-h-(--text-body--line-height) w-full min-w-0 overflow-y-auto break-words whitespace-pre-wrap outline-none"
+        className={cn(
+          "text-body text-text-default composer-prompt max-h-60 min-h-(--text-body--line-height) w-full min-w-0 overflow-y-auto break-words whitespace-pre-wrap outline-none",
+          props.mono === true && "font-mono"
+        )}
+        data-shell={props.mono === true ? "" : undefined}
       />
       {draft.text === "" ? (
         <div

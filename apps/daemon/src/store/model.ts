@@ -399,6 +399,7 @@ export const patchTurn = (turn: Turn, patch: TurnPatch): Turn =>
     serviceTier: turn.serviceTier,
     status: turn.status,
     feedback: turn.feedback,
+    shellCommand: turn.shellCommand,
     checkpointBefore: turn.checkpointBefore,
     checkpointAfter: turn.checkpointAfter,
     startedAt: turn.startedAt,

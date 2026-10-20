@@ -71,6 +71,8 @@ export const makeFakeDriver = (
     readonly steer?: boolean;
     readonly liveCoAttach?: boolean;
     readonly switchModel?: boolean;
+    /** Reads the user's shell commands (`RunShellCommand`), like Claude. */
+    readonly shellCommand?: boolean;
     /** Events emitted in reply to each Turn; default is none (the test drives it). */
     readonly onTurn?: (
       input: TurnInput,
@@ -114,6 +116,7 @@ export const makeFakeDriver = (
       liveCoAttach: options.liveCoAttach ?? false,
       switchModel: options.switchModel ?? true,
       stopBackground: true,
+      shellCommand: options.shellCommand ?? false,
     },
     probe: Effect.succeed({ available: true, version: "fake", detail: null }),
     open: (openOptions) =>

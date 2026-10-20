@@ -225,11 +225,19 @@ export interface ModelsState {
   readonly models: ReadonlyArray<ModelData>;
   /** The Harness can change an Agent Session's Model between Turns (`SetModel`). */
   readonly switchesModel: boolean;
+  /** The Harness takes the user's shell commands (`RunShellCommand`); false from older Daemons. */
+  readonly runsShellCommands: boolean;
   readonly error: string | null;
   readonly loading: boolean;
 }
 
-const NO_MODELS: ModelsState = { models: [], switchesModel: false, error: null, loading: true };
+const NO_MODELS: ModelsState = {
+  models: [],
+  switchesModel: false,
+  runsShellCommands: false,
+  error: null,
+  loading: true,
+};
 
 const modelCache = new Map<string, Promise<ModelsState>>();
 
