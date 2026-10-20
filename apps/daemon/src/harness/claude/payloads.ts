@@ -88,6 +88,8 @@ const ToolFields = Schema.Struct({
   type: StringOrNull,
   stdout: StringOrNull,
   stderr: StringOrNull,
+  /** On a Bash result: the background task the command moved to. */
+  backgroundTaskId: StringOrNull,
   /** The Agent (Task) tool's helper kind and Model override. */
   subagent_type: StringOrNull,
   model: StringOrNull,
@@ -108,6 +110,7 @@ const NO_FIELDS: ToolFields = {
   type: null,
   stdout: null,
   stderr: null,
+  backgroundTaskId: null,
   subagent_type: null,
   model: null,
   message: null,

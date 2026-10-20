@@ -54,6 +54,8 @@ export const Capability = Schema.Literals([
   "session.turn-paging",
   /** The `StopBackgroundTasks` command. */
   "session.stop-background",
+  /** The `BackgroundCommand` command, and `HarnessModels.backgroundsCommands`. */
+  "session.background-command",
   /** `SessionCompacted` and `AgentSession.lastCompaction`; `ContextUsage`'s breakdown fields need nothing. */
   "session.compaction",
   /** `SessionNotified`: an agent's notification for the user (MCP `notify`). */

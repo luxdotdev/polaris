@@ -94,8 +94,8 @@ const make = Effect.gen(function* () {
   /** What the session's Harness driver declares, for the commands that depend on it. */
   const driverCan = (
     command: Command,
-    tag: "Steer" | "SetModel" | "StopBackgroundTasks",
-    can: "steer" | "switchModel" | "stopBackground"
+    tag: "Steer" | "SetModel" | "StopBackgroundTasks" | "BackgroundCommand",
+    can: "steer" | "switchModel" | "stopBackground" | "backgroundCommand"
   ) =>
     Effect.gen(function* () {
       if (!Predicate.isTagged(command, tag)) return false;
@@ -107,6 +107,14 @@ const make = Effect.gen(function* () {
 
       return Option.isSome(driver) && driver.value.capabilities[can] === true;
     });
+
+  /** For BackgroundCommand: the ids of the session's commands running now. */
+  const runningCommands = (command: Command): ReadonlyArray<string> =>
+    Predicate.isTagged(command, "BackgroundCommand")
+      ? [...(rt.progress.get(command.sessionId)?.values() ?? [])].flatMap(({ item }) =>
+          Predicate.isTagged(item, "CommandExecution") && item.status === "running" ? [item.id] : []
+        )
+      : [];
 
   const namedTurn = (command: Command) => {
     if (Predicate.isTagged(command, "ForkSession"))
@@ -152,6 +160,8 @@ const make = Effect.gen(function* () {
       canSteer: yield* driverCan(command, "Steer", "steer"),
       canSwitchModel: yield* driverCan(command, "SetModel", "switchModel"),
       canStopBackground: yield* driverCan(command, "StopBackgroundTasks", "stopBackground"),
+      canBackgroundCommand: yield* driverCan(command, "BackgroundCommand", "backgroundCommand"),
+      runningCommands: runningCommands(command),
       namedTurn: yield* namedTurn(command),
       judgedSummary: yield* judgedSummary(command),
     };

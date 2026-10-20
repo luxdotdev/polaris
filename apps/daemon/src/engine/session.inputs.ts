@@ -46,6 +46,13 @@ export const eventSchemas = {
       canStop: Schema.Boolean,
     })
   ),
+  "command.background": standard(
+    Schema.Struct({
+      itemId: Schema.NullOr(Schema.String),
+      canBackground: Schema.Boolean,
+      running: Schema.Array(Schema.String),
+    })
+  ),
   "approval.respond": standard(
     Schema.Struct({ requestId: RequestId, decision: ApprovalDecision, resolvedBy: Schema.String })
   ),

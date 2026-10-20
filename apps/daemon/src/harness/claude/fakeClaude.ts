@@ -28,6 +28,7 @@ type FakeQuery = Pick<
   | typeof Symbol.asyncIterator
   | "interrupt"
   | "stopTask"
+  | "backgroundTasks"
   | "setPermissionMode"
   | "setModel"
   | "applyFlagSettings"
@@ -63,6 +64,9 @@ export class FakeClaude {
   interrupts = 0;
   /** Task ids the driver asked to stop. */
   readonly stoppedTasks: Array<string> = [];
+  /** `backgroundTasks` calls (undefined: every foreground task), and what the fake answers. */
+  readonly backgrounded: Array<string | undefined> = [];
+  backgroundReply: boolean | Error = true;
   closed = false;
   /** How often the driver asked `get_usage`, and what the fake answers (a reply or a failure). */
   usageCalls = 0;
@@ -118,6 +122,13 @@ export class FakeClaude {
       },
       stopTask: async (taskId) => {
         this.stoppedTasks.push(taskId);
+      },
+      backgroundTasks: async (toolUseId) => {
+        this.backgrounded.push(toolUseId);
+
+        if (this.backgroundReply instanceof Error) throw this.backgroundReply;
+
+        return this.backgroundReply;
       },
       setPermissionMode: async (mode) => {
         if (this.refuses.has("setPermissionMode")) throw new Error("Auto mode is unavailable");

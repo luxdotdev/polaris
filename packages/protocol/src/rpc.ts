@@ -1,7 +1,7 @@
 /**
  * Portions adapted from pingdotgg/t3code@de251fc (MIT): resumable sequenced subscriptions.
  */
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 
 import { FileContent, FileEntry, FileError, EditorFileRpcs } from "./files.ts";
 
@@ -249,6 +249,8 @@ export class HarnessModels extends Schema.Class<HarnessModels>("HarnessModels")(
    * Otherwise a Client offers a Fork with the new Model instead.
    */
   switchesModel: Schema.Boolean,
+  /** The Harness can move a running command into the background (`BackgroundCommand`). */
+  backgroundsCommands: Schema.Boolean.pipe(Schema.withDecodingDefaultKey(Effect.succeed(false))),
   /** When the Daemon last asked the Harness; the list is cached per Host. */
   fetchedAt: Timestamp,
 }) {}

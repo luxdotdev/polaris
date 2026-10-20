@@ -78,6 +78,11 @@ export const Command = Schema.TaggedUnion({
     sessionId: SessionId,
     taskIds: Schema.NullOr(Schema.Array(Schema.String)),
   },
+  /**
+   * Move a command the Turn is waiting on into the background, as Ctrl-B does in Claude
+   * Code: the one item named, or every one when null (capability `session.background-command`).
+   */
+  BackgroundCommand: { sessionId: SessionId, itemId: Schema.NullOr(Schema.String) },
   /** Continue an Interrupted Turn after a Daemon restart. Never done automatically. */
   Continue: { sessionId: SessionId },
   /** Send a Failed Turn's prompt and attachments again, as a new Turn. */

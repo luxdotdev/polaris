@@ -4,6 +4,7 @@
  */
 import {
   backgroundStopRefusal,
+  commandBackgroundRefusal,
   backgroundTasksChanged,
   idleStopEffect,
   backgroundIdleStop,
@@ -400,6 +401,8 @@ export const sessionMachine = createMachine({
     },
     "background.stop": ({ context, event }, enq) =>
       reject(enq, backgroundStopRefusal(need(context), event)),
+    "command.background": ({ context, event }, enq) =>
+      reject(enq, commandBackgroundRefusal(need(context), event)),
     "turn.interrupt": ({ context }, enq) => {
       if (workingTurn(need(context)) === undefined) reject(enq, "there is no Turn in flight");
     },
