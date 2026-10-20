@@ -65,6 +65,32 @@ export function ComposerSection() {
         branch="spike/gpui-review"
         working={{ elapsed: "8s", onStop: () => undefined }}
       />
+      <Composer
+        harness="claude"
+        model="Opus 5"
+        branch="main"
+        defaultValue="!git status"
+        shell={{
+          where: (
+            <>
+              runs in <span className="font-mono">~/code/polaris</span>
+            </>
+          ),
+        }}
+      />
+      <Composer
+        harness="claude"
+        model="Opus 5"
+        branch="main"
+        working={{ elapsed: "1m 12s", onStop: () => undefined }}
+        shell={{
+          where: (
+            <>
+              runs after this turn, in <span className="font-mono">~/code/polaris</span>
+            </>
+          ),
+        }}
+      />
     </Section>
   );
 }
