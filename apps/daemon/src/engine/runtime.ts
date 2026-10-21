@@ -38,6 +38,7 @@ import { type CommitResult, EventStore } from "../store/EventStore.ts";
 import { waitingOnBackgroundWork } from "./session.backgroundTasks.ts";
 import type { ReadModel, SessionRecord } from "../store/model.ts";
 import { decideSession, type SessionEffect, type SessionInput } from "./session.ts";
+import type { ShellJob } from "./shellCommands.ts";
 
 export type SignalResult = CommitResult & { readonly effects: ReadonlyArray<SessionEffect> };
 
@@ -104,6 +105,7 @@ const make = Effect.gen(function* () {
   const engineScope = yield* Effect.scope;
   const live = new Map<SessionId, LiveHarness>();
   const progress = new Map<SessionId, Map<string, Progress>>();
+  const shellJobs = new Map<SessionId, ShellJob>();
   const idleTimers = yield* FiberMap.make<SessionId>();
   const sessionLocks = new Map<SessionId, Semaphore.Semaphore>();
   const now = Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString());
@@ -342,6 +344,7 @@ const make = Effect.gen(function* () {
     terminalLaunch: new Map(),
     followers: new Map(),
     progress,
+    shellJobs,
     now,
     serially,
     recordFor,
@@ -376,6 +379,8 @@ export class EngineRuntime extends Context.Service<
     readonly followers: Map<SessionId, TerminalFollower>;
     /** Items in progress per session, so a Client that subscribes mid-Turn sees them. */
     readonly progress: Map<SessionId, Map<string, Progress>>;
+    /** The user's shell command per session (`RunShellCommand`), until the Harness has it. */
+    readonly shellJobs: Map<SessionId, ShellJob>;
     readonly now: Effect.Effect<string>;
     /** Reactor work and Harness lifecycle changes for one session run one at a time. */
     readonly serially: (

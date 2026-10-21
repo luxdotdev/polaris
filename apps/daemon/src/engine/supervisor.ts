@@ -36,8 +36,7 @@ import { finalReply, forkPreamble } from "./fork.ts";
 import { EngineRuntime, type EventSource, type LiveHarness, type Progress } from "./runtime.ts";
 import { deferredUserTurns, refuseUserTurn } from "./supervisor.turns.ts";
 import { HarnessTurnAliases } from "./supervisor.aliases.ts";
-import { ShellCommands } from "./shellCommands.ts";
-import { shellTurns } from "./supervisor.shell.ts";
+import type { ShellTurn } from "./supervisor.shell.ts";
 import { DEFAULT_HARNESS_START_TIMEOUT, timedStart } from "./supervisor.start.ts";
 import { shortHostName } from "../service/hostName.ts";
 
@@ -58,8 +57,7 @@ const make = (
   policy: Option.Option<ApprovalPolicy["Service"]>,
   attachments: ConstellationHarnessService,
   liveness: ConstellationLivenessService,
-  usage: Option.Option<UsageIndex["Service"]>,
-  shell: ShellCommands["Service"]
+  usage: Option.Option<UsageIndex["Service"]>
 ): Supervisor["Service"] => {
   const { store, live, progress } = rt;
 
@@ -494,7 +492,7 @@ const make = (
           };
 
           if (input.shellCommand != null) {
-            yield* shellTurn.start({ sessionId, command: input.shellCommand, turnInput });
+            yield* startShellTurn({ sessionId, command: input.shellCommand, turnInput });
 
             return true;
           }
@@ -522,15 +520,20 @@ const make = (
       );
     });
 
-  const shellTurn = shellTurns(rt, shell, (sessionId, turnId) =>
+  const endInterrupted = (sessionId: SessionId, turnId: TurnId) =>
     Effect.flatMap(rt.now, (at) =>
       onTurnEnded(
         sessionId,
         HarnessEvent.TurnEnded({ turnId, status: "interrupted", error: null }),
         at
       )
-    )
-  );
+    );
+
+  // Loaded on a session's first shell command, so the Daemon's start-up never pays for it.
+  const startShellTurn = (turn: ShellTurn) =>
+    Effect.promise(() => import("./supervisor.shell.ts")).pipe(
+      Effect.flatMap(({ shellTurns }) => shellTurns(rt, endInterrupted).start(turn))
+    );
 
   const enqueue = deferredUserTurns(rt, deliverTurn);
 
@@ -607,8 +610,7 @@ export class Supervisor extends Context.Service<
         yield* Effect.serviceOption(ApprovalPolicy),
         yield* ConstellationHarness,
         yield* ConstellationLiveness,
-        yield* Effect.serviceOption(UsageIndex),
-        yield* ShellCommands
+        yield* Effect.serviceOption(UsageIndex)
       );
     })
   );

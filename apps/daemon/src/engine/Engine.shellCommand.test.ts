@@ -26,6 +26,14 @@ import {
 
 type Env = Engine | EventStore;
 
+const windows = process.platform === "win32";
+
+/** Git Bash's `pwd` prints an MSYS path (`/tmp/…`); `-W` prints the directory as Windows has it. */
+const PWD = windows ? "pwd -W" : "pwd";
+
+const printedDir = (dir: string) =>
+  windows ? realpathSync(dir).replaceAll("\\", "/") : realpathSync(dir);
+
 const run = <A, E>(layer: Layer.Layer<Env>, program: Effect.Effect<A, E, Env>) =>
   Effect.runPromise(program.pipe(Effect.provide(layer)));
 
@@ -83,7 +91,7 @@ test("a shell command runs in the session's directory, then the Harness reads it
     layerFor(driver),
     Effect.gen(function* () {
       const cwd = yield* startSession("claude", sessionId);
-      const command = "pwd; echo oops >&2; exit 3";
+      const command = `${PWD}; echo oops >&2; exit 3`;
 
       yield* dispatch(Command.cases.RunShellCommand.make({ sessionId, command: `  ${command} ` }));
 
@@ -103,7 +111,7 @@ test("a shell command runs in the session's directory, then the Harness reads it
       // The Harness got the command's output, not the prompt as text.
       expect(driver.latest(sessionId)!.turns.at(-1)!.shellCommand).toEqual({
         command,
-        stdout: `${realpathSync(cwd)}\n`,
+        stdout: `${printedDir(cwd)}\n`,
         stderr: "oops\n",
         exitCode: 3,
         failure: null,
