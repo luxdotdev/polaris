@@ -66,6 +66,7 @@ import {
   serveRenderer,
 } from "./protocol.ts";
 import { internetFetch } from "./net.ts";
+import { distrustInSession } from "./tls/distrust.ts";
 import { openPrices } from "./prices.ts";
 import { openSnapshotCache } from "./snapshotCache.ts";
 import type { SessionPrefsPatch } from "../shared/contract.ts";
@@ -165,6 +166,8 @@ let exiting = false;
 const trusted = (url: string) => isTrustedUrl(url, devUrl);
 
 const start = async () => {
+  // Before any request: the GitHub client, updates and prices all use the default session.
+  distrustInSession(session.defaultSession);
   showIcon({ repoRoot });
   await userPathReady;
   const file = settingsPath(app.getPath("userData"));
