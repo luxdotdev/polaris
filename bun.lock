@@ -16,7 +16,7 @@
     },
     "apps/daemon": {
       "name": "@polaris/daemon",
-      "version": "0.1.0",
+      "version": "0.2.1",
       "bin": {
         "polaris": "./src/main.ts",
       },
@@ -53,7 +53,7 @@
     },
     "apps/desktop": {
       "name": "@polaris/desktop",
-      "version": "0.1.0",
+      "version": "0.2.1",
       "dependencies": {
         "@codemirror/autocomplete": "6.20.3",
         "@codemirror/commands": "^6.11.1",
@@ -117,7 +117,7 @@
         "@types/react-dom": "19.3.0",
         "@vitejs/plugin-react": "6.1.1",
         "babel-plugin-react-compiler": "1.0.0",
-        "electron": "44.4.5",
+        "electron": "44.9.3",
         "electron-winstaller": "5.4.4",
         "playwright-core": "1.63.0",
         "tailwindcss": "4.3.3",
@@ -1601,7 +1601,7 @@
 
     "effect": ["effect@4.0.0-rc.118", "", {}, "sha512-hxhpCd+swzrtu9lnyPpEFre2ODQzJ9qxgyL1oHIEY8NKnW4PxTbM1XzplMZXiAsLD62HO+KJc41Nqxr9T791ZQ=="],
 
-    "electron": ["electron@44.4.5", "", { "dependencies": { "@electron-internal/extract-zip": "^1.0.1", "@electron/get": "^5.0.0", "@types/node": "^24.9.0" }, "bin": { "electron": "cli.js", "install-electron": "install.js" } }, "sha512-SjgoaeYsSWZfJzubgQU7juvuXMTvn6/e1gAHdGFA/yuMbpF+I+skYqIJ6DdXBXHeWbkbpNpmwZCTpiivtlWZSw=="],
+    "electron": ["electron@44.9.3", "", { "dependencies": { "@electron-internal/extract-zip": "^1.0.1", "@electron/get": "^5.0.0", "@types/node": "^24.9.0" }, "bin": { "electron": "cli.js", "install-electron": "install.js" } }, "sha512-Cv9/yMnZxNWsMlIe8T4v//NKHdUvbeyoTJoXE3BIcRxus2meeFaO9h/P3zB5d4cBXum51IgAYrT2QjpIDWKpJA=="],
 
     "electron-to-chromium": ["electron-to-chromium@1.5.440", "", {}, "sha512-SghDzqdJokdz8zP8YNlvS74+CwLRoUPDGvP/gFA+HrKVw+pOshUAgx8pXR37xl/u16zGae746rFNWvZ/22kU2Q=="],
 

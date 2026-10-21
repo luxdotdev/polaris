@@ -11,6 +11,7 @@ import { discoverDistros } from "@polaris/client/wsl";
 import { Layer } from "effect";
 import { shell } from "electron";
 import type { LocalHost } from "../local/index.ts";
+import { internetFetch } from "../net.ts";
 import { approvalsPath, openApprovals } from "./approvals.ts";
 import { locateBuilds } from "./builds.ts";
 import { Machines, type SettingsStore } from "./service.ts";
@@ -51,6 +52,7 @@ export const machinesLayer = (input: MachinesLayerInput) =>
     download: downloadBuild({
       cacheDir: join(input.userData, "daemon-builds"),
       clientVersion: input.appVersion,
+      fetch: internetFetch,
     }),
     clientVersion: input.appVersion,
     builds: locateBuilds({

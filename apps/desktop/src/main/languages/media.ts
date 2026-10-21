@@ -7,6 +7,7 @@ import { LanguageAccess, abortable, languageFailure } from "@polaris/client";
 import * as P from "@polaris/protocol";
 import { LanguagePreviewMediaView } from "../../shared/languages.ts";
 import { admitRaster } from "../../shared/raster/index.ts";
+import { distrustingServerIdentity } from "../tls/distrust.ts";
 import type { LanguagePreferences } from "./settings.ts";
 
 export const publicImageAddress = (address: string): boolean => {
@@ -52,6 +53,7 @@ export const imageNetwork: ImageNetwork = {
           method: "GET",
           agent: false,
           family: 4,
+          checkServerIdentity: distrustingServerIdentity,
           headers: { Accept: "image/png,image/jpeg,image/gif,image/webp,image/avif" },
           lookup: (_hostname, options, callback) => {
             if (options.all) callback(null, [{ address, family: 4 }]);
