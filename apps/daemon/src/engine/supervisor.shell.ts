@@ -2,13 +2,14 @@
  * A shell command Turn (`RunShellCommand`) once its Harness is open: the command runs
  * outside the session's reactor lock (so Interrupt and steers reach it), then, back under
  * the lock, the Harness gets its output as the Turn's input and any steers held meanwhile.
+ * The supervisor loads it when a session first runs a shell command.
  */
 import type { SessionId, TurnId } from "@polaris/protocol";
 import { Effect } from "effect";
 import type { ShellCommandRun, TurnInput } from "../harness/HarnessDriver.ts";
 import type { ServiceError } from "../services.ts";
 import type { EngineRuntime } from "./runtime.ts";
-import type { ShellCommands, ShellJob } from "./shellCommands.ts";
+import { beginShellJob, endShellJob, runShellJob, type ShellJob } from "./shellCommands.ts";
 
 export interface ShellTurn {
   readonly sessionId: SessionId;
@@ -18,7 +19,6 @@ export interface ShellTurn {
 
 export const shellTurns = (
   rt: EngineRuntime["Service"],
-  shell: ShellCommands["Service"],
   /** Ends the Turn Interrupted, as the Harness would report it. */
   endInterrupted: (sessionId: SessionId, turnId: TurnId) => Effect.Effect<void, ServiceError>
 ) => {
@@ -26,7 +26,7 @@ export const shellTurns = (
     Effect.gen(function* () {
       const { sessionId, turnInput } = turn;
 
-      shell.end(job);
+      endShellJob(rt, job);
 
       const current = (yield* rt.store.model).sessions
         .get(sessionId)
@@ -53,14 +53,16 @@ export const shellTurns = (
   const start = (turn: ShellTurn) =>
     Effect.gen(function* () {
       // Before the fork: an Interrupt queued behind this reactor must find the job.
-      const job = shell.begin(turn.sessionId, turn.turnInput.turnId);
+      const job = beginShellJob(rt, turn.sessionId, turn.turnInput.turnId);
 
-      yield* shell.run(job, turn.command).pipe(
+      yield* runShellJob(rt, job, turn.command).pipe(
         Effect.flatMap((run) => rt.serially(turn.sessionId)(deliver(turn, job, run))),
         Effect.catch((error) =>
           rt.serially(turn.sessionId)(rt.failSession(turn.sessionId, error.message))
         ),
-        Effect.ensuring(Effect.sync(() => shell.end(job))),
+        // The Engine stopping ends the command and everything it started.
+        Effect.onInterrupt(() => Effect.sync(() => job.controller.abort())),
+        Effect.ensuring(Effect.sync(() => endShellJob(rt, job))),
         Effect.forkIn(rt.engineScope)
       );
     });

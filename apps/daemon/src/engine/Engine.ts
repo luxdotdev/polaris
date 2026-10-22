@@ -48,7 +48,6 @@ import {
   Streams,
   type TurnPageRequest,
 } from "./streams.ts";
-import { ShellCommands } from "./shellCommands.ts";
 import { Supervisor } from "./supervisor.ts";
 import { TerminalHandoff } from "./terminal.ts";
 import { Worktrees } from "./worktrees.ts";
@@ -125,7 +124,6 @@ const EngineParts = Layer.mergeAll(Dispatcher.layer, Streams.layer).pipe(
     )
   ),
   Layer.provideMerge(Supervisor.layer),
-  Layer.provideMerge(ShellCommands.layer),
   Layer.provideMerge(EngineRuntime.layer),
   (parts) => Layer.mergeAll(LimitResume.layer, AutoArchive.layer).pipe(Layer.provideMerge(parts))
 );

@@ -3,9 +3,12 @@
  * session's directory, with no terminal. Each stream is capped, the command times out, and
  * aborting its signal (Interrupt) ends it and everything it started.
  */
+import { existsSync } from "node:fs";
+import { gitExecutable } from "../git/executable.ts";
 import { executableOf } from "../platform/executable.ts";
-import { killTree, ownProcessGroup, shellCommand } from "../platform/processes.ts";
+import { killTree, ownProcessGroup } from "../platform/processes.ts";
 import { loginShell } from "../terminal/shell.ts";
+import { windowsShellArgv, type WindowsShellSources } from "./shellRun.windows.ts";
 
 /** Characters kept of each stream (Claude Code's Bash tool keeps about as many). */
 export const SHELL_OUTPUT_LIMIT = 30_000;
@@ -102,19 +105,35 @@ const drainedWithin = async (
   return drained;
 };
 
-/** The argv: the login shell's `-l -c` on macOS and Linux (the user's PATH), cmd.exe on Windows. */
-export const shellArgv = (command: string, os: string = process.platform) =>
+const hostSources = (env: ShellRunOptions["env"]): WindowsShellSources => ({
+  env,
+  exists: existsSync,
+  gitOnPath: () => {
+    try {
+      return gitExecutable(env);
+    } catch {
+      return null;
+    }
+  },
+});
+
+/** The argv: the login shell's `-l -c` on macOS and Linux (the user's PATH), Git Bash first on Windows. */
+export const shellArgv = (
+  command: string,
+  os: string = process.platform,
+  windows: WindowsShellSources = hostSources(process.env)
+) =>
   os === "win32"
-    ? shellCommand(command, os)
-    : { argv: [loginShell(), "-l", "-c", command], windowsVerbatimArguments: false };
+    ? windowsShellArgv(command, windows)
+    : { argv: [loginShell(), "-l", "-c", command], windowsVerbatimArguments: false, env: {} };
 
 const spawn = (options: ShellRunOptions) => {
-  const shell = shellArgv(options.command);
+  const shell = shellArgv(options.command, process.platform, hostSources(options.env));
   const [program = "/bin/sh", ...args] = shell.argv;
 
   return Bun.spawn([executableOf(program, options.env), ...args], {
     cwd: options.cwd,
-    env: options.env,
+    env: { ...options.env, ...shell.env },
     stdin: "ignore",
     stdout: "pipe",
     stderr: "pipe",
