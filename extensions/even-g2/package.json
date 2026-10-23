@@ -1,0 +1,28 @@
+{
+  "name": "@polaris/even-g2",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Polaris on Even Realities G2 glasses: agent sessions, approvals and voice replies.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "dev:glasses": "vite",
+    "build": "vite build",
+    "pack": "bun scripts/pack.ts",
+    "simulate": "bun scripts/simulate.ts",
+    "typecheck": "tsc -p .",
+    "test": "bun ../../tooling/test/watchdog.ts"
+  },
+  "dependencies": {
+    "@evenrealities/even_hub_sdk": "0.0.16",
+    "@polaris/sdk": "workspace:*",
+    "effect": "4.0.0-rc.118",
+    "jsqr": "1.4.0"
+  },
+  "devDependencies": {
+    "@evenrealities/evenhub-cli": "0.2.0",
+    "@evenrealities/evenhub-simulator": "0.9.5",
+    "@polaris/protocol": "workspace:*",
+    "vite": "8.3.1"
+  }
+}

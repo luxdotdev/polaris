@@ -10,7 +10,7 @@
     "apps/*",
     "packages/*",
     "tooling",
-    "extensions/even-g2/spike"
+    "extensions/even-g2"
   ],
   "scripts": {
     "build": "turbo run build",

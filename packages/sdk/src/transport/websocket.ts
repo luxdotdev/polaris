@@ -80,7 +80,8 @@ export const webSocketTransport = (
       incoming: Stream.fromQueue(incoming),
       write: (bytes) =>
         socket.readyState === WebSocket.OPEN
-          ? Effect.sync(() => socket.send(bytes))
+          ? // SAFETY: the Wire encodes frames into fresh ArrayBuffers, never shared memory.
+            Effect.sync(() => socket.send(bytes as Uint8Array<ArrayBuffer>))
           : Effect.fail(new TransportError({ message: "the gateway connection is closed" })),
       close: Effect.sync(() => socket.close(NORMAL_CLOSURE)),
     } satisfies ByteTransport;
