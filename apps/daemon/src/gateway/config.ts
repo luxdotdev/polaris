@@ -1,12 +1,6 @@
 /**
- * The gateway's settings and its record. `~/.polaris/daemon.json` is the
- * Daemon's settings file (`{ "gateway": { "port": 7477 } }`), read once at
- * startup; `POLARIS_GATEWAY_PORT` overrides it for dev Daemons side by side,
- * and 0 asks for an ephemeral port. `~/.polaris/gateway.json` is
- * `{ port, nonce }` while the gateway listens: the port Remote Access proxies
- * to, and a nonce fresh at every start that `GET /polaris/identity` answers
- * with, so Remote Access can prove the port is this Daemon's before it sends
- * tokens that way (ENG-400).
+ * Gateway settings and the private identity record (ADR 0076).
+ * daemon.json sets the port; gateway.json holds a fresh HMAC key per start.
  */
 import { randomBytes } from "node:crypto";
 import {
@@ -26,7 +20,7 @@ export const GATEWAY_DEFAULT_PORT = 7477;
 /** The WebSocket path; the Tailscale proxy keeps the prefix (ADR 0076). */
 export const GATEWAY_PATH = "/polaris/rpc";
 
-/** `GET` here answers `{ nonce }`, the one in `gateway.json`: no auth, nothing else. */
+/** `POST` here proves possession of the private secret without disclosing it. */
 export const GATEWAY_IDENTITY_PATH = "/polaris/identity";
 
 const Port = Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 65535 }));
@@ -65,7 +59,11 @@ export const configuredGatewayPort = Effect.fn("configuredGatewayPort")(function
   return config.value.gateway?.port ?? GATEWAY_DEFAULT_PORT;
 });
 
-export const GatewayRecord = Schema.Struct({ port: Port, nonce: Schema.String });
+export const Base64Url32 = Schema.String.check(
+  Schema.isPattern(/^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/)
+);
+
+export const GatewayRecord = Schema.Struct({ port: Port, secret: Base64Url32 });
 
 export type GatewayRecord = typeof GatewayRecord.Type;
 
@@ -74,16 +72,21 @@ const encodeRecord = Schema.encodeSync(Schema.fromJsonString(GatewayRecord));
 const decodeRecord = Schema.decodeUnknownOption(Schema.fromJsonString(GatewayRecord));
 
 /** 32 random bytes, base64url: new at every start of the gateway. */
-export const newGatewayNonce = (): string => randomBytes(32).toString("base64url");
+export const newGatewaySecret = (): string => randomBytes(32).toString("base64url");
 
 /** Writes the record atomically, readable by this user only, in a directory only they enter. */
 export const writeGatewayRecord = (path: string, record: GatewayRecord): void => {
   const directory = dirname(path);
   mkdirSync(directory, { recursive: true, mode: 0o700 });
   chmodSync(directory, 0o700);
-  const temporary = `${path}.${process.pid}.tmp`;
-  writeFileSync(temporary, `${encodeRecord(record)}\n`, { mode: 0o600 });
-  renameSync(temporary, path);
+  const temporary = `${path}.${randomBytes(16).toString("hex")}.tmp`;
+
+  try {
+    writeFileSync(temporary, `${encodeRecord(record)}\n`, { mode: 0o600, flag: "wx" });
+    renameSync(temporary, path);
+  } finally {
+    rmSync(temporary, { force: true });
+  }
 };
 
 /** The record, or null when there is none or it is not one (no gateway is running). */

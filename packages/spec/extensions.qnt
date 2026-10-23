@@ -21,7 +21,7 @@ module extensions {
   type Need = Open | ClientOnly | Needs(str)
   type Outcome =
     | Nothing
-    | HelloOk | HelloRefused
+    | HelloOk | HelloRefused | VersionRefused
     | Allowed | Refused(str) | NotForExtensions | Dropped
     | RevokeOk | RevokeUnknown
 
@@ -33,6 +33,7 @@ module extensions {
   var pending: int -> int
   /** The gateway opts in before accepting requests. */
   var required: Set[int]
+  var negotiated: Set[int]
   /** What the last action observed, for scenarios and trace replay. */
   var mode: str
   var last: Outcome
@@ -50,7 +51,7 @@ module extensions {
     pairings' = Map(),
     scoped' = CONNECTIONS.mapBy(c => UNBOUND),
     live' = CONNECTIONS.mapBy(c => true),
-    pending' = Map(), required' = Set(), mode' = "supervised",
+    pending' = Map(), required' = Set(), negotiated' = Set(), mode' = "supervised",
     last' = Nothing,
   }
 
@@ -59,12 +60,12 @@ module extensions {
     not(pairings.keys().contains(id)),
     pairings' = pairings.put(id, { grant: grant, revoked: false }),
     scoped' = scoped, live' = live, last' = Nothing,
-    pending' = pending, required' = required, mode' = mode,
+    pending' = pending, required' = required, negotiated' = negotiated, mode' = mode,
   }
 
   // ── extensions.revoke: the Pairing is revoked and its live connections closed ──
   action revoke(id: int): bool = all {
-    pending' = pending, required' = required, mode' = mode,
+    pending' = pending, required' = required, negotiated' = negotiated, mode' = mode,
     if (pairings.keys().contains(id)) all {
       pairings' = pairings.set(id, { ...pairings.get(id), revoked: true }),
       live' = live.keys().mapBy(c => live.get(c) and scoped.get(c) != id),
@@ -83,7 +84,7 @@ module extensions {
   // ── hello: the first role sticks; every bad token seals and closes it ──
   action hello(c: int, p: int): bool = all {
     live.get(c), not(pending.keys().contains(c)),
-    pairings' = pairings, pending' = pending, required' = required, mode' = mode,
+    pairings' = pairings, pending' = pending, required' = required, negotiated' = if (refuseHello(c, p)) negotiated else negotiated.union(Set(c)), mode' = mode,
     if (refuseHello(c, p)) all {
       scoped' = scoped.set(c, NONE), live' = live.set(c, false), last' = HelloRefused,
     }
@@ -95,14 +96,14 @@ module extensions {
 
   action requireToken(c: int): bool = all {
     scoped.get(c) == UNBOUND, live.get(c),
-    required' = required.union(Set(c)), mode' = mode, pairings' = pairings, scoped' = scoped,
+    required' = required.union(Set(c)), negotiated' = negotiated, mode' = mode, pairings' = pairings, scoped' = scoped,
     live' = live, pending' = pending, last' = Nothing,
   }
 
   action beginHello(c: int, p: int): bool = all {
     live.get(c), scoped.get(c) == UNBOUND, p != NONE,
     scoped' = scoped.set(c, AUTHENTICATING), pending' = pending.put(c, p),
-    pairings' = pairings, live' = live, required' = required, mode' = mode, last' = Nothing,
+    pairings' = pairings, live' = live, required' = required, negotiated' = negotiated, mode' = mode, last' = Nothing,
   }
 
   action finishHello(c: int): bool = all {
@@ -111,19 +112,27 @@ module extensions {
     all {
       scoped' = scoped.set(c, if (valid(p)) p else NONE),
       live' = live.set(c, valid(p)), last' = if (valid(p)) HelloOk else HelloRefused,
-      pairings' = pairings, pending' = pending.keys().exclude(Set(c)).mapBy(k => pending.get(k)), required' = required, mode' = mode,
+      pairings' = pairings, pending' = pending.keys().exclude(Set(c)).mapBy(k => pending.get(k)), required' = required, negotiated' = if (valid(p)) negotiated.union(Set(c)) else negotiated, mode' = mode,
     }
+  }
+
+  // Token authentication may succeed even when hello refuses the protocol range.
+  action refuseVersion(c: int): bool = all {
+    live.get(c), required.contains(c), scoped.get(c) >= 0,
+    negotiated' = negotiated.exclude(Set(c)), last' = VersionRefused,
+    pairings' = pairings, scoped' = scoped, live' = live, pending' = pending,
+    required' = required, mode' = mode,
   }
 
   // ── any other RPC or Command through the Grant gate ──────────────────────
   action call(c: int, need: Need): bool = all {
-    pairings' = pairings, pending' = pending, required' = required, mode' = mode,
+    pairings' = pairings, pending' = pending, required' = required, negotiated' = negotiated, mode' = mode,
     val missing = live.get(c) and scoped.get(c) == UNBOUND and required.contains(c)
     all {
       live' = if (missing) live.set(c, false) else live,
       scoped' = if (live.get(c) and scoped.get(c) == UNBOUND) scoped.set(c, NONE) else scoped,
       last' = if (not(live.get(c))) Dropped
-        else if (missing or scoped.get(c) == AUTHENTICATING) NotForExtensions
+        else if (missing or scoped.get(c) == AUTHENTICATING or (required.contains(c) and not(negotiated.contains(c)))) NotForExtensions
         else decide(if (scoped.get(c) == UNBOUND) NONE else scoped.get(c), pairings, need),
     }
   }
@@ -133,13 +142,13 @@ module extensions {
     live' = live.set(c, false),
     scoped' = scoped.set(c, NONE),
     last' = Nothing,
-    pending' = pending.keys().exclude(Set(c)).mapBy(k => pending.get(k)), required' = required, mode' = mode,
+    pending' = pending.keys().exclude(Set(c)).mapBy(k => pending.get(k)), required' = required, negotiated' = negotiated, mode' = mode,
   }
 
   /** The current Session mode, read inside the serialized commit decision. */
   action setMode(newMode: str): bool = all {
     mode' = newMode, pairings' = pairings, scoped' = scoped, live' = live,
-    pending' = pending, required' = required, last' = Nothing,
+    pending' = pending, required' = required, negotiated' = negotiated, last' = Nothing,
   }
 
   action callTurn(c: int): bool = {
@@ -162,6 +171,7 @@ module extensions {
       beginHello(c, p),
       finishHello(c),
       requireToken(c),
+      refuseVersion(c),
       call(c, need),
       callTurn(c),
       setMode("supervised"),
@@ -191,6 +201,15 @@ module extensions {
 
 module extensions_test {
   import extensions.* from "./extensions"
+
+  run protocolRefusalGrantsNoAuthorityTest = init
+    .then(pair(0, Set("read")))
+    .then(requireToken(0))
+    .then(hello(0, 0))
+    .then(refuseVersion(0)).expect(last == VersionRefused)
+    .then(call(0, Needs("read"))).expect(last == NotForExtensions)
+    .then(hello(0, 0)).expect(last == HelloOk)
+    .then(call(0, Needs("read"))).expect(last == Allowed and safety)
 
   run refusedWithoutGrantTest = init
     .then(pair(0, Set("read")))

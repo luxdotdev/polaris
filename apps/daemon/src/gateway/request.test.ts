@@ -40,6 +40,9 @@ test.each([
   ["https://studio.tail1234.ts.net", false],
   ["null", false],
   ["not a url", false],
+  ["http://evil@127.0.0.1:55660", false],
+  ["http://127.0.0.1:55660/path", false],
+  ["http://127.0.0.1:55660#fragment", false],
 ])("Origin %j is allowed: %p", (origin, allowed) => {
   expect(originAllowed(origin)).toBe(allowed);
 });
@@ -57,14 +60,16 @@ const statusOf = (request: Request, peer: string | null) => {
 test("a request is routed, or refused with the reason that applies first", () => {
   expect(statusOf(upgrade({}), "127.0.0.1")).toBe("rpc");
   expect(statusOf(upgrade({ origin: "http://127.0.0.1:55660" }), null)).toBe("rpc");
-  expect(statusOf(upgrade({}, "/polaris/identity"), "127.0.0.1")).toBe("identity");
+  expect(statusOf(upgrade({}, "/polaris/identity", "POST"), "127.0.0.1")).toBe("identity");
   expect(statusOf(upgrade({}), "192.168.1.20")).toBe(403);
   expect(statusOf(upgrade({}, "/polaris"), "127.0.0.1")).toBe(404);
   expect(statusOf(upgrade({}, "/polaris/rpc/"), "127.0.0.1")).toBe(404);
   expect(statusOf(upgrade({}, "/polaris/rpc", "POST"), "127.0.0.1")).toBe(405);
-  expect(statusOf(upgrade({}, "/polaris/identity", "POST"), "127.0.0.1")).toBe(405);
+  expect(statusOf(upgrade({}, "/polaris/identity"), "127.0.0.1")).toBe(405);
   expect(statusOf(upgrade({ host: "evil.example" }), "127.0.0.1")).toBe(403);
-  expect(statusOf(upgrade({ host: "evil.example" }, "/polaris/identity"), "127.0.0.1")).toBe(403);
+  expect(
+    statusOf(upgrade({ host: "evil.example" }, "/polaris/identity", "POST"), "127.0.0.1")
+  ).toBe(403);
   expect(statusOf(upgrade({ origin: "https://evil.example" }), "127.0.0.1")).toBe(403);
 });
 
