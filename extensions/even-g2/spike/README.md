@@ -38,3 +38,12 @@ Upload and install:
 4. Install the beta build from the Even app and open it on the glasses.
 
 Clean up with `tailscale serve --https=443 --set-path /polaris-spike off` and stop the echo server.
+
+## Findings (2026-10-23, iOS 18.7, G2, SDK 0.0.16, CLI 0.2.0)
+
+- **Yes**: the packaged build reached `https://` and `wss://<mac>.<tailnet>.ts.net/polaris-spike/…` through `tailscale serve`: a 200 in 534 ms and an echo in 189 ms, confirmed in the Mac's log.
+- **The whitelist isn't enforced for WebSockets**: the control socket to a host that isn't whitelisted echoed in 116 ms. Don't rely on it as a security boundary.
+- **The app's origin is `http://127.0.0.1:<port>`**, with the port changing on each launch (55660, then 55722). The Daemon sees that as `Origin`, so it can't identify an extension by origin; pairing has to.
+- `tailscale serve --set-path` strips the prefix: the backend sees `/hello` and `/ws`.
+- **Two prerequisites to reach the Mac**: Tailscale connected on the phone, and a tailnet policy that lets the phone reach the Mac on TCP 443. When either is missing, the WebView reports only `TypeError: Load failed` and an error event.
+- **`evenhub login` needs a TTY**, and the CLI has no token flag or environment variable. Other commands reuse `~/.config/evenhub/credentials.yaml` and refresh it themselves, rewriting the file.
