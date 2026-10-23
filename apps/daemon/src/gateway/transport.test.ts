@@ -8,7 +8,7 @@ import { BlobId, makeWire, type Wire } from "@polaris/protocol";
 import { Deferred, Effect, Schema, Stream } from "effect";
 import { webSocketTransport } from "./client.testing.ts";
 import { startGateway } from "./server.ts";
-import { CLOSE_UNSUPPORTED_DATA } from "./transport.ts";
+import { CLOSE_UNSUPPORTED_DATA, type GatewayTransport } from "./transport.ts";
 
 const decodeEcho = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Struct({ blob: BlobId })));
 
@@ -120,3 +120,51 @@ test("a peer cannot queue unbounded input while its consumer is stalled", () =>
       })
     )
   ));
+
+test.each([
+  {
+    who: "the peer",
+    send: (socket: WebSocket) => socket.close(4001, "bye"),
+    expected: /^the peer closed it \(4001 bye\) after hello, after [\d.]+ s, 0 bytes in, 0 out$/,
+  },
+  {
+    who: "the Daemon",
+    send: (socket: WebSocket) => socket.send("text"),
+    expected: /^the Daemon closed it \(1003 binary frames only\) after hello/,
+  },
+])("a closed connection's summary says $who closed it, how, and when", ({ send, expected }) =>
+  Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const gateway = yield* startGateway({ port: 0, recordPath: null });
+
+        if (gateway === null) throw new Error("no gateway");
+        const accepted = yield* Deferred.make<GatewayTransport>();
+
+        yield* gateway.connections.pipe(
+          Stream.runForEach((transport) =>
+            Effect.sync(() => transport.authenticated()).pipe(
+              Effect.andThen(Deferred.succeed(accepted, transport)),
+              Effect.andThen(transport.incoming.pipe(Stream.runDrain, Effect.ignore))
+            )
+          ),
+          Effect.forkScoped
+        );
+
+        yield* Effect.promise(
+          () =>
+            new Promise<void>((resolve) => {
+              const socket = new WebSocket(gateway.url);
+
+              socket.onopen = () => setTimeout(() => send(socket), 50);
+              socket.onclose = () => resolve();
+            })
+        );
+        const transport = yield* Deferred.await(accepted);
+
+        yield* Effect.sleep("50 millis");
+        expect(transport.summary()).toMatch(expected);
+      })
+    )
+  )
+);

@@ -19,6 +19,8 @@ import {
 
 export interface GatewayTransport extends ByteTransport {
   readonly authenticated: () => void;
+  /** How the connection went, for the Daemon's log: who closed it, with what code, and the bytes moved. */
+  readonly summary: () => string;
 }
 
 type Callback = (error?: Error | null) => void;
@@ -45,6 +47,10 @@ export class GatewaySocketStream extends EventEmitter {
     })
   );
   private readonly deadline: ReturnType<typeof setTimeout>;
+  private readonly openedAt = performance.now();
+  private bytesIn = 0;
+  private bytesOut = 0;
+  private ending: string | null = null;
   readonly incoming = Stream.fromQueue(this.pending).pipe(
     Stream.map((bytes) => {
       this.queuedBytes -= bytes.byteLength;
@@ -67,6 +73,7 @@ export class GatewaySocketStream extends EventEmitter {
 
   receive(bytes: Uint8Array): void {
     if (this.destroyed) return;
+    this.bytesIn += bytes.byteLength;
 
     if (this.beforeHello !== null) {
       this.beforeHello += bytes.byteLength;
@@ -90,6 +97,7 @@ export class GatewaySocketStream extends EventEmitter {
   }
 
   refuse(code: number, reason: string): void {
+    this.ending ??= `the Daemon closed it (${code} ${reason})`;
     this.socket.close(code, reason);
     this.closed();
   }
@@ -102,6 +110,8 @@ export class GatewaySocketStream extends EventEmitter {
     }
 
     const status = this.socket.send(chunk);
+
+    if (status !== 0) this.bytesOut += chunk.byteLength;
 
     if (status === 0) {
       queueMicrotask(() => callback(closedError()));
@@ -129,8 +139,22 @@ export class GatewaySocketStream extends EventEmitter {
   }
 
   end(): void {
+    this.ending ??= `the Daemon closed it (${CLOSE_NORMAL})`;
     this.writable = false;
     this.socket.close(CLOSE_NORMAL, "closed");
+  }
+
+  /** The peer's close frame, or the socket dropping without one (1006). */
+  peerClosed(code: number, reason: string): void {
+    this.ending ??= `the peer closed it (${code}${reason === "" ? "" : ` ${reason}`})`;
+    this.closed();
+  }
+
+  summary(): string {
+    const seconds = ((performance.now() - this.openedAt) / 1000).toFixed(1);
+    const stage = this.beforeHello === null ? "after hello" : "before hello";
+
+    return `${this.ending ?? "open"} ${stage}, after ${seconds} s, ${this.bytesIn} bytes in, ${this.bytesOut} out`;
   }
 
   closed(): void {
@@ -152,6 +176,7 @@ export class GatewaySocketStream extends EventEmitter {
 const toTransport = (stream: GatewaySocketStream): GatewayTransport => ({
   incoming: stream.incoming,
   authenticated: stream.authenticated,
+  summary: () => stream.summary(),
   write: writeEvents(stream),
   close: Effect.sync(() => stream.end()),
 });
@@ -192,8 +217,8 @@ export const gatewayWebSocket = (
   drain(socket) {
     socket.data?.flush();
   },
-  close(socket) {
+  close(socket, code, reason) {
     open.delete(socket);
-    socket.data?.closed();
+    socket.data?.peerClosed(code, reason);
   },
 });
