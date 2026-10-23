@@ -12,7 +12,7 @@ import type {
   TurnItem,
 } from "@polaris/protocol";
 import { Match } from "effect";
-import type { Session } from "./hostView.ts";
+import { type Session, stateFields } from "./hostView.ts";
 
 export interface TurnEntry {
   readonly turn: Turn;
@@ -91,7 +91,11 @@ const completeItem =
 const fold = (event: DomainEvent, sessionId: string): Fold =>
   Match.value(event).pipe(
     Match.tags({
-      SessionStateChanged: ({ state }) => patch({ state }),
+      SessionStateChanged:
+        (event): Fold =>
+        (state) =>
+          patch(stateFields(state.session, event))(state),
+      SessionResumeAtResetChanged: ({ resumeAtReset }) => patch({ resumeAtReset }),
       SessionRenamed: ({ title }) => patch({ title }),
       SessionPermissionModeChanged: ({ permissionMode }) => patch({ permissionMode }),
       SessionModelChanged: ({ model, effort }) => patch({ model, effort }),
@@ -99,7 +103,12 @@ const fold = (event: DomainEvent, sessionId: string): Fold =>
       // A Subagent's own items stay out of the Turn's.
       TurnItemCompleted: ({ turnId, item, subagentId }) =>
         subagentId === null ? completeItem(turnId, item) : unchanged,
-      TurnEnded: ({ turn }) => withTurn(turn.id, (entry) => ({ ...entry, turn })),
+      TurnEnded:
+        ({ turn }): Fold =>
+        (state) => ({
+          ...withTurn(turn.id, (entry) => ({ ...entry, turn }))(state),
+          streaming: state.streaming.filter((live) => live.turnId !== turn.id),
+        }),
       ApprovalRequested:
         ({ request }): Fold =>
         (state) => ({
@@ -149,19 +158,23 @@ export const applySessionItem = (
         pendingApprovals: snapshot.pendingApprovals,
         streaming: [],
       }),
-      Event: ({ envelope }) =>
-        state === null || envelope.sequence <= state.sequence
-          ? state
-          : {
-              ...fold(envelope.event, state.session.id)(state),
-              sequence: envelope.sequence,
-            },
+      Event: ({ envelope }) => {
+        if (state === null || envelope.sequence <= state.sequence) return state;
+        const next = fold(envelope.event, state.session.id)(state);
+
+        return {
+          ...next,
+          session: { ...next.session, updatedAt: envelope.occurredAt },
+          sequence: envelope.sequence,
+        };
+      },
       Delta: ({ turnId, itemId, field, text, subagentId }) =>
         state === null || subagentId !== null
           ? state
           : appendDelta({ turnId, itemId, field, text })(state),
       ItemProgress: () => state,
-      Synchronized: () => (state === null ? null : { ...state, synchronized: true }),
+      Synchronized: ({ sequence }) =>
+        state === null ? null : { ...state, sequence, synchronized: true },
     })
   );
 

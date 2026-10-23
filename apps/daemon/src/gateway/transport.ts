@@ -6,9 +6,20 @@
  * queues a second one and the byte stream stays whole.
  */
 import { EventEmitter } from "node:events";
-import { type ByteTransport, MAX_FRAME_BYTES, readEvents, writeEvents } from "@polaris/protocol";
+import { type ByteTransport, MAX_FRAME_BYTES, writeEvents } from "@polaris/protocol";
 import type { ServerWebSocket, WebSocketHandler } from "bun";
-import { Effect, Predicate } from "effect";
+import { Cause, Effect, Predicate, Queue, Stream } from "effect";
+
+import {
+  GATEWAY_HELLO_TIMEOUT_MS,
+  GATEWAY_PRE_HELLO_BYTES,
+  GATEWAY_MAX_QUEUED_BYTES,
+  GATEWAY_MAX_QUEUED_MESSAGES,
+} from "./limits.ts";
+
+export interface GatewayTransport extends ByteTransport {
+  readonly authenticated: () => void;
+}
 
 type Callback = (error?: Error | null) => void;
 
@@ -25,9 +36,62 @@ export class GatewaySocketStream extends EventEmitter {
   destroyed = false;
   writable = true;
   private awaitingDrain: Array<Callback> = [];
+  private queuedBytes = 0;
+  private beforeHello: number | null = 0;
+  private readonly pending = Effect.runSync(
+    Queue.make<Uint8Array, Cause.Done>({
+      capacity: GATEWAY_MAX_QUEUED_MESSAGES,
+      strategy: "dropping",
+    })
+  );
+  private readonly deadline: ReturnType<typeof setTimeout>;
+  readonly incoming = Stream.fromQueue(this.pending).pipe(
+    Stream.map((bytes) => {
+      this.queuedBytes -= bytes.byteLength;
+
+      return bytes;
+    })
+  );
+  readonly authenticated = () => {
+    this.beforeHello = null;
+    clearTimeout(this.deadline);
+  };
 
   constructor(private readonly socket: ServerWebSocket<GatewaySocketStream | undefined>) {
     super();
+    this.deadline = setTimeout(
+      () => this.refuse(1008, "hello timed out"),
+      GATEWAY_HELLO_TIMEOUT_MS
+    );
+  }
+
+  receive(bytes: Uint8Array): void {
+    if (this.destroyed) return;
+
+    if (this.beforeHello !== null) {
+      this.beforeHello += bytes.byteLength;
+
+      if (this.beforeHello > GATEWAY_PRE_HELLO_BYTES) {
+        this.refuse(1009, "hello input too large");
+
+        return;
+      }
+    }
+
+    if (this.queuedBytes + bytes.byteLength > GATEWAY_MAX_QUEUED_BYTES) {
+      this.refuse(1009, "input buffer full");
+
+      return;
+    }
+
+    this.queuedBytes += bytes.byteLength;
+
+    if (!Queue.offerUnsafe(this.pending, bytes)) this.refuse(1009, "input buffer full");
+  }
+
+  refuse(code: number, reason: string): void {
+    this.socket.close(code, reason);
+    this.closed();
   }
 
   write(chunk: Uint8Array, callback: Callback): boolean {
@@ -64,11 +128,6 @@ export class GatewaySocketStream extends EventEmitter {
     this.emit("drain");
   }
 
-  // A WebSocket's reads cannot be paused; the Wire's limits bound what a peer can queue.
-  pause(): void {}
-
-  resume(): void {}
-
   end(): void {
     this.writable = false;
     this.socket.close(CLOSE_NORMAL, "closed");
@@ -77,6 +136,10 @@ export class GatewaySocketStream extends EventEmitter {
   closed(): void {
     if (this.destroyed) return;
     this.destroyed = true;
+    clearTimeout(this.deadline);
+    Effect.runSync(Queue.clear(this.pending));
+    Queue.endUnsafe(this.pending);
+    this.queuedBytes = 0;
     this.writable = false;
     const waiting = this.awaitingDrain;
     this.awaitingDrain = [];
@@ -86,8 +149,9 @@ export class GatewaySocketStream extends EventEmitter {
   }
 }
 
-const toTransport = (stream: GatewaySocketStream): ByteTransport => ({
-  incoming: readEvents(stream),
+const toTransport = (stream: GatewaySocketStream): GatewayTransport => ({
+  incoming: stream.incoming,
+  authenticated: stream.authenticated,
   write: writeEvents(stream),
   close: Effect.sync(() => stream.end()),
 });
@@ -95,11 +159,11 @@ const toTransport = (stream: GatewaySocketStream): ByteTransport => ({
 /**
  * WebSocket handlers that hand every opened connection to `onConnection` as a
  * ByteTransport, with the reader attached before any message can arrive. No
- * pings and no idle timeout: an idle Extension must not wake an idle Daemon,
+ * pings and no authenticated idle timeout: an idle Extension must not wake an idle Daemon,
  * and the Wire's own ping (while a reply is due) detects a dead peer.
  */
 export const gatewayWebSocket = (
-  onConnection: (transport: ByteTransport) => void,
+  onConnection: (transport: GatewayTransport) => boolean,
   open: Set<ServerWebSocket<GatewaySocketStream | undefined>>
 ): WebSocketHandler<GatewaySocketStream | undefined> => ({
   perMessageDeflate: false,
@@ -113,16 +177,17 @@ export const gatewayWebSocket = (
     const stream = new GatewaySocketStream(socket);
     socket.data = stream;
     open.add(socket);
-    onConnection(toTransport(stream));
+
+    if (!onConnection(toTransport(stream))) stream.refuse(1013, "gateway busy");
   },
   message(socket, message) {
     if (Predicate.isString(message)) {
-      socket.close(CLOSE_UNSUPPORTED_DATA, "binary frames only");
+      socket.data?.refuse(CLOSE_UNSUPPORTED_DATA, "binary frames only");
 
       return;
     }
 
-    socket.data?.emit("data", message);
+    socket.data?.receive(message);
   },
   drain(socket) {
     socket.data?.flush();

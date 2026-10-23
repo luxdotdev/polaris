@@ -47,7 +47,7 @@ export const extensionsFlow = async ({ app, page, step, shoot }: ExtensionsFlowI
   };
 
   if (!payload.token.startsWith("pol_ext_") || payload.name !== "Phone shortcuts")
-    throw new Error(`the pairing string doesn't carry the Pairing: ${pairingString}`);
+    throw new Error("the pairing string doesn't carry the Pairing");
   step(`paired; the pairing string names ${payload.hostName} (url ${payload.url})`);
   await shoot("settings-extensions-paired");
 

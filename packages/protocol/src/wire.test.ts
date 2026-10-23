@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { type Cause, Deferred, Effect, Exit, Fiber, Queue, Stream } from "effect";
 import { type ByteTransport, makeWire, TransportError } from "./wire.ts";
 
@@ -33,6 +33,29 @@ const run = <A, E>(effect: Effect.Effect<A, E, import("effect").Scope.Scope>) =>
   Effect.runPromise(Effect.scoped(effect));
 
 describe("wire", () => {
+  test("blobs transfer in WebViews without crypto.randomUUID", async () => {
+    const uuid = spyOn(crypto, "randomUUID").mockImplementation(() => {
+      throw new Error("randomUUID needs a secure context");
+    });
+
+    try {
+      const received = await run(
+        Effect.gen(function* () {
+          const { a, b } = yield* makePair();
+          const sender = yield* makeWire(a, () => Effect.void);
+          const receiver = yield* makeWire(b, () => Effect.void);
+          const id = yield* sender.offerBlob(new Uint8Array([1, 2, 3]));
+
+          return yield* receiver.takeBlob(id);
+        })
+      );
+
+      expect(received).toEqual(new Uint8Array([1, 2, 3]));
+    } finally {
+      uuid.mockRestore();
+    }
+  });
+
   test("a final JSON reply can wait for its write before the transport closes", async () => {
     await run(
       Effect.gen(function* () {

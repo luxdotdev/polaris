@@ -26,5 +26,8 @@ module is adapted from T3 Code; it also finds the macOS app's bundled CLI.
 - `--set-path` shares port 443 with anything else the user serves (such as T3 Code).
 - Machine names appear in Certificate Transparency logs, as with any Tailscale HTTPS.
 - Remote Access proxies to a port, so it checks the port is this Daemon's before serving it:
-  the gateway writes a fresh nonce to `~/.polaris/gateway.json` at every start and answers it on
-  `GET /polaris/identity` (`apps/daemon/src/gateway/README.md`).
+  the gateway writes a fresh private secret to `~/.polaris/gateway.json` at every start and
+  proves it on `POST /polaris/identity` by HMAC-SHA256 over a fresh challenge. Both secret
+  and challenge are decoded 32-byte base64url values; only the MAC is returned. A public
+  nonce could be fetched and replayed by an impostor after the gateway stopped.
+  See `apps/daemon/src/gateway/README.md` for limits and the verification contract.

@@ -36,17 +36,37 @@ export const useExtensions = (hostKey: string, enabled: boolean) => {
   const pair = async (name: string, grant: Grant): Promise<Paired | null> => {
     const result = await polaris().request("extensions.pair", { hostKey, name, grant });
 
-    if (!result.ok) showRefusal("Couldn't pair the extension", result.error);
-    await load();
+    if (!result.ok) {
+      showRefusal("Couldn't pair the extension", result.error);
 
-    return result.ok ? result.value : null;
+      return null;
+    }
+
+    const { pairing } = result.value;
+    setState((previous) => ({
+      kind: "ready",
+      pairings: [...(previous.kind === "ready" ? previous.pairings : []), pairing],
+    }));
+
+    return result.value;
   };
 
   const revoke = async (id: PairingId) => {
     const result = await polaris().request("extensions.revoke", { hostKey, id });
 
-    if (!result.ok) showRefusal("Couldn't revoke the pairing", result.error);
-    await load();
+    if (!result.ok) {
+      showRefusal("Couldn't revoke the pairing", result.error);
+
+      return false;
+    }
+
+    setState((previous) =>
+      previous.kind === "ready"
+        ? { kind: "ready", pairings: previous.pairings.filter((pairing) => pairing.id !== id) }
+        : previous
+    );
+
+    return true;
   };
 
   return { state, pair, revoke };

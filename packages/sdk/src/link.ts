@@ -3,7 +3,7 @@
  * and feed, dropped when lost and reopened by the next use. Feeds reconnect
  * on their own and resume from the last sequence they applied.
  */
-import { Duration, Effect, Exit, Predicate, Scope, Semaphore, Stream } from "effect";
+import { Deferred, Duration, Effect, Exit, Predicate, Scope, Semaphore, Stream } from "effect";
 import type { RpcClientError } from "effect/rpc/RpcClientError";
 import {
   type ConnectError,
@@ -31,6 +31,8 @@ export interface HostLink {
     use: (client: ExtensionClient) => Effect.Effect<A, E | RpcClientError>
   ) => Effect.Effect<A, Exclude<E, RpcClientError> | ConnectError>;
   readonly close: Effect.Effect<void>;
+  /** Completes when the client closes, including while a feed is backing off. */
+  readonly closed: Effect.Effect<void>;
   /** True once closed: feeds end instead of reconnecting. */
   readonly isClosed: () => boolean;
 }
@@ -40,6 +42,7 @@ const isRpcClientError = (error: unknown): error is RpcClientError =>
 
 export const openLink = Effect.fnUntraced(function* (entry: HostEntry, options: ConnectOptions) {
   const lock = yield* Semaphore.make(1);
+  const closing = yield* Deferred.make<void>();
   let current: Live | null = null;
   let closed = false;
 
@@ -50,23 +53,35 @@ export const openLink = Effect.fnUntraced(function* (entry: HostEntry, options: 
       return Scope.close(live.scope, Exit.void);
     });
 
-  const open = Effect.gen(function* () {
-    const live = yield* connectHost(entry.pairings, options);
+  const open = Effect.uninterruptibleMask((restore) =>
+    Effect.gen(function* () {
+      const live = yield* restore(connectHost(entry.pairings, options));
 
-    current = live;
-    yield* live.lost.pipe(Effect.ignore, Effect.andThen(drop(live)), Effect.forkIn(live.scope));
+      current = live;
+      yield* live.lost.pipe(Effect.ignore, Effect.andThen(drop(live)), Effect.forkIn(live.scope));
 
-    return live;
-  });
-
-  const live: Effect.Effect<Live, ConnectError> = lock.withPermit(
-    Effect.suspend(() => {
-      if (closed)
-        return Effect.fail(new HostUnreachable({ hostId: entry.hostId, detail: "closed" }));
-
-      return current === null ? open : Effect.succeed(current);
+      return live;
     })
   );
+
+  const live: Effect.Effect<Live, ConnectError> = lock
+    .withPermit(
+      Effect.suspend(() => {
+        if (closed)
+          return Effect.fail(new HostUnreachable({ hostId: entry.hostId, detail: "closed" }));
+
+        return current === null ? open : Effect.succeed(current);
+      })
+    )
+    .pipe(
+      Effect.raceFirst(
+        Deferred.await(closing).pipe(
+          Effect.andThen(
+            Effect.fail(new HostUnreachable({ hostId: entry.hostId, detail: "closed" }))
+          )
+        )
+      )
+    );
 
   const call = <A, E>(use: (client: ExtensionClient) => Effect.Effect<A, E | RpcClientError>) =>
     // SAFETY: `catchIf(isRpcClientError)` turns every RpcClientError into a HostUnreachable.
@@ -81,15 +96,20 @@ export const openLink = Effect.fnUntraced(function* (entry: HostEntry, options: 
       )
     ) as Effect.Effect<A, Exclude<E, RpcClientError> | ConnectError>;
 
-  const close = lock.withPermit(
-    Effect.suspend(() => {
-      closed = true;
+  const close = Effect.gen(function* () {
+    closed = true;
+    yield* Deferred.succeed(closing, undefined);
+    yield* lock.withPermit(Effect.suspend(() => (current === null ? Effect.void : drop(current))));
+  }).pipe(Effect.uninterruptible);
 
-      return current === null ? Effect.void : drop(current);
-    })
-  );
-
-  return { entry, live, call, close, isClosed: () => closed } satisfies HostLink;
+  return {
+    entry,
+    live,
+    call,
+    close,
+    closed: Deferred.await(closing),
+    isClosed: () => closed,
+  } satisfies HostLink;
 });
 
 export interface FeedSpec<Item, State, View> {
@@ -171,5 +191,5 @@ export const resilientFeed = <Item, State, View>(
         })
       );
 
-    return loop();
+    return loop().pipe(Stream.interruptWhen(link.closed));
   });

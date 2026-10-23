@@ -3,6 +3,7 @@ import {
   AgentSession,
   DomainEvent,
   EventEnvelope,
+  HostStreamItem,
   Sequence,
   SessionId,
   SessionStreamItem,
@@ -14,6 +15,7 @@ import {
   WorkspaceId,
 } from "@polaris/protocol";
 import { applySessionItem, type SessionState } from "./sessionView.ts";
+import { applyHostItem, emptyHostState } from "./hostView.ts";
 
 const at = "2026-10-23T12:00:00.000Z";
 
@@ -40,20 +42,23 @@ const session = new AgentSession({
   updatedAt: at,
 });
 
-const turn = new Turn({
-  id: turnId,
-  sessionId: session.id,
-  index: 0,
-  prompt: "hi",
-  attachments: [],
-  model: null,
-  effort: null,
-  status: "working",
-  checkpointBefore: null,
-  checkpointAfter: null,
-  startedAt: at,
-  endedAt: null,
-});
+const makeTurn = (status: "working" | "interrupted" = "working") =>
+  new Turn({
+    id: turnId,
+    sessionId: session.id,
+    index: 0,
+    prompt: "hi",
+    attachments: [],
+    model: null,
+    effort: null,
+    status,
+    checkpointBefore: null,
+    checkpointAfter: null,
+    startedAt: at,
+    endedAt: status === "working" ? null : at,
+  });
+
+const turn = makeTurn();
 
 const completed = (sequence: number, id: string, subagent: string | null = null) =>
   SessionStreamItem.cases.Event.make({
@@ -118,4 +123,80 @@ test("an event at or before the applied sequence (a resumed feed) is not applied
 
   expect(state?.turns[0]?.items.map((item) => item.id)).toEqual(["m1"]);
   expect(state?.sequence).toBe(Sequence.make(11));
+});
+
+test.each(["limited", "failed"] as const)(
+  "both feeds keep the %s reason, reset and timestamp current",
+  (state) => {
+    const changedAt = "2026-10-23T13:00:00.000Z";
+    const resetsAt = "2026-10-23T14:00:00.000Z";
+
+    const envelope = new EventEnvelope({
+      sequence: Sequence.make(11),
+      occurredAt: changedAt,
+      commandId: null,
+      event: DomainEvent.cases.SessionStateChanged.make({
+        sessionId: session.id,
+        state,
+        reason: "Harness stopped",
+        resetsAt,
+      }),
+    });
+
+    const host = [
+      HostStreamItem.cases.Event.make({
+        envelope: new EventEnvelope({
+          sequence: Sequence.make(10),
+          occurredAt: at,
+          commandId: null,
+          event: DomainEvent.cases.SessionCreated.make({ session, actor: null }),
+        }),
+      }),
+      HostStreamItem.cases.Event.make({ envelope }),
+    ].reduce(applyHostItem, emptyHostState);
+
+    const detail = fold([...start, SessionStreamItem.cases.Event.make({ envelope })]);
+
+    for (const actual of [host.sessions.get(session.id)?.session, detail?.session]) {
+      expect(actual).toMatchObject({
+        state,
+        lastError: state === "failed" ? "Harness stopped" : null,
+        limitResetsAt: state === "limited" ? resetsAt : null,
+        updatedAt: changedAt,
+      });
+    }
+  }
+);
+
+test("ending an interrupted Turn removes its unfinished streaming text", () => {
+  const state = fold([
+    ...start,
+    delta("unfinished", "Partial reply"),
+    SessionStreamItem.cases.Event.make({
+      envelope: new EventEnvelope({
+        sequence: Sequence.make(11),
+        occurredAt: at,
+        commandId: null,
+        event: DomainEvent.cases.TurnEnded.make({
+          turn: makeTurn("interrupted"),
+        }),
+      }),
+    }),
+  ]);
+
+  expect(state?.streaming).toEqual([]);
+  expect(state?.turns[0]?.turn.status).toBe("interrupted");
+});
+
+test("Synchronized records the replay cut even when a session had no events", () => {
+  const cut = Sequence.make(50);
+  const detail = fold([...start, SessionStreamItem.cases.Synchronized.make({ sequence: cut })]);
+
+  const host = applyHostItem(
+    emptyHostState,
+    HostStreamItem.cases.Synchronized.make({ sequence: cut })
+  );
+
+  expect(detail?.sequence).toBe(cut);
+  expect(host.sequence).toBe(cut);
 });
