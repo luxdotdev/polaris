@@ -17,7 +17,9 @@ export const quote = (text: string): string =>
 
 /** A code block whose fence is longer than any run of backticks inside it. */
 export const fence = (text: string): string => {
-  const longest = Math.max(0, ...(text.match(/`+/g) ?? []).map((run) => run.length));
+  let longest = 0;
+
+  for (const [run] of text.matchAll(/`+/g)) longest = Math.max(longest, run.length);
   const ticks = "`".repeat(Math.max(3, longest + 1));
 
   return `${ticks}text\n${text}\n${ticks}`;

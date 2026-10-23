@@ -23,7 +23,7 @@ import {
 } from "react";
 import { AddPairingForm } from "./components/AddPairingForm.tsx";
 import { availability } from "./lib/connection.ts";
-import { describeFailure, unavailableMarkdown } from "./lib/copy.ts";
+import { describeFailure, failureMarkdown, unavailableMarkdown } from "./lib/copy.ts";
 import { isLocal, readPairings, type StoredPairing } from "./lib/pairings.ts";
 
 export const CLIENT_NAME = "Raycast";
@@ -155,7 +155,7 @@ export const withPolaris =
     if (feed.kind === "failed") {
       const failure = describeFailure(feed.error, "connect");
 
-      return <Recovery reload={reload} markdown={`# ${failure.title}\n\n${failure.message}`} />;
+      return <Recovery reload={reload} markdown={failureMarkdown(failure)} />;
     }
 
     const status = availability(feed.views, feed.client.hosts.length);

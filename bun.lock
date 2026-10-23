@@ -173,9 +173,8 @@
         "effect": "4.0.0-rc.118",
       },
       "devDependencies": {
-        "@polaris/desktop": "workspace:*",
         "@polaris/protocol": "workspace:*",
-        "@types/bun": "latest",
+        "@types/bun": "1.4.4",
         "@types/react": "19.0.10",
         "typescript": "7.0.2",
       },
