@@ -15,6 +15,8 @@ export const Capability = Schema.Literals([
   /** `extensions.pair`, `extensions.list`, `extensions.revoke`, and `extensionToken` in `hello`. */
   "extensions",
   "host.resources",
+  /** `voice.transcribe`, `voice.settings` and `voice.setKey` (ADR 0077). */
+  "voice",
   /**
    * The Client decodes any `HostInfo.platform` (`windows-x64` and later ones). A Daemon on
    * another platform answers a Client without it with a newer protocol version instead.

@@ -31,6 +31,19 @@ describe("decideAccess", () => {
     expect(decideAccess(pairing(["read", "turn"]), "dispatch", "SendTurn")).toBeNull();
   });
 
+  test("transcribing needs the voice Grant; the voice key stays with Clients", () => {
+    expect(decideAccess(pairing(["voice"]), "voice.transcribe", null)).toBeNull();
+    expect(decideAccess(pairing(["read", "turn"]), "voice.transcribe", null)).toEqual(
+      new NotGranted({ what: "voice.transcribe", needed: "voice" })
+    );
+    expect(decideAccess(pairing(["voice"]), "voice.setKey", null)).toEqual(
+      new NotGranted({ what: "voice.setKey", needed: null })
+    );
+    expect(decideAccess(pairing(["voice"]), "voice.settings", null)).toEqual(
+      new NotGranted({ what: "voice.settings", needed: null })
+    );
+  });
+
   test("starting a session that is not supervised also needs approve", () => {
     expect(decideAccess(pairing(["start"]), "dispatch", "StartSession", "supervised")).toBeNull();
     expect(decideAccess(pairing(["start"]), "dispatch", "StartSession", "auto")).toEqual(
@@ -62,8 +75,8 @@ describe("decideAccess", () => {
   });
 
   test("an RPC or Command the mapping does not know is refused to Extensions", () => {
-    expect(decideAccess(pairing(["read"]), "voice.transcribe", null)).toEqual(
-      new NotGranted({ what: "voice.transcribe", needed: null })
+    expect(decideAccess(pairing(["read"]), "voice.nope", null)).toEqual(
+      new NotGranted({ what: "voice.nope", needed: null })
     );
     expect(decideAccess(pairing(["turn"]), "dispatch", "Nope")).toEqual(
       new NotGranted({ what: "dispatch:Nope", needed: null })

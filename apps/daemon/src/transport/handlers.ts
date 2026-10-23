@@ -20,6 +20,7 @@ import {
   Sequence,
   Unsupported,
   ResourceError,
+  VoiceError,
 } from "@polaris/protocol";
 import { Effect, Stream } from "effect";
 import { ClientCapabilities, DeviceLabel } from "../engine/rpc.ts";
@@ -440,6 +441,13 @@ export const defaultHandlers = (options: {
     "attachments.setSettings": () =>
       Effect.fail(new Unsupported({ capability: "attachments.settings" })),
     "attachments.clear": () => Effect.fail(new Unsupported({ capability: "attachments.settings" })),
+
+    "voice.transcribe": () =>
+      Stream.fail(new VoiceError({ reason: "provider-failed", message: notYet("Voice") })),
+    "voice.settings": () =>
+      Effect.fail(new VoiceError({ reason: "provider-failed", message: notYet("Voice") })),
+    "voice.setKey": () =>
+      Effect.fail(new VoiceError({ reason: "provider-failed", message: notYet("Voice") })),
 
     "terminal.open": ({ cwd }) => Effect.fail(fileError(cwd, "terminals")),
     "terminal.attach": ({ terminalId }) =>
