@@ -11,8 +11,10 @@ import {
   createPolaris,
   ExtensionTokenRejected,
   type HostView,
+  HostUnreachable,
   NotGranted,
   openPolaris,
+  parsePairing,
   type PolarisClient,
   type SessionView,
   type Transcript,
@@ -191,6 +193,69 @@ test("a Host feed reconnects after the Daemon restarts and keeps applying events
   expect(views.some((v) => !v.connected)).toBe(true);
   expect(views.at(-1)?.connected).toBe(true);
   await feed.return?.();
+}, 60_000);
+
+test("closing the client ends an idle Host feed", async () => {
+  const polaris = await client(await daemon.pair("Closes", ["read"]));
+  const feed = polaris.subscribeHost(daemon.hostId)[Symbol.asyncIterator]();
+
+  await feed.next();
+  const pending = feed.next();
+
+  await polaris.close();
+  expect(await pending).toMatchObject({ done: true });
+});
+
+test("a rejected pairing falls back to another pairing for the same Host", async () => {
+  const revoked = await daemon.pair("Fallback revoked", ["read"], "gateway");
+  const valid = await daemon.pair("Fallback valid", ["read"], "gateway");
+
+  await daemon.revoke(revoked);
+  const polaris = await createPolaris({ pairings: [revoked, valid], clientName: "fallback" });
+
+  opened.push(polaris);
+  const view = await until(polaris.subscribeHost(daemon.hostId), () => true);
+
+  expect(view.connected).toBe(true);
+  expect(polaris.hosts.map((host) => host.hostId)).toEqual([daemon.hostId]);
+});
+
+test("multiple Hosts keep their own Workspaces and a refused Host stays separate", async () => {
+  const other = await launchDaemon();
+
+  try {
+    const localWorkspace = await daemon.registerWorkspace();
+    const otherWorkspace = await other.registerWorkspace();
+    const local = await daemon.pair("Local merged", ["read"], "gateway");
+    const remote = await other.pair("Other merged", ["read"], "gateway");
+
+    const polaris = await createPolaris({
+      pairings: [local, remote, { ...parsePairing(local), hostId: "wrong-host" }],
+      clientName: "multi-host",
+    });
+
+    opened.push(polaris);
+
+    const views = await until(polaris.subscribeHosts(), (views) => views.length === 3);
+
+    const workspacesOf = (hostId: string) =>
+      views.find((view) => view.hostId === hostId)?.workspaces.map((w) => String(w.id));
+
+    expect(workspacesOf(daemon.hostId)).toContain(localWorkspace);
+    expect(workspacesOf(daemon.hostId)).not.toContain(otherWorkspace);
+    expect(workspacesOf(other.hostId)).toEqual([otherWorkspace]);
+    expect(views.find((view) => view.hostId === "wrong-host")).toMatchObject({
+      connected: false,
+      workspaces: [],
+      sessions: [],
+    });
+    expect(views.find((view) => view.hostId === "wrong-host")?.error).toBeInstanceOf(
+      HostUnreachable
+    );
+    await polaris.close();
+  } finally {
+    await other.stop();
+  }
 }, 60_000);
 
 describe("transcribe", () => {

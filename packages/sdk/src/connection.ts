@@ -88,13 +88,6 @@ const helloOn = Effect.fnUntraced(function* (
         // hello is open to every connection, and this one sends no language proof.
         NotGranted: Effect.die,
         LanguageIdentityError: Effect.die,
-      }),
-      Effect.timeoutOrElse({
-        duration: options.helloTimeout ?? Duration.seconds(10),
-        orElse: () =>
-          Effect.fail(
-            new HostUnreachable({ hostId: pairing.hostId, detail: "no answer to hello" })
-          ),
       })
     );
 
@@ -122,16 +115,31 @@ export const connectPairing = Effect.fnUntraced(function* (
   pairing: ParsedPairing,
   options: ConnectOptions
 ): Effect.fn.Return<Live, ConnectError> {
-  const scope = yield* Scope.make();
-  const exit = yield* Effect.exit(helloOn(pairing, options, scope));
+  return yield* Effect.uninterruptibleMask((restore) =>
+    Effect.gen(function* () {
+      const scope = yield* Scope.make();
 
-  if (Exit.isFailure(exit)) {
-    yield* Scope.close(scope, exit);
+      const exit = yield* restore(
+        helloOn(pairing, options, scope).pipe(
+          Effect.timeoutOrElse({
+            duration: options.helloTimeout ?? Duration.seconds(10),
+            orElse: () =>
+              Effect.fail(
+                new HostUnreachable({ hostId: pairing.hostId, detail: "no answer to hello" })
+              ),
+          })
+        )
+      ).pipe(Effect.exit);
 
-    return yield* Effect.failCause(exit.cause);
-  }
+      if (Exit.isFailure(exit)) {
+        yield* Scope.close(scope, exit);
 
-  return { ...exit.value, scope } satisfies Live;
+        return yield* Effect.failCause(exit.cause);
+      }
+
+      return { ...exit.value, scope } satisfies Live;
+    })
+  );
 });
 
 /**

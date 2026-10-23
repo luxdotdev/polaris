@@ -17,6 +17,15 @@ import { Match } from "effect";
 /** An Agent Session as plain data: the SDK's views copy and patch it. */
 export type Session = { readonly [K in keyof AgentSession]: AgentSession[K] };
 
+export const stateFields = (
+  session: Session,
+  event: Extract<DomainEvent, { readonly _tag: "SessionStateChanged" }>
+): Partial<Session> => ({
+  state: event.state,
+  lastError: event.state === "failed" ? event.reason : session.lastError,
+  limitResetsAt: event.state === "limited" ? (event.resetsAt ?? null) : null,
+});
+
 export interface SessionEntry {
   readonly session: Session;
   readonly pendingApprovals: ReadonlyArray<ApprovalRequest>;
@@ -126,7 +135,13 @@ const fold = (event: DomainEvent): Fold =>
             lastTurnPreview: null,
           }),
         }),
-      SessionStateChanged: ({ sessionId, state }) => onSession(sessionId, patch({ state })),
+      SessionStateChanged: (event) =>
+        onSession(event.sessionId, (entry) => ({
+          ...entry,
+          session: { ...entry.session, ...stateFields(entry.session, event) },
+        })),
+      SessionResumeAtResetChanged: ({ sessionId, resumeAtReset }) =>
+        onSession(sessionId, patch({ resumeAtReset })),
       SessionRenamed: ({ sessionId, title }) => onSession(sessionId, patch({ title })),
       SessionPermissionModeChanged: ({ sessionId, permissionMode }) =>
         onSession(sessionId, patch({ permissionMode })),
@@ -170,7 +185,7 @@ export const applyHostItem = (state: HostState, item: HostStreamItem): HostState
         envelope.sequence <= state.sequence
           ? state
           : { ...fold(envelope.event)(state, envelope.occurredAt), sequence: envelope.sequence },
-      Synchronized: (): HostState => ({ ...state, synchronized: true }),
+      Synchronized: ({ sequence }): HostState => ({ ...state, sequence, synchronized: true }),
     })
   );
 
