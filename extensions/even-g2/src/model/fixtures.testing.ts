@@ -79,6 +79,9 @@ export const host = (
   connected: true,
   error: null,
   workspaces: [],
-  sessions: entries,
-  approvals: entries.flatMap((e) => e.pendingApprovals),
+  sessions: entries.filter((e) => e.session.state !== "archived"),
+  archived: entries.filter((e) => e.session.state === "archived"),
+  approvals: entries
+    .filter((e) => e.session.state !== "archived")
+    .flatMap((e) => e.pendingApprovals),
 });
