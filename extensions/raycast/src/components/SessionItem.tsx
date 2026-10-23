@@ -5,6 +5,7 @@ import { harnessEntry } from "@polaris/sdk";
 import { usePolaris } from "../polaris.tsx";
 import { PERMISSION_MODES, STATE_LABEL } from "../lib/copy.ts";
 import { sessionLink } from "../lib/links.ts";
+import { fence, plain, quote } from "../lib/markdown.ts";
 import type { SessionRow } from "../lib/rows.ts";
 import { AnswerForm } from "./AnswerForm.tsx";
 import { stateIcon, stateTag } from "./look.ts";
@@ -21,20 +22,12 @@ export interface Pins {
   readonly unpin: (key: string) => void;
 }
 
-const quote = (text: string) =>
-  text
-    .split("\n")
-    .map((line) => `> ${line}`)
-    .join("\n");
-
-const fence = (text: string) => `\`\`\`\n${text.replaceAll("```", "ʼʼʼ")}\n\`\`\``;
-
 export const sessionMarkdown = (row: SessionRow): string => {
   const { session, pendingApprovals, lastTurnPreview } = row.entry;
-  const parts = [`## ${session.title}`];
+  const parts = [`## ${plain(session.title)}`];
 
   for (const approval of pendingApprovals) {
-    parts.push(`**Needs you** · ${approval.title}`);
+    parts.push(`**Needs you** · ${plain(approval.title)}`);
 
     if (approval.detail !== null) parts.push(fence(approval.detail));
   }

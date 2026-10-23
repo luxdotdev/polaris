@@ -163,7 +163,7 @@ describe("Connection States", () => {
 
     expect(views.map(connectionState)).toEqual(["offline"]);
     expect(availability(views, polaris.hosts.length)).toBe("unavailable");
-    expect(unavailableMarkdown(views)).toContain("**Mac Studio**: Can't reach Mac Studio.");
+    expect(unavailableMarkdown(views)).toContain("**Mac Studio**: Can't reach Mac Studio\\.");
   }, 30_000);
 
   test("one reachable Host is enough to show the command", async () => {

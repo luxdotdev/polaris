@@ -5,6 +5,7 @@ import { AnswerForm } from "./components/AnswerForm.tsx";
 import { HostDropdown, hostFilterOf } from "./components/HostDropdown.tsx";
 import { attempt } from "./components/toast.ts";
 import { sessionLink } from "./lib/links.ts";
+import { fence, plain } from "./lib/markdown.ts";
 import { type ApprovalRow, approvalRows } from "./lib/rows.ts";
 import { usePolaris, withPolaris } from "./polaris.tsx";
 
@@ -15,14 +16,12 @@ const KIND_LABEL = {
   question: "Question",
 } as const;
 
-const fence = (text: string) => `\`\`\`\n${text.replaceAll("```", "ʼʼʼ")}\n\`\`\``;
-
 const markdownOf = ({ approval, session }: ApprovalRow) =>
   [
-    `## ${approval.title}`,
+    `## ${plain(approval.title)}`,
     approval.detail === null ? "" : fence(approval.detail),
-    approval.options.length === 0 ? "" : approval.options.map((o) => `- ${o}`).join("\n"),
-    `${session.entry.session.title} · ${session.workspaceName} · ${session.hostName}`,
+    approval.options.length === 0 ? "" : approval.options.map((o) => `- ${plain(o)}`).join("\n"),
+    plain(`${session.entry.session.title} · ${session.workspaceName} · ${session.hostName}`),
   ]
     .filter((part) => part !== "")
     .join("\n\n");

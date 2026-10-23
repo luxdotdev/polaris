@@ -16,6 +16,7 @@ import {
   type SessionState,
   UnknownHost,
 } from "@polaris/sdk";
+import { plain } from "./markdown.ts";
 
 export const STATE_LABEL: Readonly<Record<SessionState, string>> = {
   starting: "Starting",
@@ -118,7 +119,7 @@ export const unavailableMarkdown = (
   const lines = views.map((view) => {
     const failure = describeFailure(view.error, "connect", view.hostName);
 
-    return `- **${view.hostName}**: ${failure.title}. ${failure.message}`;
+    return `- **${plain(view.hostName)}**: ${plain(`${failure.title}. ${failure.message}`)}`;
   });
 
   return ["# Polaris can't be reached", "", ...lines].join("\n");
