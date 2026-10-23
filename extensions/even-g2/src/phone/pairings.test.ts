@@ -36,7 +36,7 @@ test("refuses text that isn't a pairing, and a pairing for the local socket", ()
   });
   const local = addPairing([], pairing("h1", null));
 
-  expect(local.ok ? "" : local.error).toContain("turn on remote access");
+  expect(local.ok ? "" : local.error).toContain("Turn on remote access");
 });
 
 test("survives a reload, and ignores what it can't read", () => {
