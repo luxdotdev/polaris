@@ -22,13 +22,13 @@ const raycast = new Pairing({
   revokedAt: null,
 });
 
-const pairingString = (url: string | null) =>
+const pairingString = (url: string | null, name = "Phone shortcuts") =>
   encodePairingString({
     hostId: HostId.make("h1"),
     hostName: "mac-studio",
     url,
     token: "pol_ext_token",
-    name: "Phone shortcuts",
+    name,
   });
 
 const answerPair = (url: string | null) =>
@@ -44,7 +44,7 @@ const answerPair = (url: string | null) =>
         revokedAt: null,
       }),
       token: "pol_ext_token",
-      pairingString: pairingString(url),
+      pairingString: pairingString(url, name),
     },
   }));
 
@@ -119,4 +119,83 @@ test("a Pairing lists with its Grant, and Revoke asks before revoking it", async
   await waitFor(() =>
     expect(fake.sent("extensions.revoke")).toEqual([{ hostKey: "mac", id: raycast.id }])
   );
+});
+
+test("a successful pair reveals its token even when a later list would fail", async () => {
+  fake.answerOk("extensions.list", []);
+  answerPair(null);
+  const view = page();
+  fireEvent.click(await view.findByRole("button", { name: "Pair an extension" }));
+  fake.refuse("extensions.list", { code: "Unavailable", message: "Host unavailable" });
+  type(view.getByLabelText("Name"), "Phone shortcuts");
+  fireEvent.click(view.getByRole("button", { name: "Pair" }));
+
+  expect((await view.findByTestId("pairing-string")).textContent).toBe(pairingString(null));
+  expect(view.getByTestId("pairing-row").textContent).toContain("Phone shortcuts");
+});
+
+test("revoking the revealed Pairing removes both its row and token without a list refresh", async () => {
+  fake.answerOk("extensions.list", []);
+  answerPair(null);
+  const view = page();
+  fireEvent.click(await view.findByRole("button", { name: "Pair an extension" }));
+  type(view.getByLabelText("Name"), "Phone shortcuts");
+  fireEvent.click(view.getByRole("button", { name: "Pair" }));
+  await view.findByTestId("pairing-reveal");
+  fake.refuse("extensions.list", { code: "Unavailable", message: "Host unavailable" });
+  fake.answerOk(
+    "extensions.revoke",
+    new Pairing({
+      id: PairingId.make("pair_new"),
+      name: "Phone shortcuts",
+      grant: ["read"],
+      createdAt: raycast.createdAt,
+      lastUsedAt: null,
+      revokedAt: raycast.createdAt,
+    })
+  );
+  const row = within(view.getByTestId("pairing-row"));
+  fireEvent.click(row.getByRole("button", { name: "Revoke" }));
+  fireEvent.click(row.getByRole("button", { name: "Revoke Phone shortcuts" }));
+
+  await view.findByText("No extensions paired with Mac Studio");
+  expect(view.queryByTestId("pairing-row")).toBeNull();
+  expect(view.queryByTestId("pairing-reveal")).toBeNull();
+});
+
+test("a refused revoke keeps the Pairing and its one-time reveal available", async () => {
+  fake.answerOk("extensions.list", []);
+  answerPair(null);
+  fake.refuse("extensions.revoke", { code: "Unavailable", message: "Host unavailable" });
+  const view = page();
+  fireEvent.click(await view.findByRole("button", { name: "Pair an extension" }));
+  type(view.getByLabelText("Name"), "Phone shortcuts");
+  fireEvent.click(view.getByRole("button", { name: "Pair" }));
+  await view.findByTestId("pairing-reveal");
+  const row = within(view.getByTestId("pairing-row"));
+  fireEvent.click(row.getByRole("button", { name: "Revoke" }));
+  fireEvent.click(row.getByRole("button", { name: "Revoke Phone shortcuts" }));
+
+  await row.findByRole("button", { name: "Revoke" });
+  expect(view.getByTestId("pairing-string").textContent).toBe(pairingString(null));
+  expect(row.getByText("Phone shortcuts").textContent).toBe("Phone shortcuts");
+});
+
+test("a pairing string beyond QR capacity remains visible and copyable", async () => {
+  fake.answerOk("extensions.list", []);
+  answerPair(null);
+  const view = page();
+  fireEvent.click(await view.findByRole("button", { name: "Pair an extension" }));
+  const name = "Phone shortcuts ".repeat(400);
+  type(view.getByLabelText("Name"), name);
+  fireEvent.click(view.getByRole("button", { name: "Pair" }));
+
+  expect((await view.findByTestId("pairing-string")).textContent).toBe(
+    pairingString(null, name.trim())
+  );
+  expect(view.queryByRole("img", { name: "Pairing QR code" })).toBeNull();
+  expect(
+    view.getByText("Too long for a QR code. Copy the pairing string instead.").textContent
+  ).toContain("Copy");
+  expect(view.getByRole("button", { name: "Copy" })).toHaveProperty("disabled", false);
 });

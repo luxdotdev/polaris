@@ -238,7 +238,7 @@ const shoot = async (page: Page, name: string) => {
     await setTheme(page, theme);
     const path = join(screenshots, `${name}-${theme}.png`);
 
-    await page.screenshot({ path });
+    await page.screenshot({ path, mask: [page.getByTestId("pairing-reveal")] });
     step(`saved ${path}`);
   }
 
@@ -608,6 +608,10 @@ try {
   if (page !== undefined) {
     const shot = join(tmpdir(), "polaris-smoke-failure.png");
 
+    // Failure artifacts must not retain the one-time pairing credential.
+    await page.evaluate(
+      `document.querySelectorAll('[data-testid="pairing-reveal"]').forEach(element => element.replaceWith("[pairing credential hidden]"))`
+    );
     await page.screenshot({ path: shot }).catch(() => undefined);
     console.error(
       `smoke: screenshot at ${shot}; screen text:\n${await page.locator("body").innerText()}`

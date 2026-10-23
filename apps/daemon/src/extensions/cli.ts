@@ -78,11 +78,38 @@ const usedLine = (pairing: Pairing) =>
       ? "not used yet"
       : `last used ${pairing.lastUsedAt}`;
 
+/** Keep user-supplied text from controlling the terminal or forging output lines. */
+const terminalText = (text: string): string =>
+  text.replace(
+    /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu,
+    (char) => `\\u${char.codePointAt(0)?.toString(16).padStart(4, "0")}`
+  );
+
+/** QR capacity must never prevent delivery of the one-time pairing string. */
+const pairingQr = (pairingString: string): string => {
+  try {
+    return `${renderUnicodeCompact(pairingString)}\n\n`;
+  } catch {
+    return "";
+  }
+};
+
+export const formatPaired = (
+  { pairing, pairingString }: { readonly pairing: Pairing; readonly pairingString: string },
+  terminal = process.stdout.isTTY
+): string => {
+  const qr = terminal ? pairingQr(pairingString) : "";
+
+  return `${qr}Paired ${terminalText(pairing.name)} (${terminalText(pairing.id)}) with ${grantLine(pairing)}.\nThis is the only time the pairing string is shown:\n${pairingString}`;
+};
+
 /** One line per Pairing: id, name, Grant, and when it was last used or revoked. */
 export const formatPairings = (pairings: ReadonlyArray<Pairing>): string =>
   pairings.length === 0
     ? "No extensions are paired with this host."
-    : pairings.map((p) => [p.id, p.name, grantLine(p), usedLine(p)].join("  ·  ")).join("\n");
+    : pairings
+        .map((p) => [p.id, p.name, grantLine(p), usedLine(p)].map(terminalText).join("  ·  "))
+        .join("\n");
 
 const withDaemon = <A, E>(
   use: (client: Effect.Success<ReturnType<typeof connectRpc>>["client"]) => Effect.Effect<A, E>
@@ -104,17 +131,15 @@ const run = (command: ExtensionCommand) =>
     Match.discriminatorsExhaustive("kind")({
       pair: ({ name, grant }) =>
         withDaemon((client) => client["extensions.pair"]({ name, grant })).pipe(
-          Effect.map(({ pairing, pairingString }) => {
-            const qr = process.stdout.isTTY ? `${renderUnicodeCompact(pairingString)}\n\n` : "";
-
-            return `${qr}Paired ${pairing.name} (${pairing.id}) with ${grantLine(pairing)}.\nThis is the only time the pairing string is shown:\n${pairingString}`;
-          })
+          Effect.map((paired) => formatPaired(paired))
         ),
       list: () =>
         withDaemon((client) => client["extensions.list"]()).pipe(Effect.map(formatPairings)),
       revoke: ({ id }) =>
         withDaemon((client) => client["extensions.revoke"]({ id })).pipe(
-          Effect.map((pairing) => `Revoked ${pairing.name} (${pairing.id}).`),
+          Effect.map(
+            (pairing) => `Revoked ${terminalText(pairing.name)} (${terminalText(pairing.id)}).`
+          ),
           Effect.catchTag("NotFound", () => Effect.fail(`no pairing ${id} on this host`))
         ),
     })
@@ -124,7 +149,7 @@ export const runExtension = async (args: ReadonlyArray<string>): Promise<number>
   const command = parseExtensionArgs(args);
 
   if (Predicate.isString(command)) {
-    console.error(`polaris extension: ${command}\n${EXTENSION_USAGE}`);
+    console.error(`polaris extension: ${terminalText(command)}\n${EXTENSION_USAGE}`);
 
     return 2;
   }
@@ -134,7 +159,9 @@ export const runExtension = async (args: ReadonlyArray<string>): Promise<number>
 
     return 0;
   } catch (error) {
-    console.error(`polaris extension: ${Predicate.isString(error) ? error : String(error)}`);
+    console.error(
+      `polaris extension: ${terminalText(Predicate.isString(error) ? error : String(error))}`
+    );
 
     return 1;
   }
