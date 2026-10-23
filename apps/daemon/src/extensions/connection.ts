@@ -162,14 +162,20 @@ const dispatchCommand = Schema.decodeUnknownOption(
 
 const tokenHello = Schema.is(Schema.Struct({ extensionToken: Schema.Redacted(Schema.String) }));
 
-/** A gateway can require a token; the Unix socket preserves pre-hello Client calls. */
-export const grantGateFor = (options: { readonly tokenRequired: boolean }) =>
+/**
+ * The gate for a server whose connections may differ: the gateway's require a
+ * token (`tokenRequired` answers per connection), the Unix socket's keep
+ * pre-hello Client calls.
+ */
+export const grantGateFor = (options: {
+  readonly tokenRequired: (client: Rpc.ServerClient) => boolean;
+}) =>
   GrantGate.of((effect, { client, rpc, payload }) => {
     // RpcServer builds middleware before forking handlers: reserve authority at receipt.
     reserveConnection(
       client,
       Predicate.isTagged(rpc, "hello") && tokenHello(payload),
-      options.tokenRequired
+      options.tokenRequired(client)
     );
 
     if (Predicate.isTagged(rpc, "hello")) return effect;
@@ -197,7 +203,7 @@ export const grantGateFor = (options: { readonly tokenRequired: boolean }) =>
     });
   });
 
-export const grantGate = grantGateFor({ tokenRequired: false });
+export const grantGate = grantGateFor({ tokenRequired: () => false });
 
 /** Persist revocation and close every transport as one operation. */
 export const revokePairing = Effect.fn("revokePairing")(function* (id: PairingId) {

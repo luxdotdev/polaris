@@ -50,6 +50,7 @@ import { VoiceRpcsLive } from "../voice/VoiceRpcs.ts";
 import { ResourceRpcsLive } from "../resources/rpc.ts";
 import { paths } from "../paths.ts";
 import { startServer } from "./server.ts";
+import { configuredGatewayPort } from "../gateway/index.ts";
 import { workspaceTrustLayer } from "./workspaceTrust.ts";
 import {
   armShutdownDeadline,
@@ -268,6 +269,7 @@ export const serveProgram = Effect.scoped(
     const server = yield* startServer({
       handlers: daemonHandlers,
       capabilities: daemonCapabilities,
+      gateway: { port: yield* configuredGatewayPort(paths().config) },
       // Windows has no execve or SIGUSR2: an upgrade there stops and restarts the Daemon (ADR 0060).
       upgrades: process.platform !== "win32",
       onPhase: startup.phase,
@@ -281,6 +283,9 @@ export const serveProgram = Effect.scoped(
     reportStartupModules();
 
     yield* Effect.logInfo(`polaris Daemon listening on ${server.socketPath}`);
+
+    if (server.gateway !== null)
+      yield* Effect.logInfo(`the gateway listens on ${server.gateway.url}`);
 
     const reason = yield* yield* stopRequests;
     yield* Effect.sync(() => {

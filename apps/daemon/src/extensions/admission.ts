@@ -5,6 +5,8 @@ import type { Rpc } from "effect/rpc";
 interface Admission {
   role: "unbound" | "client" | "extension";
   rejection: ExtensionTokenRejected["reason"] | null;
+  /** True on the gateway: the connection must present a token and a protocol range. */
+  tokenRequired: boolean;
   readonly hello: Semaphore.Semaphore;
 }
 
@@ -14,7 +16,12 @@ export const admissionOf = (client: Rpc.ServerClient): Admission => {
   let admission = admissions.get(client);
 
   if (admission === undefined) {
-    admission = { role: "unbound", rejection: null, hello: Semaphore.makeUnsafe(1) };
+    admission = {
+      role: "unbound",
+      rejection: null,
+      tokenRequired: false,
+      hello: Semaphore.makeUnsafe(1),
+    };
     admissions.set(client, admission);
   }
 
@@ -28,6 +35,7 @@ export const reserveConnection = (
   tokenRequired = false
 ): void => {
   const admission = admissionOf(client);
+  admission.tokenRequired ||= tokenRequired;
 
   if (admission.role === "unbound") {
     admission.role = tokenPresented || tokenRequired ? "extension" : "client";
