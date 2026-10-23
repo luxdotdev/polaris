@@ -69,6 +69,7 @@ import type { PullRef } from "./github.ts";
 import type { ConstellationDefaultsMethod, ConstellationMethod } from "./constellationContract.ts";
 import type { ResourceMethod } from "./resourcesContract.ts";
 import type { RemoteAccessMethod } from "./remoteAccessContract.ts";
+import type { VoiceRequestOutputs } from "./voiceContract.ts";
 import type { GitHubRequestOutputs, GitHubSubscriptionItems } from "./githubContract.ts";
 import type { GitRequestOutputs, GitSubscriptionItems } from "./gitContract.ts";
 import type { NeedsYouAction, ReviewTarget } from "./needsYou.ts";
@@ -408,6 +409,7 @@ export interface RequestOutputs
     ConstellationRequestOutputs,
     ResourceRequestOutputs,
     RemoteAccessRequestOutputs,
+    VoiceRequestOutputs,
     PredictionPlacementOutputs,
     PredictionOutcomeOutputs {
   "constellation.stats": ConstellationStatsView;

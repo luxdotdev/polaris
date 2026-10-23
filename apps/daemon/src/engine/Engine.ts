@@ -22,6 +22,7 @@ import {
   GitError,
   type HostStreamItem,
   NotFound,
+  type NotGranted,
   type ReviewCheckoutId,
   type ReviewCheckoutStatus,
   type Sequence,
@@ -68,7 +69,10 @@ export class Engine extends Context.Service<
     }>;
     readonly dispatch: (
       input: DispatchInput
-    ) => Effect.Effect<{ readonly sequence: Sequence | null }, CommandRejected | NotFound>;
+    ) => Effect.Effect<
+      { readonly sequence: Sequence | null },
+      CommandRejected | NotFound | NotGranted
+    >;
     readonly subscribeHost: (
       afterSequence: Sequence | null,
       options?: HostSubscription

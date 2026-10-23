@@ -43,8 +43,9 @@ import {
   Worktree,
 } from "./domain.ts";
 import { EventEnvelope } from "./events.ts";
-import { ExtensionRpcs, GrantGate } from "./extensions.ts";
+import { ExtensionRpcs, GrantGate, NotGranted } from "./extensions.ts";
 import { RemoteAccessRpcs } from "./remoteAccess.ts";
+import { VoiceRpcs } from "./voice.ts";
 import { HarnessKind } from "./harnesses.ts";
 import { Hello } from "./hello.ts";
 import {
@@ -803,11 +804,13 @@ export class DaemonRpcs extends RpcGroup.make(
   .merge(SessionTurnRpcs)
   .merge(AutoArchiveRpcs)
   .merge(GitWriteRpcs, GitWatchRpcs, CommitMessageRpcs)
-  .merge(ExtensionRpcs, RemoteAccessRpcs) {}
+  .merge(ExtensionRpcs, RemoteAccessRpcs, VoiceRpcs) {}
 
 /**
  * `DaemonRpcs` as the Daemon serves it to Extensions: every RPC can fail with
  * `NotGranted` (grants.ts). The SDK's Client is built on this group so the
  * refusal decodes; the Desktop App, never refused, stays on `DaemonRpcs`.
  */
-export class ExtensionDaemonRpcs extends DaemonRpcs.middleware(GrantGate) {}
+export class ExtensionDaemonRpcs extends DaemonRpcs.omit("dispatch")
+  .add(Dispatch.setError(Schema.Union([CommandRejected, NotFound, NotGranted])))
+  .middleware(GrantGate) {}

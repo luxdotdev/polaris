@@ -8,12 +8,15 @@ import {
   decideAccess,
   ExtensionTokenRejected,
   GrantGate,
+  NotGranted,
+  NotFound,
   type Pairing,
   type PairingId,
 } from "@polaris/protocol";
-import { Context, Effect, Match, Option, Predicate, Redacted, Schema } from "effect";
+import { Context, Effect, Exit, Match, Option, Predicate, Redacted, Schema } from "effect";
 import type { Rpc } from "effect/rpc";
 import { Pairings } from "./pairings.ts";
+import { admissionOf, rejectConnection, reserveConnection } from "./admission.ts";
 
 /** Per-connection annotation set by `hello`: the Pairing the connection acts as. */
 export class ConnectionPairing extends Context.Service<ConnectionPairing, Pairing>()(
@@ -81,17 +84,41 @@ const rejected = (reason: ExtensionTokenRejected["reason"]) =>
   Effect.fail(new ExtensionTokenRejected({ reason }));
 
 /**
- * Scopes the connection to the Pairing the token proves, for `hello`. The first
- * Pairing a connection presents is the one it keeps. The token is checked again
- * once the connection is bound, so a revoke between the two finds it either way.
+ * Authenticates every token-bearing hello, serialized per connection. Its role
+ * was reserved before any authentication could yield; a rejection seals it.
  */
-export const scopeConnection = Effect.fn("scopeConnection")(function* (
+export const scopeConnection = (client: Rpc.ServerClient, token?: Redacted.Redacted<string>) =>
+  Effect.suspend(() => {
+    reserveConnection(client, token !== undefined);
+    const admission = admissionOf(client);
+
+    return admission.hello.withPermit(authenticateConnection(client, token)).pipe(
+      Effect.onExit((exit) => {
+        if (Exit.isSuccess(exit)) return Effect.void;
+        rejectConnection(client);
+
+        return Effect.flatMap(ExtensionConnections, (connections) =>
+          Effect.sync(() => connections.unbind(client.id))
+        );
+      })
+    );
+  });
+
+const authenticateConnection = Effect.fn("authenticateConnection")(function* (
   client: Rpc.ServerClient,
-  token: Redacted.Redacted<string>
+  token: Redacted.Redacted<string> | undefined
 ) {
+  const admission = admissionOf(client);
+
+  if (admission.rejection !== null) return yield* rejected(admission.rejection);
   const existing = pairingOf(client);
 
-  if (existing !== null) return existing;
+  if (token === undefined) {
+    if (admission.role === "extension" && existing === null) return yield* rejected("missing");
+
+    return existing;
+  }
+
   const pairings = yield* Pairings;
   const connections = yield* ExtensionConnections;
   const authenticate = Effect.orDie(pairings.authenticate(Redacted.value(token)));
@@ -106,6 +133,7 @@ export const scopeConnection = Effect.fn("scopeConnection")(function* (
     Match.exhaustive
   );
 
+  if (existing !== null && existing.id !== pairing.id) return yield* rejected("connection-bound");
   connections.bind(pairing.id, client.id);
 
   if (!Predicate.isTagged(yield* authenticate, "Valid")) {
@@ -114,6 +142,8 @@ export const scopeConnection = Effect.fn("scopeConnection")(function* (
     return yield* rejected("revoked");
   }
 
+  // A transport close or another failed hello may have sealed it while the store yielded.
+  if (admission.rejection !== null) return yield* rejected(admission.rejection);
   client.annotate(ConnectionPairing, pairing);
   yield* Effect.orDie(pairings.touch(pairing.id));
 
@@ -130,16 +160,58 @@ const dispatchCommand = Schema.decodeUnknownOption(
   })
 );
 
-/** The gate every RPC passes: `decideAccess` on the connection's Pairing. */
-export const grantGate = GrantGate.of((effect, { client, rpc, payload }) => {
-  const command = Option.getOrNull(Option.map(dispatchCommand(payload), (p) => p.command));
+const tokenHello = Schema.is(Schema.Struct({ extensionToken: Schema.Redacted(Schema.String) }));
 
-  const refusal = decideAccess(
-    pairingOf(client),
-    rpc._tag,
-    command?._tag ?? null,
-    command?.permissionMode ?? null
-  );
+/**
+ * The gate for a server whose connections may differ: the gateway's require a
+ * token (`tokenRequired` answers per connection), the Unix socket's keep
+ * pre-hello Client calls.
+ */
+export const grantGateFor = (options: {
+  readonly tokenRequired: (client: Rpc.ServerClient) => boolean;
+}) =>
+  GrantGate.of((effect, { client, rpc, payload }) => {
+    // RpcServer builds middleware before forking handlers: reserve authority at receipt.
+    reserveConnection(
+      client,
+      Predicate.isTagged(rpc, "hello") && tokenHello(payload),
+      options.tokenRequired(client)
+    );
 
-  return refusal === null ? effect : Effect.fail(refusal);
-});
+    if (Predicate.isTagged(rpc, "hello")) return effect;
+
+    const command = Predicate.isTagged(rpc, "dispatch")
+      ? Option.getOrNull(Option.map(dispatchCommand(payload), (p) => p.command))
+      : null;
+
+    return Effect.suspend(() => {
+      const admission = admissionOf(client);
+      const pairing = pairingOf(client);
+
+      if (admission.rejection !== null || (admission.role === "extension" && pairing === null)) {
+        return Effect.fail(new NotGranted({ what: rpc._tag, needed: null }));
+      }
+
+      const refusal = decideAccess(
+        pairing,
+        rpc._tag,
+        command?._tag ?? null,
+        command?.permissionMode ?? null
+      );
+
+      return refusal === null ? effect : Effect.fail(refusal);
+    });
+  });
+
+export const grantGate = grantGateFor({ tokenRequired: () => false });
+
+/** Persist revocation and close every transport as one operation. */
+export const revokePairing = Effect.fn("revokePairing")(function* (id: PairingId) {
+  const pairings = yield* Pairings;
+  const revoked = yield* Effect.orDie(pairings.revoke(id));
+
+  if (revoked === null) return yield* new NotFound({ what: "pairing", id });
+  yield* (yield* ExtensionConnections).closeAll(id);
+
+  return revoked;
+}, Effect.uninterruptible);

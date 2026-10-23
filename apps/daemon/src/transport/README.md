@@ -1,13 +1,13 @@
 # Daemon transport
 
-The Daemon's only listener, the RPC server on it, and `polaris bridge`. Decisions: ENG-175 (wire) and ENG-179 (SSH bridge, lifecycle).
+The Daemon's socket listener, the RPC server on it, and `polaris bridge`. The second listener, the gateway (`ServerRpcs` over WebSocket on loopback for Extensions, ENG-399), lives in `../gateway/` and hands its connections to the same server. Decisions: ENG-175 (wire) and ENG-179 (SSH bridge, lifecycle).
 
 | File | What |
 |---|---|
-| `server.ts` | `startServer`: lock, socket, `RpcServer` for `ServerRpcs`, one Wire per connection. Handler layers are composed here. |
+| `server.ts` | `startServer`: lock, socket, `RpcServer` for `ServerRpcs`, one Wire per connection; with `gateway: { port }`, the gateway's connections too, each marked `tokenRequired`. Handler layers are composed here. |
 | `rpcs.ts` | `ServerRpcs` = `DaemonRpcs` + the server-only `ConnectionBlobs` middleware. |
 | `defects.ts` | Logs a request's defect with its cause; the server fails only that request (ADR 0064). |
-| `handlers.ts` | `hello` (HostInfo, capabilities; annotates the connection with the device label and the Client's capabilities, and scopes it to a Pairing when it presents an `extensionToken`), the `extensions.*` RPCs, and placeholders for every other RPC. |
+| `handlers.ts` | `hello` (HostInfo, capabilities; annotates the connection with the device label and the Client's capabilities, scopes it to a Pairing when it presents an `extensionToken`, and checks the Extension's `protocolVersions` against `PROTOCOL_VERSION`: required on the gateway, refused with `ProtocolMismatch` naming the side to update), the `extensions.*` RPCs, and placeholders for every other RPC. |
 | `socket.ts` | Stale-socket probe, private socket directory, `Bun.listen` bound atomically, upgrade adoption. |
 | `windowsPipe/` | Windows: the user-only, local-only named pipe the Daemon listens on, created through `bun:ffi` (`security.ts` is its descriptor and flags as data; ADR 0059). |
 | `bunSocket.ts` | Bun sockets (listened or adopted by fd) as ByteTransports, with partial-write handling. |
@@ -43,7 +43,7 @@ and add their capabilities with `startServer({ capabilities: [...] })` (the tran
 
 **Device label.** `hello` calls `client.annotate(DeviceLabel, deviceLabel)` on the connection, so `dispatch` (engine) records which device resolved an approval. For an Extension the label is its Pairing's name.
 
-**Extensions (ENG-398).** A `hello` with an `extensionToken` authenticates it against the Pairing store (`extensions/pairings.ts`, `~/.polaris/extensions.sqlite`, the token's SHA-256 only) and annotates the connection with `ConnectionPairing`; a malformed, unknown or revoked token fails `hello` with `ExtensionTokenRejected`. The first Pairing a connection presents is the one it keeps, and names it (`DeviceLabel`) whatever a later `hello` says; the token is checked again once the connection is bound, so a revoke racing `hello` loses either way. `ServerRpcs` carries the `GrantGate` middleware (`extensions/connection.ts`): every request on a scoped connection goes through `decideAccess` (`grants.ts` in the protocol, exhaustive over RPCs and Commands) and is refused with `NotGranted` naming the missing Grant, or null when the RPC is kept for Clients in 0.3.0. Token-less Clients are never gated. `extensions.pair`, `extensions.list` and `extensions.revoke` are served here; revoking closes the Pairing's live connections through `ExtensionConnections`, which `server.ts` binds to each connection's transport. `dispatch` records the connection's `Actor` on session starts, Turns and approvals.
+**Extensions (ENG-398).** A `hello` with an `extensionToken` authenticates it against the Pairing store (`extensions/pairings.ts`, `~/.polaris/extensions.sqlite`, the token's SHA-256 only) and annotates the connection with `ConnectionPairing`; a malformed, unknown or revoked token fails `hello` with `ExtensionTokenRejected`. The first Pairing a connection presents is the one it keeps, and names it (`DeviceLabel`) whatever a later `hello` says; the token is checked again once the connection is bound, so a revoke racing `hello` loses either way. `ServerRpcs` carries the `GrantGate` middleware (`extensions/connection.ts`): every request on a scoped connection goes through `decideAccess` (`grants.ts` in the protocol, exhaustive over RPCs and Commands) and is refused with `NotGranted` naming the missing Grant, or null when the RPC is kept for Clients in 0.3.0. Token-less Clients are never gated. On a gateway connection (`tokenRequired`, `extensions/admission.ts`) a token is required: a token-less `hello` fails with `missing` and a request before `hello` with `NotGranted`, and the connection closes once the error is flushed. `extensions.pair`, `extensions.list` and `extensions.revoke` are served here; revoking closes the Pairing's live connections through `ExtensionConnections`, which `server.ts` binds to each connection's transport. `dispatch` records the connection's `Actor` on session starts, Turns and approvals.
 
 **Remote Access (ENG-400, ADR 0076).** `remoteAccess.status`, `remoteAccess.enable` and `remoteAccess.disable` (Client-only) are served here from `RemoteAccessControl` (`remoteAccess/`): `tailscale serve --bg --https=443 --set-path /polaris http://127.0.0.1:<gateway port>/polaris`, the port from `gateway.json` (`remoteAccess/gateway.ts`). Tailscale holds the state; every call reads it back. `RemoteAccess` (`extensions/remoteAccess.ts`) gives `extensions.pair` the `wss://…/polaris/rpc` URL while it is on.
 
@@ -69,6 +69,6 @@ and add their capabilities with `startServer({ capabilities: [...] })` (the tran
 
 - `daemonHandlers` in `serve.ts` is still `Layer.empty`; the lead wires the modules' layers (see above).
 - No per-connection limit on concurrent requests or queued JSON beyond the Wire's 8 MiB high-water mark.
-- `hello` does not reject old Clients; protocol-version negotiation is only on the Client side.
+- `hello` does not reject old Clients over the socket; protocol-version negotiation is on the Client side there. Extensions declare `protocolVersions` and are refused a mismatch (`gateway/README.md`).
 - The upgrade adoption path is exercised by `service/upgrade.test.ts` with its fixture, not end to end through `startServer`.
 - `git/diff.ts` gets an `ArrayBuffer` from `Response#bytes()` where a `Uint8Array` is typed, so `countFiles` returns 0. The Wire now accepts any byte buffer, but the git module should wrap it in `new Uint8Array(...)`.
