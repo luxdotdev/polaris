@@ -20,12 +20,24 @@ import {
   type Wire,
   type WireOptions,
 } from "@polaris/protocol";
-import { Context, Effect, Latch, Layer, Predicate, Queue, Schema, Scope, Stream } from "effect";
+import {
+  Cause,
+  Context,
+  Effect,
+  Latch,
+  Layer,
+  Predicate,
+  Queue,
+  Schema,
+  Scope,
+  Stream,
+} from "effect";
 import { RpcSerialization, RpcServer, type Rpc } from "effect/rpc";
 import { type FromClientEncoded, ResponseDefectEncoded } from "effect/rpc/RpcMessage";
 import { join } from "node:path";
 import { ExtensionConnections, grantGateFor } from "../extensions/connection.ts";
 import { type RunningGateway, startGateway } from "../gateway/index.ts";
+import { gatewayLogText } from "../gateway/log.ts";
 import { GATEWAY_WIRE_LIMITS } from "../gateway/limits.ts";
 import { connectionRejected, rejectConnection } from "../extensions/admission.ts";
 import { Pairings } from "../extensions/pairings.ts";
@@ -469,7 +481,9 @@ export const startServer = <ROut = never, E = never, RIn = never>(
           yield* wire.closed.pipe(
             Effect.tapCause((cause) =>
               tokenRequired
-                ? Effect.logInfo("a gateway connection's Wire failed", cause)
+                ? Effect.logInfo(
+                    `a gateway connection's Wire failed: ${gatewayLogText(Cause.pretty(cause))}`
+                  )
                 : Effect.void
             ),
             Effect.ignore

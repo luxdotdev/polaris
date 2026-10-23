@@ -71,3 +71,48 @@ test("a page the glasses refused is drawn again in full", async () => {
 
   expect(calls).toEqual(["create a", "create b"]);
 });
+
+test("refused text is not confirmed as visible and is retried", async () => {
+  const { surface } = glasses();
+  let visible = "";
+  let accepts = false;
+
+  const renderer = rendererFor(
+    {
+      ...surface,
+      create: async (value) => {
+        visible = value.texts[0]?.content ?? "";
+
+        return true;
+      },
+      upgrade: async (value) => {
+        if (accepts) visible = value.content;
+
+        return accepts;
+      },
+    },
+    0
+  );
+
+  renderer.show(page("old"));
+  await renderer.settled();
+  renderer.show(page("new"));
+  await renderer.settled();
+  expect(visible).toBe("old");
+  expect(renderer.matches(page("new"))).toBe(false);
+  accepts = true;
+  renderer.show(page("new"));
+  await renderer.settled();
+  expect(visible).toBe("new");
+  expect(renderer.matches(page("new"))).toBe(true);
+});
+
+test("closing drops queued display work and ignores later pages", async () => {
+  const { surface, calls } = glasses();
+  const renderer = rendererFor(surface, 10);
+  renderer.show(page("queued"));
+  renderer.close();
+  renderer.show(page("after exit"));
+  await renderer.settled();
+  expect(calls).toEqual([]);
+});

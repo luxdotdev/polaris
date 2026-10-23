@@ -123,6 +123,11 @@ test("a peer cannot queue unbounded input while its consumer is stalled", () =>
 
 test.each([
   {
+    who: "a peer with hostile close text",
+    send: (socket: WebSocket) => socket.close(4001, "bye\n\u001b[31m" + "x".repeat(100)),
+    expected: /^the peer closed it \(4001 bye  \[31mx{71}\) after hello/,
+  },
+  {
     who: "the peer",
     send: (socket: WebSocket) => socket.close(4001, "bye"),
     expected: /^the peer closed it \(4001 bye\) after hello, after [\d.]+ s, 0 bytes in, 0 out$/,

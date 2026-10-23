@@ -10,6 +10,7 @@ import { findRow, type SessionKey, sameKey, sessionRows } from "./sessions.ts";
 export type VoicePhase = "listening" | "finishing" | "review" | "failed";
 
 export interface Voice {
+  readonly requestId: string | null;
   readonly phase: VoicePhase;
   readonly finalText: string;
   readonly interimText: string;
@@ -66,7 +67,13 @@ export const initialState = (paired: boolean): AppState => ({
   lastTurn: null,
 });
 
-const listening: Voice = { phase: "listening", finalText: "", interimText: "", error: null };
+const listening = (requestId: string | null): Voice => ({
+  requestId,
+  phase: "listening",
+  finalText: "",
+  interimText: "",
+  error: null,
+});
 
 /** The voice screen's choices, in list order. */
 export const VOICE_CHOICES: Record<"review" | "failed", ReadonlyArray<string>> = {
@@ -111,7 +118,11 @@ const onSession = (state: AppState, key: SessionKey, input: Input): Step => {
     return to(state, { kind: "menu", key, items: menuFor(row.entry, lastTurnOf(state, key)) });
 
   if (input.kind === "long-press")
-    return to(state, { kind: "voice", key, voice: listening }, { kind: "listen", key });
+    return to(
+      state,
+      { kind: "voice", key, voice: listening(openQuestion(state, key)) },
+      { kind: "listen", key }
+    );
 
   return [state, null];
 };
@@ -130,21 +141,32 @@ const onMenu = (
   if (item === undefined) return [state, null];
 
   if (item.action.kind === "speak")
-    return to(state, { kind: "voice", key, voice: listening }, { kind: "listen", key });
+    return to(
+      state,
+      { kind: "voice", key, voice: listening(openQuestion(state, key)) },
+      { kind: "listen", key }
+    );
 
   return to(state, { kind: "session", key }, { kind: "run", key, action: item.action });
 };
 
 const onVoiceChoice = (state: AppState, key: SessionKey, voice: Voice, choice: string): Step => {
+  if (choice === "Send" && openQuestion(state, key) !== voice.requestId)
+    return [onVoiceFailed(state, "The question changed. Cancel and open the session again."), null];
+
   if (choice === "Send")
     return to(
       state,
       { kind: "session", key },
-      { kind: "send-voice", key, text: voice.finalText.trim(), requestId: openQuestion(state, key) }
+      { kind: "send-voice", key, text: voice.finalText.trim(), requestId: voice.requestId }
     );
 
   if (choice === "Retry")
-    return to(state, { kind: "voice", key, voice: listening }, { kind: "listen", key });
+    return to(
+      state,
+      { kind: "voice", key, voice: listening(voice.requestId) },
+      { kind: "listen", key }
+    );
 
   if (choice === "Cancel") return to(state, { kind: "session", key });
 

@@ -4,6 +4,7 @@
  */
 import { HostUnreachable, type OpenTransport, webSocketTransport } from "@polaris/sdk";
 import { Effect, Stream } from "effect";
+import { diagnosticText } from "./diagnostics.ts";
 
 /** The first messages each get a line; after that only the totals do. */
 const SHOWN_MESSAGES = 12;
@@ -19,8 +20,9 @@ export const tagsOf = (bytes: Uint8Array) => {
 };
 
 export const loggedTransport =
-  (log: (line: string) => void): OpenTransport =>
+  (report: (line: string) => void): OpenTransport =>
   (pairing) => {
+    const log = (line: string) => report(diagnosticText(line));
     const url = pairing.url;
 
     if (url === null)
@@ -32,12 +34,14 @@ export const loggedTransport =
     let messages = 0;
     const totals = () => `${received} bytes in, ${sent} out`;
 
-    log(`opening ${url}`);
+    const address = new URL(url);
+    const shown = `${address.origin}${address.pathname}`;
+    log(`opening ${shown}`);
 
     return webSocketTransport(url, pairing.hostId).pipe(
       Effect.tapError((error) => Effect.sync(() => log(`couldn't open: ${error.message}`))),
       Effect.map((transport) => {
-        log(`opened ${url}`);
+        log(`opened ${shown}`);
 
         return {
           incoming: transport.incoming.pipe(
