@@ -663,6 +663,7 @@ in `bun run spec`.
 |---|---|
 | `Pairing`, `pair`, `revoke` | `apps/daemon/src/extensions/pairings.ts` (`Pairings`: SQLite, the token's SHA-256 only) and the `extensions.*` handlers in `transport/handlers.ts` |
 | `hello`, `scoped`, `beginHello`, `finishHello`, `requireToken` | `extensions/connection.ts` `scopeConnection`, called by `hello` (`transport/handlers.ts`); the `ConnectionPairing` annotation and private admission state (`extensions/admission.ts`). `requireToken(c)` is a gateway connection (`gateway/`, ENG-399): `transport/server.ts` serves it with `tokenRequired`, which the gate reads per connection |
+| `negotiated`, `refuseVersion` | `Admission.protocolReady` and the gateway Grant gate: authenticating a token does not authorize RPCs until `hello` accepts a protocol range; a later valid hello can retry. `gateway/gateway.test.ts` exercises refusal, a blocked granted RPC, and retry. |
 | `decide`, `call` | `packages/protocol/src/grants.ts` `decideAccess` over `RPC_GRANTS` / `COMMAND_GRANTS`, applied by `grantGate` (`extensions/connection.ts`) on `ServerRpcs` |
 | `mode`, `setMode`, `callTurn` | `decideTurnAccess` in the Engine decider, inside `EventStore.commit`; `Engine.grants.test.ts` covers all four turn commands in all modes and a mode change while a request waits |
 | `revoke` closing connections, `close` | `ExtensionConnections` (`extensions/connection.ts`), bound in `transport/server.ts` to each connection's transport |

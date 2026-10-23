@@ -27,6 +27,7 @@ test("blobs cross the gateway in both directions, in many WebSocket messages", a
           Stream.runForEach((transport) =>
             Effect.scoped(
               Effect.gen(function* () {
+                transport.authenticated();
                 const ready = yield* Deferred.make<Wire>();
                 const scope = yield* Effect.scope;
 
@@ -92,3 +93,30 @@ test("a text message closes the connection as unsupported data", async () => {
 
   expect(code).toBe(CLOSE_UNSUPPORTED_DATA);
 });
+
+test("a peer cannot queue unbounded input while its consumer is stalled", () =>
+  Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const gateway = yield* startGateway({ port: 0, recordPath: null });
+
+        if (gateway === null) throw new Error("no gateway");
+        // Accept transports without pulling their incoming streams.
+        yield* gateway.connections.pipe(Stream.runDrain, Effect.forkScoped);
+
+        const code = yield* Effect.promise(
+          () =>
+            new Promise<number>((resolve) => {
+              const socket = new WebSocket(gateway.url);
+              socket.onopen = () => {
+                for (let i = 0; i < 80; i++) socket.send(new Uint8Array(1));
+              };
+
+              socket.onclose = (event) => resolve(event.code);
+            })
+        ).pipe(Effect.timeout("1 second"));
+
+        expect(code).toBe(1009);
+      })
+    )
+  ));
