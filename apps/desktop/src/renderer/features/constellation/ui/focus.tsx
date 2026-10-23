@@ -10,7 +10,7 @@ import { useApp, useShellActions } from "../../../shell/hooks.ts";
 import { type SessionChrome, SessionChromeContext, SessionIntent } from "../../session/index.ts";
 import { constellationCommands } from "../client.ts";
 import { useFacts } from "../hooks.ts";
-import { hostKeyOf } from "../liveFacts.ts";
+import { hostKeyOf } from "../../../store/store.ts";
 import {
   type AttemptData,
   type ConstellationRecord,

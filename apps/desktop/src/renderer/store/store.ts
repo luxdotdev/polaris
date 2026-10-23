@@ -51,6 +51,10 @@ export const initialState: AppState = {
 
 export const sessionKey = (hostKey: string, sessionId: string) => `${hostKey}\u0000${sessionId}`;
 
+/** The Host this Client calls `hostKey` for a Daemon's `hostId`, once it has connected. */
+export const hostKeyOf = (hosts: ReadonlyArray<HostView>, hostId: string): string | null =>
+  hosts.find((h) => h.status.host?.hostId === hostId)?.key ?? null;
+
 type Update =
   | { readonly kind: "hosts"; readonly hosts: ReadonlyArray<HostView> }
   | { readonly kind: "host"; readonly hostKey: string; readonly item: HostStreamItem }

@@ -590,7 +590,9 @@ export type AppEvent =
   /** A Review or Walkthrough notification: open the Review it ran for. */
   | { readonly kind: "open-review"; readonly target: ReviewTarget }
   /** The quit prompt's "Save and quit": the Editor saves every file, then answers `editor.savedAll`. */
-  | { readonly kind: "editor-save-all" };
+  | { readonly kind: "editor-save-all" }
+  /** A `polaris://` link (Raycast and the like): open a session or a Workspace, nothing more. */
+  | { readonly kind: "deep-link"; readonly link: import("./deepLink.ts").DeepLink };
 
 /** A pull request to open in Review, with its node id when known. */
 export interface OpenPull extends PullRef {
