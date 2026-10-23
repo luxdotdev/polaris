@@ -50,6 +50,8 @@ export * from "./streams.ts";
 
 export * from "./usage.ts";
 
+export * from "./voice.ts";
+
 export * from "./wire.ts";
 
 export * from "./constellation/index.ts";

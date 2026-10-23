@@ -130,6 +130,13 @@ const GROUPS: ReadonlyArray<GroupSource> = [
           "Pasted and dropped files are staged on the host that runs the session. Choose when each host deletes them.",
         keywords: ["files", "images", "staging", "cleanup", "clear", "disk"],
       },
+      {
+        id: "voice",
+        title: "Voice",
+        blurb:
+          "Extensions that listen, such as smart glasses, send audio to a host, which transcribes it with Deepgram using that host's own key. Keys stay on their hosts and are never shown again.",
+        keywords: ["deepgram", "speech", "transcription", "dictation", "microphone", "key"],
+      },
     ],
   },
   {

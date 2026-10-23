@@ -53,11 +53,12 @@ const UI_MORE: ReadonlyArray<readonly [string, string]> = [
   ["CopyIcon", "CopyOutline18"],
 ];
 
-/** A third UI file, for the same reason: pull and push. */
+/** A third UI file, for the same reason: pull and push, and Settings → Voice. */
 const UI_SYNC: ReadonlyArray<readonly [string, string]> = [
   ["ArrowDownIcon", "ArrowDownOutline18"],
   ["SyncIcon", "RefreshOutline18"],
   ["CloudUploadIcon", "CloudUploadOutline18"],
+  ["MicrophoneIcon", "MicrophoneOutline18"],
 ];
 
 /** Polaris name → Nucleo pixel outline 24px component. Polaris-owned concepts only. */
