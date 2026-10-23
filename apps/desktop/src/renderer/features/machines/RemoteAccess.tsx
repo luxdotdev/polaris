@@ -22,6 +22,8 @@ const REASONS: Record<NonNullable<Status["reason"]>, string> = {
   "https-disabled": "Enable HTTPS certificates for your tailnet in the Tailscale admin console.",
   "needs-operator": "Run `sudo tailscale set --operator=$USER` on this host once.",
   "gateway-not-running": "The gateway isn't running on this host. Restart its daemon.",
+  "serving-elsewhere":
+    "Tailscale serves /polaris to something other than this host's gateway. Turn it off, or on again.",
   failed: "Tailscale didn't answer as expected.",
 };
 
@@ -37,6 +39,10 @@ export const remoteAccessLines = (status: Status | null): ReadonlyArray<string> 
     ? [`Extensions connect to ${status.url ?? ""}`, TAILNET_NOTE]
     : ["Extensions on your other devices reach this host over Tailscale.", TAILNET_NOTE];
 };
+
+/** On can always be turned off, even when it serves the wrong thing; off needs nothing missing. */
+const switchable = (status: Status): boolean =>
+  status.state === "on" || (status.state === "off" && status.reason === null);
 
 export interface RemoteAccessRowProps {
   readonly status: Status | null;
@@ -57,7 +63,7 @@ export const RemoteAccessRow = ({ status, busy, onChange }: RemoteAccessRowProps
     <Switch
       aria-label="Remote access"
       checked={status?.state === "on"}
-      disabled={busy || status === null || status.reason !== null || status.state === "unavailable"}
+      disabled={busy || status === null || !switchable(status)}
       onCheckedChange={onChange}
     />
   </div>

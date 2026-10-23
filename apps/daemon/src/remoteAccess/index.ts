@@ -26,6 +26,8 @@ export const REASON_MESSAGES: Record<RemoteAccessReason, string> = {
   "needs-operator":
     "Tailscale needs `sudo tailscale set --operator=$USER` once before Polaris can serve.",
   "gateway-not-running": "The gateway isn't running on this host.",
+  "serving-elsewhere":
+    "Tailscale serves /polaris to something other than this host's gateway. Turn remote access off, or on again.",
   failed: "Tailscale didn't answer as expected. Try again.",
 };
 
@@ -108,37 +110,38 @@ export const makeRemoteAccess = (options: RemoteAccessOptions) => {
         : Effect.succeed(record.port)
     );
 
-  const statusOf = (cli: TailscaleCli, host: string, port: number) =>
+  /**
+   * What Tailscale serves at `/polaris`, as it is: a path proxying anywhere but the proven
+   * gateway (`port` null when none) is still exposed, so it reads as on, with no URL and why.
+   */
+  const statusOf = (cli: TailscaleCli, host: string, port: number | null) =>
     readServedProxy(cli, host, GATEWAY_PREFIX).pipe(
       Effect.mapError(fromCommand),
       Effect.map((proxy) => {
-        // A path left proxying to an old gateway port is off: enabling replaces it.
-        const on = proxy === serveTarget(port);
+        const ours = port !== null && proxy === serveTarget(port);
+        const missing = port === null ? ("gateway-not-running" as const) : null;
 
         return new RemoteAccessStatus({
-          state: on ? "on" : "off",
-          url: on ? `wss://${host}${GATEWAY_RPC_PATH}` : null,
+          state: proxy === null ? "off" : "on",
+          url: ours ? `wss://${host}${GATEWAY_RPC_PATH}` : null,
           hostName: host,
-          reason: null,
+          reason: proxy === null || ours ? missing : (missing ?? "serving-elsewhere"),
         });
       })
     );
 
-  // Without a gateway, Tailscale is ready but there is nothing to serve: off, saying why.
   const unavailable = ({ reason, host }: NotReady) =>
-    new RemoteAccessStatus({
-      state: reason === "gateway-not-running" ? "off" : "unavailable",
-      url: null,
-      hostName: host,
-      reason,
-    });
+    new RemoteAccessStatus({ state: "unavailable", url: null, hostName: host, reason });
 
   const fail = ({ reason }: NotReady) =>
     new RemoteAccessError({ reason, message: REASON_MESSAGES[reason] });
 
   const status: Effect.Effect<RemoteAccessStatus> = ready.pipe(
     Effect.flatMap(({ cli, host }) =>
-      Effect.flatMap(gateway(host), (port) => statusOf(cli, host, port))
+      gateway(host).pipe(
+        Effect.orElseSucceed(() => null),
+        Effect.flatMap((port) => statusOf(cli, host, port))
+      )
     ),
     Effect.catch((why) => Effect.succeed(unavailable(why)))
   );

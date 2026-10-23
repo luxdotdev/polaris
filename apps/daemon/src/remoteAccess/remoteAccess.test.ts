@@ -159,14 +159,37 @@ describe("Remote Access", () => {
     expect((await Effect.runPromise(access.disable)).state).toBe("off");
   });
 
-  test("a path still proxying to an old gateway port is off, and on replaces it", async () => {
+  test("a path still proxying to an old gateway port reads as exposed, and on replaces it", async () => {
     const access = remoteAccess();
+
     await Effect.runPromise(access.enable);
     const port = startGateway();
 
-    expect((await Effect.runPromise(access.status)).state).toBe("off");
+    expect(await Effect.runPromise(access.status)).toMatchObject({
+      state: "on",
+      url: null,
+      reason: "serving-elsewhere",
+    });
     await Effect.runPromise(access.enable);
     expect(handlers()?.["/polaris"]).toEqual({ Proxy: `http://127.0.0.1:${port}/polaris` });
+  });
+
+  test("a gateway that stopped leaves its path exposed until turned off, never reading as off", async () => {
+    const access = remoteAccess();
+
+    await Effect.runPromise(access.enable);
+    rmSync(join(dir, "gateway.json"));
+
+    expect(await Effect.runPromise(access.status)).toMatchObject({
+      state: "on",
+      url: null,
+      reason: "gateway-not-running",
+    });
+    expect(await Effect.runPromise(access.disable)).toMatchObject({
+      state: "off",
+      reason: "gateway-not-running",
+    });
+    expect(handlers()).toEqual({});
   });
 
   test.each([

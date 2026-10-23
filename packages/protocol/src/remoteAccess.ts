@@ -16,6 +16,8 @@ export const RemoteAccessReason = Schema.Literals([
   "needs-operator",
   /** No gateway proved itself on its port (ENG-399), so there is nothing to serve. */
   "gateway-not-running",
+  /** `/polaris` is served, but not to the running gateway (an old port): exposed, so on. */
+  "serving-elsewhere",
   /** Tailscale answered with something Polaris doesn't recognise, or not in time. */
   "failed",
 ]);
@@ -28,7 +30,10 @@ export class RemoteAccessStatus extends Schema.Class<RemoteAccessStatus>("Remote
   url: Schema.NullOr(Schema.String),
   /** The Host's MagicDNS name, once Tailscale reports one. */
   hostName: Schema.NullOr(Schema.String),
-  /** Set when `state` is `unavailable`, or `off` because the gateway isn't running. */
+  /**
+   * Set when `state` is `unavailable`; when no gateway is running; and when `on` serves
+   * something other than the gateway (then `url` is null and turning off removes it).
+   */
   reason: Schema.NullOr(RemoteAccessReason),
 }) {}
 

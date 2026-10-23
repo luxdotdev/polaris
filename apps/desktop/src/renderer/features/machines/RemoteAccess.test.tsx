@@ -36,6 +36,14 @@ describe("a host's remote access row", () => {
     expect(html).toContain(DISABLED);
   });
 
+  test("on but serving something else, it says so and can still be turned off", () => {
+    const html = render({ ...off, state: "on", reason: "serving-elsewhere" });
+
+    expect(html).toContain("Tailscale serves /polaris to something other than this host");
+    expect(html).toContain('aria-checked="true"');
+    expect(html).not.toContain(DISABLED);
+  });
+
   test("while loading or switching, the switch can't be flipped again", () => {
     expect(render(null)).toContain(DISABLED);
     expect(render(off, true)).toContain(DISABLED);
