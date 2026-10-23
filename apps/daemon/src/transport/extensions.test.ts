@@ -13,6 +13,7 @@ import {
   Command,
   CommandId,
   CommandRejected,
+  decodePairingString,
   ExtensionDaemonRpcs,
   ExtensionTokenRejected,
   HostStreamItem,
@@ -30,6 +31,7 @@ import {
   Fiber,
   Layer,
   Match,
+  Option,
   Predicate,
   Redacted,
   Schema,
@@ -347,4 +349,40 @@ test("an Extension gets its Grant and nothing more, and revoking cuts it off", a
 
   if (process.env.EXTENSIONS_TRACE_OUTPUT !== undefined)
     writeFileSync(process.env.EXTENSIONS_TRACE_OUTPUT, JSON.stringify(decoded, null, 2));
+});
+
+test("the pairing string names this Host and carries the token, with no url while Remote Access is off", async () => {
+  const outcome = await Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* temporary;
+
+        const server = yield* startServer({
+          root,
+          socketPath: join(root, "d.sock"),
+          lockPath: join(root, "d.lock"),
+          handlers,
+        });
+
+        const desktop = yield* Effect.flatMap(socketTransport(server.socketPath), (transport) =>
+          connectRpcWith(ExtensionDaemonRpcs, transport)
+        );
+
+        const { host } = yield* desktop.client.hello(hello());
+        const paired = yield* desktop.client["extensions.pair"]({ name: "Glasses", grant: [] });
+
+        return { host, paired };
+      })
+    )
+  );
+
+  expect(decodePairingString(outcome.paired.pairingString)).toEqual(
+    Option.some({
+      hostId: outcome.host.hostId,
+      hostName: outcome.host.hostname,
+      url: null,
+      token: outcome.paired.token,
+      name: "Glasses",
+    })
+  );
 });

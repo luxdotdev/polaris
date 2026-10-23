@@ -7,6 +7,7 @@
  *   polaris install                install this binary and the user service
  *   polaris uninstall [--purge]    remove the user service and binaries (state kept unless --purge)
  *   polaris upgrade <path>         install <path> and hand the running Daemon over to it in place
+ *   polaris extension <pair|list|revoke>  pair Extensions with this Host, list and revoke them
  *   polaris version                print the version and platform
  *   polaris selftest               check this build's native libraries work here (exit 1 if not)
  *   polaris rules-scan             (internal) run the Rules' pattern scan; the Daemon starts it
@@ -25,6 +26,12 @@ switch (command) {
   case "constellation": {
     const { runConstellationStats } = await import("./constellation/stats/cli.ts");
     process.exit(await runConstellationStats(args));
+    break;
+  }
+
+  case "extension": {
+    const { runExtension } = await import("./extensions/cli.ts");
+    process.exit(await runExtension(args));
     break;
   }
 
@@ -82,7 +89,7 @@ switch (command) {
     }
 
     console.error(
-      `usage: polaris <serve|bridge|install|uninstall|upgrade|version|selftest|lease|constellation>`
+      `usage: polaris <serve|bridge|install|uninstall|upgrade|version|selftest|lease|constellation|extension>`
     );
     process.exit(command === undefined ? 0 : 2);
   }

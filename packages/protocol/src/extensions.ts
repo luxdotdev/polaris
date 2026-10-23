@@ -78,10 +78,13 @@ export class GrantGate extends RpcMiddleware.Service<GrantGate>()("polaris/proto
   error: NotGranted,
 }) {}
 
-/** Makes a Pairing; the token comes back once and is never stored or shown again. */
+/**
+ * Makes a Pairing; the token comes back once and is never stored or shown again.
+ * `pairingString` carries it with this Host's identity and Remote Access URL (`pairingString.ts`).
+ */
 export const PairExtension = Rpc.make("extensions.pair", {
   payload: { name: Schema.String, grant: Grant },
-  success: Schema.Struct({ pairing: Pairing, token: Schema.String }),
+  success: Schema.Struct({ pairing: Pairing, token: Schema.String, pairingString: Schema.String }),
 });
 
 export const ListPairings = Rpc.make("extensions.list", {
