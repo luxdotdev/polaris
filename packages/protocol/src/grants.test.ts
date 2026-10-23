@@ -56,6 +56,10 @@ describe("decideAccess", () => {
     expect(decideAccess(everything, "extensions.list", null)).toEqual(
       new NotGranted({ what: "extensions.list", needed: null })
     );
+    // An Extension could otherwise expose the Host to the tailnet on its own.
+    expect(decideAccess(everything, "remoteAccess.enable", null)).toEqual(
+      new NotGranted({ what: "remoteAccess.enable", needed: null })
+    );
     expect(decideAccess(everything, "dispatch", "ArchiveSession")).toEqual(
       new NotGranted({ what: "dispatch:ArchiveSession", needed: null })
     );

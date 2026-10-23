@@ -160,6 +160,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "constellation",
   "constellation.defaults",
   "extensions",
+  "remote-access",
   ...HARNESS_CATALOGUE.map((harness) => harness.capability),
   "harness.availability",
   "harness.models",

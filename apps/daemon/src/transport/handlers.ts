@@ -30,6 +30,7 @@ import { helloHost } from "./hostInfo.ts";
 import { bindLanguageIdentity } from "./languageIdentity.ts";
 import { ExtensionConnections, pairingOf, scopeConnection } from "../extensions/connection.ts";
 import { Pairings } from "../extensions/pairings.ts";
+import { RemoteAccessControl } from "../remoteAccess/index.ts";
 
 const constellationUnavailable = () =>
   new ConstellationRejected({
@@ -321,6 +322,11 @@ export const defaultHandlers = (options: {
 
         return revoked;
       }),
+
+    // Token-less Clients only, like the Pairings: Tailscale's own state, read back each time.
+    "remoteAccess.status": () => Effect.flatMap(RemoteAccessControl, (control) => control.status),
+    "remoteAccess.enable": () => Effect.flatMap(RemoteAccessControl, (control) => control.enable),
+    "remoteAccess.disable": () => Effect.flatMap(RemoteAccessControl, (control) => control.disable),
 
     dispatch: ({ commandId }) =>
       Effect.fail(new CommandRejected({ commandId, reason: notYet("the event store") })),

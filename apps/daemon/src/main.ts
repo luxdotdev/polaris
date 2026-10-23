@@ -9,6 +9,7 @@
  *   polaris upgrade <path>         install <path> and hand the running Daemon over to it in place
  *   polaris version                print the version and platform
  *   polaris selftest               check this build's native libraries work here (exit 1 if not)
+ *   polaris tailscale <on|off|status>  Remote Access over Tailscale (ADR 0076)
  *   polaris rules-scan             (internal) run the Rules' pattern scan; the Daemon starts it
  */
 // Every command loads only what it needs: `bridge` runs once per remote Client for as
@@ -31,6 +32,12 @@ switch (command) {
   case "lease": {
     const { runLease } = await import("./resources/cli.ts");
     process.exit(await runLease(args));
+    break;
+  }
+
+  case "tailscale": {
+    const { runTailscaleCommand } = await import("./remoteAccess/cli.ts");
+    process.exit(await runTailscaleCommand(args));
     break;
   }
 
@@ -82,7 +89,7 @@ switch (command) {
     }
 
     console.error(
-      `usage: polaris <serve|bridge|install|uninstall|upgrade|version|selftest|lease|constellation>`
+      `usage: polaris <serve|bridge|install|uninstall|upgrade|version|selftest|lease|constellation|tailscale>`
     );
     process.exit(command === undefined ? 0 : 2);
   }

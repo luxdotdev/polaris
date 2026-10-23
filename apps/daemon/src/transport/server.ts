@@ -36,6 +36,8 @@ import { type FromClientEncoded, ResponseDefectEncoded } from "effect/rpc/RpcMes
 import { join } from "node:path";
 import { ExtensionConnections, grantGate } from "../extensions/connection.ts";
 import { Pairings } from "../extensions/pairings.ts";
+import { RemoteAccessLive } from "../extensions/remoteAccess.ts";
+import { RemoteAccessControl } from "../remoteAccess/index.ts";
 import { paths } from "../paths.ts";
 import { CommandRunner } from "../service/CommandRunner.ts";
 import { takeStopRecord } from "../service/daemonStop.ts";
@@ -178,7 +180,8 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       (clientId) => connections.get(clientId)?.close ?? Effect.void
     );
 
-    const extensionServices = Layer.merge(
+    const extensionServices = Layer.mergeAll(
+      RemoteAccessLive.pipe(Layer.provideMerge(RemoteAccessControl.layer({ root }))),
       Pairings.layer(join(root, "extensions.sqlite")).pipe(
         Layer.catchTag("PairingStoreError", (error) =>
           Layer.effect(
