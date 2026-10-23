@@ -65,6 +65,10 @@ writes `build/app.json` with those origins in the network whitelist (a bare host
 `wss://`) and `build/polaris-g2-<version>.ehpk`. The whitelist isn't enforced for WebSockets
 (see below), but Even Hub lists it to the user.
 
+A release tag also packs it in CI, for the Hosts in the repository variable `EVEN_G2_HOSTS`
+(separated by spaces or commas): the release run's `polaris-g2-<version>` artifact holds the
+`.ehpk` and its `app.json`. It is never a Release asset; upload it by hand as below.
+
 Install through Even Hub's beta channel:
 
 1. `bunx evenhub login` once, in a terminal: it refuses a non-TTY and has no token flag. Later

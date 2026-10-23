@@ -31,7 +31,18 @@ job output, so no later upload under the same name can stand in for it:
 | `dmg` | the tag's code: check the signed app, build the DMG around it | none | read |
 | `sign-dmg` | `tooling/release/sign.py dmg` from the default branch | Apple | read |
 | `windows` | the tag's code: package unsigned | none | read |
+| `sdk` | the tag's code: build and `npm pack` the SDK | none | read |
+| `npm` | `npm publish` of the checked tarball, scripts ignored | `NPM_TOKEN` | read, `id-token` |
+| `raycast` | the tag's code: `ray build`, ZIP for the Release | none | read |
+| `even-g2` | the tag's code: pack the `.ehpk` for `vars.EVEN_G2_HOSTS` | none | read |
 | `publish` | `gh` only: verify hand-offs, draft the Release | none | write |
+
+The `npm` job checks out nothing: it publishes the `sdk` job's tarball by artifact ID after
+checking its digest, with provenance (`id-token: write`), in its own `npm` environment so the owner
+can require a reviewer. A version already on npm is skipped, so the SDK keeps its own version.
+The `.ehpk` stays a workflow artifact, never a Release asset, and is uploaded to Even Hub by hand:
+`evenhub login` needs a terminal, and its saved refresh token lasts seven days and rotates on use,
+so a stored copy can't serve CI.
 
 Every release is signed, prereleases too: there is no unsigned path, and `sign` fails
 without its secrets. Only `sign` and `sign-dmg` use the `release` environment, so a
@@ -66,9 +77,10 @@ the bundle.
 
 Every external action is pinned to a full commit SHA with its version in a comment.
 `tooling/release/workflows.test.ts` fails if an action is unpinned, if any job but
-`publish` can write, or if a job holding a secret value runs anything but checkout,
-artifact transfer and the signer, or if such a job downloads a hand-off by name or
-handles one with shell tools instead of the signer.
+`publish` can write (and `npm` mint an ID token), if a job holding Apple credentials runs
+anything but checkout, artifact transfer and the signer, or if such a job downloads a
+hand-off by name or handles one with shell tools instead of the signer. It also fails if
+`npm` runs repository code or skips the digest, or if the `.ehpk` reaches the Release.
 
 ## Consequences
 

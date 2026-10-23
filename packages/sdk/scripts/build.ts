@@ -181,6 +181,12 @@ const writeManifest = () => {
     version: manifest.version,
     description: manifest.description,
     license: manifest.license,
+    // npm's provenance check requires this to name the repository the workflow ran in.
+    repository: {
+      type: "git",
+      url: "git+https://github.com/luxdotdev/polaris.git",
+      directory: "packages/sdk",
+    },
     type: "module",
     exports: {
       ".": {
