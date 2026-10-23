@@ -2,6 +2,7 @@
  * The phone's side of the app, in the Even app's WebView: the paired Hosts and
  * how they stand, and pairing by pasting or scanning a pairing string.
  */
+import { describeCause } from "../app/log.ts";
 import type { HostView } from "@polaris/sdk";
 import { addPairing, removeHost, type Stored } from "./pairings.ts";
 
@@ -15,6 +16,8 @@ export interface PhonePageOptions {
 
 export interface PhonePage {
   readonly showHosts: (hosts: ReadonlyArray<HostView>) => void;
+  /** The connection log, oldest line first. */
+  readonly showLog: (lines: ReadonlyArray<string>) => void;
 }
 
 const element = <K extends keyof HTMLElementTagNameMap>(
@@ -37,7 +40,8 @@ const UNREACHABLE_HINT =
 const statusOf = (view: HostView | undefined) => {
   if (view === undefined) return "Connecting…";
 
-  if (view.error !== null) return `Can't reach it. ${UNREACHABLE_HINT}`;
+  if (view.error !== null)
+    return `Can't reach it (${describeCause(view.error)}). ${UNREACHABLE_HINT}`;
 
   if (!view.connected) return "Reconnecting…";
   const count = view.sessions.length;
@@ -53,6 +57,8 @@ export const mountPhonePage = (root: HTMLElement, options: PhonePageOptions): Ph
   const input = element("textarea");
   const pair = element("button", "Pair");
   const scan = element("button", "Scan QR code", "secondary");
+  const logLines = element("pre", "", "log");
+  const logBox = element("details", "", "log");
 
   input.placeholder = "polaris-pair:v1:…";
   input.rows = 3;
@@ -132,14 +138,19 @@ export const mountPhonePage = (root: HTMLElement, options: PhonePageOptions): Ph
     ),
     input,
     actions,
-    message
+    message,
+    logBox
   );
+  logBox.append(element("summary", "Connection log"), logLines);
   renderHosts();
 
   return {
     showHosts: (hosts) => {
       views = hosts;
       renderHosts();
+    },
+    showLog: (lines) => {
+      logLines.textContent = lines.join("\n");
     },
   };
 };

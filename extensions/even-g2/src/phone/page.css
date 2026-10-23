@@ -128,3 +128,13 @@ button.secondary {
 .message.error {
   color: #ff453a;
 }
+
+details.log {
+  margin-top: 24px;
+}
+
+details.log pre {
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}

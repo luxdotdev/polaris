@@ -22,6 +22,7 @@ import { layout } from "../model/layout.ts";
 import { DONE, type MenuAction } from "../model/menu.ts";
 import type { SessionKey } from "../model/sessions.ts";
 import { describeError } from "./errors.ts";
+import { describeCause } from "./log.ts";
 import { listen, type Listening } from "./voice.ts";
 
 export interface AppOptions {
@@ -31,7 +32,16 @@ export interface AppOptions {
   readonly renderDelayMs?: number;
   /** Every Hosts update, for the phone's page. */
   readonly onHosts?: (hosts: ReadonlyArray<HostView>) => void;
+  /** A line for the phone's connection log. */
+  readonly log?: (line: string) => void;
 }
+
+/** How a Host's connection stands, as the log reports it. */
+const linkOf = (view: HostView) => {
+  if (view.error !== null) return `can't be shown: ${describeCause(view.error)}`;
+
+  return view.connected ? `connected, ${view.sessions.length} agent sessions` : "reconnecting";
+};
 
 export interface App {
   /** Replaces the pairings and connects again. */
@@ -51,6 +61,8 @@ const screenKey = (state: AppState) => (state.screen.kind === "sessions" ? null 
 export const startApp = (options: AppOptions): App => {
   const { glasses } = options;
   const renderer = rendererFor(glasses, options.renderDelayMs ?? RENDER_DELAY_MS);
+  const log = options.log ?? (() => undefined);
+  const links = new Map<string, string>();
   let state = initialState(false);
   let pairings: ReadonlyArray<string> = [];
   let client: PolarisClient | null = null;
@@ -103,7 +115,7 @@ export const startApp = (options: AppOptions): App => {
 
         if (status !== undefined) set(onLastTurn(state, key, status));
       }
-    })().catch(() => undefined);
+    })().catch((cause: unknown) => log(`the session feed failed: ${describeCause(cause)}`));
   };
 
   const notify = (notice: string) => set(onNotice(state, notice));
@@ -140,7 +152,10 @@ export const startApp = (options: AppOptions): App => {
     if (client === null) return;
     void work(client).then(
       () => notify(done),
-      (cause: unknown) => notify(describeError(cause, hostName(key.hostId)))
+      (cause: unknown) => {
+        log(`${done} failed: ${describeCause(cause)}`);
+        notify(describeError(cause, hostName(key.hostId)));
+      }
     );
   };
 
@@ -150,7 +165,10 @@ export const startApp = (options: AppOptions): App => {
     if (client === null) return;
     voice = listen(glasses, client, key.hostId, {
       heard: (transcript) => set(onTranscript(state, transcript)),
-      failed: (cause) => set(onVoiceFailed(state, describeError(cause, hostName(key.hostId)))),
+      failed: (cause) => {
+        log(`voice failed: ${describeCause(cause)}`);
+        set(onVoiceFailed(state, describeError(cause, hostName(key.hostId))));
+      },
     });
   };
 
@@ -216,6 +234,14 @@ export const startApp = (options: AppOptions): App => {
   const watchHosts = async (polaris: PolarisClient, mine: number) => {
     for await (const hosts of polaris.subscribeHosts()) {
       if (mine !== generation) return;
+
+      for (const host of hosts) {
+        const link = linkOf(host);
+
+        if (links.get(host.hostId) !== link) log(`${host.hostName}: ${link}`);
+        links.set(host.hostId, link);
+      }
+
       set(onHosts(state, hosts));
       options.onHosts?.(hosts);
     }
@@ -227,6 +253,8 @@ export const startApp = (options: AppOptions): App => {
     const mine = generation;
 
     if (pairings.length === 0) return;
+    links.clear();
+    log(`connecting to ${pairings.length} host${pairings.length === 1 ? "" : "s"}`);
 
     try {
       const polaris = await options.connect(pairings);
@@ -234,10 +262,17 @@ export const startApp = (options: AppOptions): App => {
       if (mine !== generation) return void polaris.close();
       client = polaris;
       followSession();
-      void watchHosts(polaris, mine).catch((cause: unknown) => {
-        if (mine === generation) notify(describeError(cause, "the host"));
-      });
+      void watchHosts(polaris, mine).then(
+        () => mine === generation && log("the hosts feed ended"),
+        (cause: unknown) => {
+          log(`the hosts feed failed: ${describeCause(cause)}`);
+
+          if (mine === generation) notify(describeError(cause, "the host"));
+        }
+      );
     } catch (error) {
+      log(`couldn't connect: ${describeCause(error)}`);
+
       if (mine === generation) notify(describeError(error, "the host"));
     }
   };
