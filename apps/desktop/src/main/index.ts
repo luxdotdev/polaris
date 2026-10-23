@@ -508,7 +508,8 @@ const start = async () => {
     notifyAgents: () => env.POLARIS_DESKTOP_HIDDEN !== "1",
   });
 
-  win.webContents.once("did-finish-load", () =>
+  win.webContents.on("did-start-loading", () => deepLinks.detach());
+  win.webContents.on("did-finish-load", () =>
     deepLinks.attach({
       send: (event) => win.webContents.send(CHANNELS.app, event),
       focus: () => {
