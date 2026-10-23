@@ -8,9 +8,9 @@ import {
   Toast,
   useNavigation,
 } from "@raycast/api";
-import { InvalidPairing } from "@polaris/sdk";
 import { useState } from "react";
 import { addPairing } from "../lib/pairings.ts";
+import { describeFailure } from "../lib/copy.ts";
 
 export const AddPairingForm = (props: { readonly onAdded: () => void }) => {
   const { pop } = useNavigation();
@@ -29,8 +29,9 @@ export const AddPairingForm = (props: { readonly onAdded: () => void }) => {
       props.onAdded();
       pop();
     } catch (failure) {
-      if (failure instanceof InvalidPairing) setError(`Not a pairing string: ${failure.reason}`);
-      else throw failure;
+      const copy = describeFailure(failure instanceof Error ? failure : null, "save the pairing");
+
+      setError(`${copy.title}. ${copy.message}`);
     }
   };
 

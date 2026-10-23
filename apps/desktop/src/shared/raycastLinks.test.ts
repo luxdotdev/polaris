@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import { parseDeepLink } from "@polaris/desktop/src/shared/deepLink.ts";
+import { parseDeepLink } from "./deepLink.ts";
 import { HostId, SessionId, WorkspaceId } from "@polaris/protocol";
-import { sessionLink, workspaceLink } from "./links.ts";
+import { sessionLink, workspaceLink } from "../../../../extensions/raycast/src/lib/links.ts";
 
 test.each([
   ["plain ids", "host-1", "abc123"],

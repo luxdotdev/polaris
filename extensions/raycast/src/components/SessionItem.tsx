@@ -4,6 +4,7 @@ import { Action, ActionPanel, Icon, Keyboard, List } from "@raycast/api";
 import { harnessEntry } from "@polaris/sdk";
 import { usePolaris } from "../polaris.tsx";
 import { PERMISSION_MODES, STATE_LABEL } from "../lib/copy.ts";
+import { canSendTurn } from "../lib/actions.ts";
 import { sessionLink } from "../lib/links.ts";
 import { fence, plain, quote } from "../lib/markdown.ts";
 import type { SessionRow } from "../lib/rows.ts";
@@ -141,7 +142,7 @@ export const SessionActions = (props: {
           icon="icon.png"
           target={sessionLink(row.hostId, session.id)}
         />
-        {session.state === "archived" ? null : (
+        {!canSendTurn(row.entry) ? null : (
           <Action.Push
             title="Send Turn"
             icon={Icon.Message}

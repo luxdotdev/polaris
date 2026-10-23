@@ -60,6 +60,10 @@ export interface Failure {
   readonly message: string;
 }
 
+/** The recovery page for a failure before a Host feed opens. */
+export const failureMarkdown = (failure: Failure): string =>
+  `# ${plain(failure.title)}\n\n${plain(failure.message)}`;
+
 const notGranted = (error: NotGranted): Failure =>
   error.needed === null
     ? { title: "Extensions can't do this", message: "Do it in Polaris itself." }
@@ -83,11 +87,7 @@ const rejected = (error: ExtensionTokenRejected): Failure => ({
  * What to tell the user when `action` ("send the turn") failed with `error`.
  * `hostName` names the Host in an unreachable one.
  */
-export const describeFailure = (
-  error: Error | null,
-  action: string,
-  hostName?: string
-): Failure => {
+const failureOf = (error: Error | null, action: string, hostName?: string): Failure => {
   if (error instanceof NotGranted) return notGranted(error);
 
   if (error instanceof ProtocolMismatch) return mismatch(error);
@@ -110,6 +110,20 @@ export const describeFailure = (
     return { title: "Not a pairing string", message: `It can't be read: ${error.reason}.` };
 
   return { title: `Couldn't ${action}`, message: error?.message ?? "" };
+};
+
+/** Never repeat a pairing credential embedded in transport or validation errors. */
+const redact = (text: string): string =>
+  text.replaceAll(/pol_ext_[A-Za-z0-9_-]+|polaris-pair:v1:[A-Za-z0-9_-]+/g, "[redacted]");
+
+export const describeFailure = (
+  error: Error | null,
+  action: string,
+  hostName?: string
+): Failure => {
+  const failure = failureOf(error, action, hostName);
+
+  return { title: redact(failure.title), message: redact(failure.message) };
 };
 
 /** The page a command shows instead of its list when no Host can be reached. */
