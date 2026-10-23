@@ -43,7 +43,7 @@ import {
   Worktree,
 } from "./domain.ts";
 import { EventEnvelope } from "./events.ts";
-import { ExtensionRpcs, GrantGate } from "./extensions.ts";
+import { ExtensionRpcs, GrantGate, NotGranted } from "./extensions.ts";
 import { HarnessKind } from "./harnesses.ts";
 import { Hello } from "./hello.ts";
 import {
@@ -809,4 +809,6 @@ export class DaemonRpcs extends RpcGroup.make(
  * `NotGranted` (grants.ts). The SDK's Client is built on this group so the
  * refusal decodes; the Desktop App, never refused, stays on `DaemonRpcs`.
  */
-export class ExtensionDaemonRpcs extends DaemonRpcs.middleware(GrantGate) {}
+export class ExtensionDaemonRpcs extends DaemonRpcs.omit("dispatch")
+  .add(Dispatch.setError(Schema.Union([CommandRejected, NotFound, NotGranted])))
+  .middleware(GrantGate) {}

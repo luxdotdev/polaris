@@ -34,7 +34,8 @@ import {
 import { RpcSerialization, RpcServer, type Rpc } from "effect/rpc";
 import { type FromClientEncoded, ResponseDefectEncoded } from "effect/rpc/RpcMessage";
 import { join } from "node:path";
-import { ExtensionConnections, grantGate } from "../extensions/connection.ts";
+import { ExtensionConnections, grantGateFor } from "../extensions/connection.ts";
+import { connectionRejected, rejectConnection } from "../extensions/admission.ts";
 import { Pairings } from "../extensions/pairings.ts";
 import { paths } from "../paths.ts";
 import { CommandRunner } from "../service/CommandRunner.ts";
@@ -72,6 +73,8 @@ export interface ServeOptions<ROut, E, RIn> {
   readonly lockPath?: string;
   readonly root?: string;
   readonly wire?: WireOptions;
+  /** For transports exposed to Extensions only; the Unix socket defaults to Client access. */
+  readonly extensionTokenRequired?: boolean;
   /**
    * Take over a listener handed across an execve upgrade and serve
    * `polaris upgrade` requests (service/upgrade.ts). `polaris serve` sets it;
@@ -174,8 +177,15 @@ export const startServer = <ROut = never, E = never, RIn = never>(
     >();
 
     // Which connections act as which Pairing, and the Pairings themselves (ENG-398).
-    const extensionConnections = ExtensionConnections.make(
-      (clientId) => connections.get(clientId)?.close ?? Effect.void
+    const extensionConnections = ExtensionConnections.make((clientId) =>
+      Effect.suspend(() => {
+        const connection = connections.get(clientId);
+
+        if (connection === undefined) return Effect.void;
+        connection.clients.forEach((client) => rejectConnection(client, "revoked"));
+
+        return connection.close;
+      })
     );
 
     const extensionServices = Layer.merge(
@@ -213,7 +223,13 @@ export const startServer = <ROut = never, E = never, RIn = never>(
           // The JSON serialization always encodes to a string.
           if (!Predicate.isString(text)) return Effect.void;
 
-          return Effect.ignore(connection.wire.sendJson(text));
+          if (![...connection.clients].some(connectionRejected))
+            return Effect.ignore(connection.wire.sendJson(text));
+
+          // Flush the typed hello error before closing, bounded even if the peer stopped reading.
+          return connection.wire
+            .sendJson(text, { awaitWritten: true })
+            .pipe(Effect.timeout("1 second"), Effect.ignore, Effect.ensuring(connection.close));
         },
         end: () => Effect.void,
         clientIds: Effect.sync(() => new Set(connections.keys())),
@@ -302,7 +318,10 @@ export const startServer = <ROut = never, E = never, RIn = never>(
     }).pipe(
       Effect.provideService(RpcServer.Protocol, protocol),
       Effect.provideService(ConnectionBlobs, blobsMiddleware),
-      Effect.provideService(GrantGate, grantGate),
+      Effect.provideService(
+        GrantGate,
+        grantGateFor({ tokenRequired: options.extensionTokenRequired ?? false })
+      ),
       Effect.provideContext(handlers),
       Effect.forkScoped
     );
@@ -362,6 +381,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
                 extensionConnections.unbind(clientId);
                 lifetimes.forEach((lifetime) => lifetime.seal());
                 clients.forEach(revokeLanguageIdentity);
+                clients.forEach((client) => rejectConnection(client));
                 clients.clear();
               });
               yield* Effect.forEach(lifetimes.values(), (lifetime) => lifetime.close(), {

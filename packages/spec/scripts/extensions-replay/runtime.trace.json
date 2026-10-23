@@ -68,8 +68,14 @@
       "observed": "refused"
     },
     {
-      "_tag": "Hello",
+      "_tag": "Call",
       "connection": 2,
+      "need": "client",
+      "observed": "dropped"
+    },
+    {
+      "_tag": "Hello",
+      "connection": 5,
       "pairing": 6,
       "observed": "refused"
     },
