@@ -83,7 +83,10 @@ export type BlobSource<E = never> = Uint8Array | Stream.Stream<Uint8Array, E>;
 
 export interface Wire {
   /** Queue one RPC message (already serialized) as a JSON frame. */
-  readonly sendJson: (text: string) => Effect.Effect<void, TransportError>;
+  readonly sendJson: (
+    text: string,
+    options?: { readonly awaitWritten: boolean }
+  ) => Effect.Effect<void, TransportError>;
   /** Start sending `source` as a blob; returns its id immediately. */
   readonly offerBlob: <E>(source: BlobSource<E>) => Effect.Effect<BlobId>;
   /** Wait for the whole blob the peer sent (or is sending) under `blobId`. Single consumer. */
@@ -190,6 +193,7 @@ export const makeWire = Effect.fnUntraced(function* (
   const wake = Latch.makeUnsafe(false);
   const jsonSpace = Latch.makeUnsafe(true);
   const jsonQueue: Array<Uint8Array> = [];
+  const jsonReceipts = new Map<Uint8Array, Deferred.Deferred<void, TransportError>>();
   let queuedJsonBytes = 0;
   const outBlobs: Array<OutBlob> = [];
   let roundRobin = 0;
@@ -225,6 +229,13 @@ export const makeWire = Effect.fnUntraced(function* (
 
         if (queuedJsonBytes <= maxQueuedJson / 2) jsonSpace.openUnsafe();
         yield* transport.write(json);
+        const receipt = jsonReceipts.get(json);
+
+        if (receipt !== undefined) {
+          jsonReceipts.delete(json);
+          yield* Deferred.succeed(receipt, undefined);
+        }
+
         continue;
       }
 
@@ -239,13 +250,20 @@ export const makeWire = Effect.fnUntraced(function* (
     }
   });
 
-  const sendJson = (text: string): Effect.Effect<void, TransportError> =>
+  const sendJson: Wire["sendJson"] = (text, options) =>
     Effect.suspend(() => {
       if (isClosed) return Effect.fail(new TransportError({ message: "connection closed" }));
       const frame = encodeJsonFrame(text);
+
+      const receipt =
+        options?.awaitWritten === true ? Deferred.makeUnsafe<void, TransportError>() : null;
+
+      if (receipt !== null) jsonReceipts.set(frame, receipt);
       jsonQueue.push(frame);
       queuedJsonBytes += frame.byteLength;
       wake.openUnsafe();
+
+      if (receipt !== null) return Deferred.await(receipt);
 
       if (queuedJsonBytes > maxQueuedJson) {
         jsonSpace.closeUnsafe();
@@ -590,6 +608,15 @@ export const makeWire = Effect.fnUntraced(function* (
 
       for (const [blobId, blob] of inBlobs) failBlob(blobId, blob, "closed", "connection closed");
       jsonSpace.openUnsafe();
+
+      for (const receipt of jsonReceipts.values()) {
+        Deferred.doneUnsafe(
+          receipt,
+          Exit.fail(new TransportError({ message: "connection closed" }))
+        );
+      }
+
+      jsonReceipts.clear();
 
       return Effect.andThen(Deferred.done(closed, exit), transport.close);
     });

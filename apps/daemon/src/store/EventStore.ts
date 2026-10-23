@@ -23,6 +23,7 @@ import {
   type DomainEvent,
   EventEnvelope,
   type NotFound,
+  type NotGranted,
   Sequence,
   type SessionId,
   SubagentDetail,
@@ -107,7 +108,7 @@ export type CommitResult =
 /** Constructors and matchers for `CommitResult`. */
 export const CommitResult = Data.taggedEnum<CommitResult>();
 
-export type Rejection = CommandRejected | NotFound | ConstellationRejected;
+export type Rejection = CommandRejected | NotFound | NotGranted | ConstellationRejected;
 
 export interface CommitOptions<E extends Rejection> {
   /** Internal queued inputs retry a busy Session; successful receipts still deduplicate by commandId. */

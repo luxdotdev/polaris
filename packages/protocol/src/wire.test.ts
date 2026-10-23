@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { type Cause, Effect, Fiber, Queue, Stream } from "effect";
-import { type ByteTransport, makeWire, type TransportError } from "./wire.ts";
+import { type Cause, Deferred, Effect, Exit, Fiber, Queue, Stream } from "effect";
+import { type ByteTransport, makeWire, TransportError } from "./wire.ts";
 
 type Pipe = Queue.Queue<Uint8Array, TransportError | Cause.Done>;
 
@@ -33,6 +33,66 @@ const run = <A, E>(effect: Effect.Effect<A, E, import("effect").Scope.Scope>) =>
   Effect.runPromise(Effect.scoped(effect));
 
 describe("wire", () => {
+  test("a final JSON reply can wait for its write before the transport closes", async () => {
+    await run(
+      Effect.gen(function* () {
+        const entered = yield* Deferred.make<void>();
+        const release = yield* Deferred.make<void>();
+        const { a, b, aLog } = yield* makePair();
+
+        const wire = yield* makeWire(
+          {
+            ...a,
+            write: (bytes) =>
+              Effect.andThen(
+                Deferred.succeed(entered, undefined),
+                Effect.andThen(Deferred.await(release), a.write(bytes))
+              ),
+          },
+          () => Effect.void
+        );
+
+        yield* makeWire(b, () => Effect.void);
+        let finished = false;
+
+        const send = yield* wire.sendJson("final", { awaitWritten: true }).pipe(
+          Effect.tap(() =>
+            Effect.sync(() => {
+              finished = true;
+            })
+          ),
+          Effect.forkScoped
+        );
+
+        yield* Deferred.await(entered);
+        expect(finished).toBe(false);
+        yield* Deferred.succeed(release, undefined);
+        yield* Fiber.join(send);
+        expect(aLog).toHaveLength(1);
+        expect(finished).toBe(true);
+      })
+    );
+  });
+
+  test("a write failure settles a JSON write receipt", async () => {
+    await run(
+      Effect.gen(function* () {
+        const { a } = yield* makePair();
+
+        const wire = yield* makeWire(
+          { ...a, write: () => Effect.fail(new TransportError({ message: "broken" })) },
+          () => Effect.void
+        );
+
+        const sent = yield* wire
+          .sendJson("final", { awaitWritten: true })
+          .pipe(Effect.exit, Effect.timeout("1 second"));
+
+        expect(Exit.isFailure(sent)).toBe(true);
+      })
+    );
+  });
+
   test("delivers JSON in order and blobs both ways", async () => {
     const result = await run(
       Effect.gen(function* () {

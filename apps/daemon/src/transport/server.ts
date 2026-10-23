@@ -20,21 +20,13 @@ import {
   type Wire,
   type WireOptions,
 } from "@polaris/protocol";
-import {
-  Context,
-  Effect,
-  Latch,
-  Layer,
-  Predicate,
-  Queue,
-  Schema,
-  type Scope,
-  Stream,
-} from "effect";
+import { Context, Effect, Latch, Layer, Predicate, Queue, Schema, Scope, Stream } from "effect";
 import { RpcSerialization, RpcServer, type Rpc } from "effect/rpc";
 import { type FromClientEncoded, ResponseDefectEncoded } from "effect/rpc/RpcMessage";
 import { join } from "node:path";
-import { ExtensionConnections, grantGate } from "../extensions/connection.ts";
+import { ExtensionConnections, grantGateFor } from "../extensions/connection.ts";
+import { type RunningGateway, startGateway } from "../gateway/index.ts";
+import { connectionRejected, rejectConnection } from "../extensions/admission.ts";
 import { Pairings } from "../extensions/pairings.ts";
 import { paths } from "../paths.ts";
 import { CommandRunner } from "../service/CommandRunner.ts";
@@ -72,6 +64,13 @@ export interface ServeOptions<ROut, E, RIn> {
   readonly lockPath?: string;
   readonly root?: string;
   readonly wire?: WireOptions;
+  /** Require a token on the socket too (tests); gateway connections always do. */
+  readonly extensionTokenRequired?: boolean;
+  /**
+   * Serve `ServerRpcs` over WebSocket on 127.0.0.1 as well (`gateway/`, ENG-399); every
+   * connection there must present an Extension token. Omitted, there is no gateway.
+   */
+  readonly gateway?: { readonly port: number };
   /**
    * Take over a listener handed across an execve upgrade and serve
    * `polaris upgrade` requests (service/upgrade.ts). `polaris serve` sets it;
@@ -85,6 +84,8 @@ export interface ServeOptions<ROut, E, RIn> {
 export interface RunningServer {
   readonly socketPath: string;
   readonly hostInfo: HostInfo;
+  /** The gateway, when asked for and its port could be bound. */
+  readonly gateway: Pick<RunningGateway, "port" | "url" | "nonce"> | null;
   /** Number of Clients connected right now. */
   readonly connections: () => number;
 }
@@ -169,13 +170,22 @@ export const startServer = <ROut = never, E = never, RIn = never>(
         readonly lifetimes: Map<Rpc.ServerClient, ConnectionLanguageLifetime>;
         /** Ends the connection: a revoked Pairing's Extensions are cut off this way. */
         readonly close: Effect.Effect<void>;
+        /** A gateway connection: `hello` must carry a token and a protocol range. */
+        readonly tokenRequired: boolean;
         closing: boolean;
       }
     >();
 
     // Which connections act as which Pairing, and the Pairings themselves (ENG-398).
-    const extensionConnections = ExtensionConnections.make(
-      (clientId) => connections.get(clientId)?.close ?? Effect.void
+    const extensionConnections = ExtensionConnections.make((clientId) =>
+      Effect.suspend(() => {
+        const connection = connections.get(clientId);
+
+        if (connection === undefined) return Effect.void;
+        connection.clients.forEach((client) => rejectConnection(client, "revoked"));
+
+        return connection.close;
+      })
     );
 
     const extensionServices = Layer.merge(
@@ -213,7 +223,13 @@ export const startServer = <ROut = never, E = never, RIn = never>(
           // The JSON serialization always encodes to a string.
           if (!Predicate.isString(text)) return Effect.void;
 
-          return Effect.ignore(connection.wire.sendJson(text));
+          if (![...connection.clients].some(connectionRejected))
+            return Effect.ignore(connection.wire.sendJson(text));
+
+          // Flush the typed hello error before closing, bounded even if the peer stopped reading.
+          return connection.wire
+            .sendJson(text, { awaitWritten: true })
+            .pipe(Effect.timeout("1 second"), Effect.ignore, Effect.ensuring(connection.close));
         },
         end: () => Effect.void,
         clientIds: Effect.sync(() => new Set(connections.keys())),
@@ -302,14 +318,20 @@ export const startServer = <ROut = never, E = never, RIn = never>(
     }).pipe(
       Effect.provideService(RpcServer.Protocol, protocol),
       Effect.provideService(ConnectionBlobs, blobsMiddleware),
-      Effect.provideService(GrantGate, grantGate),
+      Effect.provideService(
+        GrantGate,
+        grantGateFor({
+          tokenRequired: (client) =>
+            connections.get(client.id)?.tokenRequired ?? options.extensionTokenRequired ?? false,
+        })
+      ),
       Effect.provideContext(handlers),
       Effect.forkScoped
     );
 
     let nextClientId = 0;
 
-    const serveConnection = (transport: ByteTransport) =>
+    const serveConnection = (transport: ByteTransport, tokenRequired: boolean) =>
       Effect.scoped(
         Effect.gen(function* () {
           const clientId = nextClientId++;
@@ -351,6 +373,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
             clients,
             lifetimes,
             close: transport.close,
+            tokenRequired: tokenRequired || (options.extensionTokenRequired ?? false),
             closing: false,
           };
 
@@ -362,6 +385,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
                 extensionConnections.unbind(clientId);
                 lifetimes.forEach((lifetime) => lifetime.seal());
                 clients.forEach(revokeLanguageIdentity);
+                clients.forEach((client) => rejectConnection(client));
                 clients.clear();
               });
               yield* Effect.forEach(lifetimes.values(), (lifetime) => lifetime.close(), {
@@ -382,9 +406,31 @@ export const startServer = <ROut = never, E = never, RIn = never>(
     yield* phase(`listening on ${socketPath}`);
     const listener = yield* listen(socketPath);
     yield* listener.connections.pipe(
-      Stream.runForEach((transport) => Effect.forkIn(serveConnection(transport), scope)),
+      Stream.runForEach((transport) => Effect.forkIn(serveConnection(transport, false), scope)),
       Effect.forkScoped
     );
+
+    let gateway: RunningGateway | null = null;
+
+    if (options.gateway !== undefined) {
+      yield* phase(`listening on the gateway (127.0.0.1:${options.gateway.port})`);
+      // Made before the gateway: on stop, the gateway closes its sockets (1001) before
+      // the connections' own finalizers would (1000).
+      const gatewayConnections = yield* Scope.fork(scope);
+
+      gateway = yield* startGateway({
+        port: options.gateway.port,
+        recordPath: join(root, "gateway.json"),
+      });
+
+      if (gateway !== null)
+        yield* gateway.connections.pipe(
+          Stream.runForEach((transport) =>
+            Effect.forkIn(serveConnection(transport, true), gatewayConnections)
+          ),
+          Effect.forkIn(gatewayConnections)
+        );
+    }
 
     if (adopted !== null) {
       const drained = yield* listener
@@ -407,5 +453,11 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       );
     }
 
-    return { socketPath, hostInfo, connections: () => connections.size };
+    return {
+      socketPath,
+      hostInfo,
+      gateway:
+        gateway === null ? null : { port: gateway.port, url: gateway.url, nonce: gateway.nonce },
+      connections: () => connections.size,
+    };
   });

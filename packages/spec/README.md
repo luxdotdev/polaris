@@ -651,29 +651,41 @@ integration obligations before any Main proof composition or capability release.
 
 `extensions.qnt` models Extensions (CONTEXT.md: Extension, Pairing, Grant; ADR 0075,
 0078): `pair` and `revoke` (`extensions.pair` / `extensions.revoke`), `hello` scoping a
-connection to the first valid Pairing it presents, `call` passing every other request
+connection to its first role (Client or Extension), `call` passing every other request
 through the Grant gate, and `close`. Revoking a Pairing closes its live connections.
 `safety`: a live connection never acts as a revoked Pairing (`revokedHaveNoConnections`),
 a refusal names a Grant the Pairing lacks and what is kept for Clients names none
 (`refusalsNameAMissingGrant`), and a token-less connection is never refused
-(`clientsKeepFullPower`). Four scenarios and a 40-step simulation with three witnesses run
+(`clientsKeepFullPower`). Nine scenarios and a 40-step simulation with three witnesses run
 in `bun run spec`.
 
 | Spec | Code |
 |---|---|
 | `Pairing`, `pair`, `revoke` | `apps/daemon/src/extensions/pairings.ts` (`Pairings`: SQLite, the token's SHA-256 only) and the `extensions.*` handlers in `transport/handlers.ts` |
-| `hello`, `scoped` | `extensions/connection.ts` `scopeConnection`, called by `hello` (`transport/handlers.ts`); the `ConnectionPairing` annotation |
+| `hello`, `scoped`, `beginHello`, `finishHello`, `requireToken` | `extensions/connection.ts` `scopeConnection`, called by `hello` (`transport/handlers.ts`); the `ConnectionPairing` annotation and private admission state (`extensions/admission.ts`). `requireToken(c)` is a gateway connection (`gateway/`, ENG-399): `transport/server.ts` serves it with `tokenRequired`, which the gate reads per connection |
 | `decide`, `call` | `packages/protocol/src/grants.ts` `decideAccess` over `RPC_GRANTS` / `COMMAND_GRANTS`, applied by `grantGate` (`extensions/connection.ts`) on `ServerRpcs` |
+| `mode`, `setMode`, `callTurn` | `decideTurnAccess` in the Engine decider, inside `EventStore.commit`; `Engine.grants.test.ts` covers all four turn commands in all modes and a mode change while a request waits |
 | `revoke` closing connections, `close` | `ExtensionConnections` (`extensions/connection.ts`), bound in `transport/server.ts` to each connection's transport |
 
 The gate's mapping is exhaustive by type (a new RPC or Command without an entry fails
 typecheck); the spec takes "what a request needs" as an input. A `StartSession` whose
 mode is not `supervised` needs `start` and then `approve` (the session would approve for
-itself): in the spec that is two `call`s. `hello` checks the token again once the
+itself): in the spec that is two `call`s. `SendTurn`, `Steer`, `Continue` and `Retry`
+need `turn` plus `approve` in any existing non-supervised Session (`callTurn`). The mode
+is read at the commit decision, never cached at RPC admission. The spec abstracts one
+existing Session; the Engine tests bind this rule to each command and durable refusals. `hello` checks the token again once the
 connection is bound, so a `revoke` between the check and the binding either fails the
 `hello` or closes the connection (`extensions/connection.test.ts`). Tokens, hashes and the
 SQLite file are not modelled: `extensions/pairings.test.ts` covers them, and
 `extensions.model.test.ts` (above) checks the store and the gate against the reference.
+`extensions.connections.model.test.ts` additionally runs random hello/call/revoke/close
+sequences over real sockets and checks every observation against the independent trace
+reference. `extensions.security.test.ts` covers missing/invalid tokens, fixed roles and
+subscription shutdown; `gateway/gateway.test.ts` covers the same over the WebSocket gateway, where every connection is `requireToken`. `extensions/connection.test.ts` controls pending authentication,
+concurrent hellos and cancellation at both revocation boundaries. Revocation's persistence
+and transport teardown are uninterruptible; a rejected hello permanently removes authority.
+`beginHello`/`finishHello` model the token-check yield and revoke interleaving; mandatory-token
+transports use `requireToken`. A socket's token-less pre-hello requests remain trusted.
 
 Trace validation: `apps/daemon/src/transport/extensions.test.ts` drives a real Daemon
 over a socket (token-less Client, two Extensions, bad tokens, revocation) and records

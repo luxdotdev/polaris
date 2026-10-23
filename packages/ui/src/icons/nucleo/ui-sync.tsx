@@ -124,3 +124,50 @@ export function CloudUploadIcon({ size = 16, strokeWidth = STROKE, ...props }: N
     </svg>
   );
 }
+
+/** Nucleo UI outline `MicrophoneOutline18`. */
+export function MicrophoneIcon({ size = 16, strokeWidth = STROKE, ...props }: NucleoIconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 18 18"
+      aria-hidden="true"
+      focusable="false"
+      {...props}
+    >
+      <rect
+        x="5.75"
+        y="1.75"
+        width={6.5}
+        height={9.5}
+        rx="3.25"
+        ry="3.25"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={strokeWidth}
+      ></rect>
+      <path
+        d="M15.25,8c0,3.452-2.798,6.25-6.25,6.25h0c-3.452,0-6.25-2.798-6.25-6.25"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={strokeWidth}
+      ></path>
+      <line
+        x1="9"
+        y1="14.25"
+        x2="9"
+        y2="16.25"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={strokeWidth}
+      ></line>
+    </svg>
+  );
+}

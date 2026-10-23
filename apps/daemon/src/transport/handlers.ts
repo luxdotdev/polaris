@@ -20,6 +20,9 @@ import {
   Sequence,
   Unsupported,
   ResourceError,
+  VoiceError,
+  PROTOCOL_VERSION,
+  decideProtocol,
 } from "@polaris/protocol";
 import { Effect, Stream } from "effect";
 import { ClientCapabilities, DeviceLabel } from "../engine/rpc.ts";
@@ -28,8 +31,9 @@ import { ServerRpcs } from "./rpcs.ts";
 import { languageDefaults } from "./languageDefaults.ts";
 import { helloHost } from "./hostInfo.ts";
 import { bindLanguageIdentity } from "./languageIdentity.ts";
-import { ExtensionConnections, pairingOf, scopeConnection } from "../extensions/connection.ts";
+import { pairingOf, revokePairing, scopeConnection } from "../extensions/connection.ts";
 import { Pairings } from "../extensions/pairings.ts";
+import { admissionOf } from "../extensions/admission.ts";
 
 const constellationUnavailable = () =>
   new ConstellationRejected({
@@ -284,14 +288,27 @@ export const defaultHandlers = (options: {
     "constellation.subscribe": () => Stream.fail(constellationUnavailable()),
     // Record which device this connection is (for ApprovalResolved.resolvedBy), what it
     // understands (e.g. whether to send it ItemProgress), and the Pairing it acts as.
-    hello: ({ deviceLabel, capabilities, languageProof, extensionToken }, { client }) =>
+    hello: (
+      { deviceLabel, capabilities, languageProof, extensionToken, protocolVersions },
+      { client }
+    ) =>
       Effect.gen(function* () {
+        yield* scopeConnection(client, extensionToken);
+
+        // The gateway (admission.tokenRequired) needs the range; a mismatch names the side to update.
+        const mismatch = decideProtocol(
+          PROTOCOL_VERSION,
+          protocolVersions,
+          admissionOf(client).tokenRequired
+        );
+
+        if (mismatch !== null) return yield* mismatch;
+
         const languageIdentity = yield* Effect.try({
           try: () => bindLanguageIdentity(client, options.hostInfo.hostId, languageProof),
           catch: () => new LanguageIdentityError({ message: "Language identity unavailable" }),
         });
 
-        if (extensionToken !== undefined) yield* scopeConnection(client, extensionToken);
         // The Pairing the connection keeps, not this hello's: a later token-less
         // hello on a scoped connection cannot relabel it.
         const pairing = pairingOf(client);
@@ -311,16 +328,7 @@ export const defaultHandlers = (options: {
     "extensions.pair": ({ name, grant }) =>
       Effect.flatMap(Pairings, (pairings) => Effect.orDie(pairings.pair(name, grant))),
     "extensions.list": () => Effect.flatMap(Pairings, (pairings) => Effect.orDie(pairings.list)),
-    "extensions.revoke": ({ id }) =>
-      Effect.gen(function* () {
-        const pairings = yield* Pairings;
-        const revoked = yield* Effect.orDie(pairings.revoke(id));
-
-        if (revoked === null) return yield* new NotFound({ what: "pairing", id });
-        yield* (yield* ExtensionConnections).closeAll(id);
-
-        return revoked;
-      }),
+    "extensions.revoke": ({ id }) => revokePairing(id),
 
     dispatch: ({ commandId }) =>
       Effect.fail(new CommandRejected({ commandId, reason: notYet("the event store") })),
@@ -440,6 +448,13 @@ export const defaultHandlers = (options: {
     "attachments.setSettings": () =>
       Effect.fail(new Unsupported({ capability: "attachments.settings" })),
     "attachments.clear": () => Effect.fail(new Unsupported({ capability: "attachments.settings" })),
+
+    "voice.transcribe": () =>
+      Stream.fail(new VoiceError({ reason: "provider-failed", message: notYet("Voice") })),
+    "voice.settings": () =>
+      Effect.fail(new VoiceError({ reason: "provider-failed", message: notYet("Voice") })),
+    "voice.setKey": () =>
+      Effect.fail(new VoiceError({ reason: "provider-failed", message: notYet("Voice") })),
 
     "terminal.open": ({ cwd }) => Effect.fail(fileError(cwd, "terminals")),
     "terminal.attach": ({ terminalId }) =>
