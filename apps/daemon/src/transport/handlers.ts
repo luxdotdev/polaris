@@ -303,6 +303,8 @@ export const defaultHandlers = (options: {
           admissionOf(client).tokenRequired
         );
 
+        admissionOf(client).protocolReady = false;
+
         if (mismatch !== null) return yield* mismatch;
 
         const languageIdentity = yield* Effect.try({
@@ -316,6 +318,7 @@ export const defaultHandlers = (options: {
 
         client.annotate(DeviceLabel, pairing === null ? deviceLabel : pairing.name);
         client.annotate(ClientCapabilities, capabilities);
+        admissionOf(client).protocolReady = true;
 
         const response = {
           ...helloHost(options.hostInfo, capabilities),

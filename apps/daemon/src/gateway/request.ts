@@ -12,7 +12,7 @@ export interface Refusal {
   readonly reason: string;
 }
 
-/** `rpc` is the WebSocket upgrade; `identity` answers the nonce (`config.ts`). */
+/** `rpc` is the WebSocket upgrade; `identity` proves the secret (`identity.ts`). */
 export type GatewayRoute = "rpc" | "identity";
 
 export interface Admitted {
@@ -53,7 +53,7 @@ export const originAllowed = (origin: string | null): boolean => {
   try {
     const url = new URL(origin);
 
-    return url.protocol === "http:" && url.hostname === "127.0.0.1";
+    return url.protocol === "http:" && url.hostname === "127.0.0.1" && url.origin === origin;
   } catch {
     return false;
   }
@@ -77,7 +77,9 @@ export const admitRequest = (request: Request, peer: string | null): Admitted | 
   if (route === null)
     return refusal(404, `The gateway serves ${GATEWAY_PATH} and ${GATEWAY_IDENTITY_PATH} only`);
 
-  if (request.method !== "GET") return refusal(405, "The gateway answers GET only");
+  const method = route === "identity" ? "POST" : "GET";
+
+  if (request.method !== method) return refusal(405, `This route answers ${method} only`);
 
   if (!hostAllowed(request.headers.get("host")))
     return refusal(403, "The gateway answers 127.0.0.1, localhost and *.ts.net only");
