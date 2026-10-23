@@ -205,6 +205,17 @@
         "effect": "4.0.0-rc.118",
       },
     },
+    "packages/sdk": {
+      "name": "@polaris/sdk",
+      "version": "0.1.0",
+      "dependencies": {
+        "effect": "4.0.0-rc.118",
+      },
+      "devDependencies": {
+        "@polaris/client": "workspace:*",
+        "@polaris/protocol": "workspace:*",
+      },
+    },
     "packages/spec": {
       "name": "@polaris/spec",
       "version": "0.0.0",
@@ -894,6 +905,8 @@
     "@polaris/predict": ["@polaris/predict@workspace:packages/predict"],
 
     "@polaris/protocol": ["@polaris/protocol@workspace:packages/protocol"],
+
+    "@polaris/sdk": ["@polaris/sdk@workspace:packages/sdk"],
 
     "@polaris/site": ["@polaris/site@workspace:apps/site"],
 

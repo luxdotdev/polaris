@@ -1,0 +1,139 @@
+# @polaris/sdk
+
+Read and drive Polaris Daemons from an Extension: a Raycast command, a glasses app, a script.
+See your Hosts' sessions and the approvals waiting on you, answer them, send Turns, start
+sessions.
+
+The SDK works in Node (22 or later) and Bun, over the local Daemon's socket or a Host's gateway,
+and in a browser or WebView, over the gateway only. It talks to Polaris 0.3.0 or later.
+
+```sh
+npm install @polaris/sdk
+```
+
+## Pair first
+
+Every Extension presents a pairing. Make one in the Desktop App (Settings → Extensions) or with
+the `polaris` command on the Host, choose what it may do (its Grant), and paste the string it gives you
+(`polaris-pair:v1:…`) into your Extension's settings. Keep it secret: it is a token.
+
+| Grant | Lets the Extension |
+|---|---|
+| `read` | see Workspaces, sessions, Turns and pending approvals |
+| `approve` | answer approvals |
+| `turn` | send Turns, interrupt, continue |
+| `start` | start sessions (a session that isn't supervised also needs `approve`) |
+| `voice` | transcribe speech |
+
+Anything else is refused with `NotGranted`, which names the Grant that was missing.
+
+## The plain API
+
+Promises for calls, async iterators for feeds.
+
+```ts
+import { createPolaris, NotGranted } from "@polaris/sdk";
+
+const polaris = await createPolaris({
+  pairings: [process.env.POLARIS_PAIRING!], // one per Host, or several for one Host
+  clientName: "My Extension",
+});
+
+const host = polaris.hosts[0]!;
+
+// Re-emitted on every change; breaking out of the loop stops the feed.
+for await (const view of polaris.subscribeHost(host.hostId)) {
+  const approval = view.approvals[0];
+
+  if (approval === undefined) continue;
+  console.log(`Allowing: ${approval.title}`);
+  await polaris.respondToApproval(host.hostId, approval.sessionId, approval.id, { kind: "allow" });
+  break;
+}
+
+try {
+  await polaris.sendTurn(host.hostId, sessionId, "Run the tests again");
+} catch (error) {
+  if (error instanceof NotGranted) console.log(`Pair again with the ${error.needed} Grant`);
+  else throw error;
+}
+
+await polaris.close();
+```
+
+### Calls
+
+| | |
+|---|---|
+| `connect(hostId)` | connect now (calls connect on first use anyway); resolves with the Host's info |
+| `sendTurn(hostId, sessionId, prompt)` | send a Turn |
+| `respondToApproval(hostId, sessionId, requestId, response)` | `{ kind: "allow", remember? }`, `{ kind: "deny", reason? }` or `{ kind: "answer", text }` |
+| `interrupt(hostId, sessionId)` | stop the Turn in flight |
+| `continue(hostId, sessionId)` | continue a Turn the Daemon interrupted when it restarted |
+| `startSession(hostId, { workspaceId, harness, prompt, permissionMode?, worktree?, model? })` | resolves with the new session's id |
+| `close()` | close every connection; feeds end |
+
+### Feeds
+
+| | |
+|---|---|
+| `subscribeHost(hostId)` | `HostView`: `workspaces`, `sessions` (newest first, archived left out), `approvals` |
+| `subscribeHosts()` | every Host's latest `HostView` at once; one that can't be reached has `error` set |
+| `subscribeSession(hostId, sessionId, { turnLimit? })` | `SessionView`: `session`, `turns` with their items, `pendingApprovals`, `streaming` text |
+
+When the connection drops, a feed emits its last view with `connected: false`, reconnects with
+backoff and carries on from where it was. A Host that was never reached fails the feed at once
+(`HostUnreachable`), so a wrong pairing doesn't wait forever. Pass `reconnect: false` to end feeds
+on the first drop instead.
+
+## The Effect API
+
+The same client, for Extensions written with [Effect](https://effect.website): calls are Effects,
+feeds are Streams, errors are typed, and connections close with the Scope.
+
+```ts
+import { Effect, Stream } from "effect";
+import { openPolaris } from "@polaris/sdk";
+
+const program = Effect.gen(function* () {
+  const polaris = yield* openPolaris({ pairings: [pairing], clientName: "My Extension" });
+  const host = polaris.hosts[0]!;
+
+  yield* polaris.subscribeHost(host.hostId).pipe(
+    Stream.filter((view) => view.approvals.length > 0),
+    Stream.runHead
+  );
+  yield* polaris.interrupt(host.hostId, sessionId).pipe(
+    Effect.catchTag("NotGranted", (error) => Effect.log(`missing ${error.needed}`))
+  );
+});
+
+Effect.runPromise(Effect.scoped(program));
+```
+
+## Errors
+
+| Error | When |
+|---|---|
+| `InvalidPairing` | a pairing string can't be read (`reason` says why) |
+| `HostUnreachable` | no pairing for the Host connects, or the connection was lost |
+| `ExtensionTokenRejected` | the token is unknown or revoked (`reason`): pair again |
+| `ProtocolMismatch` | the Host's Polaris is too old or too new for this SDK; `update` says which to update |
+| `NotGranted` | the pairing's Grant doesn't allow it; `needed` names the Grant (null: not for Extensions) |
+| `CommandRejected`, `NotFound` | the Daemon refused the command, or the session or approval is gone |
+| `UnknownHost` | no pairing names that Host |
+
+## Transports
+
+A pairing with a `url` (`ws://127.0.0.1:7477/polaris/rpc` on the Host itself,
+`wss://<host>.<tailnet>.ts.net/polaris/rpc` over Tailscale) uses the gateway; one without uses
+`$POLARIS_HOME/daemon.sock` (`~/.polaris/daemon.sock`). Several pairings for one Host (say, the
+socket and the gateway) are tried in order. In a browser the package resolves to its browser
+build, which has the gateway only. `createPolarisWith` and `openPolarisWith` take a transport of
+your own.
+
+## Building
+
+In the Polaris repository, `bun run --cwd packages/sdk build` writes the package to `dist/`, and
+`bun run --cwd packages/sdk pack` also runs `npm pack` on it, into `build/`. The protocol is
+bundled in; the only dependency is `effect`.

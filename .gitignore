@@ -10,3 +10,6 @@ dist/
 
 # Python bytecode from the release signer tests
 __pycache__/
+
+# The SDK's build output (bun run --cwd packages/sdk build)
+packages/sdk/build/

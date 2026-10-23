@@ -21,6 +21,7 @@
  */
 import {
   type BlobError,
+  type ByteTransport,
   type BlobId,
   type BlobSource,
   DaemonRpcs,
@@ -47,7 +48,6 @@ import {
   type FromServerEncoded,
   type ResponseDefectEncoded,
 } from "effect/rpc/RpcMessage";
-import type { ClientTransport } from "./transport.ts";
 
 export type DaemonRpc = RpcGroup.Rpcs<typeof DaemonRpcs>;
 
@@ -118,7 +118,7 @@ const lostError = (message: string, cause?: unknown) =>
 /** `connectRpc` for a group with the same RPCs, e.g. `ExtensionDaemonRpcs` (the SDK). */
 export const connectRpcWith = Effect.fnUntraced(function* <Rpcs extends Rpc.Any>(
   group: RpcGroup.RpcGroup<Rpcs>,
-  transport: ClientTransport,
+  transport: ByteTransport,
   options: RpcConnectionOptions = {}
 ): Effect.fn.Return<RpcConnection<Rpcs>, never, Scope.Scope> {
   const serialization = RpcSerialization.json;
@@ -348,7 +348,7 @@ export const connectRpcWith = Effect.fnUntraced(function* <Rpcs extends Rpc.Any>
 });
 
 export const connectRpc = (
-  transport: ClientTransport,
+  transport: ByteTransport,
   options: RpcConnectionOptions = {}
 ): Effect.Effect<RpcConnection, never, Scope.Scope> =>
   connectRpcWith(DaemonRpcs, transport, options);
