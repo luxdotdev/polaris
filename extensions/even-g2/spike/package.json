@@ -5,7 +5,7 @@
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev:glasses": "vite",
     "build": "vite build",
     "echo": "bun echo-server.ts",
     "pack": "bun pack.ts"
