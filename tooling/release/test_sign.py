@@ -193,14 +193,21 @@ class Staple(unittest.TestCase):
     def result(self, code: int, out: str = ""):
         return mock.Mock(returncode=code, stdout=out, stderr="")
 
-    def test_retries_until_the_ticket_can_be_stapled(self) -> None:
-        tries = [self.result(65, "Could not validate ticket"), self.result(65), self.result(0)]
+    def test_retries_until_the_ticket_is_stapled_and_validates(self) -> None:
+        tries = [self.result(65, "Could not validate ticket"), self.result(65),
+                 self.result(0), self.result(65, "does not have a ticket stapled to it"),
+                 self.result(0), self.result(0)]
         waits: list = []
-        with mock.patch.object(sign.subprocess, "run", side_effect=tries), \
-                mock.patch.object(sign, "run") as validate:
+        with mock.patch.object(sign.subprocess, "run", side_effect=tries) as calls:
             sign.staple(Path("Polaris.app"), wait=waits.append)
-        self.assertEqual(waits, [20, 40])
-        validate.assert_called_once_with(["xcrun", "stapler", "validate", Path("Polaris.app")])
+        self.assertEqual(waits, [20, 40, 60])
+        self.assertEqual(calls.call_args.args[0], ["xcrun", "stapler", "validate", "Polaris.app"])
+
+    def test_names_validate_s_reason_when_a_staple_never_validates(self) -> None:
+        tries = [self.result(0), self.result(65, "Processing: x\nx does not have a ticket")]
+        with mock.patch.object(sign.subprocess, "run", side_effect=tries * sign.STAPLE_TRIES), \
+                self.assertRaisesRegex(SystemExit, "x does not have a ticket"):
+            sign.staple(Path("Polaris.app"), wait=lambda _: None)
 
     def test_names_stapler_s_own_reason_when_it_never_staples(self) -> None:
         failing = [self.result(65, "Processing: x\nCould not validate ticket for x")] * sign.STAPLE_TRIES

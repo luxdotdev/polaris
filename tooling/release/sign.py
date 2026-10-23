@@ -322,19 +322,25 @@ def notarize(signer: Signer, path: Path, submission: Path) -> None:
 STAPLE_TRIES = 6
 
 
+def stapler(action: str, path: Path) -> str | None:
+    """None when `xcrun stapler <action>` succeeds, else its last line of output."""
+    # stapler reports its errors on stdout, and its arguments hold no secret.
+    result = subprocess.run(["xcrun", "stapler", action, str(path)], capture_output=True, text=True)
+    if result.returncode == 0:
+        return None
+    lines = (result.stdout + result.stderr).strip().splitlines()
+    return lines[-1] if lines else "no output"
+
+
 def staple(path: Path, wait=time.sleep) -> None:
-    """Staples the accepted ticket, retrying while Apple's CDN catches up with the acceptance."""
+    """Staples and validates the accepted ticket, retrying while Apple's CDN catches up."""
     reason = ""
     for attempt in range(STAPLE_TRIES):
         if attempt:
             wait(20 * attempt)
-        # stapler reports its errors on stdout, and its arguments hold no secret.
-        result = subprocess.run(["xcrun", "stapler", "staple", str(path)], capture_output=True, text=True)
-        if result.returncode == 0:
-            run(["xcrun", "stapler", "validate", path])
+        reason = stapler("staple", path) or stapler("validate", path)
+        if reason is None:
             return
-        lines = (result.stdout + result.stderr).strip().splitlines()
-        reason = lines[-1] if lines else "no output"
     raise SystemExit(f"xcrun stapler could not staple {path.name}: {reason}")
 
 
