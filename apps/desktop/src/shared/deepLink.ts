@@ -41,23 +41,26 @@ type Parts = { readonly parts: Array<string> } | { readonly ignored: string };
 /** The URL's parts, `[target, hostId, id]`, or why the link isn't one Polaris opens. */
 const partsOf = (text: string): Parts => {
   if (text.length > MAX_LINK_LENGTH) return { ignored: "too long" };
-  const url = URL.parse(text);
 
-  if (url === null || url.protocol !== `${DEEP_LINK_SCHEME}:`) {
+  if (!/^polaris:\/\//i.test(text)) {
     return { ignored: "not a polaris:// link" };
   }
 
-  if (url.username !== "" || url.password !== "" || url.port !== "") {
+  if (/\p{Cc}/u.test(text)) return { ignored: "control character" };
+
+  if (/[?#]/.test(text)) return { ignored: "unexpected query or fragment" };
+
+  // Preserve the original segments: URL parsing erases dot segments and raw controls.
+  const [authority = "", ...path] = text.slice(`${DEEP_LINK_SCHEME}://`.length).split("/");
+
+  if (/[@:]/.test(authority)) {
     return { ignored: "unexpected authority" };
   }
-
-  if (url.search !== "" || url.hash !== "") return { ignored: "unexpected query or fragment" };
-  const path = url.pathname.split("/").slice(1);
 
   // One trailing slash is tolerated: `polaris://session/h/s/`.
   if (path.at(-1) === "") path.pop();
 
-  return { parts: [url.hostname.toLowerCase(), ...path] };
+  return { parts: [authority.toLowerCase(), ...path] };
 };
 
 /** Parses a link from the OS; anything but the two shapes above is ignored, with the reason. */

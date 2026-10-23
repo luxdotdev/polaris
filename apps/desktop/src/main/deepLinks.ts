@@ -14,6 +14,8 @@ export interface DeepLinkInbox {
   readonly receive: (url: string) => void;
   /** The renderer is listening: the held link goes now, later ones straight away. */
   readonly attach: (window: DeepLinkWindow) => void;
+  /** Hold links while the renderer replaces its listener during a reload. */
+  readonly detach: () => void;
 }
 
 /** Only the latest link is held: each one navigates, so earlier ones would be overtaken anyway. */
@@ -31,7 +33,9 @@ export const createDeepLinkInbox = (log: (line: string) => void): DeepLinkInbox 
       const parsed = parseDeepLink(url);
 
       if ("ignored" in parsed) {
-        log(`polaris: ignored a deep link (${parsed.ignored}): ${url.slice(0, 200)}`);
+        log(
+          `polaris: ignored a deep link (${parsed.ignored}): ${JSON.stringify(url.slice(0, 200))}`
+        );
 
         return;
       }
@@ -45,6 +49,9 @@ export const createDeepLinkInbox = (log: (line: string) => void): DeepLinkInbox 
       if (held === null) return;
       deliver(window, held);
       held = null;
+    },
+    detach: () => {
+      target = null;
     },
   };
 };
