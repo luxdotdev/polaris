@@ -1,11 +1,57 @@
 import { expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { decodePairingString, PairingId } from "@polaris/protocol";
+import {
+  decodePairingString,
+  encodePairingString,
+  HostId,
+  Pairing,
+  PairingId,
+} from "@polaris/protocol";
 import { localEndpoint } from "@polaris/protocol/endpoint";
 import { Option } from "effect";
 import { shortTemp } from "../platform/testing.ts";
-import { type ExtensionCommand, parseExtensionArgs } from "./cli.ts";
+import { type ExtensionCommand, formatPaired, formatPairings, parseExtensionArgs } from "./cli.ts";
+
+test("a terminal still prints the pairing string when it exceeds QR capacity", () => {
+  const name = "Phone shortcuts ".repeat(400);
+
+  const pairing = new Pairing({
+    id: PairingId.make("pair_1"),
+    name,
+    grant: ["read"],
+    createdAt: "2026-10-01T00:00:00.000Z",
+    lastUsedAt: null,
+    revokedAt: null,
+  });
+
+  const pairingString = encodePairingString({
+    hostId: HostId.make("h1"),
+    hostName: "mac-studio",
+    url: null,
+    token: "pol_ext_token",
+    name,
+  });
+
+  expect(formatPaired({ pairing, pairingString }, true).split("\n").at(-1)).toBe(pairingString);
+});
+
+test("list escapes terminal controls and bidirectional formatting in Pairing names", () => {
+  const output = formatPairings([
+    new Pairing({
+      id: PairingId.make("pair_1"),
+      name: "Raycast\u001b]52;c;clipboard\u0007\n\u202eevil",
+      grant: ["read"],
+      createdAt: "2026-10-01T00:00:00.000Z",
+      lastUsedAt: null,
+      revokedAt: null,
+    }),
+  ]);
+
+  expect(output).toBe(
+    "pair_1  ·  Raycast\\u001b]52;c;clipboard\\u0007\\u000a\\u202eevil  ·  read  ·  not used yet"
+  );
+});
 
 test.each<[ReadonlyArray<string>, ExtensionCommand | string]>([
   [
@@ -48,8 +94,6 @@ test("the real CLI pairs, lists and revokes through an isolated Daemon", async (
 
   const env = {
     ...process.env,
-    HOME: home,
-    CODEX_HOME: join(home, "codex"),
     CLAUDE_CONFIG_DIR: join(home, "claude"),
     POLARIS_HOME: home,
     POLARIS_HOST_SOCKET: localEndpoint(home),
@@ -87,6 +131,7 @@ test("the real CLI pairs, lists and revokes through an isolated Daemon", async (
     const id = /\((pair_[^)]+)\)/.exec(paired.out)?.[1] ?? "";
     const listed = await cli(main, env, ["list"]);
     expect(listed.out).toContain(`${id}  ·  Raycast  ·  read, approve  ·  not used yet`);
+    expect(listed.out + listed.err + paired.err).not.toContain(payload.token);
 
     expect((await cli(main, env, ["revoke", id])).out).toContain(`Revoked Raycast (${id}).`);
     expect((await cli(main, env, ["list"])).out).toMatch(new RegExp(`${id}.*revoked `));
@@ -94,6 +139,24 @@ test("the real CLI pairs, lists and revokes through an isolated Daemon", async (
     const missing = await cli(main, env, ["revoke", "pair_nope"]);
     expect(missing.code).toBe(1);
     expect(missing.err).toContain("no pairing pair_nope on this host");
+
+    const unsafeName = "Phone\u001b]52;c;clipboard\u0007\n\u202ename";
+    const unsafe = await cli(main, env, ["pair", "--name", unsafeName, "--allow", "read"]);
+    expect(unsafe.code).toBe(0);
+    expect(unsafe.out).toContain("Paired Phone\\u001b]52;c;clipboard\\u0007\\u000a\\u202ename");
+    const unsafeId = /\((pair_[^)]+)\)/.exec(unsafe.out)?.[1] ?? "";
+    const revoked = await cli(main, env, ["revoke", unsafeId]);
+    expect(revoked.out).toContain("Revoked Phone\\u001b]52;c;clipboard\\u0007\\u000a\\u202ename");
+
+    const unsafePayload = Option.getOrThrow(
+      decodePairingString(unsafe.out.trim().split("\n").at(-1) ?? "")
+    );
+
+    expect(unsafePayload.name).toBe(unsafeName);
+    expect(revoked.out + revoked.err).not.toContain(unsafePayload.token);
+    const invalid = await cli(main, env, ["bad\u001b[2J\ncommand"]);
+    expect(invalid.code).toBe(2);
+    expect(invalid.err).toContain('unknown command "bad\\u001b[2J\\u000acommand"');
   } finally {
     daemon.kill("SIGTERM");
     await daemon.exited;

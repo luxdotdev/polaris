@@ -19,8 +19,11 @@ import {
   PROTOCOL_VERSION,
   ProtocolMismatch,
   SessionId,
+  VoiceError,
+  VoiceTranscript,
 } from "@polaris/protocol";
-import { Context, Effect, Exit, Layer, Predicate, Redacted } from "effect";
+import { Context, Effect, Exit, Layer, Predicate, Redacted, Stream } from "effect";
+import { BlobChannel } from "../services.ts";
 import { DeviceLabel } from "../engine/rpc.ts";
 import { actorOf } from "../extensions/connection.ts";
 import { shortTemp } from "../platform/testing.ts";
@@ -37,6 +40,29 @@ const temporary = Effect.acquireRelease(
 
 /** `dispatch` answers with who asked, to prove the connection's identity reached a handler. */
 const handlers = Layer.mergeAll(
+  ServerRpcs.toLayerHandler("voice.transcribe", ({ audio }) =>
+    Stream.unwrap(
+      Effect.gen(function* () {
+        const blobs = yield* BlobChannel;
+
+        const bytes = yield* blobs
+          .take(audio)
+          .pipe(
+            Effect.mapError(
+              (error) => new VoiceError({ reason: "audio-failed", message: error.message })
+            )
+          );
+
+        return Stream.succeed(
+          new VoiceTranscript({
+            finalText: String(bytes.byteLength),
+            interimText: "",
+            finished: true,
+          })
+        );
+      })
+    )
+  ),
   ServerRpcs.toLayerHandler("dispatch", ({ commandId }, { client }) =>
     Effect.fail(
       new CommandRejected({
@@ -105,7 +131,7 @@ test("a gateway connection must present a token and a protocol range in hello, b
 
         const paired = yield* desktop.client["extensions.pair"]({
           name: "Raycast",
-          grant: ["turn"],
+          grant: ["read", "turn"],
         });
 
         const tokenless = yield* overWebSocket();
@@ -142,6 +168,11 @@ test("a gateway connection must present a token and a protocol range in hello, b
         expect(Predicate.isTagged(older, "ProtocolMismatch") && older.update).toBe("extension");
         expect(older.message).toContain("Update the Extension");
 
+        // A valid token alone must not authorize RPCs after a refused version.
+        expect(yield* Effect.flip(silent.client["harness.spinnerVerbs"]({ cwd: null }))).toEqual(
+          new NotGranted({ what: "harness.spinnerVerbs", needed: null })
+        );
+
         // The same connection may then say a range it speaks.
         yield* silent.client.hello(hello(paired.token, range));
 
@@ -161,18 +192,13 @@ test("a paired Extension over the gateway gets its Grant, nothing kept for Clien
   await Effect.runPromise(
     Effect.scoped(
       Effect.gen(function* () {
-        const { overWebSocket, desktop, root, server, url } = yield* setup;
+        const { overWebSocket, desktop, root, server } = yield* setup;
         const record = readGatewayRecord(join(root, "gateway.json"));
         expect(record).toEqual({
           port: server.gateway?.port ?? -1,
-          nonce: server.gateway?.nonce ?? "",
+          secret: server.gateway?.secret ?? "",
         });
 
-        // Remote Access proves the port is this Daemon's: the nonce in the file is the one served.
-        const identityUrl = url.replace("ws://", "http://").replace("/rpc", "/identity");
-        const served = yield* Effect.promise(() => fetch(identityUrl).then((r) => r.json()));
-        expect(served).toEqual({ nonce: record?.nonce });
-        expect(record?.nonce).toMatch(/^[A-Za-z0-9_-]{43}$/);
         const glasses = yield* desktop.client["extensions.pair"]({ name: "G2", grant: ["read"] });
 
         // The Even app's WebView: an Origin of 127.0.0.1 with a port that changes every launch.
@@ -338,3 +364,84 @@ test("browsers are refused at the upgrade: foreign Host or Origin, other paths a
     )
   );
 });
+
+test(
+  "an incomplete hello expires but an authenticated idle Extension stays connected",
+  () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const { overWebSocket, desktop, url } = yield* setup;
+
+          const paired = yield* desktop.client["extensions.pair"]({
+            name: "idle",
+            grant: ["read"],
+          });
+
+          const ext = yield* overWebSocket();
+          yield* ext.client.hello(hello(paired.token, range));
+
+          const closed = yield* Effect.promise(
+            () =>
+              new Promise<number>((resolve) => {
+                const socket = new WebSocket(url);
+                socket.onopen = () => socket.send(new Uint8Array([0]));
+                socket.onclose = (event) => resolve(event.code);
+              })
+          ).pipe(Effect.timeout("12 seconds"));
+
+          expect(closed).toBe(1008);
+          expect(yield* ext.client["harness.spinnerVerbs"]({ cwd: null })).toBeNull();
+        })
+      )
+    ),
+  15000
+);
+
+test("gateway Wire accepts a five-minute voice blob but refuses a blob over its limit", () =>
+  Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const { overWebSocket, desktop } = yield* setup;
+
+        const paired = yield* desktop.client["extensions.pair"]({
+          name: "voice",
+          grant: ["voice"],
+        });
+
+        const ext = yield* overWebSocket();
+        yield* ext.client.hello(hello(paired.token, range));
+        const audio = yield* ext.blobs.offer(new Uint8Array(9_600_000));
+        const transcript = yield* ext.client["voice.transcribe"]({ audio }).pipe(Stream.runCollect);
+        expect(transcript.map((item) => item.finalText)).toEqual(["9600000"]);
+        const excessive = yield* ext.blobs.offer(new Uint8Array(17 * 1024 * 1024));
+
+        const error = yield* ext.client["voice.transcribe"]({ audio: excessive }).pipe(
+          Stream.runDrain,
+          Effect.flip
+        );
+
+        expect(Predicate.isTagged(error, "VoiceError") && error.reason).toBe("audio-failed");
+      })
+    )
+  ));
+
+test("pre-hello binary input has a cumulative byte budget even as the Wire drains it", () =>
+  Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const { url } = yield* setup;
+
+        const code = yield* Effect.promise(
+          () =>
+            new Promise<number>((resolve) => {
+              const socket = new WebSocket(url);
+              socket.onopen = () => socket.send(new Uint8Array(65 * 1024));
+              socket.onclose = (event) => resolve(event.code);
+            })
+        ).pipe(Effect.timeout("2 seconds"));
+
+        expect(code).toBe(1009);
+      })
+    )
+  ));

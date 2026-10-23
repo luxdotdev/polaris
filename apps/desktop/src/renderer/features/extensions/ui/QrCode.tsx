@@ -10,11 +10,23 @@ const pathOf = (data: ReadonlyArray<ReadonlyArray<boolean>>) =>
   data.flatMap((row, y) => row.flatMap((dark, x) => (dark ? [`M${x} ${y}h1v1h-1z`] : []))).join("");
 
 export const QrCode = ({ text, size }: { readonly text: string; readonly size: number }) => {
-  const { path, modules } = useMemo(() => {
-    const qr = encode(text, { border: 0 });
+  const encoded = useMemo(() => {
+    try {
+      const qr = encode(text, { border: 0 });
 
-    return { path: pathOf(qr.data), modules: qr.size };
+      return { path: pathOf(qr.data), modules: qr.size };
+    } catch {
+      return null;
+    }
   }, [text]);
+
+  if (encoded === null)
+    return (
+      <p className="text-caption text-text-subtle shrink-0" style={{ width: size }}>
+        Too long for a QR code. Copy the pairing string instead.
+      </p>
+    );
+  const { path, modules } = encoded;
 
   return (
     <div className="rounded-row shrink-0 bg-white p-2 shadow-[inset_0_0_0_1px_#0000000f]">

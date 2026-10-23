@@ -6,7 +6,7 @@ import { shortTemp } from "../platform/testing.ts";
 import {
   GATEWAY_DEFAULT_PORT,
   configuredGatewayPort,
-  newGatewayNonce,
+  newGatewaySecret,
   readGatewayRecord,
   removeGatewayRecord,
   writeGatewayRecord,
@@ -48,24 +48,28 @@ test("a port that is not one is ignored, in the environment and in daemon.json",
     expect(await portFor(config, { POLARIS_GATEWAY_PORT: "7.5" })).toBe(GATEWAY_DEFAULT_PORT);
   }));
 
-test("gateway.json is {port, nonce}, private to the user in a private directory, and gone once removed", () =>
+test("gateway.json is {port, secret}, private to the user in a private directory, and gone once removed", () =>
   withRoot(async (root) => {
     const record = join(root, "private", "gateway.json");
-    const nonce = newGatewayNonce();
-    expect(nonce).toMatch(/^[A-Za-z0-9_-]{43}$/);
-    expect(newGatewayNonce()).not.toBe(nonce);
-    writeGatewayRecord(record, { port: 7477, nonce });
-    expect(JSON.parse(readFileSync(record, "utf8"))).toEqual({ port: 7477, nonce });
-    expect(readGatewayRecord(record)).toEqual({ port: 7477, nonce });
+    const secret = newGatewaySecret();
+    expect(secret).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(newGatewaySecret()).not.toBe(secret);
+    writeGatewayRecord(record, { port: 7477, secret });
+    expect(JSON.parse(readFileSync(record, "utf8"))).toEqual({ port: 7477, secret });
+    expect(readGatewayRecord(record)).toEqual({ port: 7477, secret });
 
     if (process.platform !== "win32") {
       expect(statSync(record).mode & 0o777).toBe(0o600);
       expect(statSync(join(root, "private")).mode & 0o777).toBe(0o700);
     }
 
-    writeGatewayRecord(record, { port: 7478, nonce });
+    writeGatewayRecord(record, { port: 7478, secret });
     expect(readGatewayRecord(record)?.port).toBe(7478);
     writeFileSync(record, JSON.stringify({ port: 7478 }));
+    expect(readGatewayRecord(record)).toBeNull();
+    writeFileSync(record, JSON.stringify({ port: 7478, nonce: secret }));
+    expect(readGatewayRecord(record)).toBeNull();
+    writeFileSync(record, JSON.stringify({ port: 7478, secret: "not a secret" }));
     expect(readGatewayRecord(record)).toBeNull();
     removeGatewayRecord(record);
     removeGatewayRecord(record);

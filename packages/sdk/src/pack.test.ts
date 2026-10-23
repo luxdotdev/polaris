@@ -122,10 +122,12 @@ await local.close();
   expect(result.output.trim().split("\n")).toEqual(['{"connected":true}', "HostUnreachable"]);
 }, 60_000);
 
-test("a consumer typechecks against the declarations, with the domain types intact", () => {
-  writeFileSync(
-    join(project, "consumer.ts"),
-    `import { createPolaris, NotGranted, type HostView, type SessionView } from "@polaris/sdk";
+test.each(["NodeNext", "Bundler"] as const)(
+  "a %s consumer typechecks with the domain types intact",
+  (resolution) => {
+    writeFileSync(
+      join(project, "consumer.ts"),
+      `import { createPolaris, NotGranted, type HostView, type SessionView } from "@polaris/sdk";
 
 type IsAny<T> = 0 extends 1 & T ? true : false;
 const stateIsTyped: IsAny<HostView["sessions"][number]["session"]["state"]> = false;
@@ -144,29 +146,32 @@ export const main = async (pairing: string) => {
   return [stateIsTyped, itemsAreTyped];
 };
 `
-  );
-  writeFileSync(
-    join(project, "tsconfig.json"),
-    JSON.stringify({
-      compilerOptions: {
-        target: "ES2022",
-        module: "NodeNext",
-        moduleResolution: "NodeNext",
-        strict: true,
-        noEmit: true,
-        skipLibCheck: true,
-        types: [],
-        lib: ["ES2022", "DOM"],
-      },
-      files: ["consumer.ts"],
-    })
-  );
+    );
+    writeFileSync(
+      join(project, "tsconfig.json"),
+      JSON.stringify({
+        compilerOptions: {
+          target: "ES2022",
+          module: resolution === "Bundler" ? "Preserve" : "NodeNext",
+          moduleResolution: resolution,
+          customConditions: resolution === "Bundler" ? ["browser"] : [],
+          strict: true,
+          noEmit: true,
+          skipLibCheck: false,
+          types: [],
+          lib: ["ES2022", "DOM", "ESNext.Disposable"],
+        },
+        files: ["consumer.ts"],
+      })
+    );
 
-  const result = run(
-    ["bun", join(REPO, "node_modules", "typescript", "bin", "tsc"), "-p", "."],
-    project
-  );
+    const result = run(
+      ["bun", join(REPO, "node_modules", "typescript", "bin", "tsc"), "-p", "."],
+      project
+    );
 
-  expect(result.output).toBe("");
-  expect(result.exitCode).toBe(0);
-}, 60_000);
+    expect(result.output).toBe("");
+    expect(result.exitCode).toBe(0);
+  },
+  60_000
+);

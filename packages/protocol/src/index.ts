@@ -18,6 +18,8 @@ export * from "./events.ts";
 
 export * from "./extensions.ts";
 
+export * from "./remoteAccess.ts";
+
 export * from "./pairingString.ts";
 
 export * from "./grants.ts";

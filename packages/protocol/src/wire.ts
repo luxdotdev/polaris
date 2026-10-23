@@ -278,9 +278,11 @@ export const makeWire = Effect.fnUntraced(function* (
 
   const offerBlob = <E>(source: BlobSource<E>): Effect.Effect<BlobId> =>
     Effect.suspend(() => {
-      const id = BlobId.make(
-        `${prefix}${(++blobCounter).toString(36)}-${crypto.randomUUID().slice(0, 8)}`
-      );
+      const suffix = Array.from(crypto.getRandomValues(new Uint8Array(4)), (byte) =>
+        byte.toString(16).padStart(2, "0")
+      ).join("");
+
+      const id = BlobId.make(`${prefix}${(++blobCounter).toString(36)}-${suffix}`);
 
       if (!Stream.isStream(source)) {
         const frames = encodeBlob(id, asBytes(source));

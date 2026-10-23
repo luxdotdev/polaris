@@ -37,4 +37,4 @@ export const transcribeOn = <E>(
         )
       );
     })
-  );
+  ).pipe(Stream.interruptWhen(link.closed));

@@ -188,7 +188,11 @@ export const grantGateFor = (options: {
       const admission = admissionOf(client);
       const pairing = pairingOf(client);
 
-      if (admission.rejection !== null || (admission.role === "extension" && pairing === null)) {
+      if (
+        admission.rejection !== null ||
+        (admission.role === "extension" && pairing === null) ||
+        (admission.tokenRequired && !admission.protocolReady)
+      ) {
         return Effect.fail(new NotGranted({ what: rpc._tag, needed: null }));
       }
 

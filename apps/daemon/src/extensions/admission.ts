@@ -7,6 +7,7 @@ interface Admission {
   rejection: ExtensionTokenRejected["reason"] | null;
   /** True on the gateway: the connection must present a token and a protocol range. */
   tokenRequired: boolean;
+  protocolReady: boolean;
   readonly hello: Semaphore.Semaphore;
 }
 
@@ -20,6 +21,7 @@ export const admissionOf = (client: Rpc.ServerClient): Admission => {
       role: "unbound",
       rejection: null,
       tokenRequired: false,
+      protocolReady: false,
       hello: Semaphore.makeUnsafe(1),
     };
     admissions.set(client, admission);

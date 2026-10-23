@@ -12,10 +12,8 @@ import { HostUnreachable } from "../errors.ts";
 export const defaultSocketPath = (): string =>
   join(process.env.POLARIS_HOME ?? join(homedir(), ".polaris"), "daemon.sock");
 
-const opened = (path: string, hostId: string) =>
-  Effect.callback<ReturnType<typeof connect>, HostUnreachable>((resume) => {
-    const socket = connect(path);
-
+const opened = (socket: ReturnType<typeof connect>, path: string, hostId: string) =>
+  Effect.callback<void, HostUnreachable>((resume) => {
     const onError = (error: NodeJS.ErrnoException) =>
       resume(
         Effect.fail(
@@ -34,7 +32,7 @@ const opened = (path: string, hostId: string) =>
       socket.off("error", onError);
       // Errors after connecting end the stream through `readEvents`.
       socket.on("error", () => {});
-      resume(Effect.succeed(socket));
+      resume(Effect.void);
     });
 
     return Effect.sync(() => socket.destroy());
@@ -46,9 +44,12 @@ export const socketTransport = (
   hostId: string
 ): Effect.Effect<ByteTransport, HostUnreachable, Scope.Scope> =>
   Effect.gen(function* () {
-    const socket = yield* Effect.acquireRelease(opened(path, hostId), (socket) =>
-      Effect.sync(() => socket.destroy())
+    const socket = yield* Effect.acquireRelease(
+      Effect.sync(() => connect(path)),
+      (socket) => Effect.sync(() => socket.destroy())
     );
+
+    yield* opened(socket, path, hostId);
 
     return {
       incoming: readEvents(socket),
