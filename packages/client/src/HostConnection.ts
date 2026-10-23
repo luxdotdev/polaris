@@ -355,6 +355,16 @@ export const makeHostConnection = Effect.fnUntraced(function* (
               })
             )
           ),
+          Effect.catchTag("ProtocolMismatch", (error) =>
+            Effect.fail(
+              new ConnectFailure({
+                kind: "needs-attention",
+                reason: "protocol-mismatch",
+                detail: error.message,
+                older: error.update === "polaris" ? "daemon" : "client",
+              })
+            )
+          ),
           Effect.catch((error) =>
             error instanceof ConnectFailure ? Effect.fail(error) : Effect.flip(transport.diagnose)
           )

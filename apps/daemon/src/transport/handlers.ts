@@ -20,6 +20,8 @@ import {
   Sequence,
   Unsupported,
   ResourceError,
+  PROTOCOL_VERSION,
+  decideProtocol,
 } from "@polaris/protocol";
 import { Effect, Stream } from "effect";
 import { ClientCapabilities, DeviceLabel } from "../engine/rpc.ts";
@@ -30,6 +32,7 @@ import { helloHost } from "./hostInfo.ts";
 import { bindLanguageIdentity } from "./languageIdentity.ts";
 import { pairingOf, revokePairing, scopeConnection } from "../extensions/connection.ts";
 import { Pairings } from "../extensions/pairings.ts";
+import { admissionOf } from "../extensions/admission.ts";
 
 const constellationUnavailable = () =>
   new ConstellationRejected({
@@ -284,9 +287,21 @@ export const defaultHandlers = (options: {
     "constellation.subscribe": () => Stream.fail(constellationUnavailable()),
     // Record which device this connection is (for ApprovalResolved.resolvedBy), what it
     // understands (e.g. whether to send it ItemProgress), and the Pairing it acts as.
-    hello: ({ deviceLabel, capabilities, languageProof, extensionToken }, { client }) =>
+    hello: (
+      { deviceLabel, capabilities, languageProof, extensionToken, protocolVersions },
+      { client }
+    ) =>
       Effect.gen(function* () {
         yield* scopeConnection(client, extensionToken);
+
+        // The gateway (admission.tokenRequired) needs the range; a mismatch names the side to update.
+        const mismatch = decideProtocol(
+          PROTOCOL_VERSION,
+          protocolVersions,
+          admissionOf(client).tokenRequired
+        );
+
+        if (mismatch !== null) return yield* mismatch;
 
         const languageIdentity = yield* Effect.try({
           try: () => bindLanguageIdentity(client, options.hostInfo.hostId, languageProof),

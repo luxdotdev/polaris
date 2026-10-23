@@ -75,6 +75,8 @@ export const launchDaemon = async (options: LaunchOptions): Promise<Daemon> => {
   const env = inheritedEnv();
   env.POLARIS_HOME = home;
   env.POLARIS_BENCH_HARNESS = "1";
+  // The gateway on an ephemeral port: the same listener, without taking 7477 from a real Daemon.
+  env.POLARIS_GATEWAY_PORT = "0";
 
   if (profileDir) env.POLARIS_DEBUG_DIR = profileDir;
   Object.assign(env, options.env);

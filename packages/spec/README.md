@@ -662,7 +662,7 @@ in `bun run spec`.
 | Spec | Code |
 |---|---|
 | `Pairing`, `pair`, `revoke` | `apps/daemon/src/extensions/pairings.ts` (`Pairings`: SQLite, the token's SHA-256 only) and the `extensions.*` handlers in `transport/handlers.ts` |
-| `hello`, `scoped`, `beginHello`, `finishHello`, `requireToken` | `extensions/connection.ts` `scopeConnection`, called by `hello` (`transport/handlers.ts`); the `ConnectionPairing` annotation and private admission state (`extensions/admission.ts`) |
+| `hello`, `scoped`, `beginHello`, `finishHello`, `requireToken` | `extensions/connection.ts` `scopeConnection`, called by `hello` (`transport/handlers.ts`); the `ConnectionPairing` annotation and private admission state (`extensions/admission.ts`). `requireToken(c)` is a gateway connection (`gateway/`, ENG-399): `transport/server.ts` serves it with `tokenRequired`, which the gate reads per connection |
 | `decide`, `call` | `packages/protocol/src/grants.ts` `decideAccess` over `RPC_GRANTS` / `COMMAND_GRANTS`, applied by `grantGate` (`extensions/connection.ts`) on `ServerRpcs` |
 | `mode`, `setMode`, `callTurn` | `decideTurnAccess` in the Engine decider, inside `EventStore.commit`; `Engine.grants.test.ts` covers all four turn commands in all modes and a mode change while a request waits |
 | `revoke` closing connections, `close` | `ExtensionConnections` (`extensions/connection.ts`), bound in `transport/server.ts` to each connection's transport |
@@ -681,7 +681,7 @@ SQLite file are not modelled: `extensions/pairings.test.ts` covers them, and
 `extensions.connections.model.test.ts` additionally runs random hello/call/revoke/close
 sequences over real sockets and checks every observation against the independent trace
 reference. `extensions.security.test.ts` covers missing/invalid tokens, fixed roles and
-subscription shutdown. `extensions/connection.test.ts` controls pending authentication,
+subscription shutdown; `gateway/gateway.test.ts` covers the same over the WebSocket gateway, where every connection is `requireToken`. `extensions/connection.test.ts` controls pending authentication,
 concurrent hellos and cancellation at both revocation boundaries. Revocation's persistence
 and transport teardown are uninterruptible; a rejected hello permanently removes authority.
 `beginHello`/`finishHello` model the token-check yield and revoke interleaving; mandatory-token
