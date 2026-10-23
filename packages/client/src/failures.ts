@@ -34,6 +34,8 @@ export const NeedsAttentionReason = Schema.Literals([
   "daemon-untrusted",
   /** The Daemon speaks another protocol version: the upgrade flow is needed. */
   "protocol-mismatch",
+  /** The Extension token in `hello` is malformed, unknown or revoked: pair again. */
+  "pairing-rejected",
 ]);
 
 export type NeedsAttentionReason = typeof NeedsAttentionReason.Type;

@@ -28,7 +28,6 @@ import {
 import { AttachmentSettings, AttachmentUsage, StagedAmount } from "./attachments.ts";
 import { AutoArchiveRpcs } from "./autoArchive.ts";
 import { HostHarnesses } from "./availability.ts";
-import { CapabilityList } from "./capabilities.ts";
 import { PredictionRpcs } from "./predictionRpcs.ts";
 import { InlinePropose } from "./inline.ts";
 import { CommitMessageRpcs } from "./commitMessage.ts";
@@ -37,7 +36,6 @@ import {
   AgentSession,
   ApprovalRequest,
   Attachment,
-  HostInfo,
   Subagent,
   Timestamp,
   TurnItem,
@@ -45,10 +43,11 @@ import {
   Worktree,
 } from "./domain.ts";
 import { EventEnvelope } from "./events.ts";
+import { ExtensionRpcs, GrantGate } from "./extensions.ts";
 import { HarnessKind } from "./harnesses.ts";
+import { Hello } from "./hello.ts";
 import {
   BlobId,
-  HostId,
   CommandId,
   ReviewCheckoutId,
   RiskFindingId,
@@ -97,36 +96,7 @@ export class HarnessUnavailable extends Schema.TaggedError<HarnessUnavailable>()
 
 // ── Handshake ───────────────────────────────────────────────────────────────
 
-export const LanguageConnectionIdentity = Schema.Struct({
-  hostId: HostId,
-  clientId: Schema.String,
-});
-
-export type LanguageConnectionIdentity = typeof LanguageConnectionIdentity.Type;
-
-export class LanguageIdentityError extends Schema.TaggedError<LanguageIdentityError>()(
-  "LanguageIdentityError",
-  { message: Schema.Literal("Language identity unavailable") }
-) {}
-
-export const Hello = Rpc.make("hello", {
-  payload: {
-    clientName: Schema.String,
-    clientVersion: Schema.String,
-    /** Label shown to other Clients, e.g. when this device resolves an approval. */
-    deviceLabel: Schema.String,
-    capabilities: CapabilityList,
-    /** Private bearer proof; malformed values stay redacted until safe handler validation. */
-    languageProof: Schema.optionalKey(Schema.RedactedFromValue(Schema.Unknown)),
-  },
-  success: Schema.Struct({
-    host: HostInfo,
-    protocolVersion: Schema.Int,
-    capabilities: CapabilityList,
-    languageIdentity: Schema.optionalKey(LanguageConnectionIdentity),
-  }),
-  error: LanguageIdentityError,
-});
+export { Hello, LanguageConnectionIdentity, LanguageIdentityError } from "./hello.ts";
 
 // ── Commands ────────────────────────────────────────────────────────────────
 
@@ -831,4 +801,12 @@ export class DaemonRpcs extends RpcGroup.make(
   .merge(PredictionRpcs)
   .merge(SessionTurnRpcs)
   .merge(AutoArchiveRpcs)
-  .merge(GitWriteRpcs, GitWatchRpcs, CommitMessageRpcs) {}
+  .merge(GitWriteRpcs, GitWatchRpcs, CommitMessageRpcs)
+  .merge(ExtensionRpcs) {}
+
+/**
+ * `DaemonRpcs` as the Daemon serves it to Extensions: every RPC can fail with
+ * `NotGranted` (grants.ts). The SDK's Client is built on this group so the
+ * refusal decodes; the Desktop App, never refused, stays on `DaemonRpcs`.
+ */
+export class ExtensionDaemonRpcs extends DaemonRpcs.middleware(GrantGate) {}

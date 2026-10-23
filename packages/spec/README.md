@@ -12,6 +12,7 @@ It covers the event store's group commit, receipts and gapless sequence (`apps/d
 | `polaris_test.qnt` | Scenario tests: interleavings written out by hand (group commit, retry after a crash, answer races, withdrawal races, restart, a usage limit waiting for Continue, a dropped subscriber, the host feed, Archive, late approval requests, accepting Turns, Verdicts off the host stream), and one per finding against its mutant. |
 | `scripts/check.ts` | Runs every check (`bun run spec`). |
 | `scripts/replay.ts` | Trace validation: replays logs the real Engine committed through the model (below). |
+| `extensions.qnt` | Pairings and Grants (ENG-398): connections scoped by `hello`, the Grant gate, revocation closing live connections. `scripts/replay-extensions.ts` replays a runtime trace through it. |
 
 ## Running it
 
@@ -114,6 +115,7 @@ Each finding's instance (`finding1` … `finding4`) is the code before its fix; 
 
 - `store.model.test.ts`: the real `EventStore` on a SQLite file. Bursts of concurrent commits (fresh ids, retries, duplicates within a batch, Daemon events; accepted, rejected, empty and defective decisions) whose start order and batching `fc.scheduler` picks; subscribers with a buffer of 1–4 that pause and resume and follow the store's contract (subscribe, cut, replay, resume from the last sequence when dropped); ephemeral output; crashes mid-burst and between bursts. A reference model replays the store's decisions in the order it took them and predicts every answer exactly.
 - `engine.model.test.ts`: the real `Engine` with the fake Harness, two devices, and the Client's real `makeFeed` for the host stream and both session streams of each device (behind a detached "network" so a stalled Client backs up into the Daemon's hub buffer). Bursts of commands (including Archive, Unarchive and AcceptTurns) and Harness events (including late approval requests for a Turn that ended), answer races, stalls, disconnects and crashes. A reference decider checks every command's recorded events against the log right before them, and every rejection against some state while it was in flight; approval, recovery and no-auto-continue checks as in the spec; each recorded request is for its session's Turn in flight, nothing is pending and no session Working without one, no Archived session holds one, and no accepted Turn is in flight; the read model against a fold of the log; each feed against its stream and each Snapshot against the log at its sequence; every feed catches up at the end. The reference fold and decider are in `engine.reference.testing.ts`, the Engine, fake Harness and Client feeds it drives in `engine.world.testing.ts`, and the per-step checks in `engine.invariants.testing.ts`.
+- `extensions.model.test.ts`: the real `Pairings` store on a SQLite file and `decideAccess` (ENG-398), under random sequences of pair, revoke, authenticate and gated RPCs and Commands, against a reference of `extensions.qnt`: a token opens exactly its Pairing until revoked and nothing when never issued or malformed; a scoped connection is refused exactly what its Grant lacks, naming it, and everything kept for Clients; a token-less connection is never refused.
 - `findings.test.ts`: the bugs below, as regression tests (a new finding that cannot be fixed at once goes there as `test.todo`).
 
 `POLARIS_PBT_RUNS` sets the number of runs (CI: 25 for the store, 12 for the Engine), `POLARIS_PBT_SEED` replays a seed fast-check printed, and `POLARIS_PBT_STATS=1` prints what the runs reached.
@@ -644,6 +646,41 @@ Client cancellation/feed/Blob tests are separate in `connection.test.ts`; they
 preserve the existing Connection State machine and Agent resume semantics.
 Central parser redaction and actual live ServerClient revocation are G2-owned
 integration obligations before any Main proof composition or capability release.
+
+## Pairings and Grants (ENG-398)
+
+`extensions.qnt` models Extensions (CONTEXT.md: Extension, Pairing, Grant; ADR 0075,
+0078): `pair` and `revoke` (`extensions.pair` / `extensions.revoke`), `hello` scoping a
+connection to the first valid Pairing it presents, `call` passing every other request
+through the Grant gate, and `close`. Revoking a Pairing closes its live connections.
+`safety`: a live connection never acts as a revoked Pairing (`revokedHaveNoConnections`),
+a refusal names a Grant the Pairing lacks and what is kept for Clients names none
+(`refusalsNameAMissingGrant`), and a token-less connection is never refused
+(`clientsKeepFullPower`). Four scenarios and a 40-step simulation with three witnesses run
+in `bun run spec`.
+
+| Spec | Code |
+|---|---|
+| `Pairing`, `pair`, `revoke` | `apps/daemon/src/extensions/pairings.ts` (`Pairings`: SQLite, the token's SHA-256 only) and the `extensions.*` handlers in `transport/handlers.ts` |
+| `hello`, `scoped` | `extensions/connection.ts` `scopeConnection`, called by `hello` (`transport/handlers.ts`); the `ConnectionPairing` annotation |
+| `decide`, `call` | `packages/protocol/src/grants.ts` `decideAccess` over `RPC_GRANTS` / `COMMAND_GRANTS`, applied by `grantGate` (`extensions/connection.ts`) on `ServerRpcs` |
+| `revoke` closing connections, `close` | `ExtensionConnections` (`extensions/connection.ts`), bound in `transport/server.ts` to each connection's transport |
+
+The gate's mapping is exhaustive by type (a new RPC or Command without an entry fails
+typecheck); the spec takes "what a request needs" as an input. Tokens, hashes and the
+SQLite file are not modelled: `extensions/pairings.test.ts` covers them, and
+`extensions.model.test.ts` (above) checks the store and the gate against the reference.
+
+Trace validation: `apps/daemon/src/transport/extensions.test.ts` drives a real Daemon
+over a socket (token-less Client, two Extensions, bad tokens, revocation) and records
+every observation; it replays them through `scripts/extensions-replay/index.ts` and
+rejects a mutant. `scripts/extensions-replay/runtime.trace.json` is that trace, kept;
+`scripts/extensions-replay/replay.test.ts` replays it and a mutant through the Quint spec.
+
+```sh
+cd apps/daemon && EXTENSIONS_TRACE_OUTPUT=/tmp/extensions.trace.json bun test src/transport/extensions.test.ts
+bun packages/spec/scripts/replay-extensions.ts /tmp/extensions.trace.json
+```
 
 ## Authenticated resource receipt challenges (M3.1 salvage)
 

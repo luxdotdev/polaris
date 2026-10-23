@@ -159,6 +159,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "commit.suggest-message",
   "constellation",
   "constellation.defaults",
+  "extensions",
   ...HARNESS_CATALOGUE.map((harness) => harness.capability),
   "harness.availability",
   "harness.models",

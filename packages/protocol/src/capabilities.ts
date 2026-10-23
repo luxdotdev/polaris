@@ -12,6 +12,8 @@ export const PROTOCOL_VERSION = 1;
 export const Capability = Schema.Literals([
   "constellation",
   "constellation.defaults",
+  /** `extensions.pair`, `extensions.list`, `extensions.revoke`, and `extensionToken` in `hello`. */
+  "extensions",
   "host.resources",
   /**
    * The Client decodes any `HostInfo.platform` (`windows-x64` and later ones). A Daemon on

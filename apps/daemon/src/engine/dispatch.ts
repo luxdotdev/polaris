@@ -6,6 +6,7 @@
 import { statSync } from "node:fs";
 import { join } from "node:path";
 import {
+  Actor,
   Command,
   type CommandId,
   CommandRejected,
@@ -30,6 +31,8 @@ export interface DispatchInput {
   readonly command: Command;
   /** Label of the sending Client device, from its `hello`. */
   readonly deviceLabel: string;
+  /** Who sent it (ENG-398); a token-less Client when left out. */
+  readonly actor?: Actor;
 }
 
 export type Dispatch = (
@@ -156,6 +159,7 @@ const make = Effect.gen(function* () {
       commandId,
       now: yield* rt.now,
       deviceLabel: input.deviceLabel,
+      actor: input.actor ?? Actor.cases.Client.make({}),
       newTurnId: TurnId.make(`turn_${crypto.randomUUID()}`),
       newWorkspaceId: WorkspaceId.make(`ws_${crypto.randomUUID()}`),
       attachments: yield* resolveAttachments(commandId, command),

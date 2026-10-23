@@ -7,7 +7,7 @@ The Daemon's only listener, the RPC server on it, and `polaris bridge`. Decision
 | `server.ts` | `startServer`: lock, socket, `RpcServer` for `ServerRpcs`, one Wire per connection. Handler layers are composed here. |
 | `rpcs.ts` | `ServerRpcs` = `DaemonRpcs` + the server-only `ConnectionBlobs` middleware. |
 | `defects.ts` | Logs a request's defect with its cause; the server fails only that request (ADR 0064). |
-| `handlers.ts` | `hello` (HostInfo, capabilities; annotates the connection with the device label and the Client's capabilities) and placeholders for every other RPC. |
+| `handlers.ts` | `hello` (HostInfo, capabilities; annotates the connection with the device label and the Client's capabilities, and scopes it to a Pairing when it presents an `extensionToken`), the `extensions.*` RPCs, and placeholders for every other RPC. |
 | `socket.ts` | Stale-socket probe, private socket directory, `Bun.listen` bound atomically, upgrade adoption. |
 | `windowsPipe/` | Windows: the user-only, local-only named pipe the Daemon listens on, created through `bun:ffi` (`security.ts` is its descriptor and flags as data; ADR 0059). |
 | `bunSocket.ts` | Bun sockets (listened or adopted by fd) as ByteTransports, with partial-write handling. |
@@ -41,7 +41,9 @@ and add their capabilities with `startServer({ capabilities: [...] })` (the tran
 
 **BlobChannel is per connection.** Every RPC in `ServerRpcs` carries the `ConnectionBlobs` middleware, which provides the calling connection's `BlobChannel` around each request; handlers read it with `yield* BlobChannel` inside the handler (not while the layer is built). A handler layer that lists `BlobChannel` as a requirement is satisfied at build time by a placeholder that dies if used outside a request, so `startServer` removes `BlobChannel` from the requirements. `transport.test.ts` runs `GitRpcsLive`'s `git.diff` through it.
 
-**Device label.** `hello` calls `client.annotate(DeviceLabel, deviceLabel)` on the connection, so `dispatch` (engine) records which device resolved an approval.
+**Device label.** `hello` calls `client.annotate(DeviceLabel, deviceLabel)` on the connection, so `dispatch` (engine) records which device resolved an approval. For an Extension the label is its Pairing's name.
+
+**Extensions (ENG-398).** A `hello` with an `extensionToken` authenticates it against the Pairing store (`extensions/pairings.ts`, `~/.polaris/extensions.sqlite`, the token's SHA-256 only) and annotates the connection with `ConnectionPairing`; a malformed, unknown or revoked token fails `hello` with `ExtensionTokenRejected`. The first Pairing a connection presents is the one it keeps. `ServerRpcs` carries the `GrantGate` middleware (`extensions/connection.ts`): every request on a scoped connection goes through `decideAccess` (`grants.ts` in the protocol, exhaustive over RPCs and Commands) and is refused with `NotGranted` naming the missing Grant, or null when the RPC is kept for Clients in 0.3.0. Token-less Clients are never gated. `extensions.pair`, `extensions.list` and `extensions.revoke` are served here; revoking closes the Pairing's live connections through `ExtensionConnections`, which `server.ts` binds to each connection's transport. `dispatch` records the connection's `Actor` on session starts, Turns and approvals.
 
 ## Single instance, stale sockets, upgrades
 

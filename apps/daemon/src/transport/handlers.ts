@@ -28,6 +28,8 @@ import { ServerRpcs } from "./rpcs.ts";
 import { languageDefaults } from "./languageDefaults.ts";
 import { helloHost } from "./hostInfo.ts";
 import { bindLanguageIdentity } from "./languageIdentity.ts";
+import { ExtensionConnections, scopeConnection } from "../extensions/connection.ts";
+import { Pairings } from "../extensions/pairings.ts";
 
 const constellationUnavailable = () =>
   new ConstellationRejected({
@@ -280,28 +282,42 @@ export const defaultHandlers = (options: {
     "constellation.worker.message": () => Effect.fail(constellationUnavailable()),
     "constellation.worker.start": () => Effect.fail(constellationUnavailable()),
     "constellation.subscribe": () => Stream.fail(constellationUnavailable()),
-    // Record which device this connection is (for ApprovalResolved.resolvedBy) and
-    // what it understands (e.g. whether to send it ItemProgress).
-    hello: ({ deviceLabel, capabilities, languageProof }, { client }) =>
-      Effect.try({
-        try: () => {
-          const languageIdentity = bindLanguageIdentity(
-            client,
-            options.hostInfo.hostId,
-            languageProof
-          );
+    // Record which device this connection is (for ApprovalResolved.resolvedBy), what it
+    // understands (e.g. whether to send it ItemProgress), and the Pairing it acts as.
+    hello: ({ deviceLabel, capabilities, languageProof, extensionToken }, { client }) =>
+      Effect.gen(function* () {
+        const languageIdentity = yield* Effect.try({
+          try: () => bindLanguageIdentity(client, options.hostInfo.hostId, languageProof),
+          catch: () => new LanguageIdentityError({ message: "Language identity unavailable" }),
+        });
 
-          client.annotate(DeviceLabel, deviceLabel);
-          client.annotate(ClientCapabilities, capabilities);
+        const pairing =
+          extensionToken === undefined ? null : yield* scopeConnection(client, extensionToken);
 
-          const response = {
-            ...helloHost(options.hostInfo, capabilities),
-            capabilities: options.capabilities,
-          };
+        client.annotate(DeviceLabel, pairing === null ? deviceLabel : pairing.name);
+        client.annotate(ClientCapabilities, capabilities);
 
-          return languageIdentity === null ? response : { ...response, languageIdentity };
-        },
-        catch: () => new LanguageIdentityError({ message: "Language identity unavailable" }),
+        const response = {
+          ...helloHost(options.hostInfo, capabilities),
+          capabilities: options.capabilities,
+        };
+
+        return languageIdentity === null ? response : { ...response, languageIdentity };
+      }),
+
+    // Token-less Clients only (grants.ts): the gate refuses these to Extensions.
+    "extensions.pair": ({ name, grant }) =>
+      Effect.flatMap(Pairings, (pairings) => Effect.orDie(pairings.pair(name, grant))),
+    "extensions.list": () => Effect.flatMap(Pairings, (pairings) => Effect.orDie(pairings.list)),
+    "extensions.revoke": ({ id }) =>
+      Effect.gen(function* () {
+        const pairings = yield* Pairings;
+        const revoked = yield* Effect.orDie(pairings.revoke(id));
+
+        if (revoked === null) return yield* new NotFound({ what: "pairing", id });
+        yield* (yield* ExtensionConnections).closeAll(id);
+
+        return revoked;
       }),
 
     dispatch: ({ commandId }) =>
