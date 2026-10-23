@@ -125,7 +125,9 @@ export const startGateway = Effect.fn("startGateway")(function* (
 
   yield* Effect.addFinalizer(() =>
     Effect.promise(async () => {
-      for (const socket of open) socket.close(CLOSE_GOING_AWAY, "the Daemon is stopping");
+      for (const socket of open)
+        if (socket.data === undefined) socket.close(CLOSE_GOING_AWAY, "the Daemon is stopping");
+        else socket.data.refuse(CLOSE_GOING_AWAY, "the Daemon is stopping");
       await server.stop(true);
 
       if (options.recordPath !== null) removeGatewayRecord(options.recordPath);

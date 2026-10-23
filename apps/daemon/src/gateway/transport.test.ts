@@ -168,3 +168,36 @@ test.each([
     )
   )
 );
+
+test("a connection the Daemon ends by stopping says the Daemon closed it", async () => {
+  const accepted = await Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const gateway = yield* startGateway({ port: 0, recordPath: null });
+
+        if (gateway === null) throw new Error("no gateway");
+        const first = yield* Deferred.make<GatewayTransport>();
+
+        yield* gateway.connections.pipe(
+          Stream.runForEach((transport) =>
+            Effect.sync(() => transport.authenticated()).pipe(
+              Effect.andThen(Deferred.succeed(first, transport)),
+              Effect.andThen(transport.incoming.pipe(Stream.runDrain, Effect.ignore))
+            )
+          ),
+          Effect.forkScoped
+        );
+
+        const socket = new WebSocket(gateway.url);
+
+        yield* Effect.addFinalizer(() => Effect.sync(() => socket.close()));
+
+        return yield* Deferred.await(first);
+      })
+    )
+  );
+
+  expect(accepted.summary()).toMatch(
+    /^the Daemon closed it \(1001 the Daemon is stopping\) after hello/
+  );
+});
