@@ -9,7 +9,8 @@
   "workspaces": [
     "apps/*",
     "packages/*",
-    "tooling"
+    "tooling",
+    "extensions/even-g2/spike"
   ],
   "scripts": {
     "build": "turbo run build",
