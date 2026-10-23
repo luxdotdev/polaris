@@ -38,23 +38,31 @@ const approvalItems = (approval: ApprovalRequest): ReadonlyArray<MenuItem> =>
         { label: "Deny", action: { kind: "deny", requestId: approval.id } },
       ];
 
-const busy = new Set(["starting", "working", "needs-you"]);
+const RUNNING = new Set(["starting", "working"]);
 
-/** `lastTurn` is the status of the session's latest Turn, when known. */
+/**
+ * `lastTurn` is the status of the session's latest Turn, when known. A Turn runs while the
+ * session works or waits on an approval; Needs You with nothing pending is an interrupted Turn.
+ */
 export const menuFor = (
   entry: SessionEntry,
   lastTurn: TurnStatus | null
 ): ReadonlyArray<MenuItem> => {
   const approval = entry.pendingApprovals[0];
-  const working = busy.has(entry.session.state);
+  const { state } = entry.session;
+  const running = RUNNING.has(state) || (state === "needs-you" && approval !== undefined);
+
+  const continuable =
+    !running &&
+    ((state === "needs-you" && approval === undefined) ||
+      state === "limited" ||
+      lastTurn === "interrupted");
 
   const items: ReadonlyArray<MenuItem> = [
     ...(approval === undefined ? [] : approvalItems(approval)),
-    ...(working ? [{ label: "Interrupt", action: { kind: "interrupt" } } as const] : []),
-    ...(!working && lastTurn === "interrupted"
-      ? [{ label: "Continue", action: { kind: "continue" } } as const]
-      : []),
-    ...(working
+    ...(running ? [{ label: "Interrupt", action: { kind: "interrupt" } } as const] : []),
+    ...(continuable ? [{ label: "Continue", action: { kind: "continue" } } as const] : []),
+    ...(running
       ? []
       : [
           ...FIXED_REPLIES.map((text) => ({

@@ -92,14 +92,56 @@ describe("the menu", () => {
     expect(question[1]?.action).toEqual({ kind: "answer", requestId: "r2", text: longOption });
   });
 
-  test("offers Continue only after an interrupted Turn, and replies only when the session isn't working", () => {
-    const labels = (state: Parameters<typeof session>[1], last: Parameters<typeof menuFor>[1]) =>
-      menuFor(entry(session("s", state)), last).map((item) => item.label);
+  const REPLIES = [
+    "Reply: Go ahead",
+    "Reply: Run the tests",
+    "Reply: Summarize where you are",
+    "Speak a reply",
+  ];
 
-    expect(labels("idle", "interrupted")).toContain("Continue");
-    expect(labels("idle", "completed")).not.toContain("Continue");
-    expect(labels("idle", null)).toContain("Speak a reply");
-    expect(labels("working", null)).toEqual(["Interrupt"]);
+  // Interrupt only while a Turn runs; Needs You with nothing pending is a Turn a restart interrupted.
+  test.each([
+    { case: "working", state: "working", pending: false, last: null, expected: ["Interrupt"] },
+    {
+      case: "waiting on an approval",
+      state: "needs-you",
+      pending: true,
+      last: null,
+      expected: ["Approve", "Deny", "Interrupt"],
+    },
+    {
+      case: "interrupted by a restart",
+      state: "needs-you",
+      pending: false,
+      last: "interrupted",
+      expected: ["Continue", ...REPLIES],
+    },
+    {
+      case: "interrupted, before its Turn is loaded",
+      state: "needs-you",
+      pending: false,
+      last: null,
+      expected: ["Continue", ...REPLIES],
+    },
+    {
+      case: "at a usage limit",
+      state: "limited",
+      pending: false,
+      last: null,
+      expected: ["Continue", ...REPLIES],
+    },
+    {
+      case: "idle after an interrupt",
+      state: "idle",
+      pending: false,
+      last: "interrupted",
+      expected: ["Continue", ...REPLIES],
+    },
+    { case: "idle", state: "idle", pending: false, last: "completed", expected: REPLIES },
+  ] as const)("the actions for a session $case", ({ state, pending, last, expected }) => {
+    const value = entry(session("s", state), pending ? [approval("r1", "s")] : []);
+
+    expect(menuFor(value, last).map((item) => item.label)).toEqual([...expected]);
   });
 
   test("a chosen action runs against the session and returns to it", () => {
