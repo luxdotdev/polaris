@@ -1,0 +1,80 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "polaris",
+  "title": "Polaris",
+  "description": "Supervise your Polaris agent sessions: see what needs you, approve, send turns and start sessions on any host.",
+  "icon": "icon.png",
+  "author": "lucasdoell",
+  "categories": [
+    "Developer Tools"
+  ],
+  "platforms": [
+    "macOS"
+  ],
+  "license": "MIT",
+  "private": true,
+  "commands": [
+    {
+      "name": "search-sessions",
+      "title": "Search Agent Sessions",
+      "subtitle": "Polaris",
+      "description": "Find an agent session on any host: approve, deny, send a turn, interrupt or open it in Polaris.",
+      "mode": "view"
+    },
+    {
+      "name": "pending-approvals",
+      "title": "Pending Approvals",
+      "subtitle": "Polaris",
+      "description": "Every approval waiting on you, across your hosts.",
+      "mode": "view"
+    },
+    {
+      "name": "search-workspaces",
+      "title": "Search Workspaces",
+      "subtitle": "Polaris",
+      "description": "Find a workspace and start an agent session in it, or open it in Polaris.",
+      "mode": "view"
+    },
+    {
+      "name": "new-session",
+      "title": "New Agent Session",
+      "subtitle": "Polaris",
+      "description": "Start an agent session in a workspace with a first turn.",
+      "mode": "view",
+      "arguments": [
+        {
+          "name": "prompt",
+          "placeholder": "First turn",
+          "type": "text",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "hosts",
+      "title": "Hosts",
+      "subtitle": "Polaris",
+      "description": "Your pairings with Polaris hosts and how each connection stands; add one by pasting its pairing string.",
+      "mode": "view"
+    }
+  ],
+  "dependencies": {
+    "@polaris/sdk": "workspace:*",
+    "@raycast/api": "2.9.0",
+    "@raycast/utils": "2.3.3",
+    "effect": "4.0.0-rc.118"
+  },
+  "devDependencies": {
+    "@polaris/desktop": "workspace:*",
+    "@polaris/protocol": "workspace:*",
+    "@types/bun": "latest",
+    "@types/react": "19.0.10",
+    "typescript": "7.0.2"
+  },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "bun ../../tooling/test/watchdog.ts",
+    "dev": "ray develop",
+    "ray:build": "ray build -e dist"
+  }
+}

@@ -43,6 +43,8 @@ export interface HostView {
   readonly workspaces: ReadonlyArray<Workspace>;
   /** Most recently updated first; archived sessions are left out. */
   readonly sessions: ReadonlyArray<SessionEntry>;
+  /** The archived sessions, most recently updated first. */
+  readonly archived: ReadonlyArray<SessionEntry>;
   /** Every session's pending approvals, oldest first. */
   readonly approvals: ReadonlyArray<ApprovalRequest>;
 }
@@ -194,9 +196,11 @@ export const hostView = (
   host: { readonly hostId: string; readonly hostName: string },
   connected: boolean
 ): HostView => {
-  const sessions = [...state.sessions.values()]
-    .filter((entry) => entry.session.state !== "archived")
-    .sort((a, b) => b.session.updatedAt.localeCompare(a.session.updatedAt));
+  const newestFirst = [...state.sessions.values()].sort((a, b) =>
+    b.session.updatedAt.localeCompare(a.session.updatedAt)
+  );
+
+  const sessions = newestFirst.filter((entry) => entry.session.state !== "archived");
 
   return {
     ...host,
@@ -204,6 +208,7 @@ export const hostView = (
     error: null,
     workspaces: [...state.workspaces.values()].filter((workspace) => !workspace.hidden),
     sessions,
+    archived: newestFirst.filter((entry) => entry.session.state === "archived"),
     approvals: sessions
       .flatMap((entry) => entry.pendingApprovals)
       .sort((a, b) => a.openedAt.localeCompare(b.openedAt)),

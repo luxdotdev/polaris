@@ -78,7 +78,7 @@ await polaris.close();
 
 | | |
 |---|---|
-| `subscribeHost(hostId)` | `HostView`: `workspaces`, `sessions` (newest first, archived left out), `approvals` |
+| `subscribeHost(hostId)` | `HostView`: `workspaces`, `sessions` (newest first, archived left out), `archived`, `approvals` |
 | `subscribeHosts()` | every Host's latest `HostView` at once; one that can't be reached has `error` set |
 | `subscribeSession(hostId, sessionId, { turnLimit? })` | `SessionView`: `session`, `turns` with their items, `pendingApprovals`, `streaming` text |
 

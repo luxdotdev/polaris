@@ -18,6 +18,7 @@ Polaris is an IDE and agent orchestrator: a Bun Daemon per Host, an Electron Des
 | `packages/bench` | Benchmarks: the real Daemon under scripted load, a process-tree memory/CPU sampler, baselines and comparisons. |
 | `packages/spec` | The Quint spec of commits, streams, Client feeds and approvals, and its checks (see Verification). |
 | `apps/daemon` | The Daemon (`polaris` binary): event store, Harness drivers, transport, files, git, terminals, user service. |
+| `extensions/raycast` | The Raycast extension on `@polaris/sdk`: search Agent Sessions and Workspaces, Pending Approvals, New Agent Session, Hosts (see its README). A root workspace, like everything under `extensions/`. |
 | `apps/site` | The marketing site (Next.js on Vercel, root directory `apps/site`), built from the Paper "Marketing site" page on `@polaris/ui`'s tokens; the download and update-feed routes live under `app/` (see its README). |
 | `apps/desktop` | The Electron Desktop App: the Client runtime in the main process, a typed IPC bridge, a React renderer on `@polaris/ui` (see its README). |
 | `packages/ui` | The design system in code (`@polaris/ui`): DESIGN.md's tokens on Tailwind v4, restyled shadcn/ui, the Polaris primitives, and a gallery (`bun run --cwd packages/ui gallery`). |
