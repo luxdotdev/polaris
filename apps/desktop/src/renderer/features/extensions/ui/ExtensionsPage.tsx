@@ -3,7 +3,7 @@
  * with Grant and last use, Revoke, and pairing a new Extension, whose token
  * shows once as a QR code and a pairing string.
  */
-import type { Grant } from "@polaris/protocol";
+import type { Grant, PairingId } from "@polaris/protocol";
 import { Button, PlusIcon } from "@polaris/ui";
 import { Match } from "effect";
 import { useState } from "react";
@@ -67,6 +67,14 @@ export const HostPairings = ({
     if (paired !== null) setPanel({ kind: "paired", paired });
   };
 
+  const onRevoke = async (id: PairingId) => {
+    if (await revoke(id)) {
+      setPanel((current) =>
+        current.kind === "paired" && current.paired.pairing.id === id ? { kind: "closed" } : current
+      );
+    }
+  };
+
   if (pairings.length === 0 && panel.kind === "closed") {
     return <Empty label={label} onPair={open} />;
   }
@@ -76,7 +84,7 @@ export const HostPairings = ({
       {pairings.length === 0 ? null : (
         <Group label={`Extensions paired with ${label}`}>
           {pairings.map((p) => (
-            <PairingRow key={p.id} pairing={p} now={now} onRevoke={() => revoke(p.id)} />
+            <PairingRow key={p.id} pairing={p} now={now} onRevoke={() => onRevoke(p.id)} />
           ))}
         </Group>
       )}

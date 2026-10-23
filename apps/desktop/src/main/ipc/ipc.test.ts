@@ -287,6 +287,16 @@ describe("requests", () => {
     expect(Exit.isFailure(exit) && JSON.stringify(exit.cause)).toContain("InvalidInput");
   });
 
+  test.each([
+    ["extensions.pair", { hostKey: "local", name: "Raycast", grant: ["read", "write"] }],
+    ["extensions.pair", { hostKey: "local", name: 42, grant: ["read"] }],
+    ["extensions.revoke", { hostKey: "local", id: 42 }],
+    ["extensions.list", { hostKey: 42 }],
+  ] as const)("invalid %s input is rejected before reaching the Host", async (method, input) => {
+    const exit = await run(requestRunner(handlers, method)(input));
+    expect(Exit.isFailure(exit) && JSON.stringify(exit.cause)).toContain("InvalidInput");
+  });
+
   test("an ssh alias that reads as an option never reaches ssh", async () => {
     const exit = await run(
       requestRunner(
