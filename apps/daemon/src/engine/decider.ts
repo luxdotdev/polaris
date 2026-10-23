@@ -16,6 +16,9 @@ import {
   Command,
   type CommandId,
   CommandRejected,
+  decideTurnAccess,
+  type Grant,
+  type NotGranted,
   DomainEvent,
   isKnownHarness,
   NotFound,
@@ -49,6 +52,7 @@ export interface DecideContext {
   readonly deviceLabel: string;
   /** Who sent it: stamped on the session starts, Turns and approvals it records. */
   readonly actor: Actor;
+  readonly extensionGrant?: Grant | null;
   /** Fresh ids, used only by the commands that create something. */
   readonly newTurnId: TurnId;
   readonly newWorkspaceId: WorkspaceId;
@@ -76,7 +80,10 @@ export interface DecideContext {
   readonly judgedSummary: RiskSummary | null;
 }
 
-export type Decision = Effect.Effect<ReadonlyArray<DomainEvent>, CommandRejected | NotFound>;
+export type Decision = Effect.Effect<
+  ReadonlyArray<DomainEvent>,
+  CommandRejected | NotFound | NotGranted
+>;
 
 /** Worktree ids are derived from the path, so every observer of a path agrees on its id. */
 export const worktreeIdFor = (path: string): WorktreeId =>
@@ -473,6 +480,14 @@ const onSession = (d: Deciding, sessionId: SessionId, input: SessionInput): Deci
   d.withSession(sessionId, (record) => d.lifecycle(record, input));
 
 export const decide = (model: ReadModel, command: Command, ctx: DecideContext): Decision => {
+  const mode =
+    "sessionId" in command
+      ? (model.sessions.get(command.sessionId)?.session.permissionMode ?? null)
+      : null;
+
+  const refusal = decideTurnAccess(ctx.extensionGrant ?? null, command, mode);
+
+  if (refusal !== null) return Effect.fail(refusal);
   const d = deciding(model, ctx);
 
   return Command.match<Decision>(command, {

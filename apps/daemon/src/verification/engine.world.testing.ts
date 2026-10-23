@@ -15,6 +15,7 @@ import {
   type EventEnvelope,
   HostStreamItem,
   type NotFound,
+  type NotGranted,
   RequestId,
   Sequence,
   SessionId,
@@ -214,7 +215,7 @@ export interface Sent {
 
 /** What a device heard back for a command, as `Sent.answer` records it (null: nothing). */
 const answerOf = (
-  exit: Exit.Exit<{ readonly sequence: Sequence | null }, CommandRejected | NotFound>
+  exit: Exit.Exit<{ readonly sequence: Sequence | null }, CommandRejected | NotFound | NotGranted>
 ) => {
   if (Exit.isSuccess(exit)) return `seq:${exit.value.sequence}`;
   const error = Cause.findErrorOption(exit.cause);
