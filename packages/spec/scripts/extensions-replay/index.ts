@@ -53,6 +53,7 @@ interface Reference {
   readonly pairings: Map<number, { readonly grant: ReadonlyArray<string>; revoked: boolean }>;
   readonly scoped: Map<number, number>;
   readonly closed: Set<number>;
+  readonly clients: Set<number>;
 }
 
 const mismatch = (event: ExtensionsTraceEvent, expected: string) =>
@@ -89,8 +90,24 @@ const revoke = (ref: Reference, event: EventOf<"Revoke">) => {
 const hello = (ref: Reference, event: EventOf<"Hello">) => {
   if (ref.closed.has(event.connection)) throw mismatch(event, "nothing: it is closed");
   const pairing = event.pairing === null ? undefined : ref.pairings.get(event.pairing);
-  const refused = event.pairing !== null && (pairing === undefined || pairing.revoked);
+  const scoped = ref.scoped.get(event.connection);
+
+  const refused =
+    event.pairing !== null &&
+    (pairing === undefined ||
+      pairing.revoked ||
+      ref.clients.has(event.connection) ||
+      (scoped !== undefined && scoped !== event.pairing));
+
   check(event, event.observed, refused ? "refused" : "ok");
+
+  if (refused) {
+    close(ref, event.connection);
+
+    return;
+  }
+
+  if (event.pairing === null && scoped === undefined) ref.clients.add(event.connection);
 
   if (!refused && event.pairing !== null && !ref.scoped.has(event.connection))
     ref.scoped.set(event.connection, event.pairing);
@@ -99,6 +116,8 @@ const hello = (ref: Reference, event: EventOf<"Hello">) => {
 const expectedCall = (ref: Reference, event: EventOf<"Call">): string => {
   if (ref.closed.has(event.connection)) return "dropped";
   const pairing = ref.scoped.get(event.connection);
+
+  if (pairing === undefined) ref.clients.add(event.connection);
 
   if (pairing === undefined || event.need === "open") return "allowed";
 
@@ -122,7 +141,12 @@ const apply = (ref: Reference, event: ExtensionsTraceEvent): void =>
 
 /** Replays the trace through the reference and throws on the first observation it disputes. */
 export const replayExtensions = (trace: ExtensionsTrace): void => {
-  const ref: Reference = { pairings: new Map(), scoped: new Map(), closed: new Set() };
+  const ref: Reference = {
+    pairings: new Map(),
+    scoped: new Map(),
+    closed: new Set(),
+    clients: new Set(),
+  };
 
   for (const event of trace.events) apply(ref, event);
 };

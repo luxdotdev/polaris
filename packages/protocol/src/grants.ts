@@ -2,11 +2,12 @@
  * What each RPC and each `dispatch` Command needs from an Extension's Grant
  * (ADR 0075): both maps are exhaustive over `DaemonRpcs` and `Command`, so a
  * new RPC or Command without an entry fails typecheck. A token-less Client is
- * never refused; `decideAccess` is the one rule the Daemon's gate applies.
+ * never refused. `decideAccess` gates the request; `decideTurnAccess` checks
+ * the current Session mode inside the Engine commit.
  */
 import type { RpcGroup } from "effect/rpc";
-import type { Command } from "./commands.ts";
-import { type GrantKind, NotGranted, type Pairing } from "./extensions.ts";
+import { Command } from "./commands.ts";
+import { type Grant, type GrantKind, NotGranted, type Pairing } from "./extensions.ts";
 import type { DaemonRpcs } from "./rpc.ts";
 
 export type DaemonRpcTag = RpcGroup.Rpcs<typeof DaemonRpcs>["_tag"];
@@ -242,6 +243,21 @@ export const accessFor = (rpc: string, command: string | null) =>
  */
 const alsoApproves = (rpc: string, command: string | null, permissionMode: string | null) =>
   rpc === "dispatch" && command === "StartSession" && permissionMode !== "supervised";
+
+/** Apply inside the commit decision, using the session's current permission mode. */
+export const decideTurnAccess = (
+  grant: Grant | null,
+  command: Command,
+  permissionMode: string | null
+): NotGranted | null => {
+  if (grant === null || permissionMode === null || permissionMode === "supervised") return null;
+
+  if (!Command.isAnyOf(["SendTurn", "Steer", "Continue", "Retry"])(command)) return null;
+
+  return grant.includes("approve")
+    ? null
+    : new NotGranted({ what: `dispatch:${command._tag}`, needed: "approve" });
+};
 
 /**
  * The refusal for a request on a connection scoped to `pairing`, or null when
