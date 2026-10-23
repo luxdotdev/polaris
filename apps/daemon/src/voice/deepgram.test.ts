@@ -8,7 +8,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { VoiceError } from "@polaris/protocol";
-import { Effect, Exit, Predicate, Redacted, Stream } from "effect";
+import { Effect, Exit, Fiber, Predicate, Redacted, Stream } from "effect";
 import { deepgramProvider } from "./deepgram.ts";
 import { snapshots } from "./provider.ts";
 
@@ -37,8 +37,18 @@ const results = (transcript: string, isFinal: boolean) =>
   });
 
 /** Answers each audio frame with an interim result and `CloseStream` with a final one. */
-const fakeDeepgram = (options: { readonly status?: number } = {}) => {
+const fakeDeepgram = (
+  options: {
+    readonly status?: number;
+    readonly error?: string;
+    readonly hang?: boolean;
+    readonly closeEarly?: boolean;
+    readonly flood?: number;
+  } = {}
+) => {
   const seen: Seen = { url: new URL("ws://x"), authorization: null, audio: [], text: [] };
+  const opened = Promise.withResolvers<void>();
+  const closed = Promise.withResolvers<void>();
 
   server = Bun.serve({
     port: 0,
@@ -53,11 +63,22 @@ const fakeDeepgram = (options: { readonly status?: number } = {}) => {
         : new Response("upgrade", { status: 400 });
     },
     websocket: {
+      open: (ws) => {
+        opened.resolve();
+
+        if (options.closeEarly) ws.close(1000);
+
+        for (let i = 0; i < (options.flood ?? 0); i++) ws.send(results("word", true));
+
+        if (options.error !== undefined)
+          ws.send(JSON.stringify({ type: "Error", description: options.error }));
+      },
+      close: () => closed.resolve(),
       message: (ws, message) => {
         if (Predicate.isString(message)) {
           seen.text.push(message);
 
-          if (message.includes("CloseStream")) {
+          if (message.includes("CloseStream") && !options.hang) {
             ws.send(results("hello there", true));
             ws.send(JSON.stringify({ type: "Metadata", request_id: "r" }));
             ws.close(1000);
@@ -72,7 +93,12 @@ const fakeDeepgram = (options: { readonly status?: number } = {}) => {
     },
   });
 
-  return { seen, url: `ws://localhost:${server.port}/v1/listen` };
+  return {
+    seen,
+    opened: opened.promise,
+    closed: closed.promise,
+    url: `ws://localhost:${server.port}/v1/listen`,
+  };
 };
 
 const pcm = (bytes: number) => new Uint8Array(bytes);
@@ -140,6 +166,135 @@ test("a failing audio stream fails the transcription", async () => {
   );
 
   expect(exit).toEqual(Exit.fail(broken));
+});
+
+test("a provider that never finalizes is timed out and its socket closed", async () => {
+  const { url, closed } = fakeDeepgram({ hang: true });
+
+  const exit = await Effect.runPromiseExit(
+    Stream.runCollect(
+      deepgramProvider({ url, finishTimeoutMs: 30 }).transcribe(KEY, Stream.make(pcm(2)))
+    )
+  );
+
+  expect(exit).toEqual(
+    Exit.fail(
+      new VoiceError({
+        reason: "provider-failed",
+        message: "Deepgram did not finish the transcript in time",
+      })
+    )
+  );
+  await closed;
+});
+
+test("a provider handshake that stalls is timed out and closed", async () => {
+  const accepted = Promise.withResolvers<void>();
+  const closed = Promise.withResolvers<void>();
+
+  const listener = Bun.listen({
+    hostname: "127.0.0.1",
+    port: 0,
+    socket: { data: () => accepted.resolve(), close: () => closed.resolve() },
+  });
+
+  try {
+    const exit = await Effect.runPromiseExit(
+      Stream.runCollect(
+        deepgramProvider({
+          url: `ws://127.0.0.1:${listener.port}`,
+          connectTimeoutMs: 50,
+        }).transcribe(KEY, Stream.never)
+      )
+    );
+
+    await accepted.promise;
+    expect(exit).toEqual(
+      Exit.fail(
+        new VoiceError({
+          reason: "provider-failed",
+          message: "Deepgram did not open the connection in time",
+        })
+      )
+    );
+    await closed.promise;
+  } finally {
+    listener.stop(true);
+  }
+});
+
+test("provider errors never repeat a key from the provider's description", async () => {
+  const { url, closed } = fakeDeepgram({ error: `invalid credential ${Redacted.value(KEY)}` });
+
+  const exit = await Effect.runPromiseExit(
+    Stream.runCollect(deepgramProvider({ url }).transcribe(KEY, Stream.never))
+  );
+
+  expect(exit).toEqual(
+    Exit.fail(
+      new VoiceError({
+        reason: "provider-failed",
+        message: "Deepgram failed to transcribe the audio",
+      })
+    )
+  );
+  expect(JSON.stringify(exit)).not.toContain(Redacted.value(KEY));
+  await closed;
+});
+
+test("a normal provider close before audio ends fails instead of reporting a finished transcript", async () => {
+  const { url } = fakeDeepgram({ closeEarly: true });
+
+  const exit = await Effect.runPromiseExit(
+    Stream.runCollect(snapshots(deepgramProvider({ url }).transcribe(KEY, Stream.never)))
+  );
+
+  expect(Exit.isFailure(exit) && JSON.stringify(exit)).toContain('"reason":"provider-failed"');
+});
+
+test("a slow transcript consumer has a bounded provider result buffer", async () => {
+  const { url } = fakeDeepgram({ flood: 1000 });
+
+  const exit = await Effect.runPromiseExit(
+    deepgramProvider({ url })
+      .transcribe(KEY, Stream.never)
+      .pipe(
+        Stream.tap(() => Effect.sleep("10 millis")),
+        Stream.runDrain
+      )
+  );
+
+  expect(Exit.isFailure(exit) && JSON.stringify(exit)).toContain("transcript buffer");
+});
+
+test("cancelling a transcription closes the provider socket and stops reading audio", async () => {
+  const { url, opened, closed } = fakeDeepgram({ hang: true });
+  let stopped = false;
+
+  const audio = Stream.never.pipe(
+    Stream.ensuring(
+      Effect.sync(() => {
+        stopped = true;
+      })
+    )
+  );
+
+  await Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const fiber = yield* Stream.runDrain(deepgramProvider({ url }).transcribe(KEY, audio)).pipe(
+          Effect.forkScoped
+        );
+
+        yield* Effect.promise(() => opened);
+        yield* Effect.sleep("20 millis");
+        yield* Fiber.interrupt(fiber);
+        yield* Effect.promise(() => closed);
+      })
+    )
+  );
+
+  expect(stopped).toBe(true);
 });
 
 const smokeKey = process.env.POLARIS_DEEPGRAM_SMOKE_KEY;

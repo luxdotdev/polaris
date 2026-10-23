@@ -15,7 +15,7 @@ import {
   VoiceSettings,
   VoiceTranscript,
 } from "@polaris/protocol";
-import { Effect, Exit, Fiber, Layer, Redacted, type Scope, Stream } from "effect";
+import { Deferred, Effect, Exit, Fiber, Layer, Redacted, Scope, Stream } from "effect";
 import type { RpcGroup } from "effect/rpc";
 import { shortTemp } from "../platform/testing.ts";
 import { startServer } from "../transport/server.ts";
@@ -23,6 +23,7 @@ import { HostSecrets, memorySecrets } from "../secrets/index.ts";
 import { VoiceProvider } from "./provider.ts";
 import { makeVoiceRpcs } from "./VoiceRpcs.ts";
 import { NO_KEY_MESSAGE } from "./keys.ts";
+import { deepgramProvider } from "./deepgram.ts";
 
 const KEY = "0123456789abcdef0123456789abcdef01234567";
 
@@ -62,22 +63,24 @@ const pcm = (bytes: number) => new Uint8Array(bytes).fill(1);
 
 const run = <A>(
   body: (helpers: Helpers) => Effect.Effect<A, unknown, Scope.Scope>,
-  limit?: number
+  limit?: number,
+  provider = countingProvider,
+  limits?: { readonly maxAudioBytes: number; readonly maxDurationMs: number },
+  secrets = memorySecrets()
 ) =>
   Effect.runPromise(
     Effect.scoped(
       Effect.gen(function* () {
         const root = yield* temporary;
-        const secrets = memorySecrets();
 
         const server = yield* startServer({
           root,
           socketPath: join(root, "d.sock"),
           lockPath: join(root, "d.lock"),
-          handlers: makeVoiceRpcs(limit).pipe(
+          handlers: makeVoiceRpcs(limit, limits).pipe(
             Layer.provide(
               Layer.merge(
-                Layer.succeed(VoiceProvider)(countingProvider),
+                Layer.succeed(VoiceProvider)(provider),
                 Layer.succeed(HostSecrets)(secrets)
               )
             )
@@ -149,6 +152,109 @@ test("an Extension with the voice Grant streams audio and gets snapshots, ending
     ["8000 bytes for 0123", "", false],
     ["8000 bytes for 0123", "", true],
   ]);
+});
+
+test("oversized audio fails before the provider receives the excess and releases its slot", async () => {
+  const result = await run(
+    ({ desktop, extension }) =>
+      Effect.gen(function* () {
+        yield* desktop.client["voice.setKey"]({ provider: "deepgram", key: Redacted.make(KEY) });
+        const glasses = yield* extension(["voice"]);
+        const oversized = yield* Effect.exit(transcribe(glasses, [pcm(6), pcm(4)]));
+        const next = yield* transcribe(glasses, [pcm(8)]);
+
+        return { oversized, next: next.at(-1) };
+      }),
+    1,
+    countingProvider,
+    { maxAudioBytes: 8, maxDurationMs: 1000 }
+  );
+
+  expect(result.oversized).toEqual(
+    Exit.fail(new VoiceError({ reason: "audio-failed", message: "Voice audio exceeds 8 bytes" }))
+  );
+  expect(result.next?.finalText).toBe("8 bytes for 0123");
+  expect(result.next?.finished).toBe(true);
+});
+
+test("a stalled transcription reaches its deadline and releases its slot", async () => {
+  const result = await run(
+    ({ desktop, extension }) =>
+      Effect.gen(function* () {
+        yield* desktop.client["voice.setKey"]({ provider: "deepgram", key: Redacted.make(KEY) });
+        const glasses = yield* extension(["voice"]);
+        const audio = yield* glasses.blobs.offer(Stream.never);
+
+        const expired = yield* Effect.exit(
+          Stream.runCollect(glasses.client["voice.transcribe"]({ audio }))
+        );
+
+        const next = yield* transcribe(glasses, [pcm(2)]);
+
+        return { expired, next: next.at(-1) };
+      }),
+    1,
+    countingProvider,
+    { maxAudioBytes: 8, maxDurationMs: 50 }
+  );
+
+  expect(result.expired).toEqual(
+    Exit.fail(
+      new VoiceError({
+        reason: "audio-failed",
+        message: "Voice transcription exceeded its time limit",
+      })
+    )
+  );
+  expect(result.next?.finished).toBe(true);
+});
+
+test("disconnecting an Extension closes its Deepgram socket and releases the Host's slot", async () => {
+  const opened = Promise.withResolvers<void>();
+  const closed = Promise.withResolvers<void>();
+
+  const providerServer = Bun.serve({
+    port: 0,
+    fetch: (request, server) =>
+      server.upgrade(request) ? undefined : new Response("upgrade", { status: 400 }),
+    websocket: {
+      open: () => opened.resolve(),
+      message: () => {},
+      close: () => closed.resolve(),
+    },
+  });
+
+  try {
+    const outcome = await run(
+      ({ desktop, extension }) =>
+        Effect.gen(function* () {
+          yield* desktop.client["voice.setKey"]({ provider: "deepgram", key: Redacted.make(KEY) });
+          const scope = yield* Scope.make();
+          const glasses = yield* extension(["voice"]).pipe(Scope.provide(scope));
+          const audio = yield* glasses.blobs.offer(Stream.never);
+          yield* Stream.runDrain(glasses.client["voice.transcribe"]({ audio })).pipe(
+            Effect.forkScoped
+          );
+          yield* Effect.promise(() => opened.promise);
+          yield* Scope.close(scope, Exit.void);
+          yield* Effect.promise(() => closed.promise);
+          // The slot and provider release in the same handler scope.
+          yield* Effect.sleep("20 millis");
+          const reader = yield* extension(["voice"]);
+          const nextAudio = yield* reader.blobs.offer(Stream.fail("aborted"));
+
+          return yield* Effect.exit(
+            Stream.runCollect(reader.client["voice.transcribe"]({ audio: nextAudio }))
+          );
+        }),
+      1,
+      deepgramProvider({ url: `ws://localhost:${providerServer.port}` })
+    );
+
+    expect(Exit.isFailure(outcome) && JSON.stringify(outcome)).toContain('"reason":"audio-failed"');
+  } finally {
+    await providerServer.stop(true);
+  }
 });
 
 test("without the voice Grant transcribing is refused, and Extensions never touch the key", async () => {
@@ -252,4 +358,58 @@ test("the Host runs a bounded number of transcriptions at once and frees a slot 
     )
   );
   expect(outcomes.third?.finished).toBe(true);
+});
+
+test("a busy Host refuses a transcription before reading secure storage", async () => {
+  const reading = Deferred.makeUnsafe<void>();
+  const release = Deferred.makeUnsafe<void>();
+  const memory = memorySecrets();
+
+  await Effect.runPromise(memory.set("voice/deepgram", Redacted.make(KEY)));
+
+  const secrets = HostSecrets.of({
+    ...memory,
+    get: (key) =>
+      Effect.gen(function* () {
+        yield* Deferred.succeed(reading, undefined);
+        yield* Deferred.await(release);
+
+        return yield* memory.get(key);
+      }),
+  });
+
+  const outcome = await run(
+    ({ extension }) =>
+      Effect.gen(function* () {
+        const glasses = yield* extension(["voice"]);
+        const first = yield* transcribe(glasses, [pcm(2)]).pipe(Effect.forkScoped);
+        yield* Deferred.await(reading);
+
+        const second = yield* transcribe(glasses, [pcm(2)]).pipe(
+          Effect.timeoutOrElse({
+            duration: "100 millis",
+            orElse: () => Effect.fail("read storage before admission"),
+          }),
+          Effect.exit
+        );
+
+        yield* Deferred.succeed(release, undefined);
+        yield* Fiber.join(first);
+
+        return second;
+      }),
+    1,
+    countingProvider,
+    undefined,
+    secrets
+  );
+
+  expect(outcome).toEqual(
+    Exit.fail(
+      new VoiceError({
+        reason: "busy",
+        message: "This Host runs at most 1 transcription at once; end one first.",
+      })
+    )
+  );
 });
