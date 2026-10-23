@@ -245,6 +245,9 @@ test("an Extension gets its Grant and nothing more, and revoking cuts it off", a
           ExtensionsTraceEvent.cases.Hello.make({ connection: 3, pairing: 1, observed: "ok" })
         );
 
+        // A later token-less hello neither widens the connection nor relabels it.
+        yield* ext2.client.hello(hello());
+
         const asked = yield* Effect.flip(
           ext2.client.dispatch({ commandId: CommandId.make("c2"), command: sendTurn })
         );

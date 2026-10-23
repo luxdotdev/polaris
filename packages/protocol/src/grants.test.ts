@@ -31,6 +31,23 @@ describe("decideAccess", () => {
     expect(decideAccess(pairing(["read", "turn"]), "dispatch", "SendTurn")).toBeNull();
   });
 
+  test("starting a session that is not supervised also needs approve", () => {
+    expect(decideAccess(pairing(["start"]), "dispatch", "StartSession", "supervised")).toBeNull();
+    expect(decideAccess(pairing(["start"]), "dispatch", "StartSession", "auto")).toEqual(
+      new NotGranted({ what: "dispatch:StartSession", needed: "approve" })
+    );
+    expect(decideAccess(pairing(["start"]), "dispatch", "StartSession")).toEqual(
+      new NotGranted({ what: "dispatch:StartSession", needed: "approve" })
+    );
+    expect(
+      decideAccess(pairing(["start", "approve"]), "dispatch", "StartSession", "full-access")
+    ).toBeNull();
+    expect(decideAccess(pairing(["approve"]), "dispatch", "StartSession", "auto")).toEqual(
+      new NotGranted({ what: "dispatch:StartSession", needed: "start" })
+    );
+    expect(decideAccess(null, "dispatch", "StartSession", "auto")).toBeNull();
+  });
+
   test("what 0.3.0 keeps for Clients is refused to every Extension, naming no Grant", () => {
     const everything = pairing(["read", "approve", "turn", "start", "voice"]);
     expect(decideAccess(everything, "files.read", null)).toEqual(

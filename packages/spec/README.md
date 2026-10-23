@@ -667,7 +667,11 @@ in `bun run spec`.
 | `revoke` closing connections, `close` | `ExtensionConnections` (`extensions/connection.ts`), bound in `transport/server.ts` to each connection's transport |
 
 The gate's mapping is exhaustive by type (a new RPC or Command without an entry fails
-typecheck); the spec takes "what a request needs" as an input. Tokens, hashes and the
+typecheck); the spec takes "what a request needs" as an input. A `StartSession` whose
+mode is not `supervised` needs `start` and then `approve` (the session would approve for
+itself): in the spec that is two `call`s. `hello` checks the token again once the
+connection is bound, so a `revoke` between the check and the binding either fails the
+`hello` or closes the connection (`extensions/connection.test.ts`). Tokens, hashes and the
 SQLite file are not modelled: `extensions/pairings.test.ts` covers them, and
 `extensions.model.test.ts` (above) checks the store and the gate against the reference.
 

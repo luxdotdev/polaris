@@ -11,7 +11,7 @@ import {
   type Pairing,
   type PairingId,
 } from "@polaris/protocol";
-import { Context, Effect, Match, Option, Redacted, Schema } from "effect";
+import { Context, Effect, Match, Option, Predicate, Redacted, Schema } from "effect";
 import type { Rpc } from "effect/rpc";
 import { Pairings } from "./pairings.ts";
 
@@ -77,9 +77,13 @@ export class ExtensionConnections extends Context.Service<
   }
 }
 
+const rejected = (reason: ExtensionTokenRejected["reason"]) =>
+  Effect.fail(new ExtensionTokenRejected({ reason }));
+
 /**
  * Scopes the connection to the Pairing the token proves, for `hello`. The first
- * Pairing a connection presents is the one it keeps.
+ * Pairing a connection presents is the one it keeps. The token is checked again
+ * once the connection is bound, so a revoke between the two finds it either way.
  */
 export const scopeConnection = Effect.fn("scopeConnection")(function* (
   client: Rpc.ServerClient,
@@ -90,34 +94,52 @@ export const scopeConnection = Effect.fn("scopeConnection")(function* (
   if (existing !== null) return existing;
   const pairings = yield* Pairings;
   const connections = yield* ExtensionConnections;
-  const check = yield* Effect.orDie(pairings.authenticate(Redacted.value(token)));
+  const authenticate = Effect.orDie(pairings.authenticate(Redacted.value(token)));
 
-  const pairing = yield* Match.value(check).pipe(
+  const pairing = yield* Match.value(yield* authenticate).pipe(
     Match.tags({
       Valid: ({ pairing }) => Effect.succeed(pairing),
-      Malformed: () => Effect.fail(new ExtensionTokenRejected({ reason: "malformed" })),
-      Unknown: () => Effect.fail(new ExtensionTokenRejected({ reason: "unknown" })),
-      Revoked: () => Effect.fail(new ExtensionTokenRejected({ reason: "revoked" })),
+      Malformed: () => rejected("malformed"),
+      Unknown: () => rejected("unknown"),
+      Revoked: () => rejected("revoked"),
     }),
     Match.exhaustive
   );
 
-  client.annotate(ConnectionPairing, pairing);
   connections.bind(pairing.id, client.id);
+
+  if (!Predicate.isTagged(yield* authenticate, "Valid")) {
+    connections.unbind(client.id);
+
+    return yield* rejected("revoked");
+  }
+
+  client.annotate(ConnectionPairing, pairing);
   yield* Effect.orDie(pairings.touch(pairing.id));
 
   return pairing;
 });
 
-/** Of a `dispatch` payload, the gate needs the Command's tag. */
+/** Of a `dispatch` payload, the gate needs the Command's tag and a `StartSession`'s mode. */
 const dispatchCommand = Schema.decodeUnknownOption(
-  Schema.Struct({ command: Schema.Struct({ _tag: Schema.String }) })
+  Schema.Struct({
+    command: Schema.Struct({
+      _tag: Schema.String,
+      permissionMode: Schema.optionalKey(Schema.String),
+    }),
+  })
 );
 
 /** The gate every RPC passes: `decideAccess` on the connection's Pairing. */
 export const grantGate = GrantGate.of((effect, { client, rpc, payload }) => {
-  const command = Option.getOrNull(Option.map(dispatchCommand(payload), (p) => p.command._tag));
-  const refusal = decideAccess(pairingOf(client), rpc._tag, command);
+  const command = Option.getOrNull(Option.map(dispatchCommand(payload), (p) => p.command));
+
+  const refusal = decideAccess(
+    pairingOf(client),
+    rpc._tag,
+    command?._tag ?? null,
+    command?.permissionMode ?? null
+  );
 
   return refusal === null ? effect : Effect.fail(refusal);
 });

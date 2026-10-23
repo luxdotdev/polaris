@@ -28,7 +28,7 @@ import { ServerRpcs } from "./rpcs.ts";
 import { languageDefaults } from "./languageDefaults.ts";
 import { helloHost } from "./hostInfo.ts";
 import { bindLanguageIdentity } from "./languageIdentity.ts";
-import { ExtensionConnections, scopeConnection } from "../extensions/connection.ts";
+import { ExtensionConnections, pairingOf, scopeConnection } from "../extensions/connection.ts";
 import { Pairings } from "../extensions/pairings.ts";
 
 const constellationUnavailable = () =>
@@ -291,8 +291,10 @@ export const defaultHandlers = (options: {
           catch: () => new LanguageIdentityError({ message: "Language identity unavailable" }),
         });
 
-        const pairing =
-          extensionToken === undefined ? null : yield* scopeConnection(client, extensionToken);
+        if (extensionToken !== undefined) yield* scopeConnection(client, extensionToken);
+        // The Pairing the connection keeps, not this hello's: a later token-less
+        // hello on a scoped connection cannot relabel it.
+        const pairing = pairingOf(client);
 
         client.annotate(DeviceLabel, pairing === null ? deviceLabel : pairing.name);
         client.annotate(ClientCapabilities, capabilities);

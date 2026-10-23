@@ -54,6 +54,7 @@ const Op = fc.oneof(
     op: fc.constant("command" as const),
     which: fc.nat(3),
     command: fc.constantFrom(...commandTags),
+    permissionMode: fc.constantFrom("supervised", "auto", "full-access"),
   })
 );
 
@@ -70,7 +71,8 @@ interface Issued {
 const expectedRefusal = (
   grant: ReadonlyArray<GrantKind> | null,
   what: string,
-  access: string
+  access: string,
+  alsoApproves = false
 ): { what: string; needed: GrantKind | null } | null => {
   if (grant === null || access === "open") return null;
 
@@ -78,7 +80,9 @@ const expectedRefusal = (
   // SAFETY: every non-open, non-client entry of the mappings is a Grant kind.
   const needed = access as GrantKind;
 
-  return grant.includes(needed) ? null : { what, needed };
+  if (!grant.includes(needed)) return { what, needed };
+
+  return alsoApproves && !grant.includes("approve") ? { what, needed: "approve" } : null;
 };
 
 const tokenCheckOf = (check: TokenCheck) =>
@@ -155,8 +159,19 @@ const commandOp = (world: World, op: Extract<Op, { op: "command" }>) =>
     const grant = target === null ? null : target.pairing.grant;
     // SAFETY: `op.command` is drawn from COMMAND_GRANTS' keys.
     const access = COMMAND_GRANTS[op.command as Command["_tag"]];
-    expect(refusalOf(decideAccess(target?.pairing ?? null, "dispatch", op.command))).toEqual(
-      expectedRefusal(grant, `dispatch:${op.command}`, access)
+
+    const refusal = decideAccess(
+      target?.pairing ?? null,
+      "dispatch",
+      op.command,
+      op.permissionMode
+    );
+
+    // An unsupervised session approves for itself: starting one is approving too.
+    const alsoApproves = op.command === "StartSession" && op.permissionMode !== "supervised";
+
+    expect(refusalOf(refusal)).toEqual(
+      expectedRefusal(grant, `dispatch:${op.command}`, access, alsoApproves)
     );
   });
 

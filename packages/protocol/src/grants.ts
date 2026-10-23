@@ -237,13 +237,23 @@ export const accessFor = (rpc: string, command: string | null) =>
     : { what: rpc, access: rpcAccess(rpc) };
 
 /**
+ * A session that is not supervised approves for itself, so starting one is also
+ * approving: an Extension needs `approve` on top of `start` (ADR 0075).
+ */
+const alsoApproves = (rpc: string, command: string | null, permissionMode: string | null) =>
+  rpc === "dispatch" && command === "StartSession" && permissionMode !== "supervised";
+
+/**
  * The refusal for a request on a connection scoped to `pairing`, or null when
- * it may proceed. A token-less connection (`pairing` null) always may.
+ * it may proceed. A token-less connection (`pairing` null) always may. For
+ * `dispatch`, `command` is the Command's tag and `permissionMode` a
+ * `StartSession`'s mode.
  */
 export const decideAccess = (
   pairing: Pairing | null,
   rpc: string,
-  command: string | null
+  command: string | null,
+  permissionMode: string | null = null
 ): NotGranted | null => {
   if (pairing === null) return null;
   const { what, access } = accessFor(rpc, command);
@@ -252,5 +262,9 @@ export const decideAccess = (
 
   if (access === "client") return new NotGranted({ what, needed: null });
 
-  return pairing.grant.includes(access) ? null : new NotGranted({ what, needed: access });
+  if (!pairing.grant.includes(access)) return new NotGranted({ what, needed: access });
+
+  return alsoApproves(rpc, command, permissionMode) && !pairing.grant.includes("approve")
+    ? new NotGranted({ what, needed: "approve" })
+    : null;
 };
