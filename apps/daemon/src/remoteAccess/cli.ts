@@ -16,9 +16,9 @@ export const describe = (status: RemoteAccessStatus): string =>
       status.reason !== null
         ? `Remote access is on, but: ${REASON_MESSAGES[status.reason]}`
         : [
-        `Remote access is on: https://${status.hostName ?? ""}/polaris`,
-        `Extensions connect to ${status.url ?? ""}`,
-      ].join("\n")
+            `Remote access is on: https://${status.hostName ?? ""}/polaris`,
+            `Extensions connect to ${status.url ?? ""}`,
+          ].join("\n")
     ),
     Match.when("off", () =>
       status.reason === null
