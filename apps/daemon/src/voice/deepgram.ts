@@ -7,23 +7,19 @@ import { VOICE_SAMPLE_RATE, VoiceError } from "@polaris/protocol";
 import {
   Cause,
   Deferred,
-  Duration,
   Effect,
   Layer,
   Option,
   Predicate,
   Queue,
   Redacted,
-  Schedule,
   Schema,
   Stream,
 } from "effect";
 import { type ProviderResult, providerFailed, VoiceProvider } from "./provider.ts";
+import { pump } from "./socket.ts";
 
 export const DEEPGRAM_URL = "wss://api.deepgram.com/v1/listen";
-
-/** Deepgram closes a stream that has had no audio for about 10 s. */
-const KEEP_ALIVE_EVERY = Duration.seconds(4);
 
 const listenUrl = (base: string) => {
   const url = new URL(base);
@@ -95,7 +91,7 @@ const onMessage = (queue: Results, message: Option.Option<DeepgramMessage>) => {
   const value = message.value;
 
   if (value.type === "Error") {
-    fail(queue, providerFailed(`Deepgram: ${value.description}`));
+    fail(queue, providerFailed("Deepgram failed to transcribe the audio"));
 
     return;
   }
@@ -105,76 +101,79 @@ const onMessage = (queue: Results, message: Option.Option<DeepgramMessage>) => {
   // An empty interim result says nothing; an empty final one still clears the guess.
   if (text === "" && value.is_final !== true) return;
 
-  Queue.offerUnsafe(queue, { text, isFinal: value.is_final === true });
+  if (!Queue.offerUnsafe(queue, { text, isFinal: value.is_final === true }))
+    fail(queue, providerFailed("Deepgram results exceeded the transcript buffer"));
 };
 
-/** Sends the audio, then `CloseStream`; `KeepAlive` whenever no audio went for a while. */
-const pump = (socket: WebSocket, audio: Stream.Stream<Uint8Array, VoiceError>) =>
-  Effect.gen(function* () {
-    let lastSent = Date.now();
-
-    const send = (data: string | Uint8Array) =>
-      Effect.sync(() => {
-        if (socket.readyState === WebSocket.OPEN) socket.send(data);
-      });
-
-    const keepAlive = Effect.suspend(() =>
-      Date.now() - lastSent >= Duration.toMillis(KEEP_ALIVE_EVERY)
-        ? send(JSON.stringify({ type: "KeepAlive" }))
-        : Effect.void
-    ).pipe(Effect.repeat(Schedule.spaced(KEEP_ALIVE_EVERY)));
-
-    yield* Effect.forkScoped(keepAlive);
-    yield* Stream.runForEach(audio, (chunk) =>
-      Effect.tap(send(chunk), () =>
-        Effect.sync(() => {
-          lastSent = Date.now();
-        })
-      )
-    );
-    yield* send(JSON.stringify({ type: "CloseStream" }));
-  });
-
-export const deepgramProvider = (options: { readonly url?: string } = {}) =>
+export const deepgramProvider = (
+  options: {
+    readonly url?: string;
+    readonly connectTimeoutMs?: number;
+    readonly finishTimeoutMs?: number;
+  } = {}
+) =>
   VoiceProvider.of({
     kind: "deepgram",
     transcribe: (key, audio) =>
-      Stream.callback<ProviderResult, VoiceError>((queue) =>
-        Effect.gen(function* () {
-          const opened = yield* Deferred.make<void, VoiceError>();
+      Stream.callback<ProviderResult, VoiceError>(
+        (queue) =>
+          Effect.gen(function* () {
+            const opened = yield* Deferred.make<void, VoiceError>();
+            let audioEnded = false;
 
-          const socket = yield* Effect.acquireRelease(
-            Effect.sync(() => {
-              const ws = new WebSocket(listenUrl(options.url ?? DEEPGRAM_URL), {
-                headers: { Authorization: `Token ${Redacted.value(key)}` },
-              });
+            const socket = yield* Effect.acquireRelease(
+              Effect.try({
+                try: () => {
+                  const ws = new WebSocket(listenUrl(options.url ?? DEEPGRAM_URL), {
+                    headers: { Authorization: `Token ${Redacted.value(key)}` },
+                  });
 
-              ws.binaryType = "arraybuffer";
-              ws.onopen = () => Deferred.doneUnsafe(opened, Effect.void);
-              ws.onerror = (event) => {
-                const error = connectFailed(errorMessage(event));
+                  ws.binaryType = "arraybuffer";
+                  ws.onopen = () => Deferred.doneUnsafe(opened, Effect.void);
+                  ws.onerror = (event) => {
+                    const error = connectFailed(errorMessage(event));
 
-                Deferred.doneUnsafe(opened, Effect.fail(error));
-                fail(queue, error);
-              };
+                    Deferred.doneUnsafe(opened, Effect.fail(error));
+                    fail(queue, error);
+                  };
 
-              ws.onmessage = (event) => onMessage(queue, decodeMessage(event.data));
-              ws.onclose = (event) => {
-                if (event.code === 1000) Queue.endUnsafe(queue);
-                else fail(queue, providerFailed(`Deepgram closed the stream (${event.code})`));
-              };
+                  ws.onmessage = (event) => onMessage(queue, decodeMessage(event.data));
+                  ws.onclose = (event) => {
+                    if (event.code === 1000 && audioEnded) Queue.endUnsafe(queue);
+                    else fail(queue, providerFailed(`Deepgram closed the stream (${event.code})`));
+                  };
 
-              return ws;
-            }),
-            (ws) => Effect.sync(() => ws.close())
-          );
+                  return ws;
+                },
+                catch: () => providerFailed("Could not open the Deepgram connection"),
+              }),
+              (ws) => Effect.sync(() => ws.close())
+            );
 
-          yield* Deferred.await(opened);
-          yield* pump(socket, audio).pipe(
-            Effect.catch((error) => Effect.sync(() => fail(queue, error))),
-            Effect.forkScoped
-          );
-        }).pipe(Effect.catch((error) => Effect.sync(() => fail(queue, error))))
+            yield* Deferred.await(opened).pipe(
+              Effect.timeoutOrElse({
+                duration: options.connectTimeoutMs ?? 10_000,
+                orElse: () =>
+                  Effect.fail(providerFailed("Deepgram did not open the connection in time")),
+              })
+            );
+            yield* pump(socket, audio).pipe(
+              Effect.tap(() =>
+                Effect.sync(() => {
+                  audioEnded = true;
+                })
+              ),
+              Effect.andThen(Effect.sleep(options.finishTimeoutMs ?? 10_000)),
+              Effect.andThen(
+                Effect.sync(() =>
+                  fail(queue, providerFailed("Deepgram did not finish the transcript in time"))
+                )
+              ),
+              Effect.catch((error) => Effect.sync(() => fail(queue, error))),
+              Effect.forkScoped
+            );
+          }).pipe(Effect.catch((error) => Effect.sync(() => fail(queue, error)))),
+        { bufferSize: 64 }
       ),
   });
 
