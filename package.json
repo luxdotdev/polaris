@@ -10,6 +10,7 @@
     "apps/*",
     "packages/*",
     "tooling",
+    "extensions/raycast",
     "extensions/even-g2/spike"
   ],
   "scripts": {

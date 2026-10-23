@@ -157,6 +157,7 @@ const disconnected = (entry: HostEntry, error: Error): HostView => ({
   error,
   workspaces: [],
   sessions: [],
+  archived: [],
   approvals: [],
 });
 
