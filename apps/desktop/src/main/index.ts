@@ -79,6 +79,9 @@ import {
   writeSettings,
 } from "./settings.ts";
 import { createMainWindow } from "./window.ts";
+import { createDeepLinkInbox } from "./deepLinks.ts";
+import { focusWindow } from "./notifications/focus.ts";
+import { DEEP_LINK_SCHEME, deepLinkArg } from "../shared/deepLink.ts";
 import { askToQuit, holdsQuit } from "./editorQuit.ts";
 import { createAppUpdates, type AppUpdates } from "./updates/index.ts";
 import { cannotInstallHere, installId } from "./updates/identity.ts";
@@ -128,6 +131,27 @@ app.commandLine.appendSwitch(
 registerAppScheme();
 
 if (!app.requestSingleInstanceLock()) app.exit(0);
+
+const deepLinks = createDeepLinkInbox((line) => console.warn(line));
+
+// macOS hands links over before `ready` too; the inbox holds them until the renderer loads.
+app.on("open-url", (event, url) => {
+  event.preventDefault();
+  deepLinks.receive(url);
+});
+
+app.on("second-instance", (_event, argv) => {
+  const url = deepLinkArg(argv);
+
+  if (url !== null) deepLinks.receive(url);
+});
+
+const launchLink = deepLinkArg(process.argv);
+
+if (launchLink !== null) deepLinks.receive(launchLink);
+
+// Packaged only: a dev build claiming the scheme would take links from the installed app.
+if (app.isPackaged && !dev) app.setAsDefaultProtocolClient(DEEP_LINK_SCHEME);
 
 let runtime: ClientRuntime | null = null;
 
@@ -483,6 +507,15 @@ const start = async () => {
     },
     notifyAgents: () => env.POLARIS_DESKTOP_HIDDEN !== "1",
   });
+
+  win.webContents.once("did-finish-load", () =>
+    deepLinks.attach({
+      send: (event) => win.webContents.send(CHANNELS.app, event),
+      focus: () => {
+        if (env.POLARIS_DESKTOP_HIDDEN !== "1") focusWindow(win);
+      },
+    })
+  );
 
   reviews = createReviewNotifier({
     window: () => (win.isDestroyed() ? null : win),

@@ -6,8 +6,8 @@ import type { SessionId } from "@polaris/protocol";
 import { useMemo, useSyncExternalStore } from "react";
 import { useApp, useConnection, useShellActions } from "../../shell/hooks.ts";
 import { useNow } from "../../shell/useNow.ts";
-import type { AppState } from "../../store/store.ts";
-import { hostKeyOf, receiptFrom, workerFactsFrom } from "./liveFacts.ts";
+import { receiptFrom, workerFactsFrom } from "./liveFacts.ts";
+import { type AppState, hostKeyOf } from "../../store/store.ts";
 import {
   type AttemptData,
   type ConstellationRecord,

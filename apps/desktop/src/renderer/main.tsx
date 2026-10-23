@@ -13,6 +13,7 @@ import { startProofSession } from "./proof.ts";
 import { createCommandRegistry } from "./routes/commands.ts";
 import { installKeyboard } from "./routes/keyboard.ts";
 import { onOpenPullEvent, onOpenReviewEvent } from "./routes/review.ts";
+import { onDeepLinkEvent } from "./routes/deepLink.ts";
 import { createNavigation } from "./routes/navigation.ts";
 import { exposeSwitchTimes } from "./routes/switchTimer.ts";
 import type { Appearance, Density } from "../shared/api.ts";
@@ -138,6 +139,8 @@ window.polaris.onAppEvent((event) => {
   else if (event.kind === "needs-you") onNeedsYouEvent(event, navigation.actions);
   else if (event.kind === "open-pull") onOpenPullEvent(event.pull, navigation.actions);
   else if (event.kind === "open-review") onOpenReviewEvent(event.target, navigation.actions);
+  else if (event.kind === "deep-link")
+    onDeepLinkEvent(event.link, connection.store, navigation.actions);
   else if (event.kind === "agent-banner") recordBanner(bannerEntry(event));
   else if (event.kind === "proof") {
     void startProofSession({ api: window.polaris, store: connection.store, hostKey: event.hostKey })
