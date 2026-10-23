@@ -45,6 +45,7 @@ import {
   ConstellationStatsInputs,
 } from "./constellationContract.ts";
 import { ResourceRequestInputs } from "./resourcesContract.ts";
+import { RemoteAccessRequestInputs } from "./remoteAccessContract.ts";
 import { VoiceRequestInputs } from "./voiceContract.ts";
 import { GitHubRequestInputs, GitHubSubscriptionInputs } from "./githubContract.ts";
 import { GitRequestInputs, GitSubscriptionInputs } from "./gitContract.ts";
@@ -523,6 +524,7 @@ export const RequestInputs = {
   ...ConstellationDefaultsInputs,
   ...ConstellationStatsInputs,
   ...ResourceRequestInputs,
+  ...RemoteAccessRequestInputs,
   ...VoiceRequestInputs,
 } as const;
 
