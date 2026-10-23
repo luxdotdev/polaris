@@ -75,3 +75,8 @@ export type RiskFindingId = typeof RiskFindingId.Type;
 export const VerdictId = Schema.String.pipe(Schema.brand("VerdictId"));
 
 export type VerdictId = typeof VerdictId.Type;
+
+/** A Pairing: an Extension's link to one Host (CONTEXT.md: Pairing). */
+export const PairingId = Schema.String.pipe(Schema.brand("PairingId"));
+
+export type PairingId = typeof PairingId.Type;

@@ -16,6 +16,7 @@
  */
 import { type Capability, DaemonRpcs, NotFound } from "@polaris/protocol";
 import { Context, Effect, Layer, Stream } from "effect";
+import { actorOf } from "../extensions/connection.ts";
 import { Engine } from "./Engine.ts";
 import { hostItemsFor, sessionItemsFor } from "./limitedCompat.ts";
 
@@ -50,6 +51,7 @@ const DispatchHandler = DaemonRpcs.toLayerHandler(
         commandId,
         command,
         deviceLabel: Context.getOrUndefined(client.annotations, DeviceLabel) ?? UNKNOWN_DEVICE,
+        actor: actorOf(client),
       });
   })
 );

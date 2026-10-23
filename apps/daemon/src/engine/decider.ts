@@ -10,6 +10,7 @@
  */
 import { basename, join } from "node:path";
 import {
+  type Actor,
   AgentSession,
   type Attachment,
   Command,
@@ -27,7 +28,7 @@ import {
   type WorkspaceId,
   WorktreeId,
 } from "@polaris/protocol";
-import { Effect, Result } from "effect";
+import { Effect, Match, Result } from "effect";
 import {
   lastTurn,
   patchTurn,
@@ -46,6 +47,8 @@ export interface DecideContext {
   readonly now: string;
   /** Label of the Client device that sent the command (for `ApprovalResolved.resolvedBy`). */
   readonly deviceLabel: string;
+  /** Who sent it: stamped on the session starts, Turns and approvals it records. */
+  readonly actor: Actor;
   /** Fresh ids, used only by the commands that create something. */
   readonly newTurnId: TurnId;
   readonly newWorkspaceId: WorkspaceId;
@@ -116,6 +119,17 @@ export interface Deciding {
   ) => Turn;
 }
 
+/** The machine decides; the decider says who asked (history: "approved by Raycast"). */
+const withActor = (actor: Actor, event: DomainEvent): DomainEvent =>
+  Match.value(event).pipe(
+    Match.tags({
+      SessionCreated: (e) => DomainEvent.cases.SessionCreated.make({ ...e, actor }),
+      TurnStarted: (e) => DomainEvent.cases.TurnStarted.make({ ...e, actor }),
+      ApprovalResolved: (e) => DomainEvent.cases.ApprovalResolved.make({ ...e, actor }),
+    }),
+    Match.orElse((e) => e)
+  );
+
 const deciding = (model: ReadModel, ctx: DecideContext): Deciding => {
   const reject = (reason: string) =>
     Effect.fail(new CommandRejected({ commandId: ctx.commandId, reason }));
@@ -137,7 +151,9 @@ const deciding = (model: ReadModel, ctx: DecideContext): Deciding => {
     lifecycle: (record, input) => {
       const decision = decideSession(record, input);
 
-      return decision.rejection !== null ? reject(decision.rejection) : ok(...decision.events);
+      return decision.rejection !== null
+        ? reject(decision.rejection)
+        : ok(...decision.events.map((event) => withActor(ctx.actor, event)));
     },
     newTurn: (session, prompt, attachments = ctx.attachments) =>
       userTurn(session, { id: ctx.newTurnId, prompt, attachments, at: ctx.now }),

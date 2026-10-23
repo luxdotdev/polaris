@@ -189,6 +189,24 @@ run("language identity simulation", [
   `--seed=${seed}`,
 ]);
 
+run("typecheck extensions.qnt", ["typecheck", "extensions.qnt"]);
+
+run("Extension scenarios", ["test", "extensions.qnt", "--main=extensions_test"]);
+
+run("Extension safety", [
+  "run",
+  "extensions.qnt",
+  "--main=extensions",
+  "--invariant=safety",
+  `--max-samples=${samples}`,
+  "--max-steps=40",
+  `--seed=${seed}`,
+  "--witnesses",
+  "witnessScoped",
+  "witnessRefused",
+  "witnessRevokedClosed",
+]);
+
 run("typecheck languages.qnt", ["typecheck", "languages.qnt"]);
 
 run("language contract scenarios", ["test", "languages.qnt", "--main=languages_test"]);

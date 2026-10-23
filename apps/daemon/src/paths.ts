@@ -21,6 +21,8 @@ export const paths = () => {
     socket: localEndpoint(root),
     lock: join(root, "daemon.lock"),
     database: join(root, "state.sqlite"),
+    /** Extension Pairings: token hashes, Grants and revocations (ENG-398). */
+    extensions: join(root, "extensions.sqlite"),
     staging: join(root, "staging"),
     logs: join(root, "logs"),
     /** The Reviewer's generated git common dirs: a fresh one per session, only Polaris writes them. */

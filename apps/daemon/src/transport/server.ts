@@ -14,6 +14,7 @@ import {
   type BlobError,
   type ByteTransport,
   type Capability,
+  GrantGate,
   type HostInfo,
   makeWire,
   type Wire,
@@ -32,6 +33,9 @@ import {
 } from "effect";
 import { RpcSerialization, RpcServer, type Rpc } from "effect/rpc";
 import { type FromClientEncoded, ResponseDefectEncoded } from "effect/rpc/RpcMessage";
+import { join } from "node:path";
+import { ExtensionConnections, grantGate } from "../extensions/connection.ts";
+import { Pairings } from "../extensions/pairings.ts";
 import { paths } from "../paths.ts";
 import { CommandRunner } from "../service/CommandRunner.ts";
 import { takeStopRecord } from "../service/daemonStop.ts";
@@ -163,9 +167,28 @@ export const startServer = <ROut = never, E = never, RIn = never>(
         readonly blobs: BlobChannel["Service"];
         readonly clients: Set<Rpc.ServerClient>;
         readonly lifetimes: Map<Rpc.ServerClient, ConnectionLanguageLifetime>;
+        /** Ends the connection: a revoked Pairing's Extensions are cut off this way. */
+        readonly close: Effect.Effect<void>;
         closing: boolean;
       }
     >();
+
+    // Which connections act as which Pairing, and the Pairings themselves (ENG-398).
+    const extensionConnections = ExtensionConnections.make(
+      (clientId) => connections.get(clientId)?.close ?? Effect.void
+    );
+
+    const extensionServices = Layer.merge(
+      Pairings.layer(join(root, "extensions.sqlite")).pipe(
+        Layer.catchTag("PairingStoreError", (error) =>
+          Layer.effect(
+            Pairings,
+            Effect.fail(new ServiceError({ service: "transport", message: error.message }))
+          )
+        )
+      ),
+      Layer.succeed(ExtensionConnections)(extensionConnections)
+    );
 
     const disconnects = yield* Queue.unbounded<number>();
     let writeRequest!: Parameters<Parameters<typeof RpcServer.Protocol.make>[0]>[0];
@@ -251,7 +274,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
 
     const handlers = yield* Layer.build(
       Layer.merge(
-        defaultHandlers({ hostInfo, capabilities }),
+        defaultHandlers({ hostInfo, capabilities }).pipe(Layer.provide(extensionServices)),
         // SAFETY: `handlers` is omitted only when ROut, E and RIn keep their `never` defaults.
         ((options.handlers ?? Layer.empty) as Layer.Layer<ROut, E, RIn>).pipe(
           Layer.provide(
@@ -279,6 +302,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
     }).pipe(
       Effect.provideService(RpcServer.Protocol, protocol),
       Effect.provideService(ConnectionBlobs, blobsMiddleware),
+      Effect.provideService(GrantGate, grantGate),
       Effect.provideContext(handlers),
       Effect.forkScoped
     );
@@ -326,6 +350,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
             blobs: blobChannelFor(wire),
             clients,
             lifetimes,
+            close: transport.close,
             closing: false,
           };
 
@@ -334,6 +359,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
             Effect.gen(function* () {
               yield* Effect.sync(() => {
                 connection.closing = true;
+                extensionConnections.unbind(clientId);
                 lifetimes.forEach((lifetime) => lifetime.seal());
                 clients.forEach(revokeLanguageIdentity);
                 clients.clear();
