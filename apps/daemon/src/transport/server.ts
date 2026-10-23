@@ -466,7 +466,14 @@ export const startServer = <ROut = never, E = never, RIn = never>(
             })
           );
           ready.openUnsafe();
-          yield* Effect.ignore(wire.closed);
+          yield* wire.closed.pipe(
+            Effect.tapCause((cause) =>
+              tokenRequired
+                ? Effect.logInfo("a gateway connection's Wire failed", cause)
+                : Effect.void
+            ),
+            Effect.ignore
+          );
         })
       );
 
@@ -495,7 +502,13 @@ export const startServer = <ROut = never, E = never, RIn = never>(
         yield* gateway.connections.pipe(
           Stream.runForEach((transport) =>
             Effect.forkIn(
-              serveConnection(transport, true, transport.authenticated),
+              serveConnection(transport, true, transport.authenticated).pipe(
+                Effect.ensuring(
+                  Effect.suspend(() =>
+                    Effect.logInfo(`gateway connection closed: ${transport.summary()}`)
+                  )
+                )
+              ),
               gatewayConnections
             )
           ),
