@@ -44,6 +44,28 @@ describe("a host's remote access row", () => {
     expect(html).not.toContain(DISABLED);
   });
 
+  test.each(["on", "off"] as const)(
+    "Funnel explains the conflict when %s and only permits turning off",
+    (state) => {
+      const html = render({ ...off, state, reason: "funnel-on" });
+
+      expect(html).toContain(
+        "Tailscale Funnel is on for port 443 on this host. Turning on remote access would turn it off, so Polaris leaves it alone."
+      );
+      expect(html).not.toContain("Extensions connect to");
+      expect(html.includes(DISABLED)).toBe(state === "off");
+    }
+  );
+
+  test("a conflicting listener explains why remote access cannot be enabled", () => {
+    const html = render({ ...off, state: "unavailable", reason: "port-in-use" });
+
+    expect(html).toContain(
+      "Tailscale already uses port 443 on this host for something else. Stop it before turning on remote access."
+    );
+    expect(html).toContain(DISABLED);
+  });
+
   test("while loading or switching, the switch can't be flipped again", () => {
     expect(render(null)).toContain(DISABLED);
     expect(render(off, true)).toContain(DISABLED);

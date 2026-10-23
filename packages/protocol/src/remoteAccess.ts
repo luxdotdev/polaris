@@ -12,6 +12,10 @@ export const RemoteAccessReason = Schema.Literals([
   "not-running",
   "not-logged-in",
   "https-disabled",
+  /** Enabling Serve would disable the user's Funnel on the whole HTTPS listener. */
+  "funnel-on",
+  /** A foreground Serve or HTTP listener owns port 443. */
+  "port-in-use",
   /** Linux: `tailscale serve` as a user needs `tailscale set --operator=<user>` once. */
   "needs-operator",
   /** No gateway proved itself on its port (ENG-399), so there is nothing to serve. */
