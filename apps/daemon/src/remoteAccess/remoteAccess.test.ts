@@ -8,6 +8,7 @@ import { RemoteAccess, RemoteAccessLive } from "../extensions/remoteAccess.ts";
 import { runTailscaleCommand } from "./cli.ts";
 import { makeRemoteAccess, RemoteAccessControl } from "./index.ts";
 import { findTailscale, MACOS_APP_CLI } from "./tailscale.ts";
+import { startGateway as startDaemonGateway } from "../gateway/index.ts";
 
 const HOST = "mac.tail1234.ts.net";
 
@@ -187,6 +188,28 @@ describe("Remote Access", () => {
       reason: "serving-elsewhere",
     });
     await Effect.runPromise(access.enable);
+    expect(handlers()?.["/polaris"]).toEqual({ Proxy: `http://127.0.0.1:${port}/polaris` });
+  });
+
+  test("the Daemon's own gateway proves itself, and is served", async () => {
+    void gateway.stop(true);
+    rmSync(join(dir, "gateway.json"));
+
+    const port = await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const real = yield* startDaemonGateway({
+            port: 0,
+            recordPath: join(dir, "gateway.json"),
+          });
+
+          yield* Effect.promise(() => Effect.runPromise(remoteAccess().enable));
+
+          return real?.port;
+        })
+      )
+    );
+
     expect(handlers()?.["/polaris"]).toEqual({ Proxy: `http://127.0.0.1:${port}/polaris` });
   });
 
