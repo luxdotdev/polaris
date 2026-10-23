@@ -14,15 +14,19 @@ export const describe = (status: RemoteAccessStatus): string =>
   Match.value(status.state).pipe(
     Match.when("on", () =>
       [
-        `Remote Access is on: https://${status.hostName ?? ""}/polaris`,
+        `Remote access is on: https://${status.hostName ?? ""}/polaris`,
         `Extensions connect to ${status.url ?? ""}`,
       ].join("\n")
     ),
-    Match.when("off", () => "Remote Access is off. Turn it on with `polaris tailscale on`."),
+    Match.when("off", () =>
+      status.reason === null
+        ? "Remote access is off. Turn it on with `polaris tailscale on`."
+        : `Remote access is off. ${REASON_MESSAGES[status.reason]}`
+    ),
     Match.when(
       "unavailable",
       () =>
-        `Remote Access is unavailable. ${status.reason === null ? "" : REASON_MESSAGES[status.reason]}`
+        `Remote access is unavailable. ${status.reason === null ? "" : REASON_MESSAGES[status.reason]}`
     ),
     Match.exhaustive
   );
@@ -39,7 +43,7 @@ const commandFor = (
     const report = (status: RemoteAccessStatus) => {
       out(describe(status));
 
-      return status.state === "unavailable" ? 1 : 0;
+      return status.reason === null ? 0 : 1;
     };
 
     const change = (effect: typeof control.enable) =>

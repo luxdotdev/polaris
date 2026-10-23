@@ -5,7 +5,7 @@
  */
 import { RemoteAccessError, type RemoteAccessReason, RemoteAccessStatus } from "@polaris/protocol";
 import { Context, Effect, Layer, Match } from "effect";
-import { GATEWAY_PREFIX, GATEWAY_RPC_PATH, gatewayPort, serveTarget } from "./gateway.ts";
+import { GATEWAY_PREFIX, GATEWAY_RPC_PATH, runningGateway, serveTarget } from "./gateway.ts";
 import {
   findTailscale,
   readServedProxy,
@@ -19,12 +19,13 @@ import {
 
 /** What the user reads for each reason: Polaris's words, never Tailscale's output. */
 export const REASON_MESSAGES: Record<RemoteAccessReason, string> = {
-  "not-installed": "Tailscale isn't installed on this Host.",
-  "not-running": "Tailscale isn't running on this Host.",
-  "not-logged-in": "Tailscale isn't logged in on this Host.",
+  "not-installed": "Tailscale isn't installed on this host.",
+  "not-running": "Tailscale isn't running on this host.",
+  "not-logged-in": "Tailscale isn't logged in on this host.",
   "https-disabled": "HTTPS certificates aren't enabled for this tailnet.",
   "needs-operator":
     "Tailscale needs `sudo tailscale set --operator=$USER` once before Polaris can serve.",
+  "gateway-not-running": "The gateway isn't running on this host.",
   failed: "Tailscale didn't answer as expected. Try again.",
 };
 
@@ -99,12 +100,20 @@ export const makeRemoteAccess = (options: RemoteAccessOptions) => {
     return { cli, host };
   });
 
-  const statusOf = (cli: TailscaleCli, host: string) =>
+  /** The proven gateway's port, or why there is none to serve. */
+  const gateway = (host: string) =>
+    Effect.flatMap(runningGateway(options.root), (record) =>
+      record === null
+        ? Effect.fail(notReady("gateway-not-running", host))
+        : Effect.succeed(record.port)
+    );
+
+  const statusOf = (cli: TailscaleCli, host: string, port: number) =>
     readServedProxy(cli, host, GATEWAY_PREFIX).pipe(
       Effect.mapError(fromCommand),
       Effect.map((proxy) => {
         // A path left proxying to an old gateway port is off: enabling replaces it.
-        const on = proxy === serveTarget(gatewayPort(options.root));
+        const on = proxy === serveTarget(port);
 
         return new RemoteAccessStatus({
           state: on ? "on" : "off",
@@ -115,22 +124,32 @@ export const makeRemoteAccess = (options: RemoteAccessOptions) => {
       })
     );
 
+  // Without a gateway, Tailscale is ready but there is nothing to serve: off, saying why.
   const unavailable = ({ reason, host }: NotReady) =>
-    new RemoteAccessStatus({ state: "unavailable", url: null, hostName: host, reason });
+    new RemoteAccessStatus({
+      state: reason === "gateway-not-running" ? "off" : "unavailable",
+      url: null,
+      hostName: host,
+      reason,
+    });
 
   const fail = ({ reason }: NotReady) =>
     new RemoteAccessError({ reason, message: REASON_MESSAGES[reason] });
 
   const status: Effect.Effect<RemoteAccessStatus> = ready.pipe(
-    Effect.flatMap(({ cli, host }) => statusOf(cli, host)),
+    Effect.flatMap(({ cli, host }) =>
+      Effect.flatMap(gateway(host), (port) => statusOf(cli, host, port))
+    ),
     Effect.catch((why) => Effect.succeed(unavailable(why)))
   );
 
   const enable = ready.pipe(
     Effect.flatMap(({ cli, host }) =>
-      serveOn(cli, GATEWAY_PREFIX, serveTarget(gatewayPort(options.root))).pipe(
-        Effect.mapError(fromCommand),
-        Effect.andThen(statusOf(cli, host))
+      Effect.flatMap(gateway(host), (port) =>
+        serveOn(cli, GATEWAY_PREFIX, serveTarget(port)).pipe(
+          Effect.mapError(fromCommand),
+          Effect.andThen(statusOf(cli, host, port))
+        )
       )
     ),
     Effect.mapError(fail)

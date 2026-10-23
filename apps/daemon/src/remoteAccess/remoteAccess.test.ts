@@ -22,6 +22,28 @@ type FakeEnv = {
 
 let env: FakeEnv;
 
+let gateway: ReturnType<typeof Bun.serve>;
+
+/** A loopback server answering `/polaris/identity` with `nonce`, as the gateway does. */
+const serveIdentity = (nonce: string) =>
+  Bun.serve({
+    hostname: "127.0.0.1",
+    port: 0,
+    fetch: (request) =>
+      new URL(request.url).pathname === "/polaris/identity"
+        ? Response.json({ nonce })
+        : new Response(null, { status: 404 }),
+  });
+
+/** Starts a gateway and records it in `gateway.json`, as the Daemon does on each start. */
+const startGateway = (nonce = crypto.randomUUID()) => {
+  void gateway?.stop(true);
+  gateway = serveIdentity(nonce);
+  writeFileSync(join(dir, "gateway.json"), JSON.stringify({ port: gateway.port, nonce }));
+
+  return gateway.port;
+};
+
 const status = (overrides: { BackendState?: string; Self?: object } = {}) =>
   writeFileSync(
     join(dir, "status.json"),
@@ -72,9 +94,13 @@ beforeEach(() => {
   writeFileSync(join(dir, "calls.log"), "");
   env = { PATH: bin, FAKE_TAILSCALE_DIR: dir };
   status();
+  startGateway();
 });
 
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+afterEach(() => {
+  void gateway.stop(true);
+  rmSync(dir, { recursive: true, force: true });
+});
 
 describe("findTailscale", () => {
   test("uses the CLI on PATH, else the macOS app's binary as a CLI, else none", () => {
@@ -91,7 +117,7 @@ describe("findTailscale", () => {
 
 describe("Remote Access", () => {
   test("turning on serves the gateway's path with the prefix put back, then reports its URL", async () => {
-    writeFileSync(join(dir, "gateway.json"), JSON.stringify({ port: 7600 }));
+    const port = startGateway();
     const access = remoteAccess();
 
     expect((await Effect.runPromise(access.status)).state).toBe("off");
@@ -99,7 +125,14 @@ describe("Remote Access", () => {
     const on = await Effect.runPromise(access.enable);
 
     expect(serveCalls()).toEqual([
-      ["serve", "--bg", "--https=443", "--set-path", "/polaris", "http://127.0.0.1:7600/polaris"],
+      [
+        "serve",
+        "--bg",
+        "--https=443",
+        "--set-path",
+        "/polaris",
+        `http://127.0.0.1:${port}/polaris`,
+      ],
     ]);
     expect(on).toMatchObject({
       state: "on",
@@ -129,11 +162,39 @@ describe("Remote Access", () => {
   test("a path still proxying to an old gateway port is off, and on replaces it", async () => {
     const access = remoteAccess();
     await Effect.runPromise(access.enable);
-    writeFileSync(join(dir, "gateway.json"), JSON.stringify({ port: 7601 }));
+    const port = startGateway();
 
     expect((await Effect.runPromise(access.status)).state).toBe("off");
     await Effect.runPromise(access.enable);
-    expect(handlers()?.["/polaris"]).toEqual({ Proxy: "http://127.0.0.1:7601/polaris" });
+    expect(handlers()?.["/polaris"]).toEqual({ Proxy: `http://127.0.0.1:${port}/polaris` });
+  });
+
+  test.each([
+    ["no gateway is recorded", () => rmSync(join(dir, "gateway.json"))],
+    [
+      "another process holds the gateway's port",
+      () => {
+        void gateway.stop(true);
+        gateway = serveIdentity("not-the-recorded-nonce");
+        writeFileSync(
+          join(dir, "gateway.json"),
+          JSON.stringify({ port: gateway.port, nonce: "ours" })
+        );
+      },
+    ],
+  ] as const)("when %s, it is off and is never served to the tailnet", async (_, arrange) => {
+    arrange();
+    const access = remoteAccess();
+
+    expect(await Effect.runPromise(access.status)).toMatchObject({
+      state: "off",
+      url: null,
+      reason: "gateway-not-running",
+    });
+    expect((await Effect.runPromise(Effect.flip(access.enable))).reason).toBe(
+      "gateway-not-running"
+    );
+    expect(serveCalls()).toEqual([]);
   });
 
   test.each([
@@ -228,17 +289,17 @@ describe("polaris tailscale", () => {
   test("on, status and off say where Extensions connect, and fail with a reason", async () => {
     expect(await run(["on"])).toEqual({
       code: 0,
-      output: `Remote Access is on: https://${HOST}/polaris\nExtensions connect to wss://${HOST}/polaris/rpc`,
+      output: `Remote access is on: https://${HOST}/polaris\nExtensions connect to wss://${HOST}/polaris/rpc`,
     });
     expect((await run(["status"])).code).toBe(0);
     expect((await run(["off"])).output).toBe(
-      "Remote Access is off. Turn it on with `polaris tailscale on`."
+      "Remote access is off. Turn it on with `polaris tailscale on`."
     );
 
     status({ BackendState: "NeedsLogin" });
     expect(await run(["on"])).toEqual({
       code: 1,
-      output: "polaris tailscale: Tailscale isn't logged in on this Host.",
+      output: "polaris tailscale: Tailscale isn't logged in on this host.",
     });
     expect((await run(["status"])).code).toBe(1);
     expect((await run([])).code).toBe(2);

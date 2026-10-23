@@ -53,7 +53,7 @@ Capability `extensions` (ENG-398, ADR 0075 and 0078). `hello` takes an optional 
 
 ### Remote Access (`remoteAccess.ts`)
 
-Capability `remote-access` (ENG-400, ADR 0076). `remoteAccess.status` answers `RemoteAccessStatus`: `state` (`on | off | unavailable`), `url` (`wss://<machine>.<tailnet>.ts.net/polaris/rpc`, null unless on), `hostName` (the MagicDNS name) and `reason` when unavailable (`not-installed | not-running | not-logged-in | https-disabled | needs-operator | failed`). `remoteAccess.enable` and `remoteAccess.disable` answer the new status or fail with `RemoteAccessError` naming the reason. All three are for token-less Clients only.
+Capability `remote-access` (ENG-400, ADR 0076). `remoteAccess.status` answers `RemoteAccessStatus`: `state` (`on | off | unavailable`), `url` (`wss://<machine>.<tailnet>.ts.net/polaris/rpc`, null unless on), `hostName` (the MagicDNS name) and `reason` when unavailable (`not-installed | not-running | not-logged-in | https-disabled | needs-operator | failed`) or off because no gateway answered its nonce (`gateway-not-running`). `remoteAccess.enable` and `remoteAccess.disable` answer the new status or fail with `RemoteAccessError` naming the reason. All three are for token-less Clients only.
 
 ### Status
 

@@ -41,6 +41,7 @@ import type {
   ConstellationStats,
   StatsUsage,
   HostResourcesSnapshot,
+  RemoteAccessStatus,
   ConstellationStreamItem,
   PlanLimit,
   InlineStreamItem,
@@ -67,6 +68,7 @@ import type { AppUpdateView } from "./appUpdates.ts";
 import type { PullRef } from "./github.ts";
 import type { ConstellationDefaultsMethod, ConstellationMethod } from "./constellationContract.ts";
 import type { ResourceMethod } from "./resourcesContract.ts";
+import type { RemoteAccessMethod } from "./remoteAccessContract.ts";
 import type { GitHubRequestOutputs, GitHubSubscriptionItems } from "./githubContract.ts";
 import type { GitRequestOutputs, GitSubscriptionItems } from "./gitContract.ts";
 import type { NeedsYouAction, ReviewTarget } from "./needsYou.ts";
@@ -393,6 +395,11 @@ export type ResourceRequestOutputs = {
   readonly [M in ResourceMethod]: Plain<HostResourcesSnapshot>;
 };
 
+/** Every Remote Access request answers with the Host's Remote Access as Tailscale reports it. */
+export type RemoteAccessRequestOutputs = {
+  readonly [M in RemoteAccessMethod]: Plain<RemoteAccessStatus>;
+};
+
 export interface RequestOutputs
   extends
     PredictionUiOutputs,
@@ -400,6 +407,7 @@ export interface RequestOutputs
     GitRequestOutputs,
     ConstellationRequestOutputs,
     ResourceRequestOutputs,
+    RemoteAccessRequestOutputs,
     PredictionPlacementOutputs,
     PredictionOutcomeOutputs {
   "constellation.stats": ConstellationStatsView;
