@@ -34,6 +34,7 @@ import { helloHost } from "./hostInfo.ts";
 import { bindLanguageIdentity } from "./languageIdentity.ts";
 import { pairingOf, revokePairing, scopeConnection } from "../extensions/connection.ts";
 import { Pairings } from "../extensions/pairings.ts";
+import { RemoteAccessControl } from "../remoteAccess/index.ts";
 import { RemoteAccess } from "../extensions/remoteAccess.ts";
 import { admissionOf } from "../extensions/admission.ts";
 
@@ -347,6 +348,11 @@ export const defaultHandlers = (options: {
       }),
     "extensions.list": () => Effect.flatMap(Pairings, (pairings) => Effect.orDie(pairings.list)),
     "extensions.revoke": ({ id }) => revokePairing(id),
+
+    // Token-less Clients only, like the Pairings: Tailscale's own state, read back each time.
+    "remoteAccess.status": () => Effect.flatMap(RemoteAccessControl, (control) => control.status),
+    "remoteAccess.enable": () => Effect.flatMap(RemoteAccessControl, (control) => control.enable),
+    "remoteAccess.disable": () => Effect.flatMap(RemoteAccessControl, (control) => control.disable),
 
     dispatch: ({ commandId }) =>
       Effect.fail(new CommandRejected({ commandId, reason: notYet("the event store") })),

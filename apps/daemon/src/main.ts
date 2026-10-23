@@ -10,6 +10,7 @@
  *   polaris extension <pair|list|revoke>  pair Extensions with this Host, list and revoke them
  *   polaris version                print the version and platform
  *   polaris selftest               check this build's native libraries work here (exit 1 if not)
+ *   polaris tailscale <on|off|status>  Remote Access over Tailscale (ADR 0076)
  *   polaris voice key <set|clear|status>   the voice provider's key in the Host's secure storage
  *   polaris rules-scan             (internal) run the Rules' pattern scan; the Daemon starts it
  */
@@ -39,6 +40,12 @@ switch (command) {
   case "lease": {
     const { runLease } = await import("./resources/cli.ts");
     process.exit(await runLease(args));
+    break;
+  }
+
+  case "tailscale": {
+    const { runTailscaleCommand } = await import("./remoteAccess/cli.ts");
+    process.exit(await runTailscaleCommand(args));
     break;
   }
 
@@ -96,7 +103,7 @@ switch (command) {
     }
 
     console.error(
-      `usage: polaris <serve|bridge|install|uninstall|upgrade|version|selftest|lease|constellation|extension|voice>`
+      `usage: polaris <serve|bridge|install|uninstall|upgrade|version|selftest|lease|constellation|extension|tailscale|voice>`
     );
     process.exit(command === undefined ? 0 : 2);
   }

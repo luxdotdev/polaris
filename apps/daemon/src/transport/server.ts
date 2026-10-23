@@ -29,7 +29,8 @@ import { type RunningGateway, startGateway } from "../gateway/index.ts";
 import { GATEWAY_WIRE_LIMITS } from "../gateway/limits.ts";
 import { connectionRejected, rejectConnection } from "../extensions/admission.ts";
 import { Pairings } from "../extensions/pairings.ts";
-import { RemoteAccessNone } from "../extensions/remoteAccess.ts";
+import { RemoteAccessLive } from "../extensions/remoteAccess.ts";
+import { RemoteAccessControl } from "../remoteAccess/index.ts";
 import { paths } from "../paths.ts";
 import { CommandRunner } from "../service/CommandRunner.ts";
 import { takeStopRecord } from "../service/daemonStop.ts";
@@ -191,7 +192,8 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       })
     );
 
-    const extensionServices = Layer.merge(
+    const extensionServices = Layer.mergeAll(
+      RemoteAccessLive.pipe(Layer.provideMerge(RemoteAccessControl.layer({ root }))),
       Pairings.layer(join(root, "extensions.sqlite")).pipe(
         Layer.catchTag("PairingStoreError", (error) =>
           Layer.effect(
@@ -200,7 +202,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
           )
         )
       ),
-      Layer.merge(Layer.succeed(ExtensionConnections)(extensionConnections), RemoteAccessNone)
+      Layer.succeed(ExtensionConnections)(extensionConnections)
     );
 
     const disconnects = yield* Queue.unbounded<number>();

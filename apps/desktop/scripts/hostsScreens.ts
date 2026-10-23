@@ -129,6 +129,20 @@ try {
   await page
     .locator('[data-testid="keep-daemons-up-to-date"] [role="switch"][data-state="unchecked"]')
     .waitFor();
+
+  // An open connected host's remote access: off, then on with where extensions connect.
+  await open(page, "all");
+  await appearance(page, "dark", "calm");
+  await page.getByTestId("machine-studio").locator("button[aria-expanded]").first().click();
+  const remote = page.getByTestId("remote-access");
+
+  await remote.scrollIntoViewIfNeeded();
+  await shot(page, "remote-access-off-dark-calm");
+  await remote.getByRole("switch", { name: "Remote access" }).click();
+  await expectText(page, "Extensions connect to wss://studio.tail1234.ts.net/polaris/rpc");
+  await shot(page, "remote-access-on-dark-calm");
+  await appearance(page, "light", "compact");
+  await shot(page, "remote-access-on-light-compact");
   console.log("hosts: ok");
 } finally {
   await app.close();

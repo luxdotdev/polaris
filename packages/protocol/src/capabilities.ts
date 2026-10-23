@@ -15,6 +15,8 @@ export const Capability = Schema.Literals([
   /** `extensions.pair`, `extensions.list`, `extensions.revoke`, and `extensionToken` in `hello`. */
   "extensions",
   "host.resources",
+  /** `remoteAccess.status`, `remoteAccess.enable` and `remoteAccess.disable` (Tailscale, ADR 0076). */
+  "remote-access",
   /** `voice.transcribe`, `voice.settings` and `voice.setKey` (ADR 0077). */
   "voice",
   /**
