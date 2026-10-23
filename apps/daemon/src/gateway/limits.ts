@@ -14,6 +14,7 @@ export const GATEWAY_MAX_QUEUED_MESSAGES = 64;
 export const GATEWAY_WIRE_LIMITS: WireOptions = {
   maxBlobBytes: 16 * 1024 * 1024,
   maxBufferedBlobBytes: 32 * 1024 * 1024,
+  maxIncomingBlobs: 128,
   maxQueuedJsonBytes: 1024 * 1024,
   unclaimedBlobTtlMs: 10_000,
   blobIdleTimeoutMs: 10_000,

@@ -7,6 +7,7 @@ The Daemon's socket listener, the RPC server on it, and `polaris bridge`. The se
 | `server.ts` | `startServer`: lock, socket, `RpcServer` for `ServerRpcs`, one Wire per connection; with `gateway: { port }`, the gateway's connections too, each marked `tokenRequired`. Handler layers are composed here. |
 | `rpcs.ts` | `ServerRpcs` = `DaemonRpcs` + the server-only `ConnectionBlobs` middleware. |
 | `defects.ts` | Logs a request's defect with its cause; the server fails only that request (ADR 0064). |
+| `rpcAdmission.ts` | Extension RPC reservations before payload decoding or handler forking: 32 per connection, 128 across the server, including streams. |
 | `handlers.ts` | `hello` (HostInfo, capabilities; annotates the connection with the device label and the Client's capabilities, scopes it to a Pairing when it presents an `extensionToken`, and checks the Extension's `protocolVersions` against `PROTOCOL_VERSION`: required on the gateway, refused with `ProtocolMismatch` naming the side to update), the `extensions.*` RPCs, and placeholders for every other RPC. |
 | `socket.ts` | Stale-socket probe, private socket directory, `Bun.listen` bound atomically, upgrade adoption. |
 | `windowsPipe/` | Windows: the user-only, local-only named pipe the Daemon listens on, created through `bun:ffi` (`security.ts` is its descriptor and flags as data; ADR 0059). |
@@ -20,6 +21,10 @@ The Daemon's socket listener, the RPC server on it, and `polaris bridge`. The se
 The framing and blob channel live in `packages/protocol/src/wire.ts` (shared with the Client): each RPC message is one JSON frame serialized with `RpcSerialization.json`; blobs are kind-1 frames. The writer drains queued JSON before each blob chunk and round-robins between blobs, so a large read never holds up a stream by more than one 256 KiB chunk. Limits (per connection): 512 MiB per blob, 1 GiB buffered, 60 s without progress fails a `take`, unclaimed blobs expire after 5 minutes; stream-sourced outgoing blobs buffer at most 4 chunks.
 
 A handler takes an incoming blob whole (`BlobChannel.take`) or as a stream of chunks as they arrive (`BlobChannel.takeStream`, backed by `Wire.takeBlobStream`), which never holds the whole blob: `attachments.stage` writes uploads to disk that way. A streamed take can opt out of the idle timeout (long-lived blobs such as `terminal.attachBinary`'s output); a consumer that stops early makes the Wire drop the rest of that blob as it arrives. The frame decoder queues socket reads rather than merging them, so a blob chunk is copied at most once on its way in.
+
+Incoming blob metadata has its own count limit: 1,024 entries by default, 128 on the gateway. Receiving, completed, failed and pending-consumer entries all count, including zero-byte blobs. Excess new incoming IDs close the Wire; a local `take` beyond capacity fails with `too-large` without allocating another entry. Consumption and expiry return capacity, and shutdown releases the map and buffered bytes.
+
+Extension RPC admission (ENG-418) reserves capacity before `RpcServer` can decode payloads or fork work. The gateway is always limited; a token-bearing socket hello permanently opts that connection into the same budget. Token-less socket Clients, including the Desktop App, use neither Extension limit. Overflow or a duplicate active request ID closes the offending connection instead of creating queued fibers. `Ack`, `Interrupt` and other control messages consume no slots. Streams retain their reservation until they terminate; responses and handler finalizers jointly release it. Limited handlers run in a nested request scope so their registered resource finalizers also complete before returning capacity. Disconnect marks requests terminal but keeps capacity for handlers still finalizing, preventing reconnects from bypassing the global bound. There are no new timers or polling loops.
 
 **A defect fails only its request.** The RpcServer runs with `disableFatalDefects`: a handler that dies answers that request with an `Exit` whose cause is the `Die`, and the connection's other requests and streams carry on. The `ConnectionBlobs` middleware logs every defect at error level with the RPC's tag and the whole cause. Expected failures stay typed: a lazy build that fails answers each request with the typed error `lazyRpcLayer`'s `failure` gives it (ADR 0064).
 
@@ -66,7 +71,7 @@ and add their capabilities with `startServer({ capabilities: [...] })` (the tran
 ## Known gaps / TODO
 
 - `daemonHandlers` in `serve.ts` is still `Layer.empty`; the lead wires the modules' layers (see above).
-- No per-connection limit on concurrent requests or queued JSON beyond the Wire's 8 MiB high-water mark.
+- Token-less Clients retain unrestricted RPC concurrency; their queued JSON uses the Wire's 8 MiB high-water mark. Extension connections have the admission limits above.
 - `hello` does not reject old Clients over the socket; protocol-version negotiation is on the Client side there. Extensions declare `protocolVersions` and are refused a mismatch (`gateway/README.md`).
 - The upgrade adoption path is exercised by `service/upgrade.test.ts` with its fixture, not end to end through `startServer`.
 - `git/diff.ts` gets an `ArrayBuffer` from `Response#bytes()` where a `Uint8Array` is typed, so `countFiles` returns 0. The Wire now accepts any byte buffer, but the git module should wrap it in `new Uint8Array(...)`.

@@ -37,6 +37,7 @@ import { adoptListener, serveUpgrades } from "../service/upgrade.ts";
 import { BlobChannel, ServiceError } from "../services.ts";
 import { ClientCapabilities } from "../engine/rpc.ts";
 import { logDefects } from "./defects.ts";
+import { rpcAdmissionBudget } from "./rpcAdmission.ts";
 import { defaultHandlers } from "./handlers.ts";
 import { loadHostInfo } from "./hostInfo.ts";
 import { acquireLock, type DaemonAlreadyRunning, LockError } from "./lock.ts";
@@ -97,6 +98,10 @@ const blobError = (error: BlobError) =>
     service: "transport",
     message: `blob ${error.blobId}: ${error.reason}: ${error.message}`,
   });
+
+const tokenHello = Schema.is(Schema.Struct({ extensionToken: Schema.String }));
+
+const requestId = Schema.is(Schema.Union([Schema.String, Schema.Number]));
 
 const blobChannelFor = (wire: Wire): BlobChannel["Service"] =>
   BlobChannel.of({
@@ -162,6 +167,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
     const serialization = RpcSerialization.json;
     const encoder = serialization.makeUnsafe();
     const encodeDefect = Schema.encodeSync(serialization.codecFor(Schema.Defect()));
+    const rpcAdmission = rpcAdmissionBudget();
 
     const connections = new Map<
       number,
@@ -175,6 +181,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
         /** A gateway connection: `hello` must carry a token and a protocol range. */
         readonly tokenRequired: boolean;
         readonly authenticated: () => void;
+        rpcLimited: boolean;
         closing: boolean;
       }
     >();
@@ -212,6 +219,8 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       return Effect.succeed({
         disconnects,
         send: (clientId, response) => {
+          if (Predicate.isTagged(response, "Exit"))
+            rpcAdmission.terminal(clientId, response.requestId);
           const connection = connections.get(clientId);
 
           if (connection === undefined) return Effect.void;
@@ -290,9 +299,22 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       );
     });
 
-    const blobsMiddleware = ConnectionBlobs.of((effect, options) =>
-      logDefects(options.rpc._tag, connectionMiddleware(effect, options))
-    );
+    const blobsMiddleware = ConnectionBlobs.of((effect, options) => {
+      if (!connections.get(options.client.id)?.rpcLimited)
+        return logDefects(options.rpc._tag, connectionMiddleware(effect, options));
+
+      return Effect.suspend(() => {
+        rpcAdmission.start(options.client.id, options.requestId);
+
+        return logDefects(options.rpc._tag, connectionMiddleware(effect, options)).pipe(
+          // Close handler-owned resources before returning the reservation or sending its Exit.
+          Effect.scoped,
+          Effect.ensuring(
+            Effect.sync(() => rpcAdmission.finish(options.client.id, options.requestId))
+          )
+        );
+      });
+    });
 
     yield* phase("starting the Daemon's services (event store, Engine, Constellations)");
 
@@ -364,9 +386,34 @@ export const startServer = <ROut = never, E = never, RIn = never>(
                   return Effect.logWarning("dropping an undecodable message");
                 }
 
-                return Effect.forEach(messages, (message) => writeRequest(clientId, message), {
-                  discard: true,
-                });
+                return Effect.forEach(
+                  messages,
+                  (message) =>
+                    Effect.suspend(() => {
+                      const connection = connections.get(clientId);
+
+                      if (connection === undefined || connection.closing) return Effect.void;
+
+                      if (Predicate.isTagged(message, "Request")) {
+                        connection.rpcLimited ||=
+                          message.tag === "hello" && tokenHello(message.payload);
+
+                        if (
+                          connection.rpcLimited &&
+                          (!requestId(message.id) || !rpcAdmission.acquire(clientId, message.id))
+                        ) {
+                          connection.closing = true;
+
+                          return connection.close;
+                        }
+                      }
+
+                      return writeRequest(clientId, message);
+                    }),
+                  {
+                    discard: true,
+                  }
+                );
               })
             );
 
@@ -391,6 +438,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
             close: transport.close,
             authenticated,
             tokenRequired: tokenRequired || (options.extensionTokenRequired ?? false),
+            rpcLimited: tokenRequired || (options.extensionTokenRequired ?? false),
             closing: false,
           };
 
@@ -399,6 +447,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
             Effect.gen(function* () {
               yield* Effect.sync(() => {
                 connection.closing = true;
+                rpcAdmission.disconnect(clientId);
                 extensionConnections.unbind(clientId);
                 lifetimes.forEach((lifetime) => lifetime.seal());
                 clients.forEach(revokeLanguageIdentity);
