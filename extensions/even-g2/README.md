@@ -28,8 +28,9 @@ them again.
 
 ## On the phone
 
-Open the app in the Even app. In Polaris, Settings → Extensions → add a pairing (with Remote Access
-on, so its address is your tailnet), then scan its QR code or paste its pairing string. Pairings are
+Open the app in the Even app. On the Mac, turn on Remote Access (Settings → Hosts, or
+`polaris tailscale on`) so pairing strings carry `wss://<host>.<tailnet>.ts.net/polaris/rpc`. Then
+add a pairing in Settings → Extensions and scan its QR code or paste its pairing string. Pairings are
 kept in the WebView's `localStorage`; one for the Host's own socket is refused, since a phone can't
 open it. Several Hosts can be paired.
 

@@ -44,7 +44,7 @@ export const addPairing = (stored: ReadonlyArray<Stored>, input: string): AddRes
   if (pairing.url === null)
     return {
       ok: false,
-      error: `This pairing is for apps on ${pairing.hostName} itself. In Polaris, turn on remote access and pair again.`,
+      error: `This pairing is for apps on ${pairing.hostName} itself. Turn on remote access in Polaris (Settings → Hosts) and pair again.`,
     };
 
   const others = stored.filter(
