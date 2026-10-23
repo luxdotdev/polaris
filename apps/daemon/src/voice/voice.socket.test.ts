@@ -15,13 +15,13 @@ import {
   VoiceSettings,
   VoiceTranscript,
 } from "@polaris/protocol";
-import { Effect, Exit, Layer, Redacted, type Scope, Stream } from "effect";
+import { Effect, Exit, Fiber, Layer, Redacted, type Scope, Stream } from "effect";
 import type { RpcGroup } from "effect/rpc";
 import { shortTemp } from "../platform/testing.ts";
 import { startServer } from "../transport/server.ts";
 import { HostSecrets, memorySecrets } from "../secrets/index.ts";
 import { VoiceProvider } from "./provider.ts";
-import { VoiceRpcsLive } from "./VoiceRpcs.ts";
+import { makeVoiceRpcs } from "./VoiceRpcs.ts";
 import { NO_KEY_MESSAGE } from "./keys.ts";
 
 const KEY = "0123456789abcdef0123456789abcdef01234567";
@@ -60,7 +60,10 @@ const identity = { clientName: "test", clientVersion: "0", deviceLabel: "Test", 
 
 const pcm = (bytes: number) => new Uint8Array(bytes).fill(1);
 
-const run = <A>(body: (helpers: Helpers) => Effect.Effect<A, unknown, Scope.Scope>) =>
+const run = <A>(
+  body: (helpers: Helpers) => Effect.Effect<A, unknown, Scope.Scope>,
+  limit?: number
+) =>
   Effect.runPromise(
     Effect.scoped(
       Effect.gen(function* () {
@@ -71,7 +74,7 @@ const run = <A>(body: (helpers: Helpers) => Effect.Effect<A, unknown, Scope.Scop
           root,
           socketPath: join(root, "d.sock"),
           lockPath: join(root, "d.lock"),
-          handlers: VoiceRpcsLive.pipe(
+          handlers: makeVoiceRpcs(limit).pipe(
             Layer.provide(
               Layer.merge(
                 Layer.succeed(VoiceProvider)(countingProvider),
@@ -214,4 +217,39 @@ test("settings say whether a key is set, never the key; a malformed key is refus
   expect(Exit.isFailure(result.bad)).toBe(true);
   expect(JSON.stringify(result.bad)).toContain("invalid-key");
   expect(JSON.stringify(result.bad)).not.toContain("sk-x");
+});
+
+test("the Host runs a bounded number of transcriptions at once and frees a slot when one ends", async () => {
+  const outcomes = await run(
+    ({ desktop, extension }) =>
+      Effect.gen(function* () {
+        yield* desktop.client["voice.setKey"]({ provider: "deepgram", key: Redacted.make(KEY) });
+        const glasses = yield* extension(["voice"]);
+        const endless = yield* glasses.blobs.offer(Stream.never);
+
+        const first = yield* glasses.client["voice.transcribe"]({ audio: endless }).pipe(
+          Stream.runDrain,
+          Effect.forkScoped
+        );
+
+        yield* Effect.sleep("100 millis");
+        const second = yield* Effect.exit(transcribe(glasses, [pcm(10)]));
+        yield* Fiber.interrupt(first);
+        yield* Effect.sleep("100 millis");
+        const third = yield* transcribe(glasses, [pcm(10)]);
+
+        return { second, third: third.at(-1) };
+      }),
+    1
+  );
+
+  expect(outcomes.second).toEqual(
+    Exit.fail(
+      new VoiceError({
+        reason: "busy",
+        message: "This Host runs at most 1 transcription at once; end one first.",
+      })
+    )
+  );
+  expect(outcomes.third?.finished).toBe(true);
 });

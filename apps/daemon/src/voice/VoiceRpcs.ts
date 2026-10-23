@@ -9,26 +9,57 @@ import { snapshots, VoiceProvider } from "./provider.ts";
 const audioFailed = (error: { readonly message: string }) =>
   new VoiceError({ reason: "audio-failed", message: `The audio stream failed: ${error.message}` });
 
+/** Each one is a provider connection billed to the user's key. */
+export const MAX_TRANSCRIPTIONS = 4;
+
+const busy = (limit: number) =>
+  new VoiceError({
+    reason: "busy",
+    message: `This Host runs at most ${limit} ${limit === 1 ? "transcription" : "transcriptions"} at once; end one first.`,
+  });
+
 /** Requires `HostSecrets` and a `VoiceProvider`. */
-export const VoiceRpcsLive = VoiceRpcs.toLayer(
-  Effect.gen(function* () {
-    const provider = yield* VoiceProvider;
-    const secrets = yield* HostSecrets;
-    const withSecrets = Effect.provideService(HostSecrets, secrets);
+export const makeVoiceRpcs = (limit = MAX_TRANSCRIPTIONS) =>
+  VoiceRpcs.toLayer(
+    Effect.gen(function* () {
+      const provider = yield* VoiceProvider;
+      let active = 0;
 
-    return {
-      "voice.transcribe": ({ audio }) =>
-        Stream.unwrap(
-          Effect.gen(function* () {
-            const key = yield* withSecrets(readKey(provider.kind));
-            const blobs = yield* BlobChannel;
-            const pcm = blobs.takeStream(audio).pipe(Stream.mapError(audioFailed));
+      /** A transcription slot for the stream's lifetime, or `busy`. */
+      const slot = Effect.acquireRelease(
+        Effect.suspend(() => {
+          if (active >= limit) return Effect.fail(busy(limit));
 
-            return snapshots(provider.transcribe(key, pcm));
+          active += 1;
+
+          return Effect.void;
+        }),
+        () =>
+          Effect.sync(() => {
+            active -= 1;
           })
-        ),
-      "voice.settings": () => withSecrets(voiceSettings(provider.kind)),
-      "voice.setKey": ({ provider: kind, key }) => withSecrets(setKey(kind, key)),
-    };
-  })
-);
+      );
+
+      const secrets = yield* HostSecrets;
+      const withSecrets = Effect.provideService(HostSecrets, secrets);
+
+      return {
+        "voice.transcribe": ({ audio }) =>
+          Stream.unwrap(
+            Effect.gen(function* () {
+              const key = yield* withSecrets(readKey(provider.kind));
+
+              yield* slot;
+              const blobs = yield* BlobChannel;
+              const pcm = blobs.takeStream(audio).pipe(Stream.mapError(audioFailed));
+
+              return snapshots(provider.transcribe(key, pcm));
+            })
+          ),
+        "voice.settings": () => withSecrets(voiceSettings(provider.kind)),
+        "voice.setKey": ({ provider: kind, key }) => withSecrets(setKey(kind, key)),
+      };
+    })
+  );
+
+export const VoiceRpcsLive = makeVoiceRpcs();

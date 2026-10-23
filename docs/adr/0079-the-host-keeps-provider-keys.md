@@ -33,4 +33,4 @@ transcription starts, so a new key applies without a restart.
 - On a Mac whose login Keychain is locked (a Daemon started over SSH before anyone logged in),
   setting or using the key fails with a message saying so, instead of falling back to a file.
 - Linux desktops with a Secret Service keyring still use the file; using libsecret is a
-  follow-up.
+  follow-up (ENG-416).

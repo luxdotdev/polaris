@@ -36,6 +36,8 @@ export const VoiceErrorReason = Schema.Literals([
   "storage-failed",
   /** A key that is not one the provider issues. */
   "invalid-key",
+  /** The Host is already running as many transcriptions as it allows at once. */
+  "busy",
 ]);
 
 export class VoiceError extends Schema.TaggedError<VoiceError>()("VoiceError", {
