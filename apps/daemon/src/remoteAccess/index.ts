@@ -8,7 +8,10 @@ import { Context, Effect, Layer, Match } from "effect";
 import { GATEWAY_PREFIX, GATEWAY_RPC_PATH, runningGateway, serveTarget } from "./gateway.ts";
 import {
   findTailscale,
-  readServedProxy,
+  readServe,
+  servedHandler,
+  funnelOn,
+  portInUse,
   readStatus,
   serveOff,
   serveOn,
@@ -22,6 +25,10 @@ export const REASON_MESSAGES: Record<RemoteAccessReason, string> = {
   "not-installed": "Tailscale isn't installed on this host.",
   "not-running": "Tailscale isn't running on this host.",
   "not-logged-in": "Tailscale isn't logged in on this host.",
+  "port-in-use":
+    "Tailscale already uses port 443 on this host for something else. Stop it before turning on remote access.",
+  "funnel-on":
+    "Tailscale Funnel is on for port 443 on this host. Turning on remote access would turn it off, so Polaris leaves it alone.",
   "https-disabled": "HTTPS certificates aren't enabled for this tailnet.",
   "needs-operator":
     "Tailscale needs `sudo tailscale set --operator=$USER` once before Polaris can serve.",
@@ -115,17 +122,26 @@ export const makeRemoteAccess = (options: RemoteAccessOptions) => {
    * gateway (`port` null when none) is still exposed, so it reads as on, with no URL and why.
    */
   const statusOf = (cli: TailscaleCli, host: string, port: number | null) =>
-    readServedProxy(cli, host, GATEWAY_PREFIX).pipe(
+    readServe(cli).pipe(
       Effect.mapError(fromCommand),
-      Effect.map((proxy) => {
-        const ours = port !== null && proxy === serveTarget(port);
+      Effect.map((serve) => {
+        const handler = servedHandler(serve, host, GATEWAY_PREFIX);
+        const funnel = funnelOn(serve, host);
+        const ours = !funnel && port !== null && handler?.Proxy === serveTarget(port);
+        const conflict = !funnel && !ours && portInUse(serve);
         const missing = port === null ? ("gateway-not-running" as const) : null;
 
         return new RemoteAccessStatus({
-          state: proxy === null ? "off" : "on",
+          state: conflict ? "unavailable" : handler === null ? "off" : "on",
           url: ours ? `wss://${host}${GATEWAY_RPC_PATH}` : null,
           hostName: host,
-          reason: proxy === null || ours ? missing : (missing ?? "serving-elsewhere"),
+          reason: funnel
+            ? "funnel-on"
+            : conflict
+              ? "port-in-use"
+              : handler === null || ours
+                ? missing
+                : (missing ?? "serving-elsewhere"),
         });
       })
     );
@@ -146,23 +162,32 @@ export const makeRemoteAccess = (options: RemoteAccessOptions) => {
     Effect.catch((why) => Effect.succeed(unavailable(why)))
   );
 
-  const enable = ready.pipe(
-    Effect.flatMap(({ cli, host }) =>
-      Effect.flatMap(gateway(host), (port) =>
-        serveOn(cli, GATEWAY_PREFIX, serveTarget(port)).pipe(
-          Effect.mapError(fromCommand),
-          Effect.andThen(statusOf(cli, host, port))
-        )
-      )
-    ),
-    Effect.mapError(fail)
-  );
+  const enable = Effect.gen(function* () {
+    const { cli, host } = yield* ready;
+    const serve = yield* readServe(cli).pipe(Effect.mapError(fromCommand));
+
+    // Serve changes Funnel for the whole listener; never disrupt the user's other paths.
+    if (funnelOn(serve, host)) return yield* Effect.fail(notReady("funnel-on", host));
+
+    if (portInUse(serve)) return yield* Effect.fail(notReady("port-in-use", host));
+    const port = yield* gateway(host);
+
+    yield* serveOn(cli, GATEWAY_PREFIX, serveTarget(port)).pipe(Effect.mapError(fromCommand));
+
+    return yield* statusOf(cli, host, port);
+  }).pipe(Effect.mapError(fail));
 
   const disable = Effect.gen(function* () {
     const cli = findCli();
 
     // Nothing is served without Tailscale.
-    if (cli !== null) yield* serveOff(cli, GATEWAY_PREFIX).pipe(Effect.mapError(fromCommand));
+    if (cli !== null) {
+      const serve = yield* readServe(cli).pipe(Effect.mapError(fromCommand));
+
+      if (portInUse(serve)) return yield* Effect.fail(notReady("port-in-use"));
+      yield* serveOff(cli, GATEWAY_PREFIX).pipe(Effect.mapError(fromCommand));
+      yield* serveOff(cli, `${GATEWAY_PREFIX}/`).pipe(Effect.mapError(fromCommand));
+    }
 
     return yield* status;
   }).pipe(Effect.mapError(fail));

@@ -46,6 +46,9 @@ export { webSocketTransport } from "./transport/websocket.ts";
 
 export { SDK_VERSION, SUPPORTED_PROTOCOL } from "./version.ts";
 
+/** The Harnesses Polaris can drive, by kind and product name. */
+export { HARNESS_CATALOGUE, type HarnessEntry, harnessEntry } from "@polaris/protocol";
+
 export type {
   AgentSession,
   ApprovalRequest,

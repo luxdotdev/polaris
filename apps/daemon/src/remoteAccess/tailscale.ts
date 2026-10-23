@@ -219,7 +219,16 @@ export const readStatus = (cli: TailscaleCli) =>
     )
   );
 
-const ServeJson = Schema.Struct({
+const ServeConfig = Schema.Struct({
+  TCP: Schema.optional(
+    Schema.Record(
+      Schema.String,
+      Schema.Struct({
+        HTTP: Schema.optional(Schema.Boolean),
+      })
+    )
+  ),
+  AllowFunnel: Schema.optional(Schema.Record(Schema.String, Schema.Boolean)),
   Web: Schema.optional(
     Schema.Record(
       Schema.String,
@@ -232,18 +241,41 @@ const ServeJson = Schema.Struct({
   ),
 });
 
+const ServeJson = Schema.Struct({
+  ...ServeConfig.fields,
+  Foreground: Schema.optional(Schema.Record(Schema.String, ServeConfig)),
+});
+
 const decodeServe = Schema.decodeUnknownOption(Schema.fromJsonString(ServeJson));
 
-/** What `serve status --json` proxies `path` on `<host>:443` to; null when nothing. */
-export const servedProxy = (json: string, host: string, path: string): string | null =>
-  Option.match(decodeServe(json), {
-    onNone: () => null,
-    onSome: (serve) => serve.Web?.[`${host}:443`]?.Handlers?.[path]?.Proxy ?? null,
-  });
+/** Neither a foreground owner nor an HTTP listener may be replaced by our HTTPS Serve. */
+export const portInUse = (serve: typeof ServeJson.Type): boolean =>
+  serve.TCP?.["443"]?.HTTP === true ||
+  Object.values(serve.Foreground ?? {}).some(
+    (foreground) =>
+      foreground.TCP?.["443"] !== undefined ||
+      Object.keys(foreground.Web ?? {}).some((host) => host.endsWith(":443"))
+  );
 
-export const readServedProxy = (cli: TailscaleCli, host: string, path: string) =>
+/** A present handler can serve a file or text instead of a proxy. */
+export const servedHandler = (serve: typeof ServeJson.Type, host: string, path: string) => {
+  const handlers = serve.Web?.[`${host}:443`]?.Handlers;
+
+  return handlers?.[path] ?? handlers?.[`${path}/`] ?? null;
+};
+
+export const funnelOn = (serve: typeof ServeJson.Type, host: string): boolean =>
+  serve.AllowFunnel?.[`${host}:443`] === true;
+
+/** Unreadable config is an error, never evidence that the path is off. */
+export const readServe = (cli: TailscaleCli) =>
   runTailscale(cli, ["serve", "status", "--json"]).pipe(
-    Effect.map((stdout) => servedProxy(stdout, host, path))
+    Effect.flatMap((stdout) =>
+      Option.match(decodeServe(stdout), {
+        onNone: () => Effect.fail(new TailscaleParseError({ subcommand: "serve" })),
+        onSome: Effect.succeed,
+      })
+    )
   );
 
 /** `serve --set-path` strips `path` before proxying, so the target names it again. */

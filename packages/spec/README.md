@@ -13,6 +13,7 @@ It covers the event store's group commit, receipts and gapless sequence (`apps/d
 | `scripts/check.ts` | Runs every check (`bun run spec`). |
 | `scripts/replay.ts` | Trace validation: replays logs the real Engine committed through the model (below). |
 | `extensions.qnt` | Pairings and Grants (ENG-398): connections scoped by `hello`, the Grant gate, revocation closing live connections. `scripts/replay-extensions.ts` replays a runtime trace through it. |
+| `rpc-admission.qnt` | Extension RPC reservations (ENG-418): `transport/rpcAdmission.ts` bounds requests before decoding/forking; `transport/server.ts` connects acquisition, terminal responses, handler finalization and disconnect. Active work retains capacity after disconnect. `transport/rpcAdmission.test.ts` exercises real granted handlers, socket/WebSocket floods, streaming cancellation, failures and token-less Client isolation. No event-store commit, acknowledgement or resume semantics change. |
 
 ## Running it
 

@@ -191,6 +191,20 @@ run("language identity simulation", [
 
 run("typecheck extensions.qnt", ["typecheck", "extensions.qnt"]);
 
+run("typecheck RPC admission", ["typecheck", "rpc-admission.qnt"]);
+
+run("RPC admission scenarios", ["test", "rpc-admission.qnt", "--main=rpc_admission_test"]);
+
+run("RPC admission safety", [
+  "run",
+  "rpc-admission.qnt",
+  "--main=rpc_admission",
+  "--invariant=safety",
+  `--max-samples=${samples}`,
+  "--max-steps=40",
+  `--seed=${seed}`,
+]);
+
 run("Extension scenarios", ["test", "extensions.qnt", "--main=extensions_test"]);
 
 run("Extension safety", [

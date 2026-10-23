@@ -66,6 +66,8 @@ export interface WireOptions {
   readonly blobIdPrefix?: string;
   readonly maxBlobBytes?: number;
   readonly maxBufferedBlobBytes?: number;
+  /** Includes pending consumers, completed blobs and failed-blob tombstones. */
+  readonly maxIncomingBlobs?: number;
   readonly blobIdleTimeoutMs?: number;
   readonly unclaimedBlobTtlMs?: number;
   readonly maxQueuedJsonBytes?: number;
@@ -74,6 +76,7 @@ export interface WireOptions {
 export const WIRE_DEFAULTS = {
   maxBlobBytes: 512 * 1024 * 1024,
   maxBufferedBlobBytes: 1024 * 1024 * 1024,
+  maxIncomingBlobs: 1024,
   blobIdleTimeoutMs: 60_000,
   unclaimedBlobTtlMs: 5 * 60_000,
   maxQueuedJsonBytes: 8 * 1024 * 1024,
@@ -182,6 +185,7 @@ export const makeWire = Effect.fnUntraced(function* (
   const prefix = options.blobIdPrefix ?? "b";
   const maxBlobBytes = options.maxBlobBytes ?? WIRE_DEFAULTS.maxBlobBytes;
   const maxBuffered = options.maxBufferedBlobBytes ?? WIRE_DEFAULTS.maxBufferedBlobBytes;
+  const maxIncomingBlobs = options.maxIncomingBlobs ?? WIRE_DEFAULTS.maxIncomingBlobs;
   const idleTimeout = options.blobIdleTimeoutMs ?? WIRE_DEFAULTS.blobIdleTimeoutMs;
   const unclaimedTtl = options.unclaimedBlobTtlMs ?? WIRE_DEFAULTS.unclaimedBlobTtlMs;
   const maxQueuedJson = options.maxQueuedJsonBytes ?? WIRE_DEFAULTS.maxQueuedJsonBytes;
@@ -353,10 +357,11 @@ export const makeWire = Effect.fnUntraced(function* (
   const inBlobs = new Map<string, InBlob>();
   let bufferedBytes = 0;
 
-  const inBlob = (blobId: string): InBlob => {
+  const inBlob = (blobId: string): InBlob | undefined => {
     let blob = inBlobs.get(blobId);
 
     if (blob === undefined) {
+      if (isClosed || inBlobs.size >= maxIncomingBlobs) return undefined;
       blob = {
         parts: [],
         size: 0,
@@ -396,6 +401,9 @@ export const makeWire = Effect.fnUntraced(function* (
   const onBlobFrame = (frame: Extract<Frame, { kind: "blob" }>) => {
     const blob = inBlob(frame.blobId);
 
+    if (blob === undefined)
+      return Effect.fail(new TransportError({ message: "incoming blob count limit exceeded" }));
+
     if (blob.status !== "receiving") return;
     blob.touched = Date.now();
 
@@ -424,7 +432,16 @@ export const makeWire = Effect.fnUntraced(function* (
     }
 
     blob.wake?.();
+
+    return Effect.void;
   };
+
+  const unavailableBlob = (blobId: string) =>
+    new BlobError({
+      blobId,
+      reason: isClosed ? "closed" : "too-large",
+      message: isClosed ? "connection closed" : "incoming blob count limit exceeded",
+    });
 
   /** Hands a complete blob to its `takeBlob`, in one piece. */
   const resolveWhole = (blob: InBlob) => {
@@ -436,6 +453,8 @@ export const makeWire = Effect.fnUntraced(function* (
   const takeBlob = (blobId: string): Effect.Effect<Uint8Array, BlobError> =>
     Effect.suspend(() => {
       const blob = inBlob(blobId);
+
+      if (blob === undefined) return Effect.fail(unavailableBlob(blobId));
 
       if (blob.claimed)
         return Effect.fail(
@@ -477,6 +496,8 @@ export const makeWire = Effect.fnUntraced(function* (
   ): Stream.Stream<Uint8Array, BlobError> =>
     Stream.suspend(() => {
       const blob = inBlob(blobId);
+
+      if (blob === undefined) return Stream.fail(unavailableBlob(blobId));
 
       if (blob.claimed)
         return Stream.fail(
@@ -591,9 +612,8 @@ export const makeWire = Effect.fnUntraced(function* (
             const frame = frames[i++]!;
 
             if (frame.kind === "json") return onJson(frame.text);
-            onBlobFrame(frame);
 
-            return Effect.void;
+            return onBlobFrame(frame) ?? Effect.void;
           },
           step: () => {},
         });
@@ -609,6 +629,9 @@ export const makeWire = Effect.fnUntraced(function* (
       sweepTimer = undefined;
 
       for (const [blobId, blob] of inBlobs) failBlob(blobId, blob, "closed", "connection closed");
+
+      for (const blob of inBlobs.values()) release(blob);
+      inBlobs.clear();
       jsonSpace.openUnsafe();
 
       for (const receipt of jsonReceipts.values()) {
@@ -620,7 +643,7 @@ export const makeWire = Effect.fnUntraced(function* (
 
       jsonReceipts.clear();
 
-      return Effect.andThen(Deferred.done(closed, exit), transport.close);
+      return transport.close.pipe(Effect.ensuring(Deferred.done(closed, exit)));
     });
 
   yield* Effect.addFinalizer(() => shutdown(Exit.void));

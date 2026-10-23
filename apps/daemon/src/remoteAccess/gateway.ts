@@ -42,6 +42,7 @@ const sameMac = (a: string, b: string): boolean => {
 const askMac = async (port: number, challenge: string): Promise<string | null> => {
   const response = await fetch(`http://127.0.0.1:${port}${GATEWAY_IDENTITY_PATH}`, {
     method: "POST",
+    redirect: "error",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ challenge }),
     signal: AbortSignal.timeout(IDENTITY_TIMEOUT_MS),

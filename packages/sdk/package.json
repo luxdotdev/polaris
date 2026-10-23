@@ -9,7 +9,8 @@
     ".": {
       "browser": "./src/browser.ts",
       "default": "./src/index.ts"
-    }
+    },
+    "./testing": "./src/daemon.testing.ts"
   },
   "scripts": {
     "typecheck": "tsc -p .",
