@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { createHmac, randomBytes } from "node:crypto";
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -24,22 +25,37 @@ let env: FakeEnv;
 
 let gateway: ReturnType<typeof Bun.serve>;
 
-/** A loopback server answering `/polaris/identity` with `nonce`, as the gateway does. */
-const serveIdentity = (nonce: string) =>
+const decodeChallenge = Schema.decodeUnknownSync(
+  Schema.fromJsonString(Schema.Struct({ challenge: Schema.String }))
+);
+
+/** The gateway's proof as ENG-399 specifies it: HMAC-SHA256 over the decoded bytes, base64url. */
+const macOf = (secret: string, challenge: string) =>
+  createHmac("sha256", Buffer.from(secret, "base64url"))
+    .update(Buffer.from(challenge, "base64url"))
+    .digest("base64url");
+
+const newSecret = () => randomBytes(32).toString("base64url");
+
+/** A loopback server answering `POST /polaris/identity`'s challenge with `answer`. */
+const serveIdentity = (answer: (challenge: string) => string) =>
   Bun.serve({
     hostname: "127.0.0.1",
     port: 0,
-    fetch: (request) =>
-      new URL(request.url).pathname === "/polaris/identity"
-        ? Response.json({ nonce })
+    fetch: async (request) =>
+      new URL(request.url).pathname === "/polaris/identity" && request.method === "POST"
+        ? Response.json({ mac: answer(decodeChallenge(await request.text()).challenge) })
         : new Response(null, { status: 404 }),
   });
 
+const record = (port: number | undefined, secret: string) =>
+  writeFileSync(join(dir, "gateway.json"), JSON.stringify({ port, secret }));
+
 /** Starts a gateway and records it in `gateway.json`, as the Daemon does on each start. */
-const startGateway = (nonce = crypto.randomUUID()) => {
+const startGateway = (secret = newSecret()) => {
   void gateway?.stop(true);
-  gateway = serveIdentity(nonce);
-  writeFileSync(join(dir, "gateway.json"), JSON.stringify({ port: gateway.port, nonce }));
+  gateway = serveIdentity((challenge) => macOf(secret, challenge));
+  record(gateway.port, secret);
 
   return gateway.port;
 };
@@ -197,12 +213,22 @@ describe("Remote Access", () => {
     [
       "another process holds the gateway's port",
       () => {
+        const theirs = newSecret();
+
         void gateway.stop(true);
-        gateway = serveIdentity("not-the-recorded-nonce");
-        writeFileSync(
-          join(dir, "gateway.json"),
-          JSON.stringify({ port: gateway.port, nonce: "ours" })
-        );
+        gateway = serveIdentity((challenge) => macOf(theirs, challenge));
+        record(gateway.port, newSecret());
+      },
+    ],
+    [
+      "another process replays a proof it saw",
+      () => {
+        const secret = newSecret();
+        const seen = macOf(secret, newSecret());
+
+        void gateway.stop(true);
+        gateway = serveIdentity(() => seen);
+        record(gateway.port, secret);
       },
     ],
   ] as const)("when %s, it is off and is never served to the tailnet", async (_, arrange) => {
