@@ -12,6 +12,7 @@ import {
   cn,
   ContrastIcon,
   GridIcon,
+  MicrophoneIcon,
   Kbd,
   PaperclipIcon,
   PixelPolarisIcon,
@@ -36,6 +37,7 @@ import { ReviewerPage } from "./ReviewerPage.tsx";
 import { SessionsPage } from "./SessionsPage.tsx";
 import { EditorPage } from "./EditorPage.tsx";
 import { UsagePage } from "./UsagePage.tsx";
+import { VoicePage } from "./VoicePage.tsx";
 import { ConstellationsPage } from "./ConstellationsPage.tsx";
 import { ConstellationMark } from "../../sessions/glyphs.tsx";
 
@@ -49,6 +51,7 @@ const ICONS: Readonly<Record<SettingsSection, ReactNode>> = {
   hosts: <ServerIcon />,
   attachments: <PaperclipIcon />,
   extensions: <PlugIcon />,
+  voice: <MicrophoneIcon />,
   reviewer: <AsteriskIcon />,
   github: <UsersIcon />,
   about: <PixelPolarisIcon />,
@@ -175,6 +178,8 @@ const Page = ({ route }: { readonly route: SettingsRoute }) => {
       return <AttachmentsPage />;
     case "extensions":
       return <ExtensionsPage />;
+    case "voice":
+      return <VoicePage />;
     case "reviewer":
       return <ReviewerPage />;
     case "github":

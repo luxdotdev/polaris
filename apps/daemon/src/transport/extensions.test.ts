@@ -224,14 +224,23 @@ test("an Extension gets its Grant and nothing more, and revoking cuts it off", a
         record(
           ExtensionsTraceEvent.cases.Hello.make({ connection: 2, pairing: 5, observed: "refused" })
         );
+        const strangerCall = yield* Effect.flip(stranger.client["extensions.list"]());
+        record(
+          ExtensionsTraceEvent.cases.Call.make({
+            connection: 2,
+            need: "client",
+            observed: observedOf(strangerCall),
+          })
+        );
+        const stranger2 = yield* connect();
 
         const unknown = yield* Effect.flip(
-          stranger.client.hello(hello(`pol_ext_${"A".repeat(43)}`))
+          stranger2.client.hello(hello(`pol_ext_${"A".repeat(43)}`))
         );
 
         expect(unknown).toEqual(new ExtensionTokenRejected({ reason: "unknown" }));
         record(
-          ExtensionsTraceEvent.cases.Hello.make({ connection: 2, pairing: 6, observed: "refused" })
+          ExtensionsTraceEvent.cases.Hello.make({ connection: 5, pairing: 6, observed: "refused" })
         );
 
         // An Extension with the turn Grant reaches dispatch as itself, by name.
@@ -324,8 +333,8 @@ test("an Extension gets its Grant and nothing more, and revoking cuts it off", a
     )
   );
 
-  // Five Clients connected; the revoked Extension's connection is the one gone.
-  expect(result.open).toBe(4);
+  // Only the Desktop App and the other Extension remain; rejected hellos close too.
+  expect(result.open).toBe(2);
 
   const decoded = decodeExtensionsTrace({
     format: "extensions-v1",

@@ -31,6 +31,7 @@ export type SettingsSection =
   | "hosts"
   | "attachments"
   | "extensions"
+  | "voice"
   | "reviewer"
   | "github"
   | "about";
@@ -45,6 +46,7 @@ export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
   "hosts",
   "attachments",
   "extensions",
+  "voice",
   "reviewer",
   "github",
   "about",

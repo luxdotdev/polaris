@@ -45,6 +45,7 @@ import {
   ConstellationStatsInputs,
 } from "./constellationContract.ts";
 import { ResourceRequestInputs } from "./resourcesContract.ts";
+import { VoiceRequestInputs } from "./voiceContract.ts";
 import { GitHubRequestInputs, GitHubSubscriptionInputs } from "./githubContract.ts";
 import { GitRequestInputs, GitSubscriptionInputs } from "./gitContract.ts";
 import { BRANCH_PREFIX } from "./sessionPrefs.ts";
@@ -522,6 +523,7 @@ export const RequestInputs = {
   ...ConstellationDefaultsInputs,
   ...ConstellationStatsInputs,
   ...ResourceRequestInputs,
+  ...VoiceRequestInputs,
 } as const;
 
 export type RequestMethod = keyof typeof RequestInputs;

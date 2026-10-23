@@ -147,6 +147,13 @@ const GROUPS: ReadonlyArray<GroupSource> = [
           "sdk",
         ],
       },
+      {
+        id: "voice",
+        title: "Voice",
+        blurb:
+          "Extensions that listen, such as smart glasses, send audio to a host, which transcribes it with Deepgram using that host's own key. Keys stay on their hosts and are never shown again.",
+        keywords: ["deepgram", "speech", "transcription", "dictation", "microphone", "key"],
+      },
     ],
   },
   {
