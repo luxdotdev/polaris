@@ -124,3 +124,78 @@ export function CloudUploadIcon({ size = 16, strokeWidth = STROKE, ...props }: N
     </svg>
   );
 }
+
+/** Nucleo UI outline `Plug2Outline18`. */
+export function PlugIcon({ size = 16, strokeWidth = STROKE, ...props }: NucleoIconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 18 18"
+      aria-hidden="true"
+      focusable="false"
+      {...props}
+    >
+      <path
+        d="M5.104,8.714l4.182,4.182c.391,.391,.391,1.024,0,1.414l-.28,.28c-1.545,1.545-4.051,1.545-5.596,0h0c-1.545-1.545-1.545-4.051,0-5.596l.28-.28c.391-.391,1.024-.391,1.414,0Z"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={strokeWidth}
+      ></path>
+      <line
+        x1="1.75"
+        y1="16.25"
+        x2="3.409"
+        y2="14.591"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={strokeWidth}
+      ></line>
+      <line
+        x1="5.945"
+        y1="9.555"
+        x2="7.5"
+        y2="8"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={strokeWidth}
+      ></line>
+      <line
+        x1="8.445"
+        y1="12.055"
+        x2="10"
+        y2="10.5"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={strokeWidth}
+      ></line>
+      <path
+        d="M8.714,5.104l4.182,4.182c.391,.391,1.024,.391,1.414,0l.28-.28c1.545-1.545,1.545-4.051,0-5.596h0c-1.545-1.545-4.051-1.545-5.596,0l-.28,.28c-.391,.391-.391,1.024,0,1.414Z"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={strokeWidth}
+      ></path>
+      <line
+        x1="16.25"
+        y1="1.75"
+        x2="14.591"
+        y2="3.409"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={strokeWidth}
+      ></line>
+    </svg>
+  );
+}

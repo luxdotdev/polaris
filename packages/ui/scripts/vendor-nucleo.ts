@@ -58,6 +58,7 @@ const UI_SYNC: ReadonlyArray<readonly [string, string]> = [
   ["ArrowDownIcon", "ArrowDownOutline18"],
   ["SyncIcon", "RefreshOutline18"],
   ["CloudUploadIcon", "CloudUploadOutline18"],
+  ["PlugIcon", "Plug2Outline18"],
 ];
 
 /** Polaris name → Nucleo pixel outline 24px component. Polaris-owned concepts only. */
