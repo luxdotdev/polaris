@@ -3,7 +3,7 @@
 import { waitForEvenAppBridge } from "@evenrealities/even_hub_sdk";
 import { createPolarisWith } from "@polaris/sdk";
 import { startApp } from "./app/controller.ts";
-import { connectionLog } from "./app/log.ts";
+import { captureConsole, connectionLog } from "./app/log.ts";
 import { loggedTransport } from "./app/transport.ts";
 import { evenGlasses } from "./glasses/bridge.ts";
 import { mountPhonePage } from "./phone/page.ts";
@@ -17,6 +17,8 @@ const root = document.querySelector<HTMLElement>("#app");
 if (root === null) throw new Error("index.html has no #app");
 
 const log = connectionLog();
+
+captureConsole(log);
 
 log.add(`started, ${location.origin}`);
 

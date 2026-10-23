@@ -12,6 +12,7 @@ import {
   WIDTH,
 } from "./page.ts";
 import {
+  bytesOf,
   clip,
   findRow,
   rowLabel,
@@ -19,6 +20,7 @@ import {
   type SessionRow,
   sessionRows,
   STATE_LABEL,
+  tail,
   titleOf,
 } from "./sessions.ts";
 
@@ -54,10 +56,6 @@ const list = (items: ReadonlyArray<string>, y: number): ListBox => ({
   capture: true,
   items,
 });
-
-/** Keeps the end of a long transcript, which is what was just said. */
-const tail = (text: string, max: number) =>
-  text.length <= max ? text : `…${text.slice(-(max - 1))}`;
 
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
@@ -131,15 +129,15 @@ const SESSION_HINT = "Tap: actions · hold: speak · double-tap: back";
 
 const sessionPage = (state: AppState, row: SessionRow): Page => {
   const top = [
-    titleOf(row.entry),
+    clip(titleOf(row.entry), 200),
     [STATE_LABEL[row.entry.session.state], row.hostName].join(" · "),
-    ...(state.notice === null ? [] : [state.notice]),
+    ...(state.notice === null ? [] : [clip(state.notice, 200)]),
   ].join("\n");
 
   const bottom = `\n\n${SESSION_HINT}`;
 
   return full(
-    `${top}\n\n${clip(sessionBody(row), MAX_TEXT - top.length - bottom.length - 2)}${bottom}`
+    `${top}\n\n${clip(sessionBody(row), MAX_TEXT - bytesOf(top) - bytesOf(bottom) - 2)}${bottom}`
   );
 };
 

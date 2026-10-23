@@ -20,7 +20,12 @@ export interface Renderer {
   readonly settled: () => Promise<void>;
 }
 
-export const rendererFor = (surface: Surface, delayMs = RENDER_DELAY_MS): Renderer => {
+/** `report` hears each page the glasses refused or failed to take. */
+export const rendererFor = (
+  surface: Surface,
+  delayMs = RENDER_DELAY_MS,
+  report: (line: string) => void = () => undefined
+): Renderer => {
   let current: Page | null = null;
   let latest: Page | null = null;
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -29,6 +34,7 @@ export const rendererFor = (surface: Surface, delayMs = RENDER_DELAY_MS): Render
   const draw = async (page: Page) => {
     if (current === null) {
       if (await surface.create(page)) current = page;
+      else report("the glasses refused the first page");
 
       return;
     }
@@ -37,6 +43,7 @@ export const rendererFor = (surface: Surface, delayMs = RENDER_DELAY_MS): Render
 
     if (layoutKey(before) !== layoutKey(page)) {
       if (await surface.rebuild(page)) current = page;
+      else report("the glasses refused a page");
 
       return;
     }
@@ -55,7 +62,9 @@ export const rendererFor = (surface: Surface, delayMs = RENDER_DELAY_MS): Render
 
     if (page === null) return;
     latest = null;
-    drawing = drawing.then(() => draw(page)).catch(() => undefined);
+    drawing = drawing
+      .then(() => draw(page))
+      .catch((cause: unknown) => report(`drawing on the glasses failed: ${String(cause)}`));
   };
 
   return {

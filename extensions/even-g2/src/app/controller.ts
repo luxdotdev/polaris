@@ -60,8 +60,8 @@ const screenKey = (state: AppState) => (state.screen.kind === "sessions" ? null 
 
 export const startApp = (options: AppOptions): App => {
   const { glasses } = options;
-  const renderer = rendererFor(glasses, options.renderDelayMs ?? RENDER_DELAY_MS);
   const log = options.log ?? (() => undefined);
+  const renderer = rendererFor(glasses, options.renderDelayMs ?? RENDER_DELAY_MS, log);
   const links = new Map<string, string>();
   let state = initialState(false);
   let pairings: ReadonlyArray<string> = [];
@@ -242,8 +242,9 @@ export const startApp = (options: AppOptions): App => {
         links.set(host.hostId, link);
       }
 
-      set(onHosts(state, hosts));
+      // The phone page first: a glasses failure mustn't hide the Hosts from it.
       options.onHosts?.(hosts);
+      set(onHosts(state, hosts));
     }
   };
 

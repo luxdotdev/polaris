@@ -6,7 +6,8 @@
 html,
 body {
   margin: 0;
-  min-height: 100%;
+  height: 100%;
+  overflow: hidden;
   background: #232323;
   color: #e5e5e5;
   font:
@@ -20,7 +21,11 @@ body {
   overscroll-behavior: none;
 }
 
+/* The Even app's WebView doesn't scroll the document, so the page scrolls itself. */
 #app {
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -129,12 +134,15 @@ button.secondary {
   color: #ff453a;
 }
 
-details.log {
-  margin-top: 24px;
-}
-
 details.log pre {
+  max-height: 40vh;
+  overflow-y: auto;
+  margin: 8px 0 0;
   font-size: 11px;
   white-space: pre-wrap;
   word-break: break-all;
+}
+
+#app > * {
+  flex-shrink: 0;
 }

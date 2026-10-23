@@ -60,6 +60,8 @@ export const mountPhonePage = (root: HTMLElement, options: PhonePageOptions): Ph
   const logLines = element("pre", "", "log");
   const logBox = element("details", "", "log");
 
+  logBox.open = true;
+
   input.placeholder = "polaris-pair:v1:…";
   input.rows = 3;
   input.autocapitalize = "off";
@@ -130,6 +132,7 @@ export const mountPhonePage = (root: HTMLElement, options: PhonePageOptions): Ph
     element("p", "Your agent sessions and approvals on your glasses.", "lede"),
     element("h2", "Hosts"),
     hostList,
+    logBox,
     element("h2", "Pair with a host"),
     element(
       "p",
@@ -138,10 +141,9 @@ export const mountPhonePage = (root: HTMLElement, options: PhonePageOptions): Ph
     ),
     input,
     actions,
-    message,
-    logBox
+    message
   );
-  logBox.append(element("summary", "Connection log"), logLines);
+  logBox.append(element("summary", "Connection log, newest first"), logLines);
   renderHosts();
 
   return {

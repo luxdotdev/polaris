@@ -5,6 +5,19 @@
 import { HostUnreachable, type OpenTransport, webSocketTransport } from "@polaris/sdk";
 import { Effect, Stream } from "effect";
 
+/** The first messages each get a line; after that only the totals do. */
+const SHOWN_MESSAGES = 12;
+
+const leading = new TextDecoder();
+
+/** The `_tag`s near the start of a message that begins with a JSON frame, e.g. "Chunk Snapshot". */
+export const tagsOf = (bytes: Uint8Array) => {
+  if (bytes.byteLength < 6 || bytes[4] !== 0) return "";
+  const text = leading.decode(bytes.subarray(5, 200));
+
+  return Array.from(text.matchAll(/"_tag":"(\w+)"/g), (match) => match[1]).join(" ");
+};
+
 export const loggedTransport =
   (log: (line: string) => void): OpenTransport =>
   (pairing) => {
@@ -16,6 +29,7 @@ export const loggedTransport =
       );
     let received = 0;
     let sent = 0;
+    let messages = 0;
     const totals = () => `${received} bytes in, ${sent} out`;
 
     log(`opening ${url}`);
@@ -27,7 +41,15 @@ export const loggedTransport =
 
         return {
           incoming: transport.incoming.pipe(
-            Stream.tap((bytes) => Effect.sync(() => (received += bytes.byteLength))),
+            Stream.tap((bytes) =>
+              Effect.sync(() => {
+                received += bytes.byteLength;
+                messages++;
+
+                if (messages <= SHOWN_MESSAGES)
+                  log(`message ${messages}: ${bytes.byteLength} bytes ${tagsOf(bytes)}`.trimEnd());
+              })
+            ),
             Stream.tapError((error) =>
               Effect.sync(() => log(`socket failed: ${error.message}; ${totals()}`))
             ),

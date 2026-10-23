@@ -3,7 +3,7 @@
  * approval, Interrupt and Continue, fixed replies, and speaking a reply.
  */
 import type { ApprovalRequest, SessionEntry, Turn } from "@polaris/sdk";
-import { clip, MAX_ROW_CHARS, MAX_ROWS } from "./sessions.ts";
+import { clip, MAX_ROW_BYTES, MAX_ROWS } from "./sessions.ts";
 
 export type TurnStatus = Turn["status"];
 
@@ -27,7 +27,7 @@ const approvalItems = (approval: ApprovalRequest): ReadonlyArray<MenuItem> =>
   approval.kind === "question"
     ? [
         ...approval.options.map((option) => ({
-          label: clip(option, MAX_ROW_CHARS),
+          label: clip(option, MAX_ROW_BYTES),
           action: { kind: "answer", requestId: approval.id, text: option } as const,
         })),
         { label: "Speak an answer", action: { kind: "speak" } },

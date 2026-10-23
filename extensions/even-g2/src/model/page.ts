@@ -9,7 +9,7 @@ export const HEIGHT = 288;
 
 export const HEADER_HEIGHT = 40;
 
-/** Text set at create or rebuild is cut at 1,000 characters; leave room. */
+/** Text set at create or rebuild holds 1,000 UTF-8 bytes; leave room. */
 export const MAX_TEXT = 960;
 
 export interface Box {

@@ -1,6 +1,6 @@
 /**
- * The connection log over a real gateway: it names the socket it opened, and
- * when the Daemon goes away, how the socket ended and what it carried.
+ * The connection log over a real gateway: the socket it opened, the first
+ * messages and what they carry, and how the socket ended when the Daemon went away.
  */
 import { expect, test } from "bun:test";
 import { createPolarisWith } from "@polaris/sdk";
@@ -33,6 +33,9 @@ test("the log says which socket opened, and how it ended when the Daemon stopped
 
   expect(lines[0]).toMatch(/^opening ws:\/\/127\.0\.0\.1:\d+\/polaris\/rpc$/);
   expect(lines[1]).toMatch(/^opened ws:/);
+  // The hello's answer, then the Host feed's first Chunk.
+  expect(lines[2]).toMatch(/^message 1: \d+ bytes Exit Success$/);
+  expect(lines[3]).toMatch(/^message 2: \d+ bytes Chunk Snapshot/);
   expect(lines.find((line) => line.startsWith("socket"))).toMatch(
     /^socket failed: the gateway closed the connection \(1001 the Daemon is stopping\); [1-9]\d* bytes in, [1-9]\d* out$/
   );

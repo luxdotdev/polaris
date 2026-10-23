@@ -15,10 +15,10 @@ export interface SessionRow {
   readonly entry: SessionEntry;
 }
 
-/** A list container holds at most 20 rows of 64 characters. */
+/** A list container holds at most 20 rows of 63 UTF-8 bytes each. */
 export const MAX_ROWS = 20;
 
-export const MAX_ROW_CHARS = 64;
+export const MAX_ROW_BYTES = 63;
 
 const GROUP: Record<SessionState, number> = {
   "needs-you": 0,
@@ -47,9 +47,48 @@ export const STATE_LABEL: Record<SessionState, string> = {
 export const sameKey = (a: SessionKey, b: SessionKey) =>
   a.hostId === b.hostId && a.sessionId === b.sessionId;
 
-/** Cuts `text` to `max` characters, ending in an ellipsis when it was longer. */
+const encoder = new TextEncoder();
+
+/** The glasses count text in UTF-8 bytes: "·" is two, "…" three. */
+export const bytesOf = (text: string) => encoder.encode(text).byteLength;
+
+const ELLIPSIS = "…";
+
+const segmenter = new Intl.Segmenter();
+
+/** Whole graphemes, so a cut never splits an emoji or an accent from its letter. */
+const graphemes = (text: string) => Array.from(segmenter.segment(text), (part) => part.segment);
+
+/** The longest run of whole graphemes from `chars` that fits in `max` bytes. */
+const fitting = (chars: ReadonlyArray<string>, max: number) => {
+  const kept: Array<string> = [];
+  let used = 0;
+
+  for (const char of chars) {
+    used += bytesOf(char);
+
+    if (used > max) break;
+    kept.push(char);
+  }
+
+  return kept;
+};
+
+/** Cuts `text` to `max` UTF-8 bytes, ending in an ellipsis when it was longer. */
 export const clip = (text: string, max: number) =>
-  text.length <= max ? text : `${text.slice(0, max - 1).trimEnd()}…`;
+  bytesOf(text) <= max
+    ? text
+    : `${fitting(graphemes(text), max - bytesOf(ELLIPSIS))
+        .join("")
+        .trimEnd()}${ELLIPSIS}`;
+
+/** Keeps the last `max` UTF-8 bytes of `text`, starting with an ellipsis when it was longer. */
+export const tail = (text: string, max: number) =>
+  bytesOf(text) <= max
+    ? text
+    : `${ELLIPSIS}${fitting(graphemes(text).toReversed(), max - bytesOf(ELLIPSIS))
+        .toReversed()
+        .join("")}`;
 
 export const titleOf = (entry: SessionEntry) => entry.session.title.trim() || "Untitled session";
 
@@ -81,5 +120,5 @@ export const rowLabel = (row: SessionRow, manyHosts: boolean) =>
       titleOf(row.entry),
       ...(manyHosts ? [row.hostName] : []),
     ].join(" · "),
-    MAX_ROW_CHARS
+    MAX_ROW_BYTES
   );

@@ -42,14 +42,14 @@ describe("the Sessions screen", () => {
     ]);
   });
 
-  test("names the Host only when several are paired, and fits a 64-character row", () => {
+  test("names the Host only when several are paired, and fits a 63-byte row", () => {
     const [row] = sessionRows([
       host("h1", [entry(session("s1", "needs-you", { title: "x".repeat(80) }))], "Mac Studio"),
     ]);
 
     if (row === undefined) throw new Error("no row");
     expect(rowLabel(row, false)).toStartWith("Needs you · xxx");
-    expect(rowLabel(row, false)).toHaveLength(64);
+    expect(new TextEncoder().encode(rowLabel(row, false)).byteLength).toBe(63);
     expect(
       rowLabel({ ...row, entry: entry(session("s1", "idle", { title: "Fix it" })) }, true)
     ).toBe("Idle · Fix it · Mac Studio");
@@ -86,7 +86,7 @@ describe("the menu", () => {
     expect(command.map((item) => item.label)).toEqual(["Approve", "Deny", "Interrupt"]);
     expect(question.map((item) => item.label).slice(0, 3)).toEqual([
       "Yes",
-      `${longOption.slice(0, 63).trimEnd()}…`,
+      "Use the long way the long way the long way the long way the…",
       "Speak an answer",
     ]);
     expect(question[1]?.action).toEqual({ kind: "answer", requestId: "r2", text: longOption });
@@ -229,9 +229,42 @@ describe("voice", () => {
   });
 });
 
-describe("the glasses' limits", () => {
-  test("a long approval stays under the 1,000 characters a page may hold", () => {
-    const long = approval("r1", "s", { title: "y".repeat(3000) });
+const bytes = (text: string) => new TextEncoder().encode(text).byteLength;
+
+describe("the glasses' limits, which count UTF-8 bytes", () => {
+  // The firmware refuses a whole page over one long row, and the glasses then stay blank.
+  test.each([
+    { title: "Fix the flaky test in the gateway's reconnect path after a Daemon restart" },
+    { title: "Résumé · naïve café ".repeat(5) },
+    { title: "修复网关重连路径中的不稳定测试，并在守护进程重启后验证" },
+    { title: "🚀".repeat(40) },
+  ])("every row fits in 63 bytes: $title", ({ title }) => {
+    const options = ["Yes · run it", `${title} ${title}`];
+
+    const hosts = [
+      host("h1", [
+        entry(session("s", "needs-you", { title }), [
+          approval("r1", "s", { kind: "question", options }),
+        ]),
+      ]),
+      host("h2", [entry(session("t", "idle", { title }))], `Lucas-Mac-Studio · ${title}`),
+    ];
+
+    const base = onHosts(initialState(true), hosts);
+    const key = { hostId: "h1", sessionId: "s" };
+
+    const pages = [base, press({ ...base, screen: { kind: "session", key } }, click()).state].map(
+      layout
+    );
+
+    const rows = pages.flatMap((page) => page.lists.flatMap((list) => list.items));
+
+    expect(rows.length).toBeGreaterThan(2);
+    expect(rows.filter((row) => bytes(row) > 63)).toEqual([]);
+  });
+
+  test("a long approval stays under the 1,000 bytes a page may hold", () => {
+    const long = approval("r1", "s", { title: "ÿ·".repeat(3000) });
 
     const state = {
       ...onHosts(initialState(true), [host("h1", [entry(session("s", "needs-you"), [long])])]),
@@ -240,7 +273,7 @@ describe("the glasses' limits", () => {
 
     const content = layout(state).texts[0]?.content ?? "";
 
-    expect(content.length).toBeLessThanOrEqual(1000);
+    expect(bytes(content)).toBeLessThanOrEqual(1000);
     expect(content).toEndWith("Tap: actions · hold: speak · double-tap: back");
   });
 
