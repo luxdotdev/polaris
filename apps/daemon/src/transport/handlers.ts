@@ -29,7 +29,7 @@ import { ServerRpcs } from "./rpcs.ts";
 import { languageDefaults } from "./languageDefaults.ts";
 import { helloHost } from "./hostInfo.ts";
 import { bindLanguageIdentity } from "./languageIdentity.ts";
-import { ExtensionConnections, pairingOf, scopeConnection } from "../extensions/connection.ts";
+import { pairingOf, revokePairing, scopeConnection } from "../extensions/connection.ts";
 import { Pairings } from "../extensions/pairings.ts";
 
 const constellationUnavailable = () =>
@@ -287,12 +287,13 @@ export const defaultHandlers = (options: {
     // understands (e.g. whether to send it ItemProgress), and the Pairing it acts as.
     hello: ({ deviceLabel, capabilities, languageProof, extensionToken }, { client }) =>
       Effect.gen(function* () {
+        yield* scopeConnection(client, extensionToken);
+
         const languageIdentity = yield* Effect.try({
           try: () => bindLanguageIdentity(client, options.hostInfo.hostId, languageProof),
           catch: () => new LanguageIdentityError({ message: "Language identity unavailable" }),
         });
 
-        if (extensionToken !== undefined) yield* scopeConnection(client, extensionToken);
         // The Pairing the connection keeps, not this hello's: a later token-less
         // hello on a scoped connection cannot relabel it.
         const pairing = pairingOf(client);
@@ -312,16 +313,7 @@ export const defaultHandlers = (options: {
     "extensions.pair": ({ name, grant }) =>
       Effect.flatMap(Pairings, (pairings) => Effect.orDie(pairings.pair(name, grant))),
     "extensions.list": () => Effect.flatMap(Pairings, (pairings) => Effect.orDie(pairings.list)),
-    "extensions.revoke": ({ id }) =>
-      Effect.gen(function* () {
-        const pairings = yield* Pairings;
-        const revoked = yield* Effect.orDie(pairings.revoke(id));
-
-        if (revoked === null) return yield* new NotFound({ what: "pairing", id });
-        yield* (yield* ExtensionConnections).closeAll(id);
-
-        return revoked;
-      }),
+    "extensions.revoke": ({ id }) => revokePairing(id),
 
     dispatch: ({ commandId }) =>
       Effect.fail(new CommandRejected({ commandId, reason: notYet("the event store") })),

@@ -63,7 +63,7 @@ export class NotGranted extends Schema.TaggedError<NotGranted>()("NotGranted", {
 /** `hello` with an `extensionToken` the Daemon does not accept. */
 export class ExtensionTokenRejected extends Schema.TaggedError<ExtensionTokenRejected>()(
   "ExtensionTokenRejected",
-  { reason: Schema.Literals(["malformed", "unknown", "revoked"]) }
+  { reason: Schema.Literals(["malformed", "unknown", "revoked", "missing", "connection-bound"]) }
 ) {
   override get message(): string {
     return `The Extension token is ${this.reason === "revoked" ? "revoked" : "not valid"}`;
