@@ -16,8 +16,14 @@ export interface TestDaemon {
   readonly home: string;
   readonly socketPath: string;
   readonly hostId: HostId;
-  /** Pairs an Extension and returns its pairing string for the local socket. */
-  readonly pair: (name: string, grant: ReadonlyArray<GrantKind>) => Promise<string>;
+  /** The gateway's URL (`ws://127.0.0.1:<port>/polaris/rpc`); the port survives restarts. */
+  readonly gatewayUrl: string;
+  /** Pairs an Extension and returns its pairing string, for the socket or the gateway. */
+  readonly pair: (
+    name: string,
+    grant: ReadonlyArray<GrantKind>,
+    via?: "socket" | "gateway"
+  ) => Promise<string>;
   readonly revoke: (pairing: string) => Promise<void>;
   /** A fresh git repository registered as a Workspace; resolves with its id. */
   readonly registerWorkspace: () => Promise<string>;
@@ -33,9 +39,24 @@ const identity = {
   capabilities: [],
 };
 
-const spawnDaemon = (home: string) =>
+/** A port nothing listens on now, so a restarted Daemon's gateway keeps its URL. */
+const freePort = () => {
+  const probe = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch: () => new Response() });
+  const port = probe.port;
+
+  void probe.stop(true);
+
+  return port ?? 0;
+};
+
+const spawnDaemon = (home: string, gatewayPort: number) =>
   Bun.spawn(["bun", DAEMON_MAIN, "serve", "--foreground"], {
-    env: { ...process.env, POLARIS_HOME: home, POLARIS_BENCH_HARNESS: "1" },
+    env: {
+      ...process.env,
+      POLARIS_HOME: home,
+      POLARIS_BENCH_HARNESS: "1",
+      POLARIS_GATEWAY_PORT: String(gatewayPort),
+    },
     stdio: [
       "ignore",
       Bun.file(join(home, "test-daemon.log")),
@@ -49,7 +70,9 @@ export const launchDaemon = async (): Promise<TestDaemon> => {
   // A Unix socket path must stay short.
   const home = mkdtempSync("/tmp/pl-sdk-");
   const socketPath = join(home, "daemon.sock");
-  let child = spawnDaemon(home);
+  const gatewayPort = freePort();
+  const gatewayUrl = `ws://127.0.0.1:${gatewayPort}/polaris/rpc`;
+  let child = spawnDaemon(home, gatewayPort);
   const scope = Effect.runSync(Scope.make());
 
   const connectAdmin = Effect.gen(function* () {
@@ -81,7 +104,8 @@ export const launchDaemon = async (): Promise<TestDaemon> => {
     home,
     socketPath,
     hostId: admin.hostId,
-    pair: async (name, grant) => {
+    gatewayUrl,
+    pair: async (name, grant, via = "socket") => {
       const { pairing, token } = await run((client) =>
         client["extensions.pair"]({ name, grant: [...grant] })
       );
@@ -89,7 +113,7 @@ export const launchDaemon = async (): Promise<TestDaemon> => {
       const encoded = encodePairing({
         hostId: admin.hostId,
         hostName: "Test Host",
-        url: null,
+        url: via === "socket" ? null : gatewayUrl,
         token,
         name,
       });
@@ -143,7 +167,7 @@ export const launchDaemon = async (): Promise<TestDaemon> => {
       await Effect.runPromise(Scope.close(adminScope, Exit.void));
       child.kill("SIGTERM");
       await child.exited;
-      child = spawnDaemon(home);
+      child = spawnDaemon(home, gatewayPort);
       adminScope = Effect.runSync(Scope.make());
       admin = await connectWithRetry(adminScope);
     },

@@ -71,6 +71,7 @@ await polaris.close();
 | `interrupt(hostId, sessionId)` | stop the Turn in flight |
 | `continue(hostId, sessionId)` | continue a Turn the Daemon interrupted when it restarted |
 | `startSession(hostId, { workspaceId, harness, prompt, permissionMode?, worktree?, model? })` | resolves with the new session's id |
+| `transcribe(hostId, audio)` | speech to text through the Host (the `voice` Grant); see Voice |
 | `close()` | close every connection; feeds end |
 
 ### Feeds
@@ -85,6 +86,24 @@ When the connection drops, a feed emits its last view with `connected: false`, r
 backoff and carries on from where it was. A Host that was never reached fails the feed at once
 (`HostUnreachable`), so a wrong pairing doesn't wait forever. Pass `reconnect: false` to end feeds
 on the first drop instead.
+
+## Voice
+
+`transcribe` sends microphone audio to the Host, which relays it to its speech-to-text provider
+with a key that never leaves the Host, and yields what was heard. The audio is raw PCM: 16 kHz
+(`VOICE_SAMPLE_RATE`), signed 16-bit little-endian, mono, in chunks of any size.
+
+```ts
+for await (const { finalText, interimText, finished } of polaris.transcribe(hostId, microphone)) {
+  show(finalText + interimText);
+  if (finished) await polaris.sendTurn(hostId, sessionId, finalText);
+}
+```
+
+Each snapshot replaces the last: `finalText` is settled, `interimText` may still change. Ending
+the audio iterator ends the feed with one `finished` snapshot; breaking out of the loop stops the
+transcription. A transcript becomes a Turn only when you send it. Without a key on the Host the
+feed fails with `VoiceError` (`reason: "no-key"`, and a message saying how to set one).
 
 ## The Effect API
 
@@ -118,12 +137,17 @@ Effect.runPromise(Effect.scoped(program));
 | `InvalidPairing` | a pairing string can't be read (`reason` says why) |
 | `HostUnreachable` | no pairing for the Host connects, or the connection was lost |
 | `ExtensionTokenRejected` | the token is unknown or revoked (`reason`): pair again |
-| `ProtocolMismatch` | the Host's Polaris is too old or too new for this SDK; `update` says which to update |
+| `ProtocolMismatch` | the Host's Polaris is too old or too new for this SDK; `update` says which to update (`"polaris"` or `"extension"`) |
+| `VoiceError` | the Host couldn't transcribe: `reason` is `no-key`, `key-rejected`, `provider-failed`, `busy`… |
+| `AudioFailed` | the audio iterator passed to `transcribe` threw |
 | `NotGranted` | the pairing's Grant doesn't allow it; `needed` names the Grant (null: not for Extensions) |
 | `CommandRejected`, `NotFound` | the Daemon refused the command, or the session or approval is gone |
 | `UnknownHost` | no pairing names that Host |
 
 ## Transports
+
+Every `hello` presents the pairing's token and the protocol versions the SDK speaks
+(`SUPPORTED_PROTOCOL`).
 
 A pairing with a `url` (`ws://127.0.0.1:7477/polaris/rpc` on the Host itself,
 `wss://<host>.<tailnet>.ts.net/polaris/rpc` over Tailscale) uses the gateway; one without uses

@@ -3,18 +3,20 @@
  * client on `ExtensionDaemonRpcs`, and `hello` with the Pairing's token and
  * this SDK's protocol range. A Host with several Pairings tries each in turn.
  */
-import { connectRpcWith } from "@polaris/client/rpc";
+import { type ClientBlobs, connectRpcWith } from "@polaris/client/rpc";
 import {
   type ByteTransport,
   type Capability,
   type ExtensionTokenRejected,
+  decideProtocol,
   ExtensionDaemonRpcs,
   type HostInfo,
+  type ProtocolMismatch,
 } from "@polaris/protocol";
 import { Duration, Effect, Exit, Option, Predicate, Redacted, Scope } from "effect";
 import type { RpcClient, RpcGroup } from "effect/rpc";
 import type { RpcClientError } from "effect/rpc/RpcClientError";
-import { HostUnreachable, ProtocolMismatch } from "./errors.ts";
+import { HostUnreachable } from "./errors.ts";
 import type { ParsedPairing } from "./pairing.ts";
 import { SUPPORTED_PROTOCOL } from "./version.ts";
 
@@ -40,6 +42,8 @@ export interface ConnectOptions {
 /** A connected Host. Closing `scope` closes the connection. */
 export interface Live {
   readonly client: ExtensionClient;
+  /** Offers audio to `voice.transcribe`. */
+  readonly blobs: ClientBlobs;
   readonly host: HostInfo;
   readonly capabilities: ReadonlyArray<Capability>;
   /** Fails when the connection is gone. */
@@ -59,13 +63,7 @@ const unreachable = (hostId: string) => (error: RpcClientError) =>
 
 /** The Daemon's protocol against this SDK's range, or null when it is supported. */
 export const protocolMismatch = (daemon: number): ProtocolMismatch | null =>
-  daemon >= SUPPORTED_PROTOCOL.min && daemon <= SUPPORTED_PROTOCOL.max
-    ? null
-    : new ProtocolMismatch({
-        daemon,
-        extension: SUPPORTED_PROTOCOL,
-        update: daemon < SUPPORTED_PROTOCOL.min ? "polaris" : "extension",
-      });
+  decideProtocol(daemon, SUPPORTED_PROTOCOL, true);
 
 const helloOn = Effect.fnUntraced(function* (
   pairing: ParsedPairing,
@@ -82,6 +80,7 @@ const helloOn = Effect.fnUntraced(function* (
       deviceLabel: pairing.name,
       capabilities: SDK_CAPABILITIES,
       extensionToken: Redacted.make(pairing.token),
+      protocolVersions: SUPPORTED_PROTOCOL,
     })
     .pipe(
       Effect.catchTags({
@@ -111,6 +110,7 @@ const helloOn = Effect.fnUntraced(function* (
 
   return {
     client: connection.client,
+    blobs: connection.blobs,
     host: hello.host,
     capabilities: hello.capabilities,
     lost: connection.lost,

@@ -27,6 +27,7 @@ import { type HostEntry, type HostLink, openLink, type Reconnect, resilientFeed 
 import { decodePairing, type InvalidPairing, type ParsedPairing } from "./pairing.ts";
 import { applySessionItem, sessionView, type SessionView } from "./sessionView.ts";
 import { SDK_VERSION } from "./version.ts";
+import { type TranscribeError, type Transcript, transcribeOn } from "./voice.ts";
 
 export interface PolarisOptions {
   /** Pairing strings (`polaris-pair:v1:…`) or parsed ones; several may name the same Host. */
@@ -106,6 +107,15 @@ export interface Polaris {
     hostId: string,
     input: StartSessionInput
   ) => Effect.Effect<string, DispatchError>;
+  /**
+   * Speech to text through the Host (the `voice` Grant): `audio` is 16 kHz signed 16-bit
+   * little-endian mono PCM in chunks of any size. Each snapshot replaces the last; ending
+   * `audio` ends the stream with a `finished` one, and ending the stream early stops it.
+   */
+  readonly transcribe: <E>(
+    hostId: string,
+    audio: Stream.Stream<Uint8Array, E>
+  ) => Stream.Stream<Transcript, TranscribeError | UnknownHost>;
 }
 
 /** A random id, from `getRandomValues` (also in WebViews that are not a secure context). */
@@ -303,5 +313,7 @@ export const openPolaris = Effect.fn("openPolaris")(function* (
         })
       ).pipe(Effect.as(sessionId));
     },
+    transcribe: (hostId, audio) =>
+      Stream.unwrap(Effect.map(linkOf(hostId), (link) => transcribeOn(link, audio))),
   } satisfies Polaris;
 });

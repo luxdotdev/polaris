@@ -20,6 +20,7 @@ export {
   NotGranted,
   ProtocolMismatch,
   UnknownHost,
+  VoiceError,
 } from "./errors.ts";
 
 export type { HostView, Session, SessionEntry } from "./hostView.ts";
@@ -35,9 +36,11 @@ export {
   parsePairing,
 } from "./pairing.ts";
 
-export { createPolarisWith, type PolarisClient } from "./promise.ts";
+export { AudioFailed, createPolarisWith, type PolarisClient } from "./promise.ts";
 
 export type { SessionView, StreamingText, TurnEntry } from "./sessionView.ts";
+
+export { type TranscribeError, type Transcript, VOICE_SAMPLE_RATE } from "./voice.ts";
 
 export { webSocketTransport } from "./transport/websocket.ts";
 

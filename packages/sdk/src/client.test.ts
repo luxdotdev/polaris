@@ -28,5 +28,5 @@ test("pairings for one Host merge into one entry, tried in the order given", () 
 test("a protocol outside the SDK's range names the side to update", () => {
   expect(protocolMismatch(SUPPORTED_PROTOCOL.max)).toBeNull();
   expect(protocolMismatch(SUPPORTED_PROTOCOL.min - 1)?.update).toBe("polaris");
-  expect(protocolMismatch(SUPPORTED_PROTOCOL.max + 1)?.message).toContain("update the Extension");
+  expect(protocolMismatch(SUPPORTED_PROTOCOL.max + 1)?.message).toContain("Update the Extension");
 });

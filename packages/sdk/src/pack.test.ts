@@ -98,6 +98,30 @@ await polaris.close();
   expect(result.exitCode).toBe(0);
 }, 60_000);
 
+test("the browser build reads a Host over the gateway and refuses the local socket", async () => {
+  const gateway = await daemon.pair("Browser", ["read"], "gateway");
+  const local = await daemon.pair("Browser local", ["read"]);
+
+  // The browser build in a runtime with a global WebSocket and no Node modules in its path.
+  writeFileSync(
+    join(project, "browser.mjs"),
+    `import { createPolaris } from "./node_modules/@polaris/sdk/browser.js";
+const polaris = await createPolaris({ pairings: [process.env.GATEWAY], clientName: "browser" });
+for await (const view of polaris.subscribeHost(polaris.hosts[0].hostId)) {
+  console.log(JSON.stringify({ connected: view.connected }));
+  break;
+}
+await polaris.close();
+const local = await createPolaris({ pairings: [process.env.LOCAL], clientName: "browser" });
+await local.connect(local.hosts[0].hostId).catch((error) => console.log(error._tag));
+await local.close();
+`
+  );
+  const result = run(["bun", "browser.mjs"], project, { GATEWAY: gateway, LOCAL: local });
+
+  expect(result.output.trim().split("\n")).toEqual(['{"connected":true}', "HostUnreachable"]);
+}, 60_000);
+
 test("a consumer typechecks against the declarations, with the domain types intact", () => {
   writeFileSync(
     join(project, "consumer.ts"),

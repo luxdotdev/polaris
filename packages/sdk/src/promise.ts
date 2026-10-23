@@ -4,7 +4,7 @@
  * with (`NotGranted`, `HostUnreachable`…), thrown or rejected.
  */
 import type { HostInfo } from "@polaris/protocol";
-import { Effect, Exit, Scope, Stream } from "effect";
+import { Data, Effect, Exit, Scope, Stream } from "effect";
 import {
   type ApprovalResponse,
   openPolaris,
@@ -17,6 +17,10 @@ import type { OpenTransport } from "./connection.ts";
 import type { HostView } from "./hostView.ts";
 import type { HostEntry } from "./link.ts";
 import type { SessionView } from "./sessionView.ts";
+import type { Transcript } from "./voice.ts";
+
+/** The audio an Extension passed to `transcribe` failed; the transcription ends. */
+export class AudioFailed extends Data.TaggedError("AudioFailed")<{ readonly cause: unknown }> {}
 
 export interface PolarisClient {
   readonly hosts: ReadonlyArray<HostEntry>;
@@ -40,6 +44,11 @@ export interface PolarisClient {
   continue(hostId: string, sessionId: string): Promise<void>;
   /** Resolves with the new session's id. */
   startSession(hostId: string, input: StartSessionInput): Promise<string>;
+  /**
+   * Speech to text through the Host: `audio` is 16 kHz signed 16-bit little-endian mono
+   * PCM. Snapshots arrive as the provider hears; the last one has `finished`.
+   */
+  transcribe(hostId: string, audio: AsyncIterable<Uint8Array>): AsyncIterable<Transcript>;
   /** Closes every connection; open feeds end. */
   close(): Promise<void>;
 }
@@ -59,6 +68,13 @@ export const promiseClient = (polaris: Polaris, scope: Scope.Closeable): Polaris
   interrupt: (hostId, sessionId) => Effect.runPromise(polaris.interrupt(hostId, sessionId)),
   continue: (hostId, sessionId) => Effect.runPromise(polaris.continue(hostId, sessionId)),
   startSession: (hostId, input) => Effect.runPromise(polaris.startSession(hostId, input)),
+  transcribe: (hostId, audio) =>
+    Stream.toAsyncIterable(
+      polaris.transcribe(
+        hostId,
+        Stream.fromAsyncIterable(audio, (cause) => new AudioFailed({ cause }))
+      )
+    ),
   close: () => Effect.runPromise(Scope.close(scope, Exit.void)),
 });
 

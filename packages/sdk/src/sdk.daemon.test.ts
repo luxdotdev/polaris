@@ -15,6 +15,8 @@ import {
   openPolaris,
   type PolarisClient,
   type SessionView,
+  type Transcript,
+  VoiceError,
 } from "./index.ts";
 
 let daemon: TestDaemon;
@@ -73,60 +75,63 @@ const rejection = async <Expected>(
 /** A bench Harness Turn: one item, behind an approval, no pacing. */
 const APPROVAL_PROMPT = 'bench:{"items":1,"approvalEvery":1,"deltaIntervalMs":0}';
 
-describe("an Extension with every Grant", () => {
-  let polaris: PolarisClient;
-  let workspaceId: string;
+describe.each(["socket", "gateway"] as const)(
+  "an Extension with every Grant, over the %s",
+  (via) => {
+    let polaris: PolarisClient;
+    let workspaceId: string;
 
-  beforeAll(async () => {
-    workspaceId = await daemon.registerWorkspace();
-    polaris = await client(await daemon.pair("Full", ["read", "approve", "turn", "start"]));
-  }, 30_000);
+    beforeAll(async () => {
+      workspaceId = await daemon.registerWorkspace();
+      polaris = await client(await daemon.pair("Full", ["read", "approve", "turn", "start"], via));
+    }, 30_000);
 
-  test("sees the Host's Workspaces", async () => {
-    const view = await until(polaris.subscribeHost(daemon.hostId), (v) =>
-      v.workspaces.some((w) => w.id === workspaceId)
-    );
+    test("sees the Host's Workspaces", async () => {
+      const view = await until(polaris.subscribeHost(daemon.hostId), (v) =>
+        v.workspaces.some((w) => w.id === workspaceId)
+      );
 
-    expect(view.connected).toBe(true);
-    expect(polaris.hosts.map((host) => host.hostId)).toEqual([daemon.hostId]);
-  }, 30_000);
+      expect(view.connected).toBe(true);
+      expect(polaris.hosts.map((host) => host.hostId)).toEqual([daemon.hostId]);
+    }, 30_000);
 
-  test("starts a session, answers its approval and sends a Turn", async () => {
-    const sessionId = await polaris.startSession(daemon.hostId, {
-      workspaceId,
-      harness: "claude",
-      prompt: APPROVAL_PROMPT,
-    });
+    test("starts a session, answers its approval and sends a Turn", async () => {
+      const sessionId = await polaris.startSession(daemon.hostId, {
+        workspaceId,
+        harness: "claude",
+        prompt: APPROVAL_PROMPT,
+      });
 
-    const waiting = await until(polaris.subscribeHost(daemon.hostId), (v: HostView) =>
-      v.approvals.some((a) => a.sessionId === sessionId)
-    );
+      const waiting = await until(polaris.subscribeHost(daemon.hostId), (v: HostView) =>
+        v.approvals.some((a) => a.sessionId === sessionId)
+      );
 
-    const approval = waiting.approvals.find((a) => a.sessionId === sessionId);
+      const approval = waiting.approvals.find((a) => a.sessionId === sessionId);
 
-    if (approval === undefined) throw new Error("no approval");
-    await polaris.respondToApproval(daemon.hostId, sessionId, approval.id, { kind: "allow" });
+      if (approval === undefined) throw new Error("no approval");
+      await polaris.respondToApproval(daemon.hostId, sessionId, approval.id, { kind: "allow" });
 
-    const first = await until(
-      polaris.subscribeSession(daemon.hostId, sessionId),
-      (v: SessionView) =>
-        v.session.state === "idle" &&
-        v.turns[0]?.items.length === 1 &&
-        v.pendingApprovals.length === 0
-    );
+      const first = await until(
+        polaris.subscribeSession(daemon.hostId, sessionId),
+        (v: SessionView) =>
+          v.session.state === "idle" &&
+          v.turns[0]?.items.length === 1 &&
+          v.pendingApprovals.length === 0
+      );
 
-    expect(first.turns.map((t) => t.turn.prompt)).toEqual([APPROVAL_PROMPT]);
+      expect(first.turns.map((t) => t.turn.prompt)).toEqual([APPROVAL_PROMPT]);
 
-    await polaris.sendTurn(daemon.hostId, sessionId, "and again");
+      await polaris.sendTurn(daemon.hostId, sessionId, "and again");
 
-    const second = await until(
-      polaris.subscribeSession(daemon.hostId, sessionId),
-      (v: SessionView) => v.turns.length === 2 && v.session.state === "idle"
-    );
+      const second = await until(
+        polaris.subscribeSession(daemon.hostId, sessionId),
+        (v: SessionView) => v.turns.length === 2 && v.session.state === "idle"
+      );
 
-    expect(second.turns.map((t) => t.turn.prompt)).toEqual([APPROVAL_PROMPT, "and again"]);
-  }, 60_000);
-});
+      expect(second.turns.map((t) => t.turn.prompt)).toEqual([APPROVAL_PROMPT, "and again"]);
+    }, 60_000);
+  }
+);
 
 describe("an Extension with read only", () => {
   test("is refused a Turn with the Grant it lacks, through both APIs", async () => {
@@ -187,3 +192,40 @@ test("a Host feed reconnects after the Daemon restarts and keeps applying events
   expect(views.at(-1)?.connected).toBe(true);
   await feed.return?.();
 }, 60_000);
+
+describe("transcribe", () => {
+  /** Half a second of silence, in the 16 kHz s16le mono PCM `transcribe` takes. */
+  async function* silence() {
+    for (let chunk = 0; chunk < 5; chunk++) yield new Uint8Array(3200);
+  }
+
+  const collect = async (feed: AsyncIterable<Transcript>) => {
+    const seen: Array<Transcript> = [];
+
+    for await (const transcript of feed) seen.push(transcript);
+
+    return seen;
+  };
+
+  test("reaches the Host's voice relay over the gateway, which says no key is set", async () => {
+    const polaris = await client(await daemon.pair("Voice", ["voice"], "gateway"));
+
+    const error = await rejection(
+      collect(polaris.transcribe(daemon.hostId, silence())),
+      VoiceError
+    );
+
+    expect(error.reason).toBe("no-key");
+  }, 30_000);
+
+  test("without the voice Grant is refused with the Grant it lacks", async () => {
+    const polaris = await client(await daemon.pair("No voice", ["read"], "gateway"));
+
+    const error = await rejection(
+      collect(polaris.transcribe(daemon.hostId, silence())),
+      NotGranted
+    );
+
+    expect(error.needed).toBe("voice");
+  }, 30_000);
+});
