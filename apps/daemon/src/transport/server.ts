@@ -28,6 +28,7 @@ import { ExtensionConnections, grantGateFor } from "../extensions/connection.ts"
 import { type RunningGateway, startGateway } from "../gateway/index.ts";
 import { connectionRejected, rejectConnection } from "../extensions/admission.ts";
 import { Pairings } from "../extensions/pairings.ts";
+import { RemoteAccessNone } from "../extensions/remoteAccess.ts";
 import { paths } from "../paths.ts";
 import { CommandRunner } from "../service/CommandRunner.ts";
 import { takeStopRecord } from "../service/daemonStop.ts";
@@ -197,7 +198,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
           )
         )
       ),
-      Layer.succeed(ExtensionConnections)(extensionConnections)
+      Layer.merge(Layer.succeed(ExtensionConnections)(extensionConnections), RemoteAccessNone)
     );
 
     const disconnects = yield* Queue.unbounded<number>();

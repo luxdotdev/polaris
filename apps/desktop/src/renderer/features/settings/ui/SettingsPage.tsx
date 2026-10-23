@@ -16,6 +16,7 @@ import {
   Kbd,
   PaperclipIcon,
   PixelPolarisIcon,
+  PlugIcon,
   ServerIcon,
   UsersIcon,
 } from "@polaris/ui";
@@ -26,6 +27,7 @@ import { useShellActions } from "../../../shell/hooks.ts";
 import { SECTION_GROUPS, sectionInfo } from "../model/sections.ts";
 import { useSettings } from "../store.ts";
 import { AttachmentsPage } from "../../attachments/index.ts";
+import { ExtensionsPage } from "../../extensions/index.ts";
 import { useUpdates } from "../updates/store.ts";
 import { AboutPage } from "./AboutPage.tsx";
 import { AppearancePage } from "./AppearancePage.tsx";
@@ -48,6 +50,7 @@ const ICONS: Readonly<Record<SettingsSection, ReactNode>> = {
   usage: <ChartColumnIcon />,
   hosts: <ServerIcon />,
   attachments: <PaperclipIcon />,
+  extensions: <PlugIcon />,
   voice: <MicrophoneIcon />,
   reviewer: <AsteriskIcon />,
   github: <UsersIcon />,
@@ -173,6 +176,8 @@ const Page = ({ route }: { readonly route: SettingsRoute }) => {
       return <slots.SettingsHosts adding={route.adding} />;
     case "attachments":
       return <AttachmentsPage />;
+    case "extensions":
+      return <ExtensionsPage />;
     case "voice":
       return <VoicePage />;
     case "reviewer":

@@ -22,6 +22,8 @@ import type {
   AttachmentUsage,
   StagedAmount,
   Capability,
+  PairExtension,
+  Pairing,
   ConnectionState,
   FileChangeEvent,
   FileEntry,
@@ -469,6 +471,9 @@ export interface RequestOutputs
   };
   "attachments.setSettings": null;
   "attachments.clear": Plain<StagedAmount>;
+  "extensions.list": ReadonlyArray<Plain<Pairing>>;
+  "extensions.pair": Rpc.Success<typeof PairExtension>;
+  "extensions.revoke": Plain<Pairing>;
   "sessions.autoArchive": Plain<AutoArchiveSettings>;
   "sessions.setAutoArchive": null;
   "review.runRiskSummary": Rpc.Success<typeof RunRiskSummary>;

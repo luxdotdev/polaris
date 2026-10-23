@@ -23,6 +23,7 @@ import { constellationSetupFlow } from "./lib/constellationSetupFlow.ts";
 import { remoteFlow } from "./lib/remoteFlow.ts";
 import { settingsFlow } from "./lib/settingsFlow.ts";
 import { attachmentsFlow } from "./lib/attachmentsFlow.ts";
+import { extensionsFlow } from "./lib/extensionsFlow.ts";
 import { composerFlow } from "./lib/composerFlow.ts";
 import { editorLinksFlow } from "./lib/editorLinksFlow.ts";
 import { imageAfterRelaunch, sendImage } from "./lib/previewFlow.ts";
@@ -499,6 +500,7 @@ try {
   await settingsFlow({ app, page, step, shoot: (name) => shoot(page, name) });
   await terminalFlow({ page, step, shoot: (name) => shoot(page, name) });
   await attachmentsFlow({ app, page, step, shoot: (name) => shoot(page, name) });
+  await extensionsFlow({ app, page, step, shoot: (name) => shoot(page, name) });
   await explorerFlow({ page, step, shoot: (name) => shoot(page, name) });
   await timeSwitches(page);
   await jumpByTyping(page);

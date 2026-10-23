@@ -16,6 +16,7 @@ import {
   CommitGranularity,
   ConstellationId,
   GitDiffSpec,
+  Grant,
   HarnessKind,
   PermissionMode,
   ReviewCheckoutId,
@@ -24,6 +25,7 @@ import {
   ReviewSubject,
   RiskFindingId,
   InlineRequest,
+  PairingId,
   RiskSummaryId,
   RiskSummaryRef,
   Sequence,
@@ -340,6 +342,10 @@ export const RequestInputs = {
   "sessions.setAutoArchive": onHost({ settings: AutoArchiveSettings }),
   /** Deletes staged attachments now: one Workspace's, or all of them (null). */
   "attachments.clear": onHost({ workspaceId: Schema.NullOr(WorkspaceId) }),
+  /** Settings → Extensions: a Host's Pairings; pairing returns the token once. */
+  "extensions.list": onHost({}),
+  "extensions.pair": onHost({ name: Schema.String, grant: Grant }),
+  "extensions.revoke": onHost({ id: PairingId }),
   /** Start a Risk Summary (Rules, then the Reviewer), or answer the cached one. */
   "review.runRiskSummary": onHost({
     workspaceId: WorkspaceId,
