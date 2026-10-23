@@ -41,6 +41,7 @@
       "devDependencies": {
         "@agentclientprotocol/sdk": "1.5.1",
         "@modelcontextprotocol/sdk": "1.30.1",
+        "@polaris/sdk": "workspace:*",
         "fast-check": "4.10.2",
       },
       "optionalDependencies": {
@@ -205,6 +206,17 @@
       "version": "0.0.0",
       "dependencies": {
         "effect": "4.0.0-rc.118",
+      },
+    },
+    "packages/sdk": {
+      "name": "@polaris/sdk",
+      "version": "0.1.0",
+      "dependencies": {
+        "effect": "4.0.0-rc.118",
+      },
+      "devDependencies": {
+        "@polaris/client": "workspace:*",
+        "@polaris/protocol": "workspace:*",
       },
     },
     "packages/spec": {
@@ -896,6 +908,8 @@
     "@polaris/predict": ["@polaris/predict@workspace:packages/predict"],
 
     "@polaris/protocol": ["@polaris/protocol@workspace:packages/protocol"],
+
+    "@polaris/sdk": ["@polaris/sdk@workspace:packages/sdk"],
 
     "@polaris/site": ["@polaris/site@workspace:apps/site"],
 
