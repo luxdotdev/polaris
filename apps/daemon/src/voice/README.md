@@ -11,7 +11,7 @@ the stream with one `finished` snapshot; ending the RPC early stops the provider
 | `provider.ts` | `VoiceProvider` (audio in, interim and final results out) and `snapshots`, the fold into `VoiceTranscript`s. |
 | `deepgram.ts` | Deepgram's streaming API: `wss://api.deepgram.com/v1/listen`, linear16 at 16000, the key as `Authorization: Token …`, `CloseStream` at the end, `KeepAlive` during pauses. A 401/403 handshake is `key-rejected`. |
 | `keys.ts` | The provider's key in `HostSecrets` (`secrets/`, ADR 0079): read per transcription, checked when set, `no-key` with how to set one. |
-| `VoiceRpcs.ts` | The handlers for `voice.transcribe`, `voice.settings` and `voice.setKey`. |
+| `VoiceRpcs.ts` | The handlers for `voice.transcribe`, `voice.settings` and `voice.setKey`; at most `MAX_TRANSCRIPTIONS` (4) at once per Host, then `busy`, since each is a provider connection billed to the key. |
 | `cli.ts` | `polaris voice key set|clear|status`; `set` reads the key from stdin, hidden on a terminal. |
 
 `voice.settings` and `voice.setKey` are Client-only (`grants.ts`): Extensions never see or change
