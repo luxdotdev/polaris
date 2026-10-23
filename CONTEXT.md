@@ -25,6 +25,22 @@ _Avoid_: IDE window, workspace window
 **Mobile App**:
 A future phone Client for starting and supervising Agent Sessions on a Host.
 
+**Extension**:
+A program outside Polaris, written by the user or a third party, that reads and drives Daemons through the published SDK, such as a Raycast extension or a smart-glasses app; it can do only what the user allowed it.
+_Avoid_: Plugin (that is a Harness's), add-on, integration
+
+**Pairing**:
+An Extension's link to one Host, made once by the user and revocable at any time; an Extension that sees several Hosts has one Pairing per Host.
+_Avoid_: Connection (that is a Client's), login
+
+**Grant**:
+What a Pairing allows its Extension to do on that Host: read, approve, send Turns, start Agent Sessions, or use voice. Anything outside it is refused.
+_Avoid_: Permission (that is a Harness's permission mode), scope
+
+**Remote Access**:
+A Host the user has made reachable from their other devices over Tailscale, so that Extensions away from it can pair with it; off until the user turns it on.
+_Avoid_: Port forwarding, tunnel
+
 **Connection State**:
 How a Client's link to one Host's Daemon stands right now: exactly one of Connected, Reconnecting, Needs Attention, or Offline; independent of any Session State on that Host.
 _Avoid_: Status (unqualified), online/offline (as the only states)
