@@ -133,6 +133,166 @@ describe("findTailscale", () => {
 });
 
 describe("Remote Access", () => {
+  test.each([
+    ["text", "/polaris", { Text: "hello" }],
+    ["file", "/polaris", { Path: "/srv/file.txt" }],
+    ["directory", "/polaris/", { Path: "/srv/files" }],
+  ] as const)(
+    "a %s handler reads as exposed and off removes only that mount",
+    async (_, mount, handler) => {
+      writeFileSync(
+        join(dir, "serve.json"),
+        JSON.stringify({
+          Web: {
+            [`${HOST}:443`]: {
+              Handlers: { [mount]: handler, "/": { Proxy: "http://127.0.0.1:3773" } },
+            },
+          },
+        })
+      );
+      const access = remoteAccess();
+
+      expect(await Effect.runPromise(access.status)).toMatchObject({
+        state: "on",
+        url: null,
+        reason: "serving-elsewhere",
+      });
+      expect(await Effect.runPromise(access.disable)).toMatchObject({ state: "off", url: null });
+      expect(handlers()).toEqual({ "/": { Proxy: "http://127.0.0.1:3773" } });
+    }
+  );
+
+  test.each(["not json", '{"Web":[]}', '{"Web":{"bad":null}}'])(
+    "unreadable serve output %s never reads as off or allows enable",
+    async (json) => {
+      writeFileSync(join(dir, "serve.json"), json);
+      const access = remoteAccess();
+
+      expect(await Effect.runPromise(access.status)).toMatchObject({
+        state: "unavailable",
+        reason: "failed",
+      });
+      expect((await Effect.runPromise(Effect.flip(access.enable))).reason).toBe("failed");
+      expect(serveCalls()).toEqual([]);
+    }
+  );
+
+  test.each([false, true])(
+    "Funnel is preserved and never published as a pairing URL (Polaris served: %s)",
+    async (served) => {
+      const port = startGateway();
+
+      const configuredHandlers = new Map([["/", { Proxy: "http://127.0.0.1:3773" }]]);
+
+      if (served) configuredHandlers.set("/polaris", { Proxy: `http://127.0.0.1:${port}/polaris` });
+
+      const config = JSON.stringify({
+        TCP: { "443": { HTTPS: true } },
+        AllowFunnel: { [`${HOST}:443`]: true },
+        Web: {
+          [`${HOST}:443`]: {
+            Handlers: Object.fromEntries(configuredHandlers),
+          },
+        },
+      });
+
+      writeFileSync(join(dir, "serve.json"), config);
+      const access = remoteAccess();
+
+      expect(await Effect.runPromise(access.status)).toMatchObject({
+        state: served ? "on" : "off",
+        reason: "funnel-on",
+        url: null,
+      });
+      expect((await Effect.runPromise(Effect.flip(access.enable))).reason).toBe("funnel-on");
+      expect(readFileSync(join(dir, "serve.json"), "utf8")).toBe(config);
+      expect(serveCalls()).toEqual([]);
+
+      if (served) {
+        expect(await Effect.runPromise(access.disable)).toMatchObject({
+          state: "off",
+          reason: "funnel-on",
+        });
+        expect(JSON.parse(readFileSync(join(dir, "serve.json"), "utf8"))).toEqual({
+          TCP: { "443": { HTTPS: true } },
+          AllowFunnel: { [`${HOST}:443`]: true },
+          Web: { [`${HOST}:443`]: { Handlers: { "/": { Proxy: "http://127.0.0.1:3773" } } } },
+        });
+      }
+    }
+  );
+
+  test.each(["foreground", "http"] as const)(
+    "a %s listener on 443 is preserved, including when Polaris is already served",
+    async (kind) => {
+      const port = startGateway();
+
+      const occupied =
+        kind === "foreground"
+          ? {
+              Foreground: {
+                session: {
+                  TCP: { "443": { HTTPS: true } },
+                  Web: {
+                    [`${HOST}:443`]: { Handlers: { "/": { Proxy: "http://127.0.0.1:3773" } } },
+                  },
+                },
+              },
+            }
+          : { TCP: { "443": { HTTP: true } } };
+
+      for (const served of [false, true]) {
+        const config = JSON.stringify({
+          ...occupied,
+          Web: {
+            [`${HOST}:443`]: {
+              Handlers: served
+                ? { "/polaris": { Proxy: `http://127.0.0.1:${port}/polaris` } }
+                : { "/": { Proxy: "http://127.0.0.1:3773" } },
+            },
+          },
+        });
+
+        writeFileSync(join(dir, "serve.json"), config);
+        const access = remoteAccess();
+
+        expect(await Effect.runPromise(access.status)).toMatchObject(
+          served
+            ? { state: "on", reason: null, url: `wss://${HOST}/polaris/rpc` }
+            : { state: "unavailable", reason: "port-in-use", url: null }
+        );
+        expect((await Effect.runPromise(Effect.flip(access.enable))).reason).toBe("port-in-use");
+        expect((await Effect.runPromise(Effect.flip(access.disable))).reason).toBe("port-in-use");
+        expect(readFileSync(join(dir, "serve.json"), "utf8")).toBe(config);
+        expect(serveCalls()).toEqual([]);
+      }
+    }
+  );
+
+  test("a redirect to a gateway holding the secret does not prove the recorded port", async () => {
+    const secret = newSecret();
+    const real = serveIdentity((challenge) => macOf(secret, challenge));
+
+    void gateway.stop(true);
+    gateway = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch: () => Response.redirect(`http://127.0.0.1:${real.port}/polaris/identity`, 307),
+    });
+    record(gateway.port, secret);
+
+    try {
+      const access = remoteAccess();
+
+      expect((await Effect.runPromise(Effect.flip(access.enable))).reason).toBe(
+        "gateway-not-running"
+      );
+      expect(serveCalls()).toEqual([]);
+    } finally {
+      void real.stop(true);
+    }
+  });
+
   test("turning on serves the gateway's path with the prefix put back, then reports its URL", async () => {
     const port = startGateway();
     const access = remoteAccess();

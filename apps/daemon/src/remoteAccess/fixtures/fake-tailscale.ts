@@ -25,11 +25,21 @@ const failWith = (name: string) => {
 };
 
 const Serve = Schema.Struct({
+  Foreground: Schema.optional(Schema.Unknown),
+  AllowFunnel: Schema.optional(Schema.Record(Schema.String, Schema.Boolean)),
+  TCP: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
   Web: Schema.optional(
     Schema.Record(
       Schema.String,
       Schema.Struct({
-        Handlers: Schema.Record(Schema.String, Schema.Struct({ Proxy: Schema.String })),
+        Handlers: Schema.Record(
+          Schema.String,
+          Schema.Struct({
+            Proxy: Schema.optional(Schema.String),
+            Path: Schema.optional(Schema.String),
+            Text: Schema.optional(Schema.String),
+          })
+        ),
       })
     )
   ),
@@ -53,13 +63,16 @@ if (args[0] === "status") {
   failWith("status.fail");
   process.stdout.write(readFileSync(file("status.json"), "utf8"));
 } else if (args[0] === "serve" && args[1] === "status") {
-  process.stdout.write(JSON.stringify(readServe()));
+  process.stdout.write(
+    existsSync(file("serve.json")) ? readFileSync(file("serve.json"), "utf8") : "{}"
+  );
 } else if (args[0] === "serve") {
   failWith("serve.fail");
   const path = args[args.indexOf("--set-path") + 1] ?? "/";
   const serve = readServe();
   const key = `${host()}:443`;
   const handlers = { ...serve.Web?.[key]?.Handlers };
+  const funnel = { ...serve.AllowFunnel };
 
   if (args.at(-1) === "off") {
     if (handlers[path] === undefined) {
@@ -69,12 +82,20 @@ if (args[0] === "status") {
 
     delete handlers[path];
   } else {
+    delete handlers[`${path}/`];
     handlers[path] = { Proxy: args.at(-1) ?? "" };
+
+    // Serve clears Funnel for the listener, even when other paths still use it.
+    delete funnel[key];
   }
 
   writeFileSync(
     file("serve.json"),
-    JSON.stringify({ Web: { ...serve.Web, [key]: { Handlers: handlers } } })
+    JSON.stringify({
+      ...serve,
+      AllowFunnel: funnel,
+      Web: { ...serve.Web, [key]: { Handlers: handlers } },
+    })
   );
 } else {
   process.exit(2);

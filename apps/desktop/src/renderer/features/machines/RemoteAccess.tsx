@@ -19,6 +19,10 @@ const REASONS: Record<NonNullable<Status["reason"]>, string> = {
   "not-installed": "Install Tailscale on this host to turn it on.",
   "not-running": "Start Tailscale on this host to turn it on.",
   "not-logged-in": "Log in to Tailscale on this host to turn it on.",
+  "port-in-use":
+    "Tailscale already uses port 443 on this host for something else. Stop it before turning on remote access.",
+  "funnel-on":
+    "Tailscale Funnel is on for port 443 on this host. Turning on remote access would turn it off, so Polaris leaves it alone.",
   "https-disabled": "Enable HTTPS certificates for your tailnet in the Tailscale admin console.",
   "needs-operator": "Run `sudo tailscale set --operator=$USER` on this host once.",
   "gateway-not-running": "The gateway isn't running on this host. Restart its daemon.",
