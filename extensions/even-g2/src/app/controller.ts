@@ -67,6 +67,7 @@ export const startApp = (options: AppOptions): App => {
   let pairings: ReadonlyArray<string> = [];
   let client: PolarisClient | null = null;
   let generation = 0;
+  let closed = false;
   let detail: { readonly key: string; readonly stop: () => void } | null = null;
   let voice: Listening | null = null;
 
@@ -74,6 +75,7 @@ export const startApp = (options: AppOptions): App => {
     state.hosts.find((host) => host.hostId === hostId)?.hostName ?? "the host";
 
   const set = (next: AppState) => {
+    if (closed) return;
     state = next;
     renderer.show(layout(state));
     followSession();
@@ -210,6 +212,10 @@ export const startApp = (options: AppOptions): App => {
     if (event.kind === "audio") return voice?.push(event.pcm);
 
     if (event.kind === "exited") return void close();
+    // Releases and cancellation remain available while BLE is drawing the next page.
+
+    if ((event.kind === "click" || event.kind === "long-press") && !renderer.matches(layout(state)))
+      return;
     const [next, act] = onInput(state, event);
 
     set(next);
@@ -220,8 +226,9 @@ export const startApp = (options: AppOptions): App => {
   const unsubscribe = glasses.onEvent(onEvent);
 
   const disconnect = async () => {
-    generation++;
     voice?.cancel();
+
+    if (voice !== null) set(onVoiceFailed(state, "Connection changed. Retry your reply."));
     voice = null;
     detail?.stop();
     detail = null;
@@ -250,10 +257,11 @@ export const startApp = (options: AppOptions): App => {
 
   /** Resolves once connected (or refused); the Hosts feed runs on. */
   const connect = async () => {
+    if (closed) return;
+    const mine = ++generation;
     await disconnect();
-    const mine = generation;
 
-    if (pairings.length === 0) return;
+    if (mine !== generation || closed || pairings.length === 0) return;
     links.clear();
     log(`connecting to ${pairings.length} host${pairings.length === 1 ? "" : "s"}`);
 
@@ -279,7 +287,10 @@ export const startApp = (options: AppOptions): App => {
   };
 
   const close = async () => {
+    closed = true;
+    generation++;
     unsubscribe();
+    renderer.close();
     await disconnect();
   };
 
@@ -287,6 +298,7 @@ export const startApp = (options: AppOptions): App => {
 
   return {
     pair: (next) => {
+      if (closed) return Promise.resolve();
       pairings = next;
       set(initialState(next.length > 0));
 

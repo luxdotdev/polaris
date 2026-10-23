@@ -16,15 +16,17 @@ even-realities/evenhub-templates@8cb01354 (MIT; see `ATTRIBUTION.md`).
 
 An approval that arrives while the app is open jumps to the front, unless you are speaking; then it
 jumps once the voice screen closes. Voice streams the glasses' microphone (16 kHz s16le mono PCM)
-to the Host's `transcribe`, so the speech-to-text key stays on the Host. Nothing is sent until you
-choose Send; a transcript sent while a question is open answers it, otherwise it is a new Turn.
+to the Host's `transcribe`, so the speech-to-text key stays on the Host. The transcript reaches an Agent Session only after you
+choose Send on the glasses. It answers the question open when recording began, otherwise it is a new
+Turn. If the question changes before Send, cancel and open the session again.
 
 The OS takes a tap followed by a hold for its own menu, so "Speak a reply" in the actions does the
 same as holding.
 
 The glasses redraw at most every 120 ms. Text changes update in place; a new list or layout rebuilds
 the page. When the WebView comes back from the background, the app drops its connections and opens
-them again.
+them again. An interrupted recording offers Retry. Audio waiting for the Host is bounded; if it
+falls behind, recording stops and asks you to retry.
 
 ## On the phone
 

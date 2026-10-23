@@ -346,3 +346,29 @@ describe("the glasses' limits, which count UTF-8 bytes", () => {
     }
   });
 });
+
+test.each([null, "original"])(
+  "voice keeps its original target (%s) if a question changes before Send",
+  (requestId) => {
+    const key = { hostId: "h", sessionId: "s" };
+    const original = requestId === null ? [] : [approval(requestId, "s", { kind: "question" })];
+    const base = onHosts(initialState(true), [host("h", [entry(session("s", "idle"), original)])]);
+
+    const listening = press(
+      { ...base, screen: { kind: "session", key } },
+      { kind: "long-press" }
+    ).state;
+
+    const heard = onTranscript(listening, { finalText: "yes", interimText: "", finished: true });
+
+    const changed = onHosts(heard, [
+      host("h", [entry(session("s", "needs-you"), [approval("new", "s", { kind: "question" })])]),
+    ]);
+
+    const sent = press(changed, click(0));
+    expect(sent.acts).toEqual([]);
+    expect(sent.state.screen).toMatchObject({
+      voice: { phase: "failed", error: "The question changed. Cancel and open the session again." },
+    });
+  }
+);

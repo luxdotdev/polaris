@@ -23,6 +23,8 @@ export interface GatewayTransport extends ByteTransport {
   readonly summary: () => string;
 }
 
+import { gatewayLogText } from "./log.ts";
+
 type Callback = (error?: Error | null) => void;
 
 /** Close codes the gateway sends (RFC 6455 §7.4.1). */
@@ -97,7 +99,7 @@ export class GatewaySocketStream extends EventEmitter {
   }
 
   refuse(code: number, reason: string): void {
-    this.ending ??= `the Daemon closed it (${code} ${reason})`;
+    this.ending ??= `the Daemon closed it (${code} ${gatewayLogText(reason, 80)})`;
     this.socket.close(code, reason);
     this.closed();
   }
@@ -146,7 +148,7 @@ export class GatewaySocketStream extends EventEmitter {
 
   /** The peer's close frame, or the socket dropping without one (1006). */
   peerClosed(code: number, reason: string): void {
-    this.ending ??= `the peer closed it (${code}${reason === "" ? "" : ` ${reason}`})`;
+    this.ending ??= `the peer closed it (${code}${reason === "" ? "" : ` ${gatewayLogText(reason, 80)}`})`;
     this.closed();
   }
 

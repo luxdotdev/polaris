@@ -1,7 +1,4 @@
-/**
- * One push-to-talk transcription: the glasses' microphone streams into the
- * Host's `transcribe` until it is stopped, cancelled or fails.
- */
+/** One push-to-talk transcription, with bounded audio and ordered microphone cleanup. */
 import type { PolarisClient, Transcript } from "@polaris/sdk";
 import type { Glasses } from "../glasses/bridge.ts";
 import { audioFeed } from "../voice/audio.ts";
@@ -13,9 +10,7 @@ export interface VoiceCallbacks {
 
 export interface Listening {
   readonly push: (pcm: Uint8Array) => void;
-  /** Ends the audio; the Host then sends its last, finished transcript. */
   readonly stop: () => void;
-  /** Stops at once; nothing more is reported. */
   readonly cancel: () => void;
 }
 
@@ -23,39 +18,79 @@ export class MicrophoneOff extends Error {
   override readonly message = "The glasses microphone didn't start";
 }
 
+// A retry waits for the preceding recording's microphone to turn off.
+const microphones = new WeakMap<Glasses, Promise<void>>();
+
 export const listen = (
   glasses: Glasses,
-  polaris: PolarisClient,
+  polaris: Pick<PolarisClient, "transcribe">,
   hostId: string,
   callbacks: VoiceCallbacks
 ): Listening => {
   const feed = audioFeed();
-  const transcripts = polaris.transcribe(hostId, feed)[Symbol.asyncIterator]();
+  const previous = microphones.get(glasses) ?? Promise.resolve();
+  const released = Promise.withResolvers<void>();
+  microphones.set(glasses, released.promise);
+  let transcripts: AsyncIterator<Transcript> | null = null;
   let live = true;
+  let stopped = false;
+  let turningOff: Promise<void> | null = null;
   let last: Transcript = { finalText: "", interimText: "", finished: false };
 
+  const started = previous.then(async () => {
+    if (!live || stopped) return;
+
+    if (!(await glasses.microphone(true))) throw new MicrophoneOff();
+  });
+
   const stopMicrophone = () => {
+    stopped = true;
     feed.end();
-    void glasses.microphone(false);
+    turningOff ??= started
+      .catch(() => undefined)
+      .then(async () => {
+        try {
+          await glasses.microphone(false);
+        } finally {
+          released.resolve();
+        }
+      });
+    // A bridge failure must not become an unhandled rejection or block the next recording.
+    void turningOff.catch(() => undefined);
+  };
+
+  const cancel = () => {
+    live = false;
+    feed.cancel();
+    stopMicrophone();
+    void transcripts?.return?.().catch(() => undefined);
   };
 
   const run = async () => {
-    if (!(await glasses.microphone(true))) throw new MicrophoneOff();
+    await started;
 
-    while (live) {
-      const next = await transcripts.next();
+    if (!live) return;
+    transcripts = polaris.transcribe(hostId, feed)[Symbol.asyncIterator]();
 
-      if (!live) return;
+    try {
+      while (live) {
+        const next = await transcripts.next();
 
-      if (next.done === true) break;
-      last = next.value;
-      callbacks.heard(last);
+        if (!live) return;
 
-      if (last.finished) return;
+        if (next.done === true) break;
+        last = next.value;
+        callbacks.heard(last);
+
+        if (last.finished) return;
+      }
+
+      if (live) callbacks.heard({ ...last, interimText: "", finished: true });
+    } finally {
+      feed.cancel();
+      stopMicrophone();
+      await transcripts.return?.();
     }
-    // The feed ended without a finished transcript: settle on what was heard.
-
-    if (live) callbacks.heard({ ...last, interimText: "", finished: true });
   };
 
   void run()
@@ -65,12 +100,12 @@ export const listen = (
     .finally(stopMicrophone);
 
   return {
-    push: (pcm) => feed.push(pcm),
-    stop: stopMicrophone,
-    cancel: () => {
-      live = false;
-      stopMicrophone();
-      void transcripts.return?.();
+    push: (pcm) => {
+      if (feed.push(pcm)) return;
+      cancel();
+      callbacks.failed(new Error("Audio couldn't keep up. Retry your reply."));
     },
+    stop: stopMicrophone,
+    cancel,
   };
 };

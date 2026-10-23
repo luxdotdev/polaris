@@ -30,7 +30,16 @@ const VOICE_LIST_HEIGHT = 96;
 
 const full = (content: string): Page => ({
   texts: [
-    { id: 1, name: "main", x: 0, y: 0, width: WIDTH, height: HEIGHT, capture: true, content },
+    {
+      id: 1,
+      name: "main",
+      x: 0,
+      y: 0,
+      width: WIDTH,
+      height: HEIGHT,
+      capture: true,
+      content: clip(content, MAX_TEXT),
+    },
   ],
   lists: [],
 });
@@ -130,7 +139,7 @@ const SESSION_HINT = "Tap: actions · hold: speak · double-tap: back";
 const sessionPage = (state: AppState, row: SessionRow): Page => {
   const top = [
     clip(titleOf(row.entry), 200),
-    [STATE_LABEL[row.entry.session.state], row.hostName].join(" · "),
+    clip([STATE_LABEL[row.entry.session.state], row.hostName].join(" · "), 200),
     ...(state.notice === null ? [] : [clip(state.notice, 200)]),
   ].join("\n");
 
@@ -172,7 +181,7 @@ const voicePage = (voice: Voice): Page => {
       const y = HEIGHT - VOICE_LIST_HEIGHT;
 
       return {
-        texts: [{ ...header(""), height: y, content: body }],
+        texts: [{ ...header(""), height: y, content: clip(body, MAX_TEXT) }],
         lists: [list(VOICE_CHOICES[voice.phase], y)],
       };
     }

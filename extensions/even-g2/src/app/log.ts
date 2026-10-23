@@ -1,4 +1,6 @@
 /** The phone page's connection log: the latest lines, newest first, each with its local time. */
+import { diagnosticText } from "./diagnostics.ts";
+
 export interface ConnectionLog {
   readonly add: (line: string) => void;
   readonly lines: () => ReadonlyArray<string>;
@@ -14,7 +16,7 @@ export const connectionLog = (limit = 40, now = () => new Date()): ConnectionLog
 
   return {
     add: (line) => {
-      lines = [`${clock(now())} ${line}`, ...lines].slice(0, limit);
+      lines = [`${clock(now())} ${diagnosticText(line)}`, ...lines].slice(0, limit);
 
       for (const listener of listeners) listener();
     },
@@ -25,7 +27,7 @@ export const connectionLog = (limit = 40, now = () => new Date()): ConnectionLog
 
 /** An error as the log shows it: its tag (or name) and message. */
 export const describeCause = (cause: unknown) =>
-  cause instanceof Error ? `${cause.name}: ${cause.message}` : String(cause);
+  diagnosticText(cause instanceof Error ? `${cause.name}: ${cause.message}` : String(cause));
 
 /** Sends the page's console (Effect logs there) and uncaught errors to the log, which the phone shows. */
 export const captureConsole = (log: ConnectionLog) => {
@@ -35,15 +37,18 @@ export const captureConsole = (log: ConnectionLog) => {
     const original = console[level].bind(console);
 
     console[level] = (...args: Array<unknown>) => {
-      log.add(`console.${level}: ${text(args)}`);
-      original(...args);
+      const safe = diagnosticText(text(args));
+      log.add(`console.${level}: ${safe}`);
+      original(safe);
     };
   }
 
-  window.addEventListener("error", (event) =>
-    log.add(`uncaught: ${describeCause(event.error ?? event.message)}`)
-  );
-  window.addEventListener("unhandledrejection", (event) =>
-    log.add(`unhandled rejection: ${describeCause(event.reason)}`)
-  );
+  window.addEventListener("error", (event) => {
+    event.preventDefault();
+    log.add(`uncaught: ${describeCause(event.error ?? event.message)}`);
+  });
+  window.addEventListener("unhandledrejection", (event) => {
+    event.preventDefault();
+    log.add(`unhandled rejection: ${describeCause(event.reason)}`);
+  });
 };

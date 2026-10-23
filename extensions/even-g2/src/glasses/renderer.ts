@@ -16,6 +16,9 @@ export const RENDER_DELAY_MS = 120;
 
 export interface Renderer {
   readonly show: (page: Page) => void;
+  /** Whether this exact page was successfully drawn; actions require visible confirmation. */
+  readonly matches: (page: Page) => boolean;
+  readonly close: () => void;
   /** Resolves once every page shown so far is on the glasses. */
   readonly settled: () => Promise<void>;
 }
@@ -26,12 +29,15 @@ export const rendererFor = (
   delayMs = RENDER_DELAY_MS,
   report: (line: string) => void = () => undefined
 ): Renderer => {
+  let closed = false;
   let current: Page | null = null;
   let latest: Page | null = null;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let drawing: Promise<void> = Promise.resolve();
 
   const draw = async (page: Page) => {
+    if (closed) return;
+
     if (current === null) {
       if (await surface.create(page)) current = page;
       else report("the glasses refused the first page");
@@ -52,7 +58,16 @@ export const rendererFor = (
       (text) => before.texts.find((old) => old.id === text.id)?.content !== text.content
     );
 
-    for (const text of changed) await surface.upgrade(text);
+    for (const text of changed) {
+      if (closed) return;
+
+      if (!(await surface.upgrade(text))) {
+        report("the glasses refused a text update");
+
+        return;
+      }
+    }
+
     current = page;
   };
 
@@ -69,8 +84,18 @@ export const rendererFor = (
 
   return {
     show: (page) => {
+      if (closed) return;
       latest = page;
       timer ??= setTimeout(flush, delayMs);
+    },
+    matches: (page) =>
+      !closed && current !== null && JSON.stringify(current) === JSON.stringify(page),
+    close: () => {
+      closed = true;
+
+      if (timer !== null) clearTimeout(timer);
+      timer = null;
+      latest = null;
     },
     settled: async () => {
       while (timer !== null || latest !== null) {
