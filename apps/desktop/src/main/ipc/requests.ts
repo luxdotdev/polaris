@@ -433,6 +433,11 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
     onLive(hostKey, (s) => s.client["attachments.setSettings"]({ settings })).pipe(done),
   "attachments.clear": ({ hostKey, workspaceId }) =>
     onLive(hostKey, (s) => s.client["attachments.clear"]({ workspaceId })),
+  "extensions.list": ({ hostKey }) => onLive(hostKey, (s) => s.client["extensions.list"]()),
+  "extensions.pair": ({ hostKey, name, grant }) =>
+    onLive(hostKey, (s) => s.client["extensions.pair"]({ name, grant })),
+  "extensions.revoke": ({ hostKey, id }) =>
+    onLive(hostKey, (s) => s.client["extensions.revoke"]({ id })),
   "sessions.autoArchive": ({ hostKey }) =>
     onLive(hostKey, (s) => s.client["sessions.autoArchive"]({})),
   "sessions.setAutoArchive": ({ hostKey, settings }) =>

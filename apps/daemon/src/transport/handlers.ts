@@ -20,11 +20,12 @@ import {
   Sequence,
   Unsupported,
   ResourceError,
+  encodePairingString,
   VoiceError,
   PROTOCOL_VERSION,
   decideProtocol,
 } from "@polaris/protocol";
-import { Effect, Stream } from "effect";
+import { Effect, Option, Stream } from "effect";
 import { ClientCapabilities, DeviceLabel } from "../engine/rpc.ts";
 import { BlobChannel } from "../services.ts";
 import { ServerRpcs } from "./rpcs.ts";
@@ -34,6 +35,7 @@ import { bindLanguageIdentity } from "./languageIdentity.ts";
 import { pairingOf, revokePairing, scopeConnection } from "../extensions/connection.ts";
 import { Pairings } from "../extensions/pairings.ts";
 import { RemoteAccessControl } from "../remoteAccess/index.ts";
+import { RemoteAccess } from "../extensions/remoteAccess.ts";
 import { admissionOf } from "../extensions/admission.ts";
 
 const constellationUnavailable = () =>
@@ -330,7 +332,20 @@ export const defaultHandlers = (options: {
 
     // Token-less Clients only (grants.ts): the gate refuses these to Extensions.
     "extensions.pair": ({ name, grant }) =>
-      Effect.flatMap(Pairings, (pairings) => Effect.orDie(pairings.pair(name, grant))),
+      Effect.gen(function* () {
+        const { pairing, token } = yield* Effect.orDie((yield* Pairings).pair(name, grant));
+        const url = yield* (yield* RemoteAccess).url;
+
+        const pairingString = encodePairingString({
+          hostId: options.hostInfo.hostId,
+          hostName: options.hostInfo.hostname,
+          url: Option.getOrNull(url),
+          token,
+          name: pairing.name,
+        });
+
+        return { pairing, token, pairingString };
+      }),
     "extensions.list": () => Effect.flatMap(Pairings, (pairings) => Effect.orDie(pairings.list)),
     "extensions.revoke": ({ id }) => revokePairing(id),
 

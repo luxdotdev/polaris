@@ -12,6 +12,7 @@ Polaris is an IDE and agent orchestrator: a Bun Daemon per Host, an Electron Des
 | Path | What |
 |---|---|
 | `packages/protocol` | The wire contract: Effect Schema domain, events, commands, the `DaemonRpcs` group, and frame codec. Every Client and the Daemon depend on it. |
+| `packages/sdk` | The public SDK for Extensions (`@polaris/sdk`): pairing strings, the socket and gateway transports, Host and session feeds, commands; a Promise API and an Effect API. The protocol is bundled in at build (see its README). |
 | `packages/client` | Client runtime: connections to many Daemons over SSH, Connection State, resume, install/upgrade. |
 | `packages/syntax-diff` | The syntax-aware diff: token alignment (Myers over tokens), patches with token emphasis, and tokenizers behind a small interface (the TypeScript parser; the Desktop App adds the highlighter's tokens). |
 | `packages/bench` | Benchmarks: the real Daemon under scripted load, a process-tree memory/CPU sampler, baselines and comparisons. |

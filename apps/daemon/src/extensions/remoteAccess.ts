@@ -7,7 +7,10 @@ import { RemoteAccessControl } from "../remoteAccess/index.ts";
 
 export class RemoteAccess extends Context.Service<
   RemoteAccess,
-  { readonly url: Effect.Effect<Option.Option<string>> }
+  {
+    /** `wss://<host>.<tailnet>.ts.net/polaris/rpc` while Remote Access is on; none otherwise. */
+    readonly url: Effect.Effect<Option.Option<string>>;
+  }
 >()("polaris/daemon/extensions/RemoteAccess") {}
 
 /** No Remote Access: pairing strings carry no URL. */

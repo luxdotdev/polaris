@@ -131,6 +131,23 @@ const GROUPS: ReadonlyArray<GroupSource> = [
         keywords: ["files", "images", "staging", "cleanup", "clear", "disk"],
       },
       {
+        id: "extensions",
+        title: "Extensions",
+        blurb:
+          "Apps and devices that act on a host for you, like Raycast or your glasses. Each pairing allows only what you grant, and you can revoke it at any time.",
+        keywords: [
+          "pair",
+          "pairing",
+          "grant",
+          "token",
+          "qr",
+          "raycast",
+          "glasses",
+          "revoke",
+          "sdk",
+        ],
+      },
+      {
         id: "voice",
         title: "Voice",
         blurb:

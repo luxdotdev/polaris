@@ -5,6 +5,7 @@ import { HostSecrets } from "../secrets/index.ts";
 import { BlobChannel } from "../services.ts";
 import { readKey, setKey, voiceSettings } from "./keys.ts";
 import { snapshots, VoiceProvider } from "./provider.ts";
+import { boundedAudio, transcriptionDeadline, VOICE_LIMITS, type VoiceLimits } from "./limits.ts";
 
 const audioFailed = (error: { readonly message: string }) =>
   new VoiceError({ reason: "audio-failed", message: `The audio stream failed: ${error.message}` });
@@ -19,7 +20,7 @@ const busy = (limit: number) =>
   });
 
 /** Requires `HostSecrets` and a `VoiceProvider`. */
-export const makeVoiceRpcs = (limit = MAX_TRANSCRIPTIONS) =>
+export const makeVoiceRpcs = (limit = MAX_TRANSCRIPTIONS, limits: VoiceLimits = VOICE_LIMITS) =>
   VoiceRpcs.toLayer(
     Effect.gen(function* () {
       const provider = yield* VoiceProvider;
@@ -47,13 +48,15 @@ export const makeVoiceRpcs = (limit = MAX_TRANSCRIPTIONS) =>
         "voice.transcribe": ({ audio }) =>
           Stream.unwrap(
             Effect.gen(function* () {
+              yield* slot;
               const key = yield* withSecrets(readKey(provider.kind));
 
-              yield* slot;
               const blobs = yield* BlobChannel;
               const pcm = blobs.takeStream(audio).pipe(Stream.mapError(audioFailed));
 
-              return snapshots(provider.transcribe(key, pcm));
+              return snapshots(provider.transcribe(key, boundedAudio(pcm, limits))).pipe(
+                Stream.interruptWhen(transcriptionDeadline(limits))
+              );
             })
           ),
         "voice.settings": () => withSecrets(voiceSettings(provider.kind)),
