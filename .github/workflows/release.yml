@@ -358,11 +358,187 @@ jobs:
             apps/desktop/out/dist/squirrel-arm64/*
           if-no-files-found: error
 
+  sdk:
+    name: Build and pack the SDK (no credentials)
+    needs: metadata
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      tarball: ${{ steps.handoff.outputs.tarball }}
+      tarball-id: ${{ steps.upload.outputs.artifact-id }}
+      package: ${{ steps.handoff.outputs.package }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+      - run: bun install --frozen-lockfile
+      - name: Build and pack the SDK
+        run: bun run --cwd packages/sdk pack
+      - name: Hand off the tarball with its digest
+        id: handoff
+        run: |
+          tarballs=(packages/sdk/build/*.tgz)
+          test "${#tarballs[@]}" -eq 1
+          mv "${tarballs[0]}" polaris-sdk.tgz
+          echo "tarball=$(sha256sum polaris-sdk.tgz | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "package=$(node -p 'const p = require("./packages/sdk/dist/package.json"); `${p.name}@${p.version}`')" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        id: upload
+        with:
+          name: release-sdk
+          path: polaris-sdk.tgz
+          if-no-files-found: error
+          retention-days: 3
+
+  npm:
+    name: Publish the SDK to npm with provenance
+    needs: [metadata, sdk]
+    runs-on: ubuntu-latest
+    # Its own environment, so the owner can require a reviewer before anything reaches npm.
+    environment: npm
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      # Nothing from the tag runs here: the packed tarball is published as is, scripts ignored.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          artifact-ids: ${{ needs.sdk.outputs.tarball-id }}
+          path: handoff
+          merge-multiple: true
+      - name: Publish the checked tarball unless its version is on npm
+        env:
+          TARBALL_SHA256: ${{ needs.sdk.outputs.tarball }}
+          PACKAGE: ${{ needs.sdk.outputs.package }}
+          PRERELEASE: ${{ needs.metadata.outputs.prerelease }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "$TARBALL_SHA256  handoff/polaris-sdk.tgz" | sha256sum --check --strict -
+          # The SDK keeps its own version: a release that doesn't bump it publishes nothing.
+          if npm view "$PACKAGE" version > /dev/null 2>&1; then
+            echo "::notice::$PACKAGE is already on npm; nothing to publish."
+            exit 0
+          fi
+          tag=latest
+          if [[ "$PRERELEASE" == true ]]; then tag=next; fi
+          npm publish handoff/polaris-sdk.tgz --provenance --access public --ignore-scripts --tag "$tag"
+
+  raycast:
+    name: Build the Raycast extension (no credentials)
+    needs: metadata
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      assets: ${{ steps.handoff.outputs.assets }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+      - run: bun install --frozen-lockfile
+      - name: Build the extension
+        run: bun run --cwd extensions/raycast ray:build
+      - name: Hand off the ZIP with its digest
+        id: handoff
+        env:
+          VERSION: ${{ needs.metadata.outputs.version }}
+        run: |
+          mkdir assets
+          (cd extensions/raycast/dist && zip -qrX "$GITHUB_WORKSPACE/assets/polaris-raycast-$VERSION.zip" .)
+          (cd assets && sha256sum "polaris-raycast-$VERSION.zip" > assets.sha256)
+          echo "assets=$(sha256sum assets/assets.sha256 | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-assets-raycast
+          path: assets/
+          if-no-files-found: error
+          retention-days: 3
+
+  even-g2:
+    name: Pack the Even G2 app (no credentials; a workflow artifact, never a Release asset)
+    needs: metadata
+    # The whitelist names the owner's Hosts (repository variable EVEN_G2_HOSTS); without it, no package.
+    if: vars.EVEN_G2_HOSTS != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+      - run: bun install --frozen-lockfile
+      - name: Pack the .ehpk for the configured Hosts
+        env:
+          EVEN_G2_HOSTS: ${{ vars.EVEN_G2_HOSTS }}
+        # Hosts are separated by spaces, commas or newlines; pack.ts refuses anything not an origin.
+        run: |
+          set -euo pipefail
+          args=()
+          set -f
+          for host in ${EVEN_G2_HOSTS//,/ }; do args+=(--host "$host"); done
+          set +f
+          test "${#args[@]}" -gt 0
+          bun run --cwd extensions/even-g2 pack "${args[@]}"
+          packages=(extensions/even-g2/build/polaris-g2-*.ehpk)
+          test "${#packages[@]}" -eq 1
+          sha256sum "${packages[@]}"
+      # Uploaded and promoted by hand (extensions/even-g2/README.md): evenhub login has no CI path.
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: polaris-g2-${{ needs.metadata.outputs.version }}
+          path: |
+            extensions/even-g2/build/polaris-g2-*.ehpk
+            extensions/even-g2/build/app.json
+          if-no-files-found: error
+          retention-days: 30
+
   publish:
     name: Create the draft GitHub Release with the exact assets
-    needs: [metadata, sign, sign-dmg, windows]
+    needs: [metadata, sign, sign-dmg, windows, raycast]
     # A failed Windows job still drafts the macOS assets and leaves the run red.
-    if: always() && needs.sign.result == 'success' && needs.sign-dmg.result == 'success'
+    if: >-
+      always() && needs.sign.result == 'success' && needs.sign-dmg.result == 'success'
+      && needs.raycast.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -384,6 +560,10 @@ jobs:
         with:
           name: release-assets-windows
           path: handoff/windows
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: release-assets-raycast
+          path: handoff/raycast
       - name: Create the draft from verified assets
         env:
           GH_TOKEN: ${{ github.token }}
@@ -394,6 +574,7 @@ jobs:
           MACOS_SHA256: ${{ needs.sign.outputs.assets }}
           DMG_SHA256: ${{ needs.sign-dmg.outputs.assets }}
           WINDOWS_SHA256: ${{ needs.windows.outputs.assets }}
+          RAYCAST_SHA256: ${{ needs.raycast.outputs.assets }}
         run: |
           set -euo pipefail
           assets=()
@@ -409,6 +590,8 @@ jobs:
           take macos "$MACOS_SHA256"
           take dmg "$DMG_SHA256"
           if [[ -n "$WINDOWS_SHA256" ]]; then take windows "$WINDOWS_SHA256"; fi
+          take raycast "$RAYCAST_SHA256"
+          test -s "handoff/raycast/polaris-raycast-$VERSION.zip"
           # Each platform's Daemon (polaris + betterleaks) and their checksums; Hosts download
           # these through polaris.lux.dev/api/daemon/<version>/<platform> (docs/adr/0043).
           test -s "handoff/macos/polaris-daemon-$VERSION-SHA256SUMS"

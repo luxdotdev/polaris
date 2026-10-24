@@ -10,6 +10,8 @@ import { Schema } from "effect";
 import { launchDaemon, type TestDaemon } from "./daemon.testing.ts";
 
 const Manifest = Schema.Struct({
+  name: Schema.String,
+  repository: Schema.Struct({ url: Schema.String, directory: Schema.String }),
   dependencies: Schema.Record(Schema.String, Schema.String),
   devDependencies: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
 });
@@ -43,7 +45,7 @@ beforeAll(async () => {
   const tarball = packed.output.trim().split("\n").at(-1) ?? "";
 
   project = mkdtempSync("/tmp/pl-sdk-consumer-");
-  const installed = join(project, "node_modules", "@polaris", "sdk");
+  const installed = join(project, "node_modules", "@doellsoftware", "polaris-sdk");
 
   mkdirSync(installed, { recursive: true });
   run(["tar", "xzf", tarball, "-C", installed, "--strip-components=1"], project);
@@ -62,7 +64,7 @@ afterAll(async () => {
 
 test("the manifest depends on effect alone, and on no workspace package", () => {
   const text = readFileSync(
-    join(project, "node_modules", "@polaris", "sdk", "package.json"),
+    join(project, "node_modules", "@doellsoftware", "polaris-sdk", "package.json"),
     "utf8"
   );
 
@@ -73,13 +75,28 @@ test("the manifest depends on effect alone, and on no workspace package", () => 
   expect(text).not.toContain("workspace:");
 });
 
+test("the manifest carries the published name and the repository npm provenance checks", () => {
+  const manifest = Schema.decodeUnknownSync(Schema.fromJsonString(Manifest))(
+    readFileSync(
+      join(project, "node_modules", "@doellsoftware", "polaris-sdk", "package.json"),
+      "utf8"
+    )
+  );
+
+  expect(manifest.name).toBe("@doellsoftware/polaris-sdk");
+  expect(manifest.repository).toEqual({
+    url: "git+https://github.com/luxdotdev/polaris.git",
+    directory: "packages/sdk",
+  });
+});
+
 test("plain Node imports the package and reads a Host over the local socket", async () => {
   await daemon.registerWorkspace();
   const pairing = await daemon.pair("Node", ["read"]);
 
   writeFileSync(
     join(project, "read.mjs"),
-    `import { createPolaris } from "@polaris/sdk";
+    `import { createPolaris } from "@doellsoftware/polaris-sdk";
 const polaris = await createPolaris({ pairings: [process.env.PAIRING], clientName: "node" });
 for await (const view of polaris.subscribeHost(polaris.hosts[0].hostId)) {
   console.log(JSON.stringify({ connected: view.connected, workspaces: view.workspaces.length }));
@@ -105,7 +122,7 @@ test("the browser build reads a Host over the gateway and refuses the local sock
   // The browser build in a runtime with a global WebSocket and no Node modules in its path.
   writeFileSync(
     join(project, "browser.mjs"),
-    `import { createPolaris } from "./node_modules/@polaris/sdk/browser.js";
+    `import { createPolaris } from "./node_modules/@doellsoftware/polaris-sdk/browser.js";
 const polaris = await createPolaris({ pairings: [process.env.GATEWAY], clientName: "browser" });
 for await (const view of polaris.subscribeHost(polaris.hosts[0].hostId)) {
   console.log(JSON.stringify({ connected: view.connected }));
@@ -127,7 +144,7 @@ test.each(["NodeNext", "Bundler"] as const)(
   (resolution) => {
     writeFileSync(
       join(project, "consumer.ts"),
-      `import { createPolaris, NotGranted, type HostView, type SessionView } from "@polaris/sdk";
+      `import { createPolaris, NotGranted, type HostView, type SessionView } from "@doellsoftware/polaris-sdk";
 
 type IsAny<T> = 0 extends 1 & T ? true : false;
 const stateIsTyped: IsAny<HostView["sessions"][number]["session"]["state"]> = false;
