@@ -163,3 +163,29 @@ In the Polaris repository, `bun run --cwd packages/sdk build` writes the package
 bundled in; the only dependency is `effect`. Inside the repository the package is still
 `@polaris/sdk`; only the published name differs. A release tag publishes it to npm with
 provenance (`release.yml`'s `npm` job) when its version isn't there yet.
+
+## Releasing
+
+The SDK keeps the version in `packages/sdk/package.json`. A version containing `-` is published
+under `next`; every other version uses `latest`, even when the Polaris tag is a prerelease.
+An exact version already on npm is skipped without moving any dist-tags.
+
+The workflow uses [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/) on a
+GitHub-hosted runner, with Node 24.22.1 and its bundled npm 11.19.1. It checks the tarball's
+SHA-256 and publishes with provenance and lifecycle scripts disabled. It needs no `NPM_TOKEN`.
+
+The owner completed the initial setup on 2026-10-24: `@doellsoftware/polaris-sdk@0.1.0` is
+published with `latest = 0.1.0`, and a trusted publisher is registered for GitHub organization
+`luxdotdev`, repository `polaris`, workflow filename `release.yml`, environment `npm`, with
+direct `npm publish` allowed. No bootstrap token is needed in CI.
+
+The initial trusted-publisher registration expires if no publish uses it within two days.
+A release that leaves the SDK at `0.1.0` skips publishing and does not exercise that trust.
+If the registration expires before the first release that bumps the SDK version, the owner
+must re-register it with those same settings before that release runs.
+
+Verify that next new SDK version publishes on GitHub with provenance and the expected tag.
+Local tests use fake npm and GitHub commands and do not prove OIDC publication. This remaining work is
+tracked in [ENG-425](https://linear.app/luxdev/issue/ENG-425). The GitHub `npm` environment's
+reviewer and tag protection are owner settings; the Apple signing jobs keep their separate
+`release` environment.
