@@ -1,7 +1,8 @@
 /**
  * Builds the publishable package into `dist/`: the Node and browser bundles
  * with `@polaris/protocol` inside them, declarations for both, and a manifest
- * whose only dependency is `effect`. `--pack` then runs `npm pack` on it.
+ * whose only dependency is `effect`, named `@doellsoftware/polaris-sdk` (the
+ * `@polaris` npm scope isn't ours). `--pack` then runs `npm pack` on it.
  *
  *   bun run --cwd packages/sdk build [--pack]
  */
@@ -14,6 +15,8 @@ const SDK = resolve(import.meta.dir, "..");
 const REPO = resolve(SDK, "..", "..");
 
 const DIST = join(SDK, "dist");
+
+const PUBLISHED_NAME = "@doellsoftware/polaris-sdk";
 
 const STAGE = join(SDK, "build", "stage");
 
@@ -177,7 +180,7 @@ const declarations = () => {
 
 const writeManifest = () => {
   const published = {
-    name: manifest.name,
+    name: PUBLISHED_NAME,
     version: manifest.version,
     description: manifest.description,
     license: manifest.license,

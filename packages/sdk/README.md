@@ -1,4 +1,4 @@
-# @polaris/sdk
+# @doellsoftware/polaris-sdk
 
 Read and drive Polaris Daemons from an Extension: a Raycast command, a glasses app, a script.
 See your Hosts' sessions and the approvals waiting on you, answer them, send Turns, start
@@ -8,7 +8,7 @@ The SDK works in Node (22 or later) and Bun, over the local Daemon's socket or a
 and in a browser or WebView, over the gateway only. It talks to Polaris 0.3.0 or later.
 
 ```sh
-npm install @polaris/sdk
+npm install @doellsoftware/polaris-sdk
 ```
 
 ## Pair first
@@ -32,7 +32,7 @@ Anything else is refused with `NotGranted`, which names the Grant that was missi
 Promises for calls, async iterators for feeds.
 
 ```ts
-import { createPolaris, NotGranted } from "@polaris/sdk";
+import { createPolaris, NotGranted } from "@doellsoftware/polaris-sdk";
 
 const polaris = await createPolaris({
   pairings: [process.env.POLARIS_PAIRING!], // one per Host, or several for one Host
@@ -112,7 +112,7 @@ feeds are Streams, errors are typed, and connections close with the Scope.
 
 ```ts
 import { Effect, Stream } from "effect";
-import { openPolaris } from "@polaris/sdk";
+import { openPolaris } from "@doellsoftware/polaris-sdk";
 
 const program = Effect.gen(function* () {
   const polaris = yield* openPolaris({ pairings: [pairing], clientName: "My Extension" });
@@ -160,4 +160,6 @@ your own.
 
 In the Polaris repository, `bun run --cwd packages/sdk build` writes the package to `dist/`, and
 `bun run --cwd packages/sdk pack` also runs `npm pack` on it, into `build/`. The protocol is
-bundled in; the only dependency is `effect`.
+bundled in; the only dependency is `effect`. Inside the repository the package is still
+`@polaris/sdk`; only the published name differs. A release tag publishes it to npm with
+provenance (`release.yml`'s `npm` job) when its version isn't there yet.
