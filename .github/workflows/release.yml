@@ -418,7 +418,7 @@ jobs:
       # Nothing from the tag runs here: the packed tarball is published as is, scripts ignored.
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 24
+          node-version: 24.22.1
           registry-url: https://registry.npmjs.org
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
@@ -426,13 +426,14 @@ jobs:
           path: handoff
           merge-multiple: true
       - name: Publish the checked tarball unless its version is on npm
+        # OIDC authenticates npm publish; there is no long-lived npm token.
         env:
           TARBALL_SHA256: ${{ needs.sdk.outputs.tarball }}
           PACKAGE: ${{ needs.sdk.outputs.package }}
-          PRERELEASE: ${{ needs.metadata.outputs.prerelease }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           set -euo pipefail
+          # Node 24.22.1 bundles this npm; fail closed if the toolchain changes.
+          test "$(npm --version)" = 11.19.1
           echo "$TARBALL_SHA256  handoff/polaris-sdk.tgz" | sha256sum --check --strict -
           # The SDK keeps its own version: a release that doesn't bump it publishes nothing.
           if npm view "$PACKAGE" version > /dev/null 2>&1; then
@@ -440,7 +441,7 @@ jobs:
             exit 0
           fi
           tag=latest
-          if [[ "$PRERELEASE" == true ]]; then tag=next; fi
+          if [[ "${PACKAGE##*@}" == *-* ]]; then tag=next; fi
           npm publish handoff/polaris-sdk.tgz --provenance --access public --ignore-scripts --tag "$tag"
 
   raycast:
@@ -535,10 +536,9 @@ jobs:
   publish:
     name: Create the draft GitHub Release with the exact assets
     needs: [metadata, sign, sign-dmg, windows, raycast]
-    # A failed Windows job still drafts the macOS assets and leaves the run red.
+    # A failed Windows or Raycast job still drafts the macOS assets and leaves the run red.
     if: >-
       always() && needs.sign.result == 'success' && needs.sign-dmg.result == 'success'
-      && needs.raycast.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -560,7 +560,8 @@ jobs:
         with:
           name: release-assets-windows
           path: handoff/windows
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - if: needs.raycast.result == 'success'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: release-assets-raycast
           path: handoff/raycast
@@ -573,8 +574,8 @@ jobs:
           PRERELEASE: ${{ needs.metadata.outputs.prerelease }}
           MACOS_SHA256: ${{ needs.sign.outputs.assets }}
           DMG_SHA256: ${{ needs.sign-dmg.outputs.assets }}
-          WINDOWS_SHA256: ${{ needs.windows.outputs.assets }}
-          RAYCAST_SHA256: ${{ needs.raycast.outputs.assets }}
+          WINDOWS_SHA256: ${{ needs.windows.result == 'success' && needs.windows.outputs.assets || '' }}
+          RAYCAST_SHA256: ${{ needs.raycast.result == 'success' && needs.raycast.outputs.assets || '' }}
         run: |
           set -euo pipefail
           assets=()
@@ -590,8 +591,10 @@ jobs:
           take macos "$MACOS_SHA256"
           take dmg "$DMG_SHA256"
           if [[ -n "$WINDOWS_SHA256" ]]; then take windows "$WINDOWS_SHA256"; fi
-          take raycast "$RAYCAST_SHA256"
-          test -s "handoff/raycast/polaris-raycast-$VERSION.zip"
+          if [[ -n "$RAYCAST_SHA256" ]]; then
+            take raycast "$RAYCAST_SHA256"
+            test -s "handoff/raycast/polaris-raycast-$VERSION.zip"
+          fi
           # Each platform's Daemon (polaris + betterleaks) and their checksums; Hosts download
           # these through polaris.lux.dev/api/daemon/<version>/<platform> (docs/adr/0043).
           test -s "handoff/macos/polaris-daemon-$VERSION-SHA256SUMS"
@@ -619,4 +622,7 @@ jobs:
             exit 1
           fi
           flags+=(--notes-file "$notes")
+          for asset in "${assets[@]}"; do
+            case "$asset" in *.ehpk) echo 'Even G2 packages cannot be Release assets' >&2; exit 1;; esac
+          done
           gh release create "$RELEASE_TAG" "${assets[@]}" "${flags[@]}"
