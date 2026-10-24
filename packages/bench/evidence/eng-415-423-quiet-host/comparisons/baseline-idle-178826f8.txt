@@ -1,0 +1,20 @@
+compared with packages/bench/baselines/mac14-13-apple-m2-max-12c.json
+warning: baseline started with 2.5 cores busy with other work: throughput and CPU are not comparable
+warning: this run started with 7.8 cores busy with other work: throughput and CPU are not comparable
+metric                           baseline  current  unit  worse by              status
+───────────────────────────────  ────────  ───────  ────  ────────  ──────────────────
+idle client_cpu_avg_pct             0.157    0.463     %   +194.5%                  ok
+idle client_cpu_max_pct             0.431     9.61     %  +2127.1%  worse (not gating)
+idle client_rss_mib                 94.45    95.05   MiB     +0.6%                  ok
+idle client_footprint_mib           52.84    53.25   MiB     +0.8%                  ok
+idle client_wakeups_per_s            8.23     8.37    /s     +1.6%                  ok
+idle bare_bun_cpu_avg_pct           0.022    0.035     %    +57.0%                  ok
+idle bare_bun_rss_mib               10.17    10.42   MiB     +2.5%                  ok
+idle bare_bun_wakeups_per_s         0.933    1.000    /s     +7.1%                  ok
+idle noclient_cpu_avg_pct           0.029    0.021     %    -26.5%                  ok
+idle noclient_rss_mib               68.33    95.00   MiB    +39.0%           REGRESSED
+idle noclient_footprint_mib         54.00    52.94   MiB     -2.0%                  ok
+idle noclient_wakeups_per_s         0.767    0.633    /s    -17.4%                  ok
+idle processes                       1.00     1.00            0.0%                  ok
+idle noclient_cpu_over_bare_pct     0.008   -0.014     %   -265.9%                  ok
+1 regression(s) beyond tolerance

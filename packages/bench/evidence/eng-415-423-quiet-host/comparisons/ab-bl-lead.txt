@@ -1,0 +1,102 @@
+warning: baseline started with 3.1 cores busy with other work: throughput and CPU are not comparable
+metric                                     baseline  current  unit  worse by     status
+─────────────────────────────────────────  ────────  ───────  ────  ────────  ─────────
+idle client_cpu_avg_pct                       0.457    0.448     %     -2.0%         ok
+idle client_cpu_max_pct                        7.25     7.29     %     +0.6%         ok
+idle client_rss_mib                           92.33    93.69   MiB     +1.5%         ok
+idle client_footprint_mib                     52.31    54.81   MiB     +4.8%         ok
+idle client_wakeups_per_s                      9.07     8.60    /s     -5.1%         ok
+idle bare_bun_cpu_avg_pct                     0.032    0.031     %     -3.1%         ok
+idle bare_bun_rss_mib                         10.53    10.28   MiB     -2.4%         ok
+idle bare_bun_wakeups_per_s                    1.20    1.000    /s    -16.7%         ok
+idle noclient_cpu_avg_pct                     0.012    0.032     %   +156.4%         ok
+idle noclient_rss_mib                         92.16    93.64   MiB     +1.6%         ok
+idle noclient_footprint_mib                   51.84    54.49   MiB     +5.1%         ok
+idle noclient_wakeups_per_s                   0.567    0.700    /s    +23.5%         ok
+idle processes                                 1.00     1.00            0.0%         ok
+idle noclient_cpu_over_bare_pct              -0.017    0.001     %   +103.3%         ok
+sessions rss_before_mib                       89.11    108.2   MiB    +21.4%  REGRESSED
+sessions m10.dispatch_ack_p50_ms              11.02     6.76    ms    -38.6%         ok
+sessions m10.dispatch_to_event_p50_ms          8.39     6.58    ms    -21.6%         ok
+sessions m10.dispatch_to_event_p99_ms         15.03     7.69    ms    -48.8%         ok
+sessions m10.delta_latency_p50_ms              1.55     1.62    ms     +4.2%         ok
+sessions m10.delta_latency_p99_ms             26.29    26.59    ms     +1.2%         ok
+sessions m10.event_latency_p99_ms             41.00    43.00    ms     +4.9%         ok
+sessions m10.approval_round_trip_p50_ms        7.54     6.89    ms     -8.6%         ok
+sessions m10.deltas_per_s_per_client          435.4    439.5    /s     -0.9%         ok
+sessions m10.cpu_avg_pct                      24.47    24.40     %     -0.3%         ok
+sessions m10.cpu_p95_pct                      45.96    49.48     %     +7.7%         ok
+sessions m10.rss_peak_mib                     145.1    149.9   MiB     +3.3%         ok
+sessions m10.footprint_peak_mib               79.81    79.72   MiB     -0.1%         ok
+sessions m10.wall_s                            8269     8192    ms     -0.9%         ok
+sessions m50.dispatch_ack_p50_ms               8.83    11.20    ms    +26.8%         ok
+sessions m50.dispatch_to_event_p50_ms         11.09    13.34    ms    +20.2%         ok
+sessions m50.dispatch_to_event_p99_ms         50.71    52.00    ms     +2.6%         ok
+sessions m50.delta_latency_p50_ms              2.48     2.60    ms     +4.9%         ok
+sessions m50.delta_latency_p99_ms             41.04    33.24    ms    -19.0%         ok
+sessions m50.event_latency_p99_ms             68.00    69.00    ms     +1.5%         ok
+sessions m50.approval_round_trip_p50_ms       12.09    12.78    ms     +5.7%         ok
+sessions m50.deltas_per_s_per_client           2119     2133    /s     -0.7%         ok
+sessions m50.cpu_avg_pct                      38.77    40.34     %     +4.0%         ok
+sessions m50.cpu_p95_pct                      72.03    85.97     %    +19.3%         ok
+sessions m50.rss_peak_mib                     220.8    224.7   MiB     +1.8%         ok
+sessions m50.footprint_peak_mib               108.6    115.2   MiB     +6.1%         ok
+sessions m50.wall_s                            8477     8423    ms     -0.6%         ok
+sessions m50c4.dispatch_ack_p50_ms            16.78    13.94    ms    -16.9%         ok
+sessions m50c4.dispatch_to_event_p50_ms       17.67    17.13    ms     -3.1%         ok
+sessions m50c4.dispatch_to_event_p99_ms       37.05    49.69    ms    +34.1%         ok
+sessions m50c4.delta_latency_p50_ms            3.89     3.52    ms     -9.7%         ok
+sessions m50c4.delta_latency_p99_ms           35.35    34.39    ms     -2.7%         ok
+sessions m50c4.event_latency_p99_ms           43.00    63.00    ms    +46.5%         ok
+sessions m50c4.approval_round_trip_p50_ms     10.23    12.30    ms    +20.2%         ok
+sessions m50c4.deltas_per_s_per_client         2137     2161    /s     -1.1%         ok
+sessions m50c4.cpu_avg_pct                    42.42    43.02     %     +1.4%         ok
+sessions m50c4.cpu_p95_pct                    65.29    64.86     %     -0.7%         ok
+sessions m50c4.rss_peak_mib                   258.4    272.3   MiB     +5.4%         ok
+sessions m50c4.footprint_peak_mib             112.6    118.5   MiB     +5.2%         ok
+sessions m50c4.wall_s                          8419     8323    ms     -1.1%         ok
+sessions burst.deltas_per_s                  207925   215052    /s     -3.4%         ok
+sessions burst.mb_per_s                       13.31    13.76  MB/s     -3.4%         ok
+sessions burst.delta_latency_p99_ms            4.23     3.56    ms    -15.8%         ok
+sessions burst.cpu_avg_pct                    119.0    122.6     %     +3.0%         ok
+sessions burst.rss_peak_mib                   309.4    346.7   MiB    +12.0%         ok
+sessions rss_after_mib                        309.5    346.7   MiB    +12.0%         ok
+sessions rss_growth_mib                       220.4    240.0   MiB     +8.9%         ok
+sessions rss_growth_repeat_mib                 3.48     7.63   MiB   +118.8%         ok
+sessions footprint_growth_mib                 37.48    40.83   MiB     +8.9%         ok
+history events                               100181   100181            0.0%         ok
+history seed_events_per_s                      6857     6213    /s     +9.4%         ok
+history seed_rss_peak_mib                     248.6    276.6   MiB    +11.2%         ok
+history seed_footprint_peak_mib               165.4    176.6   MiB     +6.7%         ok
+history restart_hello_ms                      250.1    251.1    ms     +0.4%         ok
+history loaded_rss_mib                        112.9    112.5   MiB     -0.4%         ok
+history loaded_footprint_mib                  54.89    57.67   MiB     +5.1%         ok
+history host_snapshot_ms                      11.53     7.16    ms    -37.9%         ok
+history host_snapshot_kb                      20.47    27.25   KiB    +33.1%  REGRESSED
+history session_snapshot_full_ms              43.02    43.87    ms     +2.0%         ok
+history session_snapshot_full_kb               1660     1744   KiB     +5.0%         ok
+history session_snapshot_last10_ms             6.30    10.85    ms    +72.3%         ok
+history host_resume_10k_ms                    15.33    14.87    ms     -3.0%         ok
+history host_resume_items                     421.0    421.0            0.0%         ok
+history session_resume_half_ms                33.34    43.19    ms    +29.6%         ok
+history session_resume_items                   2503     2503            0.0%         ok
+history rss_after_snapshots_mib               162.2    165.0   MiB     +1.7%         ok
+history footprint_after_snapshots_mib         76.24    70.19   MiB     -7.9%         ok
+blobs read_mb_per_s                           538.1    532.5  MB/s     +1.0%         ok
+blobs read_rss_peak_over_base_mib             47.78    47.61   MiB     -0.4%         ok
+blobs upload_mb_per_s                         400.7    514.7  MB/s    -28.4%         ok
+blobs upload_rss_peak_over_base_mib           67.81    70.58   MiB     +4.1%         ok
+blobs rss_after_mib                           155.8    161.8   MiB     +3.8%         ok
+blobs upload_footprint_peak_over_base_mib     26.75    30.70   MiB    +14.8%         ok
+blobs footprint_retained_mib                   4.03     3.00   MiB    -25.6%         ok
+blobs rss_retained_mib                        67.88    70.64   MiB     +4.1%         ok
+terminal mb_per_s                             25.98    25.97  MB/s     +0.0%         ok
+terminal stream_ms                             1976     1977    ms     +0.0%         ok
+terminal cpu_avg_pct                          204.9    203.3     %     -0.8%         ok
+terminal rss_peak_over_base_mib               36.30    39.84   MiB     +9.8%         ok
+terminal footprint_peak_over_base_mib         21.75    27.20   MiB    +25.1%         ok
+terminal rss_after_close_mib                  121.5    124.8   MiB     +2.8%         ok
+2 regression(s) beyond tolerance
+
+2 regressions; warnings: baseline started with 3.1 cores busy with other work: throughput and CPU are not comparable
+backgroundCores before=3.1 after=1.4

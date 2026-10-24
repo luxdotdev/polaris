@@ -1,0 +1,55 @@
+settle: 
+note: 2-core settle abandoned at 01:41:22 (Host steady ~3 busy cores; baseline recorded at 2.5); later runs settle at <3
+=== ra0 01:41:22 3dc981c5 load: { 4.46 7.38 8.69 }
+=== ra0 exit 1 01:44:42
+settle: settled busy=2.76
+=== ra1 01:44:48 cff83037 load: { 5.11 6.12 7.85 }
+=== ra1 exit 1 01:48:08
+settle: settled busy=2.78
+=== bw0 01:48:13 2bd9844b load: { 6.27 6.42 7.63 }
+=== bw0 exit 1 01:55:36
+settle: settled busy=1.78
+=== bw1 01:55:42 e90d3aa0 load: { 4.38 4.50 6.03 }
+=== bw1 exit 1 02:03:03
+settle: settled busy=2.12
+=== lead 02:03:09 173bca51 load: { 6.38 4.78 5.45 }
+=== lead exit 1 02:10:30
+settle: settled busy=1.78
+=== bl 02:10:46 83a04cb4 load: { 3.95 3.39 4.33 }
+=== bl exit 1 02:17:48
+settle: settled busy=1.80
+=== bl-bun143 02:18:53 83a04cb4 bun 1.4.3 load: { 3.56 5.51 5.23 }
+=== bl-bun143 exit 1 02:24:59
+settle: settled busy=2.15
+=== lead-bun143 02:25:24 173bca51 bun 1.4.3 load: { 4.81 4.64 4.85 }
+=== lead-bun143 exit 1 02:31:46
+settle: settled busy=1.81
+=== ra1-r 02:32:39 cff83037 load: { 4.18 5.10 5.04 }
+=== ra1-r exit 1 02:35:01
+settle: settled busy=2.34
+=== ra0-r 02:35:07 3dc981c5 load: { 3.39 4.40 4.77 }
+=== ra0-r exit 1 02:37:29
+settle: settled busy=2.47
+=== bw1-r 02:37:35 e90d3aa0 load: { 4.15 4.69 4.85 }
+=== bw1-r exit 1 02:39:57
+settle: settled busy=1.57
+=== bw0-r 02:40:23 2bd9844b load: { 3.61 4.25 4.63 }
+=== bw0-r exit 1 02:42:45
+settle: settled busy=1.78
+=== bw0-a 02:43:22 2bd9844b load: { 9.29 7.52 5.97 }
+=== bw0-a exit 1 02:45:45
+settle: settled busy=2.89
+=== bw1-a 02:47:28 e90d3aa0 load: { 12.40 7.89 6.37 }
+=== bw1-a exit 1 02:49:52
+settle: settled busy=2.99
+=== bw0-b 02:52:05 2bd9844b load: { 5.71 6.40 6.08 }
+=== bw0-b exit 1 02:54:28
+settle: settled busy=2.94
+=== bw1-b 02:56:12 e90d3aa0 load: { 5.57 5.97 5.96 }
+=== bw1-b exit 1 02:58:38
+settle: settled busy=2.00
+=== idle-178826f8 03:00:51 178826f8 bun 1.4.4 load: { 4.09 4.44 5.25 }
+=== idle-178826f8 exit 1 03:04:22
+settle: settled busy=2.51
+=== idle-178826f8-bun143 03:04:27 178826f8 bun 1.4.3 load: { 3.83 4.16 4.93 }
+=== idle-178826f8-bun143 exit 1 03:07:57

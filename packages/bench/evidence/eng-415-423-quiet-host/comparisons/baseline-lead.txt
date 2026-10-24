@@ -1,0 +1,110 @@
+compared with packages/bench/baselines/mac14-13-apple-m2-max-12c.json
+warning: baseline started with 2.5 cores busy with other work: throughput and CPU are not comparable
+metric                                     baseline  current  unit  worse by              status
+─────────────────────────────────────────  ────────  ───────  ────  ────────  ──────────────────
+idle client_cpu_avg_pct                       0.157    0.448     %   +184.7%                  ok
+idle client_cpu_max_pct                       0.431     7.29     %  +1590.7%  worse (not gating)
+idle client_rss_mib                           94.45    93.69   MiB     -0.8%                  ok
+idle client_footprint_mib                     52.84    54.81   MiB     +3.7%                  ok
+idle client_wakeups_per_s                      8.23     8.60    /s     +4.5%                  ok
+idle bare_bun_cpu_avg_pct                     0.022    0.031     %    +38.8%                  ok
+idle bare_bun_rss_mib                         10.17    10.28   MiB     +1.1%                  ok
+idle bare_bun_wakeups_per_s                   0.933    1.000    /s     +7.1%                  ok
+idle noclient_cpu_avg_pct                     0.029    0.032     %     +8.7%                  ok
+idle noclient_rss_mib                         68.33    93.64   MiB    +37.0%           REGRESSED
+idle noclient_footprint_mib                   54.00    54.49   MiB     +0.9%                  ok
+idle noclient_wakeups_per_s                   0.767    0.700    /s     -8.7%                  ok
+idle processes                                 1.00     1.00            0.0%                  ok
+idle noclient_cpu_over_bare_pct               0.008    0.001     %    -93.1%                  ok
+sessions rss_before_mib                       105.0    108.2   MiB     +3.1%                  ok
+sessions m10.dispatch_ack_p50_ms              14.93     6.76    ms    -54.7%            improved
+sessions m10.dispatch_to_event_p50_ms         10.36     6.58    ms    -36.5%                  ok
+sessions m10.dispatch_to_event_p99_ms         17.27     7.69    ms    -55.5%            improved
+sessions m10.delta_latency_p50_ms             0.648     1.62    ms   +149.9%                  ok
+sessions m10.delta_latency_p99_ms              6.03    26.59    ms   +340.7%           REGRESSED
+sessions m10.event_latency_p99_ms             16.00    43.00    ms   +168.8%           REGRESSED
+sessions m10.approval_round_trip_p50_ms        4.04     6.89    ms    +70.5%                  ok
+sessions m10.deltas_per_s_per_client          450.5    439.5    /s     +2.5%                  ok
+sessions m10.cpu_avg_pct                      15.89    24.40     %    +53.5%           REGRESSED
+sessions m10.cpu_p95_pct                      29.75    49.48     %    +66.3%           REGRESSED
+sessions m10.rss_peak_mib                     142.9    149.9   MiB     +4.9%                  ok
+sessions m10.footprint_peak_mib               77.75    79.72   MiB     +2.5%                  ok
+sessions m10.wall_s                            7991     8192    ms     +2.5%                  ok
+sessions m50.dispatch_ack_p50_ms              12.70    11.20    ms    -11.8%                  ok
+sessions m50.dispatch_to_event_p50_ms         11.59    13.34    ms    +15.0%                  ok
+sessions m50.dispatch_to_event_p99_ms         30.31    52.00    ms    +71.6%           REGRESSED
+sessions m50.delta_latency_p50_ms              1.12     2.60    ms   +131.2%                  ok
+sessions m50.delta_latency_p99_ms             21.07    33.24    ms    +57.8%           REGRESSED
+sessions m50.event_latency_p99_ms             34.00    69.00    ms   +102.9%           REGRESSED
+sessions m50.approval_round_trip_p50_ms        4.54    12.78    ms   +181.4%           REGRESSED
+sessions m50.deltas_per_s_per_client           2224     2133    /s     +4.1%                  ok
+sessions m50.cpu_avg_pct                      30.75    40.34     %    +31.2%                  ok
+sessions m50.cpu_p95_pct                      89.04    85.97     %     -3.5%                  ok
+sessions m50.rss_peak_mib                     205.3    224.7   MiB     +9.5%                  ok
+sessions m50.footprint_peak_mib               122.0    115.2   MiB     -5.5%                  ok
+sessions m50.wall_s                            8070     8423    ms     +4.4%                  ok
+sessions m50c4.dispatch_ack_p50_ms            13.97    13.94    ms     -0.2%                  ok
+sessions m50c4.dispatch_to_event_p50_ms       14.82    17.13    ms    +15.5%                  ok
+sessions m50c4.dispatch_to_event_p99_ms       44.99    49.69    ms    +10.4%                  ok
+sessions m50c4.delta_latency_p50_ms            2.45     3.52    ms    +43.7%                  ok
+sessions m50c4.delta_latency_p99_ms           22.72    34.39    ms    +51.4%           REGRESSED
+sessions m50c4.event_latency_p99_ms           41.00    63.00    ms    +53.7%           REGRESSED
+sessions m50c4.approval_round_trip_p50_ms      7.32    12.30    ms    +68.0%                  ok
+sessions m50c4.deltas_per_s_per_client         2191     2161    /s     +1.4%                  ok
+sessions m50c4.cpu_avg_pct                    40.57    43.02     %     +6.1%                  ok
+sessions m50c4.cpu_p95_pct                    73.80    64.86     %    -12.1%                  ok
+sessions m50c4.rss_peak_mib                   243.9    272.3   MiB    +11.6%                  ok
+sessions m50c4.footprint_peak_mib             140.3    118.5   MiB    -15.5%                  ok
+sessions m50c4.wall_s                          8209     8323    ms     +1.4%                  ok
+sessions burst.deltas_per_s                  187371   215052    /s    -14.8%                  ok
+sessions burst.mb_per_s                       11.99    13.76  MB/s    -14.8%                  ok
+sessions burst.delta_latency_p99_ms            3.34     3.56    ms     +6.6%                  ok
+sessions burst.cpu_avg_pct                    112.8    122.6     %     +8.7%                  ok
+sessions burst.rss_peak_mib                   308.6    346.7   MiB    +12.4%                  ok
+sessions rss_after_mib                        300.3    346.7   MiB    +15.5%                  ok
+sessions rss_growth_mib                       217.5    240.0   MiB    +10.3%                  ok
+sessions rss_growth_repeat_mib                -4.94     7.63   MiB   +254.4%           REGRESSED
+sessions footprint_growth_mib                 42.89    40.83   MiB     -4.8%                  ok
+history events                               100181   100181            0.0%                  ok
+history seed_events_per_s                      5252     6213    /s    -18.3%                  ok
+history seed_rss_peak_mib                     252.8    276.6   MiB     +9.4%                  ok
+history seed_footprint_peak_mib               163.8    176.6   MiB     +7.8%                  ok
+history restart_hello_ms                      274.5    251.1    ms     -8.5%                  ok
+history loaded_rss_mib                        111.6    112.5   MiB     +0.8%                  ok
+history loaded_footprint_mib                  54.75    57.67   MiB     +5.3%                  ok
+history host_snapshot_ms                       8.85     7.16    ms    -19.1%                  ok
+history host_snapshot_kb                      27.25    27.25   KiB      0.0%                  ok
+history session_snapshot_full_ms              53.30    43.87    ms    -17.7%                  ok
+history session_snapshot_full_kb               1660     1744   KiB     +5.0%                  ok
+history session_snapshot_last10_ms             8.04    10.85    ms    +34.9%                  ok
+history host_resume_10k_ms                    18.17    14.87    ms    -18.1%                  ok
+history host_resume_items                     421.0    421.0            0.0%                  ok
+history session_resume_half_ms                45.12    43.19    ms     -4.3%                  ok
+history session_resume_items                   2503     2503            0.0%                  ok
+history rss_after_snapshots_mib               155.7    165.0   MiB     +6.0%                  ok
+history footprint_after_snapshots_mib         72.05    70.19   MiB     -2.6%                  ok
+blobs read_mb_per_s                           598.0    532.5  MB/s    +11.0%                  ok
+blobs read_rss_peak_over_base_mib             32.03    47.61   MiB    +48.6%                  ok
+blobs upload_mb_per_s                         164.8    514.7  MB/s   -212.3%            improved
+blobs upload_rss_peak_over_base_mib           48.81    70.58   MiB    +44.6%                  ok
+blobs rss_after_mib                           171.8    161.8   MiB     -5.8%                  ok
+blobs upload_footprint_peak_over_base_mib     26.20    30.70   MiB    +17.2%                  ok
+blobs footprint_retained_mib                  0.125     3.00   MiB  +2299.6%                  ok
+blobs rss_retained_mib                        48.81    70.64   MiB    +44.7%                  ok
+terminal mb_per_s                             19.59    25.97  MB/s    -32.6%            improved
+terminal stream_ms                             2621     1977    ms    -24.6%                  ok
+terminal cpu_avg_pct                          221.1    203.3     %     -8.0%                  ok
+terminal rss_peak_over_base_mib               21.97    39.84   MiB    +81.4%           REGRESSED
+terminal footprint_peak_over_base_mib          8.11    27.20   MiB   +235.4%           REGRESSED
+terminal rss_after_close_mib                  143.7    124.8   MiB    -13.1%                  ok
+14 regression(s) beyond tolerance
+error: script "bench" exited with code 1
+@polaris/bench#bench:  ERROR  command (packages/bench) /Users/lucasdoell/.bun/bin/bun run bench sessions history idle blobs terminal --runs 3 --compare /Users/lucasdoell/code/polaris.worktrees/ce7c1d0d-c061-4e20-b123-d6606a92b49b/PRA/packages/bench/baselines/mac14-13-apple-m2-max-12c.json --json /tmp/pra-results/lead.json exited (1)
+
+ Tasks:    0 successful, 1 total
+Cached:    0 cached, 1 total
+  Time:    7m20.868s 
+Failed:    @polaris/bench#bench
+
+ ERROR  run failed: command  exited (1)
+error: script "bench" exited with code 1
