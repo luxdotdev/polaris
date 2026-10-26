@@ -33,6 +33,7 @@ test("plain, Lead and worker receive common context and only their attached capa
     expect(text).toContain("Review:");
     expect(text).toContain("Workspaces:");
     expect(text).toContain("Hosts:");
+    expect(text).toContain("mcp__polaris__search_history");
   }
 
   for (const current of [plain, lead]) {

@@ -1,6 +1,6 @@
 import type { OpenOptions } from "../../harness/HarnessDriver.ts";
 
-export const POLARIS_PREAMBLE_VERSION = 2;
+export const POLARIS_PREAMBLE_VERSION = 3;
 
 type InstructionOptions = Pick<OpenOptions, "readOnly" | "constellation" | "constellations">;
 
@@ -30,6 +30,8 @@ export const polarisPreamble = (options: InstructionOptions): string => {
   const plan = attachments.findIndex((a) => a.tools.some((t) => t.name === "plan"));
   const claim = attachments.findIndex((a) => a.tools.some((t) => t.name === "claim"));
 
+  const history = attachments.findIndex((a) => a.tools.some((t) => t.name === "search_history"));
+
   const features: string[] = [];
 
   if (plan !== -1)
@@ -40,6 +42,11 @@ export const polarisPreamble = (options: InstructionOptions): string => {
   if (claim !== -1)
     features.push(
       `Constellations: follow your worker assignment and submit its report with ${name(claim, "claim")}; use ${name(claim, "block")} when waiting on Tasks and ${name(claim, "ask")} for decisions or answers. Your worker skill explains the fields.`
+    );
+
+  if (history !== -1)
+    features.push(
+      `History: when you need earlier work from this session (lost to compaction) or from past sessions, search it with ${name(history, "search_history")} rather than guessing; open a match with ${name(history, "read_history")} and find sessions with ${name(history, "sessions")}.`
     );
 
   return [...context, ...features].join("\n");

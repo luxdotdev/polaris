@@ -21,11 +21,11 @@ export const WAIT_LIMIT_SECONDS = 50;
 
 const DEFAULT_WAIT_SECONDS = 45;
 
-const text = (lines: ReadonlyArray<string>) => ({
+export const text = (lines: ReadonlyArray<string>) => ({
   content: [{ type: "text" as const, text: lines.join("\n") }],
 });
 
-const sessionTool = <S extends Schema.Decoder<unknown>>(
+export const sessionTool = <S extends Schema.Decoder<unknown>>(
   name: string,
   description: string,
   schema: S,
