@@ -120,7 +120,14 @@ const emitDeclarations = () => {
     rmSync(join(DIST, "types"), { recursive: true, force: true });
 
     const result = Bun.spawnSync(
-      ["bun", join(REPO, "node_modules", "typescript", "bin", "tsc"), "-p", STAGE],
+      [
+        "bun",
+        join(REPO, "node_modules", "typescript", "bin", "tsc"),
+        "-p",
+        STAGE,
+        "--pretty",
+        "false",
+      ],
       { cwd: SDK, stdout: "pipe", stderr: "pipe" }
     );
 
