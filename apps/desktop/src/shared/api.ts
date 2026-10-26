@@ -22,6 +22,8 @@ import type {
   AttachmentUsage,
   StagedAmount,
   Capability,
+  PairExtension,
+  Pairing,
   ConnectionState,
   FileChangeEvent,
   FileEntry,
@@ -41,6 +43,7 @@ import type {
   ConstellationStats,
   StatsUsage,
   HostResourcesSnapshot,
+  RemoteAccessStatus,
   ConstellationStreamItem,
   PlanLimit,
   InlineStreamItem,
@@ -67,6 +70,8 @@ import type { AppUpdateView } from "./appUpdates.ts";
 import type { PullRef } from "./github.ts";
 import type { ConstellationDefaultsMethod, ConstellationMethod } from "./constellationContract.ts";
 import type { ResourceMethod } from "./resourcesContract.ts";
+import type { RemoteAccessMethod } from "./remoteAccessContract.ts";
+import type { VoiceRequestOutputs } from "./voiceContract.ts";
 import type { GitHubRequestOutputs, GitHubSubscriptionItems } from "./githubContract.ts";
 import type { GitRequestOutputs, GitSubscriptionItems } from "./gitContract.ts";
 import type { NeedsYouAction, ReviewTarget } from "./needsYou.ts";
@@ -393,6 +398,11 @@ export type ResourceRequestOutputs = {
   readonly [M in ResourceMethod]: Plain<HostResourcesSnapshot>;
 };
 
+/** Every Remote Access request answers with the Host's Remote Access as Tailscale reports it. */
+export type RemoteAccessRequestOutputs = {
+  readonly [M in RemoteAccessMethod]: Plain<RemoteAccessStatus>;
+};
+
 export interface RequestOutputs
   extends
     PredictionUiOutputs,
@@ -400,6 +410,8 @@ export interface RequestOutputs
     GitRequestOutputs,
     ConstellationRequestOutputs,
     ResourceRequestOutputs,
+    RemoteAccessRequestOutputs,
+    VoiceRequestOutputs,
     PredictionPlacementOutputs,
     PredictionOutcomeOutputs {
   "constellation.stats": ConstellationStatsView;
@@ -467,6 +479,9 @@ export interface RequestOutputs
   };
   "attachments.setSettings": null;
   "attachments.clear": Plain<StagedAmount>;
+  "extensions.list": ReadonlyArray<Plain<Pairing>>;
+  "extensions.pair": Rpc.Success<typeof PairExtension>;
+  "extensions.revoke": Plain<Pairing>;
   "sessions.autoArchive": Plain<AutoArchiveSettings>;
   "sessions.setAutoArchive": null;
   "review.runRiskSummary": Rpc.Success<typeof RunRiskSummary>;
@@ -590,7 +605,9 @@ export type AppEvent =
   /** A Review or Walkthrough notification: open the Review it ran for. */
   | { readonly kind: "open-review"; readonly target: ReviewTarget }
   /** The quit prompt's "Save and quit": the Editor saves every file, then answers `editor.savedAll`. */
-  | { readonly kind: "editor-save-all" };
+  | { readonly kind: "editor-save-all" }
+  /** A `polaris://` link (Raycast and the like): open a session or a Workspace, nothing more. */
+  | { readonly kind: "deep-link"; readonly link: import("./deepLink.ts").DeepLink };
 
 /** A pull request to open in Review, with its node id when known. */
 export interface OpenPull extends PullRef {

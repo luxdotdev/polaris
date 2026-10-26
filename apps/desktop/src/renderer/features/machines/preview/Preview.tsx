@@ -87,6 +87,24 @@ const Input = Schema.Struct({
   enabled: Schema.optional(Schema.NullOr(Schema.Boolean)),
 });
 
+/** Each host's remote access, off until switched on. */
+const remoteAccessOn = new Set<string>();
+
+const remoteAccessOf = (hostKey: string): Result<unknown> => {
+  const hostName = `${hostKey}.tail1234.ts.net`;
+  const on = remoteAccessOn.has(hostKey);
+
+  return {
+    ok: true,
+    value: {
+      state: on ? "on" : "off",
+      url: on ? `wss://${hostName}/polaris/rpc` : null,
+      hostName,
+      reason: null,
+    },
+  };
+};
+
 /** The three update requests change the feed; "Add a host" is answered on the `wsl` scene; the rest "unsupported" (a toast). */
 const answer = (
   feed: Feed,
@@ -127,6 +145,16 @@ const answer = (
       return OK;
     }
 
+    case "remoteAccess.enable":
+    case "remoteAccess.disable":
+    case "remoteAccess.status":
+      if (hostKey === undefined) return null;
+
+      if (method === "remoteAccess.enable") remoteAccessOn.add(hostKey);
+
+      if (method === "remoteAccess.disable") remoteAccessOn.delete(hostKey);
+
+      return remoteAccessOf(hostKey);
     case "clipboard.write":
       return OK;
     default:

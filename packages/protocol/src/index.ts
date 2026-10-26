@@ -16,6 +16,16 @@ export * from "./domain.ts";
 
 export * from "./events.ts";
 
+export * from "./extensions.ts";
+
+export * from "./remoteAccess.ts";
+
+export * from "./pairingString.ts";
+
+export * from "./grants.ts";
+
+export * from "./hello.ts";
+
 export * from "./notification.ts";
 
 export * from "./frame.ts";
@@ -43,6 +53,8 @@ export * from "./slashCommands.ts";
 export * from "./streams.ts";
 
 export * from "./usage.ts";
+
+export * from "./voice.ts";
 
 export * from "./wire.ts";
 

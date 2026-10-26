@@ -34,6 +34,7 @@ import {
   WorkspaceId,
   WorktreeId,
 } from "./ids.ts";
+import { Actor } from "./extensions.ts";
 import { WorktreeSetupRun } from "./worktreeSetup.ts";
 import { notificationEventFields } from "./notification.ts";
 import {
@@ -68,7 +69,8 @@ export const DomainEvent = Schema.TaggedUnion({
   WorktreeDetected: { worktree: Worktree },
   WorktreeRemoved: { workspaceId: WorkspaceId, worktreeId: WorktreeId },
 
-  SessionCreated: { session: AgentSession },
+  /** `actor`: who sent the command, when the log records it (null before ENG-398). */
+  SessionCreated: { session: AgentSession, actor: optionalNullable(Actor) },
   SessionStateChanged: {
     sessionId: SessionId,
     state: SessionState,
@@ -98,7 +100,7 @@ export const DomainEvent = Schema.TaggedUnion({
   SessionCompacted: { sessionId: SessionId, compaction: Compaction },
   SessionBackgroundTasksChanged: { sessionId: SessionId, tasks: Schema.Array(BackgroundTask) },
 
-  TurnStarted: { turn: Turn },
+  TurnStarted: { turn: Turn, actor: optionalNullable(Actor) },
   TurnItemCompleted: {
     sessionId: SessionId,
     turnId: TurnId,
@@ -120,6 +122,7 @@ export const DomainEvent = Schema.TaggedUnion({
     decision: ApprovalDecision,
     /** Label of the Client device that answered first. */
     resolvedBy: Schema.String,
+    actor: optionalNullable(Actor),
   },
   /**
    * The request went away without a Client answering it: the Harness withdrew

@@ -28,7 +28,10 @@ node scripts/emptyScreens.ts --out <dir> [--build]      # the empty states and t
 node scripts/tabCompletionScreens.ts --out <dir> [--build]   # Settings → Editor → Tab completion on fixtures (#tab-completion/hosts, /empty), every theme and density
 node scripts/completionCardScreens.ts --out <dir> [--build]   # the status bar's tab completion card (#completion-card/states, /bar), every theme and density, focus and Reduce Motion
 node scripts/diagnosticsScreens.ts --out <dir>             # editor diagnostics on TypeScript and Prisma (build first): the hover's width, the Problems panel, inline messages (off, held under completion), both themes
+node scripts/deepLinkSmoke.ts       # polaris:// links (build first): at launch, from a second instance, and an unknown one ignored
 ```
+
+**Deep links.** `polaris://session/<hostId>/<sessionId>` and `polaris://workspace/<hostId>/<workspaceId>` (ids percent-encoded; the Raycast extension's contract) bring the window forward and open that session or Workspace. They only navigate; anything else, including a query or fragment, is ignored with a `polaris: ignored a deep link` line. A link that arrives before the window has loaded waits for it (only the latest is kept), and one whose Host hasn't connected yet waits up to 15 s for it. The packaged app declares the scheme (`protocols` in `scripts/package.ts`) and claims it at each launch (`setAsDefaultProtocolClient`, which is how Windows registers it); dev never claims it, so it can't take links from an installed Polaris. On macOS `Polaris Dev.app` declares the scheme too, so `open -a "Polaris Dev" 'polaris://…'` reaches a dev build. Linux needs a `.desktop` file with `x-scheme-handler/polaris`, which the unpacked Linux build doesn't have yet.
 
 **GitHub.** The main process holds the GitHub client (`src/main/github`, see its README): accounts by device flow, tokens sealed with `safeStorage`, the pull request list, reviews and Review Checkout states, over `github.*` IPC. Tests and the smoke use the fake in `scripts/lib/githubFake`; set `POLARIS_GITHUB_WEB_URL` / `POLARIS_GITHUB_API_URL` to point the app at another GitHub.
 
@@ -100,6 +103,7 @@ Follow-ups: Linux AppImage/deb (today `--linux` makes an unpacked `Polaris-linux
 | `src/main/ipc/` | `requests.ts` (one handler per method; blobs taken here and sent as bytes), `feeds.ts` (host, session, terminal, files.watch, hosts, machines), `subscriptions.ts` (per window), `batcher.ts` (one IPC message per 4 ms window per window). |
 | `src/main/local/` | `LocalHost`: whether this Client has a local Host, its name, and which Daemon serves it (the system socket or Windows pipe, the dev Daemon, a given socket); `unsupported` on Windows on Arm. |
 | `src/main/protocol.ts`, `window.ts`, `menu.ts` | `app://polaris` with a strict CSP, the `hiddenInset` window, the native menu (Settings… ⌘,, ⌘1–3, appearance, density). |
+| `src/shared/deepLink.ts`, `src/main/deepLinks.ts`, `src/renderer/routes/deepLink.ts` | `polaris://` links (below): parsed with Effect Schema, held until the renderer loads, then resolved to a Host by `hostId` and navigated. |
 | `src/main/snapshotCache.ts` | The last synchronized Host snapshots, painted at launch and then revalidated (ENG-175). |
 | `src/main/notifications/`, `src/main/tray/` | Needs You outside the window: native notifications (`plan.ts` decides, tested), the menu bar star with the count and a menu of waiting sessions, the Dock badge. Fed by the renderer's `needsYou.publish`. |
 | `src/renderer/store/` | Pure reducers for Host and session feeds (`hostModel.ts`, `sessionModel.ts`), a zustand vanilla store applying one frame's updates at a time (`store.ts`, `frameQueue.ts`). |

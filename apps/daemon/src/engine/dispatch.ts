@@ -6,10 +6,13 @@
 import { statSync } from "node:fs";
 import { join } from "node:path";
 import {
+  Actor,
   Command,
   type CommandId,
   CommandRejected,
   type NotFound,
+  type NotGranted,
+  type Grant,
   RiskSummaryRef,
   type Sequence,
   TurnId,
@@ -30,11 +33,14 @@ export interface DispatchInput {
   readonly command: Command;
   /** Label of the sending Client device, from its `hello`. */
   readonly deviceLabel: string;
+  /** Who sent it (ENG-398); a token-less Client when left out. */
+  readonly actor?: Actor;
+  readonly extensionGrant?: Grant | null;
 }
 
 export type Dispatch = (
   input: DispatchInput
-) => Effect.Effect<{ readonly sequence: Sequence | null }, CommandRejected | NotFound>;
+) => Effect.Effect<{ readonly sequence: Sequence | null }, CommandRejected | NotFound | NotGranted>;
 
 const probePath = (path: string) => {
   try {
@@ -156,6 +162,8 @@ const make = Effect.gen(function* () {
       commandId,
       now: yield* rt.now,
       deviceLabel: input.deviceLabel,
+      actor: input.actor ?? Actor.cases.Client.make({}),
+      extensionGrant: input.extensionGrant ?? null,
       newTurnId: TurnId.make(`turn_${crypto.randomUUID()}`),
       newWorkspaceId: WorkspaceId.make(`ws_${crypto.randomUUID()}`),
       attachments: yield* resolveAttachments(commandId, command),

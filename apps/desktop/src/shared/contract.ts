@@ -16,6 +16,7 @@ import {
   CommitGranularity,
   ConstellationId,
   GitDiffSpec,
+  Grant,
   HarnessKind,
   PermissionMode,
   ReviewCheckoutId,
@@ -24,6 +25,7 @@ import {
   ReviewSubject,
   RiskFindingId,
   InlineRequest,
+  PairingId,
   RiskSummaryId,
   RiskSummaryRef,
   Sequence,
@@ -43,6 +45,8 @@ import {
   ConstellationStatsInputs,
 } from "./constellationContract.ts";
 import { ResourceRequestInputs } from "./resourcesContract.ts";
+import { RemoteAccessRequestInputs } from "./remoteAccessContract.ts";
+import { VoiceRequestInputs } from "./voiceContract.ts";
 import { GitHubRequestInputs, GitHubSubscriptionInputs } from "./githubContract.ts";
 import { GitRequestInputs, GitSubscriptionInputs } from "./gitContract.ts";
 import { BRANCH_PREFIX } from "./sessionPrefs.ts";
@@ -339,6 +343,10 @@ export const RequestInputs = {
   "sessions.setAutoArchive": onHost({ settings: AutoArchiveSettings }),
   /** Deletes staged attachments now: one Workspace's, or all of them (null). */
   "attachments.clear": onHost({ workspaceId: Schema.NullOr(WorkspaceId) }),
+  /** Settings → Extensions: a Host's Pairings; pairing returns the token once. */
+  "extensions.list": onHost({}),
+  "extensions.pair": onHost({ name: Schema.String, grant: Grant }),
+  "extensions.revoke": onHost({ id: PairingId }),
   /** Start a Risk Summary (Rules, then the Reviewer), or answer the cached one. */
   "review.runRiskSummary": onHost({
     workspaceId: WorkspaceId,
@@ -516,6 +524,8 @@ export const RequestInputs = {
   ...ConstellationDefaultsInputs,
   ...ConstellationStatsInputs,
   ...ResourceRequestInputs,
+  ...RemoteAccessRequestInputs,
+  ...VoiceRequestInputs,
 } as const;
 
 export type RequestMethod = keyof typeof RequestInputs;

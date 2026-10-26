@@ -13,7 +13,7 @@ export const DEV_APP_NAME = "Polaris Dev";
 const BUNDLE_ID = "dev.lux.polaris.dev";
 /** Bump when the patch below changes, so every checkout rebuilds its bundle. */
 
-const PATCH_VERSION = 1;
+const PATCH_VERSION = 2;
 
 const HELPERS = ["", " (GPU)", " (Plugin)", " (Renderer)"];
 
@@ -90,6 +90,14 @@ const build = (input: DevBundleInput, target: string) => {
     CFBundleDisplayName: DEV_APP_NAME,
     CFBundleIdentifier: BUNDLE_ID,
   });
+  // polaris:// links reach dev with `open -a "Polaris Dev" <url>`; only packaged apps claim the scheme.
+  run("plutil", [
+    "-replace",
+    "CFBundleURLTypes",
+    "-json",
+    JSON.stringify([{ CFBundleURLName: "Polaris", CFBundleURLSchemes: ["polaris"] }]),
+    join(contents, "Info.plist"),
+  ]);
   renameHelpers(target);
 
   if (input.icon !== null)

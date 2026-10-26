@@ -1,6 +1,6 @@
-import { describe, expect, test } from "bun:test";
-import { type Cause, Effect, Fiber, Queue, Stream } from "effect";
-import { type ByteTransport, makeWire, type TransportError } from "./wire.ts";
+import { describe, expect, spyOn, test } from "bun:test";
+import { type Cause, Deferred, Effect, Exit, Fiber, Queue, Stream } from "effect";
+import { type ByteTransport, makeWire, TransportError } from "./wire.ts";
 
 type Pipe = Queue.Queue<Uint8Array, TransportError | Cause.Done>;
 
@@ -33,6 +33,89 @@ const run = <A, E>(effect: Effect.Effect<A, E, import("effect").Scope.Scope>) =>
   Effect.runPromise(Effect.scoped(effect));
 
 describe("wire", () => {
+  test("blobs transfer in WebViews without crypto.randomUUID", async () => {
+    const uuid = spyOn(crypto, "randomUUID").mockImplementation(() => {
+      throw new Error("randomUUID needs a secure context");
+    });
+
+    try {
+      const received = await run(
+        Effect.gen(function* () {
+          const { a, b } = yield* makePair();
+          const sender = yield* makeWire(a, () => Effect.void);
+          const receiver = yield* makeWire(b, () => Effect.void);
+          const id = yield* sender.offerBlob(new Uint8Array([1, 2, 3]));
+
+          return yield* receiver.takeBlob(id);
+        })
+      );
+
+      expect(received).toEqual(new Uint8Array([1, 2, 3]));
+    } finally {
+      uuid.mockRestore();
+    }
+  });
+
+  test("a final JSON reply can wait for its write before the transport closes", async () => {
+    await run(
+      Effect.gen(function* () {
+        const entered = yield* Deferred.make<void>();
+        const release = yield* Deferred.make<void>();
+        const { a, b, aLog } = yield* makePair();
+
+        const wire = yield* makeWire(
+          {
+            ...a,
+            write: (bytes) =>
+              Effect.andThen(
+                Deferred.succeed(entered, undefined),
+                Effect.andThen(Deferred.await(release), a.write(bytes))
+              ),
+          },
+          () => Effect.void
+        );
+
+        yield* makeWire(b, () => Effect.void);
+        let finished = false;
+
+        const send = yield* wire.sendJson("final", { awaitWritten: true }).pipe(
+          Effect.tap(() =>
+            Effect.sync(() => {
+              finished = true;
+            })
+          ),
+          Effect.forkScoped
+        );
+
+        yield* Deferred.await(entered);
+        expect(finished).toBe(false);
+        yield* Deferred.succeed(release, undefined);
+        yield* Fiber.join(send);
+        expect(aLog).toHaveLength(1);
+        expect(finished).toBe(true);
+      })
+    );
+  });
+
+  test("a write failure settles a JSON write receipt", async () => {
+    await run(
+      Effect.gen(function* () {
+        const { a } = yield* makePair();
+
+        const wire = yield* makeWire(
+          { ...a, write: () => Effect.fail(new TransportError({ message: "broken" })) },
+          () => Effect.void
+        );
+
+        const sent = yield* wire
+          .sendJson("final", { awaitWritten: true })
+          .pipe(Effect.exit, Effect.timeout("1 second"));
+
+        expect(Exit.isFailure(sent)).toBe(true);
+      })
+    );
+  });
+
   test("delivers JSON in order and blobs both ways", async () => {
     const result = await run(
       Effect.gen(function* () {

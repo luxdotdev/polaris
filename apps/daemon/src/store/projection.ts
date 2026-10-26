@@ -12,6 +12,7 @@ import {
   DomainEvent,
   EventEnvelope,
   NotFound,
+  NotGranted,
   RequestId,
   ReviewCheckout,
   Sequence,
@@ -61,7 +62,9 @@ export const SubagentJson = json(Subagent);
 
 export const ReviewCheckoutJson = json(ReviewCheckout);
 
-export const RejectionJson = json(Schema.Union([CommandRejected, NotFound, ConstellationRejected]));
+export const RejectionJson = json(
+  Schema.Union([CommandRejected, NotFound, NotGranted, ConstellationRejected])
+);
 
 export { storeError };
 

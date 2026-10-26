@@ -6,6 +6,7 @@ import { fakeCommands, leadBinding, workerBinding } from "../testing.ts";
 import {
   NotifyOutcome,
   WaitOutcome,
+  unavailableSessions,
   type SessionTools,
   type WaitOptions,
 } from "../sessions/index.ts";
@@ -56,6 +57,9 @@ const world = (sessions: Partial<SessionTools>) => {
 
         return NotifyOutcome.Sent();
       }),
+    listSessions: unavailableSessions.listSessions,
+    searchHistory: unavailableSessions.searchHistory,
+    readHistory: unavailableSessions.readHistory,
     ...sessions,
   });
 

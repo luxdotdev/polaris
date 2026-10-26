@@ -12,11 +12,14 @@ Polaris is an IDE and agent orchestrator: a Bun Daemon per Host, an Electron Des
 | Path | What |
 |---|---|
 | `packages/protocol` | The wire contract: Effect Schema domain, events, commands, the `DaemonRpcs` group, and frame codec. Every Client and the Daemon depend on it. |
+| `packages/sdk` | The public SDK for Extensions (`@polaris/sdk`): pairing strings, the socket and gateway transports, Host and session feeds, commands; a Promise API and an Effect API. The protocol is bundled in at build (see its README). |
+| `extensions/even-g2` | The Even Realities G2 glasses app (`@polaris/even-g2`): agent sessions, approvals and voice replies on the glasses over `@polaris/sdk`, pairing on the phone; packed for Even Hub (see its README). |
 | `packages/client` | Client runtime: connections to many Daemons over SSH, Connection State, resume, install/upgrade. |
 | `packages/syntax-diff` | The syntax-aware diff: token alignment (Myers over tokens), patches with token emphasis, and tokenizers behind a small interface (the TypeScript parser; the Desktop App adds the highlighter's tokens). |
 | `packages/bench` | Benchmarks: the real Daemon under scripted load, a process-tree memory/CPU sampler, baselines and comparisons. |
 | `packages/spec` | The Quint spec of commits, streams, Client feeds and approvals, and its checks (see Verification). |
 | `apps/daemon` | The Daemon (`polaris` binary): event store, Harness drivers, transport, files, git, terminals, user service. |
+| `extensions/raycast` | The Raycast extension on `@polaris/sdk`: search Agent Sessions and Workspaces, Pending Approvals, New Agent Session, Hosts (see its README). A root workspace, like everything under `extensions/`. |
 | `apps/site` | The marketing site (Next.js on Vercel, root directory `apps/site`), built from the Paper "Marketing site" page on `@polaris/ui`'s tokens; the download and update-feed routes live under `app/` (see its README). |
 | `apps/desktop` | The Electron Desktop App: the Client runtime in the main process, a typed IPC bridge, a React renderer on `@polaris/ui` (see its README). |
 | `packages/ui` | The design system in code (`@polaris/ui`): DESIGN.md's tokens on Tailwind v4, restyled shadcn/ui, the Polaris primitives, and a gallery (`bun run --cwd packages/ui gallery`). |

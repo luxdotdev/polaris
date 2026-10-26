@@ -1,0 +1,139 @@
+{
+  "format": "extensions-v1",
+  "provenance": "runtime-socket",
+  "events": [
+    {
+      "_tag": "Hello",
+      "connection": 0,
+      "pairing": null,
+      "observed": "ok"
+    },
+    {
+      "_tag": "Call",
+      "connection": 0,
+      "need": "client",
+      "observed": "allowed"
+    },
+    {
+      "_tag": "Pair",
+      "pairing": 0,
+      "grant": ["read"]
+    },
+    {
+      "_tag": "Hello",
+      "connection": 1,
+      "pairing": 0,
+      "observed": "ok"
+    },
+    {
+      "_tag": "Call",
+      "connection": 1,
+      "need": "read",
+      "observed": "allowed"
+    },
+    {
+      "_tag": "Call",
+      "connection": 1,
+      "need": "turn",
+      "observed": "refused:turn"
+    },
+    {
+      "_tag": "Call",
+      "connection": 1,
+      "need": "client",
+      "observed": "not-for-extensions"
+    },
+    {
+      "_tag": "Call",
+      "connection": 1,
+      "need": "client",
+      "observed": "not-for-extensions"
+    },
+    {
+      "_tag": "Hello",
+      "connection": 1,
+      "pairing": null,
+      "observed": "ok"
+    },
+    {
+      "_tag": "Call",
+      "connection": 1,
+      "need": "client",
+      "observed": "not-for-extensions"
+    },
+    {
+      "_tag": "Hello",
+      "connection": 2,
+      "pairing": 5,
+      "observed": "refused"
+    },
+    {
+      "_tag": "Call",
+      "connection": 2,
+      "need": "client",
+      "observed": "dropped"
+    },
+    {
+      "_tag": "Hello",
+      "connection": 5,
+      "pairing": 6,
+      "observed": "refused"
+    },
+    {
+      "_tag": "Pair",
+      "pairing": 1,
+      "grant": ["read", "turn"]
+    },
+    {
+      "_tag": "Hello",
+      "connection": 3,
+      "pairing": 1,
+      "observed": "ok"
+    },
+    {
+      "_tag": "Call",
+      "connection": 3,
+      "need": "turn",
+      "observed": "allowed"
+    },
+    {
+      "_tag": "Call",
+      "connection": 0,
+      "need": "turn",
+      "observed": "allowed"
+    },
+    {
+      "_tag": "Revoke",
+      "pairing": 0,
+      "observed": "ok"
+    },
+    {
+      "_tag": "Call",
+      "connection": 1,
+      "need": "client",
+      "observed": "dropped"
+    },
+    {
+      "_tag": "Hello",
+      "connection": 4,
+      "pairing": 0,
+      "observed": "refused"
+    },
+    {
+      "_tag": "Revoke",
+      "pairing": 0,
+      "observed": "ok"
+    },
+    {
+      "_tag": "Revoke",
+      "pairing": 7,
+      "observed": "unknown"
+    },
+    {
+      "_tag": "Call",
+      "connection": 3,
+      "need": "turn",
+      "observed": "allowed"
+    }
+  ]
+}

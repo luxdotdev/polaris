@@ -1,13 +1,14 @@
 # Daemon transport
 
-The Daemon's only listener, the RPC server on it, and `polaris bridge`. Decisions: ENG-175 (wire) and ENG-179 (SSH bridge, lifecycle).
+The Daemon's socket listener, the RPC server on it, and `polaris bridge`. The second listener, the gateway (`ServerRpcs` over WebSocket on loopback for Extensions, ENG-399), lives in `../gateway/` and hands its connections to the same server. Decisions: ENG-175 (wire) and ENG-179 (SSH bridge, lifecycle).
 
 | File | What |
 |---|---|
-| `server.ts` | `startServer`: lock, socket, `RpcServer` for `ServerRpcs`, one Wire per connection. Handler layers are composed here. |
+| `server.ts` | `startServer`: lock, socket, `RpcServer` for `ServerRpcs`, one Wire per connection; with `gateway: { port }`, the gateway's connections too, each marked `tokenRequired`. Handler layers are composed here. |
 | `rpcs.ts` | `ServerRpcs` = `DaemonRpcs` + the server-only `ConnectionBlobs` middleware. |
 | `defects.ts` | Logs a request's defect with its cause; the server fails only that request (ADR 0064). |
-| `handlers.ts` | `hello` (HostInfo, capabilities; annotates the connection with the device label and the Client's capabilities) and placeholders for every other RPC. |
+| `rpcAdmission.ts` | Extension RPC reservations before payload decoding or handler forking: 32 per connection, 128 across the server, including streams. |
+| `handlers.ts` | `hello` (HostInfo, capabilities; annotates the connection with the device label and the Client's capabilities, scopes it to a Pairing when it presents an `extensionToken`, and checks the Extension's `protocolVersions` against `PROTOCOL_VERSION`: required on the gateway, refused with `ProtocolMismatch` naming the side to update), the `extensions.*` RPCs, and placeholders for every other RPC. |
 | `socket.ts` | Stale-socket probe, private socket directory, `Bun.listen` bound atomically, upgrade adoption. |
 | `windowsPipe/` | Windows: the user-only, local-only named pipe the Daemon listens on, created through `bun:ffi` (`security.ts` is its descriptor and flags as data; ADR 0059). |
 | `bunSocket.ts` | Bun sockets (listened or adopted by fd) as ByteTransports, with partial-write handling. |
@@ -20,6 +21,10 @@ The Daemon's only listener, the RPC server on it, and `polaris bridge`. Decision
 The framing and blob channel live in `packages/protocol/src/wire.ts` (shared with the Client): each RPC message is one JSON frame serialized with `RpcSerialization.json`; blobs are kind-1 frames. The writer drains queued JSON before each blob chunk and round-robins between blobs, so a large read never holds up a stream by more than one 256 KiB chunk. Limits (per connection): 512 MiB per blob, 1 GiB buffered, 60 s without progress fails a `take`, unclaimed blobs expire after 5 minutes; stream-sourced outgoing blobs buffer at most 4 chunks.
 
 A handler takes an incoming blob whole (`BlobChannel.take`) or as a stream of chunks as they arrive (`BlobChannel.takeStream`, backed by `Wire.takeBlobStream`), which never holds the whole blob: `attachments.stage` writes uploads to disk that way. A streamed take can opt out of the idle timeout (long-lived blobs such as `terminal.attachBinary`'s output); a consumer that stops early makes the Wire drop the rest of that blob as it arrives. The frame decoder queues socket reads rather than merging them, so a blob chunk is copied at most once on its way in.
+
+Incoming blob metadata has its own count limit: 1,024 entries by default, 128 on the gateway. Receiving, completed, failed and pending-consumer entries all count, including zero-byte blobs. Excess new incoming IDs close the Wire; a local `take` beyond capacity fails with `too-large` without allocating another entry. Consumption and expiry return capacity, and shutdown releases the map and buffered bytes.
+
+Extension RPC admission (ENG-418) reserves capacity before `RpcServer` can decode payloads or fork work. The gateway is always limited; a token-bearing socket hello permanently opts that connection into the same budget. Token-less socket Clients, including the Desktop App, use neither Extension limit. Overflow or a duplicate active request ID closes the offending connection instead of creating queued fibers. `Ack`, `Interrupt` and other control messages consume no slots. Streams retain their reservation until they terminate; responses and handler finalizers jointly release it. Limited handlers run in a nested request scope so their registered resource finalizers also complete before returning capacity. Disconnect marks requests terminal but keeps capacity for handlers still finalizing, preventing reconnects from bypassing the global bound. There are no new timers or polling loops.
 
 **A defect fails only its request.** The RpcServer runs with `disableFatalDefects`: a handler that dies answers that request with an `Exit` whose cause is the `Die`, and the connection's other requests and streams carry on. The `ConnectionBlobs` middleware logs every defect at error level with the RPC's tag and the whole cause. Expected failures stay typed: a lazy build that fails answers each request with the typed error `lazyRpcLayer`'s `failure` gives it (ADR 0064).
 
@@ -41,7 +46,11 @@ and add their capabilities with `startServer({ capabilities: [...] })` (the tran
 
 **BlobChannel is per connection.** Every RPC in `ServerRpcs` carries the `ConnectionBlobs` middleware, which provides the calling connection's `BlobChannel` around each request; handlers read it with `yield* BlobChannel` inside the handler (not while the layer is built). A handler layer that lists `BlobChannel` as a requirement is satisfied at build time by a placeholder that dies if used outside a request, so `startServer` removes `BlobChannel` from the requirements. `transport.test.ts` runs `GitRpcsLive`'s `git.diff` through it.
 
-**Device label.** `hello` calls `client.annotate(DeviceLabel, deviceLabel)` on the connection, so `dispatch` (engine) records which device resolved an approval.
+**Device label.** `hello` calls `client.annotate(DeviceLabel, deviceLabel)` on the connection, so `dispatch` (engine) records which device resolved an approval. For an Extension the label is its Pairing's name.
+
+**Extensions (ENG-398).** A `hello` with an `extensionToken` authenticates it against the Pairing store (`extensions/pairings.ts`, `~/.polaris/extensions.sqlite`, the token's SHA-256 only) and annotates the connection with `ConnectionPairing`; a malformed, unknown or revoked token fails `hello` with `ExtensionTokenRejected`. The first Pairing a connection presents is the one it keeps, and names it (`DeviceLabel`) whatever a later `hello` says; the token is checked again once the connection is bound, so a revoke racing `hello` loses either way. `ServerRpcs` carries the `GrantGate` middleware (`extensions/connection.ts`): every request on a scoped connection goes through `decideAccess` (`grants.ts` in the protocol, exhaustive over RPCs and Commands) and is refused with `NotGranted` naming the missing Grant, or null when the RPC is kept for Clients in 0.3.0. Token-less Clients are never gated. On a gateway connection (`tokenRequired`, `extensions/admission.ts`) a token is required: a token-less `hello` fails with `missing` and a request before `hello` with `NotGranted`, and the connection closes once the error is flushed. `extensions.pair`, `extensions.list` and `extensions.revoke` are served here; revoking closes the Pairing's live connections through `ExtensionConnections`, which `server.ts` binds to each connection's transport. `dispatch` records the connection's `Actor` on session starts, Turns and approvals.
+
+**Remote Access (ENG-400, ADR 0076).** `remoteAccess.status`, `remoteAccess.enable` and `remoteAccess.disable` (Client-only) are served here from `RemoteAccessControl` (`remoteAccess/`): `tailscale serve --bg --https=443 --set-path /polaris http://127.0.0.1:<gateway port>/polaris`, the port from `gateway.json` (`remoteAccess/gateway.ts`). Tailscale holds the state; every call reads it back. `RemoteAccess` (`extensions/remoteAccess.ts`) gives `extensions.pair` the `wss://…/polaris/rpc` URL while it is on.
 
 ## Single instance, stale sockets, upgrades
 
@@ -64,7 +73,7 @@ and add their capabilities with `startServer({ capabilities: [...] })` (the tran
 ## Known gaps / TODO
 
 - `daemonHandlers` in `serve.ts` is still `Layer.empty`; the lead wires the modules' layers (see above).
-- No per-connection limit on concurrent requests or queued JSON beyond the Wire's 8 MiB high-water mark.
-- `hello` does not reject old Clients; protocol-version negotiation is only on the Client side.
+- Token-less Clients retain unrestricted RPC concurrency; their queued JSON uses the Wire's 8 MiB high-water mark. Extension connections have the admission limits above.
+- `hello` does not reject old Clients over the socket; protocol-version negotiation is on the Client side there. Extensions declare `protocolVersions` and are refused a mismatch (`gateway/README.md`).
 - The upgrade adoption path is exercised by `service/upgrade.test.ts` with its fixture, not end to end through `startServer`.
 - `git/diff.ts` gets an `ArrayBuffer` from `Response#bytes()` where a `Uint8Array` is typed, so `countFiles` returns 0. The Wire now accepts any byte buffer, but the git module should wrap it in `new Uint8Array(...)`.

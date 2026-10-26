@@ -1,18 +1,34 @@
 /**
  * What the session tools read from the owning Daemon: another session's Turns
- * (`read_worker`) and a session's background commands (`wait_for_command`).
+ * (`read_worker`, the history tools) and a session's background commands (`wait_for_command`).
  */
 import type { CommandId, SessionId } from "@polaris/protocol";
 import { Effect } from "effect";
 import type { EventStore } from "../../store/EventStore.ts";
 import type { ServiceError } from "../../services.ts";
 import { NotifyOutcome, notifier, type NotifyInput } from "./notify.ts";
+import {
+  HistoryOutcome,
+  history,
+  type ListOptions,
+  type ReadOptions,
+  type SearchOptions,
+} from "./history.ts";
 import { readTranscript } from "./read.ts";
 import { WaitOutcome, waitForCommand } from "./wait.ts";
 
 export { TRANSCRIPT_LIMIT, transcriptText } from "./transcript.ts";
 
 export { WaitOutcome } from "./wait.ts";
+
+export {
+  HistoryOutcome,
+  SEARCH_TURN_BUDGET,
+  type HistoryScope,
+  type ListOptions,
+  type ReadOptions,
+  type SearchOptions,
+} from "./history.ts";
 
 export { NOTIFY_INTERVAL_MS, NotifyOutcome, type NotifyInput } from "./notify.ts";
 
@@ -45,16 +61,33 @@ export interface SessionTools {
     input: NotifyInput,
     id: CommandId
   ) => Effect.Effect<NotifyOutcome, ServiceError>;
+  /** History, as seen from the calling session: its own, its Workspace's or the Host's. */
+  readonly listSessions: (
+    caller: SessionId,
+    options: ListOptions
+  ) => Effect.Effect<HistoryOutcome, ServiceError>;
+  readonly searchHistory: (
+    caller: SessionId,
+    options: SearchOptions
+  ) => Effect.Effect<HistoryOutcome, ServiceError>;
+  readonly readHistory: (
+    caller: SessionId,
+    options: ReadOptions
+  ) => Effect.Effect<HistoryOutcome, ServiceError>;
 }
 
 export const unavailableSessions: SessionTools = {
   transcript: () => Effect.succeed(null),
   waitForCommand: () => Effect.succeed(WaitOutcome.Unavailable()),
   notify: () => Effect.succeed(NotifyOutcome.NotFound()),
+  listSessions: () => Effect.succeed(HistoryOutcome.NoCaller()),
+  searchHistory: () => Effect.succeed(HistoryOutcome.NoCaller()),
+  readHistory: () => Effect.succeed(HistoryOutcome.NoCaller()),
 };
 
 /** The Daemon's session tools, over its EventStore. */
 export const sessionTools = (store: EventStore["Service"]): SessionTools => ({
+  ...history(store),
   notify: notifier(store),
   transcript: (sessionId, options) => readTranscript(store, sessionId, options),
   waitForCommand: (sessionId, options) => waitForCommand(store, sessionId, options),

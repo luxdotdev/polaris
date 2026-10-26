@@ -393,7 +393,14 @@ export const runAttempt = Effect.fnUntraced(function* (
   return { attempt, attachment, claim };
 });
 
-const sessionToolNames = new Set(["read_worker", "wait_for_command", "notify"]);
+const sessionToolNames = new Set([
+  "read_worker",
+  "wait_for_command",
+  "notify",
+  "sessions",
+  "search_history",
+  "read_history",
+]);
 
 export const toolCounter = () => {
   const calls: string[] = [];

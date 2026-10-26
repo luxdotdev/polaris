@@ -15,12 +15,18 @@ export const paths = () => {
   return {
     root,
     /**
-     * The Daemon's only listener, reached remotely through `polaris bridge` over SSH:
+     * The Clients' listener, reached remotely through `polaris bridge` over SSH:
      * a Unix socket, or on Windows a named pipe named after the root (ADR 0059).
      */
     socket: localEndpoint(root),
     lock: join(root, "daemon.lock"),
     database: join(root, "state.sqlite"),
+    /** Extension Pairings: token hashes, Grants and revocations (ENG-398). */
+    extensions: join(root, "extensions.sqlite"),
+    /** The Daemon's settings file, read at startup (`gateway/config.ts`). */
+    config: join(root, "daemon.json"),
+    /** Where the gateway listens, `{ port, nonce }`, present while it does (ENG-399). */
+    gateway: join(root, "gateway.json"),
     staging: join(root, "staging"),
     logs: join(root, "logs"),
     /** The Reviewer's generated git common dirs: a fresh one per session, only Polaris writes them. */
