@@ -4,7 +4,7 @@
  * whose lines aren't in the diff is dropped.
  */
 import { createHash } from "node:crypto";
-import { LineRange, RiskFinding, RiskFindingId, Severity } from "@polaris/protocol";
+import { fencedBlocks, LineRange, RiskFinding, RiskFindingId, Severity } from "@polaris/protocol";
 import { Effect, Result, Schema } from "effect";
 import { type ChangeDiff, inDiff } from "./diff.ts";
 
@@ -54,13 +54,11 @@ export const reviewerOutputJsonSchema = (): string =>
 
 const decodeOutput = Schema.decodeUnknownResult(ReviewerOutput);
 
-const FENCED = /```(?:json)?\s*\n([\s\S]*?)\n```/g;
-
-/** The JSON document in a reply: its last fenced block, else the whole reply. */
+/** The JSON document in a reply: its last JSON (or untagged) fenced block, else the whole reply. */
 const documentOf = (reply: string): string => {
-  const blocks = [...reply.matchAll(FENCED)].map((match) => match[1] ?? "");
+  const block = fencedBlocks(reply).findLast((b) => b.lang === "json" || b.lang === "");
 
-  return (blocks.at(-1) ?? reply).trim();
+  return (block?.body ?? reply).trim();
 };
 
 /** The reply decoded, or what was wrong with it (sent back to the Reviewer once). */

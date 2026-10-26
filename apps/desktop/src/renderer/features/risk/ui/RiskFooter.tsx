@@ -10,7 +10,7 @@ export const RiskFooterSlot = (props: ReviewSlotProps) => {
   if (state.kind !== "ready") return null;
 
   return (
-    <div className="border-hairline border-t">
+    <div className="border-hairline shrink-0 border-t">
       <AskReviewer subjectKey={key} hostKey={state.hostKey} summary={state.summary} />
     </div>
   );
