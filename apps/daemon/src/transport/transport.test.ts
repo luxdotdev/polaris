@@ -74,7 +74,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  rmSync(home, { recursive: true, force: true, maxRetries: 20, retryDelay: 50 });
+  rmSync(home, { recursive: true, force: true });
 });
 
 // On Windows the Daemon listens on a named pipe derived from its home (ADR 0059).
@@ -566,6 +566,7 @@ describe("transport", () => {
         }
 
         const sequences = yield* Fiber.join(items);
+        yield* Scope.close(serverScope, Exit.void);
 
         return { sequences, states, latencies, lastSeen, events: log.events.length };
       })
@@ -575,8 +576,7 @@ describe("transport", () => {
     expect(result.sequences).toEqual(Array.from({ length: 90 }, (_, i) => i + 1));
     expect(result.states).toContain("reconnecting");
     expect(result.states.filter((s) => s === "connected").length).toBeGreaterThanOrEqual(4);
-    // Connections measure their round trip (just after Connected); every drop records when
-    // the Host was last seen.
+    // Connections measure their round trip; every drop records when the Host was last seen.
     expect(result.latencies.some((ms) => ms !== null && ms >= 0 && ms < 5000)).toBe(true);
     expect(result.lastSeen.length).toBeGreaterThan(0);
     expect(result.lastSeen.every((at) => at !== null)).toBe(true);
