@@ -148,9 +148,13 @@ const rpcOp = (world: World, op: Extract<Op, { op: "rpc" }>) =>
         RPC_GRANTS[op.rpc as keyof typeof RPC_GRANTS]
       : "client";
 
-    expect(refusalOf(decideAccess(target?.pairing ?? null, op.rpc, null))).toEqual(
-      expectedRefusal(grant, op.rpc, access)
-    );
+    // `dispatch` is decided per Command; one without a Command is refused, as a client-only call.
+    const expected =
+      op.rpc === "dispatch"
+        ? expectedRefusal(grant, "dispatch:", "client")
+        : expectedRefusal(grant, op.rpc, access);
+
+    expect(refusalOf(decideAccess(target?.pairing ?? null, op.rpc, null))).toEqual(expected);
   });
 
 const commandOp = (world: World, op: Extract<Op, { op: "command" }>) =>

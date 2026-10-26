@@ -74,7 +74,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  rmSync(home, { recursive: true, force: true });
+  rmSync(home, { recursive: true, force: true, maxRetries: 20, retryDelay: 50 });
 });
 
 // On Windows the Daemon listens on a named pipe derived from its home (ADR 0059).
