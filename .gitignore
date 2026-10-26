@@ -13,3 +13,4 @@ __pycache__/
 
 # The SDK's build output (bun run --cwd packages/sdk build)
 packages/sdk/build/
+packages/sdk/.pack-test-*/

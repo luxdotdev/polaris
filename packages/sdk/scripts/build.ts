@@ -4,7 +4,10 @@
  * whose only dependency is `effect`, named `@doellsoftware/polaris-sdk` (the
  * `@polaris` npm scope isn't ours). `--pack` then runs `npm pack` on it.
  *
- *   bun run --cwd packages/sdk build [--pack]
+ *   bun run --cwd packages/sdk build [--pack] [--out <dir>]
+ *
+ * `--out` writes `dist/` and `build/` under another directory of this package,
+ * so a test's build doesn't race turbo's.
  */
 import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
@@ -14,11 +17,17 @@ const SDK = resolve(import.meta.dir, "..");
 
 const REPO = resolve(SDK, "..", "..");
 
-const DIST = join(SDK, "dist");
+const outFlag = process.argv.indexOf("--out");
+
+const OUT = outFlag < 0 ? SDK : resolve(process.argv[outFlag + 1] ?? SDK);
+
+const DIST = join(OUT, "dist");
+
+const BUILD = join(OUT, "build");
 
 const PUBLISHED_NAME = "@doellsoftware/polaris-sdk";
 
-const STAGE = join(SDK, "build", "stage");
+const STAGE = join(BUILD, "stage");
 
 const Manifest = Schema.Struct({
   name: Schema.String,
@@ -144,7 +153,7 @@ const emitDeclarations = () => {
     for (const match of tooLarge.toSorted((a, b) => Number(b?.[2]) - Number(a?.[2]))) {
       if (match === null || erased.has(`${match[1]}:${match[2]}`)) continue;
       erased.add(`${match[1]}:${match[2]}`);
-      eraseDeclaration(join(SDK, match[1] ?? ""), Number(match[2]));
+      eraseDeclaration(resolve(SDK, match[1] ?? ""), Number(match[2]));
     }
   }
 
@@ -222,7 +231,7 @@ const writeManifest = () => {
 
 rmSync(DIST, { recursive: true, force: true });
 
-rmSync(join(SDK, "build"), { recursive: true, force: true });
+rmSync(BUILD, { recursive: true, force: true });
 
 await bundle("index.ts", "node", "index.js");
 
@@ -233,12 +242,10 @@ declarations();
 writeManifest();
 
 if (process.argv.includes("--pack")) {
-  const out = join(SDK, "build");
+  mkdirSync(BUILD, { recursive: true });
+  const name = run(["npm", "pack", "--pack-destination", BUILD], DIST).trim().split("\n").at(-1);
 
-  mkdirSync(out, { recursive: true });
-  const name = run(["npm", "pack", "--pack-destination", out], DIST).trim().split("\n").at(-1);
-
-  console.log(join(out, name ?? ""));
+  console.log(join(BUILD, name ?? ""));
 } else {
   console.log(DIST);
 }

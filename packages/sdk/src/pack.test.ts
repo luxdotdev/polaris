@@ -22,6 +22,8 @@ const REPO = resolve(SDK, "..", "..");
 
 let project: string;
 
+let out: string;
+
 let daemon: TestDaemon;
 
 const run = (argv: ReadonlyArray<string>, cwd: string, env: Record<string, string> = {}) => {
@@ -39,7 +41,8 @@ const run = (argv: ReadonlyArray<string>, cwd: string, env: Record<string, strin
 };
 
 beforeAll(async () => {
-  const packed = run(["bun", "scripts/build.ts", "--pack"], SDK);
+  out = mkdtempSync(join(SDK, ".pack-test-"));
+  const packed = run(["bun", "scripts/build.ts", "--pack", "--out", out], SDK);
 
   if (packed.exitCode !== 0) throw new Error(packed.output);
   const tarball = packed.output.trim().split("\n").at(-1) ?? "";
@@ -60,6 +63,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await daemon.stop();
   rmSync(project, { recursive: true, force: true });
+  rmSync(out, { recursive: true, force: true });
 });
 
 test("the manifest depends on effect alone, and on no workspace package", () => {
