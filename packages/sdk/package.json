@@ -1,0 +1,28 @@
+{
+  "name": "@polaris/sdk",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Read and drive Polaris Daemons from Extensions: sessions, approvals, Turns and voice.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "browser": "./src/browser.ts",
+      "default": "./src/index.ts"
+    },
+    "./testing": "./src/daemon.testing.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "bun ../../tooling/test/watchdog.ts --pass-with-no-tests",
+    "build": "bun scripts/build.ts",
+    "pack": "bun scripts/build.ts --pack"
+  },
+  "dependencies": {
+    "effect": "4.0.0-rc.118"
+  },
+  "devDependencies": {
+    "@polaris/client": "workspace:*",
+    "@polaris/protocol": "workspace:*"
+  }
+}

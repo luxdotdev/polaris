@@ -32,6 +32,8 @@ import { revealPath } from "../reveal.ts";
 import { githubHandlers } from "../github/ipc.ts";
 import { gitHandlers } from "./git.ts";
 import { constellationHandlers, resourceHandlers } from "./constellation.ts";
+import { remoteAccessHandlers } from "./remoteAccess.ts";
+import { voiceHandlers } from "./voice.ts";
 import { Machines } from "../machines/service.ts";
 import type { NeedsYouSummary } from "../../shared/needsYou.ts";
 import { appearanceOf, sessionPrefsOf, type Settings } from "../settings.ts";
@@ -244,6 +246,8 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
   ...gitHandlers,
   ...constellationHandlers,
   ...resourceHandlers,
+  ...remoteAccessHandlers,
+  ...voiceHandlers,
   "updates.get": () => Effect.sync(ctx.updates.get),
   "updates.check": () => Effect.sync(ctx.updates.check),
   "updates.setAutomatic": ({ enabled }) => Effect.sync(() => ctx.updates.setAutomatic(enabled)),
@@ -429,6 +433,11 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
     onLive(hostKey, (s) => s.client["attachments.setSettings"]({ settings })).pipe(done),
   "attachments.clear": ({ hostKey, workspaceId }) =>
     onLive(hostKey, (s) => s.client["attachments.clear"]({ workspaceId })),
+  "extensions.list": ({ hostKey }) => onLive(hostKey, (s) => s.client["extensions.list"]()),
+  "extensions.pair": ({ hostKey, name, grant }) =>
+    onLive(hostKey, (s) => s.client["extensions.pair"]({ name, grant })),
+  "extensions.revoke": ({ hostKey, id }) =>
+    onLive(hostKey, (s) => s.client["extensions.revoke"]({ id })),
   "sessions.autoArchive": ({ hostKey }) =>
     onLive(hostKey, (s) => s.client["sessions.autoArchive"]({})),
   "sessions.setAutoArchive": ({ hostKey, settings }) =>

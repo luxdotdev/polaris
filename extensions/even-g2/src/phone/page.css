@@ -1,0 +1,148 @@
+/* Portions adapted from even-realities/evenhub-templates@8cb01354 (MIT): the Even app's dark surfaces. */
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #232323;
+  color: #e5e5e5;
+  font:
+    16px/1.45 -apple-system,
+    BlinkMacSystemFont,
+    "Helvetica Neue",
+    system-ui,
+    sans-serif;
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
+}
+
+/* The Even app's WebView doesn't scroll the document, so the page scrolls itself. */
+#app {
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+h2 {
+  margin: 12px 0 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #a7a7a7;
+}
+
+p {
+  margin: 0;
+}
+
+.lede,
+.help,
+.empty {
+  color: #a7a7a7;
+}
+
+.hosts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hosts li:not(.empty) {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 12px;
+  padding: 12px;
+  border: 1px solid #3e3e3e;
+  border-radius: 12px;
+  background: #2e2e2e;
+}
+
+.hosts span {
+  grid-column: 1;
+  font-size: 14px;
+  color: #a7a7a7;
+}
+
+.hosts button {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+
+textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px;
+  border: 1px solid #3e3e3e;
+  border-radius: 12px;
+  background: #2e2e2e;
+  color: #e5e5e5;
+  font:
+    14px/1.4 ui-monospace,
+    Menlo,
+    monospace;
+  word-break: break-all;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+button {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: #e5e5e5;
+  color: #232323;
+  font: inherit;
+  font-weight: 600;
+}
+
+button.secondary {
+  background: #3e3e3e;
+  color: #e5e5e5;
+}
+
+.message {
+  min-height: 1.45em;
+  color: #a7a7a7;
+}
+
+.message.error {
+  color: #ff453a;
+}
+
+details.log pre {
+  max-height: 40vh;
+  overflow-y: auto;
+  margin: 8px 0 0;
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+#app > * {
+  flex-shrink: 0;
+}

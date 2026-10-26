@@ -21,6 +21,7 @@
  */
 import {
   type BlobError,
+  type ByteTransport,
   type BlobId,
   type BlobSource,
   DaemonRpcs,
@@ -40,16 +41,17 @@ import {
   type Scope,
   type Stream,
 } from "effect";
-import { RpcClient, type RpcGroup, RpcSchema, RpcSerialization } from "effect/rpc";
+import { type Rpc, RpcClient, type RpcGroup, RpcSchema, RpcSerialization } from "effect/rpc";
 import { RpcClientDefect, RpcClientError } from "effect/rpc/RpcClientError";
 import {
   constPing,
   type FromServerEncoded,
   type ResponseDefectEncoded,
 } from "effect/rpc/RpcMessage";
-import type { ClientTransport } from "./transport.ts";
 
-export type DaemonClient = RpcClient.RpcClient<RpcGroup.Rpcs<typeof DaemonRpcs>, RpcClientError>;
+export type DaemonRpc = RpcGroup.Rpcs<typeof DaemonRpcs>;
+
+export type DaemonClient = RpcClient.RpcClient<DaemonRpc, RpcClientError>;
 
 export interface ClientBlobs {
   /** Send bytes to the Daemon; pass the returned id in the RPC that consumes them. */
@@ -63,8 +65,8 @@ export interface ClientBlobs {
   ) => Stream.Stream<Uint8Array, BlobError>;
 }
 
-export interface RpcConnection {
-  readonly client: DaemonClient;
+export interface RpcConnection<Rpcs extends Rpc.Any = DaemonRpc> {
+  readonly client: RpcClient.RpcClient<Rpcs, RpcClientError>;
   readonly blobs: ClientBlobs;
   readonly wire: Wire;
   /** Fails when the connection is gone: closed, broken, or the peer stopped answering pings. */
@@ -113,10 +115,12 @@ export const isDaemonDefect = (error: RpcClientError): boolean =>
 const lostError = (message: string, cause?: unknown) =>
   new RpcClientError({ reason: new RpcClientDefect({ message, cause }) });
 
-export const connectRpc = Effect.fnUntraced(function* (
-  transport: ClientTransport,
+/** `connectRpc` for a group with the same RPCs, e.g. `ExtensionDaemonRpcs` (the SDK). */
+export const connectRpcWith = Effect.fnUntraced(function* <Rpcs extends Rpc.Any>(
+  group: RpcGroup.RpcGroup<Rpcs>,
+  transport: ByteTransport,
   options: RpcConnectionOptions = {}
-): Effect.fn.Return<RpcConnection, never, Scope.Scope> {
+): Effect.fn.Return<RpcConnection<Rpcs>, never, Scope.Scope> {
   const serialization = RpcSerialization.json;
   const parser = serialization.makeUnsafe();
   const decodeDefect = Schema.decodeUnknownSync(serialization.codecFor(Schema.Defect()));
@@ -307,7 +311,7 @@ export const connectRpc = Effect.fnUntraced(function* (
     })
   );
 
-  const client = yield* RpcClient.make(DaemonRpcs, { spanPrefix: "polaris.rpc" }).pipe(
+  const client = yield* RpcClient.make(group, { spanPrefix: "polaris.rpc" }).pipe(
     Effect.provideService(RpcClient.Protocol, protocol)
   );
 
@@ -342,3 +346,9 @@ export const connectRpc = Effect.fnUntraced(function* (
     }),
   };
 });
+
+export const connectRpc = (
+  transport: ByteTransport,
+  options: RpcConnectionOptions = {}
+): Effect.Effect<RpcConnection, never, Scope.Scope> =>
+  connectRpcWith(DaemonRpcs, transport, options);

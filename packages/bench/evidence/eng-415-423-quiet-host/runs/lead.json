@@ -1,0 +1,1061 @@
+{
+  "schema": 1,
+  "env": {
+    "machine": "Mac14,13",
+    "machineSlug": "mac14-13-apple-m2-max-12c",
+    "cpu": "Apple M2 Max",
+    "cores": 12,
+    "memoryGiB": 32,
+    "os": "macOS 27.0 (Darwin 27.0.0)",
+    "arch": "arm64",
+    "bun": "1.4.4",
+    "gitSha": "173bca516b92",
+    "gitDirty": false,
+    "daemon": "source",
+    "daemonBinary": null,
+    "transport": "bridge",
+    "sampler": "darwin-libproc",
+    "date": "2026-10-24T06:03:09.957Z",
+    "backgroundCores": 1.4
+  },
+  "options": {
+    "quick": false,
+    "runs": 3,
+    "profile": false,
+    "scenarios": ["idle", "sessions", "history", "blobs", "terminal"]
+  },
+  "scenarios": {
+    "idle": {
+      "metrics": {
+        "client_cpu_avg_pct": {
+          "value": 0.4475117595433115,
+          "unit": "%",
+          "kind": "cpu",
+          "better": "lower",
+          "tolerance": {
+            "relative": 1,
+            "absolute": 0.5
+          },
+          "runs": [0.4475117595433115, 0.4936123227903601, 0.4431820220104436],
+          "min": 0.4431820220104436,
+          "max": 0.4936123227903601
+        },
+        "client_cpu_max_pct": {
+          "value": 7.293562532813255,
+          "unit": "%",
+          "kind": "cpu",
+          "better": "lower",
+          "info": true,
+          "runs": [7.293562532813255, 7.934156816993784, 6.539155375039287],
+          "min": 6.539155375039287,
+          "max": 7.934156816993784
+        },
+        "client_rss_mib": {
+          "value": 93.6875,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "runs": [94.25, 93.6875, 93.375],
+          "min": 93.375,
+          "max": 94.25
+        },
+        "client_footprint_mib": {
+          "value": 54.81330108642578,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "runs": [54.813255310058594, 55.01640319824219, 54.81330108642578],
+          "min": 54.813255310058594,
+          "max": 55.01640319824219
+        },
+        "client_wakeups_per_s": {
+          "value": 8.599513709539048,
+          "unit": "/s",
+          "kind": "count",
+          "better": "lower",
+          "tolerance": {
+            "relative": 1,
+            "absolute": 5
+          },
+          "runs": [8.632536730037668, 8.599283130507677, 8.599513709539048],
+          "min": 8.599283130507677,
+          "max": 8.632536730037668
+        },
+        "bare_bun_cpu_avg_pct": {
+          "value": 0.03119398770827856,
+          "unit": "%",
+          "kind": "cpu",
+          "better": "lower",
+          "info": true,
+          "runs": [0.03119398770827856, 0.029876817222415544, 0.03319957648321231],
+          "min": 0.029876817222415544,
+          "max": 0.03319957648321231
+        },
+        "bare_bun_rss_mib": {
+          "value": 10.28125,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "info": true,
+          "runs": [10.28125, 10.3125, 10.28125],
+          "min": 10.28125,
+          "max": 10.3125
+        },
+        "bare_bun_wakeups_per_s": {
+          "value": 0.9999306645410726,
+          "unit": "/s",
+          "kind": "count",
+          "better": "lower",
+          "info": true,
+          "runs": [1.0332261977989157, 0.9999306645410726, 0.9665532483766242],
+          "min": 0.9665532483766242,
+          "max": 1.0332261977989157
+        },
+        "noclient_cpu_avg_pct": {
+          "value": 0.03175549479515616,
+          "unit": "%",
+          "kind": "cpu",
+          "better": "lower",
+          "tolerance": {
+            "relative": 1,
+            "absolute": 0.5
+          },
+          "runs": [0.03175549479515616, 0.03772914306772389, 0.018957276599352032],
+          "min": 0.018957276599352032,
+          "max": 0.03772914306772389
+        },
+        "noclient_rss_mib": {
+          "value": 93.640625,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "runs": [94.1875, 93.640625, 93.3125],
+          "min": 93.3125,
+          "max": 94.1875
+        },
+        "noclient_footprint_mib": {
+          "value": 54.485130310058594,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "runs": [54.485130310058594, 54.64140319824219, 54.42267608642578],
+          "min": 54.42267608642578,
+          "max": 54.64140319824219
+        },
+        "noclient_wakeups_per_s": {
+          "value": 0.6999686414048648,
+          "unit": "/s",
+          "kind": "count",
+          "better": "lower",
+          "tolerance": {
+            "relative": 1,
+            "absolute": 5
+          },
+          "runs": [0.8665816249388775, 0.6999686414048648, 0.5999445801194111],
+          "min": 0.5999445801194111,
+          "max": 0.8665816249388775
+        },
+        "processes": {
+          "value": 1,
+          "unit": "",
+          "kind": "count",
+          "better": "lower",
+          "runs": [1, 1, 1],
+          "min": 1,
+          "max": 1
+        },
+        "noclient_cpu_over_bare_pct": {
+          "value": 0.0005615070868775981,
+          "unit": "%",
+          "kind": "cpu",
+          "better": "lower",
+          "tolerance": {
+            "relative": 1,
+            "absolute": 0.3
+          },
+          "runs": [0.0005615070868775981, 0.007852325845308344, -0.01424229988386028],
+          "min": -0.01424229988386028,
+          "max": 0.007852325845308344
+        }
+      },
+      "notes": [
+        "3 Workspaces, 6 Dormant sessions; 30 s windows after a settle; wakeups are idle + interrupt wakeups (proc_pid_rusage)"
+      ],
+      "durationMs": 207416.739791
+    },
+    "sessions": {
+      "metrics": {
+        "rss_before_mib": {
+          "value": 108.203125,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "runs": [106.78125, 109.25, 108.203125],
+          "min": 106.78125,
+          "max": 109.25
+        },
+        "m10.dispatch_ack_p50_ms": {
+          "value": 6.764437000005273,
+          "unit": "ms",
+          "kind": "latency",
+          "better": "lower",
+          "runs": [5.962457999994513, 6.764437000005273, 6.921125499968184],
+          "min": 5.962457999994513,
+          "max": 6.921125499968184
+        },
+        "m10.dispatch_to_event_p50_ms": {
+          "value": 6.580062999972142,
+          "unit": "ms",
+          "kind": "latency",
+          "better": "lower",
+          "runs": [6.562395500004641, 6.580062999972142, 6.660957999993116],
+          "min": 6.562395500004641,
+          "max": 6.660957999993116
+        },
+        "m10.dispatch_to_event_p99_ms": {
+          "value": 7.69054199999664,
+          "unit": "ms",
+          "kind": "latency",
+          "better": "lower",
+          "runs": [6.703708999993978, 8.965749999973923, 7.69054199999664],
+          "min": 6.703708999993978,
+          "max": 8.965749999973923
+        },
+        "m10.delta_latency_p50_ms": {
+          "value": 1.6207275390625,
+          "unit": "ms",
+          "kind": "latency",
+          "better": "lower",
+          "runs": [1.6207275390625, 1.5440673828125, 1.7059326171875],
+          "min": 1.5440673828125,
+          "max": 1.7059326171875
+        },
+        "m10.delta_latency_p99_ms": {
+          "value": 26.5888671875,
+          "unit": "ms",
+          "kind": "latency",
+          "better": "lower",
+          "runs": [24.632568359375, 26.5888671875, 27.19384765625],
+          "min": 24.632568359375,
+          "max": 27.19384765625
+        },
+        "m10.event_latency_p99_ms": {
+          "value": 43,
+          "unit": "ms",
+          "kind": "latency",
+          "better": "lower",
+          "runs": [41, 43, 49],
+          "min": 41,
+          "max": 49
+        },
+        "m10.approval_round_trip_p50_ms": {
+          "value": 6.887832999986131,
+          "unit": "ms",
+          "kind": "latency",
+          "better": "lower",
+          "runs": [7.5883539999922505, 6.887832999986131, 6.613229000009596],
+          "min": 6.613229000009596,
+          "max": 7.5883539999922505
+        },
+        "m10.deltas_per_s_per_client": {
+          "value": 439.4529439509661,
+          "unit": "/s",
+          "kind": "throughput",
+          "better": "higher",
+          "info": true,
+          "runs": [439.4529439509661, 440.20338148483427, 436.2501672720976],
+          "min": 436.2501672720976,
+          "max": 440.20338148483427
+        },
+        "m10.cpu_avg_pct": {
+          "value": 24.395564876018135,
+          "unit": "%",
+          "kind": "cpu",
+          "better": "lower",
+          "runs": [24.395564876018135, 24.560612197682097, 24.36768182439635],
+          "min": 24.36768182439635,
+          "max": 24.560612197682097
+        },
+        "m10.cpu_p95_pct": {
+          "value": 49.48360437525535,
+          "unit": "%",
+          "kind": "cpu",
+          "better": "lower",
+          "runs": [51.69417138468641, 49.48360437525535, 49.11562587239117],
+          "min": 49.11562587239117,
+          "max": 51.69417138468641
+        },
+        "m10.rss_peak_mib": {
+          "value": 149.890625,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.25,
+            "absolute": 10
+          },
+          "runs": [149.890625, 145.890625, 149.890625],
+          "min": 145.890625,
+          "max": 149.890625
+        },
+        "m10.footprint_peak_mib": {
+          "value": 79.71955108642578,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.25,
+            "absolute": 10
+          },
+          "runs": [78.71957397460938, 79.71955108642578, 79.78209686279297],
+          "min": 78.71957397460938,
+          "max": 79.78209686279297
+        },
+        "m10.wall_s": {
+          "value": 8192.003375,
+          "unit": "ms",
+          "kind": "time",
+          "better": "lower",
+          "info": true,
+          "runs": [8192.003375, 8178.03804199997, 8252.145833000017],
+          "min": 8178.03804199997,
+          "max": 8252.145833000017
+        },
+        "m50.dispatch_ack_p50_ms": {
+          "value": 11.200333499989938,
+          "unit": "ms",
+          "kind": "latency",
+          "better": "lower",
+          "runs": [11.200333499989938, 11.744811999989906, 9.76443750000908],
+          "min": 9.76443750000908,
+          "max": 11.744811999989906
+        },
+        "m50.dispatch_to_event_p50_ms": {
+          "value": 13.335645500017563,
+          "unit": "ms",
+          "kind": "latency",
+          "better": "lower",
+          "runs": [15.620333500002744, 13.335645500017563, 11.808875000016997],
+          "min": 11.808875000016997,
+          "max": 15.620333500002744
+        },
+        "m50.dispatch_to_event_p99_ms": {
+          "value": 52.00129200000083,
+          "unit": "ms",
+          "kind": "latency",
+          "better": "lower",
+          "runs": [52.00129200000083, 51.341041999985464, 56.975333000009414],
+          "min": 51.341041999985464,
+          "max": 56.975333000009414
+        },
+        "m50.delta_latency_p50_ms": {
+          "value": 2.59912109375,
+          "unit": "ms",
+          "kind": "latency",
+          "better": "lower",
+          "runs": [2.59912109375, 2.5299072265625, 2.781494140625],
+          "min": 2.5299072265625,
+          "max": 2.781494140625
+        },
+        "m50.delta_latency_p99_ms": {
+          "value": 33.239990234375,
+          "unit": "ms",
+          "kind": "latency",
+          "better": "lower",
+          "runs": [37.10546875, 33.239990234375, 31.828857421875],
+          "min": 31.828857421875,
+          "max": 37.10546875
+        },
+        "m50.event_latency_p99_ms": {
+          "value": 69,
+          "unit": "ms",
+          "kind": "latency",
+          "better": "lower",
+          "runs": [65, 82, 69],
+          "min": 65,
+          "max": 82
+        },
+        "m50.approval_round_trip_p50_ms": {
+          "value": 12.776166499999817,
+          "unit": "ms",
+          "kind": "latency",
+          "better": "lower",
+          "runs": [10.760250000006636, 22.19550000000163, 12.776166499999817],
+          "min": 10.760250000006636,
+          "max": 22.19550000000163
+        },
+        "m50.deltas_per_s_per_client": {
+          "value": 2133.41002167907,
+          "unit": "/s",
+          "kind": "throughput",
+          "better": "higher",
+          "info": true,
+          "runs": [2137.7604634689287, 2101.8337802239894, 2133.41002167907],
+          "min": 2101.8337802239894,
+          "max": 2137.7604634689287
+        },
+        "m50.cpu_avg_pct": {
+          "value": 40.337328095128136,
+          "unit": "%",
+          "kind": "cpu",
+          "better": "lower",
+          "runs": [39.844300326322504, 40.337328095128136, 41.78457550845304],
+          "min": 39.844300326322504,
+          "max": 41.78457550845304
+        },
+        "m50.cpu_p95_pct": {
+          "value": 85.96830835929946,
+          "unit": "%",
+          "kind": "cpu",
+          "better": "lower",
+          "runs": [86.76664279248199, 85.96830835929946, 73.4418625761962],
+          "min": 73.4418625761962,
+          "max": 86.76664279248199
+        },
+        "m50.rss_peak_mib": {
+          "value": 224.71875,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.25,
+            "absolute": 10
+          },
+          "runs": [231.8125, 224.109375, 224.71875],
+          "min": 224.109375,
+          "max": 231.8125
+        },
+        "m50.footprint_peak_mib": {
+          "value": 115.18836975097656,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.25,
+            "absolute": 10
+          },
+          "runs": [119.06339263916016, 111.95397186279297, 115.18836975097656],
+          "min": 111.95397186279297,
+          "max": 119.06339263916016
+        },
+        "m50.wall_s": {
+          "value": 8423.134707999998,
+          "unit": "ms",
+          "kind": "time",
+          "better": "lower",
+          "info": true,
+          "runs": [8400.847665999987, 8550.628583999991, 8423.134707999998],
+          "min": 8400.847665999987,
+          "max": 8550.628583999991
+        },
+        "m50c4.dispatch_ack_p50_ms": {
+          "value": 13.941708500002278,
+          "unit": "ms",
+          "kind": "latency",
+          "better": "lower",
+          "runs": [13.941708500002278, 13.656000500021037, 17.148667000001296],
+          "min": 13.656000500021037,
+          "max": 17.148667000001296
+        },
+        "m50c4.dispatch_to_event_p50_ms": {
+          "value": 17.12595849999343,
+          "unit": "ms",
+          "kind": "latency",
+          "better": "lower",
+          "runs": [17.12595849999343, 16.639750000002095, 19.410291499982122],
+          "min": 16.639750000002095,
+          "max": 19.410291499982122
+        },
+        "m50c4.dispatch_to_event_p99_ms": {
+          "value": 49.68537500000093,
+          "unit": "ms",
+          "kind": "latency",
+          "better": "lower",
+          "runs": [49.68537500000093, 80.58233299996937, 26.183083999960218],
+          "min": 26.183083999960218,
+          "max": 80.58233299996937
+        },
+        "m50c4.delta_latency_p50_ms": {
+          "value": 3.518798828125,
+          "unit": "ms",
+          "kind": "latency",
+          "better": "lower",
+          "runs": [3.518798828125, 3.5987548828125, 3.4765625],
+          "min": 3.4765625,
+          "max": 3.5987548828125
+        },
+        "m50c4.delta_latency_p99_ms": {
+          "value": 34.387939453125,
+          "unit": "ms",
+          "kind": "latency",
+          "better": "lower",
+          "runs": [34.387939453125, 39.201416015625, 33.431640625],
+          "min": 33.431640625,
+          "max": 39.201416015625
+        },
+        "m50c4.event_latency_p99_ms": {
+          "value": 63,
+          "unit": "ms",
+          "kind": "latency",
+          "better": "lower",
+          "runs": [63, 76, 45],
+          "min": 45,
+          "max": 76
+        },
+        "m50c4.approval_round_trip_p50_ms": {
+          "value": 12.298458500008564,
+          "unit": "ms",
+          "kind": "latency",
+          "better": "lower",
+          "runs": [12.298458500008564, 21.418395999993663, 8.937395999993896],
+          "min": 8.937395999993896,
+          "max": 21.418395999993663
+        },
+        "m50c4.deltas_per_s_per_client": {
+          "value": 2160.9090584147125,
+          "unit": "/s",
+          "kind": "throughput",
+          "better": "higher",
+          "info": true,
+          "runs": [2171.3301612567043, 2106.225085497821, 2160.9090584147125],
+          "min": 2106.225085497821,
+          "max": 2171.3301612567043
+        },
+        "m50c4.cpu_avg_pct": {
+          "value": 43.02395659281901,
+          "unit": "%",
+          "kind": "cpu",
+          "better": "lower",
+          "runs": [43.02395659281901, 43.019495423341944, 45.75486910348883],
+          "min": 43.019495423341944,
+          "max": 45.75486910348883
+        },
+        "m50c4.cpu_p95_pct": {
+          "value": 64.86382529746102,
+          "unit": "%",
+          "kind": "cpu",
+          "better": "lower",
+          "runs": [64.54908631872372, 64.86382529746102, 69.00684888894804],
+          "min": 64.54908631872372,
+          "max": 69.00684888894804
+        },
+        "m50c4.rss_peak_mib": {
+          "value": 272.28125,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.25,
+            "absolute": 10
+          },
+          "runs": [272.28125, 275.28125, 262.0625],
+          "min": 262.0625,
+          "max": 275.28125
+        },
+        "m50c4.footprint_peak_mib": {
+          "value": 118.53216552734375,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.25,
+            "absolute": 10
+          },
+          "runs": [118.53216552734375, 121.71964263916016, 117.46964263916016],
+          "min": 117.46964263916016,
+          "max": 121.71964263916016
+        },
+        "m50c4.wall_s": {
+          "value": 8323.117499999993,
+          "unit": "ms",
+          "kind": "time",
+          "better": "lower",
+          "info": true,
+          "runs": [8286.510417000012, 8540.872542000026, 8323.117499999993],
+          "min": 8286.510417000012,
+          "max": 8540.872542000026
+        },
+        "burst.deltas_per_s": {
+          "value": 215051.85225424412,
+          "unit": "/s",
+          "kind": "throughput",
+          "better": "higher",
+          "runs": [212925.87232749074, 215051.85225424412, 218768.19969114583],
+          "min": 212925.87232749074,
+          "max": 218768.19969114583
+        },
+        "burst.mb_per_s": {
+          "value": 13.763318544271623,
+          "unit": "MB/s",
+          "kind": "throughput",
+          "better": "higher",
+          "runs": [13.627255828959408, 13.763318544271623, 14.001164780233331],
+          "min": 13.627255828959408,
+          "max": 14.001164780233331
+        },
+        "burst.delta_latency_p99_ms": {
+          "value": 3.558837890625,
+          "unit": "ms",
+          "kind": "latency",
+          "better": "lower",
+          "info": true,
+          "runs": [3.502685546875, 3.558837890625, 5.701904296875],
+          "min": 3.502685546875,
+          "max": 5.701904296875
+        },
+        "burst.cpu_avg_pct": {
+          "value": 122.57180464394686,
+          "unit": "%",
+          "kind": "cpu",
+          "better": "lower",
+          "info": true,
+          "runs": [122.57180464394686, 127.25177360744968, 122.45242419932868],
+          "min": 122.45242419932868,
+          "max": 127.25177360744968
+        },
+        "burst.rss_peak_mib": {
+          "value": 346.671875,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.25,
+            "absolute": 10
+          },
+          "runs": [346.671875, 352.40625, 335.453125],
+          "min": 335.453125,
+          "max": 352.40625
+        },
+        "rss_after_mib": {
+          "value": 346.734375,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.25,
+            "absolute": 10
+          },
+          "runs": [346.734375, 352.46875, 335.5],
+          "min": 335.5,
+          "max": 352.46875
+        },
+        "rss_growth_mib": {
+          "value": 239.953125,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.25,
+            "absolute": 10
+          },
+          "runs": [239.953125, 243.21875, 227.296875],
+          "min": 227.296875,
+          "max": 243.21875
+        },
+        "rss_growth_repeat_mib": {
+          "value": 7.625,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.5,
+            "absolute": 10
+          },
+          "runs": [8.859375, 7.625, -138.625],
+          "min": -138.625,
+          "max": 8.859375
+        },
+        "footprint_growth_mib": {
+          "value": 40.828330993652344,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.25,
+            "absolute": 10
+          },
+          "runs": [40.828330993652344, 43.96893310546875, 39.828285217285156],
+          "min": 39.828285217285156,
+          "max": 43.96893310546875
+        }
+      },
+      "notes": [
+        "phases: m10 (10 sessions × 3 Turns, 1 Client(s)), m50 (50 sessions × 3 Turns, 1 Client(s)), m50c4 (50 sessions × 3 Turns, 4 Client(s)), then burst and repeat (m50 again)"
+      ],
+      "durationMs": 139973.27416600002
+    },
+    "history": {
+      "metrics": {
+        "events": {
+          "value": 100181,
+          "unit": "",
+          "kind": "count",
+          "better": "higher",
+          "info": true,
+          "runs": [100181, 100181, 100181],
+          "min": 100181,
+          "max": 100181
+        },
+        "seed_events_per_s": {
+          "value": 6212.545474093709,
+          "unit": "/s",
+          "kind": "throughput",
+          "better": "higher",
+          "runs": [6212.545474093709, 6657.101175375736, 5943.7466160069935],
+          "min": 5943.7466160069935,
+          "max": 6657.101175375736
+        },
+        "seed_rss_peak_mib": {
+          "value": 276.59375,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.25,
+            "absolute": 10
+          },
+          "runs": [276.59375, 277.046875, 260.0625],
+          "min": 260.0625,
+          "max": 277.046875
+        },
+        "seed_footprint_peak_mib": {
+          "value": 176.56334686279297,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.25,
+            "absolute": 10
+          },
+          "runs": [177.81343841552734, 176.56334686279297, 169.90711975097656],
+          "min": 169.90711975097656,
+          "max": 177.81343841552734
+        },
+        "restart_hello_ms": {
+          "value": 251.13129099999787,
+          "unit": "ms",
+          "kind": "time",
+          "better": "lower",
+          "runs": [295.49608299997635, 249.71091699996032, 251.13129099999787],
+          "min": 249.71091699996032,
+          "max": 295.49608299997635
+        },
+        "loaded_rss_mib": {
+          "value": 112.484375,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "runs": [113.734375, 112.125, 112.484375],
+          "min": 112.125,
+          "max": 113.734375
+        },
+        "loaded_footprint_mib": {
+          "value": 57.67265319824219,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "runs": [57.56327819824219, 57.78205108642578, 57.67265319824219],
+          "min": 57.56327819824219,
+          "max": 57.78205108642578
+        },
+        "host_snapshot_ms": {
+          "value": 7.155666999984533,
+          "unit": "ms",
+          "kind": "time",
+          "better": "lower",
+          "runs": [7.155666999984533, 7.8350419999915175, 6.803416999988258],
+          "min": 6.803416999988258,
+          "max": 7.8350419999915175
+        },
+        "host_snapshot_kb": {
+          "value": 27.248046875,
+          "unit": "KiB",
+          "kind": "count",
+          "better": "lower",
+          "runs": [27.248046875, 27.248046875, 27.248046875],
+          "min": 27.248046875,
+          "max": 27.248046875
+        },
+        "session_snapshot_full_ms": {
+          "value": 43.87495799997123,
+          "unit": "ms",
+          "kind": "time",
+          "better": "lower",
+          "runs": [43.87495799997123, 45.75504200003343, 41.70420899998862],
+          "min": 41.70420899998862,
+          "max": 45.75504200003343
+        },
+        "session_snapshot_full_kb": {
+          "value": 1743.7060546875,
+          "unit": "KiB",
+          "kind": "count",
+          "better": "lower",
+          "runs": [1743.7060546875, 1743.7060546875, 1743.7060546875],
+          "min": 1743.7060546875,
+          "max": 1743.7060546875
+        },
+        "session_snapshot_last10_ms": {
+          "value": 10.848750000004657,
+          "unit": "ms",
+          "kind": "time",
+          "better": "lower",
+          "runs": [10.629707999993116, 10.97174999996787, 10.848750000004657],
+          "min": 10.629707999993116,
+          "max": 10.97174999996787
+        },
+        "host_resume_10k_ms": {
+          "value": 14.872250000014901,
+          "unit": "ms",
+          "kind": "time",
+          "better": "lower",
+          "runs": [15.434166999999434, 14.872250000014901, 14.71937499998603],
+          "min": 14.71937499998603,
+          "max": 15.434166999999434
+        },
+        "host_resume_items": {
+          "value": 421,
+          "unit": "",
+          "kind": "count",
+          "better": "lower",
+          "info": true,
+          "runs": [421, 421, 421],
+          "min": 421,
+          "max": 421
+        },
+        "session_resume_half_ms": {
+          "value": 43.192708000016864,
+          "unit": "ms",
+          "kind": "time",
+          "better": "lower",
+          "runs": [41.78758300002664, 45.745499999960884, 43.192708000016864],
+          "min": 41.78758300002664,
+          "max": 45.745499999960884
+        },
+        "session_resume_items": {
+          "value": 2503,
+          "unit": "",
+          "kind": "count",
+          "better": "lower",
+          "info": true,
+          "runs": [2503, 2503, 2503],
+          "min": 2503,
+          "max": 2503
+        },
+        "rss_after_snapshots_mib": {
+          "value": 164.953125,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.25,
+            "absolute": 10
+          },
+          "runs": [163.484375, 167.6875, 164.953125],
+          "min": 163.484375,
+          "max": 167.6875
+        },
+        "footprint_after_snapshots_mib": {
+          "value": 70.18832397460938,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.25,
+            "absolute": 10
+          },
+          "runs": [69.62580108642578, 79.06334686279297, 70.18832397460938],
+          "min": 69.62580108642578,
+          "max": 79.06334686279297
+        }
+      },
+      "notes": [
+        "20 sessions × 50 Turns × 96 items (300 B each), seeded through the Daemon over the socket",
+        "host resume replays the last 10k sequences (the Host stream skips Turn items); session resume replays half of one session"
+      ],
+      "durationMs": 59456.38175
+    },
+    "blobs": {
+      "metrics": {
+        "read_mb_per_s": {
+          "value": 532.496770528186,
+          "unit": "MB/s",
+          "kind": "throughput",
+          "better": "higher",
+          "tolerance": {
+            "relative": 0.5,
+            "absolute": 0
+          },
+          "runs": [360.3739403398855, 532.496770528186, 545.783690656611],
+          "min": 360.3739403398855,
+          "max": 545.783690656611
+        },
+        "read_rss_peak_over_base_mib": {
+          "value": 47.609375,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.35,
+            "absolute": 25
+          },
+          "runs": [47.046875, 47.609375, 48.015625],
+          "min": 47.046875,
+          "max": 48.015625
+        },
+        "upload_mb_per_s": {
+          "value": 514.6992583306403,
+          "unit": "MB/s",
+          "kind": "throughput",
+          "better": "higher",
+          "tolerance": {
+            "relative": 0.5,
+            "absolute": 0
+          },
+          "runs": [523.2578361351394, 505.6432471570267, 514.6992583306403],
+          "min": 505.6432471570267,
+          "max": 523.2578361351394
+        },
+        "upload_rss_peak_over_base_mib": {
+          "value": 70.578125,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.35,
+            "absolute": 25
+          },
+          "runs": [72.734375, 69.953125, 70.578125],
+          "min": 69.953125,
+          "max": 72.734375
+        },
+        "rss_after_mib": {
+          "value": 161.78125,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.35,
+            "absolute": 25
+          },
+          "runs": [162.625, 159.5, 161.78125],
+          "min": 159.5,
+          "max": 162.625
+        },
+        "upload_footprint_peak_over_base_mib": {
+          "value": 30.703170776367188,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.35,
+            "absolute": 25
+          },
+          "runs": [31.45319366455078, 29.812522888183594, 30.703170776367188],
+          "min": 29.812522888183594,
+          "max": 31.45319366455078
+        },
+        "footprint_retained_mib": {
+          "value": 3.0000686645507812,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.35,
+            "absolute": 25
+          },
+          "runs": [3.0000686645507812, 9.203147888183594, 2.9219207763671875],
+          "min": 2.9219207763671875,
+          "max": 9.203147888183594
+        },
+        "rss_retained_mib": {
+          "value": 70.640625,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.35,
+            "absolute": 25
+          },
+          "runs": [72.78125, 69.953125, 70.640625],
+          "min": 69.953125,
+          "max": 72.78125
+        }
+      },
+      "notes": ["100 MiB of incompressible bytes each way over bridge; RSS sampled every 50 ms"],
+      "durationMs": 17918.28912500001
+    },
+    "terminal": {
+      "metrics": {
+        "mb_per_s": {
+          "value": 25.9745719384037,
+          "unit": "MB/s",
+          "kind": "throughput",
+          "better": "higher",
+          "runs": [26.994605496858004, 25.9745719384037, 23.676386658879956],
+          "min": 23.676386658879956,
+          "max": 26.994605496858004
+        },
+        "stream_ms": {
+          "value": 1976.9854580000392,
+          "unit": "ms",
+          "kind": "time",
+          "better": "lower",
+          "info": true,
+          "runs": [1902.2819579999777, 1976.9854580000392, 2168.884625000006],
+          "min": 1902.2819579999777,
+          "max": 2168.884625000006
+        },
+        "cpu_avg_pct": {
+          "value": 203.28416620904846,
+          "unit": "%",
+          "kind": "cpu",
+          "better": "lower",
+          "runs": [206.09435908043162, 203.27330874327387, 203.28416620904846],
+          "min": 203.27330874327387,
+          "max": 206.09435908043162
+        },
+        "rss_peak_over_base_mib": {
+          "value": 39.84375,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.25,
+            "absolute": 10
+          },
+          "runs": [39.21875, 39.84375, 40.0625],
+          "min": 39.21875,
+          "max": 40.0625
+        },
+        "footprint_peak_over_base_mib": {
+          "value": 27.203994750976562,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.25,
+            "absolute": 10
+          },
+          "runs": [27.141494750976562, 27.203994750976562, 29.235244750976562],
+          "min": 27.141494750976562,
+          "max": 29.235244750976562
+        },
+        "rss_after_close_mib": {
+          "value": 124.8125,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.25,
+            "absolute": 10
+          },
+          "runs": [123.21875, 124.8125, 125.296875],
+          "min": 123.21875,
+          "max": 125.296875
+        }
+      },
+      "notes": ["50 MB of output via `yes | head -c`; the PTY turns \\n into \\r\\n"],
+      "durationMs": 14837.32362500002
+    }
+  }
+}

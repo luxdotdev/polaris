@@ -10,7 +10,7 @@ import { openSessionReview } from "../../../routes/review.ts";
 import { useApp, useCommands, useShellActions } from "../../../shell/hooks.ts";
 import { constellationCommands } from "../client.ts";
 import { useFacts, useLeadBranch } from "../hooks.ts";
-import { hostKeyOf } from "../liveFacts.ts";
+import { hostKeyOf } from "../../../store/store.ts";
 import {
   type AttentionItem,
   attentionItems,

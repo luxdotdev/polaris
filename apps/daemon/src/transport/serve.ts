@@ -44,9 +44,13 @@ import { TerminalRpcsLive } from "../terminal/TerminalRpcs.ts";
 import { TerminalsDaemonLive } from "../terminal/Terminals.ts";
 import { UsageRpcsLive } from "../usage/UsageRpcs.ts";
 import { UsageSessions } from "../usage/sessions.ts";
+import { DeepgramLive } from "../voice/deepgram.ts";
+import { HostSecrets } from "../secrets/index.ts";
+import { VoiceRpcsLive } from "../voice/VoiceRpcs.ts";
 import { ResourceRpcsLive } from "../resources/rpc.ts";
 import { paths } from "../paths.ts";
 import { startServer } from "./server.ts";
+import { configuredGatewayPort } from "../gateway/index.ts";
 import { workspaceTrustLayer } from "./workspaceTrust.ts";
 import {
   armShutdownDeadline,
@@ -131,7 +135,8 @@ export const daemonHandlers = Layer.mergeAll(
   ReviewReadRpcsLive,
   lazyAcceptHandlers,
   ReviewerRpcsLive,
-  TerminalRpcsLive.pipe(Layer.provide(TerminalsDaemonLive))
+  TerminalRpcsLive.pipe(Layer.provide(TerminalsDaemonLive)),
+  VoiceRpcsLive.pipe(Layer.provide(Layer.merge(DeepgramLive, HostSecrets.layer)))
 ).pipe(Layer.provide(daemonServices));
 
 /** What the lazy language handlers serve: unavailable where no language artifact runs. */
@@ -159,6 +164,9 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "commit.suggest-message",
   "constellation",
   "constellation.defaults",
+  "extensions",
+  "remote-access",
+  "voice",
   ...HARNESS_CATALOGUE.map((harness) => harness.capability),
   "harness.availability",
   "harness.models",
@@ -262,6 +270,7 @@ export const serveProgram = Effect.scoped(
     const server = yield* startServer({
       handlers: daemonHandlers,
       capabilities: daemonCapabilities,
+      gateway: { port: yield* configuredGatewayPort(paths().config) },
       // Windows has no execve or SIGUSR2: an upgrade there stops and restarts the Daemon (ADR 0060).
       upgrades: process.platform !== "win32",
       onPhase: startup.phase,
@@ -275,6 +284,9 @@ export const serveProgram = Effect.scoped(
     reportStartupModules();
 
     yield* Effect.logInfo(`polaris Daemon listening on ${server.socketPath}`);
+
+    if (server.gateway !== null)
+      yield* Effect.logInfo(`the gateway listens on ${server.gateway.url}`);
 
     const reason = yield* yield* stopRequests;
     yield* Effect.sync(() => {

@@ -3,8 +3,7 @@
  * approvals), its Host's Connection State, and what its open feed shows it running.
  */
 import { Predicate } from "effect";
-import type { HostView } from "../../../shared/api.ts";
-import { type AppState, sessionKey } from "../../store/store.ts";
+import { type AppState, hostKeyOf, sessionKey } from "../../store/store.ts";
 import { slotHeldOf, slotWaitOf } from "../../store/hostResources.ts";
 import type { TurnView } from "../../store/sessionModel.ts";
 import {
@@ -18,9 +17,6 @@ import {
   type WorkerFacts,
 } from "./model/index.ts";
 import type { Signals } from "./state.ts";
-
-export const hostKeyOf = (hosts: ReadonlyArray<HostView>, hostId: string): string | null =>
-  hosts.find((h) => h.status.host?.hostId === hostId)?.key ?? null;
 
 const percent = (used: number, window: number | null) =>
   window === null || window <= 0 ? null : Math.min(100, Math.round((used / window) * 100));

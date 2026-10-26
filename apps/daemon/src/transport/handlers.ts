@@ -20,14 +20,23 @@ import {
   Sequence,
   Unsupported,
   ResourceError,
+  encodePairingString,
+  VoiceError,
+  PROTOCOL_VERSION,
+  decideProtocol,
 } from "@polaris/protocol";
-import { Effect, Stream } from "effect";
+import { Effect, Option, Stream } from "effect";
 import { ClientCapabilities, DeviceLabel } from "../engine/rpc.ts";
 import { BlobChannel } from "../services.ts";
 import { ServerRpcs } from "./rpcs.ts";
 import { languageDefaults } from "./languageDefaults.ts";
 import { helloHost } from "./hostInfo.ts";
 import { bindLanguageIdentity } from "./languageIdentity.ts";
+import { pairingOf, revokePairing, scopeConnection } from "../extensions/connection.ts";
+import { Pairings } from "../extensions/pairings.ts";
+import { RemoteAccessControl } from "../remoteAccess/index.ts";
+import { RemoteAccess } from "../extensions/remoteAccess.ts";
+import { admissionOf } from "../extensions/admission.ts";
 
 const constellationUnavailable = () =>
   new ConstellationRejected({
@@ -280,29 +289,70 @@ export const defaultHandlers = (options: {
     "constellation.worker.message": () => Effect.fail(constellationUnavailable()),
     "constellation.worker.start": () => Effect.fail(constellationUnavailable()),
     "constellation.subscribe": () => Stream.fail(constellationUnavailable()),
-    // Record which device this connection is (for ApprovalResolved.resolvedBy) and
-    // what it understands (e.g. whether to send it ItemProgress).
-    hello: ({ deviceLabel, capabilities, languageProof }, { client }) =>
-      Effect.try({
-        try: () => {
-          const languageIdentity = bindLanguageIdentity(
-            client,
-            options.hostInfo.hostId,
-            languageProof
-          );
+    // Record which device this connection is (for ApprovalResolved.resolvedBy), what it
+    // understands (e.g. whether to send it ItemProgress), and the Pairing it acts as.
+    hello: (
+      { deviceLabel, capabilities, languageProof, extensionToken, protocolVersions },
+      { client }
+    ) =>
+      Effect.gen(function* () {
+        yield* scopeConnection(client, extensionToken);
 
-          client.annotate(DeviceLabel, deviceLabel);
-          client.annotate(ClientCapabilities, capabilities);
+        // The gateway (admission.tokenRequired) needs the range; a mismatch names the side to update.
+        const mismatch = decideProtocol(
+          PROTOCOL_VERSION,
+          protocolVersions,
+          admissionOf(client).tokenRequired
+        );
 
-          const response = {
-            ...helloHost(options.hostInfo, capabilities),
-            capabilities: options.capabilities,
-          };
+        admissionOf(client).protocolReady = false;
 
-          return languageIdentity === null ? response : { ...response, languageIdentity };
-        },
-        catch: () => new LanguageIdentityError({ message: "Language identity unavailable" }),
+        if (mismatch !== null) return yield* mismatch;
+
+        const languageIdentity = yield* Effect.try({
+          try: () => bindLanguageIdentity(client, options.hostInfo.hostId, languageProof),
+          catch: () => new LanguageIdentityError({ message: "Language identity unavailable" }),
+        });
+
+        // The Pairing the connection keeps, not this hello's: a later token-less
+        // hello on a scoped connection cannot relabel it.
+        const pairing = pairingOf(client);
+
+        client.annotate(DeviceLabel, pairing === null ? deviceLabel : pairing.name);
+        client.annotate(ClientCapabilities, capabilities);
+        admissionOf(client).protocolReady = true;
+
+        const response = {
+          ...helloHost(options.hostInfo, capabilities),
+          capabilities: options.capabilities,
+        };
+
+        return languageIdentity === null ? response : { ...response, languageIdentity };
       }),
+
+    // Token-less Clients only (grants.ts): the gate refuses these to Extensions.
+    "extensions.pair": ({ name, grant }) =>
+      Effect.gen(function* () {
+        const { pairing, token } = yield* Effect.orDie((yield* Pairings).pair(name, grant));
+        const url = yield* (yield* RemoteAccess).url;
+
+        const pairingString = encodePairingString({
+          hostId: options.hostInfo.hostId,
+          hostName: options.hostInfo.hostname,
+          url: Option.getOrNull(url),
+          token,
+          name: pairing.name,
+        });
+
+        return { pairing, token, pairingString };
+      }),
+    "extensions.list": () => Effect.flatMap(Pairings, (pairings) => Effect.orDie(pairings.list)),
+    "extensions.revoke": ({ id }) => revokePairing(id),
+
+    // Token-less Clients only, like the Pairings: Tailscale's own state, read back each time.
+    "remoteAccess.status": () => Effect.flatMap(RemoteAccessControl, (control) => control.status),
+    "remoteAccess.enable": () => Effect.flatMap(RemoteAccessControl, (control) => control.enable),
+    "remoteAccess.disable": () => Effect.flatMap(RemoteAccessControl, (control) => control.disable),
 
     dispatch: ({ commandId }) =>
       Effect.fail(new CommandRejected({ commandId, reason: notYet("the event store") })),
@@ -422,6 +472,13 @@ export const defaultHandlers = (options: {
     "attachments.setSettings": () =>
       Effect.fail(new Unsupported({ capability: "attachments.settings" })),
     "attachments.clear": () => Effect.fail(new Unsupported({ capability: "attachments.settings" })),
+
+    "voice.transcribe": () =>
+      Stream.fail(new VoiceError({ reason: "provider-failed", message: notYet("Voice") })),
+    "voice.settings": () =>
+      Effect.fail(new VoiceError({ reason: "provider-failed", message: notYet("Voice") })),
+    "voice.setKey": () =>
+      Effect.fail(new VoiceError({ reason: "provider-failed", message: notYet("Voice") })),
 
     "terminal.open": ({ cwd }) => Effect.fail(fileError(cwd, "terminals")),
     "terminal.attach": ({ terminalId }) =>

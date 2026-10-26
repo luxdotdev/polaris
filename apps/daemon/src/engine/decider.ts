@@ -10,11 +10,15 @@
  */
 import { basename, join } from "node:path";
 import {
+  type Actor,
   AgentSession,
   type Attachment,
   Command,
   type CommandId,
   CommandRejected,
+  decideTurnAccess,
+  type Grant,
+  type NotGranted,
   DomainEvent,
   isKnownHarness,
   NotFound,
@@ -27,7 +31,7 @@ import {
   type WorkspaceId,
   WorktreeId,
 } from "@polaris/protocol";
-import { Effect, Result } from "effect";
+import { Effect, Match, Result } from "effect";
 import {
   lastTurn,
   patchTurn,
@@ -46,6 +50,9 @@ export interface DecideContext {
   readonly now: string;
   /** Label of the Client device that sent the command (for `ApprovalResolved.resolvedBy`). */
   readonly deviceLabel: string;
+  /** Who sent it: stamped on the session starts, Turns and approvals it records. */
+  readonly actor: Actor;
+  readonly extensionGrant?: Grant | null;
   /** Fresh ids, used only by the commands that create something. */
   readonly newTurnId: TurnId;
   readonly newWorkspaceId: WorkspaceId;
@@ -73,7 +80,10 @@ export interface DecideContext {
   readonly judgedSummary: RiskSummary | null;
 }
 
-export type Decision = Effect.Effect<ReadonlyArray<DomainEvent>, CommandRejected | NotFound>;
+export type Decision = Effect.Effect<
+  ReadonlyArray<DomainEvent>,
+  CommandRejected | NotFound | NotGranted
+>;
 
 /** Worktree ids are derived from the path, so every observer of a path agrees on its id. */
 export const worktreeIdFor = (path: string): WorktreeId =>
@@ -116,6 +126,17 @@ export interface Deciding {
   ) => Turn;
 }
 
+/** The machine decides; the decider says who asked (history: "approved by Raycast"). */
+const withActor = (actor: Actor, event: DomainEvent): DomainEvent =>
+  Match.value(event).pipe(
+    Match.tags({
+      SessionCreated: (e) => DomainEvent.cases.SessionCreated.make({ ...e, actor }),
+      TurnStarted: (e) => DomainEvent.cases.TurnStarted.make({ ...e, actor }),
+      ApprovalResolved: (e) => DomainEvent.cases.ApprovalResolved.make({ ...e, actor }),
+    }),
+    Match.orElse((e) => e)
+  );
+
 const deciding = (model: ReadModel, ctx: DecideContext): Deciding => {
   const reject = (reason: string) =>
     Effect.fail(new CommandRejected({ commandId: ctx.commandId, reason }));
@@ -137,7 +158,9 @@ const deciding = (model: ReadModel, ctx: DecideContext): Deciding => {
     lifecycle: (record, input) => {
       const decision = decideSession(record, input);
 
-      return decision.rejection !== null ? reject(decision.rejection) : ok(...decision.events);
+      return decision.rejection !== null
+        ? reject(decision.rejection)
+        : ok(...decision.events.map((event) => withActor(ctx.actor, event)));
     },
     newTurn: (session, prompt, attachments = ctx.attachments) =>
       userTurn(session, { id: ctx.newTurnId, prompt, attachments, at: ctx.now }),
@@ -457,6 +480,14 @@ const onSession = (d: Deciding, sessionId: SessionId, input: SessionInput): Deci
   d.withSession(sessionId, (record) => d.lifecycle(record, input));
 
 export const decide = (model: ReadModel, command: Command, ctx: DecideContext): Decision => {
+  const mode =
+    "sessionId" in command
+      ? (model.sessions.get(command.sessionId)?.session.permissionMode ?? null)
+      : null;
+
+  const refusal = decideTurnAccess(ctx.extensionGrant ?? null, command, mode);
+
+  if (refusal !== null) return Effect.fail(refusal);
   const d = deciding(model, ctx);
 
   return Command.match<Decision>(command, {

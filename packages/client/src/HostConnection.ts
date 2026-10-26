@@ -85,6 +85,8 @@ export interface ClientIdentity {
   /** Shown to other Clients, e.g. "MacBook Pro". */
   readonly deviceLabel: string;
   readonly capabilities: ReadonlyArray<Capability>;
+  /** A Pairing's token: the connection acts as that Extension, within its Grant (ENG-398). */
+  readonly extensionToken?: Redacted.Redacted<string>;
 }
 
 export { DEFAULT_POLICY, type ReconnectPolicy } from "./connection.ts";
@@ -306,12 +308,17 @@ export const makeHostConnection = Effect.fnUntraced(function* (
         const lifetime = new AbortController();
         yield* Effect.addFinalizer(() => Effect.sync(() => lifetime.abort()));
 
-        const payload = {
+        const identityPayload = {
           clientName: options.identity.name,
           clientVersion: options.identity.version,
           deviceLabel: options.identity.deviceLabel,
           capabilities: options.identity.capabilities,
         };
+
+        const payload =
+          options.identity.extensionToken === undefined
+            ? identityPayload
+            : { ...identityPayload, extensionToken: options.identity.extensionToken };
 
         const privatePayload =
           options.clientIdentity === undefined
@@ -336,6 +343,25 @@ export const makeHostConnection = Effect.fnUntraced(function* (
                 kind: "needs-attention",
                 reason: "protocol-mismatch",
                 detail: "Language identity unavailable",
+              })
+            )
+          ),
+          Effect.catchTag("ExtensionTokenRejected", (error) =>
+            Effect.fail(
+              new ConnectFailure({
+                kind: "needs-attention",
+                reason: "pairing-rejected",
+                detail: error.message,
+              })
+            )
+          ),
+          Effect.catchTag("ProtocolMismatch", (error) =>
+            Effect.fail(
+              new ConnectFailure({
+                kind: "needs-attention",
+                reason: "protocol-mismatch",
+                detail: error.message,
+                older: error.update === "polaris" ? "daemon" : "client",
               })
             )
           ),

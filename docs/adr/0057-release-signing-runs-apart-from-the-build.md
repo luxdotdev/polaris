@@ -31,7 +31,27 @@ job output, so no later upload under the same name can stand in for it:
 | `dmg` | the tag's code: check the signed app, build the DMG around it | none | read |
 | `sign-dmg` | `tooling/release/sign.py dmg` from the default branch | Apple | read |
 | `windows` | the tag's code: package unsigned | none | read |
+| `sdk` | the tag's code: build and `npm pack` the SDK | none | read |
+| `npm` | `npm publish` of the checked tarball, scripts ignored | none (OIDC) | read, `id-token` |
+| `raycast` | the tag's code: `ray build`, ZIP for the Release | none | read |
+| `even-g2` | the tag's code: pack the `.ehpk` for `vars.EVEN_G2_HOSTS` | none | read |
 | `publish` | `gh` only: verify hand-offs, draft the Release | none | write |
+
+The `npm` job checks out nothing: it publishes the `sdk` job's tarball by artifact ID after
+checking its digest, with provenance (`id-token: write`), in its own `npm` environment so the owner
+can require a reviewer. Node 24.22.1 and its bundled npm 11.19.1 are pinned for trusted publishing;
+the package owner registers `luxdotdev/polaris`, `release.yml`, environment `npm` on npm first
+(see the SDK README's Releasing steps). A version already on npm is skipped. The SDK keeps its
+own version: a semver prerelease goes to `next`, a stable version to `latest`, independently of
+the Polaris tag. No dist-tags are changed on a skip.
+The `.ehpk` stays a workflow artifact, never a Release asset, and is uploaded to Even Hub by hand:
+`evenhub login` needs a terminal, and its saved refresh token lasts seven days and rotates on use,
+so a stored copy can't serve CI.
+
+Raycast and Windows are optional for the draft Release: a failed job leaves the run red, but
+the signed macOS assets can still be drafted. A successful Raycast job's ZIP is digest-checked
+before inclusion. The publisher refuses `.ehpk` files even if a producer lists one in a checked
+hand-off. Workflow artifacts follow repository access rules; they are not a secret store.
 
 Every release is signed, prereleases too: there is no unsigned path, and `sign` fails
 without its secrets. Only `sign` and `sign-dmg` use the `release` environment, so a
@@ -66,9 +86,15 @@ the bundle.
 
 Every external action is pinned to a full commit SHA with its version in a comment.
 `tooling/release/workflows.test.ts` fails if an action is unpinned, if any job but
-`publish` can write, or if a job holding a secret value runs anything but checkout,
-artifact transfer and the signer, or if such a job downloads a hand-off by name or
-handles one with shell tools instead of the signer.
+`publish` can write (and `npm` mint an ID token), if a job holding Apple credentials runs
+anything but checkout, artifact transfer and the signer, or if such a job downloads a
+hand-off by name or handles one with shell tools instead of the signer. It also fails if
+`npm` checks out repository code or skips the digest, or if the publisher downloads artifacts
+outside its explicit list. `shell.test.ts` executes the workflow's shell with fake npm, GitHub
+and pack commands: changed SDK/Raycast bytes fail before publishing, SDK versions select the
+right dist-tag, existing versions are skipped, missing Raycast assets do not block a draft,
+an `.ehpk` hidden in a checked hand-off is refused, and Host values cannot execute shell syntax.
+These tests do not verify a live npm publisher configuration or a GitHub-hosted runner.
 
 ## Consequences
 

@@ -203,6 +203,8 @@ for (const target of targets) {
         : []),
     ],
     darwinDarkModeSupport: true,
+    // polaris:// deep links (src/shared/deepLink.ts); Windows registers at launch.
+    protocols: [{ name: "Polaris", schemes: ["polaris"] }],
     asar: true,
     prune: false,
     quiet: true,

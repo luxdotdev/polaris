@@ -23,6 +23,7 @@ import { constellationSetupFlow } from "./lib/constellationSetupFlow.ts";
 import { remoteFlow } from "./lib/remoteFlow.ts";
 import { settingsFlow } from "./lib/settingsFlow.ts";
 import { attachmentsFlow } from "./lib/attachmentsFlow.ts";
+import { extensionsFlow } from "./lib/extensionsFlow.ts";
 import { composerFlow } from "./lib/composerFlow.ts";
 import { editorLinksFlow } from "./lib/editorLinksFlow.ts";
 import { imageAfterRelaunch, sendImage } from "./lib/previewFlow.ts";
@@ -237,7 +238,7 @@ const shoot = async (page: Page, name: string) => {
     await setTheme(page, theme);
     const path = join(screenshots, `${name}-${theme}.png`);
 
-    await page.screenshot({ path });
+    await page.screenshot({ path, mask: [page.getByTestId("pairing-reveal")] });
     step(`saved ${path}`);
   }
 
@@ -499,6 +500,7 @@ try {
   await settingsFlow({ app, page, step, shoot: (name) => shoot(page, name) });
   await terminalFlow({ page, step, shoot: (name) => shoot(page, name) });
   await attachmentsFlow({ app, page, step, shoot: (name) => shoot(page, name) });
+  await extensionsFlow({ app, page, step, shoot: (name) => shoot(page, name) });
   await explorerFlow({ page, step, shoot: (name) => shoot(page, name) });
   await timeSwitches(page);
   await jumpByTyping(page);
@@ -606,6 +608,10 @@ try {
   if (page !== undefined) {
     const shot = join(tmpdir(), "polaris-smoke-failure.png");
 
+    // Failure artifacts must not retain the one-time pairing credential.
+    await page.evaluate(
+      `document.querySelectorAll('[data-testid="pairing-reveal"]').forEach(element => element.replaceWith("[pairing credential hidden]"))`
+    );
     await page.screenshot({ path: shot }).catch(() => undefined);
     console.error(
       `smoke: screenshot at ${shot}; screen text:\n${await page.locator("body").innerText()}`

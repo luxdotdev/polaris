@@ -9,7 +9,9 @@
   "workspaces": [
     "apps/*",
     "packages/*",
-    "tooling"
+    "tooling",
+    "extensions/raycast",
+    "extensions/even-g2"
   ],
   "scripts": {
     "build": "turbo run build",
