@@ -3,6 +3,7 @@
  * JSON document (ENG-222) whose `answer` is Markdown; its findings reach the summary on
  * their own. Prose outside the document is shown only when there is no document.
  */
+import { type FencedBlock, fencedBlocks } from "@polaris/protocol";
 import { Option, Schema } from "effect";
 
 const Reply = Schema.fromJsonString(
@@ -11,7 +12,7 @@ const Reply = Schema.fromJsonString(
 
 const decodeReply = Schema.decodeUnknownOption(Reply);
 
-const FENCE = /```(?:json)?\s*\n([\s\S]*?)\n```/g;
+const isDocument = (block: FencedBlock) => block.lang === "json" || block.lang === "";
 
 export type Answer =
   | { readonly kind: "thinking" }
@@ -20,10 +21,8 @@ export type Answer =
 
 /** The answer in an assistant message, or null when it holds no reply document. */
 export const answerIn = (message: string): string | null => {
-  const blocks = [...message.matchAll(FENCE)].map((m) => m[1] ?? "");
-
-  for (const block of blocks.toReversed()) {
-    const reply = decodeReply(block);
+  for (const block of fencedBlocks(message).filter(isDocument).toReversed()) {
+    const reply = decodeReply(block.body);
 
     if (Option.isSome(reply)) return reply.value.answer ?? "";
   }
@@ -40,7 +39,8 @@ export interface TurnSnapshot {
 const prose = (messages: ReadonlyArray<string>) =>
   messages
     .flatMap((m) => {
-      const text = m.replace(FENCE, "").trim();
+      const documents = fencedBlocks(m).filter(isDocument).toReversed();
+      const text = documents.reduce((t, b) => t.slice(0, b.start) + t.slice(b.end), m).trim();
 
       return text === "" ? [] : [text];
     })

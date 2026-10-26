@@ -15,6 +15,7 @@ import {
 import { Predicate } from "effect";
 import { useState } from "react";
 import { useSession } from "../../session/hooks.ts";
+import { Markdown } from "../../session/ui/markdown/index.tsx";
 import { type Ask, askReviewer, useAsks } from "../data/actions.ts";
 import { setAskAbout, useAskAbout } from "../data/ui.ts";
 import { answerOf, type TurnSnapshot } from "../model/answer.ts";
@@ -58,17 +59,11 @@ const Answer = ({
     );
   }
 
-  return (
-    <p
-      className={
-        answer.kind === "failed"
-          ? "text-caption text-failed-text"
-          : "text-caption text-text-default whitespace-pre-wrap"
-      }
-    >
-      {answer.text}
-    </p>
-  );
+  if (answer.kind === "failed") {
+    return <p className="text-caption text-failed-text">{answer.text}</p>;
+  }
+
+  return <Markdown text={answer.text} live={false} />;
 };
 
 const AskItem = ({
@@ -123,9 +118,16 @@ export const AskReviewer = ({ subjectKey, hostKey, summary }: AskReviewerProps) 
 
   return (
     <div className="flex flex-col gap-2 px-3 pt-2 pb-3" data-testid="ask-reviewer">
-      {asks.slice(-2).map((a) => (
-        <AskItem key={a.id} hostKey={hostKey} ask={a} summary={summary} />
-      ))}
+      {asks.length > 0 && (
+        <div
+          className="flex max-h-[40vh] flex-col gap-2 overflow-y-auto"
+          data-testid="reviewer-asks"
+        >
+          {asks.slice(-2).map((a) => (
+            <AskItem key={a.id} hostKey={hostKey} ask={a} summary={summary} />
+          ))}
+        </div>
+      )}
       {about !== null && (
         <div className="gap-gap text-caption text-text-subtle flex items-center">
           <SeverityGlyph severity={about.severity} tone="text" />

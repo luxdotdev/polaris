@@ -91,6 +91,19 @@ describe("the Reviewer's reply", () => {
     );
   });
 
+  test("finds the document after an answer that quotes code", () => {
+    const output = {
+      findings: [],
+      revised: [],
+      withdrawn: [],
+      answer: "Line 42:\n\n```ts\nx();\n```",
+    };
+
+    const text = `Line 42 is:\n\n\`\`\`ts\nx();\n\`\`\`\n\n\`\`\`json\n${JSON.stringify(output)}\n\`\`\``;
+
+    expect(parseReviewerReply(text)).toEqual(Result.succeed(output));
+  });
+
   test("refuses prose, bad JSON and schema violations with a reason", () => {
     const refused = (text: string, reason: string) =>
       expect(
