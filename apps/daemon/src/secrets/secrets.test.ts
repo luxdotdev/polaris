@@ -37,25 +37,33 @@ test("the file store keeps a key only its user can read, and removes it", async 
 
   expect(revealed(missing)).toBeNull();
   expect(revealed(stored)).toBe(Redacted.value(VALUE));
-  expect(statSync(join(dir, "voice/deepgram.secret")).mode & 0o777).toBe(0o600);
-  expect(statSync(dir).mode & 0o777).toBe(0o700);
+  // Windows has no POSIX modes; the key lives in the user's own profile there.
+
+  if (process.platform !== "win32") {
+    expect(statSync(join(dir, "voice/deepgram.secret")).mode & 0o777).toBe(0o600);
+    expect(statSync(dir).mode & 0o777).toBe(0o700);
+  }
 
   await Effect.runPromise(store.remove("voice/deepgram"));
   expect(revealed(await Effect.runPromise(store.get("voice/deepgram")))).toBeNull();
 });
 
-test("the file store does not follow a link planted in place of a key", async () => {
-  const root = temporary();
-  const dir = join(root, "secrets");
-  const elsewhere = join(root, "elsewhere");
-  writeFileSync(elsewhere, "planted");
-  await Effect.runPromise(fileSecrets(dir).set("voice/deepgram", VALUE));
-  rmSync(join(dir, "voice/deepgram.secret"));
-  symlinkSync(elsewhere, join(dir, "voice/deepgram.secret"));
+// Planting a symlink on Windows needs Developer Mode or an administrator.
+test.skipIf(process.platform === "win32")(
+  "the file store does not follow a link planted in place of a key",
+  async () => {
+    const root = temporary();
+    const dir = join(root, "secrets");
+    const elsewhere = join(root, "elsewhere");
+    writeFileSync(elsewhere, "planted");
+    await Effect.runPromise(fileSecrets(dir).set("voice/deepgram", VALUE));
+    rmSync(join(dir, "voice/deepgram.secret"));
+    symlinkSync(elsewhere, join(dir, "voice/deepgram.secret"));
 
-  const exit = await Effect.runPromiseExit(fileSecrets(dir).get("voice/deepgram"));
-  expect(exit._tag).toBe("Failure");
-});
+    const exit = await Effect.runPromiseExit(fileSecrets(dir).get("voice/deepgram"));
+    expect(exit._tag).toBe("Failure");
+  }
+);
 
 test("a key that is not a namespaced name, or a value with spaces, is refused", async () => {
   const store = fileSecrets(join(temporary(), "secrets"));

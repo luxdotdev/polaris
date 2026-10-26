@@ -84,7 +84,10 @@ test.each(["message", "bytes"] as const)(
             for (let i = 0; i < 3; i++) socket.send(chunk);
           }
 
-          expect(yield* Effect.promise(() => closed).pipe(Effect.timeout("2 seconds"))).toBe(1009);
+          const code = yield* Effect.promise(() => closed).pipe(Effect.timeout("2 seconds"));
+
+          // Bun enforces the frame limit itself; 1.4.3 drops the connection (1006), 1.4.4 sends 1009.
+          expect(kind === "message" ? [1006, 1009] : [1009]).toContain(code);
         })
       )
     )
