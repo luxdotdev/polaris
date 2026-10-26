@@ -131,9 +131,14 @@ const emitDeclarations = () => {
     if (tooLarge.some((match) => match === null))
       throw new Error(`declarations failed:\n${diagnostics.join("\n")}`);
 
-    // Later lines first, so earlier edits don't move them.
-    for (const match of tooLarge.toSorted((a, b) => Number(b?.[2]) - Number(a?.[2])))
-      if (match !== null) eraseDeclaration(join(SDK, match[1] ?? ""), Number(match[2]));
+    // Later lines first, so earlier edits don't move them; tsc may report one line twice.
+    const erased = new Set<string>();
+
+    for (const match of tooLarge.toSorted((a, b) => Number(b?.[2]) - Number(a?.[2]))) {
+      if (match === null || erased.has(`${match[1]}:${match[2]}`)) continue;
+      erased.add(`${match[1]}:${match[2]}`);
+      eraseDeclaration(join(SDK, match[1] ?? ""), Number(match[2]));
+    }
   }
 
   throw new Error("declarations still too large after 10 passes");

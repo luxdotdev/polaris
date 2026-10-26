@@ -129,7 +129,7 @@
           "max": 40.4453125
         },
         "startup_modules": {
-          "value": 558,
+          "value": 603,
           "unit": "modules",
           "kind": "count",
           "better": "lower",
@@ -137,19 +137,7 @@
             "relative": 0.03,
             "absolute": 5
           },
-          "runs": [
-            550,
-            554,
-            556,
-            558,
-            558,
-            558,
-            558,
-            559,
-            559,
-            559,
-            559
-          ],
+          "runs": [603],
           "min": 550,
           "max": 559
         },

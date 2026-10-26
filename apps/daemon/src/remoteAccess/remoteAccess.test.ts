@@ -102,6 +102,9 @@ const handlers = () =>
 const remoteAccess = (os = "darwin") =>
   makeRemoteAccess({ root: dir, os, findCli: () => findTailscale(env, os, () => false) });
 
+// The fake Tailscale CLI is a shell script, which Windows can't run from PATH.
+const windows = process.platform === "win32";
+
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "pol-ts-"));
   const bin = join(dir, "bin");
@@ -119,7 +122,7 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-describe("findTailscale", () => {
+describe.skipIf(windows)("findTailscale", () => {
   test("uses the CLI on PATH, else the macOS app's binary as a CLI, else none", () => {
     expect(findTailscale(env, "darwin", () => true)?.path).toBe(join(dir, "bin", "tailscale"));
 
@@ -132,7 +135,7 @@ describe("findTailscale", () => {
   });
 });
 
-describe("Remote Access", () => {
+describe.skipIf(windows)("Remote Access", () => {
   test.each([
     ["text", "/polaris", { Text: "hello" }],
     ["file", "/polaris", { Path: "/srv/file.txt" }],
@@ -504,7 +507,7 @@ describe("Remote Access", () => {
   });
 });
 
-describe("polaris tailscale", () => {
+describe.skipIf(windows)("polaris tailscale", () => {
   const run = async (args: ReadonlyArray<string>) => {
     const lines: Array<string> = [];
 
