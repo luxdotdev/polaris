@@ -31,6 +31,9 @@ export const WORKER_TOOL_NAMES = [
   "status",
   "wait_for_command",
   "notify",
+  "sessions",
+  "search_history",
+  "read_history",
 ];
 
 export const LEAD_TOOL_NAMES = [
@@ -44,6 +47,9 @@ export const LEAD_TOOL_NAMES = [
   "read_worker",
   "wait_for_command",
   "notify",
+  "sessions",
+  "search_history",
+  "read_history",
 ];
 
 export const fakeCommands = () => {
