@@ -310,6 +310,12 @@ describe("approvals", () => {
     expect(questionReply(question, ApprovalDecision.cases.Answer.make({ text: "x" }))).toEqual({
       answers: [["x"], ["x"]],
     });
+    expect(
+      questionReply(
+        question,
+        ApprovalDecision.cases.Answer.make({ text: "yes\nmaybe", answers: [["yes"], ["maybe"]] })
+      )
+    ).toEqual({ answers: [["yes"], ["maybe"]] });
     expect(questionReply(question, ApprovalDecision.cases.Deny.make({ reason: null }))).toBeNull();
   });
 });

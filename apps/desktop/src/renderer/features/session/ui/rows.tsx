@@ -26,7 +26,7 @@ import { type Row, turnTime } from "../model/conversation.ts";
 import { totals } from "../model/diff.ts";
 import { plural } from "../model/format.ts";
 import { useTurnDiff } from "../turnDiff.ts";
-import { questionAnswers } from "../model/question.ts";
+import { answerDecision, questionSteps, questionViews } from "../model/question.ts";
 import type { OutboxActions } from "../outbox.ts";
 import type { Entry } from "../model/runs.ts";
 import { Trigger, Waiting } from "./background.tsx";
@@ -267,21 +267,16 @@ const KIND_WANTS: Record<ApprovalRequest["kind"], string> = {
 /** DESIGN.md Needs You: the washed header strip and numbered rows; free text goes in the composer. */
 const Question = ({ request, ctx }: { request: ApprovalRequest; ctx: RowContext }) => {
   const now = useNow(60_000);
-  const answers = questionAnswers(request.options);
+  const views = questionViews(request);
 
   return (
     <QuestionCard
+      key={request.id}
       data-testid="question"
       harness={ctx.harness ?? ""}
       age={age(request.openedAt, now)}
-      question={request.title}
-      {...(request.detail === null ? {} : { context: request.detail })}
-      answers={answers}
-      onAnswer={(index) => {
-        const chosen = answers[index];
-
-        if (chosen !== undefined) ctx.onRespond(request, Decisions.Answer({ text: chosen.value }));
-      }}
+      questions={questionSteps(views)}
+      onAnswer={(picks) => ctx.onRespond(request, answerDecision(views, picks))}
     />
   );
 };

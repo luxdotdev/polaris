@@ -5,10 +5,12 @@
 import {
   ApprovalDecision,
   type ApprovalKind,
+  ApprovalQuestion,
   type Attachment,
   Model,
   type ModelId,
   type PermissionMode,
+  QuestionOption,
   type ToolKind,
   TurnItem,
 } from "@polaris/protocol";
@@ -305,7 +307,10 @@ export const permissionReply = (decision: ApprovalDecision): P.PermissionReplyBo
 /** How a `question.asked` request is shown: its first question, with the others in the detail. */
 export const questionPrompt = (
   request: P.QuestionRequest
-): ApprovalPrompt & { readonly options: ReadonlyArray<string> } => {
+): ApprovalPrompt & {
+  readonly options: ReadonlyArray<string>;
+  readonly questions: ReadonlyArray<ApprovalQuestion>;
+} => {
   const [first, ...rest] = request.questions;
 
   return {
@@ -313,10 +318,19 @@ export const questionPrompt = (
     title: first?.question ?? "OpenCode has a question",
     detail: rest.length === 0 ? null : rest.map((q) => q.question).join("\n"),
     options: first?.options.map((option) => option.label) ?? [],
+    questions: request.questions.map(
+      (q) =>
+        new ApprovalQuestion({
+          header: q.header,
+          question: q.question,
+          options: q.options.map((o) => new QuestionOption(o)),
+          multiSelect: q.multiple === true,
+        })
+    ),
   };
 };
 
-/** Answer → the text for every question; Allow → each question's first option; Deny → null (reject). */
+/** Answer → each question's own answer, else the text; Allow → each question's first option; Deny → null (reject). */
 export const questionReply = (
   request: P.QuestionRequest,
   decision: ApprovalDecision
@@ -326,5 +340,11 @@ export const questionReply = (
       answers: request.questions.map((q) => (q.options[0] ? [q.options[0].label] : [])),
     }),
     Deny: () => null,
-    Answer: ({ text }) => ({ answers: request.questions.map(() => [text]) }),
+    Answer: ({ text, answers }) => ({
+      answers: request.questions.map((_, i) => {
+        const own = answers?.[i];
+
+        return own !== undefined && own.length > 0 ? [...own] : [text];
+      }),
+    }),
   });

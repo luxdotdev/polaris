@@ -67,7 +67,7 @@ Step, snapshot, patch, agent, subtask, compaction and retry parts are not mapped
 | `permission.asked`, `bash` | `command` (title: the command) | Allow → `once` (`always` if `remember`); Deny → `reject` (with the reason as `message`); Answer → `reject` with the text as `message`, which OpenCode hands the model as guidance |
 | `permission.asked`, `edit` | `file-change` (detail: the diff) | same |
 | `permission.asked`, anything else (`external_directory`, `webfetch`, `task`, …) | `tool` | same |
-| `question.asked` | `question` (options: the first question's labels; later questions in the detail) | Answer → the text for every question; Allow → each question's first option; Deny → `POST /question/:id/reject` |
+| `question.asked` | `question` (every question in `questions`; options: the first question's labels; later questions in the detail) | Answer → each question's own answer, else the text; Allow → each question's first option; Deny → `POST /question/:id/reject` |
 
 Replies go to `POST /permission/:id/reply` and `POST /question/:id/reply`.
 
@@ -141,5 +141,4 @@ It starts `opencode serve` with throwaway XDG directories (no config, no credent
 - **Bench**: no `opencode` scenario in `packages/bench` yet.
 - **Nightly contract test** against the latest OpenCode release: not set up.
 - **Instances**: OpenCode keeps an instance loaded per directory until the server stops; the driver doesn't dispose one when its last session in that directory closes.
-- **Multi-question** `question.asked`: one Answer fills every question.
 - **PATH under launchd**: set `POLARIS_OPENCODE` if the Daemon can't find `opencode`.

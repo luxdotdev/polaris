@@ -345,7 +345,8 @@ const openSession = Effect.fnUntraced(function* (
         kind: approvalKind(toolName),
         title: isQuestionTool(toolName) ? described.title : (context.title ?? described.title),
         detail: described.detail ?? context.description ?? null,
-        options: questions.length === 1 ? questions[0]!.options : [],
+        options: questions.length === 1 ? questions[0]!.options.map((o) => o.label) : [],
+        questions,
       })
     );
 

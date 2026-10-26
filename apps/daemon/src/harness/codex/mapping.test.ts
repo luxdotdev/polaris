@@ -252,6 +252,21 @@ describe("approval decisions", () => {
     expect(userInputDecision(questions, Deny.make({ reason: null }))).toEqual({ answers: {} });
   });
 
+  test("several questions each take their own answer, else the text", () => {
+    const questions = ["q1", "q2"].map((id) => ({
+      id,
+      header: id,
+      question: `${id}?`,
+      options: [{ label: "A", description: "" }],
+    }));
+
+    expect(
+      userInputDecision(questions, Answer.make({ text: "A\nfree", answers: [["A"], []] }))
+    ).toEqual({
+      answers: { q1: { answers: ["A"] }, q2: { answers: ["A\nfree"] } },
+    });
+  });
+
   test("MCP elicitations", () => {
     expect(elicitationDecision(Deny.make({ reason: null }))).toEqual({
       action: "decline",

@@ -84,7 +84,7 @@ Items, deltas and progress on a Subagent's thread are its own (`subagentId` = it
 | `item/commandExecution/requestApproval` | `command` | Allow → `accept` (`acceptForSession` if `remember`), Deny/Answer → `decline` |
 | `item/fileChange/requestApproval` | `file-change` | same |
 | `item/permissions/requestApproval` | `tool` | Allow → grants exactly the requested profile, scope `session` if `remember` else `turn`; Deny → `{}` |
-| `item/tool/requestUserInput` | `question` | Answer → the text for every question; Allow → each question's first option; Deny → no answers |
+| `item/tool/requestUserInput` | `question` (every question in `questions`) | Answer → each question's own answer, else the text; Allow → each question's first option; Deny → no answers |
 | `mcpServer/elicitation/request` | `tool` | Allow → `accept` `{}`; Answer → `accept` `{answer}`; Deny → `decline` |
 | anything else (`item/tool/call`, `account/chatgptAuthTokens/refresh`, `attestation/generate`, legacy v1 approvals) | — | JSON-RPC error `-32601`. Polaris never handles credentials. |
 
@@ -159,7 +159,6 @@ It runs `codex app-server generate-ts` (stable surface, no `--experimental`) int
 ## Known gaps / TODO
 
 - **MCP form elicitations** accept with empty content; there's no UI for `requestedSchema` yet. An elicitation with no Turn mints a Turn that never ends.
-- **Multi-question `requestUserInput`**: one Answer fills every question.
 - Nothing restarts a server that dies between `open`s until the next `open`.
 - An outdated server with a thread loaded is kept until a later `open` finds it idle; nothing checks again on a timer.
 - The `systemd-run --user --scope` path is covered by an argv unit test only; it has not been run on a systemd Host.

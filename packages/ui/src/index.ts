@@ -128,4 +128,6 @@ export * from "./components/polaris/machine-bar";
 
 export * from "./components/polaris/needs-you";
 
+export * from "./components/polaris/question-card";
+
 export * from "./components/polaris/onboarding";

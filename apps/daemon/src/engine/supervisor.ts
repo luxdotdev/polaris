@@ -286,6 +286,7 @@ const make = (
                     title: e.title,
                     detail: e.detail,
                     options: [...e.options],
+                    questions: [...(e.questions ?? [])],
                     openedAt: at,
                   }),
                 })

@@ -524,6 +524,21 @@ export const ApprovalKind = Schema.Literals(["command", "file-change", "tool", "
 
 export type ApprovalKind = typeof ApprovalKind.Type;
 
+export class QuestionOption extends Schema.Class<QuestionOption>("QuestionOption")({
+  label: Schema.String,
+  description: Schema.NullOr(Schema.String),
+}) {}
+
+/** One of the questions a Harness asks in a single request. */
+export class ApprovalQuestion extends Schema.Class<ApprovalQuestion>("ApprovalQuestion")({
+  /** A short tag ("Scope"); empty when the Harness gave none. */
+  header: Schema.String,
+  question: Schema.String,
+  options: Schema.Array(QuestionOption),
+  /** Several options may be chosen together. */
+  multiSelect: Schema.Boolean,
+}) {}
+
 export class ApprovalRequest extends Schema.Class<ApprovalRequest>("ApprovalRequest")({
   id: RequestId,
   sessionId: SessionId,
@@ -532,15 +547,22 @@ export class ApprovalRequest extends Schema.Class<ApprovalRequest>("ApprovalRequ
   /** One-line summary for hover cards and notifications. */
   title: Schema.String,
   detail: Schema.NullOr(Schema.String),
-  /** For questions: the choices offered, if any. */
+  /** For questions: the first question's choices, if any. */
   options: Schema.Array(Schema.String),
+  /** For questions: every question asked, in order; empty from Daemons before ENG-450. */
+  questions: optionalArray(ApprovalQuestion),
   openedAt: Timestamp,
 }) {}
 
 export const ApprovalDecision = Schema.TaggedUnion({
   Allow: { remember: Schema.Boolean },
   Deny: { reason: Schema.NullOr(Schema.String) },
-  Answer: { text: Schema.String },
+  Answer: {
+    /** The whole answer as text, for a Harness or Daemon that reads only this. */
+    text: Schema.String,
+    /** Per question, in order: the chosen labels, or the typed answer as one entry. */
+    answers: Schema.optionalKey(Schema.Array(Schema.Array(Schema.String))),
+  },
 });
 
 export type ApprovalDecision = typeof ApprovalDecision.Type;

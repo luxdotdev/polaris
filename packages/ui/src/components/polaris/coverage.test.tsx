@@ -6,8 +6,9 @@ import { harnessEntry } from "@polaris/protocol";
 import { HarnessChoice } from "./harness-choice";
 import { HostStateCard, HostStateChip } from "./host-state";
 import { MachineBar } from "./machine-bar";
-import { NeedsYouCard, QuestionCard, WaitingCard } from "./needs-you";
+import { NeedsYouCard, WaitingCard } from "./needs-you";
 import { SetupRow } from "./onboarding";
+import { QuestionCard } from "./question-card";
 
 afterEach(cleanup);
 
@@ -187,13 +188,17 @@ describe("Needs You", () => {
   });
 
   test("a question numbers its answers and fills only the recommended one", () => {
-    const onAnswer = mock((_index: number) => undefined);
+    const onAnswer = mock((_picks: ReadonlyArray<ReadonlyArray<number>>) => undefined);
 
     const { getAllByRole, container } = render(
       <QuestionCard
         harness="claude"
-        question="Monthly or annually?"
-        answers={[{ label: "Annual", recommended: true }, { label: "Monthly" }]}
+        questions={[
+          {
+            question: "Monthly or annually?",
+            answers: [{ label: "Annual", recommended: true }, { label: "Monthly" }],
+          },
+        ]}
         onAnswer={onAnswer}
       />
     );
@@ -201,6 +206,7 @@ describe("Needs You", () => {
     const answers = getAllByRole("button");
 
     expect(container.textContent).toContain("Claude Code needs an answer");
+    expect(container.textContent).not.toContain("1 of");
     expect(answers[0]?.textContent).toBe("1AnnualRecommended");
     expect(answers[0]?.className).toContain("bg-primary");
     expect(answers[1]?.className).not.toContain("bg-primary");
@@ -208,7 +214,47 @@ describe("Needs You", () => {
 
     if (monthly === undefined) throw new Error("no second answer");
     fireEvent.click(monthly);
-    expect(onAnswer).toHaveBeenCalledWith(1);
+    expect(onAnswer).toHaveBeenCalledWith([[1]]);
+  });
+
+  test("several questions are asked one at a time and sent together", () => {
+    const onAnswer = mock((_picks: ReadonlyArray<ReadonlyArray<number>>) => undefined);
+
+    const { getByRole, getByText, container } = render(
+      <QuestionCard
+        harness="claude"
+        questions={[
+          {
+            header: "Scope",
+            question: "Which history?",
+            answers: [{ label: "Own" }, { label: "Host" }],
+          },
+          {
+            header: "Tools",
+            question: "Which tools?",
+            multiSelect: true,
+            answers: [{ label: "Search" }, { label: "Read" }, { label: "Execute" }],
+          },
+        ]}
+        onAnswer={onAnswer}
+      />
+    );
+
+    expect(container.textContent).toContain("1 of 2");
+    fireEvent.click(getByText("Host"));
+    expect(onAnswer).not.toHaveBeenCalled();
+    expect(container.textContent).toContain("2 of 2");
+    expect(container.textContent).toContain("Which tools?");
+    expect(getByRole("button", { name: "Send" })).toHaveProperty("disabled", true);
+
+    fireEvent.click(getByText("Execute"));
+    fireEvent.click(getByText("Search"));
+    fireEvent.click(getByRole("button", { name: "Back" }));
+    expect(container.textContent).toContain("Which history?");
+    fireEvent.click(getByText("Own"));
+    fireEvent.click(getByRole("button", { name: "Send" }));
+    expect(onAnswer).toHaveBeenCalledTimes(1);
+    expect(onAnswer).toHaveBeenCalledWith([[0], [0, 2]]);
   });
 });
 

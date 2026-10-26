@@ -320,8 +320,8 @@ export const permissionsDecision = (
 };
 
 /**
- * A free-text answer fills every question; Allow picks each question's first
- * option; Deny answers nothing, which Codex treats as a dismissal.
+ * An answer fills each question with its own answer, or every question with the text;
+ * Allow picks each question's first option; Deny answers nothing (a dismissal to Codex).
  */
 export const userInputDecision = (
   questions: (typeof P.UserInputParams.Type)["questions"],
@@ -329,10 +329,13 @@ export const userInputDecision = (
 ): Gen.ToolRequestUserInputResponse => {
   const answers: Record<string, { answers: Array<string> }> = {};
 
-  for (const question of questions) {
-    if (ApprovalDecision.guards.Answer(decision))
-      answers[question.id] = { answers: [decision.text] };
-    else if (ApprovalDecision.guards.Allow(decision) && question.options?.[0])
+  for (const [i, question] of questions.entries()) {
+    if (ApprovalDecision.guards.Answer(decision)) {
+      const own = decision.answers?.[i];
+      answers[question.id] = {
+        answers: own !== undefined && own.length > 0 ? [...own] : [decision.text],
+      };
+    } else if (ApprovalDecision.guards.Allow(decision) && question.options?.[0])
       answers[question.id] = { answers: [question.options[0].label] };
   }
 
