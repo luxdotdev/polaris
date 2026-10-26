@@ -113,7 +113,7 @@ export const PullReview = ({ subject }: { readonly subject: PullSubject }) => {
     <section
       data-testid="pull-review"
       data-pull={pull.pullId ?? ""}
-      className="flex min-h-0 flex-1 flex-col"
+      className="flex min-h-0 min-w-0 flex-1 flex-col"
     >
       <PullHeader
         name={name}

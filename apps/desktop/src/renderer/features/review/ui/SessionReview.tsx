@@ -58,7 +58,7 @@ export const SessionReview = ({ subject }: { readonly subject: SessionSubject })
     .join(" · ");
 
   return (
-    <section data-testid="session-review" className="flex min-h-0 flex-1 flex-col">
+    <section data-testid="session-review" className="flex min-h-0 min-w-0 flex-1 flex-col">
       <SessionHeader
         title={session?.title ?? "Agent session"}
         harness={session?.harness ?? ""}
