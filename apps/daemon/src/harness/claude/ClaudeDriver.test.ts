@@ -451,7 +451,6 @@ describe("Claude driver", () => {
         {
           question: "Which database?",
           header: "DB",
-          multiSelect: false,
           options: [
             { label: "SQLite", description: "embedded" },
             { label: "Postgres", description: "server" },
@@ -467,6 +466,7 @@ describe("Claude driver", () => {
       kind: "question",
       title: "Which database?",
       options: ["SQLite", "Postgres"],
+      questions: [{ header: "DB", question: "Which database?" }],
     });
     await t.run(
       t.session.respond(request.requestId, ApprovalDecision.cases.Answer.make({ text: "SQLite" }))

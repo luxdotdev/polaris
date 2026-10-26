@@ -2,7 +2,12 @@
  * The server requests Codex asks Polaris to answer, as the approvals Polaris shows:
  * what each says, and how a decision answers it.
  */
-import type { ApprovalDecision, ApprovalKind } from "@polaris/protocol";
+import {
+  type ApprovalDecision,
+  type ApprovalKind,
+  ApprovalQuestion,
+  QuestionOption,
+} from "@polaris/protocol";
 import { Option, Schema } from "effect";
 import {
   approvalDecision,
@@ -18,6 +23,7 @@ export interface ApprovalPrompt {
   readonly title: string;
   readonly detail: string | null;
   readonly options: ReadonlyArray<string>;
+  readonly questions?: ReadonlyArray<ApprovalQuestion>;
   readonly respond: (decision: ApprovalDecision) => P.ServerRequestResponse;
 }
 
@@ -121,6 +127,15 @@ export const approvalPrompts = new Map<
               title: p.questions.map((q) => q.question).join("\n"),
               detail: p.questions.map((q) => q.header).join(" · ") || null,
               options: p.questions[0]?.options?.map((o) => o.label) ?? [],
+              questions: p.questions.map(
+                (q) =>
+                  new ApprovalQuestion({
+                    header: q.header,
+                    question: q.question,
+                    options: (q.options ?? []).map((o) => new QuestionOption(o)),
+                    multiSelect: false,
+                  })
+              ),
               respond: (decision) => userInputDecision(p.questions, decision),
             },
           };

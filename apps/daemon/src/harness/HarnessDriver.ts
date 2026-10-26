@@ -9,6 +9,7 @@
 import type {
   ApprovalDecision,
   ApprovalKind,
+  ApprovalQuestion,
   Attachment,
   ContextCategory,
   ContextEntry,
@@ -120,6 +121,8 @@ export type HarnessEvent = Data.TaggedEnum<{
     readonly title: string;
     readonly detail: string | null;
     readonly options: ReadonlyArray<string>;
+    /** For questions: every question asked; absent or empty for one bare prompt. */
+    readonly questions?: ReadonlyArray<ApprovalQuestion>;
   };
   /** The Harness withdrew or resolved a request itself (e.g. the Turn was interrupted). */
   ApprovalWithdrawn: { readonly requestId: RequestId };

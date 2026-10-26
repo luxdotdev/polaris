@@ -2,7 +2,7 @@ import type { HTMLAttributes, ReactNode } from "react";
 
 import { PixelHandIcon } from "../../icons/pixel";
 import { cn } from "../../lib/cn";
-import { harnessHue, type Harness } from "../../lib/hue";
+import type { Harness } from "../../lib/hue";
 import { Button } from "../ui/button";
 import { CodeWell } from "./code-well";
 import { Tile } from "./tile";
@@ -139,85 +139,6 @@ export function WaitingCard({
       >
         {action.label}
       </Button>
-    </div>
-  );
-}
-
-export interface QuestionAnswer {
-  readonly label: ReactNode;
-  readonly recommended?: boolean;
-}
-
-export interface QuestionCardProps extends Omit<HTMLAttributes<HTMLDivElement>, "title"> {
-  readonly harness: Harness;
-  readonly question: ReactNode;
-  /** Why it asks, in a sentence or two. */
-  readonly context?: ReactNode;
-  readonly answers: readonly QuestionAnswer[];
-  readonly onAnswer?: (index: number) => void;
-  /** "18m". */
-  readonly age?: ReactNode;
-}
-
-/**
- * A Harness's question in the conversation: a needs-you washed header strip, then numbered
- * answer rows with the recommended one filled (DESIGN.md, Needs You inbox).
- */
-export function QuestionCard({
-  harness,
-  question,
-  context,
-  answers,
-  onAnswer,
-  age,
-  className,
-  ...props
-}: QuestionCardProps) {
-  return (
-    <div
-      data-slot="question-card"
-      className={cn(
-        "flex flex-col overflow-clip rounded-card border border-hairline bg-surface-raised",
-        className
-      )}
-      {...props}
-    >
-      <div className="pixelated border-needs-you/14 flex h-10 shrink-0 items-center gap-2.5 border-b bg-(image:--wash-needs-you) bg-cover bg-center px-3.5">
-        <PixelHandIcon size={14} className="text-needs-you" />
-        <span className="text-caption text-text-strong font-medium">
-          {harnessHue(harness).name} needs an answer
-        </span>
-        <span className="flex-1" />
-        {age === undefined ? null : (
-          <span className="text-caption text-text-subtle tabular">{age}</span>
-        )}
-      </div>
-      <div className="flex flex-col gap-3 p-3.5">
-        <p className="text-heading-sm text-text-strong">{question}</p>
-        {context === undefined ? null : <p className="text-body text-text-subtle">{context}</p>}
-        <ol className="flex flex-col gap-1.5">
-          {answers.map((answer, index) => (
-            <li key={index}>
-              <button
-                type="button"
-                onClick={() => onAnswer?.(index)}
-                className={cn(
-                  "flex h-9 w-full cursor-default items-center gap-2.5 rounded-row border px-3 text-left select-none",
-                  answer.recommended === true
-                    ? "border-transparent bg-primary text-primary-foreground hover:bg-primary/90"
-                    : "border-hairline text-text-default hover:bg-fill-hover"
-                )}
-              >
-                <span className="text-micro tabular font-medium opacity-70">{index + 1}</span>
-                <span className="text-label flex-1 truncate">{answer.label}</span>
-                {answer.recommended === true ? (
-                  <span className="text-caption opacity-70">Recommended</span>
-                ) : null}
-              </button>
-            </li>
-          ))}
-        </ol>
-      </div>
     </div>
   );
 }

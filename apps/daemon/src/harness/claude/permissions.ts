@@ -7,7 +7,13 @@ import type {
   PermissionResult,
   PermissionUpdate,
 } from "@anthropic-ai/claude-agent-sdk";
-import { ApprovalDecision, type ApprovalKind, type PermissionMode } from "@polaris/protocol";
+import {
+  ApprovalDecision,
+  type ApprovalKind,
+  ApprovalQuestion,
+  type PermissionMode,
+  QuestionOption,
+} from "@polaris/protocol";
 import { Option } from "effect";
 import { decodeQuestions, present, type ToolPayload, toolFields } from "./payloads.ts";
 
@@ -48,24 +54,22 @@ export const approvalKind = (toolName: string): ApprovalKind => {
   return "tool";
 };
 
-export interface QuestionSpec {
-  readonly question: string;
-  readonly header: string;
-  readonly options: ReadonlyArray<string>;
-  readonly multiSelect: boolean;
-}
-
 /** The questions of an `AskUserQuestion` call (1–4, each with 2–4 options). */
-export const parseQuestions = (input: ToolPayload): ReadonlyArray<QuestionSpec> =>
+export const parseQuestions = (input: ToolPayload): ReadonlyArray<ApprovalQuestion> =>
   Option.match(decodeQuestions(input), {
     onNone: () => [],
     onSome: ({ questions }) =>
-      present(questions).map((q) => ({
-        question: q.question,
-        header: q.header ?? "",
-        options: present(q.options).map((o) => o.label),
-        multiSelect: q.multiSelect === true,
-      })),
+      present(questions).map(
+        (q) =>
+          new ApprovalQuestion({
+            question: q.question,
+            header: q.header ?? "",
+            options: present(q.options).map(
+              (o) => new QuestionOption({ label: o.label, description: o.description ?? null })
+            ),
+            multiSelect: q.multiSelect === true,
+          })
+      ),
   });
 
 /** A one-line summary of a tool call, for approval cards and notifications. */
@@ -108,17 +112,27 @@ export const describeToolCall = (toolName: string, input: ToolPayload): ToolDesc
 };
 
 /**
- * The `answers` map `AskUserQuestion` expects (question text → answer). One question takes
- * the whole text; several take one line each when the line count matches, else the whole text.
+ * The `answers` map `AskUserQuestion` expects (question text → answer; several labels joined
+ * with ", "). Without per-question answers, several questions take one line each when the
+ * line count matches, else every question takes the whole text.
  */
 export const answersFor = (
-  questions: ReadonlyArray<QuestionSpec>,
-  text: string
+  questions: ReadonlyArray<ApprovalQuestion>,
+  answer: { readonly text: string; readonly answers?: ReadonlyArray<ReadonlyArray<string>> }
 ): Record<string, string> => {
+  const { text, answers } = answer;
   const lines = text.split("\n").map((l) => l.trim());
   const perLine = questions.length > 1 && lines.length === questions.length;
 
-  return Object.fromEntries(questions.map((q, i) => [q.question, perLine ? lines[i]! : text]));
+  const forQuestion = (i: number): string => {
+    const chosen = answers?.[i];
+
+    if (chosen !== undefined && chosen.length > 0) return chosen.join(", ");
+
+    return perLine ? lines[i]! : text;
+  };
+
+  return Object.fromEntries(questions.map((q, i) => [q.question, forQuestion(i)]));
 };
 
 export const DEFAULT_DENY_MESSAGE = "The user declined this action.";
@@ -151,7 +165,7 @@ export const toPermissionResult = (
             behavior: "allow",
             updatedInput: {
               ...request.input,
-              answers: answersFor(parseQuestions(request.input), answer.text),
+              answers: answersFor(parseQuestions(request.input), answer),
             },
           }
         : // A typed reply to a permission prompt: decline, and hand Claude the user's words.

@@ -245,6 +245,7 @@ export const translatorFor = (
         title: prompt.title,
         detail: prompt.detail,
         options: "options" in prompt ? prompt.options : [],
+        questions: "questions" in prompt ? prompt.questions : [],
       })
     );
   };

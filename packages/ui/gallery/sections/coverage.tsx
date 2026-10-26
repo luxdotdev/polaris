@@ -173,11 +173,23 @@ function Inbox() {
       <QuestionCard
         harness="claude"
         age="18m"
-        question="Should household income be entered monthly or annually?"
-        context="The API expects annual income, but the old form collected monthly. Annual keeps one unit end to end."
-        answers={[
-          { label: "Annual", recommended: true },
-          { label: "Monthly, converted before submit" },
+        questions={[
+          {
+            header: "Income",
+            question: "Should household income be entered monthly or annually?",
+            context:
+              "The API expects annual income, but the old form collected monthly. Annual keeps one unit end to end.",
+            answers: [
+              { label: "Annual", description: "One unit end to end", recommended: true },
+              { label: "Monthly, converted before submit" },
+            ],
+          },
+          {
+            header: "Fields",
+            question: "Which fields should be required?",
+            multiSelect: true,
+            answers: [{ label: "Income" }, { label: "Household size" }, { label: "Postcode" }],
+          },
         ]}
         className="self-start"
       />

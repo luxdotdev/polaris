@@ -350,6 +350,7 @@ export const openSession = (
           title: prompt.title,
           detail: prompt.detail,
           options: prompt.options,
+          questions: prompt.questions ?? [],
         })
       );
     };

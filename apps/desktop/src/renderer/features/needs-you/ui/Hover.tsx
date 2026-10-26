@@ -20,7 +20,8 @@ import { age } from "../../../shell/copy.ts";
 import { useInboxUntimed } from "../hooks.ts";
 import { modalOpen } from "../modal.ts";
 import type { WaitingSession } from "../model/inbox.ts";
-import { answer, approve, deny } from "../respond.ts";
+import { answerDecision, questionSteps, questionViews } from "../../session/model/question.ts";
+import { approve, deny, respond } from "../respond.ts";
 import { where } from "./Inbox.tsx";
 
 export interface NeedsYouHoverProps {
@@ -51,18 +52,20 @@ const Card = ({ item }: { readonly item: WaitingSession }) => {
   const open = () => selectSession({ hostKey: item.hostKey, sessionId: session.id });
 
   if (request.kind === "question") {
+    const views = questionViews(request);
+    const typed = views.some((v) => v.answers.length === 0);
+
     return (
       <div className="flex flex-col">
         <QuestionCard
+          key={request.id}
           className="rounded-none border-0"
           harness={session.harness}
           age={age(request.openedAt, now)}
-          question={request.title}
-          {...(request.detail === null ? {} : { context: request.detail })}
-          answers={request.options.map((label) => ({ label }))}
-          onAnswer={(index) => void answer(target, request.options[index] ?? "")}
+          questions={questionSteps(views)}
+          onAnswer={(picks) => void respond({ ...target, decision: answerDecision(views, picks) })}
         />
-        {request.options.length === 0 ? (
+        {typed ? (
           <div className="border-hairline flex justify-end border-t px-3.5 py-2.5">
             <Button onClick={open}>Answer in the conversation</Button>
           </div>

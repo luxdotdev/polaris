@@ -140,7 +140,7 @@ export const decodeTodos = Schema.decodeUnknownOption(Schema.Struct({ todos: len
 const Question = Schema.Struct({
   question: Schema.String,
   header: StringOrNull,
-  options: lenientArray(Schema.Struct({ label: Schema.String })),
+  options: lenientArray(Schema.Struct({ label: Schema.String, description: StringOrNull })),
   multiSelect: Schema.optional(Schema.Unknown),
 });
 
