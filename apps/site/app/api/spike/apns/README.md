@@ -18,7 +18,7 @@ Apple `.p8`, and sends one alert push to the APNs sandbox over `node:http2`.
 1. Team settings → Key Management → Create issuer: name `polaris-apns-spike`, algorithm
    `ES256`, origin **external**, import the Apple `.p8` (PKCS#8 PEM, as Apple ships it), key ID
    (`importKeyId`) = Apple's 10-character key ID, so KMS's `kid` is Apple's.
-2. Add a `project-grant` policy: project `polaris-site` (root `apps/site`), environment
+2. Add a `project-grant` policy: project `polaris` (root `apps/site`), environment
    **Preview** only.
 3. Give the Lead the issuer ID, the Apple Team ID and the key ID.
 
