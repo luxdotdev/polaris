@@ -21,6 +21,7 @@ import {
   useEffect,
   useState,
 } from "react";
+import "./lib/effectSubpaths.ts";
 import { AddPairingForm } from "./components/AddPairingForm.tsx";
 import { availability } from "./lib/connection.ts";
 import { describeFailure, failureMarkdown, unavailableMarkdown } from "./lib/copy.ts";
