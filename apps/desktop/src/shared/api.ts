@@ -308,6 +308,8 @@ export interface Appearance {
   readonly motion: MotionSource;
   readonly codeFont: CodeFont;
   readonly codeFontSize: CodeFontSize;
+  /** View → Word wrap: long lines wrap in the Changes rail, Review and the Editor. */
+  readonly wordWrap: boolean;
 }
 
 /** Each Harness's defaults for new sessions, by kind. */

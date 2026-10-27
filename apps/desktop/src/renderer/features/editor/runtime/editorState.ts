@@ -28,6 +28,7 @@ import { agentMarks } from "../cm/agent.ts";
 import { currentKeyPlatform } from "../../../../shared/chord.ts";
 import { editorLook } from "../cm/theme.ts";
 import { inlineDiagnostics } from "../cm/inlineDiagnostics.ts";
+import { wordWrap } from "../cm/wordWrap.ts";
 import { detectIndent, type Indent, lineSeparatorOf } from "../model/indent.ts";
 
 export const languageCompartment = new Compartment();
@@ -123,6 +124,7 @@ export const createFileState = ({ file, text, readOnly, vim, onUpdate }: StateIn
       search({ top: true }),
       editorKeys(),
       editorLook,
+      wordWrap(),
       PHRASES,
       reloadHighlight,
       languageCompartment.of([]),

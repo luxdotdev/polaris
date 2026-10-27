@@ -14,8 +14,12 @@ const input = (
 ): TemplateInput => ({
   platform,
   send: () => {},
-  // SAFETY: the template reads only theme and density.
-  appearance: { theme: "system", density: "balanced" } as TemplateInput["appearance"],
+  // SAFETY: the template reads only theme, density and wordWrap.
+  appearance: {
+    theme: "system",
+    density: "balanced",
+    wordWrap: false,
+  } as TemplateInput["appearance"],
   setAppearance: () => {},
   dev: false,
   proofHostKey: null,
@@ -101,5 +105,36 @@ describe("menuTemplate", () => {
     expect(accelerator("win32", "&Session", "session.interrupt")).toBeUndefined();
     expect(accelerator("linux", "Session", "session.interrupt")).toBeUndefined();
     expect(accelerator("win32", "&File", "settings.open")).toBeUndefined();
+  });
+
+  test("View → Word wrap is a checkbox showing the setting, and its click flips it", () => {
+    const wordWrap = (on: boolean) => {
+      const patches: Array<Partial<TemplateInput["appearance"]>> = [];
+      const base = input("darwin");
+
+      const item = submenu(
+        menuTemplate({
+          ...base,
+          appearance: { ...base.appearance, wordWrap: on },
+          setAppearance: (patch) => patches.push(patch),
+        }),
+        "View"
+      ).find((i) => i.label === "Word wrap");
+
+      // SAFETY: Electron passes the clicked item, window and event; the template uses none.
+      const click = item?.click as (() => void) | undefined;
+      click?.();
+
+      return { item, patches };
+    };
+
+    expect(wordWrap(false).item).toMatchObject({
+      type: "checkbox",
+      checked: false,
+      accelerator: "Alt+Z",
+    });
+    expect(wordWrap(false).patches).toEqual([{ wordWrap: true }]);
+    expect(wordWrap(true).item?.checked).toBe(true);
+    expect(wordWrap(true).patches).toEqual([{ wordWrap: false }]);
   });
 });

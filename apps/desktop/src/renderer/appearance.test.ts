@@ -15,6 +15,7 @@ const appearance = {
   motion: "system",
   codeFont: "sf-mono",
   codeFontSize: 13,
+  wordWrap: false,
 } as const;
 
 afterEach(() => setClientPlatform(null));

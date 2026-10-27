@@ -64,6 +64,7 @@ export const Settings = Schema.Struct({
   motion: Schema.optionalKey(MotionSource),
   codeFont: Schema.optionalKey(CodeFont),
   codeFontSize: Schema.optionalKey(CodeFontSize),
+  wordWrap: Schema.optionalKey(Schema.Boolean),
   /** By Harness kind. */
   sessionDefaults: Schema.optionalKey(Schema.Record(Schema.String, SessionDefault)),
   /** Settings → Sessions; each missing field takes its default. */
@@ -127,6 +128,7 @@ export const appearanceOf = (settings: Settings) => ({
   motion: settings.motion ?? "system",
   codeFont: settings.codeFont ?? "sf-mono",
   codeFontSize: settings.codeFontSize ?? 13,
+  wordWrap: settings.wordWrap ?? false,
 });
 
 /** Settings → Sessions as a settings file asks for it, with the defaults filled in. */

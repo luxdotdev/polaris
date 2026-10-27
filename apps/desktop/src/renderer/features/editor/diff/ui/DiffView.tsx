@@ -7,7 +7,7 @@ import type { CodeViewItem } from "@pierre/diffs";
 import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
 import { reducedMotion } from "@polaris/ui";
 import { type Ref, useEffect, useImperativeHandle, useMemo, useRef } from "react";
-import { DIFF_CLASS, MAX_LINE_LENGTH, THEMES } from "../../../diffs/index.ts";
+import { DIFF_CLASS, MAX_LINE_LENGTH, THEMES, useOverflow } from "../../../diffs/index.ts";
 import type { ComposedDiff } from "../data/compose.ts";
 import type { DiffStyle } from "../model/prefs.ts";
 import type { Stop } from "../model/stops.ts";
@@ -84,6 +84,7 @@ export const DiffView = ({ composed, style, themeType, handle }: DiffViewProps) 
   const view = useRef<Handle>(null);
   const container = useRef<HTMLDivElement | null>(null);
   const mark = useEmphasis(composed, container);
+  const overflow = useOverflow();
 
   const items = useMemo(
     (): ReadonlyArray<CodeViewItem<undefined>> => [
@@ -117,7 +118,7 @@ export const DiffView = ({ composed, style, themeType, handle }: DiffViewProps) 
       lineDiffType: composed.mode === "syntax" ? ("none" as const) : ("word-alt" as const),
       maxLineDiffLength: MAX_LINE_LENGTH,
       tokenizeMaxLineLength: MAX_LINE_LENGTH,
-      overflow: "scroll" as const,
+      overflow,
       disableFileHeader: true,
       hunkSeparators: "line-info" as const,
       lineHoverHighlight: "both" as const,
@@ -129,7 +130,7 @@ export const DiffView = ({ composed, style, themeType, handle }: DiffViewProps) 
       layout: { paddingTop: 12, paddingBottom: 24, gap: 0 },
       onPostRender: mark,
     }),
-    [themeType, style, composed.mode, composed.inserted, mark]
+    [themeType, style, overflow, composed.mode, composed.inserted, mark]
   );
 
   return (

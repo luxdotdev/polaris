@@ -1,7 +1,9 @@
 /**
  * A Changes line's code: plain until its file's colours are ready, then the same text in
  * spans coloured by the syntax tokens (DESIGN.md, rule/syntax-is-moonlit), so nothing moves.
+ * Cut off at the card's edge, or wrapped onto more rows under View → Word wrap.
  */
+import { cn } from "@polaris/ui";
 import type { LineRuns, SyntaxGroup } from "../diffSyntax.ts";
 
 const COLOUR: Record<SyntaxGroup, string> = {
@@ -13,8 +15,19 @@ const COLOUR: Record<SyntaxGroup, string> = {
   punctuation: "text-syntax-punctuation",
 };
 
-export const LineCode = ({ text, runs }: { text: string; runs: LineRuns | undefined }) => (
-  <span className="text-text-default flex-1 truncate whitespace-pre">
+interface LineCodeProps {
+  readonly text: string;
+  readonly runs: LineRuns | undefined;
+  readonly wrap: boolean;
+}
+
+export const LineCode = ({ text, runs, wrap }: LineCodeProps) => (
+  <span
+    className={cn(
+      "text-text-default min-w-0 flex-1",
+      wrap ? "wrap-break-word whitespace-pre-wrap" : "truncate whitespace-pre"
+    )}
+  >
     {runs === undefined
       ? text
       : runs.map((run, i) =>

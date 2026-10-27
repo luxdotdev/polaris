@@ -7,6 +7,7 @@ import type { MenuItemConstructorOptions } from "electron";
 import type { AppEvent, Appearance, Density, ThemeSource } from "../shared/api.ts";
 import { isBare, keyPlatformOf, parseChord } from "../shared/chord.ts";
 import { keymapFor, type MenuName } from "../shared/keymap.ts";
+import { WORD_WRAP } from "../shared/keymapView.ts";
 import type { AppUpdateView } from "../shared/appUpdates.ts";
 import type { ClientPlatform } from "../shared/platform.ts";
 
@@ -134,16 +135,39 @@ const DENSITIES: ReadonlyArray<{ readonly label: string; readonly density: Densi
   { label: "Compact", density: "compact" },
 ];
 
-const viewItems = ({ appearance, setAppearance, send, platform }: TemplateInput): Items => [
-  ...commandItems("View", { send, platform }),
+/** A checkbox, so the menu shows whether lines wrap; the renderer handles its Alt+Z. */
+const wordWrapItem = ({ appearance, setAppearance, platform }: TemplateInput) => {
+  const binding = keymapFor(keyPlatformOf(platform)).find((b) => b.id === WORD_WRAP);
+  const shown = binding === undefined ? undefined : shownChord(binding.keys, platform);
+
+  const item: MenuItemConstructorOptions = {
+    id: WORD_WRAP,
+    label: "Word wrap",
+    type: "checkbox",
+    checked: appearance.wordWrap,
+    click: () => setAppearance({ wordWrap: !appearance.wordWrap }),
+  };
+
+  if (shown !== undefined) {
+    item.accelerator = shown;
+    item.registerAccelerator = false;
+  }
+
+  return item;
+};
+
+const viewItems = (input: TemplateInput): Items => [
+  ...commandItems("View", input),
+  { type: "separator" },
+  wordWrapItem(input),
   { type: "separator" },
   {
     label: "Appearance",
     submenu: THEMES.map((t) => ({
       label: t.label,
       type: "radio" as const,
-      checked: t.theme === appearance.theme,
-      click: () => setAppearance({ theme: t.theme }),
+      checked: t.theme === input.appearance.theme,
+      click: () => input.setAppearance({ theme: t.theme }),
     })),
   },
   {
@@ -151,8 +175,8 @@ const viewItems = ({ appearance, setAppearance, send, platform }: TemplateInput)
     submenu: DENSITIES.map((d) => ({
       label: d.label,
       type: "radio" as const,
-      checked: d.density === appearance.density,
-      click: () => setAppearance({ density: d.density }),
+      checked: d.density === input.appearance.density,
+      click: () => input.setAppearance({ density: d.density }),
     })),
   },
   { type: "separator" },
