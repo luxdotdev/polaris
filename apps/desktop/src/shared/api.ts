@@ -52,6 +52,9 @@ import type {
   RunWalkthrough,
   SearchPaths,
   SessionStreamItem,
+  ComposerDraft,
+  ContinuityItem,
+  ReadPosition,
   TerminalId,
   TerminalLaunch,
   TurnPage,
@@ -486,6 +489,8 @@ export interface RequestOutputs
   "extensions.revoke": Plain<Pairing>;
   "sessions.autoArchive": Plain<AutoArchiveSettings>;
   "sessions.setAutoArchive": null;
+  "continuity.markRead": Plain<ReadPosition>;
+  "continuity.saveDraft": Plain<ComposerDraft>;
   "review.runRiskSummary": Rpc.Success<typeof RunRiskSummary>;
   "review.runWalkthrough": Rpc.Success<typeof RunWalkthrough>;
   "review.stopWalkthrough": null;
@@ -547,6 +552,7 @@ export interface SubscriptionItems extends GitHubSubscriptionItems, GitSubscript
   "files.watchFile": { readonly path: string; readonly version: FileVersionView | null };
   usage: UsageStreamItem;
   "harness.availability": Plain<HostHarnesses>;
+  continuity: ContinuityItem;
   "plan-limits": Plain<PlanLimit>;
   "review.watchRiskSummary": RiskSummary;
   "inline.propose": InlineStreamItem;

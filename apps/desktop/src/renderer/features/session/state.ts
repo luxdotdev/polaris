@@ -87,3 +87,10 @@ export const updateDraft = (
   sessionId: string,
   update: (draft: string) => string
 ) => patchSessionUi(uiKey(hostKey, sessionId), ({ draft }) => ({ draft: update(draft) }));
+
+/** Calls `listener` with each session whose draft changed, by its `uiKey`. */
+export const onDraftChange = (listener: (key: string, draft: string) => void) =>
+  store.subscribe((next, prev) => {
+    for (const [key, ui] of Object.entries(next))
+      if (ui.draft !== (prev[key]?.draft ?? "")) listener(key, ui.draft);
+  });

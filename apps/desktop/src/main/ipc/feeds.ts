@@ -81,6 +81,7 @@ const openers: Openers = {
   usage: ({ hostKey }) => onLive(hostKey, (session) => session.client["usage.watch"]({})),
   "harness.availability": ({ hostKey }) =>
     onLive(hostKey, (session) => session.client["harness.watchAvailability"]({})),
+  continuity: ({ hostKey }) => onLive(hostKey, (session) => session.client["continuity.watch"]({})),
   "plan-limits": ({ hostKey }) =>
     onLive(hostKey, (session) =>
       session.client["usage.watch"]({}).pipe(
