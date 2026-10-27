@@ -8,7 +8,7 @@ type Page = "components" | "orchestrate";
 
 type Density = "calm" | "balanced" | "compact";
 
-type Theme = "dark" | "light";
+type Theme = "dark" | "midnight" | "light";
 
 const params = new URLSearchParams(window.location.search);
 
@@ -22,7 +22,7 @@ const PAGES: readonly Page[] = ["components", "orchestrate"];
 
 const DENSITIES: readonly Density[] = ["calm", "balanced", "compact"];
 
-const THEMES: readonly Theme[] = ["dark", "light"];
+const THEMES: readonly Theme[] = ["dark", "midnight", "light"];
 
 const TEXT_SIZES = ["small", "default", "large", "larger"] as const;
 

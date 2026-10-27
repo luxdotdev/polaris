@@ -3,6 +3,7 @@
  * development pairing setting, and the runtime self-check. Product screens are S1–S7.
  */
 import type { SessionEntry } from "@polaris/sdk";
+import { midnight, mobileType } from "@polaris/ui/tokens";
 import { Predicate } from "effect";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
@@ -11,7 +12,6 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { type HostFeed, useHostFeed } from "./hosts/useHostFeed.ts";
 import { type CheckResult, runSelfCheck } from "./runtime/selfCheck.ts";
 import { loadPairing, savePairing } from "./settings/pairing.ts";
-import { midnight } from "./theme/midnight.ts";
 
 const feedLine = (feed: HostFeed | null): string => {
   if (feed === null) return "No host paired";
@@ -60,7 +60,7 @@ const PairingSetting = ({ onSaved }: { readonly onSaved: (pairing: string | null
         value={text}
         onChangeText={setText}
         placeholder="polaris-pair:v1:…"
-        placeholderTextColor={midnight.muted}
+        placeholderTextColor={midnight.textFaint}
         autoCapitalize="none"
         autoCorrect={false}
         secureTextEntry
@@ -106,10 +106,10 @@ export const App = () => {
 };
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: midnight.ground, paddingHorizontal: 16, gap: 8 },
-  heading: { color: midnight.text, fontSize: 28, fontWeight: "600", marginTop: 8 },
-  title: { color: midnight.text, fontSize: 15 },
-  meta: { color: midnight.muted, fontSize: 13 },
+  screen: { flex: 1, backgroundColor: midnight.bg, paddingHorizontal: 16, gap: 8 },
+  heading: { ...mobileType.largeTitle, color: midnight.textStrong, marginTop: 8 },
+  title: { ...mobileType.heading, color: midnight.textStrong },
+  meta: { ...mobileType.footnote, color: midnight.textSubtle },
   row: {
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -118,17 +118,17 @@ const styles = StyleSheet.create({
   },
   setting: { gap: 6, paddingVertical: 8 },
   input: {
-    color: midnight.text,
-    backgroundColor: midnight.surface,
+    ...mobileType.command,
+    color: midnight.textDefault,
+    backgroundColor: midnight.surfaceSunken,
     borderColor: midnight.hairline,
     borderWidth: 1,
     borderRadius: 8,
     padding: 10,
-    fontFamily: "Menlo",
   },
   button: {
     alignSelf: "flex-start",
-    backgroundColor: midnight.raised,
+    backgroundColor: midnight.surfaceRaised,
     borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 8,

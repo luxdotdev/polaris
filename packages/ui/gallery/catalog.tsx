@@ -4,6 +4,7 @@ import { ControlsSection, TypeSection, ColourSection } from "./sections/basics";
 import { FloatingSection, ComposerSection } from "./sections/floating";
 import { IdentitySection, SignalSection } from "./sections/identity";
 import { ListSection } from "./sections/lists";
+import { MobileTypeSection } from "./sections/mobile";
 import { PixelWorldSection } from "./sections/pixel-world";
 
 export interface CatalogProps {
@@ -15,7 +16,7 @@ export interface CatalogProps {
 }
 
 interface ColumnProps extends CatalogProps {
-  readonly theme: "dark" | "light";
+  readonly theme: "dark" | "midnight" | "light";
 }
 
 function Column({ theme, density, textSize, palette, only }: ColumnProps) {
@@ -35,6 +36,7 @@ function Column({ theme, density, textSize, palette, only }: ColumnProps) {
       ) : (
         <>
           <TypeSection />
+          {theme === "midnight" ? <MobileTypeSection /> : null}
           <ColourSection />
           <ControlsSection />
           <CopySection />
@@ -51,11 +53,12 @@ function Column({ theme, density, textSize, palette, only }: ColumnProps) {
   );
 }
 
-/** Every component and state, dark and light side by side. */
+/** Every component and state, dark, midnight and light side by side. */
 export function Catalog(props: CatalogProps) {
   return (
-    <main className="flex min-w-[1280px]">
+    <main className="flex min-w-[1920px]">
       <Column theme="dark" {...props} />
+      <Column theme="midnight" {...props} />
       <Column theme="light" {...props} />
     </main>
   );

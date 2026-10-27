@@ -75,10 +75,10 @@ describe("theming", () => {
     expect(theme).toMatch(/:root\s*\{\s*color-scheme: dark;/);
   });
 
-  test("light follows data-theme and, unless dark is forced, the system", () => {
+  test("light follows data-theme and, unless a theme is set, the system", () => {
     expect(theme).toMatch(/\[data-theme="light"\]\s*\{\s*color-scheme: light;/);
     expect(theme).toMatch(
-      /@media \(prefers-color-scheme: light\)\s*\{\s*:root:not\(\[data-theme="dark"\]\)\s*\{\s*color-scheme: light;/
+      /@media \(prefers-color-scheme: light\)\s*\{\s*:root:not\(\[data-theme\]\)\s*\{\s*color-scheme: light;/
     );
   });
 

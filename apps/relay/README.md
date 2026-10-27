@@ -1,0 +1,210 @@
+# Polaris Relay
+
+The Polaris Relay (`@polaris/relay`) lets a Linked Device reach a Host on another network
+(ADR 0080). A Host's Daemon and the user's Linked Devices both dial out to it over WSS. It
+forwards frames between a device and the Hosts that link it and can read none of them: they
+are end-to-end encrypted with Noise between device and Daemon, with keys exchanged at link
+time.
+
+It is a Bun + Effect service shipped as a container: ours runs on Railway, and anyone can run
+their own.
+
+This README is the contract for the Daemon side (R2) and the Mobile App (R4). The shared code
+lives in `packages/protocol`:
+
+| Import | What | Native code |
+|---|---|---|
+| `@polaris/protocol/relay` | Wire format: control messages, data frames, close codes, addresses, `verifyEd25519` | none (WebCrypto) |
+| `@polaris/protocol/relay/party` | A party's key proof (`generateRelayIdentity`, `proveRelayKey`) and the end-to-end channel (`RelayInitiator`, `acceptHandshake`, `RelaySession`) | libsodium (`sodium-universal`) |
+
+The relay itself imports only the first, so the end-to-end code and keys never enter it.
+
+## Keys
+
+Each party has two key pairs, made once and kept by the party:
+
+- **Relay identity**: Ed25519. It proves the party to the relay. The party's **relay address**
+  is derived from it: base64url (no padding) of the first 16 bytes of SHA-256 over the 32-byte
+  public key, always 22 characters. The relay knows parties only by this address.
+- **Noise static key**: X25519, for the end-to-end channel. The relay never sees it.
+
+At link time the Desktop App's QR code carries the Host's relay address and Noise static
+public key to the device. The device sends its own address and Noise static public key back
+to the Daemon, which adds the device to its linked devices. The link flow itself belongs to
+R2/R4. All the relay needs is that the Host lists the device's address (see `peers` below).
+
+## Connection
+
+1. The party opens `wss://<relay>/v1`. Anything else is 404; `GET /healthz` answers `ok`.
+2. The relay sends a `challenge`: a fresh 32-byte nonce and its limits.
+3. The party answers with `auth`, signing
+   `"polaris-relay/1 auth\0" ‖ nonce ‖ role` (role byte: `1` host, `2` device) with its relay
+   identity. A host also sends its linked devices in `peers`; a device must not send `peers`.
+4. The relay checks the signature and replies `ready` with the party's address. Until then
+   the party sends nothing else: a message while the proof is being checked closes the socket.
+5. The relay then sends `presence` for every linked peer already online.
+
+```
+party                                  relay
+  ── WebSocket upgrade /v1 ───────────▶
+  ◀── {"t":"challenge","v":1,"nonce":"<b64url 32B>","limits":{…}}
+  ── {"t":"auth","role":"host","key":"<b64url Ed25519 pub>","sig":"<b64url 64B>","peers":["<addr>",…]} ─▶
+  ◀── {"t":"ready","address":"<addr>"}
+  ◀── {"t":"presence","peer":"<addr>","online":true}       (one per linked peer online)
+```
+
+## Control messages
+
+Text WebSocket messages of JSON. Schemas: `ClientControl` and `RelayControl` in
+`packages/protocol/src/relay/wire.ts`.
+
+| Message | Direction | Meaning |
+|---|---|---|
+| `challenge {v, nonce, limits}` | relay → party | First message on every socket. |
+| `auth {role, key, sig, peers?}` | party → relay | The key proof. Exactly once. |
+| `ready {address}` | relay → party | Proof accepted; data may flow. |
+| `peers {peers}` | host → relay | Replaces the host's linked devices. Devices may not send it. |
+| `presence {peer, online}` | relay → party | A linked peer came online, went offline, or was unlinked. |
+| `unreachable {peer}` | relay → party | A forward to `peer` was dropped: it is offline, or it and the sender are not linked. The relay does not say which. |
+
+A host and a device can reach each other only while the host lists the device and both are
+online. Two hosts, or two devices, never can. The relay keeps the lists in memory only, and a
+host's list goes when its socket closes; the Daemon sends it again on every connect.
+
+## Data frames
+
+Binary WebSocket messages:
+
+```
+data frame = version:u8 (1)  op:u8  peerLength:u8  peer:ascii  payload
+op 1       = forward. Party → relay: peer is the destination. Relay → party: peer is the source.
+```
+
+The relay reads only the header. It checks that the sender may reach `peer`, swaps the
+destination address for the sender's, and passes the payload on unchanged. Payloads are at
+most 65,544 bytes (`MAX_RECORD_BYTES`); a whole message is at most `MAX_RELAY_MESSAGE_BYTES`.
+Ops 2–255 and versions other than 1 are reserved and close the socket today.
+
+The relay keeps nothing. A frame for a peer that is offline is dropped with `unreachable`.
+There is no queue and no redelivery; recovering is the job of the end-to-end session and the
+protocol on top of it.
+
+## End-to-end records
+
+Each data frame's payload is one end-to-end record. Records are independent of the carrier,
+so a later direct path between device and Daemon (e.g. iroh, ADR 0080) carries the same
+records and only the carrier changes.
+
+```
+record = type:u8  tag:8 bytes  body
+type 1 = handshake init   body = Noise IK message 1            device → host
+type 2 = handshake reply  body = Noise IK message 2            host → device
+type 3 = data             body = one Noise transport message, AD = type ‖ tag
+```
+
+- **Construction**: `Noise_IK_25519_ChaChaPoly_BLAKE2b`, prologue `polaris-relay-e2e/1`,
+  implemented by [noise-handshake](https://github.com/holepunchto/noise-handshake) (Holepunch's
+  handshake for Hyperswarm, Apache-2.0) over libsodium. We wrote no cryptographic primitives.
+- **Who starts**: the device always starts, with the Host's Noise static key from the QR code.
+  IK hides the device's static key from everyone but the Host, and the Host proves its own
+  key in the reply.
+- **Linking**: `acceptHandshake` passes the device's proven static key to `isLinked` and
+  refuses the device before replying when it is not linked. The Daemon should also check that
+  the frame's source address is the one stored with that key.
+- **Tag**: 8 random bytes the device picks per handshake. They tell a peer's sessions apart
+  across reconnects. The tag is authenticated as associated data in every data record.
+- **Plaintext**: the byte stream of ordinary `packages/protocol` frames (`encodeJsonFrame`,
+  `encodeBlob`). `seal` splits it into records of at most 65,519 plaintext bytes, and the
+  receiver feeds each `open` result to a `FrameDecoder`. RPC, blobs and resume work as on any
+  other transport.
+- **Order**: records must be opened in the order they were sealed. A lost, repeated or
+  reordered record fails authentication; the session is then dead, and the device starts a
+  new handshake. The relay keeps order on a socket, so this happens only across reconnects.
+- **Limits**: a session refuses to seal or open past 2³²−1 records (Noise's nonce), which
+  also needs a new handshake.
+- `RelaySession.handshakeHash` is the same on both sides and can bind higher-level proofs to
+  the session.
+
+## Reconnecting
+
+Relay sockets drop: networks change, the relay redeploys, phones sleep. Parties should:
+
+- Reconnect with exponential backoff and full jitter (e.g. 0.5 s doubling to 30 s), prove the
+  key again, and, as a host, send `peers` again in `auth`.
+- Treat `presence {online: false}` and their own reconnects as the end of every session with
+  that peer. The device starts a new handshake when it sees the host online. The host drops
+  sessions it holds for a device that went offline or reconnected.
+- Not resend records across sessions. The protocol layer above resumes (`packages/client`'s
+  resume) as it does after any dropped connection.
+
+A newer socket that proves the same key replaces the older one, which is closed with `4409`.
+So a Daemon that restarts before its old socket times out takes over at once.
+
+## Limits and close codes
+
+| Limit | Default | Env |
+|---|---|---|
+| Auth timeout | 10 s | `POLARIS_RELAY_AUTH_TIMEOUT_MS` |
+| Idle timeout: no traffic, pongs included; the relay pings in between | 60 s | `POLARIS_RELAY_IDLE_TIMEOUT_SECONDS` |
+| Messages per socket | 500/s, burst 1,000 | `POLARIS_RELAY_MESSAGES_PER_SECOND` |
+| Bytes per socket | 8 MiB/s, burst 16 MiB | `POLARIS_RELAY_BYTES_PER_SECOND` |
+| Largest message | 65,611 B | (wire format) |
+| Linked devices per host | 64 | `POLARIS_RELAY_MAX_PEERS` |
+| Bytes queued to a slow receiver before it is closed | 16 MiB | `POLARIS_RELAY_BACKPRESSURE_LIMIT_BYTES` |
+| Sockets per network address | 32 | `POLARIS_RELAY_MAX_CONNECTIONS_PER_IP` |
+| New sockets per network address | 1/s, burst 20 | `POLARIS_RELAY_CONNECTS_PER_SECOND_PER_IP`, `…_CONNECT_BURST_PER_IP` |
+| Sockets in all | 10,000 | `POLARIS_RELAY_MAX_CONNECTIONS` |
+
+The idle timeout only drops dead sockets. Bun pings a quiet socket and any WebSocket client
+answers, so an idle Daemon stays connected without sending anything itself (ADR 0080's
+keepalive).
+
+| Close code | Meaning |
+|---|---|
+| `4400` | Malformed or out-of-order message (the reason says which) |
+| `4401` | Key proof failed |
+| `4408` | No proof within the auth timeout |
+| `4409` | Replaced by a newer socket with the same key |
+| `4429` | Message or byte rate exceeded |
+| `1009` | Message over the size limit |
+| `1006` | Idle timeout, or the network dropped |
+
+Refused upgrades get HTTP `429` (too many sockets, or too fast, from one address) or `503`
+(the relay is full).
+
+## Logging
+
+One JSON line per socket on close (`relay.connection`): a random connection ID, role, whether
+it authenticated, duration, frame and byte counts in and out, `unreachable` and `dropped`
+counts, the close code and why the relay closed it. There are also `relay.start` and
+`relay.refused {reason}` lines. Lines never contain payloads, relay addresses, keys or network
+addresses. Network addresses are held in memory only while they have sockets open.
+
+## Running
+
+```sh
+bun run --cwd apps/relay start                         # PORT (default 8080), POLARIS_RELAY_HOSTNAME
+docker build -f apps/relay/Dockerfile -t polaris-relay .   # from the repository root
+docker run -p 8080:8080 polaris-relay
+```
+
+TLS terminates in front of the relay: Railway's edge, or your own proxy. Behind a proxy, set
+`POLARIS_RELAY_TRUST_PROXY=true` so per-address limits use the first `X-Forwarded-For` hop.
+Without that, every client looks like the proxy. The relay is one process with in-memory
+state, so run a single replica; spreading parties across replicas needs shared routing (not
+built). `railway.json` builds the Dockerfile and health-checks `/healthz`.
+
+## Tests
+
+`bun run --cwd apps/relay test`:
+
+- `relay.test.ts`: two parties handshake and exchange protocol frames through a real relay
+  socket, with checks that nothing they handed the relay and nothing it logged holds the
+  plaintext or an identifier. Also linking, unlinking, presence, device and host reconnects,
+  and replacement.
+- `abuse.test.ts`: key proof failures, auth and idle timeouts, malformed messages, size,
+  message and byte rates, per-address socket caps.
+- `process.test.ts`: the same exchange against the `bun src/main.ts` process, including a
+  clean `SIGTERM` exit.
+- `packages/protocol/src/relay`: the channel (tampering, replay, gaps, unlinked devices, wrong
+  host key) and the wire format.

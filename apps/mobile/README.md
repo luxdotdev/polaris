@@ -39,5 +39,5 @@ needs: `console` and timers that honour their delay.
 
 ## Tokens
 
-`src/theme/midnight.ts` is a placeholder for the Midnight theme until `@polaris/ui` has it;
-delete it then.
+Colours and type come from `@polaris/ui/tokens` (Midnight and the mobile type scale), plain
+constants with no DOM or Tailwind.
