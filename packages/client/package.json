@@ -7,6 +7,9 @@
   "exports": {
     ".": "./src/index.ts",
     "./access": "./src/access/index.ts",
+    "./connection": "./src/connection.ts",
+    "./failures": "./src/failures.ts",
+    "./resume": "./src/resume.ts",
     "./install": "./src/install/index.ts",
     "./testing": "./src/connection.testing.ts",
     "./prediction": "./src/prediction/index.ts",

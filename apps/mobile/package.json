@@ -1,0 +1,34 @@
+{
+  "name": "@polaris/mobile",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start",
+    "ios": "expo run:ios",
+    "dev:daemon": "bun scripts/devDaemon.ts",
+    "hermes": "bun scripts/hermes.ts",
+    "hermes:build": "bun scripts/buildHermes.ts",
+    "typecheck": "tsc -p . && tsc -p scripts",
+    "test": "bun ../../tooling/test/watchdog.ts"
+  },
+  "dependencies": {
+    "@polaris/client": "workspace:*",
+    "@polaris/protocol": "workspace:*",
+    "@polaris/sdk": "workspace:*",
+    "effect": "4.0.0-rc.118",
+    "expo": "58.0.20",
+    "expo-secure-store": "58.0.2",
+    "expo-status-bar": "58.0.4",
+    "react": "19.3.0",
+    "react-native": "0.88.0",
+    "react-native-safe-area-context": "5.10.1",
+    "xstate": "6.0.0-alpha.61"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "hermes-compiler": "260318099.0.4"
+  }
+}

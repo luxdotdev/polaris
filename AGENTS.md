@@ -22,6 +22,7 @@ Polaris is an IDE and agent orchestrator: a Bun Daemon per Host, an Electron Des
 | `extensions/raycast` | The Raycast extension on `@polaris/sdk`: search Agent Sessions and Workspaces, Pending Approvals, New Agent Session, Hosts (see its README). A root workspace, like everything under `extensions/`. |
 | `apps/site` | The marketing site (Next.js on Vercel, root directory `apps/site`), built from the Paper "Marketing site" page on `@polaris/ui`'s tokens; the download and update-feed routes live under `app/` (see its README). |
 | `apps/desktop` | The Electron Desktop App: the Client runtime in the main process, a typed IPC bridge, a React renderer on `@polaris/ui` (see its README). |
+| `apps/mobile` | The Mobile App: Expo React Native on Hermes over `@polaris/sdk` and the Client runtime; the Hermes check of the shared runtime (see its README). |
 | `packages/ui` | The design system in code (`@polaris/ui`): DESIGN.md's tokens on Tailwind v4, restyled shadcn/ui, the Polaris primitives, and a gallery (`bun run --cwd packages/ui gallery`). |
 | `packages/lint-config` | The shared oxlint config every workspace extends, the shared oxfmt style (`oxfmt.json`), and the custom plugins (`polaris/no-long-comment`, vendored anti-slop, the SonarJS cognitive-complexity wrapper). Read its `README.md` before touching lint rules. |
 | `tooling` | The lint ratchet and its baseline (`tooling/lint`), the quality runner behind the git hooks (`tooling/quality`), and the hooks (`tooling/hooks`). |

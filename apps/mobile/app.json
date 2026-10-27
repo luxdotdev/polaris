@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "Polaris",
+    "slug": "polaris",
+    "scheme": "polaris",
+    "version": "0.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#000000",
+    "ios": {
+      "bundleIdentifier": "dev.lux.polaris.mobile",
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSAppTransportSecurity": { "NSAllowsLocalNetworking": true }
+      }
+    },
+    "plugins": ["expo-secure-store"]
+  }
+}
