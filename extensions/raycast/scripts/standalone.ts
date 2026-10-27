@@ -40,7 +40,7 @@ export const standaloneManifest = (
       "@types/react": packages.devDependencies["@types/react"] ?? "19.0.10",
       typescript: "5.8.3",
     },
-    scripts: { dev: "ray develop", build: "ray build -e dist" },
+    scripts: { dev: "ray develop", build: "ray build -e dist -o dist" },
   };
 };
 
