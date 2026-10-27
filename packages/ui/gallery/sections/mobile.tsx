@@ -1,4 +1,6 @@
-import { type MobileTextRole, mobileType } from "../../src/tokens";
+import type { CSSProperties } from "react";
+
+import { type MobileTextRole, mobileFont, mobileType } from "../../src/tokens";
 import { Section } from "./layout";
 
 const SAMPLES: readonly (readonly [MobileTextRole, string])[] = [
@@ -16,6 +18,18 @@ const SAMPLES: readonly (readonly [MobileTextRole, string])[] = [
   ["index", "01"],
 ];
 
+/** React Native's points as CSS: unitless line heights are px there, and Chrome lacks ui-monospace. */
+function cssStyle(role: MobileTextRole): CSSProperties {
+  const { fontFamily, fontSize, lineHeight, fontWeight } = mobileType[role];
+
+  return {
+    fontFamily: fontFamily === mobileFont.mono ? "var(--font-mono)" : "var(--font-sans)",
+    fontSize,
+    lineHeight: `${lineHeight}px`,
+    fontWeight,
+  };
+}
+
 /** The Mobile App's type scale, drawn from the same constants apps/mobile imports. */
 export function MobileTypeSection() {
   return (
@@ -26,7 +40,7 @@ export function MobileTypeSection() {
             <span className="text-caption text-text-subtle tabular w-28 shrink-0">
               {role} {mobileType[role].fontSize}/{mobileType[role].lineHeight}
             </span>
-            <span className="text-text-strong" style={mobileType[role]}>
+            <span className="text-text-strong" style={cssStyle(role)}>
               {sample}
             </span>
           </div>
