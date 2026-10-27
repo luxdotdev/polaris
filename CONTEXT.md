@@ -23,7 +23,15 @@ The macOS Client: a single main window in which the user moves between orchestra
 _Avoid_: IDE window, workspace window
 
 **Mobile App**:
-A future phone Client for starting and supervising Agent Sessions on a Host.
+The iPhone Client (a Linked Device): for starting, continuing, and supervising Agent Sessions on any of the user's Hosts away from the desk; it has no Editor.
+
+**Linked Device**:
+A Client the user links once through the Desktop App, after which it sees every Host the Desktop App knows; it reaches them through the Polaris Relay.
+_Avoid_: Pairing (that is an Extension's), paired phone
+
+**Polaris Relay**:
+A service that a Host's Daemon and the user's Linked Devices both reach out to, so a phone can reach a Host on another network; it carries their end-to-end encrypted traffic and wakes the phone for notifications, and can read neither.
+_Avoid_: Proxy, tunnel, server
 
 **Extension**:
 A program outside Polaris, written by the user or a third party, that reads and drives Daemons through the published SDK, such as a Raycast extension or a smart-glasses app; it can do only what the user allowed it.
@@ -38,7 +46,7 @@ What a Pairing allows its Extension to do on that Host: read, approve, send Turn
 _Avoid_: Permission (that is a Harness's permission mode), scope
 
 **Remote Access**:
-A Host the user has made reachable from their other devices over Tailscale, so that Extensions away from it can pair with it; off until the user turns it on.
+A Host the user has made reachable from their other devices, over Tailscale (for Extensions) or the Polaris Relay (for Linked Devices); each route is off until the user turns it on.
 _Avoid_: Port forwarding, tunnel
 
 **Connection State**:

@@ -6,7 +6,7 @@
 
 macos
 
-The Desktop App is the only Client today. A Mobile App (iOS) is planned and will get its own section in DESIGN.md.
+The Desktop App is the only shipped Client. The Mobile App (iPhone, including iPhone Duo) is designed in DESIGN.md's Mobile App section (ENG-458).
 
 ## Stack
 
@@ -36,7 +36,7 @@ Polaris drives Harnesses rather than reimplementing one, and it supervises Agent
 - Vocabulary is fixed by `CONTEXT.md`; UI copy uses those terms exactly, lowercase unless they are proper nouns (agent session, harness, turn, needs you, risk finding, severity, verdict).
 - Session States: Starting, Working, Needs You, Idle, In Terminal, Dormant, Failed, Archived.
 - Severities: Critical, High, Medium, Low. No Risk Memory may hide a Critical Finding.
-- Undecided: Mobile App scope.
+- Mobile App scope: the Desktop App's cockpit without the Editor, for starting and continuing agent sessions away from the desk (ENG-458).
 
 ## Brand Commitments
 

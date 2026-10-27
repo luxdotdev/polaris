@@ -290,7 +290,7 @@ components:
 
 # Design System: Polaris
 
-Scope: the Desktop App (macOS). The Mobile App gets its own section when it is designed. Product truth, users, and voice live in `PRODUCT.md`; domain vocabulary lives in `CONTEXT.md`. This file never redefines either.
+Scope: the Desktop App (macOS), and the Mobile App in its own section at the end. Product truth, users, and voice live in `PRODUCT.md`; domain vocabulary lives in `CONTEXT.md`. This file never redefines either.
 
 ## Overview
 
@@ -936,3 +936,22 @@ The injected stylesheet adds only what variables can't: the Severity glyph in th
 ### Codex fast mode
 
 The Harness picker offers a neutral lightning-bolt checkbox, "Fast mode", for Codex on a Daemon with `session.service-tier`. Its hint says "Faster responses, higher usage cost". Picks commit with the Model and effort when the menu closes; Escape cancels. A lightning bolt in the closed chip identifies an enabled selection, also named in its accessible label. `/fast` toggles the same selection without sending a Turn. Changes apply from the next Turn and are unavailable during a Turn or when Model changes are blocked. The selection follows the Agent Session across resume and same-Harness Forks.
+
+## Mobile App
+
+The iPhone Client (CONTEXT.md, Mobile App), decided in ENG-458; Paper "Mobile" page, H4 and D6–D8 (H1–H3 are the explored directions, M1–M3 and D1–D5 the superseded first pass). It is the Desktop App's cockpit without the Editor: start, continue and supervise agent sessions away from the desk, typed first. Everything here also holds folded on an iPhone Duo.
+
+- **Midnight.** A third theme beside dark and light: true black ground `#000000`, surfaces `#0A0B0D` and `#141518`, hairlines white at 8%; signal and harness colours are unchanged. The Mobile App defaults to it; the Desktop App adds it later.
+- **Home (H4).** "Sessions", the hosts pill (a Reconnecting or Offline host is named in the subtitle), the summary in tabular numerals ("2 need you · 3 working"), workspace chips. Then sections ranked needs you, working, recent: needs you rows carry a mono index (01, 02), hairlines separate rows, never cards, and approvals and answers sit inline under the title. A constellation is one row: the Lead, a seven-segment task bar, "3 of 7 tasks · lead".
+- **The horizon.** A thin pixel ridge at the bottom of home, lit for the time of day; the list fades to black above it and no legible row ever sits on it. This is the one exception to "no pixel scenes behind Orchestrator lists".
+- **Continuity.** Agent sessions are synced, not handed off; read position and composer drafts follow the agent session between Clients ("Draft saved").
+- **Suggested actions.** Chips above the composer only for actions state already implies ("Fix the critical finding" when a Critical finding is open, "Open review" when a turn finished); never generated prompts.
+- **Constellation (C2).** Tasks as a vertical rail list; finished groups fold ("3 done · show"); a working attempt shows its live command. A claim handed to the user shows its checks, its question, and Accept / Send back: either opens a one-line reply, so the verdict reaches the lead with the answer.
+- **Outside the app.** An inline lock-screen widget ("✦ 2 need you · 3 working"), a home-screen widget, and actionable approval notifications behind authentication. No Live Activity in v1.
+
+### iPhone Duo
+
+- **Folded:** the cover display is the iPhone app, unchanged.
+- **Unfolded (D6): context follows focus.** The second half shows what the first half is about, never a second app: tap a tool step, file or finding and the right half follows it under a "From turn 24 · Edited serve.ts" header, with "Also in turn 24" below. The constellation graph spans both halves, the Lead's conversation as a sheet.
+- **Half-folded, typing (D7):** a laptop. The thread on top, the composer and keyboard below the fold.
+- **Half-folded, idle (D8):** a monitor. The night sky with agent sessions as labelled stars (dither halos on working ones) and the time on top; the needs you items as 56pt targets below, dimmed at night. "Reply…" turns the bottom half into D7 in place.
