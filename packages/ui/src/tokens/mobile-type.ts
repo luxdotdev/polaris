@@ -1,7 +1,7 @@
 /**
  * The Mobile App's type scale, from Paper's H4 (Mobile page): SF Pro and SF Mono through the
  * system families, sizes and line heights in points, Regular and Medium only (DESIGN.md).
- * Shaped as React Native text styles; letter spacing is in points, as React Native takes it.
+ * Shaped as React Native text styles; letter spacing is left to the system everywhere.
  */
 export const mobileFont = {
   sans: "system-ui",
@@ -18,7 +18,6 @@ interface MobileTextStyle {
   readonly fontSize: number;
   readonly lineHeight: number;
   readonly fontWeight: (typeof mobileWeight)[keyof typeof mobileWeight];
-  readonly letterSpacing?: number;
 }
 
 const sans = (fontSize: number, lineHeight: number, fontWeight: "400" | "500") =>
@@ -33,8 +32,8 @@ const mono = (fontSize: number, lineHeight: number) =>
   }) satisfies MobileTextStyle;
 
 export const mobileType = {
-  /** View titles ("Sessions", "Hosts"); H4 tracks it -0.02em. */
-  largeTitle: { ...sans(34, 40, mobileWeight.medium), letterSpacing: -0.68 },
+  /** View titles ("Sessions", "Hosts"), at the system's own tracking (DESIGN.md: UI never tightens). */
+  largeTitle: sans(34, 40, mobileWeight.medium),
   /** Row titles in needs you. */
   title: sans(17, 22, mobileWeight.medium),
   /** Messages and the composer. */
