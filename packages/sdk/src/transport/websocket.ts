@@ -57,22 +57,27 @@ export const webSocketTransport = (
     // Listeners attach before the socket opens, so no message is missed.
     const incoming = yield* Queue.unbounded<Uint8Array, TransportError | Cause.Done>();
 
-    socket.addEventListener("message", (event: MessageEvent) => {
+    // Typed by the fields read, so React Native's WebSocket types accept the listeners too.
+    socket.onmessage = (event: { readonly data?: unknown }) => {
       if (event.data instanceof ArrayBuffer)
         Queue.offerUnsafe(incoming, new Uint8Array(event.data));
-    });
-    socket.addEventListener("close", (event: CloseEvent) => {
-      if (event.code === NORMAL_CLOSURE) Queue.endUnsafe(incoming);
-      else
-        Queue.failCauseUnsafe(
-          incoming,
-          Cause.fail(
-            new TransportError({
-              message: `the gateway closed the connection (${event.code} ${event.reason})`,
-            })
-          )
-        );
-    });
+    };
+
+    socket.addEventListener(
+      "close",
+      (event: { readonly code?: number | undefined; readonly reason?: string | undefined }) => {
+        if (event.code === NORMAL_CLOSURE) Queue.endUnsafe(incoming);
+        else
+          Queue.failCauseUnsafe(
+            incoming,
+            Cause.fail(
+              new TransportError({
+                message: `the gateway closed the connection (${event.code ?? ""} ${event.reason ?? ""})`,
+              })
+            )
+          );
+      }
+    );
 
     yield* opened(socket, hostId);
 
