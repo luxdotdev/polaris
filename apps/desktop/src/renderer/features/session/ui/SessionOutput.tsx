@@ -42,6 +42,7 @@ import { showHint } from "../output/OutputRail.tsx";
 import { useFilesTick } from "../output/watch.ts";
 import type { SessionViewProps } from "./SessionIntent.tsx";
 import { EditorPlaceProvider, OpenInEditorButton } from "../../editor-links/index.ts";
+import { useSettings } from "../../settings/index.ts";
 
 const CARD = "mx-4 border-x border-hairline bg-surface-sunken";
 
@@ -63,10 +64,11 @@ interface RowViewProps {
   readonly row: DiffRow;
   readonly path: string;
   readonly syntax: DiffSyntax;
+  readonly wrap: boolean;
   readonly onFold: (path: string) => void;
 }
 
-const RowView = ({ row, path, syntax, onFold }: RowViewProps) => {
+const RowView = ({ row, path, syntax, wrap, onFold }: RowViewProps) => {
   switch (row.kind) {
     case "file":
       return (
@@ -123,7 +125,8 @@ const RowView = ({ row, path, syntax, onFold }: RowViewProps) => {
         <div
           className={cn(
             CARD,
-            "text-code-inline flex h-5 items-center font-mono leading-5",
+            "text-code-inline flex font-mono leading-5",
+            wrap ? "min-h-5 items-start" : "h-5 items-center",
             LINE_FILL[row.line.kind]
           )}
         >
@@ -138,7 +141,7 @@ const RowView = ({ row, path, syntax, onFold }: RowViewProps) => {
           >
             {SIGN[row.line.kind]}
           </span>
-          <LineCode text={row.line.text} runs={lineSyntax(syntax, path, row.line)} />
+          <LineCode text={row.line.text} runs={lineSyntax(syntax, path, row.line)} wrap={wrap} />
         </div>
       );
     case "note":
@@ -176,6 +179,7 @@ const DiffList = ({ files, folded, onFold }: DiffListProps) => {
   const rows = useMemo(() => diffRows(files, folded), [files, folded]);
   const paths = useMemo(() => rowPaths(rows), [rows]);
   const syntax = useDiffSyntax(files);
+  const wrap = useSettings((s) => s.appearance.wordWrap);
 
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -201,7 +205,13 @@ const DiffList = ({ files, folded, onFold }: DiffListProps) => {
               data-index={item.index}
               className="absolute top-0 left-0 w-full"
             >
-              <RowView row={row} path={paths[item.index] ?? ""} syntax={syntax} onFold={onFold} />
+              <RowView
+                row={row}
+                path={paths[item.index] ?? ""}
+                syntax={syntax}
+                wrap={wrap}
+                onFold={onFold}
+              />
             </div>
           );
         })}

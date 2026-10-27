@@ -20,7 +20,7 @@ import type { ReviewAnnotation } from "../surface.ts";
 import { revealStore } from "../surface.ts";
 import type { FindingInfo } from "../model/findings.ts";
 import { hunkLabel } from "../model/marks.ts";
-import { DIFF_CLASS, MAX_LINE_LENGTH, THEMES } from "../../diffs/index.ts";
+import { DIFF_CLASS, MAX_LINE_LENGTH, THEMES, useOverflow } from "../../diffs/index.ts";
 import { FileHeader } from "./FileHeader.tsx";
 import { FindingRow } from "./FindingRow.tsx";
 
@@ -168,6 +168,7 @@ export const DiffPane = ({
   const keys = useRef(itemKeys);
   const reveal = useStore(revealStore, (s) => s.request);
   const revealed = useRef<number | null>(null);
+  const overflow = useOverflow();
 
   useEffect(() => {
     keys.current = itemKeys;
@@ -242,7 +243,7 @@ export const DiffPane = ({
       lineDiffType: "word-alt" as const,
       maxLineDiffLength: MAX_LINE_LENGTH,
       tokenizeMaxLineLength: MAX_LINE_LENGTH,
-      overflow: "scroll" as const,
+      overflow,
       stickyHeaders: true,
       hunkSeparators: "line-info" as const,
       enableLineSelection: true,
@@ -270,7 +271,7 @@ export const DiffPane = ({
       onGutterUtilityClick: (range: SelectedLineRange, context: ItemContext) =>
         onSelect(context.item.id, range),
     }),
-    [themeType, marksCss, loadDiffFiles, onSelect]
+    [themeType, overflow, marksCss, loadDiffFiles, onSelect]
   );
 
   if (undrawn) {

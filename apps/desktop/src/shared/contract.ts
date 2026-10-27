@@ -103,6 +103,7 @@ export const AppearancePatch = Schema.Struct({
   motion: Schema.optionalKey(MotionSource),
   codeFont: Schema.optionalKey(CodeFont),
   codeFontSize: Schema.optionalKey(CodeFontSize),
+  wordWrap: Schema.optionalKey(Schema.Boolean),
 });
 
 export type AppearancePatch = typeof AppearancePatch.Type;

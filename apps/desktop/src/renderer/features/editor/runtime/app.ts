@@ -17,6 +17,7 @@ import type { SpillStore } from "../model/draftStore.ts";
 import { indexedDbSpill } from "./idbSpill.ts";
 import { setVimHandlers } from "../cm/vim.ts";
 import { setInlineDiagnostics } from "../cm/inlineDiagnostics.ts";
+import { setWordWrap } from "../cm/wordWrap.ts";
 import { closeTab, saveFile, startEditor } from "./actions.ts";
 import {
   configuredLanguageRuntime,
@@ -190,9 +191,11 @@ export const ensureEditor = ({
 
   if (prefs().vim) void setVim(true);
   setInlineDiagnostics(settingsStore.getState().sessions.editorInlineDiagnostics);
+  setWordWrap(settingsStore.getState().appearance.wordWrap);
   settingsStore.subscribe((state, previous) => {
     if (state.sessions.editorVim !== previous.sessions.editorVim)
       void setVim(state.sessions.editorVim);
     setInlineDiagnostics(state.sessions.editorInlineDiagnostics);
+    setWordWrap(state.appearance.wordWrap);
   });
 };

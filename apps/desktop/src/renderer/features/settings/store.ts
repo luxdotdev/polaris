@@ -32,6 +32,7 @@ export const DEFAULT_APPEARANCE: Appearance = {
   motion: "system",
   codeFont: "sf-mono",
   codeFontSize: 13,
+  wordWrap: false,
 };
 
 export const settingsStore = createStore<SettingsState>(() => ({
@@ -60,6 +61,7 @@ export const connectSettings = (api: PolarisApi) => {
         motion: v.motion,
         codeFont: v.codeFont,
         codeFontSize: v.codeFontSize,
+        wordWrap: v.wordWrap,
       },
       sessionDefaults: v.sessionDefaults,
       sessions: v.sessions,

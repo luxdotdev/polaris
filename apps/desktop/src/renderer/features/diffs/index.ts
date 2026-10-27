@@ -9,6 +9,8 @@ export { DiffWorkers, type DiffWorkersProps, MAX_LINE_LENGTH, POOL_SIZE } from "
 
 export { moonlitTheme, THEMES } from "./theme.ts";
 
+export { useOverflow } from "./useOverflow.ts";
+
 export { useThemeType } from "./useThemeType.ts";
 
 /** The class whose custom properties put Pierre on Polaris tokens; set it on the CodeView. */

@@ -8,12 +8,10 @@
 import { Predicate } from "effect";
 import { acceleratorLabel, currentKeyPlatform, type KeyPlatform } from "./chord.ts";
 import { DIFF_BINDINGS, type DiffCommandId } from "./keymapDiff.ts";
+import { VIEW_BINDINGS, type ViewCommandId } from "./keymapView.ts";
 
 export type CommandId =
-  | "view.orchestrate"
-  | "view.review"
-  | "view.edit"
-  | "view.output"
+  | ViewCommandId
   | "jump.open"
   | "help.shortcuts"
   | "session.new"
@@ -343,34 +341,8 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
     when: { all: [TRUST_KNOWN, "trust.declined"] },
     palette: WORKSPACE({ keywords: ["trust", "reset", "not now"] }),
   },
-  {
-    id: "view.orchestrate",
-    title: "Orchestrate",
-    keys: ["CmdOrCtrl+1"],
-    menu: "View",
-    palette: { group: "app", title: "Go to Orchestrate", keywords: ["view", "mode"] },
-  },
-  {
-    id: "view.review",
-    title: "Review",
-    keys: ["CmdOrCtrl+2"],
-    menu: "View",
-    palette: { group: "app", title: "Go to Review", keywords: ["view", "mode", "diff"] },
-  },
-  {
-    id: "view.edit",
-    title: "Edit",
-    keys: ["CmdOrCtrl+3"],
-    menu: "View",
-    palette: { group: "app", title: "Go to Edit", keywords: ["view", "mode", "editor"] },
-  },
-  {
-    id: "view.output",
-    title: "Show or hide output",
-    keys: ["CmdOrCtrl+Alt+B"],
-    menu: "View",
-    palette: WORKSPACE({ keywords: ["changes", "diff", "panel", "rail"] }),
-  },
+  // The views and how they draw (keymapView.ts).
+  ...VIEW_BINDINGS,
   {
     id: "jump.open",
     title: "Jump to…",

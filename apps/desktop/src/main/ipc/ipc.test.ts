@@ -238,6 +238,7 @@ describe("requests", () => {
         motion: "system",
         codeFont: "sf-mono",
         codeFontSize: 13,
+        wordWrap: false,
         sessionDefaults: {},
         sessions: DEFAULT_SESSION_PREFS,
         version: "0.1.0",

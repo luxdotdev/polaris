@@ -17,7 +17,7 @@ import type { Navigation } from "../routes/navigation.ts";
 import { type Selection, sessionOrder } from "../routes/selection.ts";
 import { activeSessions, shownWorkspaces } from "../routes/topBar.ts";
 import type { SessionEntry } from "../store/hostModel.ts";
-import { setSessionPrefs, settingsStore } from "../features/settings/index.ts";
+import { setAppearance, setSessionPrefs, settingsStore } from "../features/settings/index.ts";
 import { type AppState, type Connection, sessionKey } from "../store/store.ts";
 import { workspaceList } from "./visibility.ts";
 
@@ -163,6 +163,9 @@ export const shellCommands = ({
     "view.orchestrate": { run: () => actions.setMode("orchestrate") },
     "view.review": { run: () => actions.setMode("review") },
     "view.edit": { run: () => actions.setMode("edit") },
+    "view.wordWrap": {
+      run: () => setAppearance({ wordWrap: !settingsStore.getState().appearance.wordWrap }),
+    },
     "view.output": {
       run: () => {
         const s = selected();
