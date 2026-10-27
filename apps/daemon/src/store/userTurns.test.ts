@@ -190,13 +190,16 @@ describe("an event log from before user Turns", () => {
       )
     );
 
-    // What an older Daemon left: rows without the derived fields, and migration 5 not run.
+    // What an older Daemon left: rows without the derived fields, and migrations 5 on not run.
     const db = new Database(file);
     db.run("UPDATE turns SET data = json_remove(data, '$.userTurnNumber', '$.replyPreview')");
     db.run(
       "UPDATE sessions SET data = json_remove(data, '$.currentUserTurn', '$.lastReplyPreview')"
     );
-    db.run("DELETE FROM effect_sql_migrations WHERE migration_id = 5");
+    // Later migrations go too, or the migrator (which runs ids above the latest) skips 5.
+    db.run("DROP TABLE session_reads");
+    db.run("DROP TABLE session_drafts");
+    db.run("DELETE FROM effect_sql_migrations WHERE migration_id >= 5");
     db.close();
 
     const record = await storeAt(

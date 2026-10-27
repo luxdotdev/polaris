@@ -322,6 +322,11 @@ The live producer's ephemeral `LivenessChanged` frames have no global sequence
 and are outside this committed-log abstraction. Their capability gate, resume
 seeding and graph-revision neutrality are covered by the real producer tests.
 
+Continuity (`continuity.watch`, `continuity.markRead`, `continuity.saveDraft`; ADR 0082) is
+outside the spec too: read positions and drafts live in their own SQL tables, never in the
+event log, and take no part in deciding, committing, acknowledging, streaming, resuming or
+recovering Commands. `apps/daemon/src/continuity/continuity.test.ts` covers them.
+
 Blocking maps `WorkerBlock` to `AttemptBlocked` and a `Blocked` notification.
 `blockEvents`, `unblockEvents` and `blockTransitionsValid` model live targets,
 unsatisfied acceptance, Gate and transitive wait-cycle rejection, working → blocked → working, and a Turn proof on unblock. `liveBlocks`, `waits`, `reach` and `validGraph` combine live blocked Attempts' targets with inherited dependencies and parent completion edges: mutual blocks are refused by `blockEvents`, and block-closing plan edits by `planEvents`. Accepted Tasks contribute no wait edges. `planGraphValid` validates only newly introduced edges against the resulting graph, so unrelated edits and repair/cancel batches can proceed when an older graph already contains a block cycle. The runtime `constellation/waitGraph.ts` supplies both guards; `E-DEP-CYCLE` names the block edge and reports each directed cycle once, using a rotation-independent key across newly added edges. Cancel drops named targets and queues a Lead notification; an empty set continues waiting for the Lead.

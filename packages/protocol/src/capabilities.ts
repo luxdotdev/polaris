@@ -122,6 +122,8 @@ export const Capability = Schema.Literals([
   "attachments.settings",
   /** `sessions.autoArchive` and `sessions.setAutoArchive`: archiving Dormant sessions in Settings. */
   "sessions.auto-archive",
+  /** `continuity.watch`, `continuity.markRead`, `continuity.saveDraft`: read position and drafts. */
+  "session.continuity",
   "terminal",
   /** `terminal.attachBinary`: terminal output as raw bytes on the blob channel, not base64 JSON. */
   "terminal.binary",
