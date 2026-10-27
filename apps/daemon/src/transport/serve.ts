@@ -18,6 +18,7 @@ import { lazyConstellationHandlers, lazyHostResources } from "./lazy.ts";
 import { installDebugHooks, reportStartupModules } from "../debug.ts";
 import { Engine } from "../engine/Engine.ts";
 import { EngineRpcHandlers } from "../engine/rpc.ts";
+import { Continuity, ContinuityRpcsLive } from "../continuity/index.ts";
 import { FileSearchLive } from "../files/FileSearch.ts";
 import { PredictionRpcsLive } from "../prediction/index.ts";
 import { InlineRpcsLive } from "../inline/index.ts";
@@ -124,6 +125,7 @@ export const daemonHandlers = Layer.mergeAll(
   PredictionRpcsLive,
   CommitMessageRpcsLive,
   EngineRpcHandlers,
+  ContinuityRpcsLive.pipe(Layer.provide(Continuity.layer)),
   ResourceRpcsLive,
   lazyConstellationHandlers,
   FilesRpcsLive.pipe(Layer.provide(FileSearchLive())),
@@ -191,6 +193,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "session.limited",
   "session.user-turns",
   "session.shell-command",
+  "session.continuity",
   "files.read",
   "files.versioned",
   "files.write",

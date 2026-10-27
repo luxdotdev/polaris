@@ -31,6 +31,7 @@ import {
   retryCommand,
 } from "../model/intent.ts";
 import { useOutbox } from "../outbox.ts";
+import { useSessionContinuity } from "../continuity.ts";
 import { useForkRequest } from "../forkRequest.ts";
 import { holdOpenFrom, setTurnOpen, showTurnDiff, uiKey, useSessionUi } from "../state.ts";
 import { ForkDialog, type ForkTarget } from "./ForkDialog.tsx";
@@ -107,6 +108,13 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
   });
 
   const lastDone = model.turns.findLast((t) => t.turn.status !== "working")?.turn;
+
+  useSessionContinuity({
+    hostKey,
+    sessionId,
+    enabled: hasCapability(host, "session.continuity"),
+    lastEnded: lastDone?.id ?? null,
+  });
   const forkHarness = session !== null && isKnownHarness(session.harness) ? session.harness : null;
 
   const canFork =

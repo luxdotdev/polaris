@@ -12,6 +12,8 @@ export * from "./capabilities.ts";
 
 export * from "./commands.ts";
 
+export * from "./continuity.ts";
+
 export * from "./domain.ts";
 
 export * from "./events.ts";

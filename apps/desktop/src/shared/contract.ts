@@ -25,6 +25,7 @@ import {
   ReviewSubject,
   RiskFindingId,
   InlineRequest,
+  MAX_DRAFT_LENGTH,
   PairingId,
   RiskSummaryId,
   RiskSummaryRef,
@@ -342,6 +343,12 @@ export const RequestInputs = {
   /** When the Host archives Dormant sessions (Settings → Sessions). */
   "sessions.autoArchive": onHost({}),
   "sessions.setAutoArchive": onHost({ settings: AutoArchiveSettings }),
+  /** Continuity (capability `session.continuity`): the last Turn seen, and the composer's draft. */
+  "continuity.markRead": onHost({ sessionId: SessionId, turnId: TurnId }),
+  "continuity.saveDraft": onHost({
+    sessionId: SessionId,
+    text: Schema.String.check(Schema.isMaxLength(MAX_DRAFT_LENGTH)),
+  }),
   /** Deletes staged attachments now: one Workspace's, or all of them (null). */
   "attachments.clear": onHost({ workspaceId: Schema.NullOr(WorkspaceId) }),
   /** Settings → Extensions: a Host's Pairings; pairing returns the token once. */
@@ -569,6 +576,8 @@ export const SubscriptionInputs = {
   usage: onHost({}),
   /** Each catalogue Harness's status as it changes (`harness.watchAvailability`). */
   "harness.availability": onHost({}),
+  /** Every session's read position and draft on a Host, then changes (`continuity.watch`). */
+  continuity: onHost({}),
   /** Plan Limits as they change (`usage.watch`, its `PlanLimitChanged` items). */
   "plan-limits": onHost({}),
   /** A Risk Summary as it fills in (`review.watchRiskSummary`): the whole summary on each change. */

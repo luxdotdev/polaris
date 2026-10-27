@@ -442,6 +442,10 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
     onLive(hostKey, (s) => s.client["sessions.autoArchive"]({})),
   "sessions.setAutoArchive": ({ hostKey, settings }) =>
     onLive(hostKey, (s) => s.client["sessions.setAutoArchive"]({ settings })).pipe(done),
+  "continuity.markRead": ({ hostKey, ...payload }) =>
+    onLive(hostKey, (s) => s.client["continuity.markRead"](payload)),
+  "continuity.saveDraft": ({ hostKey, ...payload }) =>
+    onLive(hostKey, (s) => s.client["continuity.saveDraft"](payload)),
   "review.runRiskSummary": ({ hostKey, ...payload }) =>
     onLive(hostKey, (s) => s.client["review.runRiskSummary"](payload)),
   "review.runWalkthrough": ({ hostKey, ...payload }) =>

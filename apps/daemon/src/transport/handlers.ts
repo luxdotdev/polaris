@@ -467,6 +467,10 @@ export const defaultHandlers = (options: {
       Effect.fail(new Unsupported({ capability: "sessions.auto-archive" })),
     "sessions.setAutoArchive": () =>
       Effect.fail(new Unsupported({ capability: "sessions.auto-archive" })),
+    "continuity.watch": () => Stream.fail(new Unsupported({ capability: "session.continuity" })),
+    "continuity.markRead": () => Effect.fail(new Unsupported({ capability: "session.continuity" })),
+    "continuity.saveDraft": () =>
+      Effect.fail(new Unsupported({ capability: "session.continuity" })),
     "attachments.settings": () =>
       Effect.fail(new Unsupported({ capability: "attachments.settings" })),
     "attachments.setSettings": () =>
