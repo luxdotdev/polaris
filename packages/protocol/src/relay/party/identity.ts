@@ -1,0 +1,45 @@
+// oxlint-disable-next-line typescript/triple-slash-reference -- noise-handshake and sodium-universal ship no types; this carries them into every consumer.
+/// <reference path="./vendor.d.ts" />
+/**
+ * A party's relay identity: the Ed25519 key it proves to the relay. Separate from
+ * its Noise static key, so the relay never learns the key the end-to-end channel uses.
+ */
+import {
+  crypto_sign_BYTES,
+  crypto_sign_detached,
+  crypto_sign_keypair,
+  crypto_sign_PUBLICKEYBYTES,
+  crypto_sign_SECRETKEYBYTES,
+} from "sodium-universal";
+import { authMessage, relayAddress, type RelayAddress, type RelayRole } from "../wire.ts";
+
+export interface RelayIdentity {
+  readonly publicKey: Uint8Array;
+  /** libsodium's 64-byte Ed25519 secret key (seed then public key). */
+  readonly secretKey: Uint8Array;
+}
+
+export const generateRelayIdentity = (): RelayIdentity => {
+  const publicKey = new Uint8Array(crypto_sign_PUBLICKEYBYTES);
+  const secretKey = new Uint8Array(crypto_sign_SECRETKEYBYTES);
+  crypto_sign_keypair(publicKey, secretKey);
+
+  return { publicKey, secretKey };
+};
+
+export const signEd25519 = (identity: RelayIdentity, message: Uint8Array): Uint8Array => {
+  const signature = new Uint8Array(crypto_sign_BYTES);
+  crypto_sign_detached(signature, message, identity.secretKey);
+
+  return signature;
+};
+
+/** The proof for the relay's challenge `nonce`: a signature over `authMessage(nonce, role)`. */
+export const proveRelayKey = (
+  identity: RelayIdentity,
+  nonce: Uint8Array,
+  role: RelayRole
+): Uint8Array => signEd25519(identity, authMessage(nonce, role));
+
+export const addressOf = (identity: RelayIdentity): Promise<RelayAddress> =>
+  relayAddress(identity.publicKey);
