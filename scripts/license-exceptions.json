@@ -47,10 +47,10 @@
       "reason": "CC0-1.0 (public-domain dedication) CSS data, pulled in by css-tree in react-email's style inliner for apps/site's download email only; never shipped in the Desktop App or Daemon."
     },
     "sax": {
-      "reason": "BlueOak-1.0.0, a permissive licence. Pulled in through xml2js by @expo/config-plugins, which writes apps/mobile's native project at build time; it is never in the Mobile App's JavaScript bundle."
+      "reason": "Build-time only: BlueOak-1.0.0, a permissive licence. xml2js pulls it in for @expo/config-plugins, which edits apps/mobile's generated native project (Info.plist, entitlements) during expo prebuild / run:ios. It runs on the developer's machine and is never in the Mobile App's JavaScript bundle or binary."
     },
     "argparse": {
-      "reason": "Python-2.0 (PSF), a permissive licence. Pulled in through js-yaml by @expo/xcpretty, which formats xcodebuild output when apps/mobile is built; it is never in the Mobile App's JavaScript bundle."
+      "reason": "Build-time only: Python-2.0 (PSF), a permissive licence. js-yaml pulls it in for @expo/xcpretty, which formats xcodebuild output while apps/mobile builds. It runs on the developer's machine and is never in the Mobile App's JavaScript bundle or binary."
     }
   }
 }
