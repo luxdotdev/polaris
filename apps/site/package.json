@@ -16,6 +16,7 @@
     "@aws-sdk/client-sesv2": "3.1146.0",
     "@polaris/ui": "workspace:*",
     "@vercel/analytics": "2.0.1",
+    "@vercel/kms": "0.3.7",
     "@vercel/oidc-aws-credentials-provider": "3.3.11",
     "@vercel/speed-insights": "2.0.0",
     "botid": "1.5.11",
