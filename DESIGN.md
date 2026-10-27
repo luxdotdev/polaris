@@ -947,6 +947,7 @@ The iPhone Client (CONTEXT.md, Mobile App), decided in ENG-458; Paper "Mobile" p
 - **Continuity.** Agent sessions are synced, not handed off; read position and composer drafts follow the agent session between Clients ("Draft saved").
 - **Suggested actions.** Chips above the composer only for actions state already implies ("Fix the critical finding" when a Critical finding is open, "Open review" when a turn finished); never generated prompts.
 - **Constellation (C2).** Tasks as a vertical rail list; finished groups fold ("3 done · show"); a working attempt shows its live command. A claim handed to the user shows its checks, its question, and Accept / Send back: either opens a one-line reply, so the verdict reaches the lead with the answer.
+- **Hosts (M7).** Connection State per Host as in the Desktop App (no dither on Reconnecting) and its route ("via Polaris Relay", "on this network"). The route is shown, never changed, on the phone: opening a Host to the Relay is done on the Mac.
 - **Outside the app.** An inline lock-screen widget ("✦ 2 need you · 3 working"), a home-screen widget, and actionable approval notifications behind authentication. No Live Activity in v1.
 
 ### iPhone Duo
