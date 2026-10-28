@@ -41,9 +41,9 @@ export class HostSecrets extends Context.Service<
     readonly remove: (key: string) => Effect.Effect<void, SecretStorageError>;
   }
 >()("polaris/daemon/secrets/HostSecrets") {
-  /** The Keychain on macOS, `~/.polaris/secrets` elsewhere. */
+  /** The Keychain on macOS, `~/.polaris/secrets` elsewhere or with POLARIS_SECRETS=file (tests). */
   static readonly layer = Layer.suspend(() =>
-    process.platform === "darwin"
+    process.platform === "darwin" && process.env.POLARIS_SECRETS !== "file"
       ? Layer.effect(HostSecrets, keychainSecrets()).pipe(Layer.provide(CommandRunner.layer))
       : Layer.succeed(HostSecrets)(fileSecrets(join(polarisHome(), "secrets")))
   );

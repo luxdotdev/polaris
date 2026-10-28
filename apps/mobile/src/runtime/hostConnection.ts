@@ -54,7 +54,7 @@ export interface HostStatus {
 export interface LiveHost {
   readonly epoch: number;
   readonly client: DaemonClient;
-  /** Bytes sent beside the RPCs, e.g. an attachment or microphone audio. */
+  /** Blobs on this connection: ones a response referenced (`git.diff`), and bytes an RPC sends. */
   readonly blobs: ClientBlobs;
   readonly host: HostInfo;
   readonly capabilities: ReadonlyArray<Capability>;

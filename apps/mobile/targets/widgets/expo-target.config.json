@@ -1,0 +1,8 @@
+{
+  "type": "widget",
+  "name": "PolarisWidgets",
+  "displayName": "Polaris",
+  "bundleIdentifier": ".widgets",
+  "deploymentTarget": "17.0",
+  "frameworks": ["SwiftUI", "WidgetKit"]
+}

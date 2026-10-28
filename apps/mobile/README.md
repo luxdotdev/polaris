@@ -51,7 +51,7 @@ inline. `scripts/home.daemon.test.ts` approves, denies and answers against a rea
 `src/hosts/` is Paper M7: each Host's Connection State and route, read only.
 
 The shell is `src/App.tsx` with `src/app/` (navigation, tab bar, back bar). `src/app/routes.tsx`
-holds the routes for the thread, New agent session and Link screens.
+holds the routes for the thread, Review, New agent session and Link screens.
 
 ## New agent session (M6)
 
@@ -82,6 +82,46 @@ pulling them in, rebuild the development client (`bun run --cwd apps/mobile ios`
 ## The constellation view
 
 `src/constellation/` is Paper C2: `ConstellationScreen({ hostId, constellationId, onBack? })` follows `constellation.subscribe` and re-reads `constellation.status` on each event; `model.ts` folds it into the lead row, the task bar and the rail (finished groups fold; a parent task has no row of its own). Accept approves the claim (`constellation.review`) and then messages the lead; Send back only messages the lead, who sends it back (`verdict.ts`). `scripts/verdict.test.ts` checks both against a real Daemon over the dev bridge.
+
+## Widgets
+
+Paper W1 and W2: the inline lock-screen widget ("✦ 2 need you · 3 working") and the medium
+home-screen widget (Home's top three agent sessions with their glyphs, and the horizon). They are
+WidgetKit in Swift (ADR 0081) under `targets/widgets/`, a target `@bacons/apple-targets` (a
+devDependency, its config plugin only) adds to the Xcode project at prebuild.
+
+- **Data.** `src/widgets/snapshot.ts` turns an unfiltered Home into the snapshot: the summary
+  parts, three rows with their deep links, the empty line and whether every Host is offline.
+  `WidgetSync` (mounted under `FollowedHostsProvider`, so the feeds outlive Home) rebuilds it on
+  every feed change; `publish.ts` writes it, with `writtenAt`, as JSON to the App Group
+  `group.dev.lux.polaris` under `polaris.widgets.snapshot` through the local Expo module
+  `modules/polaris-widgets`, and reloads the timelines only when it changed. Until a Host has
+  been reached this launch the last snapshot stays.
+- **Pushes (R5).** The Notification Service Extension writes opened pushes to the same App Group
+  (`polaris.push.recent`) and reloads the timelines. `targets/widgets/Snapshot.swift` counts and
+  lists a needs you push newer than the snapshot's `writtenAt` until the app writes again.
+  `refreshWidgets()` in `src/widgets/WidgetSync.ts` reloads them from JavaScript after a wake.
+- **Links.** `polaris://home` opens Home; `polaris://session/<hostId>/<sessionId>` opens the
+  agent session (`src/widgets/links.ts`, handled by `useWidgetLinks`). W2's rows each link to
+  their agent session, the rest of the widget to Home; W1 opens Home.
+- **Checks.** `scripts/widgets.swift.test.ts` compiles `Snapshot.swift` with `swiftc` and feeds
+  it the app's real snapshot, so the Swift reader, its merge of pushes, its ages and its links
+  can't drift from the TypeScript (skipped where there is no `swiftc`).
+
+## Review
+
+`src/review/` is Paper M5: `ReviewScreen({ hostId, sessionId, turnId?, colourblind?, onBack? })` reviews one agent session's Turn. It reads the Turn's diff (`git.diff`, as a blob), runs or reads its Risk Summary (`review.runRiskSummary`, then `review.watchRiskSummary`), and shows the Polaris summary with its tally, the files ordered by risk (or by path under Files), and findings inline under the line they flag. Accept sends `AcceptTurns` and is paused while a Critical finding is open. Send back sends the user's reply as a feedback Turn, and "Ask {harness} to fix" quotes the flagged lines. A Critical finding can't be hidden: a dismissed one stays listed, and its card stays visible when its file is closed.
+
+The diff renderer is Pierre Diffs' patch parser on Hermes. Metro resolves `@pierre/diffs` to its DOM-free `parsePatchFiles` module only, about 13 KB, without Shiki or the DOM renderer. Rows are drawn by a React Native `FlatList`. There is no syntax colouring or word-level highlighting yet. `colourblind` switches to the `-cvd` diff pair.
+
+The diff bench measures it on a device or simulator. It renders Review over a synthetic 2,000-line Turn and reports parse time and frame intervals on screen (and as `POLARIS_DIFF_BENCH {json}` in the log):
+
+```sh
+EXPO_PUBLIC_POLARIS_DIFF_BENCH=auto bunx expo run:ios --configuration Release   # JS-driven scroll at 5,000 pt/s
+EXPO_PUBLIC_POLARIS_DIFF_BENCH=manual:2000 …                                    # 15 s of your own swipes
+```
+
+Home opens Review (the `review` route) from a session row that reads "Ready to review"; the bench replaces the app's root in `index.ts`.
 
 ## The Hermes check
 

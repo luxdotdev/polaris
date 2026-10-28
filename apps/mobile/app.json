@@ -14,10 +14,23 @@
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
         }
+      },
+      "appleTeamId": "HWD6374DUX",
+      "entitlements": {
+        "com.apple.security.application-groups": ["group.dev.lux.polaris"]
       }
     },
     "plugins": [
       "expo-secure-store",
+      "@bacons/apple-targets",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Polaris uses the camera to scan the link code the Desktop App shows.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
       [
         "expo-audio",
         {
@@ -29,8 +42,8 @@
         "expo-image-picker",
         {
           "photosPermission": "Polaris attaches the photos you choose to an agent session.",
-          "cameraPermission": false,
-          "microphonePermission": false
+          "cameraPermission": "Polaris uses the camera to scan the link code the Desktop App shows.",
+          "microphonePermission": "Polaris listens while you dictate a prompt; your host turns it into text."
         }
       ]
     ]

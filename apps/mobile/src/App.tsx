@@ -5,39 +5,47 @@
 import { midnight } from "@polaris/ui/tokens";
 import { Match } from "effect";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { NavigationProvider, useNavigation } from "./app/navigation.tsx";
 import {
   ConstellationRoute,
-  LinkRoute,
   NewSessionSheet,
+  ReviewRoute,
   ReviewTab,
   ThreadRoute,
 } from "./app/routes.tsx";
-import { type Tab, TabBar } from "./app/TabBar.tsx";
+import { TabBar } from "./app/TabBar.tsx";
+import { FollowedHostsProvider } from "./home/feed/useFollowedHosts.ts";
 import { HomeScreen } from "./home/HomeScreen.tsx";
 import { HostsScreen } from "./hosts/HostsScreen.tsx";
+import { LinkScreen } from "./link/LinkScreen.tsx";
+import { RelayProvider, useRelay } from "./relay/RelayProvider.tsx";
 import { runSelfCheck } from "./runtime/selfCheck.ts";
 import { HostsProvider } from "./runtime/hosts.tsx";
+import { useReadyToReview } from "./review/index.ts";
+import { useWidgetLinks } from "./widgets/useWidgetLinks.ts";
+import { WidgetSync } from "./widgets/WidgetSync.ts";
 
 const TAB_BAR = 58;
 
 const Tabs = () => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const [tab, setTab] = useState<Exclude<Tab, "hosts">>("sessions");
   const bottom = Math.max(insets.bottom, 20);
+  const readyCount = useReadyToReview().rows.length;
 
   return (
     <View style={styles.fill}>
-      {tab === "sessions" ? (
+      {navigation.tab === "sessions" ? (
         <HomeScreen
           tabBarHeight={TAB_BAR + bottom}
           actions={{
             openSession: (hostId, sessionId) =>
               navigation.push({ screen: "thread", hostId, sessionId }),
+            openReview: (hostId, sessionId) =>
+              navigation.push({ screen: "review", hostId, sessionId, turnId: null }),
             openConstellation: (hostId, constellationId) =>
               navigation.push({ screen: "constellation", hostId, constellationId }),
             openHosts: () => navigation.push({ screen: "hosts" }),
@@ -45,14 +53,21 @@ const Tabs = () => {
           }}
         />
       ) : (
-        <ReviewTab />
+        <ReviewTab
+          tabBarHeight={TAB_BAR + bottom}
+          onOpen={(hostId, sessionId) =>
+            navigation.push({ screen: "review", hostId, sessionId, turnId: null })
+          }
+          onLink={() => navigation.push({ screen: "link" })}
+          onHosts={() => navigation.push({ screen: "hosts" })}
+        />
       )}
       <TabBar
-        active={tab}
-        reviewCount={0}
+        active={navigation.tab}
+        reviewCount={readyCount}
         bottom={bottom}
         onSelect={(next) =>
-          next === "hosts" ? navigation.push({ screen: "hosts" }) : setTab(next)
+          next === "hosts" ? navigation.push({ screen: "hosts" }) : navigation.selectTab(next)
         }
         onNew={() => navigation.openNewSession()}
       />
@@ -62,12 +77,23 @@ const Tabs = () => {
 
 const Screen = () => {
   const navigation = useNavigation();
+  const relay = useRelay();
+  const [first] = relay.hosts;
+  const linkedTo = first === undefined ? null : { name: first.hostName, onUnlink: relay.unlink };
+
+  // A release build has no other route to a Host, so a fresh phone links first.
+  if (!__DEV__ && relay.loaded && first === undefined)
+    return <LinkScreen onLinked={() => undefined} />;
 
   return Match.value(navigation.top).pipe(
     Match.discriminatorsExhaustive("screen")({
       tabs: () => <Tabs />,
       hosts: () => (
-        <HostsScreen onBack={navigation.back} onLink={() => navigation.push({ screen: "link" })} />
+        <HostsScreen
+          onBack={navigation.back}
+          onLink={() => navigation.push({ screen: "link" })}
+          linkedTo={linkedTo}
+        />
       ),
       thread: ({ hostId, sessionId }) => (
         <ThreadRoute hostId={hostId} sessionId={sessionId} onBack={navigation.back} />
@@ -79,13 +105,23 @@ const Screen = () => {
           onBack={navigation.back}
         />
       ),
-      link: () => <LinkRoute onDone={navigation.back} />,
+      review: ({ hostId, sessionId, turnId }) => (
+        <ReviewRoute
+          hostId={hostId}
+          sessionId={sessionId}
+          turnId={turnId}
+          onBack={navigation.back}
+        />
+      ),
+      link: () => <LinkScreen onLinked={navigation.back} onCancel={navigation.back} />,
     })
   );
 };
 
 const Shell = () => {
   const navigation = useNavigation();
+
+  useWidgetLinks(navigation.open);
 
   return (
     <View style={styles.fill}>
@@ -113,9 +149,14 @@ export const App = () => {
     <SafeAreaProvider>
       <StatusBar style="light" />
       <HostsProvider>
-        <NavigationProvider>
-          <Shell />
-        </NavigationProvider>
+        <RelayProvider>
+          <FollowedHostsProvider>
+            <WidgetSync />
+            <NavigationProvider>
+              <Shell />
+            </NavigationProvider>
+          </FollowedHostsProvider>
+        </RelayProvider>
       </HostsProvider>
     </SafeAreaProvider>
   );
