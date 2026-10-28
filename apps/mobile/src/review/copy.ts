@@ -29,6 +29,10 @@ export const acceptLabel = (state: AcceptState, turnNumber: number): string => {
   switch (state.kind) {
     case "paused":
       return `Accept paused · ${state.critical} critical`;
+    case "checking":
+      return "Accept waits for the risk summary";
+    case "unchecked":
+      return "Accept paused · no risk summary";
     case "working":
       return `Turn ${turnNumber} is still working`;
     case "accepted":

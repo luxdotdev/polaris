@@ -190,7 +190,7 @@ export const DiffBench = ({
         diffProblem={null}
         summary={prepared.summary}
         accept={acceptState({
-          findings: prepared.summary.findings,
+          risk: { kind: "ready", value: prepared.summary },
           turnEnded: true,
           accepted: false,
           sending: false,
