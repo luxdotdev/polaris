@@ -11,6 +11,7 @@ import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-na
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { type HostFeed, useHostFeed } from "./hosts/useHostFeed.ts";
 import { type CheckResult, runSelfCheck } from "./runtime/selfCheck.ts";
+import { devReviewRoute } from "./review/dev.tsx";
 import { loadPairing, savePairing } from "./settings/pairing.ts";
 
 const feedLine = (feed: HostFeed | null): string => {
@@ -72,7 +73,9 @@ const PairingSetting = ({ onSaved }: { readonly onSaved: (pairing: string | null
   );
 };
 
-export const App = () => {
+export const App = () => devReviewRoute() ?? <Scaffold />;
+
+const Scaffold = () => {
   const [pairing, setPairing] = useState<string | null>(null);
   const [checks, setChecks] = useState<ReadonlyArray<CheckResult> | null>(null);
   const feed = useHostFeed(pairing);
