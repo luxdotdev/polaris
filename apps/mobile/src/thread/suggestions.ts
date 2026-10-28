@@ -5,6 +5,7 @@
  * "Open review" once the latest Turn finished.
  */
 import type { RiskFinding, SessionState, TurnStatus } from "@polaris/protocol";
+import type { Route } from "../app/route.ts";
 
 export type Suggestion =
   | { readonly kind: "fix"; readonly label: string; readonly finding: RiskFinding }
@@ -35,3 +36,14 @@ export const suggestions = (ctx: SuggestionContext): ReadonlyArray<Suggestion> =
 /** What "Fix the critical finding" puts in the composer, for the user to send. */
 export const fixPrompt = (finding: RiskFinding): string =>
   `Fix the critical finding "${finding.title}" at ${finding.path}:${finding.lines.start}.`;
+
+/** What a chip does: open a screen, or fill the composer for the user to send. */
+export type ChipAction =
+  | { readonly kind: "open"; readonly route: Route }
+  | { readonly kind: "fill"; readonly text: string };
+
+/** "Open review" opens the session's Review at its latest ended Turn. */
+export const chipAction = (chip: Suggestion, hostId: string, sessionId: string): ChipAction =>
+  chip.kind === "review"
+    ? { kind: "open", route: { screen: "review", hostId, sessionId, turnId: null } }
+    : { kind: "fill", text: fixPrompt(chip.finding) };

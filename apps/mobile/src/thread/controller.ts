@@ -14,7 +14,10 @@ import {
   makeDraftSync,
 } from "@polaris/client/continuity";
 import {
+  type ApprovalDecision,
   Command,
+  type CommandId,
+  type RequestId,
   type RiskFinding,
   type SessionId,
   type Workspace,
@@ -24,7 +27,7 @@ import { Effect, Exit, Fiber, Stream } from "effect";
 import { composerMode, followUpCommand, submitCommand } from "./composer.ts";
 import { applySessionItem, type SessionFold, summaryHead } from "./fold.ts";
 import { newestEndedOnScreen } from "./rows.ts";
-import type { ThreadFailure, ThreadSource } from "./source.ts";
+import { newCommandId, type ThreadFailure, type ThreadSource } from "./source.ts";
 
 export interface ThreadState {
   readonly fold: SessionFold | null;
@@ -38,6 +41,10 @@ export interface ThreadState {
   readonly queued: ReadonlyArray<string>;
   /** Why the last send or stop failed. */
   readonly error: string | null;
+  /** Pending requests whose answer is on its way to the Host. */
+  readonly answering: ReadonlyArray<RequestId>;
+  /** Why the last answer to a pending request failed, by request. */
+  readonly requestErrors: ReadonlyMap<RequestId, string>;
 }
 
 export interface ThreadController {
@@ -51,6 +58,10 @@ export interface ThreadController {
   readonly submit: () => Promise<void>;
   readonly queue: () => void;
   readonly interrupt: () => Promise<void>;
+  /** Answers a pending request; a second tap while the first is on its way does nothing. */
+  readonly respond: (requestId: RequestId, decision: ApprovalDecision) => Promise<void>;
+  /** Queued follow-ups or a command still on its way: the thread outlives its screen. */
+  readonly busy: () => boolean;
   /** The Host's connection came back: drafts that failed to save are written again. */
   readonly reconnected: () => void;
   /** The Turns with rows on screen while the app is in front. */
@@ -66,6 +77,8 @@ const initial: ThreadState = {
   draftStatus: null,
   queued: [],
   error: null,
+  answering: [],
+  requestErrors: new Map(),
 };
 
 const lastTurnOf = (fold: SessionFold | null) => fold?.turns.at(-1)?.turn ?? null;
@@ -92,6 +105,8 @@ export const openThread = (
   let readRequested = -1;
   let followUpTurns: number | null = null;
   let findingsKey: string | null = null;
+  /** Bumped by every edit, so an acknowledgement clears only the text it sent. */
+  let generation = 0;
   let findingsFiber: Fiber.Fiber<void, ThreadFailure> | null = null;
   const listeners = new Set<() => void>();
   const fibers: Array<Fiber.Fiber<void, ThreadFailure>> = [];
@@ -102,20 +117,55 @@ export const openThread = (
   };
 
   const run = <A>(effect: Effect.Effect<A, ThreadFailure>) => Effect.runPromise(effect);
+  const inFlight = new Map<string, Promise<string | null>>();
+  /** Per action, the command whose outcome is unknown and the id a retry of it reuses. */
+  const retained = new Map<string, { readonly command: string; readonly id: CommandId }>();
 
-  /** Sends a command; answers why it failed, or null. */
-  const send = (command: Command) =>
-    Effect.runPromise(
-      source
-        .dispatch(command)
-        .pipe(Effect.match({ onFailure: (error) => error.message, onSuccess: () => null }))
-    );
+  /**
+   * Sends one command per action (`slot`) at a time; answers why it failed, or
+   * null. A retry after a dropped connection reuses the command's id.
+   */
+  const send = (slot: string, command: Command): Promise<string | null> => {
+    const held = inFlight.get(slot);
+
+    if (held !== undefined) return held;
+    const key = JSON.stringify(command);
+    const kept = retained.get(slot);
+    const id = kept?.command === key ? kept.id : newCommandId();
+    retained.set(slot, { command: key, id });
+
+    const sent = Effect.runPromise(
+      source.dispatch(command, id).pipe(
+        Effect.match({
+          onFailure: (error) => {
+            if (error.ambiguous !== true) retained.delete(slot);
+
+            return error.message;
+          },
+          onSuccess: () => {
+            retained.delete(slot);
+
+            return null;
+          },
+        })
+      )
+    ).finally(() => {
+      inFlight.delete(slot);
+      listeners.forEach((listener) => listener());
+    });
+
+    inFlight.set(slot, sent);
+
+    return sent;
+  };
 
   const drafts: DraftSync = makeDraftSync({
     delayMs: options.draftDelayMs ?? DRAFT_SAVE_DELAY_MS,
     save: (id, text) => run(source.saveDraft(id, text)).catch(() => null),
     adopt: (id, text) => {
-      if (id === sessionId) set({ text });
+      if (id !== sessionId) return;
+      generation++;
+      set({ text });
     },
     status: (id, status) => {
       if (id === sessionId) set({ draftStatus: status });
@@ -148,7 +198,7 @@ export const openThread = (
     if (followUpTurns !== null && fold.session.turnCount <= followUpTurns) return;
     followUpTurns = fold.session.turnCount;
     set({ queued: state.queued.slice(1) });
-    void send(followUpCommand(sessionId, next)).then((error) => {
+    void send("follow-up", followUpCommand(sessionId, next)).then((error) => {
       if (error === null) return;
       followUpTurns = null;
       set({ queued: [next, ...state.queued], error });
@@ -180,6 +230,7 @@ export const openThread = (
   });
 
   const type = (text: string) => {
+    generation++;
     set({ text, error: null });
 
     if (continuity !== null) drafts.edit(sessionId, text);
@@ -215,16 +266,37 @@ export const openThread = (
 
     if (command === null) return;
 
-    const error = await send(command);
+    const sentAt = generation;
+    const error = await send("composer", command);
 
-    if (error === null) clearSent();
-    else set({ error });
+    if (error !== null) set({ error });
+    else if (generation === sentAt) clearSent();
   };
 
   const interrupt = async () => {
-    const error = await send(Command.cases.Interrupt.make({ sessionId }));
+    const error = await send("interrupt", Command.cases.Interrupt.make({ sessionId }));
 
     if (error !== null) set({ error });
+  };
+
+  const respond = async (requestId: RequestId, decision: ApprovalDecision) => {
+    const slot = `request:${requestId}`;
+    const first = !inFlight.has(slot);
+
+    const sending = send(
+      slot,
+      Command.cases.RespondToApproval.make({ sessionId, requestId, decision })
+    );
+
+    if (!first) return void (await sending);
+    const errors = new Map(state.requestErrors);
+    errors.delete(requestId);
+    set({ answering: [...state.answering, requestId], requestErrors: errors });
+    const error = await sending;
+    const after = new Map(state.requestErrors);
+
+    if (error !== null) after.set(requestId, error);
+    set({ answering: state.answering.filter((id) => id !== requestId), requestErrors: after });
   };
 
   const seen = (turnIds: ReadonlyArray<string>) => {
@@ -254,6 +326,8 @@ export const openThread = (
     submit,
     queue,
     interrupt,
+    respond,
+    busy: () => state.queued.length > 0 || inFlight.size > 0,
     seen,
     reconnected: () => void drafts.retry(),
     dispose: () => {

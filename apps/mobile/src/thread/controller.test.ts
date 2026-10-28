@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { ApprovalDecision } from "@polaris/protocol";
 import { Effect, Predicate } from "effect";
 import { type ThreadController, type ThreadState, openThread } from "./controller.ts";
 import {
@@ -8,6 +9,7 @@ import {
   type FakeHostOptions,
   finding,
   makeFakeHost,
+  request,
   sessionId,
   snapshot,
   stateChanged,
@@ -15,6 +17,7 @@ import {
   turn,
 } from "./daemon.testing.ts";
 import { daemonThreadSource } from "./source.ts";
+import { makeThreadRegistry } from "./threads.ts";
 
 const ALL = new Set(["session.steer", "session.continuity", "review.risk-summary"]);
 
@@ -30,6 +33,8 @@ const until = (thread: ThreadController, ok: (state: ThreadState) => boolean) =>
   });
 
 const settle = Effect.promise(() => new Promise((resolve) => setTimeout(resolve, 40)));
+
+const allow = ApprovalDecision.cases.Allow.make({ remember: false });
 
 const withThread = (
   run: (host: FakeHost, thread: ThreadController) => Effect.Effect<void>,
@@ -191,5 +196,137 @@ describe("the Critical finding", () => {
         yield* settle;
         expect(thread.get().findings).toEqual([]);
       })
+    ));
+});
+
+describe("pending requests", () => {
+  const long = Array.from({ length: 8 }, (_, i) => `step ${i} && echo ${"x".repeat(60)}`).join(
+    "\n"
+  );
+
+  test("a long command Home can't approve inline is answered in the thread, once", () =>
+    withThread((host, thread) =>
+      Effect.gen(function* () {
+        const asked = request({ detail: long });
+        yield* host.push(snapshot([{ turn: working }], { state: "needs-you" }, [asked]));
+        const state = yield* until(thread, (s) => s.fold !== null);
+        expect(state.fold?.pendingApprovals.map((r) => r.detail)).toEqual([long]);
+
+        host.holdDispatches();
+        const first = thread.respond(asked.id, allow);
+        const second = thread.respond(asked.id, allow);
+        expect(thread.get().answering).toEqual([asked.id]);
+        yield* host.releaseDispatches();
+        yield* Effect.promise(() => Promise.all([first, second]));
+
+        const sent = host.commands.filter((c) => Predicate.isTagged(c, "RespondToApproval"));
+        expect(sent.length).toBe(1);
+        expect(Predicate.isTagged(sent[0], "RespondToApproval") && sent[0].requestId).toBe(
+          asked.id
+        );
+        expect(thread.get().answering).toEqual([]);
+      })
+    ));
+});
+
+describe("one submission, one command", () => {
+  test("text typed after Send survives the send's acknowledgement and is saved", () =>
+    withThread((host, thread) =>
+      Effect.gen(function* () {
+        yield* host.push(snapshot([{ turn: turn(0) }]));
+        yield* until(thread, (s) => s.fold !== null);
+        yield* settle;
+        thread.type("message A");
+        host.holdDispatches();
+        const sending = thread.submit();
+        yield* settle;
+        thread.type("draft B");
+        yield* host.releaseDispatches();
+        yield* Effect.promise(() => sending);
+        yield* settle;
+
+        expect(host.commands.length).toBe(1);
+        expect(thread.get().text).toBe("draft B");
+        expect(host.saved.at(-1)).toBe("draft B");
+      })
+    ));
+
+  test("Return and the Send button before the Host answers make one Turn", () =>
+    withThread((host, thread) =>
+      Effect.gen(function* () {
+        yield* host.push(snapshot([{ turn: turn(0) }]));
+        yield* until(thread, (s) => s.fold !== null);
+        thread.type("run the tests");
+        host.holdDispatches();
+        const keyboard = thread.submit();
+        const button = thread.submit();
+        yield* host.releaseDispatches();
+        yield* Effect.promise(() => Promise.all([keyboard, button]));
+        expect(host.commands.map((c) => c._tag)).toEqual(["SendTurn"]);
+      })
+    ));
+
+  test("a retry after a lost answer reuses the command id; a new message gets its own", () =>
+    withThread((host, thread) =>
+      Effect.gen(function* () {
+        yield* host.push(snapshot([{ turn: turn(0) }]));
+        yield* until(thread, (s) => s.fold !== null);
+        thread.type("run the tests");
+        host.dropNextAnswer();
+        yield* Effect.promise(() => thread.submit());
+        expect(thread.get().error).not.toBeNull();
+        expect(thread.get().text).toBe("run the tests");
+
+        yield* Effect.promise(() => thread.submit());
+        thread.type("then lint");
+        yield* Effect.promise(() => thread.submit());
+        const [first, retry, next] = host.commandIds;
+        expect(retry).toBe(first);
+        expect(next).not.toBe(first);
+      })
+    ));
+});
+
+describe("the thread outlives its screen", () => {
+  test("queued follow-ups survive the screen letting go and coming back", () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const host = yield* makeFakeHost();
+          const registry = makeThreadRegistry();
+          const source = daemonThreadSource({ live: host.live, capabilities: ALL });
+          let opened = 0;
+
+          const open = () => {
+            opened++;
+
+            return openThread(source, sessionId, { draftDelayMs: 10 });
+          };
+
+          const first = registry.acquire("h/s-1", open);
+          yield* host.push(snapshot([{ turn: working }], { state: "working" }));
+          yield* until(first!.controller, (s) => s.fold !== null);
+          first!.controller.type("then rerun the tests");
+          first!.controller.queue();
+          first!.release();
+
+          // A reconnect or a deliberate Back: the screen comes again for the same Host and session.
+          const again = registry.acquire("h/s-1", null);
+          expect(again?.controller.get().queued).toEqual(["then rerun the tests"]);
+          expect(again?.controller.get().fold).not.toBeNull();
+          again!.release();
+
+          yield* host.push(ended(2, turn(1)));
+          yield* host.push(stateChanged(3, "idle"));
+          yield* until(again!.controller, (s) => s.queued.length === 0);
+          yield* settle;
+          expect(host.commands.map((c) => c._tag)).toEqual(["SendTurn"]);
+
+          // Nothing pending and no screen: closed, so the next screen opens a fresh one.
+          expect(registry.acquire("h/s-1", null)).toBeNull();
+          registry.acquire("h/s-1", open)?.release();
+          expect(opened).toBe(2);
+        })
+      )
     ));
 });
