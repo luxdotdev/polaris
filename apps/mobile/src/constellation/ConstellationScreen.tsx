@@ -10,6 +10,7 @@ import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } f
 import { SafeAreaView } from "react-native-safe-area-context";
 import type { HostConnection, HostStatus } from "../runtime/hostConnection.ts";
 import { claimChoices, constellationKey, taskKey, useKept, useLeadInput } from "../duo/kept.ts";
+import { useNavigation } from "../app/navigation.tsx";
 import { useHost, useHostStatus } from "../runtime/hosts.tsx";
 import { LeadComposer } from "./composer.tsx";
 import { age } from "./copy.ts";
@@ -101,12 +102,14 @@ const Header = ({
   status,
   hostName,
   onBack,
+  onOpenLead,
 }: {
   readonly view: ConstellationView;
   readonly lead: LeadSession | null;
   readonly status: HostStatus;
   readonly hostName: string;
   readonly onBack: (() => void) | undefined;
+  readonly onOpenLead: () => void;
 }) => (
   <View style={styles.header}>
     <View style={styles.titleRow}>
@@ -121,7 +124,12 @@ const Header = ({
         </Text>
       </View>
     </View>
-    <View style={styles.leadRow}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Open the lead's thread"
+      onPress={onOpenLead}
+      style={styles.leadRow}
+    >
       <View style={[styles.avatar, { borderColor: harnessHue(lead?.harness ?? null) }]}>
         <View style={[styles.avatarDot, { backgroundColor: harnessHue(lead?.harness ?? null) }]} />
       </View>
@@ -134,8 +142,19 @@ const Header = ({
         </Text>
       </View>
       <Bar view={view} />
-    </View>
+    </Pressable>
   </View>
+);
+
+/** A finished constellation takes no messages; the lead's own thread still does. */
+const finished = (view: ConstellationView) =>
+  view.state === "completed" || view.state === "archived";
+
+const FinishedComposer = ({ onOpenLead }: { readonly onOpenLead: () => void }) => (
+  <Pressable accessibilityRole="button" onPress={onOpenLead} style={styles.finished}>
+    <Text style={styles.meta}>This constellation is finished.</Text>
+    <Text style={styles.finishedAction}>Message the lead in its thread</Text>
+  </Pressable>
 );
 
 const LeadNote = ({ lead, now }: { readonly lead: LeadSession; readonly now: number }) =>
@@ -213,6 +232,7 @@ const Live = ({
   const now = useNow(30_000);
   const [opened, setOpened] = useState<ReadonlyMap<string, boolean>>(new Map());
   const lead = useLeadInput(constellationKey(connection.hostId, constellationId));
+  const navigation = useNavigation();
 
   const view = useMemo(
     () => (feed.kind === "live" ? constellationView(feed.source, now, opened) : null),
@@ -228,6 +248,13 @@ const Live = ({
       </Text>
     );
 
+  const openLead = () =>
+    navigation.push({
+      screen: "thread",
+      hostId: connection.hostId,
+      sessionId: view.leadSessionId,
+    });
+
   return (
     <KeyboardAvoidingView style={styles.fill} behavior="padding">
       <Header
@@ -236,6 +263,7 @@ const Live = ({
         status={status}
         hostName={connection.name}
         onBack={onBack}
+        onOpenLead={openLead}
       />
       <ScrollView
         style={styles.fill}
@@ -251,17 +279,21 @@ const Live = ({
         {feed.lead === null ? null : <LeadNote lead={feed.lead} now={now} />}
       </ScrollView>
       <View style={styles.composer}>
-        <LeadComposer
-          harness={feed.lead?.harness ?? null}
-          model={feed.lead?.model ?? null}
-          disabled={awayLine(status)}
-          input={lead}
-          onSend={(text) =>
-            connection
-              .run((client) => messageLead(client, constellationId, text))
-              .then(() => undefined)
-          }
-        />
+        {finished(view) ? (
+          <FinishedComposer onOpenLead={openLead} />
+        ) : (
+          <LeadComposer
+            harness={feed.lead?.harness ?? null}
+            model={feed.lead?.model ?? null}
+            disabled={awayLine(status)}
+            input={lead}
+            onSend={(text) =>
+              connection
+                .run((client) => messageLead(client, constellationId, text))
+                .then(() => undefined)
+            }
+          />
+        )}
       </View>
     </KeyboardAvoidingView>
   );
@@ -352,4 +384,12 @@ const styles = StyleSheet.create({
   noteAvatar: { width: 22, height: 22, borderRadius: 6, opacity: 0.6 },
   noteText: { ...mobileType.callout, color: midnight.textDefault },
   composer: { paddingHorizontal: 16, paddingBottom: 8, paddingTop: 8 },
+  finished: {
+    gap: 2,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: midnight.surfaceRaised,
+  },
+  finishedAction: { ...mobileType.callout, color: midnight.textDefault },
 });
