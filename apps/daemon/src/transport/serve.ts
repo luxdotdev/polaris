@@ -191,6 +191,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "session.notify",
   "session.pin",
   "session.limited",
+  "session.plan-mode",
   "session.user-turns",
   "session.shell-command",
   "session.continuity",

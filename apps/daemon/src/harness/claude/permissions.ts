@@ -21,6 +21,7 @@ import { decodeQuestions, present, type ToolPayload, toolFields } from "./payloa
 export type ToolUseInput = Parameters<CanUseTool>[1];
 
 /**
+ * - plan → `plan`: Claude Code reads and plans, and asks before it edits or runs anything.
  * - supervised → `default`: prompt for anything not already allowed.
  * - auto-edits → `acceptEdits`: file edits in the working directories are auto-approved.
  * - auto → `auto`: Claude Code's own classifier approves or denies each prompt. It is the
@@ -29,6 +30,8 @@ export type ToolUseInput = Parameters<CanUseTool>[1];
  */
 export const toClaudePermissionMode = (mode: PermissionMode): ClaudePermissionMode => {
   switch (mode) {
+    case "plan":
+      return "plan";
     case "supervised":
       return "default";
     case "auto-edits":
@@ -134,6 +137,10 @@ export const answersFor = (
 
   return Object.fromEntries(questions.map((q, i) => [q.question, forQuestion(i)]));
 };
+
+/** Whether a decision lets Claude out of plan mode: allowing its ExitPlanMode call does. */
+export const leavesPlan = (toolName: string, decision: ApprovalDecision): boolean =>
+  toolName === "ExitPlanMode" && ApprovalDecision.guards.Allow(decision);
 
 export const DEFAULT_DENY_MESSAGE = "The user declined this action.";
 

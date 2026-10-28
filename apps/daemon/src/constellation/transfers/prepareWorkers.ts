@@ -12,10 +12,11 @@ import {
   RemotePlacementRequest,
   WorktreeRequest,
 } from "@polaris/protocol";
-import { Effect, Predicate } from "effect";
+import { Effect, Option, Predicate } from "effect";
 import type { ReadModel } from "../../store/model.ts";
 import { ConstellationWorktrees, gitOperation } from "../worktrees.ts";
 import { isParent } from "../parents.ts";
+import { workerMode } from "../permissionCeiling.ts";
 import { latestAttempt, projectTask } from "../projections.ts";
 import { finding, refusal } from "../decision.ts";
 import { RemotePlacements } from "./placements.ts";
@@ -129,8 +130,11 @@ const prepareRemote = Effect.fnUntraced(function* (
           ? input.placement.sessionId
           : null,
         previous: input.previous,
-        leadPermissionMode:
-          input.model.sessions.get(input.graph.leadSessionId)?.session.permissionMode ?? null,
+        // An older remote Daemon can't decode plan; supervised is the same ceiling.
+        leadPermissionMode: Option.match(
+          Option.fromNullishOr(input.model.sessions.get(input.graph.leadSessionId)),
+          { onNone: () => null, onSome: (lead) => workerMode(lead.session.permissionMode) }
+        ),
       })
     )
     .pipe(Effect.mapError(transferFailure(input)));

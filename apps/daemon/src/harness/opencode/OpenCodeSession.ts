@@ -17,6 +17,7 @@ import {
 } from "../HarnessDriver.ts";
 import { clientFor, type OpenCodeClient } from "./Client.ts";
 import {
+  agentFor,
   parseModelId,
   permissionReply,
   promptParts,
@@ -175,8 +176,16 @@ export const openSession = (
 
     if (options.resumeCursor !== null) yield* catchUp(client, sessionId, translator);
 
+    let agent = agentFor(options.permissionMode);
+
     const prompt = (body: P.PromptAsyncBody) =>
-      client.send("POST", `${sessionPath}/prompt_async`, body).pipe(Effect.asVoid);
+      client
+        .send(
+          "POST",
+          `${sessionPath}/prompt_async`,
+          agent === undefined ? body : { ...body, agent }
+        )
+        .pipe(Effect.asVoid);
 
     /** `/name args` naming one of OpenCode's commands; it answers once the Turn is done, so it runs aside. */
     const runCommand = (input: TurnInput, call: P.CommandBody) =>
@@ -207,6 +216,8 @@ export const openSession = (
           if (model !== null) call.model = `${model.providerID}/${model.modelID}`;
 
           if (variant !== null) call.variant = variant;
+
+          if (agent !== undefined) call.agent = agent;
 
           return yield* runCommand(input, call);
         }
@@ -280,7 +291,7 @@ export const openSession = (
           .send("PATCH", sessionPath, {
             permission: rulesetFor(mode),
           } satisfies P.SessionUpdateBody)
-          .pipe(Effect.asVoid),
+          .pipe(Effect.andThen(Effect.sync(() => (agent = agentFor(mode)))), Effect.asVoid),
       terminalCommand: Effect.succeed(
         attachCommand({
           opencodePath: handle.opencodePath,

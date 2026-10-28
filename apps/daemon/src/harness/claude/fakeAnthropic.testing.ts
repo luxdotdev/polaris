@@ -111,6 +111,8 @@ export interface FakeAnthropic {
   readonly outputs: Array<string>;
   /** The tool names each tool-offering request gave the model. */
   readonly offered: Array<ReadonlyArray<string>>;
+  /** Each tool-offering request's raw body. */
+  readonly bodies: Array<string>;
   readonly stop: () => void;
 }
 
@@ -118,10 +120,13 @@ export interface FakeAnthropic {
 export const fakeAnthropic = (calls: ReadonlyArray<ToolCall>): FakeAnthropic => {
   const outputs: Array<string> = [];
   const offered: Array<ReadonlyArray<string>> = [];
+  const bodies: Array<string> = [];
 
   const answer = (raw: string) => {
     const body = decodeBody(raw);
     const offersTools = Option.exists(body, (b) => (b.tools ?? []).length > 0);
+
+    if (offersTools) bodies.push(raw);
 
     if (offersTools)
       offered.push(
@@ -189,6 +194,7 @@ export const fakeAnthropic = (calls: ReadonlyArray<ToolCall>): FakeAnthropic => 
     url: `http://127.0.0.1:${server.port}`,
     outputs,
     offered,
+    bodies,
     stop: () => void server.stop(true),
   };
 };
