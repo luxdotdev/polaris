@@ -114,7 +114,7 @@ export const NeedsYouMark = () => (
 );
 
 export const WorkingMark = () => (
-  <Pixels rects={WORKING_MARK} size={10} unit={1} color={midnight.starlight} />
+  <Pixels rects={WORKING_MARK} size={10} unit={1} color={midnight.textSubtle} />
 );
 
 const Line = ({

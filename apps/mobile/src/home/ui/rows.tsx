@@ -94,7 +94,8 @@ export const SessionListRow = ({
   );
 };
 
-const segmentColor = { done: midnight.starlight, working: "#bcd3ff59", rest: "#ffffff1f" } as const;
+/** Done is `accepted` and working stays neutral (rule/constellation-colour); never Starlight. */
+const segmentColor = { done: midnight.accepted, working: "#ffffff59", rest: "#ffffff1f" } as const;
 
 export const TaskBar = ({ progress }: { readonly progress: ConstellationProgress }) => (
   <View style={styles.bar}>
