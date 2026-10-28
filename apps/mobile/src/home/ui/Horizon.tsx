@@ -4,6 +4,7 @@
  */
 import { midnight } from "@polaris/ui/tokens";
 import { StyleSheet, useWindowDimensions, View } from "react-native";
+import Svg, { Defs, Ellipse, RadialGradient, Stop } from "react-native-svg";
 
 export const HORIZON_HEIGHT = 200;
 
@@ -58,6 +59,47 @@ export const glowFor = (hour: number): Glow => {
   return { core: "#7896e157", halo: "#465fa51f" };
 };
 
+/** "#rrggbbaa" as SVG's colour and opacity. */
+const split = (hex: string) => ({
+  color: hex.slice(0, 7),
+  opacity: Number.parseInt(hex.slice(7, 9), 16) / 255,
+});
+
+/** The glow behind the ridge: soft light that fades to nothing at its edge, never a hard shape. */
+const GlowLight = ({ width, glow }: { readonly width: number; readonly glow: Glow }) => {
+  const layers = [
+    { id: "halo", ...split(glow.halo), rx: width * 0.7, ry: 60 },
+    { id: "core", ...split(glow.core), rx: width * 0.38, ry: 34 },
+  ];
+
+  return (
+    <Svg style={StyleSheet.absoluteFill} width={width} height={HORIZON_HEIGHT}>
+      <Defs>
+        {layers.map((layer) => (
+          <RadialGradient key={layer.id} id={layer.id} cx="50%" cy="50%" r="50%">
+            <Stop offset="0" stopColor={layer.color} stopOpacity={layer.opacity} />
+            <Stop offset="0.55" stopColor={layer.color} stopOpacity={layer.opacity * 0.45} />
+            <Stop offset="1" stopColor={layer.color} stopOpacity={0} />
+          </RadialGradient>
+        ))}
+      </Defs>
+      {layers.map((layer) => (
+        <Ellipse
+          key={layer.id}
+          cx={width / 2}
+          cy={GLOW_CENTRE}
+          rx={layer.rx}
+          ry={layer.ry}
+          fill={`url(#${layer.id})`}
+        />
+      ))}
+    </Svg>
+  );
+};
+
+/** Where the glow sits: just under the ridge, so it rises from behind it. */
+const GLOW_CENTRE = 96;
+
 /** Bands that step the list from clear to black over the top 32 points. */
 const FADE_STEPS = 8;
 
@@ -75,19 +117,7 @@ export const Horizon = ({ hour }: { readonly hour: number }) => {
         />
       ))}
       <View style={[styles.solid, { top: FADE_STEPS * 4 }]} />
-      <View
-        style={[
-          styles.glow,
-          { backgroundColor: glow.halo, width: width * 1.1, left: -width * 0.05 },
-        ]}
-      />
-      <View
-        style={[
-          styles.glow,
-          styles.core,
-          { backgroundColor: glow.core, width: width * 0.6, left: width * 0.2 },
-        ]}
-      />
+      <GlowLight width={width} glow={glow} />
       {STARS.map(([x, y, color, opacity]) => (
         <View
           key={`${x}:${y}`}
@@ -124,14 +154,6 @@ const styles = StyleSheet.create({
   horizon: { position: "absolute", left: 0, bottom: 0, height: HORIZON_HEIGHT, overflow: "hidden" },
   band: { position: "absolute", left: 0, right: 0, height: 4, backgroundColor: midnight.bg },
   solid: { position: "absolute", left: 0, right: 0, bottom: 0, backgroundColor: midnight.bg },
-  glow: {
-    position: "absolute",
-    top: 40,
-    height: 110,
-    borderRadius: 999,
-    transform: [{ scaleY: 0.6 }],
-  },
-  core: { top: 62, height: 66 },
   star: { position: "absolute", width: 2, height: 2 },
   polaris: { position: "absolute", top: 55, width: 9, height: 9, opacity: 0.9 },
   polarisArm: {
