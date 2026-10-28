@@ -39,3 +39,10 @@ export const startLatch = (newId: () => CommandId = newCommandId): StartLatch =>
     }
   };
 };
+
+/** Start takes the prompt: dictation ends first, so it writes nothing more into the field. */
+export const takePrompt = (voice: { readonly release: () => void } | null, field: () => string) => {
+  voice?.release();
+
+  return field();
+};

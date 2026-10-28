@@ -42,7 +42,7 @@ import {
   type Target,
   worktreeCaption,
 } from "./model.ts";
-import { startLatch } from "./latch.ts";
+import { startLatch, takePrompt } from "./latch.ts";
 import { HarnessChip, PickerRow, SwitchRow, styles as rowStyles } from "./parts.tsx";
 import { NotReadyPanel } from "./NotReadyPanel.tsx";
 import { HarnessPicker, WorkspacePicker } from "./pickers.tsx";
@@ -295,7 +295,7 @@ export const NewSessionForm = ({
       workspaceId: WorkspaceId.make(target.workspaceId),
       harness: choice.harness,
       model: choice.model?.id ?? null,
-      prompt: draft.text,
+      prompt: takePrompt(voice, () => draft.text),
       newWorktree,
       planFirst,
       capabilities: host?.capabilities ?? [],
