@@ -9,7 +9,7 @@
     "backgroundColor": "#000000",
     "ios": {
       "bundleIdentifier": "dev.lux.polaris.mobile",
-      "buildNumber": "4",
+      "buildNumber": "5",
       "icon": "./assets/icon.png",
       "supportsTablet": false,
       "infoPlist": {
