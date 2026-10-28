@@ -1,6 +1,6 @@
 /**
- * The screens each route draws. Thread (S2), Constellation (S4), New agent session (S5) and
- * Link this iPhone (R4) replace their stand-ins here when they land.
+ * The screens each route draws. Thread (S2), New agent session (S5) and Link this iPhone (R4)
+ * replace their stand-ins here when they land.
  */
 import { midnight, mobileType } from "@polaris/ui/tokens";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -37,11 +37,7 @@ export const ThreadRoute = (props: {
   readonly onBack: () => void;
 }) => <StandIn title="Agent session" detail={props.sessionId} onBack={props.onBack} />;
 
-export const ConstellationRoute = (props: {
-  readonly hostId: string;
-  readonly constellationId: string;
-  readonly onBack: () => void;
-}) => <StandIn title="Constellation" detail={props.constellationId} onBack={props.onBack} />;
+export { ConstellationScreen as ConstellationRoute } from "../constellation/index.ts";
 
 export const LinkRoute = (props: { readonly onDone: () => void }) => (
   <StandIn

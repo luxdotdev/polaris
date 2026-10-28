@@ -1,10 +1,13 @@
-/**
- * A constellation row's task counts. S4's constellation feed (`useConstellation`, `taskBar`)
- * supplies them; until it is merged the row shows the lead without a bar.
- */
-import type { ConstellationProgress } from "../model/taskBar.ts";
+/** A constellation row's task counts, from S4's constellation feed and its task bar. */
+import { constellationView, useConstellation } from "../../constellation/index.ts";
+import { useHost } from "../../runtime/hosts.tsx";
+import { type ConstellationProgress, progressOf } from "../model/taskBar.ts";
 
 export const useConstellationProgress = (
-  _hostId: string,
-  _constellationId: string
-): ConstellationProgress | null => null;
+  hostId: string,
+  constellationId: string
+): ConstellationProgress | null => {
+  const feed = useConstellation(useHost(hostId), constellationId);
+
+  return feed.kind === "live" ? progressOf(constellationView(feed.source, Date.now()).bar) : null;
+};
