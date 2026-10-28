@@ -18,6 +18,7 @@ import {
   RelayRouteStatus,
 } from "@polaris/protocol";
 import {
+  MAX_WAKE_PAYLOAD_CHARS,
   type PushMessage,
   type PushRegistration,
   type RelayAddress,
@@ -364,6 +365,9 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
 
         if (current === null) return "unavailable" as const;
         const payload = yield* Effect.promise(() => sealPush(registration.pushKey, message));
+
+        // The relay closes the Host's socket on an oversized wake, ending every session (RV3).
+        if (payload.length > MAX_WAKE_PAYLOAD_CHARS) return "refused" as const;
         const { token, environment, ticket } = registration;
 
         const outcome = yield* Effect.promise(() =>

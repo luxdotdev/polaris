@@ -163,3 +163,26 @@ test("an unregistered answer for an old token keeps the registration made since 
     })
   );
 }, 30_000);
+
+test("a wake too large to fit is refused here, and the Host's relay socket stays up (RV3 / RX1-6)", async () => {
+  await run(
+    Effect.gen(function* () {
+      const { route, device, registration } = yield* linkedRoute;
+      yield* route.registerPush(device, registration("cc".repeat(32)));
+      const [target] = route.pushTargets();
+
+      if (target === undefined) throw new Error("the device has no registration");
+
+      // Only the Host's own name, which no display cut shortens, can still overflow.
+      const outcome = yield* route.wake(target, {
+        ...message("Approve?"),
+        hostName: "h".repeat(4000),
+      });
+
+      expect(outcome).toBe("refused");
+      expect(held).toHaveLength(0);
+      yield* Effect.sleep("200 millis");
+      expect((yield* route.status).connected).toBe(true);
+    })
+  );
+}, 30_000);
