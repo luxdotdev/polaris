@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { Schema } from "effect";
-import { CapabilityList } from "./capabilities.ts";
+import { CapabilityList, permissionModeFor } from "./capabilities.ts";
 
 test("unknown capability names are dropped, not rejected", () => {
   const decode = Schema.decodeUnknownSync(CapabilityList);
@@ -8,4 +8,10 @@ test("unknown capability names are dropped, not rejected", () => {
     "files.read",
     "terminal",
   ]);
+});
+
+test("a Client asks an older Daemon for supervised instead of plan", () => {
+  expect(permissionModeFor("plan", ["session.steer"])).toBe("supervised");
+  expect(permissionModeFor("plan", ["session.plan-mode"])).toBe("plan");
+  expect(permissionModeFor("auto", [])).toBe("auto");
 });
