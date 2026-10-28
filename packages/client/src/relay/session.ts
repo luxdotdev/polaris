@@ -97,11 +97,15 @@ const handshake = (
       lost: (reason) => settle(() => pending.reject(new Unanswered(failure(reason), true))),
     });
 
+    const mark = socket.heardMark;
+
     timer = setTimeout(
       () =>
-        settle(() =>
-          pending.reject(new Unanswered(failure("the Host did not answer the handshake"), false))
-        ),
+        settle(() => {
+          // Not a word from the relay since the init: the socket itself may be dead.
+          if (!socket.heardSince(mark)) socket.recycle("the relay stopped answering");
+          pending.reject(new Unanswered(failure("the Host did not answer the handshake"), false));
+        }),
       Math.max(0, deadline - Date.now())
     );
 
@@ -153,6 +157,8 @@ const sessionTransport = (
   Effect.gen(function* () {
     const queue = yield* Queue.unbounded<Uint8Array, TransportError | Cause.Done>();
     let open = true;
+    /** The socket's mark at this session's latest record. */
+    let lastRecord = socket.heardMark;
 
     const end = (error: TransportError | null) => {
       if (!open) return;
@@ -172,6 +178,7 @@ const sessionTransport = (
 
           // A stray reply or another session's data (a reconnect's leftovers) is skipped.
           if (type !== RecordType.Data || !sameTag(tag, session.tag)) return;
+          lastRecord = socket.heardMark;
           Queue.offerUnsafe(queue, session.open(record));
         } catch {
           end(failure("a record from the Host failed authentication"));
@@ -192,7 +199,11 @@ const sessionTransport = (
               (sent) => (sent ? Effect.void : Effect.fail(failure(socket.lastError)))
             )
           : Effect.fail(failure("the relay session ended")),
-      close: Effect.sync(() => end(null)),
+      close: Effect.sync(() => {
+        // Closed after this session and the whole socket went quiet: the socket may be dead.
+        if (open && !socket.heardSince(lastRecord)) socket.recycle("the relay went quiet");
+        end(null);
+      }),
     } satisfies ByteTransport;
   });
 

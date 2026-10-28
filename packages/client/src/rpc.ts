@@ -17,7 +17,8 @@
  * second for up to ~30 s afterwards, so a 15 s ping would keep it awake for
  * good. While only streams are open, a dead link is noticed by the transport
  * instead: the Unix socket closes, or ssh's own keepalives (answered by sshd,
- * never reaching the Daemon) end the session.
+ * never reaching the Daemon) end the session. A transport with no such
+ * keepalive (the Polaris Relay route) asks for `keepAliveStreams` (ADR 0084).
  */
 import {
   type BlobError,
@@ -73,6 +74,8 @@ export interface RpcConnection<Rpcs extends Rpc.Any = DaemonRpc> {
   readonly lost: Effect.Effect<never, RpcClientError>;
   /** One ping and its pong: the link's round trip in ms (the Daemon answers without other work). */
   readonly roundTrip: Effect.Effect<number>;
+  /** Declares the connection lost, as a peer that stopped answering pings is: in-flight calls and streams fail. */
+  readonly drop: (reason: string) => Effect.Effect<void>;
 }
 
 export interface RpcConnectionOptions {
@@ -82,6 +85,11 @@ export interface RpcConnectionOptions {
    * connection is declared dead after 3 intervals with no traffic.
    */
   readonly pingIntervalMs?: number;
+  /**
+   * Also ping while only streams are open, so a link that died without closing
+   * (a phone's socket after a network change) is lost rather than silent.
+   */
+  readonly keepAliveStreams?: boolean;
 }
 
 /** Tags of the streaming RPCs: long-lived, so waiting on them never needs a ping. */
@@ -130,17 +138,23 @@ export const connectRpcWith = Effect.fnUntraced(function* <Rpcs extends Rpc.Any>
   /** When the latest ping went out while a reply is due; null before the first. */
   let lastPinged: number | null = null;
   let wire!: Wire;
+  let drop: (reason: string) => Effect.Effect<void> = () => Effect.void;
   /** Requests (not streams) sent and not yet answered with an Exit. */
   const awaiting = new Set<string | number>();
-  /** Open while `awaiting` is non-empty: the ping loop runs only then. */
+  /** With `keepAliveStreams`, streams open and not yet ended; they keep the pings going too. */
+  const streaming = new Set<string | number>();
+  const keepAliveStreams = options.keepAliveStreams === true;
+  const due = () => awaiting.size > 0 || streaming.size > 0;
+  /** Open while a reply or a kept-alive stream is due: the ping loop runs only then. */
   const pinging = Latch.makeUnsafe(false);
   /** Waiting for the next pong (`roundTrip`); every pong answers all of them. */
   let pongWaiters: Array<() => void> = [];
 
   const settled = (requestId: string | number) => {
     awaiting.delete(requestId);
+    streaming.delete(requestId);
 
-    if (awaiting.size === 0) pinging.closeUnsafe();
+    if (!due()) pinging.closeUnsafe();
   };
 
   const protocol = yield* RpcClient.Protocol.make(
@@ -159,6 +173,7 @@ export const connectRpcWith = Effect.fnUntraced(function* <Rpcs extends Rpc.Any>
           currentError = error;
           requestClient.clear();
           awaiting.clear();
+          streaming.clear();
           pinging.closeUnsafe();
 
           // Fail in-flight requests first: completing `lost` lets the owner close
@@ -168,6 +183,8 @@ export const connectRpcWith = Effect.fnUntraced(function* <Rpcs extends Rpc.Any>
             Deferred.fail(lost, error)
           ).pipe(Effect.uninterruptible);
         });
+
+      drop = (reason) => fail(lostError(reason));
 
       const failOnDefect = (response: ResponseDefectEncoded) =>
         Effect.suspend(() => {
@@ -252,7 +269,7 @@ export const connectRpcWith = Effect.fnUntraced(function* <Rpcs extends Rpc.Any>
           yield* pinging.await;
           yield* Effect.sleep(pingInterval);
 
-          if (awaiting.size === 0) continue;
+          if (!due()) continue;
 
           const now = Date.now();
           // A late wake of our own timer (a starved process, a sleeping Mac) isn't the
@@ -282,14 +299,16 @@ export const connectRpcWith = Effect.fnUntraced(function* <Rpcs extends Rpc.Any>
             if (Predicate.isTagged(request, "Request")) {
               requestClient.set(request.id, clientId);
 
-              if (!streamTags.has(request.tag)) {
+              const stream = streamTags.has(request.tag);
+
+              if (!stream || keepAliveStreams) {
                 // The silence clock starts now, not at the last traffic of an idle link.
-                if (awaiting.size === 0) {
+                if (!due()) {
                   lastHeard = Date.now();
                   lastPinged = null;
                 }
 
-                awaiting.add(request.id);
+                (stream ? streaming : awaiting).add(request.id);
                 pinging.openUnsafe();
               }
             } else if (Predicate.isTagged(request, "Interrupt")) {
@@ -324,6 +343,7 @@ export const connectRpcWith = Effect.fnUntraced(function* <Rpcs extends Rpc.Any>
       takeStream: (blobId, takeOptions) => wire.takeBlobStream(blobId, takeOptions),
     },
     lost: Deferred.await(lost),
+    drop: (reason) => Effect.suspend(() => drop(reason)),
     roundTrip: Effect.gen(function* () {
       const pong = yield* Deferred.make<void>();
       const waiter = () => void Deferred.doneUnsafe(pong, Effect.void);

@@ -66,6 +66,7 @@ const connectedHost = (hostId: string) => {
     subscribe: () => () => {},
     run: () => Promise.reject(new Error("not used")),
     retryNow: () => {},
+    checkAlive: () => {},
     close: () => Promise.resolve(),
   };
 

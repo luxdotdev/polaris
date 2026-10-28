@@ -25,6 +25,7 @@ import { LinkScreen } from "./link/LinkScreen.tsx";
 import { usePush, usePushLinks } from "./push/usePush.ts";
 import { RelayProvider, useRelay } from "./relay/RelayProvider.tsx";
 import { runSelfCheck } from "./runtime/selfCheck.ts";
+import { CheckAlive } from "./runtime/CheckAlive.tsx";
 import { HostsProvider } from "./runtime/hosts.tsx";
 import { useReadyToReview } from "./review/index.ts";
 import { useWidgetLinks } from "./widgets/useWidgetLinks.ts";
@@ -172,6 +173,7 @@ export const App = () => {
         <RelayProvider>
           <FollowedHostsProvider>
             <WidgetSync />
+            <CheckAlive />
             <Push />
             <NavigationProvider>
               <Shell />

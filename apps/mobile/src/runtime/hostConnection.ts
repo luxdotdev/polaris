@@ -79,6 +79,11 @@ export interface HostConnection {
   /** Runs `use` on the live client; rejects with NotConnected when there is none. */
   readonly run: <A, E>(use: (client: DaemonClient) => Effect.Effect<A, E>) => Promise<A>;
   readonly retryNow: () => void;
+  /**
+   * Asks the live connection for a pong (the app came back to the front); one that
+   * doesn't answer in time is dropped and reconnected, and its feeds resume.
+   */
+  readonly checkAlive: () => void;
   readonly close: () => Promise<void>;
 }
 
@@ -89,7 +94,16 @@ export interface HostConnectionOptions {
   /** Shown to other Clients, e.g. beside an approval this device answered. */
   readonly deviceLabel?: string;
   readonly policy?: Partial<ReconnectPolicy>;
+  /** Pings while feeds are open; a link silent for three of these is lost. */
+  readonly pingIntervalMs?: number;
+  /** How long `checkAlive` waits for the pong. */
+  readonly aliveTimeoutMs?: number;
 }
+
+/** A phone's link can die without closing (a network change, a suspended app): ping it. */
+export const PING_INTERVAL_MS = 15_000;
+
+export const ALIVE_TIMEOUT_MS = 5_000;
 
 const CLIENT_NAME = "Polaris Mobile";
 
@@ -136,6 +150,8 @@ export const openHostConnection = (options: HostConnectionOptions): HostConnecti
   let current: Fiber.Fiber<never, unknown> | null = null;
   const listeners = new Set<() => void>();
   const waiting = sleeper();
+  /** The live connection's pong, timed out into dropping it: `checkAlive`. */
+  let alive: Effect.Effect<void> | null = null;
 
   const statusNow = (): HostStatus => ({
     state: connectionStateOf(snapshot),
@@ -166,7 +182,10 @@ export const openHostConnection = (options: HostConnectionOptions): HostConnecti
           )
         );
 
-        const connection = yield* connectRpc(transport);
+        const connection = yield* connectRpc(transport, {
+          keepAliveStreams: true,
+          pingIntervalMs: options.pingIntervalMs ?? PING_INTERVAL_MS,
+        });
 
         const lost = connection.lost.pipe(
           Effect.mapError((error) => transient("connection-lost", error.message))
@@ -201,6 +220,13 @@ export const openHostConnection = (options: HostConnectionOptions): HostConnecti
         host = hello.host;
         capabilities = hello.capabilities;
         lastSeenAt = Date.now();
+        alive = connection.roundTrip.pipe(
+          Effect.timeoutOrElse({
+            duration: options.aliveTimeoutMs ?? ALIVE_TIMEOUT_MS,
+            orElse: () => connection.drop("the Host stopped answering"),
+          }),
+          Effect.asVoid
+        );
         live = {
           epoch,
           client: connection.client,
@@ -220,6 +246,7 @@ export const openHostConnection = (options: HostConnectionOptions): HostConnecti
   const failed = (failure: ConnectFailure) => {
     if (live !== null) lastSeenAt = Date.now();
     live = null;
+    alive = null;
     snapshot = connectionMachine.transition(snapshot, {
       type: "failed",
       failure,
@@ -270,6 +297,9 @@ export const openHostConnection = (options: HostConnectionOptions): HostConnecti
       return now === null
         ? Promise.reject(new NotConnected(options.hostId))
         : Effect.runPromise(use(now.client));
+    },
+    checkAlive: () => {
+      if (alive !== null) Effect.runFork(alive);
     },
     retryNow: () => {
       if (live !== null) return;

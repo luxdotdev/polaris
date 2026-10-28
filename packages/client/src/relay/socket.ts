@@ -2,7 +2,8 @@
  * A Linked Device's socket to one Polaris Relay (apps/relay/README.md is the contract):
  * proves the device's relay key, tracks which Hosts are online, and hands each Host's
  * records to the sessions listening for them. Reconnects with backoff and full jitter
- * while it is wanted; idle, it sends nothing (the relay pings).
+ * while it is wanted; idle, it sends nothing (the relay pings). The relay's pings never
+ * reach JS, so a socket that died without closing is found out by a session (`recycle`).
  */
 import {
   decodeDataFrame,
@@ -55,6 +56,8 @@ export class RelaySocket {
   private readonly online = new Set<string>();
   private readonly listeners = new Map<string, Set<PeerListener>>();
   private readonly waiters = new Set<() => void>();
+  /** How many messages arrived on this socket since it was made, across reconnects. */
+  private heard = 0;
   /** Why the last attempt ended, for a session that gives up waiting. */
   lastError = "not connected yet";
 
@@ -76,6 +79,32 @@ export class RelaySocket {
     this.timer = null;
     this.ws?.close();
     this.drop("the relay socket was closed");
+  }
+
+  /** A mark of what this socket has heard so far, for `heardSince`. */
+  get heardMark(): number {
+    return this.heard;
+  }
+
+  /** The relay sent anything at all (to any session) after `mark`. */
+  heardSince(mark: number): boolean {
+    return this.heard > mark;
+  }
+
+  /**
+   * Drops the socket and dials again at once: a session found it silent, which a
+   * socket that died without closing (a network change, a suspended app) looks like.
+   */
+  recycle(reason: string): void {
+    const ws = this.ws;
+
+    if (ws === null || this.stopped) return;
+    this.ws = null;
+    ws.close();
+    this.lastError = reason;
+    this.drop(reason);
+
+    if (this.options.reconnect) this.dial();
   }
 
   /** True once the relay said `peer` is online on this socket, since the last connect. */
@@ -147,6 +176,7 @@ export class RelaySocket {
 
     ws.onmessage = (event) => {
       if (this.ws !== ws) return;
+      this.heard++;
 
       if (Predicate.isString(event.data)) this.control(ws, event.data);
       else if (event.data instanceof ArrayBuffer) this.data(new Uint8Array(event.data));

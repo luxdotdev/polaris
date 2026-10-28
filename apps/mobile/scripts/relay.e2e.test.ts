@@ -21,6 +21,7 @@ import {
   launchRelayDaemon,
   relayProcess,
   type RelayDaemon,
+  silentPath,
   type TestRelay,
 } from "./relay.testing.ts";
 import { relayTransport } from "../src/relay/transport.ts";
@@ -216,3 +217,58 @@ test("after Unlink on the phone, the Host refuses its old key", async () => {
     stolen.close();
   }
 }, 60_000);
+
+// ENG-484: the relay's pings never reach JS, so only the phone itself finds a dead link: by its
+// pings, or at once when the app comes back to the front (`checkAlive`).
+test.each([
+  { found: "by its pings", pingIntervalMs: 200, checkAlive: false },
+  { found: "coming back to the front", pingIntervalMs: 600_000, checkAlive: true },
+])(
+  "a feed over a link that dies without closing is found $found and catches up",
+  async (how) => {
+    const { device, hosts } = await linkFresh();
+    const [linked] = hosts;
+
+    if (linked === undefined) throw new Error("the link named no Host");
+    const path = silentPath(relay.url);
+
+    const connection = openHostConnection({
+      hostId: linked.hostId,
+      name: linked.hostName,
+      transport: relayTransport(device, { ...linked, relayUrl: path.url }),
+      policy: { initialDelayMs: 100, maxDelayMs: 1_000 },
+      pingIntervalMs: how.pingIntervalMs,
+      aliveTimeoutMs: 500,
+    });
+
+    const feedScope = Effect.runSync(Scope.make());
+
+    try {
+      await until("the first connection", () => connection.live() !== null);
+      const items: Array<HostStreamItem> = [];
+
+      const feed = await Effect.runPromise(
+        Scope.provide(openHostFeed(liveSource(connection)), feedScope)
+      );
+
+      Effect.runFork(Stream.runForEach(feed.stream, (item) => Effect.sync(() => items.push(item))));
+      await until("the snapshot", () => items.some(Predicate.isTagged("Synchronized")));
+      const events = () => items.filter(Predicate.isTagged("Event")).length;
+
+      path.cut();
+      // Made after the link died: the phone must notice and resume to see it.
+      await host.daemon.registerWorkspace();
+      const missed = events();
+
+      if (how.checkAlive) connection.checkAlive();
+      await until("the event made after the link died", () => events() > missed, 20_000);
+      expect(connection.status().epoch).toBeGreaterThan(1);
+    } finally {
+      await Effect.runPromise(Scope.close(feedScope, Exit.void));
+      await connection.close();
+      device.close();
+      path.stop();
+    }
+  },
+  60_000
+);
