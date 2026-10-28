@@ -163,6 +163,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@aws-sdk/client-sesv2": "3.1146.0",
+        "@polaris/protocol": "workspace:*",
         "@polaris/ui": "workspace:*",
         "@vercel/analytics": "2.0.1",
         "@vercel/kms": "0.3.7",
