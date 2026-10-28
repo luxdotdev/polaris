@@ -2,7 +2,7 @@
  * Sends an answer from a notification. The app may have just woken in the background, so the
  * Host's connection is usually still opening: wait for it, briefly, then dispatch.
  */
-import { Effect } from "effect";
+import { Effect, Match } from "effect";
 import type { HostConnection } from "../runtime/hostConnection.ts";
 import type { Answer } from "./answer.ts";
 
@@ -66,3 +66,39 @@ export const sendAnswer = async (
     return "failed";
   }
 };
+
+/**
+ * A cold start's answer (RV2): waits for the linked Hosts to load from the Keychain, then
+ * sends to the Hosts as they are then. `hosts` is read after `loaded`, never before.
+ */
+export const deliverAnswer = async (
+  loaded: Promise<void>,
+  hosts: () => ReadonlyArray<AnswerHost>,
+  answer: Answer,
+  timeoutMs = ANSWER_WAIT_MS
+): Promise<AnswerOutcome> => {
+  const started = Date.now();
+
+  const ready = await Promise.race([
+    loaded.then(() => true),
+    new Promise<false>((resolve) => setTimeout(() => resolve(false), timeoutMs)),
+  ]);
+
+  if (!ready) return "offline";
+
+  return sendAnswer(hosts(), answer, Math.max(0, timeoutMs - (Date.now() - started)));
+};
+
+/** The local notification for an answer that didn't reach its Host; null once sent. */
+export const unsentNotice = (outcome: AnswerOutcome, hostName: string | null) =>
+  Match.value(outcome).pipe(
+    Match.when("sent", () => null),
+    Match.when("no-host", () => ({
+      title: "Your answer wasn't sent",
+      body: "This iPhone isn't linked to that host anymore.",
+    })),
+    Match.orElse(() => ({
+      title: "Your answer wasn't sent",
+      body: `${hostName ?? "The host"} didn't answer. Open Polaris to answer again.`,
+    }))
+  );

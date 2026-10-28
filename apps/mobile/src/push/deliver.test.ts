@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { ApprovalDecision, Command, CommandId, RequestId, SessionId } from "@polaris/protocol";
 import type { Answer } from "./answer.ts";
-import { type AnswerHost, sendAnswer } from "./deliver.ts";
+import { type AnswerHost, deliverAnswer, sendAnswer, unsentNotice } from "./deliver.ts";
 
 const answer: Answer = {
   hostId: "h1",
@@ -69,5 +69,30 @@ describe("sending an answer after a wake", () => {
 
   test("an answer for a Host this app doesn't know goes nowhere", async () => {
     expect(await sendAnswer([], answer, 50)).toBe("no-host");
+  });
+});
+
+// RV2 / RX1-5: an action that launches the app arrives before the Keychain is read.
+describe("answering from a cold start", () => {
+  test("waits for the linked Hosts to load instead of finding none", async () => {
+    const fake = fakeHost(10);
+    let hosts: ReadonlyArray<AnswerHost> = [];
+    const loaded = Promise.withResolvers<void>();
+
+    const outcome = deliverAnswer(loaded.promise, () => hosts, answer, 1_000);
+    await Bun.sleep(20);
+    hosts = [fake.host];
+    loaded.resolve();
+
+    expect(await outcome).toBe("sent");
+    expect(fake.sent).toEqual([answer.dispatch]);
+  });
+
+  test("an answer that couldn't be sent says so, naming the host", () => {
+    expect(unsentNotice("sent", "Mac Studio")).toBeNull();
+    expect(unsentNotice("offline", "Mac Studio")).toEqual({
+      title: "Your answer wasn't sent",
+      body: "Mac Studio didn't answer. Open Polaris to answer again.",
+    });
   });
 });

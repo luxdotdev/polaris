@@ -11,7 +11,7 @@ import { useHosts } from "../runtime/hosts.tsx";
 import { refreshWidgets } from "../widgets/WidgetSync.ts";
 import type { Route } from "../app/route.ts";
 import { answerOf, PUSH_CATEGORIES, routeOf } from "./answer.ts";
-import { answerHost, sendAnswer } from "./deliver.ts";
+import { answerHost, deliverAnswer, unsentNotice } from "./deliver.ts";
 import { useConstellationNotifications } from "./constellations.ts";
 import { type PushDevice, registerPush } from "./registration.ts";
 
@@ -51,10 +51,29 @@ const userInfoOf = (response: Notifications.NotificationResponse): ReadonlyArray
   return [content.data, trigger !== null && "payload" in trigger ? trigger.payload : null];
 };
 
-const useAnswers = () => {
+/** Resolves once `loaded` is true: the linked Hosts are read from the Keychain and added. */
+const useLoaded = (loaded: boolean) => {
+  // Not Promise.withResolvers: Hermes may lack it.
+  const [signal] = useState(() => {
+    let resolve = () => {};
+
+    const promise = new Promise<void>((done) => (resolve = done));
+
+    return { promise, resolve: () => resolve() };
+  });
+
+  useEffect(() => {
+    if (loaded) signal.resolve();
+  }, [loaded, signal]);
+
+  return signal.promise;
+};
+
+const useAnswers = (loaded: boolean) => {
   const hosts = useHosts();
   const current = useRef(hosts);
   current.current = hosts;
+  const ready = useLoaded(loaded);
 
   useEffect(() => {
     const answer = async (response: Notifications.NotificationResponse) => {
@@ -68,8 +87,17 @@ const useAnswers = () => {
       await PolarisPush.beginAnswer(id);
 
       try {
+        const hosts = () => current.current.map(answerHost);
+        const outcome = await deliverAnswer(ready, hosts, found);
+
         // An answered approval leaves the widgets' needs you count once the feeds catch up.
-        if ((await sendAnswer(current.current.map(answerHost), found)) === "sent") refreshWidgets();
+        if (outcome === "sent") refreshWidgets();
+
+        const host = current.current.find((h) => h.hostId === found.hostId);
+        const notice = unsentNotice(outcome, host?.name ?? null);
+
+        if (notice !== null)
+          await Notifications.scheduleNotificationAsync({ content: notice, trigger: null });
       } finally {
         await PolarisPush.endAnswer(id);
         Notifications.clearLastNotificationResponse();
@@ -86,7 +114,7 @@ const useAnswers = () => {
     );
 
     return () => subscription.remove();
-  }, []);
+  }, [ready]);
 };
 
 const useRegistrations = (
@@ -146,9 +174,16 @@ const useRegistrations = (
   }, [device, hosts, linked, automatic]);
 };
 
-/** Mount once, under HostsProvider, with the device's relay identity and its linked Hosts. */
-export const usePush = (identity: RelayIdentity | null, linked: ReadonlyArray<PushLinkedHost>) => {
-  useAnswers();
+/**
+ * Mount once, under HostsProvider, with the device's relay identity, its linked Hosts and
+ * whether they were loaded from the Keychain yet.
+ */
+export const usePush = (
+  identity: RelayIdentity | null,
+  linked: ReadonlyArray<PushLinkedHost>,
+  loaded: boolean
+) => {
+  useAnswers(loaded);
   useRegistrations(identity, linked);
 };
 

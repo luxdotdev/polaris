@@ -130,7 +130,7 @@ const Screen = () => {
 /** Registers for push with each linked Host and answers approval notifications. */
 const Push = () => {
   const relay = useRelay();
-  usePush(relay.keys?.identity ?? null, relay.hosts);
+  usePush(relay.keys?.identity ?? null, relay.hosts, relay.loaded);
 
   return null;
 };
