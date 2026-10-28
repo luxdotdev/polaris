@@ -43,9 +43,15 @@ export interface Notifier {
     input: NotifyInput,
     id: CommandId
   ) => Effect.Effect<NotifyOutcome, ServiceError>;
-  /** Records an automatic notification once per `input.id`; false when it was already sent. */
-  readonly automatic: (input: AutomaticInput) => Effect.Effect<boolean, ServiceError>;
+  /**
+   * Records an automatic notification once per `input.id`. `Limited`: its source sent one in
+   * the last 30 s, so it waits for a later call rather than flooding the user.
+   */
+  readonly automatic: (input: AutomaticInput) => Effect.Effect<AutomaticOutcome, ServiceError>;
 }
+
+/** `Done`: sent now, or already sent; either way, the cause needs nothing more. */
+export type AutomaticOutcome = "Done" | "Limited";
 
 const within = (at: number, last: number | undefined) =>
   last !== undefined && at - last < NOTIFY_INTERVAL_MS;
@@ -72,6 +78,8 @@ const notifiedEvent = (
 export const notifier = (store: EventStore["Service"], now: () => number = Date.now): Notifier => {
   const lastSent = new Map<SessionId, number>();
   const lastAutomatic = new Map<SessionId, number>();
+  /** Per source (the asking worker, or the Lead): one automatic notification per interval. */
+  const lastBySource = new Map<SessionId, number>();
 
   /** Needs You already reached every device for an approval or question opened this recently. */
   const askedRecently = (pending: ReadonlyMap<string, { readonly openedAt: string }>, at: number) =>
@@ -113,11 +121,15 @@ export const notifier = (store: EventStore["Service"], now: () => number = Date.
   const automatic = Effect.fnUntraced(function* (input: AutomaticInput) {
     const commandId = CommandId.make(input.id);
 
-    if (yield* store.hasCommandReceipt(commandId)) return false;
+    if (yield* store.hasCommandReceipt(commandId)) return "Done";
     const model = yield* store.model;
 
-    if (!model.sessions.has(input.sessionId)) return false;
+    if (!model.sessions.has(input.sessionId)) return "Done";
     const at = now();
+    const source = input.about[0] ?? input.sessionId;
+
+    if (within(at, lastBySource.get(source))) return "Limited";
+    lastBySource.set(source, at);
 
     for (const sessionId of [input.sessionId, ...input.about]) lastAutomatic.set(sessionId, at);
     yield* store.commit({
@@ -130,7 +142,7 @@ export const notifier = (store: EventStore["Service"], now: () => number = Date.
         ]),
     });
 
-    return true;
+    return "Done";
   });
 
   return { notify, automatic };

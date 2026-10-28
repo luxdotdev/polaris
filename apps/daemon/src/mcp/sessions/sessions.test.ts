@@ -252,6 +252,12 @@ test("an automatic notification is sent once per cause, and the agent's notify a
       const first = yield* notifications.automatic(question);
       const again = yield* notifications.automatic(question);
 
+      // The same worker asking again at once waits out the interval.
+      const flood = yield* notifications.automatic({
+        ...question,
+        id: "attention:c1:question:a1:2",
+      });
+
       now += 1_000;
 
       const echo = yield* notifications.notify(
@@ -268,6 +274,11 @@ test("an automatic notification is sent once per cause, and the agent's notify a
         CommandId.make("n2")
       );
 
+      const waited = yield* notifications.automatic({
+        ...question,
+        id: "attention:c1:question:a1:2",
+      });
+
       const model = yield* store.model;
 
       const events = yield* store.readEvents({
@@ -277,11 +288,18 @@ test("an automatic notification is sent once per cause, and the agent's notify a
         eventTypes: ["SessionNotified"],
       });
 
-      return [[first, again, echo, later], events] as const;
+      return [[first, again, flood, echo, later, waited], events] as const;
     })
   );
 
-  expect(outcomes).toEqual([true, false, NotifyOutcome.Collapsed(), NotifyOutcome.Sent()]);
+  expect(outcomes).toEqual([
+    "Done",
+    "Done",
+    "Limited",
+    NotifyOutcome.Collapsed(),
+    NotifyOutcome.Sent(),
+    "Done",
+  ]);
   expect(
     notified.map((e) =>
       Predicate.isTagged(e.event, "SessionNotified")
@@ -295,5 +313,6 @@ test("an automatic notification is sent once per cause, and the agent's notify a
   ).toEqual([
     ["A1 asks you", true, "c1"],
     ["Done", false, null],
+    ["A1 asks you", true, "c1"],
   ]);
 });

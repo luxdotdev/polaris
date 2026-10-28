@@ -32,6 +32,7 @@ export {
 
 export {
   type AutomaticInput,
+  type AutomaticOutcome,
   NOTIFY_INTERVAL_MS,
   type Notifier,
   NotifyOutcome,

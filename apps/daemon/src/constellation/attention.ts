@@ -70,9 +70,9 @@ export const startAttention = Effect.fn("Constellation.startAttention")(function
     for (const record of records)
       for (const input of attentionOf(record)) {
         if (known.has(input.id)) continue;
-        known.add(input.id);
 
-        if (send) yield* notifications.automatic(input);
+        // A limited cause stays unknown, so a later graph event sends it.
+        if (!send || (yield* notifications.automatic(input)) === "Done") known.add(input.id);
       }
   });
 
