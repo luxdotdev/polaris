@@ -1,7 +1,7 @@
 /**
- * Every Host's Connection State and followed feed as React state, for Home, Hosts, the New agent
- * session sheet and the widgets. One feed per Host for the app's life; it waits out Reconnecting
- * and Offline.
+ * Every Host's Connection State and followed feed as React state, for Home, Hosts, the Review
+ * tab and its badge, the New agent session sheet and the widgets. One feed per Host for the
+ * app's life, shared by every reader; it waits out Reconnecting and Offline.
  */
 import {
   createContext,
@@ -10,55 +10,37 @@ import {
   useContext,
   useEffect,
   useState,
+  useSyncExternalStore,
 } from "react";
-import type { HostConnection, HostStatus } from "../../runtime/hostConnection.ts";
 import { useHosts } from "../../runtime/hosts.tsx";
 import type { HomeHost } from "../model/home.ts";
-import { type FollowedHost, followHost, unseenHost } from "./follow.ts";
+import {
+  type FollowedHostState,
+  type FollowedHostsStore,
+  followedHostsStore,
+} from "./followedHosts.ts";
 
-export interface FollowedHostState {
-  readonly connection: HostConnection;
-  readonly status: HostStatus;
-  readonly followed: FollowedHost;
-}
+export type { FollowedHostState } from "./followedHosts.ts";
 
-const FollowedHosts = createContext<ReadonlyArray<FollowedHostState> | null>(null);
-
-const useFollowing = (): ReadonlyArray<FollowedHostState> => {
-  const connections = useHosts();
-  const [feeds, setFeeds] = useState<ReadonlyMap<string, FollowedHost>>(new Map());
-  const [, setTick] = useState(0);
-
-  useEffect(() => {
-    const stops = connections.flatMap((connection) => [
-      connection.subscribe(() => setTick((tick) => tick + 1)),
-      followHost(connection, (followed) =>
-        setFeeds((current) => new Map(current).set(connection.hostId, followed))
-      ),
-    ]);
-
-    return () => {
-      for (const stop of stops) stop();
-    };
-  }, [connections]);
-
-  return connections.map((connection) => ({
-    connection,
-    status: connection.status(),
-    followed: feeds.get(connection.hostId) ?? unseenHost,
-  }));
-};
+const FollowedHosts = createContext<FollowedHostsStore | null>(null);
 
 /** Follows every Host once, under the screens, so leaving Home doesn't drop the feeds. */
-export const FollowedHostsProvider = ({ children }: { readonly children: ReactNode }) =>
-  createElement(FollowedHosts.Provider, { value: useFollowing() }, children);
+export const FollowedHostsProvider = ({ children }: { readonly children: ReactNode }) => {
+  const connections = useHosts();
+  const [store] = useState(followedHostsStore);
+
+  useEffect(() => store.follow(connections), [store, connections]);
+  useEffect(() => () => store.follow([]), [store]);
+
+  return createElement(FollowedHosts.Provider, { value: store }, children);
+};
 
 export const useFollowedHosts = (): ReadonlyArray<FollowedHostState> => {
-  const hosts = useContext(FollowedHosts);
+  const store = useContext(FollowedHosts);
 
-  if (hosts === null) throw new Error("useFollowedHosts needs a FollowedHostsProvider above it");
+  if (store === null) throw new Error("useFollowedHosts needs a FollowedHostsProvider above it");
 
-  return hosts;
+  return useSyncExternalStore(store.subscribe, store.snapshot);
 };
 
 /** The followed Hosts as Home's model reads them, named by their hostname once it is known. */
