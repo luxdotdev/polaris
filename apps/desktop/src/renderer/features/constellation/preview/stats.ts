@@ -40,14 +40,20 @@ const bucket = (model: string, input: number, output: number) =>
   });
 
 /** One section's Usage with main's estimate per bucket; `unpriced` adds a bucket with no price. */
-const priced = (input: number, output: number, usd: number, unpriced = 0) => {
+const priced = (
+  input: number,
+  output: number,
+  usd: number,
+  unpriced = 0,
+  model = "gpt-6.1-sol"
+) => {
   const extra = unpriced === 0 ? [] : [bucket("no-price-model", unpriced, 0)];
 
   return {
     tokens: counts(input, output),
     reportedUsd: 0,
     reportedTokens: counts(0, 0, 0),
-    buckets: [bucket("gpt-6.1-sol", input, output), ...extra],
+    buckets: [bucket(model, input, output), ...extra],
     estimates: [
       { estimatedUsd: usd, unpricedTokens: 0 },
       ...extra.map(() => ({ estimatedUsd: 0, unpricedTokens: unpriced })),
@@ -73,7 +79,25 @@ const times = (
 
 const TOTAL = priced(182_000, 41_000, 3.33, 12_000);
 
-const DIGEST = priced(38_000, 3_000, 0.37);
+/** Each update turn's (input, output, usd), uneven like a real run. */
+const DIGESTS = (
+  [
+    [38, 3, 0.37],
+    [22, 2, 0.21],
+    [41, 4, 0.4],
+    [18, 1, 0.16],
+    [56, 6, 0.58],
+    [30, 2, 0.29],
+    [27, 3, 0.26],
+    [64, 7, 0.66],
+    [35, 3, 0.34],
+    [20, 2, 0.19],
+    [44, 4, 0.43],
+    [31, 3, 0.3],
+  ] as const
+).map(([input, output, usd]) => priced(input * 1000, output * 1000, usd, 0, "claude-opus-5-5"));
+
+const DIGEST_ITEMS = [3, 1, 4, 1, 5, 2, 2, 6, 3, 1, 3, 2];
 
 const PER_TASK = (
   [
@@ -89,7 +113,7 @@ const PER_TASK = (
 }));
 
 const ROLES = [
-  { role: "lead" as const, usage: priced(63_000, 12_000, 0.61) },
+  { role: "lead" as const, usage: priced(63_000, 12_000, 0.61, 0, "claude-opus-5-5") },
   { role: "worker" as const, usage: priced(119_000, 29_000, 2.72) },
 ];
 
@@ -124,15 +148,18 @@ export const statsFixture = (revision: number): ConstellationStatsView => ({
     usageIndexedAt: new Date().toISOString(),
     indexing: true,
     lead: {
-      wakeups: 9,
-      deliveredItems: 23,
+      wakeups: 12,
+      deliveredItems: 33,
       coalescedItems: 14,
       coalescingHitRate: 0.61,
       meanTokensPerDigest: 41_000,
       meanReportedUsdPerDigest: null,
-      digests: [
-        { turnId: TurnId.make("t-lead-digest"), sessionId: LEAD, items: 3, usage: raw(DIGEST) },
-      ],
+      digests: DIGESTS.map((d, i) => ({
+        turnId: TurnId.make(`t-lead-digest-${i + 1}`),
+        sessionId: LEAD,
+        items: DIGEST_ITEMS[i] ?? 1,
+        usage: raw(d),
+      })),
     },
     review: {
       decidedClaims: 5,
@@ -142,8 +169,8 @@ export const statsFixture = (revision: number): ConstellationStatsView => ({
       firstClaimsReviewed: 4,
       firstTimeAcceptanceRate: 0.75,
       sendBacksByCause: [
-        { cause: "sent back", count: 1 },
-        { cause: "merge conflict", count: 1 },
+        { cause: "SentBack", count: 1 },
+        { cause: "MergeConflict", count: 1 },
       ],
     },
     workers: {
@@ -164,6 +191,6 @@ export const statsFixture = (revision: number): ConstellationStatsView => ({
     },
     coverage: COVERAGE,
   }),
-  usage: { total: TOTAL, perTask: PER_TASK, perRole: ROLES, perDigest: [DIGEST] },
+  usage: { total: TOTAL, perTask: PER_TASK, perRole: ROLES, perDigest: DIGESTS },
   pricesFetchedAt: new Date().toISOString(),
 });
