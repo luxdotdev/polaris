@@ -170,6 +170,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "constellation.defaults",
   "extensions",
   "remote-access",
+  "linked-devices",
   "voice",
   ...HARNESS_CATALOGUE.map((harness) => harness.capability),
   "harness.availability",
