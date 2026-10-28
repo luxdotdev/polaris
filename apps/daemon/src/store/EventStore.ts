@@ -54,6 +54,7 @@ import { StartupGraphIndex, startupSessions } from "./startupSessions.ts";
 import { type EphemeralItem, LiveHub, LiveItem } from "./hub.ts";
 import { MigrationsLayer } from "./migrations.ts";
 import { hostOmittedEventTypes, project, type ReadModel, sessionOf, workingTurn } from "./model.ts";
+import { type ContinuityStore, continuityStore } from "./continuity.ts";
 import { type ReviewReads, reviewReads } from "./review.ts";
 import {
   decodeEventRow,
@@ -197,6 +198,8 @@ export class EventStore extends Context.Service<
     }) => Effect.Effect<ReadonlyMap<TurnId, ReadonlyArray<SubagentDetail>>, ServiceError>;
     /** Risk Summaries and Verdicts, which live in SQL only (`review.ts`). */
     readonly review: ReviewReads;
+    /** Read positions and drafts (`continuity.ts`), outside the log. */
+    readonly continuity: ContinuityStore;
   }
 >()("polaris/daemon/store/EventStore") {
   static readonly layer = Layer.effect(
@@ -371,6 +374,7 @@ export class EventStore extends Context.Service<
         readTurnItems,
         readSubagents,
         review: reviewReads(sql),
+        continuity: continuityStore(sql),
       });
     })
   );

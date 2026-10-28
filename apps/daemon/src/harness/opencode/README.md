@@ -82,6 +82,8 @@ A session carries a permission ruleset (`POST /session { permission }`, then `PA
 | auto | `*` allow; `external_directory` and `doom_loop` ask. OpenCode has no approval reviewer, so `auto` works freely inside the Workspace and asks to leave it. |
 | full-access | `*` allow |
 
+Plan (ENG-466) uses supervised's ruleset and sends each prompt, steer and command to OpenCode's built-in `plan` agent (`agent: "plan"`); leaving plan sends them to the user's default agent again. The plan agent plans instead of building; the session ruleset still asks before any edit or command. Not yet run against a real opencode.
+
 ### Models
 
 `listModels` reads `GET /config/providers` (the providers OpenCode can use on this Host, as it resolved them) and `GET /config` (the user's configured `model`). Each Model's id is `provider/model` (split at the first `/`, so OpenRouter ids like `openrouter/anthropic/claude-…` work). Its efforts are its `variants`' names in OpenCode's order, `defaultEffort` is null (no variant), and deprecated Models are left out. The default is the configured `model`, else the first provider's default. **Provider `key` and `options` (which can hold API keys) are never decoded** (ADR 0001).

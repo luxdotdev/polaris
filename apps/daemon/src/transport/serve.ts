@@ -18,6 +18,7 @@ import { lazyConstellationHandlers, lazyHostResources } from "./lazy.ts";
 import { installDebugHooks, reportStartupModules } from "../debug.ts";
 import { Engine } from "../engine/Engine.ts";
 import { EngineRpcHandlers } from "../engine/rpc.ts";
+import { Continuity, ContinuityRpcsLive } from "../continuity/index.ts";
 import { FileSearchLive } from "../files/FileSearch.ts";
 import { PredictionRpcsLive } from "../prediction/index.ts";
 import { InlineRpcsLive } from "../inline/index.ts";
@@ -66,6 +67,7 @@ import { lazyAcceptHandlers } from "./lazyAccept.ts";
 import { languagesAvailable, lazyLanguageHandlers } from "./lazyLanguages.ts";
 import { lazyReviewer } from "./lazyReviewer.ts";
 import { lazyUsage } from "./lazyUsage.ts";
+import { PushNotifierLive } from "../push/notifier.ts";
 
 /** Exit status when another Daemon already holds the lock or answers on the socket. */
 export const SERVE_EXIT_ALREADY_RUNNING = 75;
@@ -124,6 +126,7 @@ export const daemonHandlers = Layer.mergeAll(
   PredictionRpcsLive,
   CommitMessageRpcsLive,
   EngineRpcHandlers,
+  ContinuityRpcsLive.pipe(Layer.provide(Continuity.layer)),
   ResourceRpcsLive,
   lazyConstellationHandlers,
   FilesRpcsLive.pipe(Layer.provide(FileSearchLive())),
@@ -136,7 +139,8 @@ export const daemonHandlers = Layer.mergeAll(
   lazyAcceptHandlers,
   ReviewerRpcsLive,
   TerminalRpcsLive.pipe(Layer.provide(TerminalsDaemonLive)),
-  VoiceRpcsLive.pipe(Layer.provide(Layer.merge(DeepgramLive, HostSecrets.layer)))
+  VoiceRpcsLive.pipe(Layer.provide(Layer.merge(DeepgramLive, HostSecrets.layer))),
+  PushNotifierLive
 ).pipe(Layer.provide(daemonServices));
 
 /** What the lazy language handlers serve: unavailable where no language artifact runs. */
@@ -189,8 +193,10 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "session.notify",
   "session.pin",
   "session.limited",
+  "session.plan-mode",
   "session.user-turns",
   "session.shell-command",
+  "session.continuity",
   "files.read",
   "files.versioned",
   "files.write",

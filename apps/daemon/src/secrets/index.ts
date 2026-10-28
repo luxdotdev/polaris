@@ -26,6 +26,13 @@ const SECRET_KEY = /^[a-z0-9][a-z0-9-]*(\/[a-z0-9][a-z0-9-]*)*$/;
  */
 export const SECRET_VALUE = /^[A-Za-z0-9._~+/=-]{1,4096}$/;
 
+let fileStoreForTests = false;
+
+/** Only `main.testing.ts` calls this; no environment variable selects the file store. */
+export const useFileSecretsForTests = () => {
+  fileStoreForTests = true;
+};
+
 export class HostSecrets extends Context.Service<
   HostSecrets,
   {
@@ -41,9 +48,9 @@ export class HostSecrets extends Context.Service<
     readonly remove: (key: string) => Effect.Effect<void, SecretStorageError>;
   }
 >()("polaris/daemon/secrets/HostSecrets") {
-  /** The Keychain on macOS, `~/.polaris/secrets` elsewhere. */
+  /** The Keychain on macOS, `~/.polaris/secrets` elsewhere or under `main.testing.ts`. */
   static readonly layer = Layer.suspend(() =>
-    process.platform === "darwin"
+    process.platform === "darwin" && !fileStoreForTests
       ? Layer.effect(HostSecrets, keychainSecrets()).pipe(Layer.provide(CommandRunner.layer))
       : Layer.succeed(HostSecrets)(fileSecrets(join(polarisHome(), "secrets")))
   );

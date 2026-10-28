@@ -148,6 +148,37 @@ const constellations = Effect.gen(function* () {
   yield* sql`CREATE INDEX events_constellation ON events (constellation_id, sequence)`;
 });
 
+/**
+ * Continuity (`continuity.ts`): read positions and drafts, outside the event log. Sessions
+ * already logged start read through their last ended Turn, so an upgrade marks nothing unread.
+ */
+const continuity = Effect.gen(function* () {
+  const sql = yield* SqlClient.SqlClient;
+  yield* sql`
+    CREATE TABLE session_reads (
+      session_id TEXT PRIMARY KEY,
+      turn_id TEXT NOT NULL,
+      turn_index INTEGER NOT NULL,
+      at TEXT NOT NULL
+    )
+  `;
+  yield* sql`
+    CREATE TABLE session_drafts (
+      session_id TEXT PRIMARY KEY,
+      text TEXT NOT NULL,
+      revision INTEGER NOT NULL,
+      at TEXT NOT NULL
+    )
+  `;
+  yield* sql`
+    INSERT INTO session_reads (session_id, turn_id, turn_index, at)
+    SELECT session_id, id, turn_index, strftime('%Y-%m-%dT%H:%M:%fZ', 'now') FROM turns AS t
+    WHERE status != 'working' AND turn_index = (
+      SELECT MAX(turn_index) FROM turns WHERE session_id = t.session_id AND status != 'working'
+    )
+  `;
+});
+
 export const migrations = SqliteMigrator.fromRecord({
   "0001_event_store": init,
   "0002_subagents": subagents,
@@ -155,6 +186,7 @@ export const migrations = SqliteMigrator.fromRecord({
   "0004_constellations": constellations,
   /** `session.user-turns`: the user-Turn numbers and reply previews of Turns already logged. */
   "0005_user_turns": backfillUserTurns,
+  "0006_continuity": continuity,
 });
 
 export const MigrationsLayer = SqliteMigrator.layer({ loader: migrations });

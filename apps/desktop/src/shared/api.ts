@@ -52,6 +52,9 @@ import type {
   RunWalkthrough,
   SearchPaths,
   SessionStreamItem,
+  ComposerDraft,
+  ContinuityItem,
+  ReadPosition,
   TerminalId,
   TerminalLaunch,
   TurnPage,
@@ -72,6 +75,7 @@ import type { ConstellationDefaultsMethod, ConstellationMethod } from "./constel
 import type { ResourceMethod } from "./resourcesContract.ts";
 import type { RemoteAccessMethod } from "./remoteAccessContract.ts";
 import type { VoiceRequestOutputs } from "./voiceContract.ts";
+import type { LinkedDevicesRequestOutputs } from "./linkedDevicesContract.ts";
 import type { GitHubRequestOutputs, GitHubSubscriptionItems } from "./githubContract.ts";
 import type { GitRequestOutputs, GitSubscriptionItems } from "./gitContract.ts";
 import type { NeedsYouAction, ReviewTarget } from "./needsYou.ts";
@@ -413,6 +417,7 @@ export interface RequestOutputs
     ConstellationRequestOutputs,
     ResourceRequestOutputs,
     RemoteAccessRequestOutputs,
+    LinkedDevicesRequestOutputs,
     VoiceRequestOutputs,
     PredictionPlacementOutputs,
     PredictionOutcomeOutputs {
@@ -486,6 +491,8 @@ export interface RequestOutputs
   "extensions.revoke": Plain<Pairing>;
   "sessions.autoArchive": Plain<AutoArchiveSettings>;
   "sessions.setAutoArchive": null;
+  "continuity.markRead": Plain<ReadPosition>;
+  "continuity.saveDraft": Plain<ComposerDraft>;
   "review.runRiskSummary": Rpc.Success<typeof RunRiskSummary>;
   "review.runWalkthrough": Rpc.Success<typeof RunWalkthrough>;
   "review.stopWalkthrough": null;
@@ -514,6 +521,7 @@ export interface RequestOutputs
   "machines.setLocalEnabled": null;
   "machines.openSsh": null;
   "clipboard.write": null;
+  "clipboard.writeSecret": null;
   "edit.run": null;
   "app.menu": null;
   "onboarding.found": { readonly sshHosts: ReadonlyArray<string>; readonly version: string };
@@ -547,6 +555,7 @@ export interface SubscriptionItems extends GitHubSubscriptionItems, GitSubscript
   "files.watchFile": { readonly path: string; readonly version: FileVersionView | null };
   usage: UsageStreamItem;
   "harness.availability": Plain<HostHarnesses>;
+  continuity: ContinuityItem;
   "plan-limits": Plain<PlanLimit>;
   "review.watchRiskSummary": RiskSummary;
   "inline.propose": InlineStreamItem;

@@ -25,6 +25,7 @@ import {
   ReviewSubject,
   RiskFindingId,
   InlineRequest,
+  MAX_DRAFT_LENGTH,
   PairingId,
   RiskSummaryId,
   RiskSummaryRef,
@@ -46,6 +47,7 @@ import {
 } from "./constellationContract.ts";
 import { ResourceRequestInputs } from "./resourcesContract.ts";
 import { RemoteAccessRequestInputs } from "./remoteAccessContract.ts";
+import { LinkedDevicesRequestInputs } from "./linkedDevicesContract.ts";
 import { VoiceRequestInputs } from "./voiceContract.ts";
 import { GitHubRequestInputs, GitHubSubscriptionInputs } from "./githubContract.ts";
 import { GitRequestInputs, GitSubscriptionInputs } from "./gitContract.ts";
@@ -162,6 +164,8 @@ export const SessionPrefs = Schema.Struct({
   longTurnMinutes: LongTurnMinutes,
   /** Native notifications when someone requests your review on GitHub (ENG-229). */
   notifyReviewRequests: Schema.Boolean,
+  /** Polaris's own notifications when a Constellation needs you (ENG-462; on by default). */
+  notifyConstellations: Schema.Boolean,
   /** Archive deletes a session's branch once it is merged; unmerged branches always stay. */
   deleteMergedBranch: Schema.Boolean,
   /** The Working strip's verbs; null for the built-in ones (Claude Code's own settings come first). */
@@ -193,6 +197,7 @@ export const SessionPrefsPatch = Schema.Struct({
   notifyLongTurnsOnly: Schema.optionalKey(Schema.Boolean),
   longTurnMinutes: Schema.optionalKey(LongTurnMinutes),
   notifyReviewRequests: Schema.optionalKey(Schema.Boolean),
+  notifyConstellations: Schema.optionalKey(Schema.Boolean),
   deleteMergedBranch: Schema.optionalKey(Schema.Boolean),
   spinnerVerbs: Schema.optionalKey(Schema.NullOr(Schema.Array(Schema.String))),
   acceptBranch: Schema.optionalKey(AcceptBranchMode),
@@ -342,6 +347,12 @@ export const RequestInputs = {
   /** When the Host archives Dormant sessions (Settings → Sessions). */
   "sessions.autoArchive": onHost({}),
   "sessions.setAutoArchive": onHost({ settings: AutoArchiveSettings }),
+  /** Continuity (capability `session.continuity`): the last Turn seen, and the composer's draft. */
+  "continuity.markRead": onHost({ sessionId: SessionId, turnId: TurnId }),
+  "continuity.saveDraft": onHost({
+    sessionId: SessionId,
+    text: Schema.String.check(Schema.isMaxLength(MAX_DRAFT_LENGTH)),
+  }),
   /** Deletes staged attachments now: one Workspace's, or all of them (null). */
   "attachments.clear": onHost({ workspaceId: Schema.NullOr(WorkspaceId) }),
   /** Settings → Extensions: a Host's Pairings; pairing returns the token once. */
@@ -436,6 +447,8 @@ export const RequestInputs = {
    */
   "machines.openSsh": onHost({}),
   "clipboard.write": Schema.Struct({ text: Schema.String }),
+  /** A secret (a link string): cleared after a minute if it is still on the clipboard. */
+  "clipboard.writeSecret": Schema.Struct({ text: Schema.String }),
   /** The Edit menu's own action on the focused field (a context menu's Cut, Copy, Paste). */
   "edit.run": Schema.Struct({ action: Schema.Literals(["cut", "copy", "paste", "selectAll"]) }),
   /** Windows: the app menu, dropped from the title bar's lockup. */
@@ -526,6 +539,7 @@ export const RequestInputs = {
   ...ConstellationStatsInputs,
   ...ResourceRequestInputs,
   ...RemoteAccessRequestInputs,
+  ...LinkedDevicesRequestInputs,
   ...VoiceRequestInputs,
 } as const;
 
@@ -569,6 +583,8 @@ export const SubscriptionInputs = {
   usage: onHost({}),
   /** Each catalogue Harness's status as it changes (`harness.watchAvailability`). */
   "harness.availability": onHost({}),
+  /** Every session's read position and draft on a Host, then changes (`continuity.watch`). */
+  continuity: onHost({}),
   /** Plan Limits as they change (`usage.watch`, its `PlanLimitChanged` items). */
   "plan-limits": onHost({}),
   /** A Risk Summary as it fills in (`review.watchRiskSummary`): the whole summary on each change. */

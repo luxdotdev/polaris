@@ -1,3 +1,4 @@
+import { writeSecret } from "./secretClipboard.ts";
 import { createMainPredictionPlacement } from "./prediction/placement.ts";
 import { PredictionSettings } from "./prediction/preferences.ts";
 import { PredictionOutcomes, outcomeLogPath } from "./prediction/outcomes.ts";
@@ -23,6 +24,7 @@ import {
   autoUpdater,
   BrowserWindow,
   clipboard,
+  ClipboardItem,
   dialog,
   nativeTheme,
   ipcMain,
@@ -455,6 +457,15 @@ const start = async () => {
           ? mkdtempSync(join(tmpdir(), "polaris-proof-"))
           : null,
       writeClipboard: async (text) => clipboard.writeText(text),
+      writeSecretClipboard: (text) =>
+        writeSecret(
+          {
+            readText: () => clipboard.readText(),
+            write: (entry) => clipboard.write([new ClipboardItem(entry)]),
+            clear: () => clipboard.clear(),
+          },
+          text
+        ),
       // The one main window; a hidden one (smoke runs) has no focus to find it by.
       editAction: (action) =>
         (BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0])?.webContents[
@@ -506,6 +517,7 @@ const start = async () => {
       return prefs.notifyLongTurnsOnly ? prefs.longTurnMinutes : null;
     },
     notifyAgents: () => env.POLARIS_DESKTOP_HIDDEN !== "1",
+    notifyConstellations: () => sessionPrefsOf(settings).notifyConstellations,
   });
 
   win.webContents.on("did-start-loading", () => deepLinks.detach());

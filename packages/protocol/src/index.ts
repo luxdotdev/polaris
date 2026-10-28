@@ -12,6 +12,8 @@ export * from "./capabilities.ts";
 
 export * from "./commands.ts";
 
+export * from "./continuity.ts";
+
 export * from "./domain.ts";
 
 export * from "./events.ts";
@@ -20,9 +22,13 @@ export * from "./extensions.ts";
 
 export * from "./remoteAccess.ts";
 
+export * from "./linkedDevices.ts";
+
 export * from "./pairingString.ts";
 
 export * from "./grants.ts";
+
+export * from "./deviceGrants.ts";
 
 export * from "./hello.ts";
 

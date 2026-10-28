@@ -1,0 +1,40 @@
+diff --git a/binding.js b/binding.js
+index 3e753f9261fe6d21afcd6b0396f30d9f0f76ca4e..fa50e7b5e9215b4933cf7cc887beebe3b0e4b874 100644
+--- a/binding.js
++++ b/binding.js
+@@ -1,2 +1,33 @@
+-require.addon = require('require-addon')
+-module.exports = require.addon('.', __filename)
++// Polaris (ENG-461): literal requires, so `bun build --compile` embeds the addon for the
++// platforms the Daemon ships on; `--target` folds the platform checks and
++// `--define process.env.POLARIS_LIBC` picks the libc. Anything else uses require-addon.
++const onMusl = () => {
++  try {
++    return require('fs').readdirSync('/lib').some((f) => f.startsWith('ld-musl-'))
++  } catch {
++    return false
++  }
++}
++
++const load = () => {
++  if (process.platform === 'darwin' && process.arch === 'arm64') {
++    return require('./prebuilds/darwin-arm64/sodium-native.node')
++  }
++  if (process.platform === 'linux' && process.arch === 'x64') {
++    return (process.env.POLARIS_LIBC === 'musl' || (process.env.POLARIS_LIBC !== 'gnu' && onMusl()))
++      ? require('./prebuilds/linux-x64-musl/sodium-native.node')
++      : require('./prebuilds/linux-x64/sodium-native.node')
++  }
++  if (process.platform === 'linux' && process.arch === 'arm64') {
++    return (process.env.POLARIS_LIBC === 'musl' || (process.env.POLARIS_LIBC !== 'gnu' && onMusl()))
++      ? require('./prebuilds/linux-arm64-musl/sodium-native.node')
++      : require('./prebuilds/linux-arm64/sodium-native.node')
++  }
++  if (process.platform === 'win32' && process.arch === 'x64') {
++    return require('./prebuilds/win32-x64/sodium-native.node')
++  }
++  require.addon = require('require-addon')
++  return require.addon('.', __filename)
++}
++
++module.exports = load()

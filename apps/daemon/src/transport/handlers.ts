@@ -24,6 +24,7 @@ import {
   VoiceError,
   PROTOCOL_VERSION,
   decideProtocol,
+  PushRegistrationError,
 } from "@polaris/protocol";
 import { Effect, Option, Stream } from "effect";
 import { ClientCapabilities, DeviceLabel } from "../engine/rpc.ts";
@@ -37,6 +38,14 @@ import { Pairings } from "../extensions/pairings.ts";
 import { RemoteAccessControl } from "../remoteAccess/index.ts";
 import { RemoteAccess } from "../extensions/remoteAccess.ts";
 import { admissionOf } from "../extensions/admission.ts";
+import { deviceOf } from "../linkedDevices/connection.ts";
+import { RelayRoute } from "../linkedDevices/route.ts";
+
+const notADevice = () =>
+  new PushRegistrationError({
+    reason: "not-a-device",
+    message: "Only a Linked Device registers for push, over the Relay route",
+  });
 
 const constellationUnavailable = () =>
   new ConstellationRejected({
@@ -318,7 +327,7 @@ export const defaultHandlers = (options: {
         // hello on a scoped connection cannot relabel it.
         const pairing = pairingOf(client);
 
-        client.annotate(DeviceLabel, pairing === null ? deviceLabel : pairing.name);
+        client.annotate(DeviceLabel, pairing?.name ?? deviceOf(client)?.name ?? deviceLabel);
         client.annotate(ClientCapabilities, capabilities);
         admissionOf(client).protocolReady = true;
 
@@ -353,6 +362,41 @@ export const defaultHandlers = (options: {
     "remoteAccess.status": () => Effect.flatMap(RemoteAccessControl, (control) => control.status),
     "remoteAccess.enable": () => Effect.flatMap(RemoteAccessControl, (control) => control.enable),
     "remoteAccess.disable": () => Effect.flatMap(RemoteAccessControl, (control) => control.disable),
+
+    // Token-less Clients only: the Relay route and Linked Devices (ADR 0083).
+    "relayRoute.status": () => Effect.flatMap(RelayRoute, (route) => route.status),
+    "relayRoute.enable": ({ url }) => Effect.flatMap(RelayRoute, (route) => route.enable(url)),
+    "relayRoute.disable": () => Effect.flatMap(RelayRoute, (route) => route.disable),
+    "devices.link": () => Effect.flatMap(RelayRoute, (route) => route.startLink),
+    "devices.awaitLink": ({ linkId }) =>
+      Effect.flatMap(RelayRoute, (route) => route.awaitLink(linkId)),
+    "devices.cancelLink": ({ linkId }) =>
+      Effect.flatMap(RelayRoute, (route) => route.cancelLink(linkId)),
+    "devices.add": (device) => Effect.flatMap(RelayRoute, (route) => route.add(device)),
+    "devices.list": () => Effect.flatMap(RelayRoute, (route) => route.list),
+    "devices.unlink": ({ id }) => Effect.flatMap(RelayRoute, (route) => route.unlink(id)),
+    "devices.unlinkSelf": (_, { client }) => {
+      const device = deviceOf(client);
+
+      return device === null
+        ? Effect.fail(new NotFound({ what: "linked device", id: "this connection" }))
+        : Effect.flatMap(RelayRoute, (route) => route.unlinkSelf(device.id));
+    },
+    // A Linked Device's own connection only: the device registers itself (ADR 0083).
+    "devices.registerPush": (registration, { client }) => {
+      const device = deviceOf(client);
+
+      return device === null
+        ? Effect.fail(notADevice())
+        : Effect.flatMap(RelayRoute, (route) => route.registerPush(device, registration));
+    },
+    "devices.unregisterPush": (_, { client }) => {
+      const device = deviceOf(client);
+
+      return device === null
+        ? Effect.fail(notADevice())
+        : Effect.flatMap(RelayRoute, (route) => route.unregisterPush(device));
+    },
 
     dispatch: ({ commandId }) =>
       Effect.fail(new CommandRejected({ commandId, reason: notYet("the event store") })),
@@ -467,6 +511,10 @@ export const defaultHandlers = (options: {
       Effect.fail(new Unsupported({ capability: "sessions.auto-archive" })),
     "sessions.setAutoArchive": () =>
       Effect.fail(new Unsupported({ capability: "sessions.auto-archive" })),
+    "continuity.watch": () => Stream.fail(new Unsupported({ capability: "session.continuity" })),
+    "continuity.markRead": () => Effect.fail(new Unsupported({ capability: "session.continuity" })),
+    "continuity.saveDraft": () =>
+      Effect.fail(new Unsupported({ capability: "session.continuity" })),
     "attachments.settings": () =>
       Effect.fail(new Unsupported({ capability: "attachments.settings" })),
     "attachments.setSettings": () =>

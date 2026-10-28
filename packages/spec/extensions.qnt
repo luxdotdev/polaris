@@ -151,9 +151,12 @@ module extensions {
     pending' = pending, required' = required, negotiated' = negotiated, last' = Nothing,
   }
 
+  /** `supervised` and `plan` ask before every action; the other modes approve some themselves. */
+  pure def asksForEverything(m: str): bool = m == "supervised" or m == "plan"
+
   action callTurn(c: int): bool = {
     val p = scoped.get(c)
-    val approves = p >= 0 and pairings.get(p).grant.contains("turn") and mode != "supervised"
+    val approves = p >= 0 and pairings.get(p).grant.contains("turn") and not(asksForEverything(mode))
     call(c, Needs(if (approves) "approve" else "turn"))
   }
 
@@ -175,6 +178,7 @@ module extensions {
       call(c, need),
       callTurn(c),
       setMode("supervised"),
+      setMode("plan"),
       setMode("auto"),
       setMode("full-access"),
       close(c),
@@ -276,6 +280,8 @@ module extensions_test {
     .then(setMode("full-access"))
     .then(callTurn(0)).expect(last == Refused("approve"))
     .then(callTurn(1)).expect(last == Allowed)
+    .then(setMode("plan"))
+    .then(callTurn(0)).expect(last == Allowed)
     .then(setMode("supervised"))
     .then(callTurn(0)).expect(last == Allowed and safety)
 

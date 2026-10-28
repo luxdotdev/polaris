@@ -20,7 +20,7 @@ Root attributes (any element can set them for its subtree):
 
 | Attribute | Values | Default |
 |---|---|---|
-| `data-theme` | `dark`, `light` | dark; with no attribute, the system appearance decides |
+| `data-theme` | `dark`, `midnight`, `light` | dark; with no attribute, the system appearance decides |
 | `data-density` | `calm`, `balanced`, `compact` | calm |
 | `data-reduce-motion` | `true`, `false` | follows `prefers-reduced-motion`; `false` keeps motion when the system asks to reduce it |
 | `data-text-size` | `small`, `default`, `large`, `larger` | default (scales the type table only; density is separate) |
@@ -36,6 +36,8 @@ Root attributes (any element can set them for its subtree):
 - **Density**: `h-row`, `h-tree-row`, `h-session-row`, `size-harness-tile`, `px-row-x`, `gap-gap`, `p-panel`, `gap-section` read the active density's values (rule/density-through-tokens).
 - **Radii** `rounded-control|row|card|full`; **shadow** `shadow-float`; `tabular` and `pixelated` utilities.
 - shadcn's semantic variables (`--background`, `--primary`, `--muted`, `--border`, `--ring`…) map onto these, so a stock shadcn component picks up Night watch.
+- **Midnight** (`data-theme="midnight"`, DESIGN.md's Mobile App) is dark with a black ground, `#0a0b0d` / `#141518` surfaces and an 8% hairline; it uses dark's images and signal colours.
+- **`@polaris/ui/tokens`** is midnight and the Mobile App's type scale (Paper H4) as plain TS constants, with no DOM, React or Tailwind (its own `tsconfig.json` has no DOM lib). `src/tokens/midnight.test.ts` fails if they drift from `tokens.css` and theme.css's midnight block, or the block from DESIGN.md.
 - Washes, scenes and halos come from `design/assets` through per-theme variables in `assets.css` (images can't be `light-dark()` pairs).
 
 `cn()` is tailwind-merge taught the Polaris scale; without that, `text-caption text-text-subtle` would lose the size.
@@ -65,7 +67,7 @@ M1 coverage (V0): HostStateChip and HostStateCard (Connection State in the works
 bun run --cwd packages/ui gallery        # http://localhost:5199
 ```
 
-One page with every component and state, dark and light side by side, and "Artboard 5", the chrome of Paper's `11U-0` rebuilt statically from these components. Query parameters make each state reachable for screenshots: `?page=components|orchestrate`, `?density=calm|balanced|compact`, `?theme=dark|light`, `?reduce=1`, `?chrome=0` (no gallery header), and on the artboard page `?hover=1` (artboard 1's approval card), `?k=1` (artboard 3's jump menu), `?toast=0`.
+One page with every component and state, dark, midnight (with the mobile type scale) and light side by side, and "Artboard 5", the chrome of Paper's `11U-0` rebuilt statically from these components. Query parameters make each state reachable for screenshots: `?page=components|orchestrate`, `?density=calm|balanced|compact`, `?theme=dark|midnight|light`, `?reduce=1`, `?chrome=0` (no gallery header), and on the artboard page `?hover=1` (artboard 1's approval card), `?k=1` (artboard 3's jump menu), `?toast=0`.
 
 ## Tests
 

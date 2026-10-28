@@ -88,6 +88,8 @@ export interface NeedsYouNotification {
   readonly id: string;
   readonly title: string;
   readonly body: string;
+  /** Polaris sent it because a Constellation needs you, not the agent (Settings → Sessions). */
+  readonly automatic?: boolean;
 }
 
 export interface NeedsYouSummary {

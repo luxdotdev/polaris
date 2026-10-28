@@ -146,6 +146,7 @@ const context: RequestContext = {
   appVersion: "0.1.0",
   pickFolder: () => Promise.resolve(null),
   writeClipboard: () => Promise.resolve(),
+  writeSecretClipboard: async () => undefined,
   editAction: () => undefined,
   needsYou: () => undefined,
   showAppMenu: () => {},

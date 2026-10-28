@@ -11,7 +11,7 @@ import {
   TurnId,
   TurnItem,
 } from "@polaris/protocol";
-import { Effect, Stream } from "effect";
+import { Effect, Schema, Stream } from "effect";
 import { HarnessEvent, type HarnessSession } from "../HarnessDriver.ts";
 import { rulesetFor } from "./mapping.ts";
 import { makeOpenCodeDriver, probeOpenCode } from "./OpenCodeDriver.ts";
@@ -504,6 +504,30 @@ describe("OpenCode driver", () => {
       CWD,
     ]);
     expect(result.terminal.join(" ")).not.toContain(fake.password);
+  });
+
+  const agentOf = Schema.decodeUnknownSync(
+    Schema.Struct({ agent: Schema.optionalKey(Schema.String) })
+  );
+
+  test("a planning session prompts OpenCode's plan agent, asking before edits; leaving plan drops it", async () => {
+    const { fake } = await withSession(
+      ({ session }) =>
+        Effect.gen(function* () {
+          yield* session.sendTurn(turnInput("turn-1", "how would you fix it?"));
+          yield* session.setPermissionMode("auto-edits");
+          yield* session.steer("go ahead");
+        }),
+      { permissionMode: "plan" }
+    );
+
+    expect(fake.sent("POST /session")[0]?.body).toEqual({ permission: rulesetFor("supervised") });
+
+    const agents = fake
+      .sent(`POST /session/${FAKE_SESSION_ID}/prompt_async`)
+      .map((r) => agentOf(r.body).agent ?? null);
+
+    expect(agents).toEqual(["plan", null]);
   });
 
   test("a server that goes away ends the session with an error", async () => {

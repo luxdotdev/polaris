@@ -16,6 +16,7 @@ import {
   type Capability,
   GrantGate,
   type HostInfo,
+  type LinkedDevice,
   makeWire,
   type Wire,
   type WireOptions,
@@ -43,6 +44,11 @@ import { connectionRejected, rejectConnection } from "../extensions/admission.ts
 import { Pairings } from "../extensions/pairings.ts";
 import { RemoteAccessLive } from "../extensions/remoteAccess.ts";
 import { RemoteAccessControl } from "../remoteAccess/index.ts";
+import { ConnectionDevice, deviceOf } from "../linkedDevices/connection.ts";
+import { DeviceConnections, type LinkTiming, RelayRoute } from "../linkedDevices/route.ts";
+import type { DeviceSession } from "../linkedDevices/session.ts";
+import { LinkedDevices } from "../linkedDevices/store.ts";
+import { HostSecrets } from "../secrets/index.ts";
 import { paths } from "../paths.ts";
 import { CommandRunner } from "../service/CommandRunner.ts";
 import { takeStopRecord } from "../service/daemonStop.ts";
@@ -95,6 +101,10 @@ export interface ServeOptions<ROut, E, RIn> {
   readonly upgrades?: boolean;
   /** Told each startup step as it begins, so a stuck startup can say where (`deadline.ts`). */
   readonly onPhase?: (phase: string) => void;
+  /** Where the Host's relay keys live; defaults to `HostSecrets.layer` (tests use memory). */
+  readonly secrets?: Layer.Layer<HostSecrets>;
+  /** For tests: link lifetime and a hold on link completion (`RelayRoute`). */
+  readonly relayLinks?: LinkTiming | undefined;
 }
 
 export interface RunningServer {
@@ -148,7 +158,14 @@ export const startServer = <ROut = never, E = never, RIn = never>(
   | Scope.Scope
   | Exclude<
       RIn,
-      BlobChannel | CurrentLanguageConnection | HostLanguageEnvironment | LanguageConnectionLifetime
+      | BlobChannel
+      | CurrentLanguageConnection
+      | HostLanguageEnvironment
+      | LanguageConnectionLifetime
+      | RelayRoute
+      | LinkedDevices
+      | HostSecrets
+      | DeviceConnections
     >
 > =>
   Effect.gen(function* () {
@@ -193,6 +210,8 @@ export const startServer = <ROut = never, E = never, RIn = never>(
         readonly close: Effect.Effect<void>;
         /** A gateway connection: `hello` must carry a token and a protocol range. */
         readonly tokenRequired: boolean;
+        /** Over the Relay route: the Linked Device it acts as (ADR 0083). */
+        readonly device: LinkedDevice | null;
         readonly authenticated: () => void;
         rpcLimited: boolean;
         closing: boolean;
@@ -211,7 +230,33 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       })
     );
 
+    // Set once `serveConnection` exists: a device's session that arrives sooner is ended.
+    let serveDevice:
+      | ((session: DeviceSession, device: LinkedDevice) => Effect.Effect<void>)
+      | null = null;
+
+    const deviceServices = RelayRoute.layer({ root, hostInfo, links: options.relayLinks }).pipe(
+      Layer.provideMerge(
+        Layer.mergeAll(
+          LinkedDevices.layer(join(root, "linked-devices.sqlite")).pipe(
+            Layer.catchTag("LinkedDeviceStoreError", (error) =>
+              Layer.effect(
+                LinkedDevices,
+                Effect.fail(new ServiceError({ service: "transport", message: error.message }))
+              )
+            )
+          ),
+          options.secrets ?? HostSecrets.layer,
+          Layer.succeed(DeviceConnections)({
+            serve: (session, device) =>
+              serveDevice === null ? session.close : serveDevice(session, device),
+          })
+        )
+      )
+    );
+
     const extensionServices = Layer.mergeAll(
+      deviceServices,
       RemoteAccessLive.pipe(Layer.provideMerge(RemoteAccessControl.layer({ root }))),
       Pairings.layer(join(root, "extensions.sqlite")).pipe(
         Layer.catchTag("PairingStoreError", (error) =>
@@ -279,6 +324,9 @@ export const startServer = <ROut = never, E = never, RIn = never>(
 
       connection.clients.add(client);
 
+      if (connection.device !== null && deviceOf(client) === null)
+        client.annotate(ConnectionDevice, connection.device);
+
       const current = () =>
         !connection.closing &&
         connections.get(client.id) === connection &&
@@ -341,6 +389,8 @@ export const startServer = <ROut = never, E = never, RIn = never>(
             Layer.merge(
               BlobChannelOutsideRequest,
               Layer.mergeAll(
+                // The same layer as the transport's, so both share one Relay route (one build).
+                deviceServices,
                 Layer.succeed(HostLanguageEnvironment)({
                   hostId: hostInfo.hostId,
                   root: options.root ?? defaults.root,
@@ -367,6 +417,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
         grantGateFor({
           tokenRequired: (client) =>
             connections.get(client.id)?.tokenRequired ?? options.extensionTokenRequired ?? false,
+          deviceOf: (client) => connections.get(client.id)?.device ?? null,
         })
       ),
       Effect.provideContext(handlers),
@@ -378,7 +429,8 @@ export const startServer = <ROut = never, E = never, RIn = never>(
     const serveConnection = (
       transport: ByteTransport,
       tokenRequired: boolean,
-      authenticated = () => {}
+      authenticated = () => {},
+      device: LinkedDevice | null = null
     ) =>
       Effect.scoped(
         Effect.gen(function* () {
@@ -451,6 +503,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
             lifetimes,
             close: transport.close,
             authenticated,
+            device,
             tokenRequired: tokenRequired || (options.extensionTokenRequired ?? false),
             rpcLimited: tokenRequired || (options.extensionTokenRequired ?? false),
             closing: false,
@@ -492,6 +545,16 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       );
 
     const scope = yield* Effect.scope;
+
+    serveDevice = (session, device) =>
+      Effect.asVoid(
+        Effect.forkIn(
+          serveConnection(session, false, () => {}, device).pipe(
+            Effect.ensuring(Effect.sync(() => session.end()))
+          ),
+          scope
+        )
+      );
     yield* phase(`listening on ${socketPath}`);
     const listener = yield* listen(socketPath);
     yield* listener.connections.pipe(

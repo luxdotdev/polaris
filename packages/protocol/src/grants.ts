@@ -76,11 +76,26 @@ export const RPC_GRANTS = {
   "remoteAccess.status": "client",
   "remoteAccess.enable": "client",
   "remoteAccess.disable": "client",
+  "relayRoute.status": "client",
+  "relayRoute.enable": "client",
+  "relayRoute.disable": "client",
+  "devices.link": "client",
+  "devices.awaitLink": "client",
+  "devices.cancelLink": "client",
+  "devices.add": "client",
+  "devices.list": "client",
+  "devices.unlink": "client",
+  "devices.unlinkSelf": "client",
+  "devices.registerPush": "client",
+  "devices.unregisterPush": "client",
   "voice.transcribe": "voice",
   "voice.settings": "client",
   "voice.setKey": "client",
   "sessions.autoArchive": "client",
   "sessions.setAutoArchive": "client",
+  "continuity.watch": "client",
+  "continuity.markRead": "client",
+  "continuity.saveDraft": "client",
   "attachments.stage": "client",
   "attachments.settings": "client",
   "attachments.setSettings": "client",
@@ -243,12 +258,16 @@ export const accessFor = (rpc: string, command: string | null) =>
     ? { what: `dispatch:${command ?? ""}`, access: commandAccess(command ?? "") }
     : { what: rpc, access: rpcAccess(rpc) };
 
+/** A `supervised` or `plan` session asks before every action; the others approve some themselves. */
+const asksForEverything = (permissionMode: string | null) =>
+  permissionMode === "supervised" || permissionMode === "plan";
+
 /**
  * A session that is not supervised approves for itself, so starting one is also
  * approving: an Extension needs `approve` on top of `start` (ADR 0075).
  */
 const alsoApproves = (rpc: string, command: string | null, permissionMode: string | null) =>
-  rpc === "dispatch" && command === "StartSession" && permissionMode !== "supervised";
+  rpc === "dispatch" && command === "StartSession" && !asksForEverything(permissionMode);
 
 /** Apply inside the commit decision, using the session's current permission mode. */
 export const decideTurnAccess = (
@@ -256,7 +275,7 @@ export const decideTurnAccess = (
   command: Command,
   permissionMode: string | null
 ): NotGranted | null => {
-  if (grant === null || permissionMode === null || permissionMode === "supervised") return null;
+  if (grant === null || permissionMode === null || asksForEverything(permissionMode)) return null;
 
   if (!Command.isAnyOf(["SendTurn", "Steer", "Continue", "Retry"])(command)) return null;
 

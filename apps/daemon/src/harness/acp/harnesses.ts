@@ -62,6 +62,8 @@ export const ACP_HARNESSES: ReadonlyArray<AcpHarness> = [GEMINI, COPILOT];
  * the Harness's permission requests by the mode (see `permissions.ts`).
  */
 export const MODE_IDS: Record<PermissionMode, ReadonlyArray<string>> = {
+  // Without a plan mode, a session plans under supervised's mode and Polaris asks for every edit.
+  plan: ["plan", "architect", "default", "ask", "read-only"],
   supervised: ["default", "ask", "read-only"],
   "auto-edits": ["auto_edit", "autoEdit", "acceptEdits", "accept-edits", "workspace-write"],
   auto: ["auto", "agent", "autopilot"],

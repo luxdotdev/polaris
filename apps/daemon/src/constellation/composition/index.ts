@@ -8,6 +8,7 @@ import { Effect, Layer, Stream } from "effect";
 import { registerStartupGraphs } from "../../engine/sessionBoundary.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { mcpHttp } from "../../mcp/http.ts";
+import { startAttention } from "../attention.ts";
 import { hostWorkingAttemptsLayer } from "../host.ts";
 import {
   ConstellationOwner,
@@ -257,6 +258,9 @@ export const constellationServices = Layer.effectDiscard(
   Effect.gen(function* () {
     const commands = yield* withRemoteWorkerCommands(yield* Constellations);
     const endpoint = yield* mcpHttp(commands);
+
+    if (endpoint.notifications !== null)
+      yield* startAttention(yield* EventStore, endpoint.notifications);
     yield* (yield* ConstellationHarness).install(endpoint.origin, commands);
     const assignments = yield* RemoteAssignments;
     const deliveries = yield* RemoteDeliveries;

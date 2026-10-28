@@ -170,6 +170,13 @@ const notifyText = (outcome: NotifyOutcome) =>
     Sent: () => Effect.succeed(text(["Notification sent.", "Next: Continue."])),
     AlreadySent: () =>
       Effect.succeed(text(["This notification was already sent.", "Next: Continue."])),
+    Collapsed: () =>
+      Effect.succeed(
+        text([
+          "Polaris already notified the user about this session moments ago, so this one was folded into it.",
+          "Next: Continue.",
+        ])
+      ),
     NotFound: () =>
       Effect.fail(
         rejection("E-SESSION", "This session can't notify", "Continue without notifying.")
@@ -184,7 +191,7 @@ const notifyText = (outcome: NotifyOutcome) =>
       ),
   });
 
-/** Every binding: a notification the user sees on their Mac, at most one per 30s per session. */
+/** Every binding: a notification on the user's Mac and phone, at most one per 30s per session. */
 export const notifyTool = (
   sessionId: SessionId,
   sessions: SessionTools,
@@ -211,7 +218,7 @@ export const notifyTool = (
   return {
     name: "notify",
     description:
-      "Send the user a desktop notification: a short title and an optional body. Use it for news the user would want while away (done, blocked, needs a decision), not for progress. At most one every 30s per session.",
+      "Send the user a notification on their desktop and phone: a short title and an optional body. Use it for news the user would want while away (done, blocked, needs a decision), not for progress. Polaris already notifies the user of your questions to them, approvals and handed-up Claims; don't repeat those. At most one every 30s per session.",
     inputSchema: withRequestId(jsonSchema(NotifyInputSchema)),
     call: (input) =>
       Effect.runPromise(

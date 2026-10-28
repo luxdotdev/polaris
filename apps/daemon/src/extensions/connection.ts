@@ -5,8 +5,11 @@
  */
 import {
   Actor,
+  Command,
   decideAccess,
+  decideDeviceAccess,
   ExtensionTokenRejected,
+  type LinkedDevice,
   GrantGate,
   NotGranted,
   NotFound,
@@ -17,6 +20,7 @@ import { Context, Effect, Exit, Match, Option, Predicate, Redacted, Schema } fro
 import type { Rpc } from "effect/rpc";
 import { Pairings } from "./pairings.ts";
 import { admissionOf, rejectConnection, reserveConnection } from "./admission.ts";
+import { deviceOf } from "../linkedDevices/connection.ts";
 
 /** Per-connection annotation set by `hello`: the Pairing the connection acts as. */
 export class ConnectionPairing extends Context.Service<ConnectionPairing, Pairing>()(
@@ -30,9 +34,13 @@ export const pairingOf = (client: Rpc.ServerClient): Pairing | null =>
 export const actorOf = (client: Rpc.ServerClient): Actor => {
   const pairing = pairingOf(client);
 
-  return pairing === null
+  if (pairing !== null)
+    return Actor.cases.Extension.make({ pairingId: pairing.id, name: pairing.name });
+  const device = deviceOf(client);
+
+  return device === null
     ? Actor.cases.Client.make({})
-    : Actor.cases.Extension.make({ pairingId: pairing.id, name: pairing.name });
+    : Actor.cases.LinkedDevice.make({ deviceId: device.id, name: device.name });
 };
 
 /** The live connections of each Pairing, so that revoking it closes them. */
@@ -160,6 +168,9 @@ const dispatchCommand = Schema.decodeUnknownOption(
   })
 );
 
+/** A device's `dispatch` is also decided on its whole Command (RX3-1). */
+const deviceCommand = Schema.decodeUnknownOption(Schema.Struct({ command: Command }));
+
 const tokenHello = Schema.is(Schema.Struct({ extensionToken: Schema.Redacted(Schema.String) }));
 
 /**
@@ -169,6 +180,8 @@ const tokenHello = Schema.is(Schema.Struct({ extensionToken: Schema.Redacted(Sch
  */
 export const grantGateFor = (options: {
   readonly tokenRequired: (client: Rpc.ServerClient) => boolean;
+  /** The Linked Device a connection came in as, from the transport rather than annotations. */
+  readonly deviceOf?: (client: Rpc.ServerClient) => LinkedDevice | null;
 }) =>
   GrantGate.of((effect, { client, rpc, payload }) => {
     // RpcServer builds middleware before forking handlers: reserve authority at receipt.
@@ -195,6 +208,19 @@ export const grantGateFor = (options: {
       ) {
         return Effect.fail(new NotGranted({ what: rpc._tag, needed: null }));
       }
+
+      const device = options.deviceOf?.(client) ?? deviceOf(client);
+
+      const deviceRefusal =
+        device === null
+          ? null
+          : decideDeviceAccess(
+              rpc._tag,
+              command?._tag ?? null,
+              Option.getOrNull(Option.map(deviceCommand(payload), (p) => p.command))
+            );
+
+      if (deviceRefusal !== null) return Effect.fail(deviceRefusal);
 
       const refusal = decideAccess(
         pairing,

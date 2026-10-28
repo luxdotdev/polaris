@@ -8,6 +8,7 @@ import {
   type Command,
   isKnownHarness,
   type PermissionMode,
+  permissionModeFor,
   type SessionId,
   type WorkspaceId,
 } from "@polaris/protocol";
@@ -41,6 +42,7 @@ import {
   resolvePlacement,
   startCommand,
 } from "../model/newSession.ts";
+import { permissionModesOn } from "../model/intent.ts";
 import { patchSessionUi, type SessionUi, uiKey, useSessionUi } from "../state.ts";
 import { promptFor } from "../../composer/index.ts";
 import { DraftComposer } from "./DraftComposer.tsx";
@@ -242,10 +244,15 @@ export const NewSessionPage = ({
           ({ session }) => session.cwd === dir && session.state !== "archived"
         ).length;
 
-  const permissionMode =
+  const capabilities = host?.status.capabilities ?? [];
+
+  // A Host without plan mode starts the session supervised instead.
+  const permissionMode = permissionModeFor(
     permissionPick ??
-    (chosen === null ? undefined : defaults[chosen]?.permissionMode) ??
-    "supervised";
+      (chosen === null ? undefined : defaults[chosen]?.permissionMode) ??
+      "supervised",
+    capabilities
+  );
 
   const choices: Choices = {
     choice,
@@ -333,7 +340,13 @@ export const NewSessionPage = ({
               />
             )
           }
-          tools={<PermissionChip value={permissionMode} onChange={setPermissionMode} />}
+          tools={
+            <PermissionChip
+              value={permissionMode}
+              onChange={setPermissionMode}
+              modes={permissionModesOn(capabilities)}
+            />
+          }
           value={ui.draft}
           onChange={(text) => patchSessionUi(key, () => ({ draft: text }))}
           onSubmit={submit}

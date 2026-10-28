@@ -7,13 +7,17 @@
   "exports": {
     ".": "./src/index.ts",
     "./bridge": "./src/bridge.ts",
-    "./endpoint": "./src/endpoint.ts"
+    "./endpoint": "./src/endpoint.ts",
+    "./relay": "./src/relay/index.ts",
+    "./relay/party": "./src/relay/party/index.ts"
   },
   "scripts": {
     "typecheck": "tsc -p .",
     "test": "bun ../../tooling/test/watchdog.ts --pass-with-no-tests"
   },
   "dependencies": {
-    "effect": "4.0.0-rc.118"
+    "effect": "4.0.0-rc.118",
+    "noise-handshake": "4.2.0",
+    "sodium-universal": "5.0.1"
   }
 }

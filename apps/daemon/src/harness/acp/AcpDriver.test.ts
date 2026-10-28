@@ -573,6 +573,47 @@ describe("ACP driver", () => {
     expect(modes.map((m) => m.params?.modeId)).toEqual(["yolo", "default"]);
   });
 
+  test("plan selects the agent's plan mode, or its default mode when it has none", async () => {
+    const withPlan = await start({
+      setup: {
+        modes: {
+          currentModeId: "default",
+          availableModes: [
+            { id: "default", name: "Default" },
+            { id: "plan", name: "Plan" },
+          ],
+        },
+      },
+    });
+
+    const planning = await withPlan.open({ permissionMode: "plan" });
+    await run(planning.session.setPermissionMode("supervised"));
+
+    const withoutPlan = await start({
+      setup: {
+        modes: {
+          currentModeId: "default",
+          availableModes: [
+            { id: "default", name: "Default" },
+            { id: "yolo", name: "YOLO" },
+          ],
+        },
+      },
+    });
+
+    const fallback = await withoutPlan.open({ permissionMode: "full-access" });
+    await run(fallback.session.setPermissionMode("plan"));
+
+    const modeIds = (agent: typeof withPlan) =>
+      agent
+        .received()
+        .filter((m) => m.method === "session/set_mode")
+        .map((m) => m.params?.modeId);
+
+    expect(modeIds(withPlan)).toEqual(["plan", "default"]);
+    expect(modeIds(withoutPlan)).toEqual(["yolo", "default"]);
+  });
+
   test("sessions share one agent process; a crash ends them and the next open starts a new one", async () => {
     const agent = await start({ prompts: [{ steps: [{ exit: 3 }] }] });
     const first = await agent.open();

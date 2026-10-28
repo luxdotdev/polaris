@@ -1,5 +1,12 @@
 import { expect, test } from "bun:test";
-import { ExtensionTokenRejected, Pairing, PairingId } from "@polaris/protocol";
+import {
+  ExtensionTokenRejected,
+  LinkedDevice,
+  LinkedDeviceId,
+  Pairing,
+  PairingId,
+} from "@polaris/protocol";
+import { RelayAddress } from "@polaris/protocol/relay";
 import { Deferred, Effect, Exit, Fiber, Redacted, Schema } from "effect";
 import { Headers } from "effect/http";
 import { Rpc } from "effect/rpc";
@@ -7,6 +14,7 @@ import { RequestId } from "effect/rpc/RpcMessage";
 import {
   ExtensionConnections,
   grantGate,
+  grantGateFor,
   pairingOf,
   revokePairing,
   scopeConnection,
@@ -225,3 +233,56 @@ test("concurrent hellos cannot replace the first Pairing", async () => {
     )
   );
 });
+
+const phone = new LinkedDevice({
+  id: LinkedDeviceId.make("dev_1"),
+  name: "Phone",
+  relayAddress: RelayAddress.make("A".repeat(22)),
+  noiseKey: "B".repeat(43),
+  createdAt: "2026-10-28T00:00:00Z",
+  lastUsedAt: null,
+  unlinkedAt: null,
+});
+
+// RX2-1: an RPC added after the allowlist (or any tag it doesn't name) fails closed for a device.
+test.each(["future.newRpc", "toString", "__proto__"])(
+  "a Linked Device is refused an RPC the allowlist doesn't name: %s",
+  async (tag) => {
+    /** What the gate did with the request: let it reach its handler, or refuse it. */
+    const gate = async (device: LinkedDevice | null) => {
+      let outcome = "neither";
+
+      const handler = Effect.andThen(
+        Effect.sync(() => {
+          outcome = "ran";
+        }),
+        Effect.interrupt
+      );
+
+      await Effect.runPromise(
+        Effect.scoped(
+          Effect.exit(
+            grantGateFor({ tokenRequired: () => false, deviceOf: () => device })(handler, {
+              client: new Rpc.ServerClient(20),
+              rpc: Rpc.make(tag),
+              payload: undefined,
+              requestId: RequestId(1),
+              headers: Headers.empty,
+            }).pipe(
+              Effect.catchTag("NotGranted", (refusal) =>
+                Effect.sync(() => {
+                  outcome = refusal._tag;
+                })
+              )
+            )
+          )
+        )
+      );
+
+      return outcome;
+    };
+
+    expect(await gate(null)).toBe("ran");
+    expect(await gate(phone)).toBe("NotGranted");
+  }
+);

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { Effect, Layer, Option, Redacted } from "effect";
 import { shortTemp } from "../platform/testing.ts";
 import { CommandRunner } from "../service/CommandRunner.ts";
-import { fileSecrets, keychainSecrets } from "./index.ts";
+import { fileSecrets, HostSecrets, keychainSecrets } from "./index.ts";
 
 const dirs: Array<string> = [];
 
@@ -132,6 +132,29 @@ test.skipIf(process.platform !== "darwin")(
       expect(result.map(revealed)).toEqual([null, Redacted.value(VALUE), null]);
     } finally {
       security("delete-keychain", keychain);
+    }
+  }
+);
+
+// RV1 / RX1-4: an inherited environment must not move the Host's identity off the Keychain.
+test.if(process.platform === "darwin")(
+  "POLARIS_SECRETS=file no longer selects the file store on macOS",
+  async () => {
+    const before = process.env.POLARIS_SECRETS;
+    process.env.POLARIS_SECRETS = "file";
+
+    try {
+      const store = await Effect.runPromise(
+        Effect.provide(
+          Effect.map(HostSecrets, (secrets) => secrets.store),
+          HostSecrets.layer
+        )
+      );
+
+      expect(store).toBe("keychain");
+    } finally {
+      if (before === undefined) delete process.env.POLARIS_SECRETS;
+      else process.env.POLARIS_SECRETS = before;
     }
   }
 );

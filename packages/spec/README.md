@@ -322,6 +322,11 @@ The live producer's ephemeral `LivenessChanged` frames have no global sequence
 and are outside this committed-log abstraction. Their capability gate, resume
 seeding and graph-revision neutrality are covered by the real producer tests.
 
+Continuity (`continuity.watch`, `continuity.markRead`, `continuity.saveDraft`; ADR 0082) is
+outside the spec too: read positions and drafts live in their own SQL tables, never in the
+event log, and take no part in deciding, committing, acknowledging, streaming, resuming or
+recovering Commands. `apps/daemon/src/continuity/continuity.test.ts` covers them.
+
 Blocking maps `WorkerBlock` to `AttemptBlocked` and a `Blocked` notification.
 `blockEvents`, `unblockEvents` and `blockTransitionsValid` model live targets,
 unsatisfied acceptance, Gate and transitive wait-cycle rejection, working → blocked → working, and a Turn proof on unblock. `liveBlocks`, `waits`, `reach` and `validGraph` combine live blocked Attempts' targets with inherited dependencies and parent completion edges: mutual blocks are refused by `blockEvents`, and block-closing plan edits by `planEvents`. Accepted Tasks contribute no wait edges. `planGraphValid` validates only newly introduced edges against the resulting graph, so unrelated edits and repair/cancel batches can proceed when an older graph already contains a block cycle. The runtime `constellation/waitGraph.ts` supplies both guards; `E-DEP-CYCLE` names the block edge and reports each directed cycle once, using a rotation-independent key across newly added edges. Cancel drops named targets and queues a Lead notification; an empty set continues waiting for the Lead.
@@ -371,8 +376,9 @@ Session boundaries, nudge limits, operator authority, peer routing and recovery.
 The permission ceiling is a preparation guard too: a reused (Existing) worker
 Session whose permission mode is broader than the Lead's is refused with
 `E-PERMISSION-CEILING` before any Attempt exists, and a new worker Session takes
-the Lead's mode. A worker Host gets the ceiling as
-`RemotePlacementRequest.leadPermissionMode`. It adds no committed event or graph
+the Lead's mode (`plan` ranks with `supervised`; a planning Lead's worker starts
+`supervised`, `workerMode`). A worker Host gets the ceiling as
+`RemotePlacementRequest.leadPermissionMode`, `plan` sent as `supervised`. It adds no committed event or graph
 state, so Quint is unchanged; `composition/prepare.test.ts` covers local and
 remote ceilings.
 
@@ -671,9 +677,10 @@ in `bun run spec`.
 
 The gate's mapping is exhaustive by type (a new RPC or Command without an entry fails
 typecheck); the spec takes "what a request needs" as an input. A `StartSession` whose
-mode is not `supervised` needs `start` and then `approve` (the session would approve for
-itself): in the spec that is two `call`s. `SendTurn`, `Steer`, `Continue` and `Retry`
-need `turn` plus `approve` in any existing non-supervised Session (`callTurn`). The mode
+mode is neither `supervised` nor `plan` needs `start` and then `approve` (the session would
+approve for itself): in the spec that is two `call`s. `SendTurn`, `Steer`, `Continue` and
+`Retry` need `turn` plus `approve` in any existing Session that approves for itself
+(`callTurn`; `asksForEverything` is `supervised` or `plan`, ENG-466). The mode
 is read at the commit decision, never cached at RPC admission. The spec abstracts one
 existing Session; the Engine tests bind this rule to each command and durable refusals. `hello` checks the token again once the
 connection is bound, so a `revoke` between the check and the binding either fails the
