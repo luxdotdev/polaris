@@ -57,7 +57,7 @@ export interface RemoteAccessRowProps {
 export const RemoteAccessRow = ({ status, busy, onChange }: RemoteAccessRowProps) => (
   <div className="flex items-center gap-3" data-testid="remote-access">
     <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-      <span className="text-label text-text-default">Remote access</span>
+      <span className="text-label text-text-default">Tailscale · for extensions</span>
       {remoteAccessLines(status).map((line) => (
         <span key={line} className="text-caption text-text-subtle break-words">
           {line}
@@ -65,7 +65,7 @@ export const RemoteAccessRow = ({ status, busy, onChange }: RemoteAccessRowProps
       ))}
     </div>
     <Switch
-      aria-label="Remote access"
+      aria-label="Tailscale"
       checked={status?.state === "on"}
       disabled={busy || status === null || !switchable(status)}
       onCheckedChange={onChange}

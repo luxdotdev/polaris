@@ -246,3 +246,34 @@ export function MicrophoneIcon({ size = 16, strokeWidth = STROKE, ...props }: Nu
     </svg>
   );
 }
+
+/** Nucleo UI outline `MobileOutline18`. */
+export function MobileIcon({ size = 16, strokeWidth = STROKE, ...props }: NucleoIconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 18 18"
+      aria-hidden="true"
+      focusable="false"
+      {...props}
+    >
+      <path
+        d="M10.5 2H7.5V2.75H10.5V2Z"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      ></path>
+      <path
+        d="M12.25 1.75H5.75C4.6454 1.75 3.75 2.6454 3.75 3.75V14.25C3.75 15.3546 4.6454 16.25 5.75 16.25H12.25C13.3546 16.25 14.25 15.3546 14.25 14.25V3.75C14.25 2.6454 13.3546 1.75 12.25 1.75Z"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      ></path>
+    </svg>
+  );
+}

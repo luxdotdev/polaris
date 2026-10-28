@@ -30,10 +30,11 @@ import type { SessionData } from "../../../store/plain.ts";
 import { sessionStateLabel, usageLimitLine } from "../../../shell/copy.ts";
 import { keepTerminalFocus, OpenInTerminalItem } from "../../terminal/index.ts";
 import { send } from "../dispatch.ts";
+import { useHost } from "../hooks.ts";
 import {
   archiveCommand,
-  PERMISSION_MODES,
   permissionCommand,
+  permissionModesOn,
   permissionLabel,
   renameCommand,
 } from "../model/intent.ts";
@@ -103,6 +104,7 @@ const SessionMenu = ({
   onFork,
 }: Omit<SessionHeaderProps, "harness" | "turnNumber">) => {
   const archived = session.state === "archived";
+  const modes = permissionModesOn(useHost(hostKey)?.status.capabilities ?? []);
 
   return (
     <DropdownMenu>
@@ -128,12 +130,12 @@ const SessionMenu = ({
             <DropdownMenuRadioGroup
               value={session.permissionMode}
               onValueChange={(mode) => {
-                const found = PERMISSION_MODES.find((p) => p.mode === mode);
+                const found = modes.find((p) => p.mode === mode);
 
                 if (found !== undefined) void setPermission(hostKey, session, found.mode);
               }}
             >
-              {PERMISSION_MODES.map((p) => (
+              {modes.map((p) => (
                 <DropdownMenuRadioItem key={p.mode} value={p.mode}>
                   <span className="flex flex-col py-1">
                     <span>{p.label}</span>

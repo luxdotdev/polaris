@@ -1,6 +1,7 @@
 import { Schema, SchemaTransformation } from "effect";
 import { PREDICTION_CAPABILITIES } from "./prediction.ts";
 import { HARNESS_CATALOGUE } from "./harnesses.ts";
+import type { PermissionMode } from "./domain.ts";
 
 /** Bumped only for changes capability negotiation can't absorb. */
 export const PROTOCOL_VERSION = 1;
@@ -72,6 +73,11 @@ export const Capability = Schema.Literals([
   "session.notify",
   /** `PinSession`, `SessionPinned`, and `AgentSession.pinnedAt` and `origin`. */
   "session.pin",
+  /**
+   * The `plan` PermissionMode. A Daemon sends a Client without it `supervised` for a planning
+   * session; a Client starts a session `supervised` on a Daemon without it.
+   */
+  "session.plan-mode",
   /** The Limited Session State, `SetResumeAtReset` and `SessionResumeAtResetChanged`. */
   "session.limited",
   /**
@@ -181,3 +187,10 @@ export const CapabilityList = Schema.Array(Schema.String).pipe(
     })
   )
 );
+
+/** The mode a Client sends a Daemon with `capabilities`: `plan` becomes `supervised` without `session.plan-mode`. */
+export const permissionModeFor = (
+  mode: PermissionMode,
+  capabilities: ReadonlyArray<Capability>
+): PermissionMode =>
+  mode === "plan" && !capabilities.includes("session.plan-mode") ? "supervised" : mode;

@@ -71,6 +71,7 @@ import {
   approvalKind,
   describeToolCall,
   isQuestionTool,
+  leavesPlan,
   parseQuestions,
   toClaudePermissionMode,
   type ToolUseInput,
@@ -275,6 +276,8 @@ const openSession = Effect.fnUntraced(function* (
 
   let active: ActiveTurn | null = null;
   let permissionMode: PermissionMode = options.permissionMode;
+  /** An approved ExitPlanMode took Claude out of plan mode; the next Turn re-enters it. */
+  let leftPlan = false;
   let closing = false;
   let exited = false;
 
@@ -676,6 +679,7 @@ const openSession = Effect.fnUntraced(function* (
     emit(HarnessEvent.TurnStarted({ turnId: input.turnId, prompt: input.prompt }));
     // Reserve the user's Turn before controls or attachment reads can yield to a native run.
     yield* Effect.gen(function* () {
+      if (leftPlan && permissionMode === "plan") yield* setPermissionMode("plan");
       yield* switchTo(input.model, input.effort);
       const { message } = yield* send(input.prompt, input, reserved, uuid);
       inbox.push(message);
@@ -760,6 +764,7 @@ const openSession = Effect.fnUntraced(function* (
 
     if (!pending) return yield* harnessError(`No open request ${requestId}`);
     settle(requestId, toPermissionResult(decision, pending));
+    leftPlan ||= leavesPlan(pending.toolName, decision);
   });
 
   const setPermissionMode = Effect.fn("ClaudeSession.setPermissionMode")(function* (
@@ -769,6 +774,7 @@ const openSession = Effect.fnUntraced(function* (
     const previous = permissionMode;
     // Status frames can precede the control reply; compare them to the requested mode.
     permissionMode = mode;
+    leftPlan = false;
 
     yield* Effect.tryPromise({
       try: () =>

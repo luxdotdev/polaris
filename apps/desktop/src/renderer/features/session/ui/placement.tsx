@@ -86,9 +86,11 @@ export const WhereLine = ({
 export const PermissionChip = ({
   value,
   onChange,
+  modes = PERMISSION_MODES,
 }: {
   readonly value: PermissionMode;
   readonly onChange: (mode: PermissionMode) => void;
+  readonly modes?: typeof PERMISSION_MODES;
 }) => (
   <DropdownMenu>
     <DropdownMenuTrigger
@@ -103,12 +105,12 @@ export const PermissionChip = ({
       <DropdownMenuRadioGroup
         value={value}
         onValueChange={(next) => {
-          const found = PERMISSION_MODES.find((p) => p.mode === next);
+          const found = modes.find((p) => p.mode === next);
 
           if (found !== undefined) onChange(found.mode);
         }}
       >
-        {PERMISSION_MODES.map((p) => (
+        {modes.map((p) => (
           <DropdownMenuRadioItem key={p.mode} value={p.mode}>
             <span className="flex flex-col py-1">
               <span>{p.label}</span>

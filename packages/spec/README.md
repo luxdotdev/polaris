@@ -376,8 +376,9 @@ Session boundaries, nudge limits, operator authority, peer routing and recovery.
 The permission ceiling is a preparation guard too: a reused (Existing) worker
 Session whose permission mode is broader than the Lead's is refused with
 `E-PERMISSION-CEILING` before any Attempt exists, and a new worker Session takes
-the Lead's mode. A worker Host gets the ceiling as
-`RemotePlacementRequest.leadPermissionMode`. It adds no committed event or graph
+the Lead's mode (`plan` ranks with `supervised`; a planning Lead's worker starts
+`supervised`, `workerMode`). A worker Host gets the ceiling as
+`RemotePlacementRequest.leadPermissionMode`, `plan` sent as `supervised`. It adds no committed event or graph
 state, so Quint is unchanged; `composition/prepare.test.ts` covers local and
 remote ceilings.
 
@@ -676,9 +677,10 @@ in `bun run spec`.
 
 The gate's mapping is exhaustive by type (a new RPC or Command without an entry fails
 typecheck); the spec takes "what a request needs" as an input. A `StartSession` whose
-mode is not `supervised` needs `start` and then `approve` (the session would approve for
-itself): in the spec that is two `call`s. `SendTurn`, `Steer`, `Continue` and `Retry`
-need `turn` plus `approve` in any existing non-supervised Session (`callTurn`). The mode
+mode is neither `supervised` nor `plan` needs `start` and then `approve` (the session would
+approve for itself): in the spec that is two `call`s. `SendTurn`, `Steer`, `Continue` and
+`Retry` need `turn` plus `approve` in any existing Session that approves for itself
+(`callTurn`; `asksForEverything` is `supervised` or `plan`, ENG-466). The mode
 is read at the commit decision, never cached at RPC admission. The spec abstracts one
 existing Session; the Engine tests bind this rule to each command and durable refusals. `hello` checks the token again once the
 connection is bound, so a `revoke` between the check and the binding either fails the

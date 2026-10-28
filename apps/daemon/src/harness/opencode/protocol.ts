@@ -297,6 +297,7 @@ export interface CommandBody {
   arguments: string;
   model?: string;
   variant?: string;
+  agent?: string;
 }
 
 /** Wire shapes the driver sends; typed against the generated request bodies. */
