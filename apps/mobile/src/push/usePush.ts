@@ -94,8 +94,20 @@ const useRegistrations = (
   // Per Host, the connection epoch it was registered on: a reconnect registers again.
   const registered = useRef(new Map<string, number>());
 
+  const hadIdentity = useRef(false);
+
   useEffect(() => {
-    if (identity === null) return;
+    if (identity === null) {
+      // Unlinked: a new push key, so a Host that still holds the old one can't be read here.
+      if (hadIdentity.current) void PolarisPush.rotatePushKey();
+      hadIdentity.current = false;
+      registered.current.clear();
+      setDevice(null);
+
+      return;
+    }
+
+    hadIdentity.current = true;
     void setCategories()
       .then(() => pushDevice(identity))
       .then(setDevice);

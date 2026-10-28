@@ -89,6 +89,10 @@ opaquely; the Notification Service Extension opens it.
   doesn't open the app. The answer is a RespondToApproval with a command id per request, sent
   once the Host's connection is live, within a background task (about 30 s).
 
+Unlinking this iPhone asks each Host to drop its registration (`devices.unregisterPush`, up to
+3 s) before the connections close, and rotates the push key, so a Host that missed it can't be
+read here.
+
 ### The widget hook
 
 Each push the extension opens is added to the App Group `group.dev.lux.polaris`, UserDefaults

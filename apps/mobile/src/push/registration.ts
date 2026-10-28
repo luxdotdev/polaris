@@ -30,3 +30,20 @@ export const registerPush = (
   hostAddress: RelayAddress
 ): Promise<void> =>
   host.run((client) => client["devices.registerPush"](pushRegistration(device, hostAddress)));
+
+/** How long an unlink waits for each Host to drop this device's registration. */
+export const UNREGISTER_WAIT_MS = 3_000;
+
+/** Best effort, before an unlink closes the connections: a Host that misses it keeps waking. */
+export const unregisterPush = (
+  hosts: ReadonlyArray<Pick<HostConnection, "run">>,
+  waitMs = UNREGISTER_WAIT_MS
+): Promise<void> =>
+  Promise.all(
+    hosts.map((host) =>
+      Promise.race([
+        host.run((client) => client["devices.unregisterPush"]()).catch(() => undefined),
+        new Promise<void>((resolve) => setTimeout(resolve, waitMs)),
+      ])
+    )
+  ).then(() => undefined);
