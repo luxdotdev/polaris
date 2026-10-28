@@ -33,6 +33,7 @@ import { githubHandlers } from "../github/ipc.ts";
 import { gitHandlers } from "./git.ts";
 import { constellationHandlers, resourceHandlers } from "./constellation.ts";
 import { remoteAccessHandlers } from "./remoteAccess.ts";
+import { linkedDevicesHandlers } from "./linkedDevices.ts";
 import { voiceHandlers } from "./voice.ts";
 import { Machines } from "../machines/service.ts";
 import type { NeedsYouSummary } from "../../shared/needsYou.ts";
@@ -247,6 +248,7 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
   ...constellationHandlers,
   ...resourceHandlers,
   ...remoteAccessHandlers,
+  ...linkedDevicesHandlers,
   ...voiceHandlers,
   "updates.get": () => Effect.sync(ctx.updates.get),
   "updates.check": () => Effect.sync(ctx.updates.check),
