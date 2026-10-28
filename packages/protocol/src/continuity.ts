@@ -6,7 +6,7 @@
  */
 import { Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/rpc";
-import type { AgentSession } from "./domain.ts";
+import type { AgentSession, Turn } from "./domain.ts";
 import { NotFound, Unsupported } from "./errors.ts";
 import { SessionId, Timestamp, TurnId } from "./ids.ts";
 
@@ -22,7 +22,7 @@ export class ReadPosition extends Schema.Class<ReadPosition>("ReadPosition")({
   at: Timestamp,
 }) {}
 
-/** A session's unsent composer text; an empty text is no draft. */
+/** A session's unsent composer text; an empty text is no draft (a cleared one keeps its revision). */
 export class ComposerDraft extends Schema.Class<ComposerDraft>("ComposerDraft")({
   sessionId: SessionId,
   text: Schema.String,
@@ -32,7 +32,7 @@ export class ComposerDraft extends Schema.Class<ComposerDraft>("ComposerDraft")(
 }) {}
 
 export const ContinuityItem = Schema.TaggedUnion({
-  /** Every session's read position and every non-empty draft, first. */
+  /** Every session's read position and every draft, emptied ones too, first. */
   Snapshot: { reads: Schema.Array(ReadPosition), drafts: Schema.Array(ComposerDraft) },
   Read: { position: ReadPosition },
   Draft: { draft: ComposerDraft },
@@ -72,13 +72,15 @@ export class ContinuityRpcs extends RpcGroup.make(WatchContinuity, MarkRead, Sav
 
 /**
  * Ended Turns after the read position: every Client counts unread the same
- * way. A Turn still working isn't unread yet.
+ * way. `latest` is the session's last Turn; while it works it isn't unread yet,
+ * whatever the Session State (Needs You on an approval, In Terminal).
  */
 export const unreadTurns = (
-  session: Pick<AgentSession, "turnCount" | "state">,
+  session: Pick<AgentSession, "turnCount">,
+  latest: Pick<Turn, "status"> | null,
   read: Pick<ReadPosition, "turnIndex"> | null
 ): number => {
-  const ended = session.state === "working" ? session.turnCount - 1 : session.turnCount;
+  const ended = latest?.status === "working" ? session.turnCount - 1 : session.turnCount;
 
   return Math.max(0, ended - (read === null ? 0 : read.turnIndex + 1));
 };
