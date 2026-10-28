@@ -29,6 +29,8 @@ const bundleProbe = async (): Promise<string> => {
     // Metro's conditions for the shared runtime (metro.config.mjs adds "browser" for the SDK only).
     conditions: ["react-native"],
     define: { "process.env.NODE_ENV": '"production"' },
+    // React Native declares `console`; the bare VM doesn't, and hermesc warns on marked's use of it.
+    banner: "var console = globalThis.console;",
   });
 
   const output = built.outputs[0];

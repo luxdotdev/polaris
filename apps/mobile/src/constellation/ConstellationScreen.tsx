@@ -11,6 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import type { HostConnection, HostStatus } from "../runtime/hostConnection.ts";
 import { claimChoices, constellationKey, taskKey, useKept, useLeadInput } from "../duo/kept.ts";
 import { useNavigation } from "../app/navigation.tsx";
+import { MarkdownLine } from "../markdown/index.ts";
 import { useHost, useHostStatus } from "../runtime/hosts.tsx";
 import { LeadComposer } from "./composer.tsx";
 import { age } from "./copy.ts";
@@ -165,9 +166,7 @@ const LeadNote = ({ lead, now }: { readonly lead: LeadSession; readonly now: num
         <Text style={styles.meta}>
           Lead{lead.lastMessage.at === null ? "" : ` · ${age(lead.lastMessage.at, now)} ago`}
         </Text>
-        <Text style={styles.noteText} numberOfLines={4}>
-          {lead.lastMessage.text}
-        </Text>
+        <MarkdownLine text={lead.lastMessage.text} style={styles.noteText} numberOfLines={4} />
       </View>
     </View>
   );

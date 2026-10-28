@@ -2,6 +2,7 @@
 import { midnight, mobileType } from "@polaris/ui/tokens";
 import { memo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Markdown } from "../markdown/index.ts";
 import type { ThreadRow } from "./rows.ts";
 
 /** The Critical diamond: an 8pt square turned 45°. */
@@ -110,11 +111,7 @@ const RowView = ({ row, open, criticalPaths, onToggle, onFocus, focused = false 
         </View>
       );
     case "reply":
-      return (
-        <Text style={[styles.message, styles.reply]} selectable>
-          {row.text}
-        </Text>
-      );
+      return <Markdown text={row.text} style={styles.reply} />;
     case "error":
       return <Text style={[styles.message, styles.error]}>{row.text}</Text>;
     case "step":
@@ -160,7 +157,7 @@ const styles = StyleSheet.create({
     maxWidth: "88%",
   },
   message: { ...mobileType.callout, color: midnight.textDefault },
-  reply: { lineHeight: 22, marginBottom: 12 },
+  reply: { marginBottom: 12 },
   error: { color: midnight.failedText, marginBottom: 12 },
   step: {
     flexDirection: "row",

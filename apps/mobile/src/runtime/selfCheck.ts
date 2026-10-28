@@ -1,7 +1,7 @@
 /**
  * Proves the shared runtime works on the engine running it: Effect 4, the protocol's frame codec
- * and Schemas, and the client's Connection State machine and resumable feed. The Hermes test runs
- * this on the `hermes` VM; the app runs it at startup in development.
+ * and Schemas, the client's Connection State machine and resumable feed, and the Markdown parser.
+ * The Hermes test runs this on the `hermes` VM; the app runs it at startup in development.
  */
 import {
   connectionMachine,
@@ -20,6 +20,8 @@ import {
   PairingPayload,
 } from "@polaris/protocol";
 import { Data, Effect, Option, Schema, Stream } from "effect";
+import { lineOf } from "../markdown/line.ts";
+import { parseAfter } from "../markdown/parse.ts";
 
 export interface CheckResult {
   readonly name: string;
@@ -171,11 +173,36 @@ const resumeCheck = Effect.scoped(
   })
 );
 
+// marked and remend build their Unicode and lookbehind patterns at run time, so only a run proves them.
+const markdownCheck = Effect.sync(() => {
+  const streaming = parseAfter(null, "# Plan\n\n- **bo");
+
+  const parsed = parseAfter(
+    streaming,
+    "# Plan\n\n- **bold** and ~~gone~~ [docs](https://x.dev) 20~25\n\n```ts\nlet a"
+  );
+
+  return expectEqual(lineOf(parsed.blocks), [
+    { text: "Plan", marks: ["strong"], href: null },
+    { text: "\n", marks: [], href: null },
+    { text: "• ", marks: [], href: null },
+    { text: "bold", marks: ["strong"], href: null },
+    { text: " and ", marks: [], href: null },
+    { text: "gone", marks: ["del"], href: null },
+    { text: " ", marks: [], href: null },
+    { text: "docs", marks: [], href: "https://x.dev" },
+    { text: " 20~25", marks: [], href: null },
+    { text: "\n", marks: [], href: null },
+    { text: "let a", marks: ["code"], href: null },
+  ]);
+});
+
 const CHECKS: ReadonlyArray<readonly [string, Effect.Effect<string | null, unknown>]> = [
   ["effect", effectCheck],
   ["frame codec", frameCheck],
   ["connection machine", machineCheck],
   ["resume", resumeCheck],
+  ["markdown", markdownCheck],
 ];
 
 const runOne = ([name, check]: (typeof CHECKS)[number]) =>
