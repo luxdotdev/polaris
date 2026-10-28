@@ -1,11 +1,13 @@
 /**
- * The screens each route draws. Thread (S2) and Link this iPhone (R4) replace their stand-ins
- * here when they land; New agent session is S5's sheet.
+ * The screens each route draws. Link this iPhone (R4) replaces its stand-in here when it lands;
+ * the thread is S2's and New agent session is S5's sheet.
  */
+import { SessionId } from "@polaris/protocol";
 import { midnight, mobileType } from "@polaris/ui/tokens";
 import { StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NewSessionSheet as NewAgentSessionSheet } from "../newSession/index.ts";
+import { ThreadScreen } from "../thread/index.ts";
 import { BackBar } from "./BackBar.tsx";
 import { useNavigation } from "./navigation.tsx";
 
@@ -37,7 +39,13 @@ export const ThreadRoute = (props: {
   readonly hostId: string;
   readonly sessionId: string;
   readonly onBack: () => void;
-}) => <StandIn title="Agent session" detail={props.sessionId} onBack={props.onBack} />;
+}) => (
+  <ThreadScreen
+    hostId={props.hostId}
+    sessionId={SessionId.make(props.sessionId)}
+    onBack={props.onBack}
+  />
+);
 
 export { ConstellationScreen as ConstellationRoute } from "../constellation/index.ts";
 
