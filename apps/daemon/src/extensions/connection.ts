@@ -15,6 +15,7 @@ import {
   NotFound,
   type Pairing,
   type PairingId,
+  SetConstellationStateAction,
 } from "@polaris/protocol";
 import { Context, Effect, Exit, Match, Option, Predicate, Redacted, Schema } from "effect";
 import type { Rpc } from "effect/rpc";
@@ -171,6 +172,11 @@ const dispatchCommand = Schema.decodeUnknownOption(
 /** A device's `dispatch` is also decided on its whole Command (RX3-1). */
 const deviceCommand = Schema.decodeUnknownOption(Schema.Struct({ command: Command }));
 
+/** A device's `constellation.set_state` is decided on its action (ENG-491). */
+const deviceStateAction = Schema.decodeUnknownOption(
+  Schema.Struct({ action: SetConstellationStateAction })
+);
+
 const tokenHello = Schema.is(Schema.Struct({ extensionToken: Schema.Redacted(Schema.String) }));
 
 /**
@@ -217,7 +223,8 @@ export const grantGateFor = (options: {
           : decideDeviceAccess(
               rpc._tag,
               command?._tag ?? null,
-              Option.getOrNull(Option.map(deviceCommand(payload), (p) => p.command))
+              Option.getOrNull(Option.map(deviceCommand(payload), (p) => p.command)),
+              Option.getOrNull(Option.map(deviceStateAction(payload), (p) => p.action))
             );
 
       if (deviceRefusal !== null) return Effect.fail(deviceRefusal);

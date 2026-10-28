@@ -6,6 +6,7 @@
  */
 import { Schema } from "effect";
 import { Command } from "./commands.ts";
+import { SetConstellationStateAction } from "./constellation/commands.ts";
 import { NotGranted } from "./extensions.ts";
 import type { DaemonRpcTag } from "./grants.ts";
 import { PermissionMode } from "./domain.ts";
@@ -48,6 +49,10 @@ const isDeviceStartSession = Schema.is(Schema.Struct(DEVICE_START_SESSION));
 /** A phone archives a session but never deletes its branch, so Unarchive undoes it (ENG-491). */
 const isDeviceArchive = (command: Command) =>
   Command.guards.ArchiveSession(command) && !command.deleteMergedBranch;
+
+/** A phone pauses, resumes, completes or archives a constellation, but never hands its lead over. */
+const isDeviceStateAction = (action: SetConstellationStateAction | null) =>
+  action !== null && !SetConstellationStateAction.guards.HandOver(action);
 
 /** `dispatch` itself is decided per Command (`DEVICE_COMMANDS`). */
 export const DEVICE_RPCS = {
@@ -290,9 +295,13 @@ const commandAllowed = (tag: string, command: Command | null) => {
 export const decideDeviceAccess = (
   rpc: string,
   tag: string | null,
-  command: Command | null = null
+  command: Command | null = null,
+  stateAction: SetConstellationStateAction | null = null
 ): NotGranted | null => {
   if (!allowed(DEVICE_RPCS, rpc)) return new NotGranted({ what: rpc, needed: null });
+
+  if (rpc === "constellation.set_state")
+    return isDeviceStateAction(stateAction) ? null : new NotGranted({ what: rpc, needed: null });
 
   if (rpc !== "dispatch") return null;
 

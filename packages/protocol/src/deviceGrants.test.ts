@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { Command, SessionPlacement } from "./commands.ts";
+import { SetConstellationStateAction } from "./constellation/commands.ts";
 import { decideDeviceAccess } from "./deviceGrants.ts";
 import { ReviewCheckoutId, SessionId, WorkspaceId } from "./ids.ts";
 
@@ -97,7 +98,6 @@ test.each([
   ["dispatch", "RenameSession"],
   ["dispatch", "PinSession"],
   ["dispatch", "UnarchiveSession"],
-  ["constellation.set_state", null],
 ])("a Linked Device may send %s %s", (rpc, tag) => {
   expect(outcome(rpc, tag)).toBe("allowed");
 });
@@ -112,4 +112,24 @@ test.each([
   });
 
   expect(outcome("dispatch", "ArchiveSession", archive)).toBe(expected);
+});
+
+const setState = (action: SetConstellationStateAction | null) =>
+  decideDeviceAccess("constellation.set_state", null, null, action)?.what ?? "allowed";
+
+const A = SetConstellationStateAction.cases;
+
+test.each([A.Pause.make({}), A.Resume.make({}), A.Complete.make({}), A.Archive.make({})])(
+  "a Linked Device may change a constellation's state: %p",
+  (action) => {
+    expect(setState(action)).toBe("allowed");
+  }
+);
+
+// A phone never hands a constellation's lead to another Harness or model.
+test.each([
+  ["a HandOver", A.HandOver.make({ summary: "s", interrupt: false, selection: null })],
+  ["an action it couldn't read", null],
+])("a Linked Device is refused %s", (_, action) => {
+  expect(setState(action)).toBe("constellation.set_state");
 });
