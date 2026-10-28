@@ -81,6 +81,7 @@ export const RPC_GRANTS = {
   "relayRoute.disable": "client",
   "devices.link": "client",
   "devices.awaitLink": "client",
+  "devices.cancelLink": "client",
   "devices.add": "client",
   "devices.list": "client",
   "devices.unlink": "client",
@@ -324,6 +325,7 @@ export const LOCAL_CLIENT_RPCS: ReadonlySet<string> = new Set<DaemonRpcTag>([
   "relayRoute.disable",
   "devices.link",
   "devices.awaitLink",
+  "devices.cancelLink",
   "devices.add",
   "devices.unlink",
 ]);

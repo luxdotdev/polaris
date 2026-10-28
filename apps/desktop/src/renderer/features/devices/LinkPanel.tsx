@@ -107,16 +107,27 @@ export const LinkPanel = ({
   const [panel, setPanel] = useState<Panel>({ kind: "closed" });
   // Each start gets a number; a cancelled one's late answer is dropped.
   const attempt = useRef(0);
+  // The link still open on its Host: Cancel and leaving the page end it there too.
+  const open = useRef<{ readonly hostKey: string; readonly linkId: string } | null>(null);
+
+  const cancelOpen = () => {
+    const link = open.current;
+    open.current = null;
+
+    if (link !== null) void polaris().request("devices.cancelLink", link);
+  };
 
   useEffect(
     () => () => {
       attempt.current += 1;
+      cancelOpen();
     },
     []
   );
 
   const start = async () => {
     const mine = ++attempt.current;
+    cancelOpen();
     setPanel({ kind: "starting" });
 
     const offered = await polaris().request("devices.startLink", {});
@@ -126,6 +137,7 @@ export const LinkPanel = ({
     if (!offered.ok) return setPanel({ kind: "ended", line: endedLine(offered.error) });
 
     const offer = offered.value;
+    open.current = { hostKey: offer.hostKey, linkId: offer.linkId };
     setPanel({ kind: "waiting", offer });
 
     const linked = await polaris().request("devices.finishLink", {
@@ -135,6 +147,7 @@ export const LinkPanel = ({
     });
 
     if (mine !== attempt.current) return;
+    open.current = null;
 
     if (!linked.ok) return setPanel({ kind: "ended", line: endedLine(linked.error) });
 
@@ -144,6 +157,7 @@ export const LinkPanel = ({
 
   const close = () => {
     attempt.current += 1;
+    cancelOpen();
     setPanel({ kind: "closed" });
   };
 

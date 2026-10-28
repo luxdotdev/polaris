@@ -24,6 +24,8 @@ export const LinkedDevicesRequestInputs = {
     linkId: Schema.String,
     shareTo: Schema.Array(HostKey),
   }),
+  /** Ends an unused link on its Host, so its secret stops working: Cancel, or leaving the page. */
+  "devices.cancelLink": Schema.Struct({ hostKey: HostKey, linkId: Schema.String }),
   /** Shares a device another Host linked: "Retry" on a Host it didn't reach. */
   "devices.share": Schema.Struct({
     hostKey: HostKey,
@@ -64,6 +66,7 @@ export type LinkedDevicesRequestOutputs = {
   readonly "devices.list": ReadonlyArray<LinkedDeviceView>;
   readonly "devices.startLink": LinkOfferView;
   readonly "devices.finishLink": LinkResultView;
+  readonly "devices.cancelLink": void;
   readonly "devices.share": LinkedDeviceView;
   readonly "devices.unlink": LinkedDeviceView;
 };

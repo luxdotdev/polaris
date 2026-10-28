@@ -34,6 +34,7 @@ const relayOn = async () => {
 
   const finish = Promise.withResolvers<Result<LinkResultView>>();
   fake.answer("devices.finishLink", () => finish.promise);
+  fake.answerOk("devices.cancelLink", undefined);
 
   return finish;
 };
@@ -80,6 +81,9 @@ test("after Cancel, a phone that links late doesn't reopen the panel", async () 
   await view.findByRole("img", { name: "Link QR code" });
   fireEvent.click(view.getByRole("button", { name: "Cancel" }));
 
+  // RX1-2: Cancel ends the link on its Host, not just the panel.
+  expect(fake.sent("devices.cancelLink")).toEqual([{ hostKey: "studio", linkId: "link-1" }]);
+
   const before = lists();
   finish.resolve({ ok: false, error: { code: "Expired", message: "The link expired." } });
   await new Promise((settle) => setTimeout(settle, 20));
@@ -87,6 +91,17 @@ test("after Cancel, a phone that links late doesn't reopen the panel", async () 
   expect(view.getByRole("button", { name: "Link a device" })).toBeTruthy();
   expect(view.queryByText(/The link ended/)).toBeNull();
   expect(lists()).toBe(before);
+});
+
+test("leaving the page while a link waits ends the link on its Host (RX1-2)", async () => {
+  await relayOn();
+  const rendered = render(<Devices hosts={hosts} onOpenHosts={() => undefined} />);
+
+  fireEvent.click(await within(rendered.container).findByRole("button", { name: "Link a device" }));
+  await within(rendered.container).findByRole("img", { name: "Link QR code" });
+  rendered.unmount();
+
+  expect(fake.sent("devices.cancelLink")).toEqual([{ hostKey: "studio", linkId: "link-1" }]);
 });
 
 test("unlinking a device unlinks it on every host it's on", async () => {

@@ -370,6 +370,8 @@ export const defaultHandlers = (options: {
     "devices.link": () => Effect.flatMap(RelayRoute, (route) => route.startLink),
     "devices.awaitLink": ({ linkId }) =>
       Effect.flatMap(RelayRoute, (route) => route.awaitLink(linkId)),
+    "devices.cancelLink": ({ linkId }) =>
+      Effect.flatMap(RelayRoute, (route) => route.cancelLink(linkId)),
     "devices.add": (device) => Effect.flatMap(RelayRoute, (route) => route.add(device)),
     "devices.list": () => Effect.flatMap(RelayRoute, (route) => route.list),
     "devices.unlink": ({ id }) => Effect.flatMap(RelayRoute, (route) => route.unlink(id)),

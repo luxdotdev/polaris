@@ -67,7 +67,9 @@ export class RelayRoute extends Context.Service<
     readonly enable: (url: string) => Effect.Effect<RelayRouteStatus, RelayRouteError>;
     readonly disable: Effect.Effect<RelayRouteStatus, RelayRouteError>;
     readonly startLink: Effect.Effect<LinkOffer, RelayRouteError>;
+    /** Ends with NotFound when the link expires or is cancelled; interrupting it cancels it. */
     readonly awaitLink: (linkId: string) => Effect.Effect<LinkedDevice, NotFound>;
+    readonly cancelLink: (linkId: string) => Effect.Effect<void>;
     readonly add: (device: {
       readonly name: string;
       readonly relayAddress: RelayAddress;
@@ -288,6 +290,9 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
           message: "Turn on the Relay route to link a device",
         });
       const loaded = yield* keys;
+      // A new link replaces any still unused, so a reopened panel leaves one live secret.
+      const unused = [...links.values()].filter((open) => !open.used);
+      yield* Effect.forEach(unused, (open) => closeLink(open.id), { discard: true });
       const secret = new Uint8Array(randomBytes(32));
       const address = yield* Effect.promise(() => relayAddress(linkIdentity(secret).publicKey));
       const id = `link_${crypto.randomUUID()}`;
@@ -317,8 +322,9 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
 
       return open === undefined
         ? Effect.fail(new NotFound({ what: "link", id: linkId }))
-        : Deferred.await(open.done);
+        : Deferred.await(open.done).pipe(Effect.onInterrupt(() => closeLink(linkId)));
     },
+    cancelLink: closeLink,
     add: (device) =>
       store.add(device).pipe(
         Effect.tap(() => Effect.sync(() => link?.peersChanged())),

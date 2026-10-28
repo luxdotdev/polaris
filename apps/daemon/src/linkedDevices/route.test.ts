@@ -20,7 +20,7 @@ import {
   SessionId,
 } from "@polaris/protocol";
 import { fromBase64Url } from "@polaris/protocol/relay";
-import { Context, Effect, Exit, Option, Scope } from "effect";
+import { Context, Effect, Exit, Fiber, Option, Scope } from "effect";
 import { DeviceLabel } from "../engine/rpc.ts";
 import { actorOf } from "../extensions/connection.ts";
 import { shortTemp } from "../platform/testing.ts";
@@ -270,6 +270,46 @@ test("unknown keys, someone else's key and a used or wrong link are refused", as
 
         const names = (yield* desktop["devices.list"]()).map((d) => d.name);
         expect(names).toEqual(["Phone", "Stranger", "Late"]);
+      })
+    )
+  );
+}, 40_000);
+
+test("a cancelled, replaced or abandoned link no longer links (RX1-2)", async () => {
+  await Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const scope = yield* Effect.scope;
+        const desktop = yield* daemon(scope);
+        yield* desktop["relayRoute.enable"]({ url: relay.url });
+        yield* waitConnected(desktop);
+
+        const linkWith = (linkString: string) =>
+          Effect.flatMap(Effect.promise(makeDevice), (device) =>
+            Effect.promise(() => link(linkString, device, "Late"))
+          );
+
+        // Cancel: the exact link stops working.
+        const cancelled = yield* desktop["devices.link"]();
+        yield* desktop["devices.cancelLink"]({ linkId: cancelled.linkId });
+        expect((yield* linkWith(cancelled.linkString)).linked).toBe(false);
+
+        // Reopening the panel replaces the link instead of adding a second live one.
+        const replaced = yield* desktop["devices.link"]();
+        const current = yield* desktop["devices.link"]();
+        expect((yield* linkWith(replaced.linkString)).linked).toBe(false);
+
+        // The Desktop App stops waiting (it quit or lost the Host): the link ends with it.
+        const waiting = yield* Effect.forkChild(
+          desktop["devices.awaitLink"]({ linkId: current.linkId })
+        );
+
+        yield* Effect.sleep("100 millis");
+        yield* Fiber.interrupt(waiting);
+        yield* Effect.sleep("100 millis");
+        expect((yield* linkWith(current.linkString)).linked).toBe(false);
+
+        expect(yield* desktop["devices.list"]()).toEqual([]);
       })
     )
   );

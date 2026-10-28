@@ -104,6 +104,8 @@ export const linkedDevicesHandlers = {
     onHost(hostKey, (s) => s.client["devices.list"]()),
   "devices.startLink": () => startLink,
   "devices.finishLink": finishLink,
+  "devices.cancelLink": ({ hostKey, linkId }: RequestInput<"devices.cancelLink">) =>
+    onHost(hostKey, (s) => s.client["devices.cancelLink"]({ linkId })),
   "devices.share": ({ hostKey, ...device }: RequestInput<"devices.share">) =>
     onHost(hostKey, (s) => s.client["devices.add"](device)),
   "devices.unlink": ({ hostKey, id }: RequestInput<"devices.unlink">) =>

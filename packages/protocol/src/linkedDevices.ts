@@ -88,6 +88,11 @@ export const AwaitLink = Rpc.make("devices.awaitLink", {
   error: NotFound,
 });
 
+/** Ends a link before it's used: its secret no longer opens it (RX1-2). Unknown ids are fine. */
+export const CancelLink = Rpc.make("devices.cancelLink", {
+  payload: { linkId: Schema.String },
+});
+
 /** Links a device another Host already linked: the Desktop App shares it to every Host. */
 export const AddLinkedDevice = Rpc.make("devices.add", {
   payload: { name: Schema.String, relayAddress: RelayAddress, noiseKey: Key },
@@ -134,6 +139,7 @@ export class LinkedDeviceRpcs extends RpcGroup.make(
   DisableRelayRoute,
   StartLink,
   AwaitLink,
+  CancelLink,
   AddLinkedDevice,
   ListLinkedDevices,
   UnlinkDevice,
