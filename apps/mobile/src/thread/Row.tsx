@@ -33,14 +33,41 @@ const Earlier = ({
   </Pressable>
 );
 
+/** What a tapped step or finding puts in focus, for the iPhone Duo's second half (D6). */
+export interface ThreadFocus {
+  readonly key: string;
+  readonly turnId: string;
+  readonly kind: "step" | "finding";
+  readonly label: string;
+  readonly paths: ReadonlyArray<string>;
+}
+
 const Step = ({
   row,
   critical,
+  focused,
+  onFocus,
 }: {
   readonly row: Extract<ThreadRow, { kind: "step" }>;
   readonly critical: boolean;
+  readonly focused: boolean;
+  readonly onFocus: ((focus: ThreadFocus) => void) | undefined;
 }) => (
-  <View style={[styles.step, row.last ? styles.stepLast : null]}>
+  <Pressable
+    disabled={onFocus === undefined}
+    onPress={() =>
+      onFocus?.({
+        key: row.key,
+        turnId: row.turnId,
+        kind: "step",
+        label: row.label,
+        paths: row.paths,
+      })
+    }
+    accessibilityRole={onFocus === undefined ? undefined : "button"}
+    accessibilityState={onFocus === undefined ? undefined : { selected: focused }}
+    style={[styles.step, row.last ? styles.stepLast : null, focused ? styles.stepFocused : null]}
+  >
     <Text style={styles.stepIndex}>{row.index}</Text>
     <Text
       style={[styles.stepLabel, row.tone === "active" ? styles.stepActive : null]}
@@ -54,7 +81,7 @@ const Step = ({
         {row.detail}
       </Text>
     )}
-  </View>
+  </Pressable>
 );
 
 export interface RowProps {
@@ -63,9 +90,12 @@ export interface RowProps {
   /** Paths an open Critical finding is in. */
   readonly criticalPaths: ReadonlySet<string>;
   readonly onToggle: (turnId: string) => void;
+  /** Makes step rows pressable; the iPhone Duo's second half follows them. */
+  readonly onFocus?: ((focus: ThreadFocus) => void) | undefined;
+  readonly focused?: boolean;
 }
 
-const RowView = ({ row, open, criticalPaths, onToggle }: RowProps) => {
+const RowView = ({ row, open, criticalPaths, onToggle, onFocus, focused = false }: RowProps) => {
   switch (row.kind) {
     case "earlier":
       return <Earlier row={row} open={open} onToggle={onToggle} />;
@@ -88,7 +118,14 @@ const RowView = ({ row, open, criticalPaths, onToggle }: RowProps) => {
     case "error":
       return <Text style={[styles.message, styles.error]}>{row.text}</Text>;
     case "step":
-      return <Step row={row} critical={row.paths.some((path) => criticalPaths.has(path))} />;
+      return (
+        <Step
+          row={row}
+          critical={row.paths.some((path) => criticalPaths.has(path))}
+          focused={focused}
+          onFocus={onFocus}
+        />
+      );
   }
 };
 
@@ -138,6 +175,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: midnight.hairline,
     marginBottom: 12,
+  },
+  stepFocused: {
+    backgroundColor: midnight.surfaceRaised,
+    borderRadius: 10,
+    borderLeftWidth: 2,
+    borderLeftColor: midnight.starlight,
   },
   stepIndex: { ...mobileType.index, color: midnight.textFaint, width: 20 },
   stepLabel: { ...mobileType.subhead, color: midnight.textSubtle, flex: 1 },

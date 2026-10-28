@@ -6,10 +6,12 @@ import { SessionId } from "@polaris/protocol";
 import { midnight, mobileType } from "@polaris/ui/tokens";
 import { StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useDuoThread } from "../duo/DuoShell.tsx";
 import { NewSessionSheet as NewAgentSessionSheet } from "../newSession/index.ts";
 import { ThreadScreen } from "../thread/index.ts";
 import { useNavigation } from "./navigation.tsx";
 
+/** The thread; on an unfolded or half-folded Duo it also takes the Duo's focus and composer. */
 export const ThreadRoute = (props: {
   readonly hostId: string;
   readonly sessionId: string;
@@ -19,6 +21,7 @@ export const ThreadRoute = (props: {
     hostId={props.hostId}
     sessionId={SessionId.make(props.sessionId)}
     onBack={props.onBack}
+    {...useDuoThread()}
   />
 );
 

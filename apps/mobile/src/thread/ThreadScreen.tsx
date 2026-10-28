@@ -23,7 +23,7 @@ import { Composer, Suggestions } from "./Composer.tsx";
 import { openThread, type ThreadController } from "./controller.ts";
 import { hostThreadSource } from "./hostSource.ts";
 import { harnessName, subtitle } from "./labels.ts";
-import { Diamond, Row } from "./Row.tsx";
+import { Diamond, Row, type ThreadFocus } from "./Row.tsx";
 import { threadRows, type ThreadRow } from "./rows.ts";
 import { fixPrompt, openCritical, type Suggestion, suggestions } from "./suggestions.ts";
 
@@ -33,6 +33,11 @@ export interface ThreadScreenProps {
   readonly onBack: () => void;
   /** Opens the session in Review (M5); the chip shows only when this is given. */
   readonly onOpenReview?: () => void;
+  /** The iPhone Duo (D6): tapping a step or the finding focuses it; `focusedKey` marks it. */
+  readonly onFocus?: (focus: ThreadFocus) => void;
+  readonly focusedKey?: string | null;
+  /** The iPhone Duo (D7): a minimum height that keeps the chips and composer below the fold. */
+  readonly composerSlot?: "inline" | { readonly minHeight: number };
 }
 
 /** One controller per open thread, made once the Host is first live. */
@@ -111,8 +116,14 @@ const Header = ({
   </View>
 );
 
-const FindingRow = ({ finding }: { readonly finding: RiskFinding }) => (
-  <View style={styles.finding}>
+const FindingRow = ({
+  finding,
+  onPress,
+}: {
+  readonly finding: RiskFinding;
+  readonly onPress?: (() => void) | undefined;
+}) => (
+  <Pressable style={styles.finding} disabled={onPress === undefined} onPress={onPress}>
     <Diamond />
     <Text style={styles.findingTitle} numberOfLines={2}>
       {finding.title}
@@ -120,7 +131,7 @@ const FindingRow = ({ finding }: { readonly finding: RiskFinding }) => (
     <Text style={styles.findingWhere} numberOfLines={1}>
       {finding.path.slice(finding.path.lastIndexOf("/") + 1)}:{finding.lines.start}
     </Text>
-  </View>
+  </Pressable>
 );
 
 /** Hosts the Workspace's name once the Host's Snapshot has it. */
@@ -146,7 +157,15 @@ const VIEWABILITY = { itemVisiblePercentThreshold: 50, minimumViewTime: 250 };
 
 const keyOf = (row: ThreadRow) => row.key;
 
-export const ThreadScreen = ({ hostId, sessionId, onBack, onOpenReview }: ThreadScreenProps) => {
+export const ThreadScreen = ({
+  hostId,
+  sessionId,
+  onBack,
+  onOpenReview,
+  onFocus,
+  focusedKey = null,
+  composerSlot = "inline",
+}: ThreadScreenProps) => {
   const connection = useHost(hostId);
   const controller = useController(connection, sessionId);
   const state = useThreadState(controller);
@@ -266,9 +285,29 @@ export const ThreadScreen = ({ hostId, sessionId, onBack, onOpenReview }: Thread
               open={expanded.has(item.turnId)}
               criticalPaths={criticalPaths}
               onToggle={toggle}
+              onFocus={onFocus}
+              focused={item.key === focusedKey}
             />
           )}
-          ListHeaderComponent={critical === null ? undefined : <FindingRow finding={critical} />}
+          ListHeaderComponent={
+            critical === null ? undefined : (
+              <FindingRow
+                finding={critical}
+                onPress={
+                  onFocus === undefined || last === null
+                    ? undefined
+                    : () =>
+                        onFocus({
+                          key: `finding:${critical.id}`,
+                          turnId: last.id,
+                          kind: "finding",
+                          label: critical.title,
+                          paths: [critical.path],
+                        })
+                }
+              />
+            )
+          }
           initialNumToRender={16}
           maxToRenderPerBatch={12}
           windowSize={9}
@@ -277,7 +316,14 @@ export const ThreadScreen = ({ hostId, sessionId, onBack, onOpenReview }: Thread
           viewabilityConfig={VIEWABILITY}
           keyboardDismissMode="interactive"
         />
-        <View style={styles.bottom}>
+        <View
+          style={[
+            styles.bottom,
+            composerSlot === "inline"
+              ? null
+              : { minHeight: composerSlot.minHeight, justifyContent: "flex-end" },
+          ]}
+        >
           <Suggestions items={chips} onPick={pick} />
           {state.queued.map((text, index) => (
             <Text key={`${index}:${text}`} style={styles.queued} numberOfLines={1}>

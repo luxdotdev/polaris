@@ -17,6 +17,7 @@ import {
   ThreadRoute,
 } from "./app/routes.tsx";
 import { TabBar } from "./app/TabBar.tsx";
+import { DuoShell } from "./duo/DuoShell.tsx";
 import { FollowedHostsProvider } from "./home/feed/useFollowedHosts.ts";
 import { HomeScreen } from "./home/HomeScreen.tsx";
 import { HostsScreen } from "./hosts/HostsScreen.tsx";
@@ -116,7 +117,9 @@ const Shell = () => {
 
   return (
     <View style={styles.fill}>
-      <Screen />
+      <DuoShell>
+        <Screen />
+      </DuoShell>
       {navigation.newSession.open ? <NewSessionSheet onClose={navigation.closeNewSession} /> : null}
     </View>
   );
