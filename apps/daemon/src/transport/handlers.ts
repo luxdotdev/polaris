@@ -25,6 +25,7 @@ import {
   PROTOCOL_VERSION,
   decideProtocol,
   PushRegistrationError,
+  PresenceLease,
 } from "@polaris/protocol";
 import { Effect, Option, Stream } from "effect";
 import { ClientCapabilities, DeviceLabel } from "../engine/rpc.ts";
@@ -40,6 +41,7 @@ import { RemoteAccess } from "../extensions/remoteAccess.ts";
 import { admissionOf } from "../extensions/admission.ts";
 import { deviceOf } from "../linkedDevices/connection.ts";
 import { RelayRoute } from "../linkedDevices/route.ts";
+import { HostPresence } from "../presence/index.ts";
 
 const notADevice = () =>
   new PushRegistrationError({
@@ -382,6 +384,12 @@ export const defaultHandlers = (options: {
         ? Effect.fail(new NotFound({ what: "linked device", id: "this connection" }))
         : Effect.flatMap(RelayRoute, (route) => route.unlinkSelf(device.id));
     },
+    // The Desktop App's connections only (DEVICE_RPCS, RPC_GRANTS): a lease per connection.
+    "presence.report": ({ presence }, { client }) =>
+      Effect.map(
+        HostPresence,
+        (host) => new PresenceLease({ leaseMs: host.report(client.id, presence) })
+      ),
     // A Linked Device's own connection only: the device registers itself (ADR 0083).
     "devices.registerPush": (registration, { client }) => {
       const device = deviceOf(client);

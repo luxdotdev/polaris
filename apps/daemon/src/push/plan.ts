@@ -26,8 +26,12 @@ interface Tracked {
   readonly harness: string;
   readonly working: boolean;
   readonly backgroundTasks: number;
-  /** A Turn ended: its reply, and when the session settled (null while tasks are live). */
-  readonly ended: { readonly reply: string | null; readonly settledAt: number | null } | null;
+  /** A Turn ended: its index and reply, and when the session settled (null while tasks are live). */
+  readonly ended: {
+    readonly index: number;
+    readonly reply: string | null;
+    readonly settledAt: number | null;
+  } | null;
 }
 
 export interface PlanState {
@@ -52,10 +56,25 @@ export interface PlanContext {
   readonly now: number;
 }
 
+/**
+ * What a push asks of the user, so a push held while they are at a Desktop App can be
+ * dropped once they deal with it there (`hold.ts`).
+ */
+export interface Need {
+  readonly sessionId: string;
+  /** Needs You: handled once this request is answered or withdrawn. */
+  readonly requestId: string | null;
+  /** A finished Turn: handled once the session is read through this Turn's index. */
+  readonly turnIndex: number | null;
+  /** When it was planned; a notification is handled by a read of its session after it. */
+  readonly at: number;
+}
+
 /** A push, and whether it is automatic: devices that turned those off don't get it. */
 export interface Push {
   readonly message: PushMessage;
   readonly automatic: boolean;
+  readonly need: Need;
 }
 
 export interface Planned {
@@ -63,7 +82,7 @@ export interface Planned {
   readonly send: ReadonlyArray<Push>;
 }
 
-const push = (message: PushMessage): Push => ({ message, automatic: false });
+const push = (message: PushMessage, need: Need): Push => ({ message, automatic: false, need });
 
 const cut = (text: string, max: number) =>
   text.length <= max ? text : `${text.slice(0, max - 1)}…`;
@@ -127,6 +146,7 @@ const notified = (
   context: PlanContext
 ): Push => ({
   automatic: notification.automatic,
+  need: { sessionId, requestId: null, turnIndex: null, at: context.now },
   message: {
     v: 1,
     kind: "notify",
@@ -181,7 +201,11 @@ const endTurn = (state: PlanState, turn: Turn, now: number): PlanState => {
       working: false,
       ended: quiet
         ? null
-        : { reply: turn.replyPreview ?? null, settledAt: s.backgroundTasks === 0 ? now : null },
+        : {
+            index: turn.index,
+            reply: turn.replyPreview ?? null,
+            settledAt: s.backgroundTasks === 0 ? now : null,
+          },
     }),
     now
   );
@@ -214,7 +238,14 @@ const applyEvent = (state: PlanState, event: DomainEvent, context: PlanContext):
           send:
             session === undefined || !state.synchronized
               ? []
-              : [push(needsYou(session, request, context))],
+              : [
+                  push(needsYou(session, request, context), {
+                    sessionId: request.sessionId,
+                    requestId: request.id,
+                    turnIndex: null,
+                    at: context.now,
+                  }),
+                ],
         };
       },
       SessionNotified: ({ sessionId, notification }): Planned => {
@@ -268,7 +299,14 @@ export const planSettled = (state: PlanState, context: PlanContext): Planned => 
     sessions.set(sessionId, { ...session, ended: null });
 
     if (state.synchronized)
-      send.push(push(turnEnded(sessionId, session, session.ended.reply, context)));
+      send.push(
+        push(turnEnded(sessionId, session, session.ended.reply, context), {
+          sessionId,
+          requestId: null,
+          turnIndex: session.ended.index,
+          at: context.now,
+        })
+      );
   }
 
   return { state: { ...state, sessions }, send };

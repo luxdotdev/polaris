@@ -228,6 +228,8 @@ test("a linked device reaches the Daemon with Client power and is recorded as th
           Effect.flip(open.client["devices.unlink"]({ id: device.id })),
           Effect.flip(open.client["extensions.pair"]({ name: "x", grant: ["read"] })),
           Effect.flip(open.client["relayRoute.disable"]()),
+          // ENG-495: a phone can't say the user is at the Mac and quiet its own pushes.
+          Effect.flip(open.client["presence.report"]({ presence: "present" })),
           // RX2-1: what Mobile doesn't use is refused too, a stored credential or a shell.
           Effect.flip(
             open.client["voice.setKey"]({ provider: "deepgram", key: Redacted.make("planted") })

@@ -134,6 +134,8 @@ export const Capability = Schema.Literals([
   "sessions.auto-archive",
   /** `continuity.watch`, `continuity.markRead`, `continuity.saveDraft`: read position and drafts. */
   "session.continuity",
+  /** `presence.report`: a Desktop App's presence holds this Host's pushes to Linked Devices. */
+  "presence",
   "terminal",
   /** `terminal.attachBinary`: terminal output as raw bytes on the blob channel, not base64 JSON. */
   "terminal.binary",

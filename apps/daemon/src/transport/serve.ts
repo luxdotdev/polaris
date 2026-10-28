@@ -126,7 +126,8 @@ export const daemonHandlers = Layer.mergeAll(
   PredictionRpcsLive,
   CommitMessageRpcsLive,
   EngineRpcHandlers,
-  ContinuityRpcsLive.pipe(Layer.provide(Continuity.layer)),
+  // One Continuity: the notifier sees the reads `continuity.markRead` makes.
+  Layer.merge(ContinuityRpcsLive, PushNotifierLive).pipe(Layer.provide(Continuity.layer)),
   ResourceRpcsLive,
   lazyConstellationHandlers,
   FilesRpcsLive.pipe(Layer.provide(FileSearchLive())),
@@ -139,8 +140,7 @@ export const daemonHandlers = Layer.mergeAll(
   lazyAcceptHandlers,
   ReviewerRpcsLive,
   TerminalRpcsLive.pipe(Layer.provide(TerminalsDaemonLive)),
-  VoiceRpcsLive.pipe(Layer.provide(Layer.merge(DeepgramLive, HostSecrets.layer))),
-  PushNotifierLive
+  VoiceRpcsLive.pipe(Layer.provide(Layer.merge(DeepgramLive, HostSecrets.layer)))
 ).pipe(Layer.provide(daemonServices));
 
 /** What the lazy language handlers serve: unavailable where no language artifact runs. */
@@ -171,6 +171,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "extensions",
   "remote-access",
   "linked-devices",
+  "presence",
   "voice",
   ...HARNESS_CATALOGUE.map((harness) => harness.capability),
   "harness.availability",

@@ -96,6 +96,7 @@ export const RPC_GRANTS = {
   "continuity.watch": "client",
   "continuity.markRead": "client",
   "continuity.saveDraft": "client",
+  "presence.report": "client",
   "attachments.stage": "client",
   "attachments.settings": "client",
   "attachments.setSettings": "client",

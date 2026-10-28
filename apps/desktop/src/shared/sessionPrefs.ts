@@ -16,6 +16,7 @@ export const DEFAULT_SESSION_PREFS: SessionPrefs = {
   longTurnMinutes: 5,
   notifyReviewRequests: true,
   notifyConstellations: true,
+  quietPhoneWhilePresent: true,
   deleteMergedBranch: false,
   spinnerVerbs: null,
   acceptBranch: "auto",

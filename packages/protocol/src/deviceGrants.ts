@@ -95,6 +95,8 @@ export const DEVICE_RPCS = {
   "continuity.watch": "device",
   "continuity.markRead": "device",
   "continuity.saveDraft": "device",
+  // A phone or an Extension must never quiet the pushes (ENG-495).
+  "presence.report": "local",
   "attachments.stage": "device",
   "attachments.settings": "local",
   "attachments.setSettings": "local",

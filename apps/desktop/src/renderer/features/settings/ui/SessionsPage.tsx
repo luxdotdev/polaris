@@ -110,6 +110,17 @@ export const SessionsPage = () => {
             onCheckedChange={(on) => setSessionPrefs({ notifyConstellations: on })}
           />
         </SettingRow>
+        <SettingRow
+          title="Quiet my phone while I'm at this computer"
+          caption="Hosts hold your linked phone's notifications while you use this computer, and send what still needs you once you step away or lock the screen."
+          htmlFor="quiet-phone"
+        >
+          <Switch
+            id="quiet-phone"
+            checked={prefs.quietPhoneWhilePresent}
+            onCheckedChange={(on) => setSessionPrefs({ quietPhoneWhilePresent: on })}
+          />
+        </SettingRow>
         <TurnNotifications />
         <SettingRow
           title="Notify when your review is requested"
