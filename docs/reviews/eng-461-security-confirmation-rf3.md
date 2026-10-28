@@ -72,3 +72,10 @@ is not a finding here.
 
 No physical iPhone, Face ID, deployed Relay or live push service was exercised. No benchmark was
 needed for this report-only change.
+
+## Decision (2026-10-28)
+
+The user accepted RX4-1 and RX4-2 as intended authority. A Linked Device has the phone user's full
+authority: every permission mode, reverting later Turns on Accept, and any Verdict scope, as on the
+Desktop App. If access to the app ever needs limiting, Face ID gating is the answer, not a narrower
+device gate. Hidden sessions (a non-null `origin`) stay refused.
