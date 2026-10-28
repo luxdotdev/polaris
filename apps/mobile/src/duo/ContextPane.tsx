@@ -9,14 +9,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { askToFix, flaggedCode, recordVerdict } from "../review/actions.ts";
 import { DiffList } from "../review/DiffList.tsx";
-import { diffRows, fileLines } from "../review/diffRows.ts";
+import { fileLines } from "../review/diffRows.ts";
 import type { FindingActions } from "../review/FindingCard.tsx";
 import { diffPalette } from "../review/palette.ts";
 import { SeverityGlyph, severityLabel, severityText } from "../review/severity.tsx";
 import { useHost } from "../runtime/hosts.tsx";
 import type { ThreadFocus } from "../thread/Row.tsx";
 import { contextOf, type OtherFile, type TurnContext } from "./context.ts";
-import { type TurnFiles, useSessionContext, useTurnFiles } from "./useSessionContext.ts";
+import { contextRows, summaryOf, type TurnFiles } from "./contextRows.ts";
+import { useSessionContext, useTurnFiles } from "./useSessionContext.ts";
 
 export interface ContextPaneProps {
   readonly hostId: string;
@@ -104,23 +105,6 @@ const PALETTE = diffPalette(false);
 
 const NOTHING = new Set<string>();
 
-const fileProblem = (files: TurnFiles, path: string | null): string | null => {
-  if (path === null) return "This step changed no files.";
-
-  switch (files.kind) {
-    case "loading":
-      return "Loading the diff…";
-    case "working":
-      return "The diff shows when this turn ends.";
-    case "failed":
-      return files.message;
-    case "ready":
-      return files.files.some((f) => f.diff.name === path)
-        ? null
-        : "This file has no changes left in this turn's diff.";
-  }
-};
-
 export const ContextPane = ({
   hostId,
   sessionId,
@@ -142,7 +126,7 @@ export const ContextPane = ({
   }, [turns, data.findings, focus]);
 
   const files = useTurnFiles(data.live, data.fold?.session.cwd ?? null, data.workspacePath, turn);
-  const summary = files.kind === "ready" ? files.summary : null;
+  const summary = summaryOf(files);
   const findings = summary?.findings ?? data.findings;
   const context = useMemo(() => contextOf(turns, findings, focus), [turns, findings, focus]);
   const path = context?.path ?? null;
@@ -152,17 +136,7 @@ export const ContextPane = ({
     if (shownKey !== null) onShown(shownKey);
   }, [shownKey, onShown]);
 
-  const rows = useMemo(
-    () =>
-      files.kind !== "ready" || path === null
-        ? []
-        : diffRows(
-            files.files.filter((f) => f.diff.name === path),
-            findings,
-            new Set([path])
-          ),
-    [files, findings, path]
-  );
+  const rows = useMemo(() => contextRows(files, findings, path), [files, findings, path]);
 
   const harness = data.fold?.session.harness ?? null;
 
@@ -209,33 +183,27 @@ export const ContextPane = ({
       </View>
     );
 
-  const problem = fileProblem(files, path);
-
   return (
     <View style={styles.pane}>
       <Header context={context} onOpenReview={() => onOpenReview(context.turnId)} />
       <View style={styles.diff}>
-        {problem === null ? (
-          <DiffList
-            rows={rows}
-            palette={PALETTE}
-            expanded={context.finding === null ? opened : new Set([...opened, context.finding.id])}
-            actions={actions}
-            onToggleFile={() => undefined}
-            onToggleFinding={(id) =>
-              setOpened((o) => {
-                const next = new Set(o);
+        <DiffList
+          rows={rows}
+          palette={PALETTE}
+          expanded={context.finding === null ? opened : new Set([...opened, context.finding.id])}
+          actions={actions}
+          onToggleFile={() => undefined}
+          onToggleFinding={(id) =>
+            setOpened((o) => {
+              const next = new Set(o);
 
-                if (!next.delete(id)) next.add(id);
+              if (!next.delete(id)) next.add(id);
 
-                return next;
-              })
-            }
-            bottomInset={12}
-          />
-        ) : (
-          <Text style={styles.empty}>{problem}</Text>
-        )}
+              return next;
+            })
+          }
+          bottomInset={12}
+        />
       </View>
       <Also context={context} files={files} onPick={pick} />
     </View>
