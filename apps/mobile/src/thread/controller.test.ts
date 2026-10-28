@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { AttachmentId, Command } from "@polaris/protocol";
 import { Effect, Predicate } from "effect";
 import { type ThreadController, type ThreadState, openThread } from "./controller.ts";
 import {
@@ -150,13 +151,38 @@ describe("send, steer, queue", () => {
         thread.queue();
         yield* settle;
         expect(host.commands).toEqual([]);
-        expect(thread.get().queued).toEqual(["then rerun the tests"]);
+        expect(thread.get().queued).toEqual([{ text: "then rerun the tests", attachments: [] }]);
 
         yield* host.push(ended(2, turn(1)));
         yield* host.push(stateChanged(3, "idle"));
         yield* until(thread, (s) => s.queued.length === 0);
         const sent = host.commands[0];
         expect(Predicate.isTagged(sent, "SendTurn") && sent.prompt).toBe("then rerun the tests");
+      })
+    ));
+
+  test("Send with attachments during a steerable Turn waits for it, since a steer is text only", () =>
+    withThread((host, thread) =>
+      Effect.gen(function* () {
+        const shot = AttachmentId.make("att-1");
+
+        yield* host.push(snapshot([{ turn: working }], { state: "working" }));
+        yield* until(thread, (s) => s.fold !== null);
+        thread.type("use this screenshot");
+        expect(yield* Effect.promise(() => thread.submit([shot]))).toBe(true);
+        yield* settle;
+        expect(host.commands).toEqual([]);
+
+        yield* host.push(ended(2, turn(1)));
+        yield* host.push(stateChanged(3, "idle"));
+        yield* until(thread, (s) => s.queued.length === 0);
+        expect(host.commands[0]).toEqual(
+          Command.cases.SendTurn.make({
+            sessionId,
+            prompt: "use this screenshot",
+            attachments: [shot],
+          })
+        );
       })
     ));
 });

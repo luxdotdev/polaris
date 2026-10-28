@@ -14,6 +14,7 @@ import {
   makeDraftSync,
 } from "@polaris/client/continuity";
 import {
+  type AttachmentId,
   Command,
   type RiskFinding,
   type SessionId,
@@ -21,7 +22,13 @@ import {
   type WorkspaceId,
 } from "@polaris/protocol";
 import { Effect, Exit, Fiber, Stream } from "effect";
-import { composerMode, followUpCommand, submitCommand } from "./composer.ts";
+import {
+  composerMode,
+  type FollowUp,
+  followUpCommand,
+  sendQueues,
+  submitCommand,
+} from "./composer.ts";
 import { applySessionItem, type SessionFold, summaryHead } from "./fold.ts";
 import { newestEndedOnScreen } from "./rows.ts";
 import type { ThreadFailure, ThreadSource } from "./source.ts";
@@ -35,7 +42,7 @@ export interface ThreadState {
   /** Null while the Host's continuity isn't live: nothing is claimed saved. */
   readonly draftStatus: DraftStatus | null;
   /** Follow-ups waiting for the Turn in flight, oldest first. */
-  readonly queued: ReadonlyArray<string>;
+  readonly queued: ReadonlyArray<FollowUp>;
   /** Why the last send or stop failed. */
   readonly error: string | null;
 }
@@ -48,8 +55,9 @@ export interface ThreadController {
   readonly workspace: (workspaceId: WorkspaceId) => Promise<Workspace | null>;
   readonly subscribe: (listener: () => void) => () => void;
   readonly type: (text: string) => void;
-  readonly submit: () => Promise<void>;
-  readonly queue: () => void;
+  /** Sends or holds the draft with `attachments`; true when it was taken, so the chips can go. */
+  readonly submit: (attachments?: ReadonlyArray<AttachmentId>) => Promise<boolean>;
+  readonly queue: (attachments?: ReadonlyArray<AttachmentId>) => boolean;
   readonly interrupt: () => Promise<void>;
   /** The Host's connection came back: drafts that failed to save are written again. */
   readonly reconnected: () => void;
@@ -190,18 +198,20 @@ export const openThread = (
     void drafts.flush(sessionId);
   };
 
-  const queue = () => {
+  const queue = (attachments: ReadonlyArray<AttachmentId> = []) => {
     const text = state.text.trim();
 
-    if (text === "") return;
-    set({ queued: [...state.queued, text] });
+    if (text === "") return false;
+    set({ queued: [...state.queued, { text, attachments }] });
     clearSent();
+
+    return true;
   };
 
-  const submit = async () => {
+  const submit = async (attachments: ReadonlyArray<AttachmentId> = []) => {
     const fold = state.fold;
 
-    if (fold === null) return;
+    if (fold === null) return false;
 
     const mode = composerMode({
       state: fold.session.state,
@@ -210,15 +220,17 @@ export const openThread = (
       canSteer: source.canSteer,
     });
 
-    if (mode.kind === "queue") return queue();
-    const command = submitCommand(mode, sessionId, state.text);
+    if (sendQueues(mode, attachments)) return queue(attachments);
+    const command = submitCommand(mode, sessionId, state.text, attachments);
 
-    if (command === null) return;
+    if (command === null) return false;
 
     const error = await send(command);
 
     if (error === null) clearSent();
     else set({ error });
+
+    return error === null;
   };
 
   const interrupt = async () => {
