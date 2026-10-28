@@ -166,6 +166,8 @@ export const SessionPrefs = Schema.Struct({
   notifyReviewRequests: Schema.Boolean,
   /** Polaris's own notifications when a Constellation needs you (ENG-462; on by default). */
   notifyConstellations: Schema.Boolean,
+  /** Hosts hold pushes to linked phones while the user is at this computer (ENG-495; on by default). */
+  quietPhoneWhilePresent: Schema.Boolean,
   /** Archive deletes a session's branch once it is merged; unmerged branches always stay. */
   deleteMergedBranch: Schema.Boolean,
   /** The Working strip's verbs; null for the built-in ones (Claude Code's own settings come first). */
@@ -198,6 +200,7 @@ export const SessionPrefsPatch = Schema.Struct({
   longTurnMinutes: Schema.optionalKey(LongTurnMinutes),
   notifyReviewRequests: Schema.optionalKey(Schema.Boolean),
   notifyConstellations: Schema.optionalKey(Schema.Boolean),
+  quietPhoneWhilePresent: Schema.optionalKey(Schema.Boolean),
   deleteMergedBranch: Schema.optionalKey(Schema.Boolean),
   spinnerVerbs: Schema.optionalKey(Schema.NullOr(Schema.Array(Schema.String))),
   acceptBranch: Schema.optionalKey(AcceptBranchMode),

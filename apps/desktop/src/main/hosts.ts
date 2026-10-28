@@ -14,8 +14,9 @@ import {
   HostRegistry,
   ConstellationRelay,
   HostTarget,
+  reportPresence,
 } from "@polaris/client";
-import { Capability } from "@polaris/protocol";
+import { Capability, type UserPresence } from "@polaris/protocol";
 import {
   Context,
   Effect,
@@ -249,6 +250,8 @@ export interface HostDirectoryInput {
   /** Same Main allocator used by identity IPC; public epochs are freshness, never credentials. */
   readonly languageEpoch?: (hostKey: string, session: LiveSession) => number | null;
   readonly invalidateLanguage?: (hostKey: string) => void;
+  /** Whether the user is at this computer; told to every Host that asks (ENG-495). */
+  readonly presence?: Stream.Stream<UserPresence>;
 }
 
 /** The Hosts this app connects to, and their views for the renderers. */
@@ -271,6 +274,7 @@ export class HostDirectory extends Context.Service<
     clientIdentity,
     languageEpoch,
     invalidateLanguage,
+    presence,
   }: HostDirectoryInput) =>
     Layer.effect(
       HostDirectory,
@@ -349,7 +353,12 @@ export class HostDirectory extends Context.Service<
                     connection.sessionChanges.pipe(Stream.map(() => undefined))
                   );
 
-            const tracker = yield* changes.pipe(
+            const report =
+              presence === undefined || connection.sessionChanges === undefined
+                ? Effect.void
+                : reportPresence(connection.sessionChanges, presence);
+
+            const track = changes.pipe(
               Stream.runForEach(() =>
                 Effect.gen(function* () {
                   const status = yield* SubscriptionRef.get(connection.status);
@@ -365,9 +374,13 @@ export class HostDirectory extends Context.Service<
                     replaceView(current, hostView(byKey.get(entry.key) ?? entry, status, epoch))
                   );
                 })
-              ),
-              Effect.forkIn(scope)
+              )
             );
+
+            const tracker = yield* Effect.all([track, report], {
+              concurrency: "unbounded",
+              discard: true,
+            }).pipe(Effect.forkIn(scope));
 
             trackers.set(entry.key, tracker);
           });

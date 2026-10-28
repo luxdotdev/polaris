@@ -28,6 +28,7 @@ import {
 import { AttachmentSettings, AttachmentUsage, StagedAmount } from "./attachments.ts";
 import { AutoArchiveRpcs } from "./autoArchive.ts";
 import { ContinuityRpcs } from "./continuity.ts";
+import { PresenceRpcs } from "./presence.ts";
 import { HostHarnesses } from "./availability.ts";
 import { PredictionRpcs } from "./predictionRpcs.ts";
 import { InlinePropose } from "./inline.ts";
@@ -804,7 +805,7 @@ export class DaemonRpcs extends RpcGroup.make(
   .merge(LanguageRpcs)
   .merge(PredictionRpcs)
   .merge(SessionTurnRpcs)
-  .merge(AutoArchiveRpcs, ContinuityRpcs)
+  .merge(AutoArchiveRpcs, ContinuityRpcs, PresenceRpcs)
   .merge(GitWriteRpcs, GitWatchRpcs, CommitMessageRpcs)
   .merge(ExtensionRpcs, RemoteAccessRpcs, LinkedDeviceRpcs, VoiceRpcs) {}
 

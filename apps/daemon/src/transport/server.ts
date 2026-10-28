@@ -46,6 +46,7 @@ import { RemoteAccessLive } from "../extensions/remoteAccess.ts";
 import { RemoteAccessControl } from "../remoteAccess/index.ts";
 import { ConnectionDevice, deviceOf } from "../linkedDevices/connection.ts";
 import { DeviceConnections, type LinkTiming, RelayRoute } from "../linkedDevices/route.ts";
+import { HostPresence, type PresenceOptions } from "../presence/index.ts";
 import type { DeviceSession } from "../linkedDevices/session.ts";
 import { LinkedDevices } from "../linkedDevices/store.ts";
 import { HostSecrets } from "../secrets/index.ts";
@@ -105,6 +106,8 @@ export interface ServeOptions<ROut, E, RIn> {
   readonly secrets?: Layer.Layer<HostSecrets>;
   /** For tests: link lifetime and a hold on link completion (`RelayRoute`). */
   readonly relayLinks?: LinkTiming | undefined;
+  /** For tests: a shorter presence lease (`HostPresence`). */
+  readonly presence?: PresenceOptions;
 }
 
 export interface RunningServer {
@@ -166,6 +169,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       | LinkedDevices
       | HostSecrets
       | DeviceConnections
+      | HostPresence
     >
 > =>
   Effect.gen(function* () {
@@ -230,6 +234,9 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       })
     );
 
+    // Every connection's presence; a closed connection's ends with it (ENG-495).
+    const presence = HostPresence.make(options.presence);
+
     // Set once `serveConnection` exists: a device's session that arrives sooner is ended.
     let serveDevice:
       | ((session: DeviceSession, device: LinkedDevice) => Effect.Effect<void>)
@@ -247,6 +254,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
             )
           ),
           options.secrets ?? HostSecrets.layer,
+          Layer.succeed(HostPresence)(presence),
           Layer.succeed(DeviceConnections)({
             serve: (session, device) =>
               serveDevice === null ? session.close : serveDevice(session, device),
@@ -516,6 +524,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
                 connection.closing = true;
                 rpcAdmission.disconnect(clientId);
                 extensionConnections.unbind(clientId);
+                presence.disconnect(clientId);
                 lifetimes.forEach((lifetime) => lifetime.seal());
                 clients.forEach(revokeLanguageIdentity);
                 clients.forEach((client) => rejectConnection(client));

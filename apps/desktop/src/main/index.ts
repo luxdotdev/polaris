@@ -28,9 +28,11 @@ import {
   dialog,
   nativeTheme,
   ipcMain,
+  powerMonitor,
   session,
   shell,
 } from "electron";
+import type { UserPresence } from "@polaris/protocol";
 import { type AppEvent, type Appearance, CHANNELS, type SessionDefault } from "../shared/api.ts";
 import {
   clientIdentity,
@@ -42,7 +44,8 @@ import {
   startClientRuntime,
   whenConnected,
 } from "./hosts.ts";
-import { Effect, Layer, Option } from "effect";
+import { Effect, Layer, Option, SubscriptionRef } from "effect";
+import { type PresenceWatch, watchPresence } from "./presence/index.ts";
 import { followFocus, followReviewRequests, githubLayer } from "./github/electron.ts";
 import { legacyTokens } from "./github/store.ts";
 import { secureStorageLayer } from "./secure/electron.ts";
@@ -180,6 +183,8 @@ let predictionOutcomes: PredictionOutcomes | null = null;
 
 let needsYou: NeedsYouCenter | null = null;
 
+let presenceWatch: PresenceWatch | null = null;
+
 let reviews: ReviewNotifier | null = null;
 
 let updates: AppUpdates | null = null;
@@ -268,6 +273,7 @@ const start = async () => {
     const { newWorktree: _legacy, ...rest } = settings;
 
     updateSettings(() => ({ ...rest, sessions: { ...sessionPrefsOf(settings), ...patch } }));
+    presenceWatch?.check();
     const event: AppEvent = { kind: "sessions", sessions: sessionPrefsOf(settings) };
 
     for (const win of BrowserWindow.getAllWindows()) win.webContents.send(CHANNELS.app, event);
@@ -362,8 +368,18 @@ const start = async () => {
     )
   );
 
+  // Hosts hold pushes to linked phones while the user is here (ENG-495).
+  const presence = Effect.runSync(SubscriptionRef.make<UserPresence>("away"));
+  presenceWatch = watchPresence({
+    monitor: powerMonitor,
+    enabled: () =>
+      env.POLARIS_DESKTOP_HIDDEN !== "1" && sessionPrefsOf(settings).quietPhoneWhilePresent,
+    onChange: (next) => Effect.runSync(SubscriptionRef.set(presence, next)),
+  });
+
   runtime = startClientRuntime(
     {
+      presence: SubscriptionRef.changes(presence),
       entries: hostEntries({
         local: localDaemon,
         remotes: settings.hosts ?? [],
@@ -562,6 +578,7 @@ const finishQuit = () => {
   // The dev Daemon (if this app started it) goes down with the app.
   const stopLocal = localHost === null ? undefined : Effect.runPromise(localHost.stop);
 
+  presenceWatch?.dispose();
   void Promise.allSettled([runtime?.dispose(), stopLocal, predictionOutcomes?.close()]).then(() => {
     if (restartForUpdate && updates?.get().phase === "ready") updates.install();
     else app.quit();

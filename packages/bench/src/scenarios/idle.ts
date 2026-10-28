@@ -5,10 +5,11 @@
  *
  * The sessions are made Dormant the way it happens in life: they run a Turn,
  * then the Daemon restarts. Measured first with one Client connected and
- * subscribed (a Desktop App in the background), then with no Client.
+ * subscribed (a Desktop App in the background, its user present: ENG-495's
+ * lease, renewed once a minute), then with no Client.
  */
 import { join } from "node:path";
-import { Effect, Stream } from "effect";
+import { Effect, Schedule, Stream } from "effect";
 import { awaitReady, cleanup, connect, createTempDir } from "../daemon.ts";
 import { registerWorkspace, settle, startSession, waitUntil, watchSession } from "../drive.ts";
 import { smallRepo } from "../fixtures.ts";
@@ -94,6 +95,12 @@ export const idle: Scenario = {
             client.connection.client.subscribeHost({ afterSequence: null })
           ).pipe(Effect.forkScoped);
           yield* watchSession(client, "idle-0-0");
+
+          if (client.capabilities.includes("presence"))
+            yield* client.connection.client["presence.report"]({ presence: "present" }).pipe(
+              Effect.repeat(Schedule.spaced("60 seconds")),
+              Effect.forkScoped
+            );
           yield* settle(5000);
           const from = sampler.sample().t;
           yield* settle(windowMs);

@@ -7,7 +7,8 @@ service carry each payload sealed to the device and can't read it.
 | File | What |
 |---|---|
 | `plan.ts` | Which Host stream items push: each new approval or question at once; each `SessionNotified` at once, as `notify` (an agent's `notify`, or Polaris's own when a Constellation needs the user); a finished Turn once its session stays Idle with no background tasks for 3 s (ADR 0073), except a Lead Turn Polaris started for a digest and a Constellation worker's Turns. Pure. |
-| `notifier.ts` | `PushNotifier`: follows the Engine's Host stream (`PushHostEvents`) only while some device is registered, runs the plan and its settle timer, and wakes each registered device. |
+| `notifier.ts` | `PushNotifier`: follows the Engine's Host stream (`PushHostEvents`) only while some device is registered, runs the plan and its settle timer, and wakes each registered device, or holds the push while the user is present. |
+| `hold.ts` | Pushes held while the user is at a Desktop App, and which of them they handled there. Pure. |
 | `seal.ts` | HPKE base mode, DHKEM(P-256, HKDF-SHA256) / HKDF-SHA256 / AES-256-GCM, info `polaris-push/1` ([`@hpke/core`](https://github.com/dajiaji/hpke-js), MIT). CryptoKit's `P256_SHA256_AES_GCM_256` opens it. |
 
 ## Registration
@@ -24,10 +25,25 @@ replaces the last one, so the app rotates its key or token by registering again.
 device deletes its registration; `unregistered` from APNs deletes it until the device
 registers again.
 
+## Presence (ENG-495)
+
+While the user is at a Desktop App, its connection reports `presence.report { presence: "present" }`
+(capability `presence`; Desktop App connections only: a Linked Device or an Extension is refused).
+`present` is a lease (`HostPresence`, `../presence/`): 120 s, renewed by the Desktop App every
+60 s, ended by `away`, by lapsing, or the moment its connection closes. The Host is present
+while any lease is live; only present or away crosses the wire.
+
+While present, a planned push is held instead of sent. A held push is dropped once the user
+handles it: a Needs You when its request is resolved or withdrawn, a finished Turn when the
+session's read position (`continuity.markRead`) reaches it, a notification when its session is
+read after it. Read positions are followed (`PushReads`) only while something is held. When
+presence ends, everything still held goes out, oldest first (at most 200 kept).
+
 ## Cost
 
 No registration: no subscription, no timers. With one: a Host stream subscription in memory,
-and a timer only while a finished Turn settles. Each push is one `wake` on the existing relay
+and a timer only while a finished Turn settles. A live presence lease keeps one timer, at its
+lapse; each Desktop App renews it with one small RPC a minute. Each push is one `wake` on the existing relay
 socket; nothing is queued while it is down.
 
 ## Threat model

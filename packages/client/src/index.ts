@@ -11,6 +11,8 @@ export * from "./HostConnection.ts";
 
 export * from "./HostRegistry.ts";
 
+export * from "./presence.ts";
+
 export * from "./localDaemon.ts";
 
 export * from "./resume.ts";

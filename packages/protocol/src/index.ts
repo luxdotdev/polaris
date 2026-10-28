@@ -14,6 +14,8 @@ export * from "./commands.ts";
 
 export * from "./continuity.ts";
 
+export * from "./presence.ts";
+
 export * from "./domain.ts";
 
 export * from "./events.ts";
