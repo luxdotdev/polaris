@@ -5,7 +5,14 @@
  */
 export * from "./device.ts";
 
-export { LinkFailed, linkDevice, linkedHosts, readLink } from "./link.ts";
+export {
+  checkLinkedHosts,
+  LinkFailed,
+  linkDevice,
+  linkedHosts,
+  readLink,
+  secureRelayUrl,
+} from "./link.ts";
 
 export { OPEN_TIMEOUT_MS, openSession, relaySessionTransport } from "./session.ts";
 

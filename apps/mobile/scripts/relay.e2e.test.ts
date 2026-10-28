@@ -17,7 +17,12 @@ import { openHostFeed } from "@polaris/client/resume";
 import { encodeLinkEnvelope, type HostStreamItem } from "@polaris/protocol";
 import { Effect, Exit, Fiber, Predicate, Scope, Stream } from "effect";
 import { type HostConnection, openHostConnection } from "../src/runtime/hostConnection.ts";
-import { launchRelayDaemon, makeRelay, type RelayDaemon, type TestRelay } from "./relay.testing.ts";
+import {
+  launchRelayDaemon,
+  relayProcess,
+  type RelayDaemon,
+  type TestRelay,
+} from "./relay.testing.ts";
 import { relayTransport } from "../src/relay/transport.ts";
 
 let relay: TestRelay;
@@ -25,7 +30,7 @@ let relay: TestRelay;
 let host: RelayDaemon;
 
 beforeAll(async () => {
-  relay = makeRelay();
+  relay = relayProcess();
   await relay.start();
   host = await launchRelayDaemon(relay.url);
 }, 60_000);

@@ -25,7 +25,7 @@ export interface TestRelay {
   readonly stop: () => Promise<void>;
 }
 
-export const makeRelay = (port = freePort()): TestRelay => {
+export const relayProcess = (port = freePort()): TestRelay => {
   let child: Bun.Subprocess<"ignore", "pipe", "inherit"> | null = null;
 
   const start = async () => {

@@ -4,8 +4,10 @@
  * string and adds the Hosts it names. Sits inside the HostsProvider.
  */
 import {
+  checkLinkedHosts,
   type DeviceKeys,
   deviceKeys,
+  linkedHosts,
   type LinkedHost,
   linkDevice,
   makeRelayDevice,
@@ -94,10 +96,14 @@ export const RelayProvider = ({ children }: { readonly children: ReactNode }) =>
   const link = useCallback(async (text: string): Promise<LinkOutcome> => {
     const secrets = await secretsForLinking();
     const linkKeys = await deviceKeys(secrets);
+    const known = await loadHosts();
 
+    // Checked before dialing, so a refused link's one-time secret stays unused.
     const outcome = await Effect.runPromise(
       Effect.flatMap(readLink(text), (envelope) =>
-        linkDevice(envelope, linkKeys, DEVICE_NAME)
+        Effect.andThen(checkLinkedHosts(known, linkedHosts(envelope)), () =>
+          linkDevice(envelope, linkKeys, DEVICE_NAME)
+        )
       ).pipe(
         Effect.map((hosts): LinkOutcome => ({ linked: true, hosts })),
         Effect.catchTag("LinkFailed", (failure) =>

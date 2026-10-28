@@ -12,17 +12,61 @@ import { openSession } from "./session.ts";
 import { RelaySocket } from "./socket.ts";
 
 export class LinkFailed extends Schema.TaggedError<LinkFailed>()("LinkFailed", {
-  reason: Schema.Literals(["not-a-link", "expired", "no-answer"]),
+  reason: Schema.Literals(["not-a-link", "expired", "no-answer", "insecure-relay", "host-changed"]),
   message: Schema.String,
 }) {}
 
-/** The link string's envelope, or LinkFailed when the text isn't one. */
+const LOOPBACK = new Set(["127.0.0.1", "localhost", "[::1]"]);
+
+/** TLS to the relay, except a relay on this machine (development and tests). */
+export const secureRelayUrl = (url: string): boolean => {
+  if (!URL.canParse(url)) return false;
+  const parsed = new URL(url);
+
+  return parsed.protocol === "wss:" || (parsed.protocol === "ws:" && LOOPBACK.has(parsed.hostname));
+};
+
+/** The link string's envelope; LinkFailed when the text isn't one or names a relay without TLS. */
 export const readLink = (text: string): Effect.Effect<LinkEnvelope, LinkFailed> =>
   Option.match(decodeLinkString(text), {
     onNone: () =>
       Effect.fail(new LinkFailed({ reason: "not-a-link", message: "That isn't a Polaris link." })),
-    onSome: Effect.succeed,
+    onSome: (envelope) =>
+      [envelope.link, ...envelope.hosts].every((host) => secureRelayUrl(host.relayUrl))
+        ? Effect.succeed(envelope)
+        : Effect.fail(
+            new LinkFailed({
+              reason: "insecure-relay",
+              message: "This link names a relay without TLS (wss://), so it wasn't used.",
+            })
+          ),
   });
+
+/**
+ * The Hosts a link names, refused when one is already linked with another key or relay
+ * address: a forged code can't take over a Host this device trusts.
+ */
+export const checkLinkedHosts = (
+  linked: ReadonlyArray<LinkedHost>,
+  named: ReadonlyArray<LinkedHost>
+): Effect.Effect<ReadonlyArray<LinkedHost>, LinkFailed> => {
+  const changed = named.find((host) =>
+    linked.some(
+      (known) =>
+        known.hostId === host.hostId &&
+        (known.hostNoiseKey !== host.hostNoiseKey || known.hostAddress !== host.hostAddress)
+    )
+  );
+
+  return changed === undefined
+    ? Effect.succeed(named)
+    : Effect.fail(
+        new LinkFailed({
+          reason: "host-changed",
+          message: `${changed.hostName} is already linked with another key, so this link wasn't used.`,
+        })
+      );
+};
 
 /** Every Host the link names: the one the device links through first, then the others. */
 export const linkedHosts = (envelope: LinkEnvelope): ReadonlyArray<LinkedHost> =>
