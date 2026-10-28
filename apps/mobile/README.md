@@ -51,7 +51,7 @@ inline. `scripts/home.daemon.test.ts` approves, denies and answers against a rea
 `src/hosts/` is Paper M7: each Host's Connection State and route, read only.
 
 The shell is `src/App.tsx` with `src/app/` (navigation, tab bar, back bar). `src/app/routes.tsx`
-holds the routes for the thread, New agent session and Link screens.
+holds the routes for the thread, Review, New agent session and Link screens.
 
 ## New agent session (M6)
 
@@ -93,6 +93,21 @@ devDependency, its config plugin only) adds to the Xcode project at prebuild.
 - **Checks.** `scripts/widgets.swift.test.ts` compiles `Snapshot.swift` with `swiftc` and feeds
   it the app's real snapshot, so the Swift reader, its merge of pushes, its ages and its links
   can't drift from the TypeScript (skipped where there is no `swiftc`).
+
+## Review
+
+`src/review/` is Paper M5: `ReviewScreen({ hostId, sessionId, turnId?, colourblind?, onBack? })` reviews one agent session's Turn. It reads the Turn's diff (`git.diff`, as a blob), runs or reads its Risk Summary (`review.runRiskSummary`, then `review.watchRiskSummary`), and shows the Polaris summary with its tally, the files ordered by risk (or by path under Files), and findings inline under the line they flag. Accept sends `AcceptTurns` and is paused while a Critical finding is open. Send back sends the user's reply as a feedback Turn, and "Ask {harness} to fix" quotes the flagged lines. A Critical finding can't be hidden: a dismissed one stays listed, and its card stays visible when its file is closed.
+
+The diff renderer is Pierre Diffs' patch parser on Hermes. Metro resolves `@pierre/diffs` to its DOM-free `parsePatchFiles` module only, about 13 KB, without Shiki or the DOM renderer. Rows are drawn by a React Native `FlatList`. There is no syntax colouring or word-level highlighting yet. `colourblind` switches to the `-cvd` diff pair.
+
+The diff bench measures it on a device or simulator. It renders Review over a synthetic 2,000-line Turn and reports parse time and frame intervals on screen (and as `POLARIS_DIFF_BENCH {json}` in the log):
+
+```sh
+EXPO_PUBLIC_POLARIS_DIFF_BENCH=auto bunx expo run:ios --configuration Release   # JS-driven scroll at 5,000 pt/s
+EXPO_PUBLIC_POLARIS_DIFF_BENCH=manual:2000 …                                    # 15 s of your own swipes
+```
+
+Home opens Review (the `review` route) from a session row that reads "Ready to review"; the bench replaces the app's root in `index.ts`.
 
 ## The Hermes check
 

@@ -25,7 +25,8 @@ const firstLine = (text: string | null): string | null => {
   return line === undefined || line === "" ? null : line;
 };
 
-const hasUnreviewedTurns = (session: Session) =>
+/** A "Ready to review" session: a Turn after the last accepted one. */
+export const hasUnreviewedTurns = (session: Session) =>
   session.turnCount > 0 && (session.acceptedThroughIndex ?? -1) < session.turnCount - 1;
 
 const join = (...parts: ReadonlyArray<string | null>) =>

@@ -209,12 +209,10 @@ export const startCommand = (choices: StartChoices): Command =>
           baseRef: null,
         })
       : SessionPlacement.cases.InPlace.make({}),
-    // SAFETY: "plan" needs `session.plan-mode`, which decodes only with ENG-466's protocol,
-    // where PermissionMode has "plan".
     permissionMode: permissionModeFor(
       choices.planFirst ? "plan" : "supervised",
       choices.capabilities
-    ) as PermissionMode,
+    ),
     model: choices.model === null ? null : ModelId.make(choices.model),
     effort: null,
     prompt: choices.prompt.trim(),

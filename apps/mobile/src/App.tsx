@@ -13,6 +13,7 @@ import {
   ConstellationRoute,
   LinkRoute,
   NewSessionSheet,
+  ReviewRoute,
   ReviewTab,
   ThreadRoute,
 } from "./app/routes.tsx";
@@ -40,6 +41,8 @@ const Tabs = () => {
           actions={{
             openSession: (hostId, sessionId) =>
               navigation.push({ screen: "thread", hostId, sessionId }),
+            openReview: (hostId, sessionId) =>
+              navigation.push({ screen: "review", hostId, sessionId, turnId: null }),
             openConstellation: (hostId, constellationId) =>
               navigation.push({ screen: "constellation", hostId, constellationId }),
             openHosts: () => navigation.push({ screen: "hosts" }),
@@ -78,6 +81,14 @@ const Screen = () => {
         <ConstellationRoute
           hostId={hostId}
           constellationId={constellationId}
+          onBack={navigation.back}
+        />
+      ),
+      review: ({ hostId, sessionId, turnId }) => (
+        <ReviewRoute
+          hostId={hostId}
+          sessionId={sessionId}
+          turnId={turnId}
           onBack={navigation.back}
         />
       ),

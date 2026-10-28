@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { HostConnection } from "../runtime/hostConnection.ts";
 import { homeHostsOf, useFollowedHosts } from "./feed/useFollowedHosts.ts";
 import { buildHome, type HomeRow, type SessionRow } from "./model/home.ts";
+import { hasUnreviewedTurns } from "./model/lines.ts";
 import { type Reply, respond } from "./model/respond.ts";
 import { EmptyHome } from "./ui/EmptyHome.tsx";
 import { NeedsYouMark, WorkingMark } from "./ui/glyphs.tsx";
@@ -19,6 +20,8 @@ import { ConstellationListRow, NeedsYouRow, SessionListRow } from "./ui/rows.tsx
 
 export interface HomeActions {
   readonly openSession: (hostId: string, sessionId: string) => void;
+  /** Review (M5) of a session's latest ended Turn. */
+  readonly openReview: (hostId: string, sessionId: string) => void;
   readonly openConstellation: (hostId: string, constellationId: string) => void;
   readonly openHosts: () => void;
   readonly link: () => void;
@@ -101,7 +104,11 @@ const ListRow = ({
       row={row}
       now={now}
       withHost={withHost}
-      onOpen={() => actions.openSession(row.hostId, row.session.id)}
+      onOpen={() =>
+        hasUnreviewedTurns(row.session)
+          ? actions.openReview(row.hostId, row.session.id)
+          : actions.openSession(row.hostId, row.session.id)
+      }
     />
   );
 

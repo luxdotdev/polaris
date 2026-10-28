@@ -12,7 +12,7 @@ import {
   type ReconnectPolicy,
 } from "@polaris/client/connection";
 import { ConnectFailure, olderSide } from "@polaris/client/failures";
-import { connectRpc, type DaemonClient } from "@polaris/client/rpc";
+import { type ClientBlobs, connectRpc, type DaemonClient } from "@polaris/client/rpc";
 import {
   type ByteTransport,
   Capability,
@@ -54,6 +54,8 @@ export interface HostStatus {
 export interface LiveHost {
   readonly epoch: number;
   readonly client: DaemonClient;
+  /** Blobs the Daemon referenced in a response on this connection (`git.diff`, `files.read`). */
+  readonly blobs: ClientBlobs;
   readonly host: HostInfo;
   readonly capabilities: ReadonlyArray<Capability>;
 }
@@ -199,7 +201,13 @@ export const openHostConnection = (options: HostConnectionOptions): HostConnecti
         host = hello.host;
         capabilities = hello.capabilities;
         lastSeenAt = Date.now();
-        live = { epoch, client: connection.client, host: hello.host, capabilities };
+        live = {
+          epoch,
+          client: connection.client,
+          blobs: connection.blobs,
+          host: hello.host,
+          capabilities,
+        };
         changed();
 
         latencyMs = Math.round(yield* connection.roundTrip.pipe(Effect.raceFirst(lost)));

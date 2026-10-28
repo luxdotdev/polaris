@@ -49,6 +49,9 @@ export const ThreadRoute = (props: {
 
 export { ConstellationScreen as ConstellationRoute } from "../constellation/index.ts";
 
+/** Review (M5) of a Turn; a null `turnId` reviews the latest one that ended. */
+export { ReviewScreen as ReviewRoute } from "../review/index.ts";
+
 export const LinkRoute = (props: { readonly onDone: () => void }) => (
   <StandIn
     title="Link this iPhone"
