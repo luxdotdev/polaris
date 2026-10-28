@@ -1,0 +1,81 @@
+/**
+ * A row's long-press menu: the native iOS context menu (`modules/polaris-context-menu`), the row
+ * lifted as its preview. A development client built before the module draws the row alone.
+ */
+import { midnight } from "@polaris/ui/tokens";
+import { requireNativeView, requireOptionalNativeModule } from "expo";
+import type { ComponentType, ReactNode } from "react";
+import { type NativeSyntheticEvent, StyleSheet } from "react-native";
+import type { Menu, MenuAction } from "./model.ts";
+
+interface NativeProps {
+  readonly menu: string;
+  readonly previewColor: string;
+  readonly previewRadius: number;
+  readonly onSelectItem: (event: NativeSyntheticEvent<{ readonly id: string }>) => void;
+  readonly style?: object;
+  readonly children: ReactNode;
+}
+
+interface ContextMenuModule {
+  readonly copy: (text: string) => Promise<void>;
+}
+
+const native = requireOptionalNativeModule<ContextMenuModule>("PolarisContextMenu");
+
+const NativeMenu: ComponentType<NativeProps> | null =
+  native === null ? null : requireNativeView<NativeProps>("PolarisContextMenu");
+
+/** Copies to the pasteboard; false where the module isn't built in. */
+export const copyText = async (text: string): Promise<boolean> => {
+  if (native === null) return false;
+  await native.copy(text);
+
+  return true;
+};
+
+const encode = (menu: Menu) =>
+  JSON.stringify(
+    menu.map((group) =>
+      group.map(({ id, title, subtitle, disabled }) => ({ id, title, subtitle, disabled }))
+    )
+  );
+
+export const LongPressMenu = ({
+  menu,
+  onAction,
+  children,
+}: {
+  readonly menu: Menu;
+  readonly onAction: (action: MenuAction) => void;
+  readonly children: ReactNode;
+}) => {
+  if (NativeMenu === null || menu.length === 0) return children;
+
+  const onSelectItem = ({ nativeEvent }: NativeSyntheticEvent<{ readonly id: string }>) => {
+    const chosen = menu.flat().find((entry) => entry.id === nativeEvent.id);
+
+    if (chosen !== undefined && !chosen.disabled) onAction(chosen.action);
+  };
+
+  return (
+    <NativeMenu
+      menu={encode(menu)}
+      previewColor={midnight.bg}
+      previewRadius={PREVIEW_RADIUS}
+      onSelectItem={onSelectItem}
+      style={styles.lift}
+    >
+      {children}
+    </NativeMenu>
+  );
+};
+
+const PREVIEW_RADIUS = 12;
+
+const PREVIEW_MARGIN = 12;
+
+/** Wider than the row by a margin each side, so the lifted preview has room around the text. */
+const styles = StyleSheet.create({
+  lift: { marginHorizontal: -PREVIEW_MARGIN, paddingHorizontal: PREVIEW_MARGIN },
+});

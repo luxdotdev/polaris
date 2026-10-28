@@ -53,6 +53,16 @@ inline. `scripts/home.daemon.test.ts` approves, denies and answers against a rea
 The shell is `src/App.tsx` with `src/app/` (navigation, tab bar, back bar). `src/app/routes.tsx`
 holds the routes for the thread, Review, New agent session and Link screens.
 
+## Long-press menus
+
+`src/menus/` gives Home's rows, the Review tab's rows and Hosts the Desktop App's right-click
+items (ENG-490): `model.ts` decides which items a row offers in which state, and every command one
+sends must be granted to a linked device (`DEVICE_COMMANDS`; the test checks it). The menu is
+native: `modules/polaris-context-menu` is a local Expo view with a `UIContextMenuInteraction`
+that lifts the row as its preview, and the pasteboard for the Copy items. It is a native module:
+rebuild the development client (`bun run --cwd apps/mobile ios`); a build without it draws the
+rows with no menu.
+
 ## New agent session (M6)
 
 `src/newSession/` is the sheet that starts an agent session: `NewSessionSheet({ onClose,

@@ -9,6 +9,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { homeHostsOf, useFollowedHosts } from "../home/feed/useFollowedHosts.ts";
 import { SessionListRow } from "../home/ui/rows.tsx";
+import { LongPressMenu, sessionMenu, useMenuActions } from "../menus/index.ts";
 import { type ReadyEmpty, type ReadyToReview, readyToReview } from "./ready.ts";
 
 /** The agent sessions ready to review across the followed Hosts. */
@@ -86,6 +87,7 @@ export const ReviewTab = ({
   const insets = useSafeAreaInsets();
   const ready = useReadyToReview();
   const now = useNow();
+  const onMenu = useMenuActions();
   const withHost = new Set(ready.rows.map((row) => row.hostId)).size > 1;
 
   return (
@@ -96,13 +98,14 @@ export const ReviewTab = ({
       {ready.empty === null ? (
         <ScrollView style={styles.list} contentContainerStyle={{ paddingBottom: tabBarHeight }}>
           {ready.rows.map((row) => (
-            <SessionListRow
-              key={row.key}
-              row={row}
-              now={now}
-              withHost={withHost}
-              onOpen={() => onOpen(row.hostId, row.session.id)}
-            />
+            <LongPressMenu key={row.key} menu={sessionMenu(row)} onAction={onMenu}>
+              <SessionListRow
+                row={row}
+                now={now}
+                withHost={withHost}
+                onOpen={() => onOpen(row.hostId, row.session.id)}
+              />
+            </LongPressMenu>
           ))}
         </ScrollView>
       ) : (

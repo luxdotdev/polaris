@@ -1,6 +1,7 @@
 /** Home's rows (Paper H4): needs you with its mono index and inline answer, working, recent, constellation. */
 import { midnight, mobileType } from "@polaris/ui/tokens";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { LongPressMenu, type Menu, type MenuAction } from "../../menus/index.ts";
 import { age, rowIndex } from "../model/format.ts";
 import { type ConstellationRow, type SessionRow, whereLine } from "../model/home.ts";
 import { type Line, statusLine } from "../model/lines.ts";
@@ -24,6 +25,7 @@ export const NeedsYouRow = ({
   now,
   onOpen,
   onReply,
+  menu,
 }: {
   readonly row: SessionRow;
   readonly position: number;
@@ -32,23 +34,27 @@ export const NeedsYouRow = ({
   readonly now: number;
   readonly onOpen: () => void;
   readonly onReply: (reply: Reply) => Promise<void>;
+  /** On the head only: a long press in the reply field stays the field's. */
+  readonly menu: { readonly menu: Menu; readonly onAction: (action: MenuAction) => void };
 }) => (
   <View
     style={[styles.needsYou, first ? styles.firstNeedsYou : null, row.stale ? styles.stale : null]}
   >
-    <Pressable accessibilityRole="button" onPress={onOpen} style={styles.needsYouHead}>
-      <Text style={styles.index}>{rowIndex(position)}</Text>
-      <SessionTile harness={row.session.harness} state={row.session.state} needsYou />
-      <View style={styles.text}>
-        <Text style={styles.needsYouTitle} numberOfLines={2}>
-          {titleOf(row.session.title)}
-        </Text>
-        <Text style={styles.second} numberOfLines={1}>
-          {whereLine(row)}
-        </Text>
-      </View>
-      <Text style={styles.age}>{age(row.since, now)}</Text>
-    </Pressable>
+    <LongPressMenu menu={menu.menu} onAction={menu.onAction}>
+      <Pressable accessibilityRole="button" onPress={onOpen} style={styles.needsYouHead}>
+        <Text style={styles.index}>{rowIndex(position)}</Text>
+        <SessionTile harness={row.session.harness} state={row.session.state} needsYou />
+        <View style={styles.text}>
+          <Text style={styles.needsYouTitle} numberOfLines={2}>
+            {titleOf(row.session.title)}
+          </Text>
+          <Text style={styles.second} numberOfLines={1}>
+            {whereLine(row)}
+          </Text>
+        </View>
+        <Text style={styles.age}>{age(row.since, now)}</Text>
+      </Pressable>
+    </LongPressMenu>
     {row.approval === null ? null : (
       <ApprovalActions
         approval={row.approval}

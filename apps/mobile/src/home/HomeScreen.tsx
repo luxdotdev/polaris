@@ -6,6 +6,13 @@ import { midnight, mobileType } from "@polaris/ui/tokens";
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { SectionList, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  constellationMenu,
+  LongPressMenu,
+  type MenuAction,
+  sessionMenu,
+  useMenuActions,
+} from "../menus/index.ts";
 import type { HostConnection } from "../runtime/hostConnection.ts";
 import { homeHostsOf, useFollowedHosts } from "./feed/useFollowedHosts.ts";
 import { buildHome, type HomeRow, type SessionRow } from "./model/home.ts";
@@ -91,31 +98,37 @@ const ListRow = ({
   withHost,
   onScreen,
   actions,
+  onMenu,
 }: {
   readonly row: HomeRow;
   readonly now: number;
   readonly withHost: boolean;
   readonly onScreen: boolean;
   readonly actions: HomeActions;
+  readonly onMenu: (action: MenuAction) => void;
 }) =>
   row.kind === "constellation" ? (
-    <ConstellationRowWithProgress
-      row={row}
-      now={now}
-      onScreen={onScreen}
-      onOpen={() => actions.openConstellation(row.hostId, row.constellation.id)}
-    />
+    <LongPressMenu menu={constellationMenu(row)} onAction={onMenu}>
+      <ConstellationRowWithProgress
+        row={row}
+        now={now}
+        onScreen={onScreen}
+        onOpen={() => actions.openConstellation(row.hostId, row.constellation.id)}
+      />
+    </LongPressMenu>
   ) : (
-    <SessionListRow
-      row={row}
-      now={now}
-      withHost={withHost}
-      onOpen={() =>
-        rowDestination(row.session) === "review"
-          ? actions.openReview(row.hostId, row.session.id)
-          : actions.openSession(row.hostId, row.session.id)
-      }
-    />
+    <LongPressMenu menu={sessionMenu(row)} onAction={onMenu}>
+      <SessionListRow
+        row={row}
+        now={now}
+        withHost={withHost}
+        onOpen={() =>
+          rowDestination(row.session) === "review"
+            ? actions.openReview(row.hostId, row.session.id)
+            : actions.openSession(row.hostId, row.session.id)
+        }
+      />
+    </LongPressMenu>
   );
 
 const VIEWABILITY = { itemVisiblePercentThreshold: 1 } as const;
@@ -144,6 +157,7 @@ export const HomeScreen = ({
   const hosts = useFollowedHosts();
   const [workspace, setWorkspace] = useState<string | null>(null);
   const now = useNow();
+  const onMenu = useMenuActions();
 
   const home = useMemo(() => buildHome(homeHostsOf(hosts), workspace), [hosts, workspace]);
 
@@ -190,6 +204,7 @@ export const HomeScreen = ({
                 now={now}
                 onOpen={() => actions.openSession(item.hostId, item.session.id)}
                 onReply={reply(item)}
+                menu={{ menu: sessionMenu(item), onAction: onMenu }}
               />
             ) : (
               <ListRow
@@ -198,6 +213,7 @@ export const HomeScreen = ({
                 withHost={withHost}
                 onScreen={onScreen.has(item.key)}
                 actions={actions}
+                onMenu={onMenu}
               />
             )
           }
