@@ -128,8 +128,16 @@ _Avoid_: Activity, step, action
 Consecutive finished Tool Calls in a Turn, shown as one summary line that expands to each call.
 _Avoid_: Run (alone, which reads as an Agent Session), group, batch
 
+**Goal**:
+A standing objective one Agent Session's Harness pursues across Turns until it is met, paused or cleared, as with Codex's and Claude Code's `/goal`.
+_Avoid_: Task (a Constellation's unit of work), objective, mission
+
 **Fork**:
 A new Agent Session started from a checkpoint of another, linked to its parent; the way to switch Harness or retry differently.
+
+**Celestial**:
+The celestial body that identifies one Agent Session, drawn in its Harness's hue and fixed for the session's life: a planet for most sessions, a star for a Constellation's Lead, a moon of its parent's for a Subagent. A Fork gets its own; no two active sessions in a Workspace share one.
+_Avoid_: Avatar, icon, asterism, sigil
 
 **Session State**:
 Where an Agent Session stands right now: exactly one of Starting, Working, Needs You, Idle, In Terminal, Dormant, Failed, Limited, or Archived.
