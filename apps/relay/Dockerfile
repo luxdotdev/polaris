@@ -1,11 +1,11 @@
 # The Polaris Relay. Build from the repository root:
 #   docker build -f apps/relay/Dockerfile -t polaris-relay .
-FROM oven/bun:1.4.3-slim AS install
+FROM oven/bun:1.4.4-slim AS install
 WORKDIR /repo
 COPY . .
 RUN bun install --frozen-lockfile --production --ignore-scripts --filter @polaris/relay
 
-FROM oven/bun:1.4.3-slim
+FROM oven/bun:1.4.4-slim
 WORKDIR /app
 COPY --from=install /repo/package.json ./package.json
 COPY --from=install /repo/node_modules ./node_modules
