@@ -194,6 +194,27 @@ describe("POST /api/push", () => {
     expect(signed()).toBe(2);
   });
 
+  test("a body over the limit is refused without reading it all, even with no Content-Length", async () => {
+    const { handler, sent } = setup();
+    let pulled = 0;
+
+    const stream = new ReadableStream<Uint8Array>({
+      pull: (controller) => {
+        pulled++;
+        controller.enqueue(new Uint8Array(4096));
+      },
+    });
+
+    const request = new Request("https://polaris.lux.dev/api/push", {
+      method: "POST",
+      body: stream,
+    });
+
+    expect((await run(handler, request)).status).toBe(400);
+    expect(pulled).toBeLessThan(10);
+    expect(sent).toEqual([]);
+  });
+
   test("without POLARIS_PUSH_SECRET nothing is sent", async () => {
     const { handler, sent } = setup({ secret: null });
 

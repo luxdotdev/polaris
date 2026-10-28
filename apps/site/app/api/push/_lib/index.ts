@@ -75,13 +75,31 @@ export const outcomeOfApns = ({ status, reason }: ApnsReply): WakeOutcome => {
   return status >= 500 ? "unavailable" : "refused";
 };
 
-const readBody = async (request: Request): Promise<string | null> => {
-  const declared = Number(request.headers.get("content-length") ?? "0");
+/** The body as text, read as a stream and abandoned past MAX_BODY_BYTES; null when over. */
+export const readBody = async (request: Request): Promise<string | null> => {
+  if (Number(request.headers.get("content-length") ?? "0") > MAX_BODY_BYTES) return null;
+  const reader = request.body?.getReader();
 
-  if (declared > MAX_BODY_BYTES) return null;
-  const text = await request.text();
+  if (reader === undefined) return "";
+  const chunks: Array<Uint8Array> = [];
+  let size = 0;
 
-  return new TextEncoder().encode(text).byteLength > MAX_BODY_BYTES ? null : text;
+  for (;;) {
+    const { done, value } = await reader.read();
+
+    if (done) break;
+    size += value.byteLength;
+
+    if (size > MAX_BODY_BYTES) {
+      await reader.cancel();
+
+      return null;
+    }
+
+    chunks.push(value);
+  }
+
+  return new TextDecoder().decode(Buffer.concat(chunks));
 };
 
 export const createPushHandler = (deps: PushDeps) => {
