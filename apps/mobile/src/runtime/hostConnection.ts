@@ -54,7 +54,7 @@ export interface HostStatus {
 export interface LiveHost {
   readonly epoch: number;
   readonly client: DaemonClient;
-  /** Blobs the Daemon referenced in a response on this connection (`git.diff`, `files.read`). */
+  /** Blobs on this connection: ones a response referenced (`git.diff`), and bytes an RPC sends. */
   readonly blobs: ClientBlobs;
   readonly host: HostInfo;
   readonly capabilities: ReadonlyArray<Capability>;

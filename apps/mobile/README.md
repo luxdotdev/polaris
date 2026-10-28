@@ -65,6 +65,20 @@ announces `session.plan-mode`, and says "Asks before every edit" and sends `supe
 doesn't (`permissionModeFor`, ENG-466). `scripts/newSession.test.ts` starts a real session on a
 test Daemon through the dev bridge.
 
+## Attach and the mic
+
+`src/composer/` is shared by the thread's composer (M4) and the new agent session sheet (M6); each
+renders Attach and the mic only when given them, and they are given only where the Host announces
+`attachments.stage` and `voice`. `useAttachments` picks a photo or file (expo-image-picker,
+expo-document-picker), stages it at once with `attachments.stage`, the bytes sent as a Wire blob,
+and shows a chip; Send and Start carry the staged ids. A steer is text only, so a draft with
+attachments during a Turn waits as a follow-up. `useVoiceInput` records 16 kHz s16le mono PCM
+(expo-audio's `useAudioStream`; `pcm.ts` mixes down and resamples when the phone gives another
+format), streams it to `voice.transcribe`, and writes what the Host hears after what was typed. A
+Host without a key says so in the composer with its own message. These are native modules: after
+pulling them in, rebuild the development client (`bun run --cwd apps/mobile ios`).
+`scripts/composer.test.ts` stages, starts with an attachment and dictates against a real Daemon.
+
 ## The constellation view
 
 `src/constellation/` is Paper C2: `ConstellationScreen({ hostId, constellationId, onBack? })` follows `constellation.subscribe` and re-reads `constellation.status` on each event; `model.ts` folds it into the lead row, the task bar and the rail (finished groups fold; a parent task has no row of its own). Accept approves the claim (`constellation.review`) and then messages the lead; Send back only messages the lead, who sends it back (`verdict.ts`). `scripts/verdict.test.ts` checks both against a real Daemon over the dev bridge.

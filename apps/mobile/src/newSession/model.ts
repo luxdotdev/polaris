@@ -3,10 +3,12 @@
  * default, the lines that say so, the branch a new Worktree takes, and the command Start sends.
  */
 import {
+  type AttachmentId,
+  type Capability,
   Command,
   type HarnessKind,
   ModelId,
-  type PermissionMode,
+  permissionModeFor,
   SessionId,
   SessionPlacement,
   type Workspace,
@@ -29,7 +31,7 @@ export interface SheetHost {
   readonly homeDir: string | null;
   readonly workspaces: ReadonlyArray<Workspace>;
   readonly sessions: ReadonlyArray<SessionUse>;
-  readonly capabilities: ReadonlyArray<string>;
+  readonly capabilities: ReadonlyArray<Capability>;
 }
 
 /** The parts of an agent session the sheet's defaults read. */
@@ -184,18 +186,10 @@ export interface StartChoices {
   readonly newWorktree: boolean;
   readonly planFirst: boolean;
   /** The Host's capabilities: `plan` falls back to `supervised` without `session.plan-mode`. */
-  readonly capabilities: ReadonlyArray<string>;
+  readonly capabilities: ReadonlyArray<Capability>;
+  /** Staged on the Host before Start, in the order attached. */
+  readonly attachments?: ReadonlyArray<AttachmentId>;
 }
-
-/** ENG-466's mode, until `@polaris/protocol`'s PermissionMode has it (then import `permissionModeFor`). */
-type StartMode = PermissionMode | "plan";
-
-/** `plan` becomes `supervised` on a Host without `session.plan-mode`. */
-export const permissionModeFor = (
-  mode: StartMode,
-  capabilities: ReadonlyArray<string>
-): StartMode =>
-  mode === "plan" && !capabilities.includes("session.plan-mode") ? "supervised" : mode;
 
 /** The StartSession command Start sends. */
 export const startCommand = (choices: StartChoices): Command =>
@@ -216,7 +210,7 @@ export const startCommand = (choices: StartChoices): Command =>
     model: choices.model === null ? null : ModelId.make(choices.model),
     effort: null,
     prompt: choices.prompt.trim(),
-    attachments: [],
+    attachments: [...(choices.attachments ?? [])],
   });
 
 /** A caught failure's words for one caption line. */

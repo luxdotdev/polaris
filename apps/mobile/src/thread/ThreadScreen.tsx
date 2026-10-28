@@ -17,6 +17,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "../app/navigation.tsx";
+import { useAttachments } from "../composer/useAttachments.ts";
+import { useVoiceInput } from "../composer/useVoiceInput.ts";
 import type { HostConnection } from "../runtime/hostConnection.ts";
 import { useHost, useLiveHost } from "../runtime/hosts.tsx";
 import { composerMode } from "./composer.ts";
@@ -169,7 +171,22 @@ export const ThreadScreen = ({ hostId, sessionId, onBack, onOpenReview }: Thread
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
   const visible = useRef<ReadonlyArray<string>>([]);
   const fold = state?.fold ?? null;
-  const workspace = useWorkspace(controller, fold?.session.workspaceId ?? null);
+  const workspaceId = fold?.session.workspaceId ?? null;
+  const workspace = useWorkspace(controller, workspaceId);
+
+  const stageTarget = useMemo(
+    () =>
+      connection === null || workspaceId === null ? null : { connection, workspaceId, sessionId },
+    [connection, workspaceId, sessionId]
+  );
+
+  const attachments = useAttachments(stageTarget);
+
+  const voice = useVoiceInput({
+    connection,
+    text: state?.text ?? "",
+    onText: (text) => controller?.type(text),
+  });
 
   const rows = useMemo(
     // The list is inverted: the newest row first, at the bottom of the screen.
@@ -310,9 +327,10 @@ export const ThreadScreen = ({ hostId, sessionId, onBack, onOpenReview }: Thread
         <View style={styles.bottom}>
           {live ? null : <Text style={styles.queued}>Reconnecting to {connection.name}…</Text>}
           <Suggestions items={chips} onPick={pick} />
-          {state.queued.map((text, index) => (
+          {state.queued.map(({ text, attachments: held }, index) => (
             <Text key={`${index}:${text}`} style={styles.queued} numberOfLines={1}>
               Queued · {text}
+              {held.length === 0 ? "" : ` · ${held.length} attached`}
             </Text>
           ))}
           <Composer
@@ -324,8 +342,17 @@ export const ThreadScreen = ({ hostId, sessionId, onBack, onOpenReview }: Thread
             draftStatus={state.draftStatus}
             error={state.error}
             onChange={(text) => controller?.type(text)}
-            onSend={() => void controller?.submit()}
-            onQueue={() => controller?.queue()}
+            attach={attachments.input}
+            attaching={attachments.staging}
+            voice={voice}
+            onSend={() =>
+              void controller?.submit(attachments.ids).then((taken) => {
+                if (taken) attachments.clear();
+              })
+            }
+            onQueue={() => {
+              if (controller?.queue(attachments.ids) === true) attachments.clear();
+            }}
             onStop={() => void controller?.interrupt()}
           />
         </View>
