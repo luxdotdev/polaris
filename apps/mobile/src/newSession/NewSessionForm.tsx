@@ -224,6 +224,8 @@ export const NewSessionForm = ({
           model: choice.model?.id ?? null,
           prompt: draft.text,
           newWorktree,
+          planFirst,
+          capabilities: host?.capabilities ?? [],
         })
       );
       await draft.clear();
@@ -296,7 +298,7 @@ export const NewSessionForm = ({
         {host === null ? null : (
           <SwitchRow
             title="Plan first"
-            caption={planCaption(host)}
+            caption={planCaption(host, planFirst)}
             value={planFirst || !planMode}
             onValueChange={setPlanFirst}
             disabled={!planMode}

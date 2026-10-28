@@ -91,11 +91,14 @@ test.each([
   expect(routeLine({ ...studio, route })).toBe(line);
 });
 
-test("Plan first says what happens on a host without plan mode", () => {
-  expect(planCaption(studio)).toBe("Asks before every edit");
-  expect(planCaption({ ...studio, capabilities: ["session.plan-mode"] })).toBe(
-    "Reads and plans; asks before it edits anything"
-  );
+const planning = { ...studio, capabilities: ["session.plan-mode" as const] };
+
+test.each([
+  [studio, true, "Asks before every edit"],
+  [planning, true, "Reads and plans; asks before it edits anything"],
+  [planning, false, "Off: asks before every edit"],
+] as const)("Plan first says what happens (%#)", (host, on, caption) => {
+  expect(planCaption(host, on)).toBe(caption);
 });
 
 test("the worktree caption shows the path under home, or the branch it will take", () => {
@@ -119,7 +122,19 @@ describe("startCommand", () => {
     harness: "claude",
     model: "claude-opus-5-5",
     prompt: "  Sketch how the relay could resume a dropped phone connection.  ",
+    planFirst: true,
+    capabilities: [],
   };
+
+  test.each([
+    [true, ["session.plan-mode" as const], "plan"],
+    [true, [], "supervised"],
+    [false, ["session.plan-mode" as const], "supervised"],
+  ] as const)("Plan first %p on a host with %p starts %p", (planFirst, capabilities, mode) => {
+    expect(startCommand({ ...base, planFirst, capabilities, newWorktree: false })).toMatchObject({
+      permissionMode: mode,
+    });
+  });
 
   test("starts in place, supervised, with the trimmed prompt and the picked model", () => {
     expect(startCommand({ ...base, newWorktree: false })).toMatchObject({

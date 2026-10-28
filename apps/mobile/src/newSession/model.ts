@@ -3,9 +3,11 @@
  * default, the lines that say so, the branch a new Worktree takes, and the command Start sends.
  */
 import {
+  type Capability,
   Command,
   type HarnessKind,
   ModelId,
+  permissionModeFor,
   SessionId,
   SessionPlacement,
   type Workspace,
@@ -28,7 +30,7 @@ export interface SheetHost {
   readonly homeDir: string | null;
   readonly workspaces: ReadonlyArray<Workspace>;
   readonly sessions: ReadonlyArray<SessionUse>;
-  readonly capabilities: ReadonlyArray<string>;
+  readonly capabilities: ReadonlyArray<Capability>;
 }
 
 /** The parts of an agent session the sheet's defaults read. */
@@ -115,15 +117,18 @@ export const displayPath = (path: string, homeDir: string | null): string => {
   return path.startsWith(`${homeDir}/`) ? `~${path.slice(homeDir.length)}` : path;
 };
 
-/** Capability a Daemon announces once it has plan mode (ENG-466). */
-export const PLAN_MODE_CAPABILITY = "session.plan-mode";
-
+/** The Host's Daemon has the `plan` PermissionMode (ENG-466). */
 export const hasPlanMode = (host: SheetHost): boolean =>
-  host.capabilities.includes(PLAN_MODE_CAPABILITY);
+  host.capabilities.includes("session.plan-mode");
 
 /** The Plan first row's caption: what the session will actually do on this Host. */
-export const planCaption = (host: SheetHost): string =>
-  hasPlanMode(host) ? "Reads and plans; asks before it edits anything" : "Asks before every edit";
+export const planCaption = (host: SheetHost, planFirst: boolean): string => {
+  if (!hasPlanMode(host)) return "Asks before every edit";
+
+  return planFirst
+    ? "Reads and plans; asks before it edits anything"
+    : "Off: asks before every edit";
+};
 
 /** Settings → Sessions' default branch prefix on the Desktop App. */
 export const BRANCH_PREFIX = "polaris/";
@@ -178,9 +183,12 @@ export interface StartChoices {
   readonly model: string | null;
   readonly prompt: string;
   readonly newWorktree: boolean;
+  readonly planFirst: boolean;
+  /** The Host's capabilities: `plan` falls back to `supervised` without `session.plan-mode`. */
+  readonly capabilities: ReadonlyArray<Capability>;
 }
 
-/** The StartSession command; plan mode waits on ENG-466, so every session starts supervised. */
+/** The StartSession command Start sends. */
 export const startCommand = (choices: StartChoices): Command =>
   Command.cases.StartSession.make({
     sessionId: choices.sessionId,
@@ -192,7 +200,10 @@ export const startCommand = (choices: StartChoices): Command =>
           baseRef: null,
         })
       : SessionPlacement.cases.InPlace.make({}),
-    permissionMode: "supervised",
+    permissionMode: permissionModeFor(
+      choices.planFirst ? "plan" : "supervised",
+      choices.capabilities
+    ),
     model: choices.model === null ? null : ModelId.make(choices.model),
     effort: null,
     prompt: choices.prompt.trim(),

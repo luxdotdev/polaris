@@ -14,6 +14,7 @@ import { defaultHarness, harnessOptions } from "../src/newSession/harness.ts";
 import {
   branchFromPrompt,
   newSessionId,
+  hasPlanMode,
   planCaption,
   routeLine,
   startCommand,
@@ -83,11 +84,13 @@ const sessionIn = async (sessionId: string) => {
   throw new Error("the feed ended");
 };
 
-test("the Host reads as its own name on this network, without plan mode yet", () => {
+test("the Host reads as its own name on this network", () => {
   const host = sheetHost(connection, null);
 
   expect(routeLine(host)).toBe("Runs on Mac Studio · on this network");
-  expect(planCaption(host)).toBe("Asks before every edit");
+  expect(planCaption(host, true)).toBe(
+    hasPlanMode(host) ? "Reads and plans; asks before it edits anything" : "Asks before every edit"
+  );
   expect(host.homeDir).not.toBeNull();
 });
 
@@ -110,6 +113,8 @@ test("Start makes a real agent session on a new worktree with the chosen harness
       model: model?.id ?? null,
       prompt,
       newWorktree: true,
+      planFirst: true,
+      capabilities: connection.status().capabilities,
     })
   );
 
@@ -118,7 +123,8 @@ test("Start makes a real agent session on a new worktree with the chosen harness
   expect(session).toMatchObject({
     workspaceId,
     harness,
-    permissionMode: "supervised",
+    // Plan mode where the Host has it (ENG-466); supervised on a Daemon without it.
+    permissionMode: hasPlanMode(sheetHost(connection, null)) ? "plan" : "supervised",
     model: model?.id ?? null,
   });
   expect(session.cwd.endsWith(branchFromPrompt(prompt, sessionId))).toBe(true);
