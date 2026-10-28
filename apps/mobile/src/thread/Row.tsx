@@ -1,7 +1,9 @@
 /** One row of the thread (M4): a collapsed earlier Turn, a message, a numbered tool step, or a run. */
+import type { Attachment } from "@polaris/protocol";
 import { midnight, mobileType } from "@polaris/ui/tokens";
 import { memo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Thumbnails } from "../attachments/index.ts";
 import { Markdown } from "../markdown/index.ts";
 import type { ThreadRow } from "./rows.ts";
 
@@ -120,25 +122,34 @@ export interface RowProps {
   readonly focused?: boolean;
   /** Takes a steer that didn't land back into the composer, by its id. */
   readonly onEditSteer?: ((id: string) => void) | undefined;
+  /** The session's Host, which holds the images its messages carried. */
+  readonly hostId: string;
 }
 
 const Bubble = ({
   text,
   note,
+  hostId,
+  attachments = [],
   faded = false,
   failed = false,
 }: {
   readonly text: string;
   readonly note: string | null;
+  readonly hostId: string;
+  readonly attachments?: ReadonlyArray<Attachment>;
   readonly faded?: boolean;
   readonly failed?: boolean;
 }) => (
-  <View style={styles.promptLine}>
-    <View style={[styles.prompt, faded ? styles.faded : null]}>
-      <Text style={styles.message} selectable>
-        {text}
-      </Text>
-    </View>
+  <View style={[styles.promptLine, faded ? styles.faded : null]}>
+    <Thumbnails hostId={hostId} attachments={attachments} />
+    {text.trim() === "" ? null : (
+      <View style={styles.prompt}>
+        <Text style={styles.message} selectable>
+          {text}
+        </Text>
+      </View>
+    )}
     {note === null ? null : (
       <Text style={[styles.note, failed ? styles.noteFailed : null]}>{note}</Text>
     )}
@@ -153,14 +164,15 @@ const RowView = ({
   onFocus,
   focused = false,
   onEditSteer,
+  hostId,
 }: RowProps) => {
   switch (row.kind) {
     case "earlier":
       return <Earlier row={row} open={open} onToggle={onToggle} />;
     case "prompt":
-      return <Bubble text={row.text} note={null} />;
+      return <Bubble text={row.text} note={null} hostId={hostId} attachments={row.attachments} />;
     case "steered":
-      return <Bubble text={row.text} note="Steered this turn" />;
+      return <Bubble text={row.text} note="Steered this turn" hostId={hostId} />;
     case "outgoing":
       return row.failed ? (
         <Pressable
@@ -168,10 +180,16 @@ const RowView = ({
           accessibilityRole="button"
           accessibilityHint="Puts the message back in the composer"
         >
-          <Bubble text={row.text} note={row.note} faded failed />
+          <Bubble text={row.text} note={row.note} hostId={hostId} faded failed />
         </Pressable>
       ) : (
-        <Bubble text={row.text} note={row.note} faded />
+        <Bubble
+          text={row.text}
+          note={row.note}
+          hostId={hostId}
+          attachments={row.attachments}
+          faded
+        />
       );
     case "reply":
       return <Markdown text={row.text} style={styles.reply} />;

@@ -220,11 +220,13 @@ export const ThreadScreen = ({
   });
 
   const steers = state?.steers;
+  const queued = state?.queued;
 
   const rows = useMemo(
     // The list is inverted: the newest row first, at the bottom of the screen.
-    () => [...threadRows(fold?.turns ?? [], expanded), ...outgoingRows(steers ?? [])].reverse(),
-    [fold?.turns, expanded, steers]
+    () =>
+      [...threadRows(fold?.turns ?? [], expanded), ...outgoingRows(steers ?? [], queued)].reverse(),
+    [fold?.turns, expanded, steers, queued]
   );
 
   const editSteer = useCallback((id: string) => controller?.editSteer(id), [controller]);
@@ -357,6 +359,7 @@ export const ThreadScreen = ({
               onFocus={onFocus}
               focused={item.key === focusedKey}
               onEditSteer={editSteer}
+              hostId={hostId}
             />
           )}
           ListHeaderComponent={
@@ -405,12 +408,6 @@ export const ThreadScreen = ({
         >
           {away ? <Text style={styles.queued}>Reconnecting to {connection.name}…</Text> : null}
           <Suggestions items={chips} onPick={pick} />
-          {state.queued.map(({ text, attachments: held }, index) => (
-            <Text key={`${index}:${text}`} style={styles.queued} numberOfLines={1}>
-              Queued · {text}
-              {held.length === 0 ? "" : ` · ${held.length} attached`}
-            </Text>
-          ))}
           <Composer
             mode={mode}
             text={state.text}
@@ -426,7 +423,7 @@ export const ThreadScreen = ({
             onSend={() => {
               voice?.release();
               const sent = attachments.submission();
-              void controller?.submit(sent.ids).then((taken) => {
+              void controller?.submit(sent.attachments).then((taken) => {
                 if (taken) sent.done();
               });
             }}
@@ -434,7 +431,7 @@ export const ThreadScreen = ({
               voice?.release();
               const held = attachments.submission();
 
-              if (controller?.queue(held.ids) === true) held.done();
+              if (controller?.queue(held.attachments) === true) held.done();
             }}
             onStop={() => void controller?.interrupt()}
           />

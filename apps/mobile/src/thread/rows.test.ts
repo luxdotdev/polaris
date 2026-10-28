@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { DomainEvent, SessionId, TurnItem } from "@polaris/protocol";
+import { Attachment, AttachmentId, DomainEvent, SessionId, TurnItem } from "@polaris/protocol";
 import { applySessionItem, type SessionFold } from "./fold.ts";
-import { newestEndedOnScreen, threadRows, type ThreadRow } from "./rows.ts";
+import { newestEndedOnScreen, outgoingRows, threadRows, type ThreadRow } from "./rows.ts";
 import { event, snapshot, turn } from "./daemon.testing.ts";
 import { SessionStreamItem, TurnId } from "@polaris/protocol";
 
@@ -112,6 +112,28 @@ describe("thread rows", () => {
       "run: Read 1 file, edited 1 file",
       "03 Writing serve.ts (active) |",
       "reply: Variant 3 is the dense table.",
+    ]);
+  });
+
+  test("a message's images stay with it: in its Turn's prompt, and while it's queued", () => {
+    const shot = new Attachment({
+      id: AttachmentId.make("att-1"),
+      name: "shot.png",
+      mimeType: "image/png",
+      size: 10,
+      hostPath: "/staging/att-1/shot.png",
+      width: 4,
+      height: 3,
+    });
+
+    const fold = foldOf([snapshot([{ turn: turn(0, { prompt: "", attachments: [shot] }) }])]);
+    const [prompt] = threadRows(fold?.turns ?? [], new Set());
+    const [queued] = outgoingRows([], [{ text: "and this one", attachments: [shot] }]);
+
+    expect(prompt?.kind === "prompt" && prompt.attachments).toEqual([shot]);
+    expect(queued?.kind === "outgoing" && [queued.note, queued.attachments]).toEqual([
+      "Queued for after this turn",
+      [shot],
     ]);
   });
 

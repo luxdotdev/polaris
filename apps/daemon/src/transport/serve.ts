@@ -226,6 +226,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "review.latest-summary",
   "session.accept-latest",
   "attachments.stage",
+  "attachments.read",
   "attachments.settings",
   "sessions.auto-archive",
   "terminal",

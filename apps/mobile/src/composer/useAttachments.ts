@@ -15,6 +15,7 @@ import {
 } from "./attach.ts";
 import type { AttachInput } from "./controls.tsx";
 import { pickAttachments, readBytes } from "./pick.ts";
+import { keepStaged } from "../attachments/index.ts";
 
 export interface Attachments {
   /** Pass to the composer; null hides Attach. */
@@ -30,7 +31,7 @@ export interface Attachments {
 
 const NONE: ReadonlyArray<never> = [];
 
-const NOTHING: Submission = { ids: NONE, done: () => undefined };
+const NOTHING: Submission = { ids: NONE, attachments: NONE, done: () => undefined };
 
 export const useAttachments = (target: StageTarget | null): Attachments => {
   const live = useLiveHost(target?.connection ?? null);
@@ -44,7 +45,15 @@ export const useAttachments = (target: StageTarget | null): Attachments => {
   // The store is keyed by place; `target` is read only when the key changes.
   const store = useMemo(
     () =>
-      target === null ? null : attachmentStore((picked) => stagePicked(target, picked, readBytes)),
+      target === null
+        ? null
+        : attachmentStore((picked) =>
+            stagePicked(target, picked, readBytes).then((attachment) => {
+              if (picked.isImage) void keepStaged(attachment.id, picked.uri);
+
+              return attachment;
+            })
+          ),
     [key]
   );
 

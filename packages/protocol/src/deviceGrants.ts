@@ -98,6 +98,7 @@ export const DEVICE_RPCS = {
   // A phone or an Extension must never quiet the pushes (ENG-495).
   "presence.report": "local",
   "attachments.stage": "device",
+  "attachments.read": "device",
   "attachments.settings": "local",
   "attachments.setSettings": "local",
   "attachments.clear": "local",

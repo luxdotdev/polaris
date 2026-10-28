@@ -14,7 +14,7 @@ import {
   makeDraftSync,
 } from "@polaris/client/continuity";
 import {
-  type AttachmentId,
+  type Attachment,
   type ApprovalDecision,
   Command,
   type CommandId,
@@ -66,8 +66,8 @@ export interface ThreadController {
   readonly subscribe: (listener: () => void) => () => void;
   readonly type: (text: string) => void;
   /** Sends or holds the draft with `attachments`; true when it was taken, so the chips can go. */
-  readonly submit: (attachments?: ReadonlyArray<AttachmentId>) => Promise<boolean>;
-  readonly queue: (attachments?: ReadonlyArray<AttachmentId>) => boolean;
+  readonly submit: (attachments?: ReadonlyArray<Attachment>) => Promise<boolean>;
+  readonly queue: (attachments?: ReadonlyArray<Attachment>) => boolean;
   /** Takes a steer that didn't land back into the composer, to send again. */
   readonly editSteer: (id: string) => void;
   readonly interrupt: () => Promise<void>;
@@ -261,7 +261,7 @@ export const openThread = (
     void drafts.flush(sessionId);
   };
 
-  const queue = (attachments: ReadonlyArray<AttachmentId> = []) => {
+  const queue = (attachments: ReadonlyArray<Attachment> = []) => {
     const text = state.text.trim();
 
     if (text === "") return false;
@@ -298,7 +298,8 @@ export const openThread = (
     type(state.text.trim() === "" ? held.text : `${state.text.trimEnd()}\n${held.text}`);
   };
 
-  const submit = async (attachments: ReadonlyArray<AttachmentId> = []) => {
+  const submit = async (attachments: ReadonlyArray<Attachment> = []) => {
+    const ids = attachments.map((attachment) => attachment.id);
     const fold = state.fold;
 
     if (fold === null) return false;
@@ -310,8 +311,8 @@ export const openThread = (
       canSteer: source.canSteer,
     });
 
-    if (sendQueues(mode, attachments)) return queue(attachments);
-    const command = submitCommand(mode, sessionId, state.text, attachments);
+    if (sendQueues(mode, ids)) return queue(attachments);
+    const command = submitCommand(mode, sessionId, state.text, ids);
 
     // A Send already on its way carries its own attachments, not chips added since.
     if (command === null || inFlight.has("composer")) return false;

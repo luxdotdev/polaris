@@ -128,6 +128,8 @@ export const Capability = Schema.Literals([
   /** `git.sync` (fetch, pull, push, publish) and `git.status`'s `tracking`. */
   "git.sync",
   "attachments.stage",
+  /** `attachments.read`: a staged attachment's bytes by id, for a message's images on a phone. */
+  "attachments.read",
   /** `attachments.settings`, `attachments.setSettings`, `attachments.clear`: cleanup in Settings. */
   "attachments.settings",
   /** `sessions.autoArchive` and `sessions.setAutoArchive`: archiving Dormant sessions in Settings. */

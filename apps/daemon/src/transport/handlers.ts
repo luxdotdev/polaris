@@ -528,6 +528,7 @@ export const defaultHandlers = (options: {
     "attachments.setSettings": () =>
       Effect.fail(new Unsupported({ capability: "attachments.settings" })),
     "attachments.clear": () => Effect.fail(new Unsupported({ capability: "attachments.settings" })),
+    "attachments.read": ({ attachmentId }) => Effect.fail(fileError(attachmentId, "attachments")),
 
     "voice.transcribe": () =>
       Stream.fail(new VoiceError({ reason: "provider-failed", message: notYet("Voice") })),

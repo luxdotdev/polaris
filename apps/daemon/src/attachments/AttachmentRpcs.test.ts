@@ -83,3 +83,41 @@ describe("attachment cleanup RPCs", () => {
     expect(Object.keys(result.after.usage.workspaces)).toEqual([ws2]);
   });
 });
+
+describe("attachments.read", () => {
+  test("answers a staged attachment's bytes by id, and a cleaned-up one as gone", async () => {
+    const home = tempDir("polaris-home-");
+
+    cleanup.push(home);
+    const blobs = makeFakeBlobChannel();
+
+    const store = AttachmentStoreLive({
+      root: join(home, "staging"),
+      settingsPath: join(home, "attachment-settings.json"),
+    });
+
+    const layer = AttachmentRpcsLive.pipe(Layer.provideMerge(Layer.merge(store, blobs.layer)));
+
+    const result = await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const staged = yield* stage(ws1, "pixels");
+          const client = yield* RpcTest.makeClient(AttachmentRpcs);
+          const read = yield* client["attachments.read"]({ attachmentId: staged.id });
+          const bytes = blobs.blobs.get(read.blobId) ?? new Uint8Array();
+          yield* client["attachments.clear"]({ workspaceId: null });
+
+          const gone = yield* client["attachments.read"]({ attachmentId: staged.id }).pipe(
+            Effect.flip
+          );
+
+          return { staged, read, text: new TextDecoder().decode(bytes), gone };
+        }).pipe(Effect.provide(layer))
+      )
+    );
+
+    expect(result.read.attachment.id).toBe(result.staged.id);
+    expect(result.text).toBe("pixels");
+    expect(result.gone.code).toBe("ENOENT");
+  });
+});

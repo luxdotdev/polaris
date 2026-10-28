@@ -2,29 +2,33 @@
  * Handlers for `attachments.stage` (the Client sends the bytes as binary
  * side-chunks under `blobId`; they are written to the staging file as they
  * arrive, never collected in memory) and the cleanup settings Settings shows:
- * `attachments.settings`, `attachments.setSettings`, `attachments.clear`.
+ * `attachments.settings`, `attachments.setSettings`, `attachments.clear`; and
+ * `attachments.read`, a staged attachment's bytes by id, for a Linked Device's previews.
  */
 import {
+  ATTACHMENT_READ_MAX_BYTES,
   AttachmentSettings,
   AttachmentUsage,
   ClearAttachments,
   FileError,
   GetAttachmentSettings,
+  ReadAttachment,
   SetAttachmentSettings,
   StagedAmount,
   StageAttachment,
 } from "@polaris/protocol";
-import { Effect } from "effect";
+import { Effect, Stream } from "effect";
 import { RpcGroup } from "effect/rpc";
 import { paths } from "../paths.ts";
-import { AttachmentStore, BlobChannel, type ServiceError } from "../services.ts";
+import { AttachmentStore, BlobChannel, ServiceError } from "../services.ts";
 import { AttachmentMaintenance } from "./AttachmentStore.ts";
 
 export class AttachmentRpcs extends RpcGroup.make(
   StageAttachment,
   GetAttachmentSettings,
   SetAttachmentSettings,
-  ClearAttachments
+  ClearAttachments,
+  ReadAttachment
 ) {}
 
 const toFileError = (error: ServiceError) =>
@@ -40,6 +44,40 @@ export const handleStageAttachment = Effect.fn("attachments.stage")(function* ({
   return yield* store
     .stage({ ...rest, bytes: blobs.takeStream(blobId) })
     .pipe(Effect.mapError(toFileError));
+});
+
+/** Only ever a path the store built for this id: a Client never names a file. */
+export const handleReadAttachment = Effect.fn("attachments.read")(function* ({
+  attachmentId,
+}: typeof ReadAttachment.payloadSchema.Type) {
+  const store = yield* AttachmentStore;
+  const [attachment] = yield* store.get([attachmentId]).pipe(Effect.mapError(toFileError));
+
+  if (attachment === undefined)
+    return yield* new FileError({
+      path: attachmentId,
+      code: "ENOENT",
+      message: "This attachment was cleaned up",
+    });
+
+  if (attachment.size > ATTACHMENT_READ_MAX_BYTES)
+    return yield* new FileError({
+      path: attachmentId,
+      code: "EFBIG",
+      message: "Too large to preview",
+    });
+
+  const blobs = yield* BlobChannel;
+
+  const blobId = yield* blobs.offer(
+    Stream.fromReadableStream({
+      evaluate: () => Bun.file(attachment.hostPath).stream(),
+      onError: (cause) =>
+        new ServiceError({ service: "attachments.read", message: String(cause), cause }),
+    })
+  );
+
+  return { attachment, blobId };
 });
 
 const handleSettings = Effect.fn("attachments.settings")(function* () {
@@ -82,4 +120,5 @@ export const AttachmentRpcsLive = AttachmentRpcs.toLayer({
   "attachments.settings": handleSettings,
   "attachments.setSettings": handleSetSettings,
   "attachments.clear": handleClear,
+  "attachments.read": handleReadAttachment,
 });

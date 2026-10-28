@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   ApprovalDecision,
+  Attachment,
   AttachmentId,
   Command,
   DomainEvent,
@@ -177,7 +178,15 @@ describe("send, steer, queue", () => {
   test("Send with attachments during a steerable Turn waits for it, since a steer is text only", () =>
     withThread((host, thread) =>
       Effect.gen(function* () {
-        const shot = AttachmentId.make("att-1");
+        const shot = new Attachment({
+          id: AttachmentId.make("att-1"),
+          name: "shot.png",
+          mimeType: "image/png",
+          size: 10,
+          hostPath: "/staging/att-1/shot.png",
+          width: 4,
+          height: 3,
+        });
 
         yield* host.push(snapshot([{ turn: working }], { state: "working" }));
         yield* until(thread, (s) => s.fold !== null);
@@ -193,7 +202,7 @@ describe("send, steer, queue", () => {
           Command.cases.SendTurn.make({
             sessionId,
             prompt: "use this screenshot",
-            attachments: [shot],
+            attachments: [shot.id],
           })
         );
       })

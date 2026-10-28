@@ -6,6 +6,7 @@
 import {
   type ApprovalRequest,
   ApprovalDecision,
+  type Attachment,
   type AttachmentId,
   Command,
   type RequestId,
@@ -105,7 +106,7 @@ export const submitCommand = (
 /** A follow-up the composer holds until the Turn in flight ends. */
 export interface FollowUp {
   readonly text: string;
-  readonly attachments: ReadonlyArray<AttachmentId>;
+  readonly attachments: ReadonlyArray<Attachment>;
 }
 
 /** A held follow-up, sent as a Turn once the one in flight ends. */
@@ -113,5 +114,5 @@ export const followUpCommand = (sessionId: SessionId, followUp: FollowUp): Comma
   Command.cases.SendTurn.make({
     sessionId,
     prompt: followUp.text.trim(),
-    attachments: [...followUp.attachments],
+    attachments: followUp.attachments.map((attachment) => attachment.id),
   });

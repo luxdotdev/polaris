@@ -5,7 +5,8 @@
  * (`steps.ts`). A Turn's rows are cached on its entry, so text streaming into the
  * latest Turn rebuilds only that Turn's rows.
  */
-import type { TurnItem, TurnStatus } from "@polaris/protocol";
+import type { Attachment, TurnItem, TurnStatus } from "@polaris/protocol";
+import type { FollowUp } from "./composer.ts";
 import { Match } from "effect";
 import type { TurnEntry } from "./fold.ts";
 import type { OutgoingSteer } from "./outbox.ts";
@@ -27,14 +28,19 @@ export type ThreadRow = RowBase &
         readonly title: string;
         readonly status: TurnStatus;
       }
-    | { readonly kind: "prompt"; readonly text: string }
+    | {
+        readonly kind: "prompt";
+        readonly text: string;
+        readonly attachments: ReadonlyArray<Attachment>;
+      }
     /** A steer the Harness took, where it landed in the Turn. */
     | { readonly kind: "steered"; readonly text: string }
-    /** A steer still on its way, or why it didn't land. */
+    /** A steer or queued follow-up still on its way, or why a steer didn't land. */
     | {
         readonly kind: "outgoing";
         readonly id: string;
         readonly text: string;
+        readonly attachments: ReadonlyArray<Attachment>;
         readonly failed: boolean;
         readonly note: string;
       }
@@ -228,8 +234,14 @@ const openRows = (
   const rows: Array<ThreadRow> = [];
   let step = 0;
 
-  if (turn.prompt.trim() !== "")
-    rows.push({ kind: "prompt", key: `${turn.id}:p`, turnId: turn.id, text: turn.prompt });
+  if (turn.prompt.trim() !== "" || turn.attachments.length > 0)
+    rows.push({
+      kind: "prompt",
+      key: `${turn.id}:p`,
+      turnId: turn.id,
+      text: turn.prompt,
+      attachments: turn.attachments,
+    });
 
   const streamed = new Map(entry.streaming.map((live) => [live.itemId, live.text]));
 
@@ -345,17 +357,32 @@ export const threadRows = (
   });
 };
 
-/** Steers still on their way, oldest first, for the bottom of the thread. */
-export const outgoingRows = (steers: ReadonlyArray<OutgoingSteer>): ReadonlyArray<ThreadRow> =>
-  steers.map((entry) => ({
+/** Steers, then queued follow-ups, still on their way, oldest first, for the thread's foot. */
+export const outgoingRows = (
+  steers: ReadonlyArray<OutgoingSteer>,
+  queued: ReadonlyArray<FollowUp> = []
+): ReadonlyArray<ThreadRow> => [
+  ...steers.map((entry): ThreadRow => ({
     kind: "outgoing",
     key: `out:${entry.id}`,
     turnId: entry.turnId,
     id: entry.id,
     text: entry.text,
+    attachments: [],
     failed: entry.status === "failed",
     note: entry.status === "failed" ? `${entry.error ?? "Didn't send"} · Tap to edit` : "Steering…",
-  }));
+  })),
+  ...queued.map((entry, index): ThreadRow => ({
+    kind: "outgoing",
+    key: `queued:${index}`,
+    turnId: "",
+    id: `queued:${index}`,
+    text: entry.text,
+    attachments: entry.attachments,
+    failed: false,
+    note: "Queued for after this turn",
+  })),
+];
 
 /** The newest ended Turn among those whose rows are on screen, for the read position. */
 export const newestEndedOnScreen = (

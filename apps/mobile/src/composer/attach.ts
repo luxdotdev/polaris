@@ -93,6 +93,8 @@ const failureOf = (error: Error | undefined) =>
 /** The staged chips one Send or Queue carries; `done` removes only those. */
 export interface Submission {
   readonly ids: ReadonlyArray<AttachmentId>;
+  /** The same, whole: what the thread shows of a message still on its way. */
+  readonly attachments: ReadonlyArray<Attachment>;
   readonly done: () => void;
 }
 
@@ -163,7 +165,11 @@ export const attachmentStore = (
       const sent = chips.filter((chip) => chip.attachment !== null);
       const keys = new Set(sent.map((chip) => chip.key));
 
-      return { ids: stagedIds(sent), done: () => set(chips.filter((chip) => !keys.has(chip.key))) };
+      return {
+        ids: stagedIds(sent),
+        attachments: sent.flatMap((chip) => (chip.attachment === null ? [] : [chip.attachment])),
+        done: () => set(chips.filter((chip) => !keys.has(chip.key))),
+      };
     },
     clear: () => set([]),
   };

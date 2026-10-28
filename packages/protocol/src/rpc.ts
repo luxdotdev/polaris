@@ -52,6 +52,7 @@ import { VoiceRpcs } from "./voice.ts";
 import { HarnessKind } from "./harnesses.ts";
 import { Hello } from "./hello.ts";
 import {
+  AttachmentId,
   BlobId,
   CommandId,
   ReviewCheckoutId,
@@ -672,6 +673,19 @@ export const StageAttachment = Rpc.make("attachments.stage", {
   error: FileError,
 });
 
+/** Above this an attachment isn't read for a preview: Clients show its name instead. */
+export const ATTACHMENT_READ_MAX_BYTES = 10_485_760;
+
+/**
+ * A staged attachment's bytes by its id, never by path (capability `attachments.read`),
+ * so a Linked Device shows the images a message carried. Its bytes follow as a blob.
+ */
+export const ReadAttachment = Rpc.make("attachments.read", {
+  payload: { attachmentId: AttachmentId },
+  success: Schema.Struct({ attachment: Attachment, blobId: BlobId }),
+  error: FileError,
+});
+
 /** The Host's cleanup settings and what it has staged (capability `attachments.settings`). */
 export const GetAttachmentSettings = Rpc.make("attachments.settings", {
   payload: {},
@@ -792,6 +806,7 @@ export class DaemonRpcs extends RpcGroup.make(
   GetAttachmentSettings,
   SetAttachmentSettings,
   ClearAttachments,
+  ReadAttachment,
   TerminalOpen,
   TerminalAttach,
   TerminalAttachBinary,
