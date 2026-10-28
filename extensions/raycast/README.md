@@ -40,7 +40,12 @@ The extension is a root workspace, so it resolves `@polaris/sdk` from source.
 bun run --cwd extensions/raycast dev        # ray develop: load it into Raycast
 bun run --cwd extensions/raycast ray:build  # bundle into extensions/raycast/dist and type-check
 bun run --cwd extensions/raycast test       # the models, and against a real Daemon
+bun run --cwd extensions/raycast e2e        # the release's project, built by ray, against a real Daemon
 ```
+
+`e2e` is what the release runs before it attaches the zip: it installs the project as a
+user would (the SDK from npm), builds it with `ray build`, and drives the built SDK under
+Node through pairing, a session and its approval.
 
 `src/lib/` is the model (sections, approvals, pairings, Connection State, copy) and has no
 Raycast imports, so it runs under `bun test`; `src/lib/daemon.test.ts` drives it through the
