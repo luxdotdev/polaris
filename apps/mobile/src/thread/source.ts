@@ -37,12 +37,15 @@ import type { RpcClientError } from "effect/rpc/RpcClientError";
 /** Why a call or feed failed, as the user reads it. */
 export class ThreadFailure extends Data.TaggedError("ThreadFailure")<{
   readonly message: string;
+  /** The connection dropped mid-call: the Host may have applied it. */
+  readonly ambiguous?: boolean;
 }> {}
 
 export interface ThreadSource {
   /** The session's feed across reconnects: a Snapshot first, then its changes. */
   readonly session: (sessionId: SessionId) => Stream.Stream<SessionStreamItem, ThreadFailure>;
-  readonly dispatch: (command: Command) => Effect.Effect<void, ThreadFailure>;
+  /** A retry passes the same `commandId`, so the Host applies the command once. */
+  readonly dispatch: (command: Command, commandId: CommandId) => Effect.Effect<void, ThreadFailure>;
   /** Every session's read position and draft; ends at once on a Host without continuity. */
   readonly continuity: Stream.Stream<ContinuityItem, ThreadFailure>;
   readonly markRead: (
@@ -82,8 +85,13 @@ interface Failed {
   readonly message: string;
 }
 
+const isDisconnect = (error: Failed) => Predicate.isTagged(error, "RpcClientError");
+
 const failure = (error: Failed) =>
-  new ThreadFailure({ message: error.message === "" ? error._tag : error.message });
+  new ThreadFailure({
+    message: error.message === "" ? error._tag : error.message,
+    ambiguous: isDisconnect(error),
+  });
 
 let commandCount = 0;
 
@@ -95,8 +103,6 @@ export const newCommandId = (): CommandId => {
     `mobile-${Date.now().toString(36)}-${commandCount}-${Math.random().toString(36).slice(2, 8)}`
   );
 };
-
-const isDisconnect = (error: Failed) => Predicate.isTagged(error, "RpcClientError");
 
 /** The RPCs the thread calls; a full `DaemonClient` is one of these. */
 export const ThreadRpcs = RpcGroup.make(
@@ -218,10 +224,8 @@ export const daemonThreadSource = (options: DaemonThreadOptions): ThreadSource =
           (feed) => feed.stream
         )
       ).pipe(Stream.mapError(failure)),
-    dispatch: (command) =>
-      withClient(live, (client) =>
-        Effect.asVoid(client.dispatch({ commandId: newCommandId(), command }))
-      ),
+    dispatch: (command, commandId) =>
+      withClient(live, (client) => Effect.asVoid(client.dispatch({ commandId, command }))),
     continuity: has("session.continuity")
       ? Stream.unwrap(
           Effect.map(
