@@ -51,7 +51,19 @@ inline. `scripts/home.daemon.test.ts` approves, denies and answers against a rea
 `src/hosts/` is Paper M7: each Host's Connection State and route, read only.
 
 The shell is `src/App.tsx` with `src/app/` (navigation, tab bar, back bar). `src/app/routes.tsx`
-holds the stand-ins for the thread, New agent session and Link screens.
+holds the routes for the thread, New agent session and Link screens.
+
+## New agent session (M6)
+
+`src/newSession/` is the sheet that starts an agent session: `NewSessionSheet({ onClose,
+workspaceId?, onStarted? })`, which reads Home's followed feeds (`useFollowedHosts`) and calls the
+Host's `DaemonRpcs` through its `HostConnection`. It follows the Desktop App's new-session rules:
+the last used workspace with its Host, the most recently used ready Harness, the Models'
+shortlist, in place unless New worktree is on (a branch from the prompt and the session's id).
+The prompt draft stays on the phone until Start. Plan first starts in `plan` where the Host
+announces `session.plan-mode`, and says "Asks before every edit" and sends `supervised` where it
+doesn't (`permissionModeFor`, ENG-466). `scripts/newSession.test.ts` starts a real session on a
+test Daemon through the dev bridge.
 
 ## The constellation view
 

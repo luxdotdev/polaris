@@ -1,11 +1,13 @@
 /**
- * The screens each route draws. Thread (S2), New agent session (S5) and Link this iPhone (R4)
- * replace their stand-ins here when they land.
+ * The screens each route draws. Thread (S2) and Link this iPhone (R4) replace their stand-ins
+ * here when they land; New agent session is S5's sheet.
  */
 import { midnight, mobileType } from "@polaris/ui/tokens";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { NewSessionSheet as NewAgentSessionSheet } from "../newSession/index.ts";
 import { BackBar } from "./BackBar.tsx";
+import { useNavigation } from "./navigation.tsx";
 
 const StandIn = ({
   title,
@@ -59,16 +61,17 @@ export const ReviewTab = () => {
   );
 };
 
+/** The New agent session sheet; a started session opens its thread. */
 export const NewSessionSheet = (props: { readonly onClose: () => void }) => {
-  const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
+  const { workspaceId } = navigation.newSession;
 
   return (
-    <View style={[styles.sheet, { paddingBottom: insets.bottom + 20 }]}>
-      <Text style={styles.title}>New agent session</Text>
-      <Pressable accessibilityRole="button" onPress={props.onClose}>
-        <Text style={styles.detail}>Close</Text>
-      </Pressable>
-    </View>
+    <NewAgentSessionSheet
+      onClose={props.onClose}
+      {...(workspaceId === null ? {} : { workspaceId })}
+      onStarted={(hostId, sessionId) => navigation.push({ screen: "thread", hostId, sessionId })}
+    />
   );
 };
 
@@ -78,15 +81,4 @@ const styles = StyleSheet.create({
   large: { ...mobileType.largeTitle, color: midnight.textStrong },
   title: { ...mobileType.title, color: midnight.textStrong },
   detail: { ...mobileType.footnote, color: midnight.textSubtle },
-  sheet: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    padding: 20,
-    gap: 12,
-    backgroundColor: midnight.surfaceRaised,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-  },
 });
