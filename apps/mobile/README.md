@@ -41,6 +41,10 @@ EXPO_PUBLIC_POLARIS_DEV_BRIDGE='polaris-dev-bridge:v1:…' bun run --cwd apps/mo
 
 Only `__DEV__` builds read the variable; the bridge itself is a script and never bundled.
 
+## The constellation view
+
+`src/constellation/` is Paper C2: `ConstellationScreen({ hostId, constellationId, onBack? })` follows `constellation.subscribe` and re-reads `constellation.status` on each event; `model.ts` folds it into the lead row, the task bar and the rail (finished groups fold; a parent task has no row of its own). Accept approves the claim (`constellation.review`) and then messages the lead; Send back only messages the lead, who sends it back (`verdict.ts`). `scripts/verdict.test.ts` checks both against a real Daemon over the dev bridge.
+
 ## The Hermes check
 
 `src/runtime/selfCheck.ts` exercises Effect 4, the frame codec and pairing strings, the
