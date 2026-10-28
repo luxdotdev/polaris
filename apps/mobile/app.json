@@ -3,13 +3,13 @@
     "name": "Polaris",
     "slug": "polaris",
     "scheme": "polaris",
-    "version": "0.4.0",
+    "version": "0.4.2",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#000000",
     "ios": {
       "bundleIdentifier": "dev.lux.polaris.mobile",
-      "buildNumber": "2",
+      "buildNumber": "3",
       "icon": "./assets/icon.png",
       "supportsTablet": false,
       "infoPlist": {
