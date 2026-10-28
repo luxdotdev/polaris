@@ -8,6 +8,7 @@ import { Option, Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/rpc";
 import { NotFound } from "./errors.ts";
 import { HostId, LinkedDeviceId, Timestamp } from "./ids.ts";
+import { packEnvelope, unpackEnvelope } from "./linkBody.ts";
 import { RelayAddress } from "./relay/wire.ts";
 
 /** A key or secret as base64url without padding. */
@@ -116,6 +117,9 @@ export class LinkedDeviceRpcs extends RpcGroup.make(
 
 export const LINK_STRING_PREFIX = "polaris-link:v1:";
 
+/** v2 adds the other Hosts the Desktop App shares the device to; the phone links once (Q16). */
+export const LINK_STRING_V2_PREFIX = "polaris-link:v2:";
+
 export const LinkPayload = Schema.Struct({
   hostId: HostId,
   hostName: Schema.String,
@@ -130,21 +134,62 @@ export const LinkPayload = Schema.Struct({
 
 export type LinkPayload = typeof LinkPayload.Type;
 
+/** Another Host the device is shared to once it linked: public facts only, no secret. */
+export const SharedHost = Schema.Struct({
+  hostId: HostId,
+  hostName: Schema.String,
+  relayUrl: Schema.String,
+  hostAddress: RelayAddress,
+  hostNoiseKey: Key,
+});
+
+export type SharedHost = typeof SharedHost.Type;
+
+/**
+ * What a link string carries: the link for the Host the device links through, and the
+ * other Hosts it may dial once that Host's `devices.awaitLink` returned (never the link's).
+ */
+export const LinkEnvelope = Schema.Struct({
+  link: LinkPayload,
+  hosts: Schema.Array(SharedHost),
+});
+
+export type LinkEnvelope = typeof LinkEnvelope.Type;
+
 const Body = Schema.StringFromBase64Url.pipe(Schema.decodeTo(Schema.fromJsonString(LinkPayload)));
 
 const encodeBody = Schema.encodeSync(Body);
 
 const decodeBody = Schema.decodeUnknownOption(Body);
 
+const decodeEnvelope = Schema.decodeUnknownOption(LinkEnvelope);
+
+/** A v1 string: one Host. The Daemon makes these; the Desktop App wraps them in v2. */
 export const encodeLinkString = (payload: LinkPayload): string =>
   `${LINK_STRING_PREFIX}${encodeBody(payload)}`;
 
-/** The payload, or none when the text is not a v1 link string. Surrounding whitespace is ignored. */
-export const decodeLinkString = (text: string): Option.Option<LinkPayload> => {
+/** Packed (`linkBody.ts`): about 900 characters for six Hosts, against 1,900 as JSON. */
+export const encodeLinkEnvelope = (envelope: LinkEnvelope): string =>
+  `${LINK_STRING_V2_PREFIX}${packEnvelope(envelope)}`;
+
+/**
+ * The envelope, or none when the text is not a link string; a v1 string decodes with no
+ * other Hosts. Surrounding whitespace is ignored.
+ */
+export const decodeLinkString = (text: string): Option.Option<LinkEnvelope> => {
   const trimmed = text.trim();
 
+  if (trimmed.startsWith(LINK_STRING_V2_PREFIX))
+    return Option.flatMap(
+      unpackEnvelope(trimmed.slice(LINK_STRING_V2_PREFIX.length)),
+      decodeEnvelope
+    );
+
   return trimmed.startsWith(LINK_STRING_PREFIX)
-    ? decodeBody(trimmed.slice(LINK_STRING_PREFIX.length))
+    ? Option.map(decodeBody(trimmed.slice(LINK_STRING_PREFIX.length)), (link) => ({
+        link,
+        hosts: [],
+      }))
     : Option.none();
 };
 
