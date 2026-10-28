@@ -55,8 +55,11 @@ class Writer {
 
 class Reader {
   offset = 0;
+  readonly bytes: Uint8Array;
 
-  constructor(readonly bytes: Uint8Array) {}
+  constructor(bytes: Uint8Array) {
+    this.bytes = bytes;
+  }
 
   take(length: number): Uint8Array {
     if (this.offset + length > this.bytes.length) throw new RangeError("Truncated link string");
