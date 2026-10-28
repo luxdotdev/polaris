@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 
-import { DITHER_FRAMES, ditherFrame, ditherStillMask, ditherStripMask } from "./frames";
+import { DITHER_FRAMES, ditherFrame } from "./cells";
+import { ditherStillMask, ditherStripMask } from "./frames";
 
 const committed = readFileSync(
   new URL("../../../../../../design/assets/dither/dither-claude-16.svg", import.meta.url),

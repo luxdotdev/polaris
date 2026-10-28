@@ -10,6 +10,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./styles.css": "./src/styles/index.css",
+    "./dither": "./src/components/polaris/dither/cells.ts",
+    "./presence": "./src/lib/presence.ts",
     "./star": "./src/icons/star.ts",
     "./tokens": "./src/tokens/index.ts"
   },
