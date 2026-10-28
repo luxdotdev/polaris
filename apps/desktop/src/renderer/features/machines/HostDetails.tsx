@@ -1,4 +1,5 @@
 import { PredictionPlacement } from "./PredictionPlacement.tsx";
+import { RelayRoute } from "./RelayRoute.tsx";
 import { RemoteAccess } from "./RemoteAccess.tsx";
 /**
  * A Host's expanded row: the approval (Paper 5FB-1's facts) or what needs the
@@ -171,6 +172,43 @@ export const HostDetails = ({ machine, settings }: HostDetailsProps) => {
   );
 };
 
+/** How other devices reach the host (Paper D2, D2b): each route stays off until turned on. */
+const Routes = ({
+  machine,
+  capabilities,
+}: {
+  readonly machine: MachineView;
+  readonly capabilities: ReadonlyArray<string>;
+}) => {
+  const relay = capabilities.includes("linked-devices");
+  const tailscale = capabilities.includes("remote-access");
+
+  if (!relay && !tailscale) return null;
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-0.5">
+        <span className="text-label text-text-strong font-medium">Remote access</span>
+        <span className="text-caption text-text-subtle">
+          How your other devices reach {machine.label}. Each route stays off until you turn it on.
+        </span>
+      </div>
+      <div className="bg-surface-sunken rounded-card px-panel divide-hairline flex flex-col divide-y">
+        {relay ? (
+          <div className="py-3">
+            <RelayRoute hostKey={machine.key} hostLabel={machine.label} />
+          </div>
+        ) : null}
+        {tailscale ? (
+          <div className="py-3">
+            <RemoteAccess hostKey={machine.key} />
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+};
+
 const Settings = ({ machine }: { readonly machine: MachineView }) => {
   const local = machine.alias === null;
 
@@ -178,9 +216,8 @@ const Settings = ({ machine }: { readonly machine: MachineView }) => {
     <>
       <div className="border-hairline flex flex-col gap-3 border-t pt-3">
         <PredictionPlacement hostKey={machine.key} />
-        {machine.status?.state === "connected" &&
-        machine.status.capabilities.includes("remote-access") ? (
-          <RemoteAccess hostKey={machine.key} />
+        {machine.status?.state === "connected" ? (
+          <Routes machine={machine} capabilities={machine.status.capabilities} />
         ) : null}
         {local ? (
           <Field
