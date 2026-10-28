@@ -1,5 +1,5 @@
 /**
- * The Relay route through a real relay process (ADR 0082): a device links with a link
+ * The Relay route through a real relay process (ADR 0083): a device links with a link
  * string, reaches the Daemon with Client power and is recorded as the actor; unlinked
  * keys, other keys and other addresses are refused; unlinking ends the open connection;
  * and after the relay restarts the Daemon declares its peers again.

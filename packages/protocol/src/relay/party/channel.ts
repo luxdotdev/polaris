@@ -163,7 +163,7 @@ export class RelayInitiator {
   readonly init: Uint8Array;
   private readonly noise: Noise;
 
-  /** `payload` travels encrypted to the host inside the init (a link request, ADR 0082). */
+  /** `payload` travels encrypted to the host inside the init (a link request, ADR 0083). */
   constructor(local: StaticKeyPair, hostStatic: Uint8Array, payload?: Uint8Array) {
     randombytes_buf(this.tag);
     this.noise = new Noise("IK", true, local);

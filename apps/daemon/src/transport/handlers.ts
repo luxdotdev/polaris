@@ -356,7 +356,7 @@ export const defaultHandlers = (options: {
     "remoteAccess.enable": () => Effect.flatMap(RemoteAccessControl, (control) => control.enable),
     "remoteAccess.disable": () => Effect.flatMap(RemoteAccessControl, (control) => control.disable),
 
-    // Token-less Clients only: the Relay route and Linked Devices (ADR 0082).
+    // Token-less Clients only: the Relay route and Linked Devices (ADR 0083).
     "relayRoute.status": () => Effect.flatMap(RelayRoute, (route) => route.status),
     "relayRoute.enable": ({ url }) => Effect.flatMap(RelayRoute, (route) => route.enable(url)),
     "relayRoute.disable": () => Effect.flatMap(RelayRoute, (route) => route.disable),

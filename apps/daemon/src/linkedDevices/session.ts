@@ -46,7 +46,7 @@ export class DeviceSession implements ByteTransport {
     return this.closed;
   }
 
-  /** Opens a data record from the device; a record that fails ends the session (ADR 0082). */
+  /** Opens a data record from the device; a record that fails ends the session (ADR 0083). */
   receive(record: Uint8Array): void {
     if (this.closed) return;
     let plaintext: Uint8Array;

@@ -1,5 +1,5 @@
 /**
- * The Relay route (ADR 0080, 0082): on when the user turned it on for this Host. Then the
+ * The Relay route (ADR 0080, 0083): on when the user turned it on for this Host. Then the
  * Daemon keeps one socket to the relay, lists its Linked Devices and open links as peers,
  * and serves a connection with Client power to each device whose handshake proves a key
  * linked here from the address stored with it. Unlinking ends the device's session at once.

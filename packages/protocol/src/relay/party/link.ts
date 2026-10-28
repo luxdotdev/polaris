@@ -1,7 +1,7 @@
 // oxlint-disable-next-line typescript/triple-slash-reference -- noise-handshake and sodium-universal ship no types; this carries them into every consumer.
 /// <reference path="./vendor.d.ts" />
 /**
- * Linking a device over the relay (ADR 0082). The link string's secret gives both sides
+ * Linking a device over the relay (ADR 0083). The link string's secret gives both sides
  * the same throwaway relay identity, which the host lists as a peer until the link is
  * used, and a proof the device sends inside its handshake init, so the relay can't link one.
  */

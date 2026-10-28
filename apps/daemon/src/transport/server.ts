@@ -201,7 +201,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
         readonly close: Effect.Effect<void>;
         /** A gateway connection: `hello` must carry a token and a protocol range. */
         readonly tokenRequired: boolean;
-        /** Over the Relay route: the Linked Device it acts as (ADR 0082). */
+        /** Over the Relay route: the Linked Device it acts as (ADR 0083). */
         readonly device: LinkedDevice | null;
         readonly authenticated: () => void;
         rpcLimited: boolean;

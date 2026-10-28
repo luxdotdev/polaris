@@ -1,7 +1,7 @@
 # Linked Devices and the Relay route
 
 A Linked Device (the Mobile App) reaches this Host through the Polaris Relay (ADR 0080) with
-Client power, once its Noise key is linked here (ADR 0082). The relay's contract is
+Client power, once its Noise key is linked here (ADR 0083). The relay's contract is
 `apps/relay/README.md`; the shared code is `@polaris/protocol/relay` and `relay/party`.
 
 | File | What |

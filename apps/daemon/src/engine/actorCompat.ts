@@ -1,6 +1,6 @@
 /**
  * A Client that didn't announce `actor.linked-device` can't decode the `LinkedDevice`
- * Actor, so it reads a Linked Device's commands as a Client's (ADR 0082).
+ * Actor, so it reads a Linked Device's commands as a Client's (ADR 0083).
  */
 import {
   Actor,

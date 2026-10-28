@@ -1,5 +1,5 @@
 /**
- * A connection over the Relay route acts as its Linked Device (ADR 0082): the server
+ * A connection over the Relay route acts as its Linked Device (ADR 0083): the server
  * annotates it before any request runs, `dispatch` records the device as the actor,
  * and `hello` labels it with the device's name whatever the payload says.
  */
