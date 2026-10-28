@@ -33,6 +33,7 @@ import { githubHandlers } from "../github/ipc.ts";
 import { gitHandlers } from "./git.ts";
 import { constellationHandlers, resourceHandlers } from "./constellation.ts";
 import { remoteAccessHandlers } from "./remoteAccess.ts";
+import { linkedDevicesHandlers } from "./linkedDevices.ts";
 import { voiceHandlers } from "./voice.ts";
 import { Machines } from "../machines/service.ts";
 import type { NeedsYouSummary } from "../../shared/needsYou.ts";
@@ -75,6 +76,8 @@ export interface RequestContext {
   /** The native folder picker on the focused window; null when cancelled. */
   readonly pickFolder: () => Promise<string | null>;
   readonly writeClipboard: (text: string) => Promise<void>;
+  /** Writes a secret that clears itself after a minute (`secretClipboard.ts`). */
+  readonly writeSecretClipboard: (text: string) => void;
   /** Cut, Copy, Paste or Select All in the focused window, as its Edit menu would. */
   readonly editAction: (action: "cut" | "copy" | "paste" | "selectAll") => void;
   /** Windows: the app menu under the title bar's lockup. */
@@ -247,6 +250,7 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
   ...constellationHandlers,
   ...resourceHandlers,
   ...remoteAccessHandlers,
+  ...linkedDevicesHandlers,
   ...voiceHandlers,
   "updates.get": () => Effect.sync(ctx.updates.get),
   "updates.check": () => Effect.sync(ctx.updates.check),
@@ -491,6 +495,8 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
     machines((m) => m.setLocalEnabled(enabled)).pipe(done),
   "machines.openSsh": ({ hostKey }) => machines((m) => m.openSsh(hostKey)).pipe(done),
   "clipboard.write": ({ text }) => Effect.promise(() => ctx.writeClipboard(text)).pipe(done),
+  "clipboard.writeSecret": ({ text }) =>
+    Effect.sync(() => ctx.writeSecretClipboard(text)).pipe(done),
   "edit.run": ({ action }) => Effect.sync(() => ctx.editAction(action)).pipe(done),
   "app.menu": () => Effect.sync(ctx.showAppMenu).pipe(done),
   "onboarding.found": () =>
