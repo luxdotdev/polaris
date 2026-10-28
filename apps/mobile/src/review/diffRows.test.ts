@@ -8,6 +8,7 @@ import {
   fileLines,
   type LineRow,
   orderFiles,
+  reviewRows,
 } from "./diffRows.ts";
 import { finding } from "./review.testing.ts";
 import { parsePatch } from "./patch.ts";
@@ -118,5 +119,37 @@ describe("diff rows", () => {
     expect(flaggedCode(finding("t", "low", { line: 1, path: "index.html" }), rows)).toBe(
       "<title>New</title>"
     );
+  });
+});
+
+describe("a Critical finding outside the diff", () => {
+  const cards = (rows: ReadonlyArray<DiffRow>) =>
+    rows.flatMap((r) => (r.kind === "finding" ? [r.finding.identity] : []));
+
+  test("shows when its file isn't in the patch, under its path", () => {
+    const rows = diffRows(files, [finding("gone", "critical", { path: "deploy.ts" })], allOpen);
+
+    expect(cards(rows)).toEqual(["gone"]);
+    expect(rows[rows.findIndex((r) => r.kind === "finding") - 1]).toMatchObject({
+      kind: "note",
+      text: "deploy.ts",
+    });
+  });
+
+  test("shows when the patch is empty", () => {
+    expect(cards(diffRows([], [finding("c", "critical")], new Set()))).toEqual(["c"]);
+  });
+
+  test("shows under the reason when the diff fails to load", () => {
+    const rows = reviewRows({
+      files: [],
+      problem: "git diff failed",
+      findings: [finding("c", "critical"), finding("r", "critical", { status: "resolved" })],
+      open: new Set(),
+      order: "risk",
+    });
+
+    expect(rows[0]).toMatchObject({ kind: "note", text: "git diff failed" });
+    expect(cards(rows)).toEqual(["c"]);
   });
 });
