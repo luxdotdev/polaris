@@ -64,7 +64,10 @@ interface Slot {
   /** Typed text not yet written. */
   pending: string | null;
   cancel: (() => void) | null;
-  writing: number;
+  /** The writes in progress, one at a time; null when none is. */
+  draining: Promise<void> | null;
+  /** A save is waiting on the Host. */
+  writing: boolean;
   /** A newer draft that came while this Client was typing or writing. */
   waiting: ComposerDraft | null;
 }
@@ -82,6 +85,8 @@ export interface DraftSync {
   readonly receive: (draft: ComposerDraft) => void;
   /** Writes a pending draft now (before sending, or when the window closes). */
   readonly flush: (sessionId: SessionId) => Promise<void>;
+  /** Writes every draft still unwritten, as after a reconnect. */
+  readonly retry: () => Promise<void>;
   /** Cancels pending writes. */
   readonly dispose: () => void;
 }
@@ -100,7 +105,16 @@ export const makeDraftSync = (options: DraftSyncOptions): DraftSync => {
     const held = slots.get(sessionId);
 
     if (held !== undefined) return held;
-    const fresh: Slot = { revision: 0, pending: null, cancel: null, writing: 0, waiting: null };
+
+    const fresh: Slot = {
+      revision: 0,
+      pending: null,
+      cancel: null,
+      draining: null,
+      writing: false,
+      waiting: null,
+    };
+
     slots.set(sessionId, fresh);
 
     return fresh;
@@ -109,7 +123,7 @@ export const makeDraftSync = (options: DraftSyncOptions): DraftSync => {
   const adoptWaiting = (sessionId: SessionId, s: Slot) => {
     const waiting = s.waiting;
 
-    if (waiting === null || s.pending !== null || s.writing > 0) return;
+    if (waiting === null || s.pending !== null || s.writing) return;
     s.waiting = null;
 
     if (waiting.revision <= s.revision) return;
@@ -117,31 +131,47 @@ export const makeDraftSync = (options: DraftSyncOptions): DraftSync => {
     options.adopt(sessionId, waiting.text);
   };
 
-  const write = async (sessionId: SessionId) => {
+  // Writes go one at a time, so an older write can't land or fail after a newer one.
+  const drain = async (sessionId: SessionId, s: Slot) => {
+    for (let text = s.pending; text !== null; text = s.pending) {
+      s.pending = null;
+      s.writing = true;
+      options.status?.(sessionId, "saving");
+      const saved = await options.save(sessionId, text).catch(() => null);
+      s.writing = false;
+
+      if (saved === null) {
+        // Kept for the next edit, flush or retry, unless newer typing replaced it.
+        s.pending ??= text;
+        options.status?.(sessionId, "unsaved");
+
+        return;
+      }
+
+      s.revision = Math.max(s.revision, saved.revision);
+    }
+
+    options.status?.(sessionId, "saved");
+    adoptWaiting(sessionId, s);
+  };
+
+  const write = (sessionId: SessionId): Promise<void> => {
     const s = slot(sessionId);
     s.cancel?.();
     s.cancel = null;
-    const text = s.pending;
 
-    if (text === null) return;
-    s.pending = null;
-    s.writing++;
-    options.status?.(sessionId, "saving");
-    const saved = await options.save(sessionId, text).catch(() => null);
-    s.writing--;
+    // Typing that came during the writes in progress goes once they finish.
+    if (s.draining !== null) return s.draining.then(() => write(sessionId));
 
-    if (saved === null) {
-      // Kept for the next edit or flush to write again.
-      s.pending ??= text;
-      options.status?.(sessionId, "unsaved");
+    if (s.pending === null) return Promise.resolve();
 
-      return;
-    }
+    const draining = drain(sessionId, s).finally(() => {
+      s.draining = null;
+    });
 
-    s.revision = Math.max(s.revision, saved.revision);
+    s.draining = draining;
 
-    if (s.pending === null && s.writing === 0) options.status?.(sessionId, "saved");
-    adoptWaiting(sessionId, s);
+    return draining;
   };
 
   return {
@@ -160,6 +190,10 @@ export const makeDraftSync = (options: DraftSyncOptions): DraftSync => {
       adoptWaiting(draft.sessionId, s);
     },
     flush: (sessionId) => write(sessionId),
+    retry: async () => {
+      const unwritten = [...slots].filter(([, s]) => s.pending !== null);
+      await Promise.all(unwritten.map(([sessionId]) => write(sessionId)));
+    },
     dispose: () => {
       for (const s of slots.values()) s.cancel?.();
       slots.clear();

@@ -19,11 +19,12 @@ The Daemon keeps them in two SQL tables next to the projections, `session_reads`
 in `events` or the read model. Clients use their own RPCs, not `dispatch` (capability
 `session.continuity`, Client-only):
 
-- `continuity.watch`: a Snapshot of every read position and non-empty draft, then each change.
+- `continuity.watch`: a Snapshot of every read position and every draft, emptied ones with
+  their revisions (so a Client that missed a clear applies it), then each change.
   Only real changes are sent: a save of the same text or an earlier Turn sends nothing.
 - `continuity.markRead`: the position only moves forward, by Turn index; Clients report the
-  newest ended Turn on screen. Unread is `unreadTurns` in the protocol, so every Client counts
-  the same way. Migration 6 reads existing sessions through their last ended Turn.
+  newest ended Turn on screen. Unread is `unreadTurns` in the protocol, counted by the latest
+  Turn's status rather than the Session State, so every Client counts the same way. Migration 6 reads existing sessions through their last ended Turn.
 - `continuity.saveDraft`: last writer wins, numbered by a per-session revision.
   `@polaris/client/continuity` debounces writes (500 ms) and holds back another Client's draft
   while this one has unwritten typing or a write in flight.
@@ -32,6 +33,8 @@ in `events` or the read model. Clients use their own RPCs, not `dispatch` (capab
 
 - The event log, the spec (`packages/spec`) and recovery are unchanged: nothing here is decided,
   committed, acknowledged, streamed or resumed through the command path.
-- A draft typed on a Client whose Host is away stays local until the next edit after it
-  reconnects; text only, staged attachments are not synced.
+- Writes from one Client go one at a time per session, so an older write can't land or fail
+  after a newer one. A draft whose write failed is kept, past closing the session, and written
+  again when the Host's feed next opens, before any older Host draft is adopted; a refused read
+  report is reported again then too. Text only, staged attachments are not synced.
 - A Client reconnecting gets a fresh Snapshot rather than resuming from a sequence.

@@ -105,7 +105,11 @@ const twoTurns = (desktop: Effect.Success<ReturnType<typeof client>>) =>
 
     const record = done.sessions.get(sessionId)!;
 
-    return { session: record.session, turns: record.turns.map((t) => t.id) };
+    return {
+      session: record.session,
+      latest: record.turns.at(-1) ?? null,
+      turns: record.turns.map((t) => t.id),
+    };
   });
 
 /** An item as `[kind, payload]`, to match against. */
@@ -167,9 +171,12 @@ test("a draft saved on one Client reaches the other, and back; an unchanged save
       // The unchanged save sent nothing: the next item is the emptying.
       expect(yield* Queue.take(onDesktop)).toMatchObject({ draft: { text: "", revision: 3 } });
 
-      // A later watcher's Snapshot leaves out an emptied draft.
+      // A later watcher's Snapshot carries the emptying, so a Client that missed it clears too.
       const late = yield* watch(yield* connect());
-      expect(tagged(yield* Queue.take(late))).toMatchObject(["Snapshot", { drafts: [] }]);
+      expect(tagged(yield* Queue.take(late))).toMatchObject([
+        "Snapshot",
+        { drafts: [{ sessionId, text: "", revision: 3 }] },
+      ]);
     })
   );
 });
@@ -181,7 +188,7 @@ test("the read position is shared, only moves forward, and outlives a Daemon res
     Effect.gen(function* () {
       const desktop = yield* connect();
       const phone = yield* connect();
-      const { session, turns } = yield* twoTurns(desktop);
+      const { session, latest, turns } = yield* twoTurns(desktop);
       const onPhone = yield* watch(phone);
       yield* Queue.take(onPhone);
 
@@ -195,7 +202,7 @@ test("the read position is shared, only moves forward, and outlives a Daemon res
       });
 
       expect(position).toMatchObject({ turnIndex: 0 });
-      expect(unreadTurns(session, position)).toBe(1);
+      expect(unreadTurns(session, latest, position)).toBe(1);
 
       yield* phone.client["continuity.markRead"]({ sessionId, turnId: turns[1]! });
       const stale = yield* desktop.client["continuity.markRead"]({ sessionId, turnId: turns[0]! });
@@ -207,7 +214,7 @@ test("the read position is shared, only moves forward, and outlives a Daemon res
 
       expect(unknown).toEqual(new NotFound({ what: "turn", id: "t-none" }));
 
-      return unreadTurns(session, stale);
+      return unreadTurns(session, latest, stale);
     })
   );
 
