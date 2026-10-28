@@ -444,6 +444,8 @@ export const RequestInputs = {
    */
   "machines.openSsh": onHost({}),
   "clipboard.write": Schema.Struct({ text: Schema.String }),
+  /** A secret (a link string): cleared after a minute if it is still on the clipboard. */
+  "clipboard.writeSecret": Schema.Struct({ text: Schema.String }),
   /** The Edit menu's own action on the focused field (a context menu's Cut, Copy, Paste). */
   "edit.run": Schema.Struct({ action: Schema.Literals(["cut", "copy", "paste", "selectAll"]) }),
   /** Windows: the app menu, dropped from the title bar's lockup. */

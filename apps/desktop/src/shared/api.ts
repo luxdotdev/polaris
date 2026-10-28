@@ -521,6 +521,7 @@ export interface RequestOutputs
   "machines.setLocalEnabled": null;
   "machines.openSsh": null;
   "clipboard.write": null;
+  "clipboard.writeSecret": null;
   "edit.run": null;
   "app.menu": null;
   "onboarding.found": { readonly sshHosts: ReadonlyArray<string>; readonly version: string };
