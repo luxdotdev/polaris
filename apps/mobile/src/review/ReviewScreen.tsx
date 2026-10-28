@@ -3,16 +3,27 @@
  * the Host's shared connection: `ReviewView` fed by `useReview`, with Accept, Send back, "Ask
  * {harness} to fix" and verdicts sent to the Host.
  */
-import { harnessEntry, type RiskFinding, type VerdictReason } from "@polaris/protocol";
-import { Effect } from "effect";
+import {
+  type Command,
+  harnessEntry,
+  type RiskFinding,
+  type VerdictReason,
+} from "@polaris/protocol";
 import { useCallback, useMemo, useState } from "react";
-import type { LiveHost } from "../runtime/hostConnection.ts";
 import { useHost } from "../runtime/hosts.tsx";
-import { acceptTurn, askToFix, flaggedCode, recordVerdict, sendBack } from "./actions.ts";
+import {
+  acceptCommand,
+  askToFixCommand,
+  flaggedCode,
+  sendBackCommand,
+  verdictCommand,
+} from "./actions.ts";
 import type { LineRow } from "./diffRows.ts";
 import { acceptState } from "./model.ts";
 import { ReviewView } from "./ReviewView.tsx";
+import { reviewSlot } from "./submissions.ts";
 import { useReview } from "./useReview.ts";
+import { useReviewSubmissions } from "./useSubmissions.ts";
 
 export interface ReviewScreenProps {
   readonly hostId: string;
@@ -34,80 +45,73 @@ export const ReviewScreen = ({
   const connection = useHost(hostId);
   const review = useReview(connection, sessionId, turnId);
   const [notice, setNotice] = useState<string | null>(null);
-  const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState<ReadonlySet<string>>(new Set());
   const { live, turn } = review;
+  const submissions = useReviewSubmissions(live);
   const session = review.session.kind === "ready" ? review.session.value.session : null;
   const summary = review.risk.kind === "ready" ? review.risk.value : null;
 
-  const run = useCallback(
-    <A, E extends { readonly message: string }>(
-      effect: (client: LiveHost["client"]) => Effect.Effect<A, E>
-    ) => {
-      if (live === null) {
-        setNotice("The host isn't connected");
-
-        return Promise.resolve(false);
-      }
-
+  const submit = useCallback(
+    (slot: string, payload: string, build: (itemId: string) => Command) => {
       setNotice(null);
-
-      return Effect.runPromise(
-        effect(live.client).pipe(
-          Effect.match({
-            onSuccess: () => true,
-            onFailure: (error) => {
-              setNotice(error.message);
-
-              return false;
-            },
-          })
-        )
-      ).catch(() => {
-        setNotice("Something went wrong on this iPhone");
-
-        return false;
+      void submissions.submit(slot, payload, build).then((failure) => {
+        if (failure !== null) setNotice(failure);
       });
     },
-    [live]
+    [submissions.submit]
   );
+
+  const acceptSlot = turn === null ? null : reviewSlot.accept(sessionId, turn.id);
 
   const accept = acceptState({
     risk: review.risk,
     turnEnded: turn !== null && turn.status !== "working",
     accepted:
       turn !== null && session !== null && (session.acceptedThroughIndex ?? -1) >= turn.index,
-    sending,
+    sending: acceptSlot !== null && submissions.state(acceptSlot)?.kind === "sending",
   });
 
   const onAccept = useCallback(() => {
-    if (turn === null || accept.kind !== "ready") return;
-    setSending(true);
-    void run((client) => acceptTurn(client, sessionId, turn.id)).finally(() => setSending(false));
-  }, [accept.kind, run, sessionId, turn]);
+    if (turn === null || acceptSlot === null || accept.kind !== "ready") return;
+    submit(acceptSlot, "", () => acceptCommand(sessionId, turn.id));
+  }, [accept.kind, acceptSlot, submit, sessionId, turn]);
 
   const onSendBack = useCallback(
-    (reply: string) => void run((client) => sendBack(client, sessionId, reply)),
-    [run, sessionId]
+    (reply: string) => {
+      if (turn === null) return;
+      submit(reviewSlot.sendBack(sessionId, turn.id), reply.trim(), () =>
+        sendBackCommand(sessionId, reply)
+      );
+    },
+    [submit, sessionId, turn]
   );
 
   const onAskToFix = useCallback(
     (finding: RiskFinding, lines: ReadonlyArray<LineRow>) => {
       const code = flaggedCode(finding, lines);
 
-      void run((client) => askToFix(client, sessionId, finding, code)).then((ok) => {
-        if (ok) setSent((s) => new Set(s).add(finding.id));
-      });
+      submit(reviewSlot.fix(sessionId, finding.id), code, (commentId) =>
+        askToFixCommand(sessionId, finding, code, commentId)
+      );
     },
-    [run, sessionId]
+    [submit, sessionId]
   );
 
   const onVerdict = useCallback(
     (finding: RiskFinding, reason: VerdictReason | null) => {
       if (summary === null) return;
-      void run((client) => recordVerdict(client, summary.id, finding, reason));
+      submit(
+        reviewSlot.verdict(summary.id, finding.id),
+        reason === null ? "up" : `down:${reason}`,
+        (verdictId) => verdictCommand(summary.id, finding, reason, verdictId)
+      );
     },
-    [run, summary]
+    [submit, summary]
+  );
+
+  const sent = new Set(
+    (summary?.findings ?? [])
+      .filter((f) => submissions.state(reviewSlot.fix(sessionId, f.id))?.kind === "sent")
+      .map((f) => f.id)
   );
 
   const diffProblem = useMemo(() => {
