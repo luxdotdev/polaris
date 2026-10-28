@@ -1,136 +1,126 @@
 /**
- * The scaffold's one screen: a plain list of one Host's agent sessions over the gateway, the
- * development pairing setting, and the runtime self-check. Product screens are S1–S7.
+ * The Mobile App's shell: the Hosts (one HostConnection each), the navigation stack, the tabs
+ * with New, and the screen on top. Midnight throughout.
  */
-import type { SessionEntry } from "@polaris/sdk";
-import { midnight, mobileType } from "@polaris/ui/tokens";
-import { Predicate } from "effect";
+import { midnight } from "@polaris/ui/tokens";
+import { Match } from "effect";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { type HostFeed, useHostFeed } from "./hosts/useHostFeed.ts";
-import { type CheckResult, runSelfCheck } from "./runtime/selfCheck.ts";
-import { loadPairing, savePairing } from "./settings/pairing.ts";
+import { StyleSheet, View } from "react-native";
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
+import { NavigationProvider, useNavigation } from "./app/navigation.tsx";
+import {
+  ConstellationRoute,
+  LinkRoute,
+  NewSessionSheet,
+  ReviewTab,
+  ThreadRoute,
+} from "./app/routes.tsx";
+import { type Tab, TabBar } from "./app/TabBar.tsx";
+import { HomeScreen } from "./home/HomeScreen.tsx";
+import { HostsScreen } from "./hosts/HostsScreen.tsx";
+import { runSelfCheck } from "./runtime/selfCheck.ts";
+import { HostsProvider } from "./runtime/hosts.tsx";
 
-const feedLine = (feed: HostFeed | null): string => {
-  if (feed === null) return "No host paired";
+const TAB_BAR = 58;
 
-  if (feed.kind === "connecting") return "Connecting…";
-
-  if (feed.kind === "failed") return feed.message;
-
-  const { view } = feed;
-
-  return `${view.hostName} · ${view.connected ? "connected" : "reconnecting"} · ${view.sessions.length} sessions`;
-};
-
-const selfCheckLine = (results: ReadonlyArray<CheckResult> | null): string => {
-  if (results === null) return "Runtime check running…";
-  const failed = results.filter((result) => !result.ok);
-
-  return failed.length === 0
-    ? `Runtime check: ${results.length} of ${results.length} pass on this engine`
-    : `Runtime check failed: ${failed.map((result) => `${result.name} (${result.detail})`).join(", ")}`;
-};
-
-const SessionRow = ({ entry }: { readonly entry: SessionEntry }) => (
-  <View style={styles.row}>
-    <Text style={styles.title} numberOfLines={1}>
-      {entry.session.title === "" ? "Untitled" : entry.session.title}
-    </Text>
-    <Text style={styles.meta}>
-      {entry.session.state} · {entry.session.harness}
-    </Text>
-  </View>
-);
-
-const PairingSetting = ({ onSaved }: { readonly onSaved: (pairing: string | null) => void }) => {
-  const [text, setText] = useState("");
-
-  const save = () => {
-    void savePairing(text).then(() => onSaved(text.trim() === "" ? null : text.trim()));
-  };
+const Tabs = () => {
+  const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
+  const [tab, setTab] = useState<Exclude<Tab, "hosts">>("sessions");
+  const bottom = Math.max(insets.bottom, 20);
 
   return (
-    <View style={styles.setting}>
-      <Text style={styles.meta}>Pairing string (development only)</Text>
-      <TextInput
-        style={styles.input}
-        value={text}
-        onChangeText={setText}
-        placeholder="polaris-pair:v1:…"
-        placeholderTextColor={midnight.textFaint}
-        autoCapitalize="none"
-        autoCorrect={false}
-        secureTextEntry
+    <View style={styles.fill}>
+      {tab === "sessions" ? (
+        <HomeScreen
+          tabBarHeight={TAB_BAR + bottom}
+          actions={{
+            openSession: (hostId, sessionId) =>
+              navigation.push({ screen: "thread", hostId, sessionId }),
+            openConstellation: (hostId, constellationId) =>
+              navigation.push({ screen: "constellation", hostId, constellationId }),
+            openHosts: () => navigation.push({ screen: "hosts" }),
+            link: () => navigation.push({ screen: "link" }),
+          }}
+        />
+      ) : (
+        <ReviewTab />
+      )}
+      <TabBar
+        active={tab}
+        reviewCount={0}
+        bottom={bottom}
+        onSelect={(next) =>
+          next === "hosts" ? navigation.push({ screen: "hosts" }) : setTab(next)
+        }
+        onNew={() => navigation.openNewSession()}
       />
-      <Pressable style={styles.button} onPress={save}>
-        <Text style={styles.title}>Save</Text>
-      </Pressable>
+    </View>
+  );
+};
+
+const Screen = () => {
+  const navigation = useNavigation();
+
+  return Match.value(navigation.top).pipe(
+    Match.discriminatorsExhaustive("screen")({
+      tabs: () => <Tabs />,
+      hosts: () => (
+        <HostsScreen onBack={navigation.back} onLink={() => navigation.push({ screen: "link" })} />
+      ),
+      thread: ({ hostId, sessionId }) => (
+        <ThreadRoute hostId={hostId} sessionId={sessionId} onBack={navigation.back} />
+      ),
+      constellation: ({ hostId, constellationId }) => (
+        <ConstellationRoute
+          hostId={hostId}
+          constellationId={constellationId}
+          onBack={navigation.back}
+        />
+      ),
+      link: () => <LinkRoute onDone={navigation.back} />,
+    })
+  );
+};
+
+const Shell = () => {
+  const navigation = useNavigation();
+
+  return (
+    <View style={styles.fill}>
+      <Screen />
+      {navigation.newSession.open ? <NewSessionSheet onClose={navigation.closeNewSession} /> : null}
     </View>
   );
 };
 
 export const App = () => {
-  const [pairing, setPairing] = useState<string | null>(null);
-  const [checks, setChecks] = useState<ReadonlyArray<CheckResult> | null>(null);
-  const feed = useHostFeed(pairing);
-
   useEffect(() => {
-    // EXPO_PUBLIC_POLARIS_PAIRING is a development shortcut for `dev:daemon`'s pairing.
-    const fromEnv: unknown = process.env.EXPO_PUBLIC_POLARIS_PAIRING;
-    const devPairing = __DEV__ && Predicate.isString(fromEnv) ? fromEnv : null;
+    if (!__DEV__) return;
+    void runSelfCheck().then((results) => {
+      const failed = results.filter((result) => !result.ok);
 
-    void loadPairing().then((saved) => setPairing(saved ?? devPairing));
-
-    if (__DEV__) void runSelfCheck().then(setChecks);
+      console.log(
+        failed.length === 0
+          ? `Runtime check: ${results.length} of ${results.length} pass on this engine`
+          : `Runtime check failed: ${failed.map((result) => `${result.name} (${result.detail})`).join(", ")}`
+      );
+    });
   }, []);
 
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={styles.screen}>
-        <StatusBar style="light" />
-        <Text style={styles.heading}>Sessions</Text>
-        <Text style={styles.meta}>{feedLine(feed)}</Text>
-        {__DEV__ ? <Text style={styles.meta}>{selfCheckLine(checks)}</Text> : null}
-        {__DEV__ ? <PairingSetting onSaved={setPairing} /> : null}
-        <FlatList
-          data={feed?.kind === "live" ? feed.view.sessions : []}
-          keyExtractor={(entry) => entry.session.id}
-          renderItem={({ item }) => <SessionRow entry={item} />}
-        />
-      </SafeAreaView>
+      <StatusBar style="light" />
+      <HostsProvider>
+        <NavigationProvider>
+          <Shell />
+        </NavigationProvider>
+      </HostsProvider>
     </SafeAreaProvider>
   );
 };
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: midnight.bg, paddingHorizontal: 16, gap: 8 },
-  heading: { ...mobileType.largeTitle, color: midnight.textStrong, marginTop: 8 },
-  title: { ...mobileType.heading, color: midnight.textStrong },
-  meta: { ...mobileType.footnote, color: midnight.textSubtle },
-  row: {
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: midnight.hairline,
-    gap: 2,
-  },
-  setting: { gap: 6, paddingVertical: 8 },
-  input: {
-    ...mobileType.command,
-    color: midnight.textDefault,
-    backgroundColor: midnight.surfaceSunken,
-    borderColor: midnight.hairline,
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 10,
-  },
-  button: {
-    alignSelf: "flex-start",
-    backgroundColor: midnight.surfaceRaised,
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
+  fill: { flex: 1, backgroundColor: midnight.bg },
 });

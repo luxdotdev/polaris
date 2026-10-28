@@ -75,13 +75,29 @@ export const askLine = (approval: ApprovalRequest): string =>
     Match.exhaustive
   );
 
-/** The mono line under it: the command, the file or the tool, as the Harness named it. */
-export const approvalDetail = (approval: ApprovalRequest): string | null => {
-  const detail = firstLine(approval.detail) ?? firstLine(approval.title);
+/** What an approval asks for, whole: Home never offers Approve on a part of it. */
+export interface ApprovalDetail {
+  /** The command, file or tool as the Harness named it, every line. */
+  readonly text: string;
+  /** Too long to read in a row: approve it from the agent session, where it is shown in full. */
+  readonly tooLong: boolean;
+}
 
-  if (detail === null) return null;
+/** More than this, in lines or characters, is answered in the agent session. */
+export const INLINE_LINES = 4;
 
-  return approval.kind === "command" && !detail.startsWith("$ ") ? `$ ${detail}` : detail;
+export const INLINE_CHARACTERS = 280;
+
+export const approvalDetail = (approval: ApprovalRequest): ApprovalDetail | null => {
+  const raw = (approval.detail ?? approval.title).trim();
+
+  if (raw === "") return null;
+  const text = approval.kind === "command" && !raw.startsWith("$ ") ? `$ ${raw}` : raw;
+
+  return {
+    text,
+    tooLong: text.split("\n").length > INLINE_LINES || text.length > INLINE_CHARACTERS,
+  };
 };
 
 /** A question with one single-choice question and its choices, answered by a chip. */

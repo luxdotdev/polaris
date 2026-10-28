@@ -2,6 +2,8 @@
  * A constellation row's seven-segment bar (Paper H4): done tasks lit, working ones faint, the
  * rest dark, scaled to seven whatever the task count.
  */
+import type { TaskBar } from "../../constellation/model.ts";
+
 export type Segment = "done" | "working" | "rest";
 
 export const SEGMENTS = 7;
@@ -35,3 +37,10 @@ export const progressLine = (progress: ConstellationProgress | null): string =>
   progress === null
     ? "lead"
     : `${progress.done} of ${progress.total} ${progress.total === 1 ? "task" : "tasks"} · lead`;
+
+/** Home's seven segments light by done and working; review and failed tasks count in the total. */
+export const progressOf = (bar: TaskBar): ConstellationProgress => ({
+  done: bar.done,
+  working: bar.segments.filter((tone) => tone === "working").length,
+  total: bar.total,
+});

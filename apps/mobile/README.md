@@ -44,13 +44,18 @@ Only `__DEV__` builds read the variable; the bridge itself is a script and never
 ## New agent session (M6)
 
 `src/newSession/` is the sheet that starts an agent session: `NewSessionSheet({ onClose,
-workspaceId?, onStarted? })` under a `NewSessionDataProvider` that takes the home feed's
-workspaces and sessions per Host (`feeds`). It follows the Desktop App's new-session rules: the
-last used workspace with its Host, the most recently used ready Harness, the Models' shortlist,
-in place unless New worktree is on (branch from the prompt and the session's id). The prompt
-draft stays on the phone until Start. Plan first sends `supervised` and says "Asks before every
-edit" until a Host announces `session.plan-mode` (ENG-466). `scripts/newSession.test.ts` starts a
-real session on a test Daemon through the dev bridge.
+workspaceId?, onStarted? })`, which reads Home's followed feeds (`useFollowedHosts`) and calls the
+Host's `DaemonRpcs` through its `HostConnection`. It follows the Desktop App's new-session rules:
+the last used workspace with its Host, the most recently used ready Harness, the Models'
+shortlist, in place unless New worktree is on (a branch from the prompt and the session's id).
+The prompt draft stays on the phone until Start. Plan first starts in `plan` where the Host
+announces `session.plan-mode`, and says "Asks before every edit" and sends `supervised` where it
+doesn't (`permissionModeFor`, ENG-466). `scripts/newSession.test.ts` starts a real session on a
+test Daemon through the dev bridge.
+
+## The constellation view
+
+`src/constellation/` is Paper C2: `ConstellationScreen({ hostId, constellationId, onBack? })` follows `constellation.subscribe` and re-reads `constellation.status` on each event; `model.ts` folds it into the lead row, the task bar and the rail (finished groups fold; a parent task has no row of its own). Accept approves the claim (`constellation.review`) and then messages the lead; Send back only messages the lead, who sends it back (`verdict.ts`). `scripts/verdict.test.ts` checks both against a real Daemon over the dev bridge.
 
 ## The Hermes check
 
