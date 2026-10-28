@@ -9,6 +9,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BackBar } from "../app/BackBar.tsx";
 import { useFollowedHosts } from "../home/feed/useFollowedHosts.ts";
+import { hostMenu, LongPressMenu, useMenuActions } from "../menus/index.ts";
 import { SwitchRow } from "../newSession/parts.tsx";
 import {
   constellationNotifications,
@@ -123,6 +124,7 @@ export const HostsScreen = ({
 }) => {
   const insets = useSafeAreaInsets();
   const hosts = useFollowedHosts();
+  const onMenu = useMenuActions();
   const [unlinkLeft, setUnlinkLeft] = useState<string | null>(null);
   const now = useTicking(hosts.some(({ status }) => status.state === "reconnecting"));
 
@@ -162,7 +164,13 @@ export const HostsScreen = ({
       </View>
       <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
         {model.rows.map((row) => (
-          <HostRow key={row.key} row={row} />
+          <LongPressMenu
+            key={row.key}
+            menu={hostMenu({ hostId: row.key, state: row.state })}
+            onAction={onMenu}
+          >
+            <HostRow row={row} />
+          </LongPressMenu>
         ))}
         {linkedTo === null ? null : <Notifications />}
       </ScrollView>
