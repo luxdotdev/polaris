@@ -5,3 +5,5 @@
 export * from "./channel.ts";
 
 export * from "./identity.ts";
+
+export * from "./link.ts";

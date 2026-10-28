@@ -45,6 +45,7 @@ import {
 import { EventEnvelope } from "./events.ts";
 import { ExtensionRpcs, GrantGate, NotGranted } from "./extensions.ts";
 import { RemoteAccessRpcs } from "./remoteAccess.ts";
+import { LinkedDeviceRpcs } from "./linkedDevices.ts";
 import { VoiceRpcs } from "./voice.ts";
 import { HarnessKind } from "./harnesses.ts";
 import { Hello } from "./hello.ts";
@@ -804,7 +805,7 @@ export class DaemonRpcs extends RpcGroup.make(
   .merge(SessionTurnRpcs)
   .merge(AutoArchiveRpcs)
   .merge(GitWriteRpcs, GitWatchRpcs, CommitMessageRpcs)
-  .merge(ExtensionRpcs, RemoteAccessRpcs, VoiceRpcs) {}
+  .merge(ExtensionRpcs, RemoteAccessRpcs, LinkedDeviceRpcs, VoiceRpcs) {}
 
 /**
  * `DaemonRpcs` as the Daemon serves it to Extensions: every RPC can fail with

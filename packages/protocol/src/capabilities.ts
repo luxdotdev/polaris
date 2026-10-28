@@ -17,6 +17,10 @@ export const Capability = Schema.Literals([
   "host.resources",
   /** `remoteAccess.status`, `remoteAccess.enable` and `remoteAccess.disable` (Tailscale, ADR 0076). */
   "remote-access",
+  /** `relayRoute.*` and `devices.*`: the Relay route and Linked Devices (ADR 0080, 0082). */
+  "linked-devices",
+  /** A Client announces it when it decodes the `LinkedDevice` Actor; others read it as `Client`. */
+  "actor.linked-device",
   /** `voice.transcribe`, `voice.settings` and `voice.setKey` (ADR 0077). */
   "voice",
   /**

@@ -45,4 +45,11 @@ declare module "sodium-universal" {
     secretKey: Uint8Array
   ): void;
   export function randombytes_buf(buffer: Uint8Array): void;
+  export const crypto_sign_SEEDBYTES: number;
+  export function crypto_sign_seed_keypair(
+    publicKey: Uint8Array,
+    secretKey: Uint8Array,
+    seed: Uint8Array
+  ): void;
+  export function crypto_generichash(output: Uint8Array, input: Uint8Array, key?: Uint8Array): void;
 }

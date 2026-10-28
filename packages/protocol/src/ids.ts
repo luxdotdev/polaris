@@ -80,3 +80,8 @@ export type VerdictId = typeof VerdictId.Type;
 export const PairingId = Schema.String.pipe(Schema.brand("PairingId"));
 
 export type PairingId = typeof PairingId.Type;
+
+/** A Linked Device on this Host (CONTEXT.md: Linked Device). */
+export const LinkedDeviceId = Schema.String.pipe(Schema.brand("LinkedDeviceId"));
+
+export type LinkedDeviceId = typeof LinkedDeviceId.Type;

@@ -20,6 +20,8 @@ export * from "./extensions.ts";
 
 export * from "./remoteAccess.ts";
 
+export * from "./linkedDevices.ts";
+
 export * from "./pairingString.ts";
 
 export * from "./grants.ts";
