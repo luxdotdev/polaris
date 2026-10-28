@@ -5,7 +5,7 @@
 import { midnight, mobileType } from "@polaris/ui/tokens";
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Svg, { Path, Rect } from "react-native-svg";
-import { type Chip, sizeLabel } from "./attach.ts";
+import { type Chip, type Picked, sizeLabel } from "./attach.ts";
 
 /** What a composer needs to offer Attach; given only where the Host stages attachments. */
 export interface AttachInput {
@@ -13,6 +13,8 @@ export interface AttachInput {
   /** "Attaching 2 files…", or why one failed; null when quiet. */
   readonly caption: string | null;
   readonly pick: () => void;
+  /** Stages images that came another way, such as a paste into the composer's field. */
+  readonly add: (picks: ReadonlyArray<Picked>) => void;
   readonly remove: (key: string) => void;
 }
 

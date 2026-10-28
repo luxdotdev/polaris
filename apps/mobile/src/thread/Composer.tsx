@@ -15,6 +15,7 @@ import {
   MicButton,
   type VoiceInput,
 } from "../composer/controls.tsx";
+import { usePastedImages } from "../composer/usePastedImages.ts";
 import { type ComposerMode, placeholderFor } from "./composer.ts";
 import { elapsed, harnessHue, harnessName } from "./labels.ts";
 import { Diamond } from "./Row.tsx";
@@ -151,6 +152,7 @@ export const Composer = (props: ComposerProps) => {
   const hue = harnessHue(harness);
   // Voice and attach say what's happening on a line of their own: a missing key's message is long.
   const notice = voice?.failure ?? attach?.caption ?? null;
+  const fieldId = usePastedImages(attach, !blocked);
 
   const footnote =
     props.error ?? (props.draftStatus === null ? "" : DRAFT_WORDS[props.draftStatus]);
@@ -176,6 +178,7 @@ export const Composer = (props: ComposerProps) => {
           editable={!blocked}
           multiline
           accessibilityLabel="Message"
+          nativeID={fieldId}
         />
         <View style={styles.footer}>
           {attach === null || blocked ? null : <AttachButton onPress={attach.pick} compact />}
