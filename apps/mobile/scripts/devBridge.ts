@@ -1,7 +1,7 @@
 /**
  * The development bridge: a WebSocket on 127.0.0.1 forwarding each connection's bytes to the
  * Daemon's Unix socket, so the simulator gets a Client's power over a dev Daemon. A random
- * token is required and any Origin is refused, so a web page can't reach it. Never shipped.
+ * token is required, and only the bridge's own Host and Origin pass, so no web page can reach it.
  */
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { Socket } from "bun";
@@ -49,6 +49,21 @@ const flush = (pipe: Pipe) => {
   }
 };
 
+/**
+ * React Native's iOS WebSocket sends an Origin derived from the URL; a browser page can only
+ * send this one if the bridge served it, and it serves no pages. Anything else is a page.
+ */
+const OWN_HOSTS = (port: number) => new Set([`127.0.0.1:${port}`, `localhost:${port}`]);
+
+const admitted = (request: Request, port: number): boolean => {
+  const own = OWN_HOSTS(port);
+  const origin = request.headers.get("origin");
+
+  if (!own.has(request.headers.get("host") ?? "")) return false;
+
+  return origin === null || [...own].some((host) => origin === `http://${host}`);
+};
+
 /** Starts the bridge to `socketPath`; `port` 0 picks a free one. */
 export const startDevBridge = (socketPath: string, port = 0): DevBridgeServer => {
   const token = randomBytes(24).toString("base64url");
@@ -59,7 +74,7 @@ export const startDevBridge = (socketPath: string, port = 0): DevBridgeServer =>
     fetch: (request, srv) => {
       const url = new URL(request.url);
 
-      if (request.headers.has("origin")) return new Response("no browsers", { status: 403 });
+      if (!admitted(request, srv.port ?? port)) return new Response("no browsers", { status: 403 });
 
       if (url.pathname !== "/polaris/rpc") return new Response("not found", { status: 404 });
 

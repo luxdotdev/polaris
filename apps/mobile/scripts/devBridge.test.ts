@@ -99,11 +99,31 @@ test("a wrong token never connects", async () => {
   }
 }, 30_000);
 
-test("the bridge refuses any request with an Origin, even with the token", async () => {
+test("the bridge refuses a web page's Origin and a rebound Host, even with the token", async () => {
   const url = devBridgeUrl(bridge).replace("ws://", "http://");
-  const response = await fetch(url, { headers: { Origin: "http://127.0.0.1:8080" } });
+  const page = await fetch(url, { headers: { Origin: "http://127.0.0.1:8080" } });
+  const rebound = await fetch(url, { headers: { Host: `evil.example:${bridge.port}` } });
 
-  expect(response.status).toBe(403);
+  expect(page.status).toBe(403);
+  expect(rebound.status).toBe(403);
+});
+
+test("the bridge admits the Origin iOS derives from its own URL", async () => {
+  const url = devBridgeUrl(bridge);
+
+  const opened = await new Promise<boolean>((resolve) => {
+    const socket = new WebSocket(url, {
+      headers: { Origin: `http://127.0.0.1:${bridge.port}` },
+    });
+
+    socket.addEventListener("open", () => {
+      socket.close();
+      resolve(true);
+    });
+    socket.addEventListener("error", () => resolve(false));
+  });
+
+  expect(opened).toBe(true);
 });
 
 test("after the Daemon restarts the connection comes back on a new epoch", async () => {

@@ -43,8 +43,8 @@ export const readLink = (text: string): Effect.Effect<LinkEnvelope, LinkFailed> 
   });
 
 /**
- * The Hosts a link names, refused when one is already linked with another key or relay
- * address: a forged code can't take over a Host this device trusts.
+ * The Hosts a link names, refused when one is already linked with another key, address or relay:
+ * a forged code can't take over a Host this device trusts.
  */
 export const checkLinkedHosts = (
   linked: ReadonlyArray<LinkedHost>,
@@ -54,7 +54,9 @@ export const checkLinkedHosts = (
     linked.some(
       (known) =>
         known.hostId === host.hostId &&
-        (known.hostNoiseKey !== host.hostNoiseKey || known.hostAddress !== host.hostAddress)
+        (known.hostNoiseKey !== host.hostNoiseKey ||
+          known.hostAddress !== host.hostAddress ||
+          known.relayUrl !== host.relayUrl)
     )
   );
 

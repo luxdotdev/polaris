@@ -42,7 +42,7 @@ describe("readLink", () => {
 });
 
 describe("checkLinkedHosts", () => {
-  test("a Host linked again with the same keys is accepted; another key or address is refused", async () => {
+  test("a Host linked again with the same keys is accepted; another key, address or relay is refused", async () => {
     const known = await host("MacBook Pro", "wss://relay.polaris.lux.dev/v1");
     const other = await host("Raspberry Pi", "wss://relay.polaris.lux.dev/v1");
 
@@ -53,5 +53,8 @@ describe("checkLinkedHosts", () => {
     expect(failure(checkLinkedHosts([known], [{ ...known, hostAddress: other.hostAddress }]))).toBe(
       "host-changed"
     );
+    expect(
+      failure(checkLinkedHosts([known], [{ ...known, relayUrl: "wss://evil.example/v1" }]))
+    ).toBe("host-changed");
   });
 });

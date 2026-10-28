@@ -16,8 +16,10 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   type ApprovalDecision,
+  ApprovalQuestion,
   type HarnessKind,
   Model,
+  QuestionOption,
   RequestId,
   SlashCommand,
   type TurnId,
@@ -59,6 +61,12 @@ const BenchTurnScriptSchema = Schema.Struct({
   deltaIntervalMs: Schema.Number,
   /** Every Nth item first asks for an approval and waits for the answer; 0 never asks. */
   approvalEvery: Schema.Number,
+  /** The command those approvals ask to run. */
+  approvalCommand: Schema.String,
+  /** Ask this question with these choices instead of a command approval. */
+  approvalQuestion: Schema.NullOr(
+    Schema.Struct({ question: Schema.String, choices: Schema.Array(Schema.String) })
+  ),
   /** Files written under `<cwd>/polaris-bench/` during the Turn, so checkpoints see changes. */
   touchFiles: Schema.Number,
   /** Minimum text size of each completed message, reasoning and command item (padded). */
@@ -83,6 +91,8 @@ export const DEFAULT_SCRIPT: BenchTurnScript = {
   deltaBytes: 64,
   deltaIntervalMs: 5,
   approvalEvery: 0,
+  approvalCommand: "bun test --coverage",
+  approvalQuestion: null,
   touchFiles: 0,
   itemBytes: 0,
   startDelayMs: 0,
@@ -218,19 +228,43 @@ const openBenchSession = Effect.fn("BenchDriver.open")(function* (options: OpenO
 
   yield* Effect.addFinalizer(() => Queue.end(events));
 
-  const awaitApproval = Effect.fnUntraced(function* (turnId: TurnId, itemId: string) {
+  const awaitApproval = Effect.fnUntraced(function* (
+    script: BenchTurnScript,
+    turnId: TurnId,
+    itemId: string
+  ) {
     const requestId = RequestId.make(`${itemId}-approval`);
     const answer = yield* Deferred.make<ApprovalDecision>();
+    const asked = script.approvalQuestion;
     approvals.set(requestId, answer);
     yield* emit(
-      HarnessEvent.ApprovalRequested({
-        turnId,
-        requestId,
-        kind: "command",
-        title: "Run bun test",
-        detail: "bun test --coverage",
-        options: [],
-      })
+      asked === null
+        ? HarnessEvent.ApprovalRequested({
+            turnId,
+            requestId,
+            kind: "command",
+            title: `Run ${script.approvalCommand.split(" ")[0] ?? "a command"}`,
+            detail: script.approvalCommand,
+            options: [],
+          })
+        : HarnessEvent.ApprovalRequested({
+            turnId,
+            requestId,
+            kind: "question",
+            title: asked.question,
+            detail: null,
+            options: asked.choices,
+            questions: [
+              new ApprovalQuestion({
+                header: "",
+                question: asked.question,
+                options: asked.choices.map(
+                  (label) => new QuestionOption({ label, description: null })
+                ),
+                multiSelect: false,
+              }),
+            ],
+          })
     );
     yield* Deferred.await(answer);
     approvals.delete(requestId);
@@ -270,7 +304,7 @@ const openBenchSession = Effect.fn("BenchDriver.open")(function* (options: OpenO
     const kindIndex = i % ITEM_KINDS;
 
     if (script.approvalEvery > 0 && (i + 1) % script.approvalEvery === 0) {
-      yield* awaitApproval(turnId, itemId);
+      yield* awaitApproval(script, turnId, itemId);
     }
 
     const startedAt = new Date().toISOString();

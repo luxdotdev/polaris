@@ -26,7 +26,7 @@ import {
   useState,
 } from "react";
 import { type HostRegistry, useHostRegistry } from "../runtime/hosts.tsx";
-import { loadHosts, loadSecrets, saveLink, secretsForLinking } from "./store.ts";
+import { forgetLink, loadHosts, loadSecrets, saveLink, secretsForLinking } from "./store.ts";
 import { relayTransport } from "./transport.ts";
 
 /** Shown to the Host in its Linked Devices; iOS gives apps no user-set device name. */
@@ -45,6 +45,8 @@ export interface Relay {
   readonly hosts: ReadonlyArray<LinkedHost>;
   readonly routeOf: (hostId: string) => "relay" | null;
   readonly link: (text: string) => Promise<LinkOutcome>;
+  /** Forgets every linked Host and this device's keys; a new link starts over. */
+  readonly unlink: () => void;
 }
 
 const RelayContext = createContext<Relay | null>(null);
@@ -123,6 +125,15 @@ export const RelayProvider = ({ children }: { readonly children: ReactNode }) =>
     return outcome;
   }, []);
 
+  const unlink = useCallback(() => {
+    for (const host of hosts) registryRef.current.removeHost(host.hostId);
+    device.current?.close();
+    device.current = null;
+    setKeys(null);
+    setHosts([]);
+    void forgetLink();
+  }, [hosts]);
+
   const value = useMemo<Relay>(
     () => ({
       loaded,
@@ -130,8 +141,9 @@ export const RelayProvider = ({ children }: { readonly children: ReactNode }) =>
       hosts,
       routeOf: (hostId) => (hosts.some((host) => host.hostId === hostId) ? "relay" : null),
       link,
+      unlink,
     }),
-    [loaded, keys, hosts, link]
+    [loaded, keys, hosts, link, unlink]
   );
 
   return <RelayContext.Provider value={value}>{children}</RelayContext.Provider>;
