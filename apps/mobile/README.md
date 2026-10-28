@@ -32,8 +32,8 @@ Release builds reach Hosts through the Polaris Relay; development builds also ha
 
 `dev:daemon` starts the dev bridge (`scripts/devBridge.ts`): a WebSocket on 127.0.0.1 that
 forwards each connection to the Daemon's Unix socket, so the simulator gets a Client's power. It
-requires the random token the script prints and refuses any request with an Origin header, so a
-web page can't reach it. Start Metro with the line it prints:
+requires the random token the script prints and admits only its own Host and Origin (the one iOS
+derives from the URL; the bridge serves no pages), so a web page can't reach it. Start Metro with the line it prints:
 
 ```sh
 EXPO_PUBLIC_POLARIS_DEV_BRIDGE='polaris-dev-bridge:v1:…' bun run --cwd apps/mobile start
