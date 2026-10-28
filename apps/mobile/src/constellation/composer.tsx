@@ -1,8 +1,8 @@
 /** The composer at the foot of the constellation (Paper C2): addressed to the lead. */
 import type { HarnessKind } from "@polaris/protocol";
 import { midnight, mobileType } from "@polaris/ui/tokens";
-import { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import type { useLeadInput } from "../duo/kept.ts";
 import { harnessHue } from "./glyphs.tsx";
 
 export const LeadComposer = ({
@@ -10,38 +10,22 @@ export const LeadComposer = ({
   model,
   disabled,
   onSend,
-  draft,
+  input,
 }: {
   readonly harness: HarnessKind | null;
   readonly model: string | null;
   /** Why it can't send now (the Host is away), or null. */
   readonly disabled: string | null;
   readonly onSend: (text: string) => Promise<void>;
-  /** The draft kept by the caller, so it outlives this composer; else its own. */
-  readonly draft?: { readonly text: string; readonly onText: (text: string) => void };
+  /** The draft and its Send, kept above this composer so every arrangement sees the same. */
+  readonly input: ReturnType<typeof useLeadInput>;
 }) => {
-  const [own, setOwn] = useState("");
-  const text = draft?.text ?? own;
-  const setText = draft?.onText ?? setOwn;
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { text, sending, error } = input;
   const ready = text.trim() !== "" && !sending && disabled === null;
   const hue = harnessHue(harness);
 
   const send = () => {
-    if (!ready) return;
-    setSending(true);
-    setError(null);
-    onSend(text.trim()).then(
-      () => {
-        setText("");
-        setSending(false);
-      },
-      (failure: Error) => {
-        setError(`Couldn't send: ${failure.message}`);
-        setSending(false);
-      }
-    );
+    if (ready) input.send(onSend);
   };
 
   return (
@@ -49,11 +33,10 @@ export const LeadComposer = ({
       <TextInput
         style={styles.input}
         value={text}
-        onChangeText={setText}
+        onChangeText={input.type}
         placeholder="Message the lead"
         placeholderTextColor={midnight.textFaint}
         multiline
-        editable={!sending}
       />
       {error === null && disabled === null ? null : (
         <Text style={[styles.note, error !== null && { color: midnight.failedText }]}>

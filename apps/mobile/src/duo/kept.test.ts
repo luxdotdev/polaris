@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { Route } from "../app/route.ts";
 import { chosen, claimKey, typed, type Unsent, unsentFor } from "../constellation/unsent.ts";
 import { arrangementOf } from "./arrangement.ts";
-import { constellationKey, keptStore, taskKey } from "./kept.ts";
+import { constellationKey, keptStore, type LeadInput, leadComposing, taskKey } from "./kept.ts";
 import { FOLDED, type Posture } from "./posture.ts";
 
 const unfolded: Posture = {
@@ -82,5 +82,48 @@ describe("unsent constellation input across postures", () => {
 
     expect(view.seen).toHaveLength(2);
     expect(drafts.all().get(constellationKey("h", "c"))).toBe("one");
+  });
+});
+
+describe("the lead's Send across postures", () => {
+  test("A sent unfolded, B typed folded: A's acknowledgement keeps B and A isn't offered again", async () => {
+    const lead = leadComposing(keptStore<LeadInput>());
+    const key = constellationKey("h", "c");
+    const reply = Promise.withResolvers<void>();
+    const sent: Array<string> = [];
+
+    const host = (text: string) => {
+      sent.push(text);
+
+      return reply.promise;
+    };
+
+    // The span's composer sends A; the Host holds its acknowledgement.
+    lead.type(key, "A");
+    const a = lead.send(key, host);
+
+    // Folded: the rail's composer sees A still on its way, and a second Send does nothing.
+    expect(arrangementOf(FOLDED, route).kind).toBe("single");
+    expect(lead.get(key).sending).toBe(true);
+    const again = lead.send(key, host);
+    lead.type(key, "B");
+
+    reply.resolve();
+    await Promise.all([a, again]);
+
+    expect(sent).toEqual(["A"]);
+    expect(lead.get(key)).toMatchObject({ text: "B", sending: false, error: null });
+  });
+
+  test("an acknowledged Send with no edit since clears the draft; a failure keeps it", async () => {
+    const lead = leadComposing(keptStore<LeadInput>());
+    const key = constellationKey("h", "c");
+
+    lead.type(key, "A");
+    await lead.send(key, () => Promise.reject(new Error("connection lost")));
+    expect(lead.get(key)).toMatchObject({ text: "A", error: "Couldn't send: connection lost" });
+
+    await lead.send(key, () => Promise.resolve());
+    expect(lead.get(key)).toMatchObject({ text: "", sending: false, error: null });
   });
 });

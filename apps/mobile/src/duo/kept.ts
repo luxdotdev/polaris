@@ -32,8 +32,66 @@ export const keptStore = <T>(): Kept<T> => {
   };
 };
 
-/** The lead composer's draft, per Host and Constellation. */
-export const leadDrafts = keptStore<string>();
+/** The lead composer's draft and its Send, per Host and Constellation, shared by every arrangement. */
+export interface LeadInput {
+  readonly text: string;
+  /** Bumped by each edit, so a Send's acknowledgement clears only the text it sent. */
+  readonly generation: number;
+  readonly sending: boolean;
+  readonly error: string | null;
+}
+
+const NO_INPUT: LeadInput = { text: "", generation: 0, sending: false, error: null };
+
+export const leadInputs = keptStore<LeadInput>();
+
+/** Edits and Sends on a lead input store; one Send at a time per key, whichever view started it. */
+export const leadComposing = (store: Kept<LeadInput>) => {
+  const get = (key: string) => store.all().get(key) ?? NO_INPUT;
+
+  const patch = (key: string, change: Partial<LeadInput>) =>
+    store.set(key, { ...get(key), ...change });
+
+  const type = (key: string, text: string) =>
+    patch(key, { text, generation: get(key).generation + 1 });
+
+  const send = async (key: string, onSend: (text: string) => Promise<void>) => {
+    const now = get(key);
+    const text = now.text.trim();
+
+    if (now.sending || text === "") return;
+    patch(key, { sending: true, error: null });
+
+    try {
+      await onSend(text);
+      const cleared = get(key).generation === now.generation;
+
+      patch(
+        key,
+        cleared ? { text: "", generation: now.generation + 1, sending: false } : { sending: false }
+      );
+    } catch (failure) {
+      const message = failure instanceof Error ? failure.message : String(failure);
+
+      patch(key, { sending: false, error: `Couldn't send: ${message}` });
+    }
+  };
+
+  return { get, type, send };
+};
+
+const lead = leadComposing(leadInputs);
+
+/** The kept lead input for one Constellation, with its edit and Send. */
+export const useLeadInput = (key: string) => {
+  const all = useSyncExternalStore(leadInputs.subscribe, leadInputs.all);
+
+  return {
+    ...(all.get(key) ?? NO_INPUT),
+    type: (text: string) => lead.type(key, text),
+    send: (onSend: (text: string) => Promise<void>) => void lead.send(key, onSend),
+  };
+};
 
 /** Each handed claim's unsent choice and answer, per Host, Constellation and Task. */
 export const claimChoices = keptStore<Unsent>();

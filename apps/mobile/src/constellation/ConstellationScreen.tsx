@@ -8,7 +8,7 @@ import { midnight, mobileType } from "@polaris/ui/tokens";
 import { useEffect, useMemo, useState } from "react";
 import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { HostConnection, HostStatus } from "../runtime/hostConnection.ts";
-import { claimChoices, constellationKey, leadDrafts, taskKey, useKept } from "../duo/kept.ts";
+import { claimChoices, constellationKey, taskKey, useKept, useLeadInput } from "../duo/kept.ts";
 import { useHost, useHostStatus } from "../runtime/hosts.tsx";
 import { LeadComposer } from "./composer.tsx";
 import { age } from "./copy.ts";
@@ -211,8 +211,7 @@ const Live = ({
   const verdicts = useVerdicts(connection, constellationId);
   const now = useNow(30_000);
   const [opened, setOpened] = useState<ReadonlyMap<string, boolean>>(new Map());
-  const [drafts, setDraft] = useKept(leadDrafts);
-  const kept = constellationKey(connection.hostId, constellationId);
+  const lead = useLeadInput(constellationKey(connection.hostId, constellationId));
 
   const view = useMemo(
     () => (feed.kind === "live" ? constellationView(feed.source, now, opened) : null),
@@ -255,7 +254,7 @@ const Live = ({
           harness={feed.lead?.harness ?? null}
           model={feed.lead?.model ?? null}
           disabled={awayLine(status)}
-          draft={{ text: drafts.get(kept) ?? "", onText: (text) => setDraft(kept, text) }}
+          input={lead}
           onSend={(text) =>
             connection
               .run((client) => messageLead(client, constellationId, text))
