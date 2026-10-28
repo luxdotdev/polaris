@@ -291,3 +291,16 @@ export const decodeDataFrame = (bytes: Uint8Array): Option.Option<DataFrame> => 
     payload: bytes.subarray(3 + length),
   });
 };
+
+const LOOPBACK = new Set(["127.0.0.1", "localhost", "[::1]"]);
+
+/**
+ * A relay URL any party may dial: wss://, or ws:// only to this machine (development and
+ * tests). Control and push metadata travel outside Noise, so they need TLS (RX1-10).
+ */
+export const secureRelayUrl = (url: string): boolean => {
+  if (!URL.canParse(url)) return false;
+  const parsed = new URL(url);
+
+  return parsed.protocol === "wss:" || (parsed.protocol === "ws:" && LOOPBACK.has(parsed.hostname));
+};

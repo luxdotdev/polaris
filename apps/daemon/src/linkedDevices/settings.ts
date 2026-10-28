@@ -4,6 +4,7 @@
  */
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { secureRelayUrl } from "@polaris/protocol/relay";
 import { Option, Schema } from "effect";
 
 export const RelayRouteSetting = Schema.Struct({
@@ -23,13 +24,19 @@ const encode = Schema.encodeSync(codec);
 
 export const settingPath = (root: string) => join(root, "relay-route.json");
 
-/** The stored setting; off when the file is missing or unreadable. */
+/**
+ * The stored setting; off when the file is missing or unreadable, or when its URL has
+ * no TLS (saved before RX1-10): the user turns it on again with a wss:// URL.
+ */
 export const readSetting = (root: string): RelayRouteSetting => {
   const path = settingPath(root);
 
   if (!existsSync(path)) return OFF;
+  const setting = Option.getOrElse(decode(readFileSync(path, "utf8")), () => OFF);
 
-  return Option.getOrElse(decode(readFileSync(path, "utf8")), () => OFF);
+  return setting.url !== null && !isRelayUrl(setting.url)
+    ? { ...setting, enabled: false }
+    : setting;
 };
 
 export const writeSetting = (root: string, setting: RelayRouteSetting): void => {
@@ -39,13 +46,5 @@ export const writeSetting = (root: string, setting: RelayRouteSetting): void => 
   renameSync(temporary, path);
 };
 
-/** A relay URL the Daemon dials: ws:// or wss:// with a host. */
-export const isRelayUrl = (url: string): boolean => {
-  try {
-    const parsed = new URL(url);
-
-    return (parsed.protocol === "wss:" || parsed.protocol === "ws:") && parsed.hostname !== "";
-  } catch {
-    return false;
-  }
-};
+/** A relay URL the Daemon dials: wss://, or ws:// to a relay on this machine (RX1-10). */
+export const isRelayUrl = secureRelayUrl;

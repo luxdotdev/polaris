@@ -276,7 +276,7 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
         : Effect.fail(
             new RelayRouteError({
               reason: "invalid-url",
-              message: "The relay URL must be ws:// or wss://",
+              message: "The relay URL must be wss:// (ws:// only for a relay on this machine)",
             })
           ),
     disable: save({ enabled: false, url: setting.url }).pipe(

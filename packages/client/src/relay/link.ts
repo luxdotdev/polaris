@@ -4,7 +4,7 @@
  * device's relay address and its name. Never log the link string: it holds the secret.
  */
 import { decodeLinkString, encodeLinkRequest, type LinkEnvelope } from "@polaris/protocol";
-import { fromBase64Url, toBase64Url } from "@polaris/protocol/relay";
+import { fromBase64Url, secureRelayUrl, toBase64Url } from "@polaris/protocol/relay";
 import { linkIdentity, linkProof } from "@polaris/protocol/relay/party";
 import { Effect, Option, Schema } from "effect";
 import type { DeviceKeys, LinkedHost } from "./device.ts";
@@ -16,15 +16,7 @@ export class LinkFailed extends Schema.TaggedError<LinkFailed>()("LinkFailed", {
   message: Schema.String,
 }) {}
 
-const LOOPBACK = new Set(["127.0.0.1", "localhost", "[::1]"]);
-
-/** TLS to the relay, except a relay on this machine (development and tests). */
-export const secureRelayUrl = (url: string): boolean => {
-  if (!URL.canParse(url)) return false;
-  const parsed = new URL(url);
-
-  return parsed.protocol === "wss:" || (parsed.protocol === "ws:" && LOOPBACK.has(parsed.hostname));
-};
+export { secureRelayUrl };
 
 /** The link string's envelope; LinkFailed when the text isn't one or names a relay without TLS. */
 export const readLink = (text: string): Effect.Effect<LinkEnvelope, LinkFailed> =>
