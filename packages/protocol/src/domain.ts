@@ -225,7 +225,17 @@ export class Compaction extends Schema.Class<Compaction>("Compaction")({
   at: Timestamp,
 }) {}
 
-export const PermissionMode = Schema.Literals(["supervised", "auto-edits", "auto", "full-access"]);
+/**
+ * How much the agent may do without asking. `plan` (capability `session.plan-mode`) reads and
+ * plans, and asks before it edits anything; a Daemon without it is sent `supervised` instead.
+ */
+export const PermissionMode = Schema.Literals([
+  "plan",
+  "supervised",
+  "auto-edits",
+  "auto",
+  "full-access",
+]);
 
 export type PermissionMode = typeof PermissionMode.Type;
 

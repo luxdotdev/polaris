@@ -1,5 +1,7 @@
-/** Metro turns an image import into the asset's registry number, which `Image` takes as a source. */
+/** Metro bundles an imported image as an asset reference that `<Image source>` takes. */
 declare module "*.png" {
-  const source: number;
+  import type { ImageSourcePropType } from "react-native";
+
+  const source: ImageSourcePropType;
   export default source;
 }

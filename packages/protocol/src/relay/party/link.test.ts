@@ -68,6 +68,8 @@ test("a link string round-trips and other text is not one", async () => {
     expiresAt: "2026-10-27T00:00:00.000Z",
   };
 
-  expect(Option.getOrThrow(decodeLinkString(` ${encodeLinkString(payload)}\n`))).toEqual(payload);
+  expect(Option.getOrThrow(decodeLinkString(` ${encodeLinkString(payload)}\n`)).link).toEqual(
+    payload
+  );
   expect(Option.isNone(decodeLinkString("polaris-pair:v1:abc"))).toBe(true);
 });

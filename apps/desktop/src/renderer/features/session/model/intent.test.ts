@@ -13,6 +13,7 @@ import {
   composerMode,
   interruptCommand,
   openQuestion,
+  permissionModesOn,
   placeholderFor,
   queuedCommand,
   renameCommand,
@@ -184,4 +185,18 @@ describe("shell commands", () => {
   test("mid-Turn a shell command never steers the agent", () => {
     expect(submitCommand({ kind: "steer" }, sessionId, shell("!ls"))).toBeNull();
   });
+});
+
+test("the permission picker offers Plan only on a Host with plan mode", () => {
+  const modes = (capabilities: Parameters<typeof permissionModesOn>[0]) =>
+    permissionModesOn(capabilities).map((p) => p.label);
+
+  expect(modes(["session.plan-mode"])).toEqual([
+    "Plan",
+    "Supervised",
+    "Auto edits",
+    "Auto",
+    "Full access",
+  ]);
+  expect(modes([])).toEqual(["Supervised", "Auto edits", "Auto", "Full access"]);
 });

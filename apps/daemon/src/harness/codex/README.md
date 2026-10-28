@@ -94,12 +94,15 @@ Items, deltas and progress on a Subagent's thread are its own (`subagentId` = it
 
 | Polaris | `approvalPolicy` | `approvalsReviewer` | sandbox |
 |---|---|---|---|
+| plan | `untrusted` | `user` | `read-only` |
 | supervised | `untrusted` | `user` | `read-only` |
 | auto-edits | `on-request` | `user` | `workspace-write` |
 | auto | `on-request` | `auto_review` | `workspace-write` |
 | full-access | `never` | `user` | `danger-full-access` |
 
 The table follows T3 Code's runtime modes. These values go on `thread/start`/`thread/resume` and on every `turn/start` (as `sandboxPolicy`); Codex persists turn overrides on the thread. `setPermissionMode` takes effect from the next `turn/start`.
+
+**Plan** (ENG-466) is supervised's policy plus Codex's `plan` collaboration mode: the model plans instead of editing, and anything it runs or writes still asks. The collaboration mode is experimental in app-server (`turn/start.collaborationMode requires experimentalApi capability`, codex-cli 0.164.0), so `collaboration.ts` sets it with `thread/settings/update` over its own short experimental connection before each planning Turn, carrying that Turn's Model and effort (the mode takes precedence over them), and sets `default` once when the session leaves plan. If the update fails, the Turn runs supervised and a warning is logged. `planMode.test.ts` covers the requests; `e2e.test.ts` (`POLARIS_E2E_CODEX=1`) runs a real planning Turn that writes nothing.
 
 ### Models, effort and fast mode
 

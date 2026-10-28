@@ -15,6 +15,7 @@ import { FooterStrip } from "./parts.tsx";
 const DEFAULT = "default";
 
 const PERMISSIONS: ReadonlyArray<{ readonly mode: PermissionMode; readonly label: string }> = [
+  { mode: "plan", label: "Plan" },
   { mode: "supervised", label: "Supervised" },
   { mode: "auto-edits", label: "Auto edits" },
   { mode: "auto", label: "Auto" },
