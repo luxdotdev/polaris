@@ -20,6 +20,7 @@ import { actorOf, pairingOf } from "../extensions/connection.ts";
 import { Engine } from "./Engine.ts";
 import { hostItemsFor, sessionItemsFor } from "./limitedCompat.ts";
 import { actorHostItemsFor, actorSessionItemsFor } from "./actorCompat.ts";
+import { planHostItemsFor, planSessionItemsFor } from "./planCompat.ts";
 
 /** Per-connection annotation set by the `hello` handler. */
 export class DeviceLabel extends Context.Service<DeviceLabel, string>()(
@@ -69,7 +70,11 @@ const SubscribeHostHandler = DaemonRpcs.toLayerHandler(
 
     return ({ afterSequence }, { client }) => {
       const capabilities = announcedAll(client.annotations);
-      const compat = composeCompat(hostItemsFor(capabilities), actorHostItemsFor(capabilities));
+
+      const compat = composeCompat(
+        composeCompat(hostItemsFor(capabilities), actorHostItemsFor(capabilities)),
+        planHostItemsFor(capabilities)
+      );
 
       const items = engine.subscribeHost(afterSequence, {
         subagents: announced(client.annotations, "session.subagents"),
@@ -90,8 +95,8 @@ const SubscribeSessionHandler = DaemonRpcs.toLayerHandler(
       const capabilities = announcedAll(client.annotations);
 
       const compat = composeCompat(
-        sessionItemsFor(capabilities),
-        actorSessionItemsFor(capabilities)
+        composeCompat(sessionItemsFor(capabilities), actorSessionItemsFor(capabilities)),
+        planSessionItemsFor(capabilities)
       );
 
       const items = engine.subscribeSession({

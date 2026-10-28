@@ -4,10 +4,11 @@
  */
 import { tempDirectory } from "../../verification/tempDirectories.testing.ts";
 import { describe, expect, test } from "bun:test";
+import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { SessionId, TurnId, TurnItem } from "@polaris/protocol";
+import { ApprovalDecision, SessionId, TurnId, TurnItem } from "@polaris/protocol";
 import { Effect, Exit, Scope, Stream } from "effect";
 import { HarnessEvent } from "../HarnessDriver.ts";
 import { makeClaudeDriver } from "./ClaudeDriver.ts";
@@ -158,5 +159,67 @@ describe.skipIf(!enabled)("Claude driver against the real claude", () => {
       console.log("e2e command:", commands.length, "listed |", text);
     },
     { timeout: 180_000 }
+  );
+
+  test(
+    "plans without editing: a session started in plan mode writes no file and asks before it would",
+    async () => {
+      const driver = makeClaudeDriver();
+      const cwd = tempDirectory(join(tmpdir(), "polaris-e2e-claude-plan-"));
+      await writeFile(join(cwd, "README.md"), "# Greeter\n\nPrints a greeting.\n");
+      const scope = Effect.runSync(Scope.make());
+
+      const session = await Effect.runPromise(
+        driver
+          .open({
+            sessionId: SessionId.make("e2e-plan"),
+            cwd,
+            permissionMode: "plan",
+            model: "haiku",
+            effort: null,
+            resumeCursor: null,
+          })
+          .pipe(Scope.provide(scope))
+      );
+
+      const events: HarnessEvent[] = [];
+
+      const done = Effect.runPromise(
+        Stream.runForEach(session.events, (e) =>
+          Effect.gen(function* () {
+            events.push(e);
+
+            if (HarnessEvent.$is("ApprovalRequested")(e))
+              yield* session.respond(
+                e.requestId,
+                ApprovalDecision.cases.Deny.make({ reason: null })
+              );
+          })
+        )
+      );
+
+      await Effect.runPromise(
+        session.sendTurn({
+          turnId: TurnId.make("e2e-plan-turn"),
+          prompt: "Create greeting.txt containing the word hello.",
+          attachments: [],
+          model: null,
+          effort: null,
+        })
+      );
+
+      for (let i = 0; i < 1800 && !events.some(HarnessEvent.$is("TurnEnded")); i++)
+        await Bun.sleep(100);
+      await Effect.runPromise(Scope.close(scope, Exit.void));
+      await done;
+
+      const asked = events.filter(HarnessEvent.$is("ApprovalRequested"));
+      console.log("e2e plan approvals:", asked.map((e) => `${e.kind}:${e.title}`).join(" | "));
+      expect(events.find(HarnessEvent.$is("TurnEnded"))).toMatchObject({ status: "completed" });
+      expect(existsSync(join(cwd, "greeting.txt"))).toBe(false);
+      // It put a plan to the user (ExitPlanMode) instead of editing.
+      expect(asked.map((e) => e.title)).toContain("Approve the plan");
+    },
+    { timeout: 240_000 }
   );
 });

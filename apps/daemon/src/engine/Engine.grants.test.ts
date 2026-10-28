@@ -147,24 +147,26 @@ for (const tag of commands) {
     });
   }
 
-  test(`${tag} into supervised remains available with turn alone`, async () => {
-    const driver = makeFakeDriver("codex", { steer: true });
+  for (const permissionMode of ["supervised", "plan"] as const) {
+    test(`${tag} into ${permissionMode} remains available with turn alone`, async () => {
+      const driver = makeFakeDriver("codex", { steer: true });
 
-    const layer = engineLayer({
-      filename: join(tempDir(), "state.sqlite"),
-      fakes: makeFakes(),
-      drivers: [driver],
+      const layer = engineLayer({
+        filename: join(tempDir(), "state.sqlite"),
+        fakes: makeFakes(),
+        drivers: [driver],
+      });
+
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          yield* start(permissionMode);
+          yield* prepare(driver, tag);
+          yield* dispatch(commandFor[tag](), ["turn"]);
+          yield* reachesHarness(driver, tag);
+        }).pipe(Effect.provide(layer))
+      );
     });
-
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        yield* start("supervised");
-        yield* prepare(driver, tag);
-        yield* dispatch(commandFor[tag](), ["turn"]);
-        yield* reachesHarness(driver, tag);
-      }).pipe(Effect.provide(layer))
-    );
-  });
+  }
 }
 
 test("a queued Turn checks the mode at its commit decision", async () => {

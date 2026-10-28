@@ -201,7 +201,15 @@ export type ThreadItem = typeof ThreadItem.Type;
 /** `initialize`: the user agent names the app-server's codex version. */
 export const InitializeResponse = Schema.Struct({ userAgent: Schema.String });
 
-export const ThreadResponse = Schema.Struct({ thread: Schema.Struct({ id: Schema.String }) });
+export const ThreadResponse = Schema.Struct({
+  thread: Schema.Struct({ id: Schema.String }),
+  /** The Model the thread runs on; a collaboration mode needs it. */
+  model: Schema.optionalKey(Schema.String),
+  /** On resume: the thread's collaboration mode, `plan` when it was planning. */
+  collaborationMode: Schema.optionalKey(
+    Schema.NullOr(Schema.Struct({ mode: Schema.Literals(["plan", "default"]) }))
+  ),
+});
 
 export const TurnStartResponse = Schema.Struct({ turn: Schema.Struct({ id: Schema.String }) });
 

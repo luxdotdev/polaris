@@ -34,7 +34,7 @@ const READ_ONLY = ["read", "glob", "grep", "list", "lsp", "todowrite", "todoread
  */
 export const rulesetFor = (mode: PermissionMode): P.PermissionRuleset =>
   Match.value(mode).pipe(
-    Match.when("supervised", () => [
+    Match.whenOr("plan", "supervised", () => [
       rule("*", "ask"),
       ...READ_ONLY.map((name) => rule(name, "allow")),
     ]),
@@ -52,6 +52,10 @@ export const rulesetFor = (mode: PermissionMode): P.PermissionRuleset =>
     Match.when("full-access", () => [rule("*", "allow")]),
     Match.exhaustive
   );
+
+/** The OpenCode agent a prompt runs on: its built-in `plan` agent, else the user's default. */
+export const agentFor = (mode: PermissionMode): string | undefined =>
+  mode === "plan" ? "plan" : undefined;
 
 /** `provider/model` → OpenCode's pair. The model part may itself contain `/` (OpenRouter). */
 export const parseModelId = (id: ModelId): { providerID: string; modelID: string } | null => {
