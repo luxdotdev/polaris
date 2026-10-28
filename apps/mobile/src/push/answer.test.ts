@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { ApprovalDecision, Command, RequestId, SessionId } from "@polaris/protocol";
-import { answerOf, PushAction } from "./answer.ts";
+import { answerOf, DEFAULT_ACTION, PushAction, routeOf } from "./answer.ts";
 
 const approval = {
   polaris: { kind: "needs-you", hostId: "h1", sessionId: "s1", requestId: "r1" },
@@ -44,5 +44,32 @@ describe("answers from a notification", () => {
     expect(respond(PushAction.approve, [turnEnded])).toBeNull();
     // The extension couldn't open it: only the generic alert and the sealed payload.
     expect(respond(PushAction.approve, [{ p: "c2VhbGVk" }])).toBeNull();
+  });
+});
+
+describe("opening a notification", () => {
+  const tap = (polaris: Partial<Record<string, string | null>>, action = DEFAULT_ACTION) =>
+    routeOf({
+      actionIdentifier: action,
+      userInfo: [{ polaris: { ...approval.polaris, ...polaris } }],
+    });
+
+  test("a notification about a constellation opens the constellation", () => {
+    expect(tap({ kind: "notify", requestId: null, constellationId: "c1" })).toEqual({
+      screen: "constellation",
+      hostId: "h1",
+      constellationId: "c1",
+    });
+  });
+
+  test.each([
+    ["an agent's notify", { kind: "notify", requestId: null, constellationId: null }],
+    ["a finished Turn", { kind: "turn-ended", requestId: null }],
+  ])("%s opens its session", (_, polaris) => {
+    expect(tap(polaris)).toEqual({ screen: "thread", hostId: "h1", sessionId: "s1" });
+  });
+
+  test("an action button opens nothing", () => {
+    expect(tap({}, PushAction.approve)).toBeNull();
   });
 });

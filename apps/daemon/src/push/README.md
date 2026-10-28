@@ -1,12 +1,12 @@
 # Push to Linked Devices
 
-The Daemon pushes Needs You and finished Turns to Linked Devices through the Polaris Relay and
+The Daemon pushes Needs You, notifications (`SessionNotified`) and finished Turns to Linked Devices through the Polaris Relay and
 APNs (`apps/relay/README.md`, Push; `apps/site/app/api/push/README.md`). The relay and the push
 service carry each payload sealed to the device and can't read it.
 
 | File | What |
 |---|---|
-| `plan.ts` | Which Host stream items push: each new approval or question at once; a finished Turn once its session stays Idle with no background tasks for 3 s (ADR 0073). Pure. |
+| `plan.ts` | Which Host stream items push: each new approval or question at once; each `SessionNotified` at once, as `notify` (an agent's `notify`, or Polaris's own when a Constellation needs the user); a finished Turn once its session stays Idle with no background tasks for 3 s (ADR 0073), except a Lead Turn Polaris started for a digest and a Constellation worker's Turns. Pure. |
 | `notifier.ts` | `PushNotifier`: follows the Engine's Host stream (`PushHostEvents`) only while some device is registered, runs the plan and its settle timer, and wakes each registered device. |
 | `seal.ts` | HPKE base mode, DHKEM(P-256, HKDF-SHA256) / HKDF-SHA256 / AES-256-GCM, info `polaris-push/1` ([`@hpke/core`](https://github.com/dajiaji/hpke-js), MIT). CryptoKit's `P256_SHA256_AES_GCM_256` opens it. |
 
@@ -17,7 +17,9 @@ environment, pushKey, ticket }`: its APNs token, `sandbox` or `production`, the 
 the P-256 key its Notification Service Extension holds, and its ticket for this Host (Ed25519
 by its relay identity over this Host's relay address, environment and token). The Daemon
 checks the ticket and the key, and keeps the registration in `linked-devices.sqlite`. Only a
-Linked Device's connection may register (`not-a-device` otherwise). A new registration
+Linked Device's connection may register (`not-a-device` otherwise). `automatic: false` is the
+device's setting for automatic notifications (Constellations needing the user): those skip it,
+while Needs You, agents' notifications and finished Turns still arrive. A new registration
 replaces the last one, so the app rotates its key or token by registering again. Unlinking the
 device deletes its registration; `unregistered` from APNs deletes it until the device
 registers again.

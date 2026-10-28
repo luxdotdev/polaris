@@ -22,7 +22,7 @@ import { FollowedHostsProvider } from "./home/feed/useFollowedHosts.ts";
 import { HomeScreen } from "./home/HomeScreen.tsx";
 import { HostsScreen } from "./hosts/HostsScreen.tsx";
 import { LinkScreen } from "./link/LinkScreen.tsx";
-import { usePush } from "./push/usePush.ts";
+import { usePush, usePushLinks } from "./push/usePush.ts";
 import { RelayProvider, useRelay } from "./relay/RelayProvider.tsx";
 import { runSelfCheck } from "./runtime/selfCheck.ts";
 import { HostsProvider } from "./runtime/hosts.tsx";
@@ -132,6 +132,7 @@ const Shell = () => {
   const navigation = useNavigation();
 
   useWidgetLinks(navigation.open);
+  usePushLinks(navigation.open);
 
   return (
     <View style={styles.fill}>

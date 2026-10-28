@@ -508,6 +508,7 @@ const start = async () => {
       return prefs.notifyLongTurnsOnly ? prefs.longTurnMinutes : null;
     },
     notifyAgents: () => env.POLARIS_DESKTOP_HIDDEN !== "1",
+    notifyConstellations: () => sessionPrefsOf(settings).notifyConstellations,
   });
 
   win.webContents.on("did-start-loading", () => deepLinks.detach());

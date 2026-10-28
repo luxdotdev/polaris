@@ -45,6 +45,7 @@ class NotificationService: UNNotificationServiceExtension {
       "kind": message.kind,
       "hostId": message.hostId,
       "sessionId": message.sessionId,
+      "constellationId": message.constellationId as Any,
       "requestId": message.requestId as Any,
     ]
     content.userInfo = info

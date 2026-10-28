@@ -1,7 +1,7 @@
 import { Effect, Option, Schema } from "effect";
 import type { McpBinding } from "./binding.ts";
 import { EventStore } from "../store/EventStore.ts";
-import { sessionTools } from "./sessions/index.ts";
+import { type Notifier, notifier, sessionTools } from "./sessions/index.ts";
 import { type ConstellationCommands, attachSessionTools, constellationTools } from "./tools.ts";
 import { McpTokens } from "./tokens.ts";
 
@@ -114,8 +114,11 @@ export const mcpHttp = (commands: ConstellationCommands, port = 0) =>
     const tokens = yield* McpTokens;
     const store = yield* Effect.serviceOption(EventStore);
 
+    const notifications: Notifier | null = Option.isSome(store) ? notifier(store.value) : null;
+
     // The same commands reach Claude's in-process tools, so they serve the session tools too.
-    if (Option.isSome(store)) attachSessionTools(commands, sessionTools(store.value));
+    if (Option.isSome(store) && notifications !== null)
+      attachSessionTools(commands, sessionTools(store.value, notifications));
 
     const server = yield* Effect.acquireRelease(
       Effect.sync(() =>
@@ -162,5 +165,6 @@ export const mcpHttp = (commands: ConstellationCommands, port = 0) =>
         })
     );
 
-    return { origin: `http://127.0.0.1:${server.port}` };
+    // Polaris's own notifications share `notify`'s window (constellation/attention.ts).
+    return { origin: `http://127.0.0.1:${server.port}`, notifications };
   });

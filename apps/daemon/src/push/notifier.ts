@@ -1,14 +1,16 @@
 /**
- * Pushes Needs You and finished Turns to Linked Devices registered for push (apps/relay
- * README: Push). It follows the Engine's Host stream only while some device is registered,
- * so a Host without one pays nothing; a timer runs only while a finished Turn is settling.
+ * Pushes Needs You, notifications and finished Turns to Linked Devices registered for push
+ * (apps/relay README: Push). It follows the Engine's Host stream only while some device is
+ * registered, so a Host without one pays nothing; a timer runs only while a Turn settles.
  */
-import type { HostStreamItem } from "@polaris/protocol";
-import type { PushMessage } from "@polaris/protocol/relay";
+import type { Capability, HostStreamItem } from "@polaris/protocol";
 import { Context, Effect, Fiber, Layer, Stream } from "effect";
 import { Engine } from "../engine/Engine.ts";
 import { RelayRoute } from "../linkedDevices/route.ts";
-import { emptyPlan, nextSettle, type PlanState, planItem, planSettled } from "./plan.ts";
+import { emptyPlan, nextSettle, type PlanState, planItem, planSettled, type Push } from "./plan.ts";
+
+/** What the plan reads beyond the base Host stream. */
+const PUSH_CAPABILITIES: ReadonlyArray<Capability> = ["session.notify", "constellation"];
 
 /** The Host stream the notifier follows: the Engine's, from now. */
 export class PushHostEvents extends Context.Service<
@@ -20,7 +22,10 @@ export class PushHostEvents extends Context.Service<
     Effect.gen(function* () {
       const engine = yield* Engine;
 
-      return PushHostEvents.of({ subscribe: () => engine.subscribeHost(null) });
+      // Without these the Host stream leaves out `SessionNotified` and the Constellation events.
+      return PushHostEvents.of({
+        subscribe: () => engine.subscribeHost(null, { capabilities: PUSH_CAPABILITIES }),
+      });
     })
   );
 }
@@ -37,14 +42,18 @@ export const PushNotifier = Layer.effectDiscard(
 
     const contextNow = () => ({ ...route.host, now: Date.now() });
 
-    const send = (messages: ReadonlyArray<PushMessage>) => {
-      for (const message of messages)
+    const send = (pushes: ReadonlyArray<Push>) => {
+      for (const { message, automatic } of pushes)
         for (const target of route.pushTargets())
-          runFork(
-            route
-              .wake(target, message)
-              .pipe(Effect.flatMap((outcome) => Effect.logInfo(`push: ${message.kind} ${outcome}`)))
-          );
+          // The device's own setting for automatic notifications (ENG-462).
+          if (!automatic || target.registration.automatic !== false)
+            runFork(
+              route
+                .wake(target, message)
+                .pipe(
+                  Effect.flatMap((outcome) => Effect.logInfo(`push: ${message.kind} ${outcome}`))
+                )
+            );
     };
 
     const schedule = () => {

@@ -1,19 +1,22 @@
-/** Host stream items for push tests: one Claude Code session, its Turns and an approval. */
+/** Host stream items for push tests: one Claude Code session, its Turns, approvals and notifications. */
 import {
   AgentSession,
   ApprovalRequest,
   BackgroundTask,
+  ConstellationId,
   DomainEvent,
   EventEnvelope,
   HostStreamItem,
   RequestId,
   Sequence,
   SessionId,
+  SessionNotification,
   SessionSummary,
   Turn,
   TurnId,
   WorkspaceId,
 } from "@polaris/protocol";
+import { draft } from "../engine/constellation.testing.ts";
 
 const at = "2026-10-27T12:00:00.000Z";
 
@@ -112,5 +115,44 @@ export const backgroundTasks = (count: number) =>
         { length: count },
         (_, i) => new BackgroundTask({ id: `task${i}`, kind: "command", description: "watch" })
       ),
+    })
+  );
+
+export const notified = (id: string, automatic: boolean) =>
+  event(
+    DomainEvent.cases.SessionNotified.make({
+      sessionId: SESSION_ID,
+      notification: new SessionNotification({
+        id,
+        title: automatic ? "A asks you" : "Done",
+        body: automatic ? "Which base should I use?" : "All green",
+        at,
+        automatic,
+        constellationId: automatic ? "c1" : null,
+      }),
+    })
+  );
+
+/** Polaris started Turn `turnId` on this session to deliver a Constellation digest. */
+export const leadNotified = (turnId: string) =>
+  event(
+    DomainEvent.cases.LeadNotified.make({
+      constellationId: ConstellationId.make("c1"),
+      revision: 1,
+      leadSessionId: SESSION_ID,
+      items: ["n1"],
+      turnId: TurnId.make(turnId),
+      steered: false,
+      audit: null,
+    })
+  );
+
+/** This session became a Constellation worker. */
+export const attemptStarted = () =>
+  event(
+    DomainEvent.cases.AttemptStarted.make({
+      constellationId: ConstellationId.make("c1"),
+      revision: 1,
+      attempt: draft(undefined, "a1", SESSION_ID),
     })
   );

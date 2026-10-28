@@ -146,6 +146,7 @@ export const notificationsOf = ({
               id: entry.lastNotification.id,
               title: entry.lastNotification.title,
               body: entry.lastNotification.body,
+              automatic: entry.lastNotification.automatic,
             },
           ]
     )

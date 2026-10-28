@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { BackgroundTask, CommandId, DomainEvent, SessionId, TurnItem } from "@polaris/protocol";
-import { Effect, Fiber } from "effect";
+import { Effect, Fiber, Predicate } from "effect";
 import { finish, send, session, signal, WORKER } from "../../constellation/delivery/testing.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { NotifyOutcome, WaitOutcome, sessionTools, TRANSCRIPT_LIMIT } from "./index.ts";
@@ -197,7 +197,7 @@ test("notify records SessionNotified once per id, at most once per interval per 
   const [outcomes, notified] = await run(
     Effect.gen(function* () {
       const store = yield* created;
-      const notify = notifier(store, () => now);
+      const { notify } = notifier(store, () => now);
       const input = { title: "Done", body: "All green" };
 
       const first = yield* notify(WORKER, input, CommandId.make("n1"));
@@ -229,5 +229,90 @@ test("notify records SessionNotified once per id, at most once per interval per 
   expect(notified.map((e) => `${e.commandId ?? ""} ${e.event._tag}`)).toEqual([
     "n1 SessionNotified",
     "n3 SessionNotified",
+  ]);
+});
+
+test("an automatic notification is sent once per cause, and the agent's notify after it collapses", async () => {
+  let now = 1_000_000;
+
+  const [outcomes, notified] = await run(
+    Effect.gen(function* () {
+      const store = yield* created;
+      const notifications = notifier(store, () => now);
+
+      const question = {
+        sessionId: WORKER,
+        constellationId: "c1",
+        about: [],
+        id: "attention:c1:question:a1:base",
+        title: "A1 asks you",
+        body: "Which base should I use?",
+      };
+
+      const first = yield* notifications.automatic(question);
+      const again = yield* notifications.automatic(question);
+
+      // The same worker asking again at once waits out the interval.
+      const flood = yield* notifications.automatic({
+        ...question,
+        id: "attention:c1:question:a1:2",
+      });
+
+      now += 1_000;
+
+      const echo = yield* notifications.notify(
+        WORKER,
+        { title: "I asked you", body: "" },
+        CommandId.make("n1")
+      );
+
+      now += NOTIFY_INTERVAL_MS;
+
+      const later = yield* notifications.notify(
+        WORKER,
+        { title: "Done", body: "" },
+        CommandId.make("n2")
+      );
+
+      const waited = yield* notifications.automatic({
+        ...question,
+        id: "attention:c1:question:a1:2",
+      });
+
+      const model = yield* store.model;
+
+      const events = yield* store.readEvents({
+        after: 0,
+        upTo: model.sequence,
+        sessionId: WORKER,
+        eventTypes: ["SessionNotified"],
+      });
+
+      return [[first, again, flood, echo, later, waited], events] as const;
+    })
+  );
+
+  expect(outcomes).toEqual([
+    "Done",
+    "Done",
+    "Limited",
+    NotifyOutcome.Collapsed(),
+    NotifyOutcome.Sent(),
+    "Done",
+  ]);
+  expect(
+    notified.map((e) =>
+      Predicate.isTagged(e.event, "SessionNotified")
+        ? [
+            e.event.notification.title,
+            e.event.notification.automatic,
+            e.event.notification.constellationId,
+          ]
+        : null
+    )
+  ).toEqual([
+    ["A1 asks you", true, "c1"],
+    ["Done", false, null],
+    ["A1 asks you", true, "c1"],
   ]);
 });

@@ -4,7 +4,10 @@ import type { PushMessage } from "@polaris/protocol/relay";
 import { emptyPlan, nextSettle, type PlanState, planItem, planSettled, SETTLE_MS } from "./plan.ts";
 import {
   approvalRequested,
+  attemptStarted,
   backgroundTasks,
+  leadNotified,
+  notified,
   snapshot,
   synchronized,
   turnEnded,
@@ -22,7 +25,7 @@ const run = (items: ReadonlyArray<readonly [number, HostStreamItem]>, until: num
     for (let next = nextSettle(state); next !== null && next <= now; next = nextSettle(state)) {
       const planned = planSettled(state, { ...host, now: next });
       state = planned.state;
-      sent.push(...planned.send.map((m) => ({ ...m, sentAt: next })));
+      sent.push(...planned.send.map(({ message }) => ({ ...message, sentAt: next })));
     }
   };
 
@@ -30,7 +33,7 @@ const run = (items: ReadonlyArray<readonly [number, HostStreamItem]>, until: num
     settleUpTo(now);
     const planned = planItem(state, item, { ...host, now });
     state = planned.state;
-    sent.push(...planned.send.map((m) => ({ ...m, sentAt: now })));
+    sent.push(...planned.send.map(({ message }) => ({ ...message, sentAt: now })));
   }
 
   settleUpTo(until);
@@ -114,5 +117,56 @@ describe("push plan", () => {
     );
 
     expect(sent.map((m) => m.sentAt)).toEqual([20_000 + SETTLE_MS]);
+  });
+
+  test("an agent's notify pushes at once as a notify, its session's title as the subtitle", () => {
+    const [push, ...rest] = run([...start, [10, notified("n1", false)]], 10_000);
+
+    expect(rest).toEqual([]);
+    expect(push).toMatchObject({
+      kind: "notify",
+      sessionId: "s1",
+      requestId: null,
+      category: null,
+      title: "Done",
+      subtitle: "Fix the flaky test · studio",
+      body: "All green",
+    });
+    expect(push?.constellationId).toBeNull();
+  });
+
+  test("an automatic notification is marked so, and names its Constellation for the tap", () => {
+    let state: PlanState = emptyPlan;
+
+    for (const item of [snapshot(), synchronized()])
+      state = planItem(state, item, { ...host, now: 0 }).state;
+
+    const { send } = planItem(state, notified("n2", true), { ...host, now: 5 });
+
+    expect(send.map((p) => [p.automatic, p.message.kind, p.message.constellationId])).toEqual([
+      [true, "notify", "c1"],
+    ]);
+  });
+
+  test("a Lead Turn Polaris started for a digest ends without a push; the user's next one pushes", () => {
+    const sent = run(
+      [
+        ...start,
+        [10, leadNotified("digest")],
+        [10, turnStarted("digest")],
+        [100, turnEnded("digest", "Dispatched B")],
+        [20_000, turnStarted("t2")],
+        [21_000, turnEnded("t2", "Merged A")],
+      ],
+      100_000
+    );
+
+    expect(sent.map((m) => m.body)).toEqual(["Merged A"]);
+  });
+
+  test("a Constellation worker's Turns end without a push: its Lead reports on them", () => {
+    expect(
+      run([...start, [5, attemptStarted()], [100, turnEnded("t1", "Claimed")]], 100_000)
+    ).toEqual([]);
   });
 });

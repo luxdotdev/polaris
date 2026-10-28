@@ -4,6 +4,7 @@
  */
 import { ApprovalDecision, Command, CommandId, RequestId, SessionId } from "@polaris/protocol";
 import { Option, Schema } from "effect";
+import type { Route } from "../app/route.ts";
 
 export const PushAction = {
   approve: "polaris.approve",
@@ -65,10 +66,12 @@ export const decisionOf = (actionId: string): ApprovalDecision | null => {
 /** What the extension put in the notification's userInfo under `polaris`. */
 const PushTarget = Schema.Struct({
   polaris: Schema.Struct({
-    kind: Schema.Literals(["needs-you", "turn-ended"]),
+    kind: Schema.Literals(["needs-you", "turn-ended", "notify"]),
     hostId: Schema.String,
     sessionId: SessionId,
     requestId: Schema.NullOr(RequestId),
+    /** A `notify` about a Constellation: a tap opens it. */
+    constellationId: Schema.optionalKey(Schema.NullOr(Schema.String)),
   }),
 });
 
@@ -85,13 +88,32 @@ export interface Answer {
   readonly dispatch: { readonly commandId: CommandId; readonly command: Command };
 }
 
+const targetOf = (response: PushResponse) =>
+  Option.firstSomeOf(response.userInfo.map((info) => decodeTarget(info)));
+
+/** What tapping the notification itself opens (iOS's default action). */
+export const DEFAULT_ACTION = "expo.modules.notifications.actions.DEFAULT";
+
+/** The screen a tap opens: its Constellation for one about a Constellation, else its session. */
+export const routeOf = (response: PushResponse): Route | null => {
+  if (response.actionIdentifier !== DEFAULT_ACTION) return null;
+  const target = targetOf(response);
+
+  if (Option.isNone(target)) return null;
+  const { hostId, sessionId, constellationId } = target.value.polaris;
+
+  return constellationId === undefined || constellationId === null
+    ? { screen: "thread", hostId, sessionId }
+    : { screen: "constellation", hostId, constellationId };
+};
+
 /** The answer an action asks for, or null for a tap or a push that isn't an approval. */
 export const answerOf = (response: PushResponse): Answer | null => {
   const decision = decisionOf(response.actionIdentifier);
 
   if (decision === null) return null;
 
-  const target = Option.firstSomeOf(response.userInfo.map((info) => decodeTarget(info)));
+  const target = targetOf(response);
 
   if (Option.isNone(target) || target.value.polaris.requestId === null) return null;
   const { hostId, sessionId, requestId } = target.value.polaris;

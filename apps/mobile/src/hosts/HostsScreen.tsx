@@ -1,6 +1,6 @@
 /**
- * Hosts (Paper M7): each Host's Connection State, round trip and route, read only. Routes are
- * chosen on the Mac (Remote Access); there is no dither on Reconnecting.
+ * Hosts (Paper M7, M9): each Host's Connection State, round trip and route, read only, and this
+ * iPhone's notification switch. Routes are chosen on the Mac; no dither on Reconnecting.
  */
 import { midnight, mobileType } from "@polaris/ui/tokens";
 import type { ConnectionState } from "@polaris/protocol";
@@ -9,6 +9,11 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BackBar } from "../app/BackBar.tsx";
 import { useFollowedHosts } from "../home/feed/useFollowedHosts.ts";
+import { SwitchRow } from "../newSession/parts.tsx";
+import {
+  constellationNotifications,
+  useConstellationNotifications,
+} from "../push/constellations.ts";
 import { buildHosts, type HostRowModel } from "./model.ts";
 
 /** Re-renders each second while a Host reconnects, so "42s" counts. */
@@ -55,6 +60,28 @@ const HostRow = ({ row }: { readonly row: HostRowModel }) => {
         <Text style={[styles.countValue, offline ? styles.offlineLine : null]}>{row.count}</Text>
         <Text style={styles.countLabel}>{row.countLabel}</Text>
       </View>
+    </View>
+  );
+};
+
+/** Paper M9: Polaris's own notifications when a constellation needs you, per device. */
+const Notifications = () => {
+  const on = useConstellationNotifications();
+
+  return (
+    <View style={styles.notifications}>
+      <Text style={styles.sectionLabel}>Notifications on this iPhone</Text>
+      <View style={styles.switchBorder}>
+        <SwitchRow
+          title="When a constellation needs you"
+          caption="A question to you or a claim the lead hands up. Approvals always arrive."
+          value={on}
+          onValueChange={constellationNotifications.set}
+        />
+      </View>
+      <Text style={styles.footerNote}>
+        Your Mac has its own switch, in Settings → Notifications.
+      </Text>
     </View>
   );
 };
@@ -135,6 +162,7 @@ export const HostsScreen = ({
         {model.rows.map((row) => (
           <HostRow key={row.key} row={row} />
         ))}
+        {linkedTo === null ? null : <Notifications />}
       </ScrollView>
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 20) + 10 }]}>
         {linkedTo === null ? (
@@ -205,4 +233,7 @@ const styles = StyleSheet.create({
   footerTitle: { ...mobileType.callout, lineHeight: 20, color: midnight.textDefault },
   footerAction: { ...mobileType.callout, lineHeight: 20, color: midnight.textSubtle },
   footerNote: { ...mobileType.footnote, color: midnight.textFaint },
+  notifications: { paddingTop: 28, gap: 8 },
+  sectionLabel: { ...mobileType.footnote, color: midnight.textSubtle },
+  switchBorder: { borderTopWidth: 1, borderBottomWidth: 1, borderColor: midnight.hairline },
 });

@@ -9,8 +9,10 @@ import { useEffect, useRef, useState } from "react";
 import { PolarisPush } from "../../modules/polaris-push/index.ts";
 import { useHosts } from "../runtime/hosts.tsx";
 import { refreshWidgets } from "../widgets/WidgetSync.ts";
-import { answerOf, PUSH_CATEGORIES } from "./answer.ts";
+import type { Route } from "../app/route.ts";
+import { answerOf, PUSH_CATEGORIES, routeOf } from "./answer.ts";
 import { answerHost, sendAnswer } from "./deliver.ts";
+import { useConstellationNotifications } from "./constellations.ts";
 import { type PushDevice, registerPush } from "./registration.ts";
 
 /** A Host linked over the relay: where its registration's ticket points. */
@@ -93,8 +95,9 @@ const useRegistrations = (
 ) => {
   const hosts = useHosts();
   const [device, setDevice] = useState<PushDevice | null>(null);
-  // Per Host, the connection epoch it was registered on: a reconnect registers again.
-  const registered = useRef(new Map<string, number>());
+  const automatic = useConstellationNotifications();
+  // Per Host, the connection epoch and switch it was registered with: a change registers again.
+  const registered = useRef(new Map<string, string>());
 
   const hadIdentity = useRef(false);
 
@@ -124,10 +127,13 @@ const useRegistrations = (
         const live = host?.live() ?? null;
 
         if (host === undefined || live === null) continue;
+        const key = `${live.epoch}:${automatic}`;
 
-        if (registered.current.get(hostId) === live.epoch) continue;
-        registered.current.set(hostId, live.epoch);
-        void registerPush(host, device, hostAddress).catch(() => registered.current.delete(hostId));
+        if (registered.current.get(hostId) === key) continue;
+        registered.current.set(hostId, key);
+        void registerPush(host, device, hostAddress, automatic).catch(() =>
+          registered.current.delete(hostId)
+        );
       }
     };
 
@@ -137,11 +143,36 @@ const useRegistrations = (
     return () => {
       for (const unsubscribe of unsubscribes) unsubscribe();
     };
-  }, [device, hosts, linked]);
+  }, [device, hosts, linked, automatic]);
 };
 
 /** Mount once, under HostsProvider, with the device's relay identity and its linked Hosts. */
 export const usePush = (identity: RelayIdentity | null, linked: ReadonlyArray<PushLinkedHost>) => {
   useAnswers();
   useRegistrations(identity, linked);
+};
+
+/** Mount under NavigationProvider: tapping a notification opens its session or Constellation. */
+export const usePushLinks = (open: (route: Route) => void) => {
+  useEffect(() => {
+    const follow = (response: Notifications.NotificationResponse | null) => {
+      if (response === null) return;
+
+      const route = routeOf({
+        actionIdentifier: response.actionIdentifier,
+        userInfo: userInfoOf(response),
+      });
+
+      if (route === null) return;
+      open(route);
+      // Followed once: a later launch doesn't reopen it.
+      Notifications.clearLastNotificationResponse();
+    };
+
+    // A tap that launched the app is the last response.
+    void Notifications.getLastNotificationResponseAsync().then(follow);
+    const subscription = Notifications.addNotificationResponseReceivedListener(follow);
+
+    return () => subscription.remove();
+  }, [open]);
 };

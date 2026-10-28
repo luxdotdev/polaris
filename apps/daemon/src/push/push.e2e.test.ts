@@ -40,6 +40,7 @@ import { startServer } from "../transport/server.ts";
 import { PushHostEvents, PushNotifier } from "./notifier.ts";
 import {
   approvalRequested,
+  notified,
   SESSION_ID,
   snapshot,
   synchronized,
@@ -350,10 +351,39 @@ test("a Needs You reaches an offline linked device sealed, and its answer comes 
           body: "All green",
         });
 
+        // With automatic notifications off on this device, only the agent's own notify arrives.
+        const quiet = yield* openDevice;
+        yield* quiet.client["devices.registerPush"]({ ...registration, automatic: false });
+        yield* Effect.sleep("200 millis");
+        quiet.socket.close();
+        feed(notified("n-auto", true));
+        feed(notified("n-agent", false));
+
+        const agentHit = yield* Effect.promise(() =>
+          waitFor(() => apnsHits[2], "the agent's notify push")
+        );
+
+        const agentPush = yield* Effect.promise(() =>
+          openPush(keys.privateKey, decodeApnsBody(agentHit.body).p)
+        );
+
+        expect(Option.getOrThrow(decodePushMessage(agentPush))).toMatchObject({
+          kind: "notify",
+          title: "Done",
+          body: "All green",
+        });
+        yield* Effect.sleep("500 millis");
+        expect(apnsHits).toHaveLength(3);
+
+        const restored = yield* openDevice;
+        yield* restored.client["devices.registerPush"](registration);
+        yield* Effect.sleep("200 millis");
+        restored.socket.close();
+
         // APNs no longer knows the token: the Host drops it and sends nothing more.
         apnsStatus = 410;
         feed(approvalRequested("r2"));
-        yield* Effect.promise(() => waitFor(() => apnsHits[2], "the push APNs refuses"));
+        yield* Effect.promise(() => waitFor(() => apnsHits[3], "the push APNs refuses"));
         yield* Effect.promise(() =>
           waitFor(
             () => (relay.log().includes('"outcome":"unregistered"') ? true : undefined),
@@ -364,7 +394,7 @@ test("a Needs You reaches an offline linked device sealed, and its answer comes 
         yield* Effect.sleep("300 millis");
         feed(approvalRequested("r3"));
         yield* Effect.sleep("1500 millis");
-        expect(apnsHits).toHaveLength(3);
+        expect(apnsHits).toHaveLength(4);
 
         // Registered again, then unlinked: unlinking drops the registration too.
         apnsStatus = 200;
@@ -373,11 +403,11 @@ test("a Needs You reaches an offline linked device sealed, and its answer comes 
         yield* Effect.sleep("200 millis");
         back.socket.close();
         feed(approvalRequested("r4"));
-        yield* Effect.promise(() => waitFor(() => apnsHits[3], "the push after registering again"));
+        yield* Effect.promise(() => waitFor(() => apnsHits[4], "the push after registering again"));
         yield* desktop["devices.unlink"]({ id: device.id });
         feed(approvalRequested("r5"));
         yield* Effect.sleep("1500 millis");
-        expect(apnsHits).toHaveLength(4);
+        expect(apnsHits).toHaveLength(5);
       })
     )
   );

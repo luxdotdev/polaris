@@ -22,7 +22,7 @@ import { focusWindow } from "./focus.ts";
 import { emptyTurnState, planTurnNotifications, type TurnNotification } from "./turnPlan.ts";
 import {
   type AgentNotification,
-  agentBannersOn,
+  bannerOn,
   emptyNotifyState,
   planAgentNotifications,
 } from "./notifyPlan.ts";
@@ -44,6 +44,8 @@ export interface NeedsYouCenterInput {
   readonly turnMinutes?: () => number | null;
   /** For agents' own notifications (MCP `notify`): off only when hidden; see `agentBannersOn`. */
   readonly notifyAgents?: () => boolean;
+  /** For Polaris's own when a Constellation needs you; switched off in Settings → Sessions. */
+  readonly notifyConstellations?: () => boolean;
 }
 
 export interface NeedsYouCenter {
@@ -89,6 +91,7 @@ export const createNeedsYouCenter = ({
   notifyTurns = () => false,
   turnMinutes = () => null,
   notifyAgents = () => true,
+  notifyConstellations = () => true,
 }: NeedsYouCenterInput): NeedsYouCenter => {
   let state = emptyNotificationState;
   let turnState = emptyTurnState;
@@ -223,7 +226,11 @@ export const createNeedsYouCenter = ({
 
   const showAgent = (content: AgentNotification) => {
     close(content.key);
-    const shown = notifyAgents() && agentBannersOn() && Notification.isSupported();
+
+    const shown =
+      notifyAgents() &&
+      bannerOn(content.notification, notifyConstellations()) &&
+      Notification.isSupported();
 
     agentsPlanned.push({ id: content.notification.id, shown });
     record(content.notification, shown ? "shown" : "off");
