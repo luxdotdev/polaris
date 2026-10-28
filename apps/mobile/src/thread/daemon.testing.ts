@@ -7,6 +7,9 @@
 import type { LiveSource } from "@polaris/client/resume";
 import {
   AgentSession,
+  ApprovalRequest,
+  type CommandId,
+  RequestId,
   type Command,
   ComposerDraft,
   ContinuityItem,
@@ -37,6 +40,7 @@ import {
 } from "@polaris/protocol";
 import { Deferred, Effect, PubSub, Queue, Stream } from "effect";
 import { RpcTest } from "effect/rpc";
+import { RpcClientDefect, RpcClientError } from "effect/rpc/RpcClientError";
 import { type ThreadClient, ThreadRpcs } from "./source.ts";
 
 export const at = "2026-10-27T12:00:00.000Z";
@@ -85,9 +89,24 @@ export const turn = (index: number, fields: Partial<Turn> = {}) =>
     ...fields,
   });
 
+export const request = (fields: Partial<ApprovalRequest> = {}) =>
+  new ApprovalRequest({
+    id: RequestId.make("r-1"),
+    sessionId,
+    turnId: TurnId.make("t-1"),
+    kind: "command",
+    title: "Run a command",
+    detail: null,
+    options: [],
+    questions: [],
+    openedAt: at,
+    ...fields,
+  });
+
 export const snapshot = (
   turns: ReadonlyArray<{ readonly turn: Turn; readonly items?: ReadonlyArray<TurnItem> }>,
-  fields: Partial<AgentSession> = {}
+  fields: Partial<AgentSession> = {},
+  pendingApprovals: ReadonlyArray<ApprovalRequest> = []
 ) =>
   SessionStreamItem.cases.Snapshot.make({
     sequence: Sequence.make(1),
@@ -95,7 +114,7 @@ export const snapshot = (
     turns: turns.map(
       (entry) => new TurnDetail({ turn: entry.turn, items: entry.items ?? [], subagents: [] })
     ),
-    pendingApprovals: [],
+    pendingApprovals,
   });
 
 export const event = (sequence: number, domain: DomainEvent) =>
@@ -158,6 +177,15 @@ export interface FakeHost {
   /** Another Client saves a draft. */
   readonly saveElsewhere: (text: string) => Effect.Effect<void>;
   readonly commands: ReadonlyArray<Command>;
+  /** The id each dispatch carried, as the Host received it. */
+  readonly commandIds: ReadonlyArray<CommandId>;
+  /** Every draft the Host stored, oldest first. */
+  readonly saved: ReadonlyArray<string>;
+  /** Holds dispatch answers until `releaseDispatches`. */
+  readonly holdDispatches: () => void;
+  readonly releaseDispatches: () => Effect.Effect<void>;
+  /** The next dispatch is applied but its answer is lost with the connection. */
+  readonly dropNextAnswer: () => void;
   readonly reads: ReadonlyArray<number>;
   readonly summariesAsked: ReadonlyArray<string>;
   /** Holds saveDraft's answers until `release` (the phone waits for the Host's ack). */
@@ -176,6 +204,10 @@ export const makeFakeHost = Effect.fnUntraced(function* (options: FakeHostOption
   const feed = yield* Queue.unbounded<SessionStreamItem>();
   const changes = yield* PubSub.unbounded<ContinuityItem>();
   const commands: Array<Command> = [];
+  const commandIds: Array<CommandId> = [];
+  const saved: Array<string> = [];
+  let dispatchGate: Deferred.Deferred<void> | null = null;
+  let dropNext = false;
   const reads: Array<number> = [];
   const summariesAsked: Array<string> = [];
   const drafts = new Map<SessionId, ComposerDraft>();
@@ -186,6 +218,7 @@ export const makeFakeHost = Effect.fnUntraced(function* (options: FakeHostOption
 
   const save = (text: string) => {
     revision++;
+    saved.push(text);
     const draft = new ComposerDraft({ sessionId, text, revision, at });
     drafts.set(sessionId, draft);
 
@@ -213,12 +246,15 @@ export const makeFakeHost = Effect.fnUntraced(function* (options: FakeHostOption
         })
       ),
     subscribeSession: () => Stream.fromQueue(feed),
-    dispatch: ({ command }) =>
-      Effect.sync(() => {
-        commands.push(command);
+    dispatch: ({ command, commandId }) =>
+      Effect.flatMap(dispatchGate === null ? Effect.void : Deferred.await(dispatchGate), () =>
+        Effect.sync(() => {
+          commands.push(command);
+          commandIds.push(commandId);
 
-        return { sequence: null };
-      }),
+          return { sequence: null };
+        })
+      ),
     "continuity.watch": () =>
       Stream.concat(
         Stream.make(
@@ -268,11 +304,38 @@ export const makeFakeHost = Effect.fnUntraced(function* (options: FakeHostOption
 
   const client = yield* RpcTest.makeClient(ThreadRpcs).pipe(Effect.provide(handlers));
 
+  const lossy: ThreadClient = {
+    ...client,
+    // SAFETY: the same call with one more failure, RpcClientError, which dispatch already declares.
+    dispatch: ((payload: Parameters<ThreadClient["dispatch"]>[0]) => {
+      if (!dropNext) return client.dispatch(payload);
+      dropNext = false;
+
+      const lost = new RpcClientError({
+        reason: new RpcClientDefect({ message: "connection lost", cause: null }),
+      });
+
+      return Effect.flatMap(client.dispatch(payload), () => Effect.fail(lost));
+    }) as ThreadClient["dispatch"],
+  };
+
   const host: FakeHost = {
-    live: { next: () => Effect.succeed({ epoch: 1, client }) },
+    live: { next: () => Effect.succeed({ epoch: 1, client: lossy }) },
     push: (item) => Effect.asVoid(Queue.offer(feed, item)),
     saveElsewhere: (text) => Effect.asVoid(save(text)),
     commands,
+    commandIds,
+    saved,
+    holdDispatches: () => {
+      dispatchGate = Deferred.makeUnsafe<void>();
+    },
+    releaseDispatches: () =>
+      dispatchGate === null
+        ? Effect.void
+        : Effect.asVoid(Deferred.succeed(dispatchGate, undefined)),
+    dropNextAnswer: () => {
+      dropNext = true;
+    },
     reads,
     summariesAsked,
     failNextSave: () => {
