@@ -175,6 +175,7 @@ export class RelayLink {
           if (!online) this.drop(peer);
         },
         unreachable: () => undefined,
+        woken: () => undefined,
       })
     );
   }

@@ -71,6 +71,8 @@ export const Challenge = Schema.Struct({
   v: Schema.Literal(RELAY_WIRE_VERSION),
   nonce: Schema.String,
   limits: RelayLimits,
+  /** The relay forwards `wake` to the push service; absent from relays without push. */
+  push: Schema.optionalKey(Schema.Boolean),
 });
 
 export const Auth = Schema.Struct({
@@ -101,11 +103,64 @@ export const Presence = Schema.Struct({
 /** A forward was dropped: the peer is offline or not linked to the sender. */
 export const Unreachable = Schema.Struct({ t: Schema.Literal("unreachable"), peer: RelayAddress });
 
-export const ClientControl = Schema.Union([Auth, Peers]);
+/** Which APNs endpoint a device token belongs to: development builds use the sandbox. */
+export const PushEnvironment = Schema.Literals(["sandbox", "production"]);
+
+export type PushEnvironment = typeof PushEnvironment.Type;
+
+/** An APNs device token as lowercase hex. */
+export const ApnsToken = Schema.String.check(Schema.isPattern(/^[0-9a-f]{64,200}$/));
+
+/** The largest sealed push payload, base64url: APNs allows 4 KiB for the whole notification. */
+export const MAX_WAKE_PAYLOAD_CHARS = 3000;
+
+export const WakeId = Schema.String.check(Schema.isPattern(/^[A-Za-z0-9_-]{1,32}$/));
+
+/**
+ * A host asks the relay to wake one of its linked devices, online or not. `payload` is
+ * sealed to the device (`relay/push.ts`); the relay and the push service see only the token.
+ */
+export const Wake = Schema.Struct({
+  t: Schema.Literal("wake"),
+  id: WakeId,
+  peer: RelayAddress,
+  token: ApnsToken,
+  environment: PushEnvironment,
+  payload: Schema.String.check(
+    Schema.isPattern(/^[A-Za-z0-9_-]+$/),
+    Schema.isMaxLength(MAX_WAKE_PAYLOAD_CHARS)
+  ),
+});
+
+export type Wake = typeof Wake.Type;
+
+/**
+ * What became of a wake. `unregistered`: APNs no longer knows the token, so drop it.
+ * `unlinked`: the host doesn't list the device. `refused`: the push service refused it
+ * (a production token on a preview deployment, a bad request). `unavailable`: try later.
+ */
+export const WakeOutcome = Schema.Literals([
+  "sent",
+  "unlinked",
+  "rate-limited",
+  "unregistered",
+  "refused",
+  "unavailable",
+]);
+
+export type WakeOutcome = typeof WakeOutcome.Type;
+
+export const Woken = Schema.Struct({
+  t: Schema.Literal("woken"),
+  id: WakeId,
+  outcome: WakeOutcome,
+});
+
+export const ClientControl = Schema.Union([Auth, Peers, Wake]);
 
 export type ClientControl = typeof ClientControl.Type;
 
-export const RelayControl = Schema.Union([Challenge, Ready, Presence, Unreachable]);
+export const RelayControl = Schema.Union([Challenge, Ready, Presence, Unreachable, Woken]);
 
 export type RelayControl = typeof RelayControl.Type;
 

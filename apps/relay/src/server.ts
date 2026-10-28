@@ -182,6 +182,7 @@ export const startRelay = (config: RelayConfig, emit: EmitWideEvent): RelayHandl
             return end(ws, RelayClose.BadMessage, "too-many-peers");
           hub.setPeers(endpoint, peers);
         },
+        wake: () => end(ws, RelayClose.BadMessage, "push-unavailable"),
       })
     );
   };

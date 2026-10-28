@@ -24,6 +24,7 @@ import {
   VoiceError,
   PROTOCOL_VERSION,
   decideProtocol,
+  PushRegistrationError,
 } from "@polaris/protocol";
 import { Effect, Option, Stream } from "effect";
 import { ClientCapabilities, DeviceLabel } from "../engine/rpc.ts";
@@ -39,6 +40,12 @@ import { RemoteAccess } from "../extensions/remoteAccess.ts";
 import { admissionOf } from "../extensions/admission.ts";
 import { deviceOf } from "../linkedDevices/connection.ts";
 import { RelayRoute } from "../linkedDevices/route.ts";
+
+const pushUnavailable = () =>
+  new PushRegistrationError({
+    reason: "failed",
+    message: "Push is not available on this Daemon yet",
+  });
 
 const constellationUnavailable = () =>
   new ConstellationRejected({
@@ -366,6 +373,8 @@ export const defaultHandlers = (options: {
     "devices.add": (device) => Effect.flatMap(RelayRoute, (route) => route.add(device)),
     "devices.list": () => Effect.flatMap(RelayRoute, (route) => route.list),
     "devices.unlink": ({ id }) => Effect.flatMap(RelayRoute, (route) => route.unlink(id)),
+    "devices.registerPush": () => Effect.fail(pushUnavailable()),
+    "devices.unregisterPush": () => Effect.fail(pushUnavailable()),
 
     dispatch: ({ commandId }) =>
       Effect.fail(new CommandRejected({ commandId, reason: notYet("the event store") })),
