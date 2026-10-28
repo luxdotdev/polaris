@@ -11,7 +11,7 @@
  *
  * With `--local` in place of `--host` it runs on this Windows machine (CI), with this Bun.
  *
- * Run it with Bun 1.4.3 or later (the build embeds the running Bun's Windows runtime).
+ * Run it with Bun 1.4.4 or later (the build embeds the running Bun's Windows runtime).
  * It uses a throwaway POLARIS_HOME under --dir, so the task it creates is not the real one.
  */
 import { copyFileSync, mkdirSync, mkdtempSync } from "node:fs";

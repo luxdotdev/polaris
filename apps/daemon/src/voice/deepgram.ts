@@ -60,29 +60,6 @@ const handshakeStatus = (message: string) => {
   return match === null ? null : Number(match[1]);
 };
 
-/** Bun 1.4.3 leaves the status out, so a refused handshake asks again over HTTPS for it. */
-const refusedStatus = async (message: string, url: string, key: Redacted.Redacted<string>) => {
-  const named = handshakeStatus(message);
-
-  if (named !== null || !message.includes("Expected 101 status code")) return named;
-  const http = new URL(url);
-  http.protocol = http.protocol === "ws:" ? "http:" : "https:";
-
-  try {
-    const response = await fetch(http, {
-      headers: { Authorization: `Token ${Redacted.value(key)}` },
-      redirect: "error",
-      signal: AbortSignal.timeout(5000),
-    });
-
-    await response.body?.cancel();
-
-    return response.status;
-  } catch {
-    return null;
-  }
-};
-
 const connectFailed = (status: number | null) =>
   status === 401 || status === 403
     ? new VoiceError({
@@ -158,12 +135,10 @@ export const deepgramProvider = (
                   };
 
                   ws.onerror = (event) => {
-                    void refusedStatus(errorMessage(event), url, key).then((status) => {
-                      const error = connectFailed(status);
+                    const error = connectFailed(handshakeStatus(errorMessage(event)));
 
-                      Deferred.doneUnsafe(opened, Effect.fail(error));
-                      fail(queue, error);
-                    });
+                    Deferred.doneUnsafe(opened, Effect.fail(error));
+                    fail(queue, error);
                   };
 
                   ws.onmessage = (event) => onMessage(queue, decodeMessage(event.data));
