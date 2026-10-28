@@ -10,6 +10,10 @@ import { useEffect, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { type HostFeed, useHostFeed } from "./hosts/useHostFeed.ts";
+import { LinkScreen } from "./link/LinkScreen.tsx";
+import { LinkedHosts } from "./relay/LinkedHosts.tsx";
+import { RelayProvider, useRelay } from "./relay/RelayProvider.tsx";
+import { HostsProvider } from "./runtime/hosts.tsx";
 import { type CheckResult, runSelfCheck } from "./runtime/selfCheck.ts";
 import { loadPairing, savePairing } from "./settings/pairing.ts";
 
@@ -72,7 +76,7 @@ const PairingSetting = ({ onSaved }: { readonly onSaved: (pairing: string | null
   );
 };
 
-export const App = () => {
+const Scaffold = ({ onLink }: { readonly onLink: () => void }) => {
   const [pairing, setPairing] = useState<string | null>(null);
   const [checks, setChecks] = useState<ReadonlyArray<CheckResult> | null>(null);
   const feed = useHostFeed(pairing);
@@ -88,22 +92,51 @@ export const App = () => {
   }, []);
 
   return (
-    <SafeAreaProvider>
-      <SafeAreaView style={styles.screen}>
-        <StatusBar style="light" />
-        <Text style={styles.heading}>Sessions</Text>
-        <Text style={styles.meta}>{feedLine(feed)}</Text>
-        {__DEV__ ? <Text style={styles.meta}>{selfCheckLine(checks)}</Text> : null}
-        {__DEV__ ? <PairingSetting onSaved={setPairing} /> : null}
-        <FlatList
-          data={feed?.kind === "live" ? feed.view.sessions : []}
-          keyExtractor={(entry) => entry.session.id}
-          renderItem={({ item }) => <SessionRow entry={item} />}
-        />
-      </SafeAreaView>
-    </SafeAreaProvider>
+    <SafeAreaView style={styles.screen}>
+      <Text style={styles.heading}>Sessions</Text>
+      <Text style={styles.meta}>{feedLine(feed)}</Text>
+      {__DEV__ ? <Text style={styles.meta}>{selfCheckLine(checks)}</Text> : null}
+      {__DEV__ ? <PairingSetting onSaved={setPairing} /> : null}
+      <LinkedHosts />
+      <Pressable style={styles.button} accessibilityRole="button" onPress={onLink}>
+        <Text style={styles.title}>Link this iPhone</Text>
+      </Pressable>
+      <FlatList
+        data={feed?.kind === "live" ? feed.view.sessions : []}
+        keyExtractor={(entry) => entry.session.id}
+        renderItem={({ item }) => <SessionRow entry={item} />}
+      />
+    </SafeAreaView>
   );
 };
+
+/** First run with no linked Host shows Link this iPhone (M8); S1's shell replaces this. */
+const Root = () => {
+  const relay = useRelay();
+  const [linking, setLinking] = useState(false);
+  const firstRun = !__DEV__ && relay.loaded && relay.hosts.length === 0;
+
+  if (linking || firstRun)
+    return (
+      <LinkScreen
+        onLinked={() => setLinking(false)}
+        onCancel={firstRun ? undefined : () => setLinking(false)}
+      />
+    );
+
+  return <Scaffold onLink={() => setLinking(true)} />;
+};
+
+export const App = () => (
+  <SafeAreaProvider>
+    <StatusBar style="light" />
+    <HostsProvider>
+      <RelayProvider>
+        <Root />
+      </RelayProvider>
+    </HostsProvider>
+  </SafeAreaProvider>
+);
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: midnight.bg, paddingHorizontal: 16, gap: 8 },

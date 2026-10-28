@@ -11,9 +11,21 @@
       "bundleIdentifier": "dev.lux.polaris.mobile",
       "supportsTablet": false,
       "infoPlist": {
-        "NSAppTransportSecurity": { "NSAllowsLocalNetworking": true }
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        }
       }
     },
-    "plugins": ["expo-secure-store"]
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Polaris uses the camera to scan the link code the Desktop App shows.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ]
+    ]
   }
 }
