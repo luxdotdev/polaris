@@ -166,7 +166,7 @@ export const link = async (
   /** Proves with this secret instead of the link's, as a forger would. */
   proofSecret?: Uint8Array
 ) => {
-  const payload: LinkPayload = Option.getOrThrow(decodeLinkString(linkString));
+  const payload: LinkPayload = Option.getOrThrow(decodeLinkString(linkString)).link;
   const secret = key(payload.secret);
   const socket = await DeviceSocket.connect(payload.relayUrl, linkIdentity(secret));
 

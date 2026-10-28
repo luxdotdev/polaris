@@ -7,10 +7,12 @@
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
-    "ios": "expo run:ios",
+    "ios": "bun scripts/buildSodium.ts && expo run:ios",
     "dev:daemon": "bun scripts/devDaemon.ts",
     "hermes": "bun scripts/hermes.ts",
     "hermes:build": "bun scripts/buildHermes.ts",
+    "sodium:build": "bun scripts/buildSodium.ts",
+    "simulator:check": "bun scripts/simulatorCheck.ts",
     "typecheck": "tsc -p . && tsc -p scripts",
     "test": "bun ../../tooling/test/watchdog.ts"
   },
@@ -21,9 +23,11 @@
     "@polaris/ui": "workspace:*",
     "effect": "4.0.0-rc.118",
     "expo": "58.0.20",
+    "expo-camera": "58.0.13",
     "expo-notifications": "58.1.6",
     "expo-secure-store": "58.0.2",
     "expo-status-bar": "58.0.4",
+    "noise-handshake": "4.2.0",
     "react": "19.3.0",
     "react-native": "0.88.0",
     "react-native-safe-area-context": "5.10.1",
@@ -32,6 +36,7 @@
   "devDependencies": {
     "@bacons/apple-targets": "5.0.0",
     "@types/react": "19.3.0",
-    "hermes-compiler": "260318099.0.4"
+    "hermes-compiler": "260318099.0.4",
+    "sodium-native": "5.2.0"
   }
 }

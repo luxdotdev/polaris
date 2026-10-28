@@ -32,14 +32,18 @@ Release builds reach Hosts through the Polaris Relay; development builds also ha
 
 `dev:daemon` starts the dev bridge (`scripts/devBridge.ts`): a WebSocket on 127.0.0.1 that
 forwards each connection to the Daemon's Unix socket, so the simulator gets a Client's power. It
-requires the random token the script prints and refuses any request with an Origin header, so a
-web page can't reach it. Start Metro with the line it prints:
+requires the random token the script prints and admits only its own Host and Origin (the one iOS
+derives from the URL; the bridge serves no pages), so a web page can't reach it. Start Metro with the line it prints:
 
 ```sh
 EXPO_PUBLIC_POLARIS_DEV_BRIDGE='polaris-dev-bridge:v1:…' bun run --cwd apps/mobile start
 ```
 
 Only `__DEV__` builds read the variable; the bridge itself is a script and never bundled.
+
+## The constellation view
+
+`src/constellation/` is Paper C2: `ConstellationScreen({ hostId, constellationId, onBack? })` follows `constellation.subscribe` and re-reads `constellation.status` on each event; `model.ts` folds it into the lead row, the task bar and the rail (finished groups fold; a parent task has no row of its own). Accept approves the claim (`constellation.review`) and then messages the lead; Send back only messages the lead, who sends it back (`verdict.ts`). `scripts/verdict.test.ts` checks both against a real Daemon over the dev bridge.
 
 ## Push
 
