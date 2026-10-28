@@ -271,7 +271,8 @@ export const ThreadScreen = ({
     return () => listener.remove();
   }, []);
 
-  if (connection === null) return <Missing onBack={onBack} text="This host isn't paired" />;
+  if (connection === null)
+    return <Missing onBack={onBack} text="This host isn't linked to this iPhone" />;
 
   if (state === null || fold === null)
     return <Missing onBack={onBack} text={state?.failure ?? "Connecting…"} />;
@@ -389,13 +390,18 @@ export const ThreadScreen = ({
             attach={attachments.input}
             attaching={attachments.staging}
             voice={voice}
-            onSend={() =>
-              void controller?.submit(attachments.ids).then((taken) => {
-                if (taken) attachments.clear();
-              })
-            }
+            onSend={() => {
+              voice?.release();
+              const sent = attachments.submission();
+              void controller?.submit(sent.ids).then((taken) => {
+                if (taken) sent.done();
+              });
+            }}
             onQueue={() => {
-              if (controller?.queue(attachments.ids) === true) attachments.clear();
+              voice?.release();
+              const held = attachments.submission();
+
+              if (controller?.queue(held.ids) === true) held.done();
             }}
             onStop={() => void controller?.interrupt()}
           />

@@ -19,6 +19,42 @@ export const withHeard = (typed: string, heard: Heard): string => {
   return before === "" ? words : `${before} ${words}`;
 };
 
+/** Where a dictation writes: after `typed`, from the `skip`th word heard on. */
+export interface Dictated {
+  readonly typed: string;
+  /** The field as the dictation last wrote it. */
+  readonly written: string;
+  readonly skip: number;
+  /** Words heard by the last snapshot. */
+  readonly heard: number;
+}
+
+export const dictateFrom = (field: string): Dictated => ({
+  typed: field,
+  written: field,
+  skip: 0,
+  heard: 0,
+});
+
+const wordsOf = (heard: Heard) =>
+  `${heard.finalText} ${heard.interimText}`.split(/\s+/).filter((word) => word !== "");
+
+/**
+ * The field after a snapshot. An edit since the last write is kept as the new start,
+ * and the words already written before it aren't written again.
+ */
+export const dictate = (at: Dictated, field: string, heard: Heard): Dictated => {
+  const base = field === at.written ? at : { ...dictateFrom(field), skip: at.heard };
+  const words = wordsOf(heard);
+  const fresh = words.slice(base.skip).join(" ");
+
+  return {
+    ...base,
+    written: withHeard(base.typed, { finalText: fresh, interimText: "" }),
+    heard: Math.max(words.length, base.skip),
+  };
+};
+
 /** A failure's words for the composer's one caption line; a VoiceError says what to do. */
 export const voiceFailure = (cause: Cause.Cause<unknown>): string => {
   const error = Cause.squash(cause);

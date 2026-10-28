@@ -90,12 +90,20 @@ export const stagedIds = (chips: ReadonlyArray<Chip>): ReadonlyArray<AttachmentI
 const failureOf = (error: Error | undefined) =>
   error !== undefined && error.message !== "" ? error.message : "the host refused it";
 
+/** The staged chips one Send or Queue carries; `done` removes only those. */
+export interface Submission {
+  readonly ids: ReadonlyArray<AttachmentId>;
+  readonly done: () => void;
+}
+
 export interface AttachmentStore {
   readonly chips: () => ReadonlyArray<Chip>;
   readonly subscribe: (listener: () => void) => () => void;
   /** Shows each pick as a chip at once and stages it. */
   readonly add: (picks: ReadonlyArray<Picked>) => void;
   readonly remove: (key: string) => void;
+  /** The staged chips now; chips added or replaced after this stay when it's done. */
+  readonly submission: () => Submission;
   /** After Send or Start: the composer starts empty again. */
   readonly clear: () => void;
 }
@@ -151,6 +159,12 @@ export const attachmentStore = (
     },
     add,
     remove: (key) => set(chips.filter((chip) => chip.key !== key)),
+    submission: () => {
+      const sent = chips.filter((chip) => chip.attachment !== null);
+      const keys = new Set(sent.map((chip) => chip.key));
+
+      return { ids: stagedIds(sent), done: () => set(chips.filter((chip) => !keys.has(chip.key))) };
+    },
     clear: () => set([]),
   };
 };

@@ -22,6 +22,8 @@ export interface VoiceInput {
   /** Why the last dictation stopped, e.g. the Host has no key; null when it ended cleanly. */
   readonly failure: string | null;
   readonly toggle: () => void;
+  /** Send or Queue took the field: the dictation stops and writes nothing more. */
+  readonly release: () => void;
 }
 
 const Paperclip = () => (

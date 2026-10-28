@@ -87,4 +87,24 @@ describe("a composer's attachments", () => {
     );
     expect(stagedIds(store.chips())).toEqual([]);
   });
+
+  test("a Send's acknowledgement removes its chips, not ones attached while it waited", async () => {
+    const host = deferredStage();
+    const store = attachmentStore(host.stage);
+
+    store.add([picked("a.txt")]);
+    host.resolve("a.txt");
+    await settled();
+    const sent = store.submission();
+    store.add([picked("b.txt"), picked("c.txt")]);
+    host.resolve("b.txt");
+    await settled();
+
+    sent.done();
+    expect(sent.ids).toEqual([AttachmentId.make("att-a.txt")]);
+    expect(store.chips().map((chip) => [chip.name, chip.status])).toEqual([
+      ["b.txt", "staged"],
+      ["c.txt", "staging"],
+    ]);
+  });
 });

@@ -357,3 +357,37 @@ describe("the thread outlives its screen", () => {
       )
     ));
 });
+
+describe("a follow-up keeps its thread until it lands", () => {
+  test("a follow-up whose answer is lost after the screen let go is still queued for retry", () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const host = yield* makeFakeHost();
+          const registry = makeThreadRegistry();
+          const source = daemonThreadSource({ live: host.live, capabilities: ALL });
+          const open = () => openThread(source, sessionId, { draftDelayMs: 10 });
+
+          const first = registry.acquire("h/s-1", open);
+          yield* host.push(snapshot([{ turn: working }], { state: "working" }));
+          yield* until(first!.controller, (s) => s.fold !== null);
+          first!.controller.type("then rerun the tests");
+          first!.controller.queue();
+          first!.release();
+
+          host.dropNextAnswer();
+          yield* host.push(ended(2, turn(1)));
+          yield* host.push(stateChanged(3, "idle"));
+          yield* until(first!.controller, (s) => s.error !== null);
+          yield* settle;
+
+          const again = registry.acquire("h/s-1", null);
+          expect(again?.controller).toBe(first!.controller);
+          expect(again?.controller.get().queued).toEqual([
+            { text: "then rerun the tests", attachments: [] },
+          ]);
+          again?.release();
+        })
+      )
+    ));
+});

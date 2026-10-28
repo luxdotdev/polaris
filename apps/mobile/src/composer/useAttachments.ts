@@ -11,6 +11,7 @@ import {
   type StageTarget,
   stagedIds,
   stagePicked,
+  type Submission,
 } from "./attach.ts";
 import type { AttachInput } from "./controls.tsx";
 import { pickAttachments, readBytes } from "./pick.ts";
@@ -22,10 +23,14 @@ export interface Attachments {
   readonly ids: ReadonlyArray<AttachmentId>;
   /** Some are still on their way: Send and Start wait. */
   readonly staging: boolean;
+  /** What one Send or Queue carries, so its success removes only those chips. */
+  readonly submission: () => Submission;
   readonly clear: () => void;
 }
 
 const NONE: ReadonlyArray<never> = [];
+
+const NOTHING: Submission = { ids: NONE, done: () => undefined };
 
 export const useAttachments = (target: StageTarget | null): Attachments => {
   const live = useLiveHost(target?.connection ?? null);
@@ -62,6 +67,7 @@ export const useAttachments = (target: StageTarget | null): Attachments => {
     input,
     ids: able ? stagedIds(chips) : NONE,
     staging: able && chips.some((chip) => chip.status === "staging"),
+    submission: () => (able && store !== null ? store.submission() : NOTHING),
     clear: () => store?.clear(),
   };
 };

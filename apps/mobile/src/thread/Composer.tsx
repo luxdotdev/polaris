@@ -299,6 +299,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: midnight.textStrong,
   },
-  sendArrow: { fontSize: 18, lineHeight: 20, fontWeight: "600", color: midnight.bg },
+  sendArrow: { fontSize: 18, lineHeight: 20, fontWeight: "500", color: midnight.bg },
   dim: { opacity: 0.4 },
 });

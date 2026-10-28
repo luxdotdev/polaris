@@ -113,6 +113,8 @@ export const openThread = (
   let readRequested = -1;
   let followUpTurns: number | null = null;
   let findingsKey: string | null = null;
+  /** A follow-up taken off the queue until it succeeds or is back on it. */
+  let followingUp = false;
   /** Bumped by every edit, so an acknowledgement clears only the text it sent. */
   let generation = 0;
   let findingsFiber: Fiber.Fiber<void, ThreadFailure> | null = null;
@@ -205,10 +207,14 @@ export const openThread = (
 
     if (followUpTurns !== null && fold.session.turnCount <= followUpTurns) return;
     followUpTurns = fold.session.turnCount;
+    followingUp = true;
     set({ queued: state.queued.slice(1) });
     void send("follow-up", followUpCommand(sessionId, next)).then((error) => {
-      if (error === null) return;
+      followingUp = false;
+
+      if (error === null) return set({});
       followUpTurns = null;
+      // One publication: the registry never sees this follow-up neither queued nor sending.
       set({ queued: [next, ...state.queued], error });
     });
   };
@@ -340,7 +346,7 @@ export const openThread = (
     queue,
     interrupt,
     respond,
-    busy: () => state.queued.length > 0 || inFlight.size > 0,
+    busy: () => followingUp || state.queued.length > 0 || inFlight.size > 0,
     seen,
     reconnected: () => void drafts.retry(),
     dispose: () => {
